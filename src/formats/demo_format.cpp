@@ -47,6 +47,9 @@ constexpr uint32_t kDetails = tag("DETL");
 constexpr uint32_t kInput = tag("INPT");
 constexpr uint32_t kChecks = tag("CHEK");
 constexpr uint32_t kClocks = tag("CLCK");
+constexpr uint32_t kRandom = tag("RAND");
+constexpr uint32_t kGlobals = tag("GLOB");
+constexpr std::size_t kGlobalBytes = 9; // name, kind, word
 
 // A growing little-endian writer.
 class Out {
@@ -58,6 +61,7 @@ public:
         }
     }
     void i32(int32_t value) { u32(static_cast<uint32_t>(value)); }
+    void u8(uint8_t value) { bytes_.push_back(value); }
     void f32(float value) { u32(std::bit_cast<uint32_t>(value)); }
     void put(std::span<const uint8_t> data) { bytes_.insert(bytes_.end(), data.begin(), data.end()); }
     void text(const std::string& value)
@@ -298,8 +302,66 @@ std::vector<uint8_t> write_demo(const Demo& demo)
         clocks.i32(demo.clocks.offset);
         file.chunk(kClocks, clocks);
     }
+    if (demo.random_flags != 0) {
+        Out random;
+        random.u32(demo.random_flags);
+        file.chunk(kRandom, random);
+    }
+    if (!demo.globals.empty()) {
+        Out globals;
+        globals.u32(static_cast<uint32_t>(demo.globals.size()));
+        for (const Global& global : demo.globals) {
+            globals.u32(global.name);
+            globals.u8(global.kind);
+            globals.u32(global.word);
+        }
+        file.chunk(kGlobals, globals);
+    }
     return std::move(file.bytes());
 }
+
+namespace {
+// The chunks of what the recording's session had (CLCK, GLOB, RAND); false (and why) for a broken one.
+bool read_session_chunk(uint32_t id, util::ByteReader& body, Demo* demo, std::string* why)
+{
+    if (id == kClocks) {
+        const uint32_t low = body.u32();
+        const uint32_t high = body.u32();
+        demo->clocks.vblanks = static_cast<uint64_t>(high) << kWordBits | low;
+        demo->clocks.last_change = body.u32();
+        demo->clocks.pace = body.f32();
+        demo->clocks.offset = body.i32();
+        if (!body.ok()) {
+            *why = "bad clock chunk";
+            return false;
+        }
+        demo->clocks.present = true;
+        return true;
+    }
+    if (id == kRandom) {
+        demo->random_flags = body.u32();
+        if (!body.ok()) {
+            *why = "bad random chunk";
+            return false;
+        }
+        return true;
+    }
+    const uint32_t count = body.u32();
+    if (!body.ok() || count > body.remaining() / kGlobalBytes) {
+        *why = "bad globals chunk";
+        return false;
+    }
+    demo->globals.reserve(count);
+    for (uint32_t i = 0; i < count; ++i) {
+        Global global;
+        global.name = body.u32();
+        global.kind = body.u8();
+        global.word = body.u32();
+        demo->globals.push_back(global);
+    }
+    return true;
+}
+} // namespace
 
 bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
 {
@@ -363,18 +425,10 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
                 return false;
             }
             has_input = true;
-        } else if (id == kClocks) {
-            const uint32_t low = body.u32();
-            const uint32_t high = body.u32();
-            demo.clocks.vblanks = static_cast<uint64_t>(high) << kWordBits | low;
-            demo.clocks.last_change = body.u32();
-            demo.clocks.pace = body.f32();
-            demo.clocks.offset = body.i32();
-            if (!body.ok()) {
-                why = "bad clock chunk";
+        } else if (id == kClocks || id == kGlobals || id == kRandom) {
+            if (!read_session_chunk(id, body, &demo, &why)) {
                 return false;
             }
-            demo.clocks.present = true;
         } else if (id == kChecks) {
             const uint32_t count = body.u32();
             if (!body.ok() || count > body.remaining() / kCheckPointBytes) {

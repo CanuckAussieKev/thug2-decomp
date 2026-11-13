@@ -35,6 +35,7 @@
 #include "devtools/demo_overlay.h"
 #include "devtools/demo_viewer.h"
 #include "devtools/screenshot.h"
+#include "engine/audio/music_player.h"
 #include "engine/gfx/render_device.h"
 #include "engine/media/video_writer.h"
 #include "engine/script/context.h"
@@ -48,6 +49,7 @@
 #include "engine/pad_input/input_source.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
+#include "engine/script/token_reader.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/mlp.h"
 #include "engine/sys/stopwatch.h"
@@ -102,6 +104,7 @@ constexpr int kPercent = 100;
 constexpr uint32_t kAlmostDone = 99; // (a video's progress: 100% only once it is saved)
 constexpr int kSecondsPerMinute = 60;
 constexpr size_t kHexNameDigits = 8;         // (a checksum written as a name: 8 hex digits)
+constexpr int kGlobalsNamed = 12;            // (the globals put back: this many named in the log)
 
 enum class Phase : uint8_t { kOff, kRecordArmed, kRecording, kPlayArmed, kPlaying, kFinishing };
 
@@ -345,6 +348,54 @@ demo_format::Clocks clocks_now()
             .offset = clock.offset};
 }
 
+// The script globals with a simple value (integers, floats, names), by name.
+bool simple_kind(script::QbValueKind kind)
+{
+    return kind == script::QbValueKind::kInteger || kind == script::QbValueKind::kFloat ||
+           kind == script::QbValueKind::kName;
+}
+std::vector<demo_format::Global> globals_now()
+{
+    std::vector<demo_format::Global> globals;
+    for (script::SymbolTableEntry* entry = script::get_next_symbol(nullptr); entry != nullptr;
+         entry = script::get_next_symbol(entry)) {
+        if (simple_kind(entry->type())) {
+            globals.push_back({.name = entry->name_value(),
+                               .kind = static_cast<uint8_t>(entry->type()),
+                               .word = entry->value().low_word()});
+        }
+    }
+    std::ranges::sort(globals, {}, &demo_format::Global::name);
+    return globals;
+}
+
+// The demo's globals put back where they differ (a global the session no longer has, or whose value isn't simple now,
+// left alone): what the session before changed - a car's check counter, a menu's switch - as the recording had it.
+void restore_globals(const Demo& demo)
+{
+    std::string changed;
+    int count = 0;
+    for (const demo_format::Global& global : demo.globals) {
+        script::SymbolTableEntry* entry = script::find_symbol(global.name);
+        const auto kind = static_cast<script::QbValueKind>(global.kind);
+        if (entry == nullptr || !simple_kind(entry->type()) || !simple_kind(kind) ||
+            (entry->type() == kind && entry->value().low_word() == global.word)) {
+            continue;
+        }
+        entry->set_type(kind);
+        entry->value().set_word(global.word);
+        if (++count <= kGlobalsNamed) {
+            const char* known = script::look_up_hash_name(global.name);
+            changed += std::string(count == 1 ? "" : ", ") +
+                       (known != nullptr ? std::string(known) : frontend::automation::get_name_of(global.name));
+        }
+    }
+    if (count > 0) {
+        get_log("demo: %d script global(s) put back as recorded: %s%s", count, changed.c_str(),
+                count > kGlobalsNamed ? "..." : "");
+    }
+}
+
 modules::Skate* skate() { return modules::Skate::sole(); }
 
 // The level `load` up: loaded, the skater there, no loading screen.
@@ -446,6 +497,13 @@ void begin_recording(uint32_t load)
     if (run.name.empty()) {
         run.name = "demo_" + demo.level + "_" + local_time_text("%Y-%m-%d_%H-%M-%S");
     }
+    // (what a session leaves behind kept out of the run - measured, docs/demos.md "Limits": RandomNoRepeat /
+    // RandomPermute's states that scripts which ran before left, and the music's shuffles - their own streams while the
+    // demo runs, as a track ends in real time; the simple script globals recorded, for a playback to put back)
+    script::forget_all_stored_randoms();
+    audio::set_music_random_apart(true);
+    demo.random_flags = demo_format::kMusicApart;
+    demo.globals = globals_now();
     maths::seed_random(demo.seed);
     crt::game_srand(demo.crt_seed);
     run.counting = true;
@@ -701,6 +759,12 @@ void begin_playback(uint32_t load)
         run.phase = Phase::kOff;
         return;
     }
+    // (as begin_recording: the states a session's earlier scripts left dropped, the globals as recorded - none in a
+    // demo made before the GLOB chunk -, the music apart as it was recorded - a demo made before the RAND chunk drew
+    // it from the game's streams)
+    script::forget_all_stored_randoms();
+    restore_globals(run.demo);
+    audio::set_music_random_apart((run.demo.random_flags & demo_format::kMusicApart) != 0U);
     maths::seed_random(run.demo.seed);
     crt::game_srand(run.demo.crt_seed);
     run.counting = true;
@@ -821,8 +885,8 @@ void viewer_video_done()
 // level_select_change_level_quit to Load_MainMenu), then, once it has been up a moment, the demo's level (menu_tick).
 // Measured (docs/demos.md "The viewer"): the level loaded again from inside itself kept the skater's state at the level
 // up (a demo recorded from a fresh start parted at frame 5); by the main menu a pass plays as a second playback in one
-// session does - the same as each other, and the same as the recording until something the session before left
-// matters (13 s into the BO test demo: a standing skater pushing off 8 frames later).
+// session does - exact for a demo with the GLOB and RAND chunks (begin_playback puts back what the session before
+// left: docs/demos.md "What a session leaves behind").
 bool host_restart()
 {
     State& run = state();
@@ -1105,6 +1169,9 @@ void menu_tick(modules::FrontEnd* front_end, bool game_owned)
     // (a demo's pause is the original freeze, whatever [features] live_pause says - game/front_end/live_pause.h: a
     // recording and its playback then pause alike)
     modules::live_pause::demo_running() = run.phase != Phase::kOff;
+    if (run.phase == Phase::kOff) {
+        audio::set_music_random_apart(false);
+    }
     // -demo: once the main menu has been up a moment (its scripts loaded), as -level starts its level
     if (run.phase == Phase::kPlayArmed && run.from_command_line) {
         const bool menu = render::current_level() == 0 && !(front_end != nullptr && front_end->is_paused()) &&
