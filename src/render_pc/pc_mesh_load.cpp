@@ -33,6 +33,7 @@
 #include "engine/gfx/vertex_view.h"
 #include "engine/gfx/renderer.h"
 #include "render_pc/mesh_pass.h"
+#include "render_pc/mesh_smoothing.h"
 
 namespace render {
 
@@ -177,6 +178,12 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         debug::printf("scene mesh damaged: cut short or doesn't fit\n");
         in.fail();
         return false;
+    }
+    // Not original - smoothed curves ([Graphics] rt_tessellation, mesh_smoothing.h): the body's curved triangles split
+    // before its buffers are made. Original behaviour: the body as read.
+    if (mesh_smoothing::on()) {
+        mesh_smoothing::smooth_body(&body, vertex_format(core::at(body.vertex_types, 0)),
+                                    static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
     }
     for (int i = 0; i < scene_format::kIndexBuffers; ++i) {
         core::at(mesh->index_counts(), i) = core::at(body.index_counts, i);

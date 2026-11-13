@@ -17,6 +17,7 @@
 #include "render_pc/geom.h"
 #include "engine/gfx/surface_material.h"
 #include "render_pc/mesh_list.h"
+#include "render_pc/mesh_smoothing.h"
 #include "render_pc/pc_mesh.h"
 #include "render_pc/pc_scene.h"
 #include "render_pc/render_state.h"
@@ -154,8 +155,10 @@ gsl::owner<PcScene*> load_scene_from_memory(const uint8_t* data, size_t size, co
     scene_format::MemoryStream in(data, size);
     in.skip(scene_format::kHeaderSize);
     list->set_materials(read_materials_from_buffer(in, texture_table(textures)));
-    return read_sectors(in, list, with_super_sectors, flag_8d,
-                        [&in](PcSector* sector) { return sector->read_from_ram_block(in); });
+    gsl::owner<PcScene*> scene = read_sectors(in, list, with_super_sectors, flag_8d,
+                                              [&in](PcSector* sector) { return sector->read_from_ram_block(in); });
+    mesh_smoothing::log_totals("(from memory)"); // (not original: smoothed curves' totals, mesh_smoothing.h)
+    return scene;
 }
 
 // 0x004B36D0
@@ -174,6 +177,7 @@ gsl::owner<PcScene*> load_scene_from_file(const char* name, const TextureSet* te
         return sector->ingest_from_file(in, arena);
     });
     file::shut(file);
+    mesh_smoothing::log_totals(name); // (not original: smoothed curves' totals, mesh_smoothing.h)
     return scene;
 }
 
