@@ -73,7 +73,7 @@ constexpr double kTopRange = 0.55;
 constexpr double kBaseEdge = 0.12;
 constexpr double kTopEdge = 0.4;
 constexpr double kTopAtEdge = 0.25; // a cloud's top at the edge of its cover, x its kind's
-constexpr double kWispyFrom = 5.0; // (the detail inverts from billowy to wispy over the layer's lowest fifth)
+constexpr double kWispyFrom = 5.0;  // (the detail inverts from billowy to wispy over the layer's lowest fifth)
 
 // the gradients (the cube's 12 edges, four repeated)
 constexpr std::array<std::array<int, 3>, 16> kGradients{{{1, 1, 0},
@@ -380,10 +380,7 @@ double cloud_amount(double coverage)
     return lerp(core::at(kCloudAmounts, low), core::at(kCloudAmounts, low + 1), at - static_cast<double>(low));
 }
 
-double cloud_threshold_share(double coverage)
-{
-    return lerp(kCoverThresholdLeast, kCoverThresholdMost, coverage);
-}
+double cloud_threshold_share(double coverage) { return lerp(kCoverThresholdLeast, kCoverThresholdMost, coverage); }
 
 double cloud_phase(double cosine, double asymmetry_scale)
 {

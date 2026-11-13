@@ -405,6 +405,7 @@ struct SkyPassState {
     std::vector<std::unique_ptr<SkySlot>> slots;
     bool failed = false;
     uint64_t passes = 0;
+    uint64_t drawn_serial = 0; // the frame the last pass was drawn in (the reflections' misses: a level with a sky)
     uint64_t uses = 0;
     // the match
     RtSkyMatch match;
@@ -1368,9 +1369,10 @@ void match_from(const RtSkySettings& settings, const std::array<float, 3>& sun, 
     constexpr double kWhiteOverBlue = 1.5;
     constexpr double kDarkest = 0.35;
     constexpr double kBrightest = 1.3;
-    match->coverage = settings.coverage >= 0.0F
-                          ? std::clamp(settings.coverage, 0.0F, 1.0F)
-                          : static_cast<float>(std::clamp(kCoverageBase + (kCoverageShare * look.coverage), 0.0, kCoverageMost));
+    match->coverage =
+        settings.coverage >= 0.0F
+            ? std::clamp(settings.coverage, 0.0F, 1.0F)
+            : static_cast<float>(std::clamp(kCoverageBase + (kCoverageShare * look.coverage), 0.0, kCoverageMost));
     match->cloud_gain = {1.0F, 1.0F, 1.0F};
     if (look.valid) {
         const Linear cloud = linear_of(look.cloud);
@@ -1417,9 +1419,9 @@ void log_match(const RtSkyMatch& match, uint32_t scene)
             static_cast<double>(core::at(core::at(in.gains, 1), 2)),
             static_cast<double>(core::at(core::at(in.gains, 2), 0)),
             static_cast<double>(core::at(core::at(in.gains, 2), 1)),
-            static_cast<double>(core::at(core::at(in.gains, 2), 2)),
-            static_cast<double>(match.coverage), static_cast<double>(core::at(match.cloud_gain, 0)),
-            static_cast<double>(core::at(match.cloud_gain, 1)), static_cast<double>(core::at(match.cloud_gain, 2)));
+            static_cast<double>(core::at(core::at(in.gains, 2), 2)), static_cast<double>(match.coverage),
+            static_cast<double>(core::at(match.cloud_gain, 0)), static_cast<double>(core::at(match.cloud_gain, 1)),
+            static_cast<double>(core::at(match.cloud_gain, 2)));
 }
 
 // The sun the sky is drawn for: the visible one, else a default (logged once).
@@ -1565,13 +1567,15 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
         core::at(sun_light, channel) = static_cast<float>(core::at(through, channel) * sun_scale);
         core::at(ambient_bottom, channel) =
             static_cast<float>(core::at(core::at(own.match.model, 1), channel) * horizon_scale);
-        core::at(ambient_top, channel) = static_cast<float>(core::at(core::at(own.match.model, 3), channel) * zenith_scale);
+        core::at(ambient_top, channel) =
+            static_cast<float>(core::at(core::at(own.match.model, 3), channel) * zenith_scale);
     }
     const uint64_t frames = slot != nullptr ? slot->frames : 0;
     const auto jitter_offset = static_cast<float>(std::fmod(static_cast<double>(frames) * kGolden, 1.0));
     block.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                     core::at(view.camera.position, 2), static_cast<float>(altitude)};
-    block.sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2), static_cast<float>(rt::cloud_amount(own.match.coverage))};
+    block.sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2),
+                 static_cast<float>(rt::cloud_amount(own.match.coverage))};
     block.sun_light = {core::at(sun_light, 0), core::at(sun_light, 1), core::at(sun_light, 2), 1.0F};
     block.ambient_bottom = {core::at(ambient_bottom, 0), core::at(ambient_bottom, 1), core::at(ambient_bottom, 2),
                             static_cast<float>(kCloudAerialDistance)};
@@ -1863,6 +1867,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         }
     }
     ++own.passes;
+    own.drawn_serial = state.frames.serial();
     if (first_report(state, kReportFirst)) {
         get_log("vulkan: rt_sky: the first pass (%ux%u, %u sample%s; the atmosphere%s; sun %.1f degrees up)",
                 core::at(recording.rect, 2), core::at(recording.rect, 3),
@@ -1992,7 +1997,9 @@ bool rt_sky_for_rays(Backend& state, const std::array<uint32_t, 4>& rect, RtSkyF
 {
     *out = RtSkyForRays{};
     const SkyPassState& own = pass_state();
-    if (own.failed || !own.settings.on || !own.matched) {
+    // (a sky drawn this frame or the one before: a level with no sky scene - indoors - keeps the environment map)
+    const bool drawn = own.drawn_serial != 0 && own.drawn_serial + 1 >= state.frames.serial();
+    if (own.failed || !own.settings.on || !own.matched || !drawn) {
         return false;
     }
     out->sky_view = atmosphere_descriptor(AtmosphereTable::kSkyView);
@@ -2002,8 +2009,8 @@ bool rt_sky_for_rays(Backend& state, const std::array<uint32_t, 4>& rect, RtSkyF
     }
     const std::array<float, 3>& sun = own.match.atmosphere.sun;
     out->sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2), 0.0F};
-    out->cloud_light = {.sampler = VK_NULL_HANDLE, .imageView = out->sky_view.imageView,
-                        .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    out->cloud_light = {
+        .sampler = VK_NULL_HANDLE, .imageView = out->sky_view.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
     out->cloud_info = out->cloud_light;
     const uint64_t serial = state.frames.serial();
     for (const std::unique_ptr<SkySlot>& slot : own.slots) {

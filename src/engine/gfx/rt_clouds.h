@@ -40,8 +40,8 @@ inline constexpr double kCloudTop = 4000.0;
 inline constexpr double kCloudShapeScale = 9000.0; // metres the shape texture covers before it repeats
 inline constexpr double kCloudDetailScale = 1100.0;
 inline constexpr double kCloudWeatherScale = 42000.0;
-inline constexpr double kCloudDensity = 0.05;  // extinction per metre at density 1
-inline constexpr double kCoverEdge = 2.5; // how sharply the weather's patches end (x the excess over 1 - coverage)
+inline constexpr double kCloudDensity = 0.05; // extinction per metre at density 1
+inline constexpr double kCoverEdge = 2.5;     // how sharply the weather's patches end (x the excess over 1 - coverage)
 inline constexpr double kPatchLift = 0.8; // + this x the coverage: a patch thins out over a wider range of the weather
 // the clumps inside a patch (the weather's b: Worley's fractal noise, cells about 2.6 km across): none under kClumpLow,
 // whole over kClumpHigh - the gaps between clouds at every coverage short of overcast
@@ -50,8 +50,8 @@ inline constexpr double kClumpHigh = 0.62;
 // the shape's threshold falls by this x the cover: kCoverThresholdLeast at no coverage, the most at overcast (x coverage)
 inline constexpr double kCoverThresholdLeast = 0.65;
 inline constexpr double kCoverThresholdMost = 0.9;
-inline constexpr double kDetailErosion = 0.45; // how much the detail eats the edges
-inline constexpr double kCloudFar = 40000.0;   // metres along a ray at most
+inline constexpr double kDetailErosion = 0.45;  // how much the detail eats the edges
+inline constexpr double kCloudFar = 40000.0;    // metres along a ray at most
 inline constexpr double kCloudLightStep = 70.0; // the first light step (metres); each next x kCloudLightGrowth
 inline constexpr double kCloudLightGrowth = 1.7;
 inline constexpr uint32_t kCloudLightSamples = 6;

@@ -1143,7 +1143,7 @@ void release_mirror(render::Gpu& gpu, Mirror* mirror)
 
 // A frame: the record given, cleared, the scene drawn, the passes through the listener (draw_viewport's call). Returns
 // the passes recorded.
-uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Mirror& mirror, uint64_t frame)
+uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Mirror& mirror, uint64_t frame, bool sky = true)
 {
     rt::FrameRecord& record = rt::frame_record();
     record = rt::FrameRecord{};
@@ -1166,6 +1166,9 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Mirror& mirr
     gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth | value::kClearStencil, kClearColour, 1.0F, 0);
     draw_scene(gpu, mirror.floor.data, mirror.box.data);
     const uint64_t before = render::vulkan::rt_reflection_passes();
+    if (sky && rt::sky_replacement().on) {
+        rt::sky_view_drawn(view_drawn()); // (rt_sky: its pass, as draw_viewport tells it after the backdrop)
+    }
     rt::opaque_view_drawn(view_drawn());
     const uint64_t passes = render::vulkan::rt_reflection_passes() - before;
     gpu.end_scene();
@@ -1660,7 +1663,33 @@ void run_sky_misses(render::Gpu& gpu, Mirror& mirror, Tally* tally)
         vk::finish_work(state);
         ready = vk::read_atmosphere_table(state, vk::AtmosphereTable::kSkyView, &table);
     }
-    tally->check(made && ready && draw_frame(gpu, targets, mirror, 3) == 1,
+    // (no sky drawn - a level with no sky scene: the misses keep what was there, the floor's own colour)
+    std::vector<uint8_t> unseen;
+    std::vector<uint8_t> plain;
+    vk::set_rt_reflection_settings({});
+    const bool read_plain = made && draw_frame(gpu, targets, mirror, 3, false) == 0 && read_colour(gpu, targets, &plain);
+    vk::set_rt_reflection_settings({.on = true, .strength = 1.0F});
+    const bool read_unseen =
+        made && draw_frame(gpu, targets, mirror, 4, false) == 1 && read_colour(gpu, targets, &unseen);
+    int kept = 0;
+    int moved = 0;
+    if (read_plain && read_unseen) {
+        const View view = view_from(kEye);
+        for (int row = 0; row < kRows; ++row) {
+            for (int column = 0; column < kColumns; ++column) {
+                const Reflection here = reflection_at(view, column, row);
+                if (here.floor && !here.hit) {
+                    const bool same_pixel = close_to(pixel_at(unseen, column, row), pixel_at(plain, column, row));
+                    kept += same_pixel ? 1 : 0;
+                    moved += same_pixel ? 0 : 1;
+                }
+            }
+        }
+    }
+    tally->check(read_plain && read_unseen && kept > 0 && moved * 100 <= kept,
+                 text::format("rt_sky on but no sky drawn (indoors): the misses unchanged (%d kept, %d changed)", kept,
+                              moved));
+    tally->check(made && ready && draw_frame(gpu, targets, mirror, 5) == 1,
                  "the sky made (rt_sky on) and the passes recorded");
     std::vector<uint8_t> with;
     if (made && ready && read_colour(gpu, targets, &with)) {

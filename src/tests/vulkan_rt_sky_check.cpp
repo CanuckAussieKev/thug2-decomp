@@ -158,7 +158,7 @@ struct Options {
     int device = -1;
     bool validation = true;
     bool perf = false;
-    std::string pictures; // --pictures <folder>: the sky's look from a few poses, as .bmp files (no checks)
+    std::string pictures;   // --pictures <folder>: the sky's look from a few poses, as .bmp files (no checks)
     float coverage = -1.0F; // --coverage <0 - 1> for the pictures (else a few)
 };
 
@@ -987,8 +987,7 @@ void run_match(render::Gpu& gpu, Tally* tally)
             for (const std::array<float, 3>& gain : match.atmosphere.gains) {
                 unit = unit && std::ranges::all_of(gain, [](float value) { return value == 1.0F; });
             }
-            tally->check(unit,
-                         "  rt_sky_match=0: the model's own sky (gains 1)");
+            tally->check(unit, "  rt_sky_match=0: the model's own sky (gains 1)");
             model = means;
             continue;
         }
@@ -1575,8 +1574,8 @@ bool write_bmp(const std::string& path, const std::vector<Rgb>& pixels, uint32_t
             const std::size_t at =
                 kHeaderBytes + (static_cast<std::size_t>(line) * row) + (static_cast<std::size_t>(column) * 3);
             for (std::size_t channel = 0; channel < 3; ++channel) {
-                core::at(bytes, at + channel) = static_cast<uint8_t>(
-                    std::lround(std::clamp(core::at(colour, 2 - channel), 0.0, 1.0) * kByteMax));
+                core::at(bytes, at + channel) =
+                    static_cast<uint8_t>(std::lround(std::clamp(core::at(colour, 2 - channel), 0.0, 1.0) * kByteMax));
             }
         }
     }
@@ -1626,9 +1625,8 @@ void run_pictures(render::Gpu& gpu, const Options& options)
             }
             std::vector<Rgb> colour;
             read_colour(targets, &colour);
-            const std::string path =
-                text::format("%s/%s_%02d.bmp", options.pictures.c_str(), shot.name,
-                             static_cast<int>(std::lround(static_cast<double>(coverage) * 100.0)));
+            const std::string path = text::format("%s/%s_%02d.bmp", options.pictures.c_str(), shot.name,
+                                                  static_cast<int>(std::lround(static_cast<double>(coverage) * 100.0)));
             text::print("  %s: %s\n", path.c_str(), write_bmp(path, colour, kWidth, kHeight) ? "written" : "FAILED");
         }
     }

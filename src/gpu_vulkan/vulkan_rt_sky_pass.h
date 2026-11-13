@@ -119,9 +119,9 @@ struct RtSkyTiming {
 // falls inside it (their history, read as the composite reads it, faded out toward the viewport's edges; outside: the
 // sky alone). False: no sky to show (rt_sky off, or not drawn yet) - the misses keep the game's environment map.
 struct RtSkyForRays {
-    VkDescriptorImageInfo sky_view{};      // combined image samplers
+    VkDescriptorImageInfo sky_view{}; // combined image samplers
     VkDescriptorImageInfo transmittance{};
-    VkDescriptorImageInfo cloud_light{};   // storage images (GENERAL); without clouds the sky-view table's (unread)
+    VkDescriptorImageInfo cloud_light{}; // storage images (GENERAL); without clouds the sky-view table's (unread)
     VkDescriptorImageInfo cloud_info{};
     std::array<float, kSkyMatrixFloats> to_pixel{}; // column-major: a world direction (w 0) -> the target's pixel
     std::array<float, 4> sun{};                     // xyz toward the drawn sky's sun; w 1: clouds
