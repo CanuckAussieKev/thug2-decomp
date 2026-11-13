@@ -216,6 +216,10 @@ struct ViewDrawn {
     std::array<uint32_t, 4> rect{};     // the viewport in the target's pixels: x, y, width, height
     std::array<float, 2> depth_range{}; // the viewport's min / max z (0, 1)
     ViewFog fog;                        // (added by the volumetric fog)
+    // (added by the sun's glare) The game's own bloom is on for this frame (a script's SetScreenEffects bloom: drawn
+    // over the frame after the world - render_pc's screen effects): a bloom added by a listener leaves the frame's own
+    // light alone then, so the two don't double up.
+    bool game_bloom = false;
 };
 
 // What listens (a backend's screen-space effect: the Vulkan Gpu's ray-traced sun shadows). Called on the thread that
@@ -237,6 +241,7 @@ inline constexpr int kOcclusion = 200;  // R5: ambient occlusion
 inline constexpr int kIndirect = 300;   // global illumination (one bounce)
 inline constexpr int kReflections = 400;
 inline constexpr int kFog = 500;        // volumetric fog / light shafts (world_drawn)
+inline constexpr int kSun = 600;        // (added by the sun's glare) the sun's disc, its rays and the bloom (world_drawn)
 inline constexpr int kToneMapping = 900; // HDR -> the display (world_drawn, last)
 } // namespace ViewOrder
 void add_view_listener(ViewListener* listener);
@@ -285,11 +290,42 @@ struct BakedSun {
     uint32_t rows = 0;
     std::array<float, 2> origin{}; // the grid's lowest x and z
     float cell = 0.0F;             // a cell's side (world units)
+    // (added by the sun's glare) The level's ground height (world y): low among its upward faces (rt_sun.h
+    // kGroundShare) - the haze thickens toward it. ground_known false: none found.
+    float ground = 0.0F;
+    bool ground_known = false;
 };
 void set_baked_sun(BakedSun sun);
 const BakedSun& baked_sun();
 // Whether a fit is wanted (the shadow pass asks for one; render_pc fits once a world has stood still a moment).
 void set_baked_sun_wanted(bool wanted);
 bool baked_sun_wanted();
+
+// (added by the sun's glare) The sun's light as a sky model gives it (engine/gfx/rt_sky.h; the Vulkan Gpu's
+// [Graphics] rt_sky_model, or rt_sun_colour set by hand): `on` false - none given (every effect lights with a white sun,
+// as before). Colours display-referred as the game's (1 its white): `colour` the sun's (its brightest channel 1: warm
+// when low, white high), `sky` the sky's light overhead. Effects may tint their sunlight by `colour` (the one-bounce
+// light does).
+struct SunLight {
+    bool on = false;
+    std::array<float, 3> toward{};               // toward the sun, normalised (the baked sun's, or the override's)
+    std::array<float, 3> colour{1.0F, 1.0F, 1.0F};
+    std::array<float, 3> sky{};
+};
+void set_sun_light(const SunLight& light);
+SunLight sun_light();
+
+// (added by the sun's glare) Whether a backend draws the sun itself this frame (the Vulkan Gpu's [Graphics] rt_sun: its
+// disc, glare and rays): render_pc then leaves out the original's sun sprite, its corona and the lens flare (the flare's
+// screen elements hidden). False (the default, Direct3D 9): the original's sun drawn as always.
+void set_sun_glare_replaced(bool replaced);
+bool sun_glare_replaced();
+
+// (added by the sun's glare) Where the game shows its sun (render_pc: the sun sprite's direction from the camera - a
+// level's SetSun / InitSun, the time of day -, toward it, normalised; told each viewport whether it is drawn or
+// replaced): the sun the player sees, which needn't be the baked one the level's lighting was made with. Null / false:
+// the game shows none.
+void set_game_sun(const std::array<float, 3>* toward_sun);
+bool game_sun(std::array<float, 3>* toward_sun);
 
 } // namespace render::rt

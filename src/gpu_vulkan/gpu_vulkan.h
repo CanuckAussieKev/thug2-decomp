@@ -135,6 +135,7 @@ void set_hdr_settings(const HdrSettings& settings);
 // fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray tracing isn't enabled on the device.
 inline constexpr float kRtFogAnisotropy = 0.3F; // (rt_fog_anisotropy's default)
 inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_steps' default)
+inline constexpr float kRtFogHazeHeight = 600.0F; // (rt_fog_haze_height's default: world units)
 enum class RtFogMode : uint8_t {
     kReplace = 0, // the level's own fog replaced by the volumetric one (its colour and distances; shadowed by the world)
     kShafts = 1,  // the level's own fog kept, only the sunlit shafts' light added over it
@@ -148,8 +149,38 @@ struct RtFogSettings {
     RtFogMode mode = RtFogMode::kReplace;
     bool hdr = false;                     // the light added above 1 kept (rt_hdr=1: a floating-point target)
     bool haze = true; // a level without fog gets a thin haze's sunlit shafts (rt_fog_haze; 0: nothing there)
+    // (added by the sun's glare) With the sky model (rt_sky_model=1) the haze is a medium of its own - aerial
+    // perspective: it dims what is far toward the sky's colour, thicker near the ground: its thickness (x the default:
+    // rt_fog_haze_density) and the height over which it thins by e (rt_fog_haze_height, world units above the level's
+    // ground).
+    float haze_density = 1.0F;
+    float haze_height = kRtFogHazeHeight;
 };
 void set_rt_fog_settings(const RtFogSettings& settings);
 [[nodiscard]] RtFogSettings rt_fog_settings();
+
+// NOT ORIGINAL - the sun, its glare, the screen-space rays and the bloom (vulkan_rt_sun.h, vulkan_rt_sky.h;
+// docs/design/vulkan.md "The sun, its glare and the sky"): [Graphics] rt_sun, rt_sun_size, rt_bloom, rt_bloom_strength,
+// rt_shafts, rt_shaft_strength, rt_sky_model, rt_sun_colour, rt_lens_dirt (and rt_hdr). Nothing is drawn differently
+// while all are off. The sun's parts need a sun - where the game shows one, else the level's baked one (ray tracing
+// enabled); the bloom needs neither.
+inline constexpr float kRtBloomStrength = 0.05F; // (rt_bloom_strength's default)
+inline constexpr float kRtShaftStrength = 0.8F;  // (rt_shaft_strength's default)
+struct RtSunSettings {
+    bool sun = false;          // the sun's disc and glare drawn, the original's sun sprite and lens flare hidden
+    float sun_size = 1.0F;     // x the disc's default size (0.25 - 4)
+    bool place_game = true;    // rt_sun_place: the disc and rays where the game shows its sun (else the baked sun's)
+    bool bloom = false;        // the frame's bright light spread (energy-conserving, a mip chain)
+    float bloom_strength = kRtBloomStrength; // the share of each pixel's light spread (0 - 0.5)
+    bool shafts = false;       // screen-space rays from the sun over what blocks it
+    float shaft_strength = kRtShaftStrength; // (0 - 4)
+    bool sky_model = false;    // the sky model's colours used by the fog (aerial perspective) and the bounce light
+    bool colour_set = false;   // rt_sun_colour=r,g,b: the sun's colour given (0 - 1 each), not the model's
+    std::array<float, 3> colour{1.0F, 1.0F, 1.0F};
+    bool lens_dirt = false;    // a faint dirt on the lens lit by the bloom (procedural)
+    bool hdr = false;          // rt_hdr=1: the light kept above 1 (the tone mapping maps it)
+};
+void set_rt_sun_settings(const RtSunSettings& settings);
+[[nodiscard]] RtSunSettings rt_sun_settings();
 
 } // namespace render::vulkan

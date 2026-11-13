@@ -367,7 +367,19 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_fog_height` | 0 | World units over which the fog thins going up from the camera's height (0: even everywhere; e.g. 800 for ground fog) |
 | `rt_fog_anisotropy` | 0.3 | How much brighter the fog is looking toward the sun (-0.9-0.9; 0 the same every way) |
 | `rt_fog_steps` | 32 | Samples along each ray (4-128): fewer is faster, more is smoother shafts |
-| `rt_fog_haze` | 1 | In a level with no fog (most of them, unless `DistanceClipping=1` and `Fog=1`): 1 adds a thin haze that only shows where the sun shines through it - shafts and a glow toward the sun; 0 leaves such levels alone |
+| `rt_fog_haze` | 1 | In a level with no fog (most of them, unless `DistanceClipping=1` and `Fog=1`): 1 adds a thin haze that only shows where the sun shines through it - shafts and a glow toward the sun; 0 leaves such levels alone. With `rt_sky_model=1` the haze becomes real air: distant buildings fade toward the sky's colour, it is thicker near the ground, and it is clearly brighter where the sun lights it than in the shade |
+| `rt_fog_haze_density` | 1 | With `rt_sky_model=1`: how thick that air is (1 the default; 2 twice as hazy) |
+| `rt_fog_haze_height` | 600 | With `rt_sky_model=1`: world units over which the haze thins going up from the level's ground |
+| `rt_sun` | 0 | On Vulkan: 1 draws the sun itself - a bright disc with a glow round it, light spilling past the edges in front of it - where the game shows its sun, instead of the game's sun sprite and lens flare (both hidden). A level with no sun at all keeps the game's |
+| `rt_sun_size` | 1 | How big the sun's disc is (0.25-4) |
+| `rt_sun_place` | game | Where the sun is drawn: `game` - where the game shows its sun (its sky's sun, as the old sprite was); `bake` - where the level's lighting says it is (the shadows' sun) |
+| `rt_sun_colour` | auto | The sun's colour: `auto` - from its height (warm when low, white when high); or `r,g,b` (0-1 each) |
+| `rt_shafts` | 0 | On Vulkan: 1 adds rays of light from the sun past buildings, trees and edges when it is on or near the screen |
+| `rt_shaft_strength` | 0.8 | How bright the rays are (0-4) |
+| `rt_bloom` | 0 | On Vulkan (no ray tracing needed): 1 lets bright light glow softly into what is round it - the sun, lit sky, bright windows. It only moves light, never adds it; left alone when a level turns on the game's own bloom (the sun's glow still drawn) |
+| `rt_bloom_strength` | 0.05 | How much of each pixel's light spreads (0-0.5) |
+| `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
+| `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
 
 **`[Miscellaneous]`** - from PartyMod
 

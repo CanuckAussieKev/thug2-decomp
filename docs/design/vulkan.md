@@ -1024,6 +1024,90 @@ shadows and the occlusion):
   denoised): 1 ray 1.45-1.49 ms, 2 rays (the default) 1.89-2.07 ms, 4 rays 2.44 ms - the camera ray, the albedo and the
   denoiser are about 1 ms of it. Not measured on the AMD (integrated) device in the game.
 
+### The sun, its glare and the sky (`rt_sun`, `rt_shafts`, `rt_bloom`, `rt_sky_model`)
+
+What read as dated beside the ray-traced light was mostly the original's own sun: a white halo sprite and a corona at
+`sun::render`'s place (engine/gfx/lens_flare: theta / phi from SetSun, drawn after the particles) and the lens flare's
+screen elements over the picture; and the fog's haze was a flat grey veil with no sun colour (the bake gives none) that
+only ever added light. Four settings, all off by default, change that; each works the same with `rt_hdr=0` and
+`rt_hdr=1` (rt_hdr is only the internal range: the output is 8-bit either way).
+
+- **The sky model** (`engine/gfx/rt_sky`, `gpu_vulkan/vulkan_rt_sky`). Single scattering in a spherical atmosphere:
+  Rayleigh air (5.8 / 13.6 / 33.1 x 10^-6 per metre, scale height 8 km), Mie haze (8 x 10^-6, 1.2 km, Cornette-Shanks
+  g 0.8), the viewer 100 m up. From the baked sun's elevation it gives the sun's transmittance - its colour relative to
+  the sun overhead, as the game's display-referred colours (^1/2.2, the brightest channel 1): (1, 0.61, 0.18) at 2
+  degrees, (1, 0.88, 0.64) at 10, (1, 0.95, 0.83) at 20, (1, 0.99, 0.96) at 45 - and the sky's radiance in any
+  direction, exposed so the zenith with the sun 45 degrees up has luminance 0.3 (linear). The device keeps a table of
+  the sky (64 azimuths from the sun's x 32 elevations, finer near the horizon - 32 segments per ray, 16 toward the sun -
+  + a row: the transmittance, the colour, the zenith), made again only when the sun moves. `rt_sun_colour=r,g,b`
+  overrides the colour. `rt::set_sun_light` (a contract addition) publishes it while `rt_sky_model=1` or a colour is
+  set: the one-bounce light (`rt_gi`) tints its sun by it (its luma kept - nothing else about it changes); the shadows
+  don't use it (they darken the bake, which has no colour to replace). It is published by the fog's or the sun's pass,
+  so the bounce takes the colour from the frame after one of them runs.
+- **Aerial perspective** (`vulkan_rt_fog`, `rt_sky_model=1`, a level without fog, `rt_fog_haze=1`). The haze becomes a
+  medium of its own: extinction `kFogAerialExtinction` (1/12000 a unit) x `rt_fog_haze_density` x `rt_fog_density` at
+  the level's ground, thinning by e every `rt_fog_haze_height` (600) above it - the ground is the 10th percentile of the
+  bake samples' heights (`rt::BakedSun::ground`, a contract addition; the camera's height when unknown) - integrated
+  in closed form along each segment, followed to 40000 units. Its light at a sample: sky x 0.45 + sun x luma(sky) x 0.55 x
+  1.2 x lit x phase, with sky the table's colour toward the ray (no lower than 0.03 rad above the horizon - the colour the far
+  world fades to, not grey), the sun's colour, the same ray query toward the sun as before, and two Henyey-Greenstein
+  lobes (0.4 of g = 0.6 - the glow and the beams seen toward the sun - and 0.6 of g = 0.2) x 4 pi: lit haze from the side
+  ~0.9 of the sky's brightness. Shaded haze is the
+  sky's share alone: lit haze several times brighter beside it, so the shadows of buildings show as beams. Composited as
+  the replaced fog (colour x T + light): distant geometry dims toward the sky's colour. The sky itself is never dimmed
+  (only its sunlit share x 0.1 added). A level with its own (scripted or distance) fog keeps its look: only its sunlight
+  takes the sun's colour (luma kept).
+- **Which sun is drawn.** The sun the player sees is the game's own: render_pc's `draw_viewport` tells rt_scene where
+  `sun::render` would put its sprite every viewport (`rt::set_game_sun`, a contract addition - render's theta / phi
+  from the level's SetSun / InitSun), and the disc, its glare and the rays are drawn there (`rt_sun_place=game`, the
+  default). It needn't be the baked sun the level was lit with: z_dt's and BO's game sun is 20 degrees up toward +z,
+  their baked ones 53 and 52 degrees up elsewhere - the original game had the same split (its sprite against its bake).
+  `rt_sun_place=bake` draws it at the baked sun; with no game sun shown the baked one is used. The lighting - the
+  shadows, the bounce, the fog's shafts and the sky table - keeps the baked sun. The disc's colour is the model's for
+  the drawn sun's elevation (or `rt_sun_colour`).
+- **The pass** (`gpu_vulkan/vulkan_rt_sun`, a listener at `world_drawn`, `rt::ViewOrder::kSun` = 600 - after the fog,
+  before tone mapping): the viewport's colour copied out; (1) the rays (`rt_shafts`, half resolution): from each texel
+  toward the sun's vanishing point on the screen, 48 points along the whole way (the start jittered by interleaved
+  gradient noise), each a source where the depth is the sky's, exp(-angle to the sun / 0.12) bright, weighted 0.975^i,
+  averaged; x `rt_shaft_strength` (0.8), the sun's colour, a fade - none with the sun behind the camera, fading out as its
+  place leaves the screen by half the screen's size; (2) the source (full resolution, two 16-bit float images - so the
+  sun's light keeps its range with an 8-bit target): the frame's colour (a multisampled target's mean) and the light
+  added - on the sky's pixels (a multisampled pixel's share of sky samples) the disc (`rt_sun`: radius 0.0093 rad x
+  `rt_sun_size` - twice the real sun's -, 24 x its colour, limb-darkened, its edge one pixel soft) and its aureole
+  (0.5 e^(-angle/0.04) + 0.15 e^(-angle/0.25)), and the rays upsampled; (3) the bloom: X = 0.25 x the added light +
+  `rt_bloom_strength` (0.05) x the frame's colour with `rt_bloom` - the frame's part left out while the game's own bloom
+  is on (`rt::ViewDrawn::game_bloom`, a contract addition: z_dt and BO turn it on), so the two don't double up - down a
+  chain of half-size images (Jimenez's 13 taps, weights summing to 1) to 7 levels or a shorter side of 8, then up (a
+  3 x 3 tent, each level's own added at weight 1/levels): B, a blur of X holding the same light; (4) the composite (a
+  full-screen pass, alpha kept): frame + light + B - X - light moved, never made. An 8-bit target clips the result as
+  the game's draws do; with `rt_hdr=1` the tone mapping maps it. `rt_lens_dirt=1` adds faint procedural spots lit by B
+  (light added: off by default, and off in the energy checks).
+- **The original's sun.** While the pass draws a sun (`rt_sun=1` and a sun to draw), `rt::set_sun_glare_replaced`
+  tells `draw_viewport` to skip `sun::render` - no sprite, no corona, no occlusion query - and
+  `sun::hide_for_replacement` fades the lens flare's container out (as the original does when the sun is behind the
+  camera); "sun: the original's sun and lens flare left out" is logged. With no sun at all the original's is kept.
+- **Cost** (device timestamps between the parts, logged every 240 as "rt_sun: the passes take"): the check's scene at
+  1920 x 1080, everything on (`--perf`): RTX 5070 Ti 0.22 ms - rays 0.11, source 0.02, bloom 0.07, composite 0.03; the
+  AMD Radeon integrated GPU 10.3 ms - rays 6.2, source 1.0, bloom 1.6, composite 1.5 (`rt_shafts=0` there). In the game
+  at 1280 x 720 with 8x MSAA (z_dt, BO; NVIDIA): 0.18 - 0.25 ms with rt_hdr=0, 0.32 - 0.40 with rt_hdr=1 and every
+  other effect on. The sky table is remade only when the sun moves (a 64 x 33 dispatch).
+- **Checked:** `thug2_vulkan_rt_sun_check` (76 checks, the RTX 5070 Ti and the AMD Radeon, validation and
+  synchronization validation 0): the device's sky table against rt_sky.h's integrals (256 / 128 segments) at 2, 5, 10,
+  20, 45 and 80 degrees - 0.1-0.4% mean, 0.4-1.7% at the 99th percentile -, the transmittance and colour within 0.002
+  of the 1024 / 512-segment reference, the colour warmer the lower it is, the zenith bluer than the horizon; the sun's
+  place on the screen against the camera's lens (exact), a pixel's angle, the light added at ~75,000 clear-cut pixels
+  against the formula (worst 0.13% relative, none on surfaces), the disc's centre white (8-bit) / above 20 (float), no
+  pass and the original's sun kept with no sun, still left out with the sun behind the camera; every ray texel against
+  the processor's march over its own ray-cast sky mask (97th percentile 2e-4), the wall beside the window lit by the rays
+  5 times as much as far from it; the bloom: X (with the disc at 20 x white) through the first level and the chain's top
+  within 0.3%, the composite into a float target keeping the picture's sum (0.6787 -> 0.6782) with the disc kept above
+  1, into an 8-bit target clipped at 1, the frame's own bloom alone keeping an 8-bit frame's mean to 0.00 levels; the
+  aerial haze's transmittance at ~14,000 texels against the closed form of its height profile (within 5e-4) and its
+  light at least the sky's share of the model's sky colour; the sky never dimmed; everything off: no pass, the picture
+  unchanged. The other checks (rt 20, shadows 45, effects 38, reflections 39, materials 34, fog 71, gi 29, hdr 80) pass
+  unchanged on both GPUs. In the game, `tools/game/rt_shadows_check.ts --effect sun` (z_dt and BO, five spots, two runs,
+  main's build as the baseline): `off` against main's build 0.00-0.01% changed; `on` bounded (mean luma change 0.7-25,
+  nothing black, at most 3.8% white - the disc and its glare with the sun in open sky).
 ## Order of work
 
 | # | task | depends on | start |
@@ -1052,6 +1136,7 @@ shadows and the occlusion):
 | H1 | HDR targets, tone mapping and colour grading (`rt_hdr`): the base the added light (GI, fog) needs | V7, V8 | done - `gpu_vulkan/vulkan_hdr` (above, "HDR and tone mapping"): float back buffer and world targets, the tone-mapping pass last at `world_drawn`, `thug2_vulkan_hdr_check`, `rt_shadows_check.ts --effect hdr` |
 | R5 fog | Volumetric fog and light shafts | R2, R4's baked sun | done - `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default): the level's own linear fog as a medium of the same transmittance, lit by the baked sun through ray queries at half resolution with temporal accumulation and a depth-aware upsample; replaces the game's fog (`rt_fog_mode=0`) or adds the shafts over it (1); a level without fog gets a haze's shafts (`rt_fog_haze`) - "Volumetric fog and light shafts" above |
 | GI | One-bounce diffuse indirect light ("secondary lighting") with ray queries | R2, R3, R5, the baked sun | done: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_gi`, `rt_gi_strength` / `_rays` / `_distance` / `_denoise`, off by default), a view listener at `kIndirect`: the sun's light bounced once off what is around a pixel (hits shaded with R3's material at R2's texture coordinates, a shadow ray toward the level's baked sun), R5's denoiser over the colour, added to the frame as strength x the pixel's albedo x the light through a screen blend (see "One-bounce indirect light"). `thug2_vulkan_rt_gi_check` (29 checks, both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect gi`; 1080p on the RTX 5070 Ti: 1.5 / 2.0 / 2.4 ms for 1 / 2 / 4 rays |
+| Sun | The sun, its glare, screen-space rays, an energy-conserving bloom and a sky model (aerial perspective) | R2, R4's baked sun, R5 fog, H1 | done: `gpu_vulkan/vulkan_rt_sun` + `vulkan_rt_sky`, `engine/gfx/rt_sky` (`[Graphics] rt_sun`, `rt_shafts`, `rt_bloom`, `rt_sky_model`, off by default): the original's sun sprite and lens flare replaced by a disc and aureole where the game shows its sun, radial rays over the depth's sky mask, a 13-tap / tent mip-chain bloom over float intermediates (the same with `rt_hdr` 0 and 1), the haze as aerial perspective coloured by a single-scattering sky (see "The sun, its glare and the sky"). `thug2_vulkan_rt_sun_check` (both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect sun` |
 
 ```
 V1 -> V2 -> V6 ----------> V7 -> V8 -> V11 -> R1 -> R2 -> R4 -> R5

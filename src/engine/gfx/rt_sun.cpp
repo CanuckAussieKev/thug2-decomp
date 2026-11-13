@@ -214,6 +214,16 @@ SunFit fit_baked_sun(std::span<const BakeSample> samples, RayTracing& tracer)
     fit.sun.toward = best;
     fit.sun.confidence = std::max(0.0F, best_score);
     fit.sun.found = best_score >= kMinConfidence;
+    // (added by the sun's glare) the level's ground: the samples' heights' kGroundShare quantile
+    std::vector<float> heights;
+    heights.reserve(samples.size());
+    for (const BakeSample& sample : samples) {
+        heights.push_back(core::at(sample.position, 1));
+    }
+    const auto at = static_cast<std::ptrdiff_t>(static_cast<double>(heights.size() - 1) * kGroundShare);
+    std::ranges::nth_element(heights, heights.begin() + at);
+    fit.sun.ground = *(heights.begin() + at);
+    fit.sun.ground_known = true;
     return fit;
 }
 

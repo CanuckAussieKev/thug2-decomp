@@ -331,6 +331,54 @@ test("fog: its ini values and log lines", () => {
     assert.match(logProblems("on", drawn, "none", "fog").join(), /fog pass/);
 });
 
+const SUN: Limits = { ...LIMITS, expect: "shadows", strength: 0.05, effect: "sun" };
+
+test("sun: a bright patch and a little light pass; a big change, black or a white blow-out fail", () => {
+    const off = flat(40, 40, 120);
+    const patch = { ...off, rgb: new Uint8Array(off.rgb) };
+    patch.rgb.fill(255, 0, 30 * 3); // (the disc: 30 of 1600 pixels white - under 4%)
+    assert.deepEqual(judgeSpot("a", shadowDifference(off, patch, null, 8), null, SUN).problems, []);
+    assert.match(
+        judgeSpot("b", shadowDifference(off, flat(40, 40, 200), null, 8), null, SUN).problems.join(),
+        /luma by 80/,
+    );
+    assert.match(
+        judgeSpot("c", shadowDifference(off, shaded(off, 30, 0), null, 8), null, SUN).problems.join(),
+        /turned black/,
+    );
+    const blown = { ...off, rgb: new Uint8Array(off.rgb) };
+    blown.rgb.fill(255, 0, 200 * 3);
+    assert.match(judgeSpot("d", shadowDifference(off, blown, null, 8), null, SUN).problems.join(), /turned white/);
+    assert.ok(anyShadow([judgeSpot("a", shadowDifference(off, flat(40, 40, 140), null, 8), null, SUN)], SUN));
+});
+
+test("sun: its ini values and log lines", () => {
+    assert.deepEqual(configValues("on", "sun"), {
+        "Graphics.ray_tracing": "1",
+        "Graphics.rt_sun": "1",
+        "Graphics.rt_bloom": "1",
+        "Graphics.rt_shafts": "1",
+        "Graphics.rt_sky_model": "1",
+    });
+    assert.equal(configValues("off", "sun")["Graphics.rt_sun"], "0");
+    assert.deepEqual(configValues("baseline", "sun"), {});
+    const drawn =
+        "vulkan: rt_sun: the first pass (1280x720, 1 sample; the sun's disc and glare, rays, the frame bloomed; 7 bloom levels)\n" +
+        "sun: the original's sun and lens flare left out (the renderer draws the sun)";
+    const none = "vulkan: rt_sun: no sun in this level (none baked, or the fit not run yet) - the original's sun kept";
+    const failed = "vulkan: rt_sun: the passes couldn't be made (a compile error) - no sun, rays or bloom";
+    assert.deepEqual(logProblems("on", drawn, "shadows", "sun"), []);
+    assert.deepEqual(logProblems("on", none, "shadows", "sun"), []);
+    assert.match(logProblems("on", failed, "shadows", "sun").join(), /couldn't/);
+    assert.match(logProblems("on", "", "shadows", "sun").join(), /no sun pass/);
+    assert.match(
+        logProblems("on", "vulkan: rt_sun: the first pass (the sun's disc and glare, )", "shadows", "sun").join(),
+        /not left out/,
+    );
+    assert.match(logProblems("off", drawn, "shadows", "sun").join(), /sun pass in the off log/);
+    assert.deepEqual(logProblems("off", "", "shadows", "sun"), []);
+});
+
 const GI: Limits = { ...LIMITS, expect: "shadows", strength: 1, effect: "gi" };
 
 test("gi: the bounce only adds light, bounded; darker, black or runaway pixels fail; no sun: unchanged", () => {

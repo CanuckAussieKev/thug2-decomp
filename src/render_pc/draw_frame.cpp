@@ -47,6 +47,7 @@
 #include "render_pc/rt_record.h"
 #include "engine/gfx/screen.h"
 #include "render_pc/screen_fx.h"
+#include "platform/run_log.h"
 #include "render_pc/shadow_base.h"
 #include "render_pc/texture_splats.h"
 #include "engine/gfx/viewport.h"
@@ -645,7 +646,30 @@ rt::ViewDrawn view_drawn(int index)
     view.fog.colour = {static_cast<float>((fog_colour >> kRedShift) & kByte) * kPerByte,
                        static_cast<float>((fog_colour >> kGreenShift) & kByte) * kPerByte,
                        static_cast<float>(fog_colour & kByte) * kPerByte};
+    // (the game's own bloom: drawn over the frame by the screen effects - a listener's bloom leaves the frame's light alone)
+    view.game_bloom = effects_state().bloom_on() != 0U && renderer().shaders_available();
     return view;
+}
+
+// Not original - the sun (lens_flare.h): the original's sprite, corona and lens flare, unless a ray-tracing backend draws
+// the sun itself (rt_scene.h sun_glare_replaced: the Vulkan Gpu's rt_sun) - then the flare is hidden. Original behaviour:
+// sun::render.
+void draw_sun(gfx::ViewCam* camera)
+{
+    static bool replaced_before = false; // (logged when it starts)
+    // (where the game shows its sun: a backend that draws the sun draws it there)
+    std::array<float, 3> toward{};
+    rt::set_game_sun(sun::visible_direction(&toward) ? &toward : nullptr);
+    if (rt::sun_glare_replaced()) {
+        if (!replaced_before) {
+            get_log("sun: the original's sun and lens flare left out (the renderer draws the sun)");
+        }
+        replaced_before = true;
+        sun::hide_for_replacement();
+        return;
+    }
+    replaced_before = false;
+    sun::render(camera);
 }
 
 void note_opaque_drawn(int index)
@@ -803,7 +827,7 @@ void draw_viewport(int index)
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZWrite, 0);
     if (renderer().radeon8500()) {
-        sun::render(static_cast<gfx::ViewCam*>(camera));
+        draw_sun(static_cast<gfx::ViewCam*>(camera));
     }
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZTest, 1);
@@ -844,7 +868,7 @@ void draw_viewport(int index)
     engine::draw_shatters();
     set_render_state(RenderStateId::kZWrite, 0);
     if (!renderer().radeon8500()) {
-        sun::render(static_cast<gfx::ViewCam*>(camera));
+        draw_sun(static_cast<gfx::ViewCam*>(camera));
     }
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZTest, 1);

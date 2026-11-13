@@ -61,6 +61,25 @@ inline constexpr float kFogShaftShare = 0.5F;       // mode 1's
 inline constexpr float kFogSunDistance = 100000.0F; // how far a ray toward the sun looks (world units)
 inline constexpr float kFogHazeEnd = 4000.0F;       // the haze's end (world units: its linear "fog" from the camera)
 inline constexpr std::array<float, 3> kFogHazeColour{0.8F, 0.8F, 0.8F};
+// (added by the sun's glare) The sky model's haze - aerial perspective (rt_sky_model=1 and rt_fog_haze=1 in a level
+// without fog, with a sun): a medium of its own instead of the thin haze's added light. Its extinction is
+// kFogAerialExtinction x rt_fog_haze_density per world unit at the level's ground (rt::BakedSun::ground; the camera's
+// height when unknown), thinning by e every rt_fog_haze_height above it, followed to kFogAerialFar (closed form along
+// each segment); x rt_fog_density as the level's fog. Its light at a point:
+//     sky x a  +  sun x luma(sky) x (1 - a) x kFogAerialSunGain x lit x phase
+// sky the model's sky toward the ray's direction (no lower than kFogAerialLowest above the horizon: the colour the far
+// world fades to), sun the model's sun colour, a = kFogAerialSkyShare (the shade's share: lit haze is several times the
+// shaded's - beams between buildings), phase two Henyey-Greenstein lobes (kFogAerialForwardShare of g =
+// kFogAerialForwardG, the rest g = kFogAerialBroadG) x 4 pi. Composited as the replaced fog: colour x T + light. The sky
+// is never dimmed (only its sunlit light x kFogSkyShare added).
+inline constexpr float kFogAerialExtinction = 1.0F / 12000.0F;
+inline constexpr float kFogAerialFar = 40000.0F;
+inline constexpr float kFogAerialSkyShare = 0.45F;
+inline constexpr float kFogAerialSunGain = 1.2F; // (sun x luma(sky) x (1 - a) x this: lit haze from the side ~0.9 of the sky)
+inline constexpr float kFogAerialForwardShare = 0.4F;
+inline constexpr float kFogAerialForwardG = 0.6F;
+inline constexpr float kFogAerialBroadG = 0.2F;
+inline constexpr float kFogAerialLowest = 0.03F; // radians
 
 // The scene the rays are traced through (R2's TLAS; VK_NULL_HANDLE: none - the pass is then skipped, logged once). The
 // same contract as rt_shadows_set_scene (vulkan_rt_shadows.h). Thread: any (it takes the backend's lock) -
