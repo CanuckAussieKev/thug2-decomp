@@ -46,6 +46,7 @@
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_style.h"
+#include "gpu_vulkan/vulkan_style_looks.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "gpu_vulkan/vulkan_surface.h"
@@ -355,6 +356,9 @@ bool set_uniforms(Backend& state, const GpuStateBlock& block, const VertexKey& k
         fill_motion_uniforms(state, block, &vertex);
     } else if (state.motion.active && fvf_pre_transformed(key.fvf)) {
         scale_pre_transformed(state, &vertex);
+    }
+    if (key.retro != 0U) { // (NOT ORIGINAL - the retro art style's grid: vulkan_style_looks.h)
+        vertex.retro = retro_vertex_uniform({.width = block.viewport.width, .height = block.viewport.height});
     }
     const auto copy = [&state](const void* data, std::size_t bytes, VkDescriptorBufferInfo* where) {
         const std::span<const uint8_t> raw(static_cast<const uint8_t*>(data), bytes);
@@ -857,6 +861,7 @@ void release_draw_objects(Backend& state)
     release_rt_sun(state); // (NOT ORIGINAL - the sun's, the bloom's and the sky's: vulkan_rt_sun.h)
     release_upscale(state); // (NOT ORIGINAL - the upscaler's: vulkan_upscale.h)
     release_style(state); // (NOT ORIGINAL - the art style's: vulkan_style.h)
+    release_looks(state); // (NOT ORIGINAL - the vhs / retro / watercolour styles': vulkan_style_looks.h)
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
     state.memory.destroy_image(&state.gamma_source);
@@ -970,6 +975,8 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         shaders.vertex.motion = 1;
         shaders.fragment.motion = 1;
     }
+    // NOT ORIGINAL - the retro art style's geometry (vulkan_style_looks.h): a 3D draw of a view's world while it is on
+    shaders.vertex.retro = retro_key_bit(shaders.vertex.fvf);
     // NOT ORIGINAL - per-pixel lighting where the draw takes it ([Graphics] rt_pbr, vulkan_surface.h; nothing with it off)
     const SurfaceDraw surface = surface_draw(block, shaders);
     if (surface.flags != 0) {

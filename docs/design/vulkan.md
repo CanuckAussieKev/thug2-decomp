@@ -1858,6 +1858,79 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
   ground (shadow and stain decals) get outlines of their own (a real depth step); a low-poly hill's facets show faint
   crease lines.
 
+### Art styles: vhs, retro, watercolour
+
+`gpu_vulkan/vulkan_style_looks` (`[Graphics] rt_style=vhs | retro | watercolour` - places 4, 5, 6 of rt_style's name
+list `off | toon | comic | sketch | vhs | retro | watercolour | noir | thermal`; their knobs `rt_style_<style>_*`, all
+live; `rt_style_strength` mixes each over the original as it does the toon's). Each is a post-process at the toon's
+place (`ViewOrder::kStyle`: after the tone mapping and the upscaler, before the 2D - the HUD is never filtered), per
+viewport (split screen: nothing read across a viewport's edge), alpha kept, NaN-free. `vulkan_style.cpp`'s pass plans
+the view (the colour's rectangle, upscaled or not) and hands it to `record_look_pass` when rt_style is one of these
+(one marked hook). Shared: `vulkan_style_kit` (one pushed-descriptor layout, 128 bytes of push constants - each
+style's `LookConstants` -, a linear sampler, the full-screen triangle, the viewport's colour copied out / resolved,
+timing logged every 300 passes as `rt_style <style>: the passes take`). Each style has a processor twin
+(`vhs_reference`, `retro_reference`, `watercolour_paint` / `watercolour_reference`) fed the same constants.
+
+- **vhs** (`vulkan_style_vhs.cpp`, one full-screen pass): a tape line s = height / 480. Per pixel: the line shifted
+  sideways by a per-line jitter (a hash of the line and the frame - 30 a second of game time), a slow bend down the
+  picture and, inside a tracking band that rolls down the picture in the first 2.4 s of nine 9-second slots in ten, a
+  tear; the fisheye (barrel distortion: the source at c x (1 + k r^2) / (1 + k r_edge^2), k = 0.5 x
+  `rt_style_vhs_fisheye`, so the left / right edges' middles stay put, the centre is magnified and the corners go dark -
+  a vignette and a soft frame edge); the source read along the line - luma through a 5-tap soft kernel, YIQ's chroma
+  through a wide 7-tap one moved right (`rt_style_vhs_bleed`) and x `rt_style_vhs_saturation`; the tape's levels (black
+  lifted to 0.05, white at 0.95) and grain per tape cell; the camcorder's display (`rt_style_vhs_overlay`): a blinking
+  red dot + REC top left, SP and an h:mm:ss tape counter at the bottom, a 5 x 7 dot font of our own (white over a dark
+  shadow; it wobbles with the tape, not with the lens); scanlines between the tape's lines (faded out below 2 pixels a
+  line). Everything that moves follows `rt::ViewDrawn::game_seconds` (the game clock): a paused game holds the picture,
+  a demo video export renders each frame as the run plays (the clock is the run's).
+- **retro**: the geometry and a picture pass.
+  - *Geometry* - `VertexKey::retro` (one of the key's spare bytes; ff_key.h): set by `record_draw` on every 3D draw (not
+    pre-transformed) while `retro_geometry()` - the style is retro and a view's world is being drawn, from its
+    `view_begins` to its `world_drawn` (a listener of the style's own) - so the 2D after it and every other shader are
+    untouched: with the style off the generated GLSL is byte for byte as before (`thug2_ff_shader_check --dump`, the
+    whole key set with `--surface --motion`, against main's build: identical). The vertex shader (ff_shaders.cpp) moves
+    x / w, y / w toward the low-resolution grid's nearest corner (`VertexUniforms::retro`: the cells, snap 0 - 1) and
+    then scales the whole position by mix(1, 1 / w, affine). A positive factor leaves the point where it is on the
+    screen and its depth (x / w, y / w, z / w unchanged - the triangle covers the same pixels and clips the same way),
+    but the rasteriser's perspective correction divides by the new w: at 1 every attribute - texture coordinates,
+    colours, fog - is interpolated linearly on the screen (the affine "swimming" textures). The depth stays exact, so
+    the ray-traced effects (they read the depth) keep working under retro.
+  - *Picture* (`vulkan_style_retro.cpp`, one full-screen pass, integer arithmetic): `rt_style_retro_lines` rows of
+    square cells (the columns rounded to the aspect), each cell the source's pixel at its middle (point-sampled), each
+    channel brought to `rt_style_retro_bits` bits through a 4 x 4 ordered dither per cell (`rt_style_retro_dither`).
+- **watercolour** (`vulkan_style_watercolour.cpp`): (compute) the colour at half resolution; (compute) the paint - a
+  5 x 5 bilateral blur of it (taps `rt_style_watercolour_bleed` x 2 half pixels apart at 720 lines; colour weight
+  exp(-30 |d|^2)); (full-screen) the paint read at a place moved by a flow field (`_flow`: value noise fixed to the
+  screen, 48-pixel cells - the paper doesn't move with the camera, so nothing shimmers), its pigment density raised where
+  its lightness changes (the wet edge, `_edges`) and by the paper's grain (value noise at 2.5 and 14 pixels,
+  `_granulation`) - C' = C - (C - C^2)(d - 1) -, the highlights washed toward the paper's colour (`_paper`), and a
+  light graphite line along the paint's edges read from a place moved the other way (`_outlines`: drawn by hand, not
+  traced).
+- **Checked:** `thug2_vulkan_style_looks_check` (138 checks; the RTX 5070 Ti and the integrated Radeon (`--device 1`),
+  validation with synchronization validation 0): a 256 x 128 picture (noisy fields, a gradient, NaN / infinities) - each
+  style at its defaults, every knob up, every knob off at strength 0.6, an 8-bit target: every pixel within 3 steps of
+  its twin (largest 0.1 - 1.3 steps; the bad values' corner left out of the comparison - the device's filter over an
+  infinity - but every channel finite and 0 - 1 everywhere), alpha kept; the watercolour's paint within a step of its
+  twin; the vhs picture the same at the same game time and changed a second later, its REC blinking; retro flat 2 x 2
+  cells with at most 32 shades a channel; the watercolour calming the noise; a viewport changes nothing outside it bit
+  for bit; strength 0 records no pass; four samples (the resolve filtered, every sample written). The retro geometry:
+  a 3D floor quad (near z 2, far z 20, vertex colours red 0 near / 1 far) drawn through the fixed-function shaders -
+  off: rows and columns where the projection puts it, red half way down the screen 0.091 (perspective-correct, expected
+  0.091); retro: its corners on the 128 x 64 grid, red 0.487 (affine, ~0.5); retro with snap 0 and affine 0: as off.
+  `thug2_ff_shader_check --retro`: every non-pre-transformed vertex key again with the retro bit (3,948 added) - all
+  54,128 shaders compiled and validated by SPIRV-Tools, every module and 3,000 sampled pipelines accepted by the driver.
+  Cost on the RTX 5070 Ti at 2560 x 1440: vhs 0.20 - 0.31 ms, retro 0.08 ms, watercolour 0.20 - 0.31 ms (the check's
+  runs vary); the integrated Radeon 8 - 10 / 3.7 - 4.9 / 14 - 18 ms (the budget is checked on a discrete card only).
+- **In the game** (THUG2-2, the user's settings - ray tracing with every effect, HDR, DLSS Ray Reconstruction, 8x MSAA,
+  2560 x 1440 -, `rt_style` 4 / 5 / 6 in this branch's numbering): BO, AU, z_dt and the main menu each. The HUD stays
+  sharp in all three; the new front end's main menu draws no world view, so it is untouched. vhs: dark rounded fisheye
+  corners, soft luma, colour smeared right of the rails and signs, the counter running with the game clock, a tracking
+  band tearing a strip of lines; retro: 427 x 240 cells, dithered 15-bit colour, textures swimming on the big road and
+  stair polygons, the ray-traced shadows and reflections still on; watercolour: painted fields with dark rims, paper
+  grain in the sky, washed-out highlights, light pencil lines. The log's device times: vhs 0.18 - 0.48 ms, retro 0.20 ms
+  (the picture pass), watercolour 0.51 ms. The BO demo (perf_BO, 22 s) saved as a video with vhs on: 659 frames, the run
+  identical to the recording (1316 check points), the counter and band advancing frame by frame with the run's clock.
+
 ### Changing the settings while the game runs (the Options screen)
 
 `app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,

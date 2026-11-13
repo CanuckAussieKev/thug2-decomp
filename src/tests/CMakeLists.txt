@@ -203,6 +203,18 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_style_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_style_looks_check.exe: the vhs, retro and watercolour art styles
+# (gpu_vulkan/vulkan_style_looks.h) on this machine - a synthetic picture (noise, a gradient, not-a-number) filtered
+# through rt_scene's listener and compared with each style's processor twin; the vhs picture following the game clock,
+# the retro cells and palette, the watercolour's calm; a viewport (outside untouched), strength 0, an 8-bit and a
+# multisampled target; the retro geometry (snapped corners, affine colours) on a 3D quad drawn through the
+# fixed-function shaders; the cost at 2560x1440 (src/tests/vulkan_style_looks_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_style_looks_check vulkan_style_looks_check.cpp)
+    target_link_libraries(thug2_vulkan_style_looks_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_style_looks_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_upscale_check.exe: the Vulkan Gpu's upscaling (gpu_vulkan/vulkan_upscale.h) and its motion
 # vectors (gpu_vulkan/vulkan_motion.h) on this machine - the jitter sequence; every clear-cut pixel's motion of a still
 # ground, a moving quad, a skinned quad and the sky against the processor's reprojection; FSR (or DLSS with --dlss) on a

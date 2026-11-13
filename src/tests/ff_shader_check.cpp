@@ -4,6 +4,7 @@
 // SPIRV-Tools' validator (when the build has it: THUG2_SPIRV_VALIDATOR), and - unless --no-gpu - hands every module and
 // a pipeline for each sampled pair of shaders to a Vulkan driver (ff_shader_check_gpu.h).
 //   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion]
+//                         [--retro]
 // --surface (NOT ORIGINAL - rt_pbr): every pair that can be lit per pixel (ff_key.h kSurface*) added again with each
 // combination of the per-pixel lighting's bits (the map, lit by lights) - compiled, validated and made into pipelines
 // with the rest.
@@ -11,6 +12,9 @@
 // VertexKey::motion) - after --surface's, so the per-pixel lighting and the motion output meet in one shader. Compiled,
 // validated and handed to the driver as modules; not made into this check's pipelines (they have no motion attachment
 // or previous-position stream: thug2_vulkan_upscale_check draws with them).
+// --retro (NOT ORIGINAL - the retro art style, gpu_vulkan/vulkan_style_looks.h): every pair that isn't pre-transformed
+// added again with its vertex half's retro bit (ff_key.h VertexKey::retro: snapped, affine) - after --motion's, so
+// they meet too. Compiled, validated and made into pipelines with the rest (the retro variant needs nothing else).
 // --all-materials: every four-pass material shape, not a covering subset; --device: the physical device for the GPU
 // part (the context check's numbering); --pipelines: at most N pipelines (default: every sampled pair); --jobs: the
 // compiling threads (default 8); --dump: every generated shader's GLSL written into FOLDER (vNNNN.vert, fNNNN.frag).
@@ -71,6 +75,7 @@ struct Options {
     std::string dump;
     bool surface = false;
     bool motion = false;
+    bool retro = false;
 };
 
 Options read_options(std::span<char*> arguments)
@@ -83,6 +88,8 @@ Options read_options(std::span<char*> arguments)
             options.surface = true;
         } else if (argument == "--motion") {
             options.motion = true;
+        } else if (argument == "--retro") {
+            options.retro = true;
         } else if (argument == "--all-materials") {
             options.all_materials = true;
         } else if (argument == "--no-gpu") {
@@ -284,6 +291,35 @@ void add_motion_keys(ff_check::KeySets& sets)
     text::print("motion: %u fragment keys with motion vectors added (modules only)\n", static_cast<unsigned>(added));
 }
 
+// (NOT ORIGINAL - the retro art style) Each pair again with its vertex half's retro bit, where the key takes it (not
+// pre-transformed); the vertex keys with motion too.
+void add_retro_keys(ff_check::KeySets& sets)
+{
+    std::size_t added = 0;
+    const std::vector<ShaderKey> pairs = sets.pairs;
+    for (const ShaderKey& pair : pairs) {
+        ShaderKey key = pair;
+        key.vertex.retro = 1;
+        key = render::vulkan::normalised(key);
+        if (key.vertex.retro == 0) {
+            continue;
+        }
+        if (sets.vertex.insert(key.vertex).second) {
+            ++added;
+        }
+        sets.pairs.push_back(key);
+    }
+    for (VertexKey key : std::vector<VertexKey>(sets.vertex.begin(), sets.vertex.end())) {
+        if (key.motion != 0U && key.retro == 0U) {
+            key.retro = 1;
+            if (sets.vertex.insert(key).second) { // (motion keys are never pre-transformed)
+                ++added;
+            }
+        }
+    }
+    text::print("retro: %u vertex keys snapped and affine added\n", static_cast<unsigned>(added));
+}
+
 int run(const Options& options)
 {
     text::print("thug2_ff_shader_check: a %d-bit process, SPIR-V validator %s\n",
@@ -295,6 +331,9 @@ int run(const Options& options)
     }
     if (options.motion) {
         add_motion_keys(sets);
+    }
+    if (options.retro) {
+        add_retro_keys(sets);
     }
     text::print("model: %u sites, %u stage states reached, %u keys made, %u unsupported -> %u vertex keys, %u fragment "
                 "keys, %u sampled pairs (%.1f s)\n",

@@ -430,6 +430,24 @@ for the restart
 | `rt_style_outlines` | 1 | With `rt_style`: how dark the ink lines are (0: none). They thin out into the distance; the sky has none |
 | `rt_style_outline_width` | 1 | With `rt_style`: how thick the ink lines are (pixels of a 720-line picture, scaled with the window) |
 | `rt_style_saturation` | 1.15 | With `rt_style`: how strong the colours are (1 as they are) |
+| `rt_style_vhs_fisheye` | 0.35 | With `rt_style=vhs` (a 90s camcorder skate video): how much the fisheye lens bends the picture and darkens its corners (0-1; 0: a flat lens) |
+| `rt_style_vhs_bleed` | 1 | With `rt_style=vhs`: how far colour smears and fringes to the right of edges (0-2) |
+| `rt_style_vhs_wobble` | 1 | With `rt_style=vhs`: the tape's line jitter, slow bend and the tracking band that rolls down now and then (0-2) |
+| `rt_style_vhs_noise` | 1 | With `rt_style=vhs`: the tape's grain (0-2) |
+| `rt_style_vhs_scanlines` | 0.5 | With `rt_style=vhs`: dark lines between the tape's 480 lines (0-1; they fade out in small windows) |
+| `rt_style_vhs_saturation` | 0.7 | With `rt_style=vhs`: how strong the tape's colours are (0-2) |
+| `rt_style_vhs_overlay` | 1 | With `rt_style=vhs`: the camcorder's display - a blinking REC and a tape counter running with the game's clock (0: none). The game's own HUD is never filtered |
+| `rt_style_retro_lines` | 240 | With `rt_style=retro` (a 32-bit console's look): the low-resolution picture's rows (60-720; square pixels) |
+| `rt_style_retro_bits` | 5 | With `rt_style=retro`: bits a colour channel (2-8; 5 is 15-bit colour) |
+| `rt_style_retro_dither` | 1 | With `rt_style=retro`: the ordered dither between the few colours (0-1) |
+| `rt_style_retro_snap` | 1 | With `rt_style=retro`: how far the world's vertices jump to the low-resolution grid - the wobbling polygons (0-1) |
+| `rt_style_retro_affine` | 1 | With `rt_style=retro`: how much textures and shading warp across polygons as they did without perspective correction (0-1) |
+| `rt_style_watercolour_bleed` | 1 | With `rt_style=watercolour` (a wash painting on paper): how far the paint runs within each colour region (0-2) |
+| `rt_style_watercolour_flow` | 1 | With `rt_style=watercolour`: how far the paint strays from the shapes, as if painted by hand (0-2) |
+| `rt_style_watercolour_granulation` | 1 | With `rt_style=watercolour`: the pigment settling in the paper's grain (0-2) |
+| `rt_style_watercolour_edges` | 1 | With `rt_style=watercolour`: the dark rims where colour regions meet (0-2) |
+| `rt_style_watercolour_paper` | 0.6 | With `rt_style=watercolour`: bright parts washed out to the paper's colour (0-1) |
+| `rt_style_watercolour_outlines` | 0.35 | With `rt_style=watercolour`: a light pencil line along the paint's edges (0-1) |
 
 **`[Miscellaneous]`** - from PartyMod
 

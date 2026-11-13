@@ -32,6 +32,7 @@
 #include "gpu_d3d9/gpu_d3d9.h"
 #ifdef THUG2_VULKAN
 #include "gpu_vulkan/gpu_vulkan.h"
+#include "gpu_vulkan/style_looks_settings.h"
 #endif
 
 namespace app {
@@ -406,6 +407,35 @@ void read_rt_pbr()
          .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true)});
 }
 
+// NOT ORIGINAL - the vhs, retro and watercolour art styles' knobs (gpu_vulkan/vulkan_style_looks.h), with rt_style as the
+// toon's reading set it (the retro geometry is on with it)
+void read_style_looks()
+{
+    const render::vulkan::VhsSettings vhs;
+    const render::vulkan::RetroSettings retro;
+    const render::vulkan::WatercolourSettings watercolour;
+    render::vulkan::set_look_settings(
+        {.style = render::vulkan::style_settings().style,
+         .vhs = {.fisheye = ini_float("rt_style_vhs_fisheye", vhs.fisheye),
+                 .bleed = ini_float("rt_style_vhs_bleed", vhs.bleed),
+                 .wobble = ini_float("rt_style_vhs_wobble", vhs.wobble),
+                 .noise = ini_float("rt_style_vhs_noise", vhs.noise),
+                 .scanlines = ini_float("rt_style_vhs_scanlines", vhs.scanlines),
+                 .saturation = ini_float("rt_style_vhs_saturation", vhs.saturation),
+                 .overlay = build_info::fetch_flag(build_info::kGraphics, "rt_style_vhs_overlay", vhs.overlay)},
+         .retro = {.lines = ini_float("rt_style_retro_lines", retro.lines),
+                   .bits = ini_float("rt_style_retro_bits", retro.bits),
+                   .dither = ini_float("rt_style_retro_dither", retro.dither),
+                   .snap = ini_float("rt_style_retro_snap", retro.snap),
+                   .affine = ini_float("rt_style_retro_affine", retro.affine)},
+         .watercolour = {.bleed = ini_float("rt_style_watercolour_bleed", watercolour.bleed),
+                         .flow = ini_float("rt_style_watercolour_flow", watercolour.flow),
+                         .granulation = ini_float("rt_style_watercolour_granulation", watercolour.granulation),
+                         .edges = ini_float("rt_style_watercolour_edges", watercolour.edges),
+                         .paper = ini_float("rt_style_watercolour_paper", watercolour.paper),
+                         .outlines = ini_float("rt_style_watercolour_outlines", watercolour.outlines)}});
+}
+
 // NOT ORIGINAL - an art style, the toon filter (gpu_vulkan/vulkan_style.h): off unless asked for; no ray tracing or HDR
 // needed
 void read_style()
@@ -419,6 +449,7 @@ void read_style()
          .outlines = ini_float("rt_style_outlines", defaults.outlines),
          .outline_width = ini_float("rt_style_outline_width", defaults.outline_width),
          .saturation = ini_float("rt_style_saturation", defaults.saturation)});
+    read_style_looks();
 }
 
 // The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting

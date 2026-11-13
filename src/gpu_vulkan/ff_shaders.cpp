@@ -67,6 +67,9 @@ void vertex_declarations(std::string& out, const VertexKey& key)
         add(out, {"    vec4 ", name, "[", num(kMaxLights), "];"});
     }
     add(out, {"    mat4 previous_clip;\n    vec4 motion_jitter;"});
+    if (key.retro != 0U) {
+        add(out, {"    vec4 retro;"}); // (NOT ORIGINAL - the retro art style: VertexUniforms::retro)
+    }
     add(out, {"} u;"});
     const bool pre_transformed = fvf_pre_transformed(key.fvf);
     add(out, {"layout(location = ", num(kPositionLocation), ") in ", pre_transformed ? "vec4" : "vec3", " a_position;"});
@@ -149,6 +152,21 @@ void vertex_position(std::string& out, const VertexKey& key)
     add(out, {"    vec4 eye = u.world_view * vec4(a_position, 1.0);"});
     add(out, {"    vec4 clip = u.projection * eye;"});
     add(out, {"    gl_Position = vec4(clip.x + clip.w * u.pixel.x, -clip.y + clip.w * u.pixel.y, clip.z, clip.w);"});
+    if (key.retro != 0U) {
+        // (NOT ORIGINAL - the retro art style, vulkan_style_looks.h) A position in front of the camera: its x, y on the
+        // screen moved toward the low-resolution grid's nearest corner (u.retro.xy cells), then the whole position
+        // scaled by a positive factor, mix(1, 1 / w, u.retro.w). A positive factor leaves the point where it is on the
+        // screen and its depth (x / w, y / w, z / w unchanged: the triangle covers the same pixels, clipped the same
+        // way), but the rasteriser's perspective correction divides by the new w: at 1 every attribute - the texture
+        // coordinates, the colours, the fog - is interpolated linearly across the screen (affine mapping).
+        add(out, {"    if (gl_Position.w > 0.0) {"});
+        add(out, {"        vec2 ndc = gl_Position.xy / gl_Position.w;"});
+        add(out, {"        vec2 snapped = round((ndc * 0.5 + 0.5) * u.retro.xy) / u.retro.xy * 2.0 - 1.0;"});
+        add(out, {"        ndc = mix(ndc, snapped, u.retro.z);"});
+        add(out, {"        gl_Position = vec4(ndc * gl_Position.w, gl_Position.zw) * mix(1.0, 1.0 / gl_Position.w, "
+                  "u.retro.w);"});
+        add(out, {"    }"});
+    }
     if (key.motion != 0U) {
         // (Direct3D's clip space both: this frame's without its jitter, the frame before's from its own position)
         add(out, {"    v_motion_now = vec4(clip.xy - u.motion_jitter.xy * clip.w, 0.0, clip.w);"});

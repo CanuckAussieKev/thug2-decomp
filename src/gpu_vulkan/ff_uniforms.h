@@ -66,6 +66,10 @@ struct VertexUniforms {
     // space (x, y: what was added to x / w and y / w) - taken out of this frame's position for the motion.
     Float4x4 previous_clip{};
     Float4 motion_jitter{};
+    // (NOT ORIGINAL - the retro art style, vulkan_style_looks.h; read with VertexKey::retro) x, y: the low-resolution
+    // grid's cells across and down the viewport; z: how far a position moves to the grid's nearest corner (0 - 1); w: how
+    // affine the interpolation is (0: perspective-correct, 1: linear on the screen).
+    Float4 retro{};
 };
 
 constexpr std::size_t kPixelShaderConstants = 8;
@@ -102,7 +106,7 @@ static_assert(offsetof(VertexUniforms, light_direction) == offsetof(VertexUnifor
               "std140: vectors are 16 bytes");
 static_assert(offsetof(VertexUniforms, previous_clip) == offsetof(VertexUniforms, light_direction) + (4 * kMaxLights * kVectorBytes),
               "std140: no padding");
-static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, previous_clip) + kMatrixBytes + kVectorBytes,
+static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, previous_clip) + kMatrixBytes + (2 * kVectorBytes),
               "std140: no padding");
 static_assert(sizeof(FragmentUniforms) == kFragmentVectors * kVectorBytes, "std140: no padding");
 constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 6;

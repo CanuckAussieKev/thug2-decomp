@@ -22,6 +22,7 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_style_looks.h" // (NOT ORIGINAL hook: the vhs, retro and watercolour styles)
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "platform/run_log.h"
 
@@ -1485,6 +1486,12 @@ bool record_style_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     ViewPlan plan;
+    // NOT ORIGINAL hook - the vhs, retro and watercolour styles: their own passes over the planned colour
+    // (vulkan_style_looks.h)
+    if (is_look(own.settings.style)) {
+        return plan_view(state, view, &plan) &&
+               record_look_pass(state, view, own.settings, {.colour = plan.colour, .shown = plan.shown});
+    }
     VkPipeline composite = VK_NULL_HANDLE;
     if (!plan_view(state, view, &plan) || !ensure_pass_objects(state, plan, &composite)) {
         return false;
