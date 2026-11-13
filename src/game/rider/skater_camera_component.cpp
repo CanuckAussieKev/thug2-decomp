@@ -5,6 +5,7 @@
 // to float only where the original stores them.
 
 #include "game/rider/skater_camera_component.h"
+#include "base/core/compiler.h"
 #include "game/rider/physics_control.h"
 
 #include <bit>
@@ -230,7 +231,8 @@ RiderChaseView::ZoomOffsets RiderChaseView::get_zoomed_offsets()
 }
 
 // 0x004FA3C0
-void RiderChaseView::bind_rider(GameEntity* skater)
+// (never inlined: inlined into configure_from_data it stops MSVC 14.51 with an internal compiler error at /Ob2)
+THUG2_NOINLINE void RiderChaseView::bind_rider(GameEntity* skater)
 {
     rider_ref_ = skater;
     if (!skater) {

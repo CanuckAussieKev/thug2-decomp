@@ -37,6 +37,23 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # editor's std::string and std::vector cross between them). A Release build copies the runtime's DLLs next to the exe
 # (src/app/CMakeLists.txt); a Debug build uses the debug runtime Visual Studio installs.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+# The optimised build's inlining and linking (MSVC; frame times: tools/game/frame_bench.ts). CMake's RelWithDebInfo
+# defaults are /Ob1 - only functions marked inline are expanded, so the small helpers (an anonymous namespace's
+# accessors, a matrix's elements, core::at's callers) stayed calls in the hot loops - and an incremental link (jump
+# thunks, no /OPT:REF). The game's release build is RelWithDebInfo (CMakePresets.json): /Ob2 and a full link instead.
+if(MSVC)
+    foreach(language C CXX)
+        string(REPLACE "/Ob1" "/Ob2" CMAKE_${language}_FLAGS_RELWITHDEBINFO "${CMAKE_${language}_FLAGS_RELWITHDEBINFO}")
+    endforeach()
+    # (the exe's unreferenced functions dropped; a plugin keeps all of its own - tools/plugin_api.ts counts the engine
+    # functions its code imports, called or not)
+    string(REGEX REPLACE "/INCREMENTAL($| )" "/INCREMENTAL:NO /OPT:REF\\1" CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
+           "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}")
+    foreach(kind SHARED MODULE)
+        string(REGEX REPLACE "/INCREMENTAL($| )" "/INCREMENTAL:NO\\1" CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO
+               "${CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO}")
+    endforeach()
+endif()
 
 set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH
     "The game folder of a THUG2 install (its Data folder) the built exe is copied into, if it exists (an install root steps into its Game folder)")
