@@ -251,6 +251,7 @@ void install_vulkan()
              .quality = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_cloud_quality", 1))),
              .cloud_shadows = build_info::fetch_flag(build_info::kGraphics, "rt_cloud_shadows", false),
              .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false)});
+    }
     // NOT ORIGINAL - upscaling (gpu_vulkan/vulkan_upscale.h): off unless asked for; DLSS / FSR from beside the exe
     {
         constexpr std::size_t kLongest = 32;
