@@ -52,6 +52,7 @@
 #include "render_pc/texture_splats.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
+#include "engine/sys/game_clock.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/gfx/engine_glue.h"
 #include "render_pc/pc_engine.h"
@@ -648,6 +649,9 @@ rt::ViewDrawn view_drawn(int index)
                        static_cast<float>(fog_colour & kByte) * kPerByte};
     // (the game's own bloom: drawn over the frame by the screen effects - a listener's bloom leaves the frame's light alone)
     view.game_bloom = effects_state().bloom_on() != 0U && renderer().shaders_available();
+    // (the game clock: what moves with the game - a backend's clouds - follows it)
+    constexpr double kSecondsPerMillisecond = 0.001;
+    view.game_seconds = static_cast<double>(frame_clock::game_clock_time()) * kSecondsPerMillisecond;
     return view;
 }
 
@@ -791,6 +795,13 @@ void draw_viewport(int index)
     clear_world_transform();
     rt_record::set_world_passes(false); // (not original: not the sky's)
 
+    // Not original - a sky drawn by the renderer (rt_scene.h sky_replacement: the Vulkan Gpu's rt_sky): the listeners
+    // get the world's camera, as at opaque_drawn. Original behaviour: nothing.
+    const rt::SkyReplacement sky_replacement = rt::sky_replacement();
+    const bool sky_replaced = sky_replacement.on && rt::view_listened();
+    const rt::ViewDrawn sky_view = sky_replaced ? view_drawn(index) : rt::ViewDrawn{};
+    bool sky_told = false;
+
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
         const maths::Vec4 origin = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -820,7 +831,21 @@ void draw_viewport(int index)
         const uint32_t mip_filter = get_sampler_state(0, 7);
         set_sampler_state(0, kSamplerMinFilter, 2); // linear
         set_sampler_state(0, kSamplerMipFilter, 0); // no mipmaps
-        draw_scene_group(scene, 3, index);
+        // Not original - a sky drawn by the renderer: the backdrop (the sky scene's opaque meshes), the listeners told
+        // once, then the layers (its transparent meshes) only when they are kept. Original behaviour: both passes in
+        // one call (3).
+        if (sky_replaced) {
+            draw_scene_group(scene, kRenderOpaque, index);
+            if (!sky_told) {
+                sky_told = true;
+                rt::sky_view_drawn(sky_view);
+            }
+            if (sky_replacement.keep_layers) {
+                draw_scene_group(scene, kRenderTransparent, index);
+            }
+        } else {
+            draw_scene_group(scene, kRenderOpaque | kRenderTransparent, index);
+        }
         set_sampler_state(0, kSamplerMipFilter, mip_filter);
         set_sampler_state(0, kSamplerMinFilter, min_filter);
     });
@@ -878,6 +903,138 @@ void draw_viewport(int index)
     update_glows(false);
     engine::draw_flashes(index, 0);
     note_world_drawn(index);
+}
+
+// Not original - the sky scene's backdrop captured for a renderer that draws its own sky (rt_scene.h
+// sky_capture_wanted: the Vulkan Gpu's rt_sky matches its atmosphere and clouds to the level's own sky): once per sky
+// scene, its opaque meshes drawn from the origin toward each of rt::kSkyCaptureFaces (a 90-degree square view) into a
+// texture of 3 x 2 faces, cleared to the background colour first, then handed over (rt::set_sky_capture).
+constexpr uint32_t kSkyCaptureFaceSize = 128;
+constexpr uint32_t kSkyCaptureColumns = 3;
+constexpr uint32_t kSkyCaptureRows = 2;
+constexpr float kSkyCaptureAngle = 90.0F;   // degrees across a face
+constexpr float kSkyCaptureAspect = 1.1F;   // (choose_camera's aspect that makes the view square: 1 / kAspectScale)
+struct SkyCaptureState {
+    GpuTexture* texture = nullptr;
+    const PcScene* scene = nullptr;
+    uint32_t checksum = 0;
+    uint64_t serial = 0;
+    bool failed = false;
+};
+SkyCaptureState& sky_capture_state()
+{
+    static SkyCaptureState state;
+    return state;
+}
+
+void capture_sky()
+{
+    SkyCaptureState& own = sky_capture_state();
+    if (own.failed || !rt::sky_capture_wanted()) {
+        return;
+    }
+    PcScene* sky = nullptr;
+    for_each_scene([&](PcScene* scene) {
+        if (scene->is_sky() && sky == nullptr) {
+            sky = scene;
+        }
+    });
+    if (sky == nullptr || (sky == own.scene && sky->checksum() == own.checksum)) {
+        return;
+    }
+    GpuTexture* texture = nullptr;
+    if (gpu().create_texture({.width = kSkyCaptureFaceSize * kSkyCaptureColumns,
+                              .height = kSkyCaptureFaceSize * kSkyCaptureRows,
+                              .levels = 1,
+                              .usage = gpu_value::kUsageRenderTarget,
+                              .format = gpu_value::kFormatA8R8G8B8,
+                              .pool = gpu_value::kPoolDefault},
+                             &texture) != gpu_value::kResultOk ||
+        texture == nullptr) {
+        own.failed = true;
+        get_log("sky: the sky's capture texture couldn't be made - the renderer's sky not matched to the level's");
+        return;
+    }
+    GpuSurface* surface = nullptr;
+    if (gpu().texture_surface(texture, 0, &surface) != gpu_value::kResultOk || surface == nullptr) {
+        gpu().release_texture(texture);
+        own.failed = true;
+        return;
+    }
+    GpuSurface* saved_target = nullptr;
+    GpuSurface* saved_depth = nullptr;
+    gpu().render_target(0, &saved_target);
+    gpu().depth_surface(&saved_depth);
+    const bool fog = renderer().fog_active() != 0;
+    change_fog(false);
+    gpu().set_render_target(0, surface);
+    gpu().set_depth_surface(nullptr);
+    gpu().set_viewport({.x = 0,
+                        .y = 0,
+                        .width = kSkyCaptureFaceSize * kSkyCaptureColumns,
+                        .height = kSkyCaptureFaceSize * kSkyCaptureRows,
+                        .min_z = 0.0F,
+                        .max_z = 1.0F});
+    const uint32_t background = renderer().render_camera().background_colour_;
+    gpu().clear(0, nullptr, gpu_value::kClearTarget, background, 1.0F, 0);
+    set_render_state(RenderStateId::kZWrite, 0);
+    set_render_state(RenderStateId::kZTest, 0);
+    const uint32_t min_filter = get_sampler_state(0, kSamplerMinFilter);
+    const uint32_t mip_filter = get_sampler_state(0, kSamplerMipFilter);
+    set_sampler_state(0, kSamplerMinFilter, 2); // linear (as the sky pass)
+    set_sampler_state(0, kSamplerMipFilter, 0); // no mipmaps
+    const maths::Vec4 origin = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    for (std::size_t face = 0; face < rt::kSkyCaptureFaces.size(); ++face) {
+        const rt::SkyCaptureFace& side = core::at(rt::kSkyCaptureFaces, face);
+        const auto [fx, fy, fz] = side.forward;
+        const auto [ux, uy, uz] = side.up;
+        // (choose_camera reads the up row and the backward row)
+        const maths::Mat4 orientation{{{{.x = (uy * -fz) - (uz * -fy), .y = (uz * -fx) - (ux * -fz), .z = (ux * -fy) - (uy * -fx), .w = 0.0F},
+                                        {.x = ux, .y = uy, .z = uz, .w = 0.0F},
+                                        {.x = -fx, .y = -fy, .z = -fz, .w = 0.0F},
+                                        {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}}}};
+        gpu().set_viewport({.x = static_cast<uint32_t>(face % kSkyCaptureColumns) * kSkyCaptureFaceSize,
+                            .y = static_cast<uint32_t>(face / kSkyCaptureColumns) * kSkyCaptureFaceSize,
+                            .width = kSkyCaptureFaceSize,
+                            .height = kSkyCaptureFaceSize,
+                            .min_z = 0.0F,
+                            .max_z = 1.0F});
+        stored_near_z() = kDefaultNearZ;
+        choose_camera(&orientation, &origin, {.angle = kSkyCaptureAngle, .aspect = kSkyCaptureAspect, .zoom = 1.0F},
+                      true);
+        draw_scene_group(sky, kRenderOpaque | kRenderNoCulling, 0);
+    }
+    set_sampler_state(0, kSamplerMipFilter, mip_filter);
+    set_sampler_state(0, kSamplerMinFilter, min_filter);
+    set_render_state(RenderStateId::kZWrite, 1);
+    set_render_state(RenderStateId::kZTest, 1);
+    gpu().set_render_target(0, saved_target);
+    gpu().set_depth_surface(saved_depth);
+    for (GpuSurface* held : {saved_target, saved_depth, surface}) {
+        if (held != nullptr) {
+            gpu().release_surface(held);
+        }
+    }
+    set_viewport();
+    change_fog(fog);
+    constexpr uint32_t kByte = 0xFF;
+    constexpr float kPerByte = 1.0F / 255.0F;
+    constexpr uint32_t kRedShift = 16;
+    constexpr uint32_t kGreenShift = 8;
+    rt::set_sky_capture({.texture = texture,
+                         .face_size = kSkyCaptureFaceSize,
+                         .serial = ++own.serial,
+                         .scene = sky->checksum(),
+                         .clear = {static_cast<float>((background >> kRedShift) & kByte) * kPerByte,
+                                   static_cast<float>((background >> kGreenShift) & kByte) * kPerByte,
+                                   static_cast<float>(background & kByte) * kPerByte}});
+    if (own.texture != nullptr) {
+        gpu().release_texture(own.texture);
+    }
+    own.texture = texture;
+    own.scene = sky;
+    own.checksum = sky->checksum();
+    get_log("sky: the level's sky backdrop captured (scene %08x) for the renderer's sky", sky->checksum());
 }
 
 // Not original - the split views (ext::view_count; the level editor's): the first viewport drawn once for each view,
@@ -948,6 +1105,9 @@ void draw_world()
         set_render_state(RenderStateId::kZWrite, 1);
         set_render_state(RenderStateId::kZTest, 1);
         render_shadow_textures();
+        // Not original - the sky's backdrop captured once per sky scene for a renderer that draws its own sky
+        // (capture_sky). Original behaviour: nothing.
+        capture_sky();
         begin_screen_effects();
         const int count = modules::viewport_count();
         // Not original - an extension's split views (the level editor's: draw_views). Original behaviour: each

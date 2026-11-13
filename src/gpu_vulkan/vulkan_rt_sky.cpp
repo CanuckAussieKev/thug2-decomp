@@ -38,14 +38,21 @@ constexpr double kDegreesPerRadian = 57.29577951308232;
 constexpr rt::SkySteps kColourSteps{.view = 128, .light = 64}; // the processor's zenith colour (sky_colours)
 
 // The table's pass: rt_sky.h's integrals, few steps (the processor's are the reference).
-constexpr const char* kTableBody = R"(
+constexpr const char* kTableHeader = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 0, rgba16f) uniform writeonly image2D o_table;
 layout(push_constant) uniform Sky {
-    vec4 sun;    // xyz the model's sun (cos e, sin e, 0); w the exposure
-    ivec4 steps; // x segments along a view ray, y along a ray toward the sun
+    vec4 sun;      // xyz the model's sun (cos e, sin e, 0); w the exposure
+    ivec4 steps;   // x segments along a view ray, y along a ray toward the sun
+    vec4 view_sun; // (added by the sky) xyz the drawn sky's sun (world); w 1: the rows are read from its sky-view table
 } sky;
+#ifdef FROM_SKY_VIEW
+layout(set = 0, binding = 1) uniform sampler2D u_view;
+#endif
+)";
 
+// rt_sky.h's model as GLSL functions (the table's and the atmosphere's passes).
+constexpr const char* kModelFunctions = R"(
 const float PI = 3.14159265358979;
 
 float ray_length(vec3 o, vec3 d, out bool ground)
@@ -95,7 +102,9 @@ bool depth_to_top(vec3 o, vec3 d, int steps, out vec2 depth)
 }
 
 vec3 viewer() { return vec3(0.0, GROUND + VIEWER_ALTITUDE, 0.0); }
+)";
 
+constexpr const char* kTableMain = R"(
 vec3 transmittance(vec3 d)
 {
     vec2 depth;
@@ -147,7 +156,16 @@ void main()
         float azimuth = u * PI;
         float elevation = LOWEST + v * v * (0.5 * PI - LOWEST);
         vec3 view = vec3(cos(elevation) * cos(azimuth), sin(elevation), cos(elevation) * sin(azimuth));
+#ifdef FROM_SKY_VIEW
+        // (added by the sky) the drawn sky's colour there: its sky-view table (rt_sky.h's sky_view_uv)
+        float e = asin(clamp(view.y, -1.0, 1.0));
+        vec2 at = vec2(sqrt(azimuth / PI), 0.5 + 0.5 * sign(e) * sqrt(abs(e) / (0.5 * PI)));
+        value.rgb = max(textureLod(u_view, at, 0.0).rgb, vec3(0.0));
+#else
         value.rgb = radiance(view, sun) * sky.sun.w;
+#endif
+    } else if (q.x == 3) {
+        value = sky.view_sun; // (added by the sky: w 0 - the rows are the model's for the lighting sun)
     } else if (q.x == 0) {
         value.rgb = transmittance(sun);
     } else if (q.x == 1) {
@@ -163,12 +181,255 @@ void main()
 }
 )";
 
+// --- (added by the sky) the atmosphere's three tables (rt_sky.h's multiple scattering) -------------------------------
+
+// What they share: their push constants, the bindings (0 the table written, 1 the transmittance, 2 Psi), the reads.
+constexpr const char* kAtmosphereHeader = R"(
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 0, rgba16f) uniform writeonly image2D o_out;
+layout(set = 0, binding = 1) uniform sampler2D u_transmittance;
+layout(set = 0, binding = 2) uniform sampler2D u_multiple;
+layout(push_constant) uniform Atmosphere {
+    vec4 sun;        // xyz the model's sun (cos e, sin e, 0); w the exposure
+    vec4 gains[3];   // the horizon's, half way up's, overhead's gains (rgb); w its elevation (radians)
+    vec4 ground;     // rgb the ground's colour (exposed linear); w how far it replaces the model's below the horizon
+} atmosphere;
+)";
+
+constexpr const char* kAtmosphereReads = R"(
+const float SPAN = sqrt(TOP * TOP - GROUND * GROUND);
+
+// The transmittance table at (r, mu) - Bruneton's mapping (rt_sky.h transmittance_lut_uv).
+vec3 transmittance_lut(float r, float mu)
+{
+    float rho = sqrt(max(r * r - GROUND * GROUND, 0.0));
+    float d = max(0.0, -r * mu + sqrt(max(r * r * (mu * mu - 1.0) + TOP * TOP, 0.0)));
+    float d_min = TOP - r;
+    float d_max = rho + SPAN;
+    float x_mu = d_max > d_min ? (d - d_min) / (d_max - d_min) : 0.0;
+    vec2 uv = vec2(0.5 / float(TRANS_W) + clamp(x_mu, 0.0, 1.0) * (1.0 - 1.0 / float(TRANS_W)),
+                   0.5 / float(TRANS_H) + clamp(rho / SPAN, 0.0, 1.0) * (1.0 - 1.0 / float(TRANS_H)));
+    return textureLod(u_transmittance, uv, 0.0).rgb;
+}
+
+// The sun's transmittance from p (from the planet's centre) toward `sun` (0 when the ground is in the way).
+vec3 sun_seen_from(vec3 p, vec3 sun)
+{
+    float r = length(p);
+    float mu = dot(p, sun) / r;
+    if (mu < 0.0 && r * r * (mu * mu - 1.0) + GROUND * GROUND >= 0.0) {
+        return vec3(0.0);
+    }
+    return transmittance_lut(r, mu);
+}
+
+// Psi at p for the sun along `sun` (rt_sky.h multiple_from_table)
+vec3 multiple_at(vec3 p, vec3 sun)
+{
+    float r = length(p);
+    vec2 uv = vec2(dot(p, sun) / r * 0.5 + 0.5, clamp((r - GROUND) / (TOP - GROUND), 0.0, 1.0));
+    return textureLod(u_multiple, uv, 0.0).rgb;
+}
+)";
+
+// 1. The transmittance table (rt_sky.h transmittance_lut_point / transmittance_to_top).
+constexpr const char* kTransmittanceMain = R"(
+void main()
+{
+    ivec2 q = ivec2(gl_GlobalInvocationID.xy);
+    if (q.x >= TRANS_W || q.y >= TRANS_H) {
+        return;
+    }
+    float u = (float(q.x) + 0.5) / float(TRANS_W);
+    float v = (float(q.y) + 0.5) / float(TRANS_H);
+    float x_mu = clamp((u - 0.5 / float(TRANS_W)) / (1.0 - 1.0 / float(TRANS_W)), 0.0, 1.0);
+    float x_r = clamp((v - 0.5 / float(TRANS_H)) / (1.0 - 1.0 / float(TRANS_H)), 0.0, 1.0);
+    float rho = SPAN * x_r;
+    float r = sqrt(rho * rho + GROUND * GROUND);
+    float d_min = TOP - r;
+    float d_max = rho + SPAN;
+    float d = d_min + x_mu * (d_max - d_min);
+    float mu = d <= 0.0 ? 1.0 : clamp((SPAN * SPAN - rho * rho - d * d) / (2.0 * r * d), -1.0, 1.0);
+    vec3 o = vec3(0.0, r, 0.0);
+    vec3 dir = vec3(sqrt(max(0.0, 1.0 - mu * mu)), mu, 0.0);
+    float ds = d / float(TRANS_STEPS);
+    vec2 depth = vec2(0.0);
+    for (int i = 0; i < TRANS_STEPS; ++i) {
+        depth += densities(o + dir * ((float(i) + 0.5) * ds)) * ds;
+    }
+    imageStore(o_out, q, vec4(exp(-extinction(depth)), 1.0));
+}
+)";
+
+// 2. Psi (rt_sky.h multiple_scattering; the sun's transmittance from the table).
+constexpr const char* kMultipleMain = R"(
+void main()
+{
+    ivec2 q = ivec2(gl_GlobalInvocationID.xy);
+    if (q.x >= MS_W || q.y >= MS_H) {
+        return;
+    }
+    float cos_sun = ((float(q.x) + 0.5) / float(MS_W)) * 2.0 - 1.0;
+    float altitude = (float(q.y) + 0.5) / float(MS_H) * (TOP - GROUND);
+    vec3 o = vec3(0.0, GROUND + altitude, 0.0);
+    vec3 sun = vec3(sqrt(max(0.0, 1.0 - cos_sun * cos_sun)), cos_sun, 0.0);
+    vec3 second = vec3(0.0);
+    vec3 transfer = vec3(0.0);
+    for (int i = 0; i < MS_SIDE; ++i) {
+        float cos_theta = 1.0 - 2.0 * (float(i) + 0.5) / float(MS_SIDE);
+        float sin_theta = sqrt(max(0.0, 1.0 - cos_theta * cos_theta));
+        for (int j = 0; j < MS_SIDE; ++j) {
+            float phi = 2.0 * PI * (float(j) + 0.5) / float(MS_SIDE);
+            vec3 w = vec3(sin_theta * cos(phi), cos_theta, sin_theta * sin(phi));
+            bool ground;
+            float len = ray_length(o, w, ground);
+            float ds = len / float(MS_STEPS);
+            vec3 throughput = vec3(1.0);
+            for (int k = 0; k < MS_STEPS; ++k) {
+                vec3 p = o + w * ((float(k) + 0.5) * ds);
+                vec2 here = densities(p);
+                vec3 sigma_s = RAYLEIGH * here.x + vec3(MIE_SCATTERING * here.y);
+                vec3 sigma_t = extinction(here);
+                vec3 kept = exp(-sigma_t * ds);
+                vec3 integral = (1.0 - kept) / max(sigma_t, vec3(1e-30));
+                second += throughput * sigma_s * sun_seen_from(p, sun) * (1.0 / (4.0 * PI)) * integral;
+                transfer += throughput * sigma_s * integral;
+                throughput *= kept;
+            }
+            if (ground) {
+                vec3 g = o + w * len;
+                float up = dot(g, sun) / max(length(g), 1.0);
+                second += throughput * sun_seen_from(g, sun) * max(up, 0.0) * GROUND_ALBEDO / PI;
+            }
+        }
+    }
+    float directions = float(MS_SIDE * MS_SIDE);
+    vec3 psi = (second / directions) / max(vec3(1.0) - transfer / directions, vec3(1e-6));
+    imageStore(o_out, q, vec4(psi, 1.0));
+}
+)";
+
+// 3. The sky seen from the viewer (rt_sky.h sky_radiance_ms x the exposure), matched to the level (the gains, the
+// ground's colour below the horizon).
+constexpr const char* kSkyViewMain = R"(
+vec3 radiance_ms(vec3 view, vec3 sun)
+{
+    bool ground;
+    vec3 o = viewer();
+    float len = ray_length(o, view, ground);
+    float mu = dot(view, sun);
+    float rayleigh_phase = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
+    float g = MIE_G;
+    float mie_phase = 3.0 / (8.0 * PI) * ((1.0 - g * g) * (1.0 + mu * mu)) /
+                      ((2.0 + g * g) * pow(1.0 + g * g - 2.0 * g * mu, 1.5));
+    vec3 sum = vec3(0.0);
+    vec2 travelled = vec2(0.0);
+    for (int i = 0; i < VIEW_STEPS; ++i) {
+        vec2 s = segment(len, i, VIEW_STEPS);
+        float ds = s.y - s.x;
+        vec3 p = o + view * (0.5 * (s.x + s.y));
+        vec2 here = densities(p);
+        vec3 seen = exp(-extinction(travelled + 0.5 * here * ds));
+        vec3 rayleigh_s = RAYLEIGH * here.x;
+        vec3 mie_s = vec3(MIE_SCATTERING * here.y);
+        vec3 single = sun_seen_from(p, sun) * (rayleigh_s * rayleigh_phase + mie_s * mie_phase);
+        vec3 multiple = (rayleigh_s + mie_s) * multiple_at(p, sun);
+        sum += seen * (single + multiple) * ds;
+        travelled += here * ds;
+    }
+    if (ground) {
+        vec3 gp = o + view * len;
+        float up = dot(gp, sun) / max(length(gp), 1.0);
+        sum += exp(-extinction(travelled)) * sun_seen_from(gp, sun) * max(up, 0.0) * GROUND_ALBEDO / PI;
+    }
+    return sum;
+}
+
+vec3 gain_at(float e)
+{
+    vec4 h = atmosphere.gains[0];
+    vec4 m = atmosphere.gains[1];
+    vec4 z = atmosphere.gains[2];
+    if (e <= h.w) {
+        return h.rgb;
+    }
+    if (e <= m.w) {
+        return mix(h.rgb, m.rgb, (e - h.w) / max(m.w - h.w, 1e-4));
+    }
+    if (e <= z.w) {
+        return mix(m.rgb, z.rgb, (e - m.w) / max(z.w - m.w, 1e-4));
+    }
+    return z.rgb;
+}
+
+void main()
+{
+    ivec2 q = ivec2(gl_GlobalInvocationID.xy);
+    if (q.x >= VIEW_W || q.y >= VIEW_H) {
+        return;
+    }
+    float u = (float(q.x) + 0.5) / float(VIEW_W);
+    float v = (float(q.y) + 0.5) / float(VIEW_H);
+    float azimuth = PI * u * u;
+    float s = 2.0 * v - 1.0;
+    float e = sign(s) * s * s * (0.5 * PI);
+    vec3 view = vec3(cos(e) * cos(azimuth), sin(e), cos(e) * sin(azimuth));
+    vec3 value = radiance_ms(view, atmosphere.sun.xyz) * atmosphere.sun.w * gain_at(e);
+    if (e < 0.0) {
+        float below = smoothstep(0.0, 1.0, -e / GROUND_FADE);
+        value = mix(value, atmosphere.ground.rgb, atmosphere.ground.w * below);
+    }
+    imageStore(o_out, q, vec4(max(value, vec3(0.0)), 1.0));
+}
+)";
+
 struct TableConstants {
     std::array<float, 4> sun{};
     std::array<int32_t, 4> steps{};
+    std::array<float, 4> view_sun{}; // (added by the sky)
 };
-constexpr std::size_t kTableConstantBytes = 32;
+constexpr std::size_t kTableConstantBytes = 48;
 static_assert(sizeof(TableConstants) == kTableConstantBytes, "the shader's push-constant block");
+
+struct AtmosphereConstants {
+    std::array<float, 4> sun{};
+    std::array<std::array<float, 4>, 3> gains{};
+    std::array<float, 4> ground{};
+};
+constexpr std::size_t kAtmosphereConstantBytes = 80;
+static_assert(sizeof(AtmosphereConstants) == kAtmosphereConstantBytes, "the shaders' push-constant block");
+
+constexpr uint32_t kTransmittanceSteps = 40;
+constexpr double kGroundFade = 0.10; // radians below the horizon over which the ground's colour comes in
+
+// The atmosphere's objects and tables.
+struct AtmosphereState {
+    VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
+    VkPipelineLayout layout = VK_NULL_HANDLE;
+    VkPipeline transmittance = VK_NULL_HANDLE;
+    VkPipeline multiple = VK_NULL_HANDLE;
+    VkPipeline sky_view = VK_NULL_HANDLE;
+    VkPipeline table_from_view = VK_NULL_HANDLE; // the fog's table filled from the sky-view table
+    Image transmittance_table;
+    Image multiple_table;
+    Image sky_view_table;
+    bool fixed_made = false; // the transmittance and Psi (they don't depend on the sun)
+    bool view_valid = false;
+    AtmosphereInput input;   // what the sky-view table was made for
+    bool failed = false;
+    uint64_t generation = 0; // the sky-view table's (a new one each time it is made)
+    uint64_t updates = 0;
+    // the fog's table follows the sky-view table (rt_sky): while on, from which generation and with which sun
+    bool table_follows = false;
+    std::array<float, 3> table_view_sun{};
+    uint64_t table_generation = 0;
+};
+
+AtmosphereState& atmosphere_state()
+{
+    static AtmosphereState state;
+    return state;
+}
 
 struct SkyState {
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
@@ -236,55 +497,12 @@ std::string defines()
     return out;
 }
 
-bool make_objects(Backend& state, std::string* error)
+VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::string& source, std::string* error)
 {
-    SkyState& own = sky_state();
-    if (own.pipeline != VK_NULL_HANDLE) {
-        return true;
-    }
-    const VkDevice device = state.context.device();
-    const VkDescriptorSetLayoutBinding binding{.binding = 0,
-                                               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                                               .descriptorCount = 1,
-                                               .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-                                               .pImmutableSamplers = nullptr};
-    const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                                                   .pNext = nullptr,
-                                                   .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
-                                                   .bindingCount = 1,
-                                                   .pBindings = &binding};
-    const VkPushConstantRange range{.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = sizeof(TableConstants)};
-    VkSamplerCreateInfo sampler_info{};
-    sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler_info.magFilter = VK_FILTER_LINEAR;
-    sampler_info.minFilter = VK_FILTER_LINEAR;
-    sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler_info.maxLod = 0.0F;
-    if (vkCreateDescriptorSetLayout(device, &set_info, nullptr, &own.set_layout) != VK_SUCCESS ||
-        vkCreateSampler(device, &sampler_info, nullptr, &own.sampler) != VK_SUCCESS) {
-        *error = "the descriptor layout or the sampler";
-        return false;
-    }
-    const VkPipelineLayoutCreateInfo layout_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                                                 .pNext = nullptr,
-                                                 .flags = 0,
-                                                 .setLayoutCount = 1,
-                                                 .pSetLayouts = &own.set_layout,
-                                                 .pushConstantRangeCount = 1,
-                                                 .pPushConstantRanges = &range};
-    if (vkCreatePipelineLayout(device, &layout_info, nullptr, &own.layout) != VK_SUCCESS) {
-        own.layout = VK_NULL_HANDLE;
-        *error = "the pipeline layout";
-        return false;
-    }
-    const std::string source = "#version 460\n" + defines() + kTableBody;
     const CompiledShader compiled = compile_rt_glsl(RtShaderStage::kCompute, source);
     if (!compiled.ok) {
         *error = compiled.log;
-        return false;
+        return VK_NULL_HANDLE;
     }
     const VkShaderModuleCreateInfo module_info{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                                                .pNext = nullptr,
@@ -294,7 +512,7 @@ bool make_objects(Backend& state, std::string* error)
     VkShaderModule module = VK_NULL_HANDLE;
     if (vkCreateShaderModule(device, &module_info, nullptr, &module) != VK_SUCCESS) {
         *error = "vkCreateShaderModule failed";
-        return false;
+        return VK_NULL_HANDLE;
     }
     const VkComputePipelineCreateInfo info{.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                                            .pNext = nullptr,
@@ -306,17 +524,82 @@ bool make_objects(Backend& state, std::string* error)
                                                      .module = module,
                                                      .pName = "main",
                                                      .pSpecializationInfo = nullptr},
-                                           .layout = own.layout,
+                                           .layout = layout,
                                            .basePipelineHandle = VK_NULL_HANDLE,
                                            .basePipelineIndex = -1};
-    const VkResult made = vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &own.pipeline);
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    const VkResult made = vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
     vkDestroyShaderModule(device, module, nullptr);
     if (made != VK_SUCCESS) {
-        own.pipeline = VK_NULL_HANDLE;
         *error = "vkCreateComputePipelines failed";
+        return VK_NULL_HANDLE;
+    }
+    return pipeline;
+}
+
+// A push-descriptor set layout of a storage image at 0 and `samplers` combined image samplers after it, and a
+// pipeline layout of it with `constants` bytes of push constants.
+bool make_layout(VkDevice device, uint32_t samplers, uint32_t constants, VkDescriptorSetLayout* set_layout,
+                 VkPipelineLayout* layout)
+{
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    for (uint32_t binding = 0; binding <= samplers; ++binding) {
+        bindings.push_back({.binding = binding,
+                            .descriptorType = binding == 0 ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+                                                           : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            .descriptorCount = 1,
+                            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                            .pImmutableSamplers = nullptr});
+    }
+    const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                                                   .pNext = nullptr,
+                                                   .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+                                                   .bindingCount = static_cast<uint32_t>(bindings.size()),
+                                                   .pBindings = bindings.data()};
+    if (vkCreateDescriptorSetLayout(device, &set_info, nullptr, set_layout) != VK_SUCCESS) {
+        *set_layout = VK_NULL_HANDLE;
+        return false;
+    }
+    const VkPushConstantRange range{.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = constants};
+    const VkPipelineLayoutCreateInfo layout_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                                                 .pNext = nullptr,
+                                                 .flags = 0,
+                                                 .setLayoutCount = 1,
+                                                 .pSetLayouts = set_layout,
+                                                 .pushConstantRangeCount = 1,
+                                                 .pPushConstantRanges = &range};
+    if (vkCreatePipelineLayout(device, &layout_info, nullptr, layout) != VK_SUCCESS) {
+        *layout = VK_NULL_HANDLE;
         return false;
     }
     return true;
+}
+
+bool make_objects(Backend& state, std::string* error)
+{
+    SkyState& own = sky_state();
+    if (own.pipeline != VK_NULL_HANDLE) {
+        return true;
+    }
+    const VkDevice device = state.context.device();
+    VkSamplerCreateInfo sampler_info{};
+    sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampler_info.magFilter = VK_FILTER_LINEAR;
+    sampler_info.minFilter = VK_FILTER_LINEAR;
+    sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler_info.maxLod = 0.0F;
+    // (binding 1: the sky-view table, read by the table's FROM_SKY_VIEW variant - added by the sky)
+    if (vkCreateSampler(device, &sampler_info, nullptr, &own.sampler) != VK_SUCCESS ||
+        !make_layout(device, 1, sizeof(TableConstants), &own.set_layout, &own.layout)) {
+        *error = "the descriptor layout, the pipeline layout or the sampler";
+        return false;
+    }
+    own.pipeline = make_compute(device, own.layout, "#version 460\n" + defines() + kTableHeader + kModelFunctions + kTableMain,
+                                error);
+    return own.pipeline != VK_NULL_HANDLE;
 }
 
 bool make_table(Backend& state)
