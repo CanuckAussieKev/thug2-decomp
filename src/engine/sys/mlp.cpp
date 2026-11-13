@@ -369,7 +369,10 @@ void Hub::get_main_loop()
         // Not original - the extensions (engine/ext/extension.h; the screenshot key: the frame read just before it's
         // presented).
         // Original behaviour: the scene is ended and presented.
-        ext::before_present(!render::engine_parts().suppress_draw());
+        {
+            const frame_profile::Scope phase("before_present"); // (not original: [debug] frame_profile)
+            ext::before_present(!render::engine_parts().suppress_draw());
+        }
         if (!render::engine_parts().suppress_draw()) {
             const frame_profile::Scope phase("present");
             end_scene();
