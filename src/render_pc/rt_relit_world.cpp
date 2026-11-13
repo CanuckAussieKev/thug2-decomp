@@ -125,6 +125,7 @@ struct State {
     bool levels_read = false;
     rt::Vec3 sun{};
     rt::Rgbf sun_colour{1.0F, 1.0F, 1.0F};
+    bool sky_model = false; // (whether the sun's colour was the sky model's)
     uint64_t lighting = 0;
     Cached cache;
     std::size_t retraced = 0;
@@ -929,7 +930,10 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     if (!target_sun(settings, &toward)) {
         toward = st.model.toward;
     }
-    if (rt::dot(toward, st.sun) < kSameSun) {
+    const bool sky_model = rt::sun_light().on;
+    if (rt::dot(toward, st.sun) < kSameSun ||
+        sky_model != st.sky_model) { // (the sky model publishes after its first pass)
+        st.sky_model = sky_model;
         st.sun = toward;
         st.sun_colour = sun_colour_for(toward);
         get_log("rt_relit: the sun toward %.3f %.3f %.3f (colour x %.2f %.2f %.2f)",
