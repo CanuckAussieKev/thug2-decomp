@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 #include <volk.h>
 
@@ -18,7 +19,7 @@
 //      the origin) read back and analysed (engine/gfx/rt_sky_match.h: its clear sky's colours by band of elevation, its
 //      clouds' share and colour) - and the atmosphere's model in the same bands (its sky-view table read back) - give the
 //      gains that tint and scale the model toward the level's colours (x gain ^ rt_sky_match: 0 the model alone, 1 the
-//      dome's band colours exactly), its ground's colour below the horizon, the clouds' coverage (auto) and colour;
+//      dome's band colours exactly; below the horizon the horizon's haze, never the dome's), the clouds' coverage (auto) and colour;
 //   1. the atmosphere (vulkan_rt_sky.h: transmittance, Psi, the sky-view table with the gains) for the sun the player
 //      sees (vulkan_rt_sky.h visible_sun: the game's SetSun; the baked sun without one; else 50 degrees up); the fog's
 //      table follows it, so the aerial haze fades the far world toward this sky;
@@ -40,10 +41,10 @@ struct Backend;
 struct Image;
 
 inline constexpr float kSkyHistoryBlend = 0.1F;         // this frame's share of a texel with a history
-inline constexpr double kCloudAerialDistance = 32000.0; // metres: the clouds fade into the sky by e over this
-inline constexpr double kCloudSunScale = 0.8;           // the sun's light on the clouds x the sky's exposure
-inline constexpr double kCloudAmbientTop = 0.8;         // the sky's light on the clouds' tops (x the zenith's)
-inline constexpr double kCloudAmbientBottom = 0.4;      // and their bases (x the horizon's)
+inline constexpr double kCloudAerialDistance = 20000.0; // metres: the clouds fade into the sky by e over this
+inline constexpr double kCloudSunScale = 1.0;           // the sun's light on the clouds x the sky's exposure
+inline constexpr double kCloudAmbientTop = 1.0;         // the sky's light on the clouds' tops (x the zenith's)
+inline constexpr double kCloudAmbientBottom = 0.6;      // and their bases (x the horizon's: its light and the ground's)
 inline constexpr uint32_t kSkyViewSlots = 4;
 inline constexpr std::size_t kSkyMatrixFloats = 16;
 inline constexpr std::array<float, 3> kDefaultSkySun{0.36F, 0.77F, 0.53F}; // (50 degrees up: no sun anywhere)
@@ -76,7 +77,7 @@ struct RtSkyFrame {
     std::array<float, 3> sun_light{};
     std::array<float, 3> ambient_bottom{};
     std::array<float, 3> ambient_top{};
-    float coverage = 0.0F;
+    float coverage = 0.0F; // the model's amount (rt::cloud_amount of the match's coverage)
     uint32_t steps = 0;
     uint32_t scale = 1;
     float jitter_offset = 0.0F;
@@ -102,6 +103,26 @@ struct RtSkyTiming {
     std::array<double, 3> milliseconds{};
 };
 [[nodiscard]] RtSkyTiming rt_sky_timing();
+
+// The reflections' misses (vulkan_rt_reflections.cpp, with rt_sky): what a ray that leaves the world sees - the drawn
+// sky toward it (the sky-view table) and the clouds this frame's pass drew for the viewport where the ray's direction
+// falls inside it (their history, read as the composite reads it, faded out toward the viewport's edges; outside: the
+// sky alone). False: no sky to show (rt_sky off, or not drawn yet) - the misses keep the game's environment map.
+struct RtSkyForRays {
+    VkDescriptorImageInfo sky_view{};      // combined image samplers
+    VkDescriptorImageInfo transmittance{};
+    VkDescriptorImageInfo cloud_light{};   // storage images (GENERAL); without clouds the sky-view table's (unread)
+    VkDescriptorImageInfo cloud_info{};
+    std::array<float, kSkyMatrixFloats> to_pixel{}; // column-major: a world direction (w 0) -> the target's pixel
+    std::array<float, 4> sun{};                     // xyz toward the drawn sky's sun; w 1: clouds
+    std::array<float, 4> low{};  // the clouds' images: x, y their size, z pixels per texel; w the aerial distance (m)
+    std::array<float, 4> rect{}; // the viewport (the target's pixels)
+    std::array<float, 4> tint{}; // the clouds' gain
+};
+bool rt_sky_for_rays(Backend& state, const std::array<uint32_t, 4>& rect, RtSkyForRays* out);
+// Its GLSL: the four bindings from `first_binding` (the sky view, the transmittance, the clouds' light and info) and
+//   vec3 sky_for_ray(vec3 dir, mat4 to_pixel, vec4 sun, vec4 low, vec4 rect, vec4 tint)   exposed linear
+[[nodiscard]] std::string rt_sky_rays_glsl(uint32_t first_binding);
 
 void release_rt_sky(Backend& state);
 

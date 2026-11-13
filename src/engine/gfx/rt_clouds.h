@@ -7,13 +7,15 @@
 // The layer: a shell round the planet (rt_sky.h's radii) from kCloudBase to kCloudTop above the ground. What is in it:
 //   - the noise, made at start-up (no assets): a 128^3 shape texture (r: Perlin-Worley - Perlin's fractal noise widened
 //     by Worley's; g, b, a: Worley's fractal noise at 4, 8 and 16 cells), a 32^3 detail texture (Worley's at 4, 8, 16)
-//     and a 256^2 weather map (r: where clouds may be - Perlin's fractal noise; g: their kind - low and flat to tall),
-//     all tiling, from an integer hash: the same bits on the processor and the device;
-//   - the density at a point: the weather's patches wc = clamp((weather.r - (1 - coverage)) x kCoverEdge) (coverage 0:
-//     none, about half: scattered patches, 1: overcast), a height profile for the kind (soft at the base, ending at a
-//     height the kind sets), the shape's Perlin-Worley eroded by its Worley fractal, kept above a threshold that falls
-//     with the patch's cover (1 - kCoverThreshold x wc), x the profile again (rounded tops), then the detail's Worley eroding the edges (billowy below,
-//     wispy above);
+//     and a 256^2 weather map (r: where clouds may be - Perlin's fractal noise; g: their kind - low and flat to tall;
+//     b: clumps - Worley's fractal noise at 16 cells), all tiling, from an integer hash: the same bits on the processor
+//     and the device;
+//   - the density at a point: the cover wc (cloud_cover: the weather's patches clamp((weather.r - (1 - coverage)) x
+//     kCoverEdge) - coverage 0: none, about half: scattered patches, 1: overcast - x its clumps, so a patch is a field
+//     of separate clouds with sky between them, not a sheet), a height profile for the kind (soft at the base, ending at
+//     a height the kind sets), the shape's Perlin-Worley eroded by its Worley fractal, kept above a threshold that falls
+//     with the cover (1 - cloud_threshold_share x wc: never below half way short of overcast), x the profile again
+//     (rounded tops), then the detail's Worley eroding the edges (billowy below, wispy above);
 //   - the light at a point: the sun's (the atmosphere's transmittance at that altitude) through the cloud toward it
 //     (kCloudLightSamples steps, growing), Beer's law with a multiple-scattering approximation (Wrenninge's octaves: each
 //     a share kOctaveShare of the last, its extinction x kOctaveExtinction, its phase's asymmetry x kOctaveAsymmetry), a
@@ -39,10 +41,17 @@ inline constexpr double kCloudShapeScale = 9000.0; // metres the shape texture c
 inline constexpr double kCloudDetailScale = 1100.0;
 inline constexpr double kCloudWeatherScale = 42000.0;
 inline constexpr double kCloudDensity = 0.05;  // extinction per metre at density 1
-inline constexpr double kCoverEdge = 5.0;      // how sharply the weather's patches end (x the excess over 1 - coverage)
-inline constexpr double kCoverThreshold = 0.7; // the shape's threshold falls by this x the patch's cover
+inline constexpr double kCoverEdge = 2.5; // how sharply the weather's patches end (x the excess over 1 - coverage)
+inline constexpr double kPatchLift = 0.8; // + this x the coverage: a patch thins out over a wider range of the weather
+// the clumps inside a patch (the weather's b: Worley's fractal noise, cells about 2.6 km across): none under kClumpLow,
+// whole over kClumpHigh - the gaps between clouds at every coverage short of overcast
+inline constexpr double kClumpLow = 0.35;
+inline constexpr double kClumpHigh = 0.62;
+// the shape's threshold falls by this x the cover: kCoverThresholdLeast at no coverage, the most at overcast (x coverage)
+inline constexpr double kCoverThresholdLeast = 0.65;
+inline constexpr double kCoverThresholdMost = 0.9;
 inline constexpr double kDetailErosion = 0.45; // how much the detail eats the edges
-inline constexpr double kCloudFar = 60000.0;   // metres along a ray at most
+inline constexpr double kCloudFar = 40000.0;   // metres along a ray at most
 inline constexpr double kCloudLightStep = 70.0; // the first light step (metres); each next x kCloudLightGrowth
 inline constexpr double kCloudLightGrowth = 1.7;
 inline constexpr uint32_t kCloudLightSamples = 6;
@@ -95,6 +104,27 @@ struct CloudNoise {
 // The density (0 - 1) at a point of cloud space (metres: x and z across - the drift and the camera's place included -,
 // y the altitude above the ground), with the layer's coverage (0 - 1), its detail or not.
 [[nodiscard]] double cloud_density(const CloudNoise& noise, const Vec3d& point, double coverage, bool detail);
+// The cover at a point (0 - 1) from the weather map's texel there and the coverage: the weather's patches (r) x its
+// clumps (b; taken whole toward overcast: x coverage^4); and the share of the shape's range the cover opens up.
+[[nodiscard]] double cloud_cover(const std::array<double, 4>& weather, double coverage);
+// The model's amount (what cloud_density, CloudRay and the device take as `coverage`) for a coverage as the settings
+// give it (rt_cloud_coverage, the match's auto): the share of the sky the clouds cover - about that much of the sky
+// above 12 degrees has cloud in it (the model's own amount turns from none to overcast over a narrow range: kCloudAmounts,
+// measured by the sky check's sweep, spreads it out). Piecewise linear between tenths.
+inline constexpr std::array<double, 11> kCloudAmounts{0.0,   0.5,   0.55, 0.575, 0.595, 0.617,
+                                                      0.637, 0.667, 0.71, 0.75,  1.0};
+[[nodiscard]] double cloud_amount(double coverage);
+[[nodiscard]] double cloud_threshold_share(double coverage);
+
+// Where a ray from a camera `camera_altitude` metres up along `direction` (normalised, y up) enters the layer's base and
+// leaves its top (metres along it): the layer a shell round the planet - a level ray meets the base about 134 km away,
+// and the farther the lower it looks (d^2 / 2R below a flat one). {-1, -1}: never (the ground in the way, or the camera
+// above the base: not modelled).
+struct CloudSpan {
+    double enter = -1.0;
+    double leave = -1.0;
+};
+[[nodiscard]] CloudSpan cloud_layer_span(double camera_altitude, const Vec3d& direction);
 
 // One ray's march.
 struct CloudRay {

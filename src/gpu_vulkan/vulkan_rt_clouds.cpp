@@ -137,7 +137,8 @@ void main()
     float fbm = cloud_perlin(vec3(uv * 4.0, 0.5), 4, 81u) * 0.5 + cloud_perlin(vec3(uv * 8.0, 0.5), 8, 82u) * 0.25 +
                 cloud_perlin(vec3(uv * 16.0, 0.5), 16, 83u) * 0.125 + cloud_perlin(vec3(uv * 32.0, 0.5), 32, 84u) * 0.0625;
     imageStore(o_noise, ivec2(q.xy), vec4(clamp(fbm * 1.1 + 0.5, 0.0, 1.0),
-                                          clamp(cloud_perlin(vec3(uv * 2.0, 0.5), 2, 91u) * 0.9 + 0.5, 0.0, 1.0), 0.0, 1.0));
+                                          clamp(cloud_perlin(vec3(uv * 2.0, 0.5), 2, 91u) * 0.9 + 0.5, 0.0, 1.0),
+                                          worley_fbm(vec3(uv, 0.5), 16, 95u), 1.0));
 #endif
 }
 )";
@@ -147,6 +148,18 @@ constexpr const char* kMarch = R"(
 float c_saturate(float v) { return clamp(v, 0.0, 1.0); }
 float c_remap(float v, float lo, float hi, float a, float b) { return a + (v - lo) * (b - a) / (hi - lo); }
 
+float cloud_cover(vec4 weather, float coverage)
+{
+    float patches = c_saturate((weather.r - (1.0 - coverage)) * CLOUD_COVER_EDGE + CLOUD_PATCH_LIFT * coverage);
+    float clumps = c_saturate(c_remap(weather.b, CLOUD_CLUMP_LOW, CLOUD_CLUMP_HIGH, 0.0, 1.0));
+    float overcast = coverage * coverage * coverage * coverage;
+    return patches * mix(clumps, 1.0, overcast);
+}
+float cloud_threshold_share(float coverage)
+{
+    return mix(CLOUD_THRESHOLD_LEAST, CLOUD_THRESHOLD_MOST, coverage);
+}
+
 float cloud_density(vec3 point, float coverage, bool detail)
 {
     float height = (point.y - CLOUD_BASE) / (CLOUD_TOP - CLOUD_BASE);
@@ -154,11 +167,11 @@ float cloud_density(vec3 point, float coverage, bool detail)
         return 0.0;
     }
     vec4 weather = textureLod(u_cloud_weather, point.xz / CLOUD_WEATHER_SCALE, 0.0);
-    float cover = c_saturate((weather.r - (1.0 - coverage)) * CLOUD_COVER_EDGE);
+    float cover = cloud_cover(weather, coverage);
     if (cover <= 0.0) {
         return 0.0;
     }
-    float top = 0.45 + 0.55 * weather.g;
+    float top = (0.45 + 0.55 * weather.g) * mix(0.25, 1.0, cover);
     float profile = c_saturate(height / 0.12) * c_saturate((top - height) / (0.4 * top));
     if (profile <= 0.0) {
         return 0.0;
@@ -166,7 +179,7 @@ float cloud_density(vec3 point, float coverage, bool detail)
     vec4 shape = textureLod(u_cloud_shape, point / CLOUD_SHAPE_SCALE, 0.0);
     float fbm = shape.g * 0.625 + shape.b * 0.25 + shape.a * 0.125;
     float base = c_saturate(c_remap(shape.r, fbm - 1.0, 1.0, 0.0, 1.0)) * profile;
-    float density = c_saturate(c_remap(base, 1.0 - CLOUD_COVER_THRESHOLD * cover, 1.0, 0.0, 1.0)) * profile;
+    float density = c_saturate(c_remap(base, 1.0 - cloud_threshold_share(coverage) * cover, 1.0, 0.0, 1.0)) * profile;
     if (detail && density > 0.0) {
         vec4 fine = textureLod(u_cloud_detail, point / CLOUD_DETAIL_SCALE, 0.0);
         float detail_fbm = fine.r * 0.625 + fine.g * 0.25 + fine.b * 0.125;
@@ -579,7 +592,11 @@ std::string cloud_glsl(uint32_t first_binding)
     add("CLOUD_WEATHER_SCALE", number(rt::kCloudWeatherScale));
     add("CLOUD_DENSITY", number(rt::kCloudDensity));
     add("CLOUD_COVER_EDGE", number(rt::kCoverEdge));
-    add("CLOUD_COVER_THRESHOLD", number(rt::kCoverThreshold));
+    add("CLOUD_PATCH_LIFT", number(rt::kPatchLift));
+    add("CLOUD_CLUMP_LOW", number(rt::kClumpLow));
+    add("CLOUD_CLUMP_HIGH", number(rt::kClumpHigh));
+    add("CLOUD_THRESHOLD_LEAST", number(rt::kCoverThresholdLeast));
+    add("CLOUD_THRESHOLD_MOST", number(rt::kCoverThresholdMost));
     add("CLOUD_DETAIL_EROSION", number(rt::kDetailErosion));
     add("CLOUD_FAR", number(rt::kCloudFar));
     add("CLOUD_LIGHT_STEP", number(rt::kCloudLightStep));

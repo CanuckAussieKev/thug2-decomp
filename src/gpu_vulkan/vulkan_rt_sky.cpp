@@ -193,7 +193,6 @@ layout(set = 0, binding = 2) uniform sampler2D u_multiple;
 layout(push_constant) uniform Atmosphere {
     vec4 sun;        // xyz the model's sun (cos e, sin e, 0); w the exposure
     vec4 gains[3];   // the horizon's, half way up's, overhead's gains (rgb); w its elevation (radians)
-    vec4 ground;     // rgb the ground's colour (exposed linear); w how far it replaces the model's below the horizon
 } atmosphere;
 )";
 
@@ -310,8 +309,10 @@ void main()
 }
 )";
 
-// 3. The sky seen from the viewer (rt_sky.h sky_radiance_ms x the exposure), matched to the level (the gains, the
-// ground's colour below the horizon).
+// 3. The sky seen from the viewer (rt_sky.h sky_radiance_ms x the exposure), matched to the level (the gains). Below the
+// horizon the horizon's haze (the sky just above it, in the same azimuth) giving way to the model's own far ground by
+// BELOW_SHARE over BELOW_FADE radians down - the level's dome is never asked what is down there (a painted ring of
+// ground would come back as a band): the far world's aerial haze, which reads this table, meets the sky without one.
 constexpr const char* kSkyViewMain = R"(
 vec3 radiance_ms(vec3 view, vec3 sun)
 {
@@ -377,8 +378,9 @@ void main()
     vec3 view = vec3(cos(e) * cos(azimuth), sin(e), cos(e) * sin(azimuth));
     vec3 value = radiance_ms(view, atmosphere.sun.xyz) * atmosphere.sun.w * gain_at(e);
     if (e < 0.0) {
-        float below = smoothstep(0.0, 1.0, -e / GROUND_FADE);
-        value = mix(value, atmosphere.ground.rgb, atmosphere.ground.w * below);
+        vec3 level = vec3(cos(HAZE_ELEVATION) * cos(azimuth), sin(HAZE_ELEVATION), cos(HAZE_ELEVATION) * sin(azimuth));
+        vec3 haze = radiance_ms(level, atmosphere.sun.xyz) * atmosphere.sun.w * gain_at(HAZE_ELEVATION);
+        value = mix(haze, value, BELOW_SHARE * smoothstep(0.0, 1.0, -e / BELOW_FADE));
     }
     imageStore(o_out, q, vec4(max(value, vec3(0.0)), 1.0));
 }
@@ -395,13 +397,11 @@ static_assert(sizeof(TableConstants) == kTableConstantBytes, "the shader's push-
 struct AtmosphereConstants {
     std::array<float, 4> sun{};
     std::array<std::array<float, 4>, 3> gains{};
-    std::array<float, 4> ground{};
 };
-constexpr std::size_t kAtmosphereConstantBytes = 80;
+constexpr std::size_t kAtmosphereConstantBytes = 64;
 static_assert(sizeof(AtmosphereConstants) == kAtmosphereConstantBytes, "the shaders' push-constant block");
 
 constexpr uint32_t kTransmittanceSteps = 40;
-constexpr double kGroundFade = 0.05; // radians below the horizon over which the ground's colour comes in (the far ground hazed into the horizon's sky above it)
 
 // The atmosphere's objects and tables.
 struct AtmosphereState {
@@ -510,7 +510,9 @@ std::string defines()
     add("VIEW_W", std::to_string(rt::kSkyViewWidth));
     add("VIEW_H", std::to_string(rt::kSkyViewHeight));
     add("VIEW_STEPS", std::to_string(rt::kSkyViewSteps));
-    add("GROUND_FADE", number(kGroundFade));
+    add("HAZE_ELEVATION", number(kHazeElevation));
+    add("BELOW_FADE", number(kBelowFade));
+    add("BELOW_SHARE", number(kBelowShare));
     return out;
 }
 
@@ -1103,8 +1105,6 @@ bool update_atmosphere(Backend& state, VkCommandBuffer commands, const Atmospher
         core::at(constants.gains, band) = {core::at(gain, 0), core::at(gain, 1), core::at(gain, 2),
                                            core::at(input.gain_elevations, band)};
     }
-    constants.ground = {core::at(input.ground, 0), core::at(input.ground, 1), core::at(input.ground, 2),
-                        input.ground_share};
     if (!own.fixed_made) {
         atmosphere_pass(commands, own.transmittance, &own.transmittance_table, constants);
         atmosphere_pass(commands, own.multiple, &own.multiple_table, constants);

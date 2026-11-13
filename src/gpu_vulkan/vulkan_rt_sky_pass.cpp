@@ -61,7 +61,6 @@ constexpr float kSameSun = 0.99999F;
 constexpr std::array<double, 3> kLuma{0.2126, 0.7152, 0.0722};
 constexpr double kLeastGain = 0.05;
 constexpr double kMostGain = 20.0;
-constexpr float kGroundCovered = 0.3F; // the share of the ground band the dome must cover for its colour to be used
 
 // The full-screen triangle at the far plane (depth 1: drawn where the world left the depth's far value).
 constexpr const char* kVertexSource = R"(#version 460
@@ -281,6 +280,54 @@ void main()
 }
 )";
 
+// 6. What a ray leaving the world sees (rt_sky_for_rays; the reflections' misses): the sky-view table toward it, and the
+// clouds' history where its direction falls on the viewport - read as the composite reads it, faded out over the last
+// 8% toward the viewport's edges (beyond them: the sky alone); none below the horizon.
+constexpr const char* kRaysFunctions = R"(
+vec3 sky_for_ray(vec3 dir, mat4 to_pixel, vec4 sun, vec4 low, vec4 rect, vec4 tint)
+{
+    vec3 light = sky_view_linear(dir, sun.xyz);
+    if (sun.w < 0.5 || dir.y <= 0.0) {
+        return light;
+    }
+    vec4 at = to_pixel * vec4(dir, 0.0);
+    if (at.w <= 1e-6) {
+        return light;
+    }
+    vec2 pixel = at.xy / at.w;
+    vec2 inside = (pixel - rect.xy) / rect.zw;
+    float keep = smoothstep(0.0, 0.08, min(min(inside.x, 1.0 - inside.x), min(inside.y, 1.0 - inside.y)));
+    if (keep <= 0.0) {
+        return light;
+    }
+    vec2 q = (pixel - rect.xy - 0.5 * (low.z - 1.0)) / low.z;
+    ivec2 base = ivec2(floor(q));
+    vec2 f = q - vec2(base);
+    ivec2 most = ivec2(low.xy) - ivec2(1);
+    vec4 sum = vec4(0.0);
+    float distance = 0.0;
+    float weights = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        ivec2 o = ivec2(i & 1, i >> 1);
+        ivec2 t = clamp(base + o, ivec2(0), most);
+        vec4 info = imageLoad(u_ray_cloud_info, t);
+        float w = (o.x == 1 ? f.x : 1.0 - f.x) * (o.y == 1 ? f.y : 1.0 - f.y) * (info.y > 0.5 ? 1.0 : 0.0);
+        if (w > 0.0) {
+            sum += w * imageLoad(u_ray_cloud_light, t);
+            distance += w * (info.x < 0.0 ? 0.0 : info.x);
+            weights += w;
+        }
+    }
+    if (weights > 1e-4) {
+        vec4 cloud = sum / weights;
+        float fade = exp(-(distance / weights) / low.w) * keep;
+        float transmittance = mix(1.0, clamp(cloud.a, 0.0, 1.0), fade);
+        light = light * transmittance + max(cloud.rgb, vec3(0.0)) * tint.rgb * fade;
+    }
+    return light;
+}
+)";
+
 struct SkyBlock {
     std::array<float, kMatrixFloats> to_world{};
     std::array<float, kMatrixFloats> prev_to_pixel{};
@@ -336,6 +383,7 @@ struct SkySlot {
     bool fresh = true;
     bool has_history = false;
     Matrix last_to_pixel{};
+    uint64_t drawn = 0; // the frame serial its clouds were last drawn in (the reflections' misses read them that frame)
     uint64_t frames = 0;
     uint64_t last_use = 0;
 };
@@ -1307,24 +1355,22 @@ void match_from(const RtSkySettings& settings, const std::array<float, 3>& sun, 
             core::at(input.gain_elevations, band - 1) =
                 static_cast<float>(core::at(rt::kSkyBandRanges, band).centre * kDegrees);
         }
-        const auto ground = static_cast<std::size_t>(rt::SkyBand::kGround);
-        if (core::at(look.covered, ground) > kGroundCovered) {
-            const Linear colour = linear_of(core::at(look.all, ground));
-            input.ground = {static_cast<float>(core::at(colour, 0)), static_cast<float>(core::at(colour, 1)),
-                            static_cast<float>(core::at(colour, 2))};
-            input.ground_share = static_cast<float>(strength);
-        }
+        // (the ground band - what the dome paints below the horizon - isn't matched: the sky-view table shows the
+        // horizon's haze there, vulkan_rt_sky.cpp)
     }
     // the clouds: their coverage (auto: from the level's), their colour (its hue, and how bright they are beside its
     // clear sky - a white cloud about 1.5 x as bright as the blue behind it)
-    constexpr double kCoverageBase = 0.35;
+    // (auto: lighter than the dome's share - its painted clouds are flat cards and haze, and a clear painted sky
+    // should stay mostly clear; at most kCoverageMost - an overcast only when asked for)
+    constexpr double kCoverageBase = 0.2;
     constexpr double kCoverageShare = 0.7;
+    constexpr double kCoverageMost = 0.75;
     constexpr double kWhiteOverBlue = 1.5;
     constexpr double kDarkest = 0.35;
     constexpr double kBrightest = 1.3;
     match->coverage = settings.coverage >= 0.0F
                           ? std::clamp(settings.coverage, 0.0F, 1.0F)
-                          : static_cast<float>(std::clamp(kCoverageBase + (kCoverageShare * look.coverage), 0.0, 1.0));
+                          : static_cast<float>(std::clamp(kCoverageBase + (kCoverageShare * look.coverage), 0.0, kCoverageMost));
     match->cloud_gain = {1.0F, 1.0F, 1.0F};
     if (look.valid) {
         const Linear cloud = linear_of(look.cloud);
@@ -1362,7 +1408,7 @@ void log_match(const RtSkyMatch& match, uint32_t scene)
         look.valid ? "" : " - too little of it to match: the model alone");
     const AtmosphereInput& in = match.atmosphere;
     get_log("vulkan: rt_sky: matched - gains horizon %.2f %.2f %.2f, half way %.2f %.2f %.2f, overhead %.2f %.2f %.2f; "
-            "ground %.0f%%; clouds' coverage %.2f, colour x %.2f %.2f %.2f",
+            "clouds' coverage %.2f, colour x %.2f %.2f %.2f",
             static_cast<double>(core::at(core::at(in.gains, 0), 0)),
             static_cast<double>(core::at(core::at(in.gains, 0), 1)),
             static_cast<double>(core::at(core::at(in.gains, 0), 2)),
@@ -1371,7 +1417,7 @@ void log_match(const RtSkyMatch& match, uint32_t scene)
             static_cast<double>(core::at(core::at(in.gains, 1), 2)),
             static_cast<double>(core::at(core::at(in.gains, 2), 0)),
             static_cast<double>(core::at(core::at(in.gains, 2), 1)),
-            static_cast<double>(core::at(core::at(in.gains, 2), 2)), 100.0 * in.ground_share,
+            static_cast<double>(core::at(core::at(in.gains, 2), 2)),
             static_cast<double>(match.coverage), static_cast<double>(core::at(match.cloud_gain, 0)),
             static_cast<double>(core::at(match.cloud_gain, 1)), static_cast<double>(core::at(match.cloud_gain, 2)));
 }
@@ -1520,7 +1566,7 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
     const auto jitter_offset = static_cast<float>(std::fmod(static_cast<double>(frames) * kGolden, 1.0));
     block.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                     core::at(view.camera.position, 2), static_cast<float>(altitude)};
-    block.sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2), own.match.coverage};
+    block.sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2), static_cast<float>(rt::cloud_amount(own.match.coverage))};
     block.sun_light = {core::at(sun_light, 0), core::at(sun_light, 1), core::at(sun_light, 2), 1.0F};
     block.ambient_bottom = {core::at(ambient_bottom, 0), core::at(ambient_bottom, 1), core::at(ambient_bottom, 2),
                             static_cast<float>(kCloudAerialDistance)};
@@ -1544,7 +1590,7 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
                         .sun_light = sun_light,
                         .ambient_bottom = ambient_bottom,
                         .ambient_top = ambient_top,
-                        .coverage = own.match.coverage,
+                        .coverage = static_cast<float>(rt::cloud_amount(own.match.coverage)),
                         .steps = steps_for(settings.quality),
                         .scale = scale,
                         .jitter_offset = jitter_offset,
@@ -1799,6 +1845,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (recording.slot != nullptr) {
         recording.slot->last_to_pixel = to_pixel;
         recording.slot->has_history = true;
+        recording.slot->drawn = state.frames.serial();
         ++recording.slot->frames;
     }
     ++own.passes;
@@ -1913,6 +1960,57 @@ bool read_rt_sky_image(Backend& state, const std::array<uint32_t, 4>& rect, RtSk
         return true;
     }
     return false;
+}
+
+bool rt_sky_for_rays(Backend& state, const std::array<uint32_t, 4>& rect, RtSkyForRays* out)
+{
+    *out = RtSkyForRays{};
+    const SkyPassState& own = pass_state();
+    if (own.failed || !own.settings.on || !own.matched || own.passes == 0) {
+        return false;
+    }
+    out->sky_view = atmosphere_descriptor(AtmosphereTable::kSkyView);
+    out->transmittance = atmosphere_descriptor(AtmosphereTable::kTransmittance);
+    if (out->sky_view.imageView == VK_NULL_HANDLE || out->transmittance.imageView == VK_NULL_HANDLE) {
+        return false;
+    }
+    const std::array<float, 3>& sun = own.match.atmosphere.sun;
+    out->sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2), 0.0F};
+    out->cloud_light = {.sampler = VK_NULL_HANDLE, .imageView = out->sky_view.imageView,
+                        .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    out->cloud_info = out->cloud_light;
+    const uint64_t serial = state.frames.serial();
+    for (const std::unique_ptr<SkySlot>& slot : own.slots) {
+        if (slot->rect != rect || slot->drawn != serial || !own.settings.clouds) {
+            continue;
+        }
+        const Image& light = core::at(slot->history, slot->current);
+        const Image& info = core::at(slot->history_info, slot->current);
+        out->cloud_light = {.sampler = VK_NULL_HANDLE, .imageView = light.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+        out->cloud_info = {.sampler = VK_NULL_HANDLE, .imageView = info.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+        out->to_pixel = column_major(slot->last_to_pixel);
+        out->sun.back() = 1.0F;
+        out->low = {static_cast<float>(light.extent.width), static_cast<float>(light.extent.height),
+                    static_cast<float>(slot->scale), static_cast<float>(kCloudAerialDistance)};
+        out->rect = {static_cast<float>(core::at(rect, 0)), static_cast<float>(core::at(rect, 1)),
+                     static_cast<float>(core::at(rect, 2)), static_cast<float>(core::at(rect, 3))};
+        out->tint = {core::at(own.match.cloud_gain, 0), core::at(own.match.cloud_gain, 1),
+                     core::at(own.match.cloud_gain, 2), 0.0F};
+        break;
+    }
+    atmosphere_used(serial);
+    return true;
+}
+
+std::string rt_sky_rays_glsl(uint32_t first_binding)
+{
+    std::string out = atmosphere_glsl(first_binding + 1, first_binding);
+    out += "layout(set = 0, binding = " + std::to_string(first_binding + 2) +
+           ", rgba16f) uniform readonly image2D u_ray_cloud_light;\n";
+    out += "layout(set = 0, binding = " + std::to_string(first_binding + 3) +
+           ", rgba16f) uniform readonly image2D u_ray_cloud_info;\n";
+    out += kRaysFunctions;
+    return out;
 }
 
 void release_rt_sky(Backend& state)

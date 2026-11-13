@@ -28,6 +28,7 @@
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
+#include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "platform/run_log.h"
 
@@ -92,6 +93,12 @@ layout(set = 0, binding = 3, std140) uniform Pass {
     vec4 light_direction[4];
     vec4 light_colour[4];
     vec4 fresnel; // x 1: Fresnel on; y the glass's roughness (radians); z the rays a rough pixel traces; w glass's F0
+    // (added by the sky) what a miss sees with rt_sky (vulkan_rt_sky_pass.h rt_sky_for_rays; the SKY variant only)
+    mat4 sky_to_pixel;
+    vec4 sky_sun;
+    vec4 sky_low;
+    vec4 sky_rect;
+    vec4 sky_tint;
 } pass;
 
 const uint INSTANCE_OBJECT = 32u; // (rt::InstanceFlag kObject)
@@ -185,7 +192,13 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
         }
     }
     if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+#ifdef SKY
+        // (added by the sky) rt_sky: the miss sees the sky drawn - its atmosphere and clouds - as the game's colours
+        vec3 sky = sky_for_ray(direction, pass.sky_to_pixel, pass.sky_sun, pass.sky_low, pass.sky_rect, pass.sky_tint);
+        return vec4(clamp(pow(max(sky, vec3(0.0)), vec3(1.0 / 2.2)), 0.0, 1.0), 1.0);
+#else
         return vec4(0.0);
+#endif
     }
     uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
     uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
@@ -447,8 +460,14 @@ struct TraceBlock {
     std::array<std::array<float, 4>, kMaxLights> light_direction{};
     std::array<std::array<float, 4>, kMaxLights> light_colour{};
     std::array<float, 4> fresnel{};
+    // (added by the sky)
+    std::array<float, kMatrixFloats> sky_to_pixel{};
+    std::array<float, 4> sky_sun{};
+    std::array<float, 4> sky_low{};
+    std::array<float, 4> sky_rect{};
+    std::array<float, 4> sky_tint{};
 };
-constexpr std::size_t kTraceBlockBytes = 288;
+constexpr std::size_t kTraceBlockBytes = 416;
 static_assert(sizeof(TraceBlock) == kTraceBlockBytes, "the shader's Pass block (std140)");
 
 // The bindings of set 0 (push descriptors): 0 the scene, 1 the depth, 2 the reflection written, 3 the pass's block,
@@ -462,7 +481,12 @@ constexpr uint32_t kBindingRays = 5;
 constexpr uint32_t kBindingHits = 6;
 constexpr uint32_t kBindingGeometry = 7;
 constexpr uint32_t kBindingBase = 8; // (added for the glass) the base layer: written by the trace, read by the apply
-constexpr uint32_t kBindingCount = 9;
+// (added by the sky) 9 - 12: what the misses see with rt_sky (vulkan_rt_sky_pass.h rt_sky_rays_glsl): the sky-view table
+// and the transmittance (samplers), the clouds' light and info (storage images)
+constexpr uint32_t kBindingSky = 9;
+constexpr uint32_t kBindingSkyCloudLight = kBindingSky + 2;
+constexpr uint32_t kBindingSkyCloudInfo = kBindingSky + 3;
+constexpr uint32_t kBindingCount = 13;
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 constexpr uint32_t kPushBytes = 16; // the apply's rect, the check's count
@@ -494,7 +518,7 @@ struct ReflectionState {
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE; // the table's when `layout` was made
     VkSampler sampler = VK_NULL_HANDLE;
     VkShaderModule vertex = VK_NULL_HANDLE;
-    std::array<VkPipeline, 2> trace{}; // single-sampled depth, multisampled
+    std::array<VkPipeline, 4> trace{}; // single-sampled depth, multisampled; then the same with the sky (SKY)
     VkPipeline surface = VK_NULL_HANDLE;
     std::vector<ApplyPipeline> applies;
     std::vector<std::unique_ptr<ViewSlot>> slots;
@@ -555,11 +579,14 @@ VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::stri
 
 // A compute pass's GLSL: the version, the defines, the ray-query extension, the material table and the geometry table
 // where it shades hits, its body.
-std::string compute_source(const char* body, bool multisampled, bool materials)
+std::string compute_source(const char* body, bool multisampled, bool materials, bool sky = false)
 {
     std::string source = "#version 460\n";
     if (multisampled) {
         source += "#define MULTISAMPLED\n";
+    }
+    if (sky) {
+        source += "#define SKY\n" + rt_sky_rays_glsl(kBindingSky);
     }
     source += "#extension GL_EXT_ray_query : require\n";
     if (materials) {
@@ -617,9 +644,10 @@ bool ensure_layouts(Backend& state, std::string* error)
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         if (binding == kBindingScene) {
             type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        } else if (binding == kBindingDepth) {
+        } else if (binding == kBindingDepth || binding == kBindingSky || binding == kBindingSky + 1) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        } else if (binding == kBindingOut || binding == kBindingIn || binding == kBindingBase) {
+        } else if (binding == kBindingOut || binding == kBindingIn || binding == kBindingBase ||
+                   binding == kBindingSkyCloudLight || binding == kBindingSkyCloudInfo) {
             type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         } else if (binding == kBindingBlock) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -704,11 +732,11 @@ bool ensure_objects(Backend& state, std::string* error)
             return false;
         }
     }
-    for (std::size_t multisampled = 0; multisampled < own.trace.size(); ++multisampled) {
-        if (core::at(own.trace, multisampled) == VK_NULL_HANDLE) {
-            core::at(own.trace, multisampled) =
-                make_compute(device, own.layout, compute_source(kTraceBody, multisampled != 0, true), error);
-            if (core::at(own.trace, multisampled) == VK_NULL_HANDLE) {
+    for (std::size_t variant = 0; variant < own.trace.size(); ++variant) {
+        if (core::at(own.trace, variant) == VK_NULL_HANDLE) {
+            core::at(own.trace, variant) = make_compute(
+                device, own.layout, compute_source(kTraceBody, (variant & 1U) != 0, true, variant >= 2), error);
+            if (core::at(own.trace, variant) == VK_NULL_HANDLE) {
                 return false;
             }
         }
@@ -1127,7 +1155,8 @@ void depth_barrier(VkCommandBuffer commands, Image* depth, VkImageLayout layout,
 
 // The trace's descriptors: the scene, the depth, the image written, the block and the geometry table.
 void push_trace_descriptors(VkCommandBuffer commands, VkAccelerationStructureKHR tlas, const Image* depth,
-                            const Image* out, const Image* base, const RingSpan& block, const SceneView& scene)
+                            const Image* out, const Image* base, const RingSpan& block, const SceneView& scene,
+                            const RtSkyForRays* sky)
 {
     const ReflectionState& own = reflections();
     const VkWriteDescriptorSetAccelerationStructureKHR structure{
@@ -1168,6 +1197,21 @@ void push_trace_descriptors(VkCommandBuffer commands, VkAccelerationStructureKHR
     writes.back().pImageInfo = &base_info;
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
                               static_cast<uint32_t>(writes.size()), writes.data());
+    if (sky != nullptr) {
+        // (added by the sky) the misses' sky
+        std::array sky_writes{
+            write(kBindingSky, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER),
+            write(kBindingSky + 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER),
+            write(kBindingSkyCloudLight, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+            write(kBindingSkyCloudInfo, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+        };
+        sky_writes.at(0).pImageInfo = &sky->sky_view;
+        sky_writes.at(1).pImageInfo = &sky->transmittance;
+        sky_writes.at(2).pImageInfo = &sky->cloud_light;
+        sky_writes.at(3).pImageInfo = &sky->cloud_info;
+        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
+                                  static_cast<uint32_t>(sky_writes.size()), sky_writes.data());
+    }
 }
 
 // The colour mixed toward the reflection over the viewport.
@@ -1374,8 +1418,18 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     }
     const std::array<int32_t, 4> rect{static_cast<int32_t>(left), static_cast<int32_t>(top),
                                       static_cast<int32_t>(width), static_cast<int32_t>(height)};
-    const TraceBlock block = trace_block(to_world, view, rect, sample_zero_offset(colour->samples, own.standard_samples),
-                                         pixel_angle(to_world, clipped));
+    TraceBlock block = trace_block(to_world, view, rect, sample_zero_offset(colour->samples, own.standard_samples),
+                                   pixel_angle(to_world, clipped));
+    // (added by the sky) rt_sky: the misses see the sky drawn, not the game's environment map
+    RtSkyForRays sky;
+    const bool sky_seen = rt_sky_for_rays(state, clipped.rect, &sky);
+    if (sky_seen) {
+        block.sky_to_pixel = sky.to_pixel;
+        block.sky_sun = sky.sun;
+        block.sky_low = sky.low;
+        block.sky_rect = sky.rect;
+        block.sky_tint = sky.tint;
+    }
     std::array<uint8_t, sizeof(TraceBlock)> block_bytes{};
     std::memcpy(block_bytes.data(), &block, sizeof(block));
     const std::optional<RingSpan> block_span = state.ring.copy(block_bytes, kUniformAlignment);
@@ -1404,8 +1458,9 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
 
     // 1. the rays
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
-                      core::at(own.trace, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U));
-    push_trace_descriptors(commands, scene.tlas, depth, &slot->reflection, &slot->base, *block_span, scene);
+                      core::at(own.trace, (colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U) + (sky_seen ? 2U : 0U)));
+    push_trace_descriptors(commands, scene.tlas, depth, &slot->reflection, &slot->base, *block_span, scene,
+                           sky_seen ? &sky : nullptr);
     const VkDescriptorSet material_set = state.materials.descriptor_set();
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,
                             nullptr);
@@ -1615,7 +1670,8 @@ void release_rt_reflections(Backend& state)
         for (const ApplyPipeline& made : own.applies) {
             vkDestroyPipeline(device, made.pipeline, nullptr);
         }
-        for (const VkPipeline pipeline : {own.trace.front(), own.trace.back(), own.surface}) {
+        for (const VkPipeline pipeline : {core::at(own.trace, 0), core::at(own.trace, 1), core::at(own.trace, 2),
+                                          core::at(own.trace, 3), own.surface}) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
             }
