@@ -14,6 +14,7 @@
 #include <initializer_list>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 #include <array>
@@ -1044,6 +1045,32 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     for (int i = 0; i < kMaxCommandsPerFrame && !runner.active && !runner.queue.empty(); ++i) {
         if (!kickoff(runner, front_end)) {
+            break;
+        }
+    }
+    write_status(runner);
+}
+
+void held_tick()
+{
+    if (!is_switched_on() || frame_loop::frames_run() == 0) {
+        return;
+    }
+    Runner& runner = get_state();
+    poll_file(runner);
+    // (a console command - the demo viewer's own: `viewer play`, `viewer seek` - or an echo: nothing of the game runs)
+    const auto runs_held = [](const std::string& line) {
+        const size_t start = line.find_first_not_of(" \t");
+        if (start == std::string::npos) {
+            return false;
+        }
+        const std::string_view text = std::string_view(line).substr(start);
+        return text.starts_with("console ") || text.starts_with("echo ");
+    };
+    for (int i = 0; i < kMaxCommandsPerFrame && !runner.active && !runner.queue.empty() &&
+                    runs_held(runner.queue.front().text);
+         ++i) {
+        if (!kickoff(runner, nullptr)) {
             break;
         }
     }

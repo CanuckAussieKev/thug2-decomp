@@ -13,6 +13,10 @@ add_library(thug2_devtools STATIC
     console.cpp
     demo.cpp
     demo_overlay.cpp
+    demo_camera_path.cpp
+    demo_viewer.cpp
+    demo_viewer_ui.cpp
+    compare_split.cpp
     rt_check.cpp
 )
 # (the generated build_info.h: the screenshot sidecar names the exe's source)

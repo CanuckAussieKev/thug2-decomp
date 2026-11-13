@@ -18,7 +18,9 @@
 #include <utility>
 #include <vector>
 
+#include "devtools/compare_split.h"
 #include "devtools/demo.h"
+#include "devtools/demo_viewer.h"
 #include "engine/ext/extension.h"
 #include "engine/objects/entity.h"
 #include "engine/pad_input/input_event.h"
@@ -173,6 +175,8 @@ std::string list_scripts(const std::string& filter)
 constexpr const char* kHelp = "scripts [text]  the scripts running (names holding text): each level QB or TS\n"
                               "demo record [name]  the level again, recorded (F6); demo stop: saved\n"
                               "demo play <name>    a demo played back; demo status\n"
+                              "demo view <name>    a demo in the viewer; viewer help: its commands\n"
+                              "compare on | off | set <key> <value> | divider <x> | status  the split\n"
                               "clear           clear the console\n"
                               "rt summary      ray tracing's contract check: its counts and violations\n"
                               "rt dump [file]  the last frame's ray-tracing record as JSON (game folder)\n"
@@ -418,7 +422,16 @@ std::string run_command(const std::string& line)
         if (action == "play") {
             return name.empty() ? "demo play <name>" : demo::play_now(name);
         }
+        if (action == "view") {
+            return name.empty() ? "demo view <name>" : demo::view_now(name);
+        }
         return demo::status_text();
+    }
+    if (command == "viewer") {
+        return demo_viewer::console_command(rest);
+    }
+    if (command == "compare") {
+        return compare_split::console_command(rest);
     }
     if (command == "clear") {
         state().lines.clear();

@@ -127,6 +127,17 @@ void jitter_projection(std::array<std::array<float, 4>, 4>* projection, std::arr
 }
 
 namespace {
+std::atomic<bool>& swap_slot()
+{
+    static std::atomic<bool> swapping{false};
+    return swapping;
+}
+} // namespace
+
+void set_settings_swap(bool swapping) { swap_slot().store(swapping, std::memory_order_relaxed); }
+bool settings_swap() { return swap_slot().load(std::memory_order_relaxed); }
+
+namespace {
 bool& hdr_slot()
 {
     static bool on = false;

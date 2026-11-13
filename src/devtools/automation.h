@@ -143,6 +143,10 @@ bool& is_switched_on();
 // Once a frame from the front end's input logic (its extension): the command file, the running command, the
 // status file; and the -run script.
 void tick_frame(modules::FrontEnd* front_end);
+// A loop whose simulation is held (the demo viewer paused - engine/ext/extension.h LoopPace): the command file read and
+// the commands at its head that don't need the game to run - `console` and `echo` - run; the others wait for a frame
+// that runs. The status file written.
+void held_tick();
 // The buttons a `press` holds, added to port 0's PS2-format control data (its input source's poll, after the
 // keyboard's and the controller's, before the bits are inverted: a set bit is a button down).
 void add_pad_buttons(int port, std::span<uint8_t> data);

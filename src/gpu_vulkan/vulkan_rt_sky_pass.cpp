@@ -1899,12 +1899,16 @@ void set_rt_sky_settings(const RtSkySettings& settings)
         const std::scoped_lock lock(state.mutex);
         SkyPassState& own = pass_state();
         own.settings = kept;
-        ++own.settings_serial;
-        for (const std::unique_ptr<SkySlot>& slot : own.slots) {
-            slot->has_history = false;
+        // (a split comparison's swap between its sides keeps each side's clouds' history and the sky's match - rt_scene.h
+        // settings_swap: the match is made with the side drawn when it was due)
+        if (!rt::settings_swap()) {
+            ++own.settings_serial;
+            for (const std::unique_ptr<SkySlot>& slot : own.slots) {
+                slot->has_history = false;
+            }
+            invalidate_sky();
         }
         set_table_follows_sky_view(kept.on);
-        invalidate_sky();
     }
     rt::set_sky_replacement({.on = kept.on, .keep_layers = !kept.clouds});
     rt::set_sky_capture_wanted(kept.on);

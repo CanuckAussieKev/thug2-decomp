@@ -443,4 +443,26 @@ bool sky_capture_wanted();
 void set_sky_capture(const SkyCapture& capture);
 SkyCapture sky_capture();
 
+// --- (added by the split comparison) two sets of settings, one each side of a divider ------------------------------
+// [Graphics] compare_split (devtools/compare_split.h): the first viewport drawn twice, its left part with the effects'
+// settings A and its right part with B (render::graphics_options::compare_*) - each view a crop of the whole viewport's
+// projection (crop_clip_space), so every pass sees its side's rectangle and keeps its own per-rectangle history.
+// While settings_swap() is true, a backend's settings set again are such a swap between the two sides: the histories,
+// matches and caches made for a side are kept (each side's view has its own) - nothing starts again.
+void set_settings_swap(bool swapping);
+bool settings_swap();
+
+// The clip-space scale and offset that crop a projection to `part` (x, y, width, height - 0..1 of the viewport, y down):
+// x' = x * scale_x + w * offset_x, y' = y * scale_y + w * offset_y - {scale_x, scale_y, offset_x, offset_y}. The part's
+// square of normalised device coordinates becomes the whole -1..1 (D3D's: x right, y up).
+[[nodiscard]] inline std::array<float, 4> crop_clip_space(const std::array<float, 4>& part)
+{
+    const double width = std::get<2>(part) > 0.0F ? static_cast<double>(std::get<2>(part)) : 1.0;
+    const double height = std::get<3>(part) > 0.0F ? static_cast<double>(std::get<3>(part)) : 1.0;
+    const double centre_x = (2.0 * static_cast<double>(std::get<0>(part))) + width - 1.0;
+    const double centre_y = 1.0 - (2.0 * static_cast<double>(std::get<1>(part))) - height;
+    return {static_cast<float>(1.0 / width), static_cast<float>(1.0 / height), static_cast<float>(-centre_x / width),
+            static_cast<float>(-centre_y / height)};
+}
+
 } // namespace render::rt

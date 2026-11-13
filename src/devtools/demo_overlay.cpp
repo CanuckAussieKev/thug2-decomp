@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <string>
 
 #include "base/core/no_destroy.h"
@@ -31,6 +32,8 @@ constexpr ImU32 kBackground = IM_COL32(0, 0, 0, 150);
 constexpr ImU32 kText = IM_COL32(255, 255, 255, 235);
 constexpr ImU32 kDim = IM_COL32(220, 220, 220, 200);
 constexpr ImU32 kRed = IM_COL32(230, 40, 40, 255);
+constexpr ImU32 kDivider = IM_COL32(255, 255, 255, 220);
+constexpr float kDividerWidth = 2.0F; // (at 720 lines)
 
 struct State {
     ImGuiContext* context = nullptr;
@@ -119,6 +122,43 @@ void draw(const std::string& tag, const std::string& line, bool dot)
     if (!line.empty()) {
         list->AddText(overlay.line, overlay.line->FontSize, ImVec2(corner.x + padding, corner.y + padding + tag_size.y), kDim,
                       line.c_str());
+    }
+    ImGui::Render();
+    frontend::ui_backend::render();
+    ImGui::SetCurrentContext(previous);
+}
+
+void draw_split(float x, const std::string& left, const std::string& right, bool labels)
+{
+    State& overlay = state();
+    ImGuiContext* previous = nullptr;
+    if (!begin_context(&previous)) {
+        return;
+    }
+    frontend::ui_backend::new_frame();
+    ImGui::NewFrame();
+    ImDrawList* list = ImGui::GetForegroundDrawList();
+    const ImGuiIO& io = ImGui::GetIO();
+    const float line_x = std::round(io.DisplaySize.x * std::clamp(x, 0.0F, 1.0F));
+    list->AddLine(ImVec2(line_x, 0.0F), ImVec2(line_x, io.DisplaySize.y), kDivider, kDividerWidth * overlay.scale);
+    if (labels) {
+        const float margin = kMargin * overlay.scale;
+        const float padding = kPadding * overlay.scale;
+        const auto label = [&](const std::string& text, bool on_left) {
+            if (text.empty()) {
+                return;
+            }
+            const ImVec2 size = overlay.line->CalcTextSizeA(overlay.line->FontSize, FLT_MAX, 0.0F, text.c_str());
+            const float width = size.x + padding + padding;
+            const float left_edge = on_left ? line_x - margin - width : line_x + margin;
+            const ImVec2 corner(left_edge, margin);
+            list->AddRectFilled(corner, ImVec2(corner.x + width, corner.y + size.y + padding + padding), kBackground,
+                                kRounding * overlay.scale);
+            list->AddText(overlay.line, overlay.line->FontSize, ImVec2(corner.x + padding, corner.y + padding), kText,
+                          text.c_str());
+        };
+        label(left, true);
+        label(right, false);
     }
     ImGui::Render();
     frontend::ui_backend::render();

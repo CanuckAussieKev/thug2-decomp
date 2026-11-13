@@ -226,9 +226,14 @@ void Hub::get_main_loop()
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             frames_since_screen_saver = 0;
         }
+        // Not original - the extensions' pace for this loop (engine/ext/extension.h LoopPace; the demo viewer: paused,
+        // slow motion, seeking). Original behaviour: every loop a logic frame at the frame's time, drawn unless late.
+        const ext::LoopPace pace = ext::loop_pace();
         render::engine_parts().set_suppress_draw(false);
-        objects::objects_shared().set_cutscene_playing(false);
-        sio::read_keyboard();
+        if (!pace.hold) {
+            objects::objects_shared().set_cutscene_playing(false);
+            sio::read_keyboard();
+        }
         os_layer::process_window_events();
         service_network();
         // Not original - THUGPRO's big-level positions in network games (TP-R6, game/online/thugpro_compat.h, through
@@ -255,10 +260,10 @@ void Hub::get_main_loop()
             render::engine_parts().set_suppress_draw(true);
         }
 
-        // Wait for the frame's time (60 a second).
+        // Wait for the frame's time (60 a second). Not original: not while an extension runs flat out (pace.flat_out).
         QueryPerformanceCounter(&counter);
         auto now = static_cast<uint64_t>(counter.QuadPart);
-        while (now < frame_start + frame_ticks) {
+        while (!pace.flat_out && now < frame_start + frame_ticks) {
             Sleep(0);
             QueryPerformanceCounter(&counter);
             now = static_cast<uint64_t>(counter.QuadPart);
@@ -275,7 +280,8 @@ void Hub::get_main_loop()
         // make one late even though the last frame's capture time isn't counted.
         // Original behaviour: a late frame isn't drawn.
         const bool active = sys::app_active();
-        if ((skipped_in_a_row() >= 4 || elapsed < frame_ticks + (frame_ticks >> 1) || ext::keeps_every_frame()) &&
+        if ((skipped_in_a_row() >= 4 || elapsed < frame_ticks + (frame_ticks >> 1) || ext::keeps_every_frame() ||
+             pace.flat_out) &&
             active) {
             skipped_in_a_row() = 0;
         } else {
@@ -284,16 +290,30 @@ void Hub::get_main_loop()
             ++skipped_in_a_row();
         }
         frame_start += frame_ticks;
-
-        frame_clock::note_refresh();
-        frame_clock::once_every_draw();
-        if (profile_frames_ != 0) {
-            debug::printf("\nProfiling.....Start of main loop\n\n"); // "\nProfiling.....Start of main loop\n\n"
-            --profile_frames_;
-            profiling_ = 1;
+        // Not original - a loop run flat out counts the next one's time from now (it isn't late); one the extension
+        // doesn't draw isn't drawn. Original behaviour: neither.
+        if (pace.flat_out) {
+            frame_start = now;
         }
-        run_tasks(system_tasks_, profiling_ != 0);
-        run_tasks(logic_tasks_, profiling_ != 0);
+        if (pace.skip_draw) {
+            render::engine_parts().set_suppress_draw(true);
+        }
+
+        // Not original - a held simulation (pace.hold: the demo viewer paused or slowed) counts no clock and runs no
+        // task: the frame is drawn again as the last logic frame left it. Original behaviour: always a logic frame.
+        if (!pace.hold) {
+            frame_clock::note_refresh();
+            frame_clock::once_every_draw();
+            if (profile_frames_ != 0) {
+                debug::printf("\nProfiling.....Start of main loop\n\n"); // "\nProfiling.....Start of main loop\n\n"
+                --profile_frames_;
+                profiling_ = 1;
+            }
+            run_tasks(system_tasks_, profiling_ != 0);
+            run_tasks(logic_tasks_, profiling_ != 0);
+        } else {
+            ext::held_frame();
+        }
         if (!render::engine_parts().suppress_draw()) {
             begin_scene();
         }
@@ -314,7 +334,9 @@ void Hub::get_main_loop()
             QueryPerformanceCounter(&counter);
             frame_start = static_cast<uint64_t>(counter.QuadPart);
         }
-        frame_clock::update_frame_length();
+        if (!pace.hold) {
+            frame_clock::update_frame_length();
+        }
         profiling_ = 0;
     }
     is_finished_ = done_on_entry;

@@ -179,6 +179,34 @@ bool keeps_every_frame()
     return false;
 }
 
+LoopPace loop_pace()
+{
+    LoopPace pace;
+    for (Extension* extension : registered()) {
+        if (extension->loop_pace(&pace)) {
+            return pace;
+        }
+    }
+    return {};
+}
+
+void held_frame()
+{
+    for (Extension* extension : registered()) {
+        extension->held_frame();
+    }
+}
+
+bool draws_2d()
+{
+    for (Extension* extension : registered()) {
+        if (!extension->draws_2d()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void device_lost()
 {
     for (Extension* extension : registered()) {

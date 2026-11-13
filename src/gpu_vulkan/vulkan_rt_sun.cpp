@@ -1676,8 +1676,14 @@ void set_rt_sun_settings(const RtSunSettings& settings)
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         sun_settings_held() = kept;
-        invalidate_sky();
-        rt::set_sun_glare_replaced(false);
+        // (a split comparison's swap between its sides: the sky's model kept - rt_scene.h settings_swap)
+        // (and the original's sun left out on the side whose backend draws it - its pass tells again when it draws)
+        if (!rt::settings_swap()) {
+            invalidate_sky();
+            rt::set_sun_glare_replaced(false);
+        } else {
+            rt::set_sun_glare_replaced(kept.sun);
+        }
     }
     if (kept.sun || kept.shafts || kept.bloom) {
         rt::add_view_listener(&listener());

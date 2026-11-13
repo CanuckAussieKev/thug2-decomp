@@ -3,7 +3,7 @@
 A demo is a recorded run: the player's input from a level's load, enough to play the same run again. Played back
 with different settings (renderer, MSAA, anisotropy, ray tracing...), it gives before / after pictures of the same
 moments; or saved as a video. The code is `src/devtools/demo.h` (recording, playback, capture, the menus' commands),
-`src/devtools/demo_overlay.h` (the REC / REPLAY tag), `src/formats/demo_format.h` (the file),
+`src/devtools/demo_overlay.h` (the REC / REPLAY tag), `src/devtools/demo_viewer.h` (the viewer), `src/devtools/compare_split.h` (the split comparison), `src/formats/demo_format.h` (the file),
 `src/engine/media/video_writer.h` + `src/media_ffmpeg/ffmpeg_video.h` (the video), `tools/pipeline/menu_level/demo_menu.ts`
 (the menus, in the data overlay) and `tools/game/demo_compare.ts` (several settings, side by side).
 
@@ -16,9 +16,111 @@ In free skate the pause menu has **DEMOS** (single player, after YOUR OPTIONS - 
 |---|---|
 | RECORD DEMO | The level starts again and records (REC and the time in the top-right corner). The pause menu then shows **STOP RECORDING**: it saves `demo_<level>_<date>_<time>` (the frames in the pause menu are left out). F6 does the same. |
 | PLAY DEMO | The saved demos, newest first (level, length, date; the twelve newest): the chosen one's level loads and the run is played by the game itself - the recorded input drives the skater, physics and all, with the game's camera. REPLAY and the time are shown. **Any button or stick press hands the controls back** (the run stops there; Start also pauses as ever). |
+| WATCH REPLAY | The same list: the chosen demo plays in **the viewer** (below) - a timeline, cameras, keyframes, the split comparison. |
 | SAVE AS VIDEO | The same list: the chosen demo plays and is saved as `thug2-decomp-videos\<demo>.mp4` (SAVING VIDEO and the percentage are shown, not in the video), then VIDEO SAVED and the file for a few seconds. A button press stops it (VIDEO STOPPED: the file holds what was made). |
 
 A playback started from the pause menu is as exact as one from the command line (the same drift check: 0 in every test).
+
+## The viewer
+
+A demo played in the viewer (DEMOS > WATCH REPLAY, `-demo <name> -viewer`, the console's `demo view <name>`) is the same
+playback - the recorded input drives the skater - with a timeline, cameras and keyframes over it: the panels are Dear
+ImGui's (`src/devtools/demo_viewer.h`, `demo_viewer_ui.cpp`), drawn after a video's picture is taken, never in it. While
+it is up the game reads no key or pad (they are the viewer's); **Esc** leaves it - the controls are then the player's
+from the frame shown (as a button press does in PLAY DEMO).
+
+| Keys | |
+|---|---|
+| Space | play / pause (at the end: from the start again) |
+| Left / Right | a frame back / forward (Shift: a second) |
+| Home / End | the level up / the last frame |
+| `[` / `]` | slower / faster: 0.1x, 0.25x, 0.5x, 0.75x, 1x, 1.5x, 2x, 4x |
+| C | the next camera: game, free, orbit, fixed, path |
+| K, Delete | a key at the frame shown from the camera drawn; the selected key deleted |
+| I / O, L | the loop region's in / out at the frame shown; the loop on / off |
+| U | the HUD (the game's 2D) on / off |
+| V | the split comparison on / off (below) |
+| H | the panels hidden / shown |
+| WASD, Q / E, the right mouse button, the wheel | the free camera (Shift faster, Ctrl slower; a pad's sticks and triggers too); the orbit camera turns with the right button, the wheel sets its distance |
+| A pad: A / Start, the shoulders | play / pause; a frame back / forward |
+| Esc | leave the viewer (during SAVE AS VIDEO: stop the video) |
+
+The bar at the bottom has the same buttons, the speed, the time and frame, Loop with In / Out, HUD, Split, + KEY, SAVE
+AS VIDEO and EXIT, and the timeline: the frames across (the level's loading dimmed, the loop region shaded, a tick a
+second), the keys as diamonds and the frame shown. Click or drag on it to seek (when let go); drag a key to move it;
+click a key to select it and go to its frame. The panel on the right: **Camera** (the cameras, the field of view, the
+fixed cameras - "Place one here", their names; a name starting with "track" keeps the skater in view), **Keys** (the
+keys, the selected one's frame, position, yaw / pitch / roll, field of view and how it moves to the next: smooth,
+linear, ease or hold; "Set from the view") and **Compare** (the split comparison's sides).
+
+- **Playing, pausing, slow motion.** The main loop asks the viewer each loop how to run it (`ext::LoopPace`,
+  `engine/sys/mlp.cpp`): paused, a loop runs no logic frame - no clock counted, no input read for the game, no task run -
+  and the frame is drawn again as the last logic frame left it (the cameras still move); slow motion is a logic frame
+  every few loops, every loop drawn (a camera path moves on between the logic frames); 1.5x - 4x are 2 - 4 logic frames
+  a drawn one. The logic is the same fixed 1/60 s a frame however the loops are paced, so none of this changes the run.
+- **Seeking.** The game's logic only runs forward. A frame after the one shown is reached by running on flat out,
+  undrawn (a frame drawn every 0.1 s shows SEEKING and the percentage); a frame before it by loading the level again the
+  way the demo started - its random numbers, clocks and input, as a playback from the pause menu does - and running on
+  to it. No snapshot of the game is kept for a faster way back: its state is spread over the script heap, the objects,
+  the physics, the sound and the screen elements, and nothing puts all of it back exactly - a checkpoint that missed one
+  piece would part from the recording without the drift check seeing why. How fast: "What was measured" below.
+- **Cameras.** The game's (as recorded); **free** (it starts where the camera is); **orbit** round the skater (from
+  behind it while "follow" is on); **fixed** cameras placed in the level; **path** - the keyframes: a position, a
+  rotation (yaw, pitch, roll) and a field of view at a frame; between keys the camera moves smooth (a curve through the
+  keys whose speed carries on through each - Catmull-Rom slopes, spaced in time), linear, ease (slowing into and out of
+  both keys) or hold (it stays, then cuts); before the first key and after the last, those keys'. The yaw turns the
+  short way (170 to -170 passes 180). The game's camera keeps running underneath: the one drawn is put back once the
+  frame is presented, and the check track records the game's, so the run and its check are the same whichever camera is
+  drawn. The field of view (0: the game's) applies to every camera but a key's own.
+- **The sidecar.** The keys, the fixed cameras and the loop region are kept beside the demo as
+  `thug2-decomp-demos\<demo>.camera.txt`, saved half a second after a change: a text file, `thug2-demo-camera 1` then a
+  line each - `key <frame> <x> <y> <z> <yaw> <pitch> <roll> <fov> <smooth|linear|ease|hold>`, `fixed <x> <y> <z> <yaw>
+  <pitch> <roll> <fov> <name>`, `loop <in> <out>` - numbers written to read back exactly. A newer version is refused, a
+  line of a kind it doesn't know skipped (`src/devtools/demo_camera_path.h`; `thug2_viewer_check` tests the curves and
+  round-trips the file).
+- **SAVE AS VIDEO** renders the loop region if one is set, else the demo from the level up, at `[demo] video_fps` with
+  the camera path (with no keys, the camera chosen), the graphics as they are set (the split too, its divider and
+  labels) and the HUD as set - into `thug2-decomp-videos\<demo>_viewer.mp4` (the encoder of "Videos" below). The frames
+  before the range run flat out (the level loaded again if the frame shown is past its start), then every frame of it is
+  drawn and taken; the viewer is paused at the range's end afterwards. `-demo <name> -viewer -demo-video <file.mp4>`
+  does it from the command line with the demo's sidecar, then quits.
+- No depth of field (left out: a pass of its own for the viewer only).
+
+The console (also the automation channel's `console ...`, which runs while the viewer is paused): `viewer status`,
+`viewer play | pause | seek <frame | seconds s> | step [n] | speed <x>`, `viewer camera game | free | orbit | fixed [n] |
+path`, `viewer free <x> <y> <z> <yaw> <pitch>`, `viewer fov <degrees>`, `viewer hud 0|1`, `viewer ui 0|1`, `viewer key add
+| delete <n> | clear`, `viewer loop <in> <out> | off`, `viewer export [file]`, `viewer save`, `viewer exit`.
+
+## The split comparison
+
+The screen-space effects with two sets of settings at once: side A (the ini's `[Graphics]`) left of a divider, side B
+(the same with `[Compare]`'s values put over it) right of it - in normal play, in a demo playback and in the viewer
+(`src/devtools/compare_split.h`).
+
+| Setting | Default | |
+|---|---|---|
+| `[Graphics] compare_split` | 0 | 1: on from the start (the console's `compare on` / `off`, the viewer's V or Split) |
+| `[Graphics] compare_divider` | 0.5 | where the divider is, 0.05 - 0.95 of the width; dragged with the mouse (the left button on it), Alt+Left / Alt+Right move it 1% |
+| `[Graphics] compare_labels` | 1 | A and B (with B's settings) in a box each side of the divider's top; 0: none (pictures to compare) |
+| `[Compare] <key>=<value>` | none | side B's `[Graphics]` values, e.g. `rt_ao=1`, `rt_shadows=0`, `rt_exposure=1.5` - the viewer's Compare panel lists the usual ones (A from the ini, B typed) and takes any other |
+
+How: the first viewport is drawn twice in the frame - the level editor's split views' mechanism (`ext::view_count`) - the
+left part with A's settings, the right with B's. Each view's camera is the whole viewport's projection cropped to its
+part (`ext::ViewPass::crop`, `rt::crop_clip_space`), so every pixel is where an unsplit frame has it, and each effect
+sees only its side's rectangle (`rt::ViewDrawn::rect`). The effects keep their slots and histories per rectangle (the
+occlusion, the bounce light, the fog, the sky and its clouds, the sun's rays, the reflections), so the temporal ones
+keep a history per side; the settings are swapped between the two views without starting any history again
+(`rt::settings_swap`; `graphics_options::compare_*`, Vulkan's in `app/renderer_choice.cpp`). The sky's match to the
+level's own sky is made once, with the side drawn when it was due.
+
+What can't differ per side is drawn as `[Graphics]` has it on both, and named in the Compare panel: the renderer,
+`ray_tracing`, `rt_hdr`, the upscaler (off while the split is on: both sides at the native resolution - it upscales a
+whole view), `rt_tessellation`, the relit mode (it changes how the world itself is drawn and keeps a cache), `msaa`,
+`anisotropy` and the texture sets. A `[Compare]` key among them is logged and left out. Direct3D 9 has no effects to
+split: both sides are the same there. The world is drawn twice, so a frame costs about twice as much; the effects that
+blur or look at neighbours (the bloom, the shafts, the reflections' blur) stop at the divider instead of reaching across
+it - a few pixels either side of it differ from an unsplit frame. A demo saved as a video with the split on shows it,
+its divider and labels included.
 
 ## Videos
 
