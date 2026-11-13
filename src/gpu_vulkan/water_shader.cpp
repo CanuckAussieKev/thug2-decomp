@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the water's GLSL (water_shader.h; the formulas are explained in vulkan_water.h).
 #include "gpu_vulkan/water_shader.h"
 
+#include <cstdint>
 #include <string_view>
 
 #include "gpu_vulkan/ff_uniforms.h"
@@ -9,8 +10,13 @@ namespace render::vulkan {
 
 namespace {
 
-static_assert(kWaterUniformsBinding == 8 && kWaterSceneBinding == 9 && kWaterDepthBinding == 10 && kWaterSkyBinding == 11 &&
-                  kWaterWavesBinding == 12,
+constexpr uint32_t kGlslUniforms = 8; // (the bindings the GLSL below names)
+constexpr uint32_t kGlslScene = 9;
+constexpr uint32_t kGlslDepth = 10;
+constexpr uint32_t kGlslSky = 11;
+constexpr uint32_t kGlslWaves = 12;
+static_assert(kWaterUniformsBinding == kGlslUniforms && kWaterSceneBinding == kGlslScene && kWaterDepthBinding == kGlslDepth &&
+                  kWaterSkyBinding == kGlslSky && kWaterWavesBinding == kGlslWaves,
               "the GLSL below names the bindings");
 
 constexpr std::string_view kWaterGlsl = R"(layout(set = 0, binding = 8, std140) uniform WaterUniforms {
@@ -214,8 +220,14 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     vec3 swell = water_swell(world.xz, t, footprint);
     vec3 ripple = water_ripples(world.xz, t);
     vec3 n = normalize(vec3(-(swell.x + ripple.x), max(1.0 - swell.y, 0.2), -(swell.z + ripple.y)));
-    float cos_v = clamp(dot(n, v), 0.0, 1.0);
-    float fresnel = kWaterF0 + (1.0 - kWaterF0) * pow(1.0 - cos_v, 5.0);
+    // the reflection's normal: the waves' tilt lessened where the water is seen at a grazing angle (a pixel there spans
+    // many facets, whose mean is flatter - the reflection is stretched along the water, not broken up), and Fresnel's
+    // grazing reflectance held below 1 by the waves' slope (rough water never mirrors fully)
+    float facing = clamp(dot(face, v), 0.0, 1.0);
+    vec3 n_mirror = normalize(face + (n - face) * mix(0.3, 1.0, smoothstep(0.05, 0.45, facing)));
+    float slope = clamp(length(n - face) * 1.5, 0.0, 0.5);
+    float cos_v = clamp(dot(n_mirror, v), 0.0, 1.0);
+    float fresnel = kWaterF0 + (max(1.0 - slope, kWaterF0) - kWaterF0) * pow(1.0 - cos_v, 5.0);
 
     // the water's colours: the scattering seen in deep water, from the tint (or the texture's own) at the light the game
     // gave the surface here (the program's brightness over its texel's: the bake, the pass colours)
@@ -223,7 +235,8 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     vec3 tint = water.tint.w > 0.5 ? mean : water.tint.rgb;
     vec3 hue = clamp(tint / max(max(tint.r, tint.g), max(tint.b, 1.0e-3)), 0.03, 1.0);
     float light = water_luma(tint) * gain;
-    vec3 deep = hue * (light * 0.75 / max(water_luma(hue), 0.05));
+    vec3 deep_hue = hue * hue; // (deep water's colour more saturated than the texture's mean, which has its highlights)
+    vec3 deep = deep_hue * (light * 0.65 / max(water_luma(deep_hue), 0.05));
 
     // 3. refraction: what is behind the water (the copy made before the view's first water), moved by the waves' tilt
     // in proportion to the water behind; 4. absorption along the path through it
@@ -258,7 +271,7 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
 
     // 2. the reflection along the wave normal: on the screen where the ray finds something, else the sky - as the
     // screen shows it toward that direction, or as the level's sky was captured
-    vec3 r = reflect(-v, n);
+    vec3 r = reflect(-v, n_mirror);
     r = normalize(vec3(r.x, max(r.y, 0.02), r.z));
     vec3 r_eye = (water.world_to_eye * vec4(r, 0.0)).xyz;
     vec3 sky = water.sky.w > 0.5 ? water_capture(r) : water.sky.rgb;
@@ -293,6 +306,12 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     // the texture's own detail, faintly
     float detail = clamp(water_luma(texel.rgb) / max(water_luma(mean), 0.02), 0.5, 1.6);
     shaded *= mix(1.0, detail, water.waves.w);
+    if (water.misc.z > 0.5) {
+        // ([debug] rt_water_view=1) what the reflection found: red the screen's march, green the sky on the screen,
+        // blue the captured sky; the water's depth below in the alpha-less grey of the rest
+        shaded = vec3(found.w, copied ? water_screen_sky(r_eye).w : 0.0, water.sky.w * (1.0 - found.w)) * fresnel * 2.0 +
+                 vec3(clamp(depth_down / 400.0, 0.0, 1.0)) * 0.25;
+    }
     if (any(isnan(shaded)) || any(isinf(shaded))) {
         shaded = colour.rgb;
     }

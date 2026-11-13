@@ -32,12 +32,16 @@ void set_current(const GpuTexture* texture, uint32_t material);
 
 // The level's water as render_pc's table gives it (render_pc/water_materials.cpp; set when the level changes): a calm
 // harbour or canal has lower, shorter waves and murkier water than the open sea. The backend's settings scale it.
+inline constexpr float kLevelWaves = 0.4F;         // (a level without an entry: a sheltered water's)
+inline constexpr float kLevelSwellLength = 500.0F;
+inline constexpr float kLevelVisibility = 450.0F;
+inline constexpr float kLevelHeading = 30.0F;
 struct LevelWater {
-    uint32_t level = 0;          // the level's main scene's checksum (0: none loaded)
-    float waves = 0.4F;          // the swell's steepness scale (1: the open sea)
-    float swell_length = 500.0F; // the swell's longest wavelength (units)
-    float visibility = 450.0F;   // how far one sees into the water (units)
-    float heading = 30.0F;       // the wind's way, degrees from +x toward +z
+    uint32_t level = 0;                       // the level's main scene's checksum (0: none loaded)
+    float waves = kLevelWaves;                // the swell's steepness scale (1: the open sea)
+    float swell_length = kLevelSwellLength;   // the swell's longest wavelength (units)
+    float visibility = kLevelVisibility;      // how far one sees into the water (units)
+    float heading = kLevelHeading;            // the wind's way, degrees from +x toward +z
 };
 void set_level_water(const LevelWater& level);
 [[nodiscard]] LevelWater level_water();

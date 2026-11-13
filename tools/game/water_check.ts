@@ -3,6 +3,7 @@
 //
 //   node tools/game/water_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
 //        [--settings <ini>] [--levels BA,AU,BE,NO,SE] [--configs off,on] [--owner <name>] [--set Section.key=value]...
+//        [--timed <frames>] [--spots <file.json>]
 //
 // Under the workspace's lock (game_lock.ps1; released at the end, which puts the folder's own build and ini back), the
 // build deployed (deploy_build.ps1 -Arch x64), then for each configuration and level: the ini's [Graphics] the
@@ -10,7 +11,8 @@
 // (`on`), [debug] frame_profile=1 and rt_water_materials=1, --set's values over them; the game started straight into
 // the level (run_game.ps1 -Level), each spot's camera held and one frame captured (`capture 1`), then the level's first
 // spot held for kTimedFrames frames - the frame profile's "gpu" (the device's milliseconds a frame) over its last
-// windows is the cost. Pictures in <out>/<config>/<spot>.png, each level's log in <out>/<config>/<level>.log, and
+// windows is the cost (--timed: how many frames, 0 none; --spots: a JSON list of {level, spots: [{name, camera}]} in
+// place of the built-in spots). Pictures in <out>/<config>/<spot>.png, each level's log in <out>/<config>/<level>.log, and
 // report.txt: per level the device's time off and on, and the log's rt_water lines.
 // Workspaces only; muted (workspace_ini.ts).
 import { spawn } from "node:child_process";
@@ -48,7 +50,7 @@ export const LEVELS: readonly LevelSpots[] = [
         spots: [
             { name: "BA-harbour", camera: "camera 3840 150 2300 0.0 -0.35 0.94" },
             { name: "BA-harbour-sun", camera: "camera 2891.8 116.4 3000.4 0.197 -0.179 0.964" },
-            { name: "BA-shore", camera: "camera 3500 40 1960 0.0 -0.5 0.87" },
+            { name: "BA-close", camera: "camera 3000 40 3150 0.6 -0.5 0.62" },
             { name: "BA-sea", camera: "camera 6000 400 9000 0.55 -0.12 0.83" },
         ],
     },
@@ -57,7 +59,7 @@ export const LEVELS: readonly LevelSpots[] = [
         spots: [
             { name: "AU-sea", camera: "camera -2599.5 247.8 7625.6 -0.286 -0.179 -0.941" },
             { name: "AU-beach", camera: "camera -2493.8 247.9 7732.8 0.074 -0.180 -0.981" },
-            { name: "AU-shore", camera: "camera -2550 220 7300 0.0 -0.45 -0.89" },
+            { name: "AU-shore", camera: "camera -2900 120 5600 -0.2 -0.4 -0.89" },
         ],
     },
     {
@@ -70,13 +72,13 @@ export const LEVELS: readonly LevelSpots[] = [
     {
         level: "NO",
         spots: [
-            { name: "NO-river", camera: "camera 2200 140 0 0.97 -0.22 0.0" },
             { name: "NO-water", camera: "camera 3300 120 -3000 0.0 -0.3 -0.95" },
+            { name: "NO-river", camera: "camera 3300 120 -3000 0.95 -0.3 0.0" },
         ],
     },
     {
         level: "SE",
-        spots: [{ name: "SE-pool", camera: "camera -350 -560 900 0.0 -0.2 -0.98" }],
+        spots: [{ name: "SE-pool", camera: "camera -350 -600 -350 0.3 -0.85 0.43" }],
     },
 ];
 
@@ -94,13 +96,13 @@ export function configValues(config: Config, graphics: Record<string, string>): 
 
 export const seriesName = (config: Config, spot: string): string => `water-${config}-${spot}`;
 
-export function levelCommands(level: LevelSpots, config: Config): string[] {
+export function levelCommands(level: LevelSpots, config: Config, timed = kTimedFrames): string[] {
     const commands = [`waitfor level ${level.level} 300`, "wait 120"];
     for (const spot of level.spots) {
         commands.push(spot.camera, "wait 90", `capture 1 ${seriesName(config, spot.name)}`, "wait 10");
     }
     const first = level.spots[0];
-    if (first) commands.push(first.camera, `wait ${kTimedFrames}`);
+    if (first && timed > 0) commands.push(first.camera, `wait ${timed}`);
     return commands;
 }
 
@@ -131,13 +133,13 @@ function powershell(script: string, args: string[]): Promise<{ code: number; out
     });
 }
 
-async function runLevel(game: string, level: LevelSpots, config: Config, folder: string): Promise<string> {
+async function runLevel(game: string, level: LevelSpots, config: Config, folder: string, timed: number): Promise<string> {
     clearAutomationFiles(game);
     const log = path.join(game, "thug2-decomp.log");
     fs.rmSync(log, { force: true });
     const args = ["-Game", game, "-Arch", "x64", "-Seconds", "600", "-HangSeconds", "120"];
     args.push("-Shot", `${config}-${level.level}`, "-ShotDir", path.join(folder, "window"), "-Level", level.level);
-    args.push("-Commands", levelCommands(level, config).join(";"));
+    args.push("-Commands", levelCommands(level, config, timed).join(";"));
     const result = await powershell("run_game.ps1", args);
     fs.mkdirSync(folder, { recursive: true });
     const text = fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "";
@@ -167,12 +169,14 @@ interface RunOptions {
     configs: Config[];
     owner: string;
     set: Record<string, string>;
+    timed: number;
+    spots: readonly LevelSpots[];
 }
 
 async function runAll(options: RunOptions): Promise<number> {
     const { game, out } = options;
     if (!isWorkspace(game)) exitWith(`${game} isn't a workspace (C:\\Games\\THUG2-<n>): this tool runs only there`);
-    const levels = LEVELS.filter((l) => !options.levels || options.levels.includes(l.level));
+    const levels = options.spots.filter((l) => !options.levels || options.levels.includes(l.level));
     if (!levels.length) exitWith("no level chosen");
     const graphics = graphicsOf(fs.readFileSync(options.settings, "utf8"));
     fs.mkdirSync(out, { recursive: true });
@@ -195,7 +199,7 @@ async function runAll(options: RunOptions): Promise<number> {
             fs.writeFileSync(ini, iniFor(base, [configValues(config, graphics), options.set], "vulkan"), "utf8");
             ensureWorkspaceMuted(game);
             for (const level of levels) {
-                note(`${config} ${level.level}: ${await runLevel(game, level, config, path.join(out, config))}`);
+                note(`${config} ${level.level}: ${await runLevel(game, level, config, path.join(out, config), options.timed)}`);
             }
         }
     } finally {
@@ -217,6 +221,8 @@ async function main(): Promise<number> {
             configs: { type: "string", default: CONFIGS.join(",") },
             owner: { type: "string", default: "water-check" },
             set: { type: "string", multiple: true, default: [] },
+            timed: { type: "string", default: String(kTimedFrames) },
+            spots: { type: "string" },
         },
     });
     if (positionals[0] !== "run" || !values.game || !values.out || !values.build) exitWith(USAGE);
@@ -236,6 +242,8 @@ async function main(): Promise<number> {
         configs,
         owner: values.owner,
         set,
+        timed: Number(values.timed),
+        spots: values.spots ? (JSON.parse(fs.readFileSync(values.spots, "utf8")) as LevelSpots[]) : LEVELS,
     });
 }
 

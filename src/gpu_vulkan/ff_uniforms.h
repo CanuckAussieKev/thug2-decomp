@@ -115,7 +115,7 @@ struct WaterUniforms {
     Float4 sun_colour{};     // rgb: the sun's colour; w: the glitter's peak
     Float4 sky{};            // rgb: the sky's colour where nothing else is known; w: 1 when the sky capture is bound
     Float4 camera{};         // xyz: the camera's position (world); w: the refraction's strength
-    Float4 misc{};           // x: screen-space reflections on; y: the swell's wavelength scale; z, w: unused
+    Float4 misc{};           // x: screen-space reflections on; y: the swell's longest wavelength; z: the debug view; w: unused
 };
 
 constexpr std::size_t kMatrixBytes = 64;

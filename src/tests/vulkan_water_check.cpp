@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <exception>
 #include <limits>
+#include <mutex>
 #include <span>
 #include <string>
 #include <string_view>
@@ -49,6 +50,7 @@
 #include "engine/gfx/water_surfaces.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_water.h"
 #include "tests/no_error_dialogs.h"
@@ -96,6 +98,25 @@ constexpr float kWorstTolerance = 0.03F;
 constexpr double kShareWithin = 0.99;
 constexpr std::size_t kLeastJudged = 20000;
 constexpr float kEdgeDepth = 0.6F;      // (pixels this near the shoreline in depth left out: the depth's rasterisation)
+constexpr float kFarMargin = 50.0F;     // (the water's far edge left out)
+constexpr float kInFront = 0.5F;        // (the sand nearer than the water by this much: in front of it)
+constexpr float kHeading = 30.0F;       // the wind's (degrees)
+constexpr float kSwellLength = 300.0F;
+constexpr float kUvTile = 64.0F;        // (units a texture repeat)
+constexpr uint32_t kBlackOpaque = 0xFF000000U;
+constexpr uint32_t kWaterMaterial = 0x57A7E400U; // (a made-up checksum for the log)
+constexpr std::size_t kQuadCorners = 6;
+constexpr std::size_t kMatrixFloats = 16;
+constexpr std::size_t kColourBytes = 6; // (a half-float pixel's red, green, blue)
+constexpr float kSameLevel = 1.0e-3F;   // (luma or channel differences below this: unchanged)
+constexpr float kBrighter = 0.02F;
+constexpr std::size_t kLeastWallPixels = 300;
+constexpr std::size_t kLeastShallow = 100;
+constexpr double kFoamSeconds = 3.0;
+constexpr double kWaveSeconds = 10.0;
+constexpr double kWaveLater = 10.5;
+constexpr double kFramesASecond = 60.0;
+constexpr float kOffScreen = 1.1F;      // (normalised device coordinates past the screen's edge)
 constexpr uint32_t kFvfPosition = 0x002;
 constexpr uint32_t kFvfDiffuse = 0x040;
 constexpr uint32_t kFvfTex1 = 0x100;
@@ -180,22 +201,26 @@ float from_half(uint16_t bits)
 
 // --- vectors ----------------------------------------------------------------------------------------------------------
 
-Vec3 add(const Vec3& a, const Vec3& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
-Vec3 sub(const Vec3& a, const Vec3& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-Vec3 scale(const Vec3& a, float by) { return {a[0] * by, a[1] * by, a[2] * by}; }
-float dot(const Vec3& a, const Vec3& b) { return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2]); }
+Vec3 add(const Vec3& a, const Vec3& b)
+{
+    return {core::at(a, 0) + core::at(b, 0), core::at(a, 1) + core::at(b, 1), core::at(a, 2) + core::at(b, 2)};
+}
+Vec3 sub(const Vec3& a, const Vec3& b)
+{
+    return {core::at(a, 0) - core::at(b, 0), core::at(a, 1) - core::at(b, 1), core::at(a, 2) - core::at(b, 2)};
+}
+Vec3 scale(const Vec3& a, float by) { return {core::at(a, 0) * by, core::at(a, 1) * by, core::at(a, 2) * by}; }
+float dot(const Vec3& a, const Vec3& b)
+{
+    return (core::at(a, 0) * core::at(b, 0)) + (core::at(a, 1) * core::at(b, 1)) + (core::at(a, 2) * core::at(b, 2));
+}
 Vec3 normalise(const Vec3& a)
 {
     const float length = std::sqrt(dot(a, a));
     return length > 0.0F ? scale(a, 1.0F / length) : a;
 }
 float as_byte(float value) { return std::round(std::clamp(value, 0.0F, 1.0F) * kByteMax) / kByteMax; }
-Vec3 as_bytes(const Vec3& a) { return {as_byte(a[0]), as_byte(a[1]), as_byte(a[2])}; }
-float smoothstep(float low, float high, float value)
-{
-    const float t = std::clamp((value - low) / (high - low), 0.0F, 1.0F);
-    return t * t * (3.0F - (2.0F * t));
-}
+Vec3 as_bytes(const Vec3& a) { return {as_byte(core::at(a, 0)), as_byte(core::at(a, 1)), as_byte(core::at(a, 2))}; }
 
 // --- the scene --------------------------------------------------------------------------------------------------------
 
@@ -236,17 +261,24 @@ Matrix projection_matrix(uint32_t width, uint32_t height)
     core::at(core::at(projection, 3), 2) = -kNear * kFar / (kFar - kNear);
     return projection;
 }
-std::array<float, 16> flat(const Matrix& m)
+std::array<float, kMatrixFloats> flat(const Matrix& matrix)
 {
-    std::array<float, 16> out{};
-    for (std::size_t i = 0; i < 16; ++i) {
-        core::at(out, i) = core::at(core::at(m, i / 4), i % 4);
+    std::array<float, kMatrixFloats> out{};
+    for (std::size_t i = 0; i < kMatrixFloats; ++i) {
+        core::at(out, i) = core::at(core::at(matrix, i / 4), i % 4);
     }
     return out;
 }
 
-render::rt::ViewDrawn view_of(uint32_t width, uint32_t height, double seconds)
+struct ViewSize {
+    uint32_t width = kWidth;
+    uint32_t height = kHeight;
+};
+
+render::rt::ViewDrawn view_of(ViewSize size, double seconds)
 {
+    const uint32_t width = size.width;
+    const uint32_t height = size.height;
     render::rt::ViewDrawn view;
     view.rect = {0, 0, width, height};
     view.output_rect = view.rect;
@@ -268,10 +300,10 @@ struct Vertex {
 };
 
 // A horizontal (or sloped) quad from z = kShoreStart to kFloorFar.
-std::array<Vertex, 6> quad(bool floor)
+std::array<Vertex, kQuadCorners> quad(bool floor)
 {
     const auto at = [floor](float x, float z) {
-        return Vertex{.position = {x, floor ? floor_height(z) : 0.0F, z}, .colour = kHalfGrey, .uv = {x / 64.0F, z / 64.0F}};
+        return Vertex{.position = {x, floor ? floor_height(z) : 0.0F, z}, .colour = kHalfGrey, .uv = {x / kUvTile, z / kUvTile}};
     };
     const float first_z = floor ? 0.0F : kShoreStart;
     return {at(-kSide, first_z), at(kSide, first_z), at(-kSide, kFloorFar), at(kSide, first_z), at(kSide, kFloorFar), at(-kSide, kFloorFar)};
@@ -347,26 +379,26 @@ void common_states(render::Gpu& gpu, const Scene& scene)
 void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marked, bool blended, int layers = 1,
                 bool wall = false)
 {
-    const render::rt::ViewDrawn view = view_of(scene.width, scene.height, seconds);
+    const render::rt::ViewDrawn view = view_of({.width = scene.width, .height = scene.height}, seconds);
     gpu.begin_scene();
     gpu.set_render_target(0, scene.colour);
     gpu.set_depth_surface(scene.depth);
     gpu.set_viewport({.x = 0, .y = 0, .width = scene.width, .height = scene.height, .min_z = 0.0F, .max_z = 1.0F});
-    gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, 0xFF000000U, 1.0F, 0);
+    gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, kBlackOpaque, 1.0F, 0);
     render::rt::view_begins(view);
     common_states(gpu, scene);
     gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
     gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
     gpu.set_texture(0, scene.sand);
     render::water::set_current(nullptr, 0);
-    const std::array<Vertex, 6> sand = quad(true);
+    const std::array<Vertex, kQuadCorners> sand = quad(true);
     gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, sand.data(), sizeof(Vertex));
     if (wall) {
         gpu.set_texture(0, scene.wall);
         const auto at = [](float x, float y) {
-            return Vertex{.position = {x, y, kWallZ}, .colour = kHalfGrey, .uv = {x / 64.0F, y / 64.0F}};
+            return Vertex{.position = {x, y, kWallZ}, .colour = kHalfGrey, .uv = {x / kUvTile, y / kUvTile}};
         };
-        const std::array<Vertex, 6> quad_of_wall{at(-kSide, 0.0F), at(kSide, 0.0F), at(-kSide, kWallTop), at(kSide, 0.0F),
+        const std::array<Vertex, kQuadCorners> quad_of_wall{at(-kSide, 0.0F), at(kSide, 0.0F), at(-kSide, kWallTop), at(kSide, 0.0F),
                                                  at(kSide, kWallTop), at(-kSide, kWallTop)};
         gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, quad_of_wall.data(), sizeof(Vertex));
     }
@@ -376,8 +408,8 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marke
         gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
         gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
         gpu.set_texture(0, scene.water);
-        render::water::set_current(marked ? scene.water : nullptr, 0x57A7E400U);
-        const std::array<Vertex, 6> water = quad(false);
+        render::water::set_current(marked ? scene.water : nullptr, kWaterMaterial);
+        const std::array<Vertex, kQuadCorners> water = quad(false);
         gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, water.data(), sizeof(Vertex));
     }
     render::water::set_current(nullptr, 0);
@@ -464,13 +496,13 @@ int mirror_shows_wall(const Vec3& point, const Vec3& reflected)
     }
     const Vec3 hit = add(point, scale(reflected, (kWallZ - core::at(point, 2)) / core::at(reflected, 2)));
     std::array<float, 2> ndc{};
-    const bool seen = on_screen(hit, &ndc) && std::fabs(ndc[0]) < 1.0F && std::fabs(ndc[1]) < 1.0F;
+    const bool seen = on_screen(hit, &ndc) && std::fabs(core::at(ndc, 0)) < 1.0F && std::fabs(core::at(ndc, 1)) < 1.0F;
     if (core::at(hit, 1) > kWallTop + kMargin || core::at(hit, 1) < -kMargin || !seen) {
         // the wall's points the camera doesn't see can't be found on the screen: the sky (unless near the screen's
         // edge, where the march may end on the wall's last rows)
-        return seen || std::fabs(ndc[1]) > 1.1F || core::at(hit, 1) > kWallTop + kMargin ? 0 : -1;
+        return seen || std::fabs(core::at(ndc, 1)) > kOffScreen || core::at(hit, 1) > kWallTop + kMargin ? 0 : -1;
     }
-    if (core::at(hit, 1) < kMargin || std::fabs(ndc[0]) > kInside || std::fabs(ndc[1]) > kInside) {
+    if (core::at(hit, 1) < kMargin || std::fabs(core::at(ndc, 0)) > kInside || std::fabs(core::at(ndc, 1)) > kInside) {
         return -1;
     }
     return 1;
@@ -496,7 +528,7 @@ bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down, bool 
             return false;
         }
     }
-    if (core::at(point, 2) < kShoreStart + 1.0F || core::at(point, 2) > kFloorFar - 50.0F) {
+    if (core::at(point, 2) < kShoreStart + 1.0F || core::at(point, 2) > kFloorFar - kFarMargin) {
         return false;
     }
     if (core::at(kCamera, 2) + (core::at(ray.direction, 2) * ray.to_floor) > kFloorFar - 1.0F) {
@@ -513,16 +545,17 @@ bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down, bool 
     const Vec3 hue = scale(tint, 1.0F / most);
     constexpr float kProgramGain = 2.0F * 128.0F / kByteMax; // (4 v0 c0: v0 the vertex colour 128 / 255, c0 0.5)
     const float light = dot(tint, kLuma) * kProgramGain;
-    const Vec3 deep = scale(hue, light * 0.75F / dot(hue, kLuma));
+    const Vec3 deep_hue{core::at(hue, 0) * core::at(hue, 0), core::at(hue, 1) * core::at(hue, 1), core::at(hue, 2) * core::at(hue, 2)};
+    const Vec3 deep = scale(deep_hue, light * 0.65F / dot(deep_hue, kLuma));
     const Vec3 sand = as_bytes(kSand);
     const Vec3 reflected = shows_wall == 1 ? scale(as_bytes(kWallColour), kProgramGain) : kFog;
     const float fresnel = 0.02F + (0.98F * std::pow(1.0F - core::at(v, 1), 5.0F));
-    for (std::size_t c = 0; c < 3; ++c) {
-        const float sigma = (3.0F / kVisibility) * (0.2F + (1.6F * (1.0F - core::at(hue, c))));
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        const float sigma = (3.0F / kVisibility) * (0.2F + (1.6F * (1.0F - core::at(hue, channel))));
         const float through = std::exp(-sigma * path);
         const float below = std::exp(-sigma * *depth_down);
-        const float refracted = (core::at(sand, c) * through * below) + (core::at(deep, c) * (1.0F - through));
-        out->at(c) = std::lerp(refracted, core::at(reflected, c), fresnel);
+        const float refracted = (core::at(sand, channel) * through * below) + (core::at(deep, channel) * (1.0F - through));
+        out->at(channel) = std::lerp(refracted, core::at(reflected, channel), fresnel);
     }
     return true;
 }
@@ -530,17 +563,19 @@ bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down, bool 
 bool sand_pixel(uint32_t px, uint32_t py)
 {
     const Ray ray = ray_of(px, py);
-    return std::isfinite(ray.to_floor) && (ray.to_floor + 0.5F < ray.to_water || !std::isfinite(ray.to_water));
+    return std::isfinite(ray.to_floor) && (ray.to_floor + kInFront < ray.to_water || !std::isfinite(ray.to_water));
 }
 
 bool all_finite(const Picture& picture)
 {
-    return std::ranges::all_of(picture.rgb, [](const Vec3& c) { return std::isfinite(c[0]) && std::isfinite(c[1]) && std::isfinite(c[2]); });
+    return std::ranges::all_of(picture.rgb, [](const Vec3& colour) {
+        return std::ranges::all_of(colour, [](float channel) { return std::isfinite(channel); });
+    });
 }
 
 void set_water(bool on, float waves, float foam, bool hdr = true)
 {
-    vk::set_water_settings({.on = on, .waves = waves, .wind = 1.0F, .heading = 30.0F, .clarity = 1.0F, .foam = foam, .hdr = hdr});
+    vk::set_water_settings({.on = on, .waves = waves, .wind = 1.0F, .heading = kHeading, .clarity = 1.0F, .foam = foam, .hdr = hdr});
 }
 
 void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally)
@@ -565,17 +600,17 @@ void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally)
             }
             const Vec3& have = core::at(got.rgb, (static_cast<std::size_t>(py) * kWidth) + px);
             float difference = 0.0F;
-            for (std::size_t c = 0; c < 3; ++c) {
-                difference = std::max(difference, std::fabs(have.at(c) - want.at(c)));
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                difference = std::max(difference, std::fabs(have.at(channel) - want.at(channel)));
             }
             ++judged;
             within += difference <= kTolerance ? 1U : 0U;
             if (!(difference <= worst)) {
                 worst = std::isfinite(difference) ? difference : std::numeric_limits<float>::infinity();
                 worst_at = text::format(" (at %u, %u, %.1f deep: %.4f %.4f %.4f, expected %.4f %.4f %.4f)", px, py,
-                                        static_cast<double>(down), static_cast<double>(have[0]), static_cast<double>(have[1]),
-                                        static_cast<double>(have[2]), static_cast<double>(want[0]), static_cast<double>(want[1]),
-                                        static_cast<double>(want[2]));
+                                        static_cast<double>(down), static_cast<double>(core::at(have, 0)), static_cast<double>(core::at(have, 1)),
+                                        static_cast<double>(core::at(have, 2)), static_cast<double>(core::at(want, 0)), static_cast<double>(core::at(want, 1)),
+                                        static_cast<double>(core::at(want, 2)));
             }
         }
     }
@@ -599,7 +634,7 @@ std::size_t differing(const Picture& a, const Picture& b, Where where)
                 continue;
             }
             const std::size_t at = ((static_cast<std::size_t>(py) * kWidth) + px) * kHalfPixelBytes;
-            for (std::size_t k = 0; k < 6; ++k) {
+            for (std::size_t k = 0; k < kColourBytes; ++k) {
                 if (core::at(a.bytes, at + k) != core::at(b.bytes, at + k)) {
                     ++count;
                     break;
@@ -637,9 +672,9 @@ void check_off(render::Gpu& gpu, const Scene& scene, Tally* tally)
             ++water_pixels;
             const Vec3& have = core::at(off.rgb, (static_cast<std::size_t>(py) * kWidth) + px);
             constexpr float kProgramGain = 2.0F * 128.0F / kByteMax;
-            original += std::fabs(have[0] - (tint[0] * kProgramGain)) < 1.0e-3F &&
-                                std::fabs(have[1] - (tint[1] * kProgramGain)) < 1.0e-3F &&
-                                std::fabs(have[2] - (tint[2] * kProgramGain)) < 1.0e-3F
+            original += std::fabs(core::at(have, 0) - (core::at(tint, 0) * kProgramGain)) < kSameLevel &&
+                                std::fabs(core::at(have, 1) - (core::at(tint, 1) * kProgramGain)) < kSameLevel &&
+                                std::fabs(core::at(have, 2) - (core::at(tint, 2) * kProgramGain)) < kSameLevel
                             ? 1U
                             : 0U;
         }
@@ -672,27 +707,27 @@ void check_reflection(render::Gpu& gpu, const Scene& scene, Tally* tally)
             }
             const Ray ray = ray_of(px, py);
             const Vec3 point = add(kCamera, scale(ray.direction, ray.to_water));
-            const bool wall = mirror_shows_wall(point, {ray.direction[0], -ray.direction[1], ray.direction[2]}) == 1;
+            const bool wall = mirror_shows_wall(point, {core::at(ray.direction, 0), -core::at(ray.direction, 1), core::at(ray.direction, 2)}) == 1;
             (wall ? walls : skies) += 1;
             const Vec3& have = core::at(got.rgb, (static_cast<std::size_t>(py) * kWidth) + px);
             float difference = 0.0F;
-            for (std::size_t c = 0; c < 3; ++c) {
-                difference = std::max(difference, std::fabs(have.at(c) - want.at(c)));
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                difference = std::max(difference, std::fabs(have.at(channel) - want.at(channel)));
             }
             constexpr float kReflectionTolerance = 0.01F;
             within += difference <= kReflectionTolerance ? 1U : 0U;
             if (difference > worst) {
                 worst = difference;
                 worst_at = text::format(" (at %u, %u%s: %.3f %.3f %.3f, expected %.3f %.3f %.3f)", px, py, wall ? ", the wall" : "",
-                                        static_cast<double>(have[0]), static_cast<double>(have[1]), static_cast<double>(have[2]),
-                                        static_cast<double>(want[0]), static_cast<double>(want[1]), static_cast<double>(want[2]));
+                                        static_cast<double>(core::at(have, 0)), static_cast<double>(core::at(have, 1)), static_cast<double>(core::at(have, 2)),
+                                        static_cast<double>(core::at(want, 0)), static_cast<double>(core::at(want, 1)), static_cast<double>(core::at(want, 2)));
             }
         }
     }
     const std::size_t judged = walls + skies;
     const double share = judged != 0 ? static_cast<double>(within) / static_cast<double>(judged) : 0.0;
     constexpr double kReflectionShare = 0.98;
-    tally->check(walls > 300 && share >= kReflectionShare,
+    tally->check(walls > kLeastWallPixels && share >= kReflectionShare,
                  text::format("reflection: %zu pixels mirroring the wall, %zu the sky, %.2f%% within 0.01 of the processor, "
                               "the worst %.3f%s",
                               walls, skies, share * 100.0, static_cast<double>(worst), worst_at.c_str()));
@@ -701,10 +736,10 @@ void check_reflection(render::Gpu& gpu, const Scene& scene, Tally* tally)
 void check_foam(render::Gpu& gpu, const Scene& scene, Tally* tally)
 {
     set_water(true, 0.0F, 0.0F);
-    draw_frame(gpu, scene, 3.0, true, false);
+    draw_frame(gpu, scene, kFoamSeconds, true, false);
     const Picture without = read_picture(scene.colour, kWidth, kHeight);
     set_water(true, 0.0F, 1.0F);
-    draw_frame(gpu, scene, 3.0, true, false);
+    draw_frame(gpu, scene, kFoamSeconds, true, false);
     const Picture with = read_picture(scene.colour, kWidth, kHeight);
     std::size_t deep_changed = 0;
     std::size_t shallow = 0;
@@ -720,29 +755,29 @@ void check_foam(render::Gpu& gpu, const Scene& scene, Tally* tally)
             const float before = dot(core::at(without.rgb, at), kLuma);
             const float after = dot(core::at(with.rgb, at), kLuma);
             if (down > kShoreFoam + 1.0F) {
-                deep_changed += std::fabs(after - before) > 1.0e-3F ? 1U : 0U;
-            } else if (down < kShoreFoam * 0.5F) {
+                deep_changed += std::fabs(after - before) > kSameLevel ? 1U : 0U;
+            } else if (down < kShoreFoam * kInFront) {
                 ++shallow;
-                shallow_brighter += after > before + 0.02F ? 1U : 0U;
+                shallow_brighter += after > before + kBrighter ? 1U : 0U;
             }
         }
     }
     tally->check(without.read && with.read && deep_changed == 0, text::format("foam: no change where the water is deeper than %.0f units (%zu changed)", static_cast<double>(kShoreFoam), deep_changed));
-    tally->check(shallow > 100 && shallow_brighter * 4 > shallow,
+    tally->check(shallow > kLeastShallow && shallow_brighter * 4 > shallow,
                  text::format("foam: the shallow water brightened (%zu of %zu pixels)", shallow_brighter, shallow));
 }
 
 void check_waves(render::Gpu& gpu, const Scene& scene, Tally* tally)
 {
     set_water(true, 1.0F, 1.0F);
-    draw_frame(gpu, scene, 10.0, true, true);
+    draw_frame(gpu, scene, kWaveSeconds, true, true);
     const Picture first = read_picture(scene.colour, kWidth, kHeight);
-    draw_frame(gpu, scene, 10.0, true, true);
+    draw_frame(gpu, scene, kWaveSeconds, true, true);
     const Picture again = read_picture(scene.colour, kWidth, kHeight);
-    draw_frame(gpu, scene, 10.5, true, true);
+    draw_frame(gpu, scene, kWaveLater, true, true);
     const Picture later = read_picture(scene.colour, kWidth, kHeight);
     set_water(true, 0.0F, 1.0F);
-    draw_frame(gpu, scene, 10.0, true, true);
+    draw_frame(gpu, scene, kWaveSeconds, true, true);
     const Picture calm = read_picture(scene.colour, kWidth, kHeight);
     const auto everywhere = [](uint32_t, uint32_t) { return true; };
     tally->check(first.read && again.read && differing(first, again, everywhere) == 0, "waves: the same game time, the same bytes");
@@ -767,8 +802,8 @@ void check_glitter(render::Gpu& gpu, const Scene& scene, Tally* tally)
     draw_frame(gpu, scene, 1.0, true, false);
     const Picture plain = read_picture(scene.colour, kWidth, kHeight);
     float brightest = 0.0F;
-    for (const Vec3& c : sunny.rgb) {
-        brightest = std::max(brightest, std::max({c[0], c[1], c[2]}));
+    for (const Vec3& colour : sunny.rgb) {
+        brightest = std::max({brightest, core::at(colour, 0), core::at(colour, 1), core::at(colour, 2)});
     }
     const auto at_centre = [](uint32_t px, uint32_t py) {
         return std::abs(static_cast<int>(px) - static_cast<int>(kWidth / 2)) <= 3 && std::abs(static_cast<int>(py) - static_cast<int>(kHeight / 2)) <= 3;
@@ -794,10 +829,10 @@ void check_waves_texture(Tally* tally)
         float worst = 0.0F;
         bool finite = true;
         for (std::size_t texel = 0; read && texel < want.size() && (texel * 4) + 3 < halves.size(); ++texel) {
-            for (std::size_t c = 0; c < 4; ++c) {
-                const float have = from_half(core::at(halves, (texel * 4) + c));
+            for (std::size_t channel = 0; channel < 4; ++channel) {
+                const float have = from_half(core::at(halves, (texel * 4) + channel));
                 finite = finite && std::isfinite(have);
-                worst = std::max(worst, std::fabs(have - core::at(core::at(want, texel), c)));
+                worst = std::max(worst, std::fabs(have - core::at(core::at(want, texel), channel)));
             }
         }
         constexpr float kTextureTolerance = 4.0e-3F;
@@ -831,7 +866,7 @@ void measure_cost(render::Gpu& gpu, Scene scene)
         for (int pass = 0; pass < 2; ++pass) { // (the first warms the pipelines)
             const auto start = std::chrono::steady_clock::now();
             for (int frame = 0; frame < kFrames; ++frame) {
-                draw_frame(gpu, scene, frame / 60.0, true, true);
+                draw_frame(gpu, scene, frame / kFramesASecond, true, true);
             }
             std::vector<uint8_t> bytes;
             (void)vk::read_surface(scene.colour, &bytes);
@@ -911,7 +946,8 @@ int run(const Options& options, SDL_Window* window)
     scene.wall = uniform_texture(gpu, kWallColour, kOpaqueHalf);
     tally.check(made && scene.sand != nullptr && scene.water != nullptr, "the material shader, a 16-bit float target, a depth surface and the textures made");
     if (made) {
-        render::water::set_level_water({.level = 1, .waves = 1.0F, .swell_length = 300.0F, .visibility = kVisibility, .heading = 30.0F});
+        render::water::set_level_water(
+            {.level = 1, .waves = 1.0F, .swell_length = kSwellLength, .visibility = kVisibility, .heading = kHeading});
         check_off(gpu, scene, &tally);
         check_calm(gpu, scene, &tally);
         check_reflection(gpu, scene, &tally);

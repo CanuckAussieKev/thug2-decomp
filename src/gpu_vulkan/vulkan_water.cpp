@@ -19,6 +19,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/water_surfaces.h"
+#include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -26,6 +27,7 @@
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "platform/run_log.h"
 
@@ -240,8 +242,8 @@ public:
         // the opaque water drawn now, as water (the copy made at the first of them: the whole opaque world without
         // the water, the effects' light in it)
         own.replaying = true;
-        for (WaterState::Deferred& kept : own.deferred) {
-            (void)record_draw(state, kept.block, kept.call);
+        for (const WaterState::Deferred& kept : own.deferred) {
+            (void)record_draw(state, kept.block, kept.call); // (the game's own states: the depth as it drew it)
             ++own.stats.replayed;
         }
         own.replaying = false;
@@ -473,7 +475,7 @@ void compute_done(VkCommandBuffer commands)
 
 void push_images(VkCommandBuffer commands, VkImageView storage, const Image* depth)
 {
-    WaterState& own = water_state();
+    const WaterState& own = water_state();
     const VkDescriptorImageInfo out{.sampler = VK_NULL_HANDLE, .imageView = storage, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
     VkDescriptorImageInfo in{};
     std::array<VkWriteDescriptorSet, 2> writes{};
@@ -481,15 +483,17 @@ void push_images(VkCommandBuffer commands, VkImageView storage, const Image* dep
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
     }
-    writes[0].dstBinding = 0;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    writes[0].pImageInfo = &out;
+    VkWriteDescriptorSet& storage_write = writes.front();
+    storage_write.dstBinding = 0;
+    storage_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    storage_write.pImageInfo = &out;
     uint32_t count = 1;
     if (depth != nullptr) {
         in = {.sampler = own.clamp_nearest, .imageView = depth->view, .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
-        writes[1].dstBinding = 1;
-        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writes[1].pImageInfo = &in;
+        VkWriteDescriptorSet& depth_write = writes.back();
+        depth_write.dstBinding = 1;
+        depth_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        depth_write.pImageInfo = &in;
         count = 2;
     }
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0, count, writes.data());
@@ -674,13 +678,15 @@ Image* sky_image(Backend& state)
     return image->resting == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ? image : nullptr;
 }
 
-// A row-vector 4 x 4 matrix (D3D's layout) inverted (double precision; a singular one: the identity).
-std::array<std::array<float, 4>, 4> inverted(const std::array<std::array<float, 4>, 4>& m)
+// A row-vector 4 x 4 matrix (D3D's layout) inverted (Gauss-Jordan in double precision; a singular one: the identity).
+std::array<std::array<float, 4>, 4> inverted(const std::array<std::array<float, 4>, 4>& matrix)
 {
-    std::array<std::array<double, 8>, 4> work{};
+    constexpr std::size_t kWide = 8; // (the matrix and the identity side by side)
+    constexpr double kSingular = 1.0e-12;
+    std::array<std::array<double, kWide>, 4> work{};
     for (std::size_t row = 0; row < 4; ++row) {
         for (std::size_t column = 0; column < 4; ++column) {
-            core::at(core::at(work, row), column) = static_cast<double>(core::at(core::at(m, row), column));
+            core::at(core::at(work, row), column) = static_cast<double>(core::at(core::at(matrix, row), column));
         }
         core::at(core::at(work, row), 4 + row) = 1.0;
     }
@@ -691,7 +697,7 @@ std::array<std::array<float, 4>, 4> inverted(const std::array<std::array<float, 
                 pivot = row;
             }
         }
-        if (std::abs(core::at(core::at(work, pivot), column)) < 1.0e-12) {
+        if (std::abs(core::at(core::at(work, pivot), column)) < kSingular) {
             return {{{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}, {0.0F, 0.0F, 0.0F, 1.0F}}};
         }
         std::swap(core::at(work, pivot), core::at(work, column));
@@ -704,7 +710,7 @@ std::array<std::array<float, 4>, 4> inverted(const std::array<std::array<float, 
                 continue;
             }
             const double factor = core::at(core::at(work, row), column);
-            for (std::size_t k = 0; k < 8; ++k) {
+            for (std::size_t k = 0; k < kWide; ++k) {
                 core::at(core::at(work, row), k) -= factor * core::at(core::at(work, column), k);
             }
         }
@@ -718,12 +724,12 @@ std::array<std::array<float, 4>, 4> inverted(const std::array<std::array<float, 
     return out;
 }
 
-Float4x4 flat(const std::array<std::array<float, 4>, 4>& m)
+Float4x4 flat(const std::array<std::array<float, 4>, 4>& matrix)
 {
     Float4x4 out{};
     for (std::size_t row = 0; row < 4; ++row) {
         for (std::size_t column = 0; column < 4; ++column) {
-            core::at(out, (row * 4) + column) = core::at(core::at(m, row), column);
+            core::at(out, (row * 4) + column) = core::at(core::at(matrix, row), column);
         }
     }
     return out;
@@ -734,19 +740,27 @@ float finite_or(float value, float fallback, float low, float high)
     return std::isfinite(value) ? std::clamp(value, low, high) : fallback;
 }
 
-// The PCG hash the shader's water_hash is (the reference's).
-float hash01(uint32_t n)
+// The PCG hash the shader's water_hash is (the reference's): `number`'s 32 bits mixed, as 0 - 1.
+constexpr uint32_t kPcgMultiplier = 747796405U;
+constexpr uint32_t kPcgIncrement = 2891336453U;
+constexpr uint32_t kPcgShiftBits = 28U;
+constexpr uint32_t kPcgMixMultiplier = 277803737U;
+constexpr uint32_t kPcgFinalShift = 22U;
+constexpr float kTwoTo32 = 4294967296.0F;
+float hash01(uint32_t number)
 {
-    uint32_t h = (n * 747796405U) + 2891336453U;
-    h = ((h >> ((h >> 28U) + 4U)) ^ h) * 277803737U;
-    h = (h >> 22U) ^ h;
-    return static_cast<float>(h) * (1.0F / 4294967296.0F);
+    uint32_t hash = (number * kPcgMultiplier) + kPcgIncrement;
+    hash = ((hash >> ((hash >> kPcgShiftBits) + 4U)) ^ hash) * kPcgMixMultiplier;
+    hash = (hash >> kPcgFinalShift) ^ hash;
+    return static_cast<float>(hash) * (1.0F / kTwoTo32);
 }
 
 float smoothstep(float low, float high, float value)
 {
-    const float t = std::clamp((value - low) / (high - low), 0.0F, 1.0F);
-    return t * t * (3.0F - (2.0F * t));
+    constexpr float kThree = 3.0F; // (Hermite's 3 t^2 - 2 t^3)
+    constexpr float kTwo = 2.0F;
+    const float along = std::clamp((value - low) / (high - low), 0.0F, 1.0F);
+    return along * along * (kThree - (kTwo * along));
 }
 
 } // namespace
@@ -828,82 +842,103 @@ WaterUniforms water_uniforms(const WaterSettings& settings, const WaterView& vie
     out.sky = {core::at(sky, 0), core::at(sky, 1), core::at(sky, 2), view.sky_bound ? 1.0F : 0.0F};
     out.camera = {core::at(drawn.camera.position, 0), core::at(drawn.camera.position, 1), core::at(drawn.camera.position, 2),
                   kWaterRefraction};
-    out.misc = {settings.screen_reflections ? 1.0F : 0.0F, std::max(level.swell_length, 1.0F), 0.0F, 0.0F};
+    out.misc = {settings.screen_reflections ? 1.0F : 0.0F, std::max(level.swell_length, 1.0F), settings.debug_view ? 1.0F : 0.0F,
+                0.0F};
     return out;
 }
 
 std::vector<std::array<float, 4>> water_waves_reference(uint32_t level)
 {
+    // (the numbers kWavesBody uses, in its order)
     constexpr float kTwoPi = 2.0F * std::numbers::pi_v<float>;
+    constexpr float kHalf = 0.5F;
+    constexpr float kLeastCycles = 2.0F;
+    constexpr float kMoreCycles = 22.0F;
+    constexpr float kSpread = 2.2F;        // (radians: the waves' directions within +-63 degrees of the wind)
+    constexpr float kFalloff = -1.7F;      // (the amplitude's power of |k|)
+    constexpr float kSlopeRms = 0.22F;
+    constexpr float kHeightRmses = 3.0F;
+    constexpr float kFoamRmses = 2.0F;
+    constexpr float kFoamLeastCycles = 6.0F;
+    constexpr float kFoamMoreCycles = 14.0F;
+    constexpr uint32_t kFoamWaves = 16;
+    constexpr uint32_t kFoamSeed = 1000;
+    constexpr uint32_t kNumbersEach = 3; // (each wave's three hashes)
     const uint32_t size = kWaterWavesSize >> std::min(level, kWaterWavesLevels - 1);
-    const float nyquist = static_cast<float>(size) * 0.5F;
+    const float nyquist = static_cast<float>(size) * kHalf;
     struct Wave {
-        std::array<float, 2> k{};
+        float kx = 0.0F;
+        float kz = 0.0F;
         float amp = 0.0F;
         float phase = 0.0F;
         float keep = 0.0F;
+    };
+    const auto round_half_up = [](float value) { return std::floor(value + kHalf); };
+    const auto keep_of = [nyquist](const Wave& wave) {
+        return 1.0F - smoothstep(kHalf * nyquist, nyquist, std::max(std::abs(wave.kx), std::abs(wave.kz)));
     };
     std::vector<Wave> waves;
     std::vector<Wave> foams;
     float slope_power = 0.0F;
     float height_power = 0.0F;
     for (uint32_t i = 0; i < kWaterWaveCount; ++i) {
-        const float r = hash01((i * 3U) + 1U);
-        const float a = hash01((i * 3U) + 2U);
+        const float length_hash = hash01((i * kNumbersEach) + 1U);
+        const float angle_hash = hash01((i * kNumbersEach) + 2U);
         Wave wave;
-        wave.phase = hash01((i * 3U) + 3U) * kTwoPi;
-        const float cycles = 2.0F + (22.0F * r * r);
-        const float angle = (a - 0.5F) * 2.2F;
-        wave.k = {std::floor((std::cos(angle) * cycles) + 0.5F), std::floor((std::sin(angle) * cycles) + 0.5F)};
-        if (wave.k[0] == 0.0F && wave.k[1] == 0.0F) {
-            wave.k = {1.0F, 0.0F};
+        wave.phase = hash01((i * kNumbersEach) + kNumbersEach) * kTwoPi;
+        const float cycles = kLeastCycles + (kMoreCycles * length_hash * length_hash);
+        const float angle = (angle_hash - kHalf) * kSpread;
+        wave.kx = round_half_up(std::cos(angle) * cycles);
+        wave.kz = round_half_up(std::sin(angle) * cycles);
+        if (wave.kx == 0.0F && wave.kz == 0.0F) {
+            wave.kx = 1.0F;
         }
-        const float kl = std::hypot(wave.k[0], wave.k[1]);
-        wave.amp = std::pow(kl, -1.7F);
-        slope_power += 0.5F * (wave.amp * kTwoPi * kl) * (wave.amp * kTwoPi * kl);
-        height_power += 0.5F * wave.amp * wave.amp;
-        wave.keep = 1.0F - smoothstep(0.5F * nyquist, nyquist, std::max(std::abs(wave.k[0]), std::abs(wave.k[1])));
+        const float length = std::hypot(wave.kx, wave.kz);
+        wave.amp = std::pow(length, kFalloff);
+        slope_power += kHalf * (wave.amp * kTwoPi * length) * (wave.amp * kTwoPi * length);
+        height_power += kHalf * wave.amp * wave.amp;
+        wave.keep = keep_of(wave);
         waves.push_back(wave);
     }
-    constexpr uint32_t kFoamWaves = 16;
-    constexpr uint32_t kFoamSeed = 1000;
     for (uint32_t i = 0; i < kFoamWaves; ++i) {
-        const float r = hash01((i * 3U) + kFoamSeed + 1U);
-        const float a = hash01((i * 3U) + kFoamSeed + 2U) * kTwoPi;
+        const float length_hash = hash01((i * kNumbersEach) + kFoamSeed + 1U);
+        const float angle = hash01((i * kNumbersEach) + kFoamSeed + 2U) * kTwoPi;
         Wave wave;
-        wave.phase = hash01((i * 3U) + kFoamSeed + 3U) * kTwoPi;
-        const float cycles = 6.0F + (14.0F * r);
-        wave.k = {std::floor((std::cos(a) * cycles) + 0.5F), std::floor((std::sin(a) * cycles) + 0.5F)};
-        if (wave.k[0] == 0.0F && wave.k[1] == 0.0F) {
-            wave.k = {0.0F, 1.0F};
+        wave.phase = hash01((i * kNumbersEach) + kFoamSeed + kNumbersEach) * kTwoPi;
+        const float cycles = kFoamLeastCycles + (kFoamMoreCycles * length_hash);
+        wave.kx = round_half_up(std::cos(angle) * cycles);
+        wave.kz = round_half_up(std::sin(angle) * cycles);
+        if (wave.kx == 0.0F && wave.kz == 0.0F) {
+            wave.kz = 1.0F;
         }
-        wave.keep = 1.0F - smoothstep(0.5F * nyquist, nyquist, std::max(std::abs(wave.k[0]), std::abs(wave.k[1])));
+        wave.keep = keep_of(wave);
         foams.push_back(wave);
     }
-    const float slope_scale = 0.22F / std::sqrt(slope_power);
-    const float height_scale = 1.0F / (3.0F * std::sqrt(height_power));
-    const float foam_scale = 1.0F / (2.0F * std::sqrt(0.5F * static_cast<float>(kFoamWaves)));
+    const float slope_scale = kSlopeRms / std::sqrt(slope_power);
+    const float height_scale = 1.0F / (kHeightRmses * std::sqrt(height_power));
+    const float foam_scale = 1.0F / (kFoamRmses * std::sqrt(kHalf * static_cast<float>(kFoamWaves)));
     std::vector<std::array<float, 4>> out(static_cast<std::size_t>(size) * size);
     for (uint32_t row = 0; row < size; ++row) {
         for (uint32_t column = 0; column < size; ++column) {
-            const float x = (static_cast<float>(column) + 0.5F) / static_cast<float>(size);
-            const float y = (static_cast<float>(row) + 0.5F) / static_cast<float>(size);
-            std::array<float, 2> slope{};
+            const float across = (static_cast<float>(column) + kHalf) / static_cast<float>(size);
+            const float down = (static_cast<float>(row) + kHalf) / static_cast<float>(size);
+            float slope_x = 0.0F;
+            float slope_z = 0.0F;
             float height = 0.0F;
             for (const Wave& wave : waves) {
-                const float phase = (kTwoPi * ((wave.k[0] * x) + (wave.k[1] * y))) + wave.phase;
+                const float phase = (kTwoPi * ((wave.kx * across) + (wave.kz * down))) + wave.phase;
                 height += wave.keep * wave.amp * std::sin(phase);
-                const float c = wave.keep * wave.amp * kTwoPi * std::cos(phase);
-                slope[0] += c * wave.k[0];
-                slope[1] += c * wave.k[1];
+                const float rise = wave.keep * wave.amp * kTwoPi * std::cos(phase);
+                slope_x += rise * wave.kx;
+                slope_z += rise * wave.kz;
             }
             float foam = 0.0F;
             for (const Wave& wave : foams) {
-                foam += wave.keep * std::sin((kTwoPi * ((wave.k[0] * x) + (wave.k[1] * y))) + wave.phase);
+                foam += wave.keep * std::sin((kTwoPi * ((wave.kx * across) + (wave.kz * down))) + wave.phase);
             }
             core::at(out, (static_cast<std::size_t>(row) * size) + column) = {
-                slope[0] * slope_scale, slope[1] * slope_scale, std::clamp(0.5F + (0.5F * height * height_scale), 0.0F, 1.0F),
-                std::clamp(0.5F + (0.5F * foam * foam_scale), 0.0F, 1.0F)};
+                slope_x * slope_scale, slope_z * slope_scale, std::clamp(kHalf + (kHalf * height * height_scale), 0.0F, 1.0F),
+                std::clamp(kHalf + (kHalf * foam * foam_scale), 0.0F, 1.0F)};
         }
     }
     return out;
@@ -1010,7 +1045,8 @@ bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescrip
                 own.copy_has_depth ? "depth copied" : "no depth", sky != nullptr ? "captured" : "not captured");
     }
     const water::LevelWater level = water::level_water();
-    if (first_report(state, kReportLevel + (uint64_t{level.level} << 32U))) {
+    constexpr uint32_t kLevelShift = 32U; // (the level's checksum above the report's key)
+    if (first_report(state, kReportLevel + (uint64_t{level.level} << kLevelShift))) {
         get_log("vulkan: rt_water: level %08X - waves %.2f x %.2f (swell %.0f units), visibility %.0f x %.2f units, wind %.2f "
                 "toward %.0f degrees, foam %.2f, tint %s",
                 level.level, static_cast<double>(level.waves), static_cast<double>(own.settings.waves),

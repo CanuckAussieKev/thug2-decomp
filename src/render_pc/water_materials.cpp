@@ -15,6 +15,7 @@
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/water_surfaces.h"
+#include "engine/memory/arena_alloc.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "render_pc/bitmap_texture.h"
@@ -57,7 +58,8 @@ void log_material(const MaterialRef* material, bool water)
         return;
     }
     static std::unordered_set<uint64_t> logged; // (by checksum and name: a level loaded again isn't logged again)
-    if (!logged.insert((uint64_t{material->checksum()} << 32U) | material->name_hash()).second) {
+    constexpr uint32_t kChecksumShift = 32U;
+    if (!logged.insert((uint64_t{material->checksum()} << kChecksumShift) | material->name_hash()).second) {
         return;
     }
     std::string text = text::format("water: %s material %08X (name %08X): sort %u, two-sided %u, alpha ref %u, texture anim %s",
@@ -97,7 +99,7 @@ uint32_t main_scene()
 
 // Each level's water (by its scene's name): the open sea's swell, the harbours', the canals' - and how clear it is.
 struct LevelEntry {
-    const char* name;
+    const char* name = nullptr;
     water::LevelWater water;
 };
 constexpr std::array kLevels = {

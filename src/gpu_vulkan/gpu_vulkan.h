@@ -296,6 +296,7 @@ void set_style_settings(const StyleSettings& settings);
 // refraction, colour by depth, shoreline foam and the sun's glitter. on false (the default): every draw as before. No
 // ray tracing needed (with it, the baked sun lights the glitter); Direct3D 9 ignores it.
 inline constexpr float kWaterHeadingAuto = -1.0F; // rt_water_wind_heading=auto: the level's own
+inline constexpr std::array<float, 3> kWaterTint{0.2F, 0.45F, 0.5F}; // (a set tint's default: a harbour's green-blue)
 struct WaterSettings {
     bool on = false;
     float waves = 1.0F;   // x the level's wave height (0: flat - 3)
@@ -304,9 +305,10 @@ struct WaterSettings {
     float clarity = 1.0F; // x how far one sees into the level's water (0: opaque - 4)
     float foam = 1.0F;    // the shoreline foam (0: none - 2)
     bool tint_auto = true;              // rt_water_tint=auto: each water texture's own colour
-    std::array<float, 3> tint{0.2F, 0.45F, 0.5F}; // rt_water_tint=r,g,b (0 - 1)
+    std::array<float, 3> tint = kWaterTint; // rt_water_tint=r,g,b (0 - 1)
     bool hdr = false;     // rt_hdr=1: the sun's glitter above 1 kept
     bool screen_reflections = true; // the reflections marched over the screen (else the sky alone)
+    bool debug_view = false;        // [debug] rt_water_view=1: where the reflection was found, in colours
 };
 void set_water_settings(const WaterSettings& settings);
 [[nodiscard]] WaterSettings water_settings();
