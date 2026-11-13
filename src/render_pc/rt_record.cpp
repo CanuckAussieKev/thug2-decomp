@@ -158,7 +158,8 @@ bool same_geometry(const rt::Geometry& a, const rt::Geometry& b)
            a.strip == b.strip && a.dynamic == b.dynamic && a.vertex_buffer_bytes == b.vertex_buffer_bytes &&
            a.index_buffer_bytes == b.index_buffer_bytes && a.cpu_indices == b.cpu_indices &&
            a.uv_offset == b.uv_offset && a.uv_format == b.uv_format && a.colour_offset == b.colour_offset &&
-           a.colour_format == b.colour_format && a.uv_sets == b.uv_sets;
+           a.colour_format == b.colour_format && a.uv_sets == b.uv_sets && a.normal_offset == b.normal_offset &&
+           a.normal_format == b.normal_format;
 }
 
 bool same_material(const rt::Material& a, const rt::Material& b)
@@ -177,6 +178,19 @@ VertexBuffer* last_drawn_buffer(const MeshRef* mesh)
     const uint32_t current = mesh->current_vertex_buffer_;
     const uint32_t index = count > 1 ? (current + count - 1) % count : current;
     return mesh->vertex_store(index);
+}
+
+// (added for the skater's smooth shading) Where a vertex of this format holds its normal - three floats after the
+// position and its blend weights, as Direct3D lays a vertex format out and the buffers are drawn with -, or 0: none.
+// (Not the mesh's normal_offset(): the skater's skinned meshes (format 152) give 24 there - their colour's place in the
+// vertex the skinning writes - with the normal at 12.)
+uint32_t fvf_normal_offset(uint32_t fvf)
+{
+    const uint32_t position = fvf & kPositionMask;
+    if (position < kPositionXyz || position > kPositionXyzB5 || (position % 2) != 0 || (fvf & kFvfNormal) == 0U) {
+        return 0;
+    }
+    return kPositionBytes + (kBlendWeightBytes * ((position - kPositionXyz) / 2));
 }
 
 // A mesh's triangles where the card has them (its first level of detail), or false: nothing to trace (no indices, no
@@ -221,6 +235,9 @@ bool geometry_of(const MeshRef* mesh, rt::Geometry* out, const VertexBufferData*
                                                                                          : rt::kAttributeNone,
         // (one set a pass: the vertex format's count, two floats each)
         .uv_sets = (mesh->fvf() & kFvfTexCountMask) >> kFvfTexCountShift,
+        // (added for the skater's smooth shading: its vertex normals, where its format has them)
+        .normal_offset = fvf_normal_offset(mesh->fvf()),
+        .normal_format = fvf_normal_offset(mesh->fvf()) != 0 ? rt::kNormalFloat3 : rt::kAttributeNone,
     };
     *source = vb;
     return true;
@@ -599,13 +616,15 @@ void log_object_mesh(const MeshRef* mesh, rt::MeshId id, uint32_t flags, rt::Mat
     found->second = flags;
     const MaterialRef* surface = mesh->material();
     get_log("rt: object mesh %u: flags %04X, material %u (%08X, alpha ref %u, first pass blend %u flags %04X), "
-            "%u vertices, %u vertex buffers, bone %d, skinned %s",
+            "%u vertices, %u vertex buffers, bone %d, skinned %s, format %X, stride %u, offsets normal %u colour %u "
+            "uv %u",
             static_cast<unsigned>(id), flags, static_cast<unsigned>(material),
             surface != nullptr ? surface->checksum() : 0U, surface != nullptr ? unsigned{surface->alpha_ref()} : 0U,
             surface != nullptr ? core::at(surface->blend_modes(), 0) : 0U,
             surface != nullptr ? core::at(surface->pass_flags(), 0) : 0U, mesh->vertex_count(),
             unsigned{mesh->vertex_buffer_count()}, mesh->bone() == kNoBoneByte ? kNoBone : int{mesh->bone()},
-            mesh->per_vertex_data() != nullptr ? "yes" : "no");
+            mesh->per_vertex_data() != nullptr ? "yes" : "no", mesh->fvf(), unsigned{mesh->stride()},
+            unsigned{mesh->normal_offset()}, unsigned{mesh->color_offset()}, unsigned{mesh->uv_offset()});
 }
 
 // One instance of a mesh with a world transform (a Direct3D matrix).

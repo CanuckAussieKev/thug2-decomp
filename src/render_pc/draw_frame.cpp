@@ -45,6 +45,7 @@
 #include "render_pc/render_state.h"
 #include "render_pc/scene_render.h"
 #include "render_pc/rt_record.h"
+#include "render_pc/grass_world.h"
 #include "platform/frame_profile.h"
 #include "engine/gfx/screen.h"
 #include "render_pc/screen_fx.h"
@@ -1217,6 +1218,9 @@ void draw_world()
             const frame_profile::Scope phase("rt_record"); // (not original: [debug] frame_profile)
             rt_record::record_frame();
         }
+        // Not original - grass (grass_world.h): the world's grass found and handed to the backend that draws it, the
+        // skaters and peds that push it aside. Original behaviour: nothing.
+        grass_world::frame();
         set_render_state(RenderStateId::kZWrite, 1);
         set_render_state(RenderStateId::kZTest, 1);
         {

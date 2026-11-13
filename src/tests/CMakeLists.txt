@@ -203,6 +203,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_style_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_grass_check.exe: the grass (engine/gfx/grass.h's field, gpu_vulkan/vulkan_grass.h's pass)
+# on this machine - a lawn with a box on it and a ground of two colours: the field's blades only on the grass faces,
+# none under the box, the same field and picture every time, the blades only over the lawn and in the ground's colours,
+# the device's blade shapes against the processor's twin, the level-of-detail fade, the push away from a skater, no NaN,
+# a multisampled target, validation; the cost at 2560x1440 (src/tests/vulkan_grass_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_grass_check vulkan_grass_check.cpp)
+    target_link_libraries(thug2_vulkan_grass_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_grass_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_upscale_check.exe: the Vulkan Gpu's upscaling (gpu_vulkan/vulkan_upscale.h) and its motion
 # vectors (gpu_vulkan/vulkan_motion.h) on this machine - the jitter sequence; every clear-cut pixel's motion of a still
 # ground, a moving quad, a skinned quad and the sky against the processor's reprojection; FSR (or DLSS with --dlss) on a

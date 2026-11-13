@@ -139,8 +139,6 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view);
 void begin_upscaled_view(Backend& state, const rt::ViewDrawn& view);
 // The settings while the backend's lock is held (the providers').
 [[nodiscard]] const UpscaleSettings& upscale_settings_locked();
-// Which provider runs (null: none yet / none).
-[[nodiscard]] const char* upscale_provider_name();
 [[nodiscard]] uint64_t upscale_passes();
 
 // The usage the depth surfaces need (made samplable while an upscaler is set: the preparation pass reads the depth).

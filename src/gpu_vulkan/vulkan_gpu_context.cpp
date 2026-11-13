@@ -16,6 +16,7 @@
 #include <utility>
 #include <volk.h>
 
+#include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
@@ -28,6 +29,28 @@
 namespace render::vulkan {
 
 namespace {
+
+// The driver's version as its vendor numbers it (NVIDIA's and Intel's Windows drivers pack it their own way; the rest
+// use Vulkan's major.minor.patch).
+std::string driver_version_text(const VkPhysicalDeviceProperties& properties)
+{
+    constexpr uint32_t kVendorNvidia = 0x10DE;
+    constexpr uint32_t kVendorIntel = 0x8086;
+    constexpr uint32_t kNvidiaMajorShift = 22;
+    constexpr uint32_t kNvidiaMinorShift = 14;
+    constexpr uint32_t kNvidiaMinorMask = 0xFF;
+    constexpr uint32_t kIntelMajorShift = 14;
+    constexpr uint32_t kIntelMinorMask = 0x3FFF;
+    const uint32_t version = properties.driverVersion;
+    if (properties.vendorID == kVendorNvidia) {
+        return text::format("%u.%u", version >> kNvidiaMajorShift, (version >> kNvidiaMinorShift) & kNvidiaMinorMask);
+    }
+    if (properties.vendorID == kVendorIntel) {
+        return text::format("%u.%u", version >> kIntelMajorShift, version & kIntelMinorMask);
+    }
+    return text::format("%u.%u.%u", VK_API_VERSION_MAJOR(version), VK_API_VERSION_MINOR(version),
+                        VK_API_VERSION_PATCH(version));
+}
 
 VkPhysicalDeviceProperties device_properties(const Backend& state)
 {
@@ -130,6 +153,8 @@ public:
         std::ranges::copy(name.substr(0, state.adapter.description.size() - 1), state.adapter.description.begin());
         state.adapter.vendor_id = properties.vendorID;
         state.adapter.device_id = properties.deviceID;
+        const std::string driver = driver_version_text(properties);
+        std::ranges::copy(std::string_view(driver).substr(0, state.adapter.driver.size() - 1), state.adapter.driver.begin());
         state.device_made = true;
         return gpu_value::kResultOk;
     }

@@ -3,6 +3,7 @@
 #include "app/extensions.h"
 
 #include "app/no_editor.h"
+#include "app/settings_report.h"
 #include "engine/sys/editor_mode.h"
 #include "platform/app_window.h"
 #include "platform/run_log.h"
@@ -91,6 +92,7 @@ void register_extensions()
     render::texture_sets::set_reloader(&render::reload_dictionary);
     ext::add(render::texture_sets::extension());
     ext::add(sys::screenshot::extension());
+    ext::add(settings_report_extension());
     ext::add(devtools::rt_check::extension());
     ext::add(devtools::console::extension()); // (last: drawn over everything, the others' frames)
 }

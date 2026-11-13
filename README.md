@@ -440,6 +440,10 @@ for the restart
 | `rt_style_noir_dark` | 0,0,0 | With `rt_style=noir`: the shadows' colour (r,g,b 0-1; teal 0.04,0.16,0.2 with an orange light makes the orange / teal look) |
 | `rt_style_noir_light` | 0.95,0.92,0.84 | With `rt_style=noir`: the lights' colour (r,g,b 0-1; warm paper; orange 1,0.62,0.3) |
 | `rt_style_thermal_focus` | 0.6 | With `rt_style=thermal`: how much hotter things standing in front of what's behind them glow - skaters, peds, cars, rails (0: brightness and nearness only) |
+| `grass` | 0 | On Vulkan (no ray tracing needed): 1 grows real blades of grass where a level's ground is grass (its collision's grass terrain - Boston's common, Skatopia, the parks). They take the colour and light of the lawn under them, sway in the wind, part round the skater and peds, fade into the lawn in the distance and never grow through ramps, rails, paths or anything standing on the lawn. Only the picture: the lawn rides as before. All the `grass` keys change at once in the Options screen |
+| `grass_density` | 1 | With `grass`: how many blades (1: about 240 a square metre; 0.25-4) |
+| `grass_height` | 1 | With `grass`: how tall the blades are (1: about 3-9 inches; 0.25-3) |
+| `grass_distance` | 50 | With `grass`: metres out to where the blades have sunk into the lawn (10-200) |
 
 **`[Miscellaneous]`** - from PartyMod
 

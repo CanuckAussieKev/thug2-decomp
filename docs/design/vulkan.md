@@ -1191,6 +1191,24 @@ blue); the glass was the reflections'.
   mesh's buffers taking turns) now refits as `mesh_changed` does - before, it kept the pose the structure was built
   with (`thug2_vulkan_rt_check`: a mesh's two buffers taking turns, update_mesh only). `[debug] rt_objects=1` logs each
   object mesh's flags as ray tracing sees them (the skater's six alpha-blended parts cast no shadow, as before).
+- **No faceted occlusion on characters** (the user's AU screenshot: the skater in the shade beside a wall, his shirt,
+  face and arms in hard light and dark triangles). Switched off one at a time at that spot with the user's settings:
+  only `rt_ao` drew them (`rt_gi` the same, fainter; shadows, the relit mode, per-pixel lighting and Ray Reconstruction
+  not). Leaving the objects out of an object pixel's rays wasn't enough: the rays' hemisphere was still turned by the
+  depth's normal - its triangle's, flat - so the ground and the wall took a different share of each triangle. The
+  occlusion's and the bounce's rays now leave an object's pixel around the normal the game lights it with: the camera
+  ray that finds the object (`rays_mask`) reads its triangle's vertex normals from the geometry table, blended at the
+  hit and taken to the world by the inverse transpose of the instance's matrix (turned to the side the depth's normal
+  faces). The table gained them: `rt::Geometry::normal_offset` / `normal_format` (`kNormalFloat3`; render_pc from the
+  vertex format - the mesh's own `normal_offset()` is not where the drawn vertex has it: the skater's skinned meshes,
+  format 152, give 24 there, their colour's place, with the normal at 12), the record's `normal_offset` and
+  `kGeometryNormal`, `hit_normal()` in its GLSL (the record 52 bytes). The occlusion binds the table too (binding 7) -
+  the TLAS's own when it traces the scene builder's, else one record with nothing live (a caller's own TLAS: the
+  depth's normals, as before). The world's pixels are untouched; the guide's normal (the denoiser's) is the smooth one on
+  objects. `thug2_vulkan_rt_gi_check` (39 checks, both GPUs, validation 0): a 12 x 8 sphere with its vertex normals as
+  an object beside the red wall, both effects' raw rays averaged over 48 frames x 16 rays - across its triangles' edges
+  the occlusion steps 0.001 beyond the steps within a triangle (at most 0.006), the bounce 0.0003; the same sphere
+  without normals 0.021 and 0.0086 (the measure sees the facets: at least 0.012).
 - **Checked:** `thug2_vulkan_rt_reflections_check` (115 checks): Schlick against the exact Fresnel; the mirror as water,
   glass (four samples), glass at real glass's 0.04, shiny and both masks, and the floor under a cover pass (stripes of
   clear and opaque texels through its second texture coordinate set, with Fresnel and without: the opaque stripes
@@ -1905,8 +1923,8 @@ the frame's seed (the frame serial).
   `rt_style_paper` (0.5, comic and sketch), `rt_style_grain` (0.5: noir, thermal, the papers), `rt_style_vignette` (0.5:
   noir, thermal), `rt_style_noir_contrast` (1.8), `rt_style_noir_dark` (0,0,0), `rt_style_noir_light` (0.95,0.92,0.84),
   `rt_style_thermal_focus` (0.6); the toon's smooth / bands / outlines / width / saturation / strength apply where they
-  fit (README). Options: the Colour tab's rows for each (every row shown for now - a "shown when" for the style's own
-  rows is to come). The push constants grew to 192 bytes (four look vectors; the device's limit checked).
+  fit (README). Options: the Colour tab's rows for each, each listed only under the looks that use it (the
+  shown-when rules in frontend/new_frontend_options.cpp). The push constants grew to 192 bytes (four look vectors; the device's limit checked).
 - **Checked:** `thug2_vulkan_style_check` (133 checks, the RTX 5070 Ti and the integrated Radeon, validation with
   synchronization validation 0). Each look against its processor twin (`style_look_reference`, fed the pass's own
   smoothed colour and linear depth, at the frame's seed - `style_last_parameters`): every pixel within 2.5 steps (0
@@ -1933,6 +1951,79 @@ the frame's seed (the frame serial).
   rooftop's thin structures against the sky can glow; noir's local middle leaves a faint halo where a very bright and a
   very dark area meet; the Options screen shows Off for an ini that still says rt_style=1 (the game reads it as toon).
 
+### Grass (`grass`)
+
+`engine/gfx/grass.h` (the field and the `Sink` contract), `render_pc/grass_world` (the grass found), `gpu_vulkan/vulkan_grass`
+(the pass) - `[Graphics] grass` (off by default), `grass_density`, `grass_height`, `grass_distance`, all live. No ray
+tracing needed; Direct3D 9 installs no `Sink` and draws none.
+
+- **Where the grass is.** The collision's terrain types - the ones the skater's wheels sound on
+  (`engine/sound/surface_kind.h`): a face whose terrain is `TERRAIN_GRASS` or `TERRAIN_GRASSDRIED` (their indices looked
+  up in the loaded terrain table, the shipped order 20 / 21 when it isn't loaded), facing up (normal y at least 0.7),
+  collidable and not a trigger. The shipped levels' upward grass in square metres: ST 9,055 (+1,033 dried), PH 4,218,
+  SC 3,951, AU 2,265, TR 2,056 dried, BE 1,561, LA 1,141, BO 914 (the common's three lawns - their render textures are
+  the olive grass ones), BA 716; NO and SE have none. No texture heuristic is used: in BO, AU and BA the lawns the
+  player sees are the grass terrain (a top-down map of BO's collision by terrain beside one of its render textures'
+  mean colours), so the terrain alone decides. A level with none logs "no grass in this world's collision".
+- **The field** (`grass::make_field`, made on the processor once a world - the loaded scenes' key changed - or when the
+  density changes; Boston 30 - 50 ms, Skatopia 0.6 s, once at the load): each grass face gets area x 0.155 blades a square unit x density
+  (about 240 a square metre), placed by hashes of its corners' bits and the blade's number (a uniform point on the
+  triangle) - the same field every run, whatever order the sectors load in. A root is dropped when any other face covers
+  it seen from above from 0.5 to 120 units over it (a ramp, a box, a bench, a rail, a path's kerb laid over the lawn):
+  grass never grows through them; coplanar ground doesn't count. Roots are bucketed into 256-unit tiles, each tile's in
+  the order of a rank hash. A blade is 16 bytes (its root; rank, height, facing and shade hashes, a dried flag).
+- **The pass** at `opaque_drawn`, `ViewOrder::kGrass` (450: after the opaque world, the objects and the sky, and after
+  the ray-traced shadows, occlusion, bounce and reflections have shaded the ground; before the fog and the tone mapping
+  at `world_drawn`, which take the blades with the rest; never in the BLAS). The blades take the shaded ground's colour
+  at their roots - each is in the shadow (and the occlusion) its root is in. The first try ran the pass before the
+  shadows (90), so they would shade the blades from the depth the blades write: with the user's settings in BO every
+  blade came out near black - a blade is a few pixels wide, and the normals the screen-space passes rebuild from its
+  depth are noise (occlusion at radius 192 and strength 1 darkened them most). Per view (vulkan_grass.h has the formulas): the tiles nearer than the
+  distance and in the view's frustum chosen on the processor, each drawing its first blades - those whose rank is below
+  the share kept at its nearest point (1 out to a fifth of the distance, then (near / d)^1.5), with 3, 2 or 1 segments;
+  at most 1.5 million blades a view (the share lowered for all beyond). The viewport's colour is copied out (resolved
+  when multisampled); a compute pass puts every chosen blade's root on the screen and, where the depth there is the
+  root's own, keeps the colour there in a buffer of the blades' colours (so a root hidden this frame - under the skater -
+  keeps the last colour seen; a blade never seen isn't drawn and grows in over three sightings). Then the blades are
+  drawn as triangle strips, one instance each, depth-tested into the colour and depth (and the upscaler's motion
+  attachment when the view is upscaled - the camera's motion; the wind's sway isn't in it).
+- **A blade** (`grass_blade_shape` is the vertex shader's twin): 6 x grass_height x its own 0.55 - 1.45 units tall,
+  times the fade (it sinks into the lawn from 70% of the distance to all of it, where its colour is the lawn's), its
+  growth through the rank band, and how well its colour is known; bent by its own lean, the wind (two slow waves over
+  the ground, downwind) and each pusher within its reach - the skaters and peds (render_pc's instances drawn with bones,
+  the eight nearest the camera; 30 units, within 72 units of height), which bend it straight away - the tip as high as
+  its length allows; turned 60% of the way to face the camera; 0.45 units wide at the root (never under 0.9 pixels:
+  distant blades get wider as they get fewer), to nothing at the tip, along a quadratic curve. Its colour is the
+  ground's under it - the texture, the bake's light and shadow (dark corners stay dark), the per-pixel lighting when
+  `rt_pbr`, the traced shadow, occlusion and bounce - times 0.75 at the root (the contact darkening; 0.62 read as dark
+  specks from above) to 1.12 at the tip, +-10% per blade.
+- **Checked.** `thug2_vulkan_grass_check` (26 checks; the RTX 5070 Ti and the integrated AMD Radeon, validation with
+  synchronization validation 0): a 400 x 400 lawn of grass faces on a coplanar ground face, a box standing on it, a steep
+  grass bank and a dried patch - the field: the same 25,361 blades byte for byte from the same faces, the count within
+  3% of the area x the density (25,361 for 25,358), the box's 989 roots dropped (992 expected), every root on a lawn face,
+  none under the box or on the bank, the dried ones flagged, each tile in rank order; the pass over a ground drawn in the
+  view's depth (its left half green, its right half straw): only pixels whose ray meets the lawn below the tallest blade
+  and outside the box's footprint change (0 stray), 98% of the lawn's inside covered after three frames, the blades green
+  over green (0.21 0.53 0.16) and straw over straw (0.53 0.46 0.11), the same picture from a new field, every pixel and
+  colour finite with not-a-number and infinities poured into the ground under the roots; every one of the 25,361 blades'
+  tip and height on the device within 0.0001 units of the twin; the share kept and the height falling with the distance
+  to nothing at it, no blade tall and nothing drawn from beyond it, every blade full height near the camera, fewer blades
+  drawn from further away (19,140 against 5,235); the 237 blades within half a skater's reach bent straight away from
+  him, further than without him; four samples; off: no pass, no sink. Cost (copy, gather and draw, the defaults, a lawn
+  filling a 2560 x 1440 view from a skater's eye height - 161,107 blades in 64 draws): 0.18 - 0.26 ms on the RTX 5070 Ti,
+  3.7 - 4.7 ms on the integrated Radeon. `thug2_options_check` has the four keys.
+- **In the game** (the user's [Graphics]: ray tracing with every effect, HDR, DLSS Ray Reconstruction at 67%, the
+  relit levels and per-pixel lighting, 2560 x 1440): BO's common - 80 grass faces, 914 square metres, 204,707 blades in
+  42 tiles (4.7 MB on the device, made in 30 - 50 ms when the level loads, 14,782 roots under something dropped) -
+  reads as a short lawn at the skater's height and from above, the trees' traced shadows lying across it, none on the
+  paths, the steps or the statue's plinth; ST (Skatopia): 9,922 square metres of grass and dried grass, 2,066,269 blades
+  (47 MB, 582 ms at the load), a meadow with the wooden steps standing in it bare. The pass's own timing in the log:
+  0.05 - 0.27 ms on the device (40,000 - 77,000 blades a pass at 1707 x 960, DLSS's input); `[debug] frame_profile`'s
+  `grass` phase (the processor: the pushers each frame) 0.02 - 0.03 ms. Frame-time runs on a machine shared with other
+  workspaces' games were too noisy to see the pass in the frame (BO 34.9 -> 26.6 fps, ST 20.5 -> 23.7 fps, one run
+  each). Known: the blades' motion vectors carry the camera's motion, not the wind's sway (DLSS sees the sway as
+  change); the grass is only where the collision says grass - a lawn painted on a face of another terrain gets none.
+
 ### Changing the settings while the game runs (the Options screen)
 
 `app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,
@@ -1940,7 +2031,7 @@ the frame's seed (the frame serial).
 `read_upscale`, `read_rt_pbr`, `read_style`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
 end's Options screen writes a `[Graphics]` key it calls `render::graphics_options::reload_live(key)`: a key of an
 effect (`kLiveKeys`: the shadows', occlusion's, the bounce's, the reflections', the tone mapping's numbers, the fog's,
-the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*`)
+the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*` -, the grass's - `grass`, `grass_*`)
 has that effect's settings read again and set
 through its `set_rt_*_settings` - each takes the backend's lock and adds or removes its view listener, as at
 start-up; the shadows are followed by the bounce (their `off` clears the baked sun it wants). Effects' histories start
@@ -1981,7 +2072,7 @@ them at once).
 | R5 | Reflections / ambient occlusion and a denoiser | R2, R3 | done - ambient occlusion and the denoiser: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_ao`, `rt_ao_strength` / `_radius` / `_rays` / `_denoise`, off by default) listens at `rt::opaque_view_drawn` after R4 and runs compute passes over images of the viewport's size - the rays (world position and normal rebuilt from the depth as R4 does - sample 0's own position in a multisampled target -, `rt_ao_rays` cosine-weighted ray queries up to `rt_ao_radius` world units, masks 0x01 + 0x02, directions from a 2D R2 sequence advanced each frame and turned per pixel by a hash), the temporal accumulation (the world position reprojected through the previous frame's camera of that viewport, bilinear over the texels whose guide agrees - on the pixel's plane, normal within ~25 degrees -, the history clamped to the 3x3 spread of this frame's rays plus a noise floor, up to 32 frames; nothing agrees: it starts again), three a-trous passes (5x5 B3 kernel at steps 1, 2, 4, weighted by normal, plane distance and the noise the history's length leaves) - then one full-screen multiplying pass, colour x (1 - strength x occlusion). Histories per viewport (rectangle + target size, up to 4). The TLAS comes from R2 through `rt_effects_set_scene_locked()`. `thug2_vulkan_rt_effects_check` (38 checks, both GPUs here, validation with synchronization 0): the raw rays against the same directions traced on the processor (50k clear-cut pixels exact, one sample and four), the denoised still camera against a 256-ray reference (mean error 0.003, 99th percentile 0.035), a moved camera's histories kept where the surface was seen (47k pixels) and restarted where it was disoccluded (1.5k), no NaN; `tools/game/rt_shadows_check.ts --effect ao` checks it in the game. Reflections: `gpu_vulkan/vulkan_rt_reflections` (`[Graphics] rt_reflections`, `rt_reflection_strength`, off by default), a listener after R4's and the AO's. Which surfaces: the game marks shiny ones with an environment-mapped material pass (pass flag 0x8, a sky picture sphere-mapped on); R1's registration gives `rt::Material::reflectivity` (that pass's brightest colour channel, doubled as drawn, times its fixed alpha where its blend mode takes one) and `environment_pass`, carried into R3's record (48 bytes a row). Hit shading: `rt::Geometry` has the texture coordinates' and colour's offsets and formats (R1 from the mesh's offsets and vertex format), R2 writes a geometry table per frame (`GeometryRecord`: the vertex / index buffers' device addresses as the frame uses them, the layout, strips as its own 32-bit lists) bound beside the TLAS, and `scene_geometry_glsl()` fetches a hit triangle's vertices through `GL_EXT_buffer_reference`. The pass: a primary ray per pixel (toward the depth's world point; kept when it ends there) identifies the surface and its material - no per-pixel material target, and nothing at all while the frame has no reflective instance; a reflective one gets the triangle's flat normal and one mirror ray (masks 0x01 + 0x02 + 0x04, alpha tested along the way), its hit shaded with the material's texture at the interpolated texture coordinates (the level from the ray's footprint: the pixel's spread over both legs), times the vertex colour doubled as the game's pixel shaders do (objects: the frame's ambient and directional lights); a miss leaves the pixel to the game's own environment map. A perfect mirror is one deterministic ray: no noise, so no denoiser. A full-screen pass mixes the colour toward it by reflectivity x strength (alpha kept; the pixels without a reflection discarded). `thug2_vulkan_rt_reflections_check` (39 checks, both GPUs, validation and synchronization validation 0): texture coordinates, colours and positions at 2100 hits through the table in every mesh layout (16- / 32-bit indices, a 16-bit strip from an odd index, unindexed lists and strips, offsets, an instance scaled, one with neither attribute) against the meshes' own; a mirror floor (a 32-bit strip) reflecting a box with an 8 x 8 texture, ~9000 clear-cut pixels each the processor's texel x vertex colour, one sample and four, strength 1 and 0.4; the box, the sky and the floor that mirrors nothing exactly as without the pass; nothing reflective or the setting off: no pass. `tools/game/rt_shadows_check.ts --effect reflections` checks it in the game. Not done: fog on the reflection, back faces treated as surfaces, rough (glossy) reflections beyond glass's (see "Water, glass and the skater's shadow": Fresnel, masks, rough glass) |
 | H1 | HDR targets, tone mapping and colour grading (`rt_hdr`): the base the added light (GI, fog) needs | V7, V8 | done - `gpu_vulkan/vulkan_hdr` (above, "HDR and tone mapping"): float back buffer and world targets, the tone-mapping pass last at `world_drawn`, `thug2_vulkan_hdr_check`, `rt_shadows_check.ts --effect hdr` |
 | R5 fog | Volumetric fog and light shafts | R2, R4's baked sun | done - `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default): the level's own linear fog as a medium of the same transmittance, lit by the baked sun through ray queries at half resolution with temporal accumulation and a depth-aware upsample; replaces the game's fog (`rt_fog_mode=0`) or adds the shafts over it (1); a level without fog gets a haze's shafts (`rt_fog_haze`) - "Volumetric fog and light shafts" above |
-| GI | One-bounce diffuse indirect light ("secondary lighting") with ray queries | R2, R3, R5, the baked sun | done: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_gi`, `rt_gi_strength` / `_rays` / `_distance` / `_denoise`, off by default), a view listener at `kIndirect`: the sun's light bounced once off what is around a pixel (hits shaded with R3's material at R2's texture coordinates, a shadow ray toward the level's baked sun), R5's denoiser over the colour, added to the frame as strength x the pixel's albedo x the light through a screen blend (see "One-bounce indirect light"). `thug2_vulkan_rt_gi_check` (29 checks, both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect gi`; 1080p on the RTX 5070 Ti: 1.5 / 2.0 / 2.4 ms for 1 / 2 / 4 rays |
+| GI | One-bounce diffuse indirect light ("secondary lighting") with ray queries | R2, R3, R5, the baked sun | done: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_gi`, `rt_gi_strength` / `_rays` / `_distance` / `_denoise`, off by default), a view listener at `kIndirect`: the sun's light bounced once off what is around a pixel (hits shaded with R3's material at R2's texture coordinates, a shadow ray toward the level's baked sun), R5's denoiser over the colour, added to the frame as strength x the pixel's albedo x the light through a screen blend (see "One-bounce indirect light"). `thug2_vulkan_rt_gi_check` (39 checks, both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect gi`; 1080p on the RTX 5070 Ti: 1.5 / 2.0 / 2.4 ms for 1 / 2 / 4 rays |
 | Sun | The sun, its glare, screen-space rays, an energy-conserving bloom and a sky model (aerial perspective) | R2, R4's baked sun, R5 fog, H1 | done: `gpu_vulkan/vulkan_rt_sun` + `vulkan_rt_sky`, `engine/gfx/rt_sky` (`[Graphics] rt_sun`, `rt_shafts`, `rt_bloom`, `rt_sky_model`, off by default): the original's sun sprite and lens flare replaced by a disc and aureole where the game shows its sun, radial rays over the depth's sky mask, a 13-tap / tent mip-chain bloom over float intermediates (the same with `rt_hdr` 0 and 1), the haze as aerial perspective coloured by a single-scattering sky (see "The sun, its glare and the sky"). `thug2_vulkan_rt_sun_check` (both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect sun` |
 | PBR | Per-pixel lighting and surface maps (normal, roughness, height) made from the original textures | V3, V7 (R3, R4's sun to use them fully) | done: `gpu_vulkan/vulkan_surface`, `ff_key` `kSurface*`, `tools/pbr_maps` (`[Graphics] rt_pbr`, off by default): the classical generator, the bake relit per pixel toward its sun and the sky, objects' lights per pixel, GGX highlights, the maps in R3's table (see "Per-pixel lighting and surface maps"). `thug2_vulkan_pbr_check` (both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect pbr` |
 

@@ -53,10 +53,12 @@ struct GpuCaps {
 
 // The adapter the device was made on (asked after the device).
 inline constexpr std::size_t kGpuAdapterNameBytes = 512;
+inline constexpr std::size_t kGpuDriverBytes = 64;
 struct GpuAdapterInfo {
     std::array<char, kGpuAdapterNameBytes> description{};
     uint32_t vendor_id{};
     uint32_t device_id{};
+    std::array<char, kGpuDriverBytes> driver{}; // the driver's version as its vendor numbers it ("" - unknown)
 };
 
 // A multisample count to ask about: the formats it must work with, and the window mode.

@@ -68,7 +68,7 @@ struct SceneView {
 // frame (its rayQueryGetIntersectionInstanceIdEXT), the buffers it was built from as device addresses (read by
 // GL_EXT_buffer_reference) and the vertex's layout - a strip's corners are the scene's own 32-bit list (triangle i of
 // the strip is primitive i, its odd ones turned back round, as the BLAS has them). Written by the processor at
-// begin_frame (the buffers' current memory, which the frame's submission then keeps); 48 bytes, scalar layout.
+// begin_frame (the buffers' current memory, which the frame's submission then keeps); 52 bytes, scalar layout.
 struct GeometryRecord {
     std::array<uint32_t, 2> vertex_address{}; // the vertex buffer's start (low, high word)
     std::array<uint32_t, 2> index_address{};  // the index buffer's start (0: not indexed - corner = primitive x 3 + k)
@@ -80,13 +80,15 @@ struct GeometryRecord {
     uint32_t index_offset = 0;    // bytes from index_address to the first index
     uint32_t flags = 0;           // kGeometry*
     uint32_t instance_flags = 0;  // the instance's rt::InstanceFlag
+    uint32_t normal_offset = 0;   // (added for the skater's smooth shading) three floats (with kGeometryNormal)
 };
-inline constexpr std::size_t kGeometryRecordBytes = 48;
+inline constexpr std::size_t kGeometryRecordBytes = 52;
 static_assert(sizeof(GeometryRecord) == kGeometryRecordBytes);
 inline constexpr uint32_t kGeometryLive = 1U << 0;    // its mesh is built (else every other field is 0)
 inline constexpr uint32_t kGeometryIndex32 = 1U << 1; // 32-bit indices (else 16-bit)
 inline constexpr uint32_t kGeometryUv = 1U << 2;
 inline constexpr uint32_t kGeometryColour = 1U << 3;
+inline constexpr uint32_t kGeometryNormal = 1U << 4; // (added for the skater's smooth shading) the vertex normals
 // (added for the reflections' masks) bits 8 - 11: the texture coordinate sets from uv_offset (rt::Geometry::uv_sets,
 // those within the stride; at least 1 with kGeometryUv)
 inline constexpr uint32_t kGeometryUvSetsShift = 8;
@@ -102,6 +104,8 @@ inline constexpr uint32_t kGeometryUvSetsMask = 0xF;
 //   vec2 hit_uv(HitVertices v, vec2 barycentrics), vec4 hit_colour(HitVertices v, vec2 barycentrics)
 //   vec2 hit_uv_set(uint instance, uint primitive, vec2 barycentrics, uint set) - texture coordinate set `set` at the
 //        hit (a material's pass n reads set n); a set the mesh hasn't: set 0 (no coordinates at all: (0, 0))
+//   bool hit_normal(uint instance, uint primitive, vec2 barycentrics, out vec3 normal) - (added for the skater's smooth
+//        shading) the vertex normals blended at the hit, the object's (not normalised); false when the mesh has none
 // The positions are the object's (rayQueryGetIntersectionObjectToWorldEXT takes them to the world).
 std::string_view scene_geometry_glsl();
 // The caller holds the backend's lock.
