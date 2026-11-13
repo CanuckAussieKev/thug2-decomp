@@ -171,7 +171,10 @@ struct VertexKey {
     bool points = false;          // a point list: the point size is written
     bool point_scale = false;     // D3DRS_POINTSCALEENABLE: the size scaled by distance
     uint8_t coord_mask = 0;       // the stages whose texture coordinates the fragment shader reads (bit n: stage n)
-    uint8_t spare = 0;
+    // (added by the upscaler) Motion vectors: the position this frame (the jitter taken out) and the frame before (the
+    // previous position attribute, kPreviousPositionLocation, through VertexUniforms::previous_clip) handed to the
+    // fragment shader. Never with pre-transformed positions.
+    uint8_t motion = 0;
     std::array<TexCoordKey, kStageCount> coords{};
 
     bool operator==(const VertexKey&) const = default;
@@ -204,7 +207,10 @@ struct FragmentKey {
     bool point_sprite = false;               // D3DRS_POINTSPRITEENABLE: every stage's coordinates are the point's
     uint8_t projected_mask = 0;              // the stages whose coordinates are projected (TexCoordKey::projected)
     uint8_t unlit = 0; // a ps.1.1 program's unlit twin (the editor's Unlit view mode): the vertex colour's rgb read as 0.5
-    std::array<uint8_t, 2> spare{};
+    // (added by the upscaler) The pixel's motion written to a second colour attachment (location 1: the move from this
+    // frame's place to the last frame's, in 0 - 1 of the viewport - x right, y down); the vertex half's motion with it.
+    uint8_t motion = 0;
+    uint8_t spare = 0;
     std::array<StageKey, kStageCount> stages{};
 
     bool operator==(const FragmentKey&) const = default;

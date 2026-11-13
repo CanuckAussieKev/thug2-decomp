@@ -385,6 +385,11 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_bloom_strength` | 0.05 | How much of each pixel's light spreads (0-0.5) |
 | `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
 | `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
+| `upscaler` | off | On Vulkan (64-bit build): `dlss` (NVIDIA RTX), `fsr` (AMD FSR - any GPU) or `auto` (DLSS on NVIDIA, else FSR) draws the world at a lower resolution and rebuilds it at the window's - faster, smoother edges; the HUD and menus stay sharp. Multisampling (`msaa`, `AntiAliasing`) is off while it is on. `off` changes nothing |
+| `upscale_quality` | quality | With `upscaler`: how much is drawn - `dlaa` (all of it: anti-aliasing only), `quality` (67%), `balanced` (58%), `performance` (50%), `ultra` (33%) |
+| `ray_reconstruction` | 0 | With `upscaler=dlss` on an RTX GPU: 1 lets DLSS Ray Reconstruction clean up the ray-traced effects' noise (`rt_ao`, `rt_gi`) instead of their own filters |
+| `upscale_sharpness` | 0 | With `upscaler=fsr`: 0-1 sharpening after the upscale |
+| `fsr_version` | 0 | With `upscaler=fsr`: 0 the newest FSR the GPU runs (FSR 4 on the GPUs that have it), 3 FSR 3.1 |
 
 **`[Miscellaneous]`** - from PartyMod
 

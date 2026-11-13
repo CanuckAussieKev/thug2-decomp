@@ -152,6 +152,8 @@ option(THUG2_VULKAN "Build the Vulkan renderer's library (src/gpu_vulkan) and it
 if(THUG2_VULKAN)
     include(cmake/vulkan_libraries.cmake)
 endif()
+# The Vulkan renderer's upscalers (AMD FSR, NVIDIA DLSS through Streamline): optional, 64-bit (cmake/upscalers.cmake)
+include(cmake/upscalers.cmake)
 
 include(cmake/ffmpeg.cmake)
 

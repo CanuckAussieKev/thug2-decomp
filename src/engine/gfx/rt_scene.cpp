@@ -1,6 +1,7 @@
 // NOT ORIGINAL - ray tracing's contract (rt_scene.h): the installed backend, the frame record and the ids.
 #include "engine/gfx/rt_scene.h"
 
+#include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
 
 #include <algorithm>
@@ -12,6 +13,11 @@
 #include <vector>
 
 namespace render::rt {
+
+namespace {
+constexpr float kLeastViewScale = 0.25F;
+constexpr double kRoundHalf = 0.5;
+} // namespace
 
 namespace {
 RayTracing*& backend_slot()
@@ -78,6 +84,47 @@ void world_view_drawn(const ViewDrawn& view)
 }
 
 bool view_listened() { return !view_listeners().empty(); }
+
+void view_begins(const ViewDrawn& view)
+{
+    for (ViewListener* listener : view_listeners()) {
+        listener->view_begins(view);
+    }
+}
+
+namespace {
+ViewScale& view_scale_slot()
+{
+    static ViewScale scale;
+    return scale;
+}
+} // namespace
+
+void set_view_scale(const ViewScale& scale) { view_scale_slot() = scale; }
+ViewScale view_scale() { return view_scale_slot(); }
+
+std::array<uint32_t, 4> scaled_rect(const std::array<uint32_t, 4>& output, float scale)
+{
+    const float kept = std::clamp(scale, kLeastViewScale, 1.0F);
+    const auto part = [kept](uint32_t size) {
+        return std::max(1U, static_cast<uint32_t>((static_cast<double>(size) * kept) + kRoundHalf));
+    };
+    return {core::at(output, 0), core::at(output, 1), part(core::at(output, 2)), part(core::at(output, 3))};
+}
+
+void jitter_projection(std::array<std::array<float, 4>, 4>* projection, std::array<float, 2> jitter, uint32_t width,
+                       uint32_t height)
+{
+    if (width == 0 || height == 0) {
+        return;
+    }
+    const float x = 2.0F * core::at(jitter, 0) / static_cast<float>(width);
+    const float y = -2.0F * core::at(jitter, 1) / static_cast<float>(height);
+    for (std::array<float, 4>& row : *projection) {
+        core::at(row, 0) += x * core::at(row, 3);
+        core::at(row, 1) += y * core::at(row, 3);
+    }
+}
 
 namespace {
 bool& hdr_slot()

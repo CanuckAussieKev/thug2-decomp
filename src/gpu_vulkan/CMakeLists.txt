@@ -39,6 +39,10 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_rt_glsl.cpp
     vulkan_rt_materials.cpp
     vulkan_hdr.cpp
+    vulkan_motion.cpp
+    vulkan_upscale.cpp
+    vulkan_upscale_fsr.cpp
+    vulkan_upscale_dlss.cpp
 )
 # volk: the Vulkan loader, opened at run time (no import library) - public, as the context's header declares Vulkan's
 # functions through it; vulkan_memory_allocator: device memory (VMA, compiled once: cmake/vulkan_libraries.cmake) - public,
@@ -47,3 +51,11 @@ add_library(thug2_gpu_vulkan STATIC
 # ImGui's SDL3 platform backend (vulkan_ui_backend.cpp - the Gpu draws ImGui's lists itself, so no renderer backend)
 target_link_libraries(thug2_gpu_vulkan PUBLIC thug2_engine volk vulkan_memory_allocator
     PRIVATE sdl3 glslang glslang-default-resource-limits stb_image_write imgui_backends)
+# NOT ORIGINAL - the upscalers' headers (cmake/upscalers.cmake; their DLLs are loaded at run time): FSR's C API, and
+# Streamline's (DLSS)
+if(THUG2_FSR)
+    target_link_libraries(thug2_gpu_vulkan PRIVATE fsr_sdk)
+endif()
+if(THUG2_DLSS)
+    target_link_libraries(thug2_gpu_vulkan PRIVATE streamline_sdk)
+endif()

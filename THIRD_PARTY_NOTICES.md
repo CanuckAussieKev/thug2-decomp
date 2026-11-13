@@ -29,6 +29,9 @@ from this repo include them, so keep these notices with any distributed `thug2-d
 | Node.js 24.11.1 (Node.js contributors) - https://nodejs.org/, `node-v24.11.1-win-x64.zip` | downloaded by `tools/editor_tools.ts` (SHA-256 pinned and checked against nodejs.org's SHASUMS256.txt): its `node.exe` is shipped unmodified as `editor-tools\node.exe` beside the exe, with its `LICENSE` as `editor-tools\LICENSE.node.txt` - the level editor's Import Level runs the level converters with it (a separate program, started as a child process) | MIT, with the licences of the parts Node.js bundles - all in `editor-tools\LICENSE.node.txt` |
 | The level converters and the content pipeline (thug2-level-converter-core, thug2-thugpro-compat, thug2-thps2 / -thps3 / -thps4 / -thug1 / -thaw / -thp8 / -thpg-level-converter, thug2-content-pipeline, anteara-mod) - https://github.com/CanuckAussieKev | this project's own repositories, installed into `editor-tools\` by `tools/editor_tools.ts` (`npm ci --omit=dev` at the commits the pipeline pins) | each repository's own licence and notices (its LICENSE and THIRD_PARTY_NOTICES.md, kept in the installed copy) |
 | go-difflib 1.0.0 (Patrick Mezard) | downloaded by Go when building NeverScript (`tools/build_neverscript.ps1`) | BSD 3-clause - https://github.com/pmezard/go-difflib/blob/v1.0.0/LICENSE |
+| AMD FSR SDK 2.4.0 (Advanced Micro Devices) - https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK, tag v2.4.0 (commit 7539ae8) | downloaded at configure time (`cmake/upscalers.cmake`, each file SHA-256 checked; 64-bit Windows builds, `THUG2_FSR`): the C API's headers (`ffx_api.h`, `ffx_api_types.h`, `vk/ffx_api_vk.h`, `ffx_upscale.h`) compiled into the Vulkan renderer, and the signed prebuilt `amd_fidelityfx_loader_vk.dll` and `amd_fidelityfx_upscaler_vk.dll` (FSR 3.1.6 / FSR 4.1) copied next to the exe and loaded by name at run time (`[Graphics] upscaler=fsr`) | the headers: MIT (in each file - below); the DLLs: AMD's binary licence (the SDK's `docs/license.md`, copied with them as `amd_fidelityfx_license.md`): redistribution in binary form allowed with its notice and disclaimers, no reverse engineering - below |
+| NVIDIA Streamline 2.14.16 (NVIDIA Corporation) - https://github.com/NVIDIA-RTX/Streamline, release v2.14.16 (`streamline-sdk-v2.14.16.zip`) | downloaded at configure time (`cmake/upscalers.cmake`, SHA-256 checked; 64-bit Windows builds, `THUG2_DLSS`); only its headers and these files are taken out: `sl.interposer.dll`, `sl.common.dll`, `sl.dlss.dll`, `sl.dlss_d.dll` (signed, copied next to the exe with its licence as `streamline_license.txt`, loaded by name at run time and their signature checked - `[Graphics] upscaler=dlss`) | MIT (Streamline's `license.txt`) - below |
+| NVIDIA DLSS (NGX) Super Resolution / DLAA 310.9.16 and Ray Reconstruction - `nvngx_dlss.dll`, `nvngx_dlssd.dll`, from the Streamline release above | copied next to the exe with Streamline (loaded by it, not by the game's code) | the NVIDIA RTX SDKs licence (`nvngx_dlss.license.txt` in the release, kept beside the DLLs): may be distributed in object code as part of an application (not on its own), under terms at least as protective; no reverse engineering; the application must not make the SDK subject to an open-source licence (the DLLs are fetched at build time, never in this repository); NVIDIA's attribution: DLSS credited in the application's credits / about text - below |
 | Real-ESRGAN v0.2.5.0 (Xintao Wang et al.) - https://github.com/xinntao/Real-ESRGAN: its Windows build of realesrgan-ncnn-vulkan (`realesrgan-ncnn-vulkan-20220424-windows.zip`, SHA-256 checked) with the models realesrgan-x4plus and realesrgan-x4plus-anime | **optional external tool**, not part of the game or the repo: downloaded on request by `tools/pipeline/hd_textures/fetch.ts` into `out\` (git-ignored) and run by the converters' `--hd-textures` pass. Only the textures it makes end up in a converted level (the user's own, from his own games' files) | Real-ESRGAN and its released models: BSD 3-clause - https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE; the ncnn front end (Real-ESRGAN-ncnn-vulkan, after nihui's realsr-ncnn-vulkan): MIT; Tencent ncnn: BSD 3-clause; the zip's vcomp140.dll is Microsoft's redistributable OpenMP runtime |
 
 
@@ -1115,3 +1118,71 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
+
+## AMD FSR SDK 2.4.0 (Advanced Micro Devices)
+
+Source: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/tree/v2.4.0 - the C API's headers (MIT, the notice
+in each file):
+
+```
+Copyright (C) 2026 Advanced Micro Devices, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files(the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions :
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+The signed DLLs (`amd_fidelityfx_loader_vk.dll`, `amd_fidelityfx_upscaler_vk.dll`) are under the SDK's
+`Kits/FidelityFX/docs/license.md`, which the build copies next to them; in short: "Copyright (C) Advanced Micro
+Devices, Inc. All rights reserved. REDISTRIBUTION: Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software ... to install, reproduce, copy and distribute copies of the Software, in binary form only ...
+provided that ... No reverse engineering, decompilation, or disassembly of this Software is permitted. Redistributions
+must reproduce the above copyright notice, this permission notice, and the following disclaimers and notices in the
+Software documentation and/or other materials provided with the Software." followed by its disclaimers of warranty and
+limitation of liability (the full text in that file).
+
+## NVIDIA Streamline 2.14.16 (NVIDIA Corporation) (MIT)
+
+Source: https://github.com/NVIDIA-RTX/Streamline/tree/v2.14.16
+
+```
+Copyright (c) 2023 NVIDIA CORPORATION. All rights reserved
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## NVIDIA DLSS (NGX) - nvngx_dlss.dll, nvngx_dlssd.dll
+
+Distributed under the NVIDIA RTX SDKs licence, whose full text is `nvngx_dlss.license.txt` in the Streamline release
+(the build copies it next to the DLLs). This application uses NVIDIA DLSS. NVIDIA, RTX and DLSS are trademarks of
+NVIDIA Corporation.

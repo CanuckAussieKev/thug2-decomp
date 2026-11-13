@@ -28,6 +28,10 @@ std::string num(Number value)
     return std::to_string(value);
 }
 
+// (added by the upscaler) The motion's two varyings, after the four stages' coordinates (3 - 6).
+constexpr uint32_t kMotionNowVarying = 7;
+constexpr uint32_t kMotionBeforeVarying = 8;
+
 // One line of GLSL: the parts, then a new line.
 void add(std::string& out, std::initializer_list<std::string_view> parts)
 {
@@ -52,6 +56,7 @@ void vertex_declarations(std::string& out, const VertexKey& key)
     for (const char* name : {"light_direction", "light_diffuse", "light_specular", "light_ambient"}) {
         add(out, {"    vec4 ", name, "[", num(kMaxLights), "];"});
     }
+    add(out, {"    mat4 previous_clip;\n    vec4 motion_jitter;"});
     add(out, {"} u;"});
     const bool pre_transformed = fvf_pre_transformed(key.fvf);
     add(out, {"layout(location = ", num(kPositionLocation), ") in ", pre_transformed ? "vec4" : "vec3", " a_position;"});
@@ -73,6 +78,11 @@ void vertex_declarations(std::string& out, const VertexKey& key)
               "layout(location = 2) out vec2 v_fog;"});
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         add(out, {"layout(location = ", num(3 + stage), ") out vec4 v_tex", num(stage), ";"});
+    }
+    if (key.motion != 0U) {
+        add(out, {"layout(location = ", num(kPreviousPositionLocation), ") in vec3 a_previous;"});
+        add(out, {"layout(location = ", num(kMotionNowVarying), ") out vec4 v_motion_now;"});
+        add(out, {"layout(location = ", num(kMotionBeforeVarying), ") out vec4 v_motion_before;"});
     }
     add(out, {key.points ? "out gl_PerVertex { vec4 gl_Position; float gl_PointSize; };"
                          : "out gl_PerVertex { vec4 gl_Position; };"});
@@ -126,6 +136,11 @@ void vertex_position(std::string& out, const VertexKey& key)
     add(out, {"    vec4 eye = u.world_view * vec4(a_position, 1.0);"});
     add(out, {"    vec4 clip = u.projection * eye;"});
     add(out, {"    gl_Position = vec4(clip.x + clip.w * u.pixel.x, -clip.y + clip.w * u.pixel.y, clip.z, clip.w);"});
+    if (key.motion != 0U) {
+        // (Direct3D's clip space both: this frame's without its jitter, the frame before's from its own position)
+        add(out, {"    v_motion_now = vec4(clip.xy - u.motion_jitter.xy * clip.w, 0.0, clip.w);"});
+        add(out, {"    v_motion_before = u.previous_clip * vec4(a_previous, 1.0);"});
+    }
 }
 
 void vertex_normal(std::string& out, const VertexKey& key)
@@ -330,6 +345,11 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         }
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
+    if (key.motion != 0U) {
+        add(out, {"layout(location = ", num(kMotionNowVarying), ") in vec4 v_motion_now;"});
+        add(out, {"layout(location = ", num(kMotionBeforeVarying), ") in vec4 v_motion_before;"});
+        add(out, {"layout(location = 1) out vec4 o_motion;"});
+    }
 }
 
 // An argument's value: its source, then 1 - it (D3DTA_COMPLEMENT), then its alpha in every channel
@@ -718,6 +738,13 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     add(out, {"    colour = clamp(colour, 0.0, 1.0);"});
     fragment_fog(out, key);
     fragment_alpha_test(out, key);
+    if (key.motion != 0U) {
+        // the move to where the point was the frame before, in 0 - 1 of the viewport (Direct3D's y up: down on screen);
+        // a point behind the camera then: none
+        add(out, {"    vec2 now = v_motion_now.xy / v_motion_now.w;"});
+        add(out, {"    vec2 before = v_motion_before.w > 0.0 ? v_motion_before.xy / v_motion_before.w : now;"});
+        add(out, {"    o_motion = vec4((before - now) * vec2(0.5, -0.5), colour.a, 1.0);"}); // (z: a blended draw's share)
+    }
     add(out, {"    o_colour = colour;\n}"});
     return out;
 }

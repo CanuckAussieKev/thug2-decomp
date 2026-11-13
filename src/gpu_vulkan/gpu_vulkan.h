@@ -183,4 +183,34 @@ struct RtSunSettings {
 void set_rt_sun_settings(const RtSunSettings& settings);
 [[nodiscard]] RtSunSettings rt_sun_settings();
 
+// NOT ORIGINAL - upscaling (vulkan_upscale.h, docs/design/vulkan.md "Upscaling"): [Graphics] upscaler,
+// upscale_quality, ray_reconstruction, upscale_sharpness. The world drawn at a lower resolution (jittered, with motion
+// vectors) and brought up to the window's by NVIDIA DLSS (Streamline) or AMD FSR before the 2D; kOff (the default):
+// nothing changes. The libraries are fetched at build time (64-bit builds) and loaded at run time from beside the exe:
+// without them, or on a device they don't run on, the setting falls back (dlss to fsr, fsr to off), logged. Read
+// when the device is made. Multisampling is off while upscaling (the world's target must have one sample).
+enum class Upscaler : uint8_t { kOff, kDlss, kFsr, kAuto };
+enum class UpscaleQuality : uint8_t {
+    kNative,      // dlaa: 100% - anti-aliasing alone (DLAA / FSR native AA)
+    kQuality,     // 67%
+    kBalanced,    // 58%
+    kPerformance, // 50%
+    kUltra,       // ultra performance: 33%
+};
+struct UpscaleSettings {
+    Upscaler upscaler = Upscaler::kOff;
+    UpscaleQuality quality = UpscaleQuality::kQuality;
+    bool ray_reconstruction = false; // DLSS Ray Reconstruction denoises the ray-traced effects (NVIDIA, dlss)
+    float sharpness = 0.0F;          // 0 - 1 (FSR's sharpening pass; 0: none)
+    unsigned fsr_major = 0;          // fsr_version: 0 the newest the device runs (FSR 4 where it can), 3: FSR 3.1
+};
+void set_upscale_settings(const UpscaleSettings& settings);
+[[nodiscard]] UpscaleSettings upscale_settings();
+// The share of the output's width and height a quality draws (1, 0.667, 0.588, 0.5, 0.333).
+[[nodiscard]] float upscale_ratio(UpscaleQuality quality);
+// Parsed from the ini's words (off / dlss / fsr / auto; dlaa / native / quality / balanced / performance / ultra);
+// false: not one of them.
+bool parse_upscaler(const std::string& text, Upscaler* upscaler);
+bool parse_upscale_quality(const std::string& text, UpscaleQuality* quality);
+
 } // namespace render::vulkan

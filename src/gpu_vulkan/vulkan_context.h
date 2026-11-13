@@ -19,6 +19,45 @@ namespace render::vulkan {
 // Where the context's lines go: a step that failed, and the validation layer's messages.
 using MessageSink = void (*)(const std::string& text);
 
+// NOT ORIGINAL - what a library adds to the instance and the device it works on (the upscaler's Streamline - DLSS:
+// vulkan_upscale.h): asked while they are made, told when the device is made and before it is destroyed.
+class ContextAdditions {
+public:
+    ContextAdditions() = default;
+    ContextAdditions(const ContextAdditions&) = delete;
+    ContextAdditions& operator=(const ContextAdditions&) = delete;
+    ContextAdditions(ContextAdditions&&) = delete;
+    ContextAdditions& operator=(ContextAdditions&&) = delete;
+    virtual ~ContextAdditions() = default;
+    // The instance's extensions (added to `names`; the context drops repeats).
+    virtual void instance_extensions(std::vector<const char*>* names) { (void)names; }
+    // The device's: extensions, Vulkan 1.2 / 1.3 features (the context keeps only those `physical` has) and how many
+    // queues of the graphics family beyond the context's own one.
+    struct DeviceWants {
+        std::vector<const char*> extensions;
+        VkPhysicalDeviceVulkan12Features features12{};
+        VkPhysicalDeviceVulkan13Features features13{};
+        uint32_t extra_queues = 0;
+        // Vulkan 1.0's features (kept where the device has them)
+        bool shader_int16 = false;
+        // other feature structures to chain (the library's own, filled with what the device has; kept alive by it until
+        // device_made)
+        std::vector<VkBaseOutStructure*> chain;
+    };
+    virtual void device_extensions(VkPhysicalDevice physical, DeviceWants* wants) { (void)physical, (void)wants; }
+    // The device made: its queue family (the context's queue its first), and how many extra queues of it were made.
+    struct DeviceMade {
+        VkInstance instance = nullptr;
+        VkPhysicalDevice physical = nullptr;
+        VkDevice device = nullptr;
+        uint32_t family = 0;
+        uint32_t extra_queues = 0;
+    };
+    virtual void device_made(const DeviceMade& made) { (void)made; }
+    // Before the device is destroyed (idle).
+    virtual void before_destroy() {}
+};
+
 struct ContextOptions {
     bool validation = false; // use the Khronos validation layer if it is installed
     int device_index = -1;   // the physical device to use, in the instance's order; -1: the best (discrete first)
@@ -26,6 +65,8 @@ struct ContextOptions {
     // NOT ORIGINAL - ray tracing (engine/gfx/rt_scene.h): VK_KHR_acceleration_structure, VK_KHR_ray_query and what they
     // need (buffer device addresses, descriptor indexing) enabled when the device has them all
     bool ray_tracing = false;
+    // NOT ORIGINAL - a library's additions to the instance and the device (null: none)
+    ContextAdditions* additions = nullptr;
 };
 
 // A queue family of a physical device, as the device lists it.
@@ -183,6 +224,9 @@ private:
     bool push_descriptors_ = false;
     bool ray_tracing_wanted_ = false;
     bool ray_tracing_ = false;
+    ContextAdditions* additions_ = nullptr; // (NOT ORIGINAL - ContextOptions::additions)
+    uint32_t add_requested(std::vector<const char*>* extensions, VkPhysicalDeviceVulkan12Features* features12,
+                           VkPhysicalDeviceVulkan13Features* features13, const VkPhysicalDeviceFeatures& offered);
 };
 
 } // namespace render::vulkan

@@ -25,6 +25,7 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_ring.h"
@@ -762,7 +763,12 @@ EffectsState& indirect()
 
 bool is_indirect(const EffectsState& own) { return own.effect == Effect::kIndirect; }
 bool effect_on(const EffectsState& own) { return is_indirect(own) ? own.gi.on : own.settings.on; }
-bool effect_denoised(const EffectsState& own) { return is_indirect(own) ? own.gi.denoise : own.settings.denoise; }
+// (NOT ORIGINAL either: with DLSS Ray Reconstruction denoising the frame - vulkan_upscale.h - each frame's rays go
+// through as they are)
+bool effect_denoised(const EffectsState& own)
+{
+    return (is_indirect(own) ? own.gi.denoise : own.settings.denoise) && !ray_reconstruction_active();
+}
 unsigned effect_rays(const EffectsState& own) { return is_indirect(own) ? own.gi.rays : own.settings.rays; }
 const char* effect_name(const EffectsState& own) { return is_indirect(own) ? "rt_gi" : "rt_ao"; }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -23,6 +24,10 @@
 // files end in -x64 (an x86 driver's cache is never given to x64's).
 namespace render::vulkan {
 
+// (added by the upscaler) The motion attachment's format (vulkan_motion.h): the move in 0 - 1 of the viewport (x, y),
+// how much of the pixel a blended draw left (z).
+inline constexpr VkFormat kMotionFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+
 struct PipelineKey {
     ShaderKey shaders{};
     uint32_t colour_format = 0; // VkFormat
@@ -35,6 +40,11 @@ struct PipelineKey {
     uint8_t dest_blend = 0;
     uint8_t blend_operation = 0; // D3DBLENDOP
     uint8_t write_mask = 0;      // D3DRS_COLORWRITEENABLE (its bits are Vulkan's)
+    // (added by the upscaler) The pass has the motion attachment (kMotionFormat) as its second colour attachment: the
+    // pipeline has two; with the key's motion on the fragment shader writes it - the motion where the draw doesn't
+    // blend, else only its alpha into z (the largest kept).
+    uint8_t motion = 0;
+    std::array<uint8_t, 3> spare{};
 
     bool operator==(const PipelineKey&) const = default;
 };
