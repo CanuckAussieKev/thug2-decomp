@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/core/checked_index.h"
@@ -39,22 +40,23 @@ constexpr float kHalf = 0.5F;
 // --- the looks' constants (the GLSL gets the same values: glsl_constants) ---------------------------------------
 // comic
 constexpr float kComicChroma = 1.2F;     // the fills' chroma x this (over rt_style_saturation)
-constexpr float kDotsFrom = 0.72F;       // the lightness below which the halftone dots start
-constexpr float kDotsSpan = 0.5F;        // ... and how much darker they are full size
+constexpr float kComicLift = 0.12F;      // the fills' lightness lifted: lift + (1 - lift) L (printed colour is never black)
+constexpr float kDotsFrom = 0.62F;       // the lightness below which the halftone dots start
+constexpr float kDotsSpan = 0.45F;       // ... and how much darker they are full size
 constexpr float kDotSize = 0.62F;        // a full dot's radius (of the spacing)
 constexpr float kDotEdge = 0.6F;         // the dots' edge, either side (pixels)
-constexpr float kDotLightness = 0.35F;   // the dots' shade: the fill's lightness x this
+constexpr float kDotLightness = 0.5F;    // the dots' shade: the fill's lightness x this
 constexpr float kDotChroma = 1.1F;       // ... its chroma x this
-constexpr float kDotInk = 0.85F;         // how much of a dot covers the fill
+constexpr float kDotInk = 0.8F;          // how much of a dot covers the fill
 constexpr float kComicFibreCell = 3.0F;  // the paper fibre's cell (grain cells)
 constexpr float kComicFibre = 0.08F;     // the fibre's darkening at paper 1, grain 1
 constexpr StyleRgb kComicPaper{0.98F, 0.95F, 0.86F};
 constexpr StyleRgb kComicInk{0.05F, 0.045F, 0.06F};
 // sketch
-constexpr float kToneLow = 0.12F;        // the lightness that is black in the tone
-constexpr float kToneScale = 1.3F;       // (the tone: (L - low) x scale)
+constexpr float kToneLow = 0.05F;        // the lightness that is black in the tone
+constexpr float kToneScale = 1.5F;       // (the tone: (L - low) x scale)
 constexpr int kHatchLayers = 4;
-constexpr std::array<float, kHatchLayers> kHatchFrom{0.78F, 0.58F, 0.4F, 0.22F}; // each layer's threshold
+constexpr std::array<float, kHatchLayers> kHatchFrom{0.72F, 0.52F, 0.34F, 0.18F}; // each layer's threshold
 constexpr std::array<std::array<float, 2>, kHatchLayers> kHatchWay{{
     {0.57357644F, 0.81915204F},  // 55 degrees
     {-0.81915204F, 0.57357644F}, // 145
@@ -64,15 +66,15 @@ constexpr std::array<std::array<float, 2>, kHatchLayers> kHatchWay{{
 constexpr float kHatchBelow = 0.1F;      // a layer full this far below its threshold
 constexpr float kHatchAbove = 0.06F;     // ... none this far above
 constexpr float kRegion = 96.0F;         // the jitter's regions (grain cells)
-constexpr float kJitter = 0.35F;         // the strokes' turn at most (radians, nearly)
+constexpr float kJitter = 2.0F;          // the strokes' bend: shifted across by up to half this many spacings
 constexpr float kStrokeLength = 6.0F;    // the pressure's and gaps' length (spacings)
-constexpr float kStrokeWidth = 0.14F;    // a stroke's half width (of the spacing)
-constexpr float kStrokeGrow = 0.12F;     // ... wider by this where its layer is full
+constexpr float kStrokeWidth = 0.12F;    // a stroke's half width (of the spacing)
+constexpr float kStrokeGrow = 0.1F;      // ... wider by this where its layer is full
 constexpr float kStrokeEdge = 0.7F;      // (pixels, either side)
 constexpr float kPressureLeast = 0.55F;
 constexpr float kGapLow = 0.15F;         // (the gaps: the noise below this; strokes from kGapHigh)
 constexpr float kGapHigh = 0.3F;
-constexpr float kLayerDark = 0.6F;       // a full stroke's cover
+constexpr float kLayerDark = 0.55F;      // a full stroke's cover
 constexpr float kLineGrain = 1.5F;       // the outline's grain cell (grain cells)
 constexpr float kLineGrainShare = 0.3F;  // ... and how much it lightens
 constexpr float kLineDark = 0.9F;
@@ -92,6 +94,10 @@ constexpr uint32_t kSeedLine = 7;
 constexpr uint32_t kSeedFibre = 11;
 constexpr uint32_t kSeedCoarse = 12;
 // noir
+constexpr float kNoirPivot = 0.5F;       // the tone curve's middle ...
+constexpr float kNoirAdapt = 0.6F;       // ... moved this much toward the lightness around the pixel
+constexpr float kNoirReach = 40.0F;      // (the ring it is read on: 720-line pixels)
+constexpr float kNinth = 1.0F / 9.0F;
 constexpr float kNoirGrain = 0.18F;      // the grain's size at rt_style_grain 1
 constexpr float kGrainFloor = 0.3F;      // ... in the blacks and whites (x 1 + this in the middle grey)
 constexpr float kGrainMiddle = 2.8F;
@@ -100,9 +106,10 @@ constexpr float kVignetteFrom = 0.4F;    // (of the way to a corner)
 // thermal
 constexpr int kRingPoints = 8;
 constexpr std::array<std::array<int, 2>, kRingPoints> kRing{{{1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1}}};
+constexpr std::size_t kRingPairs = 4;   // (kRing's first four and their opposites)
 constexpr int kWideRing = 3;           // the second ring: 3 x the first (a skater's middle is in front at that scale)
-constexpr float kStandsLow = 0.1F;
-constexpr float kStandsHigh = 0.4F;
+constexpr float kStandsLow = 0.05F;
+constexpr float kStandsHigh = 0.3F;
 constexpr float kSkyHeat = 0.04F;
 constexpr float kSkyBright = 0.12F;
 constexpr float kHeatFloor = 0.1F;
@@ -149,7 +156,8 @@ struct GlslColour {
 std::string glsl_constants()
 {
     const std::array floats{
-        GlslFloat{.name = "kComicChroma", .value = kComicChroma}, GlslFloat{.name = "kDotsFrom", .value = kDotsFrom},
+        GlslFloat{.name = "kComicChroma", .value = kComicChroma}, GlslFloat{.name = "kComicLift", .value = kComicLift},
+        GlslFloat{.name = "kDotsFrom", .value = kDotsFrom},
         GlslFloat{.name = "kDotsSpan", .value = kDotsSpan}, GlslFloat{.name = "kDotSize", .value = kDotSize},
         GlslFloat{.name = "kDotEdge", .value = kDotEdge}, GlslFloat{.name = "kDotLightness", .value = kDotLightness},
         GlslFloat{.name = "kDotChroma", .value = kDotChroma}, GlslFloat{.name = "kDotInk", .value = kDotInk},
@@ -166,7 +174,8 @@ std::string glsl_constants()
         GlslFloat{.name = "kCoarseFibre", .value = kCoarseFibre}, GlslFloat{.name = "kFineShare", .value = kFineShare},
         GlslFloat{.name = "kSketchFibre", .value = kSketchFibre}, GlslFloat{.name = "kWashLight", .value = kWashLight},
         GlslFloat{.name = "kWashLift", .value = kWashLift}, GlslFloat{.name = "kWashChroma", .value = kWashChroma},
-        GlslFloat{.name = "kNoirGrain", .value = kNoirGrain}, GlslFloat{.name = "kGrainFloor", .value = kGrainFloor},
+        GlslFloat{.name = "kNoirPivot", .value = kNoirPivot}, GlslFloat{.name = "kNoirAdapt", .value = kNoirAdapt},
+        GlslFloat{.name = "kNinth", .value = kNinth}, GlslFloat{.name = "kNoirGrain", .value = kNoirGrain}, GlslFloat{.name = "kGrainFloor", .value = kGrainFloor},
         GlslFloat{.name = "kGrainMiddle", .value = kGrainMiddle}, GlslFloat{.name = "kNoirVignette", .value = kNoirVignette},
         GlslFloat{.name = "kVignetteFrom", .value = kVignetteFrom},
         GlslFloat{.name = "kStandsLow", .value = kStandsLow}, GlslFloat{.name = "kStandsHigh", .value = kStandsHigh},
@@ -206,11 +215,11 @@ std::string glsl_constants()
         float distance;
     };
     std::vector<Tap> taps;
-    for (int y = -kMostInk; y <= kMostInk; ++y) {
-        for (int x = -kMostInk; x <= kMostInk; ++x) {
-            const float distance = std::sqrt(static_cast<float>((x * x) + (y * y)));
+    for (int down = -kMostInk; down <= kMostInk; ++down) {
+        for (int across = -kMostInk; across <= kMostInk; ++across) {
+            const float distance = std::sqrt(static_cast<float>((across * across) + (down * down)));
             if (distance <= static_cast<float>(kMostInk) + kHalf) {
-                taps.push_back({.x = x, .y = y, .distance = distance});
+                taps.push_back({.x = across, .y = down, .distance = distance});
             }
         }
     }
@@ -345,6 +354,7 @@ void main()
         float f = t - i;
         lab.x = clamp((i + 0.5 + smoothstep(0.5 - pc.tone.y, 0.5 + pc.tone.y, f)) / n, 0.0, 1.0);
     }
+    lab.x = kComicLift + (1.0 - kComicLift) * lab.x;
     lab.yz *= pc.tone.z * kComicChroma;
     float spacing = pc.look_b.x;
     float darkness = clamp((kDotsFrom - light) / kDotsSpan, 0.0, 1.0);
@@ -367,13 +377,13 @@ void main()
 
 // look_b: x the strokes' spacing, y paper, z the ink's reach, w wash.
 constexpr const char* kSketchBody = R"(
-float stroke(vec2 at, int k, float weight, float wobble)
+float stroke(vec2 at, int k, float weight)
 {
     vec2 way = kHatchWay[k];
-    vec2 dir = normalize(way + wobble * vec2(-way.y, way.x));
     float spacing = pc.look_b.x;
-    float across = dot(at, vec2(-dir.y, dir.x)) / spacing;
-    float along = dot(at, dir) / (spacing * kStrokeLength);
+    float bend = (value_noise(at / (kRegion * pc.look_a.y), uint(20 + k)) - 0.5) * kJitter;
+    float across = dot(at, vec2(-way.y, way.x)) / spacing + bend;
+    float along = dot(at, way) / (spacing * kStrokeLength);
     float line = floor(across);
     float off = abs(fract(across) - 0.5) * spacing;
     float half_width = spacing * (kStrokeWidth + kStrokeGrow * weight);
@@ -396,11 +406,10 @@ void main()
     float tone = clamp((lab.x - kToneLow) * kToneScale, 0.0, 1.0);
     vec2 at = vec2(local) + 0.5;
     float lead = 0.0;
-    float wobble = (value_noise(at / (kRegion * pc.look_a.y), 20u) - 0.5) * kJitter;
     for (int k = 0; k < 4; ++k) {
         float weight = 1.0 - smoothstep(kHatchFrom[k] - kHatchBelow, kHatchFrom[k] + kHatchAbove, tone);
         if (weight > 0.0) {
-            lead = 1.0 - (1.0 - lead) * (1.0 - weight * kLayerDark * stroke(at, k, weight, wobble));
+            lead = 1.0 - (1.0 - lead) * (1.0 - weight * kLayerDark * stroke(at, k, weight));
         }
     }
     float line = ink(local) * ((1.0 - kLineGrainShare) + kLineGrainShare * value_noise(at / (pc.look_a.y * kLineGrain), 7u));
@@ -415,15 +424,30 @@ void main()
 }
 )";
 
-// look_b: x contrast; look_c, look_d: the dark and light colours.
+// look_b: x contrast, y the surroundings' ring (half-resolution pixels); look_c, look_d: the dark and light colours.
+// u_smooth: the half-resolution colour.
 constexpr const char* kNoirBody = R"(
+// The mean lightness of the half-resolution colour at the pixel and on a ring around it.
+float surroundings(ivec2 local)
+{
+    ivec2 c = local / 2;
+    ivec2 last = pc.sizes.xy - 1;
+    int r = int(pc.look_b.y);
+    float sum = to_lab(texelFetch(u_smooth, clamp(c, ivec2(0), last), 0).rgb).x;
+    for (int k = 0; k < 8; ++k) {
+        sum += to_lab(texelFetch(u_smooth, clamp(c + kRing[k] * r, ivec2(0), last), 0).rgb).x;
+    }
+    return sum * kNinth;
+}
+
 void main()
 {
     ivec2 p = ivec2(gl_FragCoord.xy);
     ivec2 local = p - pc.out_rect.xy;
     vec3 own = finite3(texelFetch(u_colour, p, 0).rgb);
     float light = to_lab(own).x;
-    float t = clamp((light - 0.5) * pc.look_b.x + 0.5, 0.0, 1.0);
+    float pivot = mix(kNoirPivot, surroundings(local), kNoirAdapt);
+    float t = clamp((light - pivot) * pc.look_b.x + 0.5, 0.0, 1.0);
     t = t * t * (3.0 - 2.0 * t);
     uvec2 g = grain_cell(local);
     float n = unit(hash3(g.x, g.y, uint(pc.look_a.z))) - 0.5;
@@ -436,22 +460,22 @@ void main()
 
 // look_b: x focus, y the ring (depth pixels), z, w the nearness' range. u_smooth: the half-resolution colour.
 constexpr const char* kThermalBody = R"(
-// 1 - z x the mean of 1/z over a ring of radius r (0 on a plane; the ring's points on the sky left out - a skyline
-// doesn't glow; all on the sky: 0).
+// How far in front the pixel stands, from four pairs of opposite points on a ring of radius r: per pair the lesser of
+// 1 - z / z_point (both sides must be farther - on a plane one side is nearer; a ledge's edge has the ground on one
+// side), the most of the pairs (a point on the sky: 1).
 float ring_stands(ivec2 q, float z, int r)
 {
     ivec2 lo = pc.depth_rect.xy;
     ivec2 hi = pc.depth_rect.xy + pc.depth_rect.zw - 1;
-    float inverse = 0.0;
-    float count = 0.0;
-    for (int k = 0; k < 8; ++k) {
-        float zs = depth_at(clamp(q + kRing[k] * r, lo, hi));
-        if (zs < kSky * 0.5) {
-            inverse += 1.0 / zs;
-            count += 1.0;
-        }
+    float best = 0.0;
+    for (int k = 0; k < 4; ++k) {
+        float a = depth_at(clamp(q + kRing[k] * r, lo, hi));
+        float b = depth_at(clamp(q - kRing[k] * r, lo, hi));
+        float behind_a = a >= kSky * 0.5 ? 1.0 : 1.0 - z / a;
+        float behind_b = b >= kSky * 0.5 ? 1.0 : 1.0 - z / b;
+        best = max(best, min(behind_a, behind_b));
     }
-    return count > 0.0 ? 1.0 - z * inverse / count : 0.0;
+    return best;
 }
 
 vec3 heat_colour(float heat)
@@ -511,19 +535,24 @@ float unit(uint32_t bits) { return static_cast<float>(bits >> kUnitShift) * kUni
 
 float ease(float part) { return part * part * (kHermiteThree - (kHermiteTwo * part)); }
 
-float value_noise(float x, float y, uint32_t seed)
+// A place in a noise's cells (x across, y down).
+using NoisePlace = std::array<float, 2>;
+
+float value_noise(const NoisePlace& place, uint32_t seed)
 {
+    const float x = core::at(place, 0);
+    const float y = core::at(place, 1);
     const float whole_x = std::floor(x);
     const float whole_y = std::floor(y);
     const float ease_x = ease(x - whole_x);
     const float ease_y = ease(y - whole_y);
     const auto cell_x = static_cast<uint32_t>(static_cast<int>(whole_x) + kNoiseOrigin);
     const auto cell_y = static_cast<uint32_t>(static_cast<int>(whole_y) + kNoiseOrigin);
-    const float a = unit(hash3(cell_x, cell_y, seed));
-    const float b = unit(hash3(cell_x + 1, cell_y, seed));
+    const float top_left = unit(hash3(cell_x, cell_y, seed));
+    const float top_right = unit(hash3(cell_x + 1, cell_y, seed));
     const float below_left = unit(hash3(cell_x, cell_y + 1, seed));
     const float below_right = unit(hash3(cell_x + 1, cell_y + 1, seed));
-    return mix(mix(a, b, ease_x), mix(below_left, below_right, ease_x), ease_y);
+    return mix(mix(top_left, top_right, ease_x), mix(below_left, below_right, ease_x), ease_y);
 }
 
 StyleRgb times3(const StyleRgb& colour, const StyleRgb& by)
@@ -548,7 +577,7 @@ constexpr StyleRgb kWhite{1.0F, 1.0F, 1.0F};
 
 // What a twin knows of the viewport and its pixel.
 struct Place {
-    const StyleParameters* parameters;
+    const StyleParameters* parameters = nullptr;
     Extent size;
     Pixel at;
 };
@@ -583,8 +612,8 @@ float ink(const Place& place, const std::vector<float>* edges)
         for (int across = -reach_pixels; across <= reach_pixels; ++across) {
             const Pixel at{.column = place.at.column + across, .row = place.at.row + down};
             const float distance = std::sqrt(static_cast<float>((across * across) + (down * down)));
-            if (distance > reach || at.column < 0 || at.row < 0 || at.column >= static_cast<int>(place.size.width) ||
-                at.row >= static_cast<int>(place.size.height)) {
+            if (distance > reach || at.column < 0 || at.row < 0 || std::cmp_greater_equal(at.column, place.size.width) ||
+                std::cmp_greater_equal(at.row, place.size.height)) {
                 continue;
             }
             const float edge = clamped_at(*edges, place.size, at);
@@ -594,10 +623,17 @@ float ink(const Place& place, const std::vector<float>* edges)
     return std::clamp(best * place.parameters->outlines, 0.0F, 1.0F);
 }
 
-StyleRgb comic_pixel(const Place& place, const StyleRgb& own, const StyleRgb& base, const std::vector<float>* edges)
+// A pixel's own colour and what the look starts from (the smoothed colour; thermal: the blurred one).
+struct Colours {
+    StyleRgb own;
+    StyleRgb base;
+};
+
+StyleRgb comic_pixel(const Place& place, const Colours& colours, const std::vector<float>* edges)
 {
     const StyleParameters& parameters = *place.parameters;
-    StyleRgb lab = to_lab(base);
+    const StyleRgb& own = colours.own;
+    StyleRgb lab = to_lab(colours.base);
     const float light = core::at(lab, kLightness);
     const float bands = parameters.bands;
     if (bands > 0.0F) {
@@ -607,6 +643,7 @@ StyleRgb comic_pixel(const Place& place, const StyleRgb& own, const StyleRgb& ba
         core::at(lab, kLightness) =
             std::clamp((whole + kHalf + smoothstep(kHalf - kComicSoftness, kHalf + kComicSoftness, part)) / bands, 0.0F, 1.0F);
     }
+    core::at(lab, kLightness) = kComicLift + ((1.0F - kComicLift) * core::at(lab, kLightness));
     const float chroma = parameters.saturation * kComicChroma;
     core::at(lab, kGreenRed) *= chroma;
     core::at(lab, kBlueYellow) *= chroma;
@@ -628,37 +665,34 @@ StyleRgb comic_pixel(const Place& place, const StyleRgb& own, const StyleRgb& ba
     }
     StyleRgb colour = from_lab(lab);
     const float cell = parameters.cell * kComicFibreCell;
-    const float fibre = value_noise((static_cast<float>(place.at.column) + kHalf) / cell,
-                                    (static_cast<float>(place.at.row) + kHalf) / cell, kSeedFibre);
+    const float fibre = value_noise(
+        {(static_cast<float>(place.at.column) + kHalf) / cell, (static_cast<float>(place.at.row) + kHalf) / cell}, kSeedFibre);
     colour = scaled3(times3(colour, mix3(kWhite, kComicPaper, parameters.paper)),
                      1.0F - (parameters.paper * parameters.grain * kComicFibre * fibre));
     colour = mix3(colour, kComicInk, ink(place, edges));
     return mix3(own, colour, parameters.strength);
 }
 
-// The jitter's turn at a place (every layer's).
-float wobble_at(const Place& place)
-{
-    const float at_x = static_cast<float>(place.at.column) + kHalf;
-    const float at_y = static_cast<float>(place.at.row) + kHalf;
-    const float region = kRegion * place.parameters->cell;
-    return (value_noise(at_x / region, at_y / region, kSeedJitter) - kHalf) * kJitter;
-}
+// A hatching layer: which, and how full it is here.
+struct Layer {
+    std::size_t index = 0;
+    float weight = 0.0F;
+};
 
-float stroke(const Place& place, std::size_t layer, float weight, float wobble)
+float stroke(const Place& place, const Layer& hatching)
 {
+    const std::size_t layer = hatching.index;
+    const float weight = hatching.weight;
     const StyleParameters& parameters = *place.parameters;
     const float at_x = static_cast<float>(place.at.column) + kHalf;
     const float at_y = static_cast<float>(place.at.row) + kHalf;
     const std::array<float, 2>& way = core::at(kHatchWay, layer);
-    float dir_x = core::at(way, 0) - (wobble * core::at(way, 1));
-    float dir_y = core::at(way, 1) + (wobble * core::at(way, 0));
-    const float length = std::sqrt((dir_x * dir_x) + (dir_y * dir_y));
-    dir_x /= length;
-    dir_y /= length;
     const float spacing = parameters.hatch;
-    const float across = ((at_x * -dir_y) + (at_y * dir_x)) / spacing;
-    const float along = ((at_x * dir_x) + (at_y * dir_y)) / (spacing * kStrokeLength);
+    const float region = kRegion * parameters.cell;
+    const float bend =
+        (value_noise({at_x / region, at_y / region}, kSeedJitter + static_cast<uint32_t>(layer)) - kHalf) * kJitter;
+    const float across = (((at_x * -core::at(way, 1)) + (at_y * core::at(way, 0))) / spacing) + bend;
+    const float along = ((at_x * core::at(way, 0)) + (at_y * core::at(way, 1))) / (spacing * kStrokeLength);
     const float line = std::floor(across);
     const float off = std::abs(across - line - kHalf) * spacing;
     const float half_width = spacing * (kStrokeWidth + (kStrokeGrow * weight));
@@ -667,36 +701,36 @@ float stroke(const Place& place, std::size_t layer, float weight, float wobble)
         return 0.0F;
     }
     const float pressure =
-        kPressureLeast + ((1.0F - kPressureLeast) * value_noise(along, line, kSeedPressure + static_cast<uint32_t>(layer)));
+        kPressureLeast + ((1.0F - kPressureLeast) * value_noise({along, line}, kSeedPressure + static_cast<uint32_t>(layer)));
     const float gap =
-        smoothstep(kGapLow, kGapHigh, value_noise(along * kHalf, line + kHalf, kSeedGap + static_cast<uint32_t>(layer)));
+        smoothstep(kGapLow, kGapHigh, value_noise({along * kHalf, line + kHalf}, kSeedGap + static_cast<uint32_t>(layer)));
     return body * pressure * gap;
 }
 
-StyleRgb sketch_pixel(const Place& place, const StyleRgb& own, const StyleRgb& base, const std::vector<float>* edges)
+StyleRgb sketch_pixel(const Place& place, const Colours& colours, const std::vector<float>* edges)
 {
     const StyleParameters& parameters = *place.parameters;
-    const StyleRgb lab = to_lab(base);
+    const StyleRgb& own = colours.own;
+    const StyleRgb lab = to_lab(colours.base);
     const float tone = std::clamp((core::at(lab, kLightness) - kToneLow) * kToneScale, 0.0F, 1.0F);
     float lead = 0.0F;
-    const float wobble = wobble_at(place);
     for (std::size_t layer = 0; layer < kHatchFrom.size(); ++layer) {
         const float from = core::at(kHatchFrom, layer);
         const float weight = 1.0F - smoothstep(from - kHatchBelow, from + kHatchAbove, tone);
         if (weight > 0.0F) {
-            lead = 1.0F - ((1.0F - lead) * (1.0F - (weight * kLayerDark * stroke(place, layer, weight, wobble))));
+            lead = 1.0F - ((1.0F - lead) * (1.0F - (weight * kLayerDark * stroke(place, {.index = layer, .weight = weight}))));
         }
     }
     const float at_x = static_cast<float>(place.at.column) + kHalf;
     const float at_y = static_cast<float>(place.at.row) + kHalf;
     const float line_cell = parameters.cell * kLineGrain;
     const float line = ink(place, edges) * ((1.0F - kLineGrainShare) +
-                                            (kLineGrainShare * value_noise(at_x / line_cell, at_y / line_cell, kSeedLine)));
+                                            (kLineGrainShare * value_noise({at_x / line_cell, at_y / line_cell}, kSeedLine)));
     lead = 1.0F - ((1.0F - lead) * (1.0F - (line * kLineDark)));
     const float fine = parameters.cell * kFineFibre;
     const float coarse = parameters.cell * kCoarseFibre;
-    const float fibre = (value_noise(at_x / fine, at_y / fine, kSeedFibre) * kFineShare) +
-                        (value_noise(at_x / coarse, at_y / coarse, kSeedCoarse) * (1.0F - kFineShare));
+    const float fibre = (value_noise({at_x / fine, at_y / fine}, kSeedFibre) * kFineShare) +
+                        (value_noise({at_x / coarse, at_y / coarse}, kSeedCoarse) * (1.0F - kFineShare));
     const StyleRgb paper =
         scaled3(mix3(kWhite, kSketchPaper, parameters.paper), 1.0F - (parameters.grain * kSketchFibre * fibre));
     const StyleRgb pale = from_lab({mix(core::at(lab, kLightness), kWashLight, kWashLift), core::at(lab, kGreenRed) * kWashChroma,
@@ -705,12 +739,28 @@ StyleRgb sketch_pixel(const Place& place, const StyleRgb& own, const StyleRgb& b
     return mix3(own, mix3(under, kGraphite, lead), parameters.strength);
 }
 
-StyleRgb noir_pixel(const Place& place, const StyleRgb& own)
+float surroundings(const Place& place, const std::vector<StyleRgb>& half)
+{
+    const Extent half_size{.width = (place.size.width + 1) / 2, .height = (place.size.height + 1) / 2};
+    const Pixel centre{.column = place.at.column / 2, .row = place.at.row / 2};
+    const int reach = place.parameters->ring;
+    const StyleRgb middle = to_lab(clamped_at(half, half_size, centre));
+    float sum = core::at(middle, kLightness);
+    for (const std::array<int, 2>& way : kRing) {
+        const Pixel at{.column = centre.column + (core::at(way, 0) * reach), .row = centre.row + (core::at(way, 1) * reach)};
+        const StyleRgb there = to_lab(clamped_at(half, half_size, at));
+        sum += core::at(there, kLightness);
+    }
+    return sum * kNinth;
+}
+
+StyleRgb noir_pixel(const Place& place, const StyleRgb& own, const std::vector<StyleRgb>& half)
 {
     const StyleParameters& parameters = *place.parameters;
     const StyleRgb lab = to_lab(own);
     const float light = core::at(lab, kLightness);
-    float tone = std::clamp(((light - kHalf) * parameters.contrast) + kHalf, 0.0F, 1.0F);
+    const float pivot = mix(kNoirPivot, surroundings(place, half), kNoirAdapt);
+    float tone = std::clamp(((light - pivot) * parameters.contrast) + kHalf, 0.0F, 1.0F);
     tone = ease(tone);
     const std::array<uint32_t, 2> cell = grain_cell(place);
     const float noise = unit(hash3(core::at(cell, 0), core::at(cell, 1), parameters.seed)) - kHalf;
@@ -750,28 +800,31 @@ Warmth warmth_at(const Place& place, const std::vector<float>* depth)
         return warmth;
     }
     warmth.near = 1.0F - smoothstep(kThermalNear, kThermalFar, z);
+    const auto behind = [&](int column, int row) {
+        const float there = clamped_at(*depth, place.size, {.column = column, .row = row});
+        return there >= kStyleSky * kHalf ? 1.0F : 1.0F - (z / there);
+    };
     const auto ring_stands = [&](int radius) {
-        float inverse = 0.0F;
-        float count = 0.0F;
-        for (const std::array<int, 2>& way : kRing) {
-            const float there = clamped_at(*depth, place.size,
-                                           {.column = place.at.column + (core::at(way, 0) * radius),
-                                            .row = place.at.row + (core::at(way, 1) * radius)});
-            if (there < kStyleSky * kHalf) {
-                inverse += 1.0F / there;
-                count += 1.0F;
-            }
+        float best = 0.0F;
+        for (std::size_t pair = 0; pair < kRingPairs; ++pair) {
+            const std::array<int, 2>& way = core::at(kRing, pair);
+            const int across = core::at(way, 0) * radius;
+            const int down = core::at(way, 1) * radius;
+            best = std::max(best, std::min(behind(place.at.column + across, place.at.row + down),
+                                           behind(place.at.column - across, place.at.row - down)));
         }
-        return count > 0.0F ? 1.0F - (z * inverse / count) : 0.0F;
+        return best;
     };
     warmth.stands = smoothstep(kStandsLow, kStandsHigh,
                                std::max(ring_stands(parameters.ring), ring_stands(parameters.ring * kWideRing)));
     return warmth;
 }
 
-StyleRgb thermal_pixel(const Place& place, const StyleRgb& own, const StyleRgb& soft, const std::vector<float>* depth)
+StyleRgb thermal_pixel(const Place& place, const Colours& colours, const std::vector<float>* depth)
 {
     const StyleParameters& parameters = *place.parameters;
+    const StyleRgb& own = colours.own;
+    const StyleRgb& soft = colours.base;
     const float bright = (core::at(soft, 0) * core::at(kLuma, 0)) + (core::at(soft, 1) * core::at(kLuma, 1)) +
                          (core::at(soft, 2) * core::at(kLuma, 2));
     const Warmth warmth = warmth_at(place, depth);
@@ -796,6 +849,8 @@ bool look_reads_depth(ArtStyle look)
 bool look_draws_ink(ArtStyle look) { return look == ArtStyle::kComic || look == ArtStyle::kSketch; }
 
 bool look_draws_lines(ArtStyle look) { return look == ArtStyle::kToon || look_draws_ink(look); }
+
+bool look_reads_half(ArtStyle look) { return look == ArtStyle::kNoir || look == ArtStyle::kThermal; }
 
 void set_look_parameters(const StyleSettings& settings, const StyleHeights& heights, StyleParameters* parameters)
 {
@@ -841,6 +896,7 @@ void set_look_parameters(const StyleSettings& settings, const StyleHeights& heig
         break;
     case ArtStyle::kNoir:
         parameters->radius = 0;
+        parameters->ring = static_cast<int>(std::max(1.0F, std::round(kNoirReach * output_scale * kHalf)));
         break;
     case ArtStyle::kThermal:
         parameters->radius = 0;
@@ -868,7 +924,7 @@ LookConstants look_constants(const StyleParameters& parameters)
         look.b = {parameters.hatch, parameters.paper, static_cast<float>(parameters.ink), parameters.wash};
         break;
     case ArtStyle::kNoir:
-        look.b = {parameters.contrast, 0.0F, 0.0F, 0.0F};
+        look.b = {parameters.contrast, static_cast<float>(parameters.ring), 0.0F, 0.0F};
         look.c = {core::at(parameters.dark, 0), core::at(parameters.dark, 1), core::at(parameters.dark, 2), 0.0F};
         look.d = {core::at(parameters.light, 0), core::at(parameters.light, 1), core::at(parameters.light, 2), 0.0F};
         break;
@@ -921,7 +977,7 @@ std::vector<StyleRgb> style_look_reference(const StyleParameters& parameters, co
         half = *images.smoothed;
     } else if (parameters.radius > 0) {
         half = style_kuwahara(style_half(colour, size), half_size, parameters.radius);
-    } else if (parameters.style == ArtStyle::kThermal) {
+    } else if (look_reads_half(parameters.style)) {
         half = style_half(colour, size);
     }
     const bool has_depth = images.depth != nullptr && !images.depth->empty();
@@ -943,16 +999,16 @@ std::vector<StyleRgb> style_look_reference(const StyleParameters& parameters, co
             StyleRgb result = own;
             switch (parameters.style) {
             case ArtStyle::kComic:
-                result = comic_pixel(place, own, base, lines);
+                result = comic_pixel(place, {.own = own, .base = base}, lines);
                 break;
             case ArtStyle::kSketch:
-                result = sketch_pixel(place, own, base, lines);
+                result = sketch_pixel(place, {.own = own, .base = base}, lines);
                 break;
             case ArtStyle::kNoir:
-                result = noir_pixel(place, own);
+                result = noir_pixel(place, own, half);
                 break;
             case ArtStyle::kThermal:
-                result = thermal_pixel(place, own, upsampled(half, half_size, place.at, own, false), depth);
+                result = thermal_pixel(place, {.own = own, .base = upsampled(half, half_size, place.at, own, false)}, depth);
                 break;
             case ArtStyle::kOff:
             case ArtStyle::kToon:

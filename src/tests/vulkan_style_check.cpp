@@ -16,7 +16,13 @@
 //   - a viewport: only its rectangle changed, everything outside it bit for bit as it was (the 2D's place);
 //   - off, strength 0: no pass, nothing changed;
 //   - an 8-bit target; four samples (the colour resolved, written to every sample);
-//   - the cost at 1920x1080 and 2560x1440 (printed).
+//   - the other looks (vulkan_style_looks.h: comic, sketch, noir, thermal): each against its twin at the frame's seed
+//     (the edge pass too), and what it does - ink along the edges and none inside planes or on the sky, halftone dots
+//     over the mid-darks, hatching over the dark end of the gradient and bare paper at its light end, the same pixels
+//     frame to frame (comic, sketch); the duotone line, crushed blacks, grain moving with the frame (noir); a figure in
+//     front of a wall warmer all over, planes and the sky not (thermal); each in a viewport; the reserved names (vhs,
+//     retro, watercolour) record nothing;
+//   - the cost of each look at 1920x1080 and 2560x1440 (printed; under 1.5 ms at 2560x1440 on a discrete device).
 //   thug2_vulkan_style_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
 #include <SDL3/SDL.h>
@@ -969,14 +975,14 @@ void check_comic(render::Gpu& gpu, const Picture& picture, Tally* tally)
     constexpr float kVisible = 0.05F;
     const std::vector<bool> dots = difference_map(reference_of(run, run.parameters), reference_of(run, plain), kVisible);
     const int floor = count_in(dots, kFloorRight);
-    const int ridge = count_in(dots, kRidgeLeftSide);
-    text::print("    halftone pixels: floor %d of %d, ridge %d of %d\n", floor, box_area(kFloorRight), ridge,
-                box_area(kRidgeLeftSide));
+    const int box = count_in(dots, kNoisy);
+    text::print("    halftone pixels: floor %d of %d, the box %d of %d\n", floor, box_area(kFloorRight), box,
+                box_area(kNoisy));
     constexpr float kSome = 0.15F;
     constexpr float kMost = 0.85F; // (dots, not a flat shade: some of the floor between them)
     tally->check(static_cast<float>(floor) > kSome * static_cast<float>(box_area(kFloorRight)) &&
                      static_cast<float>(floor) < kMost * static_cast<float>(box_area(kFloorRight)) &&
-                     static_cast<float>(ridge) > kSome * static_cast<float>(box_area(kRidgeLeftSide)),
+                     static_cast<float>(box) > kSome * static_cast<float>(box_area(kNoisy)),
                  "halftone dots over the mid-dark fills, the paper between them");
     // flat fills: the box's noisy field posterized (the dots left out: the twin without them)
     const float before = spread(run.input, kNoisy);
@@ -1085,10 +1091,10 @@ void check_thermal(render::Gpu& gpu, const Picture& picture, Tally* tally)
     if (!check_look_twin("thermal (the defaults)", run, tally)) {
         return;
     }
-    // what stands in front glows (the twin - the device's match proven above - on a depth of its own): a figure 20 x 40
+    // what stands in front glows (the twin - the device's match proven above - on a depth of its own): a figure 8 x 24
     // pixels at 200 units in front of a wall at 1000 over a tilted floor - warmer with focus 1 than 0 all over, the wall
     // away from it and the floor (planes) not
-    constexpr Box kFigure{.left = 110, .top = 30, .right = 130, .bottom = 70};
+    constexpr Box kFigure{.left = 116, .top = 40, .right = 124, .bottom = 64}; // (a skater's build at this size)
     constexpr float kWallZ = 1000.0F;
     constexpr float kFigureZ = 200.0F;
     constexpr uint32_t kFloorFrom = 90;
@@ -1106,7 +1112,7 @@ void check_thermal(render::Gpu& gpu, const Picture& picture, Tally* tally)
             core::at(depth, pixel_of(column, row)) = z;
         }
     }
-    std::vector<StyleRgb> flat(depth.size(), StyleRgb{kHalf, kHalf, kHalf});
+    const std::vector<StyleRgb> flat(depth.size(), StyleRgb{kHalf, kHalf, kHalf});
     vk::StyleParameters hot = run.parameters;
     hot.focus = 1.0F;
     vk::StyleParameters cold = run.parameters;
@@ -1320,7 +1326,7 @@ void check_multisampled(render::Gpu& gpu, Tally* tally)
 constexpr double kMostCost = 1.5; // (milliseconds; the RTX 5070 Ti's budget - an integrated device is only printed)
 void measure_cost(render::Gpu& gpu, vk::ArtStyle look, Tally* tally)
 {
-    constexpr int kTimedPasses = 20;
+    constexpr int kTimedPasses = 5;
     constexpr double kNanosecondsPerMillisecond = 1.0e6;
     vk::set_style_settings({.style = look});
     vk::Backend& state = vk::backend();
@@ -1353,8 +1359,9 @@ void measure_cost(render::Gpu& gpu, vk::ArtStyle look, Tally* tally)
         draw_scene(gpu, width, height);
         const render::rt::ViewDrawn view = view_of({0, 0, width, height});
         render::rt::world_view_drawn(view); // (the pipelines and images made first)
-        // (the fastest of a few rounds: the device's clocks rise under the first)
-        constexpr int kRounds = 4;
+        // (the fastest of several short rounds: the device's clocks rise under the first, and other programs' work on
+        // the device - other games, other checks - lands in some)
+        constexpr int kRounds = 16;
         double each = std::numeric_limits<double>::infinity();
         for (int round = 0; round < kRounds; ++round) {
             {

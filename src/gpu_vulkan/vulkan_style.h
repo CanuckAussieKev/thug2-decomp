@@ -51,7 +51,7 @@
 //
 // The other looks (rt_style comic, sketch, noir, thermal - vulkan_style_looks.h) share these passes and differ in the
 // composite: comic and sketch add an edge pass (step 4c's edge per depth pixel into an R32F image, which their ink
-// widens), thermal reads the half-resolution colour unsmoothed, noir reads the colour alone. vhs, retro and watercolour
+// widens), thermal and noir read the half-resolution colour unsmoothed. vhs, retro and watercolour
 // are names only so far: logged once as not built in, nothing drawn.
 namespace render::vulkan {
 
@@ -89,7 +89,8 @@ struct StyleParameters {
     std::array<float, 2> depth_range{0.0F, 1.0F};
     // (the looks' - vulkan_style_looks.h; output pixels scale with the picture's height / 720)
     int ink = 0;                 // comic, sketch: how far a line reaches round its edge (depth pixels; 0: the edge alone)
-    int ring = 1;                // thermal: the ring the "stands in front" test looks at (depth pixels)
+    int ring = 1;                // thermal: the "stands in front" test's ring (depth pixels); noir: the surroundings'
+                                 // ring (half-resolution pixels)
     float halftone = 0.0F;       // comic: the dot screen's spacing (output pixels; 0: none)
     float hatch = 1.0F;          // sketch: the strokes' spacing (output pixels)
     float wash = 0.0F;           // sketch

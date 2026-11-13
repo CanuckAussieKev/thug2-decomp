@@ -423,13 +423,23 @@ for the restart
 | `rt_pbr_specular` | 1 | How strong the highlights are (0: none) |
 | `rt_pbr_normal_strength` | 1 | How deep the surface maps' bumps look (0: flat, 2: twice as deep) |
 | `rt_pbr_objects` | 1 | 0: only surfaces with a map are lit per pixel (skaters and objects keep the game's own lighting) |
-| `rt_style` | 0 | On Vulkan (no ray tracing or HDR needed): 1 gives the world a cartoon look - textures flattened into painted colour, light in a few soft-edged shades, dark ink lines round objects and along their edges. The HUD and menus are left as they are. All the `rt_style` keys change at once in the Options screen |
-| `rt_style_strength` | 1 | With `rt_style`: how much of the cartoon look is laid over the game's picture (0-1) |
-| `rt_style_smooth` | 4 | With `rt_style`: how far the paint smooths texture detail away (pixels of a 720-line picture, scaled with the window; 0 keeps the textures) |
-| `rt_style_bands` | 5 | With `rt_style`: how many shades of light and dark each colour gets (0: smooth shading) |
-| `rt_style_outlines` | 1 | With `rt_style`: how dark the ink lines are (0: none). They thin out into the distance; the sky has none |
-| `rt_style_outline_width` | 1 | With `rt_style`: how thick the ink lines are (pixels of a 720-line picture, scaled with the window) |
-| `rt_style_saturation` | 1.15 | With `rt_style`: how strong the colours are (1 as they are) |
+| `rt_style` | off | On Vulkan (no ray tracing or HDR needed): an art style for the world - `toon` (flat paint, a few soft-edged shades, dark ink lines round objects and along their edges), `comic` (an early-2000s skate-zine comic: bold black ink, halftone dots in the shadows, flat bright colour), `sketch` (pencil on paper: cross-hatching that thickens in the dark, graphite outlines), `noir` (high-contrast black and white - or two colours of your own - with film grain and a vignette), `thermal` (a heat camera: skaters, peds, cars and rails glow, the sky is cold); `vhs`, `retro` and `watercolour` are names for looks still to come (nothing is drawn yet). The old 0 / 1 still read as off / toon. The HUD and menus are left as they are. All the `rt_style` keys change at once in the Options screen |
+| `rt_style_strength` | 1 | With `rt_style`: how much of the look is laid over the game's picture (0-1) |
+| `rt_style_smooth` | 4 | With `rt_style` toon, comic, sketch: how far the paint smooths texture detail away (pixels of a 720-line picture, scaled with the window; 0 keeps the textures) |
+| `rt_style_bands` | 5 | With `rt_style` toon, comic: how many shades of light and dark each colour gets (0: smooth shading) |
+| `rt_style_outlines` | 1 | With `rt_style` toon, comic, sketch: how dark the ink lines are (0: none). They thin out into the distance; the sky has none |
+| `rt_style_outline_width` | 1 | With `rt_style` toon, comic, sketch: how thick the ink lines are (pixels of a 720-line picture, scaled with the window; comic's are twice as bold, sketch's half) |
+| `rt_style_saturation` | 1.15 | With `rt_style` toon, comic: how strong the colours are (1 as they are) |
+| `rt_style_comic_halftone` | 5 | With `rt_style=comic`: how far apart the halftone dots are (pixels of a 720-line picture; 0: no dots) |
+| `rt_style_sketch_hatch` | 5 | With `rt_style=sketch`: how far apart the pencil strokes are (pixels of a 720-line picture, 2-16) |
+| `rt_style_sketch_wash` | 0.35 | With `rt_style=sketch`: how much of the world's colour shows under the pencil (0: grey pencil only, 1: full wash) |
+| `rt_style_paper` | 0.5 | With `rt_style` comic, sketch: how warm and aged the paper is (0: white) |
+| `rt_style_grain` | 0.5 | With `rt_style` noir: the film grain; thermal: the sensor noise; comic, sketch: the paper's fibre (0: none, 1: heavy) |
+| `rt_style_vignette` | 0.5 | With `rt_style` noir, thermal: how dark the corners get (0: none) |
+| `rt_style_noir_contrast` | 1.8 | With `rt_style=noir`: how hard the contrast is (0.5-4; the blacks crush as it rises) |
+| `rt_style_noir_dark` | 0,0,0 | With `rt_style=noir`: the shadows' colour (r,g,b 0-1; teal 0.04,0.16,0.2 with an orange light makes the orange / teal look) |
+| `rt_style_noir_light` | 0.95,0.92,0.84 | With `rt_style=noir`: the lights' colour (r,g,b 0-1; warm paper; orange 1,0.62,0.3) |
+| `rt_style_thermal_focus` | 0.6 | With `rt_style=thermal`: how much hotter things standing in front of what's behind them glow - skaters, peds, cars, rails (0: brightness and nearness only) |
 
 **`[Miscellaneous]`** - from PartyMod
 

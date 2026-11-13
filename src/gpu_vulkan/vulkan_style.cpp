@@ -507,6 +507,8 @@ float smoothstep(float low, float high, float value)
     return along * along * (kHermiteThree - (kHermiteTwo * along));
 }
 
+namespace {
+
 StyleRgb times(const Matrix3& matrix, const StyleRgb& vector)
 {
     StyleRgb out{};
@@ -517,6 +519,8 @@ StyleRgb times(const Matrix3& matrix, const StyleRgb& vector)
     }
     return out;
 }
+
+} // namespace
 
 StyleRgb to_lab(const StyleRgb& colour)
 {
@@ -1502,7 +1506,7 @@ bool ensure_pass_objects(Backend& state, const ViewPlan& plan, VkPipeline* compo
     const ArtStyle look = plan.parameters.style;
     *composite = ensure_objects(state, &error) ? composite_pipeline(state, look, colour.format, colour.samples, &error)
                                                : VK_NULL_HANDLE;
-    const bool half = plan.parameters.radius > 0 || look == ArtStyle::kThermal;
+    const bool half = plan.parameters.radius > 0 || look_reads_half(look);
     const bool made =
         *composite != VK_NULL_HANDLE &&
         ensure_image(state, &own.source, colour.format, colour.extent,
@@ -1640,15 +1644,18 @@ void record_composite(VkCommandBuffer commands, VkPipeline composite, const View
     const Image* half = &own.source;
     if (plan.parameters.radius > 0) {
         half = &own.smooth;
-    } else if (look == ArtStyle::kThermal) {
+    } else if (look_reads_half(look)) {
         half = &own.half;
     }
-    const bool inked = plan.depth != nullptr && look_draws_ink(look);
+    const Image* edges = nullptr; // (the toon composite has no edge binding)
+    if (look != ArtStyle::kToon) {
+        edges = plan.depth != nullptr && look_draws_ink(look) ? &own.edges : &own.source;
+    }
     push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
                      {.colour = &own.source,
                       .half = half,
                       .linear = plan.depth != nullptr ? &own.linear : &own.source,
-                      .edges = look == ArtStyle::kToon ? nullptr : (inked ? &own.edges : &own.source)});
+                      .edges = edges});
     vkCmdDraw(commands, 3, 1, 0, 0);
     vkCmdEndRendering(commands);
 }
@@ -1709,7 +1716,7 @@ bool record_style_pass(Backend& state, const rt::ViewDrawn& view)
                  core::at(plan.depth_rect, 3));
     }
     // 2, 3. half resolution, smoothed
-    if (plan.parameters.radius > 0 || plan.parameters.style == ArtStyle::kThermal) {
+    if (plan.parameters.radius > 0 || look_reads_half(plan.parameters.style)) {
         dispatch(commands, own.down, {.colour = &own.source, .out = &own.half}, half_width, half_height);
     }
     if (plan.parameters.radius > 0) {

@@ -398,7 +398,7 @@ const std::vector<Spec>& get_specs()
                         1, Apply::kLive),
         // (comic, sketch, noir, thermal - vulkan_style_looks.h)
         graphics_choice("rt_style_comic_halftone", text_tools::kOptStyleHalftone, "",
-                        {{.value = "0", .label = kOff}, {.value = "3", .label = "Fine"}, {.value = "4", .label = text_tools::kMedium}, {.value = "6", .label = "Bold"}},
+                        {{.value = "0", .label = kOff}, {.value = "4", .label = "Fine"}, {.value = "5", .label = text_tools::kMedium}, {.value = "7", .label = "Bold"}},
                         2, Apply::kLive),
         graphics_choice("rt_style_sketch_hatch", text_tools::kOptStyleHatch, "",
                         {{.value = "4", .label = "Tight"}, {.value = "5", .label = text_tools::kMedium}, {.value = "7", .label = "Loose"}},
@@ -416,7 +416,7 @@ const std::vector<Spec>& get_specs()
                         {{.value = "0", .label = kOff}, {.value = "0.5", .label = text_tools::kLow}, {.value = "1", .label = text_tools::kHigh}},
                         1, Apply::kLive),
         graphics_choice("rt_style_noir_contrast", text_tools::kOptStyleContrast, "",
-                        {{.value = "1.2", .label = text_tools::kLow}, {.value = "1.6", .label = text_tools::kMedium}, {.value = "2.2", .label = text_tools::kHigh}},
+                        {{.value = "1.3", .label = text_tools::kLow}, {.value = "1.8", .label = text_tools::kMedium}, {.value = "2.5", .label = text_tools::kHigh}},
                         1, Apply::kLive),
         graphics_choice("rt_style_noir_dark", text_tools::kOptStyleDark, "",
                         {{.value = "0,0,0", .label = "Black"}, {.value = "0.04,0.16,0.2", .label = "Teal"}, {.value = "0.05,0.06,0.16", .label = "Navy"}},

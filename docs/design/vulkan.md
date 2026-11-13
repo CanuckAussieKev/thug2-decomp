@@ -1834,10 +1834,11 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
   for 720 lines).
 - **Depth surfaces** are made samplable whenever the format allows (`style_depth_usage`), so `rt_style` can be turned on
   from the Options screen with no restart; without a samplable depth there are no outlines (logged once).
-- **Settings** (all live - `kLiveKeys` `rt_style*`): `rt_style` 0 / 1, `rt_style_strength` (1), `rt_style_smooth` (4:
+- **Settings** (all live - `kLiveKeys` `rt_style*`): `rt_style` off / toon (a name since the other looks - below; the old
+  0 / 1 still read), `rt_style_strength` (1), `rt_style_smooth` (4:
   the Kuwahara radius in 720-line pixels; 0 none), `rt_style_bands` (5; 0 none), `rt_style_outlines` (1; 0 none),
-  `rt_style_outline_width` (1), `rt_style_saturation` (1.15). The Options screen's Colour tab: Art style (Off / Toon) and
-  its six knobs.
+  `rt_style_outline_width` (1), `rt_style_saturation` (1.15). The Options screen's Colour tab: Art style (its nine
+  names) and the knobs.
 - **Checked:** `thug2_vulkan_style_check` (72 checks, the RTX 5070 Ti and the integrated Radeon, validation with
   synchronization validation 0): a 256 x 128 view drawn with screen-space quads at known depths (a box against the sky,
   a tilted floor, a ridge) and filled with noisy fields, a grey gradient and NaN / infinities. The Kuwahara pass's
@@ -1857,6 +1858,80 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
   "rt_style: the passes take"; 0.82 ms with smoothing 6 and lines 2). Known: alpha-tested decals a little above the
   ground (shadow and stain decals) get outlines of their own (a real depth step); a low-poly hill's facets show faint
   crease lines.
+
+### Art styles: comic, sketch, noir, thermal
+
+`rt_style` is a name: `off | toon | comic | sketch | vhs | retro | watercolour | noir | thermal` (`ArtStyle` in
+gpu_vulkan.h; `parse_art_style` takes any case and the old 0 / 1). `vhs`, `retro` and `watercolour` are reserved: the
+listener logs "rt_style=<name> is not built in" once and draws nothing (`style_built`; each gets its case when it is
+made). The four looks here (`gpu_vulkan/vulkan_style_looks`, formulas in its header) reuse the toon filter's passes and
+listener - the viewport's colour copied out (resolved), the linear depth, the half-resolution colour and its Kuwahara
+smoothing - and add a composite of their own (a fragment pipeline per look, format and samples), so they share its
+place (`ViewOrder::kStyle`, after the tone mapping and the upscaler, before the 2D), its per-viewport handling and its
+independence from ray tracing, HDR and DLSS / FSR. Patterns (halftone, hatching, paper fibre, grain) are anchored to the
+viewport's pixels and scale with its height (a "cell" is height / 720 pixels); none of them follows the camera, so
+nothing shimmers - the paper and the hatching are the same every frame, the noir grain and thermal noise change with
+the frame's seed (the frame serial).
+
+- **Ink** (comic, sketch): an edge pass (compute, R32F at the depth's size) writes the toon outline's edge per depth
+  pixel (`style_edges` is its twin); the composite widens it: the largest e x clamp(e (k + 1) - d, 0, 1) over the depth
+  pixels within k + 0.5 (a table of offsets sorted by distance, `kInkCount[k]` of them) - a strong edge reaches k
+  pixels, a weak crease fewer, so lines taper where an edge fades and are never darker than their own edge. k =
+  rt_style_outline_width x 2 (comic) or x 0.5 (sketch) at 720 lines, scaled with the depth's height, at most 4.
+- **comic**: the smoothed colour's OKLab lightness in `rt_style_bands` hard-edged bands, lifted (0.12 + 0.88 L: printed
+  colour is never black), chroma x `rt_style_saturation` x 1.2; a halftone screen at 45 degrees (`rt_style_comic_halftone`
+  spacing) whose dots grow with the darkness below L 0.62, in a darker shade of the fill; paper tint and fibre
+  (`rt_style_paper`, `rt_style_grain`); near-black ink.
+- **sketch**: the smoothed lightness as a tone; four hatching layers (55, 145, 10, 100 degrees) fade in below 0.72, 0.52,
+  0.34, 0.18, strokes `rt_style_sketch_hatch` apart, thicker where darker, with pressure and gaps along them; each layer
+  bent by a slow noise (the strokes shifted across by up to a spacing over ~100-pixel regions - a turn of the whole frame
+  about the corner would swirl); grainy graphite outlines; cream paper with fibre; `rt_style_sketch_wash` of a pale copy
+  of the colour under the pencil (0: grey).
+- **noir**: the lightness through a tone curve - `rt_style_noir_contrast` about a middle moved 60% of the way from 0.5
+  to the mean lightness around the pixel (the half-resolution colour at it and on a ring of 40 720-line pixels: a dark
+  corner keeps its mid-tones, a sunlit square its own - a local dodge and burn), then smoothstep, crushing the blacks;
+  film grain per cell and frame, strongest in the mid-tones (`rt_style_grain`); a vignette (`rt_style_vignette`); the
+  result mixes `rt_style_noir_dark` to `rt_style_noir_light` (default black to warm paper; Teal + Orange in Options is
+  the orange / teal pair).
+- **thermal**: heat = 0.1 + 0.38 brightness (the half-resolution colour brought up bilinearly - the slight blur) + 0.15
+  nearness (150 - 3,000 units) + 0.6 x `rt_style_thermal_focus` x "stands in front"; the sky 0.04 + 0.12 brightness.
+  "Stands in front" needs no draw ids: four pairs of opposite depth samples on a ring of 24 720-line pixels and one three
+  times as wide, per pair the lesser of 1 - z / z_sample (both sides farther; the sky counts 1), the most of them,
+  smoothstepped 0.05 - 0.3. On any plane one side of each pair is nearer (0: floors, walls, ramps), beside a ledge's edge
+  the ground is on one side (0), while a skater, a ped, a car, a rail or a pole has background on both sides (a figure up
+  to ~70 pixels wide at 720 lines glows all over through the wide ring). Sensor noise per cell, per line and per frame;
+  a mild vignette; the palette black - blue - purple - red - orange - yellow - white.
+- **Settings** (all live): `rt_style_comic_halftone` (5), `rt_style_sketch_hatch` (5), `rt_style_sketch_wash` (0.35),
+  `rt_style_paper` (0.5, comic and sketch), `rt_style_grain` (0.5: noir, thermal, the papers), `rt_style_vignette` (0.5:
+  noir, thermal), `rt_style_noir_contrast` (1.8), `rt_style_noir_dark` (0,0,0), `rt_style_noir_light` (0.95,0.92,0.84),
+  `rt_style_thermal_focus` (0.6); the toon's smooth / bands / outlines / width / saturation / strength apply where they
+  fit (README). Options: the Colour tab's rows for each (every row shown for now - a "shown when" for the style's own
+  rows is to come). The push constants grew to 192 bytes (four look vectors; the device's limit checked).
+- **Checked:** `thug2_vulkan_style_check` (133 checks, the RTX 5070 Ti and the integrated Radeon, validation with
+  synchronization validation 0). Each look against its processor twin (`style_look_reference`, fed the pass's own
+  smoothed colour and linear depth, at the frame's seed - `style_last_parameters`): every pixel within 2.5 steps (0
+  past; the largest 0.12 - 0.22 steps), finite, 0 - 1, alpha kept; the edge pass as `style_edges` (exact). What each
+  does: comic and sketch ink along the box's edges and down the ridge, none on the sky beside it or inside a plane;
+  halftone dots over a third of the mid-dark floor and box, paper between them; comic's fills flattened (spread 0.087 ->
+  0.020); sketch's strokes over the gradient's dark end (spread 0.12), bare paper at its light end, pencil grey with no
+  wash; both identical frame to frame. Noir: every pixel on the duotone's line, the dark quarter crushed (0.008), the
+  light kept (0.72), the grain moving with the frame (each frame as its seed's twin), teal shadows / orange lights with
+  that pair. Thermal: a figure in front of a wall warmer all over (the twin on a depth of its own), the wall and a
+  floor not; the sky cold; the noise moving with the frame. Each look in a viewport changes nothing outside it; vhs /
+  retro / watercolour record no pass; the names read back. Cost at 2560 x 1440 on the RTX 5070 Ti (the fastest of 16
+  short rounds - other programs share the device): toon 0.46 - 0.48 ms, comic 0.63 - 1.2, sketch 0.57 - 1.0, noir 0.07,
+  thermal 0.14 - 0.26 (all under the 1.5 ms the check holds a discrete device to); 1920 x 1080: 0.04 - 0.3.
+- **In the game** (THUG2-6, the user's [Graphics] - ray tracing, HDR, DLSS Ray Reconstruction - in a 1280 x 720 window;
+  BO's yard and its upper deck, AU's beach steps and glass front, z_dt's street and the skater on the steps, the front
+  end's main menu and Options, the pause menu over z_dt): each reads as its own look - comic as a coloured comic panel
+  (bold ink round the skater, rails and ramps, dots in the shade), sketch as a pencil drawing (cross-hatched shade,
+  graphite outlines, the sunlit beach left as paper), noir as a hard black-and-white still (the skater kept out of the
+  dark by the local middle), thermal as a heat camera (the skater, rails, lamp posts and peds glowing yellow-orange over
+  purple ground, the sky dark blue). The HUD, the menus and their text are never filtered. The log's "rt_style: the
+  passes take" at 1280 x 720: comic 0.19 - 0.49 ms, sketch 0.39 - 0.50, noir 0.07 - 0.17, thermal 0.11 - 0.21. Known:
+  thermal's "stands in front" is at the depth's resolution (with DLSS the edges of a glowing figure are stepped), and a
+  rooftop's thin structures against the sky can glow; noir's local middle leaves a faint halo where a very bright and a
+  very dark area meet; the Options screen shows Off for an ini that still says rt_style=1 (the game reads it as toon).
 
 ### Changing the settings while the game runs (the Options screen)
 
