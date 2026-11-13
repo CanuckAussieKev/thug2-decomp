@@ -161,6 +161,11 @@ constexpr uint8_t kSurfaceKnown = kSurfaceLighting | kSurfaceMap | kSurfaceLit |
 constexpr uint8_t kVertexSurfaceInputs = 0x01;
 constexpr uint8_t kVertexCelStream = 0x02; // the cel stream's three words read and handed on
 constexpr uint8_t kVertexCelHull = 0x04;   // the position pushed out along the normal (the outline's hull)
+// (NOT ORIGINAL - [Graphics] rt_water, gpu_vulkan/vulkan_water.h) FragmentKey::water: 1 - the program's colour shaded
+// as water (waves, reflection, refraction, depth colour, foam, the sun's glitter) where the surface faces up - on the
+// same programs as the per-pixel lighting, independent of its bits (a key may have water alone). The vertex half's
+// `surface` has kVertexSurfaceInputs with it (the eye-space position handed on). Its own byte: cel shading took the
+// surface byte's last bits.
 
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;
@@ -239,6 +244,8 @@ struct FragmentKey {
     // frame's place to the last frame's, in 0 - 1 of the viewport - x right, y down); the vertex half's motion with it.
     uint8_t motion = 0;
     uint8_t surface = 0; // (NOT ORIGINAL - rt_pbr) the per-pixel lighting's switches (kSurface*); 0: as the original's
+    uint8_t water = 0;   // (NOT ORIGINAL - rt_water) 1: shaded as water (above); 0: as the original's
+    std::array<uint8_t, 3> spare{}; // (keeps the key free of padding where it is a part of another: it is hashed as bytes)
     std::array<StageKey, kStageCount> stages{};
 
     bool operator==(const FragmentKey&) const = default;
@@ -255,7 +262,7 @@ struct ShaderKey {
 static_assert(std::has_unique_object_representations_v<VertexKey>, "VertexKey is hashed as bytes");
 static_assert(std::has_unique_object_representations_v<FragmentKey>, "FragmentKey is hashed as bytes");
 constexpr std::size_t kVertexKeyBytes = 40;
-constexpr std::size_t kFragmentKeyBytes = 48;
+constexpr std::size_t kFragmentKeyBytes = 52;
 static_assert(sizeof(VertexKey) == kVertexKeyBytes && sizeof(FragmentKey) == kFragmentKeyBytes, "the keys stay compact");
 
 // The texture coordinate sets of `fvf` (0-8).

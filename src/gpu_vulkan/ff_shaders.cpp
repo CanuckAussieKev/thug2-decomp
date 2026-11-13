@@ -15,6 +15,7 @@
 #include "engine/gfx/mesh_formats.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
+#include "gpu_vulkan/water_shader.h"
 
 namespace render::vulkan {
 
@@ -627,6 +628,11 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     }
     if (key.surface != 0) {
         surface_declarations(out, key);
+    } else if (key.water != 0U) {
+        add(out, {kSurfaceVaryingsIn}); // (NOT ORIGINAL - rt_water: the water's inputs alone)
+    }
+    if (key.water != 0U) {
+        add(out, {water_declarations_glsl()}); // (NOT ORIGINAL - rt_water, water_shader.h)
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
     if (key.motion != 0U) {
@@ -1057,8 +1063,16 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     add(out, {"void main()\n{"});
     fragment_program(out, key, sampled);
     add(out, {"    colour = clamp(colour, 0.0, 1.0);"});
+    const bool water = key.water != 0U; // (NOT ORIGINAL - rt_water, water_shader.h)
+    if (water) {
+        add(out, {"    float water_alpha = colour.a;\n    colour = water_shade(colour, t0, ", coord_of(key, 0),
+                  ", water_alpha);"});
+    }
     fragment_fog(out, key);
     fragment_alpha_test(out, key);
+    if (water) {
+        add(out, {"    colour.a = water_alpha;"});
+    }
     if (key.motion != 0U) {
         // the move to where the point was the frame before, in 0 - 1 of the viewport (Direct3D's y up: down on screen);
         // a point behind the camera then: none

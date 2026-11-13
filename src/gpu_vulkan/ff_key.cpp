@@ -122,6 +122,7 @@ void normalise_fragment(FragmentKey& key, bool points)
         key.surface = 0;
     }
     key.surface = static_cast<uint8_t>(key.surface & kSurfaceKnown);
+    key.water = key.water != 0U && takes_surface(key) && !points ? 1 : 0; // (NOT ORIGINAL - rt_water)
     if (key.program != PixelProgram::kStages) {
         key.stages = {};
         key.specular_add = false;
@@ -369,6 +370,7 @@ ShaderKey normalised(const ShaderKey& key)
     if (fvf_pre_transformed(result.vertex.fvf) || (result.vertex.coord_mask & 1U) == 0U ||
         result.fragment.point_sprite) {
         result.fragment.surface = 0;
+        result.fragment.water = 0; // (rt_water: the same inputs)
     }
     if (!result.vertex.lighting) {
         result.fragment.surface = static_cast<uint8_t>(result.fragment.surface & ~kSurfaceLit);
@@ -385,7 +387,7 @@ ShaderKey normalised(const ShaderKey& key)
     if ((surface & kSurfaceLit) != 0U) {
         surface = static_cast<uint8_t>(surface & ~kSurfaceCelStream);
     }
-    result.vertex.surface = surface != 0 ? kVertexSurfaceInputs : 0;
+    result.vertex.surface = surface != 0 || result.fragment.water != 0U ? kVertexSurfaceInputs : 0;
     if ((surface & kSurfaceCelStream) != 0U) {
         result.vertex.surface = static_cast<uint8_t>(result.vertex.surface | kVertexCelStream);
     }
@@ -523,6 +525,7 @@ std::string describe(const FragmentKey& key)
     if (key.surface != 0) {
         text += " surface=" + std::to_string(key.surface);
     }
+    text += key.water != 0U ? " water" : ""; // (NOT ORIGINAL - rt_water)
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);
     }

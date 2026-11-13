@@ -31,6 +31,13 @@ constexpr uint32_t kSurfaceMapBinding = 7;      // stage 0's texture's surface m
 // only in the layout of a device with ray tracing (kSurfaceCelShadow)
 constexpr uint32_t kCelUniformsBinding = 8; // CelUniforms (vertex and fragment)
 constexpr uint32_t kCelSceneBinding = 9;    // the frame's top-level acceleration structure
+// (NOT ORIGINAL - [Graphics] rt_water, vulkan_water.h) the water's: read only by keys with FragmentKey::water (pushed
+// only for their draws; after cel shading's)
+constexpr uint32_t kWaterUniformsBinding = 10; // WaterUniforms
+constexpr uint32_t kWaterSceneBinding = 11;   // what was drawn before the view's first water: its colour
+constexpr uint32_t kWaterDepthBinding = 12;   // ... its linear depth (R32F: the distance along the view, 1e9 the sky)
+constexpr uint32_t kWaterSkyBinding = 13;     // the level's sky captured (rt::SkyCapture: 3 x 2 faces), or blank
+constexpr uint32_t kWaterWavesBinding = 14;   // the ripples' tiling texture (slope x, slope z, height, foam pattern)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.
@@ -113,6 +120,25 @@ struct CelUniforms {
     Float4 limits{};     // x: the fallback's shadow high; y: 1 objects trace the world's mask too; z, w: unused
 };
 
+// (NOT ORIGINAL - rt_water) Binding 10, the water's (fragment shader): one per view, vulkan_water.cpp fills it. Matrices
+// as the vertex block's (Direct3D's, read as their transpose: M * v).
+struct WaterUniforms {
+    Float4x4 eye_to_world{}; // the view's inverse: camera space -> the world
+    Float4x4 world_to_eye{}; // the view
+    Float4x4 projection{};   // the view's projection (camera space -> Direct3D's clip space, y up)
+    Float4 viewport{};       // the view's rectangle in the target: x, y, width, height (pixels)
+    Float4 target{};         // x, y: 1 / the target's width and height; z: 1 when the copy behind the water is there; w: HDR
+    Float4 time{};           // x: the game's seconds; y, z: the wind's direction (world x, z); w: the wind's strength
+    Float4 waves{};          // x: the waves' height; y: how far one sees into the water (units); z: foam; w: the texture's
+                             // detail kept
+    Float4 tint{};           // rgb: the water's colour; w: 1 - the texture's own (auto)
+    Float4 sun{};            // xyz: toward the sun (world); w: 1 when there is one
+    Float4 sun_colour{};     // rgb: the sun's colour; w: the glitter's peak
+    Float4 sky{};            // rgb: the sky's colour where nothing else is known; w: 1 when the sky capture is bound
+    Float4 camera{};         // xyz: the camera's position (world); w: the refraction's strength
+    Float4 misc{};           // x: screen-space reflections on; y: the swell's longest wavelength; z: the debug view; w: unused
+};
+
 constexpr std::size_t kMatrixBytes = 64;
 constexpr std::size_t kVectorBytes = 16;
 static_assert(offsetof(VertexUniforms, texture_matrix) == 3 * kMatrixBytes, "std140: matrices are 64 bytes");
@@ -130,5 +156,7 @@ constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 6;
 static_assert(sizeof(SurfaceUniforms) == kSurfaceVectors * kVectorBytes, "std140: no padding");
 constexpr std::size_t kCelVectors = 11;
 static_assert(sizeof(CelUniforms) == kCelVectors * kVectorBytes, "std140: no padding");
+constexpr std::size_t kWaterVectors = 10;
+static_assert(sizeof(WaterUniforms) == (3 * kMatrixBytes) + (kWaterVectors * kVectorBytes), "std140: no padding");
 
 } // namespace render::vulkan

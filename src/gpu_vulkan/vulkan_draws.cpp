@@ -22,6 +22,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 #include <volk.h>
 
@@ -52,6 +53,7 @@
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "gpu_vulkan/vulkan_surface.h"
+#include "gpu_vulkan/vulkan_water.h"
 #include "platform/run_log.h"
 #include "platform/frame_profile.h"
 
@@ -407,7 +409,7 @@ struct SurfaceDescriptors {
 };
 
 void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array<VkDescriptorImageInfo, kStageCount>& images,
-                      const SurfaceDescriptors& surface = {})
+                      const SurfaceDescriptors& surface = {}, const WaterDescriptors& water = {})
 {
     BoundState& bound = state.bound;
     const bool same_surface = !surface.on || (bound.surface_pushed && same_buffer_info(bound.pushed_surface_block, surface.block) &&
@@ -415,10 +417,11 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     const bool same = bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, bound.vertex_block) &&
                       same_buffer_info(bound.pushed_fragment_block, bound.fragment_block) &&
                       std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel;
-    if (same) {
+    if (same && !water.on) {
         return;
     }
-    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4> writes{};
+    constexpr std::size_t kWaterWrites = 5; // (NOT ORIGINAL - rt_water's: kWaterUniformsBinding - kWaterWavesBinding)
+    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -464,6 +467,24 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
             traced.pNext = &scene;
             traced.dstBinding = kCelSceneBinding;
             traced.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        }
+    }
+    if (water.on) { // (NOT ORIGINAL - rt_water: the water's block, the copy behind it, the sky, the ripples)
+        VkWriteDescriptorSet& block = core::at(writes, count++);
+        block.dstBinding = kWaterUniformsBinding;
+        block.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        block.pBufferInfo = &water.block;
+        const std::array<std::pair<uint32_t, const VkDescriptorImageInfo*>, 4> images_of_water{{
+            {kWaterSceneBinding, &water.scene},
+            {kWaterDepthBinding, &water.depth},
+            {kWaterSkyBinding, &water.sky},
+            {kWaterWavesBinding, &water.waves},
+        }};
+        for (const auto& [binding, info] : images_of_water) {
+            VkWriteDescriptorSet& image = core::at(writes, count++);
+            image.dstBinding = binding;
+            image.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            image.pImageInfo = info;
         }
     }
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0, count, writes.data());
@@ -523,6 +544,31 @@ bool set_cel_descriptors(Backend& state, const GpuStateBlock& block, uint8_t sur
     return true;
 }
 
+// (NOT ORIGINAL - rt_pbr) A draw lit per pixel's descriptors filled (its block in the ring, its map); nothing for one
+// that isn't. False: the ring is full.
+struct SurfaceSource {
+    SurfaceDraw surface;
+    uint8_t flags = 0;          // the key's surface bits
+    const Image* image = nullptr; // the map's image (null: the blank texture)
+    VkSampler sampler = VK_NULL_HANDLE; // stage 0's
+};
+bool surface_descriptors_for(Backend& state, const GpuStateBlock& block, const SurfaceSource& source, SurfaceDescriptors* out)
+{
+    if (source.flags == 0) {
+        return true;
+    }
+    out->on = true;
+    if (!set_surface_uniforms(state, block, source.surface, &out->block)) {
+        return false;
+    }
+    if ((source.flags & kSurfaceMap) != 0U) {
+        const Image& shown = source.image != nullptr ? *source.image : state.blank;
+        out->has_map = true;
+        out->map = {.sampler = source.sampler, .imageView = shown.view, .imageLayout = shown.layout};
+    }
+    return set_cel_descriptors(state, block, source.flags, out); // (added by cel shading)
+}
+
 // (added by cel shading) The relit world's stream at binding 2, vertex for vertex from its start.
 void bind_cel_stream(Backend& state, VkCommandBuffer commands, uint8_t vertex_surface, Buffer* stream)
 {
@@ -569,6 +615,7 @@ bool draw_cel_hull(Backend& state, VkCommandBuffer commands, const HullDraw& dra
     }
     ShaderKey hull = *draw.shaders;
     hull.fragment.surface = static_cast<uint8_t>(kSurfaceLighting | kSurfaceCel | kSurfaceLit | kSurfaceCelHull);
+    hull.fragment.water = 0;
     hull = normalised(hull);
     if ((hull.fragment.surface & kSurfaceCelHull) == 0U) {
         return false;
@@ -972,6 +1019,7 @@ void release_draw_objects(Backend& state)
     release_style(state); // (NOT ORIGINAL - the art style's: vulkan_style.h)
     release_grass(state); // (NOT ORIGINAL - the grass's: vulkan_grass.h)
     release_cel(state); // (NOT ORIGINAL - cel shading's outlines: vulkan_cel_draw.h)
+    release_water(state); // (NOT ORIGINAL - rt_water's: vulkan_water.h)
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
     state.memory.destroy_image(&state.gamma_source);
@@ -1093,6 +1141,13 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         shaders.fragment.surface = surface.flags;
         shaders = normalised(shaders);
     }
+    // NOT ORIGINAL - water shaded where render_pc marked the material ([Graphics] rt_water, vulkan_water.h; nothing with
+    // it off): the key with the water bit, the copy behind the water made first (outside the pass); opaque water before
+    // the opaque world is finished kept back and drawn then
+    WaterDescriptors water;
+    if (!water_key(state, block, call, &shaders, &water)) {
+        return kOk; // (drawn as water once the opaque world is finished)
+    }
     std::string why;
     if (!supported(shaders, &why)) {
         if (first_report(state, hash_of(shaders.vertex) ^ hash_of(shaders.fragment))) {
@@ -1141,19 +1196,10 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         return gpu_value::kResultInvalidCall;
     }
     SurfaceDescriptors surface_descriptors; // NOT ORIGINAL - rt_pbr
-    if (shaders.fragment.surface != 0) {
-        surface_descriptors.on = true;
-        if (!set_surface_uniforms(state, block, surface, &surface_descriptors.block)) {
-            return gpu_value::kResultInvalidCall;
-        }
-        if ((shaders.fragment.surface & kSurfaceMap) != 0U) {
-            const Image& shown = surface_image != nullptr ? *surface_image : state.blank;
-            surface_descriptors.has_map = true;
-            surface_descriptors.map = {.sampler = core::at(descriptors, 0).sampler, .imageView = shown.view, .imageLayout = shown.layout};
-        }
-        if (!set_cel_descriptors(state, block, shaders.fragment.surface, &surface_descriptors)) { // (added by cel shading)
-            return gpu_value::kResultInvalidCall;
-        }
+    if (!surface_descriptors_for(state, block, {.surface = surface, .flags = shaders.fragment.surface, .image = surface_image,
+                                                .sampler = core::at(descriptors, 0).sampler},
+                                 &surface_descriptors)) {
+        return gpu_value::kResultInvalidCall;
     }
     BoundState& bound = state.bound;
     if (pipeline != bound.pipeline) {
@@ -1161,7 +1207,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         bound.pipeline = pipeline;
     }
     set_dynamic_states(state, commands, block, call);
-    push_descriptors(state, commands, descriptors, surface_descriptors);
+    push_descriptors(state, commands, descriptors, surface_descriptors, water);
     if (call.vertex_buffer != bound.vertex_buffer || call.vertex_offset != bound.vertex_offset ||
         call.stride != bound.vertex_stride) {
         const VkDeviceSize stride = call.stride;

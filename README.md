@@ -319,6 +319,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too |
 | `frame_profile` | 0 | Where a frame's time goes: every 5 s a `frame-profile:` breakdown in the log (the drawn frames a second, their spacing and work - average and 99th percentile - and each phase of the main loop, the render's parts and the device's own time) and a line a loop in `thug2-decomp-frames.jsonl`; 2 also samples the main thread (x64) into `thug2-decomp-samples.txt`. `node tools/game/frame_bench.ts` runs a fixed scenario per level with it and reports |
 | `rt_contract_check` | 0 | Checks every call the renderer makes to ray tracing (meshes, materials, each frame's instances, lights and cameras, every world draw against the frame's record) and logs `rt-check:` lines - violations and a summary every 600 frames; the console's `rt summary` / `rt dump [file]` (the frame record as JSON). `node tools/game/rt_contract.ts` runs it across levels and renderers in a workspace |
+| `rt_water_view` | 0 | With `[Graphics] rt_water=1`: the water drawn in colours showing where its reflection came from - red found on the screen, green the sky seen on the screen, blue the level's captured sky |
+| `rt_water_materials` | 0 | With `[Graphics] rt_water=1`: a `water:` line for each moving material the level draws - whether it counts as water, its passes and textures (`node tools/game/water_survey.ts` lists them from the level files without running the game) |
 | `tess_log` | 0 | With `[Graphics] rt_tessellation=1`: a line for every mesh smoothed at load - where it is, its size, the triangles split, its level and how far it moved from the original (`rt_tessellation: mesh at ...`) |
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 | `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
@@ -369,6 +371,14 @@ for the restart
 | `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it; with `rt_reflection_fresnel=1` 0.5 is the natural amount) |
 | `rt_reflection_fresnel` | 1 | 1: how much a surface reflects depends on the angle you see it at - water and glass show their own colour looking straight at them and turn into mirrors toward grazing angles, windows show their glass instead of the game's painted sky; 0: the same reflection at every angle |
 | `rt_glass_roughness` | 0.05 | How blurry glass reflections are (radians; 0 a perfect mirror) |
+| `rt_water` | 0 | On Vulkan (no ray tracing needed): 1 turns the levels' water into real water - waves moving with the wind, the sky and the level reflected along them, the bottom seen through shallow water and deep water darkening, foam where it meets the shore, sparkles where the sun catches the waves. Only flat water that faces up (not waterfalls); everything else is drawn as before. All the `rt_water` keys change at once in the Options screen |
+| `rt_water_waves` | 1 | With `rt_water`: how high the waves are, times each level's own (a harbour or canal is calmer than the open sea; 0 flat) |
+| `rt_water_wind` | 1 | With `rt_water`: how strong the wind is - the ripples' size and speed (0 still, up to 2) |
+| `rt_water_wind_heading` | auto | With `rt_water`: which way the wind blows, in degrees (auto: the level's own) |
+| `rt_water_clarity` | 1 | With `rt_water`: how far you can see into the water, times the level's own (0.5 murky, 2 clear) |
+| `rt_water_foam` | 1 | With `rt_water`: how much foam there is along the shore (0 none, up to 2) |
+| `rt_water_tint` | auto | With `rt_water`: the water's colour - auto (its own colour as the game draws it) or r,g,b (0-1 each, e.g. 0.1,0.45,0.45) |
+| `rt_water_screen_reflections` | 1 | With `rt_water`: 0 reflects only the sky in the water (a little cheaper) |
 | `rt_glass_reflectance` | 0.2 | How much glass reflects looking straight at it (0.04 is real glass - against the game's bright window textures its reflection all but disappears) |
 | `rt_hdr` | 0 | On Vulkan (no ray tracing needed): 1 draws the world in high dynamic range - brighter than white kept - and maps it back to the screen before the HUD; with the settings below left alone it looks like 0 (the brightest whites a touch softer) |
 | `rt_exposure` | 0 | With `rt_hdr=1`: stops of light (+1 twice as bright, -1 half) |

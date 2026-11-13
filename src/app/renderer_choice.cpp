@@ -495,6 +495,59 @@ void read_rt_cel()
     render::vulkan::set_cel_settings(cel);
 }
 
+// NOT ORIGINAL - water shading (gpu_vulkan/vulkan_water.h): off unless asked for; no ray tracing needed.
+// rt_water_wind_heading: auto (the level's) or degrees; rt_water_tint: auto (the water's own colour as the game draws it) or r,g,b.
+void read_water()
+{
+    const render::vulkan::WaterSettings defaults;
+    render::vulkan::WaterSettings water{
+        .on = build_info::fetch_flag(build_info::kGraphics, "rt_water", false),
+        .waves = ini_float("rt_water_waves", defaults.waves),
+        .wind = ini_float("rt_water_wind", defaults.wind),
+        .heading = render::vulkan::kWaterHeadingAuto,
+        .clarity = ini_float("rt_water_clarity", defaults.clarity),
+        .foam = ini_float("rt_water_foam", defaults.foam),
+        .hdr = live_state().hdr_at_start,
+        .screen_reflections = build_info::fetch_flag(build_info::kGraphics, "rt_water_screen_reflections", true),
+        .debug_view = build_info::fetch_flag("debug", "rt_water_view", false)};
+    constexpr std::size_t kLongest = 64;
+    std::array<char, kLongest> text{};
+    graphics_text("rt_water_wind_heading", "auto", text.data(), text.size());
+    const std::string heading(text.data());
+    if (!heading.empty() && heading != "auto") {
+        char* end = nullptr;
+        const double parsed = std::strtod(heading.c_str(), &end);
+        if (end != heading.c_str() && std::isfinite(parsed)) {
+            constexpr double kTurn = 360.0;
+            water.heading = static_cast<float>(std::fmod(std::fmod(parsed, kTurn) + kTurn, kTurn));
+        } else {
+            get_log("[Graphics] rt_water_wind_heading=%s isn't auto or degrees - the level's used", heading.c_str());
+        }
+    }
+    text = {};
+    graphics_text("rt_water_tint", "auto", text.data(), text.size());
+    const std::string tint(text.data());
+    std::array<float, 3> colour{};
+    std::size_t read = 0;
+    std::istringstream numbers(tint);
+    std::string number;
+    while (read < colour.size() && std::getline(numbers, number, ',')) {
+        char* end = nullptr;
+        const double parsed = std::strtod(number.c_str(), &end);
+        if (end == number.c_str() || !std::isfinite(parsed)) {
+            break;
+        }
+        colour.at(read++) = static_cast<float>(parsed);
+    }
+    if (read == colour.size()) {
+        water.tint_auto = false;
+        water.tint = colour;
+    } else if (!tint.empty() && tint != "auto") {
+        get_log("[Graphics] rt_water_tint=%s isn't auto or r,g,b - the water's own colour used", tint.c_str());
+    }
+    render::vulkan::set_water_settings(water);
+}
+
 // The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting
 // with it, `prefix`) and what reads its effect's settings again. Everything else - renderer, ray_tracing, rt_hdr,
 // upscaling, rt_tessellation - waits for the restart.
@@ -553,6 +606,7 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_style", .prefix = true, .read = &read_style}, // (rt_style and every rt_style_)
     LiveKey{.key = "grass", .prefix = true, .read = &read_grass},    // (grass and every grass_)
     LiveKey{.key = "rt_cel", .prefix = true, .read = &read_rt_cel},   // (added by cel shading: rt_cel and every rt_cel_)
+    LiveKey{.key = "rt_water", .prefix = true, .read = &read_water}, // (NOT ORIGINAL - rt_water and every rt_water_)
 };
 
 // (added by the split comparison - engine/gfx/graphics_options.h CompareBackend, devtools/compare_split.h) The effects'
@@ -791,6 +845,7 @@ void install_vulkan()
     read_style();
     read_grass(); // (NOT ORIGINAL - the grass: gpu_vulkan/vulkan_grass.h)
     read_rt_cel(); // (added by cel shading)
+    read_water();
     render::graphics_options::set_live_reload(&reload_live_key);
     render::graphics_options::set_compare_backend(
         {.prepare = &compare_prepare, .apply = &compare_apply, .end = &compare_end});

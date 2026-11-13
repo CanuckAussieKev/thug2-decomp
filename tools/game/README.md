@@ -138,6 +138,17 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (Vulkan minus Direct3D 9), the largest, the pixels over the threshold, their bounding rectangle and the three 80x80
   cells holding most of them; also the same over every pixel. `report.txt` / `report.json`; `--pictures` writes
   `sbs/<name>.png` (Direct3D 9 | Vulkan | the difference x4, the noise mask blue).
+- `node tools/game/water_survey.ts [--game <install>] [--levels AU,BA,...]` - which of the levels' materials `[Graphics]
+  rt_water` shades as water, read from the level files (nothing run): every moving material (a UV wibble or a texture
+  animation), whether it counts (render_pc/water_materials.cpp's rule and the shader's test of its texture's mean colour -
+  not warm, near white or near black), the mean colour, its meshes' bounding box and how flat it is.
+- `node tools/game/water_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
+  [--settings <ini>] [--levels BA,AU,BE,NO,SE] [--configs off,on] [--set Section.key=value]...` - the water spots of five
+  levels (the open sea, harbours, a canal, a river, a pool, a shoreline close up) with `rt_water=0` and `1` over the
+  user's [Graphics] (the main install's ini, read only - the window's keys the workspace's), under the workspace's lock,
+  the build deployed: `<out>/<off|on>/<spot>.png`, each level's log, and report.txt - the frame profile's device
+  milliseconds a frame with the camera held on the level's first spot (1800 frames; the last 20 s averaged).
+  `--timed <frames>` (0: none), `--spots <file.json>` (a list of `{level, spots: [{name, camera}]}`) - other spots.
 - `node tools/game/first_frame_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
   [--settings <ini>] [--levels BO,AU,z_dt,foun] [--set Graphics.key=value]...` - the first frame after a load
   (docs/design/vulkan.md "The first frame after a load"): under the workspace's lock, the build deployed, each level
