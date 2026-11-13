@@ -39,6 +39,7 @@
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
+#include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_rt_sun.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
@@ -362,7 +363,8 @@ long make_depth_surface(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
                                             rt_effects_depth_usage(state, plan->format) |
                                             rt_reflections_depth_usage(state, plan->format) |
                                             rt_fog_depth_usage(state, plan->format) |
-                                            rt_sun_depth_usage(state, plan->format), // (and the sun's: vulkan_rt_sun.h)
+                                            rt_sun_depth_usage(state, plan->format) | // (and the sun's: vulkan_rt_sun.h)
+                                            rt_sky_depth_usage(state, plan->format), // (and the sky's)
                                .alpha_one = false};
     if (!state.memory.create_image(request, &surface->image)) {
         destroy_surface(state, surface);
