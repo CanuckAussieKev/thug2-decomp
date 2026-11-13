@@ -50,6 +50,7 @@
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_style.h"
+#include "gpu_vulkan/vulkan_style_looks.h"
 #include "tests/no_error_dialogs.h"
 
 namespace {
@@ -815,6 +816,394 @@ void check_filter(render::Gpu& gpu, const FilterCase& test, const Picture& pictu
     tally->check(ridge_sides == 0 && floor_inside == 0 && sky_inside == 0, "none inside a plane or the sky");
 }
 
+// --- the other looks (vulkan_style_looks.h) ----------------------------------------------------------------------
+
+// The pass's edge image read back (the target's size).
+bool read_edges(std::vector<float>* edges)
+{
+    vk::Backend& state = vk::backend();
+    const std::scoped_lock lock(state.mutex);
+    vk::finish_work(state);
+    vk::Extent size;
+    return vk::read_style_edges(state, edges, &size) && size.width == kWidth && size.height == kHeight;
+}
+
+// The pixels where two pictures differ by more than `visible` in any channel.
+std::vector<bool> difference_map(const std::vector<StyleRgb>& a, const std::vector<StyleRgb>& b, float visible)
+{
+    std::vector<bool> map(a.size());
+    for (std::size_t pixel = 0; pixel < map.size(); ++pixel) {
+        float difference = 0.0F;
+        for (std::size_t channel = 0; channel < kChannels; ++channel) {
+            difference = std::max(difference, std::abs(core::at(core::at(a, pixel), channel) - core::at(core::at(b, pixel), channel)));
+        }
+        map.at(pixel) = difference > visible;
+    }
+    return map;
+}
+
+int box_area(const Box& box) { return static_cast<int>((box.right - box.left) * (box.bottom - box.top)); }
+
+float mean_of(const std::vector<StyleRgb>& colour, const Box& box, std::size_t channel)
+{
+    double sum = 0.0;
+    for (uint32_t row = box.top; row < box.bottom; ++row) {
+        for (uint32_t column = box.left; column < box.right; ++column) {
+            sum += core::at(core::at(colour, pixel_of(column, row)), channel);
+        }
+    }
+    return static_cast<float>(sum / static_cast<double>(box_area(box)));
+}
+
+// One run of a look: the target filtered, read back with the pass's own images and its parameters (the frame's seed).
+struct LookRun {
+    bool ok = false;
+    std::vector<StyleRgb> input;
+    std::vector<StyleRgb> out;
+    std::vector<float> alpha;
+    std::vector<float> depth;
+    std::vector<StyleRgb> smoothed;
+    std::vector<float> edges;
+    vk::StyleParameters parameters;
+};
+
+LookRun run_look(render::Gpu& gpu, const vk::StyleSettings& settings, const Picture& picture)
+{
+    LookRun run;
+    vk::set_style_settings(settings);
+    const Targets targets = make_targets(gpu, true, 0);
+    if (targets.colour == nullptr || targets.depth == nullptr || !prepare(gpu, targets, picture, &run.input) ||
+        run_pass(gpu, targets, {0, 0, kWidth, kHeight}) != 1) {
+        release(gpu, targets);
+        return run;
+    }
+    run.parameters = vk::style_last_parameters();
+    run.ok = read_colour(targets.colour, true, &run.out, &run.alpha) &&
+             (!vk::look_reads_depth(settings.style) || read_linear(&run.depth)) &&
+             (run.parameters.radius == 0 || read_smoothed(&run.smoothed)) &&
+             (!vk::look_draws_ink(settings.style) || read_edges(&run.edges));
+    release(gpu, targets);
+    return run;
+}
+
+std::vector<StyleRgb> reference_of(const LookRun& run, const vk::StyleParameters& parameters)
+{
+    return vk::style_reference(parameters,
+                               {.colour = &run.input,
+                                .depth = run.depth.empty() ? nullptr : &run.depth,
+                                .smoothed = run.smoothed.empty() ? nullptr : &run.smoothed},
+                               kSize);
+}
+
+constexpr int kLookMostOff = static_cast<int>(kWidth * kHeight / 200); // (0.5%: a pattern's edge, a band's)
+
+// The look against its twin: every pixel, finite, alpha; true when it ran.
+bool check_look_twin(const char* name, const LookRun& run, Tally* tally)
+{
+    text::print("%s:\n", name);
+    tally->check(run.ok, "the pass recorded, the target and the pass's images read back");
+    if (!run.ok) {
+        return false;
+    }
+    if (!run.edges.empty()) {
+        const std::vector<float> twin = vk::style_edges(run.parameters, run.depth, kSize);
+        float worst = 0.0F;
+        int off = 0;
+        constexpr float kEdgeSlack = 2.0e-3F;
+        for (std::size_t pixel = 0; pixel < twin.size(); ++pixel) {
+            const float difference = std::abs(core::at(run.edges, pixel) - core::at(twin, pixel));
+            worst = std::max(worst, std::isfinite(difference) ? difference : 1.0F);
+            off += difference > kEdgeSlack ? 1 : 0;
+        }
+        tally->check(off <= kMostOff, text::format("the edge pass as style_edges (%d pixels past %.3f; the largest "
+                                                   "difference %.4f)",
+                                                   off, static_cast<double>(kEdgeSlack), static_cast<double>(worst)));
+    }
+    const Compared compared = compare(run.out, reference_of(run, run.parameters), kTolerance);
+    tally->check(compared.off <= kLookMostOff,
+                 text::format("every pixel within %.1f steps of the reference but %d (%d past it; the largest "
+                              "difference %.2f steps)",
+                              static_cast<double>(kTolerance * kByteSteps), kLookMostOff, compared.off,
+                              static_cast<double>(compared.worst * kByteSteps)));
+    tally->check(compared.outside == 0, text::format("every channel finite and within 0 - 1 (%d not)", compared.outside));
+    int alpha_changed = 0;
+    constexpr float kHalfAlphaValue = 0.5F;
+    constexpr float kAlphaSlack = 1.0e-3F;
+    for (const float value : run.alpha) {
+        alpha_changed += std::abs(value - kHalfAlphaValue) > kAlphaSlack ? 1 : 0;
+    }
+    tally->check(alpha_changed == 0, text::format("alpha untouched (%d changed)", alpha_changed));
+    return true;
+}
+
+// Where a look's ink lies: the reference with outlines against without.
+void check_ink(const LookRun& run, Tally* tally)
+{
+    vk::StyleParameters without = run.parameters;
+    without.outlines = 0.0F;
+    constexpr float kVisible = 0.1F;
+    const std::vector<bool> lines = difference_map(reference_of(run, run.parameters), reference_of(run, without), kVisible);
+    const int box_top = count_in(lines, kBoxTopEdge);
+    const int box_left = count_in(lines, kBoxLeftEdge);
+    const int sky = count_in(lines, kSkyAboveBox) + count_in(lines, kSkyLeftOfBox) + count_in(lines, kSkyBetween);
+    const int ridge = count_in(lines, kRidgeCrease);
+    const int planes = count_in(lines, kRidgeLeftSide) + count_in(lines, kRidgeRightSide) + count_in(lines, kFloorRight);
+    text::print("    ink pixels: box top %d, left %d; the sky beside it %d; the ridge %d; inside the planes %d\n", box_top,
+                box_left, sky, ridge, planes);
+    constexpr int kAlong = 40;
+    tally->check(box_top > kAlong && box_left > kAlong && ridge > kAlong,
+                 "ink along the box's edges and down the ridge's crease");
+    tally->check(sky == 0 && planes == 0, "none on the sky beside the box, none inside a plane");
+}
+
+void check_comic(render::Gpu& gpu, const Picture& picture, Tally* tally)
+{
+    const LookRun run = run_look(gpu, {.style = vk::ArtStyle::kComic}, picture);
+    if (!check_look_twin("comic (the defaults)", run, tally)) {
+        return;
+    }
+    check_ink(run, tally);
+    // the halftone: dots where the fill is mid-dark (the floor, the ridge), none in the light sky's right half
+    vk::StyleParameters plain = run.parameters;
+    plain.halftone = 0.0F;
+    constexpr float kVisible = 0.05F;
+    const std::vector<bool> dots = difference_map(reference_of(run, run.parameters), reference_of(run, plain), kVisible);
+    const int floor = count_in(dots, kFloorRight);
+    const int ridge = count_in(dots, kRidgeLeftSide);
+    text::print("    halftone pixels: floor %d of %d, ridge %d of %d\n", floor, box_area(kFloorRight), ridge,
+                box_area(kRidgeLeftSide));
+    constexpr float kSome = 0.15F;
+    constexpr float kMost = 0.85F; // (dots, not a flat shade: some of the floor between them)
+    tally->check(static_cast<float>(floor) > kSome * static_cast<float>(box_area(kFloorRight)) &&
+                     static_cast<float>(floor) < kMost * static_cast<float>(box_area(kFloorRight)) &&
+                     static_cast<float>(ridge) > kSome * static_cast<float>(box_area(kRidgeLeftSide)),
+                 "halftone dots over the mid-dark fills, the paper between them");
+    // flat fills: the box's noisy field posterized (the dots left out: the twin without them)
+    const float before = spread(run.input, kNoisy);
+    const float after = spread(reference_of(run, plain), kNoisy);
+    constexpr float kCalmer = 0.5F;
+    tally->check(after < before * kCalmer, text::format("the fills flattened (spread %.4f -> %.4f)",
+                                                        static_cast<double>(before), static_cast<double>(after)));
+    // the pattern doesn't move from frame to frame
+    const LookRun again = run_look(gpu, {.style = vk::ArtStyle::kComic}, picture);
+    tally->check(again.ok && again.out == run.out, "the next frame the same, pixel for pixel (no shimmer)");
+}
+
+void check_sketch(render::Gpu& gpu, const Picture& picture, Tally* tally)
+{
+    const LookRun run = run_look(gpu, {.style = vk::ArtStyle::kSketch}, picture);
+    if (!check_look_twin("sketch (the defaults)", run, tally)) {
+        return;
+    }
+    check_ink(run, tally);
+    // the hatching by darkness: the gradient's dark end crossed with strokes (much spread), its light end bare paper
+    constexpr Box kDarkEnd{.left = 2, .top = kGradientTop, .right = 50, .bottom = kGradientBottom};
+    constexpr Box kLightEnd{.left = 225, .top = kGradientTop, .right = 254, .bottom = kGradientBottom};
+    const float dark_spread = spread(run.out, kDarkEnd);
+    const float light_spread = spread(run.out, kLightEnd);
+    const float dark_mean = mean_of(run.out, kDarkEnd, 0);
+    const float light_mean = mean_of(run.out, kLightEnd, 0);
+    text::print("    the gradient's dark end: mean %.3f, spread %.4f; its light end: mean %.3f, spread %.4f\n",
+                static_cast<double>(dark_mean), static_cast<double>(dark_spread), static_cast<double>(light_mean),
+                static_cast<double>(light_spread));
+    constexpr float kStrokes = 0.08F;
+    constexpr float kBare = 0.03F;
+    constexpr float kPaperLight = 0.85F;
+    tally->check(dark_spread > kStrokes && dark_mean < light_mean, "strokes over the dark end");
+    tally->check(light_spread < kBare && light_mean > kPaperLight, "bare paper at the light end");
+    // grey with the wash off (the paper's tint aside: red, green and blue within the paper's own spread)
+    const LookRun grey = run_look(gpu, {.style = vk::ArtStyle::kSketch, .wash = 0.0F, .paper = 0.0F}, picture);
+    float most_chroma = 1.0F;
+    if (grey.ok) {
+        most_chroma = 0.0F;
+        for (const StyleRgb& colour : grey.out) {
+            const float high = std::max({core::at(colour, 0), core::at(colour, 1), core::at(colour, 2)});
+            const float low = std::min({core::at(colour, 0), core::at(colour, 1), core::at(colour, 2)});
+            most_chroma = std::max(most_chroma, high - low);
+        }
+    }
+    constexpr float kGraphiteTint = 0.04F; // (the graphite's own blue)
+    tally->check(most_chroma <= kGraphiteTint,
+                 text::format("no wash, white paper: pencil grey (the widest channel spread %.3f)", static_cast<double>(most_chroma)));
+    const LookRun again = run_look(gpu, {.style = vk::ArtStyle::kSketch}, picture);
+    tally->check(again.ok && again.out == run.out, "the next frame the same, pixel for pixel (no shimmer)");
+}
+
+void check_noir(render::Gpu& gpu, const Picture& picture, Tally* tally)
+{
+    const vk::StyleSettings settings{.style = vk::ArtStyle::kNoir};
+    const LookRun run = run_look(gpu, settings, picture);
+    if (!check_look_twin("noir (the defaults: black to warm paper)", run, tally)) {
+        return;
+    }
+    // every pixel on the duotone's line: the light colour x a tone (the dark is black)
+    float worst = 0.0F;
+    for (const StyleRgb& colour : run.out) {
+        const float tone = core::at(colour, 1) / core::at(vk::kStyleNoirLight, 1);
+        for (std::size_t channel = 0; channel < kChannels; ++channel) {
+            worst = std::max(worst, std::abs(core::at(colour, channel) - (tone * core::at(vk::kStyleNoirLight, channel))));
+        }
+    }
+    constexpr float kOnLine = 3.0F / kByteSteps;
+    tally->check(worst < kOnLine, text::format("every pixel a shade between the two colours (off by %.4f at most)",
+                                               static_cast<double>(worst)));
+    // the contrast: the gradient's darkest quarter crushed to black, its lightest near the light colour
+    constexpr Box kDarkQuarter{.left = 2, .top = kGradientTop, .right = 40, .bottom = kGradientBottom};
+    constexpr Box kLightQuarter{.left = 200, .top = kGradientTop, .right = 240, .bottom = kGradientBottom};
+    const float dark = mean_of(run.out, kDarkQuarter, 1);
+    const float light = mean_of(run.out, kLightQuarter, 1);
+    text::print("    the gradient: dark quarter %.3f, light quarter %.3f\n", static_cast<double>(dark), static_cast<double>(light));
+    constexpr float kCrushed = 0.06F;
+    constexpr float kBright = 0.6F;
+    tally->check(dark < kCrushed && light > kBright, "the blacks crushed, the lights kept");
+    // the grain changes with the frame (and each frame matches its own seed's twin)
+    const LookRun next = run_look(gpu, settings, picture);
+    bool next_matches = false;
+    if (next.ok) {
+        next_matches = compare(next.out, reference_of(next, next.parameters), kTolerance).off <= kLookMostOff;
+    }
+    tally->check(next.ok && next.parameters.seed != run.parameters.seed && next.out != run.out && next_matches,
+                 text::format("the grain moves with the frame (seed %u -> %u), each frame as its twin", run.parameters.seed,
+                              next.parameters.seed));
+    // the orange / teal pair
+    const LookRun teal = run_look(gpu,
+                                  {.style = vk::ArtStyle::kNoir,
+                                   .noir_dark = {0.04F, 0.16F, 0.2F},
+                                   .noir_light = {1.0F, 0.62F, 0.3F}},
+                                  picture);
+    if (check_look_twin("noir (orange / teal)", teal, tally)) {
+        const float blue_dark = mean_of(teal.out, kDarkQuarter, 2);
+        const float red_light = mean_of(teal.out, kLightQuarter, 0);
+        tally->check(blue_dark > mean_of(teal.out, kDarkQuarter, 0) && red_light > mean_of(teal.out, kLightQuarter, 2),
+                     "teal shadows, orange lights");
+    }
+}
+
+void check_thermal(render::Gpu& gpu, const Picture& picture, Tally* tally)
+{
+    const LookRun run = run_look(gpu, {.style = vk::ArtStyle::kThermal}, picture);
+    if (!check_look_twin("thermal (the defaults)", run, tally)) {
+        return;
+    }
+    // what stands in front glows (the twin - the device's match proven above - on a depth of its own): a figure 20 x 40
+    // pixels at 200 units in front of a wall at 1000 over a tilted floor - warmer with focus 1 than 0 all over, the wall
+    // away from it and the floor (planes) not
+    constexpr Box kFigure{.left = 110, .top = 30, .right = 130, .bottom = 70};
+    constexpr float kWallZ = 1000.0F;
+    constexpr float kFigureZ = 200.0F;
+    constexpr uint32_t kFloorFrom = 90;
+    std::vector<float> depth(static_cast<std::size_t>(kWidth) * kHeight, kWallZ);
+    for (uint32_t row = 0; row < kHeight; ++row) {
+        for (uint32_t column = 0; column < kWidth; ++column) {
+            float z = kWallZ;
+            if (row >= kFloorFrom) { // (1/z affine down the screen: a plane)
+                const float along = static_cast<float>(row - kFloorFrom) / static_cast<float>(kHeight - kFloorFrom);
+                z = 1.0F / ((1.0F / kWallZ) + (along * ((1.0F / kFloorNear) - (1.0F / kWallZ))));
+            }
+            if (column >= kFigure.left && column < kFigure.right && row >= kFigure.top && row < kFigure.bottom) {
+                z = kFigureZ;
+            }
+            core::at(depth, pixel_of(column, row)) = z;
+        }
+    }
+    std::vector<StyleRgb> flat(depth.size(), StyleRgb{kHalf, kHalf, kHalf});
+    vk::StyleParameters hot = run.parameters;
+    hot.focus = 1.0F;
+    vk::StyleParameters cold = run.parameters;
+    cold.focus = 0.0F;
+    constexpr float kVisible = 0.05F;
+    const std::vector<bool> warmer =
+        difference_map(vk::style_reference(hot, {.colour = &flat, .depth = &depth}, kSize),
+                       vk::style_reference(cold, {.colour = &flat, .depth = &depth}, kSize), kVisible);
+    constexpr Box kWallAway{.left = 10, .top = 10, .right = 60, .bottom = 80};
+    constexpr Box kFloorAway{.left = 10, .top = 100, .right = 250, .bottom = 120};
+    const int figure = count_in(warmer, kFigure);
+    const int wall = count_in(warmer, kWallAway);
+    const int floor = count_in(warmer, kFloorAway);
+    text::print("    warmer with focus: the figure %d of %d pixels, the wall %d, the floor %d\n", figure, box_area(kFigure), wall,
+                floor);
+    constexpr float kAllOver = 0.9F;
+    tally->check(static_cast<float>(figure) >= kAllOver * static_cast<float>(box_area(kFigure)) && wall == 0 && floor == 0,
+                 "a figure in front of a wall warmer all over (its middle too), the wall and the floor not");
+    // the sky cold: dark, blue over red
+    const float sky_red = mean_of(run.out, kSkyBetween, 0);
+    const float sky_blue = mean_of(run.out, kSkyBetween, 2);
+    constexpr float kCold = 0.45F;
+    tally->check(sky_blue > sky_red && sky_blue < kCold,
+                 text::format("the sky cold (red %.3f, blue %.3f)", static_cast<double>(sky_red), static_cast<double>(sky_blue)));
+    const LookRun next = run_look(gpu, {.style = vk::ArtStyle::kThermal}, picture);
+    bool next_matches = false;
+    if (next.ok) {
+        next_matches = compare(next.out, reference_of(next, next.parameters), kTolerance).off <= kLookMostOff;
+    }
+    tally->check(next.ok && next.out != run.out && next_matches, "the noise flickers with the frame, each frame as its twin");
+}
+
+// Every look in a viewport: only its rectangle changed; the styles not built here record nothing.
+void check_look_viewports(render::Gpu& gpu, const Picture& picture, Tally* tally)
+{
+    text::print("the looks in a viewport; the styles not built here:\n");
+    constexpr std::array<uint32_t, 4> kViewport{64, 16, 128, 96};
+    const auto changes = [&](vk::ArtStyle style, uint64_t* passes, int* inside, int* outside) {
+        vk::set_style_settings({.style = style});
+        const Targets targets = make_targets(gpu, true, 0);
+        std::vector<StyleRgb> input;
+        *outside = -1;
+        if (targets.colour != nullptr && targets.depth != nullptr && prepare(gpu, targets, picture, &input)) {
+            *passes = run_pass(gpu, targets, kViewport);
+            std::vector<uint8_t> bytes;
+            if (vk::read_surface(targets.colour, &bytes)) {
+                *inside = 0;
+                *outside = 0;
+                for (uint32_t row = 0; row < kHeight; ++row) {
+                    for (uint32_t column = 0; column < kWidth; ++column) {
+                        const std::size_t pixel = pixel_of(column, row);
+                        bool changed = false;
+                        for (std::size_t channel = 0; channel < kChannels; ++channel) {
+                            changed = changed || half_at(bytes, {.pixel = pixel, .channel = channel}) !=
+                                                     core::at(picture.bits, (pixel * kChannels) + channel);
+                        }
+                        const bool in = column >= core::at(kViewport, 0) && column < core::at(kViewport, 0) + core::at(kViewport, 2) &&
+                                        row >= core::at(kViewport, 1) && row < core::at(kViewport, 1) + core::at(kViewport, 3);
+                        (in ? *inside : *outside) += changed ? 1 : 0;
+                    }
+                }
+            }
+        }
+        release(gpu, targets);
+    };
+    for (const vk::ArtStyle style : {vk::ArtStyle::kComic, vk::ArtStyle::kSketch, vk::ArtStyle::kNoir, vk::ArtStyle::kThermal}) {
+        uint64_t passes = 0;
+        int inside = 0;
+        int outside = 0;
+        changes(style, &passes, &inside, &outside);
+        tally->check(passes == 1 && outside == 0 &&
+                         std::cmp_greater(inside, core::at(kViewport, 2) * core::at(kViewport, 3) / 2),
+                     text::format("%s: %d pixels changed inside the viewport, %d outside", vk::art_style_name(style), inside,
+                                  outside));
+    }
+    for (const vk::ArtStyle style : {vk::ArtStyle::kVhs, vk::ArtStyle::kRetro, vk::ArtStyle::kWatercolour}) {
+        uint64_t passes = 1;
+        int inside = 0;
+        int outside = 0;
+        changes(style, &passes, &inside, &outside);
+        tally->check(passes == 0 && inside == 0 && outside == 0,
+                     text::format("%s (not built here): no pass, every pixel as it was", vk::art_style_name(style)));
+    }
+    // the names: each read back as itself, the old numbers, anything else refused
+    bool names = true;
+    for (unsigned index = 0; index < vk::kArtStyleCount; ++index) {
+        vk::ArtStyle read = vk::ArtStyle::kOff;
+        names = names && vk::parse_art_style(vk::art_style_name(static_cast<vk::ArtStyle>(index)), &read) &&
+                read == static_cast<vk::ArtStyle>(index);
+    }
+    vk::ArtStyle old = vk::ArtStyle::kOff;
+    names = names && vk::parse_art_style("1", &old) && old == vk::ArtStyle::kToon && vk::parse_art_style("0", &old) &&
+            old == vk::ArtStyle::kOff && vk::parse_art_style(" Noir ", &old) && old == vk::ArtStyle::kNoir &&
+            !vk::parse_art_style("sepia", &old) && old == vk::ArtStyle::kNoir;
+    tally->check(names, "rt_style's names read back; 0 / 1 as off / toon; an unknown name refused");
+}
+
 // Only the viewport changed; the setting off and strength 0 change nothing.
 void check_skips(render::Gpu& gpu, const Picture& picture, Tally* tally)
 {
@@ -846,7 +1235,7 @@ void check_skips(render::Gpu& gpu, const Picture& picture, Tally* tally)
         release(gpu, targets);
         return outside;
     };
-    vk::set_style_settings({.style = 1});
+    vk::set_style_settings({.style = vk::ArtStyle::kToon});
     uint64_t passes = 0;
     int inside = 0;
     constexpr std::array<uint32_t, 4> kViewport{64, 16, 128, 96};
@@ -857,7 +1246,7 @@ void check_skips(render::Gpu& gpu, const Picture& picture, Tally* tally)
     passes = 1;
     const int off = unchanged_outside({0, 0, 0, 0}, &passes, &inside);
     tally->check(passes == 0 && off == 0, "rt_style=0: no pass, every pixel as it was");
-    vk::set_style_settings({.style = 1, .strength = 0.0F});
+    vk::set_style_settings({.style = vk::ArtStyle::kToon, .strength = 0.0F});
     passes = 1;
     const int none = unchanged_outside({0, 0, 0, 0}, &passes, &inside);
     tally->check(passes == 0 && none == 0, "strength 0: no pass, every pixel as it was");
@@ -867,7 +1256,7 @@ void check_skips(render::Gpu& gpu, const Picture& picture, Tally* tally)
 void check_multisampled(render::Gpu& gpu, Tally* tally)
 {
     text::print("four samples:\n");
-    vk::set_style_settings({.style = 1});
+    vk::set_style_settings({.style = vk::ArtStyle::kToon});
     const Targets targets = make_targets(gpu, true, kFourSamples);
     GpuSurface* before = nullptr;
     GpuSurface* after = nullptr;
@@ -913,7 +1302,7 @@ void check_multisampled(render::Gpu& gpu, Tally* tally)
     tally->check(read, "the resolves and the linear depth read back");
     if (read) {
         const vk::StyleParameters parameters =
-            vk::style_parameters(vk::StyleSettings{.style = 1}, view_of({0, 0, kWidth, kHeight}), {.output = kHeight, .depth = kHeight});
+            vk::style_parameters(vk::StyleSettings{.style = vk::ArtStyle::kToon}, view_of({0, 0, kWidth, kHeight}), {.output = kHeight, .depth = kHeight});
         const std::vector<StyleRgb> expected = vk::style_reference(parameters, {.colour = &input, .depth = &depth}, kSize);
         const Compared compared = compare(out, expected, kTolerance);
         tally->check(compared.off <= kMostOff && compared.outside == 0,
@@ -926,12 +1315,14 @@ void check_multisampled(render::Gpu& gpu, Tally* tally)
     gpu.release_surface(after);
 }
 
-// The passes' time on the device over float targets of the game's sizes (the scene drawn, defaults): printed.
-void measure_cost(render::Gpu& gpu, Tally* tally)
+// The passes' time on the device over float targets of the game's sizes (the scene drawn, a look's defaults): printed;
+// at 2560 x 1440 under kMostCost.
+constexpr double kMostCost = 1.5; // (milliseconds; the RTX 5070 Ti's budget - an integrated device is only printed)
+void measure_cost(render::Gpu& gpu, vk::ArtStyle look, Tally* tally)
 {
     constexpr int kTimedPasses = 20;
     constexpr double kNanosecondsPerMillisecond = 1.0e6;
-    vk::set_style_settings({.style = 1});
+    vk::set_style_settings({.style = look});
     vk::Backend& state = vk::backend();
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(state.context.physical_device(), &properties);
@@ -962,32 +1353,43 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
         draw_scene(gpu, width, height);
         const render::rt::ViewDrawn view = view_of({0, 0, width, height});
         render::rt::world_view_drawn(view); // (the pipelines and images made first)
-        {
-            const std::scoped_lock lock(state.mutex);
-            VkCommandBuffer commands = vk::outside_pass(state);
-            vkCmdResetQueryPool(commands, pool, 0, 2);
-            vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, pool, 0);
-        }
-        for (int i = 0; i < kTimedPasses; ++i) {
-            render::rt::world_view_drawn(view);
-        }
-        std::array<uint64_t, 2> stamps{};
-        {
-            const std::scoped_lock lock(state.mutex);
-            vkCmdWriteTimestamp(vk::outside_pass(state), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, pool, 1);
-            vk::finish_work(state);
-            vkGetQueryPoolResults(state.context.device(), pool, 0, 2, sizeof(stamps), stamps.data(), sizeof(uint64_t),
-                                  VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+        // (the fastest of a few rounds: the device's clocks rise under the first)
+        constexpr int kRounds = 4;
+        double each = std::numeric_limits<double>::infinity();
+        for (int round = 0; round < kRounds; ++round) {
+            {
+                const std::scoped_lock lock(state.mutex);
+                VkCommandBuffer commands = vk::outside_pass(state);
+                vkCmdResetQueryPool(commands, pool, 0, 2);
+                vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, pool, 0);
+            }
+            for (int i = 0; i < kTimedPasses; ++i) {
+                render::rt::world_view_drawn(view);
+            }
+            std::array<uint64_t, 2> stamps{};
+            {
+                const std::scoped_lock lock(state.mutex);
+                vkCmdWriteTimestamp(vk::outside_pass(state), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, pool, 1);
+                vk::finish_work(state);
+                vkGetQueryPoolResults(state.context.device(), pool, 0, 2, sizeof(stamps), stamps.data(), sizeof(uint64_t),
+                                      VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+            }
+            each = std::min(each, static_cast<double>(stamps.back() - stamps.front()) *
+                                      static_cast<double>(properties.limits.timestampPeriod) / kNanosecondsPerMillisecond /
+                                      kTimedPasses);
         }
         gpu.set_render_target(0, nullptr);
         gpu.set_depth_surface(nullptr);
         gpu.end_scene();
         release(gpu, targets);
-        const double each = static_cast<double>(stamps.back() - stamps.front()) *
-                            static_cast<double>(properties.limits.timestampPeriod) / kNanosecondsPerMillisecond / kTimedPasses;
-        text::print("the cost: %.3f ms a pass at %ux%u (defaults: smoothing radius %d, outlines)\n", each, width, height,
-                    vk::style_parameters({.style = 1}, view, {.output = height, .depth = height}).radius);
-        tally->check(std::isfinite(each) && each > 0.0, text::format("timed at %ux%u", width, height));
+        text::print("the cost of %s: %.3f ms a pass at %ux%u (its defaults: smoothing radius %d)\n",
+                    vk::art_style_name(look), each, width, height,
+                    vk::style_parameters({.style = look}, view, {.output = height, .depth = height}).radius);
+        tally->check(std::isfinite(each) && each > 0.0, text::format("%s timed at %ux%u", vk::art_style_name(look), width, height));
+        if (width == core::at(core::at(kSizes, 1), 0) && properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            tally->check(each < kMostCost, text::format("%s under %.1f ms at %ux%u on a discrete device",
+                                                        vk::art_style_name(look), kMostCost, width, height));
+        }
     }
     vkDestroyQueryPool(state.context.device(), pool, nullptr);
 }
@@ -1057,18 +1459,18 @@ int run(const Options& options, SDL_Window* window)
     Tally tally;
     render::Gpu& gpu = vk::gpu();
     const Picture picture = make_picture();
-    const vk::StyleSettings defaults{.style = 1};
+    const vk::StyleSettings defaults{.style = vk::ArtStyle::kToon};
     const vk::StyleSettings strong{
-        .style = 1, .strength = 1.0F, .smooth = kStrongSmooth, .bands = kFewBands, .outlines = 1.0F,
+        .style = vk::ArtStyle::kToon, .strength = 1.0F, .smooth = kStrongSmooth, .bands = kFewBands, .outlines = 1.0F,
         .outline_width = kWideLines, .saturation = kStrongColour};
     const vk::StyleSettings soft{
-        .style = 1, .strength = kSoftMix, .smooth = 0.0F, .bands = 0.0F, .outlines = kSoftLines,
+        .style = vk::ArtStyle::kToon, .strength = kSoftMix, .smooth = 0.0F, .bands = 0.0F, .outlines = kSoftLines,
         .outline_width = 1.0F, .saturation = vk::kStyleSaturation};
     const vk::StyleSettings smoothing{
-        .style = 1, .strength = 1.0F, .smooth = kStrongSmooth, .bands = 0.0F, .outlines = 0.0F, .outline_width = 1.0F,
+        .style = vk::ArtStyle::kToon, .strength = 1.0F, .smooth = kStrongSmooth, .bands = 0.0F, .outlines = 0.0F, .outline_width = 1.0F,
         .saturation = 1.0F};
     const vk::StyleSettings banding{
-        .style = 1, .strength = 1.0F, .smooth = 0.0F, .bands = kFewBands, .outlines = 0.0F, .outline_width = 1.0F,
+        .style = vk::ArtStyle::kToon, .strength = 1.0F, .smooth = 0.0F, .bands = kFewBands, .outlines = 0.0F, .outline_width = 1.0F,
         .saturation = vk::kStyleSaturation};
     const std::array<FilterCase, 6> cases{{
         {.name = "smoothing alone", .settings = smoothing, .floats = true},
@@ -1083,7 +1485,15 @@ int run(const Options& options, SDL_Window* window)
     }
     check_skips(gpu, picture, &tally);
     check_multisampled(gpu, &tally);
-    measure_cost(gpu, &tally);
+    check_comic(gpu, picture, &tally);
+    check_sketch(gpu, picture, &tally);
+    check_noir(gpu, picture, &tally);
+    check_thermal(gpu, picture, &tally);
+    check_look_viewports(gpu, picture, &tally);
+    for (const vk::ArtStyle look :
+         {vk::ArtStyle::kToon, vk::ArtStyle::kComic, vk::ArtStyle::kSketch, vk::ArtStyle::kNoir, vk::ArtStyle::kThermal}) {
+        measure_cost(gpu, look, &tally);
+    }
     vk::set_style_settings({});
     vk::gpu_context().shutdown();
     tally.check(validation_messages() == 0, text::format("validation messages: %d", validation_messages()));

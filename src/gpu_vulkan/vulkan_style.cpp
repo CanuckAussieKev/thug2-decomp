@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -22,6 +23,8 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_style_looks.h"
+#include "gpu_vulkan/vulkan_style_twin.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "platform/run_log.h"
 
@@ -34,6 +37,7 @@ constexpr uint64_t kReportTarget = 0x53545901U;
 constexpr uint64_t kReportPipeline = 0x53545902U;
 constexpr uint64_t kReportFirstPass = 0x53545903U;
 constexpr uint64_t kReportNoDepth = 0x53545904U;
+constexpr uint64_t kReportUnbuilt = 0x53545910U; // (+ the style)
 
 constexpr uint32_t kGroupSide = 8;
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -42,7 +46,8 @@ constexpr uint32_t kBindingDepth = 1;  // the depth surface (sampled)
 constexpr uint32_t kBindingOut = 2;    // a compute pass's output (storage)
 constexpr uint32_t kBindingHalf = 3;   // the half-resolution colour, or the smoothed one (sampled)
 constexpr uint32_t kBindingLinear = 4; // the linear depth (sampled)
-constexpr uint32_t kBindingCount = 5;
+constexpr uint32_t kBindingEdges = 5;  // the edge pass's output (sampled; comic, sketch)
+constexpr uint32_t kBindingCount = 6;
 constexpr float kGamma = 2.2F;
 constexpr float kHalfWeight = 0.5F;
 constexpr int kQuadrants = 4;
@@ -71,6 +76,11 @@ layout(push_constant) uniform Style {
     vec4 projection;  // P22, P32, P23, P33
     vec4 depth_map;   // x: the depth range's minimum; y: 1 / its span; z: 1 with a depth; w: unused
     vec4 lines;       // x: the line's lightness; y: its chroma; z: the crease's weight; w: the lightness kept unbanded
+    vec4 look_a;      // (the looks' - vulkan_style_looks.h) x: grain; y: the grain's cell (pixels); z: the frame's seed;
+                      // w: vignette
+    vec4 look_b;      // each look's own
+    vec4 look_c;      // noir's dark colour
+    vec4 look_d;      // noir's light colour
 } pc;
 
 const float kSky = 1.0e9;
@@ -174,20 +184,15 @@ void main()
 }
 )";
 
-// The composite (style_reference is its twin): reads the viewport's colour, the smoothed half-resolution colour and the
-// linear depth, writes the target's colour.
-constexpr const char* kCompositeBody = R"(
+// What every composite shares (style_reference's and the looks' twins): the bindings it reads, the edge-aware upsample
+// of the smoothed colour, OKLab.
+constexpr const char* kCompositeShared = R"(
 layout(set = 0, binding = 0) uniform sampler2D u_colour;
 layout(set = 0, binding = 3) uniform sampler2D u_smooth;
-layout(set = 0, binding = 4) uniform sampler2D u_linear;
 layout(location = 0) out vec4 o_colour;
 
 const float kGuide = 22.0;
 const float kWeightFloor = 1.0e-4;
-const float kCreaseLow = 0.18;
-const float kCreaseHigh = 0.45;
-const float kFarSide = 0.02;
-const float kStepSide = 0.02;
 
 vec3 upsampled(ivec2 local, vec3 own)
 {
@@ -239,20 +244,16 @@ vec3 from_lab(vec3 lab)
                     -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s);
     return clamp(pow(max(lin, vec3(0.0)), vec3(1.0 / 2.2)), 0.0, 1.0);
 }
+)";
 
-vec3 simplified(vec3 lab)
-{
-    float n = pc.tone.x;
-    if (n > 0.0) {
-        float t = lab.x * n - 0.5;
-        float i = floor(t);
-        float f = t - i;
-        float banded = clamp((i + 0.5 + smoothstep(0.5 - pc.tone.y, 0.5 + pc.tone.y, f)) / n, 0.0, 1.0);
-        lab.x = mix(banded, lab.x, pc.lines.w);
-    }
-    lab.yz *= pc.tone.z;
-    return lab;
-}
+// The depth's edges (vulkan_style.h step 4c; edge_at is the twin): the toon composite's and the edge pass's.
+constexpr const char* kEdgeGlsl = R"(
+layout(set = 0, binding = 4) uniform sampler2D u_linear;
+
+const float kCreaseLow = 0.18;
+const float kCreaseHigh = 0.45;
+const float kFarSide = 0.02;
+const float kStepSide = 0.02;
 
 float depth_at(ivec2 p) { return texelFetch(u_linear, p, 0).r; }
 
@@ -270,12 +271,18 @@ float axis_edge(float s)
     return e;
 }
 
-float edge(ivec2 local)
+// The depth pixel under an output pixel (the depth's rectangle scaled to the colour's).
+ivec2 depth_pixel(ivec2 local)
 {
     vec2 scale = vec2(pc.depth_rect.zw) / vec2(pc.out_rect.zw);
+    return pc.depth_rect.xy + min(ivec2((vec2(local) + 0.5) * scale), pc.depth_rect.zw - 1);
+}
+
+// The edge at a depth pixel, faded with the distance (0 on the sky).
+float depth_edge(ivec2 q)
+{
     ivec2 lo = pc.depth_rect.xy;
     ivec2 hi = pc.depth_rect.xy + pc.depth_rect.zw - 1;
-    ivec2 q = lo + min(ivec2((vec2(local) + 0.5) * scale), pc.depth_rect.zw - 1);
     float zc = depth_at(q);
     if (zc >= kSky * 0.5) {
         return 0.0;
@@ -293,6 +300,41 @@ float edge(ivec2 local)
     }
     return max(ex, ey) * (1.0 - smoothstep(pc.outline.z, pc.outline.w, zc));
 }
+)";
+
+// The edge pass (the comic's and the sketch's lines): each depth pixel's edge into an R32F image (the looks' ink widens
+// it).
+constexpr const char* kEdgePassBody = R"(
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 2, r32f) uniform writeonly image2D o_out;
+
+void main()
+{
+    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(local, pc.depth_rect.zw))) {
+        return;
+    }
+    ivec2 q = pc.depth_rect.xy + local;
+    imageStore(o_out, q, vec4(depth_edge(q), 0.0, 0.0, 0.0));
+}
+)";
+
+// The toon composite (style_reference is its twin): reads the viewport's colour, the smoothed half-resolution colour
+// and the linear depth, writes the target's colour.
+constexpr const char* kToonBody = R"(
+vec3 simplified(vec3 lab)
+{
+    float n = pc.tone.x;
+    if (n > 0.0) {
+        float t = lab.x * n - 0.5;
+        float i = floor(t);
+        float f = t - i;
+        float banded = clamp((i + 0.5 + smoothstep(0.5 - pc.tone.y, 0.5 + pc.tone.y, f)) / n, 0.0, 1.0);
+        lab.x = mix(banded, lab.x, pc.lines.w);
+    }
+    lab.yz *= pc.tone.z;
+    return lab;
+}
 
 void main()
 {
@@ -302,7 +344,7 @@ void main()
     vec3 smoothed = pc.sizes.z > 0 ? upsampled(local, own) : own;
     vec3 lab = simplified(to_lab(smoothed));
     if (pc.depth_map.z > 0.5 && pc.outline.x > 0.0) {
-        float e = edge(local) * pc.outline.x;
+        float e = depth_edge(depth_pixel(local)) * pc.outline.x;
         vec3 ink = vec3(lab.x * pc.lines.x, lab.yz * pc.lines.y);
         lab = mix(lab, ink, clamp(e, 0.0, 1.0));
     }
@@ -321,13 +363,18 @@ struct StyleConstants {
     std::array<float, 4> projection{};
     std::array<float, 4> depth_map{};
     std::array<float, 4> lines{};
+    std::array<float, 4> look_a{};
+    std::array<float, 4> look_b{};
+    std::array<float, 4> look_c{};
+    std::array<float, 4> look_d{};
 };
-constexpr std::size_t kConstantBytes = 128;
+constexpr std::size_t kConstantBytes = 192; // (past Vulkan 1.0's least 128: checked against the device's limit)
 static_assert(sizeof(StyleConstants) == kConstantBytes, "the shaders' push-constant block");
 
 struct CompositePipeline {
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+    ArtStyle look = ArtStyle::kToon;
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -340,11 +387,14 @@ struct StyleState {
     std::array<VkPipeline, 2> prep{}; // single-sampled depth, multisampled
     VkPipeline down = VK_NULL_HANDLE;
     VkPipeline kuwahara = VK_NULL_HANDLE;
+    VkPipeline edge_pass = VK_NULL_HANDLE; // (comic, sketch)
     std::vector<CompositePipeline> composites;
     Image source; // the viewport's colour copied out (single-sampled)
     Image half;   // the half-resolution colour
     Image smooth; // ... smoothed
     Image linear; // the linear depth
+    Image edges;  // the edge pass's output (comic, sketch; the depth's size)
+    StyleParameters last; // the last pass's
     bool failed = false;
     bool outlined = false;
     uint64_t passes = 0;
@@ -387,7 +437,11 @@ StyleListener& listener()
     return instance;
 }
 
+} // namespace
+
 // --- the processor's twin --------------------------------------------------------------------------------------
+
+namespace style_twin {
 
 using Matrix3 = std::array<std::array<float, 3>, 3>;
 
@@ -407,15 +461,6 @@ constexpr Matrix3 kConesToLinear{{{4.0767416621F, -3.3077115913F, 0.2309699292F}
 constexpr float kThird = 1.0F / 3.0F;
 constexpr float kHermiteThree = 3.0F; // (smoothstep's 3 t^2 - 2 t^3)
 constexpr float kHermiteTwo = 2.0F;
-constexpr std::size_t kLightness = 0;
-constexpr std::size_t kGreenRed = 1;
-constexpr std::size_t kBlueYellow = 2;
-
-// A pixel of an image (column, row).
-struct Pixel {
-    int column = 0;
-    int row = 0;
-};
 
 float finite(float value) { return value >= 0.0F ? std::min(value, 1.0F) : 0.0F; }
 
@@ -517,6 +562,8 @@ StyleRgb simplified_lab(const StyleParameters& parameters, StyleRgb lab)
     return lab;
 }
 
+float mix(float from, float to, float part) { return from + ((to - from) * part); }
+
 StyleRgb mix3(const StyleRgb& from, const StyleRgb& to, float part)
 {
     StyleRgb out{};
@@ -526,17 +573,7 @@ StyleRgb mix3(const StyleRgb& from, const StyleRgb& to, float part)
     return out;
 }
 
-// An image's pixel, its coordinates clamped into it.
-template <typename T>
-const T& clamped_at(const std::vector<T>& image, Extent size, Pixel at)
-{
-    const auto column = static_cast<std::size_t>(std::clamp(at.column, 0, static_cast<int>(size.width) - 1));
-    const auto row = static_cast<std::size_t>(std::clamp(at.row, 0, static_cast<int>(size.height) - 1));
-    return core::at(image, (row * size.width) + column);
-}
-
-// The smoothed half-resolution colour at a full-resolution pixel, guided by the pixel's own colour.
-StyleRgb upsampled(const std::vector<StyleRgb>& smooth, Extent half, Pixel at, const StyleRgb& own)
+StyleRgb upsampled(const std::vector<StyleRgb>& smooth, Extent half, Pixel at, const StyleRgb& own, bool guided)
 {
     const float place_x = ((static_cast<float>(at.column) + kHalfWeight) * kHalfWeight) - kHalfWeight;
     const float place_y = ((static_cast<float>(at.row) + kHalfWeight) * kHalfWeight) - kHalfWeight;
@@ -565,7 +602,7 @@ StyleRgb upsampled(const std::vector<StyleRgb>& smooth, Extent half, Pixel at, c
             weights += weight;
         }
     }
-    if (weights < kStyleWeightFloor) {
+    if (!guided || weights < kStyleWeightFloor) {
         return plain;
     }
     for (float& value : total) {
@@ -573,6 +610,8 @@ StyleRgb upsampled(const std::vector<StyleRgb>& smooth, Extent half, Pixel at, c
     }
     return total;
 }
+
+namespace {
 
 // One axis' edge from its s (vulkan_style.h step 4c).
 float axis_edge(const StyleParameters& parameters, float stands_out)
@@ -587,6 +626,8 @@ float axis_edge(const StyleParameters& parameters, float stands_out)
     }
     return edge;
 }
+
+} // namespace
 
 float edge_at(const StyleParameters& parameters, const std::vector<float>& depth, Extent size, Pixel at)
 {
@@ -615,6 +656,24 @@ float edge_at(const StyleParameters& parameters, const std::vector<float>& depth
     return std::max(across, down) * (1.0F - smoothstep(kStyleFadeStart, kStyleFadeEnd, centre));
 }
 
+} // namespace style_twin
+
+namespace {
+
+using style_twin::as_half3;
+using style_twin::clamped_at;
+using style_twin::edge_at;
+using style_twin::finite3;
+using style_twin::from_lab;
+using style_twin::kBlueYellow;
+using style_twin::kGreenRed;
+using style_twin::kLightness;
+using style_twin::mix3;
+using style_twin::Pixel;
+using style_twin::simplified_lab;
+using style_twin::to_lab;
+using style_twin::upsampled;
+
 // --- the passes' objects -----------------------------------------------------------------------------------------
 
 VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::string& source, std::string* error)
@@ -637,13 +696,14 @@ VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::stri
     return module;
 }
 
-std::string source_of(const char* body, bool multisampled)
+std::string source_of(const char* body, bool multisampled, const char* before = "")
 {
     std::string source = "#version 460\n";
     if (multisampled) {
         source += "#define MULTISAMPLED\n";
     }
     source += kCommon;
+    source += before;
     source += body;
     return source;
 }
@@ -681,6 +741,12 @@ bool make_layouts(Backend& state, std::string* error)
 {
     StyleState& own = style();
     const VkDevice device = state.context.device();
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(state.context.physical_device(), &properties);
+    if (properties.limits.maxPushConstantsSize < sizeof(StyleConstants)) {
+        *error = "the device's push constants are too few";
+        return false;
+    }
     std::array<VkDescriptorSetLayoutBinding, kBindingCount> bindings{};
     for (uint32_t binding = 0; binding < kBindingCount; ++binding) {
         core::at(bindings, binding) = {.binding = binding,
@@ -729,7 +795,7 @@ bool make_layouts(Backend& state, std::string* error)
 bool ensure_objects(Backend& state, std::string* error)
 {
     StyleState& own = style();
-    if (own.kuwahara != VK_NULL_HANDLE) {
+    if (own.edge_pass != VK_NULL_HANDLE) {
         return true;
     }
     const VkDevice device = state.context.device();
@@ -756,21 +822,45 @@ bool ensure_objects(Backend& state, std::string* error)
             return false;
         }
     }
-    own.kuwahara = make_compute(device, own.layout, source_of(kKuwaharaBody, false), error);
-    return own.kuwahara != VK_NULL_HANDLE;
+    if (own.kuwahara == VK_NULL_HANDLE) {
+        own.kuwahara = make_compute(device, own.layout, source_of(kKuwaharaBody, false), error);
+        if (own.kuwahara == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
+    own.edge_pass = make_compute(device, own.layout, source_of(kEdgePassBody, false, kEdgeGlsl), error);
+    return own.edge_pass != VK_NULL_HANDLE;
 }
 
-// The composite's pipeline for a colour target's format and samples (made on first use): colour written, alpha kept.
-VkPipeline composite_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, std::string* error)
+// A composite's fragment source: the toon's, or a look's (vulkan_style_looks.h).
+std::string composite_source(ArtStyle look)
+{
+    std::string source = "#version 460\n";
+    source += kCommon;
+    source += kCompositeShared;
+    source += kEdgeGlsl;
+    if (look == ArtStyle::kToon) {
+        source += kToonBody;
+    } else {
+        source += style_look_shared_glsl();
+        source += style_look_body(look);
+    }
+    return source;
+}
+
+// The composite's pipeline for a look and a colour target's format and samples (made on first use): colour written,
+// alpha kept.
+VkPipeline composite_pipeline(Backend& state, ArtStyle look, VkFormat format, VkSampleCountFlagBits samples,
+                              std::string* error)
 {
     StyleState& own = style();
     for (const CompositePipeline& made : own.composites) {
-        if (made.format == format && made.samples == samples) {
+        if (made.look == look && made.format == format && made.samples == samples) {
             return made.pipeline;
         }
     }
     const VkDevice device = state.context.device();
-    const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source_of(kCompositeBody, false), error);
+    const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, composite_source(look), error);
     if (fragment == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
     }
@@ -854,7 +944,7 @@ VkPipeline composite_pipeline(Backend& state, VkFormat format, VkSampleCountFlag
         *error = "vkCreateGraphicsPipelines failed";
         return VK_NULL_HANDLE;
     }
-    own.composites.push_back({.format = format, .samples = samples, .pipeline = pipeline});
+    own.composites.push_back({.format = format, .samples = samples, .look = look, .pipeline = pipeline});
     return pipeline;
 }
 
@@ -945,6 +1035,7 @@ struct Bound {
     const Image* out = nullptr;    // (GENERAL)
     const Image* half = nullptr;   // (GENERAL)
     const Image* linear = nullptr; // (GENERAL, or the colour's layout when it is the colour)
+    const Image* edges = nullptr;  // (as linear)
 };
 
 void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const Bound& bound)
@@ -975,6 +1066,7 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     add(kBindingOut, bound.out, VK_IMAGE_LAYOUT_GENERAL);
     add(kBindingHalf, bound.half, layout_of(bound.half));
     add(kBindingLinear, bound.linear, layout_of(bound.linear));
+    add(kBindingEdges, bound.edges, layout_of(bound.edges));
     vkCmdPushDescriptorSetKHR(commands, point, own.layout, 0, count, writes.data());
 }
 
@@ -1062,7 +1154,7 @@ void set_style_settings(const StyleSettings& settings)
         const std::scoped_lock lock(backend().mutex);
         style().settings = settings;
     }
-    if (settings.style != 0) {
+    if (settings.style != ArtStyle::kOff) {
         rt::add_view_listener(&listener());
     } else {
         rt::remove_view_listener(&listener());
@@ -1073,6 +1165,62 @@ StyleSettings style_settings()
 {
     const std::scoped_lock lock(backend().mutex);
     return style().settings;
+}
+
+namespace {
+
+constexpr std::array<const char*, kArtStyleCount> kArtStyleNames{"off",   "toon",        "comic", "sketch", "vhs",
+                                                                 "retro", "watercolour", "noir",  "thermal"};
+
+} // namespace
+
+const char* art_style_name(ArtStyle style)
+{
+    const auto index = static_cast<std::size_t>(style);
+    return index < kArtStyleNames.size() ? core::at(kArtStyleNames, index) : core::at(kArtStyleNames, 0);
+}
+
+bool parse_art_style(const std::string& text, ArtStyle* style)
+{
+    std::string lowered;
+    for (const char letter : text) {
+        if (letter != ' ' && letter != '\t') {
+            lowered += static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
+        }
+    }
+    if (lowered.empty() || lowered == "0") {
+        *style = ArtStyle::kOff;
+        return true;
+    }
+    if (lowered == "1") {
+        *style = ArtStyle::kToon;
+        return true;
+    }
+    for (std::size_t index = 0; index < kArtStyleNames.size(); ++index) {
+        if (lowered == core::at(kArtStyleNames, index)) {
+            *style = static_cast<ArtStyle>(index);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool style_built(ArtStyle style)
+{
+    switch (style) {
+    case ArtStyle::kToon:
+    case ArtStyle::kComic:
+    case ArtStyle::kSketch:
+    case ArtStyle::kNoir:
+    case ArtStyle::kThermal:
+        return true;
+    case ArtStyle::kOff:
+    case ArtStyle::kVhs:         // (another branch builds it: its case goes here)
+    case ArtStyle::kRetro:       // (likewise)
+    case ArtStyle::kWatercolour: // (likewise)
+        break;
+    }
+    return false;
 }
 
 StyleParameters style_parameters(const StyleSettings& settings, const rt::ViewDrawn& view, const StyleHeights& heights)
@@ -1103,7 +1251,26 @@ StyleParameters style_parameters(const StyleSettings& settings, const rt::ViewDr
     parameters.projection = {core::at(core::at(projection, kRowZ), kRowZ), core::at(core::at(projection, kRowW), kRowZ),
                              core::at(core::at(projection, kRowZ), kRowW), core::at(core::at(projection, kRowW), kRowW)};
     parameters.depth_range = view.depth_range;
+    set_look_parameters(settings, heights, &parameters);
     return parameters;
+}
+
+StyleParameters style_last_parameters()
+{
+    const std::scoped_lock lock(backend().mutex);
+    return style().last;
+}
+
+std::vector<float> style_edges(const StyleParameters& parameters, const std::vector<float>& depth, Extent size)
+{
+    std::vector<float> edges(depth.size());
+    for (uint32_t row = 0; row < size.height; ++row) {
+        for (uint32_t column = 0; column < size.width; ++column) {
+            core::at(edges, (static_cast<std::size_t>(row) * size.width) + column) =
+                edge_at(parameters, depth, size, {.column = static_cast<int>(column), .row = static_cast<int>(row)});
+        }
+    }
+    return edges;
 }
 
 float style_linear_depth(const StyleParameters& parameters, float depth)
@@ -1227,6 +1394,9 @@ StyleRgb style_simplify(const StyleParameters& parameters, StyleRgb colour)
 
 std::vector<StyleRgb> style_reference(const StyleParameters& parameters, const StyleImages& images, Extent size)
 {
+    if (parameters.style != ArtStyle::kToon) {
+        return style_look_reference(parameters, images, size);
+    }
     const Extent half_size{.width = (size.width + 1) / 2, .height = (size.height + 1) / 2};
     std::vector<StyleRgb> smooth;
     if (images.smoothed != nullptr && !images.smoothed->empty()) {
@@ -1307,12 +1477,15 @@ bool plan_view(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
     const bool depth_ok = depth != nullptr && (depth->aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0 &&
                           (depth->usage & VK_IMAGE_USAGE_SAMPLED_BIT) != 0 && depth->view != VK_NULL_HANDLE &&
                           core::at(plan->depth_rect, 2) != 0 && core::at(plan->depth_rect, 3) != 0;
-    plan->depth = depth_ok ? depth : nullptr;
-    if (!depth_ok && own.settings.outlines > 0.0F && first_report(state, kReportNoDepth)) {
+    const bool wanted = look_reads_depth(own.settings.style);
+    plan->depth = depth_ok && wanted ? depth : nullptr;
+    if (!depth_ok && wanted && own.settings.outlines > 0.0F && first_report(state, kReportNoDepth)) {
         get_log("vulkan: rt_style: no samplable depth with the view - no outlines there");
     }
     plan->parameters = style_parameters(
         own.settings, view, {.output = core::at(plan->shown, 3), .depth = depth_ok ? core::at(plan->depth_rect, 3) : 1U});
+    constexpr uint64_t kSeedMask = 0xFFFFU; // (exact as a float)
+    plan->parameters.seed = static_cast<uint32_t>(state.frames.serial() & kSeedMask);
     return true;
 }
 
@@ -1326,16 +1499,20 @@ bool ensure_pass_objects(Backend& state, const ViewPlan& plan, VkPipeline* compo
     constexpr VkImageUsageFlags kStorage =
         VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     std::string error;
-    *composite = ensure_objects(state, &error) ? composite_pipeline(state, colour.format, colour.samples, &error)
+    const ArtStyle look = plan.parameters.style;
+    *composite = ensure_objects(state, &error) ? composite_pipeline(state, look, colour.format, colour.samples, &error)
                                                : VK_NULL_HANDLE;
+    const bool half = plan.parameters.radius > 0 || look == ArtStyle::kThermal;
     const bool made =
         *composite != VK_NULL_HANDLE &&
         ensure_image(state, &own.source, colour.format, colour.extent,
                      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) &&
+        (!half || ensure_image(state, &own.half, VK_FORMAT_R16G16B16A16_SFLOAT, half_extent, kStorage)) &&
         (plan.parameters.radius == 0 ||
-         (ensure_image(state, &own.half, VK_FORMAT_R16G16B16A16_SFLOAT, half_extent, kStorage) &&
-          ensure_image(state, &own.smooth, VK_FORMAT_R16G16B16A16_SFLOAT, half_extent, kStorage))) &&
-        (plan.depth == nullptr || ensure_image(state, &own.linear, VK_FORMAT_R32_SFLOAT, plan.depth->extent, kStorage));
+         ensure_image(state, &own.smooth, VK_FORMAT_R16G16B16A16_SFLOAT, half_extent, kStorage)) &&
+        (plan.depth == nullptr || ensure_image(state, &own.linear, VK_FORMAT_R32_SFLOAT, plan.depth->extent, kStorage)) &&
+        (plan.depth == nullptr || !look_draws_ink(look) ||
+         ensure_image(state, &own.edges, VK_FORMAT_R32_SFLOAT, plan.depth->extent, kStorage));
     if (!made) {
         own.failed = true;
         if (first_report(state, kReportPipeline)) {
@@ -1362,6 +1539,12 @@ StyleConstants constants_for(const ViewPlan& plan)
     constants.depth_map = {core::at(parameters.depth_range, 0), span > 0.0F ? 1.0F / span : 1.0F, depth ? 1.0F : 0.0F,
                            0.0F};
     constants.lines = {kStyleLineLightness, kStyleLineChroma, kStyleCreaseWeight, kStyleBandHold};
+    const LookConstants look = look_constants(parameters);
+    constants.tone = {parameters.bands, look.softness, parameters.saturation, parameters.strength};
+    constants.look_a = look.a;
+    constants.look_b = look.b;
+    constants.look_c = look.c;
+    constants.look_d = look.d;
     return constants;
 }
 
@@ -1407,7 +1590,7 @@ void copy_colour(VkCommandBuffer commands, Image* colour, const std::array<uint3
     }
     Memory::transition(commands, &own.source, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     // the work images: the last frame's (or the last view's) reads of them done before they are written again
-    for (Image* image : {&own.half, &own.smooth, &own.linear}) {
+    for (Image* image : {&own.half, &own.smooth, &own.linear, &own.edges}) {
         if (image->image != VK_NULL_HANDLE) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL);
         }
@@ -1453,10 +1636,19 @@ void record_composite(VkCommandBuffer commands, VkPipeline composite, const View
     vkCmdSetViewport(commands, 0, 1, &viewport);
     vkCmdSetScissor(commands, 0, 1, &area);
     // (what the composite doesn't use this time is bound to the colour: every binding it declares is valid)
+    const ArtStyle look = plan.parameters.style;
+    const Image* half = &own.source;
+    if (plan.parameters.radius > 0) {
+        half = &own.smooth;
+    } else if (look == ArtStyle::kThermal) {
+        half = &own.half;
+    }
+    const bool inked = plan.depth != nullptr && look_draws_ink(look);
     push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
                      {.colour = &own.source,
-                      .half = plan.parameters.radius > 0 ? &own.smooth : &own.source,
-                      .linear = plan.depth != nullptr ? &own.linear : &own.source});
+                      .half = half,
+                      .linear = plan.depth != nullptr ? &own.linear : &own.source,
+                      .edges = look == ArtStyle::kToon ? nullptr : (inked ? &own.edges : &own.source)});
     vkCmdDraw(commands, 3, 1, 0, 0);
     vkCmdEndRendering(commands);
 }
@@ -1467,9 +1659,9 @@ void log_first_pass(Backend& state, const ViewPlan& plan)
         return;
     }
     const StyleParameters& parameters = plan.parameters;
-    get_log("vulkan: rt_style: the first toon pass (%ux%u%s, %u sample%s; smoothing radius %d, %.0f bands, outlines "
+    get_log("vulkan: rt_style: the first %s pass (%ux%u%s, %u sample%s; smoothing radius %d, %.0f bands, outlines "
             "%.2f every %d depth pixel%s, saturation %.2f, strength %.2f%s)",
-            core::at(plan.shown, 2), core::at(plan.shown, 3), plan.upscaled ? " upscaled" : "",
+            art_style_name(parameters.style), core::at(plan.shown, 2), core::at(plan.shown, 3), plan.upscaled ? " upscaled" : "",
             static_cast<unsigned>(plan.colour->samples), plan.colour->samples == 1 ? "" : "s", parameters.radius,
             static_cast<double>(parameters.bands), static_cast<double>(plan.depth != nullptr ? parameters.outlines : 0.0F),
             parameters.spacing, parameters.spacing == 1 ? "" : "s", static_cast<double>(parameters.saturation),
@@ -1481,7 +1673,13 @@ void log_first_pass(Backend& state, const ViewPlan& plan)
 bool record_style_pass(Backend& state, const rt::ViewDrawn& view)
 {
     StyleState& own = style();
-    if (own.settings.style == 0 || own.failed || !(own.settings.strength > 0.0F)) {
+    if (own.settings.style == ArtStyle::kOff || own.failed || !(own.settings.strength > 0.0F)) {
+        return false;
+    }
+    if (!style_built(own.settings.style)) {
+        if (first_report(state, kReportUnbuilt + static_cast<uint64_t>(own.settings.style))) {
+            get_log("vulkan: rt_style=%s is not built in - nothing drawn", art_style_name(own.settings.style));
+        }
         return false;
     }
     ViewPlan plan;
@@ -1505,9 +1703,16 @@ bool record_style_pass(Backend& state, const rt::ViewDrawn& view)
                  {.depth = plan.depth, .out = &own.linear}, core::at(plan.depth_rect, 2), core::at(plan.depth_rect, 3));
         depth_barrier(commands, plan.depth, plan.depth->resting, false);
     }
+    // (comic, sketch) the edges
+    if (plan.depth != nullptr && look_draws_ink(plan.parameters.style)) {
+        dispatch(commands, own.edge_pass, {.out = &own.edges, .linear = &own.linear}, core::at(plan.depth_rect, 2),
+                 core::at(plan.depth_rect, 3));
+    }
     // 2, 3. half resolution, smoothed
-    if (plan.parameters.radius > 0) {
+    if (plan.parameters.radius > 0 || plan.parameters.style == ArtStyle::kThermal) {
         dispatch(commands, own.down, {.colour = &own.source, .out = &own.half}, half_width, half_height);
+    }
+    if (plan.parameters.radius > 0) {
         dispatch(commands, own.kuwahara, {.out = &own.smooth, .half = &own.half}, half_width, half_height);
     }
     record_composite(commands, composite, plan);
@@ -1521,12 +1726,13 @@ bool record_style_pass(Backend& state, const rt::ViewDrawn& view)
     state.bound = BoundState{};
     const uint64_t serial = state.frames.serial();
     plan.colour->used = serial;
-    for (Image* image : {&own.source, &own.half, &own.smooth, &own.linear}) {
+    for (Image* image : {&own.source, &own.half, &own.smooth, &own.linear, &own.edges}) {
         if (image->image != VK_NULL_HANDLE) {
             image->used = serial;
         }
     }
-    own.outlined = plan.depth != nullptr && plan.parameters.outlines > 0.0F;
+    own.outlined = plan.depth != nullptr && plan.parameters.outlines > 0.0F && look_draws_lines(plan.parameters.style);
+    own.last = plan.parameters;
     ++own.passes;
     log_first_pass(state, plan);
     return true;
@@ -1549,6 +1755,22 @@ bool read_style_depth(Backend& state, std::vector<float>* depth, Extent* size)
     depth->resize(bytes.size() / sizeof(float));
     std::memcpy(depth->data(), bytes.data(), depth->size() * sizeof(float));
     *size = own.linear.extent;
+    return true;
+}
+
+bool read_style_edges(Backend& state, std::vector<float>* edges, Extent* size)
+{
+    StyleState& own = style();
+    if (own.edges.image == VK_NULL_HANDLE) {
+        return false;
+    }
+    std::vector<uint8_t> bytes(static_cast<std::size_t>(own.edges.extent.width) * own.edges.extent.height * sizeof(float));
+    if (!state.memory.read_image_level(&own.edges, 0, &bytes)) {
+        return false;
+    }
+    edges->resize(bytes.size() / sizeof(float));
+    std::memcpy(edges->data(), bytes.data(), edges->size() * sizeof(float));
+    *size = own.edges.extent;
     return true;
 }
 
@@ -1577,7 +1799,7 @@ void release_style(Backend& state)
         for (const CompositePipeline& made : own.composites) {
             vkDestroyPipeline(device, made.pipeline, nullptr);
         }
-        for (VkPipeline pipeline : {core::at(own.prep, 0), core::at(own.prep, 1), own.down, own.kuwahara}) {
+        for (VkPipeline pipeline : {core::at(own.prep, 0), core::at(own.prep, 1), own.down, own.kuwahara, own.edge_pass}) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
             }
@@ -1599,7 +1821,7 @@ void release_style(Backend& state)
         }
     }
     if (state.memory.ready()) {
-        for (Image* image : {&own.source, &own.half, &own.smooth, &own.linear}) {
+        for (Image* image : {&own.source, &own.half, &own.smooth, &own.linear, &own.edges}) {
             state.memory.destroy_image(image);
         }
     }
@@ -1607,6 +1829,7 @@ void release_style(Backend& state)
     own.prep = {};
     own.down = VK_NULL_HANDLE;
     own.kuwahara = VK_NULL_HANDLE;
+    own.edge_pass = VK_NULL_HANDLE;
     own.vertex = VK_NULL_HANDLE;
     own.layout = VK_NULL_HANDLE;
     own.set_layout = VK_NULL_HANDLE;

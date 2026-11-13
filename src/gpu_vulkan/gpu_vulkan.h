@@ -272,21 +272,59 @@ struct RtPbrSettings {
 };
 void set_rt_pbr_settings(const RtPbrSettings& settings);
 [[nodiscard]] RtPbrSettings rt_pbr_settings();
-// NOT ORIGINAL - an art style (vulkan_style.h; docs/design/vulkan.md "Art style"): [Graphics] rt_style,
-// rt_style_strength, rt_style_smooth, rt_style_bands, rt_style_outlines, rt_style_outline_width, rt_style_saturation -
-// all put to use at once. A post-process over each viewport's world after the tone mapping and the upscaler, before the
-// 2D. style 0 (the default): nothing changes. No ray tracing or HDR needed.
+// NOT ORIGINAL - an art style (vulkan_style.h; docs/design/vulkan.md "Art style"): [Graphics] rt_style and its
+// rt_style_* knobs - all put to use at once. A post-process over each viewport's world after the tone mapping and the
+// upscaler, before the 2D. off (the default): nothing changes. No ray tracing or HDR needed.
+// rt_style's names, in this order (their numbers: the old 0 / 1 still read as off / toon).
+enum class ArtStyle : uint8_t {
+    kOff = 0,
+    kToon = 1,        // flat paint, soft shade bands, dark tinted ink (vulkan_style.cpp)
+    kComic = 2,       // a skate-zine comic: bold black ink, halftone dots, posterized fills (vulkan_style_looks.cpp)
+    kSketch = 3,      // pencil on paper: cross-hatching by darkness, graphite lines, paper grain (vulkan_style_looks.cpp)
+    kVhs = 4,         // (not built in yet)
+    kRetro = 5,       // (not built in yet)
+    kWatercolour = 6, // (not built in yet)
+    kNoir = 7,        // a high-contrast duotone, film grain, a vignette (vulkan_style_looks.cpp)
+    kThermal = 8,     // a false-colour heat camera (vulkan_style_looks.cpp)
+};
+inline constexpr unsigned kArtStyleCount = 9;
+// "off", "toon", "comic", ... (an unknown value: "off").
+[[nodiscard]] const char* art_style_name(ArtStyle style);
+// A name (any case) or the old numbers 0 / 1; false (the style untouched) when the text is neither.
+bool parse_art_style(const std::string& text, ArtStyle* style);
+
 inline constexpr float kStyleSmooth = 4.0F;      // (rt_style_smooth's default)
 inline constexpr float kStyleBands = 5.0F;       // (rt_style_bands')
 inline constexpr float kStyleSaturation = 1.15F; // (rt_style_saturation's)
+inline constexpr float kStyleHalftone = 4.0F;    // (rt_style_comic_halftone's)
+inline constexpr float kStyleHatch = 5.0F;       // (rt_style_sketch_hatch's)
+inline constexpr float kStyleWash = 0.35F;       // (rt_style_sketch_wash's)
+inline constexpr float kStylePaper = 0.5F;       // (rt_style_paper's)
+inline constexpr float kStyleGrain = 0.5F;       // (rt_style_grain's)
+inline constexpr float kStyleVignette = 0.5F;    // (rt_style_vignette's)
+inline constexpr float kStyleContrast = 1.6F;    // (rt_style_noir_contrast's)
+inline constexpr float kStyleFocus = 0.6F;       // (rt_style_thermal_focus')
+inline constexpr std::array<float, 3> kStyleNoirDark{0.0F, 0.0F, 0.0F};       // (rt_style_noir_dark's: black)
+inline constexpr std::array<float, 3> kStyleNoirLight{0.95F, 0.92F, 0.84F};   // (rt_style_noir_light's: warm paper)
 struct StyleSettings {
-    unsigned style = 0;                  // 0: off; 1: toon
+    ArtStyle style = ArtStyle::kOff;
     float strength = 1.0F;               // the filtered picture over the original (0 - 1)
     float smooth = kStyleSmooth;         // the painterly smoothing's radius in pixels of a 720-line picture (0: none - 16)
     float bands = kStyleBands;           // lightness bands (0: none - 16)
     float outlines = 1.0F;               // the outlines' strength (0: none - 1)
     float outline_width = 1.0F;          // in pixels of a 720-line picture (0 - 4)
     float saturation = kStyleSaturation; // the colours' chroma x this (0 - 2)
+    // (added by comic, sketch, noir and thermal - vulkan_style_looks.h)
+    float halftone = kStyleHalftone;     // comic: the halftone screen's dot spacing in 720-line pixels (0: none - 16)
+    float hatch = kStyleHatch;           // sketch: the hatching strokes' spacing in 720-line pixels (2 - 16)
+    float wash = kStyleWash;             // sketch: the colour wash under the pencil (0: grey - 1)
+    float paper = kStylePaper;           // comic, sketch: the paper's tint and grain (0: none - 1)
+    float grain = kStyleGrain;           // noir: film grain; thermal: sensor noise; sketch, comic: paper fibre (0 - 1)
+    float vignette = kStyleVignette;     // noir, thermal: the corners darkened (0 - 1)
+    float contrast = kStyleContrast;     // noir: the tone curve's steepness (0.5 - 4)
+    float focus = kStyleFocus;           // thermal: how much warmer things standing out in front glow (0 - 1)
+    std::array<float, 3> noir_dark = kStyleNoirDark;   // noir's shadow colour (r, g, b 0 - 1)
+    std::array<float, 3> noir_light = kStyleNoirLight; // ... and highlight colour
 };
 void set_style_settings(const StyleSettings& settings);
 [[nodiscard]] StyleSettings style_settings();

@@ -145,6 +145,28 @@ void read_sun_source()
     }
 }
 
+// An r,g,b colour (0 - 1 each); false when the text isn't one.
+bool parse_rgb(const std::string& value, std::array<float, 3>* colour)
+{
+    std::array<float, 3> read_colour{};
+    std::size_t read = 0;
+    std::istringstream numbers(value);
+    std::string number;
+    while (read < read_colour.size() && std::getline(numbers, number, ',')) {
+        char* end = nullptr;
+        const double parsed = std::strtod(number.c_str(), &end);
+        if (end == number.c_str() || !std::isfinite(parsed)) {
+            return false;
+        }
+        read_colour.at(read++) = static_cast<float>(parsed);
+    }
+    if (read != read_colour.size()) {
+        return false;
+    }
+    *colour = read_colour;
+    return true;
+}
+
 // [Graphics] rt_sun_colour: auto (the default: the sky model's colour for the sun's elevation) or r,g,b (0 - 1 each);
 // anything else is the default, logged.
 void read_rt_sun_colour(render::vulkan::RtSunSettings* settings)
@@ -154,18 +176,7 @@ void read_rt_sun_colour(render::vulkan::RtSunSettings* settings)
     graphics_text("rt_sun_colour", "auto", text.data(), text.size());
     const std::string value(text.data());
     std::array<float, 3> colour{};
-    std::size_t read = 0;
-    std::istringstream numbers(value);
-    std::string number;
-    while (read < colour.size() && std::getline(numbers, number, ',')) {
-        char* end = nullptr;
-        const double parsed = std::strtod(number.c_str(), &end);
-        if (end == number.c_str() || !std::isfinite(parsed)) {
-            break;
-        }
-        colour.at(read++) = static_cast<float>(parsed);
-    }
-    if (read == colour.size()) {
+    if (parse_rgb(value, &colour)) {
         settings->colour_set = true;
         settings->colour = colour;
     } else if (!value.empty() && value != "auto") {
@@ -408,17 +419,47 @@ void read_rt_pbr()
 
 // NOT ORIGINAL - an art style, the toon filter (gpu_vulkan/vulkan_style.h): off unless asked for; no ray tracing or HDR
 // needed
+// [Graphics] rt_style_noir_dark / _light: r,g,b; anything else is the default (logged when it isn't empty).
+std::array<float, 3> style_colour(const char* key, const std::array<float, 3>& fallback)
+{
+    constexpr std::size_t kLongest = 64;
+    std::array<char, kLongest> text{};
+    graphics_text(key, "", text.data(), text.size());
+    std::array<float, 3> colour = fallback;
+    if (text.front() != '\0' && !parse_rgb(text.data(), &colour)) {
+        get_log("[Graphics] %s=%s isn't r,g,b - the default used", key, text.data());
+    }
+    return colour;
+}
+
 void read_style()
 {
     const render::vulkan::StyleSettings defaults;
-    render::vulkan::set_style_settings(
-        {.style = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_style", 0))),
-         .strength = ini_float("rt_style_strength", defaults.strength),
-         .smooth = ini_float("rt_style_smooth", defaults.smooth),
-         .bands = ini_float("rt_style_bands", defaults.bands),
-         .outlines = ini_float("rt_style_outlines", defaults.outlines),
-         .outline_width = ini_float("rt_style_outline_width", defaults.outline_width),
-         .saturation = ini_float("rt_style_saturation", defaults.saturation)});
+    constexpr std::size_t kLongest = 32;
+    std::array<char, kLongest> name{};
+    graphics_text("rt_style", "off", name.data(), name.size());
+    render::vulkan::ArtStyle style = render::vulkan::ArtStyle::kOff;
+    if (!render::vulkan::parse_art_style(name.data(), &style)) {
+        get_log("[Graphics] rt_style=%s isn't off, toon, comic, sketch, vhs, retro, watercolour, noir or thermal - off",
+                name.data());
+    }
+    render::vulkan::set_style_settings({.style = style,
+                                        .strength = ini_float("rt_style_strength", defaults.strength),
+                                        .smooth = ini_float("rt_style_smooth", defaults.smooth),
+                                        .bands = ini_float("rt_style_bands", defaults.bands),
+                                        .outlines = ini_float("rt_style_outlines", defaults.outlines),
+                                        .outline_width = ini_float("rt_style_outline_width", defaults.outline_width),
+                                        .saturation = ini_float("rt_style_saturation", defaults.saturation),
+                                        .halftone = ini_float("rt_style_comic_halftone", defaults.halftone),
+                                        .hatch = ini_float("rt_style_sketch_hatch", defaults.hatch),
+                                        .wash = ini_float("rt_style_sketch_wash", defaults.wash),
+                                        .paper = ini_float("rt_style_paper", defaults.paper),
+                                        .grain = ini_float("rt_style_grain", defaults.grain),
+                                        .vignette = ini_float("rt_style_vignette", defaults.vignette),
+                                        .contrast = ini_float("rt_style_noir_contrast", defaults.contrast),
+                                        .focus = ini_float("rt_style_thermal_focus", defaults.focus),
+                                        .noir_dark = style_colour("rt_style_noir_dark", defaults.noir_dark),
+                                        .noir_light = style_colour("rt_style_noir_light", defaults.noir_light)});
 }
 
 // The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting
