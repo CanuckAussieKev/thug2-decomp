@@ -119,4 +119,49 @@ const Api* api()
     return kLoaded.usable ? &kLoaded.api : nullptr;
 }
 
+namespace {
+
+struct LoadedEncode {
+    EncodeApi api;
+    bool usable = false;
+};
+
+LoadedEncode load_encode()
+{
+    LoadedEncode loaded;
+    if (media::ffmpeg::api() == nullptr) {
+        return loaded;
+    }
+    EncodeApi& e = loaded.api;
+    bool found = look_up(e.find_encoder_by_name, kAvcodec, "avcodec_find_encoder_by_name");
+    found = look_up(e.send_frame, kAvcodec, "avcodec_send_frame") && found;
+    found = look_up(e.receive_packet, kAvcodec, "avcodec_receive_packet") && found;
+    found = look_up(e.parameters_from_context, kAvcodec, "avcodec_parameters_from_context") && found;
+    found = look_up(e.packet_rescale_ts, kAvcodec, "av_packet_rescale_ts") && found;
+    found = look_up(e.format_alloc_output, kAvformat, "avformat_alloc_output_context2") && found;
+    found = look_up(e.format_free_context, kAvformat, "avformat_free_context") && found;
+    found = look_up(e.format_new_stream, kAvformat, "avformat_new_stream") && found;
+    found = look_up(e.format_write_header, kAvformat, "avformat_write_header") && found;
+    found = look_up(e.interleaved_write_frame, kAvformat, "av_interleaved_write_frame") && found;
+    found = look_up(e.write_trailer, kAvformat, "av_write_trailer") && found;
+    found = look_up(e.find_stream_info, kAvformat, "avformat_find_stream_info") && found;
+    found = look_up(e.io_open, kAvformat, "avio_open") && found;
+    found = look_up(e.io_closep, kAvformat, "avio_closep") && found;
+    found = look_up(e.frame_get_buffer, kAvutil, "av_frame_get_buffer") && found;
+    found = look_up(e.frame_make_writable, kAvutil, "av_frame_make_writable") && found;
+    found = look_up(e.opt_set, kAvutil, "av_opt_set") && found;
+    found = look_up(e.opt_set_int, kAvutil, "av_opt_set_int") && found;
+    found = look_up(e.error_text, kAvutil, "av_strerror") && found;
+    loaded.usable = found;
+    return loaded;
+}
+
+} // namespace
+
+const EncodeApi* encode_api()
+{
+    static const LoadedEncode kLoaded = load_encode();
+    return kLoaded.usable ? &kLoaded.api : nullptr;
+}
+
 } // namespace media::ffmpeg

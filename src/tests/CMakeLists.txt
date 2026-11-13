@@ -12,6 +12,17 @@ if(TARGET thug2_wire)
     target_link_libraries(thug2_format_check PRIVATE thug2_wire)
 endif()
 
+# NOT ORIGINAL - thug2_video_check.exe: a video the game wrote (a demo saved as a video, -encode-video) read back with
+# the game's own FFmpeg DLLs - codec, size, frame rate, frame count - and frames saved as PNG (src/tests/video_check.cpp).
+if(TARGET thug2_platform)
+    add_executable(thug2_video_check video_check.cpp "${PROJECT_SOURCE_DIR}/src/media_ffmpeg/ffmpeg_api.cpp")
+    target_link_libraries(thug2_video_check PRIVATE thug2_platform ffmpeg_headers)
+    if(THUG2_FFMPEG_DLLS)
+        add_custom_command(TARGET thug2_video_check POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THUG2_FFMPEG_DLLS} "$<TARGET_FILE_DIR:thug2_video_check>")
+    endif()
+endif()
+
 # NOT ORIGINAL - thug2_maths_check.exe: the plain C++ that replaced the x87 inline assembly compared with that
 # assembly over many inputs, and maths::matrix_multiply with D3DX's matrix product (src/tests/maths_check.cpp; the
 # reference half needs MSVC for 32-bit x86); with --write-corpus / --compare-corpus the corpus of the 32-bit build's
