@@ -202,6 +202,12 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   at most 0.1% turned black (a hole) or white (the sky through a crack), some spot changed by 0.05% or more; the `on`
   logs show "rt_tessellation: on" and a "meshes smoothed" line, the `off` ones neither; the levels' smoothing totals and
   the frame times reported.
+  `--effect relit` (both commands): the relit mode (`[Graphics] rt_relit` - the bake taken apart and lit again,
+  engine/gfx/rt_relit.h) - 0 / 1 with `ray_tracing=1`, the other effects as the ini and --set have them; `--set` reaches
+  the baseline too (main's build with the same look: `off` must be it). `--expect drawn`: the mean luma change at most
+  20 and the mean (signed) within 6 levels, at most 0.1% turned black and 0.5% white; a level whose bake shows no sun
+  changed at most 0.1%; the `on` logs show "rt_relit: ... meshes written" (or "the bake shows no sun"), the `off` ones
+  no `rt_relit:` line; the analysis's lines and the frame times reported.
 - `node tools/game/tess_gap.ts run --game C:\Games\THUG2-<n> --build <x64 build> --level <name> --at x,y,z,heading --out
   <folder> [--set S.key=v]...` - how far the drawn surfaces are from the collision with `rt_tessellation` 0 and 1: under
   the workspace's lock, the build deployed, the level loaded twice (`ray_tracing=1`), the skater stood at --at and a fan

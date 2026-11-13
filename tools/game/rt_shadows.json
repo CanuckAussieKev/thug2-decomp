@@ -1,5 +1,5 @@
 {
-  "_about": "The spots tools/game/rt_shadows_check.ts captures with [Graphics] rt_shadows off and on: renderer_parity.json's five smoke levels (the skater stood still with teleport, the camera held with camera), the sky shot among them (nothing to darken there); AU-sea - the open sea meeting the sky dome's painted sea (the aerial haze's seam: --effect sun --groups AU); AU-beach, AU-glass and BA-harbour - the user's sea, glass and sun-facing harbour views (the water and glass: --effect reflections --groups AU,BA with the user's settings by --set); nj-skater - the skater standing in the street of THUG1's New Jersey (the port: thug2-decomp-thug1) in the sun, his ray-traced shadow on the road and no faceted self-shadow on his body (--groups nj with the user's settings by --set; the game's own shadow of the skater, hidden while the ray-traced one is cast, lightens up to 1.5% of the picture: maxBrighter). qp* groups: smoothed curves (--effect tess) - sch's quarter pipe (still, and the skater riding up it), round props, fences, a car; BO's start, cannons and statues.",
+  "_about": "The spots tools/game/rt_shadows_check.ts captures with [Graphics] rt_shadows off and on: renderer_parity.json's five smoke levels (the skater stood still with teleport, the camera held with camera), the sky shot among them (nothing to darken there); AU-sea - the open sea meeting the sky dome's painted sea (the aerial haze's seam: --effect sun --groups AU); AU-beach, AU-glass and BA-harbour - the user's sea, glass and sun-facing harbour views (the water and glass: --effect reflections --groups AU,BA with the user's settings by --set); nj-skater - the skater standing in the street of THUG1's New Jersey (the port: thug2-decomp-thug1) in the sun, his ray-traced shadow on the road and no faceted self-shadow on his body (--groups nj with the user's settings by --set; the game's own shadow of the skater, hidden while the ray-traced one is cast, lightens up to 1.5% of the picture: maxBrighter). qp* groups: smoothed curves (--effect tess) - sch's quarter pipe (still, and the skater riding up it), round props, fences, a car; BO's start, cannons and statues. BA-start - Barcelona from the skater's start (--effect relit's fifth level).",
   "groups": [
     {
       "name": "foun",
@@ -166,6 +166,13 @@
             "camera 2891.8 116.4 3000.4 0.197 -0.179 0.964",
             "wait 150"
           ]
+        },
+        {
+          "name": "BA-start",
+          "commands": [
+            "camera off",
+            "wait 180"
+          ]
         }
       ]
     },
@@ -180,19 +187,6 @@
             "teleport 1348.3 -112.1 970.7 -44.3",
             "camera 1447.2 -34.3 869.4 -0.687 -0.182 0.703",
             "wait 120"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "BA",
-      "level": "BA",
-      "spots": [
-        {
-          "name": "BA-start",
-          "commands": [
-            "camera off",
-            "wait 180"
           ]
         }
       ]

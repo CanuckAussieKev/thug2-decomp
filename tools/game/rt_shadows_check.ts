@@ -23,6 +23,9 @@
 //   --effect sun (both commands): the sun's disc and glare, the screen-space rays, the bloom and the sky model
 //   ([Graphics] rt_sun, rt_shafts, rt_bloom, rt_sky_model - vulkan_rt_sun.h, vulkan_rt_sky.h) - all four 0 / 1 together;
 //   the other effects as the workspace's ini and --set have them (the user's look: --set Graphics.rt_shadows=1 ...).
+//   --effect relit (both commands): the relit mode ([Graphics] rt_relit, engine/gfx/rt_relit.h - the bake taken apart
+//   and lit again) - rt_relit 0 / 1, the other effects as the workspace's ini and --set have them; --set reaches the
+//   baseline too (main's build with the same look: `off` must be it).
 //
 // run: under the workspace's lock (game_lock.ps1, released at the end - which puts the folder's own build and ini back),
 // the x64 build deployed (deploy_build.ps1 -Arch x64: the exe and every DLL beside it), then for each run and each
@@ -118,6 +121,15 @@
 //     - drawn: some spot changed by 0.05% or more;
 //     - the logs: "rt_tessellation: on" and a "meshes smoothed" line in every `on` group's, neither in `off`; no
 //       crash; the smoothing's totals for the levels' scenes (meshes, triangles, deviation) and the frame times reported.
+//   --effect relit --expect drawn: on against off
+//     - bounded: the picture's mean luma change at most 20; the mean change (signed, every channel) within 6 levels -
+//       relighting shouldn't make a level darker or brighter overall; turned black at most 0.1% (a NaN, a zero tint),
+//       turned white at most 0.5%;
+//     - a level whose bake shows no sun (its `on` log: "rt: the baked sun: none"): changed at most 0.1% (it keeps
+//       its bake);
+//     - the logs: "rt_relit: ... meshes written" (or the level's "the bake shows no sun") in every `on` group's, no
+//       "couldn't" line, no crash; no "rt_relit:" line in `off`'s; the analysis's lines ("rt_relit: level ...: N meshes
+//       (C from the cache, T traced ...), X ms") and the frame times reported.
 // report.txt / report.json in the folder; exit 1 when a check fails.
 
 import { spawn } from "node:child_process";
@@ -142,7 +154,7 @@ import {
 import { ensureWorkspaceMuted, isWorkspace } from "./workspace_ini.ts";
 
 const USAGE = `usage: rt_shadows_check.ts run --game <workspace> --out <folder> --build <folder> [--baseline-build <folder>]
-                           [--effect shadows|ao|reflections|hdr|fog|gi|sun|sky|tess] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
+                           [--effect shadows|ao|reflections|hdr|fog|gi|sun|sky|tess|relit] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
        rt_shadows_check.ts compare <folder> [--expect shadows|drawn|none|brighter] [--strength 0.5] [--threshold 8] [--grow 1]
 
 Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, compared (tools/game/README.md).`;
@@ -151,8 +163,19 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIGS = ["off", "on", "baseline"] as const;
 export type Config = (typeof CONFIGS)[number];
 // R4's sun shadows, R5's ambient occlusion and reflections, HDR, the fog, the one-bounce indirect light
-export type Effect = "shadows" | "ao" | "reflections" | "hdr" | "fog" | "gi" | "sun" | "sky" | "tess";
-export const EFFECTS: readonly Effect[] = ["shadows", "ao", "reflections", "hdr", "fog", "gi", "sun", "sky", "tess"];
+export type Effect = "shadows" | "ao" | "reflections" | "hdr" | "fog" | "gi" | "sun" | "sky" | "tess" | "relit";
+export const EFFECTS: readonly Effect[] = [
+    "shadows",
+    "ao",
+    "reflections",
+    "hdr",
+    "fog",
+    "gi",
+    "sun",
+    "sky",
+    "tess",
+    "relit",
+];
 
 // The ini values a configuration adds.
 export function configValues(config: Config, effect: Effect = "shadows"): Record<string, string> {
@@ -161,6 +184,11 @@ export function configValues(config: Config, effect: Effect = "shadows"): Record
         if (config === "baseline") return {};
         const on = config === "on" ? "1" : "0";
         return { "Graphics.rt_sky": on, "Graphics.rt_clouds": on };
+    }
+    if (effect === "relit") {
+        // (the relit mode alone switched; the other effects as the workspace's ini and --set have them)
+        if (config === "baseline") return {};
+        return { "Graphics.ray_tracing": "1", "Graphics.rt_relit": config === "on" ? "1" : "0" };
     }
     if (effect === "sun") {
         // (the sun's parts together; the other effects as the workspace's ini and --set have them - the pictures are
@@ -524,6 +552,16 @@ export function judgeSpot(
             problems.push(`turned black with the sky on: ${pct(share(difference.blackened, difference))}`);
         if (share(difference.whitened, difference) > MAX_SKY_WHITENED)
             problems.push(`turned white with the sky on: ${pct(share(difference.whitened, difference))}`);
+    } else if (limits.expect === "shadows" && limits.effect === "relit" && !sunless) {
+        // (the bake lit again: changes anywhere, but bounded and no darker or brighter overall)
+        if (difference.meanLumaChange > MAX_RELIT_LUMA_CHANGE)
+            problems.push(`relit changed the picture's luma by ${difference.meanLumaChange.toFixed(1)} on average`);
+        if (Math.abs(difference.meanSigned) > MAX_RELIT_MEAN_SHIFT)
+            problems.push(`relit shifted the picture's mean by ${difference.meanSigned.toFixed(2)}`);
+        if (share(difference.blackened, difference) > limits.maxBrighter)
+            problems.push(`turned black relit: ${pct(share(difference.blackened, difference))}`);
+        if (share(difference.whitened, difference) > MAX_WHITENED)
+            problems.push(`turned white relit: ${pct(share(difference.whitened, difference))}`);
     } else if (limits.expect === "shadows" && limits.effect === "fog") {
         // (the fog may touch the whole picture - the haze looking toward the sun -, but not by much on average)
         if (difference.meanLumaChange > MAX_FOG_LUMA_CHANGE)
@@ -626,6 +664,8 @@ export function darkOverBrightBrightened(verdicts: readonly SpotVerdict[]): numb
 export const GI_MIN_DARK_OVER_BRIGHT = 1.0;
 
 export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boolean {
+    // (relit at the bake's own sun is the bake again, give or take: drawn is what its logs say - logProblems)
+    if (limits.effect === "relit") return true;
     if (limits.effect === "hdr")
         return limits.expect !== "brighter" || verdicts.some((v) => v.difference.meanSigned >= HDR_LEAST_BRIGHTER);
     if (limits.effect === "gi" || limits.effect === "sun")
@@ -664,6 +704,9 @@ export const MAX_SKY_LUMA_CHANGE = 60;
 // the painted dome's)
 export const MAX_SKY_BLACKENED = 0.08;
 export const MAX_SKY_WHITENED = 0.08;
+// (relit: the mean luma change a picture may get, and how far its mean may move either way, 0..255)
+export const MAX_RELIT_LUMA_CHANGE = 20;
+export const MAX_RELIT_MEAN_SHIFT = 6;
 
 // What a configuration's logs must (not) say.
 const FIRST_PASS = "rt_shadows: the first shadow pass";
@@ -699,6 +742,11 @@ export const SKY_TIMING =
 export const TESS_ON = "rt_tessellation: on";
 export const TESS_SMOOTHED =
     /rt_tessellation: (.*) - (\d+) of (\d+) meshes smoothed: (\d+) of their (\d+) triangles split, \+(\d+) vertices, indices (\d+) -> (\d+); deviation at most ([0-9.]+) \(([0-9.]+) uncapped, (\d+) capped\), displacement ([0-9.]+); ([0-9.]+) ms/g;
+export const RELIT_WRITTEN = /rt_relit: [0-9]+ meshes written/;
+export const RELIT_NO_SUN = "the bake shows no sun - the bake kept";
+const RELIT_FAILED = /rt_relit: .*(couldn't|can't)/;
+export const RELIT_ANALYSIS =
+    /rt_relit: level ([0-9a-f]+) - ([0-9]+) meshes \(([0-9]+) from the cache, ([0-9]+) traced: ([0-9]+) vertices, ([0-9]+) rays\), ([0-9]+) ms/g;
 const BAD = /^(EXCEPTION|RUN-TIME CHECK|DEBUG CRT|PURE VIRTUAL|INVALID PARAMETER|ABORT|BUFFER OVERRUN)/m;
 
 export function logProblems(
@@ -739,6 +787,17 @@ export function logProblems(
         } else if (log.includes(TESS_ON) || smoothed) {
             problems.push(`meshes smoothed in the ${config} log`);
         }
+        return problems;
+    }
+    if (effect === "relit") {
+        if (config !== "on") {
+            if (log.includes("rt_relit:")) problems.push(`relit lines in the ${config} log`);
+            return problems;
+        }
+        const failed = RELIT_FAILED.exec(log);
+        if (failed) problems.push(`log: ${failed[0]}`);
+        if (expect === "shadows" && !RELIT_WRITTEN.test(log) && !log.includes(RELIT_NO_SUN))
+            problems.push("no relit colours written in the log, nor a bake without a sun");
         return problems;
     }
     if (effect === "sun") {
@@ -931,7 +990,8 @@ function compareFolder(
             shadowDifference(off[0]!, on[0]!, mask, threshold, darkestRatio(limits)),
             baseline.length ? shadowDifference(baseline[0]!, off[0]!, mask, threshold) : null,
             spotLimits,
-            ((limits.effect ?? "shadows") === "shadows" || limits.effect === "gi") && sunless(name),
+            ((limits.effect ?? "shadows") === "shadows" || limits.effect === "gi" || limits.effect === "relit") &&
+                sunless(name),
         );
         verdicts.push(verdict);
         const d = verdict.difference;
@@ -941,10 +1001,14 @@ function compareFolder(
                 (limits.effect === "hdr"
                     ? `, max channel difference ${d.maxDelta} (${pct(share(d.overDelta, d))} over ${HDR_MAX_DELTA}), mean ${d.meanDelta.toFixed(3)} (signed ${d.meanSigned.toFixed(3)}), pure white ${pct(share(d.whiteOff, d))} -> ${pct(share(d.whiteOn, d))}`
                     : "") +
+                (limits.effect === "relit"
+                    ? `, mean signed ${d.meanSigned.toFixed(2)}${sunless(spot) ? " (no baked sun)" : ""}`
+                    : "") +
                 (limits.effect === "fog" ||
                 limits.effect === "sun" ||
                 limits.effect === "sky" ||
-                limits.effect === "tess"
+                limits.effect === "tess" ||
+                limits.effect === "relit"
                     ? `, turned black ${pct(share(d.blackened, d))}, turned white ${pct(share(d.whitened, d))}, mean luma change ${d.meanLumaChange.toFixed(1)}`
                     : "") +
                 (limits.effect === "gi"
@@ -1000,6 +1064,7 @@ function compareFolder(
             sun: "sun",
             sky: "sky",
             tess: "smoothing",
+            relit: "relit colours",
         }[limits.effect ?? "shadows"];
         const how = limits.effect === "gi" ? "brightened" : limits.effect === "tess" ? "changed" : "darkened";
         lines.push(`FAIL no spot ${how} by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
@@ -1031,7 +1096,14 @@ function compareFolder(
                 }
             }
     if (limits.effect === "tess") lines.push(...tessTotals(runs.on));
-    if (limits.effect === "hdr" || limits.effect === "tess") {
+    if (limits.effect === "relit")
+        for (const folder of runs.on)
+            for (const f of fs.readdirSync(folder).filter((n) => n.endsWith(".log")))
+                for (const m of fs.readFileSync(path.join(folder, f), "utf8").matchAll(RELIT_ANALYSIS))
+                    lines.push(
+                        `relit's analysis, ${path.basename(folder)}/${f.slice(0, -4)}: ${m[2]} meshes (${m[3]} from the cache, ${m[4]} traced: ${m[5]} vertices, ${m[6]} rays) in ${m[7]} ms`,
+                    );
+    if (limits.effect === "hdr" || limits.effect === "tess" || limits.effect === "relit") {
         if (limits.effect === "hdr" && !anyShadow(verdicts, limits)) {
             failed = true;
             lines.push(`FAIL no spot brighter by ${HDR_LEAST_BRIGHTER} or more on average with the exposure raised`);
@@ -1060,6 +1132,7 @@ function compareFolder(
         sun: "rt_sun check",
         sky: "rt_sky check",
         tess: "rt_tessellation check",
+        relit: "rt_relit check",
     }[limits.effect ?? "shadows"];
     lines.push(failed ? `${title}: FAILED` : `${title}: passed`);
     fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
@@ -1201,7 +1274,8 @@ async function runAll(options: RunOptions): Promise<number> {
                 const values = [
                     plan.ini ?? {},
                     configValues(config, options.effect),
-                    config === "baseline" ? {} : options.set,
+                    // (relit: the baseline is main's build with the same look)
+                    config === "baseline" && options.effect !== "relit" ? {} : options.set,
                 ];
                 fs.writeFileSync(ini, iniFor(base, values, "vulkan"), "utf8");
                 ensureWorkspaceMuted(game);
@@ -1251,7 +1325,7 @@ async function main(): Promise<number> {
     if (expect !== "shadows" && expect !== "none" && expect !== "brighter")
         exitWith("--expect shadows | drawn | none | brighter");
     if (!(EFFECTS as readonly string[]).includes(values.effect))
-        exitWith("--effect shadows | ao | reflections | hdr | fog | gi | sun | sky | tess");
+        exitWith("--effect shadows | ao | reflections | hdr | fog | gi | sun | sky | tess | relit");
     const effect = values.effect as Effect;
     const set: Record<string, string> = {};
     for (const s of values.set ?? []) {
@@ -1271,6 +1345,7 @@ async function main(): Promise<number> {
         sun: "Graphics.rt_bloom_strength",
         sky: "Graphics.rt_sky_match",
         tess: "Graphics.rt_tess_max_deviation",
+        relit: "Graphics.rt_relit_strength",
     }[effect];
     const strength = Number(
         set[strengthKey] ??
@@ -1285,6 +1360,7 @@ async function main(): Promise<number> {
                 sun: "0.05",
                 sky: "0.8",
                 tess: "2",
+                relit: "1",
             }[effect],
     );
     const limits: Limits = { ...LIMITS, expect, strength, effect };
