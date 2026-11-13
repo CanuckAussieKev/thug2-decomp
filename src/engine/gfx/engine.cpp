@@ -1,6 +1,7 @@
 // The engine's own entry points (render::Engine): see engine.h. From the disassembly of 0x0048BF20-0x0048C741.
 
 #include "engine/gfx/engine.h"
+#include "platform/frame_profile.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -146,12 +147,16 @@ void render_frame()
     update_spawned_polys();
     age_all_texture_splats();
     update_shatters();
-    objects::particle_hub()->tick_particles();
+    {
+        const frame_profile::Scope phase("particles"); // (not original: [debug] frame_profile)
+        objects::particle_hub()->tick_particles();
+    }
     // the weather's frame (through the folded jump 0x004E3F90), by the slow-motion frame time
     weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
     imposter_manager()->tick_frame();
     update_after_imposters();
     if (!engine_parts().suppress_draw()) {
+        const frame_profile::Scope phase("draw_world"); // (not original: [debug] frame_profile)
         device().draw_world();
     }
 }

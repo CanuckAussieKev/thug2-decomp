@@ -49,6 +49,7 @@
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "gpu_vulkan/vulkan_surface.h"
 #include "platform/run_log.h"
+#include "platform/frame_profile.h"
 
 namespace render::vulkan {
 
@@ -942,6 +943,7 @@ bool finish_work(Backend& state)
     }
     end_pass(state);
     ++state.stats.finishes;
+    const frame_profile::Scope phase("vk_finish"); // (where a frame's time goes - platform/frame_profile.h)
     const bool done = state.frames.finish();
     state.bound = BoundState{};
     return done;
@@ -1189,6 +1191,7 @@ long record_present(Backend& state)
     uint32_t index = 0;
     if (!context.swapchain_stale()) {
         const double before_acquire = seconds_now();
+        const frame_profile::Scope acquire_phase("vk_acquire");
         const VkResult result = context.acquire(state.frames.acquire_semaphore(), &index);
         state.stats.wait_seconds += seconds_now() - before_acquire;
         if (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) {
@@ -1200,10 +1203,15 @@ long record_present(Backend& state)
         }
     }
     const double before_end = seconds_now();
-    const bool ended = state.frames.end_frame(acquired, presented);
+    bool ended = false;
+    {
+        const frame_profile::Scope phase("vk_submit"); // (with the next slot's wait: the device's frame before last)
+        ended = state.frames.end_frame(acquired, presented);
+    }
     state.stats.wait_seconds += seconds_now() - before_end;
     state.bound = BoundState{};
     if (presented != VK_NULL_HANDLE) {
+        const frame_profile::Scope phase("vk_queue_present");
         context.queue_present(index);
     }
     present_ui_windows(state); // (the UI's own windows drawn this frame - vulkan_ui_windows.cpp)

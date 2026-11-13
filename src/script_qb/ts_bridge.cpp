@@ -53,6 +53,7 @@
 #include "engine/script/tokens.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
+#include "platform/frame_profile.h"
 #include "platform/run_log.h"
 #include "ts_sources.h"
 
@@ -1413,7 +1414,19 @@ JSValue call_qb(const char* method, std::span<JSValue> args)
     const JSValue function = get(e.context, e.qb, method);
     JS_UpdateStackTop(e.runtime);
     e.budget = interrupt_budget();
+    // ([debug] frame_profile - platform/frame_profile.h: a garbage collection QuickJS ran in the call logged, with the
+    // call's time - the collector sets its next threshold, half as much again as the heap it left)
+    const bool watched = frame_profile::on();
+    const std::size_t threshold = watched ? JS_GetGCThreshold(e.runtime) : 0;
+    const auto start = watched ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     const JSValue result = JS_Call(e.context, function, e.qb, static_cast<int>(args.size()), args.data());
+    if (watched && JS_GetGCThreshold(e.runtime) != threshold) {
+        constexpr double kMegabyte = 1024.0 * 1024.0;
+        constexpr double kGrowth = 1.5;
+        get_log("frame-profile: ts: a garbage collection in %s - the heap %.1f MB after it, the call %.1f ms", method,
+                static_cast<double>(JS_GetGCThreshold(e.runtime)) / kGrowth / kMegabyte,
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+    }
     JS_FreeValue(e.context, function);
     for (JSValue& arg : args) {
         JS_FreeValue(e.context, arg);

@@ -93,6 +93,7 @@ private:
         bool uploads_begun = false;
         bool stream_begun = false;
         bool pending = false;  // submitted, not yet waited for
+        bool timed = false;    // (frame_profile) its stream's start and end timestamps written
         uint64_t submitted = 0; // its last submission's number
         Retired retired;
     };
@@ -103,6 +104,12 @@ private:
     void destroy(Retired& retired);
     // The slot's command buffers made ready to record again (its submissions finished).
     void recycle(Slot& slot);
+    // NOT ORIGINAL - [debug] frame_profile (platform/frame_profile.h): each submission's stream timed on the device
+    // (timestamps at its start and end, read when its slot comes round): the "gpu" phase.
+    void init_timing(const Context& context);
+    void read_timing(Slot& slot);
+    VkQueryPool timing_ = VK_NULL_HANDLE;
+    double tick_ms_ = 0.0;
 
     VkDevice device_ = nullptr;
     VkQueue queue_ = nullptr;

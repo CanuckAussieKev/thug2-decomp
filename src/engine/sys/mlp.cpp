@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <utility>
 #include <new>
+#include <optional>
 
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
@@ -28,6 +29,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/gpu_context.h"
 #include "platform/run_log.h"
+#include "platform/frame_profile.h"
 #include "platform/sdl_window.h"
 #include "engine/pad_input/sdl_input.h"
 #include "engine/objects/objects_shared.h"
@@ -222,6 +224,8 @@ void Hub::get_main_loop()
     is_finished_ = 0U;
     for (bool repeat = true; repeat; repeat = (is_finished_ == 0U)) {
         ++frames_run(); // (not original - see frames_run)
+        frame_profile::loop_begin(); // (not original: [debug] frame_profile - platform/frame_profile.h)
+        std::optional<frame_profile::Scope> events_phase(std::in_place, "events");
         if ((screen_saver_timeout != 0U) && frames_since_screen_saver++ >= kScreenSaverResetFrames) {
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             frames_since_screen_saver = 0;
@@ -255,13 +259,17 @@ void Hub::get_main_loop()
             render::engine_parts().set_suppress_draw(true);
         }
 
+        events_phase.reset();
         // Wait for the frame's time (60 a second).
         QueryPerformanceCounter(&counter);
         auto now = static_cast<uint64_t>(counter.QuadPart);
-        while (now < frame_start + frame_ticks) {
-            Sleep(0);
-            QueryPerformanceCounter(&counter);
-            now = static_cast<uint64_t>(counter.QuadPart);
+        {
+            const frame_profile::Scope pace("pace");
+            while (now < frame_start + frame_ticks) {
+                Sleep(0);
+                QueryPerformanceCounter(&counter);
+                now = static_cast<uint64_t>(counter.QuadPart);
+            }
         }
         uint64_t elapsed = now - frame_start;
         if (elapsed > frame_ticks * kFarBehindFrames) { // far behind (a pause): start counting again from one frame ago
@@ -292,18 +300,29 @@ void Hub::get_main_loop()
             --profile_frames_;
             profiling_ = 1;
         }
-        run_tasks(system_tasks_, profiling_ != 0);
-        run_tasks(logic_tasks_, profiling_ != 0);
-        if (!render::engine_parts().suppress_draw()) {
-            begin_scene();
+        const bool drawn = !render::engine_parts().suppress_draw(); // (not original: for frame_profile)
+        {
+            const frame_profile::Scope phase("system");
+            run_tasks(system_tasks_, profiling_ != 0);
         }
-        render_frame_letterboxed();
-        after_render();
+        {
+            const frame_profile::Scope phase("logic");
+            run_tasks(logic_tasks_, profiling_ != 0);
+        }
+        {
+            const frame_profile::Scope phase("render");
+            if (!render::engine_parts().suppress_draw()) {
+                begin_scene();
+            }
+            render_frame_letterboxed();
+            after_render();
+        }
         // Not original - the extensions (engine/ext/extension.h; the screenshot key: the frame read just before it's
         // presented).
         // Original behaviour: the scene is ended and presented.
         ext::before_present(!render::engine_parts().suppress_draw());
         if (!render::engine_parts().suppress_draw()) {
+            const frame_profile::Scope phase("present");
             end_scene();
         }
         // Not original - an extension that keeps every frame (engine/ext/extension.h; the screenshot key's frame
@@ -316,6 +335,7 @@ void Hub::get_main_loop()
         }
         frame_clock::update_frame_length();
         profiling_ = 0;
+        frame_profile::loop_end(drawn, render::engine_parts().loading_screen_up());
     }
     is_finished_ = done_on_entry;
 }

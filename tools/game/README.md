@@ -227,6 +227,21 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (positive: the drawn surface behind the collision - the wheels float; negative: they sink). Fails when the smoothing
   moved a surface more than --cap (2). `report <folder>` reads the logs again. E.g. sch's quarter pipe: `--level sch
   --at 960,-440,2550,90`.
+- `node tools/game/frame_bench.ts run --game C:\Games\THUG2-<n> --out <folder> [--build <x64 build>] [--settings <ini>]
+  [--levels BO,AU,z_dt,sch,foun] [--seconds 30] [--runs 1] [--samples] [--no-lock] [--owner <name>] [--set S.key=v]...` -
+  frame times in the game (`[debug] frame_profile`, src/platform/frame_profile.h): under the workspace's lock (`--no-lock`:
+  you hold it), --build deployed (without it the folder's exe), the [Graphics] of --settings (default the main install's
+  ini, read only; the window's keys the workspace's own - `--set Graphics.ResolutionX=1920` etc. for another size) and
+  `--set`'s. Each level is started with `-level` and driven by the automation channel - pushing forward, an ollie and a
+  turn every five seconds for --seconds - then quit (the logic is a fixed step a loop: each run is the same). Per run
+  `<out>/<level>/run<k>/`: frames.jsonl (a line a loop: drawn, loading, its time, its work - less the pacing wait - and
+  each phase's milliseconds), game.log, and with `--samples` samples.txt and samples-named.txt (the main thread's
+  samples by function, named with the PDB: over every loop, each busy phase, and the hitches - loops whose work passed
+  33 ms - alone). The report (also `report <folder>`): per level and run the drawn frames a second, their spacing (average,
+  99th percentile - the "1% low" -, the worst, the hitches over 33.4 ms) and a drawn loop's work and phases, from 120
+  loops after the level's loading screen. `compare <before> <after>` puts two folders' median runs side by side.
+  Several games on the machine (other workspaces) share its processor and GPU: take `--runs 2` or more and compare
+  medians.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
   [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
   (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed

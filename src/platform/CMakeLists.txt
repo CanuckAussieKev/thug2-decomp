@@ -7,6 +7,7 @@ add_library(thug2_platform STATIC
     crash.cpp
     crt.cpp
     debug_log.cpp
+    frame_profile.cpp
     mute_audio.cpp
     output_sinks.cpp
     platform_config.cpp

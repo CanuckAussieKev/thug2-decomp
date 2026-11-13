@@ -12,6 +12,7 @@
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_ring.h"
+#include "platform/frame_profile.h"
 
 namespace render::vulkan {
 
@@ -81,7 +82,52 @@ bool Frames::init(const Context& context, Memory* memory, const Rings& rings)
     current_ = 0;
     serial_ = 1;
     completed_ = 0;
+    init_timing(context);
     return true;
+}
+
+void Frames::init_timing(const Context& context)
+{
+    if (!frame_profile::on()) {
+        return;
+    }
+    uint32_t families = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(context.physical_device(), &families, nullptr);
+    std::vector<VkQueueFamilyProperties> properties(families);
+    vkGetPhysicalDeviceQueueFamilyProperties(context.physical_device(), &families, properties.data());
+    VkPhysicalDeviceProperties device{};
+    vkGetPhysicalDeviceProperties(context.physical_device(), &device);
+    if (context.queue_family() >= families || core::at(properties, context.queue_family()).timestampValidBits == 0 ||
+        !(device.limits.timestampPeriod > 0.0F)) {
+        return;
+    }
+    constexpr double kNanosecondsPerMillisecond = 1.0e6;
+    tick_ms_ = static_cast<double>(device.limits.timestampPeriod) / kNanosecondsPerMillisecond;
+    const VkQueryPoolCreateInfo pool{.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+                                     .pNext = nullptr,
+                                     .flags = 0,
+                                     .queryType = VK_QUERY_TYPE_TIMESTAMP,
+                                     .queryCount = kSlots * 2,
+                                     .pipelineStatistics = 0};
+    if (vkCreateQueryPool(device_, &pool, nullptr, &timing_) != VK_SUCCESS) {
+        timing_ = VK_NULL_HANDLE;
+    }
+}
+
+void Frames::read_timing(Slot& slot)
+{
+    if (!slot.timed) {
+        return;
+    }
+    slot.timed = false;
+    const auto index = static_cast<uint32_t>(&slot - slots_.data());
+    std::array<uint64_t, 2> stamps{};
+    if (vkGetQueryPoolResults(device_, timing_, index * 2, 2, sizeof(stamps), stamps.data(), sizeof(uint64_t),
+                              VK_QUERY_RESULT_64_BIT) == VK_SUCCESS &&
+        stamps[1] >= stamps[0]) {
+        static const int kGpu = frame_profile::slot("gpu");
+        frame_profile::add_ms(kGpu, static_cast<double>(stamps[1] - stamps[0]) * tick_ms_);
+    }
 }
 
 void Frames::shutdown()
@@ -102,6 +148,10 @@ void Frames::shutdown()
             vkDestroyCommandPool(device_, each.pool, nullptr); // (frees its command buffers)
         }
         each = Slot{};
+    }
+    if (timing_ != VK_NULL_HANDLE) {
+        vkDestroyQueryPool(device_, timing_, nullptr);
+        timing_ = VK_NULL_HANDLE;
     }
     device_ = nullptr;
     queue_ = nullptr;
@@ -142,6 +192,11 @@ VkCommandBuffer Frames::stream()
     if (!now.stream_begun) {
         now.stream_begun = begin(now.stream);
         restarted_ = true;
+        if (timing_ != VK_NULL_HANDLE && now.stream_begun && !now.timed) {
+            const uint32_t first = current_ * 2;
+            vkCmdResetQueryPool(now.stream, timing_, first, 2);
+            vkCmdWriteTimestamp(now.stream, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, timing_, first);
+        }
     }
     return now.stream;
 }
@@ -186,6 +241,10 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
     }
     if (now.stream_begun || presented != VK_NULL_HANDLE || !signals_.empty()) {
         stream(); // (a present with nothing drawn still waits and signals)
+        if (timing_ != VK_NULL_HANDLE && !now.timed) {
+            vkCmdWriteTimestamp(now.stream, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, timing_, (current_ * 2) + 1);
+            now.timed = true;
+        }
         if (vkEndCommandBuffer(now.stream) != VK_SUCCESS) {
             return false;
         }
@@ -230,6 +289,7 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
 
 void Frames::recycle(Slot& slot)
 {
+    read_timing(slot);
     vkResetCommandPool(device_, slot.pool, 0);
     slot.pending = false;
 }
