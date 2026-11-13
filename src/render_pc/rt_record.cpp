@@ -436,6 +436,31 @@ bool skinned_ready(const MeshRef* mesh)
     return false;
 }
 
+// [debug] rt_objects=1: each object's mesh logged once, when first recorded - how ray tracing sees the skater's, peds'
+// and vehicles' parts (which cast, which are alpha tested or seen through, skinned, how many vertex buffers they cycle).
+void log_object_mesh(const MeshRef* mesh, rt::MeshId id, uint32_t flags, rt::MaterialId material)
+{
+    static const bool kWanted = build_info::fetch_flag("debug", "rt_objects", false);
+    if (!kWanted || (flags & rt::kObject) == 0U) {
+        return;
+    }
+    static core::NoDestroy<std::unordered_map<rt::MeshId, uint32_t>> logged; // (again when its flags change)
+    const auto [found, made] = logged.get().try_emplace(id, flags);
+    if (!made && found->second == flags) {
+        return;
+    }
+    found->second = flags;
+    const MaterialRef* surface = mesh->material();
+    get_log("rt: object mesh %u: flags %04X, material %u (%08X, alpha ref %u, first pass blend %u flags %04X), "
+            "%u vertices, %u vertex buffers, bone %d, skinned %s",
+            static_cast<unsigned>(id), flags, static_cast<unsigned>(material),
+            surface != nullptr ? surface->checksum() : 0U, surface != nullptr ? unsigned{surface->alpha_ref()} : 0U,
+            surface != nullptr ? core::at(surface->blend_modes(), 0) : 0U,
+            surface != nullptr ? core::at(surface->pass_flags(), 0) : 0U, mesh->vertex_count(),
+            unsigned{mesh->vertex_buffer_count()}, mesh->bone() == kNoBoneByte ? kNoBone : int{mesh->bone()},
+            mesh->per_vertex_data() != nullptr ? "yes" : "no");
+}
+
 // One instance of a mesh with a world transform (a Direct3D matrix).
 void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, rt::RayTracing& rt)
 {
@@ -460,6 +485,7 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
             flags = kind | rt::kSkinned | rt::kTransparent;
         }
     }
+    log_object_mesh(mesh, id, flags, material);
     rt::frame_record().instances.push_back(
         {.mesh = id, .material = material, .flags = flags, .object_to_world = rt::object_to_world_rows(world.floats())});
 }

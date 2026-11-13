@@ -187,7 +187,8 @@ void main()
     // blotches over the skater) - the objects receive the world's shadows only.
     uint world_mask = mask & ~OBJECTS_MASK;
     uint objects_mask = mask & OBJECTS_MASK;
-    if (objects_mask != 0u && on_object(here, to_camera, distance)) {
+    bool object_pixel = on_object(here, to_camera, distance);
+    if (object_pixel) {
         objects_mask = 0u;
     }
     vec3 normal = cross(surface_step(p, d, here, ivec2(1, 0)), surface_step(p, d, here, ivec2(0, 1)));
@@ -199,7 +200,11 @@ void main()
     vec3 light = pc.to_light.xyz;
     float occlusion = 1.0; // (facing away from the light: in its own shadow)
     float cast_by_objects = 0.0;
-    if (dot(normal, light) > 0.0) {
+    // (added for the skater's look) An object's pixel is never put in its own shadow by facing away from the light:
+    // the depth's normal is its triangle's, flat, so the test shaded the skater's smooth body triangle by triangle
+    // (dark facets over the shirt and arms); the game's own lighting already darkens its side away from the lights.
+    // It takes the world's shadows only, its ray started off the surface toward the light.
+    if (object_pixel || dot(normal, light) > 0.0) {
         // pushed off the surface by more as the depth's precision falls with distance
         float offset = OFFSET_SCALE * (1.0 + distance * 0.0005 + distance * distance * 6e-8);
         vec3 origin = here + normal * offset;

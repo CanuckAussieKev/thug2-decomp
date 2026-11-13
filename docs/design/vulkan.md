@@ -1161,6 +1161,18 @@ blue); the glass was the reflections'.
   baked sun yet, a level whose bake shows none - the Foundry -, `rt_shadows=0`, objects off) gives them back. Objects
   receive only the world's shadows: a pixel whose surface is an object (a ray from the camera against the objects alone
   ends at the depth) traces without the objects' mask - the low-poly body traced against itself drew blotches.
+- **No faceted shading on characters** (the user's NJ screenshot: dark triangles over the skater's shirt and arms).
+  Switched off one at a time at that spot (`tools/game/rt_shadows.json` nj-skater): only `rt_shadows` drew them, and
+  only for a sun the skater's back faced away from. The pass shaded a pixel facing away from the light as in shadow by
+  the normal rebuilt from the depth - a triangle's, flat - so the skater's smooth body went dark triangle by triangle.
+  An object's pixel now skips that test (the game's own lighting already darkens its far side) and takes the world's
+  shadows only; the occlusion's and bounce light's rays likewise leave out the objects from an object's own pixels.
+  The skater's shadow itself was checked against his pose: a grid of `rtprobe` rays along the sun through him gives his
+  whole silhouette (head, arms, the board held across), a sun from the side casts it whole on the road, and while
+  riding (push, ollie) the shadow follows each pose. `update_mesh` with the same triangles in another buffer (a skinned
+  mesh's buffers taking turns) now refits as `mesh_changed` does - before, it kept the pose the structure was built
+  with (`thug2_vulkan_rt_check`: a mesh's two buffers taking turns, update_mesh only). `[debug] rt_objects=1` logs each
+  object mesh's flags as ray tracing sees them (the skater's six alpha-blended parts cast no shadow, as before).
 - **Checked:** `thug2_vulkan_rt_reflections_check` (96 checks): Schlick against the exact Fresnel; the mirror as water,
   glass (four samples), glass at real glass's 0.04, shiny and both masks - every clear-cut reflected pixel's colour and the pass's own weight (its
   image's alpha, within 1.5e-3) against the processor's for the angle it is seen at, the masked glass's colour put back

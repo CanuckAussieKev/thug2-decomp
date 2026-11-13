@@ -204,6 +204,28 @@ vec3 surface_normal(ivec2 p, float d, vec3 here, vec3 to_camera, float distance)
 // How far a ray's start is pushed off a surface `distance` from the camera.
 float start_offset(float distance) { return pc.params.z * (1.0 + distance * 0.0005 + distance * distance * 6e-8); }
 
+// (added for the skater's look) The mask the pixel's rays trace with: the pass's, less the objects (0x02: the skater,
+// peds, vehicles) where the pixel shows one - a ray from the camera through it against the objects alone ends where
+// the depth does. An object's low-poly body traced against itself from the depth's per-triangle normals drew dark
+// facets over the skater (its shirt, its arms); objects take the world's occlusion and bounce only, as they take the
+// world's shadows only (vulkan_rt_shadows.cpp).
+const uint OBJECTS_MASK = 0x02u;
+uint rays_mask(vec3 here, vec3 to_camera, float distance)
+{
+    uint mask = uint(pc.extra.y) & 0xFFu;
+    if ((mask & OBJECTS_MASK) == 0u) {
+        return mask;
+    }
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT, OBJECTS_MASK, pc.camera.xyz, 0.0,
+                          -to_camera / max(distance, 1e-6), distance * 1.02 + 2.0);
+    while (rayQueryProceedEXT(query)) {
+    }
+    bool on_object = rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT &&
+                     rayQueryGetIntersectionTEXT(query, true) >= distance - (2.0 + 0.02 * distance);
+    return on_object ? (mask & ~OBJECTS_MASK) : mask;
+}
+
 // The rays' directions: the hemisphere around `normal` (an orthonormal basis without a branch on the normal's
 // direction), cosine-weighted, ray i of `rays` this frame - a 2D R2 sequence advanced by the frame's index, turned per
 // pixel by a hash of its place in the viewport.
@@ -238,11 +260,11 @@ vec3 hemisphere_ray(Hemisphere h, uint i, uint rays)
 
 // The ambient occlusion's rays.
 constexpr const char* kAoTraceBody = R"(
-float occluded(vec3 origin, vec3 direction)
+float occluded(vec3 origin, vec3 direction, uint mask)
 {
     rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
-                          uint(pc.extra.y) & 0xFFu, origin, 0.0, direction, pc.params.x);
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,
+                          direction, pc.params.x);
     while (rayQueryProceedEXT(query)) {
     }
     return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 0.0 : 1.0;
@@ -268,9 +290,10 @@ void main()
     vec3 origin = here + normal * start_offset(distance);
     Hemisphere h = hemisphere_of(normal, local);
     uint rays = uint(pc.params.y);
+    uint mask = rays_mask(here, to_camera, distance);
     float hits = 0.0;
     for (uint i = 0u; i < rays; ++i) {
-        hits += occluded(origin, hemisphere_ray(h, i, rays));
+        hits += occluded(origin, hemisphere_ray(h, i, rays), mask);
     }
     imageStore(o_out, local, vec4(hits / float(rays), 0.0, 0.0, 0.0));
     imageStore(o_guide, local, uvec4(floatBitsToUint(here), pack_normal(normal)));
@@ -347,11 +370,10 @@ bool sun_blocked(vec3 origin)
 }
 
 // The light a bounce ray brings back to `origin` (travelled: the camera's distance to it, for the start offsets).
-vec3 incoming(vec3 origin, vec3 direction, float travelled)
+vec3 incoming(vec3 origin, vec3 direction, float travelled, uint mask)
 {
     rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, uint(pc.extra.y) & 0xFFu, origin, 0.0, direction,
-                          pc.params.x);
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, mask, origin, 0.0, direction, pc.params.x);
     while (rayQueryProceedEXT(query)) {
         if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
             uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
@@ -436,9 +458,10 @@ void main()
     vec4 albedo = surface_albedo(here, distance, footprint);
     Hemisphere h = hemisphere_of(normal, local);
     uint rays = uint(pc.params.y);
+    uint mask = rays_mask(here, to_camera, distance);
     vec3 sum = vec3(0.0);
     for (uint i = 0u; i < rays; ++i) {
-        sum += incoming(origin, hemisphere_ray(h, i, rays), distance);
+        sum += incoming(origin, hemisphere_ray(h, i, rays), distance, mask);
     }
     vec3 light = sum / float(rays);
     if (any(isnan(light)) || any(isinf(light))) {

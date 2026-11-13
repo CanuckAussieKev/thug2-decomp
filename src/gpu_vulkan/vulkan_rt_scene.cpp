@@ -1442,7 +1442,11 @@ void VulkanRayTracing::update_mesh(rt::MeshId mesh, const rt::Geometry& geometry
         const auto found = made.meshes.find(mesh);
         if (made.installed && found != made.meshes.end() && found->second.built && !found->second.refused &&
             same_triangles(found->second.geometry, geometry)) {
+            // (fixed for the skater's shadow) the same triangles in another buffer - a skinned mesh cycling its vertex
+            // buffers, or one moved in an arena - hold a newer pose: refitted, as mesh_changed does. Before, only the
+            // buffer was swapped and the structure kept the pose it was built with.
             found->second.geometry = geometry;
+            found->second.needs_refit = true;
             return;
         }
     }

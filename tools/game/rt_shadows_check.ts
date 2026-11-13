@@ -134,6 +134,7 @@ import {
     iniFor,
     noiseMask,
     type PlanGroup,
+    type PlanSpot,
     readPicture,
     readPlan,
     seriesName,
@@ -838,7 +839,21 @@ function runFolders(out: string, config: Config): string[] {
         .map((d) => path.join(root, d));
 }
 
-function compareFolder(out: string, limits: Limits, threshold: number, grow: number): number {
+// A plan's spots' own allowances for pixels brightened (PlanSpot.maxBrighter): by spot name.
+export function brighterAllowances(plan: { groups: readonly { spots?: readonly PlanSpot[] }[] }): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const g of plan.groups)
+        for (const s of g.spots ?? []) if (s.maxBrighter !== undefined) out.set(s.name, s.maxBrighter);
+    return out;
+}
+
+function compareFolder(
+    out: string,
+    limits: Limits,
+    threshold: number,
+    grow: number,
+    allowances: ReadonlyMap<string, number> = new Map(),
+): number {
     const runs = Object.fromEntries(CONFIGS.map((c) => [c, runFolders(out, c)])) as Record<Config, string[]>;
     if (!runs.off.length || !runs.on.length) exitWith(`${out} needs off/run<k> and on/run<k> folders`);
     const names = fs
@@ -904,8 +919,13 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
         const spot = name.replace(/\.png$/i, "");
         const reflected = limits.effect === "reflections" && limits.expect === "shadows" && drewReflections(spot);
         anyReflections = anyReflections || reflected;
+        const allowed = allowances.get(spot);
         const spotLimits: Limits =
-            limits.effect === "reflections" && !reflected ? { ...limits, expect: "none" } : limits;
+            limits.effect === "reflections" && !reflected
+                ? { ...limits, expect: "none" }
+                : allowed !== undefined
+                  ? { ...limits, maxBrighter: Math.max(limits.maxBrighter, allowed) }
+                  : limits;
         const verdict = judgeSpot(
             spot,
             shadowDifference(off[0]!, on[0]!, mask, threshold, darkestRatio(limits)),
@@ -1270,8 +1290,10 @@ async function main(): Promise<number> {
     const limits: Limits = { ...LIMITS, expect, strength, effect };
     const threshold = Number(values.threshold);
     const grow = Number(values.grow);
+    const planFile = path.resolve(values.plan ?? path.join(HERE, effect === "sky" ? "rt_sky.json" : "rt_shadows.json"));
+    const allowances = brighterAllowances(readPlan(fs.readFileSync(planFile, "utf8")));
     if (command === "compare" && target && positionals.length === 2)
-        return compareFolder(path.resolve(target), limits, threshold, grow);
+        return compareFolder(path.resolve(target), limits, threshold, grow, allowances);
     if (command === "run" && positionals.length === 1) {
         if (!values.game || !values.out || !values.build) exitWith("run needs --game, --out and --build");
         const out = path.resolve(values.out);
@@ -1280,14 +1302,14 @@ async function main(): Promise<number> {
             out,
             build: path.resolve(values.build),
             baselineBuild: values["baseline-build"] ? path.resolve(values["baseline-build"]) : null,
-            plan: path.resolve(values.plan ?? path.join(HERE, effect === "sky" ? "rt_sky.json" : "rt_shadows.json")),
+            plan: planFile,
             groups: values.groups ? values.groups.split(",") : null,
             runs: Number(values.runs),
             owner: values.owner,
             set,
             effect,
         });
-        return code !== 0 ? code : compareFolder(out, limits, threshold, grow);
+        return code !== 0 ? code : compareFolder(out, limits, threshold, grow, allowances);
     }
     print(USAGE);
     return 2;

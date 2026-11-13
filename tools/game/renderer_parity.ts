@@ -57,6 +57,9 @@ const DEPLOYED = ["thug2-decomp.exe", "thug2-decomp.pdb", "d3dx9_43.dll", "SDL3.
 export interface PlanSpot {
     name: string;
     commands: string[];
+    // (rt_shadows_check.ts) the share of the picture this spot's effect may brighten - where a skater in view loses the
+    // game's own shadow to the ray-traced one (rt_shadow_objects)
+    maxBrighter?: number;
 }
 
 export interface PlanGroup {

@@ -907,6 +907,51 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         check_rays(tally, "after update_mesh", meshes, instances, options.rays / 2, random);
     }
 
+    // (added for the skater's shadow) a skinned mesh's buffers taking turns, as render_pc/rt_record.cpp reports them:
+    // each frame a new pose - a large deformation, the grid's heights several units apart - in the other buffer and
+    // only update_mesh (no mesh_changed). The structure must follow every pose (refitted from the new buffer): before,
+    // update_mesh swapped the buffer and kept the pose the structure was built with.
+    {
+        TestMesh& waves = core::at(meshes, dynamic_mesh);
+        render::GpuVertexBuffer* other = nullptr;
+        const auto turn_bytes = static_cast<uint32_t>(vertex_bytes(waves.data, waves.layout).size());
+        bool made_other =
+            gpu.create_vertex_buffer(turn_bytes, kDynamic, kFvf, value::kPoolDefault, &other) == value::kResultOk;
+        const std::array<render::GpuVertexBuffer*, 2> turns{waves.vertices, other};
+        const render::vulkan::SceneStats turns_before = render::vulkan::scene_stats();
+        int compared_wrong = 0;
+        constexpr int kTurnRounds = 8;
+        constexpr double kPoseStep = 2.3; // (the phase between poses: every height moved)
+        for (int round = 1; made_other && round <= kTurnRounds; ++round) {
+            render::GpuVertexBuffer* now = core::at(turns, static_cast<std::size_t>(round % 2));
+            waves.data.positions = grid(kSide, kGridSize, kMovedPhase + (round * kPoseStep)).positions;
+            made_other = fill_vertices(gpu, now, vertex_bytes(waves.data, waves.layout), true);
+            rt::Geometry geometry = waves.geometry;
+            geometry.vertices = now;
+            backend->update_mesh(waves.id, geometry);
+            waves.vertices = now;
+            waves.geometry = geometry;
+            draw_frame(gpu, meshes, instances, frame++, true);
+            bool traced = false;
+            const Comparison found = compare_rays(meshes, instances, kRefitRays, random, &traced);
+            compared_wrong += traced ? found.wrong : 1;
+        }
+        const render::vulkan::SceneStats turns_after = render::vulkan::scene_stats();
+        const uint64_t refits = turns_after.refits - turns_before.refits;
+        const uint64_t builds = turns_after.builds - turns_before.builds;
+        tally->check(made_other && compared_wrong == 0 && refits + builds >= kTurnRounds,
+                     text::format("a skinned mesh's two buffers taking turns (update_mesh only, %d poses): %llu refits, "
+                                  "%llu rebuilds, %d rays differ from the pose drawn",
+                                  kTurnRounds, static_cast<unsigned long long>(refits),
+                                  static_cast<unsigned long long>(builds), compared_wrong));
+        check_rays(tally, "after the buffers took turns", meshes, instances, options.rays / 2, random);
+        // (the buffer not in use now let go of; the mesh keeps the one it was last given)
+        render::GpuVertexBuffer* idle = waves.vertices == std::get<0>(turns) ? std::get<1>(turns) : std::get<0>(turns);
+        if (idle != nullptr) {
+            gpu.release_vertex_buffer(idle);
+        }
+    }
+
     // a mesh removed (its instances then hit nothing), and added again under a new id
     {
         TestMesh& strip = core::at(meshes, 2);
