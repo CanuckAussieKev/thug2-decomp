@@ -1046,17 +1046,19 @@ only ever added light. Four settings, all off by default, change that; each work
   so the bounce takes the colour from the frame after one of them runs.
 - **Aerial perspective** (`vulkan_rt_fog`, `rt_sky_model=1`, a level without fog, `rt_fog_haze=1`). The haze becomes a
   medium of its own: extinction `kFogAerialExtinction` (1/12000 a unit) x `rt_fog_haze_density` x `rt_fog_density` at
-  the level's ground, thinning by e every `rt_fog_haze_height` (600) above it - the ground is the 10th percentile of the
-  bake samples' heights (`rt::BakedSun::ground`, a contract addition; the camera's height when unknown) - integrated
-  in closed form along each segment, followed to 40000 units. Its light at a sample: sky x 0.45 + sun x luma(sky) x 0.55 x
-  1.2 x lit x phase, with sky the table's colour toward the ray (no lower than 0.03 rad above the horizon - the colour the far
-  world fades to, not grey), the sun's colour, the same ray query toward the sun as before, and two Henyey-Greenstein
-  lobes (0.4 of g = 0.6 - the glow and the beams seen toward the sun - and 0.6 of g = 0.2) x 4 pi: lit haze from the side
-  ~0.9 of the sky's brightness. Shaded haze is the
-  sky's share alone: lit haze several times brighter beside it, so the shadows of buildings show as beams. Composited as
-  the replaced fog (colour x T + light): distant geometry dims toward the sky's colour. The sky itself is never dimmed
-  (only its sunlit share x 0.1 added). A level with its own (scripted or distance) fog keeps its look: only its sunlight
-  takes the sun's colour (luma kept).
+  the level's ground, thinning by e every `rt_fog_haze_height` (600) above it and as thick as there below it - the
+  ground is the 10th percentile of the bake samples' heights (`rt::BakedSun::ground`, a contract addition; the camera's
+  height when unknown; logged with the first pass) - integrated in closed form along each segment, followed to 40000
+  units. Its light at a sample: sky x (0.45 + 0.55 x lit), with sky the table's colour toward the ray (no lower than
+  0.03 rad above the horizon) and lit the same ray query toward the sun as before: a long unshaded path ends as the
+  sky's colour - the far world fades into the sky, never brighter or whiter than it (the glow toward the sun is the
+  table's own aureole); shaded haze is the sky's share alone, so the shadows of buildings show as beams. Composited as
+  the replaced fog (colour x T + light). The sky's pixels are hazed too, as a surface at the far plane along the ray
+  (or 40000, the nearer): the sky dome paints the world past the meshes - AU's open sea, hills - and a mesh that reaches
+  that far meets it with the same haze. (Fixed after the user's AU screenshot: the first version left the sky
+  undimmed and lit the haze with sky x 0.45 + the sun's colour x a phase - up to ~1.2 x the sky toward the sun -, so
+  AU's far sea, cut where its mesh ends, went flat white with stepped edges against the dome's dark painted sea.) A
+  level with its own (scripted or distance) fog keeps its look: only its sunlight takes the sun's colour (luma kept).
 - **Which sun is drawn.** The sun the player sees is the game's own: render_pc's `draw_viewport` tells rt_scene where
   `sun::render` would put its sprite every viewport (`rt::set_game_sun`, a contract addition - render's theta / phi
   from the level's SetSun / InitSun), and the disc, its glare and the rays are drawn there (`rt_sun_place=game`, the
@@ -1103,7 +1105,8 @@ only ever added light. Four settings, all off by default, change that; each work
   within 0.3%, the composite into a float target keeping the picture's sum (0.6787 -> 0.6782) with the disc kept above
   1, into an 8-bit target clipped at 1, the frame's own bloom alone keeping an 8-bit frame's mean to 0.00 levels; the
   aerial haze's transmittance at ~14,000 texels against the closed form of its height profile (within 5e-4) and its
-  light at least the sky's share of the model's sky colour; the sky never dimmed; everything off: no pass, the picture
+  light at least the sky's share of the model's sky colour and at most that colour; ~5,300 sky texels hazed as a surface
+  at the far plane (within 5e-4); everything off: no pass, the picture
   unchanged. The other checks (rt 20, shadows 45, effects 38, reflections 39, materials 34, fog 71, gi 29, hdr 80) pass
   unchanged on both GPUs. In the game, `tools/game/rt_shadows_check.ts --effect sun` (z_dt and BO, five spots, two runs,
   main's build as the baseline): `off` against main's build 0.00-0.01% changed; `on` bounded (mean luma change 0.7-25,
