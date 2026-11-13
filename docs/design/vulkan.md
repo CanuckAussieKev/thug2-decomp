@@ -1458,7 +1458,10 @@ off by default - nothing is drawn differently then: no listener, no motion bit, 
   bytes twice from a fresh start (not at 100% on the AMD GPU). Validation 0 of ours; inside the vendor libraries'
   own passes FSR's shaders draw format warnings (32-bit declared on images it makes 16-bit) and NGX
   synchronization notes on its own buffers - counted apart. The other Vulkan checks pass unchanged on both GPUs.
-  In the game: `tools/game/rt_shadows_check.ts --effect upscale --upscaler dlss:quality` (see out record).
+  In the game: `tools/game/rt_shadows_check.ts --effect upscale --upscaler dlss:quality` (z_dt, BO, sch - seven spots,
+  every ray-traced effect on, HDR, `off` with 8x MSAA, 1920 x 1080, the RTX 5070 Ti): `on` against `off` mean PSNR /
+  SSIM - DLSS quality 34.65 dB / 0.944, performance 34.52 / 0.951, DLAA 35.16 / 0.945; FSR quality 35.61 / 0.958,
+  performance 34.39 / 0.940; worst spot z_dt-back (30.7 dB); nothing black; the logs say every view was upscaled.
 ## Order of work
 
 | # | task | depends on | start |
