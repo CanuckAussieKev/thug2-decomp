@@ -1132,15 +1132,31 @@ blue); the glass was the reflections'.
   `[debug] rt_reflection_materials=1`): `rt::Material::reflection_class` - water: a pass with a UV wibble or a texture
   animation (moving water textures); glass: the environment pass lerped in by the first pass's alpha (blend modes 12 /
   13 - the reflection painted into the clear parts of a texture: the windows in AU's and BA's wall textures, e.g.
-  8A6663D9 on the user's building), or a first pass that is seen through (transparent, alpha or fixed blend); shiny:
-  the rest (an opaque surface with its reflection added or blended over: metal, paint, polished floors). And
-  `reflection_mask`: modes 13 / 12 mirror only where the first pass's alpha is clear / opaque, as the game's pixel shader
-  lerps its environment pass in. Both are in R3's material record (56 bytes a row then; 64 with the surface maps' `surface_texture` and `f0` - "One F0" below).
+  8A6663D9 on the user's building), or under a later pass blended over it by its alpha (a wall texture whose clear
+  texels are its windows, the environment map drawn first: BO's brick buildings), or a first pass that is seen through
+  (transparent, alpha or fixed blend); shiny: the rest (an opaque surface with its reflection added or blended over:
+  metal, paint, polished floors). And `reflection_mask`: modes 13 / 12 - the environment lerped in by the pass before's
+  alpha, the glass's own colour put back (below). Both are in R3's material record (56 bytes a row then; 100 now, with the surface maps' `surface_texture` and `f0` - "One F0" below - and the mask passes' nine words).
+- **Where a surface reflects: its environment pass's share** (`environment_share` in rt_record.cpp; the user's Boston
+  street, `rt_shadows.json` BO-facade: a whole brick facade turned mirror-grey, not just its windows). The game's
+  generated pixel shader (`render_pc/pixel_shaders.cpp`) puts the first pass in r0 and blends each later pass into it by
+  its mode, a pass's alpha being its texel's (pass flag 0x1000) or the vertex alpha x the texel's, doubled. So the
+  environment colour E reaches the screen scaled by its own mode (after the first pass: 1 add, 5 blend, 2 / 6 by the
+  fixed alpha, 12 / 13 by the pass before's alpha; 3 / 4 subtract it, 7 - 10 multiply or brighten by its alpha alone,
+  0 and 11 do nothing - those draw no environment colour: not reflective) and then by every later pass's: 5 x (1 - a)
+  (the wall drawn over its windows), 6 x (1 - fixed alpha), 7 x a, 8 x fixed alpha, 12 / 13 x (1 - a) / a of the pass
+  before; adds, subtracts and brightens leave it. The constant factors go into the reflectivity, the per-pixel ones
+  into `rt::Material::mask_passes` (up to three: a pass's texture, its texture coordinate set - pass n reads set n,
+  `rt::Geometry::uv_sets` -, addressing, kMaskClear 1 - a / kMaskOpaque a, whether the vertex alpha counts); R3's record
+  carries each one's texture slot, sampler and mode (100 bytes a row with the surface maps' two fields before them), and the reflection pass multiplies the weight by
+  every factor at the pixel (each texture at the level of its own coordinates' footprint; Fresnel on or off). BO's
+  facades are an environment pass first (a 32 x 32 sky picture) under the wall texture by mode 5: before, the
+  reflectivity of the environment pass covered the whole wall; now only where the wall texture is clear.
 - **Fresnel** (`rt_reflection_fresnel=1`, the default; 0 the first version's look): the pixel's weight from Schlick's
   curve at the cosine c between the view and the triangle's normal - water F0 0.02, glass `rt_glass_reflectance` (0.2; real glass's 0.04 left AU's panes - bright textures, not dark rooms - with a mean change of 1.4 levels against the first version's 12: no reflection to see): weight = reflectivity x
   min(1, 2 x strength) x (F0 + (1 - F0)(1 - c)^5) (the default strength 0.5 is the physical amount); shiny surfaces
   keep reflectivity x strength face-on and rise along the same curve to reflectivity x min(1, 2 x strength) at grazing
-  angles. x the mask at the pixel (the first pass's texel alpha at the pixel's footprint). Schlick's curve is within
+  angles. x the mask at the pixel (the mask passes' factors, above). Schlick's curve is within
   0.06 of the exact reflectance of water (n 1.333) and glass (n 1.5) at every angle (the check).
 - **Masked glass's own colour.** Where the game lerped its environment map in by the texture's alpha it drew the sky
   picture *in place of* the texture - there is no glass colour in the frame to show face-on. The pass puts it back: the
@@ -1173,8 +1189,10 @@ blue); the glass was the reflections'.
   mesh's buffers taking turns) now refits as `mesh_changed` does - before, it kept the pose the structure was built
   with (`thug2_vulkan_rt_check`: a mesh's two buffers taking turns, update_mesh only). `[debug] rt_objects=1` logs each
   object mesh's flags as ray tracing sees them (the skater's six alpha-blended parts cast no shadow, as before).
-- **Checked:** `thug2_vulkan_rt_reflections_check` (96 checks): Schlick against the exact Fresnel; the mirror as water,
-  glass (four samples), glass at real glass's 0.04, shiny and both masks - every clear-cut reflected pixel's colour and the pass's own weight (its
+- **Checked:** `thug2_vulkan_rt_reflections_check` (115 checks): Schlick against the exact Fresnel; the mirror as water,
+  glass (four samples), glass at real glass's 0.04, shiny and both masks, and the floor under a cover pass (stripes of
+  clear and opaque texels through its second texture coordinate set, with Fresnel and without: the opaque stripes
+  exactly as without the pass) - every clear-cut reflected pixel's colour and the pass's own weight (its
   image's alpha, within 1.5e-3) against the processor's for the angle it is seen at, the masked glass's colour put back
   (hits and misses); rough glass against the same glass as a mirror (the light added 0.96 - 0.98 of it, softer, no pixel
   black, no NaN, every weight at most the mirror's); the first version's cases with Fresnel off unchanged. The shadow

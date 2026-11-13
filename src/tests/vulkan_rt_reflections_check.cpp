@@ -19,7 +19,10 @@
 //     grazing; the mirror again as water, glass (four samples) and a shiny surface - each reflected pixel's colour and
 //     the pass's own weight (its image's alpha) against the processor's weight for the angle it is seen at, so the
 //     floor's own colour shows through face-on; the glass mask (the first pass's alpha: the floor's white texture
-//     opaque) mirroring everywhere one way and nowhere the other; rough glass (rt_glass_roughness) against the same
+//     opaque) mirroring everywhere one way and nowhere the other; the floor under a cover pass (a wall texture drawn
+//     over its environment pass by its alpha, through the floor's second texture coordinate set - stripes of clear
+//     and opaque texels): reflected through the clear stripes only, the opaque ones exactly as without the pass, with
+//     Fresnel and without; rough glass (rt_glass_roughness) against the same
 //     glass as a mirror - the light it adds within 0.8 - 1.05 of the mirror's, softer, no pixel black, no NaN, every
 //     weight at most the mirror's.
 //   - Nothing reflective (the floor's reflectivity 0): no pass, nothing changed; rt_reflections off: no pass.
@@ -116,6 +119,12 @@ constexpr float kAmbientGrey = 0.5F;
 constexpr uint32_t kTexturedStride = 24; // XYZ | DIFFUSE | TEX1: the position, the colour at 12, the uv at 16
 constexpr uint32_t kTexturedColour = 12;
 constexpr uint32_t kTexturedUv = 16;
+constexpr uint32_t kTwoSetStride = 32;   // ... and a second uv at 24 (the floor: its cover's set)
+constexpr double kCoverTiling = 2.0;     // the floor's second set: the first x 2
+constexpr uint32_t kCoverClearColumns = 4; // the cover texture: its alpha 0 in columns 0 - 3 (the windows), 255 after
+constexpr int kCoverClear = 0;             // (Reflection::cover)
+constexpr int kCoverOpaque = 1;
+constexpr int kCoverBlend = 2;
 
 struct Options {
     int display = 0;
@@ -224,11 +233,13 @@ struct Layout {
     uint32_t colour_offset = kAbsent;
     uint32_t leading_vertices = 0;
     uint32_t leading_indices = 0;
+    uint32_t uv_sets = 1; // (the sets after uv_offset: MeshData::uvs, then second_uvs)
 };
 
 struct MeshData {
     std::vector<std::array<float, 3>> positions;
     std::vector<std::array<float, 2>> uvs;
+    std::vector<std::array<float, 2>> second_uvs; // (a second texture coordinate set, where the layout has one)
     std::vector<uint32_t> colours;
     std::vector<uint32_t> corners; // the indices drawn (a list's or a strip's); unindexed: 0..n-1
 };
@@ -277,6 +288,10 @@ std::vector<uint8_t> vertex_bytes(const MeshData& data, const Layout& layout)
         if (layout.uv_offset != kAbsent) {
             put_float(bytes, base + layout.uv_offset, core::at(data.uvs, i).front());
             put_float(bytes, base + layout.uv_offset + sizeof(float), core::at(data.uvs, i).back());
+            if (layout.uv_sets > 1) {
+                put_float(bytes, base + layout.uv_offset + (2 * sizeof(float)), core::at(data.second_uvs, i).front());
+                put_float(bytes, base + layout.uv_offset + (3 * sizeof(float)), core::at(data.second_uvs, i).back());
+            }
         }
         if (layout.colour_offset != kAbsent) {
             put_word(bytes, base + layout.colour_offset, core::at(data.colours, i));
@@ -343,7 +358,8 @@ bool make_mesh(render::Gpu& gpu, TestMesh* mesh)
                       .uv_offset = layout.uv_offset == kAbsent ? 0U : layout.uv_offset,
                       .uv_format = layout.uv_offset == kAbsent ? rt::kAttributeNone : rt::kUvFloat2,
                       .colour_offset = layout.colour_offset == kAbsent ? 0U : layout.colour_offset,
-                      .colour_format = layout.colour_offset == kAbsent ? rt::kAttributeNone : rt::kColourA8R8G8B8};
+                      .colour_format = layout.colour_offset == kAbsent ? rt::kAttributeNone : rt::kColourA8R8G8B8,
+                      .uv_sets = layout.uv_sets};
     mesh->id = rt::next_mesh_id();
     rt::ray_tracing()->add_mesh(mesh->id, mesh->geometry);
     return true;
@@ -757,6 +773,10 @@ MeshData floor_data()
     const auto half = static_cast<float>(kFloorHalf);
     data.positions = {{-half, 0.0F, -half}, {-half, 0.0F, half}, {half, 0.0F, -half}, {half, 0.0F, half}};
     data.uvs = {{0.0F, 0.0F}, {0.0F, 1.0F}, {1.0F, 0.0F}, {1.0F, 1.0F}};
+    for (const std::array<float, 2>& uv : data.uvs) {
+        data.second_uvs.push_back(
+            {uv.front() * static_cast<float>(kCoverTiling), uv.back() * static_cast<float>(kCoverTiling)});
+    }
     data.colours = {kGrey, kGrey, kGrey, kGrey};
     data.corners = {0, 1, 2, 3}; // (a strip: two triangles)
     return data;
@@ -832,6 +852,9 @@ struct Reflection {
     std::array<double, 2> uv{};
     double cosine = 0.0;  // between the view and the floor's normal (the Fresnel weight's)
     Vec3 mirrored{};      // the reflected direction (the floor's pixels)
+    // the cover's texel at the floor point (its second set, filtered linearly): kCoverClear (between columns 0 - 3's
+    // centres), kCoverOpaque (4 - 7's), or kCoverBlend (between the two: left out)
+    int cover = 0;
 };
 using Offset = std::array<double, 2>;
 Reflection reflection_at(const View& view, double px, double py)
@@ -853,6 +876,17 @@ Reflection reflection_at(const View& view, double px, double py)
     }
     out.floor = true;
     out.cosine = -y_of(direction);
+    // (the floor's first set: u from x, -half..half as 0..1; the second: that x kCoverTiling, wrapped)
+    const double u = (x_of(point) + kFloorHalf) / (2.0 * kFloorHalf) * kCoverTiling;
+    const double at = (u - std::floor(u)) * kTextureSide;
+    constexpr double kHalfTexel = 0.5;
+    if (at >= kHalfTexel && at <= kCoverClearColumns - kHalfTexel) {
+        out.cover = kCoverClear;
+    } else if (at >= kCoverClearColumns + kHalfTexel && at <= kTextureSide - kHalfTexel) {
+        out.cover = kCoverOpaque;
+    } else {
+        out.cover = kCoverBlend;
+    }
     const Vec3 normal{0.0, 1.0, 0.0};
     const Vec3 mirrored = step(direction, normal, -2.0 * dot(direction, normal));
     out.mirrored = mirrored;
@@ -870,7 +904,8 @@ Reflection reflection_at(const View& view, double px, double py)
 
 bool same(const Reflection& one, const Reflection& other)
 {
-    return one.floor == other.floor && one.hit == other.hit && one.column == other.column && one.row == other.row;
+    return one.floor == other.floor && one.hit == other.hit && one.column == other.column && one.row == other.row &&
+           one.cover == other.cover;
 }
 
 // --- drawing it through the Gpu ----------------------------------------------------------------------------------
@@ -1012,17 +1047,36 @@ struct Mirror {
     TestMesh floor;
     TestMesh box;
     render::GpuTexture* texture = nullptr;
+    render::GpuTexture* cover = nullptr; // (the floor's cover pass: the mask's texture)
     rt::MaterialId floor_material = 0;
     rt::MaterialId box_material = 0;
 };
 
-rt::Material floor_surface(float reflectivity, uint32_t kind = rt::kReflectShiny, uint32_t mask = rt::kReflectEverywhere)
+// The floor's surface: `mask` (blend modes 12 / 13) lerped in by its own white texture's alpha (mask pass 0: the base,
+// untextured, set 0); `cover`: a wall texture drawn over it by its alpha (a mask pass, kMaskClear, set 1, the vertex
+// alpha taken in), as render_pc/rt_record.cpp records BO's buildings.
+rt::Material floor_surface(float reflectivity, uint32_t kind = rt::kReflectShiny,
+                           uint32_t mask = rt::kReflectEverywhere, render::GpuTexture* cover = nullptr)
 {
     rt::Material surface;
     surface.reflectivity = reflectivity;
     surface.environment_pass = reflectivity > 0.0F ? 1U : rt::kNoEnvironmentPass;
     surface.reflection_class = kind;
     surface.reflection_mask = mask;
+    if (mask != rt::kReflectEverywhere) {
+        surface.mask_passes.front() = {.texture = nullptr,
+                                       .kind = mask == rt::kReflectWhereBaseClear ? rt::kMaskClear : rt::kMaskOpaque,
+                                       .uv_set = 0,
+                                       .texture_alpha = true};
+    }
+    if (cover != nullptr) {
+        surface.mask_passes.back() = {.texture = cover,
+                                      .kind = rt::kMaskClear,
+                                      .uv_set = 1,
+                                      .address_u = value::kAddressWrap,
+                                      .address_v = value::kAddressWrap,
+                                      .texture_alpha = false};
+    }
     return surface;
 }
 
@@ -1035,6 +1089,7 @@ struct MirrorCase {
     bool fresnel = false;
     uint32_t kind = rt::kReflectShiny;
     uint32_t mask = rt::kReflectEverywhere;
+    bool cover = false; // the floor under a cover pass: reflecting only through its clear texels
     float roughness = 0.0F;
     float glass_reflectance = render::vulkan::kRtGlassReflectance; // (rt_glass_reflectance: glass's F0)
 };
@@ -1078,7 +1133,16 @@ double reference_weight(const MirrorCase& test, double cosine)
     return (face_on + ((std::max(most, face_on) - face_on) * schlick_term)) * mask;
 }
 
-bool make_mirror(render::Gpu& gpu, Mirror* mirror)
+// ... at a floor pixel: under the cover, nothing where its texel is opaque (alpha 255 x the grey vertex alpha doubled,
+// 1.004, clamped to 1: 1 - a is 0), all of it where clear.
+double weight_at(const MirrorCase& test, const Reflection& here)
+{
+    return reference_weight(test, here.cosine) * (test.cover && here.cover != kCoverClear ? 0.0 : 1.0);
+}
+
+// An 8 x 8 texture of colour(column, row) texels.
+template <typename Colour>
+bool make_texture(render::Gpu& gpu, Colour colour, render::GpuTexture** made)
 {
     if (gpu.create_texture({.width = kTextureSide,
                             .height = kTextureSide,
@@ -1086,12 +1150,12 @@ bool make_mirror(render::Gpu& gpu, Mirror* mirror)
                             .usage = 0,
                             .format = value::kFormatA8R8G8B8,
                             .pool = value::kPoolManaged},
-                           &mirror->texture) != value::kResultOk) {
-        mirror->texture = nullptr;
+                           made) != value::kResultOk) {
+        *made = nullptr;
         return false;
     }
     render::GpuLockedRect locked;
-    if (gpu.lock_texture(mirror->texture, 0, &locked, nullptr, 0) != value::kResultOk) {
+    if (gpu.lock_texture(*made, 0, &locked, nullptr, 0) != value::kResultOk) {
         return false;
     }
     const std::span<uint8_t> into(static_cast<uint8_t*>(locked.bits),
@@ -1100,14 +1164,26 @@ bool make_mirror(render::Gpu& gpu, Mirror* mirror)
     for (uint32_t row = 0; row < kTextureSide; ++row) {
         for (uint32_t column = 0; column < kTextureSide; ++column) {
             put_word(into, (static_cast<std::size_t>(row) * static_cast<uint32_t>(locked.pitch)) + (column * kPixelBytes),
-                     texel_colour(column, row));
+                     colour(column, row));
         }
     }
-    gpu.unlock_texture(mirror->texture, 0);
+    gpu.unlock_texture(*made, 0);
+    return true;
+}
+
+bool make_mirror(render::Gpu& gpu, Mirror* mirror)
+{
+    // (the cover: a wall texture over the floor's environment pass - clear (its windows) in its first columns)
+    if (!make_texture(gpu, texel_colour, &mirror->texture) ||
+        !make_texture(
+            gpu, [](uint32_t column, uint32_t) { return column < kCoverClearColumns ? 0x00A04020U : 0xFFA04020U; },
+            &mirror->cover)) {
+        return false;
+    }
     // the floor: a 32-bit indexed strip after junk; the box: a 16-bit list from an odd index
-    mirror->floor.layout = {.indexed = true, .wide = true, .strip = true, .stride = kTexturedStride,
+    mirror->floor.layout = {.indexed = true, .wide = true, .strip = true, .stride = kTwoSetStride,
                             .position_offset = 0, .uv_offset = kTexturedUv, .colour_offset = kTexturedColour,
-                            .leading_vertices = 2, .leading_indices = 3};
+                            .leading_vertices = 2, .leading_indices = 3, .uv_sets = 2};
     mirror->floor.data = floor_data();
     mirror->box.layout = {.indexed = true, .wide = false, .strip = false, .stride = kTexturedStride,
                           .position_offset = 0, .uv_offset = kTexturedUv, .colour_offset = kTexturedColour,
@@ -1138,6 +1214,9 @@ void release_mirror(render::Gpu& gpu, Mirror* mirror)
     }
     if (mirror->texture != nullptr) {
         gpu.release_texture(mirror->texture);
+    }
+    if (mirror->cover != nullptr) {
+        gpu.release_texture(mirror->cover);
     }
     *mirror = Mirror{};
 }
@@ -1256,15 +1335,16 @@ void compare_mirror(const std::vector<uint8_t>& with, const std::vector<uint8_t>
             }
             const Rgb got = pixel_at(with, column, row);
             const Rgb before = pixel_at(without, column, row);
-            if (!clear) {
+            if (!clear || (test.cover && here.floor && here.cover == kCoverBlend)) {
                 ++borderline;
                 continue;
             }
-            if (here.floor && here.hit && reference_weight(test, here.cosine) > 0.0) {
+            if (here.floor && here.hit && weight_at(test, here) > 0.0) {
                 ++clear_cut;
-                lightest = std::min(lightest, reference_weight(test, here.cosine));
-                heaviest = std::max(heaviest, reference_weight(test, here.cosine));
-                const Rgb want = reflected_colour(here, reference_weight(test, here.cosine), replaces ? kWhite : rgb_of(kFloorColour));
+                lightest = std::min(lightest, weight_at(test, here));
+                heaviest = std::max(heaviest, weight_at(test, here));
+                const Rgb want =
+                    reflected_colour(here, weight_at(test, here), replaces ? kWhite : rgb_of(kFloorColour));
                 if (!close_to(got, want)) {
                     ++wrong;
                     if (first_wrong.empty()) {
@@ -1275,7 +1355,7 @@ void compare_mirror(const std::vector<uint8_t>& with, const std::vector<uint8_t>
             } else if (replaces && here.floor) {
                 // (a floor pixel whose reflection misses: (1 - F) of the glass's own colour, F of the frame)
                 ++clear_cut;
-                const double f = reference_weight(test, here.cosine);
+                const double f = weight_at(test, here);
                 Rgb want{};
                 for (std::size_t channel = 0; channel < 3; ++channel) {
                     core::at(want, channel) = static_cast<int>(
@@ -1351,7 +1431,7 @@ void check_image(const MirrorCase& test, Tally* tally)
     for (int row = 0; row < kRows; ++row) {
         for (int column = 0; column < kColumns; ++column) {
             const Reflection here = reflection_at(view, column, row);
-            bool clear = here.floor && here.hit;
+            bool clear = here.floor && here.hit && !(test.cover && here.cover == kCoverBlend);
             constexpr double kShift = 0.1;
             for (const auto& [dx, dy] : std::array<std::pair<double, double>, 4>{
                      {{kShift, 0.0}, {-kShift, 0.0}, {0.0, kShift}, {0.0, -kShift}}}) {
@@ -1360,7 +1440,7 @@ void check_image(const MirrorCase& test, Tally* tally)
             if (!clear) {
                 continue;
             }
-            const double want = reference_weight(test, here.cosine);
+            const double want = weight_at(test, here);
             const double alpha = core::at(core::at(image.texels, (static_cast<std::size_t>(row) * kColumns) + column), 3);
             // (a rough pixel: some of its rays may miss the box - at most the weight, its sign negative)
             const bool rough = test.roughness > 0.0F;
@@ -1385,7 +1465,8 @@ void run_mirror(render::Gpu& gpu, Mirror& mirror, const MirrorCase& test, Tally*
     text::print("the mirror (%s, %s, strength %.2f, reflectivity %.2f%s):\n", test.name,
                 test.samples == 0 ? "one sample" : "four samples", static_cast<double>(test.strength),
                 static_cast<double>(test.reflectivity), test.fresnel ? ", Fresnel" : "");
-    rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(test.reflectivity, test.kind, test.mask));
+    rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(test.reflectivity, test.kind, test.mask,
+                                                                                 test.cover ? mirror.cover : nullptr));
     Targets targets;
     const bool made = make_targets(gpu, test.samples, &targets);
     tally->check(made, "the targets made");
@@ -1803,6 +1884,16 @@ int run(const Options& options, SDL_Window* window)
         run_mirror(gpu, mirror,
                    {.name = "glass where the base is clear", .samples = 0, .strength = kHalf, .reflectivity = 1.0F,
                     .fresnel = true, .kind = rt::kReflectGlass, .mask = rt::kReflectWhereBaseClear},
+                   &tally);
+        // (a wall texture drawn over the environment pass by its alpha - BO's buildings: a reflection only through its
+        // clear texels (the windows), read with the floor's second texture coordinate set; with Fresnel and without)
+        run_mirror(gpu, mirror,
+                   {.name = "glass under a cover, its clear texels", .samples = 0, .strength = kHalf,
+                    .reflectivity = 1.0F, .fresnel = true, .kind = rt::kReflectGlass, .cover = true},
+                   &tally);
+        run_mirror(gpu, mirror,
+                   {.name = "under a cover, no Fresnel", .samples = 0, .strength = 1.0F, .reflectivity = 1.0F,
+                    .cover = true},
                    &tally);
         run_rough(gpu, mirror, &tally);
         run_untouched(gpu, mirror, "nothing reflective: the pass skipped", true, 0.0F, &tally);
