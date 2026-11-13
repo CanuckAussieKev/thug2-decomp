@@ -183,6 +183,15 @@ public:
     {
         (void)mesh, (void)object_to_world;
     }
+    // (added by the first frame - docs/design/vulkan.md "The first frame after a load") A new world's first frame, after
+    // its begin_frame: the builds it recorded run now and every structure that can be made smaller is (the frame's work
+    // waited for, the frame's scene built again from `record`) - before the baked sun is fitted to it and anything is
+    // traced. Slow: once a load.
+    virtual void settle(const FrameRecord& record) { (void)record; }
+    // (added by the first frame) Each frame after begin_frame (and the baked sun's fit, when one was made): what every
+    // view of the frame shares made ready from the frame's sun before the first view is drawn (the Vulkan Gpu: the sky
+    // model's table and the sun's light the effects read).
+    virtual void prepare_frame() {}
 };
 
 // The installed backend (null: none - Direct3D 9, or no ray tracing on this device / off in the ini).
@@ -297,7 +306,7 @@ struct BakedSun {
 };
 void set_baked_sun(BakedSun sun);
 const BakedSun& baked_sun();
-// Whether a fit is wanted (the shadow pass asks for one; render_pc fits once a world has stood still a moment).
+// Whether a fit is wanted (the shadow pass asks for one; render_pc fits a new world in its first frame).
 void set_baked_sun_wanted(bool wanted);
 bool baked_sun_wanted();
 

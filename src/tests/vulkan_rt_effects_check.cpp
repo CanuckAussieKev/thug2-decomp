@@ -1048,7 +1048,7 @@ double percentile(std::vector<double> values, double share)
 
 // The denoised result after a still camera's frames: near the many-ray reference, the histories full, no NaN, the
 // colour multiplied by it.
-void compare_still(const std::vector<uint8_t>& texels, Tally* tally)
+void compare_still(const std::vector<uint8_t>& texels, int frames, Tally* tally)
 {
     render::vulkan::RtAoTexels final_image;
     render::vulkan::RtAoTexels history;
@@ -1098,7 +1098,7 @@ void compare_still(const std::vector<uint8_t>& texels, Tally* tally)
     tally->check(mean <= kMeanBound && tail <= kTailBound && occluded_sum >= kEnoughOcclusion,
                  text::format("still camera, %d frames: the result near the 256-ray reference over %zu pixels - mean "
                               "error %.4f (at most %.2f), 99th percentile %.4f (at most %.2f)",
-                              kStillFrames, errors.size(), mean, kMeanBound, tail, kTailBound));
+                              frames, errors.size(), mean, kMeanBound, tail, kTailBound));
     tally->check(short_history == 0,
                  text::format("every history %u frames long: %d shorter", render::vulkan::kAoMaxHistory, short_history));
     tally->check(colour_wrong == 0, text::format("the colour multiplied by the result: %d pixels not", colour_wrong));
@@ -1237,16 +1237,23 @@ void run_denoised(render::Gpu& gpu, const Scene& scene, Tally* tally)
     const bool made = make_targets(gpu, 0, &targets);
     tally->check(made, "the targets made");
     if (made) {
-        int passes = 0;
-        for (int frame = 0; frame < kStillFrames; ++frame) {
+        // (added by the first frame) the first frame: its history seeded with a full history's rays (vulkan_rt_history.h) -
+        // as converged as the still camera's after kStillFrames
+        int passes = static_cast<int>(draw_frame(gpu, targets, kEye));
+        std::vector<uint8_t> texels;
+        bool read = read_colour(gpu, targets, &texels);
+        tally->check(read, "the first frame's target read back");
+        if (read) {
+            compare_still(texels, 1, tally);
+        }
+        for (int frame = 1; frame < kStillFrames; ++frame) {
             passes += static_cast<int>(draw_frame(gpu, targets, kEye));
         }
         tally->check(passes == kStillFrames, text::format("%d frames, %d passes", kStillFrames, passes));
-        std::vector<uint8_t> texels;
-        const bool read = read_colour(gpu, targets, &texels);
+        read = read_colour(gpu, targets, &texels);
         tally->check(read, "the target read back");
         if (read) {
-            compare_still(texels, tally);
+            compare_still(texels, kStillFrames, tally);
         }
         tally->check(draw_frame(gpu, targets, kMovedEye) == 1, "the moved camera's frame");
         compare_moved(tally);

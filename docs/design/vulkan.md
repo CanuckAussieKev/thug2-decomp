@@ -873,7 +873,8 @@ the original's own lighting already says otherwise, is decided so:
   directional lights are the light manager's two (toward (0.75, 0.5, 0.43) and (-0.79, 0.5, -0.37)) in every level -
   they light the skater and the objects, not the level - so tracing toward the first one put the shadows where the
   level's bake has none (BO, sch: 65-95% of each picture darkened, the sunlit paving with it). The level's own sun is in
-  its world meshes' vertex colours: once the world has stood still for 60 frames `render_pc/rt_record` samples its
+  its world meshes' vertex colours: in a new world's first frame, before it is drawn ("The first frame after a load"
+  below), `render_pc/rt_record` samples its
   upward-facing triangles (the colour's luma at each) and `fit_baked_sun` traces every sample toward 240 directions
   over the sky (then 60 within 10 degrees of the best, 40 within 3): the direction whose "not blocked" correlates best
   with the brightness is the sun (BO heading -75 / elevation 52, z_dt 44 / 53, z_ho 45 / 58, sch -45 / 36; about 1.5-2.7
