@@ -46,9 +46,11 @@ inline constexpr double kZenithTarget = 0.3; // the zenith's luminance (linear) 
 inline constexpr double kExposureElevation = 0.78539816339744831; // (45 degrees)
 
 // How finely the integrals are taken: segments along a view ray, and along each sample's ray toward the sun.
+inline constexpr uint32_t kTableViewSteps = 32; // (the device's table: vulkan_rt_sky)
+inline constexpr uint32_t kTableLightSteps = 16;
 struct SkySteps {
-    uint32_t view = 32;
-    uint32_t light = 16;
+    uint32_t view = kTableViewSteps;
+    uint32_t light = kTableLightSteps;
 };
 inline constexpr SkySteps kReferenceSteps{.view = 1024, .light = 512};
 
@@ -76,7 +78,11 @@ using Dir = std::array<double, 3>;
 inline constexpr uint32_t kSkyLutWidth = 64;
 inline constexpr uint32_t kSkyLutHeight = 32;
 inline constexpr double kSkyLutLowest = -0.1; // radians
-// The view direction (model space, the sun along +x) of the table's entry centre (column, row).
-[[nodiscard]] Dir sky_lut_direction(uint32_t column, uint32_t row);
+// The view direction (model space, the sun along +x) of a table entry's centre.
+struct SkyLutEntry {
+    uint32_t column = 0;
+    uint32_t row = 0;
+};
+[[nodiscard]] Dir sky_lut_direction(const SkyLutEntry& entry);
 
 } // namespace render::rt

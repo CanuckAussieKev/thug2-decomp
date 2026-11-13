@@ -679,9 +679,15 @@ VkPipeline composite_pipeline(Backend& state, VkFormat format, VkSampleCountFlag
     raster.cullMode = VK_CULL_MODE_NONE;
     raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     raster.lineWidth = 1.0F;
-    VkPipelineMultisampleStateCreateInfo multisample{};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = samples;
+    const VkPipelineMultisampleStateCreateInfo multisample{.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                                                           .pNext = nullptr,
+                                                           .flags = 0,
+                                                           .rasterizationSamples = samples,
+                                                           .sampleShadingEnable = VK_FALSE,
+                                                           .minSampleShading = 0.0F,
+                                                           .pSampleMask = nullptr,
+                                                           .alphaToCoverageEnable = VK_FALSE,
+                                                           .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     VkPipelineColorBlendAttachmentState blend{};
@@ -1233,12 +1239,12 @@ void read_timer(Backend& state, uint32_t set, const Extent& size)
         core::at(own.window_milliseconds, part) += milliseconds;
     }
     if (own.window_samples >= kTimingLogEvery) {
-        const double n = static_cast<double>(own.window_samples);
+        const auto count = static_cast<double>(own.window_samples);
         const std::array<double, 4>& w = own.window_milliseconds;
         get_log("vulkan: rt_sun: the passes take %.3f ms on the device - rays %.3f, source %.3f, bloom %.3f, composite "
                 "%.3f (%ux%u; the last %llu passes' average)",
-                (core::at(w, 0) + core::at(w, 1) + core::at(w, 2) + core::at(w, 3)) / n, core::at(w, 0) / n,
-                core::at(w, 1) / n, core::at(w, 2) / n, core::at(w, 3) / n, size.width, size.height,
+                (core::at(w, 0) + core::at(w, 1) + core::at(w, 2) + core::at(w, 3)) / count, core::at(w, 0) / count,
+                core::at(w, 1) / count, core::at(w, 2) / count, core::at(w, 3) / count, size.width, size.height,
                 static_cast<unsigned long long>(own.window_samples));
         own.window_samples = 0;
         own.window_milliseconds = {};
@@ -1255,12 +1261,19 @@ struct Plan {
     bool frame_bloomed = false;
 };
 
-RtSunFrame frame_for(const RtSunSettings& settings, const rt::ViewDrawn& view, const Matrix& to_pixel,
-                     const Matrix& to_world, bool have_sun, const std::array<float, 3>& toward)
+// A view's matrices: world -> the target's pixels, and back.
+struct ViewMatrices {
+    Matrix to_pixel{};
+    Matrix to_world{};
+};
+
+// toward_sun: the sun (null: none).
+RtSunFrame frame_for(const RtSunSettings& settings, const rt::ViewDrawn& view, const ViewMatrices& matrices,
+                     const std::array<float, 3>* toward_sun)
 {
+    const Matrix& to_world = matrices.to_world;
     RtSunFrame frame;
-    frame.sun = have_sun;
-    frame.toward = toward;
+    frame.sun = toward_sun != nullptr;
     frame.disc_radius = static_cast<float>(kSunDiscRadius * settings.sun_size);
     const double left = core::at(view.rect, 0);
     const double top = core::at(view.rect, 1);
@@ -1275,12 +1288,14 @@ RtSunFrame frame_for(const RtSunSettings& settings, const rt::ViewDrawn& view, c
         cosine += core::at(here, i) * core::at(next, i);
     }
     frame.pixel_angle = static_cast<float>(std::acos(std::clamp(cosine, -1.0, 1.0)));
-    if (!have_sun) {
+    if (toward_sun == nullptr) {
         return frame;
     }
+    const std::array<float, 3>& toward = *toward_sun;
+    frame.toward = toward;
     frame.colour = sun_colour_for(toward);
     const std::array<double, 4> at = transform(
-        to_pixel, {static_cast<double>(core::at(toward, 0)), static_cast<double>(core::at(toward, 1)),
+        matrices.to_pixel, {static_cast<double>(core::at(toward, 0)), static_cast<double>(core::at(toward, 1)),
                    static_cast<double>(core::at(toward, 2)), 0.0});
     frame.in_front = core::at(at, 3) > kInFront;
     if (frame.in_front) {
@@ -1295,11 +1310,25 @@ RtSunFrame frame_for(const RtSunSettings& settings, const rt::ViewDrawn& view, c
     return frame;
 }
 
-SunBlock block_for(const RtSunSettings& settings, const rt::ViewDrawn& view, const Matrix& to_world,
-                   const RtSunFrame& frame, const Plan& plan, VkSampleCountFlagBits samples, uint32_t levels)
+// What the block is made from.
+struct BlockInput {
+    const RtSunSettings* settings = nullptr;
+    const rt::ViewDrawn* view = nullptr;
+    const Matrix* to_world = nullptr;
+    const RtSunFrame* frame = nullptr;
+    const Plan* plan = nullptr;
+    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+    uint32_t levels = 0;
+};
+
+SunBlock block_for(const BlockInput& input)
 {
+    const RtSunSettings& settings = *input.settings;
+    const rt::ViewDrawn& view = *input.view;
+    const RtSunFrame& frame = *input.frame;
+    const Plan& plan = *input.plan;
     SunBlock block{};
-    block.to_world = column_major(to_world);
+    block.to_world = column_major(*input.to_world);
     block.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                     core::at(view.camera.position, 2), 0.0F};
     block.sun = {core::at(frame.toward, 0), core::at(frame.toward, 1), core::at(frame.toward, 2),
@@ -1316,8 +1345,8 @@ SunBlock block_for(const RtSunSettings& settings, const rt::ViewDrawn& view, con
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
     const Extent half = half_of({.width = core::at(view.rect, 2), .height = core::at(view.rect, 3)});
     block.low = {static_cast<int32_t>(half.width), static_cast<int32_t>(half.height),
-                 static_cast<int32_t>(kSunShaftSamples), static_cast<int32_t>(levels)};
-    block.flags = {static_cast<int32_t>(samples), plan.disc ? 1 : 0, plan.shafts ? 1 : 0, plan.bloom ? 1 : 0};
+                 static_cast<int32_t>(kSunShaftSamples), static_cast<int32_t>(input.levels)};
+    block.flags = {static_cast<int32_t>(input.samples), plan.disc ? 1 : 0, plan.shafts ? 1 : 0, plan.bloom ? 1 : 0};
     return block;
 }
 
@@ -1338,7 +1367,7 @@ void record_bloom(VkCommandBuffer commands, SunSlot* slot, const VkDescriptorBuf
     const float weight = 1.0F / static_cast<float>(levels);
     const Extent full = slot->base.extent;
     for (std::size_t i = 0; i < levels; ++i) {
-        Image& out = core::at(slot->down, i);
+        const Image& out = core::at(slot->down, i);
         const Extent from = i == 0 ? full : core::at(slot->down, i - 1).extent;
         const LevelConstants level{.size = {static_cast<int32_t>(out.extent.width), static_cast<int32_t>(out.extent.height),
                                             static_cast<int32_t>(from.width), static_cast<int32_t>(from.height)},
@@ -1353,7 +1382,7 @@ void record_bloom(VkCommandBuffer commands, SunSlot* slot, const VkDescriptorBuf
     }
     // up: level i = its own x the weight + the one below upsampled (the smallest level's own, x the weight)
     for (std::size_t i = levels - 1; i-- > 0;) {
-        Image& out = core::at(slot->up, i);
+        const Image& out = core::at(slot->up, i);
         const bool below_is_last = i + 1 == levels - 1;
         const Image& below = below_is_last ? core::at(slot->down, i + 1) : core::at(slot->up, i + 1);
         const LevelConstants level{
@@ -1368,27 +1397,23 @@ void record_bloom(VkCommandBuffer commands, SunSlot* slot, const VkDescriptorBuf
 // The bloom's top: what the composite upsamples (level 1's up, or with one level its down, x the weight 1).
 const Image& bloom_top(const SunSlot& slot) { return slot.up.empty() ? slot.down.front() : slot.up.front(); }
 
-bool record_pass(Backend& state, const rt::ViewDrawn& view)
+// The sun this view draws (vulkan_rt_sky.h visible_sun), whether the original's is left out, its direction logged when
+// it moves; no sun: the other effects told so. False: none (or none wanted).
+bool find_sun(Backend& state, const RtSunSettings& settings, std::array<float, 3>* toward)
 {
     SunState& own = sun_state();
-    const RtSunSettings& settings = sun_settings_held();
-    if (own.failed || !(settings.sun || settings.shafts || settings.bloom)) {
-        rt::set_sun_glare_replaced(false);
-        return false;
-    }
-    std::array<float, 3> toward{};
     const bool want_sun = settings.sun || settings.shafts;
-    const bool have_sun = want_sun && visible_sun(&toward);
+    const bool have_sun = want_sun && visible_sun(toward);
     rt::set_sun_glare_replaced(settings.sun && have_sun);
-    if (have_sun && toward != own.logged_toward) {
+    if (have_sun && *toward != own.logged_toward) {
         // (logged when the sun moves: a new level, the time of day)
-        own.logged_toward = toward;
+        own.logged_toward = *toward;
         std::array<float, 3> game{};
-        const bool from_game = !rt::sun_override(&game) && rt::game_sun(&game) && game == toward;
+        const bool from_game = !rt::sun_override(&game) && rt::game_sun(&game) && game == *toward;
         get_log("vulkan: rt_sun: the sun toward (%.3f, %.3f, %.3f), %.1f degrees up - %s",
-                static_cast<double>(core::at(toward, 0)), static_cast<double>(core::at(toward, 1)),
-                static_cast<double>(core::at(toward, 2)),
-                std::asin(std::clamp(static_cast<double>(core::at(toward, 1)), -1.0, 1.0)) * kDegreesPerRadian,
+                static_cast<double>(core::at(*toward, 0)), static_cast<double>(core::at(*toward, 1)),
+                static_cast<double>(core::at(*toward, 2)),
+                std::asin(std::clamp(static_cast<double>(core::at(*toward, 1)), -1.0, 1.0)) * kDegreesPerRadian,
                 from_game ? "where the game shows its sun" : "the level's baked sun (or the override)");
     }
     if (want_sun && !have_sun) {
@@ -1397,69 +1422,77 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
             get_log("vulkan: rt_sun: no sun in this level (none baked, or the fit not run yet) - the original's sun kept");
         }
     }
-    Image* const colour = colour_of(core::at(state.targets, 0));
-    Image* const depth = colour_of(state.depth);
-    if (!targets_readable(colour, depth)) {
-        if (first_report(state, kReportTargets)) {
-            get_log("vulkan: rt_sun: the bound targets can't be read (no samplable depth of the colour's size and "
-                    "samples) - the sun's pass skipped there");
-        }
-        return false;
-    }
-    const uint32_t left = std::min(core::at(view.rect, 0), colour->extent.width);
-    const uint32_t top = std::min(core::at(view.rect, 1), colour->extent.height);
-    const uint32_t width = std::min(core::at(view.rect, 2), colour->extent.width - left);
-    const uint32_t height = std::min(core::at(view.rect, 3), colour->extent.height - top);
-    if (width == 0 || height == 0) {
-        return false;
-    }
-    rt::ViewDrawn clipped = view;
-    clipped.rect = {left, top, width, height};
-    const Matrix to_pixel = world_to_pixel(clipped);
-    Matrix to_world{};
-    if (!invert(to_pixel, &to_world)) {
-        return false;
-    }
-    const RtSunFrame frame = frame_for(settings, clipped, to_pixel, to_world, have_sun, toward);
-    Plan plan;
-    plan.disc = settings.sun && have_sun && frame.in_front;
-    plan.shafts = settings.shafts && have_sun && frame.in_front && frame.fade > 0.0F;
-    plan.frame_bloomed = settings.bloom && !view.game_bloom;
-    plan.bloom = plan.frame_bloomed || plan.disc || plan.shafts;
-    own.frame = frame;
-    if (!plan.bloom) {
-        return false; // (nothing to add: the sun behind the camera, no bloom of the frame)
-    }
-    std::string error;
-    const VkPipeline composite = ensure_objects(state, &error)
-                                     ? composite_pipeline(state, colour->format, colour->samples, &error)
-                                     : VK_NULL_HANDLE;
-    if (composite == VK_NULL_HANDLE) {
-        own.failed = true;
-        if (first_report(state, kReportPipeline)) {
-            get_log("vulkan: rt_sun: the passes couldn't be made (%s) - no sun, rays or bloom", error.c_str());
-        }
-        return false;
-    }
-    SunSlot* const slot = slot_for(state, clipped.rect, *colour);
-    if (slot == nullptr) {
-        return false;
-    }
-    const auto levels = static_cast<uint32_t>(slot->down.size());
-    const SunBlock block = block_for(settings, clipped, to_world, frame, plan, colour->samples, levels);
-    const void* const block_bytes = &block;
-    const std::optional<RingSpan> span =
-        state.ring.copy(std::span(static_cast<const uint8_t*>(block_bytes), sizeof(block)), state.uniform_alignment);
-    if (!span) {
-        if (first_report(state, kReportNoRoom)) {
-            get_log("vulkan: rt_sun: no room in the ring for the pass's block - the pass skipped");
-        }
-        return false;
-    }
-    const VkDescriptorBufferInfo block_info{.buffer = span->buffer, .offset = span->offset, .range = sizeof(block)};
-    const Extent full{.width = width, .height = height};
-    const Extent half = half_of(full);
+    return have_sun;
+}
 
+// What a view's passes are recorded with.
+struct Recording {
+    Image* colour = nullptr;
+    Image* depth = nullptr;
+    SunSlot* slot = nullptr;
+    VkPipeline composite = VK_NULL_HANDLE;
+    VkDescriptorBufferInfo block{};
+    Plan plan;
+    std::array<uint32_t, 4> rect{}; // the viewport inside the target
+};
+
+// The timestamps' set this pass uses (none when the device can't time, or the set's last results aren't in yet).
+struct Stamps {
+    VkCommandBuffer commands = nullptr;
+    VkQueryPool pool = VK_NULL_HANDLE;
+    uint32_t set = 0;
+    bool on = false;
+    void stamp(uint32_t point, VkPipelineStageFlagBits stage) const
+    {
+        if (on) {
+            vkCmdWriteTimestamp(commands, stage, pool, (set * kTimerPoints) + point);
+        }
+    }
+};
+Stamps begin_timing(Backend& state, VkCommandBuffer commands, const Extent& full)
+{
+    SunState& own = sun_state();
+    ensure_timer(state);
+    const auto set = static_cast<uint32_t>(own.timed % kTimerSets);
+    uint64_t& written = core::at(own.timer_serials, set);
+    const bool timing = own.timer != VK_NULL_HANDLE && (written == 0 || state.frames.completed() >= written);
+    if (timing) {
+        if (written != 0) {
+            read_timer(state, set, full);
+        }
+        written = state.frames.serial();
+        vkCmdResetQueryPool(commands, own.timer, set * kTimerPoints, kTimerPoints);
+        ++own.timed;
+    }
+    return {.commands = commands, .pool = own.timer, .set = set, .on = timing};
+}
+
+// The colour's viewport copied out into the slot's copy (to be sampled).
+void copy_colour(VkCommandBuffer commands, Image* colour, SunSlot* slot, const std::array<uint32_t, 4>& rect)
+{
+    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    Memory::transition(commands, &slot->copy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
+    const VkImageSubresourceLayers layers{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
+    const VkOffset3D corner{.x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1)), .z = 0};
+    const VkImageCopy region{.srcSubresource = layers,
+                             .srcOffset = corner,
+                             .dstSubresource = layers,
+                             .dstOffset = corner,
+                             .extent = {.width = core::at(rect, 2), .height = core::at(rect, 3), .depth = 1}};
+    vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, slot->copy.image,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    Memory::transition(commands, &slot->copy, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+// The passes recorded (steps 0 - 4 of vulkan_rt_sun.h), timed, the targets put back.
+void record_commands(Backend& state, const Recording& recording)
+{
+    SunState& own = sun_state();
+    Image* const colour = recording.colour;
+    Image* const depth = recording.depth;
+    SunSlot* const slot = recording.slot;
+    const Extent full{.width = core::at(recording.rect, 2), .height = core::at(recording.rect, 3)};
     VkCommandBuffer commands = outside_pass(state);
     if (slot->fresh) {
         clear_slot(commands, slot);
@@ -1468,37 +1501,10 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (frame_sun(&baked)) {
         update_sky(state, commands, baked); // (the lighting sun's colour for the other effects; the fog's table)
     }
-    ensure_timer(state);
-    const auto set = static_cast<uint32_t>(own.timed % kTimerSets);
-    uint64_t& written = core::at(own.timer_serials, set);
-    const bool timing = own.timer != VK_NULL_HANDLE && (written == 0 || state.frames.completed() >= written);
-    const auto stamp = [&](uint32_t point, VkPipelineStageFlagBits stage) {
-        if (timing) {
-            vkCmdWriteTimestamp(commands, stage, own.timer, (set * kTimerPoints) + point);
-        }
-    };
-    if (timing) {
-        if (written != 0) {
-            read_timer(state, set, full);
-        }
-        written = state.frames.serial();
-        vkCmdResetQueryPool(commands, own.timer, set * kTimerPoints, kTimerPoints);
-    }
-    stamp(0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    const Stamps stamps = begin_timing(state, commands, full);
+    stamps.stamp(0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
     // 0. the colour's viewport copied out
-    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    Memory::transition(commands, &slot->copy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
-    const VkImageSubresourceLayers layers{
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
-    const VkOffset3D corner{.x = static_cast<int32_t>(left), .y = static_cast<int32_t>(top), .z = 0};
-    const VkImageCopy region{.srcSubresource = layers,
-                             .srcOffset = corner,
-                             .dstSubresource = layers,
-                             .dstOffset = corner,
-                             .extent = {.width = width, .height = height, .depth = 1}};
-    vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, slot->copy.image,
-                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    Memory::transition(commands, &slot->copy, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    copy_colour(commands, colour, slot, recording.rect);
     // the images' last frame's uses before this one's writes
     const VkMemoryBarrier ready{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                 .pNext = nullptr,
@@ -1510,11 +1516,11 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     const std::size_t multisampled = colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U;
     const LevelConstants no_level{};
     // 1. the rays
-    if (plan.shafts) {
+    if (recording.plan.shafts) {
         dispatch(commands, core::at(own.shafts, multisampled),
-                 {.depth = depth, .out_a = &slot->shafts, .block = block_info}, no_level, half);
+                 {.depth = depth, .out_a = &slot->shafts, .block = recording.block}, no_level, half_of(full));
     }
-    stamp(1, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    stamps.stamp(1, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     // 2. the source
     dispatch(commands, core::at(own.source, multisampled),
              {.colour = &slot->copy,
@@ -1522,24 +1528,21 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
               .out_a = &slot->base,
               .out_b = &slot->light,
               .in_a = &slot->shafts,
-              .block = block_info},
+              .block = recording.block},
              no_level, full);
-    stamp(2, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    stamps.stamp(2, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     // 3. the bloom
-    record_bloom(commands, slot, block_info);
-    stamp(3, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    record_bloom(commands, slot, recording.block);
+    stamps.stamp(3, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     // 4. the composite
     const Image& top_level = bloom_top(*slot);
     const LevelConstants composite_level{
         .size = {static_cast<int32_t>(top_level.extent.width), static_cast<int32_t>(top_level.extent.height), 0, 0},
         .weights = {}};
-    record_composite(commands, composite, colour,
-                     {.in_a = &top_level, .load_a = &slot->base, .load_b = &slot->light, .block = block_info},
-                     composite_level, clipped.rect);
-    stamp(4, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-    if (timing) {
-        ++own.timed;
-    }
+    record_composite(commands, recording.composite, colour,
+                     {.in_a = &top_level, .load_a = &slot->base, .load_b = &slot->light, .block = recording.block},
+                     composite_level, recording.rect);
+    stamps.stamp(4, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
     depth_barrier(commands, depth, depth->resting, false);
     if (colour->layout != colour->resting) {
         Memory::transition(commands, colour, colour->resting);
@@ -1553,17 +1556,105 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         image->used = serial;
     }
     slot->written = true;
+}
+
+void log_first_pass(const Recording& recording, const rt::ViewDrawn& view, const RtSunFrame& frame, float frame_share)
+{
+    const char* where = "none";
+    if (frame.sun) {
+        where = frame.in_front ? "in front" : "behind";
+    }
+    const Plan& plan = recording.plan;
+    get_log("vulkan: rt_sun: the first pass (%ux%u, %u sample%s; %s%s%s; %zu bloom levels, the frame's share %.3f%s; sun "
+            "%s, colour %.3f %.3f %.3f)",
+            core::at(recording.rect, 2), core::at(recording.rect, 3), static_cast<unsigned>(recording.colour->samples),
+            recording.colour->samples == 1 ? "" : "s", plan.disc ? "the sun's disc and glare, " : "",
+            plan.shafts ? "rays, " : "", plan.frame_bloomed ? "the frame bloomed" : "the sun's light bloomed",
+            recording.slot->down.size(), static_cast<double>(frame_share),
+            view.game_bloom ? ", the game's own bloom on" : "", where, static_cast<double>(core::at(frame.colour, 0)),
+            static_cast<double>(core::at(frame.colour, 1)), static_cast<double>(core::at(frame.colour, 2)));
+}
+
+bool record_pass(Backend& state, const rt::ViewDrawn& view)
+{
+    SunState& own = sun_state();
+    const RtSunSettings& settings = sun_settings_held();
+    if (own.failed || !(settings.sun || settings.shafts || settings.bloom)) {
+        rt::set_sun_glare_replaced(false);
+        return false;
+    }
+    std::array<float, 3> toward{};
+    const bool have_sun = find_sun(state, settings, &toward);
+    Recording recording;
+    recording.colour = colour_of(core::at(state.targets, 0));
+    recording.depth = colour_of(state.depth);
+    if (!targets_readable(recording.colour, recording.depth)) {
+        if (first_report(state, kReportTargets)) {
+            get_log("vulkan: rt_sun: the bound targets can't be read (no samplable depth of the colour's size and "
+                    "samples) - the sun's pass skipped there");
+        }
+        return false;
+    }
+    const Extent target = recording.colour->extent;
+    const uint32_t left = std::min(core::at(view.rect, 0), target.width);
+    const uint32_t top = std::min(core::at(view.rect, 1), target.height);
+    recording.rect = {left, top, std::min(core::at(view.rect, 2), target.width - left),
+                      std::min(core::at(view.rect, 3), target.height - top)};
+    if (core::at(recording.rect, 2) == 0 || core::at(recording.rect, 3) == 0) {
+        return false;
+    }
+    rt::ViewDrawn clipped = view;
+    clipped.rect = recording.rect;
+    ViewMatrices matrices{.to_pixel = world_to_pixel(clipped)};
+    if (!invert(matrices.to_pixel, &matrices.to_world)) {
+        return false;
+    }
+    const RtSunFrame frame = frame_for(settings, clipped, matrices, have_sun ? &toward : nullptr);
+    Plan& plan = recording.plan;
+    plan.disc = settings.sun && have_sun && frame.in_front;
+    plan.shafts = settings.shafts && have_sun && frame.in_front && frame.fade > 0.0F;
+    plan.frame_bloomed = settings.bloom && !view.game_bloom;
+    plan.bloom = plan.frame_bloomed || plan.disc || plan.shafts;
+    own.frame = frame;
+    if (!plan.bloom) {
+        return false; // (nothing to add: the sun behind the camera, no bloom of the frame)
+    }
+    std::string error;
+    recording.composite = ensure_objects(state, &error) ? composite_pipeline(state, recording.colour->format,
+                                                                               recording.colour->samples, &error)
+                                                        : VK_NULL_HANDLE;
+    if (recording.composite == VK_NULL_HANDLE) {
+        own.failed = true;
+        if (first_report(state, kReportPipeline)) {
+            get_log("vulkan: rt_sun: the passes couldn't be made (%s) - no sun, rays or bloom", error.c_str());
+        }
+        return false;
+    }
+    recording.slot = slot_for(state, recording.rect, *recording.colour);
+    if (recording.slot == nullptr) {
+        return false;
+    }
+    const SunBlock block = block_for({.settings = &settings,
+                                      .view = &clipped,
+                                      .to_world = &matrices.to_world,
+                                      .frame = &frame,
+                                      .plan = &plan,
+                                      .samples = recording.colour->samples,
+                                      .levels = static_cast<uint32_t>(recording.slot->down.size())});
+    const void* const block_bytes = &block;
+    const std::optional<RingSpan> span =
+        state.ring.copy(std::span(static_cast<const uint8_t*>(block_bytes), sizeof(block)), state.uniform_alignment);
+    if (!span) {
+        if (first_report(state, kReportNoRoom)) {
+            get_log("vulkan: rt_sun: no room in the ring for the pass's block - the pass skipped");
+        }
+        return false;
+    }
+    recording.block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(block)};
+    record_commands(state, recording);
     ++own.passes;
     if (first_report(state, kReportFirstPass)) {
-        get_log("vulkan: rt_sun: the first pass (%ux%u, %u sample%s; %s%s%s; %u bloom levels, strength %.3f%s; sun %s, "
-                "colour %.3f %.3f %.3f)",
-                width, height, static_cast<unsigned>(colour->samples), colour->samples == 1 ? "" : "s",
-                plan.disc ? "the sun's disc and glare, " : "", plan.shafts ? "rays, " : "",
-                plan.frame_bloomed ? "the frame bloomed" : "the sun's light bloomed", levels,
-                static_cast<double>(core::at(block.bloom, 0)), view.game_bloom ? ", the game's own bloom on" : "",
-                have_sun ? (frame.in_front ? "in front" : "behind") : "none",
-                static_cast<double>(core::at(frame.colour, 0)), static_cast<double>(core::at(frame.colour, 1)),
-                static_cast<double>(core::at(frame.colour, 2)));
+        log_first_pass(recording, view, frame, core::at(block.bloom, 0));
     }
     return true;
 }

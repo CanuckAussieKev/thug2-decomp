@@ -16,6 +16,7 @@
 #include "base/core/format.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
+#include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -32,7 +33,8 @@ constexpr uint64_t kReportFirst = 0x534B0002U;
 constexpr uint32_t kGroupSide = 8;
 constexpr double kShortest = 1e-6;
 constexpr float kSameDirection = 0.99999F; // (cosine) the table kept while the sun moves less than this
-constexpr rt::SkySteps kTableSteps{.view = 32, .light = 16};
+constexpr rt::SkySteps kTableSteps{.view = rt::kTableViewSteps, .light = rt::kTableLightSteps};
+constexpr double kDegreesPerRadian = 57.29577951308232;
 constexpr rt::SkySteps kColourSteps{.view = 128, .light = 64}; // the processor's zenith colour (sky_colours)
 
 // The table's pass: rt_sky.h's integrals, few steps (the processor's are the reference).
@@ -346,8 +348,9 @@ double elevation_of(const std::array<float, 3>& toward)
 std::array<float, 3> display_of(const rt::Rgb& linear)
 {
     std::array<float, 3> out{};
-    for (std::size_t c = 0; c < out.size(); ++c) {
-        core::at(out, c) = static_cast<float>(std::pow(std::max(core::at(linear, c), 0.0), 1.0 / rt::kDisplayGamma));
+    for (std::size_t channel = 0; channel < out.size(); ++channel) {
+        core::at(out, channel) =
+            static_cast<float>(std::pow(std::max(core::at(linear, channel), 0.0), 1.0 / rt::kDisplayGamma));
     }
     return out;
 }
@@ -485,7 +488,7 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
     rt::set_sun_light({.on = published, .toward = toward, .colour = colours.sun, .sky = colours.zenith});
     if (first_report(state, kReportFirst)) {
         get_log("vulkan: rt_sky: the sky's table made (sun %.1f degrees up; its colour %.3f %.3f %.3f%s)",
-                elevation * 180.0 / 3.14159265358979, static_cast<double>(core::at(colours.sun, 0)),
+                elevation * kDegreesPerRadian, static_cast<double>(core::at(colours.sun, 0)),
                 static_cast<double>(core::at(colours.sun, 1)), static_cast<double>(core::at(colours.sun, 2)),
                 own.settings.colour_set ? ", set by rt_sun_colour" : "");
     }
@@ -554,10 +557,10 @@ bool read_sky_table(Backend& state, std::vector<std::array<float, 4>>* texels)
     }
     texels->resize(count);
     for (std::size_t i = 0; i < count; ++i) {
-        for (std::size_t c = 0; c < kChannels; ++c) {
+        for (std::size_t channel = 0; channel < kChannels; ++channel) {
             uint16_t half = 0;
-            std::memcpy(&half, &core::at(bytes, ((i * kChannels) + c) * sizeof(uint16_t)), sizeof(half));
-            core::at(core::at(*texels, i), c) = half_to_float(half);
+            std::memcpy(&half, &core::at(bytes, ((i * kChannels) + channel) * sizeof(uint16_t)), sizeof(half));
+            core::at(core::at(*texels, i), channel) = half_to_float(half);
         }
     }
     return true;

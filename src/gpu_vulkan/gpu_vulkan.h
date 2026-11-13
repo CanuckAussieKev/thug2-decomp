@@ -135,6 +135,7 @@ void set_hdr_settings(const HdrSettings& settings);
 // fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray tracing isn't enabled on the device.
 inline constexpr float kRtFogAnisotropy = 0.3F; // (rt_fog_anisotropy's default)
 inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_steps' default)
+inline constexpr float kRtFogHazeHeight = 600.0F; // (rt_fog_haze_height's default: world units)
 enum class RtFogMode : uint8_t {
     kReplace = 0, // the level's own fog replaced by the volumetric one (its colour and distances; shadowed by the world)
     kShafts = 1,  // the level's own fog kept, only the sunlit shafts' light added over it
@@ -153,7 +154,7 @@ struct RtFogSettings {
     // rt_fog_haze_density) and the height over which it thins by e (rt_fog_haze_height, world units above the level's
     // ground).
     float haze_density = 1.0F;
-    float haze_height = 600.0F;
+    float haze_height = kRtFogHazeHeight;
 };
 void set_rt_fog_settings(const RtFogSettings& settings);
 [[nodiscard]] RtFogSettings rt_fog_settings();
@@ -161,9 +162,10 @@ void set_rt_fog_settings(const RtFogSettings& settings);
 // NOT ORIGINAL - the sun, its glare, the screen-space rays and the bloom (vulkan_rt_sun.h, vulkan_rt_sky.h;
 // docs/design/vulkan.md "The sun, its glare and the sky"): [Graphics] rt_sun, rt_sun_size, rt_bloom, rt_bloom_strength,
 // rt_shafts, rt_shaft_strength, rt_sky_model, rt_sun_colour, rt_lens_dirt (and rt_hdr). Nothing is drawn differently
-// while all are off. The sun's parts need a sun (the level's baked one: ray tracing enabled); the bloom doesn't.
+// while all are off. The sun's parts need a sun - where the game shows one, else the level's baked one (ray tracing
+// enabled); the bloom needs neither.
 inline constexpr float kRtBloomStrength = 0.05F; // (rt_bloom_strength's default)
-inline constexpr float kRtShaftStrength = 1.0F;  // (rt_shaft_strength's default)
+inline constexpr float kRtShaftStrength = 0.8F;  // (rt_shaft_strength's default)
 struct RtSunSettings {
     bool sun = false;          // the sun's disc and glare drawn, the original's sun sprite and lens flare hidden
     float sun_size = 1.0F;     // x the disc's default size (0.25 - 4)

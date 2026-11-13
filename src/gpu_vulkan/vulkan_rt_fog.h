@@ -75,9 +75,9 @@ inline constexpr std::array<float, 3> kFogHazeColour{0.8F, 0.8F, 0.8F};
 inline constexpr float kFogAerialExtinction = 1.0F / 12000.0F;
 inline constexpr float kFogAerialFar = 40000.0F;
 inline constexpr float kFogAerialSkyShare = 0.45F;
-inline constexpr float kFogAerialSunGain = 1.5F; // (sun x luma(sky) x (1 - a) x this: lit haze from the side ~0.8 of the sky)
-inline constexpr float kFogAerialForwardShare = 0.6F;
-inline constexpr float kFogAerialForwardG = 0.8F;
+inline constexpr float kFogAerialSunGain = 1.2F; // (sun x luma(sky) x (1 - a) x this: lit haze from the side ~0.9 of the sky)
+inline constexpr float kFogAerialForwardShare = 0.4F;
+inline constexpr float kFogAerialForwardG = 0.6F;
 inline constexpr float kFogAerialBroadG = 0.2F;
 inline constexpr float kFogAerialLowest = 0.03F; // radians
 

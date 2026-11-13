@@ -215,7 +215,9 @@ Pose away_pose()
     return {.eye = pose.eye, .at = step(pose.eye, minus(pose.eye, pose.at), 1.0)};
 }
 // Looking along the ground across the scene (the aerial haze's: long rays over the ground, the sky above).
-Pose ground_pose() { return {.eye = {250.0, 30.0, 250.0}, .at = {-100.0, 20.0, -150.0}}; }
+constexpr Vec3 kGroundEye{250.0, 30.0, 250.0};
+constexpr Vec3 kGroundAt{-100.0, 20.0, -150.0};
+Pose ground_pose() { return {.eye = kGroundEye, .at = kGroundAt}; }
 
 using Corner = std::array<int, 3>;
 std::vector<std::array<float, 3>> triangles_of(const Solid& solid)
@@ -302,17 +304,24 @@ View view_from(const Pose& pose, uint32_t width, uint32_t height)
     return view;
 }
 
-// The direction through a point of the target (Direct3D 9's pixel centres: whole coordinates).
-Vec3 direction_at(const View& view, double x, double y)
+// A point of the target (Direct3D 9's pixel centres: whole coordinates).
+struct Point {
+    double x = 0.0;
+    double y = 0.0;
+};
+constexpr double kHalf = 0.5;
+
+// The direction through a point of the target.
+Vec3 direction_at(const View& view, const Point& at)
 {
-    const double ndc_x = (2.0 * x / view.width) - 1.0;
-    const double ndc_y = 1.0 - (2.0 * y / view.height);
+    const double ndc_x = (at.x / (kHalf * view.width)) - 1.0;
+    const double ndc_y = 1.0 - (at.y / (kHalf * view.height));
     return normalised(step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height),
                            view.back, -1.0));
 }
 
 // Where a direction is on the target (false: behind the camera).
-bool screen_of(const View& view, const Vec3& direction, double* x, double* y)
+bool screen_of(const View& view, const Vec3& direction, Point* out)
 {
     const double forward = -dot(direction, view.back);
     if (forward <= 0.0) {
@@ -320,8 +329,7 @@ bool screen_of(const View& view, const Vec3& direction, double* x, double* y)
     }
     const double ndc_x = dot(direction, view.right) / (forward * view.half_width);
     const double ndc_y = dot(direction, view.up) / (forward * view.half_height);
-    *x = (ndc_x + 1.0) * view.width / 2.0;
-    *y = (1.0 - ndc_y) * view.height / 2.0;
+    *out = {.x = (ndc_x + 1.0) * kHalf * view.width, .y = (1.0 - ndc_y) * kHalf * view.height};
     return true;
 }
 
@@ -350,10 +358,11 @@ Seen seen_along(const Ray& ray)
 std::vector<uint8_t> sky_mask(const View& view)
 {
     std::vector<uint8_t> mask(static_cast<std::size_t>(view.width) * view.height);
-    for (uint32_t y = 0; y < view.height; ++y) {
-        for (uint32_t x = 0; x < view.width; ++x) {
-            const Seen seen = seen_along({.origin = view.eye, .direction = direction_at(view, x, y)});
-            core::at(mask, (static_cast<std::size_t>(y) * view.width) + x) = seen.solid == kNoSurface ? 1 : 0;
+    for (uint32_t row = 0; row < view.height; ++row) {
+        for (uint32_t column = 0; column < view.width; ++column) {
+            const Seen seen = seen_along(
+                {.origin = view.eye, .direction = direction_at(view, {.x = static_cast<double>(column), .y = static_cast<double>(row)})});
+            core::at(mask, (static_cast<std::size_t>(row) * view.width) + column) = seen.solid == kNoSurface ? 1 : 0;
         }
     }
     return mask;
@@ -722,10 +731,11 @@ bool read_colour(const Targets& targets, std::vector<Rgb>* out)
     for (std::size_t i = 0; i < pixels; ++i) {
         Rgb& colour = core::at(*out, i);
         if (targets.floats) {
-            for (std::size_t c = 0; c < kChannels; ++c) {
+            for (std::size_t channel = 0; channel < kChannels; ++channel) {
                 uint16_t half = 0;
-                std::memcpy(&half, &core::at(bytes, (i * kHalfPixelBytes) + (c * sizeof(uint16_t))), sizeof(half));
-                core::at(colour, c) = vk::half_to_float(half);
+                std::memcpy(&half, &core::at(bytes, (i * kHalfPixelBytes) + (channel * sizeof(uint16_t))),
+                            sizeof(half));
+                core::at(colour, channel) = vk::half_to_float(half);
             }
         } else {
             // (B8G8R8A8 in memory)
@@ -779,8 +789,20 @@ double mean_of(const std::vector<double>& values)
     return values.empty() ? 0.0 : sum / static_cast<double>(values.size());
 }
 
-double luma(const Rgb& c) { return dot(c, kLuma); }
-
+double luma(const Rgb& colour) { return dot(colour, kLuma); }
+Rgb rgb_of(const std::array<float, 4>& texel)
+{
+    return {core::at(texel, 0), core::at(texel, 1), core::at(texel, 2)};
+}
+Rgb plus(const Rgb& one, const Rgb& other)
+{
+    return {core::at(one, 0) + core::at(other, 0), core::at(one, 1) + core::at(other, 1),
+            core::at(one, 2) + core::at(other, 2)};
+}
+Rgb scaled(const Rgb& colour, double by)
+{
+    return {core::at(colour, 0) * by, core::at(colour, 1) * by, core::at(colour, 2) * by};
+}
 // --- the settings --------------------------------------------------------------------------------------------------
 
 vk::RtSunSettings sun_settings(bool sun, bool shafts, bool bloom, bool hdr)
@@ -804,6 +826,9 @@ constexpr double kDegrees = 3.14159265358979 / 180.0;
 // the table's reference: 8 x the device's segments (rt_sky.h's kReferenceSteps for single values - 2048 entries of them
 // would take minutes)
 constexpr render::rt::SkySteps kTableReference{.view = 256, .light = 128};
+constexpr double kNinetyNinth = 0.99;
+constexpr Vec3 kAwayHorizon{-1.0, 0.03, 0.0}; // (the model's frame: away from the sun, just above the horizon)
+constexpr double kShortestHorizontal = 1e-12;
 
 void run_sky(Tally* tally)
 {
@@ -834,28 +859,30 @@ void run_sky(Tally* tally)
         for (std::size_t row = 0; row < rows; ++row) {
             for (std::size_t column = 0; column < width; ++column) {
                 const render::rt::Dir dir =
-                    render::rt::sky_lut_direction(static_cast<uint32_t>(column), static_cast<uint32_t>(row));
+                    render::rt::sky_lut_direction({.column = static_cast<uint32_t>(column), .row = static_cast<uint32_t>(row)});
                 const Rgb want = render::rt::sky_radiance(dir, sun, kTableReference);
                 const std::array<float, 4>& got = core::at(table, (row * width) + column);
-                for (std::size_t c = 0; c < kChannels; ++c) {
-                    const double expected = core::at(want, c) * exposure;
-                    const double difference = std::abs(static_cast<double>(core::at(got, c)) - expected);
+                for (std::size_t channel = 0; channel < kChannels; ++channel) {
+                    const double expected = core::at(want, channel) * exposure;
+                    const double difference = std::abs(static_cast<double>(core::at(got, channel)) - expected);
                     errors.push_back(expected > kLeastTableValue ? difference / expected : difference / kLeastTableValue);
                 }
             }
         }
         const Rgb transmittance = render::rt::sun_transmittance(elevation, render::rt::kReferenceSteps.light);
         const std::array<float, 3> colour = render::rt::sun_colour_at(elevation);
-        const std::array<float, 4>& got_t = core::at(table, rows * width);
-        const std::array<float, 4>& got_c = core::at(table, (rows * width) + 1);
+        const std::array<float, 4>& got_transmittance = core::at(table, rows * width);
+        const std::array<float, 4>& got_colour = core::at(table, (rows * width) + 1);
         double colour_error = 0.0;
-        for (std::size_t c = 0; c < kChannels; ++c) {
-            colour_error = std::max(colour_error, std::abs(static_cast<double>(core::at(got_t, c)) - core::at(transmittance, c)));
-            colour_error = std::max(colour_error,
-                                    std::abs(static_cast<double>(core::at(got_c, c)) - static_cast<double>(core::at(colour, c))));
+        for (std::size_t channel = 0; channel < kChannels; ++channel) {
+            colour_error = std::max({colour_error,
+                                     std::abs(static_cast<double>(core::at(got_transmittance, channel)) -
+                                              core::at(transmittance, channel)),
+                                     std::abs(static_cast<double>(core::at(got_colour, channel)) -
+                                              static_cast<double>(core::at(colour, channel)))});
         }
         const double mean_error = mean_of(errors);
-        const double error99 = percentile(errors, 0.99);
+        const double error99 = percentile(errors, kNinetyNinth);
         tally->check(mean_error <= kMostTableError && error99 <= kMostTableError99 && count_not_finite(table) == 0,
                      text::format("%4.0f degrees: the table's radiance within %.2f%% on average, %.2f%% at the 99th "
                                   "percentile; no NaN",
@@ -869,13 +896,13 @@ void run_sky(Tally* tally)
                                   colour_error));
         // the zenith bluer than the horizon (away from the sun)
         const Rgb zenith = render::rt::sky_radiance({0.0, 1.0, 0.0}, sun, render::rt::kReferenceSteps);
-        const Rgb horizon = render::rt::sky_radiance(normalised({-1.0, 0.03, 0.0}), sun, render::rt::kReferenceSteps);
-        const double zenith_blue = core::at(zenith, 2) / std::max(core::at(zenith, 0), 1e-12);
-        const double horizon_blue = core::at(horizon, 2) / std::max(core::at(horizon, 0), 1e-12);
+        const Rgb horizon = render::rt::sky_radiance(normalised(kAwayHorizon), sun, render::rt::kReferenceSteps);
+        const double zenith_blue = core::at(zenith, 2) / std::max(core::at(zenith, 0), kShortestHorizontal);
+        const double horizon_blue = core::at(horizon, 2) / std::max(core::at(horizon, 0), kShortestHorizontal);
         tally->check(zenith_blue > horizon_blue,
                      text::format("%4.0f degrees: the zenith bluer than the horizon (blue / red %.2f > %.2f)", degrees,
                                   zenith_blue, horizon_blue));
-        const double warmth = static_cast<double>(core::at(colour, 2)); // (the blue of a colour whose red is 1)
+        const auto warmth = static_cast<double>(core::at(colour, 2)); // (the blue of a colour whose red is 1)
         warmer_lower = warmer_lower && warmth > last_warmth;
         last_warmth = warmth;
     }
@@ -890,14 +917,18 @@ constexpr double kMostLightError = 0.02;   // relative (16-bit floats), + kLight
 constexpr double kLightSlack = 2e-3;
 constexpr double kMostBadShare = 0.002;    // of the clear-cut pixels
 constexpr int kLeastDiscPixels = 20;
+constexpr double kLeastAngle = 1e-6;     // (the shader's)
+constexpr double kLimbDarkening = 0.6;   // (the shader's)
+constexpr double kLeastFloatCentre = 4.0; // the disc's centre in a float target: above 1, kept
 
 // The light the source pass adds at a sky pixel (the formula, vulkan_rt_sun.h step 2).
 Rgb disc_light(const vk::RtSunFrame& frame, double theta)
 {
     const double radius = frame.disc_radius;
-    const double edge = std::clamp(((radius - theta) / std::max(static_cast<double>(frame.pixel_angle), 1e-6)) + 0.5, 0.0, 1.0);
-    const double t = std::min(theta / radius, 1.0);
-    const double limb = 1.0 - (0.6 * (1.0 - std::sqrt(std::max(1.0 - (t * t), 0.0))));
+    const double edge =
+        std::clamp(((radius - theta) / std::max(static_cast<double>(frame.pixel_angle), kLeastAngle)) + kHalf, 0.0, 1.0);
+    const double across = std::min(theta / radius, 1.0);
+    const double limb = 1.0 - (kLimbDarkening * (1.0 - std::sqrt(std::max(1.0 - (across * across), 0.0))));
     const double glow = (vk::kSunAureoleNear * std::exp(-theta / vk::kSunAureoleNearWidth)) +
                         (vk::kSunAureoleWide * std::exp(-theta / vk::kSunAureoleWideWidth));
     const double amount = (vk::kSunDiscIntensity * limb * edge) + glow;
@@ -920,17 +951,17 @@ void run_disc(render::Gpu& gpu, bool floats, Tally* tally)
     tally->check(draw_frame(gpu, targets, pose) == 1, "the pass recorded");
     tally->check(render::rt::sun_glare_replaced(), "the original's sun and lens flare reported replaced");
     const vk::RtSunFrame frame = vk::rt_sun_frame();
-    double x = 0.0;
-    double y = 0.0;
-    const bool in_front = screen_of(view, to_sun(), &x, &y);
-    tally->check(in_front && frame.in_front && std::abs(static_cast<double>(core::at(frame.screen, 0)) - x) < kMostScreenError &&
-                     std::abs(static_cast<double>(core::at(frame.screen, 1)) - y) < kMostScreenError,
+    Point sun_at;
+    const bool in_front = screen_of(view, to_sun(), &sun_at);
+    tally->check(in_front && frame.in_front &&
+                     std::abs(static_cast<double>(core::at(frame.screen, 0)) - sun_at.x) < kMostScreenError &&
+                     std::abs(static_cast<double>(core::at(frame.screen, 1)) - sun_at.y) < kMostScreenError,
                  text::format("the sun's place on the screen (%.3f, %.3f) against the lens's (%.3f, %.3f)",
                               static_cast<double>(core::at(frame.screen, 0)),
-                              static_cast<double>(core::at(frame.screen, 1)), x, y));
-    const double centre_angle =
-        angle_between(direction_at(view, kTargetWidth / 2.0, kTargetHeight / 2.0),
-                      direction_at(view, (kTargetWidth / 2.0) + 1.0, kTargetHeight / 2.0));
+                              static_cast<double>(core::at(frame.screen, 1)), sun_at.x, sun_at.y));
+    const Point centre_point{.x = kHalf * kTargetWidth, .y = kHalf * kTargetHeight};
+    const double centre_angle = angle_between(direction_at(view, centre_point),
+                                              direction_at(view, {.x = centre_point.x + 1.0, .y = centre_point.y}));
     tally->check(std::abs(static_cast<double>(frame.pixel_angle) - centre_angle) < kMostAngleError,
                  text::format("a pixel's angle %.6f against %.6f", static_cast<double>(frame.pixel_angle), centre_angle));
     vk::RtSunTexels light;
@@ -944,16 +975,17 @@ void run_disc(render::Gpu& gpu, bool floats, Tally* tally)
         int disc = 0;
         int lit_surface = 0;
         double worst = 0.0;
-        for (uint32_t py = 0; py < kTargetHeight; ++py) {
-            for (uint32_t px = 0; px < kTargetWidth; ++px) {
-                if (!clear_cut(view, mask, static_cast<int>(px), static_cast<int>(py))) {
+        for (uint32_t row = 0; row < kTargetHeight; ++row) {
+            for (uint32_t column = 0; column < kTargetWidth; ++column) {
+                if (!clear_cut(view, mask, static_cast<int>(column), static_cast<int>(row))) {
                     continue;
                 }
-                const std::size_t i = (static_cast<std::size_t>(py) * kTargetWidth) + px;
-                const std::array<float, 4>& got = core::at(light.texels, i);
+                const std::size_t index = (static_cast<std::size_t>(row) * kTargetWidth) + column;
+                const std::array<float, 4>& got = core::at(light.texels, index);
                 Rgb want{};
-                if (core::at(mask, i) != 0) {
-                    const double theta = angle_between(direction_at(view, px, py), to_sun());
+                if (core::at(mask, index) != 0) {
+                    const double theta = angle_between(
+                        direction_at(view, {.x = static_cast<double>(column), .y = static_cast<double>(row)}), to_sun());
                     want = disc_light(frame, theta);
                     disc += theta < frame.disc_radius ? 1 : 0;
                 } else {
@@ -961,10 +993,11 @@ void run_disc(render::Gpu& gpu, bool floats, Tally* tally)
                 }
                 ++compared;
                 bool ok = true;
-                for (std::size_t c = 0; c < kChannels; ++c) {
-                    const double difference = std::abs(static_cast<double>(core::at(got, c)) - core::at(want, c));
-                    worst = std::max(worst, difference / (core::at(want, c) + kLightSlack));
-                    ok = ok && difference <= (kMostLightError * core::at(want, c)) + kLightSlack;
+                for (std::size_t channel = 0; channel < kChannels; ++channel) {
+                    const double expected = core::at(want, channel);
+                    const double difference = std::abs(static_cast<double>(core::at(got, channel)) - expected);
+                    worst = std::max(worst, difference / (expected + kLightSlack));
+                    ok = ok && difference <= (kMostLightError * expected) + kLightSlack;
                 }
                 bad += ok ? 0 : 1;
             }
@@ -980,11 +1013,11 @@ void run_disc(render::Gpu& gpu, bool floats, Tally* tally)
     const bool read_target = read_colour(targets, &colour);
     tally->check(read_target, "the target read back");
     if (read_target && in_front) {
-        const auto cx = static_cast<std::size_t>(std::lround(x));
-        const auto cy = static_cast<std::size_t>(std::lround(y));
-        const Rgb& centre = core::at(colour, (cy * kTargetWidth) + cx);
+        const auto centre_x = static_cast<std::size_t>(std::lround(sun_at.x));
+        const auto centre_y = static_cast<std::size_t>(std::lround(sun_at.y));
+        const Rgb& centre = core::at(colour, (centre_y * kTargetWidth) + centre_x);
         const double brightest = std::min({core::at(centre, 0), core::at(centre, 1), core::at(centre, 2)});
-        tally->check(floats ? brightest > 4.0 : brightest >= 1.0 - kPerByte,
+        tally->check(floats ? brightest > kLeastFloatCentre : brightest >= 1.0 - kPerByte,
                      text::format("the disc's centre %.3f %.3f %.3f (%s)", core::at(centre, 0), core::at(centre, 1),
                                   core::at(centre, 2), floats ? "above 1 kept" : "white"));
     }
@@ -1015,43 +1048,39 @@ float jitter_of(int x, int y)
 }
 
 // The rays' value at a half-resolution texel (the pass's march; vulkan_rt_sun.h step 1), before the colour.
-double shaft_at(const View& view, const std::vector<uint8_t>& mask, const vk::RtSunFrame& frame, int qx, int qy)
+struct Texel {
+    int x = 0;
+    int y = 0;
+};
+double shaft_at(const View& view, const std::vector<uint8_t>& mask, const vk::RtSunFrame& frame, Texel texel)
 {
-    const double at_x = (qx * 2.0) + 0.5;
-    const double at_y = (qy * 2.0) + 0.5;
-    const int n = static_cast<int>(vk::kSunShaftSamples);
-    const double delta_x = (core::at(frame.screen, 0) - at_x) * (vk::kSunShaftReach / n);
-    const double delta_y = (core::at(frame.screen, 1) - at_y) * (vk::kSunShaftReach / n);
-    const double u = jitter_of(qx, qy);
+    const Point start{.x = (texel.x * 2.0) + kHalf, .y = (texel.y * 2.0) + kHalf};
+    const int points = static_cast<int>(vk::kSunShaftSamples);
+    const double delta_x = (core::at(frame.screen, 0) - start.x) * (vk::kSunShaftReach / points);
+    const double delta_y = (core::at(frame.screen, 1) - start.y) * (vk::kSunShaftReach / points);
+    const double jitter = jitter_of(texel.x, texel.y);
     double sum = 0.0;
     double weights = 0.0;
-    double w = 1.0;
-    for (int i = 0; i < n; ++i) {
-        const double x = at_x + (delta_x * (i + u));
-        const double y = at_y + (delta_y * (i + u));
-        const int px = std::clamp(static_cast<int>(std::floor(x + 0.5)), 0, static_cast<int>(view.width) - 1);
-        const int py = std::clamp(static_cast<int>(std::floor(y + 0.5)), 0, static_cast<int>(view.height) - 1);
+    double weight = 1.0;
+    for (int index = 0; index < points; ++index) {
+        const Point here{.x = start.x + (delta_x * (index + jitter)), .y = start.y + (delta_y * (index + jitter))};
+        const int column = std::clamp(static_cast<int>(std::floor(here.x + kHalf)), 0, static_cast<int>(view.width) - 1);
+        const int row = std::clamp(static_cast<int>(std::floor(here.y + kHalf)), 0, static_cast<int>(view.height) - 1);
         double source = 0.0;
-        if (core::at(mask, (static_cast<std::size_t>(py) * view.width) + px) != 0) {
-            source = std::exp(-angle_between(direction_at(view, x, y), to_sun()) / vk::kSunShaftWidth);
+        if (core::at(mask, (static_cast<std::size_t>(row) * view.width) + column) != 0) {
+            source = std::exp(-angle_between(direction_at(view, {.x = here.x, .y = here.y}), to_sun()) /
+                              vk::kSunShaftWidth);
         }
-        sum += w * source;
-        weights += w;
-        w *= vk::kSunShaftDecay;
+        sum += weight * source;
+        weights += weight;
+        weight *= vk::kSunShaftDecay;
     }
     return (sum / weights) * vk::kRtShaftStrength * frame.fade;
 }
 
-// Whether the straight way from a texel's point toward the sun's place crosses the window (its pixels see through).
-bool through_window(const View& view, int qx, int qy, const vk::RtSunFrame& frame)
-{
-    // the texel's ray, then toward the sun from the wall's plane
-    const Vec3 direction = direction_at(view, (qx * 2.0) + 0.5, (qy * 2.0) + 0.5);
-    (void)frame;
-    const double t = -z_of(view.eye) / z_of(direction);
-    const Vec3 at = step(view.eye, direction, t);
-    return t > 0.0 && x_of(at) > -20.0 && x_of(at) < 20.0 && y_of(at) > 60.0 && y_of(at) < 100.0;
-}
+constexpr double kNearWindow = 40.0;  // pixels from the sun's place: the wall round the window
+constexpr double kFarFromWindow = 120.0;
+constexpr double kLeastNearRays = 0.01;
 
 void run_shafts(render::Gpu& gpu, Tally* tally)
 {
@@ -1075,61 +1104,49 @@ void run_shafts(render::Gpu& gpu, Tally* tally)
     const bool read = read_sun(vk::RtSunImage::kShafts, kTargetWidth, kTargetHeight, &shafts) &&
                       shafts.width == half_width && shafts.height == half_height;
     tally->check(read && count_not_finite(shafts.texels) == 0, "the rays read back, no NaN");
-    if (read) {
-        const std::vector<uint8_t> mask = sky_mask(view);
-        std::vector<double> errors;
-        std::vector<double> through;
-        std::vector<double> blocked;
-        for (uint32_t qy = 0; qy < half_height; ++qy) {
-            for (uint32_t qx = 0; qx < half_width; ++qx) {
-                const double want = shaft_at(view, mask, frame, static_cast<int>(qx), static_cast<int>(qy));
-                const std::array<float, 4>& got = core::at(shafts.texels, (static_cast<std::size_t>(qy) * half_width) + qx);
-                const double got_luma = luma({got[0], got[1], got[2]});
-                const double want_luma = want * luma({core::at(frame.colour, 0), core::at(frame.colour, 1), core::at(frame.colour, 2)});
-                errors.push_back(std::abs(got_luma - want_luma));
-                // the wall's pixels: their way to the sun crosses the window, or the wall
-                const std::size_t pixel = (static_cast<std::size_t>(qy) * 2 * kTargetWidth) + (qx * 2);
-                if (core::at(mask, pixel) == 0) {
-                    (through_window(view, static_cast<int>(qx), static_cast<int>(qy), frame) ? through : blocked)
-                        .push_back(got_luma);
-                }
-            }
-        }
-        const double error = percentile(errors, kShaftShare);
-        const double mean_error = mean_of(errors);
-        tally->check(error <= kMostShaftError && mean_error <= kMostShaftMean,
-                     text::format("every texel against the processor's march: %.4f at the 97th percentile, %.5f mean",
-                                  error, mean_error));
-        (void)blocked;
-        // (a wall pixel isn't sky: its rays start on the wall; the ones near the window see it)
-        double lit_window = 0.0;
-        double lit_far = 0.0;
-        int near_count = 0;
-        int far_count = 0;
-        for (uint32_t qy = 0; qy < half_height; ++qy) {
-            for (uint32_t qx = 0; qx < half_width; ++qx) {
-                const double distance = std::hypot((qx * 2.0) - core::at(frame.screen, 0), (qy * 2.0) - core::at(frame.screen, 1));
-                const std::array<float, 4>& got = core::at(shafts.texels, (static_cast<std::size_t>(qy) * half_width) + qx);
-                const double value = luma({got[0], got[1], got[2]});
-                const std::size_t pixel = (static_cast<std::size_t>(qy) * 2 * kTargetWidth) + (qx * 2);
-                if (core::at(mask, pixel) != 0) {
-                    continue;
-                }
-                if (distance < 40.0) {
-                    lit_window += value;
-                    ++near_count;
-                } else if (distance > 120.0) {
-                    lit_far += value;
-                    ++far_count;
-                }
-            }
-        }
-        const double near_mean = near_count > 0 ? lit_window / near_count : 0.0;
-        const double far_mean = far_count > 0 ? lit_far / far_count : 0.0;
-        tally->check(near_mean > kLeastContrast * far_mean && near_mean > 0.01,
-                     text::format("rays from the window: the wall near it %.4f, far from it %.4f", near_mean, far_mean));
-        (void)through;
+    if (!read) {
+        release_targets(gpu, targets);
+        return;
     }
+    const std::vector<uint8_t> mask = sky_mask(view);
+    const double colour_luma = luma({core::at(frame.colour, 0), core::at(frame.colour, 1), core::at(frame.colour, 2)});
+    std::vector<double> errors;
+    double near_sum = 0.0;
+    double far_sum = 0.0;
+    int near_count = 0;
+    int far_count = 0;
+    for (uint32_t row = 0; row < half_height; ++row) {
+        for (uint32_t column = 0; column < half_width; ++column) {
+            const double want =
+                shaft_at(view, mask, frame, {.x = static_cast<int>(column), .y = static_cast<int>(row)});
+            const double got =
+                luma(rgb_of(core::at(shafts.texels, (static_cast<std::size_t>(row) * half_width) + column)));
+            errors.push_back(std::abs(got - (want * colour_luma)));
+            // (the wall's pixels: near the window its rays see the sky through it; far from it, mostly wall)
+            const std::size_t pixel = (static_cast<std::size_t>(row) * 2 * kTargetWidth) + (column * std::size_t{2});
+            if (core::at(mask, pixel) != 0) {
+                continue;
+            }
+            const double distance =
+                std::hypot((column * 2.0) - core::at(frame.screen, 0), (row * 2.0) - core::at(frame.screen, 1));
+            if (distance < kNearWindow) {
+                near_sum += got;
+                ++near_count;
+            } else if (distance > kFarFromWindow) {
+                far_sum += got;
+                ++far_count;
+            }
+        }
+    }
+    const double error = percentile(errors, kShaftShare);
+    const double mean_error = mean_of(errors);
+    tally->check(error <= kMostShaftError && mean_error <= kMostShaftMean,
+                 text::format("every texel against the processor's march: %.4f at the 97th percentile, %.5f mean",
+                              error, mean_error));
+    const double near_mean = near_count > 0 ? near_sum / near_count : 0.0;
+    const double far_mean = far_count > 0 ? far_sum / far_count : 0.0;
+    tally->check(near_mean > kLeastContrast * far_mean && near_mean > kLeastNearRays,
+                 text::format("rays from the window: the wall near it %.4f, far from it %.4f", near_mean, far_mean));
     release_targets(gpu, targets);
 }
 
@@ -1137,7 +1154,68 @@ void run_shafts(render::Gpu& gpu, Tally* tally)
 
 constexpr double kMostEnergyError = 0.015; // relative
 constexpr double kMostLevels = 0.6;        // 8-bit levels: the frame's mean through the bloom
+constexpr double kLeastSpreadPeak = 10.0;  // the disc's light: well above 1
+constexpr double kMostFloatCopyError = 1e-3;
 
+double mean_luma(const vk::RtSunTexels& image)
+{
+    double sum = 0.0;
+    for (const std::array<float, 4>& texel : image.texels) {
+        sum += luma(rgb_of(texel));
+    }
+    return sum / static_cast<double>(image.texels.size());
+}
+
+// What the composite is judged from: the frame as drawn without the pass, the target after it, the pass's images.
+struct Composited {
+    bool floats = false;
+    const std::vector<Rgb>* plain = nullptr;
+    const std::vector<Rgb>* after = nullptr;
+    const vk::RtSunTexels* base = nullptr;
+    const vk::RtSunTexels* light = nullptr;
+    double spread = 0.0; // X's mean
+};
+
+// A float target keeps the picture's sum through the composite (values above 1 kept); an 8-bit one is clipped at 1,
+// brighter than the frame, within what was added.
+void check_composite(const Composited& in, Tally* tally)
+{
+    double before_sum = 0.0;
+    double after_sum = 0.0;
+    double most = 0.0;
+    int not_finite = 0;
+    for (std::size_t index = 0; index < in.after->size(); ++index) {
+        const Rgb& got = core::at(*in.after, index);
+        not_finite += std::ranges::all_of(got, [](double value) { return std::isfinite(value); }) ? 0 : 1;
+        after_sum += luma(got);
+        Rgb sum = plus(rgb_of(core::at(in.base->texels, index)), rgb_of(core::at(in.light->texels, index)));
+        if (!in.floats) {
+            for (double& value : sum) {
+                value = std::min(value, 1.0);
+            }
+        }
+        before_sum += luma(sum);
+        most = std::max({most, core::at(got, 0), core::at(got, 1), core::at(got, 2)});
+    }
+    const auto count = static_cast<double>(in.after->size());
+    if (in.floats) {
+        tally->check(not_finite == 0 && std::abs(after_sum - before_sum) <= kMostEnergyError * before_sum && most > 1.0,
+                     text::format("the picture's sum kept through the composite: %.5f before, %.5f after (mean); the "
+                                  "brightest %.2f kept above 1; no NaN",
+                                  before_sum / count, after_sum / count, most));
+        return;
+    }
+    // (the 8-bit target clips the disc and the glare round it: the sum after is at most the clipped sum before plus
+    // the spread light; at least the frame's own)
+    double plain_sum = 0.0;
+    for (const Rgb& drawn : *in.plain) {
+        plain_sum += luma(drawn);
+    }
+    tally->check(not_finite == 0 && most <= 1.0 && after_sum >= plain_sum && after_sum <= before_sum + (in.spread * count),
+                 text::format("8 bits: no NaN, at most 1, brighter than the frame (%.4f -> %.4f mean), within what was "
+                              "added (%.4f)",
+                              plain_sum / count, after_sum / count, before_sum / count));
+}
 void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
 {
     text::print("the bloom (rt_bloom=1, rt_sun=1, %s):\n", floats ? "a 16-bit float target, rt_hdr=1" : "an 8-bit target, rt_hdr=0");
@@ -1174,81 +1252,37 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
     // what is spread, X (rt_bloom_strength x the frame + kSunGlareBloom x the light), and the chain's top: the same light
     double spread = 0.0;
     double brightest = 0.0;
-    const double frame_share = vk::kRtBloomStrength;
-    const double light_share = vk::kSunGlareBloom;
-    for (std::size_t i = 0; i < base.texels.size(); ++i) {
-        const std::array<float, 4>& b = core::at(base.texels, i);
-        const std::array<float, 4>& l = core::at(light.texels, i);
-        spread += luma({(frame_share * b[0]) + (light_share * l[0]), (frame_share * b[1]) + (light_share * l[1]),
-                        (frame_share * b[2]) + (light_share * l[2])});
-        brightest = std::max(brightest, luma({static_cast<double>(b[0]) + l[0], static_cast<double>(b[1]) + l[1],
-                                              static_cast<double>(b[2]) + l[2]}));
+    for (std::size_t index = 0; index < base.texels.size(); ++index) {
+        const Rgb frame_colour = rgb_of(core::at(base.texels, index));
+        const Rgb added = rgb_of(core::at(light.texels, index));
+        spread += luma(plus(scaled(frame_colour, vk::kRtBloomStrength), scaled(added, vk::kSunGlareBloom)));
+        brightest = std::max(brightest, luma(plus(frame_colour, added)));
     }
     spread /= static_cast<double>(base.texels.size());
-    const auto mean_luma = [](const vk::RtSunTexels& image) {
-        double sum = 0.0;
-        for (const std::array<float, 4>& t : image.texels) {
-            sum += luma({t[0], t[1], t[2]});
-        }
-        return sum / static_cast<double>(image.texels.size());
-    };
     const double down = mean_luma(first);
     const double bloomed = mean_luma(top);
-    tally->check(brightest > 10.0, text::format("the light spread goes above 1 (the disc: %.1f)", brightest));
-    tally->check(std::abs(down - spread) <= kMostEnergyError * spread && std::abs(bloomed - spread) <= kMostEnergyError * spread,
+    tally->check(brightest > kLeastSpreadPeak, text::format("the light spread goes above 1 (the disc: %.1f)", brightest));
+    tally->check(std::abs(down - spread) <= kMostEnergyError * spread &&
+                     std::abs(bloomed - spread) <= kMostEnergyError * spread,
                  text::format("the light kept: X's mean %.5f, the first level down %.5f, the chain's top %.5f", spread,
                               down, bloomed));
     // the frame's own colour copied out unchanged (8-bit: exactly)
     double base_error = 0.0;
-    for (std::size_t i = 0; i < plain.size(); ++i) {
-        for (std::size_t c = 0; c < kChannels; ++c) {
-            base_error = std::max(base_error, std::abs(static_cast<double>(core::at(core::at(base.texels, i), c)) -
-                                                       core::at(core::at(plain, i), c)));
+    for (std::size_t index = 0; index < plain.size(); ++index) {
+        const Rgb copied = rgb_of(core::at(base.texels, index));
+        for (std::size_t channel = 0; channel < kChannels; ++channel) {
+            base_error =
+                std::max(base_error, std::abs(core::at(copied, channel) - core::at(core::at(plain, index), channel)));
         }
     }
-    tally->check(base_error <= (floats ? 1e-3 : 0.5 * kPerByte),
+    tally->check(base_error <= (floats ? kMostFloatCopyError : kHalf * kPerByte),
                  text::format("the frame copied out as drawn (the largest difference %.5f)", base_error));
     std::vector<Rgb> after;
     const bool read_after = read_colour(targets, &after);
     tally->check(read_after, "the target read back");
     if (read_after) {
-        double before_sum = 0.0;
-        double after_sum = 0.0;
-        double most = 0.0;
-        int not_finite = 0;
-        for (std::size_t i = 0; i < after.size(); ++i) {
-            const Rgb& got = core::at(after, i);
-            not_finite += std::ranges::all_of(got, [](double v) { return std::isfinite(v); }) ? 0 : 1;
-            after_sum += luma(got);
-            const std::array<float, 4>& b = core::at(base.texels, i);
-            const std::array<float, 4>& l = core::at(light.texels, i);
-            Rgb sum{static_cast<double>(b[0]) + l[0], static_cast<double>(b[1]) + l[1], static_cast<double>(b[2]) + l[2]};
-            if (!floats) {
-                for (double& v : sum) {
-                    v = std::min(v, 1.0);
-                }
-            }
-            before_sum += luma(sum);
-            most = std::max(most, std::max({got[0], got[1], got[2]}));
-        }
-        const double n = static_cast<double>(after.size());
-        if (floats) {
-            tally->check(not_finite == 0 && std::abs(after_sum - before_sum) <= kMostEnergyError * before_sum && most > 1.0,
-                         text::format("the picture's sum kept through the composite: %.5f before, %.5f after (mean); the "
-                                      "brightest %.2f kept above 1; no NaN",
-                                      before_sum / n, after_sum / n, most));
-        } else {
-            // (the 8-bit target clips the disc and the glare round it: the sum after is at most the clipped sum before
-            // plus the spread light; at least the frame's own)
-            double plain_sum = 0.0;
-            for (const Rgb& p : plain) {
-                plain_sum += luma(p);
-            }
-            tally->check(not_finite == 0 && most <= 1.0 && after_sum >= plain_sum && after_sum <= before_sum + (spread * n),
-                         text::format("8 bits: no NaN, at most 1, brighter than the frame (%.4f -> %.4f mean), within "
-                                      "what was added (%.4f)",
-                                      plain_sum / n, after_sum / n, before_sum / n));
-        }
+        check_composite({.floats = floats, .plain = &plain, .after = &after, .base = &base, .light = &light, .spread = spread},
+                        tally);
     }
     // the frame's own bloom alone (no sun): the 8-bit frame's sum kept
     if (!floats) {
@@ -1258,14 +1292,15 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
         if (read_colour(targets, &bloomed_frame)) {
             double plain_sum = 0.0;
             double after_sum = 0.0;
-            for (std::size_t i = 0; i < plain.size(); ++i) {
-                plain_sum += luma(core::at(plain, i));
-                after_sum += luma(core::at(bloomed_frame, i));
+            for (std::size_t index = 0; index < plain.size(); ++index) {
+                plain_sum += luma(core::at(plain, index));
+                after_sum += luma(core::at(bloomed_frame, index));
             }
-            const double n = static_cast<double>(plain.size());
-            tally->check(std::abs(after_sum - plain_sum) / n <= kMostLevels * kPerByte,
+            const auto count = static_cast<double>(plain.size());
+            tally->check(std::abs(after_sum - plain_sum) / count <= kMostLevels * kPerByte,
                          text::format("the bloom alone keeps the frame's mean: %.5f -> %.5f (%.2f levels)",
-                                      plain_sum / n, after_sum / n, std::abs(after_sum - plain_sum) / n / kPerByte));
+                                      plain_sum / count, after_sum / count,
+                                      std::abs(after_sum - plain_sum) / count / kPerByte));
         }
     }
     release_targets(gpu, targets);
@@ -1275,20 +1310,70 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
 
 constexpr float kAerialHazeDensity = 12.0F; // (the check's scene is small: a thick haze)
 constexpr float kAerialHeight = 60.0F;
+constexpr unsigned kAerialSteps = 32;
 constexpr double kMostAerialError = 4e-3;
+constexpr double kMostDepth = 40.0;          // (the shader's)
+constexpr double kStraight = 1e-9;           // a ray this level (x its length / the height) is straight
+constexpr double kSkySlack = 0.92;           // the sky's colour: the table's few steps and 16-bit floats
+constexpr double kSkySlackAbsolute = 1e-3;
+constexpr int kLeastSurfaceTexels = 1000;
+constexpr double kMostThinnest = 0.5;        // the thinnest texel's transmittance below this: the haze is tested
+constexpr render::rt::SkySteps kSkyReference{.view = 128, .light = 64};
 
-// The haze's optical depth along a ray from the eye to `distance` (the closed form of its height profile).
-double aerial_depth(const Vec3& eye, const Vec3& direction, double distance)
+// The haze's optical depth along a view ray to `distance` (the closed form of its height profile; with the override's
+// sun there is no baked ground: the haze's ground is the camera's height, its density there aerial extinction x density).
+double aerial_depth(const Vec3& direction, double distance)
 {
     const double sigma = static_cast<double>(vk::kFogAerialExtinction) * kAerialHazeDensity;
-    const double inv_h = 1.0 / kAerialHeight;
-    const double base = sigma; // (no baked ground with the override's sun: the haze's ground is the camera's height)
-    (void)eye;
-    const double k = y_of(direction) * inv_h;
-    if (std::abs(k) * distance < 1e-9) {
-        return base * distance;
+    const double rise = y_of(direction) / kAerialHeight;
+    if (std::abs(rise) * distance < kStraight) {
+        return sigma * distance;
     }
-    return base * (1.0 - std::exp(-k * distance)) / k;
+    return sigma * (1.0 - std::exp(-rise * distance)) / rise;
+}
+
+// The model's sky (display-referred luma) toward the horizon-level direction of a view ray, as the march reads its table.
+double sky_luma_toward(const Vec3& direction)
+{
+    const Vec3 level = normalised(
+        {x_of(direction), std::max(y_of(direction), static_cast<double>(vk::kFogAerialLowest)), z_of(direction)});
+    const double horizontal = std::max(std::hypot(x_of(level), z_of(level)) * std::hypot(x_of(to_sun()), z_of(to_sun())),
+                                       kShortestHorizontal);
+    const double azimuth = std::acos(
+        std::clamp(((x_of(level) * x_of(to_sun())) + (z_of(level) * z_of(to_sun()))) / horizontal, -1.0, 1.0));
+    const double elevation = std::asin(std::clamp(y_of(level), -1.0, 1.0));
+    const render::rt::Dir model_dir{std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
+                                    std::cos(elevation) * std::sin(azimuth)};
+    const render::rt::Dir model_sun = render::rt::sun_direction_at(std::asin(y_of(to_sun())));
+    const Rgb radiance = render::rt::sky_radiance(model_dir, model_sun, kSkyReference);
+    return std::pow(luma(radiance) * render::rt::sky_exposure(), 1.0 / render::rt::kDisplayGamma);
+}
+
+struct AerialTally {
+    double worst = 0.0;
+    int sky_dimmed = 0;
+    int surfaces = 0;
+    int below = 0;
+    double thinnest = 1.0;
+};
+
+void judge_aerial_texel(const View& view, const std::array<float, 4>& marched, const std::array<float, 4>& info,
+                        AerialTally* out)
+{
+    const double distance = core::at(info, 0);
+    const double transmittance = core::at(marched, 3);
+    if (distance < 0.0) {
+        out->sky_dimmed += transmittance != 1.0 ? 1 : 0;
+        return;
+    }
+    ++out->surfaces;
+    const Vec3 direction = direction_at(view, {.x = core::at(info, 1), .y = core::at(info, 2)});
+    const double want = std::exp(-std::min(aerial_depth(direction, distance), kMostDepth));
+    out->worst = std::max(out->worst, std::abs(transmittance - want));
+    out->thinnest = std::min(out->thinnest, want);
+    // the light at least the sky's share of the sky's colour (what the shade gives; the sun only adds)
+    const double low = (1.0 - want) * vk::kFogAerialSkyShare * sky_luma_toward(direction);
+    out->below += luma(rgb_of(marched)) < (low * kSkySlack) - kSkySlackAbsolute ? 1 : 0;
 }
 
 void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
@@ -1299,7 +1384,7 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
     vk::set_rt_sun_settings(sky);
     vk::RtFogSettings fog;
     fog.on = true;
-    fog.steps = 32;
+    fog.steps = kAerialSteps;
     fog.haze = true;
     fog.haze_density = kAerialHazeDensity;
     fog.haze_height = kAerialHeight;
@@ -1310,7 +1395,6 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
     tally->check(made, "the targets made");
     if (made) {
         const Pose pose = ground_pose();
-        // (the check's sun has no baked ground: the haze's ground is the camera's height - its base density sigma)
         const uint64_t before = vk::rt_fog_passes();
         draw_frame(gpu, targets, pose);
         tally->check(vk::rt_fog_passes() == before + 1, "the fog's pass recorded");
@@ -1321,57 +1405,18 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
         tally->check(read && count_not_finite(raw.texels) == 0, "the march read back, no NaN");
         if (read) {
             const View view = view_from(pose, kTargetWidth, kTargetHeight);
-            const render::rt::Dir model_sun = render::rt::sun_direction_at(std::asin(y_of(to_sun())));
-            double worst = 0.0;
-            int sky_dimmed = 0;
-            int surfaces = 0;
-            int out_of_bounds = 0;
-            double least_transmittance = 1.0;
-            for (std::size_t i = 0; i < raw.texels.size(); ++i) {
-                const std::array<float, 4>& r = core::at(raw.texels, i);
-                const std::array<float, 4>& n = core::at(info.texels, i);
-                const double distance = n[0];
-                const Vec3 direction = direction_at(view, n[1], n[2]);
-                if (distance < 0.0) {
-                    sky_dimmed += r[3] != 1.0F ? 1 : 0;
-                    continue;
-                }
-                ++surfaces;
-                const double want = std::exp(-std::min(aerial_depth(view.eye, direction, distance), 40.0));
-                worst = std::max(worst, std::abs(static_cast<double>(r[3]) - want));
-                least_transmittance = std::min(least_transmittance, want);
-                // the light between the sky's share and that + the sun's (the sky toward the ray's level direction, the
-                // model's own integral; 16-bit floats and the table's few steps: 8% slack)
-                const Vec3 level = normalised({x_of(direction), std::max(y_of(direction), static_cast<double>(vk::kFogAerialLowest)),
-                                               z_of(direction)});
-                // the model's frame: the sun along +x - the level direction's azimuth from the sun's and its elevation
-                const double azimuth = std::acos(std::clamp(
-                    ((x_of(level) * x_of(to_sun())) + (z_of(level) * z_of(to_sun()))) /
-                        std::max(std::hypot(x_of(level), z_of(level)) * std::hypot(x_of(to_sun()), z_of(to_sun())), 1e-12),
-                    -1.0, 1.0));
-                const double elevation = std::asin(std::clamp(y_of(level), -1.0, 1.0));
-                const render::rt::Dir model_dir{std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
-                                                std::cos(elevation) * std::sin(azimuth)};
-                const Rgb radiance = render::rt::sky_radiance(model_dir, model_sun, {.view = 128, .light = 64});
-                const double ambient_luma = std::pow(luma(radiance) * render::rt::sky_exposure(), 1.0 / render::rt::kDisplayGamma);
-                const double got = luma({r[0], r[1], r[2]});
-                const double low = (1.0 - want) * vk::kFogAerialSkyShare * ambient_luma;
-                if (got < (low * 0.92) - 1e-3) {
-                    if (out_of_bounds == 0) {
-                        text::print("    (the first below: light %.4f %.4f %.4f, T %.3f, the sky's luma %.4f, at least %.4f)\n",
-                                    static_cast<double>(r[0]), static_cast<double>(r[1]), static_cast<double>(r[2]),
-                                    want, ambient_luma, low);
-                    }
-                    ++out_of_bounds;
-                }
+            AerialTally counted;
+            for (std::size_t index = 0; index < raw.texels.size(); ++index) {
+                judge_aerial_texel(view, core::at(raw.texels, index), core::at(info.texels, index), &counted);
             }
-            tally->check(surfaces > 1000 && worst <= kMostAerialError && least_transmittance < 0.5,
+            tally->check(counted.surfaces > kLeastSurfaceTexels && counted.worst <= kMostAerialError &&
+                             counted.thinnest < kMostThinnest,
                          text::format("%d surface texels: the transmittance against the closed form within %.5f (the "
                                       "thinnest %.3f)",
-                                      surfaces, worst, least_transmittance));
-            tally->check(sky_dimmed == 0, text::format("the sky never dimmed (%d texels)", sky_dimmed));
-            tally->check(out_of_bounds == 0,
-                         text::format("the light at least the sky's share of the sky's colour (%d below)", out_of_bounds));
+                                      counted.surfaces, counted.worst, counted.thinnest));
+            tally->check(counted.sky_dimmed == 0, text::format("the sky never dimmed (%d texels)", counted.sky_dimmed));
+            tally->check(counted.below == 0,
+                         text::format("the light at least the sky's share of the sky's colour (%d below)", counted.below));
         }
     }
     release_targets(gpu, targets);
@@ -1428,7 +1473,7 @@ void run_perf(render::Gpu& gpu)
         vk::finish_work(state);
     }
     const vk::RtSunTiming after = timing();
-    const double samples = static_cast<double>(after.samples - before.samples);
+    const auto samples = static_cast<double>(after.samples - before.samples);
     if (samples > 0.0) {
         std::array<double, 4> parts{};
         for (std::size_t i = 0; i < parts.size(); ++i) {

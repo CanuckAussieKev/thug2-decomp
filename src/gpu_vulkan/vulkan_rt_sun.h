@@ -42,14 +42,14 @@ struct Backend;
 
 inline constexpr double kSunDiscRadius = 0.0093;      // radians (twice the real sun's: it reads as the sun on a screen)
 inline constexpr float kSunDiscIntensity = 24.0F;     // x the sun's colour (the game's white is 1)
-inline constexpr float kSunAureoleNear = 0.8F;
-inline constexpr float kSunAureoleNearWidth = 0.05F; // radians
-inline constexpr float kSunAureoleWide = 0.2F;
-inline constexpr float kSunAureoleWideWidth = 0.3F;
+inline constexpr float kSunAureoleNear = 0.5F;
+inline constexpr float kSunAureoleNearWidth = 0.04F; // radians
+inline constexpr float kSunAureoleWide = 0.15F;
+inline constexpr float kSunAureoleWideWidth = 0.25F;
 inline constexpr uint32_t kSunShaftSamples = 48;
 inline constexpr float kSunShaftDecay = 0.975F;
 inline constexpr float kSunShaftReach = 1.0F;   // the share of the way to the sun the rays' points cover
-inline constexpr float kSunShaftWidth = 0.2F;   // radians: the rays' source round the sun
+inline constexpr float kSunShaftWidth = 0.12F;  // radians: the rays' source round the sun
 inline constexpr float kSunShaftFadeOut = 0.5F; // of the screen's size beyond its edge
 inline constexpr uint32_t kSunBloomLevels = 7;
 inline constexpr uint32_t kSunBloomSmallest = 8; // a level's shorter side at least this
