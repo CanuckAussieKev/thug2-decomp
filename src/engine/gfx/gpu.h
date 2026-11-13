@@ -24,6 +24,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/checked_index.h"
+#include "base/core/enum_ops.h"
 #include "engine/gfx/gpu_handles.h"
 
 namespace render {
@@ -357,9 +359,19 @@ struct GpuStateBlock {
 
     // Direct3D 9's defaults for a new or reset device (its documentation's tables).
     void reset();
-    [[nodiscard]] uint32_t render_state(GpuRenderState state) const;
-    [[nodiscard]] uint32_t stage_state(uint32_t stage, GpuStageState state) const;
-    [[nodiscard]] uint32_t sampler_state(uint32_t sampler, GpuSamplerState state) const;
+    // (defined here: read for every draw, in the backends' hot paths)
+    [[nodiscard]] uint32_t render_state(GpuRenderState state) const
+    {
+        return core::at(render_states, core::to_underlying(state));
+    }
+    [[nodiscard]] uint32_t stage_state(uint32_t stage, GpuStageState state) const
+    {
+        return core::at(core::at(stage_states, stage), core::to_underlying(state));
+    }
+    [[nodiscard]] uint32_t sampler_state(uint32_t sampler, GpuSamplerState state) const
+    {
+        return core::at(core::at(sampler_states, sampler), core::to_underlying(state));
+    }
     // The lights switched on.
     [[nodiscard]] int enabled_light_count() const;
 

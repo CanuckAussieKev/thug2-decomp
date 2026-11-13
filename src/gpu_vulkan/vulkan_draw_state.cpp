@@ -9,6 +9,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "base/core/compiler.h"
 #include "engine/gfx/gpu.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -55,8 +56,12 @@ uint32_t stage(const GpuStateBlock& block, std::size_t index, GpuStageState whic
     return block.stage_state(static_cast<uint32_t>(index), which);
 }
 
-float& at(Float4x4& matrix, std::size_t row, std::size_t column) { return core::at(matrix, (row * kRows) + column); }
-float at(const Float4x4& matrix, std::size_t row, std::size_t column)
+// (THUG2_FORCEINLINE: the matrices' products and inverses per draw left these as calls)
+THUG2_FORCEINLINE float& at(Float4x4& matrix, std::size_t row, std::size_t column)
+{
+    return core::at(matrix, (row * kRows) + column);
+}
+THUG2_FORCEINLINE float at(const Float4x4& matrix, std::size_t row, std::size_t column)
 {
     return core::at(matrix, (row * kRows) + column);
 }

@@ -8,6 +8,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "base/core/compiler.h"
 #include "engine/gfx/gpu.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -28,8 +29,12 @@ constexpr float kRotationTolerance = 1.0e-4F;
 constexpr float kOriginTolerance = 1.0e-3F;
 constexpr double kSingular = 1.0e-30; // (a pivot this small: no inverse)
 
-float& cell(Float4x4& matrix, std::size_t row, std::size_t column) { return core::at(matrix, (row * kSide) + column); }
-float cell(const Float4x4& matrix, std::size_t row, std::size_t column)
+// (THUG2_FORCEINLINE: the products per draw left these as calls)
+THUG2_FORCEINLINE float& cell(Float4x4& matrix, std::size_t row, std::size_t column)
+{
+    return core::at(matrix, (row * kSide) + column);
+}
+THUG2_FORCEINLINE float cell(const Float4x4& matrix, std::size_t row, std::size_t column)
 {
     return core::at(matrix, (row * kSide) + column);
 }
