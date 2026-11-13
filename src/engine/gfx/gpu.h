@@ -627,6 +627,17 @@ public:
     // D3DX, another API reads the pixels back and encodes them itself). (Declared last: the operations above keep their
     // places in the table of virtual functions.)
     virtual long save_surface_jpeg(const char* file, GpuSurface* surface) = 0;
+    // NOT ORIGINAL - motion vectors (added by the upscaler; the Vulkan Gpu with [Graphics] upscaler): which object the
+    // next draws belong to - `key` the same every frame for the same object and part of it (0: none - the draws don't
+    // move but for the camera) - and, for vertices the CPU rewrites each frame (skinning), the buffer and offset that
+    // held its vertices the frame before (null: the current ones). A backend keeps each key's world transform from one
+    // frame to the next. Direct3D 9 ignores it.
+    struct MotionSource {
+        uint64_t key = 0;
+        GpuVertexBuffer* previous_vertices = nullptr;
+        uint32_t previous_offset = 0;
+    };
+    virtual void set_motion_source(const MotionSource& source) { (void)source; }
 
 private:
     GpuStateBlock block_;

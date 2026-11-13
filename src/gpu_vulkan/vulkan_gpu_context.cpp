@@ -21,6 +21,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_upscale.h"
 #include "platform/run_log.h"
 #include "platform/sdl_window.h"
 
@@ -54,6 +55,10 @@ public:
         if (state.window == nullptr) {
             state.window = sys::sdl_window();
         }
+        // NOT ORIGINAL - the upscaler's Streamline (DLSS) is set up before the instance (vulkan_upscale.h)
+        if (state.options.additions == nullptr) {
+            state.options.additions = upscale_context_additions();
+        }
         state.opened = state.window != nullptr && state.context.open(state.window, state.options);
         if (!state.opened) {
             state.context.destroy();
@@ -78,6 +83,10 @@ public:
         if (query.samples <= 1) {
             return 1;
         }
+        // NOT ORIGINAL - the upscaler (vulkan_upscale.h) needs a single-sampled world: no multisampling while it is on
+        if (upscale_settings_locked().upscaler != Upscaler::kOff) {
+            return 0;
+        }
         const VkPhysicalDeviceLimits limits = device_properties(state).limits;
         const VkSampleCountFlags both = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
         return (both & query.samples) != 0U && std::has_single_bit(query.samples) ? 1U : 0U;
@@ -100,6 +109,12 @@ public:
         state.settings.height = request.height;
         state.settings.samples = request.samples;
         state.settings.sample_quality = request.sample_quality;
+        // NOT ORIGINAL - the upscaler (vulkan_upscale.h): the back buffer single-sampled (AntiAliasing's 2 samples too)
+        if (upscale_settings_locked().upscaler != Upscaler::kOff && request.samples > 1) {
+            get_log("vulkan: upscaler: multisampling off while upscaling (%u samples asked)", request.samples);
+            state.settings.samples = 0;
+            state.settings.sample_quality = 0;
+        }
         if (!state.context.make_swapchain()) {
             return gpu_value::kResultInvalidCall;
         }

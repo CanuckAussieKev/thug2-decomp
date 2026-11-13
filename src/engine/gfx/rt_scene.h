@@ -249,6 +249,12 @@ struct ViewDrawn {
     // (added by the sky) The game clock (frame_clock::game_clock_time, in seconds): what moves with the game - the
     // clouds' drift - follows it, so a demo replays the same picture.
     double game_seconds = 0.0;
+    // (added by the upscaler) The view drawn at a lower resolution, to be upscaled (set_view_scale below): `rect` is
+    // where the world was drawn (its top-left part of the output), `output_rect` the viewport it is shown in - the same
+    // as `rect` when the view isn't scaled. `jitter`: the sub-pixel offset the projection was drawn with this frame, in
+    // pixels of `rect` (x right, y down; 0 when not jittered) - camera.projection includes it (the depth matches).
+    std::array<uint32_t, 4> output_rect{};
+    std::array<float, 2> jitter{};
 };
 
 // What listens (a backend's screen-space effect: the Vulkan Gpu's ray-traced sun shadows). Called on the thread that
@@ -266,6 +272,9 @@ public:
     // world's opaque meshes, the objects', and behind them the sky scene's opaque meshes (its dome) - before the sky
     // scene's layers (its transparent meshes) and before opaque_drawn. `view` is the world's camera, as at opaque_drawn.
     virtual void sky_drawn(const ViewDrawn& view) { (void)view; }
+    // (added by the upscaler) The viewport's world camera chosen, before anything of the view is drawn (its rect and
+    // camera as ViewDrawn's; the world's passes follow).
+    virtual void view_begins(const ViewDrawn& view) { (void)view; }
 };
 // The listeners' order (the effects build on each other: tone mapping needs every light added first).
 namespace ViewOrder {
@@ -277,12 +286,35 @@ inline constexpr int kFog = 500;        // volumetric fog / light shafts (world_
 inline constexpr int kSun = 600;        // (added by the sun's glare) the sun's disc, its rays and the bloom (world_drawn)
 inline constexpr int kToneMapping = 900; // HDR -> the display (world_drawn, last)
 inline constexpr int kSky = 50;          // (added by the sky) the atmosphere and the clouds (sky_drawn)
+inline constexpr int kUpscale = 950;      // (added by the upscaler) the view's lower resolution up to its output_rect
 } // namespace ViewOrder
 void add_view_listener(ViewListener* listener);
 void remove_view_listener(ViewListener* listener);
 // Each listener told (render_pc; nothing happens when none listens).
 void opaque_view_drawn(const ViewDrawn& view);
 void world_view_drawn(const ViewDrawn& view);
+void view_begins(const ViewDrawn& view); // (added by the upscaler)
+
+// --- Upscaling (added by the upscaler round; the Vulkan Gpu's [Graphics] upscaler) ----------------------------------
+// A backend that upscales asks for its views' world to be drawn smaller: render_pc then draws a viewport's world
+// (everything up to world_view_drawn) into the top-left `scale` x `scale` part of its rectangle - ViewDrawn::rect - with
+// the projection moved by `jitter` (pixels of that smaller rectangle, a new one each frame), and the listener at
+// ViewOrder::kUpscale fills ViewDrawn::output_rect from it. The 2D is drawn after at the full size, as before. Only a
+// view that is the frame's one viewport and isn't an editor's split view or picture is scaled. `on` false (the default,
+// Direct3D 9): nothing changes.
+struct ViewScale {
+    bool on = false;
+    float scale = 1.0F;              // 0.25 - 1 of the width and the height (1: native - jittered only, DLAA)
+    std::array<float, 2> jitter{};   // the projection's offset this frame, in pixels of the scaled rectangle
+};
+void set_view_scale(const ViewScale& scale);
+ViewScale view_scale();
+// The rectangle `output` (x, y, width, height) drawn at `scale`: its top-left part, at least a pixel.
+std::array<uint32_t, 4> scaled_rect(const std::array<uint32_t, 4>& output, float scale);
+// The projection (D3D's row-vector layout) moved by `jitter` pixels of a `width` x `height` viewport: the clip-space x and
+// y moved by 2 jitter / size (y down on the screen: up in clip space) times w.
+void jitter_projection(std::array<std::array<float, 4>, 4>* projection, std::array<float, 2> jitter, uint32_t width,
+                       uint32_t height);
 // Whether any listens (render_pc skips filling a ViewDrawn when none does).
 bool view_listened();
 

@@ -41,6 +41,7 @@
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_rt_sun.h"
+#include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_ring.h"
@@ -364,7 +365,8 @@ long make_depth_surface(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
                                             rt_reflections_depth_usage(state, plan->format) |
                                             rt_fog_depth_usage(state, plan->format) |
                                             rt_sun_depth_usage(state, plan->format) | // (and the sun's: vulkan_rt_sun.h)
-                                            rt_sky_depth_usage(state, plan->format), // (and the sky's)
+                                            rt_sky_depth_usage(state, plan->format) | // (and the sky's)
+                                            upscale_depth_usage(state, plan->format), // (the upscaler's: vulkan_upscale.h)
                                .alpha_one = false};
     if (!state.memory.create_image(request, &surface->image)) {
         destroy_surface(state, surface);
@@ -1156,6 +1158,16 @@ public:
         std::ranges::fill(into->bytes, uint8_t{0});
         copy_rows(back->bytes, back->extent, &into->bytes, into->extent);
         return kOk;
+    }
+    // NOT ORIGINAL - the upscaler's motion vectors (vulkan_motion.h): the next draws' key and previous vertices.
+    void set_motion_source(const MotionSource& source) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        Buffer* const previous = source.previous_vertices != nullptr ? object(source.previous_vertices) : nullptr;
+        state.motion.source = {.key = source.key,
+                               .previous = previous != nullptr && state.buffers.contains(previous) ? previous : nullptr,
+                               .previous_offset = source.previous_offset};
     }
     long save_surface_jpeg(const char* file, GpuSurface* surface) override
     {

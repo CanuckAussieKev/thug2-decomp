@@ -393,16 +393,27 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
              .pSpecializationInfo = nullptr},
         }};
         const VertexLayout layout = vertex_layout(key.shaders.vertex.fvf);
-        const VkVertexInputBindingDescription binding{
-            .binding = 0, .stride = layout.bytes, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
+        // (the upscaler's motion: binding 1 - the vertices of the frame before, the same layout - its position)
+        const bool motion_input = key.shaders.vertex.motion != 0U;
+        const std::array<VkVertexInputBindingDescription, 2> bindings{{
+            {.binding = 0, .stride = layout.bytes, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
+            {.binding = 1, .stride = layout.bytes, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
+        }};
+        std::array<VkVertexInputAttributeDescription, kMostAttributes + 1> attributes{};
+        std::copy_n(layout.attributes.begin(), layout.count, attributes.begin());
+        uint32_t attribute_count = layout.count;
+        if (motion_input) {
+            core::at(attributes, attribute_count++) = {
+                .location = kPreviousPositionLocation, .binding = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0};
+        }
         const VkPipelineVertexInputStateCreateInfo input{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             .pNext = nullptr,
             .flags = 0,
-            .vertexBindingDescriptionCount = 1,
-            .pVertexBindingDescriptions = &binding,
-            .vertexAttributeDescriptionCount = layout.count,
-            .pVertexAttributeDescriptions = layout.attributes.data()};
+            .vertexBindingDescriptionCount = motion_input ? 2U : 1U,
+            .pVertexBindingDescriptions = bindings.data(),
+            .vertexAttributeDescriptionCount = attribute_count,
+            .pVertexAttributeDescriptions = attributes.data()};
         constexpr std::array<VkPrimitiveTopology, 3> kClassTopology{
             VK_PRIMITIVE_TOPOLOGY_POINT_LIST, VK_PRIMITIVE_TOPOLOGY_LINE_LIST, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
         const VkPipelineInputAssemblyStateCreateInfo assembly{
@@ -467,13 +478,34 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
             .dstAlphaBlendFactor = dest,
             .alphaBlendOp = operation,
             .colorWriteMask = key.write_mask};
+        // (the upscaler's motion attachment, vulkan_motion.h: a draw that doesn't blend writes its motion (x, y) - what
+        // is seen through a blended draw keeps its own -, a blended one only its share of the pixel (z, the largest);
+        // a draw without the motion bit (pre-transformed) nothing)
+        const bool motion_shader = key.motion != 0U && key.shaders.fragment.motion != 0U;
+        VkColorComponentFlags motion_mask = 0;
+        if (motion_shader && key.write_mask != 0U) {
+            motion_mask = key.blend != 0U ? VkColorComponentFlags{VK_COLOR_COMPONENT_B_BIT}
+                                          : VkColorComponentFlags{VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT};
+        }
+        const std::array<VkPipelineColorBlendAttachmentState, 2> blend_attachments{{
+            blend_attachment,
+            {.blendEnable = key.blend != 0U ? VK_TRUE : VK_FALSE,
+             .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+             .dstColorBlendFactor = VK_BLEND_FACTOR_ONE,
+             .colorBlendOp = VK_BLEND_OP_MAX,
+             .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+             .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+             .alphaBlendOp = VK_BLEND_OP_MAX,
+             .colorWriteMask = motion_mask},
+        }};
+        const uint32_t attachment_count = key.motion != 0U ? 2U : 1U;
         const VkPipelineColorBlendStateCreateInfo blend{.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
                                                         .pNext = nullptr,
                                                         .flags = 0,
                                                         .logicOpEnable = VK_FALSE,
                                                         .logicOp = VK_LOGIC_OP_COPY,
-                                                        .attachmentCount = 1,
-                                                        .pAttachments = &blend_attachment,
+                                                        .attachmentCount = attachment_count,
+                                                        .pAttachments = blend_attachments.data(),
                                                         .blendConstants = {}};
         constexpr std::array<VkDynamicState, 11> kDynamic{
             VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
@@ -487,12 +519,12 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
                                                        .flags = 0,
                                                        .dynamicStateCount = static_cast<uint32_t>(kDynamic.size()),
                                                        .pDynamicStates = kDynamic.data()};
-        const auto colour_format = static_cast<VkFormat>(key.colour_format);
+        const std::array<VkFormat, 2> colour_formats{static_cast<VkFormat>(key.colour_format), kMotionFormat};
         const VkPipelineRenderingCreateInfo rendering{.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                                                       .pNext = nullptr,
                                                       .viewMask = 0,
-                                                      .colorAttachmentCount = 1,
-                                                      .pColorAttachmentFormats = &colour_format,
+                                                      .colorAttachmentCount = attachment_count,
+                                                      .pColorAttachmentFormats = colour_formats.data(),
                                                       .depthAttachmentFormat = static_cast<VkFormat>(key.depth_format),
                                                       .stencilAttachmentFormat = VK_FORMAT_UNDEFINED};
         const VkGraphicsPipelineCreateInfo info{.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,

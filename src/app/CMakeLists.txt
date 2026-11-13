@@ -53,6 +53,12 @@ if(THUG2_FFMPEG_DLLS)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THUG2_FFMPEG_DLLS} "$<TARGET_FILE_DIR:thug2>"
         COMMENT "Copying FFmpeg's DLLs next to thug2-decomp.exe")
 endif()
+# NOT ORIGINAL - the upscalers' DLLs (FSR, Streamline / DLSS: cmake/upscalers.cmake), loaded at run time from here.
+if(THUG2_UPSCALER_DLLS)
+    add_custom_command(TARGET thug2 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THUG2_UPSCALER_DLLS} "$<TARGET_FILE_DIR:thug2>"
+        COMMENT "Copying the upscalers' DLLs next to thug2-decomp.exe")
+endif()
 
 # The C runtime's DLLs (the C runtime is a DLL: the root CMakeLists.txt): a Release build copies the ones the exe and
 # the plugin import - the Visual C++ redistributable's files, from the compiler's own redist folder - next to the exe,
@@ -105,6 +111,11 @@ if(EXISTS "${THUG2_DEPLOY_DIR}")
         add_custom_command(TARGET thug2 POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THUG2_FFMPEG_DLLS} "${THUG2_DEPLOY_DIR}"
             COMMENT "Copying FFmpeg's DLLs into ${THUG2_DEPLOY_DIR}")
+    endif()
+    if(THUG2_UPSCALER_DLLS)
+        add_custom_command(TARGET thug2 POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THUG2_UPSCALER_DLLS} "${THUG2_DEPLOY_DIR}"
+            COMMENT "Copying the upscalers' DLLs into ${THUG2_DEPLOY_DIR}")
     endif()
     if(THUG2_RUNTIME_DLLS)
         add_custom_command(TARGET thug2 POST_BUILD

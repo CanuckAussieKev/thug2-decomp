@@ -111,7 +111,7 @@ void normalise_stages(FragmentKey& key)
 
 void normalise_fragment(FragmentKey& key, bool points)
 {
-    key.spare = {};
+    key.spare = 0;
     if (key.program != PixelProgram::kStages) {
         key.stages = {};
         key.specular_add = false;
@@ -196,8 +196,10 @@ void normalise_lighting(VertexKey& key)
 
 void normalise_vertex(VertexKey& key)
 {
-    key.spare = 0;
     const bool pre_transformed = fvf_pre_transformed(key.fvf);
+    if (pre_transformed) {
+        key.motion = 0;
+    }
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         TexCoordKey& coords = core::at(key.coords, stage);
         if ((key.coord_mask & bit(stage)) == 0U) {
@@ -350,6 +352,7 @@ ShaderKey normalised(const ShaderKey& key)
         }
     }
     result.fragment.projected_mask = projected;
+    result.fragment.motion = result.vertex.motion; // (the fragment half reads what the vertex half hands it)
     return result;
 }
 
@@ -429,6 +432,7 @@ std::string describe(const VertexKey& key)
     if (key.points) {
         text += key.point_scale ? " points(scaled)" : " points";
     }
+    text += key.motion != 0U ? " motion" : "";
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         if ((key.coord_mask & bit(stage)) == 0U) {
             continue;
@@ -472,6 +476,7 @@ std::string describe(const FragmentKey& key)
         text += " alpha_test=" + std::to_string(core::to_underlying(key.alpha_test));
     }
     text += key.point_sprite ? " point_sprite" : "";
+    text += key.motion != 0U ? " motion" : "";
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);
     }

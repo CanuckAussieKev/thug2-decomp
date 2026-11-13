@@ -164,6 +164,22 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_hdr_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_upscale_check.exe: the Vulkan Gpu's upscaling (gpu_vulkan/vulkan_upscale.h) and its motion
+# vectors (gpu_vulkan/vulkan_motion.h) on this machine - the jitter sequence; every clear-cut pixel's motion of a still
+# ground, a moving quad, a skinned quad and the sky against the processor's reprojection; FSR (or DLSS with --dlss) on a
+# still scene of thin bars against a 4x4 supersampled reference, the jitter's sign, no NaN, the same bytes twice
+# (src/tests/vulkan_upscale_check.cpp). The upscalers' DLLs are copied beside it. Exit 2 when no upscaler runs here.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_upscale_check vulkan_upscale_check.cpp)
+    target_link_libraries(thug2_vulkan_upscale_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_upscale_check PRIVATE SDL_MAIN_HANDLED)
+    if(THUG2_UPSCALER_DLLS)
+        add_custom_command(TARGET thug2_vulkan_upscale_check POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THUG2_UPSCALER_DLLS} "$<TARGET_FILE_DIR:thug2_vulkan_upscale_check>"
+            COMMENT "Copying the upscalers' DLLs next to thug2_vulkan_upscale_check.exe")
+    endif()
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_gi_check.exe: the Vulkan Gpu's one-bounce ray-traced indirect light
 # (gpu_vulkan/vulkan_rt_effects.h, rt_gi) on this machine - a red wall beside a white floor in the sun: each frame's
 # light compared with the same rays traced on the processor, the albedo found, the colour it adds, the reddish bounce,

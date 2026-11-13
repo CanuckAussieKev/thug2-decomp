@@ -33,6 +33,7 @@
 #include "gpu_vulkan/vulkan_draw_state.h"
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_motion.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
@@ -44,6 +45,7 @@
 #include "gpu_vulkan/vulkan_rt_sun.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
+#include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "platform/run_log.h"
 
@@ -149,7 +151,7 @@ void end_pass(Backend& state)
         end_query_in_pass(commands, state, query); // (a query still open when its pass ends: its draws so far)
     }
     vkCmdEndRendering(commands);
-    for (Image* image : {pass.colour_image, pass.depth_image}) {
+    for (Image* image : {pass.colour_image, pass.depth_image, pass.motion ? &state.motion.image : nullptr}) {
         if (image != nullptr && image->layout != image->resting) {
             Memory::transition(commands, image, image->resting); // (a texture drawn into: ready to be sampled)
         }
@@ -172,7 +174,8 @@ bool ensure_pass(Backend& state, const PassClear* clear)
     Surface* const colour = core::at(state.targets, 0);
     Surface* const depth = state.depth;
     OpenPass& pass = state.pass;
-    if (pass.open && pass.colour == colour && pass.depth == depth && clear == nullptr) {
+    if (pass.open && pass.colour == colour && pass.depth == depth && clear == nullptr &&
+        pass.motion == motion_wanted(state, colour, pass.colour_image)) {
         return true;
     }
     end_pass(state);
@@ -218,12 +221,29 @@ bool ensure_pass(Backend& state, const PassClear* clear)
             depth_info.clearValue.depthStencil = {.depth = clear->z, .stencil = 0};
         }
     }
+    // NOT ORIGINAL - the upscaler's motion attachment (vulkan_motion.h): second, cleared as the view's first pass opens
+    const bool motion = motion_wanted(state, colour, colour_image);
+    std::array<VkRenderingAttachmentInfo, 2> colours{colour_info, VkRenderingAttachmentInfo{}};
+    if (motion) {
+        Image& image = state.motion.image;
+        Memory::transition(commands, &image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, state.motion.fresh);
+        VkRenderingAttachmentInfo& motion_info = core::at(colours, 1);
+        motion_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        motion_info.imageView = image.attachment_view;
+        motion_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        motion_info.resolveMode = VK_RESOLVE_MODE_NONE;
+        motion_info.loadOp = state.motion.fresh ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+        motion_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        motion_info.clearValue.color = {.float32 = {kNoMotion, 0.0F, 0.0F, 0.0F}};
+        state.motion.fresh = false;
+        image.used = state.frames.serial();
+    }
     VkRenderingInfo info{};
     info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     info.renderArea = {.offset = {.x = 0, .y = 0}, .extent = area};
     info.layerCount = 1;
-    info.colorAttachmentCount = 1;
-    info.pColorAttachments = &colour_info;
+    info.colorAttachmentCount = motion ? 2U : 1U;
+    info.pColorAttachments = colours.data();
     info.pDepthAttachment = depth_image != nullptr ? &depth_info : nullptr;
     vkCmdBeginRendering(commands, &info);
     const uint64_t serial = state.frames.serial();
@@ -236,6 +256,7 @@ bool ensure_pass(Backend& state, const PassClear* clear)
     pass.depth = depth;
     pass.colour_image = colour_image;
     pass.depth_image = depth_image;
+    pass.motion = motion;
     pass.area = area;
     ++state.stats.passes;
     return true;
@@ -318,13 +339,20 @@ void set_dynamic_states(Backend& state, VkCommandBuffer commands, const GpuState
 }
 
 // The uniform blocks into the ring (when they differ from the last ones copied).
-bool set_uniforms(Backend& state, const GpuStateBlock& block)
+bool set_uniforms(Backend& state, const GpuStateBlock& block, const VertexKey& key)
 {
     BoundState& bound = state.bound;
     VertexUniforms vertex{};
     FragmentUniforms fragment{};
     fill_vertex_uniforms(block, &vertex);
     fill_fragment_uniforms(block, &fragment);
+    // NOT ORIGINAL - the upscaler (vulkan_motion.h): the frame before's transforms; a scaled view's pre-transformed
+    // positions put into its drawn part
+    if (key.motion != 0U) {
+        fill_motion_uniforms(state, block, &vertex);
+    } else if (state.motion.active && fvf_pre_transformed(key.fvf)) {
+        scale_pre_transformed(state, &vertex);
+    }
     const auto copy = [&state](const void* data, std::size_t bytes, VkDescriptorBufferInfo* where) {
         const std::span<const uint8_t> raw(static_cast<const uint8_t*>(data), bytes);
         const std::optional<RingSpan> span = state.ring.copy(raw, state.uniform_alignment);
@@ -461,6 +489,7 @@ PipelineKey pipeline_key(const Backend& state, const GpuStateBlock& block, const
         key.blend_operation = static_cast<uint8_t>(block.render_state(GpuRenderState::kBlendOp));
     }
     key.write_mask = static_cast<uint8_t>(block.render_state(GpuRenderState::kColourWriteEnable) & kWriteMaskBits);
+    key.motion = state.pass.motion ? 1 : 0; // (NOT ORIGINAL: the upscaler's motion attachment)
     return key;
 }
 
@@ -774,6 +803,7 @@ void release_draw_objects(Backend& state)
     release_rt_fog(state); // (NOT ORIGINAL - the volumetric fog's: vulkan_rt_fog.h)
     release_rt_sky(state); // (NOT ORIGINAL - the sky's atmosphere and clouds: vulkan_rt_sky_pass.h)
     release_rt_sun(state); // (NOT ORIGINAL - the sun's, the bloom's and the sky's: vulkan_rt_sun.h)
+    release_upscale(state); // (NOT ORIGINAL - the upscaler's: vulkan_upscale.h)
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
     state.memory.destroy_image(&state.gamma_source);
@@ -879,7 +909,13 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
             program = &shader->program;
         }
     }
-    const ShaderKey shaders = draw_shader_key(block, program, call.primitive == GpuPrimitive::kPointList);
+    ShaderKey shaders = draw_shader_key(block, program, call.primitive == GpuPrimitive::kPointList);
+    // NOT ORIGINAL - the upscaler's motion vectors (vulkan_motion.h): a 3D draw into a view drawn for upscaling
+    if (motion_wanted(state, core::at(state.targets, 0), attachment_of(core::at(state.targets, 0))) &&
+        !fvf_pre_transformed(shaders.vertex.fvf)) {
+        shaders.vertex.motion = 1;
+        shaders.fragment.motion = 1;
+    }
     std::string why;
     if (!supported(shaders, &why)) {
         if (first_report(state, hash_of(shaders.vertex) ^ hash_of(shaders.fragment))) {
@@ -923,7 +959,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         core::at(descriptors, stage) = {.sampler = sampler, .imageView = shown.view, .imageLayout = shown.layout};
     }
     VkCommandBuffer commands = stream(state);
-    if (!set_uniforms(state, block)) {
+    if (!set_uniforms(state, block, shaders.vertex)) {
         return gpu_value::kResultInvalidCall;
     }
     BoundState& bound = state.bound;
@@ -940,6 +976,17 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         bound.vertex_buffer = call.vertex_buffer;
         bound.vertex_offset = call.vertex_offset;
         bound.vertex_stride = stride;
+    }
+    if (shaders.vertex.motion != 0U) {
+        // (the positions the frame before: binding 1 - vulkan_motion.h)
+        const auto [previous, offset] = previous_vertices(state, call.vertex_buffer, call.vertex_offset);
+        if (previous != bound.previous_buffer || offset != bound.previous_offset || call.stride != bound.previous_stride) {
+            const VkDeviceSize stride = call.stride;
+            vkCmdBindVertexBuffers2(commands, 1, 1, &previous, &offset, nullptr, &stride);
+            bound.previous_buffer = previous;
+            bound.previous_offset = offset;
+            bound.previous_stride = stride;
+        }
     }
     if (call.indexed) {
         if (call.index_buffer != bound.index_buffer || call.index_offset != bound.index_offset ||

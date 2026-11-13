@@ -283,6 +283,22 @@ float& stored_near_z()
     static float near_z{kDefaultNearZ};
     return near_z;
 }
+
+// Not original - upscaling (rt_scene.h ViewScale): the viewport being drawn smaller - where it is shown, where it is
+// drawn, and the projection's jitter this frame (pixels of the smaller rectangle). `allowed`: the frame may scale its
+// view (one viewport, drawn to the window).
+struct ViewUpscale {
+    bool allowed = false;
+    bool on = false;
+    std::array<uint32_t, 4> output{};
+    std::array<uint32_t, 4> drawn{};
+    std::array<float, 2> jitter{};
+};
+ViewUpscale& view_upscale()
+{
+    static ViewUpscale state;
+    return state;
+}
 } // namespace
 
 // 0x004DB200
@@ -346,6 +362,21 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     if (infinite) {
         core::at(projection.row, 2).z = -kInfiniteDepthScale;
         core::at(projection.row, 3).z = kInfiniteDepthOffset;
+    }
+    // Not original - upscaling (rt_scene.h ViewScale): a scaled view's projection moved by this frame's jitter. Original
+    // behaviour: the projection as made.
+    if (const ViewUpscale& upscale = view_upscale(); upscale.on) {
+        std::array<std::array<float, 4>, 4> rows{};
+        for (std::size_t row = 0; row < rows.size(); ++row) {
+            const maths::Vec4& from = core::at(projection.row, row);
+            core::at(rows, row) = {from.x, from.y, from.z, from.w};
+        }
+        rt::jitter_projection(&rows, upscale.jitter, core::at(upscale.drawn, 2), core::at(upscale.drawn, 3));
+        for (std::size_t row = 0; row < rows.size(); ++row) {
+            const std::array<float, 4>& from = core::at(rows, row);
+            core::at(projection.row, row) = {
+                .x = core::at(from, 0), .y = core::at(from, 1), .z = core::at(from, 2), .w = core::at(from, 3)};
+        }
     }
     gfx.set_render_camera(camera);
     gfx.set_world_matrix(world);
@@ -624,6 +655,12 @@ rt::ViewDrawn view_drawn(int index)
     const DeviceViewport& drawn = gfx.device_viewport();
     view.rect = {drawn.x, drawn.y, drawn.width, drawn.height};
     view.depth_range = {drawn.min_z_, drawn.max_z_};
+    // (a scaled view's output and jitter - rt_scene.h ViewScale)
+    view.output_rect = view.rect;
+    if (const ViewUpscale& upscale = view_upscale(); upscale.on) {
+        view.output_rect = upscale.output;
+        view.jitter = upscale.jitter;
+    }
     // (the level's fog: with distance clipping and [Graphics] Fog, the fog each mesh draws with - over the last quarter
     // before the far plane, pc_mesh_render.cpp; else what a script's SetFogDistance / SetFogColor / EnableFog told the
     // device - pc_fog.h)
@@ -734,6 +771,22 @@ void draw_viewport(int index)
         aspect_scale = static_cast<float>((static_cast<double>(part.width) * whole.height) /
                                           (static_cast<double>(part.height) * std::max(1U, whole.width)));
     }
+    // Not original - upscaling (rt_scene.h ViewScale): the world drawn into the viewport's top-left part, jittered; the
+    // listener at ViewOrder::kUpscale fills the whole of it. Original behaviour: the whole viewport.
+    {
+        ViewUpscale& upscale = view_upscale();
+        const rt::ViewScale scale = rt::view_scale();
+        upscale.on = scale.on && upscale.allowed && !pass_area().on;
+        if (upscale.on) {
+            DeviceViewport whole = renderer().device_viewport();
+            upscale.output = {whole.x, whole.y, whole.width, whole.height};
+            upscale.drawn = rt::scaled_rect(upscale.output, scale.scale);
+            upscale.jitter = scale.jitter;
+            whole.width = core::at(upscale.drawn, 2);
+            whole.height = core::at(upscale.drawn, 3);
+            renderer().set_device_viewport(whole);
+        }
+    }
     set_viewport();
     clear_world_transform();
     const float aspect = view->fetch_width_over_height() * aspect_scale;
@@ -760,7 +813,9 @@ void draw_viewport(int index)
             .viewport = index,
             .angle = angle,
             .aspect = aspect,
-            .rect = {{drawn.x, drawn.y, drawn.width, drawn.height}},
+            // (a scaled view: where it is shown - rt_scene.h ViewScale)
+            .rect = view_upscale().on ? view_upscale().output
+                                      : std::array<uint32_t, 4>{{drawn.x, drawn.y, drawn.width, drawn.height}},
             .position = {{position->x, position->y, position->z}},
             .forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}},
         };
@@ -768,6 +823,11 @@ void draw_viewport(int index)
         // Not original - ray tracing's record (rt_record.h): the viewport's camera; the frame's first begins the
         // frame (the TLAS) before the world is drawn. Original behaviour: nothing.
         rt_record::camera_chosen(index);
+        // Not original - the listeners told the view begins (rt_scene.h; the upscaler's motion vectors). Original
+        // behaviour: nothing.
+        if (rt::view_listened()) {
+            rt::view_begins(view_drawn(index));
+        }
     }
     rt_record::set_world_passes(true); // (not original: the world's and the objects' passes, for a check's count)
     for_each_scene([&](PcScene* scene) {
@@ -903,6 +963,15 @@ void draw_viewport(int index)
     update_glows(false);
     engine::draw_flashes(index, 0);
     note_world_drawn(index);
+    // Not original - a scaled view's viewport and jitter done with (rt_scene.h ViewScale). Original behaviour: nothing.
+    if (ViewUpscale& upscale = view_upscale(); upscale.on) {
+        upscale.on = false;
+        DeviceViewport whole = renderer().device_viewport();
+        whole.width = core::at(upscale.output, 2);
+        whole.height = core::at(upscale.output, 3);
+        renderer().set_device_viewport(whole);
+        set_viewport();
+    }
 }
 
 // Not original - the sky scene's backdrop captured for a renderer that draws its own sky (rt_scene.h
@@ -1098,7 +1167,7 @@ void draw_world()
         // Not original - the game view (engine/gfx/game_view.h; the level editor's Scene panel): the frame drawn into
         // the picture asked for, at its size, instead of the window.
         // Original behaviour: the frame is drawn to the window.
-        game_view_frame::begin();
+        const bool picture = game_view_frame::begin();
         renderer().set_step_seconds(static_cast<int>(frame_clock::get_time()));
         // Not original - ray tracing's record (rt_record.h): the frame's instances and lights. Original behaviour:
         // nothing.
@@ -1111,9 +1180,12 @@ void draw_world()
         capture_sky();
         begin_screen_effects();
         const int count = modules::viewport_count();
+        // (not original: a view drawn smaller and upscaled - only the window's one viewport; rt_scene.h ViewScale)
+        view_upscale().allowed = !picture && count == 1;
         // Not original - an extension's split views (the level editor's: draw_views). Original behaviour: each
         // viewport once.
         if (const int views = count > 0 ? ext::view_count() : 0; views > 0) {
+            view_upscale().allowed = false;
             draw_views(views);
         } else {
             // Not original - the wireframe render mode (render_pc/wireframe.h): the 3D passes in wireframe when asked.

@@ -302,6 +302,26 @@ void install_vulkan()
         read_rt_relit_sun(&relit);
         render::rt::set_relit_settings(relit);
     }
+    // NOT ORIGINAL - upscaling (gpu_vulkan/vulkan_upscale.h): off unless asked for; DLSS / FSR from beside the exe
+    {
+        constexpr std::size_t kLongest = 32;
+        std::array<char, kLongest> text{};
+        render::vulkan::UpscaleSettings upscale;
+        build_info::fetch_text(build_info::kGraphics, "upscaler", "off", text.data(), text.size());
+        if (!render::vulkan::parse_upscaler(text.data(), &upscale.upscaler)) {
+            get_log("[Graphics] upscaler=%s isn't off, dlss, fsr or auto - off", text.data());
+        }
+        text = {};
+        build_info::fetch_text(build_info::kGraphics, "upscale_quality", "quality", text.data(), text.size());
+        if (!render::vulkan::parse_upscale_quality(text.data(), &upscale.quality)) {
+            get_log("[Graphics] upscale_quality=%s isn't dlaa, quality, balanced, performance or ultra - quality",
+                    text.data());
+        }
+        upscale.ray_reconstruction = build_info::fetch_flag(build_info::kGraphics, "ray_reconstruction", false);
+        upscale.sharpness = ini_float("upscale_sharpness", 0.0F);
+        upscale.fsr_major = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "fsr_version", 0)));
+        render::vulkan::set_upscale_settings(upscale);
+    }
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());

@@ -6,7 +6,10 @@
 #include <SDL3/SDL_vulkan.h>
 #include <algorithm>
 #include <array>
+#include <bit>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <optional>
 #include <span>
@@ -33,6 +36,85 @@ constexpr uint32_t kExtentFromWindow = std::numeric_limits<uint32_t>::max();
 constexpr uint64_t kNoTimeout = std::numeric_limits<uint64_t>::max();
 
 std::string_view name_of(const char* text) { return text; }
+
+// NOT ORIGINAL - ContextAdditions: the most queues of the graphics family made.
+constexpr std::size_t kMostQueues = 8;
+
+// What a library asks for of a features structure, and what the device has.
+template <typename Features> struct Asked {
+    const Features* wanted = nullptr;
+    const Features* offered = nullptr;
+};
+
+// The VkBool32 flags of a features structure (from `first`: after its sType and pNext) or'ed into `into` where the
+// library asks and the device has them; whether any was.
+template <typename Features> bool merge_flags(const Asked<Features>& asked_for, std::size_t first, Features* into)
+{
+    const Features& wanted = *asked_for.wanted;
+    const Features& offered = *asked_for.offered;
+    constexpr std::size_t kFlag = sizeof(VkBool32);
+    using Bytes = std::array<std::byte, sizeof(Features)>;
+    const auto asked = std::bit_cast<Bytes>(wanted);
+    const auto has = std::bit_cast<Bytes>(offered);
+    auto set = std::bit_cast<Bytes>(*into);
+    const auto flag_at = [](const Bytes& bytes, std::size_t at) {
+        VkBool32 value = VK_FALSE;
+        std::memcpy(&value, std::span(bytes).subspan(at, kFlag).data(), kFlag);
+        return value;
+    };
+    bool any = false;
+    for (std::size_t at = first; at + kFlag <= sizeof(Features); at += kFlag) {
+        if (flag_at(asked, at) == VK_TRUE && flag_at(has, at) == VK_TRUE && flag_at(set, at) != VK_TRUE) {
+            const VkBool32 on = VK_TRUE;
+            std::memcpy(std::span(set).subspan(at, kFlag).data(), &on, kFlag);
+            any = true;
+        }
+    }
+    *into = std::bit_cast<Features>(set);
+    return any;
+}
+
+// The structures a library chains (ContextAdditions::DeviceWants::chain) after the last of `head`'s chain.
+void chain_last(VkPhysicalDeviceVulkan13Features* head, const std::vector<VkBaseOutStructure*>& chain)
+{
+    if (chain.empty()) {
+        return;
+    }
+    for (std::size_t index = 0; index + 1 < chain.size(); ++index) {
+        core::at(chain, index)->pNext = core::at(chain, index + 1);
+    }
+    chain.back()->pNext = nullptr;
+    if (head->pNext == nullptr) {
+        head->pNext = chain.front();
+        return;
+    }
+    auto* last = static_cast<VkBaseOutStructure*>(head->pNext);
+    while (last->pNext != nullptr) {
+        last = last->pNext;
+    }
+    last->pNext = chain.front();
+}
+
+// A library's Vulkan 1.2 / 1.3 features (ContextAdditions::DeviceWants) added where the device has them; whether any
+// 1.2 feature was.
+bool add_features(VkPhysicalDevice physical, const ContextAdditions::DeviceWants& wants,
+                  VkPhysicalDeviceVulkan12Features* features12, VkPhysicalDeviceVulkan13Features* features13)
+{
+    VkPhysicalDeviceVulkan12Features offered12{};
+    offered12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    VkPhysicalDeviceVulkan13Features offered13{};
+    offered13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    offered12.pNext = &offered13;
+    VkPhysicalDeviceFeatures2 asked{};
+    asked.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    asked.pNext = &offered12;
+    vkGetPhysicalDeviceFeatures2(physical, &asked);
+    const bool any12 = merge_flags(Asked<VkPhysicalDeviceVulkan12Features>{.wanted = &wants.features12, .offered = &offered12},
+                                   offsetof(VkPhysicalDeviceVulkan12Features, samplerMirrorClampToEdge), features12);
+    merge_flags(Asked<VkPhysicalDeviceVulkan13Features>{.wanted = &wants.features13, .offered = &offered13},
+                offsetof(VkPhysicalDeviceVulkan13Features, robustImageAccess), features13);
+    return any12;
+}
 
 // The instance extensions the loader lists.
 std::vector<VkExtensionProperties> instance_extensions()
@@ -288,6 +370,7 @@ bool Context::open(SDL_Window* window, const ContextOptions& options)
 {
     on_message_ = options.on_message;
     ray_tracing_wanted_ = options.ray_tracing;
+    additions_ = options.additions;
     window_ = window;
     if (!open_loader()) {
         return fail("opening vulkan-1.dll", VK_ERROR_INITIALIZATION_FAILED);
@@ -315,6 +398,16 @@ bool Context::create_instance(bool validation)
     if (use_validation) {
         layers.push_back(kValidationLayer);
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+    // NOT ORIGINAL - a library's additions (ContextAdditions), without repeats
+    if (additions_ != nullptr) {
+        std::vector<const char*> added;
+        additions_->instance_extensions(&added);
+        for (const char* name : added) {
+            if (std::ranges::none_of(extensions, [name](const char* had) { return std::string_view(had) == name; })) {
+                extensions.push_back(name);
+            }
+        }
     }
     const VkApplicationInfo application{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -429,6 +522,8 @@ bool Context::create_device()
     enabled_features_.samplerAnisotropy = offered.samplerAnisotropy;
     enabled_features_.textureCompressionBC = offered.textureCompressionBC;
     enabled_features_.fillModeNonSolid = offered.fillModeNonSolid;
+    // NOT ORIGINAL - the upscaler's motion attachment blends apart from the colour (vulkan_motion.h)
+    enabled_features_.independentBlend = offered.independentBlend;
     // the draws: Vulkan 1.3's dynamic rendering (no render pass objects) and push descriptors
     VkPhysicalDeviceVulkan13Features features13{};
     features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -497,12 +592,22 @@ bool Context::create_device()
             ray_tracing_ = true;
         }
     }
+    // NOT ORIGINAL - a library's additions (ContextAdditions): its extensions, features and extra queues
+    std::array<float, kMostQueues> priorities{};
+    priorities.fill(priority);
+    VkDeviceQueueCreateInfo queues = queue;
+    uint32_t extra_queues = 0;
+    if (additions_ != nullptr) {
+        extra_queues = add_requested(&extensions, &features12, &features13, offered);
+        queues.queueCount = 1 + extra_queues;
+        queues.pQueuePriorities = priorities.data();
+    }
     const VkDeviceCreateInfo info{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = dynamic_rendering_ ? &features13 : nullptr,
         .flags = 0,
         .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &queue,
+        .pQueueCreateInfos = &queues,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = nullptr,
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
@@ -515,7 +620,50 @@ bool Context::create_device()
     }
     volkLoadDevice(device_);
     vkGetDeviceQueue(device_, queue_family_, 0, &queue_);
+    if (additions_ != nullptr) {
+        additions_->device_made({.instance = instance_,
+                                 .physical = physical_device_,
+                                 .device = device_,
+                                 .family = queue_family_,
+                                 .extra_queues = extra_queues});
+    }
     return true;
+}
+
+// NOT ORIGINAL - a library's additions (ContextAdditions): its extensions (without repeats, the device's only), the
+// features the device has of those it asks for (Vulkan 1.0's, 1.2's, 1.3's, then its own structures chained last), and
+// how many extra queues of the graphics family it gets.
+uint32_t Context::add_requested(std::vector<const char*>* extensions, VkPhysicalDeviceVulkan12Features* features12,
+                                VkPhysicalDeviceVulkan13Features* features13, const VkPhysicalDeviceFeatures& offered)
+{
+    ContextAdditions::DeviceWants wants;
+    wants.features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    wants.features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    additions_->device_extensions(physical_device_, &wants);
+    const std::vector<VkExtensionProperties> offered_extensions = device_extensions(physical_device_);
+    for (const char* name : wants.extensions) {
+        const bool repeated =
+            std::ranges::any_of(*extensions, [name](const char* had) { return std::string_view(had) == name; });
+        if (!repeated && has_extension(offered_extensions, name)) {
+            extensions->push_back(name);
+        }
+    }
+    if (wants.shader_int16) {
+        enabled_features_.shaderInt16 = offered.shaderInt16;
+    }
+    if (dynamic_rendering_) {
+        if (add_features(physical_device_, wants, features12, features13) && features13->pNext == nullptr) {
+            features13->pNext = features12; // (not chained by ray tracing: chained now)
+        }
+        chain_last(features13, wants.chain);
+    }
+    uint32_t family_queues = 1;
+    for (const QueueFamilyInfo& family : queue_families(physical_device_, surface_)) {
+        if (family.index == queue_family_) {
+            family_queues = family.count;
+        }
+    }
+    return std::min({wants.extra_queues, family_queues - 1, static_cast<uint32_t>(kMostQueues) - 1});
 }
 
 bool Context::create_frames()
@@ -839,6 +987,9 @@ void Context::destroy()
 {
     if (device_ != nullptr) {
         vkDeviceWaitIdle(device_);
+        if (additions_ != nullptr) {
+            additions_->before_destroy(); // (NOT ORIGINAL - ContextAdditions)
+        }
         destroy_swapchain(std::exchange(swapchain_, VK_NULL_HANDLE));
         for (Frame& frame : frames_) {
             if (frame.acquired != VK_NULL_HANDLE) {

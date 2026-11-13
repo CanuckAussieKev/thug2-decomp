@@ -406,6 +406,11 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_relit_residual` | 1 | 1 keeps the light the sun and sky can't explain - lamps, glows - as the level had it; 0 leaves it out |
 | `rt_relit_sun` | bake | The sun the level is relit by: `bake` - the one its lighting was made with; `game` - the sun the game shows in its sky; or `x,y,z` toward the sun |
 | `rt_relit_detail` | 1 | How much of each spot's own baked shading is kept where the sun and sky explain it (0-1; 0 relights the most) |
+| `upscaler` | off | On Vulkan (64-bit build): `dlss` (NVIDIA RTX), `fsr` (AMD FSR - any GPU) or `auto` (DLSS on NVIDIA, else FSR) draws the world at a lower resolution and rebuilds it at the window's - faster, smoother edges; the HUD and menus stay sharp. Multisampling (`msaa`, `AntiAliasing`) is off while it is on. `off` changes nothing |
+| `upscale_quality` | quality | With `upscaler`: how much is drawn - `dlaa` (all of it: anti-aliasing only), `quality` (67%), `balanced` (58%), `performance` (50%), `ultra` (33%) |
+| `ray_reconstruction` | 0 | With `upscaler=dlss` on an RTX GPU: 1 lets DLSS Ray Reconstruction clean up the ray-traced effects' noise (`rt_ao`, `rt_gi`) instead of their own filters |
+| `upscale_sharpness` | 0 | With `upscaler=fsr`: 0-1 sharpening after the upscale |
+| `fsr_version` | 0 | With `upscaler=fsr`: 0 the newest FSR the GPU runs (FSR 4 on the GPUs that have it), 3 FSR 3.1 |
 
 **`[Miscellaneous]`** - from PartyMod
 

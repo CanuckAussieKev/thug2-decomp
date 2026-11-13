@@ -36,7 +36,12 @@ $GameProcessNames = @(@($LaunchExeName) + $GameExeNames | ForEach-Object { [IO.P
 $DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'thug2-editor.exe', 'thug2-editor.pdb',
                    'plugins\thug2-level-editor.dll', 'plugins\thug2-level-editor.pdb',
                    'd3dx9_43.dll', 'SDL3.dll', 'gamecontrollerdb.txt', 'avutil-59.dll', 'avcodec-61.dll', 'avformat-61.dll',
-                   'swscale-8.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'dinput8.dll')
+                   'swscale-8.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'dinput8.dll',
+                   # (the Vulkan renderer's upscalers - cmake/upscalers.cmake: AMD FSR, NVIDIA Streamline / DLSS, a 64-bit
+                   # build's only; their licences beside them)
+                   'amd_fidelityfx_loader_vk.dll', 'amd_fidelityfx_upscaler_vk.dll', 'amd_fidelityfx_license.md',
+                   'sl.interposer.dll', 'sl.common.dll', 'sl.dlss.dll', 'sl.dlss_d.dll', 'nvngx_dlss.dll',
+                   'nvngx_dlssd.dll', 'nvngx_dlss.license.txt', 'streamline_license.txt')
 # The folders of ours a lock backs up whole and puts back the same way (removed at release when they weren't there):
 # the level editor's tools (editor-tools\: Node, the level converters - tools/editor_tools.ts). deploy_build.ps1
 # replaces one whole; its bundle.json says what it was made from.

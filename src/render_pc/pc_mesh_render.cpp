@@ -75,6 +75,17 @@ constexpr std::size_t kSkinVertexBytes = 0x4C;
 
 static_assert(sizeof(SkinVertex) == kSkinVertexBytes, "layout must match the original");
 
+// Not original - a mesh's draws' key for motion vectors (Gpu::MotionSource): the mesh and the instance it is drawn
+// for (none: the level's own meshes, which don't move - key 0).
+uint64_t motion_key(const void* mesh, const void* instance)
+{
+    if (instance == nullptr) {
+        return 0;
+    }
+    constexpr uint64_t kMix = 0x9E3779B97F4A7C15ULL;
+    return (std::bit_cast<uintptr_t>(mesh) * kMix) ^ std::bit_cast<uintptr_t>(instance);
+}
+
 const maths::Mat4& skin_matrix(uint8_t bone) { return core::at(bone_palette(), bone); }
 
 // A skinned vertex's bone and its weight.
@@ -237,9 +248,14 @@ void MeshRef::render()
     const bool skinned_now = (per_vertex_data_ != nullptr) && unknown9c_ == renderer().frames_rendered() &&
                              unknowna0_ == mesh_pass().current_instance();
     const bool again = flat && skinned_now && vertex_buffer_count_ > 1;
-    VertexBuffer* vb = vertex_store(
+    const size_t drawn_buffer =
         again ? static_cast<size_t>((current_vertex_buffer_ + vertex_buffer_count_ - 1) % vertex_buffer_count_)
-              : current_vertex_buffer_);
+              : current_vertex_buffer_;
+    VertexBuffer* vb = vertex_store(drawn_buffer);
+    // Not original - motion vectors (Gpu::MotionSource; the Vulkan Gpu's upscaler): skinned the frame before into the
+    // buffer before this one (the buffers take turns). Original behaviour: nothing.
+    const bool skinned_last_frame = per_vertex_data_ != nullptr && vertex_buffer_count_ > 1 &&
+                                    unknown9c_ + 1 == renderer().frames_rendered();
     if (per_vertex_data_ &&
         (unknown9c_ != renderer().frames_rendered() ||
          unknowna0_ != mesh_pass().current_instance())) { // (once a frame per instance)
@@ -271,6 +287,15 @@ void MeshRef::render()
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
     }
     gpu().set_stream_source(0, vb->buffer(), vb->arena_offset(), stride_);
+    {
+        Gpu::MotionSource motion{.key = motion_key(this, mesh_pass().current_instance())};
+        if (skinned_last_frame) {
+            const VertexBuffer* before = vertex_store((drawn_buffer + vertex_buffer_count_ - 1) % vertex_buffer_count_);
+            motion.previous_vertices = before->buffer();
+            motion.previous_offset = before->arena_offset();
+        }
+        gpu().set_motion_source(motion);
+    }
     const int level = lod_level();
     gpu().set_indices(index_buffer_at(this, level)->buffer());
     const uint32_t primitives = index_count_at(this, level) - 2U;
@@ -306,6 +331,7 @@ void MeshRef::render()
     if (unknown98 != -1) {
         gpu().set_transform(GpuTransform::kWorld, world.data());
     }
+    gpu().set_motion_source({}); // (not original: the motion source's draws done)
     toggle_fog(false);
 }
 

@@ -31,6 +31,9 @@ constexpr uint32_t kNormalLocation = 1;   // three floats
 constexpr uint32_t kDiffuseLocation = 2;  // D3DCOLOR
 constexpr uint32_t kSpecularLocation = 3; // D3DCOLOR
 constexpr uint32_t kFirstTexSetLocation = 4; // set n at 4 + n: one to four floats (the vertex format's size bits)
+// (added by the upscaler) The position the frame before (three floats; binding 1: the vertices the CPU wrote then, or
+// the same ones) - read with VertexKey::motion.
+constexpr uint32_t kPreviousPositionLocation = kFirstTexSetLocation + kMaxTexSets;
 
 // Binding 0, the vertex shader's.
 struct VertexUniforms {
@@ -54,6 +57,11 @@ struct VertexUniforms {
     std::array<Float4, kMaxLights> light_diffuse{};
     std::array<Float4, kMaxLights> light_specular{};
     std::array<Float4, kMaxLights> light_ambient{};
+    // (added by the upscaler; read with VertexKey::motion) The previous position into the frame before's clip space
+    // (its world x view x unjittered projection, Direct3D's row vectors), and this frame's jitter in Direct3D's clip
+    // space (x, y: what was added to x / w and y / w) - taken out of this frame's position for the motion.
+    Float4x4 previous_clip{};
+    Float4 motion_jitter{};
 };
 
 constexpr std::size_t kPixelShaderConstants = 8;
@@ -75,7 +83,9 @@ constexpr std::size_t kVectorsBeforeLights = 10; // pixel ... point_scale
 constexpr std::size_t kFragmentVectors = kPixelShaderConstants + 4;
 static_assert(offsetof(VertexUniforms, light_direction) == offsetof(VertexUniforms, pixel) + (kVectorsBeforeLights * kVectorBytes),
               "std140: vectors are 16 bytes");
-static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, light_direction) + (4 * kMaxLights * kVectorBytes),
+static_assert(offsetof(VertexUniforms, previous_clip) == offsetof(VertexUniforms, light_direction) + (4 * kMaxLights * kVectorBytes),
+              "std140: no padding");
+static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, previous_clip) + kMatrixBytes + kVectorBytes,
               "std140: no padding");
 static_assert(sizeof(FragmentUniforms) == kFragmentVectors * kVectorBytes, "std140: no padding");
 

@@ -20,6 +20,7 @@
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_motion.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_ring.h"
@@ -90,6 +91,7 @@ struct OpenPass {
     Surface* depth = nullptr;
     Image* colour_image = nullptr;
     Image* depth_image = nullptr; // (null: drawn without depth)
+    bool motion = false;          // (the upscaler's) the motion attachment is the second colour attachment
     VkExtent2D area{};
     std::vector<Query*> queries; // begun inside it, not yet ended
 };
@@ -110,6 +112,9 @@ struct BoundState {
     VkBuffer vertex_buffer = VK_NULL_HANDLE;
     VkDeviceSize vertex_offset = 0;
     VkDeviceSize vertex_stride = 0;
+    VkBuffer previous_buffer = VK_NULL_HANDLE; // (the upscaler's motion: binding 1)
+    VkDeviceSize previous_offset = 0;
+    VkDeviceSize previous_stride = 0;
     VkBuffer index_buffer = VK_NULL_HANDLE;
     VkDeviceSize index_offset = 0;
     VkIndexType index_type = VK_INDEX_TYPE_MAX_ENUM;
@@ -218,6 +223,7 @@ struct Backend {
     GpuGammaRamp gamma{};
     std::vector<std::unique_ptr<UiWindow>> ui_windows; // the UI's own windows (vulkan_ui_windows.cpp)
     MaterialTable materials; // NOT ORIGINAL - ray tracing's material table (vulkan_rt_materials.h), when it is enabled
+    MotionVectors motion;    // NOT ORIGINAL - the upscaler's motion vectors (vulkan_motion.h)
 };
 
 // The one backend (made on first use, never destroyed).
