@@ -277,19 +277,23 @@ void set_rt_pbr_settings(const RtPbrSettings& settings);
 // NOT ORIGINAL - an art style (vulkan_style.h; docs/design/vulkan.md "Art style"): [Graphics] rt_style and its
 // rt_style_* knobs - all put to use at once. A post-process over each viewport's world after the tone mapping and the
 // upscaler, before the 2D. off (the default): nothing changes. No ray tracing or HDR needed.
-// rt_style's names, in this order (their numbers: the old 0 / 1 still read as off / toon).
+// rt_style's names, in this order (their numbers: the old 0 / 1 still read as off / toon). cel is no post-process: it
+// is cel shading, the rendering mode (engine/gfx/rt_cel.h - app/renderer_choice.cpp turns it on with this value).
 enum class ArtStyle : uint8_t {
     kOff = 0,
     kToon = 1,        // flat paint, soft shade bands, dark tinted ink (vulkan_style.cpp)
-    kComic = 2,       // a skate-zine comic: bold black ink, halftone dots, posterized fills (vulkan_style_looks.cpp)
-    kSketch = 3,      // pencil on paper: cross-hatching by darkness, graphite lines, paper grain (vulkan_style_looks.cpp)
-    kVhs = 4,         // a 90s camcorder tape: fisheye, colour bleed, wobble, REC (vulkan_style_vhs.cpp)
-    kRetro = 5,       // a 32-bit console: snapped vertices, warped textures, few colours (vulkan_style_retro.cpp)
-    kWatercolour = 6, // a wash painting on paper (vulkan_style_watercolour.cpp)
-    kNoir = 7,        // a high-contrast duotone, film grain, a vignette (vulkan_style_looks.cpp)
-    kThermal = 8,     // a false-colour heat camera (vulkan_style_looks.cpp)
+    kCel = 2,         // cel shading: the light in bands where it is worked out, ink round objects (vulkan_cel.h)
+    kComic = 3,       // a skate-zine comic: bold black ink, halftone dots, posterized fills (vulkan_style_looks.cpp)
+    kSketch = 4,      // pencil on paper: cross-hatching by darkness, graphite lines, paper grain (vulkan_style_looks.cpp)
+    kVhs = 5,         // a 90s camcorder tape: fisheye, colour bleed, wobble, REC (vulkan_style_vhs.cpp)
+    kRetro = 6,       // a 32-bit console: snapped vertices, warped textures, few colours (vulkan_style_retro.cpp)
+    kWatercolour = 7, // a wash painting on paper (vulkan_style_watercolour.cpp)
+    kNoir = 8,        // a high-contrast duotone, film grain, a vignette (vulkan_style_looks.cpp)
+    kThermal = 9,     // a false-colour heat camera (vulkan_style_looks.cpp)
 };
-inline constexpr unsigned kArtStyleCount = 9;
+inline constexpr unsigned kArtStyleCount = 10;
+// Whether a style is a post-process of its own (vulkan_style.h's pass): every one but off and cel.
+[[nodiscard]] constexpr bool style_has_pass(ArtStyle style) { return style != ArtStyle::kOff && style != ArtStyle::kCel; }
 // "off", "toon", "comic", ... (an unknown value: "off").
 [[nodiscard]] const char* art_style_name(ArtStyle style);
 // A name (any case) or the old numbers 0 / 1; false (the style untouched) when the text is neither.

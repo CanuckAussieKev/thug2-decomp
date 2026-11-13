@@ -133,9 +133,7 @@ const std::vector<GroupKeys>& group_keys()
         {.id = "lighting",
          .name = text_tools::kGroupLighting,
          .keys = {"rt_sun_source", "rt_shadows", "rt_shadow_strength", "rt_shadow_softness", "rt_shadow_objects", "rt_ao",
-                  "rt_ao_strength", "rt_ao_radius", "rt_ao_rays", "rt_gi", "rt_gi_strength", "rt_gi_rays",
-                  "rt_cel", "rt_cel_bands", "rt_cel_shadow_colour", "rt_cel_rim", "rt_cel_outline_width",
-                  "rt_cel_flatten"}}, // (added by cel shading)
+                  "rt_ao_strength", "rt_ao_radius", "rt_ao_rays", "rt_gi", "rt_gi_strength", "rt_gi_rays"}},
         {.id = "surfaces",
          .name = text_tools::kGroupSurfaces,
          .keys = {"rt_relit", "rt_relit_strength", "rt_pbr", "rt_pbr_specular", "rt_pbr_normal_strength",
@@ -149,8 +147,13 @@ const std::vector<GroupKeys>& group_keys()
         {.id = "colour",
          .name = text_tools::kGroupColour,
          .keys = {"rt_hdr", "rt_exposure", "rt_tonemap", "rt_white_point", "rt_saturation", "rt_contrast", "rt_bloom",
-                  "rt_bloom_strength", "rt_style", "rt_style_strength", "rt_style_smooth", "rt_style_bands",
-                  "rt_style_outlines", "rt_style_outline_width", "rt_style_saturation", "rt_style_comic_halftone",
+                  "rt_bloom_strength"}},
+        // (the art styles - rt_style first, then each style's knobs, shown only while it is picked: shown_table)
+        {.id = "style",
+         .name = text_tools::kGroupStyle,
+         .keys = {"rt_style", "rt_style_strength", "rt_style_smooth", "rt_style_bands", "rt_style_outlines",
+                  "rt_style_outline_width", "rt_style_saturation", "rt_cel_bands", "rt_cel_shadow_colour", "rt_cel_rim",
+                  "rt_cel_outline_width", "rt_cel_flatten", "rt_style_comic_halftone",
                   "rt_style_sketch_hatch", "rt_style_sketch_wash", "rt_style_paper", "rt_style_grain", "rt_style_vignette",
                   "rt_style_noir_contrast", "rt_style_noir_dark", "rt_style_noir_light", "rt_style_thermal_focus",
                   // (the vhs, retro and watercolour styles' knobs)
@@ -237,11 +240,6 @@ const std::vector<ShownWhen>& shown_table()
         {.key = "rt_ao_rays", .parent = "rt_ao", .values = {"1"}},
         {.key = "rt_gi_strength", .parent = "rt_gi", .values = {"1"}},
         {.key = "rt_gi_rays", .parent = "rt_gi", .values = {"1"}},
-        {.key = "rt_cel_bands", .parent = "rt_cel", .values = {"1"}},
-        {.key = "rt_cel_shadow_colour", .parent = "rt_cel", .values = {"1"}},
-        {.key = "rt_cel_rim", .parent = "rt_cel", .values = {"1"}},
-        {.key = "rt_cel_outline_width", .parent = "rt_cel", .values = {"1"}},
-        {.key = "rt_cel_flatten", .parent = "rt_cel", .values = {"1"}},
         {.key = "rt_pbr_specular", .parent = "rt_pbr", .values = {"1"}},
         {.key = "rt_pbr_normal_strength", .parent = "rt_pbr", .values = {"1"}},
         {.key = "rt_reflection_strength", .parent = "rt_reflections", .values = {"1"}},
@@ -267,6 +265,11 @@ const std::vector<ShownWhen>& shown_table()
         {.key = "rt_style_outlines", .parent = "rt_style", .values = {"toon", "comic", "sketch"}},
         {.key = "rt_style_outline_width", .parent = "rt_style", .values = {"toon", "comic", "sketch"}},
         {.key = "rt_style_saturation", .parent = "rt_style", .values = {"toon", "comic"}},
+        {.key = "rt_cel_bands", .parent = "rt_style", .values = {"cel"}},
+        {.key = "rt_cel_shadow_colour", .parent = "rt_style", .values = {"cel"}},
+        {.key = "rt_cel_rim", .parent = "rt_style", .values = {"cel"}},
+        {.key = "rt_cel_outline_width", .parent = "rt_style", .values = {"cel"}},
+        {.key = "rt_cel_flatten", .parent = "rt_style", .values = {"cel"}},
         {.key = "rt_style_comic_halftone", .parent = "rt_style", .values = {"comic"}},
         {.key = "rt_style_sketch_hatch", .parent = "rt_style", .values = {"sketch"}},
         {.key = "rt_style_sketch_wash", .parent = "rt_style", .values = {"sketch"}},
@@ -426,9 +429,8 @@ const std::vector<Spec>& get_specs()
         graphics_choice("rt_gi_rays", text_tools::kOptGiRays, "",
                         {{.value = "1", .label = "1"}, {.value = "2", .label = "2"}, {.value = "4", .label = "4"}, {.value = "8", .label = "8"}},
                         1, Apply::kLive),
-        // (added by cel shading - engine/gfx/rt_cel.h: a rendering mode, the light in bands where it is worked out)
-        graphics_choice("rt_cel", text_tools::kOptCel, text_tools::kOptCelHelp,
-                        {{.value = "0", .label = kOff}, {.value = "1", .label = text_tools::kOn}}, 0, Apply::kLive),
+        // (added by cel shading - engine/gfx/rt_cel.h: a rendering mode, the light in bands where it is worked out; on
+        // with rt_style=cel - an older ini's rt_cel=1 too, read by app/renderer_choice.cpp, but no row writes rt_cel)
         graphics_choice("rt_cel_bands", text_tools::kOptCelBands, "",
                         {{.value = "2", .label = "2"}, {.value = "3", .label = "3"}, {.value = "4", .label = "4"}}, 1, Apply::kLive),
         graphics_choice("rt_cel_shadow_colour", text_tools::kOptCelShadow, "",
@@ -540,11 +542,13 @@ const std::vector<Spec>& get_specs()
         graphics_choice("rt_bloom_strength", text_tools::kOptBloomStrength, "",
                         {{.value = "0.02", .label = text_tools::kLow}, {.value = "0.05", .label = text_tools::kMedium}, {.value = "0.1", .label = text_tools::kHigh}, {.value = "0.2", .label = "Max"}},
                         1, Apply::kLive),
-        // (the art styles: gpu_vulkan/vulkan_style.h, vulkan_style_looks.h - the looks and their knobs; the old 0 / 1 in
-        // the ini read as off / toon there, and show as Off here until a style is picked)
+        // (the art styles: gpu_vulkan/vulkan_style.h, vulkan_style_looks.h, vulkan_style_film.h - the looks and their
+        // knobs; cel is cel shading, the rendering mode above; the old 0 / 1 in the ini read as off / toon there, and
+        // show as Off here until a style is picked)
         graphics_choice("rt_style", text_tools::kOptStyle, text_tools::kOptStyleHelp,
                         {{.value = "off", .label = kOff},
                          {.value = "toon", .label = text_tools::kStyleToon},
+                         {.value = "cel", .label = text_tools::kStyleCel},
                          {.value = "comic", .label = text_tools::kStyleComic},
                          {.value = "sketch", .label = text_tools::kStyleSketch},
                          {.value = "vhs", .label = text_tools::kStyleVhs},

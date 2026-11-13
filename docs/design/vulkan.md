@@ -1879,10 +1879,12 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
 
 ### Art styles: comic, sketch, noir, thermal
 
-`rt_style` is a name: `off | toon | comic | sketch | vhs | retro | watercolour | noir | thermal` (`ArtStyle` in
-gpu_vulkan.h; `parse_art_style` takes any case and the old 0 / 1). `vhs`, `retro` and `watercolour` are reserved: the
-listener logs "rt_style=<name> is not built in" once and draws nothing (`style_built`; each gets its case when it is
-made). The four looks here (`gpu_vulkan/vulkan_style_looks`, formulas in its header) reuse the toon filter's passes and
+`rt_style` is a name: `off | toon | cel | comic | sketch | vhs | retro | watercolour | noir | thermal` (`ArtStyle` in
+gpu_vulkan.h; `parse_art_style` takes any case and the old 0 / 1). `cel` is no post-process: it is cel shading, the
+rendering mode ("Cel shading" below - `style_has_pass` is false for it and off, so the listener isn't added). `vhs`,
+`retro` and `watercolour` are "Art styles: vhs, retro, watercolour" below. The Options screen has them all in its Style
+tab: `rt_style` first, then every style's knobs (`rt_style_*`, `rt_cel_*`), each listed only while its style is picked
+(`shown_table`). The four looks here (`gpu_vulkan/vulkan_style_looks`, formulas in its header) reuse the toon filter's passes and
 listener - the viewport's colour copied out (resolved), the linear depth, the half-resolution colour and its Kuwahara
 smoothing - and add a composite of their own (a fragment pipeline per look, format and samples), so they share its
 place (`ViewOrder::kStyle`, after the tone mapping and the upscaler, before the 2D), its per-viewport handling and its
@@ -2029,9 +2031,10 @@ tracing needed; Direct3D 9 installs no `Sink` and draws none.
 `engine/gfx/rt_cel` (the settings, the stream's layout, the bands' formulas and their twins on the processor),
 `gpu_vulkan/vulkan_cel` (which draws are banded, their uniforms, the world's outlines), the fixed-function generator
 (`ff_key.h` `kSurfaceCel*`, `ff_shaders.cpp` "the light in bands"), `render_pc/rt_relit_world` (the stream);
-`[Graphics] rt_cel` (off by default), `rt_cel_bands`, `rt_cel_shadow_colour`, `rt_cel_rim`, `rt_cel_outline_width`,
-`rt_cel_flatten`. A rendering mode, not a filter: the light is put in bands in the draws' own fragment shaders, where it
-is worked out; the toon filter (`rt_style`) is independent and both may be on.
+`[Graphics] rt_style=cel` (an art style in the Options screen's list; any other value turns it off - an older ini's
+`rt_cel=1` still turns it on while `rt_style` is off), `rt_cel_bands`, `rt_cel_shadow_colour`, `rt_cel_rim`,
+`rt_cel_outline_width`, `rt_cel_flatten`. A rendering mode, not a filter: the light is put in bands in the draws' own
+fragment shaders, where it is worked out; as the art style `cel` it has no post-process of its own.
 
 - **The relit world** (`rt_relit=1`): relit already knows each vertex's parts. With `rt_cel` on it also writes a second
   vertex stream per world mesh (`cel_stream_words`: three D3DCOLOR words a vertex - the sky's and bounce's light and
@@ -2208,8 +2211,8 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
 
 ### Art styles: vhs, retro, watercolour
 
-`gpu_vulkan/vulkan_style_film` (`[Graphics] rt_style=vhs | retro | watercolour` - places 4, 5, 6 of rt_style's name
-list `off | toon | comic | sketch | vhs | retro | watercolour | noir | thermal`; their knobs `rt_style_<style>_*`, all
+`gpu_vulkan/vulkan_style_film` (`[Graphics] rt_style=vhs | retro | watercolour` - `ArtStyle::kVhs`, `kRetro`, `kWatercolour`
+in rt_style's name list `off | toon | cel | comic | sketch | vhs | retro | watercolour | noir | thermal`; their knobs `rt_style_<style>_*`, all
 live; `rt_style_strength` mixes each over the original as it does the toon's). Each is a post-process at the toon's
 place (`ViewOrder::kStyle`: after the tone mapping and the upscaler, before the 2D - the HUD is never filtered), per
 viewport (split screen: nothing read across a viewport's edge), alpha kept, NaN-free. `vulkan_style.cpp`'s pass plans

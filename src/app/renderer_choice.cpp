@@ -464,17 +464,27 @@ std::array<float, 3> style_colour(const char* key, const std::array<float, 3>& f
     return colour;
 }
 
-void read_style()
+// [Graphics] rt_style as a name (off when it is none - logged when `log`).
+render::vulkan::ArtStyle art_style_of_ini(bool log)
 {
-    const render::vulkan::StyleSettings defaults;
     constexpr std::size_t kLongest = 32;
     std::array<char, kLongest> name{};
     graphics_text("rt_style", "off", name.data(), name.size());
     render::vulkan::ArtStyle style = render::vulkan::ArtStyle::kOff;
-    if (!render::vulkan::parse_art_style(name.data(), &style)) {
-        get_log("[Graphics] rt_style=%s isn't off, toon, comic, sketch, vhs, retro, watercolour, noir or thermal - off",
+    if (!render::vulkan::parse_art_style(name.data(), &style) && log) {
+        get_log("[Graphics] rt_style=%s isn't off, toon, cel, comic, sketch, vhs, retro, watercolour, noir or thermal - "
+                "off",
                 name.data());
     }
+    return style;
+}
+
+void read_rt_cel();
+
+void read_style()
+{
+    const render::vulkan::StyleSettings defaults;
+    const render::vulkan::ArtStyle style = art_style_of_ini(true);
     render::vulkan::set_style_settings({.style = style,
                                         .strength = ini_float("rt_style_strength", defaults.strength),
                                         .smooth = ini_float("rt_style_smooth", defaults.smooth),
@@ -493,6 +503,7 @@ void read_style()
                                         .noir_dark = style_colour("rt_style_noir_dark", defaults.noir_dark),
                                         .noir_light = style_colour("rt_style_noir_light", defaults.noir_light)});
     read_style_film();
+    read_rt_cel(); // (rt_style=cel is cel shading)
 }
 
 // NOT ORIGINAL - grass (gpu_vulkan/vulkan_grass.h): blades where the level's collision says grass; off unless asked for,
@@ -507,11 +518,16 @@ void read_grass()
 }
 
 // NOT ORIGINAL - cel shading (engine/gfx/rt_cel.h, gpu_vulkan/vulkan_cel.h): off unless asked for; the relit mode's
-// decomposition and ray tracing make it fuller (the light in bands from the relit world's parts, hard traced shadows)
+// decomposition and ray tracing make it fuller (the light in bands from the relit world's parts, hard traced shadows).
+// On with rt_style=cel (an art style in the Options screen); an older ini's rt_cel=1 still turns it on while rt_style
+// is off.
 void read_rt_cel()
 {
     const render::rt::CelSettings defaults;
-    render::rt::CelSettings cel{.on = graphics_flag("rt_cel", false),
+    const render::vulkan::ArtStyle style = art_style_of_ini(false);
+    const bool on = style == render::vulkan::ArtStyle::kCel ||
+                    (style == render::vulkan::ArtStyle::kOff && graphics_flag("rt_cel", false));
+    render::rt::CelSettings cel{.on = on,
                                 .bands = static_cast<uint32_t>(std::max(0, graphics_int("rt_cel_bands", static_cast<int>(defaults.bands)))),
                                 .shadow_colour = defaults.shadow_colour,
                                 .rim = ini_float("rt_cel_rim", defaults.rim),

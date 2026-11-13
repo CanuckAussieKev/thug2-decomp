@@ -17,6 +17,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/ext/extension.h"
 #include "engine/gfx/graphics_options.h"
+#include "engine/gfx/rt_cel.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
@@ -224,6 +225,14 @@ void add_running(Fields* out)
             text += " (asked for one - the libraries or the device don't run it: fell back)";
         }
         add("upscaler", text);
+        // (rt_style as the renderer took it; cel is cel shading - on with rt_style=cel, or an older ini's rt_cel=1)
+        const render::vulkan::ArtStyle style = render::vulkan::style_settings().style;
+        const bool cel = render::rt::cel_settings().on;
+        std::string art = render::vulkan::art_style_name(cel ? render::vulkan::ArtStyle::kCel : style);
+        if (cel && style != render::vulkan::ArtStyle::kCel) {
+            art += " (from rt_cel=1)";
+        }
+        add("art style", art);
     }
 #endif
     if (scale.on && gpu.device_made()) {

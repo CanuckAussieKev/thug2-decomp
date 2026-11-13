@@ -1159,7 +1159,7 @@ void set_style_settings(const StyleSettings& settings)
         const std::scoped_lock lock(backend().mutex);
         style().settings = settings;
     }
-    if (settings.style != ArtStyle::kOff) {
+    if (style_has_pass(settings.style)) {
         rt::add_view_listener(&listener());
     } else {
         rt::remove_view_listener(&listener());
@@ -1174,8 +1174,8 @@ StyleSettings style_settings()
 
 namespace {
 
-constexpr std::array<const char*, kArtStyleCount> kArtStyleNames{"off",   "toon",        "comic", "sketch", "vhs",
-                                                                 "retro", "watercolour", "noir",  "thermal"};
+constexpr std::array<const char*, kArtStyleCount> kArtStyleNames{"off", "toon",  "cel",         "comic", "sketch",
+                                                                 "vhs", "retro", "watercolour", "noir",  "thermal"};
 
 } // namespace
 
@@ -1223,6 +1223,7 @@ bool style_built(ArtStyle style)
     case ArtStyle::kWatercolour: // (likewise)
         return true;
     case ArtStyle::kOff:
+    case ArtStyle::kCel: // (cel shading: no pass of its own)
         break;
     }
     return false;
@@ -1681,7 +1682,7 @@ void log_first_pass(Backend& state, const ViewPlan& plan)
 bool record_style_pass(Backend& state, const rt::ViewDrawn& view)
 {
     StyleState& own = style();
-    if (own.settings.style == ArtStyle::kOff || own.failed || !(own.settings.strength > 0.0F)) {
+    if (!style_has_pass(own.settings.style) || own.failed || !(own.settings.strength > 0.0F)) {
         return false;
     }
     if (!style_built(own.settings.style)) {

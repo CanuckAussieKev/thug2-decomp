@@ -904,6 +904,7 @@ void set_look_parameters(const StyleSettings& settings, const StyleHeights& heig
         break;
     case ArtStyle::kOff:
     case ArtStyle::kToon:
+    case ArtStyle::kCel:
     case ArtStyle::kVhs:
     case ArtStyle::kRetro:
     case ArtStyle::kWatercolour:
@@ -933,6 +934,7 @@ LookConstants look_constants(const StyleParameters& parameters)
         break;
     case ArtStyle::kOff:
     case ArtStyle::kToon:
+    case ArtStyle::kCel:
     case ArtStyle::kVhs:
     case ArtStyle::kRetro:
     case ArtStyle::kWatercolour:
@@ -960,6 +962,7 @@ const char* style_look_body(ArtStyle look)
         return kThermalBody;
     case ArtStyle::kOff:
     case ArtStyle::kToon:
+    case ArtStyle::kCel:
     case ArtStyle::kVhs:
     case ArtStyle::kRetro:
     case ArtStyle::kWatercolour:
@@ -1012,6 +1015,7 @@ std::vector<StyleRgb> style_look_reference(const StyleParameters& parameters, co
                 break;
             case ArtStyle::kOff:
             case ArtStyle::kToon:
+            case ArtStyle::kCel:
             case ArtStyle::kVhs:
             case ArtStyle::kRetro:
             case ArtStyle::kWatercolour:

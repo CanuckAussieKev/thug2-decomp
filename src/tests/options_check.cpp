@@ -75,7 +75,6 @@ const std::vector<Expected>& expected()
         {.key = "rt_gi", .fallback = "0", .live = true},
         {.key = "rt_gi_strength", .fallback = "1", .live = true},
         {.key = "rt_gi_rays", .fallback = "2", .live = true},
-        {.key = "rt_cel", .fallback = "0", .live = true},
         {.key = "rt_cel_bands", .fallback = "3", .live = true},
         {.key = "rt_cel_shadow_colour", .fallback = "0.62,0.66,0.86", .live = true},
         {.key = "rt_cel_rim", .fallback = "0.5", .live = true},
@@ -189,6 +188,25 @@ void check_tables()
         }
     }
     expect(rows == options::get_specs().size() && seen.size() == rows, "every setting in one group, once");
+    // (the Style tab: the art style first, every style's knob - rt_style_* and cel shading's rt_cel_* - in it and in
+    // no other tab)
+    bool style_tab = false;
+    for (const options::GroupSet& group : options::bunches()) {
+        const bool is_style = std::strcmp(group.id, "style") == 0;
+        style_tab = style_tab || is_style;
+        if (is_style) {
+            expect(!group.rows.empty() &&
+                       std::strcmp(core::at(options::get_specs(), group.rows.front()).key, "rt_style") == 0,
+                   "the Style tab starts with the art style");
+        }
+        for (const int row : group.rows) {
+            const std::string key = core::at(options::get_specs(), row).key;
+            const bool style_key = key.starts_with("rt_style") || key.starts_with("rt_cel");
+            expect(style_key == is_style, key + (is_style ? " isn't a style's knob" : " belongs in the Style tab"));
+        }
+    }
+    expect(style_tab, "there is a Style tab");
+    expect(options::get_find("Graphics", "rt_cel") < 0, "no row writes rt_cel (cel shading is rt_style=cel)");
 }
 
 void check_graphics()
@@ -323,7 +341,9 @@ void check_shown_when()
         expect(options::row_shown(parent, {}), name + ": the parent is always listed");
         const std::string stem = std::string(rule.parent).substr(0, std::string(rule.parent).size() > 6 ? 6 : 4);
         const bool upscale = std::strcmp(rule.parent, "upscaler") == 0;
-        expect(upscale || std::string(rule.key).starts_with(stem) || std::string(rule.key).starts_with("rt_glass_"),
+        // (cel shading is the art style cel: its rt_cel_* knobs under rt_style)
+        const bool cel = std::strcmp(rule.parent, "rt_style") == 0 && std::string(rule.key).starts_with("rt_cel_");
+        expect(upscale || cel || std::string(rule.key).starts_with(stem) || std::string(rule.key).starts_with("rt_glass_"),
                name + ": the parent controls the child");
     }
     // (the six toon knobs, by name)
@@ -353,6 +373,11 @@ void check_shown_when()
             LookRow{.key = "rt_style_noir_dark", .shown = "noir", .hidden = "thermal"},
             LookRow{.key = "rt_style_thermal_focus", .shown = "thermal", .hidden = "noir"},
             LookRow{.key = "rt_style_bands", .shown = "comic", .hidden = "sketch"},
+            LookRow{.key = "rt_cel_bands", .shown = "cel", .hidden = "toon"},
+            LookRow{.key = "rt_cel_flatten", .shown = "cel", .hidden = "comic"},
+            LookRow{.key = "rt_style_vhs_fisheye", .shown = "vhs", .hidden = "retro"},
+            LookRow{.key = "rt_style_retro_snap", .shown = "retro", .hidden = "vhs"},
+            LookRow{.key = "rt_style_watercolour_paper", .shown = "watercolour", .hidden = "sketch"},
         };
         const int style = index_of("rt_style");
         const options::Spec& styles = core::at(specs, style);
