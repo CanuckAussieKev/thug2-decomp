@@ -4,6 +4,7 @@
 // (README's [Graphics] table), every choice written to an ini text and read back as itself with the rest of the text
 // kept, and the graphics presets recognised once written. Exit code 0 when everything holds.
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -107,13 +108,23 @@ const std::vector<Expected>& expected()
         {.key = "rt_contrast", .fallback = "1", .live = true},
         {.key = "rt_bloom", .fallback = "0", .live = true},
         {.key = "rt_bloom_strength", .fallback = "0.05", .live = true},
-        {.key = "rt_style", .fallback = "0", .live = true},
+        {.key = "rt_style", .fallback = "off", .live = true},
         {.key = "rt_style_strength", .fallback = "1", .live = true},
         {.key = "rt_style_smooth", .fallback = "4", .live = true},
         {.key = "rt_style_bands", .fallback = "5", .live = true},
         {.key = "rt_style_outlines", .fallback = "1", .live = true},
         {.key = "rt_style_outline_width", .fallback = "1", .live = true},
         {.key = "rt_style_saturation", .fallback = "1.15", .live = true},
+        {.key = "rt_style_comic_halftone", .fallback = "5", .live = true},
+        {.key = "rt_style_sketch_hatch", .fallback = "5", .live = true},
+        {.key = "rt_style_sketch_wash", .fallback = "0.35", .live = true},
+        {.key = "rt_style_paper", .fallback = "0.5", .live = true},
+        {.key = "rt_style_grain", .fallback = "0.5", .live = true},
+        {.key = "rt_style_vignette", .fallback = "0.5", .live = true},
+        {.key = "rt_style_noir_contrast", .fallback = "1.8", .live = true},
+        {.key = "rt_style_noir_dark", .fallback = "0,0,0", .live = true},
+        {.key = "rt_style_noir_light", .fallback = "0.95,0.92,0.84", .live = true},
+        {.key = "rt_style_thermal_focus", .fallback = "0.6", .live = true},
         {.key = "upscaler", .fallback = "off", .live = false},
         {.key = "upscale_quality", .fallback = "quality", .live = false},
         {.key = "ray_reconstruction", .fallback = "0", .live = false},
@@ -297,6 +308,42 @@ void check_shown_when()
         expect(!options::row_shown(index_of(key), choices), std::string(key) + " hidden while the art style is off");
         core::at(choices, style) = 1;
         expect(options::row_shown(index_of(key), choices), std::string(key) + " listed with the toon style");
+    }
+    // (the looks' own knobs: listed only under their looks)
+    {
+        struct LookRow {
+            const char* key;
+            const char* shown;  // a style it is listed under
+            const char* hidden; // ... and one it isn't
+        };
+        constexpr std::array kLookRows{
+            LookRow{.key = "rt_style_comic_halftone", .shown = "comic", .hidden = "toon"},
+            LookRow{.key = "rt_style_sketch_hatch", .shown = "sketch", .hidden = "comic"},
+            LookRow{.key = "rt_style_grain", .shown = "noir", .hidden = "toon"},
+            LookRow{.key = "rt_style_noir_dark", .shown = "noir", .hidden = "thermal"},
+            LookRow{.key = "rt_style_thermal_focus", .shown = "thermal", .hidden = "noir"},
+            LookRow{.key = "rt_style_bands", .shown = "comic", .hidden = "sketch"},
+        };
+        const int style = index_of("rt_style");
+        const options::Spec& styles = core::at(specs, style);
+        const auto choice_index = [&](const char* value) {
+            for (size_t i = 0; i < styles.choices.size(); ++i) {
+                if (std::strcmp(core::at(styles.choices, i).value, value) == 0) {
+                    return static_cast<int>(i);
+                }
+            }
+            return -1;
+        };
+        for (const LookRow& row : kLookRows) {
+            std::vector<int> choices(specs.size(), 0);
+            for (size_t i = 0; i < specs.size(); ++i) {
+                core::at(choices, i) = core::at(specs, i).fallback;
+            }
+            core::at(choices, style) = choice_index(row.shown);
+            expect(options::row_shown(index_of(row.key), choices), std::string(row.key) + " listed with " + row.shown);
+            core::at(choices, style) = choice_index(row.hidden);
+            expect(!options::row_shown(index_of(row.key), choices), std::string(row.key) + " hidden with " + row.hidden);
+        }
     }
     // (the upscaler: off hides its knobs, any provider lists them)
     {

@@ -9,7 +9,8 @@
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_formats.h"
 
-// NOT ORIGINAL - an art style: the toon filter (docs/design/vulkan.md "Art style"; [Graphics] rt_style - gpu_vulkan.h's
+// NOT ORIGINAL - the art styles: the toon filter and the passes the other looks share (docs/design/vulkan.md "Art
+// style"; [Graphics] rt_style - gpu_vulkan.h's
 // StyleSettings). A post-process over each viewport's world after everything else at world_drawn (rt::ViewOrder::kStyle:
 // after the tone mapping and the upscaler - the colour the display's 0 - 1, at the output's resolution), before the 2D:
 // the HUD, the menus and text are never filtered. Independent of ray tracing, HDR and the upscaler.
@@ -47,6 +48,11 @@
 //      d. the toon colour back to gamma 2.2 and clamped to 0 - 1, mixed with the pixel's own by rt_style_strength.
 //   Alpha is kept. Every step is NaN-free (inputs clamped first).
 // style_reference below is the composite's twin on the processor (the check's reference).
+//
+// The other looks (rt_style comic, sketch, noir, thermal - vulkan_style_looks.h) share these passes and differ in the
+// composite: comic and sketch add an edge pass (step 4c's edge per depth pixel into an R32F image, which their ink
+// widens), thermal and noir read the half-resolution colour unsmoothed. vhs, retro and watercolour
+// are names only so far: logged once as not built in, nothing drawn.
 namespace render::vulkan {
 
 struct Backend;
@@ -71,6 +77,7 @@ inline constexpr int kStyleMostRadius = 8;           // (half-resolution pixels)
 
 // What the passes are given for a viewport, worked out from the settings and the view (also the reference's input).
 struct StyleParameters {
+    ArtStyle style = ArtStyle::kToon;
     int radius = 0;              // the Kuwahara filter's (half-resolution pixels; 0: no smoothing)
     float bands = 0.0F;          // 0: no banding
     float saturation = 1.0F;
@@ -80,6 +87,22 @@ struct StyleParameters {
     float focal = 1.0F;          // f: the projection's vertical scale x the depth's height / 2 (depth pixels)
     std::array<float, 4> projection{}; // P22, P32, P23, P33 (D3D's row-vector layout): the linear depth's
     std::array<float, 2> depth_range{0.0F, 1.0F};
+    // (the looks' - vulkan_style_looks.h; output pixels scale with the picture's height / 720)
+    int ink = 0;                 // comic, sketch: how far a line reaches round its edge (depth pixels; 0: the edge alone)
+    int ring = 1;                // thermal: the "stands in front" test's ring (depth pixels); noir: the surroundings'
+                                 // ring (half-resolution pixels)
+    float halftone = 0.0F;       // comic: the dot screen's spacing (output pixels; 0: none)
+    float hatch = 1.0F;          // sketch: the strokes' spacing (output pixels)
+    float wash = 0.0F;           // sketch
+    float paper = 0.0F;          // comic, sketch
+    float grain = 0.0F;          // comic, sketch, noir, thermal
+    float vignette = 0.0F;       // noir, thermal
+    float contrast = 1.0F;       // noir
+    float focus = 0.0F;          // thermal
+    float cell = 1.0F;           // the grain's and the paper fibre's cell (output pixels: height / 720, at least 1)
+    std::array<float, 3> dark{};  // noir's colours, as the shader has them (8 bits a channel)
+    std::array<float, 3> light{};
+    uint32_t seed = 0;           // the frame's (the grain and the noise change with it; 0 - 65535)
 };
 // The heights (pixels) the radius and the line width scale with: the colour's viewport, the depth's.
 struct StyleHeights {
@@ -88,6 +111,10 @@ struct StyleHeights {
 };
 [[nodiscard]] StyleParameters style_parameters(const StyleSettings& settings, const rt::ViewDrawn& view,
                                                const StyleHeights& heights);
+// The parameters of the last pass recorded (its frame's seed among them; the check's reference input).
+[[nodiscard]] StyleParameters style_last_parameters();
+// Whether a style has passes here (toon, comic, sketch, noir, thermal; the others log "not built in" and draw nothing).
+[[nodiscard]] bool style_built(ArtStyle style);
 
 // The linear depth of a depth value (pass 1's).
 [[nodiscard]] float style_linear_depth(const StyleParameters& parameters, float depth);
@@ -109,6 +136,9 @@ struct StyleImages {
 [[nodiscard]] std::vector<StyleRgb> style_half(const std::vector<StyleRgb>& colour, Extent size);
 [[nodiscard]] std::vector<StyleRgb> style_kuwahara(const std::vector<StyleRgb>& half, Extent size, int radius);
 [[nodiscard]] StyleRgb style_simplify(const StyleParameters& parameters, StyleRgb colour);
+// The edge pass's twin: each depth pixel's edge (step 4c before rt_style_outlines; `depth` of `size`).
+[[nodiscard]] std::vector<float> style_edges(const StyleParameters& parameters, const std::vector<float>& depth,
+                                             Extent size);
 
 // The passes over the bound colour target for a view (the listener's work; also the check's). The caller holds the
 // lock. False (nothing recorded): off, strength 0, the target can't be read, the passes can't be made (logged once).
@@ -122,6 +152,8 @@ bool read_style_depth(Backend& state, std::vector<float>* depth, Extent* size);
 // The last pass's smoothed half-resolution colour read back (RGBA16F: four 16-bit floats a texel, the image's whole
 // size); false when there is none. As read_style_depth.
 bool read_style_smoothed(Backend& state, std::vector<uint16_t>* halves, Extent* size);
+// The last edge pass's output read back (R32F, the depth image's whole size); as read_style_depth.
+bool read_style_edges(Backend& state, std::vector<float>* edges, Extent* size);
 
 // The usage a depth surface of `format` gets besides being an attachment: VK_IMAGE_USAGE_SAMPLED_BIT whenever the
 // format can be sampled (the style is turned on while the game runs: the depth surfaces made before must be readable).
