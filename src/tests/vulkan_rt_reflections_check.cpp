@@ -15,6 +15,13 @@
 //     doesn't change when the ray moves a tenth of a pixel ("clear-cut") must be that texel times the vertex colour
 //     doubled (mixed with the floor by reflectivity x strength); floor pixels whose reflection misses, the box and the
 //     sky must be exactly as with the pass off. One sample and four (resolved for the read-back); strength 1 and a half.
+//   - Fresnel (rt_reflection_fresnel): Schlick's curve against the exact reflectance of water and glass from face-on to
+//     grazing; the mirror again as water, glass (four samples) and a shiny surface - each reflected pixel's colour and
+//     the pass's own weight (its image's alpha) against the processor's weight for the angle it is seen at, so the
+//     floor's own colour shows through face-on; the glass mask (the first pass's alpha: the floor's white texture
+//     opaque) mirroring everywhere one way and nowhere the other; rough glass (rt_glass_roughness) against the same
+//     glass as a mirror - the light it adds within 0.8 - 1.05 of the mirror's, softer, no pixel black, no NaN, every
+//     weight at most the mirror's.
 //   - Nothing reflective (the floor's reflectivity 0): no pass, nothing changed; rt_reflections off: no pass.
 //   thug2_vulkan_rt_reflections_check [--device N] [--display N] [--no-validation] [--seed N]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
@@ -819,6 +826,7 @@ struct Reflection {
     uint32_t column = 0;  // the texel there
     uint32_t row = 0;
     std::array<double, 2> uv{};
+    double cosine = 0.0;  // between the view and the floor's normal (the Fresnel weight's)
 };
 using Offset = std::array<double, 2>;
 Reflection reflection_at(const View& view, double px, double py)
@@ -839,6 +847,7 @@ Reflection reflection_at(const View& view, double px, double py)
         return out;
     }
     out.floor = true;
+    out.cosine = -y_of(direction);
     const Vec3 normal{0.0, 1.0, 0.0};
     const Vec3 mirrored = step(direction, normal, -2.0 * dot(direction, normal));
     const double offset = kOffsetScale * (1.0 + (distance * 0.0005) + (distance * distance * 6e-8));
@@ -1001,12 +1010,65 @@ struct Mirror {
     rt::MaterialId box_material = 0;
 };
 
-rt::Material floor_surface(float reflectivity)
+rt::Material floor_surface(float reflectivity, uint32_t kind = rt::kReflectShiny, uint32_t mask = rt::kReflectEverywhere)
 {
     rt::Material surface;
     surface.reflectivity = reflectivity;
     surface.environment_pass = reflectivity > 0.0F ? 1U : rt::kNoEnvironmentPass;
+    surface.reflection_class = kind;
+    surface.reflection_mask = mask;
     return surface;
+}
+
+// A mirror case: the pass's settings and the floor's surface.
+struct MirrorCase {
+    const char* name = "";
+    uint32_t samples = 0;
+    float strength = 1.0F;
+    float reflectivity = 1.0F;
+    bool fresnel = false;
+    uint32_t kind = rt::kReflectShiny;
+    uint32_t mask = rt::kReflectEverywhere;
+    float roughness = 0.0F;
+    float glass_reflectance = render::vulkan::kRtGlassReflectance; // (rt_glass_reflectance: glass's F0)
+};
+
+// Schlick's approximation of the Fresnel reflectance, and the exact one for unpolarised light from air into an index n
+// (the reference the face-on values are chosen from: F0 = ((n - 1) / (n + 1))^2).
+double schlick(double f0, double cosine) { return f0 + ((1.0 - f0) * std::pow(1.0 - std::clamp(cosine, 0.0, 1.0), 5.0)); }
+double fresnel_exact(double n, double cosine)
+{
+    const double c = std::clamp(cosine, 0.0, 1.0);
+    const double sine_t = std::sqrt(std::max(0.0, 1.0 - (c * c))) / n;
+    const double cos_t = std::sqrt(std::max(0.0, 1.0 - (sine_t * sine_t)));
+    const double s = ((c - (n * cos_t)) / (c + (n * cos_t)));
+    const double p = ((cos_t - (n * c)) / (cos_t + (n * c)));
+    return 0.5 * ((s * s) + (p * p));
+}
+
+constexpr double kWaterF0 = 0.02; // (the pass's F0_WATER; real glass's 0.04 - rt_glass_reflectance, 0.2 by default)
+constexpr double kGlassF0 = 0.04;
+
+// The weight the pass gives a floor pixel seen at `cosine` (its reflection_weight, worked out on the processor) - the
+// floor's texture is white (alpha 1): the mask 1 - a mirrors nothing, a everything.
+double reference_weight(const MirrorCase& test, double cosine)
+{
+    const double reflectivity = test.reflectivity;
+    const double strength = test.strength;
+    double mask = 1.0;
+    if (test.fresnel && test.mask == rt::kReflectWhereBaseClear) {
+        mask = 0.0;
+    }
+    if (!test.fresnel) {
+        return reflectivity * strength;
+    }
+    const double most = reflectivity * std::min(1.0, 2.0 * strength);
+    if (test.kind == rt::kReflectWater || test.kind == rt::kReflectGlass) {
+        return most * schlick(test.kind == rt::kReflectWater ? kWaterF0 : test.glass_reflectance, cosine) * mask;
+    }
+    const double face_on = reflectivity * strength;
+    const double schlick_term = std::pow(1.0 - std::clamp(cosine, 0.0, 1.0), 5.0);
+    return (face_on + ((std::max(most, face_on) - face_on) * schlick_term)) * mask;
 }
 
 bool make_mirror(render::Gpu& gpu, Mirror* mirror)
@@ -1130,11 +1192,12 @@ std::string rgb_text(const Rgb& colour)
     return text::format("%d %d %d", core::at(colour, 0), core::at(colour, 1), core::at(colour, 2));
 }
 
-// What a reflected pixel should be: the floor mixed toward the texel x the vertex colour doubled by `weight`.
-Rgb reflected_colour(const Reflection& seen, double weight)
+// What a reflected pixel should be: the floor (or `base`, the masked glass's own colour put back) mixed toward the
+// texel x the vertex colour doubled by `weight`.
+Rgb reflected_colour(const Reflection& seen, double weight, const Rgb& base = rgb_of(kFloorColour))
 {
     const Rgb texel = rgb_of(texel_colour(seen.column, seen.row));
-    const Rgb floor = rgb_of(kFloorColour);
+    const Rgb floor = base;
     constexpr double kVertexFactor = 2.0 * 128.0 / 255.0;
     Rgb out{};
     for (std::size_t channel = 0; channel < 3; ++channel) {
@@ -1147,7 +1210,7 @@ Rgb reflected_colour(const Reflection& seen, double weight)
 
 // The pass's result compared with the processor's answers and with the frame drawn without it.
 void compare_mirror(const std::vector<uint8_t>& with, const std::vector<uint8_t>& without, const Offset& sample,
-                    double weight, Tally* tally)
+                    const MirrorCase& test, Tally* tally)
 {
     const View view = view_from(kEye);
     int clear_cut = 0;
@@ -1155,6 +1218,12 @@ void compare_mirror(const std::vector<uint8_t>& with, const std::vector<uint8_t>
     int untouched = 0;
     int touched_wrong = 0;
     int borderline = 0;
+    double lightest = 1.0;
+    double heaviest = 0.0;
+    // (glass masked where its texture is opaque - the floor's white, untextured: its own colour put back under the
+    // reflection, white x the grey vertex colour doubled - 1.004 - clamped)
+    const bool replaces = test.fresnel && test.kind == rt::kReflectGlass && test.mask == rt::kReflectWhereBaseOpaque;
+    constexpr Rgb kWhite{255, 255, 255};
     std::string first_wrong;
     std::string first_touched;
     for (int row = 0; row < kRows; ++row) {
@@ -1181,14 +1250,32 @@ void compare_mirror(const std::vector<uint8_t>& with, const std::vector<uint8_t>
                 ++borderline;
                 continue;
             }
-            if (here.floor && here.hit) {
+            if (here.floor && here.hit && reference_weight(test, here.cosine) > 0.0) {
                 ++clear_cut;
-                const Rgb want = reflected_colour(here, weight);
+                lightest = std::min(lightest, reference_weight(test, here.cosine));
+                heaviest = std::max(heaviest, reference_weight(test, here.cosine));
+                const Rgb want = reflected_colour(here, reference_weight(test, here.cosine), replaces ? kWhite : rgb_of(kFloorColour));
                 if (!close_to(got, want)) {
                     ++wrong;
                     if (first_wrong.empty()) {
                         first_wrong = text::format(" (first at %d,%d: %s, %s wanted - texel %u,%u)", column, row,
                                                    rgb_text(got).c_str(), rgb_text(want).c_str(), here.column, here.row);
+                    }
+                }
+            } else if (replaces && here.floor) {
+                // (a floor pixel whose reflection misses: (1 - F) of the glass's own colour, F of the frame)
+                ++clear_cut;
+                const double f = reference_weight(test, here.cosine);
+                Rgb want{};
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    core::at(want, channel) = static_cast<int>(
+                        std::lround((core::at(kWhite, channel) * (1.0 - f)) + (core::at(before, channel) * f)));
+                }
+                if (!close_to(got, want)) {
+                    ++wrong;
+                    if (first_wrong.empty()) {
+                        first_wrong = text::format(" (first at %d,%d, a miss: %s, %s wanted)", column, row,
+                                                   rgb_text(got).c_str(), rgb_text(want).c_str());
                     }
                 }
             } else {
@@ -1206,16 +1293,20 @@ void compare_mirror(const std::vector<uint8_t>& with, const std::vector<uint8_t>
     }
     constexpr int kEnoughReflected = 1500;
     constexpr int kEnoughUntouched = 20000;
-    tally->check(clear_cut >= kEnoughReflected && wrong == 0,
-                 text::format("reflected pixels the box's texel x its vertex colour (weight %.2f): %d of %d wrong%s",
-                              weight, wrong, clear_cut, first_wrong.c_str()));
+    // (the floor's mask clear everywhere: nothing of it reflects - every pixel is checked as untouched)
+    const bool none_expected = test.fresnel && test.mask == rt::kReflectWhereBaseClear;
+    tally->check((clear_cut >= kEnoughReflected || (none_expected && clear_cut == 0)) && wrong == 0,
+                 text::format("reflected pixels the box's texel x its vertex colour (weight %.2f - %.2f): %d of %d wrong%s",
+                              lightest, heaviest, wrong, clear_cut, first_wrong.c_str()));
     tally->check(untouched >= kEnoughUntouched && touched_wrong == 0,
                  text::format("the box, the sky and the floor that mirrors nothing exactly as without the pass: %d of "
                               "%d changed%s (%d borderline pixels left out)",
                               touched_wrong, untouched, first_touched.c_str(), borderline));
 }
 
-void check_image(Tally* tally)
+// The pass's own image read back: every value finite; with one sample, each clear-cut reflected pixel's weight (its
+// alpha; a rough pixel's negative, the share of its rays that hit x the weight) against the processor's.
+void check_image(const MirrorCase& test, Tally* tally)
 {
     render::vulkan::Backend& state = render::vulkan::backend();
     render::vulkan::RtReflectionTexels image;
@@ -1230,27 +1321,74 @@ void check_image(Tally* tally)
         for (const float channel : texel) {
             not_finite += std::isfinite(channel) ? 0 : 1;
         }
-        weighted += texel.back() > 0.0F ? 1 : 0;
+        weighted += texel.back() != 0.0F ? 1 : 0;
     }
-    tally->check(read && image.width == kTargetWidth && not_finite == 0 && weighted > 0,
+    const bool none_expected = test.fresnel && test.mask == rt::kReflectWhereBaseClear;
+    tally->check(read && image.width == kTargetWidth && not_finite == 0 && (weighted > 0 || none_expected),
                  text::format("the reflection image read back: %d values not finite, %d pixels weighted", not_finite,
                               weighted));
+    if (!read || test.samples != 0 || image.texels.size() != static_cast<std::size_t>(kColumns) * kRows) {
+        return;
+    }
+    // (half floats: 11 bits - a weight within 1e-3 of the processor's, relative to it at most 0.2%)
+    constexpr double kWeightSlack = 1.5e-3;
+    const View view = view_from(kEye);
+    int compared = 0;
+    int wrong = 0;
+    double worst = 0.0;
+    double lowest_cosine = 1.0;
+    double highest_cosine = 0.0;
+    for (int row = 0; row < kRows; ++row) {
+        for (int column = 0; column < kColumns; ++column) {
+            const Reflection here = reflection_at(view, column, row);
+            bool clear = here.floor && here.hit;
+            constexpr double kShift = 0.1;
+            for (const auto& [dx, dy] : std::array<std::pair<double, double>, 4>{
+                     {{kShift, 0.0}, {-kShift, 0.0}, {0.0, kShift}, {0.0, -kShift}}}) {
+                clear = clear && same(here, reflection_at(view, column + dx, row + dy));
+            }
+            if (!clear) {
+                continue;
+            }
+            const double want = reference_weight(test, here.cosine);
+            const double alpha = core::at(core::at(image.texels, (static_cast<std::size_t>(row) * kColumns) + column), 3);
+            // (a rough pixel: some of its rays may miss the box - at most the weight, its sign negative)
+            const bool rough = test.roughness > 0.0F;
+            const double got = rough ? -alpha : alpha;
+            const double error = rough ? std::max(0.0, got - want) : std::abs(got - want);
+            ++compared;
+            worst = std::max(worst, error);
+            wrong += (error > kWeightSlack + (want * 2e-3) || (rough && alpha > 0.0)) ? 1 : 0;
+            lowest_cosine = std::min(lowest_cosine, here.cosine);
+            highest_cosine = std::max(highest_cosine, here.cosine);
+        }
+    }
+    constexpr int kEnoughWeighed = 1500;
+    tally->check(compared >= kEnoughWeighed && wrong == 0,
+                 text::format("the weights against the processor's%s (cosines %.2f - %.2f): %d of %d wrong, worst %.5f",
+                              test.roughness > 0.0F ? " (rough: at most it)" : "", lowest_cosine, highest_cosine,
+                              wrong, compared, worst));
 }
 
-void run_mirror(render::Gpu& gpu, Mirror& mirror, uint32_t samples, float strength, float reflectivity, Tally* tally)
+void run_mirror(render::Gpu& gpu, Mirror& mirror, const MirrorCase& test, Tally* tally)
 {
-    text::print("the mirror (%s, strength %.2f, reflectivity %.2f):\n", samples == 0 ? "one sample" : "four samples",
-                static_cast<double>(strength), static_cast<double>(reflectivity));
-    rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(reflectivity));
+    text::print("the mirror (%s, %s, strength %.2f, reflectivity %.2f%s):\n", test.name,
+                test.samples == 0 ? "one sample" : "four samples", static_cast<double>(test.strength),
+                static_cast<double>(test.reflectivity), test.fresnel ? ", Fresnel" : "");
+    rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(test.reflectivity, test.kind, test.mask));
     Targets targets;
-    const bool made = make_targets(gpu, samples, &targets);
+    const bool made = make_targets(gpu, test.samples, &targets);
     tally->check(made, "the targets made");
     if (made) {
-        render::vulkan::set_rt_reflection_settings({.on = false, .strength = strength});
+        render::vulkan::RtReflectionSettings settings{
+            .on = false, .strength = test.strength, .fresnel = test.fresnel, .glass_roughness = test.roughness,
+            .glass_reflectance = test.glass_reflectance};
+        render::vulkan::set_rt_reflection_settings(settings);
         tally->check(draw_frame(gpu, targets, mirror, 1) == 0, "off: no pass");
         std::vector<uint8_t> without;
         const bool read_without = read_colour(gpu, targets, &without);
-        render::vulkan::set_rt_reflection_settings({.on = true, .strength = strength});
+        settings.on = true;
+        render::vulkan::set_rt_reflection_settings(settings);
         tally->check(draw_frame(gpu, targets, mirror, 2) == 1, "on: the listener recorded the passes");
         std::vector<uint8_t> with;
         const bool read_with = read_colour(gpu, targets, &with);
@@ -1258,12 +1396,108 @@ void run_mirror(render::Gpu& gpu, Mirror& mirror, uint32_t samples, float streng
         if (read_without && read_with) {
             // (four samples: the depth read at sample 0 - Vulkan's standard place, 0.375, 0.125 in the pixel)
             constexpr Offset kSampleZero{-0.125, -0.375};
-            compare_mirror(with, without, samples == 0 ? Offset{} : kSampleZero,
-                           static_cast<double>(strength) * static_cast<double>(reflectivity), tally);
-            check_image(tally);
+            compare_mirror(with, without, test.samples == 0 ? Offset{} : kSampleZero, test, tally);
+            check_image(test, tally);
         }
     }
     release_targets(gpu, targets);
+}
+
+// The rough glass against the same glass as a mirror: what the rays see averaged over a cone and blurred - the light
+// the reflection adds over the floor about the same (no energy made or lost but the rays that miss past the box's
+// edges), no pixel black or NaN, the box's reflection softened (its texels' edges spread: the squared differences
+// between neighbours smaller - a blur keeps their plain sum).
+void run_rough(render::Gpu& gpu, Mirror& mirror, Tally* tally)
+{
+    constexpr float kRough = 0.08F;
+    text::print("rough glass (roughness %.2f against a mirror; strength 1, Fresnel):\n", static_cast<double>(kRough));
+    rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(1.0F, rt::kReflectGlass));
+    Targets targets;
+    const bool made = make_targets(gpu, 0, &targets);
+    tally->check(made, "the targets made");
+    if (!made) {
+        release_targets(gpu, targets);
+        return;
+    }
+    std::array<std::vector<uint8_t>, 3> frames; // off, the mirror, rough
+    const std::array<float, 3> roughness{0.0F, 0.0F, kRough};
+    bool read = true;
+    for (std::size_t k = 0; k < frames.size(); ++k) {
+        render::vulkan::set_rt_reflection_settings(
+            {.on = k != 0, .strength = 1.0F, .fresnel = true, .glass_roughness = core::at(roughness, k)});
+        draw_frame(gpu, targets, mirror, k + 1);
+        read = read && read_colour(gpu, targets, &core::at(frames, k));
+    }
+    tally->check(read, "the targets read back");
+    if (read) {
+        const View view = view_from(kEye);
+        std::array<double, 2> added{}; // the mirror's, the rough's: the light each adds (all channels) over the floor
+        double mirror_steps = 0.0;
+        double rough_steps = 0.0;
+        int black = 0;
+        int floor_pixels = 0;
+        for (int row = 1; row + 1 < kRows; ++row) {
+            for (int column = 1; column + 1 < kColumns; ++column) {
+                const Reflection here = reflection_at(view, column, row);
+                if (!here.floor) {
+                    continue;
+                }
+                ++floor_pixels;
+                const Rgb off = pixel_at(frames.front(), column, row);
+                const Rgb mirror_rgb = pixel_at(core::at(frames, 1), column, row);
+                const Rgb rough_rgb = pixel_at(frames.back(), column, row);
+                const Rgb mirror_next = pixel_at(core::at(frames, 1), column + 1, row);
+                const Rgb rough_next = pixel_at(frames.back(), column + 1, row);
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    added.front() += core::at(mirror_rgb, channel) - core::at(off, channel);
+                    added.back() += core::at(rough_rgb, channel) - core::at(off, channel);
+                    mirror_steps += std::pow(core::at(mirror_next, channel) - core::at(mirror_rgb, channel), 2);
+                    rough_steps += std::pow(core::at(rough_next, channel) - core::at(rough_rgb, channel), 2);
+                }
+                black += (rough_rgb == Rgb{} && off != Rgb{}) ? 1 : 0;
+            }
+        }
+        const double ratio = std::abs(added.front()) > 0.0 ? added.back() / added.front() : 0.0;
+        constexpr double kLeastShare = 0.8;
+        constexpr double kMostShare = 1.05;
+        tally->check(ratio >= kLeastShare && ratio <= kMostShare,
+                     text::format("the light the rough reflection adds against the mirror's: %.3f of it (%.0f / %.0f "
+                                  "over %d floor pixels)",
+                                  ratio, added.back(), added.front(), floor_pixels));
+        tally->check(rough_steps < mirror_steps,
+                     text::format("softened: the squared steps between neighbours %.0f against the mirror's %.0f", rough_steps,
+                                  mirror_steps));
+        tally->check(black == 0, text::format("no floor pixel black: %d", black));
+        check_image({.name = "rough", .strength = 1.0F, .fresnel = true, .kind = rt::kReflectGlass, .roughness = kRough},
+                    tally);
+    }
+    release_targets(gpu, targets);
+}
+
+// Schlick's curve, which the pass uses, against the exact Fresnel reflectance of water (n 1.33) and glass (n 1.5) at
+// angles from face-on to grazing (unpolarised light) - and the face-on values the pass takes (F0).
+void check_fresnel_curve(Tally* tally)
+{
+    text::print("Fresnel reflectance (Schlick's against the exact):\n");
+    constexpr double kWaterIndex = 1.333;
+    constexpr double kGlassIndex = 1.5;
+    constexpr int kAngles = 90;
+    constexpr double kDegree = 3.14159265358979323846 / 180.0;
+    constexpr double kCurveSlack = 0.06; // (Schlick's is known within a few hundredths of the exact)
+    double worst = 0.0;
+    for (const auto& [index, f0] : std::array<std::pair<double, double>, 2>{{{kWaterIndex, kWaterF0}, {kGlassIndex, kGlassF0}}}) {
+        for (int degrees = 0; degrees < kAngles; ++degrees) {
+            const double cosine = std::cos(degrees * kDegree);
+            worst = std::max(worst, std::abs(schlick(f0, cosine) - fresnel_exact(index, cosine)));
+        }
+    }
+    const double water0 = fresnel_exact(kWaterIndex, 1.0);
+    const double glass0 = fresnel_exact(kGlassIndex, 1.0);
+    constexpr double kF0Slack = 0.003;
+    tally->check(std::abs(water0 - kWaterF0) < kF0Slack && std::abs(glass0 - kGlassF0) < kF0Slack && worst < kCurveSlack,
+                 text::format("face-on: water %.4f (F0 %.2f), glass %.4f (F0 %.2f); 0 - 89 degrees: Schlick's within "
+                              "%.4f of the exact",
+                              water0, kWaterF0, glass0, kGlassF0, worst));
 }
 
 void run_untouched(render::Gpu& gpu, Mirror& mirror, const char* name, bool on, float reflectivity, Tally* tally)
@@ -1373,9 +1607,41 @@ int run(const Options& options, SDL_Window* window)
         constexpr uint32_t kFourSamples = 4;
         constexpr float kHalf = 0.5F;
         constexpr float kMostlyShiny = 0.8F;
-        run_mirror(gpu, mirror, 0, 1.0F, 1.0F, &tally);
-        run_mirror(gpu, mirror, kFourSamples, 1.0F, 1.0F, &tally);
-        run_mirror(gpu, mirror, 0, kHalf, kMostlyShiny, &tally);
+        // (Fresnel off: the same weight at every angle, as the first version)
+        run_mirror(gpu, mirror, {.name = "no Fresnel", .samples = 0, .strength = 1.0F, .reflectivity = 1.0F}, &tally);
+        run_mirror(gpu, mirror, {.name = "no Fresnel", .samples = kFourSamples, .strength = 1.0F, .reflectivity = 1.0F},
+                   &tally);
+        run_mirror(gpu, mirror, {.name = "no Fresnel", .samples = 0, .strength = kHalf, .reflectivity = kMostlyShiny},
+                   &tally);
+        // (Fresnel: each pixel's weight from the angle it is seen at - the processor's Schlick)
+        check_fresnel_curve(&tally);
+        run_mirror(gpu, mirror,
+                   {.name = "water", .samples = 0, .strength = kHalf, .reflectivity = 1.0F, .fresnel = true,
+                    .kind = rt::kReflectWater},
+                   &tally);
+        run_mirror(gpu, mirror,
+                   {.name = "glass as a mirror", .samples = kFourSamples, .strength = kHalf,
+                    .reflectivity = kMostlyShiny, .fresnel = true, .kind = rt::kReflectGlass},
+                   &tally);
+        constexpr float kRealGlass = 0.04F;
+        run_mirror(gpu, mirror,
+                   {.name = "glass at real glass's F0", .samples = 0, .strength = kHalf, .reflectivity = 1.0F,
+                    .fresnel = true, .kind = rt::kReflectGlass, .glass_reflectance = kRealGlass},
+                   &tally);
+        run_mirror(gpu, mirror,
+                   {.name = "shiny", .samples = 0, .strength = kHalf, .reflectivity = kMostlyShiny, .fresnel = true},
+                   &tally);
+        // (the mask: the floor's white texture is opaque - a reflection where the base is opaque everywhere, none where
+        // it is clear)
+        run_mirror(gpu, mirror,
+                   {.name = "glass where the base is opaque", .samples = 0, .strength = kHalf, .reflectivity = 1.0F,
+                    .fresnel = true, .kind = rt::kReflectGlass, .mask = rt::kReflectWhereBaseOpaque},
+                   &tally);
+        run_mirror(gpu, mirror,
+                   {.name = "glass where the base is clear", .samples = 0, .strength = kHalf, .reflectivity = 1.0F,
+                    .fresnel = true, .kind = rt::kReflectGlass, .mask = rt::kReflectWhereBaseClear},
+                   &tally);
+        run_rough(gpu, mirror, &tally);
         run_untouched(gpu, mirror, "nothing reflective: the pass skipped", true, 0.0F, &tally);
         run_untouched(gpu, mirror, "rt_reflections off: no pass", false, 1.0F, &tally);
     }

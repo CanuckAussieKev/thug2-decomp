@@ -161,6 +161,11 @@ std::atomic<bool>& glare_slot()
     static std::atomic<bool> replaced{false};
     return replaced;
 }
+std::atomic<bool>& object_shadows_slot()
+{
+    static std::atomic<bool> replaced{false};
+    return replaced;
+}
 } // namespace
 
 void set_sun_light(const SunLight& light)
@@ -179,6 +184,9 @@ SunLight sun_light()
 
 void set_sun_glare_replaced(bool replaced) { glare_slot().store(replaced, std::memory_order_relaxed); }
 bool sun_glare_replaced() { return glare_slot().load(std::memory_order_relaxed); }
+
+void set_object_shadows_replaced(bool replaced) { object_shadows_slot().store(replaced, std::memory_order_relaxed); }
+bool object_shadows_replaced() { return object_shadows_slot().load(std::memory_order_relaxed); }
 
 namespace {
 SunOverride& game_sun_slot()
@@ -199,6 +207,69 @@ bool game_sun(std::array<float, 3>* toward_sun)
         *toward_sun = game_sun_slot().toward;
     }
     return game_sun_slot().set;
+}
+
+namespace {
+struct SkySlot {
+    std::mutex mutex;
+    SkyReplacement replacement;
+    bool capture_wanted = false;
+    SkyCapture capture;
+};
+SkySlot& sky_slot()
+{
+    static SkySlot slot;
+    return slot;
+}
+} // namespace
+
+void set_sky_replacement(const SkyReplacement& replacement)
+{
+    SkySlot& slot = sky_slot();
+    const std::scoped_lock lock(slot.mutex);
+    slot.replacement = replacement;
+}
+
+SkyReplacement sky_replacement()
+{
+    SkySlot& slot = sky_slot();
+    const std::scoped_lock lock(slot.mutex);
+    return slot.replacement;
+}
+
+void sky_view_drawn(const ViewDrawn& view)
+{
+    for (ViewListener* listener : view_listeners()) {
+        listener->sky_drawn(view);
+    }
+}
+
+void set_sky_capture_wanted(bool wanted)
+{
+    SkySlot& slot = sky_slot();
+    const std::scoped_lock lock(slot.mutex);
+    slot.capture_wanted = wanted;
+}
+
+bool sky_capture_wanted()
+{
+    SkySlot& slot = sky_slot();
+    const std::scoped_lock lock(slot.mutex);
+    return slot.capture_wanted;
+}
+
+void set_sky_capture(const SkyCapture& capture)
+{
+    SkySlot& slot = sky_slot();
+    const std::scoped_lock lock(slot.mutex);
+    slot.capture = capture;
+}
+
+SkyCapture sky_capture()
+{
+    SkySlot& slot = sky_slot();
+    const std::scoped_lock lock(slot.mutex);
+    return slot.capture;
 }
 
 } // namespace render::rt

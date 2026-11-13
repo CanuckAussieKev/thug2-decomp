@@ -72,4 +72,44 @@ void release_sky(Backend& state);
 // A 16-bit float's value (the read-backs').
 [[nodiscard]] float half_to_float(uint16_t half);
 
+// --- (added by the sky: [Graphics] rt_sky) the atmosphere with every order of scattering ------------------------------
+// Three tables of rt_sky.h's multiple-scattering model (16-bit floats, GENERAL layout): the transmittance (256 x 64,
+// made once), Psi (32 x 32, once) and the sky seen from the viewer (192 x 108, exposed linear radiance), made again
+// whenever its input changes: the drawn sky's sun, the gains that match it to the level (each band's colour multiplied
+// - the horizon's, half way up's, overhead's, interpolated between their elevations) and the ground's colour that
+// replaces the model's below the horizon (by `ground_share`, coming in over the first 0.05 radians down: the far ground hazed into the horizon).
+// The bands' centres (radians: 4, 30 and 72 degrees - rt_sky_match.h kSkyBandRanges), where each gain holds.
+inline constexpr float kGainHorizon = 0.07F;
+inline constexpr float kGainMiddle = 0.52F;
+inline constexpr float kGainZenith = 1.26F;
+struct AtmosphereInput {
+    std::array<float, 3> sun{0.0F, 1.0F, 0.0F}; // toward the drawn sky's sun (world, normalised)
+    std::array<std::array<float, 3>, 3> gains{{{1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}}};
+    std::array<float, 3> gain_elevations{kGainHorizon, kGainMiddle, kGainZenith}; // radians
+    std::array<float, 3> ground{};                              // exposed linear
+    float ground_share = 0.0F;
+    bool operator==(const AtmosphereInput&) const = default;
+};
+// The tables brought up to date (recorded outside a pass, a barrier after). The caller holds the lock. False: they can't
+// be made (logged once).
+bool update_atmosphere(Backend& state, VkCommandBuffer commands, const AtmosphereInput& input);
+// While true, the fog's table (update_sky) is made from the sky-view table - the haze fades the far world toward the sky
+// drawn, about its sun (the table's last row, entry 3, w 1).
+void set_table_follows_sky_view(bool follow);
+enum class AtmosphereTable : uint8_t { kTransmittance, kMultiple, kSkyView };
+[[nodiscard]] VkDescriptorImageInfo atmosphere_descriptor(AtmosphereTable which);
+void atmosphere_used(uint64_t serial); // (the tables read by a submission)
+// The GLSL a shader reading the tables includes: u_transmittance and u_sky_view at (set 0, the bindings), and
+//   vec3 atmosphere_transmittance(float r, float mu)  toward the top from radius r (metres), zenith cosine mu
+//   vec3 sky_view_linear(vec3 dir, vec3 sun)          the drawn sky toward dir (world), exposed linear
+[[nodiscard]] std::string atmosphere_glsl(uint32_t transmittance_binding, uint32_t sky_view_binding);
+struct AtmosphereTexels {
+    uint32_t width = 0;
+    uint32_t height = 0;
+    std::vector<std::array<float, 4>> texels;
+};
+bool read_atmosphere_table(Backend& state, AtmosphereTable which, AtmosphereTexels* out);
+[[nodiscard]] uint64_t atmosphere_generation();
+void release_atmosphere(Backend& state);
+
 } // namespace render::vulkan

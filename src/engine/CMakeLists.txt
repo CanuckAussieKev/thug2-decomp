@@ -131,6 +131,8 @@ add_library(thug2_engine STATIC
     gfx/smooth_tess.cpp
     gfx/rt_sun.cpp
     gfx/rt_sky.cpp
+    gfx/rt_sky_match.cpp
+    gfx/rt_clouds.cpp
     gfx/ui_backend.cpp
     gfx/view_modes.cpp
     gfx/occlusion.cpp

@@ -109,7 +109,24 @@ struct Material {
     // which pass that is (its index; kNoEnvironmentPass: none).
     float reflectivity = 0.0F;
     uint32_t environment_pass = kNoEnvironmentPass;
+    // (added for the water and glass) What kind of reflective surface it is (kReflectShiny / Water / Glass; render_pc/rt_record.cpp
+    // classify_reflective says how it is told): it picks the Fresnel reflectance face-on and the reflection's roughness.
+    uint32_t reflection_class = 0;
+    // (added for the glass) Where on the texture the surface reflects (kReflectEverywhere / WhereBaseClear / WhereBaseOpaque): the game's windows are often
+    // painted into a wall's texture, the environment-mapped pass lerped in by the first pass's alpha.
+    uint32_t reflection_mask = 0;
 };
+
+// Material::reflection_class's values (the reflection shaders' CLASS_*).
+inline constexpr uint32_t kReflectShiny = 0; // metal, paint, polished floors: the game's reflectivity face-on as well
+inline constexpr uint32_t kReflectWater = 1; // the sea, pools, puddles: 2% face-on, a mirror at grazing angles
+inline constexpr uint32_t kReflectGlass = 2; // windows: little face-on (rt_glass_reflectance), slightly rough
+
+// Material::reflection_mask's values (the shaders' MASK_*): how the first pass's texel alpha (a) scales the reflectivity.
+inline constexpr uint32_t kReflectEverywhere = 0;      // 1
+inline constexpr uint32_t kReflectWhereBaseClear = 1;  // 1 - a (the environment pass's blend mode 13: lerped in where
+                                                       // the base is clear)
+inline constexpr uint32_t kReflectWhereBaseOpaque = 2; // a (blend mode 12: lerped in where the base is opaque)
 
 // What was drawn this frame (R1): filled by render_pc between begin_frame_record and end_frame_record.
 struct FrameRecord {
@@ -220,6 +237,9 @@ struct ViewDrawn {
     // over the frame after the world - render_pc's screen effects): a bloom added by a listener leaves the frame's own
     // light alone then, so the two don't double up.
     bool game_bloom = false;
+    // (added by the sky) The game clock (frame_clock::game_clock_time, in seconds): what moves with the game - the
+    // clouds' drift - follows it, so a demo replays the same picture.
+    double game_seconds = 0.0;
 };
 
 // What listens (a backend's screen-space effect: the Vulkan Gpu's ray-traced sun shadows). Called on the thread that
@@ -233,6 +253,10 @@ public:
     virtual void world_drawn(const ViewDrawn& view) { (void)view; }
     // When this listener runs among the others, at both points: lower first (ViewOrder; equal: as added).
     [[nodiscard]] virtual int order() const { return 0; }
+    // (added by the sky) While a backend draws the sky (sky_replacement().on): the viewport's sky backdrop drawn - the
+    // world's opaque meshes, the objects', and behind them the sky scene's opaque meshes (its dome) - before the sky
+    // scene's layers (its transparent meshes) and before opaque_drawn. `view` is the world's camera, as at opaque_drawn.
+    virtual void sky_drawn(const ViewDrawn& view) { (void)view; }
 };
 // The listeners' order (the effects build on each other: tone mapping needs every light added first).
 namespace ViewOrder {
@@ -243,6 +267,7 @@ inline constexpr int kReflections = 400;
 inline constexpr int kFog = 500;        // volumetric fog / light shafts (world_drawn)
 inline constexpr int kSun = 600;        // (added by the sun's glare) the sun's disc, its rays and the bloom (world_drawn)
 inline constexpr int kToneMapping = 900; // HDR -> the display (world_drawn, last)
+inline constexpr int kSky = 50;          // (added by the sky) the atmosphere and the clouds (sky_drawn)
 } // namespace ViewOrder
 void add_view_listener(ViewListener* listener);
 void remove_view_listener(ViewListener* listener);
@@ -321,11 +346,60 @@ SunLight sun_light();
 void set_sun_glare_replaced(bool replaced);
 bool sun_glare_replaced();
 
+// (added for the skater's shadow) Whether a backend's shadow pass casts the objects' shadows - the skater's, the peds',
+// the vehicles' - from the sun this frame (the Vulkan Gpu's [Graphics] rt_shadows with rt_shadow_objects, a pass drawn):
+// the objects' own shadows (engine/objects/shadow_component: the skater's projected one, the peds' blobs) are then
+// hidden. False (the default, Direct3D 9, no sun in the level, the pass off): the original's shadows drawn as always.
+void set_object_shadows_replaced(bool replaced);
+bool object_shadows_replaced();
+
 // (added by the sun's glare) Where the game shows its sun (render_pc: the sun sprite's direction from the camera - a
 // level's SetSun / InitSun, the time of day -, toward it, normalised; told each viewport whether it is drawn or
 // replaced): the sun the player sees, which needn't be the baked one the level's lighting was made with. Null / false:
 // the game shows none.
 void set_game_sun(const std::array<float, 3>* toward_sun);
 bool game_sun(std::array<float, 3>* toward_sun);
+
+// --- (added by the sky) a sky drawn by the backend - the Vulkan Gpu's [Graphics] rt_sky ------------------------------
+// While `on`, render_pc's draw_viewport draws the sky scene's opaque meshes (the backdrop: its dome, a ground ring), then
+// tells the listeners (sky_view_drawn -> ViewListener::sky_drawn), who draw the sky over the pixels nothing of the world
+// covers (the depth's far value), then draws the sky scene's transparent meshes (its layers: painted cloud cards, haze
+// bands, glows) only with `keep_layers`. Off (the default, Direct3D 9): the sky drawn as always, no call.
+struct SkyReplacement {
+    bool on = false;
+    bool keep_layers = true;
+};
+void set_sky_replacement(const SkyReplacement& replacement);
+SkyReplacement sky_replacement();
+void sky_view_drawn(const ViewDrawn& view);
+
+// (added by the sky) The level's own sky as it looks: while sky_capture_wanted(), render_pc draws the sky scene's meshes
+// (its backdrop and its layers) once per sky scene into a texture from the origin in six directions - kSkyCaptureFaces, a 90-degree square
+// view each, laid out 3 across and 2 down (face i at column i % 3, row i / 3), face_size pixels a side, cleared to
+// `clear` (the background colour) where the backdrop draws nothing - and hands it over (set_sky_capture). The texture
+// stays valid until the next capture (a new serial). What a backend's sky is matched to.
+struct SkyCaptureFace {
+    std::array<float, 3> forward{}; // the face's centre direction (world, y up)
+    std::array<float, 3> up{};      // the direction toward the face's top edge
+};
+inline constexpr std::array<SkyCaptureFace, 6> kSkyCaptureFaces{{
+    {.forward = {1.0F, 0.0F, 0.0F}, .up = {0.0F, 1.0F, 0.0F}},
+    {.forward = {-1.0F, 0.0F, 0.0F}, .up = {0.0F, 1.0F, 0.0F}},
+    {.forward = {0.0F, 0.0F, 1.0F}, .up = {0.0F, 1.0F, 0.0F}},
+    {.forward = {0.0F, 0.0F, -1.0F}, .up = {0.0F, 1.0F, 0.0F}},
+    {.forward = {0.0F, 1.0F, 0.0F}, .up = {0.0F, 0.0F, -1.0F}},
+    {.forward = {0.0F, -1.0F, 0.0F}, .up = {0.0F, 0.0F, 1.0F}},
+}};
+struct SkyCapture {
+    GpuTexture* texture = nullptr; // A8R8G8B8, 3 x face_size by 2 x face_size; null: none
+    uint32_t face_size = 0;
+    uint64_t serial = 0;           // a new value per capture (0: none yet)
+    uint32_t scene = 0;            // the sky scene's checksum
+    std::array<float, 3> clear{};  // the colour where the backdrop drew nothing (0 - 1)
+};
+void set_sky_capture_wanted(bool wanted);
+bool sky_capture_wanted();
+void set_sky_capture(const SkyCapture& capture);
+SkyCapture sky_capture();
 
 } // namespace render::rt

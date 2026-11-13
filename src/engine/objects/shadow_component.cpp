@@ -11,6 +11,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_shadows.h"
+#include "engine/gfx/rt_scene.h"
 #include "engine/gfx/model.h"
 #include "base/maths/mat4.h"
 #include "engine/script/param_struct.h"
@@ -117,6 +118,13 @@ void GroundShadowModule::refresh_shadow()
     }
     const uint8_t flags = model->flag_bits();
     if (((flags & 0x2) == 0) || ((flags & 0x4) != 0)) {
+        shadow_handle_->hide();
+        return;
+    }
+    // Not original - a ray-tracing backend casts the objects' shadows from the sun this frame (rt_scene.h
+    // object_shadows_replaced: the Vulkan Gpu's rt_shadows with rt_shadow_objects): the object's own shadow hidden, as
+    // when its model is hidden. Original behaviour: the shadow placed and shown.
+    if (render::rt::object_shadows_replaced()) {
         shadow_handle_->hide();
         return;
     }

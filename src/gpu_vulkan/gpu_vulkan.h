@@ -106,9 +106,22 @@ void set_rt_gi_settings(const RtGiSettings& settings);
 // rt_reflection_strength. Nothing is drawn differently while `on` is false, when ray tracing isn't enabled on the device,
 // or where no surface is reflective.
 inline constexpr float kRtReflectionStrength = 0.5F; // (rt_reflection_strength's default)
+inline constexpr float kRtGlassRoughness = 0.05F;    // (rt_glass_roughness's default: radians)
+inline constexpr float kRtGlassReflectance = 0.2F;   // (rt_glass_reflectance's default: glass's F0)
 struct RtReflectionSettings {
     bool on = false;
     float strength = kRtReflectionStrength; // how far a fully reflective surface's colour goes toward what it mirrors (0 - 1)
+    // (added for the water and glass) rt_reflection_fresnel: how much a surface reflects depends on the angle it is
+    // seen at (Schlick's Fresnel) - water and glass little face-on and a mirror at grazing angles, other shiny surfaces
+    // as before face-on and more at grazing angles; false: the same at every angle (reflectivity x strength, as before).
+    bool fresnel = true;
+    // rt_glass_roughness: the half-angle of the cone glass reflects into (radians; 0: a perfect mirror) - a few rays
+    // a pixel, blurred over its neighbours.
+    float glass_roughness = kRtGlassRoughness;
+    // rt_glass_reflectance: glass's reflectance face-on (Schlick's F0). Real glass's is 0.04 - a real window is dark
+    // behind; the game's panes are bright textures, and at 0.04 their reflection all but vanished (AU's glass building:
+    // a mean change of 1.4 levels against the mirror's 12), so the default is 0.2.
+    float glass_reflectance = kRtGlassReflectance;
 };
 void set_rt_reflection_settings(const RtReflectionSettings& settings);
 [[nodiscard]] RtReflectionSettings rt_reflection_settings();
@@ -136,6 +149,7 @@ void set_hdr_settings(const HdrSettings& settings);
 inline constexpr float kRtFogAnisotropy = 0.3F; // (rt_fog_anisotropy's default)
 inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_steps' default)
 inline constexpr float kRtFogHazeHeight = 600.0F; // (rt_fog_haze_height's default: world units)
+inline constexpr float kRtFogHazeDensity = 0.3F;  // (rt_fog_haze_density's default)
 enum class RtFogMode : uint8_t {
     kReplace = 0, // the level's own fog replaced by the volumetric one (its colour and distances; shadowed by the world)
     kShafts = 1,  // the level's own fog kept, only the sunlit shafts' light added over it
@@ -152,8 +166,10 @@ struct RtFogSettings {
     // (added by the sun's glare) With the sky model (rt_sky_model=1) the haze is a medium of its own - aerial
     // perspective: it dims what is far toward the sky's colour, thicker near the ground: its thickness (x the default:
     // rt_fog_haze_density) and the height over which it thins by e (rt_fog_haze_height, world units above the level's
-    // ground).
-    float haze_density = 1.0F;
+    // ground). The default thickness was 1 until the water and glass work: Australia's sea a mile out read milky
+    // white and Barcelona's harbour whited out toward a low sun; 0.3 keeps the far world soft (no seam where AU's sea
+    // meets its sky dome) and the near sea its own colour.
+    float haze_density = kRtFogHazeDensity;
     float haze_height = kRtFogHazeHeight;
 };
 void set_rt_fog_settings(const RtFogSettings& settings);
@@ -182,5 +198,24 @@ struct RtSunSettings {
 };
 void set_rt_sun_settings(const RtSunSettings& settings);
 [[nodiscard]] RtSunSettings rt_sun_settings();
+
+// NOT ORIGINAL - a modern sky (vulkan_rt_sky_pass.h, docs/design/vulkan.md "The sky"): [Graphics] rt_sky, rt_sky_match,
+// rt_clouds, rt_cloud_coverage, rt_cloud_speed, rt_cloud_quality, rt_cloud_shadows (and rt_hdr). Nothing is drawn
+// differently while `on` is false: the level's own sky dome as always. No ray tracing needed (the drawn sun comes from
+// the game; with ray tracing the baked sun is the fallback).
+inline constexpr float kRtSkyMatch = 0.8F;        // (rt_sky_match's default)
+inline constexpr float kRtCloudCoverageAuto = -1.0F;
+struct RtSkySettings {
+    bool on = false;
+    float match = kRtSkyMatch;     // how far each level's sky keeps its own colours and clouds (0: the model alone - 1)
+    bool clouds = false;           // volumetric clouds in the sky
+    float coverage = kRtCloudCoverageAuto; // 0 - 1, or auto (negative): from the level's own sky
+    float speed = 1.0F;            // x the clouds' drift (0: still)
+    unsigned quality = 1;          // 0: quarter resolution, 32 steps; 1: half, 48; 2: full, 96
+    bool cloud_shadows = false;    // the clouds' shadows on the level (darkening, not ray traced)
+    bool hdr = false;              // rt_hdr=1: the sky's light above 1 kept
+};
+void set_rt_sky_settings(const RtSkySettings& settings);
+[[nodiscard]] RtSkySettings rt_sky_settings();
 
 } // namespace render::vulkan
