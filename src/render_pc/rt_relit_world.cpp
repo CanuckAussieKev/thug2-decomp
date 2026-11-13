@@ -105,6 +105,7 @@ struct Entry {
     rt::Vec3 bounce_for{}; // ... and the sun whose light its bounce was traced with
     uint64_t written = 0;  // the lighting its colours were written with (0: the originals)
     bool dirty = false;    // its bounce traced again since: to be written
+    uint64_t listed = 0;   // the update that last put it in the order (State::listing)
 };
 
 struct Cached {
@@ -117,6 +118,7 @@ struct State {
     std::unordered_map<const VertexBufferData*, Entry> entries;
     std::unordered_map<const MeshRef*, const VertexBufferData*> buffer_of;
     std::vector<const VertexBufferData*> order; // the entries in the order the world gave them
+    uint64_t listing = 0;                        // each update's order made again: its number (Entry::listed)
     rt::RelitModel model;
     uint32_t level = 0;
     Status status = Status::kOff;
@@ -692,6 +694,14 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
 void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
 {
     State& st = state();
+    // (nothing lit toward another sun - every frame once the sun is still: nothing to trace, the entries left in place)
+    const bool any_stale = std::ranges::any_of(st.order, [&st](const VertexBufferData* buffer) {
+        const Entry& entry = st.entries.at(buffer);
+        return entry.analysed && rt::dot(entry.sun_for, st.sun) < kSameSun;
+    });
+    if (!any_stale) {
+        return;
+    }
     std::vector<rt::RelitMesh> meshes;
     std::vector<rt::RelitVertices> light;
     std::vector<uint8_t> wanted;
@@ -893,6 +903,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     }
     // the world's meshes the mode doesn't know yet
     st.order.clear();
+    ++st.listing;
     bool fresh = false;
     for (const WorldMesh& mesh : world) {
         if (mesh.mesh == nullptr || mesh.geometry == nullptr || mesh.source == nullptr) {
@@ -908,7 +919,9 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         }
         Entry& entry = st.entries.at(mesh.source);
         entry.input.id = mesh.id; // (ids are the RayTracing's: the hits are looked up by them)
-        if (std::ranges::find(st.order, mesh.source) == st.order.end()) {
+        // (each entry once, where the world first gave it - marked, not searched for: a level has thousands)
+        if (entry.listed != st.listing) {
+            entry.listed = st.listing;
             st.order.push_back(mesh.source);
         }
         fresh = fresh || !entry.analysed;
