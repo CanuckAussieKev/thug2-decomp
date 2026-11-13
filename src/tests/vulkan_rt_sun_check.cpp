@@ -18,8 +18,9 @@
 //     (rt_hdr=1) keeps the picture's sum, values above 1 kept; into an 8-bit target (rt_hdr=0) the frame's sum kept by
 //     the bloom alone, the result clipped at 1; no NaN anywhere.
 //   - The aerial haze (rt_fog + rt_sky_model, no level fog): every texel's transmittance against the closed-form integral
-//     of the haze's exponential height profile; its light between the sky's share and that plus the sun's; the sky never
-//     dimmed.
+//     of the haze's height profile (exponential above its ground, even below it) - the sky's texels as a surface at the
+//     far plane (the world past the meshes' reach: a mesh cut there meets the sky unseen); its light between the sky's share of the model's sky colour
+//     and that colour itself (a long path ends as the sky, never brighter: AU's far sea went white against its sky dome).
 //   - Everything off, or no sun and no bloom: no pass, the picture unchanged.
 //   - --perf: the passes' cost at 1920 x 1080 (their timestamps).
 //   thug2_vulkan_rt_sun_check [--device N] [--display N] [--no-validation] [--perf]
@@ -1308,7 +1309,7 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
 
 // --- 5. the aerial haze ----------------------------------------------------------------------------------------------
 
-constexpr float kAerialHazeDensity = 12.0F; // (the check's scene is small: a thick haze)
+constexpr float kAerialHazeDensity = 20.0F; // (the check's scene is small: a thick haze)
 constexpr float kAerialHeight = 60.0F;
 constexpr unsigned kAerialSteps = 32;
 constexpr double kMostAerialError = 4e-3;
@@ -1321,18 +1322,20 @@ constexpr double kMostThinnest = 0.5;        // the thinnest texel's transmittan
 constexpr render::rt::SkySteps kSkyReference{.view = 128, .light = 64};
 
 // The haze's optical depth along a view ray to `distance` (the closed form of its height profile; with the override's
-// sun there is no baked ground: the haze's ground is the camera's height, its density there aerial extinction x density).
+// sun there is no baked ground: the haze's ground is the camera's height, its density there aerial extinction x density,
+// thinning above it and even below it - a ray going down stays at the ground's density).
 double aerial_depth(const Vec3& direction, double distance)
 {
     const double sigma = static_cast<double>(vk::kFogAerialExtinction) * kAerialHazeDensity;
     const double rise = y_of(direction) / kAerialHeight;
-    if (std::abs(rise) * distance < kStraight) {
+    if (rise <= 0.0 || rise * distance < kStraight) {
         return sigma * distance;
     }
     return sigma * (1.0 - std::exp(-rise * distance)) / rise;
 }
 
-// The model's sky (display-referred luma) toward the horizon-level direction of a view ray, as the march reads its table.
+// The model's sky (display-referred luma: each channel ^(1 / gamma), as the shaders' sky_display) toward the
+// horizon-level direction of a view ray, as the march reads its table.
 double sky_luma_toward(const Vec3& direction)
 {
     const Vec3 level = normalised(
@@ -1346,34 +1349,49 @@ double sky_luma_toward(const Vec3& direction)
                                     std::cos(elevation) * std::sin(azimuth)};
     const render::rt::Dir model_sun = render::rt::sun_direction_at(std::asin(y_of(to_sun())));
     const Rgb radiance = render::rt::sky_radiance(model_dir, model_sun, kSkyReference);
-    return std::pow(luma(radiance) * render::rt::sky_exposure(), 1.0 / render::rt::kDisplayGamma);
+    Rgb display{};
+    for (std::size_t channel = 0; channel < display.size(); ++channel) {
+        core::at(display, channel) =
+            std::pow(core::at(radiance, channel) * render::rt::sky_exposure(), 1.0 / render::rt::kDisplayGamma);
+    }
+    return luma(display);
 }
 
 struct AerialTally {
     double worst = 0.0;
-    int sky_dimmed = 0;
+    double worst_sky = 0.0;
+    int sky = 0;
     int surfaces = 0;
     int below = 0;
+    int above = 0;
     double thinnest = 1.0;
 };
 
 void judge_aerial_texel(const View& view, const std::array<float, 4>& marched, const std::array<float, 4>& info,
                         AerialTally* out)
 {
-    const double distance = core::at(info, 0);
+    const bool sky = core::at(info, 0) < 0.0;
     const double transmittance = core::at(marched, 3);
-    if (distance < 0.0) {
-        out->sky_dimmed += transmittance != 1.0 ? 1 : 0;
-        return;
-    }
-    ++out->surfaces;
     const Vec3 direction = direction_at(view, {.x = core::at(info, 1), .y = core::at(info, 2)});
+    // (the sky: the world past the haze's reach, a surface at the far plane along the ray - where the meshes are cut -
+    // or the haze's end, the nearer)
+    const double far_along = static_cast<double>(kFarZ) / std::max(-dot(direction, view.back), kShortestHorizontal);
+    const double distance = sky ? std::min(far_along, static_cast<double>(vk::kFogAerialFar)) : core::at(info, 0);
     const double want = std::exp(-std::min(aerial_depth(direction, distance), kMostDepth));
-    out->worst = std::max(out->worst, std::abs(transmittance - want));
-    out->thinnest = std::min(out->thinnest, want);
-    // the light at least the sky's share of the sky's colour (what the shade gives; the sun only adds)
-    const double low = (1.0 - want) * vk::kFogAerialSkyShare * sky_luma_toward(direction);
-    out->below += luma(rgb_of(marched)) < (low * kSkySlack) - kSkySlackAbsolute ? 1 : 0;
+    if (sky) {
+        ++out->sky;
+        out->worst_sky = std::max(out->worst_sky, std::abs(transmittance - want));
+    } else {
+        ++out->surfaces;
+        out->worst = std::max(out->worst, std::abs(transmittance - want));
+        out->thinnest = std::min(out->thinnest, want);
+    }
+    // the light at least the sky's share of the sky's colour (what the shade gives) and at most the sky's colour (an
+    // unshaded path: the far world fades into the sky, never past it)
+    const double sky_luma = (1.0 - want) * sky_luma_toward(direction);
+    const double light = luma(rgb_of(marched));
+    out->below += light < (vk::kFogAerialSkyShare * sky_luma * kSkySlack) - kSkySlackAbsolute ? 1 : 0;
+    out->above += light > (sky_luma / kSkySlack) + kSkySlackAbsolute ? 1 : 0;
 }
 
 void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
@@ -1414,9 +1432,13 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
                          text::format("%d surface texels: the transmittance against the closed form within %.5f (the "
                                       "thinnest %.3f)",
                                       counted.surfaces, counted.worst, counted.thinnest));
-            tally->check(counted.sky_dimmed == 0, text::format("the sky never dimmed (%d texels)", counted.sky_dimmed));
+            tally->check(counted.sky > kLeastSurfaceTexels && counted.worst_sky <= kMostAerialError,
+                         text::format("%d sky texels: hazed as a surface at the far plane (%.0f), within %.5f",
+                                      counted.sky, static_cast<double>(kFarZ), counted.worst_sky));
             tally->check(counted.below == 0,
                          text::format("the light at least the sky's share of the sky's colour (%d below)", counted.below));
+            tally->check(counted.above == 0,
+                         text::format("the light at most the sky's colour (%d above)", counted.above));
         }
     }
     release_targets(gpu, targets);

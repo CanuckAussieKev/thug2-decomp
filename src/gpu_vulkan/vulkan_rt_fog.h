@@ -38,7 +38,8 @@
 //   1 shafts: the level's own fog kept as the game draws it; only the sunlit part of the light, L = fog colour x (1 - a)
 //     x lit x phase x tint x 0.5, is added (T = 1: nothing taken away).
 // The sky (the depth's far value - the sky dome, or the fog-coloured clear with distance clipping) is never dimmed: it
-//   gets the sunlit light only, x 0.1 (the shafts against the sky, darker gaps where the world blocks the sun).
+//   gets the sunlit light only, x 0.1 (the shafts against the sky, darker gaps where the world blocks the sun) - except
+//   in the sky model's aerial haze (below), which hazes it as the world at the far plane.
 // No fog in the level (ViewFog::on false, or end <= start - THUG2's levels draw fog only where a script asks for it, or
 //   with [Graphics] DistanceClipping=1 and Fog=1): with rt_fog_haze=1 (the default) and a sun, a thin haze is drawn in
 //   shafts mode - colour kFogHazeColour, from the camera to kFogHazeEnd - only its sunlit light added (the shafts, the
@@ -64,21 +65,20 @@ inline constexpr std::array<float, 3> kFogHazeColour{0.8F, 0.8F, 0.8F};
 // (added by the sun's glare) The sky model's haze - aerial perspective (rt_sky_model=1 and rt_fog_haze=1 in a level
 // without fog, with a sun): a medium of its own instead of the thin haze's added light. Its extinction is
 // kFogAerialExtinction x rt_fog_haze_density per world unit at the level's ground (rt::BakedSun::ground; the camera's
-// height when unknown), thinning by e every rt_fog_haze_height above it, followed to kFogAerialFar (closed form along
-// each segment); x rt_fog_density as the level's fog. Its light at a point:
-//     sky x a  +  sun x luma(sky) x (1 - a) x kFogAerialSunGain x lit x phase
-// sky the model's sky toward the ray's direction (no lower than kFogAerialLowest above the horizon: the colour the far
-// world fades to), sun the model's sun colour, a = kFogAerialSkyShare (the shade's share: lit haze is several times the
-// shaded's - beams between buildings), phase two Henyey-Greenstein lobes (kFogAerialForwardShare of g =
-// kFogAerialForwardG, the rest g = kFogAerialBroadG) x 4 pi. Composited as the replaced fog: colour x T + light. The sky
-// is never dimmed (only its sunlit light x kFogSkyShare added).
+// height when unknown), thinning by e every rt_fog_haze_height above it and as thick as there below it (the sea under
+// a level's ground isn't in a thicker haze), followed to kFogAerialFar (closed form along each segment); x
+// rt_fog_density as the level's fog. Its light at a point:
+//     sky x (a + (1 - a) x lit)
+// sky the model's sky toward the ray's direction (no lower than kFogAerialLowest above the horizon), a =
+// kFogAerialSkyShare (the shade's share: lit haze about twice the shaded - beams between buildings). A long unshaded
+// path ends as the sky's colour - the colour the far world fades to, never brighter or whiter than the sky behind it
+// (the glow toward the sun is the table's own). Composited as the replaced fog: colour x T + light. The sky's pixels -
+// the sky dome, whose painted horizon (the sea, the hills) goes on where the level's meshes end - are the world past
+// the haze's reach: marched as a surface at kFogAerialFar, so a mesh that far meets them with the same haze (AU's sea
+// against its sky dome's painted sea: no seam).
 inline constexpr float kFogAerialExtinction = 1.0F / 12000.0F;
 inline constexpr float kFogAerialFar = 40000.0F;
 inline constexpr float kFogAerialSkyShare = 0.45F;
-inline constexpr float kFogAerialSunGain = 1.2F; // (sun x luma(sky) x (1 - a) x this: lit haze from the side ~0.9 of the sky)
-inline constexpr float kFogAerialForwardShare = 0.4F;
-inline constexpr float kFogAerialForwardG = 0.6F;
-inline constexpr float kFogAerialBroadG = 0.2F;
 inline constexpr float kFogAerialLowest = 0.03F; // radians
 
 // The scene the rays are traced through (R2's TLAS; VK_NULL_HANDLE: none - the pass is then skipped, logged once). The

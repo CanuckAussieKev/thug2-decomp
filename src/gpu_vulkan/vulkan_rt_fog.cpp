@@ -148,42 +148,77 @@ float phase(float c)
 }
 
 #ifdef AERIAL
-// (the sky model's haze) two Henyey-Greenstein lobes x 4 pi: a strong one forward (the glow round the sun, the beams
-// seen toward it) and a broad one (the haze lit from the side)
-float lobe(float c, float g)
-{
-    float k = max(1.0 + g * g - 2.0 * g * c, 1e-4);
-    return (1.0 - g * g) / (k * sqrt(k));
-}
-float dual_phase(float c) { return AERIAL_FORWARD_SHARE * lobe(c, AERIAL_FORWARD_G) + (1.0 - AERIAL_FORWARD_SHARE) * lobe(c, AERIAL_BROAD_G); }
-
-// The haze's optical depth between s0 and s1 along the view ray: extinction aerial.x x exp(-(y - ground) / H) - in
-// closed form (y is linear along the ray)
+// The haze's density at height u above the ground, over its density at the ground: exp(-u / H) above it, 1 at and below
+// it (thicker toward the ground, never past the ground's - the sea below a level's ground isn't in a thicker haze).
+// The optical depth between s0 and s1 along the view ray (y linear along it), in closed form: the part below the ground
+// at the ground's extinction, the part above it through the exponential.
 float haze_depth(vec3 direction, float s0, float s1)
 {
+    float sigma = fog.aerial.x;
     float inv_h = fog.aerial.y;
-    float base = fog.aerial.x * exp(clamp(-(fog.camera.y - fog.aerial.z) * inv_h, -60.0, 60.0));
-    float k = direction.y * inv_h;
-    if (abs(k) * (s1 - s0) < 1e-4) {
-        return base * exp(clamp(-k * 0.5 * (s0 + s1), -60.0, 60.0)) * (s1 - s0);
+    float u0 = fog.camera.y - fog.aerial.z; // the camera's height above the ground
+    float dy = direction.y;
+    float lo = s0; // [lo, hi]: the part above the ground
+    float hi = s1;
+    float below = 0.0;
+    if (inv_h > 0.0) {
+        if (abs(dy) < 1e-12) {
+            if (u0 <= 0.0) {
+                below = s1 - s0;
+                hi = lo;
+            }
+        } else {
+            float cut = clamp(-u0 / dy, s0, s1); // where the ray crosses the ground's height
+            if (dy > 0.0) {
+                below = cut - s0;
+                lo = cut;
+            } else {
+                below = s1 - cut;
+                hi = cut;
+            }
+        }
     }
-    return base * (exp(clamp(-k * s0, -60.0, 60.0)) - exp(clamp(-k * s1, -60.0, 60.0))) / k;
+    float depth = sigma * below;
+    if (hi > lo) {
+        float k = dy * inv_h;
+        float e_lo = exp(-max(u0 + dy * lo, 0.0) * inv_h);
+        float e_hi = exp(-max(u0 + dy * hi, 0.0) * inv_h);
+        if (abs(k) * (hi - lo) < 1e-4) {
+            depth += sigma * exp(-max(u0 + dy * 0.5 * (lo + hi), 0.0) * inv_h) * (hi - lo);
+        } else {
+            depth += sigma * (e_lo - e_hi) / k;
+        }
+    }
+    return depth;
 }
 
-// The march through the sky model's haze (aerial perspective): it dims what is far toward the sky's colour; its light is
-// the sky's (the table, toward the horizon in the ray's direction) x aerial.w and the sun's where a point sees it.
+// The march through the sky model's haze (aerial perspective): it dims what is far toward the sky's colour. Its light
+// is the model's sky toward the ray's direction (no lower than AERIAL_LOWEST above the horizon) - x aerial.w where the
+// point is in shade, whole where it sees the sun: an unshaded path as long as the sky's own ends as the sky's colour,
+// never brighter or whiter (the glow toward the sun is the table's own). The sky's pixels are the world past the haze's
+// reach (the sky dome's painted horizon - the sea, the hills - goes on where the level's meshes end): marched as a
+// surface at the far plane along the ray (where the camera clips the meshes - AU's sea is cut there, triangle by
+// triangle) or the haze's end (sun_light.w), the nearer - so a mesh cut at the far plane meets the sky with the same
+// haze, no seam.
+float far_along(ivec2 p)
+{
+    vec4 w = fog.to_world * vec4(vec2(p) + fog.offsets.xy, 1.0, 1.0);
+    if (!(abs(w.w) > 1e-30)) {
+        return fog.sun_light.w;
+    }
+    float far = length(w.xyz / w.w - fog.camera.xyz);
+    return far > 0.0 && far < 3.0e38 ? far : fog.sun_light.w;
+}
+
 void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
 {
-    bool sky = distance < 0.0;
-    float b = sky ? fog.sun_light.w : min(distance, fog.sun_light.w);
+    float reach = distance < 0.0 ? far_along(fog.rect.xy + local) : distance;
+    float b = min(reach, fog.sun_light.w);
     vec3 light_in = vec3(0.0);
     float transmittance = 1.0;
     if (b > 0.0) {
         vec3 level = normalize(vec3(direction.x, max(direction.y, AERIAL_LOWEST), direction.z));
-        vec3 ambient = sky_display(level, fog.sun.xyz);
-        float brightness = dot(ambient, vec3(0.2126, 0.7152, 0.0722));
-        vec3 sun_term = fog.sun_light.rgb * (brightness * (1.0 - fog.aerial.w) * AERIAL_SUN_GAIN * dual_phase(dot(direction, fog.sun.xyz)));
-        vec3 sky_term = ambient * fog.aerial.w;
+        vec3 sky_colour = sky_display(level, fog.sun.xyz);
         int steps = fog.low.w;
         float u = fract(jitter_at(local) + fog.fog_range.w);
         for (int i = 0; i < steps; ++i) {
@@ -193,12 +228,12 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
             float tau = fog.fog_colour.w * haze_depth(direction, s0, s1);
             float e = exp(-min(max(tau, 0.0), 40.0));
             float sunlit = lit(fog.camera.xyz + direction * s);
-            vec3 here = sky ? sun_term * (sunlit * fog.shares.y) : sky_term + sun_term * sunlit;
+            vec3 here = sky_colour * (fog.aerial.w + (1.0 - fog.aerial.w) * sunlit);
             light_in += transmittance * (1.0 - e) * here;
             transmittance *= e;
         }
     }
-    imageStore(o_out, q, vec4(light_in, sky ? 1.0 : transmittance));
+    imageStore(o_out, q, vec4(light_in, transmittance));
     imageStore(o_info, q, vec4(distance, float(local.x), float(local.y), 0.0));
 }
 #endif
@@ -545,11 +580,7 @@ std::string source_of(const char* body, bool traces, bool multisampled, bool aer
     }
     if (aerial) {
         source += "#define AERIAL\n";
-        source += "#define AERIAL_FORWARD_SHARE " + std::to_string(kFogAerialForwardShare) + "\n";
-        source += "#define AERIAL_FORWARD_G " + std::to_string(kFogAerialForwardG) + "\n";
-        source += "#define AERIAL_BROAD_G " + std::to_string(kFogAerialBroadG) + "\n";
         source += "#define AERIAL_LOWEST " + std::to_string(kFogAerialLowest) + "\n";
-        source += "#define AERIAL_SUN_GAIN " + std::to_string(kFogAerialSunGain) + "\n";
     }
     if (traces) {
         source += "#extension GL_EXT_ray_query : require\n";
@@ -1575,6 +1606,12 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                 static_cast<double>(clipped.fog.end), static_cast<double>(own.settings.density),
                 static_cast<double>(own.settings.height), static_cast<double>(own.settings.anisotropy),
                 own.have_sun ? "a sun" : "no sun");
+        if (own.aerial) {
+            get_log("vulkan: rt_fog: the haze's ground at y %.0f (extinction 1/%.0f a unit there, %.0f units its height)",
+                    static_cast<double>(core::at(block.aerial, 2)),
+                    static_cast<double>(1.0F / (kFogAerialExtinction * own.settings.haze_density)),
+                    static_cast<double>(own.settings.haze_height));
+        }
     }
     return true;
 }
