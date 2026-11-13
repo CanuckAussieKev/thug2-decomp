@@ -984,6 +984,24 @@ bool defer_water_draw(Backend& state, const GpuStateBlock& block, const DrawCall
     return true;
 }
 
+bool water_key(Backend& state, const GpuStateBlock& block, const DrawCall& call, ShaderKey* shaders, WaterDescriptors* water)
+{
+    *water = {};
+    if (!water_candidate(state, block)) {
+        return true;
+    }
+    if (defer_water_draw(state, block, call)) {
+        return false;
+    }
+    ShaderKey with_water = *shaders;
+    with_water.fragment.surface = static_cast<uint8_t>(with_water.fragment.surface | kSurfaceWater);
+    with_water = normalised(with_water);
+    if ((with_water.fragment.surface & kSurfaceWater) != 0U && prepare_water_draw(state, block, water)) {
+        *shaders = with_water;
+    }
+    return true;
+}
+
 bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescriptors* out)
 {
     (void)block;
@@ -1055,22 +1073,18 @@ bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescrip
                 static_cast<double>(own.settings.heading >= 0.0F ? own.settings.heading : level.heading),
                 static_cast<double>(own.settings.foam), own.settings.tint_auto ? "auto" : "set");
     }
+    // (the images the draw reads used by this submission - the draw is recorded into it next)
+    for (Image* image : {&own.scene, &own.waves}) {
+        image->used = frame;
+    }
+    if (own.copy_has_depth) {
+        own.linear_depth.used = frame;
+    }
+    if (sky != nullptr) {
+        sky->used = frame;
+    }
     ++own.stats.draws;
     return true;
-}
-
-void water_draw_recorded(Backend& state)
-{
-    WaterState& own = water_state();
-    const uint64_t serial = state.frames.serial();
-    own.scene.used = serial;
-    own.waves.used = serial;
-    if (own.copy_has_depth) {
-        own.linear_depth.used = serial;
-    }
-    if (own.sky_image != nullptr) {
-        own.sky_image->used = serial;
-    }
 }
 
 WaterStats water_stats()

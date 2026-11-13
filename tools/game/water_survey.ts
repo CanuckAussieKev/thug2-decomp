@@ -10,11 +10,11 @@
 // box's height over its width: water is flat - the shader shades only pixels that face up).
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
-import { hex8 } from "thug2-level-converter-core/lib/text.ts";
 import { decode } from "thug2-level-converter-core/level_port/dxt.ts";
 import { readTex, type Texture } from "thug2-level-converter-core/level_port/tex.ts";
 import { type Material, readScene } from "thug2-level-converter-core/level_port/thug2_scene.ts";
+import { isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
+import { hex8 } from "thug2-level-converter-core/lib/text.ts";
 
 const USAGE = `usage: water_survey.ts [--game <install>] [--levels AU,BA,...]
 
@@ -31,7 +31,9 @@ export function moving(material: Material): boolean {
 
 export function isWater(material: Material): boolean {
     const first = material.passes[0];
-    return first !== undefined && first.texture !== 0 && moving(material) && WATER_BLENDS.has(first.blendMode & BLEND_MASK);
+    return (
+        first !== undefined && first.texture !== 0 && moving(material) && WATER_BLENDS.has(first.blendMode & BLEND_MASK)
+    );
 }
 
 // A texture's mean colour (0 - 1 rgb) from its smallest level of at least 4 x 4 texels; null when it can't be read.

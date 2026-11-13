@@ -147,7 +147,8 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   levels (the open sea, harbours, a canal, a river, a pool, a shoreline close up) with `rt_water=0` and `1` over the
   user's [Graphics] (the main install's ini, read only - the window's keys the workspace's), under the workspace's lock,
   the build deployed: `<out>/<off|on>/<spot>.png`, each level's log, and report.txt - the frame profile's device
-  milliseconds a frame with the camera held on the level's first spot (900 frames).
+  milliseconds a frame with the camera held on the level's first spot (1800 frames; the last 20 s averaged).
+  `--timed <frames>` (0: none), `--spots <file.json>` (a list of `{level, spots: [{name, camera}]}`) - other spots.
 - `node tools/game/first_frame_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
   [--settings <ini>] [--levels BO,AU,z_dt,foun] [--set Graphics.key=value]...` - the first frame after a load
   (docs/design/vulkan.md "The first frame after a load"): under the workspace's lock, the build deployed, each level

@@ -11,7 +11,7 @@
 // (`on`), [debug] frame_profile=1 and rt_water_materials=1, --set's values over them; the game started straight into
 // the level (run_game.ps1 -Level), each spot's camera held and one frame captured (`capture 1`), then the level's first
 // spot held for kTimedFrames frames - the frame profile's "gpu" (the device's milliseconds a frame) over its last
-// windows is the cost (--timed: how many frames, 0 none; --spots: a JSON list of {level, spots: [{name, camera}]} in
+// kTimedWindows windows is the cost (--timed: how many frames, 0 none; --spots: a JSON list of {level, spots: [{name, camera}]} in
 // place of the built-in spots). Pictures in <out>/<config>/<spot>.png, each level's log in <out>/<config>/<level>.log, and
 // report.txt: per level the device's time off and on, and the log's rt_water lines.
 // Workspaces only; muted (workspace_ini.ts).
@@ -32,7 +32,8 @@ The levels' water with rt_water off and on, and its cost (tools/game/README.md).
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MAIN_INI = "C:\\Games\\THUG2\\Game\\thug2-decomp.ini";
-export const kTimedFrames = 900;
+export const kTimedFrames = 1800;
+export const kTimedWindows = 4; // (the frame profile's 5-second windows averaged: the hold's last 20 s)
 
 export interface Spot {
     name: string;
@@ -119,9 +120,13 @@ export function gpuTimes(log: string): number[] {
 
 function powershell(script: string, args: string[]): Promise<{ code: number; out: string }> {
     return new Promise((resolve) => {
-        const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", path.join(HERE, script), ...args], {
-            stdio: ["ignore", "pipe", "pipe"],
-        });
+        const child = spawn(
+            "powershell.exe",
+            ["-NoProfile", "-NonInteractive", "-File", path.join(HERE, script), ...args],
+            {
+                stdio: ["ignore", "pipe", "pipe"],
+            },
+        );
         let text = "";
         child.stdout.on("data", (d: Buffer) => {
             text += d.toString("utf8");
@@ -133,7 +138,13 @@ function powershell(script: string, args: string[]): Promise<{ code: number; out
     });
 }
 
-async function runLevel(game: string, level: LevelSpots, config: Config, folder: string, timed: number): Promise<string> {
+async function runLevel(
+    game: string,
+    level: LevelSpots,
+    config: Config,
+    folder: string,
+    timed: number,
+): Promise<string> {
     clearAutomationFiles(game);
     const log = path.join(game, "thug2-decomp.log");
     fs.rmSync(log, { force: true });
@@ -155,9 +166,11 @@ async function runLevel(game: string, level: LevelSpots, config: Config, folder:
         }
         fs.rmSync(series, { recursive: true, force: true });
     }
-    const times = gpuTimes(text).slice(-2);
+    const times = gpuTimes(text).slice(-kTimedWindows);
+    const mean = times.length ? times.reduce((sum, t) => sum + t, 0) / times.length : Number.NaN;
     const water = text.split(/\r?\n/).filter((l) => l.includes("rt_water:")).length;
-    return `exit ${result.code}; ${copied} pictures; gpu ${times.map((t) => t.toFixed(2)).join(" / ") || "-"} ms; ${water} rt_water lines`;
+    const windows = times.map((t) => t.toFixed(2)).join(" / ") || "-";
+    return `exit ${result.code}; ${copied} pictures; gpu ${mean.toFixed(2)} ms (the last windows: ${windows}); ${water} rt_water lines`;
 }
 
 interface RunOptions {
@@ -185,11 +198,28 @@ async function runAll(options: RunOptions): Promise<number> {
         print(line);
         fs.appendFileSync(report, `${line}\n`);
     };
-    const lock = await powershell("game_lock.ps1", ["-Action", "acquire", "-Owner", options.owner, "-Game", game, "-WaitMinutes", "30"]);
+    const lock = await powershell("game_lock.ps1", [
+        "-Action",
+        "acquire",
+        "-Owner",
+        options.owner,
+        "-Game",
+        game,
+        "-WaitMinutes",
+        "30",
+    ]);
     note(lock.out.trim());
     if (lock.code !== 0) return 1;
     try {
-        const deploy = await powershell("deploy_build.ps1", ["-Game", game, "-Arch", "x64", "-BuildDir", options.build, "-NoEditorTools"]);
+        const deploy = await powershell("deploy_build.ps1", [
+            "-Game",
+            game,
+            "-Arch",
+            "x64",
+            "-BuildDir",
+            options.build,
+            "-NoEditorTools",
+        ]);
         note(deploy.out.trim().split(/\r?\n/).slice(-3).join("\n"));
         if (deploy.code !== 0) return 1;
         const ini = path.join(game, "thug2-decomp.ini");
@@ -199,11 +229,20 @@ async function runAll(options: RunOptions): Promise<number> {
             fs.writeFileSync(ini, iniFor(base, [configValues(config, graphics), options.set], "vulkan"), "utf8");
             ensureWorkspaceMuted(game);
             for (const level of levels) {
-                note(`${config} ${level.level}: ${await runLevel(game, level, config, path.join(out, config), options.timed)}`);
+                note(
+                    `${config} ${level.level}: ${await runLevel(game, level, config, path.join(out, config), options.timed)}`,
+                );
             }
         }
     } finally {
-        const release = await powershell("game_lock.ps1", ["-Action", "release", "-Owner", options.owner, "-Game", game]);
+        const release = await powershell("game_lock.ps1", [
+            "-Action",
+            "release",
+            "-Owner",
+            options.owner,
+            "-Game",
+            game,
+        ]);
         note(release.out.trim());
     }
     return 0;

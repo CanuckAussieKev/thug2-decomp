@@ -84,11 +84,12 @@ struct WaterDescriptors {
 // is behind it and what it reflects not drawn yet): kept, not drawn, and drawn as water at rt::opaque_view_drawn (its
 // state and buffers live for the frame) over the copy of the whole opaque world without it. True when kept.
 bool defer_water_draw(Backend& state, const GpuStateBlock& block, const DrawCall& call);
+// A draw's key with the water bit and its descriptors where it is water (`water` left off otherwise: the key as it
+// was); false when the draw is kept back (defer_water_draw - the caller draws nothing now).
+bool water_key(Backend& state, const GpuStateBlock& block, const DrawCall& call, ShaderKey* shaders, WaterDescriptors* water);
 // A water draw made ready: the copy behind the water made (the view's first water draw: the pass ended), the ripples made
 // (the first ever), the view's block in the ring; its descriptors. False: drawn as before (logged once why).
 bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescriptors* out);
-// The images a water draw read, marked used by this submission (after the draw is recorded).
-void water_draw_recorded(Backend& state);
 
 // The view's block as the shader reads it, from the settings, the level's water and a view (also the check's).
 struct WaterView {

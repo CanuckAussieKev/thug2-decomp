@@ -22,6 +22,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 #include <volk.h>
 
@@ -412,7 +413,8 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     if (same && !water.on) {
         return;
     }
-    std::array<VkWriteDescriptorSet, 2 + kStageCount + 2 + 5> writes{}; // (NOT ORIGINAL - + rt_water's five)
+    constexpr std::size_t kWaterWrites = 5; // (NOT ORIGINAL - rt_water's: kWaterUniformsBinding - kWaterWavesBinding)
+    std::array<VkWriteDescriptorSet, 2 + kStageCount + 2 + kWaterWrites> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -490,6 +492,31 @@ bool set_surface_uniforms(Backend& state, const GpuStateBlock& block, const Surf
     bound.surface_uniforms = uniforms;
     bound.surface_kept = true;
     *where = bound.surface_block;
+    return true;
+}
+
+// (NOT ORIGINAL - rt_pbr) A draw lit per pixel's descriptors filled (its block in the ring, its map); nothing for one
+// that isn't. False: the ring is full.
+struct SurfaceSource {
+    SurfaceDraw surface;
+    uint8_t flags = 0;          // the key's surface bits
+    const Image* image = nullptr; // the map's image (null: the blank texture)
+    VkSampler sampler = VK_NULL_HANDLE; // stage 0's
+};
+bool surface_descriptors_for(Backend& state, const GpuStateBlock& block, const SurfaceSource& source, SurfaceDescriptors* out)
+{
+    if (!surface_lit_per_pixel(source.flags)) {
+        return true;
+    }
+    out->on = true;
+    if (!set_surface_uniforms(state, block, source.surface, &out->block)) {
+        return false;
+    }
+    if ((source.flags & kSurfaceMap) != 0U) {
+        const Image& shown = source.image != nullptr ? *source.image : state.blank;
+        out->has_map = true;
+        out->map = {.sampler = source.sampler, .imageView = shown.view, .imageLayout = shown.layout};
+    }
     return true;
 }
 
@@ -1000,16 +1027,8 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     // it off): the key with the water bit, the copy behind the water made first (outside the pass); opaque water before
     // the opaque world is finished kept back and drawn then
     WaterDescriptors water;
-    if (water_candidate(state, block)) {
-        if (defer_water_draw(state, block, call)) {
-            return kOk; // (drawn as water once the opaque world is finished)
-        }
-        ShaderKey with_water = shaders;
-        with_water.fragment.surface = static_cast<uint8_t>(with_water.fragment.surface | kSurfaceWater);
-        with_water = normalised(with_water);
-        if ((with_water.fragment.surface & kSurfaceWater) != 0U && prepare_water_draw(state, block, &water)) {
-            shaders = with_water;
-        }
+    if (!water_key(state, block, call, &shaders, &water)) {
+        return kOk; // (drawn as water once the opaque world is finished)
     }
     std::string why;
     if (!supported(shaders, &why)) {
@@ -1059,16 +1078,10 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         return gpu_value::kResultInvalidCall;
     }
     SurfaceDescriptors surface_descriptors; // NOT ORIGINAL - rt_pbr
-    if (surface_lit_per_pixel(shaders.fragment.surface)) {
-        surface_descriptors.on = true;
-        if (!set_surface_uniforms(state, block, surface, &surface_descriptors.block)) {
-            return gpu_value::kResultInvalidCall;
-        }
-        if ((shaders.fragment.surface & kSurfaceMap) != 0U) {
-            const Image& shown = surface_image != nullptr ? *surface_image : state.blank;
-            surface_descriptors.has_map = true;
-            surface_descriptors.map = {.sampler = core::at(descriptors, 0).sampler, .imageView = shown.view, .imageLayout = shown.layout};
-        }
+    if (!surface_descriptors_for(state, block, {.surface = surface, .flags = shaders.fragment.surface, .image = surface_image,
+                                                .sampler = core::at(descriptors, 0).sampler},
+                                 &surface_descriptors)) {
+        return gpu_value::kResultInvalidCall;
     }
     BoundState& bound = state.bound;
     if (pipeline != bound.pipeline) {
@@ -1116,9 +1129,6 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     }
     if (surface_image != nullptr) {
         surface_image->used = serial;
-    }
-    if (water.on) {
-        water_draw_recorded(state); // (NOT ORIGINAL - rt_water)
     }
     ++state.stats.draws;
     return kOk;
