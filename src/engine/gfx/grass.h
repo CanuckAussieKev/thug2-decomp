@@ -53,7 +53,8 @@ struct Blade {
     std::array<float, 3> root{};
     uint32_t packed = 0;
 };
-static_assert(sizeof(Blade) == 16, "the grass shaders' blade");
+inline constexpr std::size_t kBladeBytes = 16;
+static_assert(sizeof(Blade) == kBladeBytes, "the grass shaders' blade");
 inline constexpr uint32_t kDriedFlag = 1U << 24U;
 
 // A tile: its blades (first, count - in rank order) and their roots' box.
@@ -65,7 +66,7 @@ struct Tile {
 };
 
 struct Field {
-    uint64_t serial = 0; // a new number per field made (0: none)
+    uint64_t serial = 0;  // a new number per field made (0: none)
     float density = 0.0F; // what it was made at
     std::vector<Blade> blades;
     std::vector<Tile> tiles;

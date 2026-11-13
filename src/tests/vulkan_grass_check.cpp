@@ -32,9 +32,11 @@
 #include <exception>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <volk.h>
 
@@ -47,6 +49,7 @@
 #include "engine/gfx/grass.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
+#include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_grass.h"
 #include "gpu_vulkan/vulkan_loader.h"
@@ -108,6 +111,26 @@ constexpr float kDriedFar = -600.0F;
 constexpr uint32_t kGreenColour = 0xFF40A030;
 constexpr uint32_t kStrawColour = 0xFFA08C22;
 constexpr uint32_t kGreyColour = 0xFF808080;
+constexpr uint32_t kSkyColour = 0xFF8090C0;
+constexpr uint32_t kRankMask = 0xFFU; // (a blade's packed rank)
+constexpr uint32_t kHeightShift = 8;  // (and its height)
+constexpr uint32_t kByteMask = 0xFFU;
+constexpr double kCountSlack = 0.03;  // the field's count against the area x the density
+constexpr double kCoveredSlack = 0.2; // the covered roots against the box's area
+constexpr float kOnGround = 0.01F;    // a root's height off the lawn
+constexpr float kTinyDirection = 1.0e-9F;
+constexpr float kInsideMargin = 4.0F; // (x a blade's reach: the box's surroundings left out of the inside)
+constexpr int kLeastInside = 1000;    // pixels of the lawn's inside at least
+constexpr double kLeastCoverage = 0.35;
+constexpr float kLeastApart = 2.0F;      // (a blade this near the skater: no way away)
+constexpr float kShapeTolerance = 0.02F; // the device's shapes against the twin (units)
+constexpr int kLeastPushed = 20;
+constexpr float kAboveAny = 2.0F; // (more than any share kept)
+constexpr int kDistanceSteps = 64;
+constexpr float kBeyondShare = 1.5F;
+constexpr float kNearInside = 0.9F; // (of the near distance)
+constexpr float kFullTolerance = 1.0e-3F;
+constexpr float kCostEdge = 20.0F; // (the cost's lawn starts this far ahead of the camera's feet)
 
 struct Options {
     int display = 0;
@@ -183,16 +206,24 @@ float from_half(uint16_t bits)
 
 // --- the view's matrices ---------------------------------------------------------------------------------------
 
-Vec3 minus(const Vec3& a, const Vec3& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
+Vec3 minus(const Vec3& a, const Vec3& b)
+{
+    return {core::at(a, 0) - core::at(b, 0), core::at(a, 1) - core::at(b, 1), core::at(a, 2) - core::at(b, 2)};
+}
 Vec3 cross(const Vec3& a, const Vec3& b)
 {
-    return {(a[1] * b[2]) - (a[2] * b[1]), (a[2] * b[0]) - (a[0] * b[2]), (a[0] * b[1]) - (a[1] * b[0])};
+    return {(core::at(a, 1) * core::at(b, 2)) - (core::at(a, 2) * core::at(b, 1)),
+            (core::at(a, 2) * core::at(b, 0)) - (core::at(a, 0) * core::at(b, 2)),
+            (core::at(a, 0) * core::at(b, 1)) - (core::at(a, 1) * core::at(b, 0))};
 }
-float dot(const Vec3& a, const Vec3& b) { return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2]); }
+float dot(const Vec3& a, const Vec3& b)
+{
+    return (core::at(a, 0) * core::at(b, 0)) + (core::at(a, 1) * core::at(b, 1)) + (core::at(a, 2) * core::at(b, 2));
+}
 Vec3 unit(const Vec3& a)
 {
     const float length = std::sqrt(dot(a, a));
-    return {a[0] / length, a[1] / length, a[2] / length};
+    return {core::at(a, 0) / length, core::at(a, 1) / length, core::at(a, 2) / length};
 }
 
 // D3DXMatrixLookAtLH's layout.
@@ -201,14 +232,25 @@ Matrix look_at(const Vec3& eye, const Vec3& at)
     const Vec3 z = unit(minus(at, eye));
     const Vec3 x = unit(cross({0.0F, 1.0F, 0.0F}, z));
     const Vec3 y = cross(z, x);
-    return {{{x[0], y[0], z[0], 0.0F},
-             {x[1], y[1], z[1], 0.0F},
-             {x[2], y[2], z[2], 0.0F},
+    return {{{core::at(x, 0), core::at(y, 0), core::at(z, 0), 0.0F},
+             {core::at(x, 1), core::at(y, 1), core::at(z, 1), 0.0F},
+             {core::at(x, 2), core::at(y, 2), core::at(z, 2), 0.0F},
              {-dot(x, eye), -dot(y, eye), -dot(z, eye), 1.0F}}};
 }
 
-render::rt::ViewDrawn view_of(const Vec3& eye, const Vec3& at, uint32_t width, uint32_t height, double seconds = 0.0)
+// Where the camera is and what it looks at, the picture's size, the game's clock.
+struct Shot {
+    Vec3 eye{};
+    Vec3 at{};
+    uint32_t width = kWidth;
+    uint32_t height = kHeight;
+    double seconds = 0.0;
+};
+
+render::rt::ViewDrawn view_of(const Shot& shot)
 {
+    const uint32_t width = shot.width;
+    const uint32_t height = shot.height;
     render::rt::ViewDrawn view;
     view.rect = {0, 0, width, height};
     view.output_rect = view.rect;
@@ -220,16 +262,16 @@ render::rt::ViewDrawn view_of(const Vec3& eye, const Vec3& at, uint32_t width, u
     core::at(core::at(projection, 2), 2) = kFar / (kFar - kNear);
     core::at(core::at(projection, 2), 3) = 1.0F;
     core::at(core::at(projection, 3), 2) = -kNear * kFar / (kFar - kNear);
-    view.camera.view = look_at(eye, at);
-    view.camera.position = eye;
-    view.game_seconds = seconds;
+    view.camera.view = look_at(shot.eye, shot.at);
+    view.camera.position = shot.eye;
+    view.game_seconds = shot.seconds;
     return view;
 }
 
 // clip = (x, y, z, 1) x the view x the projection
 std::array<float, 4> to_clip(const render::rt::ViewDrawn& view, const Vec3& point)
 {
-    const std::array<float, 4> in{point[0], point[1], point[2], 1.0F};
+    const std::array<float, 4> in{core::at(point, 0), core::at(point, 1), core::at(point, 2), 1.0F};
     std::array<float, 4> eye{};
     for (std::size_t column = 0; column < 4; ++column) {
         for (std::size_t k = 0; k < 4; ++k) {
@@ -253,19 +295,28 @@ struct ScreenVertex {
 };
 
 // A ground quad (y = `height`, x and z ranges) as two pre-transformed triangles in the view's depth.
-void add_ground(std::vector<ScreenVertex>* out, const render::rt::ViewDrawn& view, std::array<float, 4> area, float height,
-                uint32_t colour)
+// A ground quad: x from - to, z from - to, its height and colour.
+struct Ground {
+    std::array<float, 4> area{};
+    float height = 0.0F;
+    uint32_t colour = 0;
+};
+
+void add_ground(std::vector<ScreenVertex>* out, const render::rt::ViewDrawn& view, const Ground& ground)
 {
-    const auto [left, right, front, back] = area;
-    const std::array<Vec3, 4> corners{{{left, height, front}, {right, height, front}, {right, height, back}, {left, height, back}}};
-    const auto width = static_cast<float>(view.rect[2]);
-    const auto tall = static_cast<float>(view.rect[3]);
+    const auto [left, right, front, back] = ground.area;
+    const float height = ground.height;
+    const uint32_t colour = ground.colour;
+    const std::array<Vec3, 4> corners{
+        {{left, height, front}, {right, height, front}, {right, height, back}, {left, height, back}}};
+    const auto width = static_cast<float>(core::at(view.rect, 2));
+    const auto tall = static_cast<float>(core::at(view.rect, 3));
     for (const std::size_t which : {0U, 1U, 2U, 0U, 2U, 3U}) {
         const std::array<float, 4> clip = to_clip(view, core::at(corners, which));
-        const float w = clip[3];
-        out->push_back({.x = ((clip[0] / w * kHalf) + kHalf) * width,
-                        .y = (kHalf - (clip[1] / w * kHalf)) * tall,
-                        .z = clip[2] / w,
+        const float w = core::at(clip, 3);
+        out->push_back({.x = ((core::at(clip, 0) / w * kHalf) + kHalf) * width,
+                        .y = (kHalf - (core::at(clip, 1) / w * kHalf)) * tall,
+                        .z = core::at(clip, 2) / w,
                         .rhw = 1.0F / w,
                         .colour = colour});
     }
@@ -273,11 +324,17 @@ void add_ground(std::vector<ScreenVertex>* out, const render::rt::ViewDrawn& vie
 
 void draw_ground(render::Gpu& gpu, const render::rt::ViewDrawn& view, bool lawn)
 {
-    gpu.set_viewport({.x = 0, .y = 0, .width = view.rect[2], .height = view.rect[3], .min_z = 0.0F, .max_z = 1.0F});
-    gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, 0xFF8090C0, 1.0F, 0);
+    gpu.set_viewport({.x = 0,
+                      .y = 0,
+                      .width = core::at(view.rect, 2),
+                      .height = core::at(view.rect, 3),
+                      .min_z = 0.0F,
+                      .max_z = 1.0F});
+    gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, kSkyColour, 1.0F, 0);
     gpu.set_render_state(GpuRenderState::kZEnable, 1);
     gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
-    gpu.set_render_state(GpuRenderState::kZFunc, value::kCompareAlways); // (the quads in order: the lawn over the ground)
+    gpu.set_render_state(GpuRenderState::kZFunc,
+                         value::kCompareAlways); // (the quads in order: the lawn over the ground)
     gpu.set_render_state(GpuRenderState::kLighting, 0);
     gpu.set_render_state(GpuRenderState::kCullMode, value::kCullNone);
     gpu.set_render_state(GpuRenderState::kAlphaTestEnable, 0);
@@ -290,10 +347,13 @@ void draw_ground(render::Gpu& gpu, const render::rt::ViewDrawn& view, bool lawn)
     gpu.set_stage_state(0, GpuStageState::kAlphaOp, value::kOpSelectArg1);
     gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgDiffuse);
     std::vector<ScreenVertex> quads;
-    add_ground(&quads, view, {-kGroundSide, kGroundSide, kGroundNear, kGroundFar}, 0.0F, kGreyColour);
+    add_ground(&quads, view,
+               {.area = {-kGroundSide, kGroundSide, kGroundNear, kGroundFar}, .height = 0.0F, .colour = kGreyColour});
     if (lawn) {
-        add_ground(&quads, view, {kLawnLeft, 0.0F, kLawnNear, kLawnFar}, 0.0F, kGreenColour);
-        add_ground(&quads, view, {0.0F, kLawnRight, kLawnNear, kLawnFar}, 0.0F, kStrawColour);
+        add_ground(&quads, view,
+                   {.area = {kLawnLeft, 0.0F, kLawnNear, kLawnFar}, .height = 0.0F, .colour = kGreenColour});
+        add_ground(&quads, view,
+                   {.area = {0.0F, kLawnRight, kLawnNear, kLawnFar}, .height = 0.0F, .colour = kStrawColour});
     }
     gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quads.size() / 3), quads.data(),
                          sizeof(ScreenVertex));
@@ -303,40 +363,77 @@ void draw_ground(render::Gpu& gpu, const render::rt::ViewDrawn& view, bool lawn)
 
 void add_quad_faces(std::vector<grass::Face>* faces, const std::array<Vec3, 4>& corners, grass::Kind kind)
 {
-    faces->push_back({.corners = {corners[0], corners[1], corners[2]}, .kind = kind});
-    faces->push_back({.corners = {corners[0], corners[2], corners[3]}, .kind = kind});
+    faces->push_back({.corners = {core::at(corners, 0), core::at(corners, 1), core::at(corners, 2)}, .kind = kind});
+    faces->push_back({.corners = {core::at(corners, 0), core::at(corners, 2), core::at(corners, 3)}, .kind = kind});
 }
 
 std::vector<grass::Face> lawn_faces()
 {
     std::vector<grass::Face> faces;
     // the ground under everything (coplanar with the lawn: it covers nothing)
-    add_quad_faces(&faces, {{{-kGroundSide, 0.0F, kGroundNear}, {kGroundSide, 0.0F, kGroundNear}, {kGroundSide, 0.0F, kGroundFar}, {-kGroundSide, 0.0F, kGroundFar}}},
+    add_quad_faces(&faces,
+                   {{{-kGroundSide, 0.0F, kGroundNear},
+                     {kGroundSide, 0.0F, kGroundNear},
+                     {kGroundSide, 0.0F, kGroundFar},
+                     {-kGroundSide, 0.0F, kGroundFar}}},
                    grass::Kind::kBlocker);
-    add_quad_faces(&faces, {{{kLawnLeft, 0.0F, kLawnNear}, {kLawnRight, 0.0F, kLawnNear}, {kLawnRight, 0.0F, kLawnFar}, {kLawnLeft, 0.0F, kLawnFar}}},
+    add_quad_faces(&faces,
+                   {{{kLawnLeft, 0.0F, kLawnNear},
+                     {kLawnRight, 0.0F, kLawnNear},
+                     {kLawnRight, 0.0F, kLawnFar},
+                     {kLawnLeft, 0.0F, kLawnFar}}},
                    grass::Kind::kGrass);
     // the box: its top and four sides
-    add_quad_faces(&faces, {{{kBoxLeft, kBoxTop, kBoxNear}, {kBoxRight, kBoxTop, kBoxNear}, {kBoxRight, kBoxTop, kBoxFar}, {kBoxLeft, kBoxTop, kBoxFar}}},
+    add_quad_faces(&faces,
+                   {{{kBoxLeft, kBoxTop, kBoxNear},
+                     {kBoxRight, kBoxTop, kBoxNear},
+                     {kBoxRight, kBoxTop, kBoxFar},
+                     {kBoxLeft, kBoxTop, kBoxFar}}},
                    grass::Kind::kBlocker);
-    add_quad_faces(&faces, {{{kBoxLeft, 0.0F, kBoxNear}, {kBoxRight, 0.0F, kBoxNear}, {kBoxRight, kBoxTop, kBoxNear}, {kBoxLeft, kBoxTop, kBoxNear}}},
+    add_quad_faces(&faces,
+                   {{{kBoxLeft, 0.0F, kBoxNear},
+                     {kBoxRight, 0.0F, kBoxNear},
+                     {kBoxRight, kBoxTop, kBoxNear},
+                     {kBoxLeft, kBoxTop, kBoxNear}}},
                    grass::Kind::kBlocker);
-    add_quad_faces(&faces, {{{kBoxLeft, 0.0F, kBoxFar}, {kBoxRight, 0.0F, kBoxFar}, {kBoxRight, kBoxTop, kBoxFar}, {kBoxLeft, kBoxTop, kBoxFar}}},
+    add_quad_faces(&faces,
+                   {{{kBoxLeft, 0.0F, kBoxFar},
+                     {kBoxRight, 0.0F, kBoxFar},
+                     {kBoxRight, kBoxTop, kBoxFar},
+                     {kBoxLeft, kBoxTop, kBoxFar}}},
                    grass::Kind::kBlocker);
-    add_quad_faces(&faces, {{{kBoxLeft, 0.0F, kBoxNear}, {kBoxLeft, 0.0F, kBoxFar}, {kBoxLeft, kBoxTop, kBoxFar}, {kBoxLeft, kBoxTop, kBoxNear}}},
+    add_quad_faces(&faces,
+                   {{{kBoxLeft, 0.0F, kBoxNear},
+                     {kBoxLeft, 0.0F, kBoxFar},
+                     {kBoxLeft, kBoxTop, kBoxFar},
+                     {kBoxLeft, kBoxTop, kBoxNear}}},
                    grass::Kind::kBlocker);
-    add_quad_faces(&faces, {{{kBoxRight, 0.0F, kBoxNear}, {kBoxRight, 0.0F, kBoxFar}, {kBoxRight, kBoxTop, kBoxFar}, {kBoxRight, kBoxTop, kBoxNear}}},
+    add_quad_faces(&faces,
+                   {{{kBoxRight, 0.0F, kBoxNear},
+                     {kBoxRight, 0.0F, kBoxFar},
+                     {kBoxRight, kBoxTop, kBoxFar},
+                     {kBoxRight, kBoxTop, kBoxNear}}},
                    grass::Kind::kBlocker);
     // a steep grass bank (no blades) and a dried patch (behind the camera's view: the field's checks only)
-    add_quad_faces(&faces, {{{kBankLeft, 0.0F, kLawnNear}, {kBankRight, kBankRise, kLawnNear}, {kBankRight, kBankRise, kLawnFar}, {kBankLeft, 0.0F, kLawnFar}}},
+    add_quad_faces(&faces,
+                   {{{kBankLeft, 0.0F, kLawnNear},
+                     {kBankRight, kBankRise, kLawnNear},
+                     {kBankRight, kBankRise, kLawnFar},
+                     {kBankLeft, 0.0F, kLawnFar}}},
                    grass::Kind::kGrass);
-    add_quad_faces(&faces, {{{kDriedLeft, 0.0F, kDriedNear}, {kDriedRight, 0.0F, kDriedNear}, {kDriedRight, 0.0F, kDriedFar}, {kDriedLeft, 0.0F, kDriedFar}}},
+    add_quad_faces(&faces,
+                   {{{kDriedLeft, 0.0F, kDriedNear},
+                     {kDriedRight, 0.0F, kDriedNear},
+                     {kDriedRight, 0.0F, kDriedFar},
+                     {kDriedLeft, 0.0F, kDriedFar}}},
                    grass::Kind::kDried);
     return faces;
 }
 
 bool inside(float x, float z, std::array<float, 4> area, float margin)
 {
-    return x > area[0] + margin && x < area[1] - margin && z > area[2] + margin && z < area[3] - margin;
+    return x > core::at(area, 0) + margin && x < core::at(area, 1) - margin && z > core::at(area, 2) + margin &&
+           z < core::at(area, 3) - margin;
 }
 
 constexpr std::array<float, 4> kLawn{kLawnLeft, kLawnRight, kLawnNear, kLawnFar};
@@ -357,32 +454,33 @@ void check_field(Tally* tally)
     const double dried_area = (kDriedRight - kDriedLeft) * (kDriedFar - kDriedNear);
     const double expected = (lawn_area - box_area + dried_area) * grass::kBladesPerSquareUnit;
     const auto count = static_cast<double>(one.blades.size());
-    tally->check(std::abs(count - expected) < expected * 0.03,
+    tally->check(std::abs(count - expected) < expected * kCountSlack,
                  text::format("%zu blades for %.0f expected (the area x the density)", one.blades.size(), expected));
     const double covered_expected = box_area * grass::kBladesPerSquareUnit;
-    tally->check(std::abs(static_cast<double>(one.covered) - covered_expected) < covered_expected * 0.2,
+    tally->check(std::abs(static_cast<double>(one.covered) - covered_expected) < covered_expected * kCoveredSlack,
                  text::format("%u roots under the box dropped (%.0f expected)", one.covered, covered_expected));
     int off_grass = 0;
     int under_box = 0;
     int dried_wrong = 0;
     for (const grass::Blade& blade : one.blades) {
-        const float x = blade.root[0];
-        const float z = blade.root[2];
+        const float x = core::at(blade.root, 0);
+        const float z = core::at(blade.root, 2);
         const bool on_lawn = inside(x, z, kLawn, -0.01F);
         const bool on_dried = inside(x, z, kDried, -0.01F);
-        off_grass += (!on_lawn && !on_dried) || std::abs(blade.root[1]) > 0.01F ? 1 : 0;
+        off_grass += (!on_lawn && !on_dried) || std::abs(core::at(blade.root, 1)) > kOnGround ? 1 : 0;
         under_box += inside(x, z, kBox, 0.0F) ? 1 : 0;
         dried_wrong += on_dried != ((blade.packed & grass::kDriedFlag) != 0) ? 1 : 0;
     }
     tally->check(off_grass == 0, text::format("every root on a lawn face, none on the steep bank (%d off)", off_grass));
     tally->check(under_box == 0, text::format("no root under the box (%d)", under_box));
-    tally->check(dried_wrong == 0 && one.dried_faces == 2 && one.steep_faces == 2,
-                 text::format("the dried patch flagged (%d wrong), %u steep faces left bare", dried_wrong, one.steep_faces));
+    tally->check(
+        dried_wrong == 0 && one.dried_faces == 2 && one.steep_faces == 2,
+        text::format("the dried patch flagged (%d wrong), %u steep faces left bare", dried_wrong, one.steep_faces));
     bool ordered = true;
     for (const grass::Tile& tile : one.tiles) {
         for (uint32_t k = 1; k < tile.count; ++k) {
-            ordered = ordered && (core::at(one.blades, tile.first + k - 1).packed & 0xFFU) <=
-                                     (core::at(one.blades, tile.first + k).packed & 0xFFU);
+            ordered = ordered && (core::at(one.blades, tile.first + k - 1).packed & kRankMask) <=
+                                     (core::at(one.blades, tile.first + k).packed & kRankMask);
         }
     }
     tally->check(ordered, text::format("each of the %zu tiles' blades in rank order", one.tiles.size()));
@@ -451,7 +549,8 @@ bool read_picture(GpuSurface* target, Picture* picture, uint32_t width = kWidth,
 }
 
 // The ground drawn, then `passes` grass passes (each a frame: the scene drawn again first).
-void run_frames(render::Gpu& gpu, const Targets& targets, const render::rt::ViewDrawn& view, int passes, bool lawn = true)
+void run_frames(render::Gpu& gpu, const Targets& targets, const render::rt::ViewDrawn& view, int passes,
+                bool lawn = true)
 {
     for (int pass = 0; pass < std::max(passes, 1); ++pass) {
         gpu.begin_scene();
@@ -473,52 +572,60 @@ struct Ray {
     Vec3 direction{};
 };
 
-Ray ray_through(const render::rt::ViewDrawn& view, uint32_t column, uint32_t row)
+struct Pixel {
+    uint32_t column = 0;
+    uint32_t row = 0;
+};
+
+Ray ray_through(const render::rt::ViewDrawn& view, Pixel pixel)
 {
+    const uint32_t column = pixel.column;
+    const uint32_t row = pixel.row;
     vk::Float4x4 camera{};
     vk::Float4x4 projection{};
-    for (std::size_t r = 0; r < 4; ++r) {
-        for (std::size_t c = 0; c < 4; ++c) {
-            core::at(camera, (r * 4) + c) = core::at(core::at(view.camera.view, r), c);
-            core::at(projection, (r * 4) + c) = core::at(core::at(view.camera.projection, r), c);
+    for (std::size_t line = 0; line < 4; ++line) {
+        for (std::size_t column_of = 0; column_of < 4; ++column_of) {
+            core::at(camera, (line * 4) + column_of) = core::at(core::at(view.camera.view, line), column_of);
+            core::at(projection, (line * 4) + column_of) = core::at(core::at(view.camera.projection, line), column_of);
         }
     }
     const vk::Float4x4 view_projection = vk::motion_multiply(camera, projection);
     vk::Float4x4 inverse{};
     vk::motion_inverse(view_projection, &inverse);
-    const float x = ((static_cast<float>(column) + kHalf) / static_cast<float>(view.rect[2]) * 2.0F) - 1.0F;
-    const float y = 1.0F - ((static_cast<float>(row) + kHalf) / static_cast<float>(view.rect[3]) * 2.0F);
+    const float x = ((static_cast<float>(column) + kHalf) / static_cast<float>(core::at(view.rect, 2)) * 2.0F) - 1.0F;
+    const float y = 1.0F - ((static_cast<float>(row) + kHalf) / static_cast<float>(core::at(view.rect, 3)) * 2.0F);
     std::array<Vec3, 2> ends{};
     for (std::size_t end = 0; end < 2; ++end) {
         const std::array<float, 4> clip{x, y, end == 0 ? 0.0F : 1.0F, 1.0F};
         std::array<float, 4> world{};
-        for (std::size_t c = 0; c < 4; ++c) {
+        for (std::size_t out = 0; out < 4; ++out) {
             for (std::size_t k = 0; k < 4; ++k) {
-                core::at(world, c) += core::at(clip, k) * core::at(inverse, (k * 4) + c);
+                core::at(world, out) += core::at(clip, k) * core::at(inverse, (k * 4) + out);
             }
         }
-        core::at(ends, end) = {world[0] / world[3], world[1] / world[3], world[2] / world[3]};
+        core::at(ends, end) = {core::at(world, 0) / core::at(world, 3), core::at(world, 1) / core::at(world, 3),
+                               core::at(world, 2) / core::at(world, 3)};
     }
-    return {.origin = ends[0], .direction = minus(ends[1], ends[0])};
+    return {.origin = core::at(ends, 0), .direction = minus(core::at(ends, 1), core::at(ends, 0))};
 }
 
 // Where the ray is at a height.
-bool at_height(const Ray& ray, float height, float* x, float* z)
+// (x, z) where the ray is at the height, if it gets there.
+std::optional<std::array<float, 2>> at_height(const Ray& ray, float height)
 {
-    if (std::abs(ray.direction[1]) < 1.0e-9F) {
-        return false;
+    if (std::abs(core::at(ray.direction, 1)) < kTinyDirection) {
+        return std::nullopt;
     }
-    const float t = (height - ray.origin[1]) / ray.direction[1];
-    if (!(t > 0.0F)) {
-        return false;
+    const float along = (height - core::at(ray.origin, 1)) / core::at(ray.direction, 1);
+    if (!(along > 0.0F)) {
+        return std::nullopt;
     }
-    *x = ray.origin[0] + (t * ray.direction[0]);
-    *z = ray.origin[2] + (t * ray.direction[2]);
-    return true;
+    return std::array<float, 2>{core::at(ray.origin, 0) + (along * core::at(ray.direction, 0)),
+                                core::at(ray.origin, 2) + (along * core::at(ray.direction, 2))};
 }
 
 constexpr float kTallest = vk::kGrassBaseHeight * vk::kGrassTallest; // (grass_height 1)
-constexpr float kReachOut = kTallest + 2.0F; // a blade's lean and width at most
+constexpr float kReachOut = kTallest + 2.0F;                         // a blade's lean and width at most
 
 // Where blades may show: the ray meets, somewhere up to the tallest blade, the lawn (grown by a blade's reach) outside
 // the box's footprint (shrunk by it). Inside: everywhere up to it, the lawn (shrunk) away from the box (grown).
@@ -530,23 +637,25 @@ struct Region {
 
 Region region_of(const render::rt::ViewDrawn& view, uint32_t column, uint32_t row)
 {
-    const Ray ray = ray_through(view, column, row);
+    const Ray ray = ray_through(view, {.column = column, .row = row});
     Region region;
     region.inside = true;
     constexpr int kSteps = 12;
     for (int step = 0; step <= kSteps; ++step) {
         const float height = kTallest * static_cast<float>(step) / static_cast<float>(kSteps);
-        float x = 0.0F;
-        float z = 0.0F;
-        if (!at_height(ray, height, &x, &z)) {
+        const std::optional<std::array<float, 2>> point = at_height(ray, height);
+        if (!point) {
             region.inside = false;
             continue;
         }
+        const float px = core::at(*point, 0);
+        const float pz = core::at(*point, 1);
         if (step == 0) {
-            region.ground_x = x;
+            region.ground_x = px;
         }
-        region.may = region.may || (inside(x, z, kLawn, -kReachOut) && !inside(x, z, kBox, kReachOut));
-        region.inside = region.inside && inside(x, z, kLawn, kReachOut) && !inside(x, z, kBox, -kReachOut * 4.0F);
+        region.may = region.may || (inside(px, pz, kLawn, -kReachOut) && !inside(px, pz, kBox, kReachOut));
+        region.inside =
+            region.inside && inside(px, pz, kLawn, kReachOut) && !inside(px, pz, kBox, -kReachOut * kInsideMargin);
     }
     return region;
 }
@@ -554,40 +663,20 @@ Region region_of(const render::rt::ViewDrawn& view, uint32_t column, uint32_t ro
 bool changed(const std::array<float, 3>& before, const std::array<float, 3>& after)
 {
     constexpr float kSame = 1.0e-3F;
-    return std::abs(before[0] - after[0]) > kSame || std::abs(before[1] - after[1]) > kSame ||
-           std::abs(before[2] - after[2]) > kSame;
+    return std::abs(core::at(before, 0) - core::at(after, 0)) > kSame ||
+           std::abs(core::at(before, 1) - core::at(after, 1)) > kSame ||
+           std::abs(core::at(before, 2) - core::at(after, 2)) > kSame;
 }
 
 const vk::GrassSettings kDefaults{.on = true};
 
-void check_pass(render::Gpu& gpu, Tally* tally)
+// Where the pass changed the picture: only over the lawn, most of its inside, in the ground's colours, all finite.
+void check_picture(const render::rt::ViewDrawn& view, const Picture& before, const Picture& after, Tally* tally)
 {
-    text::print("the pass:\n");
-    vk::set_grass_settings(kDefaults);
-    const render::rt::ViewDrawn view = view_of(kEye, kLookAt, kWidth, kHeight);
-    const Targets targets = make_targets(gpu, 0);
-    if (targets.colour == nullptr || targets.depth == nullptr) {
-        tally->check(false, "the targets");
-        release(gpu, targets);
-        return;
-    }
-    const std::vector<grass::Face> faces = lawn_faces();
-    vk::grass_sink().set_field(std::make_shared<grass::Field>(grass::make_field(faces, 1.0F)));
-    vk::grass_sink().set_pushers({});
-    Picture before;
-    Picture after;
-    run_frames(gpu, targets, view, 0);
-    const bool read_before = read_picture(targets.colour, &before);
-    const uint64_t passes = vk::grass_passes();
-    run_frames(gpu, targets, view, kLearningPasses);
-    const bool read_after = read_picture(targets.colour, &after);
-    tally->check(read_before && read_after && vk::grass_passes() == passes + kLearningPasses,
-                 text::format("%d passes recorded, %u blades in %u draws the last", kLearningPasses, vk::grass_last_blades(),
-                              vk::grass_last_draws()));
-    if (!read_before || !read_after) {
-        release(gpu, targets);
-        return;
-    }
+    constexpr double kGreenOver = 1.8;  // (the green half's green over its red and blue)
+    constexpr double kStrawOver = 1.05; // (the straw half's red over its green)
+    constexpr double kStrawOverBlue = 2.0;
+    constexpr double kPercent = 100.0;
     int stray = 0;
     int inside_pixels = 0;
     int inside_changed = 0;
@@ -602,7 +691,10 @@ void check_pass(render::Gpu& gpu, Tally* tally)
             const std::size_t pixel = (static_cast<std::size_t>(row) * kWidth) + column;
             const auto& was = core::at(before, pixel);
             const auto& now = core::at(after, pixel);
-            finite += std::isfinite(now[0]) && std::isfinite(now[1]) && std::isfinite(now[2]) ? 1 : 0;
+            finite +=
+                std::isfinite(core::at(now, 0)) && std::isfinite(core::at(now, 1)) && std::isfinite(core::at(now, 2))
+                    ? 1
+                    : 0;
             const bool moved = changed(was, now);
             const Region region = region_of(view, column, row);
             stray += moved && !region.may ? 1 : 0;
@@ -621,18 +713,107 @@ void check_pass(render::Gpu& gpu, Tally* tally)
             }
         }
     }
-    tally->check(stray == 0, text::format("blades only over the lawn, none over the box's footprint (%d stray pixels)", stray));
+    tally->check(stray == 0,
+                 text::format("blades only over the lawn, none over the box's footprint (%d stray pixels)", stray));
     const double coverage = inside_pixels > 0 ? static_cast<double>(inside_changed) / inside_pixels : 0.0;
-    tally->check(inside_pixels > 1000 && coverage > 0.35,
-                 text::format("%.0f%% of the lawn's %d inside pixels covered by blades", coverage * 100.0, inside_pixels));
-    tally->check(finite == static_cast<int>(kWidth * kHeight), text::format("every pixel finite (%d)", finite));
-    const bool green_ok = green_count > 0 && green_sum[1] > green_sum[0] * 1.8 && green_sum[1] > green_sum[2] * 1.8;
-    const bool straw_ok = straw_count > 0 && straw_sum[0] > straw_sum[1] * 1.05 && straw_sum[1] > straw_sum[2] * 2.0;
+    tally->check(
+        inside_pixels > kLeastInside && coverage > kLeastCoverage,
+        text::format("%.0f%% of the lawn's %d inside pixels covered by blades", coverage * kPercent, inside_pixels));
+    tally->check(std::cmp_equal(finite, kWidth * kHeight), text::format("every pixel finite (%d)", finite));
+    const bool green_ok = green_count > 0 && core::at(green_sum, 1) > core::at(green_sum, 0) * kGreenOver &&
+                          core::at(green_sum, 1) > core::at(green_sum, 2) * kGreenOver;
+    const bool straw_ok = straw_count > 0 && core::at(straw_sum, 0) > core::at(straw_sum, 1) * kStrawOver &&
+                          core::at(straw_sum, 1) > core::at(straw_sum, 2) * kStrawOverBlue;
+    const auto mean = [](const std::array<double, 3>& sum, int count, std::size_t channel) {
+        return count > 0 ? core::at(sum, channel) / count : 0.0;
+    };
     tally->check(green_ok && straw_ok,
                  text::format("the blades the ground's colour: green half %.2f %.2f %.2f, straw half %.2f %.2f %.2f",
-                              green_count > 0 ? green_sum[0] / green_count : 0.0, green_count > 0 ? green_sum[1] / green_count : 0.0,
-                              green_count > 0 ? green_sum[2] / green_count : 0.0, straw_count > 0 ? straw_sum[0] / straw_count : 0.0,
-                              straw_count > 0 ? straw_sum[1] / straw_count : 0.0, straw_count > 0 ? straw_sum[2] / straw_count : 0.0));
+                              mean(green_sum, green_count, 0), mean(green_sum, green_count, 1),
+                              mean(green_sum, green_count, 2), mean(straw_sum, straw_count, 0),
+                              mean(straw_sum, straw_count, 1), mean(straw_sum, straw_count, 2)));
+}
+
+// Not-a-number and infinities in the ground under the blades: no blade's colour turns bad.
+void check_poisoned(render::Gpu& gpu, const Targets& targets, const render::rt::ViewDrawn& view, Tally* tally)
+{
+    std::vector<std::array<float, 4>> colours;
+    int bad = 0;
+    gpu.begin_scene();
+    gpu.set_render_target(0, targets.colour);
+    gpu.set_depth_surface(targets.depth);
+    draw_ground(gpu, view, true);
+    gpu.set_render_target(0, nullptr);
+    gpu.set_depth_surface(nullptr);
+    gpu.end_scene();
+    render::GpuLockedRect locked{};
+    bool poisoned = gpu.lock_surface(targets.colour, &locked, nullptr, 0) == value::kResultOk;
+    if (poisoned) {
+        const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked.bits),
+                                       static_cast<std::size_t>(kWidth) * kHeight * kHalfPixelBytes);
+        constexpr std::array<uint16_t, 3> kBad{0x7E00, 0x7C00, 0xFC00};
+        for (std::size_t pixel = 0; pixel < static_cast<std::size_t>(kWidth) * kHeight; pixel += 3) {
+            const uint16_t bad_bits = core::at(kBad, (pixel / 3) % kBad.size());
+            for (std::size_t channel = 0; channel < kChannels; ++channel) {
+                core::at(bytes, (pixel * kHalfPixelBytes) + (channel * 2)) = static_cast<uint8_t>(bad_bits & kByteMask);
+                core::at(bytes, (pixel * kHalfPixelBytes) + (channel * 2) + 1) =
+                    static_cast<uint8_t>(bad_bits >> kHighByte);
+            }
+        }
+        poisoned = gpu.unlock_surface(targets.colour) == value::kResultOk;
+    }
+    gpu.begin_scene();
+    gpu.set_render_target(0, targets.colour);
+    gpu.set_depth_surface(targets.depth);
+    render::rt::opaque_view_drawn(view);
+    gpu.set_render_target(0, nullptr);
+    gpu.set_depth_surface(nullptr);
+    gpu.end_scene();
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        vk::read_grass_colours(state, &colours);
+    }
+    bad = 0;
+    for (const auto& colour : colours) {
+        bad += std::isfinite(core::at(colour, 0)) && std::isfinite(core::at(colour, 1)) &&
+                       std::isfinite(core::at(colour, 2))
+                   ? 0
+                   : 1;
+    }
+    tally->check(poisoned && bad == 0,
+                 text::format("not-a-number and infinities under the roots: %d colours bad", bad));
+}
+
+void check_pass(render::Gpu& gpu, Tally* tally)
+{
+    text::print("the pass:\n");
+    vk::set_grass_settings(kDefaults);
+    const render::rt::ViewDrawn view = view_of({.eye = kEye, .at = kLookAt});
+    const Targets targets = make_targets(gpu, 0);
+    if (targets.colour == nullptr || targets.depth == nullptr) {
+        tally->check(false, "the targets");
+        release(gpu, targets);
+        return;
+    }
+    const std::vector<grass::Face> faces = lawn_faces();
+    vk::grass_sink().set_field(std::make_shared<grass::Field>(grass::make_field(faces, 1.0F)));
+    vk::grass_sink().set_pushers({});
+    Picture before;
+    Picture after;
+    run_frames(gpu, targets, view, 0);
+    const bool read_before = read_picture(targets.colour, &before);
+    const uint64_t passes = vk::grass_passes();
+    run_frames(gpu, targets, view, kLearningPasses);
+    const bool read_after = read_picture(targets.colour, &after);
+    tally->check(read_before && read_after && vk::grass_passes() == passes + kLearningPasses,
+                 text::format("%d passes recorded, %u blades in %u draws the last", kLearningPasses,
+                              vk::grass_last_blades(), vk::grass_last_draws()));
+    if (!read_before || !read_after) {
+        release(gpu, targets);
+        return;
+    }
+    check_picture(view, before, after, tally);
     // the same picture from a new field of the same faces
     vk::grass_sink().set_field(std::make_shared<grass::Field>(grass::make_field(faces, 1.0F)));
     run_frames(gpu, targets, view, kLearningPasses);
@@ -648,53 +829,15 @@ void check_pass(render::Gpu& gpu, Tally* tally)
     int known = 0;
     int bad = 0;
     for (const auto& colour : colours) {
-        known += colour[3] >= 1.0F ? 1 : 0;
-        bad += std::isfinite(colour[0]) && std::isfinite(colour[1]) && std::isfinite(colour[2]) && std::isfinite(colour[3]) ? 0 : 1;
+        known += core::at(colour, 3) >= 1.0F ? 1 : 0;
+        bad += std::isfinite(core::at(colour, 0)) && std::isfinite(core::at(colour, 1)) &&
+                       std::isfinite(core::at(colour, 2)) && std::isfinite(core::at(colour, 3))
+                   ? 0
+                   : 1;
     }
     tally->check(!colours.empty() && bad == 0 && known > 0,
                  text::format("%d of %zu blades' colours known, %d not finite", known, colours.size(), bad));
-    // not-a-number and infinities in the ground under the blades: nothing drawn turns bad
-    {
-        gpu.begin_scene();
-        gpu.set_render_target(0, targets.colour);
-        gpu.set_depth_surface(targets.depth);
-        draw_ground(gpu, view, true);
-        gpu.set_render_target(0, nullptr);
-        gpu.set_depth_surface(nullptr);
-        gpu.end_scene();
-        render::GpuLockedRect locked{};
-        bool poisoned = gpu.lock_surface(targets.colour, &locked, nullptr, 0) == value::kResultOk;
-        if (poisoned) {
-            const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked.bits),
-                                           static_cast<std::size_t>(kWidth) * kHeight * kHalfPixelBytes);
-            constexpr std::array<uint16_t, 3> kBad{0x7E00, 0x7C00, 0xFC00};
-            for (std::size_t pixel = 0; pixel < static_cast<std::size_t>(kWidth) * kHeight; pixel += 3) {
-                const uint16_t bad_bits = core::at(kBad, (pixel / 3) % kBad.size());
-                for (std::size_t channel = 0; channel < kChannels; ++channel) {
-                    core::at(bytes, (pixel * kHalfPixelBytes) + (channel * 2)) = static_cast<uint8_t>(bad_bits & 0xFFU);
-                    core::at(bytes, (pixel * kHalfPixelBytes) + (channel * 2) + 1) = static_cast<uint8_t>(bad_bits >> kHighByte);
-                }
-            }
-            poisoned = gpu.unlock_surface(targets.colour) == value::kResultOk;
-        }
-        gpu.begin_scene();
-        gpu.set_render_target(0, targets.colour);
-        gpu.set_depth_surface(targets.depth);
-        render::rt::opaque_view_drawn(view);
-        gpu.set_render_target(0, nullptr);
-        gpu.set_depth_surface(nullptr);
-        gpu.end_scene();
-        {
-            vk::Backend& state = vk::backend();
-            const std::scoped_lock lock(state.mutex);
-            vk::read_grass_colours(state, &colours);
-        }
-        bad = 0;
-        for (const auto& colour : colours) {
-            bad += std::isfinite(colour[0]) && std::isfinite(colour[1]) && std::isfinite(colour[2]) ? 0 : 1;
-        }
-        tally->check(poisoned && bad == 0, text::format("not-a-number and infinities under the roots: %d colours bad", bad));
-    }
+    check_poisoned(gpu, targets, view, tally);
     release(gpu, targets);
 }
 
@@ -716,7 +859,7 @@ void check_shapes(render::Gpu& gpu, Tally* tally)
         return vk::probe_grass(state, view, 0, static_cast<uint32_t>(field.blades.size()), tips);
     };
     const std::array<grass::Pusher, 1> pusher{{{.at = skater, .radius = grass::kCharacterReach}}};
-    const render::rt::ViewDrawn near_view = view_of(kEye, kLookAt, kWidth, kHeight, kSeconds);
+    const render::rt::ViewDrawn near_view = view_of({.eye = kEye, .at = kLookAt, .seconds = kSeconds});
     std::vector<std::array<float, 4>> pushed;
     std::vector<std::array<float, 4>> free;
     const bool probed = probe(near_view, pusher, &pushed) && probe(near_view, {}, &free);
@@ -733,66 +876,82 @@ void check_shapes(render::Gpu& gpu, Tally* tally)
         const grass::Blade& blade = core::at(field.blades, index);
         const vk::GrassShape twin = vk::grass_blade_shape(blade, shape_view, pusher, 1.0F);
         const std::array<float, 4>& got = core::at(pushed, index);
-        not_finite += std::isfinite(got[0]) && std::isfinite(got[1]) && std::isfinite(got[2]) && std::isfinite(got[3]) ? 0 : 1;
-        worst = std::max({worst, std::abs(got[0] - twin.tip[0]), std::abs(got[1] - twin.tip[1]),
-                          std::abs(got[2] - twin.tip[2]), std::abs(got[3] - twin.height)});
-        const float away_x = blade.root[0] - skater[0];
-        const float away_z = blade.root[2] - skater[2];
+        not_finite += std::isfinite(core::at(got, 0)) && std::isfinite(core::at(got, 1)) &&
+                              std::isfinite(core::at(got, 2)) && std::isfinite(core::at(got, 3))
+                          ? 0
+                          : 1;
+        worst =
+            std::max({worst, std::abs(core::at(got, 0) - core::at(twin.tip, 0)),
+                      std::abs(core::at(got, 1) - core::at(twin.tip, 1)),
+                      std::abs(core::at(got, 2) - core::at(twin.tip, 2)), std::abs(core::at(got, 3) - twin.height)});
+        const float away_x = core::at(blade.root, 0) - core::at(skater, 0);
+        const float away_z = core::at(blade.root, 2) - core::at(skater, 2);
         const float apart = std::sqrt((away_x * away_x) + (away_z * away_z));
-        if (apart > 2.0F && apart < grass::kCharacterReach * kHalf && got[3] > kHalf) { // (the push stronger than lean and wind)
+        if (apart > kLeastApart && apart < grass::kCharacterReach * kHalf &&
+            core::at(got, 3) > kHalf) { // (the push stronger than lean and wind)
             ++pushed_blades;
-            const float out_pushed = (((got[0] - blade.root[0]) * away_x) + ((got[2] - blade.root[2]) * away_z)) / apart;
+            const float out_pushed = (((core::at(got, 0) - core::at(blade.root, 0)) * away_x) +
+                                      ((core::at(got, 2) - core::at(blade.root, 2)) * away_z)) /
+                                     apart;
             const std::array<float, 4>& loose = core::at(free, index);
-            const float out_free = (((loose[0] - blade.root[0]) * away_x) + ((loose[2] - blade.root[2]) * away_z)) / apart;
+            const float out_free = (((core::at(loose, 0) - core::at(blade.root, 0)) * away_x) +
+                                    ((core::at(loose, 2) - core::at(blade.root, 2)) * away_z)) /
+                                   apart;
             pushed_wrong += out_pushed > 0.0F && out_pushed > out_free ? 0 : 1;
         }
     }
-    tally->check(worst < 0.02F && not_finite == 0,
+    tally->check(worst < kShapeTolerance && not_finite == 0,
                  text::format("every tip and height within %.4f units of the twin (%zu blades), %d not finite",
                               static_cast<double>(worst), field.blades.size(), not_finite));
-    tally->check(pushed_blades > 20 && pushed_wrong == 0,
-                 text::format("the %d blades within the skater's reach bent away from him (%d not)", pushed_blades, pushed_wrong));
+    tally->check(pushed_blades > kLeastPushed && pushed_wrong == 0,
+                 text::format("the %d blades within the skater's reach bent away from him (%d not)", pushed_blades,
+                              pushed_wrong));
     // the level of detail
     const float distance = kDefaults.distance * vk::kGrassUnitsPerMetre;
     bool falling = true;
-    float last = 2.0F;
-    for (float d = 0.0F; d < distance * 1.5F; d += distance / 64.0F) {
-        const float keep = vk::grass_keep(shape_view, d) * vk::grass_fade(shape_view, d);
+    float last = kAboveAny;
+    for (int step = 0; step < kDistanceSteps * 3 / 2; ++step) {
+        const float along = distance * static_cast<float>(step) / static_cast<float>(kDistanceSteps);
+        const float keep = vk::grass_keep(shape_view, along) * vk::grass_fade(shape_view, along);
         falling = falling && keep <= last;
         last = keep;
     }
     tally->check(falling && vk::grass_fade(shape_view, distance) == 0.0F && vk::grass_keep(shape_view, 0.0F) == 1.0F,
                  "the share kept and the height fall with the distance, to nothing at it");
     const Vec3 far_eye{0.0F, 120.0F, kLawnFar + distance + 400.0F};
-    const render::rt::ViewDrawn far_view = view_of(far_eye, kLookAt, kWidth, kHeight, kSeconds);
+    const render::rt::ViewDrawn far_view = view_of({.eye = far_eye, .at = kLookAt, .seconds = kSeconds});
     std::vector<std::array<float, 4>> far_tips;
     int far_tall = 0;
     if (probe(far_view, {}, &far_tips)) {
         for (const auto& tip : far_tips) {
-            far_tall += tip[3] > 0.0F ? 1 : 0;
+            far_tall += core::at(tip, 3) > 0.0F ? 1 : 0;
         }
     }
     vk::GrassView far_shape = vk::grass_view(kDefaults, far_view, kHeight);
     uint32_t far_blades = 0;
     const std::vector<vk::GrassDraw> far_draws = vk::plan_grass_draws(field, &far_shape, &far_blades);
-    tally->check(far_tips.size() == field.blades.size() && far_tall == 0 && far_draws.empty(),
-                 text::format("beyond the distance: no blade tall (%d), nothing drawn (%zu draws)", far_tall, far_draws.size()));
+    tally->check(
+        far_tips.size() == field.blades.size() && far_tall == 0 && far_draws.empty(),
+        text::format("beyond the distance: no blade tall (%d), nothing drawn (%zu draws)", far_tall, far_draws.size()));
     // (a camera standing on the lawn: the blades near it whose rank is clear of the growth band - every one kept)
     const Vec3 close_eye{0.0F, 60.0F, 150.0F};
     std::vector<std::array<float, 4>> close_tips;
-    const bool close_probed = probe(view_of(close_eye, kLookAt, kWidth, kHeight, kSeconds), {}, &close_tips);
+    const bool close_probed = probe(view_of({.eye = close_eye, .at = kLookAt, .seconds = kSeconds}), {}, &close_tips);
     int near_full = 0;
     int near_count = 0;
     constexpr float kClearRank = 0.9F * 256.0F;
     for (std::size_t index = 0; close_probed && index < field.blades.size(); ++index) {
         const grass::Blade& blade = core::at(field.blades, index);
         const Vec3 to = minus(close_eye, blade.root);
-        if (std::sqrt(dot(to, to)) < distance * vk::kGrassNearShare * 0.9F &&
-            static_cast<float>(blade.packed & 0xFFU) < kClearRank) {
+        if (std::sqrt(dot(to, to)) < distance * vk::kGrassNearShare * kNearInside &&
+            static_cast<float>(blade.packed & kRankMask) < kClearRank) {
             ++near_count;
             const float tall = vk::kGrassShortest + ((vk::kGrassTallest - vk::kGrassShortest) *
-                                                     static_cast<float>((blade.packed >> 8U) & 0xFFU) / 255.0F);
-            near_full += std::abs(core::at(close_tips, index)[3] - (vk::kGrassBaseHeight * tall)) < 1.0e-3F ? 1 : 0;
+                                                     static_cast<float>((blade.packed >> kHeightShift) & kRankMask) /
+                                                     static_cast<float>(kRankMask));
+            near_full +=
+                std::abs(core::at(core::at(close_tips, index), 3) - (vk::kGrassBaseHeight * tall)) < kFullTolerance ? 1
+                                                                                                                    : 0;
         }
     }
     tally->check(near_count > 0 && near_full == near_count,
@@ -800,7 +959,7 @@ void check_shapes(render::Gpu& gpu, Tally* tally)
     uint32_t near_blades = 0;
     const std::vector<vk::GrassDraw> near_draws = vk::plan_grass_draws(field, &shape_view, &near_blades);
     const Vec3 middle_eye{0.0F, 120.0F, kLawnNear - (distance * 0.6F)};
-    vk::GrassView middle_shape = vk::grass_view(kDefaults, view_of(middle_eye, kLookAt, kWidth, kHeight), kHeight);
+    vk::GrassView middle_shape = vk::grass_view(kDefaults, view_of({.eye = middle_eye, .at = kLookAt}), kHeight);
     uint32_t middle_blades = 0;
     const std::vector<vk::GrassDraw> middle_draws = vk::plan_grass_draws(field, &middle_shape, &middle_blades);
     tally->check(!near_draws.empty() && !middle_draws.empty() && middle_blades < near_blades,
@@ -821,7 +980,7 @@ void check_multisampled(render::Gpu& gpu, Tally* tally)
         return;
     }
     const uint64_t passes = vk::grass_passes();
-    run_frames(gpu, targets, view_of(kEye, kLookAt, kWidth, kHeight), kLearningPasses);
+    run_frames(gpu, targets, view_of({.eye = kEye, .at = kLookAt}), kLearningPasses);
     {
         vk::Backend& state = vk::backend();
         const std::scoped_lock lock(state.mutex);
@@ -838,7 +997,7 @@ void check_off(render::Gpu& gpu, Tally* tally)
     vk::set_grass_settings({});
     const Targets targets = make_targets(gpu, 0);
     const uint64_t passes = vk::grass_passes();
-    run_frames(gpu, targets, view_of(kEye, kLookAt, kWidth, kHeight), 1);
+    run_frames(gpu, targets, view_of({.eye = kEye, .at = kLookAt}), 1);
     tally->check(vk::grass_passes() == passes && render::grass::sink() == nullptr, "grass=0: no pass, no sink");
     release(gpu, targets);
 }
@@ -851,9 +1010,14 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
     constexpr uint32_t kBigWidth = 2560;
     constexpr uint32_t kBigHeight = 1440;
     constexpr float kLawnHalf = 3000.0F;
+    constexpr float kCostEyeHeight = 70.0F;
     vk::set_grass_settings(kDefaults);
     std::vector<grass::Face> faces;
-    add_quad_faces(&faces, {{{-kLawnHalf, 0.0F, -kLawnHalf}, {kLawnHalf, 0.0F, -kLawnHalf}, {kLawnHalf, 0.0F, kLawnHalf}, {-kLawnHalf, 0.0F, kLawnHalf}}},
+    add_quad_faces(&faces,
+                   {{{-kLawnHalf, 0.0F, -kLawnHalf},
+                     {kLawnHalf, 0.0F, -kLawnHalf},
+                     {kLawnHalf, 0.0F, kLawnHalf},
+                     {-kLawnHalf, 0.0F, kLawnHalf}}},
                    grass::Kind::kGrass);
     vk::grass_sink().set_field(std::make_shared<grass::Field>(grass::make_field(faces, 1.0F)));
     vk::Backend& state = vk::backend();
@@ -876,19 +1040,25 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
     const Targets targets = make_targets(gpu, 0, kBigWidth, kBigHeight);
     if (targets.colour != nullptr && targets.depth != nullptr) {
         // a skater's camera: a few feet up, looking along the lawn
-        const render::rt::ViewDrawn view = view_of({0.0F, 70.0F, -kLawnHalf * 0.5F}, {0.0F, 0.0F, 0.0F}, kBigWidth, kBigHeight);
+        const render::rt::ViewDrawn view = view_of({.eye = {0.0F, kCostEyeHeight, -kLawnHalf * kHalf},
+                                                    .at = {0.0F, 0.0F, 0.0F},
+                                                    .width = kBigWidth,
+                                                    .height = kBigHeight});
         // (the ground is the lawn: drawn so that every root sees its colour)
         const auto draw = [&](bool grass_pass) {
             gpu.begin_scene();
             gpu.set_render_target(0, targets.colour);
             gpu.set_depth_surface(targets.depth);
             gpu.set_viewport({.x = 0, .y = 0, .width = kBigWidth, .height = kBigHeight, .min_z = 0.0F, .max_z = 1.0F});
-            gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, 0xFF8090C0, 1.0F, 0);
+            gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, kSkyColour, 1.0F, 0);
             std::vector<ScreenVertex> quads;
-            add_ground(&quads, view, {-kLawnHalf, kLawnHalf, -kLawnHalf * 0.5F + 20.0F, kLawnHalf}, 0.0F, kGreenColour);
+            add_ground(&quads, view,
+                       {.area = {-kLawnHalf, kLawnHalf, (-kLawnHalf * kHalf) + kCostEdge, kLawnHalf},
+                        .height = 0.0F,
+                        .colour = kGreenColour});
             gpu.set_vertex_format(kFvf);
-            gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quads.size() / 3), quads.data(),
-                                 sizeof(ScreenVertex));
+            gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quads.size() / 3),
+                                 quads.data(), sizeof(ScreenVertex));
             if (grass_pass) {
                 render::rt::opaque_view_drawn(view);
             }
@@ -920,10 +1090,12 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
         gpu.set_render_target(0, nullptr);
         gpu.set_depth_surface(nullptr);
         gpu.end_scene();
-        const double each = static_cast<double>(stamps[1] - stamps[0]) * static_cast<double>(properties.limits.timestampPeriod) /
-                            kNanosecondsPerMillisecond / kTimedPasses;
-        text::print("the cost: %.3f ms a pass at %ux%u (%u blades in %u draws; the defaults, the lawn filling the view)\n", each,
-                    kBigWidth, kBigHeight, vk::grass_last_blades(), vk::grass_last_draws());
+        const double each = static_cast<double>(core::at(stamps, 1) - core::at(stamps, 0)) *
+                            static_cast<double>(properties.limits.timestampPeriod) / kNanosecondsPerMillisecond /
+                            kTimedPasses;
+        text::print(
+            "the cost: %.3f ms a pass at %ux%u (%u blades in %u draws; the defaults, the lawn filling the view)\n",
+            each, kBigWidth, kBigHeight, vk::grass_last_blades(), vk::grass_last_draws());
         tally->check(std::isfinite(each) && each > 0.0, text::format("timed at %ux%u", kBigWidth, kBigHeight));
     }
     release(gpu, targets);
@@ -950,15 +1122,16 @@ int window_position(int display)
 
 bool open_device(const Options& options, SDL_Window* window)
 {
-    vk::set_context_options({.validation = options.validation, .device_index = options.device, .on_message = print_line},
-                            window);
+    vk::set_context_options(
+        {.validation = options.validation, .device_index = options.device, .on_message = print_line}, window);
     render::GpuContext& context = vk::gpu_context();
     if (!context.create_instance()) {
         text::print("the device could not be opened\n");
         return false;
     }
     const vk::Backend& state = vk::backend();
-    text::print("validation layer: %s\n", state.context.validation_on() ? "on" : "off (not installed, or not asked for)");
+    text::print("validation layer: %s\n",
+                state.context.validation_on() ? "on" : "off (not installed, or not asked for)");
     context.configure({.width = kWindowWidth,
                        .height = kWindowHeight,
                        .windowed = true,
@@ -1016,8 +1189,8 @@ int main(int argc, char** argv)
         return 1;
     }
     const int position = window_position(options.display);
-    SDL_Window* window =
-        SDL_CreateWindow("thug2 Vulkan grass check", kWindowWidth, kWindowHeight, SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN);
+    SDL_Window* window = SDL_CreateWindow("thug2 Vulkan grass check", kWindowWidth, kWindowHeight,
+                                          SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN);
     if (window == nullptr) {
         text::print("SDL_CreateWindow: %s\n", SDL_GetError());
         SDL_Quit();

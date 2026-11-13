@@ -1873,15 +1873,19 @@ tracing needed; Direct3D 9 installs no `Sink` and draws none.
   player sees are the grass terrain (a top-down map of BO's collision by terrain beside one of its render textures'
   mean colours), so the terrain alone decides. A level with none logs "no grass in this world's collision".
 - **The field** (`grass::make_field`, made on the processor once a world - the loaded scenes' key changed - or when the
-  density changes; Boston: a few milliseconds): each grass face gets area x 0.155 blades a square unit x density
+  density changes; Boston 30 - 50 ms, Skatopia 0.6 s, once at the load): each grass face gets area x 0.155 blades a square unit x density
   (about 240 a square metre), placed by hashes of its corners' bits and the blade's number (a uniform point on the
   triangle) - the same field every run, whatever order the sectors load in. A root is dropped when any other face covers
   it seen from above from 0.5 to 120 units over it (a ramp, a box, a bench, a rail, a path's kerb laid over the lawn):
   grass never grows through them; coplanar ground doesn't count. Roots are bucketed into 256-unit tiles, each tile's in
   the order of a rank hash. A blade is 16 bytes (its root; rank, height, facing and shade hashes, a dried flag).
-- **The pass** at `opaque_drawn`, `ViewOrder::kGrass` (90: after the opaque world, the objects and the sky, before the
-  ray-traced shadows, occlusion and bounce - they shade the blades from the depth the blades write, as they shade the
-  ground; the blades are never in the BLAS). Per view (vulkan_grass.h has the formulas): the tiles nearer than the
+- **The pass** at `opaque_drawn`, `ViewOrder::kGrass` (450: after the opaque world, the objects and the sky, and after
+  the ray-traced shadows, occlusion, bounce and reflections have shaded the ground; before the fog and the tone mapping
+  at `world_drawn`, which take the blades with the rest; never in the BLAS). The blades take the shaded ground's colour
+  at their roots - each is in the shadow (and the occlusion) its root is in. The first try ran the pass before the
+  shadows (90), so they would shade the blades from the depth the blades write: with the user's settings in BO every
+  blade came out near black - a blade is a few pixels wide, and the normals the screen-space passes rebuild from its
+  depth are noise (occlusion at radius 192 and strength 1 darkened them most). Per view (vulkan_grass.h has the formulas): the tiles nearer than the
   distance and in the view's frustum chosen on the processor, each drawing its first blades - those whose rank is below
   the share kept at its nearest point (1 out to a fifth of the distance, then (near / d)^1.5), with 3, 2 or 1 segments;
   at most 1.5 million blades a view (the share lowered for all beyond). The viewport's colour is copied out (resolved
@@ -1898,9 +1902,34 @@ tracing needed; Direct3D 9 installs no `Sink` and draws none.
   its length allows; turned 60% of the way to face the camera; 0.45 units wide at the root (never under 0.9 pixels:
   distant blades get wider as they get fewer), to nothing at the tip, along a quadratic curve. Its colour is the
   ground's under it - the texture, the bake's light and shadow (dark corners stay dark), the per-pixel lighting when
-  `rt_pbr`, the fog - times 0.62 at the root (the contact darkening) to 1.12 at the tip, +-10% per blade.
-- **Checked.** `thug2_vulkan_grass_check`: GRASS_CHECK_RESULTS
-- **In the game.** GRASS_GAME_RESULTS
+  `rt_pbr`, the traced shadow, occlusion and bounce - times 0.75 at the root (the contact darkening; 0.62 read as dark
+  specks from above) to 1.12 at the tip, +-10% per blade.
+- **Checked.** `thug2_vulkan_grass_check` (26 checks; the RTX 5070 Ti and the integrated AMD Radeon, validation with
+  synchronization validation 0): a 400 x 400 lawn of grass faces on a coplanar ground face, a box standing on it, a steep
+  grass bank and a dried patch - the field: the same 25,361 blades byte for byte from the same faces, the count within
+  3% of the area x the density (25,361 for 25,358), the box's 989 roots dropped (992 expected), every root on a lawn face,
+  none under the box or on the bank, the dried ones flagged, each tile in rank order; the pass over a ground drawn in the
+  view's depth (its left half green, its right half straw): only pixels whose ray meets the lawn below the tallest blade
+  and outside the box's footprint change (0 stray), 98% of the lawn's inside covered after three frames, the blades green
+  over green (0.21 0.53 0.16) and straw over straw (0.53 0.46 0.11), the same picture from a new field, every pixel and
+  colour finite with not-a-number and infinities poured into the ground under the roots; every one of the 25,361 blades'
+  tip and height on the device within 0.0001 units of the twin; the share kept and the height falling with the distance
+  to nothing at it, no blade tall and nothing drawn from beyond it, every blade full height near the camera, fewer blades
+  drawn from further away (19,140 against 5,235); the 237 blades within half a skater's reach bent straight away from
+  him, further than without him; four samples; off: no pass, no sink. Cost (copy, gather and draw, the defaults, a lawn
+  filling a 2560 x 1440 view from a skater's eye height - 161,107 blades in 64 draws): 0.18 - 0.26 ms on the RTX 5070 Ti,
+  3.7 - 4.7 ms on the integrated Radeon. `thug2_options_check` has the four keys.
+- **In the game** (the user's [Graphics]: ray tracing with every effect, HDR, DLSS Ray Reconstruction at 67%, the
+  relit levels and per-pixel lighting, 2560 x 1440): BO's common - 80 grass faces, 914 square metres, 204,707 blades in
+  42 tiles (4.7 MB on the device, made in 30 - 50 ms when the level loads, 14,782 roots under something dropped) -
+  reads as a short lawn at the skater's height and from above, the trees' traced shadows lying across it, none on the
+  paths, the steps or the statue's plinth; ST (Skatopia): 9,922 square metres of grass and dried grass, 2,066,269 blades
+  (47 MB, 582 ms at the load), a meadow with the wooden steps standing in it bare. The pass's own timing in the log:
+  0.05 - 0.27 ms on the device (40,000 - 77,000 blades a pass at 1707 x 960, DLSS's input); `[debug] frame_profile`'s
+  `grass` phase (the processor: the pushers each frame) 0.02 - 0.03 ms. Frame-time runs on a machine shared with other
+  workspaces' games were too noisy to see the pass in the frame (BO 34.9 -> 26.6 fps, ST 20.5 -> 23.7 fps, one run
+  each). Known: the blades' motion vectors carry the camera's motion, not the wind's sway (DLSS sees the sway as
+  change); the grass is only where the collision says grass - a lawn painted on a face of another terrain gets none.
 
 ### Changing the settings while the game runs (the Options screen)
 
@@ -1909,7 +1938,7 @@ tracing needed; Direct3D 9 installs no `Sink` and draws none.
 `read_upscale`, `read_rt_pbr`, `read_style`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
 end's Options screen writes a `[Graphics]` key it calls `render::graphics_options::reload_live(key)`: a key of an
 effect (`kLiveKeys`: the shadows', occlusion's, the bounce's, the reflections', the tone mapping's numbers, the fog's,
-the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*`)
+the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*` -, the grass's - `grass`, `grass_*`)
 has that effect's settings read again and set
 through its `set_rt_*_settings` - each takes the backend's lock and adds or removes its view listener, as at
 start-up; the shadows are followed by the bounce (their `off` clears the baked sun it wants). Effects' histories start

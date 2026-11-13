@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <array>
-#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -13,13 +12,12 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <system_error>
 #include <utility>
 #include <vector>
 #include <volk.h>
 
 #include "base/core/checked_index.h"
-#include "base/core/raw_view.h"
+#include "base/core/format.h"
 #include "engine/gfx/grass.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -63,10 +61,10 @@ constexpr uint64_t kTimingLogEvery = 300;
 constexpr uint32_t kNearSegments = 3;
 constexpr uint32_t kMiddleSegments = 2;
 constexpr uint32_t kFarSegments = 1;
-constexpr float kNearSegmentsShare = 0.25F;   // (of the distance: the tiles nearer get kNearSegments)
+constexpr float kNearSegmentsShare = 0.25F; // (of the distance: the tiles nearer get kNearSegments)
 constexpr float kMiddleSegmentsShare = 0.55F;
-constexpr float kTipStretch = 1.6F;           // (a tile's box grown up by this x the height, out by the height: its blades)
-constexpr float kControlBend = 0.2F;          // the curve's middle point: this share of the bend, at the tip's height
+constexpr float kTipStretch = 1.6F;  // (a tile's box grown up by this x the height, out by the height: its blades)
+constexpr float kControlBend = 0.2F; // the curve's middle point: this share of the bend, at the tip's height
 constexpr float kTau = 6.28318530718F;
 constexpr uint32_t kByte = 0xFFU;
 constexpr uint32_t kShadeMask = 0x7FU;
@@ -86,15 +84,16 @@ constexpr float kWindStretchB = 2.3F;
 constexpr float kWindShiftB = 1.7F;
 constexpr float kWindShareA = 0.6F;
 constexpr float kWindShareB = 0.4F;
+constexpr double kWindClockWraps = 3600.0; // (seconds: the clock kept small, a float's steps fine)
+constexpr float kClipSpan = 2.0F;          // (clip space from -1 to 1)
+constexpr double kBytesPerMegabyte = 1024.0 * 1024.0;
 
 // --- the shaders -------------------------------------------------------------------------------------------------
 
 // A float as GLSL reads it (shortest round trip; a decimal point always).
 std::string glsl_float(float value)
 {
-    std::array<char, 32> text{};
-    const auto [end, error] = std::to_chars(text.data(), text.data() + text.size(), value);
-    std::string written(text.data(), error == std::errc{} ? end : text.data());
+    std::string written = text::format("%.9g", static_cast<double>(value));
     if (written.find_first_of(".eEn") == std::string::npos) {
         written += ".0";
     }
@@ -132,8 +131,8 @@ std::string constants_source()
     define("MATCH_SLACK", kGrassMatchSlack);
     define("LEARN", kGrassLearn);
     define("CONTROL_BEND", kControlBend);
-    define("WIND_X", kGrassWindDirection[0]);
-    define("WIND_Z", kGrassWindDirection[1]);
+    define("WIND_X", core::at(kGrassWindDirection, 0));
+    define("WIND_Z", core::at(kGrassWindDirection, 1));
     define("WIND_SPEED_A", kWindSpeedA);
     define("WIND_SPEED_B", kWindSpeedB);
     define("WIND_ALONG_X", kWindAlongX);
@@ -372,8 +371,8 @@ void main()
 
 // The view's block, as the shaders' std140 block lays it out.
 struct ParamsBlock {
-    std::array<float, 16> vp{};
-    std::array<float, 16> vp_before{};
+    Float4x4 vp{};
+    Float4x4 vp_before{};
     std::array<float, 4> camera{};
     std::array<float, 4> lod{};
     std::array<float, 4> blade{};
@@ -401,8 +400,8 @@ struct DrawPipeline {
 
 struct GrassState {
     GrassSettings settings;
-    std::shared_ptr<const grass::Field> field;     // given by render_pc (or the check)
-    std::shared_ptr<const grass::Field> uploaded;  // the one in the buffers
+    std::shared_ptr<const grass::Field> field;    // given by render_pc (or the check)
+    std::shared_ptr<const grass::Field> uploaded; // the one in the buffers
     std::vector<grass::Pusher> pushers;
     DeviceBuffer blades;
     DeviceBuffer colours;
@@ -411,7 +410,7 @@ struct GrassState {
     VkSampler sampler = VK_NULL_HANDLE;
     std::array<VkPipeline, 2> gather{}; // single-sampled depth, multisampled
     VkPipeline probe = VK_NULL_HANDLE;
-    std::array<VkShaderModule, 2> vertex{};   // without, with motion
+    std::array<VkShaderModule, 2> vertex{}; // without, with motion
     std::array<VkShaderModule, 2> fragment{};
     std::vector<DrawPipeline> draws;
     Image source; // the viewport's colour copied out
@@ -438,7 +437,7 @@ GrassState& grass_state()
 
 bool first_report(Backend& state, uint64_t what) { return state.reported.insert(what).second; }
 
-// The listener: at opaque_drawn, before the shadows.
+// The listener: at opaque_drawn, after the ray-traced effects have shaded the ground.
 class GrassListener final : public rt::ViewListener {
 public:
     [[nodiscard]] int order() const override { return rt::ViewOrder::kGrass; }
@@ -476,7 +475,8 @@ public:
     {
         const std::scoped_lock lock(backend().mutex);
         std::vector<grass::Pusher>& kept = grass_state().pushers;
-        kept.assign(pushers.begin(), pushers.begin() + static_cast<std::ptrdiff_t>(std::min(pushers.size(), grass::kMostPushers)));
+        kept.assign(pushers.begin(),
+                    pushers.begin() + static_cast<std::ptrdiff_t>(std::min(pushers.size(), grass::kMostPushers)));
     }
 };
 
@@ -493,13 +493,16 @@ using Vec2 = std::array<float, 2>;
 
 float smoothstep(float low, float high, float value)
 {
-    const float t = std::clamp((value - low) / (high - low), 0.0F, 1.0F);
+    const float along = std::clamp((value - low) / (high - low), 0.0F, 1.0F);
     constexpr float kThree = 3.0F;
     constexpr float kTwo = 2.0F;
-    return t * t * (kThree - (kTwo * t));
+    return along * along * (kThree - (kTwo * along));
 }
 
-float length2(const Vec2& v) { return std::sqrt((v[0] * v[0]) + (v[1] * v[1])); }
+float length2(const Vec2& v)
+{
+    return std::sqrt((core::at(v, 0) * core::at(v, 0)) + (core::at(v, 1) * core::at(v, 1)));
+}
 
 } // namespace
 
@@ -569,8 +572,8 @@ GrassView grass_view(const GrassSettings& settings, const rt::ViewDrawn& view, u
     made.distance = settings.distance * kGrassUnitsPerMetre;
     made.height = kGrassBaseHeight * settings.height;
     const float scale = std::abs(core::at(core::at(projection, 1), 1));
-    made.pixel = scale > 0.0F && height_pixels > 0 ? 2.0F / (scale * static_cast<float>(height_pixels)) : 0.0F;
-    made.seconds = static_cast<float>(std::fmod(view.game_seconds, 3600.0));
+    made.pixel = scale > 0.0F && height_pixels > 0 ? kClipSpan / (scale * static_cast<float>(height_pixels)) : 0.0F;
+    made.seconds = static_cast<float>(std::fmod(view.game_seconds, kWindClockWraps));
     return made;
 }
 
@@ -591,58 +594,68 @@ GrassShape grass_blade_shape(const grass::Blade& blade, const GrassView& view, s
 {
     const uint32_t packed = blade.packed;
     const float rank = (static_cast<float>(packed & kByte) + kHalf) / kRanks;
-    const float tall = kGrassShortest + ((kGrassTallest - kGrassShortest) *
-                                         (static_cast<float>((packed >> kHeightShift) & kByte) / static_cast<float>(kByte)));
+    const float tall =
+        kGrassShortest + ((kGrassTallest - kGrassShortest) *
+                          (static_cast<float>((packed >> kHeightShift) & kByte) / static_cast<float>(kByte)));
     const float turn = static_cast<float>((packed >> kFacingShift) & kByte) / kRanks * kTau;
     const float hash = static_cast<float>((packed >> kShadeShift) & kShadeMask) / kShadeSteps;
     GrassShape shape;
     shape.root = blade.root;
-    const Vec3 to{view.camera[0] - blade.root[0], view.camera[1] - blade.root[1], view.camera[2] - blade.root[2]};
-    const float d = std::sqrt((to[0] * to[0]) + (to[1] * to[1]) + (to[2] * to[2]));
-    const float grow = std::clamp((grass_keep(view, d) - rank) / kGrassGrowBand, 0.0F, 1.0F);
-    const float h = view.height * tall * grass_fade(view, d) * std::clamp(known, 0.0F, 1.0F) * grow;
+    const Vec3 to{core::at(view.camera, 0) - core::at(blade.root, 0),
+                  core::at(view.camera, 1) - core::at(blade.root, 1),
+                  core::at(view.camera, 2) - core::at(blade.root, 2)};
+    const float apart_camera = std::sqrt((core::at(to, 0) * core::at(to, 0)) + (core::at(to, 1) * core::at(to, 1)) +
+                                         (core::at(to, 2) * core::at(to, 2)));
+    const float grow = std::clamp((grass_keep(view, apart_camera) - rank) / kGrassGrowBand, 0.0F, 1.0F);
+    const float tall_now = view.height * tall * grass_fade(view, apart_camera) * std::clamp(known, 0.0F, 1.0F) * grow;
     const Vec2 facing{std::cos(turn), std::sin(turn)};
     Vec2 across = facing;
-    const float flat_length = length2({to[0], to[2]});
+    const float flat_length = length2({core::at(to, 0), core::at(to, 2)});
     if (flat_length > kTiny) {
-        const Vec2 side{-to[2] / flat_length, to[0] / flat_length};
-        const Vec2 turned{facing[0] + ((side[0] - facing[0]) * kGrassFaceCamera),
-                          facing[1] + ((side[1] - facing[1]) * kGrassFaceCamera)};
+        const Vec2 side{-core::at(to, 2) / flat_length, core::at(to, 0) / flat_length};
+        const Vec2 turned{core::at(facing, 0) + ((core::at(side, 0) - core::at(facing, 0)) * kGrassFaceCamera),
+                          core::at(facing, 1) + ((core::at(side, 1) - core::at(facing, 1)) * kGrassFaceCamera)};
         const float turned_length = length2(turned);
-        across = turned_length > kTiny ? Vec2{turned[0] / turned_length, turned[1] / turned_length} : facing;
+        across = turned_length > kTiny ? Vec2{core::at(turned, 0) / turned_length, core::at(turned, 1) / turned_length}
+                                       : facing;
     }
-    const Vec2 lean{-across[1], across[0]};
-    const float own = kGrassLean * ((hash * 2.0F) - 1.0F) * h;
-    Vec2 bend{lean[0] * own, lean[1] * own};
-    const float phase = (blade.root[0] * kWindAlongX) + (blade.root[2] * kWindAlongZ);
+    const Vec2 lean{-core::at(across, 1), core::at(across, 0)};
+    const float own = kGrassLean * ((hash * 2.0F) - 1.0F) * tall_now;
+    Vec2 bend{core::at(lean, 0) * own, core::at(lean, 1) * own};
+    const float phase = (core::at(blade.root, 0) * kWindAlongX) + (core::at(blade.root, 2) * kWindAlongZ);
     const float wave = (std::sin((view.seconds * kWindSpeedA) + phase) * kWindShareA) +
                        (std::sin((view.seconds * kWindSpeedB) + (phase * kWindStretchB) + kWindShiftB) * kWindShareB);
-    const float sway = kGrassWind * h * (kHalf + (kHalf * wave));
-    bend[0] += kGrassWindDirection[0] * sway;
-    bend[1] += kGrassWindDirection[1] * sway;
+    const float sway = kGrassWind * tall_now * (kHalf + (kHalf * wave));
+    core::at(bend, 0) += core::at(kGrassWindDirection, 0) * sway;
+    core::at(bend, 1) += core::at(kGrassWindDirection, 1) * sway;
     for (std::size_t k = 0; k < std::min(pushers.size(), grass::kMostPushers); ++k) {
         const grass::Pusher& pusher = core::at(pushers, k);
-        const Vec2 away{blade.root[0] - pusher.at[0], blade.root[2] - pusher.at[2]};
+        const Vec2 away{core::at(blade.root, 0) - core::at(pusher.at, 0),
+                        core::at(blade.root, 2) - core::at(pusher.at, 2)};
         const float apart = length2(away);
-        if (apart < pusher.radius && std::abs(blade.root[1] - pusher.at[1]) < kGrassPushHeight) {
-            const float t = smoothstep(0.0F, 1.0F, 1.0F - (apart / pusher.radius));
-            const Vec2 way = apart > kTiny ? Vec2{away[0] / apart, away[1] / apart} : lean;
-            bend[0] += way[0] * kGrassPush * h * t;
-            bend[1] += way[1] * kGrassPush * h * t;
+        if (apart < pusher.radius && std::abs(core::at(blade.root, 1) - core::at(pusher.at, 1)) < kGrassPushHeight) {
+            const float push = smoothstep(0.0F, 1.0F, 1.0F - (apart / pusher.radius));
+            const Vec2 way = apart > kTiny ? Vec2{core::at(away, 0) / apart, core::at(away, 1) / apart} : lean;
+            core::at(bend, 0) += core::at(way, 0) * kGrassPush * tall_now * push;
+            core::at(bend, 1) += core::at(way, 1) * kGrassPush * tall_now * push;
         }
     }
     const float bent = length2(bend);
-    const float most = kGrassMostBend * h;
+    const float most = kGrassMostBend * tall_now;
     if (bent > most) {
-        bend[0] *= most / bent;
-        bend[1] *= most / bent;
+        core::at(bend, 0) *= most / bent;
+        core::at(bend, 1) *= most / bent;
     }
-    const float up = std::sqrt(std::max((h * h) - ((bend[0] * bend[0]) + (bend[1] * bend[1])), 0.0F));
-    shape.tip = {blade.root[0] + bend[0], blade.root[1] + up, blade.root[2] + bend[1]};
-    shape.control = {blade.root[0] + (bend[0] * kControlBend), blade.root[1] + up, blade.root[2] + (bend[1] * kControlBend)};
-    shape.across = {across[0], 0.0F, across[1]};
-    shape.height = h;
-    shape.width = h > 0.0F ? std::max(kGrassWidth, kGrassLeastPixels * view.pixel * d) : 0.0F;
+    const float up = std::sqrt(std::max(
+        (tall_now * tall_now) - ((core::at(bend, 0) * core::at(bend, 0)) + (core::at(bend, 1) * core::at(bend, 1))),
+        0.0F));
+    shape.tip = {core::at(blade.root, 0) + core::at(bend, 0), core::at(blade.root, 1) + up,
+                 core::at(blade.root, 2) + core::at(bend, 1)};
+    shape.control = {core::at(blade.root, 0) + (core::at(bend, 0) * kControlBend), core::at(blade.root, 1) + up,
+                     core::at(blade.root, 2) + (core::at(bend, 1) * kControlBend)};
+    shape.across = {core::at(across, 0), 0.0F, core::at(across, 1)};
+    shape.height = tall_now;
+    shape.width = tall_now > 0.0F ? std::max(kGrassWidth, kGrassLeastPixels * view.pixel * apart_camera) : 0.0F;
     shape.shade = hash;
     return shape;
 }
@@ -653,27 +666,32 @@ namespace {
 bool outside_view(const grass::Tile& tile, const GrassView& view)
 {
     const float out = view.height * kGrassTallest;
-    const Vec3 low{tile.low[0] - out, tile.low[1], tile.low[2] - out};
-    const Vec3 high{tile.high[0] + out, tile.high[1] + (out * kTipStretch), tile.high[2] + out};
+    const Vec3 low{core::at(tile.low, 0) - out, core::at(tile.low, 1), core::at(tile.low, 2) - out};
+    const Vec3 high{core::at(tile.high, 0) + out, core::at(tile.high, 1) + (out * kTipStretch),
+                    core::at(tile.high, 2) + out};
     constexpr std::size_t kPlanes = 6;
-    std::array<int, kPlanes> beyond{};
+    std::array<std::size_t, kPlanes> beyond{};
     constexpr std::size_t kCorners = 8;
     for (std::size_t corner = 0; corner < kCorners; ++corner) {
-        const Vec3 at{(corner & 1U) != 0 ? high[0] : low[0], (corner & 2U) != 0 ? high[1] : low[1],
-                      (corner & 4U) != 0 ? high[2] : low[2]};
+        const Vec3 at{(corner & 1U) != 0 ? core::at(high, 0) : core::at(low, 0),
+                      (corner & 2U) != 0 ? core::at(high, 1) : core::at(low, 1),
+                      (corner & 4U) != 0 ? core::at(high, 2) : core::at(low, 2)};
         std::array<float, 4> clip{};
         for (std::size_t column = 0; column < 4; ++column) {
-            const auto& m = view.view_projection;
-            core::at(clip, column) = (at[0] * core::at(core::at(m, 0), column)) + (at[1] * core::at(core::at(m, 1), column)) +
-                                     (at[2] * core::at(core::at(m, 2), column)) + core::at(core::at(m, 3), column);
+            const auto& matrix = view.view_projection;
+            core::at(clip, column) = (core::at(at, 0) * core::at(core::at(matrix, 0), column)) +
+                                     (core::at(at, 1) * core::at(core::at(matrix, 1), column)) +
+                                     (core::at(at, 2) * core::at(core::at(matrix, 2), column)) +
+                                     core::at(core::at(matrix, 3), column);
         }
-        const float w = clip[3];
-        const std::array<bool, kPlanes> past{clip[0] < -w, clip[0] > w, clip[1] < -w, clip[1] > w, clip[2] < 0.0F, clip[2] > w};
+        const float w = core::at(clip, 3);
+        const std::array<bool, kPlanes> past{core::at(clip, 0) < -w, core::at(clip, 0) > w,    core::at(clip, 1) < -w,
+                                             core::at(clip, 1) > w,  core::at(clip, 2) < 0.0F, core::at(clip, 2) > w};
         for (std::size_t plane = 0; plane < kPlanes; ++plane) {
-            core::at(beyond, plane) += core::at(past, plane) ? 1 : 0;
+            core::at(beyond, plane) += core::at(past, plane) ? 1U : 0U;
         }
     }
-    return std::ranges::any_of(beyond, [](int count) { return count == static_cast<int>(kCorners); });
+    return std::ranges::any_of(beyond, [](std::size_t count) { return count == kCorners; });
 }
 
 float distance_to_box(const grass::Tile& tile, const Vec3& point)
@@ -705,6 +723,15 @@ uint32_t kept_in_tile(const grass::Field& field, const grass::Tile& tile, float 
     return low;
 }
 
+// A blade's segments at a distance: near, middling or far.
+uint32_t segments_at(float distance, float most)
+{
+    if (distance < kNearSegmentsShare * most) {
+        return kNearSegments;
+    }
+    return distance < kMiddleSegmentsShare * most ? kMiddleSegments : kFarSegments;
+}
+
 std::vector<GrassDraw> draws_at(const grass::Field& field, const GrassView& view, uint32_t* blades)
 {
     std::vector<GrassDraw> draws;
@@ -721,9 +748,7 @@ std::vector<GrassDraw> draws_at(const grass::Field& field, const GrassView& view
             last_whole = false;
             continue;
         }
-        const uint32_t segments = closest < kNearSegmentsShare * view.distance     ? kNearSegments
-                                  : closest < kMiddleSegmentsShare * view.distance ? kMiddleSegments
-                                                                                : kFarSegments;
+        const uint32_t segments = segments_at(closest, view.distance);
         *blades += count;
         if (last_whole && draws.back().segments == segments && draws.back().first + draws.back().count == tile.first) {
             draws.back().count += count; // (one draw for both)
@@ -828,8 +853,11 @@ bool make_layouts(Backend& state, std::string* error)
         } else if (binding == kBindingSource || binding == kBindingDepth) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         }
-        core::at(bindings, binding) = {
-            .binding = binding, .descriptorType = type, .descriptorCount = 1, .stageFlags = kStages, .pImmutableSamplers = nullptr};
+        core::at(bindings, binding) = {.binding = binding,
+                                       .descriptorType = type,
+                                       .descriptorCount = 1,
+                                       .stageFlags = kStages,
+                                       .pImmutableSamplers = nullptr};
     }
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
@@ -879,8 +907,8 @@ bool ensure_objects(Backend& state, std::string* error)
     }
     for (std::size_t variant = 0; variant < own.gather.size(); ++variant) {
         if (core::at(own.gather, variant) == VK_NULL_HANDLE) {
-            core::at(own.gather, variant) =
-                make_compute(device, own.layout, source_of(kGatherBody, true, variant == 1 ? "MULTISAMPLED" : nullptr), error);
+            core::at(own.gather, variant) = make_compute(
+                device, own.layout, source_of(kGatherBody, true, variant == 1 ? "MULTISAMPLED" : nullptr), error);
             if (core::at(own.gather, variant) == VK_NULL_HANDLE) {
                 return false;
             }
@@ -947,16 +975,16 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     raster.cullMode = VK_CULL_MODE_NONE;
     raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
     raster.lineWidth = 1.0F;
-    const VkPipelineMultisampleStateCreateInfo multisample{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .rasterizationSamples = wanted.samples,
-        .sampleShadingEnable = VK_FALSE,
-        .minSampleShading = 0.0F,
-        .pSampleMask = nullptr,
-        .alphaToCoverageEnable = VK_FALSE,
-        .alphaToOneEnable = VK_FALSE};
+    const VkPipelineMultisampleStateCreateInfo multisample{.sType =
+                                                               VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                                                           .pNext = nullptr,
+                                                           .flags = 0,
+                                                           .rasterizationSamples = wanted.samples,
+                                                           .sampleShadingEnable = VK_FALSE,
+                                                           .minSampleShading = 0.0F,
+                                                           .pSampleMask = nullptr,
+                                                           .alphaToCoverageEnable = VK_FALSE,
+                                                           .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depth.depthTestEnable = VK_TRUE;
@@ -1010,8 +1038,8 @@ bool ensure_source(Backend& state, const Image& colour)
 {
     GrassState& own = grass_state();
     Image& source = own.source;
-    if (source.image != VK_NULL_HANDLE && source.format == colour.format && source.extent.width == colour.extent.width &&
-        source.extent.height == colour.extent.height) {
+    if (source.image != VK_NULL_HANDLE && source.format == colour.format &&
+        source.extent.width == colour.extent.width && source.extent.height == colour.extent.height) {
         return true;
     }
     retire_image(state, &source);
@@ -1055,7 +1083,9 @@ bool upload_field(Backend& state)
                                    BufferPlace::kDevice, &own.colours);
     std::optional<RingSpan> staged;
     if (made) {
-        staged = state.staging.copy(std::span(raw::bytes(blades.data()), blade_bytes), sizeof(float));
+        std::vector<uint8_t> bytes(static_cast<std::size_t>(blade_bytes));
+        std::memcpy(bytes.data(), blades.data(), bytes.size());
+        staged = state.staging.copy(bytes, sizeof(float));
     }
     if (!staged) {
         if (first_report(state, kReportUpload)) {
@@ -1079,7 +1109,7 @@ bool upload_field(Backend& state)
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 1, &written, 0,
                          nullptr, 0, nullptr);
     get_log("vulkan: grass: a field of %zu blades in %zu tiles on the device (%.1f MB)", blades.size(),
-            own.field->tiles.size(), static_cast<double>(blade_bytes + colour_bytes) / (1024.0 * 1024.0));
+            own.field->tiles.size(), static_cast<double>(blade_bytes + colour_bytes) / kBytesPerMegabyte);
     return true;
 }
 
@@ -1104,12 +1134,13 @@ std::array<uint32_t, 4> clip_rect(const std::array<uint32_t, 4>& rect, const Ext
 {
     const uint32_t left = std::min(core::at(rect, 0), extent.width);
     const uint32_t top = std::min(core::at(rect, 1), extent.height);
-    return {left, top, std::min(core::at(rect, 2), extent.width - left), std::min(core::at(rect, 3), extent.height - top)};
+    return {left, top, std::min(core::at(rect, 2), extent.width - left),
+            std::min(core::at(rect, 3), extent.height - top)};
 }
 
-std::array<float, 16> flat(const std::array<std::array<float, 4>, 4>& matrix)
+Float4x4 flat(const std::array<std::array<float, 4>, 4>& matrix)
 {
-    std::array<float, 16> out{};
+    Float4x4 out{};
     for (std::size_t row = 0; row < 4; ++row) {
         for (std::size_t column = 0; column < 4; ++column) {
             core::at(out, (row * 4) + column) = core::at(core::at(matrix, row), column);
@@ -1121,7 +1152,7 @@ std::array<float, 16> flat(const std::array<std::array<float, 4>, 4>& matrix)
 // What a view's pass works on.
 struct ViewPlan {
     Image* colour = nullptr;
-    Image* depth = nullptr;  // the depth attachment (the same samples as the colour)
+    Image* depth = nullptr;     // the depth attachment (the same samples as the colour)
     bool sampled_depth = false; // ... and readable by the gather
     bool motion = false;
     std::array<uint32_t, 4> rect{};
@@ -1141,27 +1172,30 @@ ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::Vie
     if (plan.motion && motion.before.known) {
         block.vp_before = motion_multiply(motion.before.view, motion.before.projection);
     }
-    block.camera = {plan.shape.camera[0], plan.shape.camera[1], plan.shape.camera[2], plan.shape.seconds};
+    block.camera = {core::at(plan.shape.camera, 0), core::at(plan.shape.camera, 1), core::at(plan.shape.camera, 2),
+                    plan.shape.seconds};
     block.lod = {plan.shape.distance, plan.shape.distance * kGrassNearShare, plan.shape.keep_scale, plan.shape.pixel};
     block.blade = {plan.shape.height, 0.0F, 0.0F, 0.0F};
-    block.rect = {static_cast<float>(plan.rect[0]), static_cast<float>(plan.rect[1]), static_cast<float>(plan.rect[2]),
-                  static_cast<float>(plan.rect[3])};
-    block.offsets = {plan.rect[2] != 0 ? 1.0F / static_cast<float>(plan.rect[2]) : 0.0F,
-                     plan.rect[3] != 0 ? 1.0F / static_cast<float>(plan.rect[3]) : 0.0F,
-                     plan.motion ? motion.jitter[0] : 0.0F, plan.motion ? motion.jitter[1] : 0.0F};
+    block.rect = {static_cast<float>(core::at(plan.rect, 0)), static_cast<float>(core::at(plan.rect, 1)),
+                  static_cast<float>(core::at(plan.rect, 2)), static_cast<float>(core::at(plan.rect, 3))};
+    block.offsets = {core::at(plan.rect, 2) != 0 ? 1.0F / static_cast<float>(core::at(plan.rect, 2)) : 0.0F,
+                     core::at(plan.rect, 3) != 0 ? 1.0F / static_cast<float>(core::at(plan.rect, 3)) : 0.0F,
+                     plan.motion ? core::at(motion.jitter, 0) : 0.0F, plan.motion ? core::at(motion.jitter, 1) : 0.0F};
     constexpr std::size_t kRowZ = 2;
     constexpr std::size_t kRowW = 3;
     const auto& projection = view.camera.projection;
-    block.depth_projection = {core::at(core::at(projection, kRowZ), kRowZ), core::at(core::at(projection, kRowW), kRowZ),
-                              core::at(core::at(projection, kRowZ), kRowW), core::at(core::at(projection, kRowW), kRowW)};
-    const float span = view.depth_range[1] - view.depth_range[0];
-    block.depth_map = {view.depth_range[0], span > 0.0F ? 1.0F / span : 1.0F, plan.sampled_depth ? 1.0F : 0.0F,
-                       probing ? 1.0F : 0.0F};
+    block.depth_projection = {
+        core::at(core::at(projection, kRowZ), kRowZ), core::at(core::at(projection, kRowW), kRowZ),
+        core::at(core::at(projection, kRowZ), kRowW), core::at(core::at(projection, kRowW), kRowW)};
+    const float span = core::at(view.depth_range, 1) - core::at(view.depth_range, 0);
+    block.depth_map = {core::at(view.depth_range, 0), span > 0.0F ? 1.0F / span : 1.0F,
+                       plan.sampled_depth ? 1.0F : 0.0F, probing ? 1.0F : 0.0F};
     const std::size_t pushers = std::min(own.pushers.size(), grass::kMostPushers);
     block.counts = {static_cast<int32_t>(pushers), 0, 0, 0};
     for (std::size_t k = 0; k < pushers; ++k) {
         const grass::Pusher& pusher = core::at(own.pushers, k);
-        core::at(block.pushers, k) = {pusher.at[0], pusher.at[1], pusher.at[2], pusher.radius};
+        core::at(block.pushers, k) = {core::at(pusher.at, 0), core::at(pusher.at, 1), core::at(pusher.at, 2),
+                                      pusher.radius};
     }
     return block;
 }
@@ -1192,10 +1226,10 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     const VkDescriptorBufferInfo colours{.buffer = own.colours.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     VkDescriptorBufferInfo probe{};
     std::array<VkDescriptorImageInfo, 2> images{};
-    std::array<VkWriteDescriptorSet, kBindingCount> writes{};
-    uint32_t count = 0;
+    std::vector<VkWriteDescriptorSet> writes; // (pointing at the infos above, which outlive the push)
+    writes.reserve(kBindingCount);
     const auto add_buffer = [&](uint32_t binding, VkDescriptorType type, const VkDescriptorBufferInfo* info) {
-        VkWriteDescriptorSet& write = core::at(writes, count++);
+        VkWriteDescriptorSet& write = writes.emplace_back();
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.dstBinding = binding;
         write.descriptorCount = 1;
@@ -1216,7 +1250,7 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
                                         .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL}
                 : core::at(images, 0);
         for (uint32_t which = 0; which < 2; ++which) {
-            VkWriteDescriptorSet& write = core::at(writes, count++);
+            VkWriteDescriptorSet& write = writes.emplace_back();
             write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write.dstBinding = kBindingSource + which;
             write.descriptorCount = 1;
@@ -1228,7 +1262,7 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         probe = {.buffer = bound.probe->buffer, .offset = 0, .range = VK_WHOLE_SIZE};
         add_buffer(kBindingProbe, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &probe);
     }
-    vkCmdPushDescriptorSetKHR(commands, point, own.layout, 0, count, writes.data());
+    vkCmdPushDescriptorSetKHR(commands, point, own.layout, 0, static_cast<uint32_t>(writes.size()), writes.data());
 }
 
 void push_range(VkCommandBuffer commands, uint32_t first, uint32_t count, uint32_t segments)
@@ -1248,7 +1282,8 @@ void memory_barrier(VkCommandBuffer commands, VkPipelineStageFlags from, VkAcces
 // The depth moved for the gather to read (from what wrote it), or back to be drawn into.
 void depth_barrier(VkCommandBuffer commands, Image* depth, bool to_gather)
 {
-    const VkPipelineStageFlags tests = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    const VkPipelineStageFlags tests =
+        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
     const VkImageLayout layout =
         to_gather ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     const VkImageMemoryBarrier barrier{
@@ -1266,8 +1301,9 @@ void depth_barrier(VkCommandBuffer commands, Image* depth, bool to_gather)
         .subresourceRange =
             {.aspectMask = depth->aspect, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1},
     };
-    vkCmdPipelineBarrier(commands, to_gather ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         to_gather ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : tests, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(
+        commands, to_gather ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        to_gather ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : tests, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     depth->layout = layout;
 }
 
@@ -1281,16 +1317,23 @@ void copy_colour(VkCommandBuffer commands, Image* colour, const std::array<uint3
     Memory::transition(commands, &own.source, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
     const VkImageSubresourceLayers layers{
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
-    const VkOffset3D corner{.x = static_cast<int32_t>(rect[0]), .y = static_cast<int32_t>(rect[1]), .z = 0};
-    const VkExtent3D size{.width = rect[2], .height = rect[3], .depth = 1};
+    const VkOffset3D corner{
+        .x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1)), .z = 0};
+    const VkExtent3D size{.width = core::at(rect, 2), .height = core::at(rect, 3), .depth = 1};
     if (colour->samples == VK_SAMPLE_COUNT_1_BIT) {
-        const VkImageCopy region{
-            .srcSubresource = layers, .srcOffset = corner, .dstSubresource = layers, .dstOffset = corner, .extent = size};
+        const VkImageCopy region{.srcSubresource = layers,
+                                 .srcOffset = corner,
+                                 .dstSubresource = layers,
+                                 .dstOffset = corner,
+                                 .extent = size};
         vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.source.image,
                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     } else {
-        const VkImageResolve region{
-            .srcSubresource = layers, .srcOffset = corner, .dstSubresource = layers, .dstOffset = corner, .extent = size};
+        const VkImageResolve region{.srcSubresource = layers,
+                                    .srcOffset = corner,
+                                    .dstSubresource = layers,
+                                    .dstOffset = corner,
+                                    .extent = size};
         vkCmdResolveImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.source.image,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     }
@@ -1304,10 +1347,14 @@ void copy_colour(VkCommandBuffer commands, Image* colour, const std::array<uint3
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = own.source.image,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1},
+        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                             .baseMipLevel = 0,
+                             .levelCount = 1,
+                             .baseArrayLayer = 0,
+                             .layerCount = 1},
     };
-    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &to_read);
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr,
+                         0, nullptr, 1, &to_read);
     own.source.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
@@ -1345,20 +1392,22 @@ void read_timer(Backend& state, uint32_t pair)
     };
     std::array<Stamp, 2> stamps{};
     const VkResult got =
-        vkGetQueryPoolResults(state.context.device(), own.timer, pair * 2, 2, sizeof(stamps), stamps.data(), sizeof(Stamp),
-                              VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
-    if ((got != VK_SUCCESS && got != VK_NOT_READY) || stamps[0].available == 0 || stamps[1].available == 0 ||
-        stamps[1].value < stamps[0].value) {
+        vkGetQueryPoolResults(state.context.device(), own.timer, pair * 2, 2, sizeof(stamps), stamps.data(),
+                              sizeof(Stamp), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+    if ((got != VK_SUCCESS && got != VK_NOT_READY) || core::at(stamps, 0).available == 0 ||
+        core::at(stamps, 1).available == 0 || core::at(stamps, 1).value < core::at(stamps, 0).value) {
         return;
     }
     ++own.window_samples;
-    own.window_milliseconds += static_cast<double>(stamps[1].value - stamps[0].value) * own.tick_milliseconds;
+    own.window_milliseconds +=
+        static_cast<double>(core::at(stamps, 1).value - core::at(stamps, 0).value) * own.tick_milliseconds;
     own.window_blades += static_cast<double>(core::at(own.timer_blades, pair));
     if (own.window_samples >= kTimingLogEvery) {
         const auto samples = static_cast<double>(own.window_samples);
-        get_log("vulkan: grass: the pass takes %.3f ms on the device (%.0f blades a pass; the last %llu passes' average)",
-                own.window_milliseconds / samples, own.window_blades / samples,
-                static_cast<unsigned long long>(own.window_samples));
+        get_log(
+            "vulkan: grass: the pass takes %.3f ms on the device (%.0f blades a pass; the last %llu passes' average)",
+            own.window_milliseconds / samples, own.window_blades / samples,
+            static_cast<unsigned long long>(own.window_samples));
         own.window_samples = 0;
         own.window_milliseconds = 0.0;
         own.window_blades = 0.0;
@@ -1387,16 +1436,17 @@ bool begin_timing(Backend& state, VkCommandBuffer commands, uint32_t blades, uin
 // The view's targets, rectangle and draws; false (logged once) when there is nothing to draw.
 bool plan_view(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
 {
-    GrassState& own = grass_state();
+    const GrassState& own = grass_state();
     Surface* const colour_surface = core::at(state.targets, 0);
     Image* const colour = image_of_surface(colour_surface);
     Image* const depth = image_of_surface(state.depth);
-    if (colour == nullptr || colour->attachment_view == VK_NULL_HANDLE || (colour->aspect & VK_IMAGE_ASPECT_COLOR_BIT) == 0 ||
-        (colour->usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0 || depth == nullptr ||
-        (depth->aspect & VK_IMAGE_ASPECT_DEPTH_BIT) == 0 || depth->attachment_view == VK_NULL_HANDLE ||
-        depth->samples != colour->samples) {
+    if (colour == nullptr || colour->attachment_view == VK_NULL_HANDLE ||
+        (colour->aspect & VK_IMAGE_ASPECT_COLOR_BIT) == 0 || (colour->usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0 ||
+        depth == nullptr || (depth->aspect & VK_IMAGE_ASPECT_DEPTH_BIT) == 0 ||
+        depth->attachment_view == VK_NULL_HANDLE || depth->samples != colour->samples) {
         if (first_report(state, kReportTarget)) {
-            get_log("vulkan: grass: a view drawn into targets that can't take it (no depth, or not readable) - none there");
+            get_log(
+                "vulkan: grass: a view drawn into targets that can't take it (no depth, or not readable) - none there");
         }
         return false;
     }
@@ -1409,11 +1459,11 @@ bool plan_view(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
     const Extent area{.width = std::min(colour->extent.width, depth->extent.width),
                       .height = std::min(colour->extent.height, depth->extent.height)};
     plan->rect = clip_rect(view.rect, area);
-    if (plan->rect[2] == 0 || plan->rect[3] == 0) {
+    if (core::at(plan->rect, 2) == 0 || core::at(plan->rect, 3) == 0) {
         return false;
     }
     plan->motion = motion_wanted(state, colour_surface, colour) && state.motion.image.image != VK_NULL_HANDLE;
-    plan->shape = grass_view(own.settings, view, plan->rect[3]);
+    plan->shape = grass_view(own.settings, view, core::at(plan->rect, 3));
     plan->draws = plan_grass_draws(*own.field, &plan->shape, &plan->blades);
     return !plan->draws.empty();
 }
@@ -1429,7 +1479,7 @@ void record_draws(Backend& state, VkCommandBuffer commands, VkPipeline pipeline,
         Memory::transition(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
     std::array<VkRenderingAttachmentInfo, 2> colours{};
-    VkRenderingAttachmentInfo& colour_info = colours[0];
+    VkRenderingAttachmentInfo& colour_info = core::at(colours, 0);
     colour_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colour_info.imageView = colour->attachment_view;
     colour_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -1439,7 +1489,7 @@ void record_draws(Backend& state, VkCommandBuffer commands, VkPipeline pipeline,
     if (plan.motion) {
         Image& image = state.motion.image;
         Memory::transition(commands, &image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        VkRenderingAttachmentInfo& motion_info = colours[1];
+        VkRenderingAttachmentInfo& motion_info = core::at(colours, 1);
         motion_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         motion_info.imageView = image.attachment_view;
         motion_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -1455,8 +1505,9 @@ void record_draws(Backend& state, VkCommandBuffer commands, VkPipeline pipeline,
     depth_info.resolveMode = VK_RESOLVE_MODE_NONE;
     depth_info.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     depth_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    const VkRect2D area{.offset = {.x = static_cast<int32_t>(plan.rect[0]), .y = static_cast<int32_t>(plan.rect[1])},
-                        .extent = {.width = plan.rect[2], .height = plan.rect[3]}};
+    const VkRect2D area{.offset = {.x = static_cast<int32_t>(core::at(plan.rect, 0)),
+                                   .y = static_cast<int32_t>(core::at(plan.rect, 1))},
+                        .extent = {.width = core::at(plan.rect, 2), .height = core::at(plan.rect, 3)}};
     VkRenderingInfo info{};
     info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     info.renderArea = area;
@@ -1470,8 +1521,8 @@ void record_draws(Backend& state, VkCommandBuffer commands, VkPipeline pipeline,
                               .y = static_cast<float>(area.offset.y),
                               .width = static_cast<float>(area.extent.width),
                               .height = static_cast<float>(area.extent.height),
-                              .minDepth = std::clamp(view.depth_range[0], 0.0F, 1.0F),
-                              .maxDepth = std::clamp(view.depth_range[1], 0.0F, 1.0F)};
+                              .minDepth = std::clamp(core::at(view.depth_range, 0), 0.0F, 1.0F),
+                              .maxDepth = std::clamp(core::at(view.depth_range, 1), 0.0F, 1.0F)};
     vkCmdSetViewport(commands, 0, 1, &viewport);
     vkCmdSetScissor(commands, 0, 1, &area);
     push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, {.params = params});
@@ -1492,7 +1543,7 @@ void log_first_pass(Backend& state, const ViewPlan& plan)
     }
     get_log("vulkan: grass: the first pass (%ux%u, %u sample%s%s%s; %u blades in %zu draws, out to %.0f units, %.1f "
             "units tall)",
-            plan.rect[2], plan.rect[3], static_cast<unsigned>(plan.colour->samples),
+            core::at(plan.rect, 2), core::at(plan.rect, 3), static_cast<unsigned>(plan.colour->samples),
             plan.colour->samples == VK_SAMPLE_COUNT_1_BIT ? "" : "s", plan.motion ? ", motion" : "",
             plan.sampled_depth ? "" : ", no depth read", plan.blades, plan.draws.size(),
             static_cast<double>(plan.shape.distance), static_cast<double>(plan.shape.height));
@@ -1513,7 +1564,8 @@ bool ready_for(Backend& state, const ViewPlan& plan, VkPipeline* pipeline)
     if (!made) {
         own.failed = true;
         if (first_report(state, kReportPipeline)) {
-            get_log("vulkan: grass: the pass couldn't be made (%s) - no grass", error.empty() ? "its images" : error.c_str());
+            get_log("vulkan: grass: the pass couldn't be made (%s) - no grass",
+                    error.empty() ? "its images" : error.c_str());
         }
     }
     return made;
@@ -1589,7 +1641,7 @@ uint32_t grass_last_draws() { return grass_state().last_draws; }
 bool probe_grass(Backend& state, const rt::ViewDrawn& view, uint32_t first, uint32_t count,
                  std::vector<std::array<float, 4>>* tips)
 {
-    GrassState& own = grass_state();
+    const GrassState& own = grass_state();
     tips->clear();
     if (!upload_field(state) || own.field == nullptr || count == 0 || first + count > own.field->blades.size()) {
         return false;
@@ -1600,12 +1652,13 @@ bool probe_grass(Backend& state, const rt::ViewDrawn& view, uint32_t first, uint
     }
     ViewPlan plan;
     plan.rect = view.rect;
-    plan.shape = grass_view(own.settings, view, std::max(view.rect[3], 1U));
+    plan.shape = grass_view(own.settings, view, std::max(core::at(view.rect, 3), 1U));
     const std::optional<VkDescriptorBufferInfo> params = block_in_ring(state, params_for(state, plan, view, true));
     DeviceBuffer answers;
     const VkDeviceSize bytes = static_cast<VkDeviceSize>(count) * sizeof(std::array<float, 4>);
-    if (!params || !state.memory.create_buffer(bytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                               BufferPlace::kDevice, &answers)) {
+    if (!params ||
+        !state.memory.create_buffer(bytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                    BufferPlace::kDevice, &answers)) {
         return false;
     }
     VkCommandBuffer commands = outside_pass(state);
@@ -1629,7 +1682,7 @@ bool probe_grass(Backend& state, const rt::ViewDrawn& view, uint32_t first, uint
 
 bool read_grass_colours(Backend& state, std::vector<std::array<float, 4>>* colours)
 {
-    GrassState& own = grass_state();
+    const GrassState& own = grass_state();
     colours->clear();
     if (own.colours.buffer == VK_NULL_HANDLE || own.uploaded == nullptr) {
         return false;
@@ -1656,15 +1709,17 @@ bool read_grass_colours(Backend& state, std::vector<std::array<float, 4>>* colou
         } else if (exponent == kExponentMask) {
             magnitude = mantissa == 0 ? INFINITY : NAN;
         } else {
-            magnitude = std::ldexp(static_cast<float>(mantissa + kImplicitOne), static_cast<int>(exponent) - kPowerBias);
+            magnitude =
+                std::ldexp(static_cast<float>(mantissa + kImplicitOne), static_cast<int>(exponent) - kPowerBias);
         }
         return (bits & kSign) != 0 ? -magnitude : magnitude;
     };
     colours->resize(count);
     for (std::size_t index = 0; index < count; ++index) {
         std::array<uint16_t, 4> halves{};
-        std::memcpy(halves.data(), raw.data() + (index * kColourBytes), kColourBytes);
-        core::at(*colours, index) = {half(halves[0]), half(halves[1]), half(halves[2]), half(halves[3])};
+        std::memcpy(halves.data(), std::span(raw).subspan(index * kColourBytes, kColourBytes).data(), kColourBytes);
+        core::at(*colours, index) = {half(core::at(halves, 0)), half(core::at(halves, 1)), half(core::at(halves, 2)),
+                                     half(core::at(halves, 3))};
     }
     return true;
 }
@@ -1677,12 +1732,13 @@ void release_grass(Backend& state)
         for (const DrawPipeline& made : own.draws) {
             vkDestroyPipeline(device, made.pipeline, nullptr);
         }
-        for (VkPipeline pipeline : {own.gather[0], own.gather[1], own.probe}) {
+        for (VkPipeline pipeline : {core::at(own.gather, 0), core::at(own.gather, 1), own.probe}) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
             }
         }
-        for (VkShaderModule module : {own.vertex[0], own.vertex[1], own.fragment[0], own.fragment[1]}) {
+        for (VkShaderModule module :
+             {core::at(own.vertex, 0), core::at(own.vertex, 1), core::at(own.fragment, 0), core::at(own.fragment, 1)}) {
             if (module != VK_NULL_HANDLE) {
                 vkDestroyShaderModule(device, module, nullptr);
             }

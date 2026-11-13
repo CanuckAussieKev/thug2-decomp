@@ -12,9 +12,11 @@
 // NOT ORIGINAL - grass (docs/design/vulkan.md "Grass"; [Graphics] grass - gpu_vulkan.h's GrassSettings): blades drawn
 // over the level's grass ground. render_pc finds the grass in the collision and hands the field of blades over
 // (engine/gfx/grass.h - this file's Sink); each viewport's pass runs at opaque_drawn (rt::ViewOrder::kGrass: after the
-// opaque world, the objects and the sky, before the ray-traced shadows, occlusion and bounce - which then shade the
-// blades as they shade the ground, from the depth the blades write). Independent of ray tracing; the blades are never
-// in the acceleration structures.
+// opaque world, the objects and the sky and after the ray-traced shadows, occlusion, bounce and reflections have shaded
+// the ground - a blade takes the ground's shaded colour at its root, so it is in the shadow its root is in; the
+// screen-space effects aren't run over the blades themselves: a blade's depth is a few pixels wide, the normals they
+// rebuild from it are noise and darkened every blade). Before the fog and the tone mapping (world_drawn), which take
+// the blades with the rest. Independent of ray tracing; the blades are never in the acceleration structures.
 //
 // A pass, per viewport (its rectangle; split screen: each its own):
 //   1. (the processor) the field's tiles near enough and in view chosen (plan_grass_draws): a tile at distance d (its
@@ -48,22 +50,22 @@ namespace render::vulkan {
 
 struct Backend;
 
-inline constexpr float kGrassBaseHeight = 6.0F;    // world units (inches) at grass_height 1
-inline constexpr float kGrassShortest = 0.55F;     // a blade's own height: this - kGrassTallest of the base
+inline constexpr float kGrassBaseHeight = 6.0F; // world units (inches) at grass_height 1
+inline constexpr float kGrassShortest = 0.55F;  // a blade's own height: this - kGrassTallest of the base
 inline constexpr float kGrassTallest = 1.45F;
-inline constexpr float kGrassWidth = 0.45F;        // at the root (world units)
+inline constexpr float kGrassWidth = 0.45F; // at the root (world units)
 inline constexpr float kGrassLeastPixels = 0.9F;
-inline constexpr float kGrassNearShare = 0.2F;     // every blade kept out to this share of the distance ...
-inline constexpr float kGrassKeepPower = 1.5F;     // ... then (near / d)^power of them
-inline constexpr float kGrassGrowBand = 0.08F;     // (a share of the ranks: a blade grows in over it)
-inline constexpr float kGrassFadeStart = 0.7F;     // the blades sink from this share of the distance to all of it
+inline constexpr float kGrassNearShare = 0.2F; // every blade kept out to this share of the distance ...
+inline constexpr float kGrassKeepPower = 1.5F; // ... then (near / d)^power of them
+inline constexpr float kGrassGrowBand = 0.08F; // (a share of the ranks: a blade grows in over it)
+inline constexpr float kGrassFadeStart = 0.7F; // the blades sink from this share of the distance to all of it
 inline constexpr float kGrassLean = 0.35F;
 inline constexpr float kGrassWind = 0.2F;
 inline constexpr float kGrassPush = 1.4F;
 inline constexpr float kGrassPushHeight = 72.0F;
 inline constexpr float kGrassMostBend = 0.92F;
 inline constexpr float kGrassFaceCamera = 0.6F;
-inline constexpr float kGrassRootShade = 0.62F;
+inline constexpr float kGrassRootShade = 0.75F;
 inline constexpr float kGrassTipShade = 1.12F;
 inline constexpr float kGrassShadeSpread = 0.1F;
 inline constexpr float kGrassMatchShare = 0.04F;

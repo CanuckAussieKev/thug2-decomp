@@ -31,7 +31,6 @@
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "engine/sound/surface_kind.h"
-#include "formats/collision_format.h"
 #include "platform/frame_profile.h"
 #include "platform/run_log.h"
 #include "render_pc/geom.h"
@@ -40,9 +39,9 @@ namespace render::grass_world {
 
 namespace {
 
-constexpr int kMostScenes = 256;      // a scene list longer than this is taken as broken (the editor's guard)
-constexpr uint32_t kMostTableBits = 20; // the largest sector table walked
-constexpr uint32_t kSwitchedOff = 4U;   // a collision object's flag: switched off (not collided with)
+constexpr int kMostScenes = 256;         // a scene list longer than this is taken as broken (the editor's guard)
+constexpr uint32_t kMostTableBits = 20;  // the largest sector table walked
+constexpr uint32_t kSwitchedOff = 4U;    // a collision object's flag: switched off (not collided with)
 constexpr uint32_t kTerrainByte = 0xFFU; // (a face's terrain: its low byte, as the game reads it)
 constexpr int kTerrainCount = 256;
 // The terrain indices the shipped terrain table gives grass (the level editor's list) - used when the table isn't loaded.
@@ -84,7 +83,7 @@ template <typename Visit>
 void for_each_sector(const WorldScene& scene, Visit visit)
 {
     const lists::KeyMap* table = scene.sectors();
-    if (table == nullptr || table->bits() > kMostTableBits || table->buckets() == nullptr) {
+    if (table == nullptr || std::cmp_greater(table->bits(), kMostTableBits) || table->buckets() == nullptr) {
         return;
     }
     const std::span<const lists::KeyMap::Item> buckets(table->buckets(), std::size_t{1} << table->bits());
@@ -137,6 +136,14 @@ GrassTerrains grass_terrains()
     return found;
 }
 
+grass::Kind kind_of(int terrain, const GrassTerrains& terrains)
+{
+    if (terrain == terrains.grass) {
+        return grass::Kind::kGrass;
+    }
+    return terrain == terrains.dried ? grass::Kind::kDried : grass::Kind::kBlocker;
+}
+
 // Every collidable face of the loaded world's sectors, the grass ones marked.
 std::vector<grass::Face> gather_faces(const GrassTerrains& terrains)
 {
@@ -152,7 +159,7 @@ std::vector<grass::Face> gather_faces(const GrassTerrains& terrains)
                 return;
             }
             const int vertices = geometry.num_vertices();
-            for (int face = 0; face < geometry.tri_count(); ++face) {
+            for (int face = 0; std::cmp_less(face, geometry.tri_count()); ++face) {
                 if (core::any(geometry.face_flags(face) & kTriggerVolumeFaceFlags)) {
                     continue; // (a trigger or not collidable: nothing stands on it)
                 }
@@ -171,9 +178,7 @@ std::vector<grass::Face> gather_faces(const GrassTerrains& terrains)
                     continue;
                 }
                 const auto terrain = static_cast<int>(geometry.face_terrain(face) & kTerrainByte);
-                out.kind = terrain == terrains.grass   ? grass::Kind::kGrass
-                           : terrain == terrains.dried ? grass::Kind::kDried
-                                                       : grass::Kind::kBlocker;
+                out.kind = kind_of(terrain, terrains);
                 faces.push_back(out);
             }
         });
@@ -189,12 +194,13 @@ void make_field(grass::Sink& sink, float density)
     auto field = std::make_shared<grass::Field>(grass::make_field(faces, density));
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     constexpr double kSquareInchesPerSquareMetre = 1550.0031;
-    get_log("grass: %u grass and %u dried grass faces (%.0f square metres; terrains %d / %d%s), %u steep ones left bare, "
-            "%u other faces - %zu blades in %zu tiles at density %.2f%s, %u roots under something; made in %.0f ms",
-            field->grass_faces, field->dried_faces, field->area / kSquareInchesPerSquareMetre, terrains.grass,
-            terrains.dried, terrains.from_table ? "" : " - the terrain table isn't loaded: the shipped order",
-            field->steep_faces, field->blocker_faces, field->blades.size(), field->tiles.size(),
-            static_cast<double>(field->density), field->capped ? " (lowered: too many blades)" : "", field->covered, ms);
+    get_log(
+        "grass: %u grass and %u dried grass faces (%.0f square metres; terrains %d / %d%s), %u steep ones left bare, "
+        "%u other faces - %zu blades in %zu tiles at density %.2f%s, %u roots under something; made in %.0f ms",
+        field->grass_faces, field->dried_faces, field->area / kSquareInchesPerSquareMetre, terrains.grass,
+        terrains.dried, terrains.from_table ? "" : " - the terrain table isn't loaded: the shipped order",
+        field->steep_faces, field->blocker_faces, field->blades.size(), field->tiles.size(),
+        static_cast<double>(field->density), field->capped ? " (lowered: too many blades)" : "", field->covered, ms);
     if (field->blades.empty()) {
         get_log("grass: no grass in this world's collision - none drawn");
     }
@@ -217,12 +223,12 @@ void send_pushers(grass::Sink& sink)
         const std::span<const float, maths::Mat4::kFloatCount> values = instance->transform().floats();
         const std::array<float, 3> at{core::at(values, kTranslationRow), core::at(values, kTranslationRow + 1),
                                       core::at(values, kTranslationRow + 2)};
-        if (!std::isfinite(at[0]) || !std::isfinite(at[1]) || !std::isfinite(at[2])) {
+        if (!std::isfinite(core::at(at, 0)) || !std::isfinite(core::at(at, 1)) || !std::isfinite(core::at(at, 2))) {
             continue;
         }
-        const float dx = at[0] - camera[0];
-        const float dy = at[1] - camera[1];
-        const float dz = at[2] - camera[2];
+        const float dx = core::at(at, 0) - core::at(camera, 0);
+        const float dy = core::at(at, 1) - core::at(camera, 1);
+        const float dz = core::at(at, 2) - core::at(camera, 2);
         found.push_back({.pusher = {.at = at, .radius = grass::kCharacterReach},
                          .distance = std::sqrt((dx * dx) + (dy * dy) + (dz * dz))});
     }

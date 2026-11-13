@@ -292,7 +292,7 @@ void set_style_settings(const StyleSettings& settings);
 [[nodiscard]] StyleSettings style_settings();
 // NOT ORIGINAL - grass (vulkan_grass.h; docs/design/vulkan.md "Grass"): [Graphics] grass, grass_density, grass_height,
 // grass_distance - all put to use at once. Blades on the ground where the level's collision says grass, drawn after the
-// opaque world (before the ray-traced effects, which then shade them). `on` false (the default): nothing is gathered or
+// opaque world and the ray-traced effects (each blade takes the shaded ground at its root). `on` false (the default): nothing is gathered or
 // drawn. No ray tracing needed.
 inline constexpr float kGrassDistance = 50.0F; // (grass_distance's default: metres)
 struct GrassSettings {
