@@ -141,12 +141,14 @@ const float OFFSET_SCALE = 1.0; // the ray's start pushed off the surface by thi
 const float SKY_TILT = 0.6;     // the sky test's slanted rays: this far out from straight up per unit up (about 31 deg)
 
 const uint OBJECTS_MASK = 0x02u; // (kMaskObjects: the skater, peds, vehicles)
-uint g_mask = 0u;                // the instance mask the pixel's rays are traced with
 
-float blocked(vec3 origin, vec3 direction)
+float blocked_by(uint mask, vec3 origin, vec3 direction)
 {
+    if (mask == 0u) {
+        return 0.0;
+    }
     rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, g_mask, origin, 0.0,
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,
                           direction, pc.shape.z);
     while (rayQueryProceedEXT(query)) {
     }
@@ -177,12 +179,16 @@ void main()
     vec3 here = world_at(p, d);
     vec3 to_camera = pc.camera.xyz - here;
     float distance = length(to_camera);
-    g_mask = floatBitsToUint(pc.camera.w) & 0xFFu;
-    // (added for the skater's shadow) an object casts onto the world, not onto itself or another object: its
-    // low-poly body traced against itself drew blotches and acne over the skater - the objects receive the world's
-    // shadows only
-    if ((g_mask & OBJECTS_MASK) != 0u && on_object(here, to_camera, distance)) {
-        g_mask &= ~OBJECTS_MASK;
+    uint mask = floatBitsToUint(pc.camera.w) & 0xFFu;
+    // (added for the skater's shadow) The world's casters and the objects' are traced apart: the objects' shadows
+    // (the skater's, the peds') are kept whole - not left out under roofs or where the bake disagrees, which are about
+    // the level's own shadows (the open ground has no baked shadow, so its agreement dropped the skater's too); and an
+    // object casts onto the world, not onto itself or another object (its low-poly body traced against itself drew
+    // blotches over the skater) - the objects receive the world's shadows only.
+    uint world_mask = mask & ~OBJECTS_MASK;
+    uint objects_mask = mask & OBJECTS_MASK;
+    if (objects_mask != 0u && on_object(here, to_camera, distance)) {
+        objects_mask = 0u;
     }
     vec3 normal = cross(surface_step(p, d, here, ivec2(1, 0)), surface_step(p, d, here, ivec2(0, 1)));
     float normal_length = length(normal);
@@ -192,13 +198,15 @@ void main()
     }
     vec3 light = pc.to_light.xyz;
     float occlusion = 1.0; // (facing away from the light: in its own shadow)
+    float cast_by_objects = 0.0;
     if (dot(normal, light) > 0.0) {
         // pushed off the surface by more as the depth's precision falls with distance
         float offset = OFFSET_SCALE * (1.0 + distance * 0.0005 + distance * distance * 6e-8);
         vec3 origin = here + normal * offset;
         uint rays = uint(pc.shape.y);
         if (rays <= 1u || pc.shape.x <= 0.0) {
-            occlusion = blocked(origin, light);
+            occlusion = blocked_by(world_mask, origin, light);
+            cast_by_objects = blocked_by(objects_mask, origin, light);
         } else {
             vec3 across = normalize(abs(light.y) < 0.99 ? cross(light, vec3(0.0, 1.0, 0.0))
                                                          : cross(light, vec3(1.0, 0.0, 0.0)));
@@ -206,12 +214,16 @@ void main()
             // (interleaved gradient noise turns each pixel's spiral of directions over the light's disc)
             float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
             float sum = 0.0;
+            float objects_sum = 0.0;
             for (uint i = 0u; i < rays; ++i) {
                 float radius = sqrt((float(i) + 0.5) / float(rays)) * pc.shape.x;
                 float angle = float(i) * 2.39996323 + turn;
-                sum += blocked(origin, normalize(light + (across * cos(angle) + up * sin(angle)) * radius));
+                vec3 toward = normalize(light + (across * cos(angle) + up * sin(angle)) * radius);
+                sum += blocked_by(world_mask, origin, toward);
+                objects_sum += blocked_by(objects_mask, origin, toward);
             }
             occlusion = sum / float(rays);
+            cast_by_objects = objects_sum / float(rays);
         }
     }
     // The sky test: a point under a roof (none of the rays up - straight up, and slanted round it - reaches the sky)
@@ -221,17 +233,18 @@ void main()
     if (occlusion > 0.0 && sky_rays > 0u) {
         float offset = OFFSET_SCALE * (1.0 + distance * 0.0005 + distance * distance * 6e-8);
         vec3 origin = here + normal * offset;
-        float open = 1.0 - blocked(origin, vec3(0.0, 1.0, 0.0));
+        float open = 1.0 - blocked_by(world_mask, origin, vec3(0.0, 1.0, 0.0));
         float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.00583715, 0.06711056))));
         for (uint i = 1u; i < sky_rays; ++i) {
             float angle = turn + 6.2831853 * float(i) / float(sky_rays - 1u);
-            open += 1.0 - blocked(origin, normalize(vec3(cos(angle) * SKY_TILT, 1.0, sin(angle) * SKY_TILT)));
+            open += 1.0 - blocked_by(world_mask, origin, normalize(vec3(cos(angle) * SKY_TILT, 1.0, sin(angle) * SKY_TILT)));
         }
         occlusion *= clamp(2.0 * open / float(sky_rays), 0.0, 1.0);
     }
     if (occlusion > 0.0) {
         occlusion *= agreement_at(here);
     }
+    occlusion = max(occlusion, cast_by_objects);
     o_factor = vec4(vec3(1.0 - pc.to_light.w * occlusion), 1.0);
 }
 )";
