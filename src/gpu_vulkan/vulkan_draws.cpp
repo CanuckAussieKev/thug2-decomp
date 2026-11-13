@@ -997,9 +997,13 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         shaders = normalised(shaders);
     }
     // NOT ORIGINAL - water shaded where render_pc marked the material ([Graphics] rt_water, vulkan_water.h; nothing with
-    // it off): the key with the water bit, the copy behind the water made first (outside the pass)
+    // it off): the key with the water bit, the copy behind the water made first (outside the pass); opaque water before
+    // the opaque world is finished kept back and drawn then
     WaterDescriptors water;
     if (water_candidate(state, block)) {
+        if (defer_water_draw(state, block, call)) {
+            return kOk; // (drawn as water once the opaque world is finished)
+        }
         ShaderKey with_water = shaders;
         with_water.fragment.surface = static_cast<uint8_t>(with_water.fragment.surface | kSurfaceWater);
         with_water = normalised(with_water);

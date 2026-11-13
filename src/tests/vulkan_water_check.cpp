@@ -9,6 +9,9 @@
 //     (the copy made before the water: its colour and depth), absorbed along the light's path (to the floor and down to
 //     it) by the tint's hue, the scattered deep colour, Fresnel toward the sky (the view's fog colour: no capture, the
 //     reflected rays leave the view); the sand in front of the water the same as without water;
+//   - the reflection: a red wall standing on the calm water - the water mirroring it (found on the screen) where its
+//     mirror image is on the screen, the sky elsewhere, against the processor;
+//   - opaque water kept back and drawn after the opaque world (the calm cases are opaque draws);
 //   - rt_water=0, and rt_water=1 with the draw not marked: the original's picture, byte for byte (the water the
 //     program's colour); the floor byte for byte in every case;
 //   - foam: changes only where the water is shallow (within 24 units of the floor below), and brightens it;
@@ -83,6 +86,9 @@ constexpr float kSide = 600.0F;       // (their half width)
 constexpr Vec3 kSand{0.8F, 0.7F, 0.5F};
 constexpr Vec3 kTint{0.25F, 0.45F, 0.5F};
 constexpr Vec3 kFog{0.5F, 0.6F, 0.7F};
+constexpr Vec3 kWallColour{0.85F, 0.15F, 0.1F};
+constexpr float kWallZ = 150.0F;  // (the reflection's case: a wall standing on the water there, up to kWallTop)
+constexpr float kWallTop = 80.0F;
 constexpr float kVisibility = 450.0F;
 constexpr float kShoreFoam = 24.0F;     // (the shader's foam depth)
 constexpr float kTolerance = 4.0e-3F;   // a pixel's largest difference (16-bit floats, interpolated depths)
@@ -302,6 +308,7 @@ struct Scene {
     GpuSurface* depth = nullptr;
     GpuTexture* sand = nullptr;
     GpuTexture* water = nullptr;
+    GpuTexture* wall = nullptr; // (the reflection's case: a red wall standing on the water)
     render::GpuPixelShader* shader = nullptr;
     uint32_t width = kWidth;
     uint32_t height = kHeight;
@@ -337,7 +344,8 @@ void common_states(render::Gpu& gpu, const Scene& scene)
 
 // One frame of the shore: the view begun (the listeners told), the sand, the water (marked unless `marked` false, alpha
 // blended when `blended`), the view's world drawn.
-void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marked, bool blended, int layers = 1)
+void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marked, bool blended, int layers = 1,
+                bool wall = false)
 {
     const render::rt::ViewDrawn view = view_of(scene.width, scene.height, seconds);
     gpu.begin_scene();
@@ -353,6 +361,15 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marke
     render::water::set_current(nullptr, 0);
     const std::array<Vertex, 6> sand = quad(true);
     gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, sand.data(), sizeof(Vertex));
+    if (wall) {
+        gpu.set_texture(0, scene.wall);
+        const auto at = [](float x, float y) {
+            return Vertex{.position = {x, y, kWallZ}, .colour = kHalfGrey, .uv = {x / 64.0F, y / 64.0F}};
+        };
+        const std::array<Vertex, 6> quad_of_wall{at(-kSide, 0.0F), at(kSide, 0.0F), at(-kSide, kWallTop), at(kSide, 0.0F),
+                                                 at(kSide, kWallTop), at(-kSide, kWallTop)};
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, quad_of_wall.data(), sizeof(Vertex));
+    }
     for (int layer = 0; layer < layers; ++layer) {
         gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, blended ? 1 : 0);
@@ -422,15 +439,63 @@ Ray ray_of(uint32_t px, uint32_t py)
     return ray;
 }
 
-// The calm water's colour at a pixel (rt_water_waves=0, no foam, no sun): false where the pixel isn't judged (the
-// floor in front, the shoreline's edge, off the quads).
-bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down)
+// Where camera-space `point` is in normalised device coordinates (false: behind the camera).
+bool on_screen(const Vec3& point, std::array<float, 2>* ndc)
+{
+    const Axes axes = camera_axes();
+    const Vec3 relative = sub(point, kCamera);
+    const float ahead = dot(relative, axes.forward);
+    if (ahead <= 0.0F) {
+        return false;
+    }
+    const float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
+    *ndc = {dot(relative, axes.right) * kVerticalScale / aspect / ahead, dot(relative, axes.up) * kVerticalScale / ahead};
+    return true;
+}
+
+// What the mirror ray from the water at `point` along `reflected` shows with the wall standing: 1 the wall (clearly -
+// on the screen away from its edges), 0 the sky (clearly not near the wall), -1 neither clearly.
+int mirror_shows_wall(const Vec3& point, const Vec3& reflected)
+{
+    constexpr float kMargin = 3.0F;    // (units of the wall's height)
+    constexpr float kInside = 0.78F;   // (of the screen: the reflection's fade toward its edges, from 0.8, left out)
+    if (core::at(reflected, 2) <= 0.0F) {
+        return 0;
+    }
+    const Vec3 hit = add(point, scale(reflected, (kWallZ - core::at(point, 2)) / core::at(reflected, 2)));
+    std::array<float, 2> ndc{};
+    const bool seen = on_screen(hit, &ndc) && std::fabs(ndc[0]) < 1.0F && std::fabs(ndc[1]) < 1.0F;
+    if (core::at(hit, 1) > kWallTop + kMargin || core::at(hit, 1) < -kMargin || !seen) {
+        // the wall's points the camera doesn't see can't be found on the screen: the sky (unless near the screen's
+        // edge, where the march may end on the wall's last rows)
+        return seen || std::fabs(ndc[1]) > 1.1F || core::at(hit, 1) > kWallTop + kMargin ? 0 : -1;
+    }
+    if (core::at(hit, 1) < kMargin || std::fabs(ndc[0]) > kInside || std::fabs(ndc[1]) > kInside) {
+        return -1;
+    }
+    return 1;
+}
+
+// The calm water's colour at a pixel (rt_water_waves=0, no foam, no sun; with the wall: what it reflects of it): false
+// where the pixel isn't judged (the floor or the wall in front, the shoreline's edge, off the quads).
+bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down, bool wall = false)
 {
     const Ray ray = ray_of(px, py);
     if (!std::isfinite(ray.to_water) || !std::isfinite(ray.to_floor) || ray.to_floor < ray.to_water) {
         return false;
     }
     const Vec3 point = add(kCamera, scale(ray.direction, ray.to_water));
+    int shows_wall = 0;
+    if (wall) {
+        if (core::at(point, 2) > kWallZ - 1.0F) {
+            return false; // (behind the wall)
+        }
+        const Vec3 reflected{core::at(ray.direction, 0), -core::at(ray.direction, 1), core::at(ray.direction, 2)};
+        shows_wall = mirror_shows_wall(point, reflected);
+        if (shows_wall < 0) {
+            return false;
+        }
+    }
     if (core::at(point, 2) < kShoreStart + 1.0F || core::at(point, 2) > kFloorFar - 50.0F) {
         return false;
     }
@@ -450,13 +515,14 @@ bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down)
     const float light = dot(tint, kLuma) * kProgramGain;
     const Vec3 deep = scale(hue, light * 0.75F / dot(hue, kLuma));
     const Vec3 sand = as_bytes(kSand);
+    const Vec3 reflected = shows_wall == 1 ? scale(as_bytes(kWallColour), kProgramGain) : kFog;
     const float fresnel = 0.02F + (0.98F * std::pow(1.0F - core::at(v, 1), 5.0F));
     for (std::size_t c = 0; c < 3; ++c) {
         const float sigma = (3.0F / kVisibility) * (0.2F + (1.6F * (1.0F - core::at(hue, c))));
         const float through = std::exp(-sigma * path);
         const float below = std::exp(-sigma * *depth_down);
         const float refracted = (core::at(sand, c) * through * below) + (core::at(deep, c) * (1.0F - through));
-        out->at(c) = std::lerp(refracted, core::at(kFog, c), fresnel);
+        out->at(c) = std::lerp(refracted, core::at(reflected, c), fresnel);
     }
     return true;
 }
@@ -583,6 +649,53 @@ void check_off(render::Gpu& gpu, const Scene& scene, Tally* tally)
     const std::size_t sand_changed = differing(off, on, sand_pixel);
     tally->check(off.read && on.read && sand_changed == 0, text::format("the sand in front of the water: the same bytes with rt_water on (%zu differ)", sand_changed));
     tally->check(on.read && differing(off, on, everywhere) > kLeastJudged, "rt_water=1: the water changed");
+}
+
+// The reflection: a red wall standing on calm water - the water in front of it mirrors it (found on the screen) where
+// its mirror image is on the screen, the sky elsewhere.
+void check_reflection(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    set_water(true, 0.0F, 0.0F);
+    draw_frame(gpu, scene, 1.0, true, false, 1, true);
+    const Picture got = read_picture(scene.colour, kWidth, kHeight);
+    std::size_t walls = 0;
+    std::size_t skies = 0;
+    std::size_t within = 0;
+    float worst = 0.0F;
+    std::string worst_at;
+    for (uint32_t py = 0; py < kHeight; ++py) {
+        for (uint32_t px = 0; px < kWidth; ++px) {
+            Vec3 want{};
+            float down = 0.0F;
+            if (!got.read || !expected_calm(px, py, &want, &down, true)) {
+                continue;
+            }
+            const Ray ray = ray_of(px, py);
+            const Vec3 point = add(kCamera, scale(ray.direction, ray.to_water));
+            const bool wall = mirror_shows_wall(point, {ray.direction[0], -ray.direction[1], ray.direction[2]}) == 1;
+            (wall ? walls : skies) += 1;
+            const Vec3& have = core::at(got.rgb, (static_cast<std::size_t>(py) * kWidth) + px);
+            float difference = 0.0F;
+            for (std::size_t c = 0; c < 3; ++c) {
+                difference = std::max(difference, std::fabs(have.at(c) - want.at(c)));
+            }
+            constexpr float kReflectionTolerance = 0.01F;
+            within += difference <= kReflectionTolerance ? 1U : 0U;
+            if (difference > worst) {
+                worst = difference;
+                worst_at = text::format(" (at %u, %u%s: %.3f %.3f %.3f, expected %.3f %.3f %.3f)", px, py, wall ? ", the wall" : "",
+                                        static_cast<double>(have[0]), static_cast<double>(have[1]), static_cast<double>(have[2]),
+                                        static_cast<double>(want[0]), static_cast<double>(want[1]), static_cast<double>(want[2]));
+            }
+        }
+    }
+    const std::size_t judged = walls + skies;
+    const double share = judged != 0 ? static_cast<double>(within) / static_cast<double>(judged) : 0.0;
+    constexpr double kReflectionShare = 0.98;
+    tally->check(walls > 300 && share >= kReflectionShare,
+                 text::format("reflection: %zu pixels mirroring the wall, %zu the sky, %.2f%% within 0.01 of the processor, "
+                              "the worst %.3f%s",
+                              walls, skies, share * 100.0, static_cast<double>(worst), worst_at.c_str()));
 }
 
 void check_foam(render::Gpu& gpu, const Scene& scene, Tally* tally)
@@ -795,24 +908,28 @@ int run(const Options& options, SDL_Window* window)
                                  &scene.depth) == value::kResultOk;
     scene.sand = uniform_texture(gpu, kSand, kOpaqueHalf);
     scene.water = uniform_texture(gpu, kTint, kOpaqueHalf);
+    scene.wall = uniform_texture(gpu, kWallColour, kOpaqueHalf);
     tally.check(made && scene.sand != nullptr && scene.water != nullptr, "the material shader, a 16-bit float target, a depth surface and the textures made");
     if (made) {
         render::water::set_level_water({.level = 1, .waves = 1.0F, .swell_length = 300.0F, .visibility = kVisibility, .heading = 30.0F});
         check_off(gpu, scene, &tally);
         check_calm(gpu, scene, &tally);
+        check_reflection(gpu, scene, &tally);
         check_foam(gpu, scene, &tally);
         check_waves(gpu, scene, &tally);
         check_glitter(gpu, scene, &tally);
         check_waves_texture(&tally);
         const vk::WaterStats stats = vk::water_stats();
-        tally.check(stats.draws > 0 && stats.copies > 0, text::format("water draws %llu, copies %llu", static_cast<unsigned long long>(stats.draws),
-                                                                         static_cast<unsigned long long>(stats.copies)));
+        tally.check(stats.draws > 0 && stats.copies > 0 && stats.replayed > 0,
+                    text::format("water draws %llu (opaque water kept back for the opaque world's end: %llu), copies %llu",
+                                 static_cast<unsigned long long>(stats.draws), static_cast<unsigned long long>(stats.replayed),
+                                 static_cast<unsigned long long>(stats.copies)));
         if (options.perf) {
             measure_cost(gpu, scene);
         }
     }
     vk::set_water_settings({});
-    for (GpuTexture* texture : {scene.sand, scene.water}) {
+    for (GpuTexture* texture : {scene.sand, scene.water, scene.wall}) {
         if (texture != nullptr) {
             gpu.release_texture(texture);
         }

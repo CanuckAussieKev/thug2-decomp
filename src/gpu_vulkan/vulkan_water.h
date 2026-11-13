@@ -32,7 +32,9 @@
 //   3. refraction: what was drawn before the view's first water draw - its colour and its depth made linear, copied
 //      once per view at that draw (multisampled targets resolved; the pass ended and opened again) - read at the pixel
 //      moved by the wave normal's tilt in proportion to the water behind (none at the shore; not moved onto something in
-//      front of the water). An opaque sea drawn before its bed has nothing behind it: deep water;
+//      front of the water). Opaque water (drawn among the opaque world, often first) is kept back and drawn once the
+//      opaque world is finished (defer_water_draw), so its copy has the whole opaque world - its bed, and what it
+//      reflects - without the water itself (the ray-traced effects at rt::opaque_view_drawn see its bed, not the water);
 //   4. colour by depth: the light's path through the water (from the surface to what is behind, along the view) and
 //      down to it absorbed per channel, exp(-sigma d) with sigma = 3 / visibility x (0.2 + 1.6 (1 - hue)) - the tint's
 //      hue (rt_water_tint, auto: each water texture's mean colour - its smallest level) taking red first: shallow water
@@ -54,6 +56,7 @@ struct GpuStateBlock;
 namespace render::vulkan {
 
 struct Backend;
+struct DrawCall;
 
 inline constexpr uint32_t kWaterWavesSize = 256;   // the ripple texture's side
 inline constexpr uint32_t kWaterWavesLevels = 9;   // 256 down to 1
@@ -74,9 +77,13 @@ struct WaterDescriptors {
 };
 
 // Whether `block`'s draw can be water before its key is looked at (rt_water on, render_pc's current material water
-// with this texture on stage 0, a 3D draw opaque or blended by its alpha into the view's rectangle). The caller holds
-// the lock.
+// with this texture on stage 0 - or the draw replayed below -, a 3D draw opaque or blended by its alpha into the view's
+// rectangle). The caller holds the lock.
 [[nodiscard]] bool water_candidate(const Backend& state, const GpuStateBlock& block);
+// An opaque water draw before the view's opaque world is finished (the sea drawn among the level's first meshes - what
+// is behind it and what it reflects not drawn yet): kept, not drawn, and drawn as water at rt::opaque_view_drawn (its
+// state and buffers live for the frame) over the copy of the whole opaque world without it. True when kept.
+bool defer_water_draw(Backend& state, const GpuStateBlock& block, const DrawCall& call);
 // A water draw made ready: the copy behind the water made (the view's first water draw: the pass ended), the ripples made
 // (the first ever), the view's block in the ring; its descriptors. False: drawn as before (logged once why).
 bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescriptors* out);
@@ -101,6 +108,7 @@ struct WaterStats {
     uint64_t draws = 0;  // water draws shaded
     uint64_t copies = 0; // views whose colour and depth were copied
     uint64_t refused = 0; // candidates drawn as before (no view, a target that can't be read...)
+    uint64_t replayed = 0; // opaque water draws drawn again as water after the opaque world
 };
 [[nodiscard]] WaterStats water_stats();
 

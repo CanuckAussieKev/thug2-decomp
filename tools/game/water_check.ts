@@ -46,9 +46,9 @@ export const LEVELS: readonly LevelSpots[] = [
     {
         level: "BA",
         spots: [
-            { name: "BA-harbour", camera: "camera 3840 54 2414 0.0 -0.24 0.97" },
+            { name: "BA-harbour", camera: "camera 3840 150 2300 0.0 -0.35 0.94" },
             { name: "BA-harbour-sun", camera: "camera 2891.8 116.4 3000.4 0.197 -0.179 0.964" },
-            { name: "BA-shore", camera: "camera 3500 60 1850 0.0 -0.62 0.78" },
+            { name: "BA-shore", camera: "camera 3500 40 1960 0.0 -0.5 0.87" },
             { name: "BA-sea", camera: "camera 6000 400 9000 0.55 -0.12 0.83" },
         ],
     },
@@ -57,7 +57,7 @@ export const LEVELS: readonly LevelSpots[] = [
         spots: [
             { name: "AU-sea", camera: "camera -2599.5 247.8 7625.6 -0.286 -0.179 -0.941" },
             { name: "AU-beach", camera: "camera -2493.8 247.9 7732.8 0.074 -0.180 -0.981" },
-            { name: "AU-shore", camera: "camera -2550 120 7300 0.1 -0.55 -0.83" },
+            { name: "AU-shore", camera: "camera -2550 220 7300 0.0 -0.45 -0.89" },
         ],
     },
     {

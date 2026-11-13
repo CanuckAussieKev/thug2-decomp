@@ -194,6 +194,13 @@ struct WaterState {
     uint64_t block_frame = 0;
     VkDescriptorBufferInfo block{};
     Image* sky_image = nullptr; // bound for the last water draw
+    bool opaque_done = false;   // the view's opaque world finished (rt::opaque_view_drawn)
+    bool replaying = false;     // a kept opaque water draw is being drawn again
+    struct Deferred {
+        GpuStateBlock block;
+        DrawCall call;
+    };
+    std::vector<Deferred> deferred; // the view's opaque water draws, kept for opaque_drawn
     WaterStats stats;
 };
 
@@ -215,9 +222,31 @@ public:
         WaterState& own = water_state();
         own.view = view;
         own.view_known = true;
+        own.opaque_done = false;
+        own.deferred.clear();
         ++own.view_serial;
     }
-    void opaque_drawn(const rt::ViewDrawn& view) override { (void)view; }
+    void opaque_drawn(const rt::ViewDrawn& view) override
+    {
+        (void)view;
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        WaterState& own = water_state();
+        own.opaque_done = true;
+        if (!state.device_made || !state.draws_made || own.deferred.empty()) {
+            own.deferred.clear();
+            return;
+        }
+        // the opaque water drawn now, as water (the copy made at the first of them: the whole opaque world without
+        // the water, the effects' light in it)
+        own.replaying = true;
+        for (WaterState::Deferred& kept : own.deferred) {
+            (void)record_draw(state, kept.block, kept.call);
+            ++own.stats.replayed;
+        }
+        own.replaying = false;
+        own.deferred.clear();
+    }
     void world_drawn(const rt::ViewDrawn& view) override
     {
         (void)view;
@@ -889,7 +918,7 @@ bool water_candidate(const Backend& state, const GpuStateBlock& block)
         return false;
     }
     const GpuTexture* const texture = core::at(block.textures, 0);
-    if (texture == nullptr || texture != water::current_texture()) {
+    if (texture == nullptr || (texture != water::current_texture() && !own.replaying)) {
         return false;
     }
     if (fvf_pre_transformed(block.vertex_format)) {
@@ -905,6 +934,19 @@ bool water_candidate(const Backend& state, const GpuStateBlock& block)
     const GpuViewport& viewport = block.viewport;
     return viewport.x == core::at(own.view.rect, 0) && viewport.y == core::at(own.view.rect, 1) &&
            viewport.width == core::at(own.view.rect, 2) && viewport.height == core::at(own.view.rect, 3);
+}
+
+bool defer_water_draw(Backend& state, const GpuStateBlock& block, const DrawCall& call)
+{
+    (void)state;
+    WaterState& own = water_state();
+    constexpr std::size_t kMostKept = 256; // (a frame's opaque water draws: a few)
+    if (own.replaying || own.opaque_done || block.render_state(GpuRenderState::kAlphaBlendEnable) != 0U ||
+        own.deferred.size() >= kMostKept) {
+        return false;
+    }
+    own.deferred.push_back({.block = block, .call = call});
+    return true;
 }
 
 bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescriptors* out)
