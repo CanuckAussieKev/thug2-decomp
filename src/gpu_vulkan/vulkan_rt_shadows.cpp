@@ -803,9 +803,13 @@ bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view)
 {
     const bool drawn = record_pass(state, view);
     // (added for the skater's shadow) while this pass casts the objects' shadows, their own (the skater's projected
-    // one, the peds' blobs) are hidden; a view without a pass - no baked sun yet, a level whose bake shows none - gives
-    // them back
-    rt::set_object_shadows_replaced(drawn && shadows().settings.objects);
+    // one, the peds' blobs) are hidden; a view without a pass gives them back - but not while the baked sun is only
+    // being fitted again (the world changed: a second or two without a pass), which flashed the original's shadow
+    // back between two of ours
+    std::array<float, 3> toward{};
+    const bool refitting = shadows().settings.on && sun_direction(shadows().settings, &toward) == Sun::kWaiting;
+    rt::set_object_shadows_replaced(shadows().settings.objects &&
+                                    (drawn || (refitting && rt::object_shadows_replaced())));
     return drawn;
 }
 
