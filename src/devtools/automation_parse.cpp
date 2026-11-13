@@ -476,10 +476,13 @@ bool parse_capture(const CommandWords& words, OrderCode& command, std::string* e
     const std::vector<std::string>& tokens = *words.tokens;
     const size_t count = tokens.size();
     command.op = Op::kCapture;
-    if (count < 2 || count > 3 || !read_count(::core::at(tokens, 1), 1, kMaxCaptureFrames, &command.frames)) {
-        return fail_with(error, "capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder]");
+    // (added by the first frame) a last word `afterload`: from the first frame after the next loading screen
+    command.after_load = count >= 3 && get_lower(tokens.back()) == "afterload";
+    const size_t used = command.after_load ? count - 1 : count;
+    if (used < 2 || used > 3 || !read_count(::core::at(tokens, 1), 1, kMaxCaptureFrames, &command.frames)) {
+        return fail_with(error, "capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder] [afterload]");
     }
-    if (count == 3) {
+    if (used == 3) {
         std::string folder = ::core::at(tokens, 2);
         if (folder.size() >= 2 && folder.front() == '"' && folder.back() == '"') {
             folder = folder.substr(1, folder.size() - 2);

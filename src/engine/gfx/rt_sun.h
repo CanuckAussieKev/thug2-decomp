@@ -14,7 +14,7 @@
 //   - the direction's score: the correlation of "not blocked" with the brightness (point-biserial). The best one is the
 //     baked sun when its score reaches kMinConfidence; below it the bake shows no sun - a level lit by its lamps
 //     (indoors), where sun shadows would only darken what the original lit.
-// It runs once a level's world has stood still (rt_record.cpp), a fraction of a second of ray queries.
+// It runs in a new world's first frame, before anything is drawn (rt_record.cpp), a fraction of a second of ray queries.
 
 #include <array>
 #include <cstddef>

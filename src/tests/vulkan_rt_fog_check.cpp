@@ -87,6 +87,9 @@ constexpr std::array<float, 3> kFogColour{0.6F, 0.65F, 0.7F};
 constexpr float kAnisotropy = 0.3F;
 constexpr unsigned kSteps = 32;
 constexpr int kStillFrames = 40;
+// (the first frame of a history seeds it with kFogMaxHistory marches - vulkan_rt_history.h: its last march, the one the
+// raw image holds, is frame index kFogMaxHistory - 1, and every frame after counts on from there)
+constexpr uint64_t kFirstMarch = render::vulkan::kFogMaxHistory - 1;
 constexpr double kPerByte = 1.0 / 255.0;
 constexpr uint32_t kScale = render::vulkan::kFogScale;
 
@@ -1260,13 +1263,15 @@ void run_replace(render::Gpu& gpu, const Scene& scene, Tally* tally)
         const View view = view_from(kEye, kTargetWidth, kTargetHeight);
         tally->check(draw_frame(gpu, targets, kEye) == 1, "the listener recorded the passes");
         tally->check(render::vulkan::rt_fog_replaces_level_fog(), "the draws leave the level's fog out");
-        compare_raw(view, 0, false, tally);
+        compare_raw(view, kFirstMarch, false, tally);
+        text::print("  the first frame (its history seeded - vulkan_rt_history.h):\n");
+        compare_converged(view, tally);
         int passes = 1;
         for (int frame = 1; frame < kStillFrames; ++frame) {
             passes += static_cast<int>(draw_frame(gpu, targets, kEye));
         }
         tally->check(passes == kStillFrames, text::format("%d frames, %d passes", kStillFrames, passes));
-        compare_raw(view, kStillFrames - 1, false, tally);
+        compare_raw(view, kFirstMarch + kStillFrames - 1, false, tally);
         compare_converged(view, tally);
         compare_shaft(view, tally);
         std::vector<uint8_t> texels;
@@ -1292,7 +1297,7 @@ void run_shafts(render::Gpu& gpu, const Scene& scene, Tally* tally)
         const View view = view_from(kEye, kTargetWidth, kTargetHeight);
         tally->check(draw_frame(gpu, targets, kEye) == 1, "the listener recorded the passes");
         tally->check(!render::vulkan::rt_fog_replaces_level_fog(), "the draws keep the level's fog");
-        compare_raw(view, 0, true, tally);
+        compare_raw(view, kFirstMarch, true, tally);
         for (int frame = 1; frame < kStillFrames; ++frame) {
             draw_frame(gpu, targets, kEye);
         }

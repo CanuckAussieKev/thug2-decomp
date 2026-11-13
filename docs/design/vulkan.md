@@ -873,7 +873,8 @@ the original's own lighting already says otherwise, is decided so:
   directional lights are the light manager's two (toward (0.75, 0.5, 0.43) and (-0.79, 0.5, -0.37)) in every level -
   they light the skater and the objects, not the level - so tracing toward the first one put the shadows where the
   level's bake has none (BO, sch: 65-95% of each picture darkened, the sunlit paving with it). The level's own sun is in
-  its world meshes' vertex colours: once the world has stood still for 60 frames `render_pc/rt_record` samples its
+  its world meshes' vertex colours: in a new world's first frame, before it is drawn ("The first frame after a load"
+  below), `render_pc/rt_record` samples its
   upward-facing triangles (the colour's luma at each) and `fit_baked_sun` traces every sample toward 240 directions
   over the sky (then 60 within 10 degrees of the best, 40 within 3): the direction whose "not blocked" correlates best
   with the brightness is the sun (BO heading -75 / elevation 52, z_dt 44 / 53, z_ho 45 / 58, sch -45 / 36; about 1.5-2.7
@@ -1261,6 +1262,57 @@ their depth and stay in front of any sky).
   with clouds at half resolution 0.15 ms (march 0.11, temporal 0.01, composite 0.02) and 7.4 ms (5.0, 0.9, 1.5). In the
   game at 1280 x 720 with 8 x MSAA and every other effect on: 0.04 - 0.10 ms on the RTX 5070 Ti (the windows' averages,
   loading screens included).
+
+### The first frame after a load
+
+With the effects on, the first frame the player sees after a load is as complete as one a second later - nothing
+fades in. Before, four things were deferred: the baked sun was fitted only once the world had stood still for 60
+frames (shadows, the bounce light, the fog's shafts and the haze's sun skipped until then, then ~0.35 s of tracing
+mid-play); the BLASes' compaction ran a few frames later (memory only - every BLAS was already built in the first
+frame); the temporal effects (AO, GI, fog) started from empty histories and faded in over 12 - 32 frames; and the sky
+model's table / sun colour was made by the sun's pass, after the bounce light had read last frame's colour. Now:
+
+- **A new world's work in its first frame** (`render_pc/rt_record`): the loaded scenes' key (each non-sky scene, its
+  meshes and their count - not which are shown, so a sector turned on or off keeps the fit) differs from the one last
+  settled - a level's first frame, the editor's load. Right after that frame's `begin_frame` and before any view is
+  drawn: `RayTracing::settle` (added to the contract; the Vulkan backend finishes the frame's work, then builds the
+  frame's scene again - which collects the compacted sizes, copies each static BLAS into its smaller structure and
+  rebuilds the TLAS over the new addresses - in rounds until no size is waited for), then the baked sun's fit when it is
+  wanted. The frame is presented over the loading screen's last picture, so this is loading time. Log: "rt: a new
+  world's first frame: ... ms in all before it is drawn" and "rt: the new world's first frame took ... ms".
+- **Every history starts again** with a new world (`settle` resets the AO's, GI's and fog's): a camera held at the
+  same place across the load would otherwise find the last world's history.
+- **Meshes not skinned yet are traced by nothing**: a mesh skinned on the processor is recorded as a transparent
+  instance (mask 0x80) until one of its vertex buffers has been written after it was first recorded - before that its
+  buffers hold the unskinned data, which in a level's first frame cast large wrong shadows and occlusion (AU: 40% of the
+  first picture darkened, the seeded histories carrying it for ~30 frames). The same held for a ped appearing mid-play.
+- **The frame's sun before the views**: `RayTracing::prepare_frame` (added; every frame after `begin_frame`) - the
+  Vulkan backend brings the sky model's table and `rt::set_sun_light` up to date for the frame's sun while the sun's
+  effects or the sky model are on.
+- **Seeded histories** (`gpu_vulkan/vulkan_rt_history.h`): a history that starts again - a new viewport or target, a
+  load, a viewport not drawn the frame before, the settings changed, or a **cut** (the camera moved more than 250 units
+  or turned more than 45 degrees between two frames: a teleport, a restart, looking behind) - runs the trace and the
+  temporal pass as many times in that frame as the history holds, each with the next frame's directions / jitter from
+  the same camera: AO and GI 32 times (then the spatial filter once), the fog 12 marches. The frame shows what a still
+  camera shows after that many frames; pixels disoccluded in a continuing shot still start again on their own. The cost
+  is that many passes in the one frame (logged once per effect: "a history started again ... seeded").
+- **Pipelines**: every effect's pipelines are made the first time its pass runs - now all in that first frame, before
+  it is presented (the fog's and the shadows' no longer wait for the sun). The RT shaders are compiled by glslang each
+  run (no SPIR-V cache yet - the front end's first frame pays for most of it: 0.3 - 2 s measured, the driver's own cache
+  warm or not).
+- **Off**: with no ray-tracing backend `rt_record` does nothing; with ray tracing but no effect wanting the sun, only
+  the compaction (milliseconds).
+- **Checked**: `thug2_vulkan_rt_effects_check` (the first denoised frame and a camera cut against the 256-ray reference,
+  every history 32 long), `thug2_vulkan_rt_gi_check` (the first frame against its reference), `thug2_vulkan_rt_fog_check`
+  (the first frame's history full and converged; the raw march compared at the seeded frame index). In the game,
+  `tools/game/first_frame_check.ts` (tools/game/README.md): the automation channel's `capture 61 <folder> afterload`
+  takes a level's first frame and the 60 after it from a camera held through the load, with the user's `[Graphics]`
+  (`on`) and with ray tracing off (`off`: the scene's own motion); frame 1 against frame 60 outside both noise masks.
+  Measured (RTX 5070 Ti, 1280 x 720, the user's settings: every effect, msaa 8): BO 0.000% of the compared pixels
+  changed, AU 0.007%, z_dt 0.081%, foun 0.015% (at most 0.5%); the work before the first frame is drawn 255 / 361 / 186
+  / 265 ms (the structures 13 - 55 ms of it, the rest the sun's fit), the first frame 389 / 1557 / 330 / 365 ms in all
+  (the seeded histories and the pipelines first used there; the front end's first frame ~330 ms). Before, the first
+  frame showed no shadows / bounce / haze sun and AO / GI faded in; the fit's ~0.35 s came a second into play.
 
 ## Order of work
 

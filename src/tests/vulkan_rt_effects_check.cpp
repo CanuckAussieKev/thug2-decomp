@@ -165,6 +165,8 @@ const std::array<Solid, 5> kSolids{{
 
 constexpr Vec3 kEye{10.0, 120.0, 150.0};
 constexpr Vec3 kMovedEye{-30.0, 105.0, 140.0};
+// (added by the first frame) a cut: the camera turned 90 degrees round the scene in one frame (vulkan_rt_history.h)
+constexpr Vec3 kCutEye{150.0, 120.0, -10.0};
 constexpr Vec3 kAt{0.0, 0.0, 0.0};
 constexpr Vec3 kUp{0.0, 1.0, 0.0};
 
@@ -1048,7 +1050,7 @@ double percentile(std::vector<double> values, double share)
 
 // The denoised result after a still camera's frames: near the many-ray reference, the histories full, no NaN, the
 // colour multiplied by it.
-void compare_still(const std::vector<uint8_t>& texels, Tally* tally)
+void compare_still(const std::vector<uint8_t>& texels, int frames, Tally* tally, const Vec3& eye = kEye)
 {
     render::vulkan::RtAoTexels final_image;
     render::vulkan::RtAoTexels history;
@@ -1061,7 +1063,7 @@ void compare_still(const std::vector<uint8_t>& texels, Tally* tally)
     tally->check(count_not_finite(final_image) == 0 && count_not_finite(history) == 0,
                  text::format("no NaN or infinity: %d in the result, %d in the history", count_not_finite(final_image),
                               count_not_finite(history)));
-    const std::vector<Seen> seen = seen_all(view_from(kEye));
+    const std::vector<Seen> seen = seen_all(view_from(eye));
     std::vector<double> errors;
     int short_history = 0;
     int colour_wrong = 0;
@@ -1098,7 +1100,7 @@ void compare_still(const std::vector<uint8_t>& texels, Tally* tally)
     tally->check(mean <= kMeanBound && tail <= kTailBound && occluded_sum >= kEnoughOcclusion,
                  text::format("still camera, %d frames: the result near the 256-ray reference over %zu pixels - mean "
                               "error %.4f (at most %.2f), 99th percentile %.4f (at most %.2f)",
-                              kStillFrames, errors.size(), mean, kMeanBound, tail, kTailBound));
+                              frames, errors.size(), mean, kMeanBound, tail, kTailBound));
     tally->check(short_history == 0,
                  text::format("every history %u frames long: %d shorter", render::vulkan::kAoMaxHistory, short_history));
     tally->check(colour_wrong == 0, text::format("the colour multiplied by the result: %d pixels not", colour_wrong));
@@ -1237,19 +1239,34 @@ void run_denoised(render::Gpu& gpu, const Scene& scene, Tally* tally)
     const bool made = make_targets(gpu, 0, &targets);
     tally->check(made, "the targets made");
     if (made) {
-        int passes = 0;
-        for (int frame = 0; frame < kStillFrames; ++frame) {
+        // (added by the first frame) the first frame: its history seeded with a full history's rays (vulkan_rt_history.h) -
+        // as converged as the still camera's after kStillFrames
+        int passes = static_cast<int>(draw_frame(gpu, targets, kEye));
+        std::vector<uint8_t> texels;
+        bool read = read_colour(gpu, targets, &texels);
+        tally->check(read, "the first frame's target read back");
+        if (read) {
+            compare_still(texels, 1, tally);
+        }
+        for (int frame = 1; frame < kStillFrames; ++frame) {
             passes += static_cast<int>(draw_frame(gpu, targets, kEye));
         }
         tally->check(passes == kStillFrames, text::format("%d frames, %d passes", kStillFrames, passes));
-        std::vector<uint8_t> texels;
-        const bool read = read_colour(gpu, targets, &texels);
+        read = read_colour(gpu, targets, &texels);
         tally->check(read, "the target read back");
         if (read) {
-            compare_still(texels, tally);
+            compare_still(texels, kStillFrames, tally);
         }
         tally->check(draw_frame(gpu, targets, kMovedEye) == 1, "the moved camera's frame");
         compare_moved(tally);
+        // (added by the first frame) a cut: the history seeded again at once - converged, every history full
+        text::print("  a camera cut (turned 90 degrees in a frame):\n");
+        tally->check(draw_frame(gpu, targets, kCutEye) == 1, "the cut's frame");
+        read = read_colour(gpu, targets, &texels);
+        tally->check(read, "the target read back");
+        if (read) {
+            compare_still(texels, 1, tally, kCutEye);
+        }
     }
     release_targets(gpu, targets);
 }

@@ -22,10 +22,12 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
+#include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -302,6 +304,8 @@ public:
     void remove_material(rt::MaterialId material) override;
     void update_mesh(rt::MeshId mesh, const rt::Geometry& geometry) override;
     void begin_frame(const rt::FrameRecord& record) override;
+    void settle(const rt::FrameRecord& record) override;
+    void prepare_frame() override;
     rt::ProbeResult probe(const rt::ProbeRequest& ray) override;
     void probe_many(std::span<const rt::ProbeRequest> rays, std::vector<rt::ProbeResult>* results) override;
 };
@@ -1512,6 +1516,61 @@ void VulkanRayTracing::begin_frame(const rt::FrameRecord& record)
         get_log("vulkan: ray tracing: the material table's changes couldn't be made visible (out of memory)");
     }
     begin_scene_frame(state, made, record);
+}
+
+// (added by the first frame) A new world's builds run and its structures compacted now: the frame's work finished
+// (the builds, the compacted sizes asked for), then the frame's scene built again - which collects the sizes, copies
+// each BLAS into its smaller structure and builds the TLAS over the new addresses - until no size is waited for (a
+// level with more static meshes than kCompactionQueries asks in turns). At most kSettleRounds rounds.
+void VulkanRayTracing::settle(const rt::FrameRecord& record)
+{
+    constexpr int kSettleRounds = 8;
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    Scene& made = scene();
+    if (!made.installed || !state.draws_made || !made.any_built) {
+        return;
+    }
+    // (another world: what the temporal effects remember is of the last one - a camera held at the same place would
+    // find it again; every history starts again, seeded in this frame - vulkan_rt_history.h)
+    rt_effects_reset_history(state);
+    rt_gi_reset_history(state);
+    rt_fog_reset_history(state);
+    const auto waiting = [&made] {
+        return made.compactions_wanted > 0 || std::ranges::any_of(made.meshes, [](const auto& entry) {
+                   return entry.second.query_serial != kNoQuery;
+               });
+    };
+    for (int round = 0; round < kSettleRounds && waiting(); ++round) {
+        if (!finish_work(state)) {
+            return;
+        }
+        begin_scene_frame(state, made, record);
+    }
+    if (!finish_work(state)) {
+        return;
+    }
+    destroy_finished(state, made);
+    count_bytes(made);
+    log_scene(made, true);
+}
+
+// (added by the first frame) The sky model's table and the sun's light made for the frame's sun before any view is
+// drawn (the sun's pass and the fog would make it later in the frame - after the one-bounce light has read the sun's
+// colour): only while the sun's effects or the sky model are on.
+void VulkanRayTracing::prepare_frame()
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    const Scene& made = scene();
+    const RtSunSettings& settings = sun_settings_held();
+    if (!made.installed || !state.draws_made || !(settings.sun || settings.shafts || settings.bloom || settings.sky_model)) {
+        return;
+    }
+    std::array<float, 3> toward{};
+    if (frame_sun(&toward)) {
+        update_sky(state, outside_pass(state), toward);
+    }
 }
 
 rt::ProbeResult VulkanRayTracing::probe(const rt::ProbeRequest& ray)

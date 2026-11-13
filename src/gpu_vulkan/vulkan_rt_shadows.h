@@ -15,9 +15,9 @@
 // world casts in the sun and takes nothing else away.
 //
 // - The sun (rt_shadow_sun): by default the one the level's lighting was baked with (engine/gfx/rt_sun.h - found from
-//   the world's vertex colours once the level stands still; the game's own directional lights are the same two in
+//   the world's vertex colours in the level's first frame; the game's own directional lights are the same two in
 //   every level and light the skater, not the level). A level whose bake shows no sun (indoors) gets no pass at all;
-//   until the fit is made (about a second into a level) neither. `light` traces toward the frame record's first
+//   nor before the fit is made (a new world's first frame, before it is drawn). `light` traces toward the frame record's first
 //   directional light, `x,y,z` toward a fixed direction; the console's `rt sun` overrides either (rt_scene.h).
 // - Where the bake disagrees (rt_shadow_match_bake, with the baked sun): occlusion times the level's agreement grid at
 //   the pixel's x, z (binding 2; rt_sun.h make_agreement) - none where the bake is bright although the sun is blocked.

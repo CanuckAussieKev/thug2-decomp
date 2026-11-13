@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -76,7 +77,6 @@ constexpr uint32_t kPositionBytes = 12;
 constexpr uint32_t kBlendWeightBytes = 4;
 constexpr uint32_t kNormalBytes = 12;
 constexpr uint32_t kColourBytes = 4;
-constexpr uint32_t kStableFrames = 60;          // the world unchanged this many frames: fitted
 constexpr float kLumaRed = 0.299F;              // a colour's brightness (Rec. 601 luma)
 constexpr float kLumaGreen = 0.587F;
 constexpr float kLumaBlue = 0.114F;
@@ -109,14 +109,23 @@ struct MaterialEntry {
 
 struct State {
     std::unordered_map<const MeshRef*, MeshEntry> meshes;
-    // the baked sun's fit: the last frame's world meshes, their signature (their ids), how long it has stood
+    // (changed by the first frame) a new world's work - its structures settled, the baked sun fitted - done in its first
+    // frame: this frame's world meshes, the loaded scenes' key (scene_key), the key last settled and the one last fitted
     std::vector<const MeshRef*> world;
-    uint64_t world_signature = 0;
-    uint32_t stable_frames = 0;
-    uint64_t fitted_signature = 0;
+    uint64_t scene_key = 0;
+    uint64_t settled_key = 0;
+    uint64_t fitted_key = 0;
     uint64_t fits = 0;
+    // the first frame's time (from its record to the next frame's), logged at the next record_frame
+    std::chrono::steady_clock::time_point first_frame_start;
+    double first_frame_work_ms = 0.0;
+    bool first_frame_timed = false;
     std::unordered_map<const MaterialRef*, MaterialEntry> materials;
     std::unordered_set<const VertexBufferData*> written; // since the last record
+    // (added by the first frame) the meshes skinned on the processor whose vertices have been written since they were
+    // first recorded - until then their buffers hold the unskinned data (a new world's first frame, a ped that has just
+    // appeared): traced by nothing (skinned_ready)
+    std::unordered_set<const MeshRef*> skinned_ready;
     uint64_t frame = 0;
     bool recorded = false; // record_frame ran this frame (begin_frame not yet)
     bool begun = false;    // begin_frame called this frame
@@ -408,6 +417,24 @@ bool mesh_shown(const MeshRef* mesh)
     return (mesh->flags() & kMeshShown) != 0U && (mesh->flags() & kMeshHidden) == 0U;
 }
 
+// (added by the first frame) Whether a mesh skinned on the processor has had its vertices written since it was first
+// recorded: one of its vertex buffers among those written (the frame before's skinning) - from then on it stays ready.
+bool skinned_ready(const MeshRef* mesh)
+{
+    State& st = state();
+    if (st.skinned_ready.contains(mesh)) {
+        return true;
+    }
+    for (uint32_t i = 0; i < mesh->vertex_buffer_count(); ++i) {
+        const VertexBuffer* buffer = mesh->vertex_store(i);
+        if (buffer != nullptr && st.written.contains(buffer)) {
+            st.skinned_ready.insert(mesh);
+            return true;
+        }
+    }
+    return false;
+}
+
 // One instance of a mesh with a world transform (a Direct3D matrix).
 void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, rt::RayTracing& rt)
 {
@@ -427,6 +454,10 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
     }
     if (mesh->per_vertex_data() != nullptr) {
         flags |= rt::kSkinned;
+        if (!skinned_ready(mesh)) {
+            // (not skinned yet: in the record - it is drawn - but as a transparent instance, which no effect traces)
+            flags = kind | rt::kSkinned | rt::kTransparent;
+        }
     }
     rt::frame_record().instances.push_back(
         {.mesh = id, .material = material, .flags = flags, .object_to_world = rt::object_to_world_rows(world.floats())});
@@ -445,11 +476,19 @@ void record_world(rt::RayTracing& rt)
         if (meshes == nullptr || scene->is_sky() || meshes->unknown40() != 0U) {
             continue;
         }
+        uint64_t count = 0;
         for (const MeshRef* mesh : meshes->mesh_run()) {
+            ++count;
             if (mesh != nullptr && mesh_shown(mesh)) {
                 add_instance(mesh, rt::kWorld, identity, rt);
                 state().world.push_back(mesh);
             }
+        }
+        // (the loaded scenes' key: which they are and how many meshes each has - not which are shown, so a sector
+        // turned on or off keeps the level's fit)
+        for (const uint64_t part : {static_cast<uint64_t>(std::bit_cast<uintptr_t>(scene)),
+                                    static_cast<uint64_t>(std::bit_cast<uintptr_t>(meshes)), count}) {
+            state().scene_key = (state().scene_key ^ part) * kFnvPrime;
         }
     }
 }
@@ -738,27 +777,43 @@ void make_fit(rt::RayTracing& rt)
     rt::set_baked_sun(std::move(fit.sun));
 }
 
-// The last frame's world (its TLAS built): once it has stood still kStableFrames frames and isn't the one fitted, the
-// baked sun fitted to it; a world that changed loses its fit. Only when the fit is wanted (the shadow pass on).
-void fit_sun(rt::RayTracing& rt)
+// (changed by the first frame - docs/design/vulkan.md "The first frame after a load") A new world - the loaded scenes'
+// key not the one settled: the level's first frame, after a load, the editor's load - gets its work done in that frame,
+// after its begin_frame and before any view is drawn (the frame is shown over the loading screen's last picture): the
+// structures the frame built run and are compacted (RayTracing::settle), and the baked sun is fitted to them when it
+// is wanted - so the first frame the player sees has its shadows, its bounce light and its fog's sun. A fit wanted
+// later (the settings changed) is made then; a world with nothing in it keeps nothing.
+void new_world_work(rt::RayTracing& rt)
 {
     State& st = state();
-    uint64_t signature = kFnvBasis;
-    for (const MeshRef* mesh : st.world) {
-        const auto found = st.meshes.find(mesh);
-        signature = (signature ^ (found != st.meshes.end() ? found->second.id : 0U)) * kFnvPrime;
+    if (st.world.empty()) {
+        return;
     }
-    const bool empty = st.world.empty();
-    st.stable_frames = signature == st.world_signature ? st.stable_frames + 1 : 0U;
-    st.world_signature = signature;
-    if (signature != st.fitted_signature && rt::baked_sun().scene != 0) {
+    const bool settle = st.scene_key != st.settled_key;
+    const bool fit = rt::baked_sun_wanted() && st.scene_key != st.fitted_key;
+    if (settle && st.scene_key != st.fitted_key && rt::baked_sun().scene != 0) {
         rt::set_baked_sun({}); // (another world: the old fit no longer holds)
     }
-    if (rt::baked_sun_wanted() && !empty && st.stable_frames >= kStableFrames && signature != st.fitted_signature) {
-        st.fitted_signature = signature;
-        make_fit(rt); // (the samples read the world's meshes as the last frame recorded them: st.world)
+    if (!settle && !fit) {
+        return;
     }
-    st.world.clear();
+    const auto start = std::chrono::steady_clock::now();
+    double settled_ms = 0.0;
+    if (settle) {
+        st.settled_key = st.scene_key;
+        rt.settle(rt::frame_record());
+        settled_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    }
+    if (fit) {
+        st.fitted_key = st.scene_key;
+        make_fit(rt); // (the samples read the world's meshes as this frame recorded them: st.world)
+    }
+    st.first_frame_work_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    st.first_frame_timed = true;
+    get_log("rt: a new world's first frame: %zu world meshes, %zu instances - the structures built and compacted in "
+            "%.0f ms%s, %.0f ms in all before it is drawn",
+            st.world.size(), rt::frame_record().instances.size(), settled_ms,
+            fit ? ", the baked sun fitted" : " (no baked sun wanted)", st.first_frame_work_ms);
 }
 
 // A colour's r, g, b bytes times a factor.
@@ -824,7 +879,15 @@ void record_frame()
         return;
     }
     State& st = state();
-    fit_sun(*rt);
+    const auto now = std::chrono::steady_clock::now();
+    if (st.first_frame_timed) {
+        st.first_frame_timed = false;
+        get_log("rt: the new world's first frame took %.0f ms (%.0f ms of it its structures and sun)",
+                std::chrono::duration<double, std::milli>(now - st.first_frame_start).count(), st.first_frame_work_ms);
+    }
+    st.first_frame_start = now;
+    st.world.clear();
+    st.scene_key = kFnvBasis;
     ++st.frame;
     st.recorded = true;
     st.begun = false;
@@ -860,6 +923,8 @@ void camera_chosen(int viewport)
     if (!st.begun) {
         st.begun = true;
         rt->begin_frame(rt::frame_record());
+        new_world_work(*rt); // (added by the first frame: a new world's structures and sun, before it is drawn)
+        rt->prepare_frame();
     }
 }
 
@@ -889,6 +954,7 @@ void mesh_released(const MeshRef* mesh)
         rt->remove_mesh(found->second.id);
         st.meshes.erase(found);
     }
+    st.skinned_ready.erase(mesh);
 }
 
 void material_released(const MaterialRef* material)
@@ -925,6 +991,7 @@ void forget_meshes()
     }
     st.meshes.clear();
     st.written.clear();
+    st.skinned_ready.clear(); // (the buffers made again: skinned again before they are traced)
 }
 
 ColourWrite::ColourWrite() { ++state().colour_writes; }
