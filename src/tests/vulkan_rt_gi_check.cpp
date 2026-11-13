@@ -19,6 +19,10 @@
 //   - Denoised, a still camera: after 48 frames the light the colour was given is near a 256-ray reference (mean and
 //     99th-percentile error) with every history full (32 frames).
 //   - rt_gi off: no pass, nothing changed.
+//   - (added for the skater's smooth shading) A smooth-shaded low-poly sphere - an object with its vertex normals,
+//     beside the red wall, its far side from the sun in shade -: both effects' raw rays averaged over 48 frames step at
+//     its triangles' edges no more than within a triangle; the same sphere without normals (the depth's per-triangle
+//     normal) does step there - the facets the skater showed.
 //   thug2_vulkan_rt_gi_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
@@ -511,6 +515,7 @@ struct SceneMesh {
     render::GpuVertexBuffer* vertices = nullptr;
     std::vector<std::array<float, 3>> triangles;
     uint32_t drawn = 0;
+    uint32_t flags = kWorldOpaque; // (the instance's: the smooth sphere is an object)
 };
 
 void put_float(std::span<uint8_t> bytes, std::size_t at, float value)
@@ -723,7 +728,7 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const Sc
         {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}}};
     for (const SceneMesh& mesh : meshes) {
         record.instances.push_back(
-            {.mesh = mesh.id, .material = mesh.material, .flags = kWorldOpaque, .object_to_world = kIdentityRows});
+            {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = kIdentityRows});
     }
     record.lights.push_back({.kind = rt::Light::Kind::kAmbient,
                              .colour = {static_cast<float>(core::at(kAmbient, 0)),
@@ -1104,6 +1109,318 @@ void run_denoised(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
     release_targets(gpu, targets);
 }
 
+// --- (added for the skater's smooth shading) a smooth-shaded low-poly object ----------------------------------------
+// A UV sphere of few triangles with its vertices' own (the sphere's) normals - as the skater's body is a low-poly mesh
+// the game lights smoothly - standing on the floor beside the red wall, as an object (instance mask 0x02), its far side
+// from the sun in its own shade. Its pixels' rays (the occlusion's and the bounce's) leave around those normals blended
+// at the pixel; the same sphere without normals in its mesh takes the depth's per-triangle normal - the facets this
+// guards against - and must show them in the same measure.
+
+constexpr int kSphereSlices = 12;
+constexpr int kSphereStacks = 8;
+constexpr double kSphereRadius = 20.0;
+constexpr Vec3 kSphereCentre{-6.0, 20.0, 0.0};
+constexpr uint32_t kFvfNormals = 0x152; // XYZ | NORMAL | DIFFUSE | TEX1
+constexpr uint32_t kNormalsStride = 36; // the position, the normal at 12, the colour at 24, the uv at 28
+constexpr uint32_t kNormalsAt = 12;
+constexpr uint32_t kNormalsColour = 24;
+constexpr uint32_t kNormalsUv = 28;
+constexpr uint32_t kSphereDrawn = 0xFF808080;
+constexpr Rgb kSphereAlbedo{0.6, 0.6, 0.6};
+constexpr unsigned kSmoothRays = 16;
+constexpr int kSmoothFrames = 48;
+constexpr float kSmoothRadius = 60.0F; // the occlusion's rt_ao_radius here
+
+// The sphere's triangles: each corner's position and its normal (the sphere's at the corner).
+struct SphereCorner {
+    Vec3 position{};
+    Vec3 normal{};
+};
+std::vector<std::array<SphereCorner, 3>> sphere_triangles()
+{
+    constexpr double kPi = 3.14159265358979323846;
+    const auto corner = [](int stack, int slice) {
+        const double polar = kPi * stack / kSphereStacks;
+        const double around = 2.0 * kPi * slice / kSphereSlices;
+        const Vec3 normal{std::sin(polar) * std::cos(around), std::cos(polar), std::sin(polar) * std::sin(around)};
+        return SphereCorner{.position = step(kSphereCentre, normal, kSphereRadius), .normal = normal};
+    };
+    std::vector<std::array<SphereCorner, 3>> out;
+    for (int stack = 0; stack < kSphereStacks; ++stack) {
+        for (int slice = 0; slice < kSphereSlices; ++slice) {
+            const SphereCorner upper = corner(stack, slice);
+            const SphereCorner upper_next = corner(stack, slice + 1);
+            const SphereCorner lower_next = corner(stack + 1, slice + 1);
+            const SphereCorner lower = corner(stack + 1, slice);
+            if (stack != 0) {
+                out.push_back({upper, upper_next, lower});
+            }
+            if (stack != kSphereStacks - 1) {
+                out.push_back({upper_next, lower_next, lower});
+            }
+        }
+    }
+    return out;
+}
+
+// The sphere's mesh (an unindexed list: position, normal, grey colour, uv) as an object - with its normals in the
+// geometry (`normals`), or without (the depth's per-triangle normal then).
+bool make_sphere(render::Gpu& gpu, bool normals, SceneMesh* mesh)
+{
+    const std::vector<std::array<SphereCorner, 3>> triangles = sphere_triangles();
+    mesh->drawn = kSphereDrawn;
+    mesh->flags = rt::kObject | rt::kOpaque | rt::kCastsShadow;
+    mesh->triangles.clear();
+    std::vector<uint8_t> bytes(triangles.size() * 3 * kNormalsStride);
+    std::size_t vertex = 0;
+    for (const std::array<SphereCorner, 3>& triangle : triangles) {
+        for (const SphereCorner& corner : triangle) {
+            mesh->triangles.push_back(floats(corner.position));
+            const std::size_t base = vertex * kNormalsStride;
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                put_float(bytes, base + (axis * sizeof(float)), static_cast<float>(core::at(corner.position, axis)));
+                put_float(bytes, base + kNormalsAt + (axis * sizeof(float)), static_cast<float>(core::at(corner.normal, axis)));
+            }
+            put_word(bytes, base + kNormalsColour, kGrey);
+            put_float(bytes, base + kNormalsUv, 0.0F);
+            put_float(bytes, base + kNormalsUv + sizeof(float), 0.0F);
+            ++vertex;
+        }
+    }
+    void* data = nullptr;
+    if (gpu.create_vertex_buffer(static_cast<uint32_t>(bytes.size()), 0, kFvfNormals, value::kPoolDefault,
+                                 &mesh->vertices) != value::kResultOk ||
+        gpu.lock_vertex_buffer(mesh->vertices, 0, 0, &data, 0) != value::kResultOk) {
+        return false;
+    }
+    std::memcpy(data, bytes.data(), bytes.size());
+    if (gpu.unlock_vertex_buffer(mesh->vertices) != value::kResultOk) {
+        return false;
+    }
+    const rt::Geometry geometry{.vertices = mesh->vertices,
+                                .vertex_offset = 0,
+                                .vertex_stride = kNormalsStride,
+                                .vertex_count = static_cast<uint32_t>(vertex),
+                                .position_offset = 0,
+                                .indices = nullptr,
+                                .index_offset = 0,
+                                .index_count = 0,
+                                .indices_32bit = false,
+                                .strip = false,
+                                .dynamic = false,
+                                .uv_offset = kNormalsUv,
+                                .uv_format = rt::kUvFloat2,
+                                .colour_offset = kNormalsColour,
+                                .colour_format = rt::kColourA8R8G8B8,
+                                .normal_offset = normals ? kNormalsAt : 0U,
+                                .normal_format = normals ? rt::kNormalFloat3 : rt::kAttributeNone};
+    mesh->id = rt::next_mesh_id();
+    rt::ray_tracing()->add_mesh(mesh->id, geometry);
+    mesh->material = rt::next_material_id();
+    rt::Material surface;
+    surface.colour = {static_cast<float>(core::at(kSphereAlbedo, 0)), static_cast<float>(core::at(kSphereAlbedo, 1)),
+                      static_cast<float>(core::at(kSphereAlbedo, 2)), 1.0F};
+    surface.flags = rt::kOpaque;
+    rt::ray_tracing()->set_material(mesh->material, surface);
+    return true;
+}
+
+// Which of the sphere's triangles each pixel's centre sees first (-1: not the sphere - the floor, the wall, the sky -,
+// or the sphere seen within kGrazing of its silhouette), as the processor casts the camera's rays.
+std::vector<int> sphere_triangle_seen()
+{
+    const std::vector<std::array<SphereCorner, 3>> triangles = sphere_triangles();
+    const View view = view_from(kEye);
+    const std::array<Solid, 2> others{core::at(kRoom, 0), core::at(kRoom, 1)};
+    std::vector<int> seen(static_cast<std::size_t>(kColumns) * kRows, -1);
+    for (int row = 0; row < kRows; ++row) {
+        for (int column = 0; column < kColumns; ++column) {
+            const double ndc_x = (2.0 * column / kTargetWidth) - 1.0;
+            const double ndc_y = 1.0 - (2.0 * row / kTargetHeight);
+            const Vec3 direction = normalised(step(
+                step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height), view.back, -1.0));
+            double nearest = first_hit(others, view.eye, direction, kNoHit).hit.distance;
+            int found = -1;
+            for (std::size_t index = 0; index < triangles.size(); ++index) {
+                // (Moller-Trumbore)
+                const std::array<SphereCorner, 3>& triangle = core::at(triangles, index);
+                const Vec3 edge1 = minus(core::at(triangle, 1).position, core::at(triangle, 0).position);
+                const Vec3 edge2 = minus(core::at(triangle, 2).position, core::at(triangle, 0).position);
+                const Vec3 across = cross(direction, edge2);
+                const double determinant = dot(edge1, across);
+                constexpr double kParallel = 1e-12;
+                if (std::abs(determinant) < kParallel) {
+                    continue;
+                }
+                const Vec3 from = minus(view.eye, core::at(triangle, 0).position);
+                const double u = dot(from, across) / determinant;
+                const Vec3 turned = cross(from, edge1);
+                const double v = dot(direction, turned) / determinant;
+                const double distance = dot(edge2, turned) / determinant;
+                if (u < 0.0 || v < 0.0 || u + v > 1.0 || distance <= 0.0 || distance >= nearest) {
+                    continue;
+                }
+                nearest = distance;
+                found = static_cast<int>(index);
+            }
+            if (found >= 0) {
+                constexpr double kGrazing = 0.35; // (the view's cosine with the sphere's normal there, at least)
+                const Vec3 point = step(view.eye, direction, nearest);
+                const Vec3 outward = normalised(minus(point, kSphereCentre));
+                if (-dot(outward, direction) < kGrazing) {
+                    found = -1;
+                }
+            }
+            core::at(seen, (static_cast<std::size_t>(row) * kColumns) + static_cast<std::size_t>(column)) = found;
+        }
+    }
+    return seen;
+}
+
+// The steps between neighbouring pixels on the sphere: the mean difference between two pixels on different triangles
+// against the mean between two on the same one (the noise and the smooth change across a pixel). A faceted result
+// steps at the triangles' edges.
+struct Steps {
+    double across = 0.0; // pixels on two triangles
+    double within = 0.0; // on one
+    int across_pairs = 0;
+    int within_pairs = 0;
+};
+Steps steps_of(const std::vector<int>& seen, const std::vector<double>& values)
+{
+    Steps steps;
+    for (int row = 0; row + 1 < kRows; ++row) {
+        for (int column = 0; column + 1 < kColumns; ++column) {
+            const std::size_t here = (static_cast<std::size_t>(row) * kColumns) + static_cast<std::size_t>(column);
+            for (const std::size_t other : {here + 1, here + static_cast<std::size_t>(kColumns)}) {
+                const int one = core::at(seen, here);
+                const int two = core::at(seen, other);
+                if (one < 0 || two < 0) {
+                    continue;
+                }
+                const double difference = std::abs(core::at(values, here) - core::at(values, other));
+                if (one == two) {
+                    steps.within += difference;
+                    ++steps.within_pairs;
+                } else {
+                    steps.across += difference;
+                    ++steps.across_pairs;
+                }
+            }
+        }
+    }
+    steps.across /= std::max(1, steps.across_pairs);
+    steps.within /= std::max(1, steps.within_pairs);
+    return steps;
+}
+
+// Both effects' rays over the scene (the floor, the wall, the sphere) for kSmoothFrames frames, each frame's raw
+// occlusion and light (its luma) added up per pixel: their means, and the steps over the sphere.
+struct SmoothResult {
+    bool ok = false;
+    Steps occlusion;
+    Steps light;
+};
+SmoothResult trace_sphere(render::Gpu& gpu, std::span<const SceneMesh> meshes, const std::vector<int>& seen)
+{
+    SmoothResult result;
+    Targets targets;
+    if (!make_targets(gpu, 0, &targets)) {
+        release_targets(gpu, targets);
+        return result;
+    }
+    render::vulkan::set_rt_ao_settings(
+        {.on = true, .strength = 1.0F, .radius = kSmoothRadius, .rays = kSmoothRays, .denoise = false});
+    render::vulkan::set_rt_gi_settings(settings_for(true, kSmoothRays, false));
+    {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::rt_effects_reset_history(state);
+        render::vulkan::rt_gi_reset_history(state);
+    }
+    const std::size_t pixels = static_cast<std::size_t>(kColumns) * kRows;
+    std::vector<double> occlusion(pixels, 0.0);
+    std::vector<double> light(pixels, 0.0);
+    bool ok = true;
+    for (int frame = 0; frame < kSmoothFrames && ok; ++frame) {
+        const uint64_t ao_before = render::vulkan::rt_ao_passes();
+        ok = draw_frame(gpu, targets, meshes, static_cast<uint64_t>(frame) + 1) == 1 &&
+             render::vulkan::rt_ao_passes() == ao_before + 1;
+        render::vulkan::RtAoTexels ao;
+        render::vulkan::RtAoTexels gi;
+        {
+            render::vulkan::Backend& state = render::vulkan::backend();
+            const std::scoped_lock lock(state.mutex);
+            ok = ok &&
+                 render::vulkan::read_rt_ao_image(state, {0, 0, kTargetWidth, kTargetHeight},
+                                                  render::vulkan::RtAoImage::kRaw, &ao) &&
+                 ao.texels.size() == pixels;
+        }
+        ok = ok && read_gi(render::vulkan::RtGiImage::kRaw, &gi) && not_finite(ao) == 0 && not_finite(gi) == 0;
+        for (std::size_t i = 0; ok && i < pixels; ++i) {
+            const std::array<float, 4>& lit = core::at(gi.texels, i);
+            constexpr double kRed = 0.2126;
+            constexpr double kGreen = 0.7152;
+            constexpr double kBlue = 0.0722;
+            core::at(occlusion, i) += core::at(core::at(ao.texels, i), 0) / static_cast<double>(kSmoothFrames);
+            core::at(light, i) += ((kRed * core::at(lit, 0)) + (kGreen * core::at(lit, 1)) + (kBlue * core::at(lit, 2))) /
+                                  static_cast<double>(kSmoothFrames);
+        }
+    }
+    render::vulkan::set_rt_ao_settings({});
+    release_targets(gpu, targets);
+    result.ok = ok;
+    result.occlusion = steps_of(seen, occlusion);
+    result.light = steps_of(seen, light);
+    return result;
+}
+
+void run_smooth(render::Gpu& gpu, std::span<const SceneMesh> room, Tally* tally)
+{
+    text::print("a smooth-shaded low-poly object (%d x %d sphere, %u rays x %d frames, the occlusion's and the "
+                "bounce's):\n",
+                kSphereSlices, kSphereStacks, kSmoothRays, kSmoothFrames);
+    const std::vector<int> seen = sphere_triangle_seen();
+    std::array<SmoothResult, 2> results{};
+    for (const bool normals : {true, false}) {
+        SceneMesh sphere;
+        const bool made = make_sphere(gpu, normals, &sphere);
+        tally->check(made, text::format("the sphere made (%s)", normals ? "with its normals" : "without normals"));
+        if (made) {
+            const std::array<SceneMesh, 3> meshes{core::at(room, 0), core::at(room, 1), sphere};
+            core::at(results, normals ? 0 : 1) = trace_sphere(gpu, meshes, seen);
+        }
+        release_solid(gpu, &sphere);
+    }
+    const SmoothResult& smooth = results.front();
+    const SmoothResult& flat = results.back();
+    tally->check(smooth.ok && flat.ok, "every frame's passes recorded and their images read back, all finite");
+    if (!smooth.ok || !flat.ok) {
+        return;
+    }
+    // (a step: the mean difference across the triangles' edges beyond the one within a triangle)
+    const auto step_of = [](const Steps& steps) { return steps.across - steps.within; };
+    constexpr int kEnoughPairs = 400;
+    constexpr double kSmoothOcclusion = 0.006;  // at most, with the normals (0.001 here)
+    constexpr double kFacetedOcclusion = 0.012; // at least, without: the measure sees facets (0.021 here)
+    constexpr double kSmoothLight = 0.25;       // at most, as a share of the faceted step (0.04 here)
+    tally->check(smooth.occlusion.across_pairs >= kEnoughPairs && smooth.occlusion.within_pairs >= kEnoughPairs,
+                 text::format("the sphere seen: %d pixel pairs across its triangles' edges, %d within one",
+                              smooth.occlusion.across_pairs, smooth.occlusion.within_pairs));
+    tally->check(step_of(flat.occlusion) >= kFacetedOcclusion,
+                 text::format("without its normals the occlusion steps at the triangles' edges: %.4f across, %.4f "
+                              "within (a step of %.4f, at least %.3f)",
+                              flat.occlusion.across, flat.occlusion.within, step_of(flat.occlusion), kFacetedOcclusion));
+    tally->check(step_of(smooth.occlusion) <= kSmoothOcclusion,
+                 text::format("with them the occlusion is smooth: %.4f across, %.4f within (a step of %.4f, at most "
+                              "%.3f)",
+                              smooth.occlusion.across, smooth.occlusion.within, step_of(smooth.occlusion),
+                              kSmoothOcclusion));
+    tally->check(step_of(flat.light) > 0.0 && step_of(smooth.light) <= kSmoothLight * step_of(flat.light),
+                 text::format("and the bounce light: a step of %.4f with the normals, %.4f without (at most %.2f of it)",
+                              step_of(smooth.light), step_of(flat.light), kSmoothLight));
+}
+
 int window_position(int display)
 {
     int displays = 0;
@@ -1189,6 +1506,7 @@ int run(const Options& options, SDL_Window* window)
         run_raw(gpu, meshes, kFourSamples, &tally);
         run_open(gpu, std::span(meshes).first(1), &tally);
         run_denoised(gpu, meshes, &tally);
+        run_smooth(gpu, meshes, &tally);
     }
     for (SceneMesh& mesh : meshes) {
         release_solid(gpu, &mesh);

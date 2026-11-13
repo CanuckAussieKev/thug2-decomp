@@ -11,7 +11,9 @@
 // RtAoSettings). After a viewport's opaque world is drawn (rt::opaque_view_drawn, the point R4's shadows use too), a few
 // compute passes over images of the viewport's size, then one full-screen pass over the colour target:
 //   1. trace: each pixel's world position rebuilt from the depth (sample 0 of a multisampled one) and the view's camera,
-//      its normal from the nearer neighbours' depths (as the shadows do); `rays` ray queries over the cosine-weighted
+//      its normal from the nearer neighbours' depths (as the shadows do) - on an object (mask 0x02) its vertex normals
+//      blended at the pixel, from the scene's geometry table (vulkan_rt_scene.h); `rays` ray queries over the
+//      cosine-weighted
 //      hemisphere around the normal, no longer than `radius` world units; the pixel's occlusion is the share that hit
 //      something (0 - 1). The directions: a 2D low-discrepancy sequence (R2) advanced each frame, turned per pixel by a
 //      hash of its position - the same each run, so the check can work them out on the processor. The position and

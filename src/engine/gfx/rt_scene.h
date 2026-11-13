@@ -52,10 +52,16 @@ struct Geometry {
     // (added for the reflections' masks) How many texture coordinate sets follow one another from uv_offset (two floats
     // each: a material's pass n reads set n) - 0 read as 1 where uv_format says there are coordinates.
     uint32_t uv_sets = 0;
+    // (added for the skater's smooth shading) Its vertex normal (three floats, in the mesh's own space) - what the
+    // game lights it with; a format of kAttributeNone: the mesh has none. The occlusion and bounce light's rays leave
+    // an object's pixel around it, not around the depth's flat, per-triangle normal.
+    uint32_t normal_offset = 0;
+    uint32_t normal_format = 0; // kAttributeNone or kNormalFloat3
 };
 inline constexpr uint32_t kAttributeNone = 0;
 inline constexpr uint32_t kUvFloat2 = 1;
 inline constexpr uint32_t kColourA8R8G8B8 = 1;
+inline constexpr uint32_t kNormalFloat3 = 1;
 
 enum InstanceFlag : uint32_t {
     kOpaque = 1U << 0,      // no alpha test or blend: any hit ends a shadow ray
