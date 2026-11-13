@@ -88,6 +88,31 @@ void end_scene() { render::engine::end_render(); }      // EndScene, Present
 
 uint8_t cinema_bars_on() { return render::renderer().render_camera().letterbox_active_; }
 
+// NOT ORIGINAL - the frame's wait mostly slept: until `spin` before `due` (performance-counter ticks) on a
+// high-resolution waitable timer, when more than that is left. The main loop's Sleep(0) loop held a core busy for the
+// whole wait (each game running - and the workspaces' copies beside it - took a core from the others and from the
+// processor's boost); it now spins only the last moments, so the frame still starts at its time. Nothing when the
+// timer can't be made (older Windows): the spin does it all, as before.
+void sleep_until_near(uint64_t due, uint64_t now, int64_t frequency)
+{
+    constexpr int64_t kSpinMicroseconds = 2000; // (the timer wakes within a few hundred microseconds of its time)
+    constexpr int64_t kMicrosecondsPerSecond = 1000000;
+    constexpr int64_t kTicksPer100ns = 10; // (a waitable timer's relative time: 100 ns units, negative)
+    static HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    if (timer == nullptr || due <= now) {
+        return;
+    }
+    const auto left = static_cast<int64_t>((due - now) * kMicrosecondsPerSecond / static_cast<uint64_t>(frequency));
+    if (left <= kSpinMicroseconds) {
+        return;
+    }
+    LARGE_INTEGER wait;
+    wait.QuadPart = -(left - kSpinMicroseconds) * kTicksPer100ns;
+    if (SetWaitableTimer(timer, &wait, 0, nullptr, nullptr, FALSE) != 0) {
+        WaitForSingleObject(timer, INFINITE);
+    }
+}
+
 } // namespace
 
 // The frame's render with PartyMod's letterbox (PartyMod's renderWorldWrapper, at 0x0044F1C0): letterboxed
@@ -265,6 +290,12 @@ void Hub::get_main_loop()
         auto now = static_cast<uint64_t>(counter.QuadPart);
         {
             const frame_profile::Scope pace("pace");
+            // Not original - most of a long wait slept (sleep_until_near): the loop below then spins only the last
+            // moments, so the frame starts when it did, without a core held busy the whole time.
+            // Original behaviour: Sleep(0) until the frame's time.
+            sleep_until_near(frame_start + frame_ticks, now, frequency.QuadPart);
+            QueryPerformanceCounter(&counter);
+            now = static_cast<uint64_t>(counter.QuadPart);
             while (now < frame_start + frame_ticks) {
                 Sleep(0);
                 QueryPerformanceCounter(&counter);
