@@ -82,6 +82,7 @@ struct GeometryRecord {
     uint index_offset;
     uint flags;
     uint instance_flags;
+    uint normal_offset;
 };
 layout(set = THUG2_GEOMETRY_SET, binding = THUG2_GEOMETRY_BINDING, scalar) readonly buffer GeometryRecords {
     GeometryRecord geometry_records[];
@@ -91,10 +92,11 @@ const uint GEOMETRY_LIVE = 1u;
 const uint GEOMETRY_INDEX32 = 2u;
 const uint GEOMETRY_UV = 4u;
 const uint GEOMETRY_COLOUR = 8u;
+const uint GEOMETRY_NORMAL = 16u;
 GeometryRecord geometry_record(uint instance)
 {
     if (instance >= uint(geometry_records.length())) {
-        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     }
     return geometry_records[instance];
 }
@@ -169,6 +171,21 @@ vec2 hit_uv_set(uint instance, uint primitive, vec2 barycentrics, uint set)
         uv += vec2(geometry_float(g, corner, offset), geometry_float(g, corner, offset + 4u)) * weights[k];
     }
     return uv;
+}
+bool hit_normal(uint instance, uint primitive, vec2 barycentrics, out vec3 normal)
+{
+    GeometryRecord g = geometry_record(instance);
+    normal = vec3(0.0);
+    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_NORMAL) == 0u) {
+        return false;
+    }
+    float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
+    for (uint k = 0u; k < 3u; ++k) {
+        uint corner = geometry_corner(g, primitive, k);
+        normal += vec3(geometry_float(g, corner, g.normal_offset), geometry_float(g, corner, g.normal_offset + 4u),
+                       geometry_float(g, corner, g.normal_offset + 8u)) * weights[k];
+    }
+    return true;
 }
 vec4 hit_colour(HitVertices v, vec2 barycentrics)
 {
@@ -1185,6 +1202,11 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
         geometry.colour_offset + kFloatBytes <= geometry.vertex_stride) {
         row.colour_offset = geometry.colour_offset;
         row.flags |= kGeometryColour;
+    }
+    if (geometry.normal_format == rt::kNormalFloat3 && geometry.normal_offset % kFloatBytes == 0 &&
+        geometry.normal_offset + (3 * kFloatBytes) <= geometry.vertex_stride) {
+        row.normal_offset = geometry.normal_offset;
+        row.flags |= kGeometryNormal;
     }
     if (mesh->list_indices.buffer != VK_NULL_HANDLE) {
         row.index_address = address_words(address_of(made.device, mesh->list_indices.buffer));

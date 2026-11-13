@@ -209,8 +209,13 @@ float start_offset(float distance) { return pc.params.z * (1.0 + distance * 0.00
 // the depth does. An object's low-poly body traced against itself from the depth's per-triangle normals drew dark
 // facets over the skater (its shirt, its arms); objects take the world's occlusion and bounce only, as they take the
 // world's shadows only (vulkan_rt_shadows.cpp).
+// (added for the skater's smooth shading) And on an object whose mesh has vertex normals, `normal` becomes the one the
+// game lights it with - its vertices' blended at the hit, in the world - in place of the depth's: the depth's normal
+// is its triangle's, flat, and the rays' hemisphere tilted with each triangle, so the ground and a wall beside him
+// took a different share of each (his shirt, face and arms in hard light and dark facets in the shade). Turned to
+// the side the depth's faces (a mesh whose normals point inward).
 const uint OBJECTS_MASK = 0x02u;
-uint rays_mask(vec3 here, vec3 to_camera, float distance)
+uint rays_mask(vec3 here, vec3 to_camera, float distance, inout vec3 normal)
 {
     uint mask = uint(pc.extra.y) & 0xFFu;
     if ((mask & OBJECTS_MASK) == 0u) {
@@ -223,7 +228,23 @@ uint rays_mask(vec3 here, vec3 to_camera, float distance)
     }
     bool on_object = rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT &&
                      rayQueryGetIntersectionTEXT(query, true) >= distance - (2.0 + 0.02 * distance);
-    return on_object ? (mask & ~OBJECTS_MASK) : mask;
+    if (!on_object) {
+        return mask;
+    }
+    vec3 vertex_normal;
+    if (hit_normal(rayQueryGetIntersectionInstanceIdEXT(query, true),
+                   rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                   rayQueryGetIntersectionBarycentricsEXT(query, true), vertex_normal)) {
+        // (to the world by the inverse transpose: a scaled object's normals stay at right angles to its surface)
+        mat3 to_world = mat3(rayQueryGetIntersectionObjectToWorldEXT(query, true));
+        vec3 n = transpose(inverse(to_world)) * vertex_normal;
+        float n_length = length(n);
+        if (n_length > 1e-12 && !any(isnan(n))) {
+            n /= n_length;
+            normal = dot(n, normal) < 0.0 ? -n : n;
+        }
+    }
+    return mask & ~OBJECTS_MASK;
 }
 
 // The rays' directions: the hemisphere around `normal` (an orthonormal basis without a branch on the normal's
@@ -287,10 +308,10 @@ void main()
     vec3 to_camera = pc.camera.xyz - here;
     float distance = length(to_camera);
     vec3 normal = surface_normal(p, d, here, to_camera, distance);
+    uint mask = rays_mask(here, to_camera, distance, normal);
     vec3 origin = here + normal * start_offset(distance);
     Hemisphere h = hemisphere_of(normal, local);
     uint rays = uint(pc.params.y);
-    uint mask = rays_mask(here, to_camera, distance);
     float hits = 0.0;
     for (uint i = 0u; i < rays; ++i) {
         hits += occluded(origin, hemisphere_ray(h, i, rays), mask);
@@ -453,12 +474,12 @@ void main()
     vec3 to_camera = pc.camera.xyz - here;
     float distance = length(to_camera);
     vec3 normal = surface_normal(p, d, here, to_camera, distance);
+    uint mask = rays_mask(here, to_camera, distance, normal);
     vec3 origin = here + normal * start_offset(distance);
     float footprint = length(world_at(p + ivec2(1, 0), d) - here);
     vec4 albedo = surface_albedo(here, distance, footprint);
     Hemisphere h = hemisphere_of(normal, local);
     uint rays = uint(pc.params.y);
-    uint mask = rays_mask(here, to_camera, distance);
     vec3 sum = vec3(0.0);
     for (uint i = 0u; i < rays; ++i) {
         sum += incoming(origin, hemisphere_ray(h, i, rays), distance, mask);
@@ -678,12 +699,14 @@ constexpr uint32_t kBindingGuide = 3;
 constexpr uint32_t kBindingIn = 4;
 constexpr uint32_t kBindingGuideBefore = 5;
 constexpr uint32_t kBindingHistory = 6;
-constexpr uint32_t kBindingCount = 7;
 // (the indirect light's own: 7 the frame's geometry table, 8 the surfaces' albedo, 9 the lights; set 1 the materials)
 constexpr uint32_t kBindingGeometry = 7;
 constexpr uint32_t kBindingAlbedo = 8;
 constexpr uint32_t kBindingLights = 9;
 constexpr uint32_t kGiBindingCount = 10;
+// (the occlusion's: 0 - 6, and 7 the geometry table - the objects' vertex normals, added for the skater's smooth
+// shading)
+constexpr uint32_t kAoBindingCount = kBindingGeometry + 1;
 constexpr uint32_t kMaterialSet = 1;
 constexpr VkDeviceSize kUniformAlignment = 256; // (at least any device's minUniformBufferOffsetAlignment)
 
@@ -754,8 +777,13 @@ struct EffectsState {
     RtAoSettings settings;   // (the occlusion's)
     RtGiSettings gi;         // (the indirect light's)
     VkAccelerationStructureKHR scene = VK_NULL_HANDLE; // (the occlusion's: the indirect light reads current_scene)
-    VkBuffer geometry = VK_NULL_HANDLE;                // (the indirect light's: the frame's geometry table)
+    VkBuffer geometry = VK_NULL_HANDLE;                // (the frame's geometry table: the objects' vertex normals, the
+                                                       // indirect light's hits)
     VkDeviceSize geometry_bytes = 0;
+    // (the occlusion's, added for the skater's smooth shading) A table of one record, nothing live, for a TLAS handed
+    // over without one (rt_effects_set_scene by a caller other than the scene's builder): every pixel keeps the depth's
+    // normal
+    DeviceBuffer no_geometry;
     PassTiming timing;
     uint64_t sun_logged = 0; // (the indirect light's: the baked sun's fit last logged)
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
@@ -875,9 +903,10 @@ std::string source_of(const char* body, bool traces, bool multisampled, bool rgb
         if (rgb) {
             source += "#define THUG2_MATERIAL_SET 1\n";
             source += material_glsl();
-            source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 7\n";
-            source += scene_geometry_glsl();
         }
+        // (both effects' rays: the occlusion's read the objects' vertex normals too)
+        source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 7\n";
+        source += scene_geometry_glsl();
     }
     source += kCommon;
     if (traces) {
@@ -928,7 +957,7 @@ bool ensure_objects(Backend& state, EffectsState& own, std::string* error)
     own.standard_samples = properties.limits.standardSampleLocations == VK_TRUE;
     const bool rgb = is_indirect(own);
     if (own.layout == VK_NULL_HANDLE) {
-        const uint32_t count = rgb ? kGiBindingCount : kBindingCount;
+        const uint32_t count = rgb ? kGiBindingCount : kAoBindingCount;
         std::array<VkDescriptorSetLayoutBinding, kGiBindingCount> bindings{};
         for (uint32_t binding = 0; binding < count; ++binding) {
             VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -1725,13 +1754,32 @@ bool effect_ready(Backend& state, EffectsState& own)
         }
         return false;
     }
+    const SceneView scene = current_scene(state);
     if (rgb) {
-        const SceneView scene = current_scene(state);
         own.scene = scene.tlas;
         own.geometry = scene.geometry;
         own.geometry_bytes = scene.geometry_bytes;
+    } else if (own.scene != VK_NULL_HANDLE && own.scene == scene.tlas && scene.geometry != VK_NULL_HANDLE) {
+        // (added for the skater's smooth shading) the occlusion reads the objects' vertex normals from the geometry
+        // table of the TLAS it traces - else from a table with nothing live (the depth's normals everywhere)
+        own.geometry = scene.geometry;
+        own.geometry_bytes = scene.geometry_bytes;
+    } else if (own.scene != VK_NULL_HANDLE) {
+        if (own.no_geometry.buffer == VK_NULL_HANDLE &&
+            state.memory.create_buffer(sizeof(GeometryRecord), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                       BufferPlace::kUpload, &own.no_geometry)) {
+            if (own.no_geometry.mapped != nullptr) {
+                std::memset(own.no_geometry.mapped, 0, sizeof(GeometryRecord));
+                state.memory.flush(own.no_geometry, 0, sizeof(GeometryRecord));
+            } else {
+                state.memory.destroy_buffer(&own.no_geometry);
+                own.no_geometry = DeviceBuffer{};
+            }
+        }
+        own.geometry = own.no_geometry.buffer;
+        own.geometry_bytes = sizeof(GeometryRecord);
     }
-    if (own.scene == VK_NULL_HANDLE || (rgb && own.geometry == VK_NULL_HANDLE)) {
+    if (own.scene == VK_NULL_HANDLE || own.geometry == VK_NULL_HANDLE) {
         if (first_report(state, kReportNoScene + key)) {
             get_log("vulkan: %s: no acceleration structure for the scene yet - the pass skipped", effect_name(own));
         }
@@ -1941,10 +1989,10 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
                        static_cast<int32_t>(rgb ? kGiMask : kAoMask), 0, 0};
         PassImages trace_images{
             .scene = true, .depth = depth, .out = &slot->raw, .guide = &core::at(slot->guides, slot->current)};
+        trace_images.geometry = own.geometry;
+        trace_images.geometry_bytes = own.geometry_bytes;
         if (rgb) {
             trace_images.albedo = &slot->albedo;
-            trace_images.geometry = own.geometry;
-            trace_images.geometry_bytes = own.geometry_bytes;
             trace_images.lights = lights_span->buffer;
             trace_images.lights_offset = lights_span->offset;
             const VkDescriptorSet material_set = state.materials.descriptor_set();
@@ -2093,6 +2141,10 @@ void release_effect(Backend& state, EffectsState& own)
     own.scene = VK_NULL_HANDLE;
     own.geometry = VK_NULL_HANDLE;
     own.geometry_bytes = 0;
+    if (own.no_geometry.buffer != VK_NULL_HANDLE) {
+        state.memory.destroy_buffer(&own.no_geometry);
+    }
+    own.no_geometry = DeviceBuffer{};
     own.failed = false;
 }
 
