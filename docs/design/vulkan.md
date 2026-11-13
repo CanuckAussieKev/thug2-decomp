@@ -1274,27 +1274,33 @@ their depth and stay in front of any sky).
   environment map as before.
 - **Not done**: no time of day (the sun stays where the level puts it); clouds in reflections only where the reflected
   direction is on screen.
-- **Checked**: `thug2_vulkan_rt_sky_check` (53 checks; the RTX 5070 Ti and the AMD Radeon integrated GPU, validation and
-  synchronization validation 0, no ray tracing asked for): the transmittance table against 2048 segments (mean 0.0003,
-  99th percentile 0.002), Psi against the processor's integral (mean 1%), the sky-view table against `sky_radiance_ms`
-  with the processor's Psi table at 10 and 45 degrees (mean 0.2% / 0.04%, 99th percentile 0.4% / 0.1%), the multiple
-  scattering brightening the sky (x 1.15 / 1.5), the zenith bluer than the horizon; a painted capture analysed on the
-  device exactly as on the processor, `rt_sky_match=1` putting each band's centre at the model x the capture's colour
-  over the model's band (worst 0.7%), 0 leaving the gains 1; the composite in an 8-bit and a float target - every
-  clear-cut sky pixel the table's colour (99th percentile 0.002 / 0.1%), every surface pixel unchanged; the noise the
-  processor's to a step (4,800 values), every one of ~12,800 marched texels against the processor's march on the
-  device's noise (transmittance mean 1e-4, light 0.1%), after 30 still frames the history 16 times steadier than the
-  march, a camera turned 8 degrees with every history texel inside its neighbourhood (no ghost), no NaN. The other
-  checks unchanged on both GPUs (sun 77, fog 71, hdr 80, gi 29, rt 20, shadows 45, effects 38, reflections 39,
-  materials 34). In the game `tools/game/rt_shadows_check.ts --effect sky` (tools/game/rt_sky.json: every main level's
-  first restart - on the ground, 1500 units up toward its heading and the other way, up - and AU's sea; the other
-  effects on): drawn everywhere, bounded (mean luma change 0 - 52, at most 5.7% turned black - near-black interiors
-  under the darker haze - and 5.4% white), the matched colours logged per level.
+- **Checked**: `thug2_vulkan_rt_sky_check` (60 checks; the RTX 5070 Ti and the AMD Radeon integrated GPU, validation and
+  synchronization validation 0, no ray tracing asked for): the transmittance table against 2048 segments, Psi against
+  the processor's integral, the sky-view table against `sky_radiance_ms` (below the horizon: the same haze-to-ground
+  blend on the processor) at 10 and 45 degrees, the multiple scattering brightening the sky, the zenith bluer than the
+  horizon; a painted capture analysed on the device exactly as on the processor, `rt_sky_match=1` putting each band's
+  centre at the model x the capture's colour over the model's band, 0 leaving the gains 1; below the horizon the
+  horizon's haze, not the capture's dark sea (across the horizon luma within 2%, chromaticity within 0.01); a khaki ring
+  painted under the horizon seen by the ground band and changing nothing in the match; the composite in an 8-bit and a
+  float target; the noise the processor's to a step; every marched texel against the processor's march; the clear share
+  of the sky above 12 degrees by coverage (0.25: 75%, 0.5: 49%, 0.75: 24%, 1: 0%); the layer's curvature (a level ray
+  meets its base 133.5 km off, 50 km across it lies 196 m under a flat layer: d^2 / 2R); after 30 still frames the
+  history steadier than the march; the first frame seeded (its history 3 x nearer the settled one than a march); a
+  turned camera without ghosts; no NaN. `thug2_vulkan_rt_reflections_check` (99): with rt_sky every clear-cut miss shows
+  the sky-view table toward its reflection (29,338 pixels, 0 off by more than 3 / 255), and with no sky drawn the misses
+  are unchanged. The other checks on both GPUs: sun 77, fog 76, hdr 80, gi 32, rt 20, shadows 45, effects 51,
+  materials 34, rt_scene, format. In the game `tools/game/rt_shadows_check.ts --effect sky` (tools/game/rt_sky.json, the
+  user's [Graphics] settings - every RT effect, 8 x MSAA, tessellation): drawn everywhere; bounded but one picture -
+  TR-horizon, looking into the low sun from 1500 units up, has 12.7% turned white (the bound is 8%: the original is
+  near-white there too, 230 - 245; the drawn sky's glare reaches 255); mean luma change at most 55.8 (NO-up), at most
+  0.34% turned black.
 - **Cost** (device timestamps, logged every 240 passes as "rt_sky: the passes take"): `--perf` at 1920 x 1080 (the
-  check's scene, half the screen sky) - the sky alone 0.015 ms on the RTX 5070 Ti, 0.86 ms on the AMD integrated GPU;
-  with clouds at half resolution 0.15 ms (march 0.11, temporal 0.01, composite 0.02) and 7.4 ms (5.0, 0.9, 1.5). In the
-  game at 1280 x 720 with 8 x MSAA and every other effect on: 0.04 - 0.10 ms on the RTX 5070 Ti (the windows' averages,
-  loading screens included).
+  check's scene, half the screen sky) - the sky alone 0.015 ms on the RTX 5070 Ti, 0.85 ms on the AMD integrated GPU;
+  with clouds at half resolution 0.13 ms (march 0.09, temporal 0.01, composite 0.03) and 7.4 ms (4.7, 1.1, 1.6); a
+  seeded first frame 12 x the march and temporal pass once. In the game at 1280 x 720 with 8 x MSAA and every other
+  effect on: 0.04 - 0.12 ms on the RTX 5070 Ti.
+- **Dark levels**: the sun on the clouds x a smoothstep of the dome's brightness (0.18 - 0.30 of its mean luma): NO's
+  night sky (0.23) keeps its clouds dim grey; the day and dusk levels are unchanged.
 
 ### The first frame after a load
 
