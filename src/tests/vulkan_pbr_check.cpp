@@ -73,6 +73,34 @@ constexpr float kHalf = 1.6F; // the quad's half size
 constexpr float kEdgeMargin = 0.03F;  // (of the quad: pixels nearer its edge left out)
 constexpr float kTexelMargin = 0.06F; // (of a texel: pixels nearer a texel edge left out)
 constexpr float kPi = 3.14159265F;
+constexpr float kByteMax = 255.0F;
+constexpr float kSignedHalf = 127.5F;    // (a map's signed byte: 0 - 255 for -1 - 1)
+constexpr uint8_t kHalfAlpha = 128;      // (the game's doubled alpha: 1)
+constexpr float kTwo = 2.0F;
+constexpr float kLeastDet = 1.0e-8F;
+constexpr float kLeastRough = 0.08F;     // (the shader's clamp)
+constexpr float kLeastAlpha = 0.0064F;
+constexpr float kLeastNv = 1.0e-4F;
+constexpr float kFresnelPower = 5.0F;
+constexpr float kMostSpecular = 16.0F;
+constexpr float kLeastShare = 0.05F;
+constexpr std::size_t kLights = 8;
+constexpr std::size_t kLeastJudged = 10000;
+constexpr std::size_t kLeastChanged = 1000;
+constexpr uint32_t kRedShift = 16;
+constexpr uint32_t kGreenShift = 8;
+constexpr uint32_t kRgbMask = 0x00FFFFFFU;
+constexpr std::size_t kCornerCount = 6;
+constexpr std::size_t kMatrixFloats = 16;
+constexpr float kMid = 0.5F;
+constexpr float kRedBase = 0.35F;
+constexpr float kRedStep = 0.07F;
+constexpr float kGreen = 0.55F;
+constexpr float kBlueBase = 0.3F;
+constexpr float kBlueStep = 0.06F;
+constexpr float kTiltRatio = 0.8F;
+constexpr std::array<float, 2> kConstantUv{0.3F, 0.6F};
+constexpr Vec3 kLuma{0.2126F, 0.7152F, 0.0722F};
 constexpr float kTolerance = 3.0e-3F;       // a pixel's largest difference (16-bit floats, interpolation)
 constexpr float kWorstTolerance = 0.02F;    // the worst pixel's
 constexpr double kShareWithin = 0.995;      // the pixels within kTolerance
@@ -156,27 +184,39 @@ float from_half(uint16_t bits)
 
 // --- vectors ----------------------------------------------------------------------------------------------------------
 
-Vec3 add(const Vec3& a, const Vec3& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
-Vec3 sub(const Vec3& a, const Vec3& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-Vec3 scale(const Vec3& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
-float dot(const Vec3& a, const Vec3& b) { return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2]); }
-Vec3 cross(const Vec3& a, const Vec3& b)
+Vec3 add(const Vec3& one, const Vec3& other)
 {
-    return {(a[1] * b[2]) - (a[2] * b[1]), (a[2] * b[0]) - (a[0] * b[2]), (a[0] * b[1]) - (a[1] * b[0])};
+    return {core::at(one, 0) + core::at(other, 0), core::at(one, 1) + core::at(other, 1), core::at(one, 2) + core::at(other, 2)};
 }
-Vec3 normalise(const Vec3& a)
+Vec3 sub(const Vec3& one, const Vec3& other)
 {
-    const float length = std::sqrt(dot(a, a));
-    return length > 0.0F ? scale(a, 1.0F / length) : a;
+    return {core::at(one, 0) - core::at(other, 0), core::at(one, 1) - core::at(other, 1), core::at(one, 2) - core::at(other, 2)};
 }
-float clamp01(float v) { return std::clamp(v, 0.0F, 1.0F); }
+Vec3 scale(const Vec3& vec, float by) { return {core::at(vec, 0) * by, core::at(vec, 1) * by, core::at(vec, 2) * by}; }
+float dot(const Vec3& one, const Vec3& other)
+{
+    return (core::at(one, 0) * core::at(other, 0)) + (core::at(one, 1) * core::at(other, 1)) + (core::at(one, 2) * core::at(other, 2));
+}
+Vec3 cross(const Vec3& one, const Vec3& other)
+{
+    return {(core::at(one, 1) * core::at(other, 2)) - (core::at(one, 2) * core::at(other, 1)),
+            (core::at(one, 2) * core::at(other, 0)) - (core::at(one, 0) * core::at(other, 2)),
+            (core::at(one, 0) * core::at(other, 1)) - (core::at(one, 1) * core::at(other, 0))};
+}
+Vec3 normalise(const Vec3& vec)
+{
+    const float length = std::sqrt(dot(vec, vec));
+    return length > 0.0F ? scale(vec, 1.0F / length) : vec;
+}
+float clamp01(float value) { return std::clamp(value, 0.0F, 1.0F); }
 // A colour as an 8-bit channel holds it (the vertex colours, the ambient, the texture).
-float as_byte(float v) { return std::round(clamp01(v) * 255.0F) / 255.0F; }
-Vec3 as_bytes(const Vec3& v) { return {as_byte(v[0]), as_byte(v[1]), as_byte(v[2])}; }
-float smoothstep(float lo, float hi, float x)
+float as_byte(float value) { return std::round(clamp01(value) * kByteMax) / kByteMax; }
+Vec3 as_bytes(const Vec3& vec) { return {as_byte(core::at(vec, 0)), as_byte(core::at(vec, 1)), as_byte(core::at(vec, 2))}; }
+float smoothstep(float low, float high, float value)
 {
-    const float t = clamp01((x - lo) / (hi - lo));
-    return t * t * (3.0F - (2.0F * t));
+    constexpr float kThree = 3.0F;
+    const float along = clamp01((value - low) / (high - low));
+    return along * along * (kThree - (kTwo * along));
 }
 
 // --- the scene --------------------------------------------------------------------------------------------------------
@@ -195,15 +235,17 @@ enum class Mapping : uint8_t { kPlain, kMirrored, kRotated, kBoth, kConstant };
 
 Quad make_quad(float yaw, float pitch, Mapping mapping)
 {
-    const auto turn = [yaw, pitch](const Vec3& v) {
-        const Vec3 y{(v[0] * std::cos(yaw)) + (v[2] * std::sin(yaw)), v[1], (-v[0] * std::sin(yaw)) + (v[2] * std::cos(yaw))};
-        return Vec3{y[0], (y[1] * std::cos(pitch)) - (y[2] * std::sin(pitch)), (y[1] * std::sin(pitch)) + (y[2] * std::cos(pitch))};
+    const auto turn = [yaw, pitch](const Vec3& vec) {
+        const Vec3 yawed{(core::at(vec, 0) * std::cos(yaw)) + (core::at(vec, 2) * std::sin(yaw)), core::at(vec, 1),
+                         (-core::at(vec, 0) * std::sin(yaw)) + (core::at(vec, 2) * std::cos(yaw))};
+        return Vec3{core::at(yawed, 0), (core::at(yawed, 1) * std::cos(pitch)) - (core::at(yawed, 2) * std::sin(pitch)),
+                    (core::at(yawed, 1) * std::sin(pitch)) + (core::at(yawed, 2) * std::cos(pitch))};
     };
     Quad quad;
     const Vec3 centre{0.0F, 0.0F, kDepth};
-    quad.edge_s = turn({2.0F * kHalf, 0.0F, 0.0F});
-    quad.edge_t = turn({0.0F, -2.0F * kHalf, 0.0F}); // (t down the screen, as v down a texture)
-    quad.corner = sub(centre, scale(add(quad.edge_s, quad.edge_t), 0.5F));
+    quad.edge_s = turn({kTwo * kHalf, 0.0F, 0.0F});
+    quad.edge_t = turn({0.0F, -kTwo * kHalf, 0.0F}); // (t down the screen, as v down a texture)
+    quad.corner = sub(centre, scale(add(quad.edge_s, quad.edge_t), kMid));
     switch (mapping) {
     case Mapping::kPlain:
         quad.uv0 = {0.0F, 0.0F}, quad.duv_s = {1.0F, 0.0F}, quad.duv_t = {0.0F, 1.0F};
@@ -218,7 +260,7 @@ Quad make_quad(float yaw, float pitch, Mapping mapping)
         quad.uv0 = {1.0F, 1.0F}, quad.duv_s = {-1.0F, 0.0F}, quad.duv_t = {0.0F, -1.0F};
         break;
     case Mapping::kConstant:
-        quad.uv0 = {0.3F, 0.6F}, quad.duv_s = {0.0F, 0.0F}, quad.duv_t = {0.0F, 0.0F};
+        quad.uv0 = kConstantUv, quad.duv_s = {0.0F, 0.0F}, quad.duv_t = {0.0F, 0.0F};
         break;
     }
     return quad;
@@ -226,11 +268,11 @@ Quad make_quad(float yaw, float pitch, Mapping mapping)
 
 Vec3 quad_normal(const Quad& quad)
 {
-    Vec3 n = normalise(cross(quad.edge_s, quad.edge_t));
-    if (dot(n, quad.corner) > 0.0F) { // toward the eye
-        n = scale(n, -1.0F);
+    Vec3 normal = normalise(cross(quad.edge_s, quad.edge_t));
+    if (dot(normal, quad.corner) > 0.0F) { // toward the eye
+        normal = scale(normal, -1.0F);
     }
-    return n;
+    return normal;
 }
 
 // The map's and the texture's texels: normals tilted by texel, roughness stepped, the colour varied.
@@ -239,18 +281,21 @@ struct Texel {
     Vec3 colour{};
 };
 
-Texel texel_at(uint32_t a, uint32_t b)
+Texel texel_at(uint32_t column, uint32_t row)
 {
     constexpr float kTiltStep = 0.11F;
     constexpr float kMiddle = 3.5F;
     constexpr float kRoughBase = 0.15F;
     constexpr float kRoughStep = 0.1F;
-    const float nx = (static_cast<float>(a) - kMiddle) * kTiltStep;
-    const float ny = (static_cast<float>(b) - kMiddle) * kTiltStep * 0.8F;
-    const auto byte = [](float v) { return static_cast<uint8_t>(std::lround(std::clamp((v * 127.5F) + 127.5F, 0.0F, 255.0F))); };
-    const float rough = kRoughBase + (kRoughStep * static_cast<float>((a + (2 * b)) % kTexels));
-    return {.map = {byte(nx), byte(ny), static_cast<uint8_t>(std::lround(rough * 255.0F)), 128},
-            .colour = as_bytes({0.35F + (0.07F * static_cast<float>(a)), 0.55F, 0.3F + (0.06F * static_cast<float>(b))})};
+    const float nx = (static_cast<float>(column) - kMiddle) * kTiltStep;
+    const float ny = (static_cast<float>(row) - kMiddle) * kTiltStep * kTiltRatio;
+    const auto byte = [](float value) {
+        return static_cast<uint8_t>(std::lround(std::clamp((value * kSignedHalf) + kSignedHalf, 0.0F, kByteMax)));
+    };
+    const float rough = kRoughBase + (kRoughStep * static_cast<float>((column + (2 * row)) % kTexels));
+    return {.map = {byte(nx), byte(ny), static_cast<uint8_t>(std::lround(rough * kByteMax)), kHalfAlpha},
+            .colour = as_bytes({kRedBase + (kRedStep * static_cast<float>(column)), kGreen,
+                                kBlueBase + (kBlueStep * static_cast<float>(row))})};
 }
 
 struct Light {
@@ -272,28 +317,36 @@ struct Case {
 
 constexpr Vec3 kAmbient{0.15F, 0.15F, 0.18F};
 constexpr Vec3 kMaterialAmbient{0.8F, 0.8F, 0.8F};
-const Light kLight{.toward = normalise({-0.5F, 0.6F, -0.62F}), .colour = {0.9F, 0.85F, 0.8F}};
-const Vec3 kSunToward = normalise({0.4F, 0.75F, -0.5F});
+// (unit vectors: normalised by hand)
+constexpr Light kLight{.toward = {-0.5014059F, 0.6016871F, -0.6217433F}, .colour = {0.9F, 0.85F, 0.8F}};
+constexpr Vec3 kSunToward{0.4056161F, 0.7605302F, -0.5070201F};
 constexpr float kMapF0 = 0.04F;
 
-float ggx(const Vec3& n, const Vec3& v, const Vec3& l, float rough, float f0)
+struct Surface {
+    float rough = 0.0F;
+    float f0 = 0.0F;
+};
+
+// The shader's surface_ggx: pi x the GGX BRDF x N.L.
+float ggx(const Vec3& normal, const Vec3& view, const Vec3& light, const Surface& surface)
 {
-    const float nl = std::max(dot(n, l), 0.0F);
+    constexpr float kFour = 4.0F;
+    const float nl = std::max(dot(normal, light), 0.0F);
     if (nl <= 0.0F) {
         return 0.0F;
     }
-    const Vec3 h = normalise(add(v, l));
-    const float nv = std::max(dot(n, v), 1.0e-4F);
-    const float nh = std::max(dot(n, h), 0.0F);
-    const float vh = std::max(dot(v, h), 0.0F);
-    const float a = std::max(rough * rough, 0.0064F);
-    const float a2 = a * a;
-    const float q = (nh * nh * (a2 - 1.0F)) + 1.0F;
-    const float d = a2 / (kPi * q * q);
-    const float k = 0.5F * a;
-    const float g = (nl / ((nl * (1.0F - k)) + k)) * (nv / ((nv * (1.0F - k)) + k));
-    const float f = f0 + ((1.0F - f0) * std::pow(1.0F - vh, 5.0F));
-    return std::min(kPi * d * g * f / (4.0F * nv), 16.0F);
+    const Vec3 half = normalise(add(view, light));
+    const float nv = std::max(dot(normal, view), kLeastNv);
+    const float nh = std::max(dot(normal, half), 0.0F);
+    const float vh = std::max(dot(view, half), 0.0F);
+    const float alpha = std::max(surface.rough * surface.rough, kLeastAlpha);
+    const float alpha2 = alpha * alpha;
+    const float lobe = (nh * nh * (alpha2 - 1.0F)) + 1.0F;
+    const float distribution = alpha2 / (kPi * lobe * lobe);
+    const float smith = kMid * alpha;
+    const float geometry = (nl / ((nl * (1.0F - smith)) + smith)) * (nv / ((nv * (1.0F - smith)) + smith));
+    const float fresnel = surface.f0 + ((1.0F - surface.f0) * std::pow(1.0F - vh, kFresnelPower));
+    return std::min(kPi * distribution * geometry * fresnel / (kFour * nv), kMostSpecular);
 }
 
 // The colour the processor expects at a pixel, or false where the pixel isn't judged (off the quad, near an edge).
@@ -302,89 +355,92 @@ bool expected(const Case& given, const Quad& quad, uint32_t px, uint32_t py, Vec
     Case test = given;
     test.bake = as_bytes(given.bake);
     const Vec3 ambient = as_bytes(kAmbient);
-    const float ndc_x = ((2.0F * static_cast<float>(px)) / static_cast<float>(kSize)) - 1.0F;
-    const float ndc_y = 1.0F - ((2.0F * static_cast<float>(py)) / static_cast<float>(kSize));
+    const float ndc_x = ((kTwo * static_cast<float>(px)) / static_cast<float>(kSize)) - 1.0F;
+    const float ndc_y = 1.0F - ((kTwo * static_cast<float>(py)) / static_cast<float>(kSize));
     const Vec3 ray{ndc_x / kFov, ndc_y / kFov, 1.0F};
     // lambda ray = corner + s edge_s + t edge_t: Cramer's rule
     const Vec3 neg_s = scale(quad.edge_s, -1.0F);
     const Vec3 neg_t = scale(quad.edge_t, -1.0F);
     const float det = dot(ray, cross(neg_s, neg_t));
-    if (std::fabs(det) < 1.0e-8F) {
+    if (std::fabs(det) < kLeastDet) {
         return false;
     }
-    const float s = dot(ray, cross(quad.corner, neg_t)) / det;
-    const float t = dot(ray, cross(neg_s, quad.corner)) / det;
+    const float along_s = dot(ray, cross(quad.corner, neg_t)) / det;
+    const float along_t = dot(ray, cross(neg_s, quad.corner)) / det;
     const float lambda = dot(quad.corner, cross(neg_s, neg_t)) / det;
-    if (s < kEdgeMargin || s > 1.0F - kEdgeMargin || t < kEdgeMargin || t > 1.0F - kEdgeMargin || lambda <= 0.0F) {
+    if (along_s < kEdgeMargin || along_s > 1.0F - kEdgeMargin || along_t < kEdgeMargin || along_t > 1.0F - kEdgeMargin ||
+        lambda <= 0.0F) {
         return false;
     }
-    const Vec3 p = scale(ray, lambda);
-    const float u = quad.uv0[0] + (s * quad.duv_s[0]) + (t * quad.duv_t[0]);
-    const float v = quad.uv0[1] + (s * quad.duv_s[1]) + (t * quad.duv_t[1]);
-    const float tu = u * static_cast<float>(kTexels);
-    const float tv = v * static_cast<float>(kTexels);
+    const Vec3 point = scale(ray, lambda);
+    const float u_at = core::at(quad.uv0, 0) + (along_s * core::at(quad.duv_s, 0)) + (along_t * core::at(quad.duv_t, 0));
+    const float v_at = core::at(quad.uv0, 1) + (along_s * core::at(quad.duv_s, 1)) + (along_t * core::at(quad.duv_t, 1));
+    const float tu = u_at * static_cast<float>(kTexels);
+    const float tv = v_at * static_cast<float>(kTexels);
     const float fu = tu - std::floor(tu);
     const float fv = tv - std::floor(tv);
     if (fu < kTexelMargin || fu > 1.0F - kTexelMargin || fv < kTexelMargin || fv > 1.0F - kTexelMargin) {
         return false;
     }
-    const auto a = static_cast<uint32_t>(std::clamp(tu, 0.0F, static_cast<float>(kTexels - 1)));
-    const auto b = static_cast<uint32_t>(std::clamp(tv, 0.0F, static_cast<float>(kTexels - 1)));
-    const Texel texel = texel_at(a, b);
+    const auto column = static_cast<uint32_t>(std::clamp(tu, 0.0F, static_cast<float>(kTexels - 1)));
+    const auto row = static_cast<uint32_t>(std::clamp(tv, 0.0F, static_cast<float>(kTexels - 1)));
+    const Texel texel = texel_at(column, row);
     const Vec3 geo = quad_normal(quad);
-    Vec3 n = geo;
-    float rough = vk::RtPbrSettings{}.roughness;
-    float f0 = vk::RtPbrSettings{}.f0;
+    Vec3 bent = geo;
+    Surface surface{.rough = vk::RtPbrSettings{}.roughness, .f0 = vk::RtPbrSettings{}.f0};
     if (test.map && test.pbr) {
-        rough = static_cast<float>(texel.map[2]) / 255.0F;
-        f0 = kMapF0;
-        const float x = (static_cast<float>(texel.map[0]) - 127.5F) / 127.5F;
-        const float y = (static_cast<float>(texel.map[1]) - 127.5F) / 127.5F;
-        const Vec3 nt{x, y, std::sqrt(std::max(1.0F - (x * x) - (y * y), 0.0F))};
+        surface = {.rough = static_cast<float>(core::at(texel.map, 2)) / kByteMax, .f0 = kMapF0};
+        const float tilt_x = (static_cast<float>(core::at(texel.map, 0)) - kSignedHalf) / kSignedHalf;
+        const float tilt_y = (static_cast<float>(core::at(texel.map, 1)) - kSignedHalf) / kSignedHalf;
+        const Vec3 nt{tilt_x, tilt_y, std::sqrt(std::max(1.0F - (tilt_x * tilt_x) - (tilt_y * tilt_y), 0.0F))};
         // the gradients of u and v along the quad (its dual basis), scaled by the longer
         const float area = dot(geo, cross(quad.edge_s, quad.edge_t));
         const Vec3 grad_s = scale(cross(quad.edge_t, geo), 1.0F / area);
         const Vec3 grad_t = scale(cross(geo, quad.edge_s), 1.0F / area);
-        const Vec3 tangent = add(scale(grad_s, quad.duv_s[0]), scale(grad_t, quad.duv_t[0]));
-        const Vec3 bitangent = add(scale(grad_s, quad.duv_s[1]), scale(grad_t, quad.duv_t[1]));
+        const Vec3 tangent = add(scale(grad_s, core::at(quad.duv_s, 0)), scale(grad_t, core::at(quad.duv_t, 0)));
+        const Vec3 bitangent = add(scale(grad_s, core::at(quad.duv_s, 1)), scale(grad_t, core::at(quad.duv_t, 1)));
         const float longest = std::max(dot(tangent, tangent), dot(bitangent, bitangent));
         if (longest > 0.0F) {
             const float inv = 1.0F / std::sqrt(longest);
-            n = normalise(add(add(scale(tangent, inv * nt[0]), scale(bitangent, inv * nt[1])), scale(geo, nt[2])));
+            bent = normalise(add(add(scale(tangent, inv * core::at(nt, 0)), scale(bitangent, inv * core::at(nt, 1))),
+                                 scale(geo, core::at(nt, 2))));
         }
     }
-    rough = std::clamp(rough, 0.08F, 1.0F);
-    const Vec3 view = normalise(scale(p, -1.0F));
+    surface.rough = std::clamp(surface.rough, kLeastRough, 1.0F);
+    const Vec3 view = normalise(scale(point, -1.0F));
     const vk::RtPbrSettings settings;
     Vec3 v0{};
     Vec3 specular{};
     if (test.lit) {
-        const float nl = std::max(dot(test.pbr ? n : geo, kLight.toward), 0.0F);
-        for (std::size_t c = 0; c < 3; ++c) {
-            v0.at(c) = clamp01((kMaterialAmbient.at(c) * ambient.at(c)) + (test.bake.at(c) * kLight.colour.at(c) * nl));
+        const float nl = std::max(dot(test.pbr ? bent : geo, kLight.toward), 0.0F);
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            v0.at(channel) = clamp01((kMaterialAmbient.at(channel) * ambient.at(channel)) +
+                                     (test.bake.at(channel) * kLight.colour.at(channel) * nl));
         }
         if (test.pbr) {
-            specular = scale(kLight.colour, ggx(n, view, kLight.toward, rough, f0));
+            specular = scale(kLight.colour, ggx(bent, view, kLight.toward, surface));
         }
     } else if (test.pbr) {
-        const float level = 2.0F * dot(test.bake, {0.2126F, 0.7152F, 0.0722F});
+        const float level = kTwo * dot(test.bake, kLuma);
         const float sunlit = smoothstep(settings.shade_low, settings.shade_high, level);
-        const float share = std::max(settings.ambient_share, 0.05F);
-        const float sun_detail = (share + std::max(dot(n, kSunToward), 0.0F)) / (share + std::max(dot(geo, kSunToward), 0.0F));
+        const float share = std::max(settings.ambient_share, kLeastShare);
+        const float sun_detail =
+            (share + std::max(dot(bent, kSunToward), 0.0F)) / (share + std::max(dot(geo, kSunToward), 0.0F));
         const Vec3 up{0.0F, 1.0F, 0.0F};
-        const float sky_detail = (1.0F + dot(n, up)) / std::max(1.0F + dot(geo, up), 0.05F);
+        const float sky_detail = (1.0F + dot(bent, up)) / std::max(1.0F + dot(geo, up), kLeastShare);
         const float mixed = std::lerp(1.0F, sky_detail, settings.sky_detail);
         const float detail = std::clamp(std::lerp(mixed, sun_detail, sunlit), settings.detail_low, settings.detail_high);
-        for (std::size_t c = 0; c < 3; ++c) {
-            v0.at(c) = clamp01(test.bake.at(c) * detail);
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            v0.at(channel) = clamp01(test.bake.at(channel) * detail);
         }
-        specular = scale(Vec3{1.0F, 1.0F, 1.0F}, ggx(n, view, kSunToward, rough, f0) * sunlit);
+        specular = scale(Vec3{1.0F, 1.0F, 1.0F}, ggx(bent, view, kSunToward, surface) * sunlit);
     } else {
         v0 = test.bake;
     }
-    for (std::size_t c = 0; c < 3; ++c) {
+    for (std::size_t channel = 0; channel < 3; ++channel) {
         // r0 = t0 x c0 (0.5) x v0 x 4, + the specular x its strength (1), clamped
-        out->at(c) = clamp01((2.0F * texel.colour.at(c) * v0.at(c)) + (specular.at(c) * settings.specular));
+        out->at(channel) =
+            clamp01((kTwo * texel.colour.at(channel) * v0.at(channel)) + (specular.at(channel) * settings.specular));
     }
     return true;
 }
@@ -405,9 +461,10 @@ struct VertexNoNormal {
 
 uint32_t argb(const Vec3& colour)
 {
-    const auto byte = [](float v) { return static_cast<uint32_t>(std::lround(clamp01(v) * 255.0F)); };
+    const auto byte = [](float value) { return static_cast<uint32_t>(std::lround(clamp01(value) * kByteMax)); };
     constexpr uint32_t kOpaque = 0x80000000U; // (alpha 128: 1 after the shader's doubling)
-    return kOpaque | (byte(colour[0]) << 16) | (byte(colour[1]) << 8) | byte(colour[2]);
+    return kOpaque | (byte(core::at(colour, 0)) << kRedShift) | (byte(core::at(colour, 1)) << kGreenShift) |
+           byte(core::at(colour, 2));
 }
 
 // The texture (8 x 8 A8R8G8B8) and its surface map.
@@ -422,18 +479,20 @@ GpuTexture* make_texture(render::Gpu& gpu, bool map)
     render::GpuLockedRect locked{};
     gpu.lock_texture(texture, 0, &locked, nullptr, 0);
     const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked.bits),
-                                   (static_cast<std::size_t>(locked.pitch) * (kTexels - 1)) + (kTexels * 4));
+                                   (static_cast<std::size_t>(locked.pitch) * (kTexels - 1)) + (std::size_t{kTexels} * 4));
     std::vector<uint8_t> maps(static_cast<std::size_t>(kTexels) * kTexels * 4);
-    for (uint32_t b = 0; b < kTexels; ++b) {
-        for (uint32_t a = 0; a < kTexels; ++a) {
-            const Texel texel = texel_at(a, b);
-            const std::size_t at = (static_cast<std::size_t>(b) * static_cast<std::size_t>(locked.pitch)) + (a * 4);
-            core::at(bytes, at) = static_cast<uint8_t>(std::lround(texel.colour[2] * 255.0F));
-            core::at(bytes, at + 1) = static_cast<uint8_t>(std::lround(texel.colour[1] * 255.0F));
-            core::at(bytes, at + 2) = static_cast<uint8_t>(std::lround(texel.colour[0] * 255.0F));
-            core::at(bytes, at + 3) = 128;
-            for (std::size_t c = 0; c < 4; ++c) {
-                core::at(maps, (((static_cast<std::size_t>(b) * kTexels) + a) * 4) + c) = core::at(texel.map, c);
+    for (uint32_t row = 0; row < kTexels; ++row) {
+        for (uint32_t column = 0; column < kTexels; ++column) {
+            const Texel texel = texel_at(column, row);
+            const std::size_t at = (static_cast<std::size_t>(row) * static_cast<std::size_t>(locked.pitch)) +
+                                   (std::size_t{column} * 4);
+            core::at(bytes, at) = static_cast<uint8_t>(std::lround(core::at(texel.colour, 2) * kByteMax));
+            core::at(bytes, at + 1) = static_cast<uint8_t>(std::lround(core::at(texel.colour, 1) * kByteMax));
+            core::at(bytes, at + 2) = static_cast<uint8_t>(std::lround(core::at(texel.colour, 0) * kByteMax));
+            core::at(bytes, at + 3) = kHalfAlpha;
+            for (std::size_t channel = 0; channel < 4; ++channel) {
+                core::at(maps, (((static_cast<std::size_t>(row) * kTexels) + column) * 4) + channel) =
+                    core::at(texel.map, channel);
             }
         }
     }
@@ -445,15 +504,15 @@ GpuTexture* make_texture(render::Gpu& gpu, bool map)
     return texture;
 }
 
-std::array<float, 16> projection()
+std::array<float, kMatrixFloats> projection()
 {
-    const float q = kFar / (kFar - kNear);
-    return {kFov, 0, 0, 0, 0, kFov, 0, 0, 0, 0, q, 1, 0, 0, -kNear * q, 0};
+    const float depth_scale = kFar / (kFar - kNear);
+    return {kFov, 0, 0, 0, 0, kFov, 0, 0, 0, 0, depth_scale, 1, 0, 0, -kNear * depth_scale, 0};
 }
 
 void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture* texture, render::GpuPixelShader* shader)
 {
-    constexpr std::array<float, 16> kIdentity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    constexpr std::array<float, kMatrixFloats> kIdentity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     gpu.clear(0, nullptr, value::kClearTarget, 0, 1.0F, 0);
     gpu.set_render_state(GpuRenderState::kZEnable, 0);
     gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
@@ -467,24 +526,24 @@ void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture*
     gpu.set_render_state(GpuRenderState::kDiffuseMaterialSource, value::kSourceColour1);
     gpu.set_render_state(GpuRenderState::kAmbientMaterialSource, value::kSourceMaterial);
     gpu.set_render_state(GpuRenderState::kEmissiveMaterialSource, value::kSourceMaterial);
-    gpu.set_render_state(GpuRenderState::kAmbient, argb(kAmbient) & 0x00FFFFFFU);
+    gpu.set_render_state(GpuRenderState::kAmbient, argb(kAmbient) & kRgbMask);
     gpu.set_render_state(GpuRenderState::kNormalizeNormals, 1);
     gpu.set_transform(render::GpuTransform::kWorld, kIdentity.data());
     gpu.set_transform(render::GpuTransform::kView, kIdentity.data());
-    const std::array<float, 16> proj = projection();
+    const std::array<float, kMatrixFloats> proj = projection();
     gpu.set_transform(render::GpuTransform::kProjection, proj.data());
     gpu.set_material({.diffuse = {1, 1, 1, 1},
-                      .ambient = {kMaterialAmbient[0], kMaterialAmbient[1], kMaterialAmbient[2], 1},
+                      .ambient = {core::at(kMaterialAmbient, 0), core::at(kMaterialAmbient, 1), core::at(kMaterialAmbient, 2), 1},
                       .specular = {},
                       .emissive = {},
                       .power = 0});
     render::GpuLight light{};
     light.type = value::kLightDirectional;
-    light.diffuse = {kLight.colour[0], kLight.colour[1], kLight.colour[2], 1};
+    light.diffuse = {core::at(kLight.colour, 0), core::at(kLight.colour, 1), core::at(kLight.colour, 2), 1};
     light.direction = scale(kLight.toward, -1.0F);
     gpu.set_light(0, light);
     gpu.enable_light(0, true);
-    for (uint32_t index = 1; index < 8; ++index) {
+    for (uint32_t index = 1; index < kLights; ++index) {
         gpu.enable_light(index, false);
     }
     gpu.set_texture(0, texture);
@@ -495,21 +554,22 @@ void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture*
     gpu.set_sampler_state(0, GpuSamplerState::kAddressV, value::kAddressClamp);
     gpu.set_stage_state(0, GpuStageState::kTexCoordIndex, 0);
     gpu.set_pixel_shader(shader);
-    const std::array<float, 4> c0{0.5F, 0.5F, 0.5F, 0.5F};
+    const std::array<float, 4> c0{kMid, kMid, kMid, kMid};
     gpu.set_pixel_constants(0, c0.data(), 1);
     const Vec3 normal = quad_normal(quad);
     const uint32_t colour = argb(test.bake);
-    std::array<Vertex, 6> vertices{};
-    std::array<VertexNoNormal, 6> plain{};
-    constexpr std::array<std::array<float, 2>, 6> kCorners{{{0, 0}, {1, 0}, {0, 1}, {1, 0}, {1, 1}, {0, 1}}};
+    std::array<Vertex, kCornerCount> vertices{};
+    std::array<VertexNoNormal, kCornerCount> plain{};
+    constexpr std::array<std::array<float, 2>, kCornerCount> kCorners{{{0, 0}, {1, 0}, {0, 1}, {1, 0}, {1, 1}, {0, 1}}};
     for (std::size_t i = 0; i < kCorners.size(); ++i) {
-        const float s = kCorners.at(i)[0];
-        const float t = kCorners.at(i)[1];
-        const Vec3 p = add(quad.corner, add(scale(quad.edge_s, s), scale(quad.edge_t, t)));
-        const std::array<float, 2> uv{quad.uv0[0] + (s * quad.duv_s[0]) + (t * quad.duv_t[0]),
-                                      quad.uv0[1] + (s * quad.duv_s[1]) + (t * quad.duv_t[1])};
-        vertices.at(i) = {.position = p, .normal = normal, .colour = colour, .uv = uv};
-        plain.at(i) = {.position = p, .colour = colour, .uv = uv};
+        const float along_s = core::at(kCorners.at(i), 0);
+        const float along_t = core::at(kCorners.at(i), 1);
+        const Vec3 point = add(quad.corner, add(scale(quad.edge_s, along_s), scale(quad.edge_t, along_t)));
+        const std::array<float, 2> uv{
+            core::at(quad.uv0, 0) + (along_s * core::at(quad.duv_s, 0)) + (along_t * core::at(quad.duv_t, 0)),
+            core::at(quad.uv0, 1) + (along_s * core::at(quad.duv_s, 1)) + (along_t * core::at(quad.duv_t, 1))};
+        vertices.at(i) = {.position = point, .normal = normal, .colour = colour, .uv = uv};
+        plain.at(i) = {.position = point, .colour = colour, .uv = uv};
     }
     if (test.normals) {
         gpu.set_vertex_format(kFvfPosition | kFvfNormal | kFvfDiffuse | kFvfTex1);
@@ -551,10 +611,11 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
             const std::size_t pixel = (static_cast<std::size_t>(py) * kSize) + px;
             Vec3 got{};
             bool all_finite = true;
-            for (std::size_t c = 0; c < 3; ++c) {
-                const std::size_t at = (pixel * kHalfPixelBytes) + (c * 2);
-                got.at(c) = from_half(static_cast<uint16_t>(core::at(bytes, at) | (core::at(bytes, at + 1) << kHighByte)));
-                all_finite = all_finite && std::isfinite(got.at(c));
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                const std::size_t at = (pixel * kHalfPixelBytes) + (channel * 2);
+                got.at(channel) =
+                    from_half(static_cast<uint16_t>(core::at(bytes, at) | (core::at(bytes, at + 1) << kHighByte)));
+                all_finite = all_finite && std::isfinite(got.at(channel));
             }
             finite += all_finite ? 1U : 0U;
             Vec3 want{};
@@ -563,20 +624,20 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
             }
             ++judged;
             float difference = 0.0F;
-            for (std::size_t c = 0; c < 3; ++c) {
-                difference = std::max(difference, std::fabs(got.at(c) - want.at(c)));
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                difference = std::max(difference, std::fabs(got.at(channel) - want.at(channel)));
             }
             if (!all_finite || difference > worst) {
                 worst = all_finite ? difference : std::numeric_limits<float>::infinity();
                 worst_at = text::format(" (at %u, %u: %.4f %.4f %.4f, expected %.4f %.4f %.4f)", px, py,
-                                        static_cast<double>(got[0]), static_cast<double>(got[1]), static_cast<double>(got[2]),
-                                        static_cast<double>(want[0]), static_cast<double>(want[1]), static_cast<double>(want[2]));
+                                        static_cast<double>(core::at(got, 0)), static_cast<double>(core::at(got, 1)), static_cast<double>(core::at(got, 2)),
+                                        static_cast<double>(core::at(want, 0)), static_cast<double>(core::at(want, 1)), static_cast<double>(core::at(want, 2)));
             }
             within += difference <= kTolerance ? 1U : 0U;
         }
     }
     const double share = judged != 0 ? static_cast<double>(within) / static_cast<double>(judged) : 0.0;
-    tally->check(judged > 10000 && share >= kShareWithin && worst <= kWorstTolerance,
+    tally->check(judged > kLeastJudged && share >= kShareWithin && worst <= kWorstTolerance,
                  text::format("%s: %zu pixels against the processor, %.2f%% within %.3f, the worst %.4f%s", test.name.c_str(),
                               judged, share * 100.0, static_cast<double>(kTolerance), static_cast<double>(worst),
                               worst > kTolerance ? worst_at.c_str() : ""));
@@ -586,7 +647,7 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
 void check_bake_moves(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, Tally* tally)
 {
     // The same quad with the map and without: the map's detail must change the picture (a check that the map is used).
-    Case with{.name = "map used", .lit = false, .bake = {0.5F, 0.5F, 0.5F}};
+    const Case with{.name = "map used", .lit = false, .bake = {kMid, kMid, kMid}};
     Case without = with;
     without.map = false;
     std::array<std::vector<uint8_t>, 2> pictures;
@@ -604,10 +665,10 @@ void check_bake_moves(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShad
         gpu.release_texture(texture);
     }
     std::size_t differ = 0;
-    for (std::size_t i = 0; i < pictures[0].size() && i < pictures[1].size(); i += 2) {
-        differ += pictures[0].at(i) != pictures[1].at(i) ? 1U : 0U;
+    for (std::size_t i = 0; i < core::at(pictures, 0).size() && i < core::at(pictures, 1).size(); i += 2) {
+        differ += core::at(pictures, 0).at(i) != core::at(pictures, 1).at(i) ? 1U : 0U;
     }
-    tally->check(differ > 1000, text::format("the map changes the baked picture (%zu channels differ)", differ));
+    tally->check(differ > kLeastChanged, text::format("the map changes the baked picture (%zu channels differ)", differ));
 }
 
 int window_position(int display)

@@ -23,6 +23,9 @@
 //   --effect sun (both commands): the sun's disc and glare, the screen-space rays, the bloom and the sky model
 //   ([Graphics] rt_sun, rt_shafts, rt_bloom, rt_sky_model - vulkan_rt_sun.h, vulkan_rt_sky.h) - all four 0 / 1 together;
 //   the other effects as the workspace's ini and --set have them (the user's look: --set Graphics.rt_shadows=1 ...).
+//   --effect pbr (both commands): per-pixel lighting and surface maps ([Graphics] rt_pbr, vulkan_surface.h) - rt_pbr
+//   0 / 1, the other effects as the workspace's ini and --set have them; the workspace's levels need their surface maps
+//   (tools/pbr_maps/pbr_maps.ts make).
 //
 // run: under the workspace's lock (game_lock.ps1, released at the end - which puts the folder's own build and ini back),
 // the x64 build deployed (deploy_build.ps1 -Arch x64: the exe and every DLL beside it), then for each run and each
@@ -103,6 +106,12 @@
 //       line of rt_sun / rt_sky, no crash; where the disc was drawn, render_pc's "sun: the original's sun and lens flare
 //       left out" (the original's halo sprite and lens flare gone); in `off` logs neither; the device time of the parts
 //       ("rt_sun: the passes take") reported.
+//   --effect pbr --expect drawn: on against off
+//     - bounded: the picture's mean luma change at most 25 (the maps reshape the bake's light, the highlights add
+//       some; they don't relight the level); turned black at most 0.1%; turned white at most 2% (highlights);
+//     - drawn: some spot changed (lighter or darker) in 0.5% of its pixels or more;
+//     - the logs: "rt_pbr: per-pixel lighting on" and a "surface maps: ... attached" line with some attached in every
+//       `on` group's, neither in `off`'s, no crash; the frame times of each configuration reported (the cost).
 // report.txt / report.json in the folder; exit 1 when a check fails.
 
 import { spawn } from "node:child_process";
@@ -126,7 +135,7 @@ import {
 import { ensureWorkspaceMuted, isWorkspace } from "./workspace_ini.ts";
 
 const USAGE = `usage: rt_shadows_check.ts run --game <workspace> --out <folder> --build <folder> [--baseline-build <folder>]
-                           [--effect shadows|ao|reflections|hdr|fog|gi|sun] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
+                           [--effect shadows|ao|reflections|hdr|fog|gi|sun|pbr] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
        rt_shadows_check.ts compare <folder> [--expect shadows|drawn|none|brighter] [--strength 0.5] [--threshold 8] [--grow 1]
 
 Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, compared (tools/game/README.md).`;
@@ -135,11 +144,16 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIGS = ["off", "on", "baseline"] as const;
 export type Config = (typeof CONFIGS)[number];
 // R4's sun shadows, R5's ambient occlusion and reflections, HDR, the fog, the one-bounce indirect light
-export type Effect = "shadows" | "ao" | "reflections" | "hdr" | "fog" | "gi" | "sun";
-export const EFFECTS: readonly Effect[] = ["shadows", "ao", "reflections", "hdr", "fog", "gi", "sun"];
+export type Effect = "shadows" | "ao" | "reflections" | "hdr" | "fog" | "gi" | "sun" | "pbr";
+export const EFFECTS: readonly Effect[] = ["shadows", "ao", "reflections", "hdr", "fog", "gi", "sun", "pbr"];
 
 // The ini values a configuration adds.
 export function configValues(config: Config, effect: Effect = "shadows"): Record<string, string> {
+    if (effect === "pbr") {
+        // (per-pixel lighting alone toggled; the rest as the workspace's ini and --set have it)
+        if (config === "baseline") return {};
+        return { "Graphics.rt_pbr": config === "on" ? "1" : "0" };
+    }
     if (effect === "sun") {
         // (the sun's parts together; the other effects as the workspace's ini and --set have them - the pictures are
         // taken with everything else on)
@@ -479,6 +493,16 @@ export function judgeSpot(
             problems.push(`turned black with the sun on: ${pct(share(difference.blackened, difference))}`);
         if (share(difference.whitened, difference) > MAX_SUN_WHITENED)
             problems.push(`turned white with the sun on: ${pct(share(difference.whitened, difference))}`);
+    } else if (limits.expect === "shadows" && limits.effect === "pbr") {
+        // (the maps reshape the bake's light and add highlights: bounded, nothing black, little blown out)
+        if (difference.meanLumaChange > MAX_PBR_LUMA_CHANGE)
+            problems.push(
+                `per-pixel lighting changed the picture's luma by ${difference.meanLumaChange.toFixed(1)} on average`,
+            );
+        if (share(difference.blackened, difference) > limits.maxBrighter)
+            problems.push(`turned black with per-pixel lighting: ${pct(share(difference.blackened, difference))}`);
+        if (share(difference.whitened, difference) > MAX_PBR_WHITENED)
+            problems.push(`turned white with per-pixel lighting: ${pct(share(difference.whitened, difference))}`);
     } else if (limits.expect === "shadows" && limits.effect === "fog") {
         // (the fog may touch the whole picture - the haze looking toward the sun -, but not by much on average)
         if (difference.meanLumaChange > MAX_FOG_LUMA_CHANGE)
@@ -585,6 +609,10 @@ export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boo
         return limits.expect !== "brighter" || verdicts.some((v) => v.difference.meanSigned >= HDR_LEAST_BRIGHTER);
     if (limits.effect === "gi" || limits.effect === "sun")
         return verdicts.some((v) => share(v.difference.brighter, v.difference) >= limits.minDarkenedSomewhere);
+    if (limits.effect === "pbr")
+        return verdicts.some(
+            (v) => share(v.difference.brighter + v.difference.darkened, v.difference) >= limits.minDarkenedSomewhere,
+        );
     if (limits.effect === "reflections")
         return verdicts.some(
             (v) => share(v.difference.brighter + v.difference.darkened, v.difference) >= MIN_REFLECTED_SOMEWHERE,
@@ -600,6 +628,11 @@ export const MAX_FOG_LUMA_CHANGE = 40;
 // (the sun: the disc and the glare round it are white - a few percent of a picture facing the sun; the haze and the
 // bloom change the rest a little)
 export const MAX_SUN_WHITENED = 0.04;
+// (per-pixel lighting: the mean luma change a picture may get, 0..255, and the share that may turn white - highlights)
+export const MAX_PBR_LUMA_CHANGE = 25;
+export const MAX_PBR_WHITENED = 0.02;
+export const PBR_ON = "rt_pbr: per-pixel lighting on";
+const MAPS_ATTACHED = /surface maps: .* - ([0-9]+) of [0-9]+ maps attached/g;
 export const MAX_SUN_LUMA_CHANGE = 45;
 
 // What a configuration's logs must (not) say.
@@ -647,6 +680,16 @@ export function logProblems(
         } else if (log.includes(FIRST_TONE_MAP_PASS)) {
             problems.push(`a tone-mapping pass in the ${config} log`);
         }
+        return problems;
+    }
+    if (effect === "pbr") {
+        if (config !== "on") {
+            if (log.includes(PBR_ON)) problems.push(`per-pixel lighting on in the ${config} log`);
+            return problems;
+        }
+        if (!log.includes(PBR_ON)) problems.push("per-pixel lighting not on in the log");
+        const attached = [...log.matchAll(MAPS_ATTACHED)].reduce((sum, m) => sum + Number(m[1]), 0);
+        if (expect === "shadows" && attached === 0) problems.push("no surface map attached (made for this workspace?)");
         return problems;
     }
     if (effect === "sun") {
@@ -803,7 +846,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
                 (limits.effect === "hdr"
                     ? `, max channel difference ${d.maxDelta} (${pct(share(d.overDelta, d))} over ${HDR_MAX_DELTA}), mean ${d.meanDelta.toFixed(3)} (signed ${d.meanSigned.toFixed(3)}), pure white ${pct(share(d.whiteOff, d))} -> ${pct(share(d.whiteOn, d))}`
                     : "") +
-                (limits.effect === "fog" || limits.effect === "sun"
+                (limits.effect === "fog" || limits.effect === "sun" || limits.effect === "pbr"
                     ? `, turned black ${pct(share(d.blackened, d))}, turned white ${pct(share(d.whitened, d))}, mean luma change ${d.meanLumaChange.toFixed(1)}`
                     : "") +
                 (limits.effect === "gi"
@@ -849,8 +892,9 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             fog: "fog",
             gi: "indirect light",
             sun: "sun",
+            pbr: "per-pixel lighting",
         }[limits.effect ?? "shadows"];
-        const how = limits.effect === "gi" ? "brightened" : "darkened";
+        const how = limits.effect === "gi" ? "brightened" : limits.effect === "pbr" ? "changed" : "darkened";
         lines.push(`FAIL no spot ${how} by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
     }
     if (limits.expect === "shadows" && limits.effect === "gi") {
@@ -879,8 +923,8 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
                     lines.push(`FAIL ${config}/${path.basename(folder)}/${log}: ${problems.join("; ")}`);
                 }
             }
-    if (limits.effect === "hdr") {
-        if (!anyShadow(verdicts, limits)) {
+    if (limits.effect === "hdr" || limits.effect === "pbr") {
+        if (limits.effect === "hdr" && !anyShadow(verdicts, limits)) {
             failed = true;
             lines.push(`FAIL no spot brighter by ${HDR_LEAST_BRIGHTER} or more on average with the exposure raised`);
         }
@@ -906,6 +950,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
         fog: "rt_fog check",
         gi: "rt_gi check",
         sun: "rt_sun check",
+        pbr: "rt_pbr check",
     }[limits.effect ?? "shadows"];
     lines.push(failed ? `${title}: FAILED` : `${title}: passed`);
     fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
@@ -1097,7 +1142,7 @@ async function main(): Promise<number> {
     if (expect !== "shadows" && expect !== "none" && expect !== "brighter")
         exitWith("--expect shadows | drawn | none | brighter");
     if (!(EFFECTS as readonly string[]).includes(values.effect))
-        exitWith("--effect shadows | ao | reflections | hdr | fog | gi | sun");
+        exitWith("--effect shadows | ao | reflections | hdr | fog | gi | sun | pbr");
     const effect = values.effect as Effect;
     const set: Record<string, string> = {};
     for (const s of values.set ?? []) {
@@ -1115,11 +1160,14 @@ async function main(): Promise<number> {
         fog: "Graphics.rt_fog_density",
         gi: "Graphics.rt_gi_strength",
         sun: "Graphics.rt_bloom_strength",
+        pbr: "Graphics.rt_pbr_specular",
     }[effect];
     const strength = Number(
         set[strengthKey] ??
             values.strength ??
-            { shadows: "0.5", ao: "0.6", reflections: "0.5", hdr: "0.5", fog: "0.5", gi: "1", sun: "0.05" }[effect],
+            { shadows: "0.5", ao: "0.6", reflections: "0.5", hdr: "0.5", fog: "0.5", gi: "1", sun: "0.05", pbr: "1" }[
+                effect
+            ],
     );
     const limits: Limits = { ...LIMITS, expect, strength, effect };
     const threshold = Number(values.threshold);

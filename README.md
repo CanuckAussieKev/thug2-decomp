@@ -385,6 +385,10 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_bloom_strength` | 0.05 | How much of each pixel's light spreads (0-0.5) |
 | `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
 | `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
+| `rt_pbr` | 0 | On Vulkan (no ray tracing needed; best with it): 1 lights surfaces per pixel - the textures' bumps and cracks catch the sun, shiny ones get highlights, and skaters and objects are lit per pixel. Needs the surface maps made from your textures first: `node tools/pbr_maps/pbr_maps.ts make --game <folder>` (or `unpack_game.ts --pbr-maps classical`); `remove` takes them away |
+| `rt_pbr_specular` | 1 | How strong the highlights are (0: none) |
+| `rt_pbr_normal_strength` | 1 | How deep the surface maps' bumps look (0: flat, 2: twice as deep) |
+| `rt_pbr_objects` | 1 | 0: only surfaces with a map are lit per pixel (skaters and objects keep the game's own lighting) |
 
 **`[Miscellaneous]`** - from PartyMod
 

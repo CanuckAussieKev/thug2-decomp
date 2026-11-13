@@ -432,3 +432,30 @@ test("gi: the configurations and the logs", () => {
     );
     assert.deepEqual(logProblems("off", "x\n", "shadows", "gi"), []);
 });
+
+const PBR: Limits = { ...LIMITS, expect: "shadows", strength: 1, effect: "pbr" };
+
+test("pbr: a little lighter and darker passes; a big change, black or white-out fails; its ini values and logs", () => {
+    const off = flat(40, 40, 120);
+    const bumped = { ...off, rgb: new Uint8Array(off.rgb) };
+    for (let i = 0; i < bumped.rgb.length; i += 6) bumped.rgb[i] = 140; // (every other pixel a little lighter)
+    assert.deepEqual(judgeSpot("a", shadowDifference(off, bumped, null, 8), null, PBR).problems, []);
+    assert.ok(anyShadow([judgeSpot("a", shadowDifference(off, bumped, null, 8), null, PBR)], PBR));
+    assert.match(
+        judgeSpot("b", shadowDifference(off, flat(40, 40, 200), null, 8), null, PBR).problems.join(),
+        /luma by 80/,
+    );
+    assert.match(
+        judgeSpot("c", shadowDifference(off, shaded(off, 30, 0), null, 8), null, PBR).problems.join(),
+        /turned black/,
+    );
+    assert.deepEqual(configValues("on", "pbr"), { "Graphics.rt_pbr": "1" });
+    assert.deepEqual(configValues("off", "pbr"), { "Graphics.rt_pbr": "0" });
+    const on =
+        "rt_pbr: per-pixel lighting on (specular 1.00, normals 1.00, objects too)\n" +
+        "surface maps: levels/bo/bo.tex.xbx.pbr - 377 of 377 maps attached";
+    assert.deepEqual(logProblems("on", on, "shadows", "pbr"), []);
+    assert.match(logProblems("on", "rt_pbr: per-pixel lighting on", "shadows", "pbr").join(), /no surface map/);
+    assert.match(logProblems("off", on, "shadows", "pbr").join(), /in the off log/);
+    assert.deepEqual(logProblems("off", "", "shadows", "pbr"), []);
+});

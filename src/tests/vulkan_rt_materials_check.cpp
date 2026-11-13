@@ -39,6 +39,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/surface_maps.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -55,6 +56,7 @@ namespace {
 using render::GpuLockedRect;
 using render::GpuTexture;
 using render::vulkan::Backend;
+using render::vulkan::MaterialRecord;
 using render::vulkan::MaterialTable;
 namespace value = render::gpu_value;
 namespace rt = render::rt;
@@ -467,6 +469,25 @@ void main()
     answers[i].alpha_passes = material_alpha_passes_at(q.material, q.uv) ? 1u : 0u;
 }
 )";
+// (NOT ORIGINAL - rt_pbr) the same probe reading a material's surface map (vulkan_surface.h) and whether it has one
+constexpr std::string_view kSurfaceProbeBody = R"(
+layout(local_size_x = 64) in;
+struct Query { uint material; uint pad; vec2 uv; };
+struct Answer { vec4 sample_value; uint alpha_passes; uint pad0; uint pad1; uint pad2; };
+layout(set = 0, binding = 0, std430) readonly buffer Queries { Query queries[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Answers { Answer answers[]; };
+layout(push_constant) uniform Count { uint count; } probe;
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= probe.count) {
+        return;
+    }
+    Query q = queries[i];
+    answers[i].sample_value = material_surface_lod(q.material, q.uv, 0.0);
+    answers[i].alpha_passes = material_has_surface(q.material) ? 1u : 0u;
+}
+)";
 
 class Probe {
 public:
@@ -477,11 +498,11 @@ public:
     Probe& operator=(Probe&&) = delete;
     ~Probe() = default;
 
-    bool init(VkDevice device, VkDescriptorSetLayout table_layout)
+    bool init(VkDevice device, VkDescriptorSetLayout table_layout, std::string_view body = kProbeBody)
     {
         device_ = device;
         const std::string source = std::string(kProbeHeader) + std::string(render::vulkan::material_glsl()) +
-                                   std::string(kProbeBody);
+                                   std::string(body);
         const render::vulkan::CompiledShader compiled =
             render::vulkan::compile_rt_glsl(render::vulkan::RtShaderStage::kCompute, source);
         if (!compiled.ok) {
@@ -913,6 +934,60 @@ void check_release(render::Gpu& gpu, Probe& probe, MaterialTable& table, Tally* 
     release(gpu, &second);
 }
 
+// (NOT ORIGINAL - rt_pbr) A texture with a surface map: the map in a slot of its own, read through the material
+// (material_surface_lod) texel for texel, its F0 in the record; a material without one reads none; the texture released:
+// the map's slot cleared with it.
+void check_surface(render::Gpu& gpu, MaterialTable& table, Tally* tally)
+{
+    constexpr float kF0 = 0.6F;
+    constexpr std::size_t kStep = 37;   // (the map's bytes: a pattern)
+    constexpr std::size_t kStart = 11;
+    render::vulkan::set_rt_pbr_settings({.on = true});
+    MadeTexture colour = make_texture(gpu, {.size = kSmall, .seed = Seed{kSamplingSeed}});
+    std::vector<uint8_t> map(static_cast<std::size_t>(kSmall) * kSmall * 4);
+    for (std::size_t i = 0; i < map.size(); ++i) {
+        core::at(map, i) = static_cast<uint8_t>((i * kStep) + kStart);
+    }
+    const bool attached = render::surface::surface_maps() != nullptr &&
+                          render::surface::surface_maps()->attach(
+                              colour.texture, {.width = kSmall, .height = kSmall, .material_class = 4, .f0 = kF0}, map);
+    MadeTexture plain = make_texture(gpu, {.size = kSmall, .seed = Seed{kReleasedSeed}});
+    const rt::MaterialId with = rt::next_material_id();
+    table.set(with, point_material(colour.texture));
+    const rt::MaterialId without = rt::next_material_id();
+    table.set(without, point_material(plain.texture));
+    const MaterialRecord record = table.record(with);
+    tally->check(attached && record.surface_texture != 0 && record.surface_texture != record.texture && record.f0 == kF0 &&
+                     table.record(without).surface_texture == 0,
+                 text::format("a surface map attached: its own slot %u (the colour's %u), F0 %.2f; none without",
+                              record.surface_texture, record.texture, static_cast<double>(record.f0)));
+    Probe surface_probe;
+    if (!surface_probe.init(render::vulkan::backend().context.device(), table.layout(), kSurfaceProbeBody)) {
+        tally->check(false, "the surface probe's pipeline made");
+    } else {
+        Batch batch;
+        for (uint32_t row = 0; row < kSmall; ++row) {
+            for (uint32_t column = 0; column < kSmall; ++column) {
+                const std::size_t at = ((static_cast<std::size_t>(row) * kSmall) + column) * 4;
+                const Rgba want{static_cast<float>(core::at(map, at)) / kByte, static_cast<float>(core::at(map, at + 1)) / kByte,
+                                static_cast<float>(core::at(map, at + 2)) / kByte,
+                                static_cast<float>(core::at(map, at + 3)) / kByte};
+                batch.add(with, centre(column, kSmall), centre(row, kSmall), {.colour = want, .alpha_passes = 1});
+            }
+        }
+        batch.add(without, kHalf, kHalf, {.colour = {kHalf, kHalf, 1.0F, kHalf}, .alpha_passes = 0});
+        run_batch(surface_probe, table, batch, "the surface map read through the material, texel for texel; none: flat",
+                  tally);
+        surface_probe.shutdown();
+    }
+    release(gpu, &colour);
+    tally->check(table.record(with).surface_texture == 0, "the texture released: its map's slot cleared");
+    table.remove(with);
+    table.remove(without);
+    release(gpu, &plain);
+    render::vulkan::set_rt_pbr_settings({});
+}
+
 // Thousands of materials over a hundred textures: the rows grow; then half removed.
 void check_many(render::Gpu& gpu, Probe& probe, MaterialTable& table, Tally* tally)
 {
@@ -1091,6 +1166,7 @@ int run(const Options& options, SDL_Window* window)
             check_formats(gpu, probe, table, &tally);
             check_sampling(gpu, probe, table, &tally);
             check_release(gpu, probe, table, &tally);
+            check_surface(gpu, table, &tally);
             check_many(gpu, probe, table, &tally);
             probe.shutdown();
         }

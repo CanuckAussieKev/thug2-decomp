@@ -380,7 +380,11 @@ float surface_ggx(vec3 n, vec3 v, vec3 l, float rough, float f0)
 
 void surface_declarations(std::string& out, const FragmentKey& key)
 {
-    static_assert(kSurfaceUniformsBinding == 6 && kSurfaceMapBinding == 7 && kMaxLights == 8, "kSurfaceBlock names them");
+    constexpr uint32_t kBlockBinding = 6; // (kSurfaceBlock's numbers)
+    constexpr uint32_t kMapBinding = 7;
+    constexpr std::size_t kBlockLights = 8;
+    static_assert(kSurfaceUniformsBinding == kBlockBinding && kSurfaceMapBinding == kMapBinding && kMaxLights == kBlockLights,
+                  "kSurfaceBlock names them");
     add(out, {kSurfaceVaryingsIn});
     if ((key.surface & kSurfaceMap) != 0U) {
         add(out, {"layout(set = 0, binding = 7) uniform sampler2D surface_map;"});

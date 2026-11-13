@@ -33,6 +33,9 @@ constexpr float kSampleF0 = 0.04F;
 constexpr uint32_t kSecondChecksum = 0xFEEDF00DU;
 constexpr uint64_t kSecondContent = 0xA0B0C0D0E0F00010ULL;
 constexpr uint64_t kSampleFileHash = 0x3d218c744addc00aULL; // (the file's own content_hash, as written)
+constexpr uint8_t kSecondTexel = 200;     // (the second entry's first texel byte)
+constexpr std::size_t kCountOffset = 8;    // (the header's u32 count)
+constexpr uint8_t kTooMany = 0xFF;
 constexpr std::size_t kFirstDataOffset = smf::kHeaderSize + (2 * smf::kEntrySize);
 
 int& failures()
@@ -77,7 +80,7 @@ std::vector<uint8_t> sample_file()
          .f0 = 0.5F},
     }};
     const std::array<std::vector<uint8_t>, 2> data{{texels(std::size_t{kSampleWidth} * kSampleHeight * smf::kTexelBytes, 1),
-                                                    texels(smf::kTexelBytes, 200)}};
+                                                    texels(smf::kTexelBytes, kSecondTexel)}};
     return smf::write_file(entries, data);
 }
 
@@ -110,7 +113,7 @@ void check_round_trip()
           "read back: the first entry's fields");
     const smf::Entry& second = entries.back();
     check(second.material_class == smf::MaterialClass::kMetal && second.generator == smf::Generator::kChord &&
-              core::at(std::span<const uint8_t>(file), second.offset) == 200,
+              core::at(std::span<const uint8_t>(file), second.offset) == kSecondTexel,
           "read back: the second entry and its texel");
     check(smf::find(entries, kSecondChecksum, kSecondContent) == &second, "find: by checksum and content");
     check(smf::find(entries, kSecondChecksum, kSampleContent) == nullptr, "find: another content isn't the map's");
@@ -131,7 +134,7 @@ void check_refused()
     core::at(version, 4) = 2;
     check(!smf::read_entries(version, &entries), "refused: another version");
     std::vector<uint8_t> count = file;
-    core::at(count, 8) = 0xFF;
+    core::at(count, kCountOffset) = kTooMany;
     check(!smf::read_entries(count, &entries), "refused: more entries than the file holds");
     std::vector<uint8_t> size = file;
     constexpr std::size_t kWidthOffset = smf::kHeaderSize + 12;

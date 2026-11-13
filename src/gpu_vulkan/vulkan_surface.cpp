@@ -15,6 +15,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_maps.h"
 #include "gpu_vulkan/ff_key.h"
@@ -37,7 +38,7 @@ constexpr float kLeastAlpha = 0.0064F; // (the shader's floor on GGX's alpha)
 
 struct MapEntry {
     Texture* map = nullptr;
-    float f0 = 0.04F;
+    float f0 = kRtPbrF0;
     uint8_t material_class = 0;
 };
 
@@ -64,22 +65,28 @@ uint8_t encode_unit(float value) { return static_cast<uint8_t>(std::lround(std::
 // The next mip level of a map (rows of RGBA texels): each texel from the 2 x 2 above it (one row or column at an odd
 // edge) - the normals averaged and renormalised, the roughness widened by how far the average falls short of a unit
 // normal (Toksvig: alpha^2 + (1 - |n|) / |n|), the height averaged.
-std::vector<uint8_t> next_level(std::span<const uint8_t> texels, uint32_t width, uint32_t height, uint32_t* next_width,
-                                uint32_t* next_height)
+struct Extent {
+    uint32_t width = 0;
+    uint32_t height = 0;
+};
+
+std::vector<uint8_t> next_level(std::span<const uint8_t> texels, Extent* size)
 {
+    const uint32_t width = size->width;
+    const uint32_t height = size->height;
     const uint32_t down_width = std::max(1U, width / 2);
     const uint32_t down_height = std::max(1U, height / 2);
     std::vector<uint8_t> out(static_cast<std::size_t>(down_width) * down_height * kTexel);
-    for (uint32_t y = 0; y < down_height; ++y) {
-        for (uint32_t x = 0; x < down_width; ++x) {
+    for (uint32_t row = 0; row < down_height; ++row) {
+        for (uint32_t column = 0; column < down_width; ++column) {
             std::array<float, 3> normal{};
             float alpha_squared = 0.0F;
             float height_sum = 0.0F;
             float count = 0.0F;
             for (uint32_t dy = 0; dy < 2; ++dy) {
                 for (uint32_t dx = 0; dx < 2; ++dx) {
-                    const uint32_t sx = std::min((x * 2) + dx, width - 1);
-                    const uint32_t sy = std::min((y * 2) + dy, height - 1);
+                    const uint32_t sx = std::min((column * 2) + dx, width - 1);
+                    const uint32_t sy = std::min((row * 2) + dy, height - 1);
                     const std::span<const uint8_t> texel =
                         texels.subspan(((static_cast<std::size_t>(sy) * width) + sx) * kTexel, kTexel);
                     const float nx = decode(core::at(texel, 0));
@@ -87,44 +94,43 @@ std::vector<uint8_t> next_level(std::span<const uint8_t> texels, uint32_t width,
                     const float nz = std::sqrt(std::max(0.0F, 1.0F - (nx * nx) - (ny * ny)));
                     const float length = std::sqrt((nx * nx) + (ny * ny) + (nz * nz));
                     const float scale = length > 0.0F ? 1.0F / length : 0.0F;
-                    normal = {normal[0] + (nx * scale), normal[1] + (ny * scale), normal[2] + (nz * scale)};
+                    normal = {core::at(normal, 0) + (nx * scale), core::at(normal, 1) + (ny * scale), core::at(normal, 2) + (nz * scale)};
                     const float rough = static_cast<float>(core::at(texel, 2)) / kByte;
                     alpha_squared += rough * rough * rough * rough;
                     height_sum += static_cast<float>(core::at(texel, 3)) / kByte;
                     count += 1.0F;
                 }
             }
-            const std::array<float, 3> mean{normal[0] / count, normal[1] / count, normal[2] / count};
-            const float length = std::sqrt((mean[0] * mean[0]) + (mean[1] * mean[1]) + (mean[2] * mean[2]));
+            const std::array<float, 3> mean{core::at(normal, 0) / count, core::at(normal, 1) / count, core::at(normal, 2) / count};
+            const float length = std::sqrt((core::at(mean, 0) * core::at(mean, 0)) + (core::at(mean, 1) * core::at(mean, 1)) + (core::at(mean, 2) * core::at(mean, 2)));
             const float spread = length > 0.0F ? (1.0F - std::min(length, 1.0F)) / length : 1.0F;
             const float alpha = std::sqrt(std::max((alpha_squared / count) + spread, kLeastAlpha * kLeastAlpha));
             const std::span<uint8_t> target =
-                std::span<uint8_t>(out).subspan(((static_cast<std::size_t>(y) * down_width) + x) * kTexel, kTexel);
+                std::span<uint8_t>(out).subspan(((static_cast<std::size_t>(row) * down_width) + column) * kTexel, kTexel);
             const float inverse = length > 0.0F ? 1.0F / length : 0.0F;
-            core::at(target, 0) = encode_signed(mean[0] * inverse);
-            core::at(target, 1) = encode_signed(mean[1] * inverse);
+            core::at(target, 0) = encode_signed(core::at(mean, 0) * inverse);
+            core::at(target, 1) = encode_signed(core::at(mean, 1) * inverse);
             core::at(target, 2) = encode_unit(std::sqrt(alpha));
             core::at(target, 3) = encode_unit(height_sum / count);
         }
     }
-    *next_width = down_width;
-    *next_height = down_height;
+    *size = {.width = down_width, .height = down_height};
     return out;
 }
 
 // One level into a locked A8R8G8B8 texture: the file's R, G, B, A bytes as Direct3D's B, G, R, A in memory.
 void copy_level(const GpuLockedRect& locked, std::span<const uint8_t> texels, uint32_t width, uint32_t height)
 {
-    const std::size_t pitch = static_cast<std::size_t>(locked.pitch);
+    const auto pitch = static_cast<std::size_t>(locked.pitch);
     const std::span<uint8_t> level(static_cast<uint8_t*>(locked.bits), (pitch * (height - 1)) + (std::size_t{width} * kTexel));
-    for (uint32_t y = 0; y < height; ++y) {
-        const std::span<uint8_t> row = level.subspan(y * pitch, static_cast<std::size_t>(width) * kTexel);
-        const std::span<const uint8_t> from = texels.subspan(static_cast<std::size_t>(y) * width * kTexel, row.size());
-        for (std::size_t x = 0; x < row.size(); x += kTexel) {
-            core::at(row, x) = core::at(from, x + 2);
-            core::at(row, x + 1) = core::at(from, x + 1);
-            core::at(row, x + 2) = core::at(from, x);
-            core::at(row, x + 3) = core::at(from, x + 3);
+    for (uint32_t line = 0; line < height; ++line) {
+        const std::span<uint8_t> row = level.subspan(line * pitch, static_cast<std::size_t>(width) * kTexel);
+        const std::span<const uint8_t> from = texels.subspan(static_cast<std::size_t>(line) * width * kTexel, row.size());
+        for (std::size_t at = 0; at < row.size(); at += kTexel) {
+            core::at(row, at) = core::at(from, at + 2);
+            core::at(row, at + 1) = core::at(from, at + 1);
+            core::at(row, at + 2) = core::at(from, at);
+            core::at(row, at + 3) = core::at(from, at + 3);
         }
     }
 }
@@ -162,16 +168,15 @@ public:
             return false;
         }
         std::vector<uint8_t> level(texels.begin(), texels.end());
-        uint32_t width = info.width;
-        uint32_t height = info.height;
+        Extent size{.width = info.width, .height = info.height};
         for (uint32_t index = 0; index < levels; ++index) {
             GpuLockedRect locked{};
             if (device.lock_texture(made, index, &locked, nullptr, 0) == gpu_value::kResultOk && locked.bits != nullptr) {
-                copy_level(locked, level, width, height);
+                copy_level(locked, level, size.width, size.height);
                 device.unlock_texture(made, index);
             }
             if (index + 1 < levels) {
-                level = next_level(level, width, height, &width, &height);
+                level = next_level(level, &size);
             }
         }
         Texture* replaced = nullptr;
@@ -207,9 +212,9 @@ Float4 to_camera(const std::array<float, kMatrixFloats>& view, const std::array<
         }
         core::at(out, column) = sum;
     }
-    const float length = std::sqrt((out[0] * out[0]) + (out[1] * out[1]) + (out[2] * out[2]));
+    const float length = std::sqrt((core::at(out, 0) * core::at(out, 0)) + (core::at(out, 1) * core::at(out, 1)) + (core::at(out, 2) * core::at(out, 2)));
     if (length > 0.0F) {
-        out = {out[0] / length, out[1] / length, out[2] / length, w};
+        out = {core::at(out, 0) / length, core::at(out, 1) / length, core::at(out, 2) / length, w};
     } else {
         out = {};
     }
@@ -282,9 +287,9 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
     *uniforms = {};
     for (std::size_t index = 0; index < kMaxLights; ++index) {
         const Float4& from = core::at(vertex.light_direction, index);
-        const float length = std::sqrt((from[0] * from[0]) + (from[1] * from[1]) + (from[2] * from[2]));
+        const float length = std::sqrt((core::at(from, 0) * core::at(from, 0)) + (core::at(from, 1) * core::at(from, 1)) + (core::at(from, 2) * core::at(from, 2)));
         if (length > 0.0F) {
-            core::at(uniforms->light_toward, index) = {-from[0] / length, -from[1] / length, -from[2] / length, 0.0F};
+            core::at(uniforms->light_toward, index) = {-core::at(from, 0) / length, -core::at(from, 1) / length, -core::at(from, 2) / length, 0.0F};
             core::at(uniforms->light_colour, index) = core::at(vertex.light_diffuse, index);
         }
     }
@@ -304,8 +309,8 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
     }
     uniforms->sun = weight > 0.0F ? to_camera(view, toward, weight) : Float4{};
     const rt::SunLight light = rt::sun_light();
-    uniforms->sun_colour = {light.on ? light.colour[0] : 1.0F, light.on ? light.colour[1] : 1.0F,
-                            light.on ? light.colour[2] : 1.0F, settings.ambient_share};
+    uniforms->sun_colour = {light.on ? core::at(light.colour, 0) : 1.0F, light.on ? core::at(light.colour, 1) : 1.0F,
+                            light.on ? core::at(light.colour, 2) : 1.0F, settings.ambient_share};
     uniforms->sky = to_camera(view, {0.0F, 1.0F, 0.0F}, settings.sky_detail);
     uniforms->params = {settings.specular, settings.normal_strength, settings.roughness, draw.f0};
     uniforms->shade = {settings.shade_low, settings.shade_high, settings.detail_low, settings.detail_high};
@@ -317,6 +322,14 @@ Texture* surface_map_for(const Texture* colour)
     const std::scoped_lock lock(state.mutex);
     const auto found = state.maps.find(colour);
     return found != state.maps.end() ? found->second.map : nullptr;
+}
+
+float surface_map_f0(const Texture* colour)
+{
+    SurfaceState& state = surface_state();
+    const std::scoped_lock lock(state.mutex);
+    const auto found = state.maps.find(colour);
+    return found != state.maps.end() ? found->second.f0 : 0.0F;
 }
 
 Texture* take_surface_map(const Texture* colour)

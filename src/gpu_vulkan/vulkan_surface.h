@@ -43,7 +43,7 @@ struct Backend;
 struct SurfaceDraw {
     uint8_t flags = 0;
     Texture* map = nullptr;
-    float f0 = 0.04F;
+    float f0 = kRtPbrF0;
 };
 // What `block`'s draw with `key` gets (all 0 with rt_pbr off): call with the backend's lock held.
 [[nodiscard]] SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key);
@@ -52,6 +52,8 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
                            SurfaceUniforms* uniforms);
 // `colour`'s map, if it has one (null otherwise; for the material table and other effects).
 [[nodiscard]] Texture* surface_map_for(const Texture* colour);
+// The F0 of `colour`'s map's class (0: no map).
+[[nodiscard]] float surface_map_f0(const Texture* colour);
 // `colour` is being destroyed: its map taken out of the table, for the caller to release (null: none).
 [[nodiscard]] Texture* take_surface_map(const Texture* colour);
 // The maps attached since the device was made (the log; checks).

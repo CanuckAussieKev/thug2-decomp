@@ -15,13 +15,15 @@
 // body).
 namespace render::surface {
 
+inline constexpr float kDielectricF0 = 0.04F; // (F0 of a non-metal: 4% reflected at normal incidence)
+
 // What the maps' texels hold (surface_map_format.h's): 4 bytes a texel, rows top first - normal x (along +u), normal y
 // (along +v) as 0 - 255 for -1 - 1, roughness 0 - 1, height 0 - 1 (0.5 the surface).
 struct MapInfo {
     uint32_t width = 0;
     uint32_t height = 0;
     uint8_t material_class = 0; // surface_map_format::MaterialClass
-    float f0 = 0.04F;           // the reflectance at normal incidence the class gives
+    float f0 = kDielectricF0;   // the reflectance at normal incidence the class gives
 };
 
 class SurfaceMaps {

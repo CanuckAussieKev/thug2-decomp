@@ -1,13 +1,13 @@
 // NOT ORIGINAL - a texture dictionary's surface maps (surface_map_load.h).
 #include "render_pc/surface_map_load.h"
 
-#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
 #include <vector>
 
 #include "engine/file/file_load.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/surface_maps.h"
 #include "formats/surface_map_format.h"
 #include "platform/run_log.h"

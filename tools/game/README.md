@@ -185,6 +185,12 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   brightened more often than the baked-bright ones (more in the shade); the `on` logs showing "rt_gi: the first indirect
   light pass" and no skip. `--set Graphics.rt_gi_rays=4` etc. try the other settings; the passes' device time is in the
   logs ("rt_gi: <x> ms a pass on the device").
+  `--effect pbr` (both commands): per-pixel lighting and surface maps (`[Graphics] rt_pbr`) - `rt_pbr=0` / `1`, the rest
+  of the ini as the workspace has it with `--set`'s values (the user's look: `--set Graphics.ray_tracing=1 ...`); make
+  the workspace's maps first (`node tools/pbr_maps/pbr_maps.ts make --game <workspace> --levels foun,z_dt,bo,...`,
+  under its lock; `remove` after). `--expect drawn`: the mean luma change at most 25, at most 0.1% turned black and 2%
+  white, some spot changed by 0.5% or more; the `on` logs showing "rt_pbr: per-pixel lighting on" and maps attached,
+  the `off` ones neither; each configuration's frame times reported.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
   [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
   (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed
