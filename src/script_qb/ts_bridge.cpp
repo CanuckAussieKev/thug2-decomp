@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <ratio>
 #include <span>
 #include <string>
 #include <string_view>

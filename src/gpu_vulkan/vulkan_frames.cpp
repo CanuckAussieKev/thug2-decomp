@@ -124,9 +124,9 @@ void Frames::read_timing(Slot& slot)
     std::array<uint64_t, 2> stamps{};
     if (vkGetQueryPoolResults(device_, timing_, index * 2, 2, sizeof(stamps), stamps.data(), sizeof(uint64_t),
                               VK_QUERY_RESULT_64_BIT) == VK_SUCCESS &&
-        stamps[1] >= stamps[0]) {
+        std::get<1>(stamps) >= std::get<0>(stamps)) {
         static const int kGpu = frame_profile::slot("gpu");
-        frame_profile::add_ms(kGpu, static_cast<double>(stamps[1] - stamps[0]) * tick_ms_);
+        frame_profile::add_ms(kGpu, static_cast<double>(std::get<1>(stamps) - std::get<0>(stamps)) * tick_ms_);
     }
 }
 

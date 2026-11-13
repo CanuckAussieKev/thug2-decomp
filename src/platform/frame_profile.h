@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 // NOT ORIGINAL - where a frame's time goes (`[debug] frame_profile=1` in thug2-decomp.ini; off by default, and then
@@ -34,7 +35,8 @@ public:
     Scope& operator=(Scope&&) = delete;
 
 private:
-    int slot_ = -1;
+    int64_t* ticks_ = nullptr;          // the phase's time this loop (none: not measured)
+    std::atomic<int>* current_ = nullptr; // the main thread's innermost phase, put back at the end
     int outer_ = -1;
     int64_t start_ = 0;
 };
