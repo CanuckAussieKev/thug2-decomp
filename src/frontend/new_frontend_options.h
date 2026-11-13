@@ -46,6 +46,24 @@ const std::vector<GroupSet>& bunches();
 // group or in two, a fallback that is no choice, two choices with one value, a preset's key or value that is no
 // setting's choice. (bunches() asserts it is empty; the options check prints it.)
 std::string check_tables();
+// --- rows shown only while another setting is set a certain way (a toon knob under Art style: Toon) ---
+
+// `key` is listed only while `parent` (another setting's key, an earlier row of the same group) has one of `values`
+// (as written to the ini). The hidden row's own value is kept - and still written by a graphics preset.
+struct ShownWhen {
+    const char* key;
+    const char* parent;
+    std::vector<const char*> values;
+};
+const std::vector<ShownWhen>& shown_rules();
+// Whether the row `option` is listed, given every setting's chosen index (`choices`, one per get_specs() entry - a
+// missing or short list reads the fallbacks). A setting with no rule is always listed.
+bool row_shown(int option, const std::vector<int>& choices);
+// What is wrong with the rules, one line each: a key or parent that is no setting, a value that is no choice of the
+// parent, a parent that isn't an earlier row of the child's group, a parent that is itself hidden by a rule.
+// (check_tables includes it.)
+std::string check_shown_rules();
+
 // The option `section`/`key` (any case): its index, -1 if none.
 int get_find(const std::string& section, const std::string& key);
 

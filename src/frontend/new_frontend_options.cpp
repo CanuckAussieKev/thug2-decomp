@@ -4,6 +4,7 @@
 #include "frontend/new_frontend_text.h"
 #include "base/core/checked_index.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdlib>
@@ -210,7 +211,83 @@ int match_choice(const Spec& spec, const std::string& value)
     return -1;
 }
 
+// The rows that matter only while another setting is on: each one's effect does nothing without its switch (the
+// readers in app/renderer_choice.cpp, the passes' own `on` checks). Left out: rt_relit_strength (the relit mode is also
+// on whenever rt_sun_source isn't level, with rt_relit off). A rule's parent is an earlier row of the same group.
+const std::vector<ShownWhen>& shown_table()
+{
+    static const std::vector<ShownWhen> kRules = {
+        {.key = "rt_tess_max_deviation", .parent = "rt_tessellation", .values = {"1"}},
+        {.key = "rt_shadow_strength", .parent = "rt_shadows", .values = {"1"}},
+        {.key = "rt_shadow_softness", .parent = "rt_shadows", .values = {"1"}},
+        {.key = "rt_shadow_objects", .parent = "rt_shadows", .values = {"1"}},
+        {.key = "rt_ao_strength", .parent = "rt_ao", .values = {"1"}},
+        {.key = "rt_ao_radius", .parent = "rt_ao", .values = {"1"}},
+        {.key = "rt_ao_rays", .parent = "rt_ao", .values = {"1"}},
+        {.key = "rt_gi_strength", .parent = "rt_gi", .values = {"1"}},
+        {.key = "rt_gi_rays", .parent = "rt_gi", .values = {"1"}},
+        {.key = "rt_pbr_specular", .parent = "rt_pbr", .values = {"1"}},
+        {.key = "rt_pbr_normal_strength", .parent = "rt_pbr", .values = {"1"}},
+        {.key = "rt_reflection_strength", .parent = "rt_reflections", .values = {"1"}},
+        {.key = "rt_reflection_fresnel", .parent = "rt_reflections", .values = {"1"}},
+        {.key = "rt_glass_reflectance", .parent = "rt_reflections", .values = {"1"}},
+        {.key = "rt_glass_roughness", .parent = "rt_reflections", .values = {"1"}},
+        {.key = "rt_cloud_coverage", .parent = "rt_clouds", .values = {"1"}},
+        {.key = "rt_cloud_quality", .parent = "rt_clouds", .values = {"1"}},
+        {.key = "rt_fog_haze", .parent = "rt_fog", .values = {"1"}},
+        {.key = "rt_fog_haze_density", .parent = "rt_fog", .values = {"1"}},
+        {.key = "rt_bloom_strength", .parent = "rt_bloom", .values = {"1"}},
+        {.key = "rt_style_strength", .parent = "rt_style", .values = {"1"}},
+        {.key = "rt_style_smooth", .parent = "rt_style", .values = {"1"}},
+        {.key = "rt_style_bands", .parent = "rt_style", .values = {"1"}},
+        {.key = "rt_style_outlines", .parent = "rt_style", .values = {"1"}},
+        {.key = "rt_style_outline_width", .parent = "rt_style", .values = {"1"}},
+        {.key = "rt_style_saturation", .parent = "rt_style", .values = {"1"}},
+        {.key = "upscale_quality", .parent = "upscaler", .values = {"auto", "dlss", "fsr"}},
+        {.key = "ray_reconstruction", .parent = "upscaler", .values = {"auto", "dlss", "fsr"}},
+    };
+    return kRules;
+}
+
+// The rule for setting `option` (by index), nullptr if none.
+const ShownWhen* rule_for(int option)
+{
+    const std::vector<Spec>& specs = get_specs();
+    if (option < 0 || std::cmp_greater_equal(option, specs.size())) {
+        return nullptr;
+    }
+    for (const ShownWhen& rule : shown_table()) {
+        if (get_same(rule.key, core::at(specs, option).key)) {
+            return &rule;
+        }
+    }
+    return nullptr;
+}
+
+// Whether `parent`'s choice is one of the rule's values.
+bool parent_matches(const ShownWhen& rule, const Spec& parent, int choice)
+{
+    return std::ranges::any_of(rule.values, [&](const char* value) { return match_choice(parent, value) == choice; });
+}
+
 } // namespace
+
+const std::vector<ShownWhen>& shown_rules() { return shown_table(); }
+
+bool row_shown(int option, const std::vector<int>& choices)
+{
+    const ShownWhen* rule = rule_for(option);
+    if (rule == nullptr) {
+        return true;
+    }
+    const int parent = find_key(rule->parent);
+    if (parent < 0) {
+        return true;
+    }
+    const Spec& spec = core::at(get_specs(), parent);
+    const int choice = std::cmp_less(parent, choices.size()) ? core::at(choices, parent) : spec.fallback;
+    return parent_matches(*rule, spec, choice);
+}
 
 const std::vector<Spec>& get_specs()
 {
@@ -498,6 +575,55 @@ std::string check_tables()
             if (match_choice(core::at(specs, found), set.value) < 0) {
                 add(std::string("preset ") + std::to_string(choice) + ": " + set.key + "=" + set.value + " is no choice");
             }
+        }
+    }
+    problems += check_shown_rules();
+    return problems;
+}
+
+std::string check_shown_rules()
+{
+    const std::vector<Spec>& specs = get_specs();
+    std::string problems;
+    const auto add = [&problems](const std::string& line) { problems += line + "\n"; };
+    // (each setting's group and place in it)
+    std::vector<std::pair<int, int>> place(specs.size(), {-1, -1});
+    int group_at = 0;
+    for (const GroupKeys& group : group_keys()) {
+        int row = 0;
+        for (const char* key : group.keys) {
+            const int found = find_key(key);
+            if (found >= 0) {
+                core::at(place, found) = {group_at, row};
+            }
+            ++row;
+        }
+        ++group_at;
+    }
+    for (const ShownWhen& rule : shown_table()) {
+        const std::string name = std::string("shown-when ") + rule.key + " by " + rule.parent;
+        const int child = find_key(rule.key);
+        const int parent = find_key(rule.parent);
+        if (child < 0 || parent < 0) {
+            add(name + ": a key is no setting");
+            continue;
+        }
+        if (rule.values.empty()) {
+            add(name + ": no values");
+        }
+        const Spec& parent_spec = core::at(specs, parent);
+        for (const char* value : rule.values) {
+            if (match_choice(parent_spec, value) < 0) {
+                add(name + ": " + value + " is no choice of " + rule.parent);
+            }
+        }
+        const auto [child_group, child_row] = core::at(place, child);
+        const auto [parent_group, parent_row] = core::at(place, parent);
+        if (child_group != parent_group || parent_row >= child_row) {
+            add(name + ": the parent isn't an earlier row of the child's group");
+        }
+        if (rule_for(parent) != nullptr) {
+            add(name + ": the parent is itself hidden by a rule");
         }
     }
     return problems;

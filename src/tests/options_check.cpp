@@ -239,6 +239,81 @@ void check_presets()
     expect(options::preset_values(1).size() == options::preset_values(3).size(), "the presets set the same keys");
 }
 
+// Rows shown only while another setting is set a certain way: hidden while it is off, listed while it is on, every
+// rule's child and parent real settings (check_shown_rules), the Colour tab's toon knobs among them, no row hidden by a
+// setting that doesn't control it (the rules are the table's: the parent's own key prefix names the effect), and a
+// preset still writing the hidden rows' keys.
+void check_shown_when()
+{
+    const std::vector<options::Spec>& specs = options::get_specs();
+    expect(options::check_shown_rules().empty(), "the shown-when rules:\n" + options::check_shown_rules());
+    expect(!options::shown_rules().empty(), "there are shown-when rules");
+    const auto index_of = [](const char* key) { return options::get_find("Graphics", key); };
+    for (const options::ShownWhen& rule : options::shown_rules()) {
+        const std::string name = std::string(rule.key) + " by " + rule.parent;
+        const int child = index_of(rule.key);
+        const int parent = index_of(rule.parent);
+        expect(child >= 0 && parent >= 0, name + ": both are settings");
+        if (child < 0 || parent < 0) {
+            continue;
+        }
+        const options::Spec& parent_spec = core::at(specs, parent);
+        // (every choice of the parent: the child listed exactly while it is one of the rule's values)
+        for (size_t choice = 0; choice < parent_spec.choices.size(); ++choice) {
+            std::vector<int> choices(specs.size(), 0);
+            for (size_t i = 0; i < specs.size(); ++i) {
+                core::at(choices, i) = core::at(specs, i).fallback;
+            }
+            core::at(choices, parent) = static_cast<int>(choice);
+            bool listed = false;
+            for (const char* value : rule.values) {
+                listed = listed || std::strcmp(value, core::at(parent_spec.choices, choice).value) == 0;
+            }
+            expect(options::row_shown(child, choices) == listed,
+                   name + (listed ? ": listed" : ": hidden") + " while " + parent_spec.key + "=" +
+                       core::at(parent_spec.choices, choice).value);
+        }
+        // (the parent itself is never hidden; no effect's knob is hidden by another effect's switch: the child's
+        // key starts with its parent's, less a trailing letter or two - rt_shadow_* under rt_shadows)
+        expect(options::row_shown(parent, {}), name + ": the parent is always listed");
+        const std::string stem = std::string(rule.parent).substr(0, std::string(rule.parent).size() > 6 ? 6 : 4);
+        const bool upscale = std::strcmp(rule.parent, "upscaler") == 0;
+        expect(upscale || std::string(rule.key).starts_with(stem) || std::string(rule.key).starts_with("rt_glass_"),
+               name + ": the parent controls the child");
+    }
+    // (the six toon knobs, by name)
+    for (const char* key : {"rt_style_strength", "rt_style_smooth", "rt_style_bands", "rt_style_outlines", "rt_style_outline_width",
+                            "rt_style_saturation"}) {
+        std::vector<int> choices(specs.size(), 0);
+        for (size_t i = 0; i < specs.size(); ++i) {
+            core::at(choices, i) = core::at(specs, i).fallback;
+        }
+        const int style = index_of("rt_style");
+        core::at(choices, style) = 0;
+        expect(!options::row_shown(index_of(key), choices), std::string(key) + " hidden while the art style is off");
+        core::at(choices, style) = 1;
+        expect(options::row_shown(index_of(key), choices), std::string(key) + " listed with the toon style");
+    }
+    // (the upscaler: off hides its knobs, any provider lists them)
+    {
+        std::vector<int> choices(specs.size(), 0);
+        const int upscaler = index_of("upscaler");
+        const options::Spec& spec = core::at(specs, upscaler);
+        for (size_t choice = 0; choice < spec.choices.size(); ++choice) {
+            core::at(choices, upscaler) = static_cast<int>(choice);
+            const bool off = std::strcmp(core::at(spec.choices, choice).value, "off") == 0;
+            expect(options::row_shown(index_of("upscale_quality"), choices) == !off,
+                   std::string("upscale_quality with upscaler=") + core::at(spec.choices, choice).value);
+        }
+    }
+    // (a preset writes the hidden rows' keys too: every key of the preset is a setting, hidden or not)
+    for (int choice = 1; choice < 4; ++choice) {
+        for (const options::PresetValue& set : options::preset_values(choice)) {
+            expect(index_of(set.key) >= 0, std::string("preset key ") + set.key + " is a setting");
+        }
+    }
+}
+
 // The texture sets' row: Original always offered; a filter (the game's: the sets installed) hides the others.
 void check_choice_filter()
 {
@@ -270,6 +345,7 @@ int main()
     check_ini();
     check_presets();
     check_choice_filter();
+    check_shown_when();
     std::printf("options check: %d checks, %d failed\n", check_state().checked, check_state().failures);
     return check_state().failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

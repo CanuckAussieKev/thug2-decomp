@@ -227,8 +227,9 @@ public:
     // The sections' views made again (the locks changed): each section's row kept where it still is.
     void set_views(std::vector<SectionView> views);
     [[nodiscard]] const std::string& get_last_level() const { return last_level_; }
-    // The options' choices, one per Options::get_specs() entry.
-    void set_option_values(std::vector<int> choices) { options_ = std::move(choices); }
+    // The options' choices, one per Options::get_specs() entry. The rows listed follow them (option_rows): a setting
+    // that matters only while another is set a certain way is hidden otherwise - the cursor stays on its setting.
+    void set_option_values(std::vector<int> choices);
     [[nodiscard]] const std::vector<int>& option_values() const { return options_; }
     void set_option_group(int group);
 
@@ -340,6 +341,8 @@ private:
     std::vector<int> options_;
     int bundle_ = 0;
     int option_row_ = 0;
+    mutable std::vector<int> shown_rows_; // the group's settings listed (option_rows' answer), made again when dirty
+    mutable bool shown_dirty_ = true;
     float scroll_ = 0.0F, scroll_target_ = 0.0F;
     int visible_rows_ = kVisibleRowCount;
     std::vector<RowAnim> rows_;
