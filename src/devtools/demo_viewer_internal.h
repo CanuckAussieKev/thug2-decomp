@@ -75,6 +75,7 @@ struct State {
     int fixed = 0;                  // the fixed camera looked through
     int selected_key = -1;
     int cursor_before = -1;
+    int show_tab = -1;              // the right panel's tab to bring up (0 Camera, 1 Keys, 2 Compare; -1: as it is)
 
     // --- the flags ---
     CameraMode mode = CameraMode::kGame;

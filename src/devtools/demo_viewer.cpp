@@ -902,31 +902,28 @@ void leave()
     }
 }
 
-std::string console_command(const std::string& args)
+namespace {
+
+constexpr const char* kConsoleHelp =
+    "viewer play | pause | seek <frame | seconds s> | step [n] | speed <x> | camera game | free | orbit | fixed [n] | "
+    "path | free <x> <y> <z> <yaw> <pitch> | fov <deg> | hud 0|1 | ui 0|1 | tab camera|keys|compare | key add | "
+    "key delete <n> | key clear | loop <in> <out> | loop off | export [file] | save | exit | status";
+
+// The console's transport words (true: one of them).
+bool transport_command(const std::string& action, std::istringstream& words)
 {
-    State& view = the_state();
-    std::istringstream words(args);
-    std::string action;
-    words >> action;
-    if (!view.active) {
-        return "the viewer isn't up (demo view <name>)";
-    }
-    if (action == "play") {
-        if (view.paused) {
-            toggle_play();
-        }
-    } else if (action == "pause") {
-        if (!view.paused) {
+    const State& view = the_state();
+    if (action == "play" || action == "pause") {
+        if (view.paused == (action == "play")) {
             toggle_play();
         }
     } else if (action == "seek") {
         std::string where;
         words >> where;
-        if (where.ends_with('s')) {
-            seek(static_cast<int64_t>(std::lround(text::to_double(where.c_str()) * kFramesPerSecond)), !view.paused);
-        } else {
-            seek(text::to_int(where.c_str()), !view.paused);
-        }
+        const int64_t frame = where.ends_with('s')
+                                  ? static_cast<int64_t>(std::lround(text::to_double(where.c_str()) * kFramesPerSecond))
+                                  : text::to_int(where.c_str());
+        seek(frame, !view.paused);
     } else if (action == "step") {
         int frames = 1;
         words >> frames;
@@ -935,7 +932,17 @@ std::string console_command(const std::string& args)
         float speed = 1.0F;
         words >> speed;
         set_speed(speed);
-    } else if (action == "camera") {
+    } else {
+        return false;
+    }
+    return true;
+}
+
+// The console's camera and view words (true: one of them).
+bool camera_command(const std::string& action, std::istringstream& words)
+{
+    State& view = the_state();
+    if (action == "camera") {
         std::string mode;
         words >> mode;
         for (int i = 0; i <= static_cast<int>(CameraMode::kPath); ++i) {
@@ -953,15 +960,30 @@ std::string console_command(const std::string& args)
         view.mode = CameraMode::kFree;
     } else if (action == "fov") {
         words >> view.fov;
-    } else if (action == "hud") {
+    } else if (action == "hud" || action == "ui") {
         int on = 1;
         words >> on;
-        view.hud = on != 0;
-    } else if (action == "ui") {
-        int on = 1;
-        words >> on;
-        view.ui_visible = on != 0;
-    } else if (action == "key") {
+        (action == "hud" ? view.hud : view.ui_visible) = on != 0;
+    } else if (action == "tab") {
+        std::string tab;
+        words >> tab;
+        view.show_tab = 0;
+        if (tab == "keys") {
+            view.show_tab = 1;
+        } else if (tab == "compare") {
+            view.show_tab = 2;
+        }
+    } else {
+        return false;
+    }
+    return true;
+}
+
+// The console's path words: keys and the loop region (true: one of them).
+bool path_command(const std::string& action, std::istringstream& words)
+{
+    State& view = the_state();
+    if (action == "key") {
         std::string what;
         words >> what;
         if (what == "add") {
@@ -986,21 +1008,15 @@ std::string console_command(const std::string& args)
             view.loop = view.path.loop_out > view.path.loop_in;
             path_changed();
         }
-    } else if (action == "export") {
-        std::string file;
-        std::getline(words >> std::ws, file);
-        return start_export(file.empty() ? std::string() : game_folder_path(file.c_str()));
-    } else if (action == "save") {
-        save_path();
-        return "saved " + sidecar_path();
-    } else if (action == "exit") {
-        leave();
-        return "closed";
-    } else if (!action.empty() && action != "status") {
-        return "viewer play | pause | seek <frame | seconds s> | step [n] | speed <x> | camera game | free | orbit | "
-               "fixed [n] | path | free <x> <y> <z> <yaw> <pitch> | fov <deg> | hud 0|1 | ui 0|1 | key add | "
-               "key delete <n> | key clear | loop <in> <out> | loop off | export [file] | save | exit | status";
+    } else {
+        return false;
     }
+    return true;
+}
+
+std::string status_line()
+{
+    const State& view = the_state();
     const uint32_t done = frames_done();
     std::string state_text = view.paused ? "paused" : text::format("playing %.2fx", static_cast<double>(view.speed));
     if (view.restarting) {
@@ -1012,9 +1028,41 @@ std::string console_command(const std::string& args)
     }
     return text::format("frame %u of %u (done %u), %s, camera %s, %zu key(s), loop %s %d-%d, last seek %.2f s at %.0f "
                         "frames/s",
-                        done > 0 ? done - 1 : 0, view.playback.frames, done, state_text.c_str(), camera_name(view.mode).c_str(),
-                        view.path.keys.size(), view.loop ? "on" : "off", view.path.loop_in, view.path.loop_out, view.last_seek_seconds,
-                        view.last_seek_rate);
+                        done > 0 ? done - 1 : 0, view.playback.frames, done, state_text.c_str(),
+                        camera_name(view.mode).c_str(), view.path.keys.size(), view.loop ? "on" : "off",
+                        view.path.loop_in, view.path.loop_out, view.last_seek_seconds, view.last_seek_rate);
+}
+
+} // namespace
+
+std::string console_command(const std::string& args)
+{
+    if (!the_state().active) {
+        return "the viewer isn't up (demo view <name>)";
+    }
+    std::istringstream words(args);
+    std::string action;
+    words >> action;
+    if (transport_command(action, words) || camera_command(action, words) || path_command(action, words)) {
+        return status_line();
+    }
+    if (action == "export") {
+        std::string file;
+        std::getline(words >> std::ws, file);
+        return start_export(file.empty() ? std::string() : game_folder_path(file.c_str()));
+    }
+    if (action == "save") {
+        save_path();
+        return "saved " + sidecar_path();
+    }
+    if (action == "exit") {
+        leave();
+        return "closed";
+    }
+    if (!action.empty() && action != "status") {
+        return kConsoleHelp;
+    }
+    return status_line();
 }
 
 } // namespace devtools::demo_viewer

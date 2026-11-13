@@ -451,6 +451,11 @@ SkyCapture sky_capture();
 // matches and caches made for a side are kept (each side's view has its own) - nothing starts again.
 void set_settings_swap(bool swapping);
 bool settings_swap();
+// The depth targets made samplable for the effects although none of the effects on now samples them: side B turns on
+// one that side A has off. Read when a backend makes its depth targets - set before them (compare_split=1 from the
+// start), it is in effect from the first frame; set later, once they are made again (the window resized, a restart).
+void set_depth_sampling_wanted(bool wanted);
+bool depth_sampling_wanted();
 
 // The clip-space scale and offset that crop a projection to `part` (x, y, width, height - 0..1 of the viewport, y down):
 // x' = x * scale_x + w * offset_x, y' = y * scale_y + w * offset_y - {scale_x, scale_y, offset_x, offset_y}. The part's

@@ -37,7 +37,7 @@ using Clock = std::chrono::steady_clock;
 constexpr float kBaseHeight = 720.0F;
 constexpr float kTextPixels = 15.0F;
 constexpr float kTitlePixels = 17.0F;
-constexpr float kBarHeight = 96.0F;  // the bottom bar
+constexpr float kBarHeight = 112.0F; // the bottom bar
 constexpr float kSideWidth = 330.0F; // the right panel
 constexpr float kTimelineHeight = 30.0F;
 constexpr float kKeyGrab = 7.0F; // (a key's diamond grabbed this close)
@@ -766,21 +766,26 @@ void side_panel()
     ImGui::PushFont(panels.title);
     ImGui::TextUnformatted(("REPLAY  " + state().playback.name).c_str());
     ImGui::PopFont();
+    State& view = state();
+    const auto tab_flags = [&view](int tab) {
+        return view.show_tab == tab ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
+    };
     if (ImGui::BeginTabBar("##tabs")) {
-        if (ImGui::BeginTabItem("Camera")) {
+        if (ImGui::BeginTabItem("Camera", nullptr, tab_flags(0))) {
             camera_tab();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Keys")) {
+        if (ImGui::BeginTabItem("Keys", nullptr, tab_flags(1))) {
             keys_tab();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Compare")) {
+        if (ImGui::BeginTabItem("Compare", nullptr, tab_flags(2))) {
             compare_tab();
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
     }
+    view.show_tab = -1;
     ImGui::End();
 }
 

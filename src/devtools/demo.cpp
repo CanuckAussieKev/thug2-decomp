@@ -38,6 +38,7 @@
 #include "engine/gfx/render_device.h"
 #include "engine/media/video_writer.h"
 #include "engine/script/context.h"
+#include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/ext/extension.h"
 #include "engine/file/disk.h"
@@ -815,6 +816,12 @@ void viewer_video_done()
     }
 }
 
+// The viewer's way back: the demo started again as -demo starts it - the main menu first (the pause menu's QUIT:
+// level_select_change_level_quit to Load_MainMenu), then, once it has been up a moment, the demo's level (menu_tick).
+// Measured (docs/demos.md "The viewer"): the level loaded again from inside itself kept the skater's state at the level
+// up (a demo recorded from a fresh start parted at frame 5); by the main menu a pass plays as a second playback in one
+// session does - the same as each other, and the same as the recording until something the session before left
+// matters (13 s into the BO test demo: a standing skater pushing off 8 frames later).
 bool host_restart()
 {
     State& run = state();
@@ -823,13 +830,12 @@ bool host_restart()
     }
     run.counting = false;
     run.phase = Phase::kPlayArmed;
-    std::string why;
-    if (!frontend::begin_level::read_in_load(run.demo.level_load, false, &why)) {
-        get_log("demo: the viewer's restart failed - %s", why.c_str());
-        run.phase = Phase::kPlaying;
-        run.counting = true;
-        return false;
-    }
+    run.from_command_line = true;
+    run.menu_frames = 0;
+    const script::StructPtr params = script::make_struct();
+    params->put_name_key(checksums::Name{checksums::hash_from_text("level")}, kLoadMainMenu);
+    script::spawn_script(checksums::hash_from_text("level_select_change_level_quit"), params.get());
+    get_log("demo: the viewer goes back by the main menu");
     return true;
 }
 

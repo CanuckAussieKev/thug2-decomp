@@ -59,11 +59,14 @@ linear, ease or hold; "Set from the view") and **Compare** (the split comparison
   every few loops, every loop drawn (a camera path moves on between the logic frames); 1.5x - 4x are 2 - 4 logic frames
   a drawn one. The logic is the same fixed 1/60 s a frame however the loops are paced, so none of this changes the run.
 - **Seeking.** The game's logic only runs forward. A frame after the one shown is reached by running on flat out,
-  undrawn (a frame drawn every 0.1 s shows SEEKING and the percentage); a frame before it by loading the level again the
-  way the demo started - its random numbers, clocks and input, as a playback from the pause menu does - and running on
-  to it. No snapshot of the game is kept for a faster way back: its state is spread over the script heap, the objects,
-  the physics, the sound and the screen elements, and nothing puts all of it back exactly - a checkpoint that missed one
-  piece would part from the recording without the drift check seeing why. How fast: "What was measured" below.
+  undrawn (a frame drawn every 0.1 s shows SEEKING and the percentage); a frame before it by starting the demo again as
+  `-demo` starts it - back to the main menu (the pause menu's QUIT), the menu up a moment, the demo's level loaded with
+  its random numbers, clocks and input - and running on to it. (Loading the level again from inside itself kept the
+  skater's state at the level up: a demo recorded from a fresh start parted at frame 5.) No snapshot of the game is kept
+  for a faster way back: its state is spread over the script heap, the objects, the physics, the sound and the screen
+  elements, and nothing puts all of it back exactly - a checkpoint that missed one piece would part from the recording
+  without the drift check seeing why. Every pass after a seek back is a second playback in the same session, which the
+  demos can't make exact yet (below, "What was measured").
 - **Cameras.** The game's (as recorded); **free** (it starts where the camera is); **orbit** round the skater (from
   behind it while "follow" is on); **fixed** cameras placed in the level; **path** - the keyframes: a position, a
   rotation (yaw, pitch, roll) and a field of view at a frame; between keys the camera moves smooth (a curve through the
@@ -117,10 +120,48 @@ What can't differ per side is drawn as `[Graphics]` has it on both, and named in
 `ray_tracing`, `rt_hdr`, the upscaler (off while the split is on: both sides at the native resolution - it upscales a
 whole view), `rt_tessellation`, the relit mode (it changes how the world itself is drawn and keeps a cache), `msaa`,
 `anisotropy` and the texture sets. A `[Compare]` key among them is logged and left out. Direct3D 9 has no effects to
-split: both sides are the same there. The world is drawn twice, so a frame costs about twice as much; the effects that
-blur or look at neighbours (the bloom, the shafts, the reflections' blur) stop at the divider instead of reaching across
-it - a few pixels either side of it differ from an unsplit frame. A demo saved as a video with the split on shows it,
-its divider and labels included.
+split: both sides are the same there. An effect that B turns on and A has off needs the depth targets made samplable for it:
+with `compare_split=1` from the start they are (`rt::depth_sampling_wanted`); turned on later in the game, only once the
+targets are made again (a window resize, a restart). The objects' own shadows (the skater's projected one, the peds'
+blobs) are shown or hidden once a frame, by the game's logic: as side A's `rt_shadows` / `rt_shadow_objects` say, on
+both sides. The world is drawn twice, so a frame costs about twice as much. The effects that blur or look at neighbours
+(the bloom, the shafts, the denoisers, the reflections' blur) stop at the divider instead of reaching across it, and
+those that look at their whole view (the sky's and the fog's light, the bounce) see only their side.
+
+Measured (the demo above, `-demo-capture` every 100 frames, 9 pictures, the halves 12 pixels from the divider left out;
+mean |difference| per channel, 0 - 255, and the share of pixels more than 24 apart):
+
+| Effects | A, B | split left vs A only | split right vs B only | A only vs B only (left / right) |
+|---|---|---|---|---|
+| only the occlusion and the shadows | A: rt_ao=0 rt_shadows=0; B: both 1 | 0.03 (0.1%) | 0.50 (1.6%) | 8.2 / 4.6 |
+| every effect on (GI, fog, sun, bloom, shafts, sky, clouds, reflections, relit) | the same | 0.13 (0.2%) | 1.28 (1.6%) | 8.1 / 4.3 |
+
+(Runs with a frame not drawn - "the capture is a frame behind" in the log - were taken again: a picture a frame off
+isn't comparable. Two A-only runs with every other effect on were identical.) Every split run played identically to the recording.
+A demo saved as a video with the split on shows it, its divider and labels included.
+
+What was measured (2026-11-13, workspace THUG2-7, x64 RelWithDebInfo, Vulkan at 1280x720 with ray tracing and every
+`rt_*` effect on, MSAA 8; the demo `viewtest`: BO, 13.8 s, 828 frames, recorded with `-level BO -record` and the
+automation channel's presses):
+
+| Run | Drift against the recording |
+|---|---|
+| plain `-demo viewtest` | identical (822 check points) |
+| the viewer straight through | identical (822) |
+| the viewer paused 3 s at frame 123, then played on | identical (822) |
+| the viewer with the free and orbit cameras, 0.25x, frame steps, 2x - from a seek back | as the next row |
+| after a seek back (to 300, to 600, then forward to 700, back to the start; every pass) | the same as each other, and the same as the recording until frame 784 (13 s in), where the standing skater pushes off 8 frames later |
+| a plain `-demo viewtest` run to its end, QUIT to the main menu, `demo play viewtest` again - no viewer | the same: frame 784, 8 frames later |
+
+So the cameras, pausing, slow motion, fast play and the split comparison don't touch the run, and a seek back plays as a
+second playback in one session does - which the demo system doesn't make exact yet: something a playback leaves (not the
+clocks, the random numbers or the pads' presses - all tried) changes when a standing skater pushes off. The drift check
+shows it, as ever ("demo: frame N differs").
+
+Seek speed, with all of those effects on: forward 100 frames in 0.04 - 0.06 s (1700 - 2300 frames a second, 28 - 39x
+real time); back to the start 0.8 s (the main menu and the level loaded again), to frame 300 4.4 s, to frame 600 2.2 s.
+SAVE AS VIDEO of frames 100 - 500 with a keyframed path and the split on: 401 frames at 60 a second (thug2_video_check),
+the run identical to the recording.
 
 ## Videos
 
@@ -231,6 +272,9 @@ before the change 0.99 - every playback identical to the recording (1283 check p
 
 ## Limits
 
+- **A second playback in one session** (a demo played to its end, QUIT, played again - and every pass of the viewer
+  after a seek back) can part from the recording: measured on the BO test demo at frame 784 of 828 (a standing skater
+  pushing off 8 frames later), "The viewer" above. The first playback after the game starts is exact.
 - **Restarting in a level (F6, RECORD DEMO, `demo record`).** Measured 2026-11-13 with the clocks put back (the `CLCK`
   chunk): demos recorded in a level after 30 s of skating (BO, foun) play back identically from the command line and
   from the pause menu (drift 0 over 1371 check points). The earlier report of an in-level recording parting after a

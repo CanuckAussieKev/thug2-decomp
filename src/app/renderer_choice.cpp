@@ -631,6 +631,15 @@ bool compare_prepare(const render::graphics_options::CompareSettings& overrides,
         return (set.shadows.on && set.shadows.sun == render::vulkan::RtShadowSettings::SunSource::kBake) || set.gi.on;
     };
     state.wants_baked_sun = wants(std::get<0>(state.sides)) || wants(std::get<1>(state.sides));
+    // (asked for now: render_pc fits the baked sun in a new world's first frame - with A's shadows off and B's on, A's
+    // settings alone wouldn't ask, and B's shadows would have no sun)
+    if (state.wants_baked_sun) {
+        render::rt::set_baked_sun_wanted(true);
+    }
+    // (the depth samplable for B's effects although A's have them off: vulkan_gpu's depth targets)
+    if (state.differ != 0U) {
+        render::rt::set_depth_sampling_wanted(true);
+    }
     state.on = true;
     state.applied = 0;
     get_log("renderer: split comparison - %zu setting(s) differ on the right (effects 0x%02X)%s",
