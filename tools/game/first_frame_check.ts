@@ -3,7 +3,7 @@
 // shadows, bounce light, occlusion and fog there at once, nothing fading in.
 //
 //   node tools/game/first_frame_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <folder>
-//        [--settings <ini>] [--levels BO,AU,z_dt,foun] [--owner <name>] [--set Section.key=value]...
+//        [--settings <ini>] [--levels BO,AU,z_dt,foun] [--all-frames] [--owner <name>] [--set Section.key=value]...
 //   node tools/game/first_frame_check.ts compare <folder> [--threshold 12] [--grow 2]
 //
 // run: under the workspace's lock (game_lock.ps1, released at the end - which puts the folder's own build and ini back),
@@ -13,7 +13,7 @@
 // - `capture ... afterload` takes the first frame drawn after the level's loading screen is taken down and the 60 after
 // it, so
 // frame_0001.png is the level's first frame and frame_0060.png the 60th, from the same still camera. Gathered into
-// <out>/<config>/<level>/frame_0001.png, frame_0050.png ... frame_0060.png, with the level's log.
+// <out>/<config>/<level>/frame_0001.png, frame_0050.png ... frame_0060.png (--all-frames: every one), with the level's log.
 // The configurations:
 //   on   the [Graphics] section of --settings (default: the main install's thug2-decomp.ini, read only) - every key but
 //        the window's (ResolutionX / Y, Windowed, Borderless, WindowDisplay: the workspace's own) - and --set's;
@@ -307,7 +307,7 @@ function powershell(script: string, args: string[]): Promise<{ code: number; out
     });
 }
 
-async function runLevel(game: string, spot: Spot, config: Config, folder: string): Promise<string> {
+async function runLevel(game: string, spot: Spot, config: Config, folder: string, all: boolean): Promise<string> {
     const series = path.join(game, "Screenshots", seriesName(config, spot.level));
     fs.rmSync(series, { recursive: true, force: true });
     clearAutomationFiles(game);
@@ -324,7 +324,7 @@ async function runLevel(game: string, spot: Spot, config: Config, folder: string
     let copied = 0;
     for (let n = 1; n <= FRAMES; n++) {
         const file = path.join(series, frameName(n));
-        if (n !== 1 && n < STEADY_FROM) continue;
+        if (n !== 1 && n < STEADY_FROM && !all) continue;
         if (fs.existsSync(file)) {
             fs.copyFileSync(file, path.join(folder, frameName(n)));
             copied++;
@@ -341,6 +341,7 @@ interface RunOptions {
     build: string;
     settings: string;
     levels: string[] | null;
+    allFrames: boolean;
     owner: string;
     set: Record<string, string>;
 }
@@ -389,7 +390,7 @@ async function runAll(options: RunOptions): Promise<number> {
             ensureWorkspaceMuted(game);
             for (const spot of spots) {
                 note(
-                    `${config} ${spot.level}: ${await runLevel(game, spot, config, path.join(out, config, spot.level))}`,
+                    `${config} ${spot.level}: ${await runLevel(game, spot, config, path.join(out, config, spot.level), options.allFrames)}`,
                 );
             }
         }
@@ -416,6 +417,7 @@ async function main(): Promise<number> {
             settings: { type: "string", default: MAIN_INI },
             levels: { type: "string" },
             owner: { type: "string", default: "first-frame-check" },
+            "all-frames": { type: "boolean", default: false },
             set: { type: "string", multiple: true },
             threshold: { type: "string", default: "12" },
             grow: { type: "string", default: "2" },
@@ -442,6 +444,7 @@ async function main(): Promise<number> {
             build: path.resolve(values.build),
             settings: path.resolve(values.settings),
             levels: values.levels ? values.levels.split(",") : null,
+            allFrames: values["all-frames"] === true,
             owner: values.owner,
             set,
         });

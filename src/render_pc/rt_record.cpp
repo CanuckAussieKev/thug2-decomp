@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -116,6 +117,10 @@ struct State {
     bool first_frame_timed = false;
     std::unordered_map<const MaterialRef*, MaterialEntry> materials;
     std::unordered_set<const VertexBufferData*> written; // since the last record
+    // (added by the first frame) the meshes skinned on the processor whose vertices have been written since they were
+    // first recorded - until then their buffers hold the unskinned data (a new world's first frame, a ped that has just
+    // appeared): traced by nothing (skinned_ready)
+    std::unordered_set<const MeshRef*> skinned_ready;
     uint64_t frame = 0;
     bool recorded = false; // record_frame ran this frame (begin_frame not yet)
     bool begun = false;    // begin_frame called this frame
@@ -332,6 +337,24 @@ bool mesh_shown(const MeshRef* mesh)
     return (mesh->flags() & kMeshShown) != 0U && (mesh->flags() & kMeshHidden) == 0U;
 }
 
+// (added by the first frame) Whether a mesh skinned on the processor has had its vertices written since it was first
+// recorded: one of its vertex buffers among those written (the frame before's skinning) - from then on it stays ready.
+bool skinned_ready(const MeshRef* mesh)
+{
+    State& st = state();
+    if (st.skinned_ready.contains(mesh)) {
+        return true;
+    }
+    for (uint32_t i = 0; i < mesh->vertex_buffer_count(); ++i) {
+        const VertexBuffer* buffer = mesh->vertex_store(i);
+        if (buffer != nullptr && st.written.contains(buffer)) {
+            st.skinned_ready.insert(mesh);
+            return true;
+        }
+    }
+    return false;
+}
+
 // One instance of a mesh with a world transform (a Direct3D matrix).
 void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, rt::RayTracing& rt)
 {
@@ -351,6 +374,10 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
     }
     if (mesh->per_vertex_data() != nullptr) {
         flags |= rt::kSkinned;
+        if (!skinned_ready(mesh)) {
+            // (not skinned yet: in the record - it is drawn - but as a transparent instance, which no effect traces)
+            flags = kind | rt::kSkinned | rt::kTransparent;
+        }
     }
     rt::frame_record().instances.push_back(
         {.mesh = id, .material = material, .flags = flags, .object_to_world = rt::object_to_world_rows(world.floats())});
@@ -379,8 +406,8 @@ void record_world(rt::RayTracing& rt)
         }
         // (the loaded scenes' key: which they are and how many meshes each has - not which are shown, so a sector
         // turned on or off keeps the level's fit)
-        for (const uint64_t part : {static_cast<uint64_t>(reinterpret_cast<uintptr_t>(scene)),
-                                    static_cast<uint64_t>(reinterpret_cast<uintptr_t>(meshes)), count}) {
+        for (const uint64_t part : {static_cast<uint64_t>(std::bit_cast<uintptr_t>(scene)),
+                                    static_cast<uint64_t>(std::bit_cast<uintptr_t>(meshes)), count}) {
             state().scene_key = (state().scene_key ^ part) * kFnvPrime;
         }
     }
@@ -847,6 +874,7 @@ void mesh_released(const MeshRef* mesh)
         rt->remove_mesh(found->second.id);
         st.meshes.erase(found);
     }
+    st.skinned_ready.erase(mesh);
 }
 
 void material_released(const MaterialRef* material)
@@ -883,6 +911,7 @@ void forget_meshes()
     }
     st.meshes.clear();
     st.written.clear();
+    st.skinned_ready.clear(); // (the buffers made again: skinned again before they are traced)
 }
 
 ColourWrite::ColourWrite() { ++state().colour_writes; }

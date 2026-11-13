@@ -22,6 +22,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
@@ -1530,6 +1531,11 @@ void VulkanRayTracing::settle(const rt::FrameRecord& record)
     if (!made.installed || !state.draws_made || !made.any_built) {
         return;
     }
+    // (another world: what the temporal effects remember is of the last one - a camera held at the same place would
+    // find it again; every history starts again, seeded in this frame - vulkan_rt_history.h)
+    rt_effects_reset_history(state);
+    rt_gi_reset_history(state);
+    rt_fog_reset_history(state);
     const auto waiting = [&made] {
         return made.compactions_wanted > 0 || std::ranges::any_of(made.meshes, [](const auto& entry) {
                    return entry.second.query_serial != kNoQuery;
