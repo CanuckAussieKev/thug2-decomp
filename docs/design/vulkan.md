@@ -1178,6 +1178,20 @@ mode separates them and lights the level again.
   at 97% of the vertices (90% before the bounce is traced again); the bake's sun found by rt_sun.h's fit within 10
   degrees; no model: the bake kept; no NaN. `--perf` (484,000 vertices): 6.8 million rays in 1.4 s (RTX 5070 Ti) / 2.0
   s (AMD), the fit and the tints 0.8 / 1.0 s, the sun again 0.2 s.
+- **In the game** (`tools/game/rt_shadows_check.ts --effect relit`, foun / z_dt / BO / AU / BA, every other effect on as
+  the user plays - rt_shadows, ao, gi, reflections, fog, sun, sky model, HDR, 8x MSAA -, two runs): the analysis
+  104,000 - 132,000 vertices, 1.7 - 2.2 million rays, 0.52 - 0.69 s once (a frame's stall when the world first stands
+  still), 13 - 35 ms from the cache after; nothing a frame after that (the colours are in the buffers). `rt_relit=0`
+  against main's build: 0.00 - 0.05% of the pixels changed (the noise). At the bake's sun every level relit is its bake
+  ("mean brightness 68.2 against the bake's 68.2, 0.0% of the vertices changed by more than 2"; at most 0.3% of a
+  picture past the noise); the Foundry (no baked sun) unchanged. `rt_relit_sun=game` (the sun the game shows: 20
+  degrees up toward +z in z_dt, BO, BA, toward +x in AU, against the bakes' 50 - 53): mean vertex brightness 3 - 7%
+  lower, 47 - 72% of the vertices changed, the sun warmer by the sky model's (1, 0.95, 0.85) - z_dt's street 25 luma
+  darker in the picture (its stairs and pavement turned away from the low sun), BO's yard 5, AU 4, BA 2.
+- **Not done / limits:** with `rt_relit_sun=game` the ray-traced shadows, bounce and fog keep the baked sun (only the
+  console's `rt sun` moves them all); the soft edge of a lamp's pool partly stays in the tints (and so dims with a
+  lower sun); walls whose vertices start their rays on the floor's plane see half their hemisphere as the GPU rounds it;
+  the analysis runs at the baked sun's fit, after the loading screen, not during it.
 
 ## Order of work
 
