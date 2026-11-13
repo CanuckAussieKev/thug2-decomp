@@ -1214,9 +1214,17 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
   floats); `rt_pbr` off: the original's shader against Direct3D 9's vertex lighting the same way; every pixel finite;
   the map changes a baked picture. `thug2_vulkan_rt_materials_check` (+2): a map in its own bindless slot, read through
   the material texel for texel, cleared when its texture goes. `thug2_ff_shader_check --surface`: every key that can
-  take the bits generated, compiled, validated and made into pipelines. `thug2_format_check`: the file's reader and
+  take the bits (45,792 fragment keys more: 99,042 modules, 153,962 pipelines) generated, compiled, validated and
+  made into pipelines - none refused, no validation message, on both GPUs. `thug2_format_check`: the file's reader and
   the TypeScript writer on one sample (the same bytes). `tools/pbr_maps/*.test.ts`: the hash, the file, the classical
-  maps' orientation (+u, +v), the classes. In the game: `tools/game/rt_shadows_check.ts --effect pbr`.
+  maps' orientation (+u, +v), the classes. In the game: `tools/game/rt_shadows_check.ts --effect pbr` - with the
+  user's settings (every ray-traced effect on, 8x MSAA) 13 spots in foun, z_dt, BO, z_ho, sch and AU: mean luma change
+  1.0 - 7.0 of 255, at most 0.05% turned black and 0.01% white, maps attached in every level; with a plain ini and
+  main's build as the baseline, `rt_pbr=0` against main 0.00 - 0.01% (the noise).
+- **Cost** (`thug2_vulkan_pbr_check --perf`: a full-screen 1920 x 1080 layer of the material shader with a map):
+  RTX 5070 Ti 0.041 ms off, 0.056 lit, 0.052 baked; the AMD Radeon integrated GPU 0.21 ms off, 2.1 lit, 2.2 baked - the
+  shader's arithmetic (frame, two normalisations, GGX) is ten times the original's there. The game's frame lines were
+  too few to separate the difference from the noise (35 - 40 ms either way with everything on).
 
 ## Order of work
 
