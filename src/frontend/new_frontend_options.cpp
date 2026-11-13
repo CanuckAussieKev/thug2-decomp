@@ -263,7 +263,7 @@ const std::vector<Spec>& get_specs()
         // (gpu_vulkan/vulkan_rt_shadows.h), occlusion and bounce light (vulkan_rt_effects.h)
         graphics_choice("rt_sun_source", text_tools::kOptSunSource, text_tools::kOptSunSourceHelp,
                         {{.value = "game", .label = text_tools::kOptSunSky}, {.value = "level", .label = text_tools::kOptSunLevel}},
-                        0, Apply::kLive),
+                        1, Apply::kLive),
         graphics_switch("rt_shadows", text_tools::kOptShadows, text_tools::kOptShadowsHelp, 0, Apply::kLive),
         graphics_choice("rt_shadow_strength", text_tools::kOptShadowStrength, "",
                         {{.value = "0.25", .label = "25%"}, {.value = "0.5", .label = "50%"}, {.value = "0.75", .label = "75%"}, {.value = "1", .label = "100%"}},

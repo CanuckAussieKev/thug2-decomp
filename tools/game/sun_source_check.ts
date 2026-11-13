@@ -16,7 +16,8 @@
 //
 // compare (run does it at the end): per level
 //   - every effect that asked used the scene's sun: the shadows, the bounce, the fog, the drawn sun, the sky and relit
-//     within 0.5 degrees of it (the drawn sun and the sky may show the game's sun in a level with none: no sun light);
+//     within 0.5 degrees of it (in a level with none: the shadows, bounce and fog none - the drawn sun and the sky
+//     may show the game's sun, lighting nothing, and relit keeps the bake);
 //   - off: the baked sun (or none: a level whose bake shows no sun); on: the game's - or the baked one, the level's
 //     fallback (its game sun too low, or "sun": "level" in rt_relit_levels.json), reported;
 //   - every picture: black (every channel 2 or less) at most 1% more of it than in off's (a NaN, a zero tint); its mean
@@ -39,6 +40,7 @@ One sun for every effect: each main level with rt_sun_source=level and =game, pi
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEGREES = 180 / Math.PI;
 const MOST_APART_DEGREES = 0.5;
+const RELIT_FIT_DEGREES = 5;
 const BLACK_LEVEL = 2;
 const MOST_MORE_BLACK = 0.01;
 const LUMA_RANGE: readonly [number, number] = [0.6, 1.6];
@@ -144,8 +146,10 @@ export function discoveryPlan(sky: Plan): Plan {
         groups: sky.groups.map((g) => ({
             name: g.name,
             ...(g.level ? { level: g.level } : {}),
-            spots: (g.spots ?? []).slice(0, 1),
-            commands: ["wait 120", "console rt sun"],
+            // (in the spot's commands: rt_shadows_check runs a group's spots only)
+            spots: (g.spots ?? [])
+                .slice(0, 1)
+                .map((s) => ({ name: s.name, commands: [...s.commands, "wait 120", "console rt sun"] })),
         })),
     };
 }
@@ -174,7 +178,10 @@ export function sunPlan(sky: Plan, suns: Record<string, SunReport>): Plan {
                 commands: [camera(stand, 300, headingOf(toward), pitch), "wait 60"],
             });
         }
-        groups.push({ name: g.name, level: g.level, spots, commands: ["console rt sun"] });
+        // (`rt sun` at the end of the last spot: rt_shadows_check runs a group's spots only)
+        const last = spots[spots.length - 1]!;
+        last.commands = [...last.commands, "console rt sun"];
+        groups.push({ name: g.name, level: g.level, spots });
     }
     return { groups };
 }
@@ -220,13 +227,18 @@ export function sunProblems(report: SunReport): string[] {
     const problems: string[] = [];
     for (const user of report.users) {
         if (!report.scene) {
-            // (no scene sun: only the drawn sun and the sky may show the game's, lighting nothing)
-            if (user.toward && user.name !== "drawn sun" && user.name !== "sky")
+            // (no scene sun: the lighting effects have none; the drawn sun and the sky may show the game's, lighting
+            // nothing, and relit keeps the bake)
+            if (user.toward && (user.name === "shadows" || user.name === "bounce" || user.name === "fog"))
                 problems.push(`${user.name} has a sun where the scene has none`);
             continue;
         }
+        // (relit at the baked sun lights by its model's own fit - the cache's, kept so the bake comes back exactly -
+        // which a new load's fit finds again within a few degrees)
+        const most =
+            user.name === "relit" && report.origin === "the level's baked sun" ? RELIT_FIT_DEGREES : MOST_APART_DEGREES;
         if (!user.toward) problems.push(`${user.name} has no sun`);
-        else if (degreesApart(user.toward, report.scene) > MOST_APART_DEGREES)
+        else if (degreesApart(user.toward, report.scene) > most)
             problems.push(`${user.name} ${degreesApart(user.toward, report.scene).toFixed(2)} degrees off the scene's`);
     }
     return problems;

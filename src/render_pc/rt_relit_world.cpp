@@ -786,6 +786,9 @@ void log_status(Status status)
 {
     State& st = state();
     st.status = status;
+    if (status != Status::kRelit) {
+        rt::note_sun_used(rt::SunUser::kRelit, false, {}); // (added by the scene's sun: the bake kept)
+    }
     if (st.logged != status) {
         st.logged = status;
         get_log("rt_relit: level %08x: %s", st.level, status_name(status));

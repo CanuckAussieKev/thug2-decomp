@@ -61,7 +61,7 @@ const std::vector<Expected>& expected()
         {.key = "lod_distance_scale", .fallback = "1", .live = false},
         {.key = "rt_tessellation", .fallback = "0", .live = false},
         {.key = "rt_tess_max_deviation", .fallback = "2", .live = false},
-        {.key = "rt_sun_source", .fallback = "game", .live = true},
+        {.key = "rt_sun_source", .fallback = "level", .live = true},
         {.key = "rt_shadows", .fallback = "0", .live = true},
         {.key = "rt_shadow_strength", .fallback = "0.5", .live = true},
         {.key = "rt_shadow_softness", .fallback = "0", .live = true},

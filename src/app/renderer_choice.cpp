@@ -64,11 +64,13 @@ float ini_float(const char* key, float fallback)
 }
 
 // (added by the scene's sun) [Graphics] rt_sun_source: the one sun every effect lights by (engine/gfx/rt_scene.h
-// scene_sun) - game (the default: the sun the game shows, the level relit by it; a level whose game sun is too low, or
-// whose entry in rt_relit_levels.json says "sun": "level", keeps its baked sun), level (the sun the level's lighting was
-// baked with) or x,y,z / heading,elevation (a direction, for experiments); anything else is the default, logged. The
-// per-effect keys it replaces (rt_shadow_sun, rt_relit_sun, rt_sun_place) are read no more - a line in the log says so.
-constexpr const char* kDefaultSunSource = "game";
+// scene_sun) - level (the default: the sun the level's lighting was baked with; the game's own is the same default
+// SetSun, 20 degrees up toward +z, in 12 of the 15 levels, and relit by it they lose their baked sunlight - docs/design/
+// vulkan.md "One sun for every effect"), game (the sun the game shows, the level relit by it; a level whose game sun is
+// too low, or whose entry in rt_relit_levels.json says "sun": "level", keeps its baked sun) or x,y,z /
+// heading,elevation (a direction, for experiments); anything else is the default, logged. The per-effect keys it
+// replaces (rt_shadow_sun, rt_relit_sun, rt_sun_place) are read no more - a line in the log says so.
+constexpr const char* kDefaultSunSource = "level";
 void read_sun_source()
 {
     constexpr std::size_t kLongest = 64;

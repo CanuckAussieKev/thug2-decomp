@@ -1529,6 +1529,68 @@ mode separates them and lights the level again.
   lower sun); walls whose vertices start their rays on the floor's plane see half their hemisphere as the GPU rounds it;
   the analysis runs at the baked sun's fit, after the loading screen, not during it.
 
+### One sun for every effect (`rt_sun_source`)
+
+Before this, each effect picked its own sun: the shadows `rt_shadow_sun` (the baked one), the drawn disc `rt_sun_place`
+(the game's), relit `rt_relit_sun`, and the sky model the game's. With mixed choices the lighting, the shadows and
+the disc pointed different ways. Now `engine/gfx/rt_scene.h` `scene_sun()` is the only accessor, and every effect
+asks it: the shadows, the bounce (`rt_gi`), the fog's shafts and haze, the drawn disc with its glare, rays and bloom,
+the sky table, the sky model and clouds, relit, and through relit the skater's and objects' turned lights. The rules
+are the pure `rt_sun.h` `resolve_scene_sun`, in this order:
+
+1. The console's `rt sun x y z`.
+2. `rt_sun_source=x,y,z` or `heading,elevation`: a fixed direction, for experiments.
+3. No baked-sun fit yet: no sun. The bake shows no sun (indoors): none, whatever the setting, and the level keeps its
+   bake.
+4. `level` (the default): the baked sun.
+5. `game`: the game's shown sun (`rt::game_sun`), but only when relit relights the level, its entry in
+   `rt_relit_levels.json` doesn't say `"sun": "level"`, and the sun is at least 10 degrees up. Otherwise the baked sun.
+
+A counter changes whenever the direction or the origin changes. `rt_shadow_sun`, `rt_sun_place` and `rt_relit_sun`
+are retired; the log names them when an ini still has them. The Options screen has one "Sun" row (Sky | Level) at the
+top of the Lighting tab, and changing it is live: the shadows, bounce, fog, sun, sky and relit settings are read
+again, so their histories reset and relit traces again. The console's `rt sun` prints the scene's sun, the game's,
+the baked one and the sun each effect used last; `rt sun source <...>` switches for one run.
+
+**Game against the bake.** A sun other than the baked one can't light the bake: its shadows point the other way. So:
+
+- `rt_sun_source` other than `level` turns `rt_relit` on (logged).
+- The game's sun is used only once relit has the level's model. Until then the scene's sun is the baked one, so there
+  is never a mismatch.
+- The shadows' agreement grid (`rt_shadow_match_bake`) is made again for the new sun once relit has written every mesh
+  for it (`rt_relit_world::settled`): `render_pc/rt_record` `other_sun_work` takes the same samples, with the relit
+  colours (tint x the new light + the residual), and traces them toward the scene's sun. The relit colours hold the
+  bake's shadows turned to that sun, and lamps and glows (the residual) keep the traced shadow off where they lit the
+  bake. `rt::agreement_for(direction)` gives the shadow pass the grid for its sun (the baked one or this one); until it
+  exists the traced shadow applies everywhere. The roof test is traced at run time and needs no change.
+
+**Checked:**
+- `thug2_rt_scene_check` covers the rules and `rt_sun_source`'s text.
+- `thug2_vulkan_rt_sun_check` adds 9 checks (RTX 5070 Ti and AMD Radeon). In each mode - fixed, switched, level, game
+  relit, game not yet relit, entry keeps the bake, game sun too low, none shown, indoors - the shadows, fog and drawn
+  sun all receive the scene's sun, and the counter moves exactly when the sun changes.
+- In the game, `tools/game/sun_source_check.ts` ran the 15 main levels with the user's look (every effect, 8x MSAA,
+  DLSS), each with `level` and with `game`, four spots a level. The Level | Game pictures are in its `side\` folder.
+
+**Results in the game:**
+- **Every effect on one sun.** In every level and both modes, all six effects that asked held the scene's sun. The one
+  exception is relit with `level`: it lights by its cached model's own fit, kept so the bake comes back exactly, which a
+  new load's fit puts within 1 - 3 degrees.
+- **No sun in 5 levels.** AP, CA, NO, SE and SE2 have a bake that shows no sun. They get no sun in either mode, and their
+  pictures are the same in both.
+- **The game's sun is a default.** It is the same in 12 of the 15 levels: heading 0, 20 degrees up. AU's is heading 65,
+  SE's lies on the horizon and NO shows none. The baked suns are the artists' real ones: 32 - 62 degrees up, every
+  heading.
+- **Relit by the game's sun:**
+  - The shadows, the disc and the lit faces agree, as BA's banner shadow cast toward the disc shows.
+  - The levels are mostly darker and flatter, since a 20-degree sun leaves the bake's sunlit ground in shade. DJ's
+    pictures fall to 0.55 - 0.83 of Level's brightness, AU's to 0.64 - 0.85, SC's to 0.60 - 0.84. AU's road shows
+    blotchy relit shadows. TR, already dark, gets 1.3% more black.
+  - Others brighten where the low sun faces the camera: LA 1.14 - 1.33x, PH up to 1.38x, ST up to 1.30x.
+  - No NaN or black holes: black share within 0.2% of Level everywhere but TR.
+- **Hence `level` is the default.** DJ, AU and SC are listed `"sun": "level"` in `rt_relit_levels.json` for those who
+  pick `game`.
+
 ### Upscaling: DLSS and FSR (`upscaler`)
 
 `gpu_vulkan/vulkan_upscale` (+ `vulkan_motion`, `vulkan_upscale_fsr`, `vulkan_upscale_dlss`; `[Graphics] upscaler=off|dlss|fsr|auto`,

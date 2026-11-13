@@ -406,16 +406,17 @@ bool game_sun(std::array<float, 3>* toward_sun);
 // and the clouds, the relit mode and the objects' turned lights all ask scene_sun() which sun lights the scene, so they
 // agree. Which one it is (rt_sun.h resolve_scene_sun has the rules):
 //   - the console's `rt sun x y z` (set_sun_override) above everything;
-//   - kGame (the default): the sun the game shows (game_sun - the level's SetSun / InitSun) where the relit mode relights
+//   - kGame: the sun the game shows (game_sun - the level's SetSun / InitSun) where the relit mode relights
 //     the level by it (render_pc/rt_relit_world says so through set_sun_relight); else - the relit mode can't (no model,
 //     the level opted out), the level's entry asks for its baked sun ("sun": "level" in rt_relit_levels.json), the game
 //     shows no sun or one lower than kMinGameSunDegrees - the baked sun;
-//   - kLevel: the baked sun (BakedSun: fitted from the level's vertex colours);
+//   - kLevel (the default - docs/design/vulkan.md "One sun for every effect" has why): the baked sun (BakedSun:
+//     fitted from the level's vertex colours);
 //   - kFixed: rt_sun_source=x,y,z or heading,elevation (an experiment; relit relights by it as by the game's).
 // A level whose bake shows no sun (indoors) has none, whatever the choice: it keeps its bake (no sun shadows, no shafts).
 enum class SunSource : uint8_t { kGame, kLevel, kFixed };
 struct SunChoice {
-    SunSource source = SunSource::kGame;
+    SunSource source = SunSource::kLevel;
     std::array<float, 3> fixed{}; // kFixed's direction (toward the sun)
 };
 void set_sun_choice(const SunChoice& choice);

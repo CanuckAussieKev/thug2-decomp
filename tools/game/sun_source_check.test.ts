@@ -68,13 +68,13 @@ test("the plans: discovery, then the suns' spots", () => {
     };
     const discover = discoveryPlan(sky);
     assert.equal(discover.groups[0]!.spots!.length, 1);
-    assert.deepEqual(discover.groups[0]!.commands, ["wait 120", "console rt sun"]);
+    assert.deepEqual(discover.groups[0]!.spots![0]!.commands.slice(-2), ["wait 120", "console rt sun"]);
     const plan = sunPlan(sky, { BO: parseSunLine(LINE)! });
     const names = plan.groups[0]!.spots!.map((s) => s.name);
     assert.deepEqual(names, ["BO-ground", "BO-above", "BO-sun-game", "BO-sun-baked"]);
     // (toward the game's sun: heading 180, pitched 14 under its 20 degrees)
     assert.match(plan.groups[0]!.spots![2]!.commands[0]!, /^camera 10\.0 320\.0 30\.0 0\.000 0\.105 -0\.995$/);
-    assert.deepEqual(plan.groups[0]!.commands, ["console rt sun"]);
+    assert.equal(plan.groups[0]!.spots![3]!.commands.at(-1), "console rt sun");
 });
 
 test("pictures: stats and side by side", () => {
