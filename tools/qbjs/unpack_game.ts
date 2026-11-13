@@ -16,6 +16,11 @@
 //                                                             a converter rewrote an overlay, or a new emitter)
 //   node tools/qbjs/unpack_game.ts --game <folder> --restore  everything put back as it was, the made files removed
 //   [--check]  the script check's translation (emit_ts.ts check) - for its runs only, never the game's
+//   [--hd-textures pbrify|seedvr2|none]  after unpacking (or on a game already unpacked: only this) the levels'
+//              textures upscaled by that AI model and installed - none (the default) puts the originals back;
+//              [--hd-levels BO,AU] only those levels, [--hd-scope all] every .tex.xbx, not only the levels' - the
+//              pipeline's hd_textures/base.ts (its README: the models' setup, caches, what is skipped). --restore
+//              puts the original textures back first.
 //
 // A .qb that doesn't translate is an error (listed; the exit code 1): the game reads no .qb - that file isn't loaded. <game>\thug2-decomp-backup\
 // unpacked.json lists what was moved and made, for --restore.
@@ -23,6 +28,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
+import * as hdBase from "../pipeline/hd_textures/base.ts";
 import { emitTS } from "./emit_ts.ts";
 import { fileHash, gameRoot, scriptBytes } from "./game_scripts.ts";
 import type { ModuleIR } from "./ir.ts";
@@ -109,6 +115,7 @@ export function restore(game: string): { moved: number; removed: number } {
     const root = gameRoot(game);
     const record = readRecord(root);
     if (!record) throw Error(`${root}: not unpacked (no ${BACKUP}\\unpacked.json)`);
+    hdBase.restore(root); // (the HD textures' originals first: they're kept in the backup folder too)
     for (const made of record.made) rmSync(join(root, made), { force: true });
     for (const folder of record.folders) rmSync(join(root, folder), { recursive: true, force: true });
     let moved = 0;
@@ -306,12 +313,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const args = process.argv.slice(2);
     const at = args.indexOf("--game");
     const game = at >= 0 ? args[at + 1] : undefined;
-    if (!game) throw Error("Usage: node tools/qbjs/unpack_game.ts --game <folder> [--refresh | --restore] [--check]");
+    if (!game)
+        throw Error(
+            "Usage: node tools/qbjs/unpack_game.ts --game <folder> [--refresh | --restore] [--check] " +
+                "[--hd-textures pbrify|seedvr2|none [--hd-levels a,b] [--hd-scope levels|all]]",
+        );
+    const hd = hdBase.parseBaseArgs(args);
     if (args.includes("--restore") || args.includes("--refresh")) {
         const put = restore(game);
         console.log(`put back: ${put.moved} files moved back, ${put.removed} made files / folders removed`);
     }
-    if (!args.includes("--restore")) {
+    if (!args.includes("--restore") && !args.includes("--refresh") && hd.model && readRecord(gameRoot(game))) {
+        // (already unpacked: only the textures)
+        hdBase.installAndReport(gameRoot(game), hd);
+    } else if (!args.includes("--restore")) {
         const { record, failed } = unpack(game, args.includes("--check"));
         for (const name of failed) console.log(`ERROR - doesn't translate (the game won't load it): ${name}`);
         console.log(
@@ -319,5 +334,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 `archives' files, loose)`,
         );
         if (failed.length) process.exitCode = 1;
+        hdBase.installAndReport(gameRoot(game), hd);
     }
 }
