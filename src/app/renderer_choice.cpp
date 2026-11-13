@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstddef>
+#include <cstdint>
 #include <sstream>
 #include <string>
 

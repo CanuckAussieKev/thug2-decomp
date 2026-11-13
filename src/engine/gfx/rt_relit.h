@@ -63,14 +63,13 @@ inline constexpr uint32_t kRelitMaxSkyRays = 256;
 inline constexpr uint32_t kRelitSunRays = 4;
 inline constexpr uint32_t kRelitMaxSunRays = 64;
 inline constexpr float kRelitSunRadiusDegrees = 1.5F;
-inline constexpr float kRelitOffset = 2.0F;        // the rays start this far off the surface along its normal
-inline constexpr float kRelitRayLength = 1.0e6F;   // (further than any level)
+inline constexpr float kRelitOffset = 2.0F;       // the rays start this far off the surface along its normal
+inline constexpr float kRelitRayLength = 1.0e6F;  // (further than any level)
 inline constexpr uint32_t kRelitWorldMask = 0x01; // the opaque level geometry (the TLAS's instance masks)
 inline constexpr float kRelitFloorShare = 0.05F;
 inline constexpr float kRelitConfidence = 0.35F;
 inline constexpr uint32_t kRelitSmoothPasses = 4;
 inline constexpr float kRelitMaxTint = 2.0F;
-inline constexpr float kRelitSunNeeded = 2.0F;
 inline constexpr float kRelitLampLow = 1.2F;
 inline constexpr float kRelitLampHigh = 1.8F;
 inline constexpr std::array<float, 2> kRelitScaleRange{0.7F, 1.4F};
@@ -90,10 +89,10 @@ struct RelitSettings {
     bool residual = true;  // the bake's light the model can't explain (lamps) kept
     float detail = 1.0F;   // how much of each vertex's own tint stays where the model vouches for it
     RelitSun sun = RelitSun::kBake;
-    Vec3 fixed{};          // kFixed's direction
+    Vec3 fixed{}; // kFixed's direction
     uint32_t sky_rays = kRelitSkyRays;
     uint32_t sun_rays = kRelitSunRays;
-    bool cache = true;     // the analysis kept on disk (thug2-decomp-relit\ beside the exe)
+    bool cache = true; // the analysis kept on disk (thug2-decomp-relit\ beside the exe)
 };
 void set_relit_settings(const RelitSettings& settings);
 [[nodiscard]] RelitSettings relit_settings();
@@ -103,8 +102,8 @@ void set_relit_status(std::string text);
 
 // --- per-level choices (rt_relit_levels.json, built in; thug2-decomp-relit.json beside the exe adds to it) -----------
 struct RelitLevel {
-    std::string name;      // the level's scene, as LoadScene names it (z_dt, BO, foun...)
-    bool off = false;      // "relit": false - the level keeps its bake
+    std::string name;       // the level's scene, as LoadScene names it (z_dt, BO, foun...)
+    bool off = false;       // "relit": false - the level keeps its bake
     float strength = -1.0F; // "strength": 0 - 1 (below 0: not set - the setting's)
 };
 // The levels a document lists: {"levels": {"<name>": {"relit": false, "strength": 0.5}, ...}} (other keys ignored).
@@ -117,10 +116,10 @@ bool parse_relit_levels(std::string_view json, std::vector<RelitLevel>* out);
 
 // A mesh of the world as the analysis reads it (world coordinates - the level's meshes are drawn untransformed).
 struct RelitMesh {
-    MeshId id = 0;                   // the RayTracing's (a hit on it is looked up by it); 0: rays can't find it
+    MeshId id = 0; // the RayTracing's (a hit on it is looked up by it); 0: rays can't find it
     std::vector<Vec3> positions;
-    std::vector<Vec3> normals;       // one per vertex, or empty: made from the triangles (area-weighted)
-    std::vector<uint32_t> colours;   // the baked colours, A8R8G8B8 (128: 1)
+    std::vector<Vec3> normals;     // one per vertex, or empty: made from the triangles (area-weighted)
+    std::vector<uint32_t> colours; // the baked colours, A8R8G8B8 (128: 1)
     // Its triangles as the RayTracing numbers them (a hit's primitive): a strip's odd ones turned back round, so all
     // wind the same way; a degenerate one (two corners the same) kept in its place.
     std::vector<std::array<uint32_t, 3>> triangles;
@@ -129,26 +128,28 @@ struct RelitMesh {
 // What the analysis keeps for each vertex (the cache holds it): its light's parts and its colour's.
 struct RelitVertex {
     Vec3 normal{};
-    float sun = 0.0F;   // the share of the sun's rays that reached the sky (toward the sun the vertex was traced for)
-    float sky = 0.0F;   // K
-    Rgbf bounce{};      // B
+    float sun = 0.0F; // the share of the sun's rays that reached the sky (toward the sun the vertex was traced for)
+    float sky = 0.0F; // K
+    Rgbf bounce{};    // B
     Rgbf tint{};
     Rgbf residual{};
-    bool used = false;  // a corner of some triangle (an unused vertex keeps its colour)
+    bool used = false; // a corner of some triangle (an unused vertex keeps its colour)
 };
 using RelitVertices = std::vector<RelitVertex>;
 
 // The level's light model.
 struct RelitModel {
     bool valid = false;
-    Vec3 toward{};      // the sun it was fitted with (the bake's)
-    Rgbf sun{};         // a
-    Rgbf sky{};         // b
-    Rgbf bounce{};      // g
+    Vec3 toward{}; // the sun it was fitted with (the bake's)
+    Rgbf sun{};    // a
+    Rgbf sky{};    // b
+    Rgbf bounce{}; // g
     float scale = 1.0F;
-    float error = 0.0F; // the fit's median residual (relative: an edge's light ratio against its colours')
+    float error = 0.0F;       // the fit's median residual (relative: an edge's light ratio against its colours')
     std::size_t vertices = 0; // that the fit used
-    float sun_needed = 0.0F;  // the fit's objective without the sun over with it (at least kRelitSunNeeded: a sun)
+    float sun_needed =
+        0.0F; // the fit's objective without the sun over with it (reported: no test of a sun - rt_sun.h's
+              // fit is)
 };
 
 struct RelitParams {
@@ -193,7 +194,7 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 
 // How the world is lit now.
 struct RelitLighting {
-    Vec3 toward{};                 // the sun (the vertices' `sun` traced toward it)
+    Vec3 toward{};                     // the sun (the vertices' `sun` traced toward it)
     Rgbf sun_colour{1.0F, 1.0F, 1.0F}; // the model's a times this
     float strength = 1.0F;
     bool residual = true;

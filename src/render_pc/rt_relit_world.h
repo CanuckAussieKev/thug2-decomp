@@ -21,6 +21,7 @@
 // - The analysis is kept on disk: thug2-decomp-relit\<the level's scene checksum>.bin beside the exe, each mesh by a
 //   hash of its vertices and indices (and the settings that change the results): a mesh found there isn't traced
 //   again, so a level's second load costs only the fit of its sun (rt_sun.h) and the writes.
+#include <array>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -52,6 +53,16 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
 void mesh_released(const MeshRef* mesh);
 // The baked colours of a buffer the mode has written into (A8R8G8B8, a word a vertex), or empty: it holds its own.
 [[nodiscard]] std::span<const uint32_t> original_colours(const VertexBufferData* buffer);
+// How the skater's and the objects' lights follow the relit world (pc_lights.cpp): while the world is relit by a sun
+// other than the bake's, or a coloured one, the game's directional lights turned by the rotation that takes the bake's
+// sun to the relit one (rows: x' = row . x) and the first (the key light) tinted by the sun's colour. False: as they are
+// (the mode off, or relit by the bake's own sun and colour - the game's lights then as the original's, beside a world
+// that looks as the original's).
+struct ObjectLighting {
+    std::array<std::array<float, 3>, 3> rotation{};
+    std::array<float, 3> key_colour{1.0F, 1.0F, 1.0F};
+};
+[[nodiscard]] bool object_lighting(ObjectLighting* out);
 // The console's `rt relit` (devtools/rt_check.cpp): the state in a line.
 [[nodiscard]] std::string status_text();
 

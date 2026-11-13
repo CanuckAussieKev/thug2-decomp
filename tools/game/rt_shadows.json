@@ -1,5 +1,5 @@
 {
-  "_about": "The spots tools/game/rt_shadows_check.ts captures with [Graphics] rt_shadows off and on: renderer_parity.json's five smoke levels (the skater stood still with teleport, the camera held with camera), the sky shot among them (nothing to darken there); AU-sea - the open sea meeting the sky dome's painted sea (the aerial haze's seam: --effect sun --groups AU).",
+  "_about": "The spots tools/game/rt_shadows_check.ts captures with [Graphics] rt_shadows off and on: renderer_parity.json's five smoke levels (the skater stood still with teleport, the camera held with camera), the sky shot among them (nothing to darken there); AU-sea - the open sea meeting the sky dome's painted sea (the aerial haze's seam: --effect sun --groups AU); BA-start - Barcelona from the skater's start (--effect relit's fifth level).",
   "groups": [
     {
       "name": "foun",
@@ -135,6 +135,19 @@
             "teleport -2640.6 170.4 7490.0 -163.1",
             "camera -2599.5 247.8 7625.6 -0.286 -0.179 -0.941",
             "wait 150"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BA",
+      "level": "BA",
+      "spots": [
+        {
+          "name": "BA-start",
+          "commands": [
+            "camera off",
+            "wait 180"
           ]
         }
       ]

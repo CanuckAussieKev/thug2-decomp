@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <ratio>
 #include <span>
 #include <string>
 #include <string_view>
@@ -42,21 +43,31 @@ namespace {
 constexpr uint32_t kFvfNormal = 0x10; // a vertex format's normal (three floats)
 constexpr uint64_t kFnvBasis = 14695981039346656037ULL;
 constexpr uint64_t kFnvPrime = 1099511628211ULL;
-constexpr float kSameSun = 0.99999F;  // two suns this close (their directions' dot product): the same
-constexpr float kMinElevation = 0.02F; // a sun below this (sine of its elevation) lights nothing new: kept there
+constexpr float kSameSun = 0.99999F;          // two suns this close (their directions' dot product): the same
+constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
 constexpr uint32_t kCacheMagic = 0x4C523254U; // "T2RL"
-constexpr uint32_t kCacheVersion = 1;
+constexpr uint32_t kCacheVersion = 3;
+constexpr std::size_t kKilobyte = 1024;
 constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
-constexpr std::size_t kVertexFloats = 15; // a vertex in the cache: normal 3, sun, sky, bounce 3, tint 3, residual 3, used
-constexpr std::size_t kModelFloats = 16;  // the model: valid, toward 3, sun 3, sky 3, bounce 3, scale, error, vertices
-constexpr float kRgbColourLimit = 4.0F;   // the sky model's colour ratio kept within this
+constexpr std::size_t kVertexFloats =
+    15; // a vertex in the cache: normal 3, sun, sky, bounce 3, tint 3, residual 3, used
+constexpr std::size_t kModelFloats = 17; // the model: valid, toward 3, sun 3, sky 3, bounce 3, scale, error, vertices,
+                                         // the sun's need
+constexpr float kRgbColourLimit = 4.0F;
+constexpr float kChangedLuma = 2.0F; // (the log: a vertex changed by more than this, of 255)
+constexpr float kLumaRed = 0.299F;
+constexpr float kLumaGreen = 0.587F;
+constexpr float kLumaBlue = 0.114F;
+constexpr int kRedShift = 16;
+constexpr int kGreenShift = 8;
+constexpr uint32_t kByteMask = 0xFF; // the sky model's colour ratio kept within this
 
 enum class Status : uint8_t {
     kOff,
-    kWaiting,     // for a still world and the baked sun
-    kNoSun,       // the bake shows no sun: kept
-    kOptedOut,    // the level's entry says so: kept
-    kNoModel,     // the fit found no sun term: kept
+    kWaiting,  // for a still world and the baked sun
+    kNoSun,    // the bake shows no sun: kept
+    kOptedOut, // the level's entry says so: kept
+    kNoModel,  // the fit found no sun term: kept
     kRelit,
 };
 
@@ -84,16 +95,16 @@ struct Entry {
     VertexBuffer* buffer = nullptr;
     uint32_t stride = 0;
     uint32_t colour_offset = 0;
-    uint64_t content = 0;               // a hash of its vertices and indices (the cache's key)
-    std::vector<uint32_t> originals;    // the baked colours
-    std::vector<uint8_t> animated;      // a vertex whose colour the game animates: 1
+    uint64_t content = 0;            // a hash of its vertices and indices (the cache's key)
+    std::vector<uint32_t> originals; // the baked colours
+    std::vector<uint8_t> animated;   // a vertex whose colour the game animates: 1
     rt::RelitMesh input;
     rt::RelitVertices light;
     bool analysed = false;
-    rt::Vec3 sun_for{};                 // the sun its vertices' sun was traced toward
-    rt::Vec3 bounce_for{};              // ... and the sun whose light its bounce was traced with
-    uint64_t written = 0;               // the lighting its colours were written with (0: the originals)
-    bool dirty = false;                 // its bounce traced again since: to be written
+    rt::Vec3 sun_for{};    // the sun its vertices' sun was traced toward
+    rt::Vec3 bounce_for{}; // ... and the sun whose light its bounce was traced with
+    uint64_t written = 0;  // the lighting its colours were written with (0: the originals)
+    bool dirty = false;    // its bounce traced again since: to be written
 };
 
 struct Cached {
@@ -124,6 +135,14 @@ State& state()
 {
     static core::NoDestroy<State> made;
     return made.get();
+}
+
+// A colour's brightness (0 - 255; A8R8G8B8).
+float luma_of(uint32_t argb)
+{
+    return (kLumaRed * static_cast<float>((argb >> kRedShift) & kByteMask)) +
+           (kLumaGreen * static_cast<float>((argb >> kGreenShift) & kByteMask)) +
+           (kLumaBlue * static_cast<float>(argb & kByteMask));
 }
 
 uint64_t fnv(uint64_t hash, std::span<const uint8_t> bytes)
@@ -229,7 +248,8 @@ public:
         if (at_ + sizeof(T) > text_.size()) {
             return false;
         }
-        std::memcpy(value, text_.substr(at_, sizeof(T)).data(), sizeof(T));
+        const std::string_view bytes = text_.substr(at_, sizeof(T));
+        std::memcpy(value, bytes.data(), bytes.size());
         at_ += sizeof(T);
         return true;
     }
@@ -239,54 +259,110 @@ private:
     std::size_t at_ = 0;
 };
 
+// A run of floats written and read in order (the cache's model and vertices).
+class Floats {
+public:
+    void put(float value) { values_.push_back(value); }
+    void put(const rt::Vec3& value)
+    {
+        for (const float part : value) {
+            put(part);
+        }
+    }
+    [[nodiscard]] const std::vector<float>& values() const { return values_; }
+
+private:
+    std::vector<float> values_;
+};
+
+class FloatCursor {
+public:
+    explicit FloatCursor(std::span<const float> values) : values_(values) {}
+    float next() { return at_ < values_.size() ? core::at(values_, at_++) : 0.0F; }
+    rt::Vec3 next3()
+    {
+        const float first = next();
+        const float second = next();
+        return {first, second, next()};
+    }
+
+private:
+    std::span<const float> values_;
+    std::size_t at_ = 0;
+};
+
 std::array<float, kModelFloats> model_floats(const rt::RelitModel& model)
 {
-    return {model.valid ? 1.0F : 0.0F,  rt::x_of(model.toward), rt::y_of(model.toward), rt::z_of(model.toward),
-            std::get<0>(model.sun),     std::get<1>(model.sun), std::get<2>(model.sun), std::get<0>(model.sky),
-            std::get<1>(model.sky),     std::get<2>(model.sky), std::get<0>(model.bounce), std::get<1>(model.bounce),
-            std::get<2>(model.bounce),  model.scale,            model.error,            static_cast<float>(model.vertices)};
+    Floats floats;
+    floats.put(model.valid ? 1.0F : 0.0F);
+    floats.put(model.toward);
+    floats.put(model.sun);
+    floats.put(model.sky);
+    floats.put(model.bounce);
+    floats.put(model.scale);
+    floats.put(model.error);
+    floats.put(static_cast<float>(model.vertices));
+    floats.put(model.sun_needed);
+    std::array<float, kModelFloats> out{};
+    std::ranges::copy(floats.values(), out.begin());
+    return out;
 }
 
-rt::RelitModel model_of(const std::array<float, kModelFloats>& f)
+rt::RelitModel model_of(const std::array<float, kModelFloats>& values)
 {
+    FloatCursor cursor(values);
     rt::RelitModel model;
-    model.valid = std::get<0>(f) != 0.0F;
-    model.toward = {std::get<1>(f), std::get<2>(f), std::get<3>(f)};
-    model.sun = {std::get<4>(f), std::get<5>(f), std::get<6>(f)};
-    model.sky = {std::get<7>(f), std::get<8>(f), std::get<9>(f)};
-    model.bounce = {std::get<10>(f), std::get<11>(f), std::get<12>(f)};
-    model.scale = std::get<13>(f);
-    model.error = std::get<14>(f);
-    model.vertices = static_cast<std::size_t>(std::get<15>(f));
+    model.valid = cursor.next() != 0.0F;
+    model.toward = cursor.next3();
+    model.sun = cursor.next3();
+    model.sky = cursor.next3();
+    model.bounce = cursor.next3();
+    model.scale = cursor.next();
+    model.error = cursor.next();
+    model.vertices = static_cast<std::size_t>(cursor.next());
+    model.sun_needed = cursor.next();
     return model;
 }
 
-std::array<float, kVertexFloats> vertex_floats(const rt::RelitVertex& v)
+std::array<float, kVertexFloats> vertex_floats(const rt::RelitVertex& vertex)
 {
-    return {rt::x_of(v.normal),   rt::y_of(v.normal),   rt::z_of(v.normal),   v.sun,
-            v.sky,                std::get<0>(v.bounce), std::get<1>(v.bounce), std::get<2>(v.bounce),
-            std::get<0>(v.tint),  std::get<1>(v.tint),  std::get<2>(v.tint),  std::get<0>(v.residual),
-            std::get<1>(v.residual), std::get<2>(v.residual), v.used ? 1.0F : 0.0F};
+    Floats floats;
+    floats.put(vertex.normal);
+    floats.put(vertex.sun);
+    floats.put(vertex.sky);
+    floats.put(vertex.bounce);
+    floats.put(vertex.tint);
+    floats.put(vertex.residual);
+    floats.put(vertex.used ? 1.0F : 0.0F);
+    std::array<float, kVertexFloats> out{};
+    std::ranges::copy(floats.values(), out.begin());
+    return out;
 }
 
-rt::RelitVertex vertex_of(const std::array<float, kVertexFloats>& f)
+rt::RelitVertex vertex_of(const std::array<float, kVertexFloats>& values)
 {
-    rt::RelitVertex v;
-    v.normal = {std::get<0>(f), std::get<1>(f), std::get<2>(f)};
-    v.sun = std::get<3>(f);
-    v.sky = std::get<4>(f);
-    v.bounce = {std::get<5>(f), std::get<6>(f), std::get<7>(f)};
-    v.tint = {std::get<8>(f), std::get<9>(f), std::get<10>(f)};
-    v.residual = {std::get<11>(f), std::get<12>(f), std::get<13>(f)};
-    v.used = std::get<14>(f) != 0.0F;
-    return v;
+    FloatCursor cursor(values);
+    rt::RelitVertex vertex;
+    vertex.normal = cursor.next3();
+    vertex.sun = cursor.next();
+    vertex.sky = cursor.next();
+    vertex.bounce = cursor.next3();
+    vertex.tint = cursor.next3();
+    vertex.residual = cursor.next3();
+    vertex.used = cursor.next() != 0.0F;
+    return vertex;
 }
 
-Cached read_cache(uint32_t level, uint64_t key)
+struct CacheId {
+    uint32_t level = 0;
+    uint64_t key = 0;
+};
+
+Cached read_cache(const CacheId& id)
 {
     Cached cached;
     std::string text;
-    if (!fs::read_text(cache_path(level), &text)) {
+    if (!fs::read_text(cache_path(id.level), &text)) {
         return cached;
     }
     Reader reader(text);
@@ -296,10 +372,10 @@ Cached read_cache(uint32_t level, uint64_t key)
     std::array<float, kModelFloats> model{};
     uint32_t meshes = 0;
     if (!reader.get(&magic) || !reader.get(&version) || !reader.get(&stored_key) || magic != kCacheMagic ||
-        version != kCacheVersion || stored_key != key || !reader.get(&model) || !reader.get(&meshes)) {
+        version != kCacheVersion || stored_key != id.key || !reader.get(&model) || !reader.get(&meshes)) {
         return cached;
     }
-    for (uint32_t m = 0; m < meshes; ++m) {
+    for (uint32_t mi = 0; mi < meshes; ++mi) {
         uint64_t content = 0;
         uint32_t count = 0;
         if (!reader.get(&content) || !reader.get(&count)) {
@@ -320,13 +396,13 @@ Cached read_cache(uint32_t level, uint64_t key)
     return cached;
 }
 
-void write_cache(uint32_t level, uint64_t key)
+void write_cache(const CacheId& id)
 {
-    State& st = state();
+    const State& st = state();
     Writer writer;
     writer.put(kCacheMagic);
     writer.put(kCacheVersion);
-    writer.put(key);
+    writer.put(id.key);
     writer.put(model_floats(st.model));
     std::vector<const Entry*> analysed;
     for (const auto& [buffer, entry] : st.entries) {
@@ -344,9 +420,9 @@ void write_cache(uint32_t level, uint64_t key)
     }
     const std::string folder = std::string(build_info::executable_directory()) + "thug2-decomp-relit";
     fs::disk().make_folders(folder.c_str());
-    const fs::Written written = fs::write_text(cache_path(level), writer.text());
+    const fs::Written written = fs::write_text(cache_path(id.level), writer.text());
     get_log("rt_relit: %s %s (%zu meshes, %zu KB)", written.written && written.closed ? "wrote" : "couldn't write",
-            cache_path(level).c_str(), analysed.size(), writer.text().size() / 1024);
+            cache_path(id.level).c_str(), analysed.size(), writer.text().size() / kKilobyte);
 }
 
 // --- the meshes ------------------------------------------------------------------------------------------------------
@@ -360,15 +436,16 @@ bool make_entry(const WorldMesh& world, Entry* out)
     VertexBuffer* buffer = mesh->vertex_store(mesh->current_vertex_buffer_);
     if (mesh->vertex_buffer_count() > 1) {
         // (the buffers take turns: the one the geometry was drawn from)
-        for (uint32_t i = 0; i < mesh->vertex_buffer_count(); ++i) {
-            if (mesh->vertex_store(i) == world.source) {
-                buffer = mesh->vertex_store(i);
+        for (uint32_t iv = 0; iv < mesh->vertex_buffer_count(); ++iv) {
+            if (mesh->vertex_store(iv) == world.source) {
+                buffer = mesh->vertex_store(iv);
             }
         }
     }
     if (buffer == nullptr || buffer != world.source || buffer->data() == nullptr || geometry.dynamic ||
         geometry.cpu_indices == nullptr || geometry.vertex_stride == 0 ||
-        geometry.colour_format != rt::kColourA8R8G8B8 || geometry.colour_offset + sizeof(uint32_t) > geometry.vertex_stride) {
+        geometry.colour_format != rt::kColourA8R8G8B8 ||
+        geometry.colour_offset + sizeof(uint32_t) > geometry.vertex_stride) {
         return false;
     }
     const uint32_t stride = geometry.vertex_stride;
@@ -391,18 +468,18 @@ bool make_entry(const WorldMesh& world, Entry* out)
     const uint8_t* animation = mesh->per_vertex_bytes();
     const std::span<const uint8_t> per_vertex =
         animation != nullptr ? std::span<const uint8_t>(animation, count) : std::span<const uint8_t>();
-    for (uint32_t v = 0; v < count; ++v) {
-        const std::span<const uint8_t> vertex = bytes.subspan(std::size_t{v} * stride, stride);
-        std::memcpy(&core::at(entry.input.positions, v), vertex.subspan(geometry.position_offset, sizeof(rt::Vec3)).data(),
-                    sizeof(rt::Vec3));
-        std::memcpy(&core::at(entry.originals, v), vertex.subspan(geometry.colour_offset, sizeof(uint32_t)).data(),
+    for (uint32_t vi = 0; vi < count; ++vi) {
+        const std::span<const uint8_t> vertex = bytes.subspan(std::size_t{vi} * stride, stride);
+        std::memcpy(&core::at(entry.input.positions, vi),
+                    vertex.subspan(geometry.position_offset, sizeof(rt::Vec3)).data(), sizeof(rt::Vec3));
+        std::memcpy(&core::at(entry.originals, vi), vertex.subspan(geometry.colour_offset, sizeof(uint32_t)).data(),
                     sizeof(uint32_t));
         if (normals) {
-            std::memcpy(&core::at(entry.input.normals, v), vertex.subspan(mesh->normal_offset(), sizeof(rt::Vec3)).data(),
-                        sizeof(rt::Vec3));
+            std::memcpy(&core::at(entry.input.normals, vi),
+                        vertex.subspan(mesh->normal_offset(), sizeof(rt::Vec3)).data(), sizeof(rt::Vec3));
         }
-        if (!per_vertex.empty() && core::at(per_vertex, v) != 0) {
-            core::at(entry.animated, v) = 1;
+        if (!per_vertex.empty() && core::at(per_vertex, vi) != 0) {
+            core::at(entry.animated, vi) = 1;
         }
     }
     entry.input.colours = entry.originals;
@@ -421,13 +498,15 @@ bool make_entry(const WorldMesh& world, Entry* out)
         std::memcpy(&value, indices.subspan(byte, sizeof(value)).data(), sizeof(value));
         return static_cast<uint32_t>(value);
     };
-    const uint32_t triangles = geometry.strip ? (geometry.index_count >= 3 ? geometry.index_count - 2 : 0U)
-                                              : geometry.index_count / 3;
+    uint32_t triangles = geometry.index_count / 3;
+    if (geometry.strip) {
+        triangles = geometry.index_count >= 3 ? geometry.index_count - 2 : 0U;
+    }
     entry.input.triangles.reserve(triangles);
-    for (uint32_t t = 0; t < triangles; ++t) {
-        const uint32_t first = geometry.strip ? t : t * 3;
+    for (uint32_t tt = 0; tt < triangles; ++tt) {
+        const uint32_t first = geometry.strip ? tt : tt * 3;
         std::array<uint32_t, 3> corners{index(first), index(first + 1), index(first + 2)};
-        if (geometry.strip && (t % 2) == 1) {
+        if (geometry.strip && (tt % 2) == 1) {
             std::swap(std::get<0>(corners), std::get<1>(corners));
         }
         entry.input.triangles.push_back(corners);
@@ -449,12 +528,12 @@ void write_colours(Entry& entry, std::span<const uint32_t> colours)
         return;
     }
     const std::span<uint8_t> bytes(data, entry.buffer->size());
-    for (std::size_t v = 0; v < colours.size() && v < entry.originals.size(); ++v) {
-        if (core::at(entry.animated, v) != 0) {
+    for (std::size_t vi = 0; vi < colours.size() && vi < entry.originals.size(); ++vi) {
+        if (core::at(entry.animated, vi) != 0) {
             continue;
         }
-        const uint32_t colour = core::at(colours, v);
-        std::memcpy(bytes.subspan((v * entry.stride) + entry.colour_offset, sizeof(colour)).data(), &colour,
+        const uint32_t colour = core::at(colours, vi);
+        std::memcpy(bytes.subspan((vi * entry.stride) + entry.colour_offset, sizeof(colour)).data(), &colour,
                     sizeof(colour));
     }
     const rt_record::ColourWrite colours_only; // (the positions are as they were: no BLAS rebuilt)
@@ -480,9 +559,7 @@ void restore_all()
 bool target_sun(const rt::RelitSettings& settings, rt::Vec3* toward)
 {
     std::array<float, 3> set{};
-    if (rt::sun_override(&set)) {
-        *toward = set;
-    } else if (settings.sun == rt::RelitSun::kGame && rt::game_sun(&set)) {
+    if (rt::sun_override(&set) || (settings.sun == rt::RelitSun::kGame && rt::game_sun(&set))) {
         *toward = set;
     } else if (settings.sun == rt::RelitSun::kFixed) {
         *toward = settings.fixed;
@@ -495,10 +572,12 @@ bool target_sun(const rt::RelitSettings& settings, rt::Vec3* toward)
     }
     *toward = rt::scaled(*toward, 1.0F / length);
     if (rt::y_of(*toward) < kMinElevation) { // (at or under the horizon: held just above it)
-        const float across = std::sqrt((rt::x_of(*toward) * rt::x_of(*toward)) + (rt::z_of(*toward) * rt::z_of(*toward)));
+        const float across =
+            std::sqrt((rt::x_of(*toward) * rt::x_of(*toward)) + (rt::z_of(*toward) * rt::z_of(*toward)));
         const float keep = std::sqrt(1.0F - (kMinElevation * kMinElevation));
-        *toward = across > 0.0F ? rt::Vec3{rt::x_of(*toward) * keep / across, kMinElevation, rt::z_of(*toward) * keep / across}
-                                : rt::Vec3{0.0F, 1.0F, 0.0F};
+        *toward = across > 0.0F
+                      ? rt::Vec3{rt::x_of(*toward) * keep / across, kMinElevation, rt::z_of(*toward) * keep / across}
+                      : rt::Vec3{0.0F, 1.0F, 0.0F};
     }
     return true;
 }
@@ -510,13 +589,15 @@ rt::Rgbf sun_colour_for(const rt::Vec3& toward)
     if (!rt::sun_light().on) {
         return {1.0F, 1.0F, 1.0F};
     }
-    const std::array<float, 3> now = rt::sun_colour_at(std::asin(std::clamp(static_cast<double>(rt::y_of(toward)), 0.0, 1.0)));
+    const std::array<float, 3> now =
+        rt::sun_colour_at(std::asin(std::clamp(static_cast<double>(rt::y_of(toward)), 0.0, 1.0)));
     const std::array<float, 3> baked =
         rt::sun_colour_at(std::asin(std::clamp(static_cast<double>(rt::y_of(state().model.toward)), 0.0, 1.0)));
     rt::Rgbf out{};
-    for (std::size_t c = 0; c < out.size(); ++c) {
-        core::at(out, c) = core::at(baked, c) > 0.0F ? std::clamp(core::at(now, c) / core::at(baked, c), 0.0F, kRgbColourLimit)
-                                                     : 1.0F;
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = core::at(baked, ch) > 0.0F
+                                ? std::clamp(core::at(now, ch) / core::at(baked, ch), 0.0F, kRgbColourLimit)
+                                : 1.0F;
     }
     return out;
 }
@@ -529,7 +610,7 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
     const auto start = std::chrono::steady_clock::now();
     const uint64_t key = cache_key(settings);
     if (settings.cache && !st.cache.loaded) {
-        st.cache = read_cache(st.level, key);
+        st.cache = read_cache({.level = st.level, .key = key});
         st.cache.loaded = true;
     }
     std::size_t from_cache = 0;
@@ -576,30 +657,31 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
         }
         rt::decompose_relit(meshes, wanted, params, &st.model, &light, first);
     }
-    for (std::size_t i = 0; i < st.order.size(); ++i) {
-        Entry& entry = st.entries.at(core::at(st.order, i));
-        entry.input = std::move(core::at(meshes, i));
-        entry.light = std::move(core::at(light, i));
-        if (core::at(wanted, i) != 0) {
+    for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
+        Entry& entry = st.entries.at(core::at(st.order, iv));
+        entry.input = std::move(core::at(meshes, iv));
+        entry.light = std::move(core::at(light, iv));
+        if (core::at(wanted, iv) != 0) {
             entry.analysed = true;
             entry.sun_for = st.model.toward;
             entry.bounce_for = st.model.toward;
         }
     }
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-    const rt::RelitModel& m = st.model;
+    const rt::RelitModel& fitted = st.model;
     get_log("rt_relit: level %08x - %zu meshes (%zu from the cache, %zu traced: %zu vertices, %zu rays), %.0f ms; the "
-            "model %s: sun %.3f %.3f %.3f, sky %.3f %.3f %.3f, bounce %.3f %.3f %.3f, scale %.3f, mean error %.3f over "
-            "%zu vertices",
+            "model %s: sun %.3f %.3f %.3f, sky %.3f %.3f %.3f, bounce %.3f %.3f %.3f, scale %.3f, median residual %.4f "
+            "over %zu vertices, without the sun %.2f times worse",
             st.level, st.order.size(), from_cache, to_trace, stats.vertices, stats.rays, ms,
-            m.valid ? "valid" : "not valid", static_cast<double>(std::get<0>(m.sun)), static_cast<double>(std::get<1>(m.sun)),
-            static_cast<double>(std::get<2>(m.sun)), static_cast<double>(std::get<0>(m.sky)),
-            static_cast<double>(std::get<1>(m.sky)), static_cast<double>(std::get<2>(m.sky)),
-            static_cast<double>(std::get<0>(m.bounce)), static_cast<double>(std::get<1>(m.bounce)),
-            static_cast<double>(std::get<2>(m.bounce)), static_cast<double>(m.scale), static_cast<double>(m.error),
-            m.vertices);
+            fitted.valid ? "valid" : "not valid", static_cast<double>(std::get<0>(fitted.sun)),
+            static_cast<double>(std::get<1>(fitted.sun)), static_cast<double>(std::get<2>(fitted.sun)),
+            static_cast<double>(std::get<0>(fitted.sky)), static_cast<double>(std::get<1>(fitted.sky)),
+            static_cast<double>(std::get<2>(fitted.sky)), static_cast<double>(std::get<0>(fitted.bounce)),
+            static_cast<double>(std::get<1>(fitted.bounce)), static_cast<double>(std::get<2>(fitted.bounce)),
+            static_cast<double>(fitted.scale), static_cast<double>(fitted.error), fitted.vertices,
+            static_cast<double>(fitted.sun_needed));
     if (settings.cache && to_trace > 0 && st.model.valid) {
-        write_cache(st.level, key);
+        write_cache({.level = st.level, .key = key});
         st.cache = {};
         st.cache.loaded = true; // (what it held is in the entries now)
     }
@@ -634,11 +716,11 @@ void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
                             tracer, &light, &stats);
         st.retraced += stats.vertices;
     }
-    for (std::size_t i = 0; i < st.order.size(); ++i) {
-        Entry& entry = st.entries.at(core::at(st.order, i));
-        entry.input = std::move(core::at(meshes, i));
-        entry.light = std::move(core::at(light, i));
-        if (core::at(wanted, i) != 0) {
+    for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
+        Entry& entry = st.entries.at(core::at(st.order, iv));
+        entry.input = std::move(core::at(meshes, iv));
+        entry.light = std::move(core::at(light, iv));
+        if (core::at(wanted, iv) != 0) {
             entry.sun_for = st.sun;
         }
     }
@@ -671,10 +753,11 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
         }
         // (the colours the rays bring back: as relit now - the bake's go back after)
         std::vector<uint32_t> relit(entry.originals.size());
-        for (std::size_t v = 0; v < relit.size(); ++v) {
-            core::at(relit, v) = v < entry.light.size() && entry.analysed
-                                     ? rt::relit_colour(st.model, core::at(entry.light, v), lighting, core::at(entry.originals, v))
-                                     : core::at(entry.originals, v);
+        for (std::size_t vi = 0; vi < relit.size(); ++vi) {
+            core::at(relit, vi) =
+                vi < entry.light.size() && entry.analysed
+                    ? rt::relit_colour(st.model, core::at(entry.light, vi), lighting, core::at(entry.originals, vi))
+                    : core::at(entry.originals, vi);
         }
         meshes.push_back(std::move(entry.input));
         meshes.back().colours = std::move(relit);
@@ -682,18 +765,19 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
         wanted.push_back(take ? 1 : 0);
     }
     rt::RelitStats stats;
-    rt::trace_relit_sky(meshes, wanted, rt::RelitParams{.sky_rays = settings.sky_rays,
-                                                         .sun_rays = settings.sun_rays,
-                                                         .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
-                                                         .detail = settings.detail},
+    rt::trace_relit_sky(meshes, wanted,
+                        rt::RelitParams{.sky_rays = settings.sky_rays,
+                                        .sun_rays = settings.sun_rays,
+                                        .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
+                                        .detail = settings.detail},
                         tracer, &light, &stats);
     st.rebounced += stats.vertices;
-    for (std::size_t i = 0; i < st.order.size(); ++i) {
-        Entry& entry = st.entries.at(core::at(st.order, i));
-        entry.input = std::move(core::at(meshes, i));
+    for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
+        Entry& entry = st.entries.at(core::at(st.order, iv));
+        entry.input = std::move(core::at(meshes, iv));
         entry.input.colours = entry.originals;
-        entry.light = std::move(core::at(light, i));
-        if (core::at(wanted, i) != 0) {
+        entry.light = std::move(core::at(light, iv));
+        if (core::at(wanted, iv) != 0) {
             entry.bounce_for = st.sun;
             entry.dirty = true;
         }
@@ -707,6 +791,57 @@ void log_status(Status status)
     if (st.logged != status) {
         st.logged = status;
         get_log("rt_relit: level %08x: %s", st.level, status_name(status));
+        rt::set_relit_status(status_text());
+    }
+}
+
+// The entries' relit colours written where they are stale (the lighting changed, the bounce traced again) and their
+// sun is traced, and the change logged once per lighting.
+void write_relit(uint64_t lighting, const rt::RelitLighting& light)
+{
+    State& st = state();
+    std::size_t written = 0;
+    std::vector<uint32_t> colours;
+    struct Change {
+        std::size_t vertices = 0;
+        double baked = 0.0;
+        double relit = 0.0;
+        std::size_t moved = 0;
+    } change;
+    for (const VertexBufferData* buffer : st.order) {
+        Entry& entry = st.entries.at(buffer);
+        if (!entry.analysed || (entry.written == lighting && !entry.dirty) ||
+            rt::dot(entry.sun_for, st.sun) < kSameSun) {
+            continue;
+        }
+        colours.resize(entry.originals.size());
+        for (std::size_t vi = 0; vi < colours.size(); ++vi) {
+            core::at(colours, vi) = vi < entry.light.size() ? rt::relit_colour(st.model, core::at(entry.light, vi),
+                                                                               light, core::at(entry.originals, vi))
+                                                            : core::at(entry.originals, vi);
+        }
+        write_colours(entry, colours);
+        entry.written = lighting;
+        entry.dirty = false;
+        ++written;
+        for (std::size_t vi = 0; vi < colours.size(); ++vi) {
+            const float was = luma_of(core::at(entry.originals, vi));
+            const float now = luma_of(core::at(colours, vi));
+            change.vertices += 1;
+            change.baked += was;
+            change.relit += now;
+            change.moved += std::abs(now - was) > kChangedLuma ? 1 : 0;
+        }
+    }
+    if (written > 0 && lighting != st.lighting) {
+        st.lighting = lighting;
+        const double vertices = static_cast<double>(std::max<std::size_t>(change.vertices, 1));
+        get_log(
+            "rt_relit: %zu meshes written (strength %.2f, residual %s): mean brightness %.1f against the bake's %.1f, "
+            "%.1f%% of the vertices changed by more than %.0f",
+            written, static_cast<double>(light.strength), light.residual ? "kept" : "left out", change.relit / vertices,
+            change.baked / vertices, 100.0 * static_cast<double>(change.moved) / vertices,
+            static_cast<double>(kChangedLuma));
         rt::set_relit_status(status_text());
     }
 }
@@ -767,7 +902,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
             if (!make_entry(mesh, &entry)) {
                 continue;
             }
-            st.buffer_of[mesh.mesh] = mesh.source;
+            st.buffer_of.insert_or_assign(mesh.mesh, mesh.source);
             st.entries.emplace(mesh.source, std::move(entry));
         }
         Entry& entry = st.entries.at(mesh.source);
@@ -797,10 +932,10 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     if (rt::dot(toward, st.sun) < kSameSun) {
         st.sun = toward;
         st.sun_colour = sun_colour_for(toward);
-        get_log("rt_relit: the sun toward %.3f %.3f %.3f (colour x %.2f %.2f %.2f)", static_cast<double>(rt::x_of(toward)),
-                static_cast<double>(rt::y_of(toward)), static_cast<double>(rt::z_of(toward)),
-                static_cast<double>(std::get<0>(st.sun_colour)), static_cast<double>(std::get<1>(st.sun_colour)),
-                static_cast<double>(std::get<2>(st.sun_colour)));
+        get_log("rt_relit: the sun toward %.3f %.3f %.3f (colour x %.2f %.2f %.2f)",
+                static_cast<double>(rt::x_of(toward)), static_cast<double>(rt::y_of(toward)),
+                static_cast<double>(rt::z_of(toward)), static_cast<double>(std::get<0>(st.sun_colour)),
+                static_cast<double>(std::get<1>(st.sun_colour)), static_cast<double>(std::get<2>(st.sun_colour)));
     }
     retrace(tracer, settings);
     const float strength =
@@ -814,30 +949,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     const rt::RelitLighting light{
         .toward = st.sun, .sun_colour = st.sun_colour, .strength = strength, .residual = settings.residual};
     rebounce(tracer, settings, light);
-    std::size_t written = 0;
-    std::vector<uint32_t> colours;
-    for (const VertexBufferData* buffer : st.order) {
-        Entry& entry = st.entries.at(buffer);
-        if (!entry.analysed || (entry.written == lighting && !entry.dirty) || rt::dot(entry.sun_for, st.sun) < kSameSun) {
-            continue;
-        }
-        colours.resize(entry.originals.size());
-        for (std::size_t v = 0; v < colours.size(); ++v) {
-            core::at(colours, v) = v < entry.light.size()
-                                       ? rt::relit_colour(st.model, core::at(entry.light, v), light, core::at(entry.originals, v))
-                                       : core::at(entry.originals, v);
-        }
-        write_colours(entry, colours);
-        entry.written = lighting;
-        entry.dirty = false;
-        ++written;
-    }
-    if (written > 0 && lighting != st.lighting) {
-        st.lighting = lighting;
-        get_log("rt_relit: %zu meshes written (strength %.2f, residual %s)", written, static_cast<double>(strength),
-                settings.residual ? "kept" : "left out");
-        rt::set_relit_status(status_text());
-    }
+    write_relit(lighting, light);
 }
 
 void mesh_released(const MeshRef* mesh)
@@ -854,6 +966,45 @@ void mesh_released(const MeshRef* mesh)
         st.entries.erase(entry);
         std::erase(st.order, buffer);
     }
+}
+
+bool object_lighting(ObjectLighting* out)
+{
+    const State& st = state();
+    if (st.status != Status::kRelit || !st.model.valid) {
+        return false;
+    }
+    const rt::Vec3 from = st.model.toward;
+    const rt::Vec3 to = st.sun;
+    const bool moved = rt::dot(from, to) < kSameSun;
+    const bool coloured = st.sun_colour != rt::Rgbf{1.0F, 1.0F, 1.0F};
+    if (!moved && !coloured) {
+        return false;
+    }
+    // (Rodrigues: the rotation about from x to by the angle between them)
+    const rt::Vec3 axis = rt::cross(from, to);
+    const float sine = std::sqrt(rt::dot(axis, axis));
+    const float cosine = rt::dot(from, to);
+    std::array<std::array<float, 3>, 3> rotation{{{1.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F}, {0.0F, 0.0F, 1.0F}}};
+    if (sine > 0.0F) {
+        const rt::Vec3 idx = rt::scaled(axis, 1.0F / sine);
+        const std::array<std::array<float, 3>, 3> cross_matrix{{{0.0F, -rt::z_of(idx), rt::y_of(idx)},
+                                                                {rt::z_of(idx), 0.0F, -rt::x_of(idx)},
+                                                                {-rt::y_of(idx), rt::x_of(idx), 0.0F}}};
+        for (std::size_t row = 0; row < 3; ++row) {
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                float squared = 0.0F;
+                for (std::size_t mi = 0; mi < 3; ++mi) {
+                    squared += core::at(core::at(cross_matrix, row), mi) * core::at(core::at(cross_matrix, mi), ch);
+                }
+                core::at(core::at(rotation, row), ch) +=
+                    (sine * core::at(core::at(cross_matrix, row), ch)) + ((1.0F - cosine) * squared);
+            }
+        }
+    }
+    out->rotation = rotation;
+    out->key_colour = st.sun_colour;
+    return true;
 }
 
 std::span<const uint32_t> original_colours(const VertexBufferData* buffer)
@@ -883,9 +1034,9 @@ std::string status_text()
                         settings.residual ? "kept" : "left out", st.level, st.entries.size(), written, vertices,
                         static_cast<double>(rt::x_of(st.sun)), static_cast<double>(rt::y_of(st.sun)),
                         static_cast<double>(rt::z_of(st.sun)), static_cast<double>(std::get<1>(st.model.sun)),
-                        static_cast<double>(std::get<1>(st.model.sky)), static_cast<double>(std::get<1>(st.model.bounce)),
-                        static_cast<double>(st.model.scale), static_cast<double>(st.model.error), st.retraced,
-                        st.rebounced);
+                        static_cast<double>(std::get<1>(st.model.sky)),
+                        static_cast<double>(std::get<1>(st.model.bounce)), static_cast<double>(st.model.scale),
+                        static_cast<double>(st.model.error), st.retraced, st.rebounced);
 }
 
 } // namespace render::rt_relit_world

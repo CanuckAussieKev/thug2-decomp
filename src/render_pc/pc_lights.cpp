@@ -18,6 +18,7 @@
 #include "base/core/packed_colour.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
+#include "render_pc/rt_relit_world.h"
 
 namespace render {
 
@@ -98,6 +99,29 @@ double get_falloff(DynamicLightBase* light, float distance) { return light->get_
 uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, std::span<DynamicLightBase*> out)
 {
     return get_dynamic_lights_near(position, radius, out);
+}
+
+// NOT ORIGINAL - the relit mode (rt_relit_world.h object_lighting): the game's light `light` as sent, turned toward the
+// relit sun and (the key light) tinted by its colour.
+void relight(uint32_t light)
+{
+    rt_relit_world::ObjectLighting relit;
+    if (!rt_relit_world::object_lighting(&relit)) {
+        return;
+    }
+    const std::span<float, 3> direction = light_direction_constant(light);
+    const std::array<float, 3> was{core::at(direction, 0), core::at(direction, 1), core::at(direction, 2)};
+    for (std::size_t axis = 0; axis < was.size(); ++axis) {
+        const std::array<float, 3>& row = core::at(relit.rotation, axis);
+        core::at(direction, axis) = (core::at(row, 0) * core::at(was, 0)) + (core::at(row, 1) * core::at(was, 1)) +
+                                    (core::at(row, 2) * core::at(was, 2));
+    }
+    if (light == 0) {
+        const std::span<float, 3> colour = light_color_constant(light);
+        for (std::size_t channel = 0; channel < relit.key_colour.size(); ++channel) {
+            core::at(colour, channel) *= core::at(relit.key_colour, channel);
+        }
+    }
 }
 
 } // namespace
@@ -190,6 +214,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
             fetch_light_tint(&color, static_cast<int>(i));
             send_color(light_color_constant(i), color, core::at(intensities(), i));
             send_negated(light_direction_constant(i), *render::get_light_direction(static_cast<int>(i)));
+            relight(i); // (not original: the relit mode's sun - rt_relit_world.h)
         }
     }
     if (radius == 0U) {

@@ -385,6 +385,11 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_bloom_strength` | 0.05 | How much of each pixel's light spreads (0-0.5) |
 | `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
 | `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
+| `rt_relit` | 0 | On Vulkan with `ray_tracing=1`: 1 takes each level's baked lighting apart into its surfaces' colours and the light of its sun, sky and bounced light (worked out with rays when the level starts, a second or two the first time; kept in `thug2-decomp-relit\` beside the exe after that) and lights the level again - with its own sun it looks as before; moved (`rt_relit_sun`, the console's `rt sun`) or coloured by `rt_sky_model`, the shadows, shade and bounced light follow. A level lit only by its lamps (indoors) keeps its lighting |
+| `rt_relit_strength` | 1 | How much of the relit light is used (0 the level's own lighting, 1 all relit) |
+| `rt_relit_residual` | 1 | 1 keeps the light the sun and sky can't explain - lamps, glows - as the level had it; 0 leaves it out |
+| `rt_relit_sun` | bake | The sun the level is relit by: `bake` - the one its lighting was made with; `game` - the sun the game shows in its sky; or `x,y,z` toward the sun |
+| `rt_relit_detail` | 1 | How much of each spot's own baked shading is kept where the sun and sky explain it (0-1; 0 relights the most) |
 
 **`[Miscellaneous]`** - from PartyMod
 
