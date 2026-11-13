@@ -92,10 +92,12 @@ constexpr uint64_t kFnvBasis = 14695981039346656037ULL;
 constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr std::size_t kMaxSceneLights = 31;     // update_all_lights' limit
 constexpr uint32_t kFvfTexCountMask = 0xF00;    // a vertex format's count of texture coordinate sets
+constexpr uint32_t kFvfTexCountShift = 8;
 constexpr uint32_t kPassEnvironment = 0x8;      // a material pass's flags: environment mapped (pc_material.cpp)
 constexpr uint32_t kPassCount = 4;              // a material's passes, at most
-constexpr uint32_t kBlendFixedFirst = 2;        // the blend modes taking the pass's fixed alpha: 2, 4, 6, 8, 10
-constexpr uint32_t kBlendFixedLast = 0xA;
+constexpr uint32_t kPassTextureAlpha = 0x1000;  // a pass's flags: its alpha from the texture only (pixel_shaders.cpp)
+constexpr uint32_t kBlendAdd = 1;               // the blend modes (engine/gfx/mesh_formats.h has the rest): add
+constexpr uint32_t kBlendFixedAdd = 2;          // ... add by the fixed alpha
 
 struct MeshEntry {
     rt::MeshId id = 0;
@@ -155,7 +157,7 @@ bool same_geometry(const rt::Geometry& a, const rt::Geometry& b)
            a.strip == b.strip && a.dynamic == b.dynamic && a.vertex_buffer_bytes == b.vertex_buffer_bytes &&
            a.index_buffer_bytes == b.index_buffer_bytes && a.cpu_indices == b.cpu_indices &&
            a.uv_offset == b.uv_offset && a.uv_format == b.uv_format && a.colour_offset == b.colour_offset &&
-           a.colour_format == b.colour_format;
+           a.colour_format == b.colour_format && a.uv_sets == b.uv_sets;
 }
 
 bool same_material(const rt::Material& a, const rt::Material& b)
@@ -163,7 +165,8 @@ bool same_material(const rt::Material& a, const rt::Material& b)
     return a.texture == b.texture && a.uv_set == b.uv_set && a.blend == b.blend && a.alpha_ref == b.alpha_ref &&
            a.colour == b.colour && a.flags == b.flags && a.address_u == b.address_u && a.address_v == b.address_v &&
            a.filter == b.filter && a.reflectivity == b.reflectivity && a.environment_pass == b.environment_pass &&
-           a.reflection_class == b.reflection_class && a.reflection_mask == b.reflection_mask;
+           a.reflection_class == b.reflection_class && a.reflection_mask == b.reflection_mask &&
+           a.mask_passes == b.mask_passes;
 }
 
 // The vertex buffer a mesh was last drawn from (MeshRef::render: the current one, then the next is current).
@@ -215,6 +218,8 @@ bool geometry_of(const MeshRef* mesh, rt::Geometry* out, const VertexBufferData*
         .colour_offset = mesh->color_offset(),
         .colour_format = mesh->color_offset() != 0 && (mesh->fvf() & kFvfDiffuse) != 0U ? rt::kColourA8R8G8B8
                                                                                          : rt::kAttributeNone,
+        // (one set a pass: the vertex format's count, two floats each)
+        .uv_sets = (mesh->fvf() & kFvfTexCountMask) >> kFvfTexCountShift,
     };
     *source = vb;
     return true;
@@ -269,18 +274,129 @@ uint32_t sampler_address(uint32_t mode)
     }
 }
 
+// How much of a material's environment-mapped pass `env` the game shows at a pixel, as its generated pixel shader
+// composes the passes (render_pc/pixel_shaders.cpp generated_pixel_shader: the first pass in r0, each later one
+// blended into r0 by its mode; a pass's alpha is its texel's alpha - the pass's flag 0x1000 - or the vertex alpha x the
+// texel's, doubled). The environment colour E enters r0 by the pass's own mode and is then scaled by every later pass's:
+//   the environment pass's own mode (after the first pass): 1 add, 5 blend (by E's alpha, sampled along the reflection:
+//     taken as 1), 2 / 6 their fixed alpha; 12 / 13 lerped in by the pass before's alpha (a, 1 - a: a mask pass, and
+//     reflection_mask - the glass's own colour put back); the others draw no environment colour (3 / 4 subtract it,
+//     7 - 10 multiply or brighten by its alpha alone, 0 and 11 do nothing to r0): not reflective;
+//   each later pass: 5 lerps r0 toward it by its alpha (E x 1 - a: a mask pass - the wall over the windows), 6 by its
+//     fixed alpha (x 1 - c.a), 7 / 8 multiply r0 by its alpha (x a: a mask pass) / its fixed alpha, 12 / 13 lerp by the
+//     pass before's alpha (x 1 - a / x a: a mask pass, unless the pass before is the environment pass itself - its
+//     alpha along the reflection, taken as 1); the rest (adds, subtracts, brightens) leave E as it is.
+// The constant factors go into the reflectivity, the per-pixel ones into mask_passes (rt::Material::MaskPass). False
+// when the pass draws no environment colour.
+struct EnvironmentShare {
+    float factor = 1.0F;
+    std::array<rt::Material::MaskPass, rt::Material::kMaskPasses> masks{};
+    uint32_t mask_count = 0;
+    bool lerped = false;  // blend modes 12 / 13: lerped in by the pass before's alpha (reflection_mask)
+    bool covered = false; // a later pass blended over it by its texture's alpha (the windows in a wall's texture)
+};
+
+// A mask pass for `pass` of the material, `kind` kMaskClear / kMaskOpaque.
+rt::Material::MaskPass mask_pass(const MaterialRef* material, uint32_t pass, uint32_t kind)
+{
+    const TextureImage* texture = core::at(material->textures(), pass);
+    const uint32_t address = core::at(material->address_modes(), pass);
+    return {.texture = texture != nullptr ? texture->texture : nullptr,
+            .kind = kind,
+            .uv_set = pass,
+            .address_u = sampler_address(address & kLowHalf),
+            .address_v = sampler_address(address >> kHalfBits),
+            .texture_alpha = (core::at(material->pass_flags(), pass) & kPassTextureAlpha) != 0U};
+}
+
+void add_mask(EnvironmentShare* share, const rt::Material::MaskPass& mask)
+{
+    for (uint32_t i = 0; i < share->mask_count; ++i) {
+        if (core::at(share->masks, i) == mask) {
+            return; // (the same factor twice: a / 1 - a of one pass is 0 or 1 at full-strength texels either way)
+        }
+    }
+    if (share->mask_count < rt::Material::kMaskPasses) {
+        core::at(share->masks, share->mask_count++) = mask;
+    }
+}
+
+uint32_t blend_mode(const MaterialRef* material, uint32_t pass)
+{
+    return core::at(material->blend_modes(), pass) & static_cast<uint32_t>(kBlendModeMask);
+}
+
+bool environment_share(const MaterialRef* material, uint32_t env, EnvironmentShare* share)
+{
+    const uint32_t passes = std::min(material->pass_count(), kPassCount);
+    const auto fixed_alpha = [&](uint32_t pass) {
+        return std::clamp(core::at(core::at(material->pass_color(), pass), 3), 0.0F, 1.0F);
+    };
+    if (env > 0) {
+        switch (blend_mode(material, env)) {
+        case kBlendAdd:
+        case static_cast<uint32_t>(kBlendModeAlpha):
+            break;
+        case kBlendFixedAdd:
+        case static_cast<uint32_t>(kBlendModeFixBlend):
+            share->factor *= fixed_alpha(env);
+            break;
+        case static_cast<uint32_t>(kBlendModeLerpPrevious):
+            add_mask(share, mask_pass(material, env - 1, rt::kMaskOpaque));
+            share->lerped = true;
+            break;
+        case static_cast<uint32_t>(kBlendModeLerpFromPrevious):
+            add_mask(share, mask_pass(material, env - 1, rt::kMaskClear));
+            share->lerped = true;
+            break;
+        default:
+            return false;
+        }
+    }
+    for (uint32_t pass = env + 1; pass < passes; ++pass) {
+        switch (blend_mode(material, pass)) {
+        case static_cast<uint32_t>(kBlendModeAlpha):
+            add_mask(share, mask_pass(material, pass, rt::kMaskClear));
+            share->covered = true;
+            break;
+        case static_cast<uint32_t>(kBlendModeFixBlend):
+            share->factor *= 1.0F - fixed_alpha(pass);
+            break;
+        case static_cast<uint32_t>(kBlendModeModulate):
+            add_mask(share, mask_pass(material, pass, rt::kMaskOpaque));
+            break;
+        case static_cast<uint32_t>(kBlendModeFixModulate):
+            share->factor *= fixed_alpha(pass);
+            break;
+        case static_cast<uint32_t>(kBlendModeLerpPrevious):
+            if (pass - 1 != env) {
+                add_mask(share, mask_pass(material, pass - 1, rt::kMaskClear));
+                share->covered = true;
+            }
+            break;
+        case static_cast<uint32_t>(kBlendModeLerpFromPrevious):
+            if (pass - 1 != env) {
+                add_mask(share, mask_pass(material, pass - 1, rt::kMaskOpaque));
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    return share->factor > 0.0F;
+}
+
 // What kind of reflective surface a material is, from how the game draws it (its environment-mapped pass `env`) - read
-// off the levels' own materials ([debug] rt_reflection_materials=1 logs them; AU, BA):
+// off the levels' own materials ([debug] rt_reflection_materials=1 logs them; AU, BA, BO):
 // - water: a pass with a UV wibble or a texture animation (pass flags 0x1 / 0x800, or the material's texture
 //   animation) - the game's moving water textures;
-// - glass: the environment pass lerped in by the first pass's alpha (blend modes 12 / 13 - the reflection painted into
+// - glass: the environment pass lerped in by the pass before's alpha (blend modes 12 / 13 - the reflection painted into
 //   the clear parts of a texture: AU's and BA's windows in their wall textures, 8A6663D9 on the user's glass building),
-//   or a first pass that is seen through (the transparent flag 0x40, or an alpha / fixed blend: panes over a frame,
-//   and the single-pass sheens drawn over windows);
+//   or under a later pass blended over it by its alpha (a wall texture whose clear parts are its windows, the
+//   environment map drawn first: BO's buildings), or a first pass that is seen through (the transparent flag 0x40, or
+//   an alpha / fixed blend: panes over a frame, and the single-pass sheens drawn over windows);
 // - shiny: the rest - an opaque surface with a reflection added or blended over it (metal, paint, polished floors).
-// The mask: modes 13 / 12 mirror only where the first pass is clear / opaque (rt::kReflectWhereBase*), as the game's own
-// pixel shader lerps the environment in (render_pc/pixel_shaders.cpp).
-void classify_reflective(const MaterialRef* material, uint32_t env, rt::Material* out)
+void classify_reflective(const MaterialRef* material, const EnvironmentShare& share, rt::Material* out)
 {
     const uint32_t passes = std::min(material->pass_count(), kPassCount);
     bool moving = material->texture_anim() != nullptr;
@@ -288,29 +404,28 @@ void classify_reflective(const MaterialRef* material, uint32_t env, rt::Material
         moving = moving || (core::at(material->pass_flags(), pass) & (kPassUvWibble | kPassTextureAnim)) != 0U ||
                  core::at(material->uv_wibble(), pass) != nullptr;
     }
-    const uint32_t env_mode = core::at(material->blend_modes(), env) & static_cast<uint32_t>(kBlendModeMask);
-    const uint32_t first_mode = core::at(material->blend_modes(), 0) & static_cast<uint32_t>(kBlendModeMask);
-    const bool masked = env > 0 && (env_mode == static_cast<uint32_t>(kBlendModeLerpPrevious) ||
-                                    env_mode == static_cast<uint32_t>(kBlendModeLerpFromPrevious));
+    const uint32_t env_mode = blend_mode(material, out->environment_pass);
+    const uint32_t first_mode = blend_mode(material, 0);
     const bool see_through = (core::at(material->pass_flags(), 0) & kPassTransparent) != 0U ||
                              first_mode == static_cast<uint32_t>(kBlendModeAlpha) ||
                              first_mode == static_cast<uint32_t>(kBlendModeFixBlend);
     if (moving) {
         out->reflection_class = rt::kReflectWater;
-    } else if (masked || see_through) {
+    } else if (share.lerped || share.covered || see_through) {
         out->reflection_class = rt::kReflectGlass;
     } else {
         out->reflection_class = rt::kReflectShiny;
     }
-    if (masked) {
+    if (share.lerped) {
         out->reflection_mask = env_mode == static_cast<uint32_t>(kBlendModeLerpFromPrevious) ? rt::kReflectWhereBaseClear
                                                                                             : rt::kReflectWhereBaseOpaque;
     }
+    out->mask_passes = share.masks;
 }
 
 // How strongly a material mirrors its surroundings (R5's reflections): its first environment-mapped pass with a
-// texture (the game's shiny surfaces) - the brightest channel of the pass's colour (doubled, as drawn), times its fixed
-// alpha where the pass's blend mode takes it - or none.
+// texture (the game's shiny surfaces) - the brightest channel of the pass's colour (doubled, as drawn), times the
+// constant share of it the game shows (environment_share) - and where (mask_passes); or none.
 void reflectivity_of(const MaterialRef* material, rt::Material* out)
 {
     const uint32_t passes = std::min(material->pass_count(), kPassCount);
@@ -319,17 +434,35 @@ void reflectivity_of(const MaterialRef* material, rt::Material* out)
             core::at(material->textures(), pass) == nullptr) {
             continue;
         }
-        const std::array<float, 4>& colour = core::at(material->pass_color(), pass);
-        float strength = std::max({core::at(colour, 0), core::at(colour, 1), core::at(colour, 2)}) * kDoubled;
-        const uint32_t mode = core::at(material->blend_modes(), pass) & static_cast<uint32_t>(kBlendModeMask);
-        if (mode >= kBlendFixedFirst && mode <= kBlendFixedLast && (mode % 2) == 0) {
-            strength *= core::at(colour, 3);
+        EnvironmentShare share;
+        if (!environment_share(material, pass, &share)) {
+            return; // (the pass draws no environment colour: nothing mirrors)
         }
+        const std::array<float, 4>& colour = core::at(material->pass_color(), pass);
+        const float strength = std::max({core::at(colour, 0), core::at(colour, 1), core::at(colour, 2)}) * kDoubled *
+                               share.factor;
         out->reflectivity = std::isfinite(strength) ? std::clamp(strength, 0.0F, 1.0F) : 0.0F;
+        if (out->reflectivity <= 0.0F) {
+            out->reflectivity = 0.0F;
+            return;
+        }
         out->environment_pass = pass;
-        classify_reflective(material, pass, out);
+        classify_reflective(material, share, out);
         return;
     }
+}
+
+// A pass environment-mapped with a texture.
+bool has_environment_pass(const MaterialRef* material)
+{
+    const uint32_t passes = std::min(material->pass_count(), kPassCount);
+    for (uint32_t pass = 0; pass < passes; ++pass) {
+        if ((core::at(material->pass_flags(), pass) & kPassEnvironment) != 0U &&
+            core::at(material->textures(), pass) != nullptr) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // A material as a hit shader reads it: its first pass.
@@ -360,21 +493,29 @@ rt::Material material_of(const MaterialRef* material)
     return out;
 }
 
-// [debug] rt_reflection_materials=1: each reflective material's passes logged once, when first registered (how
-// R5b's surfaces were classified - water, glass, other).
+// [debug] rt_reflection_materials=1: each environment-mapped material's passes logged once, when first registered (how
+// R5b's surfaces were classified - water, glass, other - and where they reflect: their mask passes; "not reflective":
+// its environment pass draws no environment colour).
 void log_reflective_material(const MaterialRef* material, const rt::Material& out, rt::MaterialId id)
 {
     static const bool kWanted = build_info::fetch_flag("debug", "rt_reflection_materials", false);
     if (!kWanted) {
         return;
     }
-    std::string text = text::format("rt: reflective material %u = %08X (name %08X): reflectivity %.2f, class %u, mask %u, "
+    std::string text = text::format("rt: %s material %u = %08X (name %08X): reflectivity %.2f, class %u, mask %u, "
                                     "sort %u, two-sided %u, alpha ref %u, texture anim %s",
-                                    static_cast<unsigned>(id), material->checksum(), material->name_hash(),
-                                    static_cast<double>(out.reflectivity), static_cast<unsigned>(out.reflection_class),
-                                    static_cast<unsigned>(out.reflection_mask), unsigned{material->sort_flag()},
+                                    out.reflectivity > 0.0F ? "reflective" : "not reflective", static_cast<unsigned>(id),
+                                    material->checksum(), material->name_hash(), static_cast<double>(out.reflectivity),
+                                    static_cast<unsigned>(out.reflection_class), static_cast<unsigned>(out.reflection_mask), unsigned{material->sort_flag()},
                                     unsigned{material->two_sided()}, unsigned{material->alpha_ref()},
                                     material->texture_anim() != nullptr ? "yes" : "no");
+    text += ", masks";
+    for (const rt::Material::MaskPass& mask : out.mask_passes) {
+        if (mask.kind != rt::kMaskNone) {
+            text += text::format(" pass %u %s%s", mask.uv_set, mask.kind == rt::kMaskClear ? "clear" : "opaque",
+                                 mask.texture_alpha ? " (texture alpha)" : "");
+        }
+    }
     const uint32_t count = std::min(material->pass_count(), kPassCount);
     for (uint32_t pass = 0; pass < count; ++pass) {
         const TextureImage* texture = core::at(material->textures(), pass);
@@ -407,7 +548,7 @@ rt::MaterialId material_id(const MaterialRef* material, rt::RayTracing& rt)
     }
     entry.frame = st.frame;
     const rt::Material now = material_of(material);
-    if (made && now.reflectivity > 0.0F) {
+    if (made && (now.reflectivity > 0.0F || has_environment_pass(material))) {
         log_reflective_material(material, now, entry.id);
     }
     if (made || !same_material(entry.material, now)) {

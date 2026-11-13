@@ -104,8 +104,7 @@ layout(set = 0, binding = 3, std140) uniform Pass {
 const uint INSTANCE_OBJECT = 32u; // (rt::InstanceFlag kObject)
 const uint CLASS_WATER = 1u;      // (rt::kReflectWater, kReflectGlass)
 const uint CLASS_GLASS = 2u;
-const uint MASK_BASE_CLEAR = 1u;  // (rt::kReflectWhereBaseClear / Opaque)
-const uint MASK_BASE_OPAQUE = 2u;
+const uint MASK_PASS_CLEAR = 1u;  // (a mask pass's kind: rt::kMaskClear; kMaskOpaque 2)
 
 
 // How much of the reflection the pixel shows: `c` the cosine between the view and the surface's normal.
@@ -159,6 +158,44 @@ float level_for(uint id, HitVertices v, vec3 a, vec3 b, vec3 c, float width)
     ivec2 size = textureSize(sampler2D(material_textures[nonuniformEXT(material(id).texture_slot)], material_samplers[0]), 0);
     float texels = sqrt(uv_area * float(size.x) * float(size.y) / world_area);
     return max(0.0, log2(max(width * texels, 1e-6)));
+}
+
+// The share of a material's environment pass its later passes leave (rt::Material::mask_passes, render_pc/rt_record.cpp
+// environment_share): for each mask pass k, its texel's alpha a at the hit - the texel's own, or times the vertex alpha
+// doubled (at most 1), as the game's pixel shader takes a pass's alpha - as 1 - a (kMaskClear) or a (kMaskOpaque);
+// each texture at the level for its own coordinates' footprint (`width`: a pixel's width at the hit).
+float environment_mask(uint id, uint instance, uint primitive, HitVertices v, vec2 bary, vec3 a, vec3 b, vec3 c,
+                       float width)
+{
+    Material m = material(id);
+    float mask = 1.0;
+    float vertex_alpha = (v.flags & GEOMETRY_COLOUR) != 0u ? hit_colour(v, bary).a * 2.0 : 1.0;
+    float world_area = length(cross(b - a, c - a));
+    for (uint k = 0u; k < 3u; ++k) {
+        uint mode = m.mask_mode[k];
+        uint kind = mode & 15u;
+        if (kind == 0u) {
+            continue;
+        }
+        uint set = (mode >> 4) & 15u;
+        vec2 uv = hit_uv_set(instance, primitive, bary, set);
+        vec2 uv0 = hit_uv_set(instance, primitive, vec2(0.0), set);
+        vec2 du = hit_uv_set(instance, primitive, vec2(1.0, 0.0), set) - uv0;
+        vec2 dv = hit_uv_set(instance, primitive, vec2(0.0, 1.0), set) - uv0;
+        float uv_area = abs(du.x * dv.y - du.y * dv.x);
+        float lod = 0.0;
+        if (world_area > 1e-12 && uv_area > 1e-12 && width > 0.0) {
+            ivec2 size = textureSize(sampler2D(material_textures[nonuniformEXT(m.mask_texture[k])],
+                                               material_samplers[0]), 0);
+            lod = max(0.0, log2(max(width * sqrt(uv_area * float(size.x) * float(size.y) / world_area), 1e-6)));
+        }
+        float alpha = material_mask_alpha(id, k, uv, lod);
+        if ((mode & 256u) == 0u) {
+            alpha = clamp(alpha * vertex_alpha, 0.0, 1.0);
+        }
+        mask *= kind == MASK_PASS_CLEAR ? 1.0 - alpha : alpha;
+    }
+    return mask;
 }
 
 vec3 lighting(vec3 n)
@@ -264,14 +301,15 @@ void main()
                     vec3 point = eye + view * t;
                     float offset = pass.params.z * (1.0 + t * 0.0005 + t * t * 6e-8);
                     Material surface = material(id);
-                    // (the mask: where on its texture the surface reflects - the first pass's alpha at the pixel's
-                    // footprint, as the game's pixel shader lerps its environment pass in)
-                    float mask = 1.0;
+                    // (the mask: where on its texture the surface reflects - the share of the environment pass the
+                    // game's pixel shader leaves at the pixel's footprint: each mask pass's alpha, 1 - a or a)
+                    vec2 bary = rayQueryGetIntersectionBarycentricsEXT(query, true);
+                    float mask = environment_mask(id, rayQueryGetIntersectionInstanceIdEXT(query, true),
+                                                  rayQueryGetIntersectionPrimitiveIndexEXT(query, true), v, bary,
+                                                  a, b, c, pass.ambient.w * t);
                     float weight = reflection_weight(reflectivity, surface.reflection_class, surface.f0, -dot(view, n));
                     if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {
-                        vec2 bary = rayQueryGetIntersectionBarycentricsEXT(query, true);
                         vec4 texel = material_texel_lod(id, hit_uv(v, bary), level_for(id, v, a, b, c, pass.ambient.w * t));
-                        mask = surface.reflection_mask == MASK_BASE_CLEAR ? 1.0 - texel.a : texel.a;
                         // The game drew its environment map there in place of the texture (its pixel shader's lerp by
                         // the alpha): the glass's own colour - the texel x the pass's colour x the vertex colour
                         // doubled (objects: the frame's lights), as that shader would have drawn it - is put back

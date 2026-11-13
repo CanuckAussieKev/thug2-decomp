@@ -1,5 +1,5 @@
 {
-  "_about": "The spots tools/game/rt_shadows_check.ts captures with [Graphics] rt_shadows off and on: renderer_parity.json's five smoke levels (the skater stood still with teleport, the camera held with camera), the sky shot among them (nothing to darken there); AU-sea - the open sea meeting the sky dome's painted sea (the aerial haze's seam: --effect sun --groups AU); AU-beach, AU-glass and BA-harbour - the user's sea, glass and sun-facing harbour views (the water and glass: --effect reflections --groups AU,BA with the user's settings by --set); nj-skater - the skater standing in the street of THUG1's New Jersey (the port: thug2-decomp-thug1) in the sun, his ray-traced shadow on the road and no faceted self-shadow on his body (--groups nj with the user's settings by --set; the game's own shadow of the skater, hidden while the ray-traced one is cast, lightens up to 1.5% of the picture: maxBrighter). qp* groups: smoothed curves (--effect tess) - sch's quarter pipe (still, and the skater riding up it), round props, fences, a car; BO's start, cannons and statues. BA-start - Barcelona from the skater's start (--effect relit's fifth level).",
+  "_about": "The spots tools/game/rt_shadows_check.ts captures with [Graphics] rt_shadows off and on: renderer_parity.json's five smoke levels (the skater stood still with teleport, the camera held with camera), the sky shot among them (nothing to darken there); AU-sea - the open sea meeting the sky dome's painted sea (the aerial haze's seam: --effect sun --groups AU); AU-beach, AU-glass and BA-harbour - the user's sea, glass and sun-facing harbour views (the water and glass: --effect reflections --groups AU,BA with the user's settings by --set); nj-skater - the skater standing in the street of THUG1's New Jersey (the port: thug2-decomp-thug1) in the sun, his ray-traced shadow on the road and no faceted self-shadow on his body (--groups nj with the user's settings by --set; the game's own shadow of the skater, hidden while the ray-traced one is cast, lightens up to 1.5% of the picture: maxBrighter). qp* groups: smoothed curves (--effect tess) - sch's quarter pipe (still, and the skater riding up it), round props, fences, a car; BO's start, cannons and statues. BA-start - Barcelona from the skater's start (--effect relit's fifth level). BO-facade - the user's view down a Boston street to brick buildings whose windows are painted into their wall texture over an environment-mapped pass: only the windows may mirror, never the brick (--effect reflections --groups BO-facades with the user's settings by --set).",
   "groups": [
     {
       "name": "foun",
@@ -172,6 +172,20 @@
           "commands": [
             "camera off",
             "wait 180"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BO-facades",
+      "level": "BO",
+      "spots": [
+        {
+          "name": "BO-facade",
+          "commands": [
+            "teleport -2350.4 125.4 -1276.8 90.7",
+            "camera -2495.1 202.8 -1275.1 0.984 -0.175 -0.011",
+            "wait 150"
           ]
         }
       ]
