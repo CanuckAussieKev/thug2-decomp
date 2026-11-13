@@ -1939,8 +1939,11 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
   knobs shown only while `rt_water` is on). `[debug] rt_water_view=1` colours what the reflection found (red the
   march, green the sky on the screen, blue the captured sky).
 - **Cost:** `thug2_vulkan_water_check --perf`, a frame of full-screen water at 2560 x 1440 (the sand and the water):
-  0.36 ms off, 0.90 ms on - 0.54 ms for the copy and the shading of every pixel. In the game:
-  COST_IN_GAME.
+  0.25 - 0.36 ms off, 0.61 - 0.90 ms on - 0.36 - 0.54 ms for the copy and the shading of every pixel (another game ran on
+  the device in the higher run). In the game (`water_check.ts`, the user's settings at 2560 x 1440 - DLSS quality, every
+  ray-traced effect -, the frame profile's device time over 20 s held on the level's first spot, two runs each): BA off
+  31.7 / 26.1 ms, on 31.5 / 24.1; NO off 15.1 / 11.4, on 12.2 / 12.8 - the water's cost is inside the runs' own spread
+  (5 ms between two runs of the same setting).
 - **Checked:** `thug2_vulkan_water_check` (22 checks, both GPUs here, validation with synchronization 0): a synthetic
   shore drawn through `render::Gpu` with the game's single-texture material shader - calm water against the processor at
   33,600 pixels (refraction, absorption, the deep colour, Fresnel toward the sky; 99.9% within 0.004); a red wall
