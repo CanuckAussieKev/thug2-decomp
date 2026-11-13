@@ -1083,8 +1083,9 @@ bool reach_ts(uint32_t script, int64_t place)
     }
     // (past QB's last call - its run went on without calls until its statement budget: as many statements here, but
     // only for its coverage: once kQuietSteps of them reach nothing new - a loop going round again - it ends; running
-    // every one cost TypeScript hours over a full check)
-    constexpr uint32_t kQuietSteps = 2000;
+    // every one cost TypeScript hours over a full check; 2,000 still spent half a level's time going round loops that
+    // read a big global each pass - Ped_Utils_SetMiscEventHandlers' - where 300 reach as much)
+    constexpr uint32_t kQuietSteps = 300;
     if (run.stop_at_call != 0 && run.calls >= run.stop_at_call &&
         (++run.ts_steps_after > static_cast<uint32_t>(state().settings.steps) || ++run.ts_quiet > kQuietSteps)) {
         run.ended = "runaway";

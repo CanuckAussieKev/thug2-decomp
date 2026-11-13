@@ -22,6 +22,12 @@ shares run side by side, and `compare --game a,b,...` writes one report in the f
 tools/game/script_check_parallel.ps1 -Games C:\Games\THUG2-1,C:\Games\THUG2-2,C:\Games\THUG2-3,C:\Games\THUG2-4
 ```
 
+Each pass has a time limit (the game is closed at it, and `script_check.ps1` says how far the plan got:
+`ts pass NOT FINISHED - it got to <module> (n of m)`); the parallel run gives each share 1.5 s a script, 6 hours at the
+least. The TypeScript pass is the long one - about a second a script against QB's ~0.04 s (QuickJS running the values
+layer; a subset's TypeScript took as long before the globals moved to `.json` as after): four workspaces take ~4 hours,
+two ~8.
+
 `plan --log-runs` logs each run's header before it runs and its end and time after (finding a run that crashes or
 hangs the game).
 
@@ -116,8 +122,9 @@ where the arm is forced.
   aren't written). Replaying a run QB ended runaway, TypeScript is compared up to QB's last call and then runs on as
   QB's did - for its coverage: the loops QB went round after its last call - until a call QB didn't make or QB's
   statement budget counted in its own statements (`reach`; past it `reach` throws, which ends a loop without calls) -
-  or, sooner, once 2,000 of them in a row reach no statement or branch arm not reached before (a loop going round
-  again: running all 50,000 of every runaway replay made the TypeScript pass hours long). An if QB found fixed (its
+  or, sooner, once 300 of them in a row reach no statement or branch arm not reached before (a loop going round
+  again: running all 50,000 of every runaway replay made the TypeScript pass hours long; 2,000 still spent ~45% of a
+  level's TypeScript time in loops that read a big global each pass, with the same coverage at 300). An if QB found fixed (its
   condition stops before its line's end: the original stays on that line) counts for TypeScript once it reaches the
   line - its run ends there, at the call the condition makes past QB's last. So a TypeScript run that would have gone on to make a further call, or finished, after QB's last one isn't caught
   there; any difference up to that call is.
