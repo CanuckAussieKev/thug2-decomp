@@ -24,9 +24,10 @@ tools/game/script_check_parallel.ps1 -Games C:\Games\THUG2-1,C:\Games\THUG2-2,C:
 
 Each pass has a time limit (the game is closed at it, and `script_check.ps1` says how far the plan got:
 `ts pass NOT FINISHED - it got to <module> (n of m)`); the parallel run gives each share 1.5 s a script, 6 hours at the
-least. The TypeScript pass is the long one - about a second a script against QB's ~0.04 s (QuickJS running the values
-layer; a subset's TypeScript took as long before the globals moved to `.json` as after): four workspaces take ~4 hours,
-two ~8.
+least. The TypeScript pass is the long one - about a second a script against QB's ~0.025 s (QuickJS running the values
+layer; a subset's TypeScript took as long before the globals moved to `.json` as after). 2026-11-13, four workspaces
+(81,994 scripts, ~15,500 a share, other games running beside them): QB 288 - 412 s, TypeScript 13,260 - 17,282 s -
+the whole run 4.9 hours; two workspaces take about twice that.
 
 `plan --log-runs` logs each run's header before it runs and its end and time after (finding a run that crashes or
 hangs the game).
