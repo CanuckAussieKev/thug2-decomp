@@ -44,6 +44,7 @@
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_samplers.h"
+#include "gpu_vulkan/vulkan_surface.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -359,16 +360,27 @@ bool same_image_info(const VkDescriptorImageInfo& a, const VkDescriptorImageInfo
     return a.sampler == b.sampler && a.imageView == b.imageView && a.imageLayout == b.imageLayout;
 }
 
-void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array<VkDescriptorImageInfo, kStageCount>& images)
+// (NOT ORIGINAL - rt_pbr) A draw lit per pixel's own descriptors: its block and its surface map (vulkan_surface.h).
+struct SurfaceDescriptors {
+    bool on = false;
+    bool has_map = false;
+    VkDescriptorBufferInfo block{};
+    VkDescriptorImageInfo map{};
+};
+
+void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array<VkDescriptorImageInfo, kStageCount>& images,
+                      const SurfaceDescriptors& surface = {})
 {
     BoundState& bound = state.bound;
+    const bool same_surface = !surface.on || (bound.surface_pushed && same_buffer_info(bound.pushed_surface_block, surface.block) &&
+                                              (!surface.has_map || same_image_info(bound.pushed_surface_map, surface.map)));
     const bool same = bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, bound.vertex_block) &&
                       same_buffer_info(bound.pushed_fragment_block, bound.fragment_block) &&
-                      std::ranges::equal(images, bound.images, same_image_info);
+                      std::ranges::equal(images, bound.images, same_image_info) && same_surface;
     if (same) {
         return;
     }
-    std::array<VkWriteDescriptorSet, 2 + kStageCount> writes{};
+    std::array<VkWriteDescriptorSet, 2 + kStageCount + 2> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -385,12 +397,50 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
         write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         write.pImageInfo = &core::at(images, stage);
     }
-    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0,
-                              static_cast<uint32_t>(writes.size()), writes.data());
+    uint32_t count = 2 + kStageCount;
+    if (surface.on) {
+        VkWriteDescriptorSet& block = core::at(writes, count++);
+        block.dstBinding = kSurfaceUniformsBinding;
+        block.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        block.pBufferInfo = &surface.block;
+        if (surface.has_map) {
+            VkWriteDescriptorSet& map = core::at(writes, count++);
+            map.dstBinding = kSurfaceMapBinding;
+            map.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            map.pImageInfo = &surface.map;
+        }
+    }
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0, count, writes.data());
     bound.images = images;
     bound.pushed_vertex_block = bound.vertex_block;
     bound.pushed_fragment_block = bound.fragment_block;
     bound.descriptors_set = true;
+    bound.surface_pushed = surface.on;
+    bound.pushed_surface_block = surface.block;
+    bound.pushed_surface_map = surface.map;
+}
+
+// (NOT ORIGINAL - rt_pbr) The draw's SurfaceUniforms into the ring (the vertex block's lights as just filled).
+bool set_surface_uniforms(Backend& state, const GpuStateBlock& block, const SurfaceDraw& draw, VkDescriptorBufferInfo* where)
+{
+    SurfaceUniforms uniforms{};
+    fill_surface_uniforms(block, state.bound.vertex_uniforms, draw, &uniforms);
+    BoundState& bound = state.bound;
+    if (bound.surface_kept && same_bytes(uniforms, bound.surface_uniforms)) {
+        *where = bound.surface_block;
+        return true;
+    }
+    const void* const data = &uniforms;
+    const std::span<const uint8_t> raw(static_cast<const uint8_t*>(data), sizeof(uniforms));
+    const std::optional<RingSpan> span = state.ring.copy(raw, state.uniform_alignment);
+    if (!span) {
+        return false;
+    }
+    bound.surface_block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(uniforms)};
+    bound.surface_uniforms = uniforms;
+    bound.surface_kept = true;
+    *where = bound.surface_block;
+    return true;
 }
 
 // A texture's image made ready to be sampled; null (the blank texture) when there is none, it was released while still
@@ -877,7 +927,13 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
             program = &shader->program;
         }
     }
-    const ShaderKey shaders = draw_shader_key(block, program, call.primitive == GpuPrimitive::kPointList);
+    ShaderKey shaders = draw_shader_key(block, program, call.primitive == GpuPrimitive::kPointList);
+    // NOT ORIGINAL - per-pixel lighting where the draw takes it ([Graphics] rt_pbr, vulkan_surface.h; nothing with it off)
+    const SurfaceDraw surface = surface_draw(block, shaders);
+    if (surface.flags != 0) {
+        shaders.fragment.surface = surface.flags;
+        shaders = normalised(shaders);
+    }
     std::string why;
     if (!supported(shaders, &why)) {
         if (first_report(state, hash_of(shaders.vertex) ^ hash_of(shaders.fragment))) {
@@ -896,6 +952,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         end_pass(state);
     }
     const std::array<Image*, kStageCount> images = sampled_images(state, block, sampled_stages(shaders.fragment));
+    Image* const surface_image = (shaders.fragment.surface & kSurfaceMap) != 0U ? image_to_sample(state, surface.map) : nullptr;
     if (!ensure_pass(state, nullptr)) {
         return kOk;
     }
@@ -924,13 +981,25 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     if (!set_uniforms(state, block)) {
         return gpu_value::kResultInvalidCall;
     }
+    SurfaceDescriptors surface_descriptors; // NOT ORIGINAL - rt_pbr
+    if (shaders.fragment.surface != 0) {
+        surface_descriptors.on = true;
+        if (!set_surface_uniforms(state, block, surface, &surface_descriptors.block)) {
+            return gpu_value::kResultInvalidCall;
+        }
+        if ((shaders.fragment.surface & kSurfaceMap) != 0U) {
+            const Image& shown = surface_image != nullptr ? *surface_image : state.blank;
+            surface_descriptors.has_map = true;
+            surface_descriptors.map = {.sampler = core::at(descriptors, 0).sampler, .imageView = shown.view, .imageLayout = shown.layout};
+        }
+    }
     BoundState& bound = state.bound;
     if (pipeline != bound.pipeline) {
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         bound.pipeline = pipeline;
     }
     set_dynamic_states(state, commands, block, call);
-    push_descriptors(state, commands, descriptors);
+    push_descriptors(state, commands, descriptors, surface_descriptors);
     if (call.vertex_buffer != bound.vertex_buffer || call.vertex_offset != bound.vertex_offset ||
         call.stride != bound.vertex_stride) {
         const VkDeviceSize stride = call.stride;
@@ -956,6 +1025,9 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         if (image != nullptr) {
             image->used = serial;
         }
+    }
+    if (surface_image != nullptr) {
+        surface_image->used = serial;
     }
     ++state.stats.draws;
     return kOk;

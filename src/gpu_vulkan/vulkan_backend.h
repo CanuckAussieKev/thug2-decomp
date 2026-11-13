@@ -124,6 +124,13 @@ struct BoundState {
     std::array<VkDescriptorImageInfo, kStageCount> images{};
     VkDescriptorBufferInfo pushed_vertex_block{};
     VkDescriptorBufferInfo pushed_fragment_block{};
+    // (NOT ORIGINAL - rt_pbr, vulkan_surface.h) the per-pixel lighting's block last copied, and what was last pushed
+    bool surface_kept = false;
+    SurfaceUniforms surface_uniforms{};
+    VkDescriptorBufferInfo surface_block{};
+    bool surface_pushed = false;
+    VkDescriptorBufferInfo pushed_surface_block{};
+    VkDescriptorImageInfo pushed_surface_map{};
 };
 
 // Counts and times for the log (vulkan_draws.cpp writes a line every so many frames).

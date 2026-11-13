@@ -183,4 +183,25 @@ struct RtSunSettings {
 void set_rt_sun_settings(const RtSunSettings& settings);
 [[nodiscard]] RtSunSettings rt_sun_settings();
 
+// NOT ORIGINAL - per-pixel lighting and surface maps (vulkan_surface.h; docs/design/vulkan.md "Per-pixel lighting and
+// surface maps"): [Graphics] rt_pbr, rt_pbr_specular, rt_pbr_normal_strength, rt_pbr_objects. Off: no map is read and
+// every shader is as before. No ray tracing needed; with it the bake's sun (rt_sun.h) is the light the maps answer to.
+struct RtPbrSettings {
+    bool on = false;
+    float specular = 1.0F;        // rt_pbr_specular: the specular term's strength (0: none)
+    float normal_strength = 1.0F; // rt_pbr_normal_strength: the maps' normals' tilt (0: flat, 2: twice as steep)
+    float roughness = 0.7F;       // the roughness of a surface without a map (objects lit per pixel)
+    float f0 = 0.04F;             // F0 without a map (dielectric)
+    float ambient_share = 0.45F;  // a: the share of a sunlit surface's baked light not from the sun
+    float sky_detail = 0.5F;      // how much of a map's detail shows in the shade (toward the sky)
+    float shade_low = 0.35F;      // the bake's light level (luma of 2 x v0) at and below which a surface is in shade
+    float shade_high = 0.8F;      // ... and from which it is fully sunlit
+    float detail_low = 0.55F;     // the bake's scale's range (the map can darken a texel this much at most)
+    float detail_high = 1.5F;     // (and brighten it this much)
+    float game_sun = 0.5F;        // without a baked sun (no ray tracing): the game's shown sun's weight (0: none)
+    bool objects = true;          // rt_pbr_objects: objects lit by lights per pixel too
+};
+void set_rt_pbr_settings(const RtPbrSettings& settings);
+[[nodiscard]] RtPbrSettings rt_pbr_settings();
+
 } // namespace render::vulkan

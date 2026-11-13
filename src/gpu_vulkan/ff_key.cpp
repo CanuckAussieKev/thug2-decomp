@@ -109,9 +109,20 @@ void normalise_stages(FragmentKey& key)
     }
 }
 
+// (NOT ORIGINAL - rt_pbr) The programs the per-pixel lighting can take: those whose last line multiplies by v0.
+bool takes_surface(const FragmentKey& key)
+{
+    return key.unlit == 0 && (key.program == PixelProgram::kMaterial || key.program == PixelProgram::kTextureVertexX4 ||
+                              key.program == PixelProgram::kTextureConstantAlpha);
+}
+
 void normalise_fragment(FragmentKey& key, bool points)
 {
-    key.spare = {};
+    key.spare = 0;
+    if (!takes_surface(key) || points || (key.surface & kSurfaceLighting) == 0U) {
+        key.surface = 0;
+    }
+    key.surface = static_cast<uint8_t>(key.surface & kSurfaceKnown);
     if (key.program != PixelProgram::kStages) {
         key.stages = {};
         key.specular_add = false;
@@ -196,7 +207,6 @@ void normalise_lighting(VertexKey& key)
 
 void normalise_vertex(VertexKey& key)
 {
-    key.spare = 0;
     const bool pre_transformed = fvf_pre_transformed(key.fvf);
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         TexCoordKey& coords = core::at(key.coords, stage);
@@ -350,6 +360,16 @@ ShaderKey normalised(const ShaderKey& key)
         }
     }
     result.fragment.projected_mask = projected;
+    // (NOT ORIGINAL - rt_pbr) the per-pixel lighting needs camera-space positions (not pre-transformed vertices) and
+    // stage 0's coordinates; the vertex half writes its inputs exactly when the fragment half reads them
+    if (fvf_pre_transformed(result.vertex.fvf) || (result.vertex.coord_mask & 1U) == 0U ||
+        result.fragment.point_sprite) {
+        result.fragment.surface = 0;
+    }
+    if (!result.vertex.lighting) {
+        result.fragment.surface = static_cast<uint8_t>(result.fragment.surface & ~kSurfaceLit);
+    }
+    result.vertex.surface = result.fragment.surface != 0 ? 1 : 0;
     return result;
 }
 
@@ -429,6 +449,7 @@ std::string describe(const VertexKey& key)
     if (key.points) {
         text += key.point_scale ? " points(scaled)" : " points";
     }
+    text += key.surface != 0 ? " surface" : "";
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         if ((key.coord_mask & bit(stage)) == 0U) {
             continue;
@@ -472,6 +493,9 @@ std::string describe(const FragmentKey& key)
         text += " alpha_test=" + std::to_string(core::to_underlying(key.alpha_test));
     }
     text += key.point_sprite ? " point_sprite" : "";
+    if (key.surface != 0) {
+        text += " surface=" + std::to_string(key.surface);
+    }
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);
     }

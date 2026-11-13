@@ -136,6 +136,18 @@ constexpr uint32_t kFvfTexCountMask = 0xF00U;
 constexpr uint32_t kFvfTexSizeShift = 16; // two bits a set from here: 0 two floats, 1 three, 2 four, 3 one
 constexpr uint32_t kFvfKnownBits = 0xFFFF0FDEU;
 
+// (NOT ORIGINAL - [Graphics] rt_pbr, gpu_vulkan/vulkan_surface.h; docs/design/vulkan.md "Per-pixel lighting and surface
+// maps") FragmentKey::surface's bits. Only the material programs that end with the vertex colour - kMaterial,
+// kTextureVertexX4, kTextureConstantAlpha - take them (normalised() clears them on any other key); with any bit set
+// the vertex half's `surface` is 1. 0 leaves the key's bytes - and its shaders - exactly as without rt_pbr.
+constexpr uint8_t kSurfaceLighting = 0x01; // the light worked out per pixel: v0's colour replaced, a specular term added
+constexpr uint8_t kSurfaceMap = 0x02;      // a surface map bound at kSurfaceMapBinding (normal, roughness, height)
+constexpr uint8_t kSurfaceLit = 0x04;      // lit by the draw's own lights (objects); without: the bake relit by the sun
+// Reserved for the relit mode (another work stream: the bake separated from the artists' tint and relit): its own
+// light in place of the bake's - it keeps kSurfaceLighting's per-pixel normal and specular (vulkan_surface.h).
+constexpr uint8_t kSurfaceRelit = 0x08;
+constexpr uint8_t kSurfaceKnown = kSurfaceLighting | kSurfaceMap | kSurfaceLit | kSurfaceRelit;
+
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;
 // The directional lights the vertex shader can light with (Direct3D 9's limit for a hardware device).
@@ -171,7 +183,7 @@ struct VertexKey {
     bool points = false;          // a point list: the point size is written
     bool point_scale = false;     // D3DRS_POINTSCALEENABLE: the size scaled by distance
     uint8_t coord_mask = 0;       // the stages whose texture coordinates the fragment shader reads (bit n: stage n)
-    uint8_t spare = 0;
+    uint8_t surface = 0;          // (NOT ORIGINAL - rt_pbr) 1: the per-pixel lighting's inputs written (FragmentKey::surface)
     std::array<TexCoordKey, kStageCount> coords{};
 
     bool operator==(const VertexKey&) const = default;
@@ -204,7 +216,8 @@ struct FragmentKey {
     bool point_sprite = false;               // D3DRS_POINTSPRITEENABLE: every stage's coordinates are the point's
     uint8_t projected_mask = 0;              // the stages whose coordinates are projected (TexCoordKey::projected)
     uint8_t unlit = 0; // a ps.1.1 program's unlit twin (the editor's Unlit view mode): the vertex colour's rgb read as 0.5
-    std::array<uint8_t, 2> spare{};
+    uint8_t surface = 0; // (NOT ORIGINAL - rt_pbr) the per-pixel lighting's switches (kSurface*); 0: as the original's
+    uint8_t spare = 0;
     std::array<StageKey, kStageCount> stages{};
 
     bool operator==(const FragmentKey&) const = default;

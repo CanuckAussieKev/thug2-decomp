@@ -129,6 +129,7 @@ add_library(thug2_engine STATIC
     gfx/gpu_context.cpp
     gfx/rt_scene.cpp
     gfx/rt_sun.cpp
+    gfx/surface_maps.cpp
     gfx/rt_sky.cpp
     gfx/ui_backend.cpp
     gfx/view_modes.cpp

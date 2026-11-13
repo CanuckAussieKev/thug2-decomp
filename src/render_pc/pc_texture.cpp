@@ -17,6 +17,7 @@
 #include "engine/memory/mem.h"
 #include "engine/file/file_load.h"
 #include "render_pc/bitmap_texture.h"
+#include "render_pc/surface_map_load.h"
 #include "engine/lists/key_map.h"
 #include "base/maths/maths.h"
 #include "formats/texture_format.h"
@@ -1311,6 +1312,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         table = remake_table(table, static_cast<uint32_t>(count));
     }
     uint32_t format = 0; // (the original's is whatever its stack held until a texture sets it)
+    SurfacePack surface_maps(name); // NOT ORIGINAL - the dictionary's surface maps (surface_map_load.h)
     for (int i = 0; i < count; ++i) {
         texture_format::TextureHeader header;
         util::ByteReader header_reader(bytes.data(), sizeof(bytes));
@@ -1380,6 +1382,10 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
                 GpuLockedRect rect;
                 gpu().lock_texture(*d3d, level, &rect, nullptr, 0);
                 read(rect.bits, static_cast<int>(size), 1);
+                if (level == 0 && surface_maps.active()) { // NOT ORIGINAL - its surface map, if it has one
+                    surface_maps.attach(*d3d, header.checksum,
+                                        std::span<const uint8_t>(static_cast<const uint8_t*>(rect.bits), size));
+                }
                 gpu().unlock_texture(*d3d, level);
             }
         }
@@ -1390,6 +1396,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         }
     }
     file::shut(file);
+    surface_maps.report();
     return table;
 }
 
