@@ -1739,7 +1739,7 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
   Kuwahara filter (compute: the four overlapping quadrants of radius r, each's mean weighted by 1 / (1 + (255^2
   variance)^4) - texture detail flattens, edges between fields stay); then one full-screen triangle per pixel: the
   smoothed colour brought back up edge-aware (a joint bilateral upsample guided by the pixel's own colour), its OKLab
-  lightness put in `rt_style_bands` soft-edged bands (hue kept, chroma x `rt_style_saturation`), the outline mixed in,
+  lightness put in `rt_style_bands` soft-edged bands (30% of it kept as it was, so the darkest shades aren't crushed; hue kept, chroma x `rt_style_saturation`), the outline mixed in,
   the result mixed over the original by `rt_style_strength`.
 - **The outlines** come from the linear depth alone: per axis, with the neighbours h pixels away, s = 1 - z (1/z_a +
   1/z_b) / 2 - zero on any plane however steeply it is seen (1/z is affine across a flat surface on the screen), positive
@@ -1747,12 +1747,12 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
   (a valley, the far side of a silhouette). |s| x f / h (f the focal length in pixels) is a crease's change of slope,
   independent of the resolution and the distance; smoothstepped, cut on the far side of a step (the line stays on the
   object in front - a silhouette's line is one-sided and h wide), creases at 75%, faded out from 2,500 to 9,000 units
-  (distant geometry would turn into a mesh of lines), none on the sky. The ink: the toon colour's OKLab lightness x 0.3,
+  (distant geometry would turn into a mesh of lines), none on the sky. The ink: the toon colour's OKLab lightness x 0.2,
   chroma x 1.3 - dark and tinted by what it outlines, never pure black. h and r scale with the picture's height (given
   for 720 lines).
 - **Depth surfaces** are made samplable whenever the format allows (`style_depth_usage`), so `rt_style` can be turned on
   from the Options screen with no restart; without a samplable depth there are no outlines (logged once).
-- **Settings** (all live - `kLiveKeys` `rt_style*`): `rt_style` 0 / 1, `rt_style_strength` (1), `rt_style_smooth` (3:
+- **Settings** (all live - `kLiveKeys` `rt_style*`): `rt_style` 0 / 1, `rt_style_strength` (1), `rt_style_smooth` (4:
   the Kuwahara radius in 720-line pixels; 0 none), `rt_style_bands` (5; 0 none), `rt_style_outlines` (1; 0 none),
   `rt_style_outline_width` (1), `rt_style_saturation` (1.15). The Options screen's Colour tab: Art style (Off / Toon) and
   its six knobs.
@@ -1768,7 +1768,13 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
   for bit; `rt_style=0` and strength 0 record no pass; an 8-bit target; four samples (the resolve filtered, written to
   every sample). Cost (2 compute passes at half resolution, 1 at the depth's, a full-screen triangle): 0.15 ms at
   1920 x 1080, 0.34 ms at 2560 x 1440 on the RTX 5070 Ti; 6.2 / 15.4 ms on the integrated Radeon (the Kuwahara loop).
-- **In the game:** STYLE_GAME.
+- **In the game** (the user's settings - ray tracing, HDR, DLSS Ray Reconstruction at 67%, 2560 x 1440 - with
+  `rt_style=1`): BO, AU, BA, z_dt and the front end's main menu and Options screen before / after; the HUD, the menus'
+  text and the score stay sharp, the world reads as painted fields with soft-edged shade bands and dark ink round
+  objects, rails, steps and the skater. The passes cost 0.48 - 0.51 ms a frame on the RTX 5070 Ti (the log's
+  "rt_style: the passes take"; 0.82 ms with smoothing 6 and lines 2). Known: alpha-tested decals a little above the
+  ground (shadow and stain decals) get outlines of their own (a real depth step); a low-poly hill's facets show faint
+  crease lines.
 
 ### Changing the settings while the game runs (the Options screen)
 

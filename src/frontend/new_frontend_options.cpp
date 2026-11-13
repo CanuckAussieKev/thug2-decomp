@@ -363,7 +363,7 @@ const std::vector<Spec>& get_specs()
                         {{.value = "0.5", .label = "50%"}, {.value = "0.75", .label = "75%"}, {.value = "1", .label = "100%"}},
                         2, Apply::kLive),
         graphics_choice("rt_style_smooth", text_tools::kOptStyleSmooth, "",
-                        {{.value = "0", .label = kOff}, {.value = "2", .label = text_tools::kLow}, {.value = "3", .label = text_tools::kMedium}, {.value = "5", .label = text_tools::kHigh}},
+                        {{.value = "0", .label = kOff}, {.value = "2", .label = text_tools::kLow}, {.value = "4", .label = text_tools::kMedium}, {.value = "6", .label = text_tools::kHigh}},
                         2, Apply::kLive),
         graphics_choice("rt_style_bands", text_tools::kOptStyleBands, "",
                         {{.value = "0", .label = kOff}, {.value = "3", .label = "3"}, {.value = "4", .label = "4"}, {.value = "5", .label = "5"}, {.value = "7", .label = "7"}},

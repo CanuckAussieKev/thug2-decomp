@@ -105,7 +105,7 @@ const std::vector<Expected>& expected()
         {.key = "rt_bloom_strength", .fallback = "0.05", .live = true},
         {.key = "rt_style", .fallback = "0", .live = true},
         {.key = "rt_style_strength", .fallback = "1", .live = true},
-        {.key = "rt_style_smooth", .fallback = "3", .live = true},
+        {.key = "rt_style_smooth", .fallback = "4", .live = true},
         {.key = "rt_style_bands", .fallback = "5", .live = true},
         {.key = "rt_style_outlines", .fallback = "1", .live = true},
         {.key = "rt_style_outline_width", .fallback = "1", .live = true},

@@ -70,7 +70,7 @@ layout(push_constant) uniform Style {
     vec4 outline;     // x: outlines (0: none); y: the focal length (depth pixels); z: fade start; w: fade end
     vec4 projection;  // P22, P32, P23, P33
     vec4 depth_map;   // x: the depth range's minimum; y: 1 / its span; z: 1 with a depth; w: unused
-    vec4 lines;       // x: the line's lightness; y: its chroma; z: the crease's weight; w: unused
+    vec4 lines;       // x: the line's lightness; y: its chroma; z: the crease's weight; w: the lightness kept unbanded
 } pc;
 
 const float kSky = 1.0e9;
@@ -247,7 +247,8 @@ vec3 simplified(vec3 lab)
         float t = lab.x * n - 0.5;
         float i = floor(t);
         float f = t - i;
-        lab.x = clamp((i + 0.5 + smoothstep(0.5 - pc.tone.y, 0.5 + pc.tone.y, f)) / n, 0.0, 1.0);
+        float banded = clamp((i + 0.5 + smoothstep(0.5 - pc.tone.y, 0.5 + pc.tone.y, f)) / n, 0.0, 1.0);
+        lab.x = mix(banded, lab.x, pc.lines.w);
     }
     lab.yz *= pc.tone.z;
     return lab;
@@ -507,8 +508,9 @@ StyleRgb simplified_lab(const StyleParameters& parameters, StyleRgb lab)
         const float whole = std::floor(position);
         const float part = position - whole;
         const float soft = kStyleBandSoftness * kHalfWeight;
-        core::at(lab, kLightness) =
+        const float banded =
             std::clamp((whole + kHalfWeight + smoothstep(kHalfWeight - soft, kHalfWeight + soft, part)) / bands, 0.0F, 1.0F);
+        core::at(lab, kLightness) = banded + ((core::at(lab, kLightness) - banded) * kStyleBandHold);
     }
     core::at(lab, kGreenRed) *= parameters.saturation;
     core::at(lab, kBlueYellow) *= parameters.saturation;
@@ -1359,7 +1361,7 @@ StyleConstants constants_for(const ViewPlan& plan)
     const float span = core::at(parameters.depth_range, 1) - core::at(parameters.depth_range, 0);
     constants.depth_map = {core::at(parameters.depth_range, 0), span > 0.0F ? 1.0F / span : 1.0F, depth ? 1.0F : 0.0F,
                            0.0F};
-    constants.lines = {kStyleLineLightness, kStyleLineChroma, kStyleCreaseWeight, 0.0F};
+    constants.lines = {kStyleLineLightness, kStyleLineChroma, kStyleCreaseWeight, kStyleBandHold};
     return constants;
 }
 

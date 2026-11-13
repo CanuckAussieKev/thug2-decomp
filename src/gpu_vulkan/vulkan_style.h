@@ -29,7 +29,8 @@
 //         bilinear weights times exp(-kStyleGuide x |texel - the pixel's own colour|^2) (a joint bilateral upsample:
 //         the pixel takes the fields on its own side of an edge); their sum below kStyleWeightFloor: plain bilinear;
 //      b. colour simplification in OKLab (the colours taken as gamma 2.2): lightness in rt_style_bands bands (0: none)
-//         - each band's middle value, soft edges kStyleBandSoftness of a band wide -, hue kept, the chroma times
+//         - each band's middle value, soft edges kStyleBandSoftness of a band wide, kStyleBandHold of the lightness
+//         kept as it was (the darkest shades not crushed) -, hue kept, the chroma times
 //         rt_style_saturation;
 //      c. outlines from the linear depth z at the pixel (its depth pixel: the depth's rectangle scaled to the
 //         colour's - the upscaler's lower resolution) and h depth pixels left / right / up / down (h from
@@ -53,7 +54,8 @@ struct Backend;
 inline constexpr float kStyleSky = 1.0e9F;           // the linear depth of a pixel nothing was drawn at
 inline constexpr float kStyleGuide = 22.0F;          // the upsample's colour weight: exp(-k |difference|^2)
 inline constexpr float kStyleWeightFloor = 1.0e-4F;
-inline constexpr float kStyleBandSoftness = 0.12F;   // (of a band)
+inline constexpr float kStyleBandSoftness = 0.25F;   // (of a band)
+inline constexpr float kStyleBandHold = 0.3F;        // the share of the lightness kept as it was (the shading under the bands)
 inline constexpr float kStyleKuwaharaScale = 65025.0F; // 255^2: the variance in steps of 8-bit colour
 inline constexpr float kStyleCreaseLow = 0.18F;
 inline constexpr float kStyleCreaseHigh = 0.45F;
@@ -62,7 +64,7 @@ inline constexpr float kStyleStepSide = 0.02F;
 inline constexpr float kStyleCreaseWeight = 0.75F;
 inline constexpr float kStyleFadeStart = 2500.0F;   // world units
 inline constexpr float kStyleFadeEnd = 9000.0F;
-inline constexpr float kStyleLineLightness = 0.3F;
+inline constexpr float kStyleLineLightness = 0.2F;
 inline constexpr float kStyleLineChroma = 1.3F;
 inline constexpr float kStyleBaseHeight = 720.0F;    // the height the smoothing radius and the line width are given for
 inline constexpr int kStyleMostRadius = 8;           // (half-resolution pixels)

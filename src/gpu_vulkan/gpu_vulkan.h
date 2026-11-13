@@ -279,7 +279,7 @@ void set_rt_pbr_settings(const RtPbrSettings& settings);
 // rt_style_strength, rt_style_smooth, rt_style_bands, rt_style_outlines, rt_style_outline_width, rt_style_saturation -
 // all put to use at once. A post-process over each viewport's world after the tone mapping and the upscaler, before the
 // 2D. style 0 (the default): nothing changes. No ray tracing or HDR needed.
-inline constexpr float kStyleSmooth = 3.0F;      // (rt_style_smooth's default)
+inline constexpr float kStyleSmooth = 4.0F;      // (rt_style_smooth's default)
 inline constexpr float kStyleBands = 5.0F;       // (rt_style_bands')
 inline constexpr float kStyleSaturation = 1.15F; // (rt_style_saturation's)
 struct StyleSettings {
