@@ -128,12 +128,12 @@ struct MultipleSteps {
     uint32_t steps = kMultipleSteps;
     uint32_t light = kTableLightSteps;
 };
-[[nodiscard]] Rgb multiple_scattering(const AtmospherePoint& point, const MultipleSteps& steps);
+[[nodiscard]] Rgb multiple_scattering(const AtmospherePoint& place, const MultipleSteps& steps_given);
 // The table of Psi (kMultipleWidth x kMultipleHeight, row by row) and a bilinear read of it - what sky_radiance_ms
 // adds (the device's table is the same integral).
 using MultipleTable = std::vector<Rgb>;
 [[nodiscard]] MultipleTable multiple_table(const MultipleSteps& steps);
-[[nodiscard]] Rgb multiple_from_table(const MultipleTable& table, const AtmospherePoint& point);
+[[nodiscard]] Rgb multiple_from_table(const MultipleTable& table, const AtmospherePoint& place);
 // The sky's radiance toward `view` with the sun along `sun` with every order (single scattering as sky_radiance, plus
 // Psi from `table`; below the horizon the ground's light at the ray's end, lit by the sun with kGroundAlbedo), per unit
 // of the sun's irradiance, linear, not exposed.

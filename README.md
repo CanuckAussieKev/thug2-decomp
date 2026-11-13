@@ -386,6 +386,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_cloud_coverage` | auto | How much of the sky is cloud: `auto` - as much as the level's own sky had; or 0-1 (0 clear, 1 overcast) |
 | `rt_cloud_speed` | 1 | How fast the clouds drift (0 still; 2 twice as fast) |
 | `rt_cloud_quality` | 1 | 0 quarter resolution (fastest), 1 half, 2 full |
+| `rt_cloud_shadows` | 0 | With `rt_clouds`: 1 lets the clouds' shadows drift over the level |
 
 **`[Miscellaneous]`** - from PartyMod
 

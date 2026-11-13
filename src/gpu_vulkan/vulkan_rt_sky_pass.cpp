@@ -1495,14 +1495,26 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
     std::array<float, 3> sun_light{};
     std::array<float, 3> ambient_bottom{};
     std::array<float, 3> ambient_top{};
+    // (the sky's light on the clouds: the model's colour, as bright as the matched sky - a level's tint on its sky would
+    // otherwise tint the clouds' shaded sides twice, with their own colour's gain after)
+    const auto brightness_of = [&own, &atmosphere](std::size_t band, std::size_t gain) {
+        const std::array<float, 3>& model = core::at(own.match.model, band);
+        const std::array<float, 3>& gains = core::at(atmosphere.gains, gain);
+        double plain = 0.0;
+        double matched = 0.0;
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            plain += core::at(kLuma, channel) * core::at(model, channel);
+            matched += core::at(kLuma, channel) * core::at(model, channel) * core::at(gains, channel);
+        }
+        return plain > 0.0 ? matched / plain : 1.0;
+    };
+    const double horizon_scale = brightness_of(1, 0) * kCloudAmbientBottom;
+    const double zenith_scale = brightness_of(3, 2) * kCloudAmbientTop;
     for (std::size_t channel = 0; channel < 3; ++channel) {
         core::at(sun_light, channel) = static_cast<float>(core::at(through, channel) * sun_scale);
-        const double horizon =
-            core::at(core::at(own.match.model, 1), channel) * core::at(core::at(atmosphere.gains, 0), channel);
-        const double zenith =
-            core::at(core::at(own.match.model, 3), channel) * core::at(core::at(atmosphere.gains, 2), channel);
-        core::at(ambient_bottom, channel) = static_cast<float>(horizon * kCloudAmbientBottom);
-        core::at(ambient_top, channel) = static_cast<float>(zenith * kCloudAmbientTop);
+        core::at(ambient_bottom, channel) =
+            static_cast<float>(core::at(core::at(own.match.model, 1), channel) * horizon_scale);
+        core::at(ambient_top, channel) = static_cast<float>(core::at(core::at(own.match.model, 3), channel) * zenith_scale);
     }
     const uint64_t frames = slot != nullptr ? slot->frames : 0;
     const auto jitter_offset = static_cast<float>(std::fmod(static_cast<double>(frames) * kGolden, 1.0));

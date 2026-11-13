@@ -78,10 +78,14 @@ void release_sky(Backend& state);
 // whenever its input changes: the drawn sky's sun, the gains that match it to the level (each band's colour multiplied
 // - the horizon's, half way up's, overhead's, interpolated between their elevations) and the ground's colour that
 // replaces the model's below the horizon (by `ground_share`, coming in over the first 0.05 radians down: the far ground hazed into the horizon).
+// The bands' centres (radians: 4, 30 and 72 degrees - rt_sky_match.h kSkyBandRanges), where each gain holds.
+inline constexpr float kGainHorizon = 0.07F;
+inline constexpr float kGainMiddle = 0.52F;
+inline constexpr float kGainZenith = 1.26F;
 struct AtmosphereInput {
     std::array<float, 3> sun{0.0F, 1.0F, 0.0F}; // toward the drawn sky's sun (world, normalised)
     std::array<std::array<float, 3>, 3> gains{{{1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}}};
-    std::array<float, 3> gain_elevations{0.07F, 0.52F, 1.26F}; // radians
+    std::array<float, 3> gain_elevations{kGainHorizon, kGainMiddle, kGainZenith}; // radians
     std::array<float, 3> ground{};                              // exposed linear
     float ground_share = 0.0F;
     bool operator==(const AtmosphereInput&) const = default;
