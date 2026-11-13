@@ -157,6 +157,12 @@ bool cfunc_goal_manager_got_counter_object(script::Struct* params, script::Conte
         return false;
     }
     Objective* goal = get_objective_board()->goals().get_pull(name);
+    // NOT ORIGINAL - a counter object picked up for a goal that isn't there (a ported level's free skate - THPS4's
+    // sf2 - whose goals aren't made) was used through a null pointer; the original's own levels never ask for one.
+    if (goal == nullptr) {
+        debug::printf("goals: GoalManager_GotCounterObject for goal %08x, which isn't there - ignored\n", name);
+        return true;
+    }
     if (goal->is_operative()) {
         goal->picked_up_countable();
     }
