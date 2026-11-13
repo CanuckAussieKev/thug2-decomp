@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <array>
+#include <string>
+#include <vector>
 
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
@@ -26,6 +28,7 @@ namespace {
 struct GraphicsOptionsState {
     Options options_{};
     LiveReload live_reload_ = nullptr;
+    CompareBackend compare_{};
 };
 
 GraphicsOptionsState& graphics_options_state()
@@ -47,6 +50,28 @@ bool reload_live(const char* key)
 {
     const LiveReload reload = graphics_options_state().live_reload_;
     return reload != nullptr && key != nullptr && reload(key);
+}
+
+void set_compare_backend(const CompareBackend& backend) { graphics_options_state().compare_ = backend; }
+
+bool compare_prepare(const CompareSettings& overrides, std::vector<std::string>* both_sides)
+{
+    const CompareBackend& backend = graphics_options_state().compare_;
+    return backend.prepare != nullptr && backend.prepare(overrides, both_sides);
+}
+
+void compare_apply(int side)
+{
+    if (const CompareBackend& backend = graphics_options_state().compare_; backend.apply != nullptr) {
+        backend.apply(side);
+    }
+}
+
+void compare_end()
+{
+    if (const CompareBackend& backend = graphics_options_state().compare_; backend.end != nullptr) {
+        backend.end();
+    }
 }
 
 void read_in()

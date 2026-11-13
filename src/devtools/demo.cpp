@@ -33,10 +33,12 @@
 #include "build_info.h"
 #include "devtools/automation.h"
 #include "devtools/demo_overlay.h"
+#include "devtools/demo_viewer.h"
 #include "devtools/screenshot.h"
 #include "engine/gfx/render_device.h"
 #include "engine/media/video_writer.h"
 #include "engine/script/context.h"
+#include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/ext/extension.h"
 #include "engine/file/disk.h"
@@ -113,10 +115,14 @@ struct State {
     std::string name; // the demo's name: its file's without .demo
     Demo demo;        // the one recorded, or played
     bool counting = false;
+    bool ticked = false; // a logic frame began this loop (a loop the demo viewer holds runs none)
     uint32_t frame = 0; // frames begun since the level's load (the frame now: frame - 1)
     bool up = false;    // the level is up (the check track runs)
     // playback
     bool from_command_line = false; // -demo: waiting for the main menu
+    // (the demo viewer's - devtools/demo_viewer.h: the playback is the viewer's; its run reported at the demo's end)
+    bool viewer = false;
+    bool reported = false;
     int menu_frames = 0;
     std::string capture; // -demo-capture's folder ("": none)
     bool quit_at_end = false;
@@ -162,6 +168,10 @@ struct State {
     std::chrono::steady_clock::time_point pace_start;
     uint32_t pace_frame = 0;
     uint32_t undrawn = 0;
+    // the frames a video takes: from `video_from` (the level up, or the viewer's range) to `video_to` (the demo's end)
+    uint32_t video_from = 0;
+    uint32_t video_to = 0;
+    std::string viewer_video; // (-demo -viewer -demo-video: the viewer's camera path saved as this video, then quit)
 };
 
 State& state()
@@ -542,8 +552,8 @@ void take_video_picture()
             return;
         }
         run.video_frames = 0;
-        for (uint32_t at = run.demo.up_frame; at < run.demo.frames(); ++at) {
-            run.video_frames += media::starts_video_frame(at - run.demo.up_frame, format) ? 1U : 0U;
+        for (uint32_t at = run.video_from; at < run.video_to; ++at) {
+            run.video_frames += media::starts_video_frame(at - run.video_from, format) ? 1U : 0U;
         }
         get_log("demo: saving %s as %s - %s, %dx%d, %d a second, %u frames", run.name.c_str(), run.video.c_str(),
                 run.writer->codec().c_str(), format.width & ~1, format.height & ~1, format.fps, run.video_frames);
@@ -565,8 +575,8 @@ void video_frame_end(uint32_t now)
     State& run = state();
     const bool taken = run.picture_taken;
     run.picture_taken = false;
-    if (run.video.empty() || run.video_failed || !run.writer || now < run.demo.up_frame || taken ||
-        !media::starts_video_frame(now - run.demo.up_frame, run.video_format)) {
+    if (run.video.empty() || run.video_failed || !run.writer || now < run.video_from || now >= run.video_to || taken ||
+        !media::starts_video_frame(now - run.video_from, run.video_format)) {
         return;
     }
     get_log("demo: frame %u wasn't drawn - the video has the last picture again", now);
@@ -706,16 +716,29 @@ void begin_playback(uint32_t load)
     run.picture_taken = false;
     run.video_format = media::configured_format();
     run.result_tag.clear();
+    run.reported = false;
+    if (!run.viewer) {
+        run.video_from = run.demo.up_frame;
+        run.video_to = run.demo.frames();
+    }
     run.phase = Phase::kPlaying;
     get_log("demo: playing %s in %s - %u frames (%.1f s), skater %s, recorded %s", run.name.c_str(),
             run.demo.level.c_str(), run.demo.frames(), static_cast<double>(run.demo.frames()) / kFramesPerSecond,
             run.demo.skater.c_str(), run.demo.created.c_str());
+    if (run.viewer) {
+        demo_viewer::begin({.name = run.name,
+                            .frames = run.demo.frames(),
+                            .up_frame = run.demo.up_frame,
+                            .export_video = std::exchange(run.viewer_video, std::string())});
+    }
 }
 
-void finish_playback(bool ended)
+// The run so far told: the drift against the recording in the log, the track and the summary written (the playback's
+// end, or the demo viewer's at the demo's last frame - the viewer's playback goes on).
+void report_run(bool ended)
 {
     State& run = state();
-    run.counting = false;
+    run.reported = true;
     const demo_format::Drift& drift = run.drift;
     std::string verdict;
     if (drift.compared == 0) {
@@ -738,7 +761,6 @@ void finish_playback(bool ended)
     }
     get_log("demo: %s %s - drift: %s%s", run.name.c_str(), how, verdict.c_str(), run.random_matched ? "" : " (the random numbers differed when the level was up: put back)");
     log_pace(renders_offline() ? "rendered playback" : "playback");
-    end_video(ended);
     const std::string base = output_base();
     fs::write_text(base + "track.txt", run.track);
     const std::string json = text::format(
@@ -758,11 +780,103 @@ void finish_playback(bool ended)
         settings_json(settings_now()).c_str(), settings_json(run.demo.settings).c_str());
     fs::write_text(base + "run.json", json);
     get_log("demo: the run's track and summary in %strack.txt / run.json", base.c_str());
+}
+
+void finish_playback(bool ended)
+{
+    State& run = state();
+    run.counting = false;
+    if (!(run.viewer && run.reported && !ended)) {
+        report_run(ended);
+    }
+    end_video(ended);
+    if (run.viewer) {
+        run.viewer = false;
+        demo_viewer::end();
+    }
     if (run.video.empty() && run.capture.empty()) {
         notice(ended ? "Replay over" : "Replay stopped");
     }
     run.phase = (run.quit_at_end || !run.capture.empty()) ? Phase::kFinishing : Phase::kOff;
 }
+
+// --- the demo viewer's playback (devtools/demo_viewer.h) ---
+
+// The viewer's video of its range finished: closed, its result shown; the game quits after one the command line asked for.
+void viewer_video_done()
+{
+    State& run = state();
+    end_video(true);
+    run.video.clear();
+    demo_viewer::video_done();
+    if (run.quit_at_end) {
+        run.phase = Phase::kFinishing;
+        run.counting = false;
+        report_run(false);
+    }
+}
+
+// The viewer's way back: the demo started again as -demo starts it - the main menu first (the pause menu's QUIT:
+// level_select_change_level_quit to Load_MainMenu), then, once it has been up a moment, the demo's level (menu_tick).
+// Measured (docs/demos.md "The viewer"): the level loaded again from inside itself kept the skater's state at the level
+// up (a demo recorded from a fresh start parted at frame 5); by the main menu a pass plays as a second playback in one
+// session does - the same as each other, and the same as the recording until something the session before left
+// matters (13 s into the BO test demo: a standing skater pushing off 8 frames later).
+bool host_restart()
+{
+    State& run = state();
+    if (run.phase != Phase::kPlaying || !run.viewer) {
+        return false;
+    }
+    run.counting = false;
+    run.phase = Phase::kPlayArmed;
+    run.from_command_line = true;
+    run.menu_frames = 0;
+    const script::StructPtr params = script::make_struct();
+    params->put_name_key(checksums::Name{checksums::hash_from_text("level")}, kLoadMainMenu);
+    script::spawn_script(checksums::hash_from_text("level_select_change_level_quit"), params.get());
+    get_log("demo: the viewer goes back by the main menu");
+    return true;
+}
+
+uint32_t host_frames_done() { return state().phase == Phase::kPlaying && state().counting ? state().frame : 0; }
+
+bool host_export(const std::string& path, uint32_t from, uint32_t to)
+{
+    State& run = state();
+    if (!run.viewer || !run.video.empty() || from >= to) {
+        return false;
+    }
+    run.video = path;
+    run.video_from = from;
+    run.video_to = std::min(to, run.demo.frames());
+    run.writer.reset();
+    run.video_failed = false;
+    run.picture_taken = false;
+    run.video_format = media::configured_format();
+    run.result_tag.clear();
+    get_log("demo: the viewer saves frames %u - %u of %s as %s", from, run.video_to, run.name.c_str(), path.c_str());
+    return true;
+}
+
+void host_cancel_export()
+{
+    State& run = state();
+    if (!run.video.empty()) {
+        end_video(false);
+        run.video.clear();
+    }
+}
+
+void host_stop()
+{
+    if (state().phase == Phase::kPlaying || state().phase == Phase::kPlayArmed) {
+        stop_now();
+    }
+}
+
+std::string host_video_path(const std::string& name) { return videos_folder() + name + ".mp4"; }
+std::string host_demos_folder() { return demos_folder(); }
 
 // --- the frame ---
 
@@ -782,6 +896,7 @@ void on_level_load(uint32_t load)
 void frame_begun()
 {
     State& run = state();
+    run.ticked = true;
     if (!run.counting || !running()) {
         return;
     }
@@ -869,6 +984,63 @@ void playback_level_up(uint32_t now)
     }
 }
 
+// A recording's frame done: the level up noted, its check point kept, the last frame the game wasn't paused.
+void recording_frame_end(uint32_t now)
+{
+    State& run = state();
+    if (!run.up && level_up(run.demo.level_load)) {
+        run.up = true;
+        run.demo.up_frame = now;
+        run.demo.random_at_up = random_now();
+        run.demo.clocks = clocks_now();
+        start_pace();
+        get_log("demo: %s up at frame %u - the check track starts", run.demo.level.c_str(), now);
+    }
+    if (run.up && (now - run.demo.up_frame) % run.demo.check_stride == 0) {
+        run.demo.checks.push_back(point_now(now));
+    }
+    if (!(run.front_end != nullptr && run.front_end->is_halted())) {
+        run.last_running = now;
+    }
+}
+
+// A playback's frame done: the level up put back as recorded, its check point compared, the video's picture, the end.
+void playback_frame_end(uint32_t now, bool rendering)
+{
+    State& run = state();
+    if (!run.up && now == run.demo.up_frame) {
+        playback_level_up(now);
+    }
+    if (run.up && (now - run.demo.up_frame) % run.demo.check_stride == 0) {
+        const CheckPoint point = point_now(now);
+        run.track += demo_format::check_line(point) + "\n";
+        if (const CheckPoint* recorded = run.demo.check_at(now)) {
+            const bool was_same = run.drift.first_frame < 0;
+            demo_format::add_to_drift(&run.drift, *recorded, point, kTolerance);
+            if (was_same && run.drift.first_frame >= 0) {
+                get_log("demo: frame %u differs from the recording - skater %.3f, camera %.3f apart%s", now,
+                        static_cast<double>(run.drift.first.skater), static_cast<double>(run.drift.first.camera),
+                        run.drift.first.other ? ", state / rows differ" : "");
+            }
+        }
+    }
+    if (run.up && !rendering && !run.capture.empty()) {
+        get_log("demo: frame %u wasn't drawn - the capture is a frame behind from here", now);
+    }
+    video_frame_end(now);
+    if (run.viewer) {
+        // (the viewer's: a video of its range done; the demo's end reported - the viewer holds there)
+        if (!run.video.empty() && now + 1 >= run.video_to) {
+            viewer_video_done();
+        }
+        if (now + 1 >= run.demo.frames() && !run.reported) {
+            report_run(true);
+        }
+    } else if (now + 1 >= run.demo.frames()) {
+        finish_playback(true);
+    }
+}
+
 void frame_ending(bool rendering)
 {
     State& run = state();
@@ -882,7 +1054,10 @@ void frame_ending(bool rendering)
         }
         return;
     }
-    if (!run.counting || run.frame == 0 || !running()) {
+    // (a loop the demo viewer held ran no logic frame: nothing of the run moved - its picture's camera isn't a frame's)
+    const bool ticked = run.ticked;
+    run.ticked = false;
+    if (!ticked || !run.counting || run.frame == 0 || !running()) {
         run.camera_seen = false;
         return;
     }
@@ -891,44 +1066,9 @@ void frame_ending(bool rendering)
         ++run.undrawn;
     }
     if (run.phase == Phase::kRecording) {
-        if (!run.up && level_up(run.demo.level_load)) {
-            run.up = true;
-            run.demo.up_frame = now;
-            run.demo.random_at_up = random_now();
-            run.demo.clocks = clocks_now();
-            start_pace();
-            get_log("demo: %s up at frame %u - the check track starts", run.demo.level.c_str(), now);
-        }
-        if (run.up && (now - run.demo.up_frame) % run.demo.check_stride == 0) {
-            run.demo.checks.push_back(point_now(now));
-        }
-        if (!(run.front_end != nullptr && run.front_end->is_halted())) {
-            run.last_running = now;
-        }
+        recording_frame_end(now);
     } else {
-        if (!run.up && now == run.demo.up_frame) {
-            playback_level_up(now);
-        }
-        if (run.up && (now - run.demo.up_frame) % run.demo.check_stride == 0) {
-            const CheckPoint point = point_now(now);
-            run.track += demo_format::check_line(point) + "\n";
-            if (const CheckPoint* recorded = run.demo.check_at(now)) {
-                const bool was_same = run.drift.first_frame < 0;
-                demo_format::add_to_drift(&run.drift, *recorded, point, kTolerance);
-                if (was_same && run.drift.first_frame >= 0) {
-                    get_log("demo: frame %u differs from the recording - skater %.3f, camera %.3f apart%s", now,
-                            static_cast<double>(run.drift.first.skater), static_cast<double>(run.drift.first.camera),
-                            run.drift.first.other ? ", state / rows differ" : "");
-                }
-            }
-        }
-        if (run.up && !rendering && !run.capture.empty()) {
-            get_log("demo: frame %u wasn't drawn - the capture is a frame behind from here", now);
-        }
-        video_frame_end(now);
-        if (now + 1 >= run.demo.frames()) {
-            finish_playback(true);
-        }
+        playback_frame_end(now, rendering);
     }
     run.camera_seen = false;
 }
@@ -1014,6 +1154,14 @@ void prepare_all()
         // (a tool's run: nothing the player does stops it, and the game quits at its end)
         run.takeover = run.capture.empty() && run.video.empty();
         run.quit_at_end = line.find("-demo-quit") != std::string::npos || !run.video.empty();
+        // (-viewer: in the demo viewer - with -demo-video, its camera path saved as that video, then the game quits)
+        run.viewer = line.find("-viewer") != std::string::npos && run.capture.empty();
+        if (run.viewer) {
+            run.viewer_video = run.video;
+            run.video.clear();
+            run.takeover = false;
+            run.quit_at_end = !run.viewer_video.empty();
+        }
         const std::string every = frontend::begin_level::option_value(line, "demo-every");
         run.every = every.empty() ? 1 : std::clamp(text::to_int(every.c_str()), 1, kMaxEvery);
         run.from_command_line = true;
@@ -1047,7 +1195,8 @@ void over_frame()
     State& run = state();
     if (run.phase == Phase::kPlaying && !run.video.empty() && !run.video_failed && run.counting && run.frame > 0) {
         const uint32_t now = run.frame - 1;
-        if (now >= run.demo.up_frame && media::starts_video_frame(now - run.demo.up_frame, run.video_format)) {
+        if (now >= run.video_from && now < run.video_to &&
+            media::starts_video_frame(now - run.video_from, run.video_format)) {
             take_video_picture();
         }
     }
@@ -1058,10 +1207,10 @@ void over_frame()
     if (run.phase == Phase::kRecording) {
         demo_overlay::draw("REC", clock_text(now), true);
     } else if (run.phase == Phase::kPlaying && !run.video.empty()) {
-        const uint32_t total = run.demo.frames() > run.demo.up_frame ? run.demo.frames() - run.demo.up_frame : 1;
-        const uint32_t done = now > run.demo.up_frame ? now - run.demo.up_frame : 0;
+        const uint32_t total = run.video_to > run.video_from ? run.video_to - run.video_from : 1;
+        const uint32_t done = now > run.video_from ? now - run.video_from : 0;
         demo_overlay::draw("SAVING VIDEO", text::format("%u%%", std::min(done * kPercent / total, kAlmostDone)), false);
-    } else if (run.phase == Phase::kPlaying) {
+    } else if (run.phase == Phase::kPlaying && !run.viewer) {
         demo_overlay::draw("REPLAY", clock_text(now) + " / " + clock_text(run.demo.frames()), false);
     } else if (!run.result_tag.empty()) {
         if (platform::ticks_ms() - run.result_since > kResultMs) {
@@ -1069,6 +1218,10 @@ void over_frame()
         } else {
             demo_overlay::draw(run.result_tag, run.result_line, false);
         }
+    }
+    // (the demo viewer's panels: after the video's picture - never in it)
+    if (run.viewer && run.video.empty()) {
+        demo_viewer::draw();
     }
 }
 
@@ -1199,9 +1352,20 @@ bool cfunc_play(script::Struct* params, script::Context /*context*/)
         return false;
     }
     const bool video = params != nullptr && params->has_bare_flag(checksums::hash_from_text("video"));
+    const bool viewer = params != nullptr && params->has_bare_flag(checksums::hash_from_text("viewer"));
     const std::string name = core::at(entries, static_cast<size_t>(index)).name;
-    const std::string result = video ? save_video_now(name) : play_now(name);
-    get_log("demo: the menu's %s %s - %s", video ? "SAVE AS VIDEO" : "PLAY DEMO", name.c_str(), result.c_str());
+    std::string result;
+    const char* item = "PLAY DEMO";
+    if (video) {
+        result = save_video_now(name);
+        item = "SAVE AS VIDEO";
+    } else if (viewer) {
+        result = view_now(name);
+        item = "WATCH REPLAY";
+    } else {
+        result = play_now(name);
+    }
+    get_log("demo: the menu's %s %s - %s", item, name.c_str(), result.c_str());
     return state().phase == Phase::kPlayArmed || state().phase == Phase::kPlaying;
 }
 
@@ -1221,18 +1385,56 @@ class DemoExtension final : public ext::Extension {
 public:
     void register_script_commands() override { register_functions(); }
     void draw_over_frame() override { over_frame(); }
-    void device_lost() override { demo_overlay::device_lost(); }
-    void prepare_input() override { prepare_all(); }
+    void device_lost() override
+    {
+        demo_overlay::device_lost();
+        demo_viewer::device_lost();
+    }
+    void prepare_input() override
+    {
+        prepare_all();
+        demo_viewer::prepare_input(
+            {.restart = &host_restart,
+             .frames_done = &host_frames_done,
+             .export_video = &host_export,
+             .cancel_export = &host_cancel_export,
+             .stop = &host_stop,
+             .video_path = &host_video_path,
+             .demos_folder = &host_demos_folder});
+    }
     void menu_frame(modules::FrontEnd* front_end, bool game_owned) override { menu_tick(front_end, game_owned); }
     void view_drawn(const ext::ViewNote& view) override
     {
         if (view.viewport == 0) {
             state().camera = view.position;
             state().forward = view.forward;
+            // (the demo viewer's camera drawn instead: the game's own is the run's - the check track's)
+            if (const demo_viewer::GameView game = demo_viewer::game_view(); game.moved) {
+                state().camera = game.position;
+                state().forward = game.forward;
+            }
             state().camera_seen = true;
         }
     }
-    void before_present(bool rendering) override { frame_ending(rendering); }
+    void before_present(bool rendering) override
+    {
+        frame_ending(rendering);
+        demo_viewer::frame_presented();
+    }
+    // (the demo viewer: its pace - paused, slow motion, seeking -, its camera, the HUD, the input that is its own)
+    bool loop_pace(ext::LoopPace* pace) override { return state().viewer && demo_viewer::loop_pace(pace); }
+    void place_camera(gfx::ViewCam* camera, int viewport) override
+    {
+        if (state().viewer) {
+            demo_viewer::place_camera(camera, viewport);
+        }
+    }
+    float view_angle(gfx::ViewCam* /*camera*/, float angle) override
+    {
+        return state().viewer ? demo_viewer::view_angle(angle) : angle;
+    }
+    bool draws_2d() override { return !state().viewer || demo_viewer::draws_hud(); }
+    bool blocks_game_input() override { return state().viewer && running(); }
     // (a tool's playback only: a live recording or playback skips late frames' drawing like any play, so it runs at
     // real speed - every frame kept there was slow motion once a frame took longer than 1/60 s to draw)
     bool keeps_every_frame() override { return renders_offline(); }
@@ -1304,6 +1506,10 @@ std::string stop_now()
     case Phase::kRecordArmed:
     case Phase::kPlayArmed:
         run.phase = Phase::kOff;
+        if (run.viewer) {
+            run.viewer = false;
+            demo_viewer::end();
+        }
         return "stopped";
     default:
         return "no demo running";
@@ -1324,8 +1530,33 @@ std::string play_now(const std::string& name)
     run.video.clear();
     run.takeover = true;
     run.quit_at_end = false;
+    run.viewer = false;
     const std::string failed = start_playback();
     return failed.empty() ? "playing " + run.name : failed;
+}
+
+std::string view_now(const std::string& name)
+{
+    State& run = state();
+    if (run.phase != Phase::kOff) {
+        return "a demo is running";
+    }
+    std::string why;
+    if (!load_demo(name, &why)) {
+        return why;
+    }
+    run.capture.clear();
+    run.video.clear();
+    run.viewer_video.clear();
+    run.takeover = false;
+    run.quit_at_end = false;
+    run.viewer = true;
+    std::string failed = start_playback();
+    if (!failed.empty()) {
+        run.viewer = false;
+        return failed;
+    }
+    return "watching " + run.name + " in the viewer";
 }
 
 std::string save_video_now(const std::string& name)
@@ -1342,6 +1573,7 @@ std::string save_video_now(const std::string& name)
     run.video = videos_folder() + run.name + ".mp4";
     run.takeover = true;
     run.quit_at_end = false;
+    run.viewer = false;
     std::string failed = start_playback();
     if (!failed.empty()) {
         run.video.clear();

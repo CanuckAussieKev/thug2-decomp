@@ -60,6 +60,14 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_rt_scene_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_viewer_check.exe: the demo viewer's camera path (devtools/demo_camera_path.h: the keys' interpolation,
+# continuity, the yaw's wrap, the sidecar written and read back) and the split comparison's projection crop
+# (engine/gfx/rt_scene.h crop_clip_space) checked (src/tests/viewer_check.cpp).
+if(TARGET thug2_base)
+    add_executable(thug2_viewer_check viewer_check.cpp "${PROJECT_SOURCE_DIR}/src/devtools/demo_camera_path.cpp")
+    target_link_libraries(thug2_viewer_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_tess_check.exe: the smoothed curves' tessellation (engine/gfx/smooth_tess.h) on a faceted
 # cylinder, a rail and a quarter pipe against their analytic surfaces - no cracks, the cap, displacement
 # (src/tests/tess_check.cpp).

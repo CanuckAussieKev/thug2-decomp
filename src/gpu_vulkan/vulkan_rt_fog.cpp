@@ -1672,8 +1672,11 @@ void set_rt_fog_settings(const RtFogSettings& settings)
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         fog_state().settings = kept;
-        rt_fog_reset_history(state);
-        replacing() = false;
+        // (a split comparison's swap between its sides keeps each side's history - rt_scene.h settings_swap)
+        if (!rt::settings_swap()) {
+            rt_fog_reset_history(state);
+            replacing() = false;
+        }
     }
     if (kept.on) {
         rt::add_view_listener(&listener());

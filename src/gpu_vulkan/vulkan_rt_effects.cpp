@@ -2116,7 +2116,10 @@ void set_rt_ao_settings(const RtAoSettings& settings)
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         effects().settings = kept;
-        rt_effects_reset_history(state);
+        // (a split comparison's swap between its sides keeps each side's history - rt_scene.h settings_swap)
+        if (!rt::settings_swap()) {
+            rt_effects_reset_history(state);
+        }
     }
     if (kept.on) {
         rt::add_view_listener(&listener());
@@ -2142,7 +2145,9 @@ void set_rt_gi_settings(const RtGiSettings& settings)
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         indirect().gi = kept;
-        reset_effect_history(indirect());
+        if (!rt::settings_swap()) {
+            reset_effect_history(indirect());
+        }
     }
     // (the bounce's sun is the level's baked one: render_pc fits it in a new world's first frame. Set after the shadows'
     // settings - renderer_choice's order -, whose own `off` would clear it)

@@ -730,6 +730,22 @@ ToneParameters tone_parameters(const HdrSettings& settings)
 void set_hdr_settings(const HdrSettings& settings)
 {
     GradeLut lut;
+    // (a split comparison's swap between its sides with the same grading table: the table kept, not read again -
+    // rt_scene.h settings_swap)
+    if (rt::settings_swap()) {
+        const std::scoped_lock lock(backend().mutex);
+        HdrState& own = hdr();
+        if (own.settings.grade_lut == settings.grade_lut) {
+            own.settings = settings;
+            own.parameters = tone_parameters(settings);
+            if (settings.on) {
+                rt::add_view_listener(&listener());
+            } else {
+                rt::remove_view_listener(&listener());
+            }
+            return;
+        }
+    }
     if (!settings.grade_lut.empty()) {
         const std::string text = read_text_file(settings.grade_lut);
         std::string error;

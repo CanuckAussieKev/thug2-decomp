@@ -299,6 +299,18 @@ ViewUpscale& view_upscale()
     static ViewUpscale state;
     return state;
 }
+
+// Not original - a split comparison's view (ext::ViewPass::crop): the part (x, y, width, height - 0..1 of the whole
+// viewport, y down) the projection is cropped to, so each pixel is where the whole viewport's camera puts it.
+struct ViewCrop {
+    bool on = false;
+    std::array<float, 4> rect = {{0.0F, 0.0F, 1.0F, 1.0F}};
+};
+ViewCrop& view_crop()
+{
+    static ViewCrop state;
+    return state;
+}
 } // namespace
 
 // 0x004DB200
@@ -362,6 +374,17 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     if (infinite) {
         core::at(projection.row, 2).z = -kInfiniteDepthScale;
         core::at(projection.row, 3).z = kInfiniteDepthOffset;
+    }
+    // Not original - a split comparison's view (ViewCrop): the whole viewport's projection cropped to the view's part -
+    // the part's clip-space square scaled up to the whole (D3D's row-vector layout: clip' = clip * crop). Original
+    // behaviour: the projection as made.
+    if (const ViewCrop& crop = view_crop(); crop.on) {
+        const std::array<float, 4> scale_offset = rt::crop_clip_space(crop.rect);
+        const maths::Mat4 cropping{{{{.x = core::at(scale_offset, 0), .y = 0, .z = 0, .w = 0},
+                               {.x = 0, .y = core::at(scale_offset, 1), .z = 0, .w = 0},
+                               {.x = 0, .y = 0, .z = 1, .w = 0},
+                               {.x = core::at(scale_offset, 2), .y = core::at(scale_offset, 3), .z = 0, .w = 1}}}};
+        maths::matrix_multiply(&projection, &projection, &cropping);
     }
     // Not original - upscaling (rt_scene.h ViewScale): a scaled view's projection moved by this frame's jitter. Original
     // behaviour: the projection as made.
@@ -604,6 +627,7 @@ const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewC
 struct PassArea {
     bool on = false;
     std::array<float, 4> rect = {{0.0F, 0.0F, 1.0F, 1.0F}};
+    bool crop = false; // (ext::ViewPass::crop)
 };
 PassArea& pass_area()
 {
@@ -624,6 +648,16 @@ DeviceViewport part_of(const DeviceViewport& whole, const std::array<float, 4>& 
     part.width = std::max(1U, edge(whole.x, whole.width, left + width) - part.x);
     part.height = std::max(1U, edge(whole.y, whole.height, top + height) - part.y);
     return part;
+}
+
+// Where `part` lies within `whole` (x, y, width, height - 0..1, y down): the pixels as drawn (part_of's rounding).
+std::array<float, 4> rect_within(const DeviceViewport& whole, const DeviceViewport& part)
+{
+    const double width = std::max(1U, whole.width);
+    const double height = std::max(1U, whole.height);
+    return {static_cast<float>((static_cast<double>(part.x) - whole.x) / width),
+            static_cast<float>((static_cast<double>(part.y) - whole.y) / height),
+            static_cast<float>(part.width / width), static_cast<float>(part.height / height)};
 }
 
 void draw_scene_group(PcScene* scene, int pass, int viewport)
@@ -764,12 +798,18 @@ void draw_viewport(int index)
     // Not original - a split view's pass: its part of the viewport, the aspect its own (the area's shape against the
     // whole's). Original behaviour: the whole viewport.
     float aspect_scale = 1.0F;
+    view_crop() = {};
     if (pass_area().on) {
         const DeviceViewport whole = renderer().device_viewport();
         const DeviceViewport part = part_of(whole, pass_area().rect);
         renderer().set_device_viewport(part);
-        aspect_scale = static_cast<float>((static_cast<double>(part.width) * whole.height) /
-                                          (static_cast<double>(part.height) * std::max(1U, whole.width)));
+        if (pass_area().crop) {
+            // (a split comparison's: the whole viewport's aspect, the projection cropped to the part's exact pixels)
+            view_crop() = {.on = true, .rect = rect_within(whole, part)};
+        } else {
+            aspect_scale = static_cast<float>((static_cast<double>(part.width) * whole.height) /
+                                              (static_cast<double>(part.height) * std::max(1U, whole.width)));
+        }
     }
     // Not original - upscaling (rt_scene.h ViewScale): the world drawn into the viewport's top-left part, jittered; the
     // listener at ViewOrder::kUpscale fills the whole of it. Original behaviour: the whole viewport.
@@ -1118,7 +1158,7 @@ void draw_views(int views)
         if (!ext::begin_view(i, &pass)) {
             continue;
         }
-        pass_area() = {.on = true, .rect = pass.rect};
+        pass_area() = {.on = true, .rect = pass.rect, .crop = pass.crop};
         const auto mode = static_cast<view_mode::Mode>(
             std::clamp(pass.mode, 0, static_cast<int>(view_mode::Mode::kCount) - 1));
         view_mode::switch_for_view(mode);
@@ -1145,6 +1185,7 @@ void draw_views(int views)
         depth_lines_draw::draw(true);
         change_fog(fog);
         pass_area() = {};
+        view_crop() = {};
     }
     ext::end_views();
     view_mode::switch_for_view(frame_mode);
@@ -1225,7 +1266,11 @@ void draw_world()
         change_fog(false);
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.
-        draw_2d_with_black_bars();
+        // Not original - the 2D left out while an extension asks (ext::draws_2d: the demo viewer's HUD switch).
+        // Original behaviour: always drawn.
+        if (ext::draws_2d()) {
+            draw_2d_with_black_bars();
+        }
         // Not original - the game view: the window drawn to again (what the extensions draw over the frame - the
         // level editor's UI, its Scene panel showing the picture - goes to the window).
         game_view_frame::end();

@@ -46,6 +46,22 @@ struct ViewPass {
     std::array<float, 4> rect = {{0.0F, 0.0F, 1.0F, 1.0F}};
     int mode = 0;
     bool fog = true;
+    // (added by the split comparison) The view is a part of the whole viewport's picture: the camera's projection is the
+    // whole viewport's (its aspect too), cropped to `rect` - each pixel where it would be without the split. False (the
+    // level editor's views): the view is a camera of its own, its aspect the part's.
+    bool crop = false;
+};
+
+// (added by the demo viewer) How the main loop runs this loop - asked once a loop, at its start (frame_loop's
+// get_main_loop; the first extension that answers decides):
+//   hold       the simulation held: no clock counted, no input read for the game, no task run - the frame drawn again
+//              as the last logic frame left it (the viewer paused, or between a slow motion's logic frames);
+//   flat_out   no wait for the frame's time: logic frames as fast as they run (the viewer seeking);
+//   skip_draw  the frame isn't drawn (begun, rendered and presented as a late frame isn't).
+struct LoopPace {
+    bool hold = false;
+    bool flat_out = false;
+    bool skip_draw = false;
 };
 
 // A section of the screenshot key's sidecar that an extension adds (title, then key / value lines).
@@ -105,6 +121,14 @@ public:
     virtual void before_present(bool /*rendering*/) {}
     // While true the main loop doesn't skip frames to catch up (every logic frame is drawn).
     virtual bool keeps_every_frame() { return false; }
+    // (added by the demo viewer) This loop's pace (above): true when the extension decides it.
+    virtual bool loop_pace(LoopPace* /*pace*/) { return false; }
+    // A loop whose simulation is held (LoopPace::hold), after the window's events: what must go on while the game's
+    // tasks don't run (the automation channel's file read, for its console commands).
+    virtual void held_frame() {}
+    // render::draw_world: whether the 2D pass (the HUD, the game's menus, text) is drawn this frame (false: the 3D only -
+    // the demo viewer's HUD switch).
+    virtual bool draws_2d() { return true; }
     // The device is about to be reset: its default-pool objects dropped (made again on its next frame).
     virtual void device_lost() {}
     // The screen elements' layout pass is about to run (the original's elements may be hidden or shown).
@@ -200,6 +224,11 @@ void end_views();
 void draw_over_frame();
 void before_present(bool rendering);
 bool keeps_every_frame();
+// The first extension's pace for this loop (none: the game's own - every field false).
+LoopPace loop_pace();
+void held_frame();
+// False when any extension leaves the 2D out.
+bool draws_2d();
 void device_lost();
 void before_screen_layout();
 bool uses_front_end_overlay();
