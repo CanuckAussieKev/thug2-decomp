@@ -1892,12 +1892,13 @@ is worked out; the toon filter (`rt_style`) is independent and both may be on.
 - **Every band edge** is anti-aliased over about a pixel: the band's position's screen derivative (`fwidth`) x 0.75 as
   the smoothstep's half width; every derivative is taken in uniform control flow (before any branch on a pixel's
   value).
-- **Outlines.** Objects: an inverted hull - each lit draw that doesn't blend is drawn again (`kSurfaceCelHull`: the
+- **Outlines.** Objects: an inverted hull - each lit draw that doesn't blend (or blends with an alpha test: the skater's and peds' meshes) is drawn again (`kSurfaceCelHull`: the
   vertices pushed out along their normals by 2.5 x `rt_cel_outline_width` pixels of a 720-line picture, measured on the
   screen; the faces toward the camera culled; the program's colour turned into ink). The world: a pass after the
   upscaler (`ViewOrder::kCel` = 960, world_drawn, before the toon filter): the toon filter's measure of a bend or step
   in the linear depth with the neighbours `rt_cel_outline_width` depth pixels away (one-sided: the line on the object
-  in front), creases at 60%, faded out from 2,500 to 9,000 units. Ink: the surface's own colour, luminance x 0.28,
+  in front), creases at 60%, faded out from 2,500 to 9,000 units, a depth step under 0.6 units + 0.1% of the distance
+  ignored (decals just off their walls). Ink: the surface's own colour, luminance x 0.28,
   chroma x 1.25 (`rt::cel_ink`).
 - **Flatter textures** (`rt_cel_flatten`): each sampled texture's colour mixed by the setting toward the same texture
   2.5 mips blurrier; its alpha untouched (cut-outs keep their edges). The edge-preserving filter done once per texture
@@ -1912,7 +1913,7 @@ is worked out; the toon filter (`rt_style`) is independent and both may be on.
   `rt_cel_outline_width` (1; 0 none), `rt_cel_flatten` (0.5). The Options screen's Lighting tab: Cel shading and its
   five knobs.
 - **rt_cel=0:** no key gets the bits (`cel_draw` returns none), so every generated shader is byte-identical to before
-  (`thug2_ff_shader_check --surface --motion` against main's: the same GLSL); the descriptor layout gained the
+  (`thug2_ff_shader_check --surface --motion --dump` against main's: all 197,992 generated shaders byte-identical); the descriptor layout gained the
   cel block's binding (8) and, on a ray-tracing device, the scene's (9), pushed only for cel draws.
 - **Checked:** `thug2_vulkan_cel_check` (24 checks; the RTX 5070 Ti and the AMD Radeon, validation with synchronization
   validation 0): the twins (the colour's text, `bands` levels, the stream's words); the stream's bands of a lit
@@ -1924,8 +1925,9 @@ is worked out; the toon filter (`rt_style`) is independent and both may be on.
   ray says, none between, the edge's two pixels left out; a lit cube's hull (97% of the ring two pixels round its
   silhouette ink, nothing further out or on the cube changed); the world's lines (on a box's edge on the box, none
   inside, on the wall or the sky); flatten 0.8 (a checkerboard's spread 0.30 -> 0.11); `rt_cel=0` the same picture as
-  before the mode was ever on and the original's formula; every pixel finite. `thug2_ff_shader_check --cel`: every key
-  that takes the bands generated, compiled, validated and made into pipelines (the stream's as modules).
+  before the mode was ever on and the original's formula; every pixel finite. `thug2_ff_shader_check --cel`: 68,680
+  fragment keys in bands (25,950 with the stream) - 127,977 modules compiled, validated and accepted by the driver,
+  4,000 sampled pipelines made, none refused, validation 0.
   Cost (`--perf`, device timestamps, a full-screen layer at 2560 x 1440): RTX 5070 Ti - the bands +0.07 ms, the traced
   visibility +0.68 ms (one ray a pixel), objects with the rim and the hull 0.52 ms, the world's lines +0.20 ms; the AMD
   integrated GPU 2.5 / 2.2 / 4.9 / 3.4 ms. In the game the world's lines measured 0.42 ms at 2560 x 1440 (the log's
