@@ -1314,6 +1314,86 @@ model's table / sun colour was made by the sun's pass, after the bounce light ha
   (the seeded histories and the pipelines first used there; the front end's first frame ~330 ms). Before, the first
   frame showed no shadows / bounce / haze sun and AO / GI faded in; the fit's ~0.35 s came a second into play.
 
+### Smoothed curves (`rt_tessellation`)
+
+THUG2's curves are facets: a quarter pipe is 6-12 flat strips, a rail 6-8 sides, a cannon wheel or a car's wing a few
+dozen triangles, and their silhouettes and shading show it. `[Graphics] rt_tessellation=1` (off by default;
+`rt_tessellation=0` loads and draws exactly what main does - one test of a flag per mesh at load) rounds them off.
+
+- **Where it is done: once, at load, on the processor** (`engine/gfx/smooth_tess`, `render_pc/mesh_smoothing`). A
+  scene mesh's body (`read_mesh`, before its buffers are made) gets its curved triangles split: the new vertices after
+  its own, a new strip for its first level of detail. Nothing in the draw path changes - the fixed-function emulation,
+  the pipelines, the Direct3D 9 renderer and the ray tracing all get more triangles - so it costs no shader variant, no
+  tessellation stage (absent from the AMD integrated GPU's and MoltenVK's portability subsets anyway) and no mesh
+  shaders, and **what rays see is what is drawn**: `rt_record` registers each mesh's first level of detail from its
+  buffers, so its BLAS is built from the smoothed geometry (the shadows, occlusion and reflections fall on the rounded
+  surface; `rtprobe` hits it - below). The other levels of detail keep the original vertices (still first) and strips.
+  One reader keeps the original triangles: the baked sun's samples (R4: `fit_baked_sun` and the bake's agreement walk
+  the world's triangles, each counted the same) - split triangles would weigh 9 - 16 times and move the fitted sun (sch:
+  elevation 36 -> 31, the agreement's samples 195,000 -> 673,000: shadows changed level-wide, the first check run caught
+  it); `mesh_smoothing` keeps each smoothed mesh's original strip by its index buffer (shared copies share it, copies
+  copy it) and `rt_record` samples that.
+  Distance-adaptive factors would mean a second strip per mesh or a tessellation stage; instead each mesh gets the level
+  its curves need (below), which keeps it crack-free with a fixed vertex buffer.
+- **Which meshes**: every scene mesh (levels, objects, cars - models loaded from memory too) with a plain vertex format
+  (a position, optionally a normal, a colour and texture coordinate pairs), not skinned (skaters and peds are left
+  out), no per-vertex colour animation, no bone-scaled positions, not dynamic, its material's first pass neither
+  transparent (decals, glass, water) nor cut out (alpha reference above 8: foliage, fences' meshes). Within a mesh only
+  triangles with a **curved edge** are split: the corners' normals come from the geometry (the file's normals are
+  lighting, and most level meshes have none) - faces joined across edges where they meet at under 50 degrees (smoothing
+  groups, the faces' normals averaged by their corner angles) - and an edge is curved when exactly two faces of the mesh
+  share it, wound alike, at under 50 degrees, and its curve leaves the straight edge by more than 0.02 units. Flat walls
+  and floors (parallel normals: no curve), hard edges (creases), open edges and the meshes' boundaries stay straight.
+  Measured: BO 585 of 2173 meshes (11,577 triangles split; indices 39,250 -> 294,202), sch 961 of 1711 (24,380;
+  117,492 -> 650,697); 52 / 104 ms at load.
+- **The shape**: Phong tessellation (Boubekeur and Alexa 2008: a point of the flat triangle pulled toward its corners'
+  tangent planes) with shape factor 0.5, raised per edge by 2 (1 / cos h - 1) / sin^2 h (h half the angle between the
+  edge's two normals) so an edge's middle lies on the circular arc its normals describe; inside a triangle the edges'
+  factors blend toward their own edge. On a 16-sided cylinder of radius 100 the new points lie within 0.02 of the circle
+  (the facets: 1.92); on an 8-sided rail of radius 3, 0.008 (0.23). A mesh's level (2 - `rt_tess_level`, default 3) is
+  the one that follows its largest curve to about 0.05 units (the error falls as 1 / level^2).
+- **Crack-free**: one level a mesh, so two split triangles on an edge cut it alike; a curved edge's points are made from
+  its two ends' positions and normals only, in one order (the lower welded position first), so the triangles on it - with
+  the same vertex indices or across a texture seam (positions repeated) - get the same points to the bit; a straight edge
+  of a split triangle is not cut: its points collapse onto its two ends (degenerate slivers, a fan), so meshes and
+  triangles beside it meet it at its original two vertices - no T-junctions anywhere.
+- **Collision is the original's** (nothing in physics changes; the game's collision is its own `.col` data), so the
+  drawn surface must stay near it: each mesh's largest distance of a new point from its original flat triangle is
+  measured, and past `rt_tess_max_deviation` (default 2 units) the shape factor is scaled down until it is exactly that.
+  Measured per level ([debug] `tess_log=1` logs every mesh): sch's median 0.69, BO's 1.36; 270 meshes a level reach the
+  cap (big low-poly shapes - mounds, domes, statues - whose uncapped bulge would be 2 - 99 units). At sch's quarter pipe
+  `tools/game/tess_gap.ts` (a fan of rays cast both through the collision - `colprobe` - and the ray-traced scene -
+  `rtprobe` - with rt_tessellation 0 and 1, the gap along the slope's normal) finds the drawn surface moved by at most
+  0.77 (mean 0.16) and only behind the collision (the arc lies behind its chords): the wheels can float that much over
+  the drawn curve between its original vertices, never sink (0.04 at most in front); the original's own drawn meshes
+  already differ from its collision by up to 2.5 there.
+- **Displacement** (`rt_displacement` > 0: units for the full height range): a new point moves along the smoothed normal
+  by scale x (height - 0.5), inside the cap left by the curve; only new points shared outright by both triangles of an
+  edge, or inside a triangle (a seam's two sides would read different texels and open); never on thin meshes (bounds'
+  smallest side under 24 units: rails, poles). The heights come from `mesh_smoothing::set_height_lookup` - the seam for
+  generated height maps (a material's lookup on the processor, at load); none is installed yet, and
+  `rt_tess_test_heights=1` gives every material a test pattern (ridges along u) to see it work.
+- **Checked**: `thug2_tess_check` (processor only - the tessellation runs there, so it is the same on every GPU): a
+  16-sided cylinder with a seam down its side and one round its middle (every inner edge shared by two triangles wound
+  opposite ways after welding by position; the seam's new points made on both sides at the same positions; texture
+  coordinates continuous; every triangle still facing out; the original vertices first and unchanged; nothing NaN),
+  capped to 0.5 (the deviation exactly the cap, every point between the facets and the circle), displaced by a ridged
+  height (within the cap, still crack-free); an 8-sided rail (smoothed, not displaced); a quarter pipe with floor and
+  deck in two meshes side by side (on the arc within 0.0014 between its end segments - 0.26 at the floor's and the
+  coping's corners, which have one side's normals only -, the deck behind the coping's crease untouched, the two meshes
+  meeting at their original vertices only); a flat floor, a box and `rt_tess_level=1` unchanged; a mesh too big for 16
+  bits left as it is. In the game `tools/game/rt_shadows_check.ts --effect tess` (the plan's `qpsch` / `qpBO` groups:
+  sch's quarter pipe still and with the skater riding up it, fences, barriers, a taxi; BO's start, cannons, statues):
+  off against main's build changed 0.00 - 0.01% (identical but for animation), on against off bounded (mean luma change
+  at most 0.8, nothing turned black or white - no holes, no sky through a crack).
+- **Cost**: the draws' triangles - the smoothed meshes' indices x 5.5 - 7.5 (BO 39,250 -> 294,202; the split triangles'
+  rows are strips of their own, joined by degenerate triangles); in sch at the start with the user's settings (every
+  ray-traced effect on, 8 x MSAA, 1280 x 720, RTX 5070 Ti) the frame lines read 21.9 / 24.5 ms against 22.0 / 25.1 off -
+  within the run-to-run noise (the frame is bound by the processor; the device waits 0.3 ms); memory: sch +66,780
+  vertices (~2.5 MB) and +533,205 indices (~1 MB); 50 - 180 ms more at load.
+- **Not done**: no distance-adaptive or screen-space factors (one level a mesh, made at load: changing it needs the level
+  reloaded); skinned meshes; the generated height maps (the seam is there).
+
 ## Order of work
 
 | # | task | depends on | start |

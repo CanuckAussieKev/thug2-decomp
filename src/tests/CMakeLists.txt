@@ -59,6 +59,14 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_rt_scene_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_tess_check.exe: the smoothed curves' tessellation (engine/gfx/smooth_tess.h) on a faceted
+# cylinder, a rail and a quarter pipe against their analytic surfaces - no cracks, the cap, displacement
+# (src/tests/tess_check.cpp).
+if(TARGET thug2_base)
+    add_executable(thug2_tess_check tess_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/smooth_tess.cpp")
+    target_link_libraries(thug2_tess_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_crash_check.exe: the game's crash report (src/platform/crash.h) caused on purpose, a few calls
 # deep, into thug2-decomp.log next to the check (src/tests/crash_check.cpp; `thug2_crash_check [kind]`).
 if(TARGET thug2_platform)

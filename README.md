@@ -316,6 +316,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (the physics path that did it, the face, probes) and shows it on screen for 2 s - for finding broken collision in converted levels; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot |
 | `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too |
 | `rt_contract_check` | 0 | Checks every call the renderer makes to ray tracing (meshes, materials, each frame's instances, lights and cameras, every world draw against the frame's record) and logs `rt-check:` lines - violations and a summary every 600 frames; the console's `rt summary` / `rt dump [file]` (the frame record as JSON). `node tools/game/rt_contract.ts` runs it across levels and renderers in a workspace |
+| `tess_log` | 0 | With `[Graphics] rt_tessellation=1`: a line for every mesh smoothed at load - where it is, its size, the triangles split, its level and how far it moved from the original (`rt_tessellation: mesh at ...`) |
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 | `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
 
@@ -395,6 +396,11 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_cloud_speed` | 1 | How fast the clouds drift (0 still; 2 twice as fast) |
 | `rt_cloud_quality` | 1 | 0 quarter resolution (fastest), 1 half, 2 full |
 | `rt_cloud_shadows` | 0 | With `rt_clouds`: 1 lets the clouds' shadows drift over the level |
+| `rt_tessellation` | 0 | Any renderer: 1 rounds off the levels' and objects' faceted curves - quarter pipes, rails, pipes, car bodies, round props - when a level loads (more triangles that follow the curve; flat walls, hard edges, see-through and cut-out surfaces, skaters and peds stay as they are). The skater still rides the original surfaces: the drawn ones stay within `rt_tess_max_deviation` of them. Takes effect from the next level loaded |
+| `rt_tess_level` | 3 | The most pieces a curved edge is cut into (2-8; each mesh gets as many as its curves need, up to this) |
+| `rt_tess_max_deviation` | 2 | How far (world units, an inch each) a smoothed surface may move from the original one - the largest gap between the wheels and what is drawn |
+| `rt_displacement` | 0 | With `rt_tessellation`: how far (world units) a surface's height map raises and lowers it, inside `rt_tess_max_deviation`; thin meshes (rails) never move. Needs height maps - none are there yet (`rt_tess_test_heights=1` shows a test pattern of ridges) |
+| `rt_tess_test_heights` | 0 | With `rt_displacement`: 1 gives every surface a test height map (ridges) - to see the displacement work until real height maps are there |
 
 **`[Miscellaneous]`** - from PartyMod
 

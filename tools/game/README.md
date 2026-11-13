@@ -196,6 +196,20 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   brightened more often than the baked-bright ones (more in the shade); the `on` logs showing "rt_gi: the first indirect
   light pass" and no skip. `--set Graphics.rt_gi_rays=4` etc. try the other settings; the passes' device time is in the
   logs ("rt_gi: <x> ms a pass on the device").
+  `--effect tess` (both commands): smoothed curves (`[Graphics] rt_tessellation`) - 0 / 1, the rest as the ini and --set
+  have it; the plan's `qpsch` and `qpBO` groups (`--groups qpsch,qpBO`: sch's quarter pipe still and with the skater
+  riding up it, fences, barriers, a taxi; BO's start, cannons, statues). `--expect drawn`: the mean luma change at most 6,
+  at most 0.1% turned black (a hole) or white (the sky through a crack), some spot changed by 0.05% or more; the `on`
+  logs show "rt_tessellation: on" and a "meshes smoothed" line, the `off` ones neither; the levels' smoothing totals and
+  the frame times reported.
+- `node tools/game/tess_gap.ts run --game C:\Games\THUG2-<n> --build <x64 build> --level <name> --at x,y,z,heading --out
+  <folder> [--set S.key=v]...` - how far the drawn surfaces are from the collision with `rt_tessellation` 0 and 1: under
+  the workspace's lock, the build deployed, the level loaded twice (`ray_tracing=1`), the skater stood at --at and a fan
+  of rays (every 10 degrees round, four pitches down, from 150 units over him) cast with `colprobe` and `rtprobe`; per
+  ray hitting a slope (the collision's normal 0.2 - 0.97 up) on the same surface both ways, the gap along its normal
+  (positive: the drawn surface behind the collision - the wheels float; negative: they sink). Fails when the smoothing
+  moved a surface more than --cap (2). `report <folder>` reads the logs again. E.g. sch's quarter pipe: `--level sch
+  --at 960,-440,2550,90`.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
   [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
   (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed

@@ -48,6 +48,7 @@ add_library(thug2_render_pc STATIC
     pc_viewport.cpp
     pc_weather.cpp
     rt_record.cpp
+    mesh_smoothing.cpp
     pc_billboards.cpp
     pc_buffers.cpp
     pc_gamma.cpp
