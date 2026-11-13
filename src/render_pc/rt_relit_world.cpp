@@ -40,7 +40,6 @@ namespace render::rt_relit_world {
 
 namespace {
 
-constexpr uint32_t kFvfNormal = 0x10; // a vertex format's normal (three floats)
 constexpr uint64_t kFnvBasis = 14695981039346656037ULL;
 constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr float kSameSun = 0.99999F;          // two suns this close (their directions' dot product): the same
@@ -464,8 +463,10 @@ bool make_entry(const WorldMesh& world, Entry* out)
     entry.input.positions.resize(count);
     entry.originals.resize(count);
     entry.animated.assign(count, 0);
-    const bool normals = (mesh->fvf() & kFvfNormal) != 0U && mesh->normal_offset() != 0 &&
-                         mesh->normal_offset() + sizeof(rt::Vec3) <= stride;
+    // (the normals and the colours where the geometry has them - the vertex format's places, rt_vertex_attributes.h -,
+    // not the mesh's own offsets)
+    const bool normals = geometry.normal_format == rt::kNormalFloat3 &&
+                         geometry.normal_offset + sizeof(rt::Vec3) <= stride;
     if (normals) {
         entry.input.normals.resize(count);
     }
@@ -480,7 +481,7 @@ bool make_entry(const WorldMesh& world, Entry* out)
                     sizeof(uint32_t));
         if (normals) {
             std::memcpy(&core::at(entry.input.normals, vi),
-                        vertex.subspan(mesh->normal_offset(), sizeof(rt::Vec3)).data(), sizeof(rt::Vec3));
+                        vertex.subspan(geometry.normal_offset, sizeof(rt::Vec3)).data(), sizeof(rt::Vec3));
         }
         if (!per_vertex.empty() && core::at(per_vertex, vi) != 0) {
             core::at(entry.animated, vi) = 1;

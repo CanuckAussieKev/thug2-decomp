@@ -26,6 +26,11 @@
 //     glass as a mirror - the light it adds within 0.8 - 1.05 of the mirror's, softer, no pixel black, no NaN, every
 //     weight at most the mirror's.
 //   - Nothing reflective (the floor's reflectivity 0): no pass, nothing changed; rt_reflections off: no pass.
+//   - (added for the skinned meshes' attributes) The box as the skater's skinned meshes' vertices (format 0x152: the
+//     normal at 12, the colour at 24, the uv at 28 - not the scene file's offsets 24 / 28 / 32 the mesh itself gives) in
+//     a distinctive vertex colour, its geometry's attributes worked out from the format (engine/gfx/rt_vertex_attributes.h,
+//     as render_pc's frame record does): reflected pixels its texel x that colour doubled; the same box given the
+//     mesh's own offsets (as before) fails the comparison.
 //   - rt_sky (the sky's misses): the floor's reflections that miss the box show the sky drawn - the sky-view table toward
 //     the reflected direction, as the game's colour - where they kept the floor's own colour without it.
 //   thug2_vulkan_rt_reflections_check [--device N] [--display N] [--no-validation] [--seed N]
@@ -58,6 +63,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_vertex_attributes.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -125,6 +131,17 @@ constexpr uint32_t kCoverClearColumns = 4; // the cover texture: its alpha 0 in 
 constexpr int kCoverClear = 0;             // (Reflection::cover)
 constexpr int kCoverOpaque = 1;
 constexpr int kCoverBlend = 2;
+// (added for the skinned meshes' attributes) The vertex the CPU skinning writes (render_pc/pc_mesh_load.cpp
+// set_up_skinning, pc_mesh_render.cpp get_skin): XYZ | NORMAL | DIFFUSE | TEX1 - and the offsets the scene file gives
+// such a mesh (its packed vertex's), which the geometry table was once filled from.
+constexpr uint32_t kFvfSkinned = 0x152;
+constexpr uint32_t kSkinnedStride = 36;
+constexpr uint32_t kSkinnedNormal = 12;
+constexpr uint32_t kSkinnedColour = 24;
+constexpr uint32_t kSkinnedUv = 28;
+constexpr uint32_t kSceneFileColour = 28;
+constexpr uint32_t kSceneFileUv = 32;
+constexpr uint32_t kSkinnedVertexColour = 0x803090B0U; // (alpha 128 as the grey's; red, green, blue each its own)
 
 struct Options {
     int display = 0;
@@ -234,6 +251,11 @@ struct Layout {
     uint32_t leading_vertices = 0;
     uint32_t leading_indices = 0;
     uint32_t uv_sets = 1; // (the sets after uv_offset: MeshData::uvs, then second_uvs)
+    // (added for the skinned meshes' attributes) the vertex normals (MeshData::normals) and a vertex format: when one
+    // is given, the geometry's attributes are worked out from it (rt::set_vertex_attributes) and the offsets above
+    // only say where the bytes are written
+    uint32_t normal_offset = kAbsent;
+    uint32_t fvf = 0;
 };
 
 struct MeshData {
@@ -241,6 +263,7 @@ struct MeshData {
     std::vector<std::array<float, 2>> uvs;
     std::vector<std::array<float, 2>> second_uvs; // (a second texture coordinate set, where the layout has one)
     std::vector<uint32_t> colours;
+    std::vector<std::array<float, 3>> normals; // (where the layout has them)
     std::vector<uint32_t> corners; // the indices drawn (a list's or a strip's); unindexed: 0..n-1
 };
 
@@ -296,6 +319,12 @@ std::vector<uint8_t> vertex_bytes(const MeshData& data, const Layout& layout)
         if (layout.colour_offset != kAbsent) {
             put_word(bytes, base + layout.colour_offset, core::at(data.colours, i));
         }
+        if (layout.normal_offset != kAbsent) {
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                put_float(bytes, base + layout.normal_offset + (axis * sizeof(float)),
+                          core::at(core::at(data.normals, i), axis));
+            }
+        }
     }
     return bytes;
 }
@@ -322,8 +351,8 @@ bool make_mesh(render::Gpu& gpu, TestMesh* mesh)
     const Layout& layout = mesh->layout;
     const std::vector<uint8_t> vertices = vertex_bytes(mesh->data, layout);
     void* data = nullptr;
-    if (gpu.create_vertex_buffer(static_cast<uint32_t>(vertices.size()), 0, kFvfTextured, value::kPoolDefault,
-                                 &mesh->vertices) != value::kResultOk ||
+    if (gpu.create_vertex_buffer(static_cast<uint32_t>(vertices.size()), 0, layout.fvf != 0 ? layout.fvf : kFvfTextured,
+                                 value::kPoolDefault, &mesh->vertices) != value::kResultOk ||
         gpu.lock_vertex_buffer(mesh->vertices, 0, 0, &data, 0) != value::kResultOk) {
         return false;
     }
@@ -360,6 +389,9 @@ bool make_mesh(render::Gpu& gpu, TestMesh* mesh)
                       .colour_offset = layout.colour_offset == kAbsent ? 0U : layout.colour_offset,
                       .colour_format = layout.colour_offset == kAbsent ? rt::kAttributeNone : rt::kColourA8R8G8B8,
                       .uv_sets = layout.uv_sets};
+    if (layout.fvf != 0 && !rt::set_vertex_attributes(layout.fvf, &mesh->geometry)) {
+        return false;
+    }
     mesh->id = rt::next_mesh_id();
     rt::ray_tracing()->add_mesh(mesh->id, mesh->geometry);
     return true;
@@ -1092,6 +1124,7 @@ struct MirrorCase {
     bool cover = false; // the floor under a cover pass: reflecting only through its clear texels
     float roughness = 0.0F;
     float glass_reflectance = render::vulkan::kRtGlassReflectance; // (rt_glass_reflectance: glass's F0)
+    uint32_t box_colour = kGrey; // (added for the skinned meshes' attributes) the box's vertex colour
 };
 
 // Schlick's approximation of the Fresnel reflectance, and the exact one for unpolarised light from air into an index n
@@ -1282,15 +1315,16 @@ std::string rgb_text(const Rgb& colour)
 }
 
 // What a reflected pixel should be: the floor (or `base`, the masked glass's own colour put back) mixed toward the
-// texel x the vertex colour doubled by `weight`.
-Rgb reflected_colour(const Reflection& seen, double weight, const Rgb& base = rgb_of(kFloorColour))
+// texel x the box's vertex colour doubled by `weight`.
+Rgb reflected_colour(const Reflection& seen, double weight, const Rgb& base, uint32_t vertex_colour)
 {
     const Rgb texel = rgb_of(texel_colour(seen.column, seen.row));
     const Rgb floor = base;
-    constexpr double kVertexFactor = 2.0 * 128.0 / 255.0;
+    const Rgb vertex = rgb_of(vertex_colour);
     Rgb out{};
     for (std::size_t channel = 0; channel < 3; ++channel) {
-        const double shaded = std::min(1.0, core::at(texel, channel) / kByteRange * kVertexFactor);
+        const double factor = 2.0 * core::at(vertex, channel) / kByteRange;
+        const double shaded = std::min(1.0, core::at(texel, channel) / kByteRange * factor);
         const double mixed = (shaded * weight) + ((core::at(floor, channel) / kByteRange) * (1.0 - weight));
         core::at(out, channel) = static_cast<int>(std::lround(mixed * kByteRange));
     }
@@ -1344,7 +1378,8 @@ void compare_mirror(const std::vector<uint8_t>& with, const std::vector<uint8_t>
                 lightest = std::min(lightest, weight_at(test, here));
                 heaviest = std::max(heaviest, weight_at(test, here));
                 const Rgb want =
-                    reflected_colour(here, weight_at(test, here), replaces ? kWhite : rgb_of(kFloorColour));
+                    reflected_colour(here, weight_at(test, here), replaces ? kWhite : rgb_of(kFloorColour),
+                                     test.box_colour);
                 if (!close_to(got, want)) {
                     ++wrong;
                     if (first_wrong.empty()) {
@@ -1492,6 +1527,60 @@ void run_mirror(render::Gpu& gpu, Mirror& mirror, const MirrorCase& test, Tally*
         }
     }
     release_targets(gpu, targets);
+}
+
+// --- (added for the skinned meshes' attributes) the box as a skinned mesh's vertices -------------------------------
+
+// The box in the skinned meshes' vertex (format 0x152), its own vertex colour, each face's normal; the geometry's
+// attributes from the format, as the frame record works them out - then given the scene file's offsets instead, as
+// they once were: the comparison must fail.
+void run_skinned(render::Gpu& gpu, Mirror& mirror, Tally* tally)
+{
+    text::print("the box as a skinned mesh's vertices (format %X, stride %u: the normal at %u, the colour at %u, the uv "
+                "at %u):\n",
+                kFvfSkinned, kSkinnedStride, kSkinnedNormal, kSkinnedColour, kSkinnedUv);
+    TestMesh skinned;
+    skinned.layout = {.indexed = true, .wide = false, .strip = false, .stride = kSkinnedStride, .position_offset = 0,
+                      .uv_offset = kSkinnedUv, .colour_offset = kSkinnedColour, .leading_vertices = 1,
+                      .leading_indices = 3, .normal_offset = kSkinnedNormal, .fvf = kFvfSkinned};
+    skinned.data = box_data();
+    constexpr uint32_t kFaceCorners = 4;
+    for (std::size_t vertex = 0; vertex < skinned.data.positions.size(); ++vertex) {
+        core::at(skinned.data.colours, vertex) = kSkinnedVertexColour;
+        // (box_data's faces in order: -x, +x, -y, +y, -z, +z, four corners each)
+        const std::size_t face = vertex / kFaceCorners;
+        std::array<float, 3> normal{};
+        core::at(normal, face / 2) = (face % 2) != 0 ? 1.0F : -1.0F;
+        skinned.data.normals.push_back(normal);
+    }
+    const bool made = rt::ray_tracing() != nullptr && make_mesh(gpu, &skinned);
+    const rt::Geometry& geometry = skinned.geometry;
+    tally->check(made && geometry.normal_format == rt::kNormalFloat3 && geometry.normal_offset == kSkinnedNormal &&
+                     geometry.colour_format == rt::kColourA8R8G8B8 && geometry.colour_offset == kSkinnedColour &&
+                     geometry.uv_format == rt::kUvFloat2 && geometry.uv_offset == kSkinnedUv && geometry.uv_sets == 1,
+                 text::format("the format's attributes: normal %u, colour %u, uv %u (%u set)", geometry.normal_offset,
+                              geometry.colour_offset, geometry.uv_offset, geometry.uv_sets));
+    if (made) {
+        std::swap(mirror.box, skinned);
+        const MirrorCase test{.name = "the skinned box", .samples = 0, .strength = 1.0F, .reflectivity = 1.0F,
+                              .box_colour = kSkinnedVertexColour};
+        run_mirror(gpu, mirror, test, tally);
+        // (the scene file's offsets, as the geometry table was filled before: the colour read from the uv's bytes, the
+        // uv past the vertex - left out, so (0, 0))
+        rt::Geometry scene_file = mirror.box.geometry;
+        scene_file.colour_offset = kSceneFileColour;
+        scene_file.uv_offset = kSceneFileUv;
+        rt::ray_tracing()->update_mesh(mirror.box.id, scene_file);
+        text::print("  (the same box given the mesh's own offsets - colour %u, uv %u -, which must fail:)\n",
+                    kSceneFileColour, kSceneFileUv);
+        Tally wrong;
+        run_mirror(gpu, mirror, test, &wrong);
+        tally->check(wrong.failed > 0,
+                     text::format("the mesh's own offsets don't reflect its colours: %d of their checks failed",
+                                  wrong.failed));
+        std::swap(mirror.box, skinned);
+    }
+    release_mesh(gpu, &skinned);
 }
 
 // The rough glass against the same glass as a mirror: what the rays see averaged over a cone and blurred - the light
@@ -1899,6 +1988,7 @@ int run(const Options& options, SDL_Window* window)
         run_untouched(gpu, mirror, "nothing reflective: the pass skipped", true, 0.0F, &tally);
         run_untouched(gpu, mirror, "rt_reflections off: no pass", false, 1.0F, &tally);
         run_sky_misses(gpu, mirror, &tally);
+        run_skinned(gpu, mirror, &tally);
     }
     release_mirror(gpu, &mirror);
     render::vulkan::set_rt_reflection_settings({});
