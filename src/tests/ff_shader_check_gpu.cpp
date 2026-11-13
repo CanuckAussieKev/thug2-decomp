@@ -117,6 +117,15 @@ bool make_layouts(Shared& shared)
                             .descriptorCount = 1,
                             .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
     }
+    // (NOT ORIGINAL - rt_pbr) the per-pixel lighting's block and surface map, as the backend's layout has them
+    bindings.push_back({.binding = render::vulkan::kSurfaceUniformsBinding,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        .descriptorCount = 1,
+                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
+    bindings.push_back({.binding = render::vulkan::kSurfaceMapBinding,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        .descriptorCount = 1,
+                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
     const VkDescriptorSetLayoutCreateInfo set_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                       .bindingCount = static_cast<uint32_t>(bindings.size()),
                                                       .pBindings = bindings.data()};

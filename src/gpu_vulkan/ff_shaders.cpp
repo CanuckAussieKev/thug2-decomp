@@ -28,9 +28,10 @@ std::string num(Number value)
     return std::to_string(value);
 }
 
-// (added by the upscaler) The motion's two varyings, after the four stages' coordinates (3 - 6).
-constexpr uint32_t kMotionNowVarying = 7;
-constexpr uint32_t kMotionBeforeVarying = 8;
+// (added by the upscaler) The motion's two varyings, after the four stages' coordinates (3 - 6) and rt_pbr's four
+// (7 - 10: kSurfaceVaryingsOut) - a draw can have both.
+constexpr uint32_t kMotionNowVarying = 11;
+constexpr uint32_t kMotionBeforeVarying = 12;
 
 // One line of GLSL: the parts, then a new line.
 void add(std::string& out, std::initializer_list<std::string_view> parts)
@@ -42,6 +43,15 @@ void add(std::string& out, std::initializer_list<std::string_view> parts)
 }
 
 bool has_stage(uint32_t mask, std::size_t stage) { return (mask & (1U << stage)) != 0U; }
+
+// (NOT ORIGINAL - rt_pbr) the per-pixel lighting's inputs (the vertex shader writes them, the fragment shader reads
+// them: "the per-pixel lighting" below).
+constexpr const char* kSurfaceVaryingsOut =
+    "layout(location = 7) out vec3 v_surface_normal;\nlayout(location = 8) out vec3 v_surface_eye;\n"
+    "layout(location = 9) out vec4 v_surface_base;\nlayout(location = 10) out vec4 v_surface_cd;";
+constexpr const char* kSurfaceVaryingsIn =
+    "layout(location = 7) in vec3 v_surface_normal;\nlayout(location = 8) in vec3 v_surface_eye;\n"
+    "layout(location = 9) in vec4 v_surface_base;\nlayout(location = 10) in vec4 v_surface_cd;";
 
 // --- the vertex shader -------------------------------------------------------------------------------------------
 
@@ -83,6 +93,9 @@ void vertex_declarations(std::string& out, const VertexKey& key)
         add(out, {"layout(location = ", num(kPreviousPositionLocation), ") in vec3 a_previous;"});
         add(out, {"layout(location = ", num(kMotionNowVarying), ") out vec4 v_motion_now;"});
         add(out, {"layout(location = ", num(kMotionBeforeVarying), ") out vec4 v_motion_before;"});
+    }
+    if (key.surface != 0) {
+        add(out, {kSurfaceVaryingsOut});
     }
     add(out, {key.points ? "out gl_PerVertex { vec4 gl_Position; float gl_PointSize; };"
                          : "out gl_PerVertex { vec4 gl_Position; };"});
@@ -182,6 +195,9 @@ void vertex_lighting(std::string& out, const VertexKey& key)
     if (!key.lighting || fvf_pre_transformed(key.fvf)) {
         // Unlit: the vertex's colours (a missing diffuse is opaque white, a missing specular black).
         add(out, {"    v_diffuse = diffuse_in;\n    v_specular = specular_in;"});
+        if (key.surface != 0) {
+            add(out, {"    v_surface_base = vec4(0.0);\n    v_surface_cd = diffuse_in;"}); // (NOT ORIGINAL - rt_pbr)
+        }
         return;
     }
     add(out, {"    vec4 cd = ", source_colour(key.diffuse_source, "material_diffuse"), ";"});
@@ -207,6 +223,10 @@ void vertex_lighting(std::string& out, const VertexKey& key)
     add(out, {"    }"});
     add(out, {"    v_diffuse = clamp(vec4(ce.rgb + ca.rgb * (u.ambient.rgb + lit_ambient) + cd.rgb * lit_diffuse, cd.a), "
               "0.0, 1.0);"});
+    if (key.surface != 0) {
+        // (NOT ORIGINAL - rt_pbr) the formula's parts that don't depend on the normal, for the fragment shader to finish
+        add(out, {"    v_surface_base = vec4(ce.rgb + ca.rgb * (u.ambient.rgb + lit_ambient), 0.0);\n    v_surface_cd = cd;"});
+    }
     if (key.specular) {
         add(out, {"    v_specular = clamp(vec4(cs.rgb * lit_specular, cs.a), 0.0, 1.0);"});
     } else {
@@ -326,6 +346,120 @@ std::string coord_of(const FragmentKey& key, std::size_t stage)
     return has_stage(key.projected_mask, stage) ? name + ".xy / " + name + ".w" : name + ".xy";
 }
 
+// --- (NOT ORIGINAL - [Graphics] rt_pbr) the per-pixel lighting ------------------------------------------------------
+// (vulkan_surface.h; docs/design/vulkan.md "Per-pixel lighting and surface maps") A key with FragmentKey::surface set
+// works out the light per pixel and puts it where the program reads the vertex colour (v0), then adds a specular term:
+//   - the normal: the vertex's (camera space, interpolated; a format without normals: the triangle's own, from the
+//     position's screen derivatives, toward the eye), bent by the surface map's tangent-space normal (kSurfaceMap)
+//     through a tangent frame made per pixel from the screen derivatives of the position and stage 0's texture
+//     coordinates: the gradients of u and v along the surface, (du/dx (dP/dy x N) + du/dy (N x dP/dx)) / det with det
+//     = N . (dP/dx x dP/dy) - only its sign kept, the frame scaled by its longer axis. A mirrored mapping turns the
+//     frame with it; no tangents are stored (the game's meshes have none, and the frame follows the CPU's skinning);
+//   - kSurfaceLit (objects): Direct3D 9's diffuse formula of vertex_lighting per pixel - the parts that don't depend on
+//     the normal come from the vertex shader - with the draw's lights;
+//   - without it (the world): the bake (the vertex colour) kept and scaled by how much more or less the bent normal
+//     faces the bake's sun than the surface does, (a + N'.L) / (a + N.L), where the bake is sunlit (its light level
+//     between shade.x and shade.y), and elsewhere by a softer one toward the sky, (1.5 + N'.up) / (1.5 + N.up), at
+//     sky.w; the ratio clamped to shade.z - shade.w;
+//   - specular: GGX (Smith-Schlick G with k = alpha / 2, Schlick's Fresnel with F0), pi x the BRDF x N.L - the
+//     convention in which the diffuse term is the light x N.L - per light (or the sun, where sunlit), the roughness the
+//     map's (B) or params.z, clamped to 0.08 - 1; added after the program, x params.x.
+// The names a later part may read (the relit mode, kSurfaceRelit): surface_n (the bent normal), surface_geo (the
+// surface's), surface_v (toward the eye), surface_rough, surface_v0, surface_specular.
+constexpr const char* kSurfaceBlock = R"(layout(set = 0, binding = 6, std140) uniform SurfaceUniforms {
+    vec4 light_toward[8];
+    vec4 light_colour[8];
+    vec4 sun;
+    vec4 sun_colour;
+    vec4 sky;
+    vec4 params;
+    vec4 shade;
+    vec4 relit;
+} s;
+float surface_ggx(vec3 n, vec3 v, vec3 l, float rough, float f0)
+{
+    float nl = max(dot(n, l), 0.0);
+    if (nl <= 0.0) return 0.0;
+    vec3 h = normalize(v + l);
+    float nv = max(dot(n, v), 1.0e-4);
+    float nh = max(dot(n, h), 0.0);
+    float vh = max(dot(v, h), 0.0);
+    float a = max(rough * rough, 0.0064);
+    float a2 = a * a;
+    float q = nh * nh * (a2 - 1.0) + 1.0;
+    float d = a2 / (3.14159265 * q * q);
+    float k = 0.5 * a;
+    float g = (nl / (nl * (1.0 - k) + k)) * (nv / (nv * (1.0 - k) + k));
+    float f = f0 + (1.0 - f0) * pow(1.0 - vh, 5.0);
+    return min(3.14159265 * d * g * f / (4.0 * nv), 16.0);
+})";
+
+void surface_declarations(std::string& out, const FragmentKey& key)
+{
+    constexpr uint32_t kBlockBinding = 6; // (kSurfaceBlock's numbers)
+    constexpr uint32_t kMapBinding = 7;
+    constexpr std::size_t kBlockLights = 8;
+    static_assert(kSurfaceUniformsBinding == kBlockBinding && kSurfaceMapBinding == kMapBinding && kMaxLights == kBlockLights,
+                  "kSurfaceBlock names them");
+    add(out, {kSurfaceVaryingsIn});
+    if ((key.surface & kSurfaceMap) != 0U) {
+        add(out, {"layout(set = 0, binding = 7) uniform sampler2D surface_map;"});
+    }
+    add(out, {kSurfaceBlock});
+}
+
+void surface_lighting(std::string& out, const FragmentKey& key)
+{
+    add(out, {"    vec3 surface_eye = v_surface_eye;\n    vec3 surface_dx = dFdx(surface_eye);\n"
+              "    vec3 surface_dy = dFdy(surface_eye);\n    vec3 surface_face = cross(surface_dx, surface_dy);\n"
+              "    surface_face = dot(surface_face, surface_face) > 0.0 ? normalize(surface_face) : vec3(0.0, 0.0, -1.0);\n"
+              "    if (dot(surface_face, surface_eye) > 0.0) surface_face = -surface_face;\n"
+              "    vec3 surface_geo = dot(v_surface_normal, v_surface_normal) > 1.0e-12 ? normalize(v_surface_normal) "
+              ": surface_face;\n"
+              "    vec3 surface_n = surface_geo;\n    vec3 surface_v = normalize(-surface_eye);\n"
+              "    float surface_rough = s.params.z;"});
+    if ((key.surface & kSurfaceMap) != 0U) {
+        add(out, {"    {\n        vec2 uv = ", coord_of(key, 0), ";\n        vec4 m = texture(surface_map, uv);"});
+        add(out, {"        surface_rough = m.b;\n        vec2 xy = (m.rg * 255.0 - 127.5) / 127.5;\n"
+                  "        vec3 nt = vec3(xy * s.params.y, sqrt(max(1.0 - dot(xy, xy), 0.0)));\n"
+                  "        vec2 uv_dx = dFdx(uv);\n        vec2 uv_dy = dFdy(uv);\n"
+                  "        vec3 c1 = cross(surface_dy, surface_geo);\n        vec3 c2 = cross(surface_geo, surface_dx);\n"
+                  "        float det = dot(surface_geo, cross(surface_dx, surface_dy));\n"
+                  "        vec3 t = (c1 * uv_dx.x + c2 * uv_dy.x) * sign(det);\n"
+                  "        vec3 b = (c1 * uv_dx.y + c2 * uv_dy.y) * sign(det);\n"
+                  "        float scale = max(dot(t, t), dot(b, b));\n"
+                  "        vec4 uv_change = abs(vec4(uv_dx, uv_dy));\n"
+                  "        float uv_floor = 1.0e-6 * max(1.0, max(abs(uv.x), abs(uv.y)));\n"
+                  "        if (scale > 0.0 && det != 0.0 && max(max(uv_change.x, uv_change.y), max(uv_change.z, uv_change.w)) > "
+                  "uv_floor) {\n            float inv = inversesqrt(scale);\n"
+                  "            surface_n = normalize(t * (inv * nt.x) + b * (inv * nt.y) + surface_geo * nt.z);\n"
+                  "        }\n    }"});
+    }
+    add(out, {"    surface_rough = clamp(surface_rough, 0.08, 1.0);\n    vec3 surface_specular = vec3(0.0);"});
+    if ((key.surface & kSurfaceLit) != 0U) {
+        add(out, {"    vec3 surface_light = vec3(0.0);\n    for (int i = 0; i < 8; ++i) {\n"
+                  "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
+                  "        surface_light += s.light_colour[i].rgb * max(dot(surface_n, l), 0.0);\n"
+                  "        surface_specular += s.light_colour[i].rgb * surface_ggx(surface_n, surface_v, l, surface_rough, "
+                  "s.params.w);\n    }\n"
+                  "    vec4 surface_v0 = vec4(clamp(v_surface_base.rgb + v_surface_cd.rgb * surface_light, 0.0, 1.0), "
+                  "v_surface_cd.a);"});
+        return;
+    }
+    add(out, {"    vec3 surface_bake = v_diffuse.rgb;\n"
+              "    float surface_level = dot(surface_bake * 2.0, vec3(0.2126, 0.7152, 0.0722));\n"
+              "    float surface_sunlit = s.sun.w * smoothstep(s.shade.x, s.shade.y, surface_level);\n"
+              "    float surface_a = max(s.sun_colour.w, 0.05);\n"
+              "    float surface_sun_detail = (surface_a + max(dot(surface_n, s.sun.xyz), 0.0)) / "
+              "(surface_a + max(dot(surface_geo, s.sun.xyz), 0.0));\n"
+              "    float surface_sky_detail = (1.5 + dot(surface_n, s.sky.xyz)) / (1.5 + dot(surface_geo, s.sky.xyz));\n"
+              "    float surface_detail = mix(mix(1.0, surface_sky_detail, s.sky.w), surface_sun_detail, surface_sunlit);\n"
+              "    surface_detail = clamp(surface_detail, s.shade.z, s.shade.w);\n"
+              "    vec4 surface_v0 = vec4(clamp(surface_bake * surface_detail, 0.0, 1.0), v_diffuse.a);\n"
+              "    surface_specular = s.sun_colour.rgb * surface_ggx(surface_n, surface_v, s.sun.xyz, surface_rough, "
+              "s.params.w) * surface_sunlit;"});
+}
+
 void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sampled)
 {
     add(out, {"layout(set = 0, binding = ", num(kFragmentUniformsBinding), ", std140) uniform FragmentUniforms {"});
@@ -343,6 +477,9 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         if (has_stage(sampled, stage) && !key.point_sprite) {
             add(out, {"layout(location = ", num(3 + stage), ") in vec4 v_tex", num(stage), ";"});
         }
+    }
+    if (key.surface != 0) {
+        surface_declarations(out, key);
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
     if (key.motion != 0U) {
@@ -513,7 +650,8 @@ void fragment_stages(std::string& out, const FragmentKey& key, uint32_t sampled)
 
 void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
 {
-    add(out, {"    vec4 v0 = v_diffuse;\n    vec4 v1 = v_specular;\n    vec4 r0 = vec4(0.0);\n    vec4 r1 = vec4(0.0);"});
+    add(out, {"    vec4 v0 = ", key.surface != 0 ? "surface_v0" : "v_diffuse",
+              ";\n    vec4 v1 = v_specular;\n    vec4 r0 = vec4(0.0);\n    vec4 r1 = vec4(0.0);"});
     if (key.unlit != 0) {
         // The unlit twin (render_pc/view_mode.cpp): each whole v0 operand is c7 = 0.5 there. The game's shaders read v0
         // whole only into colour (rgb) results and its alpha as v0.a, which the twin leaves.
@@ -660,6 +798,9 @@ void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled
     if (key.program == PixelProgram::kMaterial) {
         textures = key.material_passes;
     }
+    if (key.surface != 0) {
+        surface_lighting(out, key); // (NOT ORIGINAL - rt_pbr)
+    }
     ps_common(out, key, textures);
     if (key.program == PixelProgram::kMaterial) {
         ps_material(out, key);
@@ -667,6 +808,9 @@ void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled
         ps_fixed(out, key.program);
     }
     add(out, {"    vec4 colour = r0;"});
+    if (key.surface != 0) {
+        add(out, {"    colour.rgb += surface_specular * s.params.x;"});
+    }
 }
 
 // Fog (after the stages or the pixel shader, as Direct3D 9 applies it): colour = f colour + (1 - f) the fog colour. Table
@@ -721,6 +865,9 @@ std::string vertex_shader_glsl(const VertexKey& key)
     vertex_position(out, key);
     vertex_normal(out, key);
     vertex_lighting(out, key);
+    if (key.surface != 0) {
+        add(out, {"    v_surface_normal = normal;\n    v_surface_eye = eye.xyz;"}); // (NOT ORIGINAL - rt_pbr)
+    }
     vertex_fog(out, key);
     vertex_coords(out, key);
     vertex_point_size(out, key);

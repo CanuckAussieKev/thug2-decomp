@@ -246,5 +246,34 @@ void set_upscale_settings(const UpscaleSettings& settings);
 // false: not one of them.
 bool parse_upscaler(const std::string& text, Upscaler* upscaler);
 bool parse_upscale_quality(const std::string& text, UpscaleQuality* quality);
+// NOT ORIGINAL - per-pixel lighting and surface maps (vulkan_surface.h; docs/design/vulkan.md "Per-pixel lighting and
+// surface maps"): [Graphics] rt_pbr, rt_pbr_specular, rt_pbr_normal_strength, rt_pbr_objects. Off: no map is read and
+// every shader is as before. No ray tracing needed; with it the bake's sun (rt_sun.h) is the light the maps answer to.
+inline constexpr float kRtPbrRoughness = 0.7F;    // (a surface without a map)
+inline constexpr float kRtPbrF0 = 0.04F;          // (a dielectric's)
+inline constexpr float kRtPbrAmbientShare = 0.45F;
+inline constexpr float kRtPbrSkyDetail = 0.5F;
+inline constexpr float kRtPbrShadeLow = 0.35F;
+inline constexpr float kRtPbrShadeHigh = 0.8F;
+inline constexpr float kRtPbrDetailLow = 0.55F;
+inline constexpr float kRtPbrDetailHigh = 1.5F;
+inline constexpr float kRtPbrGameSun = 0.5F;
+struct RtPbrSettings {
+    bool on = false;
+    float specular = 1.0F;        // rt_pbr_specular: the specular term's strength (0: none)
+    float normal_strength = 1.0F; // rt_pbr_normal_strength: the maps' normals' tilt (0: flat, 2: twice as steep)
+    float roughness = kRtPbrRoughness;        // the roughness of a surface without a map (objects lit per pixel)
+    float f0 = kRtPbrF0;                      // F0 without a map (dielectric)
+    float ambient_share = kRtPbrAmbientShare; // a: the share of a sunlit surface's baked light not from the sun
+    float sky_detail = kRtPbrSkyDetail;       // how much of a map's detail shows in the shade (toward the sky)
+    float shade_low = kRtPbrShadeLow;   // the bake's light level (luma of 2 x v0) at and below which a surface is in shade
+    float shade_high = kRtPbrShadeHigh; // ... and from which it is fully sunlit
+    float detail_low = kRtPbrDetailLow;   // the bake's scale's range (the map can darken a texel this much at most)
+    float detail_high = kRtPbrDetailHigh; // (and brighten it this much)
+    float game_sun = kRtPbrGameSun; // without a baked sun (no ray tracing): the game's shown sun's weight (0: none)
+    bool objects = true;            // rt_pbr_objects: objects lit by lights per pixel too
+};
+void set_rt_pbr_settings(const RtPbrSettings& settings);
+[[nodiscard]] RtPbrSettings rt_pbr_settings();
 
 } // namespace render::vulkan

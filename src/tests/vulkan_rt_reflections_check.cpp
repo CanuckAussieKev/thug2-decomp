@@ -1052,7 +1052,8 @@ double fresnel_exact(double n, double cosine)
     return 0.5 * ((s * s) + (p * p));
 }
 
-constexpr double kWaterF0 = 0.02; // (the pass's F0_WATER; real glass's 0.04 - rt_glass_reflectance, 0.2 by default)
+// (rt::kReflectWaterF0: the record's f0 for water; real glass's 0.04 - rt_glass_reflectance, 0.2 by default)
+constexpr double kWaterF0 = 0.02;
 constexpr double kGlassF0 = 0.04;
 
 // The weight the pass gives a floor pixel seen at `cosine` (its reflection_weight, worked out on the processor) - the

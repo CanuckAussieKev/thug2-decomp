@@ -3,7 +3,14 @@
 // make (ff_shader_check_model.h), generates each key's GLSL, compiles it with glslang, validates the SPIR-V with
 // SPIRV-Tools' validator (when the build has it: THUG2_SPIRV_VALIDATOR), and - unless --no-gpu - hands every module and
 // a pipeline for each sampled pair of shaders to a Vulkan driver (ff_shader_check_gpu.h).
-//   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER]
+//   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion]
+// --surface (NOT ORIGINAL - rt_pbr): every pair that can be lit per pixel (ff_key.h kSurface*) added again with each
+// combination of the per-pixel lighting's bits (the map, lit by lights) - compiled, validated and made into pipelines
+// with the rest.
+// --motion (the upscaler's): every pair that isn't pre-transformed added again with its motion vectors (ff_key.h
+// VertexKey::motion) - after --surface's, so the per-pixel lighting and the motion output meet in one shader. Compiled,
+// validated and handed to the driver as modules; not made into this check's pipelines (they have no motion attachment
+// or previous-position stream: thug2_vulkan_upscale_check draws with them).
 // --all-materials: every four-pass material shape, not a covering subset; --device: the physical device for the GPU
 // part (the context check's numbering); --pipelines: at most N pipelines (default: every sampled pair); --jobs: the
 // compiling threads (default 8); --dump: every generated shader's GLSL written into FOLDER (vNNNN.vert, fNNNN.frag).
@@ -45,6 +52,7 @@
 namespace {
 
 using render::vulkan::FragmentKey;
+using render::vulkan::ShaderKey;
 using render::vulkan::ShaderStage;
 using render::vulkan::VertexKey;
 
@@ -61,6 +69,8 @@ struct Options {
     int pipelines = -1;
     int jobs = kDefaultJobs;
     std::string dump;
+    bool surface = false;
+    bool motion = false;
 };
 
 Options read_options(std::span<char*> arguments)
@@ -69,7 +79,11 @@ Options read_options(std::span<char*> arguments)
     for (std::size_t i = 1; i < arguments.size(); ++i) {
         const std::string_view argument = core::at(arguments, i);
         const bool has_value = i + 1 < arguments.size();
-        if (argument == "--all-materials") {
+        if (argument == "--surface") {
+            options.surface = true;
+        } else if (argument == "--motion") {
+            options.motion = true;
+        } else if (argument == "--all-materials") {
             options.all_materials = true;
         } else if (argument == "--no-gpu") {
             options.gpu = false;
@@ -224,12 +238,64 @@ void print_breakdown(const ff_check::KeySets& sets)
 
 namespace {
 
+// (rt_pbr) Each pair again with the per-pixel lighting's bits, where the key takes them (normalised() keeps them).
+void add_surface_keys(ff_check::KeySets& sets)
+{
+    const std::vector<ShaderKey> pairs = sets.pairs;
+    std::size_t added = 0;
+    for (const ShaderKey& pair : pairs) {
+        for (const uint8_t bits : {render::vulkan::kSurfaceLighting,
+                                   static_cast<uint8_t>(render::vulkan::kSurfaceLighting | render::vulkan::kSurfaceMap),
+                                   static_cast<uint8_t>(render::vulkan::kSurfaceLighting | render::vulkan::kSurfaceLit),
+                                   static_cast<uint8_t>(render::vulkan::kSurfaceLighting | render::vulkan::kSurfaceMap |
+                                                        render::vulkan::kSurfaceLit)}) {
+            ShaderKey key = pair;
+            key.fragment.surface = bits;
+            key = render::vulkan::normalised(key);
+            if (key.fragment.surface == 0) {
+                continue;
+            }
+            sets.vertex.insert(key.vertex);
+            if (sets.fragment.insert(key.fragment).second) {
+                ++added;
+            }
+            sets.pairs.push_back(key);
+        }
+    }
+    text::print("surface: %u fragment keys lit per pixel added\n", static_cast<unsigned>(added));
+}
+
+// (the upscaler's) Each pair's halves again with the motion vectors, where the key takes them (not pre-transformed).
+void add_motion_keys(ff_check::KeySets& sets)
+{
+    std::size_t added = 0;
+    for (const ShaderKey& pair : sets.pairs) {
+        ShaderKey key = pair;
+        key.vertex.motion = 1;
+        key = render::vulkan::normalised(key);
+        if (key.vertex.motion == 0) {
+            continue;
+        }
+        sets.vertex.insert(key.vertex);
+        if (sets.fragment.insert(key.fragment).second) {
+            ++added;
+        }
+    }
+    text::print("motion: %u fragment keys with motion vectors added (modules only)\n", static_cast<unsigned>(added));
+}
+
 int run(const Options& options)
 {
     text::print("thug2_ff_shader_check: a %d-bit process, SPIR-V validator %s\n",
                 static_cast<int>(sizeof(void*)) * kBitsPerByte, kValidator ? "on" : "not built");
     const auto start = std::chrono::steady_clock::now();
-    const ff_check::KeySets sets = ff_check::measured_keys(options.all_materials);
+    ff_check::KeySets sets = ff_check::measured_keys(options.all_materials);
+    if (options.surface) {
+        add_surface_keys(sets);
+    }
+    if (options.motion) {
+        add_motion_keys(sets);
+    }
     text::print("model: %u sites, %u stage states reached, %u keys made, %u unsupported -> %u vertex keys, %u fragment "
                 "keys, %u sampled pairs (%.1f s)\n",
                 static_cast<unsigned>(sets.sites), static_cast<unsigned>(sets.tss_states),

@@ -208,6 +208,17 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   20 and the mean (signed) within 6 levels, at most 0.1% turned black and 0.5% white; a level whose bake shows no sun
   changed at most 0.1%; the `on` logs show "rt_relit: ... meshes written" (or "the bake shows no sun"), the `off` ones
   no `rt_relit:` line; the analysis's lines and the frame times reported.
+  `--effect pbr` (both commands): per-pixel lighting and surface maps (`[Graphics] rt_pbr`) - `rt_pbr=0` / `1`, the rest
+  of the ini as the workspace has it with `--set`'s values (the user's look: `--set Graphics.ray_tracing=1 ...`); make
+  the workspace's maps first (`node tools/pbr_maps/pbr_maps.ts make --game <workspace> --levels foun,z_dt,bo,...`,
+  under its lock; `remove` after). `--expect drawn`: the mean luma change at most 25, at most 0.1% turned black and 2%
+  white, some spot changed by 0.5% or more; the `on` logs showing "rt_pbr: per-pixel lighting on" and maps attached,
+  the `off` ones neither; each configuration's frame times reported.
+  `--effect upscale [--upscaler dlss|fsr|auto[:dlaa|quality|balanced|performance|ultra]]` (both commands): upscaling
+  (`[Graphics] upscaler`) - `off` upscaler=off (the window's size, the workspace's msaa), `on` the `--upscaler` given
+  (fsr:quality by default), the rest as the ini and --set have it. compare: per spot, `on` against `off` - PSNR (at
+  least 20 dB) and SSIM (luma, 8 x 8 windows), at most 0.2% turned black; each configuration's frame time; the `on`
+  logs must show "upscaler: the first frame upscaled by" and no failure, the `off` ones no upscaled frame.
 - `node tools/game/tess_gap.ts run --game C:\Games\THUG2-<n> --build <x64 build> --level <name> --at x,y,z,heading --out
   <folder> [--set S.key=v]...` - how far the drawn surfaces are from the collision with `rt_tessellation` 0 and 1: under
   the workspace's lock, the build deployed, the level loaded twice (`ray_tracing=1`), the skater stood at --at and a fan

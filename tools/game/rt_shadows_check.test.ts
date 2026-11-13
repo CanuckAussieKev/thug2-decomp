@@ -8,6 +8,7 @@ import type { Image } from "thug2-level-converter-core/lib/frame_diff.ts";
 import { readPlan } from "./renderer_parity.ts";
 import {
     anyShadow,
+    blackenedShare,
     brighterAllowances,
     configValues,
     darkestRatio,
@@ -21,7 +22,10 @@ import {
     logProblems,
     noiseOf,
     otsuThreshold,
+    psnr,
+    setUpscalerOn,
     shadowDifference,
+    ssim,
     tessTotals,
 } from "./rt_shadows_check.ts";
 
@@ -554,4 +558,54 @@ test("relit: its ini values and log lines", () => {
     assert.match(logProblems("off", written, "shadows", "relit").join(), /relit lines in the off log/);
     assert.deepEqual(logProblems("off", "", "shadows", "relit"), []);
     assert.match(logProblems("on", "EXCEPTION at 0x1", "shadows", "relit").join(), /EXCEPTION/);
+});
+
+const PBR: Limits = { ...LIMITS, expect: "shadows", strength: 1, effect: "pbr" };
+
+test("pbr: a little lighter and darker passes; a big change, black or white-out fails; its ini values and logs", () => {
+    const off = flat(40, 40, 120);
+    const bumped = { ...off, rgb: new Uint8Array(off.rgb) };
+    for (let i = 0; i < bumped.rgb.length; i += 6) bumped.rgb[i] = 140; // (every other pixel a little lighter)
+    assert.deepEqual(judgeSpot("a", shadowDifference(off, bumped, null, 8), null, PBR).problems, []);
+    assert.ok(anyShadow([judgeSpot("a", shadowDifference(off, bumped, null, 8), null, PBR)], PBR));
+    assert.match(
+        judgeSpot("b", shadowDifference(off, flat(40, 40, 200), null, 8), null, PBR).problems.join(),
+        /luma by 80/,
+    );
+    assert.match(
+        judgeSpot("c", shadowDifference(off, shaded(off, 30, 0), null, 8), null, PBR).problems.join(),
+        /turned black/,
+    );
+    assert.deepEqual(configValues("on", "pbr"), { "Graphics.rt_pbr": "1" });
+    assert.deepEqual(configValues("off", "pbr"), { "Graphics.rt_pbr": "0" });
+    const on =
+        "rt_pbr: per-pixel lighting on (specular 1.00, normals 1.00, objects too)\n" +
+        "surface maps: levels/bo/bo.tex.xbx.pbr - 377 of 377 maps attached";
+    assert.deepEqual(logProblems("on", on, "shadows", "pbr"), []);
+    assert.match(logProblems("on", "rt_pbr: per-pixel lighting on", "shadows", "pbr").join(), /no surface map/);
+    assert.match(logProblems("off", on, "shadows", "pbr").join(), /in the off log/);
+    assert.deepEqual(logProblems("off", "", "shadows", "pbr"), []);
+});
+
+test("upscale: --upscaler, its ini values and the pictures' likeness", () => {
+    assert.equal(setUpscalerOn("dlss:performance"), true);
+    assert.deepEqual(configValues("on", "upscale"), {
+        "Graphics.upscaler": "dlss",
+        "Graphics.upscale_quality": "performance",
+    });
+    assert.equal(setUpscalerOn("fsr"), true);
+    assert.deepEqual(configValues("on", "upscale"), {
+        "Graphics.upscaler": "fsr",
+        "Graphics.upscale_quality": "quality",
+    });
+    assert.deepEqual(configValues("off", "upscale"), { "Graphics.upscaler": "off" });
+    assert.deepEqual(configValues("baseline", "upscale"), {});
+    assert.equal(setUpscalerOn("off"), false);
+    assert.equal(setUpscalerOn("xess:quality"), false);
+    const off = flat(16, 16, 120);
+    assert.equal(psnr(off, off), 99);
+    assert.ok(Math.abs(ssim(off, off) - 1) < 1e-9);
+    assert.ok(psnr(flat(16, 16, 130), off) < psnr(flat(16, 16, 121), off));
+    assert.equal(blackenedShare(off, off), 0);
+    assert.equal(blackenedShare(shaded(off, 8, 0), off), 0.5);
 });

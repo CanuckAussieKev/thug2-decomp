@@ -39,6 +39,7 @@
 #include "tests/format_check_files.h"
 #include "tests/format_check_net.h"
 #include "tests/format_check_demo.h"
+#include "tests/format_check_surface.h"
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -912,6 +913,7 @@ int run_checks(int argc, char** argv)
     check_skate_messages();
     failures() += format_check_net::run();
     failures() += format_check_demo::run();
+    failures() += format_check_surface::run();
     for (int i = 1; i < argc; ++i) {
         const std::filesystem::path path(core::at(std::span(argv, static_cast<size_t>(argc)), i));
         if (std::filesystem::is_directory(path / "pre")) { // a Data folder: its archives and files

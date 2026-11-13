@@ -367,6 +367,18 @@ void read_upscale()
     render::vulkan::set_upscale_settings(upscale);
 }
 
+// NOT ORIGINAL - per-pixel lighting and the surface maps beside the textures (gpu_vulkan/vulkan_surface.h): off unless
+// asked for; no ray tracing needed (with it, the bake's sun found by ray tracing lights the maps)
+void read_rt_pbr()
+{
+    const render::vulkan::RtPbrSettings defaults;
+    render::vulkan::set_rt_pbr_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_pbr", false),
+         .specular = std::max(0.0F, ini_float("rt_pbr_specular", defaults.specular)),
+         .normal_strength = std::max(0.0F, ini_float("rt_pbr_normal_strength", defaults.normal_strength)),
+         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true)});
+}
+
 // The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting
 // with it, `prefix`) and what reads its effect's settings again. Everything else - renderer, ray_tracing, rt_hdr,
 // upscaling, rt_tessellation - waits for the restart.
@@ -407,6 +419,8 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_cloud_", .prefix = true, .read = &read_rt_sky},
     LiveKey{.key = "rt_relit", .prefix = false, .read = &read_rt_relit},
     LiveKey{.key = "rt_relit_", .prefix = true, .read = &read_rt_relit},
+    LiveKey{.key = "rt_pbr", .prefix = false, .read = &read_rt_pbr},
+    LiveKey{.key = "rt_pbr_", .prefix = true, .read = &read_rt_pbr},
 };
 
 // A [Graphics] key changed while the game runs: its effect's settings read again (true), or false when it waits for
@@ -446,6 +460,7 @@ void install_vulkan()
     read_rt_sky();
     read_rt_relit();
     read_upscale();
+    read_rt_pbr();
     render::graphics_options::set_live_reload(&reload_live_key);
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());

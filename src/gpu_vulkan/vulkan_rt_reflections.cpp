@@ -106,7 +106,6 @@ const uint CLASS_WATER = 1u;      // (rt::kReflectWater, kReflectGlass)
 const uint CLASS_GLASS = 2u;
 const uint MASK_BASE_CLEAR = 1u;  // (rt::kReflectWhereBaseClear / Opaque)
 const uint MASK_BASE_OPAQUE = 2u;
-const float F0_WATER = 0.02;      // the reflectance face-on (Schlick's F0): water's, index 1.33 (glass's: fresnel.w)
 
 
 // How much of the reflection the pixel shows: `c` the cosine between the view and the surface's normal.
@@ -115,7 +114,8 @@ const float F0_WATER = 0.02;      // the reflectance face-on (Schlick's F0): wat
 //    2 strength (at most 1: the default strength, 0.5, is the physical amount);
 //  - other shiny surfaces: reflectivity x strength face-on (as before), rising by Schlick's curve toward the
 //    reflectivity x 2 strength (at most the reflectivity) at grazing angles.
-float reflection_weight(float reflectivity, uint kind, float c)
+//  `f0_material`: the record's f0 (water's: rt::kReflectWaterF0); glass takes fresnel.w (rt_glass_reflectance)
+float reflection_weight(float reflectivity, uint kind, float f0_material, float c)
 {
     float strength = pass.params.x;
     if (pass.fresnel.x < 0.5) {
@@ -124,7 +124,7 @@ float reflection_weight(float reflectivity, uint kind, float c)
     float schlick = pow(1.0 - clamp(c, 0.0, 1.0), 5.0);
     float most = reflectivity * min(1.0, 2.0 * strength);
     if (kind == CLASS_WATER || kind == CLASS_GLASS) {
-        float f0 = kind == CLASS_WATER ? F0_WATER : pass.fresnel.w;
+        float f0 = kind == CLASS_WATER ? f0_material : pass.fresnel.w;
         return most * (f0 + (1.0 - f0) * schlick);
     }
     float face_on = reflectivity * strength;
@@ -267,7 +267,7 @@ void main()
                     // (the mask: where on its texture the surface reflects - the first pass's alpha at the pixel's
                     // footprint, as the game's pixel shader lerps its environment pass in)
                     float mask = 1.0;
-                    float weight = reflection_weight(reflectivity, surface.reflection_class, -dot(view, n));
+                    float weight = reflection_weight(reflectivity, surface.reflection_class, surface.f0, -dot(view, n));
                     if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {
                         vec2 bary = rayQueryGetIntersectionBarycentricsEXT(query, true);
                         vec4 texel = material_texel_lod(id, hit_uv(v, bary), level_for(id, v, a, b, c, pass.ambient.w * t));

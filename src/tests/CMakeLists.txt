@@ -8,7 +8,8 @@ if(TARGET thug2_wire)
         format_check.cpp
         format_check_net.cpp
         format_check_files.cpp
-        format_check_demo.cpp)
+        format_check_demo.cpp
+        format_check_surface.cpp)
     target_link_libraries(thug2_format_check PRIVATE thug2_wire)
 endif()
 
@@ -159,6 +160,17 @@ if(TARGET thug2_gpu_vulkan)
     add_executable(thug2_vulkan_rt_effects_check vulkan_rt_effects_check.cpp)
     target_link_libraries(thug2_vulkan_rt_effects_check PRIVATE thug2_gpu_vulkan sdl3)
     target_compile_definitions(thug2_vulkan_rt_effects_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
+# NOT ORIGINAL - thug2_vulkan_pbr_check.exe: the Vulkan Gpu's per-pixel lighting and surface maps (gpu_vulkan/
+# vulkan_surface.h, [Graphics] rt_pbr) on this machine - quads drawn with the game's material shader and a synthetic
+# normal / roughness map into a float target, each pixel against the same light worked out on the processor: lit and
+# baked, turned, mirrored and rotated texture coordinates, no normals, no map, the setting off (the original's shader),
+# no NaN (src/tests/vulkan_pbr_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_pbr_check vulkan_pbr_check.cpp)
+    target_link_libraries(thug2_vulkan_pbr_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_pbr_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
 # NOT ORIGINAL - thug2_vulkan_hdr_check.exe: the Vulkan Gpu's HDR targets and tone mapping (gpu_vulkan/vulkan_hdr.h) on

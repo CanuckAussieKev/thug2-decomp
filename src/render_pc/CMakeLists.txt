@@ -44,6 +44,7 @@ add_library(thug2_render_pc STATIC
     pc_scene.cpp
     pc_sprite.cpp
     pc_texture.cpp
+    surface_map_load.cpp
     pc_texture_projection.cpp
     pc_viewport.cpp
     pc_weather.cpp

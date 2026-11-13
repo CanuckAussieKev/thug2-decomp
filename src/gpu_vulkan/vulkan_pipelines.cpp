@@ -146,7 +146,7 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
 {
     device_ = device;
     folder_ = folder;
-    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount> bindings{};
+    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 2> bindings{};
     core::at(bindings, 0) = {.binding = kVertexUniformsBinding,
                              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                              .descriptorCount = 1,
@@ -164,6 +164,18 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                          .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                          .pImmutableSamplers = nullptr};
     }
+    // (NOT ORIGINAL - rt_pbr, vulkan_surface.h) the per-pixel lighting's block and surface map: pushed only for the keys
+    // that read them, so the other draws' shaders and descriptors are as before
+    core::at(bindings, 2 + kStageCount) = {.binding = kSurfaceUniformsBinding,
+                                           .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                           .descriptorCount = 1,
+                                           .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                           .pImmutableSamplers = nullptr};
+    core::at(bindings, 3 + kStageCount) = {.binding = kSurfaceMapBinding,
+                                           .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                           .descriptorCount = 1,
+                                           .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                           .pImmutableSamplers = nullptr};
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,

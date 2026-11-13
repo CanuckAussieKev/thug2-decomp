@@ -17,6 +17,9 @@
 //                                                             a converter rewrote an overlay, or a new emitter)
 //   node tools/qbjs/unpack_game.ts --game <folder> --restore  everything put back as it was, the made files removed
 //   [--check]  the script check's translation (emit_ts.ts check) - for its runs only, never the game's
+//   [--pbr-maps classical|chord|none]  (NOT ORIGINAL - [Graphics] rt_pbr) surface maps made beside the level texture
+//              dictionaries (tools/pbr_maps/pbr_maps.ts; chord also needs --chord <folder>), recorded with the made
+//              files so --restore removes them; none (the default) makes none
 //   [--hd-textures pbrify|seedvr2|none]  after unpacking (or on a game already unpacked: only this) the levels'
 //              textures upscaled by that AI model and installed - none (the default) puts the originals back;
 //              [--hd-levels BO,AU] only those levels, [--hd-scope all] every .tex.xbx, not only the levels' - the
@@ -29,6 +32,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import { basename, dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
+import { chordGenerator } from "../pbr_maps/chord.ts";
+import { make as makeSurfaceMaps } from "../pbr_maps/pbr_maps.ts";
 import * as hdBase from "../pipeline/hd_textures/base.ts";
 import { emitData } from "./emit_data.ts";
 import { emitTS } from "./emit_ts.ts";
@@ -143,7 +148,14 @@ export function restore(game: string): { moved: number; removed: number } {
     return { moved, removed: record.made.length + record.folders.length };
 }
 
-export function unpack(game: string, check = false): { record: Record; failed: string[] } {
+// The surface maps' generator (--pbr-maps): none, the classical one, or CHORD from the player's own set-up.
+export type PbrMaps = { generator: "none" | "classical" | "chord"; chord?: string | undefined };
+
+export function unpack(
+    game: string,
+    check = false,
+    pbr: PbrMaps = { generator: "none" },
+): { record: Record; failed: string[] } {
     const root = gameRoot(game);
     if (readRecord(root)) throw Error(`${root}: already unpacked (--refresh to do it again, --restore to put it back)`);
     // (unpacked with its record gone - the backup folder moved away: the boot scripts' archive missing, its .ts there -
@@ -319,6 +331,14 @@ export function unpack(game: string, check = false): { record: Record; failed: s
         for (const folder of record.folders) if (existsSync(join(root, folder))) prune(join(root, folder));
         save();
     }
+    if (pbr.generator !== "none") {
+        const maps = makeSurfaceMaps(root, {
+            generator: pbr.generator,
+            model: pbr.generator === "chord" ? chordGenerator(pbr.chord) : undefined,
+        });
+        record.made.push(...maps.made);
+        save();
+    }
     writeFileSync(
         join(root, BACKUP, "README.txt"),
         "The game's archives and .qb scripts (and the loose files the archives' copies replaced), moved here by\r\n" +
@@ -335,18 +355,31 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (!game)
         throw Error(
             "Usage: node tools/qbjs/unpack_game.ts --game <folder> [--refresh | --restore] [--check] " +
-                "[--hd-textures pbrify|seedvr2|none [--hd-levels a,b] [--hd-scope levels|all]]",
+                "[--hd-textures pbrify|seedvr2|none [--hd-levels a,b] [--hd-scope levels|all]] " +
+                "[--pbr-maps classical|chord|none [--chord <folder>]]",
         );
     const hd = hdBase.parseBaseArgs(args);
     if (args.includes("--restore") || args.includes("--refresh")) {
         const put = restore(game);
         console.log(`put back: ${put.moved} files moved back, ${put.removed} made files / folders removed`);
     }
+    const pbrAt = args.indexOf("--pbr-maps");
+    const generator = pbrAt >= 0 ? args[pbrAt + 1] : "none";
+    if (generator === "pbrnxt") throw Error("--pbr-maps pbrnxt: no such model was found (classical or chord)");
+    if (generator !== "none" && generator !== "classical" && generator !== "chord")
+        throw Error(`--pbr-maps ${generator}: classical, chord or none`);
+    // (the maps are matched to their textures by content: made from the originals, upscaled ones would find none)
+    if (generator !== "none" && hd.model)
+        throw Error("--pbr-maps with --hd-textures: install the textures first, then make the maps (pbr_maps.ts make)");
     if (!args.includes("--restore") && !args.includes("--refresh") && hd.model && readRecord(gameRoot(game))) {
         // (already unpacked: only the textures)
         hdBase.installAndReport(gameRoot(game), hd);
     } else if (!args.includes("--restore")) {
-        const { record, failed } = unpack(game, args.includes("--check"));
+        const chordAt = args.indexOf("--chord");
+        const { record, failed } = unpack(game, args.includes("--check"), {
+            generator,
+            chord: chordAt >= 0 ? args[chordAt + 1] : undefined,
+        });
         for (const name of failed) console.log(`ERROR - doesn't translate (the game won't load it): ${name}`);
         console.log(
             `unpacked: ${record.moved.length} files moved to ${BACKUP}, ${record.made.length} files made (the .ts and the ` +
