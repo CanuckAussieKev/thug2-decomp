@@ -130,6 +130,7 @@ add_library(thug2_engine STATIC
     gfx/rt_scene.cpp
     gfx/rt_sun.cpp
     gfx/rt_sky.cpp
+    gfx/rt_relit.cpp
     gfx/ui_backend.cpp
     gfx/view_modes.cpp
     gfx/occlusion.cpp
@@ -325,6 +326,21 @@ add_library(thug2_engine STATIC
 )
 # (the UI fonts, compressed at build time: ui/ui_fonts.cpp includes them)
 target_include_directories(thug2_engine PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
+# NOT ORIGINAL - the relit mode's per-level choices (gfx/rt_relit_levels.json) built into the exe as text: gfx/rt_relit.cpp
+# includes the generated rt_relit_levels.h (made again when the JSON changes)
+set(THUG2_RELIT_LEVELS_JSON "${CMAKE_CURRENT_SOURCE_DIR}/gfx/rt_relit_levels.json")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${THUG2_RELIT_LEVELS_JSON}")
+file(READ "${THUG2_RELIT_LEVELS_JSON}" THUG2_RELIT_LEVELS_TEXT)
+file(CONFIGURE OUTPUT "${CMAKE_BINARY_DIR}/relit_levels/rt_relit_levels.h"
+     CONTENT "#pragma once
+// Generated from src/engine/gfx/rt_relit_levels.json (src/engine/CMakeLists.txt).
+#include <string_view>
+namespace render::rt {
+inline constexpr std::string_view kRelitLevelsJson = R\"json(@THUG2_RELIT_LEVELS_TEXT@)json\";
+} // namespace render::rt
+"
+     @ONLY)
+target_include_directories(thug2_engine PRIVATE "${CMAKE_BINARY_DIR}/relit_levels")
 add_dependencies(thug2_engine editor_fonts)
 # lzham: THUGPRO's compression method (net/net_lzham.cpp); imgui: our UI layers' backend (ui/ui_backend.cpp: the current
 # ImGui context's own part)

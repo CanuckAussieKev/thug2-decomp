@@ -26,6 +26,7 @@
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/rt_checks.h"
+#include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "platform/run_log.h"
@@ -708,6 +709,30 @@ std::string console_command(const std::string& arguments)
                 static_cast<double>(std::get<1>(toward)), static_cast<double>(std::get<2>(toward)));
         return "sun set";
     }
+    if (verb == "relit") {
+        // (the relit mode, engine/gfx/rt_relit.h: on / off, its strength, the residual; no word: its state)
+        rt::RelitSettings settings = rt::relit_settings();
+        if (file == "on" || file == "off") {
+            settings.on = file == "on";
+        } else if (file == "strength") {
+            float strength = settings.strength;
+            in >> strength;
+            settings.strength = strength;
+        } else if (file == "residual") {
+            int residual = settings.residual ? 1 : 0;
+            in >> residual;
+            settings.residual = residual != 0;
+        } else if (!file.empty()) {
+            return "rt relit [on | off | strength <0-1> | residual <0|1>]";
+        }
+        if (!file.empty()) {
+            rt::set_relit_settings(settings);
+            get_log("rt: relit %s", file.c_str());
+        }
+        const std::string text = rt::relit_status();
+        get_log("rt: %s", text.c_str());
+        return text;
+    }
     if (verb == "summary" || verb.empty()) {
         if (rt::ray_tracing() != &checker()) {
             return "the contract check isn't on ([debug] rt_contract_check=1)";
@@ -716,7 +741,7 @@ std::string console_command(const std::string& arguments)
         get_log("%s", text.c_str());
         return text;
     }
-    return "rt summary | rt dump [file] | rt sun [<x> <y> <z> | off] | rt agree <x> <z>";
+    return "rt summary | rt dump [file] | rt sun [<x> <y> <z> | off] | rt agree <x> <z> | rt relit [on | off | strength <v> | residual <0|1>]";
 }
 
 std::string record_json(const rt::FrameRecord& record)

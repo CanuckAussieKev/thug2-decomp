@@ -10,6 +10,7 @@
 #include <string>
 
 #include "engine/gfx/render_device.h"
+#include "engine/gfx/rt_relit.h"
 #include "engine/gfx/ui_backend.h"
 #include "engine/sys/editor_mode.h"
 #include "platform/platform_config.h"
@@ -86,6 +87,38 @@ void read_rt_shadow_sun(render::vulkan::RtShadowSettings* settings)
         settings->fixed_sun = toward;
     } else if (!value.empty() && value != "bake") {
         get_log("[Graphics] rt_shadow_sun=%s isn't bake, light or x,y,z - the baked sun used", value.c_str());
+    }
+}
+
+// [Graphics] rt_relit_sun: bake (the default: the level's baked sun), game (the sun the game shows) or x,y,z (toward
+// the sun); anything else is the default, logged.
+void read_rt_relit_sun(render::rt::RelitSettings* settings)
+{
+    constexpr std::size_t kLongest = 64;
+    std::array<char, kLongest> text{};
+    build_info::fetch_text(build_info::kGraphics, "rt_relit_sun", "bake", text.data(), text.size());
+    const std::string value(text.data());
+    if (value == "game") {
+        settings->sun = render::rt::RelitSun::kGame;
+        return;
+    }
+    std::array<float, 3> toward{};
+    std::size_t read = 0;
+    std::istringstream numbers(value);
+    std::string number;
+    while (read < toward.size() && std::getline(numbers, number, ',')) {
+        char* end = nullptr;
+        const double parsed = std::strtod(number.c_str(), &end);
+        if (end == number.c_str() || !std::isfinite(parsed)) {
+            break;
+        }
+        toward.at(read++) = static_cast<float>(parsed);
+    }
+    if (read == toward.size()) {
+        settings->sun = render::rt::RelitSun::kFixed;
+        settings->fixed = toward;
+    } else if (!value.empty() && value != "bake") {
+        get_log("[Graphics] rt_relit_sun=%s isn't bake, game or x,y,z - the baked sun used", value.c_str());
     }
 }
 
@@ -219,6 +252,22 @@ void install_vulkan()
         build_info::fetch_text(build_info::kGraphics, "rt_sun_place", "game", place.data(), place.size());
         sun.place_game = std::string(place.data()) != "bake";
         render::vulkan::set_rt_sun_settings(sun);
+    }
+    // NOT ORIGINAL - the relit mode (engine/gfx/rt_relit.h, render_pc/rt_relit_world.h): off unless asked for; it needs
+    // ray tracing (the rays that take the bake apart)
+    {
+        render::rt::RelitSettings relit{
+            .on = build_info::fetch_flag(build_info::kGraphics, "rt_relit", false),
+            .strength = ini_float("rt_relit_strength", render::rt::RelitSettings{}.strength),
+            .residual = build_info::fetch_flag(build_info::kGraphics, "rt_relit_residual", true),
+            .detail = ini_float("rt_relit_detail", render::rt::RelitSettings{}.detail),
+            .sky_rays = static_cast<uint32_t>(std::max(
+                1, build_info::get_int(build_info::kGraphics, "rt_relit_sky_rays", static_cast<int>(render::rt::kRelitSkyRays)))),
+            .sun_rays = static_cast<uint32_t>(std::max(
+                1, build_info::get_int(build_info::kGraphics, "rt_relit_sun_rays", static_cast<int>(render::rt::kRelitSunRays)))),
+            .cache = build_info::fetch_flag(build_info::kGraphics, "rt_relit_cache", true)};
+        read_rt_relit_sun(&relit);
+        render::rt::set_relit_settings(relit);
     }
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
