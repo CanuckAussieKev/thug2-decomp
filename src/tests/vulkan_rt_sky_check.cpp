@@ -31,6 +31,8 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <fstream>
+#include <ios>
 #include <limits>
 #include <mutex>
 #include <numbers>
@@ -125,7 +127,6 @@ constexpr uint64_t kPlainSerial = 102;
 constexpr float kLeastCloudShare = 0.1F;
 constexpr float kMostCloudShare = 0.6F;
 constexpr double kMostMatchError = 0.03;
-constexpr float kWholeShare = 0.99F;
 // the composite's
 constexpr double kFloatFloor = 0.05;
 constexpr double kMostFloatError99 = 0.01;
@@ -157,6 +158,8 @@ struct Options {
     int device = -1;
     bool validation = true;
     bool perf = false;
+    std::string pictures;   // --pictures <folder>: the sky's look from a few poses, as .bmp files (no checks)
+    float coverage = -1.0F; // --coverage <0 - 1> for the pictures (else a few)
 };
 
 Options read_options(std::span<char*> arguments)
@@ -171,6 +174,10 @@ Options read_options(std::span<char*> arguments)
             options.perf = true;
         } else if (argument == "--device" && has_value) {
             options.device = text::to_int(core::at(arguments, ++i));
+        } else if (argument == "--pictures" && has_value) {
+            options.pictures = core::at(arguments, ++i);
+        } else if (argument == "--coverage" && has_value) {
+            options.coverage = static_cast<float>(text::to_double(core::at(arguments, ++i)));
         } else if (argument == "--display" && has_value) {
             options.display = text::to_int(core::at(arguments, ++i));
         }
@@ -711,8 +718,24 @@ void run_atmosphere(render::Gpu& gpu, Tally* tally)
             for (uint32_t column = 0; column < view.width; column += kViewColumnStep) {
                 const rt::Dir dir =
                     rt::sky_view_direction({(column + kHalf) / view.width, (row + kHalf) / view.height});
-                const rt::Rgb want = rt::sky_radiance_ms(dir, rt::sun_direction_at(elevation),
-                                                         {.view = rt::kSkyViewSteps, .light = 256}, cpu_table);
+                constexpr uint32_t kReferenceLight = 256;
+                rt::Rgb want = rt::sky_radiance_ms(dir, rt::sun_direction_at(elevation),
+                                                   {.view = rt::kSkyViewSteps, .light = kReferenceLight}, cpu_table);
+                if (core::at(dir, 1) < 0.0) {
+                    // below the horizon: the horizon's haze in that azimuth giving way to the model's ground
+                    const double across = std::hypot(core::at(dir, 0), core::at(dir, 2));
+                    const double flat = std::cos(vk::kHazeElevation) / std::max(across, kParallel);
+                    const rt::Dir level{core::at(dir, 0) * flat, std::sin(vk::kHazeElevation), core::at(dir, 2) * flat};
+                    const rt::Rgb haze =
+                        rt::sky_radiance_ms(level, rt::sun_direction_at(elevation),
+                                            {.view = rt::kSkyViewSteps, .light = kReferenceLight}, cpu_table);
+                    const double below = std::clamp(-std::asin(core::at(dir, 1)) / vk::kBelowFade, 0.0, 1.0);
+                    const double share = vk::kBelowShare * below * below * (3.0 - (2.0 * below));
+                    for (std::size_t channel = 0; channel < 3; ++channel) {
+                        core::at(want, channel) =
+                            core::at(haze, channel) + ((core::at(want, channel) - core::at(haze, channel)) * share);
+                    }
+                }
                 const std::array<float, 4>& got =
                     core::at(view.texels, (static_cast<std::size_t>(row) * view.width) + column);
                 for (std::size_t channel = 0; channel < 3; ++channel) {
@@ -746,8 +769,9 @@ void run_atmosphere(render::Gpu& gpu, Tally* tally)
 // --- 2. the match --------------------------------------------------------------------------------------------------------
 
 constexpr uint32_t kFace = 64;
-// A painted sky: blue darkening upward, white cloud blobs 10 - 40 degrees up, a dark sea below the horizon.
-std::vector<uint8_t> painted_sky()
+// A painted sky: blue darkening upward, white cloud blobs 10 - 40 degrees up, a dark sea below the horizon (with
+// `khaki_ring`: a khaki ring from 6 degrees down to the horizon, as some domes paint the far ground).
+std::vector<uint8_t> painted_sky(bool khaki_ring = false)
 {
     constexpr uint32_t kFaces = 6;
     constexpr uint32_t kAcross = 3;
@@ -755,6 +779,8 @@ std::vector<uint8_t> painted_sky()
     constexpr Rgb kLow{0.75, 0.82, 0.95};  // the sky at the horizon
     constexpr Rgb kRise{0.45, 0.32, 0.05}; // darker by this overhead
     constexpr Rgb kCloud{0.93, 0.93, 0.95};
+    constexpr Rgb kKhaki{0.58, 0.52, 0.33};
+    constexpr double kRingLowest = -6.0;
     constexpr double kCloudLowest = 10.0; // degrees
     constexpr double kCloudHighest = 40.0;
     constexpr double kCloudLobes = 5.0; // round the horizon
@@ -777,6 +803,9 @@ std::vector<uint8_t> painted_sky()
                         rgb = kCloud;
                     }
                 }
+                if (khaki_ring && elevation >= kRingLowest && elevation < 0.0) {
+                    rgb = kKhaki;
+                }
                 const std::size_t at = ((static_cast<std::size_t>(((face / kAcross) * kFace) + row) * kFace * kAcross) +
                                         (static_cast<std::size_t>(face % kAcross) * kFace) + column) *
                                        kPixelBytes;
@@ -790,11 +819,9 @@ std::vector<uint8_t> painted_sky()
     return bytes;
 }
 
-void run_match(render::Gpu& gpu, Tally* tally)
+// A capture texture holding `bytes` (3 x 2 faces of kFace; nullptr: it couldn't be made).
+render::GpuTexture* capture_texture(render::Gpu& gpu, const std::vector<uint8_t>& bytes)
 {
-    text::print("the level's sky matched:\n");
-    const std::vector<uint8_t> bytes = painted_sky();
-    vk::set_rt_sky_settings(sky_settings(true, false, 1.0F));
     render::GpuTexture* texture = nullptr;
     const bool made = gpu.create_texture({.width = kFace * 3,
                                           .height = kFace * 2,
@@ -815,7 +842,89 @@ void run_match(render::Gpu& gpu, Tally* tally)
         }
         filled = gpu.unlock_texture(texture, 0) == value::kResultOk;
     }
-    tally->check(filled, "a capture texture painted (a blue sky, white clouds, a dark sea)");
+    if (!filled && texture != nullptr) {
+        gpu.release_texture(texture);
+        texture = nullptr;
+    }
+    return texture;
+}
+
+// Below the horizon the horizon's haze, not the capture's dark sea: just under it the table's colour is the one just
+// above it (no band), lower down it stays within the haze and the model's ground (never the sea's blue-black).
+void check_below_horizon(const vk::AtmosphereTexels& view, Tally* tally)
+{
+    constexpr int kAzimuths = 32;
+    constexpr double kAbove = 0.8; // degrees
+    constexpr double kBelow = -0.8;
+    constexpr double kDeep = -8.0;
+    constexpr double kMostStep = 0.08;  // the luma's change across the horizon (relative)
+    constexpr double kMostTint = 0.04;  // the chromaticity's
+    constexpr double kLeastDeep = 0.35; // 8 degrees down: at least this share of the horizon's luma
+    double worst_step = 0.0;
+    double worst_tint = 0.0;
+    double darkest = 1.0;
+    const auto toward = [](double elevation, double azimuth) {
+        const double up = elevation * kDegrees;
+        return Vec3{std::cos(up) * std::cos(azimuth), std::sin(up), std::cos(up) * std::sin(azimuth)};
+    };
+    for (int index = 0; index < kAzimuths; ++index) {
+        const double azimuth = 2.0 * kPi * (index + kHalf) / kAzimuths;
+        const Rgb above = sky_view_at(view, toward(kAbove, azimuth), to_sun());
+        const Rgb below = sky_view_at(view, toward(kBelow, azimuth), to_sun());
+        const Rgb deep = sky_view_at(view, toward(kDeep, azimuth), to_sun());
+        const double la = std::max(luma(above), kTinyLuma);
+        worst_step = std::max(worst_step, std::abs(luma(below) - la) / la);
+        const double sa = core::at(above, 0) + core::at(above, 1) + core::at(above, 2);
+        const double sb = core::at(below, 0) + core::at(below, 1) + core::at(below, 2);
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            worst_tint = std::max(worst_tint, std::abs((core::at(below, ch) / std::max(sb, kTinyLuma)) -
+                                                       (core::at(above, ch) / std::max(sa, kTinyLuma))));
+        }
+        darkest = std::min(darkest, luma(deep) / la);
+    }
+    tally->check(worst_step < kMostStep && worst_tint < kMostTint && darkest > kLeastDeep,
+                 text::format("  below the horizon the horizon's haze, not the capture's sea: across it luma %.3f, "
+                              "tint %.4f; 8 degrees down at least %.2f of the horizon's luma",
+                              worst_step, worst_tint, darkest));
+}
+
+// A khaki ring painted below the horizon changes nothing: the analysis's bands above the horizon, the clouds' share and
+// the gains are the plain capture's.
+void check_ring_ignored(render::Gpu& gpu, const Targets& targets, const vk::RtSkyMatch& plain, Tally* tally)
+{
+    constexpr uint64_t kRingSerial = 103;
+    render::GpuTexture* texture = capture_texture(gpu, painted_sky(true));
+    rt::set_sky_capture({.texture = texture, .face_size = kFace, .serial = kRingSerial, .scene = 2, .clear = {}});
+    draw_frame(gpu, targets, sky_pose());
+    const vk::RtSkyMatch ringed = vk::rt_sky_match();
+    bool same = texture != nullptr && ringed.capture_serial == kRingSerial &&
+                std::abs(ringed.look.coverage - plain.look.coverage) < kSameValue && ringed.coverage == plain.coverage;
+    for (std::size_t band = 1; band < rt::kSkyBands; ++band) {
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            same = same &&
+                   std::abs(core::at(core::at(ringed.look.clear, band), ch) -
+                            core::at(core::at(plain.look.clear, band), ch)) < kSameValue &&
+                   core::at(core::at(ringed.atmosphere.gains, band - 1), ch) ==
+                       core::at(core::at(plain.atmosphere.gains, band - 1), ch);
+        }
+    }
+    const auto ground = static_cast<std::size_t>(rt::SkyBand::kGround);
+    const bool seen = std::abs(core::at(core::at(ringed.look.all, ground), 0) -
+                               core::at(core::at(plain.look.all, ground), 0)) > kSameValue;
+    tally->check(same && seen, "  a khaki ring painted below the horizon: seen by the analysis's ground band, "
+                               "the match the same (bands above it, the clouds' share, the gains)");
+    if (texture != nullptr) {
+        gpu.release_texture(texture);
+    }
+}
+
+void run_match(render::Gpu& gpu, Tally* tally)
+{
+    text::print("the level's sky matched:\n");
+    const std::vector<uint8_t> bytes = painted_sky();
+    vk::set_rt_sky_settings(sky_settings(true, false, 1.0F));
+    render::GpuTexture* texture = capture_texture(gpu, bytes);
+    tally->check(texture != nullptr, "a capture texture painted (a blue sky, white clouds, a dark sea)");
     const rt::SkyLook want = rt::analyse_sky({.bytes = bytes, .face_size = kFace, .bgra = true, .clear = {1, 2, 3}});
     Targets targets;
     make_targets(gpu, kTargetWidth, kTargetHeight, false, &targets);
@@ -878,8 +987,7 @@ void run_match(render::Gpu& gpu, Tally* tally)
             for (const std::array<float, 3>& gain : match.atmosphere.gains) {
                 unit = unit && std::ranges::all_of(gain, [](float value) { return value == 1.0F; });
             }
-            tally->check(unit && match.atmosphere.ground_share == 0.0F,
-                         "  rt_sky_match=0: the model's own sky (gains 1)");
+            tally->check(unit, "  rt_sky_match=0: the model's own sky (gains 1)");
             model = means;
             continue;
         }
@@ -897,7 +1005,8 @@ void run_match(render::Gpu& gpu, Tally* tally)
                      text::format("  rt_sky_match=1: each band's centre the model x the capture's clear colour "
                                   "over the model's band (worst %.4f)",
                                   worst));
-        tally->check(match.atmosphere.ground_share > kWholeShare, "  the capture's sea used below the horizon");
+        check_below_horizon(view, tally);
+        check_ring_ignored(gpu, targets, match, tally);
     }
     rt::set_sky_capture({});
     vk::set_rt_sky_settings({});
@@ -1132,6 +1241,29 @@ void check_steady(render::Gpu& gpu, const Targets& targets, const vk::RtSkyTexel
     tally->check(count_not_finite(history.texels) == 0, "  no NaN in the history");
 }
 
+// The first frame of a new view seeded (vulkan_rt_sky_pass.h kSkySeedFrames): its history already near what 30 still
+// frames converge to - nearer than one frame's march, the clouds don't shimmer into place.
+void check_seeded(const vk::RtSkyTexels& first_march, const vk::RtSkyTexels& first_history, const vk::RtSkyTexels& info,
+                  Tally* tally)
+{
+    vk::RtSkyTexels settled;
+    read_sky(vk::RtSkyImage::kHistory, &settled);
+    double seeded_off = 0.0;
+    double march_off = 0.0;
+    const std::size_t count = std::min({settled.texels.size(), first_history.texels.size(), first_march.texels.size()});
+    for (std::size_t texel = 0; texel < count; ++texel) {
+        if (core::at(core::at(info.texels, texel), 1) > kHalfF) {
+            const float want = core::at(core::at(settled.texels, texel), 3);
+            seeded_off += std::abs(core::at(core::at(first_history.texels, texel), 3) - want);
+            march_off += std::abs(core::at(core::at(first_march.texels, texel), 3) - want);
+        }
+    }
+    constexpr double kNearer = 0.6;
+    tally->check(count > 0 && seeded_off < kNearer * std::max(march_off, kTinyChange),
+                 text::format("the first frame seeded: its history off the settled one by %.3f, one march by %.3f",
+                              seeded_off, march_off));
+}
+
 // A texel's 3 x 3 neighbourhood's least and most (its marched texels').
 struct Bounds {
     std::array<float, 4> least{};
@@ -1159,6 +1291,100 @@ Bounds bounds_round(const vk::RtSkyTexels& march, const vk::RtSkyTexels& info, i
         }
     }
     return out;
+}
+
+// The share of the sky above 12 degrees that is clear (transmittance over 0.9) at a coverage (as the settings give it:
+// rt::cloud_amount applied) - seen from the ground at three places 30 km apart, a grid of directions at every azimuth;
+// the processor's march on the device's noise.
+double clear_share(const rt::CloudNoise& noise, double coverage)
+{
+    constexpr int kAzimuths = 24;
+    constexpr int kElevations = 6;
+    constexpr double kLowest = 12.0; // degrees
+    constexpr double kClearSky = 0.9;
+    constexpr double kPlaceApart = 30000.0;
+    constexpr int kPlaces = 3;
+    int clear = 0;
+    int total = 0;
+    for (int place = 0; place < kPlaces; ++place) {
+        for (int rise = 0; rise < kElevations; ++rise) {
+            const double elevation = (kLowest + ((90.0 - kLowest) * (rise + kHalf) / kElevations)) * kDegrees;
+            for (int round = 0; round < kAzimuths; ++round) {
+                const double azimuth = 2.0 * kPi * (round + kHalf) / kAzimuths;
+                rt::CloudRay ray;
+                ray.camera_altitude = rt::kViewerAltitude;
+                ray.offset = {place * kPlaceApart, place * kPlaceApart * kHalf};
+                ray.direction = {std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
+                                 std::cos(elevation) * std::sin(azimuth)};
+                ray.to_sun = to_sun();
+                ray.coverage = rt::cloud_amount(coverage);
+                ray.steps = rt::kCloudDefaultSteps;
+                clear += rt::march_clouds(noise, ray).transmittance > kClearSky ? 1 : 0;
+                ++total;
+            }
+        }
+    }
+    return static_cast<double>(clear) / std::max(total, 1);
+}
+
+// The gaps: for each coverage the clear share within its bounds - a quarter: mostly clear, half way: about half,
+// three quarters: still clear gaps between the clouds (no grey sheet), overcast only at 1; and the whole curve printed.
+void check_gaps(const rt::CloudNoise& noise, Tally* tally)
+{
+    struct Bounds {
+        double coverage;
+        double least_clear;
+        double most_clear;
+    };
+    constexpr std::array<Bounds, 4> kBounds{{
+        {.coverage = 0.25, .least_clear = 0.6, .most_clear = 0.92},
+        {.coverage = 0.5, .least_clear = 0.3, .most_clear = 0.7},
+        {.coverage = 0.75, .least_clear = 0.08, .most_clear = 0.45},
+        {.coverage = 1.0, .least_clear = 0.0, .most_clear = 0.1},
+    }};
+    for (const Bounds& bounds : kBounds) {
+        const double share = clear_share(noise, bounds.coverage);
+        tally->check(share >= bounds.least_clear && share <= bounds.most_clear,
+                     text::format("coverage %.2f: %.0f%% of the sky above 12 degrees clear (%.0f - %.0f%% wanted)",
+                                  bounds.coverage, 100.0 * share, 100.0 * bounds.least_clear,
+                                  100.0 * bounds.most_clear));
+    }
+    constexpr int kSweep = 10;
+    std::string curve;
+    for (int step = 0; step <= kSweep; ++step) {
+        const double coverage = static_cast<double>(step) / kSweep;
+        curve += text::format(" %.1f:%.0f%%", coverage, 100.0 * clear_share(noise, coverage));
+    }
+    text::print("  (clear by coverage:%s)\n", curve.c_str());
+}
+
+// The layer is a shell round the planet: a level ray meets its base where the sphere says (about 134 km off, not never),
+// and a ray meeting it 50 km away meets it d^2 / 2R lower than a flat layer would be - the far clouds sink toward the
+// horizon, foreshortened, instead of a ceiling running out to it.
+void check_curvature(Tally* tally)
+{
+    constexpr double kMostError = 1e-6; // relative
+    constexpr double kMostDropError = 0.01;
+    constexpr double kFar = 50000.0; // metres
+    constexpr double kKilometre = 1000.0;
+    const double camera = rt::kViewerAltitude;
+    const rt::CloudSpan level = rt::cloud_layer_span(camera, {1.0, 0.0, 0.0});
+    const double base = rt::kGroundRadius + rt::kCloudBase;
+    const double from = rt::kGroundRadius + camera;
+    const double want = std::sqrt((base * base) - (from * from));
+    // the ray whose entry lies kFar away across: its height there over the camera's tangent plane
+    const double drop = (kFar * kFar) / (2.0 * rt::kGroundRadius);
+    const double rise = std::sqrt((base * base) - (kFar * kFar)) - from; // exact: the base's height at kFar across
+    const double elevation = std::atan2(rise, kFar);
+    const rt::CloudSpan distant = rt::cloud_layer_span(camera, {std::cos(elevation), std::sin(elevation), 0.0});
+    const double across = distant.enter * std::cos(elevation);
+    const double height = distant.enter * std::sin(elevation);
+    const double flat = rt::kCloudBase - camera;
+    tally->check(std::abs(level.enter - want) / want < kMostError && std::abs(across - kFar) / kFar < kMostError &&
+                     std::abs((flat - height) - drop) / drop < kMostDropError,
+                 text::format("the layer curves with the planet: a level ray meets its base %.1f km away; 50 km across "
+                              "the base is %.0f m over the camera, %.0f m below a flat layer (d^2 / 2R: %.0f)",
+                              level.enter / kKilometre, height, flat - height, drop));
 }
 
 // A turned camera: every history texel held inside this frame's neighbourhood (no ghost).
@@ -1213,12 +1439,17 @@ void run_clouds(render::Gpu& gpu, Tally* tally)
         tally->check(vk::read_cloud_noise(state, &noise), "the noise read back");
     }
     check_noise(noise, tally);
+    check_gaps(noise, tally);
+    check_curvature(tally);
     vk::RtSkyTexels march;
     vk::RtSkyTexels info;
     tally->check(read_sky(vk::RtSkyImage::kMarch, &march) && read_sky(vk::RtSkyImage::kMarchInfo, &info),
                  "the march read back");
     check_march(noise, march, info, tally);
+    vk::RtSkyTexels first_history;
+    read_sky(vk::RtSkyImage::kHistory, &first_history);
     check_steady(gpu, targets, info, tally);
+    check_seeded(march, first_history, info, tally);
     check_turned(gpu, targets, tally);
     // the composite with clouds: no NaN
     std::vector<Rgb> colour;
@@ -1305,6 +1536,108 @@ void run_perf(render::Gpu& gpu)
     release_targets(gpu, targets);
 }
 
+// --- pictures (--pictures <folder>: no checks) --------------------------------------------------------------------------
+
+// A 24-bit .bmp of display-referred colours (rows bottom up).
+bool write_bmp(const std::string& path, const std::vector<Rgb>& pixels, uint32_t width, uint32_t height)
+{
+    constexpr uint32_t kHeaderBytes = 54;
+    constexpr uint32_t kInfoBytes = 40;
+    constexpr uint16_t kBits = 24;
+    // (the header's fields' places)
+    constexpr std::size_t kFileSizeAt = 2;
+    constexpr std::size_t kDataAt = 10;
+    constexpr std::size_t kInfoAt = 14;
+    constexpr std::size_t kWidthAt = 18;
+    constexpr std::size_t kHeightAt = 22;
+    constexpr std::size_t kPlanesAt = 26;
+    constexpr std::size_t kBitsAt = 28;
+    const uint32_t row = ((width * 3) + 3) & ~3U;
+    std::vector<uint8_t> bytes(kHeaderBytes + (static_cast<std::size_t>(row) * height), 0);
+    const auto put32 = [&bytes](std::size_t at, uint32_t value) {
+        for (std::size_t i = 0; i < 4; ++i) {
+            core::at(bytes, at + i) = static_cast<uint8_t>(value >> (kBitsPerByte * i));
+        }
+    };
+    core::at(bytes, 0) = 'B';
+    core::at(bytes, 1) = 'M';
+    put32(kFileSizeAt, static_cast<uint32_t>(bytes.size()));
+    put32(kDataAt, kHeaderBytes);
+    put32(kInfoAt, kInfoBytes);
+    put32(kWidthAt, width);
+    put32(kHeightAt, height);
+    core::at(bytes, kPlanesAt) = 1;
+    core::at(bytes, kBitsAt) = static_cast<uint8_t>(kBits);
+    for (uint32_t line = 0; line < height; ++line) {
+        for (uint32_t column = 0; column < width; ++column) {
+            const Rgb& colour = core::at(pixels, (static_cast<std::size_t>(height - 1 - line) * width) + column);
+            const std::size_t at =
+                kHeaderBytes + (static_cast<std::size_t>(line) * row) + (static_cast<std::size_t>(column) * 3);
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                core::at(bytes, at + channel) =
+                    static_cast<uint8_t>(std::lround(std::clamp(core::at(colour, 2 - channel), 0.0, 1.0) * kByteMax));
+            }
+        }
+    }
+    std::ofstream file(path, std::ios::binary);
+    const std::vector<char> chars(bytes.begin(), bytes.end());
+    file.write(chars.data(), static_cast<std::streamsize>(chars.size()));
+    return file.good();
+}
+
+void run_pictures(render::Gpu& gpu, const Options& options)
+{
+    constexpr uint32_t kWidth = 960;
+    constexpr uint32_t kHeight = 540;
+    constexpr int kSettle = 40; // frames (the temporal pass converged)
+    constexpr double kHigh = 1500.0;
+    constexpr double kLow = 60.0;
+    struct Shot {
+        const char* name = "";
+        Pose pose;
+    };
+    const std::array<Shot, 5> shots{{
+        {.name = "high_sun", .pose = {.eye = {0.0, kHigh, 0.0}, .at = {-300.0, kHigh + 40.0, -1000.0}}},
+        {.name = "high_away", .pose = {.eye = {0.0, kHigh, 0.0}, .at = {300.0, kHigh + 40.0, 1000.0}}},
+        {.name = "high_side", .pose = {.eye = {0.0, kHigh, 0.0}, .at = {1000.0, kHigh + 250.0, 0.0}}},
+        {.name = "low_up", .pose = {.eye = {0.0, kLow, 400.0}, .at = {1000.0, kLow + 1200.0, 700.0}}},
+        {.name = "horizon", .pose = {.eye = {0.0, kHigh, 0.0}, .at = {1000.0, kHigh - 30.0, -400.0}}},
+    }};
+    constexpr std::array<float, 3> kCoverages{0.3F, 0.5F, 0.7F};
+    std::vector<float> coverages{options.coverage};
+    if (options.coverage < 0.0F) {
+        coverages.assign(kCoverages.begin(), kCoverages.end());
+    }
+    Targets targets;
+    make_targets(gpu, kWidth, kHeight, false, &targets);
+    // (matched to the painted sky: the model's own exposure is for a float target)
+    render::GpuTexture* texture = capture_texture(gpu, painted_sky());
+    constexpr uint64_t kPictureSerial = 201;
+    rt::set_sky_capture({.texture = texture, .face_size = kFace, .serial = kPictureSerial, .scene = 3, .clear = {}});
+    for (const float coverage : coverages) {
+        vk::RtSkySettings settings = sky_settings(true, false, 1.0F);
+        settings.coverage = coverage;
+        settings.quality = 2;
+        vk::set_rt_sky_settings(settings);
+        for (const Shot& shot : shots) {
+            for (int frame = 0; frame < kSettle; ++frame) {
+                draw_frame(gpu, targets, shot.pose);
+            }
+            std::vector<Rgb> colour;
+            read_colour(targets, &colour);
+            const std::string path = text::format("%s/%s_%02d.bmp", options.pictures.c_str(), shot.name,
+                                                  static_cast<int>(std::lround(static_cast<double>(coverage) * 100.0)));
+            text::print("  %s: %s\n", path.c_str(), write_bmp(path, colour, kWidth, kHeight) ? "written" : "FAILED");
+        }
+    }
+    vk::set_rt_sky_settings({});
+    rt::set_sky_capture({});
+    release_targets(gpu, targets);
+    if (texture != nullptr) {
+        gpu.release_texture(texture);
+    }
+}
+
 // --- the device --------------------------------------------------------------------------------------------------------
 
 int window_position(int display)
@@ -1368,6 +1701,18 @@ int run(const Options& options, SDL_Window* window)
     }
     Tally tally;
     render::Gpu& gpu = vk::gpu();
+    if (!options.pictures.empty()) {
+        run_pictures(gpu, options);
+        vk::set_rt_sky_settings({});
+        rt::set_sun_override(nullptr);
+        {
+            vk::Backend& state = vk::backend();
+            const std::scoped_lock lock(state.mutex);
+            vk::finish_work(state);
+        }
+        vk::gpu_context().shutdown();
+        return 0;
+    }
     run_atmosphere(gpu, &tally);
     run_match(gpu, &tally);
     run_composite(gpu, false, &tally);

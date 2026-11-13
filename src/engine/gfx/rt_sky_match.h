@@ -24,8 +24,9 @@ namespace render::rt {
 
 using Colour = std::array<float, 3>; // display-referred, 0 - 1
 
-// The bands, low to high: just below the horizon (what meets it: a painted sea, the far ground), the horizon, half way
-// up, overhead.
+// The bands, low to high: just below the horizon (what the dome paints there: a sea, the far ground - analysed and logged,
+// never matched: the renderer's sky shows the horizon's haze below it), the horizon (from just above it: a ring painted
+// below it can't bleed in), half way up, overhead.
 enum class SkyBand : uint8_t { kGround = 0, kHorizon = 1, kMiddle = 2, kZenith = 3 };
 inline constexpr std::size_t kSkyBands = 4;
 // Each band's elevations (degrees) - low, high - and the elevation its colour is placed at (the sky's gains are
@@ -37,7 +38,7 @@ struct BandRange {
 };
 inline constexpr std::array<BandRange, kSkyBands> kSkyBandRanges{{
     {.low = -8.0, .high = -0.5, .centre = -3.0},
-    {.low = 0.0, .high = 10.0, .centre = 4.0},
+    {.low = 0.5, .high = 10.0, .centre = 4.0},
     {.low = 15.0, .high = 45.0, .centre = 30.0},
     {.low = 55.0, .high = 90.0, .centre = 72.0},
 }};

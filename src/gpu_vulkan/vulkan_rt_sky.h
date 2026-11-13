@@ -76,18 +76,21 @@ void release_sky(Backend& state);
 // Three tables of rt_sky.h's multiple-scattering model (16-bit floats, GENERAL layout): the transmittance (256 x 64,
 // made once), Psi (32 x 32, once) and the sky seen from the viewer (192 x 108, exposed linear radiance), made again
 // whenever its input changes: the drawn sky's sun, the gains that match it to the level (each band's colour multiplied
-// - the horizon's, half way up's, overhead's, interpolated between their elevations) and the ground's colour that
-// replaces the model's below the horizon (by `ground_share`, coming in over the first 0.05 radians down: the far ground hazed into the horizon).
+// - the horizon's, half way up's, overhead's, interpolated between their elevations); below the horizon the horizon's haze
+// giving way to the model's far ground (never the level's dome: what it paints down there is left out of the match).
 // The bands' centres (radians: 4, 30 and 72 degrees - rt_sky_match.h kSkyBandRanges), where each gain holds.
 inline constexpr float kGainHorizon = 0.07F;
 inline constexpr float kGainMiddle = 0.52F;
 inline constexpr float kGainZenith = 1.26F;
+// Below the horizon: the haze's elevation (radians, just above the horizon - the model's viewer is kViewerAltitude up,
+// its own horizon 0.3 degrees down), how far down (radians) the model's ground comes in, and how much of it at most.
+inline constexpr double kHazeElevation = 0.01;
+inline constexpr double kBelowFade = 0.2;
+inline constexpr double kBelowShare = 0.7;
 struct AtmosphereInput {
     std::array<float, 3> sun{0.0F, 1.0F, 0.0F}; // toward the drawn sky's sun (world, normalised)
     std::array<std::array<float, 3>, 3> gains{{{1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}}};
     std::array<float, 3> gain_elevations{kGainHorizon, kGainMiddle, kGainZenith}; // radians
-    std::array<float, 3> ground{};                              // exposed linear
-    float ground_share = 0.0F;
     bool operator==(const AtmosphereInput&) const = default;
 };
 // The tables brought up to date (recorded outside a pass, a barrier after). The caller holds the lock. False: they can't

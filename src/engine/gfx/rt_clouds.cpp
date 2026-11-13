@@ -62,6 +62,7 @@ constexpr uint32_t kDetailGreenSeed = 61;
 constexpr uint32_t kDetailBlueSeed = 71;
 constexpr uint32_t kWeatherSeed = 81;
 constexpr uint32_t kKindSeed = 91;
+constexpr uint32_t kClumpSeed = 95;
 constexpr double kPerlinStretch = 0.9; // Perlin's fractal widened toward 0 - 1
 constexpr double kWeatherStretch = 1.1;
 constexpr double kPhaseFloor = 1e-4;
@@ -71,7 +72,8 @@ constexpr double kTopLowest = 0.45;
 constexpr double kTopRange = 0.55;
 constexpr double kBaseEdge = 0.12;
 constexpr double kTopEdge = 0.4;
-constexpr double kWispyFrom = 5.0; // (the detail inverts from billowy to wispy over the layer's lowest fifth)
+constexpr double kTopAtEdge = 0.25; // a cloud's top at the edge of its cover, x its kind's
+constexpr double kWispyFrom = 5.0;  // (the detail inverts from billowy to wispy over the layer's lowest fifth)
 
 // the gradients (the cube's 12 edges, four repeated)
 constexpr std::array<std::array<int, 3>, 16> kGradients{{{1, 1, 0},
@@ -268,8 +270,8 @@ std::array<double, 4> cloud_weather_texel(const std::array<uint32_t, 2>& texel)
                        (cloud_perlin(at(kCells16), {.period = kCells16, .seed = kWeatherSeed + 2}) * kOctaveThird) +
                        (cloud_perlin(at(kCells32), {.period = kCells32, .seed = kWeatherSeed + 3}) * kOctaveFourth);
     return {saturate((fbm * kWeatherStretch) + kHalf),
-            saturate((cloud_perlin(at(kCells2), {.period = kCells2, .seed = kKindSeed}) * kPerlinStretch) + kHalf), 0.0,
-            1.0};
+            saturate((cloud_perlin(at(kCells2), {.period = kCells2, .seed = kKindSeed}) * kPerlinStretch) + kHalf),
+            worley_fbm({u, v, kHalf}, kCells16, kClumpSeed), 1.0};
 }
 
 std::array<double, 4> sample_volume(const std::vector<uint8_t>& texels, uint32_t size, const Vec3d& uvw)
@@ -335,11 +337,12 @@ double cloud_density(const CloudNoise& noise, const Vec3d& point, double coverag
     const std::array<double, 4> weather =
         sample_plane(noise.weather, kCloudWeatherSize,
                      {core::at(point, 0) / kCloudWeatherScale, core::at(point, 2) / kCloudWeatherScale});
-    const double cover = saturate((core::at(weather, 0) - (1.0 - coverage)) * kCoverEdge);
+    const double cover = cloud_cover(weather, coverage);
     if (cover <= 0.0) {
         return 0.0;
     }
-    const double top = kTopLowest + (kTopRange * core::at(weather, 1));
+    // (the top lower where the cover thins - toward a clump's edge: domes, not walls)
+    const double top = (kTopLowest + (kTopRange * core::at(weather, 1))) * lerp(kTopAtEdge, 1.0, cover);
     const double profile = saturate(height / kBaseEdge) * saturate((top - height) / (kTopEdge * top));
     if (profile <= 0.0) {
         return 0.0;
@@ -350,7 +353,7 @@ double cloud_density(const CloudNoise& noise, const Vec3d& point, double coverag
                        (core::at(shape, 3) * kOctaveThird);
     const double base = saturate(remap(core::at(shape, 0), fbm - 1.0, 1.0, 0.0, 1.0)) * profile;
     // (the profile again after the threshold: tops and bases rounded off, not cut)
-    double density = saturate(remap(base, 1.0 - (kCoverThreshold * cover), 1.0, 0.0, 1.0)) * profile;
+    double density = saturate(remap(base, 1.0 - (cloud_threshold_share(coverage) * cover), 1.0, 0.0, 1.0)) * profile;
     if (detail && density > 0.0) {
         const std::array<double, 4> fine =
             sample_volume(noise.detail, kCloudDetailSize, scaled(point, 1.0 / kCloudDetailScale));
@@ -362,10 +365,41 @@ double cloud_density(const CloudNoise& noise, const Vec3d& point, double coverag
     return density;
 }
 
+double cloud_cover(const std::array<double, 4>& weather, double coverage)
+{
+    const double patch = saturate(((core::at(weather, 0) - (1.0 - coverage)) * kCoverEdge) + (kPatchLift * coverage));
+    const double clumps = saturate(remap(core::at(weather, 2), kClumpLow, kClumpHigh, 0.0, 1.0));
+    const double overcast = coverage * coverage * coverage * coverage;
+    return patch * lerp(clumps, 1.0, overcast);
+}
+
+double cloud_amount(double coverage)
+{
+    const double at = saturate(coverage) * static_cast<double>(kCloudAmounts.size() - 1);
+    const auto low = std::min(static_cast<std::size_t>(at), kCloudAmounts.size() - 2);
+    return lerp(core::at(kCloudAmounts, low), core::at(kCloudAmounts, low + 1), at - static_cast<double>(low));
+}
+
+double cloud_threshold_share(double coverage) { return lerp(kCoverThresholdLeast, kCoverThresholdMost, coverage); }
+
 double cloud_phase(double cosine, double asymmetry_scale)
 {
     return (kCloudForwardShare * henyey_greenstein(cosine, kCloudForwardG * asymmetry_scale)) +
            ((1.0 - kCloudForwardShare) * henyey_greenstein(cosine, kCloudBackG * asymmetry_scale));
+}
+
+CloudSpan cloud_layer_span(double camera_altitude, const Vec3d& direction)
+{
+    const Vec3d origin{0.0, kGroundRadius + camera_altitude, 0.0};
+    if (meets_ground(origin, direction)) {
+        return {};
+    }
+    const double enter = leave_sphere(origin, direction, kGroundRadius + kCloudBase);
+    const double leave = leave_sphere(origin, direction, kGroundRadius + kCloudTop);
+    if (enter < 0.0 || leave <= enter) {
+        return {};
+    }
+    return {.enter = enter, .leave = leave};
 }
 
 CloudResult march_clouds(const CloudNoise& noise, const CloudRay& ray)
@@ -373,14 +407,12 @@ CloudResult march_clouds(const CloudNoise& noise, const CloudRay& ray)
     CloudResult result;
     const Vec3d origin{0.0, kGroundRadius + ray.camera_altitude, 0.0};
     const Vec3d& way = ray.direction;
-    if (meets_ground(origin, way)) {
+    const CloudSpan layer = cloud_layer_span(ray.camera_altitude, way);
+    if (layer.enter < 0.0) {
         return result;
     }
-    const double start = leave_sphere(origin, way, kGroundRadius + kCloudBase);
-    double end = leave_sphere(origin, way, kGroundRadius + kCloudTop);
-    if (start < 0.0 || end <= start) {
-        return result;
-    }
+    const double start = layer.enter;
+    double end = layer.leave;
     result.marched = true;
     end = std::min(end, start + kCloudFar);
     const uint32_t steps = std::max(1U, ray.steps);

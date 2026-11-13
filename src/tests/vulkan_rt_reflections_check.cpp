@@ -23,6 +23,8 @@
 //     glass as a mirror - the light it adds within 0.8 - 1.05 of the mirror's, softer, no pixel black, no NaN, every
 //     weight at most the mirror's.
 //   - Nothing reflective (the floor's reflectivity 0): no pass, nothing changed; rt_reflections off: no pass.
+//   - rt_sky (the sky's misses): the floor's reflections that miss the box show the sky drawn - the sky-view table toward
+//     the reflected direction, as the game's colour - where they kept the floor's own colour without it.
 //   thug2_vulkan_rt_reflections_check [--device N] [--display N] [--no-validation] [--seed N]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
@@ -60,6 +62,8 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
+#include "gpu_vulkan/vulkan_rt_sky.h"
+#include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "platform/run_log.h"
 #include "tests/no_error_dialogs.h"
 
@@ -827,6 +831,7 @@ struct Reflection {
     uint32_t row = 0;
     std::array<double, 2> uv{};
     double cosine = 0.0;  // between the view and the floor's normal (the Fresnel weight's)
+    Vec3 mirrored{};      // the reflected direction (the floor's pixels)
 };
 using Offset = std::array<double, 2>;
 Reflection reflection_at(const View& view, double px, double py)
@@ -850,6 +855,7 @@ Reflection reflection_at(const View& view, double px, double py)
     out.cosine = -y_of(direction);
     const Vec3 normal{0.0, 1.0, 0.0};
     const Vec3 mirrored = step(direction, normal, -2.0 * dot(direction, normal));
+    out.mirrored = mirrored;
     const double offset = kOffsetScale * (1.0 + (distance * 0.0005) + (distance * distance * 6e-8));
     const BoxHit hit = intersect_box(step(point, normal, offset), mirrored);
     if (hit.distance == kNoHit) {
@@ -1137,7 +1143,7 @@ void release_mirror(render::Gpu& gpu, Mirror* mirror)
 
 // A frame: the record given, cleared, the scene drawn, the passes through the listener (draw_viewport's call). Returns
 // the passes recorded.
-uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Mirror& mirror, uint64_t frame)
+uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Mirror& mirror, uint64_t frame, bool sky = true)
 {
     rt::FrameRecord& record = rt::frame_record();
     record = rt::FrameRecord{};
@@ -1160,6 +1166,9 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Mirror& mirr
     gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth | value::kClearStencil, kClearColour, 1.0F, 0);
     draw_scene(gpu, mirror.floor.data, mirror.box.data);
     const uint64_t before = render::vulkan::rt_reflection_passes();
+    if (sky && rt::sky_replacement().on) {
+        rt::sky_view_drawn(view_drawn()); // (rt_sky: its pass, as draw_viewport tells it after the backdrop)
+    }
     rt::opaque_view_drawn(view_drawn());
     const uint64_t passes = render::vulkan::rt_reflection_passes() - before;
     gpu.end_scene();
@@ -1588,6 +1597,159 @@ Opened open_device(const Options& options, SDL_Window* window)
     return Opened::kYes;
 }
 
+// The sky-view table read bilinearly as the shaders read it (vulkan_rt_sky.cpp sky_view_linear: the azimuth from the
+// sun's, clamped, texel centres at (i + 0.5) / size).
+std::array<double, 3> sky_view_at(const render::vulkan::AtmosphereTexels& table, const Vec3& dir, const Vec3& sun)
+{
+    constexpr double kFlat = 1e-5;
+    constexpr double kPi = 3.14159265358979323846;
+    const double hs = std::hypot(x_of(sun), z_of(sun));
+    const double hv = std::hypot(x_of(dir), z_of(dir));
+    const double cosine =
+        (hs > kFlat && hv > kFlat) ? ((x_of(sun) * x_of(dir)) + (z_of(sun) * z_of(dir))) / (hs * hv) : 1.0;
+    const double azimuth = std::acos(std::clamp(cosine, -1.0, 1.0));
+    const double elevation = std::asin(std::clamp(y_of(dir), -1.0, 1.0));
+    double sign = 0.0;
+    if (elevation != 0.0) {
+        sign = elevation < 0.0 ? -1.0 : 1.0;
+    }
+    const double u = std::sqrt(azimuth / kPi);
+    const double v = 0.5 + (0.5 * sign * std::sqrt(std::abs(elevation) / (kPi / 2.0)));
+    const double x = std::clamp((u * table.width) - 0.5, 0.0, table.width - 1.0);
+    const double y = std::clamp((v * table.height) - 0.5, 0.0, table.height - 1.0);
+    const auto x0 = static_cast<uint32_t>(x);
+    const auto y0 = static_cast<uint32_t>(y);
+    const uint32_t x1 = std::min(x0 + 1, table.width - 1);
+    const uint32_t y1 = std::min(y0 + 1, table.height - 1);
+    const double fx = x - x0;
+    const double fy = y - y0;
+    const auto at = [&table](uint32_t column, uint32_t row) -> const std::array<float, 4>& {
+        return core::at(table.texels, (static_cast<std::size_t>(row) * table.width) + column);
+    };
+    std::array<double, 3> out{};
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        const double top = (core::at(at(x0, y0), ch) * (1.0 - fx)) + (core::at(at(x1, y0), ch) * fx);
+        const double bottom = (core::at(at(x0, y1), ch) * (1.0 - fx)) + (core::at(at(x1, y1), ch) * fx);
+        core::at(out, ch) = std::max(0.0, (top * (1.0 - fy)) + (bottom * fy));
+    }
+    return out;
+}
+
+// rt_sky: the floor's pixels whose reflection misses the box (clear-cut: the same a tenth of a pixel round) show the
+// sky-view table toward the reflected direction as the game's colour (^ 1 / 2.2, at most 1), the weight 1 (strength 1,
+// reflectivity 1, no Fresnel) - the sky drawn, not the floor kept. The model's sky alone (no capture), no clouds.
+void run_sky_misses(render::Gpu& gpu, Mirror& mirror, Tally* tally)
+{
+    namespace vk = render::vulkan;
+    text::print("the misses with rt_sky:\n");
+    rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(1.0F));
+    const Vec3 sun = normalised({0.4, 0.6, 0.8}); // (behind the camera: the reflected sky away from the sun's glow)
+    const std::array<float, 3> toward = floats(sun);
+    rt::set_sun_override(&toward);
+    vk::RtSkySettings sky;
+    sky.on = true;
+    sky.match = 0.0F;
+    sky.clouds = false;
+    vk::set_rt_sky_settings(sky);
+    vk::set_rt_reflection_settings({.on = true, .strength = 1.0F});
+    Targets targets; // (made with the reflections on: their depth samplable)
+    const bool made = make_targets(gpu, 0, &targets);
+    vk::AtmosphereTexels table;
+    bool ready = false;
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        vk::prepare_rt_sky(state);
+        vk::finish_work(state);
+        ready = vk::read_atmosphere_table(state, vk::AtmosphereTable::kSkyView, &table);
+    }
+    // (no sky drawn - a level with no sky scene: the misses keep what was there, the floor's own colour)
+    std::vector<uint8_t> unseen;
+    std::vector<uint8_t> plain;
+    vk::set_rt_reflection_settings({});
+    const bool read_plain = made && draw_frame(gpu, targets, mirror, 3, false) == 0 && read_colour(gpu, targets, &plain);
+    vk::set_rt_reflection_settings({.on = true, .strength = 1.0F});
+    const bool read_unseen =
+        made && draw_frame(gpu, targets, mirror, 4, false) == 1 && read_colour(gpu, targets, &unseen);
+    int kept = 0;
+    int moved = 0;
+    if (read_plain && read_unseen) {
+        const View view = view_from(kEye);
+        for (int row = 0; row < kRows; ++row) {
+            for (int column = 0; column < kColumns; ++column) {
+                const Reflection here = reflection_at(view, column, row);
+                if (here.floor && !here.hit) {
+                    const bool same_pixel = close_to(pixel_at(unseen, column, row), pixel_at(plain, column, row));
+                    kept += same_pixel ? 1 : 0;
+                    moved += same_pixel ? 0 : 1;
+                }
+            }
+        }
+    }
+    tally->check(read_plain && read_unseen && kept > 0 && moved * 100 <= kept,
+                 text::format("rt_sky on but no sky drawn (indoors): the misses unchanged (%d kept, %d changed)", kept,
+                              moved));
+    tally->check(made && ready && draw_frame(gpu, targets, mirror, 5) == 1,
+                 "the sky made (rt_sky on) and the passes recorded");
+    std::vector<uint8_t> with;
+    if (made && ready && read_colour(gpu, targets, &with)) {
+        const View view = view_from(kEye);
+        constexpr double kShift = 0.1;
+        constexpr int kSlack = 3; // (8-bit, the table's 16-bit floats filtered)
+        constexpr int kEnoughMisses = 2000;
+        int compared = 0;
+        int unclipped = 0; // (the sky under white there: a real comparison)
+        int wrong = 0;
+        std::string first;
+        for (int row = 0; row < kRows; ++row) {
+            for (int column = 0; column < kColumns; ++column) {
+                const Reflection here = reflection_at(view, column, row);
+                if (!here.floor || here.hit) {
+                    continue;
+                }
+                bool clear = true;
+                for (const auto& [dx, dy] : std::array<std::pair<double, double>, 4>{
+                         {{kShift, 0.0}, {-kShift, 0.0}, {0.0, kShift}, {0.0, -kShift}}}) {
+                    clear = clear && same(reflection_at(view, column + dx, row + dy), here);
+                }
+                if (!clear) {
+                    continue;
+                }
+                const std::array<double, 3> linear = sky_view_at(table, here.mirrored, sun);
+                constexpr double kDisplayGamma = 2.2;
+                constexpr double kWhite = 255.0;
+                Rgb want{};
+                for (std::size_t ch = 0; ch < 3; ++ch) {
+                    core::at(want, ch) = static_cast<int>(
+                        std::lround(std::min(1.0, std::pow(core::at(linear, ch), 1.0 / kDisplayGamma)) * kWhite));
+                }
+                const Rgb got = pixel_at(with, column, row);
+                ++compared;
+                constexpr int kNotWhite = 250;
+                unclipped += std::ranges::any_of(want, [](int value) { return value < kNotWhite; }) ? 1 : 0;
+                bool matches = true;
+                for (std::size_t ch = 0; ch < 3; ++ch) {
+                    matches = matches && std::abs(core::at(got, ch) - core::at(want, ch)) <= kSlack;
+                }
+                if (!matches) {
+                    if (wrong == 0) {
+                        first = text::format(" (first at %d, %d: %s, wanted %s)", column, row, rgb_text(got).c_str(),
+                                             rgb_text(want).c_str());
+                    }
+                    ++wrong;
+                }
+            }
+        }
+        tally->check(compared >= kEnoughMisses && unclipped * 2 > compared && wrong == 0,
+                     text::format("every clear-cut miss the sky toward its reflection: %d compared (%d under white), "
+                                  "%d wrong%s",
+                                  compared, unclipped, wrong, first.c_str()));
+    }
+    vk::set_rt_sky_settings({});
+    rt::set_sun_override(nullptr);
+    release_targets(gpu, targets);
+}
+
 int run(const Options& options, SDL_Window* window)
 {
     const Opened opened = open_device(options, window);
@@ -1644,6 +1806,7 @@ int run(const Options& options, SDL_Window* window)
         run_rough(gpu, mirror, &tally);
         run_untouched(gpu, mirror, "nothing reflective: the pass skipped", true, 0.0F, &tally);
         run_untouched(gpu, mirror, "rt_reflections off: no pass", false, 1.0F, &tally);
+        run_sky_misses(gpu, mirror, &tally);
     }
     release_mirror(gpu, &mirror);
     render::vulkan::set_rt_reflection_settings({});

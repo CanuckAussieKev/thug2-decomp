@@ -1204,7 +1204,7 @@ their depth and stay in front of any sky).
 - **The level's own sky** (`SkyCapture`, `rt_sky_match.h`). Once per sky scene `render_pc` draws all its meshes from the
   origin into six 90-degree faces (a 384 x 256 texture, cleared to the background colour) and hands it over; the pass
   reads it back once and analyses it: per band of elevation - just below the horizon (-8 to -0.5 degrees: a painted sea,
-  the far ground), the horizon (0 - 10), half way (15 - 45), overhead (55 - 90) - the clear sky's colour (texels weighted
+  the far ground - logged, never matched), the horizon (0.5 - 10), half way (15 - 45), overhead (55 - 90) - the clear sky's colour (texels weighted
   by 1 - cloudiness, cloudiness from saturation: 0.32 and more clear, 0.10 and less cloud) and everything's mean; the
   clouds' share between 3 and 35 degrees up (the sky a player sees) and their colour. Logged: "rt_sky: the level's sky".
 - **The atmosphere** (`rt_sky.h`, `vulkan_rt_sky`): the existing model - Rayleigh, Mie, the same radii, scale heights and
@@ -1218,9 +1218,11 @@ their depth and stay in front of any sky).
 - **The match** (`rt_sky_match`, 0.8 by default). Gains per channel for the horizon, half way and overhead bands -
   the level's colour (its clear sky with clouds on, everything's without: an overcast level stays grey) over the model's
   band mean, linear, clamped to 0.05 - 20, to the power `rt_sky_match` - interpolated between the bands' centres (4, 30,
-  72 degrees); below the horizon the level's colour just under it comes in over 0.05 radians (the far ground hazed into
-  the horizon - AU's painted sea, BE's ground ring), x `rt_sky_match`. The sky keeps the model's shape - brighter toward
-  the sun, a gradient to the horizon - with each level's colours. Logged: "rt_sky: matched - gains ...".
+  72 degrees). Below the horizon the dome is not asked (its painted ground - BE's brown ring, BO's khaki far ground -
+  came back as a warm band right under the horizon): the sky-view table shows the horizon's haze there (the sky 0.6
+  degrees up in the same azimuth) giving way to the model's own far ground by up to 60% over 20 degrees down - the far
+  world's aerial haze, which reads this table, and the sky meet without a band. The sky keeps the model's shape -
+  brighter toward the sun, a gradient to the horizon - with each level's colours. Logged: "rt_sky: matched - gains ...".
 - **The sun** it is drawn for: the one the player sees (`visible_sun`: the game's SetSun, the baked sun without one; a
   fixed 50 degrees up when neither exists - logged). The fog's table follows the drawn sky (`set_table_follows_sky_view`:
   its rows read from the sky-view table, the drawn sun in the last row's entry 3 - `sky_display` measures azimuths from
@@ -1231,12 +1233,23 @@ their depth and stay in front of any sky).
   A shell 1.5 - 4 km above the ground round the planet. Noise made at start-up by three compute passes from an integer
   hash (no assets; the processor computes the same bytes): a 128^3 shape (Perlin-Worley; Worley fractals at 4, 8, 16
   cells), a 32^3 detail (Worley at 4, 8, 16), a 256^2 weather map (patches; the clouds' kind), all tiling (9 km, 1.1 km,
-  42 km). The density: the weather's patches (sharper with `kCoverEdge`, larger with the coverage), a height profile per
-  kind, the shape thresholded by the patch's cover, the detail eroding the edges. The light: the sun's through the cloud
+  42 km; the weather's b a clump field - Worley at 16 cells, 2.6 km). The density: the cover - the weather's patches
+  x its clumps, so a patch is a field of separate clouds with sky between them, not a sheet (the first version's flat
+  grey ceiling seen from 1500 units up: whole patches of cover, the shape's threshold opened to 0.3, read as one
+  overcast base); a height profile per kind whose top falls toward the cover's edge (domes, not the clumps' vertical
+  walls); the shape thresholded by the cover (never past 0.65 - 0.9 of its range short of overcast), the detail eroding
+  the edges. The model turns from none to overcast over a narrow range of its own coverage, so the settings' coverage
+  goes through `rt::cloud_amount` (kCloudAmounts, measured by the check's sweep): a coverage c leaves about 1 - c of
+  the sky above 12 degrees clear (0.25: 75%, 0.5: 49%, 0.75: 24%, 1: none). The light: the sun's through the cloud
   (six growing steps), Wrenninge's three octaves (Beer's law, multiple scattering), two Henyey-Greenstein lobes (0.8
   forward - the silver lining toward the sun - and -0.3), a powder term, the sky's light (the model's horizon colour at
-  the base, its zenith's at the top, each as bright as the matched sky - not tinted twice); Hillaire's energy-conserving step. Coverage auto from the level (0.35 + 0.7 x its
-  share), or `rt_cloud_coverage`; the clouds' colour x the level's cloud hue and brightness (dark storm clouds stay dark).
+  the base x0.6, its zenith's at the top, each as bright as the matched sky - not tinted twice); Hillaire's
+  energy-conserving step. Coverage auto from the level (0.2 + 0.7 x its share, at most 0.75: a painted sky's grey cards
+  and haze count as cloud, and a clear one should stay mostly clear), or `rt_cloud_coverage`; the clouds' colour x the
+  level's cloud hue and brightness (dark storm clouds stay dark). The layer is a shell round the planet
+  (`cloud_layer_span`): a level ray meets its base 134 km off and the far clouds sink toward the horizon (d^2 / 2R: 197 m
+  at 50 km), foreshortened; the march stops 40 km into the layer and the composite fades the clouds into the sky by e per
+  20 km, so toward the horizon they melt into the haze instead of running out to it as a sheet.
   They drift with the game clock (`ViewDrawn::game_seconds`, a contract addition: a demo replays the same sky) at 12 m/s
   x `rt_cloud_speed`, and the camera's place moves through them.
 - **The passes** (`vulkan_rt_sky_pass`, at `sky_drawn`): the march at a quarter, half (the default) or full resolution
@@ -1246,34 +1259,60 @@ their depth and stay in front of any sky).
   frame's 3 x 3 neighbourhood, 0.1 of this frame); the composite: a full-screen triangle at the far plane, depth-tested
   (less or equal) against the world's depth - every sample of the sky, no other - writing the sky-view table toward the
   pixel x the clouds' transmittance + their light (the history upsampled, texels without sky left out), the clouds faded
-  into the sky with distance (e per 32 km), display-referred. An 8-bit target clips at 1; with `rt_hdr=1` values above 1
-  stay for the tone mapping. Split screen: a history per viewport (up to 4).
+  into the sky with distance (e per 20 km), display-referred. An 8-bit target clips at 1; with `rt_hdr=1` values above 1
+  stay for the tone mapping. Split screen: a history per viewport (up to 4). A history that starts again - a new
+  viewport, a new level's capture - is seeded in its first frame (the march and the temporal pass 12 times with the next
+  frames' jitter, the composite after the last), so the clouds show converged.
+- **A level's own sky meshes** (SE2's storm overhead): level geometry, not part of the sky scene - `rtprobe` from the
+  sky spot (1500 units over the first restart) meets it 1,030 - 1,360 units up in every direction from 50 degrees to
+  overhead (one instance, one material): a low ceiling about 2,500 units over the island, its edges faded by its own
+  alpha and drawn over whatever sky is behind it. The edge the first version showed was its dark grey against the flat
+  grey-white cloud base (the grey ceiling above); against separate cumulus with blue between them it reads as a storm
+  front over fair-weather clouds (out/sky2's SE2 pictures). A blend toward the dome's colour near far, high geometry was
+  tried and left out: the storm is near (1 - 1.4 thousand units), so depth can't tell it from a building's top or a
+  palm's leaves without haloing those.
+- **Level start**: with ray tracing, `RayTracing::prepare_frame` (the first frame after a load's work) also matches the
+  level's sky and makes the atmosphere's tables before any view is drawn (`prepare_rt_sky`), so the fog's table and the
+  bounce light read the new level's sky from its first frame; without ray tracing the first view's pass does it, still
+  before that frame is presented. The capture is drawn earlier in the same frame (`capture_sky`), the read-back stall
+  once per level falls in the frame shown over the loading screen's last picture.
 - **Cloud shadows** (`rt_cloud_shadows=1`, off by default; at `opaque_drawn`): each surface pixel's way to the sun
   through the layer, the density at four heights (no detail), the colour x mix(1, transmittance, 0.65) - drifting shadows
   on the level; no ray tracing.
-- **Not done**: the reflections (R5b) still show nothing where their rays miss (the original's environment pass stays
-  there) - the sky-view table is not bound in their pass yet; no time of day (the sun stays where the level puts it).
-- **Checked**: `thug2_vulkan_rt_sky_check` (53 checks; the RTX 5070 Ti and the AMD Radeon integrated GPU, validation and
-  synchronization validation 0, no ray tracing asked for): the transmittance table against 2048 segments (mean 0.0003,
-  99th percentile 0.002), Psi against the processor's integral (mean 1%), the sky-view table against `sky_radiance_ms`
-  with the processor's Psi table at 10 and 45 degrees (mean 0.2% / 0.04%, 99th percentile 0.4% / 0.1%), the multiple
-  scattering brightening the sky (x 1.15 / 1.5), the zenith bluer than the horizon; a painted capture analysed on the
-  device exactly as on the processor, `rt_sky_match=1` putting each band's centre at the model x the capture's colour
-  over the model's band (worst 0.7%), 0 leaving the gains 1; the composite in an 8-bit and a float target - every
-  clear-cut sky pixel the table's colour (99th percentile 0.002 / 0.1%), every surface pixel unchanged; the noise the
-  processor's to a step (4,800 values), every one of ~12,800 marched texels against the processor's march on the
-  device's noise (transmittance mean 1e-4, light 0.1%), after 30 still frames the history 16 times steadier than the
-  march, a camera turned 8 degrees with every history texel inside its neighbourhood (no ghost), no NaN. The other
-  checks unchanged on both GPUs (sun 77, fog 71, hdr 80, gi 29, rt 20, shadows 45, effects 38, reflections 39,
-  materials 34). In the game `tools/game/rt_shadows_check.ts --effect sky` (tools/game/rt_sky.json: every main level's
-  first restart - on the ground, 1500 units up toward its heading and the other way, up - and AU's sea; the other
-  effects on): drawn everywhere, bounded (mean luma change 0 - 52, at most 5.7% turned black - near-black interiors
-  under the darker haze - and 5.4% white), the matched colours logged per level.
+- **The reflections' misses** (`rt_sky_for_rays`; `vulkan_rt_reflections`' SKY variant, bindings 9 - 12): with
+  `rt_sky=1` a reflection ray that leaves the world sees the sky drawn - the sky-view table toward it and, where its
+  direction falls on the viewport, this frame's clouds (their history, read as the composite reads it, faded out over
+  the viewport's last 8%; beyond it the sky alone) - as the game's colour; with `rt_sky=0` the misses keep the game's
+  environment map as before.
+- **Not done**: no time of day (the sun stays where the level puts it); clouds in reflections only where the reflected
+  direction is on screen.
+- **Checked**: `thug2_vulkan_rt_sky_check` (60 checks; the RTX 5070 Ti and the AMD Radeon integrated GPU, validation and
+  synchronization validation 0, no ray tracing asked for): the transmittance table against 2048 segments, Psi against
+  the processor's integral, the sky-view table against `sky_radiance_ms` (below the horizon: the same haze-to-ground
+  blend on the processor) at 10 and 45 degrees, the multiple scattering brightening the sky, the zenith bluer than the
+  horizon; a painted capture analysed on the device exactly as on the processor, `rt_sky_match=1` putting each band's
+  centre at the model x the capture's colour over the model's band, 0 leaving the gains 1; below the horizon the
+  horizon's haze, not the capture's dark sea (across the horizon luma within 2%, chromaticity within 0.01); a khaki ring
+  painted under the horizon seen by the ground band and changing nothing in the match; the composite in an 8-bit and a
+  float target; the noise the processor's to a step; every marched texel against the processor's march; the clear share
+  of the sky above 12 degrees by coverage (0.25: 75%, 0.5: 49%, 0.75: 24%, 1: 0%); the layer's curvature (a level ray
+  meets its base 133.5 km off, 50 km across it lies 196 m under a flat layer: d^2 / 2R); after 30 still frames the
+  history steadier than the march; the first frame seeded (its history 3 x nearer the settled one than a march); a
+  turned camera without ghosts; no NaN. `thug2_vulkan_rt_reflections_check` (99): with rt_sky every clear-cut miss shows
+  the sky-view table toward its reflection (29,338 pixels, 0 off by more than 3 / 255), and with no sky drawn the misses
+  are unchanged. The other checks on both GPUs: sun 77, fog 76, hdr 80, gi 32, rt 20, shadows 45, effects 51,
+  materials 34, rt_scene, format. In the game `tools/game/rt_shadows_check.ts --effect sky` (tools/game/rt_sky.json, the
+  user's [Graphics] settings - every RT effect, 8 x MSAA, tessellation): drawn everywhere; bounded but one picture -
+  TR-horizon, looking into the low sun from 1500 units up, has 12.7% turned white (the bound is 8%: the original is
+  near-white there too, 230 - 245; the drawn sky's glare reaches 255); mean luma change at most 55.8 (NO-up), at most
+  0.34% turned black.
 - **Cost** (device timestamps, logged every 240 passes as "rt_sky: the passes take"): `--perf` at 1920 x 1080 (the
-  check's scene, half the screen sky) - the sky alone 0.015 ms on the RTX 5070 Ti, 0.86 ms on the AMD integrated GPU;
-  with clouds at half resolution 0.15 ms (march 0.11, temporal 0.01, composite 0.02) and 7.4 ms (5.0, 0.9, 1.5). In the
-  game at 1280 x 720 with 8 x MSAA and every other effect on: 0.04 - 0.10 ms on the RTX 5070 Ti (the windows' averages,
-  loading screens included).
+  check's scene, half the screen sky) - the sky alone 0.015 ms on the RTX 5070 Ti, 0.85 ms on the AMD integrated GPU;
+  with clouds at half resolution 0.13 ms (march 0.09, temporal 0.01, composite 0.03) and 7.4 ms (4.7, 1.1, 1.6); a
+  seeded first frame 12 x the march and temporal pass once. In the game at 1280 x 720 with 8 x MSAA and every other
+  effect on: 0.04 - 0.12 ms on the RTX 5070 Ti.
+- **Dark levels**: the sun on the clouds x a smoothstep of the dome's brightness (0.18 - 0.30 of its mean luma): NO's
+  night sky (0.23) keeps its clouds dim grey; the day and dusk levels are unchanged.
 
 ### The first frame after a load
 
