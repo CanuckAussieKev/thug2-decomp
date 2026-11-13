@@ -43,6 +43,13 @@ static_assert(sizeof(Playlist) == kPlaylistBytes, "layout must match the origina
 // launch.
 void play_next_track();
 
+// NOT ORIGINAL - while `apart`, the music's random numbers (play_next_track's and shuffle_user_soundtrack's shuffles)
+// come from streams of its own - the game's as they were when it was set - and the game's streams aren't touched: a
+// demo (devtools/demo.h) sets it while it records or plays. A track ends in real time (its stream's end), which a
+// replayed run doesn't repeat; drawing from the game's streams, the music moved every later random number by when it
+// happened (the first level of a session draws a new order: 4,000 numbers at the level's load).
+void set_music_random_apart(bool apart);
+
 // PartyMod's shuffle draw (its our_random): one of the game's random numbers in [0, n), thrown away, then
 // rand() % n.
 int shuffle_random(int count);

@@ -28,6 +28,8 @@ constexpr uint32_t kLevelLoad = 0x12345678;
 constexpr uint32_t kSkaterName = 0x9ABCDEF0;
 constexpr uint32_t kSeed = 0xC0FFEE;
 constexpr uint32_t kCrtSeed = 0xBEEF;
+constexpr uint32_t kGlobalName = 0x08B6D03A; // (Car_CheckForSkater_Pause)
+constexpr uint32_t kGlobalWord = 5;
 constexpr uint32_t kUpFrame = 120;
 constexpr std::array<uint32_t, demo_format::kRandomStreamWords> kStreams = {{11, 22, 33, 44, 55, 66}};
 constexpr uint32_t kCrtState = 77;
@@ -103,6 +105,8 @@ demo_format::Demo sample()
     demo.check_stride = 1;
     demo.random_at_up = {.streams = kStreams, .crt = kCrtState};
     demo.clocks = kClocks;
+    demo.random_flags = demo_format::kMusicApart;
+    demo.globals = {{.name = kGlobalName, .kind = 1, .word = kGlobalWord}, {.name = kSkaterName, .kind = 2, .word = kCrtSeed}};
     demo.settings = {{"Graphics.rt_shadows", "1"}, {"features.mute_audio", "1"}, {"Graphics.empty", ""}};
     demo.profile.assign(kProfile.begin(), kProfile.end());
     demo.details.assign(kDetails.begin(), kDetails.end());
@@ -142,7 +146,8 @@ bool same_demos(const demo_format::Demo& a, const demo_format::Demo& b)
            a.profile == b.profile && a.details == b.details && a.inputs == b.inputs &&
            a.clocks.present == b.clocks.present && a.clocks.vblanks == b.clocks.vblanks &&
            a.clocks.last_change == b.clocks.last_change && a.clocks.pace == b.clocks.pace &&
-           a.clocks.offset == b.clocks.offset;
+           a.clocks.offset == b.clocks.offset && a.random_flags == b.random_flags &&
+           a.globals == b.globals;
 }
 
 void put_u32(std::vector<uint8_t>* bytes, std::size_t at, uint32_t value)
@@ -175,6 +180,18 @@ void check_round_trip()
     check(demo_format::read_demo(demo_format::write_demo(no_clocks), &back_no_clocks, &error) &&
               !back_no_clocks.clocks.present,
           "demo: the clocks are optional");
+    demo_format::Demo no_random = demo;
+    no_random.random_flags = 0;
+    demo_format::Demo back_no_random;
+    check(demo_format::read_demo(demo_format::write_demo(no_random), &back_no_random, &error) &&
+              back_no_random.random_flags == 0,
+          "demo: the random chunk is optional (a demo made before it: no flags)");
+    demo_format::Demo no_globals = demo;
+    no_globals.globals.clear();
+    demo_format::Demo back_no_globals;
+    check(demo_format::read_demo(demo_format::write_demo(no_globals), &back_no_globals, &error) &&
+              back_no_globals.globals.empty(),
+          "demo: the globals are optional");
     check(back.check_at(kSomeCheckedFrame) != nullptr && back.check_at(kSomeCheckedFrame)->frame == kSomeCheckedFrame,
           "demo: a check point by frame");
     check(back.check_at(kFrameBeforeUp) == nullptr, "demo: no check point before the level was up");

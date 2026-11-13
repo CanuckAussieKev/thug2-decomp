@@ -65,8 +65,8 @@ linear, ease or hold; "Set from the view") and **Compare** (the split comparison
   skater's state at the level up: a demo recorded from a fresh start parted at frame 5.) No snapshot of the game is kept
   for a faster way back: its state is spread over the script heap, the objects, the physics, the sound and the screen
   elements, and nothing puts all of it back exactly - a checkpoint that missed one piece would part from the recording
-  without the drift check seeing why. Every pass after a seek back is a second playback in the same session, which the
-  demos can't make exact yet (below, "What was measured").
+  without the drift check seeing why. Every pass after a seek back is a second playback in the same session: exact
+  for a demo with the `GLOB` and `RAND` chunks (below, "What a session leaves behind").
 - **Cameras.** The game's (as recorded); **free** (it starts where the camera is); **orbit** round the skater (from
   behind it while "follow" is on); **fixed** cameras placed in the level; **path** - the keyframes: a position, a
   rotation (yaw, pitch, roll) and a field of view at a frame; between keys the camera moves smooth (a curve through the
@@ -154,9 +154,39 @@ automation channel's presses):
 | a plain `-demo viewtest` run to its end, QUIT to the main menu, `demo play viewtest` again - no viewer | the same: frame 784, 8 frames later |
 
 So the cameras, pausing, slow motion, fast play and the split comparison don't touch the run, and a seek back plays as a
-second playback in one session does - which the demo system doesn't make exact yet: something a playback leaves (not the
-clocks, the random numbers or the pads' presses - all tried) changes when a standing skater pushes off. The drift check
-shows it, as ever ("demo: frame N differs").
+second playback in one session does. `viewtest` was made before the `GLOB` / `RAND` chunks: what parted it is below.
+
+### What a session leaves behind
+
+A second playback in one session parted from the recording because the session before left state that the level's
+scripts read and a level load doesn't reset. Found by tracing every draw of the game's random numbers (the call stack
+of each) and the scripts and objects frame by frame, first playback against second (2026-11-13):
+
+- **The music's shuffles.** A new track is chosen when the last one ends - in real time - and the shuffle drew 4,000 of
+  the game's random numbers (the session's first level: at its load). Every later number moved with it: in `viewtest` the
+  pedestrian preselection then drew 266 numbers instead of 386, a script's random wait came out different and the
+  braking skater's idles were other ones, so it pushed off 8 frames later at frame 784. Now while a demo records or plays
+  the music draws from streams of its own (`audio::set_music_random_apart`); a recording notes it (`RAND`) and its
+  playback does the same. The game's own draws are untouched.
+- **RandomNoRepeat / RandomPermute.** Their state (the last choice, the shuffled order) is kept per script site and
+  outlives the script that used it: a level's scripts found the state of the last pass's. A demo's start drops them all
+  (`script::forget_all_stored_randoms`, recording and playback alike).
+- **Script globals.** `Car_CheckForSkater_Pause` and `Car_CheckForOtherCar_Pause` count on with each car a level makes
+  (1, 5, 9...: they stagger the cars' checks), and a car stopped for the skater in one pass and not in the next (a car's
+  frantic stop at frame 440 of a 33 s demo; its playbacks alternated). The first level of a session also changes a few
+  others (`DrumPartialNumber`, `select_shift`, the music's temporary volume). A recording keeps every global with a
+  simple value (integers, floats, names: about 1,560) as they were at its start (`GLOB`); its playback puts back those
+  that differ and logs them ("demo: N script global(s) put back as recorded").
+
+Measured (THUG2-7, the same build and settings; `drift2`: BO, 32 s, 1934 frames - pushes, an ollie, a grind try, a
+crouch, a pause, a long stand braking, a push off, a square - recorded with the automation channel's presses):
+
+| Run | Drift against the recording |
+|---|---|
+| `-demo drift2`, then QUIT to the main menu and `demo play drift2` three times in the same session | identical, every pass (1928 check points; the skater's fields identical to the last digit) |
+| `-demo drift2`, then `demo play drift2` from inside the level twice | identical, every pass |
+| the viewer: straight through, then seek back to 300, to 0, to 600, playing to the end each time | identical, every pass (1928 check points; seeks back took 0.5 - 2.3 s) |
+| `viewtest` (made before the chunks): first playback, then a second | identical; parts (frame 727) - as before, record it again |
 
 Seek speed, with all of those effects on: forward 100 frames in 0.04 - 0.06 s (1700 - 2300 frames a second, 28 - 39x
 real time); back to the start 0.8 s (the main menu and the level loaded again), to frame 300 4.4 s, to frame 600 2.2 s.
@@ -273,8 +303,12 @@ before the change 0.99 - every playback identical to the recording (1283 check p
 ## Limits
 
 - **A second playback in one session** (a demo played to its end, QUIT, played again - and every pass of the viewer
-  after a seek back) can part from the recording: measured on the BO test demo at frame 784 of 828 (a standing skater
-  pushing off 8 frames later), "The viewer" above. The first playback after the game starts is exact.
+  after a seek back) is exact for a demo made since 2026-11-13 ("What a session leaves behind" above). A demo without
+  the `GLOB` and `RAND` chunks (made before) is exact only as the first playback after the game starts: its music drew
+  from the game's random numbers and its globals weren't kept. Record it again.
+- What a session leaves that isn't a simple script global, a stored random or the music (a structure or array global
+  changed by a script, the career's flags, a goal's state) isn't put back: a level that reads one could still part on a
+  second playback - the drift check shows where.
 - **Restarting in a level (F6, RECORD DEMO, `demo record`).** Measured 2026-11-13 with the clocks put back (the `CLCK`
   chunk): demos recorded in a level after 30 s of skating (BO, foun) play back identically from the command line and
   from the pause menu (drift 0 over 1371 check points). The earlier report of an in-level recording parting after a
@@ -295,5 +329,7 @@ before the change 0.99 - every playback identical to the recording (1283 check p
 Little-endian: `THUG2DEM`, u32 version, then chunks `{4-character tag, u32 size, body}`. A reader skips chunks it
 doesn't know and refuses a newer version. `INFO` (names, seeds, the frame the level was up, the random state there),
 `SETS` (settings), `PROF` / `DETL` (the skater), `INPT` (port 0's 32 bytes a frame, run-length coded), `CHEK` (the
-check points, 84 bytes each), `CLCK` (the clocks when the level was up; optional). `formats/demo_format.h` has the
+check points, 84 bytes each), `CLCK` (the clocks when the level was up; optional), `RAND` (u32 flags: bit 0, the
+music's random numbers apart; optional), `GLOB` (u32 count, then each simple script global at the recording's start:
+u32 name, u8 kind - 1 integer, 2 float, 13 name -, u32 value; optional). `formats/demo_format.h` has the
 fields; `thug2_format_check` round-trips it and checks a later chunk is skipped and a newer or broken file refused.

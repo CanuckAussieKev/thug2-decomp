@@ -76,6 +76,22 @@ struct Clocks {
     int32_t offset = 0;
 };
 
+// How the run's random numbers were kept apart from what a session leaves behind (the RAND chunk; none: 0, a demo made
+// before 2026-11-13).
+// - kMusicApart: the music's shuffles drew from streams of their own while it recorded (audio::set_music_random_apart),
+//   so its playback does too. Without it the music's draws were the game's, as when a session's first level loaded.
+constexpr uint32_t kMusicApart = 1U << 0U;
+
+// A script global with a simple value (an integer, a float or a name) as it was when the recording began (the GLOB
+// chunk): the counters and switches a session's scripts change (Car_CheckForSkater_Pause...) that a level's scripts
+// read.
+struct Global {
+    uint32_t name = 0;
+    uint8_t kind = 0; // script::QbValueKind (1 integer, 2 float, 13 name)
+    uint32_t word = 0;
+    bool operator==(const Global&) const = default;
+};
+
 struct Demo {
     uint32_t version = kVersion;
     std::string level;
@@ -91,6 +107,8 @@ struct Demo {
     uint32_t check_stride = 1;
     RandomState random_at_up;
     Clocks clocks;
+    uint32_t random_flags = 0; // kMusicApart...
+    std::vector<Global> globals; // (none: a demo made before the GLOB chunk)
     std::vector<std::pair<std::string, std::string>> settings;
     std::vector<uint8_t> profile;
     std::vector<uint8_t> details;

@@ -185,7 +185,55 @@ bool other_lists_at_music_volume() { return script::fetch_int_value(kForceAmbien
 
 bool in_range(float volume) { return !(volume > 100.0F) && !(volume < 0.0F); } // (NaN passes)
 
+// NOT ORIGINAL - set_music_random_apart's: whether the music draws apart, and its own streams while it does.
+struct MusicRandom {
+    bool apart = false;
+    maths::RandomStreams streams{};
+};
+MusicRandom& music_random()
+{
+    static core::NoDestroy<MusicRandom> state;
+    return state.get();
+}
+
+// NOT ORIGINAL - while the music's random numbers are apart (set_music_random_apart), its streams swapped in for the
+// game's over a scope that draws them, and back out after.
+class MusicDraws {
+public:
+    MusicDraws() : apart_(music_random().apart)
+    {
+        if (apart_) {
+            game_ = maths::random_streams();
+            maths::set_random_streams(music_random().streams);
+        }
+    }
+    ~MusicDraws()
+    {
+        if (apart_) {
+            music_random().streams = maths::random_streams();
+            maths::set_random_streams(game_);
+        }
+    }
+    MusicDraws(const MusicDraws&) = delete;
+    MusicDraws& operator=(const MusicDraws&) = delete;
+    MusicDraws(MusicDraws&&) = delete;
+    MusicDraws& operator=(MusicDraws&&) = delete;
+
+private:
+    bool apart_;
+    maths::RandomStreams game_{};
+};
+
 } // namespace
+
+void set_music_random_apart(bool apart)
+{
+    MusicRandom& music = music_random();
+    if (apart && !music.apart) {
+        music.streams = maths::random_streams(); // (its own from here: the game's as it is now)
+    }
+    music.apart = apart;
+}
 
 // 0x00450F70
 void pause_music(int pause)
@@ -462,6 +510,7 @@ int shuffle_random(int count)
 // 0x00452200
 void play_next_track()
 {
+    const MusicDraws draws; // NOT ORIGINAL (set_music_random_apart)
     Playlist& list = core::at(get_playlists(), current_playlist());
     if (!music_on() || (list.unknownca8_ != 0U)) {
         return;
@@ -677,6 +726,7 @@ uint32_t free_stream_id(uint32_t id)
 // 0x00450310 (with the game's random numbers: PartyMod's shuffle change is only in play_next_track's)
 void shuffle_user_soundtrack()
 {
+    const MusicDraws draws; // NOT ORIGINAL (set_music_random_apart)
     int count = user_soundtrack_tracks(user_soundtrack()); // the soundtrack's tracks
     if (count == 0) {
         return;

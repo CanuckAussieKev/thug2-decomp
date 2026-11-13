@@ -23,8 +23,8 @@ class ViewCam;
 //     as -demo does (the main menu, then its level with its random numbers, clocks and input) and running the logic
 //     flat out, undrawn, to it; a frame after it by running on. No snapshot of the game is kept (its state is spread
 //     over the script heap, the objects, the physics and the sound - nothing restores all of it exactly). A pass after
-//     a seek back is a second playback in one session: the check track shows where it parts from the recording, if it
-//     does (docs/demos.md "The viewer").
+//     a seek back is a second playback in one session: exact for a demo made with the GLOB and RAND chunks, and the
+//     check track shows where it parts from the recording, if it does (docs/demos.md "What a session leaves behind").
 //   Cameras: the game's (as recorded), a free one (WASD + Q / E, the right mouse button to look, the wheel for speed;
 //     a pad's sticks), one orbiting the skater (the right mouse button to turn, the wheel for distance; it can follow
 //     the skater's heading), fixed ones placed in the level, and the path - keyframes on the timeline (position,
