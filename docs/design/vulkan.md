@@ -1858,6 +1858,50 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
   ground (shadow and stain decals) get outlines of their own (a real depth step); a low-poly hill's facets show faint
   crease lines.
 
+### Grass (`grass`)
+
+`engine/gfx/grass.h` (the field and the `Sink` contract), `render_pc/grass_world` (the grass found), `gpu_vulkan/vulkan_grass`
+(the pass) - `[Graphics] grass` (off by default), `grass_density`, `grass_height`, `grass_distance`, all live. No ray
+tracing needed; Direct3D 9 installs no `Sink` and draws none.
+
+- **Where the grass is.** The collision's terrain types - the ones the skater's wheels sound on
+  (`engine/sound/surface_kind.h`): a face whose terrain is `TERRAIN_GRASS` or `TERRAIN_GRASSDRIED` (their indices looked
+  up in the loaded terrain table, the shipped order 20 / 21 when it isn't loaded), facing up (normal y at least 0.7),
+  collidable and not a trigger. The shipped levels' upward grass in square metres: ST 9,055 (+1,033 dried), PH 4,218,
+  SC 3,951, AU 2,265, TR 2,056 dried, BE 1,561, LA 1,141, BO 914 (the common's three lawns - their render textures are
+  the olive grass ones), BA 716; NO and SE have none. No texture heuristic is used: in BO, AU and BA the lawns the
+  player sees are the grass terrain (a top-down map of BO's collision by terrain beside one of its render textures'
+  mean colours), so the terrain alone decides. A level with none logs "no grass in this world's collision".
+- **The field** (`grass::make_field`, made on the processor once a world - the loaded scenes' key changed - or when the
+  density changes; Boston: a few milliseconds): each grass face gets area x 0.155 blades a square unit x density
+  (about 240 a square metre), placed by hashes of its corners' bits and the blade's number (a uniform point on the
+  triangle) - the same field every run, whatever order the sectors load in. A root is dropped when any other face covers
+  it seen from above from 0.5 to 120 units over it (a ramp, a box, a bench, a rail, a path's kerb laid over the lawn):
+  grass never grows through them; coplanar ground doesn't count. Roots are bucketed into 256-unit tiles, each tile's in
+  the order of a rank hash. A blade is 16 bytes (its root; rank, height, facing and shade hashes, a dried flag).
+- **The pass** at `opaque_drawn`, `ViewOrder::kGrass` (90: after the opaque world, the objects and the sky, before the
+  ray-traced shadows, occlusion and bounce - they shade the blades from the depth the blades write, as they shade the
+  ground; the blades are never in the BLAS). Per view (vulkan_grass.h has the formulas): the tiles nearer than the
+  distance and in the view's frustum chosen on the processor, each drawing its first blades - those whose rank is below
+  the share kept at its nearest point (1 out to a fifth of the distance, then (near / d)^1.5), with 3, 2 or 1 segments;
+  at most 1.5 million blades a view (the share lowered for all beyond). The viewport's colour is copied out (resolved
+  when multisampled); a compute pass puts every chosen blade's root on the screen and, where the depth there is the
+  root's own, keeps the colour there in a buffer of the blades' colours (so a root hidden this frame - under the skater -
+  keeps the last colour seen; a blade never seen isn't drawn and grows in over three sightings). Then the blades are
+  drawn as triangle strips, one instance each, depth-tested into the colour and depth (and the upscaler's motion
+  attachment when the view is upscaled - the camera's motion; the wind's sway isn't in it).
+- **A blade** (`grass_blade_shape` is the vertex shader's twin): 6 x grass_height x its own 0.55 - 1.45 units tall,
+  times the fade (it sinks into the lawn from 70% of the distance to all of it, where its colour is the lawn's), its
+  growth through the rank band, and how well its colour is known; bent by its own lean, the wind (two slow waves over
+  the ground, downwind) and each pusher within its reach - the skaters and peds (render_pc's instances drawn with bones,
+  the eight nearest the camera; 30 units, within 72 units of height), which bend it straight away - the tip as high as
+  its length allows; turned 60% of the way to face the camera; 0.45 units wide at the root (never under 0.9 pixels:
+  distant blades get wider as they get fewer), to nothing at the tip, along a quadratic curve. Its colour is the
+  ground's under it - the texture, the bake's light and shadow (dark corners stay dark), the per-pixel lighting when
+  `rt_pbr`, the fog - times 0.62 at the root (the contact darkening) to 1.12 at the tip, +-10% per blade.
+- **Checked.** `thug2_vulkan_grass_check`: GRASS_CHECK_RESULTS
+- **In the game.** GRASS_GAME_RESULTS
+
 ### Changing the settings while the game runs (the Options screen)
 
 `app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,

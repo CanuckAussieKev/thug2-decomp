@@ -421,6 +421,17 @@ void read_style()
          .saturation = ini_float("rt_style_saturation", defaults.saturation)});
 }
 
+// NOT ORIGINAL - grass (gpu_vulkan/vulkan_grass.h): blades where the level's collision says grass; off unless asked for,
+// no ray tracing needed
+void read_grass()
+{
+    const render::vulkan::GrassSettings defaults;
+    render::vulkan::set_grass_settings({.on = build_info::fetch_flag(build_info::kGraphics, "grass", false),
+                                        .density = ini_float("grass_density", defaults.density),
+                                        .height = ini_float("grass_height", defaults.height),
+                                        .distance = ini_float("grass_distance", defaults.distance)});
+}
+
 // The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting
 // with it, `prefix`) and what reads its effect's settings again. Everything else - renderer, ray_tracing, rt_hdr,
 // upscaling, rt_tessellation - waits for the restart.
@@ -477,6 +488,7 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_pbr", .prefix = false, .read = &read_rt_pbr},
     LiveKey{.key = "rt_pbr_", .prefix = true, .read = &read_rt_pbr},
     LiveKey{.key = "rt_style", .prefix = true, .read = &read_style}, // (rt_style and every rt_style_)
+    LiveKey{.key = "grass", .prefix = true, .read = &read_grass},    // (grass and every grass_)
 };
 
 // (added by the split comparison - engine/gfx/graphics_options.h CompareBackend, devtools/compare_split.h) The effects'
@@ -713,6 +725,7 @@ void install_vulkan()
     read_upscale();
     read_rt_pbr();
     read_style();
+    read_grass(); // (NOT ORIGINAL - the grass: gpu_vulkan/vulkan_grass.h)
     render::graphics_options::set_live_reload(&reload_live_key);
     render::graphics_options::set_compare_backend(
         {.prepare = &compare_prepare, .apply = &compare_apply, .end = &compare_end});
