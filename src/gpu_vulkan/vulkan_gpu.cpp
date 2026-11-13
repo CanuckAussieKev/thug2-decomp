@@ -41,6 +41,7 @@
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_rt_sun.h"
+#include "gpu_vulkan/vulkan_style.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
@@ -383,7 +384,8 @@ long make_depth_surface(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
                                             rt_sun_depth_usage(state, plan->format) | // (and the sun's: vulkan_rt_sun.h)
                                             rt_sky_depth_usage(state, plan->format) | // (and the sky's)
                                             upscale_depth_usage(state, plan->format) | // (the upscaler's: vulkan_upscale.h)
-                                            compare_depth_usage(state, plan->format), // (a split comparison's side B)
+                                            compare_depth_usage(state, plan->format) | // (a split comparison's side B)
+                                            style_depth_usage(state, plan->format), // (the art style's: vulkan_style.h)
                                .alpha_one = false};
     if (!state.memory.create_image(request, &surface->image)) {
         destroy_surface(state, surface);
