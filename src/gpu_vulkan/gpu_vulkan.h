@@ -304,7 +304,7 @@ struct WaterSettings {
     float heading = kWaterHeadingAuto; // the way the wind blows, degrees from world +x toward +z (negative: the level's)
     float clarity = 1.0F; // x how far one sees into the level's water (0: opaque - 4)
     float foam = 1.0F;    // the shoreline foam (0: none - 2)
-    bool tint_auto = true;              // rt_water_tint=auto: each water texture's own colour
+    bool tint_auto = true;              // rt_water_tint=auto: the water's own colour as the game draws it
     std::array<float, 3> tint = kWaterTint; // rt_water_tint=r,g,b (0 - 1)
     bool hdr = false;     // rt_hdr=1: the sun's glitter above 1 kept
     bool screen_reflections = true; // the reflections marched over the screen (else the sky alone)

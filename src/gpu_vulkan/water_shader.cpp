@@ -232,9 +232,12 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     // the water's colours: the scattering seen in deep water, from the tint (or the texture's own) at the light the game
     // gave the surface here (the program's brightness over its texel's: the bake, the pass colours)
     float gain = clamp(water_luma(colour.rgb) / max(water_luma(texel.rgb), 0.02), 0.0, 4.0);
-    vec3 tint = water.tint.w > 0.5 ? mean : water.tint.rgb;
+    // auto: the game's own colour here without the texture's detail - the texture's mean through what the program did
+    // to its texel (the bake's and the pass colours' tints: a level's painted shallows keep their colour)
+    vec3 own = mean * clamp(colour.rgb / max(texel.rgb, vec3(0.02)), vec3(0.0), vec3(4.0));
+    vec3 tint = water.tint.w > 0.5 ? own : water.tint.rgb * gain;
     vec3 hue = clamp(tint / max(max(tint.r, tint.g), max(tint.b, 1.0e-3)), 0.03, 1.0);
-    float light = water_luma(tint) * gain;
+    float light = water_luma(tint);
     vec3 deep_hue = hue * hue; // (deep water's colour more saturated than the texture's mean, which has its highlights)
     vec3 deep = deep_hue * (light * 0.65 / max(water_luma(deep_hue), 0.05));
 

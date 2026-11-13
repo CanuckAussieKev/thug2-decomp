@@ -422,7 +422,7 @@ void read_style()
 }
 
 // NOT ORIGINAL - water shading (gpu_vulkan/vulkan_water.h): off unless asked for; no ray tracing needed.
-// rt_water_wind_heading: auto (the level's) or degrees; rt_water_tint: auto (each water texture's own colour) or r,g,b.
+// rt_water_wind_heading: auto (the level's) or degrees; rt_water_tint: auto (the water's own colour as the game draws it) or r,g,b.
 void read_water()
 {
     const render::vulkan::WaterSettings defaults;
@@ -469,7 +469,7 @@ void read_water()
         water.tint_auto = false;
         water.tint = colour;
     } else if (!tint.empty() && tint != "auto") {
-        get_log("[Graphics] rt_water_tint=%s isn't auto or r,g,b - each water texture's own colour used", tint.c_str());
+        get_log("[Graphics] rt_water_tint=%s isn't auto or r,g,b - the water's own colour used", tint.c_str());
     }
     render::vulkan::set_water_settings(water);
 }

@@ -37,7 +37,7 @@
 //      reflects - without the water itself (the ray-traced effects at rt::opaque_view_drawn see its bed, not the water);
 //   4. colour by depth: the light's path through the water (from the surface to what is behind, along the view) and
 //      down to it absorbed per channel, exp(-sigma d) with sigma = 3 / visibility x (0.2 + 1.6 (1 - hue)) - the tint's
-//      hue (rt_water_tint, auto: each water texture's mean colour - its smallest level) taking red first: shallow water
+//      hue (rt_water_tint, auto: the game's colour there without the texture's detail) taking red first: shallow water
 //      shows its bed nearly clear, deep water the scattered colour (the hue at the brightness the game gave the
 //      surface - the bake, the pass colours) - and visibility the level's x rt_water_clarity; the texture's own detail
 //      kept faintly (its texel over its mean, 35%);

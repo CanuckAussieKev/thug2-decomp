@@ -103,8 +103,8 @@ struct LevelEntry {
     water::LevelWater water;
 };
 constexpr std::array kLevels = {
-    LevelEntry{.name = "AU", .water = {.waves = 1.0F, .swell_length = 900.0F, .visibility = 700.0F, .heading = 205.0F}},
-    LevelEntry{.name = "BA", .water = {.waves = 0.4F, .swell_length = 520.0F, .visibility = 380.0F, .heading = 120.0F}},
+    LevelEntry{.name = "AU", .water = {.waves = 1.0F, .swell_length = 900.0F, .visibility = 900.0F, .heading = 205.0F}},
+    LevelEntry{.name = "BA", .water = {.waves = 0.4F, .swell_length = 520.0F, .visibility = 600.0F, .heading = 120.0F}},
     LevelEntry{.name = "BE", .water = {.waves = 0.15F, .swell_length = 300.0F, .visibility = 220.0F, .heading = 60.0F}},
     LevelEntry{.name = "NO", .water = {.waves = 0.22F, .swell_length = 350.0F, .visibility = 180.0F, .heading = 30.0F}},
     LevelEntry{.name = "SE", .water = {.waves = 0.5F, .swell_length = 600.0F, .visibility = 450.0F, .heading = 330.0F}},

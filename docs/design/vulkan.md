@@ -1858,14 +1858,113 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
   ground (shadow and stain decals) get outlines of their own (a real depth step); a low-poly hill's facets show faint
   crease lines.
 
+### Water (`rt_water`)
+
+`gpu_vulkan/vulkan_water` and `water_shader` (`[Graphics] rt_water`, off by default; no ray tracing or HDR needed;
+Direct3D 9 ignores it). The game's water is flat textured sheets - scrolling coordinates, opaque or alpha-blended,
+sometimes over a mirrored copy of the level drawn under it. With `rt_water=1` the water surfaces are shaded as water in
+their own draw: waves, a reflection, refraction, colour by depth, shoreline foam and the sun's glitter.
+
+- **Which surfaces are water.** render_pc marks the material it hands in (`MaterialRef::hand_in` ->
+  `render_pc/water_materials.cpp`, through `engine/gfx/water_surfaces.h`): a material whose passes move - a UV wibble
+  (pass flag 0x1, or a pass's oscillator) or a texture animation (0x800) - and whose first pass has a texture and is
+  drawn as itself or blended by alpha (blend modes 0, 5, 6, 11; not added, subtracted or multiplied: glows, shadows,
+  light pools). Every later draw with that texture on stage 0 is water until the next material. The shader narrows it
+  per pixel: only where the surface faces up (the triangle's normal from the position's derivatives, y above
+  0.82 - 0.94: not waterfalls, flags, scrolling signs), and only where the texture's mean colour (its smallest level)
+  looks like water's - not warm (red over blue by 0.04 - 0.12: lava, foliage, sunlight pools), not near white (luma
+  above 0.58 - 0.68: foam and caustic sheets drawn over the water) nor near black (below 0.06 - 0.12: shadows).
+  `node tools/game/water_survey.ts` applies the same rules to the levels' files: of the moving materials, AP 6 of 22,
+  AU 10 / 21 (the sea E51F4A45, pools), BA 30 / 75 (the sea CDC12099 / BAC6100F, the harbour 53A5B53A / B3705C24,
+  fountains), BE 36 / 63 (the canal E06BBC98, fountains), BO 9 / 50 (the harbour 669D49A1), NO 21 / 58 (the river
+  6228C216, F5DFC91E), SE 22 / 113, ST 20 / 65, TR 5 / 16... `[debug] rt_water_materials=1` logs each moving material
+  the game draws, water or not, with its passes.
+- **The key.** A water draw's fragment key gets `kSurfaceWater` (ff_key.h, 0x10 of `FragmentKey::surface`, on the
+  programs the per-pixel lighting takes: kMaterial, kTextureVertexX4, kTextureConstantAlpha) and its vertex half
+  `surface` = 1 (the camera-space position handed on). The water's GLSL runs after the program's colour is clamped:
+  it returns the shaded colour, keeps the program's alpha for the alpha test and sets the written alpha afterwards. A
+  key without the bit is generated exactly as before (`rt_water=0`: no key has it; `thug2_ff_shader_check` compiles
+  the same 50,180 shaders). Five push-descriptor bindings (8 - 12: the block, the copy's colour and linear depth, the
+  sky capture, the ripples) are added to the shared set layout and pushed only for water draws.
+- **The copy behind the water.** At a view's first water draw the colour target (resolved when multisampled) and its
+  depth made linear (a compute pass: the projection's w, 1e9 where nothing was drawn) are copied over the view's
+  rectangle; every water draw of the view reads them. An opaque water draw before the view's opaque world is finished
+  (the sea is often among the level's first meshes) is kept back - its state block and buffers live for the frame - and
+  drawn at `rt::opaque_view_drawn` (a listener at 450, after the ray-traced effects), so the copy has the whole opaque
+  world without the water itself: its bed and what it reflects. (The ray-traced shadows, occlusion and bounce light at
+  that point see the bed, not the water.) Transparent water draws after it use the same copy, or make it.
+- **1. Waves.** Four Gerstner waves about the wind's heading (the swell: wavelengths 1, 0.63, 0.41, 0.27 x the
+  level's longest, steepness 0.12 - 0.07 x the level's height x `rt_water_waves`, crests sharpened with Q = 0.6, deep
+  water's speed sqrt(g / k) with g = 386 units / s^2 - the units are inches), each faded out where a pixel spans 5 -
+  20% of its wavelength; and two layers of a tiling ripple texture drifting with the wind (`rt_water_wind`: their size
+  and speed). The texture (256 x 256, RGBA16F: slope x, slope z, height, the foam's pattern) is made on the device at
+  the first water draw, each of its 9 levels by a compute pass: 64 sine waves of whole cycles across the tile (2 - 24,
+  within 63 degrees of the wind's axis, amplitude |k|^-1.7, phases from a PCG hash) with each wave faded out between
+  half and all of the level's Nyquist limit - band-limited mip levels, so far water flattens instead of shimmering;
+  the slope scaled to an RMS of 0.22. Everything moves with `ViewDrawn::game_seconds`: it pauses with the game, and a
+  replay or an export draws the same frames.
+- **2. The reflection** along the wave normal - with the waves' tilt lessened at grazing angles (x 0.3 - 1 by how much
+  the surface faces the eye: a pixel there spans many facets, so the reflection stretches along the water instead of
+  breaking up) - weighted by Fresnel (Schlick, water's F0 0.02; its grazing value held below 1 by the waves' slope: rough
+  water never mirrors fully): a ray marched over the copy's depth in camera space (22 steps growing x 1.32 from 1.5% of
+  the surface's distance, the crossing halved 5 times, faded toward the view's edges; none where it leaves the view or
+  passes behind something), else the sky - as the copy shows it toward that direction (where nothing was drawn), else as
+  the level's sky was captured (`rt::sky_capture`: the sky scene drawn into 3 x 2 faces once per sky scene, asked for
+  while `rt_water` is on), else the fog's colour.
+- **3. Refraction.** The copy read at the pixel moved by the waves' tilt (in camera space) x the water behind it (up to
+  300 units) x the focal length / the distance x 0.12 - none at the shore; not moved onto something in front of the
+  water.
+- **4. Colour by depth.** The light's path through the water (from the surface to what is behind, along the view) and
+  down to it absorbed per channel: exp(-sigma d), sigma = 3 / visibility x (0.2 + 1.6 (1 - hue)), the hue the tint over
+  its largest channel (`rt_water_tint`: auto - the game's own colour at the pixel without the texture's detail: the
+  texture's mean through what the program did to its texel, so a level's painted shallows keep their colour - or r,g,b) - red absorbed first, so
+  shallow water shows its bed nearly clear and slightly green-blue; refracted = bed x through x down + deep x (1 -
+  through), deep = hue^2 scaled to 0.65 x the tint's brightness at the light the game gave the surface (the program's
+  colour over its texel: the bake, the pass colours). Visibility is the level's x `rt_water_clarity`. The texture's own
+  detail is kept faintly (x its texel over its mean, 35%).
+- **5. Foam** where the water is shallow - within 24 units of its bed below (the screen-space depth difference: a
+  beach, and the waterline round anything standing in the water) - in the ripples' drifting foam pattern,
+  x `rt_water_foam`; white at the surface's light.
+- **6. The sun's glitter.** Normalised Blinn-Phong (power 1500, x 190) of the scene's sun (`rt::scene_sun`, else the
+  sun the game shows) on the wave normals, Fresnel at the half vector, where the bake says the surface is sunlit (the
+  vertex colour's luma 0.3 - 0.6); at most 6 with `rt_hdr` (the bloom takes it up), 1 without.
+- **Alpha.** Where the game drew any water (alpha above a quarter) the written alpha is 1 - what is behind is in the
+  colour already; where it drew none it stays as it was. Stacked water sheets of different materials each replace what
+  is under them, so the upper one's edge shows (a seam in NO's river).
+- **Levels** (water_materials.cpp's table, by the scene's name; `[Graphics] rt_water_wind_heading` overrides the wind's
+  way): AU the open sea (waves 1, swell 900 units, visibility 900), BA a harbour (0.4, 520, 600), BE a canal (0.15, 300,
+  220), NO a river (0.22, 350, 180), SE (0.5, 600, 450); other levels 0.4, 500, 450.
+- **Settings:** `rt_water`, `rt_water_waves`, `rt_water_wind`, `rt_water_wind_heading`, `rt_water_clarity`,
+  `rt_water_foam`, `rt_water_tint`, `rt_water_screen_reflections` - all live (the Options screen's Surfaces tab, the
+  knobs shown only while `rt_water` is on). `[debug] rt_water_view=1` colours what the reflection found (red the
+  march, green the sky on the screen, blue the captured sky).
+- **Cost:** `thug2_vulkan_water_check --perf`, a frame of full-screen water at 2560 x 1440 (the sand and the water):
+  0.36 ms off, 0.90 ms on - 0.54 ms for the copy and the shading of every pixel. In the game:
+  COST_IN_GAME.
+- **Checked:** `thug2_vulkan_water_check` (22 checks, both GPUs here, validation with synchronization 0): a synthetic
+  shore drawn through `render::Gpu` with the game's single-texture material shader - calm water against the processor at
+  33,600 pixels (refraction, absorption, the deep colour, Fresnel toward the sky; 99.9% within 0.004); a red wall
+  standing on the water mirrored where its mirror image is on the screen (2,800 pixels, the sky at 20,800; all within
+  0.01 of the processor); `rt_water=0` and an unmarked draw the same bytes as each other and the water the program's
+  colour; the sand in front of the water the same bytes with it on; foam only where shallow (and brighter there); waves
+  that move with the clock and repeat with it; the sun's glitter above 1 at the mirror direction and nowhere on the
+  sand; the ripple texture's levels 0 and 4 against `water_waves_reference` (0.0005); opaque water kept back and drawn
+  after the opaque world; no NaN. In the game `node tools/game/water_check.ts run` (five levels, `rt_water` off and on
+  over the user's settings, pictures and the frame profile's device time).
+- **Not done:** ray-traced reflection rays from the water (with ray tracing the reflection is still the screen's and the
+  sky's - a ray query in the water's shader would need the TLAS, the geometry table and the material set bound to the
+  draws); the water's own geometry doesn't move (the waves are normals); stacked sheets are each shaded; the copy is
+  made once per view, so transparent things drawn between it and a later water draw aren't seen through that water.
+
 ### Changing the settings while the game runs (the Options screen)
 
 `app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,
 `read_rt_gi`, `read_rt_reflections`, `read_hdr`, `read_rt_fog`, `read_rt_sun`, `read_rt_sky`, `read_rt_relit`,
-`read_upscale`, `read_rt_pbr`, `read_style`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
+`read_upscale`, `read_rt_pbr`, `read_style`, `read_water`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
 end's Options screen writes a `[Graphics]` key it calls `render::graphics_options::reload_live(key)`: a key of an
 effect (`kLiveKeys`: the shadows', occlusion's, the bounce's, the reflections', the tone mapping's numbers, the fog's,
-the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*`)
+the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*` -,
+the art style's and the water's - `rt_water`, `rt_water_*`)
 has that effect's settings read again and set
 through its `set_rt_*_settings` - each takes the backend's lock and adds or removes its view listener, as at
 start-up; the shadows are followed by the bounce (their `off` clears the baked sun it wants). Effects' histories start
