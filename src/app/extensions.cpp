@@ -14,6 +14,7 @@
 #include "devtools/rt_check.h"
 #include "engine/ext/extension.h"
 #include "engine/ext/plugin.h"
+#include "engine/gfx/texture_sets.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/sys/debug_mode.h"
 #include "frontend/mouse_menus.h"
@@ -21,6 +22,7 @@
 #include "game/commands/career_complete.h"
 #include "game/front_end/start_level.h"
 #include "game/rider/thaw_bmx.h"
+#include "render_pc/texture_set_reload.h"
 
 namespace app {
 
@@ -85,6 +87,9 @@ void register_extensions()
     ext::add(frontend::automation::extension());
     ext::add(frontend::test_view::extension());
     ext::add(frontend::new_frontend::extension());
+    // (the texture set switch after the front end and automation: one they asked for is made in the same frame)
+    render::texture_sets::set_reloader(&render::reload_dictionary);
+    ext::add(render::texture_sets::extension());
     ext::add(sys::screenshot::extension());
     ext::add(devtools::rt_check::extension());
     ext::add(devtools::console::extension()); // (last: drawn over everything, the others' frames)

@@ -55,6 +55,7 @@ const std::vector<Expected>& expected()
         {.key = "graphics_preset", .fallback = "", .live = false},
         {.key = "renderer", .fallback = "vulkan", .live = false},
         {.key = "ray_tracing", .fallback = "0", .live = false},
+        {.key = "texture_set", .fallback = "original", .live = true},
         {.key = "anisotropy", .fallback = "0", .live = false},
         {.key = "msaa", .fallback = "0", .live = false},
         {.key = "draw_distance_scale", .fallback = "1", .live = false},
@@ -238,6 +239,27 @@ void check_presets()
     expect(options::preset_values(1).size() == options::preset_values(3).size(), "the presets set the same keys");
 }
 
+// The texture sets' row: Original always offered; a filter (the game's: the sets installed) hides the others.
+void check_choice_filter()
+{
+    const int index = options::get_find("Graphics", "texture_set");
+    expect(index >= 0, "texture_set is offered");
+    if (index < 0) {
+        return;
+    }
+    const options::Spec& spec = core::at(options::get_specs(), index);
+    for (size_t i = 0; i < spec.choices.size(); ++i) {
+        expect(options::choice_shown(spec, i), std::string("without a filter every choice is shown: ") + core::at(spec.choices, i).value);
+    }
+    options::set_choice_filter([](const options::Spec& filtered, const char* value) {
+        return std::strcmp(filtered.key, "texture_set") != 0 || std::strcmp(value, "seedvr2") != 0;
+    });
+    expect(options::choice_shown(spec, 0) && options::choice_shown(spec, 1) && !options::choice_shown(spec, 2),
+           "the filter hides a set that isn't installed");
+    expect(!options::choice_shown(spec, spec.choices.size()), "no choice past the last");
+    options::set_choice_filter(nullptr);
+}
+
 } // namespace
 
 int main()
@@ -247,6 +269,7 @@ int main()
     check_graphics();
     check_ini();
     check_presets();
+    check_choice_filter();
     std::printf("options check: %d checks, %d failed\n", check_state().checked, check_state().failures);
     return check_state().failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

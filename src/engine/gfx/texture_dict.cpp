@@ -25,6 +25,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/render_device.h"
+#include "engine/gfx/texture_sets.h"
 
 namespace render {
 
@@ -320,6 +321,7 @@ TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint
         dict = loaded;
         dict->set_checksum(key);
         loaded_tex_dicts().store_entry(key, dict);
+        texture_sets::dictionary_loaded(dict, file.data()); // NOT ORIGINAL - its file, for a texture set switch
     }
     memory::pop_mem_profile();
     return dict;
@@ -362,6 +364,7 @@ bool unload_tex_dict(TextureSet* dict)
     }
     const uint32_t key = dict->checksum();
     loaded_tex_dicts().erase_entry(key);
+    texture_sets::dictionary_unloaded(dict); // NOT ORIGINAL - (texture_sets.h)
     gsl::owner<TextureSet*> owned = memory::owned_element(dict); // (the loaded table's)
     delete owned; // (through its vtable)
     return true;

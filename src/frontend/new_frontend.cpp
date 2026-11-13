@@ -59,6 +59,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/texture_sets.h"
 #include "engine/gfx/engine_parts.h"
 #include "frontend/new_frontend_internal.h"
 
@@ -318,6 +319,12 @@ paint::Art art_for(const std::string& image)
 
 // --- the options ---
 
+// The choices the screen offers: every one, but the texture sets only when installed (engine/gfx/texture_sets.h).
+bool choice_offered(const options::Spec& spec, const char* value)
+{
+    return std::strcmp(spec.key, "texture_set") != 0 || render::texture_sets::installed(value);
+}
+
 void load_option_values()
 {
     const std::string text = read_text(ini_path());
@@ -325,6 +332,7 @@ void load_option_values()
     std::vector<int> choices(specs.size());
     const bool first = edit_session().start_values_.empty();
     if (first) {
+        options::set_choice_filter(&choice_offered);
         edit_session().start_values_.resize(specs.size());
         edit_session().restart_pending_.assign(specs.size(), false);
         const std::string problems = options::check_tables();
@@ -357,7 +365,9 @@ void use_option(int option, const char* value)
     bool live = spec.apply == options::Apply::kLive;
     if (live) {
         const bool on = std::strcmp(value, "0") != 0;
-        if (std::strcmp(spec.section, "Graphics") == 0) {
+        if (std::strcmp(spec.key, "texture_set") == 0) {
+            live = render::texture_sets::request_from_ini(); // (the level's textures read again at the next frame)
+        } else if (std::strcmp(spec.section, "Graphics") == 0) {
             live = render::graphics_options::reload_live(spec.key);
         } else if (std::strcmp(spec.key, "mouse_menus") == 0) {
             mouse_menus::is_switched_on() = on;

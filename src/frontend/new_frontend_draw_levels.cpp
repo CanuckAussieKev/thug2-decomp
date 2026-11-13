@@ -199,7 +199,10 @@ void options_screen(Ctx& ctx, float window_width, float window_height)
         float const y0 = bottom - hints_height;
         const int chosen = menu.option_choice(option);
         for (size_t i = 0; i < spec.choices.size(); ++i) {
-            const float w = (get_measure(seg, *ctx.f, core::at(spec.choices, i).label) / ctx.f->scale()) + 28.0F;
+            if (!options::choice_shown(spec, i)) {
+                continue; // (a texture set that isn't installed)
+            }
+            const float w =(get_measure(seg, *ctx.f, core::at(spec.choices, i).label) / ctx.f->scale()) + 28.0F;
             const bool on = ints::as_signed(i) == chosen;
             if (on) {
                 get_cut(ctx.dl,

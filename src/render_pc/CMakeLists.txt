@@ -36,6 +36,7 @@ add_library(thug2_render_pc STATIC
     pc_mesh_render.cpp
     pc_fog.cpp
     texture_splats.cpp
+    texture_set_reload.cpp
     shatter.cpp
     pc_model.cpp
     pc_particles.cpp

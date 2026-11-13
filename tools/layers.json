@@ -44,6 +44,7 @@
                     "src/engine/gfx/loading_bar_cfuncs.h",
                     "src/engine/gfx/renderer.h",
                     "src/engine/gfx/screen.h",
+                    "src/engine/gfx/texture_sets.h",
                     "src/engine/memory/mem.h",
                     "src/engine/net/net_manager.h",
                     "src/engine/objects/entity.h",

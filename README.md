@@ -347,6 +347,7 @@ for the restart
 | `vulkan_device` | -1 | On Vulkan: the GPU, by Vulkan's numbering (-1: the best, a discrete one first) |
 | `vulkan_validation` | 0 | On Vulkan: 1 uses the Khronos validation layer when a 32-bit one can be loaded (its messages in the log) |
 | `draw_distance_scale` / `lod_distance_scale` | 1 | Multiply the far plane / objects' level-of-detail distances |
+| `texture_set` | original | `original`, `pbrify` or `seedvr2`: the base game's textures upscaled by that AI model, made and installed side by side on your machine by `tools/pipeline/hd_textures/base.ts` (its README); a set that isn't installed: the original. The Options screen's Textures row (the sets installed) and the console's `textures <set>` switch it while you play: the level's textures are read again at once, other textures (skaters, peds) at their next load |
 | `ray_tracing` | 0 | On Vulkan: 1 turns on the GPU's ray-tracing extensions where it has them all (the effects below need it) |
 | `rt_shadows` | 0 | On Vulkan with `ray_tracing=1` (a GPU with ray queries, the 64-bit build): 1 adds ray-traced sun shadows - each pixel of the world darkened where the level blocks the sun |
 | `rt_shadow_strength` | 0.5 | How dark a ray-traced shadow is: the share of the colour it takes away (0-1) |

@@ -962,9 +962,21 @@ ActStep Menu::change_option(int step, bool wrap)
         return {};
     }
     const int current = option_choice(option);
-    const int next = wrap ? (((current + step) % choice_count) + choice_count) % choice_count
-                          : std::clamp(current + step, 0, choice_count - 1);
-    if (next == current) {
+    // (the next choice offered that way - options::choice_shown: a texture set that isn't installed is passed over)
+    const options::Spec& spec = core::at(options::get_specs(), option);
+    int next = current;
+    for (int tries = 0; tries < choice_count; ++tries) {
+        const int candidate = wrap ? (((next + step) % choice_count) + choice_count) % choice_count
+                                   : std::clamp(next + step, 0, choice_count - 1);
+        if (candidate == next) {
+            break; // (at an end)
+        }
+        next = candidate;
+        if (options::choice_shown(spec, static_cast<size_t>(next))) {
+            break;
+        }
+    }
+    if (next == current || !options::choice_shown(spec, static_cast<size_t>(next))) {
         return {};
     }
     if (options_.size() < options::get_specs().size()) {
