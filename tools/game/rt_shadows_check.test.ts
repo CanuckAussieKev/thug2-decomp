@@ -379,6 +379,44 @@ test("sun: its ini values and log lines", () => {
     assert.deepEqual(logProblems("off", "", "shadows", "sun"), []);
 });
 
+const SKY: Limits = { ...LIMITS, expect: "shadows", strength: 0.8, effect: "sky" };
+
+test("sky: a replaced sky passes; a big change or a black flood fails", () => {
+    const off = flat(40, 40, 120);
+    const sky = { ...off, rgb: new Uint8Array(off.rgb) };
+    sky.rgb.fill(160, 0, 600 * 3); // (the upper part's sky lighter)
+    assert.deepEqual(judgeSpot("a", shadowDifference(off, sky, null, 8), null, SKY).problems, []);
+    assert.ok(anyShadow([judgeSpot("a", shadowDifference(off, sky, null, 8), null, SKY)], SKY));
+    assert.match(
+        judgeSpot("b", shadowDifference(off, flat(40, 40, 230), null, 8), null, SKY).problems.join(),
+        /luma by 110/,
+    );
+    const black = { ...off, rgb: new Uint8Array(off.rgb) };
+    black.rgb.fill(0, 0, 400 * 3); // (a quarter of the picture black: a hole)
+    assert.match(judgeSpot("c", shadowDifference(off, black, null, 8), null, SKY).problems.join(), /turned black/);
+});
+
+test("sky: its ini values and log lines", () => {
+    assert.deepEqual(configValues("on", "sky"), { "Graphics.rt_sky": "1", "Graphics.rt_clouds": "1" });
+    assert.deepEqual(configValues("off", "sky"), { "Graphics.rt_sky": "0", "Graphics.rt_clouds": "0" });
+    assert.deepEqual(configValues("baseline", "sky"), {});
+    const drawn =
+        "vulkan: rt_sky: the level's sky (scene 7a6aa298): clear zenith 0.306 0.467 0.631\n" +
+        "vulkan: rt_sky: the first pass (1280x720, 8 samples; the atmosphere and clouds at half resolution)";
+    assert.deepEqual(logProblems("on", drawn, "shadows", "sky"), []);
+    assert.match(logProblems("on", "", "shadows", "sky").join(), /no sky pass/);
+    assert.match(
+        logProblems(
+            "on",
+            "vulkan: rt_sky: the passes couldn't be made (x) - the original sky kept",
+            "shadows",
+            "sky",
+        ).join(),
+        /couldn't/,
+    );
+    assert.match(logProblems("off", drawn, "shadows", "sky").join(), /sky pass in the off log/);
+});
+
 const GI: Limits = { ...LIMITS, expect: "shadows", strength: 1, effect: "gi" };
 
 test("gi: the bounce only adds light, bounded; darker, black or runaway pixels fail; no sun: unchanged", () => {

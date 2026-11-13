@@ -103,6 +103,14 @@
 //       line of rt_sun / rt_sky, no crash; where the disc was drawn, render_pc's "sun: the original's sun and lens flare
 //       left out" (the original's halo sprite and lens flare gone); in `off` logs neither; the device time of the parts
 //       ("rt_sun: the passes take") reported.
+//   --effect sky --expect drawn: rt_sky and rt_clouds 0 / 1 together (the plan rt_sky.json by default: every main level's
+//   first restart - toward its heading, the other way, up - and AU's sea); the other effects as the ini and --set have them
+//     - bounded: turned black at most 8% (dark interiors under the haze's darker sky colour; a NaN or a hole would be
+//       more), turned white at most 8%, the mean luma change at most 60;
+//     - drawn: some spot changed by 0.5% or more;
+//     - the logs: "rt_sky: the first pass" and the level's matched colours ("rt_sky: the level's sky") in every `on`
+//       group's, no "couldn't" / "can't" line of rt_sky / rt_clouds, no crash; in `off` logs neither; the device time
+//       ("rt_sky: the passes take") reported.
 // report.txt / report.json in the folder; exit 1 when a check fails.
 
 import { spawn } from "node:child_process";
@@ -126,7 +134,7 @@ import {
 import { ensureWorkspaceMuted, isWorkspace } from "./workspace_ini.ts";
 
 const USAGE = `usage: rt_shadows_check.ts run --game <workspace> --out <folder> --build <folder> [--baseline-build <folder>]
-                           [--effect shadows|ao|reflections|hdr|fog|gi|sun] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
+                           [--effect shadows|ao|reflections|hdr|fog|gi|sun|sky] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
        rt_shadows_check.ts compare <folder> [--expect shadows|drawn|none|brighter] [--strength 0.5] [--threshold 8] [--grow 1]
 
 Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, compared (tools/game/README.md).`;
@@ -135,11 +143,17 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIGS = ["off", "on", "baseline"] as const;
 export type Config = (typeof CONFIGS)[number];
 // R4's sun shadows, R5's ambient occlusion and reflections, HDR, the fog, the one-bounce indirect light
-export type Effect = "shadows" | "ao" | "reflections" | "hdr" | "fog" | "gi" | "sun";
-export const EFFECTS: readonly Effect[] = ["shadows", "ao", "reflections", "hdr", "fog", "gi", "sun"];
+export type Effect = "shadows" | "ao" | "reflections" | "hdr" | "fog" | "gi" | "sun" | "sky";
+export const EFFECTS: readonly Effect[] = ["shadows", "ao", "reflections", "hdr", "fog", "gi", "sun", "sky"];
 
 // The ini values a configuration adds.
 export function configValues(config: Config, effect: Effect = "shadows"): Record<string, string> {
+    if (effect === "sky") {
+        // (the atmosphere and the clouds together; the other effects as the ini and --set have them)
+        if (config === "baseline") return {};
+        const on = config === "on" ? "1" : "0";
+        return { "Graphics.rt_sky": on, "Graphics.rt_clouds": on };
+    }
     if (effect === "sun") {
         // (the sun's parts together; the other effects as the workspace's ini and --set have them - the pictures are
         // taken with everything else on)
@@ -479,6 +493,14 @@ export function judgeSpot(
             problems.push(`turned black with the sun on: ${pct(share(difference.blackened, difference))}`);
         if (share(difference.whitened, difference) > MAX_SUN_WHITENED)
             problems.push(`turned white with the sun on: ${pct(share(difference.whitened, difference))}`);
+    } else if (limits.expect === "shadows" && limits.effect === "sky") {
+        // (the sky replaced: much of a picture can change, the world only by the haze toward the new sky)
+        if (difference.meanLumaChange > MAX_SKY_LUMA_CHANGE)
+            problems.push(`the sky changed the picture's luma by ${difference.meanLumaChange.toFixed(1)} on average`);
+        if (share(difference.blackened, difference) > MAX_SKY_BLACKENED)
+            problems.push(`turned black with the sky on: ${pct(share(difference.blackened, difference))}`);
+        if (share(difference.whitened, difference) > MAX_SKY_WHITENED)
+            problems.push(`turned white with the sky on: ${pct(share(difference.whitened, difference))}`);
     } else if (limits.expect === "shadows" && limits.effect === "fog") {
         // (the fog may touch the whole picture - the haze looking toward the sun -, but not by much on average)
         if (difference.meanLumaChange > MAX_FOG_LUMA_CHANGE)
@@ -585,6 +607,10 @@ export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boo
         return limits.expect !== "brighter" || verdicts.some((v) => v.difference.meanSigned >= HDR_LEAST_BRIGHTER);
     if (limits.effect === "gi" || limits.effect === "sun")
         return verdicts.some((v) => share(v.difference.brighter, v.difference) >= limits.minDarkenedSomewhere);
+    if (limits.effect === "sky")
+        return verdicts.some(
+            (v) => share(v.difference.brighter + v.difference.darkened, v.difference) >= limits.minDarkenedSomewhere,
+        );
     if (limits.effect === "reflections")
         return verdicts.some(
             (v) => share(v.difference.brighter + v.difference.darkened, v.difference) >= MIN_REFLECTED_SOMEWHERE,
@@ -601,6 +627,13 @@ export const MAX_FOG_LUMA_CHANGE = 40;
 // bloom change the rest a little)
 export const MAX_SUN_WHITENED = 0.04;
 export const MAX_SUN_LUMA_CHANGE = 45;
+// (the sky: a picture looking up is mostly sky - all of it replaced)
+export const MAX_SKY_LUMA_CHANGE = 60;
+// (the sky: near-black interiors seen through a darker haze - the haze takes the matched sky's colour - drop under the
+// black line; a lit sky round the sun, and the far ground hazed into a bright horizon, is white over wider areas than
+// the painted dome's)
+export const MAX_SKY_BLACKENED = 0.08;
+export const MAX_SKY_WHITENED = 0.08;
 
 // What a configuration's logs must (not) say.
 const FIRST_PASS = "rt_shadows: the first shadow pass";
@@ -628,6 +661,11 @@ const SUN_DISC_DRAWN = "the sun's disc and glare";
 const SUN_FAILED = /rt_(sun|sky): .*(couldn't|can't)/;
 export const SUN_TIMING =
     /rt_sun: the passes take ([0-9.]+) ms on the device - rays ([0-9.]+), source ([0-9.]+), bloom ([0-9.]+), composite ([0-9.]+) \(([0-9]+)x([0-9]+)/g;
+export const FIRST_SKY_PASS = "rt_sky: the first pass";
+export const SKY_MATCHED = "rt_sky: the level's sky";
+const SKY_FAILED = /rt_(sky|clouds): .*(couldn't|can't)/;
+export const SKY_TIMING =
+    /rt_sky: the passes take ([0-9.]+) ms on the device - clouds ([0-9.]+), temporal ([0-9.]+), composite ([0-9.]+) \(([0-9]+)x([0-9]+)/g;
 const BAD = /^(EXCEPTION|RUN-TIME CHECK|DEBUG CRT|PURE VIRTUAL|INVALID PARAMETER|ABORT|BUFFER OVERRUN)/m;
 
 export function logProblems(
@@ -647,6 +685,17 @@ export function logProblems(
         } else if (log.includes(FIRST_TONE_MAP_PASS)) {
             problems.push(`a tone-mapping pass in the ${config} log`);
         }
+        return problems;
+    }
+    if (effect === "sky") {
+        if (config !== "on") {
+            if (log.includes(FIRST_SKY_PASS)) problems.push(`a sky pass in the ${config} log`);
+            return problems;
+        }
+        const failed = SKY_FAILED.exec(log);
+        if (failed) problems.push(`log: ${failed[0]}`);
+        if (expect === "shadows" && !log.includes(FIRST_SKY_PASS)) problems.push("no sky pass in the log");
+        if (expect === "shadows" && !log.includes(SKY_MATCHED)) problems.push("no matched colours in the log");
         return problems;
     }
     if (effect === "sun") {
@@ -758,6 +807,16 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             for (const m of text.matchAll(FOG_TIMING))
                 fogTimes.push(`${f.slice(0, -4)}: ${m[1]} ms (${m[2]}x${m[3]}, ${m[4]} steps)`);
         }
+    // (the sky: the device time of its parts the logs give)
+    const skyTimes: string[] = [];
+    if (limits.effect === "sky")
+        for (const f of fs.readdirSync(runs.on[0]!).filter((n) => n.endsWith(".log"))) {
+            const text = fs.readFileSync(path.join(runs.on[0]!, f), "utf8");
+            for (const m of text.matchAll(SKY_TIMING))
+                skyTimes.push(
+                    `${f.slice(0, -4)}: ${m[1]} ms - clouds ${m[2]}, temporal ${m[3]}, composite ${m[4]} (${m[5]}x${m[6]})`,
+                );
+        }
     // (the sun: the device time of its parts the logs give)
     const sunTimes: string[] = [];
     if (limits.effect === "sun")
@@ -803,7 +862,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
                 (limits.effect === "hdr"
                     ? `, max channel difference ${d.maxDelta} (${pct(share(d.overDelta, d))} over ${HDR_MAX_DELTA}), mean ${d.meanDelta.toFixed(3)} (signed ${d.meanSigned.toFixed(3)}), pure white ${pct(share(d.whiteOff, d))} -> ${pct(share(d.whiteOn, d))}`
                     : "") +
-                (limits.effect === "fog" || limits.effect === "sun"
+                (limits.effect === "fog" || limits.effect === "sun" || limits.effect === "sky"
                     ? `, turned black ${pct(share(d.blackened, d))}, turned white ${pct(share(d.whitened, d))}, mean luma change ${d.meanLumaChange.toFixed(1)}`
                     : "") +
                 (limits.effect === "gi"
@@ -828,6 +887,14 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             failed = true;
             lines.push("FAIL no group drew the fog (no level with fog chosen?)");
         }
+    } else if (limits.effect === "sky") {
+        lines.push(
+            `the sky's passes on the device: ${skyTimes.length ? skyTimes.join("; ") : "no timing in the logs"}`,
+        );
+        if (limits.expect === "shadows" && !anyShadow(verdicts, limits)) {
+            failed = true;
+            lines.push(`FAIL no spot changed by ${pct(limits.minDarkenedSomewhere)} or more: no sky drawn`);
+        }
     } else if (limits.effect === "sun") {
         lines.push(
             `the sun's passes on the device: ${sunTimes.length ? sunTimes.join("; ") : "no timing in the logs"}`,
@@ -849,6 +916,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             fog: "fog",
             gi: "indirect light",
             sun: "sun",
+            sky: "sky",
         }[limits.effect ?? "shadows"];
         const how = limits.effect === "gi" ? "brightened" : "darkened";
         lines.push(`FAIL no spot ${how} by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
@@ -906,6 +974,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
         fog: "rt_fog check",
         gi: "rt_gi check",
         sun: "rt_sun check",
+        sky: "rt_sky check",
     }[limits.effect ?? "shadows"];
     lines.push(failed ? `${title}: FAILED` : `${title}: passed`);
     fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
@@ -1079,7 +1148,7 @@ async function main(): Promise<number> {
             out: { type: "string" },
             build: { type: "string" },
             "baseline-build": { type: "string" },
-            plan: { type: "string", default: path.join(HERE, "rt_shadows.json") },
+            plan: { type: "string" },
             groups: { type: "string" },
             runs: { type: "string", default: "2" },
             owner: { type: "string", default: "rt-shadows-check" },
@@ -1097,7 +1166,7 @@ async function main(): Promise<number> {
     if (expect !== "shadows" && expect !== "none" && expect !== "brighter")
         exitWith("--expect shadows | drawn | none | brighter");
     if (!(EFFECTS as readonly string[]).includes(values.effect))
-        exitWith("--effect shadows | ao | reflections | hdr | fog | gi | sun");
+        exitWith("--effect shadows | ao | reflections | hdr | fog | gi | sun | sky");
     const effect = values.effect as Effect;
     const set: Record<string, string> = {};
     for (const s of values.set ?? []) {
@@ -1115,11 +1184,14 @@ async function main(): Promise<number> {
         fog: "Graphics.rt_fog_density",
         gi: "Graphics.rt_gi_strength",
         sun: "Graphics.rt_bloom_strength",
+        sky: "Graphics.rt_sky_match",
     }[effect];
     const strength = Number(
         set[strengthKey] ??
             values.strength ??
-            { shadows: "0.5", ao: "0.6", reflections: "0.5", hdr: "0.5", fog: "0.5", gi: "1", sun: "0.05" }[effect],
+            { shadows: "0.5", ao: "0.6", reflections: "0.5", hdr: "0.5", fog: "0.5", gi: "1", sun: "0.05", sky: "0.8" }[
+                effect
+            ],
     );
     const limits: Limits = { ...LIMITS, expect, strength, effect };
     const threshold = Number(values.threshold);
@@ -1134,7 +1206,7 @@ async function main(): Promise<number> {
             out,
             build: path.resolve(values.build),
             baselineBuild: values["baseline-build"] ? path.resolve(values["baseline-build"]) : null,
-            plan: path.resolve(values.plan),
+            plan: path.resolve(values.plan ?? path.join(HERE, effect === "sky" ? "rt_sky.json" : "rt_shadows.json")),
             groups: values.groups ? values.groups.split(",") : null,
             runs: Number(values.runs),
             owner: values.owner,

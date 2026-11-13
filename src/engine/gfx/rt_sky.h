@@ -27,6 +27,7 @@
 
 #include <array>
 #include <cstdint>
+#include <vector>
 
 namespace render::rt {
 
@@ -84,5 +85,61 @@ struct SkyLutEntry {
     uint32_t row = 0;
 };
 [[nodiscard]] Dir sky_lut_direction(const SkyLutEntry& entry);
+
+// --- (added by the sky: [Graphics] rt_sky) the same atmosphere with light scattered many times ----------------------
+// Hillaire's method ("A Scalable and Production Ready Sky and Atmosphere Rendering Technique", EGSR 2020): the light
+// scattered twice or more is, at any point, the sun's irradiance there times a transfer Psi(altitude, the sun's
+// zenith cosine) - the second order's light L2 (every direction round the point, scattered once on the way with an
+// even phase, the ground's light at the end - an albedo of kGroundAlbedo) over 1 - f (f: the share of light a point
+// sends back to itself the same way): Psi = L2 / (1 - f), a geometric series of the orders. The sky then adds, along
+// each view ray, each point's scattering coefficient x Psi to the single scattering above. The device keeps three
+// tables (gpu_vulkan's vulkan_rt_sky): the transmittance (Bruneton's mapping), Psi, and the sky seen from the viewer
+// (kSkyViewWidth x kSkyViewHeight: across, the azimuth from the sun's - u = sqrt(azimuth / pi), finer toward the sun;
+// down, the elevation - finer toward the horizon, below it too). This file's integrals are their reference.
+inline constexpr double kGroundAlbedo = 0.3;
+inline constexpr uint32_t kTransmittanceWidth = 256;
+inline constexpr uint32_t kTransmittanceHeight = 64;
+inline constexpr uint32_t kMultipleWidth = 32;  // across: the sun's zenith cosine, -1 to 1
+inline constexpr uint32_t kMultipleHeight = 32; // down: the altitude, the ground to the top
+inline constexpr uint32_t kSkyViewWidth = 192;
+inline constexpr uint32_t kSkyViewHeight = 108;
+inline constexpr uint32_t kMultipleDirectionsSide = 8; // (8 x 8 directions round a point)
+inline constexpr uint32_t kMultipleSteps = 20;         // segments along each
+inline constexpr uint32_t kSkyViewSteps = 32;          // segments along a view ray (rt_sky's spacing)
+
+// A point of the atmosphere seen as the transmittance table sees it: its distance from the centre and the cosine of
+// a direction's zenith angle there.
+struct RadiusCosine {
+    double radius = 0.0;
+    double cosine = 0.0;
+};
+// The transmittance table's texel (u, v in 0 - 1, texel centres at (i + 0.5) / size) <-> (r, mu); Bruneton's mapping.
+[[nodiscard]] RadiusCosine transmittance_lut_point(double u, double v);
+[[nodiscard]] std::array<double, 2> transmittance_lut_uv(const RadiusCosine& point);
+// The transmittance from a point toward the atmosphere's top (the ground not considered), integrated with `steps`.
+[[nodiscard]] Rgb transmittance_to_top(const RadiusCosine& point, uint32_t steps);
+// Psi at an altitude (metres) with the sun's zenith cosine: kMultipleDirectionsSide^2 directions x `steps.steps`
+// segments, the sun's transmittance integrated with `steps.light` (the device reads its table instead).
+struct AtmospherePoint {
+    double altitude = 0.0; // metres above the ground
+    double cos_sun = 1.0;  // the sun's zenith cosine there
+};
+struct MultipleSteps {
+    uint32_t steps = kMultipleSteps;
+    uint32_t light = kTableLightSteps;
+};
+[[nodiscard]] Rgb multiple_scattering(const AtmospherePoint& place, const MultipleSteps& steps_given);
+// The table of Psi (kMultipleWidth x kMultipleHeight, row by row) and a bilinear read of it - what sky_radiance_ms
+// adds (the device's table is the same integral).
+using MultipleTable = std::vector<Rgb>;
+[[nodiscard]] MultipleTable multiple_table(const MultipleSteps& steps);
+[[nodiscard]] Rgb multiple_from_table(const MultipleTable& table, const AtmospherePoint& place);
+// The sky's radiance toward `view` with the sun along `sun` with every order (single scattering as sky_radiance, plus
+// Psi from `table`; below the horizon the ground's light at the ray's end, lit by the sun with kGroundAlbedo), per unit
+// of the sun's irradiance, linear, not exposed.
+[[nodiscard]] Rgb sky_radiance_ms(const Dir& view, const Dir& sun, const SkySteps& steps, const MultipleTable& table);
+// The sky-view table's texel centre (column, row) <-> its view direction (model space: the sun along +x).
+[[nodiscard]] Dir sky_view_direction(const std::array<double, 2>& uv);
+[[nodiscard]] std::array<double, 2> sky_view_uv(const Dir& view);
 
 } // namespace render::rt

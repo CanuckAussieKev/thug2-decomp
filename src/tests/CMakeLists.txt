@@ -202,6 +202,16 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_sun_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_sky_check.exe: the Vulkan Gpu's sky - the atmosphere's tables against rt_sky.h's
+# multiple-scattering integrals, the level's sky analysed and matched, the composite against the sky-view table, the
+# clouds' noise and march against engine/gfx/rt_clouds.h's processor twins, their temporal pass converging without
+# ghosts (src/tests/vulkan_rt_sky_check.cpp; --perf: the cost at 1920 x 1080). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_sky_check vulkan_rt_sky_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_sky_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_sky_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_materials_check.exe: ray tracing's material table and bindless textures
 # (gpu_vulkan/vulkan_rt_materials.h) tried on this machine - textures of every format the game makes registered as
 # materials, read by a compute shader through the table's GLSL and compared with the texels written; address modes,

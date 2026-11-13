@@ -1,0 +1,538 @@
+{
+  "_about": "The spots tools/game/rt_shadows_check.ts --effect sky captures with [Graphics] rt_sky off and on: each main level from its first player restart - on the ground toward its heading, then 1500 units up toward it, the other way and up - and AU`s open sea meeting the sky (rt_shadows.json`s AU-sea).",
+  "groups": [
+    {
+      "name": "AP",
+      "level": "AP",
+      "spots": [
+        {
+          "name": "AP-ground",
+          "commands": [
+            "teleport 371.0 -943.0 4752.7 -90.0",
+            "camera 371.0 -803.0 4752.7 -1.000 0.08 0.000",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "AP-horizon",
+          "commands": [
+            "camera 371.0 557.0 4752.7 -1.000 -0.12 0.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "AP-behind",
+          "commands": [
+            "camera 371.0 557.0 4752.7 1.000 -0.12 -0.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "AP-up",
+          "commands": [
+            "camera 371.0 557.0 4752.7 -0.500 0.87 0.000",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AU",
+      "level": "AU",
+      "spots": [
+        {
+          "name": "AU-ground",
+          "commands": [
+            "teleport -2148.1 165.0 9192.7 0.0",
+            "camera -2148.1 305.0 9192.7 0.000 0.08 1.000",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "AU-horizon",
+          "commands": [
+            "camera -2148.1 1665.0 9192.7 0.000 -0.12 1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "AU-behind",
+          "commands": [
+            "camera -2148.1 1665.0 9192.7 0.000 -0.12 -1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "AU-up",
+          "commands": [
+            "camera -2148.1 1665.0 9192.7 0.000 0.87 0.500",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "AU-sea",
+          "commands": [
+            "teleport -2640.6 170.4 7490.0 -163.1",
+            "camera -2599.5 247.8 7625.6 -0.286 -0.179 -0.941",
+            "wait 150"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BA",
+      "level": "BA",
+      "spots": [
+        {
+          "name": "BA-ground",
+          "commands": [
+            "teleport 3550.9 -0.0 2433.0 -45.0",
+            "camera 3550.9 140.0 2433.0 -0.707 0.08 0.707",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "BA-horizon",
+          "commands": [
+            "camera 3550.9 1500.0 2433.0 -0.707 -0.12 0.707",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "BA-behind",
+          "commands": [
+            "camera 3550.9 1500.0 2433.0 0.707 -0.12 -0.707",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "BA-up",
+          "commands": [
+            "camera 3550.9 1500.0 2433.0 -0.354 0.87 0.354",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BE",
+      "level": "BE",
+      "spots": [
+        {
+          "name": "BE-ground",
+          "commands": [
+            "teleport 26.5 124.8 -1805.7 -75.0",
+            "camera 26.5 264.8 -1805.7 -0.966 0.08 0.259",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "BE-horizon",
+          "commands": [
+            "camera 26.5 1624.8 -1805.7 -0.966 -0.12 0.259",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "BE-behind",
+          "commands": [
+            "camera 26.5 1624.8 -1805.7 0.966 -0.12 -0.259",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "BE-up",
+          "commands": [
+            "camera 26.5 1624.8 -1805.7 -0.483 0.87 0.129",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BO",
+      "level": "BO",
+      "spots": [
+        {
+          "name": "BO-ground",
+          "commands": [
+            "teleport 2099.1 14.5 752.1 -90.0",
+            "camera 2099.1 154.5 752.1 -1.000 0.08 0.000",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "BO-horizon",
+          "commands": [
+            "camera 2099.1 1514.5 752.1 -1.000 -0.12 0.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "BO-behind",
+          "commands": [
+            "camera 2099.1 1514.5 752.1 1.000 -0.12 -0.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "BO-up",
+          "commands": [
+            "camera 2099.1 1514.5 752.1 -0.500 0.87 0.000",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CA",
+      "level": "CA",
+      "spots": [
+        {
+          "name": "CA-ground",
+          "commands": [
+            "teleport 3083.4 -304.5 1943.4 25.0",
+            "camera 3083.4 -164.5 1943.4 0.423 0.08 0.906",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "CA-horizon",
+          "commands": [
+            "camera 3083.4 1195.5 1943.4 0.423 -0.12 0.906",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "CA-behind",
+          "commands": [
+            "camera 3083.4 1195.5 1943.4 -0.423 -0.12 -0.906",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "CA-up",
+          "commands": [
+            "camera 3083.4 1195.5 1943.4 0.211 0.87 0.453",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DJ",
+      "level": "DJ",
+      "spots": [
+        {
+          "name": "DJ-ground",
+          "commands": [
+            "teleport 50.8 -1380.1 6090.6 -65.0",
+            "camera 50.8 -1240.1 6090.6 -0.906 0.08 0.423",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "DJ-horizon",
+          "commands": [
+            "camera 50.8 119.9 6090.6 -0.906 -0.12 0.423",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "DJ-behind",
+          "commands": [
+            "camera 50.8 119.9 6090.6 0.906 -0.12 -0.423",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "DJ-up",
+          "commands": [
+            "camera 50.8 119.9 6090.6 -0.453 0.87 0.211",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "LA",
+      "level": "LA",
+      "spots": [
+        {
+          "name": "LA-ground",
+          "commands": [
+            "teleport 22.1 48.2 -428.0 0.0",
+            "camera 22.1 188.2 -428.0 0.000 0.08 1.000",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "LA-horizon",
+          "commands": [
+            "camera 22.1 1548.2 -428.0 0.000 -0.12 1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "LA-behind",
+          "commands": [
+            "camera 22.1 1548.2 -428.0 0.000 -0.12 -1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "LA-up",
+          "commands": [
+            "camera 22.1 1548.2 -428.0 0.000 0.87 0.500",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "NO",
+      "level": "NO",
+      "spots": [
+        {
+          "name": "NO-ground",
+          "commands": [
+            "teleport -0.0 0.0 2105.4 0.0",
+            "camera -0.0 140.0 2105.4 0.000 0.08 1.000",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "NO-horizon",
+          "commands": [
+            "camera -0.0 1500.0 2105.4 0.000 -0.12 1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "NO-behind",
+          "commands": [
+            "camera -0.0 1500.0 2105.4 0.000 -0.12 -1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "NO-up",
+          "commands": [
+            "camera -0.0 1500.0 2105.4 0.000 0.87 0.500",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PH",
+      "level": "PH",
+      "spots": [
+        {
+          "name": "PH-ground",
+          "commands": [
+            "teleport -4502.9 -1458.1 -1590.3 0.0",
+            "camera -4502.9 -1318.1 -1590.3 0.000 0.08 1.000",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "PH-horizon",
+          "commands": [
+            "camera -4502.9 41.9 -1590.3 0.000 -0.12 1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "PH-behind",
+          "commands": [
+            "camera -4502.9 41.9 -1590.3 0.000 -0.12 -1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "PH-up",
+          "commands": [
+            "camera -4502.9 41.9 -1590.3 0.000 0.87 0.500",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SC",
+      "level": "SC",
+      "spots": [
+        {
+          "name": "SC-ground",
+          "commands": [
+            "teleport -381.1 -793.3 3225.5 45.0",
+            "camera -381.1 -653.3 3225.5 0.707 0.08 0.707",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "SC-horizon",
+          "commands": [
+            "camera -381.1 706.7 3225.5 0.707 -0.12 0.707",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "SC-behind",
+          "commands": [
+            "camera -381.1 706.7 3225.5 -0.707 -0.12 -0.707",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "SC-up",
+          "commands": [
+            "camera -381.1 706.7 3225.5 0.354 0.87 0.354",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SE",
+      "level": "SE",
+      "spots": [
+        {
+          "name": "SE-ground",
+          "commands": [
+            "teleport -613.2 -677.9 -5990.5 0.0",
+            "camera -613.2 -537.9 -5990.5 0.000 0.08 1.000",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "SE-horizon",
+          "commands": [
+            "camera -613.2 822.1 -5990.5 0.000 -0.12 1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "SE-behind",
+          "commands": [
+            "camera -613.2 822.1 -5990.5 0.000 -0.12 -1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "SE-up",
+          "commands": [
+            "camera -613.2 822.1 -5990.5 0.000 0.87 0.500",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SE2",
+      "level": "SE2",
+      "spots": [
+        {
+          "name": "SE2-ground",
+          "commands": [
+            "teleport -2622.7 0.0 5254.8 -55.5",
+            "camera -2622.7 140.0 5254.8 -0.824 0.08 0.566",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "SE2-horizon",
+          "commands": [
+            "camera -2622.7 1500.0 5254.8 -0.824 -0.12 0.566",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "SE2-behind",
+          "commands": [
+            "camera -2622.7 1500.0 5254.8 0.824 -0.12 -0.566",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "SE2-up",
+          "commands": [
+            "camera -2622.7 1500.0 5254.8 -0.412 0.87 0.283",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ST",
+      "level": "ST",
+      "spots": [
+        {
+          "name": "ST-ground",
+          "commands": [
+            "teleport 97.5 5939.4 1710.9 -18.5",
+            "camera 97.5 6079.4 1710.9 -0.317 0.08 0.948",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "ST-horizon",
+          "commands": [
+            "camera 97.5 7439.4 1710.9 -0.317 -0.12 0.948",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "ST-behind",
+          "commands": [
+            "camera 97.5 7439.4 1710.9 0.317 -0.12 -0.948",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "ST-up",
+          "commands": [
+            "camera 97.5 7439.4 1710.9 -0.159 0.87 0.474",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TR",
+      "level": "TR",
+      "spots": [
+        {
+          "name": "TR-ground",
+          "commands": [
+            "teleport -239.4 -267.3 -267.9 0.0",
+            "camera -239.4 -127.3 -267.9 0.000 0.08 1.000",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "TR-horizon",
+          "commands": [
+            "camera -239.4 1232.7 -267.9 0.000 -0.12 1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "TR-behind",
+          "commands": [
+            "camera -239.4 1232.7 -267.9 0.000 -0.12 -1.000",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "TR-up",
+          "commands": [
+            "camera -239.4 1232.7 -267.9 0.000 0.87 0.500",
+            "wait 60"
+          ]
+        }
+      ]
+    }
+  ]
+}

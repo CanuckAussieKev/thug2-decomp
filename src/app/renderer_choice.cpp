@@ -225,6 +225,33 @@ void install_vulkan()
         sun.place_game = std::string(place.data()) != "bake";
         render::vulkan::set_rt_sun_settings(sun);
     }
+    // NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h): off unless
+    // asked for; no ray tracing needed. rt_cloud_coverage: auto (the level's own sky) or 0 - 1.
+    {
+        constexpr std::size_t kLongest = 16;
+        std::array<char, kLongest> coverage{};
+        build_info::fetch_text(build_info::kGraphics, "rt_cloud_coverage", "auto", coverage.data(), coverage.size());
+        float cover = render::vulkan::kRtCloudCoverageAuto;
+        const std::string cover_text(coverage.data());
+        if (!cover_text.empty() && cover_text != "auto") {
+            char* end = nullptr;
+            const double parsed = std::strtod(cover_text.c_str(), &end);
+            if (end != cover_text.c_str() && std::isfinite(parsed)) {
+                cover = static_cast<float>(parsed);
+            } else {
+                get_log("[Graphics] rt_cloud_coverage=%s isn't auto or 0 - 1 - auto used", cover_text.c_str());
+            }
+        }
+        render::vulkan::set_rt_sky_settings(
+            {.on = build_info::fetch_flag(build_info::kGraphics, "rt_sky", false),
+             .match = ini_float("rt_sky_match", render::vulkan::kRtSkyMatch),
+             .clouds = build_info::fetch_flag(build_info::kGraphics, "rt_clouds", false),
+             .coverage = cover,
+             .speed = ini_float("rt_cloud_speed", 1.0F),
+             .quality = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_cloud_quality", 1))),
+             .cloud_shadows = build_info::fetch_flag(build_info::kGraphics, "rt_cloud_shadows", false),
+             .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false)});
+    }
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());
