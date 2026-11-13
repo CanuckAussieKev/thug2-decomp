@@ -10,6 +10,7 @@
 // body), so the others' branches still build.
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -48,6 +49,9 @@ struct Geometry {
     uint32_t uv_format = 0; // kAttributeNone or kUvFloat2
     uint32_t colour_offset = 0;
     uint32_t colour_format = 0; // kAttributeNone or kColourA8R8G8B8
+    // (added for the reflections' masks) How many texture coordinate sets follow one another from uv_offset (two floats
+    // each: a material's pass n reads set n) - 0 read as 1 where uv_format says there are coordinates.
+    uint32_t uv_sets = 0;
 };
 inline constexpr uint32_t kAttributeNone = 0;
 inline constexpr uint32_t kUvFloat2 = 1;
@@ -112,17 +116,39 @@ struct Material {
     // (added for the water and glass) What kind of reflective surface it is (kReflectShiny / Water / Glass; render_pc/rt_record.cpp
     // classify_reflective says how it is told): it picks the Fresnel reflectance face-on and the reflection's roughness.
     uint32_t reflection_class = 0;
-    // (added for the glass) Where on the texture the surface reflects (kReflectEverywhere / WhereBaseClear / WhereBaseOpaque): the game's windows are often
-    // painted into a wall's texture, the environment-mapped pass lerped in by the first pass's alpha.
+    // (added for the glass) Whether the environment pass is lerped in by the pass before's alpha (blend modes 12 / 13:
+    // kReflectWhereBaseClear / WhereBaseOpaque - the game's windows painted into a wall's texture, the environment map
+    // drawn there in place of the texture: the glass's own colour is put back under the reflection) or not
+    // (kReflectEverywhere). Where it reflects is mask_passes' (below) - that pass among them.
     uint32_t reflection_mask = 0;
+    // (added for the walls with windows) The passes whose texels say where the reflection shows (MaskPass): the game's
+    // later passes drawn over the environment-mapped one (a wall texture whose clear parts are its windows, the
+    // environment map under it), and the pass whose alpha blend modes 12 / 13 lerp the environment in by. The weight is
+    // the reflectivity times each one's factor at the pixel (unused ones: kind kMaskNone).
+    struct MaskPass {
+        GpuTexture* texture = nullptr; // null: untextured (alpha 1)
+        uint32_t kind = 0;             // kMaskNone / kMaskClear (1 - a) / kMaskOpaque (a)
+        uint32_t uv_set = 0;           // the texture coordinate set (the pass's number)
+        uint32_t address_u = 1;        // as above (gpu_value::kAddress*)
+        uint32_t address_v = 1;
+        bool texture_alpha = false; // a = the texel's alpha (the pass's flag 0x1000), else the vertex alpha x the
+                                    // texel's, doubled (clamped to 1), as the game's pixel shader takes it
+        bool operator==(const MaskPass&) const = default;
+    };
+    static constexpr std::size_t kMaskPasses = 3;
+    std::array<MaskPass, kMaskPasses> mask_passes{};
 };
+inline constexpr uint32_t kMaskNone = 0;
+inline constexpr uint32_t kMaskClear = 1;  // the reflection shows where the pass's alpha is 0
+inline constexpr uint32_t kMaskOpaque = 2; // where it is 1
 
 // Material::reflection_class's values (the reflection shaders' CLASS_*).
 inline constexpr uint32_t kReflectShiny = 0; // metal, paint, polished floors: the game's reflectivity face-on as well
 inline constexpr uint32_t kReflectWater = 1; // the sea, pools, puddles: 2% face-on, a mirror at grazing angles
 inline constexpr uint32_t kReflectGlass = 2; // windows: little face-on (rt_glass_reflectance), slightly rough
 
-// Material::reflection_mask's values (the shaders' MASK_*): how the first pass's texel alpha (a) scales the reflectivity.
+// Material::reflection_mask's values (the shaders' MASK_*): how the environment pass is blended in by the pass before's
+// texel alpha (a) - that pass is in mask_passes with kMaskClear / kMaskOpaque to match.
 inline constexpr uint32_t kReflectEverywhere = 0;      // 1
 inline constexpr uint32_t kReflectWhereBaseClear = 1;  // 1 - a (the environment pass's blend mode 13: lerped in where
                                                        // the base is clear)

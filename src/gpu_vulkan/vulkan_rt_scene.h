@@ -87,6 +87,10 @@ inline constexpr uint32_t kGeometryLive = 1U << 0;    // its mesh is built (else
 inline constexpr uint32_t kGeometryIndex32 = 1U << 1; // 32-bit indices (else 16-bit)
 inline constexpr uint32_t kGeometryUv = 1U << 2;
 inline constexpr uint32_t kGeometryColour = 1U << 3;
+// (added for the reflections' masks) bits 8 - 11: the texture coordinate sets from uv_offset (rt::Geometry::uv_sets,
+// those within the stride; at least 1 with kGeometryUv)
+inline constexpr uint32_t kGeometryUvSetsShift = 8;
+inline constexpr uint32_t kGeometryUvSetsMask = 0xF;
 
 // The GLSL for the table (after `#version 460`; `#define THUG2_GEOMETRY_SET n` / `THUG2_GEOMETRY_BINDING n` first to
 // bind it somewhere other than set 0, binding 7). It enables GL_EXT_buffer_reference(_uvec2) and GL_EXT_scalar_block_layout and
@@ -96,6 +100,8 @@ inline constexpr uint32_t kGeometryColour = 1U << 3;
 //   bool hit_vertices(uint instance, uint primitive, out HitVertices v)  - false when the instance isn't live; a mesh
 //        without texture coordinates / colours gives (0, 0) / (1, 1, 1, 1) - the colour's 128 is 1.0 x 128 / 255
 //   vec2 hit_uv(HitVertices v, vec2 barycentrics), vec4 hit_colour(HitVertices v, vec2 barycentrics)
+//   vec2 hit_uv_set(uint instance, uint primitive, vec2 barycentrics, uint set) - texture coordinate set `set` at the
+//        hit (a material's pass n reads set n); a set the mesh hasn't: set 0 (no coordinates at all: (0, 0))
 // The positions are the object's (rayQueryGetIntersectionObjectToWorldEXT takes them to the world).
 std::string_view scene_geometry_glsl();
 // The caller holds the backend's lock.

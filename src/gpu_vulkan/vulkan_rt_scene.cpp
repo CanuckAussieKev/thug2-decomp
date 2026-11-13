@@ -155,6 +155,21 @@ vec2 hit_uv(HitVertices v, vec2 barycentrics)
 {
     return v.uv[0] * (1.0 - barycentrics.x - barycentrics.y) + v.uv[1] * barycentrics.x + v.uv[2] * barycentrics.y;
 }
+vec2 hit_uv_set(uint instance, uint primitive, vec2 barycentrics, uint set)
+{
+    GeometryRecord g = geometry_record(instance);
+    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_UV) == 0u) {
+        return vec2(0.0);
+    }
+    uint offset = g.uv_offset + (set < ((g.flags >> 8) & 15u) ? set * 8u : 0u);
+    float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
+    vec2 uv = vec2(0.0);
+    for (uint k = 0u; k < 3u; ++k) {
+        uint corner = geometry_corner(g, primitive, k);
+        uv += vec2(geometry_float(g, corner, offset), geometry_float(g, corner, offset + 4u)) * weights[k];
+    }
+    return uv;
+}
 vec4 hit_colour(HitVertices v, vec2 barycentrics)
 {
     return v.colour[0] * (1.0 - barycentrics.x - barycentrics.y) + v.colour[1] * barycentrics.x +
@@ -1160,6 +1175,11 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
         geometry.uv_offset + (2 * kFloatBytes) <= geometry.vertex_stride) {
         row.uv_offset = geometry.uv_offset;
         row.flags |= kGeometryUv;
+        uint32_t sets = std::clamp<uint32_t>(geometry.uv_sets, 1, kGeometryUvSetsMask);
+        while (sets > 1 && geometry.uv_offset + (sets * 2 * kFloatBytes) > geometry.vertex_stride) {
+            --sets; // (only the sets within the vertex)
+        }
+        row.flags |= sets << kGeometryUvSetsShift;
     }
     if (geometry.colour_format == rt::kColourA8R8G8B8 && geometry.colour_offset % kFloatBytes == 0 &&
         geometry.colour_offset + kFloatBytes <= geometry.vertex_stride) {

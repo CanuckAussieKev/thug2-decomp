@@ -20,7 +20,7 @@
 //
 // The descriptor set (layout(): bind it at any set number - the GLSL below reads THUG2_MATERIAL_SET, 1 by default):
 //   binding 0  readonly buffer, scalar layout: MaterialRecord records[] - row n is MaterialId n (ids are never reused,
-//              so the rows grow with the session: 56 bytes each); row 0 and rows never set are untextured white
+//              so the rows grow with the session: 92 bytes each); row 0 and rows never set are untextured white
 //   binding 1  sampler samplers[kMaterialSamplerCount] - address u x address v (wrap, mirror, clamp, border transparent
 //              black) x filter (nearest, linear), written once per set; sampled at an explicit level (a ray has no
 //              derivatives), so no anisotropy. (Not immutable samplers: the AMD driver here read every index of an
@@ -54,7 +54,7 @@ inline constexpr uint32_t kMaterialRecordsBinding = 0;
 inline constexpr uint32_t kMaterialSamplersBinding = 1;
 inline constexpr uint32_t kMaterialTexturesBinding = 2;
 
-// A row of binding 0 (scalar layout: 56 bytes). The GLSL's `Material` has the same members in the same order.
+// A row of binding 0 (scalar layout: 92 bytes). The GLSL's `Material` has the same members in the same order.
 struct MaterialRecord {
     uint32_t texture = 0; // slot in textures[] (0: white)
     uint32_t sampler = 0; // index in samplers[]
@@ -70,21 +70,32 @@ struct MaterialRecord {
     // (rt::kReflectEverywhere...)
     uint32_t reflection_class = 0;
     uint32_t reflection_mask = 0;
+    // (added for the walls with windows) rt::Material::mask_passes: each one's texture slot (0: white), sampler index
+    // and mode - its kind (rt::kMaskNone / Clear / Opaque) in bits 0 - 3, its texture coordinate set in bits 4 - 7,
+    // kMaskTextureAlpha
+    std::array<uint32_t, rt::Material::kMaskPasses> mask_texture{};
+    std::array<uint32_t, rt::Material::kMaskPasses> mask_sampler{};
+    std::array<uint32_t, rt::Material::kMaskPasses> mask_mode{};
 };
-inline constexpr std::size_t kMaterialRecordBytes = 56;
+inline constexpr std::size_t kMaterialRecordBytes = 92;
+inline constexpr uint32_t kMaskUvSetShift = 4;
+inline constexpr uint32_t kMaskTextureAlpha = 1U << 8; // the alpha the texel's alone (else x the vertex alpha, doubled)
 static_assert(sizeof(MaterialRecord) == kMaterialRecordBytes);
 
 // The sampler index for a material's address modes (gpu_value::kAddress*) and filter (gpu_value::kFilter*).
 uint32_t material_sampler_index(const rt::Material& material);
-// A record as the table writes it for `material` with its texture in `slot`.
-MaterialRecord material_record(const rt::Material& material, uint32_t slot);
+// A record as the table writes it for `material` with its texture in `slot` (its mask passes' textures in
+// `mask_slots`).
+MaterialRecord material_record(const rt::Material& material, uint32_t slot,
+                               const std::array<uint32_t, rt::Material::kMaskPasses>& mask_slots = {});
 
 // The GLSL a shader puts right after its `#version 460` (and its own #extension lines; `#define THUG2_MATERIAL_SET n`
 // first to bind the table at set n, 1 by default). It enables GL_EXT_nonuniform_qualifier and
 // GL_EXT_scalar_block_layout, declares the three bindings and:
 //   struct Material { uint texture_slot; uint sampler_index; uint uv_set; uint blend; float alpha_ref; uint flags;
 //                     vec4 colour; float reflectivity; uint environment_pass;
-//                     uint reflection_class; uint reflection_mask; };
+//                     uint reflection_class; uint reflection_mask;
+//                     uint mask_texture[3]; uint mask_sampler[3]; uint mask_mode[3]; };
 //   const uint MATERIAL_ALPHA_TESTED = 2u, MATERIAL_TRANSPARENT = 64u;   (rt::InstanceFlag's values)
 //   Material material(uint id)                       - the record (id: rt::MaterialId; 0: untextured white)
 //   vec4 material_texel(uint id, vec2 uv)            - its texture at level 0 through its sampler (non-uniform indexing)
@@ -93,6 +104,8 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot);
 //   bool material_alpha_passes(uint id, float alpha) - the alpha test: true unless MATERIAL_ALPHA_TESTED and the
 //                                                      8-bit alpha is below the 8-bit reference (GREATEREQUAL)
 //   bool material_alpha_passes_at(uint id, vec2 uv)  - the same for material_sample(id, uv).a
+//   float material_mask_alpha(uint id, uint k, vec2 uv, float lod) - mask pass k's texel alpha (uv: its set's
+//                                                      coordinates, (mask_mode[k] >> 4) & 15)
 // The UVs are the caller's: the material says which set (uv_set) its texture uses.
 std::string_view material_glsl();
 
@@ -183,6 +196,7 @@ private:
 
     std::vector<MaterialRecord> records_;           // by MaterialId
     std::vector<Texture*> record_textures_;         // by MaterialId: the texture its slot came from
+    std::vector<std::array<Texture*, rt::Material::kMaskPasses>> record_mask_textures_; // ... its mask passes'
     std::vector<uint32_t> dirty_;                   // rows changed since the last make_visible
     std::vector<uint8_t> dirty_mark_;               // by row
     std::unordered_map<Texture*, uint32_t> slots_;  // the textures with a slot
