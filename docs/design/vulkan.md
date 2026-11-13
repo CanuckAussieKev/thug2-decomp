@@ -1183,7 +1183,7 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
   (du/dx (dP/dy x N) + du/dy (N x dP/dx)) x sign(N . (dP/dx x dP/dy)), scaled by the longer of the two; no frame where
   the coordinates don't change (beyond rounding). Lit draws: Direct3D 9's diffuse formula per pixel with the draw's
   lights. The world: the bake kept, scaled by (a + N'.L) / (a + N.L) toward the sun where the bake is sunlit (its light
-  level, luma of 2 x v0, from 0.35 to 0.8) and by (1 + N'.up) / (1 + N.up) at 0.5 elsewhere (the sky), the scale held to
+  level, luma of 2 x v0, from 0.35 to 0.8) and by (1.5 + N'.up) / (1.5 + N.up) at 0.5 elsewhere (the sky), the scale held to
   0.55 - 1.5; a = 0.45. The sun: the console's `rt sun`, else the bake's (R4's fit, with ray tracing), else the game's
   shown sun at half weight, else none (the sky's part alone). Then the program runs with that in place of v0, and GGX
   specular (Smith-Schlick, Schlick's Fresnel with the class's F0, pi x the BRDF x N.L - the convention in which the

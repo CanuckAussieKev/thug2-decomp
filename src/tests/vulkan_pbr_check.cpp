@@ -15,7 +15,8 @@
 //   - texture coordinates that don't change (no frame: the surface's normal), no map (objects lit per pixel);
 //   - rt_pbr off: the original's shader - the same picture as Direct3D 9's vertex lighting, no specular;
 //   - every pixel of every case finite (no NaN or infinity), validation (and synchronization validation) messages 0.
-//   thug2_vulkan_pbr_check [--device N] [--display N] [--no-validation]
+//   thug2_vulkan_pbr_check [--device N] [--display N] [--no-validation] [--perf]
+// --perf also times a full-screen layer at 1920 x 1080 with the setting off and on (reported, not checked).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -27,6 +28,7 @@
 #include <cstdint>
 #include <exception>
 #include <limits>
+#include <chrono>
 #include <span>
 #include <string>
 #include <string_view>
@@ -114,6 +116,7 @@ struct Options {
     int display = 0;
     int device = -1;
     bool validation = true;
+    bool perf = false;
 };
 
 Options read_options(std::span<char*> arguments)
@@ -124,6 +127,8 @@ Options read_options(std::span<char*> arguments)
         const bool has_value = i + 1 < arguments.size();
         if (argument == "--no-validation") {
             options.validation = false;
+        } else if (argument == "--perf") {
+            options.perf = true;
         } else if (argument == "--device" && has_value) {
             options.device = text::to_int(core::at(arguments, ++i));
         } else if (argument == "--display" && has_value) {
@@ -427,7 +432,8 @@ bool expected(const Case& given, const Quad& quad, uint32_t px, uint32_t py, Vec
         const float sun_detail =
             (share + std::max(dot(bent, kSunToward), 0.0F)) / (share + std::max(dot(geo, kSunToward), 0.0F));
         const Vec3 up{0.0F, 1.0F, 0.0F};
-        const float sky_detail = (1.0F + dot(bent, up)) / std::max(1.0F + dot(geo, up), kLeastShare);
+        constexpr float kSkyOffset = 1.5F;
+        const float sky_detail = (kSkyOffset + dot(bent, up)) / (kSkyOffset + dot(geo, up));
         const float mixed = std::lerp(1.0F, sky_detail, settings.sky_detail);
         const float detail = std::clamp(std::lerp(mixed, sun_detail, sunlit), settings.detail_low, settings.detail_high);
         for (std::size_t channel = 0; channel < 3; ++channel) {
@@ -644,6 +650,58 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
     tally->check(finite == static_cast<std::size_t>(kSize) * kSize, test.name + ": every pixel finite");
 }
 
+// --perf: the cost of a full-screen layer at 1920 x 1080 (a quad filling the target, drawn many times in one scene)
+// with rt_pbr off, and on lit and baked with a map - the wall time per layer once the device has finished (not a check).
+void measure_cost(render::Gpu& gpu, render::GpuPixelShader* shader)
+{
+    constexpr uint32_t kWide = 1920;
+    constexpr uint32_t kTall = 1080;
+    constexpr int kLayers = 200;
+    constexpr float kCover = 3.0F; // (the quad grown to fill the screen)
+    constexpr double kMilliseconds = 1000.0;
+    GpuSurface* target = nullptr;
+    if (gpu.create_render_target({.width = kWide, .height = kTall, .format = value::kFormatA8R8G8B8, .samples = 0, .quality = 0,
+                                  .lockable_or_discard = true},
+                                 &target) != value::kResultOk) {
+        return;
+    }
+    Quad quad = make_quad(0.0F, 0.0F, Mapping::kPlain);
+    quad.edge_s = scale(quad.edge_s, kCover);
+    quad.edge_t = scale(quad.edge_t, kCover);
+    quad.corner = sub(Vec3{0.0F, 0.0F, kDepth}, scale(add(quad.edge_s, quad.edge_t), kMid));
+    struct Mode {
+        const char* name;
+        bool pbr;
+        bool lit;
+    };
+    for (const Mode mode : {Mode{.name = "rt_pbr off", .pbr = false, .lit = true}, Mode{.name = "lit, a map", .pbr = true, .lit = true},
+                            Mode{.name = "baked, a map", .pbr = true, .lit = false}}) {
+        vk::set_rt_pbr_settings({.on = mode.pbr});
+        GpuTexture* texture = make_texture(gpu, true);
+        const Case test{.name = mode.name, .lit = mode.lit};
+        double seconds = 0.0;
+        for (int pass = 0; pass < 2; ++pass) { // (the first warms the pipelines)
+            const auto start = std::chrono::steady_clock::now();
+            gpu.begin_scene();
+            gpu.set_render_target(0, target);
+            gpu.set_depth_surface(nullptr);
+            gpu.set_viewport({.x = 0, .y = 0, .width = kWide, .height = kTall, .min_z = 0.0F, .max_z = 1.0F});
+            for (int layer = 0; layer < kLayers; ++layer) {
+                draw_case(gpu, test, quad, texture, shader);
+            }
+            gpu.set_render_target(0, nullptr);
+            gpu.end_scene();
+            std::vector<uint8_t> bytes;
+            (void)vk::read_surface(target, &bytes);
+            seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        }
+        text::print("  cost: %s - %.3f ms a full-screen layer (%d layers at %ux%u, with the clear per layer)\n", mode.name,
+                    seconds * kMilliseconds / kLayers, kLayers, kWide, kTall);
+        gpu.release_texture(texture);
+    }
+    gpu.release_surface(target);
+}
+
 void check_bake_moves(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, Tally* tally)
 {
     // The same quad with the map and without: the map's detail must change the picture (a check that the map is used).
@@ -759,6 +817,9 @@ int run(const Options& options, SDL_Window* window)
             run_case(gpu, target, test, shader, &tally);
         }
         check_bake_moves(gpu, target, shader, &tally);
+        if (options.perf) {
+            measure_cost(gpu, shader);
+        }
         render::rt::set_sun_override(nullptr);
         tally.check(vk::surface_maps_attached() > 0, "maps attached through engine/gfx/surface_maps.h");
     }

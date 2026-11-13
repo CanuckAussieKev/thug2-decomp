@@ -42,9 +42,20 @@ struct MapEntry {
     uint8_t material_class = 0;
 };
 
+// The frame's sun as the draws use it (looked up once a frame: rt_scene's getters take locks).
+struct FrameSun {
+    uint64_t serial = 0;
+    bool known = false;
+    std::array<float, 3> toward{};
+    float weight = 0.0F;
+    std::array<float, 3> colour{1.0F, 1.0F, 1.0F};
+};
+
 struct SurfaceState {
     std::mutex mutex;
-    RtPbrSettings settings;
+    RtPbrSettings settings; // (written by set_rt_pbr_settings at start-up; the draws read their own copy below)
+    RtPbrSettings draw_settings; // (the draw thread's: set with settings, read without the lock)
+    FrameSun sun;
     std::unordered_map<const Texture*, MapEntry> maps;
     std::atomic<uint64_t> attached{0};
 };
@@ -229,6 +240,8 @@ void set_rt_pbr_settings(const RtPbrSettings& settings)
     {
         const std::scoped_lock lock(state.mutex);
         state.settings = settings;
+        state.draw_settings = settings;
+        state.sun = {};
     }
     surface::set_surface_maps(settings.on ? &registry() : nullptr);
     if (settings.on && !rt::baked_sun_wanted()) {
@@ -251,8 +264,7 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
 {
     SurfaceDraw draw;
     SurfaceState& state = surface_state();
-    const std::scoped_lock lock(state.mutex);
-    if (!state.settings.on) {
+    if (!state.draw_settings.on) {
         return draw;
     }
     const FragmentKey& fragment = key.fragment;
@@ -264,6 +276,7 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
     }
     const bool lit = key.vertex.lighting && key.vertex.light_count > 0 && (key.vertex.fvf & kFvfNormalBit) != 0U;
     GpuTexture* const first = block.textures.front();
+    const std::scoped_lock lock(state.mutex);
     if (first != nullptr) {
         const auto found = state.maps.find(object(first));
         if (found != state.maps.end()) {
@@ -280,10 +293,11 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
     return draw;
 }
 
-void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& vertex, const SurfaceDraw& draw,
+void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& vertex, const SurfaceDraw& draw, uint64_t frame,
                            SurfaceUniforms* uniforms)
 {
-    const RtPbrSettings settings = rt_pbr_settings();
+    SurfaceState& state = surface_state();
+    const RtPbrSettings& settings = state.draw_settings;
     *uniforms = {};
     for (std::size_t index = 0; index < kMaxLights; ++index) {
         const Float4& from = core::at(vertex.light_direction, index);
@@ -295,22 +309,26 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
     }
     const std::array<float, kMatrixFloats>& view = core::at(block.transforms, kViewSlot);
     // The sun: the bake's (fitted with ray tracing on; the console's `rt sun` before it), else the game's shown one
-    // at its own weight, else none (the sky's detail alone).
-    std::array<float, 3> toward{};
-    float weight = 0.0F;
-    const rt::BakedSun& baked = rt::baked_sun();
-    if (rt::sun_override(&toward)) {
-        weight = 1.0F;
-    } else if (baked.found) {
-        toward = baked.toward;
-        weight = 1.0F;
-    } else if (settings.game_sun > 0.0F && rt::game_sun(&toward)) {
-        weight = settings.game_sun;
+    // at its own weight, else none (the sky's detail alone) - looked up once a frame.
+    FrameSun& sun = state.sun;
+    if (!sun.known || sun.serial != frame) {
+        sun = {.serial = frame, .known = true};
+        const rt::BakedSun& baked = rt::baked_sun();
+        if (rt::sun_override(&sun.toward)) {
+            sun.weight = 1.0F;
+        } else if (baked.found) {
+            sun.toward = baked.toward;
+            sun.weight = 1.0F;
+        } else if (settings.game_sun > 0.0F && rt::game_sun(&sun.toward)) {
+            sun.weight = settings.game_sun;
+        }
+        const rt::SunLight light = rt::sun_light();
+        if (light.on) {
+            sun.colour = light.colour;
+        }
     }
-    uniforms->sun = weight > 0.0F ? to_camera(view, toward, weight) : Float4{};
-    const rt::SunLight light = rt::sun_light();
-    uniforms->sun_colour = {light.on ? core::at(light.colour, 0) : 1.0F, light.on ? core::at(light.colour, 1) : 1.0F,
-                            light.on ? core::at(light.colour, 2) : 1.0F, settings.ambient_share};
+    uniforms->sun = sun.weight > 0.0F ? to_camera(view, sun.toward, sun.weight) : Float4{};
+    uniforms->sun_colour = {core::at(sun.colour, 0), core::at(sun.colour, 1), core::at(sun.colour, 2), settings.ambient_share};
     uniforms->sky = to_camera(view, {0.0F, 1.0F, 0.0F}, settings.sky_detail);
     uniforms->params = {settings.specular, settings.normal_strength, settings.roughness, draw.f0};
     uniforms->shade = {settings.shade_low, settings.shade_high, settings.detail_low, settings.detail_high};

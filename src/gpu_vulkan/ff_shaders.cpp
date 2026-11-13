@@ -343,7 +343,7 @@ std::string coord_of(const FragmentKey& key, std::size_t stage)
 //     the normal come from the vertex shader - with the draw's lights;
 //   - without it (the world): the bake (the vertex colour) kept and scaled by how much more or less the bent normal
 //     faces the bake's sun than the surface does, (a + N'.L) / (a + N.L), where the bake is sunlit (its light level
-//     between shade.x and shade.y), and elsewhere by the same ratio toward the sky, (1 + N'.up) / (1 + N.up), at
+//     between shade.x and shade.y), and elsewhere by a softer one toward the sky, (1.5 + N'.up) / (1.5 + N.up), at
 //     sky.w; the ratio clamped to shade.z - shade.w;
 //   - specular: GGX (Smith-Schlick G with k = alpha / 2, Schlick's Fresnel with F0), pi x the BRDF x N.L - the
 //     convention in which the diffuse term is the light x N.L - per light (or the sun, where sunlit), the roughness the
@@ -436,8 +436,7 @@ void surface_lighting(std::string& out, const FragmentKey& key)
               "    float surface_a = max(s.sun_colour.w, 0.05);\n"
               "    float surface_sun_detail = (surface_a + max(dot(surface_n, s.sun.xyz), 0.0)) / "
               "(surface_a + max(dot(surface_geo, s.sun.xyz), 0.0));\n"
-              "    float surface_sky_detail = (1.0 + dot(surface_n, s.sky.xyz)) / max(1.0 + dot(surface_geo, s.sky.xyz), "
-              "0.05);\n"
+              "    float surface_sky_detail = (1.5 + dot(surface_n, s.sky.xyz)) / (1.5 + dot(surface_geo, s.sky.xyz));\n"
               "    float surface_detail = mix(mix(1.0, surface_sky_detail, s.sky.w), surface_sun_detail, surface_sunlit);\n"
               "    surface_detail = clamp(surface_detail, s.shade.z, s.shade.w);\n"
               "    vec4 surface_v0 = vec4(clamp(surface_bake * surface_detail, 0.0, 1.0), v_diffuse.a);\n"

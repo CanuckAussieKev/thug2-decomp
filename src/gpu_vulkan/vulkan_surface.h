@@ -47,8 +47,9 @@ struct SurfaceDraw {
 };
 // What `block`'s draw with `key` gets (all 0 with rt_pbr off): call with the backend's lock held.
 [[nodiscard]] SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key);
-// The draw's SurfaceUniforms (`vertex` is its VertexUniforms: the lights in camera space).
-void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& vertex, const SurfaceDraw& draw,
+// The draw's SurfaceUniforms (`vertex` is its VertexUniforms: the lights in camera space; `frame` the frame's serial:
+// the sun is looked up once a frame). The draw thread only.
+void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& vertex, const SurfaceDraw& draw, uint64_t frame,
                            SurfaceUniforms* uniforms);
 // `colour`'s map, if it has one (null otherwise; for the material table and other effects).
 [[nodiscard]] Texture* surface_map_for(const Texture* colour);

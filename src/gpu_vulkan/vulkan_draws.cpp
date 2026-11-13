@@ -424,7 +424,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
 bool set_surface_uniforms(Backend& state, const GpuStateBlock& block, const SurfaceDraw& draw, VkDescriptorBufferInfo* where)
 {
     SurfaceUniforms uniforms{};
-    fill_surface_uniforms(block, state.bound.vertex_uniforms, draw, &uniforms);
+    fill_surface_uniforms(block, state.bound.vertex_uniforms, draw, state.frames.serial(), &uniforms);
     BoundState& bound = state.bound;
     if (bound.surface_kept && same_bytes(uniforms, bound.surface_uniforms)) {
         *where = bound.surface_block;
