@@ -15,7 +15,8 @@ endif()
 # NOT ORIGINAL - thug2_video_check.exe: a video the game wrote (a demo saved as a video, -encode-video) read back with
 # the game's own FFmpeg DLLs - codec, size, frame rate, frame count - and frames saved as PNG (src/tests/video_check.cpp).
 if(TARGET thug2_platform)
-    add_executable(thug2_video_check video_check.cpp "${PROJECT_SOURCE_DIR}/src/media_ffmpeg/ffmpeg_api.cpp")
+    add_executable(thug2_video_check video_check.cpp "${PROJECT_SOURCE_DIR}/src/media_ffmpeg/ffmpeg_api.cpp"
+                                     "${PROJECT_SOURCE_DIR}/src/media_ffmpeg/ffmpeg_video_read.cpp")
     target_link_libraries(thug2_video_check PRIVATE thug2_platform ffmpeg_headers)
     if(THUG2_FFMPEG_DLLS)
         add_custom_command(TARGET thug2_video_check POST_BUILD

@@ -8,9 +8,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <condition_variable>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -20,6 +23,7 @@
 #include <vector>
 
 #include "base/core/format.h"
+#include "engine/media/video_writer.h"
 #include "media_ffmpeg/ffmpeg_api.h"
 #include "platform/run_log.h"
 
@@ -31,15 +35,16 @@ constexpr std::size_t kQueued = 4;
 constexpr int kErrorTextBytes = 128;
 constexpr int kMaxQuality = 100;
 constexpr int kGopSeconds = 2;
+constexpr int kMaxFps = 60;
+constexpr int kUnitRange = 1 << 16; // (swscale's brightness 0, contrast and saturation 1: 16.16 fixed point)
 // nvenc's constant quality (0-51, lower is better) over the quality's 1-100
 constexpr int kNvencWorst = 40;
 constexpr int kNvencBest = 16;
-// Media Foundation's bit rate: this many bits a pixel a frame at quality 0 and how many more at 100
-constexpr double kMfBitsBase = 0.02;
-constexpr double kMfBitsRange = 0.22;
-// mpeg4's quantiser (2-31, lower is better)
-constexpr int kMpeg4Worst = 31;
-constexpr int kMpeg4Best = 2;
+// Media Foundation's and mpeg4's bit rate: this many bits a pixel a frame at quality 0 and how many more at 100 (80:
+// 0.196 - 1280x720 at 60 a second about 10.8 Mbit/s); mpeg4 half as many again
+constexpr double kBitsBase = 0.02;
+constexpr double kBitsRange = 0.22;
+constexpr double kMpeg4BitsFactor = 1.5;
 
 struct Frame {
     std::vector<uint8_t> rgb;
@@ -48,10 +53,10 @@ struct Frame {
     bool last = false; // (the end: no picture)
 };
 
-std::string error_text(const EncodeApi& e, int code)
+std::string error_text(const EncodeApi& enc, int code)
 {
     std::array<char, kErrorTextBytes> text{};
-    e.error_text(code, text.data(), text.size());
+    enc.error_text(code, text.data(), text.size());
     return text.data();
 }
 
@@ -67,11 +72,11 @@ std::vector<std::string> candidates(const std::string& codec)
     return {codec};
 }
 
-// quality 1-100 -> `worst`..`best` (either way round)
-int scaled(int quality, int worst, int best)
+// nvenc's constant quality for the quality 1-100: kNvencWorst at 1 to kNvencBest at 100.
+int nvenc_quality(int quality)
 {
-    const int q = std::clamp(quality, 1, kMaxQuality);
-    return worst + (((best - worst) * (q - 1)) / (kMaxQuality - 1));
+    const int clamped = std::clamp(quality, 1, kMaxQuality);
+    return kNvencWorst + (((kNvencBest - kNvencWorst) * (clamped - 1)) / (kMaxQuality - 1));
 }
 
 class Writer final : public VideoWriter {
@@ -163,14 +168,14 @@ private:
 
     void run()
     {
-        const EncodeApi* e = encode_api();
-        if (e == nullptr) {
+        const EncodeApi* enc = encode_api();
+        if (enc == nullptr) {
             set_error("FFmpeg's DLLs can't encode (tools/ffmpeg/build_ffmpeg.ts builds ones that can)");
             return;
         }
         std::string why;
-        if (!open_file(*e, &why)) {
-            close(*e);
+        if (!open_file(*enc, &why)) {
+            close(*enc);
             set_error(why);
             return;
         }
@@ -191,48 +196,48 @@ private:
             if (frame.last) {
                 break;
             }
-            if (error().empty() && !encode(*e, frame, &why)) {
+            if (error().empty() && !encode(*enc, frame, &why)) {
                 set_error(why);
             }
         }
-        if (error().empty() && !end_file(*e, &why)) {
+        if (error().empty() && !end_file(*enc, &why)) {
             set_error(why);
         }
-        close(*e);
+        close(*enc);
     }
 
     // The first encoder of the choice that opens, its stream, the file and its header.
-    bool open_file(const EncodeApi& e, std::string* why)
+    bool open_file(const EncodeApi& enc, std::string* why)
     {
-        const Api& a = *api();
+        const Api& lib = *api();
         width_ = std::max(2, format_.width & ~1);
         height_ = std::max(2, format_.height & ~1);
-        fps_ = std::clamp(format_.fps, 1, 60);
-        int result = e.format_alloc_output(&output_, nullptr, "mp4", path_.c_str());
+        fps_ = std::clamp(format_.fps, 1, kMaxFps);
+        int result = enc.format_alloc_output(&output_, nullptr, "mp4", path_.c_str());
         if (result < 0 || output_ == nullptr) {
-            *why = "no MP4 muxer (" + error_text(e, result) + ")";
+            *why = "no MP4 muxer (" + error_text(enc, result) + ")";
             return false;
         }
         std::string tried;
         for (const std::string& name : candidates(format_.codec)) {
-            const AVCodec* codec = e.find_encoder_by_name(name.c_str());
+            const AVCodec* codec = enc.find_encoder_by_name(name.c_str());
             if (codec == nullptr) {
                 tried += (tried.empty() ? "" : "; ") + name + ": not in FFmpeg's DLLs";
                 continue;
             }
-            context_ = a.codec_alloc_context(codec);
-            configure(e, name);
+            context_ = lib.codec_alloc_context(codec);
+            configure(enc, name);
             if ((output_->oformat->flags & AVFMT_GLOBALHEADER) != 0) {
                 context_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
             }
-            result = a.codec_open(context_, codec, nullptr);
+            result = lib.codec_open(context_, codec, nullptr);
             if (result >= 0) {
                 const std::scoped_lock lock(mutex_);
                 codec_name_ = name;
                 break;
             }
-            tried += (tried.empty() ? "" : "; ") + name + ": " + error_text(e, result);
-            a.codec_free_context(&context_);
+            tried += (tried.empty() ? "" : "; ") + name + ": " + error_text(enc, result);
+            lib.codec_free_context(&context_);
         }
         if (context_ == nullptr) {
             *why = "no encoder opened (" + tried + ")";
@@ -241,29 +246,29 @@ private:
         if (!tried.empty()) {
             get_log("video: %s (not %s)", codec_name_.c_str(), tried.c_str());
         }
-        stream_ = e.format_new_stream(output_, nullptr);
-        if (stream_ == nullptr || e.parameters_from_context(stream_->codecpar, context_) < 0) {
+        stream_ = enc.format_new_stream(output_, nullptr);
+        if (stream_ == nullptr || enc.parameters_from_context(stream_->codecpar, context_) < 0) {
             *why = "the video stream couldn't be made";
             return false;
         }
         stream_->time_base = context_->time_base;
         stream_->avg_frame_rate = context_->framerate;
-        result = e.io_open(&output_->pb, path_.c_str(), AVIO_FLAG_WRITE);
+        result = enc.io_open(&output_->pb, path_.c_str(), AVIO_FLAG_WRITE);
         if (result < 0) {
-            *why = "can't write " + path_ + " (" + error_text(e, result) + ")";
+            *why = "can't write " + path_ + " (" + error_text(enc, result) + ")";
             return false;
         }
-        result = e.format_write_header(output_, nullptr);
+        result = enc.format_write_header(output_, nullptr);
         if (result < 0) {
-            *why = "the MP4 header couldn't be written (" + error_text(e, result) + ")";
+            *why = "the MP4 header couldn't be written (" + error_text(enc, result) + ")";
             return false;
         }
-        picture_ = a.frame_alloc();
-        packet_ = a.packet_alloc();
+        picture_ = lib.frame_alloc();
+        packet_ = lib.packet_alloc();
         picture_->format = context_->pix_fmt;
         picture_->width = width_;
         picture_->height = height_;
-        if (e.frame_get_buffer(picture_, 0) < 0) {
+        if (enc.frame_get_buffer(picture_, 0) < 0) {
             *why = "no memory for a frame";
             return false;
         }
@@ -271,12 +276,12 @@ private:
     }
 
     // The encoder's settings: size, rate, BT.709 4:2:0, a key frame every 2 s, the quality its own way.
-    void configure(const EncodeApi& e, const std::string& name)
+    void configure(const EncodeApi& enc, const std::string& name)
     {
         context_->width = width_;
         context_->height = height_;
-        context_->time_base = AVRational{1, fps_};
-        context_->framerate = AVRational{fps_, 1};
+        context_->time_base = AVRational{.num = 1, .den = fps_};
+        context_->framerate = AVRational{.num = fps_, .den = 1};
         context_->pix_fmt = AV_PIX_FMT_YUV420P;
         context_->gop_size = fps_ * kGopSeconds;
         context_->color_primaries = AVCOL_PRI_BT709;
@@ -285,59 +290,68 @@ private:
         context_->color_range = AVCOL_RANGE_MPEG;
         context_->thread_count = 0; // (as many as there are cores: the software encoder)
         if (name == "h264_nvenc") {
-            e.opt_set(context_->priv_data, "preset", "p5", 0);
-            e.opt_set(context_->priv_data, "rc", "vbr", 0);
-            e.opt_set_int(context_->priv_data, "cq", scaled(format_.quality, kNvencWorst, kNvencBest), 0);
+            enc.opt_set(context_->priv_data, "preset", "p5", 0);
+            enc.opt_set(context_->priv_data, "rc", "vbr", 0);
+            enc.opt_set_int(context_->priv_data, "cq", nvenc_quality(format_.quality), 0);
             context_->bit_rate = 0;
             context_->max_b_frames = 0;
         } else if (name == "h264_mf") {
-            const double bits =
-                static_cast<double>(width_) * height_ * fps_ *
-                (kMfBitsBase + (kMfBitsRange * std::clamp(format_.quality, 1, kMaxQuality) / kMaxQuality));
-            context_->bit_rate = static_cast<int64_t>(bits);
-            e.opt_set(context_->priv_data, "scenario", "archive", 0);
+            // (NV12: what every Media Foundation H.264 encoder takes - a hardware one given planar 4:2:0 made
+            // stripes of the picture)
+            context_->pix_fmt = AV_PIX_FMT_NV12;
+            context_->bit_rate = bit_rate(1.0);
+            enc.opt_set(context_->priv_data, "scenario", "archive", 0);
             context_->max_b_frames = 0;
         } else {
-            context_->flags |= AV_CODEC_FLAG_QSCALE;
-            context_->global_quality = FF_QP2LAMBDA * scaled(format_.quality, kMpeg4Worst, kMpeg4Best);
+            // (MPEG-4 part 2 needs more bits for the same picture than H.264)
+            context_->bit_rate = bit_rate(kMpeg4BitsFactor);
             context_->max_b_frames = 0;
         }
     }
 
-    bool encode(const EncodeApi& e, const Frame& frame, std::string* why)
+    // A bit rate for the size, rate and quality: kBitsBase to kBitsBase + kBitsRange bits a pixel a frame.
+    [[nodiscard]] int64_t bit_rate(double factor) const
     {
-        const Api& a = *api();
+        const double per_pixel =
+            kBitsBase + (kBitsRange * std::clamp(format_.quality, 1, kMaxQuality) / kMaxQuality);
+        return static_cast<int64_t>(static_cast<double>(width_) * height_ * fps_ * per_pixel * factor);
+    }
+
+    bool encode(const EncodeApi& enc, const Frame& frame, std::string* why)
+    {
+        const Api& lib = *api();
         if (scaler_ == nullptr || frame.width != source_width_ || frame.height != source_height_) {
             if (scaler_ != nullptr) {
-                a.scale_free_context(scaler_);
+                lib.scale_free_context(scaler_);
             }
             source_width_ = frame.width;
             source_height_ = frame.height;
             const bool same = source_width_ == width_ && source_height_ == height_;
-            scaler_ = a.scale_context(source_width_, source_height_, AV_PIX_FMT_RGB24, width_, height_,
-                                      AV_PIX_FMT_YUV420P, same ? SWS_POINT : SWS_BICUBIC, nullptr, nullptr, nullptr);
+            scaler_ = lib.scale_context(source_width_, source_height_, AV_PIX_FMT_RGB24, width_, height_,
+                                      context_->pix_fmt, same ? SWS_POINT : SWS_BICUBIC, nullptr, nullptr, nullptr);
             if (scaler_ == nullptr) {
                 *why = text::format("no colour conversion from %dx%d", source_width_, source_height_);
                 return false;
             }
             // (RGB in full range -> BT.709 YUV in video range)
-            const int* bt709 = a.scale_coefficients(SWS_CS_ITU709);
-            a.scale_colour_space(scaler_, bt709, 1, bt709, 0, 0, 1 << 16, 1 << 16);
+            const int* bt709 = lib.scale_coefficients(SWS_CS_ITU709);
+            lib.scale_colour_space(scaler_, bt709, 1, bt709, 0, 0, kUnitRange, kUnitRange);
         }
-        if (e.frame_make_writable(picture_) < 0) {
+        if (enc.frame_make_writable(picture_) < 0) {
             *why = "the frame isn't writable";
             return false;
         }
         const std::array<const uint8_t*, 1> planes = {frame.rgb.data()};
         const std::array<int, 1> strides = {frame.width * 3};
-        a.scale(scaler_, planes.data(), strides.data(), 0, frame.height, picture_->data, picture_->linesize);
+        lib.scale(scaler_, planes.data(), strides.data(), 0, frame.height, std::data(picture_->data),
+                  std::data(picture_->linesize));
         picture_->pts = next_pts_++;
-        const int result = e.send_frame(context_, picture_);
+        const int result = enc.send_frame(context_, picture_);
         if (result < 0) {
-            *why = "the encoder refused a frame (" + error_text(e, result) + ")";
+            *why = "the encoder refused a frame (" + error_text(enc, result) + ")";
             return false;
         }
-        if (!drain(e, why)) {
+        if (!drain(enc, why)) {
             return false;
         }
         const std::scoped_lock lock(mutex_);
@@ -346,61 +360,61 @@ private:
     }
 
     // The packets the encoder has ready, into the file.
-    bool drain(const EncodeApi& e, std::string* why)
+    bool drain(const EncodeApi& enc, std::string* why)
     {
-        const Api& a = *api();
+        const Api& lib = *api();
         while (true) {
-            const int result = e.receive_packet(context_, packet_);
+            const int result = enc.receive_packet(context_, packet_);
             if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) {
                 return true;
             }
             if (result < 0) {
-                *why = "the encoder failed (" + error_text(e, result) + ")";
+                *why = "the encoder failed (" + error_text(enc, result) + ")";
                 return false;
             }
-            e.packet_rescale_ts(packet_, context_->time_base, stream_->time_base);
+            enc.packet_rescale_ts(packet_, context_->time_base, stream_->time_base);
             packet_->stream_index = stream_->index;
-            const int written = e.interleaved_write_frame(output_, packet_);
-            a.packet_unref(packet_);
+            const int written = enc.interleaved_write_frame(output_, packet_);
+            lib.packet_unref(packet_);
             if (written < 0) {
-                *why = "couldn't write to " + path_ + " (" + error_text(e, written) + ")";
+                *why = "couldn't write to " + path_ + " (" + error_text(enc, written) + ")";
                 return false;
             }
         }
     }
 
-    bool end_file(const EncodeApi& e, std::string* why)
+    bool end_file(const EncodeApi& enc, std::string* why)
     {
-        const int result = e.send_frame(context_, nullptr);
+        const int result = enc.send_frame(context_, nullptr);
         if (result < 0 && result != AVERROR_EOF) {
-            *why = "the encoder couldn't finish (" + error_text(e, result) + ")";
+            *why = "the encoder couldn't finish (" + error_text(enc, result) + ")";
             return false;
         }
-        if (!drain(e, why)) {
+        if (!drain(enc, why)) {
             return false;
         }
-        if (e.write_trailer(output_) < 0) {
+        if (enc.write_trailer(output_) < 0) {
             *why = "the MP4's index couldn't be written";
             return false;
         }
         return true;
     }
 
-    void close(const EncodeApi& e)
+    void close(const EncodeApi& enc)
     {
-        const Api& a = *api();
+        const Api& lib = *api();
         if (scaler_ != nullptr) {
-            a.scale_free_context(scaler_);
+            lib.scale_free_context(scaler_);
             scaler_ = nullptr;
         }
-        a.frame_free(&picture_);
-        a.packet_free(&packet_);
-        a.codec_free_context(&context_);
+        lib.frame_free(&picture_);
+        lib.packet_free(&packet_);
+        lib.codec_free_context(&context_);
         if (output_ != nullptr) {
             if (output_->pb != nullptr) {
-                e.io_closep(&output_->pb);
+                enc.io_closep(&output_->pb);
             }
-            e.format_free_context(output_);
+            enc.format_free_context(output_);
             output_ = nullptr;
         }
     }

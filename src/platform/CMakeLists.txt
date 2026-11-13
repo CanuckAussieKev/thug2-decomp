@@ -15,6 +15,7 @@ add_library(thug2_platform STATIC
     registry.cpp
     run_log.cpp
     screenshot_files.cpp
+    std_streams.cpp
     sdl_keys.cpp
     sdl_events.cpp
     sdl_window.cpp

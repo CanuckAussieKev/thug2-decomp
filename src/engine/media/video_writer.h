@@ -18,11 +18,13 @@ namespace media {
 // What the video is: its size (even numbers: H.264's 4:2:0 needs them - odd ones are rounded down), its frame rate,
 // a quality from 1 (smallest) to 100 (best) and the codec: "auto" (the best H.264 encoder that opens - NVIDIA's,
 // then Windows' Media Foundation - else MPEG-4 part 2), "h264" (H.264 only), "mpeg4" or an FFmpeg encoder's name.
+constexpr int kDefaultVideoFps = 60;
+constexpr int kDefaultVideoQuality = 80;
 struct VideoFormat {
     int width = 0;
     int height = 0;
-    int fps = 60;
-    int quality = 80;
+    int fps = kDefaultVideoFps;
+    int quality = kDefaultVideoQuality;
     std::string codec = "auto";
 };
 
@@ -58,9 +60,9 @@ int configured_scale_percent();
 std::unique_ptr<VideoWriter> open_video(const std::string& path, const VideoFormat& format, std::string* error);
 void install_video_writer(VideoWriterFactory factory);
 
-// Whether game frame `game_frame` (from 0; 60 a second) is the first at or past a video frame's time at `fps` a
-// second - the frames a video takes: 60 every frame; 30 every other one (0, 2, 4...); 24 two or three apart. `fps`
+// Whether game frame `game_frame` (from 0; 60 a second) is the first at or past a video frame's time at the format's
+// fps - the frames a video takes: 60 every frame; 30 every other one (0, 2, 4...); 24 two or three apart. The fps
 // clamped to 1-60.
-bool starts_video_frame(uint32_t game_frame, int fps);
+bool starts_video_frame(uint32_t game_frame, const VideoFormat& format);
 
 } // namespace media

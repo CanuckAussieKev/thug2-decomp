@@ -8,5 +8,6 @@ add_library(thug2_media_ffmpeg STATIC
     ffmpeg_playback.cpp
     ffmpeg_sound.cpp
     ffmpeg_video.cpp
+    ffmpeg_video_read.cpp
 )
 target_link_libraries(thug2_media_ffmpeg PUBLIC thug2_engine PRIVATE ffmpeg_headers)

@@ -4,10 +4,9 @@
 
 #include <windows.h>
 
-#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <span>
 #include <string>
 #include <vector>
 
@@ -16,6 +15,7 @@
 #include "engine/media/video_writer.h"
 #include "game/front_end/start_level.h"
 #include "media_ffmpeg/ffmpeg_video.h"
+#include "platform/std_streams.h"
 
 namespace app {
 
@@ -23,31 +23,7 @@ namespace {
 
 constexpr int kMaxSide = 16384;
 
-void say(const std::string& line)
-{
-    const HANDLE error = GetStdHandle(STD_ERROR_HANDLE);
-    if (error == nullptr || error == INVALID_HANDLE_VALUE) {
-        return;
-    }
-    const std::string text = line + "\n";
-    DWORD written = 0;
-    WriteFile(error, text.data(), static_cast<DWORD>(text.size()), &written, nullptr);
-}
-
-// The whole of `bytes` from standard input; false at its end (or a read error) before it is filled.
-bool read_exactly(HANDLE input, std::vector<uint8_t>* bytes)
-{
-    size_t got = 0;
-    while (got < bytes->size()) {
-        DWORD read = 0;
-        const auto want = static_cast<DWORD>(std::min<size_t>(bytes->size() - got, 1U << 24U));
-        if (ReadFile(input, std::span(*bytes).subspan(got).data(), want, &read, nullptr) == 0 || read == 0) {
-            return false;
-        }
-        got += read;
-    }
-    return true;
-}
+void say(const std::string& line) { platform::write_standard_error(line + "\n"); }
 
 } // namespace
 
@@ -86,9 +62,8 @@ bool run_encode_video(int* exit_code)
         say("video: error - " + error);
         return true;
     }
-    const HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
     std::vector<uint8_t> frame(static_cast<size_t>(width) * height * 3);
-    while (input != nullptr && input != INVALID_HANDLE_VALUE && read_exactly(input, &frame)) {
+    while (platform::read_standard_input(frame)) {
         if (!writer->add_frame(frame, width, height)) {
             break;
         }

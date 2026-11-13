@@ -3,6 +3,8 @@
 #include "engine/media/video_writer.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <memory>
 #include <string>
 
 #include "platform/run_log.h"
@@ -54,9 +56,9 @@ int configured_scale_percent()
     return std::clamp(config_int(kSection, "video_scale", kFullScale), kMinScale, kMaxScale);
 }
 
-bool starts_video_frame(uint32_t game_frame, int fps)
+bool starts_video_frame(uint32_t game_frame, const VideoFormat& format)
 {
-    const auto rate = static_cast<uint64_t>(std::clamp(fps, 1, kGameFramesPerSecond));
+    const auto rate = static_cast<uint64_t>(std::clamp(format.fps, 1, kGameFramesPerSecond));
     // (video frame k's time is k / fps s, game frame g's g / 60 s: k is shown from the first g at or past it, so the
     // video frames begun by g are floor(g * fps / 60) + 1 - g starts one when that goes up)
     const auto due = [rate](uint64_t frame) { return (frame * rate) / kGameFramesPerSecond; };
