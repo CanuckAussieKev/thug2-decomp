@@ -518,3 +518,40 @@ test("tess: its ini values, log lines and totals", () => {
     assert.equal(totals.length, 1);
     assert.match(totals[0]!, /qpsch: levels\\sch\\sch\.scn\.Xbx - 961 of 1711 meshes, .* deviation at most 2\.000/);
 });
+
+const RELIT: Limits = { ...LIMITS, expect: "shadows", strength: 1, effect: "relit" };
+
+test("relit: a bounded change passes; a big shift, black pixels fail; no baked sun: unchanged", () => {
+    const off = flat(40, 40, 120);
+    // darker in the upper half, lighter in the lower (the mean about the same)
+    const on = { ...off, rgb: new Uint8Array(off.rgb) };
+    for (let p = 0; p < on.rgb.length; p++) on.rgb[p] = p < on.rgb.length / 2 ? 110 : 130;
+    const verdict = judgeSpot("a", shadowDifference(off, on, null, 8), null, RELIT);
+    assert.deepEqual(verdict.problems, []);
+    assert.equal(anyShadow([verdict], RELIT), true);
+    assert.match(
+        judgeSpot("b", shadowDifference(off, flat(40, 40, 160), null, 8), null, RELIT).problems.join(),
+        /luma by 40|shifted/,
+    );
+    assert.match(
+        judgeSpot("c", shadowDifference(off, shaded(off, 20, 0), null, 8), null, RELIT).problems.join(),
+        /turned black relit/,
+    );
+    // a level with no baked sun: any change fails
+    assert.match(judgeSpot("d", shadowDifference(off, on, null, 8), null, RELIT, true).problems.join(), /no baked sun/);
+});
+
+test("relit: its ini values and log lines", () => {
+    assert.deepEqual(configValues("on", "relit"), { "Graphics.ray_tracing": "1", "Graphics.rt_relit": "1" });
+    assert.equal(configValues("off", "relit")["Graphics.rt_relit"], "0");
+    assert.deepEqual(configValues("baseline", "relit"), {});
+    const written = "vulkan: rt_relit: 120 meshes written (the bake lit again)";
+    const noSun = "vulkan: rt_relit: the bake shows no sun - the bake kept";
+    assert.deepEqual(logProblems("on", written, "shadows", "relit"), []);
+    assert.deepEqual(logProblems("on", noSun, "shadows", "relit"), []);
+    assert.match(logProblems("on", "", "shadows", "relit").join(), /no relit colours/);
+    assert.match(logProblems("on", "rt_relit: the pass couldn't be made", "shadows", "relit").join(), /couldn't/);
+    assert.match(logProblems("off", written, "shadows", "relit").join(), /relit lines in the off log/);
+    assert.deepEqual(logProblems("off", "", "shadows", "relit"), []);
+    assert.match(logProblems("on", "EXCEPTION at 0x1", "shadows", "relit").join(), /EXCEPTION/);
+});
