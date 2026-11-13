@@ -1145,10 +1145,11 @@ void check_thermal(render::Gpu& gpu, const Picture& picture, Tally* tally)
     tally->check(next.ok && next.out != run.out && next_matches, "the noise flickers with the frame, each frame as its twin");
 }
 
-// Every look in a viewport: only its rectangle changed; the styles not built here record nothing.
+// Every look in a viewport: only its rectangle changed; cel (cel shading, no post-process) records nothing here (the
+// vhs, retro and watercolour passes: thug2_vulkan_style_film_check).
 void check_look_viewports(render::Gpu& gpu, const Picture& picture, Tally* tally)
 {
-    text::print("the looks in a viewport; the styles not built here:\n");
+    text::print("the looks in a viewport; cel:\n");
     constexpr std::array<uint32_t, 4> kViewport{64, 16, 128, 96};
     const auto changes = [&](vk::ArtStyle style, uint64_t* passes, int* inside, int* outside) {
         vk::set_style_settings({.style = style});
@@ -1188,13 +1189,13 @@ void check_look_viewports(render::Gpu& gpu, const Picture& picture, Tally* tally
                      text::format("%s: %d pixels changed inside the viewport, %d outside", vk::art_style_name(style), inside,
                                   outside));
     }
-    for (const vk::ArtStyle style : {vk::ArtStyle::kVhs, vk::ArtStyle::kRetro, vk::ArtStyle::kWatercolour}) {
+    {
         uint64_t passes = 1;
         int inside = 0;
         int outside = 0;
-        changes(style, &passes, &inside, &outside);
+        changes(vk::ArtStyle::kCel, &passes, &inside, &outside);
         tally->check(passes == 0 && inside == 0 && outside == 0,
-                     text::format("%s (not built here): no pass, every pixel as it was", vk::art_style_name(style)));
+                     "cel (cel shading: no post-process): no pass, every pixel as it was");
     }
     // the names: each read back as itself, the old numbers, anything else refused
     bool names = true;
