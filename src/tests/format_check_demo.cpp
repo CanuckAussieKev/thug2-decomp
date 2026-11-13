@@ -238,6 +238,12 @@ void check_drift()
     demo_format::CheckPoint other_state = point_at(1);
     other_state.state = kOtherState;
     check(demo_format::compare_points(point_at(1), other_state, kTolerance).other, "drift: a different state counts");
+    demo_format::CheckPoint undrawn = point_at(1);
+    undrawn.flags &= ~demo_format::kHasCamera;
+    undrawn.camera = {};
+    undrawn.camera_forward = {};
+    const demo_format::Difference no_camera = demo_format::compare_points(point_at(1), undrawn, kTolerance);
+    check(!no_camera.other && no_camera.camera == 0.0F, "drift: a frame one run didn't draw (no camera) isn't a difference");
     check(demo_format::check_line(point_at(kLineFrame)).starts_with("2 3 2.000 4.000 -2.000"), "drift: a track line");
 }
 

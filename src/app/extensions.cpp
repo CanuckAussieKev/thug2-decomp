@@ -94,6 +94,7 @@ void register_added_script_commands()
     frontend::test_view::extension().register_script_commands();    // (TeleportSkaterStanding)
     skater::thaw_bmx::register_script_functions();                   // (ThawBmx_Available, the bike's members)
     frontend::new_frontend::extension().register_script_commands(); // (the overlay's pause items: NewFrontend_...)
+    devtools::demo::extension().register_script_commands();          // (the overlay's DEMOS menu: Demo_...)
 }
 
 // (the demos last: a recording takes port 0 as every other source left it; a playback replaces it)

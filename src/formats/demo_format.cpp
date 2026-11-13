@@ -422,10 +422,14 @@ Difference compare_points(const CheckPoint& a, const CheckPoint& b, float tolera
 {
     Difference difference;
     difference.skater = distance(a.position, b.position);
-    difference.camera = distance(a.camera, b.camera);
-    difference.other = a.flags != b.flags || a.state != b.state || distance(a.velocity, b.velocity) > tolerance ||
-                       distance(a.at, b.at) > tolerance || distance(a.up, b.up) > tolerance ||
-                       distance(a.camera_forward, b.camera_forward) > tolerance;
+    // (the camera only where both runs drew the frame: one left undrawn - a hitch, a device reset - has none, which
+    // says nothing about the run)
+    const bool cameras = (a.flags & b.flags & kHasCamera) != 0U;
+    difference.camera = cameras ? distance(a.camera, b.camera) : 0.0F;
+    difference.other = ((a.flags ^ b.flags) & ~kHasCamera) != 0U || a.state != b.state ||
+                       distance(a.velocity, b.velocity) > tolerance || distance(a.at, b.at) > tolerance ||
+                       distance(a.up, b.up) > tolerance ||
+                       (cameras && distance(a.camera_forward, b.camera_forward) > tolerance);
     return difference;
 }
 

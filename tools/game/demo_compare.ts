@@ -15,8 +15,9 @@
 //   - the pictures put together (<out>\compare\frame_0001.png ...): `side` (default) every set side by side, `split`
 //     the first set's left half and the second's right half, `wipe` the line between them moving across over the run,
 //     `diff` the two sets' difference, brightened; and how much each pair differs per frame;
-//   - with FFmpeg (--ffmpeg, or ffmpeg on the PATH; the game's own FFmpeg DLLs decode only) an .mp4 of them, else the
-//     command to make one;
+//   - an .mp4 of them made by the game's own encoder (thug2-decomp.exe -encode-video: H.264 by NVIDIA's or Windows'
+//     encoder, else MPEG-4 - the [demo] video_codec / video_quality of the folder's ini); with --ffmpeg <exe> by that
+//     FFmpeg instead (also tried on the PATH when the game's encoder fails), else the command to make one;
 //   - <out>\report.md and report.json.
 // --every: one frame in N (default 2: 30 pictures a second; 1 = every frame - about 1.5 MB a picture at 1280x720).
 // --no-run: only the comparison, from captures made before. Default --out: <game>\thug2-decomp-demos\<name>_compare.
@@ -60,6 +61,9 @@ export function groupSets(settings: readonly Setting[]): Map<string, Setting[]> 
     }
     return sets;
 }
+
+const HAS_CAMERA = 2; // (a check point's flags: demo_format::kHasCamera - the frame was drawn)
+const CAMERA_DIRECTION_AT = 9; // (Point.rest: velocity, at, up - then the camera's direction)
 
 // A check point of a track (formats/demo_format.h check_line).
 export interface Point {
@@ -125,11 +129,16 @@ export function compareTracks(a: Map<number, Point>, b: Map<number, Point>, tole
         }
         drift.compared++;
         const skater = distance(p.position, q.position);
-        const camera = distance(p.camera, q.camera);
+        // (the camera only where both runs drew the frame - formats/demo_format.cpp compare_points)
+        const cameras = (p.flags & q.flags & HAS_CAMERA) !== 0;
+        const camera = cameras ? distance(p.camera, q.camera) : 0;
         drift.maxSkater = Math.max(drift.maxSkater, skater);
         drift.maxCamera = Math.max(drift.maxCamera, camera);
+        const rows = cameras ? p.rest.length : CAMERA_DIRECTION_AT;
         const other =
-            p.flags !== q.flags || p.state !== q.state || p.rest.some((v, i) => Math.abs(v - q.rest[i]!) > tolerance);
+            ((p.flags ^ q.flags) & ~HAS_CAMERA) !== 0 ||
+            p.state !== q.state ||
+            p.rest.slice(0, rows).some((v, i) => Math.abs(v - q.rest[i]!) > tolerance);
         if (drift.firstFrame === null && (skater > tolerance || camera > tolerance || other)) {
             drift.firstFrame = frame;
             drift.firstSkater = skater;
@@ -211,6 +220,54 @@ function findFfmpeg(given: string | undefined): string | null {
     } catch {
         return null;
     }
+}
+
+// The game's exe as a video encoder (thug2-decomp.exe -encode-video: src/app/encode_video.h): raw RGB pictures of one
+// size written to its standard input; its [demo] video_codec / video_quality from the game folder's ini.
+export interface GameEncoder {
+    write(rgb: Uint8Array): Promise<void>;
+    finish(): Promise<{ ok: boolean; text: string }>;
+}
+
+export function startGameEncoder(
+    exe: string,
+    game: string,
+    file: string,
+    width: number,
+    height: number,
+    fps: number,
+): GameEncoder {
+    const args = ["-encode-video", file, "-encode-size", `${width}x${height}`, "-encode-fps", String(Math.round(fps))];
+    const child = spawn(exe, args, { cwd: game, stdio: ["pipe", "ignore", "pipe"] });
+    let said = "";
+    let broken = false;
+    child.stderr.on("data", (data: Buffer) => {
+        said += data.toString("utf8");
+    });
+    child.stdin.on("error", () => {
+        broken = true; // (the encoder stopped reading: it says why when it exits)
+    });
+    const exited = new Promise<number | null>((resolve) => child.on("close", resolve));
+    return {
+        async write(rgb: Uint8Array): Promise<void> {
+            if (broken || child.stdin.destroyed) return;
+            if (!child.stdin.write(rgb))
+                await Promise.race([
+                    new Promise<void>((resolve) => child.stdin.once("drain", () => resolve())),
+                    exited,
+                ]);
+        },
+        async finish(): Promise<{ ok: boolean; text: string }> {
+            child.stdin.end();
+            const code = await exited;
+            const text =
+                said
+                    .trim()
+                    .replace(/^video: /, "")
+                    .replace(`${file} `, "") || `exit code ${code}`;
+            return { ok: code === 0, text };
+        },
+    };
 }
 
 // One run: the set's settings in the ini (put back afterwards), the game started, waited for.
@@ -372,14 +429,23 @@ async function main(): Promise<number> {
     fs.rmSync(compareFolder, { recursive: true, force: true });
     fs.mkdirSync(compareFolder, { recursive: true });
     const differences: { mean: number; changed: number }[] = [];
+    const fps = 60 / every;
+    const video = path.join(out, `${demo}_${names.join("_vs_")}_${layout}.mp4`);
+    // (the video by the game's own encoder - thug2-decomp.exe -encode-video, src/app/encode_video.h - fed the pictures
+    // as they are made; --ffmpeg <exe> makes it with that FFmpeg from the PNGs afterwards instead)
+    let encoder: GameEncoder | null = null;
+    const exe = launchExeOrError(values.game, game);
     for (let k = 1; k <= count; k++) {
         const images = names.map((n) => decodePng(fs.readFileSync(path.join(out, n, frameName(k)))));
         differences.push(pictureDifference(images[0]!, images[1]!));
-        fs.writeFileSync(
-            path.join(compareFolder, frameName(k)),
-            encodePng(compose(images, layout, count > 1 ? (k - 1) / (count - 1) : 0)),
-        );
+        const picture = compose(images, layout, count > 1 ? (k - 1) / (count - 1) : 0);
+        fs.writeFileSync(path.join(compareFolder, frameName(k)), encodePng(picture));
+        if (!values.ffmpeg && !("error" in exe)) {
+            encoder ??= startGameEncoder(exe.exe, game, video, picture.width, picture.height, fps);
+            await encoder.write(picture.rgb);
+        }
     }
+    const encoded = encoder ? await encoder.finish() : null;
     lines.push("", `## Pictures (${layout}, one frame in ${every})`, "");
     if (count === 0) lines.push("- none captured");
     else {
@@ -393,8 +459,6 @@ async function main(): Promise<number> {
             `- ${count} pictures in ${compareFolder} (left to right: ${layout === "side" ? names.join(" | ") : `${names[0]} | ${names[1]}`})`,
             `- ${names[0]} vs ${names[1]}: mean difference ${meanOfMeans.toFixed(2)} / 255 a channel, ${(changed * 100).toFixed(1)}% of the pixels changed on average; most at picture ${most.index} (${most.mean.toFixed(2)})`,
         );
-        const fps = 60 / every;
-        const video = path.join(out, `${demo}_${names.join("_vs_")}_${layout}.mp4`);
         const ffArgs = [
             "-y",
             "-framerate",
@@ -411,13 +475,15 @@ async function main(): Promise<number> {
             "18",
             video,
         ];
-        const ffmpeg = findFfmpeg(values.ffmpeg);
-        if (ffmpeg) {
+        const ffmpeg = values.ffmpeg || !encoded?.ok ? findFfmpeg(values.ffmpeg) : null;
+        if (encoded?.ok) {
+            lines.push(`- video: ${video} (the game's encoder: ${encoded.text})`);
+        } else if (ffmpeg) {
             execFileSync(ffmpeg, ffArgs, { stdio: "ignore" });
             lines.push(`- video: ${video}`);
         } else {
             lines.push(
-                "- no video: FFmpeg isn't on the PATH (the game's FFmpeg DLLs only decode). To make one:",
+                `- no video: ${encoded ? encoded.text : "the game's exe wasn't found"}. With FFmpeg (--ffmpeg <exe>):`,
                 `  \`ffmpeg ${ffArgs.map((a) => (/[\s%*()]/.test(a) ? `"${a}"` : a)).join(" ")}\``,
             );
         }

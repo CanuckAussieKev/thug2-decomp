@@ -23,7 +23,8 @@ from this repo include them, so keep these notices with any distributed `thug2-d
 | glslang (The Khronos Group and contributors), Vulkan SDK 1.4.304.0 release - https://github.com/KhronosGroup/glslang, tag vulkan-sdk-1.4.304.0 | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/vulkan_libraries.cmake`): its GLSL front end and SPIR-V back end (no HLSL, no optimiser, no programs) compile the Vulkan renderer's fixed-function emulation shaders at run time (`src/gpu_vulkan/glsl_compiler.cpp`) | BSD 3-clause (the core), with parts under BSD 2-clause, MIT, Apache-2.0 and NVIDIA's preprocessor licence - below |
 | SPIRV-Tools and SPIRV-Headers (The Khronos Group), Vulkan SDK 1.4.304.0 release - https://github.com/KhronosGroup/SPIRV-Tools, https://github.com/KhronosGroup/SPIRV-Headers, tag vulkan-sdk-1.4.304.0 | downloaded at configure time (FetchContent, SHA-256 checked) when `THUG2_SPIRV_VALIDATOR` is on and Python 3 is found: the SPIR-V validator, linked only by the check program `thug2_ff_shader_check` (nothing of it is in the game) | SPIRV-Tools: Apache-2.0; SPIRV-Headers: the Khronos MIT-style licence (some files Apache-2.0) - below |
 | GameSpy SDK (December 2007 release, common 2.06; IGN Entertainment's 2011 open-source release) - https://github.com/nitrocaster/GameSpy, commit d1deb2d | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/gamespy_sdk.cmake` changes it in a few places, listed there and in docs/gamespy.md: the peer SDK's chat server name a variable, the chat SDK's nick rules as the game's copy of the SDK had them, and for 64-bit builds the peer's callback addresses kept pointer-sized and GP's index-through-a-pointer casts through `intptr_t`); the modules the game uses built into the exe | BSD 3-clause - below. Its MD5 (md5c.c) is "derived from the RSA Data Security, Inc. MD5 Message-Digest Algorithm" (RSA's notice, in md5.h) |
-| FFmpeg 7.1.5 (the FFmpeg developers) - https://ffmpeg.org/, tag n7.1.5 | **separate DLLs**, not linked into the exe: `avutil-59.dll`, `avcodec-61.dll`, `avformat-61.dll`, `swscale-8.dll`, built from the unmodified release source by `tools/ffmpeg/build_ffmpeg.ts` and loaded by name at run time (`src/media_ffmpeg`); only FFmpeg's headers are fetched at configure time (`cmake/ffmpeg.cmake`, SHA-256 checked). Both the 32-bit and the 64-bit build use them for the movies and the music / sound streams | LGPL 2.1 or later (no GPL, no non-free parts) - below |
+| FFmpeg 7.1.5 (the FFmpeg developers) - https://ffmpeg.org/, tag n7.1.5 | **separate DLLs**, not linked into the exe: `avutil-59.dll`, `avcodec-61.dll`, `avformat-61.dll`, `swscale-8.dll`, built from the unmodified release source by `tools/ffmpeg/build_ffmpeg.ts` and loaded by name at run time (`src/media_ffmpeg`); only FFmpeg's headers are fetched at configure time (`cmake/ffmpeg.cmake`, SHA-256 checked). Both the 32-bit and the 64-bit build use them for the movies and the music / sound streams, and to save a demo as a video (the MP4 muxer and the h264_nvenc, h264_mf and mpeg4 encoders - no x264) | LGPL 2.1 or later (no GPL, no non-free parts) - below |
+| nv-codec-headers n12.1.14.0 (FFmpeg's copy of NVIDIA's Video Codec SDK headers) - https://github.com/FFmpeg/nv-codec-headers, tag n12.1.14.0 | downloaded by `tools/ffmpeg/build_ffmpeg.ts` (SHA-256 checked) and compiled into `avcodec-61.dll` (the h264_nvenc encoder: header only - NVIDIA's driver DLL is loaded at run time, nothing of NVIDIA's is shipped) | MIT - below |
 | NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript (commit 73fe0f9), with our changes in our fork https://github.com/CanuckAussieKev/NeverScript (branch `thug2`) | downloaded at build time into `out/neverscript/src` by `tools/build_neverscript.ps1` (a tool, not part of the game; nothing of it is in this repo); our fork's release build `ns-windows-amd64.exe` (release `thug2-v1`, SHA-256 checked) is shipped as `editor-tools\ns.exe` beside the exe by `tools/editor_tools.ts` (the level editor's Import Level runs it through the converters) | no licence; the original author's permission - below |
 | Node.js 24.11.1 (Node.js contributors) - https://nodejs.org/, `node-v24.11.1-win-x64.zip` | downloaded by `tools/editor_tools.ts` (SHA-256 pinned and checked against nodejs.org's SHASUMS256.txt): its `node.exe` is shipped unmodified as `editor-tools\node.exe` beside the exe, with its `LICENSE` as `editor-tools\LICENSE.node.txt` - the level editor's Import Level runs the level converters with it (a separate program, started as a child process) | MIT, with the licences of the parts Node.js bundles - all in `editor-tools\LICENSE.node.txt` |
 | The level converters and the content pipeline (thug2-level-converter-core, thug2-thugpro-compat, thug2-thps2 / -thps3 / -thps4 / -thug1 / -thaw / -thp8 / -thpg-level-converter, thug2-content-pipeline, anteara-mod) - https://github.com/CanuckAussieKev | this project's own repositories, installed into `editor-tools\` by `tools/editor_tools.ts` (`npm ci --omit=dev` at the commits the pipeline pins) | each repository's own licence and notices (its LICENSE and THIRD_PARTY_NOTICES.md, kept in the installed copy) |
@@ -534,12 +535,17 @@ source. configure's flags:
 --cross-prefix=<i686|x86_64>-w64-mingw32- --cc=<i686|x86_64>-w64-mingw32-gcc-win32
 --enable-shared --disable-static --disable-everything --disable-autodetect --disable-programs --disable-doc
 --disable-network --disable-avdevice --disable-avfilter --disable-swresample --disable-x86asm --disable-debug
---enable-w32threads --enable-demuxer=bink --enable-decoder=bink,binkaudio_dct,binkaudio_rdft
---extra-ldflags=-static-libgcc
+--enable-w32threads --enable-protocol=file --enable-demuxer=bink,mov
+--enable-decoder=bink,binkaudio_dct,binkaudio_rdft,h264,mpeg4 --enable-parser=h264,mpeg4video --enable-muxer=mp4
+--enable-encoder=h264_nvenc,h264_mf,mpeg4 --enable-mediafoundation --enable-ffnvcodec --enable-nvenc
+--pkg-config=<a stand-in that answers for nv-codec-headers> --extra-ldflags=-static-libgcc
 ```
 
-Only the libraries libavutil, libavcodec, libavformat and libswscale (the frames' colour conversion) are built, with the
-Bink demuxer and the Bink video and audio decoders and nothing else. `--enable-gpl` and `--enable-nonfree` are not used.
+Only the libraries libavutil, libavcodec, libavformat and libswscale (the frames' colours and sizes) are built, with the
+Bink demuxer and the Bink video and audio decoders (the movies), and for a demo saved as a video the file protocol, the MP4
+muxer and three encoders - NVIDIA's hardware H.264 (h264_nvenc, through nv-codec-headers, MIT - below), Windows' Media
+Foundation H.264 (h264_mf: the system's own encoder, nothing added) and FFmpeg's own MPEG-4 part 2 (mpeg4) - with the
+MP4 demuxer and the H.264 / MPEG-4 decoders to read a video back. `--enable-gpl` and `--enable-nonfree` are not used.
 The game does not link FFmpeg: it loads the four DLLs by name at run time, so they stay separate, replaceable
 libraries. To use another build, put LGPL builds of the same major versions (libavutil 59, libavcodec 61, libavformat 61,
 libswscale 8) under the same file names next to the exe, in place of ours; the game works with them without being
@@ -1048,6 +1054,35 @@ necessary.  Here is a sample; alter the names:
   Ty Coon, President of Vice
 
 That's all there is to it!
+```
+
+## nv-codec-headers n12.1.14.0 (MIT)
+
+FFmpeg's copy of NVIDIA's Video Codec SDK headers (https://github.com/FFmpeg/nv-codec-headers, tag n12.1.14.0), used
+only to build `avcodec-61.dll`'s h264_nvenc encoder. Each header carries its own notice: "Copyright (c) 2010-2023
+NVIDIA Corporation" (nvEncodeAPI.h) and "Copyright (c) 2016" (the dynamic loaders), under the MIT licence:
+
+```
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the software, and to permit persons to whom the
+software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## quickjs-ng v0.17.0 MIT license

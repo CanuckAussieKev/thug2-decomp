@@ -53,6 +53,17 @@ test("parseTrack and compareTracks: identical, then a drift", () => {
     assert.equal(compareTracks(a, state).firstFrame, 6);
 });
 
+test("compareTracks: a frame one run didn't draw (no camera: flags 1) isn't a difference", () => {
+    const a = parseTrack([HEADER, line(5, 0, 3), line(6, 1, 3)].join("\n"));
+    const undrawn = `6 1 1 1 2 0 0 0 0 0 1 0 1 0 0 0 0 0 0 0 0`;
+    const b = parseTrack([HEADER, line(5, 0, 3), undrawn].join("\n"));
+    const drift = compareTracks(a, b);
+    assert.equal(drift.firstFrame, null);
+    assert.equal(drift.maxCamera, 0);
+    const moved = parseTrack([HEADER, line(5, 0, 3), `6 1 1.5 1 2 0 0 0 0 0 1 0 1 0 0 0 0 0 0 0 0`].join("\n"));
+    assert.equal(compareTracks(a, moved).firstFrame, 6);
+});
+
 function solid(width: number, height: number, value: number) {
     return { width, height, rgb: new Uint8Array(width * height * 3).fill(value) };
 }
