@@ -31,6 +31,7 @@
 #include "engine/gfx/render_camera.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/rt_checks.h"
+#include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "engine/gfx/surface_material.h"
@@ -41,6 +42,7 @@
 #include "render_pc/geom.h"
 #include "render_pc/mesh_list.h"
 #include "render_pc/pc_scene.h"
+#include "render_pc/rt_relit_world.h"
 #include "render_pc/sub_mesh.h"
 #include "render_pc/vertex_buffers.h"
 
@@ -132,6 +134,7 @@ struct State {
     bool begun = false;    // begin_frame called this frame
     bool world_passes = false;
     int colour_writes = 0;
+    bool relit_idle = true; // the relit mode off and told so
 };
 
 State& state()
@@ -586,7 +589,8 @@ public:
         : geometry_(geometry),
           vertices_(source.data(), source.size()),
           colour_(colour),
-          index_bytes_(geometry.indices_32bit ? sizeof(uint32_t) : sizeof(uint16_t))
+          index_bytes_(geometry.indices_32bit ? sizeof(uint32_t) : sizeof(uint16_t)),
+          originals_(rt_relit_world::original_colours(&source))
     {
     }
 
@@ -618,9 +622,13 @@ public:
     [[nodiscard]] float brightness(uint32_t vertex) const
     {
         std::array<uint8_t, kColourBytes> bgra{};
-        std::memcpy(bgra.data(),
-                    vertices_.subspan((std::size_t{vertex} * geometry_.vertex_stride) + colour_, bgra.size()).data(),
-                    bgra.size());
+        if (vertex < originals_.size()) { // (the relit mode wrote its own colours: the bake's read)
+            std::memcpy(bgra.data(), &core::at(originals_, vertex), bgra.size());
+        } else {
+            std::memcpy(bgra.data(),
+                        vertices_.subspan((std::size_t{vertex} * geometry_.vertex_stride) + colour_, bgra.size()).data(),
+                        bgra.size());
+        }
         return (kLumaBlue * static_cast<float>(std::get<0>(bgra))) + (kLumaGreen * static_cast<float>(std::get<1>(bgra))) +
                (kLumaRed * static_cast<float>(std::get<2>(bgra)));
     }
@@ -646,6 +654,7 @@ private:
     std::span<const uint8_t> vertices_;
     uint32_t colour_; // the colour's offset in a vertex
     std::size_t index_bytes_;
+    std::span<const uint32_t> originals_; // (the bake's colours where the relit mode has written others; else empty)
 };
 
 // A triangle's corners and its normal turned up; false: no area, or not facing up (or down - turned up) enough.
@@ -854,6 +863,32 @@ void new_world_work(rt::RayTracing& rt)
             fit ? ", the baked sun fitted" : " (no baked sun wanted)", st.first_frame_work_ms);
 }
 
+// (added by the relit mode, rt_relit_world.h - placed by the merge after the first frame) The relit mode's work each
+// frame, after the new world's: its analysis once the world's structures are settled and its sun fitted, then the
+// writes of the relit colours (or the bake's back when it is turned off).
+void relit_work(rt::RayTracing& rt)
+{
+    State& st = state();
+    if (!rt::relit_settings().on && st.relit_idle) {
+        return;
+    }
+    std::vector<rt_relit_world::WorldMesh> world;
+    world.reserve(st.world.size());
+    for (const MeshRef* mesh : st.world) {
+        const auto found = st.meshes.find(mesh);
+        if (found != st.meshes.end()) {
+            world.push_back({.mesh = mesh,
+                             .id = found->second.id,
+                             .geometry = &found->second.geometry,
+                             .source = found->second.source});
+        }
+    }
+    const bool ready = !st.world.empty() && st.settled_key == st.scene_key &&
+                       (!rt::baked_sun_wanted() || st.fitted_key == st.scene_key);
+    rt_relit_world::update(world, ready, rt);
+    st.relit_idle = !rt::relit_settings().on;
+}
+
 // A colour's r, g, b bytes times a factor.
 std::array<float, 3> colour_of(uint32_t rgba, float factor)
 {
@@ -962,6 +997,7 @@ void camera_chosen(int viewport)
         st.begun = true;
         rt->begin_frame(rt::frame_record());
         new_world_work(*rt); // (added by the first frame: a new world's structures and sun, before it is drawn)
+        relit_work(*rt);
         rt->prepare_frame();
     }
 }
@@ -993,6 +1029,7 @@ void mesh_released(const MeshRef* mesh)
         st.meshes.erase(found);
     }
     st.skinned_ready.erase(mesh);
+    rt_relit_world::mesh_released(mesh);
 }
 
 void material_released(const MaterialRef* material)

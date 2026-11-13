@@ -185,6 +185,19 @@
       ]
     },
     {
+      "name": "BA",
+      "level": "BA",
+      "spots": [
+        {
+          "name": "BA-start",
+          "commands": [
+            "camera off",
+            "wait 180"
+          ]
+        }
+      ]
+    },
+    {
       "name": "unlit",
       "level": "foun",
       "spots": [

@@ -175,6 +175,18 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_gi_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_relit_check.exe: the relit mode's analysis (engine/gfx/rt_relit.h) on this machine - a
+# small level whose bake is made on the processor from known tints, a known sun and sky and a lamp (the same rays,
+# traced by a processor's ray tracer), taken apart through the Vulkan RayTracing: the traced light against the
+# processor's, the model, the tints, the lamp's residual, relit at the bake's sun and at another against the processor's
+# bakes, a sunless level, the per-level list (src/tests/vulkan_rt_relit_check.cpp; --perf: a level of the game's size).
+# Exit 2 on a device without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_relit_check vulkan_rt_relit_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_relit_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_relit_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_reflections_check.exe: the Vulkan Gpu's ray-traced reflections
 # (gpu_vulkan/vulkan_rt_reflections.h) and the scene's geometry table on this machine - texture coordinates and colours
 # fetched at rays' hits in every mesh layout compared with the meshes' own, and a mirror floor reflecting a textured box

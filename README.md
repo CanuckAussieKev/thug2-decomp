@@ -401,6 +401,11 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_tess_max_deviation` | 2 | How far (world units, an inch each) a smoothed surface may move from the original one - the largest gap between the wheels and what is drawn |
 | `rt_displacement` | 0 | With `rt_tessellation`: how far (world units) a surface's height map raises and lowers it, inside `rt_tess_max_deviation`; thin meshes (rails) never move. Needs height maps - none are there yet (`rt_tess_test_heights=1` shows a test pattern of ridges) |
 | `rt_tess_test_heights` | 0 | With `rt_displacement`: 1 gives every surface a test height map (ridges) - to see the displacement work until real height maps are there |
+| `rt_relit` | 0 | On Vulkan with `ray_tracing=1`: 1 takes each level's baked lighting apart into its surfaces' colours and the light of its sun, sky and bounced light (worked out with rays when the level starts, a second or two the first time; kept in `thug2-decomp-relit\` beside the exe after that) and lights the level again - with its own sun it looks as before; moved (`rt_relit_sun`, the console's `rt sun`) or coloured by `rt_sky_model`, the shadows, shade and bounced light follow. A level lit only by its lamps (indoors) keeps its lighting |
+| `rt_relit_strength` | 1 | How much of the relit light is used (0 the level's own lighting, 1 all relit) |
+| `rt_relit_residual` | 1 | 1 keeps the light the sun and sky can't explain - lamps, glows - as the level had it; 0 leaves it out |
+| `rt_relit_sun` | bake | The sun the level is relit by: `bake` - the one its lighting was made with; `game` - the sun the game shows in its sky; or `x,y,z` toward the sun |
+| `rt_relit_detail` | 1 | How much of each spot's own baked shading is kept where the sun and sky explain it (0-1; 0 relights the most) |
 
 **`[Miscellaneous]`** - from PartyMod
 
