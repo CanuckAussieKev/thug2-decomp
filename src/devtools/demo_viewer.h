@@ -19,10 +19,12 @@ class ViewCam;
 //
 //   The timeline: play / pause, scrub, a frame back / forward, the speed (0.1x - 4x: slow motion draws every loop, a
 //     logic frame only every few - the main loop's pace, ext::LoopPace::hold), a loop region (in / out).
-//   Seeking: the game's logic only runs forward, so a frame before the one shown is reached by loading the level again
-//     the way the demo started (its random numbers, clocks and input) and running the logic flat out, undrawn, to it;
-//     a frame after it by running on. No snapshot of the game is kept (its state is spread over the script heap, the
-//     objects, the physics and the sound - nothing restores all of it exactly), so the check track's drift stays 0.
+//   Seeking: the game's logic only runs forward, so a frame before the one shown is reached by starting the demo again
+//     as -demo does (the main menu, then its level with its random numbers, clocks and input) and running the logic
+//     flat out, undrawn, to it; a frame after it by running on. No snapshot of the game is kept (its state is spread
+//     over the script heap, the objects, the physics and the sound - nothing restores all of it exactly). A pass after
+//     a seek back is a second playback in one session: the check track shows where it parts from the recording, if it
+//     does (docs/demos.md "The viewer").
 //   Cameras: the game's (as recorded), a free one (WASD + Q / E, the right mouse button to look, the wheel for speed;
 //     a pad's sticks), one orbiting the skater (the right mouse button to turn, the wheel for distance; it can follow
 //     the skater's heading), fixed ones placed in the level, and the path - keyframes on the timeline (position,
