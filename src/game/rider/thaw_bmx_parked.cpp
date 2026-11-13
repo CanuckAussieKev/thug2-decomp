@@ -319,7 +319,7 @@ void register_parked_functions()
 
 void update_parked(modules::FrontEnd* front_end)
 {
-    if ((front_end && front_end->is_halted()) || (ext::game_owner() != nullptr)) {
+    if ((front_end && front_end->is_paused()) || (ext::game_owner() != nullptr)) {
         return;
     }
     const objects::Rider* skater = local_skater();

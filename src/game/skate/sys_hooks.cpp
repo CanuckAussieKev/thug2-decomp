@@ -16,7 +16,7 @@ namespace {
 void service_network() { online::Hub::service_game_spy(); }
 void refresh_position_scale() { online::thugpro::refresh_position_scale(); }
 void after_render() { modules::Skate::debug_rails(); }
-bool front_end_halted(const modules::FrontEnd* front_end) { return front_end->is_halted(); }
+bool front_end_halted(const modules::FrontEnd* front_end) { return front_end->is_paused(); }
 
 } // namespace
 
