@@ -85,8 +85,8 @@ inline constexpr float kGainZenith = 1.26F;
 // Below the horizon: the haze's elevation (radians, just above the horizon - the model's viewer is kViewerAltitude up,
 // its own horizon 0.3 degrees down), how far down (radians) the model's ground comes in, and how much of it at most.
 inline constexpr double kHazeElevation = 0.01;
-inline constexpr double kBelowFade = 0.35;
-inline constexpr double kBelowShare = 0.6;
+inline constexpr double kBelowFade = 0.2;
+inline constexpr double kBelowShare = 0.7;
 struct AtmosphereInput {
     std::array<float, 3> sun{0.0F, 1.0F, 0.0F}; // toward the drawn sky's sun (world, normalised)
     std::array<std::array<float, 3>, 3> gains{{{1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}}};

@@ -1543,7 +1543,13 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
     const double layer = rt::kGroundRadius + (0.5 * (rt::kCloudBase + rt::kCloudTop));
     const rt::Rgb through = rt::transmittance_to_top(
         {.radius = layer, .cosine = std::clamp(static_cast<double>(core::at(sun, 1)), -1.0, 1.0)}, 64);
-    const double sun_scale = rt::sky_exposure() * kCloudSunScale;
+    // (a dark level's sky - NO's night - dims the sun on its clouds too: the matched sky darkens their shaded sides, not
+    // the model's daylight on their lit ones)
+    const double dark = std::clamp((static_cast<double>(own.match.look.brightness) - kCloudNightBrightness) /
+                                       (kCloudDayBrightness - kCloudNightBrightness),
+                                   0.0, 1.0);
+    const double daylight = own.match.look.valid ? std::max(kCloudNightSun, dark * dark * (3.0 - (2.0 * dark))) : 1.0;
+    const double sun_scale = rt::sky_exposure() * kCloudSunScale * daylight;
     const AtmosphereInput& atmosphere = own.match.atmosphere;
     std::array<float, 3> sun_light{};
     std::array<float, 3> ambient_bottom{};

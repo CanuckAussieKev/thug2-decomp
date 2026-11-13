@@ -44,6 +44,12 @@ inline constexpr float kSkyHistoryBlend = 0.1F;         // this frame's share of
 inline constexpr double kCloudAerialDistance = 20000.0; // metres: the clouds fade into the sky by e over this
 inline constexpr double kCloudSunScale = 1.0;           // the sun's light on the clouds x the sky's exposure
 inline constexpr double kCloudAmbientTop = 1.0;         // the sky's light on the clouds' tops (x the zenith's)
+// The sun on the clouds x a smoothstep of the level's sky brightness (rt_sky_match.h SkyLook::brightness, the dome's mean
+// display luma above the horizon) from kCloudNightBrightness (x kCloudNightSun) to kCloudDayBrightness (x 1): NO's
+// night sky (0.23) keeps its clouds dim; the day levels (0.44 and more) and the dusky ones (SE 0.29, SE2 0.27) as lit.
+inline constexpr double kCloudNightBrightness = 0.18;
+inline constexpr double kCloudDayBrightness = 0.30;
+inline constexpr double kCloudNightSun = 0.2;
 inline constexpr double kCloudAmbientBottom = 0.6;      // and their bases (x the horizon's: its light and the ground's)
 inline constexpr uint32_t kSkyViewSlots = 4;
 inline constexpr std::size_t kSkyMatrixFloats = 16;
