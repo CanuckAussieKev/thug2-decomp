@@ -32,6 +32,7 @@
 #include <cstring>
 #include <exception>
 #include <fstream>
+#include <ios>
 #include <limits>
 #include <mutex>
 #include <numbers>
@@ -717,15 +718,17 @@ void run_atmosphere(render::Gpu& gpu, Tally* tally)
             for (uint32_t column = 0; column < view.width; column += kViewColumnStep) {
                 const rt::Dir dir =
                     rt::sky_view_direction({(column + kHalf) / view.width, (row + kHalf) / view.height});
+                constexpr uint32_t kReferenceLight = 256;
                 rt::Rgb want = rt::sky_radiance_ms(dir, rt::sun_direction_at(elevation),
-                                                   {.view = rt::kSkyViewSteps, .light = 256}, cpu_table);
+                                                   {.view = rt::kSkyViewSteps, .light = kReferenceLight}, cpu_table);
                 if (core::at(dir, 1) < 0.0) {
                     // below the horizon: the horizon's haze in that azimuth giving way to the model's ground
                     const double across = std::hypot(core::at(dir, 0), core::at(dir, 2));
                     const double flat = std::cos(vk::kHazeElevation) / std::max(across, kParallel);
                     const rt::Dir level{core::at(dir, 0) * flat, std::sin(vk::kHazeElevation), core::at(dir, 2) * flat};
-                    const rt::Rgb haze = rt::sky_radiance_ms(level, rt::sun_direction_at(elevation),
-                                                             {.view = rt::kSkyViewSteps, .light = 256}, cpu_table);
+                    const rt::Rgb haze =
+                        rt::sky_radiance_ms(level, rt::sun_direction_at(elevation),
+                                            {.view = rt::kSkyViewSteps, .light = kReferenceLight}, cpu_table);
                     const double below = std::clamp(-std::asin(core::at(dir, 1)) / vk::kBelowFade, 0.0, 1.0);
                     const double share = vk::kBelowShare * below * below * (3.0 - (2.0 * below));
                     for (std::size_t channel = 0; channel < 3; ++channel) {
@@ -861,8 +864,8 @@ void check_below_horizon(const vk::AtmosphereTexels& view, Tally* tally)
     double worst_tint = 0.0;
     double darkest = 1.0;
     const auto toward = [](double elevation, double azimuth) {
-        const double e = elevation * kDegrees;
-        return Vec3{std::cos(e) * std::cos(azimuth), std::sin(e), std::cos(e) * std::sin(azimuth)};
+        const double up = elevation * kDegrees;
+        return Vec3{std::cos(up) * std::cos(azimuth), std::sin(up), std::cos(up) * std::sin(azimuth)};
     };
     for (int index = 0; index < kAzimuths; ++index) {
         const double azimuth = 2.0 * kPi * (index + kHalf) / kAzimuths;
@@ -1239,6 +1242,29 @@ void check_steady(render::Gpu& gpu, const Targets& targets, const vk::RtSkyTexel
     tally->check(count_not_finite(history.texels) == 0, "  no NaN in the history");
 }
 
+// The first frame of a new view seeded (vulkan_rt_sky_pass.h kSkySeedFrames): its history already near what 30 still
+// frames converge to - nearer than one frame's march, the clouds don't shimmer into place.
+void check_seeded(const vk::RtSkyTexels& first_march, const vk::RtSkyTexels& first_history, const vk::RtSkyTexels& info,
+                  Tally* tally)
+{
+    vk::RtSkyTexels settled;
+    read_sky(vk::RtSkyImage::kHistory, &settled);
+    double seeded_off = 0.0;
+    double march_off = 0.0;
+    const std::size_t count = std::min({settled.texels.size(), first_history.texels.size(), first_march.texels.size()});
+    for (std::size_t texel = 0; texel < count; ++texel) {
+        if (core::at(core::at(info.texels, texel), 1) > kHalfF) {
+            const float want = core::at(core::at(settled.texels, texel), 3);
+            seeded_off += std::abs(core::at(core::at(first_history.texels, texel), 3) - want);
+            march_off += std::abs(core::at(core::at(first_march.texels, texel), 3) - want);
+        }
+    }
+    constexpr double kNearer = 0.6;
+    tally->check(count > 0 && seeded_off < kNearer * std::max(march_off, kTinyChange),
+                 text::format("the first frame seeded: its history off the settled one by %.3f, one march by %.3f",
+                              seeded_off, march_off));
+}
+
 // A texel's 3 x 3 neighbourhood's least and most (its marched texels').
 struct Bounds {
     std::array<float, 4> least{};
@@ -1282,10 +1308,10 @@ double clear_share(const rt::CloudNoise& noise, double coverage)
     int clear = 0;
     int total = 0;
     for (int place = 0; place < kPlaces; ++place) {
-        for (int e = 0; e < kElevations; ++e) {
-            const double elevation = (kLowest + ((90.0 - kLowest) * (e + kHalf) / kElevations)) * kDegrees;
-            for (int a = 0; a < kAzimuths; ++a) {
-                const double azimuth = 2.0 * kPi * (a + kHalf) / kAzimuths;
+        for (int rise = 0; rise < kElevations; ++rise) {
+            const double elevation = (kLowest + ((90.0 - kLowest) * (rise + kHalf) / kElevations)) * kDegrees;
+            for (int round = 0; round < kAzimuths; ++round) {
+                const double azimuth = 2.0 * kPi * (round + kHalf) / kAzimuths;
                 rt::CloudRay ray;
                 ray.camera_altitude = rt::kViewerAltitude;
                 ray.offset = {place * kPlaceApart, place * kPlaceApart * kHalf};
@@ -1339,7 +1365,9 @@ void check_gaps(const rt::CloudNoise& noise, Tally* tally)
 void check_curvature(Tally* tally)
 {
     constexpr double kMostError = 1e-6; // relative
-    constexpr double kFar = 50000.0;    // metres
+    constexpr double kMostDropError = 0.01;
+    constexpr double kFar = 50000.0; // metres
+    constexpr double kKilometre = 1000.0;
     const double camera = rt::kViewerAltitude;
     const rt::CloudSpan level = rt::cloud_layer_span(camera, {1.0, 0.0, 0.0});
     const double base = rt::kGroundRadius + rt::kCloudBase;
@@ -1354,10 +1382,10 @@ void check_curvature(Tally* tally)
     const double height = distant.enter * std::sin(elevation);
     const double flat = rt::kCloudBase - camera;
     tally->check(std::abs(level.enter - want) / want < kMostError && std::abs(across - kFar) / kFar < kMostError &&
-                     std::abs((flat - height) - drop) / drop < 0.01,
+                     std::abs((flat - height) - drop) / drop < kMostDropError,
                  text::format("the layer curves with the planet: a level ray meets its base %.1f km away; 50 km across "
                               "the base is %.0f m over the camera, %.0f m below a flat layer (d^2 / 2R: %.0f)",
-                              level.enter / 1000.0, height, flat - height, drop));
+                              level.enter / kKilometre, height, flat - height, drop));
 }
 
 // A turned camera: every history texel held inside this frame's neighbourhood (no ghost).
@@ -1419,7 +1447,10 @@ void run_clouds(render::Gpu& gpu, Tally* tally)
     tally->check(read_sky(vk::RtSkyImage::kMarch, &march) && read_sky(vk::RtSkyImage::kMarchInfo, &info),
                  "the march read back");
     check_march(noise, march, info, tally);
+    vk::RtSkyTexels first_history;
+    read_sky(vk::RtSkyImage::kHistory, &first_history);
     check_steady(gpu, targets, info, tally);
+    check_seeded(march, first_history, info, tally);
     check_turned(gpu, targets, tally);
     // the composite with clouds: no NaN
     std::vector<Rgb> colour;
@@ -1514,6 +1545,14 @@ bool write_bmp(const std::string& path, const std::vector<Rgb>& pixels, uint32_t
     constexpr uint32_t kHeaderBytes = 54;
     constexpr uint32_t kInfoBytes = 40;
     constexpr uint16_t kBits = 24;
+    // (the header's fields' places)
+    constexpr std::size_t kFileSizeAt = 2;
+    constexpr std::size_t kDataAt = 10;
+    constexpr std::size_t kInfoAt = 14;
+    constexpr std::size_t kWidthAt = 18;
+    constexpr std::size_t kHeightAt = 22;
+    constexpr std::size_t kPlanesAt = 26;
+    constexpr std::size_t kBitsAt = 28;
     const uint32_t row = ((width * 3) + 3) & ~3U;
     std::vector<uint8_t> bytes(kHeaderBytes + (static_cast<std::size_t>(row) * height), 0);
     const auto put32 = [&bytes](std::size_t at, uint32_t value) {
@@ -1523,17 +1562,18 @@ bool write_bmp(const std::string& path, const std::vector<Rgb>& pixels, uint32_t
     };
     core::at(bytes, 0) = 'B';
     core::at(bytes, 1) = 'M';
-    put32(2, static_cast<uint32_t>(bytes.size()));
-    put32(10, kHeaderBytes);
-    put32(14, kInfoBytes);
-    put32(18, width);
-    put32(22, height);
-    core::at(bytes, 26) = 1;
-    core::at(bytes, 28) = static_cast<uint8_t>(kBits);
-    for (uint32_t y = 0; y < height; ++y) {
-        for (uint32_t x = 0; x < width; ++x) {
-            const Rgb& colour = core::at(pixels, (static_cast<std::size_t>(height - 1 - y) * width) + x);
-            const std::size_t at = kHeaderBytes + (static_cast<std::size_t>(y) * row) + (static_cast<std::size_t>(x) * 3);
+    put32(kFileSizeAt, static_cast<uint32_t>(bytes.size()));
+    put32(kDataAt, kHeaderBytes);
+    put32(kInfoAt, kInfoBytes);
+    put32(kWidthAt, width);
+    put32(kHeightAt, height);
+    core::at(bytes, kPlanesAt) = 1;
+    core::at(bytes, kBitsAt) = static_cast<uint8_t>(kBits);
+    for (uint32_t line = 0; line < height; ++line) {
+        for (uint32_t column = 0; column < width; ++column) {
+            const Rgb& colour = core::at(pixels, (static_cast<std::size_t>(height - 1 - line) * width) + column);
+            const std::size_t at =
+                kHeaderBytes + (static_cast<std::size_t>(line) * row) + (static_cast<std::size_t>(column) * 3);
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 core::at(bytes, at + channel) = static_cast<uint8_t>(
                     std::lround(std::clamp(core::at(colour, 2 - channel), 0.0, 1.0) * kByteMax));
@@ -1541,7 +1581,8 @@ bool write_bmp(const std::string& path, const std::vector<Rgb>& pixels, uint32_t
         }
     }
     std::ofstream file(path, std::ios::binary);
-    file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    const std::vector<char> chars(bytes.begin(), bytes.end());
+    file.write(chars.data(), static_cast<std::streamsize>(chars.size()));
     return file.good();
 }
 
@@ -1553,7 +1594,7 @@ void run_pictures(render::Gpu& gpu, const Options& options)
     constexpr double kHigh = 1500.0;
     constexpr double kLow = 60.0;
     struct Shot {
-        const char* name;
+        const char* name = "";
         Pose pose;
     };
     const std::array<Shot, 5> shots{{
@@ -1563,9 +1604,10 @@ void run_pictures(render::Gpu& gpu, const Options& options)
         {.name = "low_up", .pose = {.eye = {0.0, kLow, 400.0}, .at = {1000.0, kLow + 1200.0, 700.0}}},
         {.name = "horizon", .pose = {.eye = {0.0, kHigh, 0.0}, .at = {1000.0, kHigh - 30.0, -400.0}}},
     }};
+    constexpr std::array<float, 3> kCoverages{0.3F, 0.5F, 0.7F};
     std::vector<float> coverages{options.coverage};
     if (options.coverage < 0.0F) {
-        coverages = {0.3F, 0.5F, 0.7F};
+        coverages.assign(kCoverages.begin(), kCoverages.end());
     }
     Targets targets;
     make_targets(gpu, kWidth, kHeight, false, &targets);

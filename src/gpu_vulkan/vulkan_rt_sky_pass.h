@@ -54,6 +54,16 @@ inline constexpr std::array<float, 3> kDefaultSkySun{0.36F, 0.77F, 0.53F}; // (5
 
 // The passes for a viewport (the listener's work; the check's too). The caller holds the lock. False: skipped.
 bool record_rt_sky_pass(Backend& state, const rt::ViewDrawn& view);
+// The level's sky matched (step 0) and the atmosphere's tables made (1) for the frame's sun before any view is drawn
+// (VulkanRayTracing::prepare_frame, each frame; without ray tracing the first view's pass does it, as before): a new
+// level's first frame - shown over the loading screen's last picture - has its sky, and what reads the drawn sky's
+// colours (the fog's table, the one-bounce light) the new level's, not the last one's for a frame. The caller holds
+// the lock.
+void prepare_rt_sky(Backend& state);
+// A new level's (a new capture's) or a new viewport's clouds: their history seeded in their first frame - the march
+// and the temporal pass run kSkySeedFrames times with the next frames' jitter - so they show converged, nothing
+// shimmering into place.
+inline constexpr uint32_t kSkySeedFrames = 12;
 [[nodiscard]] uint64_t rt_sky_passes();
 
 // What the level's sky was matched to (the last analysis) and what came of it.

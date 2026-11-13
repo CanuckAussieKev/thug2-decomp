@@ -28,6 +28,7 @@
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
+#include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -1564,6 +1565,11 @@ void VulkanRayTracing::prepare_frame()
     const std::scoped_lock lock(state.mutex);
     const Scene& made = scene();
     const RtSunSettings& settings = sun_settings_held();
+    // (added by the sky) rt_sky: a new level's sky matched before its first view, so what reads the drawn sky's colours
+    // (the fog's table, made next) has the new one from the first frame
+    if (made.installed && state.draws_made) {
+        prepare_rt_sky(state);
+    }
     if (!made.installed || !state.draws_made || !(settings.sun || settings.shafts || settings.bloom || settings.sky_model)) {
         return;
     }

@@ -1459,6 +1459,10 @@ bool ensure_match(Backend& state, const std::array<float, 3>& sun)
             }
         }
         own.match.capture_serial = capture.serial;
+        // (another level's sky: the clouds' histories start again - seeded in their next pass)
+        for (const std::unique_ptr<SkySlot>& slot : own.slots) {
+            slot->has_history = false;
+        }
     }
     // the model's bands (an unmatched sky-view table, read back)
     AtmosphereInput plain;
@@ -1496,6 +1500,7 @@ struct Recording {
     VkDescriptorBufferInfo block{};
     std::array<uint32_t, 4> rect{};
     bool clouds = false;
+    bool seed_only = false; // (a seeding run: the clouds' march and temporal pass, no composite, not timed)
 };
 
 uint32_t steps_for(unsigned quality)
@@ -1604,7 +1609,7 @@ void record_commands(Backend& state, const Recording& recording, VkCommandBuffer
     SkyPassState& own = pass_state();
     SkySlot* const slot = recording.slot;
     Image* const depth = recording.depth;
-    const Stamps stamps = begin_timing(state, commands, recording.rect);
+    const Stamps stamps = recording.seed_only ? Stamps{} : begin_timing(state, commands, recording.rect);
     stamps.stamp(0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
     const VkMemoryBarrier ready{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                 .pNext = nullptr,
@@ -1652,8 +1657,11 @@ void record_commands(Backend& state, const Recording& recording, VkCommandBuffer
             depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false);
         }
     }
-    record_composite(commands, recording.composite, recording.colour, depth,
-                     {.sky = true, .load_a = history_a, .load_b = history_b, .block = recording.block}, recording.rect);
+    if (!recording.seed_only) {
+        record_composite(commands, recording.composite, recording.colour, depth,
+                         {.sky = true, .load_a = history_a, .load_b = history_b, .block = recording.block},
+                         recording.rect);
+    }
     stamps.stamp(3, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
     if (depth->layout != depth->resting) {
         depth_barrier(commands, depth, depth->resting, false);
@@ -1830,23 +1838,29 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         }
         return false;
     }
-    const SkyBlock block = block_for(clipped, recording, to_world, sun, &own.frame);
-    const void* const block_bytes = &block;
-    const std::optional<RingSpan> span =
-        state.ring.copy(std::span(static_cast<const uint8_t*>(block_bytes), sizeof(block)), state.uniform_alignment);
-    if (!span) {
-        if (first_report(state, kReportNoRoom)) {
-            get_log("vulkan: rt_sky: no room in the ring for the pass's block - the pass skipped");
+    // (a history that starts again - a new viewport, a new level - seeded: kSkySeedFrames runs of the clouds' passes,
+    // each with the next frame's jitter and this camera, the composite after the last)
+    const uint32_t runs = recording.clouds && !recording.slot->has_history ? kSkySeedFrames : 1U;
+    for (uint32_t run = 0; run < runs; ++run) {
+        recording.seed_only = run + 1 < runs;
+        const SkyBlock block = block_for(clipped, recording, to_world, sun, &own.frame);
+        const void* const block_bytes = &block;
+        const std::optional<RingSpan> span = state.ring.copy(
+            std::span(static_cast<const uint8_t*>(block_bytes), sizeof(block)), state.uniform_alignment);
+        if (!span) {
+            if (first_report(state, kReportNoRoom)) {
+                get_log("vulkan: rt_sky: no room in the ring for the pass's block - the pass skipped");
+            }
+            return false;
         }
-        return false;
-    }
-    recording.block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(block)};
-    record_commands(state, recording, commands);
-    if (recording.slot != nullptr) {
-        recording.slot->last_to_pixel = to_pixel;
-        recording.slot->has_history = true;
-        recording.slot->drawn = state.frames.serial();
-        ++recording.slot->frames;
+        recording.block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(block)};
+        record_commands(state, recording, commands);
+        if (recording.slot != nullptr) {
+            recording.slot->last_to_pixel = to_pixel;
+            recording.slot->has_history = true;
+            recording.slot->drawn = state.frames.serial();
+            ++recording.slot->frames;
+        }
     }
     ++own.passes;
     if (first_report(state, kReportFirst)) {
@@ -1909,6 +1923,18 @@ VkImageUsageFlags rt_sky_depth_usage(const Backend& state, VkFormat format)
 
 bool record_rt_sky_pass(Backend& state, const rt::ViewDrawn& view) { return record_pass(state, view); }
 
+void prepare_rt_sky(Backend& state)
+{
+    const SkyPassState& own = pass_state();
+    if (own.failed || !own.settings.on) {
+        return;
+    }
+    const std::array<float, 3> sun = sky_sun(state);
+    if (ensure_match(state, sun)) {
+        update_atmosphere(state, outside_pass(state), own.match.atmosphere);
+    }
+}
+
 uint64_t rt_sky_passes() { return pass_state().passes; }
 
 RtSkyMatch rt_sky_match() { return pass_state().match; }
@@ -1966,7 +1992,7 @@ bool rt_sky_for_rays(Backend& state, const std::array<uint32_t, 4>& rect, RtSkyF
 {
     *out = RtSkyForRays{};
     const SkyPassState& own = pass_state();
-    if (own.failed || !own.settings.on || !own.matched || own.passes == 0) {
+    if (own.failed || !own.settings.on || !own.matched) {
         return false;
     }
     out->sky_view = atmosphere_descriptor(AtmosphereTable::kSkyView);
