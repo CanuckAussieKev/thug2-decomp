@@ -137,6 +137,25 @@ function Get-GameLogTail([string]$folder, [int]$Lines = 30) {
     } catch { @("($($log.Name) can't be read yet: $($_.Exception.Message))") }
 }
 
+# Whether the game's log (the newest thug2-decomp*.log in the folder) has a report line of the platform layer's
+# (src/platform/crash.cpp): each starts its line - a word like "exceptions" elsewhere in a line (a file's name) is none.
+function Test-GameLogReport([string]$folder) {
+    $log = Get-ChildItem -Path $folder -Filter 'thug2-decomp*.log' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $log) { return $false }
+    $pattern = '^(EXCEPTION 0x|RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|INVALID PARAMETER:|PURE VIRTUAL CALL|ABORT \(|BUFFER OVERRUN|GAME CRT MESSAGE)'
+    try {
+        $stream = [IO.File]::Open($log.FullName, 'Open', 'Read', [IO.FileShare]'ReadWrite, Delete')
+        try {
+            $reader = New-Object IO.StreamReader($stream)
+            while ($null -ne ($line = $reader.ReadLine())) {
+                if ($line -cmatch $pattern) { return $true }
+            }
+        } finally { $stream.Dispose() }
+    } catch { }
+    $false
+}
+
 # Prints the outcome with the log's last lines (and a crash dump written since $since) and records it in
 # <folder>\thug2-decomp-crashes.txt.
 function Write-GameOutcome([string]$folder, [string]$what, [string]$closed, [datetime]$since) {
@@ -146,7 +165,9 @@ function Write-GameOutcome([string]$folder, [string]$what, [string]$closed, [dat
     $block = @("=== $(Get-Date -Format s) $folder", "GAME IN TROUBLE: $what", "then: $closed") +
         $(if ($dumps.Count) { @("crash dump: $($dumps -join ', ') (node tools/game/read_dump.ts <dump>)") } else { @() }) +
         @('the log ends:') + ($tail | ForEach-Object { "  $_" }) +
-        @('(an EXCEPTION / RUN-TIME CHECK / ... report in it: node tools/symbolize.ts --pdb-dir <your build dir> <the log>)')
+        $(if (Test-GameLogReport $folder) {
+            @('(an EXCEPTION / RUN-TIME CHECK / ... report in the log: node tools/symbolize.ts --pdb-dir <your build dir> <the log>)')
+        } else { @() })
     $block
     try { Add-Content -Path (Join-Path $folder 'thug2-decomp-crashes.txt') -Value $block -Encoding utf8 } catch { }
 }

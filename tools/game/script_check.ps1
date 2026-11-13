@@ -42,8 +42,17 @@ foreach ($p in $passes) {
     if ($p -eq 'ts') { Invoke-Unpack $(if (& $unpacked) { @('--refresh', '--check') } else { @('--check') }) }
     Set-TsScripts $(if ($p -ne 'ts') { 0 } else { 1 })
     $started = Get-Date
-    & (Join-Path $PSScriptRoot 'run_game.ps1') -Game $Game -Arch $Arch -Seconds $Seconds -HangSeconds $Seconds `
-        -Shot "script_check_$p" -Extra @('-script-check', $check) | Select-Object -Last 1
+    $said = @(& (Join-Path $PSScriptRoot 'run_game.ps1') -Game $Game -Arch $Arch -Seconds $Seconds -HangSeconds $Seconds `
+        -Shot "script_check_$p" -Extra @('-script-check', $check))
+    # (a game that didn't quit by itself - the time ran out, or it crashed - : what happened and how far the plan got;
+    # else run_game's last line)
+    $trouble = @($said | Where-Object { $_ -like 'GAME IN TROUBLE:*' -or $_ -like 'then:*' -or $_ -like '(an EXCEPTION*' })
+    if ($trouble.Count) {
+        $trouble
+        $reached = Select-String -Path (Join-Path $root 'thug2-decomp.log') -Pattern '^script check: .* \((\d+) of (\d+)\)$' |
+            Select-Object -Last 1
+        if ($reached) { "$p pass NOT FINISHED - it got to $($reached.Line.Substring(14))" }
+    } else { $said | Select-Object -Last 1 }
     $out = Join-Path $check "$p.txt"
     "$p pass: $([int]((Get-Date) - $started).TotalSeconds) s, $(if (Test-Path $out) { (Get-Item $out).Length } else { 0 }) bytes"
 }

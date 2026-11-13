@@ -23,17 +23,28 @@ if (-not $NoPrepare) {
     node tools/qbjs/script_check.ts shares --game ($Games -join ',') 2>$null
     if ($LASTEXITCODE -ne 0) { 'shares failed'; exit 1 }
 }
+# Each share's time limit: -Seconds, or more for a big share - the TypeScript pass takes about a second a script
+# (2026-11-13: 26,800 scripts a share - two workspaces - ran past 6 hours and were cut, a fifth of the plan untested):
+# 1.5 s a script, -Seconds at the least. (A limit given with -Seconds is kept as it is.)
+$limits = @{}
+foreach ($game in $Games) { $limits[$game] = $Seconds }
 for ($i = 0; $i -lt $n -and -not $NoPrepare; ++$i) {
     $game = $Games[$i]
     & (Join-Path $PSScriptRoot 'deploy_build.ps1') -Game $game -Arch $Arch -BuildDir $BuildDir -NoEditorTools | Select-Object -Last 1
-    node tools/qbjs/script_check.ts plan --game $game --share @PlanArgs 2>$null
+    $planned = @(node tools/qbjs/script_check.ts plan --game $game --share @PlanArgs 2>$null)
     if ($LASTEXITCODE -ne 0) { "plan failed in $game"; exit 1 }
+    $planned
+    $size = $planned | Select-String -Pattern '^plan: \d+ modules, (\d+) scripts' | Select-Object -Last 1
+    if ($size -and -not $PSBoundParameters.ContainsKey('Seconds')) {
+        $limits[$game] = [Math]::Max($Seconds, [int](1.5 * [int]$size.Matches[0].Groups[1].Value))
+        "time limit in ${game}: $($limits[$game]) s a pass"
+    }
 }
 $started = Get-Date
 $runs = foreach ($game in $Games) {
     $log = Join-Path $game 'thug2-decomp-check-run.txt'
     $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'script_check.ps1'),
-        '-Game', $game, '-Arch', $Arch, '-Seconds', $Seconds, '-Pass', $Pass)
+        '-Game', $game, '-Arch', $Arch, '-Seconds', $limits[$game], '-Pass', $Pass)
     Start-Process powershell -PassThru -WindowStyle Hidden -RedirectStandardOutput $log -ArgumentList $arguments
 }
 $runs | Wait-Process
