@@ -162,6 +162,10 @@ It needs Linux, or Windows with WSL (an Ubuntu distribution; `--distro` picks an
 sudo apt-get install gcc-mingw-w64-i686-win32 gcc-mingw-w64-x86-64-win32 gcc make xz-utils
 ```
 
+The same DLLs save demos as videos (the MP4 muxer and the h264_nvenc, h264_mf and mpeg4 encoders - no GPL parts; the
+build also fetches NVIDIA's encoder headers, nv-codec-headers, MIT). Older decode-only DLLs still play the movies; the
+video export then says it can't encode.
+
 The build fetches the release tarball and checks its SHA-256. The CMake build copies the DLLs next to the exe; when you
 copy the game by hand, put them there with the other DLLs. They are loaded by name at run time, so any LGPL build of the
 same major versions can replace them.
@@ -177,7 +181,8 @@ Useful start-up switches:
 | `-level <name> -at x,y,z[,heading]` or `[features] start_at=` | Once the level is up, the skater stands at that spot, facing `heading` (degrees, 0 = +z, 90 = +x). |
 | `node tools/game/edit_level.ts` | Lists every installed level by game; `edit_level.ts <name>` starts one in the editor. |
 | `-level <name> -record <demo>` | Records a demo from the level's start; F6 (or quitting) saves `thug2-decomp-demos\<demo>.demo`. In a level, F6 alone restarts it and records; F6 again saves. |
-| `-demo <demo>` | Plays the demo back in its level (`-demo-capture <folder>` saves its frames as PNGs, `-demo-every N` one in N, then quits; `-demo-quit` quits at the end). |
+| `-demo <demo>` | Plays the demo back in its level (`-demo-capture <folder>` saves its frames as PNGs, `-demo-every N` one in N, then quits; `-demo-video <file.mp4>` saves it as a video, then quits; `-demo-quit` quits at the end). |
+| Pause menu > DEMOS | RECORD DEMO (the level starts again and records; the pause menu's STOP RECORDING saves), PLAY DEMO (a saved demo replayed in its level - any button hands the controls back), SAVE AS VIDEO (`thug2-decomp-videos\<demo>.mp4`; `[demo] video_fps` 60, `video_quality` 80, `video_codec` auto / h264 / mpeg4, `video_scale` 100 %). See [docs/demos.md](docs/demos.md). |
 | `node tools/game/demo_compare.ts --demo <demo> --game <folder> --set A:Graphics.msaa=0 --set B:Graphics.msaa=8` | Renders a demo once per set of settings and puts the frames side by side (`--layout split / wipe / diff`), with a report of any difference in the run. See [docs/demos.md](docs/demos.md). |
 
 ### The level editor
@@ -392,13 +397,14 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `OnlineDomain` | `openspy.net` | The online service's domain (see Online play) |
 | `OnlineGameName` / `OnlineGameKey` | (empty) | The online identity: empty = THUG2's own; `thugpro` = THUGPRO's lobbies (see Online play) |
 | `Debug` | 0 | Opens a console window with the game's debug output |
+| `[demo] video_fps` / `video_quality` / `video_codec` / `video_scale` | 60 / 80 / auto / 100 | A demo saved as a video (SAVE AS VIDEO, `-demo-video`): frames a second (1-60, the game's own 60 at most), quality 1-100, the encoder (`auto`: NVIDIA's H.264, else Windows' H.264, else MPEG-4; `h264`; `mpeg4`), the size in % of the game's picture (10-400). Video only, no sound - [docs/demos.md](docs/demos.md) |
 | `[online] thugpro_peer` | 0 | Chat and server info with THUGPRO players (on by itself with `OnlineGameName=thugpro`) |
 
 **`[Keybinds]`**, **`[Gamepad]`**, **`[Logging]`**
 
 | Key | Default | Effect |
 |---|---|---|
-| `[Keybinds]` (PartyMod's keys) | PartyMod's | Keyboard bindings (SDL 2 scan codes, as PartyMod wrote them - they still mean the same keys); plus `Screenshot=` and `ThawBmx=` (an SDL key name or scan code) |
+| `[Keybinds]` (PartyMod's keys) | PartyMod's | Keyboard bindings (SDL 2 scan codes, as PartyMod wrote them - they still mean the same keys); plus `Screenshot=`, `ThawBmx=` and `DemoRecord=` (an SDL key name or scan code) |
 | `[Gamepad]` (PartyMod's keys) | PartyMod's | Controller bindings by button number: 0 A, 1 B, 2 X, 3 Y, 4 Back, 5 Guide, 6 Start, 7 / 8 left / right stick, 9 / 10 left / right shoulder, 11-14 d-pad up / down / left / right, 15 Misc1 (Share, Capture, Mic), 16-19 paddles (right 1, left 1, right 2, left 2), 20 touchpad, 21 / 22 right / left trigger, 23-27 Misc2-Misc6 (extra buttons some controllers have); -1 none |
 | `[Gamepad] MovementStick` / `CameraStick` | left / right | Which stick moves and which turns the camera |
 | `[Logging] Level` | 2 | How much goes into the log |

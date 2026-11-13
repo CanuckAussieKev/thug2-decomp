@@ -15,6 +15,7 @@ extern "C" {
 #include <libavformat/avio.h>
 #include <libavutil/frame.h>
 #include <libavutil/mem.h>
+#include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
 
@@ -60,5 +61,33 @@ struct Api {
 // The functions, the DLLs loaded and every name looked up on the first call; null if a DLL is missing, a name isn't
 // exported or a library's major version isn't the one these headers are for (each missing piece logged once).
 const Api* api();
+
+// NOT ORIGINAL - what writing a video and reading one back take besides (ffmpeg_video.cpp, the video check): the
+// encoders, the MP4 muxer, the file protocol, the options. Looked up apart from the movie codec's: an FFmpeg build
+// without them (the decode-only DLLs) still plays the movies.
+struct EncodeApi {
+    decltype(&::avcodec_find_encoder_by_name) find_encoder_by_name{};
+    decltype(&::avcodec_send_frame) send_frame{};
+    decltype(&::avcodec_receive_packet) receive_packet{};
+    decltype(&::avcodec_parameters_from_context) parameters_from_context{};
+    decltype(&::av_packet_rescale_ts) packet_rescale_ts{};
+    decltype(&::avformat_alloc_output_context2) format_alloc_output{};
+    decltype(&::avformat_free_context) format_free_context{};
+    decltype(&::avformat_new_stream) format_new_stream{};
+    decltype(&::avformat_write_header) format_write_header{};
+    decltype(&::av_interleaved_write_frame) interleaved_write_frame{};
+    decltype(&::av_write_trailer) write_trailer{};
+    decltype(&::avformat_find_stream_info) find_stream_info{};
+    decltype(&::avio_open) io_open{};
+    decltype(&::avio_closep) io_closep{};
+    decltype(&::av_frame_get_buffer) frame_get_buffer{};
+    decltype(&::av_frame_make_writable) frame_make_writable{};
+    decltype(&::av_opt_set) opt_set{};
+    decltype(&::av_opt_set_int) opt_set_int{};
+    decltype(&::av_strerror) error_text{};
+};
+
+// The encoding functions (api()'s DLLs; looked up on the first call); null if api() is, or a name isn't exported.
+const EncodeApi* encode_api();
 
 } // namespace media::ffmpeg
