@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include "engine/gfx/rt_scene.h"
@@ -99,5 +100,34 @@ void trace_agreement(std::span<const BakeSample> samples, RayTracing& tracer, Ba
 // The agreement at a point (its x and z) as the shadow pass reads it (bilinear between the cells' centres, clamped at
 // the edges): 1 with no grid.
 [[nodiscard]] float agreement_at(const BakedSun& sun, const Vec3& point);
+
+// --- (added by the scene's sun) which sun lights the scene: rt_scene.h scene_sun's rules ----------------------------
+// A game sun lower than this (degrees) lights with the baked sun instead: its shadows would cross the whole level.
+inline constexpr float kMinGameSunDegrees = 10.0F;
+struct SunInputs {
+    SunChoice choice;
+    bool override_set = false; // the console's `rt sun`
+    Vec3 override_toward{};
+    bool game_set = false; // the sun the game shows
+    Vec3 game_toward{};
+    uint64_t baked_scene = 0; // the baked sun's fit (0: not made yet)
+    bool baked_found = false;
+    Vec3 baked_toward{};
+    SunRelight relight;
+};
+// The scene's sun (serial left 0): the override; with no baked sun fitted yet kWaiting (kFixed doesn't wait); a bake
+// that shows no sun kNone (kFixed lights anyway); kLevel the baked sun; kGame the game's where it is shown, at least
+// kMinGameSunDegrees up, the level relit and its entry not asking for the bake - else the baked sun; kFixed its own.
+// A direction that can't be normalised counts as none.
+[[nodiscard]] SceneSun resolve_scene_sun(const SunInputs& in);
+// [Graphics] rt_sun_source's text: "game", "level" (or "bake"), "x,y,z" (toward the sun) or "heading,elevation"
+// (degrees: heading round from +z toward +x, as the logs give the baked sun's). False: none of those (`out` unchanged).
+bool parse_sun_source(std::string_view text, SunChoice* out);
+// A direction from a heading and an elevation in degrees (heading 0: +z, 90: +x).
+struct SunAngles {
+    float heading_degrees = 0.0F;
+    float elevation_degrees = 0.0F;
+};
+[[nodiscard]] Vec3 toward_heading(const SunAngles& angles);
 
 } // namespace render::rt

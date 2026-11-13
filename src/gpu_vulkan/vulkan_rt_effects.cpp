@@ -58,7 +58,6 @@ constexpr uint32_t kGiSunMask = 0x01 | 0x02;      // the rays toward the sun: th
 constexpr float kSunDistance = 20000.0F;         // how far a ray toward the sun looks (world units)
 constexpr float kBounceSpread = 0.05F; // a bounce ray's footprint grows this much per unit (it stands for a wide cone)
 constexpr float kSmallestUnit = 1e-3F; // (the rays' noise unit, however dark the level's lights)
-constexpr double kShortestDirection = 1e-6; // a light direction shorter than this: none
 constexpr float kGiSunLight = 1.0F;          // the sun's light on a surface facing it (each channel)
 constexpr unsigned kMaxRays = 16;
 constexpr float kOffsetScale = 1.0F; // the rays' start pushed off the surface by this much, growing with distance
@@ -1599,27 +1598,18 @@ float from_half(uint16_t half)
     return sign != 0 ? -value : value;
 }
 
-// The sun the bounce is lit by (toward it, normalised): the console's (`rt sun`), else the level's baked sun (rt_sun.h -
-// the frame record's directional lights are the skater's, the same in every level); none while the level's fit isn't
-// made or when its bake shows no sun (indoors): then the hits get the ambient light only.
+// The sun the bounce is lit by (toward it, normalised): the scene's (rt_scene.h scene_sun - changed by the scene's sun:
+// the console's `rt sun`, else rt_sun_source's, every effect's; the frame record's directional lights are the
+// skater's, the same in every level); none while the level's fit isn't made or when its bake shows no sun (indoors):
+// then the hits get the ambient light only.
 bool bounce_sun(std::array<float, 3>* toward)
 {
-    std::array<float, 3> found{};
-    if (!rt::sun_override(&found)) {
-        const rt::BakedSun& baked = rt::baked_sun();
-        if (baked.scene == 0 || !baked.found) {
-            return false;
-        }
-        found = baked.toward;
-    }
-    const double length = std::hypot(static_cast<double>(core::at(found, 0)), static_cast<double>(core::at(found, 1)),
-                                     static_cast<double>(core::at(found, 2)));
-    if (!(length > kShortestDirection) || !std::isfinite(length)) {
+    const rt::SceneSun sun = rt::scene_sun();
+    rt::note_sun_used(rt::SunUser::kBounce, sun.found(), sun.toward);
+    if (!sun.found()) {
         return false;
     }
-    for (std::size_t i = 0; i < 3; ++i) {
-        core::at(*toward, i) = static_cast<float>(static_cast<double>(core::at(found, i)) / length);
-    }
+    *toward = sun.toward;
     return true;
 }
 

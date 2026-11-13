@@ -666,41 +666,36 @@ RtSunSettings& sun_settings_held() { return sky_state().settings; }
 
 bool frame_sun(std::array<float, 3>* toward)
 {
+    if (!rt::baked_sun_wanted()) {
+        rt::set_baked_sun_wanted(true);
+    }
+    const rt::SceneSun sun = rt::scene_sun();
+    if (!sun.found()) {
+        return false;
+    }
+    *toward = sun.toward;
+    return true;
+}
+
+bool visible_sun(std::array<float, 3>* toward)
+{
+    if (frame_sun(toward)) {
+        return true;
+    }
+    // (no scene sun - indoors, or the fit not made yet: the sun drawn where the game shows it, lighting nothing)
     std::array<float, 3> found{};
-    bool have = rt::sun_override(&found);
-    if (!have) {
-        if (!rt::baked_sun_wanted()) {
-            rt::set_baked_sun_wanted(true);
-        }
-        const rt::BakedSun& baked = rt::baked_sun();
-        have = baked.scene != 0 && baked.found;
-        found = baked.toward;
+    if (!rt::game_sun(&found)) {
+        return false;
     }
     const double length = std::hypot(static_cast<double>(core::at(found, 0)), static_cast<double>(core::at(found, 1)),
                                      static_cast<double>(core::at(found, 2)));
-    if (!have || !(length > kShortest) || !std::isfinite(length)) {
+    if (!(length > kShortest) || !std::isfinite(length)) {
         return false;
     }
     for (std::size_t i = 0; i < 3; ++i) {
         core::at(*toward, i) = static_cast<float>(static_cast<double>(core::at(found, i)) / length);
     }
     return true;
-}
-
-bool visible_sun(std::array<float, 3>* toward)
-{
-    std::array<float, 3> found{};
-    if (!rt::sun_override(&found) && sky_state().settings.place_game && rt::game_sun(&found)) {
-        const double length = std::hypot(static_cast<double>(core::at(found, 0)),
-                                         static_cast<double>(core::at(found, 1)), static_cast<double>(core::at(found, 2)));
-        if (length > kShortest && std::isfinite(length)) {
-            for (std::size_t i = 0; i < 3; ++i) {
-                core::at(*toward, i) = static_cast<float>(static_cast<double>(core::at(found, i)) / length);
-            }
-            return true;
-        }
-    }
-    return frame_sun(toward);
 }
 
 std::array<float, 3> sun_colour_for(const std::array<float, 3>& toward)

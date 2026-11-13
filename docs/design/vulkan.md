@@ -869,7 +869,8 @@ nothing but test one pointer while no `RayTracing` is installed.
 The ray-traced shadows (`gpu_vulkan/vulkan_rt_shadows`) darken a pixel where the sun is blocked. Which sun, and where
 the original's own lighting already says otherwise, is decided so:
 
-- **The baked sun** (`engine/gfx/rt_sun`, `[Graphics] rt_shadow_sun=bake`, the default). The frame record's
+- **The baked sun** (`engine/gfx/rt_sun`; today one of `rt_sun_source`'s choices - "One sun for every effect"
+  below). The frame record's
   directional lights are the light manager's two (toward (0.75, 0.5, 0.43) and (-0.79, 0.5, -0.37)) in every level -
   they light the skater and the objects, not the level - so tracing toward the first one put the shadows where the
   level's bake has none (BO, sch: 65-95% of each picture darkened, the sunlit paving with it). The level's own sun is in
@@ -879,8 +880,9 @@ the original's own lighting already says otherwise, is decided so:
   over the sky (then 60 within 10 degrees of the best, 40 within 3): the direction whose "not blocked" correlates best
   with the brightness is the sun (BO heading -75 / elevation 52, z_dt 44 / 53, z_ho 45 / 58, sch -45 / 36; about 1.5-2.7
   million rays, 150-370 ms once a level). Its score is the confidence: under 0.3 the bake shows no sun (the Foundry:
-  0.07 - indoors, lit by its lamps) and the level gets no shadow pass. `rt_shadow_sun=light` keeps the frame record's
-  first light, `x,y,z` a fixed direction; the console's `rt sun <x y z> | off` overrides both (a check aid).
+  0.07 - indoors, lit by its lamps) and the level gets no shadow pass. (`rt_shadow_sun=light | x,y,z` once chose the
+  frame record's first light or a fixed direction; retired with it.) The console's `rt sun <x y z> | off` overrides
+  every effect's sun (a check aid).
 - **Where the bake agrees** (`rt_shadow_match_bake=1`). With the sun found, about 100,000 points of the upward faces are
   traced toward it once more; over a grid of the level seen from above (as many cells as give each about 8 blocked
   points, at most 64 a side: 150-170 units in the levels tried) each cell gets the share of its blocked points whose
@@ -1063,11 +1065,11 @@ only ever added light. Four settings, all off by default, change that; each work
 - **Which sun is drawn.** The sun the player sees is the game's own: render_pc's `draw_viewport` tells rt_scene where
   `sun::render` would put its sprite every viewport (`rt::set_game_sun`, a contract addition - render's theta / phi
   from the level's SetSun / InitSun), and the disc, its glare and the rays are drawn there (`rt_sun_place=game`, the
-  default). It needn't be the baked sun the level was lit with: z_dt's and BO's game sun is 20 degrees up toward +z,
-  their baked ones 53 and 52 degrees up elsewhere - the original game had the same split (its sprite against its bake).
-  `rt_sun_place=bake` draws it at the baked sun; with no game sun shown the baked one is used. The lighting - the
-  shadows, the bounce, the fog's shafts and the sky table - keeps the baked sun. The disc's colour is the model's for
-  the drawn sun's elevation (or `rt_sun_colour`).
+  default then). It needn't be the baked sun the level was lit with: z_dt's and BO's game sun is 20 degrees up toward
+  +z, their baked ones 53 and 52 degrees up elsewhere - the original game had the same split (its sprite against its
+  bake). (Changed by "One sun for every effect" below: the disc is drawn at the scene's sun - the one the shadows, the
+  bounce, the fog's shafts and the sky table light by -, the game's shown sun only where there is none; `rt_sun_place`
+  is retired.) The disc's colour is the model's for the drawn sun's elevation (or `rt_sun_colour`).
 - **The pass** (`gpu_vulkan/vulkan_rt_sun`, a listener at `world_drawn`, `rt::ViewOrder::kSun` = 600 - after the fog,
   before tone mapping): the viewport's colour copied out; (1) the rays (`rt_shafts`, half resolution): from each texel
   toward the sun's vanishing point on the screen, 48 points along the whole way (the start jittered by interleaved
@@ -1485,8 +1487,8 @@ mode separates them and lights the level again.
   (the level's `scale`, 0.7 - 1.4) keeps the level's mean brightness the bake's.
 - **Relit:** scale x tint x E' + residual (`rt_relit_residual=0` leaves the residual out), blended with the bake by
   `rt_relit_strength`. At the bake's own sun it is the bake again (detail 1: within a byte at 99.6% of the check's
-  vertices). E' takes the sun where it is now - `rt_relit_sun=bake` (the default; the console's `rt sun` overrides it),
-  `game` (the sun the game shows: rt::game_sun) or `x,y,z` - its rays traced again when it moves (150,000 vertices a
+  vertices). E' takes the sun where it is now - the scene's sun (`rt_sun_source`, "One sun for every effect" below;
+  `rt_relit_sun` before it) - its rays traced again when it moves (150,000 vertices a
   frame), then its sky rays for the bounce of the new light (the hits' colours the relit ones; 40,000 vertices a
   frame); and the sun's colour: with `rt_sky_model=1` the model's colour at its elevation over the colour at the bake's
   (the bake's own colour kept at the bake's sun).
@@ -1522,8 +1524,8 @@ mode separates them and lights the level again.
   degrees up toward +z in z_dt, BO, BA, toward +x in AU, against the bakes' 50 - 53): mean vertex brightness 3 - 7%
   lower, 47 - 72% of the vertices changed, the sun warmer by the sky model's (1, 0.95, 0.85) - z_dt's street 25 luma
   darker in the picture (its stairs and pavement turned away from the low sun), BO's yard 5, AU 4, BA 2.
-- **Not done / limits:** with `rt_relit_sun=game` the ray-traced shadows, bounce and fog keep the baked sun (only the
-  console's `rt sun` moves them all); the soft edge of a lamp's pool partly stays in the tints (and so dims with a
+- **Not done / limits:** (with `rt_relit_sun=game` the ray-traced shadows, bounce and fog kept the baked sun - fixed by
+  `rt_sun_source`, below); the soft edge of a lamp's pool partly stays in the tints (and so dims with a
   lower sun); walls whose vertices start their rays on the floor's plane see half their hemisphere as the GPU rounds it;
   the analysis runs at the baked sun's fit, after the loading screen, not during it.
 

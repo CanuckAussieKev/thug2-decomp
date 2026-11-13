@@ -119,6 +119,8 @@ struct State {
     uint64_t settled_key = 0;
     uint64_t fitted_key = 0;
     uint64_t fits = 0;
+    uint64_t agreed_lighting = 0; // (added by the scene's sun) the relit lighting the other sun's grid was made from
+    uint64_t agreements = 0;
     // the first frame's time (from its record to the next frame's), logged at the next record_frame
     std::chrono::steady_clock::time_point first_frame_start;
     double first_frame_work_ms = 0.0;
@@ -585,12 +587,13 @@ bool colour_offset(uint32_t fvf, uint32_t* offset)
 // vertex's position and its baked colour's brightness.
 class MeshTriangles {
 public:
-    MeshTriangles(const rt::Geometry& geometry, const VertexBufferData& source, uint32_t colour)
+    // (`as_drawn`, added by the scene's sun: the colours as the buffer holds them now - the relit ones -, not the bake's)
+    MeshTriangles(const rt::Geometry& geometry, const VertexBufferData& source, uint32_t colour, bool as_drawn)
         : geometry_(geometry),
           vertices_(source.data(), source.size()),
           colour_(colour),
           index_bytes_(geometry.indices_32bit ? sizeof(uint32_t) : sizeof(uint16_t)),
-          originals_(rt_relit_world::original_colours(&source))
+          originals_(as_drawn ? std::span<const uint32_t>{} : rt_relit_world::original_colours(&source))
     {
     }
 
@@ -681,7 +684,7 @@ bool up_triangle(const MeshTriangles& mesh, const std::array<uint32_t, 3>& corne
 
 // The meshes the samples come from: the world's with a copy of their vertices and indices in memory and a diffuse
 // colour.
-std::vector<MeshTriangles> sampled_meshes()
+std::vector<MeshTriangles> sampled_meshes(bool as_drawn)
 {
     State& st = state();
     std::vector<MeshTriangles> meshes;
@@ -709,7 +712,7 @@ std::vector<MeshTriangles> sampled_meshes()
             sampled.indices_32bit = false;
             sampled.strip = true;
         }
-        meshes.emplace_back(sampled, source, colour);
+        meshes.emplace_back(sampled, source, colour, as_drawn);
     }
     return meshes;
 }
@@ -755,10 +758,11 @@ std::array<float, 2> weights_of(uint32_t point)
 struct SampleCount {
     std::size_t triangles = 0;
     uint32_t points = 1;
+    bool as_drawn = false; // (added by the scene's sun) the relit colours, not the bake's
 };
 std::vector<rt::BakeSample> bake_samples(SampleCount count)
 {
-    const std::vector<MeshTriangles> meshes = sampled_meshes();
+    const std::vector<MeshTriangles> meshes = sampled_meshes(count.as_drawn);
     std::size_t total = 0;
     for (const MeshTriangles& mesh : meshes) {
         total += mesh.count();
@@ -889,6 +893,45 @@ void relit_work(rt::RayTracing& rt)
     st.relit_idle = !rt::relit_settings().on;
 }
 
+// (added by the scene's sun) The shadows' agreement grid for a scene sun that isn't the baked one (rt_sun_source=game,
+// x,y,z or the console's): once the relit mode has written the colours for that sun (rt_relit_world::settled), the same
+// samples as the bake's grid, their colours the relit ones, traced toward it - the relit colours hold the bake's
+// shadows turned to that sun, and lamps, glows and the artists' own light (the relit residual) keep the traced shadow
+// off where they kept the bake bright. Made once a lighting; until then the traced shadow everywhere.
+void other_sun_work(rt::RayTracing& rt)
+{
+    State& st = state();
+    const rt::SceneSun sun = rt::scene_sun();
+    if (!sun.found() || sun.origin == rt::SunOrigin::kLevel || rt::agreement_for(sun.toward) != nullptr) {
+        return;
+    }
+    rt::Vec3 relit_sun{};
+    uint64_t lighting = 0;
+    constexpr float kSameSun = 0.99999F;
+    if (!rt_relit_world::settled(&relit_sun, &lighting) || rt::dot(relit_sun, sun.toward) < kSameSun ||
+        lighting == st.agreed_lighting) {
+        return;
+    }
+    st.agreed_lighting = lighting;
+    const auto start = std::chrono::steady_clock::now();
+    constexpr uint64_t kOtherSun = uint64_t{1} << 63U; // (its numbers apart from the fits')
+    rt::BakedSun grid;
+    grid.scene = kOtherSun | ++st.agreements;
+    grid.found = true;
+    grid.toward = sun.toward;
+    const std::vector<rt::BakeSample> dense =
+        bake_samples({.triangles = kAgreementTriangles, .points = kAgreementPoints, .as_drawn = true});
+    rt::trace_agreement(dense, rt, &grid);
+    const auto disagree = std::ranges::count_if(grid.agreement, [](float value) { return value < kHalfAgreed; });
+    const auto [heading, elevation] = heading_elevation(sun.toward);
+    get_log("rt: the agreement for %s (heading %.0f, elevation %.0f) from the relit colours: %zu samples, %ux%u cells "
+            "of %.0f, %td of them lit anyway (no traced shadow there) - %.0f ms",
+            rt::sun_origin_name(sun.origin), heading, elevation, dense.size(), grid.columns, grid.rows,
+            static_cast<double>(grid.cell), disagree,
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+    rt::set_sun_agreement(std::move(grid));
+}
+
 // A colour's r, g, b bytes times a factor.
 std::array<float, 3> colour_of(uint32_t rgba, float factor)
 {
@@ -998,6 +1041,7 @@ void camera_chosen(int viewport)
         rt->begin_frame(rt::frame_record());
         new_world_work(*rt); // (added by the first frame: a new world's structures and sun, before it is drawn)
         relit_work(*rt);
+        other_sun_work(*rt); // (added by the scene's sun)
         rt->prepare_frame();
     }
 }

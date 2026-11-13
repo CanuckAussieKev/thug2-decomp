@@ -127,6 +127,7 @@ struct State {
     rt::Rgbf sun_colour{1.0F, 1.0F, 1.0F};
     bool sky_model = false; // (whether the sun's colour was the sky model's)
     uint64_t lighting = 0;
+    uint64_t wanted_lighting = 0; // (added by the scene's sun) the lighting the colours are written with now
     Cached cache;
     std::size_t retraced = 0;
     std::size_t rebounced = 0;
@@ -556,17 +557,13 @@ void restore_all()
     }
 }
 
-// The sun the world is lit by now, and whether there is one.
-bool target_sun(const rt::RelitSettings& settings, rt::Vec3* toward)
+// The sun the world is lit by now, and whether there is one (changed by the scene's sun: rt_scene.h relit_target_sun -
+// the console's `rt sun`, else [Graphics] rt_sun_source's, the sun every effect lights by; the level's baked sun is the
+// model's own, so the bake comes back exactly).
+bool target_sun(rt::Vec3* toward)
 {
-    std::array<float, 3> set{};
-    if (rt::sun_override(&set) || (settings.sun == rt::RelitSun::kGame && rt::game_sun(&set))) {
-        *toward = set;
-    } else if (settings.sun == rt::RelitSun::kFixed) {
-        *toward = settings.fixed;
-    } else {
-        *toward = state().model.toward;
-    }
+    const rt::SceneSun sun = rt::relit_target_sun();
+    *toward = sun.found() && sun.origin != rt::SunOrigin::kLevel ? sun.toward : state().model.toward;
     const float length = std::sqrt(rt::dot(*toward, *toward));
     if (!(length > 0.0F) || !std::isfinite(length)) {
         return false;
@@ -857,12 +854,14 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         if (st.status != Status::kOff) {
             restore_all();
             log_status(Status::kOff);
+            rt::set_sun_relight({}); // (added by the scene's sun: the bake's sun lights the scene again)
         }
         return;
     }
     rt::set_baked_sun_wanted(true);
     const uint32_t level = main_scene();
     if (level != st.level) {
+        rt::set_sun_relight({}); // (added by the scene's sun: a new level is lit by its bake until it is relit)
         restore_all();
         st.level = level;
         st.model = {};
@@ -883,12 +882,17 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     if (!baked.found) {
         restore_all();
         log_status(Status::kNoSun);
+        rt::set_sun_relight({});
         return;
     }
     const rt::RelitLevel* entry_of_level = level_entry(level);
+    // (added by the scene's sun) whether rt_sun_source=game may light this level by the game's sun: its entry may keep
+    // the baked one; the mode says it relights the level once the model is found (rt_scene.h scene_sun)
+    const bool keeps_baked_sun = entry_of_level != nullptr && entry_of_level->keeps_baked_sun;
     if (entry_of_level != nullptr && entry_of_level->off) {
         restore_all();
         log_status(Status::kOptedOut);
+        rt::set_sun_relight({.relights = false, .level_keeps_bake = keeps_baked_sun});
         return;
     }
     // the world's meshes the mode doesn't know yet
@@ -922,12 +926,14 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     if (!st.model.valid) {
         restore_all();
         log_status(Status::kNoModel);
+        rt::set_sun_relight({.relights = false, .level_keeps_bake = keeps_baked_sun});
         return;
     }
     log_status(Status::kRelit);
+    rt::set_sun_relight({.relights = true, .level_keeps_bake = keeps_baked_sun});
     // the lighting now: the sun (traced again where it moved) and its colour
     rt::Vec3 toward{};
-    if (!target_sun(settings, &toward)) {
+    if (!target_sun(&toward)) {
         toward = st.model.toward;
     }
     const bool sky_model = rt::sun_light().on;
@@ -953,7 +959,9 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     const rt::RelitLighting light{
         .toward = st.sun, .sun_colour = st.sun_colour, .strength = strength, .residual = settings.residual};
     rebounce(tracer, settings, light);
+    st.wanted_lighting = lighting;
     write_relit(lighting, light);
+    rt::note_sun_used(rt::SunUser::kRelit, true, st.sun);
 }
 
 void mesh_released(const MeshRef* mesh)
@@ -1008,6 +1016,24 @@ bool object_lighting(ObjectLighting* out)
     }
     out->rotation = rotation;
     out->key_colour = st.sun_colour;
+    return true;
+}
+
+bool settled(rt::Vec3* sun, uint64_t* lighting)
+{
+    const State& st = state();
+    if (st.status != Status::kRelit || !st.model.valid || st.wanted_lighting == 0) {
+        return false;
+    }
+    for (const VertexBufferData* buffer : st.order) {
+        const Entry& entry = st.entries.at(buffer);
+        if (entry.analysed && (entry.written != st.wanted_lighting || entry.dirty ||
+                               rt::dot(entry.sun_for, st.sun) < kSameSun || rt::dot(entry.bounce_for, st.sun) < kSameSun)) {
+            return false;
+        }
+    }
+    *sun = st.sun;
+    *lighting = st.wanted_lighting;
     return true;
 }
 

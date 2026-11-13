@@ -163,7 +163,19 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIGS = ["off", "on", "baseline"] as const;
 export type Config = (typeof CONFIGS)[number];
 // R4's sun shadows, R5's ambient occlusion and reflections, HDR, the fog, the one-bounce indirect light
-export type Effect = "shadows" | "ao" | "reflections" | "hdr" | "fog" | "gi" | "sun" | "sky" | "tess" | "relit";
+// (sun-source: sun_source_check.ts's - rt_sun_source level / game; it has its own compare)
+export type Effect =
+    | "shadows"
+    | "ao"
+    | "reflections"
+    | "hdr"
+    | "fog"
+    | "gi"
+    | "sun"
+    | "sky"
+    | "tess"
+    | "relit"
+    | "sun-source";
 export const EFFECTS: readonly Effect[] = [
     "shadows",
     "ao",
@@ -179,6 +191,12 @@ export const EFFECTS: readonly Effect[] = [
 
 // The ini values a configuration adds.
 export function configValues(config: Config, effect: Effect = "shadows"): Record<string, string> {
+    if (effect === "sun-source") {
+        // (the one sun every effect lights by: off - the level's baked sun, on - the game's; the rest as the
+        // workspace's ini and --set have them)
+        if (config === "baseline") return {};
+        return { "Graphics.ray_tracing": "1", "Graphics.rt_sun_source": config === "on" ? "game" : "level" };
+    }
     if (effect === "sky") {
         // (the atmosphere and the clouds together; the other effects as the ini and --set have them)
         if (config === "baseline") return {};
@@ -1065,6 +1083,7 @@ function compareFolder(
             sky: "sky",
             tess: "smoothing",
             relit: "relit colours",
+            "sun-source": "relit colours",
         }[limits.effect ?? "shadows"];
         const how = limits.effect === "gi" ? "brightened" : limits.effect === "tess" ? "changed" : "darkened";
         lines.push(`FAIL no spot ${how} by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
@@ -1133,6 +1152,7 @@ function compareFolder(
         sky: "rt_sky check",
         tess: "rt_tessellation check",
         relit: "rt_relit check",
+        "sun-source": "rt_sun_source check",
     }[limits.effect ?? "shadows"];
     lines.push(failed ? `${title}: FAILED` : `${title}: passed`);
     fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
@@ -1207,7 +1227,7 @@ async function runGroup(game: string, group: PlanGroup, config: Config, run: num
     return notes.join("; ");
 }
 
-interface RunOptions {
+export interface RunOptions {
     game: string;
     out: string;
     build: string;
@@ -1218,9 +1238,10 @@ interface RunOptions {
     owner: string;
     set: Record<string, string>;
     effect: Effect;
+    configs?: Config[]; // (sun_source_check's: the configurations run - off and on, or baseline too, otherwise)
 }
 
-async function runAll(options: RunOptions): Promise<number> {
+export async function runAll(options: RunOptions): Promise<number> {
     const { game, out } = options;
     if (!isWorkspace(game)) exitWith(`${game} isn't a workspace (C:\\Games\\THUG2-<n>): this tool runs only there`);
     const plan = readPlan(fs.readFileSync(options.plan, "utf8"));
@@ -1228,7 +1249,7 @@ async function runAll(options: RunOptions): Promise<number> {
         (g) => g.level && g.spots?.length && (!options.groups || options.groups.includes(g.name)),
     );
     if (!groups.length) exitWith("no level group of the plan chosen");
-    const configs: Config[] = options.baselineBuild ? ["baseline", "off", "on"] : ["off", "on"];
+    const configs: Config[] = options.configs ?? (options.baselineBuild ? ["baseline", "off", "on"] : ["off", "on"]);
     fs.mkdirSync(out, { recursive: true });
     const journal = path.join(out, "run.txt");
     const note = (line: string): void => {
@@ -1346,6 +1367,7 @@ async function main(): Promise<number> {
         sky: "Graphics.rt_sky_match",
         tess: "Graphics.rt_tess_max_deviation",
         relit: "Graphics.rt_relit_strength",
+        "sun-source": "Graphics.rt_relit_strength",
     }[effect];
     const strength = Number(
         set[strengthKey] ??
@@ -1361,6 +1383,7 @@ async function main(): Promise<number> {
                 sky: "0.8",
                 tess: "2",
                 relit: "1",
+                "sun-source": "1",
             }[effect],
     );
     const limits: Limits = { ...LIMITS, expect, strength, effect };

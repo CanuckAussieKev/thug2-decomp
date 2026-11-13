@@ -1,5 +1,5 @@
 {
-  "_about": "The relit mode's per-level choices ([Graphics] rt_relit, engine/gfx/rt_relit.h), built into the exe; thug2-decomp-relit.json beside the exe (the same layout) adds to them and wins. Each level by its scene's name: \"relit\": false keeps the level's bake, \"strength\": 0 - 1 its own blend. A level whose bake shows no sun (the Foundry) keeps its bake without an entry.",
+  "_about": "The relit mode's per-level choices ([Graphics] rt_relit, engine/gfx/rt_relit.h), built into the exe; thug2-decomp-relit.json beside the exe (the same layout) adds to them and wins. Each level by its scene's name: \"relit\": false keeps the level's bake, \"strength\": 0 - 1 its own blend, \"sun\": \"level\" keeps its baked sun under rt_sun_source=game (every effect's sun - engine/gfx/rt_scene.h scene_sun - where the game's sun looks wrong there). A level whose bake shows no sun (the Foundry) keeps its bake without an entry.",
   "levels": {
   }
 }
