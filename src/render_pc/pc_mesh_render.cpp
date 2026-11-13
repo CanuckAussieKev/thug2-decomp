@@ -77,6 +77,16 @@ constexpr std::size_t kSkinVertexBytes = 0x4C;
 
 static_assert(sizeof(SkinVertex) == kSkinVertexBytes, "layout must match the original");
 
+// Not original - cel shading (engine/gfx/rt_cel.h): the relit world's stream for the draws from `vb` (none: their
+// vertex colour banded), named while the mode is on.
+void set_cel_source(VertexBuffer* vb)
+{
+    if (rt::cel_shading_on()) {
+        gpu().set_cel_source(
+            {.vertices = vb->buffer(), .offset = vb->arena_offset(), .stream = rt_relit_world::cel_stream(vb)});
+    }
+}
+
 // Not original - a mesh's draws' key for motion vectors (Gpu::MotionSource): the mesh and the instance it is drawn
 // for (none: the level's own meshes, which don't move - key 0).
 uint64_t motion_key(const void* mesh, const void* instance)
@@ -298,12 +308,7 @@ void MeshRef::render()
         }
         gpu().set_motion_source(motion);
     }
-    // Not original - cel shading (engine/gfx/rt_cel.h): the relit world's stream for this mesh's draws (none: its
-    // vertex colour banded). Original behaviour: nothing.
-    if (rt::cel_shading_on()) {
-        gpu().set_cel_source(
-            {.vertices = vb->buffer(), .offset = vb->arena_offset(), .stream = rt_relit_world::cel_stream(vb)});
-    }
+    set_cel_source(vb); // (not original: cel shading's stream)
     const int level = lod_level();
     gpu().set_indices(index_buffer_at(this, level)->buffer());
     const uint32_t primitives = index_count_at(this, level) - 2U;

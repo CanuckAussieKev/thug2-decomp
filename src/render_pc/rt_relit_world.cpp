@@ -26,6 +26,7 @@
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/mesh_records.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"

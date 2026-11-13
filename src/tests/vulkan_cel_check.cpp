@@ -26,7 +26,6 @@
 #include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -37,6 +36,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <volk.h>
 
@@ -97,6 +97,40 @@ constexpr uint32_t kFvfDiffuse = 0x040;
 constexpr uint32_t kFvfTex1 = 0x100;
 constexpr std::string_view kShader = "ps.1.1\ntex t0\nmul r0.rgb,t0,c0\n+mul_x2 r0.a,v0.a,t0.a\nmul_x4 r0.rgb,v0,r0\n";
 constexpr uint32_t kBackground = 0xFFCCCCCCU; // (0.8: the cleared colour)
+constexpr uint32_t kWhiteTexel = 0x80FFFFFFU;  // (the doubled alpha 128: 1)
+constexpr uint32_t kGreyVertex = 0x80808080U;  // (0.5: the light 1, alpha 1 after the doubling)
+constexpr float kSceneAmbient = 0.2F;           // D3DRS_AMBIENT
+constexpr float kQuadAmbient = 0.3F;            // the stream's ambient light in the quads
+constexpr float kTwinEdge = 0.06F;              // (of a step: pixels this near a bake step's edge left out)
+constexpr float kWideTolerance = 2.0F * 3.0e-3F; // (a lit pixel's: two interpolated colours rounded)
+constexpr float kRatioTolerance = 0.03F;        // (the shadow tint's blue / red)
+constexpr float kLeastLuma = 1.0e-4F;
+constexpr float kBakeGreen = 0.9F;              // the bake gradient's green and blue against its red
+constexpr float kBakeBlue = 0.8F;
+constexpr Vec3 kObjectColour{0.8F, 0.7F, 0.6F}; // the lit quads' vertex colour
+constexpr float kRimStrength = 0.5F;
+constexpr float kRimEdge = 0.03F;               // (of 1 - N.V: pixels this near the rim's threshold left out)
+constexpr float kRimLift = 0.02F;               // (how much brighter a rim pixel must be)
+constexpr float kRowEdge = 0.05F;               // (of a band: pixels this near a band's edge left out of a row's twin)
+constexpr std::size_t kPerMille = 1000;
+constexpr std::size_t kWithinPerMille = 995;    // (the share of pixels that must match the twin)
+constexpr std::size_t kPercent = 100;
+constexpr std::size_t kInkPercent = 95; // (of a ring or an edge: inked)
+constexpr std::size_t kLeastRing = 100;
+constexpr int kNearRing = 2;           // (pixels from a silhouette: the hull's ring)
+constexpr int kFarRing = 6;            // (... and past this: untouched)
+constexpr float kInkShare = 0.4F;      // (an ink pixel: darker than this share of the background)
+constexpr float kBackgroundGrey = 0.8F; // (kBackground's channels)
+constexpr float kSameGrey = 0.01F;
+constexpr float kHullLight = 0.8F;
+constexpr Vec3 kObjectLight{0.3980149F, 0.5970223F, -0.6965260F}; // (0.4, 0.6, -0.7) normalised
+constexpr uint32_t kInner = 40;        // (the pictures' border left out of a spread)
+constexpr uint32_t kCheckerLight = 0x80CCCCCCU;
+constexpr uint32_t kCheckerDark = 0x80333333U;
+constexpr uint32_t kCheckerMean = 0x80808080U;
+constexpr float kFlatten = 0.8F;
+constexpr float kFlatterSpread = 0.7F;
+constexpr Vec3 kTiltedNormal{0.0F, 0.2873479F, -0.9578263F}; // (0, 0.3, -1) normalised
 
 struct Options {
     int display = 0;
@@ -246,7 +280,8 @@ struct Vertex {
     uint32_t colour;
     std::array<float, 2> uv;
 };
-static_assert(sizeof(Vertex) == 36, "XYZ | NORMAL | DIFFUSE | TEX1");
+constexpr std::size_t kVertexBytes = 36;
+static_assert(sizeof(Vertex) == kVertexBytes, "XYZ | NORMAL | DIFFUSE | TEX1");
 
 std::array<float, kMatrixFloats> projection()
 {
@@ -254,7 +289,14 @@ std::array<float, kMatrixFloats> projection()
     return {kFov, 0, 0, 0, 0, kFov, 0, 0, 0, 0, depth_scale, 1, 0, 0, -kNear * depth_scale, 0};
 }
 
-// A texture of side `side` with `levels` mip levels, each texel from `colour(column, row, level)` (A8R8G8B8).
+// A texel's place in a texture.
+struct TexelAt {
+    uint32_t column = 0;
+    uint32_t row = 0;
+    uint32_t level = 0;
+};
+
+// A texture of side `side` with `levels` mip levels, each texel from `colour(TexelAt)` (A8R8G8B8).
 template <typename Colour>
 GpuTexture* make_texture(render::Gpu& gpu, uint32_t side, uint32_t levels, Colour colour)
 {
@@ -274,7 +316,7 @@ GpuTexture* make_texture(render::Gpu& gpu, uint32_t side, uint32_t levels, Colou
                                        (static_cast<std::size_t>(locked.pitch) * (size - 1)) + (std::size_t{size} * 4));
         for (uint32_t row = 0; row < size; ++row) {
             for (uint32_t column = 0; column < size; ++column) {
-                const uint32_t argb = colour(column, row, level);
+                const uint32_t argb = colour(TexelAt{.column = column, .row = row, .level = level});
                 const std::size_t at =
                     (static_cast<std::size_t>(row) * static_cast<std::size_t>(locked.pitch)) + (std::size_t{column} * 4);
                 std::memcpy(bytes.subspan(at, 4).data(), &argb, 4);
@@ -287,7 +329,7 @@ GpuTexture* make_texture(render::Gpu& gpu, uint32_t side, uint32_t levels, Colou
 
 GpuTexture* white_texture(render::Gpu& gpu)
 {
-    return make_texture(gpu, 1, 1, [](uint32_t, uint32_t, uint32_t) { return 0x80FFFFFFU; });
+    return make_texture(gpu, 1, 1, [](const TexelAt&) { return kWhiteTexel; });
 }
 
 struct Light {
@@ -313,7 +355,7 @@ void set_state(render::Gpu& gpu, render::GpuPixelShader* shader, GpuTexture* tex
     gpu.set_render_state(GpuRenderState::kDiffuseMaterialSource, value::kSourceColour1);
     gpu.set_render_state(GpuRenderState::kAmbientMaterialSource, value::kSourceMaterial);
     gpu.set_render_state(GpuRenderState::kEmissiveMaterialSource, value::kSourceMaterial);
-    gpu.set_render_state(GpuRenderState::kAmbient, word_of({0.2F, 0.2F, 0.2F}, 0.0F) & kRgbMask);
+    gpu.set_render_state(GpuRenderState::kAmbient, word_of({kSceneAmbient, kSceneAmbient, kSceneAmbient}, 0.0F) & kRgbMask);
     gpu.set_render_state(GpuRenderState::kNormalizeNormals, 1);
     gpu.set_transform(render::GpuTransform::kWorld, kIdentity.data());
     gpu.set_transform(render::GpuTransform::kView, kIdentity.data());
@@ -350,7 +392,7 @@ struct Drawn {
     GpuVertexBuffer* stream = nullptr;
 };
 
-GpuVertexBuffer* buffer_of(render::Gpu& gpu, std::span<const uint8_t> bytes)
+GpuVertexBuffer* buffer_of(render::Gpu& gpu, std::span<const std::byte> bytes)
 {
     GpuVertexBuffer* buffer = nullptr;
     if (gpu.create_vertex_buffer(static_cast<uint32_t>(bytes.size()), value::kUsageWriteOnly, 0, value::kPoolDefault,
@@ -368,9 +410,9 @@ GpuVertexBuffer* buffer_of(render::Gpu& gpu, std::span<const uint8_t> bytes)
 Drawn draw_triangles(render::Gpu& gpu, std::span<const Vertex> vertices, std::span<const rt::CelWords> stream)
 {
     Drawn drawn;
-    drawn.vertices = buffer_of(gpu, {reinterpret_cast<const uint8_t*>(vertices.data()), vertices.size_bytes()});
+    drawn.vertices = buffer_of(gpu, std::as_bytes(vertices));
     if (!stream.empty()) {
-        drawn.stream = buffer_of(gpu, {reinterpret_cast<const uint8_t*>(stream.data()), stream.size_bytes()});
+        drawn.stream = buffer_of(gpu, std::as_bytes(stream));
     }
     gpu.set_stream_source(0, drawn.vertices, 0, sizeof(Vertex));
     gpu.set_cel_source({.vertices = drawn.vertices, .offset = 0, .stream = drawn.stream});
@@ -425,15 +467,26 @@ Vec3 pixel_ray(uint32_t px, uint32_t py)
 }
 
 // The screen-space fraction across a camera-facing quad from x0 to x1 at depth z (-1 outside it).
-float across(uint32_t px, uint32_t py, float x0, float x1, float y0, float y1, float z)
+struct Pixel {
+    uint32_t column = 0;
+    uint32_t row = 0;
+};
+struct QuadArea {
+    float left = 0.0F;
+    float right = 0.0F;
+    float bottom = 0.0F;
+    float top = 0.0F;
+    float depth = 0.0F;
+};
+float across(Pixel pixel, const QuadArea& quad)
 {
-    const Vec3 ray = pixel_ray(px, py);
-    const float x = core::at(ray, 0) * z;
-    const float y = core::at(ray, 1) * z;
-    if (x < x0 || x > x1 || y < y0 || y > y1) {
+    const Vec3 ray = pixel_ray(pixel.column, pixel.row);
+    const float x = core::at(ray, 0) * quad.depth;
+    const float y = core::at(ray, 1) * quad.depth;
+    if (x < quad.left || x > quad.right || y < quad.bottom || y > quad.top) {
         return -1.0F;
     }
-    return (x - x0) / (x1 - x0);
+    return (x - quad.left) / (quad.right - quad.left);
 }
 
 struct Scene {
@@ -476,36 +529,51 @@ void check_twins(Tally* tally)
         std::vector<float> seen;
         constexpr int kSteps = 1000;
         for (int step = 0; step <= kSteps; ++step) {
-            const float q = rt::cel_sun_band(static_cast<float>(step) / kSteps, bands, 0.0F);
-            if (std::ranges::find(seen, q) == seen.end()) {
-                seen.push_back(q);
+            const float level = rt::cel_sun_band(static_cast<float>(step) / kSteps, {}, bands);
+            if (std::ranges::find(seen, level) == seen.end()) {
+                seen.push_back(level);
             }
         }
         levels_ok = levels_ok && seen.size() == bands && seen.front() == 0.0F && seen.back() == 1.0F;
     }
     tally->check(levels_ok, "the sun's bands: exactly `bands` levels from 0 to 1 (2, 3, 4)");
-    // the stream's words: a known vertex
+    // the stream's words: a known vertex - its parts and the bytes they make (light x 128, shares x 255)
+    constexpr Vec3 kModelSky{0.4F, 0.4F, 0.5F};
+    constexpr Vec3 kModelBounce{0.5F, 0.5F, 0.5F};
+    constexpr float kVertexShare = 0.5F;
+    constexpr float kVertexSky = 0.5F;
+    constexpr Vec3 kVertexBounce{0.2F, 0.2F, 0.2F};
+    constexpr Vec3 kVertexTint{1.5F, 1.0F, 0.5F};
+    constexpr Vec3 kVertexResidual{0.25F, 0.0F, 0.0F};
+    constexpr uint32_t kFull = 255;
+    constexpr uint32_t kAmbientRed = 38;  // (0.4 x 0.5 + 0.5 x 0.2 = 0.3)
+    constexpr uint32_t kAmbientBlue = 45; // (0.5 x 0.5 + 0.1 = 0.35)
+    constexpr uint32_t kTintRed = 192;    // (1.5)
+    constexpr uint32_t kShareByte = 128;  // (0.5)
+    constexpr uint32_t kResidualRed = 32; // (0.25)
+    constexpr uint32_t kByteBits = 0xFFU;
     rt::RelitModel model;
     model.valid = true;
     model.sun = {1.0F, 1.0F, 1.0F};
-    model.sky = {0.4F, 0.4F, 0.5F};
-    model.bounce = {0.5F, 0.5F, 0.5F};
+    model.sky = kModelSky;
+    model.bounce = kModelBounce;
     model.scale = 1.0F;
     rt::RelitVertex vertex;
     vertex.used = true;
     vertex.normal = {0.0F, 1.0F, 0.0F};
-    vertex.sun = 0.5F;
-    vertex.sky = 0.5F;
-    vertex.bounce = {0.2F, 0.2F, 0.2F};
-    vertex.tint = {1.5F, 1.0F, 0.5F};
-    vertex.residual = {0.25F, 0.0F, 0.0F};
+    vertex.sun = kVertexShare;
+    vertex.sky = kVertexSky;
+    vertex.bounce = kVertexBounce;
+    vertex.tint = kVertexTint;
+    vertex.residual = kVertexResidual;
     const rt::CelWords words =
         rt::cel_stream_words(model, vertex, {.toward = {0.0F, 1.0F, 0.0F}, .sun_colour = {1, 1, 1}, .strength = 1, .residual = true});
-    const auto channel = [](uint32_t word, uint32_t shift) { return (word >> shift) & 0xFFU; };
-    const bool words_ok = channel(std::get<0>(words), kAlphaShift) == 255 && channel(std::get<0>(words), kRedShift) == 38 &&
-                          channel(std::get<0>(words), 0) == 45 && channel(std::get<1>(words), kRedShift) == 192 &&
-                          channel(std::get<1>(words), kAlphaShift) == 128 && channel(std::get<2>(words), kRedShift) == 32 &&
-                          channel(std::get<2>(words), kAlphaShift) == 255;
+    const auto channel = [](uint32_t word, uint32_t shift) { return (word >> shift) & kByteBits; };
+    const bool words_ok =
+        channel(std::get<0>(words), kAlphaShift) == kFull && channel(std::get<0>(words), kRedShift) == kAmbientRed &&
+        channel(std::get<0>(words), 0) == kAmbientBlue && channel(std::get<1>(words), kRedShift) == kTintRed &&
+        channel(std::get<1>(words), kAlphaShift) == kShareByte && channel(std::get<2>(words), kRedShift) == kResidualRed &&
+        channel(std::get<2>(words), kAlphaShift) == kFull;
     vertex.used = false;
     const bool unused = rt::cel_stream_words(model, vertex, {}) == rt::kCelNoStream;
     tally->check(words_ok && unused, "the stream's words: ambient, N.L, tint, share, residual, the flag; an unused vertex none");
@@ -515,9 +583,10 @@ void check_twins(Tally* tally)
 
 constexpr float kQuadZ = 5.0F;
 constexpr float kQuadHalf = 2.6F;
+constexpr QuadArea kQuad{.left = -kQuadHalf, .right = kQuadHalf, .bottom = -kQuadHalf, .top = kQuadHalf, .depth = kQuadZ};
 constexpr uint32_t kInsideFirst = 22; // (a row's pixels well inside the quads drawn with kQuadHalf)
 constexpr uint32_t kInsideLast = kSize - 23;
-constexpr Vec3 kAmbient{0.3F, 0.3F, 0.3F};
+constexpr Vec3 kAmbient{kQuadAmbient, kQuadAmbient, kQuadAmbient};
 constexpr Vec3 kSun{0.6F, 0.6F, 0.6F};
 
 rt::CelSettings settings_with(uint32_t bands)
@@ -551,7 +620,7 @@ Plateaus plateaus_of(const Picture& picture, uint32_t row, uint32_t first, uint3
                 if (out.values.empty() || std::abs(out.values.back() - value) > kTolerance) {
                     out.values.push_back(value);
                     // (the steps between the two plateaus: one more than the pixels between them)
-                    out.widest_edge = std::max(out.widest_edge, std::max(edge - 1, 0));
+                    out.widest_edge = std::max({out.widest_edge, edge - 1, 0});
                 }
                 edge = 0;
             }
@@ -576,7 +645,7 @@ void check_stream_bands(render::Gpu& gpu, const Scene& scene, uint32_t bands, Ta
     Corners corners;
     for (std::size_t corner = 0; corner < 4; ++corner) {
         const bool right = corner == 1 || corner == 2;
-        corners.colour.at(corner) = 0x80808080U;
+        corners.colour.at(corner) = kGreyVertex;
         corners.normal.at(corner) = {0.0F, 0.0F, -1.0F};
         corners.stream.at(corner) = {word_of(scale(kAmbient, kMid), right ? 1.0F : 0.0F), word_of({kMid, kMid, kMid}, 1.0F),
                                      word_of({0.0F, 0.0F, 0.0F}, 1.0F)};
@@ -593,26 +662,27 @@ void check_stream_bands(render::Gpu& gpu, const Scene& scene, uint32_t bands, Ta
         return;
     }
     // the twin per pixel, away from the band's edges
-    const Vec3 ambient = {as_byte(kMid * 0.3F) * kTwo, as_byte(kMid * 0.3F) * kTwo, as_byte(kMid * 0.3F) * kTwo};
+    const float ambient_light = as_byte(kMid * kQuadAmbient) * kTwo;
+    const Vec3 ambient = {ambient_light, ambient_light, ambient_light};
     std::size_t judged = 0;
     std::size_t within = 0;
     float worst = 0.0F;
     const auto steps = static_cast<float>(bands - 1);
     for (uint32_t py = 0; py < kSize; py += 2) {
         for (uint32_t px = 0; px < kSize; ++px) {
-            const float t = across(px, py, -kQuadHalf, kQuadHalf, -kQuadHalf, kQuadHalf, kQuadZ);
-            if (t < 0.0F) {
+            const float along = across({.column = px, .row = py}, kQuad);
+            if (along < 0.0F) {
                 continue;
             }
-            const float band_t = (t * steps) + rt::kCelBandBias;
+            const float band_t = (along * steps) + rt::kCelBandBias;
             const float part = band_t - std::floor(band_t);
             constexpr float kEdgeShare = 0.04F; // (of a step: pixels this near an edge left out)
             if (std::abs(part - kMid) < kEdgeShare * steps) {
                 continue;
             }
             const float tint = as_byte(kMid) * kTwo;
-            const rt::CelStreamPixel pixel{.ambient = ambient, .n_dot_l = t, .tint = {tint, tint, tint}, .share = 1.0F, .residual = {}};
-            const std::array<float, 3> want = rt::cel_world_light(settings, kSun, pixel, 1.0F, 0.0F);
+            const rt::CelStreamPixel pixel{.ambient = ambient, .n_dot_l = along, .tint = {tint, tint, tint}, .share = 1.0F, .residual = {}};
+            const std::array<float, 3> want = rt::cel_world_light(settings, kSun, pixel, 1.0F, {});
             const Vec3& got = picture.at(px, py);
             float difference = 0.0F;
             for (std::size_t channel = 0; channel < 3; ++channel) {
@@ -631,9 +701,9 @@ void check_stream_bands(render::Gpu& gpu, const Scene& scene, uint32_t bands, Ta
                               row.widest_edge, row.widest_edge == 1 ? "" : "s"));
     // the shadow band's tint: its blue over red the shadow colour's
     const Vec3& dark = picture.at(kInsideFirst, kSize / 2);
-    const float ratio = core::at(dark, 2) / std::max(core::at(dark, 0), 1e-4F);
+    const float ratio = core::at(dark, 2) / std::max(core::at(dark, 0), kLeastLuma);
     const float want_ratio = std::get<2>(settings.shadow_colour) / std::get<0>(settings.shadow_colour);
-    tally->check(std::abs(ratio - want_ratio) < 0.03F * want_ratio && picture.finite,
+    tally->check(std::abs(ratio - want_ratio) < kRatioTolerance * want_ratio && picture.finite,
                  text::format("%u bands: the shadow band tinted (blue / red %.3f, the colour's %.3f); every pixel finite", bands,
                               static_cast<double>(ratio), static_cast<double>(want_ratio)));
 }
@@ -649,7 +719,7 @@ void check_bake_bands(render::Gpu& gpu, const Scene& scene, Tally* tally)
     for (std::size_t corner = 0; corner < 4; ++corner) {
         const bool right = corner == 1 || corner == 2;
         const float v0 = right ? kBright : kDark;
-        corners.colour.at(corner) = word_of({v0, v0 * 0.9F, v0 * 0.8F}, kMid);
+        corners.colour.at(corner) = word_of({v0, v0 * kBakeGreen, v0 * kBakeBlue}, kMid);
         corners.normal.at(corner) = {0.0F, 0.0F, -1.0F};
     }
     const std::vector<Vertex> vertices = quad_vertices(-kQuadHalf, kQuadHalf, -kQuadHalf, kQuadHalf, kQuadZ, corners, nullptr);
@@ -662,36 +732,36 @@ void check_bake_bands(render::Gpu& gpu, const Scene& scene, Tally* tally)
     std::size_t within = 0;
     float worst = 0.0F;
     const float stops = rt::cel_bake_stops(settings.bands);
-    const Vec3 left{as_byte(kDark), as_byte(kDark * 0.9F), as_byte(kDark * 0.8F)};
-    const Vec3 right{as_byte(kBright), as_byte(kBright * 0.9F), as_byte(kBright * 0.8F)};
+    const Vec3 left{as_byte(kDark), as_byte(kDark * kBakeGreen), as_byte(kDark * kBakeBlue)};
+    const Vec3 right{as_byte(kBright), as_byte(kBright * kBakeGreen), as_byte(kBright * kBakeBlue)};
     for (uint32_t py = 0; picture.read && py < kSize; py += 2) {
         for (uint32_t px = 0; px < kSize; ++px) {
-            const float t = across(px, py, -kQuadHalf, kQuadHalf, -kQuadHalf, kQuadHalf, kQuadZ);
-            if (t < 0.0F) {
+            const float along = across({.column = px, .row = py}, kQuad);
+            if (along < 0.0F) {
                 continue;
             }
-            const Vec3 bake = scale(add(scale(left, 1.0F - t), scale(right, t)), kTwo);
-            const float steps = std::log2(std::max(luma(bake), 1e-4F)) / stops;
+            const Vec3 bake = scale(add(scale(left, 1.0F - along), scale(right, along)), kTwo);
+            const float steps = std::log2(std::max(luma(bake), kLeastLuma)) / stops;
             const float part = steps - std::floor(steps);
-            if (std::abs(part - kMid) < 0.06F) {
+            if (std::abs(part - kMid) < kTwinEdge) {
                 continue;
             }
-            const std::array<float, 3> want = rt::cel_bake_light(settings, bake, 0.0F);
+            const std::array<float, 3> want = rt::cel_bake_light(settings, bake, {});
             const Vec3& got = picture.at(px, py);
             float difference = 0.0F;
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 difference = std::max(difference, std::abs(core::at(got, channel) - clamp01(core::at(want, channel))));
             }
             ++judged;
-            within += difference <= kTolerance * 2.0F ? 1U : 0U;
+            within += difference <= kWideTolerance ? 1U : 0U;
             worst = std::max(worst, difference);
         }
     }
     const Plateaus row = plateaus_of(picture, kSize / 2, kInsideFirst, kInsideLast);
-    tally->check(picture.read && judged > kLeastJudged && within * 1000 >= judged * 995 && row.values.size() >= 3 &&
+    tally->check(picture.read && judged > kLeastJudged && within * kPerMille >= judged * kWithinPerMille && row.values.size() >= 3 &&
                      picture.finite,
                  text::format("the bake banded (no stream): %zu pixels, %.2f%% the twin's (worst %.4f), %zu plateaus, finite",
-                              judged, judged != 0 ? 100.0 * static_cast<double>(within) / static_cast<double>(judged) : 0.0,
+                              judged, judged != 0 ? static_cast<double>(kPercent) * static_cast<double>(within) / static_cast<double>(judged) : 0.0,
                               static_cast<double>(worst), row.values.size()));
 }
 
@@ -701,7 +771,7 @@ Picture draw_lit(render::Gpu& gpu, const Scene& scene, const Vec3& left, const V
     Corners corners;
     for (std::size_t corner = 0; corner < 4; ++corner) {
         const bool is_right = corner == 1 || corner == 2;
-        corners.colour.at(corner) = word_of({0.8F, 0.7F, 0.6F}, 1.0F);
+        corners.colour.at(corner) = word_of(kObjectColour, 1.0F);
         corners.normal.at(corner) = is_right ? right : left;
     }
     const std::vector<Vertex> vertices = quad_vertices(-kQuadHalf, kQuadHalf, -kQuadHalf, kQuadHalf, kQuadZ, corners, nullptr);
@@ -722,29 +792,29 @@ void check_lit(render::Gpu& gpu, const Scene& scene, Tally* tally)
     const Vec3 right = normalise({0.6F, 0.0F, -0.8F});
     const Light light{.toward = normalise({0.7F, 0.2F, -0.68F}), .colour = {0.5F, 0.45F, 0.4F}};
     const Picture picture = draw_lit(gpu, scene, left, right, light);
-    const Vec3 cd{as_byte(0.8F), as_byte(0.7F), as_byte(0.6F)};
-    const float ambient = as_byte(0.2F);
+    const Vec3 cd{as_byte(core::at(kObjectColour, 0)), as_byte(core::at(kObjectColour, 1)), as_byte(core::at(kObjectColour, 2))};
+    const float ambient = as_byte(kSceneAmbient);
     std::size_t judged = 0;
     std::size_t within = 0;
     float worst = 0.0F;
     const auto steps = static_cast<float>(settings.bands - 1);
     for (uint32_t py = 0; picture.read && py < kSize; py += 2) {
         for (uint32_t px = 0; px < kSize; ++px) {
-            const float t = across(px, py, -kQuadHalf, kQuadHalf, -kQuadHalf, kQuadHalf, kQuadZ);
-            if (t < 0.0F) {
+            const float along = across({.column = px, .row = py}, kQuad);
+            if (along < 0.0F) {
                 continue;
             }
-            const Vec3 normal = normalise(add(scale(left, 1.0F - t), scale(right, t)));
+            const Vec3 normal = normalise(add(scale(left, 1.0F - along), scale(right, along)));
             const float n_dot_l = clamp01(dot(normal, light.toward));
             const float band_t = (n_dot_l * steps) + rt::kCelBandBias;
-            if (std::abs((band_t - std::floor(band_t)) - kMid) < 0.05F) {
+            if (std::abs((band_t - std::floor(band_t)) - kMid) < kRowEdge) {
                 continue;
             }
-            const float q = rt::cel_sun_band(n_dot_l, settings.bands, 0.0F);
+            const float band = rt::cel_sun_band(n_dot_l, {}, settings.bands);
             Vec3 want{};
             for (std::size_t channel = 0; channel < 3; ++channel) {
-                const float shade = core::at(settings.shadow_colour, channel) + ((1.0F - core::at(settings.shadow_colour, channel)) * q);
-                core::at(want, channel) = clamp01((ambient * shade) + (core::at(cd, channel) * core::at(light.colour, channel) * q)) *
+                const float shade = core::at(settings.shadow_colour, channel) + ((1.0F - core::at(settings.shadow_colour, channel)) * band);
+                core::at(want, channel) = clamp01((ambient * shade) + (core::at(cd, channel) * core::at(light.colour, channel) * band)) *
                                           kTwo * kMid * kTwo; // (2 x v0)
                 core::at(want, channel) = clamp01(core::at(want, channel));
             }
@@ -754,18 +824,18 @@ void check_lit(render::Gpu& gpu, const Scene& scene, Tally* tally)
                 difference = std::max(difference, std::abs(core::at(got, channel) - core::at(want, channel)));
             }
             ++judged;
-            within += difference <= kTolerance * 2.0F ? 1U : 0U;
+            within += difference <= kWideTolerance ? 1U : 0U;
             worst = std::max(worst, difference);
         }
     }
     const Plateaus row = plateaus_of(picture, kSize / 2, kInsideFirst, kInsideLast);
-    tally->check(picture.read && judged > kLeastJudged && within * 1000 >= judged * 995 && row.values.size() == 3 && picture.finite,
+    tally->check(picture.read && judged > kLeastJudged && within * kPerMille >= judged * kWithinPerMille && row.values.size() == 3 && picture.finite,
                  text::format("lit by a light: %zu pixels, %.2f%% the twin's (worst %.4f), %zu plateaus, finite", judged,
-                              judged != 0 ? 100.0 * static_cast<double>(within) / static_cast<double>(judged) : 0.0,
+                              judged != 0 ? static_cast<double>(kPercent) * static_cast<double>(within) / static_cast<double>(judged) : 0.0,
                               static_cast<double>(worst), row.values.size()));
     // the rim: brighter where 1 - N.V passes the threshold, the rest the same
     rt::CelSettings rimmed = settings;
-    rimmed.rim = 0.5F;
+    rimmed.rim = kRimStrength;
     vk::set_cel_settings(rimmed);
     const Picture with_rim = draw_lit(gpu, scene, left, right, light);
     std::size_t brighter = 0;
@@ -774,21 +844,21 @@ void check_lit(render::Gpu& gpu, const Scene& scene, Tally* tally)
     std::size_t other = 0;
     for (uint32_t px = 4; with_rim.read && picture.read && px + 4 < kSize; ++px) {
         const uint32_t py = kSize / 2;
-        const float t = across(px, py, -kQuadHalf, kQuadHalf, -kQuadHalf, kQuadHalf, kQuadZ);
-        if (t < 0.0F) {
+        const float along = across({.column = px, .row = py}, kQuad);
+        if (along < 0.0F) {
             continue;
         }
-        const Vec3 normal = normalise(add(scale(left, 1.0F - t), scale(right, t)));
+        const Vec3 normal = normalise(add(scale(left, 1.0F - along), scale(right, along)));
         const Vec3 to_eye = normalise(scale(pixel_ray(px, py), -1.0F));
         const float rim_t = 1.0F - std::max(dot(normal, to_eye), 0.0F);
-        if (std::abs(rim_t - rt::kCelRimThreshold) < 0.03F) {
+        if (std::abs(rim_t - rt::kCelRimThreshold) < kRimEdge) {
             continue;
         }
         const float before = luma(picture.at(px, py));
         const float after = luma(with_rim.at(px, py));
         if (rim_t > rt::kCelRimThreshold) {
             ++rim_pixels;
-            brighter += after > before + 0.02F ? 1U : 0U;
+            brighter += after > before + kRimLift ? 1U : 0U;
         } else {
             ++other;
             same += std::abs(after - before) <= kTolerance ? 1U : 0U;
@@ -806,7 +876,8 @@ constexpr std::array<float, 2> kGroundX{-120.0F, 120.0F};
 constexpr std::array<float, 2> kGroundZ{40.0F, 300.0F};
 constexpr Vec3 kBoxLow{-24.0F, -2.0F, 100.0F};
 constexpr Vec3 kBoxHigh{24.0F, 12.0F, 150.0F};
-const Vec3 kSunToward = normalise({0.35F, 1.0F, -0.3F});
+constexpr std::size_t kLeastShadowed = 500; // (the occluder's shadow's pixels at least)
+constexpr Vec3 kSunToward{0.3178534F, 0.9081526F, -0.2724458F}; // (0.35, 1, -0.3) normalised
 
 struct Structure {
     vk::DeviceBuffer storage;
@@ -826,7 +897,7 @@ VkDeviceAddress address_of(VkDevice device, VkBuffer buffer)
     return vkGetBufferDeviceAddress(device, &info);
 }
 
-bool make_input(vk::Backend& state, std::span<const uint8_t> bytes, vk::DeviceBuffer* out, VkDeviceAddress* address)
+bool make_input(vk::Backend& state, std::span<const std::byte> bytes, vk::DeviceBuffer* out, VkDeviceAddress* address)
 {
     constexpr VkDeviceSize kAlignment = 16;
     if (!state.memory.create_buffer(bytes.size() + kAlignment,
@@ -838,7 +909,7 @@ bool make_input(vk::Backend& state, std::span<const uint8_t> bytes, vk::DeviceBu
     }
     const VkDeviceAddress start = address_of(state.context.device(), out->buffer);
     *address = (start + kAlignment - 1) & ~(kAlignment - 1);
-    const std::span<uint8_t> into(static_cast<uint8_t*>(out->mapped), static_cast<std::size_t>(out->bytes));
+    const std::span<std::byte> into(static_cast<std::byte*>(out->mapped), static_cast<std::size_t>(out->bytes));
     std::ranges::copy(bytes, into.subspan(static_cast<std::size_t>(*address - start)).begin());
     state.memory.flush(*out, 0, out->bytes);
     return true;
@@ -917,8 +988,7 @@ bool make_traced(vk::Backend& state, Traced* traced)
     const std::vector<std::array<float, 3>> vertices = box_triangles();
     vk::DeviceBuffer& input = traced->inputs.emplace_back();
     VkDeviceAddress vertex_address = 0;
-    if (!make_input(state, {reinterpret_cast<const uint8_t*>(vertices.data()), vertices.size() * sizeof(vertices.front())},
-                    &input, &vertex_address)) {
+    if (!make_input(state, std::as_bytes(std::span(vertices)), &input, &vertex_address)) {
         return false;
     }
     VkAccelerationStructureGeometryKHR geometry{};
@@ -946,7 +1016,7 @@ bool make_traced(vk::Backend& state, Traced* traced)
     instance.accelerationStructureReference = bottom.address;
     vk::DeviceBuffer& list = traced->inputs.emplace_back();
     VkDeviceAddress list_address = 0;
-    if (!make_input(state, {reinterpret_cast<const uint8_t*>(&instance), sizeof(instance)}, &list, &list_address)) {
+    if (!make_input(state, std::as_bytes(std::span(&instance, 1)), &list, &list_address)) {
         return false;
     }
     VkAccelerationStructureGeometryKHR top{};
@@ -984,19 +1054,21 @@ void release_traced(vk::Backend& state, Traced* traced)
 // Whether a ray from `origin` toward `to` meets the box (slabs).
 bool hits_box(const Vec3& origin, const Vec3& to)
 {
+    constexpr float kFarAway = 1.0e9F;
+    constexpr float kParallel = 1.0e-9F;
     float enter = 0.0F;
-    float leave = 1.0e9F;
+    float leave = kFarAway;
     for (std::size_t axis = 0; axis < 3; ++axis) {
-        const float o = core::at(origin, axis);
-        const float d = core::at(to, axis);
-        if (std::abs(d) < 1e-9F) {
-            if (o < core::at(kBoxLow, axis) || o > core::at(kBoxHigh, axis)) {
+        const float start = core::at(origin, axis);
+        const float step = core::at(to, axis);
+        if (std::abs(step) < kParallel) {
+            if (start < core::at(kBoxLow, axis) || start > core::at(kBoxHigh, axis)) {
                 return false;
             }
             continue;
         }
-        float t0 = (core::at(kBoxLow, axis) - o) / d;
-        float t1 = (core::at(kBoxHigh, axis) - o) / d;
+        float t0 = (core::at(kBoxLow, axis) - start) / step;
+        float t1 = (core::at(kBoxHigh, axis) - start) / step;
         if (t0 > t1) {
             std::swap(t0, t1);
         }
@@ -1011,11 +1083,10 @@ bool hits_box(const Vec3& origin, const Vec3& to)
 bool ground_at(uint32_t px, uint32_t py, bool* lit)
 {
     const Vec3 ray = pixel_ray(px, py);
-    if (core::at(ray, 1) >= -1e-4F) {
+    if (core::at(ray, 1) >= -kLeastLuma) { // (level or upward: not toward the ground)
         return false;
     }
-    const float t = kGroundY / core::at(ray, 1);
-    const Vec3 point = scale(ray, t);
+    const Vec3 point = scale(ray, kGroundY / core::at(ray, 1));
     if (core::at(point, 0) < core::at(kGroundX, 0) || core::at(point, 0) > core::at(kGroundX, 1) ||
         core::at(point, 2) < core::at(kGroundZ, 0) || core::at(point, 2) > core::at(kGroundZ, 1)) {
         return false;
@@ -1025,6 +1096,67 @@ bool ground_at(uint32_t px, uint32_t py, bool* lit)
     const Vec3 origin = add(add(point, {0.0F, kOffset, 0.0F}), scale(kSunToward, kAlong));
     *lit = !hits_box(origin, kSunToward);
     return true;
+}
+
+// Whether a ground pixel lies within two pixels of the shadow's other side (the band's anti-aliasing reads the 2 x 2
+// block's derivatives, and a ray grazing the occluder's edge may land a pixel either way), or of the ground's edge.
+bool near_shadow_edge(uint32_t px, uint32_t py, bool lit)
+{
+    constexpr int kEdgeReach = 2;
+    for (int dy = -kEdgeReach; dy <= kEdgeReach; ++dy) {
+        for (int dx = -kEdgeReach; dx <= kEdgeReach; ++dx) {
+            bool other = lit;
+            const int column = static_cast<int>(px) + dx;
+            const int row = static_cast<int>(py) + dy;
+            if (column < 0 || row < 0 || !ground_at(static_cast<uint32_t>(column), static_cast<uint32_t>(row), &other) ||
+                other != lit) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool same_colour(const Vec3& got, const std::array<float, 3>& want)
+{
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        if (std::abs(core::at(got, channel) - clamp01(core::at(want, channel))) > kTolerance) {
+            return false;
+        }
+    }
+    return true;
+}
+
+struct ShadowTally {
+    std::size_t judged = 0;
+    std::size_t right = 0;
+    std::size_t in_shadow = 0;
+    std::size_t between = 0;
+    std::size_t edge = 0;
+};
+
+ShadowTally count_shadow_pixels(const Picture& picture, const std::array<float, 3>& lit_colour,
+                                const std::array<float, 3>& shadow_colour)
+{
+    ShadowTally out;
+    for (uint32_t py = 1; picture.read && py + 1 < kSize; ++py) {
+        for (uint32_t px = 1; px + 1 < kSize; ++px) {
+            bool lit = false;
+            if (!ground_at(px, py, &lit)) {
+                continue;
+            }
+            if (near_shadow_edge(px, py, lit)) {
+                ++out.edge;
+                continue;
+            }
+            const Vec3& got = picture.at(px, py);
+            ++out.judged;
+            out.in_shadow += lit ? 0U : 1U;
+            out.right += same_colour(got, lit ? lit_colour : shadow_colour) ? 1U : 0U;
+            out.between += !same_colour(got, lit_colour) && !same_colour(got, shadow_colour) ? 1U : 0U;
+        }
+    }
+    return out;
 }
 
 void check_shadows(render::Gpu& gpu, const Scene& scene, Tally* tally)
@@ -1049,7 +1181,6 @@ void check_shadows(render::Gpu& gpu, const Scene& scene, Tally* tally)
     vk::set_cel_settings(settings);
     rt::set_cel_world({.relit = true, .sun = kSun, .toward = kSunToward});
     // the ground: N.L 1 everywhere, its vertices' own share of the sun 0 - only the traced visibility lights it
-    Corners corners;
     const std::array<Vec3, 4> at{{{core::at(kGroundX, 0), kGroundY, core::at(kGroundZ, 1)},
                                   {core::at(kGroundX, 1), kGroundY, core::at(kGroundZ, 1)},
                                   {core::at(kGroundX, 1), kGroundY, core::at(kGroundZ, 0)},
@@ -1057,7 +1188,7 @@ void check_shadows(render::Gpu& gpu, const Scene& scene, Tally* tally)
     std::vector<Vertex> vertices;
     std::vector<rt::CelWords> stream;
     for (const std::size_t corner : kQuadOrder) {
-        vertices.push_back({.position = core::at(at, corner), .normal = {0.0F, 1.0F, 0.0F}, .colour = 0x80808080U, .uv = {}});
+        vertices.push_back({.position = core::at(at, corner), .normal = {0.0F, 1.0F, 0.0F}, .colour = kGreyVertex, .uv = {}});
         stream.push_back({word_of(scale(kAmbient, kMid), 1.0F), word_of({kMid, kMid, kMid}, 0.0F), word_of({}, 1.0F)});
     }
     begin(gpu, scene);
@@ -1067,63 +1198,19 @@ void check_shadows(render::Gpu& gpu, const Scene& scene, Tally* tally)
     const Picture picture = finish(gpu, scene);
     release(gpu, drawn);
     const bool traced_draw = vk::cel_counts().shadowed > shadowed_before;
-    const Vec3 ambient{as_byte(0.15F) * kTwo, as_byte(0.15F) * kTwo, as_byte(0.15F) * kTwo};
+    const float ambient_light = as_byte(kMid * kQuadAmbient) * kTwo;
+    const Vec3 ambient{ambient_light, ambient_light, ambient_light};
     const float tint = as_byte(kMid) * kTwo;
     const rt::CelStreamPixel pixel{.ambient = ambient, .n_dot_l = 1.0F, .tint = {tint, tint, tint}, .share = 0.0F, .residual = {}};
-    const std::array<float, 3> lit_colour = rt::cel_world_light(settings, kSun, pixel, 1.0F, 0.0F);
-    const std::array<float, 3> shadow_colour = rt::cel_world_light(settings, kSun, pixel, 0.0F, 0.0F);
-    std::size_t judged = 0;
-    std::size_t right = 0;
-    std::size_t in_shadow = 0;
-    std::size_t between = 0;
-    std::size_t edge_pixels = 0;
-    for (uint32_t py = 1; picture.read && py + 1 < kSize; ++py) {
-        for (uint32_t px = 1; px + 1 < kSize; ++px) {
-            bool lit = false;
-            if (!ground_at(px, py, &lit)) {
-                continue;
-            }
-            // (the edge: within two pixels of the other side - the band's anti-aliasing reads the 2 x 2 block's
-            // derivatives, and a ray grazing the occluder's edge may land a pixel either way)
-            bool edge = false;
-            constexpr int kEdgeReach = 2;
-            for (int dy = -kEdgeReach; dy <= kEdgeReach && !edge; ++dy) {
-                for (int dx = -kEdgeReach; dx <= kEdgeReach; ++dx) {
-                    bool other = lit;
-                    const int x = static_cast<int>(px) + dx;
-                    const int y = static_cast<int>(py) + dy;
-                    if (x < 0 || y < 0 || !ground_at(static_cast<uint32_t>(x), static_cast<uint32_t>(y), &other) || other != lit) {
-                        edge = true;
-                    }
-                }
-            }
-            const Vec3& got = picture.at(px, py);
-            const auto matches = [&got](const std::array<float, 3>& want) {
-                for (std::size_t channel = 0; channel < 3; ++channel) {
-                    if (std::abs(core::at(got, channel) - clamp01(core::at(want, channel))) > kTolerance) {
-                        return false;
-                    }
-                }
-                return true;
-            };
-            if (edge) {
-                ++edge_pixels;
-                continue;
-            }
-            if (!matches(lit ? lit_colour : shadow_colour) && judged - right < 3) {
-                text::print("    (at %u, %u: %.4f %.4f %.4f, expected %s %.4f %.4f %.4f)\n", px, py, static_cast<double>(core::at(got, 0)),
-                            static_cast<double>(core::at(got, 1)), static_cast<double>(core::at(got, 2)), lit ? "lit" : "shadow",
-                            static_cast<double>(core::at(lit ? lit_colour : shadow_colour, 0)),
-                            static_cast<double>(core::at(lit ? lit_colour : shadow_colour, 1)),
-                            static_cast<double>(core::at(lit ? lit_colour : shadow_colour, 2)));
-            }
-            ++judged;
-            in_shadow += lit ? 0U : 1U;
-            right += matches(lit ? lit_colour : shadow_colour) ? 1U : 0U;
-            between += !matches(lit_colour) && !matches(shadow_colour) ? 1U : 0U;
-        }
-    }
-    tally->check(traced_draw && judged > kLeastJudged && in_shadow > 500 && right == judged && between == 0 && picture.finite,
+    const std::array<float, 3> lit_colour = rt::cel_world_light(settings, kSun, pixel, 1.0F, {});
+    const std::array<float, 3> shadow_colour = rt::cel_world_light(settings, kSun, pixel, 0.0F, {});
+    const ShadowTally counted = count_shadow_pixels(picture, lit_colour, shadow_colour);
+    const std::size_t judged = counted.judged;
+    const std::size_t right = counted.right;
+    const std::size_t in_shadow = counted.in_shadow;
+    const std::size_t between = counted.between;
+    const std::size_t edge_pixels = counted.edge;
+    tally->check(traced_draw && judged > kLeastJudged && in_shadow > kLeastShadowed && right == judged && between == 0 && picture.finite,
                  text::format("hard shadows: %zu ground pixels (%zu in the occluder's shadow) lit or in the shadow band as the "
                               "processor's ray says (%zu right), none between; %zu edge pixels left out",
                               judged, in_shadow, right, edge_pixels));
@@ -1136,19 +1223,31 @@ void check_shadows(render::Gpu& gpu, const Scene& scene, Tally* tally)
 
 // --- outlines ------------------------------------------------------------------------------------------------------------
 
-// A cube of side 2s at depth z, turned about y: 36 vertices, each's normal pointing out from the centre (the hull's).
-std::vector<Vertex> cube_vertices(float side, float z, float yaw)
+// A cube's placing: its half side, its centre's depth, its turn about y.
+struct CubePlace {
+    float side = 1.0F;
+    float depth = 6.0F;
+    float yaw = 0.5F;
+};
+constexpr Vec3 kCubeColour{0.9F, 0.5F, 0.3F};
+
+// A cube: 36 vertices, each's normal pointing out from the centre (the hull's).
+std::vector<Vertex> cube_vertices(const CubePlace& place)
 {
+    const float side = place.side;
+    const float z = place.depth;
+    const float yaw = place.yaw;
     const auto corner = [&](int index) {
         Vec3 point{(index & 1) != 0 ? side : -side, (index & 2) != 0 ? side : -side, (index & 4) != 0 ? side : -side};
         const Vec3 normal = normalise(point);
-        const float c = std::cos(yaw);
-        const float s = std::sin(yaw);
-        const auto turn = [c, s](const Vec3& v) {
-            return Vec3{(core::at(v, 0) * c) + (core::at(v, 2) * s), core::at(v, 1), (-core::at(v, 0) * s) + (core::at(v, 2) * c)};
+        const float cosine = std::cos(yaw);
+        const float sine = std::sin(yaw);
+        const auto turn = [cosine, sine](const Vec3& vec) {
+            return Vec3{(core::at(vec, 0) * cosine) + (core::at(vec, 2) * sine), core::at(vec, 1),
+                        (-core::at(vec, 0) * sine) + (core::at(vec, 2) * cosine)};
         };
         point = add(turn(point), {0.0F, 0.0F, z});
-        return Vertex{.position = point, .normal = turn(normal), .colour = word_of({0.9F, 0.5F, 0.3F}, 1.0F), .uv = {}};
+        return Vertex{.position = point, .normal = turn(normal), .colour = word_of(kCubeColour, 1.0F), .uv = {}};
     };
     constexpr std::array<std::array<int, 4>, 6> kFaces{{{0, 1, 3, 2}, {4, 6, 7, 5}, {0, 4, 5, 1}, {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 5, 7, 3}}};
     std::vector<Vertex> out;
@@ -1160,15 +1259,16 @@ std::vector<Vertex> cube_vertices(float side, float z, float yaw)
     // Direct3D's winding: a face's front clockwise as seen from outside (left-handed: (b - a) x (c - a) points out)
     const Vec3 centre{0.0F, 0.0F, z};
     for (std::size_t first = 0; first + 2 < out.size(); first += 3) {
-        const Vec3 a = core::at(out, first).position;
-        const Vec3 b = core::at(out, first + 1).position;
-        const Vec3 c = core::at(out, first + 2).position;
-        const Vec3 ab = sub(b, a);
-        const Vec3 ac = sub(c, a);
+        const Vec3 apex = core::at(out, first).position;
+        const Vec3 second = core::at(out, first + 1).position;
+        const Vec3 third = core::at(out, first + 2).position;
+        const Vec3 ab = sub(second, apex);
+        const Vec3 ac = sub(third, apex);
         const Vec3 normal{(core::at(ab, 1) * core::at(ac, 2)) - (core::at(ab, 2) * core::at(ac, 1)),
                           (core::at(ab, 2) * core::at(ac, 0)) - (core::at(ab, 0) * core::at(ac, 2)),
                           (core::at(ab, 0) * core::at(ac, 1)) - (core::at(ab, 1) * core::at(ac, 0))};
-        const Vec3 middle = scale(add(add(a, b), c), 1.0F / 3.0F);
+        constexpr float kThird = 1.0F / 3.0F;
+        const Vec3 middle = scale(add(add(apex, second), third), kThird);
         if (dot(normal, sub(middle, centre)) < 0.0F) {
             std::swap(core::at(out, first + 1), core::at(out, first + 2));
         }
@@ -1182,8 +1282,8 @@ Picture draw_cube(render::Gpu& gpu, const Scene& scene, float width)
     settings.outline_width = width;
     vk::set_cel_settings(settings);
     rt::set_cel_world({});
-    const Light light{.toward = normalise({0.4F, 0.6F, -0.7F}), .colour = {0.8F, 0.8F, 0.8F}};
-    const std::vector<Vertex> vertices = cube_vertices(1.0F, 6.0F, 0.5F);
+    const Light light{.toward = kObjectLight, .colour = {kHullLight, kHullLight, kHullLight}};
+    const std::vector<Vertex> vertices = cube_vertices({});
     begin(gpu, scene);
     set_state(gpu, scene.shader, scene.white, &light);
     const Drawn drawn = draw_triangles(gpu, vertices, {});
@@ -1200,25 +1300,25 @@ void check_hull(render::Gpu& gpu, const Scene& scene, Tally* tally)
     constexpr float kWide = 4.0F; // (rt::kCelHullPixels x 4 x 256 / 720: about 3.6 pixels)
     const Picture outlined = draw_cube(gpu, scene, kWide);
     const bool drew = vk::cel_counts().hulls > hulls_before;
-    const float background = luma({0.8F, 0.8F, 0.8F});
+    const float background = luma({kBackgroundGrey, kBackgroundGrey, kBackgroundGrey});
     std::size_t ring = 0;
     std::size_t ink = 0;
     std::size_t far_out = 0;
     std::size_t far_kept = 0;
     std::size_t inside = 0;
     std::size_t inside_kept = 0;
-    const auto is_background = [background](const Vec3& colour) { return std::abs(luma(colour) - background) < 0.01F; };
+    const auto is_background = [background](const Vec3& colour) { return std::abs(luma(colour) - background) < kSameGrey; };
     for (uint32_t py = 2; plain.read && outlined.read && py + 2 < kSize; ++py) {
         for (uint32_t px = 2; px + 2 < kSize; ++px) {
             const bool cube = !is_background(plain.at(px, py));
-            // the distance (in pixels, up to 6) to the cube's silhouette, from outside
-            int nearest = 99;
-            for (int dy = -6; dy <= 6 && !cube; ++dy) {
-                for (int dx = -6; dx <= 6; ++dx) {
-                    const int x = static_cast<int>(px) + dx;
-                    const int y = static_cast<int>(py) + dy;
-                    if (x >= 0 && y >= 0 && x < static_cast<int>(kSize) && y < static_cast<int>(kSize) &&
-                        !is_background(plain.at(static_cast<uint32_t>(x), static_cast<uint32_t>(y)))) {
+            // the distance (in pixels, up to kFarRing) to the cube's silhouette, from outside
+            int nearest = kFarRing + 1;
+            for (int dy = -kFarRing; dy <= kFarRing && !cube; ++dy) {
+                for (int dx = -kFarRing; dx <= kFarRing; ++dx) {
+                    const int column = static_cast<int>(px) + dx;
+                    const int row = static_cast<int>(py) + dy;
+                    if (column >= 0 && row >= 0 && std::cmp_less(column, kSize) && std::cmp_less(row, kSize) &&
+                        !is_background(plain.at(static_cast<uint32_t>(column), static_cast<uint32_t>(row)))) {
                         nearest = std::min(nearest, std::max(std::abs(dx), std::abs(dy)));
                     }
                 }
@@ -1226,16 +1326,17 @@ void check_hull(render::Gpu& gpu, const Scene& scene, Tally* tally)
             if (cube) {
                 ++inside;
                 inside_kept += std::abs(luma(plain.at(px, py)) - luma(outlined.at(px, py))) <= kTolerance ? 1U : 0U;
-            } else if (nearest <= 2) {
+            } else if (nearest <= kNearRing) {
                 ++ring;
-                ink += luma(outlined.at(px, py)) < 0.4F * background ? 1U : 0U;
-            } else if (nearest > 6) {
+                ink += luma(outlined.at(px, py)) < kInkShare * background ? 1U : 0U;
+            } else if (nearest > kFarRing) {
                 ++far_out;
                 far_kept += is_background(outlined.at(px, py)) ? 1U : 0U;
             }
         }
     }
-    tally->check(drew && ring > 100 && ink * 100 >= ring * 95 && far_kept == far_out && inside_kept * 1000 >= inside * 995 &&
+    tally->check(drew && ring > kLeastRing && ink * kPercent >= ring * kInkPercent && far_kept == far_out &&
+                     inside_kept * kPerMille >= inside * kWithinPerMille &&
                      outlined.finite,
                  text::format("a lit cube's hull: %zu of %zu pixels within two of its silhouette ink, %zu of %zu further out "
                               "untouched, %zu of %zu of its own pixels unchanged",
@@ -1259,6 +1360,14 @@ constexpr float kBoxLeft = 80.0F;
 constexpr float kBoxRight = 176.0F;
 constexpr float kBoxTop = 70.0F;
 constexpr float kBoxBottom = 180.0F;
+constexpr float kWallTop = 40.0F;
+constexpr float kWallDistance = 400.0F;
+constexpr float kNearBoxDistance = 60.0F;
+constexpr uint32_t kWallColour = 0xFF6080A0U;
+constexpr uint32_t kNearBoxColour = 0xFFC08040U;
+constexpr float kInkDarker = 0.6F;  // (an inked pixel: darker than this share of its own colour)
+constexpr float kAway = 3.0F;      // (pixels this far from the box's edge or more: no line)
+constexpr float kCornerSkip = 2.0F; // (the edge's pixels this near a corner left out)
 
 Picture draw_lines_scene(render::Gpu& gpu, const Scene& scene, bool listener)
 {
@@ -1280,14 +1389,16 @@ Picture draw_lines_scene(render::Gpu& gpu, const Scene& scene, bool listener)
     gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgDiffuse);
     std::vector<ScreenVertex> quads;
     const auto add_quad = [&quads](float x0, float x1, float y0, float y1, float z, uint32_t colour) {
-        const std::array<ScreenVertex, 4> corners{{{x0, y0, z, 1.0F, colour}, {x1, y0, z, 1.0F, colour}, {x1, y1, z, 1.0F, colour},
-                                                   {x0, y1, z, 1.0F, colour}}};
+        const std::array<ScreenVertex, 4> corners{{{.x = x0, .y = y0, .z = z, .rhw = 1.0F, .colour = colour},
+                                                   {.x = x1, .y = y0, .z = z, .rhw = 1.0F, .colour = colour},
+                                                   {.x = x1, .y = y1, .z = z, .rhw = 1.0F, .colour = colour},
+                                                   {.x = x0, .y = y1, .z = z, .rhw = 1.0F, .colour = colour}}};
         for (const std::size_t corner : kQuadOrder) {
             quads.push_back(core::at(corners, corner));
         }
     };
-    add_quad(0.0F, static_cast<float>(kSize), 40.0F, static_cast<float>(kSize), depth_of(400.0F), 0xFF6080A0U);
-    add_quad(kBoxLeft, kBoxRight, kBoxTop, kBoxBottom, depth_of(60.0F), 0xFFC08040U);
+    add_quad(0.0F, static_cast<float>(kSize), kWallTop, static_cast<float>(kSize), depth_of(kWallDistance), kWallColour);
+    add_quad(kBoxLeft, kBoxRight, kBoxTop, kBoxBottom, depth_of(kNearBoxDistance), kNearBoxColour);
     gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quads.size() / 3), quads.data(),
                          sizeof(ScreenVertex));
     if (listener) {
@@ -1324,19 +1435,20 @@ void check_world_lines(render::Gpu& gpu, const Scene& scene, Tally* tally)
             const auto y = static_cast<float>(py);
             const bool on_box = x >= kBoxLeft && x < kBoxRight && y >= kBoxTop && y < kBoxBottom;
             const float from_edge = std::min({x - kBoxLeft, kBoxRight - 1.0F - x, y - kBoxTop, kBoxBottom - 1.0F - y});
-            const bool darker = luma(lined.at(px, py)) < 0.6F * luma(plain.at(px, py));
-            if (on_box && from_edge >= 0.0F && from_edge < 1.0F && x > kBoxLeft + 2.0F && x < kBoxRight - 3.0F) {
+            const bool darker = luma(lined.at(px, py)) < kInkDarker * luma(plain.at(px, py));
+            if (on_box && from_edge >= 0.0F && from_edge < 1.0F && x > kBoxLeft + kCornerSkip && x < kBoxRight - kAway) {
                 ++edge;
                 inked += darker ? 1U : 0U;
-            } else if ((on_box && from_edge > 3.0F) || (!on_box && (x < kBoxLeft - 3.0F || x > kBoxRight + 2.0F ||
-                                                                       y < kBoxTop - 3.0F || y > kBoxBottom + 2.0F) &&
-                                                         y > 44.0F)) {
+            } else if ((on_box && from_edge > kAway) ||
+                       (!on_box && (x < kBoxLeft - kAway || x > kBoxRight + kCornerSkip || y < kBoxTop - kAway ||
+                                    y > kBoxBottom + kCornerSkip) &&
+                        y > kWallTop + kAway + 1.0F)) {
                 ++elsewhere;
                 kept += std::abs(luma(lined.at(px, py)) - luma(plain.at(px, py))) <= kTolerance ? 1U : 0U;
             }
         }
     }
-    tally->check(ran && edge > 100 && inked * 100 >= edge * 95 && kept == elsewhere && lined.finite,
+    tally->check(ran && edge > kLeastRing && inked * kPercent >= edge * kInkPercent && kept == elsewhere && lined.finite,
                  text::format("the world's lines: %zu of %zu pixels along the box's edge (on the box) inked, %zu of %zu inside "
                               "it, on the wall or the sky unchanged",
                               inked, edge, kept, elsewhere));
@@ -1370,8 +1482,8 @@ float spread_of(const Picture& picture)
     double sum = 0.0;
     double squares = 0.0;
     std::size_t count = 0;
-    for (uint32_t py = 40; py < kSize - 40; ++py) {
-        for (uint32_t px = 40; px < kSize - 40; ++px) {
+    for (uint32_t py = kInner; py < kSize - kInner; ++py) {
+        for (uint32_t px = kInner; px < kSize - kInner; ++px) {
             const double value = luma(picture.at(px, py));
             sum += value;
             squares += value * value;
@@ -1386,14 +1498,14 @@ GpuTexture* checker_texture(render::Gpu& gpu)
 {
     constexpr uint32_t kSide = 32;
     constexpr uint32_t kLevels = 6;
-    return make_texture(gpu, kSide, kLevels, [](uint32_t column, uint32_t row, uint32_t level) {
+    return make_texture(gpu, kSide, kLevels, [](const TexelAt& at) {
         constexpr uint32_t kSquare = 4;
-        if (level >= 2) {
-            return 0x80808080U; // (a box filter of 4 x 4 squares: their mean)
+        if (at.level >= 2) {
+            return kCheckerMean; // (a box filter of 4 x 4 squares: their mean)
         }
-        const uint32_t square = kSquare >> level;
-        const bool light = (((column / square) + (row / square)) % 2) == 0;
-        return light ? 0x80CCCCCCU : 0x80333333U;
+        const uint32_t square = kSquare >> at.level;
+        const bool light = (((at.column / square) + (at.row / square)) % 2) == 0;
+        return light ? kCheckerLight : kCheckerDark;
     });
 }
 
@@ -1402,11 +1514,11 @@ void check_flatten_and_off(render::Gpu& gpu, const Scene& scene, const Picture& 
     GpuTexture* checker = checker_texture(gpu);
     rt::CelSettings flat = settings_with(4);
     rt::CelSettings sharp = flat;
-    flat.flatten = 0.8F;
+    flat.flatten = kFlatten;
     sharp.flatten = 0.0F;
     const float sharp_spread = spread_of(draw_textured(gpu, scene, checker, sharp));
     const float flat_spread = spread_of(draw_textured(gpu, scene, checker, flat));
-    tally->check(flat_spread < 0.7F * sharp_spread,
+    tally->check(flat_spread < kFlatterSpread * sharp_spread,
                  text::format("rt_cel_flatten 0.8: a checkerboard's spread %.4f against %.4f without", static_cast<double>(flat_spread),
                               static_cast<double>(sharp_spread)));
     // the mode off: the same bytes as before it was ever on
@@ -1414,7 +1526,7 @@ void check_flatten_and_off(render::Gpu& gpu, const Scene& scene, const Picture& 
     off.on = false;
     const Picture after = draw_textured(gpu, scene, checker, off);
     gpu.release_texture(checker);
-    bool same = before_any.read && after.read && before_any.pixels.size() == after.pixels.size();
+    const bool same = before_any.read && after.read && before_any.pixels.size() == after.pixels.size();
     std::size_t differ = 0;
     for (std::size_t pixel = 0; same && pixel < after.pixels.size(); ++pixel) {
         differ += core::at(after.pixels, pixel) != core::at(before_any.pixels, pixel) ? 1U : 0U;
@@ -1423,8 +1535,8 @@ void check_flatten_and_off(render::Gpu& gpu, const Scene& scene, const Picture& 
     // and the original's formula: 2 x v0 x the texel
     std::size_t judged = 0;
     std::size_t right = 0;
-    for (uint32_t py = 40; after.read && py < kSize - 40; ++py) {
-        for (uint32_t px = 40; px < kSize - 40; ++px) {
+    for (uint32_t py = kInner; after.read && py < kSize - kInner; ++py) {
+        for (uint32_t px = kInner; px < kSize - kInner; ++px) {
             const float got = core::at(after.at(px, py), 0);
             const bool light = std::abs(got - (2.0F * as_byte(kMid) * (static_cast<float>(0xCC) / kByteMax))) <= kTolerance;
             const bool dark = std::abs(got - (2.0F * as_byte(kMid) * (static_cast<float>(0x33) / kByteMax))) <= kTolerance;
@@ -1493,8 +1605,8 @@ void measure_cost(render::Gpu& gpu, render::GpuPixelShader* shader, GpuTexture* 
         rt::CelSettings settings = settings_with(3);
         settings.on = mode.cel;
         settings.outline_width = mode.lines ? 1.0F : 0.0F;
-        settings.rim = 0.5F;
-        settings.flatten = 0.5F;
+        settings.rim = rt::kCelRim;
+        settings.flatten = rt::kCelFlatten;
         vk::set_cel_settings(settings);
         rt::set_cel_world({.relit = true, .sun = kSun, .toward = kSunToward});
         {
@@ -1504,17 +1616,17 @@ void measure_cost(render::Gpu& gpu, render::GpuPixelShader* shader, GpuTexture* 
         Corners corners;
         std::vector<rt::CelWords> stream;
         for (std::size_t corner = 0; corner < 4; ++corner) {
-            corners.colour.at(corner) = 0x80808080U;
-            corners.normal.at(corner) = normalise({0.0F, 0.3F, -1.0F});
+            corners.colour.at(corner) = kGreyVertex;
+            corners.normal.at(corner) = kTiltedNormal;
             corners.stream.at(corner) = {word_of(scale(kAmbient, kMid), 1.0F), word_of({kMid, kMid, kMid}, 0.0F), word_of({}, 1.0F)};
         }
         const std::vector<Vertex> vertices =
             quad_vertices(-400.0F, 400.0F, -400.0F, 400.0F, 120.0F, corners, mode.lit ? nullptr : &stream);
-        const Light light{.toward = normalise({0.4F, 0.6F, -0.7F}), .colour = {0.8F, 0.8F, 0.8F}};
+        const Light light{.toward = kObjectLight, .colour = {0.8F, 0.8F, 0.8F}};
         Drawn drawn;
-        drawn.vertices = buffer_of(gpu, {reinterpret_cast<const uint8_t*>(vertices.data()), vertices.size() * sizeof(Vertex)});
+        drawn.vertices = buffer_of(gpu, std::as_bytes(std::span(vertices)));
         if (!mode.lit) {
-            drawn.stream = buffer_of(gpu, {reinterpret_cast<const uint8_t*>(stream.data()), stream.size() * sizeof(rt::CelWords)});
+            drawn.stream = buffer_of(gpu, std::as_bytes(std::span(stream)));
         }
         rt::ViewDrawn view;
         view.rect = {0, 0, kWide, kTall};

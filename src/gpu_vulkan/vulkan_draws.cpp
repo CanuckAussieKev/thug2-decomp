@@ -498,6 +498,93 @@ bool set_surface_uniforms(Backend& state, const GpuStateBlock& block, const Surf
     return true;
 }
 
+PipelineKey pipeline_key(const Backend& state, const GpuStateBlock& block, const ShaderKey& shaders, GpuPrimitive primitive);
+
+// (added by cel shading, vulkan_cel_draw.h) A cel draw's block (and the scene for its ray queries) into the ring.
+bool set_cel_descriptors(Backend& state, const GpuStateBlock& block, uint8_t surface, SurfaceDescriptors* descriptors)
+{
+    if ((surface & kSurfaceCel) == 0U) {
+        return true;
+    }
+    CelUniforms cel_uniforms{};
+    fill_cel_uniforms(state, block, &cel_uniforms);
+    const void* const data = &cel_uniforms;
+    const std::optional<RingSpan> span =
+        state.ring.copy(std::span<const uint8_t>(static_cast<const uint8_t*>(data), sizeof(cel_uniforms)), state.uniform_alignment);
+    if (!span) {
+        return false;
+    }
+    descriptors->cel = true;
+    descriptors->cel_block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(cel_uniforms)};
+    if ((surface & kSurfaceCelShadow) != 0U) {
+        descriptors->scene = cel_scene();
+    }
+    return true;
+}
+
+// (added by cel shading) The relit world's stream at binding 2, vertex for vertex from its start.
+void bind_cel_stream(Backend& state, VkCommandBuffer commands, uint8_t vertex_surface, Buffer* stream)
+{
+    if ((vertex_surface & kVertexCelStream) == 0U || stream == nullptr) {
+        return;
+    }
+    const VkBuffer stream_buffer = cel_stream_buffer(state, stream);
+    const VkDeviceSize stream_offset = 0;
+    const VkDeviceSize stream_stride = rt::kCelStreamBytes;
+    vkCmdBindVertexBuffers2(commands, kCelStreamBinding, 1, &stream_buffer, &stream_offset, nullptr, &stream_stride);
+}
+
+// The draw itself (its indices bound when they changed).
+void issue_draw(Backend& state, VkCommandBuffer commands, const DrawCall& call)
+{
+    BoundState& bound = state.bound;
+    if (call.indexed) {
+        if (call.index_buffer != bound.index_buffer || call.index_offset != bound.index_offset ||
+            call.index_type != bound.index_type) {
+            vkCmdBindIndexBuffer(commands, call.index_buffer, call.index_offset, call.index_type);
+            bound.index_buffer = call.index_buffer;
+            bound.index_offset = call.index_offset;
+            bound.index_type = call.index_type;
+        }
+        vkCmdDrawIndexed(commands, call.vertices, 1, call.first_index, call.base_vertex, 0);
+    } else {
+        vkCmdDraw(commands, call.vertices, 1, call.first_vertex, 0);
+    }
+}
+
+// (added by cel shading) A lit object's outline: the same vertices again as an inverted hull - pushed out along their
+// normals, the faces turned toward the camera culled, its colour the ink (the draw's descriptors as pushed). False:
+// no hull (its pipeline couldn't be made).
+struct HullDraw {
+    const GpuStateBlock* block = nullptr;
+    const ShaderKey* shaders = nullptr;
+    const DrawCall* call = nullptr;
+    bool wanted = false;
+};
+bool draw_cel_hull(Backend& state, VkCommandBuffer commands, const HullDraw& draw)
+{
+    if (!draw.wanted || (draw.shaders->fragment.surface & kSurfaceLit) == 0U) {
+        return false;
+    }
+    ShaderKey hull = *draw.shaders;
+    hull.fragment.surface = static_cast<uint8_t>(kSurfaceLighting | kSurfaceCel | kSurfaceLit | kSurfaceCelHull);
+    hull = normalised(hull);
+    if ((hull.fragment.surface & kSurfaceCelHull) == 0U) {
+        return false;
+    }
+    std::string error;
+    const VkPipeline pipeline = state.pipelines.pipeline(pipeline_key(state, *draw.block, hull, draw.call->primitive), &error);
+    if (pipeline == VK_NULL_HANDLE) {
+        return false;
+    }
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    state.bound.pipeline = pipeline;
+    vkCmdSetCullMode(commands, VK_CULL_MODE_FRONT_BIT);
+    state.bound.cull = VK_CULL_MODE_FRONT_BIT;
+    issue_draw(state, commands, *draw.call);
+    return true;
+}
+
 // A texture's image made ready to be sampled; null (the blank texture) when there is none, it was released while still
 // set, or the open pass draws into it.
 Image* image_to_sample(Backend& state, Texture* texture)
@@ -1062,20 +1149,8 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
             surface_descriptors.has_map = true;
             surface_descriptors.map = {.sampler = core::at(descriptors, 0).sampler, .imageView = shown.view, .imageLayout = shown.layout};
         }
-        if ((shaders.fragment.surface & kSurfaceCel) != 0U) { // (added by cel shading)
-            CelUniforms cel_uniforms{};
-            fill_cel_uniforms(state, block, &cel_uniforms);
-            const void* const data = &cel_uniforms;
-            const std::optional<RingSpan> span = state.ring.copy(
-                std::span<const uint8_t>(static_cast<const uint8_t*>(data), sizeof(cel_uniforms)), state.uniform_alignment);
-            if (!span) {
-                return gpu_value::kResultInvalidCall;
-            }
-            surface_descriptors.cel = true;
-            surface_descriptors.cel_block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(cel_uniforms)};
-            if ((shaders.fragment.surface & kSurfaceCelShadow) != 0U) {
-                surface_descriptors.scene = cel_scene();
-            }
+        if (!set_cel_descriptors(state, block, shaders.fragment.surface, &surface_descriptors)) { // (added by cel shading)
+            return gpu_value::kResultInvalidCall;
         }
     }
     BoundState& bound = state.bound;
@@ -1104,47 +1179,11 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
             bound.previous_stride = stride;
         }
     }
-    if ((shaders.vertex.surface & kVertexCelStream) != 0U && cel.stream != nullptr) {
-        // (added by cel shading: the relit world's stream at binding 2, vertex for vertex from its start)
-        const VkBuffer stream_buffer = cel_stream_buffer(state, cel.stream);
-        const VkDeviceSize stream_offset = 0;
-        const VkDeviceSize stream_stride = rt::kCelStreamBytes;
-        vkCmdBindVertexBuffers2(commands, kCelStreamBinding, 1, &stream_buffer, &stream_offset, nullptr, &stream_stride);
-    }
-    const auto issue = [&]() {
-        if (call.indexed) {
-            if (call.index_buffer != bound.index_buffer || call.index_offset != bound.index_offset ||
-                call.index_type != bound.index_type) {
-                vkCmdBindIndexBuffer(commands, call.index_buffer, call.index_offset, call.index_type);
-                bound.index_buffer = call.index_buffer;
-                bound.index_offset = call.index_offset;
-                bound.index_type = call.index_type;
-            }
-            vkCmdDrawIndexed(commands, call.vertices, 1, call.first_index, call.base_vertex, 0);
-        } else {
-            vkCmdDraw(commands, call.vertices, 1, call.first_vertex, 0);
-        }
-    };
-    issue();
-    // (added by cel shading) a lit object's outline: the same vertices again as an inverted hull - pushed out along
-    // their normals, the faces turned toward the camera culled, its colour the ink
-    bool hull_drawn = false;
-    if (cel.hull && (shaders.fragment.surface & kSurfaceLit) != 0U) {
-        ShaderKey hull = shaders;
-        hull.fragment.surface = static_cast<uint8_t>(kSurfaceLighting | kSurfaceCel | kSurfaceLit | kSurfaceCelHull);
-        hull = normalised(hull);
-        const VkPipeline hull_pipeline = (hull.fragment.surface & kSurfaceCelHull) != 0U
-                                             ? state.pipelines.pipeline(pipeline_key(state, block, hull, call.primitive), &error)
-                                             : VK_NULL_HANDLE;
-        if (hull_pipeline != VK_NULL_HANDLE) {
-            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, hull_pipeline);
-            bound.pipeline = hull_pipeline;
-            vkCmdSetCullMode(commands, VK_CULL_MODE_FRONT_BIT);
-            bound.cull = VK_CULL_MODE_FRONT_BIT;
-            issue();
-            hull_drawn = true;
-        }
-    }
+    bind_cel_stream(state, commands, shaders.vertex.surface, cel.stream); // (added by cel shading)
+    issue_draw(state, commands, call);
+    // (added by cel shading) a lit object's outline
+    const bool hull_drawn =
+        draw_cel_hull(state, commands, {.block = &block, .shaders = &shaders, .call = &call, .wanted = cel.hull});
     count_cel_draw(shaders.fragment.surface, hull_drawn);
     const uint64_t serial = state.frames.serial();
     for (Image* image : images) {

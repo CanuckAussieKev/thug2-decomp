@@ -21,6 +21,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_cel_draw.h"
+#include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_motion.h"
 #include "gpu_vulkan/vulkan_objects.h"
@@ -428,9 +429,15 @@ VkPipeline outline_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBi
     raster.cullMode = VK_CULL_MODE_NONE;
     raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     raster.lineWidth = 1.0F;
-    VkPipelineMultisampleStateCreateInfo multisample{};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = samples;
+    const VkPipelineMultisampleStateCreateInfo multisample{.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                                                           .pNext = nullptr,
+                                                           .flags = 0,
+                                                           .rasterizationSamples = samples,
+                                                           .sampleShadingEnable = VK_FALSE,
+                                                           .minSampleShading = 0.0F,
+                                                           .pSampleMask = nullptr,
+                                                           .alphaToCoverageEnable = VK_FALSE,
+                                                           .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     VkPipelineColorBlendAttachmentState blend{};
@@ -818,7 +825,7 @@ bool record_cel_outline_pass(Backend& state, const rt::ViewDrawn& view)
     constexpr std::size_t kRowZ = 2;
     constexpr std::size_t kRowW = 3;
     const auto& projection = view.camera.projection;
-    const float depth_height = static_cast<float>(core::at(depth_rect, 3));
+    const auto depth_height = static_cast<float>(core::at(depth_rect, 3));
     const float spacing =
         std::max(1.0F, std::round(settings.outline_width * rt::kCelWorldLinePixels * depth_height / kBaseHeight));
     const float span = core::at(view.depth_range, 1) - core::at(view.depth_range, 0);

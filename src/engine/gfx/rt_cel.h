@@ -48,14 +48,19 @@ inline constexpr float kCelInkChroma = 1.25F;      // ... and this saturated
 inline constexpr float kCelFlattenBias = 2.5F;     // rt_cel_flatten 1: the colour mixed fully toward this many mips up
 inline constexpr float kCelHullPixels = 2.5F;      // an object's outline (rt_cel_outline_width 1) at 720 lines
 inline constexpr float kCelWorldLinePixels = 1.0F; // the world's lines
+inline constexpr std::array<float, 3> kCelShadowColour{0.62F, 0.66F, 0.86F}; // (the default: a cool blue, not grey)
+inline constexpr float kCelRim = 0.5F;
+inline constexpr float kCelFlatten = 0.5F;
+inline constexpr float kCelMostRim = 2.0F;
+inline constexpr float kCelMostOutlineWidth = 4.0F;
 
 struct CelSettings {
     bool on = false;
     uint32_t bands = 3; // 2 - 4: the steps of the sun's light (the shadow band among them)
-    std::array<float, 3> shadow_colour{0.62F, 0.66F, 0.86F}; // the shadow band's tint (a cool blue, not grey)
-    float rim = 0.5F;           // the rim light's strength (0: none)
+    std::array<float, 3> shadow_colour = kCelShadowColour; // the shadow band's tint
+    float rim = kCelRim;        // the rim light's strength (0: none)
     float outline_width = 1.0F; // the outlines' width (0: none; 1: the default thickness)
-    float flatten = 0.5F;       // how far the textures' colour goes toward a blurrier mip (0 - 1)
+    float flatten = kCelFlatten; // how far the textures' colour goes toward a blurrier mip (0 - 1)
 };
 void set_cel_settings(const CelSettings& settings);
 [[nodiscard]] CelSettings cel_settings();
@@ -90,12 +95,17 @@ using CelWords = std::array<uint32_t, kCelStreamWords>;
 inline constexpr CelWords kCelNoStream{0U, 0U, 0U};
 
 // --- the bands (the shaders' formulas on the processor) ---------------------------------------------------------------
-// Rounding to whole steps with an anti-aliased edge `w` wide (in steps; 0: a hard edge) at each half step.
-[[nodiscard]] float cel_round(float steps, float w);
+// An anti-aliased edge's half width, in steps (0: a hard edge - the twins' default; the shaders' comes from the
+// derivatives).
+struct CelEdge {
+    float width = 0.0F;
+};
+// Rounding to whole steps, the edge at each half step.
+[[nodiscard]] float cel_round(float steps, CelEdge edge);
 // The sun's light in bands: N.L x visibility (0 - 1) to 0 .. 1 in bands - 1 steps.
-[[nodiscard]] float cel_sun_band(float lit, uint32_t bands, float w);
+[[nodiscard]] float cel_sun_band(float lit, CelEdge edge, uint32_t bands);
 // A light's luminance in whole steps of `stops` stops (its hue kept by the caller: the factor returned).
-[[nodiscard]] float cel_log_factor(float luma, float stops, float w);
+[[nodiscard]] float cel_log_factor(float value, CelEdge edge, float stops);
 // One world pixel lit from the stream (light units in and out; v0 = the result / 2). `visible` the sun's visibility.
 struct CelStreamPixel {
     std::array<float, 3> ambient{};
@@ -105,9 +115,9 @@ struct CelStreamPixel {
     std::array<float, 3> residual{};
 };
 [[nodiscard]] std::array<float, 3> cel_world_light(const CelSettings& settings, const std::array<float, 3>& sun,
-                                                   const CelStreamPixel& pixel, float visible, float w);
+                                                   const CelStreamPixel& pixel, float visible, CelEdge edge);
 // One world pixel without the stream: the bake (light units) banded.
-[[nodiscard]] std::array<float, 3> cel_bake_light(const CelSettings& settings, const std::array<float, 3>& bake, float w);
+[[nodiscard]] std::array<float, 3> cel_bake_light(const CelSettings& settings, const std::array<float, 3>& bake, CelEdge edge);
 // The bake's steps for `bands` (stops).
 [[nodiscard]] float cel_bake_stops(uint32_t bands);
 // The outlines' ink for a colour (0 - 1).

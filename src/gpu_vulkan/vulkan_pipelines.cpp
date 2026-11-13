@@ -180,12 +180,14 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                            .pImmutableSamplers = nullptr};
     // (added by cel shading - vulkan_cel.h) its block, and with ray queries the frame's scene: pushed only for the keys
     // that read them
-    core::at(bindings, 4 + kStageCount) = {.binding = kCelUniformsBinding,
+    constexpr std::size_t kCelBlockSlot = 4 + kStageCount;
+    constexpr std::size_t kCelSceneSlot = kCelBlockSlot + 1;
+    core::at(bindings, kCelBlockSlot) = {.binding = kCelUniformsBinding,
                                            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                                            .descriptorCount = 1,
                                            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                            .pImmutableSamplers = nullptr};
-    core::at(bindings, 5 + kStageCount) = {.binding = kCelSceneBinding,
+    core::at(bindings, kCelSceneSlot) = {.binding = kCelSceneBinding,
                                            .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
                                            .descriptorCount = 1,
                                            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,

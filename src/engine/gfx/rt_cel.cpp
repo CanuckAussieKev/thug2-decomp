@@ -4,17 +4,20 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <memory>
 #include <mutex>
+#include <system_error>
 #include <string>
 #include <string_view>
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_relit.h"
-#include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sun.h"
 
 namespace render::rt {
 
@@ -71,9 +74,10 @@ float smoothstep(float low, float high, float x)
     return tt * tt * (kHermiteThree - (kHermiteTwo * tt));
 }
 
-float luma(const std::array<float, 3>& c)
+float luma(const std::array<float, 3>& colour)
 {
-    return (core::at(kLuma, 0) * core::at(c, 0)) + (core::at(kLuma, 1) * core::at(c, 1)) + (core::at(kLuma, 2) * core::at(c, 2));
+    return (core::at(kLuma, 0) * core::at(colour, 0)) + (core::at(kLuma, 1) * core::at(colour, 1)) +
+           (core::at(kLuma, 2) * core::at(colour, 2));
 }
 
 uint32_t to_byte(float value, float scale)
@@ -114,8 +118,8 @@ void set_cel_settings(const CelSettings& settings)
         for (float& channel : kept.shadow_colour) {
             channel = std::isfinite(channel) ? std::clamp(channel, 0.0F, 1.0F) : 1.0F;
         }
-        kept.rim = std::isfinite(settings.rim) ? std::clamp(settings.rim, 0.0F, 2.0F) : 0.0F;
-        kept.outline_width = std::isfinite(settings.outline_width) ? std::clamp(settings.outline_width, 0.0F, 4.0F) : 0.0F;
+        kept.rim = std::isfinite(settings.rim) ? std::clamp(settings.rim, 0.0F, kCelMostRim) : 0.0F;
+        kept.outline_width = std::isfinite(settings.outline_width) ? std::clamp(settings.outline_width, 0.0F, kCelMostOutlineWidth) : 0.0F;
         kept.flatten = std::isfinite(settings.flatten) ? std::clamp(settings.flatten, 0.0F, 1.0F) : 0.0F;
     }
     on_flag().store(settings.on, std::memory_order_relaxed);
@@ -144,10 +148,9 @@ bool parse_cel_colour(std::string_view text, std::array<float, 3>* out)
         if (text.size() != kHexDigits) {
             return false;
         }
-        const std::string digits(text);
-        char* end = nullptr;
-        const unsigned long value = std::strtoul(digits.c_str(), &end, kHexBase);
-        if (end != digits.c_str() + kHexDigits) {
+        uint32_t value = 0;
+        const std::from_chars_result read = std::from_chars(std::to_address(text.begin()), std::to_address(text.end()), value, kHexBase);
+        if (read.ec != std::errc{} || read.ptr != std::to_address(text.end())) {
             return false;
         }
         *out = {static_cast<float>((value >> kRedShift) & kByteMask) / kMaxByte,
@@ -215,59 +218,59 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
             word(residual, kBytesPerLight, 1.0F)};
 }
 
-float cel_round(float steps, float w)
+float cel_round(float steps, CelEdge edge)
 {
     const float whole = std::floor(steps);
     const float part = steps - whole;
-    if (!(w > 0.0F)) {
+    if (!(edge.width > 0.0F)) {
         return whole + (part >= kHalf ? 1.0F : 0.0F);
     }
-    return whole + smoothstep(kHalf - w, kHalf + w, part);
+    return whole + smoothstep(kHalf - edge.width, kHalf + edge.width, part);
 }
 
-float cel_sun_band(float lit, uint32_t bands, float w)
+float cel_sun_band(float lit, CelEdge edge, uint32_t bands)
 {
     const auto steps = static_cast<float>(clamped_bands(bands) - 1);
     const float x = std::clamp(std::isfinite(lit) ? lit : 0.0F, 0.0F, 1.0F);
-    return std::clamp(cel_round((x * steps) + kCelBandBias, w) / steps, 0.0F, 1.0F);
+    return std::clamp(cel_round((x * steps) + kCelBandBias, edge) / steps, 0.0F, 1.0F);
 }
 
-float cel_log_factor(float value, float stops, float w)
+float cel_log_factor(float value, CelEdge edge, float stops)
 {
     if (!(value > kLeastLuma) || !(stops > 0.0F)) {
         return 1.0F;
     }
     const float steps = std::log2(std::max(value, kLeastLog)) / stops;
-    return std::exp2(cel_round(steps, w) * stops) / value;
+    return std::exp2(cel_round(steps, edge) * stops) / value;
 }
 
 float cel_bake_stops(uint32_t bands) { return kBakeStopsSpan / static_cast<float>(clamped_bands(bands) - 1); }
 
 std::array<float, 3> cel_world_light(const CelSettings& settings, const std::array<float, 3>& sun,
-                                     const CelStreamPixel& pixel, float visible, float w)
+                                     const CelStreamPixel& pixel, float visible, CelEdge edge)
 {
     const float lit = pixel.n_dot_l * visible;
-    const float q = cel_sun_band(lit, settings.bands, w);
-    const float ambient_factor = cel_log_factor(luma(pixel.ambient), kCelAmbientStops, w);
+    const float band = cel_sun_band(lit, edge, settings.bands);
+    const float ambient_factor = cel_log_factor(luma(pixel.ambient), edge, kCelAmbientStops);
     const float residual_luma = luma(pixel.residual);
     const float residual_factor =
-        residual_luma > kLeastLuma ? cel_round(residual_luma / kCelResidualStep, w) * kCelResidualStep / residual_luma : 0.0F;
+        residual_luma > kLeastLuma ? cel_round(residual_luma / kCelResidualStep, edge) * kCelResidualStep / residual_luma : 0.0F;
     std::array<float, 3> out{};
     for (std::size_t ch = 0; ch < out.size(); ++ch) {
-        const float shade = core::at(settings.shadow_colour, ch) + ((1.0F - core::at(settings.shadow_colour, ch)) * q);
-        const float light = (core::at(pixel.ambient, ch) * ambient_factor * shade) + (core::at(sun, ch) * q);
+        const float shade = core::at(settings.shadow_colour, ch) + ((1.0F - core::at(settings.shadow_colour, ch)) * band);
+        const float light = (core::at(pixel.ambient, ch) * ambient_factor * shade) + (core::at(sun, ch) * band);
         core::at(out, ch) = (core::at(pixel.tint, ch) * light) + (core::at(pixel.residual, ch) * residual_factor);
     }
     return out;
 }
 
-std::array<float, 3> cel_bake_light(const CelSettings& settings, const std::array<float, 3>& bake, float w)
+std::array<float, 3> cel_bake_light(const CelSettings& settings, const std::array<float, 3>& bake, CelEdge edge)
 {
     const float y = luma(bake);
     if (!(y > kLeastLuma)) {
         return bake;
     }
-    const float factor = cel_log_factor(y, cel_bake_stops(settings.bands), w);
+    const float factor = cel_log_factor(y, edge, cel_bake_stops(settings.bands));
     const float shadow = 1.0F - smoothstep(kCelShadowLow, kCelShadowHigh, y * factor);
     std::array<float, 3> out{};
     for (std::size_t ch = 0; ch < out.size(); ++ch) {

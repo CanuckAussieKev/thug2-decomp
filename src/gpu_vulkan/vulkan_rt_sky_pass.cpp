@@ -758,6 +758,15 @@ bool ensure_objects(Backend& state, std::string* error)
     return own.temporal != VK_NULL_HANDLE;
 }
 
+// (added by cel shading) The composite's defines: CLOUDS with the clouds, CEL in the stylised sky.
+const char* composite_defines(bool clouds, bool cel)
+{
+    if (cel) {
+        return clouds ? "CLOUDS\n#define CEL" : "CEL";
+    }
+    return clouds ? "CLOUDS" : nullptr;
+}
+
 // The composite's pipeline for a colour target and its depth (made on first use): rgb written, alpha kept, the depth
 // tested (at the far plane, less or equal: the sky's samples), not written.
 VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& depth, bool clouds, std::string* error,
@@ -776,8 +785,7 @@ VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& 
                              source_of(kShadowBody, depth.samples != VK_SAMPLE_COUNT_1_BIT ? "MULTISAMPLED" : nullptr),
                              error)
                : make_module(device, RtShaderStage::kFragment,
-                             source_of(kCompositeBody, cel ? (clouds ? "CLOUDS\n#define CEL" : "CEL") // (added by cel shading)
-                                                           : (clouds ? "CLOUDS" : nullptr)),
+                             source_of(kCompositeBody, composite_defines(clouds, cel)),
                              error);
     if (fragment == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
