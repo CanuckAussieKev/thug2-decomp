@@ -60,14 +60,12 @@ struct RtShadowSettings {
     bool covered = false;
     unsigned sky_rays = kRtShadowSkyRays; // the sky test's rays a pixel (1 - 16: straight up, the rest slanted round it)
     // Shadows only where the level's bake agrees (engine/gfx/rt_sun.h make_agreement): where its colours are bright
-    // although the sun is blocked - lamps, a roof or a caster the bake left out - none. Only with the baked sun.
+    // although the sun is blocked - lamps, a roof or a caster the bake left out - none. The grid is the baked sun's, or
+    // with another scene sun (rt_sun_source=game) the one made from the relit colours for it (rt_scene.h
+    // agreement_for); none made for it yet: the traced shadow everywhere.
     bool match_bake = true;
-    // The sun traced toward (rt_shadow_sun): the one the level's lighting was baked with, found from its vertex colours
-    // (engine/gfx/rt_sun.h - none in a level whose bake shows no sun: no shadows there); the frame's first directional
-    // light (the game's, which lights the skater - the same in every level); or a fixed direction toward the sun.
-    enum class SunSource : uint8_t { kBake, kLight, kFixed };
-    SunSource sun = SunSource::kBake;
-    std::array<float, 3> fixed_sun{0.0F, 1.0F, 0.0F};
+    // (changed by the scene's sun: the sun traced toward is rt_scene.h scene_sun - [Graphics] rt_sun_source -, every
+    // effect's; rt_shadow_sun is retired)
 };
 void set_rt_shadow_settings(const RtShadowSettings& settings);
 [[nodiscard]] RtShadowSettings rt_shadow_settings();
@@ -185,7 +183,6 @@ inline constexpr float kRtShaftStrength = 0.8F;  // (rt_shaft_strength's default
 struct RtSunSettings {
     bool sun = false;          // the sun's disc and glare drawn, the original's sun sprite and lens flare hidden
     float sun_size = 1.0F;     // x the disc's default size (0.25 - 4)
-    bool place_game = true;    // rt_sun_place: the disc and rays where the game shows its sun (else the baked sun's)
     bool bloom = false;        // the frame's bright light spread (energy-conserving, a mip chain)
     float bloom_strength = kRtBloomStrength; // the share of each pixel's light spread (0 - 0.5)
     bool shafts = false;       // screen-space rays from the sun over what blocks it

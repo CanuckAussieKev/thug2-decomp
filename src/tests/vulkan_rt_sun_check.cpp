@@ -58,6 +58,7 @@
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
+#include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sun.h"
 #include "tests/no_error_dialogs.h"
@@ -1459,6 +1460,168 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
     vk::set_rt_sun_settings({});
 }
 
+// --- 5b. one sun for every effect (added by the scene's sun: rt_scene.h scene_sun, [Graphics] rt_sun_source) ----------
+
+// A frame with no override: the shadows' listener (opaque) and the sun's and fog's (world) each ask for the scene's sun.
+void draw_scene_sun_frame(render::Gpu& gpu, const Targets& targets, const Pose& pose)
+{
+    render::rt::set_sun_override(nullptr);
+    gpu.begin_scene();
+    gpu.set_render_target(0, targets.colour);
+    gpu.set_depth_surface(targets.depth);
+    gpu.set_viewport({.x = 0, .y = 0, .width = targets.width, .height = targets.height, .min_z = 0.0F, .max_z = 1.0F});
+    gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth | value::kClearStencil, kClearColour, 1.0F, 0);
+    draw_scene(gpu, pose, targets.width, targets.height);
+    render::rt::opaque_view_drawn(view_drawn(pose, targets.width, targets.height));
+    render::rt::world_view_drawn(view_drawn(pose, targets.width, targets.height));
+    gpu.end_scene();
+}
+
+void run_scene_sun(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    namespace rt = render::rt;
+    text::print("one sun for every effect (rt_sun_source: shadows, fog, the drawn sun and its rays):\n");
+    vk::set_rt_sun_settings(sun_settings(true, true, false, false));
+    vk::RtFogSettings fog;
+    fog.on = true;
+    vk::set_rt_fog_settings(fog);
+    vk::rt_fog_set_scene(scene.top.handle);
+    vk::set_rt_shadow_settings({.on = true});
+    vk::rt_shadows_set_scene(scene.top.handle);
+    Targets targets;
+    const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, false, &targets);
+    tally->check(made, "the targets made");
+    const auto unit = [](double x, double y, double z) {
+        const double length = std::sqrt((x * x) + (y * y) + (z * z));
+        return std::array<float, 3>{static_cast<float>(x / length), static_cast<float>(y / length),
+                                    static_cast<float>(z / length)};
+    };
+    const std::array<float, 3> fixed_a = floats(to_sun());
+    const std::array<float, 3> fixed_b = unit(0.3, 0.6, -1.0);
+    const std::array<float, 3> baked = unit(-0.2, 0.7, -1.0);
+    const std::array<float, 3> game = unit(0.1, 0.35, -1.0);    // (20 degrees up)
+    const std::array<float, 3> too_low = unit(0.1, 0.05, -1.0); // (3 degrees: under kMinGameSunDegrees)
+    struct Mode {
+        const char* name = "";
+        rt::SunChoice choice;
+        bool baked_found = true;
+        const std::array<float, 3>* game_sun = nullptr;
+        rt::SunRelight relight;
+        const std::array<float, 3>* expect = nullptr; // null: no sun
+        rt::SunOrigin origin = rt::SunOrigin::kNone;
+    };
+    const rt::SunChoice game_choice{.source = rt::SunSource::kGame};
+    const rt::SunRelight relit{.relights = true};
+    const std::array modes = {
+        Mode{.name = "a fixed direction",
+             .choice = {.source = rt::SunSource::kFixed, .fixed = fixed_a},
+             .game_sun = &game,
+             .expect = &fixed_a,
+             .origin = rt::SunOrigin::kFixed},
+        Mode{.name = "switched to another",
+             .choice = {.source = rt::SunSource::kFixed, .fixed = fixed_b},
+             .game_sun = &game,
+             .expect = &fixed_b,
+             .origin = rt::SunOrigin::kFixed},
+        Mode{.name = "level: the baked sun",
+             .choice = {.source = rt::SunSource::kLevel},
+             .game_sun = &game,
+             .relight = relit,
+             .expect = &baked,
+             .origin = rt::SunOrigin::kLevel},
+        Mode{.name = "game, the level relit: the game's",
+             .choice = game_choice,
+             .game_sun = &game,
+             .relight = relit,
+             .expect = &game,
+             .origin = rt::SunOrigin::kGame},
+        Mode{.name = "game, not relit (yet): the baked sun",
+             .choice = game_choice,
+             .game_sun = &game,
+             .expect = &baked,
+             .origin = rt::SunOrigin::kLevel},
+        Mode{.name = "game, the level's entry keeps the bake",
+             .choice = game_choice,
+             .game_sun = &game,
+             .relight = {.relights = true, .level_keeps_bake = true},
+             .expect = &baked,
+             .origin = rt::SunOrigin::kLevel},
+        Mode{.name = "game, its sun too low: the baked sun",
+             .choice = game_choice,
+             .game_sun = &too_low,
+             .relight = relit,
+             .expect = &baked,
+             .origin = rt::SunOrigin::kLevel},
+        Mode{.name = "game, no sun shown: the baked sun",
+             .choice = game_choice,
+             .relight = relit,
+             .expect = &baked,
+             .origin = rt::SunOrigin::kLevel},
+        Mode{.name = "game, indoors (no baked sun): none",
+             .choice = game_choice,
+             .baked_found = false,
+             .game_sun = &game,
+             .relight = relit,
+             .origin = rt::SunOrigin::kNone},
+    };
+    const auto same = [](const std::array<float, 3>& one, const std::array<float, 3>& other) {
+        constexpr float kSame = 0.99999F;
+        return (std::get<0>(one) * std::get<0>(other)) + (std::get<1>(one) * std::get<1>(other)) +
+                   (std::get<2>(one) * std::get<2>(other)) >=
+               kSame;
+    };
+    uint64_t serial = rt::scene_sun().serial;
+    const Mode* before = nullptr;
+    for (const Mode& mode : modes) {
+        if (!made) {
+            break;
+        }
+        rt::set_sun_choice(mode.choice);
+        rt::set_baked_sun({.scene = 1, .found = mode.baked_found, .toward = baked, .confidence = 1.0F});
+        rt::set_game_sun(mode.game_sun);
+        rt::set_sun_relight(mode.relight);
+        rt::clear_sun_used();
+        draw_scene_sun_frame(gpu, targets, sun_pose());
+        const rt::SceneSun now = rt::scene_sun();
+        const bool resolved = now.origin == mode.origin && (mode.expect == nullptr || same(now.toward, *mode.expect));
+        // (a new serial when the sun changed from the mode before - and only then)
+        const bool changed = before == nullptr || before->origin != mode.origin ||
+                             (mode.expect != nullptr && !same(*before->expect, *mode.expect));
+        const bool moved = (now.serial != serial) == changed;
+        serial = now.serial;
+        before = &mode;
+        bool agree = true;
+        std::string seen;
+        for (const rt::SunUser user : {rt::SunUser::kShadows, rt::SunUser::kFog, rt::SunUser::kDrawnSun}) {
+            const rt::SunUsed used = rt::sun_used(user);
+            // (the drawn sun with no scene sun is drawn where the game shows it, lighting nothing)
+            const bool drawn_anyway = user == rt::SunUser::kDrawnSun && mode.expect == nullptr;
+            const bool ok = used.noted && (drawn_anyway || used.have == (mode.expect != nullptr)) &&
+                            (mode.expect == nullptr || !used.have || same(used.toward, *mode.expect));
+            agree = agree && ok;
+            const char* state = "not asked";
+            if (used.noted) {
+                state = used.have ? "sun" : "none";
+            }
+            seen += text::format(" %s:%s", rt::sun_user_name(user), state);
+        }
+        tally->check(resolved && agree && moved,
+                     text::format("%s - the scene's sun %s, every effect the same (%s), its serial %s",
+                                  mode.name, rt::sun_origin_name(now.origin), seen.c_str(),
+                                  changed ? "moved" : "kept"));
+    }
+    release_targets(gpu, targets);
+    rt::set_baked_sun({});
+    rt::set_game_sun(nullptr);
+    rt::set_sun_relight({});
+    rt::set_sun_choice({});
+    vk::rt_shadows_set_scene(VK_NULL_HANDLE);
+    vk::set_rt_shadow_settings({});
+    vk::rt_fog_set_scene(VK_NULL_HANDLE);
+    vk::set_rt_fog_settings({});
+    vk::set_rt_sun_settings({});
+}
+
 // --- 6. nothing on ---------------------------------------------------------------------------------------------------
 
 void run_untouched(render::Gpu& gpu, Tally* tally)
@@ -1609,6 +1772,7 @@ int run(const Options& options, SDL_Window* window)
         run_bloom(gpu, false, &tally);
         run_bloom(gpu, true, &tally);
         run_aerial(gpu, scene, &tally);
+        run_scene_sun(gpu, scene, &tally);
         run_untouched(gpu, &tally);
         if (options.perf) {
             run_perf(gpu);

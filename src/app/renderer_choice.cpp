@@ -14,6 +14,8 @@
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/rt_relit.h"
+#include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sun.h"
 #include "engine/gfx/ui_backend.h"
 #include "engine/sys/editor_mode.h"
 #include "platform/platform_config.h"
@@ -61,67 +63,37 @@ float ini_float(const char* key, float fallback)
     return end == text.data() || !std::isfinite(value) ? fallback : static_cast<float>(value);
 }
 
-// [Graphics] rt_shadow_sun: bake (the default: the level's baked sun), light (the frame's first directional light) or
-// x,y,z (a direction toward the sun); anything else is the default, logged.
-void read_rt_shadow_sun(render::vulkan::RtShadowSettings* settings)
+// (added by the scene's sun) [Graphics] rt_sun_source: the one sun every effect lights by (engine/gfx/rt_scene.h
+// scene_sun) - level (the default: the sun the level's lighting was baked with; the game's own is the same default
+// SetSun, 20 degrees up toward +z, in 12 of the 15 levels, and relit by it they lose their baked sunlight - docs/design/
+// vulkan.md "One sun for every effect"), game (the sun the game shows, the level relit by it; a level whose game sun is
+// too low, or whose entry in rt_relit_levels.json says "sun": "level", keeps its baked sun) or x,y,z /
+// heading,elevation (a direction, for experiments); anything else is the default, logged. The per-effect keys it
+// replaces (rt_shadow_sun, rt_relit_sun, rt_sun_place) are read no more - a line in the log says so.
+constexpr const char* kDefaultSunSource = "level";
+void read_sun_source()
 {
     constexpr std::size_t kLongest = 64;
     std::array<char, kLongest> text{};
-    build_info::fetch_text(build_info::kGraphics, "rt_shadow_sun", "bake", text.data(), text.size());
-    const std::string value(text.data());
-    if (value == "light") {
-        settings->sun = render::vulkan::RtShadowSettings::SunSource::kLight;
-        return;
+    build_info::fetch_text(build_info::kGraphics, "rt_sun_source", kDefaultSunSource, text.data(), text.size());
+    render::rt::SunChoice choice;
+    if (!render::rt::parse_sun_source(text.data(), &choice)) {
+        get_log("[Graphics] rt_sun_source=%s isn't game, level, x,y,z or heading,elevation - %s used", text.data(),
+                kDefaultSunSource);
+        render::rt::parse_sun_source(kDefaultSunSource, &choice);
     }
-    std::array<float, 3> toward{};
-    std::size_t read = 0;
-    std::istringstream numbers(value);
-    std::string number;
-    while (read < toward.size() && std::getline(numbers, number, ',')) {
-        char* end = nullptr;
-        const double parsed = std::strtod(number.c_str(), &end);
-        if (end == number.c_str() || !std::isfinite(parsed)) {
-            break;
+    render::rt::set_sun_choice(choice);
+    static bool retired_logged = false;
+    if (!retired_logged) {
+        retired_logged = true;
+        for (const char* retired : {"rt_shadow_sun", "rt_relit_sun", "rt_sun_place"}) {
+            std::array<char, kLongest> old{};
+            build_info::fetch_text(build_info::kGraphics, retired, "", old.data(), old.size());
+            if (old.front() != '\0') {
+                get_log("[Graphics] %s=%s is retired: rt_sun_source=%s sets the sun of every effect", retired,
+                        old.data(), text.data());
+            }
         }
-        toward.at(read++) = static_cast<float>(parsed);
-    }
-    if (read == toward.size()) {
-        settings->sun = render::vulkan::RtShadowSettings::SunSource::kFixed;
-        settings->fixed_sun = toward;
-    } else if (!value.empty() && value != "bake") {
-        get_log("[Graphics] rt_shadow_sun=%s isn't bake, light or x,y,z - the baked sun used", value.c_str());
-    }
-}
-
-// [Graphics] rt_relit_sun: bake (the default: the level's baked sun), game (the sun the game shows) or x,y,z (toward
-// the sun); anything else is the default, logged.
-void read_rt_relit_sun(render::rt::RelitSettings* settings)
-{
-    constexpr std::size_t kLongest = 64;
-    std::array<char, kLongest> text{};
-    build_info::fetch_text(build_info::kGraphics, "rt_relit_sun", "bake", text.data(), text.size());
-    const std::string value(text.data());
-    if (value == "game") {
-        settings->sun = render::rt::RelitSun::kGame;
-        return;
-    }
-    std::array<float, 3> toward{};
-    std::size_t read = 0;
-    std::istringstream numbers(value);
-    std::string number;
-    while (read < toward.size() && std::getline(numbers, number, ',')) {
-        char* end = nullptr;
-        const double parsed = std::strtod(number.c_str(), &end);
-        if (end == number.c_str() || !std::isfinite(parsed)) {
-            break;
-        }
-        toward.at(read++) = static_cast<float>(parsed);
-    }
-    if (read == toward.size()) {
-        settings->sun = render::rt::RelitSun::kFixed;
-        settings->fixed = toward;
-    } else if (!value.empty() && value != "bake") {
-        get_log("[Graphics] rt_relit_sun=%s isn't bake, game or x,y,z - the baked sun used", value.c_str());
     }
 }
 
@@ -171,7 +143,7 @@ LiveState& live_state()
 // ray_tracing=1 on a device that has it
 void read_rt_shadows()
 {
-    render::vulkan::RtShadowSettings shadows{
+    const render::vulkan::RtShadowSettings shadows{
          .on = build_info::fetch_flag(build_info::kGraphics, "rt_shadows", false),
          .strength = ini_float("rt_shadow_strength", render::vulkan::RtShadowSettings{}.strength),
          .softness = ini_float("rt_shadow_softness", render::vulkan::RtShadowSettings{}.softness),
@@ -184,7 +156,6 @@ void read_rt_shadows()
              std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_sky_rays",
                                              static_cast<int>(render::vulkan::kRtShadowSkyRays)))),
          .match_bake = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_match_bake", true)};
-    read_rt_shadow_sun(&shadows);
     render::vulkan::set_rt_shadow_settings(shadows);
 }
 
@@ -289,11 +260,6 @@ void read_rt_sun()
         .lens_dirt = build_info::fetch_flag(build_info::kGraphics, "rt_lens_dirt", false),
         .hdr = live_state().hdr_at_start};
     read_rt_sun_colour(&sun);
-    // [Graphics] rt_sun_place: game (the default: where the game shows its sun) or bake (the lighting's sun)
-    constexpr std::size_t kLongest = 16;
-    std::array<char, kLongest> place{};
-    build_info::fetch_text(build_info::kGraphics, "rt_sun_place", "game", place.data(), place.size());
-    sun.place_game = std::string(place.data()) != "bake";
     render::vulkan::set_rt_sun_settings(sun);
 }
 
@@ -340,7 +306,12 @@ void read_rt_relit()
         .sun_rays = static_cast<uint32_t>(std::max(
             1, build_info::get_int(build_info::kGraphics, "rt_relit_sun_rays", static_cast<int>(render::rt::kRelitSunRays)))),
         .cache = build_info::fetch_flag(build_info::kGraphics, "rt_relit_cache", true)};
-    read_rt_relit_sun(&relit);
+    // (added by the scene's sun) a sun other than the baked one needs the level relit by it - its baked shadows and
+    // light turned to that sun -, so rt_sun_source=game (or a direction) turns the mode on
+    if (!relit.on && render::rt::sun_choice().source != render::rt::SunSource::kLevel) {
+        relit.on = true;
+        get_log("[Graphics] rt_relit=0, but rt_sun_source isn't level: the relit mode on (the levels relit by that sun)");
+    }
     render::rt::set_relit_settings(relit);
 }
 
@@ -387,7 +358,20 @@ struct LiveKey {
     bool prefix;
     void (*read)();
 };
+// (added by the scene's sun) rt_sun_source: the choice set, then every effect that lights by the sun read again (their
+// histories start again; the relit mode turned on or off with it - it relights by the new sun)
+void read_sun_source_and_effects()
+{
+    read_sun_source();
+    read_rt_shadows_and_gi();
+    read_rt_fog();
+    read_rt_sun();
+    read_rt_sky();
+    read_rt_relit();
+}
+
 constexpr std::array kLiveKeys = {
+    LiveKey{.key = "rt_sun_source", .prefix = false, .read = &read_sun_source_and_effects},
     LiveKey{.key = "rt_shadows", .prefix = false, .read = &read_rt_shadows_and_gi},
     LiveKey{.key = "rt_shadow_", .prefix = true, .read = &read_rt_shadows_and_gi},
     LiveKey{.key = "rt_ao", .prefix = false, .read = &read_rt_ao},
@@ -450,6 +434,7 @@ void install_vulkan()
                                .validation = build_info::fetch_flag(build_info::kGraphics, "vulkan_validation", false),
                                .ray_tracing = build_info::fetch_flag(build_info::kGraphics, "ray_tracing", false)});
     live_state().hdr_at_start = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false);
+    read_sun_source(); // (added by the scene's sun: before the relit mode, which it may turn on)
     read_rt_shadows();
     read_rt_ao();
     read_rt_gi();

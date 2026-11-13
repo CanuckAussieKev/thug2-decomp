@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/ext/extension.h"
 #include "engine/file/disk.h"
@@ -673,6 +674,87 @@ std::string write_dump(const std::string& file)
     return "written: " + path;
 }
 
+// (added by the scene's sun) A direction and its heading / elevation, as `rt sun` prints them.
+std::string describe_sun(const std::array<float, 3>& toward)
+{
+    constexpr double kDegrees = 180.0 / 3.14159265358979323846;
+    const auto [x, y, z] = toward;
+    return text::format("%.4f %.4f %.4f (heading %.1f, elevation %.1f)", static_cast<double>(x), static_cast<double>(y),
+                        static_cast<double>(z), std::atan2(static_cast<double>(x), static_cast<double>(z)) * kDegrees,
+                        std::asin(std::clamp(static_cast<double>(y), -1.0, 1.0)) * kDegrees);
+}
+
+// (added by the scene's sun) `rt sun` alone: the scene's sun and the one each effect used last - they should agree.
+std::string sun_report()
+{
+    const rt::SceneSun scene = rt::scene_sun();
+    std::string out = text::format("sun: %s", rt::sun_origin_name(scene.origin));
+    if (scene.found()) {
+        out += " " + describe_sun(scene.toward);
+    }
+    std::array<float, 3> game{};
+    if (rt::game_sun(&game)) {
+        out += "; game " + describe_sun(game);
+    }
+    const rt::BakedSun& baked = rt::baked_sun();
+    if (baked.scene != 0 && baked.found) {
+        out += "; baked " + describe_sun(baked.toward);
+    }
+    for (std::size_t user = 0; user < static_cast<std::size_t>(rt::SunUser::kCount); ++user) {
+        const auto which = static_cast<rt::SunUser>(user);
+        const rt::SunUsed used = rt::sun_used(which);
+        if (used.noted) {
+            out += text::format("; %s ", rt::sun_user_name(which)) + (used.have ? describe_sun(used.toward) : "none");
+        }
+    }
+    get_log("rt: %s", out.c_str());
+    return out;
+}
+
+// (added by the scene's sun) `rt sun source <game | level | x,y,z | heading,elevation>`: rt_sun_source for this run
+// (the ini isn't written), the relit mode turned on for a sun other than the baked one.
+std::string sun_source_command(std::istringstream& in)
+{
+    std::string text;
+    in >> text;
+    rt::SunChoice choice;
+    if (!rt::parse_sun_source(text, &choice)) {
+        return "rt sun source <game | level | x,y,z | heading,elevation>";
+    }
+    rt::set_sun_choice(choice);
+    rt::RelitSettings relit = rt::relit_settings();
+    if (!relit.on && choice.source != rt::SunSource::kLevel) {
+        relit.on = true;
+        rt::set_relit_settings(relit);
+    }
+    get_log("rt: sun source %s", text.c_str());
+    return "sun source " + text;
+}
+
+// `rt sun <x y z> | off | source ... `: every effect's sun set by hand (toward it); `off` gives them back the scene's
+// (rt_scene.h scene_sun); no direction: the report.
+std::string sun_command(const std::string& file, std::istringstream& in)
+{
+    if (file == "off") {
+        rt::set_sun_override(nullptr);
+        get_log("rt: sun override off");
+        return "sun: the scene's own";
+    }
+    if (file == "source") {
+        return sun_source_command(in);
+    }
+    std::array<float, 3> toward{};
+    std::get<0>(toward) = std::strtof(file.c_str(), nullptr);
+    in >> std::get<1>(toward) >> std::get<2>(toward);
+    if (file.empty() || in.fail()) {
+        return sun_report();
+    }
+    rt::set_sun_override(&toward);
+    get_log("rt: sun override %.4f %.4f %.4f", static_cast<double>(std::get<0>(toward)),
+            static_cast<double>(std::get<1>(toward)), static_cast<double>(std::get<2>(toward)));
+    return "sun set";
+}
+
 } // namespace
 
 bool asked()
@@ -703,25 +785,7 @@ std::string console_command(const std::string& arguments)
         return text;
     }
     if (verb == "sun") {
-        // (the shadow pass's sun set by hand: toward it; `rt sun off` gives it back to the pass)
-        if (file == "off") {
-            rt::set_sun_override(nullptr);
-            get_log("rt: sun override off");
-            return "sun: the pass's own";
-        }
-        std::array<float, 3> toward{};
-        std::get<0>(toward) = std::strtof(file.c_str(), nullptr);
-        in >> std::get<1>(toward) >> std::get<2>(toward);
-        if (file.empty() || in.fail()) {
-            std::array<float, 3> now{};
-            return rt::sun_override(&now) ? "sun: " + std::to_string(std::get<0>(now)) + " " +
-                                                std::to_string(std::get<1>(now)) + " " + std::to_string(std::get<2>(now))
-                                          : "sun: the pass's own (rt sun <x> <y> <z> | rt sun off)";
-        }
-        rt::set_sun_override(&toward);
-        get_log("rt: sun override %.4f %.4f %.4f", static_cast<double>(std::get<0>(toward)),
-                static_cast<double>(std::get<1>(toward)), static_cast<double>(std::get<2>(toward)));
-        return "sun set";
+        return sun_command(file, in);
     }
     if (verb == "relit") {
         // (the relit mode, engine/gfx/rt_relit.h: on / off, its strength, the residual; no word: its state)

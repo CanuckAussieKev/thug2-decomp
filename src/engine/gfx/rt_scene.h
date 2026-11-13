@@ -405,6 +405,75 @@ bool object_shadows_replaced();
 void set_game_sun(const std::array<float, 3>* toward_sun);
 bool game_sun(std::array<float, 3>* toward_sun);
 
+// --- (added by the scene's sun) one sun for every effect - [Graphics] rt_sun_source -----------------------------------
+// The shadows, the bounce light, the fog's shafts and haze, the drawn sun (its disc, glare, rays, bloom), the sky model
+// and the clouds, the relit mode and the objects' turned lights all ask scene_sun() which sun lights the scene, so they
+// agree. Which one it is (rt_sun.h resolve_scene_sun has the rules):
+//   - the console's `rt sun x y z` (set_sun_override) above everything;
+//   - kGame: the sun the game shows (game_sun - the level's SetSun / InitSun) where the relit mode relights
+//     the level by it (render_pc/rt_relit_world says so through set_sun_relight); else - the relit mode can't (no model,
+//     the level opted out), the level's entry asks for its baked sun ("sun": "level" in rt_relit_levels.json), the game
+//     shows no sun or one lower than kMinGameSunDegrees - the baked sun;
+//   - kLevel (the default - docs/design/vulkan.md "One sun for every effect" has why): the baked sun (BakedSun:
+//     fitted from the level's vertex colours);
+//   - kFixed: rt_sun_source=x,y,z or heading,elevation (an experiment; relit relights by it as by the game's).
+// A level whose bake shows no sun (indoors) has none, whatever the choice: it keeps its bake (no sun shadows, no shafts).
+enum class SunSource : uint8_t { kGame, kLevel, kFixed };
+struct SunChoice {
+    SunSource source = SunSource::kLevel;
+    std::array<float, 3> fixed{}; // kFixed's direction (toward the sun)
+};
+void set_sun_choice(const SunChoice& choice);
+SunChoice sun_choice();
+// What the relit mode says about the level now (render_pc/rt_relit_world, each frame it runs).
+struct SunRelight {
+    bool relights = false;         // the level is relit (a model found, not opted out): another sun can light it
+    bool level_keeps_bake = false; // the level's entry asks for its baked sun under kGame ("sun": "level")
+};
+void set_sun_relight(const SunRelight& relight);
+SunRelight sun_relight();
+enum class SunOrigin : uint8_t {
+    kNone,     // the bake shows no sun (indoors): no sun effects
+    kWaiting,  // the level's baked sun not fitted yet
+    kOverride, // the console's
+    kGame,     // the sun the game shows
+    kLevel,    // the baked sun
+    kFixed,    // rt_sun_source=x,y,z / heading,elevation
+};
+struct SceneSun {
+    SunOrigin origin = SunOrigin::kNone;
+    std::array<float, 3> toward{}; // normalised (when found)
+    uint64_t serial = 0;           // (scene_sun) a new number each time the direction or the origin changes
+    [[nodiscard]] bool found() const
+    {
+        return origin == SunOrigin::kOverride || origin == SunOrigin::kGame || origin == SunOrigin::kLevel ||
+               origin == SunOrigin::kFixed;
+    }
+};
+SceneSun scene_sun();
+// The sun the relit mode lights by: scene_sun() as if the level were relit (relit asks before it says it relights).
+SceneSun relit_target_sun();
+const char* sun_origin_name(SunOrigin origin);
+// The effects that light by the sun, each noting the sun it used last (the console's `rt sun` lists them; the checks
+// compare them): all hold the same direction.
+enum class SunUser : uint8_t { kShadows, kBounce, kFog, kDrawnSun, kSky, kRelit, kCount };
+const char* sun_user_name(SunUser user);
+struct SunUsed {
+    bool noted = false; // the effect asked since the last clear
+    bool have = false;  // ... and had a sun
+    std::array<float, 3> toward{};
+};
+void note_sun_used(SunUser user, bool have, const std::array<float, 3>& toward);
+SunUsed sun_used(SunUser user);
+void clear_sun_used();
+// The agreement grid (BakedSun's fields; `toward` its sun) for the scene's sun when it isn't the baked one: made by
+// render_pc/rt_record once the relit mode has written the colours for that sun - the relit colours hold the bake's
+// shadows for it, and lamps and glows (the residual) keep the traced shadow off as the bake's own light did. `scene`
+// numbers it (another than any fit's). agreement_for gives the grid for a direction: the baked sun's own, or this one's,
+// or null (none for it yet: the traced shadow everywhere).
+void set_sun_agreement(BakedSun agreement);
+const BakedSun* agreement_for(const std::array<float, 3>& toward);
+
 // --- (added by the sky) a sky drawn by the backend - the Vulkan Gpu's [Graphics] rt_sky ------------------------------
 // While `on`, render_pc's draw_viewport draws the sky scene's opaque meshes (the backdrop: its dome, a ground ring), then
 // tells the listeners (sky_view_drawn -> ViewListener::sky_drawn), who draw the sky over the pixels nothing of the world

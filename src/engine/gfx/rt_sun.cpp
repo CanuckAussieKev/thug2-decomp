@@ -6,9 +6,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <iterator>
 #include <numeric>
 #include <span>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -361,6 +364,125 @@ float agreement_at(const BakedSun& sun, const Vec3& point)
     const float far =
         (value(first_x, first_z + 1.0F) * (1.0F - across_x)) + (value(first_x + 1.0F, first_z + 1.0F) * across_x);
     return (near * (1.0F - across_z)) + (far * across_z);
+}
+
+// --- (added by the scene's sun) -------------------------------------------------------------------------------------
+
+namespace {
+
+constexpr double kShortestSun = 1.0e-6; // a direction shorter than this can't be normalised: none
+
+// `v` normalised, or false.
+bool unit_of(const Vec3& v, Vec3* out)
+{
+    const double length =
+        std::hypot(static_cast<double>(x_of(v)), static_cast<double>(y_of(v)), static_cast<double>(z_of(v)));
+    if (!(length > kShortestSun) || !std::isfinite(length)) {
+        return false;
+    }
+    *out = scaled(v, static_cast<float>(1.0 / length));
+    return true;
+}
+
+SceneSun sun_of(SunOrigin origin, const Vec3& toward)
+{
+    SceneSun out;
+    if (unit_of(toward, &out.toward)) {
+        out.origin = origin;
+    }
+    return out;
+}
+
+bool blank(char ch) { return ch == ' ' || ch == '\t'; }
+
+// The numbers of a comma-separated list (at most `most`): false when any isn't one.
+bool numbers_of(std::string_view text, std::size_t most, std::vector<float>* out)
+{
+    out->clear();
+    while (!text.empty()) {
+        const std::size_t comma = text.find(',');
+        const std::string part(text.substr(0, comma));
+        text = comma == std::string_view::npos ? std::string_view{} : text.substr(comma + 1);
+        char* end = nullptr;
+        const float value = std::strtof(part.c_str(), &end);
+        if (end == part.c_str() || !std::isfinite(value) || out->size() >= most) {
+            return false;
+        }
+        const std::string_view rest(end);
+        if (!std::ranges::all_of(rest, blank)) {
+            return false;
+        }
+        out->push_back(value);
+    }
+    return true;
+}
+
+} // namespace
+
+SceneSun resolve_scene_sun(const SunInputs& in)
+{
+    if (in.override_set) {
+        const SceneSun set = sun_of(SunOrigin::kOverride, in.override_toward);
+        if (set.found()) {
+            return set;
+        }
+    }
+    if (in.choice.source == SunSource::kFixed) {
+        return sun_of(SunOrigin::kFixed, in.choice.fixed);
+    }
+    if (in.baked_scene == 0) {
+        return {.origin = SunOrigin::kWaiting};
+    }
+    if (!in.baked_found) {
+        return {}; // (indoors: the level keeps its bake)
+    }
+    if (in.choice.source == SunSource::kGame && in.game_set && in.relight.relights && !in.relight.level_keeps_bake) {
+        const SceneSun game = sun_of(SunOrigin::kGame, in.game_toward);
+        const auto lowest = static_cast<float>(std::sin(static_cast<double>(kMinGameSunDegrees) * kRadiansPerDegree));
+        if (game.found() && y_of(game.toward) >= lowest) {
+            return game;
+        }
+    }
+    return sun_of(SunOrigin::kLevel, in.baked_toward);
+}
+
+Vec3 toward_heading(const SunAngles& angles)
+{
+    const double heading = static_cast<double>(angles.heading_degrees) * kRadiansPerDegree;
+    const double elevation = static_cast<double>(angles.elevation_degrees) * kRadiansPerDegree;
+    return {static_cast<float>(std::sin(heading) * std::cos(elevation)), static_cast<float>(std::sin(elevation)),
+            static_cast<float>(std::cos(heading) * std::cos(elevation))};
+}
+
+bool parse_sun_source(std::string_view text, SunChoice* out)
+{
+    while (!text.empty() && blank(text.front())) {
+        text.remove_prefix(1);
+    }
+    while (!text.empty() && blank(text.back())) {
+        text.remove_suffix(1);
+    }
+    if (text == "game") {
+        *out = {.source = SunSource::kGame};
+        return true;
+    }
+    if (text == "level" || text == "bake") {
+        *out = {.source = SunSource::kLevel};
+        return true;
+    }
+    constexpr std::size_t kMostNumbers = 3;
+    std::vector<float> numbers;
+    if (!numbers_of(text, kMostNumbers, &numbers) || numbers.size() < 2) {
+        return false;
+    }
+    Vec3 toward{};
+    if (numbers.size() == 2) {
+        toward = toward_heading({.heading_degrees = numbers.front(), .elevation_degrees = numbers.back()});
+    } else if (!unit_of({core::at(numbers, 0), core::at(numbers, 1), core::at(numbers, 2)}, &toward)) {
+        return false;
+    }
+    *out = {.source = SunSource::kFixed, .fixed = toward};
+    return true;
 }
 
 } // namespace render::rt

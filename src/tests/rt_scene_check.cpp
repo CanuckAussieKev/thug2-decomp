@@ -368,6 +368,83 @@ void check_baked_sun()
     expect(!rt::fit_baked_sun(lamp_lit, indoors).sun.found, "fit_baked_sun: a roofed level - no sun");
 }
 
+// --- (added by the scene's sun) which sun lights the scene: rt_sun.h resolve_scene_sun, parse_sun_source -------------
+
+bool same_direction(const rt::Vec3& a, const rt::Vec3& b) { return rt::dot(a, b) > 1.0F - kNear; }
+
+void check_scene_sun()
+{
+    const rt::Vec3 baked{0.0F, 0.8F, 0.6F};
+    const rt::Vec3 game{0.0F, 0.34202F, -0.93969F};   // 20 degrees up
+    const rt::Vec3 low{0.0F, 0.08716F, -0.99619F};    // 5 degrees
+    const rt::Vec3 fixed{0.6F, 0.8F, 0.0F};
+    const rt::Vec3 under{0.0F, -0.5F, 0.86603F};         // 30 degrees under the horizon
+    const rt::Vec3 east_30{0.86603F, 0.5F, 0.0F};        // heading 90, 30 degrees up
+    constexpr float kLonger = 3.0F;                      // (a direction not normalised)
+    const rt::Vec3 up_long{0.0F, 2.0F, 0.0F};
+    rt::SunInputs in{.choice = {.source = rt::SunSource::kGame},
+                     .game_set = true,
+                     .game_toward = game,
+                     .baked_scene = 1,
+                     .baked_found = true,
+                     .baked_toward = baked,
+                     .relight = {.relights = true}};
+    rt::SceneSun sun = rt::resolve_scene_sun(in);
+    expect(sun.origin == rt::SunOrigin::kGame && same_direction(sun.toward, game), "scene sun: game, relit - the game's");
+    in.relight.relights = false;
+    sun = rt::resolve_scene_sun(in);
+    expect(sun.origin == rt::SunOrigin::kLevel && same_direction(sun.toward, baked),
+           "scene sun: game, not relit - the baked sun (its shadows are the bake's)");
+    in.relight = {.relights = true, .level_keeps_bake = true};
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel, "scene sun: game, the level's entry keeps the bake");
+    in.relight = {.relights = true};
+    in.game_toward = low;
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel, "scene sun: game, its sun too low - the baked sun");
+    in.game_toward = under;
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel, "scene sun: game, its sun under the horizon");
+    in.game_set = false;
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel, "scene sun: game, none shown - the baked sun");
+    in.game_set = true;
+    in.game_toward = game;
+    in.baked_found = false;
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kNone, "scene sun: game, indoors (no baked sun) - none");
+    in.baked_found = true;
+    in.baked_scene = 0;
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kWaiting, "scene sun: the fit not made yet - waiting");
+    in.baked_scene = 1;
+    in.choice = {.source = rt::SunSource::kLevel};
+    sun = rt::resolve_scene_sun(in);
+    expect(sun.origin == rt::SunOrigin::kLevel && same_direction(sun.toward, baked), "scene sun: level - the baked sun");
+    in.choice = {.source = rt::SunSource::kFixed, .fixed = rt::scaled(fixed, kLonger)};
+    in.baked_scene = 0;
+    sun = rt::resolve_scene_sun(in);
+    expect(sun.origin == rt::SunOrigin::kFixed && same_direction(sun.toward, fixed),
+           "scene sun: fixed - normalised, not waiting for the fit");
+    in.override_set = true;
+    in.override_toward = up_long;
+    sun = rt::resolve_scene_sun(in);
+    expect(sun.origin == rt::SunOrigin::kOverride && same_direction(sun.toward, {0.0F, 1.0F, 0.0F}),
+           "scene sun: the console's override above everything");
+    in.override_toward = {};
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kFixed, "scene sun: a zero override ignored");
+    // rt_sun_source's text
+    rt::SunChoice choice;
+    expect(rt::parse_sun_source("game", &choice) && choice.source == rt::SunSource::kGame, "rt_sun_source=game");
+    expect(rt::parse_sun_source(" level ", &choice) && choice.source == rt::SunSource::kLevel, "rt_sun_source=level");
+    expect(rt::parse_sun_source("bake", &choice) && choice.source == rt::SunSource::kLevel, "rt_sun_source=bake");
+    expect(rt::parse_sun_source("0.6,0.8,0", &choice) && choice.source == rt::SunSource::kFixed &&
+               same_direction(choice.fixed, fixed),
+           "rt_sun_source=x,y,z");
+    expect(rt::parse_sun_source("90, 30", &choice) && choice.source == rt::SunSource::kFixed &&
+               same_direction(choice.fixed, east_30),
+           "rt_sun_source=heading,elevation (90: +x)");
+    const rt::SunChoice kept = choice;
+    expect(!rt::parse_sun_source("sky", &choice) && !rt::parse_sun_source("1,2,3,4", &choice) &&
+               !rt::parse_sun_source("1,x", &choice) && !rt::parse_sun_source("0,0,0", &choice) &&
+               !rt::parse_sun_source("", &choice) && same_direction(choice.fixed, kept.fixed),
+           "rt_sun_source: anything else refused, the choice kept");
+}
+
 } // namespace
 
 int main()
@@ -378,6 +455,7 @@ int main()
     check_geometry();
     check_flags();
     check_baked_sun();
+    check_scene_sun();
     if (failures() != 0) {
         std::printf("%d check(s) failed\n", failures());
         return 1;

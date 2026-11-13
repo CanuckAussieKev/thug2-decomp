@@ -1428,7 +1428,9 @@ void log_match(const RtSkyMatch& match, uint32_t scene)
 std::array<float, 3> sky_sun(Backend& state)
 {
     std::array<float, 3> toward{};
-    if (visible_sun(&toward)) {
+    const bool have = visible_sun(&toward);
+    rt::note_sun_used(rt::SunUser::kSky, have, toward); // (added by the scene's sun)
+    if (have) {
         return toward;
     }
     if (first_report(state, kReportNoSun)) {

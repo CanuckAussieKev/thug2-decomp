@@ -15,7 +15,8 @@
 //   to the animation.
 // - Meshes shown later (a level's scripts show and hide its parts) are taken apart when they first stand in a still
 //   world, with the level's model as it is.
-// - When the sun moves (the console's `rt sun`, rt_relit_sun=game or x,y,z) each mesh's sun rays are traced again -
+// - When the sun moves (rt_scene.h scene_sun: the console's `rt sun`, rt_sun_source=game or x,y,z) each mesh's sun
+//   rays are traced again -
 //   at most kRelitRetraceVertices vertices a frame, the meshes rewritten as they are done -, then its sky rays, for
 //   the bounce of the new light (the hits' colours the relit ones; kRelitBounceVertices vertices a frame).
 // - The analysis is kept on disk: thug2-decomp-relit\<the level's scene checksum>.bin beside the exe, each mesh by a
@@ -63,6 +64,10 @@ struct ObjectLighting {
     std::array<float, 3> key_colour{1.0F, 1.0F, 1.0F};
 };
 [[nodiscard]] bool object_lighting(ObjectLighting* out);
+// (added by the scene's sun) Whether every mesh's colours are written for the sun the world is relit by now (its sun
+// and bounce traced, the writes done): `sun` that sun, `lighting` a number for that lighting (another when anything
+// that changes the colours changed). rt_record makes the shadows' agreement grid for that sun from them.
+bool settled(std::array<float, 3>* sun, uint64_t* lighting);
 // The console's `rt relit` (devtools/rt_check.cpp): the state in a line.
 [[nodiscard]] std::string status_text();
 

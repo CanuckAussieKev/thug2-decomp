@@ -28,13 +28,14 @@ struct Image;
 // The settings (vulkan_rt_sun.cpp's set_rt_sun_settings writes them; the caller of either holds the lock).
 RtSunSettings& sun_settings_held();
 
-// The sun this frame (normalised, toward it): the override, else the baked sun - asking for its fit while any of the
-// sun's effects is on. False: none.
+// The sun this frame (normalised, toward it): the scene's (rt_scene.h scene_sun - changed by the scene's sun: the
+// console's `rt sun`, else rt_sun_source's, every effect's) - asking for the baked sun's fit while any of the sun's
+// effects is on. False: none.
 bool frame_sun(std::array<float, 3>* toward);
 
-// The sun the player sees (the disc, the glare and the rays are drawn there): the override, else - with rt_sun_place=game
-// (the default) - where the game shows its sun (rt::game_sun: the level's SetSun, often not the baked one), else the
-// baked sun (frame_sun). False: none.
+// The sun the player sees (the disc, the glare and the rays are drawn there): the scene's (frame_sun) - so the disc is
+// where the shadows and the light come from -, else (no scene sun: indoors, or the fit not made yet) where the game
+// shows its sun (rt::game_sun), lighting nothing. False: none. (rt_sun_place is retired.)
 bool visible_sun(std::array<float, 3>* toward);
 // The sun's colour for `toward` alone (rt_sun_colour or the model's; cheap, kept for the last direction).
 [[nodiscard]] std::array<float, 3> sun_colour_for(const std::array<float, 3>& toward);

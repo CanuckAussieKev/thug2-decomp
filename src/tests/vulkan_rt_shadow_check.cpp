@@ -991,9 +991,9 @@ std::vector<Case> cases()
     constexpr unsigned kSoftRays = 8;
     constexpr uint32_t kFourSamples = 4;
     // (shadows under roofs too: the reference's plain rule - the sky test has a case of its own)
-    // (the frame record's light: there's no level bake here to find a sun in)
-    render::vulkan::RtShadowSettings hard{.on = true, .strength = kStrength, .covered = true};
-    hard.sun = render::vulkan::RtShadowSettings::SunSource::kLight;
+    // (the frame record's light as the scene's sun - a fixed rt_sun_source: there's no level bake here to find one in)
+    render::rt::set_sun_choice({.source = render::rt::SunSource::kFixed, .fixed = floats(toward_light())});
+    const render::vulkan::RtShadowSettings hard{.on = true, .strength = kStrength, .covered = true};
     render::vulkan::RtShadowSettings roofed = hard;
     roofed.covered = false;
     render::vulkan::RtShadowSettings objects = hard;
