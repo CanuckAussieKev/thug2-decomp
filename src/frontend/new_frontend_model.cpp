@@ -726,6 +726,24 @@ void Menu::set_option_group(int group)
         bundle_ = ((group % count) + count) % count;
     }
     option_row_ = 0;
+    shown_dirty_ = true;
+}
+
+void Menu::set_option_values(std::vector<int> choices)
+{
+    // (the row the cursor is on stays on its setting as the list changes)
+    const std::vector<int>& before = option_rows();
+    const bool on_setting = option_row_ >= 0 && std::cmp_less(option_row_, before.size());
+    const int setting = on_setting ? core::at(before, option_row_) : -1;
+    options_ = std::move(choices);
+    shown_dirty_ = true;
+    const std::vector<int>& after = option_rows();
+    if (on_setting) {
+        const auto found = std::ranges::find(after, setting);
+        option_row_ = found != after.end() ? static_cast<int>(found - after.begin()) : static_cast<int>(after.size());
+    } else if (option_row_ >= 0) {
+        option_row_ = static_cast<int>(after.size()); // (the Game options row stays the last)
+    }
 }
 
 int Menu::get_selected() const
@@ -745,7 +763,19 @@ const std::vector<int>& Menu::option_rows() const
 {
     static const std::vector<int> kNone;
     const std::vector<options::GroupSet>& groups = options::bunches();
-    return bundle_ >= 0 && std::cmp_less(bundle_, groups.size()) ? core::at(groups, bundle_).rows : kNone;
+    if (bundle_ < 0 || std::cmp_greater_equal(bundle_, groups.size())) {
+        return kNone;
+    }
+    if (shown_dirty_) {
+        shown_rows_.clear();
+        for (const int row : core::at(groups, bundle_).rows) {
+            if (options::row_shown(row, options_)) {
+                shown_rows_.push_back(row);
+            }
+        }
+        shown_dirty_ = false;
+    }
+    return shown_rows_;
 }
 
 int Menu::option_choice(int option) const
