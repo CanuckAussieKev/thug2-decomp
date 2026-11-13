@@ -15,6 +15,7 @@ add_library(thug2_app OBJECT
     startup_init.cpp
     command_table.cpp
     renderer_choice.cpp
+    settings_report.cpp
     encode_video.cpp
 )
 # The layers the shared start-up composes (the backends it installs, the game and below).

@@ -237,6 +237,8 @@ struct UpscaleSettings {
 };
 void set_upscale_settings(const UpscaleSettings& settings);
 [[nodiscard]] UpscaleSettings upscale_settings();
+// Which provider runs ("DLSS" / "FSR"...; null: none yet / none - the fallbacks may differ from the ini's request).
+[[nodiscard]] const char* upscale_provider_name();
 // The share of the output's width and height a quality draws (1, 0.667, 0.588, 0.5, 0.333).
 [[nodiscard]] float upscale_ratio(UpscaleQuality quality);
 // Parsed from the ini's words (off / dlss / fsr / auto; dlaa / native / quality / balanced / performance / ultra);

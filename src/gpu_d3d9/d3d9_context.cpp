@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstdint>
 
+#include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/gpu_context.h"
 #include "platform/sdl_window.h"
@@ -101,6 +102,11 @@ public:
         std::ranges::copy(id.Description, adapter_.description.begin());
         adapter_.vendor_id = id.VendorId;
         adapter_.device_id = id.DeviceId;
+        // (the driver's four-part version, as Windows keeps it: HIWORD.LOWORD of the high part, then the low part's)
+        text::format_to(adapter_.driver, "%u.%u.%u.%u", static_cast<unsigned>(HIWORD(id.DriverVersion.HighPart)),
+                        static_cast<unsigned>(LOWORD(id.DriverVersion.HighPart)),
+                        static_cast<unsigned>(HIWORD(id.DriverVersion.LowPart)),
+                        static_cast<unsigned>(LOWORD(id.DriverVersion.LowPart)));
         return result;
     }
 

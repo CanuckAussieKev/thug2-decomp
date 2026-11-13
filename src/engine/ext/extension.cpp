@@ -16,7 +16,7 @@ namespace ext {
 
 namespace {
 
-constexpr size_t kMaxExtensions = 16;
+constexpr size_t kMaxExtensions = 20;
 
 // NOT ORIGINAL grouping - the extensions app/ registered, in their order. Made on first use, never destroyed
 // (registry()).
