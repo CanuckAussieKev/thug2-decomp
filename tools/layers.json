@@ -40,6 +40,7 @@
                     "src/engine/gfx/engine_parts.h",
                     "src/engine/gfx/font.h",
                     "src/engine/gfx/glyphs.h",
+                    "src/engine/gfx/graphics_options.h",
                     "src/engine/gfx/loading_bar_cfuncs.h",
                     "src/engine/gfx/renderer.h",
                     "src/engine/gfx/screen.h",

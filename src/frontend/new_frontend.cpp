@@ -56,6 +56,7 @@
 #include <gsl/pointers>
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
+#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "frontend/new_frontend_internal.h"
@@ -325,6 +326,10 @@ void load_option_values()
     if (first) {
         edit_session().start_values_.resize(specs.size());
         edit_session().restart_pending_.assign(specs.size(), false);
+        const std::string problems = options::check_tables();
+        if (!problems.empty()) {
+            get_log("new front end: the options' tables are wrong:\n%s", problems.c_str());
+        }
     }
     for (size_t i = 0; i < specs.size(); ++i) {
         std::string value;
@@ -334,7 +339,38 @@ void load_option_values()
             core::at(edit_session().start_values_, i) = core::at(core::at(specs, i).choices, core::at(choices, i)).value;
         }
     }
+    // (the preset: not a key - the one the effects' keys are, Custom when none)
+    const int preset = options::preset_option();
+    if (preset >= 0) {
+        core::at(choices, preset) = options::preset_of(text);
+    }
     menu_state().set_option_values(std::move(choices));
+}
+
+// A changed setting put to use: a live one at once (its switch set, or the renderer's effect read again); one read at
+// start-up marked "Restart to apply" while it differs from what the game started with - and so is a live graphics
+// setting the renderer can't change now (on Direct3D 9, or before the effect's reader is there).
+void use_option(int option, const char* value)
+{
+    const options::Spec& spec = core::at(options::get_specs(), option);
+    bool live = spec.apply == options::Apply::kLive;
+    if (live) {
+        const bool on = std::strcmp(value, "0") != 0;
+        if (std::strcmp(spec.section, "Graphics") == 0) {
+            live = render::graphics_options::reload_live(spec.key);
+        } else if (std::strcmp(spec.key, "mouse_menus") == 0) {
+            mouse_menus::is_switched_on() = on;
+        } else if (bool* feature = ext::feature_switch(spec.key)) {
+            *feature = on; // (the restart tester's, the level editor's)
+        } else if (std::strcmp(spec.key, "continue_music") == 0) {
+            audio::continue_music::is_switched_on() = on;
+        } else if (std::strcmp(spec.key, "respect_locks") == 0) {
+            menu_state().set_views(get_views(menu_state().levels_purpose() == LevelsFor::kNet));
+        }
+    }
+    if (std::cmp_less(option, edit_session().restart_pending_.size())) {
+        core::at(edit_session().restart_pending_, option) = !live && core::at(edit_session().start_values_, option) != value;
+    }
 }
 
 void apply_option(const ActStep& action)
@@ -347,29 +383,55 @@ void apply_option(const ActStep& action)
     }
     const options::Spec& spec = core::at(specs, option);
     const char* value = core::at(spec.choices, choice).value;
+    // (a preset writes its effects' keys - Custom none -; any other setting its own key)
+    std::vector<std::pair<int, const char*>> writes;
+    if (spec.apply == options::Apply::kPreset) {
+        for (const options::PresetValue& set : options::preset_values(choice)) {
+            const int found = options::get_find("Graphics", set.key);
+            if (found >= 0) {
+                writes.emplace_back(found, set.value);
+            }
+        }
+        if (writes.empty()) {
+            return; // (Custom: the settings as they are)
+        }
+    } else {
+        writes.emplace_back(option, value);
+    }
     const std::string path = ini_path();
     const std::string text = read_text(path);
-    const std::string changed = options::ini_set(text, {.section = spec.section, .key = spec.key}, value);
+    std::string changed = text;
+    for (const auto& [index, written] : writes) {
+        const options::Spec& set = core::at(specs, index);
+        changed = options::ini_set(changed, {.section = set.section, .key = set.key}, written);
+    }
     if (!write_atomically(path, changed)) {
         get_log("new front end: couldn't write %s ([%s] %s=%s)", path.c_str(), spec.section, spec.key, value);
         edit_session().options_note_ = text_tools::kCouldntSave;
         return;
     }
-    get_log("new front end: options - [%s] %s=%s written to %s", spec.section, spec.key, value, path.c_str());
     edit_session().options_note_.clear();
-    if (spec.apply == options::Apply::kLive) {
-        const bool on = std::strcmp(value, "0") != 0;
-        if (std::strcmp(spec.key, "mouse_menus") == 0) {
-            mouse_menus::is_switched_on() = on;
-        } else if (bool* feature = ext::feature_switch(spec.key)) {
-            *feature = on; // (the restart tester's, the level editor's)
-        } else if (std::strcmp(spec.key, "continue_music") == 0) {
-            audio::continue_music::is_switched_on() = on;
-        } else if (std::strcmp(spec.key, "respect_locks") == 0) {
-            menu_state().set_views(get_views(menu_state().levels_purpose() == LevelsFor::kNet));
+    for (const auto& [index, written] : writes) {
+        const options::Spec& set = core::at(specs, index);
+        std::string before;
+        const bool present = options::ini_get(text, {.section = set.section, .key = set.key}, &before);
+        if (index != option && options::choice_of(set, before, present) == options::choice_of(set, written, true)) {
+            continue; // (a preset's key that already had its value)
         }
-    } else if (std::cmp_less(option, edit_session().restart_pending_.size())) {
-        core::at(edit_session().restart_pending_, option) = core::at(edit_session().start_values_, option) != value;
+        get_log("new front end: options - [%s] %s=%s written to %s", set.section, set.key, written, path.c_str());
+        use_option(index, written);
+    }
+    if (spec.apply == options::Apply::kPreset) {
+        get_log("new front end: options - graphics preset %s", core::at(spec.choices, choice).label);
+    }
+    // (the screen's values read back: the preset row follows the effects - and they follow it)
+    load_option_values();
+    if (spec.apply == options::Apply::kPreset) {
+        std::vector<int> values = menu_state().option_values();
+        if (std::cmp_less(option, values.size())) {
+            core::at(values, option) = choice; // (the preset chosen, whatever else matches)
+            menu_state().set_option_values(std::move(values));
+        }
     }
 }
 
