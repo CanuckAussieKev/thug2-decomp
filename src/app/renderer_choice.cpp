@@ -612,7 +612,7 @@ bool compare_prepare(const render::graphics_options::CompareSettings& overrides,
     std::get<1>(state.sides) = make_effects();
     graphics_overrides() = nullptr;
     const auto wants = [](const EffectSet& set) {
-        return (set.shadows.on && set.shadows.sun == render::vulkan::RtShadowSettings::SunSource::kBake) || set.gi.on;
+        return set.shadows.on || set.gi.on; // (the shadows fit the baked sun whichever scene sun - rt_shadows)
     };
     state.wants_baked_sun = wants(std::get<0>(state.sides)) || wants(std::get<1>(state.sides));
     // (asked for now: render_pc fits the baked sun in a new world's first frame - with A's shadows off and B's on, A's
