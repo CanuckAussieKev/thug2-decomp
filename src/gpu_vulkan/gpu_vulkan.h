@@ -272,5 +272,23 @@ struct RtPbrSettings {
 };
 void set_rt_pbr_settings(const RtPbrSettings& settings);
 [[nodiscard]] RtPbrSettings rt_pbr_settings();
+// NOT ORIGINAL - an art style (vulkan_style.h; docs/design/vulkan.md "Art style"): [Graphics] rt_style,
+// rt_style_strength, rt_style_smooth, rt_style_bands, rt_style_outlines, rt_style_outline_width, rt_style_saturation -
+// all put to use at once. A post-process over each viewport's world after the tone mapping and the upscaler, before the
+// 2D. style 0 (the default): nothing changes. No ray tracing or HDR needed.
+inline constexpr float kStyleSmooth = 4.0F;      // (rt_style_smooth's default)
+inline constexpr float kStyleBands = 5.0F;       // (rt_style_bands')
+inline constexpr float kStyleSaturation = 1.15F; // (rt_style_saturation's)
+struct StyleSettings {
+    unsigned style = 0;                  // 0: off; 1: toon
+    float strength = 1.0F;               // the filtered picture over the original (0 - 1)
+    float smooth = kStyleSmooth;         // the painterly smoothing's radius in pixels of a 720-line picture (0: none - 16)
+    float bands = kStyleBands;           // lightness bands (0: none - 16)
+    float outlines = 1.0F;               // the outlines' strength (0: none - 1)
+    float outline_width = 1.0F;          // in pixels of a 720-line picture (0 - 4)
+    float saturation = kStyleSaturation; // the colours' chroma x this (0 - 2)
+};
+void set_style_settings(const StyleSettings& settings);
+[[nodiscard]] StyleSettings style_settings();
 
 } // namespace render::vulkan

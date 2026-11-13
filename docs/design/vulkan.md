@@ -1807,11 +1807,62 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
   shader's arithmetic (frame, two normalisations, GGX) is ten times the original's there. The game's frame lines were
   too few to separate the difference from the noise (35 - 40 ms either way with everything on).
 
+### Art style: the toon filter (`rt_style`)
+
+`gpu_vulkan/vulkan_style` (`[Graphics] rt_style`, off by default; no ray tracing or HDR needed). A post-process that
+makes the world look like a cartoon - painted colour fields, a few shades of light, dark ink lines - drawn by the last
+listener at `rt::world_view_drawn` (`ViewOrder::kStyle`, 975: after the tone mapping, so it works on the display's 0 - 1,
+and after the upscaler, so with DLSS / FSR it runs at the output's resolution); the 2D (HUD, menus, text) is drawn after
+it and never filtered. Each viewport separately (split screen: nothing is read across its edge).
+
+- **The passes** (vulkan_style.h has the formulas): the viewport's colour copied out (a multisampled target resolved
+  first; the result written to every sample); the depth made linear (compute: the projection's w, R32F; the far value
+  - nothing drawn, the sky - marked); the colour at half resolution (compute: 2 x 2 means), smoothed by a generalized
+  Kuwahara filter (compute: the four overlapping quadrants of radius r, each's mean weighted by 1 / (1 + (255^2
+  variance)^4) - texture detail flattens, edges between fields stay); then one full-screen triangle per pixel: the
+  smoothed colour brought back up edge-aware (a joint bilateral upsample guided by the pixel's own colour), its OKLab
+  lightness put in `rt_style_bands` soft-edged bands (30% of it kept as it was, so the darkest shades aren't crushed; hue kept, chroma x `rt_style_saturation`), the outline mixed in,
+  the result mixed over the original by `rt_style_strength`.
+- **The outlines** come from the linear depth alone: per axis, with the neighbours h pixels away, s = 1 - z (1/z_a +
+  1/z_b) / 2 - zero on any plane however steeply it is seen (1/z is affine across a flat surface on the screen), positive
+  where the pixel stands out toward the camera (the near side of a silhouette, a ridge), negative where it is recessed
+  (a valley, the far side of a silhouette). |s| x f / h (f the focal length in pixels) is a crease's change of slope,
+  independent of the resolution and the distance; smoothstepped, cut on the far side of a step (the line stays on the
+  object in front - a silhouette's line is one-sided and h wide), creases at 75%, faded out from 2,500 to 9,000 units
+  (distant geometry would turn into a mesh of lines), none on the sky. The ink: the toon colour's OKLab lightness x 0.2,
+  chroma x 1.3 - dark and tinted by what it outlines, never pure black. h and r scale with the picture's height (given
+  for 720 lines).
+- **Depth surfaces** are made samplable whenever the format allows (`style_depth_usage`), so `rt_style` can be turned on
+  from the Options screen with no restart; without a samplable depth there are no outlines (logged once).
+- **Settings** (all live - `kLiveKeys` `rt_style*`): `rt_style` 0 / 1, `rt_style_strength` (1), `rt_style_smooth` (4:
+  the Kuwahara radius in 720-line pixels; 0 none), `rt_style_bands` (5; 0 none), `rt_style_outlines` (1; 0 none),
+  `rt_style_outline_width` (1), `rt_style_saturation` (1.15). The Options screen's Colour tab: Art style (Off / Toon) and
+  its six knobs.
+- **Checked:** `thug2_vulkan_style_check` (72 checks, the RTX 5070 Ti and the integrated Radeon, validation with
+  synchronization validation 0): a 256 x 128 view drawn with screen-space quads at known depths (a box against the sky,
+  a tilted floor, a ridge) and filled with noisy fields, a grey gradient and NaN / infinities. The Kuwahara pass's
+  output (read back) within a step of `style_kuwahara`'s (largest 0.0024); the composite against `style_reference` fed
+  the pass's own smoothed colour and linear depth: every pixel within 2.5 steps (largest 0.12 - 0.56); against the twin
+  alone at most 2% past (the smoothing's 16-bit rounding crossing a band's soft edge: 0 - 1.2% here); finite, 0 - 1,
+  alpha kept; the linear depth (the box at 200.00, the sky marked); the smoothing calms the noise (spread 0.087 ->
+  0.020), the bands make plateaus (226 of 255 neighbours equal), the outline lies along the box's edges on the box,
+  none on the sky beside it, down the ridge's crease, none inside the planes; a viewport changes nothing outside it bit
+  for bit; `rt_style=0` and strength 0 record no pass; an 8-bit target; four samples (the resolve filtered, written to
+  every sample). Cost (2 compute passes at half resolution, 1 at the depth's, a full-screen triangle): 0.15 ms at
+  1920 x 1080, 0.34 ms at 2560 x 1440 on the RTX 5070 Ti; 6.2 / 15.4 ms on the integrated Radeon (the Kuwahara loop).
+- **In the game** (the user's settings - ray tracing, HDR, DLSS Ray Reconstruction at 67%, 2560 x 1440 - with
+  `rt_style=1`): BO, AU, BA, z_dt and the front end's main menu and Options screen before / after; the HUD, the menus'
+  text and the score stay sharp, the world reads as painted fields with soft-edged shade bands and dark ink round
+  objects, rails, steps and the skater. The passes cost 0.48 - 0.51 ms a frame on the RTX 5070 Ti (the log's
+  "rt_style: the passes take"; 0.82 ms with smoothing 6 and lines 2). Known: alpha-tested decals a little above the
+  ground (shadow and stain decals) get outlines of their own (a real depth step); a low-poly hill's facets show faint
+  crease lines.
+
 ### Changing the settings while the game runs (the Options screen)
 
 `app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,
 `read_rt_gi`, `read_rt_reflections`, `read_hdr`, `read_rt_fog`, `read_rt_sun`, `read_rt_sky`, `read_rt_relit`,
-`read_upscale`, `read_rt_pbr`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
+`read_upscale`, `read_rt_pbr`, `read_style`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
 end's Options screen writes a `[Graphics]` key it calls `render::graphics_options::reload_live(key)`: a key of an
 effect (`kLiveKeys`: the shadows', occlusion's, the bounce's, the reflections', the tone mapping's numbers, the fog's,
 the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*`)

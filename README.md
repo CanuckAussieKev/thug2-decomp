@@ -421,6 +421,13 @@ for the restart
 | `rt_pbr_specular` | 1 | How strong the highlights are (0: none) |
 | `rt_pbr_normal_strength` | 1 | How deep the surface maps' bumps look (0: flat, 2: twice as deep) |
 | `rt_pbr_objects` | 1 | 0: only surfaces with a map are lit per pixel (skaters and objects keep the game's own lighting) |
+| `rt_style` | 0 | On Vulkan (no ray tracing or HDR needed): 1 gives the world a cartoon look - textures flattened into painted colour, light in a few soft-edged shades, dark ink lines round objects and along their edges. The HUD and menus are left as they are. All the `rt_style` keys change at once in the Options screen |
+| `rt_style_strength` | 1 | With `rt_style`: how much of the cartoon look is laid over the game's picture (0-1) |
+| `rt_style_smooth` | 4 | With `rt_style`: how far the paint smooths texture detail away (pixels of a 720-line picture, scaled with the window; 0 keeps the textures) |
+| `rt_style_bands` | 5 | With `rt_style`: how many shades of light and dark each colour gets (0: smooth shading) |
+| `rt_style_outlines` | 1 | With `rt_style`: how dark the ink lines are (0: none). They thin out into the distance; the sky has none |
+| `rt_style_outline_width` | 1 | With `rt_style`: how thick the ink lines are (pixels of a 720-line picture, scaled with the window) |
+| `rt_style_saturation` | 1.15 | With `rt_style`: how strong the colours are (1 as they are) |
 
 **`[Miscellaneous]`** - from PartyMod
 
