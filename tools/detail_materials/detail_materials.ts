@@ -133,7 +133,9 @@ export function kindEntries(cache: string, side: number, log: (line: string) => 
             roughnessWeight: m.roughnessWeight,
             texels: detailTexels(read("colour"), read("normal"), read("roughness"), side),
         });
-        log(`${m.kind}: ${grain.asset} (${grain.name}, ${grain.licence}) - ${side} x ${side}${grain === m ? "" : ` (grain of ${grain.kind})`}`);
+        log(
+            `${m.kind}: ${grain.asset} (${grain.name}, ${grain.licence}) - ${side} x ${side}${grain === m ? "" : ` (grain of ${grain.kind})`}`,
+        );
     }
     return out;
 }

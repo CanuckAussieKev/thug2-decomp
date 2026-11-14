@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -103,7 +104,8 @@ void capture(InterpState& state)
         record.transform = instance->transform();
         record.bones = instance->bones_;
         record.bone_count = instance->bones_ != nullptr ? instance->bone_count_ : 0;
-        record.palette.assign(record.bones, record.bones + record.bone_count); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const std::span<const maths::Mat4> palette(record.bones, static_cast<std::size_t>(record.bone_count));
+        record.palette.assign(palette.begin(), palette.end());
     }
 }
 

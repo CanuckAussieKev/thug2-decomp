@@ -8,7 +8,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <cstddef>
 #include <numbers>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -61,9 +63,12 @@ bool same_bits(const maths::Mat4& a, const maths::Mat4& b) { return std::memcmp(
 
 double max_difference(const maths::Mat4& a, const maths::Mat4& b)
 {
+    constexpr std::size_t kFloats = 16;
+    const std::span<const float> left(a.data(), kFloats);
+    const std::span<const float> right(b.data(), kFloats);
     double most = 0.0;
-    for (int i = 0; i < 16; ++i) {
-        most = std::fmax(most, std::fabs(static_cast<double>(a.data()[i]) - b.data()[i])); // NOLINT
+    for (std::size_t i = 0; i < kFloats; ++i) {
+        most = std::fmax(most, std::fabs(static_cast<double>(left[i]) - right[i]));
     }
     return most;
 }

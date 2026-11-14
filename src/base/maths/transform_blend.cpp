@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
+#include <span>
 
 #include "base/core/checked_index.h"
 
@@ -106,13 +108,8 @@ bool decompose(const Mat4& matrix, Pose* pose)
     }
     const Vec4& t = core::at(matrix.row, 3);
     pose->translation = {t.x, t.y, t.z};
-    const float* values = matrix.data();
-    for (int i = 0; i < kMatrixFloats; ++i) {
-        if (!std::isfinite(values[i])) { // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            return false;
-        }
-    }
-    return true;
+    const std::span<const float> values(matrix.data(), static_cast<std::size_t>(kMatrixFloats));
+    return std::ranges::all_of(values, [](float value) { return std::isfinite(value); });
 }
 
 Mat4 compose(const Pose& pose)
