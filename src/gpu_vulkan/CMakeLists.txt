@@ -46,6 +46,7 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_upscale_fsr.cpp
     vulkan_upscale_dlss.cpp
     vulkan_surface.cpp
+    vulkan_detail.cpp
     vulkan_style.cpp
     vulkan_style_looks.cpp
     vulkan_grass.cpp

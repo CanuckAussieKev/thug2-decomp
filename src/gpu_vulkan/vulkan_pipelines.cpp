@@ -149,7 +149,8 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     device_ = device;
     folder_ = folder;
     constexpr std::size_t kWaterBindings = 5; // (NOT ORIGINAL - rt_water: kWaterUniformsBinding - kWaterWavesBinding)
-    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings> bindings{};
+    constexpr std::size_t kDetailBindings = 2; // (NOT ORIGINAL - rt_detail: kDetailUniformsBinding, kDetailMapBinding)
+    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings> bindings{};
     core::at(bindings, 0) = {.binding = kVertexUniformsBinding,
                              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                              .descriptorCount = 1,
@@ -183,7 +184,8 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     // that read them. The scene is the array's last (left out of a layout without ray queries).
     constexpr std::size_t kCelBlockSlot = 4 + kStageCount;
     constexpr std::size_t kWaterFirstSlot = kCelBlockSlot + 1;
-    constexpr std::size_t kCelSceneSlot = kWaterFirstSlot + kWaterBindings;
+    constexpr std::size_t kDetailFirstSlot = kWaterFirstSlot + kWaterBindings;
+    constexpr std::size_t kCelSceneSlot = kDetailFirstSlot + kDetailBindings;
     static_assert(kCelSceneSlot + 1 == bindings.size(), "the scene is the last binding");
     core::at(bindings, kCelBlockSlot) = {.binding = kCelUniformsBinding,
                                            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -207,6 +209,18 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
             .pImmutableSamplers = nullptr};
     }
     static_assert(kWaterWavesBinding == kWaterUniformsBinding + kWaterBindings - 1, "the water's bindings follow each other");
+    // (NOT ORIGINAL - rt_detail / rt_delight, vulkan_detail.h) the detail layer's block and texture: pushed only for the
+    // keys that read them
+    core::at(bindings, kDetailFirstSlot) = {.binding = kDetailUniformsBinding,
+                                            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                            .descriptorCount = 1,
+                                            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            .pImmutableSamplers = nullptr};
+    core::at(bindings, kDetailFirstSlot + 1) = {.binding = kDetailMapBinding,
+                                                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                .descriptorCount = 1,
+                                                .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                .pImmutableSamplers = nullptr};
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,

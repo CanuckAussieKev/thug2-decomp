@@ -1,0 +1,427 @@
+{
+    "note": "NOT ORIGINAL - the detail-material library's sources (tools/detail_materials/detail_materials.ts): one CC0 scan per surface kind, fetched to the player's machine by detail_materials.ts fetch (each file checked against its MD5 and size, as Poly Haven's API lists them) and packed with the player's levels into thug2-decomp-materials.t2dm. Nothing of the scans is committed. Licences checked 2026-11-14: Poly Haven - every asset CC0 (https://polyhaven.com/license: any purpose, commercial included, redistribution allowed, no attribution required). roughness / roughnessSwing / f0 / metalness / roughnessWeight: the kind's real material (src/formats/detail_material_format.h).",
+    "materials": [
+        {
+            "kind": "asphalt",
+            "source": "Poly Haven",
+            "asset": "asphalt_02",
+            "name": "Asphalt 02",
+            "authors": [
+                "Rob Tuytel"
+            ],
+            "page": "https://polyhaven.com/a/asphalt_02",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 3,
+            "roughness": 0.88,
+            "roughnessSwing": 0.08,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.6,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/asphalt_02/asphalt_02_diff_1k.png",
+                    "md5": "ac3d05aae774a5dce71a31b8c761fa47",
+                    "bytes": 2485545
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/asphalt_02/asphalt_02_nor_gl_1k.png",
+                    "md5": "910d4b3882858368622eaa1b973bb290",
+                    "bytes": 2323825
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/asphalt_02/asphalt_02_rough_1k.png",
+                    "md5": "7db5fbd81763e89539cc0d808a97449e",
+                    "bytes": 732747
+                }
+            }
+        },
+        {
+            "kind": "concrete_smooth",
+            "source": "Poly Haven",
+            "asset": "concrete_floor_02",
+            "name": "Concrete Floor 02",
+            "authors": [
+                "Rob Tuytel"
+            ],
+            "page": "https://polyhaven.com/a/concrete_floor_02",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 2,
+            "roughness": 0.72,
+            "roughnessSwing": 0.1,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.5,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/concrete_floor_02/concrete_floor_02_diff_1k.png",
+                    "md5": "e6b278dadc06f7550fc34eedd80a40ab",
+                    "bytes": 2502798
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/concrete_floor_02/concrete_floor_02_nor_gl_1k.png",
+                    "md5": "fe71a8ff06acc83aadfdd694a42acfd6",
+                    "bytes": 6297394
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/concrete_floor_02/concrete_floor_02_rough_1k.png",
+                    "md5": "1828b2884b6dc899704410f74b35b2be",
+                    "bytes": 1866235
+                }
+            }
+        },
+        {
+            "kind": "concrete_rough",
+            "source": "Poly Haven",
+            "asset": "granular_concrete",
+            "name": "Granular Concrete",
+            "authors": [
+                "Dario Barresi",
+                "Michael Jenkins"
+            ],
+            "page": "https://polyhaven.com/a/granular_concrete",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 2.4,
+            "roughness": 0.9,
+            "roughnessSwing": 0.06,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.6,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/granular_concrete/granular_concrete_diff_1k.png",
+                    "md5": "70bb5528d595351b30ed6d6f1b20e513",
+                    "bytes": 5658326
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/granular_concrete/granular_concrete_nor_gl_1k.png",
+                    "md5": "0d53aaec67ec5baf1449a04cdf258ad6",
+                    "bytes": 5956881
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/granular_concrete/granular_concrete_rough_1k.png",
+                    "md5": "5ddb881926647dc1f13147b7d66e5d3b",
+                    "bytes": 2329419
+                }
+            }
+        },
+        {
+            "kind": "brick",
+            "source": "Poly Haven",
+            "asset": "brick_wall_02",
+            "name": "Brick Wall 02",
+            "authors": [
+                "Dimitrios Savva"
+            ],
+            "page": "https://polyhaven.com/a/brick_wall_02",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 2,
+            "roughness": 0.85,
+            "roughnessSwing": 0.08,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.5,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brick_wall_02/brick_wall_02_diff_1k.png",
+                    "md5": "e6860704c0be0139bdd78eb148c7d948",
+                    "bytes": 5782942
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brick_wall_02/brick_wall_02_nor_gl_1k.png",
+                    "md5": "1002150f44064dd5f0c0848fc554ad08",
+                    "bytes": 5792106
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brick_wall_02/brick_wall_02_rough_1k.png",
+                    "md5": "8d40af63a51441914a76de25a2092256",
+                    "bytes": 2332617
+                }
+            }
+        },
+        {
+            "kind": "stone",
+            "source": "Poly Haven",
+            "asset": "rock_04",
+            "name": "Rock 04",
+            "authors": [
+                "Rob Tuytel"
+            ],
+            "page": "https://polyhaven.com/a/rock_04",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 1.5,
+            "roughness": 0.78,
+            "roughnessSwing": 0.12,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.4,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_04/rock_04_diff_1k.png",
+                    "md5": "c2ad3fb867b89d9d6819710f7f022f44",
+                    "bytes": 2356659
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_04/rock_04_nor_gl_1k.png",
+                    "md5": "8db7a7f8585aae6441870f1045990322",
+                    "bytes": 2167854
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_04/rock_04_rough_1k.png",
+                    "md5": "e5501daa4d82b4abdb547f4f6cf93905",
+                    "bytes": 645615
+                }
+            }
+        },
+        {
+            "kind": "metal",
+            "source": "Poly Haven",
+            "asset": "metal_plate",
+            "name": "Metal Plate",
+            "authors": [
+                "Rob Tuytel"
+            ],
+            "page": "https://polyhaven.com/a/metal_plate",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 0.5,
+            "roughness": 0.38,
+            "roughnessSwing": 0.12,
+            "f0": 0.5,
+            "metalness": 1,
+            "roughnessWeight": 0.6,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/metal_plate/metal_plate_diff_1k.png",
+                    "md5": "a507a35fb1b0cfb8fea92682fb36e3a1",
+                    "bytes": 5362786
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/metal_plate/metal_plate_nor_gl_1k.png",
+                    "md5": "970b1bfeb59ec31a165341e05757dfc3",
+                    "bytes": 5359071
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/metal_plate/metal_plate_rough_1k.png",
+                    "md5": "cd6e9d5693a7efdac715e15072dde2a9",
+                    "bytes": 1913334
+                }
+            }
+        },
+        {
+            "kind": "wood",
+            "source": "Poly Haven",
+            "asset": "fine_grained_wood",
+            "name": "Fine Grained Wood",
+            "authors": [
+                "Rob Tuytel"
+            ],
+            "page": "https://polyhaven.com/a/fine_grained_wood",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 0.6,
+            "roughness": 0.62,
+            "roughnessSwing": 0.1,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.5,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/fine_grained_wood/fine_grained_wood_col_1k.png",
+                    "md5": "ae1bae182e4b3fb6f97a6014c5dd3667",
+                    "bytes": 1390656
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/fine_grained_wood/fine_grained_wood_nor_gl_1k.png",
+                    "md5": "35c4f86b7fbd91eba54a4d6e88fb16d7",
+                    "bytes": 810317
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/fine_grained_wood/fine_grained_wood_rough_1k.png",
+                    "md5": "c1b63d1d9092c6bcd524c2ae690cca83",
+                    "bytes": 516076
+                }
+            }
+        },
+        {
+            "kind": "ground",
+            "source": "Poly Haven",
+            "asset": "dirt",
+            "name": "Dirt",
+            "authors": [
+                "Charlotte Baglioni"
+            ],
+            "page": "https://polyhaven.com/a/dirt",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 2,
+            "roughness": 0.95,
+            "roughnessSwing": 0.04,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.6,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/dirt/dirt_diff_1k.png",
+                    "md5": "033b3aaa80b816a1a53ed211d69a3328",
+                    "bytes": 5504678
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/dirt/dirt_nor_gl_1k.png",
+                    "md5": "e1d855d9d6b1c9b39681ee4f4097303b",
+                    "bytes": 5904305
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/dirt/dirt_rough_1k.png",
+                    "md5": "293473a9600f0938205a05461a4396bb",
+                    "bytes": 1586570
+                }
+            }
+        },
+        {
+            "kind": "grass",
+            "source": "Poly Haven",
+            "asset": "sparse_grass",
+            "name": "Sparse Grass",
+            "authors": [
+                "Amal Kumar"
+            ],
+            "page": "https://polyhaven.com/a/sparse_grass",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 2,
+            "roughness": 0.82,
+            "roughnessSwing": 0.08,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.5,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/sparse_grass/sparse_grass_diff_1k.png",
+                    "md5": "e4c7593acc6bd6b937e43351fadc41aa",
+                    "bytes": 5697636
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/sparse_grass/sparse_grass_nor_gl_1k.png",
+                    "md5": "a09e4b0ea1cbec68992cfae5b00c2607",
+                    "bytes": 6096327
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/sparse_grass/sparse_grass_rough_1k.png",
+                    "md5": "875663e79a0cec7d2d7eeff5234326f1",
+                    "bytes": 1749004
+                }
+            }
+        },
+        {
+            "kind": "tile",
+            "source": "Poly Haven",
+            "asset": "interior_tiles",
+            "name": "Interior Tiles",
+            "authors": [
+                "Charlotte Baglioni"
+            ],
+            "page": "https://polyhaven.com/a/interior_tiles",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 1.9,
+            "roughness": 0.22,
+            "roughnessSwing": 0.1,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.6,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/interior_tiles/interior_tiles_diff_1k.png",
+                    "md5": "96cbb90d815c9baf968a92f7986ab227",
+                    "bytes": 5474297
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/interior_tiles/interior_tiles_nor_gl_1k.png",
+                    "md5": "3b5f111a2685f0e4d6ccb15ca32d4648",
+                    "bytes": 4861040
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/interior_tiles/interior_tiles_rough_1k.png",
+                    "md5": "69aa6339f6bcd9022d1cf9e0873bc3d9",
+                    "bytes": 1787176
+                }
+            }
+        },
+        {
+            "kind": "plaster",
+            "source": "Poly Haven",
+            "asset": "plastered_wall",
+            "name": "Plastered Wall",
+            "authors": [
+                "Amal Kumar"
+            ],
+            "page": "https://polyhaven.com/a/plastered_wall",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 2,
+            "roughness": 0.8,
+            "roughnessSwing": 0.06,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.4,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/plastered_wall/plastered_wall_diff_1k.png",
+                    "md5": "537126bb7b1b75fec8ba340f05799a88",
+                    "bytes": 5392478
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/plastered_wall/plastered_wall_nor_gl_1k.png",
+                    "md5": "0a4a7b82885a92acbe5168124f7873c7",
+                    "bytes": 6646968
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/plastered_wall/plastered_wall_rough_1k.png",
+                    "md5": "69e9d3b992a5482522a589f6b5bc4350",
+                    "bytes": 1690689
+                }
+            }
+        },
+        {
+            "kind": "gravel",
+            "source": "Poly Haven",
+            "asset": "gravel_floor",
+            "name": "Gravel Floor",
+            "authors": [
+                "Jenelle van Heerden",
+                "Matterfield"
+            ],
+            "page": "https://polyhaven.com/a/gravel_floor",
+            "licence": "CC0 1.0",
+            "licenceUrl": "https://polyhaven.com/license",
+            "tileMetres": 2.25,
+            "roughness": 0.93,
+            "roughnessSwing": 0.05,
+            "f0": 0.04,
+            "metalness": 0,
+            "roughnessWeight": 0.6,
+            "files": {
+                "colour": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_diff_1k.png",
+                    "md5": "18332fff217d2534f60211e000ce63a3",
+                    "bytes": 6040585
+                },
+                "normal": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_nor_gl_1k.png",
+                    "md5": "72915db5e8f062f6c30b5f328257c6b3",
+                    "bytes": 6154071
+                },
+                "roughness": {
+                    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_rough_1k.png",
+                    "md5": "dceef6f6f1be7b91c58662840cbe5b97",
+                    "bytes": 2533216
+                }
+            }
+        }
+    ]
+}

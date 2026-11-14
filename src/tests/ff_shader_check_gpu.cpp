@@ -126,6 +126,15 @@ bool make_layouts(Shared& shared)
                         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         .descriptorCount = 1,
                         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
+    // (NOT ORIGINAL - rt_detail / rt_delight) the detail layer's block and texture
+    bindings.push_back({.binding = render::vulkan::kDetailUniformsBinding,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        .descriptorCount = 1,
+                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
+    bindings.push_back({.binding = render::vulkan::kDetailMapBinding,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        .descriptorCount = 1,
+                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
     // (added by cel shading) its block (the scene's binding is only in a ray-tracing device's layout)
     bindings.push_back({.binding = render::vulkan::kCelUniformsBinding,
                         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,

@@ -13,6 +13,7 @@ add_library(thug2_formats STATIC
     rail_buffer_format.cpp
     save_file_format.cpp
     skeleton_format.cpp
+    detail_material_format.cpp
     surface_map_format.cpp
     texture_format.cpp
     wave_format.cpp

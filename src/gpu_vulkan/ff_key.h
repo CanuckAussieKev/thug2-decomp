@@ -167,6 +167,18 @@ constexpr uint8_t kVertexCelHull = 0x04;   // the position pushed out along the 
 // `surface` has kVertexSurfaceInputs with it (the eye-space position handed on). Its own byte: cel shading took the
 // surface byte's last bits.
 
+// (NOT ORIGINAL - [Graphics] rt_detail, rt_delight; gpu_vulkan/vulkan_detail.h) FragmentKey::detail's bits - only with
+// kSurfaceMap and without kSurfaceCel (normalised() clears them otherwise; the byte was a spare: 0 leaves the key's bytes
+// and its shaders exactly as before):
+//   kDetailMaterial - the texture's surface kind's tiling detail layer (DetailUniforms at kDetailUniformsBinding, its
+//     texture at kDetailMapBinding): the albedo modulated (luminance only), its normal and roughness blended into the
+//     map's, fading as its texels shrink on the screen; and the kind's real material - roughness, metalness;
+//   kDetailDelight - the light painted into the colour texture flattened: stage 0's texel scaled toward the texture's
+//     mean luminance by its low-frequency luminance (a coarse mip) to a strength.
+constexpr uint8_t kDetailMaterial = 0x01;
+constexpr uint8_t kDetailDelight = 0x02;
+constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailDelight;
+
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;
 // The directional lights the vertex shader can light with (Direct3D 9's limit for a hardware device).
@@ -249,7 +261,8 @@ struct FragmentKey {
     uint8_t motion = 0;
     uint8_t surface = 0; // (NOT ORIGINAL - rt_pbr) the per-pixel lighting's switches (kSurface*); 0: as the original's
     uint8_t water = 0;   // (NOT ORIGINAL - rt_water) 1: shaded as water (above); 0: as the original's
-    std::array<uint8_t, 3> spare{}; // (keeps the key free of padding where it is a part of another: it is hashed as bytes)
+    uint8_t detail = 0;  // (NOT ORIGINAL - rt_detail / rt_delight) the detail layer's switches (kDetail*); 0: as before
+    std::array<uint8_t, 2> spare{}; // (keeps the key free of padding where it is a part of another: it is hashed as bytes)
     std::array<StageKey, kStageCount> stages{};
 
     bool operator==(const FragmentKey&) const = default;

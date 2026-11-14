@@ -38,6 +38,10 @@ constexpr uint32_t kWaterSceneBinding = 11;   // what was drawn before the view'
 constexpr uint32_t kWaterDepthBinding = 12;   // ... its linear depth (R32F: the distance along the view, 1e9 the sky)
 constexpr uint32_t kWaterSkyBinding = 13;     // the level's sky captured (rt::SkyCapture: 3 x 2 faces), or blank
 constexpr uint32_t kWaterWavesBinding = 14;   // the ripples' tiling texture (slope x, slope z, height, foam pattern)
+// (NOT ORIGINAL - [Graphics] rt_detail / rt_delight, vulkan_detail.h) the detail layer's: read only by keys with
+// FragmentKey::detail (pushed only for their draws; after the water's)
+constexpr uint32_t kDetailUniformsBinding = 15; // DetailUniforms
+constexpr uint32_t kDetailMapBinding = 16;      // the surface kind's tiling detail texture (kDetailMaterial)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.
@@ -143,6 +147,17 @@ struct WaterUniforms {
     Float4 misc{};           // x: screen-space reflections on; y: the swell's longest wavelength; z: the debug view; w: unused
 };
 
+// (NOT ORIGINAL - rt_detail / rt_delight) Binding 15, the detail layer's (fragment shader): vulkan_detail.cpp fills it.
+struct DetailUniforms {
+    Float4 scale{};    // x: the detail's tiles per unit of stage 0's coordinates; y: its strength (0 - 2); z, w: its
+                       // level of detail (log2 of detail texels a pixel) where it starts to fade and where it is gone
+    Float4 material{}; // x: the kind's roughness; y: the detail's roughness swing; z: metalness (0 - 1); w: how far the
+                       // kind's roughness replaces the map's (0 - 1)
+    Float4 delight{};  // x: the de-lighting's strength (0: none); y: the texture's mean luminance (< 0: unknown - its last
+                       // mip read); z: the most the scale may brighten or darken (a factor); w: unused
+    Float4 spare{};    // (zeros)
+};
+
 constexpr std::size_t kMatrixBytes = 64;
 constexpr std::size_t kVectorBytes = 16;
 static_assert(offsetof(VertexUniforms, texture_matrix) == 3 * kMatrixBytes, "std140: matrices are 64 bytes");
@@ -162,5 +177,6 @@ constexpr std::size_t kCelVectors = 11;
 static_assert(sizeof(CelUniforms) == kCelVectors * kVectorBytes, "std140: no padding");
 constexpr std::size_t kWaterVectors = 10;
 static_assert(sizeof(WaterUniforms) == (3 * kMatrixBytes) + (kWaterVectors * kVectorBytes), "std140: no padding");
+static_assert(sizeof(DetailUniforms) == 4 * kVectorBytes, "std140: no padding");
 
 } // namespace render::vulkan

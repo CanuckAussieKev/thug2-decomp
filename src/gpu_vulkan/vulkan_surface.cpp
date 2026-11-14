@@ -21,6 +21,7 @@
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/gpu_vulkan.h"
+#include "gpu_vulkan/vulkan_detail.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "platform/run_log.h"
 
@@ -40,7 +41,25 @@ struct MapEntry {
     Texture* map = nullptr;
     float f0 = kRtPbrF0;
     uint8_t material_class = 0;
+    // (added by the detail materials - vulkan_detail.h) the texture's checksum and content hash, and its detail as of
+    // detail_generation() `generation` (0: not looked up)
+    uint32_t checksum = 0;
+    uint64_t content_hash = 0;
+    uint64_t generation = 0;
+    DetailDraw detail{};
 };
+
+// (added by the detail materials) An entry's detail, looked up again when the settings or the library changed (the
+// surface state's lock held; detail_draw takes the detail state's own).
+const DetailDraw& detail_of(MapEntry& entry)
+{
+    const uint64_t generation = detail_generation();
+    if (entry.generation != generation) {
+        entry.detail = detail_draw(entry.checksum, entry.content_hash, entry.material_class);
+        entry.generation = generation;
+    }
+    return entry.detail;
+}
 
 // The frame's sun as the draws use it (looked up once a frame: rt_scene's getters take locks).
 struct FrameSun {
@@ -196,8 +215,13 @@ public:
             const std::scoped_lock lock(state.mutex);
             MapEntry& entry = state.maps[object(colour)];
             replaced = entry.map;
-            entry = {.map = object(made), .f0 = std::clamp(info.f0, 0.0F, 1.0F), .material_class = info.material_class};
+            entry = {.map = object(made),
+                     .f0 = std::clamp(info.f0, 0.0F, 1.0F),
+                     .material_class = info.material_class,
+                     .checksum = info.checksum,
+                     .content_hash = info.content_hash};
         }
+        ensure_detail_library(); // (added by the detail materials: the library read the first time it is wanted)
         if (replaced != nullptr) {
             device.release_texture(texture_handle(replaced));
         }
@@ -283,6 +307,13 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
             draw.map = found->second.map;
             draw.f0 = found->second.f0;
             draw.flags = static_cast<uint8_t>(kSurfaceLighting | kSurfaceMap | (lit && state.settings.objects ? kSurfaceLit : 0));
+            const DetailDraw& detail = detail_of(found->second); // (added by the detail materials)
+            if (detail.flags != 0) {
+                draw.detail = detail.flags;
+                draw.detail_map = detail.texture;
+                draw.detail_uniforms = detail.uniforms;
+                draw.f0 = detail.f0 >= 0.0F ? detail.f0 : draw.f0;
+            }
             return draw;
         }
     }
@@ -347,7 +378,11 @@ float surface_map_f0(const Texture* colour)
     SurfaceState& state = surface_state();
     const std::scoped_lock lock(state.mutex);
     const auto found = state.maps.find(colour);
-    return found != state.maps.end() ? found->second.f0 : 0.0F;
+    if (found == state.maps.end()) {
+        return 0.0F;
+    }
+    const DetailDraw& detail = detail_of(found->second); // (added by the detail materials: the surface kind's F0)
+    return detail.f0 >= 0.0F ? detail.f0 : found->second.f0;
 }
 
 Texture* take_surface_map(const Texture* colour)
