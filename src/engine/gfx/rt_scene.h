@@ -291,6 +291,16 @@ struct ViewDrawn {
     // pixels of `rect` (x right, y down; 0 when not jittered) - camera.projection includes it (the depth matches).
     std::array<uint32_t, 4> output_rect{};
     std::array<float, 2> jitter{};
+    // (added by the camera effects - the Vulkan Gpu's vulkan_camera_fx.h) `menu`: the game is paused under a menu, is in
+    // the front end, or the level editor owns it - the depth of field and the motion blur stay off. `game_blur`: the
+    // game's own screen blur (SetScreenBlur, with DisableBlur=0) is on - the motion blur stands aside. `level`: the
+    // level's main scene (its checksum; 0: none) - rt_grade=level's look. `focus_known` / `focus_distance`: how far
+    // along the view what the camera follows (the skater: focus_point below) is, in world units.
+    bool menu = false;
+    bool game_blur = false;
+    uint32_t level = 0;
+    bool focus_known = false;
+    float focus_distance = 0.0F;
 };
 
 // What listens (a backend's screen-space effect: the Vulkan Gpu's ray-traced sun shadows). Called on the thread that
@@ -326,6 +336,8 @@ inline constexpr int kUpscale = 950;      // (added by the upscaler) the view's 
 inline constexpr int kStyle = 975;        // (added by the art style) the toon filter, at the output's size (world_drawn)
 inline constexpr int kGrass = 450;        // (added by the grass) the blades, over the shaded ground (opaque_drawn)
 inline constexpr int kCel = 960;          // (added by cel shading) the world's outlines, at the output's size (world_drawn)
+inline constexpr int kCameraEffects = 965; // (added by the camera effects) depth of field, motion blur (world_drawn)
+inline constexpr int kGrade = 985;         // (added by the camera effects) the colour grade, after the art style (world_drawn)
 } // namespace ViewOrder
 void add_view_listener(ViewListener* listener);
 void remove_view_listener(ViewListener* listener);
@@ -356,6 +368,12 @@ void jitter_projection(std::array<std::array<float, 4>, 4>* projection, std::arr
                        uint32_t height);
 // Whether any listens (render_pc skips filling a ViewDrawn when none does).
 bool view_listened();
+
+// (added by the camera effects) The point the game's camera follows (the skater camera's look-at, set each tick it
+// places itself; world units). focus_point gives it while it was set lately (half a second: a camera that stopped
+// following - a cut-scene, the viewer, a pause - leaves it stale), else false.
+void note_focus_point(const std::array<float, 3>& point);
+bool focus_point(std::array<float, 3>* point);
 
 // --- HDR: the world's colour in floating point (added by the HDR round; the Vulkan Gpu's [Graphics] rt_hdr) ---------
 // While hdr_colour() is true the targets the world is drawn into hold 16-bit floats (RGBA16F): the back buffer (its

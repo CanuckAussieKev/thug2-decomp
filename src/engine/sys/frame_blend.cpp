@@ -15,6 +15,7 @@ namespace {
 struct BlendState {
     Frame frame;
     bool cut = false;
+    uint64_t cuts = 0;
     int max_fps = frame_pacing::kOriginal;
     frame_pacing::PresentMode present = frame_pacing::PresentMode::kVsync;
 };
@@ -31,7 +32,13 @@ constexpr std::size_t kSettingBytes = 32;
 
 Frame& frame() { return blend_state().frame; }
 
-void note_cut() { blend_state().cut = true; }
+void note_cut()
+{
+    blend_state().cut = true;
+    ++blend_state().cuts;
+}
+
+uint64_t cuts() { return blend_state().cuts; }
 
 bool take_cut()
 {

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
@@ -89,6 +90,38 @@ void world_view_drawn(const ViewDrawn& view)
 }
 
 bool view_listened() { return !view_listeners().empty(); }
+
+namespace {
+struct FocusPoint {
+    std::array<float, 3> point{};
+    std::chrono::steady_clock::time_point noted;
+    bool known = false;
+};
+FocusPoint& focus_slot()
+{
+    static FocusPoint focus;
+    return focus;
+}
+constexpr std::chrono::milliseconds kFocusFresh{500};
+} // namespace
+
+void note_focus_point(const std::array<float, 3>& point)
+{
+    FocusPoint& focus = focus_slot();
+    focus.point = point;
+    focus.noted = std::chrono::steady_clock::now();
+    focus.known = true;
+}
+
+bool focus_point(std::array<float, 3>* point)
+{
+    const FocusPoint& focus = focus_slot();
+    if (!focus.known || std::chrono::steady_clock::now() - focus.noted > kFocusFresh) {
+        return false;
+    }
+    *point = focus.point;
+    return true;
+}
 
 void view_begins(const ViewDrawn& view)
 {

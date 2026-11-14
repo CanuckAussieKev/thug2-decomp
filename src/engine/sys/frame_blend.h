@@ -25,6 +25,9 @@ Frame& frame();
 void note_cut();
 // Whether a cut was reported since the last call (cleared).
 bool take_cut();
+// (added by the camera effects) The cuts reported so far (whatever takes them): the motion blur blurs nothing across
+// one - a frame drawn after the count changed has no motion from before it.
+uint64_t cuts();
 
 // [Graphics] max_fps and present_mode, read from the ini (at start-up with the graphics options, and again when the
 // Options screen changes one).

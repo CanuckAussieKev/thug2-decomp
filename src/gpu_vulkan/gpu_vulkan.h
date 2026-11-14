@@ -391,5 +391,42 @@ struct WaterSettings {
 };
 void set_water_settings(const WaterSettings& settings);
 [[nodiscard]] WaterSettings water_settings();
+// NOT ORIGINAL - the camera effects (vulkan_camera_fx.h; docs/design/vulkan.md "Camera effects"): [Graphics]
+// rt_motion_blur, rt_motion_blur_strength, rt_dof, rt_dof_strength, rt_grade, rt_grade_strength, rt_grade_vignette,
+// rt_grade_grain, rt_grade_levels - all put to use at once. Post-processes over each viewport's world: motion blur and
+// depth of field after the upscaler, the grade after the art style, all before the 2D. Everything off (the default):
+// nothing changes - no pass, no motion vectors. No ray tracing or HDR needed.
+// rt_grade's looks (tables made here from formulas, no files): neutral changes no colour (the vignette and grain only),
+// level the look rt_grade_levels names for the level being played (neutral when it names none).
+enum class GradeLook : uint8_t {
+    kOff = 0,
+    kNeutral = 1,
+    kWarm = 2,        // late afternoon sun: warm highlights, a touch of gold
+    kCool = 3,        // overcast morning: blue-green shadows, cooler whites
+    kFilmic = 4,      // a film print: a soft S curve, rich mid-tones, quieter highlights
+    kBleach = 5,      // bleach bypass: silvery, low saturation, hard contrast
+    kSkateVideo = 6,  // a 2000s skate video: punchy colour, deep blacks, teal shadows and warm skin
+    kLevel = 7,       // the level's own (rt_grade_levels)
+};
+inline constexpr unsigned kGradeLookCount = 8;
+// "off", "neutral", ... "skate_video", "level" (an unknown value: "off").
+[[nodiscard]] const char* grade_look_name(GradeLook look);
+// A name (any case; "skate video" and "skatevideo" read as skate_video); false (untouched) when it is none.
+bool parse_grade_look(const std::string& text, GradeLook* look);
+inline constexpr float kMotionBlurShutter = 0.5F; // (rt_motion_blur_strength's default: a 180-degree shutter)
+inline constexpr float kDofStrength = 0.4F;       // (rt_dof_strength's: mild)
+struct CameraFxSettings {
+    bool motion_blur = false;
+    float motion_blur_strength = kMotionBlurShutter; // the shutter's share of the frame's time (0 - 1)
+    bool dof = false;
+    float dof_strength = kDofStrength; // the aperture (0 - 1): how far from the focus things go soft
+    GradeLook grade = GradeLook::kOff;
+    float grade_strength = 1.0F; // the look over the picture (0 - 1)
+    float grade_vignette = 0.0F; // with a look: the corners darkened (0 - 1)
+    float grade_grain = 0.0F;    // with a look: film grain (0 - 1)
+    std::string grade_levels;    // rt_grade_levels: "<scene>:<look>,..." - the look of each level under rt_grade=level
+};
+void set_camera_fx_settings(const CameraFxSettings& settings);
+[[nodiscard]] CameraFxSettings camera_fx_settings();
 
 } // namespace render::vulkan

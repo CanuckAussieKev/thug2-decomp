@@ -2422,6 +2422,46 @@ timing logged every 300 passes as `rt_style <style>: the passes take`). Each sty
   (the picture pass), watercolour 0.51 ms. The BO demo (perf_BO, 22 s) saved as a video with vhs on: 659 frames, the run
   identical to the recording (1316 check points), the counter and band advancing frame by frame with the run's clock.
 
+### Camera effects (`rt_motion_blur`, `rt_dof`, `rt_grade`)
+
+Three optional post-processes in `src/gpu_vulkan/vulkan_camera_fx.cpp` (the looks' formulas and the grade's processor
+twin in `vulkan_grade_looks.cpp`; the full pass description is the header comment of `vulkan_camera_fx.h`). Everything
+off - the default - registers no listener and begins no motion vectors: every frame is drawn exactly as before.
+
+- **Where.** Motion blur and depth of field at `rt::ViewOrder::kCameraEffects` (965): after the tone mapping (900), the
+  upscaler (950) and cel shading's outlines (960), at the output resolution - a lens's blur belongs to the final
+  picture, and the upscaler's history isn't smeared -, before the art styles (975), whose overlays (the VHS's REC, the
+  retro cells) stay sharp. The grade at `kGrade` (985), last before the 2D. The depth and the motion vectors stay at the
+  drawn (upscaler) resolution; each output pixel reads the drawn pixel under it.
+- **Motion vectors without the upscaler.** The motion attachment (`vulkan_motion.h`) used to start only for upscaled
+  views. Its start is now `begin_motion` (the upscaler calls it as before); with the blur on and no upscaler taking the
+  view, the blur's own `view_begins` calls it. Pixels no draw wrote (the sky, cleared pixels) get the camera's motion
+  from the depth, as the upscaler's preparation does.
+- **Motion blur.** McGuire et al.'s reconstruction filter (2012): K x K tile maxima (K = height / 36), their 3 x 3
+  neighbourhood maxima, a 16-tap gather along the neighbourhood's vector with depth-aware cone / cylinder weights and a
+  per-pixel jitter. The vector is the frame's motion times the shutter / 2 (`rt_motion_blur_strength`, default 0.5 -
+  180 degrees). With `max_fps` each render-only frame's vectors span its own time step, not a tick. Nothing is blurred
+  after `frame_blend::cuts()` changes (a teleport, a respawn), after a camera jump (> 300 units or > 30 degrees in a
+  frame - a level load, an unreported cut), under a menu, or while the game's own `SetScreenBlur` effect is on
+  (`DisableBlur=0`): the original's blur is never doubled.
+- **Depth of field.** Focused on the point the skater camera looks at (`rt::note_focus_point`, set each tick by the
+  skate and walk cameras; render_pc turns it into `ViewDrawn::focus_distance`). The circle of confusion
+  c(z) = clamp(A (1 - focus / z), -A, A), A = `rt_dof_strength` x 3% of the output's height (default 0.4: mild). Half
+  resolution: the 2 x 2 blocks' colour and circle, a near-field reach per 8 x 8 tile over its 3 x 3 neighbours, a
+  24-tap Vogel-disc scatter-as-gather into a far field and a near field with its coverage, composited at full
+  resolution. In focus the picture is left bit for bit as it was. Off under a menu (paused, the front end), in the level
+  editor (`ViewDrawn::menu`) and whenever no focus point is fresh (a cut-scene camera, the viewer).
+- **Grade.** A 33^3 table per look, made on the processor from our own formulas (neutral, warm, cool, filmic, bleach
+  bypass, skate video), read trilinearly from a storage buffer, mixed by `rt_grade_strength`; then the vignette
+  (`rt_grade_vignette`) and monochrome grain (`rt_grade_grain`). An art style with its own vignette or grain keeps it.
+  `rt_grade=level` takes each level's look from `rt_grade_levels` (`scene:look` pairs, the level's main scene as
+  `LoadScene` names it). Independent of `rt_hdr`'s `rt_grade_lut`, which grades the HDR picture inside the tone map.
+- **Not done.** Multisampled targets get the grade only (no blur or depth of field: logged once). A split view's depth
+  of field focuses where the last camera to note a point looked. The live pause (the pause menu over a running game)
+  isn't seen by render_pc as a menu: the depth of field stays on there.
+- **Cost** (RTX 5070 Ti, 2560 x 1440, `thug2_vulkan_camera_fx_check`): motion blur and depth of field together about
+  0.5 ms, the grade about 0.09 ms.
+
 ### Changing the settings while the game runs (the Options screen)
 
 `app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,

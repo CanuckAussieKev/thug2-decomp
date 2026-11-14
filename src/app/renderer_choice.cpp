@@ -606,6 +606,35 @@ void read_water()
     render::vulkan::set_water_settings(water);
 }
 
+// NOT ORIGINAL - the camera effects (gpu_vulkan/vulkan_camera_fx.h): motion blur, depth of field, the colour grade; each
+// off unless asked for, no ray tracing or HDR needed. rt_grade: a look's name (off, neutral, warm, cool, filmic,
+// bleach, skate_video, level); anything else is off, logged.
+void read_camera_fx()
+{
+    const render::vulkan::CameraFxSettings defaults;
+    render::vulkan::CameraFxSettings settings{
+        .motion_blur = build_info::fetch_flag(build_info::kGraphics, "rt_motion_blur", false),
+        .motion_blur_strength = ini_float("rt_motion_blur_strength", defaults.motion_blur_strength),
+        .dof = build_info::fetch_flag(build_info::kGraphics, "rt_dof", false),
+        .dof_strength = ini_float("rt_dof_strength", defaults.dof_strength),
+        .grade = render::vulkan::GradeLook::kOff,
+        .grade_strength = ini_float("rt_grade_strength", defaults.grade_strength),
+        .grade_vignette = ini_float("rt_grade_vignette", defaults.grade_vignette),
+        .grade_grain = ini_float("rt_grade_grain", defaults.grade_grain),
+        .grade_levels = {}};
+    constexpr std::size_t kLongest = 512;
+    std::array<char, kLongest> text{};
+    graphics_text("rt_grade", "off", text.data(), text.size());
+    if (!render::vulkan::parse_grade_look(text.data(), &settings.grade)) {
+        get_log("[Graphics] rt_grade=%s isn't off, neutral, warm, cool, filmic, bleach, skate_video or level - off",
+                text.data());
+    }
+    text = {};
+    graphics_text("rt_grade_levels", "", text.data(), text.size());
+    settings.grade_levels = text.data();
+    render::vulkan::set_camera_fx_settings(settings);
+}
+
 // The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting
 // with it, `prefix`) and what reads its effect's settings again. Everything else - renderer, ray_tracing, rt_hdr,
 // upscaling, rt_tessellation - waits for the restart.
@@ -667,6 +696,14 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "grass", .prefix = true, .read = &read_grass},    // (grass and every grass_)
     LiveKey{.key = "rt_cel", .prefix = true, .read = &read_rt_cel},   // (added by cel shading: rt_cel and every rt_cel_)
     LiveKey{.key = "rt_water", .prefix = true, .read = &read_water}, // (NOT ORIGINAL - rt_water and every rt_water_)
+    // (NOT ORIGINAL - the camera effects; rt_grade_lut, HDR's .cube table, is read_hdr's above)
+    LiveKey{.key = "rt_motion_blur", .prefix = true, .read = &read_camera_fx},
+    LiveKey{.key = "rt_dof", .prefix = true, .read = &read_camera_fx},
+    LiveKey{.key = "rt_grade", .prefix = false, .read = &read_camera_fx},
+    LiveKey{.key = "rt_grade_strength", .prefix = false, .read = &read_camera_fx},
+    LiveKey{.key = "rt_grade_vignette", .prefix = false, .read = &read_camera_fx},
+    LiveKey{.key = "rt_grade_grain", .prefix = false, .read = &read_camera_fx},
+    LiveKey{.key = "rt_grade_levels", .prefix = false, .read = &read_camera_fx},
 };
 
 // (added by the split comparison - engine/gfx/graphics_options.h CompareBackend, devtools/compare_split.h) The effects'
@@ -907,6 +944,7 @@ void install_vulkan()
     read_grass(); // (NOT ORIGINAL - the grass: gpu_vulkan/vulkan_grass.h)
     read_rt_cel(); // (added by cel shading)
     read_water();
+    read_camera_fx(); // (NOT ORIGINAL - the camera effects: gpu_vulkan/vulkan_camera_fx.h)
     render::graphics_options::set_live_reload(&reload_live_key);
     render::graphics_options::set_compare_backend(
         {.prepare = &compare_prepare, .apply = &compare_apply, .end = &compare_end});

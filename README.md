@@ -410,6 +410,15 @@ for the restart
 | `rt_shaft_strength` | 0.8 | How bright the rays are (0-4) |
 | `rt_bloom` | 0 | On Vulkan (no ray tracing needed): 1 lets bright light glow softly into what is round it - the sun, lit sky, bright windows. It only moves light, never adds it; left alone when a level turns on the game's own bloom (the sun's glow still drawn) |
 | `rt_bloom_strength` | 0.05 | How much of each pixel's light spreads (0-0.5) |
+| `rt_motion_blur` | 0 | On Vulkan (no ray tracing needed): 1 streaks whatever moves across the screen - the world past a fast camera, a spinning skater - as a film camera would. Nothing is blurred across a cut (a respawn, a teleport, a camera jump), under a menu or while a level's own screen blur (`DisableBlur=0`) is on. With `max_fps` above 60 each frame blurs over its own, shorter time - a faster camera |
+| `rt_motion_blur_strength` | 0.5 | The shutter: the share of each frame's time it is open (0-1; 0.5 is a film camera's 180 degrees) |
+| `rt_dof` | 0 | On Vulkan (no ray tracing needed): 1 keeps the skater sharp and lets what is far behind - and anything close in front of the camera - go soft, like a camera lens focused on them. Off in menus, the level editor, and wherever the camera isn't following a skater |
+| `rt_dof_strength` | 0.4 | How soft things away from the focus get (0-1; the default is mild) |
+| `rt_grade` | off | On Vulkan (no ray tracing needed): a colour grade over the finished picture (after the art style, before the HUD) - `neutral` (no colour change: the vignette and grain only), `warm`, `cool`, `filmic`, `bleach` (bleach bypass), `skate_video` (a 2000s skate video: punchy colour, deep blacks), or `level` (each level's look from `rt_grade_levels`) |
+| `rt_grade_strength` | 1 | With `rt_grade`: how much of the look is laid over the picture (0-1) |
+| `rt_grade_vignette` | 0 | With `rt_grade`: how dark the picture's corners get (0-1). An art style with its own (noir, thermal) keeps that one |
+| `rt_grade_grain` | 0 | With `rt_grade`: film grain, strongest in the mid-tones (0-1). An art style with its own grain (noir, thermal, comic, sketch) keeps that one |
+| `rt_grade_levels` | (none) | With `rt_grade=level`: each level's look, as `scene:look` pairs - e.g. `BO:warm,BA:filmic,SC:skate_video`; a level it doesn't list is `neutral` |
 | `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
 | `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
 | `rt_sky` | 0 | On Vulkan (no ray tracing needed): 1 replaces the level's painted sky dome with a real sky - the light of the air scattered once and many times, bright round the sun, pale at the horizon - tinted toward the level's own sky so each level keeps its colours. The haze of `rt_fog_haze` fades distant buildings into this sky |

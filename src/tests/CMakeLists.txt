@@ -244,6 +244,16 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_water_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_camera_fx_check.exe: the camera effects (gpu_vulkan/vulkan_camera_fx.h) on this machine -
+# everything off (no listener, no motion vectors, the picture unchanged); each grade look against the processor's twin;
+# the depth of field sharp at the focus and blurred away from it, near and far; the motion blur along a known camera
+# move, none across a cut or a jump; the cost at 2560x1440 (src/tests/vulkan_camera_fx_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_camera_fx_check vulkan_camera_fx_check.cpp)
+    target_link_libraries(thug2_vulkan_camera_fx_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_camera_fx_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_style_film_check.exe: the vhs, retro and watercolour art styles
 # (gpu_vulkan/vulkan_style_film.h) on this machine - a synthetic picture (noise, a gradient, not-a-number) filtered
 # through rt_scene's listener and compared with each style's processor twin; the vhs picture following the game clock,

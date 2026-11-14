@@ -1172,6 +1172,8 @@ StyleSettings style_settings()
     return style().settings;
 }
 
+const StyleSettings& style_settings_locked() { return style().settings; }
+
 namespace {
 
 constexpr std::array<const char*, kArtStyleCount> kArtStyleNames{"off", "toon",  "cel",         "comic", "sketch",

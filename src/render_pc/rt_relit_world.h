@@ -53,6 +53,9 @@ struct WorldMesh {
 void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& tracer);
 // A mesh destroyed (rt_record::mesh_released): whatever was kept for it forgotten.
 void mesh_released(const MeshRef* mesh);
+// (added by the camera effects) The level's main scene - the first world scene that isn't a sky -, its checksum (0:
+// none): rt_grade=level's key.
+[[nodiscard]] uint32_t level_scene();
 // The baked colours of a buffer the mode has written into (A8R8G8B8, a word a vertex), or empty: it holds its own.
 [[nodiscard]] std::span<const uint32_t> original_colours(const VertexBufferData* buffer);
 // How the skater's and the objects' lights follow the relit world (pc_lights.cpp): while the world is relit by a sun

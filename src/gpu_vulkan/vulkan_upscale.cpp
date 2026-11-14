@@ -757,41 +757,10 @@ void begin_upscaled_view(Backend& state, const rt::ViewDrawn& view)
         publish_scale(false);
         return;
     }
-    // the motion attachment, the target's size
-    constexpr VkImageUsageFlags kMotionUsage =
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    if (!ensure_image(state, &motion.image, kMotionFormat, colour->extent, kMotionUsage)) {
+    // the motion vectors (vulkan_motion.h)
+    if (!begin_motion(state, view, *colour, output)) {
         return;
     }
-    // the frame before's cameras and worlds (once a frame)
-    if (motion.frame != state.frame || !motion.now.known) {
-        motion.before = motion.now.known ? motion.now : MotionCamera{};
-        motion.worlds_before.swap(motion.worlds_now);
-        motion.worlds_now.clear();
-        motion.frame = state.frame;
-    }
-    const uint32_t width = std::max(core::at(view.rect, 2), 1U);
-    const uint32_t height = std::max(core::at(view.rect, 3), 1U);
-    motion.jitter = {kTwo * core::at(view.jitter, 0) / static_cast<float>(width),
-                     -kTwo * core::at(view.jitter, 1) / static_cast<float>(height), 0.0F, 0.0F};
-    motion.output_scale = {static_cast<float>(output.width) / static_cast<float>(width),
-                           static_cast<float>(output.height) / static_cast<float>(height)};
-    motion.now.known = true;
-    motion.now.view = as_float16(view.camera.view);
-    Float4x4 projection = as_float16(view.camera.projection);
-    for (std::size_t row = 0; row < 4; ++row) {
-        core::at(projection, (row * 4) + 0) -= core::at(motion.jitter, 0) * core::at(projection, (row * 4) + 3);
-        core::at(projection, (row * 4) + 1) -= core::at(motion.jitter, 1) * core::at(projection, (row * 4) + 3);
-    }
-    motion.now.projection = projection;
-    if (!motion.before.known) {
-        motion.before = motion.now;
-    }
-    motion.target = core::at(state.targets, 0);
-    motion.depth = state.depth;
-    motion.fresh = true;
-    motion.active = true;
-    motion.source = {};
     own.view_on = true;
     if (!rt::view_scale().on) {
         publish_scale(true); // (from the next frame: this one's viewport is already set)

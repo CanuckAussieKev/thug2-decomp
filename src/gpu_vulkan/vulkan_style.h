@@ -113,6 +113,8 @@ struct StyleHeights {
                                                const StyleHeights& heights);
 // The parameters of the last pass recorded (its frame's seed among them; the check's reference input).
 [[nodiscard]] StyleParameters style_last_parameters();
+// The settings while the backend's lock is held (the camera effects' grade: a style's own vignette and grain).
+[[nodiscard]] const StyleSettings& style_settings_locked();
 // Whether a style has passes here (toon, comic, sketch, noir, thermal; the others log "not built in" and draw nothing).
 [[nodiscard]] bool style_built(ArtStyle style);
 

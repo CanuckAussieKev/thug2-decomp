@@ -49,6 +49,7 @@
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_style.h"
+#include "gpu_vulkan/vulkan_camera_fx.h"
 #include "gpu_vulkan/vulkan_grass.h"
 #include "gpu_vulkan/vulkan_style_film.h"
 #include "gpu_vulkan/vulkan_upscale.h"
@@ -1087,6 +1088,7 @@ void release_draw_objects(Backend& state)
     release_rt_sun(state); // (NOT ORIGINAL - the sun's, the bloom's and the sky's: vulkan_rt_sun.h)
     release_upscale(state); // (NOT ORIGINAL - the upscaler's: vulkan_upscale.h)
     release_style(state); // (NOT ORIGINAL - the art style's: vulkan_style.h)
+    release_camera_fx(state); // (NOT ORIGINAL - the camera effects': vulkan_camera_fx.h)
     release_grass(state); // (NOT ORIGINAL - the grass's: vulkan_grass.h)
     release_cel(state); // (NOT ORIGINAL - cel shading's outlines: vulkan_cel_draw.h)
     release_water(state); // (NOT ORIGINAL - rt_water's: vulkan_water.h)

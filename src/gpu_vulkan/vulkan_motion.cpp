@@ -1,6 +1,7 @@
 // NOT ORIGINAL - motion vectors for the upscaler (vulkan_motion.h; docs/design/vulkan.md "Upscaling").
 #include "gpu_vulkan/vulkan_motion.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -14,6 +15,7 @@
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_pipelines.h"
 
 namespace render::vulkan {
 
@@ -177,6 +179,66 @@ void fill_motion_uniforms(Backend& state, const GpuStateBlock& block, VertexUnif
     uniforms->previous_clip = motion_multiply(motion_multiply(world_before, view_before), projection_before);
     uniforms->motion_jitter = motion.jitter;
     ++motion.draws;
+}
+
+bool begin_motion(Backend& state, const rt::ViewDrawn& view, const Image& colour, Extent output)
+{
+    MotionVectors& motion = state.motion;
+    motion.active = false;
+    // the motion attachment, the target's size
+    constexpr VkImageUsageFlags kMotionUsage =
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    Image& image = motion.image;
+    if (image.image == VK_NULL_HANDLE || image.format != kMotionFormat || image.extent.width != colour.extent.width ||
+        image.extent.height != colour.extent.height) {
+        retire_image(state, &image);
+        const ImageRequest request{.format = kMotionFormat,
+                                   .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
+                                   .extent = colour.extent,
+                                   .levels = 1,
+                                   .samples = VK_SAMPLE_COUNT_1_BIT,
+                                   .usage = kMotionUsage,
+                                   .alpha_one = false};
+        if (!state.memory.create_image(request, &image)) {
+            return false;
+        }
+        image.resting = VK_IMAGE_LAYOUT_GENERAL;
+        prepare_image(state, &image);
+    }
+    // the frame before's cameras and worlds (once a frame)
+    if (motion.frame != state.frame || !motion.now.known) {
+        motion.before = motion.now.known ? motion.now : MotionCamera{};
+        motion.worlds_before.swap(motion.worlds_now);
+        motion.worlds_now.clear();
+        motion.frame = state.frame;
+    }
+    constexpr float kTwo = 2.0F; // (clip space: 2 across)
+    const uint32_t width = std::max(core::at(view.rect, 2), 1U);
+    const uint32_t height = std::max(core::at(view.rect, 3), 1U);
+    motion.jitter = {kTwo * core::at(view.jitter, 0) / static_cast<float>(width),
+                     -kTwo * core::at(view.jitter, 1) / static_cast<float>(height), 0.0F, 0.0F};
+    motion.output_scale = {static_cast<float>(output.width) / static_cast<float>(width),
+                           static_cast<float>(output.height) / static_cast<float>(height)};
+    motion.now.known = true;
+    Float4x4 view_matrix{};
+    Float4x4 projection{};
+    for (std::size_t row = 0; row < kSide; ++row) {
+        for (std::size_t column = 0; column < kSide; ++column) {
+            cell(view_matrix, row, column) = core::at(core::at(view.camera.view, row), column);
+            cell(projection, row, column) = core::at(core::at(view.camera.projection, row), column);
+        }
+    }
+    motion.now.view = view_matrix;
+    motion.now.projection = unjittered(projection, motion.jitter);
+    if (!motion.before.known) {
+        motion.before = motion.now;
+    }
+    motion.target = core::at(state.targets, 0);
+    motion.depth = state.depth;
+    motion.fresh = true;
+    motion.active = true;
+    motion.source = {};
+    return true;
 }
 
 void scale_pre_transformed(const Backend& state, VertexUniforms* uniforms)

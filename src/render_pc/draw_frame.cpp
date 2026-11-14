@@ -23,6 +23,8 @@
 #include <cstring>
 
 #include "engine/ext/extension.h"
+#include "engine/objects/movie_manager.h"
+#include "render_pc/rt_relit_world.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/mat4.h"
 #include "engine/gfx/view_cam.h"
@@ -725,6 +727,18 @@ rt::ViewDrawn view_drawn(int index)
                        static_cast<float>(fog_colour & kByte) * kPerByte};
     // (the game's own bloom: drawn over the frame by the screen effects - a listener's bloom leaves the frame's light alone)
     view.game_bloom = effects_state().bloom_on() != 0U && renderer().shaders_available();
+    // (not original either - the camera effects, rt_scene.h: a menu or the editor over the view, the game's own screen
+    // blur, the level, the distance along the view to what the camera follows)
+    view.menu = current_level() == 0 || objects::simulation_halted() || ext::game_owner() != nullptr;
+    view.game_blur = effects_state().screen_blur() != 0;
+    view.level = rt_relit_world::level_scene();
+    if (std::array<float, 3> focus{}; rt::focus_point(&focus)) {
+        const auto& v = view.camera.view;
+        view.focus_distance = (core::at(focus, 0) * core::at(core::at(v, 0), 2)) +
+                              (core::at(focus, 1) * core::at(core::at(v, 1), 2)) +
+                              (core::at(focus, 2) * core::at(core::at(v, 2), 2)) + core::at(core::at(v, 3), 2);
+        view.focus_known = view.focus_distance > 0.0F;
+    }
     // (the game clock: what moves with the game - a backend's clouds - follows it)
     constexpr double kSecondsPerMillisecond = 0.001;
     // (not original either: [Graphics] max_fps - the part of a tick a blended frame is behind taken off: frame_interp.h)

@@ -1180,4 +1180,6 @@ std::string status_text()
                         static_cast<double>(st.model.error), st.retraced, st.rebounced);
 }
 
+uint32_t level_scene() { return main_scene(); }
+
 } // namespace render::rt_relit_world

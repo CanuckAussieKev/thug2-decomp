@@ -7,6 +7,7 @@
 #include <volk.h>
 
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
@@ -76,6 +77,13 @@ void fill_motion_uniforms(Backend& state, const GpuStateBlock& block, VertexUnif
 void scale_pre_transformed(const Backend& state, VertexUniforms* uniforms);
 // The buffer and offset the draw's previous positions come from (binding 1): the motion source's, else the draw's own.
 [[nodiscard]] std::pair<VkBuffer, VkDeviceSize> previous_vertices(Backend& state, VkBuffer buffer, VkDeviceSize offset);
+
+// (added by the camera effects) The view's motion begun - by the upscaler's view_begins, and by the motion blur's when
+// no upscaler took the view: the attachment made the colour target's size (`colour`), the frame before's cameras and
+// worlds kept (once a frame), this frame's camera noted (its jitter, ViewDrawn::jitter, taken out), the draws given motion
+// from here to the view's world_drawn. `output`: the view's output size (pre-transformed draws scaled into the drawn
+// part). False (motion not active): the attachment couldn't be made.
+bool begin_motion(Backend& state, const rt::ViewDrawn& view, const Image& colour, Extent output);
 
 // D3D row-vector matrices: a x b, and the inverse (false: singular).
 [[nodiscard]] Float4x4 motion_multiply(const Float4x4& a, const Float4x4& b);

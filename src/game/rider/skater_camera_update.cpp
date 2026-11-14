@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "engine/gfx/view_cam.h"
+#include "engine/gfx/rt_scene.h"
 #include "engine/sys/frame_blend.h"
 #include "base/maths/mat4.h"
 #include "base/maths/rotation_blend.h"
@@ -614,6 +615,8 @@ void RiderChaseView::place_view(maths::Mat4& view, const ChaseFrame& chase, Obje
     }
     target.w = 1.0F;
     camera_component->entity()->at_point() = target;
+    // (not original: the point looked at - above the skater - is the camera effects' focus, engine/gfx/rt_scene.h)
+    render::rt::note_focus_point({eye.x, eye.y, eye.z});
     if (instant) {
         core::down_cast<ViewpointModule>(camera_component)->view_camera()->remember_prev_pos();
     }
