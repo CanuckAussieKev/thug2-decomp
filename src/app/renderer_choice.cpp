@@ -420,6 +420,18 @@ void read_rt_pbr()
          .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true)});
 }
 
+// NOT ORIGINAL - detail materials and de-lighting (gpu_vulkan/vulkan_detail.h): off unless asked for; they act on the
+// draws rt_pbr lights with a surface map
+void read_rt_detail()
+{
+    const render::vulkan::RtDetailSettings defaults;
+    render::vulkan::set_rt_detail_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_detail", false),
+         .strength = std::clamp(ini_float("rt_detail_strength", defaults.strength), 0.0F, 2.0F),
+         .delight = build_info::fetch_flag(build_info::kGraphics, "rt_delight", false),
+         .delight_strength = std::clamp(ini_float("rt_delight_strength", defaults.delight_strength), 0.0F, 1.0F)});
+}
+
 // NOT ORIGINAL - the vhs, retro and watercolour art styles' knobs (gpu_vulkan/vulkan_style_film.h), with rt_style as the
 // toon's reading set it (the retro geometry is on with it)
 void read_style_film()
@@ -648,6 +660,8 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_relit_", .prefix = true, .read = &read_rt_relit},
     LiveKey{.key = "rt_pbr", .prefix = false, .read = &read_rt_pbr},
     LiveKey{.key = "rt_pbr_", .prefix = true, .read = &read_rt_pbr},
+    LiveKey{.key = "rt_detail", .prefix = true, .read = &read_rt_detail},  // (NOT ORIGINAL - rt_detail and rt_detail_*)
+    LiveKey{.key = "rt_delight", .prefix = true, .read = &read_rt_detail}, // (NOT ORIGINAL - rt_delight and rt_delight_*)
     LiveKey{.key = "rt_style", .prefix = true, .read = &read_style}, // (rt_style and every rt_style_)
     LiveKey{.key = "grass", .prefix = true, .read = &read_grass},    // (grass and every grass_)
     LiveKey{.key = "rt_cel", .prefix = true, .read = &read_rt_cel},   // (added by cel shading: rt_cel and every rt_cel_)
@@ -887,6 +901,7 @@ void install_vulkan()
     read_rt_relit();
     read_upscale();
     read_rt_pbr();
+    read_rt_detail(); // (NOT ORIGINAL - detail materials and de-lighting)
     read_style();
     read_grass(); // (NOT ORIGINAL - the grass: gpu_vulkan/vulkan_grass.h)
     read_rt_cel(); // (added by cel shading)

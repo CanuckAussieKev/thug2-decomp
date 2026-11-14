@@ -24,6 +24,10 @@ struct MapInfo {
     uint32_t height = 0;
     uint8_t material_class = 0; // surface_map_format::MaterialClass
     float f0 = kDielectricF0;   // the reflectance at normal incidence the class gives
+    // (added by the detail materials - [Graphics] rt_detail) the texture's checksum and content hash (its first level's,
+    // surface_map_format::content_hash): the detail-material library lists textures by them
+    uint32_t checksum = 0;
+    uint64_t content_hash = 0;
 };
 
 class SurfaceMaps {

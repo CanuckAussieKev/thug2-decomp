@@ -388,6 +388,11 @@ ShaderKey normalised(const ShaderKey& key)
     if ((surface & kSurfaceLit) != 0U) {
         surface = static_cast<uint8_t>(surface & ~kSurfaceCelStream);
     }
+    // (NOT ORIGINAL - rt_detail / rt_delight) the detail layer only on a surface-mapped draw lit per pixel, never in bands
+    if ((surface & kSurfaceMap) == 0U || (surface & kSurfaceCel) != 0U) {
+        result.fragment.detail = 0;
+    }
+    result.fragment.detail = static_cast<uint8_t>(result.fragment.detail & kDetailKnown);
     result.vertex.surface = surface != 0 || result.fragment.water != 0U ? kVertexSurfaceInputs : 0;
     if ((surface & kSurfaceCelStream) != 0U) {
         result.vertex.surface = static_cast<uint8_t>(result.vertex.surface | kVertexCelStream);
@@ -528,6 +533,9 @@ std::string describe(const FragmentKey& key)
         text += " surface=" + std::to_string(key.surface);
     }
     text += key.water != 0U ? " water" : ""; // (NOT ORIGINAL - rt_water)
+    if (key.detail != 0) {
+        text += " detail=" + std::to_string(key.detail); // (NOT ORIGINAL - rt_detail / rt_delight)
+    }
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);
     }

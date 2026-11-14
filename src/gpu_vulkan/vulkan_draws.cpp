@@ -400,6 +400,22 @@ bool same_image_info(const VkDescriptorImageInfo& a, const VkDescriptorImageInfo
     return a.sampler == b.sampler && a.imageView == b.imageView && a.imageLayout == b.imageLayout;
 }
 
+// (NOT ORIGINAL - rt_detail) The detail textures' sampler: repeating, linear between texels and levels, anisotropic.
+SamplerKey detail_sampler_key()
+{
+    constexpr uint32_t kDetailAnisotropy = 8;
+    return {.address_u = gpu_value::kAddressWrap,
+            .address_v = gpu_value::kAddressWrap,
+            .address_w = gpu_value::kAddressWrap,
+            .border_colour = 0,
+            .mag_filter = gpu_value::kFilterLinear,
+            .min_filter = gpu_value::kFilterAnisotropic,
+            .mip_filter = gpu_value::kFilterLinear,
+            .mip_lod_bias = 0,
+            .max_mip_level = 0,
+            .max_anisotropy = kDetailAnisotropy};
+}
+
 // (NOT ORIGINAL - rt_pbr) A draw lit per pixel's own descriptors: its block and its surface map (vulkan_surface.h).
 struct SurfaceDescriptors {
     bool on = false;
@@ -410,6 +426,11 @@ struct SurfaceDescriptors {
     bool cel = false;
     VkDescriptorBufferInfo cel_block{};
     VkAccelerationStructureKHR scene = VK_NULL_HANDLE;
+    // (added by the detail materials - rt_detail / rt_delight, vulkan_detail.h) its block, and the kind's texture
+    bool detail = false;
+    bool has_detail_map = false;
+    VkDescriptorBufferInfo detail_block{};
+    VkDescriptorImageInfo detail_map{};
 };
 
 void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array<VkDescriptorImageInfo, kStageCount>& images,
@@ -420,12 +441,14 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
                                               (!surface.has_map || same_image_info(bound.pushed_surface_map, surface.map)));
     const bool same = bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, bound.vertex_block) &&
                       same_buffer_info(bound.pushed_fragment_block, bound.fragment_block) &&
-                      std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel;
+                      std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel &&
+                      !surface.detail;
     if (same && !water.on) {
         return;
     }
     constexpr std::size_t kWaterWrites = 5; // (NOT ORIGINAL - rt_water's: kWaterUniformsBinding - kWaterWavesBinding)
-    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites> writes{};
+    constexpr std::size_t kDetailWrites = 2; // (NOT ORIGINAL - rt_detail's: kDetailUniformsBinding, kDetailMapBinding)
+    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites + kDetailWrites> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -491,11 +514,24 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
             image.pImageInfo = info;
         }
     }
+    if (surface.detail) { // (NOT ORIGINAL - rt_detail / rt_delight: the detail layer's block and texture)
+        VkWriteDescriptorSet& block = core::at(writes, count++);
+        block.dstBinding = kDetailUniformsBinding;
+        block.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        block.pBufferInfo = &surface.detail_block;
+        if (surface.has_detail_map) {
+            VkWriteDescriptorSet& map = core::at(writes, count++);
+            map.dstBinding = kDetailMapBinding;
+            map.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            map.pImageInfo = &surface.detail_map;
+        }
+    }
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0, count, writes.data());
     bound.images = images;
     bound.pushed_vertex_block = bound.vertex_block;
     bound.pushed_fragment_block = bound.fragment_block;
-    bound.descriptors_set = !surface.cel; // (added by cel shading: the next draw pushes again - its block is per draw)
+    // (added by cel shading: the next draw pushes again - its block is per draw; so the detail layer's)
+    bound.descriptors_set = !surface.cel && !surface.detail;
     bound.surface_pushed = surface.on;
     bound.pushed_surface_block = surface.block;
     bound.pushed_surface_map = surface.map;
@@ -555,7 +591,34 @@ struct SurfaceSource {
     uint8_t flags = 0;          // the key's surface bits
     const Image* image = nullptr; // the map's image (null: the blank texture)
     VkSampler sampler = VK_NULL_HANDLE; // stage 0's
+    // (added by the detail materials) the key's detail bits, the kind's texture's image and its sampler (repeating)
+    uint8_t detail = 0;
+    const Image* detail_image = nullptr;
+    VkSampler detail_sampler = VK_NULL_HANDLE;
 };
+
+// (NOT ORIGINAL - rt_detail / rt_delight) A draw's DetailUniforms into the ring and its texture; nothing without the bits.
+bool set_detail_descriptors(Backend& state, const SurfaceSource& source, SurfaceDescriptors* out)
+{
+    if (source.detail == 0U) {
+        return true;
+    }
+    const DetailUniforms& uniforms = source.surface.detail_uniforms;
+    const void* const data = &uniforms;
+    const std::optional<RingSpan> span =
+        state.ring.copy(std::span<const uint8_t>(static_cast<const uint8_t*>(data), sizeof(uniforms)), state.uniform_alignment);
+    if (!span) {
+        return false;
+    }
+    out->detail = true;
+    out->detail_block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(uniforms)};
+    if ((source.detail & kDetailMaterial) != 0U) {
+        const Image& shown = source.detail_image != nullptr ? *source.detail_image : state.blank;
+        out->has_detail_map = true;
+        out->detail_map = {.sampler = source.detail_sampler, .imageView = shown.view, .imageLayout = shown.layout};
+    }
+    return true;
+}
 bool surface_descriptors_for(Backend& state, const GpuStateBlock& block, const SurfaceSource& source, SurfaceDescriptors* out)
 {
     if (source.flags == 0) {
@@ -569,6 +632,9 @@ bool surface_descriptors_for(Backend& state, const GpuStateBlock& block, const S
         const Image& shown = source.image != nullptr ? *source.image : state.blank;
         out->has_map = true;
         out->map = {.sampler = source.sampler, .imageView = shown.view, .imageLayout = shown.layout};
+    }
+    if (!set_detail_descriptors(state, source, out)) { // (added by the detail materials)
+        return false;
     }
     return set_cel_descriptors(state, block, source.flags, out); // (added by cel shading)
 }
@@ -1146,6 +1212,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     const SurfaceDraw surface = cel.flags != 0 ? SurfaceDraw{.flags = cel.flags} : surface_draw(block, shaders);
     if (surface.flags != 0) {
         shaders.fragment.surface = surface.flags;
+        shaders.fragment.detail = surface.detail; // (added by the detail materials - rt_detail / rt_delight)
         shaders = normalised(shaders);
     }
     // NOT ORIGINAL - water shaded where render_pc marked the material ([Graphics] rt_water, vulkan_water.h; nothing with
@@ -1174,6 +1241,9 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     }
     const std::array<Image*, kStageCount> images = sampled_images(state, block, sampled_stages(shaders.fragment));
     Image* const surface_image = (shaders.fragment.surface & kSurfaceMap) != 0U ? image_to_sample(state, surface.map) : nullptr;
+    // (added by the detail materials) the kind's detail texture, sampled repeating, trilinear and anisotropic
+    Image* const detail_image =
+        (shaders.fragment.detail & kDetailMaterial) != 0U ? image_to_sample(state, surface.detail_map) : nullptr;
     if (!ensure_pass(state, nullptr)) {
         return kOk;
     }
@@ -1203,8 +1273,12 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         return gpu_value::kResultInvalidCall;
     }
     SurfaceDescriptors surface_descriptors; // NOT ORIGINAL - rt_pbr
+    const VkSampler detail_sampler =
+        shaders.fragment.detail != 0U ? state.samplers.sampler(detail_sampler_key()) : VK_NULL_HANDLE;
     if (!surface_descriptors_for(state, block, {.surface = surface, .flags = shaders.fragment.surface, .image = surface_image,
-                                                .sampler = core::at(descriptors, 0).sampler},
+                                                .sampler = core::at(descriptors, 0).sampler,
+                                                .detail = shaders.fragment.detail, .detail_image = detail_image,
+                                                .detail_sampler = detail_sampler},
                                  &surface_descriptors)) {
         return gpu_value::kResultInvalidCall;
     }
@@ -1248,6 +1322,9 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     }
     if (surface_image != nullptr) {
         surface_image->used = serial;
+    }
+    if (detail_image != nullptr) {
+        detail_image->used = serial;
     }
     ++state.stats.draws;
     return kOk;

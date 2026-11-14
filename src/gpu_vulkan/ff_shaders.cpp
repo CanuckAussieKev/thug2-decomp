@@ -549,6 +549,52 @@ void cel_lighting(std::string& out, const FragmentKey& key)
     add(out, {"    vec4 surface_v0 = vec4(clamp(cel_out * 0.5, 0.0, 1.0), v_diffuse.a);"});
 }
 
+// --- (NOT ORIGINAL - [Graphics] rt_detail / rt_delight) the detail layer and the de-lighting ------------------------------
+// (vulkan_detail.h; docs/design/vulkan.md "Detail materials and de-lighting") A key with FragmentKey::detail set (always
+// with kSurfaceMap):
+//   - kDetailMaterial: the surface kind's tiling detail texture (R, G its high-passed normal's x along +u and y along +v,
+//     B its roughness swing about 0.5, A the albedo's luminance ratio x 0.5) read at stage 0's coordinates x scale.x;
+//     its weight w = strength x (1 - smoothstep(scale.z, scale.w, its level of detail)) - log2 of its texels a pixel, so
+//     it fades as it shrinks on the screen and the original texture is left alone far away. The normal: the map's
+//     tangent-space normal with the detail's slope added (x the map's z) and renormalised; the roughness: the map's moved
+//     toward the kind's (material.x by material.w) plus the detail's swing x material.y x w; stage 0's colour x
+//     mix(1, A x 2, w) - its luminance only, so the colour stays the texture's; the specular tinted by the texel's colour
+//     by the kind's metalness (material.z);
+//   - kDetailDelight: stage 0's colour x (mean / local)^delight.x, clamped to 1 / delight.z - delight.z - the local
+//     luminance a coarse mip's (8 texels across the texture, bilinear by texel fetches: the stage's sampler may allow no
+//     mips) and the mean the texture's (delight.y, or its last mip's).
+constexpr const char* kDetailBlock = R"(layout(set = 0, binding = 15, std140) uniform DetailUniforms {
+    vec4 scale;
+    vec4 material;
+    vec4 delight;
+    vec4 spare;
+} d;)";
+constexpr const char* kDetailFetch = R"(vec3 detail_fetch(sampler2D map, vec2 uv, int level)
+{
+    vec2 size = vec2(textureSize(map, level));
+    vec2 p = uv * size - 0.5;
+    vec2 f = fract(p);
+    vec2 i0 = mod(floor(p), size);
+    vec2 i1 = mod(floor(p) + 1.0, size);
+    vec3 a = texelFetch(map, ivec2(i0.x, i0.y), level).rgb;
+    vec3 b = texelFetch(map, ivec2(i1.x, i0.y), level).rgb;
+    vec3 c = texelFetch(map, ivec2(i0.x, i1.y), level).rgb;
+    vec3 e = texelFetch(map, ivec2(i1.x, i1.y), level).rgb;
+    return mix(mix(a, b, f.x), mix(c, e, f.x), f.y);
+})";
+
+void detail_declarations(std::string& out, const FragmentKey& key)
+{
+    static_assert(kDetailUniformsBinding == 15 && kDetailMapBinding == 16, "kDetailBlock names them");
+    add(out, {kDetailBlock});
+    if ((key.detail & kDetailMaterial) != 0U) {
+        add(out, {"layout(set = 0, binding = 16) uniform sampler2D detail_map;"});
+    }
+    if ((key.detail & kDetailDelight) != 0U) {
+        add(out, {kDetailFetch});
+    }
+}
+
 void surface_declarations(std::string& out, const FragmentKey& key)
 {
     constexpr uint32_t kBlockBinding = 6; // (kSurfaceBlock's numbers)
@@ -563,6 +609,9 @@ void surface_declarations(std::string& out, const FragmentKey& key)
     add(out, {kSurfaceBlock});
     if ((key.surface & kSurfaceCel) != 0U) {
         cel_declarations(out, key); // (added by cel shading)
+    }
+    if (key.detail != 0U) {
+        detail_declarations(out, key); // (NOT ORIGINAL - rt_detail / rt_delight)
     }
 }
 
@@ -580,12 +629,24 @@ void surface_lighting(std::string& out, const FragmentKey& key)
               ": surface_face;\n"
               "    vec3 surface_n = surface_geo;\n    vec3 surface_v = normalize(-surface_eye);\n"
               "    float surface_rough = s.params.z;"});
+    const bool detail = (key.detail & kDetailMaterial) != 0U; // (NOT ORIGINAL - rt_detail)
+    if (detail) {
+        add(out, {"    vec4 detail_m = vec4(0.5);\n    float detail_w = 0.0;"});
+    }
     if ((key.surface & kSurfaceMap) != 0U) {
         add(out, {"    {\n        vec2 uv = ", coord_of(key, 0), ";\n        vec4 m = texture(surface_map, uv);"});
         add(out, {"        surface_rough = m.b;\n        vec2 xy = (m.rg * 255.0 - 127.5) / 127.5;\n"
                   "        vec3 nt = vec3(xy * s.params.y, sqrt(max(1.0 - dot(xy, xy), 0.0)));\n"
-                  "        vec2 uv_dx = dFdx(uv);\n        vec2 uv_dy = dFdy(uv);\n"
-                  "        vec3 c1 = cross(surface_dy, surface_geo);\n        vec3 c2 = cross(surface_geo, surface_dx);\n"
+                  "        vec2 uv_dx = dFdx(uv);\n        vec2 uv_dy = dFdy(uv);"});
+        if (detail) {
+            add(out, {"        detail_m = texture(detail_map, uv * d.scale.x);\n"
+                      "        float detail_lod = log2(max(max(length(uv_dx), length(uv_dy)) * d.scale.x * "
+                      "float(textureSize(detail_map, 0).x), 1.0e-6));\n"
+                      "        detail_w = d.scale.y * (1.0 - smoothstep(d.scale.z, d.scale.w, detail_lod));\n"
+                      "        vec2 detail_xy = (detail_m.rg * 255.0 - 127.5) / 127.5 * detail_w;\n"
+                      "        nt = normalize(vec3(nt.xy + detail_xy * nt.z, nt.z));"});
+        }
+        add(out, {"        vec3 c1 = cross(surface_dy, surface_geo);\n        vec3 c2 = cross(surface_geo, surface_dx);\n"
                   "        float det = dot(surface_geo, cross(surface_dx, surface_dy));\n"
                   "        vec3 t = (c1 * uv_dx.x + c2 * uv_dy.x) * sign(det);\n"
                   "        vec3 b = (c1 * uv_dx.y + c2 * uv_dy.y) * sign(det);\n"
@@ -596,6 +657,10 @@ void surface_lighting(std::string& out, const FragmentKey& key)
                   "uv_floor) {\n            float inv = inversesqrt(scale);\n"
                   "            surface_n = normalize(t * (inv * nt.x) + b * (inv * nt.y) + surface_geo * nt.z);\n"
                   "        }\n    }"});
+    }
+    if (detail) {
+        add(out, {"    surface_rough = mix(surface_rough, d.material.x, d.material.w) + (detail_m.b - 0.5) * 2.0 * "
+                  "d.material.y * detail_w;"});
     }
     add(out, {"    surface_rough = clamp(surface_rough, 0.08, 1.0);\n    vec3 surface_specular = vec3(0.0);"});
     if ((key.surface & kSurfaceCel) != 0U) {
@@ -839,6 +904,22 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
             add(out, {"    t", num(index), ".rgb = mix(t", num(index), ".rgb, texture(t", num(index), "_map, ",
                       coord_of(key, index), ", c.flatten.x).rgb, c.flatten.y);"});
         }
+        if (index == 0 && (key.detail & kDetailDelight) != 0U) { // (NOT ORIGINAL - rt_delight: the painted light flattened)
+            add(out, {"    {\n        int dl_levels = textureQueryLevels(t0_map);\n"
+                      "        ivec2 dl_size = textureSize(t0_map, 0);\n"
+                      "        int dl_low = clamp(findMSB(max(dl_size.x, dl_size.y)) - 3, 0, dl_levels - 1);\n"
+                      "        if (d.delight.x > 0.0 && dl_low >= 1) {\n"
+                      "            vec2 dl_uv = ", coord_of(key, 0), ";\n"
+                      "            const vec3 dl_luma = vec3(0.2126, 0.7152, 0.0722);\n"
+                      "            float dl_local = max(dot(detail_fetch(t0_map, dl_uv, dl_low), dl_luma), 1.0 / 255.0);\n"
+                      "            float dl_mean = d.delight.y >= 0.0 ? d.delight.y : "
+                      "dot(detail_fetch(t0_map, dl_uv, dl_levels - 1), dl_luma);\n"
+                      "            t0.rgb *= clamp(pow(max(dl_mean, 1.0 / 255.0) / dl_local, d.delight.x), 1.0 / d.delight.z, "
+                      "d.delight.z);\n        }\n    }"});
+        }
+        if (index == 0 && (key.detail & kDetailMaterial) != 0U) { // (NOT ORIGINAL - rt_detail: the albedo's luminance)
+            add(out, {"    t0.rgb *= mix(1.0, detail_m.a * 2.0, clamp(detail_w, 0.0, 1.0));"});
+        }
     }
 }
 
@@ -984,7 +1065,10 @@ void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled
         ps_fixed(out, key.program);
     }
     add(out, {"    vec4 colour = r0;"});
-    if (key.surface != 0) {
+    if ((key.detail & kDetailMaterial) != 0U) { // (NOT ORIGINAL - rt_detail: a metal's highlight takes its colour)
+        add(out, {"    colour.rgb += surface_specular * s.params.x * mix(vec3(1.0), t0.rgb / max(max(t0.r, max(t0.g, t0.b)), "
+                  "0.04), d.material.z);"});
+    } else if (key.surface != 0) {
         add(out, {"    colour.rgb += surface_specular * s.params.x;"});
     }
     if ((key.surface & kSurfaceCelHull) != 0U) {

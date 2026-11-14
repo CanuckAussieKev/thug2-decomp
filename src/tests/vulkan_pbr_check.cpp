@@ -14,7 +14,11 @@
 //   - a vertex format without normals (the triangle's own normal from the screen derivatives);
 //   - texture coordinates that don't change (no frame: the surface's normal), no map (objects lit per pixel);
 //   - rt_pbr off: the original's shader - the same picture as Direct3D 9's vertex lighting, no specular;
-//   - every pixel of every case finite (no NaN or infinity), validation (and synchronization validation) messages 0.
+//   - every pixel of every case finite (no NaN or infinity), validation (and synchronization validation) messages 0;
+//   - (NOT ORIGINAL - rt_detail / rt_delight, vulkan_detail.h) a detail-material library handed over from memory: the
+//     detail at full weight scales the albedo by its ratio (the colour's channels alike), faded out it leaves the picture
+//     as without it; the de-lighting flattens a texture dark on one half and bright on the other toward its mean, half
+//     strength halfway.
 //   thug2_vulkan_pbr_check [--device N] [--display N] [--no-validation] [--perf]
 // --perf also times a full-screen layer at 1920 x 1080 with the setting off and on (reported, not checked).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
@@ -32,6 +36,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/core/checked_index.h"
@@ -42,8 +47,10 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_maps.h"
+#include "formats/detail_material_format.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_detail.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_surface.h"
 #include "tests/no_error_dialogs.h"
@@ -729,6 +736,220 @@ void check_bake_moves(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShad
     tally->check(differ > kLeastChanged, text::format("the map changes the baked picture (%zu channels differ)", differ));
 }
 
+// --- (NOT ORIGINAL - rt_detail / rt_delight, gpu_vulkan/vulkan_detail.h) the detail layer and the de-lighting -----------
+
+constexpr uint32_t kDetailChecksum = 0x0DE7A11U;
+constexpr uint64_t kDetailHash = 0x5EEDF00DULL;
+constexpr uint8_t kDetailAlbedo = 64; // (the detail's albedo ratio x 0.5: 64 / 127.5 - the texel about halved)
+constexpr uint32_t kDetailSide = 16;
+constexpr uint32_t kDelitSide = 64;
+constexpr uint32_t kDelitLevels = 7;
+constexpr float kDarkHalf = 0.2F;
+constexpr float kBrightHalf = 0.6F;
+constexpr float kDelitMean = 0.4F;
+constexpr float kRatioTolerance = 0.01F;
+
+// A library of one kind (smooth concrete) whose detail is flat with the albedo ratio kDetailAlbedo, the check's texture
+// assigned to it (its mean luminance `mean`).
+std::vector<uint8_t> detail_library(float mean)
+{
+    namespace dmf = detail_material_format;
+    dmf::Library library;
+    library.kinds.push_back({.kind = dmf::Kind::kConcreteSmooth,
+                             .side = kDetailSide,
+                             .tile_metres = 1.0F,
+                             .roughness = 0.8F,
+                             .roughness_swing = 0.1F,
+                             .f0 = 0.04F,
+                             .metalness = 0.0F,
+                             .roughness_weight = 0.5F});
+    library.assignments.push_back({.checksum = kDetailChecksum,
+                                   .content_hash = kDetailHash,
+                                   .kind = dmf::Kind::kConcreteSmooth,
+                                   .evidence = dmf::Evidence::kTerrain,
+                                   .repeats = 2.0F,
+                                   .mean_luma = mean});
+    std::vector<uint8_t> texels(static_cast<std::size_t>(kDetailSide) * kDetailSide * 4);
+    for (std::size_t at = 0; at < texels.size(); at += 4) {
+        texels.at(at) = kHalfAlpha;
+        texels.at(at + 1) = kHalfAlpha;
+        texels.at(at + 2) = kHalfAlpha;
+        texels.at(at + 3) = kDetailAlbedo;
+    }
+    return dmf::write_file(library, std::vector<std::vector<uint8_t>>{texels});
+}
+
+// A grey texture `side` texels square with `levels` levels (each the box mean of the one above), its left half `left`
+// and right half `right`, with a flat surface map attached under the check's checksum and hash.
+GpuTexture* detail_texture(render::Gpu& gpu, uint32_t side, uint32_t levels, float left, float right)
+{
+    GpuTexture* texture = nullptr;
+    if (gpu.create_texture({.width = side, .height = side, .levels = levels, .usage = 0, .format = value::kFormatA8R8G8B8,
+                            .pool = value::kPoolManaged},
+                           &texture) != value::kResultOk) {
+        return nullptr;
+    }
+    std::vector<float> grey(static_cast<std::size_t>(side) * side);
+    for (uint32_t row = 0; row < side; ++row) {
+        for (uint32_t column = 0; column < side; ++column) {
+            grey.at((static_cast<std::size_t>(row) * side) + column) = column < side / 2 ? left : right;
+        }
+    }
+    uint32_t size = side;
+    for (uint32_t level = 0; level < levels; ++level) {
+        render::GpuLockedRect locked{};
+        if (gpu.lock_texture(texture, level, &locked, nullptr, 0) == value::kResultOk && locked.bits != nullptr) {
+            const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked.bits),
+                                           (static_cast<std::size_t>(locked.pitch) * (size - 1)) + (std::size_t{size} * 4));
+            for (uint32_t row = 0; row < size; ++row) {
+                for (uint32_t column = 0; column < size; ++column) {
+                    const auto byte = static_cast<uint8_t>(std::lround(grey.at((static_cast<std::size_t>(row) * size) + column) * kByteMax));
+                    const std::size_t at = (static_cast<std::size_t>(row) * static_cast<std::size_t>(locked.pitch)) + (std::size_t{column} * 4);
+                    bytes[at] = byte;
+                    bytes[at + 1] = byte;
+                    bytes[at + 2] = byte;
+                    bytes[at + 3] = kHalfAlpha;
+                }
+            }
+            gpu.unlock_texture(texture, level);
+        }
+        if (size > 1) {
+            const uint32_t down = size / 2;
+            std::vector<float> next(static_cast<std::size_t>(down) * down);
+            for (uint32_t row = 0; row < down; ++row) {
+                for (uint32_t column = 0; column < down; ++column) {
+                    const auto at = [&](uint32_t y, uint32_t x) { return grey.at((static_cast<std::size_t>(y) * size) + x); };
+                    next.at((static_cast<std::size_t>(row) * down) + column) =
+                        (at(row * 2, column * 2) + at(row * 2, (column * 2) + 1) + at((row * 2) + 1, column * 2) +
+                         at((row * 2) + 1, (column * 2) + 1)) /
+                        4.0F;
+                }
+            }
+            grey = std::move(next);
+            size = down;
+        }
+    }
+    constexpr uint32_t kMapSide = 4;
+    std::vector<uint8_t> map(static_cast<std::size_t>(kMapSide) * kMapSide * 4);
+    for (std::size_t at = 0; at < map.size(); at += 4) {
+        map.at(at) = kHalfAlpha;
+        map.at(at + 1) = kHalfAlpha;
+        map.at(at + 2) = static_cast<uint8_t>(kByteMax * 0.8F);
+        map.at(at + 3) = kHalfAlpha;
+    }
+    if (render::surface::surface_maps() != nullptr) {
+        render::surface::surface_maps()->attach(texture, {.width = kMapSide, .height = kMapSide, .material_class = 2, .f0 = kMapF0,
+                                                          .checksum = kDetailChecksum, .content_hash = kDetailHash},
+                                                map);
+    }
+    return texture;
+}
+
+// The baked quad facing the camera with `texture`, as a float picture (four halves a pixel).
+std::vector<float> detail_picture(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, GpuTexture* texture)
+{
+    const Case test{.name = "detail", .lit = false, .bake = {kMid, kMid, kMid}};
+    gpu.begin_scene();
+    gpu.set_render_target(0, target);
+    gpu.set_depth_surface(nullptr);
+    gpu.set_viewport({.x = 0, .y = 0, .width = kSize, .height = kSize, .min_z = 0.0F, .max_z = 1.0F});
+    draw_case(gpu, test, make_quad(0.0F, 0.0F, Mapping::kPlain), texture, shader);
+    gpu.set_render_target(0, nullptr);
+    gpu.end_scene();
+    std::vector<uint8_t> raw;
+    (void)vk::read_surface(target, &raw);
+    std::vector<float> out(raw.size() / 2);
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        out.at(i) = from_half(static_cast<uint16_t>(raw.at(i * 2) | (raw.at((i * 2) + 1) << kHighByte)));
+    }
+    return out;
+}
+
+// The pixels where both pictures have colour: the share whose `with` / `without` is `ratio` (within kRatioTolerance), and
+// whether every value is finite.
+struct RatioCount {
+    std::size_t judged = 0;
+    std::size_t within = 0;
+    bool finite = true;
+};
+RatioCount ratio_count(const std::vector<float>& with, const std::vector<float>& without, float ratio)
+{
+    RatioCount count;
+    for (std::size_t i = 0; i < with.size() && i < without.size(); ++i) {
+        count.finite = count.finite && std::isfinite(with.at(i));
+        if (i % 4 == 3 || without.at(i) < 0.05F) {
+            continue;
+        }
+        ++count.judged;
+        count.within += std::fabs((with.at(i) / without.at(i)) - ratio) <= kRatioTolerance ? 1U : 0U;
+    }
+    return count;
+}
+
+// The red channel's mean over the middle row's quarter and three-quarter points (a few pixels each).
+std::array<float, 2> halves_of(const std::vector<float>& picture)
+{
+    constexpr uint32_t kQuarter = kSize / 4;
+    constexpr uint32_t kSpan = 4;
+    std::array<float, 2> means{};
+    for (std::size_t side = 0; side < 2; ++side) {
+        const uint32_t middle = side == 0 ? (kSize / 2) - (kQuarter / 2) - 4 : (kSize / 2) + (kQuarter / 2) + 4;
+        float sum = 0.0F;
+        for (uint32_t x = middle - kSpan; x <= middle + kSpan; ++x) {
+            sum += picture.at(((static_cast<std::size_t>(kSize / 2) * kSize) + x) * 4);
+        }
+        means.at(side) = sum / static_cast<float>((2 * kSpan) + 1);
+    }
+    return means;
+}
+
+void check_detail(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, Tally* tally)
+{
+    vk::RtPbrSettings pbr;
+    pbr.on = true;
+    pbr.specular = 0.0F; // (the colour alone: the detail's albedo is what is measured)
+    vk::set_rt_pbr_settings(pbr);
+    vk::set_rt_detail_settings({});
+    tally->check(vk::load_detail_library(detail_library(kDelitMean)), "a detail-material library read and its texture made");
+    tally->check(vk::detail_textures_made() > 0, "the kind's detail texture made");
+    GpuTexture* texture = detail_texture(gpu, kTexels, 1, kMid, kMid);
+    const std::vector<float> off = detail_picture(gpu, target, shader, texture);
+    // (the detail at full weight: everywhere on the quad, its texels being far below the fade's start)
+    vk::set_rt_detail_settings({.on = true, .strength = 1.0F, .fade_start = 30.0F, .fade_end = 31.0F});
+    const std::vector<float> full = detail_picture(gpu, target, shader, texture);
+    const float ratio = static_cast<float>(kDetailAlbedo) / kSignedHalf;
+    const RatioCount albedo = ratio_count(full, off, ratio);
+    tally->check(albedo.judged > kLeastJudged && albedo.within >= albedo.judged * 99 / 100 && albedo.finite,
+                 text::format("rt_detail: the albedo x %.4f where the detail is whole (%zu of %zu channels)", static_cast<double>(ratio),
+                              albedo.within, albedo.judged));
+    // (faded out: its texels far above the fade's end - the picture as without it)
+    vk::set_rt_detail_settings({.on = true, .strength = 1.0F, .fade_start = -31.0F, .fade_end = -30.0F});
+    const std::vector<float> faded = detail_picture(gpu, target, shader, texture);
+    const RatioCount same = ratio_count(faded, off, 1.0F);
+    tally->check(same.judged > kLeastJudged && same.within == same.judged && same.finite,
+                 text::format("rt_detail: faded out, the picture as without it (%zu of %zu channels)", same.within, same.judged));
+    gpu.release_texture(texture);
+    // (the de-lighting: a texture dark on the left, bright on the right, flattened toward its mean)
+    GpuTexture* halves = detail_texture(gpu, kDelitSide, kDelitLevels, kDarkHalf, kBrightHalf);
+    vk::set_rt_detail_settings({});
+    const std::array<float, 2> before = halves_of(detail_picture(gpu, target, shader, halves));
+    vk::set_rt_detail_settings({.delight = true, .delight_strength = 1.0F, .delight_limit = 4.0F});
+    const std::vector<float> delit = detail_picture(gpu, target, shader, halves);
+    const std::array<float, 2> after = halves_of(delit);
+    const auto contrast = [](const std::array<float, 2>& means) {
+        return std::max(means[0], means[1]) / std::max(std::min(means[0], means[1]), 1.0e-4F);
+    };
+    tally->check(contrast(before) > 2.5F && contrast(after) < 1.1F,
+                 text::format("rt_delight: the halves' contrast %.2f flattened to %.2f", static_cast<double>(contrast(before)),
+                              static_cast<double>(contrast(after))));
+    vk::set_rt_detail_settings({.delight = true, .delight_strength = 0.5F, .delight_limit = 4.0F});
+    const std::array<float, 2> half = halves_of(detail_picture(gpu, target, shader, halves));
+    tally->check(contrast(half) > contrast(after) && contrast(half) < contrast(before),
+                 text::format("rt_delight: half strength between (%.2f)", static_cast<double>(contrast(half))));
+    gpu.release_texture(halves);
+    vk::set_rt_detail_settings({});
+}
+
 int window_position(int display)
 {
     int displays = 0;
@@ -817,6 +1038,7 @@ int run(const Options& options, SDL_Window* window)
             run_case(gpu, target, test, shader, &tally);
         }
         check_bake_moves(gpu, target, shader, &tally);
+        check_detail(gpu, target, shader, &tally); // (NOT ORIGINAL - rt_detail / rt_delight)
         if (options.perf) {
             measure_cost(gpu, shader);
         }

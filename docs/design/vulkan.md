@@ -1849,6 +1849,62 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
   shader's arithmetic (frame, two normalisations, GGX) is ten times the original's there. The game's frame lines were
   too few to separate the difference from the noise (35 - 40 ms either way with everything on).
 
+### Detail materials and de-lighting (`rt_detail`, `rt_delight`)
+
+`gpu_vulkan/vulkan_detail` + `ff_key.h` `kDetail*` (the fragment key's `detail` byte, a former spare: the key stays
+52 bytes), `[Graphics] rt_detail` / `rt_detail_strength`, `rt_delight` / `rt_delight_strength` (all off by default).
+Both act only on the draws `rt_pbr` lights with a surface map (`kSurfaceMap`, never with cel shading's bands).
+
+- **The library** (`formats/detail_material_format.h`: "T2DM" v1, `thug2-decomp-materials.t2dm` in the game folder)
+  is made on the player's machine: `node tools/detail_materials/detail_materials.ts fetch` downloads one CC0 scan per
+  kind (`materials.json`: the URLs, MD5s, sizes and licences - Poly Haven, every asset CC0 per polyhaven.com/license;
+  1K PNGs, ~130 MB for the twelve, into `out\detail_materials`; nothing committed), `pack --game <folder>` makes each
+  kind's detail texture (`detail_texels.ts`: the scan's grain only - the normal and roughness less a wrapping box blur
+  of a sixteenth of the tile, the colour's luminance over its local mean (0.25 - 2) - so the scan's own layout, brick
+  courses or slabs, doesn't print over the game's) and assigns every texture that gets a surface map a kind, its world
+  size and its mean luminance.
+- **The kinds** (asphalt `asphalt_02`, smooth concrete `concrete_floor_02`, rough concrete `granular_concrete`, brick
+  `brick_wall_02`, stone `rock_04`, metal `metal_plate`, wood `fine_grained_wood`, dirt `dirt`, grass `sparse_grass`,
+  tiles `interior_tiles`, plaster `plastered_wall`, gravel `gravel_floor`) and each one's real material - roughness,
+  the detail's roughness swing, F0, metalness, how far the kind's roughness replaces the map's - in `materials.json`.
+- **Which kind.** `texture_terrain.ts` looks every scene triangle up among the level's collision faces by its centroid
+  (to 1/8 unit: the collision is made from the same geometry) and counts its area under the face's terrain type;
+  `kinds.ts decideKind`: glass and water never; a terrain kind (CONCSMOOTH / SIDEWALK / WETCONC smooth concrete,
+  CONCROUGH rough, ASPHALT, BRICK, ROCK stone, METAL*, WOOD*, DIRT / DIRTPACKED / SAND dirt, GRASS*, TILE, GRAVEL)
+  covering half the matched area; mostly DEFAULT faces, at most 30% of the area level and a painted (default) class:
+  plaster; else the surface map's class (`classes.ts`, the same classification as the maps). A texture the library
+  doesn't list (made before a level was added) takes its class's kind in the game too. All the main install's levels
+  (2026-11-14): 19,037 textures - smooth concrete 7,456, none 2,624, stone 1,945, wood 1,846, plaster 1,404, metal
+  1,279, grass 861, rough concrete 436, dirt 369, tile 287, brick 281, asphalt 200, gravel 49; 6,505 by terrain, 12,532
+  by class. `pack --report <file.tsv>` lists each texture's evidence.
+- **The shader** (`ff_shaders.cpp` "the detail layer"; `DetailUniforms` at binding 15, the kind's texture at 16 - a
+  1024-square RGBA8 texture with its mips, sampled repeating, trilinear, 8x anisotropic): the detail at stage 0's
+  coordinates x the texture's repeats (its metres per texture unit - the area-weighted median over its triangles -
+  over the scan's tile size); its weight = strength x (1 - smoothstep(0.5, 3, log2 of its texels a pixel)) - it fades
+  as it shrinks, so far away the original look is untouched; its slope added to the map's tangent-space normal (x the
+  map's z) before the per-pixel frame; the roughness moved toward the kind's and swung by the detail's; stage 0's
+  colour x mix(1, the detail's luminance ratio, weight) - the luminance only, the texture keeps its colour; the specular
+  tinted by the texel's colour by the kind's metalness. The kind's F0 replaces the map class's in the per-pixel
+  highlight and - `surface_map_f0()` - in R3's material table (`MaterialRecord::f0`: the reflections and the hit
+  shading).
+- **De-lighting** (`kDetailDelight`): stage 0's colour x (mean / local)^strength, clamped to 1/1.6 - 1.6 - the local
+  luminance a coarse mip's (8 texels across the texture), the mean the library's (else the texture's last mip),
+  bilinear by `texelFetch` (the game's samplers often allow no mips). It flattens the shadows, occlusion and highlights
+  painted into the 2004 colour maps toward the texture's average, leaving the fine detail, so the per-pixel and
+  ray-traced lighting do the shading. In the shader: the player's files are not changed. Glass and water are left.
+- **Off is as before.** With both off no key has `detail` set: every shader is the same - `thug2_ff_shader_check
+  --no-gpu --surface --cel --motion --retro --dump` wrote 341,478 shaders byte-identical to main's. `--detail` (after
+  `--surface`) adds every surface-mapped key with each of the three bit sets.
+- **Checked.** `thug2_vulkan_pbr_check` (+6): a library handed over from memory (`load_detail_library`), the detail at
+  full weight scales the albedo by its ratio exactly (0.5020, every channel), faded out the picture is as without it,
+  the de-lighting flattens a half-dark, half-bright texture's 3:1 contrast to 1.00, half strength to 1.73 (its square
+  root); validation 0. `thug2_format_check`: the file's reader and the TypeScript writer on one sample (the same bytes).
+  `tools/detail_materials/*.test.ts`: the file, the kinds' rules, the detail texels (neutral scans, the normal's +v),
+  the PNG reader (8 and 16 bits), `materials.json`.
+- **Not done yet:** the bounce (GI) and hit shading read the material table's F0 but not the detail layer; skinned
+  objects and models' dictionaries get no detail (they have no surface maps); the kinds' numbers are first guesses for
+  the user to tune in `materials.json` (re-run `pack`).
+
 ### Art style: the toon filter (`rt_style`)
 
 `gpu_vulkan/vulkan_style` (`[Graphics] rt_style`, off by default; no ray tracing or HDR needed). A post-process that

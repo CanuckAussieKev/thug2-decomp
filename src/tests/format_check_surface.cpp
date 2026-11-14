@@ -12,6 +12,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "formats/detail_material_format.h"
 #include "formats/surface_map_format.h"
 
 namespace format_check_surface {
@@ -143,6 +144,65 @@ void check_refused()
     check(!smf::read_entries({}, &entries), "refused: nothing");
 }
 
+// (NOT ORIGINAL - rt_detail) The detail-material library: the sample tools/detail_materials/detail_materials.test.ts
+// writes too (the same bytes: kDetailSampleHash), read back, broken files refused.
+namespace dmf = detail_material_format;
+constexpr uint64_t kDetailSampleHash = 0xda1c9691dbb60c72ULL;
+constexpr uint16_t kDetailSide = 4;
+
+std::vector<uint8_t> detail_sample()
+{
+    dmf::Library library;
+    library.kinds.push_back({.kind = dmf::Kind::kBrick,
+                             .side = kDetailSide,
+                             .tile_metres = 2.0F,
+                             .roughness = 0.85F,
+                             .roughness_swing = 0.08F,
+                             .f0 = 0.04F,
+                             .metalness = 0.0F,
+                             .roughness_weight = 0.5F});
+    library.assignments.push_back({.checksum = kSampleChecksum,
+                                   .content_hash = kSampleContent,
+                                   .kind = dmf::Kind::kBrick,
+                                   .evidence = dmf::Evidence::kTerrain,
+                                   .repeats = 2.5F,
+                                   .mean_luma = 0.25F});
+    return dmf::write_file(library, std::vector<std::vector<uint8_t>>{texels(std::size_t{kDetailSide} * kDetailSide * 4, 0)});
+}
+
+void check_detail_library()
+{
+    const std::vector<uint8_t> file = detail_sample();
+    check(file.size() == dmf::kHeaderSize + dmf::kKindEntrySize + dmf::kAssignmentSize + (std::size_t{kDetailSide} * kDetailSide * 4),
+          "detail library: the header, a kind, an assignment and its texels");
+    check(smf::content_hash(file) == kDetailSampleHash,
+          text::format("detail library: the TypeScript writer's bytes (hash %016llx)",
+                       static_cast<unsigned long long>(smf::content_hash(file))));
+    dmf::Library library;
+    check(dmf::read_library(file, &library) && library.kinds.size() == 1 && library.assignments.size() == 1,
+          "detail library: read back");
+    if (library.kinds.size() == 1 && library.assignments.size() == 1) {
+        const dmf::KindEntry& kind = library.kinds.front();
+        const dmf::Assignment& assignment = library.assignments.front();
+        check(kind.kind == dmf::Kind::kBrick && kind.side == kDetailSide && kind.roughness == 0.85F &&
+                  kind.offset == dmf::kHeaderSize + dmf::kKindEntrySize + dmf::kAssignmentSize,
+              "detail library: the kind's fields");
+        check(assignment.checksum == kSampleChecksum && assignment.content_hash == kSampleContent &&
+                  assignment.kind == dmf::Kind::kBrick && assignment.evidence == dmf::Evidence::kTerrain &&
+                  assignment.repeats == 2.5F && assignment.mean_luma == 0.25F,
+              "detail library: the assignment's fields");
+    }
+    std::vector<uint8_t> cut(file.begin(), file.end() - 1);
+    check(!dmf::read_library(cut, &library), "detail library refused: texels cut short");
+    std::vector<uint8_t> side = file;
+    core::at(side, dmf::kHeaderSize + 2) = 3; // (a side that isn't a power of two)
+    check(!dmf::read_library(side, &library), "detail library refused: a side that isn't a power of two");
+    std::vector<uint8_t> kind = file;
+    core::at(kind, dmf::kHeaderSize) = 0; // (kind none has no texture)
+    check(!dmf::read_library(kind, &library), "detail library refused: a texture for no kind");
+    check(dmf::read_library(dmf::write_file({}, {}), &library) && library.kinds.empty(), "detail library: an empty one is valid");
+}
+
 } // namespace
 
 int run()
@@ -151,6 +211,7 @@ int run()
     check_hash();
     check_round_trip();
     check_refused();
+    check_detail_library();
     return failures();
 }
 

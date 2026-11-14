@@ -274,6 +274,24 @@ struct RtPbrSettings {
 };
 void set_rt_pbr_settings(const RtPbrSettings& settings);
 [[nodiscard]] RtPbrSettings rt_pbr_settings();
+// NOT ORIGINAL - detail materials and de-lighting (vulkan_detail.h; docs/design/vulkan.md "Detail materials and
+// de-lighting"): [Graphics] rt_detail, rt_detail_strength, rt_delight, rt_delight_strength. They act on the draws rt_pbr
+// lights with a surface map (nothing without rt_pbr). rt_detail reads the detail-material library
+// (thug2-decomp-materials.t2dm, made by tools/detail_materials). Off: every shader is as before.
+inline constexpr float kRtDetailFadeStart = 0.5F; // (the detail's level of detail - log2 texels a pixel - where it fades)
+inline constexpr float kRtDetailFadeEnd = 3.0F;   // (... and where it is gone)
+inline constexpr float kRtDelightLimit = 1.6F;    // (the most the de-lighting brightens or darkens a texel: a factor)
+struct RtDetailSettings {
+    bool on = false;          // rt_detail: the detail layer and the kinds' real materials
+    float strength = 1.0F;    // rt_detail_strength: the detail layer's strength (0 - 2)
+    bool delight = false;     // rt_delight: the colour textures' painted light flattened
+    float delight_strength = 0.5F; // rt_delight_strength: 0 - 1 (1: flattened to the texture's mean)
+    float fade_start = kRtDetailFadeStart;
+    float fade_end = kRtDetailFadeEnd;
+    float delight_limit = kRtDelightLimit;
+};
+void set_rt_detail_settings(const RtDetailSettings& settings);
+[[nodiscard]] RtDetailSettings rt_detail_settings();
 // NOT ORIGINAL - an art style (vulkan_style.h; docs/design/vulkan.md "Art style"): [Graphics] rt_style and its
 // rt_style_* knobs - all put to use at once. A post-process over each viewport's world after the tone mapping and the
 // upscaler, before the 2D. off (the default): nothing changes. No ray tracing or HDR needed.
