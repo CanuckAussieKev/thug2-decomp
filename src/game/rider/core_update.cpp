@@ -29,6 +29,10 @@ struct GridState {
     maths::Vec4 frame_start; // the last position as the current 1/60 s frame began (do_air_physics)
     double ahead = 0.0;      // seconds of the coming ticks already covered by an update that took a whole frame
     bool placed = false;     // put somewhere new since the last update (note_placed)
+    bool whole = false;      // this update takes a whole frame (take_whole_frame)
+    maths::Vec4 move_vel;    // the velocity the frame's first update moved the skater with (frame_move_velocity)
+    maths::Vec4 end_vel;     // the velocity the last update ended with
+    bool move_valid = false; // move_vel is this frame's and the last update ended on the ground
 };
 GridState& grid_state(const SkaterPhysicsModule* skater)
 {
@@ -108,7 +112,37 @@ void SkaterPhysicsModule::take_whole_frame()
         const double frame = frame_clock::get_slomo_grid_seconds();
         frame_.length = static_cast<float>(frame);
         grid.ahead = std::max(0.0, frame - tick);
+        grid.whole = true;
     }
+}
+
+bool SkaterPhysicsModule::frame_move_velocity(maths::Vec4* velocity)
+{
+    if (tick_rate::original()) {
+        return false;
+    }
+    GridState& grid = grid_state(this);
+    if (forces_this_tick()) {
+        grid.move_vel = *velocity; // (the frame's first update: its own velocity, noted)
+        grid.move_valid = true;
+        return false;
+    }
+    if (!grid.move_valid || !(entity()->vel() == grid.end_vel)) {
+        grid.move_valid = false; // (something else changed the velocity since: the tick's own)
+        return false;
+    }
+    *velocity = grid.move_vel;
+    return true;
+}
+
+bool SkaterPhysicsModule::forces_this_tick() const
+{
+    return tick_rate::original() || frame_clock::grid_frames() != 0 || grid_state(this).whole;
+}
+
+float SkaterPhysicsModule::force_step() const
+{
+    return tick_rate::original() ? frame_.length : static_cast<float>(frame_clock::get_slomo_grid_seconds());
 }
 
 // 0x00510830
@@ -131,6 +165,9 @@ void SkaterPhysicsModule::tick_frame()
     if (!tick_rate::original() && frame_clock::grid_frames() != 0) {
         grid_frame_start() = entity()->old_pos(); // (not original: the 60 Hz grid - do_air_physics)
     }
+    if (!tick_rate::original()) {
+        grid_state(this).whole = false;
+    }
     if (held_by_grid()) {
         return; // (not original: a tick the last update covered)
     }
@@ -146,7 +183,14 @@ void SkaterPhysicsModule::tick_frame()
         set_flag(this, PoseFlag::kCrouched, 1);
     }
     take_whole_frame(); // (not original: the 60 Hz grid)
-    clamp_skater_speed();
+    if (forces_this_tick()) {
+        // (not original: at another tick rate the speed limits, their friction and timers once a 1/60 s frame over the
+        // whole of it - forces_this_tick; at 60 every tick)
+        const float tick_length = frame_.length;
+        frame_.length = force_step();
+        clamp_skater_speed();
+        frame_.length = tick_length;
+    }
     set_flag(this, PoseFlag::kGroundSnapped, 0);
     set_flag(this, PoseFlag::kWallplanted, 0);
     refresh_hit_cache();
@@ -210,6 +254,11 @@ void SkaterPhysicsModule::tick_frame()
     }
     if (bike && thaw_bmx::live_now(this)) {
         thaw_bmx::end_frame(this); // (not original: THAW 0x005C9210, the x-up let go)
+    }
+    if (!tick_rate::original()) {
+        GridState& grid = grid_state(this); // (not original: frame_move_velocity)
+        grid.end_vel = entity()->vel();
+        grid.move_valid = grid.move_valid && state_of(this) == kGround;
     }
     render::set_current_cache(nullptr);
     collision_events::end_frame(this); // (not original: [debug] collision_events)

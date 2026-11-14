@@ -88,7 +88,8 @@ void SkaterPhysicsModule::do_ground_physics()
         thaw_bmx::note_vert_ground(this);
     }
     // Moving: the velocity turned into the ground's plane.
-    if (length_of(object->vel()) > kMoving) {
+    // (not original: at another tick rate once a 1/60 s frame, with the forces below - forces_this_tick)
+    if (length_of(object->vel()) > kMoving && forces_this_tick()) {
         object->vel().align_to_plane(ground_.floor_normal);
     }
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
@@ -101,7 +102,12 @@ void SkaterPhysicsModule::do_ground_physics()
     if (bike) {
         thaw_bmx::get_on_ground(this);
     }
-    if (!bike || thaw_bmx::ground_gravity_applies(this, gravity)) {
+    // (not original: at another tick rate the forces below - gravity, the push or brake, the friction - act once a 1/60
+    // s frame over the whole of it, forces_this_tick; the move after them each tick. At 60 the tick itself.)
+    const float tick_length = frame_.length;
+    const bool forces = forces_this_tick();
+    frame_.length = force_step();
+    if (forces && (!bike || thaw_bmx::ground_gravity_applies(this, gravity))) {
         const float frame_length = frame_.length;
         maths::Vec4& v = entity()->vel();
         const float gy = gravity.y * frame_length;
@@ -114,9 +120,12 @@ void SkaterPhysicsModule::do_ground_physics()
     }
 
     // The balance trick.
-    tick_balance_trick(bike);
+    tick_balance_trick(bike, forces);
     collision_events::checkpoint(this, "gravity"); // (not original)
-    apply_ground_friction();
+    if (forces) {
+        apply_ground_friction();
+    }
+    frame_.length = tick_length;
     check_side_feelers();
     collision_events::checkpoint(this, "friction-side-feelers"); // (not original)
 
@@ -124,7 +133,10 @@ void SkaterPhysicsModule::do_ground_physics()
     maths::Vec4 step{};
     {
         const float frame_length = frame_.length;
-        const maths::Vec4& v = entity()->vel();
+        // (not original: at another tick rate the frame's later ticks move with the velocity its first moved with, as
+        // the 60 Hz run's one move does - the turn to the facing below comes after it - unless something changed it)
+        maths::Vec4 frame_velocity = entity()->vel();
+        const maths::Vec4& v = frame_move_velocity(&frame_velocity) ? frame_velocity : entity()->vel();
         step = {.x = frame_length * v.x, .y = frame_length * v.y, .z = frame_length * v.z, .w = frame_length * v.w};
     }
     if (bit_mark(this, PoseFlag::kSkitching) != 0U) {
@@ -195,11 +207,14 @@ void SkaterPhysicsModule::do_ground_physics()
 }
 
 // (Part of 0x0050EE70) The balance trick: none - braking or pushing off; a skitch; a manual.
-void SkaterPhysicsModule::tick_balance_trick(bool bike)
+void SkaterPhysicsModule::tick_balance_trick(bool bike, bool forces)
 {
     crouch_stats_ = 0;
     const uint32_t kind = balance_->trick();
     if (kind == 0) {
+        if (!forces) {
+            return; // (not original: the push or brake once a 1/60 s frame at another tick rate)
+        }
         if (bike ? thaw_bmx::should_brake(this) : should_brake()) {
             get_brake();
         } else {
@@ -215,7 +230,7 @@ void SkaterPhysicsModule::tick_balance_trick(bool bike)
         friction_.braking = 0;
         if (motoskateboard_ != 0U) {
             crouch_stats_ = 1;
-            if (can_push_off()) {
+            if (forces && can_push_off()) {
                 push_off();
             }
         }

@@ -113,6 +113,15 @@ public:
     // Not original: this update ended the 60 Hz run's move of the frame (it left a rail at its end) - the ticks left of the
     // 1/60 s frame are held. Nothing at 60.
     void hold_rest_of_frame();
+    // Not original: the forces that change the velocity (gravity, pushing, braking, friction, drag) at another tick rate
+    // act once a 1/60 s frame, in the tick that starts it, over the whole 1/60 s (force_step) - the 60 Hz run's
+    // semi-implicit step (velocity first, then the move with it): the ticks' moves then add up to its move exactly. At 60
+    // every tick, over the tick.
+    [[nodiscard]] bool forces_this_tick() const;
+    [[nodiscard]] float force_step() const;
+    // Not original: on the ground at another tick rate, the velocity the frame's first update moved with (noted from
+    // `velocity` in that update; false then, and at 60): the later ticks move with it while nothing else changed it.
+    bool frame_move_velocity(maths::Vec4* velocity);
 
     // --- core_jump.cpp: jumping, skitching, the script member functions around them, the wallplant state ---
     // 0x005092E0: the TriggerScript of the rail node being ground (+0x22C) - or of the nearest one before it (back
@@ -1014,7 +1023,7 @@ private:
     maths::Vec4 carried_on_wall();
     bool hits_drop_wall(render::ProbeRay& feeler, const maths::Vec4& direction, maths::Vec4& normal);
     bool snap_up_ledge(render::ProbeRay& hit, objects::GameEntity* object);
-    void tick_balance_trick(bool bike);
+    void tick_balance_trick(bool bike, bool forces = true); // (forces: not original - push and brake, forces_this_tick)
 
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)

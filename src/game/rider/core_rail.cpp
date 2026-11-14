@@ -248,8 +248,8 @@ void SkaterPhysicsModule::step_grind_move()
     const float before = sign_of(dot3(along, entity()->vel()));
     maths::Vec4 gravity = {.x = 0.0F, .y = tuning_float_lookup(kRailGravity, object), .z = 0.0F, .w = 1.0F};
     gravity.project_onto(along);
-    {
-        const float frame_length = frame_.length;
+    if (forces_this_tick()) { // (not original: once a 1/60 s frame over the whole of it at another tick rate)
+        const float frame_length = force_step();
         maths::Vec4& v = entity()->vel();
         const float gy = frame_length * gravity.y;
         const float gz = frame_length * gravity.z;

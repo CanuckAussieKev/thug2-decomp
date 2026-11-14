@@ -718,8 +718,12 @@ void SkaterPhysicsModule::do_air_physics()
             keep_upright();
         }
     }
-    if (friction_.special_time != 0.0F) {
+    if (friction_.special_time != 0.0F && forces_this_tick()) {
+        // (not original: at another tick rate once a 1/60 s frame over the whole of it - forces_this_tick)
+        const float tick_length = frame_.length;
+        frame_.length = force_step();
         apply_wheel_drag();
+        frame_.length = tick_length;
     }
 
     maths::Vec4 velocity = entity()->vel();

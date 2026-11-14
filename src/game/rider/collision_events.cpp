@@ -869,6 +869,13 @@ void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4&
 
 void checkpoint(SkaterPhysicsModule* component, const char* label)
 {
+    static const bool kTickTrace = config_int("debug", "tick_trace", 0) != 0; // TEMP
+    if (kTickTrace) {
+        const maths::Vec4& p = component->entity()->at_point();
+        const maths::Vec4& v = component->entity()->vel();
+        get_log("  CP %s p %.4f %.4f %.4f v %.4f %.4f %.4f", label, static_cast<double>(p.x), static_cast<double>(p.y),
+                static_cast<double>(p.z), static_cast<double>(v.x), static_cast<double>(v.y), static_cast<double>(v.z));
+    }
     if (component != collision_events_state().component_ ||
         !get_on()) { // (collision_events_state().component_: set by end_frame, only while on)
         return;
