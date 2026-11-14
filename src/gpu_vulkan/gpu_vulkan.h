@@ -81,6 +81,9 @@ struct RtAoSettings {
     float radius = kRtAoRadius;     // how far a ray looks for an occluder (1 - 1000 world units)
     unsigned rays = 4;              // rays per pixel each frame (1 - 16)
     bool denoise = true;            // the temporal and spatial filters (off: each frame's rays as they are)
+    // (added for the characters - [Graphics] rt_ao_characters) the occlusion on the skater, the peds and the other
+    // skinned characters x this (0 - 1; 1: as on everything else - the original's look with rt_ao)
+    float characters = 1.0F;
 };
 void set_rt_ao_settings(const RtAoSettings& settings);
 [[nodiscard]] RtAoSettings rt_ao_settings();
@@ -336,6 +339,15 @@ struct RtPbrSettings {
     float relief_fade_start = kRtReliefFadeStart;
     float relief_fade_end = kRtReliefFadeEnd;
     float relief_shadow = kRtReliefShadow;
+    // (added for the characters - [Graphics] rt_characters, rt_characters_skin / _cloth / _hair; vulkan_surface.h
+    // "Characters"; docs/design/vulkan.md "Characters") the character models' surface maps used (tools/pbr_maps
+    // --models: the skaters', CAS parts', peds' textures as skin, cloth, denim, leather, rubber, hair) and their shading:
+    // skin's wrapped light with a red-shifted terminator and a faint translucency, cloth's sheen, hair's anisotropic
+    // highlight - each x its strength (0 - 2). Off: the models' maps aren't used (the characters as before).
+    bool characters = false;
+    float skin = 1.0F;
+    float cloth = 1.0F;
+    float hair = 1.0F;
 };
 void set_rt_pbr_settings(const RtPbrSettings& settings);
 [[nodiscard]] RtPbrSettings rt_pbr_settings();

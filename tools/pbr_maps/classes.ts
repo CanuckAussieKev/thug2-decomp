@@ -19,6 +19,13 @@ export const CLASS = {
     ground: 9,
     fabric: 10,
     tile: 11,
+    // (added for the characters - [Graphics] rt_characters; models.ts) the skaters', peds' and CAS parts' textures
+    skin: 12,
+    cloth: 13,
+    leather: 14,
+    denim: 15,
+    rubber: 16,
+    hair: 17,
 } as const;
 export type ClassName = keyof typeof CLASS;
 
@@ -47,6 +54,16 @@ export const RULES: Record<ClassName, ClassRule> = {
     ground: { min: 0.8, max: 1.0, base: 0.92, f0: 0.04, bump: 1.0 },
     fabric: { min: 0.7, max: 0.95, base: 0.85, f0: 0.04, bump: 0.5 },
     tile: { min: 0.2, max: 0.5, base: 0.35, f0: 0.04, bump: 0.6 },
+    // (added for the characters) Skin's relief is pores and creases far below the game's 32 - 128 texel faces: very
+    // faint, F0 0.028 (skin's oil); cloth's and denim's weave and the folds painted into them strong; leather smoother
+    // and glossier; rubber (soles, pads) matte; hair's strands - the anisotropic highlight's grooves - medium, F0 0.046
+    // (keratin).
+    skin: { min: 0.45, max: 0.7, base: 0.55, f0: 0.028, bump: 0.08 },
+    cloth: { min: 0.75, max: 0.98, base: 0.88, f0: 0.04, bump: 0.9 },
+    leather: { min: 0.3, max: 0.65, base: 0.45, f0: 0.04, bump: 0.45 },
+    denim: { min: 0.7, max: 0.95, base: 0.85, f0: 0.04, bump: 1.1 },
+    rubber: { min: 0.6, max: 0.9, base: 0.75, f0: 0.04, bump: 0.6 },
+    hair: { min: 0.3, max: 0.6, base: 0.42, f0: 0.046, bump: 0.6 },
 };
 
 export function className(value: number): ClassName {

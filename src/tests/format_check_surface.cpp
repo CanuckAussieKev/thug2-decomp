@@ -120,6 +120,23 @@ void check_round_trip()
     check(smf::find(entries, kSecondChecksum, kSampleContent) == nullptr, "find: another content isn't the map's");
     std::vector<smf::Entry> none;
     check(smf::read_entries(smf::write_file({}, {}), &none) && none.empty(), "an empty file is valid");
+    // (added for the characters) a model's entry: its class and flags read back (the TypeScript writer's byte 18)
+    const std::array<smf::Entry, 1> model{{{.checksum = kSampleChecksum,
+                                            .content_hash = kSampleContent,
+                                            .width = 1,
+                                            .height = 1,
+                                            .material_class = smf::MaterialClass::kHair,
+                                            .flags = smf::kFlagModel | smf::kFlagStrandsU,
+                                            .f0 = kSampleF0}}};
+    const std::array<std::vector<uint8_t>, 1> one{{texels(smf::kTexelBytes, 1)}};
+    const std::vector<uint8_t> model_file = smf::write_file(model, one);
+    std::vector<smf::Entry> model_read;
+    constexpr std::size_t kFlagsByte = smf::kHeaderSize + 18;
+    check(smf::read_entries(model_file, &model_read) && model_read.size() == 1 &&
+              model_read.front().material_class == smf::MaterialClass::kHair &&
+              model_read.front().flags == (smf::kFlagModel | smf::kFlagStrandsU) &&
+              core::at(std::span<const uint8_t>(model_file), kFlagsByte) == (smf::kFlagModel | smf::kFlagStrandsU),
+          "read back: a character model's class and flags");
 }
 
 void check_refused()

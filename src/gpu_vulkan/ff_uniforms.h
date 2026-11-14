@@ -160,6 +160,11 @@ struct DetailUniforms {
     // map's level of detail (log2 of its texels a pixel) where the relief starts to fade and where it is gone; w: how
     // dark the relief's own shadow from the sun is (0 - 1)
     Float4 relief{};
+    // (added for the characters - kDetailSkin / kDetailCloth / kDetailHair; zeros without them; the blocks of the other
+    // bits stop before it) x: skin's strength (0 - 2: the wrap, the terminator's red, the translucency); y: how far the
+    // skin weight follows the texel's colour (1: wholly - a garment's atlas; 0.6: a skin texture - its eyes and lips
+    // less); z: cloth's sheen (0 - 2), or hair's highlight's; w: hair - 1 the strands run along u, 0 along v
+    Float4 character{};
 };
 
 constexpr std::size_t kMatrixBytes = 64;
@@ -181,6 +186,6 @@ constexpr std::size_t kCelVectors = 11;
 static_assert(sizeof(CelUniforms) == kCelVectors * kVectorBytes, "std140: no padding");
 constexpr std::size_t kWaterVectors = 10;
 static_assert(sizeof(WaterUniforms) == (3 * kMatrixBytes) + (kWaterVectors * kVectorBytes), "std140: no padding");
-static_assert(sizeof(DetailUniforms) == 4 * kVectorBytes, "std140: no padding");
+static_assert(sizeof(DetailUniforms) == 5 * kVectorBytes, "std140: no padding");
 
 } // namespace render::vulkan

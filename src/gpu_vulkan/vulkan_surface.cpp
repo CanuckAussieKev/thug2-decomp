@@ -20,6 +20,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_maps.h"
 #include "formats/detail_material_format.h"
+#include "formats/surface_map_format.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -53,7 +54,52 @@ struct MapEntry {
     uint64_t generation = 0;
     DetailDraw detail{};
     float relief_depth = 0.0F; // (added by surface relief) the map's k (relief_depth_of_map)
+    uint8_t flags = 0;         // (added for the characters) surface_map_format::kFlag*
 };
+
+// (added for the characters) Whether a map is used: a character model's only with rt_characters on.
+bool map_used(const MapEntry& entry, const RtPbrSettings& settings)
+{
+    return (entry.flags & surface_map_format::kFlagModel) == 0U || settings.characters;
+}
+
+// (added for the characters - vulkan_surface.h "Characters") A character model's map's shading: the key's bits for its
+// class and their vector (DetailUniforms::character) - none for the classes shaded as anything else (leather, rubber,
+// metal, a board's wood: their roughness and F0 alone) or at strength 0.
+constexpr float kSkinFollowsColour = 0.6F;   // (a skin texture: its eyes, brows and lips less skin)
+constexpr float kGarmentFollowsColour = 1.0F; // (a garment's skin texels: wholly by their colour)
+constexpr float kDenimSheen = 0.6F;          // (denim's sheen against cloth's: a harder, flatter weave)
+uint8_t character_bits(const MapEntry& entry, const RtPbrSettings& settings, Float4* character)
+{
+    namespace smf = surface_map_format;
+    const auto cls = static_cast<smf::MaterialClass>(entry.material_class);
+    const bool skin_texels = (entry.flags & smf::kFlagSkinTexels) != 0U && settings.skin > 0.0F;
+    uint8_t bits = 0;
+    switch (cls) {
+    case smf::MaterialClass::kSkin:
+        if (settings.skin > 0.0F) {
+            bits = kDetailSkin;
+            *character = {settings.skin, kSkinFollowsColour, 0.0F, 0.0F};
+        }
+        break;
+    case smf::MaterialClass::kCloth:
+    case smf::MaterialClass::kDenim: {
+        const float sheen = settings.cloth * (cls == smf::MaterialClass::kDenim ? kDenimSheen : 1.0F);
+        bits = static_cast<uint8_t>((sheen > 0.0F ? kDetailCloth : 0) | (skin_texels ? kDetailSkin : 0));
+        *character = {skin_texels ? settings.skin : 0.0F, kGarmentFollowsColour, sheen, 0.0F};
+        break;
+    }
+    case smf::MaterialClass::kHair:
+        if (settings.hair > 0.0F) {
+            bits = kDetailHair;
+            *character = {0.0F, 0.0F, settings.hair, (entry.flags & smf::kFlagStrandsU) != 0U ? 1.0F : 0.0F};
+        }
+        break;
+    default:
+        break;
+    }
+    return bits;
+}
 
 // (added by the detail materials) An entry's detail, looked up again when the settings or the library changed (the
 // surface state's lock held; detail_draw takes the detail state's own).
@@ -227,7 +273,8 @@ public:
                      .material_class = info.material_class,
                      .checksum = info.checksum,
                      .content_hash = info.content_hash,
-                     .relief_depth = relief_depth};
+                     .relief_depth = relief_depth,
+                     .flags = info.flags};
         }
         ensure_detail_library(); // (added by the detail materials: the library read the first time it is wanted)
         if (replaced != nullptr) {
@@ -280,9 +327,14 @@ void set_rt_pbr_settings(const RtPbrSettings& settings)
         rt::set_baked_sun_wanted(true); // (the bake's sun: fitted when ray tracing is on)
     }
     if (settings.on) {
-        get_log("rt_pbr: per-pixel lighting on (specular %.2f, normals %.2f%s%s)", static_cast<double>(settings.specular),
+        get_log("rt_pbr: per-pixel lighting on (specular %.2f, normals %.2f%s%s%s)", static_cast<double>(settings.specular),
                 static_cast<double>(settings.normal_strength), settings.objects ? ", objects too" : "",
-                settings.relief ? text::format(", relief %.2f", static_cast<double>(settings.relief_strength)).c_str() : "");
+                settings.relief ? text::format(", relief %.2f", static_cast<double>(settings.relief_strength)).c_str() : "",
+                settings.characters ? text::format(", characters (skin %.2f, cloth %.2f, hair %.2f)",
+                                                   static_cast<double>(settings.skin), static_cast<double>(settings.cloth),
+                                                   static_cast<double>(settings.hair))
+                                          .c_str()
+                                    : "");
     }
 }
 
@@ -312,10 +364,17 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
     const std::scoped_lock lock(state.mutex);
     if (first != nullptr) {
         const auto found = state.maps.find(object(first));
-        if (found != state.maps.end()) {
+        if (found != state.maps.end() && map_used(found->second, state.draw_settings)) { // (a model's: rt_characters)
             draw.map = found->second.map;
             draw.f0 = found->second.f0;
             draw.flags = static_cast<uint8_t>(kSurfaceLighting | kSurfaceMap | (lit && state.settings.objects ? kSurfaceLit : 0));
+            if ((found->second.flags & surface_map_format::kFlagModel) != 0U) {
+                // (added for the characters) no detail layer or relief - skin, cloth or hair shading where lit by lights
+                if ((draw.flags & kSurfaceLit) != 0U) {
+                    draw.detail = character_bits(found->second, state.draw_settings, &draw.detail_uniforms.character);
+                }
+                return draw;
+            }
             const DetailDraw& detail = detail_of(found->second); // (added by the detail materials)
             if (detail.flags != 0) {
                 draw.detail = detail.flags;
@@ -388,7 +447,7 @@ Texture* surface_map_for(const Texture* colour)
     SurfaceState& state = surface_state();
     const std::scoped_lock lock(state.mutex);
     const auto found = state.maps.find(colour);
-    return found != state.maps.end() ? found->second.map : nullptr;
+    return found != state.maps.end() && map_used(found->second, state.settings) ? found->second.map : nullptr;
 }
 
 float surface_map_f0(const Texture* colour)
@@ -396,8 +455,11 @@ float surface_map_f0(const Texture* colour)
     SurfaceState& state = surface_state();
     const std::scoped_lock lock(state.mutex);
     const auto found = state.maps.find(colour);
-    if (found == state.maps.end()) {
+    if (found == state.maps.end() || !map_used(found->second, state.settings)) {
         return 0.0F;
+    }
+    if ((found->second.flags & surface_map_format::kFlagModel) != 0U) {
+        return found->second.f0; // (added for the characters: no surface kind)
     }
     const DetailDraw& detail = detail_of(found->second); // (added by the detail materials: the surface kind's F0)
     return detail.f0 >= 0.0F ? detail.f0 : found->second.f0;

@@ -185,10 +185,23 @@ constexpr uint8_t kWaterMoving = 2;
 //   kDetailRelief - (added by surface relief, [Graphics] rt_relief) parallax occlusion mapping: stage 0's coordinates (and
 //     the surface map's, the detail's) moved to where the view ray meets the map's height field (DetailUniforms::relief),
 //     the sun's light shadowed by the relief on the world's bake - the same byte's free bit, so the key stays 52 bytes.
+//   (added for the characters - [Graphics] rt_characters; vulkan_surface.h "Characters") a character model's surface
+//   map, lit by the draw's lights (kSurfaceLit) - the same byte's free bits, the key stays 52 bytes; never with the
+//   three above (the detail block's last vector is the characters' then: DetailUniforms::character):
+//   kDetailSkin - skin: the light wrapped round the terminator, red reaching furthest (a cheap subsurface scattering),
+//     a faint translucency where the light comes from behind a thin edge; per texel by its colour's skin weight;
+//   kDetailCloth - cloth's sheen: a soft rim of light at grazing views, tinted by the cloth (it is added to the light
+//     the texture is multiplied by); with kDetailSkin too: a garment's skin-coloured texels skin, the rest cloth;
+//   kDetailHair - hair: an anisotropic highlight along the strands (Kajiya-Kay, the strands along stage 0's u or v,
+//     shifted along the normal by the map's height) in place of GGX's.
 constexpr uint8_t kDetailMaterial = 0x01;
 constexpr uint8_t kDetailDelight = 0x02;
 constexpr uint8_t kDetailRelief = 0x04;
-constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailDelight | kDetailRelief;
+constexpr uint8_t kDetailSkin = 0x08;
+constexpr uint8_t kDetailCloth = 0x10;
+constexpr uint8_t kDetailHair = 0x20;
+constexpr uint8_t kDetailCharacter = kDetailSkin | kDetailCloth | kDetailHair;
+constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailDelight | kDetailRelief | kDetailCharacter;
 
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;

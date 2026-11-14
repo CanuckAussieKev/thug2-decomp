@@ -17,7 +17,8 @@
 //   u64 the texture's content hash: content_hash() of its first level's bytes as the dictionary stores them - a map
 //       is used only for the texels it was made from (a texture replaced later - an upscaled one, a mod's - keeps none)
 //   u16 width, u16 height (the map's; any size - the texture's or not)
-//   u8 material class (MaterialClass), u8 generator (Generator), u8 flags (0), u8 reserved (0)
+//   u8 material class (MaterialClass), u8 generator (Generator), u8 flags (kFlag*; 0 before the characters' maps),
+//   u8 reserved (0)
 //   f32 F0: the reflectance at normal incidence (0 - 1) the class gives
 //   u32 the texels' offset from the file's start, u32 their size (width x height x 4)
 // and the texels: rows top first (the texture's v growing downward, as its own rows), 4 bytes each -
@@ -48,8 +49,22 @@ enum class MaterialClass : uint8_t {
     kGround = 9,  // dirt, sand, gravel
     kFabric = 10, // cloth, skin, characters
     kTile = 11,   // glazed tiles, polished floors
+    // (added for the characters - [Graphics] rt_characters; tools/pbr_maps/models.ts) the character models' textures
+    kSkin = 12,
+    kCloth = 13,
+    kLeather = 14,
+    kDenim = 15,
+    kRubber = 16, // soles, pads
+    kHair = 17,
 };
-inline constexpr uint8_t kClassCount = 12;
+inline constexpr uint8_t kClassCount = 18;
+
+// (added for the characters) An entry's flags: made for a character model's dictionary (used only with
+// [Graphics] rt_characters on); a hair texture whose strands run along u (else along v); a garment whose skin-coloured
+// texels are shaded as skin (an atlas of a shirt and the arms in it).
+inline constexpr uint8_t kFlagModel = 0x01;
+inline constexpr uint8_t kFlagStrandsU = 0x02;
+inline constexpr uint8_t kFlagSkinTexels = 0x04;
 
 enum class Generator : uint8_t {
     kClassical = 0, // height from luminance, normals by a Sobel filter (tools/pbr_maps/classical.ts)
@@ -63,6 +78,7 @@ struct Entry {
     uint16_t height = 0;
     MaterialClass material_class = MaterialClass::kDefault;
     Generator generator = Generator::kClassical;
+    uint8_t flags = 0; // (added for the characters) kFlag*
     float f0 = 0.0F;
     uint32_t offset = 0;
     uint32_t bytes = 0;

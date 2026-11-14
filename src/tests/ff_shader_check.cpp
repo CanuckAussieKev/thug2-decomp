@@ -4,10 +4,13 @@
 // SPIRV-Tools' validator (when the build has it: THUG2_SPIRV_VALIDATOR), and - unless --no-gpu - hands every module and
 // a pipeline for each sampled pair of shaders to a Vulkan driver (ff_shader_check_gpu.h).
 //   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion] [--cel]
-//                         [--retro] [--detail] [--water]
+//                         [--retro] [--detail] [--water] [--characters]
 // --detail (NOT ORIGINAL - rt_detail / rt_delight, gpu_vulkan/vulkan_detail.h): with --surface, every pair lit per pixel
 // with a surface map added again with each of the detail layer's bit sets (ff_key.h kDetail*; the relief's - rt_relief -
 // alone, with the layer and with both) - after --surface's.
+// --characters (added for the characters - rt_characters, gpu_vulkan/vulkan_surface.h "Characters"): with --surface,
+// every pair lit by lights with a surface map added again with the characters' bits (skin, cloth, both, hair) - after
+// --detail's (its keys and their order unchanged).
 // --cel (added by cel shading): every pair that takes the bands added again with them (engine/gfx/rt_cel.h; add_cel_keys).
 // --surface (NOT ORIGINAL - rt_pbr): every pair that can be lit per pixel (ff_key.h kSurface*) added again with each
 // combination of the per-pixel lighting's bits (the map, lit by lights) - compiled, validated and made into pipelines
@@ -86,6 +89,7 @@ struct Options {
     bool cel = false; // (added by cel shading)
     bool retro = false; // (the retro art style)
     bool water = false; // (rt_water)
+    bool characters = false; // (added for the characters)
 };
 
 Options read_options(std::span<char*> arguments)
@@ -106,6 +110,8 @@ Options read_options(std::span<char*> arguments)
             options.retro = true;
         } else if (argument == "--water") {
             options.water = true;
+        } else if (argument == "--characters") {
+            options.characters = true;
         } else if (argument == "--all-materials") {
             options.all_materials = true;
         } else if (argument == "--no-gpu") {
@@ -318,6 +324,35 @@ void add_detail_keys(ff_check::KeySets& sets)
     text::print("detail: %u fragment keys with the detail layer added\n", static_cast<unsigned>(added));
 }
 
+// (added for the characters) Each pair lit by lights with a surface map again with the characters' bits (normalised()
+// keeps them only there).
+void add_character_keys(ff_check::KeySets& sets)
+{
+    using namespace render::vulkan;
+    const std::vector<ShaderKey> pairs = sets.pairs;
+    std::size_t added = 0;
+    for (const ShaderKey& pair : pairs) {
+        if ((pair.fragment.surface & kSurfaceMap) == 0U || (pair.fragment.surface & kSurfaceLit) == 0U ||
+            pair.fragment.detail != 0U) {
+            continue;
+        }
+        for (const uint8_t bits : {kDetailSkin, kDetailCloth, static_cast<uint8_t>(kDetailSkin | kDetailCloth), kDetailHair}) {
+            ShaderKey key = pair;
+            key.fragment.detail = bits;
+            key = normalised(key);
+            if (key.fragment.detail != bits) {
+                continue;
+            }
+            sets.vertex.insert(key.vertex);
+            if (sets.fragment.insert(key.fragment).second) {
+                ++added;
+            }
+            sets.pairs.push_back(key);
+        }
+    }
+    text::print("characters: %u fragment keys with skin, cloth or hair added\n", static_cast<unsigned>(added));
+}
+
 // (added by cel shading) Each pair again with the bands (the world's bake, lit by lights, the outline's hull) - made into
 // pipelines with the rest -, and its halves with the relit world's stream (modules only: this check's pipelines have no
 // second stream). The ray-traced visibility (kSurfaceCelShadow) needs SPIR-V 1.4 and a ray-tracing device:
@@ -437,6 +472,9 @@ int run(const Options& options)
     }
     if (options.detail) {
         add_detail_keys(sets); // (NOT ORIGINAL - rt_detail / rt_delight: needs --surface's keys)
+    }
+    if (options.characters) {
+        add_character_keys(sets); // (added for the characters: needs --surface's keys)
     }
     if (options.cel) {
         add_cel_keys(sets);

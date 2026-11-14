@@ -21,6 +21,11 @@
 // With it off nothing here runs: no maps are read and every key's surface bits stay 0 - the shaders are the same as
 // without this file.
 //
+// Characters (added - [Graphics] rt_characters, RtPbrSettings::characters; docs/design/vulkan.md "Characters"): the
+// character models' maps (tools/pbr_maps --models; surface_map_format kFlagModel) are used only with it on - off, such
+// a draw is exactly as with no map. On, a model's map lit by the draw's lights gets its class's shading bits (ff_key.h
+// kDetailSkin / kDetailCloth / kDetailHair, DetailUniforms::character) instead of the detail layer or relief.
+//
 // Hooks for the other work streams:
 //   - the relit mode: ff_key.h kSurfaceRelit (reserved) - a key with it and kSurfaceLighting gets the per-pixel normal
 //     and specular from here; its own light replaces the bake where ff_shaders.cpp's surface_lighting builds

@@ -83,6 +83,7 @@ const std::vector<Expected>& expected()
         {.key = "rt_ao_strength", .fallback = "0.6", .live = true},
         {.key = "rt_ao_radius", .fallback = "48", .live = true},
         {.key = "rt_ao_rays", .fallback = "4", .live = true},
+        {.key = "rt_ao_characters", .fallback = "1", .live = true}, // (added for the characters)
         {.key = "rt_gi", .fallback = "0", .live = true},
         {.key = "rt_gi_strength", .fallback = "1", .live = true},
         {.key = "rt_gi_rays", .fallback = "2", .live = true},
@@ -105,6 +106,10 @@ const std::vector<Expected>& expected()
         {.key = "rt_detail_strength", .fallback = "1", .live = true},
         {.key = "rt_delight", .fallback = "0", .live = true},
         {.key = "rt_delight_strength", .fallback = "0.5", .live = true},
+        {.key = "rt_characters", .fallback = "0", .live = true}, // (added for the characters)
+        {.key = "rt_characters_skin", .fallback = "1", .live = true},
+        {.key = "rt_characters_cloth", .fallback = "1", .live = true},
+        {.key = "rt_characters_hair", .fallback = "1", .live = true},
         {.key = "rt_reflections", .fallback = "0", .live = true},
         {.key = "rt_reflection_strength", .fallback = "0.5", .live = true},
         {.key = "rt_reflection_fresnel", .fallback = "1", .live = true},

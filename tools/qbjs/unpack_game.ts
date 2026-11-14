@@ -18,7 +18,7 @@
 //   node tools/qbjs/unpack_game.ts --game <folder> --restore  everything put back as it was, the made files removed
 //   [--check]  the script check's translation (emit_ts.ts check) - for its runs only, never the game's
 //   [--pbr-maps classical|chord|none]  (NOT ORIGINAL - [Graphics] rt_pbr) surface maps made beside the level texture
-//              dictionaries (tools/pbr_maps/pbr_maps.ts; chord also needs --chord <folder>), recorded with the made
+//              dictionaries and the character models' (rt_characters) (tools/pbr_maps/pbr_maps.ts; chord also needs --chord <folder>), recorded with the made
 //              files so --restore removes them; none (the default) makes none
 //   [--hd-textures pbrify|seedvr2|none]  after unpacking (or on a game already unpacked: only this) the levels'
 //              textures upscaled by that AI model and installed as a set of their own, selected ([Graphics]
@@ -337,6 +337,7 @@ export function unpack(
         const maps = makeSurfaceMaps(root, {
             generator: pbr.generator,
             model: pbr.generator === "chord" ? chordGenerator(pbr.chord) : undefined,
+            models: "also", // (added for the characters: their maps too - used only with [Graphics] rt_characters)
         });
         record.made.push(...maps.made);
         save();

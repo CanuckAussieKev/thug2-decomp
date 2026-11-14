@@ -25,6 +25,11 @@
 //     heights; off, a smooth-concrete kind and a map with no bump leave the picture exactly as without it, faded out (by
 //     its level of detail) too; far away (the texture repeated) the default fade all but flattens it; the sun's shadow
 //     darkens, never brightens.
+//   - (added for the characters - rt_characters) a character model's map (surface_map_format kFlagModel) classed skin,
+//     cloth, a garment with skin texels, hair (strands along u and along v): the same quad lit from the front and from
+//     behind, each pixel against the processor's skin (wrapped light, red terminator, translucency - weighted per
+//     texel by its colour), sheen and Kajiya-Kay highlight; rt_characters off: the picture as with no map; on with the
+//     strengths at 0: as a plain map's.
 //   thug2_vulkan_pbr_check [--device N] [--display N] [--no-validation] [--perf]
 // --perf also times a full-screen layer at 1920 x 1080 with the setting off and on (reported, not checked).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
@@ -54,6 +59,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_maps.h"
 #include "formats/detail_material_format.h"
+#include "formats/surface_map_format.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_detail.h"
@@ -104,6 +110,7 @@ constexpr float kLeastShare = 0.05F;
 constexpr std::size_t kLights = 8;
 constexpr std::size_t kLeastJudged = 10000;
 constexpr std::size_t kLeastChanged = 1000;
+constexpr std::size_t kLeastCharacterMoved = 1000; // (added for the characters)
 constexpr uint32_t kRedShift = 16;
 constexpr uint32_t kGreenShift = 8;
 constexpr uint32_t kRgbMask = 0x00FFFFFFU;
@@ -334,6 +341,15 @@ struct Case {
     bool pbr = true;      // rt_pbr on
     Vec3 bake{0.45F, 0.42F, 0.4F}; // the vertex colour
     bool wrap = false;    // (added by surface relief) the texture repeats (else clamped)
+    // (added for the characters) the light; the map's class and flags (surface_map_format); rt_characters and its
+    // strengths
+    Light light{};
+    uint8_t material_class = 2;
+    uint8_t flags = 0;
+    bool characters = false;
+    float skin = 1.0F;
+    float cloth = 1.0F;
+    float hair = 1.0F;
 };
 
 constexpr Vec3 kAmbient{0.15F, 0.15F, 0.18F};
@@ -342,6 +358,72 @@ constexpr Vec3 kMaterialAmbient{0.8F, 0.8F, 0.8F};
 constexpr Light kLight{.toward = {-0.5014059F, 0.6016871F, -0.6217433F}, .colour = {0.9F, 0.85F, 0.8F}};
 constexpr Vec3 kSunToward{0.4056161F, 0.7605302F, -0.5070201F};
 constexpr float kMapF0 = 0.04F;
+
+// (added for the characters) The case's light: its own, else kLight.
+const Light& light_of(const Case& test)
+{
+    return dot(test.light.toward, test.light.toward) > 0.0F ? test.light : kLight;
+}
+
+// (added for the characters - ff_shaders.cpp kDetailCharacterBlock's formulas) What a character map's class makes of a
+// light: skin's per-channel wrap and translucency, cloth's sheen, hair's highlight.
+struct Character {
+    bool on = false;
+    float skin = 0.0F;  // k
+    float sheen = 0.0F;
+    bool hair = false;
+    float hair_strength = 0.0F;
+    bool along_u = false;
+};
+
+// The shader's character_skin_weight.
+float skin_weight(const Vec3& colour)
+{
+    const float r = core::at(colour, 0);
+    const float g = core::at(colour, 1);
+    const float b = core::at(colour, 2);
+    const float order = smoothstep(-0.03F, 0.0F, r - g) * smoothstep(-0.03F, 0.0F, g - b);
+    const float saturation = (r - b) / std::max(r, 1.0e-4F);
+    const float hue = (g - b) / std::max(r - b, 1.0e-4F);
+    return order * smoothstep(0.06F, 0.16F, saturation) * (1.0F - smoothstep(0.7F, 0.8F, saturation)) *
+           smoothstep(0.03F, 0.15F, hue) * (1.0F - smoothstep(0.85F, 0.97F, hue)) * smoothstep(0.1F, 0.2F, r);
+}
+
+Character character_of(const Case& test, const Vec3& colour)
+{
+    namespace smf = surface_map_format;
+    Character out;
+    if (!test.characters || !test.map || !test.pbr || !test.lit || (test.flags & smf::kFlagModel) == 0U) {
+        return out;
+    }
+    constexpr float kSkinFollows = 0.6F;
+    constexpr float kDenim = 0.6F;
+    const float weight = skin_weight(colour);
+    switch (static_cast<smf::MaterialClass>(test.material_class)) {
+    case smf::MaterialClass::kSkin:
+        out.on = test.skin > 0.0F;
+        out.skin = test.skin * std::lerp(1.0F, weight, kSkinFollows);
+        break;
+    case smf::MaterialClass::kCloth:
+    case smf::MaterialClass::kDenim: {
+        const bool texels = (test.flags & smf::kFlagSkinTexels) != 0U && test.skin > 0.0F;
+        const float sheen = test.cloth * (test.material_class == static_cast<uint8_t>(smf::MaterialClass::kDenim) ? kDenim : 1.0F);
+        out.on = sheen > 0.0F || texels;
+        out.skin = texels ? test.skin * weight : 0.0F;
+        out.sheen = sheen * (texels ? 1.0F - weight : 1.0F);
+        break;
+    }
+    case smf::MaterialClass::kHair:
+        out.on = test.hair > 0.0F;
+        out.hair = out.on;
+        out.hair_strength = test.hair;
+        out.along_u = (test.flags & smf::kFlagStrandsU) != 0U;
+        break;
+    default:
+        break;
+    }
+    return out;
+}
 
 struct Surface {
     float rough = 0.0F;
@@ -409,7 +491,9 @@ bool expected(const Case& given, const Quad& quad, uint32_t px, uint32_t py, Vec
     const Vec3 geo = quad_normal(quad);
     Vec3 bent = geo;
     Surface surface{.rough = vk::RtPbrSettings{}.roughness, .f0 = vk::RtPbrSettings{}.f0};
-    if (test.map && test.pbr) {
+    // (added for the characters) a character model's map is used only with rt_characters on
+    const bool map_used = test.map && ((test.flags & surface_map_format::kFlagModel) == 0U || test.characters);
+    if (map_used && test.pbr) {
         surface = {.rough = static_cast<float>(core::at(texel.map, 2)) / kByteMax, .f0 = kMapF0};
         const float tilt_x = (static_cast<float>(core::at(texel.map, 0)) - kSignedHalf) / kSignedHalf;
         const float tilt_y = (static_cast<float>(core::at(texel.map, 1)) - kSignedHalf) / kSignedHalf;
@@ -432,14 +516,49 @@ bool expected(const Case& given, const Quad& quad, uint32_t px, uint32_t py, Vec
     const vk::RtPbrSettings settings;
     Vec3 v0{};
     Vec3 specular{};
-    if (test.lit) {
-        const float nl = std::max(dot(test.pbr ? bent : geo, kLight.toward), 0.0F);
+    const Light& light = light_of(test);
+    const Character character = character_of(test, texel.colour); // (added for the characters)
+    if (test.lit && character.on) {
+        constexpr Vec3 kWrap{0.45F, 0.2F, 0.12F};
+        constexpr Vec3 kThrough{1.0F, 0.35F, 0.2F};
+        constexpr float kThroughShare = 0.25F;
+        constexpr float kSheen = 0.35F;
+        constexpr float kShift = 0.6F;
+        constexpr float kKk = 0.4F;
+        const float nl = dot(bent, light.toward);
+        const float nv = std::max(dot(bent, view), 0.0F);
+        const float thin = 1.0F - std::fabs(dot(geo, view));
+        const float rim = kSheen * character.sheen * (1.0F - nv) * (1.0F - nv) * (1.0F - nv);
+        const float through = kThroughShare * character.skin * thin * std::pow(std::max(-dot(view, light.toward), 0.0F), 4.0F);
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            const float wrap = kWrap.at(channel) * character.skin;
+            const float diffuse = clamp01((nl + wrap) / (1.0F + wrap)) + (kThrough.at(channel) * through) + (rim * (kMid + (kMid * nl)));
+            v0.at(channel) = clamp01((kMaterialAmbient.at(channel) * ambient.at(channel)) +
+                                     (test.bake.at(channel) * light.colour.at(channel) * diffuse));
+        }
+        float highlight = ggx(bent, view, light.toward, surface);
+        if (character.hair) {
+            const float area = dot(geo, cross(quad.edge_s, quad.edge_t));
+            const Vec3 grad_s = scale(cross(quad.edge_t, geo), 1.0F / area);
+            const Vec3 grad_t = scale(cross(geo, quad.edge_s), 1.0F / area);
+            const Vec3 along_u = add(scale(grad_s, core::at(quad.duv_s, 0)), scale(grad_t, core::at(quad.duv_t, 0)));
+            const Vec3 along_v = add(scale(grad_s, core::at(quad.duv_s, 1)), scale(grad_t, core::at(quad.duv_t, 1)));
+            const float height = static_cast<float>(core::at(texel.map, 3)) / kByteMax;
+            const Vec3 strand = normalise(add(normalise(character.along_u ? along_u : along_v), scale(bent, (height - kMid) * kShift)));
+            const float exponent = std::clamp(kTwo / std::max(std::pow(surface.rough, 4.0F), 1.0e-4F), 4.0F, 512.0F);
+            const float th = dot(strand, normalise(add(light.toward, view)));
+            const float kk = std::pow(std::sqrt(std::max(1.0F - (th * th), 0.0F)), exponent) * kKk * smoothstep(0.0F, 0.2F, nl);
+            highlight = (highlight * std::max(1.0F - character.hair_strength, 0.0F)) + (kk * character.hair_strength);
+        }
+        specular = scale(light.colour, highlight);
+    } else if (test.lit) {
+        const float nl = std::max(dot(test.pbr ? bent : geo, light.toward), 0.0F);
         for (std::size_t channel = 0; channel < 3; ++channel) {
             v0.at(channel) = clamp01((kMaterialAmbient.at(channel) * ambient.at(channel)) +
-                                     (test.bake.at(channel) * kLight.colour.at(channel) * nl));
+                                     (test.bake.at(channel) * light.colour.at(channel) * nl));
         }
         if (test.pbr) {
-            specular = scale(kLight.colour, ggx(bent, view, kLight.toward, surface));
+            specular = scale(light.colour, ggx(bent, view, light.toward, surface));
         }
     } else if (test.pbr) {
         const float level = kTwo * dot(test.bake, kLuma);
@@ -490,7 +609,7 @@ uint32_t argb(const Vec3& colour)
 }
 
 // The texture (8 x 8 A8R8G8B8) and its surface map.
-GpuTexture* make_texture(render::Gpu& gpu, bool map)
+GpuTexture* make_texture(render::Gpu& gpu, bool map, uint8_t material_class = 2, uint8_t flags = 0)
 {
     GpuTexture* texture = nullptr;
     if (gpu.create_texture({.width = kTexels, .height = kTexels, .levels = 1, .usage = 0, .format = value::kFormatA8R8G8B8,
@@ -520,8 +639,8 @@ GpuTexture* make_texture(render::Gpu& gpu, bool map)
     }
     gpu.unlock_texture(texture, 0);
     if (map && render::surface::surface_maps() != nullptr) {
-        render::surface::surface_maps()->attach(texture, {.width = kTexels, .height = kTexels, .material_class = 2, .f0 = kMapF0},
-                                                maps);
+        render::surface::surface_maps()->attach(
+            texture, {.width = kTexels, .height = kTexels, .material_class = material_class, .f0 = kMapF0, .flags = flags}, maps);
     }
     return texture;
 }
@@ -560,9 +679,10 @@ void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture*
                       .emissive = {},
                       .power = 0});
     render::GpuLight light{};
+    const Light& given = light_of(test); // (added for the characters: a case's own light)
     light.type = value::kLightDirectional;
-    light.diffuse = {core::at(kLight.colour, 0), core::at(kLight.colour, 1), core::at(kLight.colour, 2), 1};
-    light.direction = scale(kLight.toward, -1.0F);
+    light.diffuse = {core::at(given.colour, 0), core::at(given.colour, 1), core::at(given.colour, 2), 1};
+    light.direction = scale(given.toward, -1.0F);
     gpu.set_light(0, light);
     gpu.enable_light(0, true);
     for (uint32_t index = 1; index < kLights; ++index) {
@@ -606,8 +726,12 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
 {
     vk::RtPbrSettings settings;
     settings.on = test.pbr;
+    settings.characters = test.characters; // (added for the characters)
+    settings.skin = test.skin;
+    settings.cloth = test.cloth;
+    settings.hair = test.hair;
     vk::set_rt_pbr_settings(settings);
-    GpuTexture* texture = make_texture(gpu, test.map);
+    GpuTexture* texture = make_texture(gpu, test.map, test.material_class, test.flags);
     const Quad quad = make_quad(test.yaw, test.pitch, test.mapping);
     gpu.begin_scene();
     gpu.set_render_target(0, target);
@@ -628,6 +752,14 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
     std::size_t finite = 0;
     float worst = 0.0F;
     std::string worst_at;
+    // (added for the characters) the pixels their shading moves from a plain map's (the strengths at 0): the check means
+    // something
+    Case plain = test;
+    plain.skin = 0.0F;
+    plain.cloth = 0.0F;
+    plain.hair = 0.0F;
+    const bool shaded = test.characters && (test.skin > 0.0F || test.cloth > 0.0F || test.hair > 0.0F);
+    std::size_t moved = 0;
     for (uint32_t py = 0; py < kSize; ++py) {
         for (uint32_t px = 0; px < kSize; ++px) {
             const std::size_t pixel = (static_cast<std::size_t>(py) * kSize) + px;
@@ -645,6 +777,14 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
                 continue;
             }
             ++judged;
+            Vec3 unshaded{};
+            if (shaded && expected(plain, quad, px, py, &unshaded)) {
+                float apart = 0.0F;
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    apart = std::max(apart, std::fabs(want.at(channel) - unshaded.at(channel)));
+                }
+                moved += apart > kTolerance ? 1U : 0U;
+            }
             float difference = 0.0F;
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 difference = std::max(difference, std::fabs(got.at(channel) - want.at(channel)));
@@ -664,6 +804,10 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
                               judged, share * 100.0, static_cast<double>(kTolerance), static_cast<double>(worst),
                               worst > kTolerance ? worst_at.c_str() : ""));
     tally->check(finite == static_cast<std::size_t>(kSize) * kSize, test.name + ": every pixel finite");
+    if (shaded) {
+        tally->check(moved >= kLeastCharacterMoved,
+                     text::format("%s: %zu pixels shaded differently from a plain map", test.name.c_str(), moved));
+    }
 }
 
 // --- (added by surface relief - [Graphics] rt_relief, gpu_vulkan/vulkan_surface.h) parallax occlusion mapping ----------
@@ -1076,14 +1220,27 @@ void measure_cost(render::Gpu& gpu, render::GpuPixelShader* shader)
         bool pbr;
         bool lit;
         bool relief = false; // (added by surface relief: a stone map with relief, its shadow on)
+        uint8_t character = 0; // (added for the characters: a model's map of this class, rt_characters on)
+        uint8_t flags = 0;
     };
+    constexpr auto kSkinClass = static_cast<uint8_t>(surface_map_format::MaterialClass::kSkin);
+    constexpr auto kClothClass = static_cast<uint8_t>(surface_map_format::MaterialClass::kCloth);
+    constexpr auto kHairClass = static_cast<uint8_t>(surface_map_format::MaterialClass::kHair);
+    constexpr uint8_t kModel = surface_map_format::kFlagModel;
     for (const Mode mode : {Mode{.name = "rt_pbr off", .pbr = false, .lit = true}, Mode{.name = "lit, a map", .pbr = true, .lit = true},
                             Mode{.name = "baked, a map", .pbr = true, .lit = false},
-                            Mode{.name = "baked, a stone map with relief", .pbr = true, .lit = false, .relief = true}}) {
+                            Mode{.name = "baked, a stone map with relief", .pbr = true, .lit = false, .relief = true},
+                            Mode{.name = "lit, a character's skin map", .pbr = true, .lit = true, .character = kSkinClass, .flags = kModel},
+                            Mode{.name = "lit, a character's garment with skin texels", .pbr = true, .lit = true, .character = kClothClass,
+                                 .flags = kModel | surface_map_format::kFlagSkinTexels},
+                            Mode{.name = "lit, a character's hair map", .pbr = true, .lit = true, .character = kHairClass, .flags = kModel}}) {
         vk::RtPbrSettings settings{.on = mode.pbr};
         settings.relief = mode.relief;
+        settings.characters = mode.character != 0; // (added for the characters)
         vk::set_rt_pbr_settings(settings);
-        GpuTexture* texture = mode.relief ? relief_texture(gpu, relief_map(false), kStoneClass) : make_texture(gpu, true);
+        GpuTexture* texture = mode.relief ? relief_texture(gpu, relief_map(false), kStoneClass)
+                              : mode.character != 0 ? make_texture(gpu, true, mode.character, mode.flags)
+                                                    : make_texture(gpu, true);
         const Case test{.name = mode.name, .lit = mode.lit};
         double seconds = 0.0;
         for (int pass = 0; pass < 2; ++pass) { // (the first warms the pipelines)
@@ -1431,6 +1588,49 @@ bool open_device(const Options& options, SDL_Window* window)
     return true;
 }
 
+// (added for the characters - rt_characters) A character model's maps: skin, cloth, a garment with skin texels, hair -
+// lit from the front and from behind - against the processor; off and at strength 0 as without them.
+void check_characters(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, Tally* tally)
+{
+    namespace smf = surface_map_format;
+    constexpr float kYaw = 0.61F;
+    constexpr float kPitch = 0.35F;
+    constexpr auto kSkin = static_cast<uint8_t>(smf::MaterialClass::kSkin);
+    constexpr auto kCloth = static_cast<uint8_t>(smf::MaterialClass::kCloth);
+    constexpr auto kDenim = static_cast<uint8_t>(smf::MaterialClass::kDenim);
+    constexpr auto kHair = static_cast<uint8_t>(smf::MaterialClass::kHair);
+    constexpr uint8_t kModel = smf::kFlagModel;
+    // (from behind and above the quad, toward the camera's side a little: the translucency's)
+    const Light behind{.toward = normalise({0.35F, 0.25F, 0.9F}), .colour = {0.9F, 0.85F, 0.8F}};
+    const Vec3 warm{0.8F, 0.7F, 0.65F};
+    const std::array<Case, 11> cases{{
+        {.name = "characters: skin, lit", .yaw = kYaw, .pitch = kPitch, .bake = warm, .material_class = kSkin, .flags = kModel, .characters = true},
+        {.name = "characters: skin, lit from behind", .yaw = kYaw, .pitch = kPitch, .bake = warm, .light = behind,
+         .material_class = kSkin, .flags = kModel, .characters = true},
+        {.name = "characters: skin at strength 2, u mirrored", .yaw = -kYaw, .pitch = kPitch, .mapping = Mapping::kMirrored,
+         .bake = warm, .material_class = kSkin, .flags = kModel, .characters = true, .skin = 2.0F},
+        {.name = "characters: cloth's sheen", .yaw = kYaw, .pitch = kPitch, .bake = warm, .material_class = kCloth,
+         .flags = kModel, .characters = true},
+        {.name = "characters: denim, its skin texels skin", .yaw = -kYaw, .pitch = -kPitch, .bake = warm, .light = behind,
+         .material_class = kDenim, .flags = kModel | smf::kFlagSkinTexels, .characters = true},
+        {.name = "characters: hair, strands along v", .yaw = kYaw, .pitch = kPitch, .bake = warm, .material_class = kHair,
+         .flags = kModel, .characters = true},
+        {.name = "characters: hair, strands along u, mapping turned", .yaw = -kYaw, .pitch = kPitch, .mapping = Mapping::kRotated,
+         .bake = warm, .material_class = kHair, .flags = kModel | smf::kFlagStrandsU, .characters = true},
+        {.name = "characters: hair at half strength", .yaw = kYaw, .pitch = -kPitch, .bake = warm, .material_class = kHair,
+         .flags = kModel, .characters = true, .hair = 0.5F},
+        {.name = "characters off: a model's skin map unused", .yaw = kYaw, .pitch = kPitch, .bake = warm,
+         .material_class = kSkin, .flags = kModel},
+        {.name = "characters off: a model's hair map unused, lit from behind", .yaw = kYaw, .pitch = kPitch, .bake = warm,
+         .light = behind, .material_class = kHair, .flags = kModel | smf::kFlagStrandsU},
+        {.name = "characters at strength 0: a plain map", .yaw = kYaw, .pitch = kPitch, .bake = warm, .material_class = kSkin,
+         .flags = kModel, .characters = true, .skin = 0.0F, .cloth = 0.0F, .hair = 0.0F},
+    }};
+    for (const Case& test : cases) {
+        run_case(gpu, target, test, shader, tally);
+    }
+}
+
 int run(const Options& options, SDL_Window* window)
 {
     if (!open_device(options, window)) {
@@ -1471,6 +1671,7 @@ int run(const Options& options, SDL_Window* window)
         for (const Case& test : cases) {
             run_case(gpu, target, test, shader, &tally);
         }
+        check_characters(gpu, target, shader, &tally); // (added for the characters - rt_characters)
         check_bake_moves(gpu, target, shader, &tally);
         check_detail(gpu, target, shader, &tally); // (NOT ORIGINAL - rt_detail / rt_delight)
         check_relief(gpu, target, shader, &tally); // (added by surface relief - rt_relief)

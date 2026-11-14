@@ -28,6 +28,9 @@ struct MapInfo {
     // surface_map_format::content_hash): the detail-material library lists textures by them
     uint32_t checksum = 0;
     uint64_t content_hash = 0;
+    // (added for the characters - [Graphics] rt_characters) surface_map_format::kFlag*: a character model's map (used
+    // only with rt_characters on), hair's strands along u, a garment's skin-coloured texels shaded as skin
+    uint8_t flags = 0;
 };
 
 class SurfaceMaps {

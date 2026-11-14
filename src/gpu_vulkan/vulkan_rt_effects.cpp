@@ -52,6 +52,7 @@ constexpr uint64_t kReportIndirect = 0x00000100U; // (added to a key: the indire
 constexpr float kMaxStrength = 1.0F;
 constexpr float kMinRadius = 1.0F;
 constexpr float kMaxRadius = 1000.0F;
+constexpr float kPerMille = 1000.0F; // (added for the characters: rt_ao_characters in the trace's integer constants)
 // The indirect light's.
 constexpr float kMaxGiStrength = 4.0F;
 constexpr float kMaxGiDistance = 5000.0F;
@@ -216,7 +217,11 @@ float start_offset(float distance) { return pc.params.z * (1.0 + distance * 0.00
 // is its triangle's, flat, and the rays' hemisphere tilted with each triangle, so the ground and a wall beside him
 // took a different share of each (his shirt, face and arms in hard light and dark facets in the shade). Turned to
 // the side the depth's faces (a mesh whose normals point inward).
+// (added for the characters - rt_ao_characters) on_character: the object the pixel shows is skinned (the skater, a
+// ped - rt_scene.h kSkinned): the occlusion's own strength for them (pc.extra.z, per mille).
 const uint OBJECTS_MASK = 0x02u;
+const uint SKINNED_FLAG = 0x08u;
+bool on_character = false;
 uint rays_mask(vec3 here, vec3 to_camera, float distance, inout vec3 normal)
 {
     uint mask = uint(pc.extra.y) & 0xFFu;
@@ -233,6 +238,7 @@ uint rays_mask(vec3 here, vec3 to_camera, float distance, inout vec3 normal)
     if (!on_object) {
         return mask;
     }
+    on_character = (geometry_record(rayQueryGetIntersectionInstanceIdEXT(query, true)).instance_flags & SKINNED_FLAG) != 0u;
     vec3 vertex_normal;
     if (hit_normal(rayQueryGetIntersectionInstanceIdEXT(query, true),
                    rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
@@ -317,6 +323,9 @@ void main()
     float hits = 0.0;
     for (uint i = 0u; i < rays; ++i) {
         hits += occluded(origin, hemisphere_ray(h, i, rays), mask);
+    }
+    if (on_character && pc.extra.z != 1000) {
+        hits *= float(pc.extra.z) * 0.001; // (added for the characters: rt_ao_characters)
     }
     imageStore(o_out, local, vec4(hits / float(rays), 0.0, 0.0, 0.0));
     imageStore(o_guide, local, uvec4(floatBitsToUint(here), pack_normal(normal)));
@@ -1996,7 +2005,9 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
         }
         // 1. the rays
         trace.extra = {static_cast<int32_t>(slot->passes % kSequenceWrap),
-                       static_cast<int32_t>(rgb ? kGiMask : kAoMask), 0, 0};
+                       static_cast<int32_t>(rgb ? kGiMask : kAoMask),
+                       // (added for the characters) the occlusion on the skinned characters x this, per mille
+                       rgb ? 0 : static_cast<int32_t>(std::lround(own.settings.characters * kPerMille)), 0};
         PassImages trace_images{
             .scene = true, .depth = depth, .out = &slot->raw, .guide = &core::at(slot->guides, slot->current)};
         trace_images.geometry = own.geometry;
@@ -2174,6 +2185,7 @@ void set_rt_ao_settings(const RtAoSettings& settings)
     kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : 0.0F;
     kept.radius = std::isfinite(kept.radius) ? std::clamp(kept.radius, kMinRadius, kMaxRadius) : kRtAoRadius;
     kept.rays = std::clamp(kept.rays, 1U, kMaxRays);
+    kept.characters = std::isfinite(kept.characters) ? std::clamp(kept.characters, 0.0F, 1.0F) : 1.0F; // (added for the characters)
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);

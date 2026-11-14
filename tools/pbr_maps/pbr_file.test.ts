@@ -4,6 +4,8 @@ import {
     contentHash,
     contentHashReference,
     ENTRY_SIZE,
+    FLAG_MODEL,
+    FLAG_STRANDS_U,
     HEADER_SIZE,
     type MapEntry,
     readPbr,
@@ -75,4 +77,12 @@ test("the file: broken ones refused", () => {
     other[0] = 0;
     assert.throws(() => readPbr(other));
     assert.throws(() => writePbr([{ ...SAMPLE[0]!, width: 3 }]));
+});
+
+test("the file: an entry's flags (the characters' model and strand bits) read back", () => {
+    const file = writePbr([{ ...SAMPLE[0]!, flags: FLAG_MODEL | FLAG_STRANDS_U }, SAMPLE[1]!]);
+    const back = readPbr(file);
+    assert.equal(back[0]!.flags, FLAG_MODEL | FLAG_STRANDS_U);
+    assert.equal(back[1]!.flags, 0);
+    assert.equal(file[HEADER_SIZE + 18], 3);
 });
