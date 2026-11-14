@@ -31,10 +31,16 @@
 //   CLCK  the clocks when the level was up: u32 x 2 the vblanks since the stopwatch's reset (low, high), u32 the game clock's
 //         last change of speed, f32 its speed, i32 its offset. (Optional: a demo without it plays from the clocks as
 //         they are.)
+//   RATE  (version 2) u32: the tick rate it was recorded at, ticks a second (engine/sys/tick_rate.h). A demo without it -
+//         every version 1 file - was recorded at 60. A 60-tick demo is still written as version 1 without it (the same
+//         bytes as before; older builds read it); one at another rate is version 2, which older builds refuse.
 namespace demo_format {
 
 constexpr std::array<char, 8> kMagic = {'T', 'H', 'U', 'G', '2', 'D', 'E', 'M'};
-constexpr uint32_t kVersion = 1;
+constexpr uint32_t kVersion = 2;          // the newest this game reads (and writes for a demo not at 60 ticks)
+constexpr uint32_t kVersionOriginalRate = 1; // what a 60-tick demo is written as
+constexpr uint32_t kOriginalTickRate = 60;
+constexpr uint32_t kMaxTickRate = 1000;
 constexpr std::size_t kPortBytes = 32; // a port's control data (sio's kPortBufferBytes)
 constexpr uint32_t kMaxPorts = 2;
 
@@ -108,6 +114,7 @@ struct Demo {
     RandomState random_at_up;
     Clocks clocks;
     uint32_t random_flags = 0; // kMusicApart...
+    uint32_t tick_rate = kOriginalTickRate; // the ticks a second it was recorded at (the RATE chunk)
     std::vector<Global> globals; // (none: a demo made before the GLOB chunk)
     std::vector<std::pair<std::string, std::string>> settings;
     std::vector<uint8_t> profile;

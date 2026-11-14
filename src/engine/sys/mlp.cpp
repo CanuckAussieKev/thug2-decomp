@@ -25,6 +25,7 @@
 #include "engine/sys/editor_mode.h"
 #include "engine/sys/frame_blend.h"
 #include "engine/sys/frame_pacing.h"
+#include "engine/sys/tick_rate.h"
 #include "base/maths/random.h"
 #include "platform/crt.h"
 #include "platform/process_flags.h"
@@ -52,6 +53,7 @@ namespace {
 constexpr uint32_t kScreenSaverResetFrames = 200; // the screen-saver timeout is set again this often
 constexpr DWORD kInactiveSleepMilliseconds = 100;
 constexpr uint64_t kFarBehindFrames = 20;         // a frame this many frames late counts from the next one
+constexpr uint64_t kMostSkippedInARow = 4;        // late frames not drawn in a row at most
 
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
@@ -196,7 +198,7 @@ void draw_extra_frames(uint64_t tick_time, uint64_t tick_length, int64_t frequen
             get_log("frame pacing: %llu render-only frames over %llu ticks (%.2f a tick, about %.0f frames a second)",
                     static_cast<unsigned long long>(own.drawn), static_cast<unsigned long long>(ticks),
                     static_cast<double>(own.drawn) / static_cast<double>(ticks),
-                    (1.0 + (static_cast<double>(own.drawn) / static_cast<double>(ticks))) * frame_pacing::kTicksPerSecond);
+                    (1.0 + (static_cast<double>(own.drawn) / static_cast<double>(ticks))) * tick_rate::rate());
         }
         const uint64_t took = counter_now() - now;
         own.cost = frame_pacing::cost_after_frame(own.cost, took, tick_length);
@@ -332,7 +334,13 @@ void Hub::get_main_loop()
     uint32_t frames_since_screen_saver = 0;
     LARGE_INTEGER frequency;
     QueryPerformanceFrequency(&frequency);
-    const uint64_t frame_ticks = static_cast<uint64_t>(frequency.QuadPart) / 60; // (an unsigned division)
+    // Not original - the tick rate's tick (engine/sys/tick_rate.h: frequency / 60 at the original rate), and the counts
+    // of ticks below that were time at 60 a second scaled to it (the same counts at 60).
+    // Original behaviour: frequency / 60, and the counts as written.
+    const uint64_t frame_ticks = tick_rate::counter_ticks(static_cast<uint64_t>(frequency.QuadPart)); // (unsigned)
+    const uint64_t screen_saver_frames = tick_rate::ticks_for(kScreenSaverResetFrames);
+    const uint64_t far_behind_frames = tick_rate::ticks_for(kFarBehindFrames);
+    const auto most_skipped_in_a_row = static_cast<int>(tick_rate::ticks_for(kMostSkippedInARow));
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
     auto frame_start = static_cast<uint64_t>(counter.QuadPart);
@@ -341,7 +349,7 @@ void Hub::get_main_loop()
         ++frames_run(); // (not original - see frames_run)
         frame_profile::loop_begin(); // (not original: [debug] frame_profile - platform/frame_profile.h)
         std::optional<frame_profile::Scope> events_phase(std::in_place, "events");
-        if ((screen_saver_timeout != 0U) && frames_since_screen_saver++ >= kScreenSaverResetFrames) {
+        if ((screen_saver_timeout != 0U) && frames_since_screen_saver++ >= screen_saver_frames) {
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             frames_since_screen_saver = 0;
         }
@@ -398,7 +406,7 @@ void Hub::get_main_loop()
             }
         }
         uint64_t elapsed = now - frame_start;
-        if (elapsed > frame_ticks * kFarBehindFrames) { // far behind (a pause): start counting again from one frame ago
+        if (elapsed > frame_ticks * far_behind_frames) { // far behind (a pause): start counting again from one frame ago
             frame_start = now - frame_ticks;
             elapsed = frame_ticks;
         }
@@ -409,7 +417,7 @@ void Hub::get_main_loop()
         // make one late even though the last frame's capture time isn't counted.
         // Original behaviour: a late frame isn't drawn.
         const bool active = sys::app_active();
-        if ((skipped_in_a_row() >= 4 || elapsed < frame_ticks + (frame_ticks >> 1) || ext::keeps_every_frame() ||
+        if ((skipped_in_a_row() >= most_skipped_in_a_row || elapsed < frame_ticks + (frame_ticks >> 1) || ext::keeps_every_frame() ||
              pace.flat_out) &&
             active) {
             skipped_in_a_row() = 0;

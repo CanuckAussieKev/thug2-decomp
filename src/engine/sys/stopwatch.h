@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// The game clock: counted in vblanks (60 a second on PC), with the render frame count, an
+// The game clock: counted in vblanks (60 a second on PC; not original: one a tick, tick_rate.h), with the render frame count, an
 // average frame length over the last four frames, and slow motion.
 namespace frame_clock {
 
@@ -28,7 +28,8 @@ uint64_t get_draw_frame();
 uint32_t get_time();
 // 0x005BE910: the uncapped average frame length, in seconds.
 double get_frame_seconds();
-// 0x005BEAA0: slow motion times a nominal 1/60 s frame.
+// 0x005BEAA0: slow motion times a tick (the original's nominal 1/60 s frame; not original: the tick rate's tick -
+// engine/sys/tick_rate.h).
 double get_slomo_frame_seconds();
 // 0x005BE8F0 / 0x005BE900: slow motion (1 = normal speed); a new value takes effect at the next frame.
 float get_time_scale();

@@ -7,6 +7,7 @@
 #include "base/core/no_destroy.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
+#include "engine/sys/tick_rate.h"
 
 namespace frame_blend {
 
@@ -57,13 +58,16 @@ void read_settings()
     state.present = frame_pacing::parse_present_mode(text.data());
     if (state.max_fps != frame_pacing::kOriginal || state.present != frame_pacing::PresentMode::kVsync) {
         if (state.max_fps == frame_pacing::kUncapped) {
-            get_log("frame pacing: max_fps=uncapped present_mode=%s (render-only frames blended between the 60 Hz ticks)",
-                    frame_pacing::present_mode_name(state.present));
+            get_log("frame pacing: max_fps=uncapped present_mode=%s (render-only frames blended between the %d Hz ticks)",
+                    frame_pacing::present_mode_name(state.present), tick_rate::rate());
         } else {
-            get_log("frame pacing: max_fps=%d present_mode=%s%s", state.max_fps,
-                    frame_pacing::present_mode_name(state.present),
-                    state.max_fps != frame_pacing::kOriginal ? " (render-only frames blended between the 60 Hz ticks)"
-                                                             : "");
+            if (state.max_fps != frame_pacing::kOriginal) {
+                get_log("frame pacing: max_fps=%d present_mode=%s (render-only frames blended between the %d Hz ticks)",
+                        state.max_fps, frame_pacing::present_mode_name(state.present), tick_rate::rate());
+            } else {
+                get_log("frame pacing: max_fps=%d present_mode=%s", state.max_fps,
+                        frame_pacing::present_mode_name(state.present));
+            }
         }
     }
 }

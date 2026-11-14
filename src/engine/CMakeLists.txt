@@ -290,6 +290,8 @@ add_library(thug2_engine STATIC
     sys/stopwatch.cpp
     sys/frame_pacing.cpp
     sys/frame_blend.cpp
+    sys/tick_rate.cpp
+    sys/tick_rate_settings.cpp
     sys/mlp.cpp
     sys/game_clock.cpp
     sys/system_cfuncs.cpp

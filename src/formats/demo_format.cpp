@@ -49,6 +49,7 @@ constexpr uint32_t kChecks = tag("CHEK");
 constexpr uint32_t kClocks = tag("CLCK");
 constexpr uint32_t kRandom = tag("RAND");
 constexpr uint32_t kGlobals = tag("GLOB");
+constexpr uint32_t kRate = tag("RATE");
 constexpr std::size_t kGlobalBytes = 9; // name, kind, word
 
 // A growing little-endian writer.
@@ -227,7 +228,9 @@ std::vector<uint8_t> write_demo(const Demo& demo)
 {
     Out file;
     file.put(std::span(raw::bytes(kMagic.data()), kMagic.size()));
-    file.u32(kVersion);
+    // (a 60-tick demo as version 1, without RATE: the bytes it always had)
+    const bool other_rate = demo.tick_rate != kOriginalTickRate;
+    file.u32(other_rate ? kVersion : kVersionOriginalRate);
 
     Out info;
     info.text(demo.level);
@@ -316,6 +319,11 @@ std::vector<uint8_t> write_demo(const Demo& demo)
             globals.u32(global.word);
         }
         file.chunk(kGlobals, globals);
+    }
+    if (other_rate) {
+        Out rate;
+        rate.u32(demo.tick_rate);
+        file.chunk(kRate, rate);
     }
     return std::move(file.bytes());
 }
@@ -427,6 +435,12 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
             has_input = true;
         } else if (id == kClocks || id == kGlobals || id == kRandom) {
             if (!read_session_chunk(id, body, &demo, &why)) {
+                return false;
+            }
+        } else if (id == kRate) {
+            demo.tick_rate = body.u32();
+            if (!body.ok() || demo.tick_rate == 0 || demo.tick_rate > kMaxTickRate) {
+                why = "bad rate chunk";
                 return false;
             }
         } else if (id == kChecks) {

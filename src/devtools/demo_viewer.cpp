@@ -32,6 +32,7 @@
 #include "engine/objects/entity.h"
 #include "engine/pad_input/input_event.h"
 #include "engine/pad_input/input_source.h"
+#include "engine/sys/tick_rate.h"
 #include "platform/run_log.h"
 
 namespace devtools::demo_viewer {
@@ -42,7 +43,8 @@ using camera_path::Pose;
 using Clock = std::chrono::steady_clock;
 
 constexpr uint32_t kSkater = 0x5B8AB877; // Skater (the local skater's alias)
-constexpr double kFramesPerSecond = 60.0;
+// (a frame is a tick: the viewer plays a demo at the rate it was recorded at - engine/sys/tick_rate.h)
+double frames_per_second() { return static_cast<double>(tick_rate::rate()); }
 constexpr double kProgressSeconds = 0.1;  // a seek draws a frame (its progress) this often
 constexpr double kSaveSeconds = 0.5;      // the camera path saved this long after its last change
 constexpr double kLongestTick = 0.1;      // (a camera's step: at most this much time at once)
@@ -254,7 +256,7 @@ void finish_seek(uint32_t done)
     const auto run = static_cast<double>(done) - static_cast<double>(view.seek_started_frame);
     view.last_seek_rate = view.last_seek_seconds > 0.0 ? run / view.last_seek_seconds : 0.0;
     get_log("viewer: at frame %u - the seek ran %.0f frame(s) in %.2f s (%.0f a second, %.1fx real time)%s", done - 1,
-            run, view.last_seek_seconds, view.last_seek_rate, view.last_seek_rate / kFramesPerSecond,
+            run, view.last_seek_seconds, view.last_seek_rate, view.last_seek_rate / frames_per_second(),
             view.seek_started_frame == 0 ? ", the level loaded again" : "");
     view.target = -1;
     view.paused = !view.resume;
@@ -477,7 +479,7 @@ void begin(const Playback& playback)
     input::show_cursor(1);
     load_path();
     get_log("viewer: %s - %u frames (%.1f s), the level up at frame %u; H hides the panels, Esc leaves",
-            playback.name.c_str(), playback.frames, static_cast<double>(playback.frames) / kFramesPerSecond,
+            playback.name.c_str(), playback.frames, static_cast<double>(playback.frames) / frames_per_second(),
             playback.up_frame);
     if (!playback.export_video.empty()) {
         get_log("viewer: %s", start_export(playback.export_video).c_str());
@@ -921,7 +923,7 @@ bool transport_command(const std::string& action, std::istringstream& words)
         std::string where;
         words >> where;
         const int64_t frame = where.ends_with('s')
-                                  ? static_cast<int64_t>(std::lround(text::to_double(where.c_str()) * kFramesPerSecond))
+                                  ? static_cast<int64_t>(std::lround(text::to_double(where.c_str()) * frames_per_second()))
                                   : text::to_int(where.c_str());
         seek(frame, !view.paused);
     } else if (action == "step") {

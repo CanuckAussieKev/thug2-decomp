@@ -324,12 +324,16 @@ before the change 0.99 - every playback identical to the recording (1283 check p
 - A playback puts the recorded skater back in memory only (not saved), and only where the current one differs.
 - The level's files must be the same as when it was recorded (a re-converted ported level can play differently).
 
-## The file (`.demo`, version 1)
+## The file (`.demo`, version 1 or 2)
 
 Little-endian: `THUG2DEM`, u32 version, then chunks `{4-character tag, u32 size, body}`. A reader skips chunks it
 doesn't know and refuses a newer version. `INFO` (names, seeds, the frame the level was up, the random state there),
 `SETS` (settings), `PROF` / `DETL` (the skater), `INPT` (port 0's 32 bytes a frame, run-length coded), `CHEK` (the
 check points, 84 bytes each), `CLCK` (the clocks when the level was up; optional), `RAND` (u32 flags: bit 0, the
 music's random numbers apart; optional), `GLOB` (u32 count, then each simple script global at the recording's start:
-u32 name, u8 kind - 1 integer, 2 float, 13 name -, u32 value; optional). `formats/demo_format.h` has the
+u32 name, u8 kind - 1 integer, 2 float, 13 name -, u32 value; optional), `RATE` (u32: the `[Graphics] tick_rate` it was
+recorded at - version 2 only: a demo recorded at 60 is the version 1 file it always was, one at another rate is version 2,
+which older builds refuse). A plain playback at another tick rate holds each recorded frame over the ticks of its time
+(`tools/game/tick_compare.ts` measures how far that run is from the 60 Hz one - docs/design/tick-rate.md); the viewer,
+a capture and a video play a demo only at its own rate. `formats/demo_format.h` has the
 fields; `thug2_format_check` round-trips it and checks a later chunk is skipped and a newer or broken file refused.

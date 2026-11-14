@@ -1,17 +1,17 @@
 #pragma once
 
 // NOT ORIGINAL - frame rates above 60 without touching the game ([Graphics] max_fps, present_mode). The game's simulation
-// runs in ticks of 1/60 s on the wall clock, as it always has (frame_loop::Hub::get_main_loop: the logic tasks, the
+// runs in ticks of 1/60 s on the wall clock, as it always has (or the [Graphics] tick_rate's - engine/sys/tick_rate.h) (frame_loop::Hub::get_main_loop: the logic tasks, the
 // clock's vblank count - one per tick, so frame_length stays what it was -, the effects' tick in render::engine's
 // render_frame). Between two ticks the main loop draws render-only frames: the world drawn again with every instance's
 // transform, its bone palette and the cameras blended between the tick before and this one (render_pc/frame_interp.h),
 // by alpha = the time since this tick was due / the tick's length. So what is shown lags the simulation by up to one tick
-// (1/60 s) - the price of interpolation - and is never a guess (no extrapolation: nothing is drawn where the game didn't
+// (1/60 s at the original rate) - the price of interpolation - and is never a guess (no extrapolation: nothing is drawn where the game didn't
 // put it). A render-only frame runs no task, counts no vblank, asks for no input and leaves the game's random sequence
 // as it found it.
 //
 //   max_fps=0          (the default) the original: one frame per tick, drawn as the tick left it - nothing here runs.
-//   max_fps=N          up to N frames a second (60 - 1000): each tick's share of them (N / 60, the fraction carried to
+//   max_fps=N          up to N frames a second (60 - 1000): each tick's share of them (N / the tick rate, the fraction carried to
 //                      the next tick) spread evenly across the tick.
 //   max_fps=uncapped   (or -1) as many as fit before the next tick is due.
 //   present_mode=vsync (the default: FIFO, presents wait for the display - the original's), mailbox (the newest frame
@@ -28,7 +28,6 @@ namespace frame_pacing {
 
 inline constexpr int kOriginal = 0;  // max_fps=0: one frame a tick
 inline constexpr int kUncapped = -1; // max_fps=uncapped
-inline constexpr int kTicksPerSecond = 60;
 inline constexpr int kLowestCap = 60;
 inline constexpr int kHighestCap = 1000;
 

@@ -33,6 +33,7 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/looping_sound.h"
 #include "engine/sys/stopwatch.h"
+#include "engine/sys/tick_rate.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
@@ -84,7 +85,6 @@ constexpr float kDegrees = 360.0F;                       // 0x00645EA8
 constexpr float kInverseDegrees = 1.0F / 360.0F;         // 0x0064B798
 constexpr float kHalfDegrees = 180.0F;                   // 0x0064B278
 constexpr float kToRadians = 0.01745329238474369F;       // 0x00645464
-constexpr float kFramesPerSecond = 60.0F;                // 0x00645EA0
 constexpr float kMaxCos = 0.9998999834060669F;           // 0x0064B7F4
 constexpr float kMinCos = -0.9998999834060669F;          // 0x0064B7EC
 constexpr float kTurnPerSecond = 0.05235987901687622F;   // 0x0064B7F0 (3 degrees)
@@ -536,7 +536,8 @@ bool PedestrianBrainModule::turn_towards_node_after()
                 const double corner = maths::read_turn_angle(in, out) * kToRadians;
                 const double reach =
                     std::sqrt(std::sqrt((std::cos(corner) + 1.0) * (static_cast<double>(distance_sqr) + distance_sqr)));
-                turn_frames_ = truncate(reach / motion->path_max_speed() * kFramesPerSecond);
+                // (not original: in ticks of the tick rate - engine/sys/tick_rate.h; 60.0F at 60)
+                turn_frames_ = truncate(reach / motion->path_max_speed() * tick_rate::rate_float());
                 if (turn_frames_ <= 0) {
                     turn_frames_ = 1;
                 }

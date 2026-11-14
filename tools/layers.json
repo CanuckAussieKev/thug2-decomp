@@ -161,6 +161,7 @@
                     "src/engine/sys/editor_mode.h",
                     "src/engine/sys/game_config.h",
                     "src/engine/sys/mlp.h",
+                    "src/engine/sys/tick_rate.h",
                     "src/engine/ui/menu_reading.h",
                     "src/engine/ui/ui_backend.h",
                     "src/engine/ui/ui_fonts.h",
