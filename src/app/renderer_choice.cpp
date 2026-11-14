@@ -519,14 +519,12 @@ void read_grass()
 
 // NOT ORIGINAL - cel shading (engine/gfx/rt_cel.h, gpu_vulkan/vulkan_cel.h): off unless asked for; the relit mode's
 // decomposition and ray tracing make it fuller (the light in bands from the relit world's parts, hard traced shadows).
-// On with rt_style=cel (an art style in the Options screen); an older ini's rt_cel=1 still turns it on while rt_style
-// is off.
+// On with rt_style=cel (an art style in the Options screen) and only then: an older ini's rt_cel line does nothing (it
+// turned cel on under Art style Off, which nothing in the Options screen could undo).
 void read_rt_cel()
 {
     const render::rt::CelSettings defaults;
-    const render::vulkan::ArtStyle style = art_style_of_ini(false);
-    const bool on = style == render::vulkan::ArtStyle::kCel ||
-                    (style == render::vulkan::ArtStyle::kOff && graphics_flag("rt_cel", false));
+    const bool on = art_style_of_ini(false) == render::vulkan::ArtStyle::kCel;
     render::rt::CelSettings cel{.on = on,
                                 .bands = static_cast<uint32_t>(std::max(0, graphics_int("rt_cel_bands", static_cast<int>(defaults.bands)))),
                                 .shadow_colour = defaults.shadow_colour,

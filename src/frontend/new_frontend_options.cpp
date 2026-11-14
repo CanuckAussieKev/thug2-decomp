@@ -430,7 +430,7 @@ const std::vector<Spec>& get_specs()
                         {{.value = "1", .label = "1"}, {.value = "2", .label = "2"}, {.value = "4", .label = "4"}, {.value = "8", .label = "8"}},
                         1, Apply::kLive),
         // (added by cel shading - engine/gfx/rt_cel.h: a rendering mode, the light in bands where it is worked out; on
-        // with rt_style=cel - an older ini's rt_cel=1 too, read by app/renderer_choice.cpp, but no row writes rt_cel)
+        // with rt_style=cel only - app/renderer_choice.cpp; no row writes rt_cel, an older ini's rt_cel line does nothing)
         graphics_choice("rt_cel_bands", text_tools::kOptCelBands, "",
                         {{.value = "2", .label = "2"}, {.value = "3", .label = "3"}, {.value = "4", .label = "4"}}, 1, Apply::kLive),
         graphics_choice("rt_cel_shadow_colour", text_tools::kOptCelShadow, "",

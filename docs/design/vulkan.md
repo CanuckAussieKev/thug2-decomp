@@ -2032,7 +2032,7 @@ tracing needed; Direct3D 9 installs no `Sink` and draws none.
 `gpu_vulkan/vulkan_cel` (which draws are banded, their uniforms, the world's outlines), the fixed-function generator
 (`ff_key.h` `kSurfaceCel*`, `ff_shaders.cpp` "the light in bands"), `render_pc/rt_relit_world` (the stream);
 `[Graphics] rt_style=cel` (an art style in the Options screen's list; any other value turns it off - an older ini's
-`rt_cel=1` still turns it on while `rt_style` is off), `rt_cel_bands`, `rt_cel_shadow_colour`, `rt_cel_rim`,
+`rt_cel` line does nothing), `rt_cel_bands`, `rt_cel_shadow_colour`, `rt_cel_rim`,
 `rt_cel_outline_width`, `rt_cel_flatten`. A rendering mode, not a filter: the light is put in bands in the draws' own
 fragment shaders, where it is worked out; as the art style `cel` it has no post-process of its own.
 
