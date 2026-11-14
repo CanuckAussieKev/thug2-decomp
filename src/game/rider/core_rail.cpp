@@ -466,7 +466,16 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     // The move: the velocity over the frame, plus the overshoot along the facing (x, y of both unrounded).
     maths::Vec4& skater_position = entity()->at_point();
     const maths::Vec4 old = skater_position;
-    {
+    if (!tick_rate::original()) {
+        // (not original: at another tick rate the frame's moves added up - grid_move)
+        const float frame_length = frame_.length;
+        const maths::Vec4& u = entity()->vel();
+        const maths::Vec4 step = {.x = (frame_length * u.x) + (facing.x * overshoot),
+                                  .y = (frame_length * u.y) + (facing.y * overshoot),
+                                  .z = (frame_length * u.z) + (facing.z * overshoot),
+                                  .w = (frame_length * u.w) + (facing.w * overshoot) + 1.0F};
+        skater_position = grid_move(skater_position, step);
+    } else {
         const float frame_length = frame_.length;
         const maths::Vec4& u = entity()->vel();
         const float my = frame_length * u.y;

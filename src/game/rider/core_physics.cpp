@@ -714,8 +714,13 @@ void SkaterPhysicsModule::do_air_physics()
         // (the rotate component's turns about x and z)
         if ((state_->flag(PoseFlag::kVertAir).on == 0U) && (state_->flag(PoseFlag::kAcidDrop).on == 0U) &&
             !core::at(rotate_->turns(), 0).active && !core::at(rotate_->turns(), 2).active &&
-            !(bike && thaw_bmx::tire_tapping(this))) {
+            !(bike && thaw_bmx::tire_tapping(this)) && forces_this_tick()) {
+            // (not original: at another tick rate once a 1/60 s frame over the whole of it - its threshold and its step
+            // scale with the step, so smaller ticks roll the skater upright in other steps - forces_this_tick)
+            const float tick_length = frame_.length;
+            frame_.length = force_step();
             keep_upright();
+            frame_.length = tick_length;
         }
     }
     if (friction_.special_time != 0.0F && forces_this_tick()) {
@@ -767,11 +772,18 @@ void SkaterPhysicsModule::do_air_physics()
         const double sz = (0.0 * half) + tz;
         const double sw = static_cast<double>(tw) + half_float;
         maths::Vec4& position = entity()->at_point();
-        position.x = sx + position.x;
-        position.y = sy + position.y;
-        position.z = static_cast<float>(sz + position.z);
-        position.w = static_cast<float>(sw + position.w);
-        entity()->at_point() += carried;
+        if (tick_rate::original()) {
+            position.x = sx + position.x;
+            position.y = sy + position.y;
+            position.z = static_cast<float>(sz + position.z);
+            position.w = static_cast<float>(sw + position.w);
+            entity()->at_point() += carried;
+        } else {
+            // (not original: the frame's moves added up - grid_move)
+            const maths::Vec4 step = {.x = sx + carried.x, .y = sy + carried.y,
+                                      .z = static_cast<float>(sz) + carried.z, .w = static_cast<float>(sw) + carried.w};
+            position = grid_move(position, step);
+        }
 
         const float tt = frame_.length;
         const float zero = 0.0F * tt;
@@ -783,6 +795,18 @@ void SkaterPhysicsModule::do_air_physics()
         v.w += tt;
     }
 
+    // Not original: at a tick rate other than 60 what follows the move - leaving vert, following a vert wall, the
+    // feelers below - runs once a 1/60 s frame, in the tick that ends it, from where the skater was when it began: the
+    // 60 Hz run's segment (the move itself composes exactly), so the landing, the walls and the ceiling are met where and
+    // in the frame they are at 60 (docs/design/tick-rate.md "The 60 Hz grid"). The ticks in between only move (the jump
+    // button too is let go at the frame's end, after the landing - in the air it's let go before a landing it would have
+    // missed at 60). At 60: every tick, from the tick's start.
+    if (!tick_rate::original()) {
+        if (!frame_clock::grid_frame_ends()) {
+            return;
+        }
+        entity()->old_pos() = grid_frame_start();
+    }
     objects::GameEntity* object = entity();
     leave_vert(input, object);
 
@@ -814,17 +838,6 @@ void SkaterPhysicsModule::do_air_physics()
         thaw_bmx::air_wheel_points(this);
     }
 
-    // Not original: at a tick rate other than 60 the feelers below run once a 1/60 s frame, in the tick that ends it, from
-    // where the skater was when it began - the 60 Hz run's segment (the move itself composes exactly), so the landing,
-    // the walls and the ceiling are met where and in the frame they are at 60 (docs/design/tick-rate.md "The 60 Hz
-    // grid"). The ticks in between only let go of the jump button. At 60: every tick, from the tick's start.
-    if (!tick_rate::original()) {
-        if (!frame_clock::grid_frame_ends()) {
-            jump_released();
-            return;
-        }
-        entity()->old_pos() = grid_frame_start();
-    }
     // Landing: a feeler from the last position (carried along) to the new one.
     auto last_position = [&] { return carried + entity()->old_pos(); };
     maths::Vec4 from = last_position();

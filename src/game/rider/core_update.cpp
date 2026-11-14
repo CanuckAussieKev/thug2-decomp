@@ -36,6 +36,12 @@ struct GridState {
     maths::Vec4 ground_step; // the frame's ground move so far
     uint64_t ground_frame = 0;
     bool ground_frame_valid = false;
+    maths::Vec4 move_from;     // the air's and the rail's moves this frame (grid_move): from, the sum, where expected
+    maths::Vec4 move_sum;
+    maths::Vec4 move_expected;
+    uint64_t move_frame = 0;
+    int move_state = -1;
+    bool move_on = false;
 };
 GridState& grid_state(const SkaterPhysicsModule* skater)
 {
@@ -177,6 +183,34 @@ bool SkaterPhysicsModule::grid_ground_move(maths::Vec4* step)
     return true;
 }
 
+maths::Vec4 SkaterPhysicsModule::grid_move(const maths::Vec4& before, const maths::Vec4& step)
+{
+    GridState& grid = grid_state(this);
+    const uint64_t frame = frame_clock::grid_frame_of_tick();
+    const int state = state_of(this);
+    if (forces_this_tick() || !grid.move_on || grid.move_frame != frame || grid.move_state != state ||
+        before.x != grid.move_expected.x || before.y != grid.move_expected.y || before.z != grid.move_expected.z) {
+        grid.move_from = before; // (the frame's first move, or something else moved the skater: from here)
+        grid.move_sum = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+        grid.move_frame = frame;
+        grid.move_state = state;
+        grid.move_on = true;
+    }
+    grid.move_sum.x += step.x;
+    grid.move_sum.y += step.y;
+    grid.move_sum.z += step.z;
+    grid.move_sum.w += step.w;
+    maths::Vec4 after = {.x = before.x + step.x, .y = before.y + step.y, .z = before.z + step.z, .w = before.w + step.w};
+    if (frame_ends_this_tick()) {
+        grid.move_on = false;
+        const maths::Vec4& from = grid.move_from;
+        after = {.x = from.x + grid.move_sum.x, .y = from.y + grid.move_sum.y, .z = from.z + grid.move_sum.z,
+                 .w = from.w + grid.move_sum.w};
+    }
+    grid.move_expected = after;
+    return after;
+}
+
 bool SkaterPhysicsModule::frame_ends_this_tick() const
 {
     return tick_rate::original() || frame_clock::grid_frame_ends() || grid_state(this).whole;
@@ -197,6 +231,7 @@ void SkaterPhysicsModule::tick_frame()
 {
     frame_.length = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     {
+        // (not original: [debug] tick_trace - the skater before each update, to compare tick rates tick by tick)
         static const bool kTrace = config_int("debug", "tick_trace", 0) != 0;
         if (kTrace) {
             const maths::Vec4& p = entity()->at_point();

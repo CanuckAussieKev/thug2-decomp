@@ -48,7 +48,8 @@ void set_vblanks_since_reset(uint64_t vblanks);
 // NOT ORIGINAL - the 60 Hz grid (engine/sys/tick_rate.h, docs/design/tick-rate.md "The 60 Hz grid"): what the original
 // does once a frame (truncated milliseconds of goal and effect timers, frame counters, script waits) happens once each
 // 1/60 s, in the tick that starts the 1/60 s frame - that tick begins with the state the 60 Hz run's tick for the frame
-// begins with (the scripts run before the objects in a tick) - so at every 1/60 s boundary it holds what the 60 Hz run
+// begins with (the objects' own scripts run before their components; the spawned scripts, after the objects, run in the
+// tick that ends the frame - script_frame_end_pass) - so at every 1/60 s boundary it holds what the 60 Hz run
 // holds. At 60 every tick is a frame.
 // grid_frames: the 1/60 s frames that start in this tick (0 or 1 - always 1 at 60).
 int grid_frames();

@@ -129,6 +129,10 @@ public:
     // returned (no feelers); in its last the skater is put back where the frame began, `step` becomes the frame's whole
     // move and true is returned (the move with the feelers follows - the 60 Hz run's segment). True at 60, or riding.
     bool grid_ground_move(maths::Vec4* step);
+    // Not original: the air's or the rail's move by `step` from `before` at another tick rate - in the tick that ends the
+    // frame the skater is put where the frame's moves from its start add up to, so the position's float isn't rounded
+    // once a tick more than the 60 Hz run's (its ulp, 0.00024 at 2,000-4,000 in, would drift a frame's worth a frame).
+    maths::Vec4 grid_move(const maths::Vec4& before, const maths::Vec4& step);
 
     // --- core_jump.cpp: jumping, skitching, the script member functions around them, the wallplant state ---
     // 0x005092E0: the TriggerScript of the rail node being ground (+0x22C) - or of the nearest one before it (back

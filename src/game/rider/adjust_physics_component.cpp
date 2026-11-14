@@ -79,7 +79,8 @@ void RiderPhysicsTweaks::tick_frame()
     // Not original: at a tick rate other than 60, in the air the checks run once a 1/60 s frame, as it ends, from where it
     // began (safe_pos is the frame's start then) - with the air's feelers (SkaterPhysicsModule::do_air_physics, the 60 Hz
     // grid). At 60: every tick.
-    const bool mid_air_frame = !tick_rate::original() && core_ptr_->state()->cur_phase() == 1 && !frame_clock::grid_frame_ends();
+    // (Since: in every state - on the ground the ticks before the frame's last only move too, grid_ground_move.)
+    const bool mid_air_frame = !tick_rate::original() && !core_ptr_->frame_ends_this_tick();
     if (!mid_air_frame) {
         if (core_ptr_->state()->flag(PoseFlag::kSkitching).on == 0U) {
             check_inside_moving_object();
