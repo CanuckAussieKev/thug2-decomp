@@ -10,6 +10,7 @@
 #include "devtools/automation.h"
 #include "devtools/compare_split.h"
 #include "devtools/console.h"
+#include "devtools/fps_counter.h"
 #include "devtools/demo.h"
 #include "devtools/extensions.h"
 #include "devtools/rt_check.h"
@@ -94,6 +95,7 @@ void register_extensions()
     ext::add(sys::screenshot::extension());
     ext::add(settings_report_extension());
     ext::add(devtools::rt_check::extension());
+    ext::add(devtools::fps_counter::extension()); // (over the frame; the console still over it)
     ext::add(devtools::console::extension()); // (last: drawn over everything, the others' frames)
 }
 

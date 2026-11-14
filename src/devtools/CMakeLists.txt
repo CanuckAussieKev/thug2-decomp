@@ -11,6 +11,7 @@ add_library(thug2_devtools STATIC
     automation_report.cpp
     automation_parse.cpp
     console.cpp
+    fps_counter.cpp
     demo.cpp
     demo_overlay.cpp
     demo_camera_path.cpp

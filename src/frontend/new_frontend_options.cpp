@@ -128,7 +128,7 @@ const std::vector<GroupKeys>& group_keys()
     static const std::vector<GroupKeys> kGroups = {
         {.id = "graphics",
          .name = text_tools::kGroupGraphics,
-         .keys = {"graphics_preset", "renderer", "ray_tracing", "texture_set", "max_fps", "present_mode", "anisotropy", "msaa",
+         .keys = {"graphics_preset", "renderer", "ray_tracing", "texture_set", "max_fps", "present_mode", "show_fps", "anisotropy", "msaa",
                   "draw_distance_scale", "lod_distance_scale", "rt_tessellation", "rt_tess_max_deviation"}},
         {.id = "lighting",
          .name = text_tools::kGroupLighting,
@@ -385,6 +385,8 @@ const std::vector<Spec>& get_specs()
                          {.value = "mailbox", .label = text_tools::kPresentMailbox},
                          {.value = "immediate", .label = text_tools::kPresentImmediate}},
                         0, Apply::kLive),
+        // (the frame-rate counter: devtools/fps_counter.h)
+        graphics_switch("show_fps", text_tools::kOptShowFps, text_tools::kOptShowFpsHelp, 0, Apply::kLive),
         {.section = "Graphics",
          .key = "anisotropy",
          .label = text_tools::kOptAnisotropy,

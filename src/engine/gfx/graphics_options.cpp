@@ -61,6 +61,10 @@ bool reload_live(const char* key)
         }
         return gpu_context().set_present_mode(static_cast<uint32_t>(frame_blend::present_mode()));
     }
+    // (not original: the frame-rate counter - devtools/fps_counter.h - reads [Graphics] show_fps itself each second)
+    if (key != nullptr && std::string_view(key) == "show_fps") {
+        return true;
+    }
     const LiveReload reload = graphics_options_state().live_reload_;
     return reload != nullptr && key != nullptr && reload(key);
 }
