@@ -38,6 +38,7 @@ const CHECKS = new Set([
     "tests/vulkan_water_check.cpp",
     "tests/vulkan_camera_fx_check.cpp",
     "tests/vulkan_rt_lights_check.cpp",
+    "tests/vulkan_framegen_check.cpp",
     "tests/ff_shader_check.cpp",
     "tests/ff_shader_check_gpu.cpp",
     "tests/ff_shader_check_model.cpp",
