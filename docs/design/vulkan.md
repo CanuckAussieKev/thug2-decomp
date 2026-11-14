@@ -1968,7 +1968,7 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
 - **Settings** (all live - `kLiveKeys` `rt_style*`): `rt_style` off / toon (a name since the other looks - below; the old
   0 / 1 still read), `rt_style_strength` (1), `rt_style_smooth` (4:
   the Kuwahara radius in 720-line pixels; 0 none), `rt_style_bands` (5; 0 none), `rt_style_outlines` (1; 0 none),
-  `rt_style_outline_width` (1), `rt_style_saturation` (1.15). The Options screen's Colour tab: Art style (its nine
+  `rt_style_outline_width` (1), `rt_style_saturation` (1.15). The Options screen's Style tab: Art style (its
   names) and the knobs.
 - **Checked:** `thug2_vulkan_style_check` (72 checks, the RTX 5070 Ti and the integrated Radeon, validation with
   synchronization validation 0): a 256 x 128 view drawn with screen-space quads at known depths (a box against the sky,
@@ -2038,7 +2038,7 @@ the frame's seed (the frame serial).
   `rt_style_paper` (0.5, comic and sketch), `rt_style_grain` (0.5: noir, thermal, the papers), `rt_style_vignette` (0.5:
   noir, thermal), `rt_style_noir_contrast` (1.8), `rt_style_noir_dark` (0,0,0), `rt_style_noir_light` (0.95,0.92,0.84),
   `rt_style_thermal_focus` (0.6); the toon's smooth / bands / outlines / width / saturation / strength apply where they
-  fit (README). Options: the Colour tab's rows for each, each listed only under the looks that use it (the
+  fit (README). Options: the Style tab's rows for each, each listed only under the looks that use it (the
   shown-when rules in frontend/new_frontend_options.cpp). The push constants grew to 192 bytes (four look vectors; the device's limit checked).
 - **Checked:** `thug2_vulkan_style_check` (133 checks, the RTX 5070 Ti and the integrated Radeon, validation with
   synchronization validation 0). Each look against its processor twin (`style_look_reference`, fed the pass's own
@@ -2459,7 +2459,8 @@ timing logged every 300 passes as `rt_style <style>: the passes take`). Each sty
 
 Three optional post-processes in `src/gpu_vulkan/vulkan_camera_fx.cpp` (the looks' formulas and the grade's processor
 twin in `vulkan_grade_looks.cpp`; the full pass description is the header comment of `vulkan_camera_fx.h`). Everything
-off - the default - registers no listener and begins no motion vectors: every frame is drawn exactly as before.
+off - the default - registers no listener and begins no motion vectors: every frame is drawn exactly as before. In
+the Options screen's Camera tab (right after Colour).
 
 - **Where.** Motion blur and depth of field at `rt::ViewOrder::kCameraEffects` (965): after the tone mapping (900), the
   upscaler (950) and cel shading's outlines (960), at the output resolution - a lens's blur belongs to the final
@@ -2495,13 +2496,21 @@ off - the default - registers no listener and begins no motion vectors: every fr
 - **Cost** (RTX 5070 Ti, 2560 x 1440, `thug2_vulkan_camera_fx_check`): motion blur and depth of field together about
   0.5 ms, the grade about 0.09 ms.
 
-### Fisheye lens (`rt_fisheye`)
+### Fisheye lens (`rt_style=fisheye`, `fisheye_vhs`)
 
-A camera option of its own (`src/gpu_vulkan/vulkan_fisheye.cpp`, the maths in `src/engine/gfx/fisheye_lens.cpp`; the
-pass's full description is the header comment of `vulkan_fisheye.h`): a 90s skate video's fisheye adapter on a
-camcorder - strong barrel distortion over a wider field of view, the adapter's dark corners or a round frame, colour
-fringes and softness toward the edges. Combines with any art style and grade (`rt_grade=skate_video`). Off - the
-default - sets no `rt::ViewLens` and registers no listener: the camera and every frame exactly as before.
+Two art styles (`src/gpu_vulkan/vulkan_fisheye.cpp`, the maths in `src/engine/gfx/fisheye_lens.cpp`; the pass's full
+description is the header comment of `vulkan_fisheye.h`): a 90s skate video's fisheye adapter on a camcorder - strong
+barrel distortion over a wider field of view, the adapter's dark corners or a round frame, colour fringes and softness
+toward the edges. `fisheye` (Fish Eye) is the lens alone - no style pass (`style_has_pass` false, as cel);
+`fisheye_vhs` (Fish Eye + VHS) is the lens and the vhs style's pass at 975 with every `rt_style_vhs_*` knob but its own
+barrel (`rt_style_vhs_fisheye` - and the corners' darkening that goes with it - is 0 there: `record_film_pass`; the
+real lens replaces it). The lens is the camera effects' pass: `style_has_lens`, `apply_view_lens` (called by
+`set_style_settings` and `set_camera_fx_settings`), the knobs `rt_fisheye_strength` / `_vignette` / `_circle` in
+`CameraFxSettings`, listed in the Options screen's Style tab under the two styles. It combines with motion blur, depth
+of field and the grade (`rt_grade=skate_video`). Every other style - off, the default - sets no `rt::ViewLens` and
+registers no listener: the camera and every frame exactly as before. The lens' old switch `rt_fisheye` is gone: an
+older ini's line does nothing (logged once) - no fallback turns the lens on from it (it would stay on under Art style
+Off, as an old `rt_cel` line once kept cel shading on).
 
 - **Not a crop.** Barrel-warping the normal picture magnifies its middle and pushes its edges out of the frame. Instead
   the game camera's field of view is widened for the lens and the wider picture is mapped through it: the middle at
@@ -2531,11 +2540,15 @@ default - sets no `rt::ViewLens` and registers no listener: the camera and every
   16:9 and 4:3 at each strength and frame, the widened projection's scale, the chain camera -> pass reading back what
   was drawn, a straight line bowed. `thug2_vulkan_camera_fx_check`: the pass against `fisheye_reference`, a line
   bowed, the centre at the original camera's scale (a line d pixels off the widened picture's middle shown widen x d
-  off it), the vignette, a view not widened and `rt_fisheye=0` bit for bit as they were.
+  off it), the vignette, a view not widened and `rt_style=off` bit for bit as they were; the lens on with
+  `rt_style=fisheye` / `fisheye_vhs` (also with motion blur, depth of field and a grade), off with `vhs` and `off`.
+  `thug2_vulkan_style_film_check`: `fisheye_vhs` against the vhs twin without its barrel, bit for bit the vhs at
+  `rt_style_vhs_fisheye` 0 whatever that knob says; `fisheye` and `off` no style pass. `thug2_vulkan_style_check`:
+  `fisheye` no pass, the names read back.
 - **Not done.** What the game draws in 2D at a world point (names over skaters online, goal arrows) is placed by the
   widened rectilinear camera, not through the lens. The widened picture has fewer pixels per degree at the middle: the
-  middle is upscaled by `widen` (x1.3 - 1.6 at the default) and a little softer. `rt_style_vhs_fisheye` stays the VHS
-  style's own post warp of the normal picture.
+  middle is upscaled by `widen` (x1.3 - 1.6 at the default) and a little softer. `rt_style_vhs_fisheye` stays the vhs
+  style's own post warp of the normal picture (under `vhs` only).
 
 ### Changing the settings while the game runs (the Options screen)
 

@@ -385,7 +385,7 @@ void jitter_projection(std::array<std::array<float, 4>, 4>* projection, std::arr
 // Whether any listens (render_pc skips filling a ViewDrawn when none does).
 bool view_listened();
 
-// (added by the fisheye lens - engine/gfx/fisheye_lens.h; the Vulkan Gpu's [Graphics] rt_fisheye) A backend that draws
+// (added by the fisheye lens - engine/gfx/fisheye_lens.h; the Vulkan Gpu's [Graphics] rt_style=fisheye) A backend that draws
 // the lens asks for the game camera's field of view to be widened: render_pc then fits the lens to a view (fisheye::fit)
 // and draws its world - the sky's pass and the culling too - with the tangents of its angles times Fit::widen, and fills
 // ViewDrawn::lens. Only the window's one viewport, in a level (not the front end), without the level editor, a split

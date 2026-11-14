@@ -908,6 +908,8 @@ void set_look_parameters(const StyleSettings& settings, const StyleHeights& heig
     case ArtStyle::kVhs:
     case ArtStyle::kRetro:
     case ArtStyle::kWatercolour:
+    case ArtStyle::kFisheye:
+    case ArtStyle::kFisheyeVhs:
         break;
     }
 }
@@ -938,6 +940,8 @@ LookConstants look_constants(const StyleParameters& parameters)
     case ArtStyle::kVhs:
     case ArtStyle::kRetro:
     case ArtStyle::kWatercolour:
+    case ArtStyle::kFisheye:
+    case ArtStyle::kFisheyeVhs:
         break;
     }
     return look;
@@ -966,6 +970,8 @@ const char* style_look_body(ArtStyle look)
     case ArtStyle::kVhs:
     case ArtStyle::kRetro:
     case ArtStyle::kWatercolour:
+    case ArtStyle::kFisheye:
+    case ArtStyle::kFisheyeVhs:
         break;
     }
     return "void main() { o_colour = vec4(finite3(texelFetch(u_colour, ivec2(gl_FragCoord.xy), 0).rgb), 1.0); }\n";
@@ -1019,6 +1025,8 @@ std::vector<StyleRgb> style_look_reference(const StyleParameters& parameters, co
             case ArtStyle::kVhs:
             case ArtStyle::kRetro:
             case ArtStyle::kWatercolour:
+            case ArtStyle::kFisheye:
+            case ArtStyle::kFisheyeVhs:
                 break;
             }
             core::at(out, at) = result;

@@ -237,7 +237,7 @@ bool record_fisheye(Backend& state, const FilmConstants& constants, const FilmTa
     if (pipeline == VK_NULL_HANDLE) {
         own.failed = true;
         if (film_kit::first_report(state, kReportPipeline)) {
-            get_log("vulkan: rt_fisheye: the pass couldn't be made (%s) - no lens", error.c_str());
+            get_log("vulkan: fisheye lens: the pass couldn't be made (%s) - no lens", error.c_str());
         }
         return false;
     }
@@ -250,7 +250,7 @@ bool record_fisheye(Backend& state, const FilmConstants& constants, const FilmTa
     if (film_kit::first_report(state, kReportFirstPass)) {
         const auto& a = core::at(constants.values, 0);
         const auto& b = core::at(constants.values, 1);
-        get_log("vulkan: rt_fisheye: the first pass (%ux%u; strength %.2f, the view widened x%.3f, reach %.3f%s, vignette "
+        get_log("vulkan: fisheye lens: the first pass (%ux%u; strength %.2f, the view widened x%.3f, reach %.3f%s, vignette "
                 "%.2f)",
                 core::at(target.shown, 2), core::at(target.shown, 3), static_cast<double>(core::at(a, 3)),
                 static_cast<double>(core::at(a, 2)), static_cast<double>(core::at(b, 0)),

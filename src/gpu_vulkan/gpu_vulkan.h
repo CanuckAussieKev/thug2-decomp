@@ -323,10 +323,20 @@ enum class ArtStyle : uint8_t {
     kWatercolour = 7, // a wash painting on paper (vulkan_style_watercolour.cpp)
     kNoir = 8,        // a high-contrast duotone, film grain, a vignette (vulkan_style_looks.cpp)
     kThermal = 9,     // a false-colour heat camera (vulkan_style_looks.cpp)
+    // (added by the fisheye lens - vulkan_fisheye.h: the camera widened and the picture through a 90s fisheye adapter,
+    // the camera effects' pass at rt::ViewOrder::kLens; its knobs rt_fisheye_strength, _vignette, _circle are
+    // CameraFxSettings')
+    kFisheye = 10,    // the lens alone: no style pass
+    kFisheyeVhs = 11, // the lens and the vhs style's pass - without the vhs' own barrel (rt_style_vhs_fisheye): the lens replaces it
 };
-inline constexpr unsigned kArtStyleCount = 10;
-// Whether a style is a post-process of its own (vulkan_style.h's pass): every one but off and cel.
-[[nodiscard]] constexpr bool style_has_pass(ArtStyle style) { return style != ArtStyle::kOff && style != ArtStyle::kCel; }
+inline constexpr unsigned kArtStyleCount = 12;
+// Whether a style is a post-process of its own (vulkan_style.h's pass): every one but off, cel and fisheye.
+[[nodiscard]] constexpr bool style_has_pass(ArtStyle style)
+{
+    return style != ArtStyle::kOff && style != ArtStyle::kCel && style != ArtStyle::kFisheye;
+}
+// Whether a style draws through the fisheye lens (vulkan_fisheye.h): fisheye and fisheye_vhs.
+[[nodiscard]] constexpr bool style_has_lens(ArtStyle style) { return style == ArtStyle::kFisheye || style == ArtStyle::kFisheyeVhs; }
 // "off", "toon", "comic", ... (an unknown value: "off").
 [[nodiscard]] const char* art_style_name(ArtStyle style);
 // A name (any case) or the old numbers 0 / 1; false (the style untouched) when the text is neither.
@@ -408,10 +418,11 @@ void set_water_settings(const WaterSettings& settings);
 [[nodiscard]] WaterSettings water_settings();
 // NOT ORIGINAL - the camera effects (vulkan_camera_fx.h; docs/design/vulkan.md "Camera effects"): [Graphics]
 // rt_motion_blur, rt_motion_blur_strength, rt_dof, rt_dof_strength, rt_grade, rt_grade_strength, rt_grade_vignette,
-// rt_grade_grain, rt_grade_levels, rt_fisheye and its knobs (vulkan_fisheye.h) - all put to use at once.
+// rt_grade_grain, rt_grade_levels, the fisheye lens' knobs (vulkan_fisheye.h) - all put to use at once.
 // Post-processes over each viewport's world: motion blur and depth of field after the upscaler, the fisheye lens after
-// them, the grade after the art style, all before the 2D. Everything off (the default): nothing changes - no pass, no
-// motion vectors, the camera's field of view as the game sets it. No ray tracing or HDR needed.
+// them (on with the art styles fisheye and fisheye_vhs - StyleSettings, style_has_lens), the grade after the art style,
+// all before the 2D. Everything off (the default): nothing changes - no pass, no motion vectors, the camera's field of
+// view as the game sets it. No ray tracing or HDR needed.
 // rt_grade's looks (tables made here from formulas, no files): neutral changes no colour (the vignette and grain only),
 // level the look rt_grade_levels names for the level being played (neutral when it names none).
 enum class GradeLook : uint8_t {
@@ -444,11 +455,11 @@ struct CameraFxSettings {
     float grade_vignette = 0.0F; // with a look: the corners darkened (0 - 1)
     float grade_grain = 0.0F;    // with a look: film grain (0 - 1)
     std::string grade_levels;    // rt_grade_levels: "<scene>:<look>,..." - the look of each level under rt_grade=level
-    // [Graphics] rt_fisheye - the fisheye lens (vulkan_fisheye.h; engine/gfx/fisheye_lens.h): the camera's field of view
-    // widened and the picture drawn through a 90s fisheye adapter. strength: the distortion and the widening together
-    // (0 none, 0.5 equidistant, 0.75 equisolid, 1 orthographic); vignette: the adapter's dark corners; circle: 0 the
-    // whole frame, 1 a round frame touching the picture's top and bottom.
-    bool fisheye = false;
+    // The fisheye lens' knobs (vulkan_fisheye.h; engine/gfx/fisheye_lens.h) - the lens itself is on with the art styles
+    // fisheye and fisheye_vhs ([Graphics] rt_style; style_has_lens): the camera's field of view widened and the picture
+    // drawn through a 90s fisheye adapter. strength: the distortion and the widening together (0 none, 0.5 equidistant,
+    // 0.75 equisolid, 1 orthographic); vignette: the adapter's dark corners; circle: 0 the whole frame, 1 a round frame
+    // touching the picture's top and bottom.
     float fisheye_strength = kFisheyeStrength;
     float fisheye_vignette = kFisheyeVignette;
     float fisheye_circle = kFisheyeCircle;

@@ -326,7 +326,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
 
 **`[Graphics]`** - from PartyMod, plus ours. With `new_frontend=1` the Options screen sets ours from the game (its
-Graphics, Lighting, Surfaces, Sky, Colour and Upscaling tabs; the Graphics tab's preset sets every effect at once:
+Graphics, Lighting, Surfaces, Sky, Colour, Camera, Style and Upscaling tabs - Camera: motion blur, depth of field and the grade; the Graphics tab's preset sets every effect at once:
 Original - all off; High - `ray_tracing`, `rt_shadows`, `rt_ao`, `rt_reflections`, `rt_sky`, `rt_sky_model`, `rt_sun`,
 `rt_shafts`, `rt_hdr`, `rt_bloom`, `rt_tessellation`; Ultra - every effect, `rt_gi`, `rt_relit`, `rt_pbr`, `rt_fog`
 and `rt_clouds` too; upscaling is left as it is). On Vulkan the effects' settings change at once; `renderer`,
@@ -426,10 +426,6 @@ for the restart
 | `rt_grade_vignette` | 0 | With `rt_grade`: how dark the picture's corners get (0-1). An art style with its own (noir, thermal) keeps that one |
 | `rt_grade_grain` | 0 | With `rt_grade`: film grain, strongest in the mid-tones (0-1). An art style with its own grain (noir, thermal, comic, sketch) keeps that one |
 | `rt_grade_levels` | (none) | With `rt_grade=level`: each level's look, as `scene:look` pairs - e.g. `BO:warm,BA:filmic,SC:skate_video`; a level it doesn't list is `neutral` |
-| `rt_fisheye` | 0 | On Vulkan (no ray tracing needed): 1 films the game through a 90s fisheye adapter - the camera's view widened and bent round the edges, the skater in the middle at the same size, dark lens corners, colour fringes and softness toward the edges. Works with any art style and `rt_grade` (try `skate_video`); menus, the HUD, the level editor and split screen are left as they are |
-| `rt_fisheye_strength` | 0.75 | How strong the lens is - the bend and how much wider the camera sees together (0-1: 0.5 equidistant, 0.75 equisolid, 1 the strongest) |
-| `rt_fisheye_vignette` | 0.5 | How dark the adapter's corners get (0-1) |
-| `rt_fisheye_circle` | 0.5 | The lens' frame (0.5, the default: rounded black corners, the 90s adapter look): 0 fills the screen, 1 a round porthole touching the top and bottom, in between rounded corners |
 | `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
 | `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
 | `rt_sky` | 0 | On Vulkan (no ray tracing needed): 1 replaces the level's painted sky dome with a real sky - the light of the air scattered once and many times, bright round the sun, pale at the horizon - tinted toward the level's own sky so each level keeps its colours. The haze of `rt_fog_haze` fades distant buildings into this sky |
@@ -467,8 +463,11 @@ for the restart
 | `rt_detail_strength` | 1 | How strong the detail layer is (0.5 - 1.5) |
 | `rt_delight` | 0 | With `rt_pbr`: 1 evens out the shadows and highlights painted into the textures, so the lighting does the shading (the files aren't changed) |
 | `rt_delight_strength` | 0.5 | How far it evens them out (0.25 - 0.75; 1: flat to each texture's average) |
-| `rt_style` | off | On Vulkan (no ray tracing or HDR needed): an art style for the world - `toon` (flat paint, a few soft-edged shades, dark ink lines round objects and along their edges), `cel` (cel shading - see `rt_cel_*`: the light itself in flat bands as the world is drawn, not a filter), `comic` (an early-2000s skate-zine comic: bold black ink, halftone dots in the shadows, flat bright colour), `sketch` (pencil on paper: cross-hatching that thickens in the dark, graphite outlines), `noir` (high-contrast black and white - or two colours of your own - with film grain and a vignette), `thermal` (a heat camera: skaters, peds, cars and rails glow, the sky is cold), `vhs` (a 90s camcorder skate video), `retro` (a 32-bit console) and `watercolour` (a wash painting on paper) - their knobs `rt_style_vhs_*`, `rt_style_retro_*`, `rt_style_watercolour_*`. The old 0 / 1 still read as off / toon. The HUD and menus are left as they are. All the `rt_style` and `rt_cel` keys change at once in the Options screen's Style tab, each style's knobs listed while it is picked |
-| `rt_style_strength` | 1 | With `rt_style`: how much of the look is laid over the game's picture (0-1) |
+| `rt_style` | off | On Vulkan (no ray tracing or HDR needed): an art style for the world - `toon` (flat paint, a few soft-edged shades, dark ink lines round objects and along their edges), `cel` (cel shading - see `rt_cel_*`: the light itself in flat bands as the world is drawn, not a filter), `comic` (an early-2000s skate-zine comic: bold black ink, halftone dots in the shadows, flat bright colour), `sketch` (pencil on paper: cross-hatching that thickens in the dark, graphite outlines), `noir` (high-contrast black and white - or two colours of your own - with film grain and a vignette), `thermal` (a heat camera: skaters, peds, cars and rails glow, the sky is cold), `vhs` (a 90s camcorder skate video), `retro` (a 32-bit console), `watercolour` (a wash painting on paper), `fisheye` (Fish Eye: the game filmed through a 90s fisheye adapter - the camera's view widened and bent round the edges, the skater in the middle at the same size, dark lens corners, colour fringes and softness toward the edges; works with motion blur, depth of field and `rt_grade` - try `skate_video`) and `fisheye_vhs` (Fish Eye + VHS: that lens with the `vhs` tape over it - every `rt_style_vhs_*` knob but `rt_style_vhs_fisheye`, the real lens replacing the tape's own bend; REC stays straight) - their knobs `rt_style_vhs_*`, `rt_style_retro_*`, `rt_style_watercolour_*`, `rt_fisheye_*`. An older ini's `rt_fisheye` line does nothing (logged). The old 0 / 1 still read as off / toon. The HUD and menus are left as they are. All the `rt_style` and `rt_cel` keys change at once in the Options screen's Style tab, each style's knobs listed while it is picked |
+| `rt_style_strength` | 1 | With `rt_style`: how much of the look is laid over the game's picture (0-1; `fisheye_vhs`: the tape's, not the lens) |
+| `rt_fisheye_strength` | 0.75 | With `rt_style` fisheye, fisheye_vhs: how strong the lens is - the bend and how much wider the camera sees together (0-1: 0.5 equidistant, 0.75 equisolid, 1 the strongest). Menus, the HUD, the level editor and split screen are left as they are |
+| `rt_fisheye_vignette` | 0.5 | With `rt_style` fisheye, fisheye_vhs: how dark the adapter's corners get (0-1) |
+| `rt_fisheye_circle` | 0.5 | With `rt_style` fisheye, fisheye_vhs: the lens' frame (0.5, the default: rounded black corners, the 90s adapter look): 0 fills the screen, 1 a round porthole touching the top and bottom, in between rounded corners |
 | `rt_style_smooth` | 4 | With `rt_style` toon, comic, sketch: how far the paint smooths texture detail away (pixels of a 720-line picture, scaled with the window; 0 keeps the textures) |
 | `rt_style_bands` | 5 | With `rt_style` toon, comic: how many shades of light and dark each colour gets (0: smooth shading) |
 | `rt_style_outlines` | 1 | With `rt_style` toon, comic, sketch: how dark the ink lines are (0: none). They thin out into the distance; the sky has none |
@@ -484,13 +483,13 @@ for the restart
 | `rt_style_noir_dark` | 0,0,0 | With `rt_style=noir`: the shadows' colour (r,g,b 0-1; teal 0.04,0.16,0.2 with an orange light makes the orange / teal look) |
 | `rt_style_noir_light` | 0.95,0.92,0.84 | With `rt_style=noir`: the lights' colour (r,g,b 0-1; warm paper; orange 1,0.62,0.3) |
 | `rt_style_thermal_focus` | 0.6 | With `rt_style=thermal`: how much hotter things standing in front of what's behind them glow - skaters, peds, cars, rails (0: brightness and nearness only) |
-| `rt_style_vhs_fisheye` | 0.35 | With `rt_style=vhs` (a 90s camcorder skate video): how much the fisheye lens bends the picture and darkens its corners (0-1; 0: a flat lens) |
-| `rt_style_vhs_bleed` | 1 | With `rt_style=vhs`: how far colour smears and fringes to the right of edges (0-2) |
-| `rt_style_vhs_wobble` | 1 | With `rt_style=vhs`: the tape's line jitter, slow bend and the tracking band that rolls down now and then (0-2) |
-| `rt_style_vhs_noise` | 1 | With `rt_style=vhs`: the tape's grain (0-2) |
-| `rt_style_vhs_scanlines` | 0.5 | With `rt_style=vhs`: dark lines between the tape's 480 lines (0-1; they fade out in small windows) |
-| `rt_style_vhs_saturation` | 0.7 | With `rt_style=vhs`: how strong the tape's colours are (0-2) |
-| `rt_style_vhs_overlay` | 1 | With `rt_style=vhs`: the camcorder's display - a blinking REC and a tape counter running with the game's clock (0: none). The game's own HUD is never filtered |
+| `rt_style_vhs_fisheye` | 0.35 | With `rt_style=vhs` (a 90s camcorder skate video): how much the tape's own fisheye bends the picture and darkens its corners (0-1; 0: a flat lens). Not with `fisheye_vhs`: the real lens replaces it |
+| `rt_style_vhs_bleed` | 1 | With `rt_style` vhs, fisheye_vhs: how far colour smears and fringes to the right of edges (0-2) |
+| `rt_style_vhs_wobble` | 1 | With `rt_style` vhs, fisheye_vhs: the tape's line jitter, slow bend and the tracking band that rolls down now and then (0-2) |
+| `rt_style_vhs_noise` | 1 | With `rt_style` vhs, fisheye_vhs: the tape's grain (0-2) |
+| `rt_style_vhs_scanlines` | 0.5 | With `rt_style` vhs, fisheye_vhs: dark lines between the tape's 480 lines (0-1; they fade out in small windows) |
+| `rt_style_vhs_saturation` | 0.7 | With `rt_style` vhs, fisheye_vhs: how strong the tape's colours are (0-2) |
+| `rt_style_vhs_overlay` | 1 | With `rt_style` vhs, fisheye_vhs: the camcorder's display - a blinking REC and a tape counter running with the game's clock (0: none). The game's own HUD is never filtered |
 | `rt_style_retro_lines` | 240 | With `rt_style=retro` (a 32-bit console's look): the low-resolution picture's rows (60-720; square pixels) |
 | `rt_style_retro_bits` | 5 | With `rt_style=retro`: bits a colour channel (2-8; 5 is 15-bit colour) |
 | `rt_style_retro_dither` | 1 | With `rt_style=retro`: the ordered dither between the few colours (0-1) |

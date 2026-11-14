@@ -94,6 +94,14 @@ bool record_film_pass(Backend& state, const rt::ViewDrawn& view, const StyleSett
     case ArtStyle::kVhs:
         recorded = film_kit::record_vhs(state, view, own.settings.vhs, strength, target);
         break;
+    case ArtStyle::kFisheyeVhs: {
+        // (the vhs under the real lens - vulkan_fisheye.h, before this pass: its own barrel and the corners' darkening
+        // that goes with it left out; every other knob as set)
+        VhsSettings vhs = own.settings.vhs;
+        vhs.fisheye = 0.0F;
+        recorded = film_kit::record_vhs(state, view, vhs, strength, target);
+        break;
+    }
     case ArtStyle::kRetro:
         recorded = film_kit::record_retro(state, own.settings.retro, strength, target);
         break;

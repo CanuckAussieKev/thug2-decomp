@@ -211,6 +211,7 @@ inline constexpr const char* kGroupLighting = "Lighting";
 inline constexpr const char* kGroupSurfaces = "Surfaces";
 inline constexpr const char* kGroupSky = "Sky";
 inline constexpr const char* kGroupColour = "Colour";
+inline constexpr const char* kGroupCamera = "Camera";
 inline constexpr const char* kGroupStyle = "Style";
 inline constexpr const char* kGroupUpscaling = "Upscaling";
 inline constexpr const char* kOptPreset = "Graphics preset";
@@ -331,9 +332,7 @@ inline constexpr const char* kGradeFilmic = "Filmic";
 inline constexpr const char* kGradeBleach = "Bleach bypass";
 inline constexpr const char* kGradeSkateVideo = "Skate video";
 inline constexpr const char* kGradeLevel = "Per level";
-// (the fisheye lens - gpu_vulkan/vulkan_fisheye.h)
-inline constexpr const char* kOptFisheye = "Fisheye lens";
-inline constexpr const char* kOptFisheyeHelp = "The death lens. Get close.";
+// (the fisheye styles' lens - gpu_vulkan/vulkan_fisheye.h)
 inline constexpr const char* kOptFisheyeStrength = "Fisheye bend";
 inline constexpr const char* kOptFisheyeVignette = "Lens corners";
 inline constexpr const char* kOptFisheyeCircle = "Lens frame";
@@ -352,6 +351,8 @@ inline constexpr const char* kStyleRetro = "Retro";
 inline constexpr const char* kStyleWatercolour = "Watercolour";
 inline constexpr const char* kStyleNoir = "Noir";
 inline constexpr const char* kStyleThermal = "Thermal";
+inline constexpr const char* kStyleFisheye = "Fish Eye";
+inline constexpr const char* kStyleFisheyeVhs = "Fish Eye + VHS";
 inline constexpr const char* kOptStyleHalftone = "Halftone dots";
 inline constexpr const char* kOptStyleHatch = "Pencil strokes";
 inline constexpr const char* kOptStyleWash = "Colour wash";

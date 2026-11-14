@@ -1196,6 +1196,10 @@ void check_look_viewports(render::Gpu& gpu, const Picture& picture, Tally* tally
         changes(vk::ArtStyle::kCel, &passes, &inside, &outside);
         tally->check(passes == 0 && inside == 0 && outside == 0,
                      "cel (cel shading: no post-process): no pass, every pixel as it was");
+        passes = 1;
+        changes(vk::ArtStyle::kFisheye, &passes, &inside, &outside);
+        tally->check(passes == 0 && inside == 0 && outside == 0,
+                     "fisheye (the camera effects' lens: no style pass): no pass, every pixel as it was");
     }
     // the names: each read back as itself, the old numbers, anything else refused
     bool names = true;
@@ -1207,7 +1211,8 @@ void check_look_viewports(render::Gpu& gpu, const Picture& picture, Tally* tally
     vk::ArtStyle old = vk::ArtStyle::kOff;
     names = names && vk::parse_art_style("1", &old) && old == vk::ArtStyle::kToon && vk::parse_art_style("0", &old) &&
             old == vk::ArtStyle::kOff && vk::parse_art_style(" Noir ", &old) && old == vk::ArtStyle::kNoir &&
-            !vk::parse_art_style("sepia", &old) && old == vk::ArtStyle::kNoir;
+            !vk::parse_art_style("sepia", &old) && old == vk::ArtStyle::kNoir &&
+            vk::parse_art_style("Fisheye_VHS", &old) && old == vk::ArtStyle::kFisheyeVhs;
     tally->check(names, "rt_style's names read back; 0 / 1 as off / toon; an unknown name refused");
 }
 

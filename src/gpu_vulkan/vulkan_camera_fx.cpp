@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <mutex>
 #include <span>
@@ -551,6 +552,7 @@ struct CameraState {
     CameraPassCounts counts;
     GradeParameters last_grade;
     FilmConstants last_lens;
+    std::string lens_logged; // the lens last put to use, as logged (logged again when it changes)
 };
 
 CameraState& camera()
@@ -1375,24 +1377,48 @@ void set_camera_fx_settings(const CameraFxSettings& settings)
     } else {
         rt::remove_view_listener(&grade_listener());
     }
-    // the lens: the game camera widened (render_pc, rt_scene.h ViewLens) only while it is drawn - with nothing to do
-    // (no distortion, vignette or frame) neither
-    const bool lens_on = kept.fisheye && (kept.fisheye_strength > 0.0F || kept.fisheye_vignette > 0.0F || kept.fisheye_circle > 0.0F);
-    rt::set_view_lens({.on = lens_on, .strength = kept.fisheye_strength, .circle = kept.fisheye_circle});
-    if (lens_on) {
-        rt::add_view_listener(&lens_listener());
-        get_log("vulkan: camera effects: fisheye lens on (strength %.2f, vignette %.2f, circle %.2f)",
-                static_cast<double>(kept.fisheye_strength), static_cast<double>(kept.fisheye_vignette),
-                static_cast<double>(kept.fisheye_circle));
-    } else {
-        rt::remove_view_listener(&lens_listener());
-    }
+    apply_view_lens();
     if (camera_on || kept.grade != GradeLook::kOff) {
         get_log("vulkan: camera effects: motion blur %s (shutter %.2f), depth of field %s (%.2f), grade %s (%.2f, vignette "
                 "%.2f, grain %.2f)",
                 kept.motion_blur ? "on" : "off", static_cast<double>(kept.motion_blur_strength), kept.dof ? "on" : "off",
                 static_cast<double>(kept.dof_strength), grade_look_name(kept.grade), static_cast<double>(kept.grade_strength),
                 static_cast<double>(kept.grade_vignette), static_cast<double>(kept.grade_grain));
+    }
+}
+
+void apply_view_lens()
+{
+    ArtStyle style = ArtStyle::kOff;
+    CameraFxSettings kept;
+    {
+        const std::scoped_lock lock(backend().mutex);
+        style = style_settings_locked().style;
+        kept = camera().settings;
+    }
+    // the lens: the game camera widened (render_pc, rt_scene.h ViewLens) only while it is drawn - with nothing to do
+    // (no distortion, vignette or frame) neither
+    const bool lens_on = style_has_lens(style) &&
+                         (kept.fisheye_strength > 0.0F || kept.fisheye_vignette > 0.0F || kept.fisheye_circle > 0.0F);
+    const rt::ViewLens lens{.on = lens_on, .strength = kept.fisheye_strength, .circle = kept.fisheye_circle};
+    rt::set_view_lens(lens);
+    if (lens_on) {
+        rt::add_view_listener(&lens_listener());
+    } else {
+        rt::remove_view_listener(&lens_listener());
+    }
+    std::array<char, 160> text{};
+    if (lens_on) {
+        std::snprintf(text.data(), text.size(), "on (rt_style=%s; strength %.2f, vignette %.2f, circle %.2f)",
+                      art_style_name(style), static_cast<double>(kept.fisheye_strength),
+                      static_cast<double>(kept.fisheye_vignette), static_cast<double>(kept.fisheye_circle));
+    } else {
+        std::snprintf(text.data(), text.size(), "off");
+    }
+    std::string& logged = camera().lens_logged;
+    if (logged != text.data() && (lens_on || !logged.empty())) {
+        logged = text.data();
+        get_log("vulkan: camera effects: fisheye lens %s", text.data());
     }
 }
 
@@ -1678,7 +1704,8 @@ bool record_lens_pass(Backend& state, const rt::ViewDrawn& view)
     const CameraFxSettings& settings = own.settings;
     ViewPlan plan;
     // (a view the game camera wasn't widened for - a menu's front end, the editor, split screen - left as it is)
-    if (!settings.fisheye || !view.lens.on || !plan_view(state, view, &own.lens_upscales_seen, &plan)) {
+    if (!style_has_lens(style_settings_locked().style) || !view.lens.on ||
+        !plan_view(state, view, &own.lens_upscales_seen, &plan)) {
         return false;
     }
     const FilmConstants constants = fisheye_constants(view.lens, settings.fisheye_vignette, plan.shown);

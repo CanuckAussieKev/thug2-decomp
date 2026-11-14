@@ -18,7 +18,8 @@
 //     across the upper picture bowed (its ends nearer the middle than its middle); the centre at the original camera's
 //     scale (a line d pixels off the centre of the widened picture shown widen x d off it); the adapter's vignette
 //     darkening the corners and not the centre; a view the camera wasn't widened for (ViewDrawn::lens off: a menu, the
-//     editor, split screen): no pass, the picture bit for bit; rt_fisheye off: no listener, ViewLens off;
+//     editor, split screen): no pass, the picture bit for bit; the lens follows the art style (fisheye and fisheye_vhs
+//     on - with the other camera effects too -, vhs and off not: no listener, ViewLens off);
 //   - the cost of the three at 2560 x 1440 (the device's timestamps, printed).
 //   thug2_vulkan_camera_fx_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
@@ -470,6 +471,12 @@ Compared compare(const Picture& got, const Picture& expected, float tolerance)
 }
 
 void settings(const vk::CameraFxSettings& fx) { vk::set_camera_fx_settings(fx); }
+// The fisheye lens: an art style (rt_style=fisheye - the lens alone) and the camera effects' knobs.
+void lens_settings(const vk::CameraFxSettings& fx, vk::ArtStyle style = vk::ArtStyle::kFisheye)
+{
+    vk::set_style_settings({.style = style});
+    vk::set_camera_fx_settings(fx);
+}
 
 constexpr float kWall = 5000.0F; // the far wall's distance
 constexpr float kBoxZ = 100.0F;  // the box's
@@ -714,7 +721,7 @@ void check_lens(render::Gpu& gpu, Tally* tally)
     }};
     const Picture picture = smooth_picture();
     for (const Case& test : cases) {
-        settings({.fisheye = true, .fisheye_strength = test.strength, .fisheye_vignette = test.vignette,
+        lens_settings({.fisheye_strength = test.strength, .fisheye_vignette = test.vignette,
                   .fisheye_circle = test.circle});
         const Targets targets = make_targets(gpu, test.floats);
         Picture held;
@@ -735,7 +742,7 @@ void check_lens(render::Gpu& gpu, Tally* tally)
     // the lens' shape: a straight line bowed, the centre at the original camera's scale (no vignette, the whole frame)
     {
         constexpr float kStrength = 0.75F;
-        settings({.fisheye = true, .fisheye_strength = kStrength, .fisheye_vignette = 0.0F});
+        lens_settings({.fisheye_strength = kStrength, .fisheye_vignette = 0.0F});
         const render::rt::ViewDrawn::Lens lens = lens_of(kStrength, 0.0F);
         const Targets targets = make_targets(gpu, true);
         Picture held;
@@ -771,9 +778,9 @@ void check_lens(render::Gpu& gpu, Tally* tally)
         Picture dark;
         bool first = false;
         bool second = false;
-        settings({.fisheye = true, .fisheye_strength = 0.75F, .fisheye_vignette = 0.0F});
+        lens_settings({.fisheye_strength = 0.75F, .fisheye_vignette = 0.0F});
         const bool ran = lens_frame(gpu, targets, flat, lens_of(0.75F, 0.0F), &held, &plain, &first);
-        settings({.fisheye = true, .fisheye_strength = 0.75F, .fisheye_vignette = 1.0F});
+        lens_settings({.fisheye_strength = 0.75F, .fisheye_vignette = 1.0F});
         const bool again = lens_frame(gpu, targets, flat, lens_of(0.75F, 0.0F), &held, &dark, &second);
         const float corner_plain = core::at(core::at(plain, pixel_of(1, 1)), 1);
         const float corner_dark = core::at(core::at(dark, pixel_of(1, 1)), 1);
@@ -787,9 +794,9 @@ void check_lens(render::Gpu& gpu, Tally* tally)
     }
     // a view the camera wasn't widened for, and the lens off: nothing
     {
-        settings({.fisheye = true});
+        lens_settings({});
         tally->check(render::rt::view_lens().on && render::rt::view_lens().strength == vk::kFisheyeStrength,
-                     "rt_fisheye on: the game camera asked to widen (ViewLens)");
+                     "rt_style=fisheye: the game camera asked to widen (ViewLens)");
         const Targets targets = make_targets(gpu, true);
         Picture held;
         Picture got;
@@ -798,12 +805,24 @@ void check_lens(render::Gpu& gpu, Tally* tally)
         off.on = false;
         const bool ran = lens_frame(gpu, targets, noise_picture(5U), off, &held, &got, &passed);
         tally->check(ran && !passed && got == held, "a view not widened (a menu, the editor, split screen): no pass, as it was");
-        settings({});
-        tally->check(!render::rt::view_lens().on, "rt_fisheye off: ViewLens off");
+        // (the lens follows the art style: fisheye_vhs has it too, vhs and the others don't)
+        lens_settings({}, vk::ArtStyle::kFisheyeVhs);
+        tally->check(render::rt::view_lens().on, "rt_style=fisheye_vhs: the lens on (ViewLens)");
+        lens_settings({}, vk::ArtStyle::kVhs);
+        tally->check(!render::rt::view_lens().on, "rt_style=vhs: no lens (its own barrel only)");
+        lens_settings({.motion_blur = true, .dof = true, .grade = vk::GradeLook::kWarm});
+        tally->check(render::rt::view_lens().on, "rt_style=fisheye with motion blur, depth of field and a grade: the lens on");
+        lens_settings({});
+        // (the style changed with the camera effects' settings left alone: the lens follows at once)
+        vk::set_style_settings({});
+        tally->check(!render::rt::view_lens().on, "rt_style=off: ViewLens off");
         const bool after = lens_frame(gpu, targets, noise_picture(5U), lens_of(0.75F, 0.0F), &held, &got, &passed);
-        tally->check(after && !passed && got == held, "rt_fisheye off: no pass, the picture bit for bit as it was");
+        tally->check(after && !passed && got == held, "rt_style=off: no pass, the picture bit for bit as it was");
+        vk::set_style_settings({.style = vk::ArtStyle::kFisheye});
+        tally->check(render::rt::view_lens().on, "rt_style=fisheye again: the lens back on");
         release(gpu, targets);
     }
+    vk::set_style_settings({});
     settings({});
 }
 

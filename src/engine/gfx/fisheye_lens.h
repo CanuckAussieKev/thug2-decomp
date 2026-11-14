@@ -2,7 +2,7 @@
 
 #include <array>
 
-// NOT ORIGINAL - the fisheye lens' maths ([Graphics] rt_fisheye: a 90s skate video's fisheye adapter - the Vulkan Gpu's
+// NOT ORIGINAL - the fisheye lens' maths ([Graphics] rt_style=fisheye / fisheye_vhs: a 90s skate video's fisheye adapter - the Vulkan Gpu's
 // vulkan_fisheye.h draws it; docs/design/vulkan.md "Fisheye lens"). Pure: render_pc widens the game camera's field of view
 // with it, the lens pass and its processor twin warp the picture with it, thug2_fisheye_check checks it.
 //

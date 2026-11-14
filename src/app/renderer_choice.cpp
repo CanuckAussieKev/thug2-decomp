@@ -500,8 +500,8 @@ render::vulkan::ArtStyle art_style_of_ini(bool log)
     graphics_text("rt_style", "off", name.data(), name.size());
     render::vulkan::ArtStyle style = render::vulkan::ArtStyle::kOff;
     if (!render::vulkan::parse_art_style(name.data(), &style) && log) {
-        get_log("[Graphics] rt_style=%s isn't off, toon, cel, comic, sketch, vhs, retro, watercolour, noir or thermal - "
-                "off",
+        get_log("[Graphics] rt_style=%s isn't off, toon, cel, comic, sketch, vhs, retro, watercolour, noir, thermal, "
+                "fisheye or fisheye_vhs - off",
                 name.data());
     }
     return style;
@@ -623,11 +623,24 @@ void read_water()
 }
 
 // NOT ORIGINAL - the camera effects (gpu_vulkan/vulkan_camera_fx.h): motion blur, depth of field, the colour grade, the
-// fisheye lens (vulkan_fisheye.h); each
+// fisheye lens' knobs (vulkan_fisheye.h - the lens itself is the art styles fisheye and fisheye_vhs: rt_style); each
 // off unless asked for, no ray tracing or HDR needed. rt_grade: a look's name (off, neutral, warm, cool, filmic,
 // bleach, skate_video, level); anything else is off, logged.
+// An older ini's rt_fisheye line (the lens' own switch before it became an art style) does nothing - logged once: a
+// fallback that turned the lens on from it would leave it on under Art style Off, which the Options screen can't undo.
 void read_camera_fx()
 {
+    static bool old_switch_told = false;
+    if (!old_switch_told) {
+        std::array<char, 8> old_switch{};
+        graphics_text("rt_fisheye", "", old_switch.data(), old_switch.size());
+        if (old_switch.front() != '\0') {
+            old_switch_told = true;
+            get_log("[Graphics] rt_fisheye=%s does nothing: the fisheye lens is an art style now (rt_style=fisheye or "
+                    "fisheye_vhs)",
+                    old_switch.data());
+        }
+    }
     const render::vulkan::CameraFxSettings defaults;
     render::vulkan::CameraFxSettings settings{
         .motion_blur = build_info::fetch_flag(build_info::kGraphics, "rt_motion_blur", false),
@@ -639,8 +652,7 @@ void read_camera_fx()
         .grade_vignette = ini_float("rt_grade_vignette", defaults.grade_vignette),
         .grade_grain = ini_float("rt_grade_grain", defaults.grade_grain),
         .grade_levels = {},
-        // (the fisheye lens - gpu_vulkan/vulkan_fisheye.h)
-        .fisheye = build_info::fetch_flag(build_info::kGraphics, "rt_fisheye", false),
+        // (the fisheye lens' knobs - gpu_vulkan/vulkan_fisheye.h)
         .fisheye_strength = ini_float("rt_fisheye_strength", defaults.fisheye_strength),
         .fisheye_vignette = ini_float("rt_fisheye_vignette", defaults.fisheye_vignette),
         .fisheye_circle = ini_float("rt_fisheye_circle", defaults.fisheye_circle)};
@@ -727,7 +739,7 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_grade_vignette", .prefix = false, .read = &read_camera_fx},
     LiveKey{.key = "rt_grade_grain", .prefix = false, .read = &read_camera_fx},
     LiveKey{.key = "rt_grade_levels", .prefix = false, .read = &read_camera_fx},
-    LiveKey{.key = "rt_fisheye", .prefix = true, .read = &read_camera_fx}, // (the fisheye lens and its knobs)
+    LiveKey{.key = "rt_fisheye_", .prefix = true, .read = &read_camera_fx}, // (the fisheye lens' knobs; the lens: rt_style)
 };
 
 // (added by the split comparison - engine/gfx/graphics_options.h CompareBackend, devtools/compare_split.h) The effects'

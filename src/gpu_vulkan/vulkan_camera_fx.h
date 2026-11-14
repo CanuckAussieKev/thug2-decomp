@@ -67,8 +67,9 @@
 //    thermal; comic, sketch: their grain) keeps it: the grade's stands aside. Clamped to 0 - 1; alpha kept.
 //    rt_grade=level takes the look rt_grade_levels lists for the level ("<scene>:<look>,...", the scene's name as
 //    LoadScene names it); a level it doesn't list: neutral.
-// 5. The fisheye lens (rt_fisheye - vulkan_fisheye.h): its listener here too, at rt::ViewOrder::kLens (970, between
-//    the blur and the art style), over the views render_pc widened for it (ViewDrawn::lens).
+// 5. The fisheye lens (vulkan_fisheye.h - on with the art styles fisheye and fisheye_vhs, its knobs these settings'):
+//    its listener here too, at rt::ViewOrder::kLens (970, between the blur and the art style), over the views render_pc
+//    widened for it (ViewDrawn::lens).
 // Multisampled targets: the grade runs (the colour resolved, written to every sample); the blur and the depth of field
 // don't (logged once). A split view: each viewport its own (the focus is the one the camera noted last).
 namespace render::vulkan {
@@ -131,6 +132,9 @@ bool record_camera_pass(Backend& state, const rt::ViewDrawn& view);
 bool record_grade_pass(Backend& state, const rt::ViewDrawn& view);
 // The fisheye lens (vulkan_fisheye.h) over a view its camera was widened for (ViewDrawn::lens).
 bool record_lens_pass(Backend& state, const rt::ViewDrawn& view);
+// The lens put on or off (rt::set_view_lens, its listener) as the art style (style_has_lens) and the knobs say:
+// set_camera_fx_settings and set_style_settings call it (the caller doesn't hold the lock).
+void apply_view_lens();
 // The view's motion begun for the blur when no upscaler took it (the listener's view_begins; the check's).
 void begin_camera_view(Backend& state, const rt::ViewDrawn& view);
 

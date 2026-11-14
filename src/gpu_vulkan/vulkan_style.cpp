@@ -18,6 +18,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/vulkan_camera_fx.h" // (the fisheye styles' lens)
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -1164,6 +1165,7 @@ void set_style_settings(const StyleSettings& settings)
     } else {
         rt::remove_view_listener(&listener());
     }
+    apply_view_lens(); // (the fisheye styles: the lens is the camera effects' - vulkan_camera_fx.h)
 }
 
 StyleSettings style_settings()
@@ -1176,8 +1178,9 @@ const StyleSettings& style_settings_locked() { return style().settings; }
 
 namespace {
 
-constexpr std::array<const char*, kArtStyleCount> kArtStyleNames{"off", "toon",  "cel",         "comic", "sketch",
-                                                                 "vhs", "retro", "watercolour", "noir",  "thermal"};
+constexpr std::array<const char*, kArtStyleCount> kArtStyleNames{"off",   "toon",    "cel",         "comic",
+                                                                 "sketch", "vhs",     "retro",       "watercolour",
+                                                                 "noir",   "thermal", "fisheye",     "fisheye_vhs"};
 
 } // namespace
 
@@ -1223,9 +1226,11 @@ bool style_built(ArtStyle style)
     case ArtStyle::kVhs:         // (vulkan_style_film.h)
     case ArtStyle::kRetro:       // (likewise)
     case ArtStyle::kWatercolour: // (likewise)
+    case ArtStyle::kFisheyeVhs:  // (the vhs' pass; the lens is the camera effects')
         return true;
     case ArtStyle::kOff:
-    case ArtStyle::kCel: // (cel shading: no pass of its own)
+    case ArtStyle::kCel:     // (cel shading: no pass of its own)
+    case ArtStyle::kFisheye: // (the lens alone: the camera effects' pass - vulkan_fisheye.h)
         break;
     }
     return false;

@@ -4,6 +4,7 @@
 // (README's [Graphics] table), every choice written to an ini text and read back as itself with the rest of the text
 // kept, and the graphics presets recognised once written. Exit code 0 when everything holds.
 
+#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <cstdlib>
@@ -138,7 +139,6 @@ const std::vector<Expected>& expected()
         {.key = "rt_grade_strength", .fallback = "1", .live = true},
         {.key = "rt_grade_vignette", .fallback = "0", .live = true},
         {.key = "rt_grade_grain", .fallback = "0", .live = true},
-        {.key = "rt_fisheye", .fallback = "0", .live = true},
         {.key = "rt_fisheye_strength", .fallback = "0.75", .live = true},
         {.key = "rt_fisheye_vignette", .fallback = "0.5", .live = true},
         {.key = "rt_fisheye_circle", .fallback = "0.5", .live = true},
@@ -211,8 +211,8 @@ void check_tables()
         }
     }
     expect(rows == options::get_specs().size() && seen.size() == rows, "every setting in one group, once");
-    // (the Style tab: the art style first, every style's knob - rt_style_* and cel shading's rt_cel_* - in it and in
-    // no other tab)
+    // (the Style tab: the art style first, every style's knob - rt_style_*, cel shading's rt_cel_* and the fisheye
+    // styles' rt_fisheye_* - in it and in no other tab)
     bool style_tab = false;
     for (const options::GroupSet& group : options::bunches()) {
         const bool is_style = std::strcmp(group.id, "style") == 0;
@@ -224,12 +224,38 @@ void check_tables()
         }
         for (const int row : group.rows) {
             const std::string key = core::at(options::get_specs(), row).key;
-            const bool style_key = key.starts_with("rt_style") || key.starts_with("rt_cel");
+            const bool style_key = key.starts_with("rt_style") || key.starts_with("rt_cel") || key.starts_with("rt_fisheye");
             expect(style_key == is_style, key + (is_style ? " isn't a style's knob" : " belongs in the Style tab"));
         }
     }
     expect(style_tab, "there is a Style tab");
     expect(options::get_find("Graphics", "rt_cel") < 0, "no row writes rt_cel (cel shading is rt_style=cel)");
+    expect(options::get_find("Graphics", "rt_fisheye") < 0,
+           "no row writes rt_fisheye (the fisheye lens is rt_style=fisheye / fisheye_vhs)");
+    // (the Camera tab, right after Colour: the camera effects - motion blur, depth of field, the grade - and nothing else)
+    {
+        const std::vector<options::GroupSet>& groups = options::bunches();
+        int colour = -1;
+        int camera = -1;
+        for (size_t i = 0; i < groups.size(); ++i) {
+            colour = std::strcmp(core::at(groups, i).id, "colour") == 0 ? static_cast<int>(i) : colour;
+            camera = std::strcmp(core::at(groups, i).id, "camera") == 0 ? static_cast<int>(i) : camera;
+        }
+        expect(colour >= 0 && camera == colour + 1, "there is a Camera tab, right after Colour");
+        if (camera >= 0) {
+            for (const int row : core::at(groups, static_cast<size_t>(camera)).rows) {
+                const std::string key = core::at(options::get_specs(), row).key;
+                expect(key.starts_with("rt_motion_blur") || key.starts_with("rt_dof") || key.starts_with("rt_grade"),
+                       key + " isn't a camera effect");
+            }
+            for (const char* key : {"rt_motion_blur", "rt_motion_blur_strength", "rt_dof", "rt_dof_strength", "rt_grade",
+                                    "rt_grade_strength", "rt_grade_vignette", "rt_grade_grain"}) {
+                const int index = options::get_find("Graphics", key);
+                const std::vector<int>& rows = core::at(groups, static_cast<size_t>(camera)).rows;
+                expect(std::find(rows.begin(), rows.end(), index) != rows.end(), std::string(key) + " is in the Camera tab");
+            }
+        }
+    }
 }
 
 void check_graphics()
@@ -365,7 +391,9 @@ void check_shown_when()
         const std::string stem = std::string(rule.parent).substr(0, std::string(rule.parent).size() > 6 ? 6 : 4);
         const bool upscale = std::strcmp(rule.parent, "upscaler") == 0;
         // (cel shading is the art style cel: its rt_cel_* knobs under rt_style)
-        const bool cel = std::strcmp(rule.parent, "rt_style") == 0 && std::string(rule.key).starts_with("rt_cel_");
+        // (and the fisheye styles' lens: its rt_fisheye_* knobs under rt_style)
+        const bool cel = std::strcmp(rule.parent, "rt_style") == 0 &&
+                         (std::string(rule.key).starts_with("rt_cel_") || std::string(rule.key).starts_with("rt_fisheye_"));
         expect(upscale || cel || std::string(rule.key).starts_with(stem) || std::string(rule.key).starts_with("rt_glass_"),
                name + ": the parent controls the child");
     }
@@ -399,6 +427,13 @@ void check_shown_when()
             LookRow{.key = "rt_cel_bands", .shown = "cel", .hidden = "toon"},
             LookRow{.key = "rt_cel_flatten", .shown = "cel", .hidden = "comic"},
             LookRow{.key = "rt_style_vhs_fisheye", .shown = "vhs", .hidden = "retro"},
+            LookRow{.key = "rt_style_vhs_fisheye", .shown = "vhs", .hidden = "fisheye_vhs"}, // (the lens replaces it)
+            LookRow{.key = "rt_style_vhs_bleed", .shown = "fisheye_vhs", .hidden = "fisheye"},
+            LookRow{.key = "rt_style_vhs_overlay", .shown = "fisheye_vhs", .hidden = "retro"},
+            LookRow{.key = "rt_style_strength", .shown = "fisheye_vhs", .hidden = "fisheye"}, // (fisheye: no style pass)
+            LookRow{.key = "rt_fisheye_strength", .shown = "fisheye", .hidden = "vhs"},
+            LookRow{.key = "rt_fisheye_vignette", .shown = "fisheye_vhs", .hidden = "off"},
+            LookRow{.key = "rt_fisheye_circle", .shown = "fisheye", .hidden = "toon"},
             LookRow{.key = "rt_style_retro_snap", .shown = "retro", .hidden = "vhs"},
             LookRow{.key = "rt_style_watercolour_paper", .shown = "watercolour", .hidden = "sketch"},
         };

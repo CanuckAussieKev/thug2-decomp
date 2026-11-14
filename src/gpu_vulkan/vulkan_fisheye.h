@@ -7,10 +7,12 @@
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/vulkan_style_film.h"
 
-// NOT ORIGINAL - the fisheye lens ([Graphics] rt_fisheye, rt_fisheye_strength, rt_fisheye_vignette, rt_fisheye_circle -
-// gpu_vulkan.h's CameraFxSettings; docs/design/vulkan.md "Fisheye lens"): a 90s skate video's fisheye adapter on a
-// camcorder - strong barrel distortion over a wider field of view, the adapter's dark corners (or a round frame), colour
-// fringes and softness toward the edges. A camera option of its own, under any art style and any grade.
+// NOT ORIGINAL - the fisheye lens (the art styles [Graphics] rt_style=fisheye and fisheye_vhs - gpu_vulkan.h
+// style_has_lens -, its knobs rt_fisheye_strength, rt_fisheye_vignette, rt_fisheye_circle: CameraFxSettings';
+// docs/design/vulkan.md "Fisheye lens"): a 90s skate video's fisheye adapter on a camcorder - strong barrel distortion
+// over a wider field of view, the adapter's dark corners (or a round frame), colour fringes and softness toward the
+// edges. fisheye_vhs lays the vhs style over it (without the vhs' own barrel); motion blur, depth of field and the
+// grade work with either.
 //
 // Not a warp of the normal picture (that would magnify the middle and lose the edges): render_pc widens the game camera's
 // field of view for the lens (rt_scene.h ViewLens, engine/gfx/fisheye_lens.h - the culling follows), and this pass maps

@@ -8,6 +8,9 @@
 //     pixels past it: a hash or a font's edge on the other side of a rounding), every one finite and within 0 - 1,
 //     alpha untouched (the bad values' corner left out of the comparison: the device's filter over an infinity);
 //     the watercolour's paint (read back) within a step of its twin's, then the composite given it, then the whole twin;
+//   - fisheye_vhs (the vhs' pass under the fisheye lens): against the vhs' twin without its barrel, and bit for bit the
+//     vhs with rt_style_vhs_fisheye 0 whatever that knob says; the lens on with it and with fisheye (no style pass
+//     there: the picture as it was), off with off;
 //   - what each does: the vhs picture moves with the game clock (the same time twice: the same bytes; another time:
 //     another picture) and its REC blinks; the retro picture is flat over each cell and has at most 2^bits shades a
 //     channel; the watercolour calms the noise;
@@ -552,6 +555,11 @@ std::vector<FilmRgb> reference(vk::ArtStyle style, const vk::FilmSettings& looks
     switch (style) {
     case vk::ArtStyle::kVhs:
         return vk::vhs_reference(vk::vhs_constants(looks.vhs, strength, whole, seconds), input);
+    case vk::ArtStyle::kFisheyeVhs: { // (the vhs without its own barrel: the fisheye lens replaces it)
+        vk::VhsSettings vhs = looks.vhs;
+        vhs.fisheye = 0.0F;
+        return vk::vhs_reference(vk::vhs_constants(vhs, strength, whole, seconds), input);
+    }
     case vk::ArtStyle::kRetro:
         return vk::retro_reference(vk::retro_constants(looks.retro, strength, whole), input);
     default:
@@ -563,6 +571,9 @@ const char* style_name(vk::ArtStyle style)
 {
     if (style == vk::ArtStyle::kVhs) {
         return "vhs";
+    }
+    if (style == vk::ArtStyle::kFisheyeVhs) {
+        return "fisheye_vhs";
     }
     return style == vk::ArtStyle::kRetro ? "retro" : "watercolour";
 }
@@ -723,6 +734,50 @@ void check_semantics(render::Gpu& gpu, const Picture& picture, Tally* tally)
     const int on = bright_top_left(kSomeSeconds);
     const int off = bright_top_left(kBlinkOff);
     tally->check(on > 4 && off == 0, text::format("vhs: the red record dot blinks (%d red pixels, then %d)", on, off));
+    // fisheye_vhs: the vhs' pass without its barrel (the vhs with rt_style_vhs_fisheye 0, bit for bit), the lens on;
+    // fisheye: the lens alone - no style pass; off: neither
+    {
+        vk::FilmSettings bent;
+        bent.vhs.fisheye = 1.0F;
+        vk::FilmSettings straight;
+        straight.vhs.fisheye = 0.0F;
+        Filtered under_lens;
+        Filtered flat_vhs;
+        Filtered barrel_vhs;
+        if (filtered(gpu, {.name = "fisheye_vhs", .style = vk::ArtStyle::kFisheyeVhs, .looks = bent}, picture, &under_lens, tally) &&
+            filtered(gpu, {.name = "vhs, no barrel", .style = vk::ArtStyle::kVhs, .looks = straight}, picture, &flat_vhs, tally) &&
+            filtered(gpu, {.name = "vhs, the barrel", .style = vk::ArtStyle::kVhs, .looks = bent}, picture, &barrel_vhs, tally)) {
+            tally->check(under_lens.out == flat_vhs.out && under_lens.out != barrel_vhs.out,
+                         "fisheye_vhs: the vhs' pass with every knob but its barrel (rt_style_vhs_fisheye 1 ignored: the "
+                         "vhs at 0, bit for bit)");
+        }
+        set_style(vk::ArtStyle::kFisheyeVhs, 1.0F);
+        tally->check(render::rt::view_lens().on, "fisheye_vhs: the fisheye lens on (the camera widened)");
+        const auto no_pass = [&](vk::ArtStyle style) {
+            set_style(style, 1.0F);
+            const Targets targets = make_targets(gpu, true, 0);
+            std::vector<FilmRgb> input;
+            uint64_t passes = 1;
+            bool same = false;
+            if (targets.colour != nullptr && targets.depth != nullptr && prepare(gpu, targets, picture, &input)) {
+                passes = run_pass(gpu, targets, {0, 0, kWidth, kHeight}, kSomeSeconds);
+                std::vector<uint8_t> bytes;
+                same = vk::read_surface(targets.colour, &bytes);
+                for (std::size_t pixel = 0; same && pixel < static_cast<std::size_t>(kWidth) * kHeight; ++pixel) {
+                    for (std::size_t channel = 0; channel < kChannels; ++channel) {
+                        same = same && half_at(bytes, {.pixel = pixel, .channel = channel}) ==
+                                           core::at(picture.bits, (pixel * kChannels) + channel);
+                    }
+                }
+            }
+            release(gpu, targets);
+            return passes == 0 && same;
+        };
+        tally->check(no_pass(vk::ArtStyle::kFisheye) && render::rt::view_lens().on,
+                     "fisheye: the lens on, no style pass (the picture as it was)");
+        tally->check(no_pass(vk::ArtStyle::kOff) && !render::rt::view_lens().on,
+                     "off: no lens, no style pass (the picture as it was)");
+    }
     // retro: flat cells, few shades
     vk::FilmSettings looks;
     looks.retro.lines = kTwoPixelLines;
@@ -791,7 +846,7 @@ void check_skips(render::Gpu& gpu, const Picture& picture, Tally* tally)
         return outside;
     };
     constexpr std::array<uint32_t, 4> kViewport{64, 16, 128, 96};
-    for (const vk::ArtStyle style : {vk::ArtStyle::kVhs, vk::ArtStyle::kRetro, vk::ArtStyle::kWatercolour}) {
+    for (const vk::ArtStyle style : {vk::ArtStyle::kVhs, vk::ArtStyle::kFisheyeVhs, vk::ArtStyle::kRetro, vk::ArtStyle::kWatercolour}) {
         set_style(style, 1.0F);
         uint64_t passes = 0;
         int inside = 0;
@@ -1251,8 +1306,10 @@ int run(const Options& options, SDL_Window* window)
     plain.retro = {.lines = kMostLines, .bits = kAllBits, .dither = 0.0F, .snap = 0.0F, .affine = 0.0F};
     plain.watercolour = {.bleed = 0.0F, .flow = 0.0F, .granulation = 0.0F, .edges = 0.0F, .paper = 0.0F, .outlines = 0.0F};
     constexpr float kSoftMix = 0.6F;
-    const std::array<StyleCase, 12> cases{{
+    const std::array<StyleCase, 14> cases{{
         {.name = "vhs, the defaults", .style = vk::ArtStyle::kVhs},
+        {.name = "fisheye_vhs, the defaults", .style = vk::ArtStyle::kFisheyeVhs},
+        {.name = "fisheye_vhs, every knob up", .style = vk::ArtStyle::kFisheyeVhs, .looks = strong, .seconds = kBandSeconds},
         {.name = "vhs, the tracking band rolling", .style = vk::ArtStyle::kVhs, .seconds = kBandSeconds},
         {.name = "vhs, every knob up", .style = vk::ArtStyle::kVhs, .looks = strong, .seconds = kBandSeconds},
         {.name = "vhs, every knob off, strength 0.6", .style = vk::ArtStyle::kVhs, .looks = plain, .strength = kSoftMix},
