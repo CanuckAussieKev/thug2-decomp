@@ -80,7 +80,7 @@ const std::vector<Expected>& expected()
         {.key = "rt_gi_strength", .fallback = "1", .live = true},
         {.key = "rt_gi_rays", .fallback = "2", .live = true},
         {.key = "rt_lights", .fallback = "0", .live = true},
-        {.key = "rt_lights_strength", .fallback = "1", .live = true},
+        {.key = "rt_lights_strength", .fallback = "0.35", .live = true},
         {.key = "rt_lights_shadowed", .fallback = "4", .live = true},
         {.key = "rt_cel_bands", .fallback = "3", .live = true},
         {.key = "rt_cel_shadow_colour", .fallback = "0.62,0.66,0.86", .live = true},
