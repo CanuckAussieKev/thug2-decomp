@@ -35,6 +35,12 @@ $codes = @{ down = @(0x50, $true, 0x28); up = @(0x48, $true, 0x26); left = @(0x4
 $p = Get-Process -Id $ProcessId
 # KEYS_NO_FOCUS=1 (workspace games, C:\Games\THUG2-n): the window is never brought to the front, no Alt tap, no mouse -
 # only messages posted to this game's window (set KEYS_POST=1 too), so the user's own windows keep the focus.
+# A test workspace's game (the thug2-decomp-always-muted marker beside its exe - src/platform/test_workspace.h) always
+# gets that, whatever the caller set: the user is at the machine and its window must never come to the front.
+if ($p.Path -and (Test-Path (Join-Path (Split-Path $p.Path -Parent) 'thug2-decomp-always-muted'))) {
+    $env:KEYS_NO_FOCUS = '1'
+    $env:KEYS_POST = '1'
+}
 if (-not $env:KEYS_NO_FOCUS) {
 [KeyInput]::ShowWindow($p.MainWindowHandle, 9) | Out-Null
 # (Windows lets a process take the foreground right after a key press of its own: tap Alt first)
