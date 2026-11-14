@@ -28,6 +28,10 @@ inline void no_error_dialogs()
 #ifdef _WIN32
     // no "stopped working", "insert a disk" or "can't open" boxes
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
+    // and no window taking the focus from the user: a check's window (the Vulkan checks') is shown and raised without
+    // being activated - SDL reads its hints from the environment, set here before any check starts SDL
+    SetEnvironmentVariableW(L"SDL_WINDOW_ACTIVATE_WHEN_SHOWN", L"0");
+    SetEnvironmentVariableW(L"SDL_WINDOW_ACTIVATE_WHEN_RAISED", L"0");
 #endif
 #ifdef _MSC_VER
     // abort(): no message box and no fault report (the process ends with exit code 3)
