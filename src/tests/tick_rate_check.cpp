@@ -342,6 +342,43 @@ Roll roll(int rate, bool closed_form)
     return out;
 }
 
+// The roll as the game steps it at another rate since phase 3b (SkaterPhysicsModule::forces_this_tick): the frictions act
+// once a 1/60 s frame, in the tick that starts it, over the whole 1/60 s; every tick moves by its step with the velocity
+// that leaves - the 60 Hz scheme's semi-implicit step (velocity first, then the move with it) cut into ticks. At 60: the
+// scheme itself.
+Roll roll_grid(int rate)
+{
+    tick_rate::set_rate(rate);
+    const float dt = tick_rate::step_seconds();
+    const float h = 1.0F / 60.0F;
+    constexpr float kRolling = 4.0F;
+    constexpr float kDrag = 0.00002F;
+    // (a frame starts in a tick: 120 and 240 at its start, 144 inside it - its tick takes the frame's forces then)
+    float v = 900.0F;
+    double x = 0.0;
+    Roll out;
+    double time = 0.0;
+    for (int tick = 0; tick < 1000000; ++tick) {
+        if (tick == 0 || (tick * 60) / rate != ((tick - 1) * 60) / rate) {
+            if (v <= 0.0F) {
+                break;
+            }
+            const auto slowing = static_cast<float>(static_cast<double>(v) * v * h * kDrag * 60.0F);
+            v = std::max(0.0F, v - slowing);
+            const auto rolling = static_cast<float>(static_cast<double>(h) * kRolling * 60.0F);
+            v = std::max(0.0F, v - rolling);
+        }
+        x += static_cast<double>(v) * dt;
+        time += dt;
+        if (out.speed_at_1s == 0.0 && time >= 1.0 - 1e-9) {
+            out.speed_at_1s = v;
+        }
+    }
+    out.distance = x;
+    out.time = time;
+    return out;
+}
+
 // The roll at another rate made to follow the 60 Hz run itself (the target: 60 Hz stays as it is, so "the same at any
 // rate" means the same as the 60 Hz scheme, not as the exact solution). The 60 Hz scheme - v -= f h, then x += v h, h =
 // 1/60 - is to second order the exact solution of its modified equations dv/dt = f - (h/2) f' f and dx/dt = v + (h/2)
@@ -534,6 +571,8 @@ void run_harness()
     add_row("roll (60 Hz scheme matched)", "distance", "in", [](int r) { return roll_matched(r).distance; });
     add_row("roll (60 Hz scheme matched)", "stop time", "s", [](int r) { return roll_matched(r).time; });
     add_row("roll (60 Hz scheme matched)", "speed at 1 s", "in/s", [](int r) { return roll_matched(r).speed_at_1s; });
+    add_row("roll (forces once a frame)", "distance", "in", [](int r) { return roll_grid(r).distance; });
+    add_row("roll (forces once a frame)", "speed at 1 s", "in/s", [](int r) { return roll_grid(r).speed_at_1s; });
     add_row("camera distance lerp", "final value", "in", [](int r) { return camera_lerp(r).final_value; });
     add_row("camera distance lerp", "done at", "s", [](int r) { return camera_lerp(r).done_at; });
     add_row("camera lerp (last step share)", "final value", "in", [](int r) { return camera_lerp(r, true).final_value; });

@@ -284,6 +284,12 @@ bool grid_frame_ends()
     return frame_of(now + 1) != frame_of(now);
 }
 
+bool& script_frame_end_pass()
+{
+    static bool pass = false;
+    return pass;
+}
+
 uint64_t grid_frame_of_tick() { return tick_rate::original() ? get_vblanks() : frame_of(get_vblanks()); }
 
 void anchor_grid(uint64_t frame)

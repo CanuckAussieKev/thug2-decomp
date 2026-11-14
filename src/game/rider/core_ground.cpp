@@ -88,7 +88,8 @@ void SkaterPhysicsModule::do_ground_physics()
         thaw_bmx::note_vert_ground(this);
     }
     // Moving: the velocity turned into the ground's plane.
-    if (length_of(object->vel()) > kMoving) {
+    // (not original: at another tick rate once a 1/60 s frame, with the forces below - forces_this_tick)
+    if (length_of(object->vel()) > kMoving && forces_this_tick()) {
         object->vel().align_to_plane(ground_.floor_normal);
     }
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
@@ -101,7 +102,12 @@ void SkaterPhysicsModule::do_ground_physics()
     if (bike) {
         thaw_bmx::get_on_ground(this);
     }
-    if (!bike || thaw_bmx::ground_gravity_applies(this, gravity)) {
+    // (not original: at another tick rate the forces below - gravity, the push or brake, the friction - act once a 1/60
+    // s frame over the whole of it, forces_this_tick; the move after them each tick. At 60 the tick itself.)
+    const float tick_length = frame_.length;
+    const bool forces = forces_this_tick();
+    frame_.length = force_step();
+    if (forces && (!bike || thaw_bmx::ground_gravity_applies(this, gravity))) {
         const float frame_length = frame_.length;
         maths::Vec4& v = entity()->vel();
         const float gy = gravity.y * frame_length;
@@ -114,17 +120,23 @@ void SkaterPhysicsModule::do_ground_physics()
     }
 
     // The balance trick.
-    tick_balance_trick(bike);
+    tick_balance_trick(bike, forces);
     collision_events::checkpoint(this, "gravity"); // (not original)
-    apply_ground_friction();
-    check_side_feelers();
+    if (forces) {
+        apply_ground_friction();
+        check_side_feelers(); // (not original: forces - once a 1/60 s frame before its move at another tick rate)
+    }
+    frame_.length = tick_length;
     collision_events::checkpoint(this, "friction-side-feelers"); // (not original)
 
     // The move this frame - skitching, none of its own: the skitched object's velocity (scaled), 0x00501DB0.
     maths::Vec4 step{};
     {
         const float frame_length = frame_.length;
-        const maths::Vec4& v = entity()->vel();
+        // (not original: at another tick rate the frame's later ticks move with the velocity its first moved with, as
+        // the 60 Hz run's one move does - the turn to the facing below comes after it - unless something changed it)
+        maths::Vec4 frame_velocity = entity()->vel();
+        const maths::Vec4& v = frame_move_velocity(&frame_velocity) ? frame_velocity : entity()->vel();
         step = {.x = frame_length * v.x, .y = frame_length * v.y, .z = frame_length * v.z, .w = frame_length * v.w};
     }
     if (bit_mark(this, PoseFlag::kSkitching) != 0U) {
@@ -162,18 +174,24 @@ void SkaterPhysicsModule::do_ground_physics()
     }
 
     // Still on the ground.
-    if (powerslide_ == 0U) {
+    // (not original: at another tick rate the turn and the velocity turned along the facing once a 1/60 s frame, after
+    // its last move, over the whole frame - as the 60 Hz run's after its one move; at 60 every tick)
+    const bool frame_ends = frame_ends_this_tick();
+    const float move_length = frame_.length;
+    frame_.length = force_step();
+    if (powerslide_ == 0U && frame_ends) {
         turn_on_ground();
     }
+    frame_.length = move_length;
     if (bike && state_of(this) == kGround) {
         thaw_bmx::manual_pitch(this);             // (not original: THAW 0x005E54BA)
     }
     collision_events::checkpoint(this, "turned"); // (not original)
-    if (lock_velocity_ == 0U) {
+    if (lock_velocity_ == 0U && frame_ends) {
         get_along_facing(&entity()->vel());
     }
     collision_events::checkpoint(this, "along-facing-4FF590"); // (not original)
-    if (bit_mark(this, PoseFlag::kSkitching) == 0U) {
+    if (bit_mark(this, PoseFlag::kSkitching) == 0U && frame_ends) { // (not original: frame_ends, as the turn above)
         test_lateral_hits();
         lean_push_off_wall();
     }
@@ -181,7 +199,7 @@ void SkaterPhysicsModule::do_ground_physics()
     // (not original: THAW 0x005CCDD0 returns at once on the bike: rolling backwards faster
     // than Skater_Flip_Speed (1) the skater is turned round to ride fakie, the bike isn't - it rolls on backwards in
     // THAW's backwards balance, bike_backwards_balance_trick)
-    if ((lock_velocity_ == 0U) && !bike) {
+    if ((lock_velocity_ == 0U) && !bike && frame_ends) {
         turn_round_if_backwards();
     }
     collision_events::checkpoint(this, "turn-round-4FF920"); // (not original)
@@ -195,11 +213,14 @@ void SkaterPhysicsModule::do_ground_physics()
 }
 
 // (Part of 0x0050EE70) The balance trick: none - braking or pushing off; a skitch; a manual.
-void SkaterPhysicsModule::tick_balance_trick(bool bike)
+void SkaterPhysicsModule::tick_balance_trick(bool bike, bool forces)
 {
     crouch_stats_ = 0;
     const uint32_t kind = balance_->trick();
     if (kind == 0) {
+        if (!forces) {
+            return; // (not original: the push or brake once a 1/60 s frame at another tick rate)
+        }
         if (bike ? thaw_bmx::should_brake(this) : should_brake()) {
             get_brake();
         } else {
@@ -215,7 +236,7 @@ void SkaterPhysicsModule::tick_balance_trick(bool bike)
         friction_.braking = 0;
         if (motoskateboard_ != 0U) {
             crouch_stats_ = 1;
-            if (can_push_off()) {
+            if (forces && can_push_off()) {
                 push_off();
             }
         }
@@ -230,6 +251,11 @@ void SkaterPhysicsModule::tick_balance_trick(bool bike)
 // step once more, along the velocity.
 void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
 {
+    // (not original: at another tick rate the ticks before the frame's last only move; the last puts the skater where
+    // the frame began and makes the frame's whole move with the feelers, as the 60 Hz run's update does - grid_ground_move)
+    if (!grid_ground_move(&step)) {
+        return;
+    }
     bool again = false;
     for (;;) {
         maths::Vec4& skater_position = entity()->at_point();

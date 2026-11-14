@@ -1847,6 +1847,9 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
         glide_to_node(node);
     }
     relaunch(walking, 0);
+    if (core_physics_) {
+        core_physics_->note_placed(); // (not original: the 60 Hz grid at another tick rate - nothing at 60)
+    }
     if (is_local_skater() != 0U) {
         core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
         if (is_local_skater() != 0U) {

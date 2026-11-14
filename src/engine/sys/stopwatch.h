@@ -48,13 +48,18 @@ void set_vblanks_since_reset(uint64_t vblanks);
 // NOT ORIGINAL - the 60 Hz grid (engine/sys/tick_rate.h, docs/design/tick-rate.md "The 60 Hz grid"): what the original
 // does once a frame (truncated milliseconds of goal and effect timers, frame counters, script waits) happens once each
 // 1/60 s, in the tick that starts the 1/60 s frame - that tick begins with the state the 60 Hz run's tick for the frame
-// begins with (the scripts run before the objects in a tick) - so at every 1/60 s boundary it holds what the 60 Hz run
+// begins with (the objects' own scripts run before their components; the spawned scripts, after the objects, run in the
+// tick that ends the frame - script_frame_end_pass) - so at every 1/60 s boundary it holds what the 60 Hz run
 // holds. At 60 every tick is a frame.
 // grid_frames: the 1/60 s frames that start in this tick (0 or 1 - always 1 at 60).
 int grid_frames();
 // This tick ends a 1/60 s frame (always at 60): what the original keeps for "this frame" (a flag set for the rest of a
 // tick) keeps it until then.
 bool grid_frame_ends();
+// Set while the front end runs the spawned scripts and the game flow's - at another rate in the tick that ends a 1/60 s
+// frame (they run after the objects in a tick, so the 60 Hz run's do at the frame's end): their waits step then, the
+// objects' own scripts' in the tick that starts it (QbScript::update_wait). Never set at 60.
+bool& script_frame_end_pass();
 // The 1/60 s frame this tick is part of (the vblanks themselves at 60).
 uint64_t grid_frame_of_tick();
 // The current tick ends 1/60 s frame `frame` (a demo played at another rate than it was recorded at puts the clock where

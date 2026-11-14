@@ -18,6 +18,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/host.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/car_physics.h"
@@ -264,7 +265,9 @@ void GameEntity::tick_frame()
         return;
     }
     if ((composite_flags_ & kCompositeFlagSuspended) == 0U) {
-        if (own_script()) {
+        // (not original: at another tick rate once a 1/60 s frame, in the tick that starts it, as the spawned scripts -
+        // front_end.cpp; every tick at 60)
+        if (own_script() && frame_clock::grid_frames() != 0) {
             script::host().tick_frame(own_script());
         }
         if ((object_flags() & kObjectFlagDead) != 0U) {

@@ -31,6 +31,8 @@
 #include "base/core/checked_index.h"
 #include "game/online/net_game_state.h"
 #include "engine/render/coll_obj.h"
+#include "engine/sys/stopwatch.h"
+#include "engine/sys/tick_rate.h"
 
 namespace skater {
 
@@ -246,8 +248,8 @@ void SkaterPhysicsModule::step_grind_move()
     const float before = sign_of(dot3(along, entity()->vel()));
     maths::Vec4 gravity = {.x = 0.0F, .y = tuning_float_lookup(kRailGravity, object), .z = 0.0F, .w = 1.0F};
     gravity.project_onto(along);
-    {
-        const float frame_length = frame_.length;
+    if (forces_this_tick()) { // (not original: once a 1/60 s frame over the whole of it at another tick rate)
+        const float frame_length = force_step();
         maths::Vec4& v = entity()->vel();
         const float gy = frame_length * gravity.y;
         const float gz = frame_length * gravity.z;
@@ -310,7 +312,10 @@ void SkaterPhysicsModule::step_grind_move()
         const double ey = static_cast<double>(position.y) - from_point.y;
         const double ez = static_cast<double>(position.z) - from_point.z;
         const double distance = std::sqrt(((ez * ez) + (ey * ey)) + (ex * ex));
-        if (distance > static_cast<double>(segment_length) + kSegmentSlack) {
+        // (not original: at another tick rate only in the tick that starts a 1/60 s frame - from where the 60 Hz run's
+        // update measures it; the ticks between carry on past the end as the 60 Hz run's move does)
+        if (distance > static_cast<double>(segment_length) + kSegmentSlack &&
+            (tick_rate::original() || frame_clock::grid_frames() != 0)) {
             overshoot = static_cast<float>(distance - segment_length);
             const objects::GrindPoint* corner = after < 0.0F ? node : next; // the node passed
             const objects::GrindPoint* onward =
@@ -339,6 +344,7 @@ void SkaterPhysicsModule::step_grind_move()
         if (thaw_bmx::live_now(this)) {
             thaw_bmx::rail_stall_slip(this); // (not original, as above)
         }
+        hold_rest_of_frame(); // (not original: no move this frame, as the 60 Hz run's)
         return;
     }
 
@@ -460,7 +466,16 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     // The move: the velocity over the frame, plus the overshoot along the facing (x, y of both unrounded).
     maths::Vec4& skater_position = entity()->at_point();
     const maths::Vec4 old = skater_position;
-    {
+    if (!tick_rate::original()) {
+        // (not original: at another tick rate the frame's moves added up - grid_move)
+        const float frame_length = frame_.length;
+        const maths::Vec4& u = entity()->vel();
+        const maths::Vec4 step = {.x = (frame_length * u.x) + (facing.x * overshoot),
+                                  .y = (frame_length * u.y) + (facing.y * overshoot),
+                                  .z = (frame_length * u.z) + (facing.z * overshoot),
+                                  .w = (frame_length * u.w) + (facing.w * overshoot) + 1.0F};
+        skater_position = grid_move(skater_position, step);
+    } else {
         const float frame_length = frame_.length;
         const maths::Vec4& u = entity()->vel();
         const float my = frame_length * u.y;

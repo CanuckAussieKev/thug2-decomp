@@ -66,7 +66,7 @@ void QbScript::update_wait()
     // starts the frame (it begins with the state the 60 Hz run's tick for the frame begins with), timers by the
     // original's 1/60 s step - so a script goes on in the frame the 60 Hz run's goes on in (docs/design/tick-rate.md
     // "Scripts"). At 60 every tick is a frame: the original's.
-    if (frame_clock::grid_frames() == 0) {
+    if (frame_clock::grid_frames() == 0 && !frame_clock::script_frame_end_pass()) {
         return;
     }
     switch (suspend_reason_) {

@@ -104,6 +104,35 @@ public:
     // air's feelers run once a frame, as it ends, from there - the 60 Hz run's segment, so it lands, hits walls and
     // ceilings where and when the 60 Hz run does.
     maths::Vec4& grid_frame_start();
+    // Not original (the 60 Hz grid, as above): the skater was put somewhere new (Rider::jump_to_spawn) - its next
+    // update covers a whole 1/60 s frame and the ticks left of that time are held, as the 60 Hz run's update does.
+    void note_placed();
+    // Not original (core_update.cpp): a tick an update that took a whole 1/60 s frame covered; such an update.
+    bool held_by_grid();
+    void take_whole_frame();
+    // Not original: this update ended the 60 Hz run's move of the frame (it left a rail at its end) - the ticks left of the
+    // 1/60 s frame are held. Nothing at 60.
+    void hold_rest_of_frame();
+    // Not original: the forces that change the velocity (gravity, pushing, braking, friction, drag) at another tick rate
+    // act once a 1/60 s frame, in the tick that starts it, over the whole 1/60 s (force_step) - the 60 Hz run's
+    // semi-implicit step (velocity first, then the move with it): the ticks' moves then add up to its move exactly. At 60
+    // every tick, over the tick.
+    [[nodiscard]] bool forces_this_tick() const;
+    [[nodiscard]] float force_step() const;
+    // Not original: on the ground at another tick rate, the velocity the frame's first update moved with (noted from
+    // `velocity` in that update; false then, and at 60): the later ticks move with it while nothing else changed it.
+    bool frame_move_velocity(maths::Vec4* velocity);
+    // Not original: this tick ends a 1/60 s frame (or takes a whole one; every tick at 60) - what the 60 Hz run's update
+    // does after its move (the turn on the ground, the velocity along the facing) happens then.
+    [[nodiscard]] bool frame_ends_this_tick() const;
+    // Not original: the ground move at another tick rate - in a tick before the frame's last, `step` is made and false
+    // returned (no feelers); in its last the skater is put back where the frame began, `step` becomes the frame's whole
+    // move and true is returned (the move with the feelers follows - the 60 Hz run's segment). True at 60, or riding.
+    bool grid_ground_move(maths::Vec4* step);
+    // Not original: the air's or the rail's move by `step` from `before` at another tick rate - in the tick that ends the
+    // frame the skater is put where the frame's moves from its start add up to, so the position's float isn't rounded
+    // once a tick more than the 60 Hz run's (its ulp, 0.00024 at 2,000-4,000 in, would drift a frame's worth a frame).
+    maths::Vec4 grid_move(const maths::Vec4& before, const maths::Vec4& step);
 
     // --- core_jump.cpp: jumping, skitching, the script member functions around them, the wallplant state ---
     // 0x005092E0: the TriggerScript of the rail node being ground (+0x22C) - or of the nearest one before it (back
@@ -1005,7 +1034,7 @@ private:
     maths::Vec4 carried_on_wall();
     bool hits_drop_wall(render::ProbeRay& feeler, const maths::Vec4& direction, maths::Vec4& normal);
     bool snap_up_ledge(render::ProbeRay& hit, objects::GameEntity* object);
-    void tick_balance_trick(bool bike);
+    void tick_balance_trick(bool bike, bool forces = true); // (forces: not original - push and brake, forces_this_tick)
 
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)

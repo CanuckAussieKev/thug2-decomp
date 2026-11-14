@@ -20,6 +20,7 @@
 #include "game/rider/stats_manager.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/stopwatch.h"
+#include "engine/sys/tick_rate.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/core_physics.h"
@@ -253,7 +254,14 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool check_flipped, bool b
 // 0x00579CC0
 void Balance::tick_frame()
 {
-    auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    // (not original: at another tick rate once a 1/60 s frame, in the tick that starts it, over the whole 1/60 s - the
+    // lean's growth and its random shakes as the 60 Hz run's, the draws from the game's random numbers too; every tick
+    // at 60)
+    if (frame_clock::grid_frames() == 0) {
+        return;
+    }
+    auto frame = static_cast<float>(tick_rate::original() ? frame_clock::get_slomo_frame_seconds()
+                                                          : frame_clock::get_slomo_grid_seconds());
     if ((left_button_ == 0U) || (right_press_ == 0U)) {
         return;
     }
