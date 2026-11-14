@@ -2306,14 +2306,14 @@ models surface maps of their own and shades skin, cloth and hair as such; `rt_ch
   hoodies, jackets, hats, socks cloth; watches, rings metal; boards wood; `Anl_*` fur (cloth). Then each texture's
   skin share (`skinShare`: the share of its visible texels whose colour is skin's - red over green over blue, hue
   (g - b) / (r - b) 0.1 - 0.9, saturation (r - b) / r 0.11 - 0.75, not near black): a skin-named dictionary's texture is
-  skin from 30% (else default when grey - eyes, teeth - or a garment); a whole body's (the pros, the peds, the
+  skin from 30% (else default - eyes, teeth, brows: plain per-pixel lighting, no cloth bump embossing an eye); a whole body's (the pros, the peds, the
   cutscenes: `Skater_Hawk`, `Ped_*`, `*_BODY`, no telling name) skin from 50%, else denim when blue, else cloth; a
   garment is never skin - a brown jacket and a tanned arm are the same colour - but a garment with 15 - 85% skin texels
   (an atlas of a shirt and the arms in it) gets `kFlagSkinTexels`: its skin-coloured texels are shaded as skin. Hair
   keeps its cut-out strands (the level rules' cut-out skip waived, as foliage's). A hair texture records which way its
   strands run (`kFlagStrandsU`: its luma changes more along v than along u). On the main install: 628 dictionaries,
-  1,452 maps in 27 s (60 MB) - skin 521, cloth 656, denim 90, wood 71, hair 57, rubber 25, metal 15, leather 4,
-  default 13; skipped 674 (269 overlays, 191 see-through, 120 cut-outs, 92 flat art).
+  1,452 maps in 27 s (60 MB) - cloth 640, skin 474, denim 81, default 78, wood 71, hair 57, rubber 32, metal 15,
+  leather 4; skipped 674 (269 overlays, 191 see-through, 120 cut-outs, 92 flat art).
 - **The shading** (`ff_shaders.cpp` "the characters", `character_lighting`; only with `kSurfaceMap` and `kSurfaceLit`:
   a character's map lit by the draw's lights): three free bits of the fragment key's `detail` byte - `kDetailSkin`,
   `kDetailCloth`, `kDetailHair` (the key stays 52 bytes; `normalised()` keeps them only lit by lights, never with the

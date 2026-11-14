@@ -166,8 +166,8 @@ export interface CharacterVerdict extends Verdict {
 // a shiny material (an environment pass) is metal when grey (buckles, chains), else leather; then the dictionary's
 // hint with the texture's skin share (skinShare - the whole bodies' and pros' textures are atlases of skin and clothes):
 //   hair - hair (brown hair is skin-coloured: no test);
-//   skin (hands, heads, faces, legs) - skin from SKIN_NAMED, else default when grey (eyes, teeth: plain per-pixel
-//     lighting), else as a garment (a head's hat or collar);
+//   skin (hands, heads, faces, legs) - skin from SKIN_NAMED, else default (eyes, teeth, brows: plain per-pixel
+//     lighting with a class bump that doesn't emboss an eye);
 //   legwear - denim when blue, else cloth; denim, leather, rubber, cloth - that, never skin: a garment's colour can't
 //     tell a brown jacket from bare arms, so its skin-coloured texels are shaded as skin only when they are part of it
 //     (SKIN_TEXELS - SKIN_GARMENT: an atlas of a shirt and the arms in it);
@@ -193,9 +193,7 @@ export function classifyCharacter(stats: Stats, usage: Usage, hint: Hint, skin: 
         case "hair":
             return { name: "hair" };
         case "skin":
-            if (skin >= SKIN_NAMED) return { name: "skin" };
-            if (stats.saturation < 0.12) return { name: "default" };
-            return garment(denimLike(stats) ? "denim" : "cloth");
+            return { name: skin >= SKIN_NAMED ? "skin" : "default" };
         case "legwear":
             return garment(denimLike(stats) ? "denim" : "cloth");
         case "denim":
