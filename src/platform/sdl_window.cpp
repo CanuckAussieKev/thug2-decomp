@@ -14,6 +14,7 @@
 
 #include "platform/app_window.h"
 #include "platform/platform_config.h"
+#include "platform/test_workspace.h"
 #include "platform/debug_log.h"
 #include "platform/process_flags.h"
 #include "base/core/checked_index.h"
@@ -178,6 +179,12 @@ HWND create_sdl_window(WindowApi api)
     SDL_SetHint(kDpiAwarenessHint, dpi_awareness());
     // (no on-screen keyboard with the text input - SDL 2 had none on Windows)
     SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
+    // Not original - a test workspace's game (platform/test_workspace.h) opens behind the user's window: shown and
+    // raised without taking the focus (its tests post keys and capture the window, which needs no focus).
+    if (platform::test_workspace()) {
+        SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN, "0");
+        SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_RAISED, "0");
+    }
     SDL_Init(SDL_INIT_VIDEO);
 
     // (full screen: made hidden, given its mode, then shown - choose_fullscreen_mode)

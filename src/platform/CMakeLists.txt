@@ -9,6 +9,7 @@ add_library(thug2_platform STATIC
     debug_log.cpp
     frame_profile.cpp
     mute_audio.cpp
+    test_workspace.cpp
     output_sinks.cpp
     platform_config.cpp
     platform_system.cpp

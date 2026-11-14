@@ -6,7 +6,7 @@
 #include <audiopolicy.h>
 #include <mmdeviceapi.h>
 
-#include <string>
+#include "platform/test_workspace.h"
 
 #include "platform/run_log.h"
 #include "base/util/com_ptr.h"
@@ -14,34 +14,11 @@
 
 namespace sound {
 
-namespace {
-
-// A file named kAlwaysMutedMarker beside the exe: muted whatever the ini says - a test workspace's (tools/game marks
-// them), so a test's own ini can't make one heard.
-constexpr const wchar_t* kAlwaysMutedMarker = L"thug2-decomp-always-muted";
-
-bool marked_always_muted()
-{
-    std::wstring path(MAX_PATH, L'\0');
-    const DWORD length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
-    if (length == 0 || length >= path.size()) {
-        return false;
-    }
-    path.resize(length);
-    const size_t slash = path.find_last_of(L"\\/");
-    if (slash == std::wstring::npos) {
-        return false;
-    }
-    path.resize(slash + 1);
-    path += kAlwaysMutedMarker;
-    return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
-}
-
-} // namespace
-
+// (a test workspace - platform/test_workspace.h - is muted whatever its ini says, so a test's own ini can't make one
+// heard)
 bool& audio_muted()
 {
-    static bool muted = marked_always_muted() || config_int("features", "mute_audio", 0) != 0;
+    static bool muted = platform::test_workspace() || config_int("features", "mute_audio", 0) != 0;
     return muted;
 }
 
