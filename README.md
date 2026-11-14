@@ -9,6 +9,57 @@ this repository.
 > licence is granted for it; the project's own original work is MIT. See [NOTICE.md](NOTICE.md) and [LICENSE](LICENSE).
 > Rights holders: open an issue and it will be dealt with promptly.
 
+## Features
+
+The graphics features are off by default, so the game starts looking as the original did; a few conveniences (live
+pause, the screenshot key, the restart tester, mouse menus) are on. Most of it is switched in `thug2-decomp.ini`
+(Settings, below) or, with the new front end, on its Options screen. Each line links to its page on the [wiki](https://github.com/CanuckAussieKev/thug2-decomp/wiki).
+
+**Rendering** (the Vulkan renderer; Direct3D 9 is still there)
+
+- [Vulkan renderer](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Vulkan-Renderer) - the default; `renderer=d3d9` for the original's Direct3D 9.
+- [Ray-traced shadows, ambient occlusion and bounce light](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Ray-Traced-Lighting) - sun shadows from the level, the skater, peds and cars; darkened corners; one bounce of sunlight.
+- [Ray-traced reflections](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Reflections) - shiny surfaces and glass show what is really around them.
+- [Relit levels](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Relit-Levels) - a level's baked lighting taken apart and lit again, so a moved or recoloured sun moves its shadows and shade.
+- [Per-pixel lighting and surface maps](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Per-Pixel-Lighting) - normal and roughness maps made from your textures (a bump per texture), detail materials up close, and de-lighting of shading painted into the textures.
+- [Sky, clouds, sun and fog](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Sky-and-Fog) - a scattered-light sky, volumetric clouds, a real sun disc with light shafts, volumetric fog and haze.
+- [Water](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Water) - moving waves with the sky and level reflected, depth, foam and sparkle.
+- [Grass](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Grass) - real blades on grass ground, swaying and parting round the skater.
+- [Lamp lights at night](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Lamp-Lights) - lamps, neon and lit windows light the level and the skater, with shadows.
+- [HDR and bloom](https://github.com/CanuckAussieKev/thug2-decomp/wiki/HDR-and-Bloom) - high dynamic range with tone mapping, exposure, colour grading tables and bloom.
+- [Upscaling](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Upscaling) - DLSS (with Ray Reconstruction) or FSR.
+- [Tessellation](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Tessellation) - faceted curves rounded off: quarter pipes, rails, pipes, cars.
+- [Graphics options](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Graphics-Options) - presets, MSAA, anisotropic filtering, draw and detail distance.
+
+**Art styles** - [the whole look of the game changed](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Art-Styles): toon, cel, comic, sketch, VHS, retro, watercolour, noir, thermal, Fish Eye, Fish Eye + VHS.
+
+**Camera** - [motion blur, depth of field and colour grades](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Camera-Effects).
+
+**Frame rate** - [more frames than the game's 60 ticks](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Frame-Rate) (`max_fps`), an experimental faster game tick (`tick_rate`), present modes and an FPS counter.
+
+**Textures** - [texture sets](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Texture-Sets): the original textures or ones upscaled on your machine (PBRify, SeedVR2), switched while you play.
+
+**Gameplay and content**
+
+- [Levels from the other games](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Ported-Levels) - 87 levels from THPS2, THPS3, THPS4, THUG, THAW, Project 8 and Proving Ground, converted from your own copies.
+- [THAW's BMX](https://github.com/CanuckAussieKev/thug2-decomp/wiki/THAW-BMX) - the bike, rideable in any level.
+- [Live pause](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Live-Pause) - in free skate the world keeps moving behind the pause menu.
+- [Anteara Mod](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Anteara-Mod) - played from the data overlay.
+- [THUGPRO parts](https://github.com/CanuckAussieKev/thug2-decomp/wiki/THUGPRO-Parts) - THUGPRO's extra CAS parts and boards, read from your THUGPRO install.
+- [Online play](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Online-Play) - OpenSpy, THUG2's or THUGPRO's online identity.
+- [Quality of life](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Quality-of-Life) - skip the intro movies, music that keeps playing, mouse in the menus, any controller as player 1, the loading console, start straight in a level.
+
+**Tools**
+
+- [Level editor](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Level-Editor) - an editor application: move, add and script things in any level, import other games' levels.
+- [New front end](https://github.com/CanuckAussieKev/thug2-decomp/wiki/New-Front-End) - the game's menus restyled, with an Options screen for every setting.
+- [Demos, replays and videos](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Demos) - record a run, play it back, watch it in the viewer with free cameras, save it as a video, compare settings in a split screen.
+- [Console](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Console) - a developer console over the game.
+- [Screenshots](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Screenshots) - a PNG with a text file of the game's state beside it.
+- [Restart tester](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Restart-Tester) - F8 visits a level's restarts in turn.
+- [Collision events](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Collision-Events) - finds broken collision in converted levels.
+- [Automation](https://github.com/CanuckAussieKev/thug2-decomp/wiki/Automation) - a command channel for test runs.
+
 ## The goal
 
 A game that builds from readable source and keeps getting better, not a byte-for-byte copy of the original program.
