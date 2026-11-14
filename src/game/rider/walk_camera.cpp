@@ -10,6 +10,7 @@
 #include <gsl/pointers>
 
 #include "engine/gfx/view_cam.h"
+#include "engine/sys/frame_blend.h"
 #include "base/maths/mat4.h"
 #include "base/maths/rotation_blend.h"
 #include "base/maths/vec4.h"
@@ -314,6 +315,7 @@ void FootView::tick_frame()
     }
     if ((skater_->composite_flags() & kCompositeFlagTeleported) != 0U) {
         instant_frames_ = 3;
+        frame_blend::note_cut(); // (not original: [Graphics] max_fps blends nothing across the teleport)
     }
     bool instant = false;
     if (instant_frames_ > 0) {

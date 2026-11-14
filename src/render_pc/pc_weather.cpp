@@ -2,6 +2,7 @@
 // values in registers, floats where it stores them.
 
 #include "render_pc/pc_weather.h"
+#include "engine/sys/frame_blend.h"
 
 #include <algorithm>
 #include <bit>
@@ -258,7 +259,8 @@ void PcWeather::render()
     } else {
         render_snow({.x = x, .y = z});
     }
-    if (drops() == 0) {
+    // (not original: a render-only frame of [Graphics] max_fps moves no drop - engine/sys/frame_blend.h)
+    if (drops() == 0 || frame_blend::frame().extra) {
         return;
     }
     for (uint8_t& slot : stage) { // (each falling drop a frame on; one finishing is freed)
@@ -479,8 +481,10 @@ void PcWeather::render_splashes(float x, float z)
 {
     const float before = splash_due_;
     const double total = static_cast<double>(splash_rate()) + splash_due_;
-    splash_due_ = static_cast<float>(total);
-    if (ftol(total) - ftol(before) != 0) {
+    // (not original: a render-only frame of [Graphics] max_fps adds no splash - engine/sys/frame_blend.h)
+    const bool advance = !frame_blend::frame().extra;
+    splash_due_ = advance ? static_cast<float>(total) : before;
+    if (advance && ftol(total) - ftol(before) != 0) {
         // A cast down at a random place before the camera (along its heading up to 2048 out, across by up to
         // 2048 either side - alternately - nearer in), its landing the splash's.
         ProbeRay feeler;
@@ -558,7 +562,9 @@ void PcWeather::render_splashes(float x, float z)
         out[kQuadSixthVertex] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0F, .v = 1.0F};
         used += kQuadFloats;
         out += kQuadVertices;
-        core::at(splash_frames_, i) = frames - 1;
+        if (advance) { // (not original: a render-only frame ages no splash)
+            core::at(splash_frames_, i) = frames - 1;
+        }
     }
     const uint32_t triangles = used / 6 / 3;
     if (triangles != 0U) {

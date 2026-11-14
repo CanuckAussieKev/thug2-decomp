@@ -85,6 +85,14 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_options_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_frame_pacing_check.exe: [Graphics] max_fps's maths without the game - transforms blended between
+# two ticks as rotations, the ends exact, jumps (teleports, camera cuts) found; the render-only frames' schedule
+# (src/tests/frame_pacing_check.cpp; base/maths/transform_blend.cpp, engine/sys/frame_pacing.cpp are pure).
+if(TARGET thug2_base)
+    add_executable(thug2_frame_pacing_check frame_pacing_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/sys/frame_pacing.cpp")
+    target_link_libraries(thug2_frame_pacing_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_crash_check.exe: the game's crash report (src/platform/crash.h) caused on purpose, a few calls
 # deep, into thug2-decomp.log next to the check (src/tests/crash_check.cpp; `thug2_crash_check [kind]`).
 if(TARGET thug2_platform)

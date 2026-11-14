@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <utility>
 #include <new>
@@ -21,6 +22,11 @@
 #include "engine/pad_input/device.h"
 #include "platform/sdl_events.h"
 #include "engine/sys/stopwatch.h"
+#include "engine/sys/editor_mode.h"
+#include "engine/sys/frame_blend.h"
+#include "engine/sys/frame_pacing.h"
+#include "base/maths/random.h"
+#include "platform/crt.h"
 #include "platform/process_flags.h"
 #include "engine/assets/resource_registry.h"
 #include "base/core/no_destroy.h"
@@ -110,6 +116,86 @@ void sleep_until_near(uint64_t due, uint64_t now, int64_t frequency)
     wait.QuadPart = -(left - kSpinMicroseconds) * kTicksPer100ns;
     if (SetWaitableTimer(timer, &wait, 0, nullptr, nullptr, FALSE) != 0) {
         WaitForSingleObject(timer, INFINITE);
+    }
+}
+
+uint64_t counter_now()
+{
+    LARGE_INTEGER counter;
+    QueryPerformanceCounter(&counter);
+    return static_cast<uint64_t>(counter.QuadPart);
+}
+
+// NOT ORIGINAL - [Graphics] max_fps (engine/sys/frame_pacing.h): the render-only frames after a tick's frame, until the
+// next tick is due - each the world drawn again, blended between the tick before and this one by how far into the tick
+// it is (render_pc/frame_interp.h), then presented. No task runs, no vblank is counted, no input is read; the game's
+// random sequences are put back as they were (anything the draws took from them - the weather's splashes, a sort key -
+// is not the game's). Stops at anything that wouldn't draw (the window inactive, the device lost, a load, quitting).
+// Frame generation (DLSS FG / FSR 3) would hook in here and at end_scene (the present).
+struct ExtraFrames {
+    double carry = 0.0;     // the frames-a-tick fraction carried (frame_pacing::frames_this_tick)
+    uint64_t cost = 0;      // a render-only frame's time, smoothed (counter ticks)
+    uint64_t drawn = 0;     // in all (the log's)
+    uint64_t first_tick = 0; // the tick of the first (the log's)
+};
+constexpr uint64_t kExtraFramesLogged = 1000; // (the log's line on the rate, once)
+ExtraFrames& extra_frames()
+{
+    static ExtraFrames frames;
+    return frames;
+}
+
+bool can_draw_extra()
+{
+    return sys::app_active() && !render::engine_parts().device_lost() && !render::engine_parts().quit_requested() &&
+           !render::engine_parts().loading_screen_up();
+}
+
+void draw_extra_frames(uint64_t tick_time, uint64_t tick_length, int64_t frequency)
+{
+    ExtraFrames& own = extra_frames();
+    const int frames = frame_pacing::frames_this_tick(frame_blend::max_fps(), &own.carry);
+    const uint64_t next_tick = tick_time + tick_length;
+    frame_blend::Frame& blend = frame_blend::frame();
+    for (int i = 1; i < frames; ++i) {
+        const uint64_t due = frame_pacing::frame_due(tick_time, tick_length, i, frames);
+        uint64_t now = counter_now();
+        if (due >= next_tick) {
+            break;
+        }
+        if (now < due) {
+            sleep_until_near(due, now, frequency);
+            while ((now = counter_now()) < due) {
+                Sleep(0);
+            }
+        }
+        if (!frame_pacing::frame_fits(now, own.cost, next_tick) || !can_draw_extra()) {
+            break;
+        }
+        const frame_profile::Scope phase("extra_frame"); // ([debug] frame_profile)
+        const uint32_t crt_random = crt::game_rand_state();
+        const maths::RandomStreams streams = maths::random_streams();
+        blend.extra = true;
+        blend.alpha = frame_pacing::blend_alpha(now, tick_time, tick_length);
+        render::engine_parts().set_suppress_draw(false);
+        begin_scene();
+        render::device().draw_world();
+        ext::before_present(true);
+        end_scene();
+        blend.extra = false;
+        crt::game_srand(crt_random);
+        maths::set_random_streams(streams);
+        if (own.drawn++ == 0) {
+            own.first_tick = blend.tick;
+        } else if (own.drawn == kExtraFramesLogged) {
+            const uint64_t ticks = std::max<uint64_t>(1, blend.tick - own.first_tick);
+            get_log("frame pacing: %llu render-only frames over %llu ticks (%.2f a tick, about %.0f frames a second)",
+                    static_cast<unsigned long long>(own.drawn), static_cast<unsigned long long>(ticks),
+                    static_cast<double>(own.drawn) / static_cast<double>(ticks),
+                    (1.0 + (static_cast<double>(own.drawn) / static_cast<double>(ticks))) * frame_pacing::kTicksPerSecond);
+        }
+        const uint64_t took = counter_now() - now;
+        own.cost = own.cost == 0 ? took : ((own.cost * 3) + took) / 4;
     }
 }
 
@@ -339,6 +425,18 @@ void Hub::get_main_loop()
         }
 
         const bool drawn = !render::engine_parts().suppress_draw(); // (not original: for frame_profile)
+        // Not original - [Graphics] max_fps (engine/sys/frame_pacing.h): this tick's frame and the render-only frames
+        // after it drawn blended between the tick before and this one - not while an extension paces the loop or keeps
+        // every frame (the demo viewer, a frame series, a video), nor in the editor mode. Original behaviour (max_fps=0,
+        // the default): every frame drawn as its tick left it - nothing below changes anything then.
+        frame_blend::Frame& blend = frame_blend::frame();
+        const uint64_t tick_time = frame_start;
+        blend.on = frame_blend::max_fps() != frame_pacing::kOriginal && !pace.hold && !pace.flat_out && !pace.skip_draw &&
+                   !ext::keeps_every_frame() && !sys::editor_mode::on();
+        blend.extra = false;
+        if (!pace.hold) {
+            ++blend.tick;
+        }
         // Not original - a held simulation (pace.hold: the demo viewer paused or slowed) counts no clock and runs no
         // task: the frame is drawn again as the last logic frame left it. Original behaviour: always a logic frame.
         if (!pace.hold) {
@@ -358,6 +456,8 @@ void Hub::get_main_loop()
         } else {
             ext::held_frame();
         }
+        // (not original: the tick's frame blended by how far into the tick it is drawn - max_fps above)
+        blend.alpha = blend.on ? frame_pacing::blend_alpha(counter_now(), tick_time, frame_ticks) : 1.0F;
         {
             const frame_profile::Scope phase("render");
             if (!render::engine_parts().suppress_draw()) {
@@ -387,6 +487,10 @@ void Hub::get_main_loop()
         }
         if (!pace.hold) {
             frame_clock::update_frame_length();
+        }
+        // Not original - [Graphics] max_fps: the render-only frames until the next tick is due (draw_extra_frames).
+        if (blend.on && drawn && is_finished_ == 0U) {
+            draw_extra_frames(tick_time, frame_ticks, frequency.QuadPart);
         }
         profiling_ = 0;
         frame_profile::loop_end(drawn, render::engine_parts().loading_screen_up());

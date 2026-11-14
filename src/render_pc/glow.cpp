@@ -1,6 +1,7 @@
 // Light glows (Nx engine, PC): see glow.h.
 
 #include "render_pc/glow.h"
+#include "engine/sys/frame_blend.h"
 
 #include <cstddef>
 #include <cmath>
@@ -197,7 +198,10 @@ void update_glows(bool queries)
                 seen = glow->pixels != 0;
             }
         }
-        if (seen) {
+        if (frame_blend::frame().extra) {
+            // (not original: a render-only frame of [Graphics] max_fps - engine/sys/frame_blend.h - grows or fades
+            // nothing: the glow drawn at the tick's size)
+        } else if (seen) {
             glow->size =
                 static_cast<float>(((static_cast<double>(glow->max_size_) - glow->size) * glow->rate) + glow->size);
         } else {

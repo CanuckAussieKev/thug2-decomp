@@ -57,6 +57,8 @@ const std::vector<Expected>& expected()
         {.key = "renderer", .fallback = "vulkan", .live = false},
         {.key = "ray_tracing", .fallback = "0", .live = false},
         {.key = "texture_set", .fallback = "original", .live = true},
+        {.key = "max_fps", .fallback = "0", .live = true},
+        {.key = "present_mode", .fallback = "vsync", .live = true},
         {.key = "anisotropy", .fallback = "0", .live = false},
         {.key = "msaa", .fallback = "0", .live = false},
         {.key = "draw_distance_scale", .fallback = "1", .live = false},

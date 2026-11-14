@@ -2,6 +2,7 @@
 // (0x0049A8E0 isn't a Ghidra function).
 
 #include "engine/gfx/flexible_particle_manager.h"
+#include "engine/sys/frame_blend.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -157,8 +158,15 @@ void FlexibleParticleManager::render_systems(bool force)
     crt::get_qsort(static_cast<void*>(systems.data()), static_cast<size_t>(count), sizeof(EmitterInstance*),
                    &compare_distance); // (the game's qsort)
     const bool always = force || objects::simulation_halted();
+    // (not original: a render-only frame of [Graphics] max_fps draws again what its tick's frame drew, clearing nothing -
+    // engine/sys/frame_blend.h)
+    const bool extra = frame_blend::frame().extra;
     for (int i = 0; i < count; ++i) {
-        core::at(systems, i)->render_if_visible(always);
+        if (extra) {
+            core::at(systems, i)->render_again(always);
+        } else {
+            core::at(systems, i)->render_if_visible(always);
+        }
     }
 }
 

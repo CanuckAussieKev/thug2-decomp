@@ -10,6 +10,10 @@
 #include <string>
 #include <vector>
 
+#include <string_view>
+
+#include "engine/gfx/gpu_context.h"
+#include "engine/sys/frame_blend.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "base/core/ints.h"
@@ -48,6 +52,15 @@ void set_live_reload(LiveReload reload) { graphics_options_state().live_reload_ 
 
 bool reload_live(const char* key)
 {
+    // (the frame pacing's settings: engine/sys/frame_pacing.h - max_fps read by the main loop each tick, the present
+    // mode handed to the device, which makes its swap chain again with it where it can)
+    if (key != nullptr && (std::string_view(key) == "max_fps" || std::string_view(key) == "present_mode")) {
+        frame_blend::read_settings();
+        if (std::string_view(key) == "max_fps") {
+            return true;
+        }
+        return gpu_context().set_present_mode(static_cast<uint32_t>(frame_blend::present_mode()));
+    }
     const LiveReload reload = graphics_options_state().live_reload_;
     return reload != nullptr && key != nullptr && reload(key);
 }
@@ -76,6 +89,7 @@ void compare_end()
 
 void read_in()
 {
+    frame_blend::read_settings(); // (not original either: [Graphics] max_fps, present_mode - engine/sys/frame_pacing.h)
     graphics_options_state().options_.anisotropy = parse_anisotropy(build_info::get_int(build_info::kGraphics, "anisotropy", 0));
     graphics_options_state().options_.msaa = parse_multisample(build_info::get_int(build_info::kGraphics, "msaa", 0));
     std::array<char, kOptionTextSize> text{};

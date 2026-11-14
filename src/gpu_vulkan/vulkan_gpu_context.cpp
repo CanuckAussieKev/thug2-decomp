@@ -52,6 +52,16 @@ std::string driver_version_text(const VkPhysicalDeviceProperties& properties)
                         VK_API_VERSION_PATCH(version));
 }
 
+// NOT ORIGINAL - the present mode the settings ask for ([Graphics] present_mode: 0 vsync - FIFO -, 1 mailbox, 2
+// immediate; the context falls back to FIFO where the surface doesn't offer it).
+VkPresentModeKHR wanted_present_mode(const GpuSettings& settings)
+{
+    if (settings.vsync) {
+        return VK_PRESENT_MODE_FIFO_KHR;
+    }
+    return settings.present_mode == 2 ? VK_PRESENT_MODE_IMMEDIATE_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+}
+
 VkPhysicalDeviceProperties device_properties(const Backend& state)
 {
     VkPhysicalDeviceProperties properties{};
@@ -119,6 +129,7 @@ public:
     {
         const std::scoped_lock lock(backend().mutex);
         backend().settings = settings;
+        backend().context.set_wanted_present_mode(wanted_present_mode(settings)); // (not original: present_mode)
     }
 
     long create_device(const GpuDeviceRequest& request) override
@@ -232,6 +243,18 @@ public:
         const std::scoped_lock lock(state.mutex);
         state.settings.width = size.width;
         state.settings.height = size.height;
+    }
+
+    // NOT ORIGINAL - [Graphics] present_mode while the game runs: the swap chain made again with it before the next frame.
+    bool set_present_mode(uint32_t mode) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        state.settings.present_mode = mode;
+        state.settings.vsync = mode == 0;
+        state.context.set_wanted_present_mode(wanted_present_mode(state.settings));
+        state.context.window_resized();
+        return true;
     }
 
     void shutdown() override

@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "engine/gfx/view_cam.h"
+#include "engine/sys/frame_blend.h"
 #include "base/maths/mat4.h"
 #include "base/maths/rotation_blend.h"
 #include "base/maths/vec4.h"
@@ -128,6 +129,7 @@ void RiderChaseView::tick_frame()
     if (((rider_ref_->composite_flags() >> 3) & 1) != 0U) {
         instant = true;
         instant_frames_ = 3;
+        frame_blend::note_cut(); // (not original: [Graphics] max_fps blends nothing across the teleport)
     }
     if (instant_frames_ > 0) {
         --instant_frames_;

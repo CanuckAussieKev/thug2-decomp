@@ -1,6 +1,7 @@
 // The sun and its lens flare (see lens_flare.h).
 
 #include "engine/gfx/lens_flare.h"
+#include "engine/sys/frame_blend.h"
 
 #include <cmath>
 #include <cstddef>
@@ -479,7 +480,13 @@ void show_flare(const maths::Vec4* sun, float time)
 // 0x00443870
 void render(gfx::ViewCam* camera)
 {
+    // Not original - a render-only frame of [Graphics] max_fps (engine/sys/frame_blend.h): the sun and its corona drawn
+    // only - no script launched, no flare shown or hidden, no query, no time or position noted (its tick's frame did).
+    const bool extra = frame_blend::frame().extra;
     if (!get_shown()) {
+        if (extra) {
+            return;
+        }
         script::launch_script(kMaybeHideLensFlare, nullptr, nullptr, false, nullptr);
         return;
     }
@@ -497,7 +504,9 @@ void render(gfx::ViewCam* camera)
     direction = direction * rotation;
     sun_pos = sun_pos + get_radius() * direction;
     sun_pos[3] = 1.0F;
-    get_position() = sun_pos;
+    if (!extra) {
+        get_position() = sun_pos;
+    }
     std::array<std::array<uint8_t, 4>, 4> colors{};
     corner_colors(colors, 1.0);
 
@@ -505,7 +514,9 @@ void render(gfx::ViewCam* camera)
     maths::Vec4 to_sun = sun_pos - *camera->fetch_location();
     to_sun.make_unit();
     if (get_dot(to_sun, (*camera->fetch_mat())[2]) >= 0.0) {
-        hide_flare(nullptr, script::Context());
+        if (!extra) {
+            hide_flare(nullptr, script::Context());
+        }
         return;
     }
     maths::Vec4 screen = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -515,7 +526,9 @@ void render(gfx::ViewCam* camera)
     screen[0] = at.x;
     screen[1] = at.y;
     if (screen[0] == 0.0F && screen[1] == 0.0F) {
-        hide_flare(nullptr, script::Context());
+        if (!extra) {
+            hide_flare(nullptr, script::Context());
+        }
         return;
     }
 
@@ -528,7 +541,9 @@ void render(gfx::ViewCam* camera)
     render::OcclusionRequest request{};
     request.callback = query_sun_visibility;
     request.data = 0;
-    add_query(&request);
+    if (!extra) {
+        add_query(&request);
+    }
     uint32_t visible = 0;
     if (get_query() != 0U) {
         visible = query_result(get_query());
@@ -539,7 +554,9 @@ void render(gfx::ViewCam* camera)
         auto fade_time = static_cast<uint32_t>(get_truncated(static_cast<double>(sun_burst_out_time()) * kMillisecondsPerSecond));
         auto fade = static_cast<float>(static_cast<double>(unseen) / static_cast<double>(fade_time));
         fade = clamp_to_range(fade, 0.0F, 1.0F);
-        hidden_time() = get_now();
+        if (!extra) {
+            hidden_time() = get_now();
+        }
         if (fade < 1.0F) {
             const float left = 1.0F - fade;
             corner_colors(colors, left);
@@ -554,7 +571,7 @@ void render(gfx::ViewCam* camera)
             set_prim_state(4, 0);
             blit_quad(&corona.primitive(), corona_corners, colors, corona_uvs);
         }
-        if (!flare_hidden()) {
+        if (!flare_hidden() && !extra) {
             gsl::owner<Struct*> params = new_params();
             params->put_vec3(checksums::Name{kSunPos}, get_value(screen));
             if (!(static_cast<double>(morph_out_time()) * kMillisecondsPerSecond < static_cast<double>(unseen))) {
@@ -565,7 +582,9 @@ void render(gfx::ViewCam* camera)
         }
     } else {
         // seen: the corona at half the colour, the lens flare shown (morphed in if it was hidden for a while)
-        visible_time() = get_now();
+        if (!extra) {
+            visible_time() = get_now();
+        }
         const uint32_t unseen = get_since(hidden_time());
         const float brightness =
             clamp_to_range(static_cast<float>(static_cast<double>(visible) / 50000.0F), 0.0F, 1.0F);
@@ -576,6 +595,9 @@ void render(gfx::ViewCam* camera)
         }
         sun.primitive().set_blend_mode(kAdd);
         blit_quad(&sun.primitive(), corners, colors, uvs);
+        if (extra) {
+            return;
+        }
         if (static_cast<double>(morph_in_time()) * kMillisecondsPerSecond < static_cast<double>(unseen)) {
             show_flare(&screen, 0.0F);
         } else {

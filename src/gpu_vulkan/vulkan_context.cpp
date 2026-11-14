@@ -199,6 +199,28 @@ VkSurfaceFormatKHR choose_surface_format(VkPhysicalDevice device, VkSurfaceKHR s
     return formats.empty() ? VkSurfaceFormatKHR{} : formats.front();
 }
 
+// NOT ORIGINAL - [Graphics] present_mode: `wanted` where the surface offers it; else mailbox or immediate for the other
+// (both don't wait for the display), else FIFO (every surface has it).
+VkPresentModeKHR choose_present_mode(VkPhysicalDevice device, VkSurfaceKHR surface, VkPresentModeKHR wanted)
+{
+    if (wanted == VK_PRESENT_MODE_FIFO_KHR) {
+        return wanted;
+    }
+    uint32_t count = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, nullptr);
+    std::vector<VkPresentModeKHR> modes(count);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, modes.data());
+    modes.resize(count);
+    const VkPresentModeKHR other =
+        wanted == VK_PRESENT_MODE_MAILBOX_KHR ? VK_PRESENT_MODE_IMMEDIATE_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+    for (const VkPresentModeKHR mode : {wanted, other}) {
+        if (std::ranges::find(modes, mode) != modes.end()) {
+            return mode;
+        }
+    }
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
 // The swapchain's size: the surface's, or the window's drawable size within the surface's limits.
 VkExtent2D choose_extent(const VkSurfaceCapabilitiesKHR& caps, SDL_Window* window)
 {
@@ -721,7 +743,16 @@ bool Context::create_swapchain()
         return true;
     }
     surface_format_ = choose_surface_format(physical_device_, surface_);
-    present_mode_ = VK_PRESENT_MODE_FIFO_KHR; // (every device has it: the game's default present interval)
+    // (FIFO: every device has it - the game's default present interval; not original: [Graphics] present_mode's choice)
+    const VkPresentModeKHR previous_mode = present_mode_;
+    present_mode_ = choose_present_mode(physical_device_, surface_, wanted_present_mode_);
+    if (present_mode_ != wanted_present_mode_ || (present_mode_ != previous_mode && swapchains_made_ > 0)) {
+        report(std::string("present mode: ") +
+               (present_mode_ == VK_PRESENT_MODE_FIFO_KHR      ? "FIFO (vsync)"
+                : present_mode_ == VK_PRESENT_MODE_MAILBOX_KHR ? "mailbox"
+                                                               : "immediate") +
+               (present_mode_ != wanted_present_mode_ ? " (the one asked for isn't offered)" : ""));
+    }
     uint32_t wanted_images = caps.minImageCount + 1;
     if (caps.maxImageCount != 0) {
         wanted_images = std::min(wanted_images, caps.maxImageCount);

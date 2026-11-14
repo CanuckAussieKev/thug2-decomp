@@ -287,6 +287,8 @@ add_library(thug2_engine STATIC
     sys/debug_mode.cpp
     sys/editor_mode.cpp
     sys/stopwatch.cpp
+    sys/frame_pacing.cpp
+    sys/frame_blend.cpp
     sys/mlp.cpp
     sys/game_clock.cpp
     sys/system_cfuncs.cpp

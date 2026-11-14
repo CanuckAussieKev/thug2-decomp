@@ -2,6 +2,7 @@
 // 0x00495260-0x004968AF.
 
 #include "engine/gfx/particle_sets.h"
+#include "engine/sys/frame_blend.h"
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -360,7 +361,8 @@ void EffectsDirector::draw_particles()
         return;
     }
     for (const auto* node = systems_.first(); node != systems_.head(); node = node->next) {
-        node->value->render(!objects::simulation_halted());
+        // (not original: a render-only frame of [Graphics] max_fps ages no burst - engine/sys/frame_blend.h)
+        node->value->render(!objects::simulation_halted() && !frame_blend::frame().extra);
     }
 }
 

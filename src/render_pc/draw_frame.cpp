@@ -2,6 +2,7 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "render_pc/draw_frame.h"
+#include "render_pc/frame_interp.h"
 #include "base/maths/view_transforms.h"
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/render_camera.h"
@@ -19,6 +20,7 @@
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <cstring>
 
 #include "engine/ext/extension.h"
 #include "engine/memory/arena_alloc.h"
@@ -56,6 +58,7 @@
 #include "engine/gfx/viewport_list.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/stopwatch.h"
+#include "engine/sys/frame_blend.h"
 #include "engine/gfx/engine_glue.h"
 #include "render_pc/pc_engine.h"
 #include "engine/gfx/engine.h"
@@ -724,7 +727,8 @@ rt::ViewDrawn view_drawn(int index)
     view.game_bloom = effects_state().bloom_on() != 0U && renderer().shaders_available();
     // (the game clock: what moves with the game - a backend's clouds - follows it)
     constexpr double kSecondsPerMillisecond = 0.001;
-    view.game_seconds = static_cast<double>(frame_clock::game_clock_time()) * kSecondsPerMillisecond;
+    // (not original either: [Graphics] max_fps - the part of a tick a blended frame is behind taken off: frame_interp.h)
+    view.game_seconds = frame_interp::shown_game_seconds(static_cast<double>(frame_clock::game_clock_time()) * kSecondsPerMillisecond);
     return view;
 }
 
@@ -776,7 +780,15 @@ void draw_viewport(int index)
     // camera is put where the editor flies).
     // Original behaviour: the camera is drawn where the game put it.
     // (then the automation channel's camera lock - game/rider/test_view.h: viewport 0's camera held at a pose)
-    ext::place_camera(static_cast<gfx::ViewCam*>(camera), index);
+    // (not original: [Graphics] max_fps - then the camera blended between the tick before and this one, unless an
+    // extension placed it - render_pc/frame_interp.h)
+    auto* blended_camera = static_cast<gfx::ViewCam*>(camera);
+    const maths::Mat4 game_basis = *blended_camera->fetch_mat();
+    const maths::Vec4 game_at = *blended_camera->fetch_location();
+    ext::place_camera(blended_camera, index);
+    frame_interp::camera(blended_camera, index,
+                         std::memcmp(blended_camera->fetch_mat(), &game_basis, sizeof(game_basis)) != 0 ||
+                             std::memcmp(blended_camera->fetch_location(), &game_at, sizeof(game_at)) != 0);
     view_setup().set_drawn_viewport(index); // the viewport being drawn
     const double width = renderer().back_buffer_width();
     const double height = static_cast<float>(renderer().back_buffer_height());
@@ -1204,14 +1216,21 @@ void draw_world()
     // Not original - the extensions (engine/ext/extension.h; the level editor: its frame - flying, picking,
     // dragging - which runs while the game is paused).
     // Original behaviour: nothing.
-    ext::before_draw_world();
+    // (not on a render-only frame of [Graphics] max_fps: the editor's frame runs the level's systems - once a tick)
+    if (!frame_blend::frame().extra) {
+        ext::before_draw_world();
+    }
     renderer().count_frame(); // frames rendered
     if (!engine_parts().loading_screen_up()) { // (nothing while the device is lost)
         // Not original - the game view (engine/gfx/game_view.h; the level editor's Scene panel): the frame drawn into
         // the picture asked for, at its size, instead of the window.
         // Original behaviour: the frame is drawn to the window.
         const bool picture = game_view_frame::begin();
-        renderer().set_step_seconds(static_cast<int>(frame_clock::get_time()));
+        // Not original - [Graphics] max_fps (render_pc/frame_interp.h): the instances blended between the tick before
+        // and this one, the colour animations' time with them. Original behaviour: drawn as the tick left them, at the
+        // clock's time.
+        frame_interp::begin_frame();
+        renderer().set_step_seconds(frame_interp::shown_time_ms());
         // Not original - ray tracing's record (rt_record.h): the frame's instances and lights. Original behaviour:
         // nothing.
         {
@@ -1294,10 +1313,12 @@ void draw_world()
         ext::draw_over_frame();
         change_fog(fog);
     } else {
+        frame_interp::forget();   // (not original: nothing blended across a load)
         depth_lines_draw::drop(); // (not original: lines handed over before the loading screen aren't drawn after it)
         ghost_draw::drop();       // (not original: the same for ghosts)
         outline_draw::drop();     // (not original: and outlines)
     }
+    frame_interp::end_frame(); // (not original: the blended instances and cameras put back as the tick left them)
     full_screen_viewport();
     set_viewport();
 }

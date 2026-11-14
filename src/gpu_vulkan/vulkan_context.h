@@ -153,6 +153,9 @@ public:
     FrameResult clear_frame(const std::array<float, 4>& colour);
     // The window's size changed: the swapchain is made again after the next present.
     void window_resized() { resized_ = true; }
+    // NOT ORIGINAL - [Graphics] present_mode: the present mode the next swapchain is made with where the surface offers
+    // it (else FIFO, which every surface has).
+    void set_wanted_present_mode(VkPresentModeKHR mode) { wanted_present_mode_ = mode; }
     // Whether the surface's size is no longer the swapchain's (the window resized, minimised or restored without the
     // presents being told - not every driver reports it as out of date).
     [[nodiscard]] bool surface_changed() const;
@@ -215,6 +218,7 @@ private:
     VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
     VkSurfaceFormatKHR surface_format_{};
     VkPresentModeKHR present_mode_ = VK_PRESENT_MODE_FIFO_KHR;
+    VkPresentModeKHR wanted_present_mode_ = VK_PRESENT_MODE_FIFO_KHR;
     VkExtent2D extent_{};
     std::vector<VkImage> images_;
     std::vector<VkSemaphore> presented_; // per swapchain image: its submit signals it, its present waits on it

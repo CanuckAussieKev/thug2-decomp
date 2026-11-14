@@ -406,10 +406,18 @@ void EmitterInstance::run_emit_script()
 // 0x00496FA0
 void EmitterInstance::render_if_visible(bool force)
 {
-    if ((unknown12f_ && unknown130_) || force) {
+    drawn_last_ = (unknown12f_ && unknown130_) || force; // (not original: for render_again)
+    if (drawn_last_) {
         render();
         flag_bits_ &= ~1U;
         unknown12f_ = false;
+    }
+}
+
+void EmitterInstance::render_again(bool force)
+{
+    if (drawn_last_ || force) {
+        render();
     }
 }
 

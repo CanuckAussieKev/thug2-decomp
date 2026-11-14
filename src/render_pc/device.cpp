@@ -30,6 +30,7 @@
 #include "render_pc/pc_d3d_resources.h"
 #include "platform/sdl_window.h"
 #include "engine/sys/stopwatch.h"
+#include "engine/sys/frame_blend.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
 #include "base/core/checked_index.h"
@@ -207,8 +208,10 @@ void init_direct_3d()
     }
 
     // Originally from PartyMod Fixes (its byte at 0x004D8720, written when its Windowed setting is on). The original: always full screen.
+    // (not original: [Graphics] present_mode - engine/sys/frame_pacing.h; vsync, the default, as the original)
     context.configure({.windowed = sys::get_windowed(),
-                       .vsync = true,
+                       .vsync = frame_blend::present_mode() == frame_pacing::PresentMode::kVsync,
+                       .present_mode = static_cast<uint32_t>(frame_blend::present_mode()),
                        .colour_format = gpu_value::kFormatX8R8G8B8,
                        .depth_format = gpu_value::kFormatD24X8});
     // The resolution setting (0 = the largest) picks where to start; smaller ones are tried after.

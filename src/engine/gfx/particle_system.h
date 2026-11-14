@@ -204,6 +204,7 @@ private:
     bool fill_path_{};         // +0x131 FillPath
     bool update_brightness_{}; // +0x132
     bool unknown133_{};        // +0x133 (cleared by 0xDE45A90D: not culled)
+    bool drawn_last_{};        // NOT ORIGINAL: render_if_visible drew it last time (render_again)
 
 public:
 
@@ -236,6 +237,9 @@ public:
     // 0x00496FA0: when shown and updated this frame (unknown12f_, unknown130_), or when `force`: render, and flag 1
     // and unknown12f_ cleared.
     void render_if_visible(bool force);
+    // NOT ORIGINAL - a render-only frame's ([Graphics] max_fps - engine/sys/frame_blend.h): drawn again when it was
+    // updated and shown this tick (unknown130_), or when `force`; nothing cleared (its tick's frame already drew it).
+    void render_again(bool force);
     // 0x00497790 / 0x00497900: the emit / update script: `script` (on a CScript of its own) with the shared
     // parameters plus `params`, on `object`; 0: the script deleted.
     void set_emit_script(uint32_t script, script::Struct* params, void* object);

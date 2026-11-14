@@ -19,6 +19,7 @@ add_library(thug2_base STATIC
     maths/rigidbody_math.cpp
     maths/rotation_blend.cpp
     maths/shape_tests.cpp
+    maths/transform_blend.cpp
     maths/vec4.cpp
     maths/vector_rotate_z.cpp
     maths/vector_transform.cpp

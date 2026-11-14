@@ -35,6 +35,9 @@ struct GpuSettings {
     uint32_t height{};
     bool windowed{};
     bool vsync{true}; // presenting waits for the display (Direct3D 9: the driver's default interval)
+    // NOT ORIGINAL - [Graphics] present_mode (engine/sys/frame_pacing.h PresentMode: 0 vsync, 1 mailbox, 2 immediate):
+    // the present mode wanted when vsync is off (Vulkan: where the surface offers it, else FIFO; Direct3D 9: immediate).
+    uint32_t present_mode{};
     uint32_t samples{}; // multisampling: 0 none, else the sample count
     uint32_t sample_quality{};
     uint32_t colour_format{}; // gpu_value::kFormat*
@@ -118,6 +121,13 @@ public:
     // NOT ORIGINAL - the back buffer's size for the next reset (the editor mode's resizable window - the main loop's
     // resize: frame_loop::Hub::reset_device_if_lost); the other settings stay.
     virtual void set_back_buffer_size(const GpuBackBufferSize& size) = 0;
+    // NOT ORIGINAL - [Graphics] present_mode changed while the game runs (GpuSettings::present_mode; 0 is vsync): true
+    // when the device takes it now (Vulkan: its swap chain made again before the next frame); false: from the next start.
+    virtual bool set_present_mode(uint32_t mode)
+    {
+        (void)mode;
+        return false;
+    }
     // The device and then the instance given back.
     virtual void shutdown() = 0;
 

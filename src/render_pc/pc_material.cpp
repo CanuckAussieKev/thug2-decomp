@@ -13,6 +13,7 @@
 #include "engine/memory/manager.h"
 #include "base/maths/trig.h"
 #include "engine/gfx/surface_material.h"
+#include "render_pc/frame_interp.h"
 #include "render_pc/pc_billboards.h"
 #include "render_pc/primitive_states.h"
 #include "render_pc/render_state.h"
@@ -288,7 +289,7 @@ void MaterialRef::update_texture_anims()
     if (!has_texture_anim_) {
         return;
     }
-    const int now = static_cast<int>(frame_clock::get_time());
+    const int now = static_cast<int>(frame_interp::shown_time_ms()); // (not original: [Graphics] max_fps blends it - frame_interp.h)
     const TextureAnim* anim = texture_anim_;
     for (int pass = 0; pass < 4; ++pass) {
         if ((core::at(pass_flags_, pass) & kPassTextureAnim) == 0U) {
@@ -318,7 +319,7 @@ void MaterialRef::update_uv_wibbles()
     if (!has_uv_wibble_) {
         return;
     }
-    const float wave_time = wibble_time(frame_clock::get_time());
+    const float wave_time = wibble_time(frame_interp::shown_time_ms()); // (not original: blended - frame_interp.h)
     for (uint32_t pass = 0; pass < pass_count_; ++pass) {
         if (((core::at(pass_flags_, pass) & kPassUvWibble) == 0U) ||
             ((core::at(pass_flags_, pass) & kPassExplicitUv) != 0U)) {

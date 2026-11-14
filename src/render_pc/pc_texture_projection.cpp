@@ -2,6 +2,7 @@
 // where it keeps values in registers, floats where it stores them.
 
 #include "render_pc/pc_texture_projection.h"
+#include "engine/sys/frame_blend.h"
 #include "base/maths/view_transforms.h"
 #include "base/core/cursor.h"
 #include "render_pc/geom.h"
@@ -64,6 +65,14 @@ uint32_t& batch_count()
     return projection_batch_count;
 }
 std::span<ProjectionBatch> get_batches() { return projection_batches(); }
+// NOT ORIGINAL - [Graphics] max_fps (engine/sys/frame_blend.h): while frames are blended, the batches a tick filled are
+// kept after its frame drew them (drawn again by the render-only frames) and emptied when the next tick fills them or
+// draws - when the original emptied them after its draw, so the batches made (and their random sort keys) are the same.
+bool& batches_drawn()
+{
+    static bool drawn = false;
+    return drawn;
+}
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
 void transform_coord(float* out, const float* v, const maths::Mat4* matrix)
@@ -117,6 +126,10 @@ void ProjectionBatch::teardown() { material_.~MaterialRef(); }
 // 0x004C73E0
 ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name)
 {
+    if (batches_drawn()) { // (not original: the batches a blended frame kept, emptied now as the original's draw did)
+        batches_drawn() = false;
+        batch_count() = 0;
+    }
     const uint32_t count = batch_count();
     for (uint32_t i = 0; i < count; ++i) {
         if (core::at(get_batches(), i).texture() == texture) {
@@ -154,6 +167,24 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
 // 0x004C7520
 void draw_projection_batches()
 {
+    // Not original - [Graphics] max_fps (batches_drawn): a tick's batches drawn by its frame's first viewport (the
+    // others draw none, as the original's emptied them) and again by each render-only frame's; a tick's frame that
+    // finds them drawn before - nothing filled since - empties them first, as the original's last draw had.
+    const frame_blend::Frame& blend = frame_blend::frame();
+    static int drawn_frame = 0; // (the frame that drew them)
+    if (blend.on) {
+        const int frame = renderer().frames_rendered();
+        if (batches_drawn() && drawn_frame == frame) {
+            return;
+        }
+        if (batches_drawn() && !blend.extra) {
+            batch_count() = 0;
+        }
+        batches_drawn() = true;
+        drawn_frame = frame;
+    } else {
+        batches_drawn() = false;
+    }
     set_vertex_format(kFvfXyz | kFvfDiffuse | kFvfTex1);
     gpu().set_sampler_state(0, GpuSamplerState::kBorderColour, 0);
     uint32_t min_filter = 0;
@@ -168,7 +199,9 @@ void draw_projection_batches()
         renderer().count_draw(batch->triangle_count()); // the frame's draw calls and triangles
     }
     gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, min_filter);
-    batch_count() = 0;
+    if (!blend.on) {
+        batch_count() = 0;
+    }
 }
 
 namespace {
