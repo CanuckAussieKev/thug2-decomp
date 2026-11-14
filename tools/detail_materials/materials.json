@@ -140,7 +140,8 @@
                     "md5": "8d40af63a51441914a76de25a2092256",
                     "bytes": 2332617
                 }
-            }
+            },
+            "grainFrom": "concrete_rough"
         },
         {
             "kind": "stone",
@@ -210,7 +211,8 @@
                     "md5": "cd6e9d5693a7efdac715e15072dde2a9",
                     "bytes": 1913334
                 }
-            }
+            },
+            "grainFrom": "plaster"
         },
         {
             "kind": "wood",
@@ -350,7 +352,8 @@
                     "md5": "69aa6339f6bcd9022d1cf9e0873bc3d9",
                     "bytes": 1787176
                 }
-            }
+            },
+            "grainFrom": "concrete_smooth"
         },
         {
             "kind": "plaster",

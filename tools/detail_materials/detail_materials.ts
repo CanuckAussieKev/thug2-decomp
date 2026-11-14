@@ -61,6 +61,10 @@ export interface Material {
     metalness: number;
     roughnessWeight: number;
     files: { colour: ScanFile; normal: ScanFile; roughness: ScanFile };
+    // The kind whose scan gives this one its grain (its tile size with it): for scans with a large pattern of their own -
+    // tile grids, tread plate, mortar - that the sixteenth-of-a-tile filter keeps (sharp lines are fine detail) and
+    // that would print a second grid over the game's texture. The kind keeps its own roughness, F0 and metalness.
+    grainFrom?: KindName;
 }
 
 export function materials(): Material[] {
@@ -106,19 +110,22 @@ export async function fetchScans(cache: string, log: (line: string) => void): Pr
 // The kinds' detail textures from the cached scans.
 export function kindEntries(cache: string, side: number, log: (line: string) => void): KindEntry[] {
     const out: KindEntry[] = [];
-    for (const m of materials()) {
+    const all = materials();
+    for (const m of all) {
+        const grain = m.grainFrom ? all.find((other) => other.kind === m.grainFrom) : m;
+        if (!grain) throw new Error(`materials.json: ${m.asset}: grainFrom ${m.grainFrom} - no such kind`);
         const read = (map: (typeof MAPS)[number]) => {
-            const path = scanPath(cache, m, map);
+            const path = scanPath(cache, grain, map);
             if (!existsSync(path)) throw new Error(`${path} missing - run detail_materials.ts fetch first`);
             const data = readFileSync(path);
-            if (md5(data) !== m.files[map].md5)
+            if (md5(data) !== grain.files[map].md5)
                 throw new Error(`${path}: not the file materials.json lists - fetch again`);
             return readPng(data);
         };
         out.push({
             kind: KIND[m.kind],
             side,
-            tileMetres: m.tileMetres,
+            tileMetres: grain.tileMetres,
             roughness: m.roughness,
             roughnessSwing: m.roughnessSwing,
             f0: m.f0,
@@ -126,7 +133,7 @@ export function kindEntries(cache: string, side: number, log: (line: string) => 
             roughnessWeight: m.roughnessWeight,
             texels: detailTexels(read("colour"), read("normal"), read("roughness"), side),
         });
-        log(`${m.kind}: ${m.asset} (${m.name}, ${m.licence}) - ${side} x ${side}`);
+        log(`${m.kind}: ${grain.asset} (${grain.name}, ${grain.licence}) - ${side} x ${side}${grain === m ? "" : ` (grain of ${grain.kind})`}`);
     }
     return out;
 }
