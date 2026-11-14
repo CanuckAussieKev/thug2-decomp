@@ -57,6 +57,7 @@ add_library(thug2_gpu_vulkan STATIC
     # NOT ORIGINAL - the vhs, retro and watercolour art styles (vulkan_style_film.h)
     vulkan_style_film.cpp
     vulkan_camera_fx.cpp
+    vulkan_fisheye.cpp
     vulkan_grade_looks.cpp
     vulkan_style_kit.cpp
     vulkan_style_vhs.cpp

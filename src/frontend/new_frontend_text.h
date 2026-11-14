@@ -331,6 +331,16 @@ inline constexpr const char* kGradeFilmic = "Filmic";
 inline constexpr const char* kGradeBleach = "Bleach bypass";
 inline constexpr const char* kGradeSkateVideo = "Skate video";
 inline constexpr const char* kGradeLevel = "Per level";
+// (the fisheye lens - gpu_vulkan/vulkan_fisheye.h)
+inline constexpr const char* kOptFisheye = "Fisheye lens";
+inline constexpr const char* kOptFisheyeHelp = "The death lens. Get close.";
+inline constexpr const char* kOptFisheyeStrength = "Fisheye bend";
+inline constexpr const char* kOptFisheyeVignette = "Lens corners";
+inline constexpr const char* kOptFisheyeCircle = "Lens frame";
+inline constexpr const char* kOptFisheyeCircleHelp = "Full frame or the round porthole.";
+inline constexpr const char* kFisheyeFullFrame = "Full frame";
+inline constexpr const char* kFisheyeRounded = "Rounded";
+inline constexpr const char* kFisheyePorthole = "Porthole";
 inline constexpr const char* kOptStyle = "Art style";
 inline constexpr const char* kOptStyleHelp = "Paint the world in a whole new look.";
 inline constexpr const char* kStyleToon = "Toon";

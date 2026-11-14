@@ -70,6 +70,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/fisheye_lens.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
@@ -305,6 +306,25 @@ ViewUpscale& view_upscale()
 {
     static ViewUpscale state;
     return state;
+}
+
+// Not original - the fisheye lens (rt_scene.h ViewLens; engine/gfx/fisheye_lens.h): `allowed` the frame may widen its
+// view (one viewport, drawn to the window - as the upscaler's); `drawn` the lens the viewport being drawn was fitted with
+// (ViewDrawn::lens).
+struct ViewLensState {
+    bool allowed = false;
+    rt::ViewDrawn::Lens drawn;
+};
+ViewLensState& view_lens_state()
+{
+    static ViewLensState state;
+    return state;
+}
+// The camera's angle (degrees) as the viewport is drawn: widened while its lens is on.
+float lens_angle(float angle)
+{
+    const rt::ViewDrawn::Lens& lens = view_lens_state().drawn;
+    return lens.on ? fisheye::widened_angle_degrees(angle, lens.widen) : angle;
 }
 
 // Not original - a split comparison's view (ext::ViewPass::crop): the part (x, y, width, height - 0..1 of the whole
@@ -743,6 +763,8 @@ rt::ViewDrawn view_drawn(int index)
     constexpr double kSecondsPerMillisecond = 0.001;
     // (not original either: [Graphics] max_fps - the part of a tick a blended frame is behind taken off: frame_interp.h)
     view.game_seconds = frame_interp::shown_game_seconds(static_cast<double>(frame_clock::game_clock_time()) * kSecondsPerMillisecond);
+    // (not original either - the fisheye lens the view was widened for)
+    view.lens = view_lens_state().drawn;
     return view;
 }
 
@@ -858,6 +880,26 @@ void draw_viewport(int index)
     set_viewport();
     clear_world_transform();
     const float aspect = view->fetch_width_over_height() * aspect_scale;
+    // Not original - the fisheye lens (rt_scene.h ViewLens): the lens fitted to the camera's view - its field of view
+    // widened for the world's passes, the sky's and the culling (lens_angle). Original behaviour: the camera's own angle.
+    {
+        ViewLensState& lens = view_lens_state();
+        lens.drawn = {};
+        const rt::ViewLens wanted = rt::view_lens();
+        if (wanted.on && lens.allowed && !pass_area().on && current_level() != 0 && ext::game_owner() == nullptr) {
+            const double half_angle = static_cast<double>(camera_angle(camera)) * 0.008726646F;
+            const auto tan_x = static_cast<float>(std::tan(half_angle));
+            const float tan_y = tan_x / (aspect * kAspectScale);
+            const fisheye::Fit fit = fisheye::fit(tan_x, tan_y, wanted.strength, wanted.circle);
+            lens.drawn = {.on = true,
+                          .strength = wanted.strength,
+                          .circle = wanted.circle,
+                          .tangents = {tan_x, tan_y},
+                          .widen = fit.widen,
+                          .reach = fit.reach,
+                          .framed = fit.framed};
+        }
+    }
 
     // Not original - the extensions (engine/ext/extension.h; the level editor's ortho views: its camera's field of
     // view narrowed and the near plane brought up for the world's passes - the sky's keeps the near plane).
@@ -867,7 +909,7 @@ void draw_viewport(int index)
 
     // The world: every scene but the sky.
     {
-        const float angle = ext::view_angle(view_camera, camera_angle(camera));
+        const float angle = lens_angle(ext::view_angle(view_camera, camera_angle(camera)));
         stored_near_z() = world_near;
         const maths::Vec4* position = viewer_location(camera);
         choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
@@ -933,7 +975,7 @@ void draw_viewport(int index)
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
         const maths::Vec4 origin = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-        const float angle = ext::view_angle(view_camera, camera_angle(camera));
+        const float angle = lens_angle(ext::view_angle(view_camera, camera_angle(camera)));
         stored_near_z() = kDefaultNearZ;
         choose_camera(cam_orientation(camera), &origin, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, true);
     }
@@ -992,7 +1034,7 @@ void draw_viewport(int index)
 
     // The world again, for the later passes.
     {
-        const float angle = ext::view_angle(view_camera, camera_angle(camera));
+        const float angle = lens_angle(ext::view_angle(view_camera, camera_angle(camera)));
         const maths::Vec4* position = viewer_location(camera);
         stored_near_z() = world_near;
         choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
@@ -1267,10 +1309,12 @@ void draw_world()
         const int count = modules::viewport_count();
         // (not original: a view drawn smaller and upscaled - only the window's one viewport; rt_scene.h ViewScale)
         view_upscale().allowed = !picture && count == 1;
+        view_lens_state().allowed = !picture && count == 1; // (not original either: the fisheye lens - ViewLens)
         // Not original - an extension's split views (the level editor's: draw_views). Original behaviour: each
         // viewport once.
         if (const int views = count > 0 ? ext::view_count() : 0; views > 0) {
             view_upscale().allowed = false;
+            view_lens_state().allowed = false;
             draw_views(views);
         } else {
             // Not original - the wireframe render mode (render_pc/wireframe.h): the 3D passes in wireframe when asked.

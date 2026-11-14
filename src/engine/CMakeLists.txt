@@ -129,6 +129,7 @@ add_library(thug2_engine STATIC
     gfx/gpu.cpp
     gfx/gpu_context.cpp
     gfx/rt_scene.cpp
+    gfx/fisheye_lens.cpp
     gfx/smooth_tess.cpp
     gfx/rt_sun.cpp
     gfx/surface_maps.cpp

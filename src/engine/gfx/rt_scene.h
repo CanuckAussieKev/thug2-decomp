@@ -301,6 +301,19 @@ struct ViewDrawn {
     uint32_t level = 0;
     bool focus_known = false;
     float focus_distance = 0.0F;
+    // (added by the fisheye lens - engine/gfx/fisheye_lens.h, set_view_lens below) This view's camera was widened for the
+    // lens: `on`, the strength and rt_fisheye_circle it was fitted with, the original view's half angles' tangents (x
+    // across, y down - before the widening), and the fit (fisheye::Fit: widen, reach, framed). `on` false: drawn as the
+    // game made it - the lens pass leaves it alone (menus' front end, the level editor, split screen, pictures).
+    struct Lens {
+        bool on = false;
+        float strength = 0.0F;
+        float circle = 0.0F;
+        std::array<float, 2> tangents{};
+        float widen = 1.0F;
+        float reach = 0.0F;
+        bool framed = false;
+    } lens;
 };
 
 // What listens (a backend's screen-space effect: the Vulkan Gpu's ray-traced sun shadows). Called on the thread that
@@ -337,6 +350,7 @@ inline constexpr int kStyle = 975;        // (added by the art style) the toon f
 inline constexpr int kGrass = 450;        // (added by the grass) the blades, over the shaded ground (opaque_drawn)
 inline constexpr int kCel = 960;          // (added by cel shading) the world's outlines, at the output's size (world_drawn)
 inline constexpr int kCameraEffects = 965; // (added by the camera effects) depth of field, motion blur (world_drawn)
+inline constexpr int kLens = 970;          // (added by the fisheye lens) the warp, after the blur, before the art style (world_drawn)
 inline constexpr int kGrade = 985;         // (added by the camera effects) the colour grade, after the art style (world_drawn)
 inline constexpr int kLights = 350;       // (added by the night lighting) the lamps' light: after the bounce, before the
                                           // reflections (opaque_drawn) - gpu_vulkan/vulkan_rt_lights.h
@@ -370,6 +384,20 @@ void jitter_projection(std::array<std::array<float, 4>, 4>* projection, std::arr
                        uint32_t height);
 // Whether any listens (render_pc skips filling a ViewDrawn when none does).
 bool view_listened();
+
+// (added by the fisheye lens - engine/gfx/fisheye_lens.h; the Vulkan Gpu's [Graphics] rt_fisheye) A backend that draws
+// the lens asks for the game camera's field of view to be widened: render_pc then fits the lens to a view (fisheye::fit)
+// and draws its world - the sky's pass and the culling too - with the tangents of its angles times Fit::widen, and fills
+// ViewDrawn::lens. Only the window's one viewport, in a level (not the front end), without the level editor, a split
+// view or a picture; a paused game keeps it (the world behind the pause menu as it was). `on` false (the default,
+// Direct3D 9): nothing changes.
+struct ViewLens {
+    bool on = false;
+    float strength = 0.0F; // 0 - 1 (fisheye_lens.h)
+    float circle = 0.0F;   // rt_fisheye_circle, 0 - 1
+};
+void set_view_lens(const ViewLens& lens);
+ViewLens view_lens();
 
 // (added by the camera effects) The point the game's camera follows (the skater camera's look-at, set each tick it
 // places itself; world units). focus_point gives it while it was set lately (half a second: a camera that stopped

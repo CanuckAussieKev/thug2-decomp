@@ -142,6 +142,17 @@ ViewScale& view_scale_slot()
 void set_view_scale(const ViewScale& scale) { view_scale_slot() = scale; }
 ViewScale view_scale() { return view_scale_slot(); }
 
+namespace {
+ViewLens& view_lens_slot()
+{
+    static ViewLens lens;
+    return lens;
+}
+} // namespace
+
+void set_view_lens(const ViewLens& lens) { view_lens_slot() = lens; }
+ViewLens view_lens() { return view_lens_slot(); }
+
 std::array<uint32_t, 4> scaled_rect(const std::array<uint32_t, 4>& output, float scale)
 {
     const float kept = std::clamp(scale, kLeastViewScale, 1.0F);

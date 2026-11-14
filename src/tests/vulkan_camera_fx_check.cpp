@@ -14,6 +14,11 @@
 //     the two cameras): vertical stripes smeared across, horizontal stripes left alone, a one-pixel line spread over
 //     about the shutter's share of the move with its light kept; a cut (frame_blend::note_cut) and a camera jump: no
 //     blur; the game's own screen blur on: none;
+//   - the fisheye lens (vulkan_fisheye.h): each case against fisheye_reference, the processor's twin; a straight line
+//     across the upper picture bowed (its ends nearer the middle than its middle); the centre at the original camera's
+//     scale (a line d pixels off the centre of the widened picture shown widen x d off it); the adapter's vignette
+//     darkening the corners and not the centre; a view the camera wasn't widened for (ViewDrawn::lens off: a menu, the
+//     editor, split screen): no pass, the picture bit for bit; rt_fisheye off: no listener, ViewLens off;
 //   - the cost of the three at 2560 x 1440 (the device's timestamps, printed).
 //   thug2_vulkan_camera_fx_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
@@ -38,12 +43,14 @@
 #include "base/core/parse_number.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
+#include "engine/gfx/fisheye_lens.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/sys/frame_blend.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_camera_fx.h"
+#include "gpu_vulkan/vulkan_fisheye.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "tests/no_error_dialogs.h"
@@ -486,7 +493,10 @@ void check_off(render::Gpu& gpu, Tally* tally)
                      (run_frame(gpu, targets, view_of(targets, 10.0F), kWall, {}, false), read_colour(targets, &after));
     const vk::CameraPassCounts now = vk::camera_pass_counts();
     tally->check(ran && after == held, "the picture bit for bit as it was");
-    tally->check(now.blurs == before.blurs && now.focuses == before.focuses && now.grades == before.grades, "no pass recorded");
+    tally->check(now.blurs == before.blurs && now.focuses == before.focuses && now.grades == before.grades &&
+                     now.lenses == before.lenses,
+                 "no pass recorded");
+    tally->check(!render::rt::view_lens().on, "the game camera not widened (no ViewLens)");
     {
         const std::scoped_lock lock(vk::backend().mutex);
         tally->check(!vk::backend().motion.active && vk::backend().motion.draws == 0, "no motion vectors begun");
@@ -599,6 +609,201 @@ void check_grade(render::Gpu& gpu, Tally* tally)
     std::vector<vk::GradeLevel> levels;
     tally->check(!vk::parse_grade_levels("BO:warm,nonsense,BA:purple", &levels) && levels.size() == 1,
                  "rt_grade_levels: the readable pairs kept, the others refused");
+    settings({});
+}
+
+// --- the fisheye lens ------------------------------------------------------------------------------------------------
+
+// A smooth picture (slow waves over a gradient - the filtered reads' rounding small; every value a 16-bit float).
+Picture smooth_picture()
+{
+    Picture picture(static_cast<std::size_t>(kWidth) * kHeight);
+    for (uint32_t row = 0; row < kHeight; ++row) {
+        for (uint32_t column = 0; column < kWidth; ++column) {
+            const float x = static_cast<float>(column) / static_cast<float>(kWidth);
+            const float y = static_cast<float>(row) / static_cast<float>(kHeight);
+            CameraRgb& c = core::at(picture, pixel_of(column, row));
+            core::at(c, 0) = from_half(to_half(0.5F + (0.35F * std::sin(9.0F * x) * std::cos(5.0F * y))));
+            core::at(c, 1) = from_half(to_half(0.2F + (0.6F * x)));
+            core::at(c, 2) = from_half(to_half(0.5F + (0.3F * std::cos((7.0F * y) + (4.0F * x)))));
+        }
+    }
+    return picture;
+}
+
+// A dark picture with a soft bright line (a 3-pixel bump) along a row (`across`) or a column.
+Picture soft_line(bool across, uint32_t at)
+{
+    Picture picture(static_cast<std::size_t>(kWidth) * kHeight, CameraRgb{0.05F, 0.05F, 0.05F});
+    for (uint32_t row = 0; row < kHeight; ++row) {
+        for (uint32_t column = 0; column < kWidth; ++column) {
+            const auto d = static_cast<float>(static_cast<int>(across ? row : column) - static_cast<int>(at));
+            const float v = from_half(to_half(0.05F + (0.9F * std::max(0.0F, 1.0F - (std::fabs(d) / 2.0F)))));
+            core::at(picture, pixel_of(column, row)) = {v, v, v};
+        }
+    }
+    return picture;
+}
+
+// The view's lens as render_pc fits it: the check's camera (72 degrees across, the target's aspect).
+render::rt::ViewDrawn::Lens lens_of(float strength, float circle)
+{
+    const float tan_x = std::tan(0.62831853F);
+    const float tan_y = tan_x * static_cast<float>(kHeight) / static_cast<float>(kWidth);
+    const render::fisheye::Fit fit = render::fisheye::fit(tan_x, tan_y, strength, circle);
+    return {.on = true,
+            .strength = strength,
+            .circle = circle,
+            .tangents = {tan_x, tan_y},
+            .widen = fit.widen,
+            .reach = fit.reach,
+            .framed = fit.framed};
+}
+
+// One frame with the lens: the picture held before it and after it, and whether a pass ran.
+bool lens_frame(render::Gpu& gpu, const Targets& targets, const Picture& picture, const render::rt::ViewDrawn::Lens& lens,
+                Picture* held, Picture* got, bool* passed)
+{
+    render::rt::ViewDrawn view = view_of(targets, 0.0F);
+    view.lens = lens;
+    const uint64_t before = vk::camera_pass_counts().lenses;
+    const bool ran = fill(gpu, targets, picture, held) &&
+                     (run_frame(gpu, targets, view, kWall, {}, false), read_colour(targets, got));
+    *passed = vk::camera_pass_counts().lenses == before + 1;
+    return ran;
+}
+
+// The green channel's peak down a column (`down`) or along a row, to a fraction of a pixel (the centroid of the three
+// around the brightest, above their least), in pixel-centre coordinates (+ 0.5).
+float peak_of(const Picture& picture, bool down, uint32_t at)
+{
+    const uint32_t count = down ? kHeight : kWidth;
+    const auto value = [&](uint32_t i) { return core::at(core::at(picture, down ? pixel_of(at, i) : pixel_of(i, at)), 1); };
+    uint32_t best = 1;
+    for (uint32_t i = 1; i + 1 < count; ++i) {
+        if (value(i) > value(best)) {
+            best = i;
+        }
+    }
+    const float a = value(best - 1);
+    const float b = value(best);
+    const float c = value(best + 1);
+    const float least = std::min({a, b, c});
+    const float sum = (a - least) + (b - least) + (c - least);
+    const float shift = sum > 0.0F ? ((c - least) - (a - least)) / sum : 0.0F;
+    return static_cast<float>(best) + kHalf + shift;
+}
+
+void check_lens(render::Gpu& gpu, Tally* tally)
+{
+    text::print("the fisheye lens\n");
+    struct Case {
+        const char* name;
+        float strength;
+        float vignette;
+        float circle;
+        bool floats = true;
+    };
+    const std::array<Case, 6> cases{{
+        {.name = "equisolid (0.75), vignette 0.5, the whole frame", .strength = 0.75F, .vignette = 0.5F, .circle = 0.0F},
+        {.name = "orthographic (1), vignette 1, the porthole", .strength = 1.0F, .vignette = 1.0F, .circle = 1.0F},
+        {.name = "0.4, no vignette, rounded", .strength = 0.4F, .vignette = 0.0F, .circle = 0.5F},
+        {.name = "equidistant (0.5), vignette 0.25", .strength = 0.5F, .vignette = 0.25F, .circle = 0.0F},
+        {.name = "strength 0, vignette 1 (the corners only)", .strength = 0.0F, .vignette = 1.0F, .circle = 0.0F},
+        {.name = "0.75, an 8-bit target", .strength = 0.75F, .vignette = 0.5F, .circle = 0.0F, .floats = false},
+    }};
+    const Picture picture = smooth_picture();
+    for (const Case& test : cases) {
+        settings({.fisheye = true, .fisheye_strength = test.strength, .fisheye_vignette = test.vignette,
+                  .fisheye_circle = test.circle});
+        const Targets targets = make_targets(gpu, test.floats);
+        Picture held;
+        Picture got;
+        bool passed = false;
+        const bool ran = lens_frame(gpu, targets, picture, lens_of(test.strength, test.circle), &held, &got, &passed);
+        const vk::FilmConstants constants = vk::lens_last_constants();
+        const std::vector<vk::FilmRgb> colour(held.begin(), held.end());
+        const std::vector<vk::FilmRgb> reference = vk::fisheye_reference(constants, colour);
+        const Picture expected(reference.begin(), reference.end());
+        constexpr float kTolerance = 1.5F / kByteSteps;
+        const Compared result = compare(got, expected, kTolerance);
+        tally->check(ran && passed && result.off <= 8,
+                     text::format("%s: within %.4f of the twin (worst %.4f, %d past)", test.name,
+                                  static_cast<double>(kTolerance), static_cast<double>(result.worst), result.off));
+        release(gpu, targets);
+    }
+    // the lens' shape: a straight line bowed, the centre at the original camera's scale (no vignette, the whole frame)
+    {
+        constexpr float kStrength = 0.75F;
+        settings({.fisheye = true, .fisheye_strength = kStrength, .fisheye_vignette = 0.0F});
+        const render::rt::ViewDrawn::Lens lens = lens_of(kStrength, 0.0F);
+        const Targets targets = make_targets(gpu, true);
+        Picture held;
+        Picture got;
+        bool passed = false;
+        constexpr uint32_t kLineRow = 44; // 19.5 pixels above the middle (its pixel's centre)
+        const bool ran = lens_frame(gpu, targets, soft_line(true, kLineRow), lens, &held, &got, &passed);
+        const float middle_row = static_cast<float>(kHeight) * kHalf;
+        const float at_centre = middle_row - peak_of(got, true, kWidth / 2);
+        const float at_side = middle_row - peak_of(got, true, kWidth / 8);
+        const float at_edge = middle_row - peak_of(got, true, 6);
+        tally->check(ran && passed && at_edge < at_side && at_side < at_centre,
+                     text::format("a straight line bowed: %.2f pixels above the middle at the centre, %.2f an eighth in, "
+                                  "%.2f at the edge (widened x%.3f)",
+                                  static_cast<double>(at_centre), static_cast<double>(at_side), static_cast<double>(at_edge),
+                                  static_cast<double>(lens.widen)));
+        constexpr uint32_t kOff = 6; // a vertical line 6.5 pixels right of the middle (its pixel's centre)
+        const bool again = lens_frame(gpu, targets, soft_line(false, (kWidth / 2) + kOff), lens, &held, &got, &passed);
+        const float shown = peak_of(got, false, kHeight / 2) - (static_cast<float>(kWidth) * kHalf);
+        const float expected = (static_cast<float>(kOff) + kHalf) * lens.widen;
+        tally->check(again && passed && std::fabs(shown - expected) < 0.6F,
+                     text::format("the centre at the original camera's scale: a line %.1f pixels off the widened "
+                                  "picture's middle shown %.2f off it (x widen: %.2f)",
+                                  static_cast<double>(kOff) + 0.5, static_cast<double>(shown), static_cast<double>(expected)));
+        release(gpu, targets);
+    }
+    // the adapter's vignette: the corners darker, the centre as it was
+    {
+        const Picture flat(static_cast<std::size_t>(kWidth) * kHeight, CameraRgb{0.75F, 0.75F, 0.75F});
+        const Targets targets = make_targets(gpu, true);
+        Picture held;
+        Picture plain;
+        Picture dark;
+        bool first = false;
+        bool second = false;
+        settings({.fisheye = true, .fisheye_strength = 0.75F, .fisheye_vignette = 0.0F});
+        const bool ran = lens_frame(gpu, targets, flat, lens_of(0.75F, 0.0F), &held, &plain, &first);
+        settings({.fisheye = true, .fisheye_strength = 0.75F, .fisheye_vignette = 1.0F});
+        const bool again = lens_frame(gpu, targets, flat, lens_of(0.75F, 0.0F), &held, &dark, &second);
+        const float corner_plain = core::at(core::at(plain, pixel_of(1, 1)), 1);
+        const float corner_dark = core::at(core::at(dark, pixel_of(1, 1)), 1);
+        const float centre_dark = core::at(core::at(dark, pixel_of(kWidth / 2, kHeight / 2)), 1);
+        tally->check(ran && again && first && second && corner_dark < corner_plain * 0.25F &&
+                         std::fabs(centre_dark - 0.75F) < 0.002F,
+                     text::format("the vignette: a corner %.3f without, %.3f with it; the centre %.3f",
+                                  static_cast<double>(corner_plain), static_cast<double>(corner_dark),
+                                  static_cast<double>(centre_dark)));
+        release(gpu, targets);
+    }
+    // a view the camera wasn't widened for, and the lens off: nothing
+    {
+        settings({.fisheye = true});
+        tally->check(render::rt::view_lens().on && render::rt::view_lens().strength == vk::kFisheyeStrength,
+                     "rt_fisheye on: the game camera asked to widen (ViewLens)");
+        const Targets targets = make_targets(gpu, true);
+        Picture held;
+        Picture got;
+        bool passed = false;
+        render::rt::ViewDrawn::Lens off = lens_of(0.75F, 0.0F);
+        off.on = false;
+        const bool ran = lens_frame(gpu, targets, noise_picture(5U), off, &held, &got, &passed);
+        tally->check(ran && !passed && got == held, "a view not widened (a menu, the editor, split screen): no pass, as it was");
+        settings({});
+        tally->check(!render::rt::view_lens().on, "rt_fisheye off: ViewLens off");
+        const bool after = lens_frame(gpu, targets, noise_picture(5U), lens_of(0.75F, 0.0F), &held, &got, &passed);
+        tally->check(after && !passed && got == held, "rt_fisheye off: no pass, the picture bit for bit as it was");
+        release(gpu, targets);
+    }
     settings({});
 }
 
@@ -827,6 +1032,7 @@ int run(const Options& options, SDL_Window* window)
     check_grade(gpu, &tally);
     check_focus(gpu, &tally);
     check_blur(gpu, &tally);
+    check_lens(gpu, &tally);
     measure_cost(gpu, &tally);
     settings({});
     vk::gpu_context().shutdown();

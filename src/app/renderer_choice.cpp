@@ -622,7 +622,8 @@ void read_water()
     render::vulkan::set_water_settings(water);
 }
 
-// NOT ORIGINAL - the camera effects (gpu_vulkan/vulkan_camera_fx.h): motion blur, depth of field, the colour grade; each
+// NOT ORIGINAL - the camera effects (gpu_vulkan/vulkan_camera_fx.h): motion blur, depth of field, the colour grade, the
+// fisheye lens (vulkan_fisheye.h); each
 // off unless asked for, no ray tracing or HDR needed. rt_grade: a look's name (off, neutral, warm, cool, filmic,
 // bleach, skate_video, level); anything else is off, logged.
 void read_camera_fx()
@@ -637,7 +638,12 @@ void read_camera_fx()
         .grade_strength = ini_float("rt_grade_strength", defaults.grade_strength),
         .grade_vignette = ini_float("rt_grade_vignette", defaults.grade_vignette),
         .grade_grain = ini_float("rt_grade_grain", defaults.grade_grain),
-        .grade_levels = {}};
+        .grade_levels = {},
+        // (the fisheye lens - gpu_vulkan/vulkan_fisheye.h)
+        .fisheye = build_info::fetch_flag(build_info::kGraphics, "rt_fisheye", false),
+        .fisheye_strength = ini_float("rt_fisheye_strength", defaults.fisheye_strength),
+        .fisheye_vignette = ini_float("rt_fisheye_vignette", defaults.fisheye_vignette),
+        .fisheye_circle = ini_float("rt_fisheye_circle", defaults.fisheye_circle)};
     constexpr std::size_t kLongest = 512;
     std::array<char, kLongest> text{};
     graphics_text("rt_grade", "off", text.data(), text.size());
@@ -721,6 +727,7 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_grade_vignette", .prefix = false, .read = &read_camera_fx},
     LiveKey{.key = "rt_grade_grain", .prefix = false, .read = &read_camera_fx},
     LiveKey{.key = "rt_grade_levels", .prefix = false, .read = &read_camera_fx},
+    LiveKey{.key = "rt_fisheye", .prefix = true, .read = &read_camera_fx}, // (the fisheye lens and its knobs)
 };
 
 // (added by the split comparison - engine/gfx/graphics_options.h CompareBackend, devtools/compare_split.h) The effects'

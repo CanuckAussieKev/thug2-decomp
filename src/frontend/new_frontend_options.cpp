@@ -152,7 +152,9 @@ const std::vector<GroupKeys>& group_keys()
                   "rt_bloom_strength",
                   // (the camera effects - gpu_vulkan/vulkan_camera_fx.h)
                   "rt_motion_blur", "rt_motion_blur_strength", "rt_dof", "rt_dof_strength", "rt_grade", "rt_grade_strength",
-                  "rt_grade_vignette", "rt_grade_grain"}},
+                  "rt_grade_vignette", "rt_grade_grain",
+                  // (the fisheye lens - gpu_vulkan/vulkan_fisheye.h)
+                  "rt_fisheye", "rt_fisheye_strength", "rt_fisheye_vignette", "rt_fisheye_circle"}},
         // (the art styles - rt_style first, then each style's knobs, shown only while it is picked: shown_table)
         {.id = "style",
          .name = text_tools::kGroupStyle,
@@ -277,6 +279,9 @@ const std::vector<ShownWhen>& shown_table()
         {.key = "rt_grade_grain",
          .parent = "rt_grade",
          .values = {"neutral", "warm", "cool", "filmic", "bleach", "skate_video", "level"}},
+        {.key = "rt_fisheye_strength", .parent = "rt_fisheye", .values = {"1"}},
+        {.key = "rt_fisheye_vignette", .parent = "rt_fisheye", .values = {"1"}},
+        {.key = "rt_fisheye_circle", .parent = "rt_fisheye", .values = {"1"}},
         // (the art styles' knobs under the looks that use them - gpu_vulkan/vulkan_style_looks.h, vulkan_style_film.h)
         {.key = "rt_style_strength",
          .parent = "rt_style",
@@ -625,6 +630,17 @@ const std::vector<Spec>& get_specs()
                         0, Apply::kLive),
         graphics_choice("rt_grade_grain", text_tools::kOptGradeGrain, "",
                         {{.value = "0", .label = kOff}, {.value = "0.35", .label = text_tools::kLow}, {.value = "0.65", .label = text_tools::kMedium}, {.value = "1", .label = text_tools::kHigh}},
+                        0, Apply::kLive),
+        // (the fisheye lens: gpu_vulkan/vulkan_fisheye.h - the camera widened, the picture through a fisheye adapter)
+        graphics_switch("rt_fisheye", text_tools::kOptFisheye, text_tools::kOptFisheyeHelp, 0, Apply::kLive),
+        graphics_choice("rt_fisheye_strength", text_tools::kOptFisheyeStrength, "",
+                        {{.value = "0.4", .label = text_tools::kLow}, {.value = "0.6", .label = text_tools::kMedium}, {.value = "0.75", .label = text_tools::kHigh}, {.value = "1", .label = "Max"}},
+                        2, Apply::kLive),
+        graphics_choice("rt_fisheye_vignette", text_tools::kOptFisheyeVignette, "",
+                        {{.value = "0", .label = kOff}, {.value = "0.25", .label = text_tools::kLow}, {.value = "0.5", .label = text_tools::kMedium}, {.value = "1", .label = text_tools::kHigh}},
+                        2, Apply::kLive),
+        graphics_choice("rt_fisheye_circle", text_tools::kOptFisheyeCircle, text_tools::kOptFisheyeCircleHelp,
+                        {{.value = "0", .label = text_tools::kFisheyeFullFrame}, {.value = "0.5", .label = text_tools::kFisheyeRounded}, {.value = "1", .label = text_tools::kFisheyePorthole}},
                         0, Apply::kLive),
         // (the art styles: gpu_vulkan/vulkan_style.h, vulkan_style_looks.h, vulkan_style_film.h - the looks and their
         // knobs; cel is cel shading, the rendering mode above; the old 0 / 1 in the ini read as off / toon there, and

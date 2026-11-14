@@ -8,6 +8,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_formats.h"
+#include "gpu_vulkan/vulkan_style_film.h"
 
 // NOT ORIGINAL - the camera effects (docs/design/vulkan.md "Camera effects"; [Graphics] rt_motion_blur, rt_dof, rt_grade
 // and their knobs - gpu_vulkan.h's CameraFxSettings): motion blur, depth of field and a colour grade, post-processes over
@@ -66,6 +67,8 @@
 //    thermal; comic, sketch: their grain) keeps it: the grade's stands aside. Clamped to 0 - 1; alpha kept.
 //    rt_grade=level takes the look rt_grade_levels lists for the level ("<scene>:<look>,...", the scene's name as
 //    LoadScene names it); a level it doesn't list: neutral.
+// 5. The fisheye lens (rt_fisheye - vulkan_fisheye.h): its listener here too, at rt::ViewOrder::kLens (970, between
+//    the blur and the art style), over the views render_pc widened for it (ViewDrawn::lens).
 // Multisampled targets: the grade runs (the colour resolved, written to every sample); the blur and the depth of field
 // don't (logged once). A split view: each viewport its own (the focus is the one the camera noted last).
 namespace render::vulkan {
@@ -126,6 +129,8 @@ struct GradeParameters {
 // The passes for a view (the listeners' work; also the check's). The caller holds the lock. False: nothing recorded.
 bool record_camera_pass(Backend& state, const rt::ViewDrawn& view);
 bool record_grade_pass(Backend& state, const rt::ViewDrawn& view);
+// The fisheye lens (vulkan_fisheye.h) over a view its camera was widened for (ViewDrawn::lens).
+bool record_lens_pass(Backend& state, const rt::ViewDrawn& view);
 // The view's motion begun for the blur when no upscaler took it (the listener's view_begins; the check's).
 void begin_camera_view(Backend& state, const rt::ViewDrawn& view);
 
@@ -135,10 +140,13 @@ struct CameraPassCounts {
     uint64_t focuses = 0;  // depth of field passes
     uint64_t grades = 0;
     uint64_t cut_skips = 0; // frames the blur left out after a cut or a jump
+    uint64_t lenses = 0;    // fisheye lens passes
 };
 [[nodiscard]] CameraPassCounts camera_pass_counts();
 // The last grade's parameters (its frame's seed; the check's reference input).
 [[nodiscard]] GradeParameters grade_last_parameters();
+// The last fisheye pass's constants (the check's reference input).
+[[nodiscard]] FilmConstants lens_last_constants();
 // The device time of the last measured passes (ms; negative: not measured yet) - the blur and depth of field together,
 // and the grade.
 struct CameraTimings {

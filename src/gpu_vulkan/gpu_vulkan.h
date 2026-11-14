@@ -408,9 +408,10 @@ void set_water_settings(const WaterSettings& settings);
 [[nodiscard]] WaterSettings water_settings();
 // NOT ORIGINAL - the camera effects (vulkan_camera_fx.h; docs/design/vulkan.md "Camera effects"): [Graphics]
 // rt_motion_blur, rt_motion_blur_strength, rt_dof, rt_dof_strength, rt_grade, rt_grade_strength, rt_grade_vignette,
-// rt_grade_grain, rt_grade_levels - all put to use at once. Post-processes over each viewport's world: motion blur and
-// depth of field after the upscaler, the grade after the art style, all before the 2D. Everything off (the default):
-// nothing changes - no pass, no motion vectors. No ray tracing or HDR needed.
+// rt_grade_grain, rt_grade_levels, rt_fisheye and its knobs (vulkan_fisheye.h) - all put to use at once.
+// Post-processes over each viewport's world: motion blur and depth of field after the upscaler, the fisheye lens after
+// them, the grade after the art style, all before the 2D. Everything off (the default): nothing changes - no pass, no
+// motion vectors, the camera's field of view as the game sets it. No ray tracing or HDR needed.
 // rt_grade's looks (tables made here from formulas, no files): neutral changes no colour (the vignette and grain only),
 // level the look rt_grade_levels names for the level being played (neutral when it names none).
 enum class GradeLook : uint8_t {
@@ -430,6 +431,8 @@ inline constexpr unsigned kGradeLookCount = 8;
 bool parse_grade_look(const std::string& text, GradeLook* look);
 inline constexpr float kMotionBlurShutter = 0.5F; // (rt_motion_blur_strength's default: a 180-degree shutter)
 inline constexpr float kDofStrength = 0.4F;       // (rt_dof_strength's: mild)
+inline constexpr float kFisheyeStrength = 0.75F;  // (rt_fisheye_strength's: equisolid - fisheye_lens.h kStrengthDefault)
+inline constexpr float kFisheyeVignette = 0.5F;   // (rt_fisheye_vignette's)
 struct CameraFxSettings {
     bool motion_blur = false;
     float motion_blur_strength = kMotionBlurShutter; // the shutter's share of the frame's time (0 - 1)
@@ -440,6 +443,14 @@ struct CameraFxSettings {
     float grade_vignette = 0.0F; // with a look: the corners darkened (0 - 1)
     float grade_grain = 0.0F;    // with a look: film grain (0 - 1)
     std::string grade_levels;    // rt_grade_levels: "<scene>:<look>,..." - the look of each level under rt_grade=level
+    // [Graphics] rt_fisheye - the fisheye lens (vulkan_fisheye.h; engine/gfx/fisheye_lens.h): the camera's field of view
+    // widened and the picture drawn through a 90s fisheye adapter. strength: the distortion and the widening together
+    // (0 none, 0.5 equidistant, 0.75 equisolid, 1 orthographic); vignette: the adapter's dark corners; circle: 0 the
+    // whole frame, 1 a round frame touching the picture's top and bottom.
+    bool fisheye = false;
+    float fisheye_strength = kFisheyeStrength;
+    float fisheye_vignette = kFisheyeVignette;
+    float fisheye_circle = 0.0F;
 };
 void set_camera_fx_settings(const CameraFxSettings& settings);
 [[nodiscard]] CameraFxSettings camera_fx_settings();

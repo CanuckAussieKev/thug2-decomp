@@ -21,6 +21,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_fisheye.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_motion.h"
@@ -539,6 +540,7 @@ struct CameraState {
     bool began_motion = false;
     uint64_t camera_upscales_seen = 0;
     uint64_t grade_upscales_seen = 0;
+    uint64_t lens_upscales_seen = 0;
     uint64_t cuts_seen = 0;
     // timing
     VkQueryPool timer_pool = VK_NULL_HANDLE;
@@ -548,6 +550,7 @@ struct CameraState {
     // what ran
     CameraPassCounts counts;
     GradeParameters last_grade;
+    FilmConstants last_lens;
 };
 
 CameraState& camera()
@@ -1279,6 +1282,27 @@ public:
     }
 };
 
+// The fisheye lens' listener (vulkan_fisheye.h).
+class LensListener final : public rt::ViewListener {
+public:
+    [[nodiscard]] int order() const override { return rt::ViewOrder::kLens; }
+    void opaque_drawn(const rt::ViewDrawn& /*view*/) override { camera().lens_upscales_seen = upscale_passes(); }
+    void world_drawn(const rt::ViewDrawn& view) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        if (state.device_made && state.draws_made) {
+            record_lens_pass(state, view);
+        }
+    }
+};
+
+LensListener& lens_listener()
+{
+    static LensListener instance;
+    return instance;
+}
+
 CameraListener& camera_listener()
 {
     static CameraListener instance;
@@ -1326,6 +1350,9 @@ void set_camera_fx_settings(const CameraFxSettings& settings)
     kept.grade_strength = finite_or(settings.grade_strength, 1.0F, 0.0F, 1.0F);
     kept.grade_vignette = finite_or(settings.grade_vignette, 0.0F, 0.0F, 1.0F);
     kept.grade_grain = finite_or(settings.grade_grain, 0.0F, 0.0F, 1.0F);
+    kept.fisheye_strength = finite_or(settings.fisheye_strength, kFisheyeStrength, 0.0F, 1.0F);
+    kept.fisheye_vignette = finite_or(settings.fisheye_vignette, kFisheyeVignette, 0.0F, 1.0F);
+    kept.fisheye_circle = finite_or(settings.fisheye_circle, 0.0F, 0.0F, 1.0F);
     std::vector<GradeLevel> levels;
     if (!parse_grade_levels(kept.grade_levels, &levels)) {
         get_log("[Graphics] rt_grade_levels=%s: a pair isn't <scene>:<look> - left out", kept.grade_levels.c_str());
@@ -1347,6 +1374,18 @@ void set_camera_fx_settings(const CameraFxSettings& settings)
         rt::add_view_listener(&grade_listener());
     } else {
         rt::remove_view_listener(&grade_listener());
+    }
+    // the lens: the game camera widened (render_pc, rt_scene.h ViewLens) only while it is drawn - with nothing to do
+    // (no distortion, vignette or frame) neither
+    const bool lens_on = kept.fisheye && (kept.fisheye_strength > 0.0F || kept.fisheye_vignette > 0.0F || kept.fisheye_circle > 0.0F);
+    rt::set_view_lens({.on = lens_on, .strength = kept.fisheye_strength, .circle = kept.fisheye_circle});
+    if (lens_on) {
+        rt::add_view_listener(&lens_listener());
+        get_log("vulkan: camera effects: fisheye lens on (strength %.2f, vignette %.2f, circle %.2f)",
+                static_cast<double>(kept.fisheye_strength), static_cast<double>(kept.fisheye_vignette),
+                static_cast<double>(kept.fisheye_circle));
+    } else {
+        rt::remove_view_listener(&lens_listener());
     }
     if (camera_on || kept.grade != GradeLook::kOff) {
         get_log("vulkan: camera effects: motion blur %s (shutter %.2f), depth of field %s (%.2f), grade %s (%.2f, vignette "
@@ -1633,6 +1672,30 @@ CameraPassCounts camera_pass_counts()
     return camera().counts;
 }
 
+bool record_lens_pass(Backend& state, const rt::ViewDrawn& view)
+{
+    CameraState& own = camera();
+    const CameraFxSettings& settings = own.settings;
+    ViewPlan plan;
+    // (a view the game camera wasn't widened for - a menu's front end, the editor, split screen - left as it is)
+    if (!settings.fisheye || !view.lens.on || !plan_view(state, view, &own.lens_upscales_seen, &plan)) {
+        return false;
+    }
+    const FilmConstants constants = fisheye_constants(view.lens, settings.fisheye_vignette, plan.shown);
+    if (!record_fisheye(state, constants, {.colour = plan.colour, .shown = plan.shown})) {
+        return false;
+    }
+    ++own.counts.lenses;
+    own.last_lens = constants;
+    return true;
+}
+
+FilmConstants lens_last_constants()
+{
+    const std::scoped_lock lock(backend().mutex);
+    return camera().last_lens;
+}
+
 GradeParameters grade_last_parameters()
 {
     const std::scoped_lock lock(backend().mutex);
@@ -1648,6 +1711,7 @@ CameraTimings camera_timings()
 void release_camera_fx(Backend& state)
 {
     CameraState& own = camera();
+    release_fisheye(state);
     const VkDevice device = state.context.device();
     if (device != nullptr) {
         for (std::vector<FragmentPipeline>* made : {&own.blur, &own.focus_composite, &own.grade}) {

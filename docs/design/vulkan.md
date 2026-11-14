@@ -2495,11 +2495,53 @@ off - the default - registers no listener and begins no motion vectors: every fr
 - **Cost** (RTX 5070 Ti, 2560 x 1440, `thug2_vulkan_camera_fx_check`): motion blur and depth of field together about
   0.5 ms, the grade about 0.09 ms.
 
+### Fisheye lens (`rt_fisheye`)
+
+A camera option of its own (`src/gpu_vulkan/vulkan_fisheye.cpp`, the maths in `src/engine/gfx/fisheye_lens.cpp`; the
+pass's full description is the header comment of `vulkan_fisheye.h`): a 90s skate video's fisheye adapter on a
+camcorder - strong barrel distortion over a wider field of view, the adapter's dark corners or a round frame, colour
+fringes and softness toward the edges. Combines with any art style and grade (`rt_grade=skate_video`). Off - the
+default - sets no `rt::ViewLens` and registers no listener: the camera and every frame exactly as before.
+
+- **Not a crop.** Barrel-warping the normal picture magnifies its middle and pushes its edges out of the frame. Instead
+  the game camera's field of view is widened for the lens and the wider picture is mapped through it: the middle at
+  the original camera's scale (the skater the same size), the edges squeezed to show more.
+- **The lens.** A family with the slope 1 at the axis for every strength s (`fisheye::radius_of`, focal units):
+  tan(k phi) / k with k = 1 - 2s below 0.5 (0: rectilinear - nothing moves; 0.25 stereographic), phi at 0.5
+  (equidistant), sin(k phi) / k with k = 2s - 1 above it (0.75 equisolid - the default -, 1 orthographic). At most 75
+  degrees off the axis (`kMostAngle`): a wider camera is framed there.
+- **The camera.** `rt::set_view_lens` (the backend, from the settings) asks render_pc to widen. `draw_viewport` fits
+  the lens to the view (`fisheye::fit`): the frame's reach - the corners, a round frame (`rt_fisheye_circle`: from the
+  corners at 0 to the shorter sides at 1) or the lens' 75 degrees -, and the factor `widen` that makes the widened
+  rectilinear view just hold every place the lens shows (the farthest across is on the reach, at min(side, reach)
+  along each axis; tight - `thug2_fisheye_check`). The camera's angle is drawn with its half angle's tangent times
+  `widen` for the world's passes, the sky's and the world's again (`lens_angle`) - so the projection, `ViewShape` and
+  with it the culling follow -, and `ViewDrawn::lens` carries the fit to the listeners. Only the window's one
+  viewport (as the upscaler's), in a level (not the front end), without the level editor, a split comparison or a
+  picture; a paused game keeps the lens (the world behind the pause menu doesn't jump).
+- **Where.** The camera effects' listener at `rt::ViewOrder::kLens` (970): after the upscaler (950), cel shading's
+  outlines (960) and motion blur / depth of field (965), at the output resolution; before the art styles (975: the VHS's
+  REC stays straight) and the grade (985); the 2D after, undistorted. The motion vectors and the upscaler's history are
+  the widened picture's - consistent, the warp comes after them.
+- **The pass** (one full-screen pass on `film_kit`): per output pixel its place n in the original view's focal units,
+  r = |n|, the widened picture read at n tan(angle_of(r)) / r / widen; red and blue read 0.6% x s x e^2 further out and
+  nearer (e = r / reach), each channel three taps along the line kSoftShare x s x e^2 apart; the vignette
+  1 - `rt_fisheye_vignette` x 0.92 x smoothstep(0.35, 1, e); black past a round frame's soft edge.
+- **Checks.** `thug2_fisheye_check` (pure): the family's members, the centre's scale, the inverse, the fit tight for
+  16:9 and 4:3 at each strength and frame, the widened projection's scale, the chain camera -> pass reading back what
+  was drawn, a straight line bowed. `thug2_vulkan_camera_fx_check`: the pass against `fisheye_reference`, a line
+  bowed, the centre at the original camera's scale (a line d pixels off the widened picture's middle shown widen x d
+  off it), the vignette, a view not widened and `rt_fisheye=0` bit for bit as they were.
+- **Not done.** What the game draws in 2D at a world point (names over skaters online, goal arrows) is placed by the
+  widened rectilinear camera, not through the lens. The widened picture has fewer pixels per degree at the middle: the
+  middle is upscaled by `widen` (x1.3 - 1.6 at the default) and a little softer. `rt_style_vhs_fisheye` stays the VHS
+  style's own post warp of the normal picture.
+
 ### Changing the settings while the game runs (the Options screen)
 
 `app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,
 `read_rt_gi`, `read_rt_reflections`, `read_hdr`, `read_rt_fog`, `read_rt_sun`, `read_rt_sky`, `read_rt_relit`,
-`read_upscale`, `read_rt_pbr`, `read_style`, `read_grass`, `read_rt_cel`, `read_water`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
+`read_upscale`, `read_rt_pbr`, `read_style`, `read_grass`, `read_rt_cel`, `read_water`, `read_camera_fx` - the camera effects and the fisheye lens) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
 end's Options screen writes a `[Graphics]` key it calls `render::graphics_options::reload_live(key)`: a key of an
 effect (`kLiveKeys`: the shadows', occlusion's, the bounce's, the reflections', the tone mapping's numbers, the fog's,
 the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*` -,

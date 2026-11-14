@@ -77,6 +77,14 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_tess_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_fisheye_check.exe: the fisheye lens' maths (engine/gfx/fisheye_lens.h) - the lens family, the
+# game camera's widening and projection, the chain from the widened camera through the lens pass's mapping
+# (src/tests/fisheye_check.cpp; pure: no game, no device).
+if(TARGET thug2_base)
+    add_executable(thug2_fisheye_check fisheye_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/fisheye_lens.cpp")
+    target_link_libraries(thug2_fisheye_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_options_check.exe: the new front end's Options screen's tables - every setting in one group (named
 # by key), its default among its choices, each choice written to an ini text and read back, the graphics presets
 # (src/tests/options_check.cpp; frontend/new_frontend_options.cpp is pure: no game).

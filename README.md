@@ -425,6 +425,10 @@ for the restart
 | `rt_grade_vignette` | 0 | With `rt_grade`: how dark the picture's corners get (0-1). An art style with its own (noir, thermal) keeps that one |
 | `rt_grade_grain` | 0 | With `rt_grade`: film grain, strongest in the mid-tones (0-1). An art style with its own grain (noir, thermal, comic, sketch) keeps that one |
 | `rt_grade_levels` | (none) | With `rt_grade=level`: each level's look, as `scene:look` pairs - e.g. `BO:warm,BA:filmic,SC:skate_video`; a level it doesn't list is `neutral` |
+| `rt_fisheye` | 0 | On Vulkan (no ray tracing needed): 1 films the game through a 90s fisheye adapter - the camera's view widened and bent round the edges, the skater in the middle at the same size, dark lens corners, colour fringes and softness toward the edges. Works with any art style and `rt_grade` (try `skate_video`); menus, the HUD, the level editor and split screen are left as they are |
+| `rt_fisheye_strength` | 0.75 | How strong the lens is - the bend and how much wider the camera sees together (0-1: 0.5 equidistant, 0.75 equisolid, 1 the strongest) |
+| `rt_fisheye_vignette` | 0.5 | How dark the adapter's corners get (0-1) |
+| `rt_fisheye_circle` | 0 | The lens' frame: 0 fills the screen, 1 a round porthole touching the top and bottom, in between rounded corners |
 | `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
 | `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
 | `rt_sky` | 0 | On Vulkan (no ray tracing needed): 1 replaces the level's painted sky dome with a real sky - the light of the air scattered once and many times, bright round the sun, pale at the horizon - tinted toward the level's own sky so each level keeps its colours. The haze of `rt_fog_haze` fades distant buildings into this sky |
