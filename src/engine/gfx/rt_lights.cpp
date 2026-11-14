@@ -22,6 +22,8 @@ namespace render::rt {
 namespace {
 
 constexpr float kHalf = 0.5F;
+constexpr float kPi = 3.14159265F;
+constexpr float kMostBrightness = 2.0F; // a cluster's colour's brightest channel at most (the game's 2x)
 constexpr float kSmallest = 1e-6F;
 constexpr float kLeastColour = 1e-3F; // a cluster's colour darker than this (its brightest channel) gives no light
 constexpr uint64_t kCellBits = 21U;   // a cell key's bits per axis
@@ -80,21 +82,23 @@ bool emitter_of(const Cluster& cluster, Emitter* out)
     const float width = std::max(x_of(extent), z_of(extent));
     const bool flat_up = static_cast<float>(cluster.up * inverse) >= kFlatUpShare &&
                          y_of(extent) <= kFlatHeightShare * std::max(width, kSmallest);
+    // (changed for the washed-out streets) the core: the radius of a disc of the cluster's own area - not its box's
+    // half diagonal, nor a share of its reach (a quarter of up to 1500 units lit whole streets as evenly as the sun)
+    const float core = emitter_core(static_cast<float>(cluster.area));
     if (flat_up) {
         if (cluster.kind == EmitterKind::kSelfLit) {
             return false; // (a baked pool of light on the floor, not a lamp)
         }
-        std::get<1>(centre) += size; // (a glow's pool: the light falls from above it)
+        std::get<1>(centre) += core; // (a glow's pool: the light falls from above it - half its brightness at its middle)
     }
-    const float side = static_cast<float>(std::sqrt(cluster.area));
-    const float area_factor = std::clamp(side / kEmitterUnitSide, kEmitterMinArea, kEmitterMaxArea);
     *out = {.position = centre,
             .size = size,
             .colour = scaled(colour, 1.0F / brightest),
-            .intensity = std::min(brightest, 2.0F) * area_factor,
-            .reach = std::clamp(size * kEmitterReachPerSize, kEmitterMinReach, kEmitterMaxReach),
+            .intensity = std::min(brightest, kMostBrightness),
+            .reach = std::clamp(core * kEmitterReachPerCore, kEmitterMinReach, kEmitterMaxReach),
             .material = cluster.material,
-            .kind = cluster.kind};
+            .kind = cluster.kind,
+            .core = core};
     return true;
 }
 
@@ -244,12 +248,28 @@ bool emitters_wanted()
     return slot.wanted;
 }
 
-float light_falloff(float distance, float size, float reach)
+float emitter_core(float area)
 {
-    if (!(reach > 0.0F) || !(distance < reach)) {
+    return std::max(kEmitterMinCore, std::sqrt(std::max(area, 0.0F) / kPi));
+}
+
+float point_core(float reach) { return kPointCoreShare * reach; }
+
+float limited_light(float luminance)
+{
+    if (!(luminance > kLightKnee)) {
+        return luminance;
+    }
+    const float over = luminance - kLightKnee;
+    const float room = kLightMost - kLightKnee;
+    return kLightKnee + (room * over / (room + over));
+}
+
+float light_falloff(float distance, float core, float reach)
+{
+    if (!(reach > 0.0F) || !(distance < reach) || !(core > 0.0F)) {
         return 0.0F;
     }
-    const float core = std::max(size, kCoreShare * reach);
     const float x = distance / reach;
     const float x2 = x * x;
     const float window = 1.0F - (x2 * x2);
@@ -303,7 +323,8 @@ std::vector<Emitter> select_view_lights(const FrameRecord& record, const LevelEm
                       .intensity = brightest * request.point_scale,
                       .reach = light.radius,
                       .material = 0,
-                      .kind = EmitterKind::kPoint});
+                      .kind = EmitterKind::kPoint,
+                      .core = point_core(light.radius)});
         }
     }
     if (request.emitters && level != nullptr) {

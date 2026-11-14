@@ -1040,21 +1040,27 @@ lights for a ray-traced pass (`gpu_vulkan/vulkan_rt_lights.h`, the light sources
   is at least 112 and 2.5 times the level's median (lamp heads, lit windows, signs). Triangles are joined into clusters
   (a triangle joins the nearest cluster of its kind whose first triangle is within 96 units): one light per lamp, a long
   tube one every 96 units or so. A cluster's light: its area-weighted centre, colour (vertex x pass colour; the pass
-  multiplies in its texture's mean - the texture's smallest level), intensity (the colour's brightness x its size, 32
-  units square = 1), size (half its diagonal), reach (12 x its size, 400 - 1500 units). A flat cluster facing up is a
-  pool of light: a glow's is lifted by its size, a self-lit one dropped (that is baked light on the floor).
+  multiplies in its texture's mean - the texture's smallest level), intensity (the colour's brightness, at most 2),
+  size (half its diagonal: where its shadow rays stop), core (the radius of a disc of its area: its falloff's), reach
+  (12 x its core, 200 - 1500 units). A flat cluster facing up is a pool of light: a glow's is lifted by its core, a
+  self-lit one dropped (that is baked light on the floor). A point light's core is a tenth of its reach.
 - **Per view** the lights whose reach touches the frustum, the `rt_lights_max` most important (intensity x how much of
   its reach the camera is within), go in a uniform block (at most 256).
 - **Per pixel** (one full-screen pass after the bounce light, `ViewOrder::kLights`): the position and normal from the
   depth, the albedo from a camera ray and the material table (as `rt_gi`'s), every light's unshadowed light (colour x
-  intensity x falloff x N.L; falloff `core^2 / (core^2 + d^2) x (1 - (d / reach)^4)^2`, core = max(size, reach / 4)), the
+  intensity x falloff x N.L; falloff `core^2 / (core^2 + d^2) x (1 - (d / reach)^4)^2` - a disc of the cluster's area and brightness: its
+  brightness at it, falling with the square of the distance past its own size), the
   brightest `rt_lights_shadowed` traced (a ray query toward each through the opaque world and objects, stopped the
   light's size short: a lamp's own fixture doesn't shadow it; an object's pixel the world's shadows only), the rest
-  added in the share of the traced ones' light that got through. Added = strength x albedo x light (screened on an 8-bit
-  target, added on HDR). Deterministic: no noise, no history.
+  added in the share of the traced ones' light that got through; the sum's luminance held under 1 (as it is up to 0.5,
+  then L' = 0.5 + 0.5 (L - 0.5) / L: many lamps over one spot light it up to its own colour, never white). Added = strength x albedo
+  x light (screened on an 8-bit target, added on HDR). Until 2026-11-15 the core was at least a quarter of the reach (up
+  to 375 units) and the intensity grew with a cluster's area: one street-wide glow in New Orleans lit the whole street
+  evenly - white at strength 0.35, still like daylight at 0.1. Now the default strength is 1. Deterministic: no noise, no history.
 - **Check**: `thug2_vulkan_rt_lights_check` (the clustering and selection on the processor; a lamp beside a box on a dark
   floor against the processor's answer, one sample and four, a red-textured glow, two lamps with one traced; off and a
-  lamp out of view leave every pixel as drawn). `--perf`: 64 lamps in view, 320x240: 0.087 ms a pass (RTX 5070 Ti) -
+  lamp out of view leave every pixel as drawn; 49 lamps over the floor: their sum past the knee, as the processor's, no
+  pixel white at the default strength; a street-wide glow's light 600 units away an eighth of the light under it). `--perf`: 64 lamps in view, 320x240: 0.087 ms a pass (RTX 5070 Ti) -
   about 2-3 ms at 1920x1080 in that scene; a level's deeper BVH costs more (not measured in the game yet).
 - **Not yet**: the lamps' light in the bounce (`rt_gi`) and in the reflections' hits; the lights already baked into the
   vertex colours aren't taken out (the traced light adds to them - `rt_lights_strength` balances it); no light grid

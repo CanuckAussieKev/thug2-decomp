@@ -530,8 +530,8 @@ const std::vector<Spec>& get_specs()
         // (NOT ORIGINAL - the night lighting: gpu_vulkan/vulkan_rt_lights.h)
         graphics_switch("rt_lights", text_tools::kOptLights, text_tools::kOptLightsHelp, 0, Apply::kLive),
         graphics_choice("rt_lights_strength", text_tools::kOptLightsStrength, "",
-                        {{.value = "0.2", .label = text_tools::kLow}, {.value = "0.35", .label = text_tools::kMedium}, {.value = "0.6", .label = text_tools::kHigh}, {.value = "1", .label = "Max"}},
-                        1, Apply::kLive),
+                        {{.value = "0.35", .label = text_tools::kLow}, {.value = "0.6", .label = text_tools::kMedium}, {.value = "1", .label = text_tools::kHigh}, {.value = "2", .label = "Max"}},
+                        2, Apply::kLive),
         graphics_choice("rt_lights_shadowed", text_tools::kOptLightsShadowed, "",
                         {{.value = "1", .label = "1"}, {.value = "2", .label = "2"}, {.value = "4", .label = "4"}, {.value = "8", .label = "8"}},
                         2, Apply::kLive),

@@ -426,7 +426,7 @@ for the restart
 | `rt_gi_distance` | 600 | How far (world units) a ray looks for a surface to bounce from (1-5000) |
 | `rt_gi_denoise` | 1 | 0: each frame's rays as they are (noisy) |
 | `rt_lights` | 0 | On Vulkan with `ray_tracing=1`: 1 makes the level's lamps real lights - its own light nodes, its glows (lamp halos, neon, light cones) and, in a dark level, its self-lit surfaces (lamp heads, lit windows) light the ground, the walls and the skater around them, with ray-traced shadows |
-| `rt_lights_strength` | 0.35 | How much of the lamps' light is added (0-8; the Options screen offers 0.2 / 0.35 / 0.6 / 1) |
+| `rt_lights_strength` | 1 | How much of the lamps' light is added (0-8; the Options screen offers 0.35 / 0.6 / 1 / 2) |
 | `rt_lights_shadowed` | 4 | The brightest lamps at each pixel traced for shadows (1-8); the others' light follows their share |
 | `rt_lights_max` | 64 | Lamps a view lights with at most (1-256): the nearest and brightest |
 | `rt_lights_emissive` | 1 | x the glows' and self-lit surfaces' brightness (0: only the level's own light nodes) |

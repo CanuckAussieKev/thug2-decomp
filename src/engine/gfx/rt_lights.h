@@ -18,8 +18,8 @@
 //                  windows, signs. A flat patch facing up is left out (that is a baked pool of light, not a lamp).
 //     Triangles are joined into clusters kEmitterJoin across (one light per lamp, not per triangle; a long tube gives a
 //     light every kEmitterJoin or so); each cluster is a light at its area-weighted centre, its colour the vertex and
-//     pass colours' area-weighted mean (the pass multiplies in its texture's mean colour), its intensity from that
-//     colour's brightness and its area, its reach from its size.
+//     pass colours' area-weighted mean (the pass multiplies in its texture's mean colour), its intensity that
+//     colour's brightness, its falloff's core the radius of a disc of its area, its reach from that core.
 // A view lights with at most kMaxViewLights of them: select_view_lights keeps those whose reach touches the view's
 // frustum, the most important first (intensity x how much of the reach the camera is inside of).
 #include <array>
@@ -47,22 +47,23 @@ struct EmitterTriangle {
 // A light the pass shines (an emitter found at load, or the frame's point light).
 struct Emitter {
     std::array<float, 3> position{};
-    float size = 0.0F;    // its radius (world units): a shadow ray stops this short of it, its falloff's core
+    float size = 0.0F;    // its radius (world units): a shadow ray stops this short of it
     std::array<float, 3> colour{}; // hue, the brightest channel 1
-    float intensity = 0.0F;        // x colour: the light at the core's edge, face-on
+    float intensity = 0.0F;        // x colour: the light right at it (half that at the core's edge), face-on
     float reach = 0.0F;            // where its light ends (a smooth window to 0)
     MaterialId material = 0;       // whose texture's mean tints it (0: none)
     EmitterKind kind = EmitterKind::kGlow;
+    // (added for the washed-out streets) its falloff's core (light_falloff): an emitter's emitting area as a disc's
+    // radius (emitter_core), a point light's share of its reach (point_core)
+    float core = 0.0F;
 };
 
 inline constexpr float kEmitterJoin = 96.0F;        // a triangle joins a cluster whose first is this near (world units)
-inline constexpr float kEmitterReachPerSize = 12.0F; // reach = size x this, within:
-inline constexpr float kEmitterMinReach = 400.0F;
+inline constexpr float kEmitterReachPerCore = 12.0F; // reach = core x this (the light down to under 1%), within:
+inline constexpr float kEmitterMinReach = 200.0F;
 inline constexpr float kEmitterMaxReach = 1500.0F;
 inline constexpr float kEmitterMinSize = 4.0F;
-inline constexpr float kEmitterUnitSide = 32.0F; // a cluster this many units square has intensity x 1 (its colour's)
-inline constexpr float kEmitterMinArea = 0.25F;  // ... the intensity's area factor kept within these
-inline constexpr float kEmitterMaxArea = 2.0F;
+inline constexpr float kEmitterMinCore = 4.0F;
 inline constexpr float kFlatUpShare = 0.85F;     // a cluster facing up this much (area-weighted |n.y|) ...
 inline constexpr float kFlatHeightShare = 0.25F; // ... no taller than this share of its width is flat
 inline constexpr std::size_t kMaxEmitters = 4096;
@@ -72,8 +73,14 @@ inline constexpr std::size_t kMaxEmitters = 4096;
 inline constexpr float kDarkLevelLuma = 64.0F;
 inline constexpr float kSelfLitLuma = 112.0F;
 inline constexpr float kSelfLitOverLevel = 2.5F;
-// A light's falloff core (light_falloff): its size, and at least this share of its reach.
-inline constexpr float kCoreShare = 0.25F;
+// A point light's falloff core (point_core): this share of its reach (the game's radius).
+inline constexpr float kPointCoreShare = 0.1F;
+// (added for the washed-out streets) The lights' sum at a pixel is kept under kLightMost (its luminance; the pass's GLSL
+// is the same): up to kLightKnee as it is, then rising ever more slowly toward kLightMost - many lamps over one spot
+// light it up to its own colour (albedo x strength), they don't burn it white.
+inline constexpr float kLightKnee = 0.5F;
+inline constexpr float kLightMost = 1.0F;
+[[nodiscard]] float limited_light(float luminance);
 inline constexpr std::size_t kMaxViewLights = 256;
 
 [[nodiscard]] constexpr bool dark_level(float median_luma) { return median_luma <= kDarkLevelLuma; }
@@ -121,8 +128,14 @@ struct ViewLightRequest {
                                      const std::array<float, 3>& centre, float radius);
 
 // The light's falloff at `distance` (the pass's - vulkan_rt_lights.cpp's GLSL is the same): core^2 / (core^2 + d^2) - an
-// inverse square softened by the core (max(size, kCoreShare x reach)): 1 at the light, 1/2 at the core's edge -, times
-// (1 - (d / reach)^4)^2, a smooth window to 0 at `reach`.
-[[nodiscard]] float light_falloff(float distance, float size, float reach);
+// inverse square softened by the core: 1 at the light, 1/2 at the core's edge -, times (1 - (d / reach)^4)^2, a smooth
+// window to 0 at `reach`. With an emitter's core (emitter_core) it is a disc of its area and brightness: the light right
+// at it its brightness, falling with the square of the distance past its own size - a pool, not a flood. (Before, the
+// core was at least a quarter of the reach, up to 375 units: a lamp lit a whole street evenly, as the sun does.)
+[[nodiscard]] float light_falloff(float distance, float core, float reach);
+// An emitter's core: the radius of a disc of its area (at least kEmitterMinCore); a point light's: kPointCoreShare x
+// its reach.
+[[nodiscard]] float emitter_core(float area);
+[[nodiscard]] float point_core(float reach);
 
 } // namespace render::rt
