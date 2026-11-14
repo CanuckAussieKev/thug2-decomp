@@ -26,6 +26,7 @@ const CHECKS = new Set([
     "tests/vulkan_hdr_check.cpp",
     "tests/vulkan_style_check.cpp",
     "tests/vulkan_grass_check.cpp",
+    "tests/vulkan_scatter_check.cpp",
     "tests/vulkan_cel_check.cpp",
     "tests/vulkan_style_film_check.cpp",
     "tests/vulkan_pbr_check.cpp",

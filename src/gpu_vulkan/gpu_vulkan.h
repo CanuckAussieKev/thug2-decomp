@@ -440,6 +440,18 @@ struct GrassSettings {
 };
 void set_grass_settings(const GrassSettings& settings);
 [[nodiscard]] GrassSettings grass_settings();
+// NOT ORIGINAL - decals and clutter (vulkan_scatter.h; docs/design/vulkan.md "Decals and clutter"): [Graphics] rt_decals,
+// rt_decals_density, clutter, clutter_density - all put to use at once. Marks (cracks, stains, oil, tyre marks, gum, wet
+// patches, grime) and small props (leaves, litter, weeds, pebbles) over the level's surfaces, read from its collision and
+// kept off its skate lines. Both off (the default): nothing is gathered or drawn. No ray tracing needed.
+struct ScatterSettings {
+    bool decals = false;
+    float decal_density = 1.0F;   // x the decals a square metre (0.25 - 4)
+    bool clutter = false;
+    float clutter_density = 1.0F; // x the items (0.25 - 4)
+};
+void set_scatter_settings(const ScatterSettings& settings);
+[[nodiscard]] ScatterSettings scatter_settings();
 // NOT ORIGINAL - water shading (vulkan_water.h; docs/design/vulkan.md "Water"): [Graphics] rt_water, rt_water_waves,
 // rt_water_wind, rt_water_wind_heading, rt_water_clarity, rt_water_foam, rt_water_tint, rt_water_geometry. The game's
 // water surfaces (the moving materials render_pc marks - engine/gfx/water_surfaces.h - where they face up) drawn with

@@ -52,6 +52,7 @@ add_library(thug2_render_pc STATIC
     pc_weather.cpp
     rt_record.cpp
     grass_world.cpp
+    scatter_world.cpp
     water_materials.cpp
     mesh_smoothing.cpp
     water_geometry.cpp

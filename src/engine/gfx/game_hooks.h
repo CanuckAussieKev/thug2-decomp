@@ -1,6 +1,8 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
+#include <vector>
 
 // NOT ORIGINAL - what the engine's graphics ask of the game above them, without knowing the game's classes: the skate
 // module's career level and players, the game mode, the front end's pause and the park editor's shell (the screen's
@@ -27,6 +29,10 @@ struct GameHooks {
     // (added by the time of day - engine/gfx/day_clock.h) The skate module's level - its load script's checksum
     // (load_mainmenu in the front end; modules::Skate::level) -, 0 without a skate module.
     uint32_t (*level_script)();
+    // (added by the decals and clutter - engine/gfx/scatter.h) The level's grind rails (the skate module's rail
+    // manager, not the moving objects'; climbing nodes left out): each segment's two ends, world x y z - a node with
+    // no next its own point twice. Nothing without a skate module.
+    void (*level_rails)(std::vector<std::array<float, 6>>* segments);
 };
 
 void set_game_hooks(const GameHooks& hooks);

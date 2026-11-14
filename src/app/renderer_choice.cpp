@@ -631,6 +631,18 @@ void read_grass()
                                         .distance = ini_float("grass_distance", defaults.distance)});
 }
 
+// NOT ORIGINAL - decals and clutter (gpu_vulkan/vulkan_scatter.h): marks and small props over the level's surfaces,
+// read from its collision; off unless asked for, no ray tracing needed
+void read_scatter()
+{
+    const render::vulkan::ScatterSettings defaults;
+    render::vulkan::set_scatter_settings(
+        {.decals = build_info::fetch_flag(build_info::kGraphics, "rt_decals", false),
+         .decal_density = ini_float("rt_decals_density", defaults.decal_density),
+         .clutter = build_info::fetch_flag(build_info::kGraphics, "clutter", false),
+         .clutter_density = ini_float("clutter_density", defaults.clutter_density)});
+}
+
 // NOT ORIGINAL - cel shading (engine/gfx/rt_cel.h, gpu_vulkan/vulkan_cel.h): off unless asked for; the relit mode's
 // decomposition and ray tracing make it fuller (the light in bands from the relit world's parts, hard traced shadows).
 // On with rt_style=cel (an art style in the Options screen) and only then: an older ini's rt_cel line does nothing (it
@@ -825,6 +837,8 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_delight", .prefix = true, .read = &read_rt_detail}, // (NOT ORIGINAL - rt_delight and rt_delight_*)
     LiveKey{.key = "rt_style", .prefix = true, .read = &read_style}, // (rt_style and every rt_style_)
     LiveKey{.key = "grass", .prefix = true, .read = &read_grass},    // (grass and every grass_)
+    LiveKey{.key = "rt_decals", .prefix = true, .read = &read_scatter}, // (NOT ORIGINAL - rt_decals, rt_decals_density)
+    LiveKey{.key = "clutter", .prefix = true, .read = &read_scatter},   // (NOT ORIGINAL - clutter, clutter_density)
     LiveKey{.key = "rt_cel", .prefix = true, .read = &read_rt_cel},   // (added by cel shading: rt_cel and every rt_cel_)
     LiveKey{.key = "rt_water", .prefix = true, .read = &read_water}, // (NOT ORIGINAL - rt_water and every rt_water_)
     // (NOT ORIGINAL - the camera effects; rt_grade_lut, HDR's .cube table, is read_hdr's above)
@@ -1076,6 +1090,7 @@ void install_vulkan()
     read_rt_detail(); // (NOT ORIGINAL - detail materials and de-lighting)
     read_style();
     read_grass(); // (NOT ORIGINAL - the grass: gpu_vulkan/vulkan_grass.h)
+    read_scatter(); // (NOT ORIGINAL - the decals and clutter: gpu_vulkan/vulkan_scatter.h)
     read_rt_cel(); // (added by cel shading)
     read_water();
     read_camera_fx(); // (NOT ORIGINAL - the camera effects: gpu_vulkan/vulkan_camera_fx.h)

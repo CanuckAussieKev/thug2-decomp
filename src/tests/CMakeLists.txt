@@ -250,6 +250,18 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_grass_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_scatter_check.exe: the decals and clutter (engine/gfx/scatter.h's placement,
+# gpu_vulkan/vulkan_scatter.h's passes) on this machine - a synthetic street's collision: the same placement every time,
+# each decal's kind its surface's, every vertex on its face and none past an edge, nothing on the skate lines (a quarter
+# pipe, a rail, a ledge's top, steps), clutter only near kerbs and walls; the passes over a drawn road: marks only darker,
+# only in decals' footprints, none behind a wall or over nothing; items only at the kerb's foot; four samples; off as
+# before; validation; the cost at 2560x1440 (src/tests/vulkan_scatter_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_scatter_check vulkan_scatter_check.cpp)
+    target_link_libraries(thug2_vulkan_scatter_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_scatter_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_cel_check.exe: cel shading (engine/gfx/rt_cel.h, gpu_vulkan/vulkan_cel.h) on this machine
 # - the bands of a lit gradient (the relit stream, 2 - 4 bands; the bake without it; an object lit by a light, its rim),
 # the shadow band's tint, hard ray-traced shadows (with ray tracing), a lit cube's hull and the world's lines, flatter

@@ -52,6 +52,7 @@
 #include "gpu_vulkan/vulkan_style.h"
 #include "gpu_vulkan/vulkan_camera_fx.h"
 #include "gpu_vulkan/vulkan_grass.h"
+#include "gpu_vulkan/vulkan_scatter.h"
 #include "gpu_vulkan/vulkan_style_film.h"
 #include "gpu_vulkan/vulkan_framegen.h"
 #include "gpu_vulkan/vulkan_upscale.h"
@@ -1094,6 +1095,7 @@ void release_draw_objects(Backend& state)
     release_style(state); // (NOT ORIGINAL - the art style's: vulkan_style.h)
     release_camera_fx(state); // (NOT ORIGINAL - the camera effects': vulkan_camera_fx.h)
     release_grass(state); // (NOT ORIGINAL - the grass's: vulkan_grass.h)
+    release_scatter(state); // (NOT ORIGINAL - the decals' and clutter's: vulkan_scatter.h)
     release_cel(state); // (NOT ORIGINAL - cel shading's outlines: vulkan_cel_draw.h)
     release_water(state); // (NOT ORIGINAL - rt_water's: vulkan_water.h)
     release_film_looks(state); // (NOT ORIGINAL - the vhs / retro / watercolour styles': vulkan_style_film.h)

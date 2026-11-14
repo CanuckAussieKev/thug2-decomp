@@ -55,6 +55,7 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_style.cpp
     vulkan_style_looks.cpp
     vulkan_grass.cpp
+    vulkan_scatter.cpp
     vulkan_cel.cpp
     vulkan_water.cpp
     water_shader.cpp

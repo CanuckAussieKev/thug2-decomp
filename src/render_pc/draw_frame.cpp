@@ -51,6 +51,7 @@
 #include "render_pc/scene_render.h"
 #include "render_pc/rt_record.h"
 #include "render_pc/grass_world.h"
+#include "render_pc/scatter_world.h"
 #include "platform/frame_profile.h"
 #include "engine/gfx/screen.h"
 #include "render_pc/screen_fx.h"
@@ -1300,6 +1301,9 @@ void draw_world()
         // Not original - grass (grass_world.h): the world's grass found and handed to the backend that draws it, the
         // skaters and peds that push it aside. Original behaviour: nothing.
         grass_world::frame();
+        // Not original - decals and clutter (scatter_world.h): the world's surfaces and rails read and handed to the
+        // backend that draws them. Original behaviour: nothing.
+        scatter_world::frame();
         set_render_state(RenderStateId::kZWrite, 1);
         set_render_state(RenderStateId::kZTest, 1);
         {
