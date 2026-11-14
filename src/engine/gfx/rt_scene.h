@@ -326,6 +326,8 @@ inline constexpr int kUpscale = 950;      // (added by the upscaler) the view's 
 inline constexpr int kStyle = 975;        // (added by the art style) the toon filter, at the output's size (world_drawn)
 inline constexpr int kGrass = 450;        // (added by the grass) the blades, over the shaded ground (opaque_drawn)
 inline constexpr int kCel = 960;          // (added by cel shading) the world's outlines, at the output's size (world_drawn)
+inline constexpr int kLights = 350;       // (added by the night lighting) the lamps' light: after the bounce, before the
+                                          // reflections (opaque_drawn) - gpu_vulkan/vulkan_rt_lights.h
 } // namespace ViewOrder
 void add_view_listener(ViewListener* listener);
 void remove_view_listener(ViewListener* listener);

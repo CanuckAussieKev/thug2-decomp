@@ -251,6 +251,22 @@ render::vulkan::RtGiSettings make_rt_gi()
 }
 void read_rt_gi() { render::vulkan::set_rt_gi_settings(make_rt_gi()); }
 
+// NOT ORIGINAL - the night lighting (gpu_vulkan/vulkan_rt_lights.h): likewise
+render::vulkan::RtLightSettings make_rt_lights()
+{
+    const render::vulkan::RtLightSettings defaults;
+    return render::vulkan::RtLightSettings{
+        .on = graphics_flag("rt_lights", false),
+        .strength = ini_float("rt_lights_strength", defaults.strength),
+        .shadowed = static_cast<unsigned>(
+            std::max(1, graphics_int("rt_lights_shadowed", static_cast<int>(defaults.shadowed)))),
+        .max_lights = static_cast<unsigned>(
+            std::max(1, graphics_int("rt_lights_max", static_cast<int>(defaults.max_lights)))),
+        .emissive = ini_float("rt_lights_emissive", defaults.emissive),
+        .level = ini_float("rt_lights_level", defaults.level)};
+}
+void read_rt_lights() { render::vulkan::set_rt_light_settings(make_rt_lights()); }
+
 // The shadows read again, and the bounce after them (see read_rt_gi).
 void read_rt_shadows_and_gi()
 {
@@ -634,6 +650,7 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_ao_", .prefix = true, .read = &read_rt_ao},
     LiveKey{.key = "rt_gi", .prefix = false, .read = &read_rt_gi},
     LiveKey{.key = "rt_gi_", .prefix = true, .read = &read_rt_gi},
+    LiveKey{.key = "rt_lights", .prefix = true, .read = &read_rt_lights}, // (rt_lights and every rt_lights_)
     LiveKey{.key = "rt_reflections", .prefix = false, .read = &read_rt_reflections},
     LiveKey{.key = "rt_reflection_", .prefix = true, .read = &read_rt_reflections},
     LiveKey{.key = "rt_glass_", .prefix = true, .read = &read_rt_reflections},
@@ -894,6 +911,7 @@ void install_vulkan()
     read_rt_shadows();
     read_rt_ao();
     read_rt_gi();
+    read_rt_lights(); // (NOT ORIGINAL - the night lighting)
     read_rt_reflections();
     read_hdr();
     read_rt_fog();
