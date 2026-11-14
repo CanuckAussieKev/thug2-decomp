@@ -1027,6 +1027,39 @@ shadows and the occlusion):
   denoised): 1 ray 1.45-1.49 ms, 2 rays (the default) 1.89-2.07 ms, 4 rays 2.44 ms - the camera ray, the albedo and the
   denoiser are about 1 ms of it. Not measured on the AMD (integrated) device in the game.
 
+### Lights at night (`rt_lights`)
+
+Night and indoor levels look flat: their lamps, neon and lit windows are bright textures that light nothing (the game
+bakes their light into the vertex colours round them - no shadows, nothing on the skater). `rt_lights=1` makes them
+lights for a ray-traced pass (`gpu_vulkan/vulkan_rt_lights.h`, the light sources in `engine/gfx/rt_lights.h`):
+- **Sources.** The frame record's point lights (the level's light nodes - `engine/gfx/scene_lights.h` - and any a script
+  makes), and the level's **emitters**, found once a world by `render_pc/rt_record.cpp` (after the structures settle):
+  *glows* - world meshes whose first pass blends additively (modes 1, 2: lamp halos, neon tubes, light cones, light
+  pools), moving ones (UV wibble, texture animation: water, caustics) left out; and, only in a **dark level** (its
+  world's median vertex brightness at most 64 of the white 128), *self-lit* triangles - opaque ones whose dimmest corner
+  is at least 112 and 2.5 times the level's median (lamp heads, lit windows, signs). Triangles are joined into clusters
+  (a triangle joins the nearest cluster of its kind whose first triangle is within 96 units): one light per lamp, a long
+  tube one every 96 units or so. A cluster's light: its area-weighted centre, colour (vertex x pass colour; the pass
+  multiplies in its texture's mean - the texture's smallest level), intensity (the colour's brightness x its size, 32
+  units square = 1), size (half its diagonal), reach (12 x its size, 400 - 1500 units). A flat cluster facing up is a
+  pool of light: a glow's is lifted by its size, a self-lit one dropped (that is baked light on the floor).
+- **Per view** the lights whose reach touches the frustum, the `rt_lights_max` most important (intensity x how much of
+  its reach the camera is within), go in a uniform block (at most 256).
+- **Per pixel** (one full-screen pass after the bounce light, `ViewOrder::kLights`): the position and normal from the
+  depth, the albedo from a camera ray and the material table (as `rt_gi`'s), every light's unshadowed light (colour x
+  intensity x falloff x N.L; falloff `core^2 / (core^2 + d^2) x (1 - (d / reach)^4)^2`, core = max(size, reach / 4)), the
+  brightest `rt_lights_shadowed` traced (a ray query toward each through the opaque world and objects, stopped the
+  light's size short: a lamp's own fixture doesn't shadow it; an object's pixel the world's shadows only), the rest
+  added in the share of the traced ones' light that got through. Added = strength x albedo x light (screened on an 8-bit
+  target, added on HDR). Deterministic: no noise, no history.
+- **Check**: `thug2_vulkan_rt_lights_check` (the clustering and selection on the processor; a lamp beside a box on a dark
+  floor against the processor's answer, one sample and four, a red-textured glow, two lamps with one traced; off and a
+  lamp out of view leave every pixel as drawn). `--perf`: 64 lamps in view, 320x240: 0.087 ms a pass (RTX 5070 Ti) -
+  about 2-3 ms at 1920x1080 in that scene; a level's deeper BVH costs more (not measured in the game yet).
+- **Not yet**: the lamps' light in the bounce (`rt_gi`) and in the reflections' hits; the lights already baked into the
+  vertex colours aren't taken out (the traced light adds to them - `rt_lights_strength` balances it); no light grid
+  (a view with more than `rt_lights_max` lamps drops the least important).
+
 ### The sun, its glare and the sky (`rt_sun`, `rt_shafts`, `rt_bloom`, `rt_sky_model`)
 
 What read as dated beside the ray-traced light was mostly the original's own sun: a white halo sprite and a corona at

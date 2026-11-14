@@ -19,7 +19,8 @@
 //   - a red-textured lamp (an emitter whose material's texture is red) lights the floor red (its texture's mean);
 //   - two lamps, one traced (rt_lights_shadowed=1): the other's light in the share of the traced one's that got through;
 //   - rt_lights off, or no lamp in view: every pixel exactly as drawn (no pass).
-//   thug2_vulkan_rt_lights_check [--device N] [--display N] [--no-validation]
+//   thug2_vulkan_rt_lights_check [--device N] [--display N] [--no-validation] [--perf]
+// --perf: then frames with 64 lamps in view, the pass's device time printed (its own log line, every 600 passes).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -101,6 +102,7 @@ struct Options {
     int display = 0;
     int device = -1;
     bool validation = true;
+    bool perf = false; // --perf: 620 frames with 64 lamps in view, the pass's device time logged
 };
 
 Options read_options(std::span<char*> arguments)
@@ -109,7 +111,9 @@ Options read_options(std::span<char*> arguments)
     for (size_t i = 1; i < arguments.size(); ++i) {
         const std::string_view argument = core::at(arguments, i);
         const bool has_value = i + 1 < arguments.size();
-        if (argument == "--no-validation") {
+        if (argument == "--perf") {
+            options.perf = true;
+        } else if (argument == "--no-validation") {
             options.validation = false;
         } else if (argument == "--device" && has_value) {
             options.device = text::to_int(core::at(arguments, ++i));
@@ -1050,6 +1054,40 @@ void run_off(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
                               changed_behind));
 }
 
+// --perf: frames with kPerfLamps lamps over the floor (all in view), the pass's own timing line (vulkan_rt_lights.cpp:
+// every 600 passes) printed through the log.
+void run_perf(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    constexpr int kPerfFrames = 700; // (some timings are lost when their frame hasn't finished: 600 measured)
+    constexpr int kPerfLamps = 64;
+    constexpr int kPerfSide = 8;
+    constexpr double kPerfSpacing = 36.0;
+    constexpr double kPerfMiddle = 3.5;
+    text::print("timing: %d frames, %d lamps in view, 4 traced a pixel (%ux%u):\n", kPerfFrames, kPerfLamps,
+                kTargetWidth, kTargetHeight);
+    render::vulkan::RtLightSettings settings = settings_for(true, 4);
+    settings.max_lights = kPerfLamps;
+    render::vulkan::set_rt_light_settings(settings);
+    std::vector<rt::Light> points;
+    for (int i = 0; i < kPerfLamps; ++i) {
+        const double x = ((i % kPerfSide) - kPerfMiddle) * kPerfSpacing;
+        const double z = ((i / kPerfSide) - kPerfMiddle) * kPerfSpacing;
+        points.push_back({.kind = rt::Light::Kind::kPoint,
+                          .colour = {0.5F, 0.45F, 0.35F},
+                          .position = {static_cast<float>(x), 35.0F, static_cast<float>(z)},
+                          .radius = 250.0F});
+    }
+    Targets targets;
+    uint64_t passes = 0;
+    if (make_targets(gpu, 0, &targets)) {
+        for (int frame = 0; frame < kPerfFrames; ++frame) {
+            passes += draw_frame(gpu, targets, meshes, points, static_cast<uint64_t>(frame) + 1);
+        }
+    }
+    release_targets(gpu, targets);
+    tally->check(passes == kPerfFrames, text::format("%llu passes timed", static_cast<unsigned long long>(passes)));
+}
+
 int window_position(int display)
 {
     int displays = 0;
@@ -1138,6 +1176,9 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_emitter(gpu, meshes, red, tally);
         run_two(gpu, meshes, tally);
         run_off(gpu, meshes, tally);
+        if (options.perf) {
+            run_perf(gpu, meshes, tally);
+        }
     }
     for (SceneMesh& mesh : meshes) {
         release_solid(gpu, &mesh);
