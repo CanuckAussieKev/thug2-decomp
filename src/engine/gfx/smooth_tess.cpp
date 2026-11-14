@@ -169,6 +169,7 @@ struct EdgeUse {
     bool smooth = false;
     bool curved = false;
     bool same_indices = false; // both triangles name the same two vertices (a new point shared outright)
+    bool prism = false;        // smoothing: a prism's side edge (find_prisms)
 };
 
 // Phong tessellation's pull at a point of the flat triangle, for a shape factor of 1: each corner's tangent plane's
@@ -275,7 +276,12 @@ private:
     [[nodiscard]] bool readable() const;
     void weld_and_face();
     void find_edges();
-    void make_groups();
+    void find_prisms();
+    [[nodiscard]] bool joins(const EdgeUse& use, const std::array<uint16_t, 4>& ends, float cosine, float crease,
+                             Result* out) const;
+    [[nodiscard]] bool file_normal(uint16_t vertex, V3* out) const;
+    [[nodiscard]] int smooth_level(int level) const;
+    void make_groups(Result* out);
     void mark_curves();
     [[nodiscard]] float largest_edge_pull() const;
     bool build(int level, Result* out);
@@ -296,8 +302,10 @@ private:
     [[nodiscard]] EdgeEnds ends_of(uint32_t triangle, int edge) const;
 
     Input in_;
+    float shape_ = 0.0F; // the shape factor (smoothing: times its strength)
     std::vector<V3> position_;
     std::vector<uint32_t> weld_;
+    std::vector<V3> welded_; // each welded position
     std::vector<Triangle> tris_;
     std::vector<V3> face_;
     std::vector<float> angle_; // each corner's
@@ -340,6 +348,9 @@ void Smoother::weld_and_face()
         core::at(position_, i) = read3(in_.vertices, stride * i);
         const auto [where, added] = welded.try_emplace(key_of(position(i)), static_cast<uint32_t>(welded.size()));
         core::at(weld_, i) = where->second;
+        if (added) {
+            welded_.push_back(position(i));
+        }
     }
     tris_ = decode(in_.strip);
     face_.resize(tris_.size());
@@ -384,9 +395,12 @@ void Smoother::find_edges()
     }
 }
 
-void Smoother::make_groups()
+void Smoother::make_groups(Result* out)
 {
     const float crease = std::cos(in_.options.crease_degrees * std::numbers::pi_v<float> / kDegreesPerHalfTurn);
+    if (in_.options.smooth) {
+        find_prisms();
+    }
     Groups groups(tris_.size() * 3);
     for (auto& [key, use] : edges_) {
         if (use.count != 2) {
@@ -403,7 +417,8 @@ void Smoother::make_groups()
         const uint16_t a2 = core::at(c2, (e2 + 1) % 3); // (wound the same way: the second walks the edge backwards)
         const uint16_t b2 = core::at(c2, e2);
         const bool opposite = weld(a1) == weld(a2) && weld(b1) == weld(b2);
-        if (!opposite || dot(core::at(face_, t1), core::at(face_, t2)) < crease) {
+        if (!opposite ||
+            !joins(use, {a1, b1, a2, b2}, dot(core::at(face_, t1), core::at(face_, t2)), crease, out)) {
             continue;
         }
         use.smooth = true;
@@ -424,6 +439,174 @@ void Smoother::make_groups()
             core::at(corner_normal_, slot_of(tri, k)) = normalised(core::at(sum, groups.find(slot_of(tri, k))), core::at(face_, tri));
         }
     }
+}
+
+float cosine_of(float degrees) { return std::cos(degrees * std::numbers::pi_v<float> / kDegreesPerHalfTurn); }
+float degrees_of(float cosine) { return std::acos(std::clamp(cosine, -1.0F, 1.0F)) * kDegreesPerHalfTurn / std::numbers::pi_v<float>; }
+
+// A vertex's own normal (the file's), when the mesh has them and it is one.
+bool Smoother::file_normal(uint16_t vertex, V3* out) const
+{
+    constexpr float kShortest = 0.5F;
+    constexpr float kLongest = 1.5F;
+    if (in_.layout.normal_offset < 0) {
+        return false;
+    }
+    const V3 normal = read3(in_.vertices, (static_cast<std::size_t>(in_.layout.stride) * vertex) +
+                                              static_cast<std::size_t>(in_.layout.normal_offset));
+    const float len = length(normal);
+    if (!(len > kShortest && len < kLongest)) {
+        return false;
+    }
+    *out = normal * (1.0F / len);
+    return true;
+}
+
+// Whether an edge's two faces (wound alike, `cosine` between their normals; `ends` the first's two corners on it, then
+// the second's at the same places) are one smoothing group: the crease angle's rule, or - smoothing - the mesh's
+// normals' and the prisms' (smooth_tess.h).
+bool Smoother::joins(const EdgeUse& use, const std::array<uint16_t, 4>& ends, float cosine, float crease,
+                     Result* out) const
+{
+    const bool by_angle = !(cosine < crease);
+    if (!in_.options.smooth) {
+        return by_angle;
+    }
+    if (cosine < cosine_of(in_.options.smooth_degrees)) {
+        return false; // (a box's corners: hard whatever the normals say)
+    }
+    // The normals at each end: the same vertex, or two normals alike (unknown without normals).
+    const float agree = cosine_of(in_.options.normal_agree_degrees);
+    bool known = in_.layout.normal_offset >= 0;
+    bool shared = true;
+    for (std::size_t end = 0; end < 2 && known; ++end) {
+        const uint16_t first = core::at(ends, end);
+        const uint16_t second = core::at(ends, end + 2);
+        V3 n1;
+        V3 n2;
+        if (first == second) {
+            continue;
+        }
+        if (!file_normal(first, &n1) || !file_normal(second, &n2)) {
+            known = false;
+        } else {
+            shared = shared && dot(n1, n2) >= agree;
+        }
+    }
+    if (use.prism) {
+        ++out->prism_edges; // (round whatever its normals: a rail's flat-shaded sides too)
+        return true;
+    }
+    if (known && shared) {
+        out->normal_smooth += by_angle ? 0U : 1U;
+        return true;
+    }
+    if (known && cosine <= cosine_of(in_.options.split_degrees)) {
+        out->normal_hard += by_angle ? 1U : 0U;
+        return false;
+    }
+    return by_angle;
+}
+
+// Smoothing: the edges of long thin prisms (rails, pipes, poles of a few sides) - over the crease angle, under the
+// prism's most; both faces running along the edge, alike and narrow, the edge at least twice their width; and across
+// each face the next edge parallel to it such an edge at about the same angle (a ring of equal sides).
+void Smoother::find_prisms()
+{
+    constexpr float kAlongEdge = 0.03F;      // |a face's normal . the edge| under this: the face runs along it
+    constexpr float kParallelEdges = 0.995F; // two edges' directions this close: parallel
+    constexpr float kLongest = 2.0F;         // the edge at least this times the faces' width
+    constexpr float kAlike = 0.25F;          // the faces' widths within this share of the wider
+    constexpr float kAngleAgree = 10.0F;     // degrees between the angles of a ring's edges
+    const float crease = cosine_of(in_.options.crease_degrees);
+    const float most = cosine_of(in_.options.prism_degrees);
+    struct Candidate {
+        V3 along;
+        float degrees = 0.0F;
+        std::array<uint32_t, 2> across{}; // each face's third corner (welded)
+    };
+    std::unordered_map<uint64_t, Candidate> candidates;
+    std::unordered_map<uint32_t, std::vector<uint64_t>> at_vertex;
+    for (const auto& [key, use] : edges_) {
+        if (use.count != 2) {
+            continue;
+        }
+        const uint32_t t1 = core::at(use.triangle, 0);
+        const uint32_t t2 = core::at(use.triangle, 1);
+        const float cosine = dot(core::at(face_, t1), core::at(face_, t2));
+        if (cosine >= crease || cosine < most) {
+            continue;
+        }
+        const int e1 = core::at(use.edge, 0);
+        const uint32_t start = weld(core::at(corners(t1), e1));
+        const uint32_t end = weld(core::at(corners(t1), (e1 + 1) % 3));
+        const V3 from = core::at(welded_, start);
+        const V3 edge = core::at(welded_, end) - from;
+        const float span = length(edge);
+        const V3 along = normalised(edge, {});
+        if (!(span > 0.0F) || std::fabs(dot(core::at(face_, t1), along)) > kAlongEdge ||
+            std::fabs(dot(core::at(face_, t2), along)) > kAlongEdge) {
+            continue;
+        }
+        Candidate made{.along = along, .degrees = degrees_of(cosine)};
+        std::array<float, 2> width{};
+        for (std::size_t side = 0; side < 2; ++side) {
+            const uint32_t tri = core::at(use.triangle, side);
+            const uint16_t third = core::at(corners(tri), (core::at(use.edge, side) + 2) % 3);
+            core::at(made.across, side) = weld(third);
+            const V3 offset = position(third) - from;
+            core::at(width, side) = length(offset - (along * dot(offset, along)));
+        }
+        const float wide = std::max(core::at(width, 0), core::at(width, 1));
+        if (!(wide > 0.0F) || wide > in_.options.prism_width || span < kLongest * wide ||
+            std::fabs(core::at(width, 0) - core::at(width, 1)) > kAlike * wide) {
+            continue;
+        }
+        candidates.emplace(key, made);
+        at_vertex[start].push_back(key);
+        at_vertex[end].push_back(key);
+    }
+    for (const auto& [key, made] : candidates) {
+        bool ring = true;
+        for (const uint32_t across : made.across) {
+            bool found = false;
+            const auto list = at_vertex.find(across);
+            if (list != at_vertex.end()) {
+                for (const uint64_t other : list->second) {
+                    const Candidate& next = candidates.at(other);
+                    found = found || (other != key && std::fabs(dot(next.along, made.along)) >= kParallelEdges &&
+                                      std::fabs(next.degrees - made.degrees) <= kAngleAgree);
+                }
+            }
+            ring = ring && found;
+        }
+        if (ring) {
+            edges_.at(key).prism = true;
+        }
+    }
+}
+
+// Smoothing's level: the error's, or more - enough pieces that none of an edge's turns by more than the segment angle
+// (up to kSmoothLevel, or rt_tess_level when higher). A curve the cap flattens turns that much less (its pull scaled
+// down).
+int Smoother::smooth_level(int level) const
+{
+    float widest = 0.0F;
+    for (const auto& [key, use] : edges_) {
+        if (use.curved) {
+            const EdgeEnds ends = ends_of(core::at(use.triangle, 0), core::at(use.edge, 0));
+            widest = std::max(widest, degrees_of(dot(ends.n0, ends.n1)));
+        }
+    }
+    const float bulge = largest_edge_pull() * shape_;
+    if (bulge > in_.options.max_deviation && bulge > 0.0F) {
+        widest *= in_.options.max_deviation / bulge;
+    }
+    const int pieces = static_cast<int>(std::ceil(widest / std::max(in_.options.segment_degrees, 1.0F)));
+    // (the error's level up to rt_tess_level as without smoothing; the turns' up to kSmoothLevel)
+    const int top = std::max(std::min(in_.options.max_level, kHighestLevel), kLowestLevel);
+    const int turns_top = std::max(std::min(std::max(in_.options.max_level, kSmoothLevel), kHighestLevel), kLowestLevel);
+    return std::max(std::clamp(level, kLowestLevel, top), std::clamp(pieces, kLowestLevel, turns_top));
 }
 
 EdgeEnds Smoother::ends_of(uint32_t triangle, int edge) const
@@ -447,7 +630,7 @@ void Smoother::mark_curves()
             continue;
         }
         V3 flat;
-        const float sag = length(edge_pull(ends_of(core::at(use.triangle, 0), core::at(use.edge, 0)), kHalf, &flat)) * in_.options.shape;
+        const float sag = length(edge_pull(ends_of(core::at(use.triangle, 0), core::at(use.edge, 0)), kHalf, &flat)) * shape_;
         use.curved = sag > in_.options.curved_epsilon && std::isfinite(sag);
         if (!use.curved) {
             continue;
@@ -705,6 +888,9 @@ void Smoother::write_vertices(Result* out, float shape)
             }
         }
         write3(bytes, at, point);
+        if (options.keep_flat) {
+            out->flat.push_back({vertex.flat.x, vertex.flat.y, vertex.flat.z});
+        }
         out->deviation = std::max(out->deviation, length(point - vertex.flat));
     }
 }
@@ -715,9 +901,11 @@ Result Smoother::run()
     if (!readable()) {
         return out;
     }
+    shape_ = in_.options.smooth ? in_.options.shape * std::clamp(in_.options.smooth_strength, 0.0F, 1.0F)
+                                : in_.options.shape;
     weld_and_face();
     find_edges();
-    make_groups();
+    make_groups(&out);
     mark_curves();
     out.triangles = static_cast<uint32_t>(std::ranges::count(degenerate_, false));
     out.smoothed = static_cast<uint32_t>(std::ranges::count(split_, true));
@@ -728,10 +916,11 @@ Result Smoother::run()
     }
     // The level from the largest pull at the curved edges' middles (the shape factor capped): the curve followed to
     // about the target error.
-    const float estimate = std::min(largest_edge_pull() * in_.options.shape, in_.options.max_deviation);
+    const float estimate = std::min(largest_edge_pull() * shape_, in_.options.max_deviation);
     const int top = std::max(std::min(in_.options.max_level, kHighestLevel), kLowestLevel);
     int level = static_cast<int>(std::ceil(std::sqrt(estimate / std::max(in_.options.target_error, kSmallestTarget))));
-    for (level = std::clamp(level, kLowestLevel, top); level >= kLowestLevel; --level) {
+    level = in_.options.smooth ? smooth_level(level) : std::clamp(level, kLowestLevel, top);
+    for (; level >= kLowestLevel; --level) {
         if (build(level, &out)) {
             break;
         }
@@ -744,8 +933,8 @@ Result Smoother::run()
     for (const NewVertex& vertex : made_) {
         pull = std::max(pull, length(vertex.pull));
     }
-    out.uncapped = pull * in_.options.shape;
-    float shape = in_.options.shape;
+    out.uncapped = pull * shape_;
+    float shape = shape_;
     if (out.uncapped > in_.options.max_deviation && pull > 0.0F) {
         shape = in_.options.max_deviation / pull;
         out.capped = true;

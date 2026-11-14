@@ -130,7 +130,8 @@ const std::vector<GroupKeys>& group_keys()
          .name = text_tools::kGroupGraphics,
          .keys = {"graphics_preset", "renderer", "ray_tracing", "texture_set", "max_fps", "frame_generation", "reflex", "present_mode", "show_fps",
                   "anisotropy", "msaa",
-                  "draw_distance_scale", "lod_distance_scale", "rt_tessellation", "rt_tess_max_deviation"}},
+                  "draw_distance_scale", "lod_distance_scale", "rt_tessellation", "rt_tess_max_deviation", "rt_tess_smooth",
+                  "rt_tess_smooth_strength"}},
         {.id = "lighting",
          .name = text_tools::kGroupLighting,
          .keys = {"rt_sun_source", "rt_shadows", "rt_shadow_strength", "rt_shadow_softness", "rt_shadow_objects", "rt_ao",
@@ -242,6 +243,9 @@ const std::vector<ShownWhen>& shown_table()
 {
     static const std::vector<ShownWhen> kRules = {
         {.key = "rt_tess_max_deviation", .parent = "rt_tessellation", .values = {"1"}},
+        // (the smoothing's strength under the smoothed curves too: a rule's parent is never hidden itself)
+        {.key = "rt_tess_smooth", .parent = "rt_tessellation", .values = {"1"}},
+        {.key = "rt_tess_smooth_strength", .parent = "rt_tessellation", .values = {"1"}},
         {.key = "rt_shadow_strength", .parent = "rt_shadows", .values = {"1"}},
         {.key = "rt_shadow_softness", .parent = "rt_shadows", .values = {"1"}},
         {.key = "rt_shadow_objects", .parent = "rt_shadows", .values = {"1"}},
@@ -459,6 +463,11 @@ const std::vector<Spec>& get_specs()
         graphics_choice("rt_tess_max_deviation", text_tools::kOptTessDeviation, text_tools::kOptTessDeviationHelp,
                         {{.value = "1", .label = "1"}, {.value = "2", .label = "2"}, {.value = "3", .label = "3"}, {.value = "4", .label = "4"}},
                         1, Apply::kRelaunch),
+        // (smooth_tess.h "Smoothing": rails and poles rounded, hard edges kept by the meshes' normals)
+        graphics_switch("rt_tess_smooth", text_tools::kOptTessSmooth, text_tools::kOptTessSmoothHelp, 0, Apply::kRelaunch),
+        graphics_choice("rt_tess_smooth_strength", text_tools::kOptTessSmoothStrength, text_tools::kOptTessSmoothStrengthHelp,
+                        {{.value = "0.5", .label = "50%"}, {.value = "0.75", .label = "75%"}, {.value = "1", .label = "100%"}},
+                        2, Apply::kRelaunch),
         // Lighting: the sun every effect lights by (engine/gfx/rt_scene.h scene_sun - added by the scene's sun), shadows
         // (gpu_vulkan/vulkan_rt_shadows.h), occlusion and bounce light (vulkan_rt_effects.h)
         graphics_choice("rt_sun_source", text_tools::kOptSunSource, text_tools::kOptSunSourceHelp,

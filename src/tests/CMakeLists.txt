@@ -69,8 +69,9 @@ if(TARGET thug2_base)
 endif()
 
 # NOT ORIGINAL - thug2_tess_check.exe: the smoothed curves' tessellation (engine/gfx/smooth_tess.h) on a faceted
-# cylinder, a rail and a quarter pipe against their analytic surfaces - no cracks, the cap, displacement; and the water's
-# grid (engine/gfx/water_tess.h) on flat quads (src/tests/tess_check.cpp).
+# cylinder, a rail and a quarter pipe against their analytic surfaces - no cracks, the cap, displacement; smoothing
+# (rt_tess_smooth: prisms rounded, hard edges kept); the water's grid (engine/gfx/water_tess.h) on flat quads; with
+# `--level <folder>...` a level's own meshes measured against its collision, offline (src/tests/tess_check.cpp).
 if(TARGET thug2_base)
     add_executable(thug2_tess_check tess_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/smooth_tess.cpp"
                                     "${PROJECT_SOURCE_DIR}/src/engine/gfx/water_tess.cpp")
