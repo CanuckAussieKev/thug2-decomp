@@ -257,6 +257,11 @@ HWND create_sdl_window(WindowApi api)
         }
         handle = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window_state().window_),
                                                          SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+        if (behind && handle) {
+            // (a window shown without the focus is still put on top of the others: sent to the bottom instead, where it
+            // keeps drawing - the tests capture it with PrintWindow)
+            SetWindowPos(handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
         if (app && handle) {
             SDL_SetWindowMinimumSize(sdl_window_state().window_, kMinClientWidth, kMinClientHeight);
             app_window::prepare_window(handle);

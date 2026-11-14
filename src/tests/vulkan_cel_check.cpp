@@ -56,6 +56,7 @@
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "platform/run_log.h"
+#include "tests/check_window.h"
 #include "tests/no_error_dialogs.h"
 
 namespace {
@@ -1843,7 +1844,7 @@ int main(int argc, char** argv)
         return 2;
     }
     SDL_SetWindowPosition(window, position, position);
-    SDL_ShowWindow(window);
+    tests::show_behind(window);
     int result = 1;
     try {
         result = run(options, window);
