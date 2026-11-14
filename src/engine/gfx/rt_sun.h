@@ -114,10 +114,14 @@ struct SunInputs {
     bool baked_found = false;
     Vec3 baked_toward{};
     SunRelight relight;
+    bool clock_set = false; // (added by the time of day) the clock lights the level (rt_daylight.h DayLight::on)
+    Vec3 clock_toward{};    // its light: the sun, the moon at night
 };
 // The scene's sun (serial left 0): the override; with no baked sun fitted yet kWaiting (kFixed doesn't wait); a bake
 // that shows no sun kNone (kFixed lights anyway); kLevel the baked sun; kGame the game's where it is shown, at least
 // kMinGameSunDegrees up, the level relit and its entry not asking for the bake - else the baked sun; kFixed its own.
+// (added by the time of day) kClock - the clock's light - before kGame and kLevel wherever the level is relit (its
+// entry's "sun": "level" is about the game's sun, not the clock's); not relit yet, the baked sun.
 // A direction that can't be normalised counts as none.
 [[nodiscard]] SceneSun resolve_scene_sun(const SunInputs& in);
 // [Graphics] rt_sun_source's text: "game", "level" (or "bake"), "x,y,z" (toward the sun) or "heading,elevation"

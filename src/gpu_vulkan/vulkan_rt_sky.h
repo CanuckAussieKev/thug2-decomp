@@ -88,10 +88,14 @@ inline constexpr float kGainZenith = 1.26F;
 inline constexpr double kHazeElevation = 0.01;
 inline constexpr double kBelowFade = 0.2;
 inline constexpr double kBelowShare = 0.7;
+inline constexpr double kNightHorizon = 1.5; // (added by the time of day) the night sky at the horizon over overhead
 struct AtmosphereInput {
     std::array<float, 3> sun{0.0F, 1.0F, 0.0F}; // toward the drawn sky's sun (world, normalised)
     std::array<std::array<float, 3>, 3> gains{{{1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}}};
     std::array<float, 3> gain_elevations{kGainHorizon, kGainMiddle, kGainZenith}; // radians
+    // (added by the time of day - engine/gfx/rt_daylight.h DayLight::night_sky) the night sky's light overhead, added
+    // after the gains (exposed linear; kNightHorizon times it at the horizon and below); 0 by day and without the clock
+    std::array<float, 3> night{};
     bool operator==(const AtmosphereInput&) const = default;
 };
 // The tables brought up to date (recorded outside a pass, a barrier after). The caller holds the lock. False: they can't

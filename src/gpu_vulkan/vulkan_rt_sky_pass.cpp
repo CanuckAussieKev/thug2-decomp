@@ -21,6 +21,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/rt_clouds.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_sky_match.h"
@@ -87,6 +88,9 @@ layout(set = 0, binding = 6) uniform SkyBlock {
     ivec4 rect;           // the viewport in the target's pixels
     ivec4 low;            // xy the clouds' images' size, z pixels per texel, w steps
     ivec4 flags;          // x the depth's samples, y clouds, z a history, w 1: values above 1 kept
+    vec4 moon;            // (added by the time of day) xyz toward the moon; w its disc (0 - 1)
+    vec4 stars;           // xyz toward the celestial pole; w the stars' turn about it (radians)
+    vec4 night;           // x the stars (0 - 1)
 } sky;
 
 vec3 direction_of(vec2 p)
@@ -207,6 +211,61 @@ layout(set = 0, binding = 12, rgba16f) uniform readonly image2D i_b;
 #endif
 layout(location = 0) out vec4 o_colour;
 
+// (added by the time of day - engine/gfx/rt_daylight.h) the night's sky: the stars - cells on a cube round the celestial
+// pole, turned with the hours, one star in about STAR_SHARE of them at a hashed place, most faint, a few bright, each a
+// pixel-wide spot - and the full moon's disc with a faint glow
+const float STAR_CELLS = 512.0;
+const float STAR_SHARE = 0.06;
+const float STAR_BRIGHT = 0.6;
+const float MOON_RADIUS = 0.009;
+const float MOON_BRIGHT = 2.0;
+const float MOON_GLOW = 0.02;
+float star_hash(vec3 p)
+{
+    p = fract(p * vec3(0.1031, 0.1030, 0.0973));
+    p += dot(p, p.yxz + 33.33);
+    return fract((p.x + p.y) * p.z);
+}
+vec3 night_light(vec3 dir, float pixel)
+{
+    vec3 add = vec3(0.0);
+    if (sky.night.x > 0.0 && dir.y > 0.0) {
+        vec3 p = normalize(sky.stars.xyz);
+        float a = -sky.stars.w;
+        vec3 d = dir * cos(a) + cross(p, dir) * sin(a) + p * dot(p, dir) * (1.0 - cos(a));
+        vec3 m = abs(d);
+        vec2 uv;
+        float face;
+        if (m.x >= m.y && m.x >= m.z) {
+            uv = d.yz / m.x;
+            face = d.x > 0.0 ? 0.0 : 1.0;
+        } else if (m.y >= m.z) {
+            uv = d.xz / m.y;
+            face = d.y > 0.0 ? 2.0 : 3.0;
+        } else {
+            uv = d.xy / m.z;
+            face = d.z > 0.0 ? 4.0 : 5.0;
+        }
+        vec2 g = (uv * 0.5 + 0.5) * STAR_CELLS;
+        vec2 cell = floor(g);
+        float h = star_hash(vec3(cell, face));
+        if (h > 1.0 - STAR_SHARE) {
+            vec2 centre = cell + 0.25 + 0.5 * vec2(star_hash(vec3(cell, face + 7.0)), star_hash(vec3(cell, face + 13.0)));
+            float spread = max(pixel * 0.5 * STAR_CELLS, 0.05);
+            float r = length(g - centre) / spread;
+            float b = pow((h - (1.0 - STAR_SHARE)) / STAR_SHARE, 6.0);
+            vec3 tint = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.9, 0.75), star_hash(vec3(cell, face + 3.0)));
+            add += tint * (STAR_BRIGHT * b * sky.night.x) * exp(-r * r * 1.5) * smoothstep(0.0, 0.08, dir.y);
+        }
+    }
+    if (sky.moon.w > 0.0) {
+        float angle = acos(clamp(dot(dir, sky.moon.xyz), -1.0, 1.0));
+        float disc = 1.0 - smoothstep(MOON_RADIUS - pixel, MOON_RADIUS + pixel, angle);
+        add += sky.moon.w * (MOON_BRIGHT * disc * vec3(0.92, 0.94, 1.0) + MOON_GLOW * exp(-angle / 0.05) * vec3(0.6, 0.7, 1.0));
+    }
+    return add;
+}
+
 #ifdef CEL
 // (added by cel shading - engine/gfx/rt_cel.h; [Graphics] rt_cel) the atmosphere in flat bands of elevation (6 from the
 // horizon to the top, narrower low down: the colour at each band's middle, its azimuth kept) and its brightness in
@@ -242,6 +301,10 @@ void main()
 #else
     vec3 light = sky_view_linear(dir, sky.sun.xyz);
 #endif
+    float pixel = max(length(fwidth(dir)), 1e-5); // (a pixel's angle: outside any branch)
+    if (sky.night.x > 0.0 || sky.moon.w > 0.0) {
+        light += night_light(dir, pixel);
+    }
 #ifdef CLOUDS
     {
         vec2 low = (p - vec2(sky.rect.xy) - 0.5 * float(sky.low.z - 1)) / float(sky.low.z);
@@ -389,8 +452,11 @@ struct SkyBlock {
     std::array<int32_t, 4> rect{};
     std::array<int32_t, 4> low{};
     std::array<int32_t, 4> flags{};
+    std::array<float, 4> moon{};  // (added by the time of day)
+    std::array<float, 4> stars{};
+    std::array<float, 4> night{};
 };
-constexpr std::size_t kSkyBlockBytes = 288;
+constexpr std::size_t kSkyBlockBytes = 336;
 static_assert(sizeof(SkyBlock) == kSkyBlockBytes, "the shaders' std140 block");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -1501,7 +1567,7 @@ std::array<float, 3> sky_sun(Backend& state)
 
 // The level matched again when needed (a new capture, the sun moved, the settings changed). Work is finished for
 // the read-backs: the caller takes a new command buffer after.
-bool ensure_match(Backend& state, const std::array<float, 3>& sun)
+bool match_level(Backend& state, const std::array<float, 3>& sun)
 {
     SkyPassState& own = pass_state();
     const rt::SkyCapture capture = rt::sky_capture();
@@ -1551,6 +1617,21 @@ bool ensure_match(Backend& state, const std::array<float, 3>& sun)
     own.matched_sun = sun;
     own.matched = true;
     own.matched_settings = own.settings_serial;
+    return true;
+}
+
+// The level matched (match_level) and the sky drawn for `drawn`: (added by the time of day) the match is made for the
+// level's own sun while the clock runs - its painted sky is that time's - and the sky drawn for the clock's, with the
+// night's light; without the clock both are `drawn`, as before.
+bool ensure_match(Backend& state, const std::array<float, 3>& drawn)
+{
+    const rt::DayLight day = rt::day_light();
+    if (!match_level(state, day.on ? day.native : drawn)) {
+        return false;
+    }
+    SkyPassState& own = pass_state();
+    own.match.atmosphere.sun = drawn;
+    own.match.atmosphere.night = day.on ? day.night_sky : std::array<float, 3>{};
     return true;
 }
 
@@ -1660,6 +1741,13 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
                  static_cast<int32_t>(steps_for(settings.quality))};
     block.flags = {static_cast<int32_t>(recording.colour->samples), recording.clouds ? 1 : 0,
                    slot != nullptr && slot->has_history ? 1 : 0, settings.hdr ? 1 : 0};
+    // (added by the time of day) the moon, the stars (none without the clock)
+    const rt::DayLight day = rt::day_light();
+    if (day.on) {
+        block.moon = {core::at(day.moon, 0), core::at(day.moon, 1), core::at(day.moon, 2), day.moon_disc};
+        block.stars = day.stars_pole;
+        block.night = {day.stars, 0.0F, 0.0F, 0.0F};
+    }
     *frame = RtSkyFrame{.sun = sun,
                         .camera = view.camera.position,
                         .camera_altitude = altitude,

@@ -28,6 +28,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
@@ -133,6 +134,8 @@ struct State {
     rt::Vec3 sun{};
     rt::Rgbf sun_colour{1.0F, 1.0F, 1.0F};
     bool sky_model = false; // (whether the sun's colour was the sky model's)
+    uint64_t day_serial = 0; // (added by the time of day) the clock's light the colour was made for (0: none)
+    rt::RelitLighting day_scales; // (added by the time of day) its scales (direct, sky, bounce)
     uint64_t lighting = 0;
     uint64_t wanted_lighting = 0; // (added by the scene's sun) the lighting the colours are written with now
     Cached cache;
@@ -616,6 +619,12 @@ bool target_sun(rt::Vec3* toward)
 // when the sky model is on (rt_sky_model publishes a SunLight); else white.
 rt::Rgbf sun_colour_for(const rt::Vec3& toward)
 {
+    // (added by the time of day) the clock's: the sun's colour at its elevation over the level's sun's - the sky model's
+    // ratio, whatever rt_sky_model says -, or the moon's
+    const rt::DayLight day = rt::day_light();
+    if (day.on) {
+        return day.direct_tint;
+    }
     if (!rt::sun_light().on) {
         return {1.0F, 1.0F, 1.0F};
     }
@@ -630,6 +639,24 @@ rt::Rgbf sun_colour_for(const rt::Vec3& toward)
                                 : 1.0F;
     }
     return out;
+}
+
+// (added by the time of day) The clock's scales for the model's terms: the direct light's strength (its colour is
+// sun_colour's), the sky's light, and the bounce's - the light it brings back is the sun's and the sky's, so their mix
+// (the level's share of each). All 1 without the clock.
+rt::RelitLighting day_scales(const rt::DayLight& day)
+{
+    rt::RelitLighting scales;
+    if (!day.on) {
+        return scales;
+    }
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        core::at(scales.direct_scale, ch) = day.direct;
+        core::at(scales.sky_scale, ch) = core::at(day.sky, ch);
+        core::at(scales.bounce_scale, ch) = (rt::kDirectShare * day.direct * core::at(day.direct_tint, ch)) +
+                                            ((1.0F - rt::kDirectShare) * core::at(day.sky, ch));
+    }
+    return scales;
 }
 
 // The new entries analysed: from the cache where it has them, the rest traced (the model fitted first when the level
@@ -766,8 +793,13 @@ void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
 
 // The bounce traced again for entries whose bounce is another sun's - once every sun is traced, from the colours as
 // relit now (one bounce of the new light) - at most kRelitBounceVertices vertices this frame.
-void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const rt::RelitLighting& lighting)
+void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const rt::RelitLighting& lit)
 {
+    // (added by the time of day) the hits' colours at the level's own strength: the bounce's scale is the clock's
+    rt::RelitLighting lighting = lit;
+    lighting.direct_scale = {1.0F, 1.0F, 1.0F};
+    lighting.sky_scale = {1.0F, 1.0F, 1.0F};
+    lighting.bounce_scale = {1.0F, 1.0F, 1.0F};
     State& st = state();
     bool suns_ready = true;
     bool stale = false;
@@ -842,6 +874,10 @@ void write_relit(uint64_t lighting, const rt::RelitLighting& light)
 {
     State& st = state();
     std::size_t written = 0;
+    // (added by the time of day) while the clock lights the level, at most kRelitWriteVertices vertices a frame: a new
+    // time's colours spread over frames, as the original's time of day colours a part of the level a frame
+    const bool budgeted = rt::day_light().on;
+    std::size_t budget = kRelitWriteVertices;
     std::vector<uint32_t> colours;
     struct Change {
         std::size_t vertices = 0;
@@ -854,6 +890,12 @@ void write_relit(uint64_t lighting, const rt::RelitLighting& light)
         if (!entry.analysed || (entry.written == lighting && !entry.dirty) ||
             rt::dot(entry.sun_for, st.sun) < kSameSun) {
             continue;
+        }
+        if (budgeted) {
+            if (budget == 0) {
+                break;
+            }
+            budget -= std::min(budget, entry.originals.size());
         }
         colours.resize(entry.originals.size());
         for (std::size_t vi = 0; vi < colours.size(); ++vi) {
@@ -874,7 +916,15 @@ void write_relit(uint64_t lighting, const rt::RelitLighting& light)
             change.moved += std::abs(now - was) > kChangedLuma ? 1 : 0;
         }
     }
-    if (written > 0 && lighting != st.lighting) {
+    // (added by the time of day: a running clock writes new colours twice a second - logged once a game hour)
+    static double logged_hours = -1.0;
+    const rt::DayLight day = rt::day_light();
+    const bool log_it = !day.on || std::abs(day.hours - logged_hours) >= 1.0;
+    if (written > 0 && lighting != st.lighting && !log_it) {
+        st.lighting = lighting;
+        rt::set_relit_status(status_text());
+    } else if (written > 0 && lighting != st.lighting) {
+        logged_hours = day.on ? day.hours : -1.0;
         st.lighting = lighting;
         const double vertices = static_cast<double>(std::max<std::size_t>(change.vertices, 1));
         get_log(
@@ -933,7 +983,7 @@ void write_cel(uint64_t lighting, const rt::RelitLighting& light)
     }
     rt::Rgbf sun{};
     for (std::size_t ch = 0; ch < sun.size(); ++ch) {
-        core::at(sun, ch) = core::at(st.model.sun, ch) * core::at(light.sun_colour, ch);
+        core::at(sun, ch) = core::at(st.model.sun, ch) * core::at(light.sun_colour, ch) * core::at(light.direct_scale, ch);
     }
     rt::set_cel_world({.relit = true, .sun = sun, .toward = light.toward});
     if (written > 0) {
@@ -1039,15 +1089,26 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         toward = st.model.toward;
     }
     const bool sky_model = rt::sun_light().on;
+    const rt::DayLight day = rt::day_light(); // (added by the time of day)
+    const uint64_t day_serial = day.on ? day.serial : 0;
     if (rt::dot(toward, st.sun) < kSameSun ||
-        sky_model != st.sky_model) { // (the sky model publishes after its first pass)
+        sky_model != st.sky_model || day_serial != st.day_serial) { // (the sky model publishes after its first pass)
         st.sky_model = sky_model;
+        st.day_serial = day_serial;
+        st.day_scales = day_scales(day);
         st.sun = toward;
         st.sun_colour = sun_colour_for(toward);
-        get_log("rt_relit: the sun toward %.3f %.3f %.3f (colour x %.2f %.2f %.2f)",
-                static_cast<double>(rt::x_of(toward)), static_cast<double>(rt::y_of(toward)),
-                static_cast<double>(rt::z_of(toward)), static_cast<double>(std::get<0>(st.sun_colour)),
-                static_cast<double>(std::get<1>(st.sun_colour)), static_cast<double>(std::get<2>(st.sun_colour)));
+        // (a running clock moves the sun twice a second: logged once a game hour of it)
+        static double logged_hours = -1.0;
+        if (!day.on || std::abs(day.hours - logged_hours) >= 1.0) {
+            logged_hours = day.on ? day.hours : -1.0;
+            get_log("rt_relit: the sun toward %.3f %.3f %.3f (colour x %.2f %.2f %.2f; strength x %.2f, sky x %.2f)",
+                    static_cast<double>(rt::x_of(toward)), static_cast<double>(rt::y_of(toward)),
+                    static_cast<double>(rt::z_of(toward)), static_cast<double>(std::get<0>(st.sun_colour)),
+                    static_cast<double>(std::get<1>(st.sun_colour)), static_cast<double>(std::get<2>(st.sun_colour)),
+                    static_cast<double>(std::get<0>(st.day_scales.direct_scale)),
+                    static_cast<double>(std::get<1>(st.day_scales.sky_scale)));
+        }
     }
     retrace(tracer, settings);
     const float strength =
@@ -1057,9 +1118,19 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     lighting = fnv_value(lighting, strength);
     lighting = fnv_value(lighting, settings.residual);
     lighting = fnv_value(lighting, model_floats(st.model));
+    if (st.day_serial != 0) { // (added by the time of day)
+        lighting = fnv_value(lighting, st.day_scales.direct_scale);
+        lighting = fnv_value(lighting, st.day_scales.sky_scale);
+        lighting = fnv_value(lighting, st.day_scales.bounce_scale);
+    }
     lighting = lighting == 0 ? 1 : lighting;
-    const rt::RelitLighting light{
-        .toward = st.sun, .sun_colour = st.sun_colour, .strength = strength, .residual = settings.residual};
+    const rt::RelitLighting light{.toward = st.sun,
+                                  .sun_colour = st.sun_colour,
+                                  .strength = strength,
+                                  .residual = settings.residual,
+                                  .direct_scale = st.day_scales.direct_scale,
+                                  .sky_scale = st.day_scales.sky_scale,
+                                  .bounce_scale = st.day_scales.bounce_scale};
     rebounce(tracer, settings, light);
     st.wanted_lighting = lighting;
     write_relit(lighting, light);
@@ -1126,7 +1197,9 @@ bool object_lighting(ObjectLighting* out)
         }
     }
     out->rotation = rotation;
-    out->key_colour = st.sun_colour;
+    // (added by the time of day: the clock's colour and strength are the original's own lights' - its states' -, so the
+    // key light is only turned)
+    out->key_colour = st.day_serial != 0 ? rt::Rgbf{1.0F, 1.0F, 1.0F} : st.sun_colour;
     return true;
 }
 

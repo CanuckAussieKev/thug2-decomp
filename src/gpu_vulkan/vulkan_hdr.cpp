@@ -18,6 +18,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/file/disk.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -927,7 +928,10 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     }
     const ToneParameters& tone = own.parameters;
     PassConstants constants{};
-    constants.grade = {tone.scale, tone.saturation, tone.contrast, static_cast<float>(tone.curve)};
+    // (added by the time of day - engine/gfx/rt_daylight.h) the eye adapting: the night brought partly up
+    const rt::DayLight day = rt::day_light();
+    constants.grade = {day.on ? tone.scale * day.exposure : tone.scale, tone.saturation, tone.contrast,
+                       static_cast<float>(tone.curve)};
     constants.shape = {tone.knee, tone.room, tone.aces_scale, static_cast<float>(colour->samples)};
     const GradeLut& lut = own.lut;
     if (lut.size >= kLeastLut) {

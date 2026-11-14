@@ -17,6 +17,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -1663,6 +1664,14 @@ LightsBlock lights_block(EffectsState& own, float* unit)
         if (light.on && luma > 0.0F) {
             block.sun = {kGiSunLight * core::at(light.colour, 0) / luma, kGiSunLight * core::at(light.colour, 1) / luma,
                          kGiSunLight * core::at(light.colour, 2) / luma, 0.0F};
+        }
+        // (added by the time of day - engine/gfx/rt_daylight.h) the clock's light: its strength and colour over the
+        // level's own (the moon's at night)
+        const rt::DayLight day = rt::day_light();
+        if (day.on) {
+            for (std::size_t i = 0; i < 3; ++i) {
+                core::at(block.sun, i) = kGiSunLight * day.direct * core::at(day.direct_tint, i);
+            }
         }
     }
     for (std::size_t i = 0; i < 3; ++i) {

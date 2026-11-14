@@ -207,7 +207,9 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     std::array<float, 3> ambient{};
     std::array<float, 3> tint{};
     for (std::size_t ch = 0; ch < ambient.size(); ++ch) {
-        core::at(ambient, ch) = (core::at(model.sky, ch) * vertex.sky) + (core::at(model.bounce, ch) * core::at(vertex.bounce, ch));
+        // (the time of day's scales: 1 at the level's own time - rt_relit.h RelitLighting)
+        core::at(ambient, ch) = (core::at(model.sky, ch) * core::at(lighting.sky_scale, ch) * vertex.sky) +
+                                (core::at(model.bounce, ch) * core::at(lighting.bounce_scale, ch) * core::at(vertex.bounce, ch));
         core::at(tint, ch) = model.scale * core::at(vertex.tint, ch);
     }
     const float length = std::sqrt(dot(lighting.toward, lighting.toward));

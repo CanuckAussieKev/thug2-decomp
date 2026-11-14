@@ -133,7 +133,7 @@ const std::vector<GroupKeys>& group_keys()
                   "draw_distance_scale", "lod_distance_scale", "rt_tessellation", "rt_tess_max_deviation"}},
         {.id = "lighting",
          .name = text_tools::kGroupLighting,
-         .keys = {"rt_sun_source", "rt_shadows", "rt_shadow_strength", "rt_shadow_softness", "rt_shadow_objects", "rt_ao",
+         .keys = {"rt_sun_source", "tod", "tod_cycle", "tod_cycle_minutes", "rt_shadows", "rt_shadow_strength", "rt_shadow_softness", "rt_shadow_objects", "rt_ao",
                   "rt_ao_strength", "rt_ao_radius", "rt_ao_rays", "rt_gi", "rt_gi_strength", "rt_gi_rays", "rt_lights",
                   "rt_lights_strength", "rt_lights_shadowed"}},
         {.id = "surfaces",
@@ -242,6 +242,7 @@ const std::vector<ShownWhen>& shown_table()
 {
     static const std::vector<ShownWhen> kRules = {
         {.key = "rt_tess_max_deviation", .parent = "rt_tessellation", .values = {"1"}},
+        {.key = "tod_cycle_minutes", .parent = "tod_cycle", .values = {"on"}}, // (NOT ORIGINAL - the time of day)
         {.key = "rt_shadow_strength", .parent = "rt_shadows", .values = {"1"}},
         {.key = "rt_shadow_softness", .parent = "rt_shadows", .values = {"1"}},
         {.key = "rt_shadow_objects", .parent = "rt_shadows", .values = {"1"}},
@@ -462,6 +463,25 @@ const std::vector<Spec>& get_specs()
         // (gpu_vulkan/vulkan_rt_shadows.h), occlusion and bounce light (vulkan_rt_effects.h)
         graphics_choice("rt_sun_source", text_tools::kOptSunSource, text_tools::kOptSunSourceHelp,
                         {{.value = "game", .label = text_tools::kOptSunSky}, {.value = "level", .label = text_tools::kOptSunLevel}},
+                        1, Apply::kLive),
+        // (NOT ORIGINAL - the time of day: engine/gfx/rt_daylight.h, day_clock.h; a clock time HH:MM and tod_levels are
+        // the ini's)
+        graphics_choice("tod", text_tools::kOptTod, text_tools::kOptTodHelp,
+                        {{.value = "level", .label = text_tools::kOptSunLevel},
+                         {.value = "dawn", .label = text_tools::kTodDawn},
+                         {.value = "morning", .label = text_tools::kTodMorning},
+                         {.value = "noon", .label = text_tools::kTodNoon},
+                         {.value = "afternoon", .label = text_tools::kTodAfternoon},
+                         {.value = "dusk", .label = text_tools::kTodDusk},
+                         {.value = "night", .label = text_tools::kTodNight}},
+                        0, Apply::kLive),
+        graphics_choice("tod_cycle", text_tools::kOptTodCycle, text_tools::kOptTodCycleHelp,
+                        {{.value = "off", .label = kOff}, {.value = "on", .label = text_tools::kOn}}, 0, Apply::kLive),
+        graphics_choice("tod_cycle_minutes", text_tools::kOptTodCycleMinutes, "",
+                        {{.value = "12", .label = "12 min"},
+                         {.value = "24", .label = "24 min"},
+                         {.value = "48", .label = "48 min"},
+                         {.value = "96", .label = "96 min"}},
                         1, Apply::kLive),
         graphics_switch("rt_shadows", text_tools::kOptShadows, text_tools::kOptShadowsHelp, 0, Apply::kLive),
         graphics_choice("rt_shadow_strength", text_tools::kOptShadowStrength, "",

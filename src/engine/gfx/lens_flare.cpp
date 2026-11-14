@@ -634,6 +634,9 @@ bool visible_direction(std::array<float, 3>* toward)
 }
 
 // NOT ORIGINAL (lens_flare.h)
+Placed placed() { return {.theta = get_theta(), .phi = get_phi(), .color = get_color(), .shown = get_shown()}; }
+
+// NOT ORIGINAL (lens_flare.h)
 void hide_for_replacement()
 {
     if (!flare_hidden()) {

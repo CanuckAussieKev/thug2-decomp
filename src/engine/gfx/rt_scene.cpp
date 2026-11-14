@@ -4,6 +4,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
 #include "platform/frame_profile.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_sun.h"
 
 #include <algorithm>
@@ -362,6 +363,9 @@ SunInputs scene_inputs(const SceneSunSlot& slot)
     in.baked_scene = baked.scene;
     in.baked_found = baked.found;
     in.baked_toward = baked.toward;
+    const DayLight clock = day_light(); // (added by the time of day)
+    in.clock_set = clock.on;
+    in.clock_toward = clock.light;
     return in;
 }
 } // namespace
@@ -432,6 +436,8 @@ const char* sun_origin_name(SunOrigin origin)
         return "the level's baked sun";
     case SunOrigin::kFixed:
         return "rt_sun_source's fixed direction";
+    case SunOrigin::kClock:
+        return "the time of day's (tod)";
     }
     return "?";
 }

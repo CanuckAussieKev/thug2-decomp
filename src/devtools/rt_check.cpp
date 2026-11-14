@@ -24,9 +24,11 @@
 #include "engine/ext/extension.h"
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
+#include "engine/gfx/day_clock.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/rt_checks.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -787,6 +789,26 @@ std::string console_command(const std::string& arguments)
     if (verb == "sun") {
         return sun_command(file, in);
     }
+    if (verb == "tod") {
+        // (added by the time of day - engine/gfx/day_clock.h: tod for this run, the clock running or not; no word: its
+        // state. The relit mode follows only when it is on - [Graphics] tod turns it on, `rt relit on` here)
+        rt::TodSettings settings = rt::tod_settings();
+        if (file == "cycle") {
+            std::string value;
+            in >> value;
+            settings.cycle = value == "on";
+            rt::set_tod_settings(settings);
+        } else if (!file.empty()) {
+            if (!rt::parse_tod(file, &settings.choice)) {
+                return "rt tod [level | dawn | morning | noon | afternoon | dusk | night | HH:MM | cycle <on | off>]";
+            }
+            rt::set_tod_settings(settings);
+        }
+        if (!file.empty()) {
+            get_log("rt: tod %s", file.c_str());
+        }
+        return render::day_clock::status();
+    }
     if (verb == "relit") {
         // (the relit mode, engine/gfx/rt_relit.h: on / off, its strength, the residual; no word: its state)
         rt::RelitSettings settings = rt::relit_settings();
@@ -819,7 +841,7 @@ std::string console_command(const std::string& arguments)
         get_log("%s", text.c_str());
         return text;
     }
-    return "rt summary | rt dump [file] | rt sun [<x> <y> <z> | off] | rt agree <x> <z> | rt relit [on | off | strength <v> | residual <0|1>]";
+    return "rt summary | rt dump [file] | rt sun [<x> <y> <z> | off] | rt agree <x> <z> | rt relit [on | off | strength <v> | residual <0|1>] | rt tod [<tod> | cycle <on | off>]";
 }
 
 std::string record_json(const rt::FrameRecord& record)

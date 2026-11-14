@@ -427,6 +427,32 @@ void check_scene_sun()
            "scene sun: the console's override above everything");
     in.override_toward = {};
     expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kFixed, "scene sun: a zero override ignored");
+    // (added by the time of day) the clock's light: above game and level where the level is relit, the baked sun
+    // until then, none indoors, below the override and a fixed direction
+    in.override_set = false;
+    in.baked_scene = 1;
+    in.clock_set = true;
+    in.clock_toward = east_30;
+    in.choice = {.source = rt::SunSource::kGame};
+    in.relight = {.relights = true, .level_keeps_bake = true};
+    sun = rt::resolve_scene_sun(in);
+    expect(sun.origin == rt::SunOrigin::kClock && same_direction(sun.toward, east_30),
+           "scene sun: the clock's light above the game's (an entry's \"sun\": \"level\" is about the game's)");
+    in.choice = {.source = rt::SunSource::kLevel};
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kClock, "scene sun: the clock's light above the level's");
+    in.relight = {};
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel,
+           "scene sun: the clock, the level not relit yet - the baked sun");
+    in.relight = {.relights = true};
+    in.baked_found = false;
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kNone, "scene sun: the clock, indoors - none");
+    in.baked_found = true;
+    in.choice = {.source = rt::SunSource::kFixed, .fixed = fixed};
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kFixed, "scene sun: a fixed direction above the clock");
+    in.choice = {.source = rt::SunSource::kLevel};
+    in.clock_toward = {};
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel, "scene sun: a zero clock light ignored");
+    in.clock_set = false;
     // rt_sun_source's text
     rt::SunChoice choice;
     expect(rt::parse_sun_source("game", &choice) && choice.source == rt::SunSource::kGame, "rt_sun_source=game");

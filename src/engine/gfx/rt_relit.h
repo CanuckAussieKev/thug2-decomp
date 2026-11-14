@@ -194,6 +194,11 @@ struct RelitLighting {
     Rgbf sun_colour{1.0F, 1.0F, 1.0F}; // the model's a times this
     float strength = 1.0F;
     bool residual = true;
+    // (added by the time of day - rt_daylight.h) the light's strength at the clock's time over the level's own: the
+    // sun's (or the moon's) a, the sky's b and the bounce's g times these (1: the level's own - its arithmetic as before)
+    Rgbf direct_scale{1.0F, 1.0F, 1.0F};
+    Rgbf sky_scale{1.0F, 1.0F, 1.0F};
+    Rgbf bounce_scale{1.0F, 1.0F, 1.0F};
 };
 // The model's light at a vertex: a S + b K + g B (S from its `sun` and normal toward `lighting.toward`).
 [[nodiscard]] Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);

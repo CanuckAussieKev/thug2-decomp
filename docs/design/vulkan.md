@@ -1355,7 +1355,7 @@ their depth and stay in front of any sky).
   direction falls on the viewport, this frame's clouds (their history, read as the composite reads it, faded out over
   the viewport's last 8%; beyond it the sky alone) - as the game's colour; with `rt_sky=0` the misses keep the game's
   environment map as before.
-- **Not done**: no time of day (the sun stays where the level puts it); clouds in reflections only where the reflected
+- **Not done**: (the time of day: "Time of day" below); clouds in reflections only where the reflected
   direction is on screen.
 - **Checked**: `thug2_vulkan_rt_sky_check` (60 checks; the RTX 5070 Ti and the AMD Radeon integrated GPU, validation and
   synchronization validation 0, no ray tracing asked for): the transmittance table against 2048 segments, Psi against
@@ -1659,6 +1659,153 @@ the baked one and the sun each effect used last; `rt sun source <...>` switches 
   - No NaN or black holes: black share within 0.2% of Level everywhere but TR.
 - **Hence `level` is the default.** DJ, AU and SC are listed `"sun": "level"` in `rt_relit_levels.json` for those who
   pick `game`.
+
+### Time of day (`tod`, `tod_cycle`)
+
+Every level can be played at any hour: the sun (and at night a full moon) moves along a real path over the level, the
+sky turns through sunrise, sunset and night with stars, the level's light dims and turns blue, the lamps come on, and
+the game's own day-and-night states follow the hour. `tod=level` (the default) changes nothing at all - the level as it
+was made, to the bit.
+
+**Settings** (`[Graphics]`; the Options screen's Lighting tab has *Time of day*, *Day cycle* and *Day length*, applied
+at once on Vulkan):
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `tod` | `level` | `level`: the level as it was made. `dawn` / `dusk`: the sun 3 degrees up, rising / setting. `morning` 9:00, `noon` 12:00, `afternoon` 15:30, `night` midnight (solar time), or a clock time `HH:MM` |
+| `tod_cycle` | `off` | `on`: the clock runs from that time - day, sunset, night, sunrise (paused with the game) |
+| `tod_cycle_minutes` | `24` | Real minutes for a whole day (1 - 1440) |
+| `tod_levels` | (none) | Some levels' own times: `NO:night,AU:dusk` (the level's scene name, any case) |
+
+The console's `rt tod [<tod> | cycle <on | off>]` sets them for one run and prints the clock (`rt tod` alone).
+
+**Each level's own day** (`engine/gfx/rt_daylight.h` `fit_native_day`). The path is the standard one: the sun's
+elevation from sin e = sin(lat) sin(dec) + cos(lat) cos(dec) cos(h) (h the hour angle, 15 degrees an hour from solar
+noon), its azimuth from north through east; latitude 34 N and declination +15 (early May / August: sunrise 5:18, sunset
+18:41, noon 71 degrees up). The moon is full - opposite the sun (12 hours on, the declination turned round): up all
+night, highest (41 degrees) at midnight. The level's own lighting is one time of that day: the time after noon at which
+the path's sun is as high as the level's sun - the sun its bake was made with (`rt_sun.h`'s fit, with ray tracing), else
+the sun the game shows, else 45 degrees up - and north is turned so that the path's sun then is the level's sun exactly
+(BO's baked sun, heading -75 and 52 up: 14:26; z_dt's 14:21; a sun higher than the path's noon lowers the latitude
+until it fits). A level whose own time-of-day state is night (NO) has midnight as its time, evening sunset. So a time
+moves the sun from where the level has it: `tod=afternoon` on BO is the same sun an hour later.
+
+**The light at a time** (`day_light_at`; all relative to the level's own time, display-referred like the bake - a
+linear ratio r shows as r ^ (1 / 2.2), so night is dim, not black):
+
+- *Direct light*: the sun's transmittance through the sky model's atmosphere (`rt_sky.h`, its luminance over the level's
+  sun's; its colour the model's over the level's sun's - warm when low), gone at the horizon. Once the sun is 4 degrees
+  down the moon takes over: 0.22 of the level's sun (whole 12 degrees down, rising with the moon's height), blue
+  (0.62, 0.74, 1).
+- *Sky light*: the model's sky light on a level surface (its single scattering, cosine-weighted over the hemisphere: a
+  table made once, -20 to 90 degrees) over the level's sun's; from sunset to 4 degrees down a night floor comes in
+  (0.14, 0.18, 0.26 - the moonlit sky's blue; with the moon about the original's own night, its night state's level
+  colour 50 65 75 of 128), while the twilight is still brighter than it, so the light never brightens into the night.
+- *Lamps*: from 6 degrees up (before sunset) to on 4 degrees down; *stars* from 6 to 16 degrees down; *exposure* (HDR
+  only) the light's luminance ^ -0.35, at most 1.3 x.
+- *Which light*: the sun, or the moon at night, held at least 6 degrees up for the shadows and relit (a low light's
+  shadows cross the whole level - and it is nearly gone by then).
+
+**Where it acts.**
+
+- **The scene's sun** (`rt_scene.h` `scene_sun`): a new origin, the clock's light, above `game` and `level` wherever relit
+  relights the level (before that the baked sun; indoors none, as always; the console's override and a fixed
+  `rt_sun_source` above it). The shadows, the bounce light, the fog's shafts and haze, the drawn sun and the relit level
+  all follow it, as "One sun for every effect" describes. `tod` other than `level` turns `rt_relit` on, as
+  `rt_sun_source` does.
+- **The relit level** (`rt_relit`). The relit colours are `scale x tint x E' + residual` - the bake taken apart into its
+  sun, sky and bounce - so the time scales each part: the sun's term by the direct light (its colour the clock's), the
+  sky's by the sky light, the bounce by their mix; the residual (the lamps' and glows' light the artists baked) stays
+  whole - lamp pools stay lit at night. The sun's rays are traced again as it moves (150,000 vertices a frame), the
+  bounce again from the colours at the level's own strength; the colours are written at most 120,000 vertices a frame
+  while the clock runs (a new time spreads over a few frames, as the original's time of day colours a part of the
+  level a frame). The clock steps every 30 seconds of the day - twice a second with a 24-minute day. At the scales 1 the
+  arithmetic is the same as without them.
+- **The baked light without relit** - Direct3D 9, Vulkan without ray tracing, a level relit can't take apart (no sun in
+  its bake, or opted out): the game's own time of day (`engine/gfx/tod_manager.h`) does it. Every level is loaded with
+  four states (`tod_manager.qb`'s default morning, afternoon, evening and night - level colour, sky colour, fog, ambient
+  and the two directional lights, bloom; AU's own sun angles) and set to its own (afternoon; NO night). The clock blends
+  them by the sun's elevation (`tod_blend`: afternoon above 20 degrees, evening - or before noon, morning - at 4, night
+  below -8, smoothly between) and sends them as the manager does: the light manager, the fog, the level's colour
+  (sectors coloured a part a frame, per light group - outdoor sectors dim, indoor ones are reset to neutral, as the
+  original's groups say). The nearest state is set with `set_tod_instant` as the game's own debug Time of Day menu does,
+  so the level's own scripts for it run (`tod_manager_state_transition`: the night geometry and fake lights of BO, BA,
+  BE, AU and NO, the cars' headlights). Where relit relights the level the level colour stays the level's own (relit
+  dims the bake already); where the backend draws the sky (`rt_sky`) the dome's colour does too.
+- **The skater and objects**: the original's states' ambient and directional lights (blended), turned by relit toward
+  the clock's light; the key light is not tinted again by the clock's colour.
+- **The sky** (`rt_sky`): drawn for the clock's sun - under the horizon too: the model's twilight - and matched to the
+  level for the level's own sun (so the painted sky's colours belong to the level's own time and the model moves them
+  to other times; matching at every time would repaint the level's sky at night). The night sky's light (0.0028,
+  0.0045, 0.0095 exposed overhead, 1.5 x at the horizon) is added to the sky-view table after the match's gains, so the
+  fog's aerial haze and the reflections see it too; the composite adds the stars (cells on a cube about the celestial
+  pole, turned with the hours; about 6% of cells hold a star, most faint) and the moon's disc (0.009 rad, twice the
+  real one, as the sun's is) before the clouds, which cover them. The original's sun sprite and lens flare follow the
+  clock's sun (`sun::set_sun`), hidden while it is down; the ray-traced disc likewise.
+- **The shadows** (`rt_shadows`): their strength x the direct light's share of the light over its share at the level's
+  own time (none at twilight, the moon's at night). **The lamps** (`rt_lights`): their strength x the lamps' amount (off
+  by day, on at night). **The bounce light** (`rt_gi`): its sun x the direct light and its colour. **HDR**
+  (`rt_hdr`): the exposure's factor x the clock's.
+
+**The original's own time of day wins** (`day_clock.h`): the clock does nothing in the front end, in a career level that
+runs its own cycling time of day (`CtodManager::runs_its_day` - career mode, the manager active, `tod_manager_inactive`
+not set), during a cutscene's temporary state, and once a script sets the level's state over the clock's (the park
+editor's lighting, a network peer's time of day) - until `tod` is changed again. Turned back to `level`, it puts the
+level's own state and sun back. Online it is local: each player sees their own time.
+
+**Checked:**
+
+- `thug2_daylight_check` (processor, no game): the sun's path against an independent rotation of the celestial sphere
+  (1920 places, 5 latitudes, 4 dates: within 1e-6 degrees), noon at 34 N / +15 (71 up, due south), the equator's equinox
+  sunrise and sunset (due east 6:00, due west 18:00), 34 N at 15:00 (35.889 up, azimuth 240.79); the time at an
+  elevation; four baked suns (BO, z_dt, sch, one 84 degrees up) - the path's sun at the level's time is the baked sun
+  (1e-4), after noon, and the light then is the level's own (direct and sky 1, no lamps, the afternoon state), half an
+  hour later lower and further west; the moon; the light from noon to midnight (the sun's never brightens to dusk, the
+  sky's never into the night), dusk's lamps coming on, midnight moonlit, dark but lit, exposure up; the original's
+  states' weights changing smoothly; the settings' text.
+- `thug2_rt_scene_check`: the clock's light in the scene sun's rules (above game and level when relit, the baked sun
+  before, none indoors, below a fixed direction, a zero light ignored).
+- `thug2_vulkan_rt_sky_check` (+11): without the night term the sky-view table is the level's to the bit; at noon, dusk
+  (3 up), twilight (-6), 21:30 and midnight the device's table against the processor's (`sky_radiance_ms` + the night
+  term: mean 0.0002 - 0.0011, 99th percentile 0.0006 - 0.0039 relative), the zenith darkening from noon to night and the
+  night's light at midnight; the moon's disc where it is, stars over the night sky (1150 pixels a step over it at 320 x
+  240), none with them off; back to `tod=level`, every pixel as before the clock ran.
+- `thug2_vulkan_rt_lights_check` (+4): the lamps at noon - every pixel as drawn; at night and at half - the processor's
+  lamp light x 1 and x 0.5 (0 wrong); `tod=level` as before.
+- `thug2_vulkan_rt_relit_check` (+2): relit at half the light (the clock's scales) within 4 bytes of the processor's
+  half-lit bake at 1077 of 1115 vertices; the scales at 1 change no colour.
+- The other checks pass unchanged (RTX 5070 Ti): sun 87, relit 27, shadows 45, gi 50, fog 76, hdr 80, cel 24,
+  reflections 125, effects 51, rt 22, options 3934; `thug2_ff_shader_check --no-gpu` 0 failed.
+- **In the game** (two short runs in a workspace, BO, every ray-traced effect on, `rt_sky=1`, `rt_lights=1`, HDR): BO's own
+  time found from its baked sun (heading 286, 52 degrees up: 14:26, north at heading 37); `tod=dusk` with a 1-minute day
+  ran through sunset, night and the morning, the original's evening and night states set on the way (their scripts
+  run), relit dimming the level (its mean vertex brightness 73 by day), stars and the moon's light at night;
+  `rt tod level` gave the level its own state and sun back, `rt tod noon` took it again (71 degrees up). The night's
+  floor and exposure were raised after the first run (the skater, lit by the original's night state, stood out
+  against a darker level) - not seen in the game since. Not measured: the frame time while the clock runs.
+
+**Not done / limits:**
+
+- One path for every level (34 N, early May): a level's own latitude or date isn't known; per-level paths would be a
+  `tod_levels`-like list.
+- A level whose bake shows no sun (AP, CA, NO, SE, SE2, the indoor ones) isn't relit: its light is the original's states'
+  (level colour, fog, the skater's lights) - its baked lamps dim with the rest; NO's own time is night, so `noon` there
+  is the original's afternoon state over a night-baked level, with a day sky.
+- Twilight is dark: the sky model's exposure is fixed for a 45-degree sun, so 6 degrees down the sky is already near
+  the night's floor (HDR's exposure brings it up partly).
+- The clouds (`rt_clouds`) are lit by the model's sky and sun only: at night they are dark shapes over the stars. The
+  water's and the per-pixel surfaces' sun glints (`rt_water`, `rt_pbr`) still take the sun's direction from the sky
+  model, not the moon's. No moon phases; the moon is always full.
+- The sun's direction on the screen follows the engine's convention for headings (from +z toward +x, as `rt_sun_source`'s
+  `heading,elevation` and the original's `sun_theta`); east and west are that convention's.
+- Day-to-night changes of the original's states run the level's own scripts once per state (a frame's work); the
+  clock's own colour sweeps are a light group's part a frame.
+
+**In the game - what to look at** (for the user): BO, z_dt, AU, NO and the Foundry with `tod=dawn`, `noon`, `dusk`,
+`night` and `tod_cycle=on` with `tod_cycle_minutes=12`: the sun's place against the shadows; the sky at sunset and the
+stars and moon at night; the level dim and blue but readable at night, its lamps lit (with `rt_lights=1`) and its night
+geometry (BO, BA, BE, AU, NO); the skater's light; switching `tod` back to `Level` in the Options screen giving the level
+back exactly; a career level's own time of day unchanged; the frame time while the clock runs (relit's rewrites).
 
 ### Upscaling: DLSS and FSR (`upscaler`)
 
@@ -2628,7 +2775,7 @@ end's Options screen writes a `[Graphics]` key it calls `render::graphics_option
 effect (`kLiveKeys`: the shadows', occlusion's, the bounce's, the reflections', the tone mapping's numbers, the fog's,
 the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*` -,
 the art style's, the grass's - `grass`, `grass_*` -, cel shading's - `rt_cel`, `rt_cel_*` - and the water's - `rt_water`,
-`rt_water_*`)
+`rt_water_*` - and the time of day's - `tod`, `tod_*`: the clock's settings, then relit's)
 has that effect's settings read again and set
 through its `set_rt_*_settings` - each takes the backend's lock and adds or removes its view listener, as at
 start-up; the shadows are followed by the bounce (their `off` clears the baked sun it wants). Effects' histories start

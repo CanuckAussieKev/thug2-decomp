@@ -39,6 +39,9 @@ namespace rt_relit_world {
 
 inline constexpr uint32_t kRelitRetraceVertices = 150000;
 inline constexpr uint32_t kRelitBounceVertices = 40000;
+// (added by the time of day - engine/gfx/rt_daylight.h) While the clock lights the level, the colours written at most
+// this many vertices a frame (a new time spread over frames).
+inline constexpr uint32_t kRelitWriteVertices = 120000;
 
 // A world mesh as rt_record knows it: its id in the RayTracing, its geometry and the buffer it was drawn from.
 struct WorldMesh {

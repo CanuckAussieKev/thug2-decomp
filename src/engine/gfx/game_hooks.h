@@ -24,6 +24,9 @@ struct GameHooks {
     bool (*game_halted)();
     // The park editor's shell: the scene of the level being played (ParkBuilderMode::get_shell_checksum).
     uint32_t (*park_shell)();
+    // (added by the time of day - engine/gfx/day_clock.h) The skate module's level - its load script's checksum
+    // (load_mainmenu in the front end; modules::Skate::level) -, 0 without a skate module.
+    uint32_t (*level_script)();
 };
 
 void set_game_hooks(const GameHooks& hooks);

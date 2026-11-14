@@ -16,6 +16,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -846,7 +847,11 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     }
     constants.rect = {static_cast<int32_t>(left), static_cast<int32_t>(top), static_cast<int32_t>(width),
                       static_cast<int32_t>(height)};
-    constants.to_light = {core::at(to_light, 0), core::at(to_light, 1), core::at(to_light, 2), own.settings.strength};
+    // (added by the time of day - engine/gfx/rt_daylight.h) the shadows as strong as the sun's (or moon's) share of the
+    // light at the clock's time: none at twilight
+    const rt::DayLight day = rt::day_light();
+    const float strength = day.on ? own.settings.strength * day.shadow : own.settings.strength;
+    constants.to_light = {core::at(to_light, 0), core::at(to_light, 1), core::at(to_light, 2), strength};
     const bool soft = own.settings.softness > 0.0F && own.settings.rays > 1;
     constants.shape = {
         static_cast<float>(std::tan(static_cast<double>(own.settings.softness) * kDegreesToRadians)),

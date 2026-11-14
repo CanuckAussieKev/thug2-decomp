@@ -60,6 +60,15 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_rt_scene_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_daylight_check.exe: the time of day's maths (engine/gfx/rt_daylight.h: the sun's path, each
+# level's own day, the light at a time, the original's states blended, the settings' text) checked
+# (src/tests/daylight_check.cpp; pure: no game, no device).
+if(TARGET thug2_base)
+    add_executable(thug2_daylight_check daylight_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_daylight.cpp"
+                                        "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_sky.cpp")
+    target_link_libraries(thug2_daylight_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_viewer_check.exe: the demo viewer's camera path (devtools/demo_camera_path.h: the keys' interpolation,
 # continuity, the yaw's wrap, the sidecar written and read back) and the split comparison's projection crop
 # (engine/gfx/rt_scene.h crop_clip_space) checked (src/tests/viewer_check.cpp).

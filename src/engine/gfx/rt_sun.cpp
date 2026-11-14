@@ -436,6 +436,12 @@ SceneSun resolve_scene_sun(const SunInputs& in)
     if (!in.baked_found) {
         return {}; // (indoors: the level keeps its bake)
     }
+    if (in.clock_set && in.relight.relights) { // (added by the time of day)
+        const SceneSun clock = sun_of(SunOrigin::kClock, in.clock_toward);
+        if (clock.found()) {
+            return clock;
+        }
+    }
     if (in.choice.source == SunSource::kGame && in.game_set && in.relight.relights && !in.relight.level_keeps_bake) {
         const SceneSun game = sun_of(SunOrigin::kGame, in.game_toward);
         const auto lowest = static_cast<float>(std::sin(static_cast<double>(kMinGameSunDegrees) * kRadiansPerDegree));

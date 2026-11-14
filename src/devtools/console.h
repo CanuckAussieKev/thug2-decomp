@@ -20,6 +20,8 @@ class Extension;
 //   rt sun <x y z> | off  every effect's sun set by hand (toward it; rt_scene.h set_sun_override); `rt sun` alone: the
 //                   scene's sun and the one each effect used last; `rt sun source <game | level | x,y,z | h,e>`:
 //                   rt_sun_source for this run
+//   rt tod [<tod> | cycle <on | off>]  the time of day for this run (rt_daylight.h; [Graphics] tod's words or HH:MM),
+//                   the clock running or not; alone: the clock's state (day_clock.h)
 //   help            the commands
 namespace devtools::console {
 

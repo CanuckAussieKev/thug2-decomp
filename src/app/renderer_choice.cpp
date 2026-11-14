@@ -14,9 +14,11 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -55,6 +57,50 @@ void install_direct3d9()
     render::install_gpu(render::d3d9::gpu());
     render::install_gpu_context(render::d3d9::gpu_context());
     render::install_ui_backend(render::d3d9::ui_backend());
+}
+
+// NOT ORIGINAL - the time of day (engine/gfx/rt_daylight.h, day_clock.h): [Graphics] tod (level - the default, the level
+// as it is -, dawn, morning, noon, afternoon, dusk, night or HH:MM), tod_cycle (off / on: the clock runs),
+// tod_cycle_minutes (real minutes a day, 24) and tod_levels (NO:night,AU:dusk - a level's own). Any renderer: on Direct3D
+// 9 the original's time of day gives the look (its states blended), with Vulkan's effects the sky, the sun and relit
+// follow it too. Anything else is the default, logged.
+void read_time_of_day()
+{
+    constexpr std::size_t kLongest = 512;
+    std::array<char, kLongest> text{};
+    render::rt::TodSettings settings;
+    build_info::fetch_text(build_info::kGraphics, "tod", "level", text.data(), text.size());
+    if (!render::rt::parse_tod(text.data(), &settings.choice)) {
+        get_log("[Graphics] tod=%s isn't level, dawn, morning, noon, afternoon, dusk, night or HH:MM - level", text.data());
+    }
+    text = {};
+    build_info::fetch_text(build_info::kGraphics, "tod_cycle", "off", text.data(), text.size());
+    const std::string_view cycle(text.data());
+    settings.cycle = cycle == "on" || cycle == "1";
+    if (!settings.cycle && cycle != "off" && cycle != "0") {
+        get_log("[Graphics] tod_cycle=%s isn't off or on - off", text.data());
+    }
+    text = {};
+    build_info::fetch_text(build_info::kGraphics, "tod_cycle_minutes", "", text.data(), text.size());
+    char* end = nullptr;
+    const double minutes = std::strtod(text.data(), &end);
+    if (end != text.data() && std::isfinite(minutes)) {
+        settings.cycle_minutes = static_cast<float>(minutes);
+    }
+    text = {};
+    build_info::fetch_text(build_info::kGraphics, "tod_levels", "", text.data(), text.size());
+    if (!render::rt::parse_tod_levels(text.data(), &settings.levels)) {
+        get_log("[Graphics] tod_levels=%s: an entry isn't <level>:<tod> - those before it used", text.data());
+    }
+    render::rt::set_tod_settings(settings);
+    if (render::rt::tod_may_run(settings)) {
+        get_log("[Graphics] tod=%s%s%s", render::rt::tod_text(settings.choice).c_str(),
+                settings.cycle ? text::format(" - the clock running, a day in %.0f minutes",
+                                              static_cast<double>(render::rt::tod_settings().cycle_minutes))
+                                     .c_str()
+                               : "",
+                settings.levels.empty() ? "" : " (some levels their own: tod_levels)");
+    }
 }
 
 #ifdef THUG2_VULKAN
@@ -398,6 +444,11 @@ void read_rt_relit()
         relit.on = true;
         get_log("[Graphics] rt_relit=0, but rt_sun_source isn't level: the relit mode on (the levels relit by that sun)");
     }
+    // (added by the time of day) likewise a time other than the level's own: relit by the clock's sun or moon
+    if (!relit.on && render::rt::tod_may_run(render::rt::tod_settings())) {
+        relit.on = true;
+        get_log("[Graphics] rt_relit=0, but tod isn't level: the relit mode on (the levels relit by the time of day)");
+    }
     render::rt::set_relit_settings(relit);
 }
 
@@ -721,8 +772,17 @@ void read_sun_source_and_effects()
     read_rt_relit();
 }
 
+// (added by the time of day) tod, tod_cycle, tod_cycle_minutes, tod_levels: the clock's settings, then the relit mode
+// (turned on with a time other than the level's own)
+void read_time_of_day_and_relit()
+{
+    read_time_of_day();
+    read_rt_relit();
+}
+
 constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_sun_source", .prefix = false, .read = &read_sun_source_and_effects},
+    LiveKey{.key = "tod", .prefix = true, .read = &read_time_of_day_and_relit}, // (tod and every tod_)
     LiveKey{.key = "rt_shadows", .prefix = false, .read = &read_rt_shadows_and_gi},
     LiveKey{.key = "rt_shadow_", .prefix = true, .read = &read_rt_shadows_and_gi},
     LiveKey{.key = "rt_ao", .prefix = false, .read = &read_rt_ao},
@@ -1110,7 +1170,9 @@ sys::WindowApi renderer_window_api()
 
 void install_renderer()
 {
-    if (chosen_renderer() == Renderer::kVulkan) {
+    const Renderer renderer = chosen_renderer(); // (first: it finds the settings file - build_info::prepare_all)
+    read_time_of_day(); // (NOT ORIGINAL - the time of day: either renderer; before relit's settings, which it may turn on)
+    if (renderer == Renderer::kVulkan) {
         install_vulkan();
     } else {
         install_direct3d9();

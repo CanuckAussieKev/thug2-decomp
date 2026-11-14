@@ -132,6 +132,8 @@ add_library(thug2_engine STATIC
     gfx/fisheye_lens.cpp
     gfx/smooth_tess.cpp
     gfx/rt_sun.cpp
+    gfx/rt_daylight.cpp
+    gfx/day_clock.cpp
     gfx/surface_maps.cpp
     gfx/water_surfaces.cpp
     gfx/water_tess.cpp

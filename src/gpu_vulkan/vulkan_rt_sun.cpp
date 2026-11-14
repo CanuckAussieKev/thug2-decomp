@@ -18,6 +18,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -1403,12 +1404,23 @@ bool find_sun(Backend& state, const RtSunSettings& settings, std::array<float, 3
 {
     SunState& own = sun_state();
     const bool want_sun = settings.sun || settings.shafts;
-    const bool have_sun = want_sun && visible_sun(toward);
+    bool have_sun = want_sun && visible_sun(toward);
+    // (added by the time of day) the clock's sun under the horizon: no disc (the moon is the sky pass's)
+    const rt::DayLight day = rt::day_light();
+    constexpr float kBelowHorizon = -0.02F;
+    if (have_sun && day.on && core::at(*toward, 1) < kBelowHorizon) {
+        have_sun = false;
+    }
     if (want_sun) {
         rt::note_sun_used(rt::SunUser::kDrawnSun, have_sun, *toward);
     }
     rt::set_sun_glare_replaced(settings.sun && have_sun);
-    if (have_sun && *toward != own.logged_toward) {
+    // (a running clock moves the sun twice a second: logged every 5 degrees of it)
+    constexpr float kLoggedApart = 0.9962F;
+    const float moved = (core::at(*toward, 0) * core::at(own.logged_toward, 0)) +
+                        (core::at(*toward, 1) * core::at(own.logged_toward, 1)) +
+                        (core::at(*toward, 2) * core::at(own.logged_toward, 2));
+    if (have_sun && *toward != own.logged_toward && (!day.on || moved < kLoggedApart)) {
         // (logged when the sun moves: a new level, the time of day, rt_sun_source)
         own.logged_toward = *toward;
         const rt::SceneSun scene = rt::scene_sun();

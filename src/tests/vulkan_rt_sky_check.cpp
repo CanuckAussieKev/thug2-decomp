@@ -51,6 +51,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_clouds.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_sky_match.h"
@@ -764,6 +765,195 @@ void run_atmosphere(render::Gpu& gpu, Tally* tally)
                      "  the zenith bluer than the horizon (away from the sun)");
         tally->check(count_not_finite(view.texels) == 0, "  no NaN in the sky-view table");
     }
+    release_targets(gpu, targets);
+}
+
+// --- (added by the time of day) the sky at the clock's times ------------------------------------------------------------
+
+// The sky-view table against the processor's (sky_radiance_ms, the below-horizon blend, and the night's light added as
+// the shader adds it) with the sun `elevation` radians up and `night` overhead: each value's relative error.
+std::vector<double> view_errors(const vk::AtmosphereTexels& view, double elevation, const std::array<float, 3>& night,
+                                const rt::MultipleTable& cpu_table)
+{
+    std::vector<double> errors;
+    constexpr uint32_t kReferenceLight = 256;
+    const rt::Dir sun = rt::sun_direction_at(elevation);
+    for (uint32_t row = 0; row < view.height; row += kViewRowStep) {
+        for (uint32_t column = 0; column < view.width; column += kViewColumnStep) {
+            const rt::Dir dir = rt::sky_view_direction({(column + kHalf) / view.width, (row + kHalf) / view.height});
+            rt::Rgb want =
+                rt::sky_radiance_ms(dir, sun, {.view = rt::kSkyViewSteps, .light = kReferenceLight}, cpu_table);
+            if (core::at(dir, 1) < 0.0) {
+                const double across = std::hypot(core::at(dir, 0), core::at(dir, 2));
+                const double flat = std::cos(vk::kHazeElevation) / std::max(across, kParallel);
+                const rt::Dir level{core::at(dir, 0) * flat, std::sin(vk::kHazeElevation), core::at(dir, 2) * flat};
+                const rt::Rgb haze =
+                    rt::sky_radiance_ms(level, sun, {.view = rt::kSkyViewSteps, .light = kReferenceLight}, cpu_table);
+                const double below = std::clamp(-std::asin(core::at(dir, 1)) / vk::kBelowFade, 0.0, 1.0);
+                const double share = vk::kBelowShare * below * below * (3.0 - (2.0 * below));
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    core::at(want, channel) =
+                        core::at(haze, channel) + ((core::at(want, channel) - core::at(haze, channel)) * share);
+                }
+            }
+            const double e = std::asin(std::clamp(core::at(dir, 1), -1.0, 1.0));
+            const double up = std::sqrt(std::clamp(e / (kPi / 2.0), 0.0, 1.0));
+            const double night_share = vk::kNightHorizon + ((1.0 - vk::kNightHorizon) * up);
+            const std::array<float, 4>& got = core::at(view.texels, (static_cast<std::size_t>(row) * view.width) + column);
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                const double exposed = (core::at(want, channel) * rt::sky_exposure()) +
+                                       (static_cast<double>(core::at(night, channel)) * night_share);
+                errors.push_back(error_of(core::at(got, channel), exposed, kViewFloor));
+            }
+        }
+    }
+    return errors;
+}
+
+bool view_for(const vk::AtmosphereInput& input, vk::AtmosphereTexels* out)
+{
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        vk::update_atmosphere(state, vk::outside_pass(state), input);
+    }
+    return read_table(vk::AtmosphereTable::kSkyView, out);
+}
+
+Vec3 doubles(const std::array<float, 3>& v)
+{
+    return {static_cast<double>(std::get<0>(v)), static_cast<double>(std::get<1>(v)), static_cast<double>(std::get<2>(v))};
+}
+
+void run_time_of_day(render::Gpu& gpu, Tally* tally)
+{
+    text::print("the time of day (tod):\n");
+    Targets targets;
+    tally->check(make_targets(gpu, kTargetWidth, kTargetHeight, false, &targets), "the targets made");
+    rt::set_sky_capture({});
+    rt::set_day_light({});
+    vk::set_rt_sky_settings(sky_settings(false, false, 0.0F));
+    // tod=level: no night term - the table and the picture as without the clock, to the bit, before and after one ran
+    draw_frame(gpu, targets, sky_pose());
+    std::vector<Rgb> plain_picture;
+    vk::AtmosphereTexels plain_table;
+    tally->check(read_colour(targets, &plain_picture) && read_table(vk::AtmosphereTable::kSkyView, &plain_table),
+                 "tod=level: a pass read back");
+    const std::array<float, 3> plain_sun = floats(to_sun());
+    vk::AtmosphereInput night_input;
+    night_input.sun = plain_sun;
+    night_input.night = rt::kNightSky;
+    vk::AtmosphereTexels with_night;
+    tally->check(view_for(night_input, &with_night), "the table with the night's light read back");
+    vk::AtmosphereInput level_input;
+    level_input.sun = plain_sun;
+    vk::AtmosphereTexels again;
+    tally->check(view_for(level_input, &again) && again.texels == plain_table.texels &&
+                     with_night.texels != plain_table.texels,
+                 "without the night's light the table is the level's to the bit (with it, not)");
+    // the sky at the clock's times on a level's day (its baked sun heading 30, 50 degrees up) against the processor
+    text::print("  (the processor's Psi table: a moment)\n");
+    const rt::MultipleTable cpu_table = rt::multiple_table({.steps = rt::kMultipleSteps, .light = 64});
+    const rt::NativeDay day = rt::fit_native_day({.sun = rt::DayVec{0.3214F, 0.7660F, 0.5567F},
+                                                  .have_sun = true,
+                                                  .from_bake = true,
+                                                  .state = rt::TodState::kAfternoon});
+    struct Time {
+        rt::TodChoice choice;
+        const char* name;
+    };
+    const std::array<Time, 5> kTimes{{{{.preset = rt::TodPreset::kNoon}, "noon"},
+                                      {{.preset = rt::TodPreset::kDusk}, "dusk"},
+                                      {{.preset = rt::TodPreset::kClock, .hours = 19.2F}, "19:12 (twilight)"},
+                                      {{.preset = rt::TodPreset::kClock, .hours = 21.5F}, "21:30"},
+                                      {{.preset = rt::TodPreset::kNight}, "midnight"}}};
+    std::array<double, kTimes.size()> zenith{};
+    for (std::size_t i = 0; i < kTimes.size(); ++i) {
+        const rt::DayLight light = rt::day_light_at(day, rt::preset_hours(core::at(kTimes, i).choice, day));
+        vk::AtmosphereInput input;
+        input.sun = light.sun;
+        input.night = light.night_sky;
+        vk::AtmosphereTexels view;
+        const bool read = view_for(input, &view);
+        const double elevation = std::asin(std::clamp(static_cast<double>(core::at(light.sun, 1)), -1.0, 1.0));
+        const std::vector<double> errors = view_errors(view, elevation, light.night_sky, cpu_table);
+        tally->check(read && mean_of(errors) < kMostViewErrorMean && percentile(errors, kNinetyNinth) < kMostViewError99,
+                     text::format("  %s (the sun %.1f degrees up): the sky-view table against the processor's (%zu "
+                                  "values): mean %.4f, 99th percentile %.4f",
+                                  core::at(kTimes, i).name, elevation / kDegrees, errors.size(), mean_of(errors),
+                                  percentile(errors, kNinetyNinth)));
+        core::at(zenith, i) = luma(sky_view_at(view, {0.0, 1.0, 0.0}, doubles(light.sun)));
+        tally->check(count_not_finite(view.texels) == 0, "  no NaN");
+    }
+    tally->check(core::at(zenith, 0) > core::at(zenith, 1) && core::at(zenith, 1) > core::at(zenith, 2) &&
+                     core::at(zenith, 2) > core::at(zenith, 3) && core::at(zenith, 3) >= core::at(zenith, 4) * 0.99,
+                 text::format("  the zenith darkens from noon to night (%.4f, %.4f, %.4f, %.4f, %.5f)",
+                              core::at(zenith, 0), core::at(zenith, 1), core::at(zenith, 2), core::at(zenith, 3),
+                              core::at(zenith, 4)));
+    const double night_zenith = luma(doubles(rt::kNightSky));
+    constexpr double kNightTolerance = 0.1;
+    tally->check(std::abs(core::at(zenith, 4) - night_zenith) < night_zenith * kNightTolerance,
+                 text::format("  at midnight the zenith is the night's light (%.5f against %.5f)", core::at(zenith, 4),
+                              night_zenith));
+    // the composite at night: the moon's disc where it is, stars over the sky, none with the stars off
+    const View view = view_from(sky_pose(), kTargetWidth, kTargetHeight);
+    const Point middle{.x = kTargetWidth / 2.0, .y = kTargetHeight / 4.0};
+    rt::DayLight night = rt::day_light_at(day, rt::kNightHours);
+    night.moon = floats(direction_at(view, middle));
+    night.moon_disc = 1.0F;
+    night.stars = 1.0F;
+    rt::set_day_light(night);
+    tally->check(draw_frame(gpu, targets, sky_pose()) == 1, "  a night pass ran");
+    std::vector<Rgb> lit;
+    vk::AtmosphereTexels night_table;
+    const bool read_night = read_colour(targets, &lit) && read_table(vk::AtmosphereTable::kSkyView, &night_table);
+    const Rgb moon =
+        read_night ? core::at(lit, (static_cast<std::size_t>(middle.y) * kTargetWidth) + static_cast<std::size_t>(middle.x))
+                   : Rgb{};
+    constexpr double kMoonShown = 0.9;
+    tally->check(read_night && luma(moon) > kMoonShown,
+                 text::format("  the moon's disc drawn where it is (%.3f %.3f %.3f)", core::at(moon, 0),
+                              core::at(moon, 1), core::at(moon, 2)));
+    // stars: sky pixels away from the moon brighter than the table's sky by a step
+    const Vec3 night_sun = doubles(night.sun);
+    const auto count_stars = [&view, &night_table, &night_sun, &middle](const std::vector<Rgb>& picture) {
+        constexpr double kStep = 0.08;
+        constexpr double kAwayFromMoon = 40.0; // pixels
+        int count = 0;
+        for (int row = 2; row < static_cast<int>(kTargetHeight) - 2; ++row) {
+            for (int column = 2; column < static_cast<int>(kTargetWidth) - 2; ++column) {
+                bool sky = false;
+                if (!clear_cut(view, column, row, &sky) || !sky ||
+                    std::hypot(column - middle.x, row - middle.y) < kAwayFromMoon) {
+                    continue;
+                }
+                const Rgb linear = sky_view_at(
+                    night_table, direction_at(view, {.x = static_cast<double>(column), .y = static_cast<double>(row)}),
+                    night_sun);
+                const Rgb& got = core::at(picture, (static_cast<std::size_t>(row) * kTargetWidth) + column);
+                const double want = std::pow(luma(linear), 1.0 / rt::kDisplayGamma);
+                count += luma(got) > want + kStep ? 1 : 0;
+            }
+        }
+        return count;
+    };
+    const int stars = read_night ? count_stars(lit) : 0;
+    night.stars = 0.0F;
+    night.moon_disc = 0.0F;
+    rt::set_day_light(night);
+    draw_frame(gpu, targets, sky_pose());
+    std::vector<Rgb> dark;
+    const int no_stars = read_colour(targets, &dark) ? count_stars(dark) : -1;
+    tally->check(stars > 0 && no_stars == 0,
+                 text::format("  stars over the night sky (%d pixels a step over it), none with them off (%d)", stars,
+                              no_stars));
+    // and back to tod=level: the picture as before the clock ran
+    rt::set_day_light({});
+    draw_frame(gpu, targets, sky_pose());
+    std::vector<Rgb> back;
+    tally->check(read_colour(targets, &back) && back == plain_picture,
+                 "tod=level again: every pixel as before the clock ran");
+    vk::set_rt_sky_settings({});
     release_targets(gpu, targets);
 }
 
@@ -1715,6 +1905,7 @@ int run(const Options& options, SDL_Window* window)
         return 0;
     }
     run_atmosphere(gpu, &tally);
+    run_time_of_day(gpu, &tally); // (added by the time of day)
     run_match(gpu, &tally);
     run_composite(gpu, false, &tally);
     run_composite(gpu, true, &tally);

@@ -233,6 +233,24 @@ public:
     [[nodiscard]] uint32_t current_state() const;
     [[nodiscard]] bool can_set_tod_instant(uint32_t state) const;
 
+    // NOT ORIGINAL - the time of day's clock (engine/gfx/day_clock.h; [Graphics] tod):
+    // Whether the manager runs its own day now - what tick_frame tests, the pause aside: a career game, the manager
+    // active with its parameters given, tod_manager_inactive not 1, no temporary state (a cutscene's). The clock leaves
+    // the level to it then.
+    [[nodiscard]] bool runs_its_day() const;
+    // A temporary state is up (TODManager_SetTempTOD).
+    [[nodiscard]] bool temporary_state() const { return temp_tod_; }
+    // System `index`'s parameters for `state` (one of the four) as its day reaches it - the states read in the day's
+    // order round to it, each over the one before (a state leaves out what the one before it gave). False: the
+    // system has no parameters, or no structure for a state.
+    bool state_params(int index, uint32_t state, TodParams* out) const;
+    // System `index`'s light groups (its params' groups array: 0 without one) and how many parts a group colours in.
+    [[nodiscard]] int light_groups(int index) const;
+    [[nodiscard]] int group_parts(int index, int group) const;
+    // Part `part` of light group `group` of system `index` given the colours (as update_system colours a part: the
+    // sky scene only for a sky system; the scenes' own colour and the models with the first part).
+    void colour_group_part(int index, int group, int part, uint32_t level_color, uint32_t sky_color) const;
+
     // The fields other code reads and sets.
     std::array<TodSystem, kSystems>& systems() { return systems_; }
     [[nodiscard]] const std::array<TodSystem, kSystems>& systems() const { return systems_; }

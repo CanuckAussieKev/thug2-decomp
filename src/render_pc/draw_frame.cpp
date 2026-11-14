@@ -40,6 +40,7 @@
 #include "render_pc/geom.h"
 #include "render_pc/glow.h"
 #include "engine/gfx/graphics_options.h"
+#include "engine/gfx/day_clock.h"
 #include "engine/gfx/lens_flare.h"
 #include "render_pc/sub_mesh.h"
 #include "engine/gfx/occlusion.h"
@@ -1287,6 +1288,9 @@ void draw_world()
         // clock's time.
         frame_interp::begin_frame();
         renderer().set_step_seconds(frame_interp::shown_time_ms());
+        // Not original - the time of day's clock (engine/gfx/day_clock.h; [Graphics] tod): the time and its light for
+        // the frame, before the record (relit reads it). Original behaviour: nothing (tod=level: nothing still).
+        day_clock::frame();
         // Not original - ray tracing's record (rt_record.h): the frame's instances and lights. Original behaviour:
         // nothing.
         {

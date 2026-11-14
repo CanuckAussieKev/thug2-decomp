@@ -1144,7 +1144,18 @@ Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const Relit
     for (std::size_t ch = 0; ch < pa.size(); ++ch) {
         core::at(pa, ch) = core::at(model.sun, ch) * core::at(lighting.sun_colour, ch);
     }
-    return model_light(model, pa, vertex, normalised(lighting.toward));
+    constexpr Rgbf kOnes{1.0F, 1.0F, 1.0F};
+    if (lighting.direct_scale == kOnes && lighting.sky_scale == kOnes && lighting.bounce_scale == kOnes) {
+        return model_light(model, pa, vertex, normalised(lighting.toward));
+    }
+    // (added by the time of day) each term at the clock's strength
+    RelitModel scaled = model;
+    for (std::size_t ch = 0; ch < pa.size(); ++ch) {
+        core::at(pa, ch) *= core::at(lighting.direct_scale, ch);
+        core::at(scaled.sky, ch) *= core::at(lighting.sky_scale, ch);
+        core::at(scaled.bounce, ch) *= core::at(lighting.bounce_scale, ch);
+    }
+    return model_light(scaled, pa, vertex, normalised(lighting.toward));
 }
 
 uint32_t relit_colour(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting,

@@ -30,6 +30,11 @@ bool multiplayer() { return (modules::Skate::is_multiplayer() & 1) != 0; }
 uint32_t game_mode_name() { return goals::game_mode()->get_name_key(); }
 bool game_halted() { return modules::front_end_instance()->is_halted(); }
 uint32_t park_shell() { return park_editing::ParkBuilderMode::get_shell_checksum(); }
+uint32_t level_script()
+{
+    const modules::Skate* skate = modules::Skate::sole();
+    return skate ? skate->level() : 0;
+}
 
 } // namespace
 
@@ -39,7 +44,8 @@ void install_game_hooks()
                     .multiplayer = &multiplayer,
                     .game_mode_name = &game_mode_name,
                     .game_halted = &game_halted,
-                    .park_shell = &park_shell});
+                    .park_shell = &park_shell,
+                    .level_script = &level_script});
 }
 
 } // namespace render

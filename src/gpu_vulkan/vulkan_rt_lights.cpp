@@ -18,6 +18,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_lights.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -936,7 +937,10 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     auto block = std::make_unique<LightsBlock>();
     block->count = {static_cast<uint32_t>(own.last_view.size()), own.settings.shadowed, kLightsShadowMask,
                     kLightsSurfaceMask};
-    block->params = {own.settings.strength, kOffsetScale, rt::kCoreShare, 0.0F};
+    // (added by the time of day - engine/gfx/rt_daylight.h) the lamps on as the clock says: off by day, on at night
+    const rt::DayLight day = rt::day_light();
+    block->params = {day.on ? own.settings.strength * day.lamps : own.settings.strength, kOffsetScale, rt::kCoreShare,
+                     0.0F};
     for (std::size_t i = 0; i < own.last_view.size(); ++i) {
         const rt::Emitter& light = core::at(own.last_view, i);
         LightRecord& record = core::at(block->lights, i);

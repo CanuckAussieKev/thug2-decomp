@@ -1269,6 +1269,84 @@ bool CtodManager::can_set_tod_instant(uint32_t state) const
     return false;
 }
 
+// NOT ORIGINAL (engine/gfx/day_clock.h): tick_frame's test, without the pause
+bool CtodManager::runs_its_day() const
+{
+    return params_set_ && active_ && !temp_tod_ && active_ruleset_label() == kCareer &&
+           script::fetch_int_value(kInactive) != 1;
+}
+
+// NOT ORIGINAL (engine/gfx/day_clock.h)
+bool CtodManager::state_params(int index, uint32_t state, TodParams* out) const
+{
+    if (index < 0 || index >= kSystems || next_tod_state(state) == 0U) {
+        return false;
+    }
+    const TodSystem& system = core::at(systems_, index);
+    if (!system.params) {
+        return false;
+    }
+    TodParams params{};
+    uint32_t state_id = next_tod_state(state);
+    for (int step = 0; step < 4; ++step, state_id = next_tod_state(state_id)) {
+        script::Struct* structure = nullptr;
+        if (!system.params->read_sub_struct(state_id, &structure, 0) || !structure) {
+            return false;
+        }
+        parse_params(structure, &params);
+    }
+    *out = params;
+    return true;
+}
+
+// NOT ORIGINAL (engine/gfx/day_clock.h)
+int CtodManager::light_groups(int index) const
+{
+    if (index < 0 || index >= kSystems || !core::at(systems_, index).params) {
+        return 0;
+    }
+    script::Array* groups = nullptr;
+    if (!core::at(systems_, index).params->fetch_list(kGroups, &groups, 0) || !groups) {
+        return 0;
+    }
+    return static_cast<int>(groups->extent());
+}
+
+int CtodManager::group_parts(int index, int group) const
+{
+    if (group < 0 || group >= light_groups(index)) {
+        return 0;
+    }
+    script::Array* groups = nullptr;
+    core::at(systems_, index).params->fetch_list(kGroups, &groups, 0);
+    auto* entry = groups->struct_at(static_cast<uint32_t>(group));
+    int parts = 1;
+    if (!entry || !entry->fetch_int_value(kParts, &parts, 0) || parts < 1) {
+        parts = 1;
+    }
+    return parts;
+}
+
+void CtodManager::colour_group_part(int index, int group, int part, uint32_t level_color, uint32_t sky_color) const
+{
+    const int parts = group_parts(index, group);
+    if (parts == 0 || part < 0 || part >= parts) {
+        return;
+    }
+    script::Array* groups = nullptr;
+    core::at(systems_, index).params->fetch_list(kGroups, &groups, 0);
+    auto* entry = groups->struct_at(static_cast<uint32_t>(group));
+    uint32_t light_group = 0;
+    uint32_t reset_light_group = 0;
+    if (entry) {
+        entry->read_hash_value(kLightGroup, &light_group, 0);
+        entry->read_hash_value(kResetLightGroup, &reset_light_group, 0);
+    }
+    const double step = hundred() / static_cast<double>(parts);
+    apply_color(level_color, sky_color, core::at(systems_, index).sky, light_group, reset_light_group, part > 0,
+                ftol(part * step), ftol((part + 1) * step));
+}
+
 CtodManager*& tod_manager()
 {
     static gfx::CtodManager* tod_manager{};

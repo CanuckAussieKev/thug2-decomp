@@ -430,6 +430,7 @@ private:
 struct BakeSun {
     Vec3 toward{};
     Rgbf light{};
+    Rgbf sky = kSkyLight; // (added by the time of day: a dimmer sky's)
 };
 std::vector<rt::RelitVertices> bake(Level* level, const BakeSun& sun, const rt::RelitParams& params)
 {
@@ -449,7 +450,7 @@ std::vector<rt::RelitVertices> bake(Level* level, const BakeSun& sun, const rt::
     truth.valid = true;
     truth.toward = unit(sun.toward);
     truth.sun = sun.light;
-    truth.sky = kSkyLight;
+    truth.sky = sun.sky;
     truth.bounce = kBounceWeight;
     for (int round = 0; round < kBakeRounds; ++round) {
         // (the bounce again from the colours now: the hits are the same, only what they bring changes)
@@ -889,6 +890,37 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
                  text::format("relit by the moved sun: within 4 bytes of the processor's bake for it at %zu of %zu "
                               "vertices (%zu with the bake's bounce)",
                               fresh.agree, fresh.count, stale.agree));
+    // (added by the time of day - engine/gfx/rt_daylight.h) the clock's strengths: the processor's bake for the moved
+    // sun with the sun's and the sky's light at half (its bounce from those colours, the lamp as it was) against relit
+    // with the clock's scales at half - the bounce brought back at the level's own strength (as rt_relit_world's
+    // rebounce does), then scaled
+    constexpr float kHalfLight = 0.5F;
+    const auto halved = [](const Rgbf& colour) {
+        return Rgbf{core::at(colour, 0) * kHalfLight, core::at(colour, 1) * kHalfLight, core::at(colour, 2) * kHalfLight};
+    };
+    Level dim = make_level();
+    (void)bake(&dim, {.toward = other, .light = halved(kSunLight), .sky = halved(kSkyLight)}, scene.params);
+    rt::RelitLighting clock = lighting;
+    clock.direct_scale = {kHalfLight, kHalfLight, kHalfLight};
+    clock.sky_scale = clock.direct_scale;
+    clock.bounce_scale = clock.direct_scale;
+    const Agreement dimmed = compare_moved(scene, dim, model, *light, clock);
+    tally->check(share(dimmed.agree, dimmed.count) >= kMovedShare && dimmed.changed > dimmed.count / kChangedPart,
+                 text::format("relit at half the light (the clock's scales): within 4 bytes of the processor's half-lit "
+                              "bake at %zu of %zu vertices",
+                              dimmed.agree, dimmed.count));
+    // the scales at 1: the arithmetic as without them, to the bit
+    rt::RelitLighting ones = lighting;
+    ones.direct_scale = {1.0F, 1.0F, 1.0F};
+    bool same = true;
+    for (std::size_t mesh = 0; mesh < light->size(); ++mesh) {
+        for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size(); ++vertex) {
+            const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
+            const rt::RelitVertex& lit = core::at(core::at(*light, mesh), vertex);
+            same = same && rt::relit_colour(model, lit, ones, baked) == rt::relit_colour(model, lit, lighting, baked);
+        }
+    }
+    tally->check(same, "the clock's scales at 1 (tod=level): every relit colour as without them");
 }
 
 // The baked sun's samples (rt_sun.h, as render_pc's rt_record makes them): each upward-facing triangle's centre, its

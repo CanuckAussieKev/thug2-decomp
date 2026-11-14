@@ -110,5 +110,14 @@ void hide_for_replacement();
 // NOT ORIGINAL - where the sun is drawn (render's direction from the camera, toward it, normalised): false while it
 // isn't shown (no SetSun / InitSun, or hidden).
 bool visible_direction(std::array<float, 3>* toward);
+// NOT ORIGINAL - the sun as set_sun last left it (its theta, phi, colour and whether it is shown): what the time of day's
+// clock (engine/gfx/day_clock.h) puts back when it stops moving it.
+struct Placed {
+    float theta{};
+    float phi{};
+    maths::Vec4 color{};
+    bool shown{};
+};
+[[nodiscard]] Placed placed();
 
 } // namespace sun

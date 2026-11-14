@@ -501,6 +501,8 @@ bool game_sun(std::array<float, 3>* toward_sun);
 //   - kLevel (the default - docs/design/vulkan.md "One sun for every effect" has why): the baked sun (BakedSun:
 //     fitted from the level's vertex colours);
 //   - kFixed: rt_sun_source=x,y,z or heading,elevation (an experiment; relit relights by it as by the game's).
+//   - (added by the time of day - rt_daylight.h) the clock's light (the sun, the moon at night) while [Graphics] tod
+//     isn't level, once the relit mode relights the level - above kGame and kLevel, below the override and kFixed.
 // A level whose bake shows no sun (indoors) has none, whatever the choice: it keeps its bake (no sun shadows, no shafts).
 enum class SunSource : uint8_t { kGame, kLevel, kFixed };
 struct SunChoice {
@@ -523,6 +525,7 @@ enum class SunOrigin : uint8_t {
     kGame,     // the sun the game shows
     kLevel,    // the baked sun
     kFixed,    // rt_sun_source=x,y,z / heading,elevation
+    kClock,    // (added by the time of day) the clock's sun or moon (rt_daylight.h DayLight::light)
 };
 struct SceneSun {
     SunOrigin origin = SunOrigin::kNone;
@@ -531,7 +534,7 @@ struct SceneSun {
     [[nodiscard]] bool found() const
     {
         return origin == SunOrigin::kOverride || origin == SunOrigin::kGame || origin == SunOrigin::kLevel ||
-               origin == SunOrigin::kFixed;
+               origin == SunOrigin::kFixed || origin == SunOrigin::kClock;
     }
 };
 SceneSun scene_sun();

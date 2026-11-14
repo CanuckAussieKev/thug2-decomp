@@ -14,6 +14,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -193,6 +194,7 @@ layout(set = 0, binding = 2) uniform sampler2D u_multiple;
 layout(push_constant) uniform Atmosphere {
     vec4 sun;        // xyz the model's sun (cos e, sin e, 0); w the exposure
     vec4 gains[3];   // the horizon's, half way up's, overhead's gains (rgb); w its elevation (radians)
+    vec4 night;      // (added by the time of day) rgb the night sky's light overhead, exposed (0 by day)
 } atmosphere;
 )";
 
@@ -382,6 +384,11 @@ void main()
         vec3 haze = radiance_ms(level, atmosphere.sun.xyz) * atmosphere.sun.w * gain_at(HAZE_ELEVATION);
         value = mix(haze, value, BELOW_SHARE * smoothstep(0.0, 1.0, -e / BELOW_FADE));
     }
+    // (added by the time of day) the night sky's own light - the moon's scattered and the airglow: overhead, half as
+    // much again toward the horizon (more air), the horizon's below it
+    if (atmosphere.night.r + atmosphere.night.g + atmosphere.night.b > 0.0) {
+        value += atmosphere.night.rgb * mix(NIGHT_HORIZON, 1.0, sqrt(clamp(e / (0.5 * PI), 0.0, 1.0)));
+    }
     imageStore(o_out, q, vec4(max(value, vec3(0.0)), 1.0));
 }
 )";
@@ -397,8 +404,9 @@ static_assert(sizeof(TableConstants) == kTableConstantBytes, "the shader's push-
 struct AtmosphereConstants {
     std::array<float, 4> sun{};
     std::array<std::array<float, 4>, 3> gains{};
+    std::array<float, 4> night{}; // (added by the time of day) rgb the night sky overhead (exposed linear)
 };
-constexpr std::size_t kAtmosphereConstantBytes = 64;
+constexpr std::size_t kAtmosphereConstantBytes = 80;
 static_assert(sizeof(AtmosphereConstants) == kAtmosphereConstantBytes, "the shaders' push-constant block");
 
 constexpr uint32_t kTransmittanceSteps = 40;
@@ -513,6 +521,7 @@ std::string defines()
     add("HAZE_ELEVATION", number(kHazeElevation));
     add("BELOW_FADE", number(kBelowFade));
     add("BELOW_SHARE", number(kBelowShare));
+    add("NIGHT_HORIZON", number(kNightHorizon)); // (added by the time of day)
     return out;
 }
 
@@ -679,6 +688,13 @@ bool frame_sun(std::array<float, 3>* toward)
 
 bool visible_sun(std::array<float, 3>* toward)
 {
+    // (added by the time of day) the clock's sun, wherever it is - under the horizon at night (the sky then dark, the
+    // disc not drawn): the scene's light is the moon then, not the sun the sky is drawn for
+    const rt::DayLight day = rt::day_light();
+    if (day.on) {
+        *toward = day.sun;
+        return true;
+    }
     if (frame_sun(toward)) {
         return true;
     }
@@ -731,8 +747,11 @@ SkyColours sky_colours(const std::array<float, 3>& toward)
     return colours;
 }
 
-bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float, 3>& toward)
+bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float, 3>& lighting_sun)
 {
+    // (added by the time of day) the table's sky is the clock's sun's (the scene may be lit by the moon)
+    const rt::DayLight day = rt::day_light();
+    const std::array<float, 3> toward = day.on ? day.sun : lighting_sun;
     SkyState& own = sky_state();
     AtmosphereState& atmosphere = atmosphere_state();
     if (own.failed) {
@@ -1100,6 +1119,7 @@ bool update_atmosphere(Backend& state, VkCommandBuffer commands, const Atmospher
         core::at(constants.gains, band) = {core::at(gain, 0), core::at(gain, 1), core::at(gain, 2),
                                            core::at(input.gain_elevations, band)};
     }
+    constants.night = {core::at(input.night, 0), core::at(input.night, 1), core::at(input.night, 2), 0.0F};
     if (!own.fixed_made) {
         atmosphere_pass(commands, own.transmittance, &own.transmittance_table, constants);
         atmosphere_pass(commands, own.multiple, &own.multiple_table, constants);

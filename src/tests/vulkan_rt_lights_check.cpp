@@ -48,6 +48,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_lights.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -1055,6 +1056,46 @@ void run_off(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
                               changed_behind));
 }
 
+// (added by the time of day - engine/gfx/rt_daylight.h) The lamps with the clock: off at noon (every pixel as drawn), on
+// at night (the processor's lamp light), half on at dusk (half its light); tod=level (the clock off) as before.
+void run_time_of_day(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("the time of day (tod):\n");
+    render::vulkan::set_rt_light_settings(settings_for(true, 4));
+    rt::set_level_emitters({});
+    const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
+                                            .colour = {1.0F, 0.9F, 0.7F},
+                                            .position = floats(kLampAt),
+                                            .radius = static_cast<float>(kLampReach)}}};
+    uint64_t passes = 0;
+    std::vector<uint8_t> texels;
+    // noon: the lamps off
+    rt::set_day_light({.on = true, .lamps = 0.0F});
+    run_case(gpu, meshes, 0, points, {}, 4, &passes, &texels);
+    const int changed = texels.empty() ? -1 : pixels_changed(texels, view_from(kEye));
+    tally->check(changed == 0, text::format("  noon: the lamps off - every pixel as drawn (%d changed)", changed));
+    // night and dusk: all of the lamp's light, and half
+    constexpr std::array<double, 2> kLamps{1.0, 0.5};
+    for (const double share : kLamps) {
+        rt::set_day_light({.on = true, .lamps = static_cast<float>(share)});
+        const std::array<Lamp, 1> lamps{{{.position = kLampAt,
+                                          .size = 0.0,
+                                          .light = {share * 1.0, share * 0.9, share * 0.7},
+                                          .reach = kLampReach}}};
+        const Compared got = run_case(gpu, meshes, 0, points, lamps, 4, &passes, &texels);
+        tally->check(got.clear_cut > 5000 && got.wrong == 0,
+                     text::format("  lamps %.1f: %d clear-cut pixels as the processor's lamp light x %.1f, %d wrong "
+                                  "(worst %.2f of 255)",
+                                  share, got.clear_cut, share, got.wrong, got.worst));
+    }
+    // tod=level: the lamps as the setting says
+    rt::set_day_light({});
+    const std::array<Lamp, 1> whole{{{.position = kLampAt, .size = 0.0, .light = {1.0, 0.9, 0.7}, .reach = kLampReach}}};
+    const Compared level = run_case(gpu, meshes, 0, points, whole, 4, &passes, &texels);
+    tally->check(level.clear_cut > 5000 && level.wrong == 0,
+                 text::format("  tod=level: the lamp's whole light as before (%d wrong)", level.wrong));
+}
+
 // --perf: frames with kPerfLamps lamps over the floor (all in view), the pass's own timing line (vulkan_rt_lights.cpp:
 // every 600 passes) printed through the log.
 void run_perf(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
@@ -1177,6 +1218,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_emitter(gpu, meshes, red, tally);
         run_two(gpu, meshes, tally);
         run_off(gpu, meshes, tally);
+        run_time_of_day(gpu, meshes, tally); // (added by the time of day)
         if (options.perf) {
             run_perf(gpu, meshes, tally);
         }
