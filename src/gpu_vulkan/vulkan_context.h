@@ -92,6 +92,10 @@ public:
     virtual VkResult images(VkSwapchainKHR swapchain, uint32_t* count, VkImage* images) = 0;
     virtual VkResult acquire(VkSwapchainKHR swapchain, uint64_t timeout, VkSemaphore acquired, uint32_t* image) = 0;
     virtual VkResult present(VkQueue queue, const VkPresentInfoKHR& present) = 0;
+    // Its own threads' presents finished (before the device is waited idle: its threads submit to queues of the device).
+    virtual void settle() {}
+    // The layout its images are handed back in at the present (FSR's: shader-read, its passes read them).
+    [[nodiscard]] virtual VkImageLayout present_layout() const { return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; }
 };
 
 struct ContextOptions {
@@ -197,6 +201,11 @@ public:
     void set_swapchain_owner(SwapchainOwner* owner) { owner_ = owner; }
     [[nodiscard]] SwapchainOwner* swapchain_owner() const { return owner_; }
     [[nodiscard]] VkSwapchainKHR swapchain() const { return swapchain_; }
+    // The layout a swapchain image is left in for its present (the owner's, else PRESENT_SRC).
+    [[nodiscard]] VkImageLayout present_layout() const
+    {
+        return owner_ != nullptr ? owner_->present_layout() : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    }
     // Whether the surface's size is no longer the swapchain's (the window resized, minimised or restored without the
     // presents being told - not every driver reports it as out of date).
     [[nodiscard]] bool surface_changed() const;

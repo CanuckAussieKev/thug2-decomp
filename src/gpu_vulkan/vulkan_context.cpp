@@ -890,6 +890,9 @@ bool Context::surface_changed() const
 
 bool Context::remake_swapchain()
 {
+    if (owner_ != nullptr) {
+        owner_->settle(); // (NOT ORIGINAL - its threads' presents done first)
+    }
     vkDeviceWaitIdle(device_);
     resized_ = false;
     return create_swapchain();
@@ -1075,6 +1078,9 @@ DeviceProbe probe_device(int wanted)
 void Context::destroy()
 {
     if (device_ != nullptr) {
+        if (owner_ != nullptr && swapchain_ != VK_NULL_HANDLE) {
+            owner_->settle(); // (NOT ORIGINAL - its threads' presents done first)
+        }
         vkDeviceWaitIdle(device_);
         if (additions_ != nullptr) {
             additions_->before_destroy(); // (NOT ORIGINAL - ContextAdditions)

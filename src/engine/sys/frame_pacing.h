@@ -18,10 +18,10 @@
 //                      shown at the display's refresh, nothing waits) or immediate (shown at once, may tear) - each only
 //                      where the device offers it, else vsync. With vsync the display's refresh caps the rate too.
 //
-// Where frame generation (DLSS Frame Generation, FSR 3) would go: the frame's present is render::engine::end_render
-// (mlp.cpp end_scene) and the pacing is the main loop's extra-frame loop (mlp.cpp draw_extra_frames) with this file's
-// schedule; the frame's motion vectors and camera are the upscaler's (gpu_vulkan/vulkan_motion.h), which already see
-// every render-only frame as a frame of its own.
+// Frame generation (DLSS Frame Generation, FSR 3 - [Graphics] frame_generation, gpu_vulkan/vulkan_framegen.h) works on
+// top of this: every presented frame - a tick's and each render-only one - is a drawn frame to it, and it shows its made
+// frames between them (frames shown = the frames drawn here x its multiplier). The main loop's latency markers
+// (GpuContext::latency_marker) time both kinds of frame for Reflex.
 #include <cstdint>
 
 namespace frame_pacing {

@@ -1729,6 +1729,75 @@ off by default - nothing is drawn differently then: no listener, no motion bit, 
   SSIM - DLSS quality 34.65 dB / 0.944, performance 34.52 / 0.951, DLAA 35.16 / 0.945; FSR quality 35.61 / 0.958,
   performance 34.39 / 0.940; worst spot z_dt-back (30.7 dB); nothing black; the logs say every view was upscaled.
 
+### Frame generation and Reflex (`frame_generation`, `reflex`)
+
+Frames made between the drawn ones from their motion, the HUD kept out of them - `src/gpu_vulkan/vulkan_framegen*.cpp`
+(`vulkan_framegen.h` has the frame's steps). `frame_generation=off` (the default) and `reflex=off`: nothing of it is
+loaded or made - Streamline's features are DLSS's two as before (or Streamline isn't loaded at all), the swapchain is
+Vulkan's own, no queue or feature is added, no listener runs (`thug2_vulkan_framegen_check`'s "off" case).
+
+- **Providers.** `frame_generation_provider=auto` (the default): DLSS Frame Generation (Streamline 2.14.16's sl.dlss_g
+  with nvngx_dlssg, NGX 310.9.16) where Streamline says the device and driver have it (an RTX 40 / 50, Windows' hardware
+  GPU scheduling on), else AMD FSR 3.1.7 frame generation (FSR SDK 2.4.0's amd_fidelityfx_framegeneration_vk.dll; FSR 4's
+  on an RDNA 4 GPU) on any device with three spare queues that present. `dlss` / `fsr` force one (none when it can't run).
+  The multiplier: DLSS-G up to the device's `numFramesToGenerateMax + 1` (2x on an RTX 40; 4x offered of the 6x an RTX 50
+  has), FSR 2x.
+- **Inputs.** The upscaler's: its depth (R32F) and motion (0 - 1 of the drawn size, jitter out) at the drawn size, its
+  unjittered camera - frame generation turns the upscaler on at native resolution (`auto`, DLAA / FSR native AA) when
+  `upscaler=off`. DLSS-G gets Streamline's common constants once a frame (DLSS's provider gives them when it is the
+  upscaler, else frame generation does - `streamline_constants`; one frame token shared by DLSS, DLSS-G and Reflex's
+  markers), the depth and motion tags, the HUD-less colour and the UI image (`kBufferTypeUIColorAndAlpha`). FSR gets its
+  "prepare" dispatch after the upscaler (the depth, motion, camera position and axes, `viewSpaceToMetersFactor` 0.0254)
+  and, each frame, its configure (on / off, the HUD-less colour, the frame id moving by one a present).
+- **The HUD.** A listener last at `world_drawn` (`ViewOrder::kFrameGeneration` = 999, after the art style and the grade)
+  copies the back buffer out as the HUD-less colour (RGBA8, the swapchain's size, the present's own scaling). At the
+  present a compute pass compares it with the finished back buffer: where they differ the 2D is there - the UI image
+  holds the frame's colour, alpha 1 (premultiplied, so Final = UI + (1 - a) HUD-less holds exactly); elsewhere clear.
+  DLSS-G composes the 2D over its made frames from them (and detects full-screen menus from them); FSR finds the 2D
+  from the HUD-less colour itself. Not done: user-interface recomposition (DLSS-G's second UI path), FSR's UI callback.
+- **On and off.** A frame is on when the upscaler gave inputs, the HUD-less colour was copied, and it isn't under a menu
+  (`ViewDrawn::menu`: the pause menu, the front end, the level editor). Off: loading screens (no 3D view), split views
+  and pictures (not the back buffer), the full-screen gamma ramp (the presented frame goes through it, the HUD-less
+  colour doesn't), a multisampled back buffer. DLSS-G is turned off with `eRetainResourcesWhenOff` (no stutter coming
+  back), its tags set to null; FSR's `frameGenerationEnabled` false. The first frame back on, and a cut
+  (`frame_blend::cuts`: a teleport, a respawn, a camera snap - the upscaler's history reset then too), reset the history.
+- **Present.** DLSS-G: Streamline's swapchain proxies (already routed for DLSS) - its plugin makes the swapchain off
+  screen and presents the made frames from its pacer. Streamline must see the window's surface made (its
+  `vkCreateWin32SurfaceKHR` hook), so with sl.dlss_g loaded the context's surface is made again through Streamline once
+  the device is given to it (`ContextAdditions::create_surface`). The UI's own windows' swapchains are made with sl.dlss_g
+  unloaded around them (`slSetFeatureLoaded`). FSR: its frame-generation swapchain replaces the context's
+  (`SwapchainOwner`: made, listed, acquired, presented and destroyed through FSR's replacement calls - a resize remakes
+  it whole) on three extra queues of the graphics family (present, image acquire, compute - its swapchain wants them
+  apart; where the graphics family has one queue - AMD's - of another family that presents and computes:
+  `DeviceWants::present_queues`), timeline semaphores on; its images are handed back in the shader-read layout its
+  passes read them in; its threads' presents are waited for before the device is waited idle.
+- **Reflex** (`reflex=on` / `boost`; always low latency with DLSS-G): Streamline's sl.reflex (NvLowLatencyVk,
+  VK_NV_low_latency2 with VK_KHR_present_id) and sl.pcl. The main loop's markers (`GpuContext::latency_marker`): the
+  simulation's start - `slReflexSleep` waits there for Reflex's time to begin - and end, the draws' recording; the
+  present's start and end around `vkQueuePresentKHR`. A render-only frame (`max_fps`) is a frame of its own (its
+  simulation markers back to back). On a device without it: logged, nothing done.
+- **With `max_fps`.** Frame generation multiplies whatever is presented: each render-only frame is a drawn frame to it.
+  Aim the drawn rate x the multiplier at the display: 60 Hz ticks (`max_fps=0`) + 2x for 120 Hz, + 4x for 240 Hz;
+  `max_fps=120` + 2x for 240 Hz; `max_fps=uncapped` + 2x on a G-SYNC / FreeSync display with `present_mode=immediate`.
+  With `present_mode=vsync` the frames shown are held to the display's rate (DLSS-G on Vulkan has no v-sync of its own -
+  Streamline: "VSync with FG: not supported"): `mailbox` or `immediate` let the made frames through.
+- **Latency.** Interpolation shows a drawn frame only after the frames made before it: about one drawn frame's time more
+  (16.7 ms at 60, 8.3 ms with `max_fps=120`); Reflex takes back the queueing a busy GPU adds. A higher drawn rate (the
+  upscaler's quality down, `max_fps` up) costs less latency than a higher multiplier. DLSS-G makes frames only while the
+  window has the focus.
+- **Counted.** `frame_generation_counts()` (the provider, multiplier, features made / released, frames on / off, frames
+  shown as the provider reports them - `slDLSSGGetState`'s `numFramesActuallyPresented`, FSR's present count - and the
+  resets); `GpuContext::frames_shown` (the FPS counter's "shown (frame gen)" line); the log a line every 3600 frames on.
+- **Checked:** `thug2_vulkan_framegen_check` (the RTX 5070 Ti, 1280 x 720, a moving camera over a checkered ground, a
+  HUD quad drawn after the world): off - no provider, no feature, no frame shown but the drawn, Vulkan's swapchain, no
+  Reflex, the upscaler still running; DLSS-G 4x - the feature made (Reflex on, Streamline's swapchain), on for every
+  moving frame, off under a menu and back on with one reset, a cut resetting once, released at the end; FSR 2x - the
+  same, and 368 frames shown for 244 drawn with it on (the made ones). DLSS-G made no frames in the check: Streamline's
+  log says "DLSS-G disabled: window not focused" - the check's window never takes the focus (the user may be at the
+  machine), so its frames are noted, not checked. With validation: none of ours; inside FSR's own swapchain a pipeline
+  with line width 0 and 13 of its objects left at the device's end, inside Streamline's pacer layout and semaphore notes
+  on its own images.
+
 ### Per-pixel lighting and surface maps (`rt_pbr`)
 
 `gpu_vulkan/vulkan_surface` + the fixed-function generator (`ff_key.h` `kSurface*`, `ff_shaders.cpp` "the per-pixel

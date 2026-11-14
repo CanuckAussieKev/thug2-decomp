@@ -249,6 +249,11 @@ public:
                 if (extension != "VK_EXT_buffer_device_address" && extension != "VK_KHR_buffer_device_address") {
                     wants->extensions.push_back(name);
                 }
+                // (added by frame generation) Reflex's VK_NV_low_latency2 needs VK_KHR_present_id, which its list
+                // leaves out
+                if (extension == VK_NV_LOW_LATENCY_2_EXTENSION_NAME) {
+                    wants->extensions.push_back(VK_KHR_PRESENT_ID_EXTENSION_NAME);
+                }
             }
             const VkPhysicalDeviceVulkan12Features features12 =
                 sl::getVkPhysicalDeviceVulkan12Features(needs.vkNumFeatures12, needs.vkFeatures12);

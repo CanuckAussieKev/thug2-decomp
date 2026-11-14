@@ -137,7 +137,7 @@ uint64_t counter_now()
 // it is (render_pc/frame_interp.h), then presented. No task runs, no vblank is counted, no input is read; the game's
 // random sequences are put back as they were (anything the draws took from them - the weather's splashes, a sort key -
 // is not the game's). Stops at anything that wouldn't draw (the window inactive, the device lost, a load, quitting).
-// Frame generation (DLSS FG / FSR 3) would hook in here and at end_scene (the present).
+// Frame generation (DLSS-G / FSR 3 - gpu_vulkan/vulkan_framegen.h) sees each of these as a drawn frame of its own.
 struct ExtraFrames {
     double carry = 0.0;     // the frames-a-tick fraction carried (frame_pacing::frames_this_tick)
     uint64_t cost = 0;      // a render-only frame's time, smoothed (counter ticks)

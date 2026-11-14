@@ -59,11 +59,11 @@ void on_message(uint32_t type, const wchar_t* message)
 // The frame-generation swapchain and context, made with the swapchain (one of each at a time).
 class FsrFrameGen final : public SwapchainOwner {
 public:
-    // The present queues the device was made with (two: the present's and the image acquire's).
+    // The present queues the device was made with (three: the present's, the image acquire's and the compute one).
     void queues(const ContextAdditions::DeviceMade& made)
     {
         queues_ready_ = false;
-        if (made.present_queues < 2) {
+        if (made.present_queues < 3) {
             return;
         }
         device_ = made.device;
@@ -72,7 +72,8 @@ public:
         present_family_ = made.present_family;
         vkGetDeviceQueue(made.device, made.present_family, made.present_first, &present_queue_);
         vkGetDeviceQueue(made.device, made.present_family, made.present_first + 1, &acquire_queue_);
-        queues_ready_ = present_queue_ != nullptr && acquire_queue_ != nullptr;
+        vkGetDeviceQueue(made.device, made.present_family, made.present_first + 2, &compute_queue_);
+        queues_ready_ = present_queue_ != nullptr && acquire_queue_ != nullptr && compute_queue_ != nullptr;
     }
     [[nodiscard]] bool queues_ready() const { return queues_ready_; }
     void set_game_queue(VkQueue queue) { game_queue_ = queue; }
@@ -105,8 +106,9 @@ public:
         desc.createInfo = info;
         desc.createInfo.oldSwapchain = VK_NULL_HANDLE;
         desc.gameQueue = {.queue = game_queue_, .familyIndex = game_family_, .submitFunc = nullptr};
-        // (no async work: the generation runs on the game's queue - the present queue stands in for the compute one)
-        desc.asyncComputeQueue = {.queue = present_queue_, .familyIndex = present_family_, .submitFunc = nullptr};
+        // (no async work asked for: the generation runs on the game's queue - its swapchain still wants a compute queue
+        // of its own, apart from the others)
+        desc.asyncComputeQueue = {.queue = compute_queue_, .familyIndex = present_family_, .submitFunc = nullptr};
         desc.presentQueue = {.queue = present_queue_, .familyIndex = present_family_, .submitFunc = nullptr};
         desc.imageAcquireQueue = {.queue = acquire_queue_, .familyIndex = present_family_, .submitFunc = nullptr};
         // the versions the DLL has (newest first): each tried until one is made - FSR 4's swapchain is an RDNA 4 device's,
@@ -217,6 +219,22 @@ public:
             return vkQueuePresentKHR(queue, &present);
         }
         return replacements_.pOutQueuePresentKHR(queue, &present);
+    }
+
+    void settle() override
+    {
+        if (!fallen_back_ && swapchain_context_ != nullptr) {
+            ffxDispatchDescFrameGenerationSwapChainWaitForPresentsVK wait{};
+            wait.header.type = FFX_API_DISPATCH_DESC_TYPE_FGSWAPCHAIN_WAIT_FOR_PRESENTS_VK;
+            ffx_functions().dispatch(&swapchain_context_, &wait.header);
+        }
+    }
+
+    // (its replacement images are read by its passes in the shader-read layout: handed back so)
+    [[nodiscard]] VkImageLayout present_layout() const override
+    {
+        return fallen_back_ || swapchain_context_ == nullptr ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+                                                            : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
     // --- the frame (the provider's) ---------------------------------------------------------------------------------
@@ -393,6 +411,7 @@ private:
     VkQueue game_queue_ = nullptr;
     VkQueue present_queue_ = nullptr;
     VkQueue acquire_queue_ = nullptr;
+    VkQueue compute_queue_ = nullptr;
     uint32_t game_family_ = 0;
     uint32_t present_family_ = 0;
     bool queues_ready_ = false;

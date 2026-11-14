@@ -33,7 +33,7 @@ constexpr uint64_t kReportGamma = 0x76C0'0001ULL;
 constexpr uint64_t kReportFailed = 0x76C0'0002ULL;
 constexpr uint64_t kReportFirst = 0x76C0'0003ULL;
 constexpr uint64_t kReportTarget = 0x76C0'0004ULL;
-constexpr uint32_t kPresentQueues = 2; // (FSR's present queue and its image-acquire queue)
+constexpr uint32_t kPresentQueues = 3; // (FSR's present, image-acquire and compute queues: apart, as its swapchain asks)
 
 // The UI image (vulkan_framegen.h step 4): where the frame's back buffer differs from its HUD-less colour the 2D is
 // there - opaque, the frame's colour (premultiplied: Final = UI + (1 - a) HUD-less holds exactly); elsewhere clear.

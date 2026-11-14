@@ -42,6 +42,7 @@
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "platform/run_log.h"
+#include "tests/check_window.h"
 #include "tests/no_error_dialogs.h"
 
 namespace {
@@ -324,6 +325,19 @@ bool open_device(const Options& options, SDL_Window* window, const render::vulka
     return true;
 }
 
+// The counts now less those at `start` (they run on from case to case; the provider and multiplier now's).
+render::vulkan::FrameGenCounts since(const render::vulkan::FrameGenCounts& start)
+{
+    render::vulkan::FrameGenCounts now = render::vulkan::frame_generation_counts();
+    now.features_made -= start.features_made;
+    now.features_released -= start.features_released;
+    now.frames_on -= start.frames_on;
+    now.frames_off -= start.frames_off;
+    now.frames_shown -= start.frames_shown;
+    now.resets -= start.resets;
+    return now;
+}
+
 // One case: the device made with its settings, frames drawn, the counts checked; 2 when the case can't run here.
 int run_case(const Options& options, SDL_Window* window, Case which, Tally* tally)
 {
@@ -341,6 +355,8 @@ int run_case(const Options& options, SDL_Window* window, Case which, Tally* tall
         upscale.upscaler = which == Case::kDlss ? render::vulkan::Upscaler::kDlss : render::vulkan::Upscaler::kFsr;
         upscale.quality = render::vulkan::UpscaleQuality::kNative;
     }
+    // (the counts before the device: its feature may be made with the swapchain)
+    const render::vulkan::FrameGenCounts before = render::vulkan::frame_generation_counts();
     if (!open_device(options, window, framegen, upscale)) {
         return 1;
     }
@@ -366,7 +382,7 @@ int run_case(const Options& options, SDL_Window* window, Case which, Tally* tall
         for (int frame = 0; frame < options.frames; ++frame) {
             draw_frame(gpu, targets, frame, false);
         }
-        const render::vulkan::FrameGenCounts moving = render::vulkan::frame_generation_counts();
+        const render::vulkan::FrameGenCounts moving = since(before);
         const auto drawn = static_cast<uint64_t>(options.frames);
         if (which == Case::kOff) {
             tally->check(moving.provider == nullptr, "off: no provider");
@@ -396,7 +412,7 @@ int run_case(const Options& options, SDL_Window* window, Case which, Tally* tall
                                           case_name(which), static_cast<unsigned long long>(moving.frames_shown),
                                           static_cast<unsigned long long>(moving.frames_on)));
             }
-            tally->check(context.frames_shown() == moving.frames_shown, std::string(case_name(which)) + ": GpuContext::frames_shown");
+            tally->check(context.frames_shown() - before.frames_shown == moving.frames_shown, std::string(case_name(which)) + ": GpuContext::frames_shown");
             if (which == Case::kDlss) {
                 tally->check(moving.reflex, "DLSS-G: Reflex low latency on");
                 tally->check(render::vulkan::backend().context.swapchain_owner() == nullptr, "DLSS-G: the swapchain is Streamline's, through Vulkan's calls");
@@ -407,19 +423,19 @@ int run_case(const Options& options, SDL_Window* window, Case which, Tally* tall
             for (int frame = 0; frame < kMenuFrames; ++frame) {
                 draw_frame(gpu, targets, options.frames + frame, true);
             }
-            const render::vulkan::FrameGenCounts menu = render::vulkan::frame_generation_counts();
+            const render::vulkan::FrameGenCounts menu = since(before);
             tally->check(menu.frames_off >= moving.frames_off + kMenuFrames && menu.frames_on == moving.frames_on,
                          std::string(case_name(which)) + ": off under a menu");
             draw_frame(gpu, targets, options.frames + kMenuFrames, false);
             draw_frame(gpu, targets, options.frames + kMenuFrames + 1, false);
-            const render::vulkan::FrameGenCounts back = render::vulkan::frame_generation_counts();
+            const render::vulkan::FrameGenCounts back = since(before);
             tally->check(back.frames_on == menu.frames_on + 2 && back.resets == menu.resets + 1,
                          std::string(case_name(which)) + ": on again after the menu, its history reset once");
             // a cut (a teleport, a respawn): the history reset
             frame_blend::note_cut();
             draw_frame(gpu, targets, 1000, false);
             draw_frame(gpu, targets, 1001, false);
-            const render::vulkan::FrameGenCounts cut = render::vulkan::frame_generation_counts();
+            const render::vulkan::FrameGenCounts cut = since(before);
             tally->check(cut.resets == back.resets + 1, std::string(case_name(which)) + ": a cut resets the history once");
         }
     }
@@ -436,7 +452,7 @@ int run_case(const Options& options, SDL_Window* window, Case which, Tally* tall
         render::vulkan::finish_work(state);
     }
     context.shutdown();
-    const render::vulkan::FrameGenCounts end = render::vulkan::frame_generation_counts();
+    const render::vulkan::FrameGenCounts end = since(before);
     if (which != Case::kOff && result == 0) {
         tally->check(end.provider == nullptr && end.features_released == end.features_made,
                      text::format("%s: its features released at the end (%llu made, %llu released)", case_name(which),
@@ -517,7 +533,7 @@ int main(int argc, char** argv)
         return 2;
     }
     SDL_SetWindowPosition(window, position, position);
-    SDL_ShowWindow(window);
+    tests::show_behind(window); // (behind the user's windows, without the focus)
     int result = 1;
     try {
         result = run(options, window);

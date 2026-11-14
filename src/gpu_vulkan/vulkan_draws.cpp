@@ -1021,7 +1021,7 @@ void record_present_copy(Backend& state, uint32_t index)
     to_present.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     to_present.dstAccessMask = 0;
     to_present.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    to_present.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    to_present.newLayout = state.context.present_layout(); // (NOT ORIGINAL - a swapchain owner's: frame generation)
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr,
                          0, nullptr, 1, &to_present);
     Memory::transition(commands, source, source->resting);

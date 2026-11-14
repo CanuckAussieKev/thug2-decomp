@@ -1697,6 +1697,9 @@ void release_device_objects(Backend& state)
     }
     destroy_ui_windows(state); // (the UI's own windows' swapchains and surfaces - vulkan_ui_windows.cpp)
     finish_work(state);
+    if (SwapchainOwner* owner = state.context.swapchain_owner()) {
+        owner->settle(); // (NOT ORIGINAL - frame generation's swapchain threads done before the device is waited idle)
+    }
     vkDeviceWaitIdle(state.memory.device());
     release_ray_tracing(state); // NOT ORIGINAL - its structures (vulkan_rt_scene.h)
     state.textures.for_each([&state](Texture* texture) { state.memory.destroy_image(&texture->image); });
