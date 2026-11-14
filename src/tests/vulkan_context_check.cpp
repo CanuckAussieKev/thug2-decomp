@@ -26,6 +26,7 @@
 #include <vector>
 #include <volk.h>
 
+#include "tests/check_window.h"
 #include "tests/no_error_dialogs.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -402,7 +403,7 @@ int main(int argc, char** argv)
     }
     // (made hidden, put on its display, then shown)
     SDL_SetWindowPosition(window, position, position);
-    SDL_ShowWindow(window);
+    tests::show_behind(window);
     text::print("window: on display %d of %d\n", display_number(SDL_GetDisplayForWindow(window)), display_count());
     const int result = run(options, window);
     SDL_DestroyWindow(window);
