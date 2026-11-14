@@ -2007,6 +2007,68 @@ Both act only on the draws `rt_pbr` lights with a surface map (`kSurfaceMap`, ne
   objects and models' dictionaries get no detail (they have no surface maps); the kinds' numbers are first guesses for
   the user to tune in `materials.json` (re-run `pack`).
 
+### Surface relief (`rt_relief`)
+
+Brick, cobbles, stone, gravel, tiles and wood planks look flat even with `rt_pbr`'s per-pixel normals: the texture
+doesn't shift with the view as a carved surface would. `[Graphics] rt_relief=1` (off by default; `rt_relief_strength`
+0.5 / 1 / 1.5, ini up to 4) adds parallax occlusion mapping to the draws `rt_pbr` lights with a surface map. It is a
+bit of the fragment key's `detail` byte (`kDetailRelief` - a free bit: the key stays 52 bytes) and the detail block's
+last vector (`DetailUniforms::relief`, the former spare), so it needs no new binding.
+
+- **How deep, per texture.** The surface maps' height (A) is the generator's band-passed luma, 0 - 1; its normals were
+  made from it as (-dh/du k, -dh/dv k, 1) with k = 3 x the texture's bump - its class's, moved by its level's terrains
+  and weakened for coarse texels (`tools/pbr_maps` `surfaces.ts bumpFor`). So the height's full range spans k of the
+  map's texels, and that is the relief's depth: the shading and the parallax agree. k isn't in the file - it is read
+  back from the map when it is attached (`relief_depth_of_map`: the least-squares ratio of the normals' slopes to the
+  height's wrapping Sobel gradients - over AU, BA and AP's maps it gives exactly 3 x the generator's bump: stone median
+  3.6 texels, wood 2.1, concrete 1.8), so the existing `.pbr` files work unchanged. Then x the surface kind's weight
+  (`relief_weight`; the detail-material library's kind with `rt_detail`, else the map's class's): brick and stone 1,
+  gravel 0.8, wood 0.7, tiles 0.6, rough concrete and dirt 0.5; smooth asphalt and concrete, metal, grass, plaster,
+  glass, water, fabric and painted textures 0 - their maps' grain is paint and stains, not depth - x the strength.
+  Below 0.05 texels the bit isn't set: those draws keep their shader.
+- **The shader** (`ff_shaders.cpp` "parallax occlusion mapping", before the surface map is read): the gradients of u
+  and v along the surface from the screen derivatives (the per-pixel lighting's frame with its length kept), the depth
+  in eye units D = depth x w / sqrt(|grad u| W |grad v| H) (W x H the map's size), the ray toward the pixel, p = (grad
+  u . r, grad v . r) D / (-r . N) - the coordinates' change from the height's top to its bottom along the ray. The ray
+  starts at height 1 half a p back (so the height's 0.5 stays at the polygon: the texture doesn't slide on average and
+  seams between textures line up), steps down in mix(32, 8, -r . N) layers until the map is at or above it, then halves
+  the last layer 5 times; stage 0, the surface map and the detail layer are read at the coordinates found - with
+  `textureGrad` and the original coordinates' derivatives, so the steps in the result aren't steps in the mip level.
+  Later passes of a multi-pass material keep their own coordinates (they may be mapped differently).
+- **Fades** (no swimming, no pop): w = (1 - smoothstep(0.5, 2.5, the map's level of detail)) x smoothstep(0.05, 0.2,
+  -r . N); D goes to 0 with it - far away (from 1.4 map texels a pixel; gone at 5.7, where the whole relief shifts less
+  than a pixel) and at grazing angles the relief flattens smoothly into the plain picture. The map's own mips (heights
+  averaged) flatten it further with distance.
+- **The sun's shadow** (the world's bake relit, not objects lit by lights): from the point found toward the sun, 8
+  reads up to the top; the most the height stands above that ray, x 4, clamped, x 0.6 x w, darkens the sun's N.L in the
+  bake's relighting and its highlight. Mortar and the gaps between cobbles fall into shade on the side away from the
+  sun.
+- **No depth is written** - `gl_FragDepth` would turn off early depth testing for every relief draw. So the relief has
+  no silhouette (a wall's edge and the outline of a step stay straight), doesn't hide what stands in front of it at its
+  depth, and casts no shadow on other things (ray-traced shadows and reflections see the flat polygon).
+- **Tessellation**: `rt_tessellation` subdivides only curved faces, at load, on the processor - the flat walls and
+  floors relief is for get no new vertices there, so displacing them would need a subdivision of its own (more
+  triangles for every brick wall, for rays as well). Not done; parallax is the whole of it.
+- **Off is as before.** No key has the bit with it off: `thug2_ff_shader_check --no-gpu --dump` writes the same
+  50,180 shaders byte for byte as main's. `--detail` (opt-in, with `--surface`) adds the relief alone, with the detail
+  layer, and with both detail bits.
+- **Checked.** `thug2_vulkan_pbr_check` (+17, both GPUs): a brick-patterned height map (mortar 0, bricks 1 and 0.6) whose
+  normals are made from it with k = 2.5 - read back as 2.485; flat normals: depth 0; at five view angles (facing, 35 /
+  20, -50 / 10 mirrored, 20 / -40 with the mapping turned, 60 both mirrored) every judged pixel's colour (each texel its
+  own) against the processor marching the same ray through the same heights: 99.96 - 100% the same, 2,320 - 5,524
+  pixels moved to another texel by the relief; off, a smooth-concrete kind, a map without bump and the fade ended below
+  the texels' size: the picture exactly as with relief off; the texture repeated 48 times (~5 texels a pixel): with the
+  default fade the change 0.0000, unfaded 0.0004 (the mips already flatten most of it); the sun's shadow darkens 19,578
+  channels and brightens none; lit by lights, and with the detail layer and the de-lighting: drawn, finite; validation 0.
+  `thug2_options_check`: the two rows.
+- **Cost** (`thug2_vulkan_pbr_check --perf`, a full-screen 1920 x 1080 layer facing the camera - the cheapest view, 8
+  layers + 5 halvings + 8 shadow reads; grazing views take up to 32 layers): RTX 5070 Ti 0.09 ms a baked map, 0.29 ms
+  with relief; the AMD Radeon integrated GPU 2.2 ms, 3.8 ms. Only near relief kinds pay it.
+- **Not done yet:** the game run (the look - depth, shimmer at grazing angles, seams - is the user's to judge); the
+  bump isn't stored in the `.pbr` file (read back instead - a CHORD map whose normals were rescaled to the texture's
+  bump reads back that bump too, but a hand-made map with unrelated normals and height would get a wrong depth); the
+  kinds' weights are first guesses.
+
 ### Art style: the toon filter (`rt_style`)
 
 `gpu_vulkan/vulkan_style` (`[Graphics] rt_style`, off by default; no ray tracing or HDR needed). A post-process that

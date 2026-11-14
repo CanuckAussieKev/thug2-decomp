@@ -14,10 +14,12 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_maps.h"
+#include "formats/detail_material_format.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -36,6 +38,9 @@ constexpr std::size_t kViewSlot = 1;
 constexpr std::size_t kRows = 4;
 constexpr uint32_t kFvfNormalBit = 0x010U;
 constexpr float kLeastAlpha = 0.0064F; // (the shader's floor on GGX's alpha)
+constexpr float kLeastRelief = 0.05F;  // (added by surface relief: a depth in texels below which no relief is drawn)
+constexpr float kLeastFade = 0.01F;
+constexpr float kMostRelief = 16.0F;   // (relief_depth_of_map's ceiling)
 
 struct MapEntry {
     Texture* map = nullptr;
@@ -47,6 +52,7 @@ struct MapEntry {
     uint64_t content_hash = 0;
     uint64_t generation = 0;
     DetailDraw detail{};
+    float relief_depth = 0.0F; // (added by surface relief) the map's k (relief_depth_of_map)
 };
 
 // (added by the detail materials) An entry's detail, looked up again when the settings or the library changed (the
@@ -197,6 +203,7 @@ public:
             made == nullptr) {
             return false;
         }
+        const float relief_depth = relief_depth_of_map(texels, info.width, info.height); // (added by surface relief)
         std::vector<uint8_t> level(texels.begin(), texels.end());
         Extent size{.width = info.width, .height = info.height};
         for (uint32_t index = 0; index < levels; ++index) {
@@ -219,7 +226,8 @@ public:
                      .f0 = std::clamp(info.f0, 0.0F, 1.0F),
                      .material_class = info.material_class,
                      .checksum = info.checksum,
-                     .content_hash = info.content_hash};
+                     .content_hash = info.content_hash,
+                     .relief_depth = relief_depth};
         }
         ensure_detail_library(); // (added by the detail materials: the library read the first time it is wanted)
         if (replaced != nullptr) {
@@ -272,8 +280,9 @@ void set_rt_pbr_settings(const RtPbrSettings& settings)
         rt::set_baked_sun_wanted(true); // (the bake's sun: fitted when ray tracing is on)
     }
     if (settings.on) {
-        get_log("rt_pbr: per-pixel lighting on (specular %.2f, normals %.2f%s)", static_cast<double>(settings.specular),
-                static_cast<double>(settings.normal_strength), settings.objects ? ", objects too" : "");
+        get_log("rt_pbr: per-pixel lighting on (specular %.2f, normals %.2f%s%s)", static_cast<double>(settings.specular),
+                static_cast<double>(settings.normal_strength), settings.objects ? ", objects too" : "",
+                settings.relief ? text::format(", relief %.2f", static_cast<double>(settings.relief_strength)).c_str() : "");
     }
 }
 
@@ -313,6 +322,15 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
                 draw.detail_map = detail.texture;
                 draw.detail_uniforms = detail.uniforms;
                 draw.f0 = detail.f0 >= 0.0F ? detail.f0 : draw.f0;
+            }
+            // (added by surface relief) parallax occlusion mapping where the kind has relief and the map has depth
+            const RtPbrSettings& settings = state.draw_settings;
+            const float depth = found->second.relief_depth * relief_weight(detail.kind) * settings.relief_strength;
+            if (settings.relief && depth > kLeastRelief) {
+                draw.detail = static_cast<uint8_t>(draw.detail | kDetailRelief);
+                draw.detail_uniforms.relief = {depth, settings.relief_fade_start,
+                                               std::max(settings.relief_fade_end, settings.relief_fade_start + kLeastFade),
+                                               std::clamp(settings.relief_shadow, 0.0F, 1.0F)};
             }
             return draw;
         }
@@ -402,5 +420,73 @@ Texture* take_surface_map(const Texture* colour)
 }
 
 uint64_t surface_maps_attached() { return surface_state().attached.load(std::memory_order_relaxed); }
+
+// (added by surface relief) the generator's normals are (-du k, -dv k, 1) normalised, du / dv its height's Sobel
+// differences (tools/pbr_maps classical.ts normalsFrom): k = -sum(sx du + sy dv) / sum(du^2 + dv^2), s the normal's
+// slope (x / z, y / z) - over every texel, the heights read from the bytes (their rounding only adds noise).
+float relief_depth_of_map(std::span<const uint8_t> texels, uint32_t width, uint32_t height)
+{
+    if (width == 0 || height == 0 || texels.size() < static_cast<std::size_t>(width) * height * kTexel) {
+        return 0.0F;
+    }
+    constexpr float kSobel = 8.0F;
+    constexpr float kLeastZ = 0.05F;
+    const auto at = [&](uint32_t column, uint32_t row) {
+        return static_cast<float>(core::at(texels, (((static_cast<std::size_t>(row % height) * width) + (column % width)) * kTexel) + 3)) / kByte;
+    };
+    double slope = 0.0;
+    double gradient = 0.0;
+    for (uint32_t row = 0; row < height; ++row) {
+        const uint32_t up = row + height - 1;
+        const uint32_t down = row + 1;
+        for (uint32_t column = 0; column < width; ++column) {
+            const uint32_t left = column + width - 1;
+            const uint32_t right = column + 1;
+            const float du = (at(right, up) + (2.0F * at(right, row)) + at(right, down) - at(left, up) - (2.0F * at(left, row)) -
+                              at(left, down)) /
+                             kSobel;
+            const float dv = (at(left, down) + (2.0F * at(column, down)) + at(right, down) - at(left, up) - (2.0F * at(column, up)) -
+                              at(right, up)) /
+                             kSobel;
+            const std::size_t texel = ((static_cast<std::size_t>(row) * width) + column) * kTexel;
+            const float nx = decode(core::at(texels, texel));
+            const float ny = decode(core::at(texels, texel + 1));
+            const float nz = std::sqrt(std::max(1.0F - (nx * nx) - (ny * ny), 0.0F));
+            if (nz < kLeastZ) {
+                continue;
+            }
+            slope -= static_cast<double>(((nx / nz) * du) + ((ny / nz) * dv));
+            gradient += static_cast<double>((du * du) + (dv * dv));
+        }
+    }
+    if (gradient <= 0.0 || slope <= 0.0) {
+        return 0.0F;
+    }
+    return std::min(static_cast<float>(slope / gradient), kMostRelief);
+}
+
+// The weights by kind: relief that is really there - brick and stone (cobbles, rock, blocks) whole, gravel, tiles and
+// wood planks less, rough concrete and dirt a little; smooth asphalt and concrete, metal, grass, plaster and the kinds
+// with none (glass, water, fabric, painted) flat - their maps' grain is paint and stains, not depth.
+float relief_weight(uint8_t kind)
+{
+    namespace dmf = detail_material_format;
+    switch (static_cast<dmf::Kind>(kind)) {
+    case dmf::Kind::kBrick:
+    case dmf::Kind::kStone:
+        return 1.0F;
+    case dmf::Kind::kGravel:
+        return 0.8F;
+    case dmf::Kind::kWood:
+        return 0.7F;
+    case dmf::Kind::kTile:
+        return 0.6F;
+    case dmf::Kind::kConcreteRough:
+    case dmf::Kind::kGround:
+        return 0.5F;
+    default:
+        return 0.0F;
+    }
+}
 
 } // namespace render::vulkan

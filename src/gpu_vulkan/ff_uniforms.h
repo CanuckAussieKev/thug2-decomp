@@ -155,7 +155,11 @@ struct DetailUniforms {
                        // kind's roughness replaces the map's (0 - 1)
     Float4 delight{};  // x: the de-lighting's strength (0: none); y: the texture's mean luminance (< 0: unknown - its last
                        // mip read); z: the most the scale may brighten or darken (a factor); w: unused
-    Float4 spare{};    // (zeros)
+    // (added by surface relief - kDetailRelief; zeros without it) x: the relief's depth - the surface map's texels the
+    // height's full range (0 - 1) spans, its texture's bump x its surface kind's weight x rt_relief_strength; y, z: the
+    // map's level of detail (log2 of its texels a pixel) where the relief starts to fade and where it is gone; w: how
+    // dark the relief's own shadow from the sun is (0 - 1)
+    Float4 relief{};
 };
 
 constexpr std::size_t kMatrixBytes = 64;

@@ -580,6 +580,33 @@ constexpr const char* kDetailBlock = R"(layout(set = 0, binding = 15, std140) un
     vec4 delight;
     vec4 spare;
 } d;)";
+// --- (added by surface relief - [Graphics] rt_relief, vulkan_surface.h) parallax occlusion mapping ------------------------
+// (docs/design/vulkan.md "Surface relief") A key with kDetailRelief (with kSurfaceMap) moves stage 0's coordinates - and
+// the surface map's and the detail's - to where the view ray meets the map's height field (A: 0 the deepest, 1 the top):
+//   - the frame: the gradients of u and v along the surface, gu = (du/dx (dP/dy x N) + du/dy (N x dP/dx)) / det (as the
+//     per-pixel lighting's, the length kept); the depth in the eye's units D = relief.x x w / sqrt(|gu| W |gv| H) - the
+//     relief's texels over the map's texels a unit (W x H its size); the ray r = the eye position normalised, rn = -r.N;
+//     p = (gu.r, gv.r) D / rn: the coordinates' change from the height's top to its bottom along the ray;
+//   - the fade w = (1 - smoothstep(relief.y, relief.z, the map's level of detail)) x smoothstep(0.05, 0.2, rn): D goes
+//     to 0 with it, so the relief flattens smoothly far away and at grazing angles (no step, no swimming);
+//   - the ray starts where the height is 1 at uv - p / 2 (the surface's 0.5 stays where the polygon is: the texture
+//     doesn't slide on average), steps down in n = int(mix(32, 8, rn)) layers until the height is at or above the ray's,
+//     then 5 halvings between the last layer above and the first below; the coordinates are the one below's. Every
+//     read is textureGrad with the coordinates' own derivatives (a step in the result is no step in the mip level);
+//   - the sun (the world's bake relit, kSurfaceLit off; relief.w > 0): from the hit toward the sun in 8 steps to the top,
+//     q = (gu.L, gv.L) D / max(L.N, 0.1) a unit of height; the most any read stands above the ray, x 4, clamped, x relief.w
+//     x w darkens the sun's N.L and its highlight.
+// No depth is written (the polygon's own: the relief has no silhouette and casts no shadow on other things).
+constexpr const char* kDetailReliefBlock = R"(layout(set = 0, binding = 15, std140) uniform DetailUniforms {
+    vec4 scale;
+    vec4 material;
+    vec4 delight;
+    vec4 relief;
+} d;
+float relief_height(vec2 uv, vec2 dx, vec2 dy)
+{
+    return textureGrad(surface_map, uv, dx, dy).a;
+})";
 constexpr const char* kDetailFetch = R"(vec3 detail_fetch(sampler2D map, vec2 uv, int level)
 {
     vec2 size = vec2(textureSize(map, level));
@@ -597,13 +624,56 @@ constexpr const char* kDetailFetch = R"(vec3 detail_fetch(sampler2D map, vec2 uv
 void detail_declarations(std::string& out, const FragmentKey& key)
 {
     static_assert(kDetailUniformsBinding == 15 && kDetailMapBinding == 16, "kDetailBlock names them");
-    add(out, {kDetailBlock});
+    add(out, {(key.detail & kDetailRelief) != 0U ? kDetailReliefBlock : kDetailBlock});
     if ((key.detail & kDetailMaterial) != 0U) {
         add(out, {"layout(set = 0, binding = 16) uniform sampler2D detail_map;"});
     }
     if ((key.detail & kDetailDelight) != 0U) {
         add(out, {kDetailFetch});
     }
+}
+
+// (added by surface relief) relief_uv / relief_dx / relief_dy (stage 0's coordinates moved, their derivatives) and
+// relief_shadow (the sun's share the relief lets through) - kDetailReliefBlock's comment has the formulas.
+void relief_march(std::string& out, const FragmentKey& key)
+{
+    add(out, {"    vec2 relief_uv = ", coord_of(key, 0), ";\n"
+              "    vec2 relief_dx = dFdx(relief_uv);\n    vec2 relief_dy = dFdy(relief_uv);\n    float relief_shadow = 1.0;\n"
+              "    {\n        vec3 c1 = cross(surface_dy, surface_geo);\n        vec3 c2 = cross(surface_geo, surface_dx);\n"
+              "        float det = dot(surface_geo, cross(surface_dx, surface_dy));\n"
+              "        vec2 size = vec2(textureSize(surface_map, 0));\n"
+              "        float lod = log2(max(max(length(relief_dx * size), length(relief_dy * size)), 1.0e-6));\n"
+              "        vec3 r = normalize(surface_eye);\n        float rn = -dot(r, surface_geo);\n"
+              "        float w = (1.0 - smoothstep(d.relief.y, d.relief.z, lod)) * smoothstep(0.05, 0.2, rn);\n"
+              "        if (w > 0.0 && det != 0.0) {\n"
+              "            vec3 gu = (c1 * relief_dx.x + c2 * relief_dy.x) / det;\n"
+              "            vec3 gv = (c1 * relief_dx.y + c2 * relief_dy.y) / det;\n"
+              "            float texels = sqrt(length(gu) * size.x * length(gv) * size.y);\n"
+              "            if (texels > 0.0) {\n                float depth = d.relief.x * w / texels;\n"
+              "                vec2 p = vec2(dot(gu, r), dot(gv, r)) * (depth / rn);\n"
+              "                int steps = int(mix(32.0, 8.0, rn));\n                float layer = 1.0 / float(steps);\n"
+              "                float above = 1.0;\n                float below = 1.0;\n"
+              "                float h = relief_height(relief_uv - 0.5 * p, relief_dx, relief_dy);\n"
+              "                for (int i = 0; i < steps && h < below; ++i) {\n                    above = below;\n"
+              "                    below -= layer;\n"
+              "                    h = relief_height(relief_uv + p * (0.5 - below), relief_dx, relief_dy);\n                }\n"
+              "                for (int i = 0; i < 5; ++i) {\n                    float mid = 0.5 * (above + below);\n"
+              "                    if (relief_height(relief_uv + p * (0.5 - mid), relief_dx, relief_dy) < mid) above = mid;\n"
+              "                    else below = mid;\n                }\n"
+              "                relief_uv += p * (0.5 - below);"});
+    if ((key.surface & kSurfaceLit) == 0U) {
+        add(out, {"                float ln = dot(s.sun.xyz, surface_geo);\n"
+                  "                if (d.relief.w > 0.0 && s.sun.w > 0.0 && ln > 0.0 && below < 1.0) {\n"
+                  "                    vec2 q = vec2(dot(gu, s.sun.xyz), dot(gv, s.sun.xyz)) * (depth / max(ln, 0.1));\n"
+                  "                    float blocked = 0.0;\n"
+                  "                    for (int i = 1; i <= 8; ++i) {\n"
+                  "                        float rise = (1.0 - below) * float(i) / 8.0;\n"
+                  "                        blocked = max(blocked, relief_height(relief_uv + q * rise, relief_dx, relief_dy) - "
+                  "(below + rise));\n                    }\n"
+                  "                    relief_shadow = 1.0 - d.relief.w * w * clamp(blocked * 4.0, 0.0, 1.0);\n"
+                  "                }"});
+    }
+    add(out, {"            }\n        }\n    }"});
 }
 
 void surface_declarations(std::string& out, const FragmentKey& key)
@@ -644,13 +714,23 @@ void surface_lighting(std::string& out, const FragmentKey& key)
     if (detail) {
         add(out, {"    vec4 detail_m = vec4(0.5);\n    float detail_w = 0.0;"});
     }
+    const bool relief = (key.detail & kDetailRelief) != 0U && (key.surface & kSurfaceMap) != 0U; // (added by surface relief)
+    if (relief) {
+        relief_march(out, key);
+    }
     if ((key.surface & kSurfaceMap) != 0U) {
-        add(out, {"    {\n        vec2 uv = ", coord_of(key, 0), ";\n        vec4 m = texture(surface_map, uv);"});
+        if (relief) { // (added by surface relief: the moved coordinates, read with their own derivatives)
+            add(out, {"    {\n        vec2 uv = relief_uv;\n        vec4 m = textureGrad(surface_map, uv, relief_dx, relief_dy);"});
+        } else {
+            add(out, {"    {\n        vec2 uv = ", coord_of(key, 0), ";\n        vec4 m = texture(surface_map, uv);"});
+        }
         add(out, {"        surface_rough = m.b;\n        vec2 xy = (m.rg * 255.0 - 127.5) / 127.5;\n"
-                  "        vec3 nt = vec3(xy * s.params.y, sqrt(max(1.0 - dot(xy, xy), 0.0)));\n"
-                  "        vec2 uv_dx = dFdx(uv);\n        vec2 uv_dy = dFdy(uv);"});
+                  "        vec3 nt = vec3(xy * s.params.y, sqrt(max(1.0 - dot(xy, xy), 0.0)));\n",
+                  relief ? "        vec2 uv_dx = relief_dx;\n        vec2 uv_dy = relief_dy;"
+                         : "        vec2 uv_dx = dFdx(uv);\n        vec2 uv_dy = dFdy(uv);"});
         if (detail) {
-            add(out, {"        detail_m = texture(detail_map, uv * d.scale.x);\n"
+            add(out, {relief ? "        detail_m = textureGrad(detail_map, uv * d.scale.x, uv_dx * d.scale.x, uv_dy * d.scale.x);\n"
+                             : "        detail_m = texture(detail_map, uv * d.scale.x);\n",
                       "        float detail_lod = log2(max(max(length(uv_dx), length(uv_dy)) * d.scale.x * "
                       "float(textureSize(detail_map, 0).x), 1.0e-6));\n"
                       "        detail_w = d.scale.y * (1.0 - smoothstep(d.scale.z, d.scale.w, detail_lod));\n"
@@ -691,15 +771,16 @@ void surface_lighting(std::string& out, const FragmentKey& key)
     add(out, {"    vec3 surface_bake = v_diffuse.rgb;\n"
               "    float surface_level = dot(surface_bake * 2.0, vec3(0.2126, 0.7152, 0.0722));\n"
               "    float surface_sunlit = s.sun.w * smoothstep(s.shade.x, s.shade.y, surface_level);\n"
-              "    float surface_a = max(s.sun_colour.w, 0.05);\n"
-              "    float surface_sun_detail = (surface_a + max(dot(surface_n, s.sun.xyz), 0.0)) / "
+              "    float surface_a = max(s.sun_colour.w, 0.05);\n",
+              relief ? "    float surface_sun_detail = (surface_a + max(dot(surface_n, s.sun.xyz), 0.0) * relief_shadow) / "
+                     : "    float surface_sun_detail = (surface_a + max(dot(surface_n, s.sun.xyz), 0.0)) / ",
               "(surface_a + max(dot(surface_geo, s.sun.xyz), 0.0));\n"
               "    float surface_sky_detail = (1.5 + dot(surface_n, s.sky.xyz)) / (1.5 + dot(surface_geo, s.sky.xyz));\n"
               "    float surface_detail = mix(mix(1.0, surface_sky_detail, s.sky.w), surface_sun_detail, surface_sunlit);\n"
               "    surface_detail = clamp(surface_detail, s.shade.z, s.shade.w);\n"
               "    vec4 surface_v0 = vec4(clamp(surface_bake * surface_detail, 0.0, 1.0), v_diffuse.a);\n"
               "    surface_specular = s.sun_colour.rgb * surface_ggx(surface_n, surface_v, s.sun.xyz, surface_rough, "
-              "s.params.w) * surface_sunlit;"});
+              "s.params.w) * surface_sunlit", relief ? " * relief_shadow;" : ";"});
 }
 
 void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sampled)
@@ -908,8 +989,13 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
         add(out, {"    vec4 c", num(index), " = clamp(u.constant[", num(index), "], -1.0, 1.0);"});
     }
     add(out, {"    vec4 c4 = clamp(u.constant[4], -1.0, 1.0);"});
+    const bool relief = (key.detail & kDetailRelief) != 0U && (key.surface & kSurfaceMap) != 0U; // (added by surface relief)
     for (uint32_t index = 0; index < textures; ++index) {
-        add(out, {"    vec4 t", num(index), " = texture(t", num(index), "_map, ", coord_of(key, index), ");"});
+        if (index == 0 && relief) { // (added by surface relief: stage 0 where the view ray meets the relief)
+            add(out, {"    vec4 t0 = textureGrad(t0_map, relief_uv, relief_dx, relief_dy);"});
+        } else {
+            add(out, {"    vec4 t", num(index), " = texture(t", num(index), "_map, ", coord_of(key, index), ");"});
+        }
         if ((key.surface & kSurfaceCel) != 0U && (key.surface & kSurfaceCelHull) == 0U) {
             // (added by cel shading - rt_cel_flatten) the colour toward a blurrier mip, its alpha (cut-outs) as it was
             add(out, {"    t", num(index), ".rgb = mix(t", num(index), ".rgb, texture(t", num(index), "_map, ",
@@ -920,7 +1006,7 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
                       "        ivec2 dl_size = textureSize(t0_map, 0);\n"
                       "        int dl_low = clamp(findMSB(max(dl_size.x, dl_size.y)) - 3, 0, dl_levels - 1);\n"
                       "        if (d.delight.x > 0.0 && dl_low >= 1) {\n"
-                      "            vec2 dl_uv = ", coord_of(key, 0), ";\n"
+                      "            vec2 dl_uv = ", relief ? std::string("relief_uv") : coord_of(key, 0), ";\n"
                       "            const vec3 dl_luma = vec3(0.2126, 0.7152, 0.0722);\n"
                       "            float dl_local = max(dot(detail_fetch(t0_map, dl_uv, dl_low), dl_luma), 1.0 / 255.0);\n"
                       "            float dl_mean = d.delight.y >= 0.0 ? d.delight.y : "

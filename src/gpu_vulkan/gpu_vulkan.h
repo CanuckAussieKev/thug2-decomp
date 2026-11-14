@@ -310,6 +310,9 @@ inline constexpr float kRtPbrShadeHigh = 0.8F;
 inline constexpr float kRtPbrDetailLow = 0.55F;
 inline constexpr float kRtPbrDetailHigh = 1.5F;
 inline constexpr float kRtPbrGameSun = 0.5F;
+inline constexpr float kRtReliefFadeStart = 0.5F; // (the map's level of detail - log2 texels a pixel - where relief fades)
+inline constexpr float kRtReliefFadeEnd = 2.5F;   // (... and where it is gone: its shift is under a pixel there)
+inline constexpr float kRtReliefShadow = 0.6F;    // (how dark the relief's own shadow from the sun is)
 struct RtPbrSettings {
     bool on = false;
     float specular = 1.0F;        // rt_pbr_specular: the specular term's strength (0: none)
@@ -324,6 +327,15 @@ struct RtPbrSettings {
     float detail_high = kRtPbrDetailHigh; // (and brighten it this much)
     float game_sun = kRtPbrGameSun; // without a baked sun (no ray tracing): the game's shown sun's weight (0: none)
     bool objects = true;            // rt_pbr_objects: objects lit by lights per pixel too
+    // (added by surface relief - vulkan_surface.h "Relief"; docs/design/vulkan.md "Surface relief") [Graphics] rt_relief:
+    // parallax occlusion mapping on the surface-mapped draws whose surface kind has relief (brick, stone, gravel, tiles,
+    // wood...); rt_relief_strength scales its depth (0.5 - 2). The rest: the fade by the map's level of detail and the
+    // relief's own shadow from the sun.
+    bool relief = false;
+    float relief_strength = 1.0F;
+    float relief_fade_start = kRtReliefFadeStart;
+    float relief_fade_end = kRtReliefFadeEnd;
+    float relief_shadow = kRtReliefShadow;
 };
 void set_rt_pbr_settings(const RtPbrSettings& settings);
 [[nodiscard]] RtPbrSettings rt_pbr_settings();

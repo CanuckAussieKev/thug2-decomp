@@ -6,7 +6,8 @@
 //   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion] [--cel]
 //                         [--retro] [--detail] [--water]
 // --detail (NOT ORIGINAL - rt_detail / rt_delight, gpu_vulkan/vulkan_detail.h): with --surface, every pair lit per pixel
-// with a surface map added again with each of the detail layer's bit sets (ff_key.h kDetail*) - after --surface's.
+// with a surface map added again with each of the detail layer's bit sets (ff_key.h kDetail*; the relief's - rt_relief -
+// alone, with the layer and with both) - after --surface's.
 // --cel (added by cel shading): every pair that takes the bands added again with them (engine/gfx/rt_cel.h; add_cel_keys).
 // --surface (NOT ORIGINAL - rt_pbr): every pair that can be lit per pixel (ff_key.h kSurface*) added again with each
 // combination of the per-pixel lighting's bits (the map, lit by lights) - compiled, validated and made into pipelines
@@ -298,7 +299,9 @@ void add_detail_keys(ff_check::KeySets& sets)
         if ((pair.fragment.surface & kSurfaceMap) == 0U || pair.fragment.detail != 0U) {
             continue;
         }
-        for (const uint8_t bits : {kDetailMaterial, kDetailDelight, static_cast<uint8_t>(kDetailMaterial | kDetailDelight)}) {
+        for (const uint8_t bits : {kDetailMaterial, kDetailDelight, static_cast<uint8_t>(kDetailMaterial | kDetailDelight),
+                                   kDetailRelief, static_cast<uint8_t>(kDetailRelief | kDetailMaterial), // (added by surface relief)
+                                   static_cast<uint8_t>(kDetailRelief | kDetailMaterial | kDetailDelight)}) {
             ShaderKey key = pair;
             key.fragment.detail = bits;
             key = normalised(key);

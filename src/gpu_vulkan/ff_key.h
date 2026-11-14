@@ -182,9 +182,13 @@ constexpr uint8_t kWaterMoving = 2;
 //     map's, fading as its texels shrink on the screen; and the kind's real material - roughness, metalness;
 //   kDetailDelight - the light painted into the colour texture flattened: stage 0's texel scaled toward the texture's
 //     mean luminance by its low-frequency luminance (a coarse mip) to a strength.
+//   kDetailRelief - (added by surface relief, [Graphics] rt_relief) parallax occlusion mapping: stage 0's coordinates (and
+//     the surface map's, the detail's) moved to where the view ray meets the map's height field (DetailUniforms::relief),
+//     the sun's light shadowed by the relief on the world's bake - the same byte's free bit, so the key stays 52 bytes.
 constexpr uint8_t kDetailMaterial = 0x01;
 constexpr uint8_t kDetailDelight = 0x02;
-constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailDelight;
+constexpr uint8_t kDetailRelief = 0x04;
+constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailDelight | kDetailRelief;
 
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;

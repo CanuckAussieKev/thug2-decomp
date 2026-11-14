@@ -94,6 +94,8 @@ const std::vector<Expected>& expected()
         {.key = "rt_pbr", .fallback = "0", .live = true},
         {.key = "rt_pbr_specular", .fallback = "1", .live = true},
         {.key = "rt_pbr_normal_strength", .fallback = "1", .live = true},
+        {.key = "rt_relief", .fallback = "0", .live = true},
+        {.key = "rt_relief_strength", .fallback = "1", .live = true},
         {.key = "rt_detail", .fallback = "0", .live = true},
         {.key = "rt_detail_strength", .fallback = "1", .live = true},
         {.key = "rt_delight", .fallback = "0", .live = true},
