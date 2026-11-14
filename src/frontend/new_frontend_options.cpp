@@ -139,7 +139,8 @@ const std::vector<GroupKeys>& group_keys()
          .keys = {"rt_relit", "rt_relit_strength", "rt_pbr", "rt_pbr_specular", "rt_pbr_normal_strength",
                   "rt_reflections", "rt_reflection_strength", "rt_reflection_fresnel", "rt_glass_reflectance",
                   "rt_glass_roughness", "grass", "grass_density", "grass_height", "grass_distance", "rt_water",
-                  "rt_water_waves", "rt_water_wind", "rt_water_clarity", "rt_water_foam", "rt_water_tint"}},
+                  "rt_water_waves", "rt_water_wind", "rt_water_clarity", "rt_water_foam", "rt_water_tint",
+                  "rt_water_geometry"}},
         {.id = "sky",
          .name = text_tools::kGroupSky,
          .keys = {"rt_sky", "rt_clouds", "rt_cloud_coverage", "rt_cloud_quality", "rt_sky_model", "rt_sun", "rt_sun_colour",
@@ -251,6 +252,7 @@ const std::vector<ShownWhen>& shown_table()
         {.key = "rt_water_clarity", .parent = "rt_water", .values = {"1"}},
         {.key = "rt_water_foam", .parent = "rt_water", .values = {"1"}},
         {.key = "rt_water_tint", .parent = "rt_water", .values = {"1"}},
+        {.key = "rt_water_geometry", .parent = "rt_water", .values = {"1"}},
         {.key = "rt_cloud_coverage", .parent = "rt_clouds", .values = {"1"}},
         {.key = "rt_cloud_quality", .parent = "rt_clouds", .values = {"1"}},
         {.key = "rt_fog_haze", .parent = "rt_fog", .values = {"1"}},
@@ -500,6 +502,8 @@ const std::vector<Spec>& get_specs()
         graphics_choice("rt_water_tint", text_tools::kOptWaterTint, "",
                         {{.value = "auto", .label = text_tools::kAuto}, {.value = "0.08,0.3,0.42", .label = "Deep blue"}, {.value = "0.1,0.45,0.45", .label = "Tropical"}, {.value = "0.2,0.32,0.22", .label = "Green"}},
                         0, Apply::kLive),
+        // (the surface moved by the waves: render_pc/water_geometry.h - a level's water is split as it loads)
+        graphics_switch("rt_water_geometry", text_tools::kOptWaterGeometry, text_tools::kOptWaterGeometryHelp, 1, Apply::kLive),
         // Sky: the sky and clouds (gpu_vulkan/vulkan_rt_sky_pass.h), the sun, its rays and the sky model
         // (vulkan_rt_sun.h), the fog and haze (vulkan_rt_fog.h)
         graphics_switch("rt_sky", text_tools::kOptSky, text_tools::kOptSkyHelp, 0, Apply::kLive),

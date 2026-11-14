@@ -197,13 +197,16 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                            .pImmutableSamplers = nullptr};
     ray_queries_ = ray_queries;
     // (NOT ORIGINAL - rt_water, vulkan_water.h) the water's block, the copy behind it, the sky and the ripples: pushed only
-    // for water draws
+    // for water draws. The block and the depth behind are the vertex shader's too (rt_water_geometry: the moving surface).
     for (uint32_t water = 0; water < kWaterBindings; ++water) {
+        const uint32_t binding = kWaterUniformsBinding + water;
+        const bool both = binding == kWaterUniformsBinding || binding == kWaterDepthBinding;
         core::at(bindings, kWaterFirstSlot + water) = {
-            .binding = kWaterUniformsBinding + water,
+            .binding = binding,
             .descriptorType = water == 0 ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .stageFlags = both ? VkShaderStageFlags{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT}
+                               : VkShaderStageFlags{VK_SHADER_STAGE_FRAGMENT_BIT},
             .pImmutableSamplers = nullptr};
     }
     static_assert(kWaterWavesBinding == kWaterUniformsBinding + kWaterBindings - 1, "the water's bindings follow each other");

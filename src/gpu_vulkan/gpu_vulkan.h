@@ -348,8 +348,9 @@ struct GrassSettings {
 void set_grass_settings(const GrassSettings& settings);
 [[nodiscard]] GrassSettings grass_settings();
 // NOT ORIGINAL - water shading (vulkan_water.h; docs/design/vulkan.md "Water"): [Graphics] rt_water, rt_water_waves,
-// rt_water_wind, rt_water_wind_heading, rt_water_clarity, rt_water_foam, rt_water_tint. The game's water surfaces (the
-// moving materials render_pc marks - engine/gfx/water_surfaces.h - where they face up) drawn with waves, a reflection,
+// rt_water_wind, rt_water_wind_heading, rt_water_clarity, rt_water_foam, rt_water_tint, rt_water_geometry. The game's
+// water surfaces (the moving materials render_pc marks - engine/gfx/water_surfaces.h - where they face up) drawn with
+// waves (with rt_water_geometry, its surface moved by them too), a reflection,
 // refraction, colour by depth, shoreline foam and the sun's glitter. on false (the default): every draw as before. No
 // ray tracing needed (with it, the baked sun lights the glitter); Direct3D 9 ignores it.
 inline constexpr float kWaterHeadingAuto = -1.0F; // rt_water_wind_heading=auto: the level's own
@@ -366,6 +367,9 @@ struct WaterSettings {
     bool hdr = false;     // rt_hdr=1: the sun's glitter above 1 kept
     bool screen_reflections = true; // the reflections marched over the screen (else the sky alone)
     bool debug_view = false;        // [debug] rt_water_view=1: where the reflection was found, in colours
+    // rt_water_geometry=1 (the default): the water's surface moved by its swell - its meshes split into a grid as a level
+    // loads (render_pc/water_geometry.h; a level loaded while this or rt_water was off stays flat until it loads again)
+    bool geometry = true;
 };
 void set_water_settings(const WaterSettings& settings);
 [[nodiscard]] WaterSettings water_settings();

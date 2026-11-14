@@ -34,6 +34,7 @@
 #include "engine/gfx/renderer.h"
 #include "render_pc/mesh_pass.h"
 #include "render_pc/mesh_smoothing.h"
+#include "render_pc/water_geometry.h"
 
 namespace render {
 
@@ -187,6 +188,15 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
             &body, vertex_format(core::at(body.vertex_types, 0)),
             static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
     }
+    // Not original - the water's moving surface ([Graphics] rt_water_geometry, water_geometry.h): a water material's flat
+    // mesh split into a grid. Original behaviour: the body as read.
+    bool water_grid = false;
+    if (original_strip.empty() && water_geometry::on()) {
+        original_strip = water_geometry::split_body(
+            &body, vertex_format(core::at(body.vertex_types, 0)),
+            static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
+        water_grid = !original_strip.empty();
+    }
     for (int i = 0; i < scene_format::kIndexBuffers; ++i) {
         core::at(mesh->index_counts(), i) = core::at(body.index_counts, i);
         const uint16_t count = core::at(body.index_counts, i);
@@ -201,6 +211,9 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     }
     // (not original: the smoothed mesh's original strip kept for the baked sun's samples, mesh_smoothing.h)
     mesh_smoothing::remember_original(core::at(mesh->index_buffers(), 0), std::move(original_strip));
+    if (water_grid) {
+        water_geometry::remember(core::at(mesh->index_buffers(), 0)); // (not original: water_geometry.h)
+    }
     mesh->set_stride(body.stride);
     mesh->set_vertex_count(body.vertex_count);
     mesh->set_vertex_buffer_count(body.vertex_buffer_count);

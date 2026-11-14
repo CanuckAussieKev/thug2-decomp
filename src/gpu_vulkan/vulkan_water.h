@@ -45,6 +45,12 @@
 //   6. the sun's glitter: normalised Blinn-Phong (power 1500) of the scene's sun (rt::scene_sun, or the sun the game
 //      shows) on the wave normals, Fresnel at the half vector, where the bake says the surface is sunlit; up to 6 with
 //      rt_hdr (the bloom picks it up), 1 without.
+// The moving surface ([Graphics] rt_water_geometry, docs/design/vulkan.md "Moving water"): render_pc splits the water's
+// flat meshes into a grid as a level loads (render_pc/water_geometry.h) and says which draws are of a split mesh
+// (water::current_waves); those draws' keys are FragmentKey::water kWaterMoving - the vertex shader moves each point by
+// the same four Gerstner waves (height and the crests' sideways move, faded with the pixel's footprint, the grid's
+// spacing and toward the shore by the copy's depth below it) and the fragment shader shades the rest point. Calm water
+// (the swell's height 0) is drawn flat.
 // Where the game drew any water the pixel's alpha becomes 1 (what is behind is in the colour already); where it drew
 // none it stays 0. Draws that aren't water, and every draw with rt_water off, are as before: the keys have no water bit
 // and nothing is pushed. With ray tracing the existing reflection pass leaves water materials to this (render_pc
@@ -110,6 +116,7 @@ struct WaterStats {
     uint64_t copies = 0; // views whose colour and depth were copied
     uint64_t refused = 0; // candidates drawn as before (no view, a target that can't be read...)
     uint64_t replayed = 0; // opaque water draws drawn again as water after the opaque world
+    uint64_t moving = 0;   // water draws whose surface the swell moved (rt_water_geometry)
 };
 [[nodiscard]] WaterStats water_stats();
 

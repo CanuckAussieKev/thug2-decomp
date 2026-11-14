@@ -100,6 +100,7 @@ const std::vector<Expected>& expected()
         {.key = "rt_water_clarity", .fallback = "1", .live = true},
         {.key = "rt_water_foam", .fallback = "1", .live = true},
         {.key = "rt_water_tint", .fallback = "auto", .live = true},
+        {.key = "rt_water_geometry", .fallback = "1", .live = true},
         {.key = "rt_sky", .fallback = "0", .live = true},
         {.key = "rt_clouds", .fallback = "0", .live = true},
         {.key = "rt_cloud_coverage", .fallback = "auto", .live = true},

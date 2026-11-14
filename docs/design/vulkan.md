@@ -2128,7 +2128,7 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
   fountains), BE 36 / 63 (the canal E06BBC98, fountains), BO 9 / 50 (the harbour 669D49A1), NO 21 / 58 (the river
   6228C216, F5DFC91E), SE 22 / 113, ST 20 / 65, TR 5 / 16... `[debug] rt_water_materials=1` logs each moving material
   the game draws, water or not, with its passes.
-- **The key.** A water draw's fragment key gets `FragmentKey::water` = 1 (ff_key.h: a byte of its own, cel shading
+- **The key.** A water draw's fragment key gets `FragmentKey::water` = 1 (2 on the moving surface: "Moving water" below; ff_key.h: a byte of its own, cel shading
   took the surface byte's last bits; on the programs the per-pixel lighting takes: kMaterial, kTextureVertexX4,
   kTextureConstantAlpha) and its vertex half
   `surface` = 1 (the camera-space position handed on). The water's GLSL runs after the program's colour is clamped:
@@ -2185,7 +2185,7 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
   way): AU the open sea (waves 1, swell 900 units, visibility 900), BA a harbour (0.4, 520, 600), BE a canal (0.15, 300,
   220), NO a river (0.22, 350, 180), SE (0.5, 600, 450); other levels 0.4, 500, 450.
 - **Settings:** `rt_water`, `rt_water_waves`, `rt_water_wind`, `rt_water_wind_heading`, `rt_water_clarity`,
-  `rt_water_foam`, `rt_water_tint`, `rt_water_screen_reflections` - all live (the Options screen's Surfaces tab, the
+  `rt_water_foam`, `rt_water_tint`, `rt_water_screen_reflections`, `rt_water_geometry` (below) - all live (the Options screen's Surfaces tab, the
   knobs shown only while `rt_water` is on). `[debug] rt_water_view=1` colours what the reflection found (red the
   march, green the sky on the screen, blue the captured sky).
 - **Cost:** `thug2_vulkan_water_check --perf`, a frame of full-screen water at 2560 x 1440 (the sand and the water):
@@ -2206,8 +2206,68 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
   over the user's settings, pictures and the frame profile's device time).
 - **Not done:** ray-traced reflection rays from the water (with ray tracing the reflection is still the screen's and the
   sky's - a ray query in the water's shader would need the TLAS, the geometry table and the material set bound to the
-  draws); the water's own geometry doesn't move (the waves are normals); stacked sheets are each shaded; the copy is
+  draws); the water's own geometry moves only with `rt_water_geometry` (below); stacked sheets are each shaded; the copy is
   made once per view, so transparent things drawn between it and a later water draw aren't seen through that water.
+
+### Moving water (`rt_water_geometry`)
+
+With `rt_water=1` and `rt_water_geometry=1` (the default) the water's surface itself moves: the swell's four Gerstner
+waves that shade it also lift and shift its vertices, so the horizon of open water is no longer a straight line and the
+water rises and falls along walls and posts. Calm water (`rt_water_waves=0`, or a level whose swell is flat) draws the
+flat sheet to the bit; `rt_water=0` or `rt_water_geometry=0` draws as before.
+
+- **The grid** (`engine/gfx/water_tess`, `render_pc/water_geometry`). The game's water meshes are big flat sheets - two
+  triangles a quad, hundreds of units a side - with nothing to move in between. As a level loads with the setting on, a
+  water material's mesh (the same rule as the shading's: `water_materials::is_water`) whose every triangle is near
+  horizontal (|normal.y| at least 0.94 - not a waterfall, whose vertices would be lifted sideways) is split into a grid
+  before its buffers are made: each edge into pieces of at most 40 units (its length / 40, rounded up, at most 64),
+  each triangle into n x n smaller ones by its longest edge's pieces. An edge's points come from its two ends'
+  positions in one order (the lower position's bits first), so two meshes that share an edge get the same points to
+  the bit; on an edge with fewer pieces than its triangle's grid the border points are moved onto that edge's own
+  points (degenerate slivers, no T-junctions - in the triangle's own coordinates the triangles beside a border keep
+  their winding). Colours, texture coordinates and normals are blended from the corners; the original vertices stay
+  first (the other levels of detail use them) and the strip is rebuilt; more than 16 bits of vertices or indices widen
+  the spacing x 1.5 until it fits (logged as "coarser than asked"). The first level of detail only; the original strip
+  is kept for the baked sun's samples (`mesh_smoothing::remember_original`). The ray tracing's copy of the mesh is this
+  flat grid - its BLAS doesn't move (the shadows, occlusion and bounce light see the water at rest; its reflections are
+  the screen's anyway). A level loaded while either setting was off stays flat until it loads again; the switch
+  itself is live (no moving key without it). `[debug] rt_water_geometry_log=1` logs each water mesh split or left;
+  each level's load logs one `rt_water_geometry:` total.
+- **Which draws move.** `MeshRef::render` tells `water_surfaces` (`set_current_waves`) that the draw is a split mesh's
+  first level of detail (cleared after the draw and by every `set_current`); an opaque draw kept back for the opaque
+  world's end keeps the flag with it. Such a water draw's fragment key gets `FragmentKey::water` = 2 (`kWaterMoving`)
+  and its vertex half `kVertexWaterMoving` in its surface bits; the water's block (binding 10) and the copy's linear
+  depth (12) are the vertex shader's too (the set layout's stage flags; the copy's barriers include the vertex stage).
+- **The move** (`water_shader.cpp` `water_lift`, after the camera-space position is made): the rest point in the
+  world, each wave's slope amplitude (the same `water_wave` function and numbers as the normal's) faded where a pixel
+  spans 5 - 20% of its wavelength (the pixel's footprint from the distance and the angle, as the fragment shader's
+  derivatives find it) and where the grid is too coarse for it (40 units over 25 - 50% of the wavelength), the slopes
+  together held at most 1 (Gerstner loops otherwise), each wave's height its slope / k, the sideways move Q = 0.6 of it
+  along its direction (GPU Gems' Gerstner waves: the normal the fragment shader works out is this surface's normal). The
+  whole is moved less toward the shore: the water's depth below the point from the copy behind the water at its place
+  on the screen (as the foam's depth; the nearest edge's for a point off the screen), 0 at the bed to 1 at 48 units
+  deep - where the water meets the sand or a wall's foot it doesn't move. The move is added in camera space (a still
+  surface's position is the same to the bit) and handed on (x, z in `v_fog`'s spare components, y in
+  `v_surface_eye`'s - the 16 locations are all used with motion vectors and cel shading); the fragment shader shades the
+  rest point (`water_rest`: the waves, the ripples, which way the surface faces, its footprint) seen from where it moved
+  to. Motion vectors move the frame before's position by the same amount (the waves' own drift over a frame left out).
+- **How high.** Default settings: AU's sea about 17 + 9 + 5 + 3 units of height over its four waves (900 units
+  swell), BA's harbour about 8 in all, BE's canal under 2; Rough (`rt_water_waves=2`, x 4) up to four times that, the
+  slope cap holding it below breaking (AU's sea x 2.7).
+- **Checked:** `thug2_tess_check` (the grid on the processor: the sea's two triangles -> 2,840, every edge at most 1.5 x
+  the spacing, the same area, wound as before, every inside edge shared once each way, texture coordinates and colours
+  blended, a canal beside it meeting at the same points to the bit, a waterfall, a small quad and a bad index left
+  alone, a huge quad within 16 bits); `thug2_vulkan_water_check` (15 more checks): the shore's sea split and drawn as
+  a split mesh's - it moves with the clock and repeats with it (opaque - kept back and replayed - and blended), not the
+  flat sheet's picture, the sand in front of the flat water untouched by the moved water (102 pixels without the shore's
+  fade, 0 with it); calm water, `rt_water_geometry=0` and `rt_water=0` the flat sheet's / the original's bytes; a patch
+  with high waves and nothing behind it covers exactly the pixels the same grid moved on the processor covers (20,000 of
+  35,000 pixels changed by the waves; 0 different). `thug2_ff_shader_check --water` adds every key flat and moving
+  (compiled, validated, made into pipelines).
+- **Not done:** floating things don't bob (the game's objects have no hook into the water's height - a
+  `water_height(x, z, t)` on the processor from the same numbers would be the place to start); the ray-traced scene
+  keeps the water flat; meshes too big for 16 bits split coarser (their shared edges with neighbours may then crack a
+  little); the other levels of detail stay flat.
 
 ### Art styles: vhs, retro, watercolour
 

@@ -122,7 +122,8 @@ Totals& totals()
     return made;
 }
 
-// The vertex layout a format and the body's offsets describe, or false (anything else in a vertex).
+} // namespace
+
 bool layout_of(uint32_t fvf, const scene_format::MeshBody& body, tess::VertexLayout* out)
 {
     if ((fvf & kFvfPositionMask) != kFvfXyz || (fvf & ~kFvfKnown) != 0U) {
@@ -158,8 +159,6 @@ bool layout_of(uint32_t fvf, const scene_format::MeshBody& body, tess::VertexLay
     }
     return at == body.stride;
 }
-
-} // namespace
 
 bool on() { return settings().on; }
 

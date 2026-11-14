@@ -4,7 +4,12 @@
 // points on the analytic surface within a tolerance, no cracks (every edge inside a mesh shared by two triangles wound
 // opposite ways, positions equal to the bit across seams; meshes meeting only at their original vertices), texture
 // coordinates continuous, the deviation from the original under the cap, displacement bounded and off on thin meshes,
-// nothing NaN, the original vertices first and unchanged. Exit code 0 when every check passes.
+// nothing NaN, the original vertices first and unchanged.
+// Also the water's grid (engine/gfx/water_tess.h - rt_water_geometry): flat water quads split - every drawn triangle's
+// edges at most 1.5 x the spacing, wound as the original, covering it exactly (the same area, every inside edge shared by two
+// triangles wound opposite ways), texture coordinates and colours blended as the rasteriser would; two meshes side by
+// side with different shapes meeting at the same points to the bit; a waterfall, a small quad and a strip index past
+// the vertices left alone; a huge quad within 16 bits. Exit code 0 when every check passes.
 
 #include <algorithm>
 #include <array>
@@ -16,12 +21,14 @@
 #include <map>
 #include <numbers>
 #include <span>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/smooth_tess.h"
+#include "engine/gfx/water_tess.h"
 #include "tests/no_error_dialogs.h"
 
 namespace {
@@ -159,7 +166,8 @@ P3 point_of(const Bits& bits)
 
 // The result's drawn triangles (not degenerate by position), each edge counted by welded position and direction:
 // every edge not on `boundary` must be used once each way. The number of edges that aren't.
-int open_edges(const tess::Result& result, bool (*boundary)(P3, P3))
+template <typename Result>
+int open_edges(const Result& result, bool (*boundary)(P3, P3))
 {
     std::map<Bits, int> weld;
     std::map<std::pair<int, int>, int> directed;
@@ -562,6 +570,167 @@ void check_strip()
            "strip_triangles: order and winding");
 }
 
+// --- the water's grid (water_tess.h) ---
+
+namespace water_tess = render::water_tess;
+
+constexpr float kWaterTile = 64.0F; // (the quads' texture coordinates: the position / this)
+
+// A flat quad at y = 0 from x0 to x1, z0 to z1 (two triangles facing up; texture coordinates the position / 64).
+Mesh water_quad(float x0, float x1, float z0, float z1, bool flip = false)
+{
+    constexpr P3 kUp{.x = 0.0F, .y = 1.0F, .z = 0.0F};
+    Mesh mesh;
+    const auto at = [&](float x, float z) { return mesh.add({.x = x, .y = 0.0F, .z = z}, kUp, {x / kWaterTile, z / kWaterTile}); };
+    const uint16_t a = at(x0, z0);
+    const uint16_t b = at(x1, z0);
+    const uint16_t c = at(x1, z1);
+    const uint16_t d = at(x0, z1);
+    if (flip) {
+        mesh.quad(a, d, c, b);
+    } else {
+        mesh.quad(a, b, c, d);
+    }
+    return mesh;
+}
+
+float signed_area_y(P3 a, P3 b, P3 c) { return 0.5F * cross(sub(b, a), sub(c, a)).y; }
+
+// The drawn triangles' area (the y of their normals), the longest edge of those with an area, and how many of those are
+// wound against `sign`.
+struct Cover {
+    double area = 0.0;
+    float longest = 0.0F;
+    int backwards = 0;
+};
+Cover cover_of(std::span<const uint8_t> vertices, std::span<const uint16_t> strip, float sign)
+{
+    Cover cover;
+    for (const Corners& triangle : tess::strip_triangles(strip)) {
+        const P3 a = position(vertices, core::at(triangle, 0));
+        const P3 b = position(vertices, core::at(triangle, 1));
+        const P3 c = position(vertices, core::at(triangle, 2));
+        const float area = signed_area_y(a, b, c);
+        cover.area += area;
+        if (std::fabs(area) <= kTinyArea) {
+            continue; // (a sliver along an edge with fewer pieces)
+        }
+        cover.backwards += area * sign < 0.0F ? 1 : 0;
+        for (const auto& [from, to] : {std::pair{a, b}, std::pair{b, c}, std::pair{c, a}}) {
+            const P3 edge = sub(to, from);
+            cover.longest = std::max(cover.longest, std::sqrt(dot(edge, edge)));
+        }
+    }
+    return cover;
+}
+
+constexpr float kQuadX = 600.0F;
+constexpr float kQuadNear = 20.0F;
+constexpr float kQuadFar = 900.0F;
+bool on_sea_rim(P3 a, P3 b)
+{
+    const auto both = [](float p, float q, float r) { return p == r && q == r; };
+    return both(a.x, b.x, -kQuadX) || both(a.x, b.x, kQuadX) || both(a.z, b.z, kQuadNear) || both(a.z, b.z, kQuadFar);
+}
+
+// The points of a split mesh's drawn triangles on the line x = kQuadX, sorted, each once (as bits).
+std::vector<Bits> on_shared_x(const water_tess::Result& result)
+{
+    std::vector<Bits> points;
+    for (const Corners& triangle : tess::strip_triangles(result.strip)) {
+        for (const uint16_t index : triangle) {
+            const P3 point = position(result.vertices, index);
+            if (point.x == kQuadX) {
+                points.push_back(bits_of(point));
+            }
+        }
+    }
+    std::ranges::sort(points);
+    const auto [first, last] = std::ranges::unique(points);
+    points.erase(first, last);
+    return points;
+}
+
+void check_water_grid()
+{
+    const water_tess::Options options;
+    constexpr uint32_t kMost16 = 0xFFFF;
+    // the sea: 1200 x 880 in two triangles
+    const Mesh sea = water_quad(-kQuadX, kQuadX, kQuadNear, kQuadFar);
+    const std::vector<uint16_t> strip = sea.strip();
+    const water_tess::Result split = water_tess::subdivide(sea.bytes, sea.count, layout(), strip, options);
+    expect(split.changed && split.spacing == options.spacing, "water grid: the sea split at the spacing asked for");
+    expect(split.vertex_count > sea.count && split.vertex_count <= kMost16 && split.strip.size() <= kMost16,
+           "water grid: more vertices, within 16 bits");
+    expect(split.vertices.size() >= sea.bytes.size() && std::memcmp(split.vertices.data(), sea.bytes.data(), sea.bytes.size()) == 0,
+           "water grid: the original vertices first and unchanged");
+    const Cover before = cover_of(sea.bytes, strip, 1.0F);
+    const float sign = before.area > 0.0 ? 1.0F : -1.0F;
+    const Cover after = cover_of(split.vertices, split.strip, sign);
+    constexpr double kAreaSlack = 1.0e-5;
+    expect(std::fabs(after.area - before.area) <= std::fabs(before.area) * kAreaSlack, "water grid: the same area covered");
+    expect(after.backwards == 0, "water grid: every triangle wound as the original");
+    // (a cell's edges at most the spacing; one beside an edge with fewer pieces has its border point moved by up to half
+    // of that edge's piece)
+    constexpr float kBorderStretch = 1.5F;
+    expect(after.longest <= options.spacing * kBorderStretch, "water grid: every drawn edge at most 1.5 x the spacing");
+    expect(open_edges(split, on_sea_rim) == 0, "water grid: every inside edge shared by two triangles wound opposite ways");
+    bool blended = true;
+    bool finite = true;
+    constexpr float kUvSlack = 1.0e-3F;
+    constexpr std::size_t kColourBytes = 4;
+    for (uint32_t index = 0; index < split.vertex_count; ++index) {
+        const P3 point = position(split.vertices, index);
+        const std::array<float, 2> uv = uv_of(split.vertices, index);
+        blended = blended && std::fabs(core::at(uv, 0) - (point.x / kWaterTile)) <= kUvSlack &&
+                  std::fabs(core::at(uv, 1) - (point.z / kWaterTile)) <= kUvSlack && point.y == 0.0F &&
+                  std::memcmp(vertex_of(split.vertices, index).subspan(kColourAt).data(),
+                              vertex_of(sea.bytes, 0).subspan(kColourAt).data(), kColourBytes) == 0;
+        finite = finite && finite_vertex(split.vertices, index);
+    }
+    expect(blended, "water grid: texture coordinates, colours and height blended from the corners");
+    expect(finite, "water grid: nothing NaN");
+
+    // a canal beside it, narrower and wound the other way: the shared side x = 600 split at the same points
+    constexpr float kCanal = 760.0F;
+    const Mesh canal = water_quad(kQuadX, kCanal, kQuadNear, kQuadFar, true);
+    const water_tess::Result beside = water_tess::subdivide(canal.bytes, canal.count, layout(), canal.strip(), options);
+    const std::vector<Bits> left = on_shared_x(split);
+    const std::vector<Bits> right = on_shared_x(beside);
+    expect(beside.changed && left.size() > 2 && left == right, "water grid: two meshes side by side meet at the same points to the bit");
+
+    // left alone: a waterfall (a vertical quad), a quad smaller than the spacing, an index past the vertices
+    Mesh fall;
+    constexpr P3 kOut{.x = 0.0F, .y = 0.0F, .z = -1.0F};
+    constexpr float kFallSize = 400.0F;
+    const uint16_t f0 = fall.add({.x = 0.0F, .y = 0.0F, .z = 0.0F}, kOut, {0.0F, 0.0F});
+    const uint16_t f1 = fall.add({.x = kFallSize, .y = 0.0F, .z = 0.0F}, kOut, {1.0F, 0.0F});
+    const uint16_t f2 = fall.add({.x = kFallSize, .y = kFallSize, .z = 0.0F}, kOut, {1.0F, 1.0F});
+    const uint16_t f3 = fall.add({.x = 0.0F, .y = kFallSize, .z = 0.0F}, kOut, {0.0F, 1.0F});
+    fall.quad(f0, f1, f2, f3);
+    const water_tess::Result falls = water_tess::subdivide(fall.bytes, fall.count, layout(), fall.strip(), options);
+    expect(!falls.changed && std::string_view(falls.why) == "not flat", "water grid: a waterfall left alone");
+    constexpr float kSmall = 20.0F;
+    const Mesh puddle = water_quad(0.0F, kSmall, 0.0F, kSmall);
+    expect(!water_tess::subdivide(puddle.bytes, puddle.count, layout(), puddle.strip(), options).changed,
+           "water grid: a quad smaller than the spacing left alone");
+    std::vector<uint16_t> broken = strip;
+    broken.back() = static_cast<uint16_t>(sea.count);
+    expect(!water_tess::subdivide(sea.bytes, sea.count, layout(), broken, options).changed, "water grid: an index past the vertices left alone");
+
+    // a huge quad: split coarser (the edges' cap, then a wider spacing) within 16 bits
+    constexpr float kHugeSide = 40000.0F;
+    const Mesh ocean = water_quad(-kHugeSide, kHugeSide, -kHugeSide, kHugeSide);
+    const water_tess::Result huge = water_tess::subdivide(ocean.bytes, ocean.count, layout(), ocean.strip(), options);
+    expect(huge.changed && huge.vertex_count <= kMost16 && huge.strip.size() <= kMost16 &&
+               cover_of(huge.vertices, huge.strip, sign).backwards == 0,
+           "water grid: a huge quad split within 16 bits");
+    std::printf("water grid: the sea %u -> %u triangles (%u vertices, %zu indices); the canal %u -> %u; a huge quad %u -> %u at "
+                "spacing %.0f\n",
+                split.triangles, split.made, split.vertex_count, split.strip.size(), beside.triangles, beside.made, huge.triangles,
+                huge.made, static_cast<double>(huge.spacing));
+}
+
 } // namespace
 
 int main()
@@ -572,6 +741,7 @@ int main()
     check_rail();
     check_pipe();
     check_unchanged();
+    check_water_grid();
     if (failures() != 0) {
         std::printf("%d check(s) failed\n", failures());
         return 1;

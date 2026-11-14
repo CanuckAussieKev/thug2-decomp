@@ -2,6 +2,7 @@
 // (ff_key.h).
 #include "gpu_vulkan/ff_key.h"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstddef>
@@ -122,7 +123,8 @@ void normalise_fragment(FragmentKey& key, bool points)
         key.surface = 0;
     }
     key.surface = static_cast<uint8_t>(key.surface & kSurfaceKnown);
-    key.water = key.water != 0U && takes_surface(key) && !points ? 1 : 0; // (NOT ORIGINAL - rt_water)
+    // (NOT ORIGINAL - rt_water: flat, or the moving surface)
+    key.water = key.water != 0U && takes_surface(key) && !points ? std::min(key.water, kWaterMoving) : 0;
     if (key.program != PixelProgram::kStages) {
         key.stages = {};
         key.specular_add = false;
@@ -395,6 +397,9 @@ ShaderKey normalised(const ShaderKey& key)
     if ((surface & kSurfaceCelHull) != 0U) {
         result.vertex.surface = static_cast<uint8_t>(result.vertex.surface | kVertexCelHull);
     }
+    if (result.fragment.water == kWaterMoving) { // (NOT ORIGINAL - rt_water_geometry: the vertex half moves the surface)
+        result.vertex.surface = static_cast<uint8_t>(result.vertex.surface | kVertexWaterMoving);
+    }
     return result;
 }
 
@@ -527,7 +532,7 @@ std::string describe(const FragmentKey& key)
     if (key.surface != 0) {
         text += " surface=" + std::to_string(key.surface);
     }
-    text += key.water != 0U ? " water" : ""; // (NOT ORIGINAL - rt_water)
+    text += key.water != 0U ? (key.water == kWaterMoving ? " water(moving)" : " water") : ""; // (NOT ORIGINAL - rt_water)
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);
     }

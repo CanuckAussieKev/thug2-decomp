@@ -31,6 +31,7 @@
 #include "base/maths/vec4.h"
 #include "render_pc/rt_record.h"
 #include "render_pc/rt_relit_world.h"
+#include "render_pc/water_geometry.h"
 #include "engine/gfx/rt_cel.h"
 #include <bit>
 
@@ -315,7 +316,12 @@ void MeshRef::render()
     rt_record::mesh_drawn(this); // (not original: ray tracing's record - a check's draw count)
     if (flat || renderer().shaders_available()) {
         count_draw(primitives);
+        // (not original: the water's grid moved by the swell - water_geometry.h; nothing while no backend wants water)
+        if (!flat) {
+            water_geometry::before_draw(core::at(index_buffers_, 0), level);
+        }
         gpu().draw_indexed(static_cast<GpuPrimitive>(primitive_type_), 0, 0, vertex_count_, 0, primitives);
+        water_geometry::after_draw();
     } else {
         for (uint32_t pass = 0; pass < mat->pass_count(); ++pass) {
             std::array<float, 3> instance{};

@@ -2,6 +2,7 @@
 #include "gpu_vulkan/water_shader.h"
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 #include "gpu_vulkan/ff_uniforms.h"
@@ -19,7 +20,9 @@ static_assert(kWaterUniformsBinding == kGlslUniforms && kWaterSceneBinding == kG
                   kWaterSkyBinding == kGlslSky && kWaterWavesBinding == kGlslWaves,
               "the GLSL below names the bindings");
 
-constexpr std::string_view kWaterGlsl = R"(layout(set = 0, binding = 10, std140) uniform WaterUniforms {
+// Both stages': the view's block, the depth behind the water, and the swell - the same waves shape the moving surface
+// (the vertex shader) and its normal (the fragment shader).
+constexpr std::string_view kWaterCommonGlsl = R"(layout(set = 0, binding = 10, std140) uniform WaterUniforms {
     mat4 eye_to_world;
     mat4 world_to_eye;
     mat4 projection;
@@ -34,13 +37,105 @@ constexpr std::string_view kWaterGlsl = R"(layout(set = 0, binding = 10, std140)
     vec4 camera;
     vec4 misc;
 } water;
-layout(set = 0, binding = 11) uniform sampler2D water_scene;
 layout(set = 0, binding = 12) uniform sampler2D water_depth;
-layout(set = 0, binding = 13) uniform sampler2D water_sky;
-layout(set = 0, binding = 14) uniform sampler2D water_waves;
 
 const float kWaterFar = 1.0e8;      // the depth copy's sky (1e9) and anything as far
 const float kWaterGravity = 386.0;  // units (inches) a second squared: deep water's waves' speeds
+const float kWaterSharpness = 0.6;  // the crests' sharpening (Gerstner's Q)
+
+// Wave i of the swell (four Gerstner waves about the wind's direction) at rest point p, time t: its direction (xy),
+// wavenumber (z) and phase (w); `slope` its slope's amplitude (its height x k) - the wind raises the waves too (x 0.4
+// still, x 1 at the default breeze, x 1.6 in a gale).
+vec4 water_wave(int i, vec2 p, float t, out float slope)
+{
+    const vec4 lengths = vec4(1.0, 0.63, 0.41, 0.27);
+    const vec4 turns = vec4(0.0, 0.42, -0.57, 1.05);
+    const vec4 steepness = vec4(0.12, 0.10, 0.085, 0.07);
+    vec2 wind = water.time.yz;
+    float raised = water.waves.x * (0.4 + 0.6 * water.time.w);
+    float wavelength = lengths[i] * water.misc.y;
+    float k = 6.2831853 / wavelength;
+    float speed = sqrt(kWaterGravity / k);
+    float c = cos(turns[i]);
+    float s = sin(turns[i]);
+    vec2 d = vec2(wind.x * c - wind.y * s, wind.x * s + wind.y * c);
+    slope = steepness[i] * raised;
+    return vec4(d, k, k * (dot(d, p) - speed * t) + float(i) * 1.913);
+}
+
+// A wave faded out where a pixel spans a good part of its wavelength (no aliasing far away).
+float water_wave_fade(float footprint, float wavelength) { return 1.0 - smoothstep(0.05, 0.2, footprint / wavelength); }
+)";
+
+// The vertex shader's (the moving surface: FragmentKey::water kWaterMoving, vulkan_water.h): the rest point moved by
+// the swell's Gerstner waves - each faded where a pixel spans a good part of it (as the normal's) and where the grid is
+// too coarse for it (water_tess.h's spacing), their slopes together held at most 1 (no loops), the whole moved less
+// toward the shore (the water's depth below the point, from the copy behind the water: none where it meets geometry).
+// Handed on: the move, so the fragment shader shades the rest point (v_water_shift: x, z - beside v_fog; v_water_rise:
+// y - beside v_surface_eye).
+constexpr std::string_view kWaterVertexGlsl = R"(layout(location = 2, component = 2) out vec2 v_water_shift;
+layout(location = 8, component = 3) out float v_water_rise;
+
+const float kWaterCell = 40.0;        // the grid's spacing (water_tess.h kDefaultSpacing)
+const float kWaterShoreDepth = 48.0;  // the water's depth below a point at which it moves fully
+const float kWaterMostSlope = 1.0;    // the waves' slopes together at most this
+
+// How much a point moves: 0 at the shore, 1 where the water below it is kWaterShoreDepth deep (found as the shore foam's
+// depth, from the copy behind the water at the point's place on the screen - the nearest edge's off the screen); 1
+// without a copy or with nothing behind.
+float water_shore(vec3 eye, float dist, vec3 to_eye)
+{
+    if (water.target.z < 0.5 || eye.z <= 1.0e-3) {
+        return 1.0;
+    }
+    vec4 clip = water.projection * vec4(eye, 1.0);
+    vec2 ndc = clamp(clip.xy / clip.w, vec2(-1.0), vec2(1.0));
+    vec2 pixel = water.viewport.xy + 0.5 + vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * max(water.viewport.zw - 1.0, 0.0);
+    float behind = textureLod(water_depth, pixel * water.target.xy, 0.0).r;
+    if (behind >= kWaterFar) {
+        return 1.0;
+    }
+    float down = max(behind - eye.z, 0.0) * dist / eye.z * clamp(abs(to_eye.y) / dist, 0.0, 1.0);
+    return smoothstep(0.0, kWaterShoreDepth, down);
+}
+
+// The move of the rest point `world` (camera space `eye`) by the swell: x, z along the water, y up.
+vec3 water_lift(vec3 world, vec3 eye)
+{
+    vec3 to_eye = water.camera.xyz - world;
+    float dist = max(length(to_eye), 1.0e-3);
+    // (a pixel's footprint on the water there, as the fragment shader's derivatives find it: stretched at grazing angles)
+    float focal = max(abs(water.projection[1][1]) * water.viewport.w * 0.5, 1.0);
+    float footprint = dist / (focal * max(abs(to_eye.y) / dist, 0.1));
+    float slopes = 0.0;
+    vec3 sum = vec3(0.0);
+    for (int i = 0; i < 4; ++i) {
+        float slope;
+        vec4 w = water_wave(i, world.xz, water.time.x, slope);
+        float wavelength = 6.2831853 / w.z;
+        slope *= water_wave_fade(footprint, wavelength) * (1.0 - smoothstep(0.25, 0.5, kWaterCell / wavelength));
+        slopes += slope;
+        float height = slope / w.z;
+        float across = kWaterSharpness * height * cos(w.w);
+        sum += vec3(w.x * across, height * sin(w.w), w.y * across);
+    }
+    return sum * (min(1.0, kWaterMostSlope / max(slopes, 1.0e-6)) * water_shore(eye, dist, to_eye));
+}
+)";
+
+// The rest point the fragment shader shades: where the surface was before it moved (the moving surface), or where it
+// is (flat).
+constexpr std::string_view kWaterRestMovingGlsl = R"(layout(location = 2, component = 2) in vec2 v_water_shift;
+layout(location = 8, component = 3) in float v_water_rise;
+vec3 water_rest(vec3 world) { return world - vec3(v_water_shift.x, v_water_rise, v_water_shift.y); }
+)";
+constexpr std::string_view kWaterRestFlatGlsl = R"(vec3 water_rest(vec3 world) { return world; }
+)";
+
+constexpr std::string_view kWaterGlsl = R"(layout(set = 0, binding = 11) uniform sampler2D water_scene;
+layout(set = 0, binding = 13) uniform sampler2D water_sky;
+layout(set = 0, binding = 14) uniform sampler2D water_waves;
+
 const float kWaterF0 = 0.02;        // water's Fresnel reflectance face-on
 
 float water_luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
@@ -55,28 +150,17 @@ float water_hue_weight(vec3 mean)
            (1.0 - smoothstep(0.58, 0.68, luma));
 }
 
-// The swell: four Gerstner waves about the wind's direction, as their normal's parts - x and z the slope, y the crests'
-// sharpening (Q = 0.6) -, each faded out where a pixel spans a good part of its wavelength (no aliasing far away). The
-// wind raises them too (x 0.4 still, x 1 at the default breeze, x 1.6 in a gale).
+// The swell (water_wave) at rest point p as its normal's parts - x and z the slope, y the crests' sharpening -, each wave
+// faded out where a pixel spans a good part of its wavelength. The moving surface's shape is the same waves'
+// (water_lift): this is its normal.
 vec3 water_swell(vec2 p, float t, float footprint)
 {
-    const vec4 lengths = vec4(1.0, 0.63, 0.41, 0.27);
-    const vec4 turns = vec4(0.0, 0.42, -0.57, 1.05);
-    const vec4 steepness = vec4(0.12, 0.10, 0.085, 0.07);
-    vec2 wind = water.time.yz;
-    float raised = water.waves.x * (0.4 + 0.6 * water.time.w);
     vec3 sum = vec3(0.0);
     for (int i = 0; i < 4; ++i) {
-        float wavelength = lengths[i] * water.misc.y;
-        float k = 6.2831853 / wavelength;
-        float speed = sqrt(kWaterGravity / k);
-        float c = cos(turns[i]);
-        float s = sin(turns[i]);
-        vec2 d = vec2(wind.x * c - wind.y * s, wind.x * s + wind.y * c);
-        float fade = 1.0 - smoothstep(0.05, 0.2, footprint / wavelength);
-        float phase = k * (dot(d, p) - speed * t) + float(i) * 1.913;
-        float a = steepness[i] * raised * fade;
-        sum += vec3(d.x * a * cos(phase), 0.6 * a * sin(phase), d.y * a * cos(phase));
+        float slope;
+        vec4 w = water_wave(i, p, t, slope);
+        float a = slope * water_wave_fade(footprint, 6.2831853 / w.z);
+        sum += vec3(w.x * a * cos(w.w), kWaterSharpness * a * sin(w.w), w.y * a * cos(w.w));
     }
     return sum;
 }
@@ -204,8 +288,11 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     // where the surface is, which way it faces and from where it is seen (derivatives first: uniform control flow)
     vec3 eye = v_surface_eye;
     vec3 world = (water.eye_to_world * vec4(eye, 1.0)).xyz;
-    vec3 dx = dFdx(world);
-    vec3 dy = dFdy(world);
+    // (the moving surface: which way it faces, its footprint and its waves are the rest point's - the swell's normal is
+    // the moved surface's there; seen from where it has moved to)
+    vec3 rest = water_rest(world);
+    vec3 dx = dFdx(rest);
+    vec3 dy = dFdy(rest);
     vec3 face = cross(dx, dy);
     face = dot(face, face) > 0.0 ? normalize(face) : vec3(0.0, 1.0, 0.0);
     vec3 to_eye = water.camera.xyz - world;
@@ -221,8 +308,8 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
 
     // 1. the waves' normal
     float t = water.time.x;
-    vec3 swell = water_swell(world.xz, t, footprint);
-    vec3 ripple = water_ripples(world.xz, t);
+    vec3 swell = water_swell(rest.xz, t, footprint);
+    vec3 ripple = water_ripples(rest.xz, t);
     vec3 n = normalize(vec3(-(swell.x + ripple.x), max(1.0 - swell.y, 0.2), -(swell.z + ripple.y)));
     // the reflection's normal: the waves' tilt lessened where the water is seen at a grazing angle (a pixel there spans
     // many facets, whose mean is flatter - the reflection is stretched along the water, not broken up), and Fresnel's
@@ -333,6 +420,30 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
 
 } // namespace
 
-std::string_view water_declarations_glsl() { return kWaterGlsl; }
+std::string water_declarations_glsl(bool moving)
+{
+    std::string out(kWaterCommonGlsl);
+    out += moving ? kWaterRestMovingGlsl : kWaterRestFlatGlsl;
+    out += kWaterGlsl;
+    return out;
+}
+
+std::string water_vertex_declarations_glsl()
+{
+    std::string out(kWaterCommonGlsl);
+    out += kWaterVertexGlsl;
+    return out;
+}
+
+std::string_view water_vertex_move_glsl()
+{
+    // (after the camera-space position `eye` is made, before it is projected: the point moved in the world - added in
+    // camera space, so a still surface's position is the same to the bit - and the move handed on)
+    return "    vec3 water_move = water_lift((water.eye_to_world * vec4(eye.xyz, 1.0)).xyz, eye.xyz);\n"
+           "    vec3 water_move_eye = (water.world_to_eye * vec4(water_move, 0.0)).xyz;\n"
+           "    eye.xyz += water_move_eye;\n"
+           "    v_water_shift = water_move.xz;\n"
+           "    v_water_rise = water_move.y;";
+}
 
 } // namespace render::vulkan

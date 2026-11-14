@@ -198,9 +198,11 @@ struct WaterState {
     Image* sky_image = nullptr; // bound for the last water draw
     bool opaque_done = false;   // the view's opaque world finished (rt::opaque_view_drawn)
     bool replaying = false;     // a kept opaque water draw is being drawn again
+    bool replay_moves = false;  // ... a draw of a split water mesh (water::current_waves when it was kept)
     struct Deferred {
         GpuStateBlock block;
         DrawCall call;
+        bool moves = false;
     };
     std::vector<Deferred> deferred; // the view's opaque water draws, kept for opaque_drawn
     WaterStats stats;
@@ -243,10 +245,12 @@ public:
         // the water, the effects' light in it)
         own.replaying = true;
         for (const WaterState::Deferred& kept : own.deferred) {
+            own.replay_moves = kept.moves;
             (void)record_draw(state, kept.block, kept.call); // (the game's own states: the depth as it drew it)
             ++own.stats.replayed;
         }
         own.replaying = false;
+        own.replay_moves = false;
         own.deferred.clear();
     }
     void world_drawn(const rt::ViewDrawn& view) override
@@ -461,7 +465,8 @@ Image* image_of_surface(Surface* surface)
     return nullptr;
 }
 
-// A compute pass's writes made visible to the passes after it (compute and fragment).
+// A compute pass's writes made visible to the passes after it (compute, and the draws' vertex - the moving surface's
+// depth below - and fragment shaders).
 void compute_done(VkCommandBuffer commands)
 {
     const VkMemoryBarrier written{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -469,7 +474,9 @@ void compute_done(VkCommandBuffer commands)
                                   .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
                                   .dstAccessMask = VK_ACCESS_SHADER_READ_BIT};
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &written, 0,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 1, &written, 0,
                          nullptr, 0, nullptr);
 }
 
@@ -624,8 +631,8 @@ bool copy_behind(Backend& state, Image* colour, Image* depth)
                                          .pNext = nullptr,
                                          .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
                                          .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT};
-        vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
-                             &reads_done, 0, nullptr, 0, nullptr);
+        vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &reads_done, 0, nullptr, 0, nullptr);
         constexpr std::size_t kRowZ = 2; // (the projection's rows and columns: z, w)
         constexpr std::size_t kRowW = 3;
         const auto& projection = own.view.camera.projection;
@@ -789,6 +796,7 @@ void set_water_settings(const WaterSettings& settings)
         water_state().settings = kept;
     }
     water::set_wanted(kept.on);
+    water::set_geometry_wanted(kept.on && kept.geometry); // (the levels loaded from now on: their water split)
     // (the level's sky captured for the reflections' misses - the sky's own setting may want it too)
     rt::set_sky_capture_wanted(kept.on || rt_sky_settings().on);
     if (kept.on) {
@@ -948,6 +956,21 @@ std::vector<std::array<float, 4>> water_waves_reference(uint32_t level)
 
 // --- the draws -----------------------------------------------------------------------------------------------------
 
+namespace {
+
+// Whether a water draw moves its surface (rt_water_geometry): render_pc split its mesh into a grid (or the kept draw's
+// was), and the swell has any height (calm water is drawn flat - as without rt_water_geometry, to the bit).
+bool water_moves(const WaterState& own)
+{
+    if (!own.settings.geometry || !(own.replaying ? own.replay_moves : water::current_waves())) {
+        return false;
+    }
+    const float waves = own.settings.waves <= 1.0F ? own.settings.waves : own.settings.waves * own.settings.waves;
+    return water::level_water().waves * waves > 0.0F;
+}
+
+} // namespace
+
 bool water_candidate(const Backend& state, const GpuStateBlock& block)
 {
     const WaterState& own = water_state();
@@ -982,7 +1005,7 @@ bool defer_water_draw(Backend& state, const GpuStateBlock& block, const DrawCall
         own.deferred.size() >= kMostKept) {
         return false;
     }
-    own.deferred.push_back({.block = block, .call = call});
+    own.deferred.push_back({.block = block, .call = call, .moves = water::current_waves()});
     return true;
 }
 
@@ -996,10 +1019,12 @@ bool water_key(Backend& state, const GpuStateBlock& block, const DrawCall& call,
         return false;
     }
     ShaderKey with_water = *shaders;
-    with_water.fragment.water = 1;
+    const bool moves = water_moves(water_state());
+    with_water.fragment.water = moves ? kWaterMoving : kWaterFlat;
     with_water = normalised(with_water);
     if (with_water.fragment.water != 0U && prepare_water_draw(state, block, water)) {
         *shaders = with_water;
+        water_state().stats.moving += with_water.fragment.water == kWaterMoving ? 1U : 0U;
     }
     return true;
 }

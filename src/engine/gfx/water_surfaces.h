@@ -46,6 +46,16 @@ struct LevelWater {
 void set_level_water(const LevelWater& level);
 [[nodiscard]] LevelWater level_water();
 
+// The moving surface ([Graphics] rt_water_geometry, docs/design/vulkan.md "Moving water"): a backend that moves the water's
+// vertices by its swell wants the water's meshes split into a grid as a level loads (render_pc/water_geometry.h - only
+// flat meshes of water materials; set with set_wanted, true while rt_water and rt_water_geometry are both on), and render_pc
+// says, for each draw of a mesh it split, that the draw's vertices may be moved (set_current clears it: any other draw's
+// vertices stay where they are - a waterfall, a mesh not split, a level loaded before the setting was on).
+void set_geometry_wanted(bool wanted);
+[[nodiscard]] bool geometry_wanted();
+void set_current_waves(bool waves);
+[[nodiscard]] bool current_waves();
+
 // How many materials render_pc has found to be water since the start (the log, checks).
 void note_water_material();
 [[nodiscard]] uint32_t water_materials();

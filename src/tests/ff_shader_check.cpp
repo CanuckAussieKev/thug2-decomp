@@ -4,7 +4,7 @@
 // SPIRV-Tools' validator (when the build has it: THUG2_SPIRV_VALIDATOR), and - unless --no-gpu - hands every module and
 // a pipeline for each sampled pair of shaders to a Vulkan driver (ff_shader_check_gpu.h).
 //   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion] [--cel]
-//                         [--retro]
+//                         [--retro] [--water]
 // --cel (added by cel shading): every pair that takes the bands added again with them (engine/gfx/rt_cel.h; add_cel_keys).
 // --surface (NOT ORIGINAL - rt_pbr): every pair that can be lit per pixel (ff_key.h kSurface*) added again with each
 // combination of the per-pixel lighting's bits (the map, lit by lights) - compiled, validated and made into pipelines
@@ -16,6 +16,9 @@
 // --retro (NOT ORIGINAL - the retro art style, gpu_vulkan/vulkan_style_film.h): every pair that isn't pre-transformed
 // added again with its vertex half's retro bit (ff_key.h VertexKey::retro: snapped, affine) - after --motion's, so
 // they meet too. Compiled, validated and made into pipelines with the rest (the retro variant needs nothing else).
+// --water (NOT ORIGINAL - rt_water, gpu_vulkan/vulkan_water.h): every pair that can be shaded as water added again
+// flat (FragmentKey::water kWaterFlat) and moving (kWaterMoving: its vertex half moves the surface - rt_water_geometry) -
+// after --surface's and --cel's, before --motion's, so they all meet. Compiled, validated and made into pipelines.
 // --all-materials: every four-pass material shape, not a covering subset; --device: the physical device for the GPU
 // part (the context check's numbering); --pipelines: at most N pipelines (default: every sampled pair); --jobs: the
 // compiling threads (default 8); --dump: every generated shader's GLSL written into FOLDER (vNNNN.vert, fNNNN.frag).
@@ -78,6 +81,7 @@ struct Options {
     bool motion = false;
     bool cel = false; // (added by cel shading)
     bool retro = false; // (the retro art style)
+    bool water = false; // (rt_water)
 };
 
 Options read_options(std::span<char*> arguments)
@@ -94,6 +98,8 @@ Options read_options(std::span<char*> arguments)
             options.motion = true;
         } else if (argument == "--retro") {
             options.retro = true;
+        } else if (argument == "--water") {
+            options.water = true;
         } else if (argument == "--all-materials") {
             options.all_materials = true;
         } else if (argument == "--no-gpu") {
@@ -312,6 +318,30 @@ void add_cel_keys(ff_check::KeySets& sets)
                 static_cast<unsigned>(streams));
 }
 
+// (NOT ORIGINAL - rt_water) Each pair again shaded as water, flat and moving, where the key takes it.
+void add_water_keys(ff_check::KeySets& sets)
+{
+    using namespace render::vulkan;
+    const std::vector<ShaderKey> pairs = sets.pairs;
+    std::size_t fragments = 0;
+    std::size_t vertices = 0;
+    for (const ShaderKey& pair : pairs) {
+        for (const uint8_t water : {kWaterFlat, kWaterMoving}) {
+            ShaderKey key = pair;
+            key.fragment.water = water;
+            key = normalised(key);
+            if (key.fragment.water != water) {
+                continue;
+            }
+            vertices += sets.vertex.insert(key.vertex).second ? 1U : 0U;
+            fragments += sets.fragment.insert(key.fragment).second ? 1U : 0U;
+            sets.pairs.push_back(key);
+        }
+    }
+    text::print("water: %u fragment keys and %u vertex keys shaded as water (flat or moving) added\n", static_cast<unsigned>(fragments),
+                static_cast<unsigned>(vertices));
+}
+
 // (the upscaler's) Each pair's halves again with the motion vectors, where the key takes them (not pre-transformed).
 void add_motion_keys(ff_check::KeySets& sets)
 {
@@ -371,6 +401,9 @@ int run(const Options& options)
     }
     if (options.cel) {
         add_cel_keys(sets);
+    }
+    if (options.water) {
+        add_water_keys(sets);
     }
     if (options.motion) {
         add_motion_keys(sets);
