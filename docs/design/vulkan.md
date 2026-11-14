@@ -1516,6 +1516,53 @@ dozen triangles, and their silhouettes and shading show it. `[Graphics] rt_tesse
 - **Not done**: no distance-adaptive or screen-space factors (one level a mesh, made at load: changing it needs the level
   reloaded); skinned meshes; the generated height maps (the seam is there).
 
+**Smoothing (`rt_tess_smooth`, `rt_tess_smooth_strength`)** - with `rt_tessellation=1`, off by default; `rt_tess_smooth=0`
+is the crease angle's rule above to the bit (`thug2_tess_check --level` hashes every result of five levels: the same
+hashes as the build before it). The crease angle alone can't tell a six-sided rail (60 degrees between sides) from a
+box's corner, nor a ledge's 45-degree chamfer from a curve. With smoothing an edge's two faces are joined by these rules
+in order (`smooth_tess.cpp` `joins`):
+
+1. over 85 degrees: hard (a box's corners, stairs, a ledge's top - whatever the normals say);
+2. a **prism's edge**: round. Rails, pipes and poles: both faces run along the edge (`|n . e| < 0.03`), the edge is at
+   least twice as long as they are wide, they are alike in width (within 25%) and at most 16 units wide, the angle is
+   over the crease angle and at most 75 degrees (5 - 7 sides), and across each face the next edge parallel to it is such
+   an edge at an angle within 10 degrees - a ring of equal sides (a kerb's or a roof's profile isn't one: its next edge
+   meets the ground at another angle). Round whatever its normals say: the levels' rails are mostly flat-shaded;
+3. the **mesh's normals** where it has them: both ends of the edge sharing their vertices or their normals (under 8
+   degrees apart) - smooth (up to 85 degrees: a car's roof, a prop modelled with smooth normals); split normals - hard
+   from 20 degrees (bevels, chamfers, a kerb's edges);
+4. otherwise the crease angle (50 degrees), as without smoothing.
+
+The level: the error's (as above, up to `rt_tess_level`), or more - enough pieces that none of an edge's turns by more
+than 15 degrees (up to 4; a curve the cap flattens counted by its capped bulge), so outlines read round whatever their
+size on screen: a six-sided rail is cut into 4 pieces a side. The strength scales Phong's shape factor (0.5 - 1 of the
+way from the facets to the arc). Everything else - crack-free edges, the cap, the original vertices first, displacement
+off on thin meshes - is the same code.
+
+- **Checked** (`thug2_tess_check`, 21 more checks): a flat-shaded six-sided rail of radius 3 (split normals, every edge
+  welded by position) unchanged without smoothing, round with it - 24 prism edges, level 4, the new points within 0.027
+  of the circle and the drawn surface (sampled across every triangle) within 0.046 inside it, the facets' 0.40; no
+  cracks; the original vertices first; the same bytes smoothed twice; strength 0.5 moves it half as far, 0 not at all;
+  a six-sided column 40 wide and a square beam stay faceted; a box with averaged normals keeps its corners; a ledge's
+  flat-shaded 45-degree chamfer rounded without smoothing and kept crisp with it (2 edges kept by their normals); a
+  six-sided cylinder of radius 100 with shared normals capped at 1 (11.9 uncapped) without cracks; the seamed cylinder
+  crack-free.
+- **The levels** (`thug2_tess_check --level <folder>...`, offline: the game's .scn and .col read, every mesh the game
+  would smooth smoothed): BO, AU, NO, BA and sch - 58 - 305 prism edges a level rounded, 307 - 2,423 edges joined by
+  their shared normals, 28 - 482 kept hard by split ones; indices (the smoothed meshes') off -> on: BO 294,202 ->
+  393,990, AU 499,727 -> 626,063, NO 267,197 -> 297,156, BA 347,282 -> 413,401, sch 650,697 -> 708,694 (+9 - 34%); load
+  time 27 -> 30, 37 -> 41, 25 -> 26, 27 -> 29, 44 -> 45 ms.
+- **The wheels and the collision**: the collision is the game's own (`.col`, never touched). For every new point whose
+  place on the original surface lies on the collision (within 0.1) where the collision is a slope - the vert faces
+  (quarter pipes' faces carry the vert flag) and the other slopes (banks, bowls, transitions; normal's up share 0.05 -
+  0.97) - its gap to the collision. Quarter pipes with smoothing: median 0.22 - 0.53, 95% 1.38 - 1.81, at most the cap
+  (2) - the same as without it (0.22 - 0.53, 1.30 - 1.82); nearly all behind the collision (the arc lies behind its
+  chords: the wheels float over the drawn curve between its original vertices, never sink - the most in front 0.8 -
+  1.97 on convex parts). With `rt_tess_max_deviation=1`: quarter pipes' median 0.11 - 0.32, 95% 0.80 - 0.99, at most 1.
+- **Ray tracing**: unchanged - the BLAS is built from the drawn (smoothed) buffers, so shadows, occlusion and
+  reflections fall on the rounded shapes; the baked sun's samples keep reading the original strips.
+- **Not done**: the optional bevel highlight on hard edges (a lighting change, not geometry); a per-distance level.
+
 ### Relit: the bake taken apart (`rt_relit`)
 
 `engine/gfx/rt_relit` (the analysis, API-neutral) and `render_pc/rt_relit_world` (the world's meshes, the cache, the

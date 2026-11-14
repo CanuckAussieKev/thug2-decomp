@@ -91,11 +91,19 @@ const Settings& settings()
         read.options.max_deviation = std::max(0.0F, ini_float("rt_tess_max_deviation", tess::kDefaultMaxDeviation));
         read.options.height.scale = std::max(0.0F, ini_float("rt_displacement", 0.0F));
         read.test_heights = build_info::fetch_flag(build_info::kGraphics, "rt_tess_test_heights", false);
+        // (smoothing: the mesh's normals and the prisms decide the hard edges too, the strength scales the pull -
+        // smooth_tess.h)
+        read.options.smooth = build_info::fetch_flag(build_info::kGraphics, "rt_tess_smooth", false);
+        read.options.smooth_strength =
+            std::clamp(ini_float("rt_tess_smooth_strength", tess::kDefaultSmoothStrength), 0.0F, 1.0F);
         read.log_meshes = build_info::fetch_flag("debug", "tess_log", false);
         if (read.on) {
             get_log("rt_tessellation: on - level up to %d, deviation at most %.2f, displacement %.2f%s",
                     read.options.max_level, static_cast<double>(read.options.max_deviation),
                     static_cast<double>(read.options.height.scale), read.test_heights ? " (test heights)" : "");
+            if (read.options.smooth) {
+                get_log("rt_tess_smooth: on - strength %.2f", static_cast<double>(read.options.smooth_strength));
+            }
         }
         return read;
     }();
@@ -111,6 +119,9 @@ struct Totals {
     uint32_t indices_before = 0;
     uint32_t indices_after = 0;
     uint32_t capped = 0;
+    uint32_t prism_edges = 0;
+    uint32_t normal_smooth = 0;
+    uint32_t normal_hard = 0;
     float deviation = 0.0F;
     float uncapped = 0.0F;
     float displaced = 0.0F;
@@ -235,6 +246,9 @@ std::vector<uint16_t> smooth_body(scene_format::MeshBody* body, uint32_t fvf, co
     sum.indices_before += core::at(body->index_counts, 0);
     sum.indices_after += static_cast<uint32_t>(result.strip.size());
     sum.capped += result.capped ? 1U : 0U;
+    sum.prism_edges += result.prism_edges;
+    sum.normal_smooth += result.normal_smooth;
+    sum.normal_hard += result.normal_hard;
     sum.deviation = std::max(sum.deviation, result.deviation);
     sum.uncapped = std::max(sum.uncapped, result.uncapped);
     sum.displaced = std::max(sum.displaced, result.displaced);
@@ -280,6 +294,11 @@ void log_totals(const char* scene)
                 sum.triangles_before, sum.vertices_added, sum.indices_before, sum.indices_after,
                 static_cast<double>(sum.deviation), static_cast<double>(sum.uncapped), sum.capped,
                 static_cast<double>(sum.displaced), sum.milliseconds);
+        if (settings().options.smooth) {
+            get_log("rt_tess_smooth: %s - %u prism edges rounded, %u edges joined by their shared normals, %u kept hard "
+                    "by split ones", scene != nullptr ? scene : "(scene)", sum.prism_edges, sum.normal_smooth,
+                    sum.normal_hard);
+        }
     }
     sum = Totals{};
 }

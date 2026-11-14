@@ -5,6 +5,12 @@
 // opposite ways, positions equal to the bit across seams; meshes meeting only at their original vertices), texture
 // coordinates continuous, the deviation from the original under the cap, displacement bounded and off on thin meshes,
 // nothing NaN, the original vertices first and unchanged.
+// Smoothing (Options::smooth, rt_tess_smooth): a flat-shaded six-sided rail made round (a prism) within a tolerance of
+// the circle, crack-free and the same bytes twice; the strength's half pull; a wide column, a square beam, a box with
+// averaged normals and a ledge's flat-shaded chamfer kept crisp; a big round shape held to the cap.
+// `thug2_tess_check --level <a level's folder>...`: the game's own scene and collision read (offline) and every mesh the
+// game would smooth smoothed with rt_tess_smooth 0 and 1 - the counts, a hash of the results (rt_tess_smooth=0 must
+// hash as the build before), and the new points' gap to the collision on its quarter pipes and other slopes.
 // Also the water's grid (engine/gfx/water_tess.h - rt_water_geometry): flat water quads split - every drawn triangle's
 // edges at most 1.5 x the spacing, wound as the original, covering it exactly (the same area, every inside edge shared by two
 // triangles wound opposite ways), texture coordinates and colours blended as the rasteriser would; two meshes side by
@@ -13,22 +19,30 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <numbers>
+#include <ratio>
 #include <span>
+#include <string>
 #include <string_view>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/smooth_tess.h"
 #include "engine/gfx/water_tess.h"
+#include "formats/scene_format.h"
 #include "tests/no_error_dialogs.h"
 
 namespace {
@@ -559,6 +573,205 @@ void check_unchanged()
     expect(!tess::smooth(round.bytes, round.count, layout(), round.strip(), off).changed, "rt_tess_level 1: unchanged");
 }
 
+// --- smoothing (Options::smooth, rt_tess_smooth) ---
+
+tess::Options smoothing(float strength = 1.0F)
+{
+    tess::Options options;
+    options.smooth = true;
+    options.smooth_strength = strength;
+    return options;
+}
+
+bool same_result(const tess::Result& a, const tess::Result& b)
+{
+    return a.changed == b.changed && a.vertices == b.vertices && a.strip == b.strip && a.vertex_count == b.vertex_count;
+}
+
+// A flat-shaded prism along y: `sides` faces of their own vertices (each its face's normal, so the normals are split
+// at every edge), `rings` segments high, open at both ends.
+Mesh flat_prism(float radius, int sides, int rings)
+{
+    Mesh mesh;
+    for (int side = 0; side < sides; ++side) {
+        const float a0 = 2.0F * kPi * static_cast<float>(side) / static_cast<float>(sides);
+        const float a1 = 2.0F * kPi * static_cast<float>((side + 1) % sides) / static_cast<float>(sides); // (welded)
+        const float middle = 2.0F * kPi * (static_cast<float>(side) + 0.5F) / static_cast<float>(sides);
+        const P3 normal{.x = std::cos(middle), .y = 0.0F, .z = std::sin(middle)};
+        std::vector<std::array<uint16_t, 2>> at;
+        for (int ring = 0; ring <= rings; ++ring) {
+            const float y = kHeight * static_cast<float>(ring) / static_cast<float>(rings);
+            const float v = static_cast<float>(ring) / static_cast<float>(rings);
+            at.push_back({mesh.add({.x = radius * std::cos(a0), .y = y, .z = radius * std::sin(a0)}, normal, {0.0F, v}),
+                          mesh.add({.x = radius * std::cos(a1), .y = y, .z = radius * std::sin(a1)}, normal, {1.0F, v})});
+        }
+        for (int ring = 0; ring < rings; ++ring) {
+            const auto& below = core::at(at, ring);
+            const auto& above = core::at(at, ring + 1);
+            mesh.quad(core::at(below, 0), core::at(above, 0), core::at(above, 1), core::at(below, 1));
+        }
+    }
+    return mesh;
+}
+
+// A ledge's profile along x (length kLedge): a front face, a 45-degree bevel and a top, flat-shaded (each face its own
+// vertices and normal) - an edge meant to be hard under the crease angle.
+Mesh bevelled_ledge()
+{
+    constexpr float kLedge = 200.0F;
+    constexpr float kTall = 20.0F;
+    constexpr float kBevel = 4.0F;
+    constexpr float kDepth = 30.0F;
+    const float diagonal = std::numbers::sqrt2_v<float> * 0.5F;
+    // (the profile in (z, y): from the front's foot up, over the bevel, back along the top)
+    const std::array<std::array<float, 2>, 4> profile{{{0.0F, 0.0F}, {0.0F, kTall - kBevel}, {kBevel, kTall}, {kDepth, kTall}}};
+    const std::array<P3, 3> normals{P3{.x = 0.0F, .y = 0.0F, .z = -1.0F}, P3{.x = 0.0F, .y = diagonal, .z = -diagonal},
+                                    P3{.x = 0.0F, .y = 1.0F, .z = 0.0F}};
+    Mesh mesh;
+    for (std::size_t face = 0; face < normals.size(); ++face) {
+        const auto& low = core::at(profile, face);
+        const auto& high = core::at(profile, face + 1);
+        const P3 normal = core::at(normals, face);
+        const uint16_t a = mesh.add({.x = 0.0F, .y = core::at(low, 1), .z = core::at(low, 0)}, normal, {0.0F, 0.0F});
+        const uint16_t b = mesh.add({.x = 0.0F, .y = core::at(high, 1), .z = core::at(high, 0)}, normal, {0.0F, 1.0F});
+        const uint16_t c = mesh.add({.x = kLedge, .y = core::at(high, 1), .z = core::at(high, 0)}, normal, {1.0F, 1.0F});
+        const uint16_t d = mesh.add({.x = kLedge, .y = core::at(low, 1), .z = core::at(low, 0)}, normal, {1.0F, 0.0F});
+        mesh.quad(a, b, c, d);
+    }
+    return mesh;
+}
+
+// A box of shared corners whose normals are averaged (an export that smoothed everything): its 90-degree edges stay hard.
+Mesh smoothed_box()
+{
+    constexpr float kBox = 50.0F;
+    Mesh box;
+    for (int corner = 0; corner < 8; ++corner) {
+        const P3 point{.x = (corner & 1) != 0 ? kBox : 0.0F, .y = (corner & 2) != 0 ? kBox : 0.0F, .z = (corner & 4) != 0 ? kBox : 0.0F};
+        const float third = 1.0F / std::sqrt(3.0F);
+        const P3 normal{.x = (corner & 1) != 0 ? third : -third, .y = (corner & 2) != 0 ? third : -third,
+                        .z = (corner & 4) != 0 ? third : -third};
+        box.add(point, normal, {0.0F, 0.0F});
+    }
+    // (counter-clockwise from outside)
+    constexpr std::array<std::array<uint16_t, 4>, 6> kFaces{
+        {{0, 2, 3, 1}, {4, 5, 7, 6}, {0, 1, 5, 4}, {2, 6, 7, 3}, {0, 4, 6, 2}, {1, 3, 7, 5}}};
+    for (const auto& face : kFaces) {
+        box.quad(core::at(face, 0), core::at(face, 1), core::at(face, 2), core::at(face, 3));
+    }
+    return box;
+}
+
+bool on_prism_rims(P3 a, P3 b) { return on_cylinder_rims(a, b); }
+
+void check_smooth()
+{
+    // A flat-shaded six-sided rail: hard (60 degrees, over the crease) without smoothing, round with it - a prism.
+    constexpr float kRail = 3.0F;
+    constexpr int kRailSides = 6;
+    constexpr int kRailRings = 4;
+    const Mesh rail = flat_prism(kRail, kRailSides, kRailRings);
+    const std::vector<uint16_t> rail_strip = rail.strip();
+    expect(!tess::smooth(rail.bytes, rail.count, layout(), rail_strip, {}).changed,
+           "smoothing off: a six-sided rail unchanged (its edges over the crease angle)");
+    const tess::Result round = tess::smooth(rail.bytes, rail.count, layout(), rail_strip, smoothing());
+    const float facet = kRail * (1.0F - std::cos(kPi / kRailSides));
+    float worst = 0.0F;
+    bool finite = true;
+    for (uint32_t i = 0; i < round.vertex_count; ++i) {
+        finite = finite && finite_vertex(round.vertices, i);
+        worst = std::max(worst, std::fabs(radial(position(round.vertices, i)) - kRail));
+    }
+    // The flat facets' worst against the round one: the drawn surface's furthest point inside the circle, sampled
+    // densely across each drawn triangle (its silhouette) - in the middle rings (the open rims are boundaries, kept
+    // straight).
+    float drawn = 0.0F;
+    constexpr float kRing = kHeight / kRailRings;
+    for (const Corners& triangle : tess::strip_triangles(round.strip)) {
+        constexpr int kSamples = 8;
+        const P3 a = position(round.vertices, core::at(triangle, 0));
+        const P3 b = position(round.vertices, core::at(triangle, 1));
+        const P3 c = position(round.vertices, core::at(triangle, 2));
+        if (std::min({a.y, b.y, c.y}) < kRing || std::max({a.y, b.y, c.y}) > kHeight - kRing) {
+            continue;
+        }
+        for (int i = 0; i <= kSamples; ++i) {
+            for (int j = 0; j <= kSamples - i; ++j) {
+                const float u = static_cast<float>(i) / kSamples;
+                const float v = static_cast<float>(j) / kSamples;
+                const P3 point{.x = a.x + (u * (b.x - a.x)) + (v * (c.x - a.x)), .y = 0.0F,
+                               .z = a.z + (u * (b.z - a.z)) + (v * (c.z - a.z))};
+                drawn = std::max(drawn, kRail - radial(point));
+            }
+        }
+    }
+    std::printf("smoothing: six-sided rail (flat-shaded, radius 3): level %d, %u prism edges, %u -> %u vertices, %zu -> "
+                "%zu indices; new points off the circle at most %.5f; drawn surface inside the circle at most %.4f "
+                "(the facets %.4f)\n",
+                round.level, round.prism_edges, rail.count, round.vertex_count, rail_strip.size(), round.strip.size(),
+                static_cast<double>(worst), static_cast<double>(drawn), static_cast<double>(facet));
+    constexpr float kPointShare = 0.1F;
+    constexpr float kDrawnShare = 0.15F;
+    expect(round.changed && round.smoothed == round.triangles, "smoothing: the six-sided rail rounded (a prism)");
+    expect(round.prism_edges == static_cast<uint32_t>(kRailSides * kRailRings), "smoothing: every side edge a prism's");
+    expect(round.level == tess::kSmoothLevel, "smoothing: level 4 (60-degree edges, 15 degrees a piece)");
+    expect(finite, "smoothing: the rail has nothing NaN");
+    expect(worst < facet * kPointShare, "smoothing: the rail's new points on the circle (10% of the facets' error)");
+    expect(drawn < facet * kDrawnShare, "smoothing: the rail's drawn surface round within 15% of the facets' error");
+    expect(round.displaced == 0.0F && round.deviation <= tess::kDefaultMaxDeviation, "smoothing: the rail within the cap");
+    expect(open_edges(round, on_prism_rims) == 0, "smoothing: the rail without cracks (split normals, welded edges)");
+    expect(std::ranges::equal(std::span(round.vertices).first(rail.bytes.size()), rail.bytes),
+           "smoothing: the rail's original vertices first and unchanged");
+    // Deterministic: the same mesh smoothed twice, the same bytes.
+    expect(same_result(round, tess::smooth(rail.bytes, rail.count, layout(), rail_strip, smoothing())),
+           "smoothing: deterministic (the rail smoothed twice, the same bytes)");
+    // The strength: half the pull (between the facets and the circle).
+    const tess::Result half = tess::smooth(rail.bytes, rail.count, layout(), rail_strip, smoothing(0.5F));
+    std::printf("smoothing: the rail at strength 0.5: deviation %.4f (1: %.4f)\n", static_cast<double>(half.deviation),
+                static_cast<double>(round.deviation));
+    constexpr float kHalfLow = 0.4F;
+    constexpr float kHalfHigh = 0.6F;
+    expect(half.changed && half.deviation > round.deviation * kHalfLow && half.deviation < round.deviation * kHalfHigh,
+           "smoothing: strength 0.5 pulls half as far");
+    expect(!tess::smooth(rail.bytes, rail.count, layout(), rail_strip, smoothing(0.0F)).changed,
+           "smoothing: strength 0 changes nothing");
+    // A wide hexagonal column (sides 40 wide): not a prism - stays hard.
+    const Mesh column = flat_prism(40.0F, kRailSides, kRailRings);
+    expect(!tess::smooth(column.bytes, column.count, layout(), column.strip(), smoothing()).changed,
+           "smoothing: a wide six-sided column stays faceted (not a rail)");
+    // A four-sided beam: 90 degrees, a box's edges - hard.
+    const Mesh beam = flat_prism(kRail, 4, kRailRings);
+    expect(!tess::smooth(beam.bytes, beam.count, layout(), beam.strip(), smoothing()).changed,
+           "smoothing: a square beam keeps its corners");
+    // A box with averaged normals keeps its corners.
+    const Mesh box = smoothed_box();
+    expect(!tess::smooth(box.bytes, box.count, layout(), box.strip(), smoothing()).changed,
+           "smoothing: a box with averaged normals keeps its corners");
+    // A ledge's 45-degree bevel, flat-shaded: rounded by the crease angle alone, kept crisp by its split normals.
+    const Mesh ledge = bevelled_ledge();
+    const tess::Result by_angle = tess::smooth(ledge.bytes, ledge.count, layout(), ledge.strip(), {});
+    const tess::Result by_normals = tess::smooth(ledge.bytes, ledge.count, layout(), ledge.strip(), smoothing());
+    std::printf("smoothing: a bevelled ledge: off %s, on %s (%u edges kept hard by their normals)\n",
+                by_angle.changed ? "rounded" : "unchanged", by_normals.changed ? "rounded" : "unchanged",
+                by_normals.normal_hard);
+    expect(by_angle.changed, "smoothing off: the ledge's bevel rounded (under the crease angle)");
+    expect(!by_normals.changed && by_normals.normal_hard == 2, "smoothing: the ledge's bevel kept crisp (split normals)");
+    // The same cylinder with the cap: a shape whose curve would leave the original by more is held to it.
+    const Mesh big = cylinder(kRadius, kRailSides);
+    tess::Options capped = smoothing();
+    capped.max_deviation = 1.0F;
+    const tess::Result held = tess::smooth(big.bytes, big.count, layout(), big.strip(), capped);
+    std::printf("smoothing: a six-sided cylinder of radius 100 (shared normals): deviation %.4f (uncapped %.4f)\n",
+                static_cast<double>(held.deviation), static_cast<double>(held.uncapped));
+    expect(held.changed && held.capped && held.deviation <= capped.max_deviation + kSlack,
+           "smoothing: displacement capped (a big round shape held to 1 unit)");
+    expect(open_edges(held, on_cylinder_rims) == 0, "smoothing: the capped cylinder without cracks");
+    // The cylinder of the first checks, smoothed: still round, crack-free across its seams.
+    const Mesh seams = cylinder(kRadius, kSides);
+    const tess::Result seamed = tess::smooth(seams.bytes, seams.count, layout(), seams.strip(), smoothing());
+    expect(seamed.changed && open_edges(seamed, on_cylinder_rims) == 0, "smoothing: the seamed cylinder without cracks");
+}
+
 // strip_triangles: odd triangles turned round, degenerate ones left out.
 void check_strip()
 {
@@ -731,16 +944,501 @@ void check_water_grid()
                 huge.made, static_cast<double>(huge.spacing));
 }
 
+// --- the levels: `thug2_tess_check --level <a level's folder>...` (offline: the game's own scene and collision files
+// read, nothing written) - every mesh the game would smooth smoothed with rt_tess_smooth 0 and 1, and the new points'
+// gap to the collision measured where the collision is a slope (quarter pipes, banks, bowls, transitions) ---
+
+constexpr uint32_t kPassTransparent = 0x40; // (render_pc/mesh_smoothing.cpp's filters)
+constexpr uint32_t kCutOutAlphaRef = 8;
+constexpr uint32_t kFvfXyz = 0x002U;
+constexpr uint32_t kFvfNormal = 0x010U;
+constexpr uint32_t kFvfDiffuse = 0x040U;
+constexpr uint32_t kFvfPositionMask = 0x400EU;
+constexpr uint32_t kFvfKnown = kFvfXyz | kFvfNormal | kFvfDiffuse | 0xF00U;
+constexpr uint32_t kShaderTypeLimit = 6; // (a vertex type up to this is a shader's: skinned)
+constexpr float kNearCollision = 4.0F;   // a point's collision face: the nearest within this
+constexpr float kOnCollision = 0.1F;     // an original surface this near its collision face: on it
+constexpr float kCell = 64.0F;
+constexpr float kSlopeLow = 0.05F;  // a face whose normal's up share is between these: a slope
+constexpr float kSlopeHigh = 0.97F;
+
+std::vector<uint8_t> read_file(const std::filesystem::path& path)
+{
+    std::ifstream in(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
+
+// mesh_smoothing::layout_of's rule: a position, an optional normal and colour, texture coordinate pairs.
+bool mesh_layout(uint32_t fvf, const scene_format::MeshBody& body, tess::VertexLayout* out)
+{
+    constexpr uint32_t kTexShift = 8;
+    constexpr uint32_t kTexMask = 0xF;
+    constexpr uint32_t kMaxSets = 4;
+    if ((fvf & kFvfPositionMask) != kFvfXyz || (fvf & ~kFvfKnown) != 0U || ((fvf >> kTexShift) & kTexMask) > kMaxSets) {
+        return false;
+    }
+    const uint32_t sets = (fvf >> kTexShift) & kTexMask;
+    uint32_t at = kFloat3;
+    out->stride = body.stride;
+    if ((fvf & kFvfNormal) != 0U) {
+        if (core::at(body.offsets, 0) != at) {
+            return false;
+        }
+        out->normal_offset = static_cast<int>(at);
+        at += kFloat3;
+    }
+    if ((fvf & kFvfDiffuse) != 0U) {
+        if (core::at(body.offsets, 1) != at) {
+            return false;
+        }
+        out->colour_offset = static_cast<int>(at);
+        at += 4;
+    }
+    if (sets > 0) {
+        if (core::at(body.offsets, 2) != at) {
+            return false;
+        }
+        out->uv_offset = static_cast<int>(at);
+        out->uv_sets = sets;
+        at += kFloat2 * sets;
+    }
+    return at == body.stride;
+}
+
+P3 add3(P3 a, P3 b) { return {.x = a.x + b.x, .y = a.y + b.y, .z = a.z + b.z}; }
+P3 scale3(P3 a, float s) { return {.x = a.x * s, .y = a.y * s, .z = a.z * s}; }
+
+// The closest point of a triangle to `p` (Ericson's regions).
+P3 closest_on_triangle(P3 p, P3 a, P3 b, P3 c)
+{
+    const P3 ab = sub(b, a);
+    const P3 ac = sub(c, a);
+    const P3 ap = sub(p, a);
+    const float d1 = dot(ab, ap);
+    const float d2 = dot(ac, ap);
+    if (d1 <= 0.0F && d2 <= 0.0F) {
+        return a;
+    }
+    const P3 bp = sub(p, b);
+    const float d3 = dot(ab, bp);
+    const float d4 = dot(ac, bp);
+    if (d3 >= 0.0F && d4 <= d3) {
+        return b;
+    }
+    const float vc = (d1 * d4) - (d3 * d2);
+    if (vc <= 0.0F && d1 >= 0.0F && d3 <= 0.0F) {
+        return add3(a, scale3(ab, d1 / (d1 - d3)));
+    }
+    const P3 cp = sub(p, c);
+    const float d5 = dot(ab, cp);
+    const float d6 = dot(ac, cp);
+    if (d6 >= 0.0F && d5 <= d6) {
+        return c;
+    }
+    const float vb = (d5 * d2) - (d1 * d6);
+    if (vb <= 0.0F && d2 >= 0.0F && d6 <= 0.0F) {
+        return add3(a, scale3(ac, d2 / (d2 - d6)));
+    }
+    const float va = (d3 * d6) - (d5 * d4);
+    if (va <= 0.0F && (d4 - d3) >= 0.0F && (d5 - d6) >= 0.0F) {
+        return add3(b, scale3(sub(c, b), (d4 - d3) / ((d4 - d3) + (d5 - d6))));
+    }
+    const float denominator = 1.0F / (va + vb + vc);
+    return add3(a, add3(scale3(ab, vb * denominator), scale3(ac, vc * denominator)));
+}
+
+// A level's collision faces (collision_format.h's layout, read here with plain bounds checks), in a grid.
+class Collision {
+public:
+    bool load(std::span<const uint8_t> file)
+    {
+        constexpr std::size_t kHeader = 0x20;
+        constexpr std::size_t kObject = 0x40;
+        constexpr uint16_t kNotCollidable = 0x10;
+        constexpr uint16_t kTrigger = 0x40;
+        constexpr uint16_t kVert = 0x8;
+        constexpr float kSixteenth = 1.0F / 16.0F;
+        if (file.size() < kHeader) {
+            return false;
+        }
+        const auto objects = static_cast<std::size_t>(word(file, 4));
+        const std::size_t vertex_bytes = word(file, 8);
+        const std::size_t floats = word(file, 0x14);
+        const std::size_t packed = word(file, 0x18);
+        const std::size_t vertices_at = align(kHeader + (objects * kObject), 16);
+        const std::size_t faces_at = align(vertices_at + (6 * (packed + (2 * floats))) + vertex_bytes, 4);
+        for (std::size_t i = 0; i < objects; ++i) {
+            const std::size_t record = kHeader + (i * kObject);
+            if (record + kObject > file.size()) {
+                return false;
+            }
+            const std::size_t count = half(file, record + 6);
+            const std::size_t face_count = half(file, record + 8);
+            const bool small = core::at(file, record + 0xA) != 0;
+            const bool is_packed = core::at(file, record + 0xB) != 0;
+            const std::size_t faces = faces_at + word(file, record + 0xC);
+            const P3 low{.x = real(file, record + 0x10), .y = real(file, record + 0x14), .z = real(file, record + 0x18)};
+            const std::size_t first = vertices_at + word(file, record + 0x30);
+            std::vector<P3> points(count);
+            for (std::size_t k = 0; k < count; ++k) {
+                if (is_packed) {
+                    const std::size_t at = first + (6 * k);
+                    if (at + 6 > file.size()) {
+                        return false;
+                    }
+                    core::at(points, k) = {.x = low.x + (static_cast<float>(half(file, at)) * kSixteenth),
+                                           .y = low.y + (static_cast<float>(half(file, at + 2)) * kSixteenth),
+                                           .z = low.z + (static_cast<float>(half(file, at + 4)) * kSixteenth)};
+                } else {
+                    const std::size_t at = first + (kFloat3 * k);
+                    if (at + kFloat3 > file.size()) {
+                        return false;
+                    }
+                    core::at(points, k) = {.x = real(file, at), .y = real(file, at + 4), .z = real(file, at + 8)};
+                }
+            }
+            const std::size_t stride = small ? 8 : 10;
+            for (std::size_t f = 0; f < face_count; ++f) {
+                const std::size_t at = faces + (stride * f);
+                if (at + stride > file.size()) {
+                    return false;
+                }
+                const uint16_t flags = half(file, at);
+                if ((flags & (kNotCollidable | kTrigger)) != 0) {
+                    continue;
+                }
+                std::array<std::size_t, 3> corner{};
+                for (std::size_t k = 0; k < 3; ++k) {
+                    core::at(corner, k) = small ? core::at(file, at + 4 + k) : half(file, at + 4 + (2 * k));
+                }
+                if (std::ranges::any_of(corner, [&](std::size_t index) { return index >= count; })) {
+                    continue;
+                }
+                add_face(core::at(points, core::at(corner, 0)), core::at(points, core::at(corner, 1)),
+                         core::at(points, core::at(corner, 2)), (flags & kVert) != 0);
+            }
+        }
+        return !faces_.empty();
+    }
+
+    // The nearest face within `radius` (none: distance -1): the point's distance from it, its gap to it along its
+    // normal turned up (positive: above it), the normal's up share, whether it is a vert face (quarter pipes' tops).
+    struct Hit {
+        float distance = -1.0F;
+        float gap = 0.0F;
+        float up = 0.0F;
+        bool vert = false;
+    };
+    [[nodiscard]] Hit nearest(P3 point, float radius) const
+    {
+        Hit hit;
+        float best = radius;
+        const int x0 = cell(point.x - radius);
+        const int x1 = cell(point.x + radius);
+        const int z0 = cell(point.z - radius);
+        const int z1 = cell(point.z + radius);
+        const int y0 = cell(point.y - radius);
+        const int y1 = cell(point.y + radius);
+        for (int x = x0; x <= x1; ++x) {
+            for (int y = y0; y <= y1; ++y) {
+                for (int z = z0; z <= z1; ++z) {
+                    const auto list = grid_.find(key(x, y, z));
+                    if (list == grid_.end()) {
+                        continue;
+                    }
+                    for (const uint32_t index : list->second) {
+                        const Face& face = core::at(faces_, index);
+                        const P3 closest = closest_on_triangle(point, face.a, face.b, face.c);
+                        const P3 apart = sub(point, closest);
+                        const float distance = std::sqrt(dot(apart, apart));
+                        if (distance < best) {
+                            best = distance;
+                            const P3 normal = face.normal.y < 0.0F ? scale3(face.normal, -1.0F) : face.normal;
+                            hit = {.distance = distance, .gap = dot(apart, normal), .up = normal.y, .vert = face.vert};
+                        }
+                    }
+                }
+            }
+        }
+        return hit;
+    }
+
+    [[nodiscard]] std::size_t faces() const { return faces_.size(); }
+
+private:
+    struct Face {
+        P3 a, b, c, normal;
+        bool vert = false;
+    };
+    static std::size_t align(std::size_t at, std::size_t to) { return (at + to - 1) & ~(to - 1); }
+    static uint16_t half(std::span<const uint8_t> file, std::size_t at)
+    {
+        uint16_t value = 0;
+        if (at + 2 <= file.size()) {
+            std::memcpy(&value, file.subspan(at, 2).data(), 2);
+        }
+        return value;
+    }
+    static uint32_t word(std::span<const uint8_t> file, std::size_t at)
+    {
+        uint32_t value = 0;
+        if (at + 4 <= file.size()) {
+            std::memcpy(&value, file.subspan(at, 4).data(), 4);
+        }
+        return value;
+    }
+    static float real(std::span<const uint8_t> file, std::size_t at)
+    {
+        const uint32_t bits = word(file, at);
+        float value = 0.0F;
+        std::memcpy(&value, &bits, sizeof(value));
+        return value;
+    }
+    static int cell(float at) { return static_cast<int>(std::floor(at / kCell)); }
+    static uint64_t key(int x, int y, int z)
+    {
+        constexpr uint64_t kMask = 0x1FFFFF;
+        constexpr unsigned kShiftY = 21;
+        constexpr unsigned kShiftZ = 42;
+        return (static_cast<uint64_t>(x) & kMask) | ((static_cast<uint64_t>(y) & kMask) << kShiftY) |
+               ((static_cast<uint64_t>(z) & kMask) << kShiftZ);
+    }
+    void add_face(P3 a, P3 b, P3 c, bool vert)
+    {
+        const P3 normal = cross(sub(b, a), sub(c, a));
+        const float area = std::sqrt(dot(normal, normal));
+        if (!(area > kTinyArea) || !std::isfinite(area)) {
+            return;
+        }
+        const auto index = static_cast<uint32_t>(faces_.size());
+        faces_.push_back({.a = a, .b = b, .c = c, .normal = scale3(normal, 1.0F / area), .vert = vert});
+        const int x0 = cell(std::min({a.x, b.x, c.x}));
+        const int x1 = cell(std::max({a.x, b.x, c.x}));
+        const int y0 = cell(std::min({a.y, b.y, c.y}));
+        const int y1 = cell(std::max({a.y, b.y, c.y}));
+        const int z0 = cell(std::min({a.z, b.z, c.z}));
+        const int z1 = cell(std::max({a.z, b.z, c.z}));
+        for (int x = x0; x <= x1; ++x) {
+            for (int y = y0; y <= y1; ++y) {
+                for (int z = z0; z <= z1; ++z) {
+                    grid_[key(x, y, z)].push_back(index);
+                }
+            }
+        }
+    }
+
+    std::vector<Face> faces_;
+    std::unordered_map<uint64_t, std::vector<uint32_t>> grid_;
+};
+
+// A setting's totals over a level.
+struct LevelTotals {
+    uint32_t looked_at = 0;
+    uint32_t meshes = 0;
+    uint64_t triangles_split = 0;
+    uint64_t indices_before = 0;
+    uint64_t indices_after = 0;
+    uint64_t vertices_added = 0;
+    uint32_t capped = 0;
+    uint32_t prism_edges = 0;
+    uint32_t normal_smooth = 0;
+    uint32_t normal_hard = 0;
+    float deviation = 0.0F;
+    std::vector<float> deviations; // each smoothed mesh's
+    // the new points made from the collision's vert faces (quarter pipes' tops) and its other slopes (banks, bowls,
+    // transitions) - their place on the original surface on the collision -: their gaps to it (positive: drawn above)
+    std::array<std::vector<float>, 2> gaps; // (vert, other slopes)
+    double milliseconds = 0.0;
+    uint64_t hash = 0xCBF29CE484222325ULL; // the results' bytes (FNV-1a)
+};
+
+void hash_bytes(uint64_t* hash, std::span<const uint8_t> bytes)
+{
+    constexpr uint64_t kPrime = 0x100000001B3ULL;
+    for (const uint8_t byte : bytes) {
+        *hash = (*hash ^ byte) * kPrime;
+    }
+}
+
+void measure_mesh(const scene_format::MeshBody& body, const tess::VertexLayout& vertex_layout, const tess::Options& options,
+                  const Collision& collision, LevelTotals* totals)
+{
+    const std::span<const uint16_t> strip(core::at(body.indices, 0).data(), core::at(body.index_counts, 0));
+    ++totals->looked_at;
+    const auto started = std::chrono::steady_clock::now();
+    const tess::Result result = tess::smooth(body.vertices, body.vertex_count, vertex_layout, strip, options);
+    totals->milliseconds += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    hash_bytes(&totals->hash, result.vertices);
+    for (const uint16_t index : result.strip) {
+        const std::array<uint8_t, 2> bytes{static_cast<uint8_t>(index & 0xFFU), static_cast<uint8_t>(index >> 8U)};
+        hash_bytes(&totals->hash, bytes);
+    }
+    if (!result.changed) {
+        return;
+    }
+    ++totals->meshes;
+    totals->triangles_split += result.smoothed;
+    totals->indices_before += strip.size();
+    totals->indices_after += result.strip.size();
+    totals->vertices_added += result.vertex_count - body.vertex_count;
+    totals->capped += result.capped ? 1U : 0U;
+    totals->prism_edges += result.prism_edges;
+    totals->normal_smooth += result.normal_smooth;
+    totals->normal_hard += result.normal_hard;
+    totals->deviation = std::max(totals->deviation, result.deviation);
+    totals->deviations.push_back(result.deviation);
+    // The new points whose place on the original surface lies on a slope of the collision (the original drawn there
+    // where the skater rides): how far the smoothing put them off it.
+    const auto stride = static_cast<std::size_t>(vertex_layout.stride);
+    for (uint32_t i = body.vertex_count; i < result.vertex_count; ++i) {
+        const std::array<float, 3>& flat = core::at(result.flat, i - body.vertex_count);
+        const P3 original{.x = core::at(flat, 0), .y = core::at(flat, 1), .z = core::at(flat, 2)};
+        const Collision::Hit under = collision.nearest(original, kNearCollision);
+        if (under.distance < 0.0F || under.distance > kOnCollision || under.up < kSlopeLow || under.up > kSlopeHigh) {
+            continue;
+        }
+        std::array<float, 3> floats{};
+        std::memcpy(floats.data(), std::span(result.vertices).subspan(stride * i, kFloat3).data(), kFloat3);
+        const P3 point{.x = core::at(floats, 0), .y = core::at(floats, 1), .z = core::at(floats, 2)};
+        const Collision::Hit drawn = collision.nearest(point, kNearCollision);
+        if (drawn.distance >= 0.0F) {
+            core::at(totals->gaps, under.vert ? 0 : 1).push_back(drawn.gap);
+        }
+    }
+}
+
+float percentile(std::vector<float> values, float share)
+{
+    if (values.empty()) {
+        return 0.0F;
+    }
+    std::ranges::sort(values);
+    const auto at = static_cast<std::size_t>(share * static_cast<float>(values.size() - 1));
+    return core::at(values, at);
+}
+
+void report(const char* name, const LevelTotals& totals)
+{
+    std::printf("  %s: %u of %u meshes smoothed, %llu triangles split, indices %llu -> %llu, +%llu vertices, %.1f ms; "
+                "deviation at most %.3f (median %.3f, 95%% %.3f; %u capped); %u prism edges, %u joined by shared normals, "
+                "%u kept hard by split normals; hash %016llx\n",
+                name, totals.meshes, totals.looked_at, static_cast<unsigned long long>(totals.triangles_split),
+                static_cast<unsigned long long>(totals.indices_before), static_cast<unsigned long long>(totals.indices_after),
+                static_cast<unsigned long long>(totals.vertices_added), totals.milliseconds,
+                static_cast<double>(totals.deviation), static_cast<double>(percentile(totals.deviations, 0.5F)),
+                static_cast<double>(percentile(totals.deviations, 0.95F)), totals.capped, totals.prism_edges,
+                totals.normal_smooth, totals.normal_hard, static_cast<unsigned long long>(totals.hash));
+    constexpr std::array<const char*, 2> kKinds{"vert faces (quarter pipes)", "other slopes (banks, bowls, transitions)"};
+    for (std::size_t kind = 0; kind < kKinds.size(); ++kind) {
+        const std::vector<float>& gaps = core::at(totals.gaps, kind);
+        std::vector<float> sizes;
+        sizes.reserve(gaps.size());
+        double sum = 0.0;
+        std::size_t over_one = 0;
+        for (const float gap : gaps) {
+            sizes.push_back(std::fabs(gap));
+            sum += std::fabs(gap);
+            over_one += std::fabs(gap) > 1.0F ? 1U : 0U;
+        }
+        std::printf("    %s: %zu new points from the drawn surface on them - gap to the collision mean %.3f, median %.3f, "
+                    "95%% %.3f, 99%% %.3f, over 1 unit %.1f%%; above it at most %.3f, below it at most %.3f\n",
+                    core::at(kKinds, kind), gaps.size(), gaps.empty() ? 0.0 : sum / static_cast<double>(gaps.size()),
+                    static_cast<double>(percentile(sizes, 0.5F)), static_cast<double>(percentile(sizes, 0.95F)),
+                    static_cast<double>(percentile(sizes, 0.99F)),
+                    gaps.empty() ? 0.0 : 100.0 * static_cast<double>(over_one) / static_cast<double>(gaps.size()),
+                    static_cast<double>(std::max(0.0F, percentile(gaps, 1.0F))),
+                    static_cast<double>(std::max(0.0F, -percentile(gaps, 0.0F))));
+    }
+}
+
+bool measure_level(const std::filesystem::path& folder)
+{
+    const std::string name = folder.filename().string();
+    const std::vector<uint8_t> scene = read_file(folder / (name + ".scn.xbx"));
+    const std::vector<uint8_t> collision_file = read_file(folder / (name + ".col.xbx"));
+    Collision collision;
+    if (scene.empty() || !collision.load(collision_file)) {
+        std::printf("%s: no scene or collision there\n", name.c_str());
+        return false;
+    }
+    scene_format::MemoryStream in(scene.data(), scene.size());
+    in.skip(scene_format::kHeaderSize);
+    const auto materials = scene_format::take<uint32_t>(in);
+    std::map<uint32_t, scene_format::Material> by_checksum;
+    for (uint32_t i = 0; i < materials; ++i) {
+        scene_format::Material material;
+        if (!scene_format::read_material(in, &material)) {
+            std::printf("%s: material %u unreadable\n", name.c_str(), i);
+            return false;
+        }
+        by_checksum.emplace(material.checksum, std::move(material));
+    }
+    tess::Options off;
+    off.keep_flat = true;
+    tess::Options on = off;
+    on.smooth = true;
+    tess::Options tight = on;
+    tight.max_deviation = 1.0F;
+    LevelTotals plain;
+    LevelTotals smoothed;
+    LevelTotals smoothed_tight;
+    const auto sectors = scene_format::take<uint32_t>(in);
+    scene_format::Sector sector;
+    scene_format::SectorMesh mesh;
+    scene_format::MeshBody body;
+    for (uint32_t i = 0; i < sectors; ++i) {
+        if (!scene_format::read_sector(in, &sector)) {
+            std::printf("%s: sector %u unreadable\n", name.c_str(), i);
+            return false;
+        }
+        for (uint32_t j = 0; j < sector.mesh_count; ++j) {
+            if (!scene_format::read_sector_mesh(in, &mesh) || !scene_format::read_mesh_body(in, &body)) {
+                std::printf("%s: sector %u mesh %u unreadable\n", name.c_str(), i, j);
+                return false;
+            }
+            // (the meshes mesh_smoothing::smooth_body takes: a plain format, no per-vertex bytes or scaled positions,
+            // a material neither transparent nor cut out)
+            const uint32_t fvf = core::at(body.vertex_types, 0);
+            const auto material = by_checksum.find(mesh.material);
+            tess::VertexLayout vertex_layout;
+            if (fvf <= kShaderTypeLimit || body.has_vertex_bytes || !body.scaled.empty() || material == by_checksum.end() ||
+                (core::at(material->second.passes, 0).flags & kPassTransparent) != 0U ||
+                material->second.alpha_ref > kCutOutAlphaRef || core::at(body.index_counts, 0) < 3 ||
+                !scene_format::offsets_fit(body) || !mesh_layout(fvf, body, &vertex_layout) ||
+                !scene_format::vertices_fit(body, body.stride)) {
+                continue;
+            }
+            measure_mesh(body, vertex_layout, off, collision, &plain);
+            measure_mesh(body, vertex_layout, on, collision, &smoothed);
+            measure_mesh(body, vertex_layout, tight, collision, &smoothed_tight);
+        }
+    }
+    std::printf("%s: %zu collision faces\n", name.c_str(), collision.faces());
+    report("rt_tess_smooth=0", plain);
+    report("rt_tess_smooth=1", smoothed);
+    report("rt_tess_smooth=1, rt_tess_max_deviation=1", smoothed_tight);
+    return true;
+}
+
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     tests::no_error_dialogs();
+    const std::span<char*> args(argv, static_cast<std::size_t>(argc));
+    if (args.size() > 2 && std::string_view(core::at(args, 1)) == "--level") {
+        bool read = true;
+        for (std::size_t i = 2; i < args.size(); ++i) {
+            read = measure_level(core::at(args, i)) && read;
+        }
+        return read ? 0 : 1;
+    }
     check_strip();
     check_cylinder();
     check_rail();
     check_pipe();
     check_unchanged();
+    check_smooth();
     check_water_grid();
     if (failures() != 0) {
         std::printf("%d check(s) failed\n", failures());
