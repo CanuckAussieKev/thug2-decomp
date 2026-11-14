@@ -167,4 +167,7 @@ function Set-WorkspaceMuted([string]$folder) {
     $text = if (Test-Path $ini) { [IO.File]::ReadAllText($ini) } else { '' }
     $new = Set-IniValue (Set-IniValue $text 'features' 'mute_audio' '1') 'Graphics' 'WindowDisplay' '2'
     if ($new -ne $text) { [IO.File]::WriteAllText($ini, $new) }
+    # (and the marker that mutes it whatever its ini says - a test's own ini can't unmute it: src/platform/mute_audio.h)
+    $marker = Join-Path $folder 'thug2-decomp-always-muted'
+    if (-not (Test-Path $marker)) { [IO.File]::WriteAllText($marker, "Workspace: the game here always runs muted.`r`n") }
 }
