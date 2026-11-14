@@ -1170,7 +1170,13 @@ void CtodManager::tick_frame()
         is_game_halted()) {
         return;
     }
-    const int elapsed = ftol(frame_clock::get_slomo_frame_seconds() * time_multiplier_ * thousand());
+    // (not original: on the 60 Hz grid - the time of day steps once each 1/60 s whatever the tick rate, its truncated
+    // milliseconds and its systems' frame counts (update_system's wait_frames_) as the 60 Hz run's; every tick at 60.
+    // Original behaviour: once a tick, the tick's own step)
+    if (frame_clock::grid_frames() == 0) {
+        return;
+    }
+    const int elapsed = ftol(frame_clock::get_slomo_grid_seconds() * time_multiplier_ * thousand());
     full_length_ += elapsed;
     update_sun();
     for (int index = 0; index < kSystems; ++index) {

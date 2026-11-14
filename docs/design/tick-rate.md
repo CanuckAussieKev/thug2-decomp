@@ -8,9 +8,11 @@ The goal: physics independent of the rate, timers right at any rate, a run at 12
 to within a tiny tolerance ("virtually exact"), online play with 60 Hz peers, demos that know their rate. The 60 Hz path
 stays byte-identical to the original's.
 
-Status (2026-11-14): phases 1 and 2 below are done - the plumbing and the mechanical sites, the demo format's rate, and
-the two yardsticks that measure how far another rate is from 60. Phases 3 - 5 remain; the yardsticks' numbers below
-are where they start from.
+Status (2026-11-15): phases 1 and 2 are done - the plumbing and the mechanical sites, the demo format's rate, and the
+two yardsticks that measure how far another rate is from 60. Phase 3 is done in part ("The 60 Hz grid" below): the
+timers, tick counters, per-tick rates, script waits and the air's feelers count on the 60 Hz grid; the timing of events
+inside a 1/60 s frame (rail exits, jumps, placements) and the frictions' modified equation remain. Phases 4 - 5
+remain.
 
 ## How the clock works
 
@@ -60,11 +62,39 @@ Unit conversions that stay 60 whatever the rate (data and code that count time i
 (`flexible_particle_manager.cpp`'s `frame_time_scale`), cutscenes' 30 fps, the level editor's shot timings, the
 network's transmit periods (`game_config::frame_rate`).
 
+## The 60 Hz grid (phase 3)
+
+What the original does once a frame and counts in frames - truncated milliseconds, frame counters, script waits -
+happens once each 1/60 s at another rate: in the tick that starts the 1/60 s frame (`frame_clock::grid_frames()`, 1 in
+that tick, 0 in the others; always 1 at 60). That tick begins with the state the 60 Hz run's tick for the frame begins
+with (in a tick the scripts run before the objects), so at every 1/60 s boundary these hold what the 60 Hz run holds.
+The grid is counted from the clock's start; a demo played at another rate than it was recorded at puts it where the
+recording's frames are (`frame_clock::anchor_grid`, at the playback's start and at the level up).
+`tick_rate::frames_ended_by` / `frame_of_tick` are its pure maths.
+
+| place | at another rate |
+|---|---|
+| `frame_clock::get_time()` | the milliseconds of the 1/60 s frame the tick is in (`grid_frame_of_tick() x 1000 / 60`): trick and button windows, the game clock, script timers and ms timestamps read the 60 Hz run's times. `get_tick_time()` is the tick's own (what is drawn between ticks: `frame_interp::shown_time_ms`) |
+| goal / objective / trick-goal / shoot-video timers, king of the hill, the front end's key repeat, the effects' milliseconds | the original's truncated `trunc(slomo x (1.0F / 60) x 1000)` (16 ms) once each 1/60 s: a "1:00" goal takes 62.5 s at every rate, as at 60, and online peers agree |
+| time of day (`tod_manager.cpp`), the special meter and the pot count-down (`score_combo.cpp`) | the whole update once each 1/60 s |
+| tick counters: the late wallplant window, the throw wait, the model rotation's frames, the tag cooldown, the cameras' `instant_frames_`, vehicles' still frames, projectiles' rest, THAW BMX's no-balance / steep-stall / parked counts, the unplugged count | count 1/60 s frames |
+| script waits (`QbScript::update_wait`: frames, gameframes, one-per-frame, timers, component waits) | step once each 1/60 s; timers by the original's 1/60 s step - a script goes on in the frame the 60 Hz run's does |
+| per-tick rates: rigid bodies' damping and the cutscene's fade step (`per_tick_amount`), the peds' bias decay (`per_tick_factor`), the walkers' turn blend (`per_tick_fraction`) | the tick's share of the 1/60 s one |
+| the skater camera's distance lerps (`update_lerps`) | the last step is the share of a step left: on the target at the lerp's time |
+| the skater in the air (`do_air_physics`, `RiderPhysicsTweaks::tick_frame`) | the move each tick (it composes exactly); the landing, wall, ceiling, lateral, wallplant and acid-drop feelers and the keep-above-ground check once a frame, in the tick that ends it, from where the frame began - the 60 Hz run's segment |
+
+At 60 all of it is the original's: `grid_frames()` is 1, the 1/60 step is the tick's step to the bit, the shares are the
+values themselves (`thug2_tick_rate_check`: 50 checks).
+
+Kept per tick: the screen blur's frame count (it counts drawn frames), the automation channel's menu target counts, the
+ladder's rail script for its first 25 ms (milliseconds already), `suspend_component.cpp`'s check counts (cost only),
+particle trails' history.
+
 ## Scripts
 
 `Wait` (`cfunc_wait`): `seconds` and bare milliseconds are time; `frame(s)` is 16.666666 ms (truncated) of time;
-`gameframe(s)` / `game frame` counts Updates (ticks); `one_per_frame` lets one script a frame go on. Timed waits count
-down by the step each Update, so they are right at any rate now; `gameframe` waits are still ticks (phase 4).
+`gameframe(s)` / `game frame` counts Updates; `one_per_frame` lets one script a frame go on. Since phase 3 every wait
+steps on the 60 Hz grid at another rate (above): `gameframe` counts 1/60 s frames, timers count the original's step.
 
 `node tools/qbjs/frame_audit.ts --game <folder> [--overlays] [--out report.md] [--json out.json] [--all]` lists every
 wait, frame loop, tick counter, per-tick increment and frame-named argument in the translated scripts with its
@@ -115,7 +145,32 @@ Clean airborne arcs already match to a hundredth of an inch (the integrator is e
 within the first second and then go their own ways (a different push, a missed grind - the maxima are another route,
 not a drift). What they show, for phase 3: the push's timing (a few frames later at 120 - tick-counted script waits and
 counters), the landing seen at the tick's end (one 60 Hz frame either way), and at 240 the skater lifted off the ground
-in the level's first frames (vy +245 at the level up - a per-tick ground correction tuned to a 1/60 step).
+in the level's first frames (vy +245 at the level up).
+
+After phase 3 (the same demo; "first > N" is the first frame more than N inches from the 60 Hz run):
+
+| rate | first > 0.1 in | first > 1 in | first > 10 in | state first differs | speed at frames 18 / 30 / 60 (60 Hz: 16.38 / 178.26 / 520.93) | first jump: apex / landing |
+|---|---:|---:|---:|---:|---|---|
+| 120 (before) | 6 | 32 | 64 | 138 | 22.78 / 183.29 / 525.70 | -0.035 in / one frame early |
+| 120 | 22 | 37 | 94 | 138 | 16.78 / 178.62 / 521.42 | -0.028 in / one frame early |
+| 144 (before) | 5 | 30 | 65 | 150 | - / 185.28 / 532.74 | -0.93 in / one frame late |
+| 144 | 10 | 25 | 65 | 150 | - / 192.96 / 540.03 | -0.93 in / one frame late |
+| 240 (before) | 5 | 5 | 5 | 5 | 48.06 / 317.91 / 346.48 | +0.08 in / one frame early |
+| 240 | 14 | 30 | 64 | 138 | 16.88 / 178.02 / 520.76 | -0.013 in / one frame early |
+
+The lift at 240 is gone (it was the level's start-up scripts' tick-counted waits) and at 120 and 240 the pushes follow
+the 60 Hz run's to half a speed unit; the routes still part (the maxima, 1100 - 1600 in, are other routes). What parts
+them now is the timing of events inside a 1/60 s frame, read off the runs tick by tick:
+
+- **An event in a tick that ends the 60 Hz tick's move early.** In the 60 Hz run the tick that puts the skater at the
+  level's start, jumps it off a rail (`step_grind_move`'s `jump_released`) or runs it off a rail's end leaves the rest of
+  its 1/60 s without a move; at 120 the same event in the frame's first tick leaves the second tick to move - half a
+  frame of push or flight early (at the start +0.6 speed units by the level up at 120; the first jump's take-off has
+  1.5 frames of gravity at its first check point instead of 1). Each such return needs the rest of its frame held still.
+- **Rail ends found from the tick's start position** (`step_grind_move`'s overshoot): at 120 the second tick of a frame
+  finds the end half a frame before the 60 Hz run's tick does.
+- **The frictions' Euler steps** (`apply_friction`, `apply_stance_friction`, the normal blend): not yet the modified
+  equation (the harness's roll: 7 - 11 in as it is, 0.1 in matched).
 
 ## How "virtually exact" will be reached
 
@@ -155,6 +210,9 @@ in, landings on the same 60 Hz frame.
 
 ### Phase 3: tick counters, per-tick rates, truncations (C++)
 
+Done: the 60 Hz grid above. Remaining: the events inside a frame (above), the friction / drag / normal-blend
+integrators' modified equation, particle trails, video of a demo at another rate. The list as the audit had it:
+
 - Skater: late wallplant window (`core_physics.cpp` `late_wallplant_.frames`, from LateWallplantFrames), projectile
   throw wait (`core_physics.h` `throw_.wait`, 30), model rotation `frames_left -= slomo` (`core_physics_state.cpp`),
   tagging countdown / cooldown (`tagging.cpp`), the ladder's first 25 ticks (`walk_physics.h`), THAW BMX's counters
@@ -179,10 +237,11 @@ in, landings on the same 60 Hz frame.
 
 ### Phase 4: scripts
 
-`cfunc_wait`'s `gameframe(s)` become N/60 s of game time at rates other than 60 (one place: the 106 + 10 waits, and
-through them the `repeat` loops, counters and per-tick increments around a one-tick wait); then frame_audit.ts's polls of
-one-tick events (296 `wait 1 gameframe` + 19 WaitOneGameFrame) reviewed - those that must see every tick keep a one-tick
-wait. Proof: the script check unchanged at 60 (it compares QB and TypeScript on the same runtime; the rate doesn't
+Done in phase 3 (it was needed: the start-up scripts' tick-counted waits lifted the skater at 240): every wait steps on
+the 60 Hz grid, so `gameframe(s)` are 1/60 s frames and the `repeat` loops, counters and per-tick increments around a
+one-tick wait run at the 60 Hz run's pace. Left: frame_audit.ts's polls of one-tick events (296 `wait 1 gameframe` + 19
+WaitOneGameFrame) reviewed - a poll once a 1/60 s misses a "this tick" flag set in a tick that doesn't start a frame;
+those that must see every tick need a tick unit. Proof: the script check unchanged at 60 (it compares QB and TypeScript on the same runtime; the rate doesn't
 change what it compares), frame_audit.ts showing no class a left.
 
 ### Phase 5: demos and online

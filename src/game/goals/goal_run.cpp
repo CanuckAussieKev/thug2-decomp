@@ -230,9 +230,12 @@ bool Objective::tick_frame()
     }
     if (has_time_limit() && seconds_remaining_ >= 1) {
         const int before = seconds_remaining_;
+        // (not original: on the 60 Hz grid - the original's truncated 16 ms each 1/60 s whatever the tick rate,
+        // frame_clock::grid_frames; 1 a tick at 60. Original behaviour: once a tick, the tick's own step)
+        const int frames = frame_clock::grid_frames();
         seconds_remaining_ +=
-            truncate(frame_clock::get_slomo_frame_seconds() * kGoalRunMinusMilliseconds); // (-1000)
-        elapsed_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand);       // (1000)
+            frames * truncate(frame_clock::get_slomo_grid_seconds() * kGoalRunMinusMilliseconds); // (-1000)
+        elapsed_ += frames * truncate(frame_clock::get_slomo_grid_seconds() * gfx::kThousand);       // (1000)
         // The last ten seconds beep each second.
         if (seconds_remaining_ < kBeepWindowMilliseconds &&
             before / kMillisecondsPerSecond > seconds_remaining_ / kMillisecondsPerSecond && timer_beeps() &&

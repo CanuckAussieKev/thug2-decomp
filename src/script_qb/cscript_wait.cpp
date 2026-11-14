@@ -62,6 +62,13 @@ gsl::owner<Struct*> new_empty_struct() { return new_struct(); }
 // 0x00473050
 void QbScript::update_wait()
 {
+    // Not original: at a tick rate other than 60 the waits step on the 60 Hz grid - once each 1/60 s, in the tick that
+    // starts the frame (it begins with the state the 60 Hz run's tick for the frame begins with), timers by the
+    // original's 1/60 s step - so a script goes on in the frame the 60 Hz run's goes on in (docs/design/tick-rate.md
+    // "Scripts"). At 60 every tick is a frame: the original's.
+    if (frame_clock::grid_frames() == 0) {
+        return;
+    }
     switch (suspend_reason_) {
     case BlockReason::kCount:
         if (suspend_frames_left_ != 0) {
@@ -80,8 +87,9 @@ void QbScript::update_wait()
         }
         break;
     case BlockReason::kTimer: {
-        const double frame =
-            frame_clock::get_slomo_frame_seconds(); // (unrounded, as the original keeps it on the x87 stack)
+        // (unrounded, as the original keeps it on the x87 stack; not original: the 60 Hz grid's 1/60 s - the tick's step
+        // at 60, frame_clock::get_slomo_grid_seconds)
+        const double frame = frame_clock::get_slomo_grid_seconds();
         if (frame > suspend_clock_) {
             // Less than a frame left: done - unless this is the first Update, which only zeroes the time.
             if (suspend_clock_started_) {

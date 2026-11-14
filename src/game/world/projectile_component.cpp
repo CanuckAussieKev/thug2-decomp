@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 
+#include "engine/sys/stopwatch.h"
 #include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/trigger_component.h"
@@ -105,7 +106,7 @@ void ProjectileComponent::tick_frame()
 void ProjectileComponent::check_triggers()
 {
     if (rest_ > 0) {
-        --rest_;
+        rest_ -= frame_clock::grid_frames(); // (not original: 1/60 s frames - the 60 Hz grid; --rest_ at 60)
         return;
     }
     render::ProbeRay feeler;

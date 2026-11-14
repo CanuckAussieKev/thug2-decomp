@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/debug_lines.h"
 #include "base/maths/shape_tests.h"
 #include "game/online/gamenet_manager.h"
@@ -788,7 +789,7 @@ void DrivableModule::check_sleep()
     if (is_kicked()) {
         return;
     }
-    still_frames_ = still + 1;
+    still_frames_ = still + frame_clock::grid_frames(); // (not original: 1/60 s frames - the 60 Hz grid; + 1 at 60)
     if (still_frames_ < 3) {
         return;
     }

@@ -939,7 +939,8 @@ bool FallingTricksGoal::tick_frame()
         (!core::any(cur_phase() & Objective::State::kNoTimeLimit) && seconds_remaining() < stop_time) || is_frozen()) {
         return base_update(this);
     }
-    stopwatch_ += ftol(frame_clock::get_slomo_frame_seconds() * kMillisecondsPerSecondF);
+    // (not original: on the 60 Hz grid - frame_clock::grid_frames; original behaviour: the tick's step)
+    stopwatch_ += frame_clock::grid_frames() * ftol(frame_clock::get_slomo_grid_seconds() * kMillisecondsPerSecondF);
     if (is_single_combo()) {
         if (args()->has_bare_flag(kTricksAdded) || stopwatch_ <= kSingleComboDelayMs) {
             return base_update(this);

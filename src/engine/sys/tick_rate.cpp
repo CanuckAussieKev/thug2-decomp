@@ -89,4 +89,37 @@ double per_tick_factor(double factor_per_60th)
     return std::pow(factor_per_60th, static_cast<double>(kOriginal) / tick_state().rate);
 }
 
+double per_tick_fraction(double fraction_per_60th)
+{
+    if (original()) {
+        return fraction_per_60th;
+    }
+    return 1.0 - std::pow(1.0 - fraction_per_60th, static_cast<double>(kOriginal) / tick_state().rate);
+}
+
+float per_tick_amount(float amount_per_60th)
+{
+    if (original()) {
+        return amount_per_60th;
+    }
+    return static_cast<float>(static_cast<double>(amount_per_60th) * kOriginal / tick_state().rate);
+}
+
+uint64_t frames_ended_by(uint64_t ticks)
+{
+    if (original()) {
+        return ticks;
+    }
+    return ticks * static_cast<uint64_t>(kOriginal) / static_cast<uint64_t>(tick_state().rate);
+}
+
+uint64_t frame_of_tick(uint64_t ticks)
+{
+    if (original()) {
+        return ticks;
+    }
+    const auto rate = static_cast<uint64_t>(tick_state().rate);
+    return ((ticks * static_cast<uint64_t>(kOriginal)) + rate - 1) / rate;
+}
+
 } // namespace tick_rate

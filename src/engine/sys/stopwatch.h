@@ -26,6 +26,10 @@ uint64_t fetch_retrace_count();
 uint64_t get_draw_frame();
 // 0x005BE970: milliseconds since Reset (from the low 32 bits of the vblank count).
 uint32_t get_time();
+// NOT ORIGINAL - the tick's own milliseconds (ticks x 1000 / ticks a second): get_time at 60; at another rate get_time
+// is the 60 Hz grid's (the frame the tick ends in) and this the tick's - for what is drawn between ticks
+// (render_pc/frame_interp.cpp).
+uint32_t get_tick_time();
 // 0x005BE910: the uncapped average frame length, in seconds.
 double get_frame_seconds();
 // 0x005BEAA0: slow motion times a tick (the original's nominal 1/60 s frame; not original: the tick rate's tick -
@@ -40,6 +44,25 @@ void set_slomo(float slomo);
 // the frame length) stays as it was.
 uint64_t vblanks_since_reset();
 void set_vblanks_since_reset(uint64_t vblanks);
+
+// NOT ORIGINAL - the 60 Hz grid (engine/sys/tick_rate.h, docs/design/tick-rate.md "The 60 Hz grid"): what the original
+// does once a frame (truncated milliseconds of goal and effect timers, frame counters, script waits) happens once each
+// 1/60 s, in the tick that starts the 1/60 s frame - that tick begins with the state the 60 Hz run's tick for the frame
+// begins with (the scripts run before the objects in a tick) - so at every 1/60 s boundary it holds what the 60 Hz run
+// holds. At 60 every tick is a frame.
+// grid_frames: the 1/60 s frames that start in this tick (0 or 1 - always 1 at 60).
+int grid_frames();
+// This tick ends a 1/60 s frame (always at 60): what the original keeps for "this frame" (a flag set for the rest of a
+// tick) keeps it until then.
+bool grid_frame_ends();
+// The 1/60 s frame this tick is part of (the vblanks themselves at 60).
+uint64_t grid_frame_of_tick();
+// The current tick ends 1/60 s frame `frame` (a demo played at another rate than it was recorded at puts the clock where
+// the recording's was: devtools/demo.cpp). Nothing at 60.
+void anchor_grid(uint64_t frame);
+// The original's step, whatever the rate: slow motion times 1.0F / 60 (get_slomo_frame_seconds at 60, to the bit) - what
+// counts on the grid adds it each 1/60 s.
+double get_slomo_grid_seconds();
 
 // 0x005BE6F0: the CPU's time stamp counter.
 uint64_t read_cpu_time_stamp();

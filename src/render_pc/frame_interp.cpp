@@ -250,7 +250,7 @@ void end_frame()
 
 uint32_t shown_time_ms()
 {
-    const uint32_t now = frame_clock::get_time();
+    const uint32_t now = frame_clock::get_tick_time(); // (the tick's own time: blended within the tick below)
     const frame_blend::Frame& frame = frame_blend::frame();
     if (!frame.on) {
         return now;

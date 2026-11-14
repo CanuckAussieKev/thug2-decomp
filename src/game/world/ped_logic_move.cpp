@@ -169,7 +169,8 @@ void rebuild_across_and_up(maths::Mat4& matrix)
 // 0x004ECFF0
 void PedestrianBrainModule::decay_bias()
 {
-    const float decay = script::fetch_float(kBiasDecay);
+    // (not original: the decay is a 1/60 s frame's - tick_rate::per_tick_factor; the script's value itself at 60)
+    const auto decay = static_cast<float>(tick_rate::per_tick_factor(script::fetch_float(kBiasDecay)));
     const double threshold = script::fetch_float(kMinBias);
     for (float& bias : bias_) {
         // The product is compared unrounded (x87); a NaN is kept.
@@ -590,6 +591,8 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
             if (turn > kMaxTurn) {
                 turn_time = static_cast<float>(static_cast<double>(turn) / kMaxTurn * kTurnTime);
             }
+            // (not original: the blend is a 1/60 s frame's - tick_rate::per_tick_fraction; itself at 60)
+            turn_time = static_cast<float>(tick_rate::per_tick_fraction(turn_time));
             core::at(matrix.row, 2) = *walk::get_lerp(&pos, &heading, &moved, turn_time);
             core::at(matrix.row, 2).make_unit();
         } else {

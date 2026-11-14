@@ -325,10 +325,16 @@ PointTally::~PointTally()
 // 0x00563580
 void PointTally::tick_frame()
 {
+    // (not original: on the 60 Hz grid - the special meter's drain (truncated: a point a frame), the pot's countdown
+    // and count-down and the bar's flash step once each 1/60 s whatever the tick rate (frame_clock::grid_frames; every
+    // tick at 60). Original behaviour: once a tick, the tick's own step)
+    if (frame_clock::grid_frames() == 0) {
+        return;
+    }
     if (special_ != 0) {
         auto special = static_cast<float>(special_);
         const double rate = special_active_ ? static_cast<double>(0.2F) : static_cast<double>(0.05F);
-        special_ = ftol(special - (frame_clock::get_slomo_frame_seconds() * rate));
+        special_ = ftol(special - (frame_clock::get_slomo_grid_seconds() * rate));
         if (special_ <= 0) {
             set_special_active(false);
             special_ = 0;

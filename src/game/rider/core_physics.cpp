@@ -13,6 +13,8 @@
 #include "base/core/checksums.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
+#include "engine/sys/stopwatch.h"
+#include "engine/sys/tick_rate.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/movable_contact.h"
@@ -723,10 +725,13 @@ void SkaterPhysicsModule::do_air_physics()
     maths::Vec4 velocity = entity()->vel();
     int& countdown = late_wallplant_.frames;
     if (countdown > 0) {
-        --countdown;
+        // (not original: the window counts 1/60 s frames - the 60 Hz grid, frame_clock::grid_frames - and the wallplant
+        // is tried each tick in it; at 60 one a tick, as the original's --countdown)
+        countdown -= frame_clock::grid_frames();
         if (wall_plant(true, false, false)) {
             countdown = 0;
-        } else if (countdown == 0) {
+        } else if (countdown <= 0) {
+            countdown = 0;
             core::at(entity()->basis_frame().row, 2).align_to_plane(late_wallplant_.wall_normal);
         }
     }
@@ -805,6 +810,17 @@ void SkaterPhysicsModule::do_air_physics()
         thaw_bmx::air_wheel_points(this);
     }
 
+    // Not original: at a tick rate other than 60 the feelers below run once a 1/60 s frame, in the tick that ends it, from
+    // where the skater was when it began - the 60 Hz run's segment (the move itself composes exactly), so the landing,
+    // the walls and the ceiling are met where and in the frame they are at 60 (docs/design/tick-rate.md "The 60 Hz
+    // grid"). The ticks in between only let go of the jump button. At 60: every tick, from the tick's start.
+    if (!tick_rate::original()) {
+        if (!frame_clock::grid_frame_ends()) {
+            jump_released();
+            return;
+        }
+        entity()->old_pos() = grid_frame_start();
+    }
     // Landing: a feeler from the last position (carried along) to the new one.
     auto last_position = [&] { return carried + entity()->old_pos(); };
     maths::Vec4 from = last_position();

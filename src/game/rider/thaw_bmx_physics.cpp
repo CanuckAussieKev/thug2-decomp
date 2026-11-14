@@ -21,6 +21,7 @@
 
 #include "base/core/checksums.h"
 #include "base/core/enum_ops.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/anim_blend.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -401,7 +402,7 @@ ManualOutput manual_step(const ManualInput& in)
     }
     // The first frames of a manual: no balance yet.
     if (out.no_balance_frames_ > 0) {
-        --out.no_balance_frames_;
+        out.no_balance_frames_ -= in.grid_frames_; // (not original: 1/60 s frames - the 60 Hz grid; -- at 60)
         return out;
     }
     // The angle's rate: the stick (the other way round in a nose manual); in an endo up while the front brake is
@@ -630,15 +631,18 @@ StallSlipStep stall_slip(uint32_t elapsed, float slip_time, const maths::Vec4& v
     return out;
 }
 
-bool stall_steep_step(float up_y, int* frames)
+bool stall_steep_step(float up_y, int* frames, int grid_frames)
 {
     // THAW 0x005E3821: the up's y (the ground normal, just set to it) under 0.95 (a double): the count goes up to
     // 10; at 10 back to grinding, the count to 0. Never reset otherwise.
     if (!(static_cast<double>(up_y) < kStallSteepUp)) {
         return false;
     }
+    if (grid_frames == 0) {
+        return false; // (not original: the count steps, and the stall turns, only as a 1/60 s frame ends)
+    }
     if (*frames < kStallSteepFrames) {
-        ++*frames;
+        *frames += grid_frames; // (not original: 1/60 s frames - the 60 Hz grid; ++ at 60)
         return false;
     }
     *frames = 0;
@@ -988,6 +992,7 @@ void manual_pitch(SkaterPhysicsModule* core)
     in.no_balance_start_ = physics_integer(kNoBalanceFrames, core);
     in.lean = get_stat(kGroundLeanStat, core);
     in.frame_length_ = get_frame_length(core);
+    in.grid_frames_ = frame_clock::grid_frames();
     const bike::ManualOutput out = bike::manual_step(in);
     state.manual = out.manual;
     state.nose_manual_ = out.nose;
@@ -1589,7 +1594,8 @@ bool stall_steep_rail(SkaterPhysicsModule* core)
     // THAW 0x005E3801. (THAW also sets +0x728, and +0x729 off the bike with the facing down the slope - nothing
     // of THAW's reads either.)
     BikeState& state = *state_of(core, true);
-    if (!bike::stall_steep_step(core::at(object_of(core)->basis_frame().row, 1).y, &state.stall_steep_frames_)) {
+    if (!bike::stall_steep_step(core::at(object_of(core)->basis_frame().row, 1).y, &state.stall_steep_frames_,
+                                frame_clock::grid_frames())) {
         return false;
     }
     change_phase(core, kStateRail);

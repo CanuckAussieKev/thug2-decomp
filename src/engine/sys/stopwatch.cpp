@@ -215,6 +215,20 @@ uint64_t get_draw_frame() { return render_frame(); }
 // 0x005BE970 (x87: 1000 / rate * the low 32 bits, truncated through 64 bits)
 uint32_t get_time()
 {
+    if (!tick_rate::original()) {
+        // Not original: at a tick rate other than 60 the 60 Hz grid's time - the milliseconds of the 1/60 s frame this
+        // tick ends in (the 60 Hz run's tick for that frame reads them), so what measures milliseconds (trick and button
+        // windows, the game clock, script timers, the network) sees the 60 Hz run's times. (get_tick_time: the tick's.)
+        const double frame_ms =
+            (1000.0 / tick_rate::kOriginal) * static_cast<double>(static_cast<uint32_t>(grid_frame_of_tick()));
+        return static_cast<uint32_t>(static_cast<int64_t>(frame_ms));
+    }
+    return get_tick_time();
+}
+
+// NOT ORIGINAL - the original's get_time: the milliseconds of the tick itself (get_time at 60).
+uint32_t get_tick_time()
+{
     const double milliseconds =
         (1000.0 / vblanks_per_second()) * static_cast<double>(static_cast<uint32_t>(get_vblanks()));
     return static_cast<uint32_t>(static_cast<int64_t>(milliseconds));
@@ -227,6 +241,60 @@ double get_frame_seconds() { return raw_frame_duration() / vblanks_per_second();
 // Not original - the tick's length (engine/sys/tick_rate.h: the float 1.0F / rate - the original's 1.0F / 60 to the bit
 // at 60). Original behaviour: slomo * (1.0F / 60).
 double get_slomo_frame_seconds() { return get_slomo() * static_cast<double>(tick_rate::step_seconds()); }
+
+// NOT ORIGINAL - the 60 Hz grid (see stopwatch.h). The anchor: the vblank count that ended 1/60 s frame `frame` (0, 0 from
+// the start; a demo moves it).
+namespace {
+struct GridAnchor {
+    uint64_t tick = 0;
+    uint64_t frame = 0;
+};
+GridAnchor& grid_anchor()
+{
+    static GridAnchor anchor;
+    return anchor;
+}
+// The 1/60 s frame tick `vblanks` is part of (the last that starts in it or before it).
+uint64_t frame_of(uint64_t vblanks)
+{
+    const GridAnchor& anchor = grid_anchor();
+    if (vblanks >= anchor.tick) {
+        return anchor.frame + tick_rate::frame_of_tick(vblanks - anchor.tick);
+    }
+    const uint64_t before = tick_rate::frames_ended_by(anchor.tick - vblanks); // (before the anchor: counted back)
+    return anchor.frame >= before ? anchor.frame - before : 0;
+}
+} // namespace
+
+int grid_frames()
+{
+    if (tick_rate::original()) {
+        return 1;
+    }
+    const uint64_t now = get_vblanks();
+    return now == 0 ? 1 : static_cast<int>(frame_of(now) - frame_of(now - 1));
+}
+
+bool grid_frame_ends()
+{
+    if (tick_rate::original()) {
+        return true;
+    }
+    const uint64_t now = get_vblanks();
+    return frame_of(now + 1) != frame_of(now);
+}
+
+uint64_t grid_frame_of_tick() { return tick_rate::original() ? get_vblanks() : frame_of(get_vblanks()); }
+
+void anchor_grid(uint64_t frame)
+{
+    if (tick_rate::original()) {
+        return;
+    }
+    grid_anchor() = {.tick = get_vblanks(), .frame = frame};
+}
+
+double get_slomo_grid_seconds() { return get_slomo() * static_cast<double>(1.0F / static_cast<float>(tick_rate::kOriginal)); }
 
 // 0x005BE8F0
 float get_time_scale() { return get_slomo(); }

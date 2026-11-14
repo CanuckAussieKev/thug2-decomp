@@ -1,6 +1,7 @@
 // The skater's core physics component: the frame's update (the state's own update and what runs around it).
 
 #include <cstdint>
+#include <unordered_map>
 
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
@@ -9,6 +10,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/thaw_bmx.h"
 #include "engine/sys/stopwatch.h"
+#include "engine/sys/tick_rate.h"
 #include "engine/render/probe_ray.h"
 
 namespace skater {
@@ -22,10 +24,20 @@ constexpr uint32_t kLeftAir = 0x5E27200A;
 
 } // namespace
 
+// Not original (see core_physics.h): kept beside the component - its layout is the original's.
+maths::Vec4& SkaterPhysicsModule::grid_frame_start()
+{
+    static std::unordered_map<const SkaterPhysicsModule*, maths::Vec4> starts;
+    return starts[this];
+}
+
 // 0x00510830
 void SkaterPhysicsModule::tick_frame()
 {
     frame_.length = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    if (!tick_rate::original() && frame_clock::grid_frames() != 0) {
+        grid_frame_start() = entity()->old_pos(); // (not original: the 60 Hz grid - do_air_physics)
+    }
     collision_events::checkpoint(this, "update-start"); // (not original)
     const bool bike = thaw_bmx::live_now(this);         // (not original: THAW's bike, thaw_bmx_physics.cpp)
     if (bike) {

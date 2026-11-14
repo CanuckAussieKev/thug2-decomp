@@ -1,6 +1,7 @@
 // Graffiti tags and stickers: the tagging and tagging control components. See tagging.h.
 
 #include "game/rider/tagging.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/render/coll_obj.h"
 #include "engine/objects/input_component.h"
 #include "game/rider/physics_control.h"
@@ -341,7 +342,8 @@ int TaggingControlComponent::invoke_method_by_name(uint32_t name, script::Struct
 bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 {
     if (cooldown_ > 0.0F) {
-        cooldown_ = static_cast<float>(cooldown_ - 1.0);
+        // (not original: 1/60 s frames - the 60 Hz grid, frame_clock::grid_frames; at 60 one a tick, as the original)
+        cooldown_ = static_cast<float>(cooldown_ - static_cast<double>(frame_clock::grid_frames()));
         return false;
     }
     if (countdown_ > 0) {
@@ -436,7 +438,8 @@ bool TaggingControlComponent::try_tagging()
         return false;
     }
     if (cooldown_ > 0.0F) {
-        cooldown_ = static_cast<float>(cooldown_ - 1.0);
+        // (not original: 1/60 s frames - the 60 Hz grid, frame_clock::grid_frames; at 60 one a tick, as the original)
+        cooldown_ = static_cast<float>(cooldown_ - static_cast<double>(frame_clock::grid_frames()));
         return false;
     }
     if (countdown_ > 0) {

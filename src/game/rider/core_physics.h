@@ -99,6 +99,11 @@ public:
     // (land_from_air) or pushed off it; else the air checks and an acid drop if the physics finds one while both
     // triggers are held. PartyMod's PS2 controls take either trigger in the three trigger checks.
     void do_air_physics();
+    // Not original (the 60 Hz grid - engine/sys/stopwatch.h, docs/design/tick-rate.md): the skater's last position when
+    // the current 1/60 s frame began (noted by tick_frame in the tick that starts it). At a tick rate other than 60 the
+    // air's feelers run once a frame, as it ends, from there - the 60 Hz run's segment, so it lands, hits walls and
+    // ceilings where and when the 60 Hz run does.
+    maths::Vec4& grid_frame_start();
 
     // --- core_jump.cpp: jumping, skitching, the script member functions around them, the wallplant state ---
     // 0x005092E0: the TriggerScript of the rail node being ground (+0x22C) - or of the nearest one before it (back

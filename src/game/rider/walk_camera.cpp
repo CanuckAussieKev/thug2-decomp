@@ -320,7 +320,7 @@ void FootView::tick_frame()
     }
     bool instant = false;
     if (instant_frames_ > 0) {
-        --instant_frames_;
+        instant_frames_ -= frame_clock::grid_frames(); // (not original: 1/60 s frames - the 60 Hz grid; -- at 60)
         instant = true;
     } else {
         instant = snap_next_;
