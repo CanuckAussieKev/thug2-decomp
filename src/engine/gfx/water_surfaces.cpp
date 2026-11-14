@@ -11,6 +11,8 @@ namespace {
 
 struct WaterSlot {
     std::atomic<bool> wanted{false};
+    std::atomic<bool> geometry{false};
+    std::atomic<bool> waves{false};
     std::atomic<const GpuTexture*> texture{nullptr};
     std::atomic<uint32_t> material{0};
     std::atomic<uint32_t> materials{0};
@@ -34,12 +36,21 @@ void set_wanted(bool wanted)
     }
 }
 
+void set_geometry_wanted(bool wanted) { slot().geometry.store(wanted, std::memory_order_relaxed); }
+
+bool geometry_wanted() { return slot().geometry.load(std::memory_order_relaxed); }
+
+void set_current_waves(bool waves) { slot().waves.store(waves, std::memory_order_relaxed); }
+
+bool current_waves() { return slot().waves.load(std::memory_order_relaxed); }
+
 bool wanted() { return slot().wanted.load(std::memory_order_relaxed); }
 
 void set_current(const GpuTexture* texture, uint32_t material)
 {
     slot().texture.store(texture, std::memory_order_relaxed);
     slot().material.store(material, std::memory_order_relaxed);
+    slot().waves.store(false, std::memory_order_relaxed);
 }
 
 const GpuTexture* current_texture() { return slot().texture.load(std::memory_order_relaxed); }

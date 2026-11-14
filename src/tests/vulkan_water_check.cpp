@@ -19,6 +19,12 @@
 //   - the sun's glitter (the sun given by rt::set_sun_override toward the mirror direction of the picture's centre):
 //     above 1 near the centre with HDR, nothing outside the water;
 //   - the ripple texture's levels 0 and 4 read back against water_waves_reference;
+//   - the moving surface ([Graphics] rt_water_geometry): the sea split as render_pc splits a water mesh
+//     (engine/gfx/water_tess.h) and drawn as a split mesh's draw (water_surfaces.h set_current_waves) - it moves with the
+//     game's clock, the same clock draws the same bytes (opaque, kept back and drawn after the opaque world, and blended),
+//     it isn't the flat sheet's picture; calm water (rt_water_waves=0) and rt_water_geometry=0 draw the flat sheet's
+//     bytes, rt_water=0 the original's; its shape: a patch with high waves and nothing behind it covers the pixels the
+//     same grid moved on the processor covers (the vertex shader's numbers), within the rasteriser's ties on its edges;
 //   - every pixel of every case finite (no NaN or infinity), validation (and synchronization validation) messages 0.
 //   thug2_vulkan_water_check [--device N] [--display N] [--no-validation] [--perf]
 // --perf also times a frame of full-screen water at 2560 x 1440 with rt_water off and on (reported, not checked).
@@ -32,6 +38,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <exception>
 #include <limits>
 #include <mutex>
@@ -47,7 +54,9 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/smooth_tess.h"
 #include "engine/gfx/water_surfaces.h"
+#include "engine/gfx/water_tess.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_formats.h"
@@ -374,10 +383,18 @@ void common_states(render::Gpu& gpu, const Scene& scene)
     gpu.set_vertex_format(kFvfPosition | kFvfDiffuse | kFvfTex1);
 }
 
+// (the moving surface's cases) The water drawn as these triangles (a split mesh) in place of the quad, its draw a split
+// mesh's (its surface may move) when `moving`; without the sand.
+struct Extra {
+    const std::vector<Vertex>* grid = nullptr;
+    bool moving = false;
+    bool sand = true;
+};
+
 // One frame of the shore: the view begun (the listeners told), the sand, the water (marked unless `marked` false, alpha
 // blended when `blended`), the view's world drawn.
 void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marked, bool blended, int layers = 1,
-                bool wall = false)
+                bool wall = false, const Extra& extra = {})
 {
     const render::rt::ViewDrawn view = view_of({.width = scene.width, .height = scene.height}, seconds);
     gpu.begin_scene();
@@ -392,7 +409,9 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marke
     gpu.set_texture(0, scene.sand);
     render::water::set_current(nullptr, 0);
     const std::array<Vertex, kQuadCorners> sand = quad(true);
-    gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, sand.data(), sizeof(Vertex));
+    if (extra.sand) {
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, sand.data(), sizeof(Vertex));
+    }
     if (wall) {
         gpu.set_texture(0, scene.wall);
         const auto at = [](float x, float y) {
@@ -409,8 +428,15 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marke
         gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
         gpu.set_texture(0, scene.water);
         render::water::set_current(marked ? scene.water : nullptr, kWaterMaterial);
-        const std::array<Vertex, kQuadCorners> water = quad(false);
-        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, water.data(), sizeof(Vertex));
+        render::water::set_current_waves(extra.moving);
+        if (extra.grid != nullptr) {
+            gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(extra.grid->size() / 3), extra.grid->data(),
+                                 sizeof(Vertex));
+        } else {
+            const std::array<Vertex, kQuadCorners> water = quad(false);
+            gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, water.data(), sizeof(Vertex));
+        }
+        render::water::set_current_waves(false);
     }
     render::water::set_current(nullptr, 0);
     render::rt::opaque_view_drawn(view);
@@ -842,6 +868,274 @@ void check_waves_texture(Tally* tally)
     }
 }
 
+// --- the moving surface (rt_water_geometry) -------------------------------------------------------------------------
+
+// The water quad x0 - x1, z0 - z1 at y = 0 split as render_pc splits a water mesh (water_tess.h): its triangles' corners
+// in drawing order (empty: not split).
+std::vector<Vertex> split_quad(float x0, float x1, float z0, float z1)
+{
+    const auto at = [](float x, float z) { return Vertex{.position = {x, 0.0F, z}, .colour = kHalfGrey, .uv = {x / kUvTile, z / kUvTile}}; };
+    const std::array<Vertex, 4> corners{at(x0, z0), at(x1, z0), at(x0, z1), at(x1, z1)};
+    constexpr std::array<uint16_t, 4> kStrip{0, 1, 2, 3};
+    std::vector<uint8_t> bytes(sizeof(corners));
+    std::memcpy(bytes.data(), corners.data(), sizeof(corners));
+    const render::tess::VertexLayout layout{.stride = sizeof(Vertex),
+                                            .normal_offset = -1,
+                                            .colour_offset = static_cast<int>(offsetof(Vertex, colour)),
+                                            .uv_offset = static_cast<int>(offsetof(Vertex, uv)),
+                                            .uv_sets = 1};
+    const render::water_tess::Result split =
+        render::water_tess::subdivide(bytes, static_cast<uint32_t>(corners.size()), layout, kStrip, render::water_tess::Options{});
+    std::vector<Vertex> out;
+    if (!split.changed) {
+        return out;
+    }
+    std::vector<Vertex> vertices(split.vertex_count);
+    std::memcpy(vertices.data(), split.vertices.data(), vertices.size() * sizeof(Vertex));
+    for (const auto& triangle : render::tess::strip_triangles(split.strip)) {
+        for (const uint16_t index : triangle) {
+            out.push_back(core::at(vertices, index));
+        }
+    }
+    return out;
+}
+
+float smooth_step(float low, float high, float value)
+{
+    const float t = std::clamp((value - low) / (high - low), 0.0F, 1.0F);
+    return t * t * (3.0F - (2.0F * t));
+}
+
+// The moved water's point on the processor: the vertex shader's water_lift (water_shader.cpp) with the view's block -
+// nothing behind the water (the shore's weight 1).
+Vec3 lifted(const vk::WaterUniforms& block, const Vec3& rest)
+{
+    constexpr float kTwoPi = 6.2831853F;
+    constexpr float kGravity = 386.0F;
+    constexpr float kSharpness = 0.6F;
+    constexpr float kCell = 40.0F;
+    constexpr float kMostSlope = 1.0F;
+    constexpr std::array<float, 4> kLengths{1.0F, 0.63F, 0.41F, 0.27F};
+    constexpr std::array<float, 4> kTurns{0.0F, 0.42F, -0.57F, 1.05F};
+    constexpr std::array<float, 4> kSteepness{0.12F, 0.10F, 0.085F, 0.07F};
+    constexpr float kPhaseStep = 1.913F;
+    constexpr std::size_t kProjectionYY = 5;
+    const Vec3 camera{core::at(block.camera, 0), core::at(block.camera, 1), core::at(block.camera, 2)};
+    const Vec3 to_eye = sub(camera, rest);
+    const float dist = std::max(std::sqrt(dot(to_eye, to_eye)), 1.0e-3F);
+    const float focal = std::max(std::fabs(core::at(block.projection, kProjectionYY)) * core::at(block.viewport, 3) * 0.5F, 1.0F);
+    const float footprint = dist / (focal * std::max(std::fabs(core::at(to_eye, 1)) / dist, 0.1F));
+    const float raised = core::at(block.waves, 0) * (0.4F + (0.6F * core::at(block.time, 3)));
+    const float wind_x = core::at(block.time, 1);
+    const float wind_z = core::at(block.time, 2);
+    const float seconds = core::at(block.time, 0);
+    float slopes = 0.0F;
+    Vec3 sum{};
+    for (std::size_t i = 0; i < kLengths.size(); ++i) {
+        const float k = kTwoPi / (core::at(kLengths, i) * core::at(block.misc, 1));
+        const float wavelength = kTwoPi / k;
+        const float speed = std::sqrt(kGravity / k);
+        const float c = std::cos(core::at(kTurns, i));
+        const float s = std::sin(core::at(kTurns, i));
+        const float dx = (wind_x * c) - (wind_z * s);
+        const float dz = (wind_x * s) + (wind_z * c);
+        const float phase = (k * ((dx * core::at(rest, 0)) + (dz * core::at(rest, 2)) - (speed * seconds))) + (static_cast<float>(i) * kPhaseStep);
+        const float slope = core::at(kSteepness, i) * raised * (1.0F - smooth_step(0.05F, 0.2F, footprint / wavelength)) *
+                            (1.0F - smooth_step(0.25F, 0.5F, kCell / wavelength));
+        slopes += slope;
+        const float height = slope / k;
+        const float across = kSharpness * height * std::cos(phase);
+        sum = add(sum, {dx * across, height * std::sin(phase), dz * across});
+    }
+    return add(rest, scale(sum, std::min(1.0F, kMostSlope / std::max(slopes, 1.0e-6F))));
+}
+
+// The pixels the triangles cover on the processor (moved by `block` when given): each pixel's centre - the backend's
+// half pixel: Direct3D 9's centres - inside a triangle.
+std::vector<uint8_t> covered(const std::vector<Vertex>& triangles, const vk::WaterUniforms* block)
+{
+    std::vector<uint8_t> mask(static_cast<std::size_t>(kWidth) * kHeight, 0);
+    for (std::size_t first = 0; first + 2 < triangles.size(); first += 3) {
+        std::array<std::array<float, 2>, 3> screen{};
+        bool seen = true;
+        for (std::size_t k = 0; k < 3; ++k) {
+            const auto& position = core::at(triangles, first + k).position;
+            Vec3 point{core::at(position, 0), core::at(position, 1), core::at(position, 2)};
+            if (block != nullptr) {
+                point = lifted(*block, point);
+            }
+            std::array<float, 2> ndc{};
+            seen = seen && on_screen(point, &ndc);
+            core::at(screen, k) = {(core::at(ndc, 0) + 1.0F) * 0.5F * static_cast<float>(kWidth),
+                                   (1.0F - core::at(ndc, 1)) * 0.5F * static_cast<float>(kHeight)};
+        }
+        if (!seen) {
+            continue;
+        }
+        const auto edge = [](const std::array<float, 2>& a, const std::array<float, 2>& b, float x, float y) {
+            return ((core::at(b, 0) - core::at(a, 0)) * (y - core::at(a, 1))) - ((core::at(b, 1) - core::at(a, 1)) * (x - core::at(a, 0)));
+        };
+        float low_x = core::at(core::at(screen, 0), 0);
+        float high_x = low_x;
+        float low_y = core::at(core::at(screen, 0), 1);
+        float high_y = low_y;
+        for (const auto& corner : screen) {
+            low_x = std::min(low_x, core::at(corner, 0));
+            high_x = std::max(high_x, core::at(corner, 0));
+            low_y = std::min(low_y, core::at(corner, 1));
+            high_y = std::max(high_y, core::at(corner, 1));
+        }
+        const int x0 = std::max(0, static_cast<int>(std::floor(low_x)));
+        const int x1 = std::min(static_cast<int>(kWidth) - 1, static_cast<int>(std::ceil(high_x)));
+        const int y0 = std::max(0, static_cast<int>(std::floor(low_y)));
+        const int y1 = std::min(static_cast<int>(kHeight) - 1, static_cast<int>(std::ceil(high_y)));
+        for (int py = y0; py <= y1; ++py) {
+            for (int px = x0; px <= x1; ++px) {
+                const auto x = static_cast<float>(px);
+                const auto y = static_cast<float>(py);
+                const float e0 = edge(core::at(screen, 0), core::at(screen, 1), x, y);
+                const float e1 = edge(core::at(screen, 1), core::at(screen, 2), x, y);
+                const float e2 = edge(core::at(screen, 2), core::at(screen, 0), x, y);
+                if ((e0 >= 0.0F && e1 >= 0.0F && e2 >= 0.0F) || (e0 <= 0.0F && e1 <= 0.0F && e2 <= 0.0F)) {
+                    core::at(mask, (static_cast<std::size_t>(py) * kWidth) + static_cast<std::size_t>(px)) = 1;
+                }
+            }
+        }
+    }
+    return mask;
+}
+
+std::size_t mask_difference(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b)
+{
+    std::size_t count = 0;
+    for (std::size_t i = 0; i < a.size() && i < b.size(); ++i) {
+        count += core::at(a, i) != core::at(b, i) ? 1U : 0U;
+    }
+    return count;
+}
+
+// The moving surface on the shore (the sea split as render_pc splits it, the draw marked as a split mesh's): it moves
+// with the clock, the same clock draws the same bytes (opaque: kept back and drawn after the opaque world - and blended),
+// calm water and rt_water_geometry=0 draw the flat sheet to the bit, rt_water=0 the original's.
+void check_moving(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    const std::vector<Vertex> sea = split_quad(-kSide, kSide, kShoreStart, kFloorFar);
+    tally->check(sea.size() > kQuadCorners * 100, text::format("the moving surface: the sea split into %zu triangles", sea.size() / 3));
+    if (sea.empty()) {
+        return;
+    }
+    const Extra flat{.grid = &sea, .moving = false};
+    const Extra moving{.grid = &sea, .moving = true};
+    const auto everywhere = [](uint32_t, uint32_t) { return true; };
+    const uint64_t moving_before = vk::water_stats().moving;
+    set_water(true, 1.0F, 1.0F);
+    Picture opaque_moved;
+    Picture opaque_flat;
+    for (const bool blended : {false, true}) {
+        const char* how = blended ? "blended" : "opaque";
+        draw_frame(gpu, scene, kWaveSeconds, true, blended, 1, false, moving);
+        const Picture first = read_picture(scene.colour, kWidth, kHeight);
+        draw_frame(gpu, scene, kWaveSeconds, true, blended, 1, false, moving);
+        const Picture again = read_picture(scene.colour, kWidth, kHeight);
+        draw_frame(gpu, scene, kWaveLater, true, blended, 1, false, moving);
+        const Picture later = read_picture(scene.colour, kWidth, kHeight);
+        draw_frame(gpu, scene, kWaveSeconds, true, blended, 1, false, flat);
+        const Picture still = read_picture(scene.colour, kWidth, kHeight);
+        tally->check(first.read && again.read && differing(first, again, everywhere) == 0,
+                     text::format("the moving surface (%s): the same game time, the same bytes", how));
+        const std::size_t moved = differing(first, later, everywhere);
+        tally->check(later.read && moved > kLeastJudged / 2, text::format("the moving surface (%s): half a second later it moved (%zu pixels)", how, moved));
+        const std::size_t shaped = differing(first, still, everywhere);
+        tally->check(still.read && shaped > kLeastJudged / 4,
+                     text::format("the moving surface (%s): not the flat sheet's picture (%zu pixels differ)", how, shaped));
+        tally->check(all_finite(first) && all_finite(later), text::format("the moving surface (%s): every pixel finite", how));
+        if (!blended) {
+            opaque_moved = first;
+            opaque_flat = still;
+        }
+    }
+    // the shore: the water still where it meets the sand (its move fades out where the water below it is shallow) - the
+    // sand in front of the flat water hardly covered by the moved water (without the fade about a hundred pixels are)
+    std::size_t sand = 0;
+    for (uint32_t py = 0; py < kHeight; ++py) {
+        for (uint32_t px = 0; px < kWidth; ++px) {
+            sand += sand_pixel(px, py) ? 1U : 0U;
+        }
+    }
+    const std::size_t sand_covered = differing(opaque_moved, opaque_flat, sand_pixel);
+    constexpr std::size_t kMostSandCovered = 20;
+    tally->check(opaque_moved.read && opaque_flat.read && sand > kLeastShallow && sand_covered <= kMostSandCovered,
+                 text::format("the moving surface: the waterline stays on the sand (%zu of %zu sand pixels changed)", sand_covered, sand));
+    tally->check(vk::water_stats().moving > moving_before, "the moving surface: its draws drawn moving");
+    // calm (rt_water_waves=0): the flat sheet, to the bit
+    set_water(true, 0.0F, 1.0F);
+    draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, moving);
+    const Picture calm_marked = read_picture(scene.colour, kWidth, kHeight);
+    draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, flat);
+    const Picture calm_flat = read_picture(scene.colour, kWidth, kHeight);
+    tally->check(calm_marked.read && calm_flat.read && differing(calm_marked, calm_flat, everywhere) == 0,
+                 "the moving surface: calm water (rt_water_waves=0) the flat sheet's bytes");
+    // rt_water_geometry=0: the flat sheet with its waves only in the shading, to the bit
+    vk::WaterSettings without = vk::water_settings();
+    without.waves = 1.0F;
+    without.geometry = false;
+    vk::set_water_settings(without);
+    draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, moving);
+    const Picture geometry_off = read_picture(scene.colour, kWidth, kHeight);
+    draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, flat);
+    const Picture geometry_flat = read_picture(scene.colour, kWidth, kHeight);
+    tally->check(geometry_off.read && geometry_flat.read && differing(geometry_off, geometry_flat, everywhere) == 0,
+                 "the moving surface: rt_water_geometry=0 the flat sheet's bytes");
+    // rt_water=0: the original's, to the bit (the split sheet drawn by the program)
+    set_water(false, 1.0F, 1.0F);
+    draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, moving);
+    const Picture off_marked = read_picture(scene.colour, kWidth, kHeight);
+    draw_frame(gpu, scene, kWaveSeconds, false, false, 1, false, flat);
+    const Picture off_flat = read_picture(scene.colour, kWidth, kHeight);
+    tally->check(off_marked.read && off_flat.read && differing(off_marked, off_flat, everywhere) == 0,
+                 "the moving surface: rt_water=0 the original's bytes");
+}
+
+// The moving surface's shape against the processor: a patch of water (nothing behind it: the shore's weight 1) with high
+// waves - the pixels it covers as the vertex shader moved it against the same grid moved on the processor (water_lift's
+// numbers), and well away from the flat grid's.
+void check_moving_shape(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    constexpr float kPatchSide = 30.0F;
+    constexpr float kPatchNear = 30.0F;
+    constexpr float kPatchFar = 200.0F;
+    const std::vector<Vertex> patch = split_quad(-kPatchSide, kPatchSide, kPatchNear, kPatchFar);
+    if (patch.empty()) {
+        tally->check(false, "the moving surface's shape: the patch split");
+        return;
+    }
+    set_water(true, 2.0F, 0.0F);
+    draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, {.grid = &patch, .moving = true, .sand = false});
+    const Picture got = read_picture(scene.colour, kWidth, kHeight);
+    const vk::WaterUniforms block = vk::water_uniforms(
+        vk::water_settings(), {.view = view_of({.width = kWidth, .height = kHeight}, kWaveSeconds), .target = {.width = kWidth, .height = kHeight}, .copied = true});
+    std::vector<uint8_t> drawn(static_cast<std::size_t>(kWidth) * kHeight, 0);
+    for (std::size_t pixel = 0; pixel < drawn.size() && got.read; ++pixel) {
+        constexpr float kSomething = 1.0e-3F;
+        core::at(drawn, pixel) = dot(core::at(got.rgb, pixel), kLuma) > kSomething ? 1 : 0;
+    }
+    const std::vector<uint8_t> want = covered(patch, &block);
+    const std::vector<uint8_t> still = covered(patch, nullptr);
+    const std::size_t by_waves = mask_difference(want, still);
+    const std::size_t off_moved = mask_difference(drawn, want);
+    const std::size_t off_still = mask_difference(drawn, still);
+    std::size_t area = 0;
+    for (const uint8_t pixel : want) {
+        area += pixel;
+    }
+    constexpr std::size_t kLeastMoved = 300;
+    constexpr std::size_t kEdgeShare = 20; // (pixels on a triangle's edge: the rasteriser's ties - 1 in 20 of those moved)
+    tally->check(got.read && by_waves > kLeastMoved && off_moved * kEdgeShare <= by_waves && off_moved * 4 < off_still,
+                 text::format("the moving surface's shape: %zu pixels covered, %zu of them changed by the waves on the processor; "
+                              "the device's picture %zu pixels from the processor's moved surface, %zu from the flat one",
+                              area, by_waves, off_moved, off_still));
+}
+
 // --perf: frames of full-screen water at 2560 x 1440 (the sand, then the water - its copy and shading) with rt_water off
 // and on - the wall time per frame once the device has finished (not a check).
 void measure_cost(render::Gpu& gpu, Scene scene)
@@ -955,6 +1249,8 @@ int run(const Options& options, SDL_Window* window)
         check_waves(gpu, scene, &tally);
         check_glitter(gpu, scene, &tally);
         check_waves_texture(&tally);
+        check_moving(gpu, scene, &tally);
+        check_moving_shape(gpu, scene, &tally);
         const vk::WaterStats stats = vk::water_stats();
         tally.check(stats.draws > 0 && stats.copies > 0 && stats.replayed > 0,
                     text::format("water draws %llu (opaque water kept back for the opaque world's end: %llu), copies %llu",

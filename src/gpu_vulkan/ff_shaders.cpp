@@ -128,6 +128,9 @@ void vertex_declarations(std::string& out, const VertexKey& key)
     if ((key.surface & kVertexCelHull) != 0U) {
         add(out, {kCelBlock});
     }
+    if ((key.surface & kVertexWaterMoving) != 0U) {
+        add(out, {water_vertex_declarations_glsl()}); // (NOT ORIGINAL - rt_water_geometry, water_shader.h)
+    }
     add(out, {key.points ? "out gl_PerVertex { vec4 gl_Position; float gl_PointSize; };"
                          : "out gl_PerVertex { vec4 gl_Position; };"});
 }
@@ -178,6 +181,10 @@ void vertex_position(std::string& out, const VertexKey& key)
     // a pixel from Direct3D 9's, so the position moves half a pixel right and down (u.pixel.xy = 1 / the viewport's size;
     // zero turns the offset off). Depth is 0 - 1 in both.
     add(out, {"    vec4 eye = u.world_view * vec4(a_position, 1.0);"});
+    const bool water_moving = (key.surface & kVertexWaterMoving) != 0U;
+    if (water_moving) {
+        add(out, {water_vertex_move_glsl()}); // (NOT ORIGINAL - rt_water_geometry: the water's surface moved by its swell)
+    }
     add(out, {"    vec4 clip = u.projection * eye;"});
     add(out, {"    gl_Position = vec4(clip.x + clip.w * u.pixel.x, -clip.y + clip.w * u.pixel.y, clip.z, clip.w);"});
     if (key.retro != 0U) {
@@ -198,7 +205,11 @@ void vertex_position(std::string& out, const VertexKey& key)
     if (key.motion != 0U) {
         // (Direct3D's clip space both: this frame's without its jitter, the frame before's from its own position)
         add(out, {"    v_motion_now = vec4(clip.xy - u.motion_jitter.xy * clip.w, 0.0, clip.w);"});
-        add(out, {"    v_motion_before = u.previous_clip * vec4(a_previous, 1.0);"});
+        // (rt_water_geometry: the moved water's point the frame before taken as moved the same - its own drift in a frame
+        // left out -, into the vertex's own space by world x view's inverse: the normal matrix's transpose)
+        add(out, {water_moving ? "    v_motion_before = u.previous_clip * vec4(a_previous + transpose(mat3(u.normal_matrix)) * "
+                                 "water_move_eye, 1.0);"
+                               : "    v_motion_before = u.previous_clip * vec4(a_previous, 1.0);"});
     }
 }
 
@@ -715,7 +726,7 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         add(out, {kSurfaceVaryingsIn}); // (NOT ORIGINAL - rt_water: the water's inputs alone)
     }
     if (key.water != 0U) {
-        add(out, {water_declarations_glsl()}); // (NOT ORIGINAL - rt_water, water_shader.h)
+        add(out, {water_declarations_glsl(key.water == kWaterMoving)}); // (NOT ORIGINAL - rt_water, water_shader.h)
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
     if (key.motion != 0U) {

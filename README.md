@@ -379,6 +379,7 @@ for the restart
 | `rt_water_foam` | 1 | With `rt_water`: how much foam there is along the shore (0 none, up to 2) |
 | `rt_water_tint` | auto | With `rt_water`: the water's colour - auto (its own colour as the game draws it) or r,g,b (0-1 each, e.g. 0.1,0.45,0.45) |
 | `rt_water_screen_reflections` | 1 | With `rt_water`: 0 reflects only the sky in the water (a little cheaper) |
+| `rt_water_geometry` | 1 | With `rt_water`: the water's surface itself rises and falls with the swell (its meshes are split into a fine grid as a level loads - switched on later, it waits for the next level load; calm water stays flat). 0 keeps the flat sheet, the waves only in its shading |
 | `rt_glass_reflectance` | 0.2 | How much glass reflects looking straight at it (0.04 is real glass - against the game's bright window textures its reflection all but disappears) |
 | `rt_hdr` | 0 | On Vulkan (no ray tracing needed): 1 draws the world in high dynamic range - brighter than white kept - and maps it back to the screen before the HUD; with the settings below left alone it looks like 0 (the brightest whites a touch softer) |
 | `rt_exposure` | 0 | With `rt_hdr=1`: stops of light (+1 twice as bright, -1 half) |

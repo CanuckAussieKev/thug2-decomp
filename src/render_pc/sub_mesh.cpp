@@ -3,6 +3,7 @@
 
 #include "render_pc/sub_mesh.h"
 #include "render_pc/mesh_smoothing.h"
+#include "render_pc/water_geometry.h"
 #include "base/core/layout_32bit.h"
 #include "engine/gfx/mesh_records.h"
 #include "engine/gfx/gpu.h"
@@ -250,6 +251,7 @@ MeshRef* MeshRef::replicate(bool share)
         }
         // (not original: a smoothed mesh's original strip kept for its copy too, mesh_smoothing.h)
         mesh_smoothing::copy_original(core::at(index_buffers_, 0), core::at(copy->index_buffers_, 0));
+        water_geometry::copy(core::at(index_buffers_, 0), core::at(copy->index_buffers_, 0)); // (not original: the water's grid)
         copy->unknowna4_ = unknowna4_;
         copy->unknowna8_ = unknowna8_;
         if (per_vertex_data_) {

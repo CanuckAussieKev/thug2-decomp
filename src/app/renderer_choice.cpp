@@ -566,7 +566,8 @@ void read_water()
         .foam = ini_float("rt_water_foam", defaults.foam),
         .hdr = live_state().hdr_at_start,
         .screen_reflections = build_info::fetch_flag(build_info::kGraphics, "rt_water_screen_reflections", true),
-        .debug_view = build_info::fetch_flag("debug", "rt_water_view", false)};
+        .debug_view = build_info::fetch_flag("debug", "rt_water_view", false),
+        .geometry = build_info::fetch_flag(build_info::kGraphics, "rt_water_geometry", defaults.geometry)};
     constexpr std::size_t kLongest = 64;
     std::array<char, kLongest> text{};
     graphics_text("rt_water_wind_heading", "auto", text.data(), text.size());

@@ -21,6 +21,10 @@ struct IndexBufferData;
 
 namespace mesh_smoothing {
 
+// The vertex layout a format and the body's offsets describe (a position, an optional normal and colour, texture
+// coordinate pairs - in that order, nothing else), or false. (Also the water's grid's: water_geometry.h.)
+[[nodiscard]] bool layout_of(uint32_t fvf, const scene_format::MeshBody& body, tess::VertexLayout* out);
+
 // [Graphics] rt_tessellation=1 (read once).
 [[nodiscard]] bool on();
 

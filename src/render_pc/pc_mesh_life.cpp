@@ -29,6 +29,7 @@
 #include "base/maths/mat4.h"
 #include "base/core/raw_view.h"
 #include "render_pc/mesh_smoothing.h"
+#include "render_pc/water_geometry.h"
 #include "render_pc/rt_record.h"
 
 namespace render {
@@ -305,6 +306,7 @@ MeshRef::~MeshRef()
     }
     if ((flags_ & 1) == 0U) { // (its own buffers, not another mesh's)
         mesh_smoothing::forget_original(core::at(index_buffers_, 0)); // (not original: mesh_smoothing.h)
+        water_geometry::forget(core::at(index_buffers_, 0));           // (not original: water_geometry.h)
         for (IndexBufferData*& ib : index_buffers_) {
             if (ib) {
                 static_cast<IdxStore*>(ib)->teardown();

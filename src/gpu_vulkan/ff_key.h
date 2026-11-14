@@ -161,11 +161,18 @@ constexpr uint8_t kSurfaceKnown = kSurfaceLighting | kSurfaceMap | kSurfaceLit |
 constexpr uint8_t kVertexSurfaceInputs = 0x01;
 constexpr uint8_t kVertexCelStream = 0x02; // the cel stream's three words read and handed on
 constexpr uint8_t kVertexCelHull = 0x04;   // the position pushed out along the normal (the outline's hull)
+// (NOT ORIGINAL - [Graphics] rt_water_geometry) the position moved by the water's swell, the move handed on
+// (FragmentKey::water kWaterMoving - water_shader.h)
+constexpr uint8_t kVertexWaterMoving = 0x08;
 // (NOT ORIGINAL - [Graphics] rt_water, gpu_vulkan/vulkan_water.h) FragmentKey::water: 1 - the program's colour shaded
 // as water (waves, reflection, refraction, depth colour, foam, the sun's glitter) where the surface faces up - on the
 // same programs as the per-pixel lighting, independent of its bits (a key may have water alone). The vertex half's
 // `surface` has kVertexSurfaceInputs with it (the eye-space position handed on). Its own byte: cel shading took the
-// surface byte's last bits.
+// surface byte's last bits. FragmentKey::water kWaterMoving ([Graphics] rt_water_geometry): the same, on the moving
+// surface - the vertex half (VertexKey::surface kVertexWaterMoving) moves the position by the swell and hands the move on,
+// and the water is shaded at the rest point.
+constexpr uint8_t kWaterFlat = 1;
+constexpr uint8_t kWaterMoving = 2;
 
 // (NOT ORIGINAL - [Graphics] rt_detail, rt_delight; gpu_vulkan/vulkan_detail.h) FragmentKey::detail's bits - only with
 // kSurfaceMap and without kSurfaceCel (normalised() clears them otherwise; the byte was a spare: 0 leaves the key's bytes
@@ -260,7 +267,7 @@ struct FragmentKey {
     // frame's place to the last frame's, in 0 - 1 of the viewport - x right, y down); the vertex half's motion with it.
     uint8_t motion = 0;
     uint8_t surface = 0; // (NOT ORIGINAL - rt_pbr) the per-pixel lighting's switches (kSurface*); 0: as the original's
-    uint8_t water = 0;   // (NOT ORIGINAL - rt_water) 1: shaded as water (above); 0: as the original's
+    uint8_t water = 0;   // (NOT ORIGINAL - rt_water) kWaterFlat / kWaterMoving: shaded as water (above); 0: as the original's
     uint8_t detail = 0;  // (NOT ORIGINAL - rt_detail / rt_delight) the detail layer's switches (kDetail*); 0: as before
     std::array<uint8_t, 2> spare{}; // (keeps the key free of padding where it is a part of another: it is hashed as bytes)
     std::array<StageKey, kStageCount> stages{};
