@@ -101,6 +101,14 @@ uint64_t frame_due(uint64_t tick_time, uint64_t tick_length, int index, int fram
 
 bool frame_fits(uint64_t now, uint64_t cost, uint64_t next_tick) { return now < next_tick && next_tick - now >= cost; }
 
+uint64_t cost_after_frame(uint64_t cost, uint64_t took, uint64_t tick_length)
+{
+    const uint64_t counted = std::min(took, tick_length);
+    return cost == 0 ? counted : ((cost * 3) + counted) / 4;
+}
+
+uint64_t cost_after_refusal(uint64_t cost) { return cost - (cost / 8); }
+
 float blend_alpha(uint64_t now, uint64_t tick_time, uint64_t tick_length)
 {
     if (tick_length == 0 || now <= tick_time) {

@@ -213,6 +213,19 @@ void check_schedule()
            "frames spread evenly across the tick");
     expect(pacing::frame_fits(100, 50, 200) && !pacing::frame_fits(160, 50, 200) && !pacing::frame_fits(200, 0, 200),
            "a frame starts only when it ends by the next tick");
+    expect(pacing::cost_after_frame(0, 40, 600) == 40 && pacing::cost_after_frame(40, 80, 600) == 50 &&
+               pacing::cost_after_frame(40, 100000, 600) == 180,
+           "the cost smoothed, a hitch counted as one tick at most");
+    {
+        // a hitch pushes the cost past the tick: refused ticks bring it back under a third of the tick within a second
+        uint64_t cost = pacing::cost_after_frame(600, 100000, 600); // (a whole tick)
+        int refused = 0;
+        while (cost > 200 && refused < 60) {
+            cost = pacing::cost_after_refusal(cost);
+            ++refused;
+        }
+        expect(cost <= 200 && refused < 60, "a refused frame's cost eases back (frames resume after a hitch)");
+    }
     expect(pacing::blend_alpha(900, 1000, 600) == 0.0F && close_to(pacing::blend_alpha(1300, 1000, 600), 0.5, 1e-6) &&
                pacing::blend_alpha(1700, 1000, 600) == 1.0F && pacing::blend_alpha(1000, 1000, 0) == 0.0F,
            "alpha: the time into the tick over its length, 0 - 1");

@@ -169,7 +169,11 @@ void draw_extra_frames(uint64_t tick_time, uint64_t tick_length, int64_t frequen
                 Sleep(0);
             }
         }
-        if (!frame_pacing::frame_fits(now, own.cost, next_tick) || !can_draw_extra()) {
+        if (!can_draw_extra()) {
+            break;
+        }
+        if (!frame_pacing::frame_fits(now, own.cost, next_tick)) {
+            own.cost = frame_pacing::cost_after_refusal(own.cost); // (tried again: the estimate can't learn otherwise)
             break;
         }
         const frame_profile::Scope phase("extra_frame"); // ([debug] frame_profile)
@@ -195,7 +199,7 @@ void draw_extra_frames(uint64_t tick_time, uint64_t tick_length, int64_t frequen
                     (1.0 + (static_cast<double>(own.drawn) / static_cast<double>(ticks))) * frame_pacing::kTicksPerSecond);
         }
         const uint64_t took = counter_now() - now;
-        own.cost = own.cost == 0 ? took : ((own.cost * 3) + took) / 4;
+        own.cost = frame_pacing::cost_after_frame(own.cost, took, tick_length);
     }
 }
 

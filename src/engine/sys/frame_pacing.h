@@ -52,6 +52,12 @@ inline constexpr int kUncappedFrames = 1000;
 uint64_t frame_due(uint64_t tick_time, uint64_t tick_length, int index, int frames);
 // Whether a render-only frame started at `now` that takes about `cost` would end by the next tick (`next_tick`).
 bool frame_fits(uint64_t now, uint64_t cost, uint64_t next_tick);
+// The smoothed cost after a render-only frame that took `took`: a quarter of the new time, which counts as at most one
+// tick (`tick_length`) - a hitch (a texture load, the window moved) mustn't stop the frames for long.
+uint64_t cost_after_frame(uint64_t cost, uint64_t took, uint64_t tick_length);
+// The smoothed cost after a tick whose frames it refused: an eighth less, so the frames are tried again - the estimate
+// only learns from frames drawn, and without this a cost once too high would keep every frame out for good.
+uint64_t cost_after_refusal(uint64_t cost);
 // The blend between the tick before and this one for a frame drawn at `now`: the time since this tick was due over the
 // tick's length, 0 - 1.
 float blend_alpha(uint64_t now, uint64_t tick_time, uint64_t tick_length);
