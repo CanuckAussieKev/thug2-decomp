@@ -133,7 +133,7 @@ void RiderChaseView::tick_frame()
         frame_blend::note_cut(); // (not original: [Graphics] max_fps blends nothing across the teleport)
     }
     if (instant_frames_ > 0) {
-        --instant_frames_;
+        instant_frames_ -= frame_clock::grid_frames(); // (not original: 1/60 s frames - the 60 Hz grid; -- at 60)
         instant = true;
     }
     auto seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());

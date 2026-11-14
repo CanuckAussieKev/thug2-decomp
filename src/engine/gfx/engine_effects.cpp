@@ -139,7 +139,9 @@ constexpr double kPerRand = std::bit_cast<float>(0x38000100U);
 // The frame's time in milliseconds (truncated, the original's _ftol).
 int frame_milliseconds()
 {
-    return static_cast<int>(static_cast<int64_t>(frame_clock::get_slomo_frame_seconds() * kMillisecondsPerSecond));
+    // (not original: on the 60 Hz grid - frame_clock::grid_frames; original behaviour: the tick's step)
+    return frame_clock::grid_frames() *
+           static_cast<int>(static_cast<int64_t>(frame_clock::get_slomo_grid_seconds() * kMillisecondsPerSecond));
 }
 
 // The platform's fog exponent: compiled out on PC (the empty 0x005480A0).

@@ -53,5 +53,18 @@ int clock_rate(int configured);
 uint64_t ticks_for(uint64_t ticks_at_60);
 // A factor applied once every 1/60 s (a decay, a damping), for one tick: pow(factor, 60 / rate) (`factor` itself at 60).
 double per_tick_factor(double factor_per_60th);
+// A blend fraction applied once every 1/60 s (a lerp a frame towards a target), for one tick: what leaves the same
+// remainder after 1/60 s - 1 - pow(1 - fraction, 60 / rate) (`fraction` itself at 60).
+double per_tick_fraction(double fraction_per_60th);
+// An amount added or taken once every 1/60 s (a fade step, a damping speed) for one tick: amount * 60 / rate (`amount`
+// itself at 60).
+float per_tick_amount(float amount_per_60th);
+
+// The 60 Hz grid (docs/design/tick-rate.md "The 60 Hz grid"): `ticks` ticks of this rate cover floor(ticks * 60 / rate)
+// whole 1/60 s frames (`ticks` itself at 60) - what counts in 60 Hz frames (timers, tick counters, script waits) steps
+// when a tick ends one, so it holds the 60 Hz run's value at every 1/60 s boundary.
+uint64_t frames_ended_by(uint64_t ticks);
+// The 1/60 s frame the tick `ticks` (covering (ticks - 1, ticks] of them) ends in: ceil(ticks * 60 / rate).
+uint64_t frame_of_tick(uint64_t ticks);
 
 } // namespace tick_rate

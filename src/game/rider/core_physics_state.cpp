@@ -12,6 +12,7 @@
 
 #include "base/core/dbg.h"
 #include "base/core/layout_32bit.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "base/maths/shape_tests.h"
@@ -412,7 +413,7 @@ void SkaterPhysicsModule::update_projectiles()
     }
     int& wait = throwing_.wait;
     if (wait != 0) {
-        --wait;
+        wait -= frame_clock::grid_frames(); // (not original: 1/60 s frames - the 60 Hz grid; --wait a tick at 60)
         return;
     }
     if (projectiles_.ammo <= 0) {
@@ -434,7 +435,9 @@ void SkaterPhysicsModule::update_model_rotation()
         return;
     }
     auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(kModel));
-    const double left = static_cast<double>(model_rotation_.frames_left) - model_rotation_.slomo_speed;
+    // (not original: frames of 1/60 s - the 60 Hz grid, frame_clock::grid_frames; at 60 the original's one a tick)
+    const double left = static_cast<double>(model_rotation_.frames_left) -
+                        (model_rotation_.slomo_speed * static_cast<double>(frame_clock::grid_frames()));
     model_rotation_.frames_left = static_cast<float>(left); // (compared below unrounded)
     Expects(model != nullptr);
     auto reset_rotations = [model] { model->cancel_rotate_display(); };

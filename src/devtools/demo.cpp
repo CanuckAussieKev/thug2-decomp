@@ -826,6 +826,9 @@ void begin_playback(uint32_t load)
     if (run.resampled) {
         get_log("demo: %s was recorded at %u ticks a second - played at %u, each frame held over its time", run.name.c_str(),
                 run.demo.tick_rate, ticks_a_second());
+        // (the 60 Hz grid - engine/sys/stopwatch.h: a 1/60 s frame starts with the playback's first tick, as the
+        // recording's first frame did)
+        frame_clock::anchor_grid(frame_clock::grid_frame_of_tick());
     }
     // (as begin_recording: the states a session's earlier scripts left dropped, the globals as recorded - none in a
     // demo made before the GLOB chunk -, the music apart as it was recorded - a demo made before the RAND chunk drew
@@ -1120,6 +1123,11 @@ void playback_level_up(uint32_t now)
             vblanks = ((vblanks * ticks_a_second()) + (run.demo.tick_rate / 2)) / run.demo.tick_rate;
         }
         frame_clock::set_vblanks_since_reset(vblanks);
+        // (the 60 Hz grid: this tick ends the recording's frame - what counts 1/60 s frames counts from it; nothing at
+        // the recording's own 60)
+        if (run.resampled) {
+            frame_clock::anchor_grid(run.demo.clocks.vblanks * demo_format::kOriginalTickRate / run.demo.tick_rate);
+        }
         frame_clock::set_game_clock_snapshot({.last_change = run.demo.clocks.last_change,
                                               .pace = run.demo.clocks.pace,
                                               .offset = run.demo.clocks.offset});

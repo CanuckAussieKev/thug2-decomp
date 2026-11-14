@@ -501,6 +501,7 @@ struct ManualInput {
     int no_balance_start_;      // Physics_manual_no_balance_frames
     float lean;                 // Physics_Ground_Lean_stat
     float frame_length_;
+    int grid_frames_ = 1; // the 1/60 s frames this tick ends (frame_clock::grid_frames - 1 at 60): no_balance_frames_ counts them
 };
 enum class ManualEvent : uint8_t { kNone, kEnterManual, kEnterNoseManual, kEnterEndo, kBail, kLanded, kExitEndo };
 struct ManualOutput {
@@ -577,7 +578,8 @@ struct StallSlipStep {
 StallSlipStep stall_slip(uint32_t elapsed, float slip_time, const maths::Vec4& velocity, const maths::Vec4& kept);
 // THAW 0x005E3821: the steep-rail count for the up's y - true (and `*frames` back to 0) when the stall turns
 // into a grind.
-bool stall_steep_step(float up_y, int* frames);
+// `grid_frames`: the 1/60 s frames this tick ends (frame_clock::grid_frames - 1 at 60): the count counts them.
+bool stall_steep_step(float up_y, int* frames, int grid_frames = 1);
 // THAW 0x005E3585: the stall's facing along the rail - `direction` the way `facing` points (+, or - when
 // against it).
 maths::Vec4 stall_facing(const maths::Vec4& facing, const maths::Vec4& direction);

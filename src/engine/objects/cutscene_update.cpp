@@ -81,7 +81,8 @@ void* fader_of(void* model) { return model_fader(model); }
 void fade_model(void* model, float target)
 {
     void* fader = fader_of(model);
-    static_cast<render::ModelLights*>(fader)->move_brightness({.target = target, .step = kFadeStep});
+    // (not original: the step is a 1/60 s frame's - tick_rate::per_tick_amount; kFadeStep itself at 60)
+    static_cast<render::ModelLights*>(fader)->move_brightness({.target = target, .step = tick_rate::per_tick_amount(kFadeStep)});
 }
 // An object's two matrices (its orientation and display matrix) set to `matrix`.
 void set_matrices(GameEntity* object, const float* matrix)

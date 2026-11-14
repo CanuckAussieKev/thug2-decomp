@@ -298,7 +298,9 @@ bool ShootVideoObjective::tick_frame()
     }
     if (recording_shot_) {
         if (target_in_view()) {
-            shot_hold_time_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand); // (1000)
+            // (not original: on the 60 Hz grid - frame_clock::grid_frames; original behaviour: the tick's step)
+            shot_hold_time_ += frame_clock::grid_frames() *
+                               truncate(frame_clock::get_slomo_grid_seconds() * gfx::kThousand); // (1000)
             args()->put_int(checksums::Name{kTimeOnCamera}, static_cast<int>(shot_hold_time_));
         }
         if (shot_hold_time_ >= time_needed_) {

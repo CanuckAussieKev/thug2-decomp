@@ -335,7 +335,8 @@ void Objective::update_current_time()
     // (a current_time that isn't there leaves the goal's address in the original's local)
     int time = 0; // (missing: 0 - the original read an argument's stack slot, an address)
     args_->fetch_int_value(kCurrentTime, &time, 0);
-    time += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand); // (1000)
+    // (not original: on the 60 Hz grid - frame_clock::grid_frames; original behaviour: the tick's step)
+    time += frame_clock::grid_frames() * truncate(frame_clock::get_slomo_grid_seconds() * gfx::kThousand); // (1000)
     args_->put_int(checksums::Name{kCurrentTime}, time);
     auto ms = static_cast<uint32_t>(time);
     args_->put_int(checksums::Name{kCurrentTimeSeconds}, static_cast<int>(ms / kMillisecondsPerSecond));

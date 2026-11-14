@@ -139,6 +139,19 @@ void check_original_rate()
         factors_same = factors_same && same_bits(tick_rate::per_tick_factor(factor), factor);
     }
     expect(factors_same, "60: per-tick factors unchanged");
+    bool shares_same = true;
+    for (int i = 0; i < 10000; ++i) {
+        const double fraction = lcg.unit();
+        const auto amount = static_cast<float>(lcg.unit() * 100.0);
+        shares_same = shares_same && same_bits(tick_rate::per_tick_fraction(fraction), fraction) &&
+                      same_bits(tick_rate::per_tick_amount(amount), amount);
+    }
+    expect(shares_same, "60: per-tick blend fractions and amounts unchanged (the peds' turn, rigid bodies' damping, fades)");
+    bool grid_same = true;
+    for (uint64_t n = 0; n < 100000; ++n) {
+        grid_same = grid_same && tick_rate::frames_ended_by(n) == n && tick_rate::frame_of_tick(n) == n;
+    }
+    expect(grid_same, "60: the 60 Hz grid is the ticks (every tick a frame: timers, counters, script waits as before)");
 
     // the render-only frames' schedule
     bool pacing_same = true;
@@ -192,6 +205,21 @@ void check_other_rates()
             frames += frame_pacing::frames_this_tick(240, &carry);
         }
         expect(frames == std::max(240, rate), at + "max_fps=240 over a second of ticks");
+        // the 60 Hz grid: 60 frames start in a second of ticks, at most one a tick, the first with the first tick
+        bool starts_ok = tick_rate::frame_of_tick(1) == 1;
+        uint64_t starts = 0;
+        for (uint64_t tick = 1; tick <= static_cast<uint64_t>(rate) * 10; ++tick) {
+            const uint64_t started = tick_rate::frame_of_tick(tick) - tick_rate::frame_of_tick(tick - 1);
+            starts_ok = starts_ok && started <= 1;
+            starts += started;
+        }
+        expect(starts_ok && starts == 600 && tick_rate::frames_ended_by(static_cast<uint64_t>(rate) * 10) == 600,
+               at + "the 60 Hz grid: 60 frames a second, one at most a tick");
+        const double share = tick_rate::per_tick_fraction(0.083);
+        expect(std::fabs((1.0 - std::pow(1.0 - share, rate / 60.0)) - 0.083) < 1e-12,
+               at + "a per-tick blend compounds to the 1/60 s one");
+        expect(std::fabs((static_cast<double>(tick_rate::per_tick_amount(0.02F)) * rate / 60.0) - 0.02) < 1e-7,
+               at + "a per-tick amount sums to the 1/60 s one");
     }
     tick_rate::set_rate(1000);
     expect(tick_rate::rate() == 240, "set_rate clamps");
@@ -379,7 +407,7 @@ struct Lerp {
     double final_value = 0.0;
     double done_at = 0.0;
 };
-Lerp camera_lerp(int rate)
+Lerp camera_lerp(int rate, bool clamped = false)
 {
     tick_rate::set_rate(rate);
     const float one_frame = tick_rate::step_seconds();
@@ -391,8 +419,10 @@ Lerp camera_lerp(int rate)
     Lerp out;
     double t = 0.0;
     while (time > 0.0F) {
+        // (clamped - phase 3, update_lerps at a rate other than 60: the last step the share of a step left)
+        const double share = clamped && rate != 60 && time < one_frame ? static_cast<double>(time) / one_frame : 1.0;
         time = static_cast<float>(static_cast<double>(time) - one_frame);
-        behind = static_cast<float>(static_cast<double>(step) + behind);
+        behind = static_cast<float>((static_cast<double>(step) * share) + behind);
         t += tick_rate::tick_seconds();
     }
     out.final_value = behind;
@@ -451,6 +481,33 @@ double window_seconds(int rate, bool scaled)
     return static_cast<double>(ticks) / rate;
 }
 
+// A script's `Wait 0.5 seconds` (script_qb/cscript_wait.cpp update_wait: counted down by the step each Update, done in
+// the Update that finds less than a step left, the first Update only zeroing that): the 1/60 s frame it goes on in
+// (as seconds), counting down by the tick's step each tick (as it was) and on the 60 Hz grid (each 1/60 s, in the tick
+// that starts the frame, by the original's 1/60 s step - phase 3).
+double wait_ends(int rate, bool grid)
+{
+    tick_rate::set_rate(rate);
+    float clock = 0.5F;
+    bool started = false;
+    for (uint64_t tick = 1; tick < 100000; ++tick) {
+        if (grid && tick_rate::frame_of_tick(tick) == tick_rate::frame_of_tick(tick - 1)) {
+            continue;
+        }
+        const double frame = grid ? static_cast<double>(1.0F / 60.0F) : static_cast<double>(tick_rate::step_seconds());
+        if (frame > clock) {
+            if (started) {
+                return static_cast<double>(tick_rate::frame_of_tick(tick)) / 60.0;
+            }
+            clock = 0.0F;
+        } else {
+            clock = static_cast<float>(clock - frame);
+        }
+        started = true;
+    }
+    return 0.0;
+}
+
 template <typename F> void add_row(const std::string& kernel, const std::string& metric, const std::string& unit, F value)
 {
     Row row{.kernel = kernel, .metric = metric, .unit = unit, .at60 = value(60)};
@@ -479,11 +536,14 @@ void run_harness()
     add_row("roll (60 Hz scheme matched)", "speed at 1 s", "in/s", [](int r) { return roll_matched(r).speed_at_1s; });
     add_row("camera distance lerp", "final value", "in", [](int r) { return camera_lerp(r).final_value; });
     add_row("camera distance lerp", "done at", "s", [](int r) { return camera_lerp(r).done_at; });
+    add_row("camera lerp (last step share)", "final value", "in", [](int r) { return camera_lerp(r, true).final_value; });
     add_row("per-tick decay 0.95 (as is)", "left after 1 s", "", [](int r) { return decay_left(r, false); });
     add_row("per-tick decay 0.95 (pow)", "left after 1 s", "", [](int r) { return decay_left(r, true); });
     add_row("goal timer (trunc ms)", "ms in 60 s", "ms", [](int r) { return timer_ms(r, false); });
     add_row("goal timer (fraction kept)", "ms in 60 s", "ms", [](int r) { return timer_ms(r, true); });
     add_row("goal timer (60 Hz grid)", "ms in 60 s", "ms", [](int r) { return timer_ms(r, false, true); });
+    add_row("script Wait 0.5 s (tick step)", "goes on in", "s", [](int r) { return wait_ends(r, false); });
+    add_row("script Wait 0.5 s (60 Hz grid)", "goes on in", "s", [](int r) { return wait_ends(r, true); });
     add_row("10-tick window (as is)", "length", "s", [](int r) { return window_seconds(r, false); });
     add_row("10-tick window (ticks_for)", "length", "s", [](int r) { return window_seconds(r, true); });
     tick_rate::set_rate(60);

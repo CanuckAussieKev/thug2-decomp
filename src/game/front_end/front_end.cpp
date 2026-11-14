@@ -302,7 +302,9 @@ uint32_t FrontEnd::auto_repeat(const PadRead& read)
             pad.repeat_state_ = 1;
         }
     } else if (event != 0U) {
-        auto elapsed = static_cast<uint32_t>(ftol(frame_clock::get_slomo_frame_seconds() * kMillisecondsPerSecond));
+        // (not original: on the 60 Hz grid - frame_clock::grid_frames; original behaviour: the tick's step)
+        auto elapsed = static_cast<uint32_t>(frame_clock::grid_frames() *
+                                             ftol(frame_clock::get_slomo_grid_seconds() * kMillisecondsPerSecond));
         pad.repeat_timer_ = elapsed < pad.repeat_timer_ ? pad.repeat_timer_ - elapsed : 0;
         if (pad.repeat_timer_ == 0) { // due: sent, then again after the rate
             if (pad.repeat_state_ == 1) {

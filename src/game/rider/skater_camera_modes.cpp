@@ -78,15 +78,24 @@ void RiderChaseView::change_phase(const WalkCameraState* state)
 // 0x004F9970
 void RiderChaseView::update_lerps()
 {
+    // Not original: at a tick rate other than 60 the last step is the share of a step the time left is, so the lerp
+    // ends on its target at its time (the original's whole last step overshoots when its time isn't whole ticks). At 60:
+    // whole steps, as the original.
+    const auto step_share = [](float time_left) {
+        return tick_rate::original() || time_left >= one_frame() ? 1.0
+                                                                 : static_cast<double>(time_left) / one_frame();
+    };
     if (behind_time_ > 0.0F) {
+        const double share = step_share(behind_time_);
         behind_time_ = static_cast<float>(static_cast<double>(behind_time_) - one_frame());
-        behind_ = static_cast<float>(static_cast<double>(behind_step_) + behind_);
+        behind_ = static_cast<float>((static_cast<double>(behind_step_) * share) + behind_);
     } else {
         behind_time_ = 0.0F;
     }
     if (above_time_ > 0.0F) {
+        const double share = step_share(above_time_);
         above_time_ = static_cast<float>(static_cast<double>(above_time_) - one_frame());
-        above_ = static_cast<float>(static_cast<double>(above_step_) + above_);
+        above_ = static_cast<float>((static_cast<double>(above_step_) * share) + above_);
     } else {
         above_time_ = 0.0F;
     }

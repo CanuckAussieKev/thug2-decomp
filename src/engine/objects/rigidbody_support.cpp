@@ -10,6 +10,7 @@
 #include <utility>
 #include <array>
 
+#include "engine/sys/tick_rate.h"
 #include "base/core/checksums.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/engine_scene_list.h"
@@ -261,8 +262,10 @@ double magnitude_squared(const maths::Vec4& v)
 // 0x0042C6D0
 void BodyDynamicsModule::damp()
 {
-    get_slow(vel_, damping_.linear);
-    get_slow(rot_vel_, damping_.angular);
+    // (not original: the dampings are speeds taken off once a 1/60 s frame - a tick takes its share,
+    // tick_rate::per_tick_amount; at 60 the dampings themselves)
+    get_slow(vel_, tick_rate::per_tick_amount(damping_.linear));
+    get_slow(rot_vel_, tick_rate::per_tick_amount(damping_.angular));
 }
 
 // 0x0042C890 (the comparisons let a not-a-number speed through)

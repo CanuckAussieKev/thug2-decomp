@@ -1012,7 +1012,7 @@ void Skate::run_frame_logic()
         }
     }
     if (unplugged) {
-        ++unplugged_frames_;
+        unplugged_frames_ += frame_clock::grid_frames(); // (not original: 1/60 s frames - the 60 Hz grid; ++ a tick)
     } else {
         unplugged_frames_ = 0;
     }
@@ -1069,8 +1069,10 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     // The king's time counts up; the beeps as the target comes near.
     auto* score = king->rider()->get_points_total();
     const int total = score->get_total_score();
-    score->set_grand_total(total -
-                           ftol(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * static_cast<double>(-kMillisecondsPerFrame)));
+    // (not original: on the 60 Hz grid - frame_clock::grid_frames; original behaviour: the tick's step)
+    score->set_grand_total(total - (frame_clock::grid_frames() *
+                                    ftol(frame_clock::get_slomo_grid_seconds() * kFramesPerSecond *
+                                         static_cast<double>(-kMillisecondsPerFrame))));
     const int target = goals::game_mode()->get_first_condition_value();
     const int current = (static_cast<uint8_t>(goals::game_mode()->is_squad_match()) != 0U)
                             ? net->get_squad_points(king->team())
