@@ -293,6 +293,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_gi_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_lights_check.exe: the night lighting (gpu_vulkan/vulkan_rt_lights.h, rt_lights) on this
+# machine - the light sources' clustering and selection on the processor, then a lamp beside a box on a dark floor: each
+# pixel's lamp light and the box's shadow against the processor's, four samples, a red-textured glow, two lamps with one
+# traced, off and a lamp out of view leaving every pixel as drawn (src/tests/vulkan_rt_lights_check.cpp). Exit 2 on a
+# device without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_lights_check vulkan_rt_lights_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_lights_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_lights_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_relit_check.exe: the relit mode's analysis (engine/gfx/rt_relit.h) on this machine - a
 # small level whose bake is made on the processor from known tints, a known sun and sky and a lamp (the same rays,
 # traced by a processor's ray tracer), taken apart through the Vulkan RayTracing: the traced light against the

@@ -32,6 +32,7 @@
 #include "engine/gfx/render_camera.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/rt_checks.h"
+#include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -117,6 +118,8 @@ struct State {
     uint64_t fits = 0;
     uint64_t agreed_lighting = 0; // (added by the scene's sun) the relit lighting the other sun's grid was made from
     uint64_t agreements = 0;
+    uint64_t emitters_key = 0; // (added by the night lighting) the loaded scenes' key the emitters were found for
+    uint64_t emitter_sets = 0;
     // the first frame's time (from its record to the next frame's), logged at the next record_frame
     std::chrono::steady_clock::time_point first_frame_start;
     double first_frame_work_ms = 0.0;
@@ -790,6 +793,25 @@ public:
         return (kLumaBlue * static_cast<float>(std::get<0>(bgra))) + (kLumaGreen * static_cast<float>(std::get<1>(bgra))) +
                (kLumaRed * static_cast<float>(std::get<2>(bgra)));
     }
+    // (added by the night lighting) The baked colour as red, green, blue (128 the game's white: 1); white when the mesh
+    // has no colours (kNoColour).
+    [[nodiscard]] std::array<float, 3> colour(uint32_t vertex) const
+    {
+        if (colour_ == kNoColour) {
+            return {1.0F, 1.0F, 1.0F};
+        }
+        std::array<uint8_t, kColourBytes> bgra{};
+        if (vertex < originals_.size()) {
+            std::memcpy(bgra.data(), &core::at(originals_, vertex), bgra.size());
+        } else {
+            std::memcpy(bgra.data(),
+                        vertices_.subspan((std::size_t{vertex} * geometry_.vertex_stride) + colour_, bgra.size()).data(),
+                        bgra.size());
+        }
+        return {static_cast<float>(std::get<2>(bgra)) * kPerByteLight, static_cast<float>(std::get<1>(bgra)) * kPerByteLight,
+                static_cast<float>(std::get<0>(bgra)) * kPerByteLight};
+    }
+    static constexpr uint32_t kNoColour = 0xFFFFFFFFU;
 
 private:
     [[nodiscard]] uint32_t index(uint32_t at) const
@@ -837,25 +859,25 @@ bool up_triangle(const MeshTriangles& mesh, const std::array<uint32_t, 3>& corne
     return true;
 }
 
-// The meshes the samples come from: the world's with a copy of their vertices and indices in memory and a diffuse
-// colour.
-std::vector<MeshTriangles> sampled_meshes(bool as_drawn)
+// A world mesh's triangles as the samplers read them (its copies in memory), or false: none there, a dynamic mesh, or
+// no diffuse colour (unless `colourless`, added by the night lighting: then MeshTriangles::kNoColour - white).
+bool mesh_triangles(const MeshRef* mesh, bool as_drawn, bool colourless, std::vector<MeshTriangles>* out)
 {
     State& st = state();
-    std::vector<MeshTriangles> meshes;
-    for (const MeshRef* mesh : st.world) {
+    {
         const auto found = st.meshes.find(mesh);
         if (found == st.meshes.end() || found->second.source == nullptr) {
-            continue;
+            return false;
         }
         const rt::Geometry& geometry = found->second.geometry;
         const VertexBufferData& source = *found->second.source;
+        const bool coloured = geometry.colour_format == rt::kColourA8R8G8B8;
         // (the colour where the vertex format puts it - rt_vertex_attributes.h -, within the vertex)
         if (source.data() == nullptr || geometry.cpu_indices == nullptr || geometry.dynamic ||
-            geometry.vertex_stride == 0 || geometry.colour_format != rt::kColourA8R8G8B8) {
-            continue;
+            geometry.vertex_stride == 0 || (!coloured && !colourless)) {
+            return false;
         }
-        const uint32_t colour = geometry.colour_offset;
+        const uint32_t colour = coloured ? geometry.colour_offset : MeshTriangles::kNoColour;
         // Not original - a mesh smoothed at load (mesh_smoothing.h) sampled on its original triangles (its original
         // vertices are still first), so the sun and the bake's agreement are found as without smoothing.
         rt::Geometry sampled = geometry;
@@ -867,7 +889,18 @@ std::vector<MeshTriangles> sampled_meshes(bool as_drawn)
             sampled.indices_32bit = false;
             sampled.strip = true;
         }
-        meshes.emplace_back(sampled, source, colour, as_drawn);
+        out->emplace_back(sampled, source, colour, as_drawn);
+    }
+    return true;
+}
+
+// The meshes the samples come from: the world's with a copy of their vertices and indices in memory and a diffuse
+// colour.
+std::vector<MeshTriangles> sampled_meshes(bool as_drawn)
+{
+    std::vector<MeshTriangles> meshes;
+    for (const MeshRef* mesh : state().world) {
+        mesh_triangles(mesh, as_drawn, false, &meshes);
     }
     return meshes;
 }
@@ -1087,6 +1120,136 @@ void other_sun_work(rt::RayTracing& rt)
     rt::set_sun_agreement(std::move(grid));
 }
 
+// (added by the night lighting - engine/gfx/rt_lights.h) The world's emissive surfaces turned into lights, once a world
+// while rt_lights wants them: its additive meshes (glows), and in a dark level its triangles far brighter than the level
+// (self-lit). The bake's colours are read (not the relit mode's).
+constexpr std::size_t kLumaSamples = 200000; // triangles looked at for the level's median brightness
+constexpr uint32_t kBlendNone = 0;           // a first pass drawn over what is there (no blend)
+
+bool additive_first_pass(const MaterialRef* material)
+{
+    const uint32_t mode = blend_mode(material, 0);
+    return mode == kBlendAdd || mode == kBlendFixedAdd;
+}
+
+// Moving textures (a UV wibble, a texture animation: water, caustics, scrolling effects) - not lamps.
+bool moving_material(const MaterialRef* material)
+{
+    if (material->texture_anim() != nullptr) {
+        return true;
+    }
+    const uint32_t passes = std::min(material->pass_count(), kPassCount);
+    for (uint32_t pass = 0; pass < passes; ++pass) {
+        if ((core::at(material->pass_flags(), pass) & (kPassUvWibble | kPassTextureAnim)) != 0U ||
+            core::at(material->uv_wibble(), pass) != nullptr) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The level's median triangle brightness (the bake's luma, 128 its white): every n-th triangle of the coloured meshes.
+float median_luma()
+{
+    const std::vector<MeshTriangles> meshes = sampled_meshes(false);
+    std::size_t total = 0;
+    for (const MeshTriangles& mesh : meshes) {
+        total += mesh.count();
+    }
+    const std::size_t step = std::max<std::size_t>(1, total / kLumaSamples);
+    std::vector<float> lumas;
+    std::size_t next = 0;
+    std::size_t walked = 0;
+    for (const MeshTriangles& mesh : meshes) {
+        for (; next < walked + mesh.count(); next += step) {
+            std::array<uint32_t, 3> corner{};
+            if (mesh.corners(static_cast<uint32_t>(next - walked), &corner)) {
+                const auto [one, two, three] = corner;
+                lumas.push_back((mesh.brightness(one) + mesh.brightness(two) + mesh.brightness(three)) / 3.0F);
+            }
+        }
+        walked += mesh.count();
+    }
+    if (lumas.empty()) {
+        return 0.0F;
+    }
+    const auto middle = lumas.begin() + static_cast<std::ptrdiff_t>(lumas.size() / 2);
+    std::ranges::nth_element(lumas, middle);
+    return *middle;
+}
+
+void emitter_work()
+{
+    State& st = state();
+    if (!rt::emitters_wanted() || st.world.empty() || st.settled_key != st.scene_key || st.emitters_key == st.scene_key) {
+        return;
+    }
+    st.emitters_key = st.scene_key;
+    const auto start = std::chrono::steady_clock::now();
+    rt::LevelEmitters found;
+    found.serial = ++st.emitter_sets;
+    found.median_luma = median_luma();
+    found.dark = rt::dark_level(found.median_luma);
+    std::vector<rt::EmitterTriangle> triangles;
+    for (const MeshRef* mesh : st.world) {
+        const MaterialRef* material = mesh->material();
+        const auto entry = material != nullptr ? st.materials.find(material) : st.materials.end();
+        if (entry == st.materials.end() || moving_material(material)) {
+            continue;
+        }
+        const bool glow = additive_first_pass(material);
+        const uint32_t mode = blend_mode(material, 0);
+        const bool opaque = (entry->second.material.flags & (rt::kTransparent | rt::kAlphaTested)) == 0U &&
+                            (mode == kBlendNone || mode == static_cast<uint32_t>(kBlendModeVertexTexAlpha));
+        if (!glow && !(found.dark && opaque)) {
+            continue;
+        }
+        std::vector<MeshTriangles> read;
+        if (!mesh_triangles(mesh, false, glow, &read)) {
+            continue;
+        }
+        const MeshTriangles& tris = read.front();
+        const std::array<float, 4>& pass = entry->second.material.colour; // (doubled: 1 leaves the texture as it is)
+        for (uint32_t t = 0; t < tris.count(); ++t) {
+            std::array<uint32_t, 3> corner{};
+            if (!tris.corners(t, &corner)) {
+                continue;
+            }
+            const auto [one, two, three] = corner;
+            if (!glow && !rt::self_lit_triangle(std::min({tris.brightness(one), tris.brightness(two),
+                                                          tris.brightness(three)}),
+                                                found.median_luma)) {
+                continue;
+            }
+            rt::EmitterTriangle triangle{.corners = {tris.position(one), tris.position(two), tris.position(three)},
+                                         .colour = {},
+                                         .material = entry->second.id,
+                                         .kind = glow ? rt::EmitterKind::kGlow : rt::EmitterKind::kSelfLit};
+            for (const uint32_t vertex : corner) {
+                const std::array<float, 3> colour = tris.colour(vertex);
+                for (std::size_t k = 0; k < 3; ++k) {
+                    core::at(triangle.colour, k) += core::at(colour, k) * core::at(pass, k) / 3.0F;
+                }
+            }
+            (glow ? found.glow_triangles : found.self_lit_triangles) += 1;
+            triangles.push_back(triangle);
+        }
+    }
+    found.emitters = rt::cluster_emitters(triangles);
+    const auto glows = std::ranges::count_if(found.emitters,
+                                             [](const rt::Emitter& e) { return e.kind == rt::EmitterKind::kGlow; });
+    const auto points = std::ranges::count_if(rt::frame_record().lights, [](const rt::Light& light) {
+        return light.kind == rt::Light::Kind::kPoint;
+    });
+    get_log("rt: lights: %zu emitters (%td glows from %zu additive triangles, %td self-lit from %zu triangles - the level "
+            "is %s, median brightness %.0f of 128) and %td point lights on now - %.0f ms",
+            found.emitters.size(), glows, found.glow_triangles,
+            static_cast<std::ptrdiff_t>(found.emitters.size()) - glows, found.self_lit_triangles,
+            found.dark ? "dark" : "not dark: no self-lit", static_cast<double>(found.median_luma), points,
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+    rt::set_level_emitters(std::move(found));
+}
+
 // A colour's r, g, b bytes times a factor.
 std::array<float, 3> colour_of(uint32_t rgba, float factor)
 {
@@ -1198,6 +1361,7 @@ void camera_chosen(int viewport)
         new_world_work(*rt); // (added by the first frame: a new world's structures and sun, before it is drawn)
         relit_work(*rt);
         other_sun_work(*rt); // (added by the scene's sun)
+        emitter_work();      // (added by the night lighting)
         rt->prepare_frame();
     }
 }

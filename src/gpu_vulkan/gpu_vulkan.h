@@ -100,6 +100,21 @@ struct RtGiSettings {
 void set_rt_gi_settings(const RtGiSettings& settings);
 [[nodiscard]] RtGiSettings rt_gi_settings();
 
+// NOT ORIGINAL - the night lighting: lamps, glows and lit windows as ray-traced lights (vulkan_rt_lights.h): [Graphics]
+// rt_lights, rt_lights_strength, rt_lights_shadowed, rt_lights_max, rt_lights_emissive, rt_lights_level. Nothing is
+// drawn differently while `on` is false, or when ray tracing isn't enabled on the device.
+inline constexpr float kRtLightsStrength = 1.0F; // (rt_lights_strength's default)
+struct RtLightSettings {
+    bool on = false;
+    float strength = kRtLightsStrength; // how much of the lights' light is added (0 - 8)
+    unsigned shadowed = 4;              // the brightest lights at a pixel traced for shadows (1 - 8)
+    unsigned max_lights = 64;           // lights a view at most (1 - 256), the most important
+    float emissive = 1.0F;              // x the emitters' (glows, self-lit surfaces) intensity (0: none)
+    float level = 1.0F;                 // x the level's own point lights' (0: none)
+};
+void set_rt_light_settings(const RtLightSettings& settings);
+[[nodiscard]] RtLightSettings rt_light_settings();
+
 // NOT ORIGINAL - ray-traced reflections (vulkan_rt_reflections.h, docs/design/vulkan.md R5): [Graphics] rt_reflections,
 // rt_reflection_strength. Nothing is drawn differently while `on` is false, when ray tracing isn't enabled on the device,
 // or where no surface is reflective.

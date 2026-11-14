@@ -4,7 +4,9 @@
 
 // NOT ORIGINAL: thug2-decomp.ini [features] mute_audio=1 (default 0: unchanged) silences all of the game's sound
 // from the first frame - for test games in the agents' workspaces (tools/game/game_lock.ps1 and the launchers set
-// it there), never the user's own install.
+// it there), never the user's own install. A file `thug2-decomp-always-muted` beside the exe mutes it whatever the ini
+// says: the workspaces carry one (tools/game's Set-WorkspaceMuted / ensureWorkspaceMuted), so a test that writes its
+// own ini can't make a workspace game heard.
 //
 // app/ installs the muted sound output then (engine/audio/muted_device.h): the process's Windows audio session (the
 // default endpoint's GUID_NULL session, the one DirectSound and the movie codec's sound play into) muted right

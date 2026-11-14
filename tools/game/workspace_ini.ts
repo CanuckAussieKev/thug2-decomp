@@ -51,5 +51,8 @@ export function ensureWorkspaceMuted(folder: string): boolean {
     // and on the user's second monitor ([Graphics] WindowDisplay=2, src/platform/sdl_window.cpp)
     const updated = setIniValue(setIniValue(text, "features", "mute_audio", "1"), "Graphics", "WindowDisplay", "2");
     if (updated !== text) fs.writeFileSync(ini, updated, "utf8");
+    // and the marker that mutes it whatever its ini says - a test's own ini can't unmute it (src/platform/mute_audio.h)
+    const marker = path.join(folder, "thug2-decomp-always-muted");
+    if (!fs.existsSync(marker)) fs.writeFileSync(marker, "Workspace: the game here always runs muted.\r\n");
     return true;
 }

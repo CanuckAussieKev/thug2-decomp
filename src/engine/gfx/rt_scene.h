@@ -338,6 +338,8 @@ inline constexpr int kGrass = 450;        // (added by the grass) the blades, ov
 inline constexpr int kCel = 960;          // (added by cel shading) the world's outlines, at the output's size (world_drawn)
 inline constexpr int kCameraEffects = 965; // (added by the camera effects) depth of field, motion blur (world_drawn)
 inline constexpr int kGrade = 985;         // (added by the camera effects) the colour grade, after the art style (world_drawn)
+inline constexpr int kLights = 350;       // (added by the night lighting) the lamps' light: after the bounce, before the
+                                          // reflections (opaque_drawn) - gpu_vulkan/vulkan_rt_lights.h
 } // namespace ViewOrder
 void add_view_listener(ViewListener* listener);
 void remove_view_listener(ViewListener* listener);

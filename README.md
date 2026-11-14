@@ -370,6 +370,12 @@ for the restart
 | `rt_gi_rays` | 2 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
 | `rt_gi_distance` | 600 | How far (world units) a ray looks for a surface to bounce from (1-5000) |
 | `rt_gi_denoise` | 1 | 0: each frame's rays as they are (noisy) |
+| `rt_lights` | 0 | On Vulkan with `ray_tracing=1`: 1 makes the level's lamps real lights - its own light nodes, its glows (lamp halos, neon, light cones) and, in a dark level, its self-lit surfaces (lamp heads, lit windows) light the ground, the walls and the skater around them, with ray-traced shadows |
+| `rt_lights_strength` | 1 | How much of the lamps' light is added (0-8) |
+| `rt_lights_shadowed` | 4 | The brightest lamps at each pixel traced for shadows (1-8); the others' light follows their share |
+| `rt_lights_max` | 64 | Lamps a view lights with at most (1-256): the nearest and brightest |
+| `rt_lights_emissive` | 1 | x the glows' and self-lit surfaces' brightness (0: only the level's own light nodes) |
+| `rt_lights_level` | 1 | x the level's own light nodes' brightness (0: only the glows and self-lit surfaces) |
 | `rt_reflections` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced reflections to the level's shiny surfaces (the ones the game gives an environment map) - what is really around them, mirrored |
 | `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it; with `rt_reflection_fresnel=1` 0.5 is the natural amount) |
 | `rt_reflection_fresnel` | 1 | 1: how much a surface reflects depends on the angle you see it at - water and glass show their own colour looking straight at them and turn into mirrors toward grazing angles, windows show their glass instead of the game's painted sky; 0: the same reflection at every angle |
