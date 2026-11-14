@@ -70,7 +70,8 @@ void SurfacePack::attach(GpuTexture* texture, uint32_t checksum, std::span<const
                                 .material_class = static_cast<uint8_t>(entry->material_class),
                                 .f0 = entry->f0,
                                 .checksum = entry->checksum,
-                                .content_hash = entry->content_hash};
+                                .content_hash = entry->content_hash,
+                                .flags = entry->flags};
     if (maps->attach(texture, info, texels)) {
         ++attached_;
     }

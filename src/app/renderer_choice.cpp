@@ -278,7 +278,9 @@ render::vulkan::RtAoSettings make_rt_ao()
          .rays = static_cast<unsigned>(
              std::max(1, graphics_int("rt_ao_rays",
                                              static_cast<int>(render::vulkan::RtAoSettings{}.rays)))),
-         .denoise = graphics_flag("rt_ao_denoise", true)};
+         .denoise = graphics_flag("rt_ao_denoise", true),
+         // (added for the characters) the occlusion on the skinned characters x this
+         .characters = std::clamp(ini_float("rt_ao_characters", render::vulkan::RtAoSettings{}.characters), 0.0F, 1.0F)};
 }
 void read_rt_ao() { render::vulkan::set_rt_ao_settings(make_rt_ao()); }
 
@@ -519,7 +521,12 @@ void read_rt_pbr()
          .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true),
          // (added by surface relief - parallax occlusion mapping on the surface-mapped brick, stone, gravel...)
          .relief = build_info::fetch_flag(build_info::kGraphics, "rt_relief", false),
-         .relief_strength = std::clamp(ini_float("rt_relief_strength", defaults.relief_strength), 0.0F, 4.0F)});
+         .relief_strength = std::clamp(ini_float("rt_relief_strength", defaults.relief_strength), 0.0F, 4.0F),
+         // (added for the characters - their surface maps and skin / cloth / hair shading; on top of rt_pbr)
+         .characters = build_info::fetch_flag(build_info::kGraphics, "rt_characters", false),
+         .skin = std::clamp(ini_float("rt_characters_skin", defaults.skin), 0.0F, 2.0F),
+         .cloth = std::clamp(ini_float("rt_characters_cloth", defaults.cloth), 0.0F, 2.0F),
+         .hair = std::clamp(ini_float("rt_characters_hair", defaults.hair), 0.0F, 2.0F)});
 }
 
 // NOT ORIGINAL - detail materials and de-lighting (gpu_vulkan/vulkan_detail.h): off unless asked for; they act on the
@@ -833,6 +840,7 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_pbr", .prefix = false, .read = &read_rt_pbr},
     LiveKey{.key = "rt_pbr_", .prefix = true, .read = &read_rt_pbr},
     LiveKey{.key = "rt_relief", .prefix = true, .read = &read_rt_pbr}, // (added by surface relief: rt_relief and rt_relief_*)
+    LiveKey{.key = "rt_characters", .prefix = true, .read = &read_rt_pbr}, // (added for the characters: and rt_characters_*)
     LiveKey{.key = "rt_detail", .prefix = true, .read = &read_rt_detail},  // (NOT ORIGINAL - rt_detail and rt_detail_*)
     LiveKey{.key = "rt_delight", .prefix = true, .read = &read_rt_detail}, // (NOT ORIGINAL - rt_delight and rt_delight_*)
     LiveKey{.key = "rt_style", .prefix = true, .read = &read_style}, // (rt_style and every rt_style_)

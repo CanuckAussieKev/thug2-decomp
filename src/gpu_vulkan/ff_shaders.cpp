@@ -607,6 +607,35 @@ float relief_height(vec2 uv, vec2 dx, vec2 dy)
 {
     return textureGrad(surface_map, uv, dx, dy).a;
 })";
+// --- (added for the characters - [Graphics] rt_characters, vulkan_surface.h "Characters") skin, cloth and hair ---------
+// (docs/design/vulkan.md "Characters") A key with kDetailSkin / kDetailCloth / kDetailHair (with kSurfaceMap and
+// kSurfaceLit: a character model's surface map, lit by the draw's lights) changes how each light lands:
+//   - skin (k = character.x x the texel's skin weight, its weight followed by character.y): the light wrapped round the
+//     terminator per channel, w = (0.45, 0.2, 0.12) k - (N.L + w) / (1 + w), clamped: red reaches furthest into the
+//     shade, as light scattered under the skin does (N.L at k = 0) - and a faint translucency, (1, 0.35, 0.2) x 0.25 k x
+//     max(V.-L, 0)^4 x (1 - |N.V|): light from behind showing through the thin edges (ears, fingers, seen edge-on);
+//     the texel's skin weight: its colour against skin's (tools/pbr_maps models.ts skinTexel) with soft edges;
+//   - cloth's sheen (character.z, x (1 - the skin weight) on a garment with skin texels): 0.35 x (1 - N.V)^3 x
+//     (0.5 + 0.5 N.L) added to the light - a soft rim at grazing views, tinted by the cloth (the light is multiplied by
+//     the texture);
+//   - hair (character.z): Kajiya-Kay's highlight along the strand T (stage 0's u when character.w is 1, else v, from
+//     the per-pixel frame; shifted along the normal by the map's height - 0.5) - sin(T, H)^e x 0.4 x smoothstep(0, 0.2,
+//     N.L), e = 2 / roughness^4 (4 - 512) - in place of GGX's, x character.z (GGX's x (1 - character.z) below 1).
+constexpr const char* kDetailCharacterBlock = R"(layout(set = 0, binding = 15, std140) uniform DetailUniforms {
+    vec4 scale;
+    vec4 material;
+    vec4 delight;
+    vec4 relief;
+    vec4 character;
+} d;
+float character_skin_weight(vec3 c)
+{
+    float order = smoothstep(-0.03, 0.0, c.r - c.g) * smoothstep(-0.03, 0.0, c.g - c.b);
+    float saturation = (c.r - c.b) / max(c.r, 1.0e-4);
+    float hue = (c.g - c.b) / max(c.r - c.b, 1.0e-4);
+    return order * smoothstep(0.06, 0.16, saturation) * (1.0 - smoothstep(0.7, 0.8, saturation)) *
+           smoothstep(0.03, 0.15, hue) * (1.0 - smoothstep(0.85, 0.97, hue)) * smoothstep(0.1, 0.2, c.r);
+})";
 constexpr const char* kDetailFetch = R"(vec3 detail_fetch(sampler2D map, vec2 uv, int level)
 {
     vec2 size = vec2(textureSize(map, level));
@@ -624,6 +653,10 @@ constexpr const char* kDetailFetch = R"(vec3 detail_fetch(sampler2D map, vec2 uv
 void detail_declarations(std::string& out, const FragmentKey& key)
 {
     static_assert(kDetailUniformsBinding == 15 && kDetailMapBinding == 16, "kDetailBlock names them");
+    if ((key.detail & kDetailCharacter) != 0U) { // (added for the characters: their block alone - ff_key.h)
+        add(out, {kDetailCharacterBlock});
+        return;
+    }
     add(out, {(key.detail & kDetailRelief) != 0U ? kDetailReliefBlock : kDetailBlock});
     if ((key.detail & kDetailMaterial) != 0U) {
         add(out, {"layout(set = 0, binding = 16) uniform sampler2D detail_map;"});
@@ -696,6 +729,54 @@ void surface_declarations(std::string& out, const FragmentKey& key)
     }
 }
 
+// (added for the characters - kDetailCharacterBlock's comment has the formulas) The draw's lights on skin, cloth or
+// hair: surface_v0 and surface_specular as the lit path's, each light's diffuse and highlight changed.
+void character_lighting(std::string& out, const FragmentKey& key)
+{
+    const bool skin = (key.detail & kDetailSkin) != 0U;
+    const bool cloth = (key.detail & kDetailCloth) != 0U;
+    const bool hair = (key.detail & kDetailHair) != 0U;
+    add(out, {"    vec3 surface_light = vec3(0.0);\n    float character_skin = 0.0;\n    float character_sheen = 0.0;"});
+    if (skin) {
+        add(out, {"    float character_weight = character_skin_weight(texture(t0_map, ", coord_of(key, 0), ").rgb);\n"
+                  "    character_skin = d.character.x * mix(1.0, character_weight, d.character.y);"});
+    }
+    if (cloth) {
+        add(out, {"    character_sheen = d.character.z", skin ? " * (1.0 - character_weight);" : ";"});
+    }
+    add(out, {"    vec3 character_wrap = vec3(0.45, 0.2, 0.12) * character_skin;\n"
+              "    float character_nv = max(dot(surface_n, surface_v), 0.0);\n"
+              "    float character_thin = 1.0 - abs(dot(surface_geo, surface_v));\n"
+              "    float character_rim = 0.35 * character_sheen * (1.0 - character_nv) * (1.0 - character_nv) * "
+              "(1.0 - character_nv);"});
+    if (hair) {
+        add(out, {"    vec3 character_strand = mix(surface_b, surface_t, d.character.w);\n"
+                  "    bool character_kk = dot(character_strand, character_strand) > 1.0e-12;\n"
+                  "    if (character_kk) character_strand = normalize(normalize(character_strand) + surface_n * "
+                  "((surface_height - 0.5) * 0.6));\n"
+                  "    float character_e = clamp(2.0 / max(pow(surface_rough, 4.0), 1.0e-4), 4.0, 512.0);"});
+    }
+    add(out, {"    for (int i = 0; i < 8; ++i) {\n"
+              "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
+              "        float nl = dot(surface_n, l);\n"
+              "        vec3 diffuse = clamp((vec3(nl) + character_wrap) / (1.0 + character_wrap), 0.0, 1.0);\n"
+              "        diffuse += vec3(1.0, 0.35, 0.2) * (0.25 * character_skin * character_thin * "
+              "pow(max(dot(surface_v, -l), 0.0), 4.0));\n"
+              "        diffuse += vec3(character_rim * (0.5 + 0.5 * nl));\n"
+              "        surface_light += s.light_colour[i].rgb * diffuse;\n"
+              "        float highlight = surface_ggx(surface_n, surface_v, l, surface_rough, s.params.w);"});
+    if (hair) {
+        add(out, {"        if (character_kk) {\n"
+                  "            float th = dot(character_strand, normalize(l + surface_v));\n"
+                  "            float kk = pow(sqrt(max(1.0 - th * th, 0.0)), character_e) * 0.4 * smoothstep(0.0, 0.2, nl);\n"
+                  "            highlight = highlight * max(1.0 - d.character.z, 0.0) + kk * d.character.z;\n"
+                  "        }"});
+    }
+    add(out, {"        surface_specular += s.light_colour[i].rgb * highlight;\n    }\n"
+              "    vec4 surface_v0 = vec4(clamp(v_surface_base.rgb + v_surface_cd.rgb * surface_light, 0.0, 1.0), "
+              "v_surface_cd.a);"});
+}
+
 void surface_lighting(std::string& out, const FragmentKey& key)
 {
     if ((key.surface & kSurfaceCelHull) != 0U) { // (added by cel shading: the hull is ink - no light)
@@ -710,6 +791,10 @@ void surface_lighting(std::string& out, const FragmentKey& key)
               ": surface_face;\n"
               "    vec3 surface_n = surface_geo;\n    vec3 surface_v = normalize(-surface_eye);\n"
               "    float surface_rough = s.params.z;"});
+    const bool hair = (key.detail & kDetailHair) != 0U; // (added for the characters: the strands' frame and height kept)
+    if (hair) {
+        add(out, {"    vec3 surface_t = vec3(0.0);\n    vec3 surface_b = vec3(0.0);\n    float surface_height = 0.5;"});
+    }
     const bool detail = (key.detail & kDetailMaterial) != 0U; // (NOT ORIGINAL - rt_detail)
     if (detail) {
         add(out, {"    vec4 detail_m = vec4(0.5);\n    float detail_w = 0.0;"});
@@ -723,6 +808,9 @@ void surface_lighting(std::string& out, const FragmentKey& key)
             add(out, {"    {\n        vec2 uv = relief_uv;\n        vec4 m = textureGrad(surface_map, uv, relief_dx, relief_dy);"});
         } else {
             add(out, {"    {\n        vec2 uv = ", coord_of(key, 0), ";\n        vec4 m = texture(surface_map, uv);"});
+        }
+        if (hair) {
+            add(out, {"        surface_height = m.a;"});
         }
         add(out, {"        surface_rough = m.b;\n        vec2 xy = (m.rg * 255.0 - 127.5) / 127.5;\n"
                   "        vec3 nt = vec3(xy * s.params.y, sqrt(max(1.0 - dot(xy, xy), 0.0)));\n",
@@ -746,8 +834,8 @@ void surface_lighting(std::string& out, const FragmentKey& key)
                   "        float uv_floor = 1.0e-6 * max(1.0, max(abs(uv.x), abs(uv.y)));\n"
                   "        if (scale > 0.0 && det != 0.0 && max(max(uv_change.x, uv_change.y), max(uv_change.z, uv_change.w)) > "
                   "uv_floor) {\n            float inv = inversesqrt(scale);\n"
-                  "            surface_n = normalize(t * (inv * nt.x) + b * (inv * nt.y) + surface_geo * nt.z);\n"
-                  "        }\n    }"});
+                  "            surface_n = normalize(t * (inv * nt.x) + b * (inv * nt.y) + surface_geo * nt.z);",
+                  hair ? "\n            surface_t = t;\n            surface_b = b;" : "", "\n        }\n    }"});
     }
     if (detail) {
         add(out, {"    surface_rough = mix(surface_rough, d.material.x, d.material.w) + (detail_m.b - 0.5) * 2.0 * "
@@ -756,6 +844,10 @@ void surface_lighting(std::string& out, const FragmentKey& key)
     add(out, {"    surface_rough = clamp(surface_rough, 0.08, 1.0);\n    vec3 surface_specular = vec3(0.0);"});
     if ((key.surface & kSurfaceCel) != 0U) {
         cel_lighting(out, key); // (added by cel shading)
+        return;
+    }
+    if ((key.surface & kSurfaceLit) != 0U && (key.detail & kDetailCharacter) != 0U) {
+        character_lighting(out, key); // (added for the characters)
         return;
     }
     if ((key.surface & kSurfaceLit) != 0U) {

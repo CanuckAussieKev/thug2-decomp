@@ -31,6 +31,22 @@
 // is exactly that. Displacement along the smoothed normal from a height source is added inside that bound, only on
 // new points shared by the vertex indices of both sides (or interior), never on thin meshes.
 //
+// Smoothing (Options::smooth, [Graphics] rt_tess_smooth): the edges are told apart with more than the crease angle -
+// - the mesh's own normals, where it has them, are its smoothing data: an edge whose two sides share their normals
+//   (the same vertices, or normals under 8 degrees apart at both ends) is smooth up to 85 degrees; one whose normals are
+//   split is hard from 20 degrees (a chamfer, a ledge's bevel), whatever the crease angle says;
+// - long thin prisms (rails, pipes, poles of 5 - 7 sides: 51 - 72 degrees between sides, over the crease angle) get
+//   round cross-sections: an edge is a prism's when both its faces are parallel to it, it is at least twice as long as
+//   they are wide, they are alike in width and at most 16 units wide, and across each face the next edge parallel to
+//   it is such an edge too, at an angle within 10 degrees (a ring of equal sides - a kerb's or a roof's profile isn't);
+//   a prism's edges are round whatever its normals say (flat-shaded rails too);
+// - a box's corners (90 degrees) are hard either way;
+// - the pieces an edge is cut into turn by at most 15 degrees each (up to level 4, or rt_tess_level when higher; a
+//   capped curve counted by its capped bulge), so a silhouette reads round whatever its size on screen, besides
+//   following the curve to the target error;
+// - the strength (0 - 1) scales the shape factor: how far toward the round the facets are pulled.
+// Off (the default) is exactly the crease angle's rule above.
+//
 // The original vertices stay first and unchanged (other levels of detail, the editor's moves, the colour writes refer
 // to them); the new ones follow; the output is a strip again (16-bit indices).
 namespace render::tess {
@@ -60,6 +76,14 @@ constexpr float kDefaultMaxDeviation = 2.0F;
 constexpr float kDefaultCurvedEpsilon = 0.02F;
 constexpr float kDefaultTargetError = 0.05F;
 constexpr float kDefaultThinSize = 24.0F;
+constexpr float kDefaultSmoothStrength = 1.0F;
+constexpr float kDefaultSmoothDegrees = 85.0F;
+constexpr float kDefaultSplitDegrees = 20.0F;
+constexpr float kDefaultNormalAgreeDegrees = 8.0F;
+constexpr float kDefaultPrismDegrees = 75.0F;
+constexpr float kDefaultPrismWidth = 16.0F;
+constexpr float kDefaultSegmentDegrees = 15.0F;
+constexpr int kSmoothLevel = 4;
 
 struct Options {
     int max_level = kDefaultLevel;                    // the most pieces an edge is split into (2 - 8; under 2: none)
@@ -70,6 +94,16 @@ struct Options {
     float target_error = kDefaultTargetError;         // a mesh's level: its curves followed to about this (units)
     float thin_size = kDefaultThinSize;               // thinner meshes (their bounds' smallest side: rails) aren't displaced
     HeightSource height;                              // displacement (scale 0: none)
+    // Smoothing (rt_tess_smooth; above): off, the crease angle alone decides.
+    bool smooth = false;
+    float smooth_strength = kDefaultSmoothStrength;   // the shape factor's share (0 - 1)
+    float smooth_degrees = kDefaultSmoothDegrees;     // shared normals: smooth up to this
+    float split_degrees = kDefaultSplitDegrees;       // split normals: hard from this
+    float normal_agree_degrees = kDefaultNormalAgreeDegrees; // two normals this close are the same
+    float prism_degrees = kDefaultPrismDegrees;       // a prism's sides joined up to this
+    float prism_width = kDefaultPrismWidth;           // ... when they are at most this wide
+    float segment_degrees = kDefaultSegmentDegrees;   // the most a piece of an edge turns
+    bool keep_flat = false;                           // (the checks) Result::flat filled
 };
 
 struct Result {
@@ -86,6 +120,10 @@ struct Result {
     float uncapped = 0.0F;           // ... before the cap (with Options::shape)
     float displaced = 0.0F;          // the largest displacement added
     bool capped = false;
+    uint32_t prism_edges = 0;        // smoothing: edges made round as a prism's sides
+    uint32_t normal_smooth = 0;      // ... joined over the crease angle by the mesh's shared normals
+    uint32_t normal_hard = 0;        // ... kept hard under it by its split normals
+    std::vector<std::array<float, 3>> flat; // with Options::keep_flat: each new vertex's point on the original surface
 };
 
 // A strip's triangles in drawing order and winding (odd ones turned round, as Direct3D draws them), the degenerate

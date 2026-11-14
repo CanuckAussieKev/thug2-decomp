@@ -8,7 +8,7 @@
 // after replacing textures.
 //
 //   node tools/pbr_maps/pbr_maps.ts make --game <folder> [--generator classical|chord] [--levels bo,au,foun]
-//        [--pictures <folder>] [--samples N] [--chord <folder>] [--out <folder>]
+//        [--pictures <folder>] [--samples N] [--chord <folder>] [--out <folder>] [--models | --models-only]
 //   node tools/pbr_maps/pbr_maps.ts remove --game <folder>      every .pbr made removed
 //
 // --generator: classical (the default; classical.ts) or chord (Ubisoft La Forge's CHORD model, chord.ts: research-only
@@ -16,7 +16,9 @@
 // N textures a dictionary (default 6), a picture side by side - the texture, its normals, roughness, height, and the
 // texture lit flat and with the normals from the upper left. --out: the files under that folder (the game's layout),
 // not beside the dictionaries - the game folder only read. unpack_game.ts --pbr-maps runs `make` and records the
-// files for --restore.
+// files for --restore. --models (added for the characters - [Graphics] rt_characters): the character models'
+// dictionaries too (models.ts: the skaters', CAS parts', peds', cutscenes'), classified skin / cloth / denim / leather /
+// rubber / hair, their entries flagged as a model's; --models-only: those alone.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { decode } from "thug2-level-converter-core/level_port/dxt.ts";
@@ -27,8 +29,12 @@ import { exitWith, isMain } from "thug2-level-converter-core/lib/cli.ts";
 import { gameRoot } from "../qbjs/game_scripts.ts";
 import { CLASS, type ClassName, classify, RULES, type Stats, type Usage } from "./classes.ts";
 import { classicalMaps, type Rgba, scaleNormals } from "./classical.ts";
+import { classifyCharacter, hintOf, modelDictionaries, skinShare, strandsAlongU } from "./models.ts";
 import {
     contentHash,
+    FLAG_MODEL,
+    FLAG_SKIN_TEXELS,
+    FLAG_STRANDS_U,
     GENERATOR_CHORD,
     GENERATOR_CLASSICAL,
     type MapEntry,
@@ -37,7 +43,7 @@ import {
     writePbr,
 } from "./pbr_file.ts";
 import { encodePng } from "./png.ts";
-import { bumpFor, surfacesOf } from "./surfaces.ts";
+import { bumpFor, type SurfaceUse, surfacesOf } from "./surfaces.ts";
 
 export type GeneratorName = "classical" | "chord";
 // A model generator: the textures' maps (RGBA as pbr_file's texels), or null for those it can't do (classical then).
@@ -54,6 +60,7 @@ export interface MakeOptions {
     model?: ModelGenerator | undefined; // (chord: chord.ts's runner)
     out?: string | undefined; // the files written under this folder (the game's layout) instead of beside the dictionaries
     log?: (line: string) => void;
+    models?: "no" | "also" | "only"; // (added for the characters) the character models' dictionaries (models.ts)
 }
 
 export interface MakeResult {
@@ -343,7 +350,17 @@ export function make(game: string, options: MakeOptions): MakeResult {
     const log = options.log ?? (() => {});
     const result: MakeResult = { made: [], maps: 0, skipped: new Map(), classes: new Map() };
     const skip = (why: string) => result.skipped.set(why, (result.skipped.get(why) ?? 0) + 1);
-    for (const dictionary of dictionaries(root, options.levels)) {
+    const models = options.models ?? "no";
+    const all: { dictionary: Dictionary; model: boolean }[] = [
+        ...(models === "only"
+            ? []
+            : dictionaries(root, options.levels).map((dictionary) => ({ dictionary, model: false }))),
+        ...(models === "no"
+            ? []
+            : modelDictionaries(root, dataOverlays(root)).map((dictionary) => ({ dictionary, model: true }))),
+    ];
+    for (const { dictionary, model } of all) {
+        const hint = model ? hintOf(dictionary.name) : "none";
         let textures: Texture[];
         try {
             textures = readTex(dictionary.tex(), dictionary.name).textures;
@@ -355,6 +372,7 @@ export function make(game: string, options: MakeOptions): MakeResult {
         const images = new Map<string, Rgba>();
         const names = new Map<string, ClassName>();
         const keyed = new Map<string, Texture>();
+        const skinTexels = new Set<string>(); // (added for the characters: garments with skin in them)
         for (const texture of textures) {
             const key = texture.checksum.toString(16).padStart(8, "0");
             if (keyed.has(key)) continue;
@@ -371,24 +389,27 @@ export function make(game: string, options: MakeOptions): MakeResult {
                 decal: false,
                 transparent: false,
             };
-            const verdict = classify(statsOf(image), used);
+            const verdict = model
+                ? classifyCharacter(statsOf(image), used, hint, skinShare(image))
+                : classify(statsOf(image), used);
             if (verdict.skip) {
                 skip(verdict.skip);
                 continue;
             }
             images.set(key, image);
             names.set(key, verdict.name);
+            if ("skinTexels" in verdict && verdict.skinTexels) skinTexels.add(key);
             keyed.set(key, texture);
         }
         const modelled = options.generator === "chord" && options.model ? options.model(images, names) : new Map();
         const entries: MapEntry[] = [];
-        const surfaces = surfacesOf(dictionary.scn(), dictionary.col());
+        const surfaces = model ? new Map<number, SurfaceUse>() : surfacesOf(dictionary.scn(), dictionary.col());
         const areaOf = (key: string): number => surfaces.get(keyed.get(key)!.checksum)?.area ?? 0;
         // (the pictures: the textures covering the most of the level first)
         const pictured = new Set(
             options.pictures
                 ? [...images]
-                      .filter(([, image]) => image.width >= 64)
+                      .filter(([, image]) => image.width >= (model ? 32 : 64))
                       .map(([key]) => key)
                       .sort((a, b) => areaOf(b) - areaOf(a))
                       .slice(0, options.samples ?? 6)
@@ -413,12 +434,20 @@ export function make(game: string, options: MakeOptions): MakeResult {
                 materialClass: CLASS[name],
                 generator: fromModel ? GENERATOR_CHORD : GENERATOR_CLASSICAL,
                 f0: rule.f0,
+                flags: model
+                    ? FLAG_MODEL |
+                      (name === "hair" && strandsAlongU(image) ? FLAG_STRANDS_U : 0) |
+                      (skinTexels.has(key) ? FLAG_SKIN_TEXELS : 0)
+                    : 0,
                 texels,
             });
             result.classes.set(name, (result.classes.get(name) ?? 0) + 1);
             if (options.pictures && pictured.has(key)) {
                 const picture = sideBySide(image, texels);
-                const folder = join(options.pictures, levelOf(dictionary.name));
+                const folder = join(
+                    options.pictures,
+                    model ? dictionary.name.replace(/\.tex\.xbx$/, "").replaceAll("/", "_") : levelOf(dictionary.name),
+                );
                 mkdirSync(folder, { recursive: true });
                 const evidence = bump.why.replace(/[^a-z0-9.+%]+/gi, "_");
                 writeFileSync(
@@ -441,11 +470,15 @@ export function make(game: string, options: MakeOptions): MakeResult {
     return result;
 }
 
-// Every surface-map file under Data\levels and the overlays' levels removed (only files that are ours: the magic checked). Returns how many.
+// Every surface-map file under Data\levels, Data\models and the overlays' removed (only files that are ours: the magic checked). Returns how many.
 export function remove(game: string): number {
     const root = gameRoot(game);
     let removed = 0;
-    const folders = [join(root, "Data", "levels"), ...dataOverlays(root).map((o) => join(root, o, "levels"))];
+    const folders = [
+        join(root, "Data", "levels"),
+        join(root, "Data", "models"), // (added for the characters: the models' maps)
+        ...dataOverlays(root).flatMap((o) => [join(root, o, "levels"), join(root, o, "models")]),
+    ];
     for (const path of folders.flatMap(walk)) {
         if (!path.toLowerCase().endsWith(`.tex.xbx${SUFFIX}`)) continue;
         try {
@@ -470,7 +503,7 @@ export async function main(args: string[]): Promise<void> {
     if (!game || (command !== "make" && command !== "remove")) {
         exitWith(
             "Usage: node tools/pbr_maps/pbr_maps.ts make --game <folder> [--generator classical|chord] [--levels a,b] " +
-                "[--pictures <folder>] [--samples N] [--chord <folder>]\n" +
+                "[--pictures <folder>] [--samples N] [--chord <folder>] [--out <folder>] [--models | --models-only]\n" +
                 "       node tools/pbr_maps/pbr_maps.ts remove --game <folder>",
         );
     }
@@ -494,6 +527,7 @@ export async function main(args: string[]): Promise<void> {
         model,
         out: argValue(args, "--out"),
         log: (line) => console.log(line),
+        models: args.includes("--models-only") ? "only" : args.includes("--models") ? "also" : "no",
     });
     console.log(`${result.maps} maps in ${result.made.length} files`);
     console.log(`classes: ${[...result.classes].map(([k, v]) => `${k} ${v}`).join(", ")}`);

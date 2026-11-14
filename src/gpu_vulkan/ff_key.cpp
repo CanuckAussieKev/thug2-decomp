@@ -395,6 +395,18 @@ ShaderKey normalised(const ShaderKey& key)
         result.fragment.detail = 0;
     }
     result.fragment.detail = static_cast<uint8_t>(result.fragment.detail & kDetailKnown);
+    // (added for the characters) their shading only lit by the draw's lights, and alone (the detail block's last
+    // vector is theirs); hair's highlight replaces the others
+    uint8_t& detail = result.fragment.detail;
+    if ((surface & kSurfaceLit) == 0U) {
+        detail = static_cast<uint8_t>(detail & ~kDetailCharacter);
+    }
+    if ((detail & kDetailCharacter) != 0U) {
+        detail = static_cast<uint8_t>(detail & kDetailCharacter);
+    }
+    if ((detail & kDetailHair) != 0U) {
+        detail = kDetailHair;
+    }
     result.vertex.surface = surface != 0 || result.fragment.water != 0U ? kVertexSurfaceInputs : 0;
     if ((surface & kSurfaceCelStream) != 0U) {
         result.vertex.surface = static_cast<uint8_t>(result.vertex.surface | kVertexCelStream);

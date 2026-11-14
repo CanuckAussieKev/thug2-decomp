@@ -1516,6 +1516,53 @@ dozen triangles, and their silhouettes and shading show it. `[Graphics] rt_tesse
 - **Not done**: no distance-adaptive or screen-space factors (one level a mesh, made at load: changing it needs the level
   reloaded); skinned meshes; the generated height maps (the seam is there).
 
+**Smoothing (`rt_tess_smooth`, `rt_tess_smooth_strength`)** - with `rt_tessellation=1`, off by default; `rt_tess_smooth=0`
+is the crease angle's rule above to the bit (`thug2_tess_check --level` hashes every result of five levels: the same
+hashes as the build before it). The crease angle alone can't tell a six-sided rail (60 degrees between sides) from a
+box's corner, nor a ledge's 45-degree chamfer from a curve. With smoothing an edge's two faces are joined by these rules
+in order (`smooth_tess.cpp` `joins`):
+
+1. over 85 degrees: hard (a box's corners, stairs, a ledge's top - whatever the normals say);
+2. a **prism's edge**: round. Rails, pipes and poles: both faces run along the edge (`|n . e| < 0.03`), the edge is at
+   least twice as long as they are wide, they are alike in width (within 25%) and at most 16 units wide, the angle is
+   over the crease angle and at most 75 degrees (5 - 7 sides), and across each face the next edge parallel to it is such
+   an edge at an angle within 10 degrees - a ring of equal sides (a kerb's or a roof's profile isn't one: its next edge
+   meets the ground at another angle). Round whatever its normals say: the levels' rails are mostly flat-shaded;
+3. the **mesh's normals** where it has them: both ends of the edge sharing their vertices or their normals (under 8
+   degrees apart) - smooth (up to 85 degrees: a car's roof, a prop modelled with smooth normals); split normals - hard
+   from 20 degrees (bevels, chamfers, a kerb's edges);
+4. otherwise the crease angle (50 degrees), as without smoothing.
+
+The level: the error's (as above, up to `rt_tess_level`), or more - enough pieces that none of an edge's turns by more
+than 15 degrees (up to 4; a curve the cap flattens counted by its capped bulge), so outlines read round whatever their
+size on screen: a six-sided rail is cut into 4 pieces a side. The strength scales Phong's shape factor (0.5 - 1 of the
+way from the facets to the arc). Everything else - crack-free edges, the cap, the original vertices first, displacement
+off on thin meshes - is the same code.
+
+- **Checked** (`thug2_tess_check`, 21 more checks): a flat-shaded six-sided rail of radius 3 (split normals, every edge
+  welded by position) unchanged without smoothing, round with it - 24 prism edges, level 4, the new points within 0.027
+  of the circle and the drawn surface (sampled across every triangle) within 0.046 inside it, the facets' 0.40; no
+  cracks; the original vertices first; the same bytes smoothed twice; strength 0.5 moves it half as far, 0 not at all;
+  a six-sided column 40 wide and a square beam stay faceted; a box with averaged normals keeps its corners; a ledge's
+  flat-shaded 45-degree chamfer rounded without smoothing and kept crisp with it (2 edges kept by their normals); a
+  six-sided cylinder of radius 100 with shared normals capped at 1 (11.9 uncapped) without cracks; the seamed cylinder
+  crack-free.
+- **The levels** (`thug2_tess_check --level <folder>...`, offline: the game's .scn and .col read, every mesh the game
+  would smooth smoothed): BO, AU, NO, BA and sch - 58 - 305 prism edges a level rounded, 307 - 2,423 edges joined by
+  their shared normals, 28 - 482 kept hard by split ones; indices (the smoothed meshes') off -> on: BO 294,202 ->
+  393,990, AU 499,727 -> 626,063, NO 267,197 -> 297,156, BA 347,282 -> 413,401, sch 650,697 -> 708,694 (+9 - 34%); load
+  time 27 -> 30, 37 -> 41, 25 -> 26, 27 -> 29, 44 -> 45 ms.
+- **The wheels and the collision**: the collision is the game's own (`.col`, never touched). For every new point whose
+  place on the original surface lies on the collision (within 0.1) where the collision is a slope - the vert faces
+  (quarter pipes' faces carry the vert flag) and the other slopes (banks, bowls, transitions; normal's up share 0.05 -
+  0.97) - its gap to the collision. Quarter pipes with smoothing: median 0.22 - 0.53, 95% 1.38 - 1.81, at most the cap
+  (2) - the same as without it (0.22 - 0.53, 1.30 - 1.82); nearly all behind the collision (the arc lies behind its
+  chords: the wheels float over the drawn curve between its original vertices, never sink - the most in front 0.8 -
+  1.97 on convex parts). With `rt_tess_max_deviation=1`: quarter pipes' median 0.11 - 0.32, 95% 0.80 - 0.99, at most 1.
+- **Ray tracing**: unchanged - the BLAS is built from the drawn (smoothed) buffers, so shadows, occlusion and
+  reflections fall on the rounded shapes; the baked sun's samples keep reading the original strips.
+- **Not done**: the optional bevel highlight on hard edges (a lighting change, not geometry); a per-distance level.
+
 ### Relit: the bake taken apart (`rt_relit`)
 
 `engine/gfx/rt_relit` (the analysis, API-neutral) and `render_pc/rt_relit_world` (the world's meshes, the cache, the
@@ -2151,7 +2198,7 @@ Both act only on the draws `rt_pbr` lights with a surface map (`kSurfaceMap`, ne
   `tools/detail_materials/*.test.ts`: the file, the kinds' rules, the detail texels (neutral scans, the normal's +v),
   the PNG reader (8 and 16 bits), `materials.json`.
 - **Not done yet:** the bounce (GI) and hit shading read the material table's F0 but not the detail layer; skinned
-  objects and models' dictionaries get no detail (they have no surface maps); the kinds' numbers are first guesses for
+  objects and models' dictionaries get no detail (their maps - "Characters" - are shaded as skin, cloth and hair instead); the kinds' numbers are first guesses for
   the user to tune in `materials.json` (re-run `pack`).
 
 ### Surface relief (`rt_relief`)
@@ -2215,6 +2262,101 @@ last vector (`DetailUniforms::relief`, the former spare), so it needs no new bin
   bump isn't stored in the `.pbr` file (read back instead - a CHORD map whose normals were rescaled to the texture's
   bump reads back that bump too, but a hand-made map with unrelated normals and height would get a wrong depth); the
   kinds' weights are first guesses.
+
+### Characters (`rt_characters`)
+
+The skaters, the CAS parts and the peds were the flattest things on screen with `rt_pbr` on: one texture of painted skin,
+flat clothes, an ordinary highlight on hair. `[Graphics] rt_characters=1` (off by default; with `rt_pbr`) gives their
+models surface maps of their own and shades skin, cloth and hair as such; `rt_characters_skin` / `_cloth` / `_hair`
+(0 - 2, default 1) set each; `rt_ao_characters` (0 - 1, default 1) is the ray-traced occlusion's strength on them.
+
+- **Why the skinned draws had no maps.** Nothing in the draw path left them out: `pc_mesh_render`'s skinned meshes
+  draw with the material's pixel shader (or the coloured one), lit by lights with normals, and `surface_draw` gives
+  any such draw `kSurfaceLighting | kSurfaceLit` and - with a map on its first texture - `kSurfaceMap`; the model
+  dictionaries (`load_model_textures` -> `load_tex_dict`, by name) are looked up for a `.pbr` like the levels'. The tool
+  simply made none: `tools/pbr_maps` walked `levels\` only. So without maps they were already lit per pixel with
+  their vertex normals - interpolated, smooth: the faceting fix the rays needed (the depth's per-triangle normals,
+  `rays_mask`) is not needed here, and the maps' tangent frame (per triangle, from the screen derivatives) bends that
+  smooth normal; skinned meshes get the same smooth shading in the per-pixel path as anything else.
+- **The maps** (`tools/pbr_maps/models.ts`; `pbr_maps.ts make --game <folder> --models`, `--models-only`;
+  `unpack_game.ts --pbr-maps` makes them too): the character dictionaries - `models\Skater_*`, `Ped_*`, `Peds`,
+  `Cutscenes`, `Animals` (shadows and everything else under `models\` left out), loose, in `Data\pre`'s archives or the
+  data overlay - with the model's `.skin.xbx` read as a scene for the materials (overlays, environment passes skipped
+  as for the levels). Each entry carries `kFlagModel` (`formats/surface_map_format.h`, the entry's former spare
+  flags byte; 0 in every older file): the game uses it only with `rt_characters` on - off, the draw is exactly as with
+  no map (lit per pixel with its normals, as before), and neither the material table (`surface_map_for`) nor the
+  reflections' F0 see it. No detail layer, de-lighting or relief on them.
+- **The classes** (six new ones, 12 - 17; an older reader takes them as the default class):
+
+  | class | roughness | base | F0 | bump | shading |
+  |---|---|---|---|---|---|
+  | skin | 0.45 - 0.7 | 0.55 | 0.028 | 0.08 | `kDetailSkin` |
+  | cloth | 0.75 - 0.98 | 0.88 | 0.04 | 0.9 | `kDetailCloth` |
+  | denim | 0.7 - 0.95 | 0.85 | 0.04 | 1.1 | `kDetailCloth` (sheen x 0.6) |
+  | leather | 0.3 - 0.65 | 0.45 | 0.04 | 0.45 | GGX alone |
+  | rubber (soles, pads) | 0.6 - 0.9 | 0.75 | 0.04 | 0.6 | GGX alone |
+  | hair | 0.3 - 0.6 | 0.42 | 0.046 | 0.6 | `kDetailHair` |
+
+  plus the world's metal (watches, rings, chains, buckles) and wood (boards). Skin's relief is pores and creases far
+  below a 32 - 128 texel face: almost none; cloth's and denim's weave and painted folds strong.
+- **How a texture is classed** (`classifyCharacter`): the game's dictionaries keep no texture names, but the CAS parts are
+  one dictionary each, so the dictionary's name is the first evidence - `Hair_*` (and bangs, mohawk, ponytail...) hair;
+  `Hands`, `Face_*`, `Head_*`, `*_Legs` skin; `pant_*`, `shorts`, `cargo` legwear (denim when blue: hue 195 - 240,
+  saturation 0.15 - 0.65; else cloth); `*leather*` leather; `*denim*`, `*jean*` denim; shoes, kneepads rubber; shirts,
+  hoodies, jackets, hats, socks cloth; watches, rings metal; boards wood; `Anl_*` fur (cloth). Then each texture's
+  skin share (`skinShare`: the share of its visible texels whose colour is skin's - red over green over blue, hue
+  (g - b) / (r - b) 0.1 - 0.9, saturation (r - b) / r 0.11 - 0.75, not near black): a skin-named dictionary's texture is
+  skin from 30% (else default - eyes, teeth, brows: plain per-pixel lighting, no cloth bump embossing an eye); a whole body's (the pros, the peds, the
+  cutscenes: `Skater_Hawk`, `Ped_*`, `*_BODY`, no telling name) skin from 50%, else denim when blue, else cloth; a
+  garment is never skin - a brown jacket and a tanned arm are the same colour - but a garment with 15 - 85% skin texels
+  (an atlas of a shirt and the arms in it) gets `kFlagSkinTexels`: its skin-coloured texels are shaded as skin. Hair
+  keeps its cut-out strands (the level rules' cut-out skip waived, as foliage's). A hair texture records which way its
+  strands run (`kFlagStrandsU`: its luma changes more along v than along u). On the main install: 628 dictionaries,
+  1,452 maps in 27 s (60 MB) - cloth 640, skin 474, denim 81, default 78, wood 71, hair 57, rubber 32, metal 15,
+  leather 4; skipped 674 (269 overlays, 191 see-through, 120 cut-outs, 92 flat art).
+- **The shading** (`ff_shaders.cpp` "the characters", `character_lighting`; only with `kSurfaceMap` and `kSurfaceLit`:
+  a character's map lit by the draw's lights): three free bits of the fragment key's `detail` byte - `kDetailSkin`,
+  `kDetailCloth`, `kDetailHair` (the key stays 52 bytes; `normalised()` keeps them only lit by lights, never with the
+  detail layer's bits, hair alone) - and a fifth vector of the detail block, `DetailUniforms::character` (strengths,
+  how far skin follows the texel's colour, the strands' axis; the other detail blocks stop before it, so their shaders
+  are unchanged). Per light:
+  - skin: the light wrapped round the terminator per channel, w = (0.45, 0.2, 0.12) k, (N.L + w) / (1 + w) clamped -
+    red reaches furthest into the shade, as light scattered under the skin does; a faint translucency, (1, 0.35, 0.2)
+    x 0.25 k x max(V.-L, 0)^4 x (1 - |N.V|): light from behind through the thin edges seen edge-on (ears, fingers).
+    k = `rt_characters_skin` x the texel's skin weight (stage 0's colour against skin's, `skinTexel` with soft edges) -
+    followed 60% on a skin texture (eyes, brows and lips less skin), wholly on a garment's skin texels;
+  - cloth: a sheen, 0.35 x s x (1 - N.V)^3 x (0.5 + 0.5 N.L), added to the light - a soft rim at grazing views, tinted
+    by the cloth because the light is multiplied by the texture; s = `rt_characters_cloth` (x 0.6 denim; x (1 - skin
+    weight) on a garment with skin texels);
+  - hair: Kajiya-Kay's highlight along the strand - T stage 0's u or v direction from the per-pixel frame, shifted
+    along the bent normal by (the map's height - 0.5) x 0.6 so the highlight wavers along the strands; sin(T, H)^e x
+    0.4 x smoothstep(0, 0.2, N.L), e = 2 / roughness^4 (4 - 512) - in place of GGX's (x `rt_characters_hair`; GGX's
+    x (1 - it) below 1).
+  At strength 0 a class's bit isn't set: that draw is a plain surface-mapped one.
+- **Occlusion on characters** (`rt_ao_characters`): the AO's rays already find, per pixel, whether it shows an object
+  (`rays_mask`, a ray from the camera against the objects alone); where that object's instance is skinned
+  (`rt::kSkinned` in the geometry table's instance flags) the pixel's occlusion is x the setting (the trace's push
+  constants, per mille) before the history - the skater in a dark corner keeps more of his own light. 1 (the default)
+  leaves every pixel as before.
+- **Off is as before.** `rt_characters=0`: model maps unused (`map_used`), no character bits; `thug2_ff_shader_check
+  --no-gpu --dump` writes the same 50,180 shaders byte for byte as main's. `--characters` (with `--surface`) adds every
+  lit surface-mapped key with skin, cloth, both and hair (32 fragment keys: 99,074 shaders, none failed).
+- **Checked.** `thug2_vulkan_pbr_check` (+19 checks, the RTX 5070 Ti and the AMD Radeon, validation 0): a model's map
+  classed skin (lit from the front, from behind for the translucency, at strength 2 with u mirrored), cloth, denim with
+  skin texels lit from behind, hair with its strands along v, along u with the mapping turned 90 degrees, at half
+  strength - each of 11,775 judged pixels against the processor's same formulas with the quad's own tangent frame:
+  100% within 0.003, the worst 0.0006; each moves 4,800 - 11,775 pixels from a plain map's picture; `rt_characters`
+  off with a skin and a hair map (from behind): the picture of no map; at strength 0: a plain map's. `thug2_format_check`
+  and `pbr_file.test.ts`: the class and flags byte. `tools/pbr_maps/models.test.ts`: the dictionaries picked, the names'
+  hints, skin's texels, the rules, the strands' axis. `thug2_options_check`: the five rows.
+- **Cost** (`thug2_vulkan_pbr_check --perf`, a full-screen 1920 x 1080 layer): RTX 5070 Ti 0.044 ms a plain lit map,
+  0.056 skin, 0.060 a garment with skin texels, 0.059 hair; the AMD Radeon integrated GPU 2.09, 2.66, 2.75, 2.52 ms.
+  The characters cover a few percent of the screen.
+- **Not done yet:** the game run (the look is the user's to judge - see the checklist); a texture the CAS rebuilds into
+  a new texture object (`PcTexture::copy_from`, an edit's kept copy) has no map (recoloured in place it keeps it); the
+  asset loader's dictionaries handed over as memory (`load_tex_dict_from_memory`) get none, as the levels'; the classes
+  come from names and colour, so a skin-coloured garment in a whole-body atlas is skin; leather and rubber have no
+  shading of their own beyond their roughness; the translucency uses the silhouette as its thickness (no thickness map).
 
 ### Art style: the toon filter (`rt_style`)
 
@@ -2977,7 +3119,7 @@ them at once).
 | R2 | Acceleration structures: a BLAS per static mesh at scene load, refit / rebuild for CPU-skinned meshes, the TLAS per frame | R1, V7, x64 | done (the receiving side; the meshes arrive with R1): `gpu_vulkan/vulkan_rt_scene` - a BLAS per registered mesh from the Gpu's own buffers (16 / 32-bit indices, offsets, strips listed), static ones compacted, dynamic ones refitted (rebuilt every 32 refits); the TLAS per frame in flight from the record (custom index = material; mask 0x01 world / 0x02 objects / 0x04 alpha-tested / 0x80 no shadow, an alpha test against 1/255 counting as opaque), handed to R4's shadow pass; materials forwarded to R3's table; `current_scene()` for the effects; in the game (with R1) foun's 1,239 meshes take 3.7 MB of BLAS (11.5 MB before compaction) and `rtprobe` meets `colprobe` (90.002 / 90.000); `thug2_vulkan_rt_check` traces thousands of rays against a CPU reference on both GPUs here, 0 validation messages (core + sync); automation `rtprobe` / `colprobe` |
 | R3 | The material table and bindless textures | R1, V6 | after V11 and the x64 port - done: `gpu_vulkan/vulkan_rt_materials` (`MaterialTable`, made with `ray_tracing=1`): a record per material id in a storage buffer (scalar layout, grown with a new set), textures as one partially bound, update-after-bind array of sampled images (a slot per texture, white once released, reused after the frames in flight), 32 samplers (address u x v x nearest / linear) picked per material, and the GLSL hit shaders include (`material_glsl()`: `material()`, `material_sample()`, the alpha test); `thug2_vulkan_rt_materials_check` reads it back through a compute shader on both GPUs here |
 | R4 | Ray-traced directional shadows (ray queries in the lighting pass), an ini option, off by default | R2 | after R2 - done (waits for R1's light and R2's TLAS): `gpu_vulkan/vulkan_rt_shadows` (`[Graphics] rt_shadows`, `rt_shadow_strength` / `_softness` / `_rays` / `_objects`): `draw_viewport` tells `rt_scene`'s view listeners when a viewport's opaque world, objects and sky are drawn (`rt::opaque_view_drawn`, before the transparent passes); one full-screen pass then reads the depth (each sample of a multisampled target when the device has sample-rate shading, else sample 0), rebuilds the world position with the view's inverse view x projection and the normal from the nearer neighbours' depths, traces a ray query toward the frame record's directional light (instance mask 0x01 world, + 0x02 objects; opaque, first hit) and multiplies the colour by 1 - strength where it is blocked; soft shadows trace several rays over the sun's disc (no denoiser). The TLAS is handed over with `rt_shadows_set_scene()`; without it or a directional light the pass is skipped (logged once). `thug2_vulkan_rt_shadow_check` compares the pass with a processor ray-cast pixel by pixel (one sample, four, objects, soft, a split view, the sky test) on both GPUs here; `tools/game/rt_shadows_check.ts` checks it in the game. The sun is the level's baked one (`engine/gfx/rt_sun`: fitted to the world's vertex colours; none indoors), shadows are dropped where the bake disagrees and under roofs - above, "The sun and where the shadows fall" |
-| R5 | Reflections / ambient occlusion and a denoiser | R2, R3 | done - ambient occlusion and the denoiser: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_ao`, `rt_ao_strength` / `_radius` / `_rays` / `_denoise`, off by default) listens at `rt::opaque_view_drawn` after R4 and runs compute passes over images of the viewport's size - the rays (world position and normal rebuilt from the depth as R4 does - sample 0's own position in a multisampled target -, `rt_ao_rays` cosine-weighted ray queries up to `rt_ao_radius` world units, masks 0x01 + 0x02, directions from a 2D R2 sequence advanced each frame and turned per pixel by a hash), the temporal accumulation (the world position reprojected through the previous frame's camera of that viewport, bilinear over the texels whose guide agrees - on the pixel's plane, normal within ~25 degrees -, the history clamped to the 3x3 spread of this frame's rays plus a noise floor, up to 32 frames; nothing agrees: it starts again), three a-trous passes (5x5 B3 kernel at steps 1, 2, 4, weighted by normal, plane distance and the noise the history's length leaves) - then one full-screen multiplying pass, colour x (1 - strength x occlusion). Histories per viewport (rectangle + target size, up to 4). The TLAS comes from R2 through `rt_effects_set_scene_locked()`. `thug2_vulkan_rt_effects_check` (38 checks, both GPUs here, validation with synchronization 0): the raw rays against the same directions traced on the processor (50k clear-cut pixels exact, one sample and four), the denoised still camera against a 256-ray reference (mean error 0.003, 99th percentile 0.035), a moved camera's histories kept where the surface was seen (47k pixels) and restarted where it was disoccluded (1.5k), no NaN; `tools/game/rt_shadows_check.ts --effect ao` checks it in the game. Reflections: `gpu_vulkan/vulkan_rt_reflections` (`[Graphics] rt_reflections`, `rt_reflection_strength`, off by default), a listener after R4's and the AO's. Which surfaces: the game marks shiny ones with an environment-mapped material pass (pass flag 0x8, a sky picture sphere-mapped on); R1's registration gives `rt::Material::reflectivity` (that pass's brightest colour channel, doubled as drawn, times its fixed alpha where its blend mode takes one) and `environment_pass`, carried into R3's record (48 bytes a row). Hit shading: `rt::Geometry` has the texture coordinates' and colour's offsets and formats (R1 from the mesh's offsets and vertex format), R2 writes a geometry table per frame (`GeometryRecord`: the vertex / index buffers' device addresses as the frame uses them, the layout, strips as its own 32-bit lists) bound beside the TLAS, and `scene_geometry_glsl()` fetches a hit triangle's vertices through `GL_EXT_buffer_reference`. The pass: a primary ray per pixel (toward the depth's world point; kept when it ends there) identifies the surface and its material - no per-pixel material target, and nothing at all while the frame has no reflective instance; a reflective one gets the triangle's flat normal and one mirror ray (masks 0x01 + 0x02 + 0x04, alpha tested along the way), its hit shaded with the material's texture at the interpolated texture coordinates (the level from the ray's footprint: the pixel's spread over both legs), times the vertex colour doubled as the game's pixel shaders do (objects: the frame's ambient and directional lights); a miss leaves the pixel to the game's own environment map. A perfect mirror is one deterministic ray: no noise, so no denoiser. A full-screen pass mixes the colour toward it by reflectivity x strength (alpha kept; the pixels without a reflection discarded). `thug2_vulkan_rt_reflections_check` (39 checks, both GPUs, validation and synchronization validation 0): texture coordinates, colours and positions at 2100 hits through the table in every mesh layout (16- / 32-bit indices, a 16-bit strip from an odd index, unindexed lists and strips, offsets, an instance scaled, one with neither attribute) against the meshes' own; a mirror floor (a 32-bit strip) reflecting a box with an 8 x 8 texture, ~9000 clear-cut pixels each the processor's texel x vertex colour, one sample and four, strength 1 and 0.4; the box, the sky and the floor that mirrors nothing exactly as without the pass; nothing reflective or the setting off: no pass. `tools/game/rt_shadows_check.ts --effect reflections` checks it in the game. Not done: fog on the reflection, back faces treated as surfaces, rough (glossy) reflections beyond glass's (see "Water, glass and the skater's shadow": Fresnel, masks, rough glass) |
+| R5 | Reflections / ambient occlusion and a denoiser | R2, R3 | done - ambient occlusion and the denoiser: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_ao`, `rt_ao_strength` / `_radius` / `_rays` / `_denoise`, off by default; `rt_ao_characters` - "Characters") listens at `rt::opaque_view_drawn` after R4 and runs compute passes over images of the viewport's size - the rays (world position and normal rebuilt from the depth as R4 does - sample 0's own position in a multisampled target -, `rt_ao_rays` cosine-weighted ray queries up to `rt_ao_radius` world units, masks 0x01 + 0x02, directions from a 2D R2 sequence advanced each frame and turned per pixel by a hash), the temporal accumulation (the world position reprojected through the previous frame's camera of that viewport, bilinear over the texels whose guide agrees - on the pixel's plane, normal within ~25 degrees -, the history clamped to the 3x3 spread of this frame's rays plus a noise floor, up to 32 frames; nothing agrees: it starts again), three a-trous passes (5x5 B3 kernel at steps 1, 2, 4, weighted by normal, plane distance and the noise the history's length leaves) - then one full-screen multiplying pass, colour x (1 - strength x occlusion). Histories per viewport (rectangle + target size, up to 4). The TLAS comes from R2 through `rt_effects_set_scene_locked()`. `thug2_vulkan_rt_effects_check` (38 checks, both GPUs here, validation with synchronization 0): the raw rays against the same directions traced on the processor (50k clear-cut pixels exact, one sample and four), the denoised still camera against a 256-ray reference (mean error 0.003, 99th percentile 0.035), a moved camera's histories kept where the surface was seen (47k pixels) and restarted where it was disoccluded (1.5k), no NaN; `tools/game/rt_shadows_check.ts --effect ao` checks it in the game. Reflections: `gpu_vulkan/vulkan_rt_reflections` (`[Graphics] rt_reflections`, `rt_reflection_strength`, off by default), a listener after R4's and the AO's. Which surfaces: the game marks shiny ones with an environment-mapped material pass (pass flag 0x8, a sky picture sphere-mapped on); R1's registration gives `rt::Material::reflectivity` (that pass's brightest colour channel, doubled as drawn, times its fixed alpha where its blend mode takes one) and `environment_pass`, carried into R3's record (48 bytes a row). Hit shading: `rt::Geometry` has the texture coordinates' and colour's offsets and formats (R1 from the mesh's offsets and vertex format), R2 writes a geometry table per frame (`GeometryRecord`: the vertex / index buffers' device addresses as the frame uses them, the layout, strips as its own 32-bit lists) bound beside the TLAS, and `scene_geometry_glsl()` fetches a hit triangle's vertices through `GL_EXT_buffer_reference`. The pass: a primary ray per pixel (toward the depth's world point; kept when it ends there) identifies the surface and its material - no per-pixel material target, and nothing at all while the frame has no reflective instance; a reflective one gets the triangle's flat normal and one mirror ray (masks 0x01 + 0x02 + 0x04, alpha tested along the way), its hit shaded with the material's texture at the interpolated texture coordinates (the level from the ray's footprint: the pixel's spread over both legs), times the vertex colour doubled as the game's pixel shaders do (objects: the frame's ambient and directional lights); a miss leaves the pixel to the game's own environment map. A perfect mirror is one deterministic ray: no noise, so no denoiser. A full-screen pass mixes the colour toward it by reflectivity x strength (alpha kept; the pixels without a reflection discarded). `thug2_vulkan_rt_reflections_check` (39 checks, both GPUs, validation and synchronization validation 0): texture coordinates, colours and positions at 2100 hits through the table in every mesh layout (16- / 32-bit indices, a 16-bit strip from an odd index, unindexed lists and strips, offsets, an instance scaled, one with neither attribute) against the meshes' own; a mirror floor (a 32-bit strip) reflecting a box with an 8 x 8 texture, ~9000 clear-cut pixels each the processor's texel x vertex colour, one sample and four, strength 1 and 0.4; the box, the sky and the floor that mirrors nothing exactly as without the pass; nothing reflective or the setting off: no pass. `tools/game/rt_shadows_check.ts --effect reflections` checks it in the game. Not done: fog on the reflection, back faces treated as surfaces, rough (glossy) reflections beyond glass's (see "Water, glass and the skater's shadow": Fresnel, masks, rough glass) |
 | H1 | HDR targets, tone mapping and colour grading (`rt_hdr`): the base the added light (GI, fog) needs | V7, V8 | done - `gpu_vulkan/vulkan_hdr` (above, "HDR and tone mapping"): float back buffer and world targets, the tone-mapping pass last at `world_drawn`, `thug2_vulkan_hdr_check`, `rt_shadows_check.ts --effect hdr` |
 | R5 fog | Volumetric fog and light shafts | R2, R4's baked sun | done - `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default): the level's own linear fog as a medium of the same transmittance, lit by the baked sun through ray queries at half resolution with temporal accumulation and a depth-aware upsample; replaces the game's fog (`rt_fog_mode=0`) or adds the shafts over it (1); a level without fog gets a haze's shafts (`rt_fog_haze`) - "Volumetric fog and light shafts" above |
 | GI | One-bounce diffuse indirect light ("secondary lighting") with ray queries | R2, R3, R5, the baked sun | done: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_gi`, `rt_gi_strength` / `_rays` / `_distance` / `_denoise`, off by default), a view listener at `kIndirect`: the sun's light bounced once off what is around a pixel (hits shaded with R3's material at R2's texture coordinates, a shadow ray toward the level's baked sun), R5's denoiser over the colour, added to the frame as strength x the pixel's albedo x the light through a screen blend (see "One-bounce indirect light"). `thug2_vulkan_rt_gi_check` (39 checks, both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect gi`; 1080p on the RTX 5070 Ti: 1.5 / 2.0 / 2.4 ms for 1 / 2 / 4 rays |

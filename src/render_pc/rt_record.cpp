@@ -1086,8 +1086,15 @@ void relit_work(rt::RayTracing& rt)
 // samples as the bake's grid, their colours the relit ones, traced toward it - the relit colours hold the bake's
 // shadows turned to that sun, and lamps, glows and the artists' own light (the relit residual) keep the traced shadow
 // off where they kept the bake bright. Made once a lighting; until then the traced shadow everywhere.
+// Turned off (kOtherSunAgreement false): the relit colours hold a new sun too weakly (Boston's fit: sun 0.23 against sky
+// 0.66, sampled per vertex), so hundreds of cells read "lit anyway" and cut square, hard-edged lit holes into real
+// shadows. A sun that isn't the baked one now gets the traced shadow everywhere (the time of day moves it all the time).
+constexpr bool kOtherSunAgreement = false;
 void other_sun_work(rt::RayTracing& rt)
 {
+    if (!kOtherSunAgreement) {
+        return;
+    }
     State& st = state();
     const rt::SceneSun sun = rt::scene_sun();
     if (!sun.found() || sun.origin == rt::SunOrigin::kLevel || rt::agreement_for(sun.toward) != nullptr) {

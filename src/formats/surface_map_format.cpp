@@ -56,7 +56,7 @@ bool read_entries(std::span<const uint8_t> file, std::vector<Entry>* entries)
         const uint8_t material = reader.u8();
         entry.material_class = material < kClassCount ? static_cast<MaterialClass>(material) : MaterialClass::kDefault;
         entry.generator = static_cast<Generator>(reader.u8());
-        (void)reader.u8();
+        entry.flags = reader.u8(); // (added for the characters: 0 in the files made before them)
         (void)reader.u8();
         entry.f0 = reader.f32();
         entry.offset = reader.u32();
@@ -99,7 +99,7 @@ std::vector<uint8_t> write_file(std::span<const Entry> entries, std::span<const 
         writer.u16(entry.height);
         writer.u8(static_cast<uint8_t>(entry.material_class));
         writer.u8(static_cast<uint8_t>(entry.generator));
-        writer.u8(0);
+        writer.u8(entry.flags);
         writer.u8(0);
         writer.f32(entry.f0);
         writer.u32(static_cast<uint32_t>(offset));
