@@ -44,6 +44,7 @@
 #include <vector>
 #include <volk.h>
 
+#include "tests/check_window.h"
 #include "tests/no_error_dialogs.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -1653,7 +1654,7 @@ int main(int argc, char** argv)
     }
     // (made hidden, put on its display, then shown)
     SDL_SetWindowPosition(window, position, position);
-    SDL_ShowWindow(window);
+    tests::show_behind(window);
     // (a thread the check starts can throw - std::thread's system_error: reported as a failure)
     int result = 1;
     try {
