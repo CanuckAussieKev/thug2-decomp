@@ -124,9 +124,9 @@ void SkaterPhysicsModule::do_ground_physics()
     collision_events::checkpoint(this, "gravity"); // (not original)
     if (forces) {
         apply_ground_friction();
+        check_side_feelers(); // (not original: forces - once a 1/60 s frame before its move at another tick rate)
     }
     frame_.length = tick_length;
-    check_side_feelers();
     collision_events::checkpoint(this, "friction-side-feelers"); // (not original)
 
     // The move this frame - skitching, none of its own: the skitched object's velocity (scaled), 0x00501DB0.
@@ -174,18 +174,24 @@ void SkaterPhysicsModule::do_ground_physics()
     }
 
     // Still on the ground.
-    if (powerslide_ == 0U) {
+    // (not original: at another tick rate the turn and the velocity turned along the facing once a 1/60 s frame, after
+    // its last move, over the whole frame - as the 60 Hz run's after its one move; at 60 every tick)
+    const bool frame_ends = frame_ends_this_tick();
+    const float move_length = frame_.length;
+    frame_.length = force_step();
+    if (powerslide_ == 0U && frame_ends) {
         turn_on_ground();
     }
+    frame_.length = move_length;
     if (bike && state_of(this) == kGround) {
         thaw_bmx::manual_pitch(this);             // (not original: THAW 0x005E54BA)
     }
     collision_events::checkpoint(this, "turned"); // (not original)
-    if (lock_velocity_ == 0U) {
+    if (lock_velocity_ == 0U && frame_ends) {
         get_along_facing(&entity()->vel());
     }
     collision_events::checkpoint(this, "along-facing-4FF590"); // (not original)
-    if (bit_mark(this, PoseFlag::kSkitching) == 0U) {
+    if (bit_mark(this, PoseFlag::kSkitching) == 0U && frame_ends) { // (not original: frame_ends, as the turn above)
         test_lateral_hits();
         lean_push_off_wall();
     }
@@ -193,7 +199,7 @@ void SkaterPhysicsModule::do_ground_physics()
     // (not original: THAW 0x005CCDD0 returns at once on the bike: rolling backwards faster
     // than Skater_Flip_Speed (1) the skater is turned round to ride fakie, the bike isn't - it rolls on backwards in
     // THAW's backwards balance, bike_backwards_balance_trick)
-    if ((lock_velocity_ == 0U) && !bike) {
+    if ((lock_velocity_ == 0U) && !bike && frame_ends) {
         turn_round_if_backwards();
     }
     collision_events::checkpoint(this, "turn-round-4FF920"); // (not original)
@@ -245,6 +251,11 @@ void SkaterPhysicsModule::tick_balance_trick(bool bike, bool forces)
 // step once more, along the velocity.
 void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
 {
+    // (not original: at another tick rate the ticks before the frame's last only move; the last puts the skater where
+    // the frame began and makes the frame's whole move with the feelers, as the 60 Hz run's update does - grid_ground_move)
+    if (!grid_ground_move(&step)) {
+        return;
+    }
     bool again = false;
     for (;;) {
         maths::Vec4& skater_position = entity()->at_point();

@@ -122,6 +122,13 @@ public:
     // Not original: on the ground at another tick rate, the velocity the frame's first update moved with (noted from
     // `velocity` in that update; false then, and at 60): the later ticks move with it while nothing else changed it.
     bool frame_move_velocity(maths::Vec4* velocity);
+    // Not original: this tick ends a 1/60 s frame (or takes a whole one; every tick at 60) - what the 60 Hz run's update
+    // does after its move (the turn on the ground, the velocity along the facing) happens then.
+    [[nodiscard]] bool frame_ends_this_tick() const;
+    // Not original: the ground move at another tick rate - in a tick before the frame's last, `step` is made and false
+    // returned (no feelers); in its last the skater is put back where the frame began, `step` becomes the frame's whole
+    // move and true is returned (the move with the feelers follows - the 60 Hz run's segment). True at 60, or riding.
+    bool grid_ground_move(maths::Vec4* step);
 
     // --- core_jump.cpp: jumping, skitching, the script member functions around them, the wallplant state ---
     // 0x005092E0: the TriggerScript of the rail node being ground (+0x22C) - or of the nearest one before it (back

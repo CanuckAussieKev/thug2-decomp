@@ -31,8 +31,11 @@ struct GridState {
     bool placed = false;     // put somewhere new since the last update (note_placed)
     bool whole = false;      // this update takes a whole frame (take_whole_frame)
     maths::Vec4 move_vel;    // the velocity the frame's first update moved the skater with (frame_move_velocity)
-    maths::Vec4 end_vel;     // the velocity the last update ended with
     bool move_valid = false; // move_vel is this frame's and the last update ended on the ground
+    maths::Vec4 ground_from; // where the frame's ground move began (grid_ground_move)
+    maths::Vec4 ground_step; // the frame's ground move so far
+    uint64_t ground_frame = 0;
+    bool ground_frame_valid = false;
 };
 GridState& grid_state(const SkaterPhysicsModule* skater)
 {
@@ -127,12 +130,56 @@ bool SkaterPhysicsModule::frame_move_velocity(maths::Vec4* velocity)
         grid.move_valid = true;
         return false;
     }
-    if (!grid.move_valid || !(entity()->vel() == grid.end_vel)) {
+    if (!grid.move_valid || !(entity()->vel() == grid.move_vel)) {
         grid.move_valid = false; // (something else changed the velocity since: the tick's own)
         return false;
     }
     *velocity = grid.move_vel;
     return true;
+}
+
+bool SkaterPhysicsModule::grid_ground_move(maths::Vec4* step)
+{
+    if (tick_rate::original()) {
+        return true;
+    }
+    GridState& grid = grid_state(this);
+    const uint64_t frame = frame_clock::grid_frame_of_tick();
+    if (get_tracker(this) || bit_mark(this, PoseFlag::kSkitching) != 0U) {
+        grid.ground_frame_valid = false; // (riding something: tick by tick)
+        return true;
+    }
+    if (forces_this_tick()) {
+        grid.ground_frame = frame;
+        grid.ground_frame_valid = true;
+        grid.ground_from = entity()->at_point();
+        grid.ground_step = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    }
+    if (!grid.ground_frame_valid || grid.ground_frame != frame) {
+        return true;
+    }
+    grid.ground_step.x += step->x;
+    grid.ground_step.y += step->y;
+    grid.ground_step.z += step->z;
+    grid.ground_step.w += step->w;
+    if (!frame_ends_this_tick()) {
+        maths::Vec4& position = entity()->at_point();
+        position.x += step->x;
+        position.y += step->y;
+        position.z += step->z;
+        position.w += step->w;
+        return false;
+    }
+    grid.ground_frame_valid = false;
+    entity()->at_point() = grid.ground_from;
+    entity()->old_pos() = grid.ground_from;
+    *step = grid.ground_step;
+    return true;
+}
+
+bool SkaterPhysicsModule::frame_ends_this_tick() const
+{
+    return tick_rate::original() || frame_clock::grid_frame_ends() || grid_state(this).whole;
 }
 
 bool SkaterPhysicsModule::forces_this_tick() const
@@ -232,7 +279,9 @@ void SkaterPhysicsModule::tick_frame()
     collision_events::checkpoint(this, "state-physics"); // (not original)
     update_speed_override();
     collision_events::checkpoint(this, "after-4FF200"); // (not original)
-    try_grind(false);                                   // (inlined in the original)
+    if (frame_ends_this_tick()) {
+        try_grind(false); // (inlined in the original; not original: at another tick rate after the frame's last move)
+    }
     collision_events::checkpoint(this, "try-grind");    // (not original)
     friction_.update_free_revert();
     collision_events::checkpoint(this, "free-revert"); // (not original)
@@ -257,7 +306,6 @@ void SkaterPhysicsModule::tick_frame()
     }
     if (!tick_rate::original()) {
         GridState& grid = grid_state(this); // (not original: frame_move_velocity)
-        grid.end_vel = entity()->vel();
         grid.move_valid = grid.move_valid && state_of(this) == kGround;
     }
     render::set_current_cache(nullptr);
