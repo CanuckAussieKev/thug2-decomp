@@ -433,6 +433,7 @@ inline constexpr float kMotionBlurShutter = 0.5F; // (rt_motion_blur_strength's 
 inline constexpr float kDofStrength = 0.4F;       // (rt_dof_strength's: mild)
 inline constexpr float kFisheyeStrength = 0.75F;  // (rt_fisheye_strength's: equisolid - fisheye_lens.h kStrengthDefault)
 inline constexpr float kFisheyeVignette = 0.5F;   // (rt_fisheye_vignette's)
+inline constexpr float kFisheyeCircle = 0.5F;     // (rt_fisheye_circle's: rounded - the adapter's black corners, the 90s look)
 struct CameraFxSettings {
     bool motion_blur = false;
     float motion_blur_strength = kMotionBlurShutter; // the shutter's share of the frame's time (0 - 1)
@@ -450,7 +451,7 @@ struct CameraFxSettings {
     bool fisheye = false;
     float fisheye_strength = kFisheyeStrength;
     float fisheye_vignette = kFisheyeVignette;
-    float fisheye_circle = 0.0F;
+    float fisheye_circle = kFisheyeCircle;
 };
 void set_camera_fx_settings(const CameraFxSettings& settings);
 [[nodiscard]] CameraFxSettings camera_fx_settings();

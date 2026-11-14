@@ -1352,7 +1352,7 @@ void set_camera_fx_settings(const CameraFxSettings& settings)
     kept.grade_grain = finite_or(settings.grade_grain, 0.0F, 0.0F, 1.0F);
     kept.fisheye_strength = finite_or(settings.fisheye_strength, kFisheyeStrength, 0.0F, 1.0F);
     kept.fisheye_vignette = finite_or(settings.fisheye_vignette, kFisheyeVignette, 0.0F, 1.0F);
-    kept.fisheye_circle = finite_or(settings.fisheye_circle, 0.0F, 0.0F, 1.0F);
+    kept.fisheye_circle = finite_or(settings.fisheye_circle, kFisheyeCircle, 0.0F, 1.0F);
     std::vector<GradeLevel> levels;
     if (!parse_grade_levels(kept.grade_levels, &levels)) {
         get_log("[Graphics] rt_grade_levels=%s: a pair isn't <scene>:<look> - left out", kept.grade_levels.c_str());

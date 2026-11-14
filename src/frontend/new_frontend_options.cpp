@@ -641,7 +641,7 @@ const std::vector<Spec>& get_specs()
                         2, Apply::kLive),
         graphics_choice("rt_fisheye_circle", text_tools::kOptFisheyeCircle, text_tools::kOptFisheyeCircleHelp,
                         {{.value = "0", .label = text_tools::kFisheyeFullFrame}, {.value = "0.5", .label = text_tools::kFisheyeRounded}, {.value = "1", .label = text_tools::kFisheyePorthole}},
-                        0, Apply::kLive),
+                        1, Apply::kLive),
         // (the art styles: gpu_vulkan/vulkan_style.h, vulkan_style_looks.h, vulkan_style_film.h - the looks and their
         // knobs; cel is cel shading, the rendering mode above; the old 0 / 1 in the ini read as off / toon there, and
         // show as Off here until a style is picked)

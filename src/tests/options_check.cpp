@@ -141,7 +141,7 @@ const std::vector<Expected>& expected()
         {.key = "rt_fisheye", .fallback = "0", .live = true},
         {.key = "rt_fisheye_strength", .fallback = "0.75", .live = true},
         {.key = "rt_fisheye_vignette", .fallback = "0.5", .live = true},
-        {.key = "rt_fisheye_circle", .fallback = "0", .live = true},
+        {.key = "rt_fisheye_circle", .fallback = "0.5", .live = true},
         {.key = "rt_style", .fallback = "off", .live = true},
         {.key = "rt_style_strength", .fallback = "1", .live = true},
         {.key = "rt_style_smooth", .fallback = "4", .live = true},
