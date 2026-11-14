@@ -26,6 +26,8 @@
 #include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_rt_materials.h"
+#include "gpu_vulkan/vulkan_rt_scene.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -38,6 +40,7 @@ constexpr uint64_t kReportNoScene = 0x52340002U;
 constexpr uint64_t kReportTargets = 0x52340004U;
 constexpr uint64_t kReportPipeline = 0x52340005U;
 constexpr uint64_t kReportFirstPass = 0x52340006U;
+constexpr uint64_t kReportAlphaPipeline = 0x52340007U;
 
 constexpr float kMaxStrength = 1.0F;
 constexpr float kMaxSoftnessDegrees = 5.0F;
@@ -48,6 +51,8 @@ constexpr double kDegreesToRadians = 3.14159265358979323846 / 180.0;
 constexpr std::size_t kMatrixSide = 4;
 constexpr std::size_t kMatrixFloats = kMatrixSide * kMatrixSide;
 constexpr std::size_t kPushConstantBytes = 128; // (the space every Vulkan device has)
+constexpr uint32_t kBindingGeometry = 3;        // (added for the alpha-tested casters) the frame's geometry table
+constexpr uint32_t kMaterialSet = 1;
 constexpr double kSingular = 1e-300;            // a pivot this small: the matrix can't be inverted
 
 // The full-screen triangle (three vertices, no buffers).
@@ -62,7 +67,6 @@ void main()
 // The fragment shader: written to the colour target with a multiplying blend (colour x the output's rgb). PER_SAMPLE
 // and MULTISAMPLED are defined before it as the variant needs.
 constexpr const char* kFragmentBody = R"(
-#extension GL_EXT_ray_query : require
 layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;
 #ifdef MULTISAMPLED
 layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
@@ -148,10 +152,32 @@ float blocked_by(uint mask, vec3 origin, vec3 direction)
         return 0.0;
     }
     rayQueryEXT query;
+#ifdef ALPHA_TESTED
+    // (added for the alpha-tested casters - a cannon's spoked wheels, railings, foliage: instance mask 0x04, their
+    // instances not forced opaque) each such candidate is kept only where its material's alpha test passes at the hit
+    // (vulkan_rt_materials.h: its texel x its colour against its alpha reference, as the game's draw tests it); the
+    // opaque instances end the ray as before
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0, direction, pc.shape.z);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+            uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+            HitVertices v;
+            bool keep = true;
+            if (hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                             rayQueryGetIntersectionPrimitiveIndexEXT(query, false), v)) {
+                keep = material_alpha_passes_at(id, hit_uv(v, rayQueryGetIntersectionBarycentricsEXT(query, false)));
+            }
+            if (keep) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+    }
+#else
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,
                           direction, pc.shape.z);
     while (rayQueryProceedEXT(query)) {
     }
+#endif
     return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 0.0 : 1.0;
 }
 
@@ -278,6 +304,7 @@ struct PassPipeline {
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     bool per_sample = false;
+    bool alpha = false; // (added for the alpha-tested casters) the ALPHA_TESTED variant: alpha_layout's
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -286,6 +313,11 @@ struct ShadowState {
     VkAccelerationStructureKHR scene = VK_NULL_HANDLE;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
+    // (added for the alpha-tested casters) set 0 with the frame's geometry table at binding 3, and the material table's
+    // set 1 (its layout when made: none while the device has no table - the pass then traces the opaque casters alone)
+    VkDescriptorSetLayout alpha_set_layout = VK_NULL_HANDLE;
+    VkPipelineLayout alpha_layout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
     DeviceBuffer agreement;                  // the bake's agreement (update_agreement)
     uint64_t agreement_scene = ~uint64_t{0}; // the grid it holds (its BakedSun::scene; 0: none - the header says so)
@@ -401,6 +433,40 @@ bool ensure_layouts(Backend& state, std::string* error)
         *error = "the pipeline layout";
         return false;
     }
+    // (added for the alpha-tested casters) the same + the geometry table, and the material table's set
+    own.material_layout = state.materials.layout();
+    if (own.material_layout != VK_NULL_HANDLE) {
+        std::array<VkDescriptorSetLayoutBinding, 4> alpha_bindings{};
+        std::copy(bindings.begin(), bindings.end(), alpha_bindings.begin());
+        alpha_bindings.back() = {.binding = kBindingGeometry,
+                                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                 .descriptorCount = 1,
+                                 .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                 .pImmutableSamplers = nullptr};
+        const VkDescriptorSetLayoutCreateInfo alpha_set_info{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+            .bindingCount = static_cast<uint32_t>(alpha_bindings.size()),
+            .pBindings = alpha_bindings.data()};
+        if (vkCreateDescriptorSetLayout(device, &alpha_set_info, nullptr, &own.alpha_set_layout) != VK_SUCCESS) {
+            own.alpha_set_layout = VK_NULL_HANDLE;
+            own.material_layout = VK_NULL_HANDLE;
+        } else {
+            const std::array<VkDescriptorSetLayout, 2> both{own.alpha_set_layout, own.material_layout};
+            const VkPipelineLayoutCreateInfo alpha_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                                                        .pNext = nullptr,
+                                                        .flags = 0,
+                                                        .setLayoutCount = static_cast<uint32_t>(both.size()),
+                                                        .pSetLayouts = both.data(),
+                                                        .pushConstantRangeCount = 1,
+                                                        .pPushConstantRanges = &constants};
+            if (vkCreatePipelineLayout(device, &alpha_info, nullptr, &own.alpha_layout) != VK_SUCCESS) {
+                own.alpha_layout = VK_NULL_HANDLE;
+                own.material_layout = VK_NULL_HANDLE;
+            }
+        }
+    }
     if (!state.memory.create_buffer(kAgreementBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kUpload,
                                     &own.agreement) ||
         own.agreement.mapped == nullptr) {
@@ -440,17 +506,21 @@ void update_agreement(Backend& state, const std::array<float, 3>& to_light)
 }
 
 // The pipeline for a colour target (made on first use).
-VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, std::string* error)
+VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, bool alpha, std::string* error)
 {
     ShadowState& own = shadows();
     const bool multisampled = samples != VK_SAMPLE_COUNT_1_BIT;
     const bool per_sample = multisampled && state.context.enabled_features().sampleRateShading == VK_TRUE;
     for (const PassPipeline& made : own.pipelines) {
-        if (made.format == format && made.samples == samples && made.per_sample == per_sample) {
+        if (made.format == format && made.samples == samples && made.per_sample == per_sample && made.alpha == alpha) {
             return made.pipeline;
         }
     }
     if (!ensure_layouts(state, error)) {
+        return VK_NULL_HANDLE;
+    }
+    if (alpha && own.alpha_layout == VK_NULL_HANDLE) {
+        *error = "no layout for the alpha-tested casters";
         return VK_NULL_HANDLE;
     }
     const VkDevice device = state.context.device();
@@ -460,6 +530,14 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     }
     if (per_sample) {
         source += "#define PER_SAMPLE\n";
+    }
+    source += "#extension GL_EXT_ray_query : require\n";
+    if (alpha) {
+        // (added for the alpha-tested casters) the material table (set 1) and the frame's geometry table (binding 3)
+        source += "#define ALPHA_TESTED\n#define THUG2_MATERIAL_SET 1\n";
+        source += material_glsl();
+        source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 3\n";
+        source += scene_geometry_glsl();
     }
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source, error);
@@ -545,7 +623,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     info.pDepthStencilState = &depth;
     info.pColorBlendState = &blending;
     info.pDynamicState = &dynamic;
-    info.layout = own.layout;
+    info.layout = alpha ? own.alpha_layout : own.layout;
     VkPipeline pipeline = VK_NULL_HANDLE;
     const VkResult made = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
     vkDestroyShaderModule(device, fragment, nullptr);
@@ -554,7 +632,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
         return VK_NULL_HANDLE;
     }
     own.pipelines.push_back(
-        {.format = format, .samples = samples, .per_sample = per_sample, .pipeline = pipeline});
+        {.format = format, .samples = samples, .per_sample = per_sample, .alpha = alpha, .pipeline = pipeline});
     return pipeline;
 }
 
@@ -817,7 +895,21 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     std::string error;
-    const VkPipeline pipeline = pass_pipeline(state, colour->format, colour->samples, &error);
+    // (added for the alpha-tested casters) traced with their alpha test where the frame's geometry table belongs to the
+    // scene traced and the material table is there (the game's frames); otherwise the opaque casters alone, as before
+    const SceneView frame_scene = current_scene(state);
+    bool alpha = frame_scene.tlas == own.scene && frame_scene.geometry != VK_NULL_HANDLE && state.materials.ready() &&
+                 state.materials.descriptor_set() != VK_NULL_HANDLE && state.materials.layout() != VK_NULL_HANDLE &&
+                 (own.layout == VK_NULL_HANDLE || own.material_layout == state.materials.layout());
+    VkPipeline pipeline = pass_pipeline(state, colour->format, colour->samples, alpha, &error);
+    if (pipeline == VK_NULL_HANDLE && alpha) {
+        if (first_report(state, kReportAlphaPipeline)) {
+            get_log("vulkan: rt_shadows: the alpha-tested casters' pass couldn't be made (%s) - the opaque casters only",
+                    error.c_str());
+        }
+        alpha = false;
+        pipeline = pass_pipeline(state, colour->format, colour->samples, false, &error);
+    }
     Matrix to_world{};
     if (pipeline == VK_NULL_HANDLE) {
         own.failed = true;
@@ -857,18 +949,19 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         static_cast<float>(std::tan(static_cast<double>(own.settings.softness) * kDegreesToRadians)),
         static_cast<float>(soft ? own.settings.rays : 1U), kRayLength,
         static_cast<float>(own.settings.covered ? 0U : own.settings.sky_rays)};
-    const uint32_t mask = kMaskWorld | (own.settings.objects ? kMaskObjects : 0U);
+    const uint32_t mask = kMaskWorld | (own.settings.objects ? kMaskObjects : 0U) | (alpha ? kMaskAlphaTested : 0U);
     constants.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                         core::at(view.camera.position, 2),
                         std::bit_cast<float>(mask)};
 
     VkCommandBuffer commands = outside_pass(state);
     // the scene's build (recorded earlier on this queue) before the rays read it
+    // (and, for the alpha-tested casters, the geometry table's write before the shader reads it)
     const VkMemoryBarrier built{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                 .pNext = nullptr,
-                                .srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
-                                .dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR};
-    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                                .srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_HOST_WRITE_BIT,
+                                .dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT};
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_HOST_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &built, 0, nullptr, 0, nullptr);
     Memory::transition(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
     Memory::transition(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
@@ -907,7 +1000,9 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                                             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
     update_agreement(state, to_light);
     const VkDescriptorBufferInfo agreement{.buffer = own.agreement.buffer, .offset = 0, .range = kAgreementBytes};
-    std::array<VkWriteDescriptorSet, 3> writes{};
+    const VkDescriptorBufferInfo geometry{
+        .buffer = frame_scene.geometry, .offset = 0, .range = alpha ? frame_scene.geometry_bytes : VK_WHOLE_SIZE};
+    std::array<VkWriteDescriptorSet, 4> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -920,13 +1015,23 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     depth_write.dstBinding = 1;
     depth_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     depth_write.pImageInfo = &depth_image;
-    VkWriteDescriptorSet& agreement_write = writes.back();
+    VkWriteDescriptorSet& agreement_write = writes.at(2);
     agreement_write.dstBinding = 2;
     agreement_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     agreement_write.pBufferInfo = &agreement;
-    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, own.layout, 0,
-                              static_cast<uint32_t>(writes.size()), writes.data());
-    vkCmdPushConstants(commands, own.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PassConstants), &constants);
+    VkWriteDescriptorSet& geometry_write = writes.back();
+    geometry_write.dstBinding = kBindingGeometry;
+    geometry_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    geometry_write.pBufferInfo = &geometry;
+    const VkPipelineLayout layout = alpha ? own.alpha_layout : own.layout;
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0,
+                              static_cast<uint32_t>(writes.size()) - (alpha ? 0U : 1U), writes.data());
+    if (alpha) {
+        const VkDescriptorSet material_set = state.materials.descriptor_set();
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, kMaterialSet, 1, &material_set, 0,
+                                nullptr);
+    }
+    vkCmdPushConstants(commands, layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PassConstants), &constants);
     vkCmdDraw(commands, 3, 1, 0, 0);
     vkCmdEndRendering(commands);
     // the targets back where the Gpu's passes expect them; its bound state forgotten (pipeline, descriptors, dynamics)
@@ -945,10 +1050,11 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         if (colour->samples != VK_SAMPLE_COUNT_1_BIT) {
             traced = state.context.enabled_features().sampleRateShading == VK_TRUE ? "per sample" : "per pixel";
         }
-        get_log("vulkan: rt_shadows: the first shadow pass (%ux%u, %s, strength %.2f, softness %.2f deg x %u rays%s)",
+        get_log("vulkan: rt_shadows: the first shadow pass (%ux%u, %s, strength %.2f, softness %.2f deg x %u rays%s%s)",
                 width, height, traced,
                 static_cast<double>(own.settings.strength), static_cast<double>(own.settings.softness),
-                soft ? own.settings.rays : 1U, own.settings.objects ? ", objects cast" : "");
+                soft ? own.settings.rays : 1U, own.settings.objects ? ", objects cast" : "",
+                alpha ? ", alpha-tested casters by their alpha" : "");
     }
     return true;
 }
@@ -971,6 +1077,12 @@ void release_rt_shadows(Backend& state)
         if (own.layout != VK_NULL_HANDLE) {
             vkDestroyPipelineLayout(device, own.layout, nullptr);
         }
+        if (own.alpha_layout != VK_NULL_HANDLE) {
+            vkDestroyPipelineLayout(device, own.alpha_layout, nullptr);
+        }
+        if (own.alpha_set_layout != VK_NULL_HANDLE) {
+            vkDestroyDescriptorSetLayout(device, own.alpha_set_layout, nullptr);
+        }
         if (own.set_layout != VK_NULL_HANDLE) {
             vkDestroyDescriptorSetLayout(device, own.set_layout, nullptr);
         }
@@ -983,6 +1095,9 @@ void release_rt_shadows(Backend& state)
     own.vertex = VK_NULL_HANDLE;
     own.layout = VK_NULL_HANDLE;
     own.set_layout = VK_NULL_HANDLE;
+    own.alpha_layout = VK_NULL_HANDLE;
+    own.alpha_set_layout = VK_NULL_HANDLE;
+    own.material_layout = VK_NULL_HANDLE;
     own.sampler = VK_NULL_HANDLE;
     own.scene = VK_NULL_HANDLE;
     own.failed = false;

@@ -36,9 +36,13 @@
 // - The instance mask a ray is traced with (VkAccelerationStructureInstanceKHR::mask, set by the TLAS's builder):
 //     kMaskWorld   0x01  opaque level geometry that casts shadows      - always traced
 //     kMaskObjects 0x02  opaque objects: the skater, peds, vehicles    - traced with rt_shadow_objects=1
-//     0x04               alpha-tested casters (foliage, fences)        - not traced yet (needs the material table, R3)
+//     0x04               alpha-tested casters (foliage, fences, a cannon's spoked wheels) - traced by their alpha
 //     0x80               transparent / never a shadow caster           - never traced
-//   Every hit counts as opaque (gl_RayFlagsOpaqueEXT) and the first one ends the ray.
+//   The first hit ends the ray. The alpha-tested casters (added: their shadows were missing - a Boston cannon's wheels
+//   cast only their rims, leaving a gap between the wheels' shadows and the barrel's) count where their material's
+//   alpha test passes at the hit (the material table, R3, and the frame's geometry table) - in the game's frames; where
+//   there is no geometry table for the scene traced (the check program's own structures) only the opaque casters are
+//   traced, every hit opaque, as before.
 // - The skater: not a caster by default (rt_shadow_objects=0) - the original draws its own shadow under it, and a
 //   low-poly body shadowing itself looks wrong - but it receives the world's shadows. First-person and the editor's
 //   views are handled the same: any camera, any projection (the inverse of view x projection).
