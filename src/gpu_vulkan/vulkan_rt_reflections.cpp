@@ -50,6 +50,11 @@ constexpr uint64_t kReportNoMaterials = 0x52360008U;
 constexpr float kMaxStrength = 1.0F;
 constexpr float kMaxRoughness = 0.5F; // rt_glass_roughness at most (radians)
 constexpr uint32_t kRoughRays = 4;    // the rays a rough (glass) pixel traces
+// (added for the surface reflections) the roughest surface-map texel that reflects (perceptual roughness; faded out from
+// three quarters of it), a rough surface's cone per GGX alpha (radians), rt_reflection_surfaces at most
+constexpr float kSurfaceRoughest = 0.7F;
+constexpr float kSurfaceConePerAlpha = 1.0F;
+constexpr float kMaxSurfaces = 2.0F;
 constexpr float kOffsetScale = 1.0F; // the reflection ray's start pushed off the surface by this much, growing with distance
 constexpr uint32_t kGroupSide = 8;   // the trace pass's work groups: 8 x 8 pixels
 constexpr uint32_t kSurfaceGroup = 64; // the check's trace: rays per work group
@@ -100,12 +105,17 @@ layout(set = 0, binding = 3, std140) uniform Pass {
     vec4 sky_low;
     vec4 sky_rect;
     vec4 sky_tint;
+    // (added for the surface reflections) x rt_reflection_surfaces, y the roughest map texel that reflects, z the cone's
+    // half-angle per GGX alpha (the roughness squared)
+    vec4 surface;
 } pass;
 
 const uint INSTANCE_OBJECT = 32u; // (rt::InstanceFlag kObject)
 const uint CLASS_WATER = 1u;      // (rt::kReflectWater, kReflectGlass)
 const uint CLASS_GLASS = 2u;
-const uint MASK_PASS_CLEAR = 1u;  // (a mask pass's kind: rt::kMaskClear; kMaskOpaque 2)
+const uint CLASS_SURFACE = 3u;    // (rt::kReflectSurface: glossy by its surface map)
+const uint MASK_PASS_CLEAR = 1u;
+const float MAX_CONE = 0.5;       // (a rough surface's cone at most: rt_glass_roughness's ceiling)  // (a mask pass's kind: rt::kMaskClear; kMaskOpaque 2)
 
 
 // How much of the reflection the pixel shows: `c` the cosine between the view and the surface's normal.
@@ -326,6 +336,22 @@ void main()
                     weight *= mask;
                     vec3 mirror = reflect(view, n);
                     float rough = pass.fresnel.x >= 0.5 && surface.reflection_class == CLASS_GLASS ? pass.fresnel.y : 0.0;
+                    if (surface.reflection_class == CLASS_SURFACE) {
+                        // (added for the surface reflections) a surface glossy by its map: Schlick's Fresnel at the
+                        // map's F0, its grazing rise held to 1 - roughness (a rough surface never turns into a mirror),
+                        // x its kind's gloss (the reflectivity) x rt_reflection_surfaces x 2 strength (at most 1); the
+                        // map's roughness at the hit fades it out toward the roughest that reflects and spreads its
+                        // rays over a cone as wide as its GGX lobe
+                        float r = clamp(material_surface_lod(id, hit_uv(v, bary),
+                                                             level_for(id, v, a, b, c, pass.ambient.w * t)).b, 0.0, 1.0);
+                        r = mix(r, surface.kind_roughness, surface.kind_roughness_weight); // (the kind's, rt_detail)
+                        float cosine = clamp(-dot(view, n), 0.0, 1.0);
+                        float f0 = surface.f0;
+                        float fresnel = f0 + (max(1.0 - r, f0) - f0) * pow(1.0 - cosine, 5.0);
+                        weight = mask * reflectivity * pass.surface.x * min(1.0, 2.0 * pass.params.x) * fresnel *
+                                 (1.0 - smoothstep(0.75 * pass.surface.y, pass.surface.y, r));
+                        rough = min(r * r * pass.surface.z, MAX_CONE);
+                    }
                     vec4 seen = vec4(0.0);
                     if (weight <= 0.0) {
                         // (nothing of it shows: no ray)
@@ -505,8 +531,9 @@ struct TraceBlock {
     std::array<float, 4> sky_low{};
     std::array<float, 4> sky_rect{};
     std::array<float, 4> sky_tint{};
+    std::array<float, 4> surface{}; // (added for the surface reflections)
 };
-constexpr std::size_t kTraceBlockBytes = 416;
+constexpr std::size_t kTraceBlockBytes = 432;
 static_assert(sizeof(TraceBlock) == kTraceBlockBytes, "the shader's Pass block (std140)");
 
 // The bindings of set 0 (push descriptors): 0 the scene, 1 the depth, 2 the reflection written, 3 the pass's block,
@@ -1375,6 +1402,7 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
     block.extra = {static_cast<int32_t>(kReflectionMask), static_cast<int32_t>(lights), 0, 0};
     block.fresnel = {own.settings.fresnel ? 1.0F : 0.0F, own.settings.glass_roughness, static_cast<float>(kRoughRays),
                      own.settings.glass_reflectance};
+    block.surface = {own.settings.surfaces, kSurfaceRoughest, kSurfaceConePerAlpha, 0.0F};
     return block;
 }
 
@@ -1388,6 +1416,7 @@ void set_rt_reflection_settings(const RtReflectionSettings& settings)
         std::isfinite(kept.glass_roughness) ? std::clamp(kept.glass_roughness, 0.0F, kMaxRoughness) : 0.0F;
     kept.glass_reflectance =
         std::isfinite(kept.glass_reflectance) ? std::clamp(kept.glass_reflectance, 0.0F, 1.0F) : kRtGlassReflectance;
+    kept.surfaces = std::isfinite(kept.surfaces) ? std::clamp(kept.surfaces, 0.0F, kMaxSurfaces) : 0.0F;
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
@@ -1479,7 +1508,7 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     if (scene.reflective_instances == 0 && wet == nullptr) {
         ++own.without_mirrors;
         if (first_report(state, kReportNoMirrors)) {
-            get_log("vulkan: rt_reflections: nothing reflective in the scene (no environment-mapped material) - the "
+            get_log("vulkan: rt_reflections: nothing reflective in the scene (no environment-mapped material, none glossy by its surface map) - the "
                     "reflection pass skipped while that lasts");
         }
         return false;
@@ -1621,10 +1650,10 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     ++own.passes;
     if (first_report(state, kReportFirstPass)) {
         get_log("vulkan: rt_reflections: the first reflection pass (%ux%u, %u reflective instances of %u, strength "
-                "%.2f, Fresnel %s, glass roughness %.3f)",
+                "%.2f, Fresnel %s, glass roughness %.3f, surfaces x%.2f)",
                 width, height, scene.reflective_instances, scene.instances,
                 static_cast<double>(own.settings.strength), own.settings.fresnel ? "on" : "off",
-                static_cast<double>(own.settings.glass_roughness));
+                static_cast<double>(own.settings.glass_roughness), static_cast<double>(own.settings.surfaces));
     }
     return true;
 }

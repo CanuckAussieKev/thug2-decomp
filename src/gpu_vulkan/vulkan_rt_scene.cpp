@@ -1017,7 +1017,10 @@ VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const 
     }
     // (what R4's shadow rays pick by: vulkan_rt_scene.h)
     uint32_t mask = kMaskWorld;
-    if ((given.flags & rt::kTransparent) != 0 || (given.flags & rt::kCastsShadow) == 0) {
+    // (a transparent instance casts only when it is also alpha tested - render_pc's cut-out blended materials - and its
+    // alpha test can reject texels)
+    const bool cut_out = (given.flags & rt::kTransparent) != 0 && alpha_tested;
+    if (((given.flags & rt::kTransparent) != 0 && !cut_out) || (given.flags & rt::kCastsShadow) == 0) {
         mask = kMaskNoShadow;
     } else if (alpha_tested) {
         mask = kMaskAlphaTested;
@@ -1502,16 +1505,18 @@ void VulkanRayTracing::update_mesh(rt::MeshId mesh, const rt::Geometry& geometry
 
 void VulkanRayTracing::set_material(rt::MaterialId material, const rt::Material& surface)
 {
+    backend().materials.set(material, surface); // (the table's own lock)
+    // (added for the surface reflections: reflective too where the table made it so by its surface map)
+    const bool reflective = surface.reflectivity > 0.0F || backend().materials.record(material).reflectivity > 0.0F;
     {
         const std::scoped_lock lock(backend().mutex);
         scene().alpha_refs[material] = surface.alpha_ref;
-        if (surface.reflectivity > 0.0F) {
+        if (reflective) {
             scene().reflective.insert(material);
         } else {
             scene().reflective.erase(material);
         }
     }
-    backend().materials.set(material, surface); // (the table's own lock)
 }
 
 void VulkanRayTracing::remove_material(rt::MaterialId material)

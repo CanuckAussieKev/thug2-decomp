@@ -36,8 +36,8 @@ struct Backend;
 // An instance's mask (VkAccelerationStructureInstanceKHR::mask), one bit from its InstanceFlags - what R4's shadow rays
 // pick by (a ray query's cull mask; 0xFF: everything): kMaskWorld (0x01, vulkan_rt_shadows.h) casts a shadow, opaque,
 // not an object; kMaskObjects (0x02) the same for kObject (the skater, peds, vehicles); and:
-inline constexpr uint32_t kMaskAlphaTested = 0x04; // casts a shadow, kAlphaTested
-inline constexpr uint32_t kMaskNoShadow = 0x80;    // kTransparent, or no kCastsShadow: never casts
+inline constexpr uint32_t kMaskAlphaTested = 0x04; // casts a shadow, kAlphaTested (also a cut-out kTransparent one)
+inline constexpr uint32_t kMaskNoShadow = 0x80;    // kTransparent (not cut out), or no kCastsShadow: never casts
 // An instance's custom index is its material id (rayQueryGetIntersectionInstanceCustomIndexEXT), 24 bits; its
 // instance index (rayQueryGetIntersectionInstanceIdEXT) its place in the frame record's instances. Instances flagged
 // kOpaque are forced opaque, the others forced non-opaque (a query sees them as candidates: alpha, R3); back faces are

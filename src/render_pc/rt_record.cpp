@@ -491,6 +491,29 @@ bool has_environment_pass(const MaterialRef* material)
     return false;
 }
 
+// (added for the cut-out shadows) A material drawn blended whose texels the game also cuts out by an alpha test: its
+// first pass alpha-blended (blend mode 5) with an alpha reference above the lowest (the game's 1 of 255 passes every
+// texel drawn) - a cannon's spoked wheels, leaves, railings drawn with the transparent meshes. Not water or other moving
+// textures (a UV wibble or a texture animation: they cast nothing) or anything environment mapped (glass).
+// Such a surface blocks the rays (the shadows) where its texel's alpha is at least kCutoutAlpha (or its reference, if
+// higher): its solid parts, not its soft edges or a pane's tint.
+constexpr float kCutoutAlpha = 0.5F;
+bool cutout_material(const MaterialRef* material)
+{
+    if (material->alpha_ref() <= 1U || blend_mode(material, 0) != static_cast<uint32_t>(kBlendModeAlpha) ||
+        material->texture_anim() != nullptr || has_environment_pass(material)) {
+        return false;
+    }
+    const uint32_t passes = std::min(material->pass_count(), kPassCount);
+    for (uint32_t pass = 0; pass < passes; ++pass) {
+        if ((core::at(material->pass_flags(), pass) & (kPassUvWibble | kPassTextureAnim)) != 0U ||
+            core::at(material->uv_wibble(), pass) != nullptr) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // A material as a hit shader reads it: its first pass.
 rt::Material material_of(const MaterialRef* material)
 {
@@ -512,6 +535,15 @@ rt::Material material_of(const MaterialRef* material)
     out.filter = gpu_value::kFilterLinear;
     if ((core::at(material->pass_flags(), 0) & kPassTransparent) != 0U) {
         out.flags |= rt::kTransparent;
+        if (cutout_material(material)) {
+            // (added for the cut-out shadows) blended, but its texels cut out by its alpha test: the ray-traced effects
+            // take it by its alpha, as an alpha-tested surface - where it is mostly solid
+            out.flags |= rt::kAlphaTested;
+            out.alpha_ref = std::max(out.alpha_ref, kCutoutAlpha);
+            // (its alpha the texel's: an alpha blend has no use for the pass's fixed alpha, which the alpha test
+            // would multiply in - often 0)
+            std::get<3>(out.colour) = 1.0F;
+        }
     } else if (material->alpha_ref() != 0U) {
         out.flags |= rt::kAlphaTested;
     }
@@ -558,6 +590,24 @@ void log_reflective_material(const MaterialRef* material, const rt::Material& ou
     get_log("%s", text.c_str());
 }
 
+// [debug] rt_seen_through_materials=1: each material ray tracing takes as seen through or alpha tested logged once, when
+// first registered - which cast shadows by their alpha (rt::kAlphaTested) and which none (rt::kTransparent).
+void log_seen_through_material(const MaterialRef* material, const rt::Material& out, rt::MaterialId id)
+{
+    static const bool kWanted = build_info::fetch_flag("debug", "rt_seen_through_materials", false);
+    if (!kWanted || (out.flags & (rt::kTransparent | rt::kAlphaTested)) == 0U) {
+        return;
+    }
+    const TextureImage* texture = core::at(material->textures(), 0);
+    get_log("rt: material %u = %08X: %s, alpha ref %u, passes %u, first pass blend %u flags %04X colour alpha %.2f, "
+            "tex %08X",
+            static_cast<unsigned>(id), material->checksum(),
+            (out.flags & rt::kTransparent) != 0U ? "seen through" : "alpha tested", unsigned{material->alpha_ref()},
+            material->pass_count(), core::at(material->blend_modes(), 0), core::at(material->pass_flags(), 0),
+            static_cast<double>(core::at(core::at(material->pass_color(), 0), 3)),
+            texture != nullptr ? texture->checksum : 0U);
+}
+
 // The material's id - given (again, when its first pass changed) once a frame - or 0 for none.
 rt::MaterialId material_id(const MaterialRef* material, rt::RayTracing& rt)
 {
@@ -576,6 +626,9 @@ rt::MaterialId material_id(const MaterialRef* material, rt::RayTracing& rt)
     const rt::Material now = material_of(material);
     if (made && (now.reflectivity > 0.0F || has_environment_pass(material))) {
         log_reflective_material(material, now, entry.id);
+    }
+    if (made) {
+        log_seen_through_material(material, now, entry.id);
     }
     if (made || !same_material(entry.material, now)) {
         entry.material = now;
@@ -650,6 +703,9 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
     const uint32_t surface = material != 0 ? state().materials.at(mesh->material()).material.flags : 0U;
     if ((surface & rt::kTransparent) != 0U) {
         flags |= rt::kTransparent;
+        if ((surface & rt::kAlphaTested) != 0U) {
+            flags |= rt::kAlphaTested | rt::kCastsShadow; // (added for the cut-out shadows: cutout_material)
+        }
     } else if ((surface & rt::kAlphaTested) != 0U) {
         flags |= rt::kAlphaTested | rt::kCastsShadow;
     } else {

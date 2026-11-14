@@ -106,7 +106,7 @@ void set_rt_gi_settings(const RtGiSettings& settings);
 // NOT ORIGINAL - the night lighting: lamps, glows and lit windows as ray-traced lights (vulkan_rt_lights.h): [Graphics]
 // rt_lights, rt_lights_strength, rt_lights_shadowed, rt_lights_max, rt_lights_emissive, rt_lights_level. Nothing is
 // drawn differently while `on` is false, or when ray tracing isn't enabled on the device.
-inline constexpr float kRtLightsStrength = 0.35F; // (rt_lights_strength's default: 1 washed New Orleans' streets out)
+inline constexpr float kRtLightsStrength = 1.0F; // (rt_lights_strength's default: each lamp's own brightness - its light falls off as a pool, rt_lights.h light_falloff)
 struct RtLightSettings {
     bool on = false;
     float strength = kRtLightsStrength; // how much of the lights' light is added (0 - 8)
@@ -114,6 +114,7 @@ struct RtLightSettings {
     unsigned max_lights = 64;           // lights a view at most (1 - 256), the most important
     float emissive = 1.0F;              // x the emitters' (glows, self-lit surfaces) intensity (0: none)
     float level = 1.0F;                 // x the level's own point lights' (0: none)
+    bool log = false;                   // ([debug] rt_lights_log) the view's lights logged every 600th pass
 };
 void set_rt_light_settings(const RtLightSettings& settings);
 [[nodiscard]] RtLightSettings rt_light_settings();
@@ -124,6 +125,7 @@ void set_rt_light_settings(const RtLightSettings& settings);
 inline constexpr float kRtReflectionStrength = 0.5F; // (rt_reflection_strength's default)
 inline constexpr float kRtGlassRoughness = 0.05F;    // (rt_glass_roughness's default: radians)
 inline constexpr float kRtGlassReflectance = 0.2F;   // (rt_glass_reflectance's default: glass's F0)
+inline constexpr float kRtReflectionSurfaces = 1.0F;  // (rt_reflection_surfaces's default)
 struct RtReflectionSettings {
     bool on = false;
     float strength = kRtReflectionStrength; // how far a fully reflective surface's colour goes toward what it mirrors (0 - 1)
@@ -138,6 +140,11 @@ struct RtReflectionSettings {
     // behind; the game's panes are bright textures, and at 0.04 their reflection all but vanished (AU's glass building:
     // a mean change of 1.4 levels against the mirror's 12), so the default is 0.2.
     float glass_reflectance = kRtGlassReflectance;
+    // (added for the surface reflections) rt_reflection_surfaces: x the reflections of the surfaces the game gave no
+    // shine whose surface maps say they are glossy (rt_pbr's maps: metal, glazed tiles, polished floors and stone,
+    // varnished wood, paint - vulkan_surface.h surface_map_gloss), weighted by Fresnel at their F0 and their roughness;
+    // 0: only the environment-mapped surfaces, as before.
+    float surfaces = kRtReflectionSurfaces;
 };
 void set_rt_reflection_settings(const RtReflectionSettings& settings);
 [[nodiscard]] RtReflectionSettings rt_reflection_settings();

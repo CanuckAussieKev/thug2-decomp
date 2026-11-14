@@ -18,7 +18,10 @@
 //   - the floor has a lit part and a part in the box's shadow (both a few hundred pixels);
 //   - a red-textured lamp (an emitter whose material's texture is red) lights the floor red (its texture's mean);
 //   - two lamps, one traced (rt_lights_shadowed=1): the other's light in the share of the traced one's that got through;
-//   - rt_lights off, or no lamp in view: every pixel exactly as drawn (no pass).
+//   - rt_lights off, or no lamp in view: every pixel exactly as drawn (no pass);
+//   - many lamps (49 over the floor): as the processor's, their sum held under the knee, no floor pixel burnt white.
+// Each lamp's light falls off from its core (rt_lights.h light_falloff): a point light's a tenth of its reach, an
+// emitter's a disc of its area - a street-wide glow lights a pool, not the street.
 //   thug2_vulkan_rt_lights_check [--device N] [--display N] [--no-validation] [--perf]
 // --perf: then frames with 64 lamps in view, the pass's device time printed (its own log line, every 600 passes).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
@@ -223,22 +226,42 @@ void check_sources(Tally* tally)
                                   static_cast<double>(big.position[2])));
         tally->check(std::abs(big.colour[0] - 1.0F) < 1e-5F && std::abs(big.colour[1] - 0.6F) < 1e-5F &&
                          std::abs(big.intensity - 1.0F) < 1e-4F && big.material == 7,
-                     text::format("its colour the triangles' (brightest 1), intensity %.3f for 32 x 32 units, its "
+                     text::format("its colour the triangles' (brightest 1), intensity %.3f (its brightness), its "
                                   "material",
                                   static_cast<double>(big.intensity)));
         const float size = std::hypot(32.0F, 32.0F) * 0.5F;
-        tally->check(std::abs(big.size - size) < 1e-3F &&
-                         std::abs(big.reach - std::clamp(size * rt::kEmitterReachPerSize, rt::kEmitterMinReach,
+        const float core = std::sqrt(32.0F * 32.0F / 3.14159265F); // (a disc of its area)
+        tally->check(std::abs(big.size - size) < 1e-3F && std::abs(big.core - core) < 1e-3F &&
+                         std::abs(big.reach - std::clamp(core * rt::kEmitterReachPerCore, rt::kEmitterMinReach,
                                                          rt::kEmitterMaxReach)) < 1e-3F,
-                     text::format("its size %.2f (half its diagonal) and reach %.1f", static_cast<double>(big.size),
+                     text::format("its size %.2f (half its diagonal), core %.2f (a disc of its area) and reach %.1f",
+                                  static_cast<double>(big.size), static_cast<double>(big.core),
                                   static_cast<double>(big.reach)));
     }
-    // a pool of light on the ground (flat, facing up): a glow is lifted by its size; a self-lit one is left out
+    // a pool of light on the ground (flat, facing up): a glow is lifted by its core; a self-lit one is left out
     std::vector<rt::EmitterTriangle> pool;
     add_quad(&pool, {-40.0, 0.0, -40.0}, {80.0, 0.0, 0.0}, {0.0, 0.0, 80.0}, rt::EmitterKind::kGlow, kOrange);
     found = rt::cluster_emitters(pool);
-    tally->check(found.size() == 1 && std::abs(found.front().position[1] - found.front().size) < 1e-3F,
-                 "a glow's pool on the ground is a light lifted by its size");
+    tally->check(found.size() == 1 && std::abs(found.front().position[1] - found.front().core) < 1e-3F &&
+                     std::abs(found.front().core - rt::emitter_core(80.0F * 80.0F)) < 1e-3F,
+                 "a glow's pool on the ground is a light lifted by its core (a disc of its area)");
+    // (added for the washed-out streets) a big glow on the ground - as New Orleans' streets draw them, 200 units across -
+    // lights a pool, not the street: an eighth of the light under it or less 600 units away (it was a third)
+    std::vector<rt::EmitterTriangle> street;
+    add_quad(&street, {-100.0, 0.0, -100.0}, {200.0, 0.0, 0.0}, {0.0, 0.0, 200.0}, rt::EmitterKind::kGlow,
+             {1.0F, 1.0F, 1.0F});
+    found = rt::cluster_emitters(street);
+    if (found.size() == 1) {
+        const rt::Emitter& glow = found.front();
+        const float below = rt::light_falloff(glow.position[1], glow.core, glow.reach);
+        const float away = rt::light_falloff(std::hypot(600.0F, glow.position[1]), glow.core, glow.reach);
+        tally->check(away <= 0.125F * below && glow.reach <= rt::kEmitterMaxReach,
+                     text::format("a street-wide glow: %.3f of its light under it, %.4f 600 units away (reach %.0f)",
+                                  static_cast<double>(below), static_cast<double>(away),
+                                  static_cast<double>(glow.reach)));
+    } else {
+        tally->check(false, text::format("a street-wide glow is one light (%zu)", found.size()));
+    }
     for (rt::EmitterTriangle& triangle : pool) {
         triangle.kind = rt::EmitterKind::kSelfLit;
     }
@@ -248,12 +271,16 @@ void check_sources(Tally* tally)
                      !rt::self_lit_triangle(120.0F, 90.0F) && !rt::self_lit_triangle(90.0F, 30.0F),
                  "self-lit: only in a dark level, far brighter than it");
     const float reach = 400.0F;
-    const float core = rt::kCoreShare * reach;
-    tally->check(std::abs(rt::light_falloff(0.0F, 0.0F, reach) - 1.0F) < 1e-6F &&
-                     rt::light_falloff(reach, 0.0F, reach) == 0.0F &&
-                     std::abs(rt::light_falloff(core, 0.0F, reach) -
-                              (0.5F * std::pow(1.0F - std::pow(rt::kCoreShare, 4.0F), 2.0F))) < 1e-5F,
-                 "the falloff: 1 at the light, about 1/2 at its core's edge, 0 at its reach");
+    const float core = rt::point_core(reach);
+    tally->check(std::abs(rt::light_falloff(0.0F, core, reach) - 1.0F) < 1e-6F &&
+                     rt::light_falloff(reach, core, reach) == 0.0F &&
+                     std::abs(rt::light_falloff(core, core, reach) -
+                              (0.5F * std::pow(1.0F - std::pow(rt::kPointCoreShare, 4.0F), 2.0F))) < 1e-5F &&
+                     rt::light_falloff(10.0F * core, core, reach) < 0.01F,
+                 "the falloff: 1 at the light, about 1/2 at its core's edge, under 1% ten cores away, 0 at its reach");
+    tally->check(rt::limited_light(0.5F) == 0.5F && rt::limited_light(rt::kLightKnee) == rt::kLightKnee &&
+                     rt::limited_light(100.0F) < rt::kLightMost && rt::limited_light(3.0F) > rt::limited_light(2.0F),
+                 "the lights' sum: as it is up to the knee, then rising ever more slowly, never past the most");
     // the view's selection: a camera at the origin looking down -z (D3D's right-handed look-at, as the game's)
     std::array<float, 16> view_matrix{};
     std::array<float, 16> projection{};
@@ -414,14 +441,21 @@ struct Lamp {
     double size = 0.0;
     Rgb light{};
     double reach = 0.0;
+    double core = 0.0; // (its falloff's: rt::Emitter::core)
 };
 
-double falloff(double d, double size, double reach)
+// A point light's lamp (its core rt::point_core's).
+Lamp point_lamp(const Vec3& at, const Rgb& light, double reach)
 {
-    if (!(d < reach)) {
+    return {.position = at, .size = 0.0, .light = light, .reach = reach,
+            .core = static_cast<double>(rt::kPointCoreShare) * reach};
+}
+
+double falloff(double d, double core, double reach)
+{
+    if (!(d < reach) || !(core > 0.0)) {
         return 0.0;
     }
-    const double core = std::max(size, static_cast<double>(rt::kCoreShare) * reach);
     const double x = d / reach;
     const double window = 1.0 - (x * x * x * x);
     return window * window * core * core / ((core * core) + (d * d));
@@ -449,6 +483,7 @@ bool lamp_blocked(const Seen& seen, const Lamp& lamp)
 
 struct Answer {
     Rgb added{};                 // strength x albedo x light
+    double raw = 0.0;            // the light's luminance before it was held under the knee
     std::vector<bool> blocked{}; // each lamp's shadow ray
     bool close = false;          // the last lamp traced and the first not nearly as bright: either may be picked
 };
@@ -470,7 +505,7 @@ Answer answer_at(const Seen& seen, std::span<const Lamp> lamps, unsigned traced)
         item.blocked = lamp_blocked(seen, lamp);
         answer.blocked.push_back(item.blocked);
         if (dist < lamp.reach && facing > 0.0) {
-            const double scale = falloff(dist, lamp.size, lamp.reach) * facing;
+            const double scale = falloff(dist, lamp.core, lamp.reach) * facing;
             item.light = {core::at(lamp.light, 0) * scale, core::at(lamp.light, 1) * scale, core::at(lamp.light, 2) * scale};
             item.weight = (0.299 * item.light[0]) + (0.587 * item.light[1]) + (0.114 * item.light[2]);
         }
@@ -511,10 +546,18 @@ Answer answer_at(const Seen& seen, std::span<const Lamp> lamps, unsigned traced)
         }
     }
     const Rgb& albedo = core::at(kScene, seen.solid - 1).albedo;
+    const double share = total > 0.0 ? through / total : 0.0;
+    Rgb light{};
     for (std::size_t c = 0; c < 3; ++c) {
-        const double share = total > 0.0 ? through / total : 0.0;
-        core::at(answer.added, c) =
-            static_cast<double>(kStrength) * core::at(albedo, c) * (core::at(lit, c) + (core::at(rest, c) * share));
+        core::at(light, c) = core::at(lit, c) + (core::at(rest, c) * share);
+    }
+    // the sum held under the knee (rt::limited_light)
+    answer.raw = (0.299 * light[0]) + (0.587 * light[1]) + (0.114 * light[2]);
+    const double scale = answer.raw > static_cast<double>(rt::kLightKnee)
+                             ? static_cast<double>(rt::limited_light(static_cast<float>(answer.raw))) / answer.raw
+                             : 1.0;
+    for (std::size_t c = 0; c < 3; ++c) {
+        core::at(answer.added, c) = static_cast<double>(kStrength) * core::at(albedo, c) * core::at(light, c) * scale;
     }
     return answer;
 }
@@ -968,7 +1011,7 @@ void run_point(render::Gpu& gpu, std::span<const SceneMesh> meshes, uint32_t sam
                                             .colour = {1.0F, 0.9F, 0.7F},
                                             .position = floats(kLampAt),
                                             .radius = static_cast<float>(kLampReach)}}};
-    const std::array<Lamp, 1> lamps{{{.position = kLampAt, .size = 0.0, .light = {1.0, 0.9, 0.7}, .reach = kLampReach}}};
+    const std::array<Lamp, 1> lamps{point_lamp(kLampAt, {1.0, 0.9, 0.7}, kLampReach)};
     uint64_t passes = 0;
     std::vector<uint8_t> texels;
     const Compared got = run_case(gpu, meshes, samples, points, lamps, 4, &passes, &texels);
@@ -987,14 +1030,16 @@ void run_emitter(render::Gpu& gpu, std::span<const SceneMesh> meshes, rt::Materi
     rt::LevelEmitters level;
     level.serial = 1;
     constexpr float kSize = 6.0F;
+    constexpr float kCore = 30.0F;
     level.emitters.push_back({.position = floats(kLampAt), .size = kSize, .colour = {1.0F, 1.0F, 1.0F},
                               .intensity = 1.2F, .reach = static_cast<float>(kLampReach), .material = red,
-                              .kind = rt::EmitterKind::kGlow});
+                              .kind = rt::EmitterKind::kGlow, .core = kCore});
     rt::set_level_emitters(level);
     // the texture's mean: (1, 0x20 / 0xFF, 0x20 / 0xFF), its brightest channel 1
     constexpr double kTintGreen = 32.0 / 255.0;
     const std::array<Lamp, 1> lamps{
-        {{.position = kLampAt, .size = kSize, .light = {1.2, 1.2 * kTintGreen, 1.2 * kTintGreen}, .reach = kLampReach}}};
+        {{.position = kLampAt, .size = kSize, .light = {1.2, 1.2 * kTintGreen, 1.2 * kTintGreen}, .reach = kLampReach,
+          .core = kCore}}};
     uint64_t passes = 0;
     std::vector<uint8_t> texels;
     const Compared got = run_case(gpu, meshes, 0, {}, lamps, 4, &passes, &texels);
@@ -1020,8 +1065,8 @@ void run_two(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
                                             .colour = {0.3F, 0.4F, 0.8F},
                                             .position = floats(kOther),
                                             .radius = 300.0F}}};
-    const std::array<Lamp, 2> lamps{{{.position = kLampAt, .size = 0.0, .light = {1.0, 0.9, 0.7}, .reach = kLampReach},
-                                     {.position = kOther, .size = 0.0, .light = {0.3, 0.4, 0.8}, .reach = 300.0}}};
+    const std::array<Lamp, 2> lamps{point_lamp(kLampAt, {1.0, 0.9, 0.7}, kLampReach),
+                                    point_lamp(kOther, {0.3, 0.4, 0.8}, 300.0)};
     uint64_t passes = 0;
     std::vector<uint8_t> texels;
     const Compared got = run_case(gpu, meshes, 0, points, lamps, 1, &passes, &texels);
@@ -1078,10 +1123,7 @@ void run_time_of_day(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     constexpr std::array<double, 2> kLamps{1.0, 0.5};
     for (const double share : kLamps) {
         rt::set_day_light({.on = true, .lamps = static_cast<float>(share)});
-        const std::array<Lamp, 1> lamps{{{.position = kLampAt,
-                                          .size = 0.0,
-                                          .light = {share * 1.0, share * 0.9, share * 0.7},
-                                          .reach = kLampReach}}};
+        const std::array<Lamp, 1> lamps{point_lamp(kLampAt, {share * 1.0, share * 0.9, share * 0.7}, kLampReach)};
         const Compared got = run_case(gpu, meshes, 0, points, lamps, 4, &passes, &texels);
         tally->check(got.clear_cut > 5000 && got.wrong == 0,
                      text::format("  lamps %.1f: %d clear-cut pixels as the processor's lamp light x %.1f, %d wrong "
@@ -1090,10 +1132,82 @@ void run_time_of_day(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     }
     // tod=level: the lamps as the setting says
     rt::set_day_light({});
-    const std::array<Lamp, 1> whole{{{.position = kLampAt, .size = 0.0, .light = {1.0, 0.9, 0.7}, .reach = kLampReach}}};
+    const std::array<Lamp, 1> whole{point_lamp(kLampAt, {1.0, 0.9, 0.7}, kLampReach)};
     const Compared level = run_case(gpu, meshes, 0, points, whole, 4, &passes, &texels);
     tally->check(level.clear_cut > 5000 && level.wrong == 0,
                  text::format("  tod=level: the lamp's whole light as before (%d wrong)", level.wrong));
+}
+
+// (added for the washed-out streets) Many lamps over the floor - 49 bright point lights in a 7 x 7 grid 40 units up, as a
+// lamp-lit street packs them: the pass as the processor's (the sum held under the knee), the knee reached (their raw sum
+// past it), and no floor pixel burnt white - before, their summed light at the default strength washed it out.
+void run_many(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    constexpr int kSide = 7;
+    constexpr double kSpacing = 45.0;
+    constexpr double kMiddle = 3.0;
+    constexpr double kHeight = 40.0;
+    constexpr double kReach = 300.0;
+    text::print("many lamps (%d point lights over the floor):\n", kSide * kSide);
+    render::vulkan::RtLightSettings settings = settings_for(true, 4);
+    settings.max_lights = kSide * kSide;
+    render::vulkan::set_rt_light_settings(settings);
+    rt::set_level_emitters({});
+    std::vector<rt::Light> points;
+    std::vector<Lamp> lamps;
+    for (int i = 0; i < kSide * kSide; ++i) {
+        const Vec3 at{((i % kSide) - kMiddle) * kSpacing, kHeight, ((i / kSide) - kMiddle) * kSpacing};
+        points.push_back({.kind = rt::Light::Kind::kPoint, .colour = {1.0F, 0.9F, 0.7F}, .position = floats(at),
+                          .radius = static_cast<float>(kReach)});
+        lamps.push_back(point_lamp(at, {1.0, 0.9, 0.7}, kReach));
+    }
+    uint64_t passes = 0;
+    std::vector<uint8_t> texels;
+    const Compared got = run_case(gpu, meshes, 0, points, lamps, 4, &passes, &texels);
+    tally->check(passes == 1 && got.clear_cut > 1000 && got.wrong == 0,
+                 text::format("%d clear-cut pixels as the processor's, %d wrong (worst %.2f of 255)", got.clear_cut,
+                              got.wrong, got.worst));
+    // the floor's brightest raw sum (the reference's)
+    const View view = view_from(kEye);
+    double most_raw = 0.0;
+    int white = 0;
+    int floor = 0;
+    for (int y = 0; y < kRows && !texels.empty(); ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            const Seen seen = seen_at(view, x, y);
+            if (seen.solid != 1 || y_of(seen.normal) < 0.5) {
+                continue;
+            }
+            most_raw = std::max(most_raw, answer_at(seen, lamps, 4).raw);
+        }
+    }
+    tally->check(most_raw > static_cast<double>(rt::kLightKnee),
+                 text::format("their summed light reaches past the knee (%.2f)", most_raw));
+    // at the default strength (rt_lights_strength): no floor pixel burnt white
+    settings.strength = render::vulkan::kRtLightsStrength;
+    render::vulkan::set_rt_light_settings(settings);
+    Targets targets;
+    if (make_targets(gpu, 0, &targets)) {
+        passes = draw_frame(gpu, targets, meshes, points, 1);
+        if (!read_colour(gpu, targets, &texels)) {
+            texels.clear();
+        }
+    }
+    release_targets(gpu, targets);
+    for (int y = 0; y < kRows && !texels.empty(); ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            const Seen seen = seen_at(view, x, y);
+            if (seen.solid != 1 || y_of(seen.normal) < 0.5) {
+                continue;
+            }
+            ++floor;
+            const Rgb got_colour = pixel_at(texels, x, y);
+            white += std::ranges::any_of(got_colour, [](double c) { return c * kByteRange >= 250.0; }) ? 1 : 0;
+        }
+    }
+    tally->check(passes == 1 && floor > 1000 && white == 0,
+                 text::format("at the default strength (%.2f) no floor pixel burnt white: %d of %d at 250 or more",
+                              static_cast<double>(render::vulkan::kRtLightsStrength), white, floor));
 }
 
 // --perf: frames with kPerfLamps lamps over the floor (all in view), the pass's own timing line (vulkan_rt_lights.cpp:
@@ -1219,6 +1333,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_two(gpu, meshes, tally);
         run_off(gpu, meshes, tally);
         run_time_of_day(gpu, meshes, tally); // (added by the time of day)
+        run_many(gpu, meshes, tally);        // (added for the washed-out streets)
         if (options.perf) {
             run_perf(gpu, meshes, tally);
         }

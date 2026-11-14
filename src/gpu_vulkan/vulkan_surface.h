@@ -66,6 +66,22 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
 [[nodiscard]] Texture* surface_map_for(const Texture* colour);
 // The F0 of `colour`'s map's class (0: no map) - or, with rt_detail, its surface kind's (vulkan_detail.h).
 [[nodiscard]] float surface_map_f0(const Texture* colour);
+// (added for the surface reflections - vulkan_rt_reflections.h) How glossy `colour`'s surface is by its map: its surface
+// kind's (detail_material_format::Kind - the library's, else its class's) share of a mirror's reflection, 0 - 1 -
+// metal, glazed tiles and polished floors, glass and water whole, polished stone half, wood and paint less; asphalt,
+// concrete, brick, plaster, ground, plants and cloth none. 0 without a map, for a character
+// model's map, or with rt_pbr off - its F0 and its kind's roughness (the detail library's, and how far it replaces the
+// map's: 0 without the library) beside it. False: no map used.
+struct SurfaceGloss {
+    float gloss = 0.0F;
+    float f0 = 0.0F;
+    float kind_roughness = 0.0F;
+    float kind_roughness_weight = 0.0F;
+};
+[[nodiscard]] bool surface_map_gloss(const Texture* colour, SurfaceGloss* out);
+// The gloss of a surface kind / of a map's class (surface_map_gloss's tables).
+[[nodiscard]] float kind_gloss(uint8_t kind);
+[[nodiscard]] float class_gloss(uint8_t material_class);
 // `colour` is being destroyed: its map taken out of the table, for the caller to release (null: none).
 [[nodiscard]] Texture* take_surface_map(const Texture* colour);
 // The maps attached since the device was made (the log; checks).

@@ -426,7 +426,7 @@ for the restart
 | `rt_gi_distance` | 600 | How far (world units) a ray looks for a surface to bounce from (1-5000) |
 | `rt_gi_denoise` | 1 | 0: each frame's rays as they are (noisy) |
 | `rt_lights` | 0 | On Vulkan with `ray_tracing=1`: 1 makes the level's lamps real lights - its own light nodes, its glows (lamp halos, neon, light cones) and, in a dark level, its self-lit surfaces (lamp heads, lit windows) light the ground, the walls and the skater around them, with ray-traced shadows |
-| `rt_lights_strength` | 0.35 | How much of the lamps' light is added (0-8; the Options screen offers 0.2 / 0.35 / 0.6 / 1) |
+| `rt_lights_strength` | 1 | How much of the lamps' light is added (0-8; the Options screen offers 0.35 / 0.6 / 1 / 2) |
 | `rt_lights_shadowed` | 4 | The brightest lamps at each pixel traced for shadows (1-8); the others' light follows their share |
 | `rt_lights_max` | 64 | Lamps a view lights with at most (1-256): the nearest and brightest |
 | `rt_lights_emissive` | 1 | x the glows' and self-lit surfaces' brightness (0: only the level's own light nodes) |
@@ -435,6 +435,7 @@ for the restart
 | `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it; with `rt_reflection_fresnel=1` 0.5 is the natural amount) |
 | `rt_reflection_fresnel` | 1 | 1: how much a surface reflects depends on the angle you see it at - water and glass show their own colour looking straight at them and turn into mirrors toward grazing angles, windows show their glass instead of the game's painted sky; 0: the same reflection at every angle |
 | `rt_glass_roughness` | 0.05 | How blurry glass reflections are (radians; 0 a perfect mirror) |
+| `rt_reflection_surfaces` | 1 | With `rt_pbr=1`: how much the surfaces the game gave no shine reflect where their surface maps say they are glossy - metal, glazed tiles and polished floors (and varnished wood a little) - by the angle and their roughness (0-2; 0: only the shiny surfaces, as before) |
 | `rt_water` | 0 | On Vulkan (no ray tracing needed): 1 turns the levels' water into real water - waves moving with the wind, the sky and the level reflected along them, the bottom seen through shallow water and deep water darkening, foam where it meets the shore, sparkles where the sun catches the waves. Only flat water that faces up (not waterfalls); everything else is drawn as before. All the `rt_water` keys change at once in the Options screen |
 | `rt_water_waves` | 1 | With `rt_water`: how high the waves are, times each level's own (a harbour or canal is calmer than the open sea; 0 flat) |
 | `rt_water_wind` | 1 | With `rt_water`: how strong the wind is - the ripples' size and speed (0 still, up to 2) |

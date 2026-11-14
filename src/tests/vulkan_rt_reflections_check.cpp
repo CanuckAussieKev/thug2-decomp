@@ -33,6 +33,10 @@
 //     mesh's own offsets (as before) fails the comparison.
 //   - rt_sky (the sky's misses): the floor's reflections that miss the box show the sky drawn - the sky-view table toward
 //     the reflected direction, as the game's colour - where they kept the floor's own colour without it.
+//   - (added for the surface reflections) The floor without a shine of its own, its texture given a surface map (rt_pbr):
+//     a smooth glazed tile reflects by Fresnel at the map's F0 (the weights against the processor's, as above); a rough
+//     tile, a concrete map, rt_reflection_surfaces=0 and rt_pbr off leave every pixel as drawn (concrete and pbr off:
+//     no pass at all).
 //   thug2_vulkan_rt_reflections_check [--device N] [--display N] [--no-validation] [--seed N]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
@@ -64,6 +68,8 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_vertex_attributes.h"
+#include "engine/gfx/surface_maps.h"
+#include "formats/surface_map_format.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -1081,6 +1087,7 @@ struct Mirror {
     TestMesh box;
     render::GpuTexture* texture = nullptr;
     render::GpuTexture* cover = nullptr; // (the floor's cover pass: the mask's texture)
+    render::GpuTexture* surface = nullptr; // (added for the surface reflections) the floor's white texture with a map
     rt::MaterialId floor_material = 0;
     rt::MaterialId box_material = 0;
 };
@@ -1126,6 +1133,10 @@ struct MirrorCase {
     float roughness = 0.0F;
     float glass_reflectance = render::vulkan::kRtGlassReflectance; // (rt_glass_reflectance: glass's F0)
     uint32_t box_colour = kGrey; // (added for the skinned meshes' attributes) the box's vertex colour
+    // (added for the surface reflections) above 0: the floor has no shine of its own, its white texture a smooth
+    // glazed-tile surface map of this F0 (Mirror::surface) - rt_reflection_surfaces `surfaces`
+    float surface_f0 = 0.0F;
+    float surfaces = 1.0F;
 };
 
 // Schlick's approximation of the Fresnel reflectance, and the exact one for unpolarised light from air into an index n
@@ -1151,6 +1162,10 @@ double reference_weight(const MirrorCase& test, double cosine)
 {
     const double reflectivity = test.reflectivity;
     const double strength = test.strength;
+    if (test.surface_f0 > 0.0F) {
+        // (a smooth glazed tile: its gloss 1, Fresnel at its F0 whatever rt_reflection_fresnel says)
+        return static_cast<double>(test.surfaces) * std::min(1.0, 2.0 * strength) * schlick(test.surface_f0, cosine);
+    }
     double mask = 1.0;
     if (test.fresnel && test.mask == rt::kReflectWhereBaseClear) {
         mask = 0.0;
@@ -1251,6 +1266,9 @@ void release_mirror(render::Gpu& gpu, Mirror* mirror)
     }
     if (mirror->cover != nullptr) {
         gpu.release_texture(mirror->cover);
+    }
+    if (mirror->surface != nullptr) {
+        gpu.release_texture(mirror->surface);
     }
     *mirror = Mirror{};
 }
@@ -1501,15 +1519,18 @@ void run_mirror(render::Gpu& gpu, Mirror& mirror, const MirrorCase& test, Tally*
     text::print("the mirror (%s, %s, strength %.2f, reflectivity %.2f%s):\n", test.name,
                 test.samples == 0 ? "one sample" : "four samples", static_cast<double>(test.strength),
                 static_cast<double>(test.reflectivity), test.fresnel ? ", Fresnel" : "");
-    rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(test.reflectivity, test.kind, test.mask,
-                                                                                 test.cover ? mirror.cover : nullptr));
+    rt::Material floor = floor_surface(test.reflectivity, test.kind, test.mask, test.cover ? mirror.cover : nullptr);
+    if (test.surface_f0 > 0.0F) {
+        floor.texture = mirror.surface;
+    }
+    rt::ray_tracing()->set_material(mirror.floor_material, floor);
     Targets targets;
     const bool made = make_targets(gpu, test.samples, &targets);
     tally->check(made, "the targets made");
     if (made) {
         render::vulkan::RtReflectionSettings settings{
             .on = false, .strength = test.strength, .fresnel = test.fresnel, .glass_roughness = test.roughness,
-            .glass_reflectance = test.glass_reflectance};
+            .glass_reflectance = test.glass_reflectance, .surfaces = test.surfaces};
         render::vulkan::set_rt_reflection_settings(settings);
         tally->check(draw_frame(gpu, targets, mirror, 1) == 0, "off: no pass");
         std::vector<uint8_t> without;
@@ -1705,6 +1726,99 @@ void run_untouched(render::Gpu& gpu, Mirror& mirror, const char* name, bool on, 
         tally->check(read_without && read_with && with == without, "the frame exactly as without the pass");
     }
     release_targets(gpu, targets);
+}
+
+// (added for the surface reflections) A frame with rt_reflections off, then on: whether the pass ran and whether the
+// frame changed.
+struct OnOff {
+    bool read = false;
+    uint64_t passes = 0;
+    bool same = false;
+};
+OnOff draw_off_on(render::Gpu& gpu, Mirror& mirror, const render::vulkan::RtReflectionSettings& on)
+{
+    OnOff out;
+    Targets targets;
+    if (make_targets(gpu, 0, &targets)) {
+        render::vulkan::RtReflectionSettings off = on;
+        off.on = false;
+        render::vulkan::set_rt_reflection_settings(off);
+        draw_frame(gpu, targets, mirror, 1);
+        std::vector<uint8_t> without;
+        const bool read_without = read_colour(gpu, targets, &without);
+        render::vulkan::set_rt_reflection_settings(on);
+        out.passes = draw_frame(gpu, targets, mirror, 2);
+        std::vector<uint8_t> with;
+        out.read = read_without && read_colour(gpu, targets, &with);
+        out.same = out.read && with == without;
+    }
+    release_targets(gpu, targets);
+    return out;
+}
+
+// (added for the surface reflections) The floor without a shine of its own (no environment pass), its white texture
+// given a surface map (rt_pbr): a smooth glazed tile reflects the box by Fresnel at the map's F0 (the pass's weights
+// against the processor's, as the mirrors'); a rough map's texels, a concrete one, rt_reflection_surfaces=0 - and a
+// surface map with rt_pbr off - leave every pixel as drawn.
+void run_surface(render::Gpu& gpu, Mirror& mirror, Tally* tally)
+{
+    namespace smf = surface_map_format;
+    constexpr float kTileF0 = 0.5F;
+    constexpr uint8_t kFlat = 128;
+    constexpr uint8_t kRoughest = 255;
+    text::print("surfaces glossy by their surface maps (no shine of their own):\n");
+    render::vulkan::set_rt_pbr_settings({.on = true});
+    const bool textured = make_texture(gpu, [](uint32_t, uint32_t) { return 0xFFFFFFFFU; }, &mirror.surface);
+    const auto attach = [&](uint8_t material_class, uint8_t roughness) {
+        std::vector<uint8_t> map(static_cast<std::size_t>(kTextureSide) * kTextureSide * 4);
+        for (std::size_t i = 0; i < map.size(); i += 4) {
+            map.at(i) = kFlat;
+            map.at(i + 1) = kFlat;
+            map.at(i + 2) = roughness;
+            map.at(i + 3) = kFlat;
+        }
+        return render::surface::surface_maps() != nullptr &&
+               render::surface::surface_maps()->attach(
+                   mirror.surface, {.width = kTextureSide, .height = kTextureSide, .material_class = material_class,
+                                    .f0 = kTileF0},
+                   map);
+    };
+    const bool tile = textured && attach(static_cast<uint8_t>(smf::MaterialClass::kTile), 0);
+    tally->check(tile, "a white texture with a smooth glazed tile's surface map");
+    if (tile) {
+        run_mirror(gpu, mirror, {.name = "a glazed tile by its surface map", .samples = 0, .strength = 0.5F,
+                                 .reflectivity = 0.0F, .fresnel = true, .surface_f0 = kTileF0},
+                   tally);
+        rt::Material floor = floor_surface(0.0F);
+        floor.texture = mirror.surface;
+        const render::vulkan::RtReflectionSettings on{.on = true, .strength = 0.5F, .fresnel = true};
+        // rt_reflection_surfaces=0: no change
+        render::vulkan::RtReflectionSettings none = on;
+        none.surfaces = 0.0F;
+        rt::ray_tracing()->set_material(mirror.floor_material, floor);
+        OnOff got = draw_off_on(gpu, mirror, none);
+        tally->check(got.read && got.same, "rt_reflection_surfaces=0: every pixel as drawn");
+        // a rough tile (its map's roughness 1): no reflection
+        const bool rough = attach(static_cast<uint8_t>(smf::MaterialClass::kTile), kRoughest);
+        rt::ray_tracing()->set_material(mirror.floor_material, floor);
+        got = draw_off_on(gpu, mirror, on);
+        tally->check(rough && got.read && got.passes == 1 && got.same,
+                     "a rough tile (roughness 1): the pass ran, every pixel as drawn");
+        // concrete: nothing reflective - no pass
+        const bool concrete = attach(static_cast<uint8_t>(smf::MaterialClass::kConcrete), 0);
+        rt::ray_tracing()->set_material(mirror.floor_material, floor);
+        got = draw_off_on(gpu, mirror, on);
+        tally->check(concrete && got.read && got.passes == 0 && got.same,
+                     "smooth concrete: nothing reflective, no pass, every pixel as drawn");
+        // rt_pbr off (no maps used): no pass
+        attach(static_cast<uint8_t>(smf::MaterialClass::kTile), 0);
+        render::vulkan::set_rt_pbr_settings({});
+        rt::ray_tracing()->set_material(mirror.floor_material, floor);
+        got = draw_off_on(gpu, mirror, on);
+        tally->check(got.read && got.passes == 0 && got.same, "rt_pbr off: no pass, every pixel as drawn");
+    }
+    render::vulkan::set_rt_pbr_settings({});
+    rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(0.0F));
 }
 
 int window_position(int display)
@@ -1990,6 +2104,7 @@ int run(const Options& options, SDL_Window* window)
         run_untouched(gpu, mirror, "rt_reflections off: no pass", false, 1.0F, &tally);
         run_sky_misses(gpu, mirror, &tally);
         run_skinned(gpu, mirror, &tally);
+        run_surface(gpu, mirror, &tally); // (added for the surface reflections)
     }
     release_mirror(gpu, &mirror);
     render::vulkan::set_rt_reflection_settings({});

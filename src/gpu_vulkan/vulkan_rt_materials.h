@@ -54,7 +54,7 @@ inline constexpr uint32_t kMaterialRecordsBinding = 0;
 inline constexpr uint32_t kMaterialSamplersBinding = 1;
 inline constexpr uint32_t kMaterialTexturesBinding = 2;
 
-// A row of binding 0 (scalar layout: 100 bytes). The GLSL's `Material` has the same members in the same order.
+// A row of binding 0 (scalar layout: 108 bytes). The GLSL's `Material` has the same members in the same order.
 struct MaterialRecord {
     uint32_t texture = 0; // slot in textures[] (0: white)
     uint32_t sampler = 0; // index in samplers[]
@@ -85,8 +85,12 @@ struct MaterialRecord {
     std::array<uint32_t, rt::Material::kMaskPasses> mask_texture{};
     std::array<uint32_t, rt::Material::kMaskPasses> mask_sampler{};
     std::array<uint32_t, rt::Material::kMaskPasses> mask_mode{};
+    // (added for the surface reflections) the surface kind's roughness (the detail-material library's, rt_detail) and
+    // how far it replaces the surface map's (0: the map's alone) - as the per-pixel lighting takes them
+    float kind_roughness = 0.0F;
+    float kind_roughness_weight = 0.0F;
 };
-inline constexpr std::size_t kMaterialRecordBytes = 100;
+inline constexpr std::size_t kMaterialRecordBytes = 108;
 inline constexpr uint32_t kMaskUvSetShift = 4;
 inline constexpr uint32_t kMaskTextureAlpha = 1U << 8; // the alpha the texel's alone (else x the vertex alpha, doubled)
 static_assert(sizeof(MaterialRecord) == kMaterialRecordBytes);
@@ -99,6 +103,10 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot,
                                const std::array<uint32_t, rt::Material::kMaskPasses>& mask_slots = {});
 // MaterialRecord::f0 for `material` whose surface map's class gives `map_f0` (0: no map): water's reflection class wins.
 [[nodiscard]] float record_f0(const rt::Material& material, float map_f0);
+// (added for the surface reflections) A record whose material has no shine of its own (reflectivity 0) and isn't seen
+// through, its texture `colour` with a surface map: reflective as the map's gloss says (vulkan_surface.h
+// surface_map_gloss) - reflectivity the gloss, reflection class rt::kReflectSurface, f0 the map's. Otherwise unchanged.
+void surface_reflection(const rt::Material& material, const Texture* colour, MaterialRecord* record);
 
 // The GLSL a shader puts right after its `#version 460` (and its own #extension lines; `#define THUG2_MATERIAL_SET n`
 // first to bind the table at set n, 1 by default). It enables GL_EXT_nonuniform_qualifier and
@@ -106,7 +114,8 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot,
 //   struct Material { uint texture_slot; uint sampler_index; uint uv_set; uint blend; float alpha_ref; uint flags;
 //                     vec4 colour; float reflectivity; uint environment_pass;
 //                     uint reflection_class; uint reflection_mask; uint surface_slot; float f0;
-//                     uint mask_texture[3]; uint mask_sampler[3]; uint mask_mode[3]; };
+//                     uint mask_texture[3]; uint mask_sampler[3]; uint mask_mode[3];
+//                     float kind_roughness; float kind_roughness_weight; };
 //   const uint MATERIAL_ALPHA_TESTED = 2u, MATERIAL_TRANSPARENT = 64u;   (rt::InstanceFlag's values)
 //   Material material(uint id)                       - the record (id: rt::MaterialId; 0: untextured white)
 //   vec4 material_texel(uint id, vec2 uv)            - its texture at level 0 through its sampler (non-uniform indexing)

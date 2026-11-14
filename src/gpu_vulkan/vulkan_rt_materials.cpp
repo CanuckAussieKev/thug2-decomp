@@ -99,6 +99,8 @@ struct Material {
     uint mask_texture[3];
     uint mask_sampler[3];
     uint mask_mode[3];
+    float kind_roughness;
+    float kind_roughness_weight;
 };
 layout(set = THUG2_MATERIAL_SET, binding = 0, scalar) readonly buffer MaterialRecords { Material material_records[]; };
 layout(set = THUG2_MATERIAL_SET, binding = 1) uniform sampler material_samplers[32];
@@ -109,7 +111,7 @@ Material material(uint id)
 {
     if (id >= uint(material_records.length())) {
         return Material(0u, 0u, 0u, 0u, 0.0, 0u, vec4(1.0), 0.0, 0xFFFFFFFFu, 0u, 0u, 0u, 0.0, uint[3](0u, 0u, 0u),
-                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u));
+                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u), 0.0, 0.0);
     }
     return material_records[id];
 }
@@ -177,6 +179,22 @@ uint32_t material_sampler_index(const rt::Material& material)
 float record_f0(const rt::Material& material, float map_f0)
 {
     return material.reflection_class == rt::kReflectWater ? rt::kReflectWaterF0 : map_f0;
+}
+
+void surface_reflection(const rt::Material& material, const Texture* colour, MaterialRecord* record)
+{
+    if (record->reflectivity > 0.0F || (material.flags & rt::kTransparent) != 0U) {
+        return;
+    }
+    SurfaceGloss found;
+    if (surface_map_gloss(colour, &found) && found.gloss > 0.0F && found.f0 > 0.0F) {
+        record->reflectivity = found.gloss;
+        record->reflection_class = rt::kReflectSurface;
+        record->reflection_mask = rt::kReflectEverywhere;
+        record->f0 = found.f0;
+        record->kind_roughness = found.kind_roughness;
+        record->kind_roughness_weight = found.kind_roughness_weight;
+    }
 }
 
 MaterialRecord material_record(const rt::Material& material, uint32_t slot,
@@ -556,6 +574,9 @@ void MaterialTable::set(rt::MaterialId id, const rt::Material& material)
         record.f0 = record_f0(material, surface_map_f0(texture));
         if (record.surface_texture != 0) {
             core::at(slot_users_, record.surface_texture).push_back(id);
+            // (added for the surface reflections) a surface the game gave no shine reflects as its map says it is glossy
+            // (not one seen through: glows, panes and leaves keep their own look)
+            surface_reflection(material, texture, &record);
         }
     }
     for (std::size_t k = 0; k < rt::Material::kMaskPasses; ++k) {

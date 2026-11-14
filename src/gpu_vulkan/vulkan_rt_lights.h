@@ -21,6 +21,8 @@
 //     and objects - masks 0x01, 0x02; an object's pixel only the world's, as the shadows) stopping its size short of it
 //     (a lamp's own fixture doesn't shadow it), its colour tinted by its material's texture's mean (the texture's
 //     smallest level); the others' light added in the share of the traced ones' that got through;
+//   - that light's sum held under rt_lights.h kLightMost (limited_light: many lamps over one spot brighten it, they
+//     don't burn it white);
 //   - added = strength x albedo x that light: the blend adds it on a float target (HDR) and screens it on an 8-bit one
 //     (x (1 - colour): never past white), as the bounce light's apply.
 // Deterministic (no noise: nothing to denoise). The sky (the depth's far value) is left alone. Multisampled targets:

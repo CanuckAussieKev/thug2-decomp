@@ -311,7 +311,8 @@ render::vulkan::RtLightSettings make_rt_lights()
         .max_lights = static_cast<unsigned>(
             std::max(1, graphics_int("rt_lights_max", static_cast<int>(defaults.max_lights)))),
         .emissive = ini_float("rt_lights_emissive", defaults.emissive),
-        .level = ini_float("rt_lights_level", defaults.level)};
+        .level = ini_float("rt_lights_level", defaults.level),
+        .log = build_info::fetch_flag("debug", "rt_lights_log", false)};
 }
 void read_rt_lights() { render::vulkan::set_rt_light_settings(make_rt_lights()); }
 
@@ -330,7 +331,8 @@ render::vulkan::RtReflectionSettings make_rt_reflections()
          .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength),
          .fresnel = graphics_flag("rt_reflection_fresnel", true),
          .glass_roughness = ini_float("rt_glass_roughness", render::vulkan::kRtGlassRoughness),
-         .glass_reflectance = ini_float("rt_glass_reflectance", render::vulkan::kRtGlassReflectance)};
+         .glass_reflectance = ini_float("rt_glass_reflectance", render::vulkan::kRtGlassReflectance),
+         .surfaces = ini_float("rt_reflection_surfaces", render::vulkan::kRtReflectionSurfaces)};
 }
 void read_rt_reflections() { render::vulkan::set_rt_reflection_settings(make_rt_reflections()); }
 

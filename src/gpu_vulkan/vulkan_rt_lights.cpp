@@ -80,7 +80,7 @@ layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
 layout(set = 0, binding = 1) uniform sampler2D u_depth;
 #endif
 // A light: at.xyz its position, at.w its size; colour.rgb its colour x intensity, colour.w its reach; more.x its
-// material (the bits of a uint: whose texture's mean tints it, 0 none).
+// material (the bits of a uint: whose texture's mean tints it, 0 none), more.y its falloff's core.
 struct LightRecord {
     vec4 at;
     vec4 colour;
@@ -88,7 +88,7 @@ struct LightRecord {
 };
 layout(set = 0, binding = 3, std140) uniform Lights {
     uvec4 count;  // x lights, y traced a pixel, z the shadow rays' mask, w the camera ray's mask
-    vec4 params;  // x strength, y the rays' offset scale, z the falloff's core share of the reach
+    vec4 params;  // x strength, y the rays' offset scale, z, w the knee and the most of the lights' sum (limited_light)
     LightRecord lights[256];
 } u_lights;
 layout(push_constant) uniform Pass {
@@ -183,12 +183,11 @@ vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object)
 }
 
 // A light's falloff at `d` (engine/gfx/rt_lights.cpp light_falloff - the same formula).
-float falloff(float d, float size, float reach)
+float falloff(float d, float core, float reach)
 {
-    if (!(d < reach)) {
+    if (!(d < reach) || !(core > 0.0)) {
         return 0.0;
     }
-    float core = max(size, u_lights.params.z * reach);
     float x = d / reach;
     float x2 = x * x;
     float window = 1.0 - x2 * x2;
@@ -270,7 +269,7 @@ void main()
         if (facing <= 0.0) {
             continue;
         }
-        vec3 c = u_lights.lights[i].colour.rgb * (falloff(dist, u_lights.lights[i].at.w, reach) * facing);
+        vec3 c = u_lights.lights[i].colour.rgb * (falloff(dist, u_lights.lights[i].more.y, reach) * facing);
         float w = dot(c, vec3(0.299, 0.587, 0.114));
         if (!(w > 0.0)) {
             continue;
@@ -320,6 +319,15 @@ void main()
         total += weight[k];
     }
     lit += rest * (total > 0.0 ? through / total : 0.0);
+    // (added for the washed-out streets) the sum held under params.w (rt_lights.h limited_light): many lamps over one
+    // spot light it up to its own colour, they don't burn it white
+    float luminance = dot(lit, vec3(0.299, 0.587, 0.114));
+    float knee = u_lights.params.z;
+    if (luminance > knee) {
+        float over = luminance - knee;
+        float room = u_lights.params.w - knee;
+        lit *= (knee + room * over / (room + over)) / luminance;
+    }
     vec3 added = u_lights.params.x * albedo.rgb * lit;
     if (any(isnan(added)) || any(isinf(added))) {
         discard;
@@ -939,15 +947,15 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
                     kLightsSurfaceMask};
     // (added by the time of day - engine/gfx/rt_daylight.h) the lamps on as the clock says: off by day, on at night
     const rt::DayLight day = rt::day_light();
-    block->params = {day.on ? own.settings.strength * day.lamps : own.settings.strength, kOffsetScale, rt::kCoreShare,
-                     0.0F};
+    block->params = {day.on ? own.settings.strength * day.lamps : own.settings.strength, kOffsetScale, rt::kLightKnee,
+                     rt::kLightMost};
     for (std::size_t i = 0; i < own.last_view.size(); ++i) {
         const rt::Emitter& light = core::at(own.last_view, i);
         LightRecord& record = core::at(block->lights, i);
         record.at = {core::at(light.position, 0), core::at(light.position, 1), core::at(light.position, 2), light.size};
         record.colour = {core::at(light.colour, 0) * light.intensity, core::at(light.colour, 1) * light.intensity,
                          core::at(light.colour, 2) * light.intensity, light.reach};
-        record.more = {std::bit_cast<float>(static_cast<uint32_t>(light.material)), 0.0F, 0.0F, 0.0F};
+        record.more = {std::bit_cast<float>(static_cast<uint32_t>(light.material)), light.core, 0.0F, 0.0F};
     }
     const std::span<const uint8_t> bytes(reinterpret_cast<const uint8_t*>(block.get()), sizeof(LightsBlock));
     const std::optional<RingSpan> lights_span = state.ring.copy(bytes, kUniformAlignment);
@@ -1057,6 +1065,19 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     colour->used = serial;
     depth->used = serial;
     ++own.passes;
+    // [debug] rt_lights_log=1: the lights of every 600th pass logged (where the light comes from)
+    if (own.settings.log && own.passes % kTimingReport == 1) {
+        for (const rt::Emitter& light : own.last_view) {
+            get_log("vulkan: rt_lights: light %s at %.0f %.0f %.0f size %.1f reach %.0f intensity %.3f colour %.2f %.2f "
+                    "%.2f",
+                    light.kind == rt::EmitterKind::kPoint ? "point" : (light.kind == rt::EmitterKind::kGlow ? "glow" : "self-lit"),
+                    static_cast<double>(core::at(light.position, 0)), static_cast<double>(core::at(light.position, 1)),
+                    static_cast<double>(core::at(light.position, 2)), static_cast<double>(light.size),
+                    static_cast<double>(light.reach), static_cast<double>(light.intensity),
+                    static_cast<double>(core::at(light.colour, 0)), static_cast<double>(core::at(light.colour, 1)),
+                    static_cast<double>(core::at(light.colour, 2)));
+        }
+    }
     if (first_report(state, kReportFirstPass)) {
         get_log("vulkan: rt_lights: the first lights pass (%ux%u, %zu lights in view, %u traced a pixel, strength "
                 "%.2f, emissive x%.2f, level lights x%.2f, %s)",

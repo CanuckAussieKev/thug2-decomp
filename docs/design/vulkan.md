@@ -1040,21 +1040,27 @@ lights for a ray-traced pass (`gpu_vulkan/vulkan_rt_lights.h`, the light sources
   is at least 112 and 2.5 times the level's median (lamp heads, lit windows, signs). Triangles are joined into clusters
   (a triangle joins the nearest cluster of its kind whose first triangle is within 96 units): one light per lamp, a long
   tube one every 96 units or so. A cluster's light: its area-weighted centre, colour (vertex x pass colour; the pass
-  multiplies in its texture's mean - the texture's smallest level), intensity (the colour's brightness x its size, 32
-  units square = 1), size (half its diagonal), reach (12 x its size, 400 - 1500 units). A flat cluster facing up is a
-  pool of light: a glow's is lifted by its size, a self-lit one dropped (that is baked light on the floor).
+  multiplies in its texture's mean - the texture's smallest level), intensity (the colour's brightness, at most 2),
+  size (half its diagonal: where its shadow rays stop), core (the radius of a disc of its area: its falloff's), reach
+  (12 x its core, 200 - 1500 units). A flat cluster facing up is a pool of light: a glow's is lifted by its core, a
+  self-lit one dropped (that is baked light on the floor). A point light's core is a tenth of its reach.
 - **Per view** the lights whose reach touches the frustum, the `rt_lights_max` most important (intensity x how much of
   its reach the camera is within), go in a uniform block (at most 256).
 - **Per pixel** (one full-screen pass after the bounce light, `ViewOrder::kLights`): the position and normal from the
   depth, the albedo from a camera ray and the material table (as `rt_gi`'s), every light's unshadowed light (colour x
-  intensity x falloff x N.L; falloff `core^2 / (core^2 + d^2) x (1 - (d / reach)^4)^2`, core = max(size, reach / 4)), the
+  intensity x falloff x N.L; falloff `core^2 / (core^2 + d^2) x (1 - (d / reach)^4)^2` - a disc of the cluster's area and brightness: its
+  brightness at it, falling with the square of the distance past its own size), the
   brightest `rt_lights_shadowed` traced (a ray query toward each through the opaque world and objects, stopped the
   light's size short: a lamp's own fixture doesn't shadow it; an object's pixel the world's shadows only), the rest
-  added in the share of the traced ones' light that got through. Added = strength x albedo x light (screened on an 8-bit
-  target, added on HDR). Deterministic: no noise, no history.
+  added in the share of the traced ones' light that got through; the sum's luminance held under 1 (as it is up to 0.5,
+  then L' = 0.5 + 0.5 (L - 0.5) / L: many lamps over one spot light it up to its own colour, never white). Added = strength x albedo
+  x light (screened on an 8-bit target, added on HDR). Until 2026-11-15 the core was at least a quarter of the reach (up
+  to 375 units) and the intensity grew with a cluster's area: one street-wide glow in New Orleans lit the whole street
+  evenly - white at strength 0.35, still like daylight at 0.1. Now the default strength is 1. Deterministic: no noise, no history.
 - **Check**: `thug2_vulkan_rt_lights_check` (the clustering and selection on the processor; a lamp beside a box on a dark
   floor against the processor's answer, one sample and four, a red-textured glow, two lamps with one traced; off and a
-  lamp out of view leave every pixel as drawn). `--perf`: 64 lamps in view, 320x240: 0.087 ms a pass (RTX 5070 Ti) -
+  lamp out of view leave every pixel as drawn; 49 lamps over the floor: their sum past the knee, as the processor's, no
+  pixel white at the default strength; a street-wide glow's light 600 units away an eighth of the light under it). `--perf`: 64 lamps in view, 320x240: 0.087 ms a pass (RTX 5070 Ti) -
   about 2-3 ms at 1920x1080 in that scene; a level's deeper BVH costs more (not measured in the game yet).
 - **Not yet**: the lamps' light in the bounce (`rt_gi`) and in the reflections' hits; the lights already baked into the
   vertex colours aren't taken out (the traced light adds to them - `rt_lights_strength` balances it); no light grid
@@ -1183,7 +1189,7 @@ blue); the glass was the reflections'.
   before; adds, subtracts and brightens leave it. The constant factors go into the reflectivity, the per-pixel ones
   into `rt::Material::mask_passes` (up to three: a pass's texture, its texture coordinate set - pass n reads set n,
   `rt::Geometry::uv_sets` -, addressing, kMaskClear 1 - a / kMaskOpaque a, whether the vertex alpha counts); R3's record
-  carries each one's texture slot, sampler and mode (100 bytes a row with the surface maps' two fields before them), and the reflection pass multiplies the weight by
+  carries each one's texture slot, sampler and mode (100 bytes a row then; 108 since the surface reflections with the surface maps' two fields before them), and the reflection pass multiplies the weight by
   every factor at the pixel (each texture at the level of its own coordinates' footprint; Fresnel on or off). BO's
   facades are an environment pass first (a 32 x 32 sky picture) under the wall texture by mode 5: before, the
   reflectivity of the environment pass covered the whole wall; now only where the wall texture is clear.
@@ -1205,6 +1211,21 @@ blue); the glass was the reflections'.
   direction (a golden-angle disc, turned by a quarter of its step in each pixel of a 2 x 2 block), averages their hits
   and stores its weight negative; the apply blurs such pixels with their rough neighbours (a 3 x 3 tent by weight) - 16
   directions seen per neighbourhood, no noise, no history. Water and shiny surfaces stay one deterministic mirror ray.
+- **Surfaces glossy by their surface maps** (`rt_reflection_surfaces`, 1; needs `rt_pbr`'s maps; added 2026-11-15):
+  before, only the environment-mapped materials reflected - polished floors and metal the game left without a shine
+  never did. Now the material table (`vulkan_rt_materials.cpp` surface_reflection) gives a material with no shine of its
+  own, not seen through, whose texture has a map a reflectivity from the map's surface kind (`vulkan_surface.cpp`
+  surface_map_gloss: the detail library's kind where there is one, else the map's class - metal, glazed tiles, glass and
+  water 1, stone 0.5, wood 0.35, paint 0.3; asphalt, concrete, brick, plaster, ground, plants, cloth and the
+  characters' maps 0), class `rt::kReflectSurface`, the map's F0, and the kind's roughness and its weight (the library's;
+  the record grew to 108 bytes). The pass reads the map's roughness at the pixel (mixed toward the kind's as the per-pixel
+  lighting does): weight = gloss x `rt_reflection_surfaces` x min(1, 2 x strength) x (F0 + (max(1 - r, F0) - F0)(1 - c)^5)
+  x (1 - smoothstep(0.525, 0.7, r)) - a rough surface never turns into a mirror at grazing angles, the roughest (r above
+  0.7: the maps' stone, plaster, paint) not at all - and its rays spread over a cone of r^2 radians (at most 0.5) as
+  rough glass's. Such materials count as reflective instances. The maps make few surfaces glossy (THUG2's levels: the
+  metal kinds - rails, the Airport's moving walkways - and glazed tiles; stone and paint stay matte), so most views
+  change little. Off (`rt_reflections=0`) and without maps nothing changes; `rt_reflection_surfaces=0` gives the earlier
+  look.
 - **The skater's shadow** (`rt_shadow_objects`, now 1 by default): the skater, peds and vehicles cast ray-traced shadows,
   and while a shadow pass casts them `rt::set_object_shadows_replaced` (a contract addition) tells the shadow component
   (`engine/objects/shadow_component.cpp` refresh_shadow) to hide each object's own shadow - the detailed one (the model
