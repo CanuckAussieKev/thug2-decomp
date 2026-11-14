@@ -128,6 +128,14 @@ public:
         (void)mode;
         return false;
     }
+    // NOT ORIGINAL - where the main loop is in a frame (Vulkan's frame generation and Reflex low latency -
+    // gpu_vulkan/vulkan_framegen.h - time the frames by them; nothing happens without them): the simulation's start
+    // (Reflex waits there for its best time to begin a frame) and end, and the draws' recording.
+    enum class LatencyMarker : uint8_t { kSimulationStart, kSimulationEnd, kRenderSubmitStart, kRenderSubmitEnd };
+    virtual void latency_marker(LatencyMarker marker) { (void)marker; }
+    // NOT ORIGINAL - the frames handed to the display so far, the generated ones too (frame generation); 0 when no frame
+    // is generated (every presented frame is a drawn one).
+    [[nodiscard]] virtual uint64_t frames_shown() const { return 0; }
     // The device and then the instance given back.
     virtual void shutdown() = 0;
 

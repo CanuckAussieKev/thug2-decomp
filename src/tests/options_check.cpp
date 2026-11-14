@@ -59,6 +59,8 @@ const std::vector<Expected>& expected()
         {.key = "ray_tracing", .fallback = "0", .live = false},
         {.key = "texture_set", .fallback = "original", .live = true},
         {.key = "max_fps", .fallback = "0", .live = true},
+        {.key = "frame_generation", .fallback = "off", .live = false},
+        {.key = "reflex", .fallback = "off", .live = false},
         {.key = "present_mode", .fallback = "vsync", .live = true},
         {.key = "show_fps", .fallback = "0", .live = true},
         {.key = "anisotropy", .fallback = "0", .live = false},

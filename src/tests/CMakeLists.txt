@@ -300,6 +300,22 @@ if(TARGET thug2_gpu_vulkan)
     endif()
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_framegen_check.exe: frame generation and Reflex (gpu_vulkan/vulkan_framegen.h) on this
+# machine - off (no provider, no feature, Vulkan's own swapchain), DLSS-G (an NVIDIA RTX 40 / 50) and FSR 3 (its own
+# swapchain): the feature made and released, frames on while moving, more frames shown than drawn, off under a menu, a
+# cut resetting the history (src/tests/vulkan_framegen_check.cpp). The DLLs are copied beside it. Exit 2 when neither
+# provider runs here.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_framegen_check vulkan_framegen_check.cpp)
+    target_link_libraries(thug2_vulkan_framegen_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_framegen_check PRIVATE SDL_MAIN_HANDLED)
+    if(THUG2_UPSCALER_DLLS)
+        add_custom_command(TARGET thug2_vulkan_framegen_check POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THUG2_UPSCALER_DLLS} "$<TARGET_FILE_DIR:thug2_vulkan_framegen_check>"
+            COMMENT "Copying the upscalers' and frame generation's DLLs next to thug2_vulkan_framegen_check.exe")
+    endif()
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_gi_check.exe: the Vulkan Gpu's one-bounce ray-traced indirect light
 # (gpu_vulkan/vulkan_rt_effects.h, rt_gi) on this machine - a red wall beside a white floor in the sun: each frame's
 # light compared with the same rays traced on the processor, the albedo found, the colour it adds, the reddish bounce,

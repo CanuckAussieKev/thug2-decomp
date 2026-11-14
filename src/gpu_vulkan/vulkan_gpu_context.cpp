@@ -22,6 +22,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_framegen.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "platform/run_log.h"
 #include "platform/sdl_window.h"
@@ -149,6 +150,8 @@ public:
             state.settings.samples = 0;
             state.settings.sample_quality = 0;
         }
+        // NOT ORIGINAL - frame generation (vulkan_framegen.h): its provider chosen before the swapchain (FSR's makes it)
+        prepare_frame_generation(state);
         if (!state.context.make_swapchain()) {
             return gpu_value::kResultInvalidCall;
         }
@@ -257,12 +260,23 @@ public:
         return true;
     }
 
+    // NOT ORIGINAL - frame generation and Reflex (vulkan_framegen.h): the frame's markers (Reflex's wait at the
+    // simulation's start - not under the backend's lock: nothing else is touched), the frames shown.
+    void latency_marker(LatencyMarker marker) override { frame_generation_marker(backend(), marker); }
+    [[nodiscard]] uint64_t frames_shown() const override
+    {
+        const std::scoped_lock lock(backend().mutex);
+        return frame_generation_frames_shown();
+    }
+
     void shutdown() override
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         release_device_objects(state);
+        shutdown_frame_generation(state); // (NOT ORIGINAL - frame generation's provider, before Streamline shuts down)
         state.context.destroy();
+        state.context.set_swapchain_owner(nullptr); // (NOT ORIGINAL - FSR's, its swapchain gone)
         state.opened = false;
         state.device_made = false;
         state.ready = false;

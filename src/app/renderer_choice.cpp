@@ -401,6 +401,30 @@ void read_rt_relit()
     render::rt::set_relit_settings(relit);
 }
 
+// NOT ORIGINAL - frame generation and Reflex (gpu_vulkan/vulkan_framegen.h): off unless asked for; DLSS-G / FSR 3 from
+// beside the exe. Read at start-up only (the swapchain and the device's queues are made for it).
+void read_frame_generation()
+{
+    constexpr std::size_t kLongest = 32;
+    std::array<char, kLongest> text{};
+    render::vulkan::FrameGenSettings settings;
+    graphics_text("frame_generation", "off", text.data(), text.size());
+    if (!render::vulkan::parse_frame_generation(text.data(), &settings.mode)) {
+        get_log("[Graphics] frame_generation=%s isn't off, 2x, 3x or 4x - off", text.data());
+    }
+    text = {};
+    graphics_text("frame_generation_provider", "auto", text.data(), text.size());
+    if (!render::vulkan::parse_frame_generation_source(text.data(), &settings.source)) {
+        get_log("[Graphics] frame_generation_provider=%s isn't auto, dlss or fsr - auto", text.data());
+    }
+    text = {};
+    graphics_text("reflex", "off", text.data(), text.size());
+    if (!render::vulkan::parse_reflex(text.data(), &settings.reflex)) {
+        get_log("[Graphics] reflex=%s isn't off, on or boost - off", text.data());
+    }
+    render::vulkan::set_frame_generation_settings(settings);
+}
+
 // NOT ORIGINAL - upscaling (gpu_vulkan/vulkan_upscale.h): off unless asked for; DLSS / FSR from beside the exe. Read
 // at start-up only (the device's targets and the provider are made for it).
 void read_upscale()
@@ -421,6 +445,14 @@ void read_upscale()
     upscale.ray_reconstruction = graphics_flag("ray_reconstruction", false);
     upscale.sharpness = ini_float("upscale_sharpness", 0.0F);
     upscale.fsr_major = static_cast<unsigned>(std::max(0, graphics_int("fsr_version", 0)));
+    // (frame generation makes its frames from the upscaler's motion vectors and depth: with none asked for, the upscaler
+    // runs at native resolution - DLAA / FSR's native anti-aliasing)
+    if (upscale.upscaler == render::vulkan::Upscaler::kOff &&
+        render::vulkan::frame_generation_settings().mode != render::vulkan::FrameGeneration::kOff) {
+        upscale.upscaler = render::vulkan::Upscaler::kAuto;
+        upscale.quality = render::vulkan::UpscaleQuality::kNative;
+        get_log("[Graphics] frame_generation needs the upscaler's motion vectors: upscaler=auto at native resolution");
+    }
     render::vulkan::set_upscale_settings(upscale);
 }
 
@@ -974,6 +1006,7 @@ void install_vulkan()
     read_rt_sun();
     read_rt_sky();
     read_rt_relit();
+    read_frame_generation();
     read_upscale();
     read_rt_pbr();
     read_rt_detail(); // (NOT ORIGINAL - detail materials and de-lighting)

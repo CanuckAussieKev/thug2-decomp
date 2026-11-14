@@ -5,11 +5,15 @@
 #
 #   THUG2_FSR   AMD's FSR SDK 2.4.0 (github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK): the C API's headers (MIT) and
 #               the signed, prebuilt amd_fidelityfx_loader_vk.dll / amd_fidelityfx_upscaler_vk.dll (AMD's binary licence:
-#               redistributable with its notice) - FSR 3.1.6 and FSR 4.1 in one DLL.
+#               redistributable with its notice) - FSR 3.1.6 and FSR 4.1 in one DLL; and (frame generation:
+#               src/gpu_vulkan/vulkan_framegen*.cpp) amd_fidelityfx_framegeneration_vk.dll - FSR 3.1.7 / FSR 4 frame
+#               generation and its swapchain - with the frame-generation headers.
 #   THUG2_DLSS  NVIDIA Streamline 2.14.16 (github.com/NVIDIA-RTX/Streamline, MIT): its headers and its signed DLLs -
 #               sl.interposer, sl.common, sl.dlss (Super Resolution / DLAA), sl.dlss_d (Ray Reconstruction) - with
 #               NVIDIA's nvngx_dlss.dll / nvngx_dlssd.dll (the NVIDIA RTX SDKs licence: redistributable in an
-#               application, its notices kept). Only the files used are taken out of the release's zip.
+#               application, its notices kept); and (frame generation and low latency: src/gpu_vulkan/vulkan_framegen*.cpp)
+#               sl.dlss_g (DLSS Frame Generation) with nvngx_dlssg.dll, sl.reflex with NVIDIA's NvLowLatencyVk.dll (its
+#               reflex.license.txt), sl.pcl. Only the files used are taken out of the release's zip.
 set(THUG2_UPSCALERS_POSSIBLE OFF)
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND THUG2_VULKAN)
     set(THUG2_UPSCALERS_POSSIBLE ON)
@@ -32,6 +36,10 @@ if(THUG2_FSR)
         "api/include/ffx_api_types.h|53f07c113a9ba493f297656e4481b6539aed0afc9f3cc8da682aa477d270c46c"
         "api/include/vk/ffx_api_vk.h|09ac1855bc4c2f711243d6982909385072ca3f8d30db44d1a82ee5bd637832ad"
         "upscalers/include/ffx_upscale.h|13091e7fe5fd9c82b1fb7c044b9f08f664d9653f599d2ea500738709236fca4d"
+        "framegeneration/include/ffx_framegeneration.h|bc78a18aa95f5157b4699b0602700592b624788c5bc55d1762cb46a1b6557ca1"
+        "framegeneration/include/ffx_framegeneration_api_types.h|396596af3df63310674e8036abd2ad0fcd061e61334e7a2c76653a2be3c686b4"
+        "framegeneration/include/vk/ffx_api_framegeneration_vk.h|321d3138005757759d9ee05281d3dcd4cc2c3608bc1d524f9b1d0a6dadd49f61"
+        "signedbin/amd_fidelityfx_framegeneration_vk.dll|d002dabff8c5e71eaa715fc99438cd4dc81230262a7897b16bc402efec3498b4"
         "signedbin/amd_fidelityfx_loader_vk.dll|38a56a01fb3565c0757d9f5c1e4e69de4b65e5f2e5769b323b200dc1f142bab9"
         "signedbin/amd_fidelityfx_upscaler_vk.dll|4a7e895af6e0b615d40a84d59eb8c2b1054ad91cdd0c739567940270d51bdab7"
         "docs/license.md|32357259b965d6a8001e9e508ba60eda6034027c5923a7d226ffbaff813c2bfb")
@@ -50,10 +58,12 @@ if(THUG2_FSR)
         endif()
     endforeach()
     add_library(fsr_sdk INTERFACE)
-    target_include_directories(fsr_sdk SYSTEM INTERFACE "${fsr_dir}/api/include" "${fsr_dir}/upscalers/include")
+    target_include_directories(fsr_sdk SYSTEM INTERFACE "${fsr_dir}/api/include" "${fsr_dir}/upscalers/include"
+                                                       "${fsr_dir}/framegeneration/include")
     target_compile_definitions(fsr_sdk INTERFACE THUG2_FSR)
     list(APPEND THUG2_UPSCALER_DLLS "${fsr_dir}/signedbin/amd_fidelityfx_loader_vk.dll"
-                                    "${fsr_dir}/signedbin/amd_fidelityfx_upscaler_vk.dll")
+                                    "${fsr_dir}/signedbin/amd_fidelityfx_upscaler_vk.dll"
+                                    "${fsr_dir}/signedbin/amd_fidelityfx_framegeneration_vk.dll")
     # (its binary licence beside the DLLs: THIRD_PARTY_NOTICES.md)
     configure_file("${fsr_dir}/docs/license.md" "${fsr_dir}/amd_fidelityfx_license.md" COPYONLY)
     list(APPEND THUG2_UPSCALER_DLLS "${fsr_dir}/amd_fidelityfx_license.md")
@@ -67,8 +77,11 @@ if(THUG2_DLSS)
         include/sl.h include/sl_appidentity.h include/sl_consts.h include/sl_core_api.h include/sl_core_types.h
         include/sl_device_wrappers.h include/sl_dlss.h include/sl_dlss_d.h include/sl_helpers_vk.h include/sl_hooks.h
         include/sl_result.h include/sl_security.h include/sl_struct.h include/sl_version.h include/sl_matrix_helpers.h
+        include/sl_dlss_g.h include/sl_reflex.h include/sl_pcl.h
         bin/x64/sl.interposer.dll bin/x64/sl.common.dll bin/x64/sl.dlss.dll bin/x64/sl.dlss_d.dll
-        bin/x64/nvngx_dlss.dll bin/x64/nvngx_dlssd.dll bin/x64/nvngx_dlss.license.txt license.txt)
+        bin/x64/nvngx_dlss.dll bin/x64/nvngx_dlssd.dll bin/x64/nvngx_dlss.license.txt license.txt
+        bin/x64/sl.dlss_g.dll bin/x64/sl.reflex.dll bin/x64/sl.pcl.dll bin/x64/nvngx_dlssg.dll bin/x64/NvLowLatencyVk.dll
+        bin/x64/reflex.license.txt)
     set(sl_complete ON)
     foreach(file IN LISTS sl_wanted)
         if(NOT EXISTS "${sl_dir}/${file}")
@@ -94,7 +107,8 @@ if(THUG2_DLSS)
     target_include_directories(streamline_sdk SYSTEM INTERFACE "${sl_dir}/include")
     target_compile_definitions(streamline_sdk INTERFACE THUG2_DLSS)
     foreach(dll IN ITEMS sl.interposer.dll sl.common.dll sl.dlss.dll sl.dlss_d.dll nvngx_dlss.dll nvngx_dlssd.dll
-                         nvngx_dlss.license.txt)
+                         nvngx_dlss.license.txt sl.dlss_g.dll sl.reflex.dll sl.pcl.dll nvngx_dlssg.dll NvLowLatencyVk.dll
+                         reflex.license.txt)
         list(APPEND THUG2_UPSCALER_DLLS "${sl_dir}/bin/x64/${dll}")
     endforeach()
     # (Streamline's MIT licence beside its DLLs)

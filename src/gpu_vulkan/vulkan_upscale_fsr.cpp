@@ -20,13 +20,11 @@
 #include <volk.h>
 
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_ffx.h"
 #include "platform/run_log.h"
 
-// (the SDK's headers: C, MIT)
-#include <ffx_api.h>
-#include <ffx_api_types.h>
+// (the SDK's headers: C, MIT - the API's through vulkan_ffx.h)
 #include <ffx_upscale.h>
-#include <vk/ffx_api_vk.h>
 #endif
 
 namespace render::vulkan {
@@ -40,53 +38,10 @@ constexpr UpscaleJitterTerms kFsrTerms{.sign = {-1.0F, -1.0F}, .align = {-1.0F, 
 // THUG2's world units are inches (a skater is about 72 tall): FSR's scale to metres.
 constexpr float kMetresPerUnit = 0.0254F;
 
-// The loader's five functions.
-struct FfxFunctions {
-    SDL_SharedObject* library = nullptr;
-    PfnFfxCreateContext create = nullptr;
-    PfnFfxDestroyContext destroy = nullptr;
-    PfnFfxConfigure configure = nullptr;
-    PfnFfxQuery query = nullptr;
-    PfnFfxDispatch dispatch = nullptr;
-};
-
-FfxFunctions& functions()
-{
-    static FfxFunctions loaded;
-    return loaded;
-}
-
 template <typename Function> Function function_of(SDL_SharedObject* library, const char* name)
 {
     // (a C function's address as its type: the same bits)
     return std::bit_cast<Function>(std::bit_cast<std::uintptr_t>(SDL_LoadFunction(library, name)));
-}
-
-bool load_loader(std::string* why)
-{
-    FfxFunctions& loaded = functions();
-    if (loaded.library != nullptr) {
-        return true;
-    }
-    const char* base = SDL_GetBasePath();
-    const std::string path = std::string(base != nullptr ? base : "") + kLoaderName;
-    loaded.library = SDL_LoadObject(path.c_str());
-    if (loaded.library == nullptr) {
-        *why = std::string(kLoaderName) + " isn't beside the exe";
-        return false;
-    }
-    loaded.create = function_of<PfnFfxCreateContext>(loaded.library, "ffxCreateContext");
-    loaded.destroy = function_of<PfnFfxDestroyContext>(loaded.library, "ffxDestroyContext");
-    loaded.configure = function_of<PfnFfxConfigure>(loaded.library, "ffxConfigure");
-    loaded.query = function_of<PfnFfxQuery>(loaded.library, "ffxQuery");
-    loaded.dispatch = function_of<PfnFfxDispatch>(loaded.library, "ffxDispatch");
-    if (loaded.create == nullptr || loaded.destroy == nullptr || loaded.query == nullptr || loaded.dispatch == nullptr) {
-        SDL_UnloadObject(loaded.library);
-        loaded = FfxFunctions{};
-        *why = std::string(kLoaderName) + " lacks the FSR API's functions";
-        return false;
-    }
-    return true;
 }
 
 // FSR's messages into the log (wide text: its ASCII kept).
@@ -100,26 +55,6 @@ void on_message(uint32_t type, const wchar_t* message)
         }
     }
     get_log("vulkan: upscaler: FSR says (%u): %s", type, text.c_str());
-}
-
-FfxApiResource resource_of(const Image& image, uint32_t state)
-{
-    const VkImageCreateInfo info{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-                                 .pNext = nullptr,
-                                 .flags = 0,
-                                 .imageType = VK_IMAGE_TYPE_2D,
-                                 .format = image.format,
-                                 .extent = {.width = image.extent.width, .height = image.extent.height, .depth = 1},
-                                 .mipLevels = image.levels,
-                                 .arrayLayers = 1,
-                                 .samples = image.samples,
-                                 .tiling = VK_IMAGE_TILING_OPTIMAL,
-                                 .usage = image.usage,
-                                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-                                 .queueFamilyIndexCount = 0,
-                                 .pQueueFamilyIndices = nullptr,
-                                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
-    return ffxApiGetResourceVK(image.image, ffxApiGetImageResourceDescriptionVK(image.image, info, 0), state);
 }
 
 class FsrProvider final : public UpscaleProvider {
@@ -164,7 +99,7 @@ public:
             versions.outputCount = &count;
             versions.versionIds = ids.data();
             versions.versionNames = names.data();
-            if (functions().query(nullptr, &versions.header) == FFX_API_RETURN_OK) {
+            if (ffx_functions().query(nullptr, &versions.header) == FFX_API_RETURN_OK) {
                 const std::string wanted = std::to_string(major) + ".";
                 for (uint64_t i = 0; i < count && i < ids.size(); ++i) {
                     if (names.at(i) != nullptr && std::string(names.at(i)).starts_with(wanted)) {
@@ -176,7 +111,7 @@ public:
                 }
             }
         }
-        const ffxReturnCode_t made = functions().create(&context_, &desc.header, nullptr);
+        const ffxReturnCode_t made = ffx_functions().create(&context_, &desc.header, nullptr);
         if (made != FFX_API_RETURN_OK) {
             *why = "ffxCreateContext returned " + std::to_string(made);
             context_ = nullptr;
@@ -184,7 +119,7 @@ public:
         }
         ffxQueryGetProviderVersion provider{};
         provider.header.type = FFX_API_QUERY_DESC_TYPE_GET_PROVIDER_VERSION;
-        if (functions().query(&context_, &provider.header) == FFX_API_RETURN_OK && provider.versionName != nullptr) {
+        if (ffx_functions().query(&context_, &provider.header) == FFX_API_RETURN_OK && provider.versionName != nullptr) {
             version_ = provider.versionName;
         }
         return true;
@@ -201,11 +136,11 @@ public:
         ffxDispatchDescUpscale dispatch{};
         dispatch.header.type = FFX_API_DISPATCH_DESC_TYPE_UPSCALE;
         dispatch.commandList = frame.commands;
-        dispatch.color = resource_of(*frame.colour, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
-        dispatch.depth = resource_of(*frame.depth, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
-        dispatch.motionVectors = resource_of(*frame.motion, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
-        dispatch.reactive = resource_of(*frame.reactive, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
-        dispatch.output = resource_of(*frame.output, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
+        dispatch.color = ffx_resource(*frame.colour, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
+        dispatch.depth = ffx_resource(*frame.depth, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
+        dispatch.motionVectors = ffx_resource(*frame.motion, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
+        dispatch.reactive = ffx_resource(*frame.reactive, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
+        dispatch.output = ffx_resource(*frame.output, FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
         // (FSR is given the offset that takes the jitter back out: the projection moved the picture by +jitter)
         dispatch.jitterOffset = {.x = -frame.jitter.at(0), .y = -frame.jitter.at(1)};
         // (the motion is in 0 - 1 of the drawn picture: times its size in pixels)
@@ -223,7 +158,7 @@ public:
         dispatch.cameraFovAngleVertical = frame.vertical_fov;
         dispatch.viewSpaceToMetersFactor = kMetresPerUnit;
         dispatch.flags = FFX_UPSCALE_FLAG_NON_LINEAR_COLOR_SRGB;
-        const ffxReturnCode_t done = functions().dispatch(&context_, &dispatch.header);
+        const ffxReturnCode_t done = ffx_functions().dispatch(&context_, &dispatch.header);
         if (done != FFX_API_RETURN_OK) {
             *error = "ffxDispatch returned " + std::to_string(done);
             return false;
@@ -236,8 +171,8 @@ public:
     void release(Backend& /*state*/) override
     {
         if (context_ != nullptr) {
-            if (functions().destroy != nullptr) {
-                functions().destroy(&context_, nullptr);
+            if (ffx_functions().destroy != nullptr) {
+                ffx_functions().destroy(&context_, nullptr);
             }
             context_ = nullptr;
         }
@@ -252,9 +187,62 @@ private:
 
 } // namespace
 
+FfxFunctions& ffx_functions()
+{
+    static FfxFunctions loaded;
+    return loaded;
+}
+
+bool load_ffx_loader(std::string* why)
+{
+    FfxFunctions& loaded = ffx_functions();
+    if (loaded.library != nullptr) {
+        return true;
+    }
+    const char* base = SDL_GetBasePath();
+    const std::string path = std::string(base != nullptr ? base : "") + kLoaderName;
+    loaded.library = SDL_LoadObject(path.c_str());
+    if (loaded.library == nullptr) {
+        *why = std::string(kLoaderName) + " isn't beside the exe";
+        return false;
+    }
+    loaded.create = function_of<PfnFfxCreateContext>(loaded.library, "ffxCreateContext");
+    loaded.destroy = function_of<PfnFfxDestroyContext>(loaded.library, "ffxDestroyContext");
+    loaded.configure = function_of<PfnFfxConfigure>(loaded.library, "ffxConfigure");
+    loaded.query = function_of<PfnFfxQuery>(loaded.library, "ffxQuery");
+    loaded.dispatch = function_of<PfnFfxDispatch>(loaded.library, "ffxDispatch");
+    if (loaded.create == nullptr || loaded.destroy == nullptr || loaded.query == nullptr || loaded.dispatch == nullptr) {
+        SDL_UnloadObject(loaded.library);
+        loaded = FfxFunctions{};
+        *why = std::string(kLoaderName) + " lacks the FSR API's functions";
+        return false;
+    }
+    return true;
+}
+
+FfxApiResource ffx_resource(const Image& image, uint32_t state)
+{
+    const VkImageCreateInfo info{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+                                 .pNext = nullptr,
+                                 .flags = 0,
+                                 .imageType = VK_IMAGE_TYPE_2D,
+                                 .format = image.format,
+                                 .extent = {.width = image.extent.width, .height = image.extent.height, .depth = 1},
+                                 .mipLevels = image.levels,
+                                 .arrayLayers = 1,
+                                 .samples = image.samples,
+                                 .tiling = VK_IMAGE_TILING_OPTIMAL,
+                                 .usage = image.usage,
+                                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                                 .queueFamilyIndexCount = 0,
+                                 .pQueueFamilyIndices = nullptr,
+                                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+    return ffxApiGetResourceVK(image.image, ffxApiGetImageResourceDescriptionVK(image.image, info, 0), state);
+}
+
 std::unique_ptr<UpscaleProvider> make_fsr_provider(Backend& state, Extent output, std::string* why)
 {
-    if (!load_loader(why)) {
+    if (!load_ffx_loader(why)) {
         return nullptr;
     }
     auto provider = std::make_unique<FsrProvider>();

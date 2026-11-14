@@ -17,6 +17,7 @@
 #include "base/core/checked_index.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_framegen.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -114,7 +115,10 @@ bool make_swapchain(Backend& state, UiWindow* window)
         .clipped = VK_TRUE,
         .oldSwapchain = VK_NULL_HANDLE,
     };
+    // (NOT ORIGINAL - frame generation's DLSS-G mustn't take this swapchain: vulkan_framegen.h)
+    frame_generation_other_swapchain(true);
     result = vkCreateSwapchainKHR(device, &info, nullptr, &window->swapchain);
+    frame_generation_other_swapchain(false);
     if (result != VK_SUCCESS) {
         window->swapchain = VK_NULL_HANDLE;
         report(window, "vkCreateSwapchainKHR", result);

@@ -260,6 +260,44 @@ void set_upscale_settings(const UpscaleSettings& settings);
 // false: not one of them.
 bool parse_upscaler(const std::string& text, Upscaler* upscaler);
 bool parse_upscale_quality(const std::string& text, UpscaleQuality* quality);
+// NOT ORIGINAL - frame generation and low latency (vulkan_framegen.h, docs/design/vulkan.md "Frame generation"):
+// [Graphics] frame_generation, frame_generation_provider, reflex. Frames made between the drawn ones from their motion
+// vectors and depth (the upscaler's - frame generation turns it on at native resolution when upscaler=off) by NVIDIA
+// DLSS Frame Generation (Streamline's DLSS-G, with Reflex; 2x - 4x where the device and driver allow) or AMD FSR 3 frame
+// generation (2x), the 2D kept out of the made frames. kOff (the default): nothing of either is loaded or made, and every
+// frame is as before. Read at start-up (the swap chain and the device's queues are made for it).
+enum class FrameGeneration : uint8_t { kOff, k2x, k3x, k4x };
+enum class FrameGenSource : uint8_t { kAuto, kDlss, kFsr }; // auto: DLSS-G where it runs, else FSR
+enum class Reflex : uint8_t { kOff, kOn, kBoost };          // NVIDIA Reflex low latency (always on with DLSS-G)
+struct FrameGenSettings {
+    FrameGeneration mode = FrameGeneration::kOff;
+    FrameGenSource source = FrameGenSource::kAuto;
+    Reflex reflex = Reflex::kOff;
+};
+void set_frame_generation_settings(const FrameGenSettings& settings);
+[[nodiscard]] FrameGenSettings frame_generation_settings();
+// The frames shown for each drawn one a mode asks for (1 - 4).
+[[nodiscard]] uint32_t frame_generation_multiplier(FrameGeneration mode);
+// Parsed from the ini's words (off / 2x / 3x / 4x - also 0 and 2 - 4; auto / dlss / fsr; off / on / boost - also 0 - 2);
+// false: not one of them.
+bool parse_frame_generation(const std::string& text, FrameGeneration* mode);
+bool parse_frame_generation_source(const std::string& text, FrameGenSource* source);
+bool parse_reflex(const std::string& text, Reflex* reflex);
+// What frame generation did so far (the checks', the log's): which provider runs ("DLSS-G" / "FSR"; null: none), at
+// what multiplier, its features made and released, the frames it was on for, and the frames the display was handed
+// (drawn and made) as the provider reports them.
+struct FrameGenCounts {
+    const char* provider = nullptr;
+    uint32_t multiplier = 1;
+    uint64_t features_made = 0;
+    uint64_t features_released = 0;
+    uint64_t frames_on = 0;
+    uint64_t frames_off = 0;
+    uint64_t frames_shown = 0;
+    uint64_t resets = 0;
+    bool reflex = false; // Reflex low latency is on
+};
+[[nodiscard]] FrameGenCounts frame_generation_counts();
 // NOT ORIGINAL - per-pixel lighting and surface maps (vulkan_surface.h; docs/design/vulkan.md "Per-pixel lighting and
 // surface maps"): [Graphics] rt_pbr, rt_pbr_specular, rt_pbr_normal_strength, rt_pbr_objects. Off: no map is read and
 // every shader is as before. No ray tracing needed; with it the bake's sun (rt_sun.h) is the light the maps answer to.

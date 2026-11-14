@@ -46,6 +46,10 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_upscale.cpp
     vulkan_upscale_fsr.cpp
     vulkan_upscale_dlss.cpp
+    # NOT ORIGINAL - frame generation and Reflex (vulkan_framegen.h)
+    vulkan_framegen.cpp
+    vulkan_framegen_dlss.cpp
+    vulkan_framegen_fsr.cpp
     vulkan_surface.cpp
     vulkan_detail.cpp
     vulkan_style.cpp

@@ -11,8 +11,13 @@
 #include <string>
 
 #ifdef THUG2_DLSS
+#include <windows.h>
+
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_loadso.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_video.h>
+#include <vulkan/vulkan_win32.h>
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -32,12 +37,10 @@
 #include "gpu_vulkan/vulkan_motion.h"
 #include "platform/run_log.h"
 
-// (Streamline's headers: C++, MIT; its Windows signature check)
-#include <sl.h>
-#include <sl_consts.h>
-#include <sl_dlss.h>
-#include <sl_dlss_d.h>
-#include <sl_helpers_vk.h>
+#include "gpu_vulkan/vulkan_framegen.h"
+#include "gpu_vulkan/vulkan_streamline.h"
+
+// (Streamline's headers: C++, MIT - the rest through vulkan_streamline.h; its Windows signature check)
 #include <sl_security.h>
 #endif
 
@@ -56,54 +59,23 @@ constexpr uint32_t kViewport = 0;
 constexpr UpscaleJitterTerms kDlssTerms{.sign = {-1.0F, -1.0F}, .align = {-1.0F, -1.0F}};
 constexpr sl::ResourceLifecycle kKept = sl::ResourceLifecycle::eValidUntilPresent;
 
-// sl.interposer.dll's functions (looked up by name: no import library).
-struct SlFunctions {
-    SDL_SharedObject* library = nullptr;
-    PFun_slInit* init = nullptr;
-    PFun_slShutdown* shutdown = nullptr;
-    PFun_slIsFeatureSupported* supported = nullptr;
-    PFun_slGetFeatureRequirements* requirements = nullptr;
-    PFun_slGetFeatureVersion* version = nullptr;
-    PFun_slGetFeatureFunction* feature_function = nullptr;
-    PFun_slGetNewFrameToken* frame_token = nullptr;
-    PFun_slSetConstants* constants = nullptr;
-    PFun_slSetTagForFrame* tag = nullptr;
-    PFun_slEvaluateFeature* evaluate = nullptr;
-    PFun_slFreeResources* free_resources = nullptr;
-    PFun_slSetVulkanInfo* vulkan_info = nullptr;
-    PFun_slDLSSSetOptions* dlss_options = nullptr;
-    PFun_slDLSSDSetOptions* dlssd_options = nullptr;
-};
-
-// Streamline's state across the context's life: initialised (before the instance), the device given, which features
-// loaded.
-struct SlState {
-    SlFunctions functions;
-    bool initialised = false;
-    bool device_set = false;
-    bool nvidia = false;
-    bool dlss = false;
-    bool ray_reconstruction = false;
-    std::string problem; // why it can't be used
-    std::string version;
-};
-
-SlState& streamline()
-{
-    static SlState state;
-    return state;
-}
-
-// A pointer of one type as another, through its address (a DLL's export, Streamline's function lookups, a Vulkan
-// handle): the same bits.
-template <typename To, typename From> To same_address(From from)
-{
-    return std::bit_cast<To>(std::bit_cast<std::uintptr_t>(from));
-}
-
 template <typename Function> Function* function_of(SDL_SharedObject* library, const char* name)
 {
     return same_address<Function*>(SDL_LoadFunction(library, name));
+}
+
+// The features slInit was asked to load (initialise).
+std::vector<sl::Feature>& loaded_features()
+{
+    static std::vector<sl::Feature> features;
+    return features;
+}
+
+// Whether the upscaler may be DLSS (dlss, auto): DLSS's features loaded.
+bool upscaler_wants_streamline()
+{
+    const Upscaler upscaler = upscale_settings_locked().upscaler;
+    return upscaler == Upscaler::kDlss || upscaler == Upscaler::kAuto;
 }
 
 void on_log(sl::LogType type, const char* message)
@@ -152,6 +124,7 @@ bool initialise(std::string* why)
     calls.evaluate = function_of<PFun_slEvaluateFeature>(calls.library, "slEvaluateFeature");
     calls.free_resources = function_of<PFun_slFreeResources>(calls.library, "slFreeResources");
     calls.vulkan_info = function_of<PFun_slSetVulkanInfo>(calls.library, "slSetVulkanInfo");
+    calls.set_loaded = function_of<PFun_slSetFeatureLoaded>(calls.library, "slSetFeatureLoaded");
     if (calls.init == nullptr || calls.shutdown == nullptr || calls.requirements == nullptr || calls.frame_token == nullptr ||
         calls.constants == nullptr || calls.tag == nullptr || calls.evaluate == nullptr || calls.vulkan_info == nullptr ||
         calls.feature_function == nullptr) {
@@ -160,7 +133,21 @@ bool initialise(std::string* why)
     }
     static const std::wstring kPluginFolder = wide(folder);
     static std::array<const wchar_t*, 1> plugin_paths{kPluginFolder.c_str()}; // (Streamline takes them as non-const)
-    static constexpr std::array<sl::Feature, 2> kFeatures{sl::kFeatureDLSS, sl::kFeatureDLSS_RR};
+    // the features: DLSS's two when the upscaler may be DLSS; (added by frame generation) DLSS-G, Reflex and PCL when
+    // frame generation may be DLSS-G or Reflex is asked for (nothing of them otherwise)
+    std::vector<sl::Feature>& features = loaded_features();
+    features.clear();
+    if (upscaler_wants_streamline()) {
+        features.insert(features.end(), {sl::kFeatureDLSS, sl::kFeatureDLSS_RR});
+    }
+    sl_state.generation_loaded = frame_generation_wants_dlss();
+    sl_state.latency_loaded = sl_state.generation_loaded || frame_generation_settings_locked().reflex != Reflex::kOff;
+    if (sl_state.generation_loaded) {
+        features.push_back(sl::kFeatureDLSS_G);
+    }
+    if (sl_state.latency_loaded) {
+        features.insert(features.end(), {sl::kFeatureReflex, sl::kFeaturePCL});
+    }
     sl::Preferences preferences{};
     preferences.showConsole = false;
     preferences.logLevel = sl::LogLevel::eDefault;
@@ -171,8 +158,8 @@ bool initialise(std::string* why)
     // (manual hooking: Vulkan is the game's own; no updates fetched over the network)
     preferences.flags = sl::PreferenceFlags::eDisableCLStateTracking | sl::PreferenceFlags::eUseManualHooking |
                         sl::PreferenceFlags::eDisableDebugText | sl::PreferenceFlags::eUseFrameBasedResourceTagging;
-    preferences.featuresToLoad = kFeatures.data();
-    preferences.numFeaturesToLoad = static_cast<uint32_t>(kFeatures.size());
+    preferences.featuresToLoad = features.data();
+    preferences.numFeaturesToLoad = static_cast<uint32_t>(features.size());
     preferences.engine = sl::EngineType::eCustom;
     preferences.engineVersion = kEngineVersion;
     preferences.projectId = kProjectId;
@@ -198,7 +185,7 @@ public:
             get_log("vulkan: upscaler: Streamline isn't there (%s) - no DLSS", why.c_str());
             return;
         }
-        for (const sl::Feature feature : {sl::kFeatureDLSS, sl::kFeatureDLSS_RR}) {
+        for (const sl::Feature feature : loaded_features()) {
             sl::FeatureRequirements needs{};
             if (sl_state.functions.requirements(feature, needs) != sl::Result::eOk) {
                 continue;
@@ -207,6 +194,34 @@ public:
                 names->push_back(name);
             }
         }
+    }
+
+    // (frame generation) DLSS-G finds the window of the swapchain it takes from the surface Streamline saw made: with
+    // DLSS-G loaded, the window's surface is made through Streamline's vkCreateWin32SurfaceKHR (one of its mandatory
+    // hooks) rather than SDL's.
+    bool create_surface(VkInstance instance, SDL_Window* window, VkSurfaceKHR* surface) override
+    {
+        const SlState& sl_state = streamline();
+        if (!sl_state.initialised || !sl_state.generation_loaded) {
+            return false;
+        }
+        auto* const proxy = function_of<std::remove_pointer_t<PFN_vkGetInstanceProcAddr>>(sl_state.functions.library,
+                                                                                          "vkGetInstanceProcAddr");
+        auto* const hwnd = static_cast<HWND>(
+            SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+        if (proxy == nullptr || hwnd == nullptr) {
+            return false;
+        }
+        const auto create = same_address<PFN_vkCreateWin32SurfaceKHR>(proxy(instance, "vkCreateWin32SurfaceKHR"));
+        if (create == nullptr) {
+            return false;
+        }
+        const VkWin32SurfaceCreateInfoKHR info{.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+                                               .pNext = nullptr,
+                                               .flags = 0,
+                                               .hinstance = GetModuleHandleW(nullptr),
+                                               .hwnd = hwnd};
+        return create(instance, &info, nullptr, surface) == VK_SUCCESS;
     }
 
     void device_extensions(VkPhysicalDevice physical, DeviceWants* wants) override
@@ -218,7 +233,11 @@ public:
         if (!sl_state.initialised || !sl_state.nvidia) {
             return;
         }
-        for (const sl::Feature feature : {sl::kFeatureDLSS, sl::kFeatureDLSS_RR}) {
+        graphics_queues_ = 0;
+        compute_queues_ = 0;
+        uint32_t added_graphics = 0;
+        uint32_t added_compute = 0;
+        for (const sl::Feature feature : loaded_features()) {
             sl::FeatureRequirements needs{};
             if (sl_state.functions.requirements(feature, needs) != sl::Result::eOk) {
                 continue;
@@ -237,9 +256,18 @@ public:
                 sl::getVkPhysicalDeviceVulkan13Features(needs.vkNumFeatures13, needs.vkFeatures13);
             or_flags(features12, &wants->features12);
             or_flags(features13, &wants->features13);
-            graphics_queues_ = std::max(graphics_queues_, needs.vkNumGraphicsQueuesRequired);
-            compute_queues_ = std::max(compute_queues_, needs.vkNumComputeQueuesRequired);
+            // (DLSS's two share their queues, as they always did here; frame generation's features each add theirs,
+            // as Streamline's own device creation counts them)
+            if (feature == sl::kFeatureDLSS || feature == sl::kFeatureDLSS_RR) {
+                graphics_queues_ = std::max(graphics_queues_, needs.vkNumGraphicsQueuesRequired);
+                compute_queues_ = std::max(compute_queues_, needs.vkNumComputeQueuesRequired);
+            } else {
+                added_graphics += needs.vkNumGraphicsQueuesRequired;
+                added_compute += needs.vkNumComputeQueuesRequired;
+            }
         }
+        graphics_queues_ += added_graphics;
+        compute_queues_ += added_compute;
         wants->extra_queues = graphics_queues_ + compute_queues_;
         // (Streamline keeps data on Vulkan objects: Vulkan 1.3's private data)
         wants->features13.privateData = VK_TRUE;
@@ -287,12 +315,18 @@ public:
         }
         sl::FeatureVersion version{};
         if (sl_state.functions.version != nullptr &&
-            sl_state.functions.version(sl::kFeatureDLSS, version) == sl::Result::eOk) {
+            sl_state.functions.version(upscaler_wants_streamline() ? sl::kFeatureDLSS : sl::kFeatureDLSS_G, version) ==
+                sl::Result::eOk) {
             sl_state.version = "Streamline " + version.versionSL.toStr() + ", NGX " + version.versionNGX.toStr();
         }
-        get_log("vulkan: upscaler: Streamline ready on the device (DLSS %s, Ray Reconstruction %s%s%s)",
-                sl_state.dlss ? "supported" : "not supported", sl_state.ray_reconstruction ? "supported" : "not supported",
-                sl_state.version.empty() ? "" : "; ", sl_state.version.c_str());
+        if (upscaler_wants_streamline()) {
+            get_log("vulkan: upscaler: Streamline ready on the device (DLSS %s, Ray Reconstruction %s%s%s)",
+                    sl_state.dlss ? "supported" : "not supported",
+                    sl_state.ray_reconstruction ? "supported" : "not supported", sl_state.version.empty() ? "" : "; ",
+                    sl_state.version.c_str());
+        }
+        // (added by frame generation) DLSS-G, Reflex and PCL, where they were loaded (vulkan_framegen_dlss.cpp uses them)
+        streamline_latency_device_made(adapter);
     }
 
     void before_destroy() override
@@ -422,20 +456,6 @@ Float4x4 as_floats(const std::array<std::array<float, 4>, 4>& rows)
     return values;
 }
 
-sl::Resource resource_of(const Image& image)
-{
-    sl::Resource resource(sl::ResourceType::eTex2d, image.image, nullptr, image.view,
-                          static_cast<uint32_t>(VK_IMAGE_LAYOUT_GENERAL));
-    resource.width = image.extent.width;
-    resource.height = image.extent.height;
-    resource.nativeFormat = static_cast<uint32_t>(image.format);
-    resource.mipLevels = image.levels;
-    resource.arrayLayers = 1;
-    resource.flags = 0;
-    resource.usage = static_cast<uint32_t>(image.usage);
-    return resource;
-}
-
 sl::DLSSMode mode_of(UpscaleQuality quality)
 {
     switch (quality) {
@@ -477,61 +497,32 @@ public:
             *error = "Streamline's functions are missing";
             return false;
         }
-        const uint32_t index = frame_index_++;
+        // (added by frame generation) one token a frame, shared with DLSS-G's and Reflex's markers when they're loaded;
+        // else the provider's own count, as before
         sl::FrameToken* token = nullptr;
-        if (calls.frame_token(token, &index) != sl::Result::eOk || token == nullptr) {
+        if (streamline_frames_shared()) {
+            token = streamline_frame_token();
+        } else {
+            const uint32_t index = frame_index_++;
+            if (calls.frame_token(token, &index) != sl::Result::eOk) {
+                token = nullptr;
+            }
+        }
+        if (token == nullptr) {
             *error = "slGetNewFrameToken failed";
             return false;
         }
         const sl::ViewportHandle viewport(kViewport);
         // the constants: the cameras without the jitter, the jitter apart
-        const MotionVectors& motion = state.motion;
-        const Float4x4 view = as_floats(frame.view);
-        const Float4x4 projection = as_floats(frame.projection);
-        Float4x4 to_view{};
-        Float4x4 to_world{};
-        Float4x4 clip_to_world{};
-        motion_inverse(projection, &to_view);
-        motion_inverse(view, &to_world);
-        motion_inverse(motion_multiply(view, projection), &clip_to_world);
-        const Float4x4 to_before = motion_multiply(clip_to_world, motion_multiply(motion.before.view, motion.before.projection));
-        Float4x4 from_before{};
-        motion_inverse(to_before, &from_before);
-        sl::Constants constants{};
-        constants.cameraViewToClip = as_sl(projection);
-        constants.clipToCameraView = as_sl(to_view);
-        constants.clipToLensClip = as_sl(std::array<std::array<float, 4>, 4>{
-            {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}, {0.0F, 0.0F, 0.0F, 1.0F}}});
-        constants.clipToPrevClip = as_sl(to_before);
-        constants.prevClipToClip = as_sl(from_before);
-        // (DLSS is given the offset that takes the jitter back out, as FSR)
-        constants.jitterOffset = {-frame.jitter.at(0), -frame.jitter.at(1)};
-        constants.mvecScale = {1.0F, 1.0F}; // (the motion is already in 0 - 1 of the picture)
-        constants.cameraPinholeOffset = {0.0F, 0.0F};
-        // the camera's place and axes: the inverse view's rows (D3D's: x right, y up, z forward)
-        constexpr std::size_t kRow = 4;
-        constants.cameraRight = {core::at(to_world, 0), core::at(to_world, 1), core::at(to_world, 2)};
-        constants.cameraUp = {core::at(to_world, kRow), core::at(to_world, kRow + 1), core::at(to_world, kRow + 2)};
-        constants.cameraFwd = {core::at(to_world, 2 * kRow), core::at(to_world, (2 * kRow) + 1),
-                               core::at(to_world, (2 * kRow) + 2)};
-        constants.cameraPos = {core::at(to_world, 3 * kRow), core::at(to_world, (3 * kRow) + 1),
-                               core::at(to_world, (3 * kRow) + 2)};
-        constants.cameraNear = frame.near_z;
-        constants.cameraFar = frame.far_z;
-        constants.cameraFOV = frame.vertical_fov;
-        constants.cameraAspectRatio =
-            static_cast<float>(frame.render.width) / static_cast<float>(std::max(frame.render.height, 1U));
-        constants.depthInverted = sl::Boolean::eFalse;
-        constants.cameraMotionIncluded = sl::Boolean::eTrue;
-        constants.motionVectors3D = sl::Boolean::eFalse;
-        constants.reset = frame.reset ? sl::Boolean::eTrue : sl::Boolean::eFalse;
-        constants.orthographicProjection = sl::Boolean::eFalse;
-        constants.motionVectorsDilated = sl::Boolean::eFalse;
-        constants.motionVectorsJittered = sl::Boolean::eFalse;
+        const sl::Constants constants = streamline_constants(state, frame, frame.reset);
         if (calls.constants(constants, *token, viewport) != sl::Result::eOk) {
             *error = "slSetConstants failed";
             return false;
         }
+        streamline().constants_given = true;
+        const Float4x4 view = as_floats(frame.view);
+        Float4x4 to_world{};
+        motion_inverse(view, &to_world);
         // the options
         const UpscaleSettings& settings = upscale_settings_locked();
         sl::Result set = sl::Result::eErrorInvalidParameter;
@@ -560,11 +551,11 @@ public:
         // the images
         const sl::Extent render{.top = 0, .left = 0, .width = frame.render.width, .height = frame.render.height};
         const sl::Extent shown{.top = 0, .left = 0, .width = frame.output_size.width, .height = frame.output_size.height};
-        sl::Resource colour = resource_of(*frame.colour);
-        sl::Resource output = resource_of(*frame.output);
-        sl::Resource depth = resource_of(*frame.depth);
-        sl::Resource motion_vectors = resource_of(*frame.motion);
-        sl::Resource reactive = resource_of(*frame.reactive);
+        sl::Resource colour = streamline_resource(*frame.colour);
+        sl::Resource output = streamline_resource(*frame.output);
+        sl::Resource depth = streamline_resource(*frame.depth);
+        sl::Resource motion_vectors = streamline_resource(*frame.motion);
+        sl::Resource reactive = streamline_resource(*frame.reactive);
         std::vector<sl::ResourceTag> tags{
             // (the images are the upscaler's own, unchanged until the next frame's preparation: valid until the present
             // - Streamline needn't copy them)
@@ -574,9 +565,9 @@ public:
             sl::ResourceTag(&motion_vectors, sl::kBufferTypeMotionVectors, kKept, &render),
             sl::ResourceTag(&reactive, sl::kBufferTypeBiasCurrentColorHint, kKept, &render),
         };
-        sl::Resource albedo = frame.albedo != nullptr ? resource_of(*frame.albedo) : sl::Resource{};
-        sl::Resource specular = frame.specular_albedo != nullptr ? resource_of(*frame.specular_albedo) : sl::Resource{};
-        sl::Resource normals = frame.normal_roughness != nullptr ? resource_of(*frame.normal_roughness) : sl::Resource{};
+        sl::Resource albedo = frame.albedo != nullptr ? streamline_resource(*frame.albedo) : sl::Resource{};
+        sl::Resource specular = frame.specular_albedo != nullptr ? streamline_resource(*frame.specular_albedo) : sl::Resource{};
+        sl::Resource normals = frame.normal_roughness != nullptr ? streamline_resource(*frame.normal_roughness) : sl::Resource{};
         if (ray_reconstruction_) {
             tags.emplace_back(&albedo, sl::kBufferTypeAlbedo, kKept, &render);
             tags.emplace_back(&specular, sl::kBufferTypeSpecularAlbedo, kKept, &render);
@@ -614,6 +605,100 @@ private:
 };
 
 } // namespace
+
+SlState& streamline()
+{
+    static SlState state;
+    return state;
+}
+
+sl::Resource streamline_resource(const Image& image)
+{
+    sl::Resource resource(sl::ResourceType::eTex2d, image.image, nullptr, image.view,
+                          static_cast<uint32_t>(VK_IMAGE_LAYOUT_GENERAL));
+    resource.width = image.extent.width;
+    resource.height = image.extent.height;
+    resource.nativeFormat = static_cast<uint32_t>(image.format);
+    resource.mipLevels = image.levels;
+    resource.arrayLayers = 1;
+    resource.flags = 0;
+    resource.usage = static_cast<uint32_t>(image.usage);
+    return resource;
+}
+
+sl::Constants streamline_constants(const Backend& state, const UpscaleFrame& frame, bool reset)
+{
+    const MotionVectors& motion = state.motion;
+    const Float4x4 view = as_floats(frame.view);
+    const Float4x4 projection = as_floats(frame.projection);
+    Float4x4 to_view{};
+    Float4x4 to_world{};
+    Float4x4 clip_to_world{};
+    motion_inverse(projection, &to_view);
+    motion_inverse(view, &to_world);
+    motion_inverse(motion_multiply(view, projection), &clip_to_world);
+    const Float4x4 to_before = motion_multiply(clip_to_world, motion_multiply(motion.before.view, motion.before.projection));
+    Float4x4 from_before{};
+    motion_inverse(to_before, &from_before);
+    sl::Constants constants{};
+    constants.cameraViewToClip = as_sl(projection);
+    constants.clipToCameraView = as_sl(to_view);
+    constants.clipToLensClip = as_sl(std::array<std::array<float, 4>, 4>{
+        {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}, {0.0F, 0.0F, 0.0F, 1.0F}}});
+    constants.clipToPrevClip = as_sl(to_before);
+    constants.prevClipToClip = as_sl(from_before);
+    // (DLSS is given the offset that takes the jitter back out, as FSR)
+    constants.jitterOffset = {-frame.jitter.at(0), -frame.jitter.at(1)};
+    constants.mvecScale = {1.0F, 1.0F}; // (the motion is already in 0 - 1 of the picture)
+    constants.cameraPinholeOffset = {0.0F, 0.0F};
+    // the camera's place and axes: the inverse view's rows (D3D's: x right, y up, z forward)
+    constexpr std::size_t kRow = 4;
+    constants.cameraRight = {core::at(to_world, 0), core::at(to_world, 1), core::at(to_world, 2)};
+    constants.cameraUp = {core::at(to_world, kRow), core::at(to_world, kRow + 1), core::at(to_world, kRow + 2)};
+    constants.cameraFwd = {core::at(to_world, 2 * kRow), core::at(to_world, (2 * kRow) + 1),
+                           core::at(to_world, (2 * kRow) + 2)};
+    constants.cameraPos = {core::at(to_world, 3 * kRow), core::at(to_world, (3 * kRow) + 1),
+                           core::at(to_world, (3 * kRow) + 2)};
+    constants.cameraNear = frame.near_z;
+    constants.cameraFar = frame.far_z;
+    constants.cameraFOV = frame.vertical_fov;
+    constants.cameraAspectRatio =
+        static_cast<float>(frame.render.width) / static_cast<float>(std::max(frame.render.height, 1U));
+    constants.depthInverted = sl::Boolean::eFalse;
+    constants.cameraMotionIncluded = sl::Boolean::eTrue;
+    constants.motionVectors3D = sl::Boolean::eFalse;
+    constants.reset = reset ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    constants.orthographicProjection = sl::Boolean::eFalse;
+    constants.motionVectorsDilated = sl::Boolean::eFalse;
+    constants.motionVectorsJittered = sl::Boolean::eFalse;
+    return constants;
+}
+
+bool streamline_frames_shared()
+{
+    const SlState& sl_state = streamline();
+    return sl_state.device_set && (sl_state.reflex || sl_state.frame_generation);
+}
+
+sl::FrameToken* streamline_frame_token()
+{
+    SlState& sl_state = streamline();
+    if (sl_state.token == nullptr && sl_state.functions.frame_token != nullptr) {
+        const uint32_t index = ++sl_state.frame_index;
+        if (sl_state.functions.frame_token(sl_state.token, &index) != sl::Result::eOk) {
+            sl_state.token = nullptr;
+        }
+        sl_state.constants_given = false;
+    }
+    return sl_state.token;
+}
+
+void end_streamline_frame()
+{
+    SlState& sl_state = streamline();
+    sl_state.token = nullptr;
+    sl_state.constants_given = false;
+}
 
 ContextAdditions* dlss_context_additions() { return &additions(); }
 

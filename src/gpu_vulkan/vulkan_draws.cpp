@@ -53,6 +53,7 @@
 #include "gpu_vulkan/vulkan_camera_fx.h"
 #include "gpu_vulkan/vulkan_grass.h"
 #include "gpu_vulkan/vulkan_style_film.h"
+#include "gpu_vulkan/vulkan_framegen.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "gpu_vulkan/vulkan_surface.h"
@@ -1089,6 +1090,7 @@ void release_draw_objects(Backend& state)
     release_rt_sky(state); // (NOT ORIGINAL - the sky's atmosphere and clouds: vulkan_rt_sky_pass.h)
     release_rt_sun(state); // (NOT ORIGINAL - the sun's, the bloom's and the sky's: vulkan_rt_sun.h)
     release_upscale(state); // (NOT ORIGINAL - the upscaler's: vulkan_upscale.h)
+    release_frame_generation(state); // (NOT ORIGINAL - frame generation's pictures: vulkan_framegen.h)
     release_style(state); // (NOT ORIGINAL - the art style's: vulkan_style.h)
     release_camera_fx(state); // (NOT ORIGINAL - the camera effects': vulkan_camera_fx.h)
     release_grass(state); // (NOT ORIGINAL - the grass's: vulkan_grass.h)
@@ -1439,6 +1441,8 @@ long record_present(Backend& state)
     VkSemaphore acquired = VK_NULL_HANDLE;
     VkSemaphore presented = VK_NULL_HANDLE;
     uint32_t index = 0;
+    // NOT ORIGINAL - frame generation (vulkan_framegen.h): the frame on or off, its UI image, before the swapchain's image
+    frame_generation_before_present(state);
     if (!context.swapchain_stale()) {
         const double before_acquire = seconds_now();
         const frame_profile::Scope acquire_phase("vk_acquire");
@@ -1462,8 +1466,11 @@ long record_present(Backend& state)
     state.bound = BoundState{};
     if (presented != VK_NULL_HANDLE) {
         const frame_profile::Scope phase("vk_queue_present");
+        frame_generation_present_marker(state, true); // (NOT ORIGINAL - Reflex's markers: vulkan_framegen.h)
         context.queue_present(index);
+        frame_generation_present_marker(state, false);
     }
+    frame_generation_after_present(state); // (NOT ORIGINAL - the frames shown, the frame's token let go)
     present_ui_windows(state); // (the UI's own windows drawn this frame - vulkan_ui_windows.cpp)
     DrawStats& stats = state.stats;
     const double now = seconds_now();

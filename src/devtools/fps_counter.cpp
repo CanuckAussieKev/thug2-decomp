@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "engine/ext/extension.h"
+#include "engine/gfx/gpu_context.h"
 #include "engine/pad_input/input_event.h"
 #include "engine/sys/frame_blend.h"
 #include "engine/ui/ui_backend.h"
@@ -51,6 +52,9 @@ struct State {
     int ticks = 0;
     Stats shown_stats;
     Clock::time_point last_ini_read{};
+    // (frame generation: the frames handed to the display, made ones too - GpuContext::frames_shown)
+    uint64_t presented_at_start = 0;
+    double presented_fps = 0.0;
 };
 
 State& state()
@@ -133,6 +137,11 @@ void note_frame(Clock::time_point now)
         const double scale = kWindowSeconds / window;
         s.shown_stats.fps *= scale;
         s.shown_stats.ticks *= scale;
+        const uint64_t presented = render::gpu_context().frames_shown();
+        s.presented_fps = presented > s.presented_at_start && s.presented_at_start != 0
+                              ? static_cast<double>(presented - s.presented_at_start) / window
+                              : 0.0;
+        s.presented_at_start = presented;
         s.frame_ms.clear();
         s.ticks = 0;
         s.window_start = now;
@@ -163,6 +172,9 @@ void draw()
                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
     const Stats& st = s.shown_stats;
     ImGui::Text("%5.0f FPS", st.fps);
+    if (s.presented_fps > 0.0) {
+        ImGui::Text("%5.0f shown (frame gen)", s.presented_fps); // (drawn and made frames handed to the display)
+    }
     ImGui::Text("%5.1f ms  1%% low %.0f", st.mean_ms, st.low_fps);
     // (the game's own rate: 60 while it keeps up, whatever is drawn)
     const bool behind = st.ticks > 0.0 && st.ticks < 57.0;

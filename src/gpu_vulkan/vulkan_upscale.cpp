@@ -24,6 +24,7 @@
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_formats.h"
+#include "gpu_vulkan/vulkan_framegen.h"
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_motion.h"
@@ -542,7 +543,9 @@ class UpscaleAdditions final : public ContextAdditions {
 public:
     void instance_extensions(std::vector<const char*>* names) override
     {
-        dlss_ = dlss_context_additions() != nullptr && wants_dlss();
+        // (Streamline also for frame generation's DLSS-G and Reflex - vulkan_framegen.h)
+        dlss_ = dlss_context_additions() != nullptr && (wants_dlss() || frame_generation_wants_dlss() ||
+                                                        frame_generation_settings_locked().reflex != Reflex::kOff);
         if (dlss_) {
             dlss_context_additions()->instance_extensions(names);
         }
@@ -551,6 +554,11 @@ public:
     {
         if (dlss_) {
             dlss_context_additions()->device_extensions(physical, wants);
+        }
+        // (frame generation's FSR: its present queues)
+        frame_generation_device_wants(physical, wants);
+        if (upscale().settings.upscaler == Upscaler::kOff) {
+            return; // (Reflex alone: none of the upscalers' shader features)
         }
         derivatives_ = {};
         derivatives_.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_KHR;
@@ -586,6 +594,11 @@ public:
         if (dlss_) {
             dlss_context_additions()->device_made(made);
         }
+        frame_generation_device_made(made);
+    }
+    bool create_surface(VkInstance instance, SDL_Window* window, VkSurfaceKHR* surface) override
+    {
+        return dlss_ && dlss_context_additions()->create_surface(instance, window, surface);
     }
     void before_destroy() override
     {
@@ -617,7 +630,8 @@ private:
 ContextAdditions* upscale_context_additions()
 {
     static UpscaleAdditions additions;
-    return upscale().settings.upscaler == Upscaler::kOff ? nullptr : &additions;
+    // (frame generation or Reflex alone asks for them too - vulkan_framegen.h)
+    return upscale().settings.upscaler == Upscaler::kOff && !frame_generation_wants_context() ? nullptr : &additions;
 }
 
 float upscale_ratio(UpscaleQuality quality)
@@ -950,6 +964,10 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         }
     }
     lens_of(frame.projection, &frame);
+    // (frame generation - vulkan_framegen.h: a cut throws the history away, for the made frames as well)
+    if (frame_generation_cut(state)) {
+        frame.reset = true;
+    }
     const auto started = std::chrono::steady_clock::now();
     const bool upscaled = own.provider->evaluate(state, frame, &error);
     own.evaluate_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
@@ -964,6 +982,8 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     full_barrier(commands);
+    // (frame generation's inputs: this frame's depth, motion and camera - vulkan_framegen.h)
+    framegen_inputs(state, frame, view);
     // 4. the output over the view
     Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     Memory::transition(commands, &own.output, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);

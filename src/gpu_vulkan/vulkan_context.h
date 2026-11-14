@@ -31,6 +31,14 @@ public:
     virtual ~ContextAdditions() = default;
     // The instance's extensions (added to `names`; the context drops repeats).
     virtual void instance_extensions(std::vector<const char*>* names) { (void)names; }
+    // (added by frame generation) The window's surface made again by the library once the device is made (Streamline's
+    // DLSS-G must see it made, to know the window of the swapchain it takes): true when it made one - the context's
+    // (SDL's) is replaced by it; false: SDL's stays, as always.
+    virtual bool create_surface(VkInstance instance, SDL_Window* window, VkSurfaceKHR* surface)
+    {
+        (void)instance, (void)window, (void)surface;
+        return false;
+    }
     // The device's: extensions, Vulkan 1.2 / 1.3 features (the context keeps only those `physical` has) and how many
     // queues of the graphics family beyond the context's own one.
     struct DeviceWants {
@@ -38,6 +46,10 @@ public:
         VkPhysicalDeviceVulkan12Features features12{};
         VkPhysicalDeviceVulkan13Features features13{};
         uint32_t extra_queues = 0;
+        // (added by frame generation) queues that present, apart from the context's own and the extra ones above: of the
+        // graphics family where it has that many more, else of another family that presents and computes (an AMD
+        // device's graphics family has a single queue)
+        uint32_t present_queues = 0;
         // Vulkan 1.0's features (kept where the device has them)
         bool shader_int16 = false;
         // other feature structures to chain (the library's own, filled with what the device has; kept alive by it until
@@ -52,10 +64,34 @@ public:
         VkDevice device = nullptr;
         uint32_t family = 0;
         uint32_t extra_queues = 0;
+        // (added by frame generation) the present queues made (DeviceWants::present_queues; 0: none could be): their
+        // family and the index of the first in it
+        uint32_t present_family = 0;
+        uint32_t present_first = 0;
+        uint32_t present_queues = 0;
     };
     virtual void device_made(const DeviceMade& made) { (void)made; }
     // Before the device is destroyed (idle).
     virtual void before_destroy() {}
+};
+
+// NOT ORIGINAL - (added by frame generation: AMD FSR 3's, vulkan_framegen.h) a library that makes the swapchain itself
+// and replaces its calls: the context makes, lists, acquires, presents and destroys its swapchain through it while it
+// is set (Context::set_swapchain_owner, before the swapchain is made). The swapchain made again (a resize) is the old one
+// destroyed, then a new one made.
+class SwapchainOwner {
+public:
+    SwapchainOwner() = default;
+    SwapchainOwner(const SwapchainOwner&) = delete;
+    SwapchainOwner& operator=(const SwapchainOwner&) = delete;
+    SwapchainOwner(SwapchainOwner&&) = delete;
+    SwapchainOwner& operator=(SwapchainOwner&&) = delete;
+    virtual ~SwapchainOwner() = default;
+    virtual VkResult create(const VkSwapchainCreateInfoKHR& info, VkSwapchainKHR* swapchain) = 0;
+    virtual void destroy(VkSwapchainKHR swapchain) = 0;
+    virtual VkResult images(VkSwapchainKHR swapchain, uint32_t* count, VkImage* images) = 0;
+    virtual VkResult acquire(VkSwapchainKHR swapchain, uint64_t timeout, VkSemaphore acquired, uint32_t* image) = 0;
+    virtual VkResult present(VkQueue queue, const VkPresentInfoKHR& present) = 0;
 };
 
 struct ContextOptions {
@@ -156,6 +192,11 @@ public:
     // NOT ORIGINAL - [Graphics] present_mode: the present mode the next swapchain is made with where the surface offers
     // it (else FIFO, which every surface has).
     void set_wanted_present_mode(VkPresentModeKHR mode) { wanted_present_mode_ = mode; }
+    // NOT ORIGINAL - (frame generation) the swapchain made and used through `owner` from the next one made (null: Vulkan's
+    // own calls). Set before the swapchain is made, cleared after it is destroyed.
+    void set_swapchain_owner(SwapchainOwner* owner) { owner_ = owner; }
+    [[nodiscard]] SwapchainOwner* swapchain_owner() const { return owner_; }
+    [[nodiscard]] VkSwapchainKHR swapchain() const { return swapchain_; }
     // Whether the surface's size is no longer the swapchain's (the window resized, minimised or restored without the
     // presents being told - not every driver reports it as out of date).
     [[nodiscard]] bool surface_changed() const;
@@ -229,6 +270,12 @@ private:
     bool ray_tracing_wanted_ = false;
     bool ray_tracing_ = false;
     ContextAdditions* additions_ = nullptr; // (NOT ORIGINAL - ContextOptions::additions)
+    SwapchainOwner* owner_ = nullptr;       // (NOT ORIGINAL - set_swapchain_owner)
+    // (NOT ORIGINAL - DeviceWants::present_queues: where they were made)
+    uint32_t present_queues_wanted_ = 0;
+    uint32_t present_family_ = 0;
+    uint32_t present_first_ = 0;
+    uint32_t present_queues_ = 0;
     uint32_t add_requested(std::vector<const char*>* extensions, VkPhysicalDeviceVulkan12Features* features12,
                            VkPhysicalDeviceVulkan13Features* features13, const VkPhysicalDeviceFeatures& offered);
 };

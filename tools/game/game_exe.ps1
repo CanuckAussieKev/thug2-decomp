@@ -41,7 +41,10 @@ $DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'thug2-editor.exe', 'thug
                    # build's only; their licences beside them)
                    'amd_fidelityfx_loader_vk.dll', 'amd_fidelityfx_upscaler_vk.dll', 'amd_fidelityfx_license.md',
                    'sl.interposer.dll', 'sl.common.dll', 'sl.dlss.dll', 'sl.dlss_d.dll', 'nvngx_dlss.dll',
-                   'nvngx_dlssd.dll', 'nvngx_dlss.license.txt', 'streamline_license.txt')
+                   'nvngx_dlssd.dll', 'nvngx_dlss.license.txt', 'streamline_license.txt',
+                   # (frame generation and Reflex - src/gpu_vulkan/vulkan_framegen.h: FSR 3's, DLSS-G's, Reflex's and PCL's)
+                   'amd_fidelityfx_framegeneration_vk.dll', 'sl.dlss_g.dll', 'sl.reflex.dll', 'sl.pcl.dll',
+                   'nvngx_dlssg.dll', 'NvLowLatencyVk.dll', 'reflex.license.txt')
 # The folders of ours a lock backs up whole and puts back the same way (removed at release when they weren't there):
 # the level editor's tools (editor-tools\: Node, the level converters - tools/editor_tools.ts). deploy_build.ps1
 # replaces one whole; its bundle.json says what it was made from.

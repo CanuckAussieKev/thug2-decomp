@@ -617,19 +617,48 @@ bool Context::create_device()
     // NOT ORIGINAL - a library's additions (ContextAdditions): its extensions, features and extra queues
     std::array<float, kMostQueues> priorities{};
     priorities.fill(priority);
-    VkDeviceQueueCreateInfo queues = queue;
+    std::array<VkDeviceQueueCreateInfo, 2> queues{queue, queue};
+    uint32_t queue_infos = 1;
     uint32_t extra_queues = 0;
+    present_queues_ = 0;
     if (additions_ != nullptr) {
         extra_queues = add_requested(&extensions, &features12, &features13, offered);
-        queues.queueCount = 1 + extra_queues;
-        queues.pQueuePriorities = priorities.data();
+        queues[0].queueCount = 1 + extra_queues;
+        queues[0].pQueuePriorities = priorities.data();
+        // (added by frame generation) its present queues: after the others in the graphics family when it has room,
+        // else in another family that presents and computes
+        if (present_queues_wanted_ > 0) {
+            const std::vector<QueueFamilyInfo> families = queue_families(physical_device_, surface_);
+            for (const QueueFamilyInfo& family : families) {
+                if (family.index == queue_family_ && family.count >= 1 + extra_queues + present_queues_wanted_ &&
+                    1 + extra_queues + present_queues_wanted_ <= kMostQueues) {
+                    present_family_ = queue_family_;
+                    present_first_ = 1 + extra_queues;
+                    present_queues_ = present_queues_wanted_;
+                    queues[0].queueCount += present_queues_;
+                }
+            }
+            for (const QueueFamilyInfo& family : families) {
+                if (present_queues_ == 0 && family.index != queue_family_ && family.presents &&
+                    (family.flags & VK_QUEUE_COMPUTE_BIT) != 0 && family.count >= present_queues_wanted_ &&
+                    present_queues_wanted_ <= kMostQueues) {
+                    present_family_ = family.index;
+                    present_first_ = 0;
+                    present_queues_ = present_queues_wanted_;
+                    queues[1].queueFamilyIndex = family.index;
+                    queues[1].queueCount = present_queues_;
+                    queues[1].pQueuePriorities = priorities.data();
+                    queue_infos = 2;
+                }
+            }
+        }
     }
     const VkDeviceCreateInfo info{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = dynamic_rendering_ ? &features13 : nullptr,
         .flags = 0,
-        .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &queues,
+        .queueCreateInfoCount = queue_infos,
+        .pQueueCreateInfos = queues.data(),
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = nullptr,
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
@@ -647,7 +676,17 @@ bool Context::create_device()
                                  .physical = physical_device_,
                                  .device = device_,
                                  .family = queue_family_,
-                                 .extra_queues = extra_queues});
+                                 .extra_queues = extra_queues,
+                                 .present_family = present_family_,
+                                 .present_first = present_first_,
+                                 .present_queues = present_queues_});
+        // (NOT ORIGINAL - a library that must see the window's surface made, once it knows the device - frame
+        // generation's Streamline: ContextAdditions::create_surface): its surface instead of SDL's, for the same window)
+        VkSurfaceKHR remade = VK_NULL_HANDLE;
+        if (additions_->create_surface(instance_, window_, &remade) && remade != VK_NULL_HANDLE) {
+            vkDestroySurfaceKHR(instance_, surface_, nullptr);
+            surface_ = remade;
+        }
     }
     return true;
 }
@@ -662,6 +701,7 @@ uint32_t Context::add_requested(std::vector<const char*>* extensions, VkPhysical
     wants.features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     wants.features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
     additions_->device_extensions(physical_device_, &wants);
+    present_queues_wanted_ = wants.present_queues;
     const std::vector<VkExtensionProperties> offered_extensions = device_extensions(physical_device_);
     for (const char* name : wants.extensions) {
         const bool repeated =
@@ -760,6 +800,10 @@ bool Context::create_swapchain()
     // (copied from later, for screenshots, where the surface allows it)
     const VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                     (caps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+    // (NOT ORIGINAL - a swapchain owner - frame generation's - makes a new one after the old is gone: no old one handed on)
+    if (owner_ != nullptr) {
+        destroy_swapchain(std::exchange(swapchain_, VK_NULL_HANDLE));
+    }
     const VkSwapchainKHR old = swapchain_;
     const VkSwapchainCreateInfoKHR info{
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -781,7 +825,7 @@ bool Context::create_swapchain()
         .clipped = VK_TRUE,
         .oldSwapchain = old,
     };
-    result = vkCreateSwapchainKHR(device_, &info, nullptr, &swapchain_);
+    result = owner_ != nullptr ? owner_->create(info, &swapchain_) : vkCreateSwapchainKHR(device_, &info, nullptr, &swapchain_);
     destroy_swapchain(old);
     if (result != VK_SUCCESS) {
         swapchain_ = VK_NULL_HANDLE;
@@ -790,9 +834,15 @@ bool Context::create_swapchain()
     extent_ = extent;
     ++swapchains_made_;
     uint32_t count = 0;
-    vkGetSwapchainImagesKHR(device_, swapchain_, &count, nullptr);
-    images_.resize(count);
-    vkGetSwapchainImagesKHR(device_, swapchain_, &count, images_.data());
+    if (owner_ != nullptr) {
+        owner_->images(swapchain_, &count, nullptr);
+        images_.resize(count);
+        owner_->images(swapchain_, &count, images_.data());
+    } else {
+        vkGetSwapchainImagesKHR(device_, swapchain_, &count, nullptr);
+        images_.resize(count);
+        vkGetSwapchainImagesKHR(device_, swapchain_, &count, images_.data());
+    }
     images_.resize(count);
     presented_.assign(count, VK_NULL_HANDLE);
     for (VkSemaphore& semaphore : presented_) {
@@ -817,7 +867,11 @@ void Context::destroy_swapchain(VkSwapchainKHR swapchain)
     presented_.clear();
     images_.clear();
     if (swapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(device_, swapchain, nullptr);
+        if (owner_ != nullptr) {
+            owner_->destroy(swapchain);
+        } else {
+            vkDestroySwapchainKHR(device_, swapchain, nullptr);
+        }
     }
 }
 
@@ -855,7 +909,8 @@ FrameResult Context::clear_frame(const std::array<float, 4>& colour)
     const Frame& frame = core::at(frames_, frame_index_);
     vkWaitForFences(device_, 1, &frame.done, VK_TRUE, kNoTimeout);
     uint32_t image = 0;
-    VkResult result = vkAcquireNextImageKHR(device_, swapchain_, kNoTimeout, frame.acquired, VK_NULL_HANDLE, &image);
+    VkResult result = owner_ != nullptr ? owner_->acquire(swapchain_, kNoTimeout, frame.acquired, &image)
+                                        : vkAcquireNextImageKHR(device_, swapchain_, kNoTimeout, frame.acquired, VK_NULL_HANDLE, &image);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         return remake_swapchain() ? FrameResult::kRemade : FrameResult::kFailed;
     }
@@ -894,7 +949,7 @@ FrameResult Context::clear_frame(const std::array<float, 4>& colour)
         .pImageIndices = &image,
         .pResults = nullptr,
     };
-    result = vkQueuePresentKHR(queue_, &present);
+    result = owner_ != nullptr ? owner_->present(queue_, present) : vkQueuePresentKHR(queue_, &present);
     frame_index_ = (frame_index_ + 1) % kFramesInFlight;
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || resized_) {
         return remake_swapchain() ? FrameResult::kPresented : FrameResult::kFailed;
@@ -910,6 +965,9 @@ VkResult Context::acquire(VkSemaphore acquired, uint32_t* image)
 {
     if (swapchain_ == VK_NULL_HANDLE) {
         return VK_ERROR_OUT_OF_DATE_KHR;
+    }
+    if (owner_ != nullptr) {
+        return owner_->acquire(swapchain_, kNoTimeout, acquired, image);
     }
     return vkAcquireNextImageKHR(device_, swapchain_, kNoTimeout, acquired, VK_NULL_HANDLE, image);
 }
@@ -927,7 +985,7 @@ VkResult Context::queue_present(uint32_t image)
         .pImageIndices = &image,
         .pResults = nullptr,
     };
-    const VkResult result = vkQueuePresentKHR(queue_, &present);
+    const VkResult result = owner_ != nullptr ? owner_->present(queue_, present) : vkQueuePresentKHR(queue_, &present);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
         resized_ = true; // (made again before the next frame)
     }

@@ -96,6 +96,10 @@ void end_scene() { render::engine::end_render(); }      // EndScene, Present
 
 uint8_t cinema_bars_on() { return render::renderer().render_camera().letterbox_active_; }
 
+// NOT ORIGINAL - where the loop is in a frame, for the Vulkan renderer's frame generation and Reflex low latency
+// (GpuContext::latency_marker: Reflex waits at the simulation's start; nothing happens without them).
+void latency_marker(render::GpuContext::LatencyMarker marker) { render::gpu_context().latency_marker(marker); }
+
 // NOT ORIGINAL - the frame's wait mostly slept: until `spin` before `due` (performance-counter ticks) on a
 // high-resolution waitable timer, when more than that is left. The main loop's Sleep(0) loop held a core busy for the
 // whole wait (each game running - and the workspaces' copies beside it - took a core from the others and from the
@@ -184,9 +188,14 @@ void draw_extra_frames(uint64_t tick_time, uint64_t tick_length, int64_t frequen
         blend.extra = true;
         blend.alpha = frame_pacing::blend_alpha(now, tick_time, tick_length);
         render::engine_parts().set_suppress_draw(false);
+        // (a render-only frame is a frame of its own to frame generation and Reflex: no simulation between its markers)
+        latency_marker(render::GpuContext::LatencyMarker::kSimulationStart);
+        latency_marker(render::GpuContext::LatencyMarker::kSimulationEnd);
+        latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitStart);
         begin_scene();
         render::device().draw_world();
         ext::before_present(true);
+        latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitEnd);
         end_scene();
         blend.extra = false;
         crt::game_srand(crt_random);
@@ -449,6 +458,8 @@ void Hub::get_main_loop()
         if (!pace.hold) {
             ++blend.tick;
         }
+        // Not original - the frame's markers (latency_marker): the simulation starts. Original behaviour: none.
+        latency_marker(render::GpuContext::LatencyMarker::kSimulationStart);
         // Not original - a held simulation (pace.hold: the demo viewer paused or slowed) counts no clock and runs no
         // task: the frame is drawn again as the last logic frame left it. Original behaviour: always a logic frame.
         if (!pace.hold) {
@@ -470,9 +481,11 @@ void Hub::get_main_loop()
         }
         // (not original: the tick's frame blended by how far into the tick it is drawn - max_fps above)
         blend.alpha = blend.on ? frame_pacing::blend_alpha(counter_now(), tick_time, frame_ticks) : 1.0F;
+        latency_marker(render::GpuContext::LatencyMarker::kSimulationEnd); // (not original - latency_marker)
         {
             const frame_profile::Scope phase("render");
             if (!render::engine_parts().suppress_draw()) {
+                latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitStart); // (not original)
                 begin_scene();
             }
             render_frame_letterboxed();
@@ -487,6 +500,7 @@ void Hub::get_main_loop()
         }
         if (!render::engine_parts().suppress_draw()) {
             const frame_profile::Scope phase("present");
+            latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitEnd); // (not original - latency_marker)
             end_scene();
         }
         // Not original - an extension that keeps every frame (engine/ext/extension.h; the screenshot key's frame
