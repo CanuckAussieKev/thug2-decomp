@@ -189,6 +189,12 @@ HWND create_sdl_window(WindowApi api)
 
     // (full screen: made hidden, given its mode, then shown - choose_fullscreen_mode)
     SDL_WindowFlags flags = sdl_window_state().windowed_ ? 0 : SDL_WINDOW_HIDDEN;
+    // (not original: a test workspace's window made hidden too, then shown without the focus below - a window made
+    // visible is activated by Windows as it's made, before SDL's hints apply)
+    const bool behind = platform::test_workspace();
+    if (behind) {
+        flags |= SDL_WINDOW_HIDDEN;
+    }
     if (sdl_window_state().borderless_ && sdl_window_state().windowed_) {
         flags |= SDL_WINDOW_BORDERLESS;
     }
@@ -246,6 +252,8 @@ HWND create_sdl_window(WindowApi api)
         if (!sdl_window_state().windowed_) {
             choose_fullscreen_mode(sdl_window_state().window_);
             SDL_ShowWindow(sdl_window_state().window_);
+        } else if (behind) {
+            SDL_ShowWindow(sdl_window_state().window_); // (SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN=0: shown, not activated)
         }
         handle = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window_state().window_),
                                                          SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
