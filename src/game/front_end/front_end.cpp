@@ -33,6 +33,7 @@
 #include "game/rider/rider.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/stopwatch.h"
+#include "engine/sys/tick_rate.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
@@ -513,8 +514,18 @@ void FrontEnd::tick_frame(bool game_paused)
         memory::Hub::get_pull()->leave_heap_scope();
     }
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap());
-    script::tick_child_scripts();
-    modules::Skate::sole()->advance_match_flow();
+    // (not original: at another tick rate the spawned scripts and the game flow's run once a 1/60 s frame, in the tick that
+    // ends it - after the frame's last update of the objects, as the 60 Hz run's run after its one; a script made ready
+    // in one of the frame's ticks goes on at its end. At 60 every tick)
+    if (tick_rate::original()) {
+        script::tick_child_scripts();
+        modules::Skate::sole()->advance_match_flow();
+    } else if (frame_clock::grid_frame_ends()) {
+        frame_clock::script_frame_end_pass() = true;
+        script::tick_child_scripts();
+        modules::Skate::sole()->advance_match_flow();
+        frame_clock::script_frame_end_pass() = false;
+    }
     if (pending_script()) { // (the viewer's runnow.qb: engine/sys/model_viewer.h)
         set_pending_script(false);
         auto* object =

@@ -12,6 +12,7 @@
 #include "engine/sys/stopwatch.h"
 #include "engine/sys/tick_rate.h"
 #include "engine/render/probe_ray.h"
+#include "platform/run_log.h"
 
 namespace skater {
 
@@ -22,21 +23,116 @@ namespace {
 constexpr uint32_t kEnteredAir = 0xF225FE69; // the events sent when +0x4F0 changes (names unknown)
 constexpr uint32_t kLeftAir = 0x5E27200A;
 
+// Not original (the 60 Hz grid - see core_physics.h): what the skater keeps for a tick rate other than 60, beside the
+// component (its layout is the original's).
+struct GridState {
+    maths::Vec4 frame_start; // the last position as the current 1/60 s frame began (do_air_physics)
+    double ahead = 0.0;      // seconds of the coming ticks already covered by an update that took a whole frame
+    bool placed = false;     // put somewhere new since the last update (note_placed)
+};
+GridState& grid_state(const SkaterPhysicsModule* skater)
+{
+    static std::unordered_map<const SkaterPhysicsModule*, GridState> states;
+    return states[skater];
+}
+
+// Not original: does this update begin with what ends the 60 Hz run's update of a frame early - a jump let go
+// (jump_released's test, after tick_frame's crouch) on the ground or a rail? The 60 Hz run's update then moves the whole
+// frame first (on the ground) or not at all (on a rail), and the next frame begins after it.
+bool jump_lets_go(const SkaterPhysicsModule* skater, const objects::PadInputModule* input)
+{
+    const int state = state_of(skater);
+    return (state == kGround || state == kRail) && bit_mark(skater, PoseFlag::kCrouched) != 0U &&
+           input->pad_primary().pos_x().held_down() == 0U;
+}
+
 } // namespace
 
-// Not original (see core_physics.h): kept beside the component - its layout is the original's.
-maths::Vec4& SkaterPhysicsModule::grid_frame_start()
+maths::Vec4& SkaterPhysicsModule::grid_frame_start() { return grid_state(this).frame_start; }
+
+void SkaterPhysicsModule::note_placed()
 {
-    static std::unordered_map<const SkaterPhysicsModule*, maths::Vec4> starts;
-    return starts[this];
+    if (!tick_rate::original()) {
+        grid_state(this).placed = true;
+        grid_state(this).ahead = 0.0;
+    }
+}
+
+// Not original: a tick the skater's last update already covered (take_whole_frame) - none at 60. A tick that reaches past
+// that time takes what is left of it.
+bool SkaterPhysicsModule::held_by_grid()
+{
+    if (tick_rate::original()) {
+        return false;
+    }
+    GridState& grid = grid_state(this);
+    if (grid.ahead <= 0.0) {
+        return false;
+    }
+    const double tick = frame_.length;
+    if (grid.ahead >= tick * (1.0 - 1e-6)) {
+        grid.ahead = std::max(0.0, grid.ahead - tick);
+        return true;
+    }
+    frame_.length = static_cast<float>(tick - grid.ahead);
+    grid.ahead = 0.0;
+    return false;
+}
+
+void SkaterPhysicsModule::hold_rest_of_frame()
+{
+    if (tick_rate::original() || frame_clock::grid_frames() == 0) {
+        return;
+    }
+    GridState& grid = grid_state(this);
+    const double rest = frame_clock::get_slomo_grid_seconds() - frame_.length;
+    grid.ahead = std::max(grid.ahead, rest);
+}
+
+// Not original: the 60 Hz run's update of a frame where it ends early, at another tick rate (docs/design/tick-rate.md
+// "Events inside a frame"): an update after a placement, or one beginning a frame with a jump let go, takes the whole
+// 1/60 s, as the 60 Hz run's does, and the ticks it covered are held (held_by_grid). Nothing at 60.
+void SkaterPhysicsModule::take_whole_frame()
+{
+    if (tick_rate::original()) {
+        return;
+    }
+    GridState& grid = grid_state(this);
+    if (grid.ahead > 0.0) {
+        return;
+    }
+    const bool placed = grid.placed;
+    grid.placed = false;
+    if (placed || (frame_clock::grid_frames() != 0 && jump_lets_go(this, input_))) {
+        const double tick = frame_.length;
+        const double frame = frame_clock::get_slomo_grid_seconds();
+        frame_.length = static_cast<float>(frame);
+        grid.ahead = std::max(0.0, frame - tick);
+    }
 }
 
 // 0x00510830
 void SkaterPhysicsModule::tick_frame()
 {
     frame_.length = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    {
+        static const bool kTrace = config_int("debug", "tick_trace", 0) != 0;
+        if (kTrace) {
+            const maths::Vec4& p = entity()->at_point();
+            const maths::Vec4& v = entity()->vel();
+            get_log("TRACE %llu frame %llu gf %d t %u p %.4f %.4f %.4f v %.4f %.4f %.4f s %d",
+                    static_cast<unsigned long long>(frame_clock::vblanks_since_reset()),
+                    static_cast<unsigned long long>(frame_clock::grid_frame_of_tick()), frame_clock::grid_frames(),
+                    frame_clock::get_time(), static_cast<double>(p.x), static_cast<double>(p.y),
+                    static_cast<double>(p.z), static_cast<double>(v.x), static_cast<double>(v.y),
+                    static_cast<double>(v.z), static_cast<int>(state_of(this)));
+        }
+    }
     if (!tick_rate::original() && frame_clock::grid_frames() != 0) {
         grid_frame_start() = entity()->old_pos(); // (not original: the 60 Hz grid - do_air_physics)
+    }
+    if (held_by_grid()) {
+        return; // (not original: a tick the last update covered)
     }
     collision_events::checkpoint(this, "update-start"); // (not original)
     const bool bike = thaw_bmx::live_now(this);         // (not original: THAW's bike, thaw_bmx_physics.cpp)
@@ -49,6 +145,7 @@ void SkaterPhysicsModule::tick_frame()
     if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (input_->pad_primary().pos_x().held_down() != 0U)) {
         set_flag(this, PoseFlag::kCrouched, 1);
     }
+    take_whole_frame(); // (not original: the 60 Hz grid)
     clamp_skater_speed();
     set_flag(this, PoseFlag::kGroundSnapped, 0);
     set_flag(this, PoseFlag::kWallplanted, 0);

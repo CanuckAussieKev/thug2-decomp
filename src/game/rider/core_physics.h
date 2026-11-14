@@ -104,6 +104,15 @@ public:
     // air's feelers run once a frame, as it ends, from there - the 60 Hz run's segment, so it lands, hits walls and
     // ceilings where and when the 60 Hz run does.
     maths::Vec4& grid_frame_start();
+    // Not original (the 60 Hz grid, as above): the skater was put somewhere new (Rider::jump_to_spawn) - its next
+    // update covers a whole 1/60 s frame and the ticks left of that time are held, as the 60 Hz run's update does.
+    void note_placed();
+    // Not original (core_update.cpp): a tick an update that took a whole 1/60 s frame covered; such an update.
+    bool held_by_grid();
+    void take_whole_frame();
+    // Not original: this update ended the 60 Hz run's move of the frame (it left a rail at its end) - the ticks left of the
+    // 1/60 s frame are held. Nothing at 60.
+    void hold_rest_of_frame();
 
     // --- core_jump.cpp: jumping, skitching, the script member functions around them, the wallplant state ---
     // 0x005092E0: the TriggerScript of the rail node being ground (+0x22C) - or of the nearest one before it (back

@@ -31,6 +31,8 @@
 #include "base/core/checked_index.h"
 #include "game/online/net_game_state.h"
 #include "engine/render/coll_obj.h"
+#include "engine/sys/stopwatch.h"
+#include "engine/sys/tick_rate.h"
 
 namespace skater {
 
@@ -310,7 +312,10 @@ void SkaterPhysicsModule::step_grind_move()
         const double ey = static_cast<double>(position.y) - from_point.y;
         const double ez = static_cast<double>(position.z) - from_point.z;
         const double distance = std::sqrt(((ez * ez) + (ey * ey)) + (ex * ex));
-        if (distance > static_cast<double>(segment_length) + kSegmentSlack) {
+        // (not original: at another tick rate only in the tick that starts a 1/60 s frame - from where the 60 Hz run's
+        // update measures it; the ticks between carry on past the end as the 60 Hz run's move does)
+        if (distance > static_cast<double>(segment_length) + kSegmentSlack &&
+            (tick_rate::original() || frame_clock::grid_frames() != 0)) {
             overshoot = static_cast<float>(distance - segment_length);
             const objects::GrindPoint* corner = after < 0.0F ? node : next; // the node passed
             const objects::GrindPoint* onward =
@@ -339,6 +344,7 @@ void SkaterPhysicsModule::step_grind_move()
         if (thaw_bmx::live_now(this)) {
             thaw_bmx::rail_stall_slip(this); // (not original, as above)
         }
+        hold_rest_of_frame(); // (not original: no move this frame, as the 60 Hz run's)
         return;
     }
 

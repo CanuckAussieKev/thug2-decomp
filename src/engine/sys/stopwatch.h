@@ -55,6 +55,10 @@ int grid_frames();
 // This tick ends a 1/60 s frame (always at 60): what the original keeps for "this frame" (a flag set for the rest of a
 // tick) keeps it until then.
 bool grid_frame_ends();
+// Set while the front end runs the spawned scripts and the game flow's - at another rate in the tick that ends a 1/60 s
+// frame (they run after the objects in a tick, so the 60 Hz run's do at the frame's end): their waits step then, the
+// objects' own scripts' in the tick that starts it (QbScript::update_wait). Never set at 60.
+bool& script_frame_end_pass();
 // The 1/60 s frame this tick is part of (the vblanks themselves at 60).
 uint64_t grid_frame_of_tick();
 // The current tick ends 1/60 s frame `frame` (a demo played at another rate than it was recorded at puts the clock where

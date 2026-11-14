@@ -1,6 +1,9 @@
 // Pieces of the skater object, 0x0057FE30-0x00580BD8. See rider.h.
 
 #include "game/rider/rider.h"
+#include <string>
+#include "platform/run_log.h"
+#include "base/core/format.h"
 #include "base/core/layout_32bit.h"
 #include "game/rider/rider_created_tricks.h"
 #include "game/rider/rider_custom_restart.h"
@@ -1822,6 +1825,8 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     }
 }
 
+extern "C" __declspec(dllimport) unsigned short __stdcall RtlCaptureStackBackTrace(unsigned long, unsigned long, void**, unsigned long*); // TEMP
+extern "C" __declspec(dllimport) void* __stdcall GetModuleHandleA(const char*); // TEMP
 // 0x00583DA0 (vtable +0x3C)
 void Rider::jump_to_spawn(SpawnChoice spawn_choice)
 {
@@ -1847,6 +1852,20 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
         glide_to_node(node);
     }
     relaunch(walking, 0);
+    if (core_physics_) {
+        core_physics_->note_placed(); // (not original: the 60 Hz grid at another tick rate - nothing at 60)
+    }
+    if (config_int("debug", "tick_trace", 0) != 0) { // TEMP trace
+        void* frames[8] = {};
+        const unsigned short n = RtlCaptureStackBackTrace(0, 8, frames, nullptr);
+        const auto base = reinterpret_cast<uintptr_t>(GetModuleHandleA(nullptr));
+        std::string line = "PLACE";
+        for (unsigned short i = 0; i < n; ++i) {
+            line += text::format(" thug2-decomp.exe+0x%llx",
+                                 static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(frames[i]) - base));
+        }
+        get_log("%s", line.c_str());
+    }
     if (is_local_skater() != 0U) {
         core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
         if (is_local_skater() != 0U) {
