@@ -54,6 +54,7 @@
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_motion.h"
+#include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_scatter.h"
 #include "tests/check_window.h"
 #include "tests/no_error_dialogs.h"
@@ -1059,6 +1060,116 @@ void check_clutter(render::Gpu& gpu, Tally* tally)
     release(gpu, targets);
 }
 
+// A decal quad of one kind over x from - to, z from - to on the road (y 0), whole (opacity 1, no fade near).
+void add_decal_quad(scatter::Scatter* made, scatter::DecalKind kind, const std::array<float, 4>& area)
+{
+    constexpr uint32_t kOpaque = 255U << 8U;
+    constexpr uint32_t kFarFade = 255U << 16U;
+    const uint32_t packed = static_cast<uint32_t>(kind) | kOpaque | kFarFade;
+    const auto [x0, x1, z0, z1] = area;
+    const uint32_t first = static_cast<uint32_t>(made->decal_vertices.size());
+    const std::array<std::array<float, 4>, 6> corners{{{x0, z0, 0.0F, 0.0F},
+                                                       {x1, z0, 1.0F, 0.0F},
+                                                       {x1, z1, 1.0F, 1.0F},
+                                                       {x0, z0, 0.0F, 0.0F},
+                                                       {x1, z1, 1.0F, 1.0F},
+                                                       {x0, z1, 0.0F, 1.0F}}};
+    for (const auto& c : corners) {
+        made->decal_vertices.push_back({.position = {core::at(c, 0), 0.0F, core::at(c, 1)},
+                                        .uv = {core::at(c, 2), core::at(c, 3)},
+                                        .packed = packed});
+    }
+    made->decals.push_back({.centre = {(x0 + x1) * kHalf, 0.0F, (z0 + z1) * kHalf},
+                            .normal = {0.0F, 1.0F, 0.0F},
+                            .kind = kind,
+                            .variant = 0,
+                            .size = {x1 - x0, z1 - z0},
+                            .face = 0,
+                            .first_vertex = first,
+                            .vertex_count = 6});
+    ++core::at(made->decals_of, static_cast<std::size_t>(kind));
+    made->decal_density = 1.0F;
+}
+
+// The puddles (with ray tracing): the decals' pass draws the wet mask only under wet patches while the reflections run,
+// and the reflections' trace with the puddles compiles.
+void check_puddles(render::Gpu& gpu, Tally* tally)
+{
+    text::print("the puddles:\n");
+    vk::Backend& state = vk::backend();
+    if (!state.context.ray_tracing_enabled()) {
+        text::print("  (no ray tracing on this device: the puddles' reflections not tried)\n");
+        return;
+    }
+    const render::rt::ViewDrawn view = view_of({.eye = kEye, .at = kLookAt});
+    const Targets targets = make_targets(gpu, 0);
+    constexpr std::array<float, 4> kPuddle{-420.0F, -180.0F, 260.0F, 400.0F}; // (beside the wall, not behind it)
+    constexpr std::array<float, 4> kStain{200.0F, 320.0F, 300.0F, 400.0F};
+    auto made = std::make_shared<scatter::Scatter>();
+    add_decal_quad(made.get(), scatter::DecalKind::kWet, kPuddle);
+    add_decal_quad(made.get(), scatter::DecalKind::kStain, kStain);
+    made->tiles.push_back({.low = {-420.0F, 0.0F, 260.0F},
+                           .high = {320.0F, 0.0F, 400.0F},
+                           .first_vertex = 0,
+                           .vertex_count = static_cast<uint32_t>(made->decal_vertices.size()),
+                           .first_item = 0,
+                           .item_count = 0});
+    vk::set_scatter_settings({.decals = true, .decal_density = 1.0F, .clutter = false, .clutter_density = 1.0F});
+    vk::scatter_sink().set_scatter(made);
+    // reflections off: no mask
+    const uint64_t masks = vk::wet_masks_drawn();
+    run_frames(gpu, targets, view, 1);
+    tally->check(vk::wet_masks_drawn() == masks, "rt_reflections off: no wet mask drawn");
+    vk::set_rt_reflection_settings({.on = true, .strength = 1.0F});
+    run_frames(gpu, targets, view, 1);
+    std::vector<uint8_t> wet;
+    uint32_t wet_width = 0;
+    bool read = false;
+    {
+        const std::scoped_lock lock(state.mutex);
+        read = vk::read_wet_mask(state, &wet, &wet_width);
+    }
+    if (read && wet_width >= kWidth) {
+        std::vector<std::array<float, 3>> shown(static_cast<std::size_t>(kWidth) * kHeight);
+        for (uint32_t row = 0; row < kHeight; ++row) {
+            for (uint32_t column = 0; column < kWidth; ++column) {
+                const float w = static_cast<float>(core::at(wet, (static_cast<std::size_t>(row) * wet_width) + column)) / 255.0F;
+                core::at(shown, (static_cast<std::size_t>(row) * kWidth) + column) = {w, w, w};
+            }
+        }
+        dump_ppm("wet.ppm", kWidth, kHeight, shown);
+        Picture picture;
+        if (read_picture(targets.colour, &picture)) {
+            dump_ppm("puddle.ppm", kWidth, kHeight, picture);
+        }
+    }
+    int wet_pixels = 0;
+    int stray = 0;
+    for (uint32_t row = 0; row < kHeight && read && wet_width >= kWidth; ++row) {
+        for (uint32_t column = 0; column < kWidth; ++column) {
+            if (core::at(wet, (static_cast<std::size_t>(row) * wet_width) + column) == 0) {
+                continue;
+            }
+            ++wet_pixels;
+            const std::optional<std::array<float, 2>> at = at_height(ray_through(view, column, row), 0.0F);
+            stray += at && inside(core::at(*at, 0), core::at(*at, 1), kPuddle, 8.0F) ? 0 : 1;
+        }
+    }
+    tally->check(vk::wet_masks_drawn() == masks + 1 && read && wet_pixels > 100 && stray == 0,
+                 text::format("rt_reflections on: the wet mask drawn - %d wet pixels, all over the puddle (%d not; the "
+                              "stain beside it none)",
+                              wet_pixels, stray));
+    bool compiled = false;
+    {
+        const std::scoped_lock lock(state.mutex);
+        compiled = vk::make_rt_reflection_wet_trace(state);
+    }
+    tally->check(compiled, "the reflections' trace with the puddles made (with and without the sky)");
+    vk::set_rt_reflection_settings({});
+    vk::set_scatter_settings({});
+    release(gpu, targets);
+}
+
 void check_multisampled(render::Gpu& gpu, Tally* tally)
 {
     text::print("four samples:\n");
@@ -1201,8 +1312,11 @@ int window_position(int display)
 
 bool open_device(const Options& options, SDL_Window* window)
 {
-    vk::set_context_options(
-        {.validation = options.validation, .device_index = options.device, .on_message = print_line}, window);
+    vk::set_context_options({.validation = options.validation,
+                             .device_index = options.device,
+                             .on_message = print_line,
+                             .ray_tracing = true},
+                            window);
     render::GpuContext& context = vk::gpu_context();
     if (!context.create_instance()) {
         text::print("the device could not be opened\n");
@@ -1240,6 +1354,7 @@ int run(const Options& options, SDL_Window* window)
     render::Gpu& gpu = vk::gpu();
     check_decals(gpu, &tally);
     check_clutter(gpu, &tally);
+    check_puddles(gpu, &tally);
     check_multisampled(gpu, &tally);
     check_off(gpu, &tally);
     measure_cost(gpu, &tally);

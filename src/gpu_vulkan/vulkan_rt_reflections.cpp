@@ -30,6 +30,7 @@
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_ring.h"
+#include "gpu_vulkan/vulkan_scatter.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -524,7 +525,8 @@ constexpr uint32_t kBindingBase = 8; // (added for the glass) the base layer: wr
 constexpr uint32_t kBindingSky = 9;
 constexpr uint32_t kBindingSkyCloudLight = kBindingSky + 2;
 constexpr uint32_t kBindingSkyCloudInfo = kBindingSky + 3;
-constexpr uint32_t kBindingCount = 13;
+constexpr uint32_t kBindingWet = 13; // (added by the decals) the puddles' wet mask (vulkan_scatter.h), WET only
+constexpr uint32_t kBindingCount = 14;
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 constexpr uint32_t kPushBytes = 16; // the apply's rect, the check's count
@@ -557,11 +559,13 @@ struct ReflectionState {
     VkSampler sampler = VK_NULL_HANDLE;
     VkShaderModule vertex = VK_NULL_HANDLE;
     std::array<VkPipeline, 4> trace{}; // single-sampled depth, multisampled; then the same with the sky (SKY)
+    std::array<VkPipeline, 2> trace_wet{}; // (added by the decals) single-sampled, without and with the sky (on first use)
     VkPipeline surface = VK_NULL_HANDLE;
     std::vector<ApplyPipeline> applies;
     std::vector<std::unique_ptr<ViewSlot>> slots;
     bool standard_samples = false;
     bool failed = false;
+    bool wet_failed = false; // (added by the decals) the puddles' trace couldn't be made
     uint64_t passes = 0;
     uint64_t without_mirrors = 0;
     uint64_t uses = 0;
@@ -637,6 +641,43 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
     return source;
 }
 
+// (added by the decals - vulkan_scatter.h) The trace's body with the puddles: where the decals' wet mask (kBindingWet)
+// has a puddle and the surface shown is the world's, it reflects as water does - its reflectivity the mask's (if more
+// than its own), rt::kReflectWaterF0 face-on and Schlick's curve, the whole of it (no environment mask). Made from
+// kTraceBody by putting lines in, so the trace without it is the same text as ever. Empty if a line wasn't found.
+std::string wet_trace_body()
+{
+    std::string body = kTraceBody;
+    const auto put = [&body](const std::string& at_text, const std::string& added, bool replace) {
+        const std::size_t at = body.find(at_text);
+        if (at == std::string::npos) {
+            return false;
+        }
+        body.replace(at, at_text.size(), replace ? added : at_text + added);
+        return true;
+    };
+    const bool ok =
+        put("layout(set = 0, binding = 8, rgba16f) uniform writeonly image2D o_base;\n",
+            "layout(set = 0, binding = 13) uniform sampler2D u_wet;\nconst float WET_F0 = " +
+                std::to_string(rt::kReflectWaterF0) + ";\n",
+            false) &&
+        put("float reflectivity = material(id).reflectivity;\n",
+            "            float wet = (geometry_record(rayQueryGetIntersectionInstanceIdEXT(query, true)).instance_flags &\n"
+            "                         INSTANCE_OBJECT) == 0u ? clamp(texelFetch(u_wet, p, 0).r, 0.0, 1.0) : 0.0;\n"
+            "            bool puddle = wet > reflectivity;\n"
+            "            reflectivity = max(reflectivity, wet);\n",
+            false) &&
+        put("float weight = reflection_weight(reflectivity, surface.reflection_class, surface.f0, -dot(view, n));\n",
+            "if (puddle) {\n                        mask = 1.0;\n                    }\n"
+            "                    float weight = puddle ? reflection_weight(reflectivity, CLASS_WATER, WET_F0, -dot(view, n))\n"
+            "                                          : reflection_weight(reflectivity, surface.reflection_class, surface.f0,\n"
+            "                                                              -dot(view, n));\n",
+            true) &&
+        put("if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {",
+            "if (!puddle && pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {", true);
+    return ok ? body : std::string();
+}
+
 VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::string& source, std::string* error)
 {
     const VkShaderModule module = make_module(device, RtShaderStage::kCompute, source, error);
@@ -682,7 +723,8 @@ bool ensure_layouts(Backend& state, std::string* error)
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         if (binding == kBindingScene) {
             type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        } else if (binding == kBindingDepth || binding == kBindingSky || binding == kBindingSky + 1) {
+        } else if (binding == kBindingDepth || binding == kBindingSky || binding == kBindingSky + 1 ||
+                   binding == kBindingWet) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         } else if (binding == kBindingOut || binding == kBindingIn || binding == kBindingBase ||
                    binding == kBindingSkyCloudLight || binding == kBindingSkyCloudInfo) {
@@ -1364,6 +1406,11 @@ RtReflectionSettings rt_reflection_settings()
     return reflections().settings;
 }
 
+bool rt_reflections_active(const Backend& state)
+{
+    return reflections().settings.on && state.context.ray_tracing_enabled();
+}
+
 VkImageUsageFlags rt_reflections_depth_usage(const Backend& state, VkFormat format)
 {
     if (!reflections().settings.on || !state.context.ray_tracing_enabled()) {
@@ -1373,6 +1420,38 @@ VkImageUsageFlags rt_reflections_depth_usage(const Backend& state, VkFormat form
     vkGetPhysicalDeviceFormatProperties(state.context.physical_device(), format, &properties);
     return (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0 ? VK_IMAGE_USAGE_SAMPLED_BIT
                                                                                          : 0;
+}
+
+namespace {
+
+// (added by the decals) The trace with the puddles (vulkan_scatter.h), single-sampled, with or without the sky - made on
+// first use; null (logged once) when it can't be.
+VkPipeline wet_pipeline(Backend& state, bool sky)
+{
+    ReflectionState& own = reflections();
+    VkPipeline& made = core::at(own.trace_wet, sky ? 1U : 0U);
+    if (made == VK_NULL_HANDLE && !own.wet_failed) {
+        std::string error = "the trace's text";
+        const std::string body = wet_trace_body();
+        if (!body.empty()) {
+            made = make_compute(state.context.device(), own.layout, compute_source(body.c_str(), false, true, sky), &error);
+        }
+        if (made == VK_NULL_HANDLE) {
+            own.wet_failed = true;
+            get_log("vulkan: rt_reflections: the puddles' trace couldn't be made (%s) - puddles don't reflect",
+                    error.c_str());
+        }
+    }
+    return made;
+}
+
+} // namespace
+
+bool make_rt_reflection_wet_trace(Backend& state)
+{
+    std::string error;
+    return state.context.ray_tracing_enabled() && ensure_objects(state, &error) &&
+           wet_pipeline(state, false) != VK_NULL_HANDLE && wet_pipeline(state, true) != VK_NULL_HANDLE;
 }
 
 bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
@@ -1395,7 +1474,9 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
         }
         return false;
     }
-    if (scene.reflective_instances == 0) {
+    // (added by the decals) the puddles' wet mask the decals drew for this viewport (single-sampled targets)
+    const Image* const wet = scatter_wet_mask(state, view.rect);
+    if (scene.reflective_instances == 0 && wet == nullptr) {
         ++own.without_mirrors;
         if (first_report(state, kReportNoMirrors)) {
             get_log("vulkan: rt_reflections: nothing reflective in the scene (no environment-mapped material) - the "
@@ -1495,10 +1576,25 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
 
     // 1. the rays
+    const VkPipeline wet_trace =
+        wet != nullptr && colour->samples == VK_SAMPLE_COUNT_1_BIT ? wet_pipeline(state, sky_seen) : VK_NULL_HANDLE;
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
-                      core::at(own.trace, (colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U) + (sky_seen ? 2U : 0U)));
+                      wet_trace != VK_NULL_HANDLE
+                          ? wet_trace
+                          : core::at(own.trace, (colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U) + (sky_seen ? 2U : 0U)));
     push_trace_descriptors(commands, scene.tlas, depth, &slot->reflection, &slot->base, *block_span, scene,
                            sky_seen ? &sky : nullptr);
+    if (wet_trace != VK_NULL_HANDLE) {
+        const VkDescriptorImageInfo wet_info{
+            .sampler = own.sampler, .imageView = wet->view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+        VkWriteDescriptorSet wet_write{};
+        wet_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        wet_write.dstBinding = kBindingWet;
+        wet_write.descriptorCount = 1;
+        wet_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        wet_write.pImageInfo = &wet_info;
+        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0, 1, &wet_write);
+    }
     const VkDescriptorSet material_set = state.materials.descriptor_set();
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,
                             nullptr);
@@ -1709,7 +1805,8 @@ void release_rt_reflections(Backend& state)
             vkDestroyPipeline(device, made.pipeline, nullptr);
         }
         for (const VkPipeline pipeline : {core::at(own.trace, 0), core::at(own.trace, 1), core::at(own.trace, 2),
-                                          core::at(own.trace, 3), own.surface}) {
+                                          core::at(own.trace, 3), core::at(own.trace_wet, 0),
+                                          core::at(own.trace_wet, 1), own.surface}) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
             }
@@ -1731,6 +1828,8 @@ void release_rt_reflections(Backend& state)
     }
     own.applies.clear();
     own.trace = {};
+    own.trace_wet = {};
+    own.wet_failed = false;
     own.surface = VK_NULL_HANDLE;
     own.vertex = VK_NULL_HANDLE;
     own.layout = VK_NULL_HANDLE;

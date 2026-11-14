@@ -7,6 +7,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/scatter.h"
 #include "gpu_vulkan/gpu_vulkan.h"
+#include "gpu_vulkan/vulkan_memory.h"
 
 // NOT ORIGINAL - decals and clutter (docs/design/vulkan.md "Decals and clutter"; [Graphics] rt_decals, clutter -
 // gpu_vulkan.h's ScatterSettings): marks and small props over the level's surfaces. render_pc reads the collision and
@@ -21,7 +22,10 @@
 // dropped, so a mark never shows on the skater standing on it or through a wall); its colour multiplies the pixel's -
 // mix(1, the atlas texel's rgb, its alpha x the decal's opacity x its fade) - so a stain darkens the lit ground as the
 // ground's own colour would: in shadow, in the light, under a lamp. The fade: 1 to kDecalFadeStart of the decal's own
-// distance (its size's), then down to 0 at it (and at the decal distance, kDecalDistance).
+// distance (its size's), then down to 0 at it (and at the decal distance, kDecalDistance). While the ray-traced
+// reflections run (and the target is single-sampled), the pass also draws a wet mask - each wet patch's darkening as its
+// wetness, the most of any - which the reflections' trace reads: there the ground reflects as water does (kReflectWater:
+// 2% face-on, a mirror at grazing angles), the puddle's share of it.
 //
 // The clutter's pass, per viewport, at opaque_drawn (rt::ViewOrder::kClutter, after the decals and reflections, before
 // the grass): like the grass's (vulkan_grass.h) - the viewport's colour copied out; a compute pass puts each chosen
@@ -87,6 +91,15 @@ bool record_clutter_pass(Backend& state, const rt::ViewDrawn& view);
 [[nodiscard]] uint64_t clutter_passes();
 [[nodiscard]] uint32_t decal_last_vertices();
 [[nodiscard]] uint32_t clutter_last_items();
+
+// (the puddles) The wet mask the decals' pass drew this frame for the viewport `rect` - R8, the puddles' share 0 - 1 at
+// each pixel, in the colour target's pixels, SHADER_READ_ONLY_OPTIMAL - or null: none drawn (no wet patch in view, the
+// reflections off, a multisampled target). The reflections' trace reads it (vulkan_rt_reflections.h): a puddle reflects
+// as water. The caller holds the lock.
+[[nodiscard]] const Image* scatter_wet_mask(const Backend& state, const std::array<uint32_t, 4>& rect);
+[[nodiscard]] uint64_t wet_masks_drawn();
+// (the check's) The wet mask read back (R8, the colour target's size; the frame's work finished first). False: none.
+bool read_wet_mask(Backend& state, std::vector<uint8_t>* texels, uint32_t* width);
 
 // The Sink render_pc hands the decals and clutter to (installed while either is on; the check uses it directly).
 scatter::Sink& scatter_sink();

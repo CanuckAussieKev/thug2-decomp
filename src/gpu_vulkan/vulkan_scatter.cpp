@@ -32,6 +32,7 @@
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_ring.h"
+#include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "platform/run_log.h"
 
@@ -70,6 +71,7 @@ constexpr float kClipSpan = 2.0F;
 constexpr double kBytesPerMegabyte = 1024.0 * 1024.0;
 constexpr std::size_t kTexel = 4;
 constexpr float kItemReach = 12.0F; // (a tile's box grown by this: its items' meshes)
+constexpr VkFormat kWetFormat = VK_FORMAT_R8_UNORM;
 
 std::string glsl_float(float value)
 {
@@ -105,6 +107,7 @@ std::string constants_source()
     define("MATCH_SHARE", kClutterMatchShare);
     define("MATCH_SLACK", kClutterMatchSlack);
     out += "#define MESH_VERTICES " + std::to_string(scatter::kMeshVertices) + "u\n";
+    define("WET_ROW", static_cast<float>(scatter::DecalKind::kWet));
     return out;
 }
 
@@ -178,6 +181,9 @@ layout(location = 0) in vec2 v_uv;
 layout(location = 1) flat in vec2 v_cell;
 layout(location = 2) in float v_weight;
 layout(location = 0) out vec4 o_colour;
+#ifdef WET
+layout(location = 1) out vec4 o_wet;
+#endif
 
 void main()
 {
@@ -191,6 +197,11 @@ void main()
     }
     float amount = clamp(texel.a * v_weight, 0.0, 1.0);
     o_colour = vec4(mix(vec3(1.0), clamp(texel.rgb, 0.0, 1.0), amount), 1.0);
+#ifdef WET
+    // (a wet patch: its darkening is its wetness - the art's full darkening, about 0.4, a puddle)
+    float wet = v_cell.y == WET_ROW ? clamp((1.0 - texel.g) * 2.5, 0.0, 1.0) * amount : 0.0;
+    o_wet = vec4(wet, 0.0, 0.0, 0.0);
+#endif
 }
 )";
 
@@ -407,6 +418,11 @@ struct ScatterState {
     std::array<VkPipeline, 2> gather{}; // single-sampled depth, multisampled
     VkShaderModule decal_vertex = VK_NULL_HANDLE;
     std::array<VkShaderModule, 2> decal_fragment{}; // single-sampled depth, multisampled
+    VkShaderModule decal_fragment_wet = VK_NULL_HANDLE; // single-sampled, with the wet mask (WET)
+    Image wet;                                          // the puddles' wet mask (R8, the colour's size)
+    uint64_t wet_serial = 0;                            // the frame it was drawn in ...
+    std::array<uint32_t, 4> wet_rect{};                 // ... and for which viewport
+    uint64_t wet_drawn = 0;
     std::array<VkShaderModule, 2> item_vertex{};    // without, with motion
     std::array<VkShaderModule, 2> item_fragment{};
     std::vector<DrawPipeline> draws;
@@ -854,6 +870,13 @@ bool ensure_objects(Backend& state, std::string* error)
             }
         }
     }
+    if (own.decal_fragment_wet == VK_NULL_HANDLE) {
+        own.decal_fragment_wet =
+            make_module(device, RtShaderStage::kFragment, source_of(kDecalFragmentBody, false, false, "WET"), error);
+        if (own.decal_fragment_wet == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
     if (own.decal_vertex == VK_NULL_HANDLE) {
         own.decal_vertex = make_module(device, RtShaderStage::kVertex, source_of(kDecalVertexBody, false, false, nullptr), error);
         if (own.decal_vertex == VK_NULL_HANDLE) {
@@ -903,7 +926,8 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
          .pNext = nullptr,
          .flags = 0,
          .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-         .module = wanted.decals ? core::at(own.decal_fragment, multisampled ? 1 : 0) : core::at(own.item_fragment, variant),
+         .module = !wanted.decals ? core::at(own.item_fragment, variant)
+                                  : (wanted.motion ? own.decal_fragment_wet : core::at(own.decal_fragment, multisampled ? 1 : 0)),
          .pName = "main",
          .pSpecializationInfo = nullptr},
     }};
@@ -951,6 +975,18 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     }
     core::at(blend, 1).colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    if (wanted.decals) {
+        // (the wet mask: the most of any wet patch)
+        VkPipelineColorBlendAttachmentState& most = core::at(blend, 1);
+        most.colorWriteMask = VK_COLOR_COMPONENT_R_BIT;
+        most.blendEnable = VK_TRUE;
+        most.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        most.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        most.colorBlendOp = VK_BLEND_OP_MAX;
+        most.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        most.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        most.alphaBlendOp = VK_BLEND_OP_MAX;
+    }
     VkPipelineColorBlendStateCreateInfo blending{};
     blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     blending.attachmentCount = wanted.motion ? 2U : 1U;
@@ -960,7 +996,7 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamic.dynamicStateCount = static_cast<uint32_t>(dynamic_states.size());
     dynamic.pDynamicStates = dynamic_states.data();
-    const std::array<VkFormat, 2> formats{wanted.format, kMotionFormat};
+    const std::array<VkFormat, 2> formats{wanted.format, wanted.decals ? kWetFormat : kMotionFormat};
     VkPipelineRenderingCreateInfo rendering{};
     rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     rendering.colorAttachmentCount = wanted.motion ? 2U : 1U;
@@ -1011,6 +1047,32 @@ bool ensure_source(Backend& state, const Image& colour)
         return false;
     }
     prepare_image(state, &source);
+    return true;
+}
+
+// The wet mask's image for a colour target's size (made again when it changes).
+bool ensure_wet(Backend& state, const Image& colour)
+{
+    ScatterState& own = scatter_state();
+    Image& wet = own.wet;
+    if (wet.image != VK_NULL_HANDLE && wet.extent.width == colour.extent.width &&
+        wet.extent.height == colour.extent.height) {
+        return true;
+    }
+    retire_image(state, &wet);
+    const ImageRequest request{.format = kWetFormat,
+                               .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
+                               .extent = colour.extent,
+                               .levels = 1,
+                               .samples = VK_SAMPLE_COUNT_1_BIT,
+                               .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT, // (the check reads it back)
+                               .alpha_one = false};
+    if (!state.memory.create_image(request, &wet)) {
+        return false;
+    }
+    wet.resting = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    prepare_image(state, &wet);
     return true;
 }
 
@@ -1382,6 +1444,9 @@ void copy_colour(VkCommandBuffer commands, Image* colour, const std::array<uint3
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     }
     Memory::transition(commands, &own.source, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // (the transition's reader is the fragment stage: the gather reads it in a compute pass)
+    memory_barrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
 
 // The view's targets and rectangle; false (logged once) when they can't take the pass.
@@ -1419,7 +1484,7 @@ bool plan_targets(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
 }
 
 void begin_rendering(VkCommandBuffer commands, Backend& state, const ViewPlan& plan, bool with_depth,
-                     const rt::ViewDrawn& view)
+                     const rt::ViewDrawn& view, Image* wet = nullptr)
 {
     Image* const colour = plan.colour;
     Image* const depth = plan.depth;
@@ -1435,7 +1500,18 @@ void begin_rendering(VkCommandBuffer commands, Backend& state, const ViewPlan& p
     colour_info.resolveMode = VK_RESOLVE_MODE_NONE;
     colour_info.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     colour_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    if (plan.motion) {
+    if (wet != nullptr) {
+        // (the puddles' wet mask: cleared over the viewport, then the most of any wet patch)
+        Memory::transition(commands, wet, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo& wet_info = core::at(colours, 1);
+        wet_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        wet_info.imageView = wet->attachment_view;
+        wet_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        wet_info.resolveMode = VK_RESOLVE_MODE_NONE;
+        wet_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        wet_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        wet_info.clearValue = {};
+    } else if (plan.motion) {
         Image& image = state.motion.image;
         Memory::transition(commands, &image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         VkRenderingAttachmentInfo& motion_info = core::at(colours, 1);
@@ -1461,7 +1537,7 @@ void begin_rendering(VkCommandBuffer commands, Backend& state, const ViewPlan& p
     info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     info.renderArea = area;
     info.layerCount = 1;
-    info.colorAttachmentCount = plan.motion ? 2U : 1U;
+    info.colorAttachmentCount = plan.motion || wet != nullptr ? 2U : 1U;
     info.pColorAttachments = colours.data();
     info.pDepthAttachment = with_depth ? &depth_info : nullptr;
     vkCmdBeginRendering(commands, &info);
@@ -1530,6 +1606,10 @@ bool record_decal_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     plan.draws = plan_decal_draws(*own.scatter, plan.shape, &plan.count);
+    // (the puddles' wet mask, for the reflections: single-sampled targets, wet patches placed)
+    plan.motion = rt_reflections_active(state) && plan.colour->samples == VK_SAMPLE_COUNT_1_BIT &&
+                  core::at(own.scatter->decals_of, static_cast<std::size_t>(scatter::DecalKind::kWet)) > 0 &&
+                  ensure_wet(state, *plan.colour);
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkDescriptorBufferInfo params{};
     if (plan.draws.empty() || !pipeline_for(state, plan, true, &pipeline) || !params_in_ring(state, plan, view, &params)) {
@@ -1537,7 +1617,9 @@ bool record_decal_pass(Backend& state, const rt::ViewDrawn& view)
     }
     VkCommandBuffer commands = outside_pass(state);
     depth_barrier(commands, plan.depth, true, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-    begin_rendering(commands, state, plan, false, view);
+    ViewPlan drawn = plan;
+    drawn.motion = false; // (the second attachment is the wet mask's, not the motion's)
+    begin_rendering(commands, state, drawn, false, view, plan.motion ? &own.wet : nullptr);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, params, true, plan.depth);
     for (const ScatterDraw& draw : plan.draws) {
@@ -1546,6 +1628,16 @@ bool record_decal_pass(Backend& state, const rt::ViewDrawn& view)
     vkCmdEndRendering(commands);
     depth_barrier(commands, plan.depth, false, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
     const uint64_t serial = state.frames.serial();
+    if (plan.motion) {
+        Memory::transition(commands, &own.wet, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        // (the reflections' trace reads it in a compute pass)
+        memory_barrier(commands, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
+        own.wet.used = serial;
+        own.wet_serial = serial;
+        own.wet_rect = view.rect;
+        ++own.wet_drawn;
+    }
     plan.colour->used = serial;
     plan.depth->used = serial;
     own.atlas.used = serial;
@@ -1619,6 +1711,30 @@ bool record_clutter_pass(Backend& state, const rt::ViewDrawn& view)
 }
 
 uint64_t decal_passes() { return scatter_state().decal_passes; }
+
+const Image* scatter_wet_mask(const Backend& state, const std::array<uint32_t, 4>& rect)
+{
+    const ScatterState& own = scatter_state();
+    if (own.wet.image == VK_NULL_HANDLE || own.wet_serial == 0 || own.wet_serial != state.frames.serial() ||
+        own.wet_rect != rect || !own.settings.decals) {
+        return nullptr;
+    }
+    return &own.wet;
+}
+
+uint64_t wet_masks_drawn() { return scatter_state().wet_drawn; }
+
+bool read_wet_mask(Backend& state, std::vector<uint8_t>* texels, uint32_t* width)
+{
+    ScatterState& own = scatter_state();
+    texels->clear();
+    if (own.wet.image == VK_NULL_HANDLE || !finish_work(state)) {
+        return false;
+    }
+    *width = own.wet.extent.width;
+    texels->resize(static_cast<std::size_t>(own.wet.extent.width) * own.wet.extent.height); // (one byte a texel)
+    return state.memory.read_image_level(&own.wet, 0, texels);
+}
 uint64_t clutter_passes() { return scatter_state().clutter_passes; }
 uint32_t decal_last_vertices() { return scatter_state().last_vertices; }
 uint32_t clutter_last_items() { return scatter_state().last_items; }
@@ -1637,7 +1753,7 @@ void release_scatter(Backend& state)
             }
         }
         for (VkShaderModule module :
-             {own.decal_vertex, core::at(own.decal_fragment, 0), core::at(own.decal_fragment, 1),
+             {own.decal_vertex, core::at(own.decal_fragment, 0), core::at(own.decal_fragment, 1), own.decal_fragment_wet,
               core::at(own.item_vertex, 0), core::at(own.item_vertex, 1), core::at(own.item_fragment, 0),
               core::at(own.item_fragment, 1)}) {
             if (module != VK_NULL_HANDLE) {
@@ -1659,6 +1775,7 @@ void release_scatter(Backend& state)
     if (state.memory.ready()) {
         state.memory.destroy_image(&own.source);
         state.memory.destroy_image(&own.atlas);
+        state.memory.destroy_image(&own.wet);
         state.memory.destroy_buffer(&own.decal_vertices);
         state.memory.destroy_buffer(&own.items);
         state.memory.destroy_buffer(&own.lights);
@@ -1668,6 +1785,8 @@ void release_scatter(Backend& state)
     own.gather = {};
     own.decal_vertex = VK_NULL_HANDLE;
     own.decal_fragment = {};
+    own.decal_fragment_wet = VK_NULL_HANDLE;
+    own.wet_serial = 0;
     own.item_vertex = {};
     own.item_fragment = {};
     own.layout = VK_NULL_HANDLE;

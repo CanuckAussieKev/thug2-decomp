@@ -45,6 +45,12 @@ inline constexpr float kReflectionDistance = 20000.0F;         // how far a refl
 // rt_reflections is on, ray tracing is enabled and the format can be sampled, else none (make_depth_surface).
 [[nodiscard]] VkImageUsageFlags rt_reflections_depth_usage(const Backend& state, VkFormat format);
 
+// (added by the decals) Whether the reflections run (rt_reflections on, ray tracing enabled): the decals' pass then draws
+// the puddles' wet mask (vulkan_scatter.h scatter_wet_mask), which the trace reads - a puddle reflects as water. No lock.
+[[nodiscard]] bool rt_reflections_active(const Backend& state);
+// (the check's) The trace with the puddles made (both variants): whether it compiled. The caller holds the lock.
+bool make_rt_reflection_wet_trace(Backend& state);
+
 // The passes over the device's bound targets for a viewport (the listener's work, also called by the check program).
 // The caller holds the lock. Returns whether they were recorded (false: skipped - off, no scene, nothing reflective,
 // the targets can't be read; the reason logged once).
