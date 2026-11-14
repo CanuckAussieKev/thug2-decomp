@@ -1189,7 +1189,7 @@ blue); the glass was the reflections'.
   before; adds, subtracts and brightens leave it. The constant factors go into the reflectivity, the per-pixel ones
   into `rt::Material::mask_passes` (up to three: a pass's texture, its texture coordinate set - pass n reads set n,
   `rt::Geometry::uv_sets` -, addressing, kMaskClear 1 - a / kMaskOpaque a, whether the vertex alpha counts); R3's record
-  carries each one's texture slot, sampler and mode (100 bytes a row with the surface maps' two fields before them), and the reflection pass multiplies the weight by
+  carries each one's texture slot, sampler and mode (100 bytes a row then; 108 since the surface reflections with the surface maps' two fields before them), and the reflection pass multiplies the weight by
   every factor at the pixel (each texture at the level of its own coordinates' footprint; Fresnel on or off). BO's
   facades are an environment pass first (a 32 x 32 sky picture) under the wall texture by mode 5: before, the
   reflectivity of the environment pass covered the whole wall; now only where the wall texture is clear.
@@ -1211,6 +1211,21 @@ blue); the glass was the reflections'.
   direction (a golden-angle disc, turned by a quarter of its step in each pixel of a 2 x 2 block), averages their hits
   and stores its weight negative; the apply blurs such pixels with their rough neighbours (a 3 x 3 tent by weight) - 16
   directions seen per neighbourhood, no noise, no history. Water and shiny surfaces stay one deterministic mirror ray.
+- **Surfaces glossy by their surface maps** (`rt_reflection_surfaces`, 1; needs `rt_pbr`'s maps; added 2026-11-15):
+  before, only the environment-mapped materials reflected - polished floors and metal the game left without a shine
+  never did. Now the material table (`vulkan_rt_materials.cpp` surface_reflection) gives a material with no shine of its
+  own, not seen through, whose texture has a map a reflectivity from the map's surface kind (`vulkan_surface.cpp`
+  surface_map_gloss: the detail library's kind where there is one, else the map's class - metal, glazed tiles, glass and
+  water 1, stone 0.5, wood 0.35, paint 0.3; asphalt, concrete, brick, plaster, ground, plants, cloth and the
+  characters' maps 0), class `rt::kReflectSurface`, the map's F0, and the kind's roughness and its weight (the library's;
+  the record grew to 108 bytes). The pass reads the map's roughness at the pixel (mixed toward the kind's as the per-pixel
+  lighting does): weight = gloss x `rt_reflection_surfaces` x min(1, 2 x strength) x (F0 + (max(1 - r, F0) - F0)(1 - c)^5)
+  x (1 - smoothstep(0.525, 0.7, r)) - a rough surface never turns into a mirror at grazing angles, the roughest (r above
+  0.7: the maps' stone, plaster, paint) not at all - and its rays spread over a cone of r^2 radians (at most 0.5) as
+  rough glass's. Such materials count as reflective instances. The maps make few surfaces glossy (THUG2's levels: the
+  metal kinds - rails, the Airport's moving walkways - and glazed tiles; stone and paint stay matte), so most views
+  change little. Off (`rt_reflections=0`) and without maps nothing changes; `rt_reflection_surfaces=0` gives the earlier
+  look.
 - **The skater's shadow** (`rt_shadow_objects`, now 1 by default): the skater, peds and vehicles cast ray-traced shadows,
   and while a shadow pass casts them `rt::set_object_shadows_replaced` (a contract addition) tells the shadow component
   (`engine/objects/shadow_component.cpp` refresh_shadow) to hide each object's own shadow - the detailed one (the model

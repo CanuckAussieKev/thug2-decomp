@@ -34,6 +34,13 @@
 // - The instance mask: 0x01 opaque world, 0x02 objects and 0x04 alpha-tested are seen and reflected; transparent
 //   instances (0x80) are not (their pixels' depth is what is behind them, and glass isn't drawn into the depth).
 // - The hit's normal is the triangle's (flat): the game's meshes have no normals for most of the world.
+// - (added for the surface reflections) With rt_pbr's surface maps, a surface the game gave no shine reflects as its map
+//   says it is glossy (the material table: rt::kReflectSurface, vulkan_surface.h surface_map_gloss - metal, glazed tiles,
+//   polished floors and stone, varnished wood, paint; asphalt, concrete, brick, plaster, ground, plants, cloth never;
+//   nothing seen through): weight = gloss x rt_reflection_surfaces x 2 strength (at most 1) x Schlick's Fresnel at the
+//   map's F0 with its grazing rise held to 1 - roughness, faded out from 0.525 to 0.7 of the map's roughness at the
+//   pixel; its rays spread over a cone of roughness^2 radians (at most 0.5) as rough glass's, blurred over its rough
+//   neighbours. rt_reflection_surfaces=0: the environment-mapped surfaces alone, as before; no map: as before.
 namespace render::vulkan {
 
 struct Backend;

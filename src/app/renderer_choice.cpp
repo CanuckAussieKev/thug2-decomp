@@ -331,7 +331,8 @@ render::vulkan::RtReflectionSettings make_rt_reflections()
          .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength),
          .fresnel = graphics_flag("rt_reflection_fresnel", true),
          .glass_roughness = ini_float("rt_glass_roughness", render::vulkan::kRtGlassRoughness),
-         .glass_reflectance = ini_float("rt_glass_reflectance", render::vulkan::kRtGlassReflectance)};
+         .glass_reflectance = ini_float("rt_glass_reflectance", render::vulkan::kRtGlassReflectance),
+         .surfaces = ini_float("rt_reflection_surfaces", render::vulkan::kRtReflectionSurfaces)};
 }
 void read_rt_reflections() { render::vulkan::set_rt_reflection_settings(make_rt_reflections()); }
 

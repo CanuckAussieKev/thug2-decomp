@@ -125,6 +125,7 @@ void set_rt_light_settings(const RtLightSettings& settings);
 inline constexpr float kRtReflectionStrength = 0.5F; // (rt_reflection_strength's default)
 inline constexpr float kRtGlassRoughness = 0.05F;    // (rt_glass_roughness's default: radians)
 inline constexpr float kRtGlassReflectance = 0.2F;   // (rt_glass_reflectance's default: glass's F0)
+inline constexpr float kRtReflectionSurfaces = 1.0F;  // (rt_reflection_surfaces's default)
 struct RtReflectionSettings {
     bool on = false;
     float strength = kRtReflectionStrength; // how far a fully reflective surface's colour goes toward what it mirrors (0 - 1)
@@ -139,6 +140,11 @@ struct RtReflectionSettings {
     // behind; the game's panes are bright textures, and at 0.04 their reflection all but vanished (AU's glass building:
     // a mean change of 1.4 levels against the mirror's 12), so the default is 0.2.
     float glass_reflectance = kRtGlassReflectance;
+    // (added for the surface reflections) rt_reflection_surfaces: x the reflections of the surfaces the game gave no
+    // shine whose surface maps say they are glossy (rt_pbr's maps: metal, glazed tiles, polished floors and stone,
+    // varnished wood, paint - vulkan_surface.h surface_map_gloss), weighted by Fresnel at their F0 and their roughness;
+    // 0: only the environment-mapped surfaces, as before.
+    float surfaces = kRtReflectionSurfaces;
 };
 void set_rt_reflection_settings(const RtReflectionSettings& settings);
 [[nodiscard]] RtReflectionSettings rt_reflection_settings();

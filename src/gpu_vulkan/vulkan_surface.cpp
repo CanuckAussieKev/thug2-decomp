@@ -42,6 +42,10 @@ constexpr float kLeastAlpha = 0.0064F; // (the shader's floor on GGX's alpha)
 constexpr float kLeastRelief = 0.05F;  // (added by surface relief: a depth in texels below which no relief is drawn)
 constexpr float kLeastFade = 0.01F;
 constexpr float kMostRelief = 16.0F;   // (relief_depth_of_map's ceiling)
+// (added for the surface reflections) the glossy kinds' share of a mirror's reflection (surface_map_gloss)
+constexpr float kGlossStone = 0.5F; // polished stone (cobbles and rock rough by their maps)
+constexpr float kGlossWood = 0.35F; // varnished planks
+constexpr float kGlossPaint = 0.3F; // painted or unclassified
 
 struct MapEntry {
     Texture* map = nullptr;
@@ -463,6 +467,64 @@ float surface_map_f0(const Texture* colour)
     }
     const DetailDraw& detail = detail_of(found->second); // (added by the detail materials: the surface kind's F0)
     return detail.f0 >= 0.0F ? detail.f0 : found->second.f0;
+}
+
+float kind_gloss(uint8_t kind)
+{
+    namespace dmf = detail_material_format;
+    switch (static_cast<dmf::Kind>(kind)) {
+    case dmf::Kind::kMetal:
+    case dmf::Kind::kTile:
+        return 1.0F;
+    case dmf::Kind::kStone:
+        return kGlossStone;
+    case dmf::Kind::kWood:
+        return kGlossWood;
+    default:
+        return 0.0F; // (asphalt, concrete, brick, ground, grass, plaster, gravel: too rough to mirror anything)
+    }
+}
+
+float class_gloss(uint8_t material_class)
+{
+    namespace smf = surface_map_format;
+    switch (static_cast<smf::MaterialClass>(material_class)) {
+    case smf::MaterialClass::kMetal:
+    case smf::MaterialClass::kTile:
+    case smf::MaterialClass::kGlass:
+    case smf::MaterialClass::kWater:
+        return 1.0F;
+    case smf::MaterialClass::kStone:
+        return kGlossStone;
+    case smf::MaterialClass::kWood:
+        return kGlossWood;
+    case smf::MaterialClass::kDefault:
+        return kGlossPaint;
+    default:
+        return 0.0F; // (asphalt, concrete, plants, ground, cloth and the characters' classes)
+    }
+}
+
+bool surface_map_gloss(const Texture* colour, SurfaceGloss* out)
+{
+    SurfaceState& state = surface_state();
+    const std::scoped_lock lock(state.mutex);
+    *out = {};
+    const auto found = state.maps.find(colour);
+    if (!state.settings.on || found == state.maps.end() || (found->second.flags & surface_map_format::kFlagModel) != 0U ||
+        !map_used(found->second, state.settings)) {
+        return false;
+    }
+    const DetailDraw& detail = detail_of(found->second);
+    out->f0 = detail.f0 >= 0.0F ? detail.f0 : found->second.f0;
+    // (the kind decides where there is one - brick is stone by its class, glass and water have no kind)
+    const float by_class = class_gloss(found->second.material_class);
+    out->gloss = detail.kind != 0 && by_class < 1.0F ? kind_gloss(detail.kind) : by_class;
+    if (detail.flags != 0) {
+        out->kind_roughness = std::get<0>(detail.uniforms.material);
+        out->kind_roughness_weight = std::get<3>(detail.uniforms.material);
+    }
+    return true;
 }
 
 Texture* take_surface_map(const Texture* colour)

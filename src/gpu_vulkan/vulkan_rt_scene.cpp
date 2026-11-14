@@ -1505,16 +1505,18 @@ void VulkanRayTracing::update_mesh(rt::MeshId mesh, const rt::Geometry& geometry
 
 void VulkanRayTracing::set_material(rt::MaterialId material, const rt::Material& surface)
 {
+    backend().materials.set(material, surface); // (the table's own lock)
+    // (added for the surface reflections: reflective too where the table made it so by its surface map)
+    const bool reflective = surface.reflectivity > 0.0F || backend().materials.record(material).reflectivity > 0.0F;
     {
         const std::scoped_lock lock(backend().mutex);
         scene().alpha_refs[material] = surface.alpha_ref;
-        if (surface.reflectivity > 0.0F) {
+        if (reflective) {
             scene().reflective.insert(material);
         } else {
             scene().reflective.erase(material);
         }
     }
-    backend().materials.set(material, surface); // (the table's own lock)
 }
 
 void VulkanRayTracing::remove_material(rt::MaterialId material)
