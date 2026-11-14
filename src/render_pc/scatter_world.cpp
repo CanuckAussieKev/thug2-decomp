@@ -31,7 +31,6 @@
 #include "engine/sound/surface_kind.h"
 #include "platform/frame_profile.h"
 #include "platform/run_log.h"
-#include "render_pc/geom.h"
 
 namespace render::scatter_world {
 
@@ -47,14 +46,19 @@ constexpr uint64_t kFnvPrime = 0x100000001B3ULL;
 
 // The shipped terrain table's order (the level editor's list) - used when the table isn't loaded.
 constexpr std::array kShippedTerrains{
-    "TERRAIN_DEFAULT",    "TERRAIN_CONCSMOOTH",   "TERRAIN_CONCROUGH",  "TERRAIN_METALSMOOTH", "TERRAIN_METALROUGH",
-    "TERRAIN_METALCORRUGATED", "TERRAIN_METALGRATING", "TERRAIN_METALTIN", "TERRAIN_WOOD",     "TERRAIN_WOODMASONITE",
-    "TERRAIN_WOODPLYWOOD", "TERRAIN_WOODFLIMSY",  "TERRAIN_WOODSHINGLE", "TERRAIN_WOODPIER",   "TERRAIN_BRICK",
-    "TERRAIN_TILE",       "TERRAIN_ASPHALT",      "TERRAIN_ROCK",       "TERRAIN_GRAVEL",      "TERRAIN_SIDEWALK",
-    "TERRAIN_GRASS",      "TERRAIN_GRASSDRIED",   "TERRAIN_DIRT",       "TERRAIN_DIRTPACKED",  "TERRAIN_WATER",
-    "TERRAIN_ICE",        "TERRAIN_SNOW",         "TERRAIN_SAND",       "TERRAIN_PLEXIGLASS",  "TERRAIN_FIBERGLASS",
-    "TERRAIN_CARPET",     "TERRAIN_CONVEYOR",     "TERRAIN_CHAINLINK",  "TERRAIN_METALFUTURE", "TERRAIN_GENERIC1",
-    "TERRAIN_GENERIC2",   "TERRAIN_WHEELS",       "TERRAIN_WETCONC",
+    "TERRAIN_DEFAULT",      "TERRAIN_CONCSMOOTH",  "TERRAIN_CONCROUGH",
+    "TERRAIN_METALSMOOTH",  "TERRAIN_METALROUGH",  "TERRAIN_METALCORRUGATED",
+    "TERRAIN_METALGRATING", "TERRAIN_METALTIN",    "TERRAIN_WOOD",
+    "TERRAIN_WOODMASONITE", "TERRAIN_WOODPLYWOOD", "TERRAIN_WOODFLIMSY",
+    "TERRAIN_WOODSHINGLE",  "TERRAIN_WOODPIER",    "TERRAIN_BRICK",
+    "TERRAIN_TILE",         "TERRAIN_ASPHALT",     "TERRAIN_ROCK",
+    "TERRAIN_GRAVEL",       "TERRAIN_SIDEWALK",    "TERRAIN_GRASS",
+    "TERRAIN_GRASSDRIED",   "TERRAIN_DIRT",        "TERRAIN_DIRTPACKED",
+    "TERRAIN_WATER",        "TERRAIN_ICE",         "TERRAIN_SNOW",
+    "TERRAIN_SAND",         "TERRAIN_PLEXIGLASS",  "TERRAIN_FIBERGLASS",
+    "TERRAIN_CARPET",       "TERRAIN_CONVEYOR",    "TERRAIN_CHAINLINK",
+    "TERRAIN_METALFUTURE",  "TERRAIN_GENERIC1",    "TERRAIN_GENERIC2",
+    "TERRAIN_WHEELS",       "TERRAIN_WETCONC",
 };
 
 struct State {
@@ -108,12 +112,15 @@ std::vector<scatter::Rail> level_rails()
     if (hook == nullptr) {
         return rails;
     }
-    std::vector<std::array<float, 6>> segments;
+    std::vector<std::array<float, kRailSegmentFloats>> segments;
     hook(&segments);
     rails.reserve(segments.size());
-    for (const std::array<float, 6>& s : segments) {
-        rails.push_back({.a = {core::at(s, 0), core::at(s, 1), core::at(s, 2)},
-                         .b = {core::at(s, 3), core::at(s, 4), core::at(s, 5)}});
+    constexpr std::size_t kSecondEnd = 3;
+    for (const std::array<float, kRailSegmentFloats>& segment : segments) {
+        const std::span<const float, kRailSegmentFloats> ends(segment);
+        rails.push_back(
+            {.a = {core::at(ends, 0), core::at(ends, 1), core::at(ends, 2)},
+             .b = {core::at(ends, kSecondEnd), core::at(ends, kSecondEnd + 1), core::at(ends, kSecondEnd + 2)}});
     }
     return rails;
 }
@@ -216,35 +223,42 @@ void make(scatter::Sink& sink, float decals, float clutter, const std::vector<sc
         {.faces = faces, .rails = rails, .seed = seed, .decal_density = decals, .clutter_density = clutter}));
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     const auto& of = made->faces_of;
-    const auto surface = [&of](scatter::Surface s) { return core::at(of, static_cast<std::size_t>(s)); };
-    get_log("scatter: %zu faces (asphalt %u, concrete %u, paving %u, brick %u, dirt %u, gravel %u, grass %u, other %u%s), "
-            "%zu rails; made in %.0f ms",
-            faces.size(), surface(scatter::Surface::kAsphalt), surface(scatter::Surface::kConcrete),
-            surface(scatter::Surface::kPaving), surface(scatter::Surface::kBrick), surface(scatter::Surface::kDirt),
-            surface(scatter::Surface::kGravel), surface(scatter::Surface::kGrass), surface(scatter::Surface::kOther),
-            from_table ? "" : " - the terrain table isn't loaded: the shipped order", rails.size(), ms);
+    const auto surface = [&of](scatter::Surface which) { return core::at(of, static_cast<std::size_t>(which)); };
+    get_log(
+        "scatter: %zu faces (asphalt %u, concrete %u, paving %u, brick %u, dirt %u, gravel %u, grass %u, other %u%s), "
+        "%zu rails; made in %.0f ms",
+        faces.size(), surface(scatter::Surface::kAsphalt), surface(scatter::Surface::kConcrete),
+        surface(scatter::Surface::kPaving), surface(scatter::Surface::kBrick), surface(scatter::Surface::kDirt),
+        surface(scatter::Surface::kGravel), surface(scatter::Surface::kGrass), surface(scatter::Surface::kOther),
+        from_table ? "" : " - the terrain table isn't loaded: the shipped order", rails.size(), ms);
     if (made->decal_density > 0.0F) {
-        const auto& d = made->decals_of;
-        const auto kind = [&d](scatter::DecalKind k) { return core::at(d, static_cast<std::size_t>(k)); };
-        const scatter::Rejected& r = made->decal_rejected;
-        get_log("scatter: %zu decals at density %.2f (cracks %u, stains %u, oil %u, tyre marks %u, gum %u, wet %u, grime "
-                "%u; %zu vertices%s) - turned away: %u by ramps, %u by edges, %u by rails, %u covered, %u not in a dip",
-                made->decals.size(), static_cast<double>(made->decal_density), kind(scatter::DecalKind::kCrack),
-                kind(scatter::DecalKind::kStain), kind(scatter::DecalKind::kOil), kind(scatter::DecalKind::kTyre),
-                kind(scatter::DecalKind::kGum), kind(scatter::DecalKind::kWet), kind(scatter::DecalKind::kGrime),
-                made->decal_vertices.size(), made->decals_capped ? ", capped" : "", r.ramp, r.drop, r.rail, r.covered,
-                r.no_dip);
+        const auto& counts = made->decals_of;
+        const auto kind = [&counts](scatter::DecalKind which) {
+            return core::at(counts, static_cast<std::size_t>(which));
+        };
+        const scatter::Rejected& away = made->decal_rejected;
+        get_log(
+            "scatter: %zu decals at density %.2f (cracks %u, stains %u, oil %u, tyre marks %u, gum %u, wet %u, grime "
+            "%u; %zu vertices%s) - turned away: %u by ramps, %u by edges, %u by rails, %u covered, %u not in a dip",
+            made->decals.size(), static_cast<double>(made->decal_density), kind(scatter::DecalKind::kCrack),
+            kind(scatter::DecalKind::kStain), kind(scatter::DecalKind::kOil), kind(scatter::DecalKind::kTyre),
+            kind(scatter::DecalKind::kGum), kind(scatter::DecalKind::kWet), kind(scatter::DecalKind::kGrime),
+            made->decal_vertices.size(), made->decals_capped ? ", capped" : "", away.ramp, away.drop, away.rail,
+            away.covered, away.no_dip);
     }
     if (made->clutter_density > 0.0F) {
-        const auto& i = made->items_of;
-        const auto kind = [&i](scatter::ItemKind k) { return core::at(i, static_cast<std::size_t>(k)); };
-        const scatter::Rejected& r = made->item_rejected;
-        get_log("scatter: %zu clutter items at density %.2f (leaves %u, paper %u, cans %u, weeds %u, pebbles %u%s) in %zu "
-                "tiles - turned away: %u far from walls, %u by ramps, %u by edges, %u by rails, %u at stairs, %u covered",
-                made->items.size(), static_cast<double>(made->clutter_density), kind(scatter::ItemKind::kLeaf),
-                kind(scatter::ItemKind::kPaper), kind(scatter::ItemKind::kCan), kind(scatter::ItemKind::kWeed),
-                kind(scatter::ItemKind::kPebble), made->items_capped ? ", capped" : "", made->tiles.size(),
-                r.far_from_wall, r.ramp, r.drop, r.rail, r.stairs, r.covered);
+        const auto& counts = made->items_of;
+        const auto kind = [&counts](scatter::ItemKind which) {
+            return core::at(counts, static_cast<std::size_t>(which));
+        };
+        const scatter::Rejected& away = made->item_rejected;
+        get_log(
+            "scatter: %zu clutter items at density %.2f (leaves %u, paper %u, cans %u, weeds %u, pebbles %u%s) in %zu "
+            "tiles - turned away: %u far from walls, %u by ramps, %u by edges, %u by rails, %u at stairs, %u covered",
+            made->items.size(), static_cast<double>(made->clutter_density), kind(scatter::ItemKind::kLeaf),
+            kind(scatter::ItemKind::kPaper), kind(scatter::ItemKind::kCan), kind(scatter::ItemKind::kWeed),
+            kind(scatter::ItemKind::kPebble), made->items_capped ? ", capped" : "", made->tiles.size(),
+            away.far_from_wall, away.ramp, away.drop, away.rail, away.stairs, away.covered);
     }
     const bool empty = made->decals.empty() && made->items.empty();
     sink.set_scatter(empty ? nullptr : std::move(made));

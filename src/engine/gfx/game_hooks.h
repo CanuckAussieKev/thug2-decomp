@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -12,6 +13,8 @@
 // direct one, never a call added per object or per draw. Not installed, a call is a null call (as the original's
 // singletons before start-up).
 namespace render {
+
+inline constexpr std::size_t kRailSegmentFloats = 6; // (GameHooks::level_rails: two ends' x, y, z)
 
 struct GameHooks {
     // The career's level (modules::Skate's career, its low byte as the original reads it): 0 in the front end, and
@@ -32,7 +35,7 @@ struct GameHooks {
     // (added by the decals and clutter - engine/gfx/scatter.h) The level's grind rails (the skate module's rail
     // manager, not the moving objects'; climbing nodes left out): each segment's two ends, world x y z - a node with
     // no next its own point twice. Nothing without a skate module.
-    void (*level_rails)(std::vector<std::array<float, 6>>* segments);
+    void (*level_rails)(std::vector<std::array<float, kRailSegmentFloats>>* segments);
 };
 
 void set_game_hooks(const GameHooks& hooks);

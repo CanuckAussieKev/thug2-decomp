@@ -564,6 +564,10 @@ for the restart
 | `grass_density` | 1 | With `grass`: how many blades (1: about 240 a square metre; 0.25-4) |
 | `grass_height` | 1 | With `grass`: how tall the blades are (1: about 3-9 inches; 0.25-3) |
 | `grass_distance` | 50 | With `grass`: metres out to where the blades have sunk into the lawn (10-200) |
+| `rt_decals` | 0 | On Vulkan (no ray tracing needed): 1 lays street wear over the levels - cracks, stains, oil spots and tyre marks on asphalt, gum on sidewalks, wet patches in dips and gutters, grime at the foot of walls - read from each level's collision (the same every time you play it). Never on ramps, quarter pipes, ledge tops, steps or under rails. With `rt_reflections`, wet patches reflect like puddles. Only the picture |
+| `rt_decals_density` | 1 | With `rt_decals`: how many marks (0.25-4) |
+| `clutter` | 0 | On Vulkan: 1 scatters small things - leaves, paper, cans and weeds along kerbs and walls, pebbles on dirt and gravel; leaves and weeds sway in the wind. Never on the skate lines, no collision: you ride through them |
+| `clutter_density` | 1 | With `clutter`: how much (0.25-4) |
 
 **`[Miscellaneous]`** - from PartyMod
 

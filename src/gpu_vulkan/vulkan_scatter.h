@@ -41,11 +41,11 @@ namespace render::vulkan {
 
 struct Backend;
 
-inline constexpr float kDecalDistance = 3200.0F;  // world units (about 80 m): no decal beyond
-inline constexpr float kDecalFadeStart = 0.6F;    // (of a decal's own distance: it fades from here)
-inline constexpr float kDecalMatchShare = 0.003F; // the depth under a decal fragment is its own within this share ...
-inline constexpr float kDecalMatchSlack = 1.0F;   // ... + this (world units: a wall standing in a decal takes at most
-                                                  // its foot's width of this, along the view, of it)
+inline constexpr float kDecalDistance = 3200.0F;   // world units (about 80 m): no decal beyond
+inline constexpr float kDecalFadeStart = 0.6F;     // (of a decal's own distance: it fades from here)
+inline constexpr float kDecalMatchShare = 0.003F;  // the depth under a decal fragment is its own within this share ...
+inline constexpr float kDecalMatchSlack = 1.0F;    // ... + this (world units: a wall standing in a decal takes at most
+                                                   // its foot's width of this, along the view, of it)
 inline constexpr float kClutterDistance = 1600.0F; // world units (about 40 m): no item beyond
 inline constexpr float kClutterNearShare = 0.25F;
 inline constexpr float kClutterKeepPower = 1.5F;
@@ -71,16 +71,17 @@ struct ScatterDraw {
     uint32_t count = 0;
 };
 // The view's decal draws (the tiles nearer than kDecalDistance and in view) and their vertex count.
-[[nodiscard]] std::vector<ScatterDraw> plan_decal_draws(const scatter::Scatter& scatter, const ScatterView& view,
+[[nodiscard]] std::vector<ScatterDraw> plan_decal_draws(const scatter::Scatter& made, const ScatterView& view,
                                                         uint32_t* vertices);
 // The view's clutter draws (`view.keep_scale` lowered when too many) and their item count.
-[[nodiscard]] std::vector<ScatterDraw> plan_clutter_draws(const scatter::Scatter& scatter, ScatterView* view,
+[[nodiscard]] std::vector<ScatterDraw> plan_clutter_draws(const scatter::Scatter& made, ScatterView* view,
                                                           uint32_t* items);
 // The share of the items kept at a distance, and the size left there.
 [[nodiscard]] float clutter_keep(const ScatterView& view, float distance);
 [[nodiscard]] float clutter_fade(float distance);
-// A decal's fade at a distance (`fade_units`: its own distance, the vertex's packed byte x kDecalFadeUnits).
-[[nodiscard]] float decal_fade(float distance, float fade_units);
+// A decal vertex's fade seen from `camera` (the vertex shader's twin: its own distance - its packed byte x
+// kDecalFadeUnits, at most kDecalDistance - and kDecalFadeStart of it).
+[[nodiscard]] float decal_fade(const scatter::DecalVertex& vertex, const std::array<float, 3>& camera);
 
 // The passes over the bound colour and depth targets for a view (the listeners' work; also the check's). The caller
 // holds the lock. False (nothing recorded): off, nothing to draw, the targets can't be used, the pass can't be made

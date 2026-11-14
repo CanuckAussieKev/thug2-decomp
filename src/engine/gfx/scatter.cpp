@@ -20,30 +20,30 @@ namespace render::scatter {
 
 namespace {
 
-constexpr float kCell = 64.0F;            // the faces' and rails' grid (world units, seen from above)
-constexpr float kLeastArea = 1.0e-3F;     // (square units: smaller faces are skipped)
-constexpr float kInsideSlack = 1.0e-4F;   // (barycentric: a point on an edge is inside)
-constexpr float kRampUp = 0.94F;          // a ramp: its normal's y below this (and above kWallUp), or flagged vert
-constexpr float kRiseBase = 2.0F;         // a rise starts at most this far above the point ...
-constexpr float kRiseFoot = 3.0F;         // ... and comes this near the point's height
-constexpr float kDropTop = 1.5F;          // an edge that drops: its top within this of the point's height
-constexpr float kCoplanarDot = 0.995F;    // a decal's faces: normals this close ...
-constexpr float kCoplanarDistance = 0.5F; // ... and planes this close
-constexpr float kDipLow = 0.05F;          // a dip: the ground round it no lower than this below it ...
-constexpr float kDipHigh = 0.25F;         // ... and somewhere at least this above it
-constexpr float kDipSearch = 12.0F;       // (the ground looked for this far above and below)
-constexpr float kGutterRise = 10.0F;      // a gutter: a rise of at most this ...
-constexpr float kGutterReach = 14.0F;     // ... at most this far away
-constexpr float kPlatformReach = 160.0F; // a platform: the ground ends in a drop this near ...
-constexpr float kPlatformStep = 16.0F;   // (looked along in these steps)
-constexpr int kPlatformDrops = 6;        // ... in this many of eight ways (a ledge's, a box's, a table's top)
-constexpr float kSameLevel = 1.0F;       // (the ground goes on: within this of the point's height)
+constexpr float kCell = 64.0F;              // the faces' and rails' grid (world units, seen from above)
+constexpr float kLeastArea = 1.0e-3F;       // (square units: smaller faces are skipped)
+constexpr float kInsideSlack = 1.0e-4F;     // (barycentric: a point on an edge is inside)
+constexpr float kRampUp = 0.94F;            // a ramp: its normal's y below this (and above kWallUp), or flagged vert
+constexpr float kRiseBase = 2.0F;           // a rise starts at most this far above the point ...
+constexpr float kRiseFoot = 3.0F;           // ... and comes this near the point's height
+constexpr float kDropTop = 1.5F;            // an edge that drops: its top within this of the point's height
+constexpr float kCoplanarDot = 0.995F;      // a decal's faces: normals this close ...
+constexpr float kCoplanarDistance = 0.5F;   // ... and planes this close
+constexpr float kDipLow = 0.05F;            // a dip: the ground round it no lower than this below it ...
+constexpr float kDipHigh = 0.25F;           // ... and somewhere at least this above it
+constexpr float kDipSearch = 12.0F;         // (the ground looked for this far above and below)
+constexpr float kGutterRise = 10.0F;        // a gutter: a rise of at most this ...
+constexpr float kGutterReach = 14.0F;       // ... at most this far away
+constexpr float kPlatformReach = 160.0F;    // a platform: the ground ends in a drop this near ...
+constexpr float kPlatformStep = 8.0F;       // (looked along in these steps: a slope over 20 degrees drops)
+constexpr int kPlatformDrops = 6;           // ... in this many of eight ways (a ledge's, a box's, a table's top)
+constexpr float kSameLevel = 1.0F;          // (the ground goes on: within this of the point's height)
 constexpr float kGrimeRate = 1.0F / 150.0F; // grime decals a unit of a wall's foot (density 1)
-constexpr float kLeastFoot = 24.0F;       // a wall's foot at least this long gets grime
-constexpr float kGroundUnder = 2.0F;      // (a wall stands on ground: flat ground within this of its foot ...)
-constexpr float kGroundOut = 6.0F;        // (... this far out from it)
-constexpr float kFootSlack = 0.5F;        // (a foot edge: both its corners within this of the lowest)
-constexpr float kGrimeSink = 1.0F;        // grime starts this far below the wall's foot (no gap at the ground)
+constexpr float kLeastFoot = 24.0F;         // a wall's foot at least this long gets grime
+constexpr float kGroundUnder = 2.0F;        // (a wall stands on ground: flat ground within this of its foot ...)
+constexpr float kGroundOut = 6.0F;          // (... this far out from it)
+constexpr float kFootSlack = 0.5F;          // (a foot edge: both its corners within this of the lowest)
+constexpr float kGrimeSink = 1.0F;          // grime starts this far below the wall's foot (no gap at the ground)
 constexpr float kUnit = 1.0F / 4294967296.0F;
 constexpr float kHalf = 0.5F;
 constexpr float kTau = 6.28318530718F;
@@ -78,14 +78,19 @@ struct KindSize {
     std::array<float, 2> along_share; // along = across x this (the art's shape)
 };
 constexpr std::array<KindSize, kDecalKinds> kDecalSizes{{
-    {.across = {28.0F, 64.0F}, .along_share = {1.6F, 2.2F}}, // crack (long)
+    {.across = {28.0F, 64.0F}, .along_share = {1.6F, 2.2F}},  // crack (long)
     {.across = {20.0F, 52.0F}, .along_share = {0.8F, 1.25F}}, // stain
     {.across = {16.0F, 40.0F}, .along_share = {0.8F, 1.25F}}, // oil
     {.across = {14.0F, 18.0F}, .along_share = {6.0F, 10.0F}}, // tyre (a pair of tracks)
-    {.across = {14.0F, 26.0F}, .along_share = {0.9F, 1.1F}}, // gum (a cluster of spots)
-    {.across = {30.0F, 84.0F}, .along_share = {0.7F, 1.3F}}, // wet
+    {.across = {14.0F, 26.0F}, .along_share = {0.9F, 1.1F}},  // gum (a cluster of spots)
+    {.across = {30.0F, 84.0F}, .along_share = {0.7F, 1.3F}},  // wet
     {.across = {40.0F, 96.0F}, .along_share = {0.25F, 0.5F}}, // grime (along: its height, up the wall)
 }};
+constexpr float kWeedShare = 0.35F;   // hard ground's items at a rise's very foot: this share weeds
+constexpr float kLeafShare = 0.6F;    // the rest: leaves, ...
+constexpr float kPaperShare = 0.3F;   // ... paper, and cans
+constexpr float kDirtPebbles = 0.7F;  // dirt's: pebbles, ...
+constexpr float kDirtWeeds = 0.15F;   // ... weeds, and leaves
 constexpr float kFadePerSize = 48.0F; // a decal fades out at this x its larger side (at most the decal distance)
 constexpr float kLeastOpacity = 0.55F;
 
@@ -153,11 +158,12 @@ private:
 };
 
 float x_of(const Vec3& v) { return core::at(v, 0); }
+Vec2 flat_of(const Vec3& v) { return {core::at(v, 0), core::at(v, 2)}; }
 float y_of(const Vec3& v) { return core::at(v, 1); }
 float z_of(const Vec3& v) { return core::at(v, 2); }
 Vec3 plus(const Vec3& a, const Vec3& b) { return {x_of(a) + x_of(b), y_of(a) + y_of(b), z_of(a) + z_of(b)}; }
 Vec3 minus(const Vec3& a, const Vec3& b) { return {x_of(a) - x_of(b), y_of(a) - y_of(b), z_of(a) - z_of(b)}; }
-Vec3 times(const Vec3& a, float s) { return {x_of(a) * s, y_of(a) * s, z_of(a) * s}; }
+Vec3 times(const Vec3& a, float scale) { return {x_of(a) * scale, y_of(a) * scale, z_of(a) * scale}; }
 float dot(const Vec3& a, const Vec3& b) { return (x_of(a) * x_of(b)) + (y_of(a) * y_of(b)) + (z_of(a) * z_of(b)); }
 Vec3 cross(const Vec3& a, const Vec3& b)
 {
@@ -167,23 +173,23 @@ Vec3 cross(const Vec3& a, const Vec3& b)
 float length(const Vec3& a) { return std::sqrt(dot(a, a)); }
 Vec3 normalised(const Vec3& a)
 {
-    const float l = length(a);
-    return l > 0.0F ? times(a, 1.0F / l) : Vec3{0.0F, 1.0F, 0.0F};
+    const float size = length(a);
+    return size > 0.0F ? times(a, 1.0F / size) : Vec3{0.0F, 1.0F, 0.0F};
 }
 bool finite3(const Vec3& v) { return std::isfinite(x_of(v)) && std::isfinite(y_of(v)) && std::isfinite(z_of(v)); }
 
-// The point of triangle (a, b, c) closest to p (the Voronoi regions' walk).
-Vec3 closest_on_triangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c)
+// The point of triangle (a, b, third) closest to `point` (the Voronoi regions' walk).
+Vec3 closest_on_triangle(const Vec3& point, const Vec3& a, const Vec3& b, const Vec3& third)
 {
     const Vec3 ab = minus(b, a);
-    const Vec3 ac = minus(c, a);
-    const Vec3 ap = minus(p, a);
+    const Vec3 ac = minus(third, a);
+    const Vec3 ap = minus(point, a);
     const float d1 = dot(ab, ap);
     const float d2 = dot(ac, ap);
     if (d1 <= 0.0F && d2 <= 0.0F) {
         return a;
     }
-    const Vec3 bp = minus(p, b);
+    const Vec3 bp = minus(point, b);
     const float d3 = dot(ab, bp);
     const float d4 = dot(ac, bp);
     if (d3 >= 0.0F && d4 <= d3) {
@@ -193,11 +199,11 @@ Vec3 closest_on_triangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3
     if (vc <= 0.0F && d1 >= 0.0F && d3 <= 0.0F) {
         return plus(a, times(ab, d1 / (d1 - d3)));
     }
-    const Vec3 cp = minus(p, c);
+    const Vec3 cp = minus(point, third);
     const float d5 = dot(ab, cp);
     const float d6 = dot(ac, cp);
     if (d6 >= 0.0F && d5 <= d6) {
-        return c;
+        return third;
     }
     const float vb = (d5 * d2) - (d1 * d6);
     if (vb <= 0.0F && d2 >= 0.0F && d6 <= 0.0F) {
@@ -205,7 +211,7 @@ Vec3 closest_on_triangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3
     }
     const float va = (d3 * d6) - (d5 * d4);
     if (va <= 0.0F && (d4 - d3) >= 0.0F && (d5 - d6) >= 0.0F) {
-        return plus(b, times(minus(c, b), (d4 - d3) / ((d4 - d3) + (d5 - d6))));
+        return plus(b, times(minus(third, b), (d4 - d3) / ((d4 - d3) + (d5 - d6))));
     }
     const float denominator = 1.0F / (va + vb + vc);
     return plus(a, plus(times(ab, vb * denominator), times(ac, vc * denominator)));
@@ -242,30 +248,38 @@ uint64_t cell_key(int64_t x, int64_t z)
     return (static_cast<uint64_t>(static_cast<uint32_t>(x)) << kShift) | static_cast<uint32_t>(z);
 }
 
+// A box seen from above.
+struct Footprint {
+    float min_x = 0.0F;
+    float max_x = 0.0F;
+    float min_z = 0.0F;
+    float max_z = 0.0F;
+};
+
 // Indices by the grid's cells (seen from above).
 class Grid {
 public:
-    void add(uint32_t index, float min_x, float max_x, float min_z, float max_z)
+    void add(uint32_t index, const Footprint& box)
     {
-        const int64_t x0 = cell_of(min_x);
-        const int64_t x1 = cell_of(max_x);
-        const int64_t z0 = cell_of(min_z);
-        const int64_t z1 = cell_of(max_z);
+        const int64_t x0 = cell_of(box.min_x);
+        const int64_t x1 = cell_of(box.max_x);
+        const int64_t z0 = cell_of(box.min_z);
+        const int64_t z1 = cell_of(box.max_z);
         for (int64_t cx = x0; cx <= x1; ++cx) {
             for (int64_t cz = z0; cz <= z1; ++cz) {
                 cells_[cell_key(cx, cz)].push_back(index);
             }
         }
     }
-    // Each index whose cells meet the square round (x, z) of half-side `reach`, once.
+    // Each index whose cells meet the square of half-side `reach` round `at` (x, z), once.
     template <typename Visit>
-    void near(float x, float z, float reach, std::vector<uint32_t>* stamps, uint32_t* stamp, Visit visit) const
+    void near(const Vec2& at, float reach, std::vector<uint32_t>* stamps, uint32_t* stamp, Visit visit) const
     {
         ++*stamp;
-        const int64_t x0 = cell_of(x - reach);
-        const int64_t x1 = cell_of(x + reach);
-        const int64_t z0 = cell_of(z - reach);
-        const int64_t z1 = cell_of(z + reach);
+        const int64_t x0 = cell_of(core::at(at, 0) - reach);
+        const int64_t x1 = cell_of(core::at(at, 0) + reach);
+        const int64_t z0 = cell_of(core::at(at, 1) - reach);
+        const int64_t z1 = cell_of(core::at(at, 1) + reach);
         for (int64_t cx = x0; cx <= x1; ++cx) {
             for (int64_t cz = z0; cz <= z1; ++cz) {
                 const auto found = cells_.find(cell_key(cx, cz));
@@ -288,27 +302,29 @@ private:
 };
 
 // The face's height over the ground point (x, z) when it covers it (seen from above).
-bool height_over(const Face& face, float x, float z, float* height)
+bool height_over(const Face& face, const Vec2& ground, float* height)
 {
-    const Vec3& a = core::at(face.corners, 0);
-    const Vec3& b = core::at(face.corners, 1);
-    const Vec3& c = core::at(face.corners, 2);
-    const float abx = x_of(b) - x_of(a);
-    const float abz = z_of(b) - z_of(a);
-    const float acx = x_of(c) - x_of(a);
-    const float acz = z_of(c) - z_of(a);
+    const float x = core::at(ground, 0);
+    const float z = core::at(ground, 1);
+    const Vec3& first = core::at(face.corners, 0);
+    const Vec3& second = core::at(face.corners, 1);
+    const Vec3& third = core::at(face.corners, 2);
+    const float abx = x_of(second) - x_of(first);
+    const float abz = z_of(second) - z_of(first);
+    const float acx = x_of(third) - x_of(first);
+    const float acz = z_of(third) - z_of(first);
     const float area = (abx * acz) - (acx * abz);
     if (std::abs(area) < kLeastArea) {
         return false;
     }
-    const float px = x - x_of(a);
-    const float pz = z - z_of(a);
+    const float px = x - x_of(first);
+    const float pz = z - z_of(first);
     const float u = ((px * acz) - (acx * pz)) / area;
     const float v = ((abx * pz) - (px * abz)) / area;
     if (u < -kInsideSlack || v < -kInsideSlack || u + v > 1.0F + kInsideSlack) {
         return false;
     }
-    *height = y_of(a) + (u * (y_of(b) - y_of(a))) + (v * (y_of(c) - y_of(a)));
+    *height = y_of(first) + (u * (y_of(second) - y_of(first))) + (v * (y_of(third) - y_of(first)));
     return true;
 }
 
@@ -323,23 +339,23 @@ public:
         for (std::size_t index = 0; index < faces.size(); ++index) {
             const Face& face = core::at(faces, index);
             FaceInfo& info = core::at(infos_, index);
-            const Vec3& a = core::at(face.corners, 0);
-            const Vec3& b = core::at(face.corners, 1);
-            const Vec3& c = core::at(face.corners, 2);
-            if (!finite3(a) || !finite3(b) || !finite3(c)) {
+            const Vec3& first = core::at(face.corners, 0);
+            const Vec3& second = core::at(face.corners, 1);
+            const Vec3& third = core::at(face.corners, 2);
+            if (!finite3(first) || !finite3(second) || !finite3(third)) {
                 continue;
             }
             // (the game's winding: (v2 - v0) x (v1 - v0) - TriMeshSource::get_triangle_normal - faces up on the ground)
-            const Vec3 n = cross(minus(c, a), minus(b, a));
-            const float twice = length(n);
+            const Vec3 normal = cross(minus(third, first), minus(second, first));
+            const float twice = length(normal);
             if (!(twice * kHalf > kLeastArea)) {
                 continue;
             }
             info.valid = true;
-            info.normal = times(n, 1.0F / twice);
+            info.normal = times(normal, 1.0F / twice);
             info.area = twice * kHalf;
-            info.bottom = std::min({y_of(a), y_of(b), y_of(c)});
-            info.top = std::max({y_of(a), y_of(b), y_of(c)});
+            info.bottom = std::min({y_of(first), y_of(second), y_of(third)});
+            info.top = std::max({y_of(first), y_of(second), y_of(third)});
             const float up = y_of(info.normal);
             if (face.vert) {
                 info.shape = Shape::kRamp;
@@ -348,25 +364,31 @@ public:
             } else if (std::abs(up) < kWallUp) {
                 info.shape = Shape::kWall;
             } else if (up >= kWallUp && up < kRampUp) {
-                info.shape = Shape::kRamp;
+                // (first slope of dirt, gravel or grass is first hillside, not first ramp built to skate)
+                const bool natural = face.surface == Surface::kDirt || face.surface == Surface::kGravel ||
+                                     face.surface == Surface::kGrass;
+                info.shape = natural ? Shape::kOther : Shape::kRamp;
             } else {
                 info.shape = Shape::kOther;
             }
-            const float min_x = std::min({x_of(a), x_of(b), x_of(c)});
-            const float max_x = std::max({x_of(a), x_of(b), x_of(c)});
-            const float min_z = std::min({z_of(a), z_of(b), z_of(c)});
-            const float max_z = std::max({z_of(a), z_of(b), z_of(c)});
+            const Footprint box{.min_x = std::min({x_of(first), x_of(second), x_of(third)}),
+                                .max_x = std::max({x_of(first), x_of(second), x_of(third)}),
+                                .min_z = std::min({z_of(first), z_of(second), z_of(third)}),
+                                .max_z = std::max({z_of(first), z_of(second), z_of(third)})};
             const auto at = static_cast<uint32_t>(index);
-            all_.add(at, min_x, max_x, min_z, max_z);
+            all_.add(at, box);
+            if (up >= kWallUp) {
+                floors_.add(at, box); // (anything facing up: the platform rule's ground)
+            }
             switch (info.shape) {
             case Shape::kWall:
-                walls_.add(at, min_x, max_x, min_z, max_z);
+                walls_.add(at, box);
                 break;
             case Shape::kRamp:
-                ramps_.add(at, min_x, max_x, min_z, max_z);
+                ramps_.add(at, box);
                 break;
             case Shape::kGround:
-                grounds_.add(at, min_x, max_x, min_z, max_z);
+                grounds_.add(at, box);
                 break;
             case Shape::kOther:
                 break;
@@ -377,9 +399,10 @@ public:
             if (!finite3(rail.a) || !finite3(rail.b)) {
                 continue;
             }
-            rails_grid_.add(static_cast<uint32_t>(index), std::min(x_of(rail.a), x_of(rail.b)),
-                            std::max(x_of(rail.a), x_of(rail.b)), std::min(z_of(rail.a), z_of(rail.b)),
-                            std::max(z_of(rail.a), z_of(rail.b)));
+            rails_grid_.add(static_cast<uint32_t>(index), {.min_x = std::min(x_of(rail.a), x_of(rail.b)),
+                                                           .max_x = std::max(x_of(rail.a), x_of(rail.b)),
+                                                           .min_z = std::min(z_of(rail.a), z_of(rail.b)),
+                                                           .max_z = std::max(z_of(rail.a), z_of(rail.b))});
         }
     }
 
@@ -391,12 +414,12 @@ public:
     bool covered(const Vec3& point)
     {
         bool found = false;
-        all_.near(x_of(point), z_of(point), 0.0F, &face_stamps_, &face_stamp_, [&](uint32_t index) {
+        all_.near(flat_of(point), 0.0F, &face_stamps_, &face_stamp_, [&](uint32_t index) {
             if (found || !info(index).valid || info(index).top < y_of(point) + kCoverFloor) {
                 return;
             }
             float height = 0.0F;
-            if (!height_over(face(index), x_of(point), z_of(point), &height)) {
+            if (!height_over(face(index), flat_of(point), &height)) {
                 return;
             }
             const float above = height - y_of(point);
@@ -410,14 +433,14 @@ public:
     bool near_ramp(const Vec3& point)
     {
         bool found = false;
-        ramps_.near(x_of(point), z_of(point), kRampReach, &face_stamps_, &face_stamp_, [&](uint32_t index) {
-            const FaceInfo& f = info(index);
-            if (found || f.top < y_of(point) - kRiseFoot || f.bottom > y_of(point) + kRampHeight) {
+        ramps_.near(flat_of(point), kRampReach, &face_stamps_, &face_stamp_, [&](uint32_t index) {
+            const FaceInfo& ramp = info(index);
+            if (found || ramp.top < y_of(point) - kRiseFoot || ramp.bottom > y_of(point) + kRampHeight) {
                 return;
             }
             const Face& face = this->face(index);
-            const Vec3 near =
-                closest_on_triangle(point, core::at(face.corners, 0), core::at(face.corners, 1), core::at(face.corners, 2));
+            const Vec3 near = closest_on_triangle(point, core::at(face.corners, 0), core::at(face.corners, 1),
+                                                  core::at(face.corners, 2));
             found = length(minus(near, point)) <= kRampReach;
         });
         return found;
@@ -425,9 +448,9 @@ public:
 
     struct Walls {
         bool drop = false;
-        float rise = -1.0F;     // the nearest rise's distance (seen from above; -1: none within `reach`)
+        float rise = -1.0F; // the nearest rise's distance (seen from above; -1: none within `reach`)
         float rise_height = 0.0F;
-        Vec3 rise_point{};      // its nearest point
+        Vec3 rise_point{}; // its nearest point
         uint32_t rise_face = 0;
     };
     // The walls near the point: an edge dropping away within kDropReach, the nearest rise within `reach`.
@@ -435,21 +458,21 @@ public:
     {
         Walls out;
         const float look = std::max(reach, kDropReach);
-        walls_.near(x_of(point), z_of(point), look, &face_stamps_, &face_stamp_, [&](uint32_t index) {
-            const FaceInfo& f = info(index);
+        walls_.near(flat_of(point), look, &face_stamps_, &face_stamp_, [&](uint32_t index) {
+            const FaceInfo& wall = info(index);
             const float py = y_of(point);
             const Face& face = this->face(index);
-            const Vec3 probe{x_of(point), std::clamp(py + 1.0F, f.bottom, f.top), z_of(point)};
-            const Vec3 near =
-                closest_on_triangle(probe, core::at(face.corners, 0), core::at(face.corners, 1), core::at(face.corners, 2));
+            const Vec3 probe{x_of(point), std::clamp(py + 1.0F, wall.bottom, wall.top), z_of(point)};
+            const Vec3 near = closest_on_triangle(probe, core::at(face.corners, 0), core::at(face.corners, 1),
+                                                  core::at(face.corners, 2));
             const float across = flat_distance(near, point);
-            if (std::abs(f.top - py) <= kDropTop && f.bottom <= py - kDropDepth && across <= kDropReach) {
+            if (std::abs(wall.top - py) <= kDropTop && wall.bottom <= py - kDropDepth && across <= kDropReach) {
                 out.drop = true;
             }
-            if (f.bottom <= py + kRiseBase && f.top >= py + kLeastRise && y_of(near) <= py + kRiseFoot &&
+            if (wall.bottom <= py + kRiseBase && wall.top >= py + kLeastRise && y_of(near) <= py + kRiseFoot &&
                 across <= reach && (out.rise < 0.0F || across < out.rise)) {
                 out.rise = across;
-                out.rise_height = f.top - py;
+                out.rise_height = wall.top - py;
                 out.rise_point = near;
                 out.rise_face = index;
             }
@@ -463,7 +486,8 @@ public:
         const float dx = x_of(rise_point) - x_of(point);
         const float dz = z_of(rise_point) - z_of(point);
         const float apart = std::sqrt((dx * dx) + (dz * dz));
-        if (!(apart > 1.0e-3F)) {
+        constexpr float kLeastApart = 1.0e-3F;
+        if (!(apart > kLeastApart)) {
             return false;
         }
         constexpr float kStep = 6.0F; // (onto the step: this far past its riser)
@@ -477,7 +501,7 @@ public:
     bool near_rail(const Vec3& point)
     {
         bool found = false;
-        rails_grid_.near(x_of(point), z_of(point), kRailReach, &rail_stamps_, &rail_stamp_, [&](uint32_t index) {
+        rails_grid_.near(flat_of(point), kRailReach, &rail_stamps_, &rail_stamp_, [&](uint32_t index) {
             if (found) {
                 return;
             }
@@ -485,12 +509,13 @@ public:
             const float rx = x_of(rail.b) - x_of(rail.a);
             const float rz = z_of(rail.b) - z_of(rail.a);
             const float span = (rx * rx) + (rz * rz);
-            float t = 0.0F;
-            if (span > 1.0e-6F) {
-                t = std::clamp((((x_of(point) - x_of(rail.a)) * rx) + ((z_of(point) - z_of(rail.a)) * rz)) / span, 0.0F,
-                               1.0F);
+            constexpr float kLeastSpan = 1.0e-6F;
+            float along = 0.0F;
+            if (span > kLeastSpan) {
+                along = std::clamp((((x_of(point) - x_of(rail.a)) * rx) + ((z_of(point) - z_of(rail.a)) * rz)) / span,
+                                   0.0F, 1.0F);
             }
-            const Vec3 on = plus(rail.a, times(minus(rail.b, rail.a), t));
+            const Vec3 on = plus(rail.a, times(minus(rail.b, rail.a), along));
             const float above = y_of(on) - y_of(point);
             found = flat_distance(on, point) <= kRailReach && above >= -kRailBelow && above <= kRailAbove;
         });
@@ -507,32 +532,53 @@ public:
             const float angle = kTau * static_cast<float>(way) / static_cast<float>(kWays);
             const float dx = std::cos(angle);
             const float dz = std::sin(angle);
-            for (float out = kPlatformStep; out <= kPlatformReach; out += kPlatformStep) {
+            float running = y_of(point); // (the ground followed out: a hillside's slope isn't a drop)
+            constexpr int kSteps = static_cast<int>(kPlatformReach / kPlatformStep);
+            for (int step = 1; step <= kSteps; ++step) {
+                const float out = kPlatformStep * static_cast<float>(step);
                 float height = 0.0F;
-                const bool ground = ground_at(x_of(point) + (dx * out), z_of(point) + (dz * out), y_of(point), &height);
-                if (ground && std::abs(height - y_of(point)) <= kSameLevel) {
-                    continue; // (the same ground goes on)
-                }
-                if (!ground || height < y_of(point) - kDropDepth) {
+                if (!floor_at(x_of(point) + (dx * out), z_of(point) + (dz * out), running, &height) ||
+                    height < running - kDropDepth) {
                     ++drops; // (it ends in a drop, or over nothing)
+                    break;
                 }
-                break; // (or it steps up: not a drop)
+                if (height > running + kDropDepth) {
+                    break; // (it steps up - a wall, a kerb: not a drop)
+                }
+                running = height;
             }
         }
         return drops >= kPlatformDrops;
+    }
+
+    // The height at (x, z) of anything facing up within kDipSearch of `near_height` (the highest; false: none).
+    bool floor_at(float x, float z, float near_height, float* height)
+    {
+        bool found = false;
+        floors_.near({x, z}, 0.0F, &face_stamps_, &face_stamp_, [&](uint32_t index) {
+            float here = 0.0F;
+            if (!height_over(face(index), {x, z}, &here) || std::abs(here - near_height) > kDipSearch) {
+                return;
+            }
+            if (!found || here > *height) {
+                *height = here;
+                found = true;
+            }
+        });
+        return found;
     }
 
     // The ground's height at (x, z) within kDipSearch of `near_height` (the highest such ground face; false: none).
     bool ground_at(float x, float z, float near_height, float* height)
     {
         bool found = false;
-        grounds_.near(x, z, 0.0F, &face_stamps_, &face_stamp_, [&](uint32_t index) {
-            float h = 0.0F;
-            if (!height_over(face(index), x, z, &h) || std::abs(h - near_height) > kDipSearch) {
+        grounds_.near({x, z}, 0.0F, &face_stamps_, &face_stamp_, [&](uint32_t index) {
+            float here = 0.0F;
+            if (!height_over(face(index), {x, z}, &here) || std::abs(here - near_height) > kDipSearch) {
                 return;
             }
-            if (!found || h > *height) {
-                *height = h;
+            if (!found || here > *height) {
+                *height = here;
                 found = true;
             }
         });
@@ -563,16 +609,16 @@ public:
     std::vector<uint32_t> coplanar(uint32_t host, const Vec3& centre, float radius)
     {
         std::vector<uint32_t> found;
-        const FaceInfo& h = info(host);
+        const FaceInfo& host_info = info(host);
         const Surface surface = face(host).surface;
-        const float plane = dot(h.normal, core::at(face(host).corners, 0));
-        all_.near(x_of(centre), z_of(centre), radius, &face_stamps_, &face_stamp_, [&](uint32_t index) {
-            const FaceInfo& f = info(index);
-            if (!f.valid || face(index).surface != surface || dot(f.normal, h.normal) < kCoplanarDot) {
+        const float plane = dot(host_info.normal, core::at(face(host).corners, 0));
+        all_.near(flat_of(centre), radius, &face_stamps_, &face_stamp_, [&](uint32_t index) {
+            const FaceInfo& other = info(index);
+            if (!other.valid || face(index).surface != surface || dot(other.normal, host_info.normal) < kCoplanarDot) {
                 return;
             }
             for (const Vec3& corner : face(index).corners) {
-                if (std::abs(dot(h.normal, corner) - plane) > kCoplanarDistance) {
+                if (std::abs(dot(host_info.normal, corner) - plane) > kCoplanarDistance) {
                     return;
                 }
             }
@@ -590,6 +636,7 @@ private:
     Grid walls_;
     Grid ramps_;
     Grid grounds_;
+    Grid floors_;
     Grid rails_grid_;
     std::vector<uint32_t> face_stamps_;
     uint32_t face_stamp_ = 0;
@@ -617,11 +664,12 @@ Vec3 point_on(const Face& face, uint32_t first, uint32_t second)
     const float wa = 1.0F - r1;
     const float wb = r1 * (1.0F - r2);
     const float wc = r1 * r2;
-    const Vec3& a = core::at(face.corners, 0);
-    const Vec3& b = core::at(face.corners, 1);
-    const Vec3& c = core::at(face.corners, 2);
-    return {(wa * x_of(a)) + (wb * x_of(b)) + (wc * x_of(c)), (wa * y_of(a)) + (wb * y_of(b)) + (wc * y_of(c)),
-            (wa * z_of(a)) + (wb * z_of(b)) + (wc * z_of(c))};
+    const Vec3& corner_a = core::at(face.corners, 0);
+    const Vec3& corner_b = core::at(face.corners, 1);
+    const Vec3& third = core::at(face.corners, 2);
+    return {(wa * x_of(corner_a)) + (wb * x_of(corner_b)) + (wc * x_of(third)),
+            (wa * y_of(corner_a)) + (wb * y_of(corner_b)) + (wc * y_of(third)),
+            (wa * z_of(corner_a)) + (wb * z_of(corner_b)) + (wc * z_of(third))};
 }
 
 // How many of something a face gets: its area x the rate, the fraction rounded by a hash.
@@ -635,13 +683,13 @@ uint32_t count_for(float amount, uint32_t hash)
 // A polygon in a plane's coordinates (s along `across`, t along `along`).
 using Polygon = std::vector<Vec2>;
 
-// The polygon clipped to the half-plane left of the edge from p to q (Sutherland - Hodgman, one edge).
-Polygon clip_edge(const Polygon& polygon, const Vec2& p, const Vec2& q, float winding)
+// The polygon clipped to the half-plane left of the edge `from` - `to` (Sutherland - Hodgman, one edge).
+Polygon clip_edge(const Polygon& polygon, const Vec2& from, const Vec2& to, float winding)
 {
     Polygon out;
     const auto side = [&](const Vec2& v) {
-        return winding * (((core::at(q, 0) - core::at(p, 0)) * (core::at(v, 1) - core::at(p, 1))) -
-                          ((core::at(q, 1) - core::at(p, 1)) * (core::at(v, 0) - core::at(p, 0))));
+        return winding * (((core::at(to, 0) - core::at(from, 0)) * (core::at(v, 1) - core::at(from, 1))) -
+                          ((core::at(to, 1) - core::at(from, 1)) * (core::at(v, 0) - core::at(from, 0))));
     };
     for (std::size_t index = 0; index < polygon.size(); ++index) {
         const Vec2& current = core::at(polygon, index);
@@ -652,9 +700,9 @@ Polygon clip_edge(const Polygon& polygon, const Vec2& p, const Vec2& q, float wi
             out.push_back(current);
         }
         if ((sc >= 0.0F) != (sn >= 0.0F)) {
-            const float t = sc / (sc - sn);
-            out.push_back({core::at(current, 0) + (t * (core::at(next, 0) - core::at(current, 0))),
-                           core::at(current, 1) + (t * (core::at(next, 1) - core::at(current, 1)))});
+            const float along = sc / (sc - sn);
+            out.push_back({core::at(current, 0) + (along * (core::at(next, 0) - core::at(current, 0))),
+                           core::at(current, 1) + (along * (core::at(next, 1) - core::at(current, 1)))});
         }
     }
     return out;
@@ -705,8 +753,8 @@ void cut_decal(const World& world, std::span<const uint32_t> faces, const Frame&
         const Face& face = world.face(index);
         std::array<Vec2, 3> corners{};
         for (std::size_t k = 0; k < 3; ++k) {
-            const Vec3 d = minus(core::at(face.corners, k), frame.centre);
-            core::at(corners, k) = {dot(d, frame.across), dot(d, frame.along)};
+            const Vec3 offset = minus(core::at(face.corners, k), frame.centre);
+            core::at(corners, k) = {dot(offset, frame.across), dot(offset, frame.along)};
         }
         const float signed_area = ((core::at(core::at(corners, 1), 0) - core::at(core::at(corners, 0), 0)) *
                                    (core::at(core::at(corners, 2), 1) - core::at(core::at(corners, 0), 1))) -
@@ -728,7 +776,7 @@ void cut_decal(const World& world, std::span<const uint32_t> faces, const Frame&
             const Vec3 position =
                 plus(frame.centre, plus(times(frame.across, core::at(at, 0)), times(frame.along, core::at(at, 1))));
             return DecalVertex{.position = position,
-                               .uv = {(core::at(at, 0) / (2.0F * frame.half_across)) + kHalf,
+                               .uv = {(core::at(at, 0) / (frame.half_across + frame.half_across)) + kHalf,
                                       (core::at(at, 1) - start) / span_along},
                                .packed = packed};
         };
@@ -785,7 +833,7 @@ bool is_hard(Surface surface)
 
 class Maker {
 public:
-    Maker(const Input& input, Scatter* out) : input_(input), out_(out), world_(input.faces, input.rails) {}
+    Maker(const Input& input, Scatter* out) : seed_(input.seed), out_(out), world_(input.faces, input.rails) {}
 
     void ground_decals()
     {
@@ -801,7 +849,7 @@ public:
             if (!(rate > 0.0F)) {
                 continue;
             }
-            const uint32_t seed = face_seed(face, input_.seed, 1U);
+            const uint32_t seed = face_seed(face, seed_, 1U);
             const uint32_t count = count_for(info.area * rate * density, mix(seed));
             for (uint32_t k = 0; k < count && !out_->decals_capped; ++k) {
                 Hashes hashes(combine(seed, k));
@@ -826,27 +874,30 @@ public:
             // the foot: the edge whose two corners are lowest
             std::size_t foot = 3;
             for (std::size_t k = 0; k < 3; ++k) {
-                const Vec3& p = core::at(face.corners, k);
-                const Vec3& q = core::at(face.corners, (k + 1) % 3);
-                if (y_of(p) <= info.bottom + kFootSlack && y_of(q) <= info.bottom + kFootSlack) {
+                const Vec3& one = core::at(face.corners, k);
+                const Vec3& two = core::at(face.corners, (k + 1) % 3);
+                if (y_of(one) <= info.bottom + kFootSlack && y_of(two) <= info.bottom + kFootSlack) {
                     foot = k;
                 }
             }
             if (foot == 3) {
                 continue;
             }
-            const Vec3& p = core::at(face.corners, foot);
-            const Vec3& q = core::at(face.corners, (foot + 1) % 3);
-            const float foot_length = length(minus(q, p));
+            const Vec3& foot_from = core::at(face.corners, foot);
+            const Vec3& foot_to = core::at(face.corners, (foot + 1) % 3);
+            const float foot_length = length(minus(foot_to, foot_from));
             if (foot_length < kLeastFoot) {
                 continue;
             }
-            const uint32_t seed = face_seed(face, input_.seed, 2U);
+            const uint32_t seed = face_seed(face, seed_, 2U);
             const uint32_t count = count_for(foot_length * kGrimeRate * density, mix(seed));
             for (uint32_t k = 0; k < count && !out_->decals_capped; ++k) {
                 Hashes hashes(combine(seed, k));
                 const float along = hashes.next_unit();
-                wall_decal(static_cast<uint32_t>(index), plus(p, times(minus(q, p), along)), minus(q, p), &hashes);
+                wall_decal(static_cast<uint32_t>(index),
+                           {.at = plus(foot_from, times(minus(foot_to, foot_from), along)),
+                            .direction = minus(foot_to, foot_from)},
+                           &hashes);
             }
         }
     }
@@ -864,7 +915,7 @@ public:
             if (!(rate > 0.0F)) {
                 continue;
             }
-            const uint32_t seed = face_seed(face, input_.seed, 3U);
+            const uint32_t seed = face_seed(face, seed_, 3U);
             const uint32_t count = count_for(info.area * rate * density, mix(seed));
             for (uint32_t k = 0; k < count; ++k) {
                 Hashes hashes(combine(seed, k));
@@ -919,10 +970,12 @@ private:
             return;
         }
         if (kind == DecalKind::kWet) {
-            const bool gutter = walls.rise >= 0.0F && walls.rise_height <= kGutterRise &&
-                                (world_.face(host).surface == Surface::kAsphalt ||
-                                 world_.face(host).surface == Surface::kConcrete);
-            if (!gutter && !world_.in_dip(centre, std::max(radius * 0.8F, 24.0F))) {
+            const bool gutter =
+                walls.rise >= 0.0F && walls.rise_height <= kGutterRise &&
+                (world_.face(host).surface == Surface::kAsphalt || world_.face(host).surface == Surface::kConcrete);
+            constexpr float kDipShare = 0.8F; // (of the decal's radius: the ring looked at)
+            constexpr float kLeastDip = 24.0F;
+            if (!gutter && !world_.in_dip(centre, std::max(radius * kDipShare, kLeastDip))) {
                 ++rejected.no_dip;
                 return;
             }
@@ -942,16 +995,22 @@ private:
                           .half_across = across * kHalf,
                           .half_along = along * kHalf,
                           .along_start = -1.0F};
-        add_decal(host, frame,
-                  {.kind = kind,
-                   .variant = variant,
-                   .opacity = opacity,
-                   .fade = kFadePerSize * std::max(across, along)},
-                  {across, along});
+        add_decal(
+            host, frame,
+            {.kind = kind, .variant = variant, .opacity = opacity, .fade = kFadePerSize * std::max(across, along)},
+            {across, along});
     }
 
-    void wall_decal(uint32_t host, const Vec3& foot, const Vec3& foot_direction, Hashes* hashes)
+    // A wall's foot: a point on it and its direction.
+    struct Foot {
+        Vec3 at;
+        Vec3 direction;
+    };
+
+    void wall_decal(uint32_t host, const Foot& foot_line, Hashes* hashes)
     {
+        const Vec3& foot = foot_line.at;
+        const Vec3& foot_direction = foot_line.direction;
         Rejected& rejected = out_->decal_rejected;
         const KindSize& size = core::at(kDecalSizes, static_cast<std::size_t>(DecalKind::kGrime));
         const float across = hashes->between(core::at(size.across, 0), core::at(size.across, 1));
@@ -994,10 +1053,7 @@ private:
                           .half_along = height + kGrimeSink,
                           .along_start = 0.0F};
         add_decal(host, frame,
-                  {.kind = DecalKind::kGrime,
-                   .variant = variant,
-                   .opacity = opacity,
-                   .fade = kFadePerSize * across},
+                  {.kind = DecalKind::kGrime, .variant = variant, .opacity = opacity, .fade = kFadePerSize * across},
                   {across, height});
     }
 
@@ -1047,17 +1103,27 @@ private:
                 ++rejected.far_from_wall;
                 return;
             }
-            if (walls.rise <= kWeedReach && choice < 0.35F) {
+            if (walls.rise <= kWeedReach && choice < kWeedShare) {
                 kind = ItemKind::kWeed;
             } else {
                 const float rest = hashes->next_unit();
-                kind = rest < 0.6F ? ItemKind::kLeaf : (rest < 0.9F ? ItemKind::kPaper : ItemKind::kCan);
+                kind = ItemKind::kCan;
+                if (rest < kLeafShare) {
+                    kind = ItemKind::kLeaf;
+                } else if (rest < kLeafShare + kPaperShare) {
+                    kind = ItemKind::kPaper;
+                }
             }
         } else {
             walls = world_.walls_near(root, kDropReach);
             switch (surface) {
             case Surface::kDirt:
-                kind = choice < 0.7F ? ItemKind::kPebble : (choice < 0.85F ? ItemKind::kWeed : ItemKind::kLeaf);
+                kind = ItemKind::kLeaf;
+                if (choice < kDirtPebbles) {
+                    kind = ItemKind::kPebble;
+                } else if (choice < kDirtPebbles + kDirtWeeds) {
+                    kind = ItemKind::kWeed;
+                }
                 break;
             case Surface::kGravel:
                 kind = ItemKind::kPebble;
@@ -1079,12 +1145,13 @@ private:
             ++rejected.stairs;
             return;
         }
-        const auto k = static_cast<std::size_t>(kind);
-        const float size = hashes->between(core::at(core::at(kItemSizes, k), 0), core::at(core::at(kItemSizes, k), 1));
+        const auto which = static_cast<std::size_t>(kind);
+        const float size =
+            hashes->between(core::at(core::at(kItemSizes, which), 0), core::at(core::at(kItemSizes, which), 1));
         const uint32_t look = hashes->next();
         constexpr float kMostTilt = 0.35F;
         const float tilt = (kind == ItemKind::kLeaf || kind == ItemKind::kPaper)
-                               ? (hashes->next_unit() * 2.0F - 1.0F) * kMostTilt
+                               ? ((hashes->next_unit() * 2.0F) - 1.0F) * kMostTilt
                                : 0.0F;
         const uint32_t packed = (look & kByte) | (static_cast<uint32_t>(kind) << kItemKindShift) |
                                 (((look >> kItemKindShift) & 0xFU) << kItemVariantShift) |
@@ -1098,12 +1165,12 @@ private:
                           .tile_x = tile_of(x_of(root)),
                           .tile_z = tile_of(z_of(root)),
                           .order = static_cast<uint32_t>(items_.size())});
-        ++core::at(out_->items_of, k);
+        ++core::at(out_->items_of, which);
     }
 
     using Walls = World::Walls;
 
-    const Input& input_;
+    uint32_t seed_ = 0;
     Scatter* out_;
     World world_;
     std::vector<Placed> placed_;
@@ -1130,7 +1197,8 @@ void Maker::finish()
         const Vec3& centre = core::at(placed_, index).decal.centre;
         return TileKey{.x = tile_of(x_of(centre)), .z = tile_of(z_of(centre))};
     };
-    std::ranges::stable_sort(order, [&](std::size_t one, std::size_t two) { return key_of_decal(one) < key_of_decal(two); });
+    std::ranges::stable_sort(order,
+                             [&](std::size_t one, std::size_t two) { return key_of_decal(one) < key_of_decal(two); });
     std::ranges::sort(items_, [](const PlacedItem& one, const PlacedItem& two) {
         if (one.tile_x != two.tile_x) {
             return one.tile_x < two.tile_x;
@@ -1143,8 +1211,8 @@ void Maker::finish()
         return rank_one != rank_two ? rank_one < rank_two : one.order < two.order;
     });
     // walk both in tile order, making the tiles
-    std::size_t d = 0;
-    std::size_t i = 0;
+    std::size_t next_decal = 0;
+    std::size_t next_item = 0;
     const auto grow = [](Tile* tile, const Vec3& point, float reach) {
         for (std::size_t axis = 0; axis < 3; ++axis) {
             core::at(tile->low, axis) = std::min(core::at(tile->low, axis), core::at(point, axis) - reach);
@@ -1153,22 +1221,22 @@ void Maker::finish()
     };
     out_->decal_vertices.reserve(decal_vertices_);
     out_->items.reserve(items_.size());
-    while (d < order.size() || i < items_.size()) {
+    while (next_decal < order.size() || next_item < items_.size()) {
         TileKey key{};
-        const bool decal_first =
-            i >= items_.size() ||
-            (d < order.size() &&
-             !(TileKey{.x = core::at(items_, i).tile_x, .z = core::at(items_, i).tile_z} < key_of_decal(core::at(order, d))));
-        key = decal_first ? key_of_decal(core::at(order, d))
-                          : TileKey{.x = core::at(items_, i).tile_x, .z = core::at(items_, i).tile_z};
+        const bool decal_first = next_item >= items_.size() ||
+                                 (next_decal < order.size() && !(TileKey{.x = core::at(items_, next_item).tile_x,
+                                                                         .z = core::at(items_, next_item).tile_z} <
+                                                                 key_of_decal(core::at(order, next_decal))));
+        key = decal_first ? key_of_decal(core::at(order, next_decal))
+                          : TileKey{.x = core::at(items_, next_item).tile_x, .z = core::at(items_, next_item).tile_z};
         Tile tile{.low = {INFINITY, INFINITY, INFINITY},
                   .high = {-INFINITY, -INFINITY, -INFINITY},
                   .first_vertex = static_cast<uint32_t>(out_->decal_vertices.size()),
                   .vertex_count = 0,
                   .first_item = static_cast<uint32_t>(out_->items.size()),
                   .item_count = 0};
-        while (d < order.size() && key_of_decal(core::at(order, d)) == key) {
-            Placed& placed = core::at(placed_, core::at(order, d));
+        while (next_decal < order.size() && key_of_decal(core::at(order, next_decal)) == key) {
+            Placed& placed = core::at(placed_, core::at(order, next_decal));
             placed.decal.first_vertex = static_cast<uint32_t>(out_->decal_vertices.size());
             for (const DecalVertex& vertex : placed.vertices) {
                 grow(&tile, vertex.position, 0.0F);
@@ -1176,14 +1244,15 @@ void Maker::finish()
             }
             tile.vertex_count += static_cast<uint32_t>(placed.vertices.size());
             out_->decals.push_back(placed.decal);
-            ++d;
+            ++next_decal;
         }
-        while (i < items_.size() && TileKey{.x = core::at(items_, i).tile_x, .z = core::at(items_, i).tile_z} == key) {
-            const Item& item = core::at(items_, i).item;
+        while (next_item < items_.size() &&
+               TileKey{.x = core::at(items_, next_item).tile_x, .z = core::at(items_, next_item).tile_z} == key) {
+            const Item& item = core::at(items_, next_item).item;
             grow(&tile, item.root, item.size);
             out_->items.push_back(item);
             ++tile.item_count;
-            ++i;
+            ++next_item;
         }
         out_->tiles.push_back(tile);
     }

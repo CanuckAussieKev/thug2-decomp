@@ -40,7 +40,7 @@ uint32_t level_script()
     return skate ? skate->level() : 0;
 }
 // NOT ORIGINAL - the decals and clutter keep clear of the rails (engine/gfx/scatter.h)
-void level_rails(std::vector<std::array<float, 6>>* segments)
+void level_rails(std::vector<std::array<float, kRailSegmentFloats>>* segments)
 {
     segments->clear();
     const modules::Skate* skate = modules::Skate::sole();

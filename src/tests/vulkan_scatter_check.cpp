@@ -31,6 +31,7 @@
 #include <cstring>
 #include <exception>
 #include <fstream>
+#include <ios>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -83,6 +84,27 @@ constexpr uint32_t kFvf = 0x044; // XYZRHW | DIFFUSE
 constexpr uint32_t kFourSamples = 4;
 constexpr float kHalf = 0.5F;
 constexpr int kLearningPasses = 3;
+constexpr float kByteScale = 255.0F;
+constexpr float kAtlasGrey = 0.6F;   // (the dumped atlas: shown over this grey)
+constexpr float kHighDensity = 4.0F; // the passes' tests: many decals and items
+constexpr float kMidDensity = 2.0F;
+constexpr float kOnPlane = 0.01F;     // a decal vertex this near its face's plane (units)
+constexpr float kNoDistance = 1.0e9F; // (more than any distance here)
+constexpr float kTinyDirection = 1.0e-9F;
+constexpr float kQuarterTurn = 1.5707963F;
+constexpr float kStairsDepthSteps = 5.0F; // (the steps and their landing: this many steps deep)
+constexpr float kAboveGround = 1.0F;      // (a point this high is on the ledge or the steps, not the road)
+constexpr float kHalfUnit = 0.5F;         // (a rule's reach measured to this slack)
+constexpr double kLeastRateShare = 0.45;  // the road's decals at least this share of the rate's ...
+constexpr double kMostRateShare = 1.1;    // ... and at most this
+constexpr double kRoadRate = 1.2e-4;      // (asphalt's decals a square unit at density 1: scatter.cpp)
+constexpr float kFootprintSlack = 4.0F;   // (a decal's footprint grown by this, units)
+constexpr float kDarkerSlack = 1.0e-3F;
+constexpr int kLeastItemPixels = 50;
+constexpr float kFloating = 30.0F; // decals put this high over the drawn road
+constexpr std::size_t kQuadVertices = 6;
+constexpr float kPuddleMargin = 8.0F; // (a wet pixel this near the puddle's quad: its edge pixels)
+constexpr int kLeastWetPixels = 100;
 
 // The view (Direct3D's left-handed projection, row vectors): near 1, far 10000, a vertical scale of 1.5.
 constexpr float kNear = 1.0F;
@@ -98,11 +120,11 @@ constexpr uint32_t kSkyColour = 0xFF8090C0;
 constexpr float kRoadLeft = -900.0F;
 constexpr float kRoadRight = 900.0F;
 constexpr float kRoadNear = -60.0F;
-constexpr float kKerbZ = 800.0F;     // the kerb's face (the road ends here)
+constexpr float kKerbZ = 800.0F; // the kerb's face (the road ends here)
 constexpr float kKerbHeight = 6.0F;
 constexpr float kBuildingZ = 1000.0F; // the building's wall (the sidewalk ends here)
 constexpr float kBuildingHeight = 300.0F;
-constexpr float kRoadCell = 150.0F;   // (the road's grid of quads)
+constexpr float kRoadCell = 150.0F;                                   // (the road's grid of quads)
 constexpr std::array<float, 4> kPipe{300.0F, 500.0F, 200.0F, 300.0F}; // x from - to, z from - to (rising toward +z)
 constexpr float kPipeHeight = 60.0F;
 constexpr std::array<float, 4> kLedge{-300.0F, -200.0F, 300.0F, 400.0F};
@@ -119,12 +141,15 @@ constexpr uint32_t kSeed = 0x1234ABCDU;
 
 // The GPU's street: the road (y 0) and a wall standing on it facing the camera.
 constexpr std::array<float, 4> kOccluder{-100.0F, 100.0F, 200.0F, 80.0F}; // x from - to, z, its top
+// The puddle check's: a wet patch beside the wall (not behind it) and a stain beside that (x from - to, z from - to).
+constexpr std::array<float, 4> kPuddle{-420.0F, -180.0F, 260.0F, 400.0F};
+constexpr std::array<float, 4> kStain{200.0F, 320.0F, 300.0F, 400.0F};
 
 struct Options {
     int display = 0;
     int device = -1;
     bool validation = true;
-    std::string dump; // (a folder: the pictures written there)
+    std::string_view dump; // (a folder: the pictures written there)
 };
 
 std::string& dump_folder()
@@ -150,7 +175,7 @@ void dump_ppm(const char* name, uint32_t width, uint32_t height, const std::vect
     for (const auto& pixel : pixels) {
         for (const float channel : pixel) {
             const float shown = std::clamp(std::isfinite(channel) ? channel : 0.0F, 0.0F, 1.0F);
-            bytes.push_back(static_cast<char>(static_cast<uint8_t>(std::lround(shown * 255.0F))));
+            bytes.push_back(static_cast<char>(static_cast<uint8_t>(std::lround(shown * kByteScale))));
         }
     }
     out << bytes;
@@ -258,7 +283,8 @@ void add_quad(std::vector<scatter::Face>* faces, const std::array<Vec3, 4>& corn
 }
 
 // A flat quad at `height` over x from - to, z from - to.
-void add_flat(std::vector<scatter::Face>* faces, const std::array<float, 4>& area, float height, scatter::Surface surface)
+void add_flat(std::vector<scatter::Face>* faces, const std::array<float, 4>& area, float height,
+              scatter::Surface surface)
 {
     const auto [x0, x1, z0, z1] = area;
     add_quad(faces, {{{x0, height, z0}, {x1, height, z0}, {x1, height, z1}, {x0, height, z1}}}, surface);
@@ -269,7 +295,10 @@ void add_wall_x(std::vector<scatter::Face>* faces, std::array<float, 2> x, float
                 scatter::Surface surface)
 {
     add_quad(faces,
-             {{{core::at(x, 0), bottom, z}, {core::at(x, 1), bottom, z}, {core::at(x, 1), top, z}, {core::at(x, 0), top, z}}},
+             {{{core::at(x, 0), bottom, z},
+               {core::at(x, 1), bottom, z},
+               {core::at(x, 1), top, z},
+               {core::at(x, 0), top, z}}},
              surface);
 }
 // A wall across z (from - to) at x.
@@ -277,8 +306,28 @@ void add_wall_z(std::vector<scatter::Face>* faces, std::array<float, 2> z, float
                 scatter::Surface surface)
 {
     add_quad(faces,
-             {{{x, bottom, core::at(z, 0)}, {x, bottom, core::at(z, 1)}, {x, top, core::at(z, 1)}, {x, top, core::at(z, 0)}}},
+             {{{x, bottom, core::at(z, 0)},
+               {x, bottom, core::at(z, 1)},
+               {x, top, core::at(z, 1)},
+               {x, top, core::at(z, 0)}}},
              surface);
+}
+
+// The road: a grid of asphalt quads at `height` (seams for the decals to cross), the last ones cut at the road's end
+// and the kerb (`cut`) or whole.
+void add_road(std::vector<scatter::Face>* faces, float height, bool cut)
+{
+    const auto across = static_cast<int>(std::ceil((kRoadRight - kRoadLeft) / kRoadCell));
+    const auto along = static_cast<int>(std::ceil((kKerbZ - kRoadNear) / kRoadCell));
+    for (int column = 0; column < across; ++column) {
+        const float x = kRoadLeft + (kRoadCell * static_cast<float>(column));
+        for (int row = 0; row < along; ++row) {
+            const float z = kRoadNear + (kRoadCell * static_cast<float>(row));
+            const float x_end = cut ? std::min(x + kRoadCell, kRoadRight) : x + kRoadCell;
+            const float z_end = cut ? std::min(z + kRoadCell, kKerbZ) : z + kRoadCell;
+            add_flat(faces, {x, x_end, z, z_end}, height, scatter::Surface::kAsphalt);
+        }
+    }
 }
 
 std::vector<scatter::Face> street_faces()
@@ -286,11 +335,7 @@ std::vector<scatter::Face> street_faces()
     std::vector<scatter::Face> faces;
     using S = scatter::Surface;
     // the road: a grid of quads (seams for the decals to cross)
-    for (float x = kRoadLeft; x < kRoadRight; x += kRoadCell) {
-        for (float z = kRoadNear; z < kKerbZ; z += kRoadCell) {
-            add_flat(&faces, {x, std::min(x + kRoadCell, kRoadRight), z, std::min(z + kRoadCell, kKerbZ)}, 0.0F, S::kAsphalt);
-        }
-    }
+    add_road(&faces, 0.0F, true);
     // the kerb, the sidewalk, the building
     add_wall_x(&faces, {kRoadLeft, kRoadRight}, kKerbZ, 0.0F, kKerbHeight, S::kConcrete);
     add_flat(&faces, {kRoadLeft, kRoadRight, kKerbZ, kBuildingZ}, kKerbHeight, S::kPaving);
@@ -301,11 +346,12 @@ std::vector<scatter::Face> street_faces()
     for (int k = 0; k < kSlopes; ++k) {
         const float t0 = static_cast<float>(k) / kSlopes;
         const float t1 = static_cast<float>(k + 1) / kSlopes;
-        const float y0 = kPipeHeight * (1.0F - std::cos(t0 * 1.5707963F));
-        const float y1 = kPipeHeight * (1.0F - std::cos(t1 * 1.5707963F));
-        const float z0 = pz0 + ((pz1 - pz0) * std::sin(t0 * 1.5707963F));
-        const float z1 = pz0 + ((pz1 - pz0) * std::sin(t1 * 1.5707963F));
-        add_quad(&faces, {{{px0, y0, z0}, {px1, y0, z0}, {px1, y1, z1}, {px0, y1, z1}}}, S::kConcrete, k == kSlopes - 1);
+        const float y0 = kPipeHeight * (1.0F - std::cos(t0 * kQuarterTurn));
+        const float y1 = kPipeHeight * (1.0F - std::cos(t1 * kQuarterTurn));
+        const float z0 = pz0 + ((pz1 - pz0) * std::sin(t0 * kQuarterTurn));
+        const float z1 = pz0 + ((pz1 - pz0) * std::sin(t1 * kQuarterTurn));
+        add_quad(&faces, {{{px0, y0, z0}, {px1, y0, z0}, {px1, y1, z1}, {px0, y1, z1}}}, S::kConcrete,
+                 k == kSlopes - 1);
     }
     // the ledge: a concrete box
     const auto [lx0, lx1, lz0, lz1] = kLedge;
@@ -339,11 +385,11 @@ bool inside(float x, float z, const std::array<float, 4>& area, float margin)
            z <= core::at(area, 3) + margin;
 }
 
-float rail_distance(const Vec3& p)
+float rail_distance(const Vec3& point)
 {
-    const float x = std::clamp(core::at(p, 0), core::at(kRailFrom, 0), core::at(kRailTo, 0));
-    const float dx = core::at(p, 0) - x;
-    const float dz = core::at(p, 2) - core::at(kRailFrom, 2);
+    const float x = std::clamp(core::at(point, 0), core::at(kRailFrom, 0), core::at(kRailTo, 0));
+    const float dx = core::at(point, 0) - x;
+    const float dz = core::at(point, 2) - core::at(kRailFrom, 2);
     return std::sqrt((dx * dx) + (dz * dz));
 }
 
@@ -379,20 +425,21 @@ bool same_bytes(const std::vector<T>& a, const std::vector<T>& b)
 
 // The distance from a point to the quarter pipe's ramp proper - its slopes from the second (its first, flatter than a
 // ramp, is ground within reach of the second) - sampled finely over them.
-float pipe_distance(const Vec3& p)
+float pipe_distance(const Vec3& point)
 {
     constexpr int kSlopes = 4;
     constexpr int kSamples = 40;
     const auto [px0, px1, pz0, pz1] = kPipe;
-    float nearest = 1.0e9F;
+    float nearest = kNoDistance;
     for (int i = 0; i <= kSamples; ++i) {
         const float x = px0 + ((px1 - px0) * static_cast<float>(i) / kSamples);
         for (int j = 0; j <= kSamples; ++j) {
-            const float t = (1.0F + (3.0F * static_cast<float>(j) / kSamples)) / kSlopes; // (from the second slope)
-            const float y = kPipeHeight * (1.0F - std::cos(t * 1.5707963F));
-            const float z = pz0 + ((pz1 - pz0) * std::sin(t * 1.5707963F));
-            const Vec3 d{core::at(p, 0) - x, core::at(p, 1) - y, core::at(p, 2) - z};
-            nearest = std::min(nearest, std::sqrt(dot(d, d)));
+            const float slopes_on = static_cast<float>(kSlopes - 1) * static_cast<float>(j) / kSamples;
+            const float along = (1.0F + slopes_on) / kSlopes; // (from the second slope)
+            const float y = kPipeHeight * (1.0F - std::cos(along * kQuarterTurn));
+            const float z = pz0 + ((pz1 - pz0) * std::sin(along * kQuarterTurn));
+            const Vec3 apart{core::at(point, 0) - x, core::at(point, 1) - y, core::at(point, 2) - z};
+            nearest = std::min(nearest, std::sqrt(dot(apart, apart)));
         }
     }
     return nearest;
@@ -405,17 +452,199 @@ struct LineCheck {
     bool ledge = false;
     bool steps = false;
 };
-LineCheck on_line(const Vec3& p)
+LineCheck on_line(const Vec3& point)
 {
-    const float x = core::at(p, 0);
-    const float z = core::at(p, 2);
+    const float x = core::at(point, 0);
+    const float z = core::at(point, 2);
     LineCheck out;
-    out.pipe = pipe_distance(p) < scatter::kRampReach - 1.0F;
-    out.rail = rail_distance(p) < scatter::kRailReach - 1.0F;
-    out.ledge = inside(x, z, kLedge, 0.0F) && core::at(p, 1) > 1.0F;
-    out.steps = inside(x, z, {core::at(kStairsX, 0), core::at(kStairsX, 1), kStairsZ, kStairsZ + (kStep * 5.0F)}, 0.0F) &&
-                core::at(p, 1) > 1.0F;
+    out.pipe = pipe_distance(point) < scatter::kRampReach - 1.0F;
+    out.rail = rail_distance(point) < scatter::kRailReach - 1.0F;
+    out.ledge = inside(x, z, kLedge, 0.0F) && core::at(point, 1) > kAboveGround;
+    out.steps =
+        inside(x, z, {core::at(kStairsX, 0), core::at(kStairsX, 1), kStairsZ, kStairsZ + (kStep * kStairsDepthSteps)},
+               0.0F) &&
+        core::at(point, 1) > kAboveGround;
     return out;
+}
+
+// The placement's decals: each one's kind its surface's, its vertices on its face, none past an edge or on a line.
+void check_placed_decals(const scatter::Scatter& one, std::span<const scatter::Face> faces, Tally* tally)
+{
+    int wrong_kind = 0;
+    int off_plane = 0;
+    int past_edge = 0;
+    int on_lines = 0;
+    for (const scatter::Decal& decal : one.decals) {
+        const scatter::Face& face = core::at(faces, decal.face);
+        const bool wall = std::abs(core::at(decal.normal, 1)) < scatter::kWallUp;
+        wrong_kind += kind_fits(decal.kind, face.surface, wall) ? 0 : 1;
+        const Vec3& first = core::at(face.corners, 0);
+        const Vec3 normal =
+            unit(cross(minus(core::at(face.corners, 1), first), minus(core::at(face.corners, 2), first)));
+        for (uint32_t index = decal.first_vertex; index < decal.first_vertex + decal.vertex_count; ++index) {
+            const Vec3& at = core::at(one.decal_vertices, index).position;
+            off_plane += std::abs(dot(minus(at, first), normal)) > kOnPlane ? 1 : 0;
+            const bool past = core::at(at, 2) > kKerbZ + kOnPlane || core::at(at, 0) < kRoadLeft - kOnPlane ||
+                              core::at(at, 0) > kRoadRight + kOnPlane;
+            past_edge += !wall && face.surface == scatter::Surface::kAsphalt && past ? 1 : 0;
+        }
+        const LineCheck line = on_line(decal.centre);
+        if (!wall && (line.pipe || line.rail || line.ledge || line.steps)) {
+            ++on_lines;
+            text::print("  (a decal at %.0f %.0f %.0f: pipe %d rail %d ledge %d steps %d)\n",
+                        static_cast<double>(core::at(decal.centre, 0)), static_cast<double>(core::at(decal.centre, 1)),
+                        static_cast<double>(core::at(decal.centre, 2)), line.pipe ? 1 : 0, line.rail ? 1 : 0,
+                        line.ledge ? 1 : 0, line.steps ? 1 : 0);
+        }
+    }
+    const auto kind = [&one](scatter::DecalKind which) {
+        return core::at(one.decals_of, static_cast<std::size_t>(which));
+    };
+    tally->check(wrong_kind == 0,
+                 text::format("every decal's kind its surface's (%d wrong): cracks %u, stains %u, oil %u, tyre %u, gum "
+                              "%u, wet %u, grime %u",
+                              wrong_kind, kind(scatter::DecalKind::kCrack), kind(scatter::DecalKind::kStain),
+                              kind(scatter::DecalKind::kOil), kind(scatter::DecalKind::kTyre),
+                              kind(scatter::DecalKind::kGum), kind(scatter::DecalKind::kWet),
+                              kind(scatter::DecalKind::kGrime)));
+    tally->check(
+        off_plane == 0 && past_edge == 0,
+        text::format("every decal vertex on its face's plane (%d off), none past the kerb or the road's end (%d)",
+                     off_plane, past_edge));
+    tally->check(kind(scatter::DecalKind::kGrime) > 0 && kind(scatter::DecalKind::kWet) > 0 &&
+                     kind(scatter::DecalKind::kTyre) > 0 && kind(scatter::DecalKind::kGum) > 0,
+                 "grime at the walls' feet, wet patches in the gutter, tyre marks on the road, gum on the sidewalk");
+    tally->check(on_lines == 0,
+                 text::format("no decal on a skate line - the quarter pipe, the rail, the ledge's top, the "
+                              "steps (%d)",
+                              on_lines));
+}
+
+// How far a hard-ground point is from what rises near it on the street: the kerb, the building, the ledge, the steps.
+float nearest_rise(float x, float z)
+{
+    const float to_kerb = std::abs(z - kKerbZ);
+    const float to_building = std::abs(z - kBuildingZ);
+    const float to_ledge = std::max(
+        {core::at(kLedge, 0) - x, x - core::at(kLedge, 1), core::at(kLedge, 2) - z, z - core::at(kLedge, 3), 0.0F});
+    const std::array<float, 4> stairs{core::at(kStairsX, 0), core::at(kStairsX, 1), kStairsZ,
+                                      kStairsZ + (kStep * kStairsDepthSteps)};
+    const float to_stairs = std::max(
+        {core::at(stairs, 0) - x, x - core::at(stairs, 1), core::at(stairs, 2) - z, z - core::at(stairs, 3), 0.0F});
+    return std::min({to_kerb, to_building, to_ledge, to_stairs});
+}
+
+// What the clutter's items break of the rules.
+struct ItemFaults {
+    int on_lines = 0;
+    int hard_far = 0;
+    int weeds_far = 0;
+    int pebbles_off_dirt = 0;
+    int on_lawn_not_leaf = 0;
+    int at_stairs_foot = 0;
+};
+
+void judge_item(const scatter::Item& item, ItemFaults* faults)
+{
+    const auto kind = static_cast<scatter::ItemKind>((item.packed >> scatter::kItemKindShift) & 0xFU);
+    const float x = core::at(item.root, 0);
+    const float z = core::at(item.root, 2);
+    const LineCheck line = on_line(item.root);
+    faults->on_lines += line.pipe || line.rail || line.ledge || line.steps ? 1 : 0;
+    const bool on_dirt = inside(x, z, kDirt, 0.0F);
+    const bool on_lawn = inside(x, z, kLawn, 0.0F);
+    faults->pebbles_off_dirt += kind == scatter::ItemKind::kPebble && !on_dirt ? 1 : 0;
+    faults->on_lawn_not_leaf += on_lawn && kind != scatter::ItemKind::kLeaf ? 1 : 0;
+    if (on_dirt || on_lawn) {
+        return;
+    }
+    // hard ground: near the kerb (the road side), the building (the sidewalk side), the ledge's or the steps' sides
+    const float nearest = nearest_rise(x, z);
+    faults->hard_far += nearest > scatter::kNearWall + kHalfUnit ? 1 : 0;
+    faults->weeds_far += kind == scatter::ItemKind::kWeed && nearest > scatter::kWeedReach + kHalfUnit ? 1 : 0;
+    const std::array<float, 4> foot{core::at(kStairsX, 0), core::at(kStairsX, 1), kStairsZ - scatter::kNearWall,
+                                    kStairsZ};
+    faults->at_stairs_foot += inside(x, z, foot, 0.0F) ? 1 : 0;
+}
+
+void check_placed_items(const scatter::Scatter& one, Tally* tally)
+{
+    ItemFaults faults;
+    for (const scatter::Item& item : one.items) {
+        judge_item(item, &faults);
+    }
+    const auto items = [&one](scatter::ItemKind which) {
+        return core::at(one.items_of, static_cast<std::size_t>(which));
+    };
+    tally->check(faults.on_lines == 0 && faults.at_stairs_foot == 0,
+                 text::format("no item on a skate line (%d) or at the stairs' foot (%d)", faults.on_lines,
+                              faults.at_stairs_foot));
+    tally->check(faults.hard_far == 0 && faults.weeds_far == 0,
+                 text::format("hard ground's items all near a kerb or wall (%d far), weeds at their foot (%d far)",
+                              faults.hard_far, faults.weeds_far));
+    tally->check(faults.pebbles_off_dirt == 0 && faults.on_lawn_not_leaf == 0,
+                 text::format("pebbles only on dirt (%d off it), only leaves on the lawn (%d other)",
+                              faults.pebbles_off_dirt, faults.on_lawn_not_leaf));
+    tally->check(items(scatter::ItemKind::kLeaf) > 0 && items(scatter::ItemKind::kPaper) > 0 &&
+                     items(scatter::ItemKind::kCan) > 0 && items(scatter::ItemKind::kWeed) > 0 &&
+                     items(scatter::ItemKind::kPebble) > 0,
+                 text::format("every kind placed: leaves %u, paper %u, cans %u, weeds %u, pebbles %u",
+                              items(scatter::ItemKind::kLeaf), items(scatter::ItemKind::kPaper),
+                              items(scatter::ItemKind::kCan), items(scatter::ItemKind::kWeed),
+                              items(scatter::ItemKind::kPebble)));
+}
+
+// The rules at work, the counts against the rates, the tiles.
+void check_counts(const scatter::Scatter& one, std::span<const scatter::Face> faces, float density, Tally* tally)
+{
+    const scatter::Rejected& items = one.item_rejected;
+    const scatter::Rejected& decals = one.decal_rejected;
+    tally->check(decals.ramp > 0 && decals.rail > 0 && decals.drop > 0 && items.drop > 0 && items.stairs > 0 &&
+                     items.far_from_wall > 0,
+                 text::format("the rules turned some away: decals %u ramp, %u rail, %u edge, %u covered; items %u "
+                              "ramp, %u rail, %u edge, %u stairs, %u covered, %u far from walls",
+                              decals.ramp, decals.rail, decals.drop, decals.covered, items.ramp, items.rail, items.drop,
+                              items.stairs, items.covered, items.far_from_wall));
+    // the decals' count against the rates: the road's area x the rate x the density, less those turned away
+    const double road = static_cast<double>(kRoadRight - kRoadLeft) * static_cast<double>(kKerbZ - kRoadNear);
+    const double expected = road * kRoadRate * static_cast<double>(density);
+    const auto on_road = static_cast<double>(std::ranges::count_if(one.decals, [&faces](const scatter::Decal& decal) {
+        return core::at(faces, decal.face).surface == scatter::Surface::kAsphalt;
+    }));
+    tally->check(on_road > expected * kLeastRateShare && on_road < expected * kMostRateShare,
+                 text::format("%.0f decals on the road for %.0f the rate gives (wet patches out of the gutter and the "
+                              "rules take some)",
+                              on_road, expected));
+    uint32_t vertices = 0;
+    uint32_t tiled = 0;
+    for (const scatter::Tile& tile : one.tiles) {
+        vertices += tile.vertex_count;
+        tiled += tile.item_count;
+    }
+    tally->check(std::cmp_equal(vertices, one.decal_vertices.size()) && std::cmp_equal(tiled, one.items.size()),
+                 "the tiles hold every decal vertex and item once");
+}
+
+// The art: the same bytes every time, the meshes' size (the atlas dumped over grey with --dump).
+void check_art(Tally* tally)
+{
+    const std::vector<uint8_t> atlas = scatter::make_decal_atlas();
+    if (!dump_folder().empty()) {
+        std::vector<std::array<float, 3>> shown(static_cast<std::size_t>(scatter::kAtlasWidth) * scatter::kAtlasHeight);
+        for (std::size_t texel = 0; texel < shown.size(); ++texel) {
+            const float alpha = static_cast<float>(core::at(atlas, (texel * 4) + 3)) / kByteScale;
+            for (std::size_t channel = 0; channel < kChannels; ++channel) {
+                const float times = static_cast<float>(core::at(atlas, (texel * 4) + channel)) / kByteScale;
+                core::at(core::at(shown, texel), channel) = kAtlasGrey * (1.0F + ((times - 1.0F) * alpha));
+            }
+        }
+        dump_ppm("atlas.ppm", scatter::kAtlasWidth, scatter::kAtlasHeight, shown);
+    }
+    tally->check(atlas == scatter::make_decal_atlas() &&
+                     atlas.size() == static_cast<std::size_t>(scatter::kAtlasWidth) * scatter::kAtlasHeight * 4 &&
+                     scatter::make_meshes().size() == scatter::kItemKinds * scatter::kMeshVertices,
+                 text::format("the atlas (%ux%u) and the meshes made the same every time", scatter::kAtlasWidth,
+                              scatter::kAtlasHeight));
 }
 
 void check_placement(Tally* tally)
@@ -424,7 +653,8 @@ void check_placement(Tally* tally)
     const std::vector<scatter::Face> faces = street_faces();
     const std::vector<scatter::Rail> rails = street_rails();
     constexpr float kDensity = 2.0F;
-    const scatter::Input input{.faces = faces, .rails = rails, .seed = kSeed, .decal_density = kDensity, .clutter_density = kDensity};
+    const scatter::Input input{
+        .faces = faces, .rails = rails, .seed = kSeed, .decal_density = kDensity, .clutter_density = kDensity};
     const scatter::Scatter one = scatter::make_scatter(input);
     const scatter::Scatter two = scatter::make_scatter(input);
     tally->check(same_bytes(one.decal_vertices, two.decal_vertices) && same_bytes(one.items, two.items) &&
@@ -442,163 +672,15 @@ void check_placement(Tally* tally)
     backwards.faces = reversed;
     const scatter::Scatter turned = scatter::make_scatter(backwards);
     tally->check(turned.decals.size() == one.decals.size() && turned.items.size() == one.items.size(),
-                 text::format("the faces in reverse order: the same counts (%zu decals, %zu items)", turned.decals.size(),
-                              turned.items.size()));
-    // the kinds on their surfaces
-    int wrong_kind = 0;
-    int off_plane = 0;
-    int past_edge = 0;
-    int on_lines = 0;
-    for (const scatter::Decal& decal : one.decals) {
-        const scatter::Face& face = core::at(faces, decal.face);
-        const bool wall = std::abs(core::at(decal.normal, 1)) < scatter::kWallUp;
-        wrong_kind += kind_fits(decal.kind, face.surface, wall) ? 0 : 1;
-        const Vec3& a = core::at(face.corners, 0);
-        const Vec3 n = unit(cross(minus(core::at(face.corners, 1), a), minus(core::at(face.corners, 2), a)));
-        for (uint32_t v = decal.first_vertex; v < decal.first_vertex + decal.vertex_count; ++v) {
-            const Vec3& p = core::at(one.decal_vertices, v).position;
-            off_plane += std::abs(dot(minus(p, a), n)) > 0.01F ? 1 : 0;
-            if (!wall && face.surface == scatter::Surface::kAsphalt) {
-                past_edge += (core::at(p, 2) > kKerbZ + 0.01F || core::at(p, 0) < kRoadLeft - 0.01F ||
-                              core::at(p, 0) > kRoadRight + 0.01F)
-                                 ? 1
-                                 : 0;
-            }
-        }
-        if (!wall) {
-            const LineCheck line = on_line(decal.centre);
-            if (line.pipe || line.rail || line.ledge || line.steps) {
-                ++on_lines;
-                text::print("  (a decal at %.0f %.0f %.0f: pipe %d rail %d ledge %d steps %d)\n",
-                            static_cast<double>(core::at(decal.centre, 0)), static_cast<double>(core::at(decal.centre, 1)),
-                            static_cast<double>(core::at(decal.centre, 2)), line.pipe ? 1 : 0, line.rail ? 1 : 0,
-                            line.ledge ? 1 : 0, line.steps ? 1 : 0);
-            }
-        }
-    }
-    const auto kind = [&one](scatter::DecalKind k) { return core::at(one.decals_of, static_cast<std::size_t>(k)); };
-    tally->check(wrong_kind == 0,
-                 text::format("every decal's kind its surface's (%d wrong): cracks %u, stains %u, oil %u, tyre %u, gum "
-                              "%u, wet %u, grime %u",
-                              wrong_kind, kind(scatter::DecalKind::kCrack), kind(scatter::DecalKind::kStain),
-                              kind(scatter::DecalKind::kOil), kind(scatter::DecalKind::kTyre),
-                              kind(scatter::DecalKind::kGum), kind(scatter::DecalKind::kWet),
-                              kind(scatter::DecalKind::kGrime)));
-    tally->check(off_plane == 0 && past_edge == 0,
-                 text::format("every decal vertex on its face's plane (%d off), none past the kerb or the road's end (%d)",
-                              off_plane, past_edge));
-    tally->check(kind(scatter::DecalKind::kGrime) > 0 && kind(scatter::DecalKind::kWet) > 0 &&
-                     kind(scatter::DecalKind::kTyre) > 0 && kind(scatter::DecalKind::kGum) > 0,
-                 "grime at the walls' feet, wet patches in the gutter, tyre marks on the road, gum on the sidewalk");
-    tally->check(on_lines == 0, text::format("no decal on a skate line - the quarter pipe, the rail, the ledge's top, the "
-                                             "steps (%d)",
-                                             on_lines));
-    // the clutter
-    int item_lines = 0;
-    int hard_far = 0;
-    int weeds_far = 0;
-    int pebbles_off_dirt = 0;
-    int on_lawn_not_leaf = 0;
-    int at_stairs_foot = 0;
-    for (const scatter::Item& item : one.items) {
-        const auto k = static_cast<scatter::ItemKind>((item.packed >> scatter::kItemKindShift) & 0xFU);
-        const float x = core::at(item.root, 0);
-        const float z = core::at(item.root, 2);
-        const LineCheck line = on_line(item.root);
-        item_lines += line.pipe || line.rail || line.ledge || line.steps ? 1 : 0;
-        const bool on_dirt = inside(x, z, kDirt, 0.0F);
-        const bool on_lawn = inside(x, z, kLawn, 0.0F);
-        if (k == scatter::ItemKind::kPebble) {
-            pebbles_off_dirt += on_dirt ? 0 : 1;
-        }
-        if (on_lawn && k != scatter::ItemKind::kLeaf) {
-            ++on_lawn_not_leaf;
-        }
-        if (!on_dirt && !on_lawn) {
-            // hard ground: near the kerb (the road side), the building (the sidewalk side) or the ledge's foot
-            const float to_kerb = std::abs(z - kKerbZ);
-            const float to_building = std::abs(z - kBuildingZ);
-            const float to_ledge = std::max(
-                {core::at(kLedge, 0) - x, x - core::at(kLedge, 1), core::at(kLedge, 2) - z, z - core::at(kLedge, 3), 0.0F});
-            const std::array<float, 4> stairs{core::at(kStairsX, 0), core::at(kStairsX, 1), kStairsZ, kStairsZ + (kStep * 5.0F)};
-            const float to_stairs = std::max(
-                {core::at(stairs, 0) - x, x - core::at(stairs, 1), core::at(stairs, 2) - z, z - core::at(stairs, 3), 0.0F});
-            const float nearest = std::min({to_kerb, to_building, to_ledge, to_stairs});
-            hard_far += nearest > scatter::kNearWall + 0.5F ? 1 : 0;
-            if (k == scatter::ItemKind::kWeed) {
-                weeds_far += nearest > scatter::kWeedReach + 0.5F ? 1 : 0;
-            }
-            at_stairs_foot += inside(x, z, {core::at(kStairsX, 0), core::at(kStairsX, 1), kStairsZ - scatter::kNearWall,
-                                             kStairsZ},
-                                     0.0F)
-                                  ? 1
-                                  : 0;
-        }
-    }
-    const auto items = [&one](scatter::ItemKind k) { return core::at(one.items_of, static_cast<std::size_t>(k)); };
-    tally->check(item_lines == 0 && at_stairs_foot == 0,
-                 text::format("no item on a skate line (%d) or at the stairs' foot (%d)", item_lines, at_stairs_foot));
-    tally->check(hard_far == 0 && weeds_far == 0,
-                 text::format("hard ground's items all near a kerb or wall (%d far), weeds at their foot (%d far)", hard_far,
-                              weeds_far));
-    tally->check(pebbles_off_dirt == 0 && on_lawn_not_leaf == 0,
-                 text::format("pebbles only on dirt (%d off it), only leaves on the lawn (%d other)", pebbles_off_dirt,
-                              on_lawn_not_leaf));
-    tally->check(items(scatter::ItemKind::kLeaf) > 0 && items(scatter::ItemKind::kPaper) > 0 &&
-                     items(scatter::ItemKind::kCan) > 0 && items(scatter::ItemKind::kWeed) > 0 &&
-                     items(scatter::ItemKind::kPebble) > 0,
-                 text::format("every kind placed: leaves %u, paper %u, cans %u, weeds %u, pebbles %u",
-                              items(scatter::ItemKind::kLeaf), items(scatter::ItemKind::kPaper),
-                              items(scatter::ItemKind::kCan), items(scatter::ItemKind::kWeed),
-                              items(scatter::ItemKind::kPebble)));
-    const scatter::Rejected& r = one.item_rejected;
-    const scatter::Rejected& d = one.decal_rejected;
-    tally->check(d.ramp > 0 && d.rail > 0 && d.drop > 0 && r.drop > 0 && r.stairs > 0 && r.far_from_wall > 0,
-                 text::format("the rules turned some away: decals %u ramp, %u rail, %u edge, %u covered; items %u ramp, %u "
-                              "rail, %u edge, %u stairs, %u covered, %u far from walls",
-                              d.ramp, d.rail, d.drop, d.covered, r.ramp, r.rail, r.drop, r.stairs, r.covered,
-                              r.far_from_wall));
-    // the decals' count against the rates: the road's area x 1.2e-4 x the density, less those turned away
-    const double road = static_cast<double>(kRoadRight - kRoadLeft) * static_cast<double>(kKerbZ - kRoadNear);
-    const double expected = road * 1.2e-4 * kDensity;
-    const auto on_road = static_cast<double>(std::ranges::count_if(one.decals, [&faces](const scatter::Decal& decal) {
-        return core::at(faces, decal.face).surface == scatter::Surface::kAsphalt;
-    }));
-    tally->check(on_road > expected * 0.45 && on_road < expected * 1.1,
-                 text::format("%.0f decals on the road for %.0f the rate gives (wet patches out of the gutter and the "
-                              "rules take some)",
-                              on_road, expected));
-    // the tiles cover every decal vertex and item once
-    uint32_t vertices = 0;
-    uint32_t tiled = 0;
-    for (const scatter::Tile& tile : one.tiles) {
-        vertices += tile.vertex_count;
-        tiled += tile.item_count;
-    }
-    tally->check(std::cmp_equal(vertices, one.decal_vertices.size()) && std::cmp_equal(tiled, one.items.size()),
-                 "the tiles hold every decal vertex and item once");
-    // off: nothing
-    const scatter::Scatter none =
-        scatter::make_scatter({.faces = faces, .rails = rails, .seed = kSeed, .decal_density = 0.0F, .clutter_density = 0.0F});
+                 text::format("the faces in reverse order: the same counts (%zu decals, %zu items)",
+                              turned.decals.size(), turned.items.size()));
+    check_placed_decals(one, faces, tally);
+    check_placed_items(one, tally);
+    check_counts(one, faces, kDensity, tally);
+    const scatter::Scatter none = scatter::make_scatter(
+        {.faces = faces, .rails = rails, .seed = kSeed, .decal_density = 0.0F, .clutter_density = 0.0F});
     tally->check(none.decals.empty() && none.items.empty() && none.tiles.empty(), "both densities 0: nothing placed");
-    // the art: the same bytes, every texel's multiplier at most 1 by construction, the meshes' size
-    const std::vector<uint8_t> atlas = scatter::make_decal_atlas();
-    if (!dump_folder().empty()) {
-        std::vector<std::array<float, 3>> shown(static_cast<std::size_t>(scatter::kAtlasWidth) * scatter::kAtlasHeight);
-        for (std::size_t texel = 0; texel < shown.size(); ++texel) {
-            const float a = static_cast<float>(core::at(atlas, (texel * 4) + 3)) / 255.0F;
-            for (std::size_t c = 0; c < 3; ++c) {
-                const float m = static_cast<float>(core::at(atlas, (texel * 4) + c)) / 255.0F;
-                core::at(core::at(shown, texel), c) = 0.6F * (1.0F + ((m - 1.0F) * a));
-            }
-        }
-        dump_ppm("atlas.ppm", scatter::kAtlasWidth, scatter::kAtlasHeight, shown);
-    }
-    tally->check(atlas == scatter::make_decal_atlas() &&
-                     atlas.size() == static_cast<std::size_t>(scatter::kAtlasWidth) * scatter::kAtlasHeight * 4 &&
-                     scatter::make_meshes().size() == scatter::kItemKinds * scatter::kMeshVertices,
-                 text::format("the atlas (%ux%u) and the meshes made the same every time", scatter::kAtlasWidth,
-                              scatter::kAtlasHeight));
+    check_art(tally);
 }
 
 // --- the view's matrices ---------------------------------------------------------------------------------------
@@ -665,8 +747,8 @@ struct ScreenVertex {
     uint32_t colour;
 };
 
-void add_screen_quad(std::vector<ScreenVertex>* out, const render::rt::ViewDrawn& view, const std::array<Vec3, 4>& corners,
-                     uint32_t colour)
+void add_screen_quad(std::vector<ScreenVertex>* out, const render::rt::ViewDrawn& view,
+                     const std::array<Vec3, 4>& corners, uint32_t colour)
 {
     const auto width = static_cast<float>(core::at(view.rect, 2));
     const auto tall = static_cast<float>(core::at(view.rect, 3));
@@ -684,8 +766,12 @@ void add_screen_quad(std::vector<ScreenVertex>* out, const render::rt::ViewDrawn
 // The road (y 0, from just in front of the camera far out) and the wall standing on it.
 void draw_street(render::Gpu& gpu, const render::rt::ViewDrawn& view)
 {
-    gpu.set_viewport(
-        {.x = 0, .y = 0, .width = core::at(view.rect, 2), .height = core::at(view.rect, 3), .min_z = 0.0F, .max_z = 1.0F});
+    gpu.set_viewport({.x = 0,
+                      .y = 0,
+                      .width = core::at(view.rect, 2),
+                      .height = core::at(view.rect, 3),
+                      .min_z = 0.0F,
+                      .max_z = 1.0F});
     gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, kSkyColour, 1.0F, 0);
     gpu.set_render_state(GpuRenderState::kZEnable, 1);
     gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
@@ -703,9 +789,10 @@ void draw_street(render::Gpu& gpu, const render::rt::ViewDrawn& view)
     gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgDiffuse);
     std::vector<ScreenVertex> quads;
     const float front = core::at(kEye, 2) + 20.0F;
-    add_screen_quad(&quads, view,
-                    {{{kRoadLeft, 0.0F, front}, {kRoadRight, 0.0F, front}, {kRoadRight, 0.0F, kKerbZ}, {kRoadLeft, 0.0F, kKerbZ}}},
-                    kRoadColour);
+    add_screen_quad(
+        &quads, view,
+        {{{kRoadLeft, 0.0F, front}, {kRoadRight, 0.0F, front}, {kRoadRight, 0.0F, kKerbZ}, {kRoadLeft, 0.0F, kKerbZ}}},
+        kRoadColour);
     const auto [ox0, ox1, oz, top] = kOccluder;
     add_screen_quad(&quads, view, {{{ox0, 0.0F, oz}, {ox1, 0.0F, oz}, {ox1, top, oz}, {ox0, top, oz}}}, kWallColour);
     gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quads.size() / 3), quads.data(),
@@ -794,14 +881,21 @@ struct Ray {
     Vec3 direction{};
 };
 
-Ray ray_through(const render::rt::ViewDrawn& view, uint32_t column, uint32_t row)
+struct Pixel {
+    uint32_t column = 0;
+    uint32_t row = 0;
+};
+
+Ray ray_through(const render::rt::ViewDrawn& view, const Pixel& pixel)
 {
+    const uint32_t column = pixel.column;
+    const uint32_t row = pixel.row;
     vk::Float4x4 camera{};
     vk::Float4x4 projection{};
     for (std::size_t line = 0; line < 4; ++line) {
-        for (std::size_t c = 0; c < 4; ++c) {
-            core::at(camera, (line * 4) + c) = core::at(core::at(view.camera.view, line), c);
-            core::at(projection, (line * 4) + c) = core::at(core::at(view.camera.projection, line), c);
+        for (std::size_t column_of = 0; column_of < 4; ++column_of) {
+            core::at(camera, (line * 4) + column_of) = core::at(core::at(view.camera.view, line), column_of);
+            core::at(projection, (line * 4) + column_of) = core::at(core::at(view.camera.projection, line), column_of);
         }
     }
     const vk::Float4x4 view_projection = vk::motion_multiply(camera, projection);
@@ -827,7 +921,7 @@ Ray ray_through(const render::rt::ViewDrawn& view, uint32_t column, uint32_t row
 // Where the ray reaches the height (x, z), if it does.
 std::optional<std::array<float, 2>> at_height(const Ray& ray, float height)
 {
-    if (std::abs(core::at(ray.direction, 1)) < 1.0e-9F) {
+    if (std::abs(core::at(ray.direction, 1)) < kTinyDirection) {
         return std::nullopt;
     }
     const float along = (height - core::at(ray.origin, 1)) / core::at(ray.direction, 1);
@@ -842,7 +936,7 @@ std::optional<std::array<float, 2>> at_height(const Ray& ray, float height)
 bool behind_wall(const Ray& ray, float margin)
 {
     const auto [ox0, ox1, oz, top] = kOccluder;
-    if (std::abs(core::at(ray.direction, 2)) < 1.0e-9F) {
+    if (std::abs(core::at(ray.direction, 2)) < kTinyDirection) {
         return false;
     }
     const float along = (oz - core::at(ray.origin, 2)) / core::at(ray.direction, 2);
@@ -862,25 +956,89 @@ bool changed(const std::array<float, 3>& before, const std::array<float, 3>& aft
            std::abs(core::at(before, 2) - core::at(after, 2)) > kSame;
 }
 
-bool finite(const std::array<float, 3>& c)
+bool finite(const std::array<float, 3>& colour)
 {
-    return std::isfinite(core::at(c, 0)) && std::isfinite(core::at(c, 1)) && std::isfinite(core::at(c, 2));
+    return std::isfinite(core::at(colour, 0)) && std::isfinite(core::at(colour, 1)) &&
+           std::isfinite(core::at(colour, 2));
 }
 
 // The road alone, as faces (its decals at `height`: 0 on it, else over nothing).
 std::vector<scatter::Face> road_faces(float height)
 {
     std::vector<scatter::Face> faces;
-    for (float x = kRoadLeft; x < kRoadRight; x += kRoadCell) {
-        for (float z = kRoadNear; z < kKerbZ; z += kRoadCell) {
-            add_flat(&faces, {x, x + kRoadCell, z, z + kRoadCell}, height, scatter::Surface::kAsphalt);
-        }
-    }
+    add_road(&faces, height, false);
     return faces;
 }
 
 // (a decal at a wall's foot may take the wall's lowest pixels: its match along the view - vulkan_scatter.h)
 constexpr float kWallFoot = 3.0F;
+
+// What the decals' pass did wrong at pixels: marks, lighter channels, marks outside a decal, behind the wall, not finite.
+struct MarkFaults {
+    int moved = 0;
+    int lighter = 0;
+    int stray = 0;
+    int hidden = 0;
+    int bad = 0;
+};
+
+// The ground under a pixel and how much of it the pixel spans (a far pixel spans much).
+struct Footprint {
+    std::optional<std::array<float, 2>> ground;
+    float spread = 0.0F;
+};
+Footprint footprint_of(const render::rt::ViewDrawn& view, const Pixel& pixel)
+{
+    Footprint out;
+    out.ground = at_height(ray_through(view, pixel), 0.0F);
+    for (const Pixel& next :
+         {Pixel{.column = pixel.column + 1, .row = pixel.row}, Pixel{.column = pixel.column, .row = pixel.row + 1}}) {
+        const std::optional<std::array<float, 2>> other = at_height(ray_through(view, next), 0.0F);
+        if (out.ground && other) {
+            out.spread += std::hypot(core::at(*other, 0) - core::at(*out.ground, 0),
+                                     core::at(*other, 1) - core::at(*out.ground, 1));
+        }
+    }
+    return out;
+}
+
+bool within_a_decal(const scatter::Scatter& made, const Footprint& footprint)
+{
+    if (!footprint.ground) {
+        return false;
+    }
+    return std::ranges::any_of(made.decals, [&footprint](const scatter::Decal& decal) {
+        const float dx = core::at(*footprint.ground, 0) - core::at(decal.centre, 0);
+        const float dz = core::at(*footprint.ground, 1) - core::at(decal.centre, 2);
+        const float half_diagonal = kHalf * std::sqrt((core::at(decal.size, 0) * core::at(decal.size, 0)) +
+                                                      (core::at(decal.size, 1) * core::at(decal.size, 1)));
+        const float reach = half_diagonal + kFootprintSlack + footprint.spread;
+        return (dx * dx) + (dz * dz) <= reach * reach;
+    });
+}
+
+// A pixel before and after the pass.
+struct Seen {
+    std::array<float, 3> was{};
+    std::array<float, 3> now{};
+};
+
+void judge_mark(const render::rt::ViewDrawn& view, const scatter::Scatter& made, const Pixel& pixel, const Seen& seen,
+                MarkFaults* faults)
+{
+    faults->bad += finite(seen.now) ? 0 : 1;
+    if (!changed(seen.was, seen.now)) {
+        return;
+    }
+    ++faults->moved;
+    for (std::size_t channel = 0; channel < kChannels; ++channel) {
+        faults->lighter += core::at(seen.now, channel) > core::at(seen.was, channel) + kDarkerSlack ? 1 : 0;
+    }
+    const Ray ray = ray_through(view, pixel);
+    faults->hidden += behind_wall(ray, -kWallFoot) ? 1 : 0;
+    // (the wall's foot: counted as hidden above)
+    faults->stray += within_a_decal(made, footprint_of(view, pixel)) || behind_wall(ray, kWallFoot) ? 0 : 1;
+}
 
 // The decals' pass: only darker, only within decals' footprints over the road, none behind the wall.
 void check_decals(render::Gpu& gpu, Tally* tally)
@@ -896,67 +1054,32 @@ void check_decals(render::Gpu& gpu, Tally* tally)
     Picture before;
     run_frames(gpu, targets, view, 0);
     const bool read_before = read_picture(targets.colour, &before);
-    vk::set_scatter_settings({.decals = true, .decal_density = 4.0F, .clutter = false, .clutter_density = 1.0F});
+    vk::set_scatter_settings(
+        {.decals = true, .decal_density = kHighDensity, .clutter = false, .clutter_density = 1.0F});
     const std::vector<scatter::Face> faces = road_faces(0.0F);
-    const auto made = std::make_shared<scatter::Scatter>(
-        scatter::make_scatter({.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 4.0F, .clutter_density = 0.0F}));
+    const auto made = std::make_shared<scatter::Scatter>(scatter::make_scatter(
+        {.faces = faces, .rails = {}, .seed = kSeed, .decal_density = kHighDensity, .clutter_density = 0.0F}));
     vk::scatter_sink().set_scatter(made);
     const uint64_t passes = vk::decal_passes();
     run_frames(gpu, targets, view, 1);
     Picture after;
     const bool read_after = read_picture(targets.colour, &after);
-    tally->check(read_before && read_after && vk::decal_passes() == passes + 1,
-                 text::format("a pass recorded: %zu decals, %u vertices drawn", made->decals.size(),
-                              vk::decal_last_vertices()));
-    int moved = 0;
-    int lighter = 0;
-    int stray = 0;
-    int hidden = 0;
-    int bad = 0;
+    tally->check(
+        read_before && read_after && vk::decal_passes() == passes + 1,
+        text::format("a pass recorded: %zu decals, %u vertices drawn", made->decals.size(), vk::decal_last_vertices()));
+    MarkFaults marks;
     for (uint32_t row = 0; row < kHeight; ++row) {
         for (uint32_t column = 0; column < kWidth; ++column) {
             const std::size_t pixel = (static_cast<std::size_t>(row) * kWidth) + column;
-            const auto& was = core::at(before, pixel);
-            const auto& now = core::at(after, pixel);
-            bad += finite(now) ? 0 : 1;
-            if (!changed(was, now)) {
-                continue;
-            }
-            ++moved;
-            for (std::size_t c = 0; c < kChannels; ++c) {
-                lighter += core::at(now, c) > core::at(was, c) + 1.0e-3F ? 1 : 0;
-            }
-            const Ray ray = ray_through(view, column, row);
-            hidden += behind_wall(ray, -kWallFoot) ? 1 : 0;
-            const std::optional<std::array<float, 2>> ground = at_height(ray, 0.0F);
-            // (the pixel's own footprint on the ground: a far pixel spans much of it)
-            float spread = 0.0F;
-            for (const std::array<uint32_t, 2>& next : {std::array<uint32_t, 2>{column + 1, row},
-                                                        std::array<uint32_t, 2>{column, row + 1}}) {
-                const std::optional<std::array<float, 2>> other =
-                    at_height(ray_through(view, core::at(next, 0), core::at(next, 1)), 0.0F);
-                if (ground && other) {
-                    spread += std::hypot(core::at(*other, 0) - core::at(*ground, 0),
-                                         core::at(*other, 1) - core::at(*ground, 1));
-                }
-            }
-            bool within = false;
-            if (ground) {
-                for (const scatter::Decal& decal : made->decals) {
-                    const float dx = core::at(*ground, 0) - core::at(decal.centre, 0);
-                    const float dz = core::at(*ground, 1) - core::at(decal.centre, 2);
-                    const float reach = kHalf * std::sqrt((core::at(decal.size, 0) * core::at(decal.size, 0)) +
-                                                          (core::at(decal.size, 1) * core::at(decal.size, 1))) +
-                                        4.0F + spread;
-                    if ((dx * dx) + (dz * dz) <= reach * reach) {
-                        within = true;
-                        break;
-                    }
-                }
-            }
-            stray += within || behind_wall(ray, kWallFoot) ? 0 : 1; // (the wall's foot: counted above)
+            judge_mark(view, *made, {.column = column, .row = row},
+                       {.was = core::at(before, pixel), .now = core::at(after, pixel)}, &marks);
         }
     }
+    const int moved = marks.moved;
+    const int lighter = marks.lighter;
+    const int stray = marks.stray;
+    const int hidden = marks.hidden;
+    const int bad = marks.bad;
     constexpr int kLeastMoved = 300;
     dump_ppm("decals.ppm", kWidth, kHeight, after);
     tally->check(moved > kLeastMoved && lighter == 0 && bad == 0,
@@ -966,15 +1089,15 @@ void check_decals(render::Gpu& gpu, Tally* tally)
                  text::format("marks only within a decal's footprint on the road (%d stray), none behind the wall (%d)",
                               stray, hidden));
     // the same picture from a new scatter of the same faces
-    vk::scatter_sink().set_scatter(std::make_shared<scatter::Scatter>(
-        scatter::make_scatter({.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 4.0F, .clutter_density = 0.0F})));
+    vk::scatter_sink().set_scatter(std::make_shared<scatter::Scatter>(scatter::make_scatter(
+        {.faces = faces, .rails = {}, .seed = kSeed, .decal_density = kHighDensity, .clutter_density = 0.0F})));
     run_frames(gpu, targets, view, 1);
     Picture again;
     tally->check(read_picture(targets.colour, &again) && again == after, "the same picture again from a new scatter");
     // decals over nothing (30 units above the drawn road): no mark
-    const std::vector<scatter::Face> floating = road_faces(30.0F);
+    const std::vector<scatter::Face> floating = road_faces(kFloating);
     vk::scatter_sink().set_scatter(std::make_shared<scatter::Scatter>(scatter::make_scatter(
-        {.faces = floating, .rails = {}, .seed = kSeed, .decal_density = 4.0F, .clutter_density = 0.0F})));
+        {.faces = floating, .rails = {}, .seed = kSeed, .decal_density = kHighDensity, .clutter_density = 0.0F})));
     run_frames(gpu, targets, view, 1);
     Picture over;
     int over_moved = 0;
@@ -984,7 +1107,7 @@ void check_decals(render::Gpu& gpu, Tally* tally)
                 const std::size_t pixel = (static_cast<std::size_t>(row) * kWidth) + column;
                 // (the wall stands through their plane: where it crosses it, it may be marked)
                 if (changed(core::at(before, pixel), core::at(over, pixel)) &&
-                    !behind_wall(ray_through(view, column, row), kWallFoot)) {
+                    !behind_wall(ray_through(view, {.column = column, .row = row}), kWallFoot)) {
                     ++over_moved;
                 }
             }
@@ -1010,11 +1133,12 @@ void check_clutter(render::Gpu& gpu, Tally* tally)
     Picture before;
     run_frames(gpu, targets, view, 0);
     const bool read_before = read_picture(targets.colour, &before);
-    vk::set_scatter_settings({.decals = false, .decal_density = 1.0F, .clutter = true, .clutter_density = 4.0F});
+    vk::set_scatter_settings(
+        {.decals = false, .decal_density = 1.0F, .clutter = true, .clutter_density = kHighDensity});
     std::vector<scatter::Face> faces = road_faces(0.0F);
     add_wall_x(&faces, {kRoadLeft, kRoadRight}, kKerbZ, 0.0F, kKerbHeight, scatter::Surface::kConcrete);
-    const auto made = std::make_shared<scatter::Scatter>(
-        scatter::make_scatter({.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 0.0F, .clutter_density = 4.0F}));
+    const auto made = std::make_shared<scatter::Scatter>(scatter::make_scatter(
+        {.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 0.0F, .clutter_density = kHighDensity}));
     vk::scatter_sink().set_scatter(made);
     const uint64_t passes = vk::clutter_passes();
     run_frames(gpu, targets, view, kLearningPasses);
@@ -1036,7 +1160,7 @@ void check_clutter(render::Gpu& gpu, Tally* tally)
                 continue;
             }
             ++moved;
-            const Ray ray = ray_through(view, column, row);
+            const Ray ray = ray_through(view, {.column = column, .row = row});
             bool near_kerb = false;
             constexpr int kSteps = 12;
             for (int step = 0; step <= kSteps && !near_kerb; ++step) {
@@ -1049,11 +1173,11 @@ void check_clutter(render::Gpu& gpu, Tally* tally)
         }
     }
     dump_ppm("clutter.ppm", kWidth, kHeight, after);
-    tally->check(moved > 50 && stray == 0 && bad == 0,
+    tally->check(moved > kLeastItemPixels && stray == 0 && bad == 0,
                  text::format("%d pixels show items, all along the kerb's foot (%d stray), all finite (%d not)", moved,
                               stray, bad));
-    vk::scatter_sink().set_scatter(std::make_shared<scatter::Scatter>(
-        scatter::make_scatter({.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 0.0F, .clutter_density = 4.0F})));
+    vk::scatter_sink().set_scatter(std::make_shared<scatter::Scatter>(scatter::make_scatter(
+        {.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 0.0F, .clutter_density = kHighDensity})));
     run_frames(gpu, targets, view, kLearningPasses);
     Picture again;
     tally->check(read_picture(targets.colour, &again) && again == after, "the same picture again from a new scatter");
@@ -1067,16 +1191,16 @@ void add_decal_quad(scatter::Scatter* made, scatter::DecalKind kind, const std::
     constexpr uint32_t kFarFade = 255U << 16U;
     const uint32_t packed = static_cast<uint32_t>(kind) | kOpaque | kFarFade;
     const auto [x0, x1, z0, z1] = area;
-    const uint32_t first = static_cast<uint32_t>(made->decal_vertices.size());
-    const std::array<std::array<float, 4>, 6> corners{{{x0, z0, 0.0F, 0.0F},
-                                                       {x1, z0, 1.0F, 0.0F},
-                                                       {x1, z1, 1.0F, 1.0F},
-                                                       {x0, z0, 0.0F, 0.0F},
-                                                       {x1, z1, 1.0F, 1.0F},
-                                                       {x0, z1, 0.0F, 1.0F}}};
-    for (const auto& c : corners) {
-        made->decal_vertices.push_back({.position = {core::at(c, 0), 0.0F, core::at(c, 1)},
-                                        .uv = {core::at(c, 2), core::at(c, 3)},
+    const auto first = static_cast<uint32_t>(made->decal_vertices.size());
+    const std::array<std::array<float, 4>, kQuadVertices> corners{{{x0, z0, 0.0F, 0.0F},
+                                                                   {x1, z0, 1.0F, 0.0F},
+                                                                   {x1, z1, 1.0F, 1.0F},
+                                                                   {x0, z0, 0.0F, 0.0F},
+                                                                   {x1, z1, 1.0F, 1.0F},
+                                                                   {x0, z1, 0.0F, 1.0F}}};
+    for (const auto& corner : corners) {
+        made->decal_vertices.push_back({.position = {core::at(corner, 0), 0.0F, core::at(corner, 1)},
+                                        .uv = {core::at(corner, 2), core::at(corner, 3)},
                                         .packed = packed});
     }
     made->decals.push_back({.centre = {(x0 + x1) * kHalf, 0.0F, (z0 + z1) * kHalf},
@@ -1086,7 +1210,7 @@ void add_decal_quad(scatter::Scatter* made, scatter::DecalKind kind, const std::
                             .size = {x1 - x0, z1 - z0},
                             .face = 0,
                             .first_vertex = first,
-                            .vertex_count = 6});
+                            .vertex_count = kQuadVertices});
     ++core::at(made->decals_of, static_cast<std::size_t>(kind));
     made->decal_density = 1.0F;
 }
@@ -1103,13 +1227,11 @@ void check_puddles(render::Gpu& gpu, Tally* tally)
     }
     const render::rt::ViewDrawn view = view_of({.eye = kEye, .at = kLookAt});
     const Targets targets = make_targets(gpu, 0);
-    constexpr std::array<float, 4> kPuddle{-420.0F, -180.0F, 260.0F, 400.0F}; // (beside the wall, not behind it)
-    constexpr std::array<float, 4> kStain{200.0F, 320.0F, 300.0F, 400.0F};
     auto made = std::make_shared<scatter::Scatter>();
     add_decal_quad(made.get(), scatter::DecalKind::kWet, kPuddle);
     add_decal_quad(made.get(), scatter::DecalKind::kStain, kStain);
-    made->tiles.push_back({.low = {-420.0F, 0.0F, 260.0F},
-                           .high = {320.0F, 0.0F, 400.0F},
+    made->tiles.push_back({.low = {core::at(kPuddle, 0), 0.0F, core::at(kPuddle, 2)},
+                           .high = {core::at(kStain, 1), 0.0F, core::at(kStain, 3)},
                            .first_vertex = 0,
                            .vertex_count = static_cast<uint32_t>(made->decal_vertices.size()),
                            .first_item = 0,
@@ -1133,7 +1255,8 @@ void check_puddles(render::Gpu& gpu, Tally* tally)
         std::vector<std::array<float, 3>> shown(static_cast<std::size_t>(kWidth) * kHeight);
         for (uint32_t row = 0; row < kHeight; ++row) {
             for (uint32_t column = 0; column < kWidth; ++column) {
-                const float w = static_cast<float>(core::at(wet, (static_cast<std::size_t>(row) * wet_width) + column)) / 255.0F;
+                const float w =
+                    static_cast<float>(core::at(wet, (static_cast<std::size_t>(row) * wet_width) + column)) / 255.0F;
                 core::at(shown, (static_cast<std::size_t>(row) * kWidth) + column) = {w, w, w};
             }
         }
@@ -1151,11 +1274,12 @@ void check_puddles(render::Gpu& gpu, Tally* tally)
                 continue;
             }
             ++wet_pixels;
-            const std::optional<std::array<float, 2>> at = at_height(ray_through(view, column, row), 0.0F);
-            stray += at && inside(core::at(*at, 0), core::at(*at, 1), kPuddle, 8.0F) ? 0 : 1;
+            const std::optional<std::array<float, 2>> at =
+                at_height(ray_through(view, {.column = column, .row = row}), 0.0F);
+            stray += at && inside(core::at(*at, 0), core::at(*at, 1), kPuddle, kPuddleMargin) ? 0 : 1;
         }
     }
-    tally->check(vk::wet_masks_drawn() == masks + 1 && read && wet_pixels > 100 && stray == 0,
+    tally->check(vk::wet_masks_drawn() == masks + 1 && read && wet_pixels > kLeastWetPixels && stray == 0,
                  text::format("rt_reflections on: the wet mask drawn - %d wet pixels, all over the puddle (%d not; the "
                               "stain beside it none)",
                               wet_pixels, stray));
@@ -1179,11 +1303,12 @@ void check_multisampled(render::Gpu& gpu, Tally* tally)
         release(gpu, targets);
         return;
     }
-    vk::set_scatter_settings({.decals = true, .decal_density = 2.0F, .clutter = true, .clutter_density = 2.0F});
+    vk::set_scatter_settings(
+        {.decals = true, .decal_density = kMidDensity, .clutter = true, .clutter_density = kMidDensity});
     std::vector<scatter::Face> faces = road_faces(0.0F);
     add_wall_x(&faces, {kRoadLeft, kRoadRight}, kKerbZ, 0.0F, kKerbHeight, scatter::Surface::kConcrete);
-    vk::scatter_sink().set_scatter(std::make_shared<scatter::Scatter>(
-        scatter::make_scatter({.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 2.0F, .clutter_density = 2.0F})));
+    vk::scatter_sink().set_scatter(std::make_shared<scatter::Scatter>(scatter::make_scatter(
+        {.faces = faces, .rails = {}, .seed = kSeed, .decal_density = kMidDensity, .clutter_density = kMidDensity})));
     const uint64_t decals = vk::decal_passes();
     const uint64_t clutter = vk::clutter_passes();
     run_frames(gpu, targets, view_of({.eye = kEye, .at = kLookAt}), 2);
@@ -1201,11 +1326,12 @@ void check_off(render::Gpu& gpu, Tally* tally)
     Picture first;
     run_frames(gpu, targets, view, 1);
     const bool read_first = read_picture(targets.colour, &first);
-    vk::set_scatter_settings({.decals = true, .decal_density = 4.0F, .clutter = true, .clutter_density = 4.0F});
+    vk::set_scatter_settings(
+        {.decals = true, .decal_density = kHighDensity, .clutter = true, .clutter_density = kHighDensity});
     std::vector<scatter::Face> faces = road_faces(0.0F);
     add_wall_x(&faces, {kRoadLeft, kRoadRight}, kKerbZ, 0.0F, kKerbHeight, scatter::Surface::kConcrete);
-    vk::scatter_sink().set_scatter(std::make_shared<scatter::Scatter>(
-        scatter::make_scatter({.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 4.0F, .clutter_density = 4.0F})));
+    vk::scatter_sink().set_scatter(std::make_shared<scatter::Scatter>(scatter::make_scatter(
+        {.faces = faces, .rails = {}, .seed = kSeed, .decal_density = kHighDensity, .clutter_density = kHighDensity})));
     run_frames(gpu, targets, view, 2);
     Picture on;
     const bool read_on = read_picture(targets.colour, &on);
@@ -1232,8 +1358,8 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
     vk::set_scatter_settings({.decals = true, .decal_density = 1.0F, .clutter = true, .clutter_density = 1.0F});
     std::vector<scatter::Face> faces = road_faces(0.0F);
     add_wall_x(&faces, {kRoadLeft, kRoadRight}, kKerbZ, 0.0F, kKerbHeight, scatter::Surface::kConcrete);
-    const auto made = std::make_shared<scatter::Scatter>(
-        scatter::make_scatter({.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 1.0F, .clutter_density = 1.0F}));
+    const auto made = std::make_shared<scatter::Scatter>(scatter::make_scatter(
+        {.faces = faces, .rails = {}, .seed = kSeed, .decal_density = 1.0F, .clutter_density = 1.0F}));
     vk::scatter_sink().set_scatter(made);
     vk::Backend& state = vk::backend();
     VkPhysicalDeviceProperties properties{};
@@ -1254,8 +1380,8 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
     }
     const Targets targets = make_targets(gpu, 0, kBigWidth, kBigHeight);
     if (targets.colour != nullptr && targets.depth != nullptr) {
-        const render::rt::ViewDrawn view =
-            view_of({.eye = {0.0F, 70.0F, 300.0F}, .at = {0.0F, 0.0F, 800.0F}, .width = kBigWidth, .height = kBigHeight});
+        const render::rt::ViewDrawn view = view_of(
+            {.eye = {0.0F, 70.0F, 300.0F}, .at = {0.0F, 0.0F, 800.0F}, .width = kBigWidth, .height = kBigHeight});
         run_frames(gpu, targets, view, kLearningPasses);
         gpu.begin_scene();
         gpu.set_render_target(0, targets.colour);
@@ -1282,7 +1408,8 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
         gpu.set_depth_surface(nullptr);
         gpu.end_scene();
         const double each = static_cast<double>(core::at(stamps, 1) - core::at(stamps, 0)) *
-                            static_cast<double>(properties.limits.timestampPeriod) / kNanosecondsPerMillisecond / kTimed;
+                            static_cast<double>(properties.limits.timestampPeriod) / kNanosecondsPerMillisecond /
+                            kTimed;
         text::print("the cost: %.3f ms for both passes at %ux%u (%u decal vertices, %u items; density 1, a street at a "
                     "skater's eye)\n",
                     each, kBigWidth, kBigHeight, vk::decal_last_vertices(), vk::clutter_last_items());
@@ -1323,7 +1450,8 @@ bool open_device(const Options& options, SDL_Window* window)
         return false;
     }
     const vk::Backend& state = vk::backend();
-    text::print("validation layer: %s\n", state.context.validation_on() ? "on" : "off (not installed, or not asked for)");
+    text::print("validation layer: %s\n",
+                state.context.validation_on() ? "on" : "off (not installed, or not asked for)");
     context.configure({.width = kWindowWidth,
                        .height = kWindowHeight,
                        .windowed = true,
@@ -1346,6 +1474,7 @@ bool open_device(const Options& options, SDL_Window* window)
 
 int run(const Options& options, SDL_Window* window)
 {
+    dump_folder() = std::string(options.dump);
     Tally tally;
     check_placement(&tally);
     if (!open_device(options, window)) {
@@ -1371,12 +1500,9 @@ int main(int argc, char** argv)
 {
     tests::no_error_dialogs();
     const Options options = read_options(std::span(argv, static_cast<size_t>(argc)));
-    dump_folder() = options.dump;
     text::print("thug2_vulkan_scatter_check: a %d-bit process\n", static_cast<int>(sizeof(void*)) * kBitsPerByte);
     // (the placement needs no device)
     if (!vk::open_loader()) {
-        Tally tally;
-        check_placement(&tally);
         text::print("no Vulkan loader (vulkan-1.dll) for this process\n");
         return 2;
     }

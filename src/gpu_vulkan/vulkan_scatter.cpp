@@ -52,14 +52,15 @@ constexpr uint64_t kReportFirstClutter = 0x53435407U;
 constexpr uint32_t kGroupSize = 64;
 constexpr VkShaderStageFlags kStages =
     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
-constexpr uint32_t kBindingDecals = 0;  // the decals' vertices (storage)
-constexpr uint32_t kBindingItems = 1;   // the clutter's items (storage)
-constexpr uint32_t kBindingLights = 2;  // the items' ground light (storage: two uints an item - half floats r g, b known)
-constexpr uint32_t kBindingMeshes = 3;  // the clutter's meshes (storage)
-constexpr uint32_t kBindingParams = 4;  // the view's block (uniform, in the ring)
-constexpr uint32_t kBindingAtlas = 5;   // the decals' atlas (sampled, mipmapped)
-constexpr uint32_t kBindingSource = 6;  // the viewport's colour copied out (sampled)
-constexpr uint32_t kBindingDepth = 7;   // the depth (sampled)
+constexpr uint32_t kBindingDecals = 0; // the decals' vertices (storage)
+constexpr uint32_t kBindingItems = 1;  // the clutter's items (storage)
+constexpr uint32_t kBindingLights =
+    2; // the items' ground light (storage: two uints an item - half floats r g, b known)
+constexpr uint32_t kBindingMeshes = 3; // the clutter's meshes (storage)
+constexpr uint32_t kBindingParams = 4; // the view's block (uniform, in the ring)
+constexpr uint32_t kBindingAtlas = 5;  // the decals' atlas (sampled, mipmapped)
+constexpr uint32_t kBindingSource = 6; // the viewport's colour copied out (sampled)
+constexpr uint32_t kBindingDepth = 7;  // the depth (sampled)
 constexpr uint32_t kBindingCount = 8;
 constexpr std::size_t kLightBytes = 8;
 constexpr float kRanks = 256.0F;
@@ -417,13 +418,13 @@ struct ScatterState {
     VkSampler linear = VK_NULL_HANDLE;
     std::array<VkPipeline, 2> gather{}; // single-sampled depth, multisampled
     VkShaderModule decal_vertex = VK_NULL_HANDLE;
-    std::array<VkShaderModule, 2> decal_fragment{}; // single-sampled depth, multisampled
+    std::array<VkShaderModule, 2> decal_fragment{};     // single-sampled depth, multisampled
     VkShaderModule decal_fragment_wet = VK_NULL_HANDLE; // single-sampled, with the wet mask (WET)
     Image wet;                                          // the puddles' wet mask (R8, the colour's size)
     uint64_t wet_serial = 0;                            // the frame it was drawn in ...
     std::array<uint32_t, 4> wet_rect{};                 // ... and for which viewport
     uint64_t wet_drawn = 0;
-    std::array<VkShaderModule, 2> item_vertex{};    // without, with motion
+    std::array<VkShaderModule, 2> item_vertex{}; // without, with motion
     std::array<VkShaderModule, 2> item_fragment{};
     std::vector<DrawPipeline> draws;
     bool failed = false;
@@ -508,8 +509,10 @@ ScatterSink& sink_instance()
 
 float smoothstep(float low, float high, float value)
 {
+    constexpr float kThree = 3.0F;
+    constexpr float kTwo = 2.0F;
     const float along = std::clamp((value - low) / (high - low), 0.0F, 1.0F);
-    return along * along * (3.0F - (2.0F * along));
+    return along * along * (kThree - (kTwo * along));
 }
 
 } // namespace
@@ -581,12 +584,23 @@ float clutter_keep(const ScatterView& view, float distance)
     return keep * view.keep_scale;
 }
 
-float clutter_fade(float distance) { return 1.0F - smoothstep(kClutterFadeStart * kClutterDistance, kClutterDistance, distance); }
-
-float decal_fade(float distance, float fade_units)
+float clutter_fade(float distance)
 {
-    const float own = std::min(fade_units, kDecalDistance);
-    return 1.0F - smoothstep(kDecalFadeStart * own, own, distance);
+    return 1.0F - smoothstep(kClutterFadeStart * kClutterDistance, kClutterDistance, distance);
+}
+
+float decal_fade(const scatter::DecalVertex& vertex, const std::array<float, 3>& camera)
+{
+    constexpr uint32_t kFadeShift = 16;
+    const float own = std::min(static_cast<float>((vertex.packed >> kFadeShift) & kByte) *
+                                   static_cast<float>(scatter::kDecalFadeUnits),
+                               kDecalDistance);
+    float sum = 0.0F;
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        const float apart = core::at(vertex.position, axis) - core::at(camera, axis);
+        sum += apart * apart;
+    }
+    return 1.0F - smoothstep(kDecalFadeStart * own, own, std::sqrt(sum));
 }
 
 namespace {
@@ -857,14 +871,15 @@ bool ensure_objects(Backend& state, std::string* error)
     for (std::size_t variant = 0; variant < 2; ++variant) {
         const char* samples = variant == 1 ? "MULTISAMPLED" : nullptr;
         if (core::at(own.gather, variant) == VK_NULL_HANDLE) {
-            core::at(own.gather, variant) = make_compute(device, own.layout, source_of(kGatherBody, true, true, samples), error);
+            core::at(own.gather, variant) =
+                make_compute(device, own.layout, source_of(kGatherBody, true, true, samples), error);
             if (core::at(own.gather, variant) == VK_NULL_HANDLE) {
                 return false;
             }
         }
         if (core::at(own.decal_fragment, variant) == VK_NULL_HANDLE) {
-            core::at(own.decal_fragment, variant) =
-                make_module(device, RtShaderStage::kFragment, source_of(kDecalFragmentBody, false, false, samples), error);
+            core::at(own.decal_fragment, variant) = make_module(
+                device, RtShaderStage::kFragment, source_of(kDecalFragmentBody, false, false, samples), error);
             if (core::at(own.decal_fragment, variant) == VK_NULL_HANDLE) {
                 return false;
             }
@@ -878,7 +893,8 @@ bool ensure_objects(Backend& state, std::string* error)
         }
     }
     if (own.decal_vertex == VK_NULL_HANDLE) {
-        own.decal_vertex = make_module(device, RtShaderStage::kVertex, source_of(kDecalVertexBody, false, false, nullptr), error);
+        own.decal_vertex =
+            make_module(device, RtShaderStage::kVertex, source_of(kDecalVertexBody, false, false, nullptr), error);
         if (own.decal_vertex == VK_NULL_HANDLE) {
             return false;
         }
@@ -890,10 +906,11 @@ bool ensure_objects(Backend& state, std::string* error)
                 make_module(device, RtShaderStage::kVertex, source_of(kItemVertexBody, true, false, motion), error);
         }
         if (core::at(own.item_fragment, variant) == VK_NULL_HANDLE) {
-            core::at(own.item_fragment, variant) =
-                make_module(device, RtShaderStage::kFragment, source_of(kItemFragmentBody, false, false, motion), error);
+            core::at(own.item_fragment, variant) = make_module(
+                device, RtShaderStage::kFragment, source_of(kItemFragmentBody, false, false, motion), error);
         }
-        if (core::at(own.item_vertex, variant) == VK_NULL_HANDLE || core::at(own.item_fragment, variant) == VK_NULL_HANDLE) {
+        if (core::at(own.item_vertex, variant) == VK_NULL_HANDLE ||
+            core::at(own.item_fragment, variant) == VK_NULL_HANDLE) {
             return false;
         }
     }
@@ -914,6 +931,10 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     }
     const bool multisampled = wanted.samples != VK_SAMPLE_COUNT_1_BIT;
     const std::size_t variant = wanted.motion ? 1 : 0;
+    VkShaderModule fragment = core::at(own.item_fragment, variant);
+    if (wanted.decals) {
+        fragment = wanted.motion ? own.decal_fragment_wet : core::at(own.decal_fragment, multisampled ? 1 : 0);
+    }
     const std::array<VkPipelineShaderStageCreateInfo, 2> stages{{
         {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
          .pNext = nullptr,
@@ -926,8 +947,7 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
          .pNext = nullptr,
          .flags = 0,
          .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-         .module = !wanted.decals ? core::at(own.item_fragment, variant)
-                                  : (wanted.motion ? own.decal_fragment_wet : core::at(own.decal_fragment, multisampled ? 1 : 0)),
+         .module = fragment,
          .pName = "main",
          .pSpecializationInfo = nullptr},
     }};
@@ -1077,8 +1097,10 @@ bool ensure_wet(Backend& state, const Image& colour)
 }
 
 // The next mip level (RGBA8 rows): each channel the mean of the 2 x 2 above it.
-std::vector<uint8_t> next_level(std::span<const uint8_t> texels, uint32_t width, uint32_t height)
+std::vector<uint8_t> next_level(std::span<const uint8_t> texels, const Extent& size)
 {
+    const uint32_t width = size.width;
+    const uint32_t height = size.height;
     const uint32_t down_w = std::max(1U, width / 2);
     const uint32_t down_h = std::max(1U, height / 2);
     std::vector<uint8_t> out(static_cast<std::size_t>(down_w) * down_h * kTexel);
@@ -1108,7 +1130,7 @@ bool ensure_atlas(Backend& state)
     if (own.atlas.image != VK_NULL_HANDLE) {
         return true;
     }
-    const uint32_t levels = static_cast<uint32_t>(std::bit_width(scatter::kDecalTile));
+    const auto levels = static_cast<uint32_t>(std::bit_width(scatter::kDecalTile));
     const ImageRequest request{.format = VK_FORMAT_R8G8B8A8_UNORM,
                                .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
                                .extent = {.width = scatter::kAtlasWidth, .height = scatter::kAtlasHeight},
@@ -1136,7 +1158,7 @@ bool ensure_atlas(Backend& state)
                            .imageExtent = {.width = width, .height = height, .depth = 1}});
         all.insert(all.end(), level.begin(), level.end());
         if (index + 1 < levels) {
-            level = next_level(level, width, height);
+            level = next_level(level, {.width = width, .height = height});
             width = std::max(1U, width / 2);
             height = std::max(1U, height / 2);
         }
@@ -1267,7 +1289,8 @@ std::array<uint32_t, 4> clip_rect(const std::array<uint32_t, 4>& rect, const Ext
 {
     const uint32_t left = std::min(core::at(rect, 0), extent.width);
     const uint32_t top = std::min(core::at(rect, 1), extent.height);
-    return {left, top, std::min(core::at(rect, 2), extent.width - left), std::min(core::at(rect, 3), extent.height - top)};
+    return {left, top, std::min(core::at(rect, 2), extent.width - left),
+            std::min(core::at(rect, 3), extent.height - top)};
 }
 
 Float4x4 flat(const std::array<std::array<float, 4>, 4>& matrix)
@@ -1336,16 +1359,15 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
                       bool decals, const Image* depth)
 {
     const ScatterState& own = scatter_state();
-    const VkDescriptorBufferInfo decal_vertices{.buffer = own.decal_vertices.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+    const VkDescriptorBufferInfo decal_vertices{
+        .buffer = own.decal_vertices.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     const VkDescriptorBufferInfo items{.buffer = own.items.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     const VkDescriptorBufferInfo lights{.buffer = own.lights.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     const VkDescriptorBufferInfo meshes{.buffer = own.meshes.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
-    const VkDescriptorImageInfo atlas{.sampler = own.linear,
-                                      .imageView = own.atlas.view,
-                                      .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    const VkDescriptorImageInfo source{.sampler = own.nearest,
-                                       .imageView = own.source.view,
-                                       .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    const VkDescriptorImageInfo atlas{
+        .sampler = own.linear, .imageView = own.atlas.view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    const VkDescriptorImageInfo source{
+        .sampler = own.nearest, .imageView = own.source.view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     const VkDescriptorImageInfo depth_info{.sampler = own.nearest,
                                            .imageView = depth != nullptr ? depth->view : VK_NULL_HANDLE,
                                            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
@@ -1415,8 +1437,8 @@ void depth_barrier(VkCommandBuffer commands, Image* depth, bool to_read, VkPipel
         .subresourceRange =
             {.aspectMask = depth->aspect, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1},
     };
-    vkCmdPipelineBarrier(commands, to_read ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : reader, to_read ? reader : tests, 0, 0,
-                         nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(commands, to_read ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : reader, to_read ? reader : tests, 0,
+                         0, nullptr, 0, nullptr, 1, &barrier);
     depth->layout = layout;
 }
 
@@ -1433,13 +1455,19 @@ void copy_colour(VkCommandBuffer commands, Image* colour, const std::array<uint3
         .x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1)), .z = 0};
     const VkExtent3D size{.width = core::at(rect, 2), .height = core::at(rect, 3), .depth = 1};
     if (colour->samples == VK_SAMPLE_COUNT_1_BIT) {
-        const VkImageCopy region{
-            .srcSubresource = layers, .srcOffset = corner, .dstSubresource = layers, .dstOffset = corner, .extent = size};
+        const VkImageCopy region{.srcSubresource = layers,
+                                 .srcOffset = corner,
+                                 .dstSubresource = layers,
+                                 .dstOffset = corner,
+                                 .extent = size};
         vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.source.image,
                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     } else {
-        const VkImageResolve region{
-            .srcSubresource = layers, .srcOffset = corner, .dstSubresource = layers, .dstOffset = corner, .extent = size};
+        const VkImageResolve region{.srcSubresource = layers,
+                                    .srcOffset = corner,
+                                    .dstSubresource = layers,
+                                    .dstOffset = corner,
+                                    .extent = size};
         vkCmdResolveImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.source.image,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     }
@@ -1612,7 +1640,8 @@ bool record_decal_pass(Backend& state, const rt::ViewDrawn& view)
                   ensure_wet(state, *plan.colour);
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkDescriptorBufferInfo params{};
-    if (plan.draws.empty() || !pipeline_for(state, plan, true, &pipeline) || !params_in_ring(state, plan, view, &params)) {
+    if (plan.draws.empty() || !pipeline_for(state, plan, true, &pipeline) ||
+        !params_in_ring(state, plan, view, &params)) {
         return false;
     }
     VkCommandBuffer commands = outside_pass(state);
@@ -1662,7 +1691,8 @@ bool record_clutter_pass(Backend& state, const rt::ViewDrawn& view)
     if (!plan_targets(state, view, &plan)) {
         return false;
     }
-    plan.motion = motion_wanted(state, core::at(state.targets, 0), plan.colour) && state.motion.image.image != VK_NULL_HANDLE;
+    plan.motion =
+        motion_wanted(state, core::at(state.targets, 0), plan.colour) && state.motion.image.image != VK_NULL_HANDLE;
     plan.draws = plan_clutter_draws(*own.scatter, &plan.shape, &plan.count);
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkDescriptorBufferInfo params{};
@@ -1753,9 +1783,9 @@ void release_scatter(Backend& state)
             }
         }
         for (VkShaderModule module :
-             {own.decal_vertex, core::at(own.decal_fragment, 0), core::at(own.decal_fragment, 1), own.decal_fragment_wet,
-              core::at(own.item_vertex, 0), core::at(own.item_vertex, 1), core::at(own.item_fragment, 0),
-              core::at(own.item_fragment, 1)}) {
+             {own.decal_vertex, core::at(own.decal_fragment, 0), core::at(own.decal_fragment, 1),
+              own.decal_fragment_wet, core::at(own.item_vertex, 0), core::at(own.item_vertex, 1),
+              core::at(own.item_fragment, 0), core::at(own.item_fragment, 1)}) {
             if (module != VK_NULL_HANDLE) {
                 vkDestroyShaderModule(device, module, nullptr);
             }

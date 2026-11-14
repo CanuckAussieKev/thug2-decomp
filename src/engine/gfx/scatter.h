@@ -28,11 +28,13 @@
 //   - pebbles on dirt and gravel.
 //
 // Skate lines are kept clear (decals and clutter alike): nothing within kRampReach of a ramp, quarter pipe, bank or vert
-// face (a face neither flat nor a wall, or flagged vert), nothing within kDropReach of an edge that drops away (a ledge
+// face (a face neither flat nor a wall, or flagged vert - a slope of dirt, gravel or grass is a hillside, not a ramp),
+// nothing within kDropReach of an edge that drops away (a ledge
 // top, a stair tread, a kerb's top, a platform's edge), nothing within kRailReach of a grind rail (seen from above,
 // from kRailBelow under it to kRailAbove over it), nothing under anything (a face kCoverFloor - kCoverReach above it:
-// a ramp, a bench, a table), nothing on a raised platform (its ground ends in a drop within 160 units in at least six
-// of eight ways: a wide ledge's, a box's or a planter's top); clutter also never at the foot of stairs (a low rise with
+// a ramp, a bench, a table), nothing on a raised platform (the ground followed out from it - up slopes, down slopes -
+// ends in a drop of more than kDropDepth, or over nothing, within 160 units in at least six of eight ways: a wide
+// ledge's, a box's or a planter's top); clutter also never at the foot of stairs (a low rise with
 // another rise beyond it).
 // Steep faces get no ground decals and no clutter.
 
@@ -48,26 +50,26 @@ namespace render::scatter {
 
 using Vec3 = std::array<float, 3>;
 
-inline constexpr float kTileSize = 512.0F;  // a tile's side (world units: inches)
-inline constexpr float kFlatUp = 0.96F;     // ground: its normal's y at least this
-inline constexpr float kWallUp = 0.25F;     // a wall: its normal's y within this of level
-inline constexpr float kNearWall = 30.0F;   // leaves and litter this near a rise
-inline constexpr float kWeedReach = 8.0F;   // weeds this near a rise
-inline constexpr float kLeastRise = 3.0F;   // a rise (a kerb at least)
-inline constexpr float kLowRise = 12.0F;    // a rise lower than this may be a stair's riser
-inline constexpr float kStairLook = 20.0F;  // ... a stair when another rise is this near beyond its top
-inline constexpr float kRampReach = 40.0F;  // nothing this near a ramp, a quarter pipe, a bank, a vert face
-inline constexpr float kRampHeight = 48.0F; // (a ramp's part from just below to this far above the point)
-inline constexpr float kDropReach = 20.0F;  // nothing this near an edge that drops away
-inline constexpr float kDropDepth = 3.0F;   // (an edge drops at least this)
-inline constexpr float kRailReach = 30.0F;  // nothing this near a grind rail (across, seen from above) ...
-inline constexpr float kRailBelow = 12.0F;  // ... from this far below it ...
-inline constexpr float kRailAbove = 72.0F;  // ... to this far above it (a rail this high over the ground counts)
-inline constexpr float kCoverFloor = 0.5F;  // a face this far above a point (or more) and ...
+inline constexpr float kTileSize = 512.0F;   // a tile's side (world units: inches)
+inline constexpr float kFlatUp = 0.96F;      // ground: its normal's y at least this
+inline constexpr float kWallUp = 0.25F;      // a wall: its normal's y within this of level
+inline constexpr float kNearWall = 30.0F;    // leaves and litter this near a rise
+inline constexpr float kWeedReach = 8.0F;    // weeds this near a rise
+inline constexpr float kLeastRise = 3.0F;    // a rise (a kerb at least)
+inline constexpr float kLowRise = 12.0F;     // a rise lower than this may be a stair's riser
+inline constexpr float kStairLook = 20.0F;   // ... a stair when another rise is this near beyond its top
+inline constexpr float kRampReach = 40.0F;   // nothing this near a ramp, a quarter pipe, a bank, a vert face
+inline constexpr float kRampHeight = 48.0F;  // (a ramp's part from just below to this far above the point)
+inline constexpr float kDropReach = 20.0F;   // nothing this near an edge that drops away
+inline constexpr float kDropDepth = 3.0F;    // (an edge drops at least this)
+inline constexpr float kRailReach = 30.0F;   // nothing this near a grind rail (across, seen from above) ...
+inline constexpr float kRailBelow = 12.0F;   // ... from this far below it ...
+inline constexpr float kRailAbove = 72.0F;   // ... to this far above it (a rail this high over the ground counts)
+inline constexpr float kCoverFloor = 0.5F;   // a face this far above a point (or more) and ...
 inline constexpr float kCoverReach = 120.0F; // ... at most this far covers it
 inline constexpr float kLeastDensity = 0.1F;
 inline constexpr float kMostDensity = 4.0F;
-inline constexpr std::size_t kMostItems = 1000000;       // clutter (beyond: the density lowered, logged)
+inline constexpr std::size_t kMostItems = 1000000;         // clutter (beyond: the density lowered, logged)
 inline constexpr std::size_t kMostDecalVertices = 3000000; // decals' (beyond: no more decals, logged)
 
 // A collision face's surface, from its terrain.
@@ -190,8 +192,8 @@ struct Rejected {
 struct Scatter {
     uint64_t serial = 0; // a new number per scatter made
     uint32_t seed = 0;
-    float decal_density = 0.0F;   // what it was made at (0: no decals)
-    float clutter_density = 0.0F; // (0: no clutter)
+    float decal_density = 0.0F;              // what it was made at (0: no decals)
+    float clutter_density = 0.0F;            // (0: no clutter)
     std::vector<DecalVertex> decal_vertices; // triangle lists, by tile
     std::vector<Decal> decals;
     std::vector<Item> items; // by tile, each tile's in rank order

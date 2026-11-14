@@ -2417,6 +2417,108 @@ tracing needed; Direct3D 9 installs no `Sink` and draws none.
   each). Known: the blades' motion vectors carry the camera's motion, not the wind's sway (DLSS sees the sway as
   change); the grass is only where the collision says grass - a lawn painted on a face of another terrain gets none.
 
+### Decals and clutter (`rt_decals`, `clutter`)
+
+`engine/gfx/scatter.h` (the placement and the `Sink` contract), `engine/gfx/scatter_art.cpp` (the art),
+`render_pc/scatter_world` (the world read), `gpu_vulkan/vulkan_scatter` (the passes) - `[Graphics] rt_decals`,
+`rt_decals_density`, `clutter`, `clutter_density` (all off by default, all live; the Options screen's Surfaces group,
+after the grass, each density row shown only while its switch is on). No ray tracing needed; Direct3D 9 installs no
+`Sink` and draws none. Neither is ever in the acceleration structures; neither has collision.
+
+- **Where they go.** Read from the collision like the grass: every collidable face (not a trigger), its terrain's
+  surface (`scatter::surface_of_terrain`: ASPHALT asphalt; CONCSMOOTH, CONCROUGH, WETCONC and DEFAULT - the levels'
+  commonest, their concrete and paint - concrete; SIDEWALK, TILE paving; BRICK, ROCK brick; DIRT, DIRTPACKED, SAND dirt;
+  GRAVEL; GRASS, GRASSDRIED; the rest nothing), its vert flag and its shape by the game's winding
+  (`TriMeshSource::get_triangle_normal`'s (v2 - v0) x (v1 - v0)): ground (normal y >= 0.96), wall (|y| < 0.25), ramp
+  (between, or flagged vert; a slope of dirt, gravel or grass is a hillside, not a ramp), the rest (ceilings, steep
+  ground) nothing. The level's grind rails come through `render::GameHooks::level_rails` (the skate module's rail
+  manager; climbing nodes left out). Placed by hashes of each face's corners, the item's number and the level's checksum:
+  the same every run, whatever order the sectors load in; made again when the scenes, the rail count or a density change
+  (Boston: 26,049 faces, 1,024 rails, 66 - 108 ms at the load).
+- **Skate lines kept clear** (decals and clutter alike): nothing within 40 units of a ramp face (3D, from just below to
+  48 above the point), within 20 of an edge that drops 3 or more (a ledge's top, a step, a kerb's top, a platform's edge),
+  within 30 of a rail (seen from above, 12 below it to 72 over it), under anything 0.5 - 120 above, or on a raised
+  platform - the ground followed out in 8-unit steps (up and down slopes) ends in a drop or over nothing within 160 units
+  in six of eight ways (a wide ledge, a box, a planter). Clutter is also kept off the foot of stairs (a rise under 12
+  with another rise within 20 past its top).
+- **The decals.** Ground decals a square unit at density 1: asphalt 1.2e-4 (cracks 3, stains 2, oil 2, tyre marks 1.5,
+  wet 1.5 by weight), concrete 0.8e-4 (stains 3, cracks 2, gum 1.5, wet 1), paving 1e-4 (gum 3, stains 2, cracks 1),
+  brick 0.5e-4 (stains, a few cracks), dirt 0.3e-4 (wet only); nothing on gravel, grass, metal, wood, water, glass. A
+  wet patch stays only in a dip (eight points round it all there, none lower, one 0.25 higher) or in a gutter (a rise of
+  at most 10 within 14, on asphalt or concrete). Grime: at the foot of brick and concrete walls standing on flat ground
+  (found on either side), one per 150 units of the foot at density 1, from 1 below the ground up 0.25 - 0.5 of its width.
+  Each decal is a quad on its face's plane - sizes 14 - 96 units, turned by a hash - cut (Sutherland-Hodgman) to every
+  face of the same plane and surface it overlaps: it crosses the seams of coplanar triangles but never an edge. Its
+  vertices (24 bytes: where, the decal's uv, kind, variant, opacity, fade distance) are put in 512-unit tiles.
+- **The clutter.** Candidates a square unit at density 1: hard ground 4e-3 (3e-3 brick), kept only within 30 of a rise
+  (a wall or kerb at least 3 high starting at most 2 above), with the chance (1 - d/30)^2 - more the nearer, more in
+  corners; within 8 of it 35% are weeds, the rest leaves 60%, paper 30%, cans 10%. Dirt 4e-3 (pebbles 70%, weeds 15%,
+  leaves 15%), gravel 5e-3 (pebbles), grass 4e-4 (leaves). Items (32 bytes: root, rank, kind, variant, facing, colour
+  hash, size, tilt) in tiles, each tile's by rank.
+- **The art is made by code** (`scatter_art.cpp`, integer hashes and value noise: the same bytes every time - nothing
+  fetched, nothing third-party, so there is no licence to keep and nothing to download): a 1024 x 1792 RGBA8 atlas, a
+  row of four 256-square variants per kind - cracks (wandering branching lines with a dirty halo), stains (soft uneven
+  blots with a faint tide line), oil (a dark spot, a sheen, drips), tyre marks (a skid's band, streaked along it,
+  building up and fading), gum (clusters of round spots), wet patches (a soft blot, darker inside), grime (darkest at the
+  foot, fading up, drips) - rgb what the surface's colour is multiplied by, alpha a fade to the cell's border; and five
+  meshes of 48 vertices (a curled leaf, a crumpled scrap of paper, a can lying on its side, a weed of seven blades and four
+  leaves, a pebble), each vertex with its own shade.
+- **The decals' pass** (`ViewOrder::kDecals` 390, at opaque_drawn: after the shadows, occlusion, bounce and lamps,
+  before the reflections, the grass and the fog): the tiles within 3,200 units and in view, their triangles drawn into
+  the colour alone; each fragment reads the depth under it and is kept only where the scene there is the decal's own
+  (within 0.3% of its distance + 1 unit - so nothing shows on the skater standing on a mark, through a wall, or from a
+  decal whose collision floats over the drawn ground; a wall standing in a decal may take its foot's pixel row); the
+  colour is multiplied - mix(1, texel rgb, alpha x opacity x fade) - so a mark darkens the lit ground as its own colour
+  would: in shadow, in light, under a lamp. A decal fades out from 60% to all of 48 x its larger side (at most the
+  3,200). With four samples the fragment reads sample 0's depth.
+- **Puddles** (with `rt_reflections`, single-sampled targets): the decal pass also draws a wet mask (R8, the colour's
+  size, cleared over the viewport) - each wet patch's darkening as its wetness, the most of any; the reflection pass
+  (ViewOrder 400) reads it through a trace variant made from the trace's own text with the puddle lines put in (so the
+  trace without decals is the same text and the same SPIR-V as before): where a world surface lies under a puddle, its
+  reflectivity is the wetness (when more than its own) with water's Fresnel - `rt::kReflectWaterF0` 2% face-on, a mirror
+  at grazing angles - and no environment mask. A frame whose only reflective things are puddles runs the reflection
+  pass too.
+- **The clutter's pass** (`ViewOrder::kClutter` 445: after the reflections, before the grass): as the grass's - the
+  viewport's colour copied out, a compute pass keeps the ground's colour under each chosen item's root where the depth
+  there is the root's (a buffer of half floats, so a root hidden this frame keeps the last seen; an item never seen isn't
+  drawn and grows in over three sightings); then each item drawn instanced, 48 vertices, depth-tested and written (and
+  the upscaler's motion). Its colour: a pebble the ground's own x 0.8 - 1.2; the rest their own (leaves' autumn colours,
+  paper, a can's label and rim, a weed's green) x the ground's luminance over 0.4 (the ground's light) x the mesh's
+  shade. Leaves and weeds sway downwind with the grass's two waves. Level of detail as the grass: every item to a quarter
+  of 1,600 units, then (near / d)^1.5 of them by rank, each shrinking into the ground from 70% of the distance; at most
+  400,000 a view.
+- **Off is as before.** Both off: no listener, no `Sink`, `scatter_world::frame` tests one pointer; no fixed-function
+  key or shader changes (`thug2_ff_shader_check --no-gpu`: 50,180 shaders, 0 failed); the reflection trace's text is
+  unchanged (its puddle variant is made only when a wet mask exists); the check's picture with both turned off again is
+  the same bytes as before they were on.
+- **Checked.** `thug2_vulkan_scatter_check` (32 checks; the RTX 5070 Ti and the integrated AMD Radeon, validation 0). The
+  placement on a synthetic street (an asphalt road of 96 triangles, a kerb, a paving sidewalk, a brick building, a
+  quarter pipe, a box ledge, a rail, three steps, dirt, a lawn): the same 400 decals and 389 items byte for byte, others
+  from another seed, the same counts from the faces reversed; every decal's kind its surface's, every vertex on its
+  face's plane, none past the kerb or the road's end; grime, gutter puddles, tyre marks and gum all placed; no decal or
+  item on a skate line (measured independently against the quarter pipe's ramp proper, the rail, the ledge's top and the
+  steps), none at the stairs' foot; hard ground's items all within reach of a kerb, wall, ledge or step side, weeds
+  within 8; pebbles only on dirt, only leaves on the lawn; the road's decals 303 for the rate's 372; the tiles hold each
+  vertex and item once; densities 0 place nothing; the atlas and meshes the same every time. The passes over a road drawn
+  in the view's depth with a wall standing on it: 13,131 pixels marked, every channel only darker, all inside a decal's
+  footprint, none behind the wall; the same picture from a new scatter; decals put 30 units over the road mark nothing;
+  the clutter only along the kerb's foot, finite, the same picture again; the wet mask drawn only while the reflections
+  run, only under the puddle (700 pixels), not under a stain beside it; the puddle trace compiles with and without the
+  sky; four samples run both passes; off as before. `thug2_vulkan_rt_reflections_check` unchanged (125). Cost (both
+  passes, density 1, a street of decals and clutter at a skater's eye, 2560 x 1440): 0.05 ms on the RTX 5070 Ti, 0.84 ms
+  on the integrated Radeon. `thug2_options_check` has the four keys.
+- **In the game** (load checks only, the workspace's 1280 x 720 with 8 samples): Boston - 1,105 decals (cracks 314,
+  stains 486, gum 247, grime 50, wet 8) and 2,533 items (leaves 1,170, paper 614, cans 190, weeds 559) from 26,049 faces
+  and 1,024 rails, 0.3 MB on the device; New Orleans 42 decals and 60 items; Skatopia almost nothing (its dirt mostly
+  under other faces, its hard ground far from walls). The look - sizes, darkness, density, the art - is the user's to
+  judge.
+- **Not done yet:** puddles reflect only with single-sampled targets (no wet mask with MSAA); the decals don't change the
+  material's roughness for the ray-traced passes other than the reflections (GI, shadows) or for `rt_pbr`'s per-pixel
+  highlight; marks on a face whose collision is a different terrain than its texture follow the collision (as the grass);
+  no fetched CC0 decal scans - the art is procedural (a library like the detail materials' could replace the atlas's
+  rows later); clutter takes no push from the skater; tree positions aren't known, so leaves gather by kerbs and walls,
+  not under trees; Skatopia and other natural levels get little - the cover rule may be too strict there.
+
 ### Cel shading (`rt_cel`)
 
 `engine/gfx/rt_cel` (the settings, the stream's layout, the bands' formulas and their twins on the processor),
