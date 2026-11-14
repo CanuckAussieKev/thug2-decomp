@@ -32,6 +32,7 @@
 #include "base/core/checksums.h"
 #include "base/maths/vec4.h"
 #include "base/maths/trig.h"
+#include "engine/sys/tick_rate.h"
 
 namespace render {
 
@@ -147,13 +148,14 @@ uint32_t* lerp_colour(const EmitterInstance& system, uint32_t* out, const colour
     return out;
 }
 
-// The rate's particles for this frame (1/60 s) emitted through the engine's 0x00496FE0, the fraction kept.
+// The rate's particles for this frame (a tick: 1/60 s at the original rate) emitted through the engine's 0x00496FE0, the fraction kept.
 void emit_for_frame(EmitterInstance& system, float& accumulator)
 {
     if (!(system.emit_rate() > 0.0F)) {
         return;
     }
-    const double owed = (static_cast<double>(system.emit_rate()) * (1.0F / 60.0F)) + accumulator; // (0x006463B8)
+    // (not original: a tick's step - engine/sys/tick_rate.h; the original's 0x006463B8, 1.0F / 60, at 60)
+    const double owed = (static_cast<double>(system.emit_rate()) * tick_rate::step_seconds()) + accumulator;
     accumulator = static_cast<float>(owed);
     if (owed < 1.0F || owed != owed) {
         return;

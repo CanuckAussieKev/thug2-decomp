@@ -26,6 +26,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
+#include "engine/sys/tick_rate.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
 #include "engine/gfx/sector.h"
@@ -71,7 +72,6 @@ constexpr std::size_t kMaxLips = 20000;       // lip points collected at most
 constexpr float kMinStepSquared = 0.01F;
 constexpr float kLaunchLift =
     2.0F; // a flight starts this far above the lip so the lip itself is not the first thing met
-constexpr float kFrameRate = 60.0F; // the simulation step is a frame
 constexpr float kMaxFlightSeconds = 6.0F;
 constexpr int kRefreshMilliseconds = 250;     // the arcs are worked out again after this long
 constexpr uint32_t kLipColour = 0xFFFFFFFF;   // ARGB
@@ -590,9 +590,9 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
             core::at(arcs.flights, i) =
                 get_fly(lip.point + V3{.x = 0.0F, .y = kLaunchLift, .z = 0.0F}, v,
                         {.gravity = physics_state().air_gravity_,
-                         .dt = 1.0F / kFrameRate,
+                         .dt = tick_rate::step_seconds(), // (the game's step: a tick)
                          .max_time_ = kMaxFlightSeconds,
-                         .skip = 1.0F / kFrameRate},
+                         .skip = tick_rate::step_seconds()},
                         [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
                             return cast_feeler(from, to, {.point = hit, .normal = normal}, landed_on);
                         });

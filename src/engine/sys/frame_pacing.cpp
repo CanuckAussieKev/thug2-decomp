@@ -2,6 +2,8 @@
 
 #include "engine/sys/frame_pacing.h"
 
+#include "engine/sys/tick_rate.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -84,7 +86,7 @@ int frames_this_tick(int max_fps, double* carry)
         *carry = 0.0;
         return kUncappedFrames;
     }
-    const double share = (static_cast<double>(max_fps) / kTicksPerSecond) + *carry;
+    const double share = (static_cast<double>(max_fps) / tick_rate::rate()) + *carry;
     const double whole = std::floor(share + 1e-9);
     *carry = std::clamp(share - whole, 0.0, 1.0);
     return std::max(1, static_cast<int>(whole));
@@ -120,8 +122,8 @@ float blend_alpha(uint64_t now, uint64_t tick_time, uint64_t tick_length)
 
 uint32_t shown_time_ms(uint32_t now_ms, float alpha)
 {
-    constexpr double kTickMs = 1000.0 / kTicksPerSecond;
-    const double behind = (1.0 - std::clamp(static_cast<double>(alpha), 0.0, 1.0)) * kTickMs;
+    const double tick_ms = 1000.0 / tick_rate::rate();
+    const double behind = (1.0 - std::clamp(static_cast<double>(alpha), 0.0, 1.0)) * tick_ms;
     const auto back = static_cast<uint32_t>(std::lround(behind));
     return now_ms >= back ? now_ms - back : 0U;
 }

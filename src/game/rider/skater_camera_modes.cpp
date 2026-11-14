@@ -1,7 +1,6 @@
 // The skater camera component's (skater_camera_component.h) destructor body, Finalize, the state taken over from
 // another camera, the distances' lerps and its camera modes. From the disassembly of 0x004F9970-0x004F9E7E.
 
-#include <bit>
 #include <cstdint>
 #include <cstring>
 
@@ -12,6 +11,7 @@
 #include "game/rider/skater_camera_component.h"
 #include "game/rider/walk_camera.h"
 #include "engine/gfx/viewport_list.h"
+#include "engine/sys/tick_rate.h"
 #include "engine/objects/camera_component.h"
 #include "base/core/down_cast.h"
 #include "base/maths/trig.h"
@@ -40,12 +40,9 @@ constexpr float kFeet = 12.0F; // 0x0064546C
 constexpr float kHalf = 0.5F;  // 0x006453BC
 constexpr float kHalfPi = 1.57079637F;
 
-float one_frame()
-{
-    const uint32_t bits = 0x3C888889; // 0x0064BA64 (1/60)
-    auto value = std::bit_cast<float>(bits);
-    return value;
-}
+// The lerps' step: a tick. Not original - the tick rate's (engine/sys/tick_rate.h: the float 1.0F / rate, these bits at
+// 60). Original behaviour: the constant 0x0064BA64 (bits 0x3C888889, 1/60).
+float one_frame() { return tick_rate::step_seconds(); }
 
 // The screen mode (0x004A0710: 1 a vertical split, 2 a horizontal one).
 int screen_mode() { return render::get_view_layout(); }

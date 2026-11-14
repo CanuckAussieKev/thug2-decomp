@@ -51,6 +51,7 @@
 #include "engine/sys/game_module.h"
 #include "app/pc_setup.h"
 #include "engine/sys/stopwatch.h"
+#include "engine/sys/tick_rate.h"
 #include "engine/script/node_manager.h"
 #include "engine/sys/game_config.h"
 #include "game/online/session_queries.h"
@@ -136,6 +137,9 @@ int game_main(int argc, char** argv)
         memory::slot_pool_setup::set_up({.index = 0, .count = memory::sizes::at_hand().hash_items_});
         memory::pop_mem_profile();
         pre::create_manager(true);
+        // Not original - [Graphics] tick_rate (engine/sys/tick_rate.h), before the clock takes its vblanks a second from
+        // it. Original behaviour: 60 ticks a second.
+        tick_rate::read_settings();
         frame_clock::prepare_all();
         memory::push_mem_profile("File System");
         file::async_init(); // (passed "DATA", unused)

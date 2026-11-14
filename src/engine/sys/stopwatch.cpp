@@ -9,6 +9,7 @@
 #include <array>
 
 #include "engine/sys/game_config.h"
+#include "engine/sys/tick_rate.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 
@@ -114,7 +115,9 @@ uint64_t read_cpu_time_stamp() { return __rdtsc(); }
 void get_reset()
 {
     if (!rate_set()) {
-        vblanks_per_second() = static_cast<float>(refresh_rate());
+        // (not original: the tick rate's - engine/sys/tick_rate.h; game_config::frame_rate at the original 60.
+        // Original behaviour: refresh_rate())
+        vblanks_per_second() = static_cast<float>(tick_rate::clock_rate(refresh_rate()));
         rate_set() = true;
     }
     raw_frame_duration() = 1.0;
@@ -221,7 +224,9 @@ uint32_t get_time()
 double get_frame_seconds() { return raw_frame_duration() / vblanks_per_second(); }
 
 // 0x005BEAA0 (the original leaves the unrounded product on the x87 stack)
-double get_slomo_frame_seconds() { return get_slomo() * static_cast<double>(1.0F / kDefaultVblanksPerSecond); }
+// Not original - the tick's length (engine/sys/tick_rate.h: the float 1.0F / rate - the original's 1.0F / 60 to the bit
+// at 60). Original behaviour: slomo * (1.0F / 60).
+double get_slomo_frame_seconds() { return get_slomo() * static_cast<double>(tick_rate::step_seconds()); }
 
 // 0x005BE8F0
 float get_time_scale() { return get_slomo(); }

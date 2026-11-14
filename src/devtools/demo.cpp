@@ -53,6 +53,7 @@
 #include "engine/sys/game_clock.h"
 #include "engine/sys/mlp.h"
 #include "engine/sys/stopwatch.h"
+#include "engine/sys/tick_rate.h"
 #include "formats/demo_format.h"
 #include "game/front_end/live_pause.h"
 #include "game/front_end/front_end.h"
@@ -85,7 +86,6 @@ constexpr std::size_t kSettingsBytes = 32768;    // room for an ini section
 constexpr std::size_t kKeyTextBytes = 64;
 constexpr std::size_t kLoadPrefix = 5; // "Load_"
 constexpr std::string_view kExtension = ".demo";
-constexpr double kFramesPerSecond = 60.0;
 constexpr unsigned char kFirstPrintable = 0x20; // (JSON escapes the control characters below it)
 constexpr int kMaxEvery = 600;                  // -demo-every: at most a picture every 10 s
 // The player taking over a playback: a button pressed (port 0's bytes 2-3, set bits down) or a stick pushed past this
@@ -112,6 +112,7 @@ enum class Phase : uint8_t { kOff, kRecordArmed, kRecording, kPlayArmed, kPlayin
 struct DemoEntry {
     std::string name, level, created;
     uint32_t frames = 0;
+    uint32_t tick_rate = demo_format::kOriginalTickRate;
 };
 
 struct State {
@@ -122,6 +123,11 @@ struct State {
     bool ticked = false; // a logic frame began this loop (a loop the demo viewer holds runs none)
     uint32_t frame = 0; // frames begun since the level's load (the frame now: frame - 1)
     bool up = false;    // the level is up (the check track runs)
+    // a playback at another tick rate than the demo was recorded at (engine/sys/tick_rate.h - the tick-rate harness,
+    // docs/design/tick-rate.md): each of the demo's frames held over the ticks of its time, the check track compared
+    // where a tick ends on one of its frames; `up_tick`: the tick the level was up
+    bool resampled = false;
+    uint32_t up_tick = 0;
     // playback
     bool from_command_line = false; // -demo: waiting for the main menu
     // (the demo viewer's - devtools/demo_viewer.h: the playback is the viewer's; its run reported at the demo's end)
@@ -186,6 +192,50 @@ State& state()
 
 bool running() { return state().phase == Phase::kRecording || state().phase == Phase::kPlaying; }
 
+// A playback at another tick rate (State::resampled): the demo's frames against the game's ticks. Tick n after the
+// level was up covers the time (n - 1, n] ticks; the demo's frame j covers (j - 1, j] of its own - so the tick plays the
+// frame its time ends in, and a tick whose time ends where a frame's does is where the recording's state at that frame
+// is compared. Before the level is up, the same by the time from the load (the level up at the tick ending where the
+// recording's up frame did).
+uint32_t ticks_a_second() { return static_cast<uint32_t>(tick_rate::rate()); }
+
+// The demo's frame whose input tick `tick` plays (the tick itself when not resampled).
+uint32_t input_frame(uint32_t tick)
+{
+    const State& run = state();
+    if (!run.resampled) {
+        return tick;
+    }
+    if (!run.up || tick <= run.up_tick) {
+        // (the frame whose time tick `tick` ends in, counted from the load: tick t ends at (t + 1) / R, frame j at
+        // (j + 1) / D)
+        const uint64_t time = (static_cast<uint64_t>(tick) + 1) * run.demo.tick_rate;
+        const uint64_t rate = ticks_a_second();
+        return std::min(static_cast<uint32_t>(((time + rate - 1) / rate) - 1), run.demo.up_frame);
+    }
+    const uint64_t time = static_cast<uint64_t>(tick - run.up_tick) * run.demo.tick_rate; // (in 1 / (D * R) s)
+    const uint64_t rate = ticks_a_second();
+    return run.demo.up_frame + static_cast<uint32_t>((time + rate - 1) / rate);
+}
+
+// The demo's frame a tick's end is the end of (-1: the tick ends between two of its frames). Not resampled: the tick.
+int64_t frame_ended(uint32_t tick)
+{
+    const State& run = state();
+    if (!run.resampled) {
+        return tick;
+    }
+    if (!run.up || tick < run.up_tick) {
+        return -1;
+    }
+    const uint64_t time = static_cast<uint64_t>(tick - run.up_tick) * run.demo.tick_rate;
+    const uint64_t rate = ticks_a_second();
+    if (time % rate != 0) {
+        return -1;
+    }
+    return static_cast<int64_t>(run.demo.up_frame + (time / rate));
+}
+
 // A tool's playback renders the run rather than showing it: -demo-capture, -demo-video and SAVE AS VIDEO take a
 // picture of every frame however long it takes (the main loop skips none). A live recording or playback runs at the
 // game's own pace like any play - its late frames go undrawn to catch up; the logic is one fixed 1/60 s step a loop
@@ -212,9 +262,8 @@ void log_pace(const char* what)
     if (!run.up || run.frame <= run.pace_frame) {
         return;
     }
-    constexpr double kFramesPerSecond = 60.0;
     const double real = std::chrono::duration<double>(std::chrono::steady_clock::now() - run.pace_start).count();
-    const double game = (run.frame - run.pace_frame) / kFramesPerSecond;
+    const double game = (run.frame - run.pace_frame) / static_cast<double>(tick_rate::rate()); // (a frame is a tick)
     get_log("demo: %s pace - %.2f game s in %.2f s (%.3f game s a second), %u of %u frames not drawn", what, game, real,
             real > 0.0 ? game / real : 0.0, run.undrawn, run.frame - run.pace_frame);
 }
@@ -486,6 +535,7 @@ void begin_recording(uint32_t load)
     demo.crt_seed = demo.seed;
     demo.ports = 1;
     demo.check_stride = 1;
+    demo.tick_rate = static_cast<uint32_t>(tick_rate::rate());
     demo.settings = settings_now();
     if (objects::RiderIdentity* profile = current_profile()) {
         demo.skater_name = profile->fetch_title();
@@ -558,11 +608,11 @@ std::string save_recording()
         "  \"frames\": %u,\n  \"seconds\": %.2f,\n  \"up_frame\": %u,\n  \"checks\": %u,\n  \"settings\": %s\n}\n",
         json_text(run.name).c_str(), json_text(demo.level).c_str(), json_text(demo.skater).c_str(),
         json_text(demo.created).c_str(), json_text(demo.build).c_str(), demo.frames(),
-        static_cast<double>(demo.frames()) / kFramesPerSecond, demo.up_frame, static_cast<unsigned>(demo.checks.size()),
+        static_cast<double>(demo.frames()) / demo.tick_rate, demo.up_frame, static_cast<unsigned>(demo.checks.size()),
         settings_json(demo.settings).c_str());
     fs::write_text(folder + run.name + ".json", json);
     get_log("demo: saved %s - %u frames (%.1f s), the level up at frame %u, %u check points", path.c_str(),
-            demo.frames(), static_cast<double>(demo.frames()) / kFramesPerSecond, demo.up_frame,
+            demo.frames(), static_cast<double>(demo.frames()) / demo.tick_rate, demo.up_frame,
             static_cast<unsigned>(demo.checks.size()));
     notice("Demo saved: " + run.name);
     return "saved " + path;
@@ -759,6 +809,24 @@ void begin_playback(uint32_t load)
         run.phase = Phase::kOff;
         return;
     }
+    // (a demo recorded at another tick rate - [Graphics] tick_rate, engine/sys/tick_rate.h: played with each of its frames
+    // held over the ticks of its time - the tick-rate harness; the viewer, a capture and a video play a demo only at its
+    // own rate)
+    run.resampled = run.demo.tick_rate != ticks_a_second();
+    run.up_tick = 0;
+    if (run.resampled && (run.viewer || !run.capture.empty() || !run.video.empty())) {
+        get_log("demo: %s was recorded at %u ticks a second, the game runs %u - the viewer, a capture or a video plays it "
+                "only at its own rate ([Graphics] tick_rate=%u)",
+                run.name.c_str(), run.demo.tick_rate, ticks_a_second(), run.demo.tick_rate);
+        notice(text::format("Recorded at %u Hz", run.demo.tick_rate));
+        run.resampled = false;
+        run.phase = Phase::kOff;
+        return;
+    }
+    if (run.resampled) {
+        get_log("demo: %s was recorded at %u ticks a second - played at %u, each frame held over its time", run.name.c_str(),
+                run.demo.tick_rate, ticks_a_second());
+    }
     // (as begin_recording: the states a session's earlier scripts left dropped, the globals as recorded - none in a
     // demo made before the GLOB chunk -, the music apart as it was recorded - a demo made before the RAND chunk drew
     // it from the game's streams)
@@ -772,6 +840,10 @@ void begin_playback(uint32_t load)
     run.up = false;
     run.drift = {};
     run.track = std::string(demo_format::kCheckHeader) + "\n";
+    if (run.resampled) {
+        run.track += text::format("# played at %u ticks a second, recorded at %u: frames are the recording's\n",
+                                  ticks_a_second(), run.demo.tick_rate);
+    }
     run.random_matched = true;
     run.up_matched = true;
     run.live = {};
@@ -788,7 +860,7 @@ void begin_playback(uint32_t load)
     }
     run.phase = Phase::kPlaying;
     get_log("demo: playing %s in %s - %u frames (%.1f s), skater %s, recorded %s", run.name.c_str(),
-            run.demo.level.c_str(), run.demo.frames(), static_cast<double>(run.demo.frames()) / kFramesPerSecond,
+            run.demo.level.c_str(), run.demo.frames(), static_cast<double>(run.demo.frames()) / run.demo.tick_rate,
             run.demo.skater.c_str(), run.demo.created.c_str());
     if (run.viewer) {
         demo_viewer::begin({.name = run.name,
@@ -829,14 +901,15 @@ void report_run(bool ended)
     const std::string base = output_base();
     fs::write_text(base + "track.txt", run.track);
     const std::string json = text::format(
-        "{\n  \"demo\": %s,\n  \"level\": %s,\n  \"frames\": %u,\n  \"up_frame\": %u,\n  \"ended\": %s,\n"
+        "{\n  \"demo\": %s,\n  \"level\": %s,\n  \"frames\": %u,\n  \"up_frame\": %u,\n  \"tick_rate\": %u,\n"
+        "  \"demo_tick_rate\": %u,\n  \"ended\": %s,\n"
         "  \"compared\": %u,\n  \"first_divergence_frame\": %lld,\n  \"first_skater_distance\": %.4f,\n"
         "  \"first_camera_distance\": %.4f,\n  \"max_skater_distance\": %.4f,\n  \"max_camera_distance\": %.4f,\n"
         "  \"random_matched_at_up\": %s,\n  \"up_matched\": %s,\n  \"capture\": %s,\n  \"taken_over\": %s,\n"
         "  \"video\": %s,\n  \"video_codec\": %s,\n  \"video_frames\": %lld,\n  \"video_ok\": %s,\n"
         "  \"settings\": %s,\n  \"recorded_settings\": %s\n}\n",
         json_text(run.name).c_str(), json_text(run.demo.level).c_str(), run.demo.frames(), run.demo.up_frame,
-        ended ? "true" : "false", drift.compared, static_cast<long long>(drift.first_frame),
+        ticks_a_second(), run.demo.tick_rate, ended ? "true" : "false", drift.compared, static_cast<long long>(drift.first_frame),
         static_cast<double>(drift.first.skater), static_cast<double>(drift.first.camera),
         static_cast<double>(drift.max_skater), static_cast<double>(drift.max_camera),
         run.random_matched ? "true" : "false", run.up_matched ? "true" : "false", json_text(run.capture).c_str(),
@@ -986,8 +1059,9 @@ void port_polled(input::PortPoll& poll)
     } else if (run.phase == Phase::kPlaying) {
         // (the player's own input first: a button pressed or a stick pushed once the level has been up a moment stops
         // the playback, and this frame is the player's - Start pauses as ever)
+        const uint32_t frame = input_frame(now); // (the demo's frame: `now` unless resampled)
         const bool moved = player_moved(poll.data);
-        if (moved && run.takeover && now >= run.demo.up_frame + kTakeoverGrace) {
+        if (moved && run.takeover && frame >= run.demo.up_frame + kTakeoverGrace) {
             run.taken_over = true;
             get_log("demo: the player took over at frame %u", now);
             finish_playback(false);
@@ -996,7 +1070,7 @@ void port_polled(input::PortPoll& poll)
             }
             return;
         }
-        if (const demo_format::PortData* data = run.demo.input(now, 0)) {
+        if (const demo_format::PortData* data = run.demo.input(frame, 0)) {
             std::memcpy(poll.data.data(), data->data(), bytes);
             poll.connected = true;
         }
@@ -1038,8 +1112,14 @@ void playback_level_up(uint32_t now)
     }
     // (the clocks as the recording had them here: what reads the time - moving objects, timers, Randomize -
     // sees the same times from the next frame on)
+    run.up_tick = now;
     if (run.demo.clocks.present) {
-        frame_clock::set_vblanks_since_reset(run.demo.clocks.vblanks);
+        // (resampled: the vblanks are ticks - the same time at this rate, frame_clock::get_time's milliseconds kept)
+        uint64_t vblanks = run.demo.clocks.vblanks;
+        if (run.resampled) {
+            vblanks = ((vblanks * ticks_a_second()) + (run.demo.tick_rate / 2)) / run.demo.tick_rate;
+        }
+        frame_clock::set_vblanks_since_reset(vblanks);
         frame_clock::set_game_clock_snapshot({.last_change = run.demo.clocks.last_change,
                                               .pace = run.demo.clocks.pace,
                                               .offset = run.demo.clocks.offset});
@@ -1073,17 +1153,29 @@ void recording_frame_end(uint32_t now)
 void playback_frame_end(uint32_t now, bool rendering)
 {
     State& run = state();
-    if (!run.up && now == run.demo.up_frame) {
+    if (!run.up && now == run.demo.up_frame && !run.resampled) {
         playback_level_up(now);
     }
-    if (run.up && (now - run.demo.up_frame) % run.demo.check_stride == 0) {
-        const CheckPoint point = point_now(now);
+    // (resampled: the level up at the tick that ends where the recording's up frame did - the same time from the load -
+    // once the level is up then; later if it isn't yet, a second late at the most)
+    if (!run.up && run.resampled) {
+        const uint64_t due = (static_cast<uint64_t>(run.demo.up_frame) + 1) * ticks_a_second();
+        const uint64_t ended_by = (static_cast<uint64_t>(now) + 1) * run.demo.tick_rate; // (in 1 / (D * R) s)
+        const uint64_t late = due + (static_cast<uint64_t>(run.demo.tick_rate) * ticks_a_second());
+        if (ended_by >= due && (level_up(run.demo.level_load) || ended_by >= late)) {
+            playback_level_up(now);
+        }
+    }
+    const int64_t ended = frame_ended(now); // (the demo's frame this tick ends: `now` unless resampled)
+    if (run.up && ended >= 0 && (static_cast<uint32_t>(ended) - run.demo.up_frame) % run.demo.check_stride == 0) {
+        const auto frame = static_cast<uint32_t>(ended);
+        const CheckPoint point = point_now(frame);
         run.track += demo_format::check_line(point) + "\n";
-        if (const CheckPoint* recorded = run.demo.check_at(now)) {
+        if (const CheckPoint* recorded = run.demo.check_at(frame)) {
             const bool was_same = run.drift.first_frame < 0;
             demo_format::add_to_drift(&run.drift, *recorded, point, kTolerance);
             if (was_same && run.drift.first_frame >= 0) {
-                get_log("demo: frame %u differs from the recording - skater %.3f, camera %.3f apart%s", now,
+                get_log("demo: frame %u differs from the recording - skater %.3f, camera %.3f apart%s", frame,
                         static_cast<double>(run.drift.first.skater), static_cast<double>(run.drift.first.camera),
                         run.drift.first.other ? ", state / rows differ" : "");
             }
@@ -1101,7 +1193,9 @@ void playback_frame_end(uint32_t now, bool rendering)
         if (now + 1 >= run.demo.frames() && !run.reported) {
             report_run(true);
         }
-    } else if (now + 1 >= run.demo.frames()) {
+    } else if (!run.resampled && now + 1 >= run.demo.frames()) {
+        finish_playback(true);
+    } else if (run.resampled && run.up && ended >= 0 && static_cast<uint32_t>(ended) + 1 >= run.demo.frames()) {
         finish_playback(true);
     }
 }
@@ -1223,8 +1317,9 @@ void prepare_all()
         std::ranges::replace(video, '/', '\\');
         run.video = video;
         // (a tool's run: nothing the player does stops it, and the game quits at its end)
-        run.takeover = run.capture.empty() && run.video.empty();
         run.quit_at_end = line.find("-demo-quit") != std::string::npos || !run.video.empty();
+        // (-demo-quit is a tool's run too - tools/game/tick_compare.ts: a pad left connected mustn't end it)
+        run.takeover = run.capture.empty() && run.video.empty() && !run.quit_at_end;
         // (-viewer: in the demo viewer - with -demo-video, its camera path saved as that video, then the game quits)
         run.viewer = line.find("-viewer") != std::string::npos && run.capture.empty();
         if (run.viewer) {
@@ -1254,9 +1349,9 @@ void prepare_all()
             SDL_GetScancodeName(static_cast<SDL_Scancode>(run.key)));
 }
 
-std::string clock_text(uint32_t frames)
+std::string clock_text(uint32_t frames, uint32_t rate)
 {
-    const auto seconds = static_cast<uint32_t>(static_cast<double>(frames) / kFramesPerSecond);
+    const auto seconds = static_cast<uint32_t>(static_cast<double>(frames) / rate);
     return text::format("%u:%02u", seconds / kSecondsPerMinute, seconds % kSecondsPerMinute);
 }
 
@@ -1276,13 +1371,16 @@ void over_frame()
     }
     const uint32_t now = run.frame > 0 ? run.frame - 1 : 0;
     if (run.phase == Phase::kRecording) {
-        demo_overlay::draw("REC", clock_text(now), true);
+        demo_overlay::draw("REC", clock_text(now, run.demo.tick_rate), true);
     } else if (run.phase == Phase::kPlaying && !run.video.empty()) {
         const uint32_t total = run.video_to > run.video_from ? run.video_to - run.video_from : 1;
         const uint32_t done = now > run.video_from ? now - run.video_from : 0;
         demo_overlay::draw("SAVING VIDEO", text::format("%u%%", std::min(done * kPercent / total, kAlmostDone)), false);
     } else if (run.phase == Phase::kPlaying && !run.viewer) {
-        demo_overlay::draw("REPLAY", clock_text(now) + " / " + clock_text(run.demo.frames()), false);
+        demo_overlay::draw("REPLAY",
+                           clock_text(now, static_cast<uint32_t>(tick_rate::rate())) + " / " +
+                               clock_text(run.demo.frames(), run.demo.tick_rate),
+                           false);
     } else if (!run.result_tag.empty()) {
         if (platform::ticks_ms() - run.result_since > kResultMs) {
             run.result_tag.clear();
@@ -1336,7 +1434,7 @@ void list_demos()
             level = level_name(demo.level_load);
         }
         run.entries.push_back(
-            {.name = clean_name(file), .level = level, .created = demo.created, .frames = demo.frames()});
+            {.name = clean_name(file), .level = level, .created = demo.created, .frames = demo.frames(), .tick_rate = demo.tick_rate});
     }
     std::ranges::sort(run.entries, [](const DemoEntry& a, const DemoEntry& b) { return a.created > b.created; });
     if (run.entries.size() > kMenuEntries) {
@@ -1394,7 +1492,7 @@ bool cfunc_get_entry(script::Struct* params, script::Context context)
     std::ranges::transform(level, level.begin(), [](char character) { return static_cast<char>(std::toupper(static_cast<unsigned char>(character))); });
     // ("2026-11-13 14:05:22" -> "11-13 14:05")
     const std::string when = entry.created.size() >= 16 ? entry.created.substr(5, 11) : entry.created;
-    const std::string shown = level + "  " + clock_text(entry.frames) + "  " + when;
+    const std::string shown = level + "  " + clock_text(entry.frames, entry.tick_rate) + "  " + when;
     context.args()->append_word(checksums::hash_from_text("demo_text"), shown.c_str());
     context.args()->append_word(checksums::hash_from_text("demo_name"), entry.name.c_str());
     return true;
