@@ -7,8 +7,9 @@
 //   height    0.5 + sum over scales s of w_s (luma - blur_s(luma)) / (4 sigma) - the band-passed luma (dark is low:
 //             cracks, mortar, gaps), scales 1, 2, 4, 8 texels x size / 256 with weights 0.4, 0.3, 0.2, 0.1, sigma the
 //             band's deviation, clamped to 0 - 1
-//   normal    (-dh/du x k, -dh/dv x k, 1) normalised, the central differences of a Sobel kernel, k = 3 x the class's
-//             bump (rows grow downward: +v)
+//   normal    (-dh/du x k, -dh/dv x k, 1) normalised, the central differences of a Sobel kernel, k = 3 x the texture's
+//             bump - its class's, weakened or raised by its level's terrains and its texel size (surfaces.ts) - (rows
+//             grow downward: +v)
 //   roughness the class's base + its half-range x tanh((g - mean g) / deviation of g) / 2, g the local grain (the
 //             blurred |luma - blur_1(luma)|), clamped to the class's range
 
@@ -163,10 +164,27 @@ export function packMaps(normals: Float32Array, roughness: Float32Array, heights
     return out;
 }
 
-export function classicalMaps(image: Rgba, rule: ClassRule): Uint8Array {
+// Packed maps (packMaps' layout) with their normals' tilt scaled by `factor` (x and y times it, renormalised): a model's
+// maps brought to the texture's bump.
+export function scaleNormals(maps: Uint8Array, factor: number): Uint8Array {
+    if (factor === 1) return maps;
+    const out = Uint8Array.from(maps);
+    for (let i = 0; i < out.length; i += 4) {
+        const x = (out[i]! - 127.5) / 127.5;
+        const y = (out[i + 1]! - 127.5) / 127.5;
+        const z = Math.sqrt(Math.max(0, 1 - x * x - y * y));
+        const length = Math.hypot(x * factor, y * factor, z) || 1;
+        out[i] = encodeSigned((x * factor) / length);
+        out[i + 1] = encodeSigned((y * factor) / length);
+    }
+    return out;
+}
+
+// `bump`: the texture's own (surfaces.ts bumpFor: its terrains and texel size) - the class's when not given.
+export function classicalMaps(image: Rgba, rule: ClassRule, bump = rule.bump): Uint8Array {
     const luma = luminance(image);
     const heights = heightFrom(luma, image.width, image.height);
-    const normals = normalsFrom(heights, image.width, image.height, rule.bump);
+    const normals = normalsFrom(heights, image.width, image.height, bump);
     const roughness = roughnessFrom(luma, image.width, image.height, rule);
     return packMaps(normals, roughness, heights);
 }

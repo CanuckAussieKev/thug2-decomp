@@ -26,7 +26,7 @@ import * as scene from "thug2-level-converter-core/level_port/thug2_scene.ts";
 import { exitWith, isMain } from "thug2-level-converter-core/lib/cli.ts";
 import { gameRoot } from "../qbjs/game_scripts.ts";
 import { CLASS, type ClassName, classify, RULES, type Stats, type Usage } from "./classes.ts";
-import { classicalMaps, type Rgba } from "./classical.ts";
+import { classicalMaps, type Rgba, scaleNormals } from "./classical.ts";
 import {
     contentHash,
     GENERATOR_CHORD,
@@ -37,6 +37,7 @@ import {
     writePbr,
 } from "./pbr_file.ts";
 import { encodePng } from "./png.ts";
+import { bumpFor, surfacesOf } from "./surfaces.ts";
 
 export type GeneratorName = "classical" | "chord";
 // A model generator: the textures' maps (RGBA as pbr_file's texels), or null for those it can't do (classical then).
@@ -70,11 +71,12 @@ const walk = (path: string): string[] =>
           : [path];
 
 // A level dictionary as the game reads it: its name under Data ("levels/bo/bo.tex.xbx", lower case, / between parts),
-// its bytes and its scene's (<x>.scn.xbx beside it; null: none).
+// its bytes, its scene's (<x>.scn.xbx beside it; null: none) and its collision's (<x>.col.xbx: the terrains).
 export interface Dictionary {
     name: string;
     tex: () => Buffer;
     scn: () => Buffer | null;
+    col: () => Buffer | null;
     folder: string; // where its maps go, relative to the game's root: "Data" or the overlay's folder
 }
 
@@ -100,13 +102,15 @@ export function dictionaries(root: string, levels?: string[]): Dictionary[] {
     for (const path of walk(join(root, "Data", "levels"))) {
         loose.set(relative(join(root, "Data"), path).replaceAll("\\", "/").toLowerCase(), path);
     }
+    const beside = (name: string, kind: "scn" | "col"): string => name.replace(/\.tex\.xbx$/, `.${kind}.xbx`);
+    const read = (path: string | undefined): Buffer | null => (path ? readFileSync(path) : null);
     for (const [name, path] of loose) {
         if (!keep(name)) continue;
-        const scn = loose.get(name.replace(/\.tex\.xbx$/, ".scn.xbx"));
         found.set(name, {
             name,
             tex: () => readFileSync(path),
-            scn: () => (scn ? readFileSync(scn) : null),
+            scn: () => read(loose.get(beside(name, "scn"))),
+            col: () => read(loose.get(beside(name, "col"))),
             folder: "Data",
         });
     }
@@ -115,7 +119,7 @@ export function dictionaries(root: string, levels?: string[]): Dictionary[] {
     for (const archive of archives) {
         const inside = new Map<string, Buffer>();
         try {
-            for (const [entry, data] of prx.entries(join(pre, archive), (n) => /\.(tex|scn)\.xbx$/i.test(n))) {
+            for (const [entry, data] of prx.entries(join(pre, archive), (n) => /\.(tex|scn|col)\.xbx$/i.test(n))) {
                 inside.set(entry.replaceAll("\\", "/").toLowerCase(), data);
             }
         } catch {
@@ -123,12 +127,13 @@ export function dictionaries(root: string, levels?: string[]): Dictionary[] {
         }
         for (const [name, data] of inside) {
             if (!keep(name)) continue;
-            const scn = inside.get(name.replace(/\.tex\.xbx$/, ".scn.xbx"));
-            const looseScn = loose.get(name.replace(/\.tex\.xbx$/, ".scn.xbx"));
+            const scn = inside.get(beside(name, "scn"));
+            const col = inside.get(beside(name, "col"));
             found.set(name, {
                 name,
                 tex: () => data,
-                scn: () => scn ?? (looseScn ? readFileSync(looseScn) : null),
+                scn: () => scn ?? read(loose.get(beside(name, "scn"))),
+                col: () => col ?? read(loose.get(beside(name, "col"))),
                 folder: "Data",
             });
         }
@@ -141,11 +146,11 @@ export function dictionaries(root: string, levels?: string[]): Dictionary[] {
         }
         for (const [name, path] of files) {
             if (!keep(name)) continue;
-            const scn = files.get(name.replace(/\.tex\.xbx$/, ".scn.xbx"));
             found.set(name, {
                 name,
                 tex: () => readFileSync(path),
-                scn: () => (scn ? readFileSync(scn) : null),
+                scn: () => read(files.get(beside(name, "scn"))),
+                col: () => read(files.get(beside(name, "col"))),
                 folder: overlay,
             });
         }
@@ -377,13 +382,29 @@ export function make(game: string, options: MakeOptions): MakeResult {
         }
         const modelled = options.generator === "chord" && options.model ? options.model(images, names) : new Map();
         const entries: MapEntry[] = [];
-        let pictures = 0;
+        const surfaces = surfacesOf(dictionary.scn(), dictionary.col());
+        const areaOf = (key: string): number => surfaces.get(keyed.get(key)!.checksum)?.area ?? 0;
+        // (the pictures: the textures covering the most of the level first)
+        const pictured = new Set(
+            options.pictures
+                ? [...images]
+                      .filter(([, image]) => image.width >= 64)
+                      .map(([key]) => key)
+                      .sort((a, b) => areaOf(b) - areaOf(a))
+                      .slice(0, options.samples ?? 6)
+                : [],
+        );
+        let bumps = 0;
         for (const [key, image] of images) {
             const texture = keyed.get(key)!;
             const name = names.get(key)!;
             const rule = RULES[name];
+            const bump = bumpFor(rule, surfaces.get(texture.checksum), image.width, image.height);
+            bumps += bump.bump;
             const fromModel = modelled.get(key);
-            const texels = fromModel ?? classicalMaps(image, rule);
+            const texels = fromModel
+                ? scaleNormals(fromModel, rule.bump > 0 ? bump.bump / rule.bump : 1)
+                : classicalMaps(image, rule, bump.bump);
             entries.push({
                 checksum: texture.checksum,
                 contentHash: contentHash(texture.levels[0]!),
@@ -395,15 +416,15 @@ export function make(game: string, options: MakeOptions): MakeResult {
                 texels,
             });
             result.classes.set(name, (result.classes.get(name) ?? 0) + 1);
-            if (options.pictures && pictures < (options.samples ?? 6) && image.width >= 64) {
+            if (options.pictures && pictured.has(key)) {
                 const picture = sideBySide(image, texels);
                 const folder = join(options.pictures, levelOf(dictionary.name));
                 mkdirSync(folder, { recursive: true });
+                const evidence = bump.why.replace(/[^a-z0-9.+%]+/gi, "_");
                 writeFileSync(
-                    join(folder, `${key}_${name}.png`),
+                    join(folder, `${key}_${name}_bump${bump.bump.toFixed(2)}_${evidence}.png`),
                     encodePng(picture.width, picture.height, picture.rgba),
                 );
-                pictures++;
             }
         }
         if (!entries.length) continue;
@@ -412,7 +433,10 @@ export function make(game: string, options: MakeOptions): MakeResult {
         writeFileSync(out, writePbr(entries));
         result.made.push(options.out ? out : relative(root, out));
         result.maps += entries.length;
-        log(`${relative(root, out)}: ${entries.length} maps of ${textures.length} textures`);
+        log(
+            `${relative(root, out)}: ${entries.length} maps of ${textures.length} textures, ` +
+                `mean bump ${(bumps / entries.length).toFixed(2)}`,
+        );
     }
     return result;
 }

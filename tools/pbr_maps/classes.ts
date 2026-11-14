@@ -31,11 +31,13 @@ export interface ClassRule {
 }
 
 // The rules. F0: 0.04 for dielectrics (water 0.02, glass 0.04); a metal's is its colour in reality - one number here,
-// 0.6, as the per-pixel lighting keeps a scalar F0. Bump: how much relief the class shows at the game's texel sizes.
+// 0.6, as the per-pixel lighting keeps a scalar F0. Bump: how much relief the class shows at the game's texel sizes -
+// a texture's own bump starts there and its level's terrains and texel size move it (surfaces.ts bumpFor). Asphalt and
+// concrete are low: a street or a poured slab is smooth by definition, its grain is stains and dirt painted on.
 export const RULES: Record<ClassName, ClassRule> = {
     default: { min: 0.55, max: 0.85, base: 0.72, f0: 0.04, bump: 0.5 },
-    asphalt: { min: 0.75, max: 0.95, base: 0.88, f0: 0.04, bump: 1.0 },
-    concrete: { min: 0.7, max: 0.95, base: 0.85, f0: 0.04, bump: 0.8 },
+    asphalt: { min: 0.75, max: 0.95, base: 0.88, f0: 0.04, bump: 0.4 },
+    concrete: { min: 0.7, max: 0.95, base: 0.85, f0: 0.04, bump: 0.6 },
     stone: { min: 0.6, max: 0.95, base: 0.8, f0: 0.04, bump: 1.3 },
     metal: { min: 0.25, max: 0.6, base: 0.4, f0: 0.6, bump: 0.4 },
     wood: { min: 0.55, max: 0.85, base: 0.7, f0: 0.04, bump: 0.7 },

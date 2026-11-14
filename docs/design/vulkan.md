@@ -1712,7 +1712,7 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
   surface). A map is used only for the texels it was made from: an upscaled or modded texture keeps none until the
   maps are made again (the log says so per dictionary).
 - **Which generator.** The classical one (`classical.ts`): height = the band-passed luma (scales 1-8 texels x size /
-  256, dark is low), normals by a Sobel filter x 3 x the class's bump, roughness = the class's base ± half its range by
+  256, dark is low), normals by a Sobel filter x 3 x the texture's bump (below), roughness = the class's base ± half its range by
   the local grain. CHORD (Ubisoft La Forge, SIGGRAPH Asia 2025) was the model candidate: its weights
   (Hugging Face `Ubisoft/ubisoft-laforge-chord`, `chord_v1.safetensors`) are gated behind accepting Ubisoft's terms and
   licensed for academic or research use only (the Ubisoft Machine Learning License, Research-Only - Copyleft; outputs
@@ -1737,8 +1737,8 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
   | class | roughness range | base | F0 | bump |
   |---|---|---|---|---|
   | default (painted) | 0.55 - 0.85 | 0.72 | 0.04 | 0.5 |
-  | asphalt | 0.75 - 0.95 | 0.88 | 0.04 | 1.0 |
-  | concrete | 0.7 - 0.95 | 0.85 | 0.04 | 0.8 |
+  | asphalt | 0.75 - 0.95 | 0.88 | 0.04 | 0.4 |
+  | concrete | 0.7 - 0.95 | 0.85 | 0.04 | 0.6 |
   | stone, brick | 0.6 - 0.95 | 0.8 | 0.04 | 1.3 |
   | metal | 0.25 - 0.6 | 0.4 | 0.6 | 0.4 |
   | wood | 0.55 - 0.85 | 0.7 | 0.04 | 0.7 |
@@ -1748,6 +1748,30 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
   | ground (dirt, sand) | 0.8 - 1.0 | 0.92 | 0.04 | 1.0 |
   | fabric, skin | 0.7 - 0.95 | 0.85 | 0.04 | 0.5 |
   | tile (glazed) | 0.2 - 0.5 | 0.35 | 0.04 | 0.6 |
+
+- **Bump** - each texture's own (`surfaces.ts`), baked into its normals (no field in the file: it comes from the level,
+  so changing it means running the tool again anyway, and old files stay as they are). The classical generator turns
+  every speck of luma into relief; on a surface smooth by definition - a street, a slab, a sidewalk - that read as a
+  field of melted lumps, worst where an old 64 - 128 texel texture is stretched over a whole street (each speck a lump
+  a hand wide) and with `rt_pbr_normal_strength=2`. Two pieces of evidence from the level move the class's bump:
+  - *the terrain* under the faces the texture is drawn on: each scene triangle (a material's first pass) is matched to
+    the face of the collision object of its sector's checksum that holds its centre (plane within 6 units, normals
+    within ~45 degrees, 2 units past the edges allowed) - in LA ~60% of the drawn area lands on a telling terrain (the
+    rest DEFAULT); BO's huge backdrops have no collision, its streets do. Each terrain has a bump (smooth concrete 0.2, asphalt 0.2, sidewalk 0.25, glazed
+    tile 0.3, smooth metal 0.15, masonite 0.2, rough concrete 0.6, wood 0.6, brick 1.3, rock 1.3, gravel 1.2, shingle
+    1.0...; DEFAULT and GENERIC say nothing). A terrain is picked for its sound and a class from colour statistics, both
+    err (THPS3's LA paves its street with rough concrete; a facade's wall is "smooth concrete"), so the bump is the
+    geometric mean of the terrains' (area-weighted) and the class's, leaning to the class's when the telling terrains
+    cover less than half of the texture's area;
+  - *the texel size*: world units per texel (the area-weighted geometric mean of sqrt(world area / uv area) over the
+    triangles, over sqrt(width x height)); coarser than 1.5 units (THUG2's units are about an inch) scales the bump by
+    1.5 / size, down to 0.25 - a bump's slope is its height over its width, and a speck's height doesn't grow with the
+    texel it was stretched over.
+
+  LA (THUG2): the street (asphalt + smooth concrete, 3.7 units a texel) 0.8 -> 0.14, sidewalks and slabs 0.8 -> 0.2 -
+  0.35, its brick 1.3 -> 1.29; THPS3's LA (converted): its brick (rough concrete there) 1.3 -> 0.88, slabs 0.5 -> 0.19.
+  A model's maps (CHORD) are scaled to the same bump (x and y times bump / the class's, renormalised). The pictures
+  (`--pictures`) are the textures covering the most of the level, named with their class, bump and evidence.
 
 - **In the game.** With `rt_pbr=1` the Vulkan Gpu installs `engine/gfx/surface_maps.h`'s `SurfaceMaps`; render_pc's
   dictionary loader (`render_pc/surface_map_load`) reads `<file>.pbr` and attaches each map to its texture (matched by
