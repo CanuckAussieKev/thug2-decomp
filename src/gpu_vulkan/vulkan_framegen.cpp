@@ -447,6 +447,7 @@ void frame_generation_device_wants(VkPhysicalDevice /*physical*/, ContextAdditio
     const FrameGenSettings& settings = framegen().settings;
     if (settings.mode != FrameGeneration::kOff && settings.source != FrameGenSource::kDlss && fsr_swapchain_owner() != nullptr) {
         wants->present_queues += kPresentQueues;
+        wants->features12.timelineSemaphore = VK_TRUE; // (its swapchain paces with timeline semaphores)
     }
 }
 

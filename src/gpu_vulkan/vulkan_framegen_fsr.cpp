@@ -41,6 +41,20 @@ constexpr float kMetresPerUnit = 0.0254F; // (THUG2's inches, as the upscaler's)
 constexpr VkFormat kHudlessFormat = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr double kMillisecondsPerSecond = 1000.0;
 constexpr float kLongestFrameMilliseconds = 100.0F;
+constexpr std::size_t kMostVersions = 16;
+
+// FSR's messages on frame generation into the log (wide text: its ASCII kept).
+void on_message(uint32_t type, const wchar_t* message)
+{
+    constexpr wchar_t kFirstNonAscii = 0x80;
+    std::string text;
+    if (message != nullptr) {
+        for (const wchar_t* letter = message; *letter != 0; ++letter) {
+            text += *letter < kFirstNonAscii ? static_cast<char>(*letter) : '?';
+        }
+    }
+    get_log("vulkan: frame generation: FSR says (%u): %s", type, text.c_str());
+}
 
 // The frame-generation swapchain and context, made with the swapchain (one of each at a time).
 class FsrFrameGen final : public SwapchainOwner {
@@ -67,6 +81,17 @@ public:
     {
         FfxFunctions& calls = ffx_functions();
         *swapchain = VK_NULL_HANDLE;
+        // (its errors and warnings into the log)
+        if (calls.configure != nullptr) {
+            for (const uint64_t effect : {uint64_t{FFX_API_EFFECT_ID_FRAMEGENERATIONSWAPCHAIN_VK}, uint64_t{FFX_API_EFFECT_ID_FRAMEGENERATION}}) {
+                ffxConfigureDescGlobalDebug debug{};
+                debug.header.type = FFX_API_CONFIGURE_DESC_TYPE_GLOBALDEBUG;
+                debug.effectId = effect;
+                debug.fpMessage = on_message;
+                debug.debugLevel = FFX_API_CONFIGURE_GLOBALDEBUG_LEVEL_WARNINGS;
+                calls.configure(nullptr, &debug.header);
+            }
+        }
         ffxCreateContextDescFrameGenerationSwapChainVersionVK version{};
         version.header.type = FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATIONSWAPCHAIN_VERSION_VK;
         version.version = FFX_FRAMEGENERATION_SWAPCHAIN_VK_VERSION;
@@ -84,7 +109,44 @@ public:
         desc.asyncComputeQueue = {.queue = present_queue_, .familyIndex = present_family_, .submitFunc = nullptr};
         desc.presentQueue = {.queue = present_queue_, .familyIndex = present_family_, .submitFunc = nullptr};
         desc.imageAcquireQueue = {.queue = acquire_queue_, .familyIndex = present_family_, .submitFunc = nullptr};
-        const ffxReturnCode_t made = calls.create(&swapchain_context_, &desc.header, nullptr);
+        // the versions the DLL has (newest first): each tried until one is made - FSR 4's swapchain is an RDNA 4 device's,
+        // FSR 3.1's every device's
+        VkDeviceContext device{.vkDevice = device_, .vkPhysicalDevice = physical_, .vkDeviceProcAddr = vkGetDeviceProcAddr};
+        std::array<uint64_t, kMostVersions> ids{};
+        std::array<const char*, kMostVersions> names{};
+        uint64_t count = ids.size();
+        ffxQueryDescGetVersions versions{};
+        versions.header.type = FFX_API_QUERY_DESC_TYPE_GET_VERSIONS;
+        versions.createDescType = FFX_API_CREATE_CONTEXT_DESC_TYPE_FGSWAPCHAIN_VK;
+        versions.device = &device;
+        versions.outputCount = &count;
+        versions.versionIds = ids.data();
+        versions.versionNames = names.data();
+        if (calls.query(nullptr, &versions.header) != FFX_API_RETURN_OK) {
+            count = 0;
+        }
+        count = std::min<uint64_t>(count, ids.size());
+        ffxReturnCode_t made = FFX_API_RETURN_ERROR;
+        for (uint64_t tried = 0; tried <= count && made != FFX_API_RETURN_OK; ++tried) {
+            // (the default first, then each version the DLL lists)
+            ffxOverrideVersion override_version{};
+            version.header.pNext = nullptr;
+            if (tried > 0) {
+                override_version.header.type = FFX_API_DESC_TYPE_OVERRIDE_VERSION;
+                override_version.versionId = core::at(ids, tried - 1);
+                version.header.pNext = &override_version.header;
+            }
+            *swapchain = VK_NULL_HANDLE;
+            made = calls.create(&swapchain_context_, &desc.header, nullptr);
+            const char* name = tried > 0 ? core::at(names, tried - 1) : "the default";
+            if (made == FFX_API_RETURN_OK) {
+                swapchain_version_ = name != nullptr ? name : "";
+            } else {
+                get_log("vulkan: frame generation: FSR's swapchain %s not made here (ffxCreateContext returned %d)",
+                        name != nullptr ? name : "?", static_cast<int>(made));
+                swapchain_context_ = nullptr;
+            }
+        }
         if (made != FFX_API_RETURN_OK || *swapchain == VK_NULL_HANDLE) {
             get_log("vulkan: frame generation: FSR's swapchain couldn't be made (ffxCreateContext returned %d) - Vulkan's own",
                     static_cast<int>(made));
@@ -160,6 +222,7 @@ public:
     // --- the frame (the provider's) ---------------------------------------------------------------------------------
 
     [[nodiscard]] bool generating() const { return generation_context_ != nullptr; }
+    [[nodiscard]] bool fallen_back() const { return fallen_back_; }
 
     bool prepare(Backend& state, const FrameGenFrame& frame, std::string* error)
     {
@@ -347,6 +410,7 @@ private:
     uint64_t released_ = 0;
     std::chrono::steady_clock::time_point last_;
     std::string version_;
+    std::string swapchain_version_;
 };
 
 FsrFrameGen& owner()
@@ -374,7 +438,11 @@ public:
     [[nodiscard]] bool wants_ui() const override { return false; }
     bool inputs(Backend& state, const FrameGenFrame& frame, std::string* error) override
     {
-        return !owner().generating() || owner().prepare(state, frame, error);
+        if (owner().fallen_back() || !owner().generating()) {
+            *error = "its swapchain or frame-generation context wasn't made";
+            return false;
+        }
+        return owner().prepare(state, frame, error);
     }
     bool before_present(Backend& /*state*/, const FrameGenFrame& frame, std::string* error) override
     {

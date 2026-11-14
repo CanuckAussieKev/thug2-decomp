@@ -383,10 +383,19 @@ int run_case(const Options& options, SDL_Window* window, Case which, Tally* tall
                         static_cast<unsigned long long>(moving.features_released));
             tally->check(moving.features_made >= 1, std::string(case_name(which)) + ": its feature made");
             tally->check(moving.frames_on + 2 >= drawn, std::string(case_name(which)) + ": on for the moving frames (but the first)");
-            tally->check(moving.frames_shown > moving.frames_on + (drawn / 4),
-                         text::format("%s: more frames shown (%llu) than drawn with it on (%llu) - the made ones", case_name(which),
-                                      static_cast<unsigned long long>(moving.frames_shown),
-                                      static_cast<unsigned long long>(moving.frames_on)));
+            // (DLSS-G makes no frame for a window without the focus - Streamline's "window not focused" - and the check
+            // never takes it: the user may be at the machine. Then the made frames are noted, not checked.)
+            const bool focused = (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) != 0;
+            if (which == Case::kDlss && !focused) {
+                text::print("  note DLSS-G makes no frames while the window hasn't the focus (it hasn't: the check doesn't "
+                            "take it) - %llu shown for %llu drawn\n",
+                            static_cast<unsigned long long>(moving.frames_shown), static_cast<unsigned long long>(drawn));
+            } else {
+                tally->check(moving.frames_shown > moving.frames_on + (drawn / 4),
+                             text::format("%s: more frames shown (%llu) than drawn with it on (%llu) - the made ones",
+                                          case_name(which), static_cast<unsigned long long>(moving.frames_shown),
+                                          static_cast<unsigned long long>(moving.frames_on)));
+            }
             tally->check(context.frames_shown() == moving.frames_shown, std::string(case_name(which)) + ": GpuContext::frames_shown");
             if (which == Case::kDlss) {
                 tally->check(moving.reflex, "DLSS-G: Reflex low latency on");
