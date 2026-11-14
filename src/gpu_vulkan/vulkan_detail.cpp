@@ -331,12 +331,13 @@ DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t materia
     DetailState& state = detail_state();
     const std::scoped_lock lock(state.mutex);
     const RtDetailSettings& settings = state.settings;
-    if (!settings.on && !settings.delight) {
-        return draw;
-    }
     const auto found = state.assignments.find({.checksum = checksum, .content_hash = content_hash});
     const dmf::Assignment* assignment = found != state.assignments.end() ? &found->second : nullptr;
     const dmf::Kind kind = assignment != nullptr ? assignment->kind : kind_of_class(material_class);
+    draw.kind = static_cast<uint8_t>(kind); // (added by surface relief: its depth by kind, with or without the layer)
+    if (!settings.on && !settings.delight) {
+        return draw;
+    }
     DetailUniforms& uniforms = draw.uniforms;
     if (settings.on && kind != dmf::Kind::kNone) {
         const KindState& known = core::at(state.kinds, static_cast<std::size_t>(kind));

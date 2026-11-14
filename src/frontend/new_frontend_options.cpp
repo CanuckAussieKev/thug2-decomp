@@ -138,7 +138,7 @@ const std::vector<GroupKeys>& group_keys()
                   "rt_lights_strength", "rt_lights_shadowed"}},
         {.id = "surfaces",
          .name = text_tools::kGroupSurfaces,
-         .keys = {"rt_relit", "rt_relit_strength", "rt_pbr", "rt_pbr_specular", "rt_pbr_normal_strength", "rt_detail",
+         .keys = {"rt_relit", "rt_relit_strength", "rt_pbr", "rt_pbr_specular", "rt_pbr_normal_strength", "rt_relief", "rt_relief_strength", "rt_detail",
                   "rt_detail_strength", "rt_delight", "rt_delight_strength", "rt_reflections", "rt_reflection_strength", "rt_reflection_fresnel", "rt_glass_reflectance",
                   "rt_glass_roughness", "grass", "grass_density", "grass_height", "grass_distance", "rt_water",
                   "rt_water_waves", "rt_water_wind", "rt_water_clarity", "rt_water_foam", "rt_water_tint",
@@ -255,6 +255,7 @@ const std::vector<ShownWhen>& shown_table()
         {.key = "rt_lights_shadowed", .parent = "rt_lights", .values = {"1"}},
         {.key = "rt_pbr_specular", .parent = "rt_pbr", .values = {"1"}},
         {.key = "rt_pbr_normal_strength", .parent = "rt_pbr", .values = {"1"}},
+        {.key = "rt_relief_strength", .parent = "rt_relief", .values = {"1"}},
         {.key = "rt_detail_strength", .parent = "rt_detail", .values = {"1"}},
         {.key = "rt_delight_strength", .parent = "rt_delight", .values = {"1"}},
         {.key = "rt_reflection_strength", .parent = "rt_reflections", .values = {"1"}},
@@ -548,6 +549,11 @@ const std::vector<Spec>& get_specs()
         graphics_choice("rt_pbr_normal_strength", text_tools::kOptPbrNormal, "",
                         {{.value = "0", .label = "Flat"}, {.value = "0.5", .label = "50%"}, {.value = "1", .label = "100%"}, {.value = "1.5", .label = "150%"}, {.value = "2", .label = "200%"}},
                         2, Apply::kLive),
+        // (added by surface relief: gpu_vulkan/vulkan_surface.h - parallax occlusion mapping)
+        graphics_switch("rt_relief", text_tools::kOptRelief, text_tools::kOptReliefHelp, 0, Apply::kLive),
+        graphics_choice("rt_relief_strength", text_tools::kOptReliefStrength, "",
+                        {{.value = "0.5", .label = text_tools::kLow}, {.value = "1", .label = text_tools::kMedium}, {.value = "1.5", .label = text_tools::kHigh}},
+                        1, Apply::kLive),
         // (NOT ORIGINAL - detail materials and de-lighting: gpu_vulkan/vulkan_detail.h)
         graphics_switch("rt_detail", text_tools::kOptDetail, text_tools::kOptDetailHelp, 0, Apply::kLive),
         graphics_choice("rt_detail_strength", text_tools::kOptDetailStrength, "",

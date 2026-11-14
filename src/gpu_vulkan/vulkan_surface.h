@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -64,5 +65,18 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
 [[nodiscard]] Texture* take_surface_map(const Texture* colour);
 // The maps attached since the device was made (the log; checks).
 [[nodiscard]] uint64_t surface_maps_attached();
+
+// --- (added by surface relief - [Graphics] rt_relief; docs/design/vulkan.md "Surface relief") ---------------------------
+// Parallax occlusion mapping on a surface-mapped draw (ff_key.h kDetailRelief, DetailUniforms::relief): its depth is the
+// map's own - the generator made its normals from its height as (-dh/du k, -dh/dv k, 1), so the height's full range spans
+// k of the map's texels; k (the texture's bump: its class's, its level's terrains and texel size - tools/pbr_maps
+// surfaces.ts) is read back from the map when it is attached (relief_depth_of_map) - x the surface kind's weight
+// (relief_weight: brick and stone whole, none on smooth asphalt, concrete, metal, glass, water...) x rt_relief_strength.
+
+// k of a map's texels (surface_map_format.h's: width x height x 4 bytes): the least-squares ratio of its normals' slopes
+// to its height's Sobel gradients (wrapping, as the generator's); 0 for a flat map, at most 16.
+[[nodiscard]] float relief_depth_of_map(std::span<const uint8_t> texels, uint32_t width, uint32_t height);
+// The relief's weight for a surface kind (detail_material_format::Kind), 0 - 1.
+[[nodiscard]] float relief_weight(uint8_t kind);
 
 } // namespace render::vulkan

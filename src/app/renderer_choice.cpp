@@ -516,7 +516,10 @@ void read_rt_pbr()
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_pbr", false),
          .specular = std::max(0.0F, ini_float("rt_pbr_specular", defaults.specular)),
          .normal_strength = std::max(0.0F, ini_float("rt_pbr_normal_strength", defaults.normal_strength)),
-         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true)});
+         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true),
+         // (added by surface relief - parallax occlusion mapping on the surface-mapped brick, stone, gravel...)
+         .relief = build_info::fetch_flag(build_info::kGraphics, "rt_relief", false),
+         .relief_strength = std::clamp(ini_float("rt_relief_strength", defaults.relief_strength), 0.0F, 4.0F)});
 }
 
 // NOT ORIGINAL - detail materials and de-lighting (gpu_vulkan/vulkan_detail.h): off unless asked for; they act on the
@@ -817,6 +820,7 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_relit_", .prefix = true, .read = &read_rt_relit},
     LiveKey{.key = "rt_pbr", .prefix = false, .read = &read_rt_pbr},
     LiveKey{.key = "rt_pbr_", .prefix = true, .read = &read_rt_pbr},
+    LiveKey{.key = "rt_relief", .prefix = true, .read = &read_rt_pbr}, // (added by surface relief: rt_relief and rt_relief_*)
     LiveKey{.key = "rt_detail", .prefix = true, .read = &read_rt_detail},  // (NOT ORIGINAL - rt_detail and rt_detail_*)
     LiveKey{.key = "rt_delight", .prefix = true, .read = &read_rt_detail}, // (NOT ORIGINAL - rt_delight and rt_delight_*)
     LiveKey{.key = "rt_style", .prefix = true, .read = &read_style}, // (rt_style and every rt_style_)

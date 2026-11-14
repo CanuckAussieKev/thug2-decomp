@@ -19,6 +19,12 @@
 //     detail at full weight scales the albedo by its ratio (the colour's channels alike), faded out it leaves the picture
 //     as without it; the de-lighting flattens a texture dark on one half and bright on the other toward its mean, half
 //     strength halfway.
+//   - (added by surface relief - rt_relief) parallax occlusion mapping: a brick-patterned height map (its normals made
+//     from it with a known bump) on a stone texture whose texels each have their own colour - the depth read back from
+//     the map, and at five view angles every pixel's texel against the processor marching the same ray through the same
+//     heights; off, a smooth-concrete kind and a map with no bump leave the picture exactly as without it, faded out (by
+//     its level of detail) too; far away (the texture repeated) the default fade all but flattens it; the sun's shadow
+//     darkens, never brightens.
 //   thug2_vulkan_pbr_check [--device N] [--display N] [--no-validation] [--perf]
 // --perf also times a full-screen layer at 1920 x 1080 with the setting off and on (reported, not checked).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
@@ -66,6 +72,7 @@ using render::GpuTexture;
 namespace value = render::gpu_value;
 namespace vk = render::vulkan;
 using Vec3 = std::array<float, 3>;
+using dmf_kind = detail_material_format::Kind;
 
 constexpr int kWindowSize = 128;
 constexpr uint32_t kSize = 256;
@@ -326,6 +333,7 @@ struct Case {
     bool map = true;      // the texture has a surface map
     bool pbr = true;      // rt_pbr on
     Vec3 bake{0.45F, 0.42F, 0.4F}; // the vertex colour
+    bool wrap = false;    // (added by surface relief) the texture repeats (else clamped)
 };
 
 constexpr Vec3 kAmbient{0.15F, 0.15F, 0.18F};
@@ -564,8 +572,8 @@ void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture*
     for (const GpuSamplerState state : {GpuSamplerState::kMinFilter, GpuSamplerState::kMagFilter, GpuSamplerState::kMipFilter}) {
         gpu.set_sampler_state(0, state, value::kFilterPoint);
     }
-    gpu.set_sampler_state(0, GpuSamplerState::kAddressU, value::kAddressClamp);
-    gpu.set_sampler_state(0, GpuSamplerState::kAddressV, value::kAddressClamp);
+    gpu.set_sampler_state(0, GpuSamplerState::kAddressU, test.wrap ? value::kAddressWrap : value::kAddressClamp);
+    gpu.set_sampler_state(0, GpuSamplerState::kAddressV, test.wrap ? value::kAddressWrap : value::kAddressClamp);
     gpu.set_stage_state(0, GpuStageState::kTexCoordIndex, 0);
     gpu.set_pixel_shader(shader);
     const std::array<float, 4> c0{kMid, kMid, kMid, kMid};
@@ -658,6 +666,392 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
     tally->check(finite == static_cast<std::size_t>(kSize) * kSize, test.name + ": every pixel finite");
 }
 
+// --- (added by surface relief - [Graphics] rt_relief, gpu_vulkan/vulkan_surface.h) parallax occlusion mapping ----------
+
+constexpr uint32_t kReliefSide = 16;      // the relief texture's and its map's side
+constexpr uint32_t kCourse = 4;           // (its bricks: 4 texels high, 4 wide, every other course shifted by 2)
+constexpr float kReliefBump = 2.5F;       // k: the map's normals made from its height with it (the generator's 3 x bump)
+constexpr float kLowBrick = 0.6F;         // (every third brick's height; the others 1, the mortar 0)
+constexpr uint8_t kStoneClass = 3;        // (surface_map_format::MaterialClass::kStone: its kind's relief whole)
+constexpr uint8_t kConcreteClass = 2;     // (kConcrete: smooth concrete - no relief)
+constexpr float kReliefShare = 0.97F;     // the judged pixels within kTolerance (a read near a texel's edge may go either way)
+constexpr std::size_t kLeastMoved = 2000; // the judged pixels whose texel the relief changed (the check means something)
+constexpr std::size_t kLeastReliefJudged = 4000; // (pixels whose moved coordinates fall near a texel's edge aren't judged)
+constexpr int kMostSteps = 32;            // (the shader's layers: mix(32, 8, rn))
+constexpr int kLeastSteps = 8;
+constexpr int kHalvings = 5;
+constexpr float kGrazeLow = 0.05F;        // (the grazing fade: smoothstep(0.05, 0.2, rn))
+constexpr float kGrazeHigh = 0.2F;
+constexpr float kSobel = 8.0F;
+constexpr float kMapRough = 0.5F;
+constexpr float kRepeats = 48.0F;         // (the far case: the texture repeated - its texels ~5 a pixel)
+
+float relief_height_at(uint32_t column, uint32_t row)
+{
+    const uint32_t course = row / kCourse;
+    const uint32_t shifted = column + ((kCourse / 2) * (course % 2));
+    if (row % kCourse == 0 || shifted % kCourse == 0) {
+        return 0.0F;
+    }
+    return ((shifted / kCourse) + course) % 3 == 0 ? kLowBrick : 1.0F;
+}
+
+Vec3 relief_colour_at(uint32_t column, uint32_t row)
+{
+    constexpr float kBase = 0.1F;
+    constexpr float kStep = 0.03F;
+    constexpr float kReliefGreen = 0.3F;
+    return as_bytes({kBase + (kStep * static_cast<float>(column)), kReliefGreen, kBase + (kStep * static_cast<float>(row))});
+}
+
+// The map: the height's bytes, the normals the generator would make from them with k (tools/pbr_maps classical.ts
+// normalsFrom: a wrapping Sobel, (-du k, -dv k, 1) normalised) - flat normals with `flat` (no bump: no relief).
+std::vector<uint8_t> relief_map(bool flat)
+{
+    const auto height = [](uint32_t column, uint32_t row) {
+        return std::round(relief_height_at(column % kReliefSide, row % kReliefSide) * kByteMax) / kByteMax;
+    };
+    const auto signed_byte = [](float value) {
+        return static_cast<uint8_t>(std::lround(std::clamp((value * kSignedHalf) + kSignedHalf, 0.0F, kByteMax)));
+    };
+    const float bump = flat ? 0.0F : kReliefBump;
+    std::vector<uint8_t> map(static_cast<std::size_t>(kReliefSide) * kReliefSide * 4);
+    for (uint32_t row = 0; row < kReliefSide; ++row) {
+        for (uint32_t column = 0; column < kReliefSide; ++column) {
+            const uint32_t left = column + kReliefSide - 1;
+            const uint32_t right = column + 1;
+            const uint32_t up = row + kReliefSide - 1;
+            const uint32_t down = row + 1;
+            const float du = (height(right, up) + (kTwo * height(right, row)) + height(right, down) - height(left, up) -
+                              (kTwo * height(left, row)) - height(left, down)) /
+                             kSobel;
+            const float dv = (height(left, down) + (kTwo * height(column, down)) + height(right, down) - height(left, up) -
+                              (kTwo * height(column, up)) - height(right, up)) /
+                             kSobel;
+            const float nx = -du * bump;
+            const float ny = -dv * bump;
+            const float length = std::sqrt((nx * nx) + (ny * ny) + 1.0F);
+            const std::size_t at = ((static_cast<std::size_t>(row) * kReliefSide) + column) * 4;
+            map.at(at) = signed_byte(nx / length);
+            map.at(at + 1) = signed_byte(ny / length);
+            map.at(at + 2) = static_cast<uint8_t>(std::lround(kMapRough * kByteMax));
+            map.at(at + 3) = static_cast<uint8_t>(std::lround(height(column, row) * kByteMax));
+        }
+    }
+    return map;
+}
+
+// The texture (each texel its own colour) with `map` attached as a map of `material_class`.
+GpuTexture* relief_texture(render::Gpu& gpu, const std::vector<uint8_t>& map, uint8_t material_class, uint32_t checksum = 0,
+                           uint64_t content_hash = 0)
+{
+    GpuTexture* texture = nullptr;
+    if (gpu.create_texture({.width = kReliefSide, .height = kReliefSide, .levels = 1, .usage = 0,
+                            .format = value::kFormatA8R8G8B8, .pool = value::kPoolManaged},
+                           &texture) != value::kResultOk) {
+        return nullptr;
+    }
+    render::GpuLockedRect locked{};
+    if (gpu.lock_texture(texture, 0, &locked, nullptr, 0) == value::kResultOk && locked.bits != nullptr) {
+        const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked.bits),
+                                       (static_cast<std::size_t>(locked.pitch) * (kReliefSide - 1)) + (std::size_t{kReliefSide} * 4));
+        for (uint32_t row = 0; row < kReliefSide; ++row) {
+            for (uint32_t column = 0; column < kReliefSide; ++column) {
+                const Vec3 colour = relief_colour_at(column, row);
+                const std::size_t at = (static_cast<std::size_t>(row) * static_cast<std::size_t>(locked.pitch)) + (std::size_t{column} * 4);
+                core::at(bytes, at) = static_cast<uint8_t>(std::lround(core::at(colour, 2) * kByteMax));
+                core::at(bytes, at + 1) = static_cast<uint8_t>(std::lround(core::at(colour, 1) * kByteMax));
+                core::at(bytes, at + 2) = static_cast<uint8_t>(std::lround(core::at(colour, 0) * kByteMax));
+                core::at(bytes, at + 3) = kHalfAlpha;
+            }
+        }
+        gpu.unlock_texture(texture, 0);
+    }
+    if (render::surface::surface_maps() != nullptr) {
+        render::surface::surface_maps()->attach(
+            texture,
+            {.width = kReliefSide, .height = kReliefSide, .material_class = material_class, .f0 = kMapF0, .checksum = checksum,
+             .content_hash = content_hash},
+            map);
+    }
+    return texture;
+}
+
+// A texel of the side's grid at (u, v), point sampled - clamped, or repeating with `wrap`.
+std::array<uint32_t, 2> relief_texel(float u, float v, bool wrap)
+{
+    const auto index = [wrap](float value) {
+        const float at = std::floor(value * static_cast<float>(kReliefSide));
+        if (wrap) {
+            const float side = static_cast<float>(kReliefSide);
+            return static_cast<uint32_t>(at - (side * std::floor(at / side)));
+        }
+        return static_cast<uint32_t>(std::clamp(at, 0.0F, static_cast<float>(kReliefSide - 1)));
+    };
+    return {index(u), index(v)};
+}
+
+// The colour the processor expects at a pixel of the relief quad (the bake 0.5 and the normals' strength 0 leave the
+// texel's colour: 2 x t x v0), the ray marched through the map's heights as the shader does with the depth `depth` (k x
+// the kind's weight x strength); false where it isn't judged. `moved`: the texel isn't the one without relief.
+bool relief_expected(const Quad& quad, uint32_t px, uint32_t py, const std::vector<uint8_t>& map, float depth, Vec3* out,
+                     bool* moved)
+{
+    const float ndc_x = ((kTwo * static_cast<float>(px)) / static_cast<float>(kSize)) - 1.0F;
+    const float ndc_y = 1.0F - ((kTwo * static_cast<float>(py)) / static_cast<float>(kSize));
+    const Vec3 ray{ndc_x / kFov, ndc_y / kFov, 1.0F};
+    const Vec3 neg_s = scale(quad.edge_s, -1.0F);
+    const Vec3 neg_t = scale(quad.edge_t, -1.0F);
+    const float det = dot(ray, cross(neg_s, neg_t));
+    if (std::fabs(det) < kLeastDet) {
+        return false;
+    }
+    const float along_s = dot(ray, cross(quad.corner, neg_t)) / det;
+    const float along_t = dot(ray, cross(neg_s, quad.corner)) / det;
+    const float lambda = dot(quad.corner, cross(neg_s, neg_t)) / det;
+    if (along_s < kEdgeMargin || along_s > 1.0F - kEdgeMargin || along_t < kEdgeMargin || along_t > 1.0F - kEdgeMargin ||
+        lambda <= 0.0F) {
+        return false;
+    }
+    const Vec3 point = scale(ray, lambda);
+    std::array<float, 2> uv{core::at(quad.uv0, 0) + (along_s * core::at(quad.duv_s, 0)) + (along_t * core::at(quad.duv_t, 0)),
+                            core::at(quad.uv0, 1) + (along_s * core::at(quad.duv_s, 1)) + (along_t * core::at(quad.duv_t, 1))};
+    const std::array<uint32_t, 2> before = relief_texel(core::at(uv, 0), core::at(uv, 1), false);
+    const Vec3 geo = quad_normal(quad);
+    const float area = dot(geo, cross(quad.edge_s, quad.edge_t));
+    const Vec3 grad_s = scale(cross(quad.edge_t, geo), 1.0F / area);
+    const Vec3 grad_t = scale(cross(geo, quad.edge_s), 1.0F / area);
+    const Vec3 grad_u = add(scale(grad_s, core::at(quad.duv_s, 0)), scale(grad_t, core::at(quad.duv_t, 0)));
+    const Vec3 grad_v = add(scale(grad_s, core::at(quad.duv_s, 1)), scale(grad_t, core::at(quad.duv_t, 1)));
+    const Vec3 toward = normalise(point);
+    const float rn = -dot(toward, geo);
+    const float weight = smoothstep(kGrazeLow, kGrazeHigh, rn);
+    const auto height = [&map](float u, float v) {
+        const std::array<uint32_t, 2> texel = relief_texel(u, v, false);
+        return static_cast<float>(map.at((((static_cast<std::size_t>(core::at(texel, 1)) * kReliefSide) + core::at(texel, 0)) * 4) + 3)) /
+               kByteMax;
+    };
+    if (weight > 0.0F) {
+        const float side = static_cast<float>(kReliefSide);
+        const float texels = std::sqrt(std::sqrt(dot(grad_u, grad_u)) * side * std::sqrt(dot(grad_v, grad_v)) * side);
+        const float scaled = depth * weight / texels;
+        const std::array<float, 2> shift{dot(grad_u, toward) * (scaled / rn), dot(grad_v, toward) * (scaled / rn)};
+        const auto along = [&](float level) {
+            return std::array<float, 2>{core::at(uv, 0) + (core::at(shift, 0) * (kMid - level)),
+                                        core::at(uv, 1) + (core::at(shift, 1) * (kMid - level))};
+        };
+        const int steps = static_cast<int>((static_cast<float>(kMostSteps) * (1.0F - rn)) + (static_cast<float>(kLeastSteps) * rn));
+        const float layer = 1.0F / static_cast<float>(steps);
+        float above = 1.0F;
+        float below = 1.0F;
+        std::array<float, 2> at = along(1.0F);
+        float found = height(core::at(at, 0), core::at(at, 1));
+        for (int step = 0; step < steps && found < below; ++step) {
+            above = below;
+            below -= layer;
+            at = along(below);
+            found = height(core::at(at, 0), core::at(at, 1));
+        }
+        for (int halving = 0; halving < kHalvings; ++halving) {
+            const float mid = kMid * (above + below);
+            at = along(mid);
+            if (height(core::at(at, 0), core::at(at, 1)) < mid) {
+                above = mid;
+            } else {
+                below = mid;
+            }
+        }
+        uv = along(below);
+    }
+    const float tu = core::at(uv, 0) * static_cast<float>(kReliefSide);
+    const float tv = core::at(uv, 1) * static_cast<float>(kReliefSide);
+    const float fu = tu - std::floor(tu);
+    const float fv = tv - std::floor(tv);
+    if (fu < kTexelMargin || fu > 1.0F - kTexelMargin || fv < kTexelMargin || fv > 1.0F - kTexelMargin) {
+        return false;
+    }
+    const std::array<uint32_t, 2> texel = relief_texel(core::at(uv, 0), core::at(uv, 1), false);
+    *moved = texel != before;
+    const Vec3 bake = as_bytes({kMid, kMid, kMid});
+    const Vec3 colour = relief_colour_at(core::at(texel, 0), core::at(texel, 1));
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        out->at(channel) = clamp01(kTwo * colour.at(channel) * bake.at(channel));
+    }
+    return true;
+}
+
+// The baked quad (0.5 grey) with `texture`, as a float picture (four values a pixel).
+std::vector<float> relief_picture(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, GpuTexture* texture,
+                                  const Quad& quad, bool wrap, bool lit = false)
+{
+    const Case test{.name = "relief", .lit = lit, .bake = {kMid, kMid, kMid}, .wrap = wrap};
+    gpu.begin_scene();
+    gpu.set_render_target(0, target);
+    gpu.set_depth_surface(nullptr);
+    gpu.set_viewport({.x = 0, .y = 0, .width = kSize, .height = kSize, .min_z = 0.0F, .max_z = 1.0F});
+    draw_case(gpu, test, quad, texture, shader);
+    gpu.set_render_target(0, nullptr);
+    gpu.end_scene();
+    std::vector<uint8_t> raw;
+    (void)vk::read_surface(target, &raw);
+    std::vector<float> out(raw.size() / 2);
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        out.at(i) = from_half(static_cast<uint16_t>(raw.at(i * 2) | (raw.at((i * 2) + 1) << kHighByte)));
+    }
+    return out;
+}
+
+// The settings the relief cases draw with: per-pixel lighting, no highlight, the map's normals flat (the colour is the
+// texel's alone), the relief at `strength` and its shadow at `shadow`; the fade as given.
+vk::RtPbrSettings relief_settings(bool on, float shadow, float fade_start = vk::kRtReliefFadeStart,
+                                  float fade_end = vk::kRtReliefFadeEnd)
+{
+    vk::RtPbrSettings settings;
+    settings.on = true;
+    settings.specular = 0.0F;
+    settings.normal_strength = 0.0F;
+    settings.relief = on;
+    settings.relief_strength = 1.0F;
+    settings.relief_fade_start = fade_start;
+    settings.relief_fade_end = fade_end;
+    settings.relief_shadow = shadow;
+    return settings;
+}
+
+// The mean difference of two pictures' colour channels (NaN if either is short or not finite).
+float mean_difference(const std::vector<float>& one, const std::vector<float>& other)
+{
+    if (one.size() != other.size() || one.empty()) {
+        return std::numeric_limits<float>::quiet_NaN();
+    }
+    double sum = 0.0;
+    std::size_t count = 0;
+    for (std::size_t i = 0; i < one.size(); ++i) {
+        if (i % 4 == 3) {
+            continue;
+        }
+        sum += std::fabs(static_cast<double>(one.at(i)) - static_cast<double>(other.at(i)));
+        ++count;
+    }
+    return static_cast<float>(sum / static_cast<double>(count));
+}
+
+void check_relief(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, Tally* tally)
+{
+    vk::set_rt_detail_settings({});
+    const std::vector<uint8_t> map = relief_map(false);
+    const float depth = vk::relief_depth_of_map(map, kReliefSide, kReliefSide);
+    tally->check(std::fabs(depth - kReliefBump) < kReliefBump * 0.03F,
+                 text::format("rt_relief: the map's depth read back from its normals and height: %.3f texels (made with %.3f)",
+                              static_cast<double>(depth), static_cast<double>(kReliefBump)));
+    tally->check(vk::relief_depth_of_map(relief_map(true), kReliefSide, kReliefSide) == 0.0F,
+                 "rt_relief: a map with flat normals has no depth");
+    vk::set_rt_pbr_settings(relief_settings(true, 0.0F));
+    GpuTexture* stone = relief_texture(gpu, map, kStoneClass);
+    struct View {
+        const char* name;
+        float yaw;
+        float pitch;
+        Mapping mapping;
+    };
+    constexpr float kDegrees = kPi / 180.0F;
+    const std::array<View, 5> views{{
+        {.name = "facing the camera", .yaw = 0.0F, .pitch = 0.0F, .mapping = Mapping::kPlain},
+        {.name = "turned 35 / 20 degrees", .yaw = 35.0F * kDegrees, .pitch = 20.0F * kDegrees, .mapping = Mapping::kPlain},
+        {.name = "turned -50 / 10 degrees, u mirrored", .yaw = -50.0F * kDegrees, .pitch = 10.0F * kDegrees, .mapping = Mapping::kMirrored},
+        {.name = "turned 20 / -40 degrees, mapping turned 90", .yaw = 20.0F * kDegrees, .pitch = -40.0F * kDegrees, .mapping = Mapping::kRotated},
+        {.name = "turned 60 degrees, u and v mirrored", .yaw = 60.0F * kDegrees, .pitch = 0.0F, .mapping = Mapping::kBoth},
+    }};
+    for (const View& view : views) {
+        const Quad quad = make_quad(view.yaw, view.pitch, view.mapping);
+        const std::vector<float> picture = relief_picture(gpu, target, shader, stone, quad, false);
+        std::size_t judged = 0;
+        std::size_t within = 0;
+        std::size_t moved = 0;
+        bool finite = picture.size() >= static_cast<std::size_t>(kSize) * kSize * 4;
+        for (uint32_t py = 0; py < kSize && finite; ++py) {
+            for (uint32_t px = 0; px < kSize; ++px) {
+                const std::size_t pixel = (static_cast<std::size_t>(py) * kSize) + px;
+                Vec3 got{picture.at(pixel * 4), picture.at((pixel * 4) + 1), picture.at((pixel * 4) + 2)};
+                finite = finite && std::isfinite(got[0]) && std::isfinite(got[1]) && std::isfinite(got[2]);
+                Vec3 want{};
+                bool shifted = false;
+                if (!relief_expected(quad, px, py, map, depth, &want, &shifted)) {
+                    continue;
+                }
+                ++judged;
+                float difference = 0.0F;
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    difference = std::max(difference, std::fabs(got.at(channel) - want.at(channel)));
+                }
+                within += difference <= kTolerance ? 1U : 0U;
+                moved += shifted ? 1U : 0U;
+            }
+        }
+        const double share = judged != 0 ? static_cast<double>(within) / static_cast<double>(judged) : 0.0;
+        tally->check(finite && judged > kLeastReliefJudged && share >= kReliefShare && moved > kLeastMoved,
+                     text::format("rt_relief, %s: %zu pixels' texels against the processor's march, %.2f%% the same "
+                                  "(%zu moved by the relief)%s",
+                                  view.name, judged, share * 100.0, moved, finite ? "" : ", NOT FINITE"));
+    }
+    // Off: the picture as without relief - the setting off, a kind without relief, a map without bump, faded out.
+    const Quad turned = make_quad(views[1].yaw, views[1].pitch, Mapping::kPlain);
+    vk::set_rt_pbr_settings(relief_settings(false, 0.0F));
+    const std::vector<float> off = relief_picture(gpu, target, shader, stone, turned, false);
+    vk::set_rt_pbr_settings(relief_settings(true, 0.0F));
+    const std::vector<float> on = relief_picture(gpu, target, shader, stone, turned, false);
+    GpuTexture* concrete = relief_texture(gpu, map, kConcreteClass);
+    const std::vector<float> smooth = relief_picture(gpu, target, shader, concrete, turned, false);
+    GpuTexture* flat = relief_texture(gpu, relief_map(true), kStoneClass);
+    const std::vector<float> no_bump = relief_picture(gpu, target, shader, flat, turned, false);
+    vk::set_rt_pbr_settings(relief_settings(false, 0.0F));
+    const std::vector<float> concrete_off = relief_picture(gpu, target, shader, concrete, turned, false);
+    const std::vector<float> flat_off = relief_picture(gpu, target, shader, flat, turned, false);
+    vk::set_rt_pbr_settings(relief_settings(true, 0.0F, -31.0F, -30.0F));
+    const std::vector<float> faded = relief_picture(gpu, target, shader, stone, turned, false);
+    tally->check(mean_difference(on, off) > 0.001F,
+                 text::format("rt_relief: on changes the picture (mean %.4f)", static_cast<double>(mean_difference(on, off))));
+    tally->check(smooth == concrete_off, "rt_relief: a smooth-concrete texture's picture the same as with it off");
+    tally->check(no_bump == flat_off, "rt_relief: a map with no bump - the picture the same as with it off");
+    tally->check(faded == off, "rt_relief: faded out (the fade ending below its texels' size) - the picture the same as off");
+    // Far away: the texture repeated so its texels are ~5 a pixel - the default fade has all but flattened the relief.
+    Quad distant = turned;
+    distant.duv_s = {kRepeats, 0.0F};
+    distant.duv_t = {0.0F, kRepeats};
+    vk::set_rt_pbr_settings(relief_settings(false, 0.0F));
+    const std::vector<float> far_off = relief_picture(gpu, target, shader, stone, distant, true);
+    vk::set_rt_pbr_settings(relief_settings(true, 0.0F, 30.0F, 31.0F));
+    const std::vector<float> far_whole = relief_picture(gpu, target, shader, stone, distant, true);
+    vk::set_rt_pbr_settings(relief_settings(true, 0.0F));
+    const std::vector<float> far_faded = relief_picture(gpu, target, shader, stone, distant, true);
+    const float whole = mean_difference(far_whole, far_off);
+    const float fading = mean_difference(far_faded, far_off);
+    // (the map's mips - heights averaged - already flatten it there; the fade takes the rest)
+    tally->check(whole > 0.0002F && fading < whole * 0.25F,
+                 text::format("rt_relief: far away the fade flattens it (mean change %.4f, %.4f unfaded)",
+                              static_cast<double>(fading), static_cast<double>(whole)));
+    // The sun's shadow: the sunlit bake darkened beside the bricks, nowhere brightened.
+    vk::set_rt_pbr_settings(relief_settings(true, 1.0F));
+    const std::vector<float> shadowed = relief_picture(gpu, target, shader, stone, make_quad(0.0F, 0.0F, Mapping::kPlain), false);
+    vk::set_rt_pbr_settings(relief_settings(true, 0.0F));
+    const std::vector<float> unshadowed = relief_picture(gpu, target, shader, stone, make_quad(0.0F, 0.0F, Mapping::kPlain), false);
+    std::size_t darker = 0;
+    std::size_t brighter = 0;
+    for (std::size_t i = 0; i < shadowed.size() && i < unshadowed.size(); ++i) {
+        if (i % 4 == 3) {
+            continue;
+        }
+        darker += shadowed.at(i) < unshadowed.at(i) - 0.01F ? 1U : 0U;
+        brighter += shadowed.at(i) > unshadowed.at(i) + 0.001F ? 1U : 0U;
+    }
+    tally->check(darker > kLeastChanged && brighter == 0,
+                 text::format("rt_relief: the sun's shadow darkens %zu channels beside the bricks, brightens %zu", darker, brighter));
+    gpu.release_texture(stone);
+    gpu.release_texture(concrete);
+    gpu.release_texture(flat);
+    vk::set_rt_pbr_settings({});
+}
+
 // --perf: the cost of a full-screen layer at 1920 x 1080 (a quad filling the target, drawn many times in one scene)
 // with rt_pbr off, and on lit and baked with a map - the wall time per layer once the device has finished (not a check).
 void measure_cost(render::Gpu& gpu, render::GpuPixelShader* shader)
@@ -681,11 +1075,15 @@ void measure_cost(render::Gpu& gpu, render::GpuPixelShader* shader)
         const char* name;
         bool pbr;
         bool lit;
+        bool relief = false; // (added by surface relief: a stone map with relief, its shadow on)
     };
     for (const Mode mode : {Mode{.name = "rt_pbr off", .pbr = false, .lit = true}, Mode{.name = "lit, a map", .pbr = true, .lit = true},
-                            Mode{.name = "baked, a map", .pbr = true, .lit = false}}) {
-        vk::set_rt_pbr_settings({.on = mode.pbr});
-        GpuTexture* texture = make_texture(gpu, true);
+                            Mode{.name = "baked, a map", .pbr = true, .lit = false},
+                            Mode{.name = "baked, a stone map with relief", .pbr = true, .lit = false, .relief = true}}) {
+        vk::RtPbrSettings settings{.on = mode.pbr};
+        settings.relief = mode.relief;
+        vk::set_rt_pbr_settings(settings);
+        GpuTexture* texture = mode.relief ? relief_texture(gpu, relief_map(false), kStoneClass) : make_texture(gpu, true);
         const Case test{.name = mode.name, .lit = mode.lit};
         double seconds = 0.0;
         for (int pass = 0; pass < 2; ++pass) { // (the first warms the pipelines)
@@ -752,11 +1150,11 @@ constexpr float kRatioTolerance = 0.01F;
 
 // A library of one kind (smooth concrete) whose detail is flat with the albedo ratio kDetailAlbedo, the check's texture
 // assigned to it (its mean luminance `mean`).
-std::vector<uint8_t> detail_library(float mean)
+std::vector<uint8_t> detail_library(float mean, dmf_kind kind = dmf_kind::kConcreteSmooth, uint32_t checksum = kDetailChecksum)
 {
     namespace dmf = detail_material_format;
     dmf::Library library;
-    library.kinds.push_back({.kind = dmf::Kind::kConcreteSmooth,
+    library.kinds.push_back({.kind = kind,
                              .side = kDetailSide,
                              .tile_metres = 1.0F,
                              .roughness = 0.8F,
@@ -764,9 +1162,9 @@ std::vector<uint8_t> detail_library(float mean)
                              .f0 = 0.04F,
                              .metalness = 0.0F,
                              .roughness_weight = 0.5F});
-    library.assignments.push_back({.checksum = kDetailChecksum,
+    library.assignments.push_back({.checksum = checksum,
                                    .content_hash = kDetailHash,
-                                   .kind = dmf::Kind::kConcreteSmooth,
+                                   .kind = kind,
                                    .evidence = dmf::Evidence::kTerrain,
                                    .repeats = 2.0F,
                                    .mean_luma = mean});
@@ -951,6 +1349,41 @@ void check_detail(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* 
     vk::set_rt_detail_settings({});
 }
 
+// (added by surface relief) The relief's other shader variants made and drawn: lit by lights (objects - no sun shadow),
+// and with the detail layer and the de-lighting (a library whose stone kind the relief texture is assigned to).
+void check_relief_variants(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, Tally* tally)
+{
+    constexpr uint32_t kReliefChecksum = 0x5E11EFU;
+    constexpr uint64_t kReliefHash = 0xB41C4ULL;
+    const auto all_finite = [](const std::vector<float>& picture) {
+        return !picture.empty() && std::ranges::all_of(picture, [](float value) { return std::isfinite(value); });
+    };
+    const Quad quad = make_quad(0.61F, 0.35F, Mapping::kPlain);
+    vk::set_rt_pbr_settings(relief_settings(false, 0.0F)); // (first: the maps are taken only with rt_pbr on)
+    GpuTexture* stone = relief_texture(gpu, relief_map(false), kStoneClass);
+    const std::vector<float> lit_off = relief_picture(gpu, target, shader, stone, quad, false, true);
+    vk::set_rt_pbr_settings(relief_settings(true, 1.0F));
+    const std::vector<float> lit_on = relief_picture(gpu, target, shader, stone, quad, false, true);
+    tally->check(all_finite(lit_on) && mean_difference(lit_on, lit_off) > 0.001F,
+                 text::format("rt_relief, lit by lights: drawn, every pixel finite (mean change %.4f)",
+                              static_cast<double>(mean_difference(lit_on, lit_off))));
+    tally->check(vk::load_detail_library(detail_library(kDelitMean, dmf_kind::kStone, kReliefChecksum)),
+                 "rt_relief: a library with the relief texture's stone kind read");
+    GpuTexture* assigned = relief_texture(gpu, relief_map(false), kStoneClass, kReliefChecksum, kReliefHash);
+    vk::set_rt_detail_settings({.on = true, .strength = 1.0F, .delight = true, .delight_strength = 0.5F});
+    vk::set_rt_pbr_settings(relief_settings(false, 0.0F));
+    const std::vector<float> detail_off = relief_picture(gpu, target, shader, assigned, quad, false);
+    vk::set_rt_pbr_settings(relief_settings(true, 1.0F));
+    const std::vector<float> detail_on = relief_picture(gpu, target, shader, assigned, quad, false);
+    tally->check(all_finite(detail_on) && mean_difference(detail_on, detail_off) > 0.001F,
+                 text::format("rt_relief with the detail layer and the de-lighting: drawn, every pixel finite (mean change %.4f)",
+                              static_cast<double>(mean_difference(detail_on, detail_off))));
+    vk::set_rt_detail_settings({});
+    vk::set_rt_pbr_settings({});
+    gpu.release_texture(stone);
+    gpu.release_texture(assigned);
+}
+
 int window_position(int display)
 {
     int displays = 0;
@@ -1040,6 +1473,8 @@ int run(const Options& options, SDL_Window* window)
         }
         check_bake_moves(gpu, target, shader, &tally);
         check_detail(gpu, target, shader, &tally); // (NOT ORIGINAL - rt_detail / rt_delight)
+        check_relief(gpu, target, shader, &tally); // (added by surface relief - rt_relief)
+        check_relief_variants(gpu, target, shader, &tally);
         if (options.perf) {
             measure_cost(gpu, shader);
         }

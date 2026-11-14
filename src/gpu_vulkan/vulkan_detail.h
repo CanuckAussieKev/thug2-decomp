@@ -19,7 +19,8 @@
 //   - rt_delight: the light painted into the colour textures (shadows, occlusion, highlights) flattened toward the
 //     texture's mean luminance by its low-frequency luminance, in the shader - the player's files are not changed.
 // ff_shaders.cpp writes the shaders (its "detail layer" comment has the formulas); DetailUniforms (ff_uniforms.h) is
-// their block. With both off nothing here runs and every key's detail byte stays 0.
+// their block. With both off nothing here runs and every key's detail byte stays 0 (but for rt_relief's kDetailRelief,
+// set by vulkan_surface.cpp, which reads the texture's kind from here).
 namespace render::vulkan {
 
 struct Texture;
@@ -31,6 +32,10 @@ struct DetailDraw {
     Texture* texture = nullptr;
     float f0 = -1.0F;
     DetailUniforms uniforms{};
+    // (added by surface relief - [Graphics] rt_relief, vulkan_surface.h) the texture's surface kind
+    // (detail_material_format::Kind): the library's assignment when it is read (rt_detail), else its map's class's - set
+    // with the detail's settings off too
+    uint8_t kind = 0;
 };
 
 // What a draw of a colour texture with a surface map gets: the texture's checksum and content hash (its first level's)
