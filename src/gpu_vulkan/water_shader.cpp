@@ -56,13 +56,15 @@ float water_hue_weight(vec3 mean)
 }
 
 // The swell: four Gerstner waves about the wind's direction, as their normal's parts - x and z the slope, y the crests'
-// sharpening (Q = 0.6) -, each faded out where a pixel spans a good part of its wavelength (no aliasing far away).
+// sharpening (Q = 0.6) -, each faded out where a pixel spans a good part of its wavelength (no aliasing far away). The
+// wind raises them too (x 0.4 still, x 1 at the default breeze, x 1.6 in a gale).
 vec3 water_swell(vec2 p, float t, float footprint)
 {
     const vec4 lengths = vec4(1.0, 0.63, 0.41, 0.27);
     const vec4 turns = vec4(0.0, 0.42, -0.57, 1.05);
     const vec4 steepness = vec4(0.12, 0.10, 0.085, 0.07);
     vec2 wind = water.time.yz;
+    float raised = water.waves.x * (0.4 + 0.6 * water.time.w);
     vec3 sum = vec3(0.0);
     for (int i = 0; i < 4; ++i) {
         float wavelength = lengths[i] * water.misc.y;
@@ -73,7 +75,7 @@ vec3 water_swell(vec2 p, float t, float footprint)
         vec2 d = vec2(wind.x * c - wind.y * s, wind.x * s + wind.y * c);
         float fade = 1.0 - smoothstep(0.05, 0.2, footprint / wavelength);
         float phase = k * (dot(d, p) - speed * t) + float(i) * 1.913;
-        float a = steepness[i] * water.waves.x * fade;
+        float a = steepness[i] * raised * fade;
         sum += vec3(d.x * a * cos(phase), 0.6 * a * sin(phase), d.y * a * cos(phase));
     }
     return sum;
@@ -89,7 +91,9 @@ vec3 water_ripples(vec2 p, float t)
     float drift = t * (0.4 + 0.6 * strength);
     vec4 a = texture(water_waves, q / 263.0 + vec2(drift * 0.031, 0.0));
     vec4 b = texture(water_waves, q / 97.0 + vec2(drift * 0.083, drift * 0.019) + vec2(0.37, 0.71));
-    vec2 slope = (a.xy * 0.55 + b.xy * 0.45) * (0.3 + 0.7 * strength) * min(water.waves.x * 2.0, 1.5);
+    // (above the default breeze the wind roughens them faster: x 2.2 in a gale; the waves' setting up to x 3)
+    float windy = 0.3 + 0.7 * strength + 0.5 * max(strength - 1.0, 0.0);
+    vec2 slope = (a.xy * 0.55 + b.xy * 0.45) * windy * min(water.waves.x * 2.0, 3.0);
     return vec3(along * slope.x + across * slope.y, a.w * 0.55 + b.w * 0.45);
 }
 
@@ -301,7 +305,10 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     // 5. foam where the water is shallow (meets geometry), in the ripples' drifting pattern
     float shore = copied ? 1.0 - smoothstep(0.0, 24.0, depth_down) : 0.0;
     float pattern = smoothstep(0.3, 0.75, ripple.z + 0.2 * sin(t * 1.7 - depth_down * 0.4));
-    float foam = clamp(water.waves.z * shore * mix(0.3, 1.0, pattern), 0.0, 1.0);
+    // whitecaps above the default breeze: on the swell's sharpened crests, broken up by the ripples' pattern (none at
+    // wind 1 or below)
+    float caps = smoothstep(1.0, 2.0, water.time.w) * smoothstep(0.04, 0.14, swell.y) * smoothstep(0.35, 0.7, ripple.z);
+    float foam = clamp(water.waves.z * max(shore * mix(0.3, 1.0, pattern), 0.85 * caps), 0.0, 1.0);
     vec3 foam_colour = vec3(0.9, 0.93, 0.95) * clamp(gain, 0.15, 1.2); // (white, at the light the game gave the surface)
 
     vec3 shaded = mix(refracted, reflected, fresnel) + glitter * (1.0 - foam);

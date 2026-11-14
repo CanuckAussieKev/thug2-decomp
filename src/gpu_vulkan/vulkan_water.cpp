@@ -821,7 +821,9 @@ WaterUniforms water_uniforms(const WaterSettings& settings, const WaterView& vie
     const double angle = static_cast<double>(heading) * kDegrees;
     out.time = {static_cast<float>(drawn.game_seconds), static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)),
                 settings.wind};
-    out.waves = {std::max(level.waves, 0.0F) * settings.waves, std::max(level.visibility * settings.clarity, 1.0F),
+    // (rt_water_waves above 1 grows as its square: Choppy 1.5 x 2.25, Rough 2 x 4 the level's swell)
+    const float waves = settings.waves <= 1.0F ? settings.waves : settings.waves * settings.waves;
+    out.waves = {std::max(level.waves, 0.0F) * waves, std::max(level.visibility * settings.clarity, 1.0F),
                  settings.foam, kWaterDetail};
     out.tint = {core::at(settings.tint, 0), core::at(settings.tint, 1), core::at(settings.tint, 2), settings.tint_auto ? 1.0F : 0.0F};
     // the sun: the scene's (the shadows', the drawn sun's), else the one the game shows
