@@ -525,7 +525,7 @@ void read_rt_pbr()
          .relief = build_info::fetch_flag(build_info::kGraphics, "rt_relief", false),
          .relief_strength = std::clamp(ini_float("rt_relief_strength", defaults.relief_strength), 0.0F, 4.0F),
          // (added for the characters - their surface maps and skin / cloth / hair shading; on top of rt_pbr)
-         .characters = build_info::fetch_flag(build_info::kGraphics, "rt_characters", false),
+         .characters = build_info::fetch_flag(build_info::kGraphics, "rt_characters", true),
          .skin = std::clamp(ini_float("rt_characters_skin", defaults.skin), 0.0F, 2.0F),
          .cloth = std::clamp(ini_float("rt_characters_cloth", defaults.cloth), 0.0F, 2.0F),
          .hair = std::clamp(ini_float("rt_characters_hair", defaults.hair), 0.0F, 2.0F)});
