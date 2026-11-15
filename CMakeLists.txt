@@ -35,10 +35,11 @@ endif()
 set(THUG2_X64_READY base formats wire platform gamespy_sdk engine net_winsock render_pc gpu_d3d9 gpu_vulkan audio_dsound media_ffmpeg
                     input_dinput fs_win32 script_qb game frontend editor devtools app)
 
-# NOT ORIGINAL - the macOS port's order of work (port/README.md): the layers that are plain C++ first, then the ones
+# NOT ORIGINAL - the macOS port's order of work (docs/design/macos-port.md): the layers that are plain C++ first, then the ones
 # the platform layer and the backends hold. A layer not named here is left out of the configure, so its absence is the
 # only thing a missing piece of that layer can break.
-set(THUG2_PORT_READY base formats wire platform engine render_pc game frontend devtools script_qb media_ffmpeg fs_win32 net_winsock gpu_vulkan app)
+set(THUG2_PORT_READY base formats wire platform engine render_pc game frontend devtools script_qb media_ffmpeg
+                     fs_posix net_bsd audio_sdl gpu_vulkan app)
 
 # Whether this configure builds `name` (a library of src/, or gamespy_sdk): always on x86; on x64 when x64-ready; on a
 # portable build when port-ready.
@@ -341,16 +342,14 @@ else()
     # port/macos_compat.h stands in front of every file for what MSVC's runtime and Win32 gave the source.
     target_compile_definitions(thug2_options INTERFACE THUG2_PORTABLE)
     target_compile_options(thug2_options INTERFACE -Wall -Wextra -fsigned-char -Wno-ignored-attributes)
-    target_compile_options(thug2_options INTERFACE -include ${PROJECT_SOURCE_DIR}/port/macos_compat.h)
-    # NOT ORIGINAL - port/win32_shim/windows.h: the Win32 names the layers above the platform use (files, threads and their
-    # sync, timers, the registry, the ini file, the module and the command line), given bodies over POSIX in
-    # port/win32.cpp. Its include directory comes before src, so `#include <windows.h>` lands there.
-    target_include_directories(thug2_options INTERFACE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/port/win32_shim)
-    add_library(thug2_port_win32 STATIC ${PROJECT_SOURCE_DIR}/port/win32.cpp)
-    target_include_directories(thug2_port_win32 PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/port/win32_shim)
-    target_compile_options(thug2_port_win32 PRIVATE -Wall -Wextra -fsigned-char -Wno-ignored-attributes)
-    target_compile_options(thug2_port_win32 PRIVATE -include ${PROJECT_SOURCE_DIR}/port/macos_compat.h)
-    target_link_libraries(thug2_options INTERFACE thug2_port_win32)
+    target_compile_options(thug2_options INTERFACE -include ${PROJECT_SOURCE_DIR}/src/platform/posix/macos_compat.h)
+    # NOT ORIGINAL - src/platform/posix/windows.h: the Win32 names the layers above the platform use (files, threads and
+    # their sync, timers, the registry, the ini file, the module and the command line), given bodies over POSIX by
+    # src/platform/posix/win32.cpp - part of the platform layer (src/platform/CMakeLists.txt), which the layers needing
+    # them already link. The shim's folder is on the include path (before src), so `#include <windows.h>` lands on it;
+    # the header itself refuses to be used by a Windows build.
+    target_include_directories(thug2_options INTERFACE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src
+                                                       ${PROJECT_SOURCE_DIR}/src/platform/posix)
 endif()
 
 # --- The layers (docs/architecture.md "Layers"; tools/layers.json is the map, tools/cmake_layers.ts checks that the
@@ -383,7 +382,7 @@ if(NOT THUG2_AT_TOP AND THUG2_IN_GAME)
 endif()
 # (on x64 only the x64-ready ones: THUG2_X64_READY above; the checks build when the libraries they link do)
 foreach(library IN ITEMS base formats wire platform engine render_pc gpu_d3d9 gpu_vulkan audio_dsound media_ffmpeg
-                         input_dinput fs_win32 net_winsock script_qb game frontend editor devtools app)
+                         input_dinput fs_win32 fs_posix net_bsd audio_sdl net_winsock script_qb game frontend editor devtools app)
     thug2_builds(${library} build_library)
     if(build_library AND NOT (library STREQUAL "gpu_vulkan" AND NOT THUG2_VULKAN))
         add_subdirectory(src/${library})

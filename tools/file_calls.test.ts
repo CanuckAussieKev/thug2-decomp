@@ -34,7 +34,7 @@ function using(pattern: RegExp): string[] {
 }
 
 // The folders that may call the file functions themselves.
-const ALLOWED = ["fs_win32/", "platform/", "tests/", "retail_limits/"];
+const ALLOWED = ["fs_win32/", "fs_posix/", "platform/", "tests/", "retail_limits/"];
 const outside = (names: string[]): string[] =>
     names.filter((name) => !ALLOWED.some((folder) => name.startsWith(folder)));
 

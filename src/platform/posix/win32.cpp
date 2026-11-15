@@ -1,8 +1,8 @@
-// NOT ORIGINAL - the macOS (arm64) port's Win32: the bodies of port/win32_shim/windows.h. See that file's comment.
+// NOT ORIGINAL - the macOS (arm64) port's Win32: the bodies of platform/posix/windows.h. See that file's comment.
 
-#include "port/win32_shim/windows.h"
-#include "port/win32_shim/psapi.h"
-#include "port/win32_shim/mmsystem.h"
+#include "platform/posix/windows.h"
+#include "platform/posix/psapi.h"
+#include "platform/posix/mmsystem.h"
 
 #include <cctype>
 #include <cerrno>

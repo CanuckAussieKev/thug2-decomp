@@ -1,6 +1,6 @@
 #pragma once
 
-// NOT ORIGINAL - the macOS port's Win32 types (included by port/win32_shim/windows.h, which adds the functions). See that
+// NOT ORIGINAL - the macOS port's Win32 types (included by platform/posix/windows.h, which adds the functions). See that
 // file: the game's code names these, and they mean here what they mean on Windows - the 32-bit DWORD, the 32-bit
 // HRESULT whose sign a caller tests, the LARGE_INTEGER a timer is set with.
 

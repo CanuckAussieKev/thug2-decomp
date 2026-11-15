@@ -9,8 +9,8 @@
 #include <unistd.h>
 
 #include "platform/run_log.h"
-#include "port/install_layout.h"
-#include "port/win32_shim/windows.h"
+#include "app/macos_layout.h"
+#include "platform/posix/windows.h"
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* command_line, int show);
 

@@ -22,8 +22,8 @@
 #include <utime.h>
 
 #include "engine/file/disk.h"
-#include "port/posix_disk.h"
-#include "port/win32_shim/windows.h"
+#include "fs_posix/posix_disk.h"
+#include "platform/posix/windows.h"
 
 namespace fs {
 

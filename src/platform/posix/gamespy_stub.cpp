@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the macOS (arm64) port's stand-ins for the GameSpy SDK's glue (platform/gamespy.h): the SDK is a
 // Windows library in this build (cmake/gamespy_sdk.cmake is not included for a portable configure), so the online
 // session's calls answer with nothing - no lobby, no rooms, no buddy list, no stats: the game is played alone. Online
-// play is on port/README.md's list (the SDK's own sources have a POSIX platform layer).
+// play is on docs/design/macos-port.md's list (the SDK's own sources have a POSIX platform layer).
 //
 // Every function the header declares is here, with its own shape, so game/online compiles and runs as it is.
 

@@ -24,7 +24,7 @@ add_library(thug2_app OBJECT
 # the Vulkan backend, the sound output is the port's silent one and the input is SDL3's (engine/pad_input/sdl_input.cpp).
 if(THUG2_PORTABLE)
     target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_pc
-                                           thug2_media_ffmpeg thug2_fs_win32 thug2_net_winsock
+                                           thug2_media_ffmpeg thug2_fs_posix thug2_net_bsd thug2_audio_sdl
                                            thug2_script_qb thug2_engine
                                            thug2_wire thug2_formats thug2_platform thug2_base)
 else()
@@ -39,39 +39,30 @@ if(THUG2_VULKAN)
     target_compile_definitions(thug2_app PRIVATE THUG2_VULKAN)
 endif()
 
-if(THUG2_PORTABLE)
-    # NOT ORIGINAL - a portable build's entry point: port/app_main.cpp's main() hands WinMain the program's command line
-    # (there is no WinMain to be started with, and no plugin DLLs: no ENABLE_EXPORTS).
-    add_executable(thug2
-        extensions.cpp
-        no_editor.cpp
-        ${PROJECT_SOURCE_DIR}/port/app_main.cpp
-        ${PROJECT_SOURCE_DIR}/port/install_layout.cpp
-        ${PROJECT_SOURCE_DIR}/port/sdl_audio_device.cpp
-        ${PROJECT_SOURCE_DIR}/port/gamespy_stub.cpp
-    )
-    set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
-    # NOT ORIGINAL - the ad-hoc signature the linker gives a Mach-O is invalid to the kernel once the file is copied
-    # anywhere (macOS kills the copy at load: "Code Signature Invalid"). Signing it in place after every build keeps
-    # the build folder's own binary runnable; a copy needs `codesign --force --sign - <copy>`.
-    if(APPLE)
-        add_custom_command(TARGET thug2 POST_BUILD
-            COMMAND codesign --force --sign - "$<TARGET_FILE:thug2>"
-            COMMENT "Signing thug2-decomp ad hoc")
-    endif()
-else()
 add_executable(thug2 WIN32
     extensions.cpp
     no_editor.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp ENABLE_EXPORTS ON)
+# NOT ORIGINAL - a portable build's entry point: app/main_macos.cpp's main() hands WinMain the program's command line
+# (there is no WinMain to be started with), and app/macos_layout.cpp makes the folders an install has. No plugin DLLs:
+# no ENABLE_EXPORTS.
+if(THUG2_PORTABLE)
+    target_sources(thug2 PRIVATE main_macos.cpp macos_layout.cpp)
+    set_target_properties(thug2 PROPERTIES ENABLE_EXPORTS OFF)
+    # NOT ORIGINAL - the ad-hoc signature the linker gives a Mach-O is invalid to the kernel once the file is copied
+    # anywhere (macOS kills the copy at load: "Code Signature Invalid"). Signing it in place after every build keeps the
+    # build folder's own binary runnable; a copy needs `codesign --force --sign - <copy>`.
+    add_custom_command(TARGET thug2 POST_BUILD
+        COMMAND codesign --force --sign - "$<TARGET_FILE:thug2>"
+        COMMENT "Signing thug2-decomp ad hoc")
 endif()
 # Every layer, highest first (the libraries bring the system and third-party libraries they need). The platform layer
 # whole: some of what it exports is for the plugin alone (platform/child_process.h, folder_dialog.h - the level
 # editor's Import Level), which the exe itself never calls, and a static library's unreferenced objects aren't linked.
 if(THUG2_PORTABLE)
     target_link_libraries(thug2 PRIVATE thug2_app thug2_frontend thug2_devtools thug2_game thug2_render_pc
-                                        thug2_media_ffmpeg thug2_fs_win32 thug2_net_winsock
+                                        thug2_media_ffmpeg thug2_fs_posix thug2_net_bsd thug2_audio_sdl
                                         thug2_script_qb thug2_engine
                                         thug2_wire thug2_formats $<LINK_LIBRARY:WHOLE_ARCHIVE,thug2_platform> thug2_base)
 else()

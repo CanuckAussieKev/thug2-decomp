@@ -15,14 +15,14 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <cstdlib>
 #include <mutex>
 #include <vector>
 
 #include <SDL3/SDL.h>
 
 #include "engine/audio/audio_device.h"
-#include "port/sdl_audio_device.h"
+#include "platform/run_log.h"
+#include "audio_sdl/sdl_audio_device.h"
 
 namespace audio {
 
@@ -51,11 +51,11 @@ struct SdlBuffer {
     BufferRange range_{};
 };
 
-// NOT ORIGINAL - a debug switch for the mixer ([features] nothing: THUG2_AUDIO_DEBUG=1 in the environment), which is
-// how the mixing was checked against the game's own numbers.
+// NOT ORIGINAL - [debug] audio_debug (thug2-decomp.ini; the settings model declares it, as it does the other debug
+// switches): the mixer's numbers once a second, which is how its volume, pan and speed were checked.
 bool audio_debug()
 {
-    static const bool on = std::getenv("THUG2_AUDIO_DEBUG") != nullptr;
+    static const bool on = config_int("debug", "audio_debug", 0) != 0;
     return on;
 }
 
@@ -185,11 +185,6 @@ void mix_audio(void* userdata, SDL_AudioStream* /*stream*/, int additional, int 
     // (a master gain: the game's voices are each at full scale, and their sum would clip - which is heard as a hiss
     // over everything. The limiter keeps a full mix soft at the top instead of hard-clipping it.)
     constexpr float kMasterGain = 1.0F;
-    // NOT ORIGINAL - the music up and the effects down, by ear (the game's own balance was 4 dB apart at the peaks: the
-    // music at -10 dBFS, the effects at -6). A shift of 2 dB each way; both are here, beside the master gain, so the
-    // balance can be moved again without touching the mixing.
-    constexpr float kMusicTrim = 1.26F;  // (+2 dB on the streamed buffers: music and movie tracks)
-    constexpr float kEffectTrim = 0.79F; // (-2 dB on everything else)
     const int frames = additional / static_cast<int>(sizeof(std::int16_t) * kOutputChannels);
     std::vector<std::int16_t> mix(static_cast<std::size_t>(frames) * kOutputChannels, 0);
 
@@ -208,7 +203,7 @@ void mix_audio(void* userdata, SDL_AudioStream* /*stream*/, int additional, int 
                 : (buffer->format_.samples_per_second_ != 0 ? buffer->format_.samples_per_second_ : kOutputRate);
         const double step = static_cast<double>(rate) / static_cast<double>(kOutputRate);
         const float gain =
-            gain_of(buffer->attenuation_, buffer->streaming_) * (buffer->streaming_ ? kMusicTrim : kEffectTrim);
+            gain_of(buffer->attenuation_, buffer->streaming_);
         // (the pan the game passes is DirectSound's own: -10000 hard left, 0 centre, +10000 hard right - that is the
         // range its calls are in. A hard pan takes the far side down by 12 dB, not to nothing: a 2004 mix panned
         // whole voices without removing them, and nothing here should be inaudible in one ear because of a pan.)

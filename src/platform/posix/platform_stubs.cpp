@@ -4,7 +4,7 @@
 //
 // What each keeps is its interface: the code that calls them compiles and runs, with the Win32-only part left out. The
 // crash reporter does what a person needs on this platform - a signal's backtrace in thug2-decomp.log - and the other
-// two are off. port/README.md has the list of what is left to write.
+// two are off. docs/design/macos-port.md has the list of what is left to write.
 
 #include <cstdint>
 #include <cstdio>
@@ -233,7 +233,7 @@ HWND find_running(const std::string& /*title*/) { return nullptr; }
 
 // --- the editor's Import Level's child processes (platform/child_process.cpp) -------------------------------------
 // (the pipeline is started as a child process with a job object around it; a portable build has no job objects yet -
-// port/README.md. The level editor's Import Level says why it can't start one.)
+// docs/design/macos-port.md. The level editor's Import Level says why it can't start one.)
 namespace sys::child_process {
 
 int start(const Command& /*command*/, std::string* why)

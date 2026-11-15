@@ -3,14 +3,14 @@
 // `CreateFolder` table names them: `save` (next to the game folder: the profiles, the career and the parks are written
 // into it - `Save\%s` in game/save_cards/memcard.cpp) and `Data\missions`, `Data\worlds` under the data folder.
 //
-// Windows gets them from the installer. A game folder assembled from the discs' files (port/README.md) does not, and the
+// Windows gets them from the installer. A game folder assembled from the discs' files (docs/design/macos-port.md) does not, and the
 // game then reports "Error while trying to save" because it cannot create a file in a folder that isn't there. Making
 // them is what an install did, so the game's own behaviour is unchanged.
 
 #include <string>
 
 #include "engine/file/disk.h"
-#include "port/win32_shim/windows.h"
+#include "platform/posix/windows.h"
 
 namespace port {
 

@@ -33,7 +33,9 @@ function using(pattern: RegExp, wanted: RegExp = /\.(cpp|h)$/): string[] {
     return found.sort();
 }
 
-const BACKEND = "net_winsock/";
+// the two network backends: Winsock's, and the portable build's BSD sockets (src/net_bsd, which call the same
+// functions under the same names)
+const BACKENDS = ["net_winsock/", "net_bsd/"];
 // The GameSpy SDK's glue: Winsock's types where the SDK's functions take them (the game's socket handed to the SDK,
 // the SDK's addresses handed back).
 const SDK_GLUE = "platform/gamespy.cpp";
@@ -53,7 +55,7 @@ const WINSOCK_CALLS = new RegExp(
 test("only net_winsock/ includes Winsock's headers", () => {
     const users = using(WINSOCK_HEADERS);
     assert.deepEqual(
-        users.filter((name) => !name.startsWith(BACKEND)),
+        users.filter((name) => !BACKENDS.some((backend) => name.startsWith(backend))),
         [],
     );
     assert.ok(users.includes("net_winsock/winsock_transport.cpp"), "net_winsock/winsock_transport.cpp includes them");
@@ -62,7 +64,8 @@ test("only net_winsock/ includes Winsock's headers", () => {
 test("only net_winsock/ (and the GameSpy SDK's glue, for the SDK's types) uses Winsock", () => {
     const users = using(WINSOCK_CALLS);
     assert.deepEqual(
-        users.filter((name) => !name.startsWith(BACKEND) && name !== SDK_GLUE && name !== SDK_GLUE_CHECK),
+        users.filter((name) => !BACKENDS.some((backend) => name.startsWith(backend)) && name !== SDK_GLUE &&
+                          name !== SDK_GLUE_CHECK),
         [],
     );
     assert.ok(users.includes("net_winsock/winsock_transport.cpp"), "net_winsock/winsock_transport.cpp makes the calls");
@@ -81,7 +84,8 @@ test("only net_winsock/ links ws2_32 (the GameSpy SDK links it for itself)", () 
 test("only app/ installs a transport and picks Winsock's", () => {
     const pickers = using(/^\s*#\s*include\s*"net_winsock\/winsock_transport\.h"/m);
     assert.deepEqual(
-        pickers.filter((name) => !name.startsWith("app/") && name !== "net_winsock/winsock_transport.cpp"),
+        pickers.filter((name) => !name.startsWith("app/") &&
+                        name !== "net_winsock/winsock_transport.cpp" && name !== "net_bsd/bsd_transport.cpp"),
         [],
     );
     assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the transport");

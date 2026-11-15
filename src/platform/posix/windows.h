@@ -1,9 +1,9 @@
-// NOT ORIGINAL - part of the macOS (arm64) port's Win32 shim (port/README.md). This header is NOT Windows': it gives
+// NOT ORIGINAL - part of the macOS (arm64) port's Win32 shim (docs/design/macos-port.md). This header is NOT Windows': it gives
 // the names of `windows.h` to a build that has no such header, so that the engine and the game compile as they are read on
 // Windows. It is only on the include path of a portable build (CMakeLists.txt, thug2_options: -I port/win32_shim); a
 // Windows build never sees it.
 #ifdef _WIN32
-#error "port/win32_shim/windows.h is the macOS port's stand-in - a Windows build must use the system's real header"
+#error "platform/posix/windows.h is the macOS port's stand-in - a Windows build must use the system's real header"
 #endif
 
 #pragma once
@@ -22,7 +22,7 @@
 #include <cstdint>
 #include <cstddef>
 
-#include "port/win32_types.h"
+#include "platform/posix/win32_types.h"
 
 // --- the clock ----------------------------------------------------------------------------------------------------
 // (taken from the kernel's monotonic clock: the game times its frame with it)
@@ -183,7 +183,7 @@ void port_set_command_line(int argc, char** argv);
 
 // --- the window ---------------------------------------------------------------------------------------------------
 // (the game's window is SDL3's: these answer, or do nothing, so the platform layer's own Win32 window code - which no
-// portable build runs - is read as it is on Windows. port/README.md has it.)
+// portable build runs - is read as it is on Windows. docs/design/macos-port.md has it.)
 HANDLE GetStdHandle(DWORD which);
 BOOL SetStdHandle(DWORD which, HANDLE handle);
 DWORD GetLogicalDrives();

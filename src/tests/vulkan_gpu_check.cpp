@@ -67,7 +67,7 @@
 #ifndef THUG2_PORTABLE
 #include "fs_win32/win32_disk.h"
 #else
-#include "port/posix_disk.h"
+#include "fs_posix/posix_disk.h"
 #endif
 
 namespace {
