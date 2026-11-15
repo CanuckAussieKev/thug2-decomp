@@ -86,8 +86,9 @@ enum class Effect : uint8_t {
     kScatter,
     kWater,
     kCameraFx,
+    kSnow,
 };
-inline constexpr int kEffectCount = static_cast<int>(Effect::kCameraFx) + 1;
+inline constexpr int kEffectCount = static_cast<int>(Effect::kSnow) + 1;
 
 // What the machine, the build and the game's data have (Capabilities), and the level's facts (LevelFacts).
 enum class Cap : uint8_t {
@@ -102,6 +103,7 @@ enum class Cap : uint8_t {
     kMaterialLibrary, // the detail-material library (tools/detail_materials)
     kHeightMaps,      // height maps for displacement (none are made yet)
     kLevelWithoutFog, // the level has no fog of its own (true while no level is known)
+    kLevelOutdoor,    // (added by the snow) the level is outdoors - it has a sky (true while no level is known)
 };
 
 class Reader;
@@ -235,6 +237,7 @@ int rtx_series(const std::string& device_name);
 struct LevelFacts {
     bool known = false;
     bool fog = false; // the level has fog of its own
+    bool outdoor = true; // (added by the snow) the level has a sky (render_pc/snow_world.cpp says, each level)
 };
 
 struct Inputs {

@@ -88,6 +88,17 @@ void set_level_facts(const LevelFacts& level)
     }
 }
 
+void set_level_outdoor(bool outdoor)
+{
+    if (settings_state().level.outdoor == outdoor) {
+        return;
+    }
+    settings_state().level.outdoor = outdoor;
+    if (settings_state().started) {
+        refresh_running();
+    }
+}
+
 Inputs current_inputs()
 {
     return {.ini = ini_values(build_info::file_text()), .caps = settings_state().caps, .level = settings_state().level};

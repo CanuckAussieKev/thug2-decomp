@@ -150,7 +150,8 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     folder_ = folder;
     constexpr std::size_t kWaterBindings = 5; // (NOT ORIGINAL - rt_water: kWaterUniformsBinding - kWaterWavesBinding)
     constexpr std::size_t kDetailBindings = 2; // (NOT ORIGINAL - rt_detail: kDetailUniformsBinding, kDetailMapBinding)
-    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings> bindings{};
+    constexpr std::size_t kSnowBindings = 2;   // (NOT ORIGINAL - snow: kSnowUniformsBinding, kSnowSkyBinding)
+    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings + kSnowBindings> bindings{};
     core::at(bindings, 0) = {.binding = kVertexUniformsBinding,
                              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                              .descriptorCount = 1,
@@ -185,7 +186,8 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kCelBlockSlot = 4 + kStageCount;
     constexpr std::size_t kWaterFirstSlot = kCelBlockSlot + 1;
     constexpr std::size_t kDetailFirstSlot = kWaterFirstSlot + kWaterBindings;
-    constexpr std::size_t kCelSceneSlot = kDetailFirstSlot + kDetailBindings;
+    constexpr std::size_t kSnowFirstSlot = kDetailFirstSlot + kDetailBindings;
+    constexpr std::size_t kCelSceneSlot = kSnowFirstSlot + kSnowBindings;
     static_assert(kCelSceneSlot + 1 == bindings.size(), "the scene is the last binding");
     core::at(bindings, kCelBlockSlot) = {.binding = kCelUniformsBinding,
                                            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -224,6 +226,17 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                                 .descriptorCount = 1,
                                                 .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                                 .pImmutableSamplers = nullptr};
+    // (NOT ORIGINAL - snow, vulkan_snow.h) the snow's block and the level's sky map: pushed only for the keys that read them
+    core::at(bindings, kSnowFirstSlot) = {.binding = kSnowUniformsBinding,
+                                          .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                          .descriptorCount = 1,
+                                          .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                          .pImmutableSamplers = nullptr};
+    core::at(bindings, kSnowFirstSlot + 1) = {.binding = kSnowSkyBinding,
+                                              .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                              .descriptorCount = 1,
+                                              .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                              .pImmutableSamplers = nullptr};
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,

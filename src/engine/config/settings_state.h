@@ -22,6 +22,8 @@ void set_capabilities(const Capabilities& caps);
 void set_display_refresh(int hz);
 // The level now (its fog): the rules about a level's facts (the haze: levels without fog). Unknown until set.
 void set_level_facts(const LevelFacts& level);
+// (added by the snow) whether the level now is outdoors (has a sky): the snow's rule (render_pc/snow_world.cpp says)
+void set_level_outdoor(bool outdoor);
 
 // The inputs and the resolution of the ini as it is on disk now (read each call).
 [[nodiscard]] Inputs current_inputs();
