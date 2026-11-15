@@ -8,7 +8,8 @@
 
 #include <cstdint>
 
-#include "platform/platform_config.h"
+#include "engine/config/settings_model.h"
+#include "engine/config/settings_state.h"
 #include "engine/gfx/view_cam.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
@@ -47,18 +48,18 @@ bool& blur_disabled() { return settings_state().blur_disabled_; }
 
 void load_graphics_settings()
 {
-    settings_state().settings_.antialiasing =
-        static_cast<uint32_t>(build_info::fetch_flag(build_info::kGraphics, "AntiAliasing", false));
-    settings_state().settings_.hq_shadows_ =
-        static_cast<uint32_t>(build_info::fetch_flag(build_info::kGraphics, "HQShadows", false));
-    settings_state().settings_.distance_clipping_ =
-        static_cast<uint32_t>(build_info::fetch_flag(build_info::kGraphics, "DistanceClipping", false));
+    // (NOT ORIGINAL: read through the settings model - engine/config/settings_state.h - which has AntiAliasing out of
+    // effect while upscaling or while msaa picks the samples)
+    const config::Resolution& in_effect = config::running();
+    settings_state().settings_.antialiasing = static_cast<uint32_t>(in_effect.on("AntiAliasing"));
+    settings_state().settings_.hq_shadows_ = static_cast<uint32_t>(in_effect.on("HQShadows"));
+    settings_state().settings_.distance_clipping_ = static_cast<uint32_t>(in_effect.on("DistanceClipping"));
     settings_state().settings_.clipping_distance_ =
-        static_cast<uint32_t>(build_info::get_int(build_info::kGraphics, "ClippingDistance", kMaxDrawDistanceSetting));
-    settings_state().settings_.fog = static_cast<uint32_t>(build_info::fetch_flag(build_info::kGraphics, "Fog", false));
-    settings_state().blur_disabled_ = build_info::fetch_flag(build_info::kGraphics, "DisableBlur", true);
+        static_cast<uint32_t>(in_effect.integer("ClippingDistance", kMaxDrawDistanceSetting));
+    settings_state().settings_.fog = static_cast<uint32_t>(in_effect.on("Fog"));
+    settings_state().blur_disabled_ = in_effect.on("DisableBlur");
     // (NOT ORIGINAL: engine/gfx/occlusion.h)
-    occlusion_off() = !build_info::fetch_flag(build_info::kGraphics, "OcclusionCulling", true);
+    occlusion_off() = !in_effect.on("OcclusionCulling");
     // (NOT ORIGINAL: anisotropy, msaa, draw_distance_scale, lod_distance_scale - engine/gfx/graphics_options.h)
     graphics_options::read_in();
 }

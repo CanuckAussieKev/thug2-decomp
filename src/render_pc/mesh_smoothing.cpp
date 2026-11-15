@@ -21,7 +21,8 @@
 #include "engine/gfx/smooth_tess.h"
 #include "engine/gfx/surface_material.h"
 #include "formats/scene_format.h"
-#include "platform/platform_config.h"
+#include "engine/config/settings_model.h"
+#include "engine/config/settings_state.h"
 #include "platform/run_log.h"
 
 namespace render::mesh_smoothing {
@@ -62,17 +63,6 @@ HeightForMaterial& height_slot()
     return lookup;
 }
 
-// A [Graphics] number with a fraction (`fallback` when it's missing or not a number).
-float ini_float(const char* key, float fallback)
-{
-    constexpr std::size_t kLongest = 32;
-    std::array<char, kLongest> text{};
-    build_info::fetch_text(build_info::kGraphics, key, "", text.data(), text.size());
-    char* end = nullptr;
-    const double value = std::strtod(text.data(), &end);
-    return end == text.data() || !std::isfinite(value) ? fallback : static_cast<float>(value);
-}
-
 // A test height map (rt_tess_test_heights=1, until the generated height maps are there): ridges across the
 // texture's u, four to a repeat.
 float test_height(const void* /*context*/, float u, float /*v*/)
@@ -84,19 +74,22 @@ float test_height(const void* /*context*/, float u, float /*v*/)
 const Settings& settings()
 {
     static const Settings kSettings = [] {
+        // (the settings model's running values - engine/config/settings_state.h: a start-up setting, rt_displacement
+        // out of effect, 0, without height maps or the test pattern)
+        const config::Resolution& in_effect = config::running();
         Settings read;
-        read.on = build_info::fetch_flag(build_info::kGraphics, "rt_tessellation", false);
-        read.options.max_level = std::clamp(
-            build_info::get_int(build_info::kGraphics, "rt_tess_level", tess::kDefaultLevel), 0, kHighestLevel);
-        read.options.max_deviation = std::max(0.0F, ini_float("rt_tess_max_deviation", tess::kDefaultMaxDeviation));
-        read.options.height.scale = std::max(0.0F, ini_float("rt_displacement", 0.0F));
-        read.test_heights = build_info::fetch_flag(build_info::kGraphics, "rt_tess_test_heights", false);
+        read.on = in_effect.on("rt_tessellation");
+        read.options.max_level = std::clamp(in_effect.integer("rt_tess_level", tess::kDefaultLevel), 0, kHighestLevel);
+        read.options.max_deviation =
+            std::max(0.0F, in_effect.number("rt_tess_max_deviation", tess::kDefaultMaxDeviation));
+        read.options.height.scale = std::max(0.0F, in_effect.number("rt_displacement", 0.0F));
+        read.test_heights = in_effect.on("rt_tess_test_heights");
         // (smoothing: the mesh's normals and the prisms decide the hard edges too, the strength scales the pull -
         // smooth_tess.h)
-        read.options.smooth = build_info::fetch_flag(build_info::kGraphics, "rt_tess_smooth", false);
+        read.options.smooth = in_effect.on("rt_tess_smooth");
         read.options.smooth_strength =
-            std::clamp(ini_float("rt_tess_smooth_strength", tess::kDefaultSmoothStrength), 0.0F, 1.0F);
-        read.log_meshes = build_info::fetch_flag("debug", "tess_log", false);
+            std::clamp(in_effect.number("rt_tess_smooth_strength", tess::kDefaultSmoothStrength), 0.0F, 1.0F);
+        read.log_meshes = in_effect.on("tess_log");
         if (read.on) {
             get_log("rt_tessellation: on - level up to %d, deviation at most %.2f, displacement %.2f%s",
                     read.options.max_level, static_cast<double>(read.options.max_deviation),

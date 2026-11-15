@@ -565,35 +565,8 @@ bool Context::create_device()
     queries.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
     ray_tracing_ = false;
     if (ray_tracing_wanted_ && dynamic_rendering_) {
-        const std::vector<VkExtensionProperties> offered_extensions = device_extensions(physical_device_);
-        const std::array<const char*, 3> wanted{VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-                                                VK_KHR_RAY_QUERY_EXTENSION_NAME,
-                                                VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
-        bool all = true;
-        for (const char* name : wanted) {
-            all = all && has_extension(offered_extensions, name);
-        }
-        if (all) {
-            VkPhysicalDeviceVulkan12Features offered12{};
-            offered12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-            VkPhysicalDeviceAccelerationStructureFeaturesKHR offered_structures{};
-            offered_structures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-            VkPhysicalDeviceRayQueryFeaturesKHR offered_queries{};
-            offered_queries.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
-            offered12.pNext = &offered_structures;
-            offered_structures.pNext = &offered_queries;
-            VkPhysicalDeviceFeatures2 asked{};
-            asked.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-            asked.pNext = &offered12;
-            vkGetPhysicalDeviceFeatures2(physical_device_, &asked);
-            all = offered12.bufferDeviceAddress && offered12.descriptorIndexing && offered12.runtimeDescriptorArray &&
-                  offered12.descriptorBindingPartiallyBound && offered12.descriptorBindingVariableDescriptorCount &&
-                  offered12.shaderSampledImageArrayNonUniformIndexing &&
-                  offered12.descriptorBindingSampledImageUpdateAfterBind && offered12.scalarBlockLayout &&
-                  offered_structures.accelerationStructure && offered_queries.rayQuery;
-        }
-        if (all) {
-            for (const char* name : wanted) {
+        if (ray_tracing_offered(physical_device_)) {
+            for (const char* name : kRayTracingExtensions) {
                 extensions.push_back(name);
             }
             features12.bufferDeviceAddress = VK_TRUE;
@@ -999,6 +972,34 @@ VkImage Context::swapchain_image(uint32_t image) const { return core::at(images_
 
 VkSemaphore Context::present_semaphore(uint32_t image) const { return core::at(presented_, image); }
 
+bool ray_tracing_offered(VkPhysicalDevice device)
+{
+    const std::vector<VkExtensionProperties> offered_extensions = device_extensions(device);
+    for (const char* name : kRayTracingExtensions) {
+        if (!has_extension(offered_extensions, name)) {
+            return false;
+        }
+    }
+    VkPhysicalDeviceVulkan12Features offered12{};
+    offered12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR offered_structures{};
+    offered_structures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    VkPhysicalDeviceRayQueryFeaturesKHR offered_queries{};
+    offered_queries.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+    offered12.pNext = &offered_structures;
+    offered_structures.pNext = &offered_queries;
+    VkPhysicalDeviceFeatures2 asked{};
+    asked.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    asked.pNext = &offered12;
+    vkGetPhysicalDeviceFeatures2(device, &asked);
+    return (offered12.bufferDeviceAddress != 0U) && (offered12.descriptorIndexing != 0U) &&
+           (offered12.runtimeDescriptorArray != 0U) && (offered12.descriptorBindingPartiallyBound != 0U) &&
+           (offered12.descriptorBindingVariableDescriptorCount != 0U) &&
+           (offered12.shaderSampledImageArrayNonUniformIndexing != 0U) &&
+           (offered12.descriptorBindingSampledImageUpdateAfterBind != 0U) && (offered12.scalarBlockLayout != 0U) &&
+           (offered_structures.accelerationStructure != 0U) && (offered_queries.rayQuery != 0U);
+}
+
 DeviceProbe probe_device(int wanted)
 {
     DeviceProbe probe;
@@ -1061,6 +1062,7 @@ DeviceProbe probe_device(int wanted)
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(chosen, &properties);
         probe.device = std::data(properties.deviceName);
+        probe.vendor_id = properties.vendorID;
         if (!draws_api(chosen, api)) {
             probe.problem = "it has no Vulkan 1.3";
         } else if (!dynamic_rendering_offered(chosen)) {
@@ -1069,6 +1071,7 @@ DeviceProbe probe_device(int wanted)
             probe.problem = "it has no push descriptors (VK_KHR_push_descriptor)";
         } else {
             probe.usable = true;
+            probe.ray_queries = ray_tracing_offered(chosen); // (what ContextOptions::ray_tracing would enable)
         }
     }
     vkDestroyInstance(instance, nullptr);

@@ -144,12 +144,8 @@ public:
         state.settings.height = request.height;
         state.settings.samples = request.samples;
         state.settings.sample_quality = request.sample_quality;
-        // NOT ORIGINAL - the upscaler (vulkan_upscale.h): the back buffer single-sampled (AntiAliasing's 2 samples too)
-        if (upscale_settings_locked().upscaler != Upscaler::kOff && request.samples > 1) {
-            get_log("vulkan: upscaler: multisampling off while upscaling (%u samples asked)", request.samples);
-            state.settings.samples = 0;
-            state.settings.sample_quality = 0;
-        }
+        // (the upscaler's back buffer is single-sampled: msaa and AntiAliasing are out of effect while upscaling - the
+        // settings model's rule, engine/config/settings_model.cpp - so no samples are asked for then)
         // NOT ORIGINAL - frame generation (vulkan_framegen.h): its provider chosen before the swapchain (FSR's makes it)
         prepare_frame_generation(state);
         if (!state.context.make_swapchain()) {
@@ -298,7 +294,11 @@ void log_message(const std::string& text) { get_log("vulkan: %s", text.c_str());
 Usable usable(int device_index)
 {
     DeviceProbe probe = probe_device(device_index);
-    return {.usable = probe.usable, .device = std::move(probe.device), .problem = std::move(probe.problem)};
+    return {.usable = probe.usable,
+            .device = std::move(probe.device),
+            .problem = std::move(probe.problem),
+            .vendor_id = probe.vendor_id,
+            .ray_queries = probe.ray_queries};
 }
 
 void configure(const Choices& choices)

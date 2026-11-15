@@ -2,19 +2,20 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <cstddef>
 #include <cstdint>
-#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "app/settings_capabilities.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/config/settings_model.h"
+#include "engine/config/settings_state.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/rt_cel.h"
@@ -39,17 +40,17 @@
 #include "gpu_vulkan/style_film_settings.h"
 #endif
 
+// NOT ORIGINAL - every setting the renderer reads comes from the settings model (engine/config/settings_model.h): its
+// effective values - a setting out of effect is off (Shadows without ray tracing), one another sets has that value
+// (the relit mode under a time of day; the upscaler under frame generation), a choice this machine can't run has the
+// one that stands in for it. The model says why (the log, the Options screen, the settings report); nothing here
+// decides it again.
+
 namespace app {
 
 namespace {
 
-#ifdef THUG2_VULKAN
-constexpr bool kVulkanBuilt = true;
-#else
-constexpr bool kVulkanBuilt = false;
-#endif
-// The Vulkan Gpu draws (src/gpu_vulkan, docs/design/vulkan.md V7): the default renderer when this machine can.
-constexpr bool kVulkanDeviceExists = kVulkanBuilt;
+using config::Resolution;
 
 void install_direct3d9()
 {
@@ -64,33 +65,20 @@ void install_direct3d9()
 // tod_cycle_minutes (real minutes a day, 24) and tod_levels (NO:night,AU:dusk - a level's own). Any renderer: on Direct3D
 // 9 the original's time of day gives the look (its states blended), with Vulkan's effects the sky, the sun and relit
 // follow it too. Anything else is the default, logged.
-void read_time_of_day()
+void read_time_of_day(const Resolution& in_effect)
 {
-    constexpr std::size_t kLongest = 512;
-    std::array<char, kLongest> text{};
     render::rt::TodSettings settings;
-    build_info::fetch_text(build_info::kGraphics, "tod", "level", text.data(), text.size());
-    if (!render::rt::parse_tod(text.data(), &settings.choice)) {
-        get_log("[Graphics] tod=%s isn't level, dawn, morning, noon, afternoon, dusk, night or HH:MM - level", text.data());
+    const std::string& tod = in_effect.value("tod");
+    if (!render::rt::parse_tod(tod, &settings.choice)) {
+        get_log("[Graphics] tod=%s isn't level, dawn, morning, noon, afternoon, dusk, night or HH:MM - level", tod.c_str());
     }
-    text = {};
-    build_info::fetch_text(build_info::kGraphics, "tod_cycle", "off", text.data(), text.size());
-    const std::string_view cycle(text.data());
-    settings.cycle = cycle == "on" || cycle == "1";
-    if (!settings.cycle && cycle != "off" && cycle != "0") {
-        get_log("[Graphics] tod_cycle=%s isn't off or on - off", text.data());
+    settings.cycle = in_effect.value("tod_cycle") == "on";
+    if (in_effect.at("tod_cycle_minutes").in_effect) {
+        settings.cycle_minutes = in_effect.number("tod_cycle_minutes", settings.cycle_minutes);
     }
-    text = {};
-    build_info::fetch_text(build_info::kGraphics, "tod_cycle_minutes", "", text.data(), text.size());
-    char* end = nullptr;
-    const double minutes = std::strtod(text.data(), &end);
-    if (end != text.data() && std::isfinite(minutes)) {
-        settings.cycle_minutes = static_cast<float>(minutes);
-    }
-    text = {};
-    build_info::fetch_text(build_info::kGraphics, "tod_levels", "", text.data(), text.size());
-    if (!render::rt::parse_tod_levels(text.data(), &settings.levels)) {
-        get_log("[Graphics] tod_levels=%s: an entry isn't <level>:<tod> - those before it used", text.data());
+    const std::string& levels = in_effect.value("tod_levels");
+    if (!render::rt::parse_tod_levels(levels, &settings.levels)) {
+        get_log("[Graphics] tod_levels=%s: an entry isn't <level>:<tod> - those before it used", levels.c_str());
     }
     render::rt::set_tod_settings(settings);
     if (render::rt::tod_may_run(settings)) {
@@ -104,78 +92,24 @@ void read_time_of_day()
 }
 
 #ifdef THUG2_VULKAN
-// (added by the split comparison) The [Graphics] values side B of a split comparison puts over the ini's while its
-// settings are made (null: the ini's alone) - compare_prepare below.
-const render::graphics_options::CompareSettings*& graphics_overrides()
+// A count read from the model: at least 1.
+unsigned at_least_one(const Resolution& in_effect, const char* key, unsigned fallback)
 {
-    static const render::graphics_options::CompareSettings* overrides = nullptr;
-    return overrides;
-}
-
-const std::string* override_of(const char* key)
-{
-    const render::graphics_options::CompareSettings* overrides = graphics_overrides();
-    if (overrides == nullptr) {
-        return nullptr;
-    }
-    const auto found = std::ranges::find_if(*overrides, [key](const auto& each) { return each.first == key; });
-    return found == overrides->end() ? nullptr : &found->second;
-}
-
-// [Graphics] `key` as GetPrivateProfileInt reads it (a leading number; `fallback` when there's none), an override first.
-int graphics_int(const char* key, int fallback)
-{
-    if (const std::string* value = override_of(key)) {
-        char* end = nullptr;
-        const long parsed = std::strtol(value->c_str(), &end, 10);
-        return end == value->c_str() ? fallback : static_cast<int>(parsed);
-    }
-    return build_info::get_int(build_info::kGraphics, key, fallback);
-}
-bool graphics_flag(const char* key, bool fallback) { return graphics_int(key, fallback ? 1 : 0) != 0; }
-void graphics_text(const char* key, const char* fallback, char* out, std::size_t size)
-{
-    if (size == 0) {
-        return;
-    }
-    if (const std::string* value = override_of(key)) {
-        const std::span<char> buffer(out, size);
-        const std::size_t length = std::min(value->size(), size - 1);
-        std::copy_n(value->c_str(), length, buffer.begin());
-        core::at(buffer, length) = '\0';
-        return;
-    }
-    build_info::fetch_text(build_info::kGraphics, key, fallback, out, size);
-}
-
-// A [Graphics] number with a fraction (`fallback` when it's missing or not a number).
-float ini_float(const char* key, float fallback)
-{
-    constexpr std::size_t kLongest = 32; // (characters of a number)
-    std::array<char, kLongest> text{};
-    graphics_text(key, "", text.data(), text.size());
-    char* end = nullptr;
-    const double value = std::strtod(text.data(), &end);
-    return end == text.data() || !std::isfinite(value) ? fallback : static_cast<float>(value);
+    return static_cast<unsigned>(std::max(1, in_effect.integer(key, static_cast<int>(fallback))));
 }
 
 // (added by the scene's sun) [Graphics] rt_sun_source: the one sun every effect lights by (engine/gfx/rt_scene.h
-// scene_sun) - level (the default: the sun the level's lighting was baked with; the game's own is the same default
-// SetSun, 20 degrees up toward +z, in 12 of the 15 levels, and relit by it they lose their baked sunlight - docs/design/
-// vulkan.md "One sun for every effect"), game (the sun the game shows, the level relit by it; a level whose game sun is
-// too low, or whose entry in rt_relit_levels.json says "sun": "level", keeps its baked sun) or x,y,z /
-// heading,elevation (a direction, for experiments); anything else is the default, logged. The per-effect keys it
-// replaces (rt_shadow_sun, rt_relit_sun, rt_sun_place) are read no more - a line in the log says so. One sun for the
-// whole frame: the split comparison's sides share it.
+// scene_sun) - level (the default: the sun the level's lighting was baked with), game (the sun the game shows, the
+// level relit by it) or x,y,z / heading,elevation (a direction, for experiments); anything else is the default,
+// logged. The per-effect keys it replaces (rt_shadow_sun, rt_relit_sun, rt_sun_place) are read no more - a line in the
+// log says so. One sun for the whole frame: the split comparison's sides share it.
 constexpr const char* kDefaultSunSource = "level";
-void read_sun_source()
+void read_sun_source(const Resolution& in_effect)
 {
-    constexpr std::size_t kLongest = 64;
-    std::array<char, kLongest> text{};
-    build_info::fetch_text(build_info::kGraphics, "rt_sun_source", kDefaultSunSource, text.data(), text.size());
+    const std::string& text = in_effect.value("rt_sun_source");
     render::rt::SunChoice choice;
-    if (!render::rt::parse_sun_source(text.data(), &choice)) {
-        get_log("[Graphics] rt_sun_source=%s isn't game, level, x,y,z or heading,elevation - %s used", text.data(),
+    if (!render::rt::parse_sun_source(text, &choice)) {
+        get_log("[Graphics] rt_sun_source=%s isn't game, level, x,y,z or heading,elevation - %s used", text.c_str(),
                 kDefaultSunSource);
         render::rt::parse_sun_source(kDefaultSunSource, &choice);
     }
@@ -184,11 +118,12 @@ void read_sun_source()
     if (!retired_logged) {
         retired_logged = true;
         for (const char* retired : {"rt_shadow_sun", "rt_relit_sun", "rt_sun_place"}) {
+            constexpr std::size_t kLongest = 64;
             std::array<char, kLongest> old{};
             build_info::fetch_text(build_info::kGraphics, retired, "", old.data(), old.size());
             if (old.front() != '\0') {
                 get_log("[Graphics] %s=%s is retired: rt_sun_source=%s sets the sun of every effect", retired,
-                        old.data(), text.data());
+                        old.data(), text.c_str());
             }
         }
     }
@@ -216,205 +151,149 @@ bool parse_rgb(const std::string& value, std::array<float, 3>* colour)
     return true;
 }
 
-// [Graphics] rt_sun_colour: auto (the default: the sky model's colour for the sun's elevation) or r,g,b (0 - 1 each);
-// anything else is the default, logged.
-void read_rt_sun_colour(render::vulkan::RtSunSettings* settings)
-{
-    constexpr std::size_t kLongest = 64;
-    std::array<char, kLongest> text{};
-    graphics_text("rt_sun_colour", "auto", text.data(), text.size());
-    const std::string value(text.data());
-    std::array<float, 3> colour{};
-    if (parse_rgb(value, &colour)) {
-        settings->colour_set = true;
-        settings->colour = colour;
-    } else if (!value.empty() && value != "auto") {
-        get_log("[Graphics] rt_sun_colour=%s isn't auto or r,g,b - the sky model's colour used", value.c_str());
-    }
-}
-#endif
+// What the device was made for: rt_hdr as the game started (its colour targets' format - a start-up setting, so the
+// running model keeps the value the game started with).
+bool hdr_on(const Resolution& in_effect) { return in_effect.on("rt_hdr"); }
 
-#ifdef THUG2_VULKAN
-// What the device was made for: rt_hdr as the game started (its colour targets' format). A setting read again while
-// the game runs keeps it - a changed rt_hdr waits for the restart.
-struct LiveState {
-    bool hdr_at_start = false;
-};
-
-LiveState& live_state()
+// NOT ORIGINAL - ray-traced sun shadows (gpu_vulkan/vulkan_rt_shadows.h)
+render::vulkan::RtShadowSettings make_rt_shadows(const Resolution& in_effect)
 {
-    static LiveState state;
-    return state;
+    const render::vulkan::RtShadowSettings defaults;
+    return render::vulkan::RtShadowSettings{
+        .on = in_effect.on("rt_shadows"),
+        .strength = in_effect.number("rt_shadow_strength", defaults.strength),
+        .softness = in_effect.number("rt_shadow_softness", defaults.softness),
+        .rays = at_least_one(in_effect, "rt_shadow_rays", defaults.rays),
+        // (1 by default since the water and glass work: the skater's own projected shadow - a blocky 256 x 256
+        // texture - is hidden while the ray-traced one is drawn; rt::object_shadows_replaced)
+        .objects = in_effect.on("rt_shadow_objects"),
+        .covered = in_effect.on("rt_shadow_covered"),
+        .sky_rays = at_least_one(in_effect, "rt_shadow_sky_rays", render::vulkan::kRtShadowSkyRays),
+        .match_bake = in_effect.on("rt_shadow_match_bake")};
 }
 
-// NOT ORIGINAL - ray-traced sun shadows (gpu_vulkan/vulkan_rt_shadows.h): off unless asked for, and only with
-// ray_tracing=1 on a device that has it
-render::vulkan::RtShadowSettings make_rt_shadows()
+// NOT ORIGINAL - ray-traced ambient occlusion (gpu_vulkan/vulkan_rt_effects.h)
+render::vulkan::RtAoSettings make_rt_ao(const Resolution& in_effect)
 {
-    render::vulkan::RtShadowSettings shadows{
-         .on = graphics_flag("rt_shadows", false),
-         .strength = ini_float("rt_shadow_strength", render::vulkan::RtShadowSettings{}.strength),
-         .softness = ini_float("rt_shadow_softness", render::vulkan::RtShadowSettings{}.softness),
-         .rays = static_cast<unsigned>(std::max(1, graphics_int("rt_shadow_rays", 4))),
-         // (1 by default since the water and glass work: the skater's own projected shadow - a blocky 256 x 256
-         // texture - is hidden while the ray-traced one is drawn; rt::object_shadows_replaced)
-         .objects = graphics_flag("rt_shadow_objects", true),
-         .covered = graphics_flag("rt_shadow_covered", false),
-         .sky_rays = static_cast<unsigned>(
-             std::max(1, graphics_int("rt_shadow_sky_rays",
-                                             static_cast<int>(render::vulkan::kRtShadowSkyRays)))),
-         .match_bake = graphics_flag("rt_shadow_match_bake", true)};
-    return shadows;
-}
-void read_rt_shadows() { render::vulkan::set_rt_shadow_settings(make_rt_shadows()); }
-
-// NOT ORIGINAL - ray-traced ambient occlusion (gpu_vulkan/vulkan_rt_effects.h): likewise
-render::vulkan::RtAoSettings make_rt_ao()
-{
+    const render::vulkan::RtAoSettings defaults;
     return render::vulkan::RtAoSettings{
-        .on = graphics_flag("rt_ao", false),
-         .strength = ini_float("rt_ao_strength", render::vulkan::RtAoSettings{}.strength),
-         .radius = ini_float("rt_ao_radius", render::vulkan::RtAoSettings{}.radius),
-         .rays = static_cast<unsigned>(
-             std::max(1, graphics_int("rt_ao_rays",
-                                             static_cast<int>(render::vulkan::RtAoSettings{}.rays)))),
-         .denoise = graphics_flag("rt_ao_denoise", true),
-         // (added for the characters) the occlusion on the skinned characters x this
-         .characters = std::clamp(ini_float("rt_ao_characters", render::vulkan::RtAoSettings{}.characters), 0.0F, 1.0F)};
+        .on = in_effect.on("rt_ao"),
+        .strength = in_effect.number("rt_ao_strength", defaults.strength),
+        .radius = in_effect.number("rt_ao_radius", defaults.radius),
+        .rays = at_least_one(in_effect, "rt_ao_rays", defaults.rays),
+        .denoise = in_effect.on("rt_ao_denoise"),
+        // (added for the characters) the occlusion on the skinned characters x this
+        .characters = std::clamp(in_effect.number("rt_ao_characters", defaults.characters), 0.0F, 1.0F)};
 }
-void read_rt_ao() { render::vulkan::set_rt_ao_settings(make_rt_ao()); }
 
-// NOT ORIGINAL - one-bounce ray-traced indirect light (gpu_vulkan/vulkan_rt_effects.h): likewise. (After the shadows':
-// their `off` clears the baked sun the bounce wants.)
-render::vulkan::RtGiSettings make_rt_gi()
+// NOT ORIGINAL - one-bounce ray-traced indirect light (gpu_vulkan/vulkan_rt_effects.h)
+render::vulkan::RtGiSettings make_rt_gi(const Resolution& in_effect)
 {
-    return render::vulkan::RtGiSettings{
-        .on = graphics_flag("rt_gi", false),
-         .strength = ini_float("rt_gi_strength", render::vulkan::RtGiSettings{}.strength),
-         .distance = ini_float("rt_gi_distance", render::vulkan::RtGiSettings{}.distance),
-         .rays = static_cast<unsigned>(
-             std::max(1, graphics_int("rt_gi_rays",
-                                             static_cast<int>(render::vulkan::RtGiSettings{}.rays)))),
-         .denoise = graphics_flag("rt_gi_denoise", true)};
+    const render::vulkan::RtGiSettings defaults;
+    return render::vulkan::RtGiSettings{.on = in_effect.on("rt_gi"),
+                                        .strength = in_effect.number("rt_gi_strength", defaults.strength),
+                                        .distance = in_effect.number("rt_gi_distance", defaults.distance),
+                                        .rays = at_least_one(in_effect, "rt_gi_rays", defaults.rays),
+                                        .denoise = in_effect.on("rt_gi_denoise")};
 }
-void read_rt_gi() { render::vulkan::set_rt_gi_settings(make_rt_gi()); }
 
-// NOT ORIGINAL - the night lighting (gpu_vulkan/vulkan_rt_lights.h): likewise
-render::vulkan::RtLightSettings make_rt_lights()
+// NOT ORIGINAL - the night lighting (gpu_vulkan/vulkan_rt_lights.h): rt_lights=auto, the default, lit only while it is
+// dark - the time of day's night, or a dark level; 1 always, 0 never
+render::vulkan::RtLightSettings make_rt_lights(const Resolution& in_effect)
 {
     const render::vulkan::RtLightSettings defaults;
-    // (rt_lights=auto, the default: lit only while it is dark - the time of day's night, or a dark level; 1 always, 0
-    // never)
-    constexpr std::size_t kLongest = 16;
-    std::array<char, kLongest> text{};
-    graphics_text("rt_lights", "auto", text.data(), text.size());
-    const std::string_view value(text.data());
-    const bool automatic = value != "0" && value != "1";
-    return render::vulkan::RtLightSettings{
-        .on = value != "0",
-        .automatic = automatic,
-        .strength = ini_float("rt_lights_strength", defaults.strength),
-        .shadowed = static_cast<unsigned>(
-            std::max(1, graphics_int("rt_lights_shadowed", static_cast<int>(defaults.shadowed)))),
-        .max_lights = static_cast<unsigned>(
-            std::max(1, graphics_int("rt_lights_max", static_cast<int>(defaults.max_lights)))),
-        .emissive = ini_float("rt_lights_emissive", defaults.emissive),
-        .level = ini_float("rt_lights_level", defaults.level),
-        .log = build_info::fetch_flag("debug", "rt_lights_log", false)};
-}
-void read_rt_lights() { render::vulkan::set_rt_light_settings(make_rt_lights()); }
-
-// The shadows read again, and the bounce after them (see read_rt_gi).
-void read_rt_shadows_and_gi()
-{
-    read_rt_shadows();
-    read_rt_gi();
+    const std::string& value = in_effect.value("rt_lights");
+    return render::vulkan::RtLightSettings{.on = in_effect.on("rt_lights"),
+                                           .automatic = value == "auto",
+                                           .strength = in_effect.number("rt_lights_strength", defaults.strength),
+                                           .shadowed = at_least_one(in_effect, "rt_lights_shadowed", defaults.shadowed),
+                                           .max_lights = at_least_one(in_effect, "rt_lights_max", defaults.max_lights),
+                                           .emissive = in_effect.number("rt_lights_emissive", defaults.emissive),
+                                           .level = in_effect.number("rt_lights_level", defaults.level),
+                                           .log = in_effect.on("rt_lights_log")};
 }
 
-// NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h): likewise
-render::vulkan::RtReflectionSettings make_rt_reflections()
+// NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h)
+render::vulkan::RtReflectionSettings make_rt_reflections(const Resolution& in_effect)
 {
     return render::vulkan::RtReflectionSettings{
-        .on = graphics_flag("rt_reflections", false),
-         .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength),
-         .fresnel = graphics_flag("rt_reflection_fresnel", true),
-         .glass_roughness = ini_float("rt_glass_roughness", render::vulkan::kRtGlassRoughness),
-         .glass_reflectance = ini_float("rt_glass_reflectance", render::vulkan::kRtGlassReflectance),
-         .surfaces = ini_float("rt_reflection_surfaces", render::vulkan::kRtReflectionSurfaces)};
+        .on = in_effect.on("rt_reflections"),
+        .strength = in_effect.number("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength),
+        .fresnel = in_effect.on("rt_reflection_fresnel"),
+        .glass_roughness = in_effect.number("rt_glass_roughness", render::vulkan::kRtGlassRoughness),
+        .glass_reflectance = in_effect.number("rt_glass_reflectance", render::vulkan::kRtGlassReflectance),
+        // (out of effect without rt_pbr: no surface maps to say which surfaces are glossy)
+        .surfaces = in_effect.at("rt_reflection_surfaces").in_effect
+                        ? in_effect.number("rt_reflection_surfaces", render::vulkan::kRtReflectionSurfaces)
+                        : 0.0F};
 }
-void read_rt_reflections() { render::vulkan::set_rt_reflection_settings(make_rt_reflections()); }
 
-// NOT ORIGINAL - HDR rendering and tone mapping (gpu_vulkan/vulkan_hdr.h): off unless asked for; no ray tracing
-// needed. The grading table's path is the game folder's unless it is a full one.
-render::vulkan::HdrSettings make_hdr()
+// NOT ORIGINAL - HDR rendering and tone mapping (gpu_vulkan/vulkan_hdr.h). The grading table's path is the game
+// folder's unless it is a full one.
+render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
 {
-    constexpr std::size_t kLongestPath = 260;
-    std::array<char, kLongestPath> lut{};
-    graphics_text("rt_grade_lut", "", lut.data(), lut.size());
-    std::string lut_path(lut.data());
+    std::string lut_path = in_effect.at("rt_grade_lut").in_effect ? in_effect.value("rt_grade_lut") : std::string();
     const bool full = lut_path.find(':') == 1 || lut_path.starts_with('\\') || lut_path.starts_with('/');
     if (!lut_path.empty() && !full) {
         lut_path = build_info::executable_directory() + lut_path;
     }
     const render::vulkan::HdrSettings defaults;
-    return render::vulkan::HdrSettings{
-        .on = live_state().hdr_at_start,
-         .exposure = ini_float("rt_exposure", defaults.exposure),
-         .tonemap = static_cast<unsigned>(std::max(0, graphics_int("rt_tonemap", 0))),
-         .saturation = ini_float("rt_saturation", defaults.saturation),
-         .contrast = ini_float("rt_contrast", defaults.contrast),
-         .white_point = ini_float("rt_white_point", defaults.white_point),
-         .grade_lut = lut_path};
+    return render::vulkan::HdrSettings{.on = hdr_on(in_effect),
+                                       .exposure = in_effect.number("rt_exposure", defaults.exposure),
+                                       .tonemap = static_cast<unsigned>(std::max(0, in_effect.integer("rt_tonemap", 0))),
+                                       .saturation = in_effect.number("rt_saturation", defaults.saturation),
+                                       .contrast = in_effect.number("rt_contrast", defaults.contrast),
+                                       .white_point = in_effect.number("rt_white_point", defaults.white_point),
+                                       .grade_lut = lut_path};
 }
-void read_hdr() { render::vulkan::set_hdr_settings(make_hdr()); }
 
-// NOT ORIGINAL - volumetric fog and light shafts (gpu_vulkan/vulkan_rt_fog.h): likewise
-render::vulkan::RtFogSettings make_rt_fog()
+// NOT ORIGINAL - volumetric fog, its light shafts and the haze of a level without fog (gpu_vulkan/vulkan_rt_fog.h)
+render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
 {
+    const render::vulkan::RtFogSettings defaults;
     return render::vulkan::RtFogSettings{
-        .on = graphics_flag("rt_fog", false),
-         .density = ini_float("rt_fog_density", render::vulkan::RtFogSettings{}.density),
-         .height = ini_float("rt_fog_height", render::vulkan::RtFogSettings{}.height),
-         .anisotropy = ini_float("rt_fog_anisotropy", render::vulkan::RtFogSettings{}.anisotropy),
-         .steps = static_cast<unsigned>(std::max(
-             1, graphics_int("rt_fog_steps", static_cast<int>(render::vulkan::kRtFogSteps)))),
-         .mode = graphics_int("rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts
-                                                                                   : render::vulkan::RtFogMode::kReplace,
-         .hdr = live_state().hdr_at_start,
-         .haze = graphics_flag("rt_fog_haze", true),
-         .haze_density = ini_float("rt_fog_haze_density", render::vulkan::RtFogSettings{}.haze_density),
-         .haze_height = ini_float("rt_fog_haze_height", render::vulkan::RtFogSettings{}.haze_height)};
+        .on = in_effect.on("rt_fog"),
+        .density = in_effect.number("rt_fog_density", defaults.density),
+        .height = in_effect.number("rt_fog_height", defaults.height),
+        .anisotropy = in_effect.number("rt_fog_anisotropy", defaults.anisotropy),
+        .steps = at_least_one(in_effect, "rt_fog_steps", render::vulkan::kRtFogSteps),
+        .mode = in_effect.integer("rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts : render::vulkan::RtFogMode::kReplace,
+        .hdr = hdr_on(in_effect),
+        .haze = in_effect.on("rt_fog_haze"),
+        .haze_density = in_effect.number("rt_fog_haze_density", defaults.haze_density),
+        .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height)};
 }
-void read_rt_fog() { render::vulkan::set_rt_fog_settings(make_rt_fog()); }
 
-// NOT ORIGINAL - the sun's disc and glare, screen-space rays, the bloom and the sky model
-// (gpu_vulkan/vulkan_rt_sun.h, vulkan_rt_sky.h): off unless asked for; the bloom needs no ray tracing
-render::vulkan::RtSunSettings make_rt_sun()
+// NOT ORIGINAL - the sun's disc and glare, screen-space rays, the bloom and the sky model (gpu_vulkan/vulkan_rt_sun.h,
+// vulkan_rt_sky.h). rt_sun_colour: auto (the sky model's colour for the sun's elevation) or r,g,b (0 - 1 each).
+render::vulkan::RtSunSettings make_rt_sun(const Resolution& in_effect)
 {
-    render::vulkan::RtSunSettings sun{
-        .sun = graphics_flag("rt_sun", false),
-        .sun_size = ini_float("rt_sun_size", render::vulkan::RtSunSettings{}.sun_size),
-        .bloom = graphics_flag("rt_bloom", false),
-        .bloom_strength = ini_float("rt_bloom_strength", render::vulkan::kRtBloomStrength),
-        .shafts = graphics_flag("rt_shafts", false),
-        .shaft_strength = ini_float("rt_shaft_strength", render::vulkan::kRtShaftStrength),
-        .sky_model = graphics_flag("rt_sky_model", false),
-        .lens_dirt = graphics_flag("rt_lens_dirt", false),
-        .hdr = live_state().hdr_at_start};
-    read_rt_sun_colour(&sun);
+    render::vulkan::RtSunSettings sun{.sun = in_effect.on("rt_sun"),
+                                      .sun_size = in_effect.number("rt_sun_size", render::vulkan::RtSunSettings{}.sun_size),
+                                      .bloom = in_effect.on("rt_bloom"),
+                                      .bloom_strength = in_effect.number("rt_bloom_strength", render::vulkan::kRtBloomStrength),
+                                      .shafts = in_effect.on("rt_shafts"),
+                                      .shaft_strength = in_effect.number("rt_shaft_strength", render::vulkan::kRtShaftStrength),
+                                      .sky_model = in_effect.on("rt_sky_model"),
+                                      .lens_dirt = in_effect.on("rt_lens_dirt"),
+                                      .hdr = hdr_on(in_effect)};
+    const config::Resolved& colour_setting = in_effect.at("rt_sun_colour");
+    std::array<float, 3> colour{};
+    if (colour_setting.in_effect && parse_rgb(colour_setting.value, &colour)) {
+        sun.colour_set = true;
+        sun.colour = colour;
+    } else if (colour_setting.in_effect && colour_setting.value != "auto") {
+        get_log("[Graphics] rt_sun_colour=%s isn't auto or r,g,b - the sky model's colour used", colour_setting.value.c_str());
+    }
     return sun;
 }
-void read_rt_sun() { render::vulkan::set_rt_sun_settings(make_rt_sun()); }
 
-// NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h): off unless
-// asked for; no ray tracing needed. rt_cloud_coverage: auto (the level's own sky) or 0 - 1.
-render::vulkan::RtSkySettings make_rt_sky()
+// NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h).
+// rt_cloud_coverage: auto (the level's own sky) or 0 - 1.
+render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
 {
-    constexpr std::size_t kLongest = 16;
-    std::array<char, kLongest> coverage{};
-    graphics_text("rt_cloud_coverage", "auto", coverage.data(), coverage.size());
     float cover = render::vulkan::kRtCloudCoverageAuto;
-    const std::string cover_text(coverage.data());
+    const std::string& cover_text = in_effect.value("rt_cloud_coverage");
     if (!cover_text.empty() && cover_text != "auto") {
         char* end = nullptr;
         const double parsed = std::strtod(cover_text.c_str(), &end);
@@ -424,285 +303,231 @@ render::vulkan::RtSkySettings make_rt_sky()
             get_log("[Graphics] rt_cloud_coverage=%s isn't auto or 0 - 1 - auto used", cover_text.c_str());
         }
     }
-    return render::vulkan::RtSkySettings{
-        .on = graphics_flag("rt_sky", false),
-         .match = ini_float("rt_sky_match", render::vulkan::kRtSkyMatch),
-         .clouds = graphics_flag("rt_clouds", false),
-         .coverage = cover,
-         .speed = ini_float("rt_cloud_speed", 1.0F),
-         .quality = static_cast<unsigned>(std::max(0, graphics_int("rt_cloud_quality", 1))),
-         .cloud_shadows = graphics_flag("rt_cloud_shadows", false),
-         .hdr = live_state().hdr_at_start};
-}
-void read_rt_sky() { render::vulkan::set_rt_sky_settings(make_rt_sky()); }
-
-// NOT ORIGINAL - the relit mode (engine/gfx/rt_relit.h, render_pc/rt_relit_world.h): off unless asked for; it needs
-// ray tracing (the rays that take the bake apart)
-void read_rt_relit()
-{
-    render::rt::RelitSettings relit{
-        .on = graphics_flag("rt_relit", false),
-        .strength = ini_float("rt_relit_strength", render::rt::RelitSettings{}.strength),
-        .residual = graphics_flag("rt_relit_residual", true),
-        .detail = ini_float("rt_relit_detail", render::rt::RelitSettings{}.detail),
-        .sky_rays = static_cast<uint32_t>(std::max(
-            1, graphics_int("rt_relit_sky_rays", static_cast<int>(render::rt::kRelitSkyRays)))),
-        .sun_rays = static_cast<uint32_t>(std::max(
-            1, graphics_int("rt_relit_sun_rays", static_cast<int>(render::rt::kRelitSunRays)))),
-        .cache = graphics_flag("rt_relit_cache", true)};
-    // (added by the scene's sun) a sun other than the baked one needs the level relit by it - its baked shadows and
-    // light turned to that sun -, so rt_sun_source=game (or a direction) turns the mode on
-    if (!relit.on && render::rt::sun_choice().source != render::rt::SunSource::kLevel) {
-        relit.on = true;
-        get_log("[Graphics] rt_relit=0, but rt_sun_source isn't level: the relit mode on (the levels relit by that sun)");
-    }
-    // (added by the time of day) likewise a time other than the level's own: relit by the clock's sun or moon
-    if (!relit.on && render::rt::tod_may_run(render::rt::tod_settings())) {
-        relit.on = true;
-        get_log("[Graphics] rt_relit=0, but tod isn't level: the relit mode on (the levels relit by the time of day)");
-    }
-    render::rt::set_relit_settings(relit);
+    return render::vulkan::RtSkySettings{.on = in_effect.on("rt_sky"),
+                                         .match = in_effect.number("rt_sky_match", render::vulkan::kRtSkyMatch),
+                                         .clouds = in_effect.on("rt_clouds"),
+                                         .coverage = cover,
+                                         .speed = in_effect.number("rt_cloud_speed", 1.0F),
+                                         .quality = static_cast<unsigned>(std::max(0, in_effect.integer("rt_cloud_quality", 1))),
+                                         .cloud_shadows = in_effect.on("rt_cloud_shadows"),
+                                         .hdr = hdr_on(in_effect)};
 }
 
-// NOT ORIGINAL - frame generation and Reflex (gpu_vulkan/vulkan_framegen.h): off unless asked for; DLSS-G / FSR 3 from
-// beside the exe. Read at start-up only (the swapchain and the device's queues are made for it).
-void read_frame_generation()
+// NOT ORIGINAL - the relit mode (engine/gfx/rt_relit.h, render_pc/rt_relit_world.h): on when asked for, or when the
+// model forces it (a sun other than the baked one, or the time of day's, needs the level relit by it); it needs ray
+// tracing (the rays that take the bake apart)
+void read_rt_relit(const Resolution& in_effect)
 {
-    constexpr std::size_t kLongest = 32;
-    std::array<char, kLongest> text{};
+    const render::rt::RelitSettings defaults;
+    render::rt::set_relit_settings({.on = in_effect.on("rt_relit"),
+                                    .strength = in_effect.number("rt_relit_strength", defaults.strength),
+                                    .residual = in_effect.on("rt_relit_residual"),
+                                    .detail = in_effect.number("rt_relit_detail", defaults.detail),
+                                    .sky_rays = at_least_one(in_effect, "rt_relit_sky_rays", render::rt::kRelitSkyRays),
+                                    .sun_rays = at_least_one(in_effect, "rt_relit_sun_rays", render::rt::kRelitSunRays),
+                                    .cache = in_effect.on("rt_relit_cache")});
+}
+
+// NOT ORIGINAL - frame generation and Reflex (gpu_vulkan/vulkan_framegen.h): DLSS-G / FSR 3 from beside the exe. Read
+// at start-up only (the swapchain and the device's queues are made for it).
+void read_frame_generation(const Resolution& in_effect)
+{
     render::vulkan::FrameGenSettings settings;
-    graphics_text("frame_generation", "off", text.data(), text.size());
-    if (!render::vulkan::parse_frame_generation(text.data(), &settings.mode)) {
-        get_log("[Graphics] frame_generation=%s isn't off, 2x, 3x or 4x - off", text.data());
+    if (!render::vulkan::parse_frame_generation(in_effect.value("frame_generation"), &settings.mode)) {
+        settings.mode = render::vulkan::FrameGeneration::kOff;
     }
-    text = {};
-    graphics_text("frame_generation_provider", "auto", text.data(), text.size());
-    if (!render::vulkan::parse_frame_generation_source(text.data(), &settings.source)) {
-        get_log("[Graphics] frame_generation_provider=%s isn't auto, dlss or fsr - auto", text.data());
+    if (!render::vulkan::parse_frame_generation_source(in_effect.value("frame_generation_provider"), &settings.source)) {
+        settings.source = render::vulkan::FrameGenSource::kAuto;
     }
-    text = {};
-    graphics_text("reflex", "off", text.data(), text.size());
-    if (!render::vulkan::parse_reflex(text.data(), &settings.reflex)) {
-        get_log("[Graphics] reflex=%s isn't off, on or boost - off", text.data());
+    if (!render::vulkan::parse_reflex(in_effect.value("reflex"), &settings.reflex)) {
+        settings.reflex = render::vulkan::Reflex::kOff;
     }
     render::vulkan::set_frame_generation_settings(settings);
 }
 
-// NOT ORIGINAL - upscaling (gpu_vulkan/vulkan_upscale.h): off unless asked for; DLSS / FSR from beside the exe. Read
-// at start-up only (the device's targets and the provider are made for it).
-void read_upscale()
+// NOT ORIGINAL - upscaling (gpu_vulkan/vulkan_upscale.h): DLSS / FSR from beside the exe. Read at start-up only (the
+// device's targets and the provider are made for it). Under frame generation with no upscaler asked for, the model has
+// it on at native size (DLAA / FSR's anti-aliasing: frame generation makes its frames from its motion vectors).
+void read_upscale(const Resolution& in_effect)
 {
-    constexpr std::size_t kLongest = 32;
-    std::array<char, kLongest> text{};
     render::vulkan::UpscaleSettings upscale;
-    graphics_text("upscaler", "off", text.data(), text.size());
-    if (!render::vulkan::parse_upscaler(text.data(), &upscale.upscaler)) {
-        get_log("[Graphics] upscaler=%s isn't off, dlss, fsr or auto - off", text.data());
+    if (!render::vulkan::parse_upscaler(in_effect.value("upscaler"), &upscale.upscaler)) {
+        upscale.upscaler = render::vulkan::Upscaler::kOff;
     }
-    text = {};
-    graphics_text("upscale_quality", "quality", text.data(), text.size());
-    if (!render::vulkan::parse_upscale_quality(text.data(), &upscale.quality)) {
-        get_log("[Graphics] upscale_quality=%s isn't dlaa, quality, balanced, performance or ultra - quality",
-                text.data());
+    if (!render::vulkan::parse_upscale_quality(in_effect.value("upscale_quality"), &upscale.quality)) {
+        upscale.quality = render::vulkan::UpscaleQuality::kQuality;
     }
-    upscale.ray_reconstruction = graphics_flag("ray_reconstruction", false);
-    upscale.sharpness = ini_float("upscale_sharpness", 0.0F);
-    upscale.fsr_major = static_cast<unsigned>(std::max(0, graphics_int("fsr_version", 0)));
-    // (frame generation makes its frames from the upscaler's motion vectors and depth: with none asked for, the upscaler
-    // runs at native resolution - DLAA / FSR's native anti-aliasing)
-    if (upscale.upscaler == render::vulkan::Upscaler::kOff &&
-        render::vulkan::frame_generation_settings().mode != render::vulkan::FrameGeneration::kOff) {
-        upscale.upscaler = render::vulkan::Upscaler::kAuto;
-        upscale.quality = render::vulkan::UpscaleQuality::kNative;
-        get_log("[Graphics] frame_generation needs the upscaler's motion vectors: upscaler=auto at native resolution");
-    }
+    upscale.ray_reconstruction = in_effect.on("ray_reconstruction");
+    upscale.sharpness = in_effect.number("upscale_sharpness", 0.0F);
+    upscale.fsr_major = static_cast<unsigned>(std::max(0, in_effect.integer("fsr_version", 0)));
     render::vulkan::set_upscale_settings(upscale);
 }
 
-// NOT ORIGINAL - per-pixel lighting and the surface maps beside the textures (gpu_vulkan/vulkan_surface.h): off unless
-// asked for; no ray tracing needed (with it, the bake's sun found by ray tracing lights the maps)
-void read_rt_pbr()
+// The knobs' ranges: relief depth up to 4x, the characters' and the detail's strengths up to 2x.
+constexpr float kMostRelief = 4.0F;
+constexpr float kMostStrength = 2.0F;
+
+// NOT ORIGINAL - per-pixel lighting and the surface maps beside the textures (gpu_vulkan/vulkan_surface.h)
+void read_rt_pbr(const Resolution& in_effect)
 {
     const render::vulkan::RtPbrSettings defaults;
     render::vulkan::set_rt_pbr_settings(
-        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_pbr", false),
-         .specular = std::max(0.0F, ini_float("rt_pbr_specular", defaults.specular)),
-         .normal_strength = std::max(0.0F, ini_float("rt_pbr_normal_strength", defaults.normal_strength)),
-         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true),
+        {.on = in_effect.on("rt_pbr"),
+         .specular = std::max(0.0F, in_effect.number("rt_pbr_specular", defaults.specular)),
+         .normal_strength = std::max(0.0F, in_effect.number("rt_pbr_normal_strength", defaults.normal_strength)),
+         .objects = in_effect.on("rt_pbr_objects"),
          // (added by surface relief - parallax occlusion mapping on the surface-mapped brick, stone, gravel...)
-         .relief = build_info::fetch_flag(build_info::kGraphics, "rt_relief", false),
-         .relief_strength = std::clamp(ini_float("rt_relief_strength", defaults.relief_strength), 0.0F, 4.0F),
+         .relief = in_effect.on("rt_relief"),
+         .relief_strength = std::clamp(in_effect.number("rt_relief_strength", defaults.relief_strength), 0.0F, kMostRelief),
          // (added for the characters - their surface maps and skin / cloth / hair shading; on top of rt_pbr)
-         .characters = build_info::fetch_flag(build_info::kGraphics, "rt_characters", true),
-         .skin = std::clamp(ini_float("rt_characters_skin", defaults.skin), 0.0F, 2.0F),
-         .cloth = std::clamp(ini_float("rt_characters_cloth", defaults.cloth), 0.0F, 2.0F),
-         .hair = std::clamp(ini_float("rt_characters_hair", defaults.hair), 0.0F, 2.0F)});
+         .characters = in_effect.on("rt_characters"),
+         .skin = std::clamp(in_effect.number("rt_characters_skin", defaults.skin), 0.0F, kMostStrength),
+         .cloth = std::clamp(in_effect.number("rt_characters_cloth", defaults.cloth), 0.0F, kMostStrength),
+         .hair = std::clamp(in_effect.number("rt_characters_hair", defaults.hair), 0.0F, kMostStrength)});
 }
 
-// NOT ORIGINAL - detail materials and de-lighting (gpu_vulkan/vulkan_detail.h): off unless asked for; they act on the
-// draws rt_pbr lights with a surface map
-void read_rt_detail()
+// NOT ORIGINAL - detail materials and de-lighting (gpu_vulkan/vulkan_detail.h): on the draws rt_pbr lights
+void read_rt_detail(const Resolution& in_effect)
 {
     const render::vulkan::RtDetailSettings defaults;
     render::vulkan::set_rt_detail_settings(
-        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_detail", false),
-         .strength = std::clamp(ini_float("rt_detail_strength", defaults.strength), 0.0F, 2.0F),
-         .delight = build_info::fetch_flag(build_info::kGraphics, "rt_delight", false),
-         .delight_strength = std::clamp(ini_float("rt_delight_strength", defaults.delight_strength), 0.0F, 1.0F)});
+        {.on = in_effect.on("rt_detail"),
+         .strength = std::clamp(in_effect.number("rt_detail_strength", defaults.strength), 0.0F, kMostStrength),
+         .delight = in_effect.on("rt_delight"),
+         .delight_strength = std::clamp(in_effect.number("rt_delight_strength", defaults.delight_strength), 0.0F, 1.0F)});
+}
+
+// [Graphics] rt_style_noir_dark / _light: r,g,b; anything else is the default (logged when it isn't empty).
+std::array<float, 3> style_colour(const Resolution& in_effect, const char* key, const std::array<float, 3>& fallback)
+{
+    const std::string& text = in_effect.value(key);
+    std::array<float, 3> colour = fallback;
+    if (!text.empty() && !parse_rgb(text, &colour)) {
+        get_log("[Graphics] %s=%s isn't r,g,b - the default used", key, text.c_str());
+    }
+    return colour;
+}
+
+// [Graphics] rt_style as a name (off when it is out of effect).
+render::vulkan::ArtStyle art_style_of(const Resolution& in_effect)
+{
+    render::vulkan::ArtStyle style = render::vulkan::ArtStyle::kOff;
+    if (!render::vulkan::parse_art_style(in_effect.value("rt_style"), &style)) {
+        style = render::vulkan::ArtStyle::kOff;
+    }
+    return style;
 }
 
 // NOT ORIGINAL - the vhs, retro and watercolour art styles' knobs (gpu_vulkan/vulkan_style_film.h), with rt_style as the
 // toon's reading set it (the retro geometry is on with it)
-void read_style_film()
+void read_style_film(const Resolution& in_effect)
 {
     const render::vulkan::VhsSettings vhs;
     const render::vulkan::RetroSettings retro;
     const render::vulkan::WatercolourSettings watercolour;
     render::vulkan::set_film_settings(
         {.style = render::vulkan::style_settings().style,
-         .vhs = {.fisheye = ini_float("rt_style_vhs_fisheye", vhs.fisheye),
-                 .bleed = ini_float("rt_style_vhs_bleed", vhs.bleed),
-                 .wobble = ini_float("rt_style_vhs_wobble", vhs.wobble),
-                 .noise = ini_float("rt_style_vhs_noise", vhs.noise),
-                 .scanlines = ini_float("rt_style_vhs_scanlines", vhs.scanlines),
-                 .saturation = ini_float("rt_style_vhs_saturation", vhs.saturation),
-                 .overlay = build_info::fetch_flag(build_info::kGraphics, "rt_style_vhs_overlay", vhs.overlay)},
-         .retro = {.lines = ini_float("rt_style_retro_lines", retro.lines),
-                   .bits = ini_float("rt_style_retro_bits", retro.bits),
-                   .dither = ini_float("rt_style_retro_dither", retro.dither),
-                   .snap = ini_float("rt_style_retro_snap", retro.snap),
-                   .affine = ini_float("rt_style_retro_affine", retro.affine)},
-         .watercolour = {.bleed = ini_float("rt_style_watercolour_bleed", watercolour.bleed),
-                         .flow = ini_float("rt_style_watercolour_flow", watercolour.flow),
-                         .granulation = ini_float("rt_style_watercolour_granulation", watercolour.granulation),
-                         .edges = ini_float("rt_style_watercolour_edges", watercolour.edges),
-                         .paper = ini_float("rt_style_watercolour_paper", watercolour.paper),
-                         .outlines = ini_float("rt_style_watercolour_outlines", watercolour.outlines)}});
+         .vhs = {.fisheye = in_effect.number("rt_style_vhs_fisheye", vhs.fisheye),
+                 .bleed = in_effect.number("rt_style_vhs_bleed", vhs.bleed),
+                 .wobble = in_effect.number("rt_style_vhs_wobble", vhs.wobble),
+                 .noise = in_effect.number("rt_style_vhs_noise", vhs.noise),
+                 .scanlines = in_effect.number("rt_style_vhs_scanlines", vhs.scanlines),
+                 .saturation = in_effect.number("rt_style_vhs_saturation", vhs.saturation),
+                 .overlay = in_effect.on("rt_style_vhs_overlay")},
+         .retro = {.lines = in_effect.number("rt_style_retro_lines", retro.lines),
+                   .bits = in_effect.number("rt_style_retro_bits", retro.bits),
+                   .dither = in_effect.number("rt_style_retro_dither", retro.dither),
+                   .snap = in_effect.number("rt_style_retro_snap", retro.snap),
+                   .affine = in_effect.number("rt_style_retro_affine", retro.affine)},
+         .watercolour = {.bleed = in_effect.number("rt_style_watercolour_bleed", watercolour.bleed),
+                         .flow = in_effect.number("rt_style_watercolour_flow", watercolour.flow),
+                         .granulation = in_effect.number("rt_style_watercolour_granulation", watercolour.granulation),
+                         .edges = in_effect.number("rt_style_watercolour_edges", watercolour.edges),
+                         .paper = in_effect.number("rt_style_watercolour_paper", watercolour.paper),
+                         .outlines = in_effect.number("rt_style_watercolour_outlines", watercolour.outlines)}});
 }
 
-// NOT ORIGINAL - an art style, the toon filter (gpu_vulkan/vulkan_style.h): off unless asked for; no ray tracing or HDR
-// needed
-// [Graphics] rt_style_noir_dark / _light: r,g,b; anything else is the default (logged when it isn't empty).
-std::array<float, 3> style_colour(const char* key, const std::array<float, 3>& fallback)
-{
-    constexpr std::size_t kLongest = 64;
-    std::array<char, kLongest> text{};
-    graphics_text(key, "", text.data(), text.size());
-    std::array<float, 3> colour = fallback;
-    if (text.front() != '\0' && !parse_rgb(text.data(), &colour)) {
-        get_log("[Graphics] %s=%s isn't r,g,b - the default used", key, text.data());
-    }
-    return colour;
-}
-
-// [Graphics] rt_style as a name (off when it is none - logged when `log`).
-render::vulkan::ArtStyle art_style_of_ini(bool log)
-{
-    constexpr std::size_t kLongest = 32;
-    std::array<char, kLongest> name{};
-    graphics_text("rt_style", "off", name.data(), name.size());
-    render::vulkan::ArtStyle style = render::vulkan::ArtStyle::kOff;
-    if (!render::vulkan::parse_art_style(name.data(), &style) && log) {
-        get_log("[Graphics] rt_style=%s isn't off, toon, cel, comic, sketch, vhs, retro, watercolour, noir, thermal, "
-                "fisheye or fisheye_vhs - off",
-                name.data());
-    }
-    return style;
-}
-
-void read_rt_cel();
-
-void read_style()
-{
-    const render::vulkan::StyleSettings defaults;
-    const render::vulkan::ArtStyle style = art_style_of_ini(true);
-    render::vulkan::set_style_settings({.style = style,
-                                        .strength = ini_float("rt_style_strength", defaults.strength),
-                                        .smooth = ini_float("rt_style_smooth", defaults.smooth),
-                                        .bands = ini_float("rt_style_bands", defaults.bands),
-                                        .outlines = ini_float("rt_style_outlines", defaults.outlines),
-                                        .outline_width = ini_float("rt_style_outline_width", defaults.outline_width),
-                                        .saturation = ini_float("rt_style_saturation", defaults.saturation),
-                                        .halftone = ini_float("rt_style_comic_halftone", defaults.halftone),
-                                        .hatch = ini_float("rt_style_sketch_hatch", defaults.hatch),
-                                        .wash = ini_float("rt_style_sketch_wash", defaults.wash),
-                                        .paper = ini_float("rt_style_paper", defaults.paper),
-                                        .grain = ini_float("rt_style_grain", defaults.grain),
-                                        .vignette = ini_float("rt_style_vignette", defaults.vignette),
-                                        .contrast = ini_float("rt_style_noir_contrast", defaults.contrast),
-                                        .focus = ini_float("rt_style_thermal_focus", defaults.focus),
-                                        .noir_dark = style_colour("rt_style_noir_dark", defaults.noir_dark),
-                                        .noir_light = style_colour("rt_style_noir_light", defaults.noir_light)});
-    read_style_film();
-    read_rt_cel(); // (rt_style=cel is cel shading)
-}
-
-// NOT ORIGINAL - grass (gpu_vulkan/vulkan_grass.h): blades where the level's collision says grass; off unless asked for,
-// no ray tracing needed
-void read_grass()
-{
-    const render::vulkan::GrassSettings defaults;
-    render::vulkan::set_grass_settings({.on = build_info::fetch_flag(build_info::kGraphics, "grass", false),
-                                        .density = ini_float("grass_density", defaults.density),
-                                        .height = ini_float("grass_height", defaults.height),
-                                        .distance = ini_float("grass_distance", defaults.distance)});
-}
-
-// NOT ORIGINAL - decals and clutter (gpu_vulkan/vulkan_scatter.h): marks and small props over the level's surfaces,
-// read from its collision; off unless asked for, no ray tracing needed
-void read_scatter()
-{
-    const render::vulkan::ScatterSettings defaults;
-    render::vulkan::set_scatter_settings(
-        {.decals = build_info::fetch_flag(build_info::kGraphics, "rt_decals", false),
-         .decal_density = ini_float("rt_decals_density", defaults.decal_density),
-         .clutter = build_info::fetch_flag(build_info::kGraphics, "clutter", false),
-         .clutter_density = ini_float("clutter_density", defaults.clutter_density)});
-}
-
-// NOT ORIGINAL - cel shading (engine/gfx/rt_cel.h, gpu_vulkan/vulkan_cel.h): off unless asked for; the relit mode's
-// decomposition and ray tracing make it fuller (the light in bands from the relit world's parts, hard traced shadows).
-// On with rt_style=cel (an art style in the Options screen) and only then: an older ini's rt_cel line does nothing (it
-// turned cel on under Art style Off, which nothing in the Options screen could undo).
-void read_rt_cel()
+// NOT ORIGINAL - cel shading (engine/gfx/rt_cel.h, gpu_vulkan/vulkan_cel.h): on with rt_style=cel and only then (an
+// older ini's rt_cel line is retired in the model: it turned cel on under Art style Off, which nothing in the Options
+// screen could undo).
+void read_rt_cel(const Resolution& in_effect)
 {
     const render::rt::CelSettings defaults;
-    const bool on = art_style_of_ini(false) == render::vulkan::ArtStyle::kCel;
-    render::rt::CelSettings cel{.on = on,
-                                .bands = static_cast<uint32_t>(std::max(0, graphics_int("rt_cel_bands", static_cast<int>(defaults.bands)))),
-                                .shadow_colour = defaults.shadow_colour,
-                                .rim = ini_float("rt_cel_rim", defaults.rim),
-                                .outline_width = ini_float("rt_cel_outline_width", defaults.outline_width),
-                                .flatten = ini_float("rt_cel_flatten", defaults.flatten)};
-    constexpr std::size_t kLongest = 32;
-    std::array<char, kLongest> text{};
-    graphics_text("rt_cel_shadow_colour", "", text.data(), text.size());
-    if (text.front() != '\0' && !render::rt::parse_cel_colour(text.data(), &cel.shadow_colour)) {
-        get_log("[Graphics] rt_cel_shadow_colour=%s isn't r,g,b or #rrggbb - the default kept", text.data());
+    render::rt::CelSettings cel{
+        .on = art_style_of(in_effect) == render::vulkan::ArtStyle::kCel,
+        .bands = static_cast<uint32_t>(std::max(0, in_effect.integer("rt_cel_bands", static_cast<int>(defaults.bands)))),
+        .shadow_colour = defaults.shadow_colour,
+        .rim = in_effect.number("rt_cel_rim", defaults.rim),
+        .outline_width = in_effect.number("rt_cel_outline_width", defaults.outline_width),
+        .flatten = in_effect.number("rt_cel_flatten", defaults.flatten)};
+    const std::string& shadow = in_effect.value("rt_cel_shadow_colour");
+    if (!shadow.empty() && !render::rt::parse_cel_colour(shadow, &cel.shadow_colour)) {
+        get_log("[Graphics] rt_cel_shadow_colour=%s isn't r,g,b or #rrggbb - the default kept", shadow.c_str());
     }
     render::vulkan::set_cel_settings(cel);
 }
 
-// NOT ORIGINAL - water shading (gpu_vulkan/vulkan_water.h): off unless asked for; no ray tracing needed.
-// rt_water_wind_heading: auto (the level's) or degrees; rt_water_tint: auto (the water's own colour as the game draws it) or r,g,b.
-void read_water()
+// NOT ORIGINAL - an art style (gpu_vulkan/vulkan_style.h): no ray tracing or HDR needed
+void read_style(const Resolution& in_effect)
+{
+    const render::vulkan::StyleSettings defaults;
+    render::vulkan::set_style_settings(
+        {.style = art_style_of(in_effect),
+         .strength = in_effect.number("rt_style_strength", defaults.strength),
+         .smooth = in_effect.number("rt_style_smooth", defaults.smooth),
+         .bands = in_effect.number("rt_style_bands", defaults.bands),
+         .outlines = in_effect.number("rt_style_outlines", defaults.outlines),
+         .outline_width = in_effect.number("rt_style_outline_width", defaults.outline_width),
+         .saturation = in_effect.number("rt_style_saturation", defaults.saturation),
+         .halftone = in_effect.number("rt_style_comic_halftone", defaults.halftone),
+         .hatch = in_effect.number("rt_style_sketch_hatch", defaults.hatch),
+         .wash = in_effect.number("rt_style_sketch_wash", defaults.wash),
+         .paper = in_effect.number("rt_style_paper", defaults.paper),
+         .grain = in_effect.number("rt_style_grain", defaults.grain),
+         .vignette = in_effect.number("rt_style_vignette", defaults.vignette),
+         .contrast = in_effect.number("rt_style_noir_contrast", defaults.contrast),
+         .focus = in_effect.number("rt_style_thermal_focus", defaults.focus),
+         .noir_dark = style_colour(in_effect, "rt_style_noir_dark", defaults.noir_dark),
+         .noir_light = style_colour(in_effect, "rt_style_noir_light", defaults.noir_light)});
+    read_style_film(in_effect);
+}
+
+// NOT ORIGINAL - grass (gpu_vulkan/vulkan_grass.h): blades where the level's collision says grass
+void read_grass(const Resolution& in_effect)
+{
+    const render::vulkan::GrassSettings defaults;
+    render::vulkan::set_grass_settings({.on = in_effect.on("grass"),
+                                        .density = in_effect.number("grass_density", defaults.density),
+                                        .height = in_effect.number("grass_height", defaults.height),
+                                        .distance = in_effect.number("grass_distance", defaults.distance)});
+}
+
+// NOT ORIGINAL - decals and clutter (gpu_vulkan/vulkan_scatter.h): marks and small props over the level's surfaces
+void read_scatter(const Resolution& in_effect)
+{
+    const render::vulkan::ScatterSettings defaults;
+    render::vulkan::set_scatter_settings({.decals = in_effect.on("rt_decals"),
+                                          .decal_density = in_effect.number("rt_decals_density", defaults.decal_density),
+                                          .clutter = in_effect.on("clutter"),
+                                          .clutter_density = in_effect.number("clutter_density", defaults.clutter_density)});
+}
+
+// NOT ORIGINAL - water shading (gpu_vulkan/vulkan_water.h). rt_water_wind_heading: auto (the level's) or degrees;
+// rt_water_tint: auto (the water's own colour as the game draws it) or r,g,b.
+void read_water(const Resolution& in_effect)
 {
     const render::vulkan::WaterSettings defaults;
-    render::vulkan::WaterSettings water{
-        .on = build_info::fetch_flag(build_info::kGraphics, "rt_water", false),
-        .waves = ini_float("rt_water_waves", defaults.waves),
-        .wind = ini_float("rt_water_wind", defaults.wind),
-        .heading = render::vulkan::kWaterHeadingAuto,
-        .clarity = ini_float("rt_water_clarity", defaults.clarity),
-        .foam = ini_float("rt_water_foam", defaults.foam),
-        .hdr = live_state().hdr_at_start,
-        .screen_reflections = build_info::fetch_flag(build_info::kGraphics, "rt_water_screen_reflections", true),
-        .debug_view = build_info::fetch_flag("debug", "rt_water_view", false),
-        .geometry = build_info::fetch_flag(build_info::kGraphics, "rt_water_geometry", defaults.geometry)};
-    constexpr std::size_t kLongest = 64;
-    std::array<char, kLongest> text{};
-    graphics_text("rt_water_wind_heading", "auto", text.data(), text.size());
-    const std::string heading(text.data());
+    render::vulkan::WaterSettings water{.on = in_effect.on("rt_water"),
+                                        .waves = in_effect.number("rt_water_waves", defaults.waves),
+                                        .wind = in_effect.number("rt_water_wind", defaults.wind),
+                                        .heading = render::vulkan::kWaterHeadingAuto,
+                                        .clarity = in_effect.number("rt_water_clarity", defaults.clarity),
+                                        .foam = in_effect.number("rt_water_foam", defaults.foam),
+                                        .hdr = hdr_on(in_effect),
+                                        .screen_reflections = in_effect.on("rt_water_screen_reflections"),
+                                        .debug_view = in_effect.on("rt_water_view"),
+                                        .geometry = in_effect.on("rt_water_geometry")};
+    const std::string& heading = in_effect.value("rt_water_wind_heading");
     if (!heading.empty() && heading != "auto") {
         char* end = nullptr;
         const double parsed = std::strtod(heading.c_str(), &end);
@@ -713,22 +538,9 @@ void read_water()
             get_log("[Graphics] rt_water_wind_heading=%s isn't auto or degrees - the level's used", heading.c_str());
         }
     }
-    text = {};
-    graphics_text("rt_water_tint", "auto", text.data(), text.size());
-    const std::string tint(text.data());
+    const std::string& tint = in_effect.value("rt_water_tint");
     std::array<float, 3> colour{};
-    std::size_t read = 0;
-    std::istringstream numbers(tint);
-    std::string number;
-    while (read < colour.size() && std::getline(numbers, number, ',')) {
-        char* end = nullptr;
-        const double parsed = std::strtod(number.c_str(), &end);
-        if (end == number.c_str() || !std::isfinite(parsed)) {
-            break;
-        }
-        colour.at(read++) = static_cast<float>(parsed);
-    }
-    if (read == colour.size()) {
+    if (parse_rgb(tint, &colour)) {
         water.tint_auto = false;
         water.tint = colour;
     } else if (!tint.empty() && tint != "auto") {
@@ -738,17 +550,15 @@ void read_water()
 }
 
 // NOT ORIGINAL - the camera effects (gpu_vulkan/vulkan_camera_fx.h): motion blur, depth of field, the colour grade, the
-// fisheye lens' knobs (vulkan_fisheye.h - the lens itself is the art styles fisheye and fisheye_vhs: rt_style); each
-// off unless asked for, no ray tracing or HDR needed. rt_grade: a look's name (off, neutral, warm, cool, filmic,
-// bleach, skate_video, level); anything else is off, logged.
-// An older ini's rt_fisheye line (the lens' own switch before it became an art style) does nothing - logged once: a
-// fallback that turned the lens on from it would leave it on under Art style Off, which the Options screen can't undo.
-void read_camera_fx()
+// fisheye lens' knobs (vulkan_fisheye.h - the lens itself is the art styles fisheye and fisheye_vhs: rt_style).
+// An older ini's rt_fisheye line (the lens' own switch before it became an art style) does nothing - logged once.
+void read_camera_fx(const Resolution& in_effect)
 {
     static bool old_switch_told = false;
     if (!old_switch_told) {
-        std::array<char, 8> old_switch{};
-        graphics_text("rt_fisheye", "", old_switch.data(), old_switch.size());
+        constexpr std::size_t kLongest = 8;
+        std::array<char, kLongest> old_switch{};
+        build_info::fetch_text(build_info::kGraphics, "rt_fisheye", "", old_switch.data(), old_switch.size());
         if (old_switch.front() != '\0') {
             old_switch_told = true;
             get_log("[Graphics] rt_fisheye=%s does nothing: the fisheye lens is an art style now (rt_style=fisheye or "
@@ -758,120 +568,121 @@ void read_camera_fx()
     }
     const render::vulkan::CameraFxSettings defaults;
     render::vulkan::CameraFxSettings settings{
-        .motion_blur = build_info::fetch_flag(build_info::kGraphics, "rt_motion_blur", false),
-        .motion_blur_strength = ini_float("rt_motion_blur_strength", defaults.motion_blur_strength),
-        .dof = build_info::fetch_flag(build_info::kGraphics, "rt_dof", false),
-        .dof_strength = ini_float("rt_dof_strength", defaults.dof_strength),
+        .motion_blur = in_effect.on("rt_motion_blur"),
+        .motion_blur_strength = in_effect.number("rt_motion_blur_strength", defaults.motion_blur_strength),
+        .dof = in_effect.on("rt_dof"),
+        .dof_strength = in_effect.number("rt_dof_strength", defaults.dof_strength),
         .grade = render::vulkan::GradeLook::kOff,
-        .grade_strength = ini_float("rt_grade_strength", defaults.grade_strength),
-        .grade_vignette = ini_float("rt_grade_vignette", defaults.grade_vignette),
-        .grade_grain = ini_float("rt_grade_grain", defaults.grade_grain),
-        .grade_levels = {},
-        // (the fisheye lens' knobs - gpu_vulkan/vulkan_fisheye.h)
-        .fisheye_strength = ini_float("rt_fisheye_strength", defaults.fisheye_strength),
-        .fisheye_vignette = ini_float("rt_fisheye_vignette", defaults.fisheye_vignette),
-        .fisheye_circle = ini_float("rt_fisheye_circle", defaults.fisheye_circle)};
-    constexpr std::size_t kLongest = 512;
-    std::array<char, kLongest> text{};
-    graphics_text("rt_grade", "off", text.data(), text.size());
-    if (!render::vulkan::parse_grade_look(text.data(), &settings.grade)) {
-        get_log("[Graphics] rt_grade=%s isn't off, neutral, warm, cool, filmic, bleach, skate_video or level - off",
-                text.data());
+        .grade_strength = in_effect.number("rt_grade_strength", defaults.grade_strength),
+        // (out of effect under an art style with its own: the style's is used)
+        .grade_vignette = in_effect.at("rt_grade_vignette").in_effect ? in_effect.number("rt_grade_vignette", defaults.grade_vignette) : 0.0F,
+        .grade_grain = in_effect.at("rt_grade_grain").in_effect ? in_effect.number("rt_grade_grain", defaults.grade_grain) : 0.0F,
+        .grade_levels = in_effect.value("rt_grade_levels"),
+        .fisheye_strength = in_effect.number("rt_fisheye_strength", defaults.fisheye_strength),
+        .fisheye_vignette = in_effect.number("rt_fisheye_vignette", defaults.fisheye_vignette),
+        .fisheye_circle = in_effect.number("rt_fisheye_circle", defaults.fisheye_circle)};
+    if (!render::vulkan::parse_grade_look(in_effect.value("rt_grade"), &settings.grade)) {
+        settings.grade = render::vulkan::GradeLook::kOff;
     }
-    text = {};
-    graphics_text("rt_grade_levels", "", text.data(), text.size());
-    settings.grade_levels = text.data();
     render::vulkan::set_camera_fx_settings(settings);
 }
 
-// The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting
-// with it, `prefix`) and what reads its effect's settings again. Everything else - renderer, ray_tracing, rt_hdr,
-// upscaling, rt_tessellation - waits for the restart.
-struct LiveKey {
-    const char* key;
-    bool prefix;
-    void (*read)();
-};
-// (added by the scene's sun) rt_sun_source: the choice set, then every effect that lights by the sun read again (their
-// histories start again; the relit mode turned on or off with it - it relights by the new sun)
-void read_sun_source_and_effects()
+// Each part of the renderer the model's effects name, read from a resolution (config::Effect's order: the sun's source
+// before the effects lit by it, the time of day before the relit mode, the shadows before the bounce light).
+void read_effect(config::Effect effect, const Resolution& in_effect)
 {
-    read_sun_source();
-    read_rt_shadows_and_gi();
-    read_rt_fog();
-    read_rt_sun();
-    read_rt_sky();
-    read_rt_relit();
+    using config::Effect;
+    switch (effect) {
+    case Effect::kSunSource:
+        read_sun_source(in_effect);
+        break;
+    case Effect::kTimeOfDay:
+        read_time_of_day(in_effect);
+        break;
+    case Effect::kShadows:
+        render::vulkan::set_rt_shadow_settings(make_rt_shadows(in_effect));
+        break;
+    case Effect::kAo:
+        render::vulkan::set_rt_ao_settings(make_rt_ao(in_effect));
+        break;
+    case Effect::kGi:
+        render::vulkan::set_rt_gi_settings(make_rt_gi(in_effect));
+        break;
+    case Effect::kLights:
+        render::vulkan::set_rt_light_settings(make_rt_lights(in_effect));
+        break;
+    case Effect::kReflections:
+        render::vulkan::set_rt_reflection_settings(make_rt_reflections(in_effect));
+        break;
+    case Effect::kHdr:
+        render::vulkan::set_hdr_settings(make_hdr(in_effect));
+        break;
+    case Effect::kFog:
+        render::vulkan::set_rt_fog_settings(make_rt_fog(in_effect));
+        break;
+    case Effect::kSun:
+        render::vulkan::set_rt_sun_settings(make_rt_sun(in_effect));
+        break;
+    case Effect::kSky:
+        render::vulkan::set_rt_sky_settings(make_rt_sky(in_effect));
+        break;
+    case Effect::kRelit:
+        read_rt_relit(in_effect);
+        break;
+    case Effect::kPbr:
+        read_rt_pbr(in_effect);
+        break;
+    case Effect::kDetail:
+        read_rt_detail(in_effect);
+        break;
+    case Effect::kStyle:
+        read_style(in_effect);
+        read_rt_cel(in_effect); // (rt_style=cel is cel shading)
+        break;
+    case Effect::kCel:
+        read_rt_cel(in_effect);
+        break;
+    case Effect::kGrass:
+        read_grass(in_effect);
+        break;
+    case Effect::kScatter:
+        read_scatter(in_effect);
+        break;
+    case Effect::kWater:
+        read_water(in_effect);
+        break;
+    case Effect::kCameraFx:
+        read_camera_fx(in_effect);
+        break;
+    case Effect::kNone:
+    default:
+        break;
+    }
 }
 
-// (added by the time of day) tod, tod_cycle, tod_cycle_minutes, tod_levels: the clock's settings, then the relit mode
-// (turned on with a time other than the level's own)
-void read_time_of_day_and_relit()
-{
-    read_time_of_day();
-    read_rt_relit();
-}
-
-constexpr std::array kLiveKeys = {
-    LiveKey{.key = "rt_sun_source", .prefix = false, .read = &read_sun_source_and_effects},
-    LiveKey{.key = "tod", .prefix = true, .read = &read_time_of_day_and_relit}, // (tod and every tod_)
-    LiveKey{.key = "rt_shadows", .prefix = false, .read = &read_rt_shadows_and_gi},
-    LiveKey{.key = "rt_shadow_", .prefix = true, .read = &read_rt_shadows_and_gi},
-    LiveKey{.key = "rt_ao", .prefix = false, .read = &read_rt_ao},
-    LiveKey{.key = "rt_ao_", .prefix = true, .read = &read_rt_ao},
-    LiveKey{.key = "rt_gi", .prefix = false, .read = &read_rt_gi},
-    LiveKey{.key = "rt_gi_", .prefix = true, .read = &read_rt_gi},
-    LiveKey{.key = "rt_lights", .prefix = true, .read = &read_rt_lights}, // (rt_lights and every rt_lights_)
-    LiveKey{.key = "rt_reflections", .prefix = false, .read = &read_rt_reflections},
-    LiveKey{.key = "rt_reflection_", .prefix = true, .read = &read_rt_reflections},
-    LiveKey{.key = "rt_glass_", .prefix = true, .read = &read_rt_reflections},
-    LiveKey{.key = "rt_exposure", .prefix = false, .read = &read_hdr},
-    LiveKey{.key = "rt_tonemap", .prefix = false, .read = &read_hdr},
-    LiveKey{.key = "rt_white_point", .prefix = false, .read = &read_hdr},
-    LiveKey{.key = "rt_saturation", .prefix = false, .read = &read_hdr},
-    LiveKey{.key = "rt_contrast", .prefix = false, .read = &read_hdr},
-    LiveKey{.key = "rt_grade_lut", .prefix = false, .read = &read_hdr},
-    LiveKey{.key = "rt_fog", .prefix = false, .read = &read_rt_fog},
-    LiveKey{.key = "rt_fog_", .prefix = true, .read = &read_rt_fog},
-    LiveKey{.key = "rt_sun", .prefix = false, .read = &read_rt_sun},
-    LiveKey{.key = "rt_sun_", .prefix = true, .read = &read_rt_sun},
-    LiveKey{.key = "rt_shafts", .prefix = false, .read = &read_rt_sun},
-    LiveKey{.key = "rt_shaft_", .prefix = true, .read = &read_rt_sun},
-    LiveKey{.key = "rt_bloom", .prefix = false, .read = &read_rt_sun},
-    LiveKey{.key = "rt_bloom_", .prefix = true, .read = &read_rt_sun},
-    LiveKey{.key = "rt_sky_model", .prefix = false, .read = &read_rt_sun},
-    LiveKey{.key = "rt_lens_dirt", .prefix = false, .read = &read_rt_sun},
-    LiveKey{.key = "rt_sky", .prefix = false, .read = &read_rt_sky},
-    LiveKey{.key = "rt_sky_match", .prefix = false, .read = &read_rt_sky},
-    LiveKey{.key = "rt_clouds", .prefix = false, .read = &read_rt_sky},
-    LiveKey{.key = "rt_cloud_", .prefix = true, .read = &read_rt_sky},
-    LiveKey{.key = "rt_relit", .prefix = false, .read = &read_rt_relit},
-    LiveKey{.key = "rt_relit_", .prefix = true, .read = &read_rt_relit},
-    LiveKey{.key = "rt_pbr", .prefix = false, .read = &read_rt_pbr},
-    LiveKey{.key = "rt_pbr_", .prefix = true, .read = &read_rt_pbr},
-    LiveKey{.key = "rt_relief", .prefix = true, .read = &read_rt_pbr}, // (added by surface relief: rt_relief and rt_relief_*)
-    LiveKey{.key = "rt_characters", .prefix = true, .read = &read_rt_pbr}, // (added for the characters: and rt_characters_*)
-    LiveKey{.key = "rt_detail", .prefix = true, .read = &read_rt_detail},  // (NOT ORIGINAL - rt_detail and rt_detail_*)
-    LiveKey{.key = "rt_delight", .prefix = true, .read = &read_rt_detail}, // (NOT ORIGINAL - rt_delight and rt_delight_*)
-    LiveKey{.key = "rt_style", .prefix = true, .read = &read_style}, // (rt_style and every rt_style_)
-    LiveKey{.key = "grass", .prefix = true, .read = &read_grass},    // (grass and every grass_)
-    LiveKey{.key = "rt_decals", .prefix = true, .read = &read_scatter}, // (NOT ORIGINAL - rt_decals, rt_decals_density)
-    LiveKey{.key = "clutter", .prefix = true, .read = &read_scatter},   // (NOT ORIGINAL - clutter, clutter_density)
-    LiveKey{.key = "rt_cel", .prefix = true, .read = &read_rt_cel},   // (added by cel shading: rt_cel and every rt_cel_)
-    LiveKey{.key = "rt_water", .prefix = true, .read = &read_water}, // (NOT ORIGINAL - rt_water and every rt_water_)
-    // (NOT ORIGINAL - the camera effects; rt_grade_lut, HDR's .cube table, is read_hdr's above)
-    LiveKey{.key = "rt_motion_blur", .prefix = true, .read = &read_camera_fx},
-    LiveKey{.key = "rt_dof", .prefix = true, .read = &read_camera_fx},
-    LiveKey{.key = "rt_grade", .prefix = false, .read = &read_camera_fx},
-    LiveKey{.key = "rt_grade_strength", .prefix = false, .read = &read_camera_fx},
-    LiveKey{.key = "rt_grade_vignette", .prefix = false, .read = &read_camera_fx},
-    LiveKey{.key = "rt_grade_grain", .prefix = false, .read = &read_camera_fx},
-    LiveKey{.key = "rt_grade_levels", .prefix = false, .read = &read_camera_fx},
-    LiveKey{.key = "rt_fisheye_", .prefix = true, .read = &read_camera_fx}, // (the fisheye lens' knobs; the lens: rt_style)
+// The running settings the renderer was last given (a change read again is compared with them: every part whose
+// settings' effective values changed is read again - the key's own, and any another rule moved with it).
+struct LiveState {
+    Resolution applied;
 };
 
-// (added by the split comparison - engine/gfx/graphics_options.h CompareBackend, devtools/compare_split.h) The effects'
-// settings of a side: A, the ini's; B, the ini's with the comparison's overrides over them.
+LiveState& live_state()
+{
+    static LiveState state;
+    return state;
+}
+
+void read_all_effects(const Resolution& in_effect)
+{
+    for (int effect = 1; effect < config::kEffectCount; ++effect) {
+        read_effect(static_cast<config::Effect>(effect), in_effect);
+    }
+    live_state().applied = in_effect;
+}
+
+// --- a split comparison (engine/gfx/graphics_options.h CompareBackend, devtools/compare_split.h): the effects' settings
+// of a side - A, the running model's; B, the model resolved with the comparison's overrides over the ini ---
+
 struct EffectSet {
     render::vulkan::RtShadowSettings shadows;
     render::vulkan::RtAoSettings ao;
@@ -883,69 +694,33 @@ struct EffectSet {
     render::vulkan::RtSkySettings sky;
 };
 
-// Which effects a key's reading sets (EffectSet's members, one bit each; 0: none that can differ per side).
-constexpr uint32_t kShadowsBit = 1U << 0U;
-constexpr uint32_t kAoBit = 1U << 1U;
-constexpr uint32_t kGiBit = 1U << 2U;
-constexpr uint32_t kReflectionsBit = 1U << 3U;
-constexpr uint32_t kHdrBit = 1U << 4U;
-constexpr uint32_t kFogBit = 1U << 5U;
-constexpr uint32_t kSunBit = 1U << 6U;
-constexpr uint32_t kSkyBit = 1U << 7U;
-
-uint32_t effect_bits(void (*read)())
+// Which effects can differ per side (EffectSet's members, one bit each - its Effect's; 0: an effect both sides share:
+// the relit mode changes how the world itself is drawn and keeps a cache).
+uint32_t effect_bit(config::Effect effect)
 {
-    if (read == &read_rt_shadows_and_gi) {
-        return kShadowsBit | kGiBit;
-    }
-    if (read == &read_rt_ao) {
-        return kAoBit;
-    }
-    if (read == &read_rt_gi) {
-        return kGiBit;
-    }
-    if (read == &read_rt_reflections) {
-        return kReflectionsBit;
-    }
-    if (read == &read_hdr) {
-        return kHdrBit;
-    }
-    if (read == &read_rt_fog) {
-        return kFogBit;
-    }
-    if (read == &read_rt_sun) {
-        return kSunBit;
-    }
-    if (read == &read_rt_sky) {
-        return kSkyBit;
-    }
-    return 0; // (the relit mode: it changes how the world itself is drawn and keeps a cache - both sides)
+    using config::Effect;
+    constexpr std::array kSplit = {Effect::kShadows, Effect::kAo, Effect::kGi, Effect::kReflections,
+                                   Effect::kHdr,     Effect::kFog, Effect::kSun, Effect::kSky};
+    return std::ranges::find(kSplit, effect) != kSplit.end() ? 1U << static_cast<uint32_t>(effect) : 0U;
 }
 
-const LiveKey* live_key_of(std::string_view name)
+EffectSet make_effects(const Resolution& in_effect)
 {
-    const auto live = std::ranges::find_if(
-        kLiveKeys, [name](const LiveKey& each) { return each.prefix ? name.starts_with(each.key) : name == each.key; });
-    return live == kLiveKeys.end() ? nullptr : &*live;
-}
-
-EffectSet make_effects()
-{
-    return {.shadows = make_rt_shadows(),
-            .ao = make_rt_ao(),
-            .gi = make_rt_gi(),
-            .reflections = make_rt_reflections(),
-            .hdr = make_hdr(),
-            .fog = make_rt_fog(),
-            .sun = make_rt_sun(),
-            .sky = make_rt_sky()};
+    return {.shadows = make_rt_shadows(in_effect),
+            .ao = make_rt_ao(in_effect),
+            .gi = make_rt_gi(in_effect),
+            .reflections = make_rt_reflections(in_effect),
+            .hdr = make_hdr(in_effect),
+            .fog = make_rt_fog(in_effect),
+            .sun = make_rt_sun(in_effect),
+            .sky = make_rt_sky(in_effect)};
 }
 
 struct CompareState {
     bool on = false;
     std::array<EffectSet, 2> sides{};
     render::graphics_options::CompareSettings overrides; // (the ones that can differ)
-    uint32_t differ = 0; // (k...Bit: the effects set again at a swap)
+    uint32_t differ = 0;          // (the effects set again at a swap)
     bool wants_baked_sun = false; // (either side's shadows from the bake, or its bounce)
     int applied = 0;
 };
@@ -957,32 +732,33 @@ CompareState& compare_state()
 }
 
 // Side `side`'s settings for the effects that differ (a swap: rt::settings_swap - the histories kept). The shadows
-// before the bounce, as read_rt_shadows_and_gi.
+// before the bounce.
 void set_effects(const EffectSet& set, uint32_t which)
 {
     render::rt::set_settings_swap(true);
-    if ((which & kShadowsBit) != 0U) {
+    const auto wanted = [which](config::Effect effect) { return (which & effect_bit(effect)) != 0U; };
+    if (wanted(config::Effect::kShadows)) {
         render::vulkan::set_rt_shadow_settings(set.shadows);
     }
-    if ((which & kAoBit) != 0U) {
+    if (wanted(config::Effect::kAo)) {
         render::vulkan::set_rt_ao_settings(set.ao);
     }
-    if ((which & kGiBit) != 0U) {
+    if (wanted(config::Effect::kGi)) {
         render::vulkan::set_rt_gi_settings(set.gi);
     }
-    if ((which & kReflectionsBit) != 0U) {
+    if (wanted(config::Effect::kReflections)) {
         render::vulkan::set_rt_reflection_settings(set.reflections);
     }
-    if ((which & kHdrBit) != 0U) {
+    if (wanted(config::Effect::kHdr)) {
         render::vulkan::set_hdr_settings(set.hdr);
     }
-    if ((which & kFogBit) != 0U) {
+    if (wanted(config::Effect::kFog)) {
         render::vulkan::set_rt_fog_settings(set.fog);
     }
-    if ((which & kSunBit) != 0U) {
+    if (wanted(config::Effect::kSun)) {
         render::vulkan::set_rt_sun_settings(set.sun);
     }
-    if ((which & kSkyBit) != 0U) {
+    if (wanted(config::Effect::kSky)) {
         render::vulkan::set_rt_sky_settings(set.sky);
     }
     // (one side's shadows off would clear the baked sun the other's wants: render_pc fits it once a world)
@@ -1016,22 +792,21 @@ bool compare_prepare(const render::graphics_options::CompareSettings& overrides,
     state.overrides.clear();
     state.differ = 0;
     for (const auto& [key, value] : overrides) {
-        const LiveKey* live = live_key_of(key);
-        const uint32_t bits = live != nullptr ? effect_bits(live->read) : 0U;
-        if (bits == 0U) {
+        const int found = config::find(build_info::kGraphics, key.c_str());
+        const uint32_t bit = found >= 0 && core::at(config::settings(), found).apply == config::Apply::kLive
+                                 ? effect_bit(core::at(config::settings(), found).effect)
+                                 : 0U;
+        if (bit == 0U) {
             if (both_sides != nullptr) {
                 both_sides->push_back(key);
             }
             continue;
         }
-        state.differ |= bits;
+        state.differ |= bit;
         state.overrides.emplace_back(key, value);
     }
-    graphics_overrides() = nullptr;
-    std::get<0>(state.sides) = make_effects();
-    graphics_overrides() = &state.overrides;
-    std::get<1>(state.sides) = make_effects();
-    graphics_overrides() = nullptr;
+    std::get<0>(state.sides) = make_effects(config::running());
+    std::get<1>(state.sides) = make_effects(config::running_with(state.overrides));
     const auto wants = [](const EffectSet& set) {
         return set.shadows.on || set.gi.on; // (every scene sun but a fixed one needs the fit)
     };
@@ -1052,7 +827,7 @@ bool compare_prepare(const render::graphics_options::CompareSettings& overrides,
     return true;
 }
 
-// A [Graphics] key changed while comparing: side A made again from the ini (B keeps its overrides).
+// A [Graphics] key changed while comparing: side A made again from the running model (B keeps its overrides).
 void refresh_compare()
 {
     const CompareState& state = compare_state();
@@ -1063,18 +838,42 @@ void refresh_compare()
     compare_prepare(overrides, nullptr);
 }
 
-// A [Graphics] key changed while the game runs: its effect's settings read again (true), or false when it waits for
-// the restart.
+// A [Graphics] key changed while the game runs (the running model already read again - graphics_options::reload_live):
+// every part of the renderer whose settings' effective values moved is read again - the key's own, and any another
+// setting's rule moved with it (a time of day turning the relit mode on). False when the key isn't one the renderer
+// changes while it runs (it waits for the restart).
 bool reload_live_key(const char* key)
 {
-    const std::string_view name(key);
-    const auto live = std::ranges::find_if(
-        kLiveKeys, [name](const LiveKey& each) { return each.prefix ? name.starts_with(each.key) : name == each.key; });
-    if (live == kLiveKeys.end()) {
+    const int index = config::find(build_info::kGraphics, key);
+    if (index < 0) {
         return false;
     }
-    live->read();
+    const config::Setting& setting = core::at(config::settings(), index);
+    if (setting.apply != config::Apply::kLive || setting.effect == config::Effect::kNone) {
+        return false;
+    }
+    const Resolution& now = config::running();
+    const Resolution& before = live_state().applied;
+    std::array<bool, config::kEffectCount> moved{};
+    core::at(moved, static_cast<std::size_t>(setting.effect)) = true;
+    for (std::size_t i = 0; i < now.items.size() && i < before.items.size(); ++i) {
+        const config::Resolved& was = core::at(before.items, i);
+        const config::Resolved& is = core::at(now.items, i);
+        if (was.value != is.value || was.in_effect != is.in_effect) {
+            core::at(moved, static_cast<std::size_t>(core::at(config::settings(), i).effect)) = true;
+        }
+    }
+    for (int effect = 1; effect < config::kEffectCount; ++effect) {
+        if (core::at(moved, static_cast<std::size_t>(effect))) {
+            read_effect(static_cast<config::Effect>(effect), now);
+        }
+    }
+    live_state().applied = now;
     get_log("renderer: [Graphics] %s changed - put to use at once", key);
+    const std::string changes = config::describe(now);
+    if (!changes.empty()) {
+        get_log("settings: in effect now -\n%s", changes.c_str());
+    }
     refresh_compare();
     return true;
 }
@@ -1082,36 +881,17 @@ bool reload_live_key(const char* key)
 
 // The Vulkan backend: render_pc's device over Vulkan's Gpu and GpuContext, and its UI backend (src/gpu_vulkan; the
 // ImGui parts have none on Vulkan yet). The shader and pipeline caches are kept beside the exe. The effects' settings
-// are read here and again, one effect at a time, when the Options screen changes one (reload_live_key).
-void install_vulkan()
+// are read here from the running model, and again, part by part, when the Options screen changes one (reload_live_key).
+void install_vulkan(const Resolution& in_effect)
 {
 #ifdef THUG2_VULKAN
-    render::vulkan::configure({.device_index = build_info::get_int(build_info::kGraphics, "vulkan_device", -1),
+    render::vulkan::configure({.device_index = in_effect.integer("vulkan_device", -1),
                                .cache_folder = build_info::executable_directory(),
-                               .validation = build_info::fetch_flag(build_info::kGraphics, "vulkan_validation", false),
-                               .ray_tracing = build_info::fetch_flag(build_info::kGraphics, "ray_tracing", false)});
-    live_state().hdr_at_start = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false);
-    read_sun_source(); // (added by the scene's sun: before the relit mode, which it may turn on)
-    read_rt_shadows();
-    read_rt_ao();
-    read_rt_gi();
-    read_rt_lights(); // (NOT ORIGINAL - the night lighting)
-    read_rt_reflections();
-    read_hdr();
-    read_rt_fog();
-    read_rt_sun();
-    read_rt_sky();
-    read_rt_relit();
-    read_frame_generation();
-    read_upscale();
-    read_rt_pbr();
-    read_rt_detail(); // (NOT ORIGINAL - detail materials and de-lighting)
-    read_style();
-    read_grass(); // (NOT ORIGINAL - the grass: gpu_vulkan/vulkan_grass.h)
-    read_scatter(); // (NOT ORIGINAL - the decals and clutter: gpu_vulkan/vulkan_scatter.h)
-    read_rt_cel(); // (added by cel shading)
-    read_water();
-    read_camera_fx(); // (NOT ORIGINAL - the camera effects: gpu_vulkan/vulkan_camera_fx.h)
+                               .validation = in_effect.on("vulkan_validation"),
+                               .ray_tracing = in_effect.on("ray_tracing")});
+    read_frame_generation(in_effect);
+    read_upscale(in_effect);
+    read_all_effects(in_effect);
     render::graphics_options::set_live_reload(&reload_live_key);
     render::graphics_options::set_compare_backend(
         {.prepare = &compare_prepare, .apply = &compare_apply, .end = &compare_end});
@@ -1120,30 +900,10 @@ void install_vulkan()
     render::install_gpu_context(render::vulkan::gpu_context());
     render::install_ui_backend(render::vulkan::ui_backend());
 #else
+    (void)in_effect;
     install_direct3d9();
 #endif
 }
-
-// Whether this machine can draw with Vulkan (asked before the window is made: a window for Vulkan needs its loader).
-bool vulkan_usable()
-{
-#ifdef THUG2_VULKAN
-    const int index = build_info::get_int(build_info::kGraphics, "vulkan_device", -1);
-    const render::vulkan::Usable found = render::vulkan::usable(index);
-    if (found.usable) {
-        get_log("renderer: Vulkan on %s%s", found.device.c_str(), index >= 0 ? " (vulkan_device)" : "");
-        return true;
-    }
-    get_log("renderer: Vulkan can't draw here - %s%s%s; using Direct3D 9 (renderer=d3d9 in [Graphics] chooses it)",
-            found.device.c_str(), found.device.empty() ? "" : ": ", found.problem.c_str());
-    return false;
-#else
-    return false;
-#endif
-}
-
-// The key's value, lower-cased.
-constexpr size_t kValueSize = 16;
 
 // (constant-initialised data: no initialiser or thread-safe static guard of the C++ runtime's)
 struct ChoiceState {
@@ -1157,34 +917,32 @@ ChoiceState& choice_state()
     return state;
 }
 
+// [Graphics] renderer as the settings model has it: Vulkan (the default) where this machine can draw with it, else
+// Direct3D 9 (the model's choice need, with its reason). The editor mode (engine/sys/editor_mode.h) runs on Vulkan
+// whatever the key says - its panels' own windows are Vulkan's - Direct3D 9 only when Vulkan can't draw here.
 Renderer read_choice()
 {
     // (main runs before the PC set-up that finds the settings file; finding it again there changes nothing)
     build_info::prepare_all();
-    std::array<char, kValueSize> buffer{};
-    // (Vulkan is the default: no key, an empty one or anything but d3d9 - which is logged - asks for it)
-    build_info::fetch_text(build_info::kGraphics, "renderer", "vulkan", buffer.data(), buffer.size());
-    std::string value(buffer.data());
-    std::ranges::transform(value, value.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    // (the editor mode - engine/sys/editor_mode.h - runs on Vulkan whatever the key says: its panels' own windows are
-    // Vulkan's; Direct3D 9 only when Vulkan can't draw here)
-    const bool editor_mode = sys::editor_mode::on();
-    if (value == "d3d9" && !editor_mode) {
-        get_log("renderer: Direct3D 9 (renderer=d3d9)");
-        return Renderer::kDirect3D9;
+    const FoundCapabilities& found = find_capabilities(); // (the device probed, the model told what it has)
+    const config::Resolved& renderer = config::running().at("renderer");
+    if (found.caps.vulkan) {
+        get_log("renderer: Vulkan can draw on %s", found.device.c_str());
+    } else {
+        get_log("renderer: Vulkan can't draw here - %s%s%s", found.device.c_str(), found.device.empty() ? "" : ": ",
+                found.problem.c_str());
     }
-    if (value == "d3d9") {
-        get_log("renderer: renderer=d3d9 is the game's - the editor mode runs on Vulkan");
-    } else if (value != "vulkan" && !value.empty()) {
-        get_log("renderer=%s is not a renderer (vulkan or d3d9); Vulkan, the default", value.c_str());
+    if (sys::editor_mode::on()) {
+        if (renderer.asked == "d3d9") {
+            get_log("renderer: renderer=d3d9 is the game's - the editor mode runs on Vulkan");
+        }
+        return found.caps.vulkan ? Renderer::kVulkan : Renderer::kDirect3D9;
     }
-    if (!kVulkanBuilt) {
-        get_log("renderer: this build was made without the Vulkan library (THUG2_VULKAN); using Direct3D 9");
-    } else if (!kVulkanDeviceExists) {
-        get_log("renderer: the Vulkan renderer is not available; using Direct3D 9");
-    } else if (vulkan_usable()) {
+    if (renderer.value == "vulkan") {
         return Renderer::kVulkan;
     }
+    const std::string why = renderer.reason.empty() ? std::string(" (renderer=d3d9)") : " - " + renderer.reason;
+    get_log("renderer: Direct3D 9%s", why.c_str());
     return Renderer::kDirect3D9;
 }
 
@@ -1207,11 +965,16 @@ sys::WindowApi renderer_window_api()
 
 void install_renderer()
 {
-    const Renderer renderer = chosen_renderer(); // (first: it finds the settings file - build_info::prepare_all)
-    read_time_of_day(); // (NOT ORIGINAL - the time of day: either renderer; before relit's settings, which it may turn on)
+    const Renderer renderer = chosen_renderer(); // (first: it finds the settings file and this machine's capabilities)
+    const Resolution& in_effect = config::running();
+    const std::string changes = config::describe(in_effect);
+    if (!changes.empty()) {
+        get_log("settings: what the ini asks for that isn't so here -\n%s", changes.c_str());
+    }
     if (renderer == Renderer::kVulkan) {
-        install_vulkan();
+        install_vulkan(in_effect);
     } else {
+        read_time_of_day(in_effect); // (the time of day: either renderer)
         install_direct3d9();
     }
 }

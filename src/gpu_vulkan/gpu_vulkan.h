@@ -30,6 +30,8 @@ struct Usable {
     bool usable = false;
     std::string device;  // the device's name (when one was found)
     std::string problem; // why not
+    uint32_t vendor_id = 0;   // its PCI vendor (0x10DE NVIDIA...)
+    bool ray_queries = false; // ray tracing can be enabled on it ([Graphics] ray_tracing)
 };
 Usable usable(int device_index);
 

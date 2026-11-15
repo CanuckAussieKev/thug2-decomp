@@ -6,22 +6,21 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <array>
 #include <string>
 #include <vector>
 
 #include <string_view>
 
+#include "engine/config/settings_model.h"
+#include "engine/config/settings_state.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/sys/frame_blend.h"
-#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "base/core/ints.h"
 #include "base/core/no_destroy.h"
 
 namespace render::graphics_options {
 
-constexpr std::size_t kOptionTextSize = 32;
 constexpr int kMaxAnisotropy = 16;
 constexpr int kMaxMultisample = 16;
 
@@ -52,6 +51,8 @@ void set_live_reload(LiveReload reload) { graphics_options_state().live_reload_ 
 
 bool reload_live(const char* key)
 {
+    // (the settings model's running values read again: what the key changes - and what changes with it - follows)
+    config::refresh_running();
     // (the frame pacing's settings: engine/sys/frame_pacing.h - max_fps read by the main loop each tick, the present
     // mode handed to the device, which makes its swap chain again with it where it can)
     if (key != nullptr && (std::string_view(key) == "max_fps" || std::string_view(key) == "present_mode")) {
@@ -94,13 +95,12 @@ void compare_end()
 void read_in()
 {
     frame_blend::read_settings(); // (not original either: [Graphics] max_fps, present_mode - engine/sys/frame_pacing.h)
-    graphics_options_state().options_.anisotropy = parse_anisotropy(build_info::get_int(build_info::kGraphics, "anisotropy", 0));
-    graphics_options_state().options_.msaa = parse_multisample(build_info::get_int(build_info::kGraphics, "msaa", 0));
-    std::array<char, kOptionTextSize> text{};
-    build_info::fetch_text(build_info::kGraphics, "draw_distance_scale", "1", text.data(), sizeof(text));
-    graphics_options_state().options_.draw_distance_scale_ = parse_scale(text.data());
-    build_info::fetch_text(build_info::kGraphics, "lod_distance_scale", "1", text.data(), sizeof(text));
-    graphics_options_state().options_.lod_distance_scale_ = parse_scale(text.data());
+    // (through the settings model - engine/config/settings_state.h: msaa is out of effect, 0, while upscaling)
+    const config::Resolution& in_effect = config::running();
+    graphics_options_state().options_.anisotropy = parse_anisotropy(in_effect.integer("anisotropy", 0));
+    graphics_options_state().options_.msaa = parse_multisample(in_effect.integer("msaa", 0));
+    graphics_options_state().options_.draw_distance_scale_ = parse_scale(in_effect.value("draw_distance_scale").c_str());
+    graphics_options_state().options_.lod_distance_scale_ = parse_scale(in_effect.value("lod_distance_scale").c_str());
     if ((graphics_options_state().options_.anisotropy != 0) || (graphics_options_state().options_.msaa != 0) ||
         graphics_options_state().options_.draw_distance_scale_ != 1.0F ||
         graphics_options_state().options_.lod_distance_scale_ != 1.0F) {

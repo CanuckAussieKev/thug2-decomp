@@ -134,8 +134,17 @@ struct DeviceProbe {
     bool usable = false;
     std::string device;  // the device's name (when one was found)
     std::string problem; // why not, when not usable
+    uint32_t vendor_id = 0;   // its PCI vendor (when one was found)
+    bool ray_queries = false; // it has every extension and feature ray tracing needs (ray_tracing_offered)
 };
 DeviceProbe probe_device(int wanted);
+
+// NOT ORIGINAL - ray tracing's extensions (the context enables them all or none) and whether `device` has them and the
+// features they need.
+inline constexpr std::array<const char*, 3> kRayTracingExtensions{VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+                                                                  VK_KHR_RAY_QUERY_EXTENSION_NAME,
+                                                                  VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
+bool ray_tracing_offered(VkPhysicalDevice device);
 
 // What the context chooses for its swapchain, for another window's (the UI's own windows: vulkan_ui_windows.cpp): the
 // surface's format (8-bit BGRA without sRGB conversion when offered), its size (the surface's, or the window's
