@@ -40,7 +40,7 @@ struct Backend;
 inline constexpr uint32_t kAoMaxHistory = 32;
 inline constexpr uint32_t kAoFilterPasses = 3;
 inline constexpr uint32_t kAoViewSlots = 4;
-inline constexpr uint32_t kAoMask = 0x01 | 0x02; // (world, objects)
+inline constexpr uint32_t kAoMask = 0x01 | 0x02 | 0x04; // (world, objects, the cut-outs by their alpha)
 
 // The scene the rays are traced through: the frame's top-level acceleration structure (R2), VK_NULL_HANDLE when there is
 // none (the pass is then skipped, logged once). The same contract as rt_shadows_set_scene (vulkan_rt_shadows.h): set it

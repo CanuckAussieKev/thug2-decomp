@@ -108,6 +108,15 @@ inline constexpr uint32_t kGeometryUvSetsMask = 0xF;
 //        shading) the vertex normals blended at the hit, the object's (not normalised); false when the mesh has none
 // The positions are the object's (rayQueryGetIntersectionObjectToWorldEXT takes them to the world).
 std::string_view scene_geometry_glsl();
+// (the one lighting path's rays) Every ray that asks whether light gets through - the sun's shadows, the bounce light's
+// rays and its sun rays, the ambient occlusion's, the lamps' shadow rays - takes the cut-out casters (fences, foliage,
+// grates, a cannon's spoked wheels: kMaskAlphaTested, their instances not forced opaque) by their alpha, the same test
+// the game's draw makes, so light goes through their holes everywhere. After scene_geometry_glsl and material_glsl
+// (vulkan_rt_materials.h), with the TLAS bound as `u_scene`:
+//   bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach) - blocked before `reach` by an instance `mask`
+//        picks: an opaque one wherever it is hit, an alpha-tested one only where its material's alpha test passes at the
+//        hit (a hit whose vertices can't be read counts as solid)
+std::string_view cutout_rays_glsl();
 // The caller holds the backend's lock.
 SceneView current_scene(const Backend& state);
 

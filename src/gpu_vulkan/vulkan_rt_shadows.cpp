@@ -67,7 +67,6 @@ void main()
 // The fragment shader: written to the colour target with a multiplying blend (colour x the output's rgb). PER_SAMPLE
 // and MULTISAMPLED are defined before it as the variant needs.
 constexpr const char* kFragmentBody = R"(
-layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;
 #ifdef MULTISAMPLED
 layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
 #else
@@ -151,34 +150,18 @@ float blocked_by(uint mask, vec3 origin, vec3 direction)
     if (mask == 0u) {
         return 0.0;
     }
-    rayQueryEXT query;
 #ifdef ALPHA_TESTED
-    // (added for the alpha-tested casters - a cannon's spoked wheels, railings, foliage: instance mask 0x04, their
-    // instances not forced opaque) each such candidate is kept only where its material's alpha test passes at the hit
-    // (vulkan_rt_materials.h: its texel x its colour against its alpha reference, as the game's draw tests it); the
-    // opaque instances end the ray as before
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0, direction, pc.shape.z);
-    while (rayQueryProceedEXT(query)) {
-        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
-            uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
-            HitVertices v;
-            bool keep = true;
-            if (hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, false),
-                             rayQueryGetIntersectionPrimitiveIndexEXT(query, false), v)) {
-                keep = material_alpha_passes_at(id, hit_uv(v, rayQueryGetIntersectionBarycentricsEXT(query, false)));
-            }
-            if (keep) {
-                rayQueryConfirmIntersectionEXT(query);
-            }
-        }
-    }
+    // (added for the alpha-tested casters - a cannon's spoked wheels, railings, foliage: instance mask 0x04) the one
+    // lighting path's ray test (vulkan_rt_scene.h cutout_rays_glsl): light goes through their holes
+    return ray_blocked(mask, origin, direction, pc.shape.z) ? 1.0 : 0.0;
 #else
+    rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,
                           direction, pc.shape.z);
     while (rayQueryProceedEXT(query)) {
     }
-#endif
     return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 0.0 : 1.0;
+#endif
 }
 
 // (added for the skater's shadow) Whether the pixel shows an object - a ray from the camera through it against the
@@ -532,12 +515,14 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
         source += "#define PER_SAMPLE\n";
     }
     source += "#extension GL_EXT_ray_query : require\n";
+    source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
     if (alpha) {
         // (added for the alpha-tested casters) the material table (set 1) and the frame's geometry table (binding 3)
         source += "#define ALPHA_TESTED\n#define THUG2_MATERIAL_SET 1\n";
         source += material_glsl();
         source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 3\n";
         source += scene_geometry_glsl();
+        source += cutout_rays_glsl(); // (the one lighting path's ray test)
     }
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source, error);
@@ -945,8 +930,11 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     const float strength = day.on ? own.settings.strength * day.shadow : own.settings.strength;
     constants.to_light = {core::at(to_light, 0), core::at(to_light, 1), core::at(to_light, 2), strength};
     const bool soft = own.settings.softness > 0.0F && own.settings.rays > 1;
+    // (the lighting state's light: rt_shadow_softness is the sun's; the moon's, wider, softens them as much more)
+    const float softness =
+        day.on ? own.settings.softness * day.light_radius / rt::kSunRadiusDegrees : own.settings.softness;
     constants.shape = {
-        static_cast<float>(std::tan(static_cast<double>(own.settings.softness) * kDegreesToRadians)),
+        static_cast<float>(std::tan(static_cast<double>(softness) * kDegreesToRadians)),
         static_cast<float>(soft ? own.settings.rays : 1U), kRayLength,
         static_cast<float>(own.settings.covered ? 0U : own.settings.sky_rays)};
     const uint32_t mask = kMaskWorld | (own.settings.objects ? kMaskObjects : 0U) | (alpha ? kMaskAlphaTested : 0U);

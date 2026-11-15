@@ -18,6 +18,8 @@
 //   - the floor has a lit part and a part in the box's shadow (both a few hundred pixels);
 //   - a red-textured lamp (an emitter whose material's texture is red) lights the floor red (its texture's mean);
 //   - two lamps, one traced (rt_lights_shadowed=1): the other's light in the share of the traced one's that got through;
+//   - (added for the cut-outs) the box made an alpha-tested caster: its texels' alpha 0 - the lamp's light goes through
+//     it (no floor shadowed, as without it); alpha 255 - shadowed as the solid box;
 //   - rt_lights off, or no lamp in view: every pixel exactly as drawn (no pass);
 //   - many lamps (49 over the floor): as the processor's, their sum held under the knee, no floor pixel burnt white.
 // Each lamp's light falls off from its core (rt_lights.h light_falloff): a point light's a tenth of its reach, an
@@ -461,6 +463,14 @@ double falloff(double d, double core, double reach)
     return window * window * core * core / ((core * core) + (d * d));
 }
 
+// (added for the cut-outs) Whether the box blocks the lamps' rays in the reference: false while its material is cut out
+// everywhere (its texels' alpha under the test's reference - the rays go through it).
+bool& box_blocks()
+{
+    static bool blocks = true;
+    return blocks;
+}
+
 bool lamp_blocked(const Seen& seen, const Lamp& lamp)
 {
     const double offset = kOffsetScale * (1.0 + (seen.distance * 0.0005) + (seen.distance * seen.distance * 6e-8));
@@ -472,8 +482,11 @@ bool lamp_blocked(const Seen& seen, const Lamp& lamp)
         return false;
     }
     const Vec3 direction = normalised(to);
-    for (const Solid& solid : kScene) {
-        const Hit hit = intersect(solid, origin, direction);
+    for (std::size_t i = 0; i < kScene.size(); ++i) {
+        if (i == 1 && !box_blocks()) {
+            continue;
+        }
+        const Hit hit = intersect(core::at(kScene, i), origin, direction);
         if (hit.distance <= stop) {
             return true;
         }
@@ -599,6 +612,7 @@ struct SceneMesh {
     render::GpuVertexBuffer* vertices = nullptr;
     std::vector<std::array<float, 3>> triangles;
     uint32_t drawn = 0;
+    uint32_t flags = kWorldOpaque; // (added for the cut-outs) the instance's flags
 };
 
 void put_float(std::span<uint8_t> bytes, std::size_t at, float value)
@@ -843,7 +857,7 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const Sc
         {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}}};
     for (const SceneMesh& mesh : meshes) {
         record.instances.push_back(
-            {.mesh = mesh.id, .material = mesh.material, .flags = kWorldOpaque, .object_to_world = kIdentityRows});
+            {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = kIdentityRows});
     }
     record.lights.push_back({.kind = rt::Light::Kind::kAmbient, .colour = {0.1F, 0.1F, 0.15F}});
     for (const rt::Light& light : points) {
@@ -1073,6 +1087,89 @@ void run_two(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
     tally->check(passes == 1 && got.clear_cut > 3000 && got.wrong == 0,
                  text::format("%d clear-cut pixels as the processor's, %d wrong (worst %.2f of 255)", got.clear_cut,
                               got.wrong, got.worst));
+}
+
+// (added for the cut-outs - the one lighting path's ray test, vulkan_rt_scene.h cutout_rays_glsl) The box made a cut-out
+// caster (alpha tested, its texels white x its albedo): with every texel's alpha 0 the lamp's light goes through it - the
+// floor it shadowed lit, as a scene without it -, with every texel's alpha 255 it shadows as the solid box did.
+bool make_cutout_material(render::Gpu& gpu, uint32_t texel, const Rgb& albedo, render::GpuTexture** texture,
+                          rt::MaterialId* material)
+{
+    if (gpu.create_texture({.width = kTextureSide,
+                            .height = kTextureSide,
+                            .levels = 1,
+                            .usage = 0,
+                            .format = value::kFormatA8R8G8B8,
+                            .pool = value::kPoolManaged},
+                           texture) != value::kResultOk) {
+        *texture = nullptr;
+        return false;
+    }
+    render::GpuLockedRect locked;
+    if (gpu.lock_texture(*texture, 0, &locked, nullptr, 0) != value::kResultOk) {
+        return false;
+    }
+    const auto pitch = static_cast<std::size_t>(locked.pitch);
+    const std::span<uint8_t> into(static_cast<uint8_t*>(locked.bits), pitch + (kTextureSide * kPixelBytes));
+    for (uint32_t row = 0; row < kTextureSide; ++row) {
+        for (uint32_t column = 0; column < kTextureSide; ++column) {
+            put_word(into, (row * pitch) + (column * kPixelBytes), texel);
+        }
+    }
+    gpu.unlock_texture(*texture, 0);
+    *material = rt::next_material_id();
+    rt::Material surface;
+    surface.texture = *texture;
+    surface.colour = {static_cast<float>(core::at(albedo, 0)), static_cast<float>(core::at(albedo, 1)),
+                      static_cast<float>(core::at(albedo, 2)), 1.0F};
+    surface.flags = rt::kAlphaTested;
+    surface.alpha_ref = 0.5F;
+    rt::ray_tracing()->set_material(*material, surface);
+    return true;
+}
+
+void run_cutout(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("the box a cut-out caster (alpha tested):\n");
+    render::vulkan::set_rt_light_settings(settings_for(true, 4));
+    rt::set_level_emitters({});
+    const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
+                                            .colour = {1.0F, 0.9F, 0.7F},
+                                            .position = floats(kLampAt),
+                                            .radius = static_cast<float>(kLampReach)}}};
+    const std::array<Lamp, 1> lamps{point_lamp(kLampAt, {1.0, 0.9, 0.7}, kLampReach)};
+    constexpr uint32_t kHole = 0x00FFFFFFU;  // white, alpha 0: every texel cut away
+    constexpr uint32_t kSolid = 0xFFFFFFFFU; // white, alpha 255: every texel kept
+    for (const uint32_t texel : {kHole, kSolid}) {
+        render::GpuTexture* texture = nullptr;
+        rt::MaterialId material = 0;
+        if (!make_cutout_material(gpu, texel, core::at(kScene, 1).albedo, &texture, &material)) {
+            tally->check(false, "the cut-out material made");
+            return;
+        }
+        std::vector<SceneMesh> cut(meshes.begin(), meshes.end());
+        core::at(cut, 1).material = material;
+        core::at(cut, 1).flags = rt::kWorld | rt::kAlphaTested | rt::kCastsShadow;
+        const bool hole = texel == kHole;
+        box_blocks() = !hole;
+        uint64_t passes = 0;
+        std::vector<uint8_t> texels;
+        const Compared got = run_case(gpu, cut, 0, points, lamps, 4, &passes, &texels);
+        box_blocks() = true;
+        if (hole) {
+            tally->check(passes == 1 && got.clear_cut > 5000 && got.wrong == 0 && got.shadowed_floor == 0,
+                         text::format("its texels' alpha 0: the lamp's light through it, as without it - %d clear-cut "
+                                      "pixels, %d wrong (worst %.2f of 255), %d floor pixels shadowed",
+                                      got.clear_cut, got.wrong, got.worst, got.shadowed_floor));
+        } else {
+            tally->check(passes == 1 && got.clear_cut > 5000 && got.wrong == 0 && got.shadowed_floor >= kMinShadowed,
+                         text::format("its texels' alpha 255: it shadows as the solid box - %d clear-cut pixels, %d "
+                                      "wrong (worst %.2f of 255), %d floor pixels shadowed",
+                                      got.clear_cut, got.wrong, got.worst, got.shadowed_floor));
+        }
+        rt::ray_tracing()->remove_material(material);
+        gpu.release_texture(texture);
+    }
 }
 
 void run_off(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
@@ -1331,6 +1428,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_point(gpu, meshes, kFourSamples, tally);
         run_emitter(gpu, meshes, red, tally);
         run_two(gpu, meshes, tally);
+        run_cutout(gpu, meshes, tally); // (added for the cut-outs)
         run_off(gpu, meshes, tally);
         run_time_of_day(gpu, meshes, tally); // (added by the time of day)
         run_many(gpu, meshes, tally);        // (added for the washed-out streets)
