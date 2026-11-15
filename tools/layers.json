@@ -20,6 +20,9 @@
         "media_ffmpeg": { "folders": ["src/media_ffmpeg/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "input_dinput": { "folders": ["src/input_dinput/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "fs_win32": { "folders": ["src/fs_win32/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
+        "fs_posix": { "folders": ["src/fs_posix/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
+        "net_bsd": { "folders": ["src/net_bsd/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
+        "audio_sdl": { "folders": ["src/audio_sdl/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "net_winsock": { "folders": ["src/net_winsock/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "script_qb": { "folders": ["src/script_qb/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "game": {
@@ -198,7 +201,7 @@
         },
         "app": {
             "folders": ["src/app/", "src/tests/"],
-            "allowed": ["base", "platform", "formats", "wire", "engine", "render_pc", "gpu_d3d9", "gpu_vulkan", "audio_dsound", "media_ffmpeg", "input_dinput", "fs_win32", "net_winsock", "script_qb", "game", "frontend", "devtools"]
+            "allowed": ["base", "platform", "formats", "wire", "engine", "render_pc", "gpu_d3d9", "gpu_vulkan", "audio_dsound", "media_ffmpeg", "input_dinput", "fs_win32", "fs_posix", "net_bsd", "audio_sdl", "net_winsock", "script_qb", "game", "frontend", "devtools"]
         }
     }
 }

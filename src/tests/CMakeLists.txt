@@ -29,7 +29,7 @@ endif()
 # assembly over many inputs, and maths::matrix_multiply with D3DX's matrix product (src/tests/maths_check.cpp; the
 # reference half needs MSVC for 32-bit x86); with --write-corpus / --compare-corpus the corpus of the 32-bit build's
 # results that the 64-bit build compares with (maths_corpus.h).
-if(TARGET thug2_base)
+if(TARGET thug2_base AND NOT THUG2_PORTABLE)
     add_executable(thug2_maths_check maths_check.cpp maths_check_d3dx.cpp maths_corpus.cpp maths_corpus_cases.cpp)
     # (d3dx9: D3DX9's own maths, the reference for maths::matrix_multiply and base/maths/view_transforms.h; its DLL
     # next to the check)

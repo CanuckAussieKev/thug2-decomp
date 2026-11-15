@@ -3,6 +3,7 @@
 # implements net::Transport (engine/net/transport.h); app/ installs it (app/main.cpp). It includes the engine and the
 # layers below it (tools/layers.ts checks it); nothing below app/ includes or links it, so the engine builds without
 # Winsock. (The GameSpy SDK keeps its own sockets: platform/gamespy.cpp, cmake/gamespy_sdk.cmake.)
+# (A portable build installs src/net_bsd's instead: the same net::Transport over BSD sockets.)
 add_library(thug2_net_winsock STATIC
     winsock_transport.cpp
 )

@@ -57,7 +57,10 @@ constexpr size_t kStreamSlotBytes = 0x14;
 constexpr int kSurroundLanes = 5;         // a surround stream's volume levels
 
 using Hdl = fs::DiskFile*; // a file opened by path (engine/file/disk.h: the system's handle)
-using Result = long; // an HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRESULT_FROM_WIN32(...))
+// An HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRESULT_FROM_WIN32(...)). int32_t, not `long`: an HRESULT is 32
+// bits and its sign is what a caller tests, and `long` is 64 bits where the data model is LP64 - every error code there
+// would compare as a large positive number and every "did it fail" test would answer no.
+using Result = std::int32_t;
 
 // A raw stream from pcm.wad (0xA8 bytes): reads the file in 8 KB pieces with overlapped ReadFile. On PC nothing
 // opens one with a valid file (see 0x00453850), so only the set-up and the flags are live.

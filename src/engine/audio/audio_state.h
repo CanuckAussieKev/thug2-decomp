@@ -73,7 +73,10 @@ public:
     std::array<Playlist, 2>& playlists() { return playlists_; }
     [[nodiscard]] const std::array<Playlist, 2>& playlists() const { return playlists_; }
     std::array<std::array<char, kTrackTitleSize>, kPlaylistTracks>& track_titles() { return track_titles_; }
-    [[nodiscard]] const std::array<std::array<char, kTrackTitleSize>, kPlaylistTracks>& track_titles() const { return track_titles_; }
+    [[nodiscard]] const std::array<std::array<char, kTrackTitleSize>, kPlaylistTracks>& track_titles() const
+    {
+        return track_titles_;
+    }
     std::array<Stream, 3>& streams() { return streams_; }
     [[nodiscard]] const std::array<Stream, 3>& streams() const { return streams_; }
     std::array<objects::AudioStreamModule*, 3>& stream_owners() { return stream_owners_; }
@@ -88,7 +91,7 @@ private:
     float music_stream_volume_{100.0F};
     int bgm_stream_kind_{};
     bool shuffle_user_{};
-    SoundOutput* sound_device_{}; // (0x007D6A38)
+    SoundOutput* sound_device_{};         // (0x007D6A38)
     std::array<Playlist, 2> playlists_{}; // (the music's two playlists; 0 is the game's, 1 the script's)
     std::array<std::array<char, kTrackTitleSize>, kPlaylistTracks> track_titles_{};
     std::array<Stream, 3> streams_{};
@@ -105,13 +108,15 @@ public:
     [[nodiscard]] fs::DiskFile* wad_file() const { return wad_file_; }
     WadEntry*& wad_entries() { return wad_entries_; }
     [[nodiscard]] WadEntry* wad_entries() const { return wad_entries_; }
-    [[nodiscard]] void* stream_lock() const { return stream_lock_; }
-    void set_stream_lock(void* value) { stream_lock_ = value; }
+    // NOT ORIGINAL (macOS port) - HANDLE, not void*: the two are one type on Windows, and the port's HANDLE is its own
+    // handle type. The lock itself is a mutex's handle.
+    [[nodiscard]] HANDLE stream_lock() const { return stream_lock_; }
+    void set_stream_lock(HANDLE value) { stream_lock_ = value; }
 
 private:
     fs::DiskFile* wad_file_{fs::no_file()};
     WadEntry* wad_entries_{};
-    void* stream_lock_{}; // a mutex (HANDLE), made at start-up
+    HANDLE stream_lock_{}; // a mutex, made at start-up
 };
 WadState& wad_state();
 
@@ -124,7 +129,10 @@ public:
     uint32_t& stream_file_uses() { return stream_file_uses_; }
     [[nodiscard]] uint32_t stream_file_uses() const { return stream_file_uses_; }
     std::array<CachedStreamFile, kCachedStreamFileCount>& stream_files() { return stream_files_; }
-    [[nodiscard]] const std::array<CachedStreamFile, kCachedStreamFileCount>& stream_files() const { return stream_files_; }
+    [[nodiscard]] const std::array<CachedStreamFile, kCachedStreamFileCount>& stream_files() const
+    {
+        return stream_files_;
+    }
 
 private:
     bool bink_sound_set_{};

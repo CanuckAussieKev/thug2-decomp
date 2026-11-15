@@ -29,18 +29,18 @@ namespace goals {
 
 namespace {
 constexpr int kDefaultMaxPlayers = 8;
-constexpr uint32_t kNetTrickAttack = 0x30C2FFA3;  // nettrickattack
-constexpr uint32_t kTrickAttack = 0xF9283EE7;     // trickattack
-constexpr uint32_t kNetGraffiti = 0x5E2EA50C;     // netgraffiti
-constexpr uint32_t kGraffiti = 0xC8A82B5A;        // Graffiti
-constexpr uint32_t kNetComboMambo = 0xC50AFFD0;   // netcombomambo
-constexpr uint32_t kComboMambo = 0x23EB3DA3;      // combomambo
-constexpr uint32_t kNetSlap = 0xF9D5D933;         // netslap
-constexpr uint32_t kSlap = 0xCA1F360F;            // slap
-constexpr uint32_t kNetCtf = 0x6C5FF266;          // netctf
-constexpr uint32_t kCtf = 0xA5AD2B0B;             // CTF
-constexpr uint32_t kNetElimiskate = 0x10F84276;   // netelimiskate
-constexpr uint32_t kElimiskate = 0xF6198005;      // elimiskate
+constexpr uint32_t kNetTrickAttack = 0x30C2FFA3; // nettrickattack
+constexpr uint32_t kTrickAttack = 0xF9283EE7;    // trickattack
+constexpr uint32_t kNetGraffiti = 0x5E2EA50C;    // netgraffiti
+constexpr uint32_t kGraffiti = 0xC8A82B5A;       // Graffiti
+constexpr uint32_t kNetComboMambo = 0xC50AFFD0;  // netcombomambo
+constexpr uint32_t kComboMambo = 0x23EB3DA3;     // combomambo
+constexpr uint32_t kNetSlap = 0xF9D5D933;        // netslap
+constexpr uint32_t kSlap = 0xCA1F360F;           // slap
+constexpr uint32_t kNetCtf = 0x6C5FF266;         // netctf
+constexpr uint32_t kCtf = 0xA5AD2B0B;            // CTF
+constexpr uint32_t kNetElimiskate = 0x10F84276;  // netelimiskate
+constexpr uint32_t kElimiskate = 0xF6198005;     // elimiskate
 
 std::unique_ptr<goals::MatchRules>& stored_game_mode()
 {
@@ -339,6 +339,11 @@ bool MatchRules::apply_match_style(uint32_t type)
     }
     args_.get_clear();
     script::Array* modes = script::fetch_list(kModeInfo);
+    // NOT ORIGINAL (macOS port) - the mode list is the scripts' (qb_scripts.prx); without the game's data files none is
+    // there, and the original reads through the null pointer. The game goes on with no match style applied.
+    if (modes == nullptr) {
+        return false;
+    }
     for (uint32_t i = 0; i < modes->extent(); ++i) {
         auto* mode = modes->struct_at(i);
         uint32_t name = 0;

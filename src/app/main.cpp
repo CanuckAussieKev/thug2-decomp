@@ -25,13 +25,21 @@
 #include "engine/ext/extension.h"
 #include "app/winmain.h"
 #include "app/renderer_choice.h"
+#ifndef THUG2_PORTABLE
 #include "audio_dsound/dsound_device.h"
+#endif
 #include "engine/audio/audio_device.h"
 #include "engine/audio/muted_device.h"
 #include "engine/file/disk.h"
 #include "engine/file/file_sources.h"
 #include "engine/file/file_system.h"
+#ifndef THUG2_PORTABLE
 #include "fs_win32/win32_disk.h"
+#else
+#include "fs_posix/posix_disk.h"
+#include "app/macos_layout.h"
+#include "audio_sdl/sdl_audio_device.h"
+#endif
 #include "net_winsock/winsock_transport.h"
 #include "engine/net/loopback_transport.h"
 #include "engine/net/transport.h"
@@ -46,7 +54,9 @@
 #include "script_qb/script_check.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
+#ifndef THUG2_PORTABLE
 #include "input_dinput/dinput_source.h"
+#endif
 #include "engine/gfx/loading_console.h"
 #include "render_pc/loading_console_panel.h"
 #include "render_pc/relit_bake.h"
@@ -66,6 +76,7 @@ namespace {
 // whose registration names the system's DLL by its path), but anything that did - an import, a delay-load, a
 // LoadLibrary("dinput8.dll") - would get that one. Loaded from the system directory by its full path first, the
 // system's is the dinput8.dll of this process: a later load by name finds it already loaded.
+#ifndef THUG2_PORTABLE
 void load_system_direct_input()
 {
     std::array<char, MAX_PATH> path{};
@@ -76,6 +87,7 @@ void load_system_direct_input()
     std::memcpy(std::span<char>(path).subspan(length).data(), "\\dinput8.dll", sizeof("\\dinput8.dll"));
     LoadLibraryExA(path.data(), nullptr, 0);
 }
+#endif
 
 } // namespace
 
@@ -92,9 +104,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     platform::install_output_sinks();
     log_open();
     get_log("%s standalone", app::exe_name());
+#ifndef THUG2_PORTABLE
     load_system_direct_input();
-    // NOT ORIGINAL: the operating system's files (engine/file/disk.h): Win32's, before anything opens one.
+#endif
+    // NOT ORIGINAL: the operating system's files (engine/file/disk.h): Win32's, before anything opens one (the portable
+    // build's are POSIX's: port/posix_disk.h).
+#ifdef THUG2_PORTABLE
+    fs::install_disk(fs::posix::disk());
+    // NOT ORIGINAL (macOS port) - the empty folders the game writes into, which a THUG2 install's Microsoft installer
+    // made and no disc image carries (port/install_layout.h): without `save`, saving reports "Error while trying to save".
+    port::install_layout();
+#else
     fs::install_disk(fs::win32::disk());
+#endif
     // NOT ORIGINAL: where the game's data files come from (engine/file/file_system.h), in the order the game looks: the
     // data overlay, the loaded .pre archives, the Data folder.
     fs::file_system().add(file::overlay_source());
@@ -146,8 +168,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     app::install_renderer();
     // NOT ORIGINAL: the sound output the engine plays on (engine/audio/audio_device.h): DirectSound's - or, with
     // [features] mute_audio=1, the muted output over it (engine/audio/muted_device.h).
+#ifdef THUG2_PORTABLE
+    // NOT ORIGINAL (macOS port) - no DirectSound: SDL3's audio, mixing the game's voices itself (port/sdl_audio_device.h).
+    audio::install_device(sound::audio_muted() ? audio::muted_device(audio::sdl_device()) : audio::sdl_device());
+#else
     audio::install_device(sound::audio_muted() ? audio::muted_device(audio::dsound::device())
                                                : audio::dsound::device());
+#endif
     // NOT ORIGINAL: the level editor mutes the audio session while it edits (editor/level_editor_shell.cpp), and
     // Windows keeps that mute for the exe's next run: cleared here unless this run is muted itself.
     if (!sound::audio_muted() && sound::audio_session_muted()) {
@@ -169,7 +196,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // keyboard read once a frame, the joysticks, the original's pad read - none made since PartyMod's input), SDL's
     // game controllers and keyboard, then the exe's extensions' (the game's: the test-automation channel's pressed
     // buttons - a dev tool: nothing pressed unless the workspace's [features] automation is on).
+#ifndef THUG2_PORTABLE
     input::add_source(input::dinput::keyboard());
+#endif
     input::add_source(sio::sdl_source());
     app::add_input_sources();
     // NOT ORIGINAL: the loading console's panel, which that backend draws (engine/gfx/loading_console.h).

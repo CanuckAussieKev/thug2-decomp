@@ -31,10 +31,12 @@
 #include "platform/sdl_window.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
+#include "render_pc/d3d9_device.h" // (the PC layer's own device: API-neutral, over render::Gpu)
+#ifndef THUG2_PORTABLE
 #include "gpu_d3d9/d3d9_context.h"
-#include "render_pc/d3d9_device.h"
 #include "gpu_d3d9/d3d9_ui_backend.h"
 #include "gpu_d3d9/gpu_d3d9.h"
+#endif
 #ifdef THUG2_VULKAN
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_cel.h"
@@ -53,6 +55,7 @@ namespace {
 
 using config::Resolution;
 
+#ifndef THUG2_PORTABLE
 void install_direct3d9()
 {
     render::install_device(render::d3d9::device());
@@ -60,6 +63,7 @@ void install_direct3d9()
     render::install_gpu_context(render::d3d9::gpu_context());
     render::install_ui_backend(render::d3d9::ui_backend());
 }
+#endif
 
 // NOT ORIGINAL - the time of day (engine/gfx/rt_daylight.h, day_clock.h): [Graphics] tod (level - the default, the level
 // as it is -, dawn, morning, noon, afternoon, dusk, night or HH:MM), tod_cycle (off / on: the clock runs),
@@ -924,7 +928,9 @@ void install_vulkan(const Resolution& in_effect)
     render::install_ui_backend(render::vulkan::ui_backend());
 #else
     (void)in_effect;
+#ifndef THUG2_PORTABLE
     install_direct3d9();
+#endif
 #endif
 }
 
@@ -998,7 +1004,14 @@ void install_renderer()
         install_vulkan(in_effect);
     } else {
         read_time_of_day(in_effect); // (the time of day: either renderer)
+#ifndef THUG2_PORTABLE
         install_direct3d9();
+#else
+        // NOT ORIGINAL (macOS port) - there is no Direct3D 9 here, and Vulkan is the only backend: a machine that can't
+        // draw with Vulkan has no renderer at all (the log above says why). The game stops here rather than fault.
+        get_log("renderer: no graphics backend on this platform but Vulkan: stopping");
+        ExitProcess(2);
+#endif
     }
 }
 

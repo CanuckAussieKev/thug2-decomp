@@ -27,7 +27,11 @@ FetchContent_MakeAvailable(volk)
 add_library(volk STATIC "${volk_SOURCE_DIR}/volk.c")
 target_include_directories(volk PUBLIC "${volk_SOURCE_DIR}")
 target_link_libraries(volk PUBLIC vulkan_headers)
-target_compile_options(volk PRIVATE /W0)
+if(MSVC)
+    target_compile_options(volk PRIVATE /W0)
+else()
+    target_compile_options(volk PRIVATE -w)
+endif()
 
 # Vulkan Memory Allocator 3.2.1 (AMD, MIT): device memory for the renderer's buffers and images. Its implementation is
 # compiled here, once (a source made in the build folder, as stb_image_write's): no Vulkan function is linked

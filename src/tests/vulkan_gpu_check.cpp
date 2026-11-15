@@ -64,7 +64,11 @@
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_pipelines.h"
+#ifndef THUG2_PORTABLE
 #include "fs_win32/win32_disk.h"
+#else
+#include "fs_posix/posix_disk.h"
+#endif
 
 namespace {
 
@@ -1638,7 +1642,12 @@ int main(int argc, char** argv)
         text::print("no Vulkan loader (vulkan-1.dll) for this process\n");
         return 2;
     }
-    fs::install_disk(fs::win32::disk()); // (the screen shot's JPEG is written through the game's file seam)
+    // (the screen shot's JPEG is written through the game's file seam)
+#ifdef THUG2_PORTABLE
+    fs::install_disk(fs::posix::disk());
+#else
+    fs::install_disk(fs::win32::disk());
+#endif
     SDL_SetMainReady();
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         text::print("SDL_Init: %s\n", SDL_GetError());

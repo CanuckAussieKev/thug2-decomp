@@ -142,8 +142,9 @@ int window_position()
 void choose_fullscreen_mode(SDL_Window* window)
 {
     SDL_DisplayMode mode{};
-    const bool found = SDL_GetClosestFullscreenDisplayMode(SDL_GetDisplayForWindow(window), sdl_window_state().client_width_,
-                                                           sdl_window_state().client_height_, 0.0F, false, &mode);
+    const bool found =
+        SDL_GetClosestFullscreenDisplayMode(SDL_GetDisplayForWindow(window), sdl_window_state().client_width_,
+                                            sdl_window_state().client_height_, 0.0F, false, &mode);
     SDL_SetWindowFullscreenMode(window, found ? &mode : nullptr);
     SDL_SetWindowFullscreen(window, true);
 }
@@ -258,7 +259,13 @@ HWND create_sdl_window(WindowApi api)
             SDL_ShowWindow(sdl_window_state().window_); // (SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN=0: shown, not activated)
         }
         handle = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window_state().window_),
-                                                         SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+                                                          SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+        // NOT ORIGINAL (macOS port) - there is no Win32 window on this platform: SDL's own window is the game's, and a
+        // handle of the module stands in where the game keeps one (nothing here asks it of Win32). Null would read as
+        // "the window wasn't made" and end the game at its start-up.
+        if (handle == nullptr) {
+            handle = GetModuleHandleA(nullptr);
+        }
         if (behind && handle) {
             // (a window shown without the focus is still put on top of the others: sent to the bottom instead, where it
             // keeps drawing - the tests capture it with PrintWindow)

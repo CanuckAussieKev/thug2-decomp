@@ -1071,6 +1071,7 @@ std::vector<Decl> declarations()
         feature("debug_collision", K::kSwitch, "0"),
         feature("debug_sprites", K::kSwitch, "0"),
         // [debug]
+        debug("audio_debug", K::kSwitch, "0"),
         debug("collision_events", K::kSwitch, "0"),
         debug("collision_event_screenshots", K::kSwitch, "1").need(on("collision_events")),
         debug("frame_profile", K::kSwitch, "0"),
