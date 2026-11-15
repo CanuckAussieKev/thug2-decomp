@@ -1751,7 +1751,7 @@ traced or fitted while the game loads a level: the game reads the level's data a
 - **The file** (`relit_data.h`): `thug2-decomp-relit\<the level's main scene checksum>.relit` beside the exe, versioned
   (`kRelitDataVersion`): the verdict and margins, the baked sun (direction, confidence, the agreement grid, the ground
   height - every effect's level sun comes from here), the model (a, b, g, c, scale), the world's winding, and each mesh
-  by its content's hash (`relit_mesh_content`: positions, baked colours, triangles, made vertices' sources) with its
+  by its content's hash (`relit_mesh_content`: positions, triangles, made vertices' sources - not the colours, which the scene lights and colour animations rewrite in the game) with its
   vertices' parts as half floats (S at the bake, K, B and its local part, the tint, the residual, L, the missed sun).
   The normals and the used vertices are made again from the mesh.
 - **In the game** (`rt_relit_world::new_world`, each new world's first frame, whether the mode is on or not): the data

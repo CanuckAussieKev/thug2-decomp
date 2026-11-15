@@ -201,14 +201,11 @@ uint64_t relit_level_content(std::span<const uint64_t> meshes)
 
 std::string relit_data_name(uint32_t scene) { return text::format("%08x.relit", scene); }
 
-uint64_t relit_mesh_content(const RelitMesh& mesh, std::span<const uint8_t> animated)
+uint64_t relit_mesh_content(const RelitMesh& mesh)
 {
     uint64_t hash = fnv_value(kFnvBasis, static_cast<uint64_t>(mesh.positions.size()));
-    for (std::size_t vi = 0; vi < mesh.positions.size(); ++vi) {
-        hash = fnv_value(hash, core::at(mesh.positions, vi));
-        const bool moves = vi < animated.size() && core::at(animated, vi) != 0;
-        const uint32_t colour = vi < mesh.colours.size() && !moves ? core::at(mesh.colours, vi) : 0U;
-        hash = fnv_value(hash, colour);
+    for (const Vec3& position : mesh.positions) {
+        hash = fnv_value(hash, position);
     }
     hash = fnv_value(hash, static_cast<uint64_t>(mesh.triangles.size()));
     for (const std::array<uint32_t, 3>& triangle : mesh.triangles) {

@@ -12,8 +12,9 @@
 //     effect's level sun comes from here;
 //   - the light model (rt_relit.h RelitModel: the sun's a, the sky's b, the bounce's g, the lamps' c, the level's
 //     scale) and the margins its verdict was decided with;
-//   - each world mesh by the hash of its content (relit_mesh_content: its positions, its baked colours, its triangles
-//     and building relief's made vertices' sources), its vertices' parts: the sun's share toward the bake's sun, the
+//   - each world mesh by the hash of its content (relit_mesh_content: its positions, its triangles and building
+//     relief's made vertices' sources - not its colours: the level's scene lights and colour animations rewrite those
+//     while the game runs, the time of day's night lamps with them), its vertices' parts: the sun's share toward the bake's sun, the
 //     sky's share K, the bounce B and its local part, the tint, the residual, the lamps' light L, the bake's sun the
 //     rays missed. The normals and which vertices are used are made again from the mesh (relit_normals, with the
 //     world's winding kept here).
@@ -36,7 +37,7 @@
 namespace render::rt {
 
 inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
-inline constexpr uint32_t kRelitDataVersion = 1;
+inline constexpr uint32_t kRelitDataVersion = 2; // (2: the meshes keyed without their colours)
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.
@@ -83,9 +84,10 @@ inline constexpr float kRelitVerdictMargin = 1.0F;
 [[nodiscard]] std::string write_relit_data(const RelitLevelData& data);
 // The file read; false (with `why`) when it isn't one of this version.
 bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* why);
-// A mesh's content hash (what the data keys it by): its positions, its baked colours (an animated vertex's as 0 - the
-// game changes it), its triangles (RelitMesh's, as the RayTracing numbers them) and its made vertices' sources.
-[[nodiscard]] uint64_t relit_mesh_content(const RelitMesh& mesh, std::span<const uint8_t> animated);
+// A mesh's content hash (what the data keys it by): its positions, its triangles (RelitMesh's, as the RayTracing numbers
+// them) and its made vertices' sources. Not its colours: the game writes them (scene lights at a change of the time of
+// day, colour animations) - a mesh found at night is the mesh the bake took apart by day.
+[[nodiscard]] uint64_t relit_mesh_content(const RelitMesh& mesh);
 
 // The half floats the vertices are kept in (round to nearest even; out of range to the largest).
 [[nodiscard]] uint16_t to_half(float value);

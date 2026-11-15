@@ -1623,7 +1623,7 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
     data.sun.agreement = {0.0F, 0.25F, 0.5F, 1.0F};
     std::vector<uint64_t> contents;
     for (std::size_t mesh = 0; mesh < scene.level.meshes.size(); ++mesh) {
-        const uint64_t content = rt::relit_mesh_content(core::at(scene.level.meshes, mesh), {});
+        const uint64_t content = rt::relit_mesh_content(core::at(scene.level.meshes, mesh));
         contents.push_back(content);
         data.meshes.push_back({.content = content, .vertices = core::at(light, mesh)});
     }
@@ -1685,7 +1685,7 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
     tally->check(halves, "half floats: round trips within their precision, out of range held at the largest");
     rt::RelitMesh moved = core::at(scene.level.meshes, kPillar);
     core::at(moved.positions, 0) = rt::plus(core::at(moved.positions, 0), Vec3{0.0F, 1.0F, 0.0F});
-    tally->check(rt::relit_mesh_content(moved, {}) != rt::relit_mesh_content(core::at(scene.level.meshes, kPillar), {}),
+    tally->check(rt::relit_mesh_content(moved) != rt::relit_mesh_content(core::at(scene.level.meshes, kPillar)),
                  "a mesh moved by a unit: another content (its data no longer matches)");
 }
 

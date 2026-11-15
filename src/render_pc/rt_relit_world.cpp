@@ -560,9 +560,9 @@ bool make_entry(const WorldMesh& world, Entry* out)
         }
         entry.input.triangles.push_back(corners);
     }
-    // (the offline relit data's key: its positions, baked colours, triangles and made vertices' sources - whatever the
-    // vertex format; an animated vertex's colour left out)
-    entry.content = rt::relit_mesh_content(entry.input, entry.animated);
+    // (the offline relit data's key: its positions, triangles and made vertices' sources - whatever the vertex format;
+    // not its colours, which the game rewrites)
+    entry.content = rt::relit_mesh_content(entry.input);
     *out = std::move(entry);
     return true;
 }
