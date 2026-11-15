@@ -249,7 +249,8 @@ render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
 }
 
 // NOT ORIGINAL - volumetric fog, its light shafts and the haze of a level without fog (gpu_vulkan/vulkan_rt_fog.h).
-// rt_fog_quality picks the march's steps and the lamps that light the air; rt_fog_steps, when given (above 0), the steps.
+// rt_fog_quality picks the march's steps, its resolution and the lamps that light the air; rt_fog_steps, when given
+// (above 0), the steps.
 render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
 {
     const render::vulkan::RtFogSettings defaults;
@@ -268,7 +269,9 @@ render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
         .hdr = hdr_on(in_effect),
         .haze = in_effect.on("rt_fog_haze"),
         .haze_density = in_effect.number("rt_fog_haze_density", defaults.haze_density),
-        .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height)};
+        .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height),
+        .air = in_effect.number("rt_fog_air", defaults.air),
+        .scale = core::at(render::vulkan::kRtFogQualityScale, quality)};
 }
 
 // NOT ORIGINAL - the sun's disc and glare, the bloom and the sky model (gpu_vulkan/vulkan_rt_sun.h,

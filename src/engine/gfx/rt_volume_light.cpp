@@ -50,6 +50,50 @@ double haze_condition(double sun_elevation_degrees)
     return 1.0 + (kHazeLowSunExtra * std::exp(-x * x));
 }
 
+namespace {
+// (the frame's weather: render_pc writes it on the render thread before the views are drawn, the fog reads it there)
+AirWeather& weather_now()
+{
+    static AirWeather weather;
+    return weather;
+}
+} // namespace
+
+void set_air_weather(const AirWeather& weather) { weather_now() = weather; }
+
+AirWeather air_weather() { return weather_now(); }
+
+double air_night(double sun_elevation_degrees)
+{
+    const double night =
+        std::clamp((kAirNightFrom - sun_elevation_degrees) / (kAirNightFrom - kAirNightTo), 0.0, 1.0);
+    return night * night * (3.0 - (2.0 * night));
+}
+
+double air_condition(double sun_elevation_degrees, bool rain)
+{
+    const double low = (sun_elevation_degrees - kAirLowSunPeak) / kAirLowSunWidth;
+    return 1.0 + (kAirLowSunExtra * std::exp(-low * low)) + (kAirNightExtra * air_night(sun_elevation_degrees)) +
+           (rain ? kAirRainExtra : 0.0);
+}
+
+StreetAir street_air(double sun_elevation_degrees, const AirWeather& weather, double thickness)
+{
+    StreetAir air;
+    const double kept = std::isfinite(thickness) ? std::clamp(thickness, 0.0, kAirMostThickness) : 0.0;
+    if (!(kept > 0.0)) {
+        return air;
+    }
+    air.extinction = kAirClearDay * air_condition(sun_elevation_degrees, weather.rain) * kept / kUnitsPerMetre;
+    const double night = air_night(sun_elevation_degrees);
+    air.height = (kAirHeight + ((kAirNightHeight - kAirHeight) * night)) * kUnitsPerMetre;
+    if (weather.snow) {
+        air.snow = kAirSnow * kept / kUnitsPerMetre;
+        air.snow_height = kAirSnowHeight * kUnitsPerMetre;
+    }
+    return air;
+}
+
 double henyey_greenstein(double cosine, double g)
 {
     const double k = std::max(1.0 + (g * g) - (2.0 * g * cosine), kLeastDenominator);

@@ -105,7 +105,7 @@ constexpr ImVec4 kFrameActive = {0.28F, 0.28F, 0.30F, 1.0F};
 // The [Graphics] keys the Compare panel lists first (any other can be typed).
 constexpr std::array<const char*, 16> kCompareKeys = {
     "rt_shadows", "rt_shadow_softness", "rt_ao",    "rt_ao_strength", "rt_gi",  "rt_gi_strength",
-    "rt_reflections", "rt_fog",         "rt_sun",   "rt_bloom",       "rt_fog_strength", "rt_sky",
+    "rt_reflections", "rt_fog",         "rt_sun",   "rt_bloom",       "rt_fog_air",      "rt_sky",
     "rt_clouds",  "rt_exposure",        "rt_tonemap", "rt_saturation"};
 // What is drawn the same on both sides whatever [Compare] says.
 constexpr std::array<const char*, 9> kBothSides = {"renderer",        "ray_tracing", "rt_hdr",

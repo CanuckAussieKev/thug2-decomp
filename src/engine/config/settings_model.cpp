@@ -660,11 +660,14 @@ std::vector<Decl> declarations()
         gfx("rt_shaft_strength", K::kNumber, "0.8").retire(t::kRetiredShafts),
         gfx("rt_fog", K::kSwitch, "0").tab(G::kSky, t::kOptFog, t::kOptFogHelp).need(ray_tracing()).live(E::kFog),
         // (the light the air scatters - the sun's or the moon's, the lamps' - and the march's quality: vulkan_rt_fog.h)
-        gfx("rt_fog_strength", K::kNumber, "1")
+        // (changed by the street air: the shafts' look is the air's thickness - rt_volume_light.h street_air - not a
+        // multiplier on its light; rt_fog_strength stays the ini's)
+        gfx("rt_fog_air", K::kNumber, "1")
             .tab(G::kSky, t::kOptShafts, t::kOptShaftsHelp)
-            .pick({c("0", t::kOff), c("0.5", t::kLow), c("1", t::kMedium), c("2", t::kHigh)})
+            .pick({c("0", t::kAirClear), c("0.5", t::kAirLight), c("1", t::kAirNormal), c("2.5", t::kAirThick)})
             .need(on("rt_fog"))
             .live(E::kFog),
+        gfx("rt_fog_strength", K::kNumber, "1").need(on("rt_fog")).live(E::kFog),
         gfx("rt_fog_quality", K::kNumber, "1")
             .tab(G::kSky, t::kOptShaftQuality)
             .pick({c("0", t::kLow), c("1", t::kMedium), c("2", t::kHigh)})

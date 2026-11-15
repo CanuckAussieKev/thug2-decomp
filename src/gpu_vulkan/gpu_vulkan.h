@@ -174,16 +174,20 @@ struct HdrSettings {
 void set_hdr_settings(const HdrSettings& settings);
 [[nodiscard]] HdrSettings hdr_settings();
 // NOT ORIGINAL - volumetric fog and light shafts (vulkan_rt_fog.h, docs/design/vulkan.md "Volumetric fog"): [Graphics]
-// rt_fog, rt_fog_strength, rt_fog_quality, rt_fog_density, rt_fog_height, rt_fog_anisotropy, rt_fog_steps, rt_fog_mode,
-// rt_fog_haze (and rt_hdr: the fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray
+// rt_fog, rt_fog_air, rt_fog_strength, rt_fog_quality, rt_fog_density, rt_fog_height, rt_fog_anisotropy, rt_fog_steps,
+// rt_fog_mode, rt_fog_haze (and rt_hdr: the fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray
 // tracing isn't enabled on the device.
 inline constexpr float kRtFogAnisotropy = 0.75F; // (rt_fog_anisotropy's default - haze's aerosols; 0.3 before the
                                                  // volumetric light)
 inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_quality 1's steps)
 inline constexpr float kRtFogStrength = 1.0F;   // (rt_fog_strength's default)
-// rt_fog_quality 0 / 1 / 2: the march's steps and the lamps at most that light the air
-inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{16, 32, 64};
+// rt_fog_quality 0 / 1 / 2: the march's steps, the lamps at most that light the air and the march's resolution (1 / the
+// scale of the viewport's on each axis; changed by the street air: a quarter's at Low and Medium, half at High)
+inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{16, 32, 48};
 inline constexpr std::array<unsigned, 3> kRtFogQualityLamps{8, 16, 32};
+inline constexpr std::array<unsigned, 3> kRtFogQualityScale{4, 4, 2};
+inline constexpr unsigned kRtFogScale = 4;    // (rt_fog_quality 1's scale)
+inline constexpr float kRtFogAir = 1.0F;      // (rt_fog_air's default: the street air as the conditions make it)
 inline constexpr float kRtFogHazeHeight = 600.0F; // (rt_fog_haze_height's default: world units)
 inline constexpr float kRtFogHazeDensity = 0.3F;  // (rt_fog_haze_density's default)
 enum class RtFogMode : uint8_t {
@@ -212,6 +216,11 @@ struct RtFogSettings {
     // meets its sky dome) and the near sea its own colour.
     float haze_density = kRtFogHazeDensity;
     float haze_height = kRtFogHazeHeight;
+    // (added by the street air - engine/gfx/rt_volume_light.h street_air) the near-ground air's thickness: x the
+    // conditions' (rt_fog_air, Options "Light shafts": 0 none, 1 as the time of day and the weather make it, 2.5
+    // thick - a misty morning; 0 - 4), and the march's resolution (rt_fog_quality's: 2 or 4)
+    float air = kRtFogAir;
+    unsigned scale = kRtFogScale;
 };
 void set_rt_fog_settings(const RtFogSettings& settings);
 [[nodiscard]] RtFogSettings rt_fog_settings();

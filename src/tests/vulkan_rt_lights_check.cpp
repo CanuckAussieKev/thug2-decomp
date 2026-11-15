@@ -1300,7 +1300,10 @@ struct AirLight {
     double open = 0.0;
     double shadowed = 0.0;
 };
-AirLight air_light(const View& view, double px, double py, const rt::Emitter& lamp, float scale)
+// (added by the street air) with `air` the street air too (rt_volume_light.h street_air over the floor's height): a
+// second medium, its light the haze's per unit of light (vulkan_rt_fog.cpp's march: mixed by each segment's depth)
+AirLight air_light(const View& view, double px, double py, const rt::Emitter& lamp, float scale,
+                   const rt::StreetAir& air = {})
 {
     const Seen seen = seen_at(view, px, py);
     const double ndc_x = (2.0 * px / kTargetWidth) - 1.0;
@@ -1315,18 +1318,25 @@ AirLight air_light(const View& view, double px, double py, const rt::Emitter& la
     // (the sky's pixels: the shafts' sky share - vulkan_rt_fog.h kFogSkyShare)
     const double medium = core::at(render::vulkan::kFogHazeColour, 0) * (1.0 - render::vulkan::kFogAmbientShare) *
                           (seen.solid == kNoSurface ? render::vulkan::kFogSkyShare : render::vulkan::kFogShaftShare);
+    const double air_medium = (1.0 - render::vulkan::kFogAerialSkyShare) * rt::kHazeSunlit *
+                              (seen.solid == kNoSurface ? render::vulkan::kFogSkyShare : 1.0);
     AirLight out;
     double kept = 1.0;
     for (uint32_t i = 0; i < kFineSteps; ++i) {
         const double s0 = last * i / kFineSteps;
         const double s1 = last * (i + 1) / kFineSteps;
         const double s = 0.5 * (s0 + s1);
-        const double e = std::exp(-std::log(std::max(end - s0, 1e-4 * end) / std::max(end - s1, 1e-4 * end)));
+        const double haze = std::log(std::max(end - s0, 1e-4 * end) / std::max(end - s1, 1e-4 * end));
         const Vec3 at = step(view.eye, direction, s);
+        // (the street air: its extinction at the point's height over the floor, y 0 - fine steps)
+        const double street = air.height > 0.0 ? air.extinction * std::exp(-std::max(y_of(at), 0.0) / air.height) * (s1 - s0)
+                                                : 0.0;
+        const double e = std::exp(-(haze + street));
         const Vec3 to = minus(lamp_at, at);
         const double d = length_of(to);
-        const double light = luma_of(colour) * falloff(d, lamp.core, lamp.reach) *
-                             rt::medium_phase(dot(direction, normalised(to)), render::vulkan::kRtFogAnisotropy) * medium;
+        const double lit = luma_of(colour) * falloff(d, lamp.core, lamp.reach) *
+                           rt::medium_phase(dot(direction, normalised(to)), render::vulkan::kRtFogAnisotropy);
+        const double light = lit * ((haze * medium) + (street * air_medium)) / std::max(haze + street, 1e-12);
         out.open += kept * (1.0 - e) * light;
         if (!air_blocked(at, lamp_at, lamp.size)) {
             out.shadowed += kept * (1.0 - e) * light;
@@ -1345,6 +1355,8 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
     vk::RtFogSettings fog;
     fog.on = true;
     fog.haze = true;
+    fog.scale = 2; // (the texels' 2 x 2 blocks below; no street air - no sun or moon here)
+    fog.air = 0.0F;
     vk::set_rt_fog_settings(fog);
     const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
                                             .colour = {1.0F, 0.9F, 0.7F},
@@ -1412,6 +1424,107 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
                                   shadowed, shadow_ratio, shadowed_open > 0.0 ? shadowed_device / shadowed_open : 0.0));
     }
     release_targets(gpu, targets);
+    vk::set_rt_fog_settings({});
+}
+
+// (added by the street air) The lamp at night in the street air: the clock's night (the moon given no light, the
+// lamps on), rt_fog_air 2.5 (Thick) against 0 - the light the street air adds round the lamp, the device's against the
+// processor's march of the same two media.
+constexpr float kThickAir = 2.5F;
+constexpr double kLeastAirLight = 0.02; // the street air's light summed over the texels at least (luma)
+
+std::array<double, 2> fog_lamp_night_sums(render::Gpu& gpu, std::span<const SceneMesh> meshes,
+                                          std::span<const rt::Light> points, float air, std::size_t* texels_out,
+                                          rt::StreetAir* air_out, double* processor_out)
+{
+    namespace vk = render::vulkan;
+    vk::RtFogSettings fog;
+    fog.on = true;
+    fog.haze = true;
+    fog.scale = 2;
+    fog.air = air;
+    vk::set_rt_fog_settings(fog);
+    Targets targets;
+    std::array<double, 2> sums{};
+    if (!make_targets(gpu, 0, &targets)) {
+        return sums;
+    }
+    for (int frame = 0; frame < kFogFrames; ++frame) {
+        draw_frame(gpu, targets, meshes, points, static_cast<uint64_t>(frame) + 1, true);
+    }
+    vk::RtFogTexels history;
+    vk::RtLitLamps lamps;
+    bool read = false;
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        read = vk::read_rt_fog_image(state, {0, 0, kTargetWidth, kTargetHeight}, vk::RtFogImage::kHistory, &history);
+        lamps = vk::rt_lights_lit_locked(state);
+    }
+    release_targets(gpu, targets);
+    if (!read || lamps.lights.size() != 1) {
+        return sums;
+    }
+    const rt::MediumLight light = rt::medium_light();
+    *air_out = rt::street_air(light.sun_elevation, {}, air);
+    const View view = view_from(kEye);
+    *texels_out = history.texels.size();
+    double processor = 0.0;
+    for (uint32_t y = 0; y < history.height; ++y) {
+        for (uint32_t x = 0; x < history.width; ++x) {
+            const std::array<float, 4>& got = core::at(history.texels, (static_cast<std::size_t>(y) * history.width) + x);
+            core::at(sums, 0) += luma_of({core::at(got, 0), core::at(got, 1), core::at(got, 2)});
+            processor += air_light(view, (2.0 * x) + 0.5, (2.0 * y) + 0.5, lamps.lights.front(), lamps.scale, *air_out)
+                             .shadowed;
+        }
+    }
+    core::at(sums, 1) = processor;
+    *processor_out = processor;
+    return sums;
+}
+
+void run_fog_lamp_night(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    namespace vk = render::vulkan;
+    text::print("the lamp in the street air at night (the clock's night, the lamps on; rt_fog_air 2.5 against 0):\n");
+    vk::set_rt_light_settings(settings_for(true, 4));
+    rt::set_level_emitters({});
+    rt::set_baked_sun(
+        {.scene = 1, .found = true, .toward = {0.0F, 1.0F, 0.0F}, .confidence = 1.0F, .ground = 0.0F, .ground_known = true});
+    rt::set_sun_relight({.relights = true});
+    rt::DayLight day;
+    day.on = true;
+    day.lamps = 1.0F;
+    day.moonlit = true;
+    day.light = {0.0F, 0.8F, 0.6F};
+    day.moon = day.light;
+    day.sun = {0.0F, -0.5F, 0.866F}; // (30 degrees under the horizon: the night's air)
+    day.light_colour = {0.0F, 0.0F, 0.0F}; // (no moonlight: the lamp's light alone)
+    rt::set_day_light(day);
+    const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
+                                            .colour = {1.0F, 0.9F, 0.7F},
+                                            .position = floats(kFogLampAt),
+                                            .radius = static_cast<float>(kLampReach)}}};
+    std::size_t texels = 0;
+    rt::StreetAir none;
+    rt::StreetAir thick;
+    double processor_without = 0.0;
+    double processor_with = 0.0;
+    const std::array<double, 2> without = fog_lamp_night_sums(gpu, meshes, points, 0.0F, &texels, &none, &processor_without);
+    const std::array<double, 2> with = fog_lamp_night_sums(gpu, meshes, points, kThickAir, &texels, &thick, &processor_with);
+    const double device_air = core::at(with, 0) - core::at(without, 0);
+    const double processor_air = processor_with - processor_without;
+    const double ratio = processor_air > 0.0 ? device_air / processor_air : 0.0;
+    tally->check(texels > 0 && thick.extinction > 0.0 && none.extinction == 0.0,
+                 text::format("  the history read, the night's street air %.3g a unit at the floor (%.0f units its "
+                              "height)",
+                              thick.extinction, thick.height));
+    tally->check(processor_air > kLeastAirLight && ratio >= kLeastRatio && ratio <= kMostRatio,
+                 text::format("  the street air's light round the lamp: %.3f summed (the processor's march %.3f: x %.3f)",
+                              device_air, processor_air, ratio));
+    rt::set_day_light({});
+    rt::set_sun_relight({});
+    rt::set_baked_sun({});
     vk::set_rt_fog_settings({});
 }
 
@@ -1836,6 +1949,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_many(gpu, meshes, tally);        // (added for the washed-out streets)
         run_counted_once(gpu, meshes, tally); // (added by the light energy audit)
         run_fog_lamp(gpu, meshes, tally);     // (added by the volumetric light)
+        run_fog_lamp_night(gpu, meshes, tally); // (added by the street air)
         if (options.perf) {
             run_perf(gpu, meshes, tally);
         }

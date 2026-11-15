@@ -1304,6 +1304,7 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
     fog.haze = true;
     fog.haze_density = kAerialHazeDensity;
     fog.haze_height = kAerialHeight;
+    fog.air = 0.0F; // (the aerial haze alone: the street air's own cases are thug2_vulkan_rt_fog_check's)
     vk::set_rt_fog_settings(fog);
     vk::rt_fog_set_scene(scene.top.handle);
     Targets targets;

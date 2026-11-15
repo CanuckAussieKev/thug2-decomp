@@ -68,7 +68,13 @@ constexpr uint32_t kGroupSide = 8;
 constexpr std::size_t kMatrixSide = 4;
 constexpr std::size_t kMatrixFloats = kMatrixSide * kMatrixSide;
 constexpr double kSingular = 1e-300;
-constexpr uint32_t kSampleCycle = 4; // the pixel of each 2 x 2 block marched cycles through 4 frames
+// (changed by the street air: the march's block 2 x 2 or 4 x 4 - rt_fog_quality) the pixel of each block marched
+// cycles through the block's pixels frame by frame in the order of their ordered-dither (Bayer) index, each next one far
+// from the last: (0, 0), (1, 1), (1, 0), (0, 1) in a 2 x 2 block
+constexpr std::array<std::array<uint8_t, 4>, 4> kBayer4{{{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}}};
+constexpr std::array<std::array<uint8_t, 2>, 2> kBayer2{{{0, 2}, {3, 1}}};
+constexpr uint32_t kLeastScale = 2;
+constexpr uint32_t kMostScale = 4;
 
 // The full-screen triangle (three vertices, no buffers).
 constexpr const char* kVertexSource = R"(#version 460
@@ -103,6 +109,11 @@ layout(set = 0, binding = 7) uniform FogBlock {
                         // ground, z 1 / its height (world units), w unused
     vec4 cloud_map;     // the clouds' shadow map's place (vulkan_rt_sky_pass.h CloudShadowMap)
     vec4 cloud_light;   // xyz toward its light, w its shadow's share kept (0: no map)
+    vec4 air;           // (the street air - rt_volume_light.h street_air) x its extinction per unit at its ground, y 1 /
+                        // its height, z its ground's y, w the falling snow's extinction per unit
+    vec4 air_light;     // rgb its light per unit of light (phase 1), w 1 / the snow's height
+    vec4 air_ambient;   // rgb its shade's light where the level's fog is replaced (the fog's colour's share; the aerial
+                        // march: the sky's), w the sun's brightness over its tint's (the tint is a hue over a level's fog)
 } fog;
 
 #ifdef MULTISAMPLED
@@ -203,20 +214,20 @@ vec3 toward_light(ivec2 p, int i)
     return normalize(l + side * (r * cos(a)) + up * (r * sin(a)));
 }
 
-// The sun's or the moon's light scattered at `at` toward the eye (x the phase; per unit of the medium's light)
-vec3 light_at(vec3 at, vec3 direction, float shaped, ivec2 p, int i)
+// How much of the sun's or the moon's light reaches `at` (its shadow ray, the clouds' shadow map): 0 - 1
+float light_seen(vec3 at, ivec2 p, int i)
 {
     if (!(fog.sun_tint.w > 0.5)) {
-        return vec3(0.0);
+        return 0.0;
     }
     float through = 1.0;
 #ifdef CLOUDS
     through = cloud_map_kept(at, fog.cloud_map, fog.cloud_light);
 #endif
     if (!(through > 0.0)) {
-        return vec3(0.0);
+        return 0.0;
     }
-    return fog.sun_tint.rgb * (visible(at, toward_light(p, i), SUN_DISTANCE) * through * shaped);
+    return visible(at, toward_light(p, i), SUN_DISTANCE) * through;
 }
 
 // a lamp's falloff (engine/gfx/rt_lights.h light_falloff - the same formula as the lamps' pass)
@@ -231,49 +242,85 @@ float lamp_falloff(float d, float core, float reach)
     return window * window * core * core / (core * core + d * d);
 }
 
-// The lamps' light scattered at `at` toward the eye: every lamp's unshadowed light (x the phase), one of them - picked
-// by its share - traced for its shadow and standing for all (the sum's estimate: its light x the whole over its share x
-// whether it is seen; the history averages the picks). The cones and pools of light a lamp's fixture and the walls
-// round it cut in the air.
-vec3 lamps_at(vec3 at, vec3 direction, ivec2 p, int i)
+// (changed by the street air: lamps culled by their reach) The lamps whose reach the view ray from the camera along
+// `direction` enters before `b`: a bit each.
+uint lamps_reached(vec3 direction, float b)
 {
+    uint mask = 0u;
     int count = min(lamps.count.x, FOG_MOST_LAMPS);
-    float total = 0.0;
     for (int k = 0; k < count; ++k) {
+        vec3 to = lamps.at[k].xyz - fog.camera.xyz;
+        float reach = lamps.colour[k].w;
+        float along = dot(to, direction);
+        float aside = dot(to, to) - along * along;
+        if (aside < reach * reach && along + reach > 0.0 && along - reach < b) {
+            mask |= 1u << uint(k);
+        }
+    }
+    return mask;
+}
+
+// The lamps' light at `at` toward the eye, unshadowed (x the phase): the lamps of `mask`
+vec3 lamps_open(vec3 at, vec3 direction, uint mask)
+{
+    vec3 sum = vec3(0.0);
+    uint left = mask;
+    while (left != 0u) {
+        int k = findLSB(left);
+        left &= left - 1u;
         vec3 to = lamps.at[k].xyz - at;
         float d = length(to);
         float f = lamp_falloff(d, lamps.more[k].x, lamps.colour[k].w);
         if (f > 0.0) {
-            vec3 c = lamps.colour[k].rgb * (f * phase(dot(direction, to / max(d, 1e-4))));
-            total += dot(c, vec3(0.2126, 0.7152, 0.0722));
+            sum += lamps.colour[k].rgb * (f * phase(dot(direction, to / max(d, 1e-4))));
         }
     }
-    if (!(total > 1e-6)) {
-        return vec3(0.0);
-    }
-    float target = hash01(p, fog.flags.w, i, 0x3Cu) * total;
-    float sum = 0.0;
-    for (int k = 0; k < count; ++k) {
+    return sum;
+}
+
+// Whether the lamps' light reaches `at`: one lamp of `mask` picked by its share of the light there (one random number,
+// streamed over the lamps) and its shadow ray traced - standing for all of them (exact for one lamp; the history
+// averages the picks). The cones and pools of light a lamp's fixture and the walls round it cut in the air.
+float lamps_seen(vec3 at, vec3 direction, uint mask, ivec2 p, int i)
+{
+    float u = hash01(p, fog.flags.w, i, 0x3Cu);
+    float total = 0.0;
+    int picked = -1;
+    vec3 picked_to = vec3(0.0);
+    float picked_d = 0.0;
+    uint left = mask;
+    while (left != 0u) {
+        int k = findLSB(left);
+        left &= left - 1u;
         vec3 to = lamps.at[k].xyz - at;
         float d = length(to);
         float f = lamp_falloff(d, lamps.more[k].x, lamps.colour[k].w);
-        if (!(f > 0.0)) {
+        float w = f > 0.0 ? dot(lamps.colour[k].rgb, vec3(0.2126, 0.7152, 0.0722)) * f *
+                                phase(dot(direction, to / max(d, 1e-4)))
+                          : 0.0;
+        if (!(w > 0.0)) {
             continue;
         }
-        vec3 c = lamps.colour[k].rgb * (f * phase(dot(direction, to / max(d, 1e-4))));
-        float w = dot(c, vec3(0.2126, 0.7152, 0.0722));
-        sum += w;
-        if (sum >= target && w > 0.0) {
-            float seen = visible(at, to / max(d, 1e-4), max(d - lamps.at[k].w, 0.0));
-            return c * (seen * total / w);
+        total += w;
+        float share = w / total;
+        if (u < share) {
+            picked = k;
+            picked_to = to;
+            picked_d = d;
+            u /= share;
+        } else {
+            u = (u - share) / (1.0 - share);
         }
     }
-    return vec3(0.0);
+    if (picked < 0) {
+        return 0.0;
+    }
+    return visible(at, picked_to / max(picked_d, 1e-4), max(picked_d - lamps.at[picked].w, 0.0));
 }
 
-// The haze's density at height u above `ground`, over its density there: exp(-u / H) above it, 1 at and below it
-// (thicker toward the ground, never past the ground's). The optical depth between s0 and s1 along the view ray (y linear
-// along it), in closed form: the part below the ground at the ground's extinction, the part above it through the
+// The optical depth of a layer between s0 and s1 along the view ray (y linear along it): extinction `sigma` at height
+// `ground`, thinning by e every 1 / inv_h above it, `sigma` at and below it (thicker toward the ground, never past the
+// ground's) - in closed form: the part below the ground at the ground's extinction, the part above it through the
 // exponential.
 float layer_depth(vec3 direction, float s0, float s1, float sigma, float inv_h, float ground)
 {
@@ -313,12 +360,6 @@ float layer_depth(vec3 direction, float s0, float s1, float sigma, float inv_h, 
     return depth;
 }
 
-#ifdef AERIAL
-float haze_depth(vec3 direction, float s0, float s1)
-{
-    return layer_depth(direction, s0, s1, fog.aerial.x, fog.aerial.y, fog.aerial.z);
-}
-
 // (water: the view ray's surface found by a ray from the camera - CUTOUTS' material table: water's reflection class)
 // The water's surface height where the view ray ends on water; a large negative number elsewhere.
 float water_under(vec3 direction, float distance)
@@ -349,13 +390,28 @@ float water_under(vec3 direction, float distance)
 #endif
 }
 
-// The march through the sky model's haze (aerial perspective): it dims what is far toward the sky's colour. Its light:
-// the model's sky toward the ray's direction (no lower than AERIAL_LOWEST above the horizon) x aerial.w - the shade's
-// share - and the light's (the sun's, the moon's, the lamps') where it reaches the point, x the phase and the medium.
+// (added by the street air) The street air's optical depth between s0 and s1: its mist over the level's ground, the
+// falling snow, and over water its wetter layer.
+float air_depth(vec3 direction, float s0, float s1, float water)
+{
+    float depth = 0.0;
+    if (fog.air.x > 0.0) {
+        depth += layer_depth(direction, s0, s1, fog.air.x, fog.air.y, fog.air.z);
+        if (water > -1.0e38) {
+            depth += layer_depth(direction, s0, s1, fog.air.x * fog.soft.y, fog.soft.z, water);
+        }
+    }
+    if (fog.air.w > 0.0) {
+        depth += layer_depth(direction, s0, s1, fog.air.w, fog.air_light.w, fog.air.z);
+    }
+    return depth;
+}
+
+#ifdef AERIAL
 // The sky's pixels are the world past the haze's reach (the sky dome's painted horizon - the sea, the hills - goes on
 // where the level's meshes end): marched as a surface at the far plane along the ray (where the camera clips the meshes
 // - AU's sea is cut there, triangle by triangle) or the haze's end (sun_light.w), the nearer - so a mesh cut at the far
-// plane meets the sky with the same haze, no seam. Over water the layer of wetter air above it is thicker (soft.yz).
+// plane meets the sky with the same haze, no seam.
 float far_along(ivec2 p)
 {
     vec4 w = fog.to_world * vec4(vec2(p) + fog.offsets.xy, 1.0, 1.0);
@@ -366,53 +422,22 @@ float far_along(ivec2 p)
     return far > 0.0 && far < 3.0e38 ? far : fog.sun_light.w;
 }
 
-void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
+// The sky model's colour of the haze toward `direction` (no lower than AERIAL_LOWEST above the horizon; the glow
+// toward the sun capped: the haze no brighter than the sky at the same height a quarter turn from the sun, x (1 +
+// AERIAL_GLOW) - the table's aureole near a low sun whited out a harbour looking into it)
+vec3 aerial_sky(vec3 direction)
 {
-    float reach = distance < 0.0 ? far_along(fog.rect.xy + local) : distance;
-    float b = min(reach, fog.sun_light.w);
-    vec3 light_in = vec3(0.0);
-    float transmittance = 1.0;
-    if (b > 0.0) {
-        vec3 level = normalize(vec3(direction.x, max(direction.y, AERIAL_LOWEST), direction.z));
-        vec3 sky_colour = sky_display(level, fog.sun.xyz);
-        // (the glow toward the sun capped: the haze no brighter than the sky at the same height a quarter turn from
-        // the sun, x (1 + AERIAL_GLOW) - the table's aureole near a low sun whited out a harbour looking into it)
-        vec2 flat_sun = fog.sun.xz;
-        float flat_length = length(flat_sun);
-        if (flat_length > 1e-5) {
-            vec2 across = vec2(-flat_sun.y, flat_sun.x) / flat_length;
-            float horizontal = length(level.xz);
-            vec3 side = vec3(across.x * horizontal, level.y, across.y * horizontal);
-            sky_colour = min(sky_colour, sky_display(side, fog.sun.xyz) * (1.0 + AERIAL_GLOW));
-        }
-        float water = water_under(direction, distance);
-        float shaped = phase(dot(direction, fog.sun.xyz));
-        int steps = fog.low.w;
-        float u = fract(jitter_at(local) + fog.fog_range.w);
-        // (the steps closer together near the eye - b x t^2: the haze's shafts between the buildings round the camera
-        // sampled every few metres, the far haze - smooth - in long segments; each segment's depth is still exact)
-        for (int i = 0; i < steps; ++i) {
-            float t0 = float(i) / float(steps);
-            float t1 = float(i + 1) / float(steps);
-            float t = (float(i) + u) / float(steps);
-            float s0 = b * t0 * t0;
-            float s1 = b * t1 * t1;
-            float s = b * t * t;
-            float tau = haze_depth(direction, s0, s1);
-            if (water > -1.0e38) {
-                tau += layer_depth(direction, s0, s1, fog.aerial.x * fog.soft.y, fog.soft.z, water);
-            }
-            tau *= fog.fog_colour.w;
-            float e = exp(-min(max(tau, 0.0), 40.0));
-            vec3 at = fog.camera.xyz + direction * s;
-            vec3 lit = light_at(at, direction, shaped, local, i) + lamps_at(at, direction, local, i);
-            vec3 here = sky_colour * fog.aerial.w + fog.medium.rgb * (lit * fog.medium.w);
-            light_in += transmittance * (1.0 - e) * here;
-            transmittance *= e;
-        }
+    vec3 level = normalize(vec3(direction.x, max(direction.y, AERIAL_LOWEST), direction.z));
+    vec3 sky_colour = sky_display(level, fog.sun.xyz);
+    vec2 flat_sun = fog.sun.xz;
+    float flat_length = length(flat_sun);
+    if (flat_length > 1e-5) {
+        vec2 across = vec2(-flat_sun.y, flat_sun.x) / flat_length;
+        float horizontal = length(level.xz);
+        vec3 side = vec3(across.x * horizontal, level.y, across.y * horizontal);
+        sky_colour = min(sky_colour, sky_display(side, fog.sun.xyz) * (1.0 + AERIAL_GLOW));
     }
-    imageStore(o_out, q, vec4(light_in, transmittance));
-    imageStore(o_info, q, vec4(distance, float(local.x), float(local.y), 0.0));
+    return sky_colour;
 }
 #endif
 
@@ -426,42 +451,106 @@ void main()
     ivec2 p = fog.rect.xy + local;
     vec3 direction = direction_of(p);
     float distance = distance_of(p);
-#ifdef AERIAL
-    march_aerial(q, local, direction, distance);
-    return;
-#endif
     bool sky = distance < 0.0;
+    bool air_on = fog.air.x > 0.0 || fog.air.w > 0.0;
+    // The media along the ray: the main one - the sky model's haze (AERIAL: aerial perspective, dimming what is far
+    // toward the sky's colour), or the level's own fog (its linear range fog as a medium, extinction 1 / (end - d)
+    // between start and end - integrated exactly over each segment, so its transmittance is the game's f, to the
+    // power rt_fog_density, whatever the step count; x the height falloff), or the thin haze of a level without fog -
+    // and the street air near the ground. Each scatters the light that reaches it - the sun's or the moon's, the lamps'
+    // - and its shade's own light; their light mixed by their share of each segment's optical depth.
+#ifdef AERIAL
+    bool replace = true; // (the haze dims what it covers)
+    float a = 0.0;
+    float b = min(sky ? far_along(p) : distance, fog.sun_light.w);
+    vec3 sky_colour = aerial_sky(direction);
+    vec3 ambient = sky_colour * fog.aerial.w;
+    vec3 medium = fog.medium.rgb * fog.medium.w;
+    vec3 air_ambient = ambient;
+    vec3 air_medium = fog.air_light.rgb * fog.medium.w;
+#else
     bool replace = fog.flags.x == 0 && !sky;
     float start = fog.fog_range.x;
     float end = fog.fog_range.y;
-    float a = max(start, 0.0);
+    float a = air_on ? 0.0 : max(start, 0.0);
     float b = sky ? end : min(distance, end);
+    float fade = end - start;
+    // the medium's light per unit of light: the replaced fog whole, the shafts over the game's fog and the haze a
+    // share, the sky's pixels a smaller one (the street air's likewise on the sky's pixels)
+    float share = sky ? fog.shares.y : (replace ? 1.0 : fog.shares.z);
+    vec3 ambient = replace ? fog.fog_colour.rgb * fog.shares.x : vec3(0.0);
+    vec3 medium = fog.medium.rgb * (fog.medium.w * share);
+    vec3 air_ambient = replace ? fog.air_ambient.rgb : vec3(0.0);
+    vec3 air_medium = fog.air_light.rgb * (fog.medium.w * (sky ? fog.shares.y : 1.0));
+#endif
     vec3 light_in = vec3(0.0);
     float transmittance = 1.0;
     bool lit_air = fog.sun_tint.w > 0.5 || lamps.count.x > 0;
     if (b > a && (replace || lit_air)) {
+        float water = water_under(direction, distance);
+        float shaped = phase(dot(direction, fog.sun.xyz));
+        vec3 sun = fog.sun_tint.rgb * shaped;
         int steps = fog.low.w;
         float span = b - a;
-        float fade = end - start;
         float u = fract(jitter_at(local) + fog.fog_range.w);
-        float shaped = phase(dot(direction, fog.sun.xyz));
-        // the medium's light per unit of light: the replaced fog whole, the shafts over the game's fog and the haze a
-        // share, the sky's pixels a smaller one
-        vec3 medium = fog.medium.rgb * (fog.medium.w * (sky ? fog.shares.y : (replace ? 1.0 : fog.shares.z)));
-        vec3 ambient = replace ? fog.fog_colour.rgb * fog.shares.x : vec3(0.0);
+        uint reached = lamps_reached(direction, b);
+        // (changed by the street air: the light's rays every other step) the steps in pairs: one point of each pair -
+        // the first or the second, by turns frame to frame - traces the sun's (or the moon's) shadow ray and the picked
+        // lamp's; both steps take what it saw
+        int parity = fog.flags.w & 1;
+        float sun_seen = 0.0;
+        float lamp_seen = 0.0;
+        // (the steps closer together near the eye - a + span x t^2: the shafts between the buildings round the camera
+        // sampled every few metres, the far air - smooth - in long segments; each segment's depth is still exact)
         for (int i = 0; i < steps; ++i) {
-            float s0 = a + span * (float(i) / float(steps));
-            float s1 = a + span * (float(i + 1) / float(steps));
-            float s = a + span * ((float(i) + u) / float(steps));
+            float t0 = float(i) / float(steps);
+            float t1 = float(i + 1) / float(steps);
+            float t = (float(i) + u) / float(steps);
+            float s0 = a + span * t0 * t0;
+            float s1 = a + span * t1 * t1;
+            float s = a + span * t * t;
             vec3 at = fog.camera.xyz + direction * s;
-            float height = fog.fog_range.z > 0.0 ? clamp(exp(-(at.y - fog.camera.y) * fog.fog_range.z), 0.0, 8.0) : 1.0;
-            // the game's linear fog as a medium: extinction 1 / (end - s), its integral over the segment exactly
-            float tau = fog.fog_colour.w * height * log(max(end - s0, 1e-4 * fade) / max(end - s1, 1e-4 * fade));
-            float e = exp(-min(max(tau, 0.0), 40.0));
-            vec3 lit = light_at(at, direction, shaped, local, i) + lamps_at(at, direction, local, i);
-            vec3 here = ambient + medium * lit;
+            if ((i & 1) == 0) {
+                int j = min(i + parity, steps - 1);
+                float tj = (float(j) + u) / float(steps);
+                vec3 traced = fog.camera.xyz + direction * (a + span * tj * tj);
+                sun_seen = light_seen(traced, local, j);
+                lamp_seen = reached != 0u ? lamps_seen(traced, direction, reached, local, j) : 0.0;
+            }
+#ifdef AERIAL
+            float tau_main = layer_depth(direction, s0, s1, fog.aerial.x, fog.aerial.y, fog.aerial.z);
+            if (water > -1.0e38) {
+                tau_main += layer_depth(direction, s0, s1, fog.aerial.x * fog.soft.y, fog.soft.z, water);
+            }
+            tau_main *= fog.fog_colour.w;
+#else
+            float x0 = clamp(s0, start, end);
+            float x1 = clamp(s1, start, end);
+            float tau_main = 0.0;
+            if (x1 > x0) {
+                float height = fog.fog_range.z > 0.0 ? clamp(exp(-(at.y - fog.camera.y) * fog.fog_range.z), 0.0, 8.0)
+                                                     : 1.0;
+                // the game's linear fog as a medium: extinction 1 / (end - s), its integral over the segment exactly
+                tau_main = fog.fog_colour.w * height * log(max(end - x0, 1e-4 * fade) / max(end - x1, 1e-4 * fade));
+            }
+#endif
+            float tau_air = air_on ? air_depth(direction, s0, s1, water) : 0.0;
+            float tau = max(tau_main, 0.0) + max(tau_air, 0.0);
+            if (!(tau > 1e-9)) {
+                continue;
+            }
+            float e = exp(-min(tau, 40.0));
+            vec3 lamp_light = reached != 0u ? lamps_open(at, direction, reached) * lamp_seen : vec3(0.0);
+            vec3 sun_light = sun * sun_seen;
+            vec3 here_main = ambient + medium * (sun_light + lamp_light);
+            vec3 here_air = air_ambient + air_medium * (sun_light * fog.air_ambient.w + lamp_light);
+            vec3 here = (max(tau_main, 0.0) * here_main + max(tau_air, 0.0) * here_air) / tau;
             light_in += transmittance * (1.0 - e) * here;
             transmittance *= e;
+            if (transmittance < 1e-4) {
+                transmittance = 0.0; // (nothing past here is seen)
+                break;
+            }
         }
     }
     imageStore(o_out, q, vec4(light_in, replace ? transmittance : 1.0));
@@ -613,8 +702,11 @@ struct FogBlock {
     std::array<float, 4> soft{};
     std::array<float, 4> cloud_map{};
     std::array<float, 4> cloud_light{};
+    std::array<float, 4> air{}; // (added by the street air)
+    std::array<float, 4> air_light{};
+    std::array<float, 4> air_ambient{};
 };
-constexpr std::size_t kFogBlockBytes = 400;
+constexpr std::size_t kFogBlockBytes = 448;
 
 // The lamps' block (binding 10, std140).
 struct FogLampsBlock {
@@ -668,6 +760,7 @@ constexpr std::size_t kSlotImages = 6;
 struct ViewSlot {
     std::array<uint32_t, 4> rect{};
     Extent target;
+    uint32_t scale = kLeastScale; // (the march's block: its images 1 / this of the viewport's on each axis)
     Image raw;                         // step 1: the light, the transmittance
     Image raw_info;                    // step 1: the distance, the pixel marched
     std::array<Image, 2> histories;    // step 2's, this frame's and the one before (by `current`)
@@ -1241,18 +1334,18 @@ bool make_storage_image(Backend& state, VkFormat format, const Extent& extent, I
     return true;
 }
 
-Extent low_extent(const std::array<uint32_t, 4>& rect)
+Extent low_extent(const std::array<uint32_t, 4>& rect, uint32_t scale)
 {
-    return {.width = (core::at(rect, 2) + kFogScale - 1) / kFogScale,
-            .height = (core::at(rect, 3) + kFogScale - 1) / kFogScale};
+    return {.width = (core::at(rect, 2) + scale - 1) / scale, .height = (core::at(rect, 3) + scale - 1) / scale};
 }
 
-ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Extent& target)
+ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Extent& target, uint32_t scale)
 {
     FogState& own = fog_state();
     ++own.uses;
     for (const std::unique_ptr<ViewSlot>& slot : own.slots) {
-        if (slot->rect == rect && slot->target.width == target.width && slot->target.height == target.height) {
+        if (slot->rect == rect && slot->target.width == target.width && slot->target.height == target.height &&
+            slot->scale == scale) {
             slot->last_use = own.uses;
             return slot.get();
         }
@@ -1267,8 +1360,9 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
     ViewSlot& slot = *made_slot;
     slot.rect = rect;
     slot.target = target;
+    slot.scale = scale;
     slot.last_use = own.uses;
-    const Extent extent = low_extent(rect);
+    const Extent extent = low_extent(rect, scale);
     bool made = make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &slot.raw) &&
                 make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &slot.raw_info);
     for (std::size_t i = 0; i < 2; ++i) {
@@ -1680,6 +1774,23 @@ void read_timer(Backend& state, uint32_t pair, const Extent& size)
 }
 
 // The block for a view (its matrices, the fog, the sun and the frame's jitter).
+// The pixel of its block (scale x scale) a texel marches in its `pass`-th frame: the block's pixels in turn, in the
+// order of their ordered-dither index (each next one far from the last).
+std::array<float, 2> block_pixel(uint32_t scale, uint64_t pass)
+{
+    const auto index = static_cast<uint8_t>(pass % (static_cast<uint64_t>(scale) * scale));
+    for (uint32_t y = 0; y < scale; ++y) {
+        for (uint32_t x = 0; x < scale; ++x) {
+            const uint8_t at =
+                scale == kMostScale ? core::at(core::at(kBayer4, y), x) : core::at(core::at(kBayer2, y % 2), x % 2);
+            if (at == index) {
+                return {static_cast<float>(x), static_cast<float>(y)};
+            }
+        }
+    }
+    return {0.0F, 0.0F};
+}
+
 FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const ViewSlot& slot, bool have_before,
                    VkSampleCountFlagBits samples)
 {
@@ -1711,17 +1822,15 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     block.fog_range = {view.fog.start, view.fog.end, own.settings.height > 0.0F ? 1.0F / own.settings.height : 0.0F,
                        static_cast<float>(jitter)};
     const std::array<float, 2> sample = sample_zero_offset(samples, own.standard_samples);
-    // the pixel of its 2 x 2 block each texel marches this frame: (0, 0), (1, 1), (1, 0), (0, 1)
-    constexpr std::array<std::array<float, 2>, kSampleCycle> kCycle{
-        {{0.0F, 0.0F}, {1.0F, 1.0F}, {1.0F, 0.0F}, {0.0F, 1.0F}}};
-    const std::array<float, 2>& pick = core::at(kCycle, slot.passes % kSampleCycle);
+    // the pixel of its block each texel marches this frame (kBayer4 / kBayer2's order)
+    const std::array<float, 2> pick = block_pixel(slot.scale, slot.passes);
     block.offsets = {sample.front(), sample.back(), pick.front(), pick.back()};
     // (no light - indoors: the replaced fog is the game's colour whole, the lamps' light added in it)
     block.shares = {own.have_sun ? kFogAmbientShare : 1.0F, kFogSkyShare, kFogShaftShare, own.settings.hdr ? 1.0F : 0.0F};
     block.rect = {static_cast<int32_t>(core::at(view.rect, 0)), static_cast<int32_t>(core::at(view.rect, 1)),
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
-    const Extent low = low_extent(view.rect);
-    block.low = {static_cast<int32_t>(low.width), static_cast<int32_t>(low.height), static_cast<int32_t>(kFogScale),
+    const Extent low = low_extent(view.rect, slot.scale);
+    block.low = {static_cast<int32_t>(low.width), static_cast<int32_t>(low.height), static_cast<int32_t>(slot.scale),
                  static_cast<int32_t>(own.settings.steps)};
     block.flags = {own.settings.mode == RtFogMode::kShafts || own.haze ? 1 : 0,
                    static_cast<int32_t>(own.cutouts ? kFogCutoutMask : kFogMask), static_cast<int32_t>(kFogMaxHistory),
@@ -1736,10 +1845,35 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
         block.cloud_map = own.cloud.place;
         block.cloud_light = own.cloud.light;
     }
+    // (the level's ground: the haze and the street air thicker toward it)
+    const rt::BakedSun& baked = rt::baked_sun();
+    const float ground = baked.scene != 0 && baked.ground_known ? baked.ground : core::at(view.camera.position, 1);
+    // (added by the street air) the near-ground air (rt_volume_light.h street_air): outdoors - where a sun or moon
+    // lights the level -, as thick as the light's time of day and the weather make it x rt_fog_air; its light the
+    // haze's, x the light's whole colour (over a level's fog the tint is a hue: its brightness given back here)
+    if (own.light.have) {
+        const rt::StreetAir air = rt::street_air(own.light.sun_elevation, rt::air_weather(), own.settings.air);
+        block.air = {static_cast<float>(air.extinction), air.height > 0.0 ? static_cast<float>(1.0 / air.height) : 0.0F,
+                     ground, static_cast<float>(air.snow)};
+        const float scatter = (1.0F - kFogAerialSkyShare) * rt::kHazeSunlit;
+        block.air_light = {scatter, scatter, scatter,
+                           air.snow_height > 0.0 ? static_cast<float>(1.0 / air.snow_height) : 0.0F};
+        const float tint_luma = (0.2126F * core::at(tint, 0)) + (0.7152F * core::at(tint, 1)) +
+                                (0.0722F * core::at(tint, 2));
+        const float whole_luma = (0.2126F * core::at(own.sun_tint, 0)) + (0.7152F * core::at(own.sun_tint, 1)) +
+                                 (0.0722F * core::at(own.sun_tint, 2));
+        block.air_ambient = {core::at(view.fog.colour, 0) * kFogAmbientShare,
+                             core::at(view.fog.colour, 1) * kFogAmbientShare,
+                             core::at(view.fog.colour, 2) * kFogAmbientShare,
+                             tint_luma > 1e-4F ? whole_luma / tint_luma : 1.0F};
+    }
+    if (own.cutouts) {
+        // (the wetter air over water: the haze's and the street air's)
+        core::at(block.soft, 1) = static_cast<float>(rt::kWaterHazeExtra);
+        core::at(block.soft, 2) = static_cast<float>(1.0 / rt::kWaterHazeHeight);
+    }
     if (own.aerial) {
         // (the sky model's haze: thicker toward the level's ground)
-        const rt::BakedSun& baked = rt::baked_sun();
-        const float ground = baked.scene != 0 && baked.ground_known ? baked.ground : core::at(view.camera.position, 1);
         constexpr int32_t kAerialMode = 2;
         core::at(block.flags, 0) = kAerialMode;
         block.aerial = {kFogAerialExtinction * own.settings.haze_density * condition,
@@ -1751,10 +1885,6 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
         // colour now; over water a wetter layer - with the material table to tell water)
         const float sunlit = (1.0F - kFogAerialSkyShare) * rt::kHazeSunlit;
         block.medium = {sunlit, sunlit, sunlit, own.settings.strength};
-        if (own.cutouts) {
-            core::at(block.soft, 1) = static_cast<float>(rt::kWaterHazeExtra);
-            core::at(block.soft, 2) = static_cast<float>(1.0 / rt::kWaterHazeHeight);
-        }
     }
     return block;
 }
@@ -1851,7 +1981,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (!invert(to_pixel, &to_world)) {
         return false;
     }
-    ViewSlot* const slot = slot_for(state, clipped.rect, colour->extent);
+    ViewSlot* const slot = slot_for(state, clipped.rect, colour->extent, own.settings.scale);
     if (slot == nullptr) {
         return false;
     }
@@ -1915,7 +2045,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     VkDescriptorBufferInfo block_info = *first_block;
-    const Extent low = low_extent(clipped.rect);
+    const Extent low = low_extent(clipped.rect, slot->scale);
 
     if (slot->fresh) {
         clear_slot(commands, slot);
@@ -2038,7 +2168,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (first_report(state, kReportFirstPass)) {
         get_log("vulkan: rt_fog: the first fog pass (%ux%u at 1/%u, %u steps, %s, fog %.0f - %.0f, density %.2f, "
                 "height %.0f, anisotropy %.2f, %s)",
-                width, height, kFogScale, own.settings.steps, what_is_drawn(), static_cast<double>(clipped.fog.start),
+                width, height, slot->scale, own.settings.steps, what_is_drawn(), static_cast<double>(clipped.fog.start),
                 static_cast<double>(clipped.fog.end), static_cast<double>(own.settings.density),
                 static_cast<double>(own.settings.height), static_cast<double>(own.settings.anisotropy),
                 own.have_sun ? "a sun" : "no sun");
@@ -2063,6 +2193,8 @@ void set_rt_fog_settings(const RtFogSettings& settings)
                                                      : kRtFogAnisotropy;
     kept.steps = std::clamp(kept.steps, kMinSteps, kMaxSteps);
     kept.lamps = std::min(kept.lamps, kFogMostLamps);
+    kept.scale = kept.scale >= kMostScale ? kMostScale : kLeastScale;
+    kept.air = std::isfinite(kept.air) ? std::clamp(kept.air, 0.0F, static_cast<float>(rt::kAirMostThickness)) : kRtFogAir;
     kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : kRtFogStrength;
     set_cloud_map_wanted(kept.on); // (the clouds' shadow map for the shafts through their gaps)
     {
@@ -2132,8 +2264,15 @@ void rt_fog_reset_history(Backend& state)
 bool read_rt_fog_image(Backend& state, const std::array<uint32_t, 4>& rect, RtFogImage which, RtFogTexels* out)
 {
     *out = RtFogTexels{};
+    // (the viewport's slot last drawn: a change of rt_fog_quality's scale makes another for the same rectangle)
+    const ViewSlot* latest = nullptr;
     for (const std::unique_ptr<ViewSlot>& slot : fog_state().slots) {
-        if (slot->rect != rect || !slot->written) {
+        if (slot->rect == rect && slot->written && (latest == nullptr || slot->last_use > latest->last_use)) {
+            latest = slot.get();
+        }
+    }
+    for (const std::unique_ptr<ViewSlot>& slot : fog_state().slots) {
+        if (slot.get() != latest) {
             continue;
         }
         const uint32_t last = slot->current ^ 1U; // (the pass flips `current` after writing)

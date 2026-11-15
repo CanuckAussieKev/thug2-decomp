@@ -466,8 +466,9 @@ for the restart. Every setting is declared once in the settings model (`src/engi
 | `rt_shadow_covered` | 0 | 1: ray-traced shadows under roofs too; 0 leaves a spot that sees no sky as the level lit it |
 | `rt_shadow_sky_rays` | 5 | Rays a pixel that look for the sky (1-16) |
 | `rt_fog` | 0 | On Vulkan with `ray_tracing=1`: 1 makes the air hold light - the level's fog becomes volumetric (the same colour and distances, darker in the shade) and the light streams through it in shafts: the sun past buildings, through trees and through gaps in the clouds (`rt_clouds`), the moon at night, street lights in cones and pools under them (`rt_lights`). It follows the time of day (`tod`). Levels without fog get a haze for it: `rt_fog_haze`. Replaces the old screen-space `rt_shafts` |
-| `rt_fog_strength` | 1 | How bright the light shafts in the air are (0-4; 0: the fog and haze without them). The Options screen's "Light shafts" |
-| `rt_fog_quality` | 1 | 0 low (16 samples along each ray, 8 lamps), 1 medium (32, 16), 2 high (64, 32): smoother shafts, more lamps in the air |
+| `rt_fog_air` | 1 | The air at street level - the haze, dust and moisture that sit in the lowest few metres and make sunbeams between buildings and glows round street lights: 0 clear (none), 0.5 light, 1 normal (as the time of day and the weather make it: thin by day, thicker at dawn, dusk and night, wetter in rain, snow falling in it), 2.5 thick - a misty morning (0-4). It lies low: the buildings and the sky above it stay clear. The Options screen's "Light shafts" (Clear / Light / Normal / Thick) |
+| `rt_fog_strength` | 1 | How bright the light the air scatters is (0-4; 0: the fog and haze without their shafts). Was the Options screen's "Light shafts" before `rt_fog_air` |
+| `rt_fog_quality` | 1 | 0 low (16 samples along each ray, 8 lamps, at a quarter of the resolution each way), 1 medium (32, 16, a quarter), 2 high (48, 32, half): smoother shafts, more lamps in the air |
 | `rt_fog_mode` | 0 | 0: the volumetric fog replaces the level's own; 1: the level's fog kept as it was, only the sunlit shafts added over it |
 | `rt_fog_density` | 1 | How thick the fog is against the level's own (0-8; 1 the same) |
 | `rt_fog_height` | 0 | World units over which the fog thins going up from the camera's height (0: even everywhere; e.g. 800 for ground fog) |
@@ -479,7 +480,7 @@ for the restart. Every setting is declared once in the settings model (`src/engi
 | `rt_sun` | 0 | On Vulkan: 1 draws the sun itself - a bright disc with a glow round it, light spilling past the edges in front of it - where the game shows its sun, instead of the game's sun sprite and lens flare (both hidden). A level with no sun at all keeps the game's |
 | `rt_sun_size` | 1 | How big the sun's disc is (0.25-4) |
 | `rt_sun_colour` | auto | The sun's colour: `auto` - from its height (warm when low, white when high); or `r,g,b` (0-1 each) |
-| `rt_shafts` | 0 | No longer used: the light shafts are `rt_fog`'s now - volumetric, for the sun, the moon and street lights, `rt_fog_strength` their brightness (an older ini's `rt_shafts` line does nothing) |
+| `rt_shafts` | 0 | No longer used: the light shafts are `rt_fog`'s now - volumetric, for the sun, the moon and street lights, `rt_fog_air` how much they show (an older ini's `rt_shafts` line does nothing) |
 | `rt_shaft_strength` | 0.8 | No longer used: `rt_fog_strength` |
 | `rt_bloom` | 0 | On Vulkan (no ray tracing needed): 1 lets bright light glow softly into what is round it - the sun, lit sky, bright windows. It only moves light, never adds it; left alone when a level turns on the game's own bloom (the sun's glow still drawn) |
 | `rt_bloom_strength` | 0.05 | How much of each pixel's light spreads (0-0.5) |

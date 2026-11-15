@@ -41,10 +41,68 @@ inline constexpr double kHazeLowSunWidth = 8.0;   // degrees
 [[nodiscard]] double haze_condition(double sun_elevation_degrees);
 
 // Over water the air is wetter: a layer kWaterHazeHeight thick (thinning by e) over the water's surface whose extinction
-// there is kWaterHazeExtra x the haze's at the ground. The march's view ray that ends on water (its material's
-// reflection class rt::kReflectWater) goes through it.
+// there is kWaterHazeExtra x the haze's (and the street air's, below) at the ground. The march's view ray that ends on
+// water (its material's reflection class rt::kReflectWater) goes through it.
 inline constexpr double kWaterHazeExtra = 2.0;
+inline constexpr double kWaterHazeExtraAir = kWaterHazeExtra;
 inline constexpr double kWaterHazeHeight = 400.0; // world units
+
+// (added by the street air) The air at street level. The aerial haze above is the atmosphere's - a few kilometres
+// thick, so thin near the ground that a street's 50 metres hold an optical depth of a few hundredths: no light shafts
+// between buildings, no cones under lamps. What makes them in a real street is the air's own lowest layer - aerosols,
+// moisture and dust held near the ground (the boundary layer's bottom; a mist in the morning and at night, when the
+// ground cools the air over it). The street air is that layer:
+//   - its extinction at the level's ground: kAirClearDay per metre (a clear day's city air, ~13 km of visibility), x
+//     air_condition (the time of day and the weather) x the thickness ([Graphics] rt_fog_air: Options "Light shafts");
+//   - thinning by e every kAirHeight metres above the ground (kAirNightHeight at night: the cooled ground's mist lies
+//     low, the lamps' cones down to the street in it, the lamps' heads near its top) - as the haze, as thick as there
+//     below it: a horizontal view a few metres up crosses it whole, a view up the buildings soon leaves it - the far
+//     world seen over the streets isn't hazed by it;
+//   - falling snow (the game's own snow, or [Graphics] snow with snowfall): kAirSnow per metre more, thinning over
+//     kAirSnowHeight metres (snowflakes scatter as the haze's droplets do: forward);
+//   - over water the wetter layer above (x kWaterHazeExtraAir).
+// Its light is the haze's: the light's (sun, moon, lamps) x the phase x kHazeSunlit's share, its shade the sky's (or the
+// level's fog colour where the level has fog). Lit like every other medium by the one light (medium_light).
+inline constexpr double kUnitsPerMetre = 39.37; // (the world's units are inches)
+inline constexpr double kAirClearDay = 3.0e-4;  // per metre
+inline constexpr double kAirHeight = 8.0;       // metres
+inline constexpr double kAirNightHeight = 4.0;  // metres: a night's mist lies lower (as night does: air_night)
+// air_condition: x (1 + kAirLowSunExtra x exp(-((e - kAirLowSunPeak) / kAirLowSunWidth)^2) + kAirNightExtra x night
+// + kAirRainExtra x rain) - e the sun's elevation in degrees, night 0 above kAirNightFrom rising smoothly to 1 at
+// kAirNightTo (the ground's radiative cooling: a night's mist), rain 1 while it rains (wet air)
+inline constexpr double kAirLowSunExtra = 7.0; // round sunrise and sunset: 8 x a clear day (~1.6 km of visibility)
+inline constexpr double kAirLowSunPeak = 0.0;  // degrees
+inline constexpr double kAirLowSunWidth = 7.0; // degrees
+inline constexpr double kAirNightExtra = 11.0; // a night's mist: 12 x a clear day (~1.1 km), shallower (below)
+inline constexpr double kAirNightFrom = -3.0;  // degrees
+inline constexpr double kAirNightTo = -12.0;   // degrees
+inline constexpr double kAirRainExtra = 3.0;
+inline constexpr double kAirSnow = 1.2e-3;      // per metre (light snowfall: ~3 km of visibility)
+inline constexpr double kAirSnowHeight = 60.0;  // metres
+inline constexpr double kAirMostThickness = 4.0; // rt_fog_air at most
+
+// What the weather puts in the air: render_pc publishes it each frame from the game's weather and the snow's settings.
+struct AirWeather {
+    bool rain = false;
+    bool snow = false;
+    bool operator==(const AirWeather&) const = default;
+};
+void set_air_weather(const AirWeather& weather);
+[[nodiscard]] AirWeather air_weather();
+
+[[nodiscard]] double air_condition(double sun_elevation_degrees, bool rain);
+// How much it is night for the air (0 by day, 1 from kAirNightTo down; smooth between): its mist's share.
+[[nodiscard]] double air_night(double sun_elevation_degrees);
+
+// The street air for a light (its sun's elevation), the weather and the thickness (rt_fog_air; 0: none): extinctions
+// per world unit, heights in world units.
+struct StreetAir {
+    double extinction = 0.0; // at its ground
+    double height = 0.0;
+    double snow = 0.0;
+    double snow_height = 0.0;
+};
+[[nodiscard]] StreetAir street_air(double sun_elevation_degrees, const AirWeather& weather, double thickness);
 
 // The air's phase function x 4 pi (1 on average over the sphere): strong forward scattering, as haze's droplets do (Mie),
 // two Henyey-Greenstein lobes - kMediumForwardShare forward with g (rt_fog_anisotropy), the rest back with
