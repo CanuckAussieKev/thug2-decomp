@@ -26,7 +26,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/sys/game_config.h"
-#include "engine/sys/tick_rate.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/skeleton_component.h"
 #include <gsl/pointers>
@@ -67,6 +66,7 @@ constexpr uint32_t kEndScript2 = 0xDEFF69FF;
 constexpr uint32_t kDebugBoxes = 0x5ECC0073;     // a global integer: draw the objects' boxes (compiled out)
 constexpr uint32_t kAttachBone = 0x5A0E0860;     // the bone a child hangs from
 constexpr float kFrame = 0.03333333507180214F;   // (0x00646430: a 30th of a second)
+constexpr float kStep = 0.01666666753590107F;    // (0x006463B8: a 60th)
 constexpr float kPartEnd = 0.03343333676457405F; // (0x0064791C)
 
 // The vblank count since the cutscene started, minus the time it was paused, in seconds (the count as an unsigned
@@ -81,8 +81,7 @@ void* fader_of(void* model) { return model_fader(model); }
 void fade_model(void* model, float target)
 {
     void* fader = fader_of(model);
-    // (not original: the step is a 1/60 s frame's - tick_rate::per_tick_amount; kFadeStep itself at 60)
-    static_cast<render::ModelLights*>(fader)->move_brightness({.target = target, .step = tick_rate::per_tick_amount(kFadeStep)});
+    static_cast<render::ModelLights*>(fader)->move_brightness({.target = target, .step = kFadeStep});
 }
 // An object's two matrices (its orientation and display matrix) set to `matrix`.
 void set_matrices(GameEntity* object, const float* matrix)
@@ -137,8 +136,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
         clock_ = static_cast<float>(objects_shared().cutscene_fixed_frame() * static_cast<double>(kFrame));
     } else if (unknown3474_ != 0U) {
         // a fixed step a frame (looping back at the end)
-        // (not original: a tick's step - engine/sys/tick_rate.h; the original's 0x006463B8, a 60th, at 60)
-        const double time = (static_cast<double>(unknown3470_) * tick_rate::step_seconds()) + clock_;
+        const double time = (static_cast<double>(unknown3470_) * kStep) + clock_;
         clock_ = static_cast<float>(time);
         if (unknown348c_ > 0.0F && !(time < unknown348c_) && !std::isnan(time)) {
             clock_ = loop_start_;
@@ -147,8 +145,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
             script::launch_script(kEndScript2, nullptr, nullptr, false, nullptr);
         }
     } else {
-        // (not original: the clock's vblanks a second - a tick's, engine/sys/tick_rate.h; frame_rate at 60)
-        const int rate = tick_rate::clock_rate(game_config::frame_rate());
+        const int rate = game_config::frame_rate();
         const uint64_t vblanks = frame_clock::fetch_retrace_count() - vblanks_ - paused_vblanks_;
         clock_ = vblank_seconds(vblanks, rate);
     }

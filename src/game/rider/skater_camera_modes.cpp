@@ -1,6 +1,7 @@
 // The skater camera component's (skater_camera_component.h) destructor body, Finalize, the state taken over from
 // another camera, the distances' lerps and its camera modes. From the disassembly of 0x004F9970-0x004F9E7E.
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 
@@ -11,7 +12,6 @@
 #include "game/rider/skater_camera_component.h"
 #include "game/rider/walk_camera.h"
 #include "engine/gfx/viewport_list.h"
-#include "engine/sys/tick_rate.h"
 #include "engine/objects/camera_component.h"
 #include "base/core/down_cast.h"
 #include "base/maths/trig.h"
@@ -40,9 +40,12 @@ constexpr float kFeet = 12.0F; // 0x0064546C
 constexpr float kHalf = 0.5F;  // 0x006453BC
 constexpr float kHalfPi = 1.57079637F;
 
-// The lerps' step: a tick. Not original - the tick rate's (engine/sys/tick_rate.h: the float 1.0F / rate, these bits at
-// 60). Original behaviour: the constant 0x0064BA64 (bits 0x3C888889, 1/60).
-float one_frame() { return tick_rate::step_seconds(); }
+float one_frame()
+{
+    const uint32_t bits = 0x3C888889; // 0x0064BA64 (1/60)
+    auto value = std::bit_cast<float>(bits);
+    return value;
+}
 
 // The screen mode (0x004A0710: 1 a vertical split, 2 a horizontal one).
 int screen_mode() { return render::get_view_layout(); }
@@ -78,24 +81,15 @@ void RiderChaseView::change_phase(const WalkCameraState* state)
 // 0x004F9970
 void RiderChaseView::update_lerps()
 {
-    // Not original: at a tick rate other than 60 the last step is the share of a step the time left is, so the lerp
-    // ends on its target at its time (the original's whole last step overshoots when its time isn't whole ticks). At 60:
-    // whole steps, as the original.
-    const auto step_share = [](float time_left) {
-        return tick_rate::original() || time_left >= one_frame() ? 1.0
-                                                                 : static_cast<double>(time_left) / one_frame();
-    };
     if (behind_time_ > 0.0F) {
-        const double share = step_share(behind_time_);
         behind_time_ = static_cast<float>(static_cast<double>(behind_time_) - one_frame());
-        behind_ = static_cast<float>((static_cast<double>(behind_step_) * share) + behind_);
+        behind_ = static_cast<float>(static_cast<double>(behind_step_) + behind_);
     } else {
         behind_time_ = 0.0F;
     }
     if (above_time_ > 0.0F) {
-        const double share = step_share(above_time_);
         above_time_ = static_cast<float>(static_cast<double>(above_time_) - one_frame());
-        above_ = static_cast<float>((static_cast<double>(above_step_) * share) + above_);
+        above_ = static_cast<float>(static_cast<double>(above_step_) + above_);
     } else {
         above_time_ = 0.0F;
     }

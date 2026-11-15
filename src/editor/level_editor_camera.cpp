@@ -22,7 +22,6 @@
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_prefs.h"
-#include "engine/sys/tick_rate.h"
 #include "platform/run_log.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -771,7 +770,7 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
         const uint64_t now = SDL_GetPerformanceCounter();
         const double seconds =
             stored_flight().t == 0.0F || (last == 0U)
-                ? tick_rate::tick_seconds() // (the first frame: a tick)
+                ? 1.0 / 60.0
                 : static_cast<double>(now - last) / static_cast<double>(SDL_GetPerformanceFrequency());
         last = now;
         stored_flight().t += static_cast<float>(std::min(seconds, kMaxFlightStepSeconds)) / stored_flight().duration;

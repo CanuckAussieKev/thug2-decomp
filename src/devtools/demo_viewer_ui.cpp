@@ -23,7 +23,6 @@
 #include "devtools/demo_viewer_internal.h"
 #include "engine/ui/ui_backend.h"
 #include "engine/ui/ui_fonts.h"
-#include "engine/sys/tick_rate.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "platform/sdl_window.h"
@@ -61,8 +60,7 @@ constexpr float kLongTickHalf = 0.3F;
 constexpr int kTickEvery = 60;      // a tick a second
 constexpr int kLongTickEvery = 300; // a longer one every 5 s
 
-// (a frame is a tick: the viewer plays a demo at the rate it was recorded at - engine/sys/tick_rate.h)
-double frames_per_second() { return static_cast<double>(tick_rate::rate()); }
+constexpr double kFramesPerSecond = 60.0;
 constexpr int kSecondsPerMinute = 60;
 constexpr double kNoticeSeconds = 5.0;
 constexpr double kReadSeconds = 1.0; // (the Compare panel's A values read again this often)
@@ -244,7 +242,7 @@ bool begin_context(ImGuiContext** previous)
 
 std::string time_text(int64_t frame)
 {
-    const double seconds = static_cast<double>(std::max<int64_t>(frame, 0)) / frames_per_second();
+    const double seconds = static_cast<double>(std::max<int64_t>(frame, 0)) / kFramesPerSecond;
     const auto minutes = static_cast<int>(seconds / kSecondsPerMinute);
     return text::format("%d:%05.2f", minutes, seconds - static_cast<double>(minutes * kSecondsPerMinute));
 }

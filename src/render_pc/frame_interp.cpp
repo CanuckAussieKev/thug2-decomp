@@ -17,7 +17,6 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/sys/frame_blend.h"
 #include "engine/sys/stopwatch.h"
-#include "engine/sys/tick_rate.h"
 #include "platform/run_log.h"
 #include "render_pc/geom.h"
 
@@ -250,7 +249,7 @@ void end_frame()
 
 uint32_t shown_time_ms()
 {
-    const uint32_t now = frame_clock::get_tick_time(); // (the tick's own time: blended within the tick below)
+    const uint32_t now = frame_clock::get_time();
     const frame_blend::Frame& frame = frame_blend::frame();
     if (!frame.on) {
         return now;
@@ -264,7 +263,8 @@ double shown_game_seconds(double seconds)
     if (!frame.on) {
         return seconds;
     }
-    return seconds - ((1.0 - static_cast<double>(frame.alpha)) * tick_rate::tick_seconds());
+    constexpr double kTickSeconds = 1.0 / frame_pacing::kTicksPerSecond;
+    return seconds - ((1.0 - static_cast<double>(frame.alpha)) * kTickSeconds);
 }
 
 void forget()
