@@ -4,7 +4,15 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { test } from "node:test";
-import { compareStates, parseStates, passed, REFERENCE_FOLDER, referenceDemos, reportLine } from "./sim_check.ts";
+import {
+    compareStates,
+    parseStates,
+    passed,
+    REFERENCE_FOLDER,
+    referenceDemos,
+    reportLine,
+    undrawnFrames,
+} from "./sim_check.ts";
 
 const HEADER = "# frame skater objects random clock_ms";
 
@@ -38,6 +46,11 @@ test("compareStates: a frame missing from the run fails it", () => {
     const c = compareStates(states(["5 A B C 83", "6 A B C 100"]), states(["5 A B C 83"]));
     assert.equal(c.missing, 1);
     assert.ok(!passed(c));
+});
+
+test("undrawnFrames reads the playback's late frames from the log", () => {
+    assert.equal(undrawnFrames("demo: playback pace - 19.60 game s in 19.46 s, 22 of 1176 frames not drawn"), 22);
+    assert.equal(undrawnFrames("nothing"), -1);
 });
 
 test("every reference demo has its state file", () => {

@@ -22,7 +22,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/sys/game_config.h"
-#include "engine/sys/tick_rate.h"
 #include <gsl/pointers>
 #include "base/core/format.h"
 #include "engine/objects/objects_shared.h"
@@ -211,8 +210,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
             paused_vblanks_ = frame_clock::fetch_retrace_count();
             objects_shared().cutscene_fixed_frame() = 0;
         }
-        // (not original: the clock's vblanks a second - a tick's, engine/sys/tick_rate.h; frame_rate at 60)
-        const int rate = tick_rate::clock_rate(game_config::frame_rate());
+        const int rate = game_config::frame_rate();
         audio::sync_music_to_time(vblank_seconds(frame_clock::fetch_retrace_count() - paused_vblanks_, rate));
         update_time();
         check_skip();

@@ -85,11 +85,20 @@ export function passed(c: StateComparison): boolean {
     return c.frames > 0 && c.missing === 0 && c.firstDiffers < 0;
 }
 
-export function reportLine(demo: string, fps: number, c: StateComparison | null): string {
+// The log's count of the playback's steps whose frame wasn't drawn (late - "N of M frames not drawn"; -1: no line).
+// The original's simulation reads whether a step's frame is drawn (it skips work when it isn't), so a run with late
+// steps may part from the reference whatever the display rate: docs/design/simulation-rate.md "Late frames".
+export function undrawnFrames(log: string): number {
+    const found = /(\d+) of \d+ frames not drawn/.exec(log);
+    return found ? Number.parseInt(found[1]!, 10) : -1;
+}
+
+export function reportLine(demo: string, fps: number, c: StateComparison | null, undrawn = -1): string {
     const shown = fps === 0 ? "60 (max_fps=0)" : String(fps);
-    if (!c) return `| ${demo} | ${shown} | no state file | | | FAIL |`;
+    const late = undrawn < 0 ? "?" : String(undrawn);
+    if (!c) return `| ${demo} | ${shown} | no state file | | | ${late} | FAIL |`;
     const first = c.firstDiffers < 0 ? "none" : `${c.firstDiffers} (${c.firstWhat})`;
-    return `| ${demo} | ${shown} | ${c.matched} / ${c.frames} | ${c.missing} | ${first} | ${passed(c) ? "ok" : "FAIL"} |`;
+    return `| ${demo} | ${shown} | ${c.matched} / ${c.frames} | ${c.missing} | ${first} | ${late} | ${passed(c) ? "ok" : "FAIL"} |`;
 }
 
 async function playOnce(exe: string, game: string, demo: string, fps: number, folder: string, timeout: number) {
@@ -187,8 +196,8 @@ async function main(): Promise<number> {
         "",
         "Each run's state (src/devtools/demo.cpp state_line) against the reference, frame by frame, bit for bit.",
         "",
-        "| demo | display rate | frames equal | missing | first differs | result |",
-        "|---|---|---|---|---|---|",
+        "| demo | display rate | frames equal | missing | first differs | late frames | result |",
+        "|---|---|---|---|---|---|---|",
     ];
     let failures = 0;
     for (const demo of demos) {
@@ -205,7 +214,8 @@ async function main(): Promise<number> {
             const file = path.join(out, demo, String(fps), "state.txt");
             const c = fs.existsSync(file) ? compareStates(reference, parseStates(fs.readFileSync(file, "utf8"))) : null;
             if (!c || !passed(c)) failures++;
-            lines.push(reportLine(demo, fps, c));
+            const log = path.join(out, demo, String(fps), "thug2-decomp.log");
+            lines.push(reportLine(demo, fps, c, fs.existsSync(log) ? undrawnFrames(fs.readFileSync(log, "utf8")) : -1));
         }
     }
     fs.writeFileSync(path.join(out, "report.md"), `${lines.join("\n")}\n`);

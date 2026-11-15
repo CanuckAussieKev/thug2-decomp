@@ -117,18 +117,16 @@ endif()
 # two ticks as rotations, the ends exact, jumps (teleports, camera cuts) found; the render-only frames' schedule
 # (src/tests/frame_pacing_check.cpp; base/maths/transform_blend.cpp, engine/sys/frame_pacing.cpp are pure).
 if(TARGET thug2_base)
-    add_executable(thug2_frame_pacing_check frame_pacing_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/sys/frame_pacing.cpp"
-        "${PROJECT_SOURCE_DIR}/src/engine/sys/tick_rate.cpp")
+    add_executable(thug2_frame_pacing_check frame_pacing_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/sys/frame_pacing.cpp")
     target_link_libraries(thug2_frame_pacing_check PRIVATE thug2_base)
 endif()
 
-# NOT ORIGINAL - thug2_tick_rate_check.exe: [Graphics] tick_rate's maths without the game - at 60 every conversion is
-# the original's to the bit, other rates scale, and the exactness yardstick: the game's integration kernels stepped at 60
-# and 120 / 144 / 240 (src/tests/tick_rate_check.cpp; engine/sys/tick_rate.cpp, frame_pacing.cpp are pure).
+# NOT ORIGINAL - thug2_sim_check.exe: the parts of the simulation's exactness proof that need no game - the skater's
+# online update sent on the original's frames (src/tests/sim_check.cpp; engine/net/net_cadence.h is pure). The demos'
+# part: tools/game/sim_check.ts.
 if(TARGET thug2_base)
-    add_executable(thug2_tick_rate_check tick_rate_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/sys/tick_rate.cpp"
-        "${PROJECT_SOURCE_DIR}/src/engine/sys/frame_pacing.cpp")
-    target_link_libraries(thug2_tick_rate_check PRIVATE thug2_base)
+    add_executable(thug2_sim_check sim_check.cpp)
+    target_link_libraries(thug2_sim_check PRIVATE thug2_base)
 endif()
 
 # NOT ORIGINAL - thug2_crash_check.exe: the game's crash report (src/platform/crash.h) caused on purpose, a few calls

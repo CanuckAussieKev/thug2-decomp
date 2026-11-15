@@ -8,7 +8,6 @@
 #include <span>
 #include <numbers>
 
-#include "engine/sys/stopwatch.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec4.h"
 #include "game/front_end/front_end.h"
@@ -333,12 +332,7 @@ void update_parked(modules::FrontEnd* front_end)
         stage_map() = {};
         stage_map().structure = structure;
     }
-    // (1/60 s frames - the 60 Hz grid, frame_clock::grid_frames: one a tick at 60)
-    const int frames = frame_clock::grid_frames();
-    if (frames == 0) {
-        return;
-    }
-    stage_map().frames += frames;
+    ++stage_map().frames;
     if (!stage_map().noted) {
         if (stage_map().frames < kSettleFrames) {
             return;

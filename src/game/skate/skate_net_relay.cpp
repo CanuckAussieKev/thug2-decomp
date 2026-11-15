@@ -31,7 +31,6 @@
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lists.h"
-#include "engine/sys/stopwatch.h"
 #include "game/online/player_info.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/entity.h"
@@ -235,10 +234,6 @@ int score_total(PointTally* score)
 // 0x00569BB0
 void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
 {
-    // (not original: once a 1/60 s frame at another tick rate, with the network - engine/net/net_cadence.h)
-    if (!frame_clock::grid_frame_ends()) {
-        return;
-    }
     PlayerSearch search;
     net::AppHost* server = server_app();
     std::array<uint8_t, kRelayBufferBytes> buffer{};
@@ -305,9 +300,6 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
 // 0x0056BE10
 void SkateNet::score_task(tasks::Task<Skate>* task)
 {
-    if (!frame_clock::grid_frame_ends()) { // (not original: as server_task)
-        return;
-    }
     Skate* skate = task->content();
     const online::Hub* net = online::online_hub();
     if (!online::Hub::keeps_score()) {

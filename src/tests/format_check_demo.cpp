@@ -2,7 +2,6 @@
 
 #include "tests/format_check_demo.h"
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -23,8 +22,6 @@ constexpr uint32_t kFrames = 300;
 constexpr std::size_t kBitsPerByte = 8;
 constexpr uint32_t kChangeEvery = 7;      // the sample's input changes this often (runs to compress)
 constexpr std::size_t kVersionOffset = 8; // the u32 after the magic
-constexpr uint32_t kFastTickRate = 120;
-constexpr std::size_t kRateChunkBytes = 12; // RATE, its size, the rate
 constexpr std::size_t kInfoTagOffset = 12;
 // the sample demo's values
 constexpr uint32_t kLevelLoad = 0x12345678;
@@ -150,7 +147,7 @@ bool same_demos(const demo_format::Demo& a, const demo_format::Demo& b)
            a.clocks.present == b.clocks.present && a.clocks.vblanks == b.clocks.vblanks &&
            a.clocks.last_change == b.clocks.last_change && a.clocks.pace == b.clocks.pace &&
            a.clocks.offset == b.clocks.offset && a.random_flags == b.random_flags &&
-           a.globals == b.globals && a.tick_rate == b.tick_rate;
+           a.globals == b.globals;
 }
 
 void put_u32(std::vector<uint8_t>* bytes, std::size_t at, uint32_t value)
@@ -169,8 +166,7 @@ void check_round_trip()
     check(demo_format::read_demo(bytes, &back, &error), "demo: read back (" + error + ")");
     check(same_demos(demo, back), "demo: every field read back as written");
     check(back.frames() == kFrames, "demo: the frame count");
-    check(back.version == demo_format::kVersionOriginalRate && back.tick_rate == demo_format::kOriginalTickRate,
-          "demo: a 60-tick demo is version 1 (no RATE chunk)");
+    check(back.version == demo_format::kVersion, "demo: the version");
     check(demo_format::write_demo(back) == bytes, "demo: written again, byte for byte");
     // (the input runs: 300 frames changing every 7 - 43 runs of 36 bytes, far less than 300 x 32)
     demo_format::Demo no_checks = demo;
@@ -201,21 +197,6 @@ void check_round_trip()
     check(back.check_at(kFrameBeforeUp) == nullptr, "demo: no check point before the level was up");
     check(back.setting("Graphics.rt_shadows") == "1" && back.setting("nothing").empty(), "demo: a setting by name");
     check(back.input(kFrames, 0) == nullptr && back.input(0, 1) == nullptr, "demo: no input past the end / port");
-    // (a demo recorded at another tick rate: version 2, the rate read back; the 60-tick bytes are a prefix of it but for
-    // the version - the RATE chunk is the last)
-    demo_format::Demo fast = demo;
-    fast.tick_rate = kFastTickRate;
-    const std::vector<uint8_t> fast_bytes = demo_format::write_demo(fast);
-    demo_format::Demo back_fast;
-    check(demo_format::read_demo(fast_bytes, &back_fast, &error) && back_fast.tick_rate == kFastTickRate &&
-              back_fast.version == demo_format::kVersion && same_demos(fast, back_fast),
-          "demo: a 120-tick demo is version 2 with its rate");
-    check(fast_bytes.size() == bytes.size() + kRateChunkBytes &&
-              std::equal(bytes.begin() + kVersionOffset + 4, bytes.end(), fast_bytes.begin() + kVersionOffset + 4),
-          "demo: the RATE chunk added after the others");
-    std::vector<uint8_t> zero_rate = fast_bytes;
-    put_u32(&zero_rate, zero_rate.size() - 4, 0);
-    check(!demo_format::read_demo(zero_rate, &back_fast, &error) && error == "bad rate chunk", "demo: a rate of 0 refused");
 }
 
 void check_versions()
@@ -231,9 +212,25 @@ void check_versions()
     check(demo_format::read_demo(extended, &back, &error) && same_demos(back, sample()),
           "demo: an unknown chunk skipped (" + error + ")");
 
+    // A version 2 demo (written 2026-11-14 - 15 by builds with a faster tick): its RATE chunk at 60 plays as any demo,
+    // at another rate it is refused.
+    for (const uint32_t rate : {demo_format::kTickRate, uint32_t{120}}) {
+        std::vector<uint8_t> rated = bytes;
+        put_u32(&rated, kVersionOffset, demo_format::kNewestVersion);
+        const std::vector<uint8_t> rate_chunk = {'R', 'A', 'T', 'E', 4, 0, 0, 0, static_cast<uint8_t>(rate), 0, 0, 0};
+        rated.insert(rated.end(), rate_chunk.begin(), rate_chunk.end());
+        const bool read = demo_format::read_demo(rated, &back, &error);
+        if (rate == demo_format::kTickRate) {
+            check(read && same_demos(back, sample()), "demo: version 2 with a RATE of 60 read (" + error + ")");
+        } else {
+            check(!read && error.find("ticks a second") != std::string::npos,
+                  "demo: version 2 with a RATE of 120 refused (" + error + ")");
+        }
+    }
+
     // A newer version: refused.
     std::vector<uint8_t> newer = bytes;
-    put_u32(&newer, kVersionOffset, demo_format::kVersion + 1);
+    put_u32(&newer, kVersionOffset, demo_format::kNewestVersion + 1);
     check(!demo_format::read_demo(newer, &back, &error) && error.find("newer") != std::string::npos,
           "demo: a newer version refused (" + error + ")");
 

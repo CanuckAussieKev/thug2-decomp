@@ -274,10 +274,12 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   don't wait while it's paused). A playback's drift is in `thug2-decomp-demos\<demo>.play.run.json` once it reaches the
   demo's end (each seek back starts the run's check again). `console compare on | off | set <key> <value> | status` is
   the split comparison (`[Graphics] compare_split`, `[Compare]`).
-- **The tick-rate yardstick** (docs/design/tick-rate.md "Measuring"): `node tools/game/tick_compare.ts --game <workspace>
-  --demo <name> --rates 60,120,144,240` plays the demo at each `[Graphics] tick_rate` (ini put back after each run;
-  under the workspace's lock) and writes `<out>\report.md`: each rate's track against the 60 Hz run - position error by
-  second, velocity, camera, state, each jump's take-off, landing and apex. `--no-run` reports from the tracks already there.
+- **The simulation check** (docs/design/simulation-rate.md "The proof"): `node tools/game/sim_check.ts --game
+  <workspace> [--fps 0,120,144,240]` plays each demo in `tools/game/sim_reference` at each `[Graphics] max_fps` (ini put
+  back after each run) and compares every frame's simulation state - `<demo>.play.state.txt`: hashes of the skater's,
+  the moving objects' and the random streams' bits - with the reference, bit for bit. Exit code 0 when every frame of
+  every run matches. `--record` makes the max_fps=0 run the new reference (only from the build the reference is meant
+  to be: main before a change). Workspaces only, under the lock.
 - `run_game.ps1 ... -Level <name>` - the game started with `-level <name>`: straight into free skate in that level
   (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front_end/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T

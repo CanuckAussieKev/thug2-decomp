@@ -228,9 +228,7 @@ std::vector<uint8_t> write_demo(const Demo& demo)
 {
     Out file;
     file.put(std::span(raw::bytes(kMagic.data()), kMagic.size()));
-    // (a 60-tick demo as version 1, without RATE: the bytes it always had)
-    const bool other_rate = demo.tick_rate != kOriginalTickRate;
-    file.u32(other_rate ? kVersion : kVersionOriginalRate);
+    file.u32(kVersion);
 
     Out info;
     info.text(demo.level);
@@ -320,11 +318,6 @@ std::vector<uint8_t> write_demo(const Demo& demo)
         }
         file.chunk(kGlobals, globals);
     }
-    if (other_rate) {
-        Out rate;
-        rate.u32(demo.tick_rate);
-        file.chunk(kRate, rate);
-    }
     return std::move(file.bytes());
 }
 
@@ -388,8 +381,8 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
         why = "not a demo file";
         return false;
     }
-    if (demo.version > kVersion) {
-        why = text::format("a newer demo (version %u; this game reads up to %u)", demo.version, kVersion);
+    if (demo.version > kNewestVersion) {
+        why = text::format("a newer demo (version %u; this game reads up to %u)", demo.version, kNewestVersion);
         return false;
     }
     bool has_info = false;
@@ -438,9 +431,13 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
                 return false;
             }
         } else if (id == kRate) {
-            demo.tick_rate = body.u32();
-            if (!body.ok() || demo.tick_rate == 0 || demo.tick_rate > kMaxTickRate) {
+            const uint32_t rate = body.u32();
+            if (!body.ok()) {
                 why = "bad rate chunk";
+                return false;
+            }
+            if (rate != kTickRate) {
+                why = text::format("recorded at %u ticks a second - the game simulates at %u", rate, kTickRate);
                 return false;
             }
         } else if (id == kChecks) {

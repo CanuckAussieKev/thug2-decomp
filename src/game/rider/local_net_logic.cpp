@@ -11,7 +11,6 @@
 
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "engine/sys/stopwatch.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_cadence.h"
@@ -265,11 +264,6 @@ void RiderHostSync::seal()
 // 0x005136C0
 void RiderHostSync::tick_frame()
 {
-    // (not original: at another tick rate once a 1/60 s frame, in the tick that ends it - the network's cadence,
-    // engine/net/net_cadence.h; every tick at 60)
-    if (!frame_clock::grid_frame_ends()) {
-        return;
-    }
     if (is_versus_session() && find_own_player_record()) {
         send_update();
     }

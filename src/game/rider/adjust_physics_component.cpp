@@ -13,8 +13,6 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/movable_contact.h"
 #include "game/rider/walk_hang.h"
-#include "engine/sys/stopwatch.h"
-#include "engine/sys/tick_rate.h"
 #include "engine/sys/game_clock.h"
 #include "game/rider/core_physics.h"
 #include "engine/objects/control_pad.h"
@@ -76,17 +74,10 @@ void RiderPhysicsTweaks::tick_frame()
             flags->flag(PoseFlag::kDescended).changed_at = frame_clock::game_clock_elapsed() + clock_offset();
         }
     }
-    // Not original: at a tick rate other than 60, in the air the checks run once a 1/60 s frame, as it ends, from where it
-    // began (safe_pos is the frame's start then) - with the air's feelers (SkaterPhysicsModule::do_air_physics, the 60 Hz
-    // grid). At 60: every tick.
-    // (Since: in every state - on the ground the ticks before the frame's last only move too, grid_ground_move.)
-    const bool mid_air_frame = !tick_rate::original() && !core_ptr_->frame_ends_this_tick();
-    if (!mid_air_frame) {
-        if (core_ptr_->state()->flag(PoseFlag::kSkitching).on == 0U) {
-            check_inside_moving_object();
-        }
-        keep_above_ground();
+    if (core_ptr_->state()->flag(PoseFlag::kSkitching).on == 0U) {
+        check_inside_moving_object();
     }
+    keep_above_ground();
     entity()->old_pos() = entity()->at_point();
 }
 

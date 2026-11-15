@@ -1,11 +1,9 @@
 #pragma once
 
-// NOT ORIGINAL - the network's cadence at any tick rate (docs/design/tick-rate.md "Online"). The original runs its
-// network once a 1/60 s tick: the app's tasks (receive, the received messages to their handlers, send, the connection
-// metrics), the server's relay and score tasks and the skater's object update. At [Graphics] tick_rate 120 / 144 / 240 they run once each 1/60 s, in the
-// tick that ends the 1/60 s frame (frame_clock::grid_frame_ends - every tick at 60), so peers see the 60 Hz run's
-// stream: the same messages, the same frame counts (AppHost::frame_count counts 1/60 s frames), the same clock stamps
-// (frame_clock::get_time is the 60 Hz grid's), the same packets a second. Nothing on the wire changes.
+// NOT ORIGINAL grouping - when a skater's object update goes to the host (game/rider/local_net_logic.cpp
+// RiderHostSync::send_update), as a pure function the simulation check (src/tests/sim_check.cpp) runs too. The network
+// runs once a 60 Hz simulation step, as the original's: the app counts a frame a step (AppHost::frame_count), its clock
+// is the game clock's milliseconds, and the decision below is the original's.
 #include <cstdint>
 
 namespace net_cadence {
@@ -13,7 +11,7 @@ namespace net_cadence {
 // The skater's object update forces every field (and is sent whatever the send interval) every 15th frame.
 inline constexpr uint32_t kForcedEveryFrames = 15;
 
-// What RiderHostSync::send_update (game/rider/local_net_logic.cpp) decides by.
+// What the decision reads.
 struct SkaterSend {
     bool on_server = false;
     uint32_t frame_count = 0;        // the app's frames (AppHost::frame_count)

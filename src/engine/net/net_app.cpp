@@ -205,9 +205,6 @@ gsl::owner<tasks::SchedulerTask*> new_task(int priority, tasks::Task<AppHost>::C
     return new tasks::Task<AppHost>(callback, app, priority);
 }
 AppHost* task_app(tasks::Task<AppHost>* task) { return task->content(); }
-// NOT ORIGINAL - the app's tasks run once a 1/60 s frame, in the tick that ends it, at any tick rate (every tick at 60):
-// the original's packets, frame counts and clock stamps (engine/net/net_cadence.h).
-bool network_frame() { return frame_clock::grid_frame_ends(); }
 
 } // namespace
 
@@ -648,9 +645,6 @@ void AppHost::pump_stream_traffic()
 // 0x00456CA0
 void AppHost::pump_incoming_traffic(tasks::Task<AppHost>* task)
 {
-    if (!network_frame()) {
-        return;
-    }
     AppHost* app = task_app(task);
     ++app->frame_count_;
     app->handle_incoming();
@@ -659,9 +653,6 @@ void AppHost::pump_incoming_traffic(tasks::Task<AppHost>* task)
 // 0x004593C0
 void AppHost::receive_network_data(tasks::Task<AppHost>* task)
 {
-    if (!network_frame()) {
-        return;
-    }
     AppHost* app = task_app(task);
     app->clock_ = frame_clock::get_time();
     app->drop_broken_links();
@@ -671,9 +662,6 @@ void AppHost::receive_network_data(tasks::Task<AppHost>* task)
 // 0x004593E0
 void AppHost::network_metrics(tasks::Task<AppHost>* task)
 {
-    if (!network_frame()) {
-        return;
-    }
     AppHost* app = task_app(task);
     lists::Hunt<Conn> search;
     for (Conn* conn = search.head_element(&app->circuits_); conn; conn = search.following_item()) {
@@ -685,9 +673,6 @@ void AppHost::network_metrics(tasks::Task<AppHost>* task)
 // 0x004594A0
 void AppHost::flush_outgoing_traffic(tasks::Task<AppHost>* task)
 {
-    if (!network_frame()) {
-        return;
-    }
     AppHost* app = task_app(task);
     app->pump_stream_traffic();
     app->transmit(true);
