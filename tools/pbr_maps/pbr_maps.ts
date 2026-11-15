@@ -8,7 +8,7 @@
 // after replacing textures.
 //
 //   node tools/pbr_maps/pbr_maps.ts make --game <folder> [--generator classical|chord] [--levels bo,au,foun]
-//        [--pictures <folder>] [--samples N] [--chord <folder>] [--out <folder>] [--models | --models-only]
+//        [--pictures <folder>] [--samples N] [--chord <folder>] [--out <folder>] [--models | --models-only] [--delight]
 //   node tools/pbr_maps/pbr_maps.ts remove --game <folder>      every .pbr made removed
 //
 // --generator: classical (the default; classical.ts) or chord (Ubisoft La Forge's CHORD model, chord.ts: research-only
@@ -18,7 +18,10 @@
 // not beside the dictionaries - the game folder only read. unpack_game.ts --pbr-maps runs `make` and records the
 // files for --restore. --models (added for the characters - [Graphics] rt_characters): the character models'
 // dictionaries too (models.ts: the skaters', CAS parts', peds', cutscenes'), classified skin / cloth / denim / leather /
-// rubber / hair, their entries flagged as a model's; --models-only: those alone.
+// rubber / hair, their entries flagged as a model's; --models-only: those alone. --delight: the classical maps made from
+// the texture's de-lit colour (the pipeline's hd_textures/delight.ts - the painted light taken out first, its strength
+// from the faces using the texture), so a painted shadow or highlight makes no slope or roughness swing of its own;
+// the map is still keyed to the original texels (the game finds it for the original and any set alike).
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { decode } from "thug2-level-converter-core/level_port/dxt.ts";
@@ -26,6 +29,7 @@ import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { readTex, type Texture } from "thug2-level-converter-core/level_port/tex.ts";
 import * as scene from "thug2-level-converter-core/level_port/thug2_scene.ts";
 import { exitWith, isMain } from "thug2-level-converter-core/lib/cli.ts";
+import * as delit from "../pipeline/hd_textures/delight.ts";
 import { gameRoot } from "../qbjs/game_scripts.ts";
 import { CLASS, type ClassName, classify, RULES, type Stats, type Usage } from "./classes.ts";
 import { classicalMaps, type Rgba, scaleNormals } from "./classical.ts";
@@ -61,6 +65,7 @@ export interface MakeOptions {
     out?: string | undefined; // the files written under this folder (the game's layout) instead of beside the dictionaries
     log?: (line: string) => void;
     models?: "no" | "also" | "only"; // (added for the characters) the character models' dictionaries (models.ts)
+    delight?: boolean; // the classical maps from the de-lit colour (delightedImage)
 }
 
 export interface MakeResult {
@@ -190,6 +195,30 @@ export function textureRgba(texture: Texture): Rgba | null {
         data[i * 4 + 3] = bgra[i * 4 + 3]!;
     }
     return { width, height, data };
+}
+
+// The image de-lit (delight.ts; wrapped both ways, as classical.ts filters): `coherence` the faces' (null: unknown).
+export function delightedImage(image: Rgba, coherence: number | null): Rgba {
+    const swap = (data: Uint8Array): Uint8Array => {
+        const out = Uint8Array.from(data);
+        for (let i = 0; i < out.length; i += 4) {
+            out[i] = data[i + 2]!;
+            out[i + 2] = data[i]!;
+        }
+        return out;
+    };
+    const result = delit.delight(swap(image.data), image.width, image.height, { wrapU: true, wrapV: true, coherence });
+    return { width: image.width, height: image.height, data: swap(result.bgra) };
+}
+
+// The faces using each texture in a scene (delight.ts: their coherence sets the de-lighting's strength).
+export function orientationsOf(scn: Buffer | null): Map<number, delit.Orientation> {
+    if (!scn) return new Map();
+    try {
+        return delit.orientationsOf(delit.faceOrientations(scene.readScene(scn, "scene")));
+    } catch {
+        return new Map();
+    }
 }
 
 // How the dictionary's level uses each texture (its scene: <x>.scn.xbx for <x>.tex.xbx).
@@ -416,8 +445,12 @@ export function make(game: string, options: MakeOptions): MakeResult {
                 : [],
         );
         let bumps = 0;
-        for (const [key, image] of images) {
+        const orientations = options.delight ? orientationsOf(dictionary.scn()) : new Map<number, delit.Orientation>();
+        for (const [key, original] of images) {
             const texture = keyed.get(key)!;
+            const image = options.delight
+                ? delightedImage(original, orientations.get(texture.checksum)?.coherence ?? null)
+                : original;
             const name = names.get(key)!;
             const rule = RULES[name];
             const bump = bumpFor(rule, surfaces.get(texture.checksum), image.width, image.height);
@@ -503,7 +536,7 @@ export async function main(args: string[]): Promise<void> {
     if (!game || (command !== "make" && command !== "remove")) {
         exitWith(
             "Usage: node tools/pbr_maps/pbr_maps.ts make --game <folder> [--generator classical|chord] [--levels a,b] " +
-                "[--pictures <folder>] [--samples N] [--chord <folder>] [--out <folder>] [--models | --models-only]\n" +
+                "[--pictures <folder>] [--samples N] [--chord <folder>] [--out <folder>] [--models | --models-only] [--delight]\n" +
                 "       node tools/pbr_maps/pbr_maps.ts remove --game <folder>",
         );
     }
@@ -528,6 +561,7 @@ export async function main(args: string[]): Promise<void> {
         out: argValue(args, "--out"),
         log: (line) => console.log(line),
         models: args.includes("--models-only") ? "only" : args.includes("--models") ? "also" : "no",
+        delight: args.includes("--delight"),
     });
     console.log(`${result.maps} maps in ${result.made.length} files`);
     console.log(`classes: ${[...result.classes].map(([k, v]) => `${k} ${v}`).join(", ")}`);

@@ -19,6 +19,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/ext/extension.h"
 #include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/memory/memory_report.h"
 #include "platform/platform_config.h"
@@ -144,6 +145,51 @@ std::vector<std::string> installed_sets()
     for (const char* set : kKnownSets) {
         if (installed(set)) {
             sets.emplace_back(set);
+        }
+    }
+    return sets;
+}
+
+int delight_version(std::string_view set)
+{
+    const std::string name = set_name(set);
+    if (name == kOriginal || !installed(name)) {
+        return 0;
+    }
+    const fs::OwnedStream file =
+        fs::open_stream((sets_folder() + "\\" + name + "\\set.json").c_str(), "rb", fs::StreamSharing::kSecure);
+    if (!file) {
+        return 0;
+    }
+    std::string text;
+    std::array<char, 4096> buffer{};
+    for (size_t got = 0; (got = fs::disk().stream_read(file.get(), buffer.data(), 1, buffer.size())) > 0;) {
+        text.append(buffer.data(), got);
+    }
+    // (base.ts writes the record as JSON: the top-level "delight": <version>, before the files)
+    constexpr std::string_view kKey = "\"delight\"";
+    const size_t at = text.find(kKey);
+    if (at == std::string::npos) {
+        return 0;
+    }
+    size_t pos = text.find_first_not_of(" \t\r\n", at + kKey.size());
+    if (pos == std::string::npos || text[pos] != ':') {
+        return 0;
+    }
+    pos = text.find_first_not_of(" \t\r\n", pos + 1);
+    int version = 0;
+    for (; pos < text.size() && std::isdigit(static_cast<unsigned char>(text[pos])) != 0 && version < 100000; ++pos) {
+        version = version * 10 + (text[pos] - '0');
+    }
+    return version;
+}
+
+std::vector<std::string> delit_sets()
+{
+    std::vector<std::string> sets;
+    for (const std::string& set : installed_sets()) {
+        if (delight_version(set) > 0) {
+            sets.push_back(set);
         }
     }
     return sets;

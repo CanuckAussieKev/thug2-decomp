@@ -56,6 +56,7 @@ and any another rule moved with it.
   bounce denoisers are out while Ray Reconstruction cleans up. FSR's sharpening and version need FSR upscaling (or
   `auto` off an RTX).
 - `rt_pbr` needs surface maps; its knobs, `rt_relief`, `rt_detail`, `rt_delight` and `rt_characters` need it;
+  `rt_delight` is out while the chosen texture set was made de-lit (`delit_texture_sets`);
   `rt_reflection_surfaces` needs reflections and `rt_pbr`.
 - The haze is the volumetric fog's (it needs `rt_fog`) in a level without fog; its density and height need the haze and
   the sky model. The sun's colour needs the sun, its rays, the bloom or the sky model; the lens dirt the bloom or the

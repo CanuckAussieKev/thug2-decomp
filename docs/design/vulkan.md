@@ -2249,6 +2249,10 @@ Both act only on the draws `rt_pbr` lights with a surface map (`kSurfaceMap`, ne
   bilinear by `texelFetch` (the game's samplers often allow no mips). It flattens the shadows, occlusion and highlights
   painted into the 2004 colour maps toward the texture's average, leaving the fine detail, so the per-pixel and
   ray-traced lighting do the shading. In the shader: the player's files are not changed. Glass and water are left.
+  Out of effect while a texture set made de-lit is chosen (`base.ts --delight`: the pipeline's `hd_textures/delight.ts`
+  took the painted light out of its textures before upscaling; `set.json` "delight", read at start-up by
+  `texture_sets::delit_sets()` into the settings capabilities - the Options screen says "Off - these textures are
+  already flat"); kept for the original textures and for sets made without it.
 - **Off is as before.** With both off no key has `detail` set: every shader is the same - `thug2_ff_shader_check
   --no-gpu --surface --cel --motion --retro --dump` wrote 341,478 shaders byte-identical to main's. `--detail` (after
   `--surface`) adds every surface-mapped key with each of the three bit sets.

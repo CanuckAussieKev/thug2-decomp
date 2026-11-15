@@ -87,11 +87,14 @@ FoundCapabilities find()
     caps.material_library = fs::disk().kind((game + kMaterialLibrary).c_str()) == fs::PathKind::kFile;
     caps.height_maps = false; // (none are made yet: rt_displacement shows its test pattern alone)
     caps.texture_sets = render::texture_sets::installed_sets();
-    get_log("settings: capabilities - %s%s, ray tracing %s, %s, surface maps %s, material library %s, %zu texture set(s)",
+    caps.delit_texture_sets = render::texture_sets::delit_sets();
+    get_log("settings: capabilities - %s%s, ray tracing %s, %s, surface maps %s, material library %s, %zu texture set(s) "
+            "(%zu de-lit)",
             caps.gpu.empty() ? "no Vulkan device" : caps.gpu.c_str(),
             caps.rtx > 0 ? (" (RTX " + std::to_string(caps.rtx) + " series)").c_str() : "",
             caps.ray_queries ? "possible" : "not possible", caps.x64 ? "64-bit" : "32-bit",
-            caps.surface_maps ? "found" : "none", caps.material_library ? "found" : "none", caps.texture_sets.size());
+            caps.surface_maps ? "found" : "none", caps.material_library ? "found" : "none", caps.texture_sets.size(),
+            caps.delit_texture_sets.size());
     return found;
 }
 

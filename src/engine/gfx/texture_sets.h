@@ -39,6 +39,13 @@ const std::string& sets_folder();
 bool installed(std::string_view set);
 // The known sets installed (kKnownSets' order).
 std::vector<std::string> installed_sets();
+// The de-lighting version a set's textures were made with (its set.json's "delight": base.ts --delight took the light
+// painted into them out before upscaling - tools/pipeline/hd_textures/delight.ts); 0 for a set made without it, one
+// not installed, and the original. The settings model takes [Graphics] rt_delight - the same light flattened at draw
+// time - out of effect while such a set is chosen (config Capabilities::delit_texture_sets).
+int delight_version(std::string_view set);
+// The installed sets whose textures are de-lit (delight_version > 0; kKnownSets' order).
+std::vector<std::string> delit_sets();
 
 // The set in use ("original" until [Graphics] texture_set names an installed one - read at the first file the game asks
 // for, logged).

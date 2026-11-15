@@ -161,6 +161,8 @@ inline constexpr const char* kOptDetailStrength = "Detail strength";
 inline constexpr const char* kOptDelight = "Flatten painted shadows";
 inline constexpr const char* kOptDelightHelp = "Evens out shading baked into textures. Needs per-pixel lighting.";
 inline constexpr const char* kOptDelightStrength = "Flatten strength";
+// (added by the de-lit texture sets) why rt_delight is out with one chosen
+inline constexpr const char* kDelightTexturesDelit = "Off - these textures are already flat";
 inline constexpr const char* kOptCharacters = "Character detail";
 inline constexpr const char* kOptCharactersHelp = "Skin, cloth and hair on skaters and peds. Needs per-pixel lighting.";
 inline constexpr const char* kOptCharactersSkin = "Skin glow";
