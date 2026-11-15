@@ -152,7 +152,9 @@ inline constexpr float kMoonRadiusDegrees = 6.0F;
 inline constexpr DayRgb kNightSkyLight{0.14F, 0.18F, 0.26F};
 inline constexpr double kNightFrom = 0.0;     // the night's floor from 0 here (the sun setting) ...
 inline constexpr double kNightFull = -4.0;    // ... to whole here (while the twilight is still brighter)
-inline constexpr DayRgb kNightSky{0.0028F, 0.0045F, 0.0095F}; // the night sky's radiance overhead (exposed linear)
+// the night sky's radiance overhead (exposed linear; set with the night's exposure at kMostExposure - the eye adapted to
+// the dark level brings the sky up with it: at the exposure's 1.3 before it was 0.0028 0.0045 0.0095)
+inline constexpr DayRgb kNightSky{0.0018F, 0.0029F, 0.0062F};
 inline constexpr double kLampsOn = 6.0;       // the lamps start to come on with the sun this high ...
 inline constexpr double kLampsFull = -4.0;    // ... and are whole here
 inline constexpr double kStarsFrom = -6.0;    // the stars from none here ...
