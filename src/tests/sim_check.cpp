@@ -9,6 +9,7 @@
 // The rest of the proof plays recorded runs in the game: tools/game/sim_check.ts (every frame's simulation state, bit
 // for bit, against the reference recorded from the build before a change, at several display rates).
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -19,14 +20,22 @@
 
 namespace {
 
-int g_failures = 0;
-int g_checked = 0;
+struct Tally {
+    int checked = 0;
+    int failed = 0;
+};
+
+Tally& tally()
+{
+    static Tally counts;
+    return counts;
+}
 
 void expect(bool ok, const std::string& what)
 {
-    ++g_checked;
+    ++tally().checked;
     if (!ok) {
-        ++g_failures;
+        ++tally().failed;
         std::printf("FAIL: %s\n", what.c_str());
     }
 }
@@ -81,7 +90,7 @@ void check_online_cadence()
                " in 10 s");
     std::printf("online: a client's skater sends %zu updates in 10 s\n", client.size());
     const std::vector<Sent> server = skater_updates(true, true);
-    expect(server == skater_updates(true, false) && server.size() == kFramesASecond * kSeconds,
+    expect(server == skater_updates(true, false) && server.size() == std::size_t{kFramesASecond} * kSeconds,
            "online: the server's skater sends every frame");
 }
 
@@ -91,6 +100,6 @@ int main()
 {
     tests::no_error_dialogs();
     check_online_cadence();
-    std::printf("sim check: %d checks, %d failed\n", g_checked, g_failures);
-    return g_failures == 0 ? 0 : 1;
+    std::printf("sim check: %d checks, %d failed\n", tally().checked, tally().failed);
+    return tally().failed == 0 ? 0 : 1;
 }

@@ -36,6 +36,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "platform/run_log.h"
 #include "platform/frame_profile.h"
+#include "platform/latency_probe.h"
 #include "platform/sdl_window.h"
 #include "engine/pad_input/sdl_input.h"
 #include "engine/objects/objects_shared.h"
@@ -195,6 +196,7 @@ void draw_extra_frames(uint64_t tick_time, uint64_t tick_length, int64_t frequen
         ext::before_present(true);
         latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitEnd);
         end_scene();
+        latency_probe::note_present(blend.tick, blend.alpha, true); // ([debug] latency_probe)
         blend.extra = false;
         crt::game_srand(crt_random);
         maths::set_random_streams(streams);
@@ -346,6 +348,7 @@ void Hub::get_main_loop()
     QueryPerformanceCounter(&counter);
     auto frame_start = static_cast<uint64_t>(counter.QuadPart);
     is_finished_ = 0U;
+    latency_probe::start(); // (not original: [debug] latency_probe - once SDL's events are set up)
     for (bool repeat = true; repeat; repeat = (is_finished_ == 0U)) {
         ++frames_run(); // (not original - see frames_run)
         frame_profile::loop_begin(); // (not original: [debug] frame_profile - platform/frame_profile.h)
@@ -466,6 +469,7 @@ void Hub::get_main_loop()
                 const frame_profile::Scope phase("system");
                 run_tasks(system_tasks_, profiling_ != 0);
             }
+            latency_probe::note_step(blend.tick); // (not original: [debug] latency_probe - the ports were read above)
             const frame_profile::Scope phase("logic");
             run_tasks(logic_tasks_, profiling_ != 0);
         } else {
@@ -494,6 +498,7 @@ void Hub::get_main_loop()
             const frame_profile::Scope phase("present");
             latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitEnd); // (not original - latency_marker)
             end_scene();
+            latency_probe::note_present(blend.tick, blend.alpha, blend.on); // (not original: [debug] latency_probe)
         }
         // Not original - an extension that keeps every frame (engine/ext/extension.h; the screenshot key's frame
         // series): the capture's time isn't counted, so no frame is skipped to catch up - every logic frame is drawn
@@ -513,6 +518,7 @@ void Hub::get_main_loop()
         profiling_ = 0;
         frame_profile::loop_end(drawn, render::engine_parts().loading_screen_up());
     }
+    latency_probe::stop(); // (not original: [debug] latency_probe's thread ends with the loop)
     is_finished_ = done_on_entry;
 }
 

@@ -323,6 +323,21 @@ std::vector<uint8_t> write_demo(const Demo& demo)
 
 namespace {
 // The chunks of what the recording's session had (CLCK, GLOB, RAND); false (and why) for a broken one.
+// A version 2 demo's RATE chunk: the ticks a second it was recorded at - only the game's own 60 plays.
+bool rate_is_ours(util::ByteReader& body, std::string* why)
+{
+    const uint32_t rate = body.u32();
+    if (!body.ok()) {
+        *why = "bad rate chunk";
+        return false;
+    }
+    if (rate != kTickRate) {
+        *why = text::format("recorded at %u ticks a second - the game simulates at %u", rate, kTickRate);
+        return false;
+    }
+    return true;
+}
+
 bool read_session_chunk(uint32_t id, util::ByteReader& body, Demo* demo, std::string* why)
 {
     if (id == kClocks) {
@@ -431,13 +446,7 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
                 return false;
             }
         } else if (id == kRate) {
-            const uint32_t rate = body.u32();
-            if (!body.ok()) {
-                why = "bad rate chunk";
-                return false;
-            }
-            if (rate != kTickRate) {
-                why = text::format("recorded at %u ticks a second - the game simulates at %u", rate, kTickRate);
+            if (!rate_is_ours(body, &why)) {
                 return false;
             }
         } else if (id == kChecks) {

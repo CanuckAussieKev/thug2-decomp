@@ -50,7 +50,8 @@ original's.
 
 1. SDL's pending events handled, the typed characters cleared, the network serviced.
 2. Waits until the step is due (`QueryPerformanceFrequency / 60` after the last one; mostly slept, the last 2 ms spun).
-3. The step: the system tasks - among them the ports' poll (`sio::InputPort::work_on`), which handles SDL's events again
+3. The frame's start for NVIDIA Reflex (`GpuContext::latency_marker` kSimulationStart: with Reflex on, its wait), then
+   the step: the system tasks - among them the ports' poll (`sio::InputPort::work_on`), which handles SDL's events again
    and reads the keyboard's and the pads' state - and the logic tasks (objects, physics, scripts).
 4. The step's frame drawn and presented - with `max_fps` blended between the step before and this one (below).
 5. With `max_fps`: render-only frames until the next step is due (`draw_extra_frames`).
@@ -114,6 +115,10 @@ After the removal (the build of this change, a workspace, 2026-11-15) - every fr
 | sim_wall | 144 | 624 / 624 | 0 | none | 40 | ok |
 | sim_wall | 240 | 624 / 624 | 0 | none | 38 | ok |
 
+Run again with the latency probe's build: every run equal but sim_se at 240, which had 67 late steps (against 9 - 15
+in the other sim_se runs) and parted at frame 874 in the random streams - the late-frames case below (the same frame an
+earlier sim_se run at 120 with 22 late steps parted at).
+
 ### Late frames
 
 The original's simulation reads whether a step's frame will be drawn: a step more than half a step late isn't drawn
@@ -128,6 +133,44 @@ simulation, but through the original's own dependence on drawing. `sim_check.ts`
 without any is the comparison that counts. Making the simulation independent of drawing (every step simulated as if its
 frame were drawn - the original's result on a machine that keeps up) is a separate change: every reader of
 `suppress_draw` on the simulation's side and every effect of `draw_world` on game state.
+
+## Input latency
+
+What sits between a press and the picture, at 60 steps a second:
+
+- **Sampling.** The step reads the pads and the keyboard as it starts: the ports' poll, in the step's system tasks,
+  handles SDL's pending events first and then reads SDL's keyboard and controller state. So a press waits for the next
+  step - 0 to 16.7 ms, 8.3 on average - and nothing earlier in the loop holds it longer. (Tried 2026-11-15: the wait for
+  the step moved before the loop's own event handling as well - no difference measured, 8.48 against 8.53 ms, so the
+  loop keeps the original's order.)
+- **Interpolation (`max_fps` only).** A step's result is blended in over the following 1/60 s: the first frame after
+  the step shows a little of it, the frame at the next step all of it. That is the price of drawing between states
+  without guessing - up to one step more before a press is fully on screen. Showing the newest state at once when a
+  step lands and interpolating on from it would need the step after it, which doesn't exist yet (only an extrapolation
+  could, and that draws the skater where the game didn't put it); `max_fps=0` shows each step's state as soon as it is
+  drawn, as the original.
+- **The GPU's queue.** With vsync, presents can queue frames ahead of the display. `[Graphics] reflex=on` (NVIDIA)
+  waits at the frame's start, before the step reads its input, so the frame starts as late as it can and still be
+  ready. It stays off by default: it loads Streamline's interposer into every Vulkan call, and here (a light scene,
+  the GPU far from busy) it changed nothing measurable.
+
+`[debug] latency_probe=1` (`platform/latency_probe.h`) measures it inside the game: a thread pushes a stand-in input event
+into SDL's queue at random moments; every 300 the log gets a `latency:` line - from the event's time to the step that
+read it, to the first present showing any of that step, and to the present showing all of it (presents timed when the
+present call returns: the display's scan-out comes on top). Probes that waited more than 100 ms (a load) are left out.
+
+Measured 2026-11-15 (RTX 5070 Ti, Pro Skater, a 1280x720 window, 300 probes each; average / 95th percentile, ms):
+
+| display | event to step | to first shown | to fully shown |
+|---|---|---|---|
+| max_fps=0, vsync | 8.5 / 15.8 | 10.4 / 18.3 | 10.4 / 18.3 |
+| max_fps=0, vsync, reflex=on | 8.2 / 15.8 | 10.1 / 17.7 | 10.1 / 17.7 |
+| max_fps=144, immediate | 8.0 - 8.6 / 15.7 - 16.0 | 10.1 - 10.7 / 18.1 | 26.8 - 27.4 / 34.8 - 35.0 |
+| max_fps=144, immediate, reflex=on | 8.1 / 15.4 | 10.2 / 18.0 | 26.9 / 34.4 |
+| max_fps=240, immediate | 9.0 - 10.5 / 16.3 - 16.5 | 11.7 - 14.2 / 19.9 - 25.3 | 28.8 - 30.3 / 36.2 - 37.2 |
+
+So: the sampling delay is the 60 Hz step's own (half a step on average), drawing and presenting add about 2 ms, and
+`max_fps` adds one step (16.5 ms) before a press is fully on screen while starting to show it as soon as without it.
 
 ## Demos
 

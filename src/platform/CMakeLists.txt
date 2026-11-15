@@ -8,6 +8,7 @@ add_library(thug2_platform STATIC
     crt.cpp
     debug_log.cpp
     frame_profile.cpp
+    latency_probe.cpp
     mute_audio.cpp
     test_workspace.cpp
     output_sinks.cpp
