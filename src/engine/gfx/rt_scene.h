@@ -187,6 +187,10 @@ struct ProbeRequest {
     std::array<float, 3> direction{};
     float max_distance = 0.0F;
     uint32_t cull_mask = kAllMasks; // (added for R4's sun) the instance masks the ray can hit (the backend's)
+    // (added by lighting round 4) the one lighting path's ray test: a cut-out (fence, foliage, grate) is hit only where
+    // its material's alpha test passes - the ray goes on through its holes - and an object's cut-out not at all (the
+    // relit level's rays: its light is the world's); false: every instance is solid wherever it is hit
+    bool cutouts = false;
 };
 struct ProbeResult {
     bool traced = false;

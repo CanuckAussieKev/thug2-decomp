@@ -546,16 +546,33 @@ DayLight day_light_at(const NativeDay& native, double hours)
     light.lamps = static_cast<float>(1.0 - smoothstep(kLampsFull, kLampsOn, sun.elevation));
     light.stars = static_cast<float>(1.0 - smoothstep(kStarsFull, kStarsFrom, sun.elevation));
     light.moon_disc = static_cast<float>(night * smoothstep(-1.0, 3.0, moon.elevation));
-    // the exposure: night brought partly up (the level's own light 1)
-    const float total = (kDirectShare * direct) + ((1.0F - kDirectShare) * sky);
-    light.exposure = std::clamp(static_cast<float>(std::pow(1.0 / std::max(static_cast<double>(total), 1e-3), kExposurePower)),
-                                1.0F, kMostExposure);
+    // the exposure: night brought partly up (the level's own light 1) - the model's light here; the clock adapts it to
+    // the relit level's own (day_clock)
+    light.exposure = adapted_exposure((kDirectShare * direct) + ((1.0F - kDirectShare) * sky));
     // the stars turn about the celestial pole (north, as high as the latitude) with the hours
     const DayVec pole = direction_of(native.path.north_heading, native.path.latitude);
     light.stars_pole = {std::get<0>(pole), std::get<1>(pole), std::get<2>(pole),
                         static_cast<float>(light.hours / kHoursPerDay * 2.0 * kPi)};
     light.blend = tod_blend(sun.elevation, light.hours >= kNoonHours);
     return light;
+}
+
+float adapted_exposure(float light)
+{
+    constexpr double kLeast = 1e-3;
+    const double safe = std::isfinite(light) ? std::max(static_cast<double>(light), kLeast) : 1.0;
+    return std::clamp(static_cast<float>(std::pow(1.0 / safe, kExposurePower)), 1.0F, kMostExposure);
+}
+
+float adapt_exposure(float now, float target, double seconds)
+{
+    constexpr float kSettled = 1e-3F; // (this close: there)
+    if (!std::isfinite(now) || !(seconds > 0.0)) {
+        return std::isfinite(now) ? now : target;
+    }
+    const auto step = static_cast<float>(1.0 - std::exp(-seconds / kExposureAdaptSeconds));
+    const float next = now + ((target - now) * step);
+    return std::abs(next - target) < kSettled ? target : next;
 }
 
 CloudLight cloud_light(const DayLight& light)

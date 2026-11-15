@@ -51,11 +51,14 @@ constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr float kSameSun = 0.99999F;          // two suns this close (their directions' dot product): the same
 constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
 constexpr uint32_t kCacheMagic = 0x4C523254U; // "T2RL"
-constexpr uint32_t kCacheVersion = 4; // (4: the residual taken apart - sun_missed)
+constexpr uint32_t kCacheVersion = 6; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
+                                      // local light across meshes, the probe through the cut-outs; 6: the fit's
+                                      // shadow borders and faces, the bounce's local part)
 constexpr std::size_t kKilobyte = 1024;
 constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
 constexpr std::size_t kVertexFloats =
-    17; // a vertex in the cache: normal 3, sun, sky, bounce 3, tint 3, residual 3, sun_missed, sun_baked, used
+    20; // a vertex in the cache: normal 3, sun, sky, bounce 3, tint 3, residual 3, sun_missed, sun_baked, used,
+        // bounce_local 3
 constexpr std::size_t kModelFloats = 17; // the model: valid, toward 3, sun 3, sky 3, bounce 3, scale, error, vertices,
                                          // the sun's need
 constexpr float kRgbColourLimit = 4.0F;
@@ -247,6 +250,10 @@ uint64_t cache_key(const rt::RelitSettings& settings)
     key = fnv_value(key, rt::kRelitMaxTint);
     key = fnv_value(key, rt::kRelitMissedLeast); // (the residual's split)
     key = fnv_value(key, rt::kRelitMostMissed);
+    key = fnv_value(key, rt::kRelitLocalReach); // (the local light across meshes)
+    key = fnv_value(key, rt::kRelitLocalFacing);
+    key = fnv_value(key, rt::kRelitLocalOver);
+    key = fnv_value(key, rt::kRelitLocalLeast);
     return key;
 }
 
@@ -363,6 +370,7 @@ std::array<float, kVertexFloats> vertex_floats(const rt::RelitVertex& vertex)
     floats.put(vertex.sun_missed);
     floats.put(vertex.sun_baked);
     floats.put(vertex.used ? 1.0F : 0.0F);
+    floats.put(vertex.bounce_local);
     std::array<float, kVertexFloats> out{};
     std::ranges::copy(floats.values(), out.begin());
     return out;
@@ -381,6 +389,7 @@ rt::RelitVertex vertex_of(const std::array<float, kVertexFloats>& values)
     vertex.sun_missed = cursor.next();
     vertex.sun_baked = cursor.next();
     vertex.used = cursor.next() != 0.0F;
+    vertex.bounce_local = cursor.next3();
     return vertex;
 }
 
@@ -743,6 +752,22 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
     }
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     const rt::RelitModel& fitted = st.model;
+    // (how much the residual's split had to give the bake's sun the rays missed: a fit that finds the bake's sun needs
+    // little of it)
+    std::size_t lit_vertices = 0;
+    std::size_t missed_vertices = 0;
+    double missed_sum = 0.0;
+    for (const VertexBufferData* buffer : st.order) {
+        for (const rt::RelitVertex& vertex : st.entries.at(buffer).light) {
+            lit_vertices += vertex.used ? 1 : 0;
+            if (vertex.used && vertex.sun_missed > 0.0F) {
+                ++missed_vertices;
+                missed_sum += vertex.sun_missed;
+            }
+        }
+    }
+    get_log("rt_relit: the bake's sun the rays missed at %zu of %zu vertices (mean %.2f of the fit's sun there)",
+            missed_vertices, lit_vertices, missed_vertices > 0 ? missed_sum / static_cast<double>(missed_vertices) : 0.0);
     get_log("rt_relit: level %08x - %zu meshes (%zu from the cache, %zu traced: %zu vertices, %zu rays), %.0f ms; the "
             "model %s: sun %.3f %.3f %.3f, sky %.3f %.3f %.3f, bounce %.3f %.3f %.3f, scale %.3f, median residual %.4f "
             "over %zu vertices, without the sun %.2f times worse",
@@ -754,6 +779,15 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
             static_cast<double>(std::get<1>(fitted.bounce)), static_cast<double>(std::get<2>(fitted.bounce)),
             static_cast<double>(fitted.scale), static_cast<double>(fitted.error), fitted.vertices,
             static_cast<double>(fitted.sun_needed));
+    if (to_trace > 0 && fitted.shadow_edges > 0) {
+        get_log("rt_relit: the traced sun's shadow edges: %zu (%zu with the bake's step, the fit's), their colours lit over "
+                "shaded %.2f in the bake, their light %.2f in the model; %zu meshes of one colour left out of the fit; "
+                "the faces toward the sun over those turned from it %.2f in the bake, %.2f in the model (the edges' sun "
+                "x %.2f for them)",
+                fitted.shadow_edges, fitted.shadow_edges_kept, static_cast<double>(fitted.shadow_baked),
+                static_cast<double>(fitted.shadow_model), fitted.one_colour_meshes, static_cast<double>(fitted.facing_baked),
+                static_cast<double>(fitted.facing_model), static_cast<double>(fitted.sun_calibration));
+    }
     if (settings.cache && to_trace > 0 && st.model.valid) {
         write_cache({.level = st.level, .key = key});
         st.cache = {};
@@ -832,6 +866,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
     std::vector<rt::RelitMesh> meshes;
     std::vector<rt::RelitVertices> light;
     std::vector<uint8_t> wanted;
+    std::vector<std::vector<rt::Rgbf>> local; // (each vertex's own light: the bounce's local part)
     std::size_t budget = kRelitBounceVertices;
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
@@ -847,6 +882,11 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
                     ? rt::relit_colour(st.model, core::at(entry.light, vi), lighting, core::at(entry.originals, vi))
                     : core::at(entry.originals, vi);
         }
+        std::vector<rt::Rgbf> own(entry.input.positions.size());
+        for (std::size_t vi = 0; vi < own.size() && vi < entry.light.size(); ++vi) {
+            core::at(own, vi) = lighting.residual && entry.analysed ? core::at(entry.light, vi).residual : rt::Rgbf{};
+        }
+        local.push_back(std::move(own));
         meshes.push_back(std::move(entry.input));
         meshes.back().colours = std::move(relit);
         light.push_back(std::move(entry.light));
@@ -858,7 +898,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
                                         .sun_rays = settings.sun_rays,
                                         .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
                                         .detail = settings.detail},
-                        tracer, &light, &stats);
+                        tracer, &light, &stats, local);
     st.rebounced += stats.vertices;
     for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
         Entry& entry = st.entries.at(core::at(st.order, iv));
@@ -905,7 +945,6 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
             return;
         }
     }
-    constexpr float kLeastTint = 0.05F;
     const rt::RelitLighting own{.toward = st.model.toward};
     auto field = std::make_shared<rt::LightField>();
     for (const VertexBufferData* buffer : st.order) {
@@ -927,17 +966,15 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
                                  .indirect_now = now.indirect,
                                  .direct_own = baked.direct,
                                  .indirect_own = baked.indirect,
-                                 .local = {}};
+                                 .local = {},
+                                 .normal = vertex.normal};
             if (light.residual) {
-                for (std::size_t ch = 0; ch < 3; ++ch) {
-                    core::at(parts.local, ch) =
-                        core::at(vertex.residual, ch) /
-                        (std::max(st.model.scale, kLeastTint) * std::max(core::at(vertex.tint, ch), kLeastTint));
-                }
+                parts.local = rt::relit_local_light(st.model, vertex);
             }
             field->add(core::at(entry.input.positions, vi), parts);
         }
     }
+    field->set_local_scale(st.model.scale); // (what the local light shows on a tint of 1)
     st.field_lighting = lighting;
     const rt::LightRatio whole = field->whole();
     static double logged_hours = -1.0;

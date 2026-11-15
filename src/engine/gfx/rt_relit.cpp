@@ -41,7 +41,8 @@ constexpr float kMaxByte = 255.0F;
 constexpr std::size_t kMinFitVertices = 100;
 constexpr float kMinSunLight = 0.05F;        // the fit's sun (luma) at least this: the bake shows a sun
 constexpr float kBlackLight = 1.0F / 128.0F; // a colour this dark (luma) isn't fitted: unlit or painted black
-constexpr int kFitRounds = 4;
+constexpr int kFitRounds = 6; // the pairs' fit, then reweighted (and its light per edge made again) five times
+constexpr double kLeastEdgeLight = 0.01; // an edge's light (its terms' mean x beta, beta summing to 1) at least this
 constexpr int kLampRounds =
     4; // the lamp-lit vertices looked for at most this often           // the pairs' fit, then reweighted three times
 constexpr double kSingular = 1e-12;
@@ -60,6 +61,16 @@ constexpr float kHermiteThree = 3.0F; // (smoothstep: t^2 (3 - 2t))
 constexpr float kHermiteTwo = 2.0F;
 constexpr double kThird = 1.0 / 3.0;
 constexpr uint32_t kMeshSalt = 0x10000U; // (a vertex's hash: its mesh's index times this, plus its own)
+constexpr float kShadowEdgeFacing = 0.95F; // (the fit's report) an edge's vertices facing the same way ...
+constexpr float kShadowEdgeStep = 0.5F;    // ... and the rays' sun on one, not the other
+constexpr float kFacingSun = 0.7F;         // (the fit's report) a face toward the sun (N.L above this) ...
+constexpr float kSunlitShare = 0.75F;      // ... in the rays' sun
+constexpr std::size_t kFacingLeast = 4;    // (facing_calibration) a mesh's vertices on each side at least
+constexpr std::size_t kFacingMeshes = 16;  // meshes showing both sides at least (a median of a few tells little)
+constexpr float kFacingMostFactor = 16.0F; // the sun's factor within 1/this - this
+constexpr int kFacingSteps = 24;
+constexpr float kLeastScale = 0.05F;     // (a local light's division: the level's scale and a tint at least these)
+constexpr float kLeastTint = 0.05F;
 
 struct SettingsSlot {
     std::mutex mutex;
@@ -196,6 +207,40 @@ Rgbf colour_at(const RelitMesh& mesh, uint32_t primitive, const Vec3& point)
     return out;
 }
 
+// A per-vertex light (`values`, one a vertex of `mesh`) at a point of a triangle: its corners' blended (colour_at's
+// barycentrics); none when the mesh's values don't fit.
+Rgbf light_at(const RelitMesh& mesh, const std::vector<Rgbf>& values, uint32_t primitive, const Vec3& point)
+{
+    if (primitive >= mesh.triangles.size() || values.size() != mesh.positions.size()) {
+        return {};
+    }
+    const auto [one, two, three] = core::at(mesh.triangles, primitive);
+    if (one >= values.size() || two >= values.size() || three >= values.size()) {
+        return {};
+    }
+    const Vec3& pa = core::at(mesh.positions, one);
+    const Vec3 e1 = minus(core::at(mesh.positions, two), pa);
+    const Vec3 e2 = minus(core::at(mesh.positions, three), pa);
+    const Vec3 pv = minus(point, pa);
+    const float d11 = dot(e1, e1);
+    const float d12 = dot(e1, e2);
+    const float d22 = dot(e2, e2);
+    const float det = (d11 * d22) - (d12 * d12);
+    float vi = 0.0F;
+    float w = 0.0F;
+    if (std::abs(det) > kLeastLight) {
+        vi = std::clamp(((d22 * dot(pv, e1)) - (d12 * dot(pv, e2))) / det, 0.0F, 1.0F);
+        w = std::clamp(((d11 * dot(pv, e2)) - (d12 * dot(pv, e1))) / det, 0.0F, 1.0F - vi);
+    }
+    const float u = 1.0F - vi - w;
+    Rgbf out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = (core::at(core::at(values, one), ch) * u) + (core::at(core::at(values, two), ch) * vi) +
+                            (core::at(core::at(values, three), ch) * w);
+    }
+    return out;
+}
+
 // The vertices of the wanted meshes in batches of whole vertices with at most kBatchRays rays: `rays_of` says a
 // vertex's count, `make` writes them, `take` reads their answers.
 struct VertexRef {
@@ -263,6 +308,169 @@ Rgbf model_light(const RelitModel& model, const Rgbf& pa, const RelitVertex& ver
     for (std::size_t ch = 0; ch < out.size(); ++ch) {
         core::at(out, ch) = (core::at(pa, ch) * sv) + (core::at(model.sky, ch) * vertex.sky) +
                             (core::at(model.bounce, ch) * core::at(vertex.bounce, ch));
+    }
+    return out;
+}
+
+// How far an edge counts in the fit: 1, but an edge across a traced shadow's border (one vertex's sun share
+// kShadowEdgeStep over the other's) counts only where the bake has a shadow there too - its colours step down into the
+// traced shade, by kRelitLampLow or more (from none at a step of 1). Where the bake has no such shadow (the traced
+// geometry's own shadows - its cut-outs, its night pieces, its other meshes - or the bake's shadows left out or
+// softened away) the traced border says nothing of the sun's strength, and they are most of them: Berlin's and
+// Boston's ~16000 traced borders step 1.00 at the median in the bake, and a fit told by them took the sun to a fifth
+// of what the bake's faces show (the faces toward the sun over those turned away: 2.17 in Berlin's bake, 1.43 in that
+// fit). (The bake's shadows the rays don't see are edges whose terms don't change: errors the fit weighs down.)
+float shadow_edge_trust(const RelitMesh& mesh, const RelitVertices& vertices, std::pair<uint32_t, uint32_t> edge)
+{
+    const RelitVertex& first = core::at(vertices, edge.first);
+    const RelitVertex& second = core::at(vertices, edge.second);
+    if (std::abs(first.sun - second.sun) < kShadowEdgeStep) {
+        return 1.0F;
+    }
+    const bool first_lit = first.sun > second.sun;
+    const float lit = luma(colour_light(core::at(mesh.colours, first_lit ? edge.first : edge.second)));
+    const float shade = luma(colour_light(core::at(mesh.colours, first_lit ? edge.second : edge.first)));
+    const float step = lit / std::max(shade, kLeastLight);
+    return std::clamp((step - 1.0F) / (kRelitLampLow - 1.0F), 0.0F, 1.0F);
+}
+
+// Whether a mesh's used vertices are all one colour (within a byte a channel): painted, not lit by the bake.
+bool one_colour(const RelitMesh& mesh, const RelitVertices& vertices)
+{
+    const std::size_t count = std::min(vertices.size(), mesh.colours.size());
+    bool first = true;
+    std::array<uint32_t, 3> low{};
+    std::array<uint32_t, 3> high{};
+    for (std::size_t vi = 0; vi < count; ++vi) {
+        if (!core::at(vertices, vi).used) {
+            continue;
+        }
+        const uint32_t colour = core::at(mesh.colours, vi);
+        const std::array<uint32_t, 3> bytes{(colour >> kRedShift) & kByteMask, (colour >> kGreenShift) & kByteMask,
+                                            colour & kByteMask};
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            core::at(low, ch) = first ? core::at(bytes, ch) : std::min(core::at(low, ch), core::at(bytes, ch));
+            core::at(high, ch) = first ? core::at(bytes, ch) : std::max(core::at(high, ch), core::at(bytes, ch));
+        }
+        first = false;
+    }
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        if (core::at(high, ch) > core::at(low, ch) + 1U) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// The sun's strength against the rest of the light, told by which way faces turn: in each mesh (one tint) with faces
+// toward the bake's sun in the rays' sun (N.L over kFacingSun, sun share over kSunlitShare) and faces turned from it
+// (N.L under 0), the bake's colours' medians over the two give how much brighter the sun makes the faces it reaches;
+// the factor on the model's sun that makes its light's medians the same, the meshes' median. The edges' fit tells the
+// light's parts by their changes along each mesh - but the sun's changes are mostly its traced shadows' borders, and
+// where the bake has no such shadow they say nothing (shadow_edge_trust), so the few left can't be told from colour
+// changes that happen to lie on a border: alone they made Berlin's sun too strong (its faces 3.48 x against the
+// bake's 2.17), all of them too weak (1.43 x). 1 when fewer than kFacingMeshes meshes show both sides. Channel by
+// channel (`channel`: 0 red, 1 green, 2 blue) - a tint's colour weighs the sun's and the sky's differently.
+float facing_calibration(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const RelitModel& model,
+                         std::size_t channel)
+{
+    struct Toward {
+        float sun = 0.0F;  // the model's sun here (luma)
+        float rest = 0.0F; // the rest of its light
+    };
+    struct Sides {
+        std::vector<Toward> toward;
+        float toward_baked = 0.0F; // the bake's median there
+        float away_ratio = 0.0F;   // log(bake's median over the model's) on the side turned away
+    };
+    const auto median_of = [](std::vector<float>* values) {
+        const auto middle = values->begin() + static_cast<std::ptrdiff_t>(values->size() / 2);
+        std::ranges::nth_element(*values, middle);
+        return *middle;
+    };
+    const float sun_light = core::at(model.sun, channel);
+    std::vector<Sides> sides;
+    for (std::size_t mi = 0; mi < meshes.size() && mi < light.size(); ++mi) {
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const RelitVertices& vertices = core::at(light, mi);
+        if (one_colour(mesh, vertices)) {
+            continue;
+        }
+        Sides made;
+        std::vector<float> toward_baked;
+        std::vector<float> away_baked;
+        std::vector<float> away_model;
+        const std::size_t count = std::min(vertices.size(), mesh.colours.size());
+        for (std::size_t vi = 0; vi < count; ++vi) {
+            const RelitVertex& vertex = core::at(vertices, vi);
+            const Rgbf colour = colour_light(core::at(mesh.colours, vi));
+            const float y = core::at(colour, channel);
+            if (!vertex.used || y < kBlackLight) {
+                continue;
+            }
+            const float nl = dot(vertex.normal, model.toward);
+            RelitVertex shaded = vertex;
+            shaded.sun = 0.0F;
+            const Rgbf unlit = model_light(model, model.sun, shaded, model.toward);
+            const float rest = core::at(unlit, channel);
+            if (nl > kFacingSun && vertex.sun > kSunlitShare) {
+                made.toward.push_back({.sun = sun_light * vertex.sun * nl, .rest = rest});
+                toward_baked.push_back(y);
+            } else if (nl < 0.0F && rest > kLeastLight) {
+                away_baked.push_back(y);
+                away_model.push_back(rest);
+            }
+        }
+        if (made.toward.size() < kFacingLeast || away_baked.size() < kFacingLeast) {
+            continue;
+        }
+        made.toward_baked = median_of(&toward_baked);
+        made.away_ratio = std::log(median_of(&away_baked) / median_of(&away_model));
+        sides.push_back(std::move(made));
+    }
+    if (sides.size() < kFacingMeshes) {
+        return 1.0F;
+    }
+    // the meshes' median of log(the model's toward over away / the bake's) at a factor k on the sun: rises with k
+    std::vector<float> lights;
+    std::vector<float> misses(sides.size());
+    const auto miss_at = [&](float factor) {
+        for (std::size_t si = 0; si < sides.size(); ++si) {
+            const Sides& each = core::at(sides, si);
+            lights.clear();
+            for (const Toward& vertex : each.toward) {
+                lights.push_back((factor * vertex.sun) + vertex.rest);
+            }
+            // (the bake's toward over away against the model's: log(model toward) - log(bake toward) + away_ratio)
+            core::at(misses, si) = std::log(std::max(median_of(&lights), kLeastLight) / each.toward_baked) + each.away_ratio;
+        }
+        return median_of(&misses);
+    };
+    float low = 1.0F / kFacingMostFactor;
+    float high = kFacingMostFactor;
+    if (miss_at(low) >= 0.0F) {
+        return low;
+    }
+    if (miss_at(high) <= 0.0F) {
+        return high;
+    }
+    for (int step = 0; step < kFacingSteps; ++step) {
+        const float middle = std::sqrt(low * high);
+        (miss_at(middle) < 0.0F ? low : high) = middle;
+    }
+    return std::sqrt(low * high);
+}
+
+// The model's light at a vertex at the bake (its sun toward the bake's, the missed sun with it): what its tint was
+// taken over.
+Rgbf baked_light(const RelitModel& model, const RelitVertex& vertex)
+{
+    RelitVertex at_bake = vertex;
+    at_bake.sun = vertex.sun_baked;
+    Rgbf out = model_light(model, model.sun, at_bake, model.toward);
+    const float nl = std::max(0.0F, dot(vertex.normal, model.toward));
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) += core::at(model.sun, ch) * nl * vertex.sun_missed;
     }
     return out;
 }
@@ -471,26 +679,54 @@ bool solve_square(const std::array<std::array<double, 3>, 3>& mi, const std::arr
 // share their surface's colour, so their colours' ratio is their light's - y_i E_j = y_j E_i, a condition on the
 // coefficients that no tint enters: (a, b, g) . (y_i x_j - y_j x_i) = 0, x = (S, K, B). Each edge gives one (its
 // difference d, over y_i + y_j so a dark pair counts as much as a bright one); the coefficients minimise the sum of
-// (beta . d)^2 with beta at least 0 and summing to 1 (the channel's scale isn't in the condition), reweighted
-// kFitRounds - 1 times toward the median residual (an edge across a change of colour - a painted stripe, a decal's
-// border - counts little). Also its objective (the last round's weights) and the least one without the sun's
-// coefficient (with nearly as small an objective, the bake's light needs no sun: an indoor level), and the median
-// residual (relative).
+// (beta . d)^2 with beta at least 0 and summing to 1 (the channel's scale isn't in the condition), each edge's over
+// (beta . c)^2 - c = y_i x_j + y_j x_i, beta the round before's -: (y_i E_j - y_j E_i) / (y_i E_j + y_j E_i) is half the
+// difference of the light's and the colours' log ratios along the edge (nearly), so an edge across a change of colour
+// (a painted stripe, the bake's own unevenness) misses by the same under any light. Measured in the light's own units
+// instead, the coefficients whose terms are small everywhere (the bounce's) made every such edge cheapest and took the
+// light from the sun (Berlin's fit found a fifth of its bake's sun so); over the light's mean, those that make the
+// light's contrast across edges large (the sun's) took it from the sky. Reweighted
+// kFitRounds - 1 times toward the median residual (an edge across a change of colour counts little). Also its
+// objective (the last round's weights) and the least one without the sun's coefficient (with nearly as small an
+// objective, the bake's light needs no sun: an indoor level), and the median residual (relative).
+struct PairEdge {
+    std::array<float, 3> difference{}; // d
+    std::array<float, 3> across{};     // c: (y_i x_j + y_j x_i), over y_i + y_j as d
+    float trust = 1.0F;                // how far the edge counts (a traced shadow's edge: the bake's agreement there)
+};
 struct PairFit {
     std::array<double, 3> beta{};
     double objective = 0.0;
     double without_sun = 0.0;
     double spread = 0.0;
 };
-PairFit pair_direction(std::span<const std::array<float, 3>> differences)
+PairFit pair_direction(std::span<const PairEdge> edges)
 {
     PairFit fit;
-    std::vector<double> weights(differences.size(), 1.0);
+    std::vector<double> robust(edges.size(), 1.0);
+    std::vector<double> weights(edges.size(), 1.0);
     std::array<double, 3> beta{kThird, kThird, kThird};
+    const auto dot3 = [](const std::array<double, 3>& coefficients, const std::array<float, 3>& terms) {
+        return (core::at(coefficients, 0) * core::at(terms, 0)) + (core::at(coefficients, 1) * core::at(terms, 1)) +
+               (core::at(coefficients, 2) * core::at(terms, 2));
+    };
+    const auto light_of = [&dot3](const std::array<double, 3>& coefficients, const std::array<float, 3>& terms) {
+        return std::max(dot3(coefficients, terms), kLeastEdgeLight);
+    };
+    // an edge's error under `coefficients`: |beta . d| / (beta . c), at most 1 (d's parts are never more than c's);
+    // 1 where the light is none - colours the model gives no light to are its worst miss, not a free one
+    const auto relative = [&dot3](const std::array<double, 3>& coefficients, const PairEdge& edge) {
+        const double light = dot3(coefficients, edge.across);
+        return light > kSingular ? std::min(std::abs(dot3(coefficients, edge.difference)) / light, 1.0) : 1.0;
+    };
     for (int round = 0; round < kFitRounds; ++round) {
+        for (std::size_t idx = 0; idx < edges.size(); ++idx) {
+            const double light = light_of(beta, core::at(edges, idx).across);
+            core::at(weights, idx) = core::at(robust, idx) * core::at(edges, idx).trust / (light * light);
+        }
         std::array<std::array<double, 3>, 3> mi{};
-        for (std::size_t idx = 0; idx < differences.size(); ++idx) {
-            const std::array<float, 3>& dv = core::at(differences, idx);
+        for (std::size_t idx = 0; idx < edges.size(); ++idx) {
+            const std::array<float, 3>& dv = core::at(edges, idx).difference;
             for (std::size_t row = 0; row < 3; ++row) {
                 for (std::size_t ch = 0; ch < 3; ++ch) {
                     core::at(core::at(mi, row), ch) += core::at(weights, idx) * core::at(dv, row) * core::at(dv, ch);
@@ -517,11 +753,11 @@ PairFit pair_direction(std::span<const std::array<float, 3>> differences)
             if (std::ranges::any_of(candidate, [](double pb) { return pb < 0.0; })) {
                 continue;
             }
+            // (judged by the edges' own relative errors under it: the least squares' weights are the round before's)
             double objective = 0.0;
-            for (std::size_t row = 0; row < 3; ++row) {
-                for (std::size_t ch = 0; ch < 3; ++ch) {
-                    objective += core::at(candidate, row) * core::at(core::at(mi, row), ch) * core::at(candidate, ch);
-                }
+            for (std::size_t idx = 0; idx < edges.size(); ++idx) {
+                const double error = relative(candidate, core::at(edges, idx));
+                objective += core::at(robust, idx) * core::at(edges, idx).trust * error * error;
             }
             if (best < 0.0 || objective < best) {
                 best = objective;
@@ -531,12 +767,9 @@ PairFit pair_direction(std::span<const std::array<float, 3>> differences)
                 best_without_sun = objective;
             }
         }
-        std::vector<double> residuals(differences.size());
-        for (std::size_t idx = 0; idx < differences.size(); ++idx) {
-            const std::array<float, 3>& dv = core::at(differences, idx);
-            core::at(residuals, idx) =
-                std::abs((core::at(beta, 0) * core::at(dv, 0)) + (core::at(beta, 1) * core::at(dv, 1)) +
-                         (core::at(beta, 2) * core::at(dv, 2)));
+        std::vector<double> residuals(edges.size());
+        for (std::size_t idx = 0; idx < edges.size(); ++idx) {
+            core::at(residuals, idx) = relative(beta, core::at(edges, idx));
         }
         std::vector<double> sorted = residuals;
         const auto middle = sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2);
@@ -545,8 +778,8 @@ PairFit pair_direction(std::span<const std::array<float, 3>> differences)
         fit.spread = *middle;
         fit.objective = std::max(best, 0.0);
         fit.without_sun = std::max(best_without_sun, 0.0);
-        for (std::size_t idx = 0; idx < differences.size(); ++idx) {
-            core::at(weights, idx) = 1.0 / std::max(core::at(residuals, idx), floor);
+        for (std::size_t idx = 0; idx < edges.size(); ++idx) {
+            core::at(robust, idx) = 1.0 / std::max(core::at(residuals, idx), floor);
         }
     }
     fit.beta = beta;
@@ -868,7 +1101,8 @@ void trace_relit_light(std::span<const RelitMesh> meshes, std::span<const uint8_
 }
 
 void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitParams& params,
-                     RayTracing& tracer, std::vector<RelitVertices>* light, RelitStats* stats)
+                     RayTracing& tracer, std::vector<RelitVertices>* light, RelitStats* stats,
+                     std::span<const std::vector<Rgbf>> local)
 {
     if (light->size() != meshes.size()) {
         return;
@@ -890,7 +1124,8 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                                      .direction = hemisphere_direction(vertex.normal, basis,
                                                                        {.index = idx, .count = sky_rays, .turn = turn}),
                                      .max_distance = kRelitRayLength,
-                                     .cull_mask = kRelitWorldMask});
+                                     .cull_mask = kRelitWorldMask,
+                                     .cutouts = true});
             }
         },
         [&](const VertexRef& ref, std::span<const ProbeResult> answers) {
@@ -905,6 +1140,7 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                 static_cast<double>(hashed(static_cast<uint32_t>((ref.mesh * kMeshSalt) + ref.vertex))) * kHashScale;
             uint32_t open = 0;
             Rgbf bounce{};
+            Rgbf bounce_local{};
             for (uint32_t idx = 0; idx < ref.count; ++idx) {
                 const ProbeResult& answer = core::at(answers, idx);
                 if (!answer.hit) {
@@ -917,17 +1153,28 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                 }
                 const Vec3 direction =
                     hemisphere_direction(vertex.normal, basis, {.index = idx, .count = ref.count, .turn = turn});
-                const Rgbf there = colour_at(core::at(meshes, found->second), answer.primitive,
-                                             plus(origin, scaled(direction, answer.distance)));
+                const Vec3 point = plus(origin, scaled(direction, answer.distance));
+                const Rgbf there = colour_at(core::at(meshes, found->second), answer.primitive, point);
                 for (std::size_t ch = 0; ch < bounce.size(); ++ch) {
                     core::at(bounce, ch) += core::at(there, ch);
+                }
+                if (found->second < local.size()) {
+                    const Rgbf own = light_at(core::at(meshes, found->second), core::at(local, found->second),
+                                              answer.primitive, point);
+                    for (std::size_t ch = 0; ch < bounce.size(); ++ch) {
+                        core::at(bounce_local, ch) += core::at(own, ch);
+                    }
                 }
             }
             vertex.sky = static_cast<float>(open) / static_cast<float>(ref.count);
             for (float& ch : bounce) {
                 ch /= static_cast<float>(ref.count);
             }
+            for (float& ch : bounce_local) {
+                ch /= static_cast<float>(ref.count);
+            }
             vertex.bounce = bounce;
+            vertex.bounce_local = bounce_local;
         });
 }
 
@@ -968,7 +1215,8 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                     {.origin = origin,
                      .direction = sun_direction(sun, sides, {.index = idx, .count = sun_rays, .turn = turn}, radius),
                      .max_distance = kRelitRayLength,
-                     .cull_mask = kRelitWorldMask});
+                     .cull_mask = kRelitWorldMask,
+                     .cutouts = true});
             }
         },
         [&](const VertexRef& ref, std::span<const ProbeResult> answers) {
@@ -987,7 +1235,7 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
     model.toward = normalised(toward);
     const std::size_t count = std::min(meshes.size(), light.size());
     // each mesh edge's difference (pair_direction), per channel; the vertices' terms and colours for the scale
-    std::array<std::vector<std::array<float, 3>>, 3> differences;
+    std::array<std::vector<PairEdge>, 3> differences;
     struct Term {
         std::array<Rgbf, 3> x{}; // per channel: S, K, B
         Rgbf y{};
@@ -1005,23 +1253,36 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
             const RelitVertex& vertex = core::at(vertices, vi);
             return std::array<float, 3>{sun_term(vertex, model.toward), vertex.sky, core::at(vertex.bounce, ch)};
         };
-        for (const auto& [one, two, three] : mesh.triangles) {
+        // (a mesh of one colour all over wasn't lit by the bake - painted one colour - and tells nothing of its light:
+        // its edges left out; its vertices still count toward the scale)
+        const bool painted = one_colour(mesh, vertices);
+        model.one_colour_meshes += painted ? 1 : 0;
+        const std::span<const std::array<uint32_t, 3>> triangles =
+            painted ? std::span<const std::array<uint32_t, 3>>() : std::span<const std::array<uint32_t, 3>>(mesh.triangles);
+        for (const auto& [one, two, three] : triangles) {
             for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
                 if (iv == ja || !lit(iv) || !lit(ja)) {
                     continue;
                 }
                 const Rgbf yi = colour_light(core::at(mesh.colours, iv));
                 const Rgbf yj = colour_light(core::at(mesh.colours, ja));
+                const float trust = shadow_edge_trust(mesh, vertices, {iv, ja});
+                if (!(trust > 0.0F)) {
+                    continue;
+                }
                 for (std::size_t ch = 0; ch < differences.size(); ++ch) {
                     const std::array<float, 3> xi = x_of_vertex(iv, ch);
                     const std::array<float, 3> xj = x_of_vertex(ja, ch);
                     const float over = 1.0F / std::max(core::at(yi, ch) + core::at(yj, ch), kLeastLight);
-                    std::array<float, 3> dv{};
-                    for (std::size_t idx = 0; idx < dv.size(); ++idx) {
-                        core::at(dv, idx) =
+                    PairEdge edge;
+                    edge.trust = trust;
+                    for (std::size_t idx = 0; idx < edge.difference.size(); ++idx) {
+                        core::at(edge.difference, idx) =
                             ((core::at(yi, ch) * core::at(xj, idx)) - (core::at(yj, ch) * core::at(xi, idx))) * over;
+                        core::at(edge.across, idx) =
+                            ((core::at(yi, ch) * core::at(xj, idx)) + (core::at(yj, ch) * core::at(xi, idx))) * over;
                     }
-                    core::at(differences, ch).push_back(dv);
+                    core::at(differences, ch).push_back(edge);
                 }
             }
         }
@@ -1068,8 +1329,136 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
     }
     model.error = static_cast<float>(spread);
     model.sun_needed = with_sun > 0.0 ? static_cast<float>(without_sun / with_sun) : 0.0F;
+    // the sun's strength against the rest told by which way the faces turn (facing_calibration), then each channel's
+    // scale again (the median tint 1)
+    Rgbf factors{1.0F, 1.0F, 1.0F};
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        core::at(factors, ch) = facing_calibration(meshes.first(count), light.first(count), model, ch);
+    }
+    model.sun_calibration = luma(factors);
+    if (factors != Rgbf{1.0F, 1.0F, 1.0F}) {
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            core::at(model.sun, ch) *= core::at(factors, ch);
+        }
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            std::vector<double> ratios;
+            for (const Term& term : terms) {
+                const std::array<float, 3>& x = core::at(term.x, ch);
+                const double en = (core::at(model.sun, ch) * core::at(x, 0)) + (core::at(model.sky, ch) * core::at(x, 1)) +
+                                  (core::at(model.bounce, ch) * core::at(x, 2));
+                if (en > kSingular) {
+                    ratios.push_back(core::at(term.y, ch) / en);
+                }
+            }
+            if (ratios.empty()) {
+                continue;
+            }
+            const auto middle = ratios.begin() + static_cast<std::ptrdiff_t>(ratios.size() / 2);
+            std::ranges::nth_element(ratios, middle);
+            const auto again = static_cast<float>(*middle);
+            core::at(model.sun, ch) *= again;
+            core::at(model.sky, ch) *= again;
+            core::at(model.bounce, ch) *= again;
+        }
+    }
     // (sun_needed is only reported: a bake with no sun is told by rt_sun.h's fit, before this one runs)
     model.valid = luma(model.sun) >= kMinSunLight;
+    // (reported: the traced sun's edges - a vertex in the rays' sun beside one in their shade, facing the same way -
+    // their colours' ratio in the bake and their light's in the model, the medians: the sun's strength told from the
+    // shadows alone)
+    std::vector<float> baked_ratios;
+    std::vector<float> model_ratios;
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const RelitVertices& vertices = core::at(light, mi);
+        if (one_colour(mesh, vertices)) {
+            continue;
+        }
+        const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
+        for (const auto& [one, two, three] : mesh.triangles) {
+            for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
+                if (iv >= vertex_count || ja >= vertex_count || iv == ja) {
+                    continue;
+                }
+                const RelitVertex& first = core::at(vertices, iv);
+                const RelitVertex& second = core::at(vertices, ja);
+                const float yi = luma(colour_light(core::at(mesh.colours, iv)));
+                const float yj = luma(colour_light(core::at(mesh.colours, ja)));
+                if (!first.used || !second.used || yi < kBlackLight || yj < kBlackLight ||
+                    dot(first.normal, second.normal) < kShadowEdgeFacing) {
+                    continue;
+                }
+                const float si = sun_term(first, model.toward);
+                const float sj = sun_term(second, model.toward);
+                if (std::abs(si - sj) < kShadowEdgeStep) {
+                    continue;
+                }
+                if (shadow_edge_trust(mesh, vertices, {iv, ja}) >= 1.0F) {
+                    ++model.shadow_edges_kept;
+                }
+                const bool first_lit = si > sj;
+                const float lit_light = luma(model_light(model, model.sun, first_lit ? first : second, model.toward));
+                const float shade_light = luma(model_light(model, model.sun, first_lit ? second : first, model.toward));
+                baked_ratios.push_back(first_lit ? yi / yj : yj / yi);
+                model_ratios.push_back(lit_light / std::max(shade_light, kLeastLight));
+            }
+        }
+    }
+    const auto median_of = [](std::vector<float>* values) {
+        if (values->empty()) {
+            return 0.0F;
+        }
+        const auto middle = values->begin() + static_cast<std::ptrdiff_t>(values->size() / 2);
+        std::ranges::nth_element(*values, middle);
+        return *middle;
+    };
+    // (reported) the faces toward the sun in the rays' sun against those turned from it: their colours' medians' ratio
+    // in the bake, and their light's in the model - the sun's strength told by which way surfaces face, not by shadows
+    {
+        std::vector<float> toward_baked;
+        std::vector<float> toward_model;
+        std::vector<float> away_baked;
+        std::vector<float> away_model;
+        for (std::size_t mi = 0; mi < count; ++mi) {
+            const RelitMesh& mesh = core::at(meshes, mi);
+            const RelitVertices& vertices = core::at(light, mi);
+            if (one_colour(mesh, vertices)) {
+                continue;
+            }
+            const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
+            for (std::size_t vi = 0; vi < vertex_count; ++vi) {
+                const RelitVertex& vertex = core::at(vertices, vi);
+                const float y = luma(colour_light(core::at(mesh.colours, vi)));
+                if (!vertex.used || y < kBlackLight) {
+                    continue;
+                }
+                const float nl = dot(vertex.normal, model.toward);
+                const float lit = luma(model_light(model, model.sun, vertex, model.toward));
+                if (nl > kFacingSun && vertex.sun > kSunlitShare) {
+                    toward_baked.push_back(y);
+                    toward_model.push_back(lit);
+                } else if (nl < 0.0F) {
+                    away_baked.push_back(y);
+                    away_model.push_back(lit);
+                }
+            }
+        }
+        const auto median_of = [](std::vector<float>* values) {
+            if (values->empty()) {
+                return 0.0F;
+            }
+            const auto middle = values->begin() + static_cast<std::ptrdiff_t>(values->size() / 2);
+            std::ranges::nth_element(*values, middle);
+            return *middle;
+        };
+        const float away_bake = median_of(&away_baked);
+        const float away_lit = median_of(&away_model);
+        model.facing_baked = away_bake > 0.0F ? median_of(&toward_baked) / away_bake : 0.0F;
+        model.facing_model = away_lit > 0.0F ? median_of(&toward_model) / away_lit : 0.0F;
+    }
+    model.shadow_edges = baked_ratios.size();
+    model.shadow_baked = median_of(&baked_ratios);
+    model.shadow_model = median_of(&model_ratios);
     return model;
 }
 
@@ -1145,18 +1534,26 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
             }
             vertex.sun_baked = vertex.sun; // (traced toward the bake's sun for the analysis)
             relit_split_residual(*model, model->scale, &vertex);
-            baked_sum += luma(y);
-            relit_sum += luma(predicted) + luma(vertex.residual);
-            if (vertex.sun_missed > 0.0F) {
-                // (the missed sun counted with the model's light, as `predicted`)
-                const float nl = std::max(0.0F, dot(vertex.normal, model->toward));
-                Rgbf missed{};
-                for (std::size_t ch = 0; ch < 3; ++ch) {
-                    core::at(missed, ch) =
-                        core::at(vertex.tint, ch) * core::at(model->sun, ch) * nl * vertex.sun_missed;
-                }
-                relit_sum += luma(missed);
+        }
+    }
+    // the level's own lights across the meshes: what a lamp puts on its neighbours, it puts on a mesh it lights whole
+    relit_local_across(meshes.first(count), wanted, *model, std::span<RelitVertices>(*light).first(count));
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        if (!is_wanted(wanted, mi)) {
+            continue;
+        }
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const RelitVertices& vertices = core::at(*light, mi);
+        const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
+        for (std::size_t vi = 0; vi < vertex_count; ++vi) {
+            const RelitVertex& vertex = core::at(vertices, vi);
+            if (!vertex.used) {
+                continue;
             }
+            // (the model's light, the missed sun with it, over the tint; and the residual)
+            const Rgbf lit = baked_light(*model, vertex);
+            baked_sum += luma(colour_light(core::at(mesh.colours, vi)));
+            relit_sum += luma(times(vertex.tint, lit)) + luma(vertex.residual);
         }
     }
     if (rescale) {
@@ -1193,6 +1590,126 @@ void relit_split_residual(const RelitModel& model, float scale, RelitVertex* ver
     }
 }
 
+Rgbf relit_local_light(const RelitModel& model, const RelitVertex& vertex)
+{
+    const float scale = std::max(model.scale, kLeastScale);
+    Rgbf out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = core::at(vertex.residual, ch) / (scale * std::max(core::at(vertex.tint, ch), kLeastTint));
+    }
+    return out;
+}
+
+void relit_local_across(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitModel& model,
+                        std::span<RelitVertices> light)
+{
+    if (!model.valid) {
+        return;
+    }
+    const std::size_t count = std::min(meshes.size(), light.size());
+    // every vertex's own light per unit of its tint, in a grid kRelitLocalReach across
+    struct Evidence {
+        Vec3 at{};
+        Vec3 normal{};
+        Rgbf local{};
+        std::size_t mesh = 0;
+    };
+    std::vector<Evidence> evidence;
+    std::unordered_map<int64_t, std::vector<uint32_t>> grid;
+    const auto cell_of = [](float value) { return static_cast<int64_t>(std::floor(value / kRelitLocalReach)); };
+    const auto key_of = [](int64_t x, int64_t y, int64_t z) {
+        constexpr int64_t kBits = 21;
+        constexpr int64_t kMask = (int64_t{1} << kBits) - 1;
+        constexpr int64_t kBias = int64_t{1} << (kBits - 1);
+        return ((x + kBias) & kMask) | (((y + kBias) & kMask) << kBits) | (((z + kBias) & kMask) << (2 * kBits));
+    };
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const RelitVertices& vertices = core::at(light, mi);
+        const std::size_t vertex_count = std::min(vertices.size(), mesh.positions.size());
+        for (std::size_t vi = 0; vi < vertex_count; ++vi) {
+            const RelitVertex& vertex = core::at(vertices, vi);
+            if (!vertex.used) {
+                continue;
+            }
+            const Vec3& at = core::at(mesh.positions, vi);
+            grid[key_of(cell_of(x_of(at)), cell_of(y_of(at)), cell_of(z_of(at)))].push_back(
+                static_cast<uint32_t>(evidence.size()));
+            evidence.push_back(
+                {.at = at, .normal = vertex.normal, .local = relit_local_light(model, vertex), .mesh = mi});
+        }
+    }
+    const float scale = std::max(model.scale, kLeastScale);
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        if (!is_wanted(wanted, mi)) {
+            continue;
+        }
+        const RelitMesh& mesh = core::at(meshes, mi);
+        RelitVertices& vertices = core::at(light, mi);
+        const std::size_t vertex_count = std::min({vertices.size(), mesh.positions.size(), mesh.colours.size()});
+        for (std::size_t vi = 0; vi < vertex_count; ++vi) {
+            RelitVertex& vertex = core::at(vertices, vi);
+            if (!vertex.used) {
+                continue;
+            }
+            const Vec3& at = core::at(mesh.positions, vi);
+            const int64_t cx = cell_of(x_of(at));
+            const int64_t cy = cell_of(y_of(at));
+            const int64_t cz = cell_of(z_of(at));
+            Rgbf sum{};
+            float weights = 0.0F;
+            for (int64_t dz = -1; dz <= 1; ++dz) {
+                for (int64_t dy = -1; dy <= 1; ++dy) {
+                    for (int64_t dx = -1; dx <= 1; ++dx) {
+                        const auto found = grid.find(key_of(cx + dx, cy + dy, cz + dz));
+                        if (found == grid.end()) {
+                            continue;
+                        }
+                        for (const uint32_t index : found->second) {
+                            const Evidence& other = core::at(evidence, index);
+                            if (other.mesh == mi) {
+                                continue; // (its own mesh's word is the vertex's own)
+                            }
+                            const float facing = dot(other.normal, vertex.normal);
+                            if (facing <= kRelitLocalFacing) {
+                                continue;
+                            }
+                            const Vec3 apart = minus(other.at, at);
+                            const float closeness = 1.0F - (dot(apart, apart) / (kRelitLocalReach * kRelitLocalReach));
+                            if (closeness <= 0.0F) {
+                                continue;
+                            }
+                            const float weight = facing * facing * closeness * closeness;
+                            for (std::size_t ch = 0; ch < sum.size(); ++ch) {
+                                core::at(sum, ch) += weight * core::at(other.local, ch);
+                            }
+                            weights += weight;
+                        }
+                    }
+                }
+            }
+            if (!(weights > kRelitLocalLeastWeight)) {
+                continue;
+            }
+            const Rgbf around = scaled(sum, 1.0F / weights);
+            const Rgbf lit = baked_light(model, vertex);
+            const float own = luma(relit_local_light(model, vertex));
+            if (!(luma(around) > own * kRelitLocalOver) || !(luma(around) > kRelitLocalLeast * luma(lit))) {
+                continue; // (the vertex's own neighbourhood found as much, or the lamps light it next to nothing)
+            }
+            // the colour taken apart again with the neighbours' local light: its tint over the model's light and that
+            // light, the residual the rest (so the bake comes back exactly)
+            const Rgbf y = colour_light(core::at(mesh.colours, vi));
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                const float whole = std::max(scale * (core::at(lit, ch) + core::at(around, ch)), kLeastLight);
+                core::at(vertex.tint, ch) = std::clamp(core::at(y, ch) / whole, 0.0F, kRelitMaxTint);
+                core::at(vertex.residual, ch) =
+                    std::max(0.0F, core::at(y, ch) - (scale * core::at(vertex.tint, ch) * core::at(lit, ch)));
+            }
+        }
+    }
+}
+
 float relit_missed_trust(const RelitModel& model, const Vec3& toward)
 {
     const float cosine = dot(normalised(model.toward), normalised(toward));
@@ -1210,9 +1727,12 @@ RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const
         core::at(pa, ch) = core::at(model.sun, ch) * core::at(lighting.sun_colour, ch) * core::at(lighting.direct_scale, ch);
     }
     RelitModel scaled = model;
+    Rgbf bounced{}; // (the bounce: the sun's and the sky's part at the clock's strength, the level's own lights' whole)
     for (std::size_t ch = 0; ch < pa.size(); ++ch) {
         core::at(scaled.sky, ch) *= core::at(lighting.sky_scale, ch);
-        core::at(scaled.bounce, ch) *= core::at(lighting.bounce_scale, ch);
+        const float local = std::min(core::at(vertex.bounce_local, ch), core::at(vertex.bounce, ch));
+        core::at(bounced, ch) =
+            ((core::at(vertex.bounce, ch) - local) * core::at(lighting.bounce_scale, ch)) + local;
     }
     const Vec3 toward = normalised(lighting.toward);
     // (the bake's sun the tracer missed - only toward the bake's own sun)
@@ -1222,7 +1742,7 @@ RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const
     for (std::size_t ch = 0; ch < pa.size(); ++ch) {
         core::at(out.direct, ch) = core::at(pa, ch) * nl * seen;
         core::at(out.indirect, ch) = (core::at(scaled.sky, ch) * vertex.sky) +
-                                     (core::at(scaled.bounce, ch) * core::at(vertex.bounce, ch));
+                                     (core::at(model.bounce, ch) * core::at(bounced, ch));
     }
     return out;
 }

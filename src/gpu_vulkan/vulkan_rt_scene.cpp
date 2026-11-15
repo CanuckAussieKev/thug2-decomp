@@ -24,6 +24,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
@@ -285,12 +286,13 @@ struct PackedHit {
 constexpr uint32_t kProbeHitFlag = 1;
 constexpr uint32_t kProbeFrontFlag = 2;
 
-constexpr const char* kProbeShader = R"(#version 460
-#extension GL_EXT_ray_query : require
+// (the shader's head: the TLAS, the material table at set 1 and the geometry table at binding 3 - for the cut-outs - go
+// before it: probe_source)
+constexpr const char* kProbeShader = R"(
 layout(local_size_x = 64) in;
-layout(set = 0, binding = 0) uniform accelerationStructureEXT scene;
-struct Ray { vec4 origin_t_min; vec4 direction_t_max; uvec4 cull_mask; };
+struct Ray { vec4 origin_t_min; vec4 direction_t_max; uvec4 cull_mask; }; // (cull_mask.y: 1 - the cut-outs by alpha)
 struct Hit { float t; uint instance; uint custom_index; uint primitive; vec2 barycentrics; uint flags; uint pad; };
+const uint PROBE_OBJECT_FLAG = 32u; // (rt::kObject)
 layout(std430, set = 0, binding = 1) readonly buffer Rays { Ray rays[]; };
 layout(std430, set = 0, binding = 2) writeonly buffer Hits { Hit hits[]; };
 layout(push_constant) uniform Count { uint count; } given;
@@ -301,10 +303,21 @@ void main()
         return;
     }
     Ray ray = rays[i];
+    bool cutouts = (ray.cull_mask.y & 1u) != 0u;
     rayQueryEXT query;
-    rayQueryInitializeEXT(query, scene, gl_RayFlagsOpaqueEXT, ray.cull_mask.x & 0xFFu, ray.origin_t_min.xyz, ray.origin_t_min.w,
-                          ray.direction_t_max.xyz, ray.direction_t_max.w);
+    rayQueryInitializeEXT(query, u_scene, cutouts ? gl_RayFlagsNoneEXT : gl_RayFlagsOpaqueEXT, ray.cull_mask.x & 0xFFu,
+                          ray.origin_t_min.xyz, ray.origin_t_min.w, ray.direction_t_max.xyz, ray.direction_t_max.w);
     while (rayQueryProceedEXT(query)) {
+        // (the cut-outs: the one lighting path's test - vulkan_rt_scene.h cutout_rays_glsl -; an object's never)
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+            uint instance = rayQueryGetIntersectionInstanceIdEXT(query, false);
+            if ((geometry_record(instance).instance_flags & PROBE_OBJECT_FLAG) == 0u &&
+                cutout_kept(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
+                            rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
+                            rayQueryGetIntersectionBarycentricsEXT(query, false))) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
     }
     Hit hit;
     hit.t = 0.0;
@@ -808,19 +821,38 @@ std::string missing_for_ray_tracing(const Backend& state)
 
 // --- the probe's pass -----------------------------------------------------------------------------------------------
 
-bool make_probe_pass(Scene& made)
+// The probe's shader: the TLAS (u_scene), the material table (set 1) and the frame's geometry table (binding 3) - the
+// one lighting path's cut-out test with them -, then its body.
+std::string probe_source()
+{
+    std::string source = "#version 460\n#extension GL_EXT_ray_query : require\n";
+    source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
+    source += "#define THUG2_MATERIAL_SET 1\n";
+    source += material_glsl();
+    source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 3\n";
+    source += kGeometryGlsl;
+    source += cutout_rays_glsl();
+    source += kProbeShader;
+    return source;
+}
+
+bool make_probe_pass(Scene& made, const Backend& state)
 {
     ProbePass& pass = made.probe;
     if (pass.tried) {
         return pass.pipeline != VK_NULL_HANDLE;
     }
     pass.tried = true;
-    const CompiledShader compiled = compile_rt_glsl(RtShaderStage::kCompute, kProbeShader);
+    if (!state.materials.ready()) {
+        get_log("vulkan: the ray probe has no material table (its cut-outs' test)");
+        return false;
+    }
+    const CompiledShader compiled = compile_rt_glsl(RtShaderStage::kCompute, probe_source());
     if (!compiled.ok) {
         get_log("vulkan: the ray probe's shader doesn't compile: %s", compiled.log.c_str());
         return false;
     }
-    const std::array<VkDescriptorSetLayoutBinding, 3> bindings{{
+    const std::array<VkDescriptorSetLayoutBinding, 4> bindings{{
         {.binding = 0,
          .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
          .descriptorCount = 1,
@@ -836,6 +868,11 @@ bool make_probe_pass(Scene& made)
          .descriptorCount = 1,
          .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
          .pImmutableSamplers = nullptr},
+        {.binding = 3, // (the frame's geometry table: the cut-outs' texture coordinates)
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .descriptorCount = 1,
+         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+         .pImmutableSamplers = nullptr},
     }};
     const VkDescriptorSetLayoutCreateInfo layout{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                  .pNext = nullptr,
@@ -846,11 +883,12 @@ bool make_probe_pass(Scene& made)
     if (vkCreateDescriptorSetLayout(made.device, &layout, nullptr, &pass.layout) != VK_SUCCESS) {
         return false;
     }
+    const std::array<VkDescriptorSetLayout, 2> set_layouts{pass.layout, state.materials.layout()};
     const VkPipelineLayoutCreateInfo pipeline_layout{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                                      .pNext = nullptr,
                                                      .flags = 0,
-                                                     .setLayoutCount = 1,
-                                                     .pSetLayouts = &pass.layout,
+                                                     .setLayoutCount = static_cast<uint32_t>(set_layouts.size()),
+                                                     .pSetLayouts = set_layouts.data(),
                                                      .pushConstantRangeCount = 1,
                                                      .pPushConstantRanges = &push};
     if (vkCreatePipelineLayout(made.device, &pipeline_layout, nullptr, &pass.pipeline_layout) != VK_SUCCESS) {
@@ -886,7 +924,7 @@ bool make_probe_pass(Scene& made)
     }
     const std::array<VkDescriptorPoolSize, 2> sizes{{
         {.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 1},
-        {.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 2},
+        {.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 3},
     }};
     const VkDescriptorPoolCreateInfo pool{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                                           .pNext = nullptr,
@@ -1662,7 +1700,8 @@ void VulkanRayTracing::probe_many(std::span<const rt::ProbeRequest> rays, std::v
                                                  length > 0.0F ? std::get<2>(way) * scale : 1.0F},
                                    .t_min = 0.0F,
                                    .t_max = length > 0.0F ? ray.max_distance : 0.0F,
-                                   .cull_mask = ray.cull_mask & rt::kAllMasks};
+                                   .cull_mask = ray.cull_mask & rt::kAllMasks,
+                                   .cutouts = ray.cutouts};
         }
         if (trace_rays_now(traced, &hits) != TraceResult::kTraced || hits.size() != count) {
             return;
@@ -1712,6 +1751,15 @@ std::string_view scene_geometry_glsl() { return kGeometryGlsl; }
 std::string_view cutout_rays_glsl()
 {
     static constexpr const char* kCutoutRays = R"(
+bool cutout_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
+{
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return true;
+    }
+    return material_alpha_passes_at(id, hit_uv(v, barycentrics));
+}
+
 bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach)
 {
     if (mask == 0u || reach <= 0.0) {
@@ -1720,17 +1768,12 @@ bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach)
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0, direction, reach);
     while (rayQueryProceedEXT(query)) {
-        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
-            uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
-            HitVertices v;
-            bool keep = true;
-            if (hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, false),
-                             rayQueryGetIntersectionPrimitiveIndexEXT(query, false), v)) {
-                keep = material_alpha_passes_at(id, hit_uv(v, rayQueryGetIntersectionBarycentricsEXT(query, false)));
-            }
-            if (keep) {
-                rayQueryConfirmIntersectionEXT(query);
-            }
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
+            cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                        rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
+                        rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
+                        rayQueryGetIntersectionBarycentricsEXT(query, false))) {
+            rayQueryConfirmIntersectionEXT(query);
         }
     }
     return rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionNoneEXT;
@@ -1852,7 +1895,7 @@ TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHi
     if (rays.empty()) {
         return TraceResult::kTraced;
     }
-    if (!make_probe_pass(made)) {
+    if (!make_probe_pass(made, state)) {
         return TraceResult::kFailed;
     }
     // the frame's work (the TLAS's build among it) run first
@@ -1881,7 +1924,7 @@ TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHi
                                                     std::get<2>(ray.origin), ray.t_min},
                                    .direction_t_max = {std::get<0>(ray.direction), std::get<1>(ray.direction),
                                                        std::get<2>(ray.direction), ray.t_max},
-                                   .cull_mask = {ray.cull_mask, 0, 0, 0}};
+                                   .cull_mask = {ray.cull_mask, ray.cutouts ? 1U : 0U, 0, 0}};
         }
         std::memcpy(ray_buffer.mapped, packed.data(), ray_bytes);
         state.memory.flush(ray_buffer, 0, ray_bytes);
@@ -1893,7 +1936,8 @@ TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHi
         .pAccelerationStructures = &frame.tlas.handle};
     const VkDescriptorBufferInfo ray_info{.buffer = ray_buffer.buffer, .offset = 0, .range = ray_bytes};
     const VkDescriptorBufferInfo hit_info{.buffer = hit_buffer.buffer, .offset = 0, .range = hit_bytes};
-    const std::array<VkWriteDescriptorSet, 3> writes{{
+    const VkDescriptorBufferInfo geometry_info{.buffer = frame.geometry.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+    const std::array<VkWriteDescriptorSet, 4> writes{{
         {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
          .pNext = &structure,
          .dstSet = made.probe.set,
@@ -1924,8 +1968,19 @@ TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHi
          .pImageInfo = nullptr,
          .pBufferInfo = &hit_info,
          .pTexelBufferView = nullptr},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+         .pNext = nullptr,
+         .dstSet = made.probe.set,
+         .dstBinding = 3,
+         .dstArrayElement = 0,
+         .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .pImageInfo = nullptr,
+         .pBufferInfo = &geometry_info,
+         .pTexelBufferView = nullptr},
     }};
     vkUpdateDescriptorSets(made.device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+    const VkDescriptorSet material_set = state.materials.descriptor_set();
     const auto count = static_cast<uint32_t>(rays.size());
     const bool ran = state.memory.submit_now([&](VkCommandBuffer commands) {
         barrier(commands, VK_PIPELINE_STAGE_HOST_BIT | kBuildStage,
@@ -1933,8 +1988,9 @@ TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHi
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.probe.pipeline);
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.probe.pipeline_layout, 0, 1,
-                                &made.probe.set, 0, nullptr);
+        const std::array<VkDescriptorSet, 2> sets{made.probe.set, material_set};
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.probe.pipeline_layout, 0,
+                                static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
         vkCmdPushConstants(commands, made.probe.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(count),
                            &count);
         vkCmdDispatch(commands, (count + kProbeGroup - 1) / kProbeGroup, 1, 1);

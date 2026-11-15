@@ -72,6 +72,19 @@ private:
     }
 };
 
+// NOT ORIGINAL - the one lighting path (engine/gfx/rt_light_field.h local_at): the level's own lights - the lamps and
+// glows the relit level keeps as its residual - where the thing whose lights plat_apply_scene_lights made last stands, as
+// a light of its own: its ambient part is in the ambient sent, its directional part goes to the device as light
+// kLocalLightIndex (pc_instance.cpp send_lights), on while there is one. A skater facing a lamp-lit wall is lit by the
+// lamp as the wall facing it is.
+inline constexpr uint32_t kLocalLightIndex = 2;
+struct LocalLightSent {
+    bool on = false;
+    std::array<float, 3> direction{0.0F, -1.0F, 0.0F}; // the way the light travels (D3D's), from where it comes
+    std::array<float, 3> colour{};
+};
+[[nodiscard]] const LocalLightSent& local_light_sent();
+
 // 0x004B67E0: the scene's ambient colour sent to the renderer. True.
 bool update_ambient_light();
 // 0x004B6850: the scene's ambient colour into *out. Returns out.

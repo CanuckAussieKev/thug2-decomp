@@ -54,6 +54,7 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -1156,6 +1157,25 @@ void run_cutout(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tall
         std::vector<uint8_t> texels;
         const Compared got = run_case(gpu, cut, 0, points, lamps, 4, &passes, &texels);
         box_blocks() = true;
+        // (added by lighting round 4) the relit level's probe rays (RayTracing::probe_many): through the cut-out's holes
+        // when they ask for the cut-outs (ProbeRequest::cutouts - the same test), solid without; a ray at the box's side
+        const std::array<rt::ProbeRequest, 2> probes{{
+            {.origin = {-45.0F, 15.0F, 0.0F}, .direction = {1.0F, 0.0F, 0.0F}, .max_distance = 200.0F,
+             .cull_mask = rt::kRelitWorldMask, .cutouts = true},
+            {.origin = {-45.0F, 15.0F, 0.0F}, .direction = {1.0F, 0.0F, 0.0F}, .max_distance = 200.0F,
+             .cull_mask = rt::kRelitWorldMask, .cutouts = false},
+        }};
+        std::vector<rt::ProbeResult> probed;
+        rt::ray_tracing()->probe_many(probes, &probed);
+        constexpr float kBoxSide = 35.0F; // (from x -45 to the box's side at -10)
+        const auto at_box = [&](std::size_t index) {
+            return probed.size() == probes.size() && core::at(probed, index).hit &&
+                   std::abs(core::at(probed, index).distance - kBoxSide) < 0.5F;
+        };
+        const bool through = probed.size() == probes.size() && core::at(probed, 0).traced && !core::at(probed, 0).hit;
+        tally->check(hole ? (through && at_box(1)) : (at_box(0) && at_box(1)),
+                     hole ? "the probe's rays: through the cut-out's holes when they ask for the cut-outs, solid without"
+                          : "the probe's rays: the solid texels stop them either way");
         if (hole) {
             tally->check(passes == 1 && got.clear_cut > 5000 && got.wrong == 0 && got.shadowed_floor == 0,
                          text::format("its texels' alpha 0: the lamp's light through it, as without it - %d clear-cut "
