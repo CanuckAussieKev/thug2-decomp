@@ -27,6 +27,7 @@ Counters& counters()
 
 constexpr std::array<const char*, kLightPaths> kNames{"objects lit (field)", "objects lit (own lights)",
                                                        "unlit objects (field)", "unlit objects (own colours)",
+                                                       "unlit objects (the game's instance colour)",
                                                        "models (field)", "models (indoor colour)",
                                                        "particles (level whole)"};
 

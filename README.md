@@ -414,23 +414,23 @@ for the restart. Every setting is declared once in the settings model (`src/engi
 | `show_fps` | 0 | 1: a frame-rate counter in the top-right corner - frames drawn a second, the mean frame time, the 1% low and the game's own ticks a second (60 while it keeps up; orange below 57). `[Keybinds] FpsCounter=` (default F3) shows / hides it for the run |
 | `texture_set` | original | `original`, `pbrify` or `seedvr2`: the base game's textures upscaled by that AI model, made and installed side by side on your machine by `tools/pipeline/hd_textures/base.ts` (its README); a set that isn't installed: the original. The Options screen's Textures row (the sets installed) and the console's `textures <set>` switch it while you play: the level's textures are read again at once, other textures (skaters, peds) at their next load |
 | `ray_tracing` | 0 | On Vulkan: 1 turns on the GPU's ray-tracing extensions where it has them all (the effects below need it) |
-| `rt_shadows` | 0 | On Vulkan with `ray_tracing=1` (a GPU with ray queries, the 64-bit build): 1 adds ray-traced sun shadows - each pixel of the world darkened where the level blocks the sun |
-| `rt_shadow_strength` | 0.5 | How dark a ray-traced shadow is: the share of the colour it takes away (0-1) |
+| `rt_shadows` | 0 | On Vulkan with `ray_tracing=1` (a GPU with ray queries, the 64-bit build): 1 adds ray-traced sun shadows - each pixel of the world darkened where the level blocks the sun. On a level `rt_relit` lights, the pixel's own shadow takes the place of the one its colours were lit with (never one on top of the other) |
+| `rt_shadow_strength` | 0.5 | How dark a ray-traced shadow is: the share of the colour it takes away (0-1); on a relit level how far the pixel's own shadow replaces the level's (1: wholly) |
 | `rt_shadow_softness` | 0 | The sun's size in degrees (0-5): 0 gives hard edges, more gives soft ones traced with `rt_shadow_rays` rays a pixel |
 | `rt_shadow_rays` | 4 | Rays a pixel for soft shadows (1-16) |
 | `rt_shadow_objects` | 1 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too, and their own blocky shadows are hidden while the sun's are drawn (a level with no sun keeps them); 0: only the level casts, the skater keeps the game's shadow |
-| `rt_ao` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced ambient occlusion - corners, the ground under ledges and around objects darkened by how much of the sky they see |
+| `rt_ao` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced ambient occlusion - corners, the ground under ledges and around objects darkened by how much of the sky they see. With `rt_relit` on, the skater and the objects only: the relit level's occlusion is its own sky light's |
 | `rt_ao_strength` | 0.6 | How dark full occlusion is: the share of the colour it takes away (0-1) |
 | `rt_ao_radius` | 48 | How far (world units) a ray looks for something in the way (1-1000) |
 | `rt_ao_rays` | 4 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
 | `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
 | `rt_ao_characters` | 1 | How much of the occlusion the skater, the peds and the other skinned characters get (0-1; 0.5: half as dark in a corner) |
-| `rt_gi` | 0 | On Vulkan with `ray_tracing=1`: 1 adds one bounce of ray-traced light - shaded ground and corners beside sunlit walls pick up their colour and brightness (lit by the level's own sun; nothing changes in a level with none, indoors) |
+| `rt_gi` | 0 | On Vulkan with `ray_tracing=1`: 1 adds one bounce of ray-traced light - shaded ground and corners beside sunlit walls pick up their colour and brightness (lit by the level's own sun; nothing changes in a level with none, indoors). Out of effect with `rt_relit`: the relit level bounces its light itself (each light counted once) |
 | `rt_gi_strength` | 1 | How much of the bounced light is added (0-4) |
 | `rt_gi_rays` | 2 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
 | `rt_gi_distance` | 600 | How far (world units) a ray looks for a surface to bounce from (1-5000) |
 | `rt_gi_denoise` | 1 | 0: each frame's rays as they are (noisy) |
-| `rt_lights` | auto | On Vulkan with `ray_tracing=1`: `auto` lights the lamps only after dark - with `tod` from dusk to dawn, without it in a level that is dark of its own (its night levels); 1 always, 0 never. Lit, it makes the level's lamps real lights - its own light nodes, its glows (lamp halos, neon, light cones) and, in a dark level, its self-lit surfaces (lamp heads, lit windows) light the ground, the walls and the skater around them, with ray-traced shadows |
+| `rt_lights` | auto | On Vulkan with `ray_tracing=1`: `auto` lights the lamps only after dark - with `tod` from dusk to dawn, without it in a level that is dark of its own (its night levels); 1 always, 0 never. Lit, it makes the level's lamps real lights - its own light nodes, its glows (lamp halos, neon, light cones) and, in a dark level, its self-lit surfaces (lamp heads, lit windows) light the ground, the walls and the skater around them, with ray-traced shadows. On a relit level a lamp adds only what the level's own lamp light there doesn't hold already (the larger of the two), and on the skater and objects it takes the place of the level's lamp light |
 | `rt_lights_strength` | 1 | How much of the lamps' light is added (0-8; the Options screen offers 0.35 / 0.6 / 1 / 2) |
 | `rt_lights_shadowed` | 4 | The brightest lamps at each pixel traced for shadows (1-8); the others' light follows their share |
 | `rt_lights_max` | 64 | Lamps a view lights with at most (1-256): the nearest and brightest |

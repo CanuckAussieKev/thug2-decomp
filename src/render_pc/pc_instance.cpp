@@ -312,13 +312,17 @@ void Singleton::render(uint32_t draw_bits)
         std::array<uint8_t, 4> colour{};
         const maths::Vec4& at = *get_position(this);
         const std::array<float, 3> place{at.x, at.y, at.z};
-        if (renderer().instance_colour_on() == 0U && rt_relit_world::unlit_object_colour(place, &colour)) {
+        // (the light energy audit's census: the game's own instance colour set already - not the field's -, the field's
+        // ratio there - 1 at the level's own light: drawn as baked -, or no field)
+        const bool game_colour = renderer().instance_colour_on() != 0U;
+        if (!game_colour && rt_relit_world::unlit_object_colour(place, &colour)) {
             renderer().set_instance_colour_on(1);
             renderer().set_instance_colour(colour);
             darkened.on = true;
         }
-        render::rt::note_light_path(darkened.on ? render::rt::LightPath::kObjectUnlitField
-                                                : render::rt::LightPath::kObjectUnlitOwn);
+        render::rt::note_light_path(game_colour                              ? render::rt::LightPath::kObjectUnlitGameColour
+                                    : render::rt::light_field() != nullptr ? render::rt::LightPath::kObjectUnlitField
+                                                                           : render::rt::LightPath::kObjectUnlitOwn);
     }
     if (bones_on_device(scene_) != 0) {
         const int count = bone_count_ < kMaxBones ? bone_count_ : kMaxBones;

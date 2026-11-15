@@ -16,7 +16,8 @@ enum class LightPath : uint8_t {
     kObjectLit,         // an instance lit by the game's lights - relit by the light field (pc_lights.cpp relight)
     kObjectLitOwn,      // ... with no light field (the level not relit): the game's lights as they are
     kObjectUnlitField,  // an unlit instance (its own baked colours) - its colour x the field's ratio where it stands
-    kObjectUnlitOwn,    // ... kept as baked (no field, or the instance colour already set)
+    kObjectUnlitOwn,    // ... kept as baked (no field: the level not relit)
+    kObjectUnlitGameColour, // ... the game's own instance colour set already (not the field's)
     kModelByPlace,      // a level model (doors, hydrants) - the time of day's colour x the field where it stands
     kModelIndoor,       // ... in an indoor sector: the original's indoor colour (not the field's)
     kParticlesWhole,    // the particles' colour: the level's whole ratio (no place)

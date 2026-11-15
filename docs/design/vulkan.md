@@ -892,6 +892,8 @@ the original's own lighting already says otherwise, is decided so:
 - **The sky test** (`rt_shadow_covered=0`). A pixel whose sun ray is blocked traces `rt_shadow_sky_rays` (5) more rays
   up - straight up and 31 degrees out round it; if none reaches the sky it is under a roof and keeps the level's own
   light; each one that does lets in a share of the shadow, all of it from half of them on.
+- **On the relit level** (since the light energy audit, "Each light counted once" below) the pass replaces the
+  visibility the colour was written with instead of darkening on top of it. **Elsewhere** (the bake, objects):
 - **What it still does:** the traced shadow multiplies the colour where the bake already darkened it (the pass's design
   since R4: the bake's shadows get sharper edges and darker), and the skater and objects receive the world's shadows.
 - **Measured** (`tools/game/rt_shadows_check.ts`, its five levels): "the sun against the bake" - the pixels the
@@ -1064,6 +1066,8 @@ its lamps' amount (dusk to dawn), without it only in a dark level (the emitters'
   lamp out of view leave every pixel as drawn; 49 lamps over the floor: their sum past the knee, as the processor's, no
   pixel white at the default strength; a street-wide glow's light 600 units away an eighth of the light under it). `--perf`: 64 lamps in view, 320x240: 0.087 ms a pass (RTX 5070 Ti) -
   about 2-3 ms at 1920x1080 in that scene; a level's deeper BVH costs more (not measured in the game yet).
+- **On the relit level** the lamps add only what its residual (the bake's lamps) doesn't hold - "Each light counted
+  once" below; the bake (relit off) still takes them on top.
 - **Not yet**: the lamps' light in the bounce (`rt_gi`) and in the reflections' hits; the lights already baked into the
   vertex colours aren't taken out (the traced light adds to them - `rt_lights_strength` balances it); no light grid
   (a view with more than `rt_lights_max` lamps drops the least important).
@@ -3345,3 +3349,58 @@ the original's own time of day (`tod_manager.h`, blended by the clock) is the lo
 
 The test: Boston and Berlin at noon, dusk and night - a door under a lamp lit like the wall beside it, the skater and
 the objects as bright as the ground they stand on, no hard-edged moon shadows, nothing appearing after the load.
+
+### Each light counted once (the light energy audit)
+
+The user, 2026-11-15: "Don't double shadow (baked in + real shadows), don't overbrighten (baked in + sun on it)". Every
+part of a pixel's light has one owner. The relit level's vertex colours hold its whole light, worked out per vertex
+(`rt_relit.h`: tint x (a x N.L x S + b x K + g x B) + residual); the ray-traced passes that light a pixel again -
+shadows, occlusion, bounce, lamps - read what the colour was written with and replace their own part of it instead of
+stacking another on top.
+
+- **The light stream** (`engine/gfx/rt_cel.h`): five words a vertex - the ambient (sky and bounce), N.L, tint, the sun's
+  visibility the colour was written with (`seen`, the missed sun in it), the residual, the direct light's colour and
+  strength, the missed sun's share, the sky's part and K. Written by `render_pc/rt_relit_world` with the colours (the
+  cel draws read words 0 - 2), handed to the RayTracing per mesh (`RayTracing::set_light_stream`; null while the mesh
+  shows the bake: relit off, strength under 1, a level relit can't take apart); the geometry table carries its address
+  (`GeometryRecord::light_address`, `kGeometryLight`), the passes read it at the pixel's triangle (`vulkan_rt_scene.h`
+  `hit_world_light`, `world_light_with`). Its processor twins: `stream_parts`, `stream_light`.
+- **Who owns what** (relit on, a level with a stream; elsewhere the passes as before):
+
+  | term | level geometry | objects / props | characters | particles |
+  |---|---|---|---|---|
+  | sun / moon direct | relit (a x N.L x direct scale) | the field's ratio x their bake | the game's key light x the state's light colour | the level's whole ratio |
+  | its shadowing | `rt_shadows` per pixel in place of relit's per-vertex S (T(v) / T(seen)); without it relit's S | `rt_shadows` (the world's shadows) | `rt_shadows` (the world's) | - |
+  | sky / ambient | relit (b x K) | the field | the game's fill / ambient x the field's indirect ratio | the level's whole |
+  | occlusion | relit's K (the bake's own occlusion in the tint); `rt_ao` leaves the stream's pixels | `rt_ao` | `rt_ao` (`rt_ao_characters`) | - |
+  | bounce | relit (g x B, `bounce_local`); `rt_gi` out of effect with relit | the field | the game's fill x the field | - |
+  | lamps | relit's residual; `rt_lights` adds max(L - residual, 0) | the field's local light, or `rt_lights` while it lights (`rt::lamps_drawn`) | the same | - |
+  | painted shading | per texture: `rt_delight` or the de-lit set (`delit-per-texture`) | the same | - | - |
+  | exposure | `DayLight::exposure` (`rt_hdr`) once for all | | | |
+
+  Before: `rt_shadows` multiplied the colour by 1 - strength x occlusion over relit's own traced S (the agreement grid
+  and the sky test let it in where the bake was dark too) - shadows twice; `rt_ao` multiplied it over relit's K and the
+  bake's occlusion in the tint - corners twice; `rt_gi` added the sun's bounce over relit's g x B; `rt_lights` added the
+  lamps over the residual (the bake's lamps), and on the objects over the field's local light - lamp areas twice.
+- **The shadows** (`vulkan_rt_shadows.cpp`, the alpha-tested variant - it has the geometry table): a camera ray finds the
+  pixel's world triangle; with a stream the pixel's own visibility (`1 - occlusion + missed`, times what the objects
+  block) replaces `seen` by `rt_shadow_strength` (1: wholly) and the colour is scaled by T(v) / T(seen) - a 2x blend
+  (the shader writes half), so the pass may also lighten what the vertices' interpolated shade darkened. No agreement or
+  sky test there: relit's residual and missed sun already say where the bake lit what the rays shade. `day.shadow` isn't
+  used for it either: the stream's direct light is the state's.
+- **Check:** `thug2_vulkan_rt_lights_check` "each light counted once" - a floor written in the box's shadow keeps it
+  (not darkened again) and is lit where the pixel sees the sun; one written lit takes A / (A + S) in the shadow; a lamp
+  over a floor whose residual holds it adds nothing. `thug2_vulkan_rt_relit_check` 3b - the synthetic level whose bake
+  is exact lighting, every term on at the bake's time, back to the bake within 2 bytes at 1011 of 1013 vertices; the old
+  stack off by more than 4 at 536 of them.
+- **Measured** (`tools/game/light_audit.ts`: each level's restarts, the game's camera, tod=level, the look effects that
+  don't light off; the full look against the bake - `relit 0` and no ray-traced light). Median ratios over BO, BE, LA,
+  NO and nj (20 places): before shade 0.973 (worst 0.72), corners 0.964 (0.72), whole 0.958 (0.65); after shade 1.004,
+  corners 1.006, whole 0.991. The whole-level sweep and the census: `light_audit.ts walk / capture / compare / html`.
+- **Known limits:** relit tells a lamp only where its light falls off within a mesh: a lamp lighting a vertex's
+  neighbourhood evenly went into its tint, and the lamps pass can't tell it is drawn (the synthetic check counts those
+  apart: 102 of 104 lamp-lit vertices) - by day `rt_lights=auto` is off, at night the tint's lamp is under the moon's
+  light; the fix is relit fitting the level's emitters as a term of its own (`E = a S + b K + g B + c L`, L the same
+  lamps `rt_lights` traces) so the lamps pass replaces exactly that term. Where relit put the bake's sunlight into the
+  tint (no sun-coloured residual), the stream has no direct light there and nothing casts a shadow onto it - the
+  skater's shadow too.
