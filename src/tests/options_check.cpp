@@ -675,6 +675,21 @@ void check_capabilities()
            "a level with fog of its own: no haze");
     expect(!fog.at("rt_fog_haze_density").in_effect, "a level with fog of its own: the haze's air out of effect");
     expect(fog.on("rt_fog"), "a level with fog of its own: the volumetric fog still on");
+    // (added by the de-lit texture sets) rt_delight out while a set made de-lit is chosen, in effect with the original
+    // and with a set made without it
+    config::Capabilities delit = rtx50();
+    delit.texture_sets = {"original", "pbrify", "seedvr2"};
+    delit.delit_texture_sets = {"seedvr2"};
+    const auto delight_with = [&](const char* set) {
+        return resolve(delit, {{"rt_pbr", "1"}, {"rt_delight", "1"}, {"texture_set", set}});
+    };
+    const config::Resolution flat_set = delight_with("seedvr2");
+    expect(!flat_set.on("rt_delight") && flat_set.at("rt_delight").reason == t::kDelightTexturesDelit,
+           "a de-lit texture set: the draw-time de-lighting out, with its reason");
+    expect(!flat_set.at("rt_delight_strength").in_effect, "a de-lit texture set: the de-lighting's strength out with it");
+    expect(delight_with("SeedVR2").at("rt_delight").reason == t::kDelightTexturesDelit, "the set's name in any case");
+    expect(delight_with("pbrify").on("rt_delight"), "a set made without de-lighting: the draw-time de-lighting kept");
+    expect(delight_with("original").on("rt_delight"), "the original textures: the draw-time de-lighting kept");
 }
 
 // The machines: what a typical ini resolves to on each.

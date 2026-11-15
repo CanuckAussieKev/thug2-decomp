@@ -4,7 +4,9 @@
 
 #include "engine/config/settings_model.h"
 
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdlib>
 #include <string>
 #include <string_view>
@@ -139,6 +141,18 @@ bool sun_fixed(const Reader& reader)
 {
     const std::string source = reader.value("rt_sun_source");
     return source != "level" && source != "game";
+}
+
+// The texture set in use isn't one made de-lit (base.ts --delight: its textures' painted light taken out before
+// upscaling - engine/gfx/texture_sets.h delight_version): rt_delight would flatten what is already flat.
+bool textures_not_delit(const Reader& reader)
+{
+    const std::string set = reader.value("texture_set");
+    return std::ranges::none_of(reader.caps().delit_texture_sets, [&](const std::string& each) {
+        return each.size() == set.size() && std::ranges::equal(each, set, [](char a, char b) {
+                   return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+               });
+    });
 }
 
 // DLSS upscales: asked for (its choice needs an RTX), or auto on an RTX (vulkan_upscale.cpp: DLSS first on NVIDIA).
@@ -458,7 +472,12 @@ std::vector<Decl> declarations()
             .pick({c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
             .need(on("rt_detail"))
             .live(E::kDetail),
-        gfx("rt_delight", K::kSwitch, "0").tab(G::kSurfaces, t::kOptDelight, t::kOptDelightHelp).need(on("rt_pbr")).live(E::kDetail),
+        gfx("rt_delight", K::kSwitch, "0")
+            .tab(G::kSurfaces, t::kOptDelight, t::kOptDelightHelp)
+            .need(on("rt_pbr"))
+            // (added by the de-lit texture sets: their textures came without the painted light)
+            .need(computed(&textures_not_delit, {"texture_set"}), t::kDelightTexturesDelit)
+            .live(E::kDetail),
         gfx("rt_delight_strength", K::kNumber, "0.5")
             .tab(G::kSurfaces, t::kOptDelightStrength)
             .pick({c("0.25", t::kLow), c("0.5", t::kMedium), c("0.75", t::kHigh)})

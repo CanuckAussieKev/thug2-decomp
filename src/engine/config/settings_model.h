@@ -223,6 +223,8 @@ struct Capabilities {
     bool material_library = false;
     bool height_maps = false;
     std::vector<std::string> texture_sets; // the sets installed ("original" always is)
+    // (added by the de-lit texture sets) the installed sets made de-lit (base.ts --delight): rt_delight is out with one
+    std::vector<std::string> delit_texture_sets;
     int refresh_hz = 0;                    // the display's (0 unknown)
     std::string gpu;                       // the device's name (the report's)
 };
