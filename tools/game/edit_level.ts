@@ -25,6 +25,7 @@ import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converte
 import { GAME_EXE_NAMES, GAME_PROCESS_NAMES, LAUNCH_EXE_NAME } from "thug2-level-converter-core/lib/decomp.ts";
 import { getCloseMatches } from "thug2-level-converter-core/lib/difflib.ts";
 import { findInstall } from "thug2-level-converter-core/lib/install.ts";
+import { member, type QbDataValue, readQbData } from "../qbjs/qb_data.ts";
 import { ensureWorkspaceMuted } from "./workspace_ini.ts";
 
 const USAGE = `usage: edit_level.ts [-h] [--game GAME] [--list] [level]
@@ -139,11 +140,51 @@ export function formatList(levels: readonly Level[]): string[] {
     return lines;
 }
 
+// The levels of a Levels.json (the script's data once the game runs TypeScript scripts - tools/qbjs/qb_data.ts:
+// `[features] ts_scripts=1` installs keep no Levels.qb): the same rule as levelsOf, its translated texts read through
+// the language file (`text`).
+export function levelsOfData(
+    json: string,
+    text: (token: string) => string | undefined,
+    ported: ReadonlyMap<string, string>,
+    sceneThere: (level: string) => boolean,
+): Level[] {
+    const data = readQbData(json, text);
+    const str = (v: QbDataValue | undefined): string | null => {
+        if (!v) return null;
+        if (v.type === 3 || v.type === 4) return String.fromCharCode(...v.bytes);
+        if (v.type === 13) return data.names.get(v.bits) ?? null;
+        return null;
+    };
+    const levels: Level[] = [];
+    const seen = new Set<string>();
+    for (const [, value] of data.globals) {
+        if (value.type !== 10) continue;
+        const loadScript = str(member(value, "load_script"));
+        if (!loadScript || !/^load_/i.test(loadScript)) continue;
+        const key = loadScript.toLowerCase();
+        if (SKIPPED.has(key) || seen.has(key)) continue;
+        seen.add(key);
+        const load = loadScript.slice(5);
+        const scene = str(member(value, "level"));
+        const installed = member(value, "scnpre") !== undefined || (scene !== null && sceneThere(scene));
+        const name = str(member(value, "name")) ?? load;
+        levels.push({ load, name, game: ported.get(load.toLowerCase()) ?? "THUG2", installed });
+    }
+    return levels;
+}
+
 export function readLevels(game: string): { levels: Level[]; source: string } {
     const overlayQb = path.join(game, OVERLAY, "scripts", "game", "Levels.qb");
     const ownQb = path.join(game, "Data", "scripts", "game", "Levels.qb");
-    const source = fs.existsSync(overlayQb) ? overlayQb : ownQb;
-    if (!fs.existsSync(source)) exitWith(`no Levels.qb in ${game} (looked for ${overlayQb} and ${ownQb})`);
+    const overlayJson = path.join(game, OVERLAY, "scripts", "game", "Levels.json");
+    const ownJson = path.join(game, "Data", "scripts", "game", "Levels.json");
+    const qbSource = fs.existsSync(overlayQb) ? overlayQb : ownQb;
+    const jsonSource = fs.existsSync(overlayJson) ? overlayJson : ownJson;
+    const useJson = !fs.existsSync(qbSource) && fs.existsSync(jsonSource);
+    const source = useJson ? jsonSource : qbSource;
+    if (!fs.existsSync(source))
+        exitWith(`no Levels.qb or Levels.json in ${game} (looked for ${overlayQb}, ${ownQb}, ${overlayJson}, ${ownJson})`);
     const ported = new Map<string, string>();
     for (const staging of STAGINGS) {
         for (const entry of readManifest(path.join(game, staging, "levels.json"))?.levels ?? []) {
@@ -157,6 +198,14 @@ export function readLevels(game: string): { levels: Level[]; source: string } {
         [path.join(game, "Data"), path.join(game, OVERLAY)].some((root) =>
             fs.existsSync(path.join(root, "levels", level, `${level}.scn.xbx`)),
         );
+    if (useJson) {
+        const langFile = path.join(game, "Data", "lang", "en.json");
+        const lang = fs.existsSync(langFile)
+            ? (JSON.parse(fs.readFileSync(langFile, "utf8")) as Record<string, string>)
+            : {};
+        const text = (token: string): string | undefined => lang[token];
+        return { levels: levelsOfData(fs.readFileSync(source, "utf8"), text, ported, sceneThere), source };
+    }
     const file = new QbFile(fs.readFileSync(source), path.basename(source), true);
     return { levels: levelsOf(file, ported, sceneThere), source };
 }
