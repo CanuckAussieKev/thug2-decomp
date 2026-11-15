@@ -89,6 +89,7 @@ config::Capabilities rtx50()
             .surface_maps = true,
             .material_library = true,
             .height_maps = false,
+            .relief_maps = true,
             .texture_sets = {"original", "pbrify"},
             .refresh_hz = kRefresh,
             .gpu = "NVIDIA GeForce RTX 5070 Ti"};
@@ -166,6 +167,9 @@ config::Capabilities without(config::Capabilities caps, config::Cap cap)
         break;
     case config::Cap::kHeightMaps:
         caps.height_maps = false;
+        break;
+    case config::Cap::kReliefMaps:
+        caps.relief_maps = false;
         break;
     case config::Cap::kLevelWithoutFog:
     default:
@@ -849,6 +853,15 @@ void check_forces_and_conflicts()
            "displacement without height maps: 0");
     expect(resolve(rtx50(), {{"rt_tessellation", "1"}, {"rt_displacement", "2"}, {"rt_tess_test_heights", "1"}}).on("rt_displacement"),
            "displacement with the test pattern");
+    // (added by building relief) on by default with Vulkan and the facade files; off without either; its strength
+    // needs it
+    expect(resolve(rtx50(), {}).on("building_relief"), "building relief: on by default with Vulkan and the files");
+    config::Capabilities no_files = rtx50();
+    no_files.relief_maps = false;
+    expect(!resolve(no_files, {}).on("building_relief"), "building relief: off without the facade files");
+    expect(!resolve(no_vulkan(), {}).on("building_relief"), "building relief: off without Vulkan");
+    expect(!resolve(rtx50(), {{"building_relief", "0"}}).at("building_relief_strength").in_effect,
+           "building relief off: its strength out");
     // the sun's colour: with the sun, its rays, the bloom or the sky model
     expect(!resolve(rtx50(), {{"rt_sun_colour", "1,1,1"}}).at("rt_sun_colour").in_effect, "the sun's colour alone: out");
     expect(resolve(rtx50(), {{"rt_bloom", "1"}, {"rt_sun_colour", "1,1,1"}}).at("rt_sun_colour").in_effect, "with the bloom: in");

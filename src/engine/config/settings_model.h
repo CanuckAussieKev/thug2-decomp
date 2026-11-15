@@ -101,6 +101,7 @@ enum class Cap : uint8_t {
     kSurfaceMaps,     // surface maps made beside the textures (tools/pbr_maps)
     kMaterialLibrary, // the detail-material library (tools/detail_materials)
     kHeightMaps,      // height maps for displacement (none are made yet)
+    kReliefMaps,      // (added by building relief) facade structures made beside the level textures (tools/pbr_maps)
     kLevelWithoutFog, // the level has no fog of its own (true while no level is known)
 };
 
@@ -222,6 +223,7 @@ struct Capabilities {
     bool surface_maps = false;
     bool material_library = false;
     bool height_maps = false;
+    bool relief_maps = false; // (added by building relief) "<dictionary>.relief" files: tools/pbr_maps/building_relief.ts
     std::vector<std::string> texture_sets; // the sets installed ("original" always is)
     // (added by the de-lit texture sets) the installed sets made de-lit (base.ts --delight): rt_delight is out with one
     std::vector<std::string> delit_texture_sets;

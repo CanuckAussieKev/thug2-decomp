@@ -290,6 +290,17 @@ std::vector<Decl> declarations()
             .need(on("rt_tessellation"))
             .need(any({has(Cap::kHeightMaps), on("rt_tess_test_heights")}), t::kNeedsHeightMaps)
             .off("0"),
+        // (added by building relief: facade_relief.h - the building fronts' windows, sills and bands as geometry, made at
+        // load from the facade structures beside the level textures)
+        gfx("building_relief", K::kSwitch, "1")
+            .tab(G::kGraphics, t::kOptBuildingRelief, t::kOptBuildingReliefHelp)
+            .need(vulkan(), t::kNeedsVulkan)
+            .need(has(Cap::kReliefMaps))
+            .off("0"),
+        gfx("building_relief_strength", K::kNumber, "1")
+            .tab(G::kGraphics, t::kOptBuildingReliefStrength)
+            .pick({c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
+            .need(on("building_relief")),
         // PartyMod's (engine/gfx/settings.cpp, platform/sdl_window.cpp)
         gfx("ResolutionX", K::kNumber, "0"),
         gfx("ResolutionY", K::kNumber, "0"),

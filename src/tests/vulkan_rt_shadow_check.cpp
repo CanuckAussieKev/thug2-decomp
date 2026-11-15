@@ -17,7 +17,10 @@
 // (an angular radius and several rays: only the clear-cut pixels further than the penumbra are compared); a split
 // view (the pass on the right viewport only - the left one, drawn the same, must be left alone); no scene (the pass
 // skipped, nothing changed) - all of these with rt_shadow_covered (shadows under roofs too) - and the sky test (the
-// default: a shadowed point that sees no sky - under the floating box - left lit; one that sees some of it, either).
+// default: a shadowed point that sees no sky - under the floating box - left lit; one that sees some of it, either);
+// and (added by building relief) a wall whose front is engine/gfx/facade_relief.h's geometry for one sill, against the
+// same wall with the sill as a box of its own - the sill's shadow on the wall under it (the reference's rays pushed off
+// the surface as the pass's are).
 //   thug2_vulkan_rt_shadow_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
@@ -28,6 +31,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <exception>
 #include <limits>
 #include <mutex>
@@ -43,8 +47,10 @@
 #include "base/maths/view_transforms.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
+#include "engine/gfx/facade_relief.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/smooth_tess.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -79,6 +85,7 @@ constexpr std::size_t kNoSurface = 0;
 constexpr int kMinShadowed = 400; // (the comparison isn't empty)
 constexpr int kMinLit = 400;
 constexpr int kMinCovered = 30;
+constexpr int kMinReliefShadow = 40; // (building relief's case: the sill's shadow isn't empty)
 constexpr uint32_t kByteMask = 0xFF;
 constexpr uint32_t kRedShift = 16;
 constexpr uint32_t kGreenShift = 8;
@@ -142,23 +149,49 @@ struct Solid {
     Vec3 high{};
     uint32_t colour = 0;
     uint32_t mask = 0;
+    bool drawn = true; // (building relief's case) false: the reference's alone - drawn as part of another's mesh
+};
+
+// The scene checked: its solids (the reference's), the triangles drawn and traced for each (empty: the box's), the
+// camera and the way the light travels (the frame record's).
+struct World {
+    std::vector<Solid> solids;
+    std::vector<std::vector<std::array<float, 3>>> meshes;
+    Vec3 eye{};
+    Vec3 at{};
+    Vec3 light{};
+    std::size_t relief_wall = 0; // (building relief's case) the wall's solid + 1 (0: none)
+    // (building relief's case) the reference's shadow rays start as far off the surface as the pass's (its
+    // OFFSET_SCALE, growing with distance): a sill 4 units out shadows a band 5 tall, and the pass's push of about a
+    // unit moves that band's edge by more than the comparison's two pixels
+    bool pass_offset = false;
 };
 
 constexpr double kGroundHalf = 100.0;
 constexpr uint32_t kMaskNever = 0x80; // (never a caster: the pass's mask leaves it out)
-const std::array<Solid, 4> kSolids{{
-    {.low = {-kGroundHalf, 0.0, -kGroundHalf},
-     .high = {kGroundHalf, 0.0, kGroundHalf},
-     .colour = 0xFFC8C8C8,
-     .mask = render::vulkan::kMaskWorld},
-    {.low = {-15.0, 12.0, -15.0}, .high = {15.0, 30.0, 15.0}, .colour = 0xFF5078B4, .mask = render::vulkan::kMaskWorld},
-    {.low = {38.0, 0.0, 28.0}, .high = {54.0, 24.0, 44.0}, .colour = 0xFFB45050, .mask = render::vulkan::kMaskObjects},
-    {.low = {-62.0, 0.0, 30.0}, .high = {-46.0, 20.0, 46.0}, .colour = 0xFF50B450, .mask = kMaskNever},
-}};
-
-constexpr Vec3 kLightTravels{0.45, -1.0, 0.3}; // (the frame record's: the way the light travels)
-constexpr Vec3 kEye{10.0, 120.0, 150.0};
-constexpr Vec3 kAt{0.0, 0.0, 0.0};
+World first_world()
+{
+    World made;
+    made.solids = {
+        {.low = {-kGroundHalf, 0.0, -kGroundHalf},
+         .high = {kGroundHalf, 0.0, kGroundHalf},
+         .colour = 0xFFC8C8C8,
+         .mask = render::vulkan::kMaskWorld},
+        {.low = {-15.0, 12.0, -15.0}, .high = {15.0, 30.0, 15.0}, .colour = 0xFF5078B4, .mask = render::vulkan::kMaskWorld},
+        {.low = {38.0, 0.0, 28.0}, .high = {54.0, 24.0, 44.0}, .colour = 0xFFB45050, .mask = render::vulkan::kMaskObjects},
+        {.low = {-62.0, 0.0, 30.0}, .high = {-46.0, 20.0, 46.0}, .colour = 0xFF50B450, .mask = kMaskNever},
+    };
+    made.meshes.resize(made.solids.size());
+    made.eye = {10.0, 120.0, 150.0};
+    made.at = {0.0, 0.0, 0.0};
+    made.light = {0.45, -1.0, 0.3};
+    return made;
+}
+World& world()
+{
+    static World current = first_world();
+    return current;
+}
 constexpr Vec3 kUp{0.0, 1.0, 0.0};
 
 double x_of(const Vec3& v) { return core::at(v, 0); }
@@ -184,7 +217,7 @@ Vec3 step(const Vec3& from, const Vec3& along, double scale)
 {
     return {x_of(from) + (x_of(along) * scale), y_of(from) + (y_of(along) * scale), z_of(from) + (z_of(along) * scale)};
 }
-Vec3 toward_light() { return normalised({-x_of(kLightTravels), -y_of(kLightTravels), -z_of(kLightTravels)}); }
+Vec3 toward_light() { return normalised({-x_of(world().light), -y_of(world().light), -z_of(world().light)}); }
 std::array<float, 3> floats(const Vec3& v)
 {
     return {static_cast<float>(x_of(v)), static_cast<float>(y_of(v)), static_cast<float>(z_of(v))};
@@ -285,7 +318,9 @@ struct View {
 View view_for(const Rect& rect)
 {
     View view;
-    view.back = normalised({x_of(kEye) - x_of(kAt), y_of(kEye) - y_of(kAt), z_of(kEye) - z_of(kAt)});
+    const Vec3& eye = world().eye;
+    const Vec3& at = world().at;
+    view.back = normalised({x_of(eye) - x_of(at), y_of(eye) - y_of(at), z_of(eye) - z_of(at)});
     view.right = normalised(cross(kUp, view.back));
     view.up = cross(view.back, view.right);
     view.half_width = kHalfFovTan;
@@ -312,7 +347,7 @@ struct Answer {
 // Whether a ray from `origin` along `direction` meets a caster.
 bool caster_hit(const Vec3& origin, const Vec3& direction, uint32_t casters)
 {
-    return std::ranges::any_of(kSolids, [&](const Solid& solid) {
+    return std::ranges::any_of(world().solids, [&](const Solid& solid) {
         return (solid.mask & casters) != 0 && intersect(solid, {.origin = origin, .direction = direction}).distance < kNoHit;
     });
 }
@@ -347,8 +382,10 @@ Answer reference(const View& view, Pixel pixel, uint32_t casters, bool sky)
         step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height), view.back, -1.0));
     Answer answer;
     Hit nearest;
-    for (std::size_t index = 0; index < kSolids.size(); ++index) {
-        const Hit hit = intersect(core::at(kSolids, index), {.origin = kEye, .direction = direction});
+    const std::vector<Solid>& solids = world().solids;
+    const Vec3& eye = world().eye;
+    for (std::size_t index = 0; index < solids.size(); ++index) {
+        const Hit hit = intersect(core::at(solids, index), {.origin = eye, .direction = direction});
         if (hit.distance < nearest.distance) {
             nearest = hit;
             answer.surface = index + 1;
@@ -360,10 +397,16 @@ Answer reference(const View& view, Pixel pixel, uint32_t casters, bool sky)
     answer.normal = nearest.normal;
     const Vec3 light = toward_light();
     constexpr double kOffSurface = 1e-6;
-    const Vec3 origin = step(step(kEye, direction, nearest.distance), nearest.normal, kOffSurface);
+    constexpr double kPassOffset = 1.0;         // (vulkan_rt_shadows.cpp: OFFSET_SCALE)
+    constexpr double kPassOffsetLinear = 0.0005; // ... x (1 + distance x this + distance^2 x the next)
+    constexpr double kPassOffsetSquare = 6e-8;
+    const double off = world().pass_offset ? kPassOffset * (1.0 + (nearest.distance * kPassOffsetLinear) +
+                                                            (nearest.distance * nearest.distance * kPassOffsetSquare))
+                                           : kOffSurface;
+    const Vec3 origin = step(step(eye, direction, nearest.distance), nearest.normal, off);
     // (an object's face - the skater's - takes the world's shadows only, and is never shadowed for facing away from the
     // light: the pass's normal is the triangle's, flat - vulkan_rt_shadows.cpp)
-    const bool object = (core::at(kSolids, answer.surface - 1).mask & render::vulkan::kMaskObjects) != 0;
+    const bool object = (core::at(solids, answer.surface - 1).mask & render::vulkan::kMaskObjects) != 0;
     answer.shadowed = object ? caster_hit(origin, light, casters & ~render::vulkan::kMaskObjects)
                              : dot(nearest.normal, light) <= 0.0 || caster_hit(origin, light, casters);
     if (answer.shadowed && sky) {
@@ -393,7 +436,7 @@ Rgb colour_of(std::size_t surface, bool shadowed, float strength)
     if (surface == kNoSurface) {
         return rgb_of(kClearColour);
     }
-    const Rgb colour = rgb_of(core::at(kSolids, surface - 1).colour);
+    const Rgb colour = rgb_of(core::at(world().solids, surface - 1).colour);
     return shadowed ? darkened(colour, strength) : colour;
 }
 bool close_to(const Rgb& got, const Rgb& want)
@@ -534,13 +577,24 @@ bool build(render::vulkan::Backend& state, Scene* scene, const BuildInput& input
         [&](VkCommandBuffer commands) { vkCmdBuildAccelerationStructuresKHR(commands, 1, &info, &ranges); });
 }
 
+// A solid's triangles as drawn and traced: its mesh, or its box's; none for the reference's alone.
+std::vector<std::array<float, 3>> drawn_triangles(std::size_t solid)
+{
+    const Solid& it = core::at(world().solids, solid);
+    if (!it.drawn) {
+        return {};
+    }
+    const std::vector<std::array<float, 3>>& mesh = core::at(world().meshes, solid);
+    return mesh.empty() ? triangles_of(it) : mesh;
+}
+
 // A BLAS of some solids' triangles, and its instance (identity transform, the first solid's mask).
 bool make_bottom(render::vulkan::Backend& state, Scene* scene, std::span<const std::size_t> solids,
                  std::vector<VkAccelerationStructureInstanceKHR>* instances)
 {
     std::vector<std::array<float, 3>> vertices;
     for (const std::size_t solid : solids) {
-        const std::vector<std::array<float, 3>> more = triangles_of(core::at(kSolids, solid));
+        const std::vector<std::array<float, 3>> more = drawn_triangles(solid);
         vertices.insert(vertices.end(), more.begin(), more.end());
     }
     render::vulkan::DeviceBuffer& input = scene->inputs.emplace_back();
@@ -572,7 +626,7 @@ bool make_bottom(render::vulkan::Backend& state, Scene* scene, std::span<const s
         core::at(core::at(std::span(instance.transform.matrix), axis), axis) = 1.0F;
     }
     instance.instanceCustomIndex = static_cast<uint32_t>(instances->size());
-    instance.mask = core::at(kSolids, solids.front()).mask;
+    instance.mask = core::at(world().solids, solids.front()).mask;
     instance.instanceShaderBindingTableRecordOffset = 0;
     instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
     instance.accelerationStructureReference = bottom.address;
@@ -580,16 +634,20 @@ bool make_bottom(render::vulkan::Backend& state, Scene* scene, std::span<const s
     return true;
 }
 
-// The three BLASes (one per mask: the ground and the floating box share 0x01) and the TLAS of their instances.
+// A BLAS per mask (the ground and the floating box share 0x01) and the TLAS of their instances.
 bool make_scene(render::vulkan::Backend& state, Scene* scene)
 {
-    constexpr std::array<std::size_t, 2> kWorld{0, 1};
-    constexpr std::array<std::size_t, 1> kObject{2};
-    constexpr std::array<std::size_t, 1> kNever{3};
     std::vector<VkAccelerationStructureInstanceKHR> instances;
-    if (!make_bottom(state, scene, kWorld, &instances) || !make_bottom(state, scene, kObject, &instances) ||
-        !make_bottom(state, scene, kNever, &instances)) {
-        return false;
+    for (const uint32_t mask : {render::vulkan::kMaskWorld, render::vulkan::kMaskObjects, kMaskNever}) {
+        std::vector<std::size_t> solids;
+        for (std::size_t index = 0; index < world().solids.size(); ++index) {
+            if (core::at(world().solids, index).mask == mask && !drawn_triangles(index).empty()) {
+                solids.push_back(index);
+            }
+        }
+        if (!solids.empty() && !make_bottom(state, scene, solids, &instances)) {
+            return false;
+        }
     }
     render::vulkan::DeviceBuffer& list = scene->inputs.emplace_back();
     VkDeviceAddress list_address = 0;
@@ -650,7 +708,7 @@ struct Matrices {
 Matrices matrices_for(const Rect& rect)
 {
     Matrices out;
-    maths::matrix_look_at_rh(out.view, floats(kEye), floats(kAt), floats(kUp));
+    maths::matrix_look_at_rh(out.view, floats(world().eye), floats(world().at), floats(kUp));
     const double width = 2.0 * kNearZ * kHalfFovTan;
     const double height = width * static_cast<double>(height_of(rect)) / static_cast<double>(width_of(rect));
     maths::matrix_perspective_rh(out.projection, static_cast<float>(width), static_cast<float>(height), kNearZ, kFarZ);
@@ -684,9 +742,9 @@ void draw_scene(render::Gpu& gpu, const Rect& rect)
     gpu.set_stage_state(0, GpuStageState::kAlphaOp, value::kOpSelectArg1);
     gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgDiffuse);
     std::vector<ColourVertex> vertices;
-    for (const Solid& solid : kSolids) {
-        for (const std::array<float, 3>& corner : triangles_of(solid)) {
-            vertices.push_back({.position = corner, .colour = solid.colour});
+    for (std::size_t index = 0; index < world().solids.size(); ++index) {
+        for (const std::array<float, 3>& corner : drawn_triangles(index)) {
+            vertices.push_back({.position = corner, .colour = core::at(world().solids, index).colour});
         }
     }
     gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(vertices.size() / 3),
@@ -705,7 +763,7 @@ render::rt::ViewDrawn view_drawn(const Rect& rect)
                 core::at(matrices.projection, (row * kSide) + column);
         }
     }
-    view.camera.position = floats(kEye);
+    view.camera.position = floats(world().eye);
     view.rect = rect;
     view.depth_range = {0.0F, 1.0F};
     return view;
@@ -804,6 +862,7 @@ struct Counts {
     int edge_wrong = 0;
     int sky_wrong = 0;
     int covered = 0; // clear-cut pixels the sky test leaves lit
+    int cast_on_relief = 0; // (building relief's case) clear-cut pixels of the wall's face shadowed by its relief
     std::string first_wrong;
 };
 
@@ -831,6 +890,11 @@ void count_pixel(const Expected& expected, const Rgb& got, Pixel pixel, Counts* 
             ++counts->lit;
         }
         counts->covered += expected.answer.covered ? 1 : 0;
+        // (the relief wall's front, facing the light, shadowed: by the sill standing out of it)
+        counts->cast_on_relief += world().relief_wall != 0 && expected.answer.surface == world().relief_wall &&
+                                          expected.answer.shadowed && z_of(expected.answer.normal) > 0.5
+                                      ? 1
+                                      : 0;
         return;
     }
     ++counts->edges;
@@ -864,6 +928,11 @@ void compare(const Case& test, const std::vector<uint8_t>& texels, Tally* tally)
                  text::format("edge pixels between their darkest and lightest answers: %d of %d outside",
                               counts.edge_wrong, counts.edges));
     tally->check(counts.sky_wrong == 0, text::format("the sky left alone: %d pixels changed", counts.sky_wrong));
+    if (world().relief_wall != 0) {
+        tally->check(counts.cast_on_relief >= kMinReliefShadow,
+                     text::format("building relief: %d clear-cut pixels of the wall in the sill's shadow",
+                                  counts.cast_on_relief));
+    }
     if (!test.settings.covered && !test.no_scene) {
         tally->check(counts.covered >= kMinCovered,
                      text::format("the sky test: %d clear-cut pixels under the floating box left lit", counts.covered));
@@ -926,7 +995,7 @@ uint64_t draw_frame(render::Gpu& gpu, const Case& test, const Targets& targets)
     record.lights.clear();
     record.lights.push_back({.kind = render::rt::Light::Kind::kDirectional,
                              .colour = {1.0F, 1.0F, 1.0F},
-                             .direction = floats(normalised(kLightTravels)),
+                             .direction = floats(normalised(world().light)),
                              .position = {},
                              .radius = 0.0F});
     const uint64_t before = render::vulkan::rt_shadow_passes();
@@ -1013,6 +1082,72 @@ std::vector<Case> cases()
     };
 }
 
+// (added by building relief - engine/gfx/facade_relief.h) A wall whose front is built as relief: a box 80 wide, 80
+// tall, its front face (z = 0, facing the camera) replaced by facade_relief's geometry for a structure of one sill
+// (u 0.25 - 0.75, v 0.4 - 0.5, standing out 0.05 texture widths: 4 units - its cap - for a texture drawn 80 across);
+// the reference: the box and the sill as a box of its own (x -20 - 20, y 40 - 48, z 0 - 4, the wall's colour; not
+// drawn - its geometry is the relief's). The light from the front and above: the sill shadows the wall under it.
+World relief_world()
+{
+    constexpr uint32_t kWallColour = 0xFFB4A08C;
+    constexpr double kHalf = 40.0;
+    constexpr double kTall = 80.0;
+    World made;
+    made.solids = {
+        {.low = {-kGroundHalf, 0.0, -kGroundHalf},
+         .high = {kGroundHalf, 0.0, kGroundHalf},
+         .colour = 0xFFC8C8C8,
+         .mask = render::vulkan::kMaskWorld},
+        {.low = {-kHalf, 0.0, -20.0}, .high = {kHalf, kTall, 0.0}, .colour = kWallColour, .mask = render::vulkan::kMaskWorld},
+        {.low = {-20.0, 40.0, 0.0},
+         .high = {20.0, 48.0, 4.0},
+         .colour = kWallColour,
+         .mask = render::vulkan::kMaskWorld,
+         .drawn = false},
+    };
+    made.meshes.resize(made.solids.size());
+    made.eye = {70.0, 75.0, 120.0};
+    made.at = {0.0, 38.0, 0.0};
+    made.light = {0.3, -1.0, -0.4};
+    made.relief_wall = 2;
+    made.pass_offset = true;
+    // (the box without its front, then the front relieved: a quad of position + texture coordinates)
+    std::vector<std::array<float, 3>> box = triangles_of(core::at(made.solids, 1));
+    constexpr std::size_t kFrontFirst = 18; // (triangles_of: -y, +y, -z, +z - the fourth face's six corners)
+    constexpr std::size_t kFaceCorners = 6;
+    box.erase(box.begin() + static_cast<std::ptrdiff_t>(kFrontFirst),
+              box.begin() + static_cast<std::ptrdiff_t>(kFrontFirst + kFaceCorners));
+    struct QuadVertex {
+        std::array<float, 3> position{};
+        std::array<float, 2> uv{};
+    };
+    const std::array<QuadVertex, 4> quad{{{.position = {-40.0F, 0.0F, 0.0F}, .uv = {0.0F, 1.0F}},
+                                          {.position = {40.0F, 0.0F, 0.0F}, .uv = {1.0F, 1.0F}},
+                                          {.position = {-40.0F, 80.0F, 0.0F}, .uv = {0.0F, 0.0F}},
+                                          {.position = {40.0F, 80.0F, 0.0F}, .uv = {1.0F, 0.0F}}}};
+    std::vector<uint8_t> bytes(sizeof(quad));
+    std::memcpy(bytes.data(), quad.data(), sizeof(quad));
+    const std::array<uint16_t, 4> strip{0, 1, 2, 3};
+    render::relief::Structure sill;
+    sill.rects = {{.u0 = 0.25F, .v0 = 0.4F, .u1 = 0.75F, .v1 = 0.5F, .height = 0.05F, .window = false}};
+    const render::relief::Result relieved =
+        render::relief::build(bytes, 4, {.stride = sizeof(QuadVertex), .uv_offset = 12, .uv_sets = 1}, strip, sill, {});
+    std::vector<std::array<float, 3>>& mesh = core::at(made.meshes, 1);
+    mesh = box;
+    for (const std::array<uint16_t, 3>& triangle : render::tess::strip_triangles(relieved.strip)) {
+        for (const uint16_t corner : triangle) {
+            std::array<float, 3> position{};
+            std::memcpy(position.data(), &core::at(relieved.vertices, std::size_t{sizeof(QuadVertex)} * corner),
+                        sizeof(position));
+            mesh.push_back(position);
+        }
+    }
+    text::print("building relief: the wall's front %s - %u pieces, %u sides, %zu triangles\n",
+                relieved.changed ? "relieved" : "NOT relieved", relieved.pieces, relieved.sides,
+                (mesh.size() - box.size()) / 3);
+    return made;
+}
+
 // The device made with ray tracing asked for; false (and why printed) when it can't be.
 enum class Opened : uint8_t { kYes, kNoDevice, kNoRayQueries };
 Opened open_device(const Options& options, SDL_Window* window)
@@ -1083,6 +1218,27 @@ int run(const Options& options, SDL_Window* window)
         for (const Case& test : cases()) {
             run_case(render::vulkan::gpu(), test, scene, &tally);
         }
+    }
+    // (building relief: a relieved wall's sill and its shadow, as drawn and traced, against its reference's boxes)
+    render::vulkan::rt_shadows_set_scene(VK_NULL_HANDLE);
+    {
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::finish_work(state);
+        release_scene(state, &scene);
+    }
+    world() = relief_world();
+    {
+        const std::scoped_lock lock(state.mutex);
+        built = make_scene(state, &scene);
+    }
+    tally.check(built, "building relief: the relieved wall's acceleration structures built");
+    if (built) {
+        render::rt::set_sun_choice({.source = render::rt::SunSource::kFixed, .fixed = floats(toward_light())});
+        run_case(render::vulkan::gpu(),
+                 {.name = "building relief: a sill's shadow on its wall",
+                  .samples = 0,
+                  .settings = {.on = true, .strength = kStrength, .covered = true}},
+                 scene, &tally);
     }
     render::vulkan::rt_shadows_set_scene(VK_NULL_HANDLE);
     render::vulkan::set_rt_shadow_settings({});

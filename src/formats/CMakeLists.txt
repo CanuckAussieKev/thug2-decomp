@@ -15,6 +15,7 @@ add_library(thug2_formats STATIC
     skeleton_format.cpp
     detail_material_format.cpp
     surface_map_format.cpp
+    relief_format.cpp
     texture_format.cpp
     wave_format.cpp
 )

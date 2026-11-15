@@ -96,6 +96,8 @@ const char* cap_reason(Cap cap)
         return t::kNeedsMaterials;
     case Cap::kHeightMaps:
         return t::kNeedsHeightMaps;
+    case Cap::kReliefMaps:
+        return t::kNeedsReliefMaps;
     case Cap::kLevelWithoutFog:
     default:
         return t::kLevelHasFog;
@@ -128,6 +130,8 @@ bool has_cap(const Inputs& in, Cap cap)
         return caps.material_library;
     case Cap::kHeightMaps:
         return caps.height_maps;
+    case Cap::kReliefMaps:
+        return caps.relief_maps;
     case Cap::kLevelWithoutFog:
     default:
         return !in.level.known || !in.level.fog;

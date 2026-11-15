@@ -39,4 +39,9 @@ private:
     uint32_t stale_ = 0;
 };
 
+// (also building relief's: render_pc/building_relief.h) Where a texture set serves the dictionary `name`, each of its
+// textures' original first level's content hash, by checksum - read from the game's own dictionary - and the set's name
+// in `set`; empty for the game's own dictionary (its texels are the originals).
+[[nodiscard]] std::unordered_map<uint32_t, uint64_t> original_hashes(const char* name, std::string* set);
+
 } // namespace render

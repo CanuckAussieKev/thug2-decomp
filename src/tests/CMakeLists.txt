@@ -88,6 +88,15 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_tess_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_relief_check.exe: building relief (engine/gfx/facade_relief.h) on walls whose result is known - a
+# window in, its sill and frame out, the surface closed, the outline where it was; seams, corners, what stays flat; and
+# the facade-structure file (formats/relief_format.h) against the tool's writer (src/tests/relief_check.cpp; pure).
+if(TARGET thug2_base AND TARGET thug2_formats)
+    add_executable(thug2_relief_check relief_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/facade_relief.cpp"
+                                      "${PROJECT_SOURCE_DIR}/src/engine/gfx/smooth_tess.cpp")
+    target_link_libraries(thug2_relief_check PRIVATE thug2_base thug2_formats)
+endif()
+
 # NOT ORIGINAL - thug2_scatter_check.exe: the decals' and clutter's placement rules (engine/gfx/scatter.h) on made-up
 # collision - the "covered" rule: a low roof covers, a tall canopy, a scrap of scenery a unit up or a thin branch's side
 # don't; with `--level <folder>...` a level's own collision read offline and the decals / clutter counted

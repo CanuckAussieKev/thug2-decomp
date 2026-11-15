@@ -65,6 +65,8 @@ and any another rule moved with it.
   grade's strength needs a look other than neutral; per-level grades `rt_grade=level`.
 - Smooth curves' knobs need `rt_tessellation`; the smoothing strength needs smooth shapes; displacement needs height
   maps or the test pattern.
+- Building relief (`building_relief`, on by default) needs the Vulkan renderer and the facade files
+  (`Cap::kReliefMaps`: a `.relief` beside a level dictionary); its strength needs it.
 - Each effect's knobs need its switch; `start_at` a start level; `language` the unpacked scripts; the BMX's knobs
   `thaw_bmx`; `collision_event_screenshots` `collision_events`.
 

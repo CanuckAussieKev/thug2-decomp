@@ -25,6 +25,7 @@ namespace app {
 namespace {
 
 constexpr std::string_view kSurfaceMapSuffix = ".pbr";                  // (formats/surface_map_format.h)
+constexpr std::string_view kReliefSuffix = ".relief";                   // (formats/relief_format.h)
 constexpr const char* kMaterialLibrary = "thug2-decomp-materials.t2dm"; // (gpu_vulkan/vulkan_detail.h)
 constexpr int kDeepest = 4; // (Data\models\<group>\<model>\...: the deepest a surface map lies)
 
@@ -43,22 +44,23 @@ public:
     std::vector<std::string> files;
 };
 
-// Whether a surface-map file (a texture dictionary's name + ".pbr") is in `folder` or below it - where tools/pbr_maps
-// writes them: Data\levels, Data\models and the data overlay's levels.
-bool has_surface_maps(const std::string& folder, int depth)
+// Whether a file ending in `suffix` - a surface map (a texture dictionary's name + ".pbr"), a facade structure (+
+// ".relief") - is in `folder` or below it, `depth` folders down: where tools/pbr_maps writes them (Data\levels,
+// Data\models and the data overlay's levels).
+bool has_files(const std::string& folder, int depth, std::string_view suffix)
 {
     Listing listing;
     if (!fs::disk().list((folder + "\\*").c_str(), listing)) {
         return false;
     }
-    if (std::ranges::any_of(listing.files, [](const std::string& file) { return file.ends_with(kSurfaceMapSuffix); })) {
+    if (std::ranges::any_of(listing.files, [suffix](const std::string& file) { return file.ends_with(suffix); })) {
         return true;
     }
-    return depth > 0 && std::ranges::any_of(listing.folders, [&folder, depth](const std::string& sub) {
+    return depth > 0 && std::ranges::any_of(listing.folders, [&folder, depth, suffix](const std::string& sub) {
                std::string path = folder;
                path += "\\";
                path += sub;
-               return has_surface_maps(path, depth - 1);
+               return has_files(path, depth - 1, suffix);
            });
 }
 
@@ -82,19 +84,23 @@ FoundCapabilities find()
     found.problem = "this build was made without the Vulkan library (THUG2_VULKAN)";
 #endif
     const std::string game = build_info::executable_directory();
-    caps.surface_maps = has_surface_maps(game + "Data\\levels", 1) || has_surface_maps(game + "Data\\models", kDeepest) ||
-                        has_surface_maps(frontend::data_overlay::get_folder() + "\\levels", 1);
+    caps.surface_maps = has_files(game + "Data\\levels", 1, kSurfaceMapSuffix) ||
+                        has_files(game + "Data\\models", kDeepest, kSurfaceMapSuffix) ||
+                        has_files(frontend::data_overlay::get_folder() + "\\levels", 1, kSurfaceMapSuffix);
     caps.material_library = fs::disk().kind((game + kMaterialLibrary).c_str()) == fs::PathKind::kFile;
     caps.height_maps = false; // (none are made yet: rt_displacement shows its test pattern alone)
+    // (added by building relief: tools/pbr_maps/building_relief.ts writes them beside the level dictionaries)
+    caps.relief_maps = has_files(game + "Data\\levels", 1, kReliefSuffix) ||
+                       has_files(frontend::data_overlay::get_folder() + "\\levels", 1, kReliefSuffix);
     caps.texture_sets = render::texture_sets::installed_sets();
     caps.delit_texture_sets = render::texture_sets::delit_sets();
     get_log("settings: capabilities - %s%s, ray tracing %s, %s, surface maps %s, material library %s, %zu texture set(s) "
-            "(%zu de-lit)",
+            "(%zu de-lit), building relief files %s",
             caps.gpu.empty() ? "no Vulkan device" : caps.gpu.c_str(),
             caps.rtx > 0 ? (" (RTX " + std::to_string(caps.rtx) + " series)").c_str() : "",
             caps.ray_queries ? "possible" : "not possible", caps.x64 ? "64-bit" : "32-bit",
             caps.surface_maps ? "found" : "none", caps.material_library ? "found" : "none", caps.texture_sets.size(),
-            caps.delit_texture_sets.size());
+            caps.delit_texture_sets.size(), caps.relief_maps ? "found" : "none");
     return found;
 }
 

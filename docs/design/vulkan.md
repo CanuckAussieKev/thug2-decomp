@@ -1597,6 +1597,85 @@ off on thin meshes - is the same code.
   reflections fall on the rounded shapes; the baked sun's samples keep reading the original strips.
 - **Not done**: the optional bevel highlight on hard edges (a lighting change, not geometry); a per-distance level.
 
+### Building relief (`building_relief`)
+
+THUG2's buildings are boxes with pictures of buildings on them: the windows, their frames and sills, the floor bands and
+cornices are painted on flat walls, and in a ray-traced frame that reads at once - the sun lights a window like the
+brick round it, no sill throws a shadow, no recess darkens. `[Graphics] building_relief=1` (the default on Vulkan when
+the facade files are there; `0`, any other renderer or no files: exactly what was drawn before) builds that structure
+as real geometry. Stage 1: the building fronts on real box buildings. The flat skyline cards outside the levels -
+pictures of whole streets - are stage 2 (counted by the survey below, not relieved).
+
+- **Where the structure comes from: the player's own textures, offline** (`tools/pbr_maps/building_relief.ts make
+  --game <folder>`, beside the surface maps; `facades.ts` the detector, `relief_file.ts` / `formats/relief_format.h`
+  the file). Not brightness as depth: a texture is a facade when it shows a regular set of rectangles unlike its wall -
+  windows - found as structure: the wall's colour (the median), each texel's distance from it, the texture's repeats
+  across and down (a shift by a period correlates, half of it doesn't - a smooth texture is the other way round), a
+  grid's cells averaged into one; the windows the connected pieces unlike the wall that fill their box, alike in size,
+  snapped into columns and rows; round each window a frame (a brighter ring), a sill (brighter rows under it - also when
+  painted against the glass), and floor bands (even rows without windows, unlike the wall). Heights by kind, in texture
+  widths (so the game scales them by how wide the texture is drawn): a window 0.35 of its narrower side in, a frame 0.06
+  out, a sill 0.15 out, a band half its own height out. What isn't clearly one - brick, stone, bookshelves, doors,
+  lit-window cards, specks - is skipped: the windows must be at least 2, at least 5% of the texture, rectangles after
+  snapping, in a grid (a whole building's front), its wall even, ribbons (glass all across) no lighter than the wall;
+  and in the world (the level's own texture coordinates on its walls) a window must be 16 - 480 units wide and 20 - 480
+  tall. Which textures: a material's first pass, not see-through, drawn mostly (60%) on walls (within 15 degrees of
+  upright), not mostly on skyline cards. The structure is found in a texture set's texels where one serves the
+  dictionary (the ini's set first, then any installed: SeedVR2's or PBRify's 4x texels give the windows' edges better)
+  and keyed to the original's checksum and content hash, as the surface maps are - the game finds it for the original
+  and any set alike. A dictionary whose sources (its bytes, the set's, the detector's version) are unchanged since its
+  file was made is skipped; `--pictures <folder>` writes each wall texture beside its height map (the structure drawn:
+  grey the wall, dark in, light out; blue: no structure, left flat).
+- **The geometry: once, at load, on the processor** (`engine/gfx/facade_relief`, `render_pc/building_relief`) - the
+  same place as the smoothed curves (after them: walls are flat, smoothing leaves them) and for the same reasons: every
+  renderer draws it, the BLAS is built from the drawn buffers (`rt_record`), so **shadows, occlusion and reflections
+  fall on the relief** - a sill shadows the wall under it at noon, the window recesses darken with ray-traced AO, a low
+  sun rakes the bands. A scene mesh drawn with a facade texture: its walls (triangles within 15 degrees of upright, with
+  texture coordinates) joined into planes (sharing an edge - welded by position -, wound alike, facing the same way, the
+  same texture coordinates along it); each wall triangle cut along the structure's rectangle edges (lines of constant u
+  and v in the texture's cells - a convex polygon clipped line by line) into pieces wholly inside or outside every
+  rectangle; a piece moved along its plane's normal by its height (the last rectangle holding it x the units the plane
+  draws a texture width across x `building_relief_strength`, capped at 12 units in, 4 out; under 0.25 left flat).
+  Between pieces of different heights a side is built from the higher one down to the lower (facing the lower side),
+  across cut lines and across a plane's shared edges alike; along a plane's outline (an open edge, a crease - the
+  building's corner, the roof line) a piece off the surface is closed by a side back to the original edge. So the
+  surface stays closed and its outline is where the original was: no cracks, nothing to see through; the silhouette at
+  a building's corner gains the windows' notches and the sills' ends.
+- **Crack-free by construction**: a corner is the corner; a cut line's point on a triangle's edge is made from the
+  edge's two ends in one order (the lower welded position first) and the line - both triangles on the edge make it to
+  the bit; a point inside a triangle from the two lines crossing there. A plane with any piece off its surface is built
+  whole (every triangle of it cut the same way: no T-junctions along its shared edges); one with a triangle too finely
+  cut (more than 96 lines along u or v) stays as it is. The original vertices stay first and unchanged (other levels of
+  detail, the editor's moves, the colour writes); the new ones follow; a mesh too big for 16 bits is tried with the
+  windows alone, then left as it was. The baked sun's samples keep the file's strip (`remember_original`), as with the
+  smoothed curves.
+- **Visual only**: the collision is the game's own `.col` (never touched); the simulation reads none of it. Drawing
+  only reads it.
+- **Level of detail**: what a level draws far away is its meshes' own coarser levels of detail, which keep the original
+  triangles; the cost is bounded by the structure (a window is ~10 pieces and 4 sides) and the caps above, not by
+  distance. A per-distance level (a second strip per mesh, chosen by distance) is not done.
+- **Checked**: `thug2_relief_check` (processor only): a wall of two triangles with a window, its sill and its frame in
+  each of two cells - the window's middle 12 units in (the cap), the sill 4 out (the cap), the frame 1.6 out, the wall
+  where it was; closed (every edge shared by two triangles wound opposite ways, but the original outline's, used once
+  and on it); the original vertices first and unchanged; the same bytes twice; half the strength half the height; a
+  wall of two quads with a texture seam (vertices repeated) joined, closed across the seam; a corner of two walls, each
+  closed back to the corner; a floor, no texture coordinates, a strength of 0, no rectangles, too many cuts - unchanged;
+  a big wall of 40 x 30 cells within 16 bits (the windows alone, or as it was); the file read back, damaged files
+  refused, the same bytes as the tool's writer. `thug2_vulkan_rt_shadow_check`'s case "building relief: a sill's
+  shadow on its wall": a box whose front is facade_relief's geometry for one sill, drawn and traced through the Vulkan
+  Gpu, the frame compared pixel by pixel with the processor's answer for the same wall with the sill as a box of its
+  own - the sill's shadow on the wall under it there (at least 40 clear-cut pixels of it; measured 443 of 41,110 compared,
+  none wrong). The reference's shadow rays start as far off the surface as the pass's (about a unit): with a sill 4
+  out, that push moves the band's lower edge up by more than a pixel or two - a property of the shadow pass's bias
+  that relief makes visible (contact shadows a unit short), not of the geometry. The tool:
+  `tools/pbr_maps/facades.test.ts` (synthetic facades: a 4 x 4 grid's cell found, windows in, sills out, the wall
+  flat; a whole building's front; plain grain, brick courses, one door, a busy picture left flat; the repeats of a
+  period, not of a smooth texture), `relief_file.test.ts`.
+- **The survey** (`building_relief.ts survey --game <folder> [--levels ...]`): per level, the facade textures, their
+  wall triangles and area at the playable area's edge (sectors with collision) and in the background (without), with
+  samples; and the skyline cards (flat sectors without collision outside the collision's bounds grown by 500 units).
+MEASURED_PLACEHOLDER
+
 ### Relit: the bake taken apart (`rt_relit`)
 
 `engine/gfx/rt_relit` (the analysis, API-neutral) and `render_pc/rt_relit_world` (the world's meshes, the cache, the

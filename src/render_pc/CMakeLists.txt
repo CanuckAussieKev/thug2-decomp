@@ -55,6 +55,7 @@ add_library(thug2_render_pc STATIC
     scatter_world.cpp
     water_materials.cpp
     mesh_smoothing.cpp
+    building_relief.cpp
     water_geometry.cpp
     rt_relit_world.cpp
     pc_billboards.cpp

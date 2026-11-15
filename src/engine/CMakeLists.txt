@@ -131,6 +131,7 @@ add_library(thug2_engine STATIC
     gfx/rt_scene.cpp
     gfx/fisheye_lens.cpp
     gfx/smooth_tess.cpp
+    gfx/facade_relief.cpp
     gfx/rt_sun.cpp
     gfx/rt_daylight.cpp
     gfx/rt_light_field.cpp

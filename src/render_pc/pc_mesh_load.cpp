@@ -33,6 +33,7 @@
 #include "engine/gfx/vertex_view.h"
 #include "engine/gfx/renderer.h"
 #include "render_pc/mesh_pass.h"
+#include "render_pc/building_relief.h"
 #include "render_pc/mesh_smoothing.h"
 #include "render_pc/water_geometry.h"
 
@@ -187,6 +188,17 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         original_strip = mesh_smoothing::smooth_body(
             &body, vertex_format(core::at(body.vertex_types, 0)),
             static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
+    }
+    // Not original - building relief ([Graphics] building_relief, building_relief.h): a building front's windows, frames,
+    // sills and bands built as relief from its texture's facade structure (after smoothing: its walls are flat). The
+    // strip kept is the file's. Original behaviour: the body as read.
+    if (building_relief::on()) {
+        std::vector<uint16_t> before = building_relief::relieve_body(
+            &body, vertex_format(core::at(body.vertex_types, 0)),
+            static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
+        if (original_strip.empty()) {
+            original_strip = std::move(before);
+        }
     }
     // Not original - the water's moving surface ([Graphics] rt_water_geometry, water_geometry.h): a water material's flat
     // mesh split into a grid. Original behaviour: the body as read.
