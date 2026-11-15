@@ -158,8 +158,16 @@ inline constexpr double kLampsFull = -4.0;    // ... and are whole here
 inline constexpr double kStarsFrom = -6.0;    // the stars from none here ...
 inline constexpr double kStarsFull = -16.0;   // ... to all here
 inline constexpr float kDirectShare = 0.65F;  // the share of the level's own light that is the sun's (the shadows')
-inline constexpr float kMostExposure = 1.3F;  // the exposure's factor at most (night)
-inline constexpr double kExposurePower = 0.35;
+// The exposure (the eye adapting to the light): (1 / light)^kExposurePower, the light the level's now over its own
+// (display-referred), within 1 and kMostExposure - night brought up part of the way, never to day: a night street at a
+// fifth of its day light shows at two fifths. Reached over about kExposureAdaptSeconds (1 - 1/e of the way).
+inline constexpr float kMostExposure = 2.0F;
+inline constexpr double kExposurePower = 0.5;
+inline constexpr double kExposureAdaptSeconds = 1.5;
+// The exposure for a light (the level's now over its own, luma).
+[[nodiscard]] float adapted_exposure(float light);
+// The exposure `now` a frame of `seconds` on toward `target`.
+[[nodiscard]] float adapt_exposure(float now, float target, double seconds);
 // The original's states blended by the sun's elevation: afternoon above kStateDay, evening (after noon) / morning
 // (before) at kStateLow, night below kStateNight - smoothly between.
 inline constexpr double kStateDay = 20.0;
@@ -192,7 +200,8 @@ struct DayLight {
     float lamps = 0.0F;       // 0 - 1: the lamps (rt_lights) on
     float stars = 0.0F;       // 0 - 1
     float moon_disc = 0.0F;   // 0 - 1: the moon drawn
-    float exposure = 1.0F;    // the HDR exposure's factor
+    float exposure = 1.0F;    // the HDR exposure's factor (the clock's: adapted to the relit level's light where it has
+                              // one - day_clock -, else to this light's model)
     DayRgb night_sky{};       // added to the drawn sky (exposed linear, overhead)
     std::array<float, 4> stars_pole{}; // xyz toward the celestial pole; w the stars' turn about it (radians)
     TodBlend blend;           // the original's states

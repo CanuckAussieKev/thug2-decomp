@@ -473,9 +473,32 @@ void check_local_light()
     expect(!dark->local_at(here).any() && !rt::local_light_at(here).any(), "no local light: none (and none without a field)");
 }
 
+// (added by lighting round 4) The exposure adapting to the level's light: none by day, a dim night brought part of the
+// way up and never past kMostExposure, a dusk between; over the frames toward it, there in the end.
+void check_exposure()
+{
+    expect(rt::adapted_exposure(1.0F) == 1.0F && rt::adapted_exposure(1.4F) == 1.0F,
+           "by day (the level's own light or more): 1");
+    expect(std::abs(rt::adapted_exposure(0.5F) - 1.4142F) < 1e-3F,
+           "half the light: " + number(rt::adapted_exposure(0.5F)));
+    expect(rt::adapted_exposure(0.1F) == rt::kMostExposure && rt::adapted_exposure(0.0F) == rt::kMostExposure,
+           "a dark night: held at " + number(rt::kMostExposure));
+    float now = 1.0F;
+    for (int frame = 0; frame < 30; ++frame) {
+        now = rt::adapt_exposure(now, 2.0F, 1.0 / 60.0);
+    }
+    const float half_second = now;
+    for (int frame = 0; frame < 1200; ++frame) {
+        now = rt::adapt_exposure(now, 2.0F, 1.0 / 60.0);
+    }
+    expect(half_second > 1.2F && half_second < 1.4F && now == 2.0F,
+           "adapting: " + number(half_second) + " after half a second, there after twenty");
+}
+
 int main()
 {
     tests::no_error_dialogs();
+    check_exposure();
     check_light_field();
     check_local_light();
     check_path();
