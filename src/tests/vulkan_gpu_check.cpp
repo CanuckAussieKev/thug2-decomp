@@ -97,7 +97,7 @@ constexpr int kRingDraws = 400;       // 400 draws of 4 KB: past the ring's firs
 constexpr uint32_t kRingVertices = 256;
 constexpr uint32_t kRingStride = 16;
 constexpr int kThreadRounds = 200;
-constexpr int kReadBackEvery = 40;    // (the loading thread's rounds between read-backs: everything finished mid-frame)
+constexpr int kReadBackEvery = 40; // (the loading thread's rounds between read-backs: everything finished mid-frame)
 constexpr uint32_t kResetWidth = 320; // (a reset at another size: the back buffer made again)
 constexpr uint32_t kResetHeight = 200;
 constexpr uint32_t kPixelBytes = 4;
@@ -775,7 +775,8 @@ void check_others(render::Gpu& gpu, Tally* tally)
     }
     tally->check(ok, text::format("%u occlusion queries in %u pools; one begun and ended: not ready before its frame "
                                   "is submitted",
-                                  kQueryCount, static_cast<uint32_t>(state.query_pools.size())));
+                                  kQueryCount,
+                                  static_cast<uint32_t>(state.query_pools.size())));
 
     const VkSampler point = render::vulkan::stage_sampler(0);
     gpu.set_sampler_state(0, render::GpuSamplerState::kMinFilter, value::kFilterAnisotropic);
@@ -847,7 +848,7 @@ struct ScreenVertex {
     uint32_t colour = 0;
 };
 constexpr uint32_t kScreenFvf = 0x004U | 0x040U;
-constexpr uint32_t kClearBlue = 0xFF000080U; // (A8R8G8B8)
+constexpr uint32_t kClearBlue = 0xFF000080U;  // (A8R8G8B8)
 constexpr uint32_t kDrawnGreen = 0xFF00C000U;
 constexpr uint32_t kDrawnRed = 0xFFC00000U;
 constexpr int kPresentsForResult = 8;
@@ -906,9 +907,9 @@ void check_draws(render::Gpu& gpu, Tally* tally)
     // the right half's top quarter red: indexed, two triangles
     const std::array<ScreenVertex, 4> corner = screen_rect(width / 2, 0.0F, width, height / 4, kDrawnRed);
     constexpr std::array<uint16_t, 6> kIndices{0, 1, 2, 2, 1, 3};
-    ok = ok &&
-         gpu.draw_indexed_from_memory(render::GpuPrimitive::kTriangleList, 0, 4, 2, kIndices.data(),
-                                      value::kFormatIndex16, corner.data(), sizeof(ScreenVertex)) == value::kResultOk;
+    ok = ok && gpu.draw_indexed_from_memory(render::GpuPrimitive::kTriangleList, 0, 4, 2, kIndices.data(),
+                                            value::kFormatIndex16, corner.data(),
+                                            sizeof(ScreenVertex)) == value::kResultOk;
     ok = ok && gpu.present() == value::kResultOk;
     uint32_t pixels = 0;
     long result = value::kResultNotReady;
@@ -936,8 +937,8 @@ void check_draws(render::Gpu& gpu, Tally* tally)
     constexpr uint32_t kInside = 10; // (a pixel well inside the left half)
     ok = ok && (at(kInside, kInside) & kRgb) == (kDrawnGreen & kRgb) &&
          (at((kWindowWidth / 2) - 1, kWindowHeight - 1) & kRgb) == (kDrawnGreen & kRgb);
-    tally->check(
-        ok, text::format("a pre-transformed strip from memory: the left half 0x%08X", ok ? at(kInside, kInside) : 0U));
+    tally->check(ok, text::format("a pre-transformed strip from memory: the left half 0x%08X",
+                                  ok ? at(kInside, kInside) : 0U));
     const bool corner_ok = ok && (at(kWindowWidth - 1, 0) & kRgb) == (kDrawnRed & kRgb) &&
                            (at(kWindowWidth / 2, (kWindowHeight / 4) - 1) & kRgb) == (kDrawnRed & kRgb) &&
                            (at(kWindowWidth / 2, kWindowHeight / 4) & kRgb) == (kClearBlue & kRgb);
@@ -948,8 +949,7 @@ void check_draws(render::Gpu& gpu, Tally* tally)
                                         ok ? at(kWindowWidth - 1, kWindowHeight - 1) : 0U));
     const render::vulkan::Backend& state = render::vulkan::backend();
     tally->check(state.pipelines.stats().pipelines >= 1 && state.pipelines.stats().refused == 0,
-                 text::format("pipelines made: %u, refused: %u",
-                              static_cast<unsigned>(state.pipelines.stats().pipelines),
+                 text::format("pipelines made: %u, refused: %u", static_cast<unsigned>(state.pipelines.stats().pipelines),
                               static_cast<unsigned>(state.pipelines.stats().refused)));
 }
 
@@ -1022,13 +1022,12 @@ void check_target_chain(render::Gpu& gpu, Tally* tally)
               gpu.texture_surface(texture, 0, &level) == value::kResultOk && gpu.back_buffer(&back) == value::kResultOk;
     render::GpuViewport viewport{};
     ok = ok && gpu.set_render_target(0, level) == value::kResultOk && gpu.get_viewport(&viewport) == value::kResultOk;
-    tally->check(
-        ok && viewport.x == 0 && viewport.y == 0 && viewport.width == kSide && viewport.height == kSide,
-        text::format("set_render_target resets the viewport to the target: %ux%u", viewport.width, viewport.height));
+    tally->check(ok && viewport.x == 0 && viewport.y == 0 && viewport.width == kSide && viewport.height == kSide,
+                 text::format("set_render_target resets the viewport to the target: %ux%u", viewport.width,
+                              viewport.height));
     ok = ok && gpu.clear(0, nullptr, value::kClearTarget, kDrawnGreen, 1.0F, 0) == value::kResultOk;
     ok = ok && gpu.set_render_target(0, back) == value::kResultOk && gpu.get_viewport(&viewport) == value::kResultOk &&
-         viewport.width == static_cast<uint32_t>(kWindowWidth) &&
-         viewport.height == static_cast<uint32_t>(kWindowHeight);
+         viewport.width == static_cast<uint32_t>(kWindowWidth) && viewport.height == static_cast<uint32_t>(kWindowHeight);
     gpu.set_depth_surface(nullptr);
     gpu.set_vertex_format(kTexturedScreenFvf);
     gpu.set_texture(0, texture);
@@ -1038,22 +1037,21 @@ void check_target_chain(render::Gpu& gpu, Tally* tally)
     gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgTexture);
     const auto width = static_cast<float>(kWindowWidth);
     const auto height = static_cast<float>(kWindowHeight);
-    const std::array<TexturedScreenVertex, 4> quad{
-        {{.x = 0.0F, .y = 0.0F, .colour = kDrawnRed, .u = 0.0F, .v = 0.0F},
-         {.x = width, .y = 0.0F, .colour = kDrawnRed, .u = 1.0F, .v = 0.0F},
-         {.x = 0.0F, .y = height, .colour = kDrawnRed, .u = 0.0F, .v = 1.0F},
-         {.x = width, .y = height, .colour = kDrawnRed, .u = 1.0F, .v = 1.0F}}};
-    ok = ok && gpu.draw_from_memory(render::GpuPrimitive::kTriangleStrip, 2, quad.data(),
-                                    sizeof(TexturedScreenVertex)) == value::kResultOk;
+    const std::array<TexturedScreenVertex, 4> quad{{{.x = 0.0F, .y = 0.0F, .colour = kDrawnRed, .u = 0.0F, .v = 0.0F},
+                                                     {.x = width, .y = 0.0F, .colour = kDrawnRed, .u = 1.0F, .v = 0.0F},
+                                                     {.x = 0.0F, .y = height, .colour = kDrawnRed, .u = 0.0F, .v = 1.0F},
+                                                     {.x = width, .y = height, .colour = kDrawnRed, .u = 1.0F, .v = 1.0F}}};
+    ok = ok && gpu.draw_from_memory(render::GpuPrimitive::kTriangleStrip, 2, quad.data(), sizeof(TexturedScreenVertex)) ==
+                   value::kResultOk;
     gpu.set_texture(0, nullptr);
     std::vector<uint8_t> shown;
     ok = ok && render::vulkan::read_surface(back, &shown) &&
          shown.size() == static_cast<std::size_t>(kWindowWidth) * kWindowHeight * kPixelBytes;
     constexpr uint32_t kRgb = 0x00FFFFFFU;
     const uint32_t middle = ok ? pixel_at(shown, kWindowWidth / 2, kWindowHeight / 2) : 0U;
-    tally->check(
-        ok && (middle & kRgb) == (kDrawnGreen & kRgb),
-        text::format("a target drawn from straight after its pass: 0x%08X (0x%08X expected)", middle, kDrawnGreen));
+    tally->check(ok && (middle & kRgb) == (kDrawnGreen & kRgb),
+                 text::format("a target drawn from straight after its pass: 0x%08X (0x%08X expected)", middle,
+                              kDrawnGreen));
     for (GpuSurface* surface : {level, back}) {
         if (surface != nullptr) {
             gpu.release_surface(surface);
@@ -1132,15 +1130,14 @@ void check_unlit(render::Gpu& gpu, Tally* tally)
     constexpr uint32_t kGreyBelow = 0x7F;
     constexpr uint32_t kGreyAbove = 0x80;
     const auto grey = [](uint32_t pixel) {
-        return std::ranges::all_of(std::array<uint32_t, 3>{0U, kBitsPerByte, 2 * kBitsPerByte},
-                                   [pixel](uint32_t shift) {
-                                       const uint32_t channel = (pixel >> shift) & kByteMask;
-                                       return channel == kGreyBelow || channel == kGreyAbove;
-                                   });
+        return std::ranges::all_of(std::array<uint32_t, 3>{0U, kBitsPerByte, 2 * kBitsPerByte}, [pixel](uint32_t shift) {
+            const uint32_t channel = (pixel >> shift) & kByteMask;
+            return channel == kGreyBelow || channel == kGreyAbove;
+        });
     };
     tally->check(ok && drawn_lit == (kDrawnRed & kRgb) && grey(drawn_unlit),
-                 text::format("the vertex factor shader draws the vertex colour 0x%06X, its twin grey 0x%06X",
-                              drawn_lit, drawn_unlit));
+                 text::format("the vertex factor shader draws the vertex colour 0x%06X, its twin grey 0x%06X", drawn_lit,
+                              drawn_unlit));
     for (render::GpuPixelShader* shader : {lit, unlit, material}) {
         if (shader != nullptr) {
             gpu.release_pixel_shader(shader);
@@ -1154,34 +1151,32 @@ void check_unlit(render::Gpu& gpu, Tally* tally)
 void check_material_text(render::Gpu& gpu, Tally* tally)
 {
     text::print("material texts:\n");
-    constexpr std::string_view kText = "ps.1.1\n"
-                                       "tex t0\n"
-                                       "tex t1\n"
-                                       "tex t2\n"
-                                       "tex t3\n"
-                                       "mov r0.a, t0.a\n"
-                                       "+mul_x2 r0.rgb, c0, t0\n"
-                                       "mul_x2 r1.rgb, c1, t1\n"
-                                       "+mov r1.a, t1\n"
-                                       "lrp r0.rgb,r1.a,r1,r0\n"
-                                       "mul_x2 r1.rgb, c2, t2\n"
-                                       "lrp r0.rgb, r1.a, r1, r0\n"
-                                       "mul_x2 r1.rgb, c3, t3\n"
-                                       "+mul_x2 r1.a, v0.a, t3.a\n"
-                                       "mad r0.rgb,r1,-r1.a,r0\n"
-                                       "mul_x2 r0.rgb, r0, v0\n";
+    constexpr std::string_view kText =
+                                         "ps.1.1\n"
+                                         "tex t0\n"
+                                         "tex t1\n"
+                                         "tex t2\n"
+                                         "tex t3\n"
+                                         "mov r0.a, t0.a\n"
+                                         "+mul_x2 r0.rgb, c0, t0\n"
+                                         "mul_x2 r1.rgb, c1, t1\n"
+                                         "+mov r1.a, t1\n"
+                                         "lrp r0.rgb,r1.a,r1,r0\n"
+                                         "mul_x2 r1.rgb, c2, t2\n"
+                                         "lrp r0.rgb, r1.a, r1, r0\n"
+                                         "mul_x2 r1.rgb, c3, t3\n"
+                                         "+mul_x2 r1.a, v0.a, t3.a\n"
+                                         "mad r0.rgb,r1,-r1.a,r0\n"
+                                         "mul_x2 r0.rgb, r0, v0\n";
     render::GpuPixelShader* shader = nullptr;
-    const bool made =
-        gpu.create_pixel_shader(kText.data(), static_cast<uint32_t>(kText.size()), &shader) == value::kResultOk;
-    const render::vulkan::ShaderProgram program =
-        made ? render::vulkan::object(shader)->program : render::vulkan::ShaderProgram{};
+    const bool made = gpu.create_pixel_shader(kText.data(), static_cast<uint32_t>(kText.size()), &shader) == value::kResultOk;
+    const render::vulkan::ShaderProgram program = made ? render::vulkan::object(shader)->program : render::vulkan::ShaderProgram{};
     constexpr std::array<uint8_t, 4> kModes{0, 5, 0xC, 3};
     tally->check(made && program.known && program.program == render::vulkan::PixelProgram::kMaterial &&
-                     program.material_passes == 4 && program.material_modes == kModes &&
-                     program.material_alpha_flags == 3,
+                     program.material_passes == 4 && program.material_modes == kModes && program.material_alpha_flags == 3,
                  text::format("a pass without an alpha line read as mode 0xC: modes %u %u %u, alpha flags %u",
-                              core::at(program.material_modes, 1), core::at(program.material_modes, 2),
-                              core::at(program.material_modes, 3), program.material_alpha_flags));
+                              core::at(program.material_modes, 1), core::at(program.material_modes, 2), core::at(program.material_modes, 3),
+                              program.material_alpha_flags));
     if (shader != nullptr) {
         gpu.release_pixel_shader(shader);
     }
@@ -1221,8 +1216,7 @@ void check_gamma(render::Gpu& gpu, Tally* tally)
     ok = ok && render::vulkan::read_gamma_pass(target, &shown) &&
          shown.size() == static_cast<std::size_t>(kTargetWidth) * kTargetHeight * kPixelBytes;
     // (the middle pixel of a kTargetWidth-wide image, its bytes B G R A)
-    const std::size_t middle =
-        ((static_cast<std::size_t>(kTargetHeight / 2) * kTargetWidth) + (kTargetWidth / 2)) * kPixelBytes;
+    const std::size_t middle = ((static_cast<std::size_t>(kTargetHeight / 2) * kTargetWidth) + (kTargetWidth / 2)) * kPixelBytes;
     uint32_t pixel = 0;
     for (std::size_t byte = 0; ok && byte < kPixelBytes; ++byte) {
         pixel |= static_cast<uint32_t>(core::at(shown, middle + byte)) << (byte * kBitsPerByte);
@@ -1279,8 +1273,8 @@ void check_ui(render::Gpu& gpu, Tally* tally)
     constexpr int kSide = 4;
     constexpr int kPreview = 64;
     constexpr int kAtlas = 128;
-    constexpr uint32_t kImageRed = 0xFFE00000U; // (A8R8G8B8)
-    constexpr uint32_t kWhite = 0xFFFFFFFFU;    // (ImGui's colours: A B G R from the top byte)
+    constexpr uint32_t kImageRed = 0xFFE00000U;        // (A8R8G8B8)
+    constexpr uint32_t kWhite = 0xFFFFFFFFU;           // (ImGui's colours: A B G R from the top byte)
     constexpr uint32_t kHalfWhite = 0x80FFFFFFU;
     render::UiBackend& ui = render::vulkan::ui_backend();
     std::vector<uint32_t> texels(static_cast<std::size_t>(kSide) * kSide, kImageRed);
@@ -1324,8 +1318,7 @@ void check_ui(render::Gpu& gpu, Tally* tally)
     std::vector<UiVertex> vertices;
     add_ui_rect(&vertices, {.left = 0, .top = 0, .right = kHalfWidth, .bottom = kWindowHeight}, kWhite);
     add_ui_rect(&vertices, {.left = kHalfWidth, .top = 0, .right = kWindowWidth, .bottom = kWindowHeight}, kWhite);
-    add_ui_rect(&vertices, {.left = 0, .top = kHalfHeight, .right = kHalfWidth / 2, .bottom = kWindowHeight},
-                kHalfWhite);
+    add_ui_rect(&vertices, {.left = 0, .top = kHalfHeight, .right = kHalfWidth / 2, .bottom = kWindowHeight}, kHalfWhite);
     const std::vector<uint16_t> indices{0, 1, 2, 2, 1, 3};
     constexpr GpuRect kWhole{.left = 0, .top = 0, .right = kWindowWidth, .bottom = kWindowHeight};
     const std::array<render::vulkan::UiDraw, 3> draws{{
@@ -1360,20 +1353,18 @@ void check_ui(render::Gpu& gpu, Tally* tally)
                  text::format("a textured rectangle: 0x%06X (0x%06X expected)", textured, kImageRed & kRgb));
     const uint32_t preview = at(kWindowWidth - 1, kHalfHeight - 1);
     const uint32_t clipped = at(kWindowWidth - 1, kHalfHeight);
-    tally->check(
-        preview == (kDrawnGreen & kRgb) && clipped == (kClearBlue & kRgb),
-        text::format("the preview's picture clipped to the top half: 0x%06X above, 0x%06X below", preview, clipped));
+    tally->check(preview == (kDrawnGreen & kRgb) && clipped == (kClearBlue & kRgb),
+                 text::format("the preview's picture clipped to the top half: 0x%06X above, 0x%06X below", preview,
+                              clipped));
     // (half white over the image's red: each channel halfway to white)
     const uint32_t blended = at(1, kWindowHeight - 1);
     const auto channel = [blended](uint32_t shift) { return (blended >> shift) & kByteMask; };
     constexpr uint32_t kHalfway = 0x80;
     constexpr uint32_t kRedShift = 16;
     constexpr uint32_t kBlendedRed = (kByteMask + ((kImageRed >> kRedShift) & kByteMask) + 1) / 2;
-    const auto close_to = [](uint32_t value, uint32_t expected) {
-        return value + 2 >= expected && value <= expected + 2;
-    };
-    tally->check(close_to(channel(kRedShift), kBlendedRed) && close_to(channel(kBitsPerByte), kHalfway) &&
-                     close_to(channel(0), kHalfway),
+    const auto close_to = [](uint32_t value, uint32_t expected) { return value + 2 >= expected && value <= expected + 2; };
+    tally->check(close_to(channel(kRedShift), kBlendedRed) &&
+                     close_to(channel(kBitsPerByte), kHalfway) && close_to(channel(0), kHalfway),
                  text::format("a half-transparent rectangle blended over it: 0x%06X", blended));
     ui.free_atlas();
     tally->check(ui.atlas_generation() != generation && ui.atlas_texture() == 0, "the atlas freed: a new generation");
@@ -1498,10 +1489,11 @@ bool reset_to(render::Gpu& gpu, render::GpuContext& context, render::GpuSettings
     GpuSurface* depth = nullptr;
     render::GpuSurfaceDesc back_desc{};
     render::GpuSurfaceDesc depth_desc{};
-    const bool bound =
-        gpu.back_buffer(&back) == value::kResultOk && gpu.surface_desc(back, &back_desc) == value::kResultOk &&
-        gpu.render_target(0, &target) == value::kResultOk && target == back &&
-        gpu.depth_surface(&depth) == value::kResultOk && gpu.surface_desc(depth, &depth_desc) == value::kResultOk;
+    const bool bound = gpu.back_buffer(&back) == value::kResultOk &&
+                       gpu.surface_desc(back, &back_desc) == value::kResultOk &&
+                       gpu.render_target(0, &target) == value::kResultOk && target == back &&
+                       gpu.depth_surface(&depth) == value::kResultOk &&
+                       gpu.surface_desc(depth, &depth_desc) == value::kResultOk;
     for (GpuSurface* surface : {back, target, depth}) {
         if (surface != nullptr) {
             gpu.release_surface(surface);
@@ -1528,8 +1520,8 @@ void check_reset(render::Gpu& gpu, render::GpuContext& context, Tally* tally)
     bool ok = gpu.get_viewport(&viewport) == value::kResultOk && viewport.x == 0 && viewport.y == 0 &&
               viewport.width == static_cast<uint32_t>(kWindowWidth) &&
               viewport.height == static_cast<uint32_t>(kWindowHeight);
-    tally->check(
-        ok, text::format("a new device's viewport: the back buffer's whole (%ux%u)", viewport.width, viewport.height));
+    tally->check(ok, text::format("a new device's viewport: the back buffer's whole (%ux%u)", viewport.width,
+                                  viewport.height));
     const render::GpuSettings original = context.settings();
     render::GpuSettings smaller = original;
     smaller.width = kResetWidth;
@@ -1562,11 +1554,12 @@ int window_position(int display)
 
 int run(const Options& options, SDL_Window* window)
 {
-    render::vulkan::set_context_options({.validation = options.validation,
-                                         .device_index = options.device,
-                                         .on_message = print_line,
-                                         .ray_tracing = options.ray_tracing},
-                                        window);
+    render::vulkan::set_context_options(
+        {.validation = options.validation,
+         .device_index = options.device,
+         .on_message = print_line,
+         .ray_tracing = options.ray_tracing},
+        window);
     render::GpuContext& context = render::vulkan::gpu_context();
     render::Gpu& gpu = render::vulkan::gpu();
     if (!context.create_instance()) {

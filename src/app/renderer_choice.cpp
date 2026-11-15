@@ -75,8 +75,7 @@ void read_time_of_day(const Resolution& in_effect)
     render::rt::TodSettings settings;
     const std::string& tod = in_effect.value("tod");
     if (!render::rt::parse_tod(tod, &settings.choice)) {
-        get_log("[Graphics] tod=%s isn't level, dawn, morning, noon, afternoon, dusk, night or HH:MM - level",
-                tod.c_str());
+        get_log("[Graphics] tod=%s isn't level, dawn, morning, noon, afternoon, dusk, night or HH:MM - level", tod.c_str());
     }
     settings.cycle = in_effect.value("tod_cycle") == "on";
     if (in_effect.at("tod_cycle_minutes").in_effect) {
@@ -246,8 +245,7 @@ render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
     const render::vulkan::HdrSettings defaults;
     return render::vulkan::HdrSettings{.on = hdr_on(in_effect),
                                        .exposure = in_effect.number("rt_exposure", defaults.exposure),
-                                       .tonemap =
-                                           static_cast<unsigned>(std::max(0, in_effect.integer("rt_tonemap", 0))),
+                                       .tonemap = static_cast<unsigned>(std::max(0, in_effect.integer("rt_tonemap", 0))),
                                        .saturation = in_effect.number("rt_saturation", defaults.saturation),
                                        .contrast = in_effect.number("rt_contrast", defaults.contrast),
                                        .white_point = in_effect.number("rt_white_point", defaults.white_point),
@@ -258,42 +256,39 @@ render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
 render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
 {
     const render::vulkan::RtFogSettings defaults;
-    return render::vulkan::RtFogSettings{.on = in_effect.on("rt_fog"),
-                                         .density = in_effect.number("rt_fog_density", defaults.density),
-                                         .height = in_effect.number("rt_fog_height", defaults.height),
-                                         .anisotropy = in_effect.number("rt_fog_anisotropy", defaults.anisotropy),
-                                         .steps = at_least_one(in_effect, "rt_fog_steps", render::vulkan::kRtFogSteps),
-                                         .mode = in_effect.integer("rt_fog_mode", 0) == 1
-                                                     ? render::vulkan::RtFogMode::kShafts
-                                                     : render::vulkan::RtFogMode::kReplace,
-                                         .hdr = hdr_on(in_effect),
-                                         .haze = in_effect.on("rt_fog_haze"),
-                                         .haze_density = in_effect.number("rt_fog_haze_density", defaults.haze_density),
-                                         .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height)};
+    return render::vulkan::RtFogSettings{
+        .on = in_effect.on("rt_fog"),
+        .density = in_effect.number("rt_fog_density", defaults.density),
+        .height = in_effect.number("rt_fog_height", defaults.height),
+        .anisotropy = in_effect.number("rt_fog_anisotropy", defaults.anisotropy),
+        .steps = at_least_one(in_effect, "rt_fog_steps", render::vulkan::kRtFogSteps),
+        .mode = in_effect.integer("rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts : render::vulkan::RtFogMode::kReplace,
+        .hdr = hdr_on(in_effect),
+        .haze = in_effect.on("rt_fog_haze"),
+        .haze_density = in_effect.number("rt_fog_haze_density", defaults.haze_density),
+        .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height)};
 }
 
 // NOT ORIGINAL - the sun's disc and glare, screen-space rays, the bloom and the sky model (gpu_vulkan/vulkan_rt_sun.h,
 // vulkan_rt_sky.h). rt_sun_colour: auto (the sky model's colour for the sun's elevation) or r,g,b (0 - 1 each).
 render::vulkan::RtSunSettings make_rt_sun(const Resolution& in_effect)
 {
-    render::vulkan::RtSunSettings sun{
-        .sun = in_effect.on("rt_sun"),
-        .sun_size = in_effect.number("rt_sun_size", render::vulkan::RtSunSettings{}.sun_size),
-        .bloom = in_effect.on("rt_bloom"),
-        .bloom_strength = in_effect.number("rt_bloom_strength", render::vulkan::kRtBloomStrength),
-        .shafts = in_effect.on("rt_shafts"),
-        .shaft_strength = in_effect.number("rt_shaft_strength", render::vulkan::kRtShaftStrength),
-        .sky_model = in_effect.on("rt_sky_model"),
-        .lens_dirt = in_effect.on("rt_lens_dirt"),
-        .hdr = hdr_on(in_effect)};
+    render::vulkan::RtSunSettings sun{.sun = in_effect.on("rt_sun"),
+                                      .sun_size = in_effect.number("rt_sun_size", render::vulkan::RtSunSettings{}.sun_size),
+                                      .bloom = in_effect.on("rt_bloom"),
+                                      .bloom_strength = in_effect.number("rt_bloom_strength", render::vulkan::kRtBloomStrength),
+                                      .shafts = in_effect.on("rt_shafts"),
+                                      .shaft_strength = in_effect.number("rt_shaft_strength", render::vulkan::kRtShaftStrength),
+                                      .sky_model = in_effect.on("rt_sky_model"),
+                                      .lens_dirt = in_effect.on("rt_lens_dirt"),
+                                      .hdr = hdr_on(in_effect)};
     const config::Resolved& colour_setting = in_effect.at("rt_sun_colour");
     std::array<float, 3> colour{};
     if (colour_setting.in_effect && parse_rgb(colour_setting.value, &colour)) {
         sun.colour_set = true;
         sun.colour = colour;
     } else if (colour_setting.in_effect && colour_setting.value != "auto") {
-        get_log("[Graphics] rt_sun_colour=%s isn't auto or r,g,b - the sky model's colour used",
-                colour_setting.value.c_str());
+        get_log("[Graphics] rt_sun_colour=%s isn't auto or r,g,b - the sky model's colour used", colour_setting.value.c_str());
     }
     return sun;
 }
@@ -313,15 +308,14 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
             get_log("[Graphics] rt_cloud_coverage=%s isn't auto or 0 - 1 - auto used", cover_text.c_str());
         }
     }
-    return render::vulkan::RtSkySettings{
-        .on = in_effect.on("rt_sky"),
-        .match = in_effect.number("rt_sky_match", render::vulkan::kRtSkyMatch),
-        .clouds = in_effect.on("rt_clouds"),
-        .coverage = cover,
-        .speed = in_effect.number("rt_cloud_speed", 1.0F),
-        .quality = static_cast<unsigned>(std::max(0, in_effect.integer("rt_cloud_quality", 1))),
-        .cloud_shadows = in_effect.on("rt_cloud_shadows"),
-        .hdr = hdr_on(in_effect)};
+    return render::vulkan::RtSkySettings{.on = in_effect.on("rt_sky"),
+                                         .match = in_effect.number("rt_sky_match", render::vulkan::kRtSkyMatch),
+                                         .clouds = in_effect.on("rt_clouds"),
+                                         .coverage = cover,
+                                         .speed = in_effect.number("rt_cloud_speed", 1.0F),
+                                         .quality = static_cast<unsigned>(std::max(0, in_effect.integer("rt_cloud_quality", 1))),
+                                         .cloud_shadows = in_effect.on("rt_cloud_shadows"),
+                                         .hdr = hdr_on(in_effect)};
 }
 
 // NOT ORIGINAL - the relit mode (engine/gfx/rt_relit.h, render_pc/rt_relit_world.h): on when asked for, or when the
@@ -330,12 +324,11 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
 void read_rt_relit(const Resolution& in_effect)
 {
     const render::rt::RelitSettings defaults;
-    render::rt::set_relit_settings(
-        {.on = in_effect.on("rt_relit"),
-         .strength = in_effect.number("rt_relit_strength", defaults.strength),
-         .residual = in_effect.on("rt_relit_residual"),
-         .sky_rays = at_least_one(in_effect, "rt_relit_sky_rays", render::rt::kRelitSkyRays),
-         .sun_rays = at_least_one(in_effect, "rt_relit_sun_rays", render::rt::kRelitSunRays)});
+    render::rt::set_relit_settings({.on = in_effect.on("rt_relit"),
+                                    .strength = in_effect.number("rt_relit_strength", defaults.strength),
+                                    .residual = in_effect.on("rt_relit_residual"),
+                                    .sky_rays = at_least_one(in_effect, "rt_relit_sky_rays", render::rt::kRelitSkyRays),
+                                    .sun_rays = at_least_one(in_effect, "rt_relit_sun_rays", render::rt::kRelitSunRays)});
 }
 
 // NOT ORIGINAL - frame generation and Reflex (gpu_vulkan/vulkan_framegen.h): DLSS-G / FSR 3 from beside the exe. Read
@@ -346,8 +339,7 @@ void read_frame_generation(const Resolution& in_effect)
     if (!render::vulkan::parse_frame_generation(in_effect.value("frame_generation"), &settings.mode)) {
         settings.mode = render::vulkan::FrameGeneration::kOff;
     }
-    if (!render::vulkan::parse_frame_generation_source(in_effect.value("frame_generation_provider"),
-                                                       &settings.source)) {
+    if (!render::vulkan::parse_frame_generation_source(in_effect.value("frame_generation_provider"), &settings.source)) {
         settings.source = render::vulkan::FrameGenSource::kAuto;
     }
     if (!render::vulkan::parse_reflex(in_effect.value("reflex"), &settings.reflex)) {
@@ -389,8 +381,7 @@ void read_rt_pbr(const Resolution& in_effect)
          .objects = in_effect.on("rt_pbr_objects"),
          // (added by surface relief - parallax occlusion mapping on the surface-mapped brick, stone, gravel...)
          .relief = in_effect.on("rt_relief"),
-         .relief_strength =
-             std::clamp(in_effect.number("rt_relief_strength", defaults.relief_strength), 0.0F, kMostRelief),
+         .relief_strength = std::clamp(in_effect.number("rt_relief_strength", defaults.relief_strength), 0.0F, kMostRelief),
          // (added for the characters - their surface maps and skin / cloth / hair shading; on top of rt_pbr)
          .characters = in_effect.on("rt_characters"),
          .skin = std::clamp(in_effect.number("rt_characters_skin", defaults.skin), 0.0F, kMostStrength),
@@ -463,13 +454,13 @@ void read_style_film(const Resolution& in_effect)
 void read_rt_cel(const Resolution& in_effect)
 {
     const render::rt::CelSettings defaults;
-    render::rt::CelSettings cel{.on = art_style_of(in_effect) == render::vulkan::ArtStyle::kCel,
-                                .bands = static_cast<uint32_t>(
-                                    std::max(0, in_effect.integer("rt_cel_bands", static_cast<int>(defaults.bands)))),
-                                .shadow_colour = defaults.shadow_colour,
-                                .rim = in_effect.number("rt_cel_rim", defaults.rim),
-                                .outline_width = in_effect.number("rt_cel_outline_width", defaults.outline_width),
-                                .flatten = in_effect.number("rt_cel_flatten", defaults.flatten)};
+    render::rt::CelSettings cel{
+        .on = art_style_of(in_effect) == render::vulkan::ArtStyle::kCel,
+        .bands = static_cast<uint32_t>(std::max(0, in_effect.integer("rt_cel_bands", static_cast<int>(defaults.bands)))),
+        .shadow_colour = defaults.shadow_colour,
+        .rim = in_effect.number("rt_cel_rim", defaults.rim),
+        .outline_width = in_effect.number("rt_cel_outline_width", defaults.outline_width),
+        .flatten = in_effect.number("rt_cel_flatten", defaults.flatten)};
     const std::string& shadow = in_effect.value("rt_cel_shadow_colour");
     if (!shadow.empty() && !render::rt::parse_cel_colour(shadow, &cel.shadow_colour)) {
         get_log("[Graphics] rt_cel_shadow_colour=%s isn't r,g,b or #rrggbb - the default kept", shadow.c_str());
@@ -516,32 +507,30 @@ void read_grass(const Resolution& in_effect)
 void read_snow(const Resolution& in_effect)
 {
     const render::vulkan::SnowSettings defaults;
-    render::vulkan::set_snow_settings({.on = in_effect.on("snow"),
-                                       .depth = in_effect.number("snow_depth", defaults.depth),
-                                       .quality = static_cast<int>(std::lround(in_effect.number(
-                                           "snow_trail_quality", static_cast<float>(defaults.quality)))),
-                                       .falling = in_effect.on("snowfall")});
+    render::vulkan::set_snow_settings(
+        {.on = in_effect.on("snow"),
+         .depth = in_effect.number("snow_depth", defaults.depth),
+         .quality = static_cast<int>(std::lround(in_effect.number("snow_trail_quality", static_cast<float>(defaults.quality)))),
+         .falling = in_effect.on("snowfall")});
 }
 
 // NOT ORIGINAL - paint trails (gpu_vulkan/vulkan_paint.h): every skater's line of paint, widening with its combo
 void read_paint(const Resolution& in_effect)
 {
     const render::vulkan::PaintSettings defaults;
-    render::vulkan::set_paint_settings(
-        {.on = in_effect.on("paint_trails"),
-         .scale = in_effect.number("paint_trail_scale", defaults.scale),
-         .colour = render::paint::colour_from_text(in_effect.value("paint_trail_colour").c_str())});
+    render::vulkan::set_paint_settings({.on = in_effect.on("paint_trails"),
+                                        .scale = in_effect.number("paint_trail_scale", defaults.scale),
+                                        .colour = render::paint::colour_from_text(in_effect.value("paint_trail_colour").c_str())});
 }
 
 // NOT ORIGINAL - decals and clutter (gpu_vulkan/vulkan_scatter.h): marks and small props over the level's surfaces
 void read_scatter(const Resolution& in_effect)
 {
     const render::vulkan::ScatterSettings defaults;
-    render::vulkan::set_scatter_settings(
-        {.decals = in_effect.on("rt_decals"),
-         .decal_density = in_effect.number("rt_decals_density", defaults.decal_density),
-         .clutter = in_effect.on("clutter"),
-         .clutter_density = in_effect.number("clutter_density", defaults.clutter_density)});
+    render::vulkan::set_scatter_settings({.decals = in_effect.on("rt_decals"),
+                                          .decal_density = in_effect.number("rt_decals_density", defaults.decal_density),
+                                          .clutter = in_effect.on("clutter"),
+                                          .clutter_density = in_effect.number("clutter_density", defaults.clutter_density)});
 }
 
 // NOT ORIGINAL - water shading (gpu_vulkan/vulkan_water.h). rt_water_wind_heading: auto (the level's) or degrees;
@@ -607,11 +596,8 @@ void read_camera_fx(const Resolution& in_effect)
         .grade = render::vulkan::GradeLook::kOff,
         .grade_strength = in_effect.number("rt_grade_strength", defaults.grade_strength),
         // (out of effect under an art style with its own: the style's is used)
-        .grade_vignette = in_effect.at("rt_grade_vignette").in_effect
-                              ? in_effect.number("rt_grade_vignette", defaults.grade_vignette)
-                              : 0.0F,
-        .grade_grain =
-            in_effect.at("rt_grade_grain").in_effect ? in_effect.number("rt_grade_grain", defaults.grade_grain) : 0.0F,
+        .grade_vignette = in_effect.at("rt_grade_vignette").in_effect ? in_effect.number("rt_grade_vignette", defaults.grade_vignette) : 0.0F,
+        .grade_grain = in_effect.at("rt_grade_grain").in_effect ? in_effect.number("rt_grade_grain", defaults.grade_grain) : 0.0F,
         .grade_levels = in_effect.value("rt_grade_levels"),
         .fisheye_strength = in_effect.number("rt_fisheye_strength", defaults.fisheye_strength),
         .fisheye_vignette = in_effect.number("rt_fisheye_vignette", defaults.fisheye_vignette),
@@ -740,7 +726,7 @@ struct EffectSet {
 uint32_t effect_bit(config::Effect effect)
 {
     using config::Effect;
-    constexpr std::array kSplit = {Effect::kShadows, Effect::kAo,  Effect::kGi,  Effect::kReflections,
+    constexpr std::array kSplit = {Effect::kShadows, Effect::kAo, Effect::kGi, Effect::kReflections,
                                    Effect::kHdr,     Effect::kFog, Effect::kSun, Effect::kSky};
     return std::ranges::find(kSplit, effect) != kSplit.end() ? 1U << static_cast<uint32_t>(effect) : 0U;
 }
@@ -761,8 +747,8 @@ struct CompareState {
     bool on = false;
     std::array<EffectSet, 2> sides{};
     render::graphics_options::CompareSettings overrides; // (the ones that can differ)
-    uint32_t differ = 0;                                 // (the effects set again at a swap)
-    bool wants_baked_sun = false;                        // (either side's shadows from the bake, or its bounce)
+    uint32_t differ = 0;          // (the effects set again at a swap)
+    bool wants_baked_sun = false; // (either side's shadows from the bake, or its bounce)
     int applied = 0;
 };
 
@@ -1022,8 +1008,7 @@ void install_renderer()
         install_direct3d9();
 #else
         // NOT ORIGINAL (macOS port) - there is no Direct3D 9 here, and Vulkan is the only backend: a machine that can't
-        // draw with Vulkan has no renderer at all (the log above says why). The game stops here rather than fault in the
-        // renderer's first call.
+        // draw with Vulkan has no renderer at all (the log above says why). The game stops here rather than fault.
         get_log("renderer: no graphics backend on this platform but Vulkan: stopping");
         ExitProcess(2);
 #endif
