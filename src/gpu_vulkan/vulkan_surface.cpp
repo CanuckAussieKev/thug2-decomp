@@ -119,7 +119,7 @@ const DetailDraw& detail_of(MapEntry& entry)
 {
     const uint64_t generation = detail_generation();
     if (entry.generation != generation) {
-        entry.detail = detail_draw(entry.checksum, entry.content_hash, entry.material_class, entry.delit);
+        entry.detail = detail_draw(entry.checksum, entry.content_hash, entry.material_class);
         entry.generation = generation;
     }
     return entry.detail;

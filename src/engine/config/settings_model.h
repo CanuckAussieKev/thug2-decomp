@@ -106,6 +106,10 @@ enum class Cap : uint8_t {
     kReliefMaps,      // (added by building relief) facade structures made beside the level textures (tools/pbr_maps)
     kLevelWithoutFog, // the level has no fog of its own (true while no level is known)
     kLevelOutdoor,    // (added by the snow) the level is outdoors - it has a sky (true while no level is known)
+    // (the offline relit data - engine/gfx/relit_data.h; true while no level is known)
+    kLevelLightData,    // the level's relit data is built (tools/game/relit_bake.ts)
+    kLevelLightCurrent, // ... and made from the level's meshes as they are now
+    kLevelSunInBake,    // ... and the level's bake has sunlight to take apart (an indoor level's has none)
 };
 
 class Reader;
@@ -237,10 +241,15 @@ inline constexpr uint32_t kVendorAmd = 0x1002;
 // -> 30); 0 when it isn't an RTX.
 int rtx_series(const std::string& device_name);
 
+// (the offline relit data) What the level now loaded is lit from: its relit data, none built, data made from other
+// meshes (another overlay, building relief or smoothed curves changed since), or data saying its bake shows no sunlight.
+enum class LevelLight : uint8_t { kUnknown, kBuilt, kMissing, kStale, kNoSun };
+
 struct LevelFacts {
     bool known = false;
     bool fog = false; // the level has fog of its own
     bool outdoor = true; // (added by the snow) the level has a sky (render_pc/snow_world.cpp says, each level)
+    LevelLight light = LevelLight::kUnknown; // (render_pc/rt_relit_world.cpp says, each level)
 };
 
 struct Inputs {

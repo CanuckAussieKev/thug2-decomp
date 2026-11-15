@@ -237,6 +237,33 @@ LightRatio LightField::at(const FieldPoint& point) const
     return ratio_of(sum);
 }
 
+IndirectLight LightField::indirect_at(const FieldPoint& point) const
+{
+    IndirectLight out;
+    if (cells_.empty()) {
+        return out;
+    }
+    std::vector<Weighted> cells = around(point);
+    if (cells.empty()) {
+        cells.push_back({.cell = &all_, .weight = 1.0F});
+    }
+    // (a vertex's mean: the cells' sums over their counts, each by its weight)
+    LightParts sum;
+    float count = 0.0F;
+    for (const Weighted& each : cells) {
+        add_parts(&sum, each.cell->sum, each.weight);
+        count += each.cell->count * each.weight;
+    }
+    if (!(count > kLightFieldLeast)) {
+        return out;
+    }
+    for (std::size_t ch = 0; ch < out.now.size(); ++ch) {
+        core::at(out.now, ch) = core::at(sum.indirect_now, ch) * local_scale_ / count;
+        core::at(out.own, ch) = core::at(sum.indirect_own, ch) * local_scale_ / count;
+    }
+    return out;
+}
+
 LocalLight LightField::local_at(const FieldPoint& point) const
 {
     LocalLight out;
@@ -331,6 +358,12 @@ LightRatio light_ratio_at(const FieldPoint& point)
 {
     const std::shared_ptr<const LightField> field = light_field();
     return field != nullptr ? field->at(point) : LightRatio{};
+}
+
+IndirectLight indirect_light_at(const FieldPoint& point)
+{
+    const std::shared_ptr<const LightField> field = light_field();
+    return field != nullptr ? field->indirect_at(point) : IndirectLight{};
 }
 
 LocalLight local_light_at(const FieldPoint& point)

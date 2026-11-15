@@ -21,6 +21,8 @@
 #include "base/core/checksums.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
+#include "engine/config/settings_model.h"
+#include "engine/config/settings_state.h"
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
 #include "engine/gfx/engine_parts.h"
@@ -32,6 +34,8 @@
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
+#include "engine/gfx/relit_data.h"
+#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/day_clock.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
@@ -58,18 +62,9 @@ constexpr float kSameSun = 0.99999F;          // two suns this close (their dire
 // sun it was traced for. A running clock's sun moves that far in 10 s of a 12-minute day.
 constexpr float kBounceSameSun = 0.9961947F;
 constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
-constexpr uint32_t kCacheMagic = 0x4C523254U; // "T2RL"
-constexpr uint32_t kCacheVersion = 7; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
-                                      // local light across meshes, the probe through the cut-outs; 6: the fit's
-                                      // shadow borders and faces, the bounce's local part; 7: no sun channel left
-                                      // at nothing)
 constexpr std::size_t kKilobyte = 1024;
+constexpr double kDegrees = 180.0 / 3.14159265358979323846; // (the log's heading and elevation)
 constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
-constexpr std::size_t kVertexFloats =
-    20; // a vertex in the cache: normal 3, sun, sky, bounce 3, tint 3, residual 3, sun_missed, sun_baked, used,
-        // bounce_local 3
-constexpr std::size_t kModelFloats = 17; // the model: valid, toward 3, sun 3, sky 3, bounce 3, scale, error, vertices,
-                                         // the sun's need
 constexpr float kRgbColourLimit = 4.0F;
 constexpr float kWholeStrength = 0.999F; // (the light energy audit) relit at this strength or more: its colours are its parts'
 constexpr float kChangedLuma = 2.0F; // (the log: a vertex changed by more than this, of 255)
@@ -80,12 +75,16 @@ constexpr int kRedShift = 16;
 constexpr int kGreenShift = 8;
 constexpr uint32_t kByteMask = 0xFF; // the sky model's colour ratio kept within this
 
+// (the offline relit data) What the level is lit by: the original's lighting (no data, data for other meshes, a bake
+// with no sunlight, the level's entry) or the relit data.
 enum class Status : uint8_t {
     kOff,
-    kWaiting,  // for a still world and the baked sun
-    kNoSun,    // the bake shows no sun: kept
-    kOptedOut, // the level's entry says so: kept
-    kNoModel,  // the fit found no sun term: kept
+    kWaiting,  // for a still world
+    kNoData,   // no relit data built for the level: the original's lighting
+    kStale,    // its data was made from other meshes: the original's lighting
+    kNoSun,    // the bake shows no sun (the data says): the original's lighting
+    kOptedOut, // the level's entry says so: the bake kept
+    kNoModel,  // the bake's sunlight couldn't be told apart (the data says): the original's lighting
     kRelit,
 };
 
@@ -95,13 +94,18 @@ const char* status_name(Status status)
     case Status::kOff:
         return "off";
     case Status::kWaiting:
-        return "waiting for a still world and its baked sun";
+        return "waiting for a still world";
+    case Status::kNoData:
+        return "no relit data for this level - the original's lighting (build it: node tools/game/relit_bake.ts)";
+    case Status::kStale:
+        return "its relit data was made from other meshes - the original's lighting (build it again: node "
+               "tools/game/relit_bake.ts)";
     case Status::kNoSun:
-        return "the bake shows no sun - the bake kept";
+        return "the bake shows no sun - the original's lighting";
     case Status::kOptedOut:
         return "the level's entry turns it off - the bake kept";
     case Status::kNoModel:
-        return "the fit found no sunlight in the bake - the bake kept";
+        return "the bake's sunlight couldn't be told apart - the original's lighting";
     case Status::kRelit:
         return "relit";
     }
@@ -113,12 +117,13 @@ struct Entry {
     VertexBuffer* buffer = nullptr;
     uint32_t stride = 0;
     uint32_t colour_offset = 0;
-    uint64_t content = 0;            // a hash of its vertices and indices (the cache's key)
+    uint64_t content = 0;            // its content's hash (the relit data's key: relit_data.h relit_mesh_content)
     std::vector<uint32_t> originals; // the baked colours
     std::vector<uint8_t> animated;   // a vertex whose colour the game animates: 1
     rt::RelitMesh input;
     rt::RelitVertices light;
-    bool analysed = false;
+    bool analysed = false;   // its light read from the level's data
+    bool looked_up = false;  // looked for in the level's data (found: analysed)
     rt::Vec3 sun_for{};    // the sun its vertices' sun was traced toward
     float radius_for = rt::kRelitSunRadiusDegrees; // ... and the light's angular radius then (rt_daylight.h light_radius)
     rt::Vec3 bounce_for{}; // ... and the sun whose light its bounce was traced with
@@ -208,10 +213,14 @@ struct Job {
     double ask_ms = 0.0;
 };
 
-struct Cached {
-    std::unordered_map<uint64_t, rt::RelitVertices> meshes;
-    rt::RelitModel model;
-    bool loaded = false;
+// The level's relit data (engine/gfx/relit_data.h), read once a level.
+struct LevelData {
+    uint32_t level = 0;
+    bool read = false;  // looked for
+    bool found = false; // read, of this version, for this level
+    std::string why;    // why not
+    rt::RelitLevelData data;
+    std::unordered_map<uint64_t, std::size_t> by_content;
 };
 
 struct State {
@@ -234,7 +243,9 @@ struct State {
     rt::RelitLighting written_light; // the lighting the colours were last written with (`rt probe`'s)
     uint64_t lighting = 0;
     uint64_t wanted_lighting = 0; // (added by the scene's sun) the lighting the colours are written with now
-    Cached cache;
+    LevelData data;
+    Status verdict = Status::kWaiting; // (what the level's data says, the meshes matched: new_world / update)
+    uint64_t fits = 0;                 // (the baked suns published - rt_scene.h BakedSun::scene)
     uint64_t field_lighting = 0; // (the one lighting path) the lighting the light field was made for (0: none)
     std::size_t retraced = 0;
     std::size_t rebounced = 0;
@@ -351,235 +362,74 @@ const rt::RelitLevel* level_entry(uint32_t level)
     return found;
 }
 
-std::string cache_path(uint32_t level)
+// --- the level's relit data -----------------------------------------------------------------------------------------
+
+std::string data_path(uint32_t level)
 {
-    return text::format("%sthug2-decomp-relit\\%08x.bin", build_info::executable_directory(), level);
+    return text::format("%s%s\\%s", build_info::executable_directory(), rt::kRelitDataFolder,
+                        rt::relit_data_name(level).c_str());
 }
 
-// What decides the analysis's results besides the meshes themselves.
-uint64_t cache_key(const rt::RelitSettings& settings)
+// The model's numbers in a hash (a lighting's number moves with them).
+uint64_t model_hash(uint64_t hash, const rt::RelitModel& model)
 {
-    uint64_t key = fnv_value(kFnvBasis, kCacheVersion);
-    key = fnv_value(key, settings.sky_rays);
-    key = fnv_value(key, settings.sun_rays);
-    key = fnv_value(key, settings.detail);
-    key = fnv_value(key, rt::kRelitSmoothPasses);
-    key = fnv_value(key, rt::kRelitMaxTint);
-    key = fnv_value(key, rt::kRelitMissedLeast); // (the residual's split)
-    key = fnv_value(key, rt::kRelitMostMissed);
-    key = fnv_value(key, rt::kRelitLocalReach); // (the local light across meshes)
-    key = fnv_value(key, rt::kRelitLocalFacing);
-    key = fnv_value(key, rt::kRelitLocalOver);
-    key = fnv_value(key, rt::kRelitLocalLeast);
-    return key;
+    hash = fnv_value(hash, model.valid);
+    hash = fnv_value(hash, model.toward);
+    hash = fnv_value(hash, model.sun);
+    hash = fnv_value(hash, model.sky);
+    hash = fnv_value(hash, model.bounce);
+    hash = fnv_value(hash, model.lamps);
+    return fnv_value(hash, model.scale);
 }
 
-// --- the cache file: the magic, the version, the key, the model, then each mesh (its hash, its count, its vertices) ---
-class Writer {
-public:
-    template <typename T>
-    void put(const T& value)
-    {
-        std::array<char, sizeof(T)> bytes{};
-        std::memcpy(bytes.data(), &value, sizeof(T));
-        text_.append(bytes.data(), bytes.size());
+// The level's data, read the first time it is asked for (a level's other loads read it again: it may have been built
+// since).
+const LevelData& level_data(uint32_t level)
+{
+    State& st = state();
+    LevelData& data = st.data;
+    if (data.read && data.level == level) {
+        return data;
     }
-    [[nodiscard]] const std::string& text() const { return text_; }
-
-private:
-    std::string text_;
-};
-
-class Reader {
-public:
-    explicit Reader(std::string_view text) : text_(text) {}
-    template <typename T>
-    bool get(T* value)
-    {
-        if (at_ + sizeof(T) > text_.size()) {
-            return false;
-        }
-        const std::string_view bytes = text_.substr(at_, sizeof(T));
-        std::memcpy(value, bytes.data(), bytes.size());
-        at_ += sizeof(T);
-        return true;
-    }
-
-private:
-    std::string_view text_;
-    std::size_t at_ = 0;
-};
-
-// A run of floats written and read in order (the cache's model and vertices).
-class Floats {
-public:
-    void put(float value) { values_.push_back(value); }
-    void put(const rt::Vec3& value)
-    {
-        for (const float part : value) {
-            put(part);
+    data = LevelData{};
+    data.level = level;
+    data.read = true;
+    std::string bytes;
+    const std::string path = data_path(level);
+    if (level == 0) {
+        data.why = "no level";
+    } else if (!fs::read_text(path, &bytes)) {
+        data.why = "none built";
+    } else if (!rt::read_relit_data(bytes, &data.data, &data.why)) {
+        data.why = "unreadable: " + data.why;
+    } else if (data.data.scene != level) {
+        data.why = "made for another scene";
+    } else {
+        data.found = true;
+        for (std::size_t mi = 0; mi < data.data.meshes.size(); ++mi) {
+            data.by_content.emplace(core::at(data.data.meshes, mi).content, mi);
         }
     }
-    [[nodiscard]] const std::vector<float>& values() const { return values_; }
-
-private:
-    std::vector<float> values_;
-};
-
-class FloatCursor {
-public:
-    explicit FloatCursor(std::span<const float> values) : values_(values) {}
-    float next() { return at_ < values_.size() ? core::at(values_, at_++) : 0.0F; }
-    rt::Vec3 next3()
-    {
-        const float first = next();
-        const float second = next();
-        return {first, second, next()};
+    if (data.found) {
+        const rt::RelitModel& model = data.data.model;
+        get_log("rt_relit: level %08x - its relit data %s: %s, %zu meshes, the model sun %.3f %.3f %.3f sky %.3f %.3f %.3f "
+                "bounce %.3f %.3f %.3f lamps %.3f %.3f %.3f scale %.3f (%u lamps, %u sky rays, %u sun rays; margins: the "
+                "baked sun %.2f, the model %.2f)",
+                level, path.c_str(), rt::relit_verdict_name(data.data.verdict), data.data.meshes.size(),
+                static_cast<double>(std::get<0>(model.sun)), static_cast<double>(std::get<1>(model.sun)),
+                static_cast<double>(std::get<2>(model.sun)), static_cast<double>(std::get<0>(model.sky)),
+                static_cast<double>(std::get<1>(model.sky)), static_cast<double>(std::get<2>(model.sky)),
+                static_cast<double>(std::get<0>(model.bounce)), static_cast<double>(std::get<1>(model.bounce)),
+                static_cast<double>(std::get<2>(model.bounce)), static_cast<double>(std::get<0>(model.lamps)),
+                static_cast<double>(std::get<1>(model.lamps)), static_cast<double>(std::get<2>(model.lamps)),
+                static_cast<double>(model.scale), data.data.lamps, data.data.sky_rays, data.data.sun_rays,
+                static_cast<double>(data.data.sun_margin), static_cast<double>(data.data.model_margin));
+    } else if (level != 0) {
+        get_log("rt_relit: level %08x - no relit data (%s: %s) - the level keeps the original's lighting; build it with "
+                "node tools/game/relit_bake.ts",
+                level, path.c_str(), data.why.c_str());
     }
-
-private:
-    std::span<const float> values_;
-    std::size_t at_ = 0;
-};
-
-std::array<float, kModelFloats> model_floats(const rt::RelitModel& model)
-{
-    Floats floats;
-    floats.put(model.valid ? 1.0F : 0.0F);
-    floats.put(model.toward);
-    floats.put(model.sun);
-    floats.put(model.sky);
-    floats.put(model.bounce);
-    floats.put(model.scale);
-    floats.put(model.error);
-    floats.put(static_cast<float>(model.vertices));
-    floats.put(model.sun_needed);
-    std::array<float, kModelFloats> out{};
-    std::ranges::copy(floats.values(), out.begin());
-    return out;
-}
-
-rt::RelitModel model_of(const std::array<float, kModelFloats>& values)
-{
-    FloatCursor cursor(values);
-    rt::RelitModel model;
-    model.valid = cursor.next() != 0.0F;
-    model.toward = cursor.next3();
-    model.sun = cursor.next3();
-    model.sky = cursor.next3();
-    model.bounce = cursor.next3();
-    model.scale = cursor.next();
-    model.error = cursor.next();
-    model.vertices = static_cast<std::size_t>(cursor.next());
-    model.sun_needed = cursor.next();
-    return model;
-}
-
-std::array<float, kVertexFloats> vertex_floats(const rt::RelitVertex& vertex)
-{
-    Floats floats;
-    floats.put(vertex.normal);
-    floats.put(vertex.sun);
-    floats.put(vertex.sky);
-    floats.put(vertex.bounce);
-    floats.put(vertex.tint);
-    floats.put(vertex.residual);
-    floats.put(vertex.sun_missed);
-    floats.put(vertex.sun_baked);
-    floats.put(vertex.used ? 1.0F : 0.0F);
-    floats.put(vertex.bounce_local);
-    std::array<float, kVertexFloats> out{};
-    std::ranges::copy(floats.values(), out.begin());
-    return out;
-}
-
-rt::RelitVertex vertex_of(const std::array<float, kVertexFloats>& values)
-{
-    FloatCursor cursor(values);
-    rt::RelitVertex vertex;
-    vertex.normal = cursor.next3();
-    vertex.sun = cursor.next();
-    vertex.sky = cursor.next();
-    vertex.bounce = cursor.next3();
-    vertex.tint = cursor.next3();
-    vertex.residual = cursor.next3();
-    vertex.sun_missed = cursor.next();
-    vertex.sun_baked = cursor.next();
-    vertex.used = cursor.next() != 0.0F;
-    vertex.bounce_local = cursor.next3();
-    return vertex;
-}
-
-struct CacheId {
-    uint32_t level = 0;
-    uint64_t key = 0;
-};
-
-Cached read_cache(const CacheId& id)
-{
-    Cached cached;
-    std::string text;
-    if (!fs::read_text(cache_path(id.level), &text)) {
-        return cached;
-    }
-    Reader reader(text);
-    uint32_t magic = 0;
-    uint32_t version = 0;
-    uint64_t stored_key = 0;
-    std::array<float, kModelFloats> model{};
-    uint32_t meshes = 0;
-    if (!reader.get(&magic) || !reader.get(&version) || !reader.get(&stored_key) || magic != kCacheMagic ||
-        version != kCacheVersion || stored_key != id.key || !reader.get(&model) || !reader.get(&meshes)) {
-        return cached;
-    }
-    for (uint32_t mi = 0; mi < meshes; ++mi) {
-        uint64_t content = 0;
-        uint32_t count = 0;
-        if (!reader.get(&content) || !reader.get(&count)) {
-            return {};
-        }
-        rt::RelitVertices vertices(count);
-        for (rt::RelitVertex& vertex : vertices) {
-            std::array<float, kVertexFloats> floats{};
-            if (!reader.get(&floats)) {
-                return {};
-            }
-            vertex = vertex_of(floats);
-        }
-        cached.meshes.emplace(content, std::move(vertices));
-    }
-    cached.model = model_of(model);
-    cached.loaded = true;
-    return cached;
-}
-
-void write_cache(const CacheId& id)
-{
-    const State& st = state();
-    Writer writer;
-    writer.put(kCacheMagic);
-    writer.put(kCacheVersion);
-    writer.put(id.key);
-    writer.put(model_floats(st.model));
-    std::vector<const Entry*> analysed;
-    for (const auto& [buffer, entry] : st.entries) {
-        if (entry.analysed) {
-            analysed.push_back(&entry);
-        }
-    }
-    writer.put(static_cast<uint32_t>(analysed.size()));
-    for (const Entry* entry : analysed) {
-        writer.put(entry->content);
-        writer.put(static_cast<uint32_t>(entry->light.size()));
-        for (const rt::RelitVertex& vertex : entry->light) {
-            writer.put(vertex_floats(vertex));
-        }
-    }
-    const std::string folder = std::string(build_info::executable_directory()) + "thug2-decomp-relit";
-    fs::disk().make_folders(folder.c_str());
-    const fs::Written written = fs::write_text(cache_path(id.level), writer.text());
-    get_log("rt_relit: %s %s (%zu meshes, %zu KB)", written.written && written.closed ? "wrote" : "couldn't write",
-            cache_path(id.level).c_str(), analysed.size(), writer.text().size() / kKilobyte);
+    return data;
 }
 
 // --- the meshes ------------------------------------------------------------------------------------------------------
@@ -710,18 +560,9 @@ bool make_entry(const WorldMesh& world, Entry* out)
         }
         entry.input.triangles.push_back(corners);
     }
-    // the hash: the vertices and the indices as the buffers hold them
-    entry.content = fnv(fnv_value(kFnvBasis, stride), bytes);
-    entry.content = fnv(entry.content, indices.subspan(std::size_t{geometry.index_offset} * index_bytes));
-    entry.content = fnv_value(entry.content, geometry.strip);
-    // (added by building relief) the made vertices' sources too: their light is blended, not traced
-    for (const rt::RelitMesh::Source& source : entry.input.sources) {
-        entry.content = fnv_value(entry.content, source.count);
-        for (std::size_t corner = 0; corner < source.count; ++corner) {
-            entry.content = fnv_value(entry.content, core::at(source.from, corner));
-            entry.content = fnv_value(entry.content, core::at(source.weight, corner));
-        }
-    }
+    // (the offline relit data's key: its positions, baked colours, triangles and made vertices' sources - whatever the
+    // vertex format; an animated vertex's colour left out)
+    entry.content = rt::relit_mesh_content(entry.input, entry.animated);
     *out = std::move(entry);
     return true;
 }
@@ -866,115 +707,149 @@ rt::RelitLighting day_scales(const rt::DayLight& day)
     return scales;
 }
 
-// The new entries analysed: from the cache where it has them, the rest traced (the model fitted first when the level
-// has none yet), then the cache written.
-void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
+// The new entries' light taken from the level's data (nothing traced or fitted: the relit bake made it - relit_data.h):
+// each by its content; its normals and which vertices are used made again from the mesh as the bake made them.
+void take_from_data()
 {
     State& st = state();
-    const auto start = std::chrono::steady_clock::now();
-    const uint64_t key = cache_key(settings);
-    if (settings.cache && !st.cache.loaded) {
-        st.cache = read_cache({.level = st.level, .key = key});
-        st.cache.loaded = true;
-    }
-    std::size_t from_cache = 0;
+    const LevelData& data = level_data(st.level);
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
-        if (entry.analysed) {
+        if (entry.analysed || entry.looked_up) {
             continue;
         }
-        const auto found = st.cache.meshes.find(entry.content);
-        if (found != st.cache.meshes.end() && found->second.size() == entry.input.positions.size()) {
-            entry.light = found->second;
-            entry.analysed = true;
-            entry.sun_for = st.cache.model.toward;
-            entry.radius_for = rt::kRelitSunRadiusDegrees;
-            entry.bounce_for = st.cache.model.toward;
-            ++from_cache;
+        entry.looked_up = true;
+        const auto found = data.found ? data.by_content.find(entry.content) : data.by_content.end();
+        if (found == data.by_content.end()) {
+            continue;
         }
+        const rt::RelitDataMesh& mesh = core::at(data.data.meshes, found->second);
+        if (mesh.vertices.size() != entry.input.positions.size()) {
+            continue;
+        }
+        rt::relit_normals(entry.input, data.data.facing, &entry.light);
+        for (std::size_t vi = 0; vi < entry.light.size(); ++vi) {
+            rt::RelitVertex& vertex = core::at(entry.light, vi);
+            const rt::RelitVertex& stored = core::at(mesh.vertices, vi);
+            vertex.sun = stored.sun_baked;
+            vertex.sun_baked = stored.sun_baked;
+            vertex.sky = stored.sky;
+            vertex.bounce = stored.bounce;
+            vertex.bounce_local = stored.bounce_local;
+            vertex.tint = stored.tint;
+            vertex.residual = stored.residual;
+            vertex.lamp = stored.lamp;
+            vertex.sun_missed = stored.sun_missed;
+        }
+        entry.analysed = true;
+        entry.sun_for = data.data.model.toward;
+        entry.radius_for = rt::kRelitSunRadiusDegrees;
+        entry.bounce_for = data.data.model.toward;
     }
-    const bool cached_model = from_cache > 0 && st.cache.model.valid && !st.model.valid;
-    if (cached_model) {
-        st.model = st.cache.model;
+}
+
+// What the level is lit by, from its data and its meshes now: no data, a verdict of no sun or no model, data made from
+// other meshes (its meshes hold under kRelitDataLeastShare of the world's vertices), or relit.
+Status level_verdict()
+{
+    State& st = state();
+    const LevelData& data = level_data(st.level);
+    if (!data.found) {
+        return Status::kNoData;
     }
-    // the meshes, in the world's order (moved out of the entries for the call, back after)
-    std::vector<rt::RelitMesh> meshes;
-    std::vector<rt::RelitVertices> light;
-    std::vector<uint8_t> wanted;
+    if (data.data.verdict == rt::RelitVerdict::kNoSun) {
+        return Status::kNoSun;
+    }
+    if (data.data.verdict == rt::RelitVerdict::kNoModel || !data.data.model.valid) {
+        return Status::kNoModel;
+    }
+    std::size_t all = 0;
+    std::size_t matched = 0;
     for (const VertexBufferData* buffer : st.order) {
-        Entry& entry = st.entries.at(buffer);
-        meshes.push_back(std::move(entry.input));
-        light.push_back(std::move(entry.light));
-        wanted.push_back(entry.analysed ? 0 : 1);
+        const Entry& entry = st.entries.at(buffer);
+        all += entry.originals.size();
+        matched += entry.analysed ? entry.originals.size() : 0;
     }
-    const auto to_trace = static_cast<std::size_t>(std::ranges::count(wanted, uint8_t{1}));
-    const rt::RelitParams params{.sky_rays = settings.sky_rays,
-                                 .sun_rays = settings.sun_rays,
-                                 .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
-                                 .detail = settings.detail};
-    rt::RelitStats stats;
-    if (to_trace > 0) {
-        const rt::Vec3 toward = st.model.valid ? st.model.toward : rt::baked_sun().toward;
-        rt::trace_relit_light(meshes, wanted, toward, params, tracer, &light, &stats);
-        const bool first = !st.model.valid;
-        if (first) {
-            st.model = rt::fit_relit_model(meshes, light, toward);
+    return all > 0 && static_cast<float>(matched) < rt::kRelitDataLeastShare * static_cast<float>(all) ? Status::kStale
+                                                                                                     : Status::kRelit;
+}
+
+// The level's facts for the settings model (relit and the time of day out of effect where the level keeps the
+// original's lighting, and why) - the renderer's settings read again when they change.
+void publish_level_light(Status verdict)
+{
+    config::LevelLight light = config::LevelLight::kBuilt;
+    switch (verdict) {
+    case Status::kNoData:
+        light = config::LevelLight::kMissing;
+        break;
+    case Status::kStale:
+        light = config::LevelLight::kStale;
+        break;
+    case Status::kNoSun:
+    case Status::kNoModel:
+        light = config::LevelLight::kNoSun;
+        break;
+    default:
+        break;
+    }
+    if (config::set_level_light(light)) {
+        graphics_options::reload_live("rt_relit"); // (what moved with it - relit, the time of day, the lighting passes)
+    }
+}
+
+// The world's meshes listed (entries made for those not known yet) in the order the world gives them.
+void list_world(std::span<const WorldMesh> world)
+{
+    State& st = state();
+    st.order.clear();
+    ++st.listing;
+    for (const WorldMesh& mesh : world) {
+        if (mesh.mesh == nullptr || mesh.geometry == nullptr || mesh.source == nullptr) {
+            continue;
         }
-        rt::decompose_relit(meshes, wanted, params, &st.model, &light, first);
-    }
-    for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
-        Entry& entry = st.entries.at(core::at(st.order, iv));
-        entry.input = std::move(core::at(meshes, iv));
-        entry.light = std::move(core::at(light, iv));
-        if (core::at(wanted, iv) != 0) {
-            entry.analysed = true;
-            entry.sun_for = st.model.toward;
-            entry.radius_for = rt::kRelitSunRadiusDegrees;
-            entry.bounce_for = st.model.toward;
-        }
-    }
-    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-    const rt::RelitModel& fitted = st.model;
-    // (how much the residual's split had to give the bake's sun the rays missed: a fit that finds the bake's sun needs
-    // little of it)
-    std::size_t lit_vertices = 0;
-    std::size_t missed_vertices = 0;
-    double missed_sum = 0.0;
-    for (const VertexBufferData* buffer : st.order) {
-        for (const rt::RelitVertex& vertex : st.entries.at(buffer).light) {
-            lit_vertices += vertex.used ? 1 : 0;
-            if (vertex.used && vertex.sun_missed > 0.0F) {
-                ++missed_vertices;
-                missed_sum += vertex.sun_missed;
+        if (!st.entries.contains(mesh.source)) {
+            Entry entry;
+            if (!make_entry(mesh, &entry)) {
+                continue;
             }
+            st.buffer_of.insert_or_assign(mesh.mesh, mesh.source);
+            st.entries.emplace(mesh.source, std::move(entry));
+        }
+        Entry& entry = st.entries.at(mesh.source);
+        entry.input.id = mesh.id; // (ids are the RayTracing's: the hits are looked up by them)
+        // (each entry once, where the world first gave it - marked, not searched for: a level has thousands)
+        if (entry.listed != st.listing) {
+            entry.listed = st.listing;
+            st.order.push_back(mesh.source);
         }
     }
-    get_log("rt_relit: the bake's sun the rays missed at %zu of %zu vertices (mean %.2f of the fit's sun there)",
-            missed_vertices, lit_vertices, missed_vertices > 0 ? missed_sum / static_cast<double>(missed_vertices) : 0.0);
-    get_log("rt_relit: level %08x - %zu meshes (%zu from the cache, %zu traced: %zu vertices, %zu rays), %.0f ms; the "
-            "model %s: sun %.3f %.3f %.3f, sky %.3f %.3f %.3f, bounce %.3f %.3f %.3f, scale %.3f, median residual %.4f "
-            "over %zu vertices, without the sun %.2f times worse",
-            st.level, st.order.size(), from_cache, to_trace, stats.vertices, stats.rays, ms,
-            fitted.valid ? "valid" : "not valid", static_cast<double>(std::get<0>(fitted.sun)),
-            static_cast<double>(std::get<1>(fitted.sun)), static_cast<double>(std::get<2>(fitted.sun)),
-            static_cast<double>(std::get<0>(fitted.sky)), static_cast<double>(std::get<1>(fitted.sky)),
-            static_cast<double>(std::get<2>(fitted.sky)), static_cast<double>(std::get<0>(fitted.bounce)),
-            static_cast<double>(std::get<1>(fitted.bounce)), static_cast<double>(std::get<2>(fitted.bounce)),
-            static_cast<double>(fitted.scale), static_cast<double>(fitted.error), fitted.vertices,
-            static_cast<double>(fitted.sun_needed));
-    if (to_trace > 0 && fitted.shadow_edges > 0) {
-        get_log("rt_relit: the traced sun's shadow edges: %zu (%zu with the bake's step, the fit's), their colours lit over "
-                "shaded %.2f in the bake, their light %.2f in the model; %zu meshes of one colour left out of the fit; "
-                "the faces toward the sun over those turned from it %.2f in the bake, %.2f in the model (the edges' sun "
-                "x %.2f for them)",
-                fitted.shadow_edges, fitted.shadow_edges_kept, static_cast<double>(fitted.shadow_baked),
-                static_cast<double>(fitted.shadow_model), fitted.one_colour_meshes, static_cast<double>(fitted.facing_baked),
-                static_cast<double>(fitted.facing_model), static_cast<double>(fitted.sun_calibration));
+}
+
+// A new level: what the level before left forgotten.
+void level_changed(uint32_t level)
+{
+    State& st = state();
+    if (level == st.level) {
+        return;
     }
-    if (settings.cache && to_trace > 0 && st.model.valid) {
-        write_cache({.level = st.level, .key = key});
-        st.cache = {};
-        st.cache.loaded = true; // (what it held is in the entries now)
+    rt::set_sun_relight({}); // (added by the scene's sun: a new level is lit by its bake until it is relit)
+    st.field_lighting = 0;
+    rt::set_light_field(nullptr); // (the one lighting path: the level before's field gone)
+    restore_all();
+    st.level = level;
+    st.model = {};
+    st.verdict = Status::kWaiting;
+    st.lighting = 0;
+    st.logged = Status::kOff;
+    st.bounce_finished = st.bounce_begun; // (a bounce pass of the level before not taken on)
+    for (auto& [buffer, entry] : st.entries) {
+        entry.analysed = false;
+        entry.looked_up = false;
+    }
+    const LevelData& data = level_data(level);
+    if (data.found) {
+        st.model = data.data.model;
     }
 }
 
@@ -1022,18 +897,21 @@ void trace_part(Job::Kind kind, Gathered& parts, std::span<const uint8_t> wanted
 {
     const State& st = state();
     if (kind == Job::Kind::kBounce) {
+        // (the bounce alone: the sky's share as the level's data has it)
         rt::trace_relit_sky(parts.meshes, wanted,
                             rt::RelitParams{.sky_rays = settings.sky_rays,
                                             .sun_rays = settings.sun_rays,
                                             .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
-                                            .detail = settings.detail},
+                                            .detail = 1.0F,
+                                            .keep_sky = true},
                             tracer, &parts.light, stats, parts.local, ask);
     } else {
         rt::trace_relit_sun(parts.meshes, wanted, st.sun,
                             {.sky_rays = settings.sky_rays,
                              .sun_rays = settings.sun_rays,
                              .sun_radius_degrees = st.radius,
-                             .detail = settings.detail},
+                             .detail = 1.0F,
+                             .keep_sky = false},
                             tracer, &parts.light, stats, ask);
     }
 }
@@ -1250,7 +1128,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
     hits_key = fnv_value(hits_key, lighting.sun_colour);
     hits_key = fnv_value(hits_key, lighting.strength);
     hits_key = fnv_value(hits_key, lighting.residual);
-    hits_key = fnv_value(hits_key, model_floats(st.model));
+    hits_key = model_hash(hits_key, st.model);
     hits_key = fnv_value(hits_key, st.bounce_begun); // (and made again for each pass: the bounce they show moved)
     hits_key = hits_key == 0 ? 1 : hits_key;
     const auto start = std::chrono::steady_clock::now();
@@ -1272,8 +1150,9 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
         }
         entry.hit_local.assign(entry.input.positions.size(), rt::Rgbf{});
         for (std::size_t vi = 0; vi < entry.hit_local.size() && vi < entry.light.size(); ++vi) {
-            core::at(entry.hit_local, vi) =
-                lighting.residual && entry.analysed ? core::at(entry.light, vi).residual : rt::Rgbf{};
+            core::at(entry.hit_local, vi) = lighting.residual && entry.analysed
+                                                ? rt::relit_own_light(st.model, core::at(entry.light, vi))
+                                                : rt::Rgbf{};
         }
         entry.hits_for = hits_key;
     }
@@ -1553,31 +1432,24 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     }
     rt::set_baked_sun_wanted(true);
     const uint32_t level = main_scene();
-    if (level != st.level) {
-        rt::set_sun_relight({}); // (added by the scene's sun: a new level is lit by its bake until it is relit)
-        st.field_lighting = 0;
-        rt::set_light_field(nullptr); // (the one lighting path: the level before's field gone)
-        restore_all();
-        st.level = level;
-        st.model = {};
-        st.cache = {};
-        st.lighting = 0;
-        st.logged = Status::kOff;
-        st.bounce_finished = st.bounce_begun; // (a bounce pass of the level before not taken on)
-        for (auto& [buffer, entry] : st.entries) {
-            entry.analysed = false;
-        }
-    }
+    level_changed(level);
     if (st.status == Status::kOff) {
         st.status = Status::kWaiting;
     }
-    const rt::BakedSun& baked = rt::baked_sun();
-    if (!stable || world.empty() || level == 0 || baked.scene == 0) {
+    if (!stable || world.empty() || level == 0) {
         return;
     }
-    if (!baked.found) {
+    // the world's meshes, their light from the level's data (the meshes shown since the level's first frame too)
+    list_world(world);
+    take_from_data();
+    const Status verdict = level_verdict();
+    if (verdict != st.verdict) {
+        st.verdict = verdict;
+        publish_level_light(verdict);
+    }
+    if (verdict != Status::kRelit) {
         restore_all();
-        log_status(Status::kNoSun);
+        log_status(verdict);
         rt::set_sun_relight({});
         return;
     }
@@ -1591,41 +1463,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         rt::set_sun_relight({.relights = false, .level_keeps_bake = keeps_baked_sun});
         return;
     }
-    // the world's meshes the mode doesn't know yet
-    st.order.clear();
-    ++st.listing;
-    bool fresh = false;
-    for (const WorldMesh& mesh : world) {
-        if (mesh.mesh == nullptr || mesh.geometry == nullptr || mesh.source == nullptr) {
-            continue;
-        }
-        if (!st.entries.contains(mesh.source)) {
-            Entry entry;
-            if (!make_entry(mesh, &entry)) {
-                continue;
-            }
-            st.buffer_of.insert_or_assign(mesh.mesh, mesh.source);
-            st.entries.emplace(mesh.source, std::move(entry));
-        }
-        Entry& entry = st.entries.at(mesh.source);
-        entry.input.id = mesh.id; // (ids are the RayTracing's: the hits are looked up by them)
-        // (each entry once, where the world first gave it - marked, not searched for: a level has thousands)
-        if (entry.listed != st.listing) {
-            entry.listed = st.listing;
-            st.order.push_back(mesh.source);
-        }
-        fresh = fresh || !entry.analysed;
-    }
     if (st.order.empty()) {
-        return;
-    }
-    if (fresh) {
-        analyse(tracer, settings);
-    }
-    if (!st.model.valid) {
-        restore_all();
-        log_status(Status::kNoModel);
-        rt::set_sun_relight({.relights = false, .level_keeps_bake = keeps_baked_sun});
         return;
     }
     log_status(Status::kRelit);
@@ -1684,7 +1522,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     lighting = fnv_value(lighting, st.radius);
     lighting = fnv_value(lighting, strength);
     lighting = fnv_value(lighting, settings.residual);
-    lighting = fnv_value(lighting, model_floats(st.model));
+    lighting = model_hash(lighting, st.model);
     lighting = fnv_value(lighting, st.bounce_finished); // (one relight at a time: a bounce pass done - written again)
     if (st.day_serial != 0) { // (added by the time of day)
         lighting = fnv_value(lighting, st.day_scales.direct_scale);
@@ -1715,6 +1553,45 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     }
     write_cel(lighting, light); // (added by cel shading)
     rt::note_sun_used(rt::SunUser::kRelit, true, st.sun);
+}
+
+rt::BakedSun new_world(std::span<const WorldMesh> world)
+{
+    State& st = state();
+    const uint32_t level = main_scene();
+    level_changed(level);
+    if (level == 0) {
+        return {};
+    }
+    list_world(world);
+    take_from_data();
+    st.verdict = level_verdict();
+    publish_level_light(st.verdict);
+    const LevelData& data = level_data(level);
+    rt::BakedSun sun = data.found ? data.data.sun : rt::BakedSun{};
+    sun.scene = ++st.fits;
+    const auto [heading, elevation] = std::array<double, 2>{
+        std::atan2(static_cast<double>(rt::x_of(sun.toward)), static_cast<double>(rt::z_of(sun.toward))) * kDegrees,
+        std::asin(std::clamp(static_cast<double>(rt::y_of(sun.toward)), -1.0, 1.0)) * kDegrees};
+    get_log("rt: the baked sun (the level's relit data): %s toward %.3f %.3f %.3f (heading %.0f, elevation %.0f), "
+            "confidence %.2f; the level: %s",
+            sun.found ? "found" : "none (no sun shadows here)", static_cast<double>(rt::x_of(sun.toward)),
+            static_cast<double>(rt::y_of(sun.toward)), static_cast<double>(rt::z_of(sun.toward)), heading, elevation,
+            static_cast<double>(sun.confidence), status_name(st.verdict));
+    return sun;
+}
+
+bool read_world_mesh(const WorldMesh& world, BakeMesh* out)
+{
+    Entry entry;
+    if (!make_entry(world, &entry)) {
+        return false;
+    }
+    out->mesh = std::move(entry.input);
+    out->mesh.id = world.id;
+    out->animated = std::move(entry.animated);
+    out->content = entry.content;
+    return true;
 }
 
 GpuVertexBuffer* cel_stream(const VertexBufferData* buffer)
@@ -1859,6 +1736,8 @@ bool first_light_held(bool loading)
     bool relit_ready = false;
     switch (st.status) {
     case Status::kOff:
+    case Status::kNoData:
+    case Status::kStale:
     case Status::kNoSun:
     case Status::kOptedOut:
     case Status::kNoModel:
@@ -1984,7 +1863,7 @@ std::string census_bucket(const WorldMesh& world)
         return std::string("kept bake: ") + status_name(st.status);
     }
     if (!entry.analysed) {
-        return "relit: not analysed yet";
+        return entry.looked_up ? "not relit: not in the level's relit data" : "relit: not looked up yet";
     }
     if (entry.written == 0) {
         return "relit: not written yet";
@@ -1999,15 +1878,17 @@ std::string census_bucket(const WorldMesh& world)
 std::string census_status()
 {
     const State& st = state();
-    return text::format("relit %s; model sun %.2f %.2f %.2f, sky %.2f %.2f %.2f, bounce %.2f %.2f %.2f, scale %.2f, "
-                        "%zu entries",
+    return text::format("relit %s; model sun %.2f %.2f %.2f, sky %.2f %.2f %.2f, bounce %.2f %.2f %.2f, lamps %.2f %.2f "
+                        "%.2f, scale %.2f, %zu entries",
                         status_name(st.status), static_cast<double>(std::get<0>(st.model.sun)),
                         static_cast<double>(std::get<1>(st.model.sun)), static_cast<double>(std::get<2>(st.model.sun)),
                         static_cast<double>(std::get<0>(st.model.sky)), static_cast<double>(std::get<1>(st.model.sky)),
                         static_cast<double>(std::get<2>(st.model.sky)),
                         static_cast<double>(std::get<0>(st.model.bounce)),
                         static_cast<double>(std::get<1>(st.model.bounce)),
-                        static_cast<double>(std::get<2>(st.model.bounce)), static_cast<double>(st.model.scale),
+                        static_cast<double>(std::get<2>(st.model.bounce)),
+                        static_cast<double>(std::get<0>(st.model.lamps)), static_cast<double>(std::get<1>(st.model.lamps)),
+                        static_cast<double>(std::get<2>(st.model.lamps)), static_cast<double>(st.model.scale),
                         st.entries.size());
 }
 

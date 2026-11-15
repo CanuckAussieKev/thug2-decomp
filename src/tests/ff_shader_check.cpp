@@ -311,9 +311,8 @@ void add_detail_keys(ff_check::KeySets& sets)
         if ((pair.fragment.surface & kSurfaceMap) == 0U || pair.fragment.detail != 0U) {
             continue;
         }
-        for (const uint8_t bits : {kDetailMaterial, kDetailDelight, static_cast<uint8_t>(kDetailMaterial | kDetailDelight),
-                                   kDetailRelief, static_cast<uint8_t>(kDetailRelief | kDetailMaterial), // (added by surface relief)
-                                   static_cast<uint8_t>(kDetailRelief | kDetailMaterial | kDetailDelight)}) {
+        for (const uint8_t bits : {kDetailMaterial, kDetailRelief,
+                                   static_cast<uint8_t>(kDetailRelief | kDetailMaterial)}) { // (added by surface relief)
             ShaderKey key = pair;
             key.fragment.detail = bits;
             key = normalised(key);

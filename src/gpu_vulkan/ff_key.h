@@ -174,14 +174,13 @@ constexpr uint8_t kVertexWaterMoving = 0x08;
 constexpr uint8_t kWaterFlat = 1;
 constexpr uint8_t kWaterMoving = 2;
 
-// (NOT ORIGINAL - [Graphics] rt_detail, rt_delight; gpu_vulkan/vulkan_detail.h) FragmentKey::detail's bits - only with
+// (NOT ORIGINAL - [Graphics] rt_detail; gpu_vulkan/vulkan_detail.h) FragmentKey::detail's bits - only with
 // kSurfaceMap and without kSurfaceCel (normalised() clears them otherwise; the byte was a spare: 0 leaves the key's bytes
 // and its shaders exactly as before):
 //   kDetailMaterial - the texture's surface kind's tiling detail layer (DetailUniforms at kDetailUniformsBinding, its
 //     texture at kDetailMapBinding): the albedo modulated (luminance only), its normal and roughness blended into the
 //     map's, fading as its texels shrink on the screen; and the kind's real material - roughness, metalness;
-//   kDetailDelight - the light painted into the colour texture flattened: stage 0's texel scaled toward the texture's
-//     mean luminance by its low-frequency luminance (a coarse mip) to a strength.
+//   (0x02 is free: it was rt_delight's draw-time de-lighting, retired with the offline relit data.)
 //   kDetailRelief - (added by surface relief, [Graphics] rt_relief) parallax occlusion mapping: stage 0's coordinates (and
 //     the surface map's, the detail's) moved to where the view ray meets the map's height field (DetailUniforms::relief),
 //     the sun's light shadowed by the relief on the world's bake - the same byte's free bit, so the key stays 52 bytes.
@@ -195,13 +194,12 @@ constexpr uint8_t kWaterMoving = 2;
 //   kDetailHair - hair: an anisotropic highlight along the strands (Kajiya-Kay, the strands along stage 0's u or v,
 //     shifted along the normal by the map's height) in place of GGX's.
 constexpr uint8_t kDetailMaterial = 0x01;
-constexpr uint8_t kDetailDelight = 0x02;
 constexpr uint8_t kDetailRelief = 0x04;
 constexpr uint8_t kDetailSkin = 0x08;
 constexpr uint8_t kDetailCloth = 0x10;
 constexpr uint8_t kDetailHair = 0x20;
 constexpr uint8_t kDetailCharacter = kDetailSkin | kDetailCloth | kDetailHair;
-constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailDelight | kDetailRelief | kDetailCharacter;
+constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailRelief | kDetailCharacter;
 
 // (NOT ORIGINAL - the surface trails: [Graphics] snow - gpu_vulkan/vulkan_snow.h -, [Graphics] paint_trails -
 // gpu_vulkan/vulkan_paint.h; docs/design/vulkan.md "Surface trails") FragmentKey::trails: what the skaters leave on the

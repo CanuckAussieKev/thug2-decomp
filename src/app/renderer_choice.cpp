@@ -315,18 +315,16 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
 }
 
 // NOT ORIGINAL - the relit mode (engine/gfx/rt_relit.h, render_pc/rt_relit_world.h): on when asked for, or when the
-// model forces it (a sun other than the baked one, or the time of day's, needs the level relit by it); it needs ray
-// tracing (the rays that take the bake apart)
+// model forces it (a sun other than the baked one, the time of day's, or a lighting pass needs the level relit); it
+// needs ray tracing and the level's relit data (the level's facts: engine/gfx/relit_data.h)
 void read_rt_relit(const Resolution& in_effect)
 {
     const render::rt::RelitSettings defaults;
     render::rt::set_relit_settings({.on = in_effect.on("rt_relit"),
                                     .strength = in_effect.number("rt_relit_strength", defaults.strength),
                                     .residual = in_effect.on("rt_relit_residual"),
-                                    .detail = in_effect.number("rt_relit_detail", defaults.detail),
                                     .sky_rays = at_least_one(in_effect, "rt_relit_sky_rays", render::rt::kRelitSkyRays),
-                                    .sun_rays = at_least_one(in_effect, "rt_relit_sun_rays", render::rt::kRelitSunRays),
-                                    .cache = in_effect.on("rt_relit_cache")});
+                                    .sun_rays = at_least_one(in_effect, "rt_relit_sun_rays", render::rt::kRelitSunRays)});
 }
 
 // NOT ORIGINAL - frame generation and Reflex (gpu_vulkan/vulkan_framegen.h): DLSS-G / FSR 3 from beside the exe. Read
@@ -387,15 +385,13 @@ void read_rt_pbr(const Resolution& in_effect)
          .hair = std::clamp(in_effect.number("rt_characters_hair", defaults.hair), 0.0F, kMostStrength)});
 }
 
-// NOT ORIGINAL - detail materials and de-lighting (gpu_vulkan/vulkan_detail.h): on the draws rt_pbr lights
+// NOT ORIGINAL - detail materials (gpu_vulkan/vulkan_detail.h): on the draws rt_pbr lights
 void read_rt_detail(const Resolution& in_effect)
 {
     const render::vulkan::RtDetailSettings defaults;
     render::vulkan::set_rt_detail_settings(
         {.on = in_effect.on("rt_detail"),
-         .strength = std::clamp(in_effect.number("rt_detail_strength", defaults.strength), 0.0F, kMostStrength),
-         .delight = in_effect.on("rt_delight"),
-         .delight_strength = std::clamp(in_effect.number("rt_delight_strength", defaults.delight_strength), 0.0F, 1.0F)});
+         .strength = std::clamp(in_effect.number("rt_detail_strength", defaults.strength), 0.0F, kMostStrength)});
 }
 
 // [Graphics] rt_style_noir_dark / _light: r,g,b; anything else is the default (logged when it isn't empty).

@@ -1,9 +1,11 @@
 #pragma once
 
 // NOT ORIGINAL - the relit mode in the world the game draws (engine/gfx/rt_relit.h; [Graphics] rt_relit): render_pc's
-// side. Once a level's world has stood still and its baked sun is fitted (rt_record.cpp, the same moment), its world
-// meshes are read from their vertex buffers' copies in memory (positions, the baked colours, the triangles), traced and
-// taken apart (rt_relit.h), and the relit colours written into those same buffers - the colour word of each vertex, the
+// side. Each new world's first frame the level's relit data is read (engine/gfx/relit_data.h - made offline by the relit
+// bake, render_pc/relit_bake.h: nothing is traced or fitted at load) and the world's meshes - read from their vertex
+// buffers' copies in memory (positions, the baked colours, the triangles) - matched with it by their content; a level
+// without data, with data made from other meshes or whose bake has no sunlight keeps the original's lighting (new_world).
+// The relit colours are written into those same buffers - the colour word of each vertex, the
 // way MeshRef::apply_vertex_colors writes the game's colour animations (rt_record::ColourWrite: the ray-traced scene's
 // geometry unchanged). Nothing else is drawn differently: no shader, key or pass changes; the ray-traced effects
 // (shadows, occlusion, one bounce, reflections) run over the relit colours as they ran over the bake.
@@ -13,8 +15,8 @@
 //   reads them, not the relit ones (original_colours).
 // - A vertex whose colour the game animates (a material's colour animation: MeshRef's per-vertex byte not 0) is left
 //   to the animation.
-// - Meshes shown later (a level's scripts show and hide its parts) are taken apart when they first stand in a still
-//   world, with the level's model as it is.
+// - Meshes shown later (a level's scripts show and hide its parts) take their light from the data when they first stand
+//   in a still world (the bake took every mesh of the level's scenes apart, shown or hidden).
 // - When the sun moves (rt_scene.h scene_sun: the console's `rt sun`, rt_sun_source=game or x,y,z) each mesh's sun
 //   rays are traced again and its colours written - a relight. One relight at a time (the rule that keeps a moving
 //   light's cost bounded): a new light is taken only once the relight toward the last one is done (every mesh traced
@@ -25,15 +27,15 @@
 //   rays, the bounce's and the writes while the level is shown; the most - kRelitRetraceVertices... - while the
 //   loading screen holds the first light), and the rays are asked of the device inside the frame and answered a frame
 //   or two later (rt::RayTracing::probe_later): the frame never waits for the device.
-// - The analysis is kept on disk: thug2-decomp-relit\<the level's scene checksum>.bin beside the exe, each mesh by a
-//   hash of its vertices and indices (and the settings that change the results): a mesh found there isn't traced
-//   again, so a level's second load costs only the fit of its sun (rt_sun.h) and the writes.
+// - The level's data: thug2-decomp-relit\<the level's scene checksum>.relit beside the exe (tools/game/relit_bake.ts).
 #include <array>
 #include <cstdint>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 
 namespace render {
@@ -57,7 +59,21 @@ struct WorldMesh {
     const VertexBufferData* source = nullptr;
 };
 
-// Each frame (rt_record's record_frame, after the baked sun's fit): the last frame's world meshes, and whether the
+// (the offline relit data - engine/gfx/relit_data.h) A new world's first frame (rt_record's new_world_work, whether
+// the mode is on or not): the level's data read, the world's meshes matched with it, what the level is lit by decided -
+// the level's facts for the settings model (config::set_level_light: relit and the time of day out of effect where the
+// level keeps the original's lighting, and why) - and the baked sun the data holds (found false without data: no
+// level sun). Its scene number set.
+[[nodiscard]] rt::BakedSun new_world(std::span<const WorldMesh> world);
+// (the relit bake - render_pc/relit_bake.h) A world mesh as the mode reads it, with its content's hash (the data's key)
+// and which vertices the game animates; false: the mode can't relight it.
+struct BakeMesh {
+    rt::RelitMesh mesh;
+    std::vector<uint8_t> animated;
+    uint64_t content = 0;
+};
+bool read_world_mesh(const WorldMesh& world, BakeMesh* out);
+// Each frame (rt_record's record_frame, after the new world's work): the last frame's world meshes, and whether the
 // world has stood still long enough.
 void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& tracer);
 // A mesh destroyed (rt_record::mesh_released): whatever was kept for it forgotten.

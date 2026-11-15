@@ -1700,90 +1700,91 @@ pictures of whole streets - are stage 2 (counted by the survey below, not reliev
   in two (collinear: closed, not edge-matched); a recess cut by a seam between two meshes of one wall shows an end wall
   at the seam (the planes are per mesh).
 
-### Relit: the bake taken apart (`rt_relit`)
+### Relit: the bake taken apart, offline (`rt_relit`)
 
-`engine/gfx/rt_relit` (the analysis, API-neutral) and `render_pc/rt_relit_world` (the world's meshes, the cache, the
-writes) - `[Graphics] rt_relit`, off by default. THUG2's world light is baked into its vertex colours: what a vertex
-shows is the artists' colour (its tint) times the light that reached it, and only the product is stored. The relit
-mode separates them and lights the level again.
+`engine/gfx/rt_relit` (the analysis, API-neutral), `engine/gfx/relit_data` (the level's data file),
+`render_pc/relit_bake` (the bake: the game itself in a batch run) and `render_pc/rt_relit_world` (the world's meshes,
+the data read, the real-time half) - `[Graphics] rt_relit`, off by default. THUG2's world light is baked into its vertex
+colours: what a vertex shows is the artists' colour (its tint) times the light that reached it, and only the product
+is stored. The relit mode separates them and lights the level again.
 
-- **Where it acts: the vertex buffers.** The relit colours are written into the buffers the game draws from (each
-  vertex's colour word, as `MeshRef::apply_vertex_colors` writes the game's colour animations; `rt_record::ColourWrite`,
-  so the acceleration structures aren't rebuilt), not into the fixed-function shaders: nothing in `ff_key` /
-  `ff_shaders` changes, so the per-pixel lighting work there is untouched, and Direct3D 9's draws would show the same
-  colours. The ray-traced effects (shadows, occlusion, one bounce, reflections, fog) run over the relit colours as
-  they ran over the bake. Each buffer's own colours are copied before the first write and written back when the mode
-  is turned off (the console's `rt relit off`), the level opts out or its bake shows no sun; the baked sun's fit reads
-  the copies (`rt_relit_world::original_colours`). A vertex whose colour the game animates is left to the animation.
-- **When.** At the baked sun's fit (rt_record, once the world has stood still): the same moment, the same world - so
-  whatever moves the fit into the loading screen moves this with it. Meshes shown later are taken apart when they first
-  stand in a still world, with the level's model as it is.
-- **The light at each vertex** (`trace_relit_light`, RayTracing::probe_many, masks 0x01): its normal (the mesh's, or
-  its triangles' area-weighted, turned by the world's winding - the sign that turns most of its horizontal area up);
-  S, the sun's share - 4 rays toward the baked sun jittered over a disc 1.5 degrees across (none for a vertex facing
-  away), times N.L; K, the sky's share - 24 cosine-weighted rays over its hemisphere (a golden-angle set turned by a
-  hash of the vertex), those that escape; B, the bounce - the same rays' hits, each bringing the baked colour where it
-  lands (the hit's barycentrics from the hit point), averaged over every ray. The rays start 2 units off the surface.
-- **The model** (`fit_relit_model`): E = a S + b K + g B per channel. Two vertices joined by an edge share their
-  surface's colour, so y_i E_j = y_j E_i - a condition on (a, b, g) that no tint enters; every edge of every mesh gives
-  one, and (a, b, g) is the non-negative direction minimising them (each subset of the three tried; reweighted three
-  times toward the median residual, so edges across a change of paint count little), its scale per channel the median
-  of y / E (the median tint 1). The hue the colours can't tell from the tints (a bluer light over yellower tints shows
-  the same) is the median's: the tints are grey on average.
-- **Tints and the residual** (`decompose_relit`): each vertex's own tint y / E (E no lower than 5% of the level's mean),
-  and its neighbourhood's - a normalised convolution over the mesh's edges, 4 rings, each vertex weighted by its
-  confidence (its light over 0.35 x the level's median, at most 1). A vertex brighter than its neighbourhood's tint x E
-  by 1.2 times or more is lamp-lit: left out of the neighbourhoods (four rounds, as a wide pool shows its edges first),
-  and the share of its light over that prediction (smoothstep 1.2 - 1.8) is its residual - the lamps', glows' and
-  artists' own light, kept as it was. The rest gives its tint, kept by `rt_relit_detail` x its confidence (the
-  neighbourhood's otherwise); tints clamp at 2 (what a clamped tint can't carry goes to the residual too). The
-  residual is then taken apart (`relit_split_residual`, "One lighting path" below): its part in the sun's colour on a
-  face toward the bake's sun, at least 0.6 of the sun's whole light there, is the bake's sun the rays missed
-  (`sun_missed`, lit by the direct light and only toward the bake's sun); the rest stays the residual. One factor
-  (the level's `scale`, 0.7 - 1.4) keeps the level's mean brightness the bake's.
-- **Relit:** scale x tint x E' + residual (`rt_relit_residual=0` leaves the residual out), blended with the bake by
-  `rt_relit_strength`. At the bake's own sun it is the bake again (detail 1: within a byte at 99.6% of the check's
-  vertices). E' takes the sun where it is now - the scene's sun (`rt_sun_source`, "One sun for every effect" below;
-  `rt_relit_sun` before it) - its rays traced again when it moves (150,000 vertices a
-  frame), then its sky rays for the bounce of the new light (the hits' colours the relit ones; 40,000 vertices a
-  frame); and the sun's colour: with `rt_sky_model=1` the model's colour at its elevation over the colour at the bake's
-  (the bake's own colour kept at the bake's sun).
-- **The skater and the objects** keep the game's two directional lights; while the world is relit by another sun or a
-  coloured one (`rt_relit_world::object_lighting`), pc_lights turns them by the rotation that takes the bake's sun to
-  the relit one and tints the first (the key light) by the sun's colour. At the bake's own sun they are the original's.
-- **No sun.** A level whose bake shows none (rt_sun.h's fit: the Foundry, indoors - lit by its lamps) keeps its bake:
-  relit from the sky and bounce alone it would go dark. So does one whose fit finds no sunlight (the sun's term under
-  0.05), and one listed off in `src/engine/gfx/rt_relit_levels.json` (built in) or `thug2-decomp-relit.json` beside
-  the exe (the same layout: `{"levels": {"<scene>": {"relit": false, "strength": 0.5}}}`).
-- **The cache:** `thug2-decomp-relit\<the level's scene checksum>.bin` beside the exe - the model and each mesh's
-  vertices (normal, shares, bounce, tint, residual), each mesh by a hash of its vertices and indices (and the settings
-  that change the results: the ray counts, detail, the format's version). A mesh found there isn't traced.
-- **Checked:** `thug2_vulkan_rt_relit_check` (25 checks, the RTX 5070 Ti and the AMD Radeon, validation 0): a level
-  (a ground with a red-painted square, a building, a pillar, a degenerate triangle and an unused vertex) whose bake is
-  made on the processor from known tints, sun, sky and bounce and a lamp in the building's shadow - the analysis's own
-  rays traced by a processor's ray tracer, iterated until the bounce holds still - then taken apart on the device: the
-  traced shares and bounce the processor's at every vertex; each channel's sky and bounce against its sun within 1-3%
-  of the bake's; every tint within 6% (over the factor per channel the colours can't tell); the red square's contrast
-  against the ground exact (2.00); the lamp's pool's middle back in full as the residual, 42% of its light where it is
-  a quarter of the bake or more (its soft edge stays in the tints), no residual elsewhere; relit at the bake's sun within
-  a byte at 1111 of 1115 vertices, strength 0 exact; relit by another sun within 4 bytes of the processor's bake for it
-  at 97% of the vertices (90% before the bounce is traced again); the bake's sun found by rt_sun.h's fit within 10
-  degrees; no model: the bake kept; no NaN. `--perf` (484,000 vertices): 6.8 million rays in 1.4 s (RTX 5070 Ti) / 2.0
-  s (AMD), the fit and the tints 0.8 / 1.0 s, the sun again 0.2 s.
-- **In the game** (`tools/game/rt_shadows_check.ts --effect relit`, foun / z_dt / BO / AU / BA, every other effect on as
-  the user plays - rt_shadows, ao, gi, reflections, fog, sun, sky model, HDR, 8x MSAA -, two runs): the analysis
-  104,000 - 132,000 vertices, 1.7 - 2.2 million rays, 0.52 - 0.69 s once (a frame's stall when the world first stands
-  still), 13 - 35 ms from the cache after; nothing a frame after that (the colours are in the buffers). `rt_relit=0`
-  against main's build: 0.00 - 0.05% of the pixels changed (the noise). At the bake's sun every level relit is its bake
-  ("mean brightness 68.2 against the bake's 68.2, 0.0% of the vertices changed by more than 2"; at most 0.3% of a
-  picture past the noise); the Foundry (no baked sun) unchanged. `rt_relit_sun=game` (the sun the game shows: 20
-  degrees up toward +z in z_dt, BO, BA, toward +x in AU, against the bakes' 50 - 53): mean vertex brightness 3 - 7%
-  lower, 47 - 72% of the vertices changed, the sun warmer by the sky model's (1, 0.95, 0.85) - z_dt's street 25 luma
-  darker in the picture (its stairs and pavement turned away from the low sun), BO's yard 5, AU 4, BA 2.
-- **Not done / limits:** (with `rt_relit_sun=game` the ray-traced shadows, bounce and fog kept the baked sun - fixed by
-  `rt_sun_source`, below); the soft edge of a lamp's pool partly stays in the tints (and so dims with a
-  lower sun); walls whose vertices start their rays on the floor's plane see half their hemisphere as the GPU rounds it;
-  the analysis runs at the baked sun's fit, after the loading screen, not during it.
+**The decomposition is made once a level, offline** (the user, 2026-11-15: no time limits, no fallbacks). Nothing is
+traced or fitted while the game loads a level: the game reads the level's data and lights the level from it.
+
+- **The bake** (`thug2-decomp.exe -relit-bake <level>`; `node tools/game/relit_bake.ts --game <folder>` runs it for
+  every installed level - THUG2's own, the overlay's, the ported ones - one game at a time, and writes
+  `thug2-decomp-relit\bake-report.txt` and each level's log). The game starts straight in the level, muted, windowed
+  and behind the user's windows (`platform::batch_run`), with its own settings over the user's ini
+  (`config::set_overrides`: the Vulkan renderer with ray tracing, the level's own time, the relit mode and the lighting
+  passes off - the buffers hold the bake). The geometry settings (building relief, smoothed curves) are the user's, so
+  the data matches the meshes the user's game makes. Every mesh of the level's world scenes is recorded, shown or hidden
+  (`rt_record.cpp record_world`): the bake's inputs are the level's static meshes whatever its scripts show in the first
+  frames - the same data at every bake (sch's sun no longer flips with what the first frame showed). Once the world's
+  structures are built, its baked sun fitted (`rt_sun.h`, over the same meshes) and its emitters found
+  (`rt_lights.h`), for `kSteadyFrames` frames: the meshes read once each by content in the order of their content's
+  hash, their light traced (`kRelitBakeSkyRays` 128 sky rays and `kRelitBakeSunRays` 32 sun rays a vertex), the lamps'
+  light, the model fitted over the whole level, the tints taken apart, the verdict decided, the file written, the game
+  closed.
+- **The light at each vertex** (`trace_relit_light`, `trace_relit_lamps`; `RayTracing::probe_many`, masks 0x05 - the
+  opaque world and the cut-outs by their alpha): its normal (the mesh's, or its triangles' area-weighted, turned by the
+  world's winding); S, the sun's share toward the baked sun (jittered over a disc 1.5 degrees across) times N.L; K, the
+  sky's share (cosine-weighted rays that escape); B, the bounce - the same rays' hits, each bringing the baked colour
+  where it lands; L, the lamps' light - every emitter and point light the lamps pass shines (`RelitLamp`: their colour
+  x intensity, `light_falloff`'s core and reach) that the vertex faces, times the cosine toward it, where a shadow ray
+  reaches it. The rays start 2 units off the surface.
+- **The model** (`fit_relit_model`, then `fit_relit_lamps`): E = a S + b K + g B + c L per channel. a, b, g from the
+  mesh edges (two vertices joined by an edge share their surface's colour, so y_i E_j = y_j E_i; each edge's error
+  relative to its own light; reweighted toward the median; one-colour meshes left out; a traced shadow border counted
+  only where the bake steps down too; the sun's strength set by the faces' turning). c from the edges along which the
+  lamps' light changes: each edge's c is the one that makes its colours' ratio its light's, the votes' weighted median
+  (at least `kRelitLampEdges` edges, none under 0). A lamp's light is then a term of its own, not hidden in the tints.
+- **Tints and the rest** (`decompose_relit`): each vertex's tint y / E, its neighbourhood's where the model can't vouch
+  for it; the light over the neighbourhood's prediction (1.2 - 1.8 times) the residual; the residual's sun-coloured part
+  on a face toward the bake's sun the missed sun (`relit_split_residual`); then **the bake's sunlight never left in a
+  tint** (`relit_sun_in_tint`): a vertex facing the bake's sun, partly in the rays' shade, whose tint comes out more than
+  1.5 times its surface's sunlit tint (its mesh's sunlit vertices', else the level's) by the sun's colour gets the sun it
+  needs as `sun_missed` - direct light, which a shadow can fall on (BO-2's courtyard: the skater's shadow). Then the
+  lamps the list doesn't have, told across meshes (`relit_local_across`), and the level's `scale`.
+- **The verdict:** relit; no sun (the baked sun's fit found none - indoors); no model (no sunlight found in the bake).
+  Its margins are kept (the baked sun's confidence over `kMinConfidence`, the model's sun over `kRelitMinSunLight`) and
+  logged; it is decided once, at the bake, from deterministic inputs - not again at each load.
+- **The file** (`relit_data.h`): `thug2-decomp-relit\<the level's main scene checksum>.relit` beside the exe, versioned
+  (`kRelitDataVersion`): the verdict and margins, the baked sun (direction, confidence, the agreement grid, the ground
+  height - every effect's level sun comes from here), the model (a, b, g, c, scale), the world's winding, and each mesh
+  by its content's hash (`relit_mesh_content`: positions, baked colours, triangles, made vertices' sources) with its
+  vertices' parts as half floats (S at the bake, K, B and its local part, the tint, the residual, L, the missed sun).
+  The normals and the used vertices are made again from the mesh.
+- **In the game** (`rt_relit_world::new_world`, each new world's first frame, whether the mode is on or not): the data
+  read, the world's meshes matched by content, what the level is lit by decided and published - the baked sun
+  (`set_baked_sun`; none without data) and the level's facts for the settings model (`config::set_level_light`). **No
+  fallbacks:** a level without data, with data made from other meshes (under 95% of the world's vertices matched -
+  another overlay, building relief or smoothed curves changed since), or whose data says no sun keeps the original
+  game's lighting: `rt_relit` is out of effect there (the reasons name the build step: "This level's lighting isn't
+  built - run relit_bake", "... is out of date - run relit_bake", "This level has no sunlight to relight"), and with it
+  the time of day (with ray tracing on) and the lighting passes - `rt_shadows`, `rt_ao`, `rt_lights` need the level
+  relit and turn `rt_relit` on (a pass replaces its own part of the relit light; none ever stacks on a bake). `rt_gi`
+  is retired: the relit level bounces its light itself.
+- **The real-time half** (what moves with the light): the clock and its `DayLight`; the sun's rays traced again as it
+  moves (`trace_relit_sun`, `rt_relit_sun_rays`) and the bounce of the new light (`trace_relit_sky` with `keep_sky` -
+  the data's K kept; `rt_relit_sky_rays`), one relight at a time, paced by time (`kRelitFrameMs`), the rays never waited
+  for; the colours written (`rt_record::ColourWrite`), the light stream, the light field; the ray-traced shadows, sky
+  and lamps.
+- **A vertex relit:** scale x tint x (E' + c L) + residual, E' the model's light with the sun where it is now and the
+  time of day's scales; blended with the bake by `rt_relit_strength`. The lamps' term and the residual are the level's
+  own light (`relit_own_light`): constant through the day - the light stream's "residual" word (so the lamps pass adds
+  max(L - own, 0)), the light field's local light, the bounce's local part.
+- **The skater and the objects:** the game's directional lights turned toward the relit sun, the key light the direct
+  light now; the fill and the ambient the game's own times (indirect now + lamps) over (indirect at the bake + lamps)
+  where the thing stands, the lamps' directional part the game's ambient's share of it as a light of its own
+  (`pc_lights.cpp game_share`) - at the bake's own time the game's own light (before, the lamps were added on top: BO-4's
+  skater 1.3x the bake's).
+- **Retired with it:** the in-game analysis (the fit and the trace at the first still frame, the cache
+  `thug2-decomp-relit\<scene>.bin`), `rt_relit_detail`, `rt_relit_cache`, and the draw-time de-lighting `rt_delight` /
+  `rt_delight_strength` (the light painted into textures is taken out offline, by the de-lit texture sets).
+- **Checked:** `thug2_vulkan_rt_relit_check` (the synthetic level whose bake is exact lighting - tints, sun, sky,
+  bounce and a lamp - taken apart by the same functions the bake runs, and the data file written and read back: the
+  level's colours from the file the bake's within a byte); `thug2_options_check` (relit, the time of day and the
+  lighting passes out of effect without data, with stale data and without sunlight, with the build step in the reason).
 
 ### One sun for every effect (`rt_sun_source`)
 
@@ -3587,7 +3588,8 @@ The conventions a change here follows (`CONTRIBUTING.md` has the general ones):
 What the time of day lights, and how - one state, one path; it replaced the darkening steps layered on the original's
 bake (the relit level's scales, the characters' lights scaled apart, a global colour for placed objects, one for unlit
 objects, the residual added back unscaled), which disagreed with each other and assembled the night over the first
-frames after a load. Without ray tracing, with `rt_relit=0` or in a level relit can't take apart, nothing here runs:
+frames after a load. Without ray tracing, with `rt_relit=0` or in a level that keeps the original's lighting (no relit
+data, or no sunlight in its bake - "Relit: the bake taken apart, offline"), nothing here runs:
 the original's own time of day (`tod_manager.h`, blended by the clock) is the look, untouched.
 
 1. **One lighting state per frame** (`engine/gfx/rt_daylight.h` `DayLight`, made by the clock - `day_clock.cpp` - and
@@ -3696,13 +3698,13 @@ stacking another on top.
   don't light off; the full look against the bake - `relit 0` and no ray-traced light). Median ratios over BO, BE, LA,
   NO and nj (20 places): before shade 0.973 (worst 0.72), corners 0.964 (0.72), whole 0.958 (0.65); after shade 1.004,
   corners 1.006, whole 0.991. The whole-level sweep and the census: `light_audit.ts walk / capture / compare / html`.
-- **Known limits:** relit tells a lamp only where its light falls off within a mesh: a lamp lighting a vertex's
-  neighbourhood evenly went into its tint, and the lamps pass can't tell it is drawn (the synthetic check counts those
-  apart: 102 of 104 lamp-lit vertices) - by day `rt_lights=auto` is off, at night the tint's lamp is under the moon's
-  light; the fix is relit fitting the level's emitters as a term of its own (`E = a S + b K + g B + c L`, L the same
-  lamps `rt_lights` traces) so the lamps pass replaces exactly that term. Where relit put the bake's sunlight into the
-  tint (no sun-coloured residual), the stream has no direct light there and nothing casts a shadow onto it - the
-  skater's shadow too.
+- **The audit's open items, solved by the offline data** (docs above, "Relit: the bake taken apart, offline"): the
+  lamps are a term of the model (`E = a S + b K + g B + c L`, L traced from the emitters and point lights `rt_lights`
+  shines) - the lamps pass replaces exactly that term (the own light, `relit_own_light`, the stream's residual word); a
+  level keeping its bake never has a pass stacked on it (no data, or no sunlight: the original game's lighting, the
+  lighting passes out of effect); the bake's sunlight is never left in a tint (`relit_sun_in_tint`: direct light,
+  shadowed); the characters' fill and ambient are the game's own times (indirect + lamps) now over at the bake; and the
+  bake's inputs are the level's static meshes, whatever the first frame shows (sch's sun no longer flips).
 - **The fit's inputs fixed** (the audit's census found fits that changed between loads): the baked sun's samples are
   taken by where each triangle is (a hash of its centre, one in a power-of-two step - `rt_record.cpp bake_samples`), so a
   mesh more or less in the first frame changes only its own samples - before, every n-th triangle in the world's order

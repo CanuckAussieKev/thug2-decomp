@@ -1,70 +1,61 @@
 #pragma once
 
-// NOT ORIGINAL - the relit mode ([Graphics] rt_relit; docs/design/vulkan.md "Relit: the bake taken apart"): each level's
-// baked vertex lighting separated from the artists' colours, so the world can be lit again by the ray-traced sun and
-// sky.
+// NOT ORIGINAL - the relit mode ([Graphics] rt_relit; docs/design/vulkan.md "Relit: the bake taken apart, offline"): each
+// level's baked vertex lighting separated from the artists' colours, so the world can be lit again by the ray-traced
+// sun, sky and lamps.
+//
+// The decomposition is made offline, once a level, by the relit bake (render_pc/relit_bake.h: `thug2-decomp.exe
+// -relit-bake <level>`; tools/game/relit_bake.ts for every level) and kept in the level's relit data (relit_data.h);
+// the game only reads it. Of "the analysis" below only the sun's and the bounce's traces run in the game - traced
+// again as the light moves (trace_relit_sun, trace_relit_sky: the real-time half).
 //
 // THUG2 bakes a level's light into its world meshes' vertex colours: what a vertex shows is (roughly) the artists'
-// colour times the light that reached it, v = tint x L. Neither is stored apart. The relit mode works out L itself, with
-// rays, from what a light model needs at each vertex:
-//   - S: the sun's direct light - the share of kRelitSunRays rays toward the level's baked sun (rt_sun.h; jittered
-//     over a disc kRelitSunRadiusDegrees across: a soft edge) that reach the sky, times N.L;
-//   - K: the sky's light - the share of the sky seen over the vertex's hemisphere (sky_rays cosine-weighted rays that
-//     escape; the ambient occlusion of the vertex);
+// colour times the light that reached it, v = tint x L. Neither is stored apart. The bake works out the light itself,
+// with rays, from what a light model needs at each vertex:
+//   - S: the sun's direct light - the share of the sun rays toward the level's baked sun (rt_sun.h; jittered over a
+//     disc kRelitSunRadiusDegrees across: a soft edge) that reach the sky, times N.L;
+//   - K: the sky's light - the share of the sky seen over the vertex's hemisphere (cosine-weighted rays that escape);
 //   - B: the light bounced to it - the same rays' hits on the world, each bringing the baked colour where it lands
-//     (that surface's own tint x light: what it shows), averaged over all the rays (a miss brings none).
-// The level's light model is then E = a S + b K + g B per channel (red, green, blue): a, b, g found by a robust
-// least-squares fit over its mesh edges (two neighbours' colours' ratio is their light's; non-negative; each edge's
-// error relative to its own light, so no term is favoured for being small; reweighted toward the median error, so
-// lamps and unusually coloured surfaces count little). Meshes of one colour all over (painted, not lit by the bake) are
-// left out; an edge across a traced shadow's border counts only where the bake's colours step down into it too (most
-// traced borders have no step in the bake: the traced geometry's own shadows); and the sun's strength against the rest
-// is then set by which way faces turn - in each mesh, its faces toward the sun over those turned away, the bake's
-// against the model's, the meshes' median (rt_relit.cpp facing_calibration). The fit's a is the sun's colour and strength as the bake has
-// it, b the sky's, g how much the bounce counts.
-// With E known, each vertex's tint is v / E (per channel; E no lower than kRelitFloorShare of the level's mean, so a
-// vertex the model says is in darkness doesn't get a huge tint). Where E is small next to the level's median (a vertex
-// the model can't vouch for: deep in shade) the tint is taken from its neighbours instead - their tints averaged
-// over the mesh's edges (in logarithms, weighted by their confidence E / (E + kRelitConfidence x median E), smoothed
-// kRelitSmoothPasses times) - and `detail` (0 - 1) says how much of each vertex's own tint stays where it can be
-// vouched for (1: all - the bake's own detail kept; 0: none - every tint its neighbourhood's, the most relighting).
-// Tints are clamped to kRelitMaxTint. The light the model can't explain - a vertex brighter than tint x E by more than
-// kRelitLampLow times - is what the bake adds over the model, in full from kRelitLampHigh times on (smoothstep between):
-// v - tint x E. It is taken apart by what it is (relit_split_residual):
-//   - the bake's sun where the tracer saw none, or saw less than the bake shows (a caster the rays don't meet as the
-//     bake did, the bake's sun stronger there than the level's fit): on a face toward the bake's sun, the part with the
-//     sun's colour (a x tint per channel) that is at least kRelitMissedLeast of the sun's whole light there - the sun
-//     reaching the vertex, not a dim glow - becomes `sun_missed`, more of the sun's visibility toward the bake's sun
-//     (S + sun_missed, at most kRelitMostMissed). It is the sun's light: it follows the direct light now (its strength
-//     and colour - the moon's at night) and only toward the bake's own sun (relit_missed_trust: whole within
-//     kRelitTrustInner degrees of it, none past kRelitTrustOuter) - toward any other light the traced S alone says
-//     what reaches the vertex, so the bake's sun shadows never show as hard wedges at another time;
-//   - the rest - lamps, glows, the artists' own lights: light of its own colour, or too weak to be the sun - stays the
-//     `residual`: the level's own emitters, whose light doesn't change with the time of day (only the exposure brings
-//     them up at night). Occlusion the bake has beyond the traced sky stays in the tint (a darker surface under every
-//     light).
-// A lamp's light is told within a mesh, against the mesh's own neighbourhood; then across meshes (relit_local_across):
-// a mesh the lamp lights whole takes its neighbours' local light, so the same lamp's light is the residual on every
-// surface it reaches.
-// Finally one factor (the level's `scale`, kept within kRelitScaleRange) makes the relit level's mean brightness at the
-// bake's own sun the bake's.
+//     (that surface's own tint x light: what it shows), averaged over all the rays (a miss brings none);
+//   - L: the level's lamps' light - the emitters and point lights the lamps pass shines (rt_lights.h: their colour,
+//     intensity and falloff), each toward the vertex as it faces it, where a shadow ray reaches it (trace_relit_lamps).
+// The level's light model is then E = a S + b K + g B + c L per channel (red, green, blue): a, b, g found by a robust
+// fit over its mesh edges (two neighbours' colours' ratio is their light's; non-negative; each edge's error relative
+// to its own light; reweighted toward the median error, so lamps and unusually coloured surfaces count little);
+// meshes of one colour all over (painted, not lit by the bake) are left out; an edge across a traced shadow's border
+// counts only where the bake's colours step down into it too; and the sun's strength against the rest is then set by
+// which way faces turn (rt_relit.cpp facing_calibration). c, the lamps', is fitted after them over the edges along
+// which the lamps' light changes (fit_relit_lamps) - a lamp's light is a term of its own, not hidden in the tints: the
+// lamps pass replaces exactly that term.
+// With E known, each vertex's tint is v / E (per channel; E no lower than kRelitFloorShare of the level's mean). Where E
+// is small next to the level's median the tint is taken from its neighbours instead (their tints averaged over the
+// mesh's edges, in logarithms, weighted by their confidence, smoothed kRelitSmoothPasses times). Tints are clamped to
+// kRelitMaxTint. The light the model can't explain - a vertex brighter than tint x E by more than kRelitLampLow times -
+// is what the bake adds over the model, in full from kRelitLampHigh times on: v - tint x E. It is taken apart by what
+// it is (relit_split_residual):
+//   - the bake's sun where the tracer saw none, or saw less than the bake shows: on a face toward the bake's sun, the
+//     part with the sun's colour that is at least kRelitMissedLeast of the sun's whole light there becomes
+//     `sun_missed`, more of the sun's visibility toward the bake's sun. It is the sun's light: it follows the direct
+//     light now and only toward the bake's own sun (relit_missed_trust);
+//   - the rest - glows and the artists' own lights the lamps' list doesn't have - stays the `residual`: constant
+//     through the day.
+// And the bake's sunlight is never left in a tint (relit_sun_in_tint): a vertex facing the bake's sun whose tint comes
+// out far brighter than its surface's sunlit tints, by the sun's colour, had the bake's sun where the rays saw a
+// caster - that light becomes direct light, which a shadow can fall on.
+// A lamp's light the list doesn't have is told within a mesh, then across meshes (relit_local_across). Finally one
+// factor (the level's `scale`, kept within kRelitScaleRange) makes the relit level's mean brightness at the bake's own
+// sun the bake's.
 //
-// A vertex relit: scale x tint x E' + residual (the residual left out with rt_relit_residual=0), E' the model's light
-// (its sun term a x N.L x (S + trust x sun_missed))
-// with the sun where it is now (its rays traced again when it moves: rt_scene.h scene_sun - the console's `rt sun`,
-// [Graphics] rt_sun_source=game or x,y,z) and its colour (a's) turned by the sky model's when one is on (rt_sky_model: the sun's colour at its new
-// elevation over the colour at the bake's - the bake's own colour kept at the bake's sun); blended with the bake by
-// `strength`. At the bake's own sun the relit vertex is the bake again (within the clamps, exactly with detail 1 and
-// the residual kept) - the decomposition loses nothing; what changes is what a moved or recoloured sun does to it.
+// A vertex relit: scale x tint x (E' + c L) + residual (the level's own light - relit_own_light - left out with
+// rt_relit_residual=0), E' the model's light with the sun where it is now (its rays traced again when it moves) and the
+// time of day's scales; blended with the bake by `strength`. At the bake's own sun the relit vertex is the bake again.
 //
-// A level whose bake shows no sun (BakedSun::found false: the Foundry, indoors - lit by its lamps) has no sun term to
-// fit: it keeps its bake (relit_model's `valid` false). So does a level listed off in rt_relit_levels.json (or the
-// user's thug2-decomp-relit.json beside the exe), whose entries can also set the level's strength and keep its baked
-// sun under rt_sun_source=game ("sun": "level").
+// A level whose bake shows no sun, or whose fit finds no sunlight, has data saying so: it keeps the original game's
+// lighting. So does a level without data (the game says which build step makes it).
 //
 // API-neutral: the rays go through RayTracing::probe_many (the Vulkan Gpu's, or a check's). render_pc/rt_relit_world
-// gathers the world's meshes, keeps the results (cached on disk) and writes the colours into the vertex buffers the game
-// draws from - nothing in the shaders changes.
+// reads the level's data and writes the colours into the vertex buffers the game draws from - nothing in the shaders
+// changes.
 
 #include <array>
 #include <cstddef>
@@ -81,15 +72,19 @@ namespace render::rt {
 
 using Rgbf = std::array<float, 3>;
 
-inline constexpr uint32_t kRelitSkyRays = 24;
+inline constexpr uint32_t kRelitSkyRays = 24;     // (the game's: the bounce traced again as the sun moves)
 inline constexpr uint32_t kRelitMaxSkyRays = 256;
-inline constexpr uint32_t kRelitSunRays = 4;
+inline constexpr uint32_t kRelitSunRays = 4;      // (the game's: the sun traced again as it moves)
 inline constexpr uint32_t kRelitMaxSunRays = 64;
+inline constexpr uint32_t kRelitBakeSkyRays = 128; // the relit bake's (offline: no time limit)
+inline constexpr uint32_t kRelitBakeSunRays = 32;
 inline constexpr float kRelitSunRadiusDegrees = 1.5F;
 inline constexpr float kRelitOffset = 2.0F;       // the rays start this far off the surface along its normal
 inline constexpr float kRelitRayLength = 1.0e6F;  // (further than any level)
 inline constexpr uint32_t kRelitWorldMask = 0x05; // the level geometry: the opaque (0x01) and the cut-outs (0x04) -
                                                  // the TLAS's instance masks; the cut-outs by their alpha (ProbeRequest::cutouts)
+// The fit's sun (luma) at least this: the bake shows sunlight (the model valid).
+inline constexpr float kRelitMinSunLight = 0.05F;
 inline constexpr float kRelitFloorShare = 0.05F;
 inline constexpr float kRelitConfidence = 0.35F;
 inline constexpr uint32_t kRelitSmoothPasses = 4;
@@ -118,13 +113,12 @@ inline constexpr float kRelitMaxValue = 255.0F / 128.0F;
 struct RelitSettings {
     bool on = false;
     float strength = 1.0F; // 0: the bake as it is; 1: fully relit
-    bool residual = true;  // the bake's light the model can't explain (lamps) kept
-    float detail = 1.0F;   // how much of each vertex's own tint stays where the model vouches for it
+    bool residual = true;  // the level's own light (the lamps' term and the residual) kept
     // (changed by the scene's sun: the sun the world is relit by is rt_scene.h relit_target_sun - [Graphics]
     // rt_sun_source, every effect's; rt_relit_sun is retired)
+    // the rays the game traces again as the light moves (the bake's own: kRelitBake*, kept in the level's data)
     uint32_t sky_rays = kRelitSkyRays;
     uint32_t sun_rays = kRelitSunRays;
-    bool cache = true; // the analysis kept on disk (thug2-decomp-relit\ beside the exe)
 };
 void set_relit_settings(const RelitSettings& settings);
 [[nodiscard]] RelitSettings relit_settings();
@@ -151,7 +145,7 @@ bool parse_relit_levels(std::string_view json, std::vector<RelitLevel>* out);
 // The built-in list (src/engine/gfx/rt_relit_levels.json).
 [[nodiscard]] std::string_view built_in_relit_levels();
 
-// --- the analysis ----------------------------------------------------------------------------------------------------
+// --- the analysis (the relit bake's, offline; the sun's and the bounce's traces also the game's real-time half) ------
 
 // A mesh of the world as the analysis reads it (world coordinates - the level's meshes are drawn untransformed).
 struct RelitMesh {
@@ -186,9 +180,12 @@ struct RelitVertex {
     // bounce once the residuals are known: trace_relit_sky's `local`)
     Rgbf bounce_local{};
     Rgbf tint{};
-    Rgbf residual{};        // the level's own light here (lamps, glows): constant through the day
+    Rgbf residual{};        // the level's own light here the lamps' term doesn't explain (glows): constant through the day
     float sun_missed = 0.0F; // the bake's sun the tracer missed (visibility toward the bake's sun, over S)
     float sun_baked = 0.0F;  // S toward the bake's own sun (kept when `sun` is traced again for another light)
+    // (the offline relit data) L: the level's lamps' light reaching it, per channel (trace_relit_lamps) - the model's
+    // c x L is its lamps' term
+    Rgbf lamp{};
     bool used = false;      // a corner of some triangle (an unused vertex keeps its colour)
 };
 using RelitVertices = std::vector<RelitVertex>;
@@ -200,6 +197,7 @@ struct RelitModel {
     Rgbf sun{};    // a
     Rgbf sky{};    // b
     Rgbf bounce{}; // g
+    Rgbf lamps{};  // c (the offline relit data: the lamps' term - 0 where the level has no lamps or the fit found none)
     float scale = 1.0F;
     float error = 0.0F;       // the fit's median residual (relative: an edge's light ratio against its colours')
     std::size_t vertices = 0; // that the fit used
@@ -226,6 +224,9 @@ struct RelitParams {
     uint32_t sun_rays = kRelitSunRays;
     float sun_radius_degrees = kRelitSunRadiusDegrees;
     float detail = 1.0F;
+    // (the real-time half) trace_relit_sky traces the bounce alone: the sky's share K kept as the level's data has it
+    // (the bake's many rays - the sky doesn't move)
+    bool keep_sky = false;
 };
 
 struct RelitStats {
@@ -288,6 +289,41 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // An edge across a traced shadow's border counts only where the bake's colours step down into the traced shade too.
 [[nodiscard]] RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light,
                                          const Vec3& toward);
+// (the offline relit data) A lamp as the lamps pass shines it (rt_lights.h Emitter: an emitter found in the level or a
+// point light), its colour times its intensity.
+struct RelitLamp {
+    Vec3 position{};
+    float size = 0.0F; // a shadow ray stops this short of it
+    Rgbf light{};      // colour x intensity
+    float core = 0.0F; // light_falloff's core and reach
+    float reach = 0.0F;
+};
+// L at the vertices of the meshes `wanted` says (their normals made): each lamp within its reach that the vertex faces,
+// its light x light_falloff x the cosine toward it, where a shadow ray from the vertex reaches it (the world's opaque
+// geometry and cut-outs by their alpha, as the other rays).
+void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted,
+                       std::span<const RelitLamp> lamps, RayTracing& tracer, std::vector<RelitVertices>* light,
+                       RelitStats* stats);
+// The lamps' c, per channel, once a, b and g are fitted: over the mesh edges along which the lamps' light changes,
+// each edge's c the one that makes its two colours' ratio their light's, weighted by how much the lamps' light changes
+// there; their weighted median (none under 0; 0 with fewer than kRelitLampEdges edges). Then each channel's scale again
+// (the median tint 1).
+inline constexpr std::size_t kRelitLampEdges = 64;
+void fit_relit_lamps(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, RelitModel* model);
+// (decompose_relit's step after the residual's split) The bake's sunlight left in a tint taken out: a vertex facing the
+// bake's sun, partly or wholly in the rays' shade, whose tint is more than kRelitSunInTintOver times its surface's
+// sunlit tint (its mesh's vertices in the rays' sun, else the level's) by the sun's colour - the bake's sun reached it
+// where the rays saw a caster - gets the sun its surface's tint needs as sun_missed (at most what its shade lacks of
+// the whole sun), and its tint over that light. Its light is then direct light, which a shadow can fall on (the
+// skater's too).
+inline constexpr float kRelitSunInTintOver = 1.5F;
+inline constexpr float kRelitSunInTintColour = 0.97F; // the excess's colour against the sun's (cosine) at least this
+inline constexpr float kRelitSunInTintLeast = 0.2F;   // the missed sun found at least this (of the whole sun)
+void relit_sun_in_tint(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitModel& model,
+                       std::span<RelitVertices> light);
+// The level's own light at a vertex - its lamps' term and its residual (scale x tint x c x L + residual): what the
+// lamps pass's light is held against, what the light field keeps as the local light. Constant through the day.
+[[nodiscard]] Rgbf relit_own_light(const RelitModel& model, const RelitVertex& vertex);
 // The tints and residuals of the meshes `wanted` says, and (with `rescale`) the model's scale.
 void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitParams& params,
                      RelitModel* model, std::vector<RelitVertices>* light, bool rescale);
@@ -295,8 +331,8 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // A vertex's residual taken apart (decompose_relit's last step): the bake's sun the tracer missed into sun_missed, the
 // rest kept. `model` the level's (its sun a and toward), `scale` the factor its colours are relit with.
 void relit_split_residual(const RelitModel& model, float scale, RelitVertex* vertex);
-// A vertex's local light - the level's own lights (lamps, glows) that reach it, per unit of its tint: its residual over
-// the model's scale x its tint (what the light field keeps, rt_light_field.h).
+// A vertex's local light - the level's own lights (lamps, glows) that reach it, per unit of its tint: its own light
+// (relit_own_light) over the model's scale x its tint (what the light field keeps, rt_light_field.h).
 [[nodiscard]] Rgbf relit_local_light(const RelitModel& model, const RelitVertex& vertex);
 // (decompose_relit's last step) The level's own lights told across meshes: a lamp's light is found as the residual
 // only where it falls off within a mesh (the mesh's neighbourhood's tint against a vertex's own), so a mesh the lamp

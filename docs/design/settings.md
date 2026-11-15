@@ -55,10 +55,16 @@ and any another rule moved with it.
 - msaa and `AntiAliasing` are off while upscaling; `AntiAliasing` is out while msaa picks the samples. The AO and
   bounce denoisers are out while Ray Reconstruction cleans up. FSR's sharpening and version need FSR upscaling (or
   `auto` off an RTX).
-- `rt_pbr` needs surface maps; its knobs, `rt_relief`, `rt_detail`, `rt_delight` and `rt_characters` need it;
-  `rt_reflection_surfaces` needs reflections and `rt_pbr`. `rt_delight` has no rule for the texture set: a de-lit set
-  de-lits only some of its textures, so the renderer leaves those out one by one (a texture's fact, not a setting's -
-  vulkan.md "Detail materials and de-lighting").
+- `rt_pbr` needs surface maps; its knobs, `rt_relief`, `rt_detail` and `rt_characters` need it;
+  `rt_reflection_surfaces` needs reflections and `rt_pbr`. (`rt_delight` is retired: the de-lit texture sets take the
+  painted light out offline.)
+- (the offline relit data - vulkan.md "Relit: the bake taken apart, offline") The level's facts say what it is lit
+  from (`LevelFacts::light`, render_pc/rt_relit_world.cpp at each new level): `rt_relit` needs its relit data built
+  (`Cap::kLevelLightData`), made from the level's meshes as they are (`kLevelLightCurrent`) and sunlight in its bake
+  (`kLevelSunInBake`) - the reasons name the build step (tools/game/relit_bake.ts). With ray tracing on, the time of day
+  (`tod`, `tod_cycle`, `tod_levels`) needs the same; without it the original's own time of day runs. The lighting passes
+  (`rt_shadows`, `rt_ao`, `rt_lights`) need `rt_relit` and turn it on (a Force): none ever stacks on a bake. `rt_gi`,
+  `rt_relit_detail`, `rt_relit_cache` are retired.
 - The haze is the volumetric fog's (it needs `rt_fog`) in a level without fog; its density and height need the haze and
   the sky model. The sun's colour needs the sun, its rays, the bloom or the sky model; the lens dirt the bloom or the
   sun; clouds the real sky.

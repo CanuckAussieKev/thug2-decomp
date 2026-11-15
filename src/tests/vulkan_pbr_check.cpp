@@ -1487,41 +1487,26 @@ void check_detail(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* 
     tally->check(same.judged > kLeastJudged && same.within == same.judged && same.finite,
                  text::format("rt_detail: faded out, the picture as without it (%zu of %zu channels)", same.within, same.judged));
     gpu.release_texture(texture);
-    // (the de-lighting: a texture dark on the left, bright on the right, flattened toward its mean)
+    // (the de-lighting is retired - the de-lit texture sets take the painted light out offline: a texture dark on the
+    // left, bright on the right keeps its contrast at draw time, listed de-lit or not)
     GpuTexture* halves = detail_texture(gpu, kDelitSide, kDelitLevels, kDarkHalf, kBrightHalf);
     vk::set_rt_detail_settings({});
     const std::array<float, 2> before = halves_of(detail_picture(gpu, target, shader, halves));
-    vk::set_rt_detail_settings({.delight = true, .delight_strength = 1.0F, .delight_limit = 4.0F});
-    const std::vector<float> delit = detail_picture(gpu, target, shader, halves);
-    const std::array<float, 2> after = halves_of(delit);
     const auto contrast = [](const std::array<float, 2>& means) {
         return std::max(means[0], means[1]) / std::max(std::min(means[0], means[1]), 1.0e-4F);
     };
-    tally->check(contrast(before) > 2.5F && contrast(after) < 1.1F,
-                 text::format("rt_delight: the halves' contrast %.2f flattened to %.2f", static_cast<double>(contrast(before)),
-                              static_cast<double>(contrast(after))));
-    vk::set_rt_detail_settings({.delight = true, .delight_strength = 0.5F, .delight_limit = 4.0F});
-    const std::array<float, 2> half = halves_of(detail_picture(gpu, target, shader, halves));
-    tally->check(contrast(half) > contrast(after) && contrast(half) < contrast(before),
-                 text::format("rt_delight: half strength between (%.2f)", static_cast<double>(contrast(half))));
-    // (added for the de-lit texture sets) the same texture as one a de-lit set lists (it came flat): left alone - its
-    // contrast as with the setting off - while the one it doesn't list, drawn with the same settings, is flattened
     GpuTexture* came_delit = detail_texture(gpu, kDelitSide, kDelitLevels, kDarkHalf, kBrightHalf, true);
-    vk::set_rt_detail_settings({.delight = true, .delight_strength = 1.0F, .delight_limit = 4.0F});
     const std::array<float, 2> listed = halves_of(detail_picture(gpu, target, shader, came_delit));
-    const std::array<float, 2> unlisted = halves_of(detail_picture(gpu, target, shader, halves));
-    tally->check(std::fabs(contrast(listed) - contrast(before)) < 0.01F && contrast(unlisted) < 1.1F,
-                 text::format("rt_delight per texture: one the set lists de-lit kept (%.2f, off %.2f), one it doesn't "
-                              "flattened (%.2f)",
-                              static_cast<double>(contrast(listed)), static_cast<double>(contrast(before)),
-                              static_cast<double>(contrast(unlisted))));
+    tally->check(contrast(before) > 2.5F && std::fabs(contrast(listed) - contrast(before)) < 0.01F,
+                 text::format("no draw-time de-lighting: the halves' contrast %.2f kept (one listed de-lit %.2f)",
+                              static_cast<double>(contrast(before)), static_cast<double>(contrast(listed))));
     gpu.release_texture(came_delit);
     gpu.release_texture(halves);
     vk::set_rt_detail_settings({});
 }
 
 // (added by surface relief) The relief's other shader variants made and drawn: lit by lights (objects - no sun shadow),
-// and with the detail layer and the de-lighting (a library whose stone kind the relief texture is assigned to).
+// and with the detail layer (a library whose stone kind the relief texture is assigned to).
 void check_relief_variants(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, Tally* tally)
 {
     constexpr uint32_t kReliefChecksum = 0x5E11EFU;
@@ -1541,13 +1526,13 @@ void check_relief_variants(render::Gpu& gpu, GpuSurface* target, render::GpuPixe
     tally->check(vk::load_detail_library(detail_library(kDelitMean, dmf_kind::kStone, kReliefChecksum)),
                  "rt_relief: a library with the relief texture's stone kind read");
     GpuTexture* assigned = relief_texture(gpu, relief_map(false), kStoneClass, kReliefChecksum, kReliefHash);
-    vk::set_rt_detail_settings({.on = true, .strength = 1.0F, .delight = true, .delight_strength = 0.5F});
+    vk::set_rt_detail_settings({.on = true, .strength = 1.0F});
     vk::set_rt_pbr_settings(relief_settings(false, 0.0F));
     const std::vector<float> detail_off = relief_picture(gpu, target, shader, assigned, quad, false);
     vk::set_rt_pbr_settings(relief_settings(true, 1.0F));
     const std::vector<float> detail_on = relief_picture(gpu, target, shader, assigned, quad, false);
     tally->check(all_finite(detail_on) && mean_difference(detail_on, detail_off) > 0.001F,
-                 text::format("rt_relief with the detail layer and the de-lighting: drawn, every pixel finite (mean change %.4f)",
+                 text::format("rt_relief with the detail layer: drawn, every pixel finite (mean change %.4f)",
                               static_cast<double>(mean_difference(detail_on, detail_off))));
     vk::set_rt_detail_settings({});
     vk::set_rt_pbr_settings({});

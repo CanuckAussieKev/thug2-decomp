@@ -49,6 +49,8 @@
 #include "input_dinput/dinput_source.h"
 #include "engine/gfx/loading_console.h"
 #include "render_pc/loading_console_panel.h"
+#include "render_pc/relit_bake.h"
+#include "engine/config/settings_state.h"
 #include "game/commands/node_hooks.h"
 #include "game/front_end/pad_hooks.h"
 #include "game/online/transport_hooks.h"
@@ -118,6 +120,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // keeps it again before anything parses it): the editor mode is read from it as the plugins are loaded
     // (engine/sys/editor_mode.h).
     sys::set_startup_command_line(GetCommandLineA());
+    // NOT ORIGINAL: the relit bake's own settings over the user's ini (render_pc/relit_bake.h: -relit-bake <level>),
+    // before anything reads a setting
+    if (render::relit_bake::requested()) {
+        config::set_overrides(render::relit_bake::overrides());
+    }
     app::register_extensions();
     // NOT ORIGINAL: the script check (-script-check: src/script_qb/script_check.h), after the others.
     ext::add(script::qb::check::extension());

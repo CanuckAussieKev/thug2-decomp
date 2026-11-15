@@ -47,6 +47,7 @@
 #include "render_pc/geom.h"
 #include "render_pc/mesh_list.h"
 #include "render_pc/pc_scene.h"
+#include "render_pc/relit_bake.h"
 #include "render_pc/rt_relit_world.h"
 #include "render_pc/sub_mesh.h"
 #include "render_pc/vertex_buffers.h"
@@ -124,6 +125,8 @@ struct State {
     uint64_t fits = 0;
     uint64_t agreed_lighting = 0; // (added by the scene's sun) the relit lighting the other sun's grid was made from
     uint64_t agreements = 0;
+    // (the offline relit data) the baked sun the level's data holds (rt_relit_world::new_world), published as the fit
+    rt::BakedSun level_sun;
     uint64_t emitters_key = 0; // (added by the night lighting) the loaded scenes' key the emitters were found for
     uint64_t emitter_sets = 0;
     // the first frame's time (from its record to the next frame's), logged at the next record_frame
@@ -744,9 +747,12 @@ void record_world(rt::RayTracing& rt)
             continue;
         }
         uint64_t count = 0;
+        // (the relit bake - relit_bake.h: every mesh of the level's world, shown or hidden - its static meshes, whatever
+        // its scripts show in the first frames)
+        const bool every = relit_bake::requested();
         for (const MeshRef* mesh : meshes->mesh_run()) {
             ++count;
-            if (mesh != nullptr && mesh_shown(mesh)) {
+            if (mesh != nullptr && (every || mesh_shown(mesh))) {
                 add_instance(mesh, rt::kWorld, identity, rt);
                 state().world.push_back(mesh);
             }
@@ -1100,6 +1106,24 @@ void make_fit(rt::RayTracing& rt)
     rt::set_baked_sun(std::move(fit.sun));
 }
 
+// The world meshes recorded this frame as rt_relit_world takes them (their RayTracing ids, geometry and buffers).
+std::vector<rt_relit_world::WorldMesh> world_meshes()
+{
+    State& st = state();
+    std::vector<rt_relit_world::WorldMesh> world;
+    world.reserve(st.world.size());
+    for (const MeshRef* mesh : st.world) {
+        const auto found = st.meshes.find(mesh);
+        if (found != st.meshes.end()) {
+            world.push_back({.mesh = mesh,
+                             .id = found->second.id,
+                             .geometry = &found->second.geometry,
+                             .source = found->second.source});
+        }
+    }
+    return world;
+}
+
 // (changed by the first frame - docs/design/vulkan.md "The first frame after a load") A new world - the loaded scenes'
 // key not the one settled: the level's first frame, after a load, the editor's load - gets its work done in that frame,
 // after its begin_frame and before any view is drawn (the frame is shown over the loading screen's last picture): the
@@ -1126,10 +1150,21 @@ void new_world_work(rt::RayTracing& rt)
         st.settled_key = st.scene_key;
         rt.settle(rt::frame_record());
         settled_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+        // (the offline relit data: the level's data read and its meshes matched, what the level is lit by decided -
+        // whether the relit mode is on or not: the settings model's level facts - and its baked sun)
+        if (!relit_bake::requested()) {
+            st.level_sun = rt_relit_world::new_world(world_meshes());
+        }
     }
     if (fit) {
         st.fitted_key = st.scene_key;
-        make_fit(rt); // (the samples read the world's meshes as this frame recorded them: st.world)
+        // (the offline relit data: the baked sun is the level's data's - the fit runs only in the relit bake, which
+        // makes that data; the samples read the world's meshes as this frame recorded them: st.world)
+        if (relit_bake::requested()) {
+            make_fit(rt);
+        } else {
+            rt::set_baked_sun(st.level_sun);
+        }
     }
     st.first_frame_work_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     st.first_frame_timed = true;
@@ -1146,20 +1181,10 @@ void relit_work(rt::RayTracing& rt)
 {
     State& st = state();
     rt::note_census_frame(); // (the light energy audit's census: the frames its counts are over)
-    if (!rt::relit_settings().on && st.relit_idle) {
-        return;
+    if (relit_bake::requested() || (!rt::relit_settings().on && st.relit_idle)) {
+        return; // (the relit bake: the buffers keep the bake - relit_bake.h)
     }
-    std::vector<rt_relit_world::WorldMesh> world;
-    world.reserve(st.world.size());
-    for (const MeshRef* mesh : st.world) {
-        const auto found = st.meshes.find(mesh);
-        if (found != st.meshes.end()) {
-            world.push_back({.mesh = mesh,
-                             .id = found->second.id,
-                             .geometry = &found->second.geometry,
-                             .source = found->second.source});
-        }
-    }
+    const std::vector<rt_relit_world::WorldMesh> world = world_meshes();
     const bool ready = !st.world.empty() && st.settled_key == st.scene_key &&
                        (!rt::baked_sun_wanted() || st.fitted_key == st.scene_key);
     rt_relit_world::update(world, ready, rt);
@@ -1627,6 +1652,12 @@ void camera_chosen(int viewport)
         relit_work(*rt);
         other_sun_work(*rt); // (added by the scene's sun)
         emitter_work();      // (added by the night lighting)
+        if (relit_bake::requested()) { // (the relit bake: the level's data made, then the game closed - relit_bake.h)
+            State& st = state();
+            relit_bake::step(world_meshes(),
+                             !st.world.empty() && st.settled_key == st.scene_key && st.fitted_key == st.scene_key,
+                             st.scene_key, *rt);
+        }
         rt->prepare_frame();
     }
 }

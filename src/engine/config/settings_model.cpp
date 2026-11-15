@@ -129,6 +129,10 @@ bool tod_levels_set(const Reader& reader)
     }
     return false;
 }
+// (the offline relit data) The level can be relit - `cap` of its facts - or ray tracing is off (the original's own time
+// of day then: tod_manager.h).
+Cond level_lit_or_no_rt(Cap cap) { return any({negate(on("ray_tracing")), has(cap)}); }
+
 Cond tod_runs()
 {
     return any({is_not("tod", {"level"}), is("tod_cycle", {"on"}), computed(&tod_levels_set, {"tod_levels"})});
@@ -325,20 +329,39 @@ std::vector<Decl> declarations()
             .pick({c("level", t::kOptSunLevel), c("dawn", t::kTodDawn), c("morning", t::kTodMorning), c("noon", t::kTodNoon),
                    c("afternoon", t::kTodAfternoon), c("dusk", t::kTodDusk), c("night", t::kTodNight)})
             .open()
+            .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
+            .need(level_lit_or_no_rt(Cap::kLevelLightCurrent), t::kLevelLightOutOfDate)
+            .need(level_lit_or_no_rt(Cap::kLevelSunInBake), t::kLevelNoSunlight)
+            .off("level")
             .live(E::kTimeOfDay),
         gfx("tod_cycle", K::kChoice, "off")
             .tab(G::kLighting, t::kOptTodCycle, t::kOptTodCycleHelp)
             .pick({c("off", t::kOff), c("on", t::kOn)})
             .alias("0", "off")
             .alias("1", "on")
+            .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
+            .need(level_lit_or_no_rt(Cap::kLevelLightCurrent), t::kLevelLightOutOfDate)
+            .need(level_lit_or_no_rt(Cap::kLevelSunInBake), t::kLevelNoSunlight)
+            .off("off")
             .live(E::kTimeOfDay),
         gfx("tod_cycle_minutes", K::kNumber, "24")
             .tab(G::kLighting, t::kOptTodCycleMinutes)
             .pick({c("12", "12 min"), c("24", "24 min"), c("48", "48 min"), c("96", "96 min")})
             .need(is("tod_cycle", {"on"}))
             .live(E::kTimeOfDay),
-        gfx("tod_levels", K::kText, "").live(E::kTimeOfDay),
-        gfx("rt_shadows", K::kSwitch, "0").tab(G::kLighting, t::kOptShadows, t::kOptShadowsHelp).need(ray_tracing()).live(E::kShadows),
+        gfx("tod_levels", K::kText, "")
+            .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
+            .need(level_lit_or_no_rt(Cap::kLevelLightCurrent), t::kLevelLightOutOfDate)
+            .need(level_lit_or_no_rt(Cap::kLevelSunInBake), t::kLevelNoSunlight)
+            .off("")
+            .live(E::kTimeOfDay),
+        // (the offline relit data: a ray-traced light replaces its own part of the relit level's light - never stacks
+        // on a bake; each light counted once - so the lighting passes need the level relit, and turn it on)
+        gfx("rt_shadows", K::kSwitch, "0")
+            .tab(G::kLighting, t::kOptShadows, t::kOptShadowsHelp)
+            .need(ray_tracing())
+            .need(on("rt_relit"))
+            .live(E::kShadows),
         gfx("rt_shadow_strength", K::kNumber, "0.5")
             .tab(G::kLighting, t::kOptShadowStrength)
             .pick(percent({{"0.25", "25%"}, {"0.5", "50%"}, {"0.75", "75%"}, {"1", "100%"}}))
@@ -361,7 +384,7 @@ std::vector<Decl> declarations()
         gfx("rt_shadow_match_bake", K::kSwitch, "1").need(on("rt_shadows")).live(E::kShadows),
         gfx("rt_shadow_covered", K::kSwitch, "0").need(on("rt_shadows")).live(E::kShadows),
         gfx("rt_shadow_sky_rays", K::kNumber, "5").need(on("rt_shadows")).live(E::kShadows),
-        gfx("rt_ao", K::kSwitch, "0").tab(G::kLighting, t::kOptAo, t::kOptAoHelp).need(ray_tracing()).live(E::kAo),
+        gfx("rt_ao", K::kSwitch, "0").tab(G::kLighting, t::kOptAo, t::kOptAoHelp).need(ray_tracing()).need(on("rt_relit")).live(E::kAo),
         gfx("rt_ao_strength", K::kNumber, "0.6")
             .tab(G::kLighting, t::kOptAoStrength)
             .pick(percent({{"0.3", "30%"}, {"0.45", "45%"}, {"0.6", "60%"}, {"0.8", "80%"}, {"1", "100%"}}))
@@ -388,33 +411,20 @@ std::vector<Decl> declarations()
             .need(on("rt_ao"))
             .need(negate(on("ray_reconstruction")), t::kRayReconstructionDenoises)
             .live(E::kAo),
-        // (the light energy audit - docs/design/vulkan.md "Each light counted once": a relit level's bounce is relit's,
-        // traced per vertex, and the objects take it through the light field - one owner, so the pass is out of effect)
-        gfx("rt_gi", K::kSwitch, "0")
-            .tab(G::kLighting, t::kOptGi, t::kOptGiHelp)
-            .need(ray_tracing())
-            .need(negate(on("rt_relit")), t::kRelitBouncesLight)
-            .live(E::kGi),
-        gfx("rt_gi_strength", K::kNumber, "1")
-            .tab(G::kLighting, t::kOptGiStrength)
-            .pick(percent({{"0.5", "50%"}, {"1", "100%"}, {"1.5", "150%"}, {"2", "200%"}}))
-            .need(on("rt_gi"))
-            .live(E::kGi),
-        gfx("rt_gi_rays", K::kNumber, "2")
-            .tab(G::kLighting, t::kOptGiRays)
-            .pick({c("1", "1"), c("2", "2"), c("4", "4"), c("8", "8")})
-            .need(on("rt_gi"))
-            .live(E::kGi),
-        gfx("rt_gi_distance", K::kNumber, "600").need(on("rt_gi")).live(E::kGi),
-        gfx("rt_gi_denoise", K::kSwitch, "1")
-            .need(on("rt_gi"))
-            .need(negate(on("ray_reconstruction")), t::kRayReconstructionDenoises)
-            .live(E::kGi),
+        // (the light energy audit, then the offline relit data - docs/design/vulkan.md "Each light counted once": the
+        // relit level's bounce is relit's, traced per vertex, and the objects take it through the light field; the
+        // lighting passes run only on a relit level - the bounce pass never had a part of its own left)
+        gfx("rt_gi", K::kSwitch, "0").retire(t::kRelitBouncesLight),
+        gfx("rt_gi_strength", K::kNumber, "1").retire(t::kRelitBouncesLight),
+        gfx("rt_gi_rays", K::kNumber, "2").retire(t::kRelitBouncesLight),
+        gfx("rt_gi_distance", K::kNumber, "600").retire(t::kRelitBouncesLight),
+        gfx("rt_gi_denoise", K::kSwitch, "1").retire(t::kRelitBouncesLight),
         // (Auto, the default: lit only in the dark - the time of day's night or a dark level)
         gfx("rt_lights", K::kChoice, "auto")
             .tab(G::kLighting, t::kOptLights, t::kOptLightsHelp)
             .pick({c("0", t::kOff), c("auto", t::kAuto), c("1", t::kOn)})
             .need(ray_tracing())
+            .need(on("rt_relit"))
             .off("0")
             .live(E::kLights),
         gfx("rt_lights_strength", K::kNumber, "1")
@@ -434,17 +444,27 @@ std::vector<Decl> declarations()
         // ===== Surfaces: relit levels (engine/gfx/rt_relit.h), per-pixel lighting and the surface maps
         // (gpu_vulkan/vulkan_surface.h), detail materials (vulkan_detail.h), reflections (vulkan_rt_reflections.h),
         // grass (vulkan_grass.h), decals and clutter (vulkan_scatter.h), water (vulkan_water.h)
-        gfx("rt_relit", K::kSwitch, "0").tab(G::kSurfaces, t::kOptRelit, t::kOptRelitHelp).need(ray_tracing()).live(E::kRelit),
+        // (the offline relit data: the level's decomposition built by tools/game/relit_bake.ts - without it, or for a
+        // level whose bake has no sunlight, the level keeps the original game's lighting)
+        gfx("rt_relit", K::kSwitch, "0")
+            .tab(G::kSurfaces, t::kOptRelit, t::kOptRelitHelp)
+            .need(ray_tracing())
+            .need(has(Cap::kLevelLightData))
+            .need(has(Cap::kLevelLightCurrent))
+            .need(has(Cap::kLevelSunInBake))
+            .off("0")
+            .live(E::kRelit),
         gfx("rt_relit_strength", K::kNumber, "1")
             .tab(G::kSurfaces, t::kOptRelitStrength)
             .pick(percent({{"0.25", "25%"}, {"0.5", "50%"}, {"0.75", "75%"}, {"1", "100%"}}))
             .need(on("rt_relit"))
             .live(E::kRelit),
         gfx("rt_relit_residual", K::kSwitch, "1").need(on("rt_relit")).live(E::kRelit),
-        gfx("rt_relit_detail", K::kNumber, "1").need(on("rt_relit")).live(E::kRelit),
+        // (the offline relit data: made once by the relit bake - the tints' detail and the cache are the bake's)
+        gfx("rt_relit_detail", K::kNumber, "1").retire(t::kRetired),
         gfx("rt_relit_sky_rays", K::kNumber, "24").need(on("rt_relit")).live(E::kRelit),
         gfx("rt_relit_sun_rays", K::kNumber, "4").need(on("rt_relit")).live(E::kRelit),
-        gfx("rt_relit_cache", K::kSwitch, "1").need(on("rt_relit")).live(E::kRelit),
+        gfx("rt_relit_cache", K::kSwitch, "1").retire(t::kRetired),
         gfx("rt_pbr", K::kSwitch, "0")
             .tab(G::kSurfaces, t::kOptPbr, t::kOptPbrHelp)
             .need(vulkan(), t::kNeedsVulkan)
@@ -475,17 +495,10 @@ std::vector<Decl> declarations()
             .pick({c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
             .need(on("rt_detail"))
             .live(E::kDetail),
-        gfx("rt_delight", K::kSwitch, "0")
-            .tab(G::kSurfaces, t::kOptDelight, t::kOptDelightHelp)
-            .need(on("rt_pbr"))
-            // (with a de-lit texture set chosen too: the renderer leaves the textures that set made flat alone, one by
-            // one - gpu_vulkan/vulkan_detail.h; the setting applies to the rest)
-            .live(E::kDetail),
-        gfx("rt_delight_strength", K::kNumber, "0.5")
-            .tab(G::kSurfaces, t::kOptDelightStrength)
-            .pick({c("0.25", t::kLow), c("0.5", t::kMedium), c("0.75", t::kHigh)})
-            .need(on("rt_delight"))
-            .live(E::kDetail),
+        // (the offline relit data: the light painted into textures is taken out offline, by the de-lit texture sets -
+        // tools/pipeline/hd_textures --delight -, not at draw time)
+        gfx("rt_delight", K::kSwitch, "0").retire(t::kRetired),
+        gfx("rt_delight_strength", K::kNumber, "0.5").retire(t::kRetired),
         // (added for the characters: their surface maps, skin, cloth and hair - on top of rt_pbr)
         gfx("rt_characters", K::kSwitch, "1")
             .tab(G::kSurfaces, t::kOptCharacters, t::kOptCharactersHelp)
@@ -1140,6 +1153,11 @@ const std::vector<Force>& forces()
         {.key = "reflex", .value = "on", .when = all({asked_is("reflex", {"off"}), dlss_frames()}), .reason = t::kOnForFrameGeneration},
         {.key = "rt_relit", .value = "1", .when = is_not("rt_sun_source", {"level"}), .reason = t::kOnForSun},
         {.key = "rt_relit", .value = "1", .when = tod_runs(), .reason = t::kOnForTimeOfDay},
+        // (the offline relit data: the lighting passes replace their own part of the relit level's light)
+        {.key = "rt_relit",
+         .value = "1",
+         .when = any({asked_is("rt_shadows", {"1"}), asked_is("rt_ao", {"1"}), asked_is("rt_lights", {"1", "auto"})}),
+         .reason = t::kOnForLighting},
         {.key = "thugpro_peer", .value = "1", .when = is("OnlineGameName", {"thugpro"}), .reason = t::kOnForThugproLobbies},
     };
     return kForces;
@@ -1166,15 +1184,15 @@ const std::vector<PresetValue>& preset_values(int choice)
     // Original - every effect off, the game as it was; High - the cheaper effects (shadows, occlusion, reflections, the
     // sky and sun, HDR, bloom, smooth curves); Ultra - every effect on (but the bounce pass: relit lights the bounce).
     // Upscaling is left as it is (it trades sharpness for speed, whatever the preset).
-    constexpr std::array kKeys = {"ray_tracing", "rt_shadows", "rt_ao", "rt_gi", "rt_reflections", "rt_relit",
+    // (rt_gi retired with the offline relit data: relit lights the bounce)
+    constexpr std::array kKeys = {"ray_tracing", "rt_shadows", "rt_ao", "rt_reflections", "rt_relit",
                                   "rt_pbr",      "rt_fog",     "rt_sky", "rt_sky_model", "rt_clouds", "rt_sun",
                                   "rt_shafts",   "rt_bloom",   "rt_hdr", "rt_tessellation"};
     constexpr std::array<const char*, kKeys.size()> kOriginal = {"0", "0", "0", "0", "0", "0", "0", "0",
-                                                                 "0", "0", "0", "0", "0", "0", "0", "0"};
-    constexpr std::array<const char*, kKeys.size()> kHigh = {"1", "1", "1", "0", "1", "0", "0", "0",
+                                                                 "0", "0", "0", "0", "0", "0", "0"};
+    constexpr std::array<const char*, kKeys.size()> kHigh = {"1", "1", "1", "1", "0", "0", "0",
                                                              "1", "1", "0", "1", "1", "1", "1", "1"};
-    // (Ultra: the bounce pass off - the relit mode it turns on lights the bounce; one owner)
-    constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "0", "1", "1", "1", "1",
+    constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "1", "1", "1", "1",
                                                               "1", "1", "1", "1", "1", "1", "1", "1"};
     const auto list = [&kKeys](const std::array<const char*, kKeys.size()>& values) {
         std::vector<PresetValue> made;

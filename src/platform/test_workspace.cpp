@@ -4,7 +4,10 @@
 
 #include <windows.h>
 
+#include <cstddef>
 #include <string>
+
+#include "platform/process_flags.h"
 
 namespace platform {
 
@@ -33,8 +36,19 @@ bool marker_beside_exe()
 
 bool test_workspace()
 {
-    static const bool marked = marker_beside_exe();
+    static const bool marked = marker_beside_exe() || batch_run();
     return marked;
+}
+
+bool batch_run()
+{
+    // (the command line as it started: -relit-bake <level>, a word of its own)
+    static const bool batch = [] {
+        const std::string& line = sys::startup_command_line();
+        const std::size_t at = line.find("-relit-bake ");
+        return at != std::string::npos && (at == 0 || line.at(at - 1) == ' ' || line.at(at - 1) == '"');
+    }();
+    return batch;
 }
 
 } // namespace platform

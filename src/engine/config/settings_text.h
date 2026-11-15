@@ -350,6 +350,10 @@ inline constexpr const char* kNeedsHeightMaps = "Needs height maps";
 inline constexpr const char* kNeedsReliefMaps = "Needs building relief files";
 inline constexpr const char* kLevelHasFog = "This level has fog of its own";
 inline constexpr const char* kLevelIndoors = "This level is indoors";
+// (the offline relit data: the build step's name in the reason - tools/game/relit_bake.ts)
+inline constexpr const char* kLevelLightNotBuilt = "This level's lighting isn't built - run relit_bake";
+inline constexpr const char* kLevelLightOutOfDate = "This level's lighting is out of date - run relit_bake";
+inline constexpr const char* kLevelNoSunlight = "This level has no sunlight to relight";
 inline constexpr const char* kNotInstalled = "Not installed";
 inline constexpr const char* kNoVulkanGpu = "Direct3D 9 - no Vulkan GPU here";
 inline constexpr const char* kRetired = "No longer used";
@@ -381,6 +385,7 @@ inline constexpr const char* kNativeForFrameGeneration = "DLAA - Frame generatio
 inline constexpr const char* kOnForSun = "On - needed by Sun";
 inline constexpr const char* kOnForTimeOfDay = "On - needed by Time of day";
 inline constexpr const char* kRelitBouncesLight = "Relit lighting bounces the light already";
+inline constexpr const char* kOnForLighting = "On - the ray-traced lights need it";
 inline constexpr const char* kOnForThugproLobbies = "On with THUGPRO lobbies";
 // (conflicts: two settings that work against each other - both stay in effect)
 inline constexpr const char* kVsyncHoldsFrames = "V-sync holds generated frames to your display's rate";

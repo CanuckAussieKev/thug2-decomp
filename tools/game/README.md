@@ -213,8 +213,8 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   at most 0.1% turned black (a hole) or white (the sky through a crack), some spot changed by 0.05% or more; the `on`
   logs show "rt_tessellation: on" and a "meshes smoothed" line, the `off` ones neither; the levels' smoothing totals and
   the frame times reported.
-  `--effect relit` (both commands): the relit mode (`[Graphics] rt_relit` - the bake taken apart and lit again,
-  engine/gfx/rt_relit.h) - 0 / 1 with `ray_tracing=1`, the other effects as the ini and --set have them; `--set` reaches
+  `--effect relit` (both commands): the relit mode (`[Graphics] rt_relit` - the level lit again from its relit data,
+  engine/gfx/rt_relit.h; the data made first by relit_bake.ts below) - 0 / 1 with `ray_tracing=1`, the other effects as the ini and --set have them; `--set` reaches
   the baseline too (main's build with the same look: `off` must be it). `--expect drawn`: the mean luma change at most
   20 and the mean (signed) within 6 levels, at most 0.1% turned black and 0.5% white; a level whose bake shows no sun
   changed at most 0.1%; the `on` logs show "rt_relit: ... meshes written" (or "the bake shows no sun"), the `off` ones
@@ -357,6 +357,20 @@ the THIRD_PARTY_NOTICES.md files - the decomp's, the content pipeline's and the 
 
 After every run read `<folder>\thug2-decomp.log` (locked while the game runs): no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT / INVALID PARAMETER / PURE VIRTUAL CALL /
 ABORT / BUFFER OVERRUN DETECTED / GAME CRT MESSAGE.
+
+## relit_bake.ts - every level's relit data
+
+`node tools/game/relit_bake.ts --game <folder> [--levels all | BO,TR,...] [--skip-built] [--minutes 20] [--list]` makes
+each level's relit data (docs/design/vulkan.md "Relit: the bake taken apart, offline"): one batch run of the game per
+level, `thug2-decomp.exe -relit-bake <level>` - straight into the level, muted, windowed and behind the user's windows,
+its own settings over the ini (the ini isn't changed) - which writes `thug2-decomp-relit\<scene>.relit` beside the exe
+and closes. Every installed level by default (edit_level.ts --list's: THUG2's own, the overlay's, the ported ones).
+Refused while a game runs from the folder; a level's run given up (its game closed) after --minutes. Writes
+`thug2-decomp-relit\bake-report.txt` (a line a level: its scene, verdict - relit / no sun / no sunlight found -, meshes,
+vertices, lamps, the model's sun and lamps' c) and each level's log in `thug2-decomp-relit\logs\`. A level without data
+keeps the original game's lighting (relit, the time of day and the ray-traced lights out of effect there); data made
+with other geometry settings (building relief, smoothed curves) is out of date: build it again. Needs the Vulkan
+renderer's build with ray tracing (a ray tracing GPU, the 64-bit game). Nothing here goes online.
 
 ## Crashes
 - **The game never shows a dialog** (src/platform/crash.h): every fault - an exception, a Debug run-time check or CRT

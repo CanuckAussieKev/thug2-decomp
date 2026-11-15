@@ -104,7 +104,9 @@ void load_window_settings()
     sdl_window_state().client_width_ = build_info::get_int(build_info::kGraphics, "ResolutionX", 0);
     sdl_window_state().client_height_ = build_info::get_int(build_info::kGraphics, "ResolutionY", 0);
     if (!sdl_window_state().windowed_) {
-        sdl_window_state().windowed_ = build_info::fetch_flag(build_info::kGraphics, "Windowed", false);
+        // (not original: a batch run - platform/test_workspace.h - always in a window)
+        sdl_window_state().windowed_ =
+            build_info::fetch_flag(build_info::kGraphics, "Windowed", false) || platform::batch_run();
     }
     sdl_window_state().borderless_ = build_info::fetch_flag(build_info::kGraphics, "Borderless", false);
 }

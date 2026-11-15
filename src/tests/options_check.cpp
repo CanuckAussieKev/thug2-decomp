@@ -251,10 +251,6 @@ bool exclusive(const config::Setting& setting)
     constexpr std::array kStyleKnobs = {"rt_style_", "rt_fisheye_", "rt_cel_"};
     constexpr std::array kOthers = {"AntiAliasing",      "upscale_quality", "ray_reconstruction",
                                     "upscale_sharpness", "fsr_version",     "frame_generation_provider"};
-    // (the light energy audit: the bounce pass and the relit mode both light the bounce - one owner, relit's)
-    if (key.starts_with("rt_gi")) {
-        return true;
-    }
     return std::ranges::any_of(kStyleKnobs, [&key](const char* each) { return key.starts_with(each); }) ||
            std::ranges::any_of(kOthers, [&key](const char* each) { return key == each; });
 }
@@ -652,10 +648,58 @@ void check_needs()
     expect(toggled > 150 && held < 15,
            "the needs on other settings toggled (" + std::to_string(toggled) + ", " + std::to_string(held) + " held)");
     // (the ones held above: the relit mode's knobs follow it - out of effect with it off and nothing forcing it)
-    const config::Resolution relit_off = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_relit", "0"}});
-    for (const char* key : {"rt_relit_strength", "rt_relit_residual", "rt_relit_detail", "rt_relit_sky_rays", "rt_relit_sun_rays", "rt_relit_cache"}) {
+    const config::Resolution relit_off = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_relit", "0"}, {"rt_lights", "0"}});
+    for (const char* key : {"rt_relit_strength", "rt_relit_residual", "rt_relit_sky_rays", "rt_relit_sun_rays"}) {
         expect(!relit_off.at(key).in_effect, std::string(key) + " out of effect with the relit mode off");
     }
+}
+
+// (the offline relit data - engine/gfx/relit_data.h) The level's relit data: without it, with data made from other
+// meshes, or with a bake that has no sunlight, the level keeps the original game's lighting - relit, the time of day
+// (with ray tracing) and the lighting passes out of effect, the reason naming the build step; a level with data as
+// asked; no level known yet: as asked. The lighting passes turn relit on.
+void check_level_light()
+{
+    const Ini asked = {{"ray_tracing", "1"}, {"rt_relit", "0"},  {"rt_shadows", "1"}, {"rt_ao", "1"},
+                       {"rt_lights", "auto"}, {"tod", "night"}, {"tod_cycle", "on"}};
+    const auto level_with = [&asked](config::LevelLight light) {
+        config::Inputs inputs = inputs_of(rtx50(), asked);
+        inputs.level = {.known = true, .light = light};
+        return config::resolve(inputs);
+    };
+    const config::Resolution built = level_with(config::LevelLight::kBuilt);
+    expect(built.on("rt_relit") && built.at("rt_relit").forced && built.on("rt_shadows") && built.on("rt_ao") &&
+               built.value("tod") == "night" && built.value("rt_lights") == "auto",
+           "a level with relit data: relit (turned on), shadows, occlusion, lamps and the time of day as asked");
+    const config::Resolution unknown = config::resolve(inputs_of(rtx50(), asked));
+    expect(unknown.on("rt_relit") && unknown.on("rt_shadows") && unknown.value("tod") == "night",
+           "no level known yet: as asked");
+    const struct {
+        config::LevelLight light;
+        const char* reason;
+        const char* what;
+    } kept[] = {{config::LevelLight::kMissing, t::kLevelLightNotBuilt, "no relit data"},
+                {config::LevelLight::kStale, t::kLevelLightOutOfDate, "relit data made from other meshes"},
+                {config::LevelLight::kNoSun, t::kLevelNoSunlight, "a bake with no sunlight"}};
+    for (const auto& each : kept) {
+        const config::Resolution level = level_with(each.light);
+        expect(!level.on("rt_relit") && level.at("rt_relit").reason == each.reason,
+               std::string(each.what) + ": relit out of effect - " + level.at("rt_relit").reason);
+        expect(level.value("tod") == "level" && level.at("tod").reason == each.reason,
+               std::string(each.what) + ": the time of day out of effect (the level's own) - " + level.at("tod").reason);
+        for (const char* pass : {"rt_shadows", "rt_ao", "rt_lights", "tod_cycle_minutes"}) {
+            expect(!level.at(pass).in_effect, std::string(each.what) + ": " + pass + " out of effect (no pass on a bake)");
+        }
+        expect(level.at("rt_shadows").reason == each.reason,
+               std::string(each.what) + ": the shadows say why at the root - " + level.at("rt_shadows").reason);
+        expect(std::string(each.reason).find("relit_bake") != std::string::npos ||
+                   each.light == config::LevelLight::kNoSun,
+               std::string(each.what) + ": the reason names the build step");
+    }
+    // without ray tracing the time of day is the original's own (tod_manager) - the level's data doesn't matter
+    config::Inputs no_rt = inputs_of(rtx50(), {{"ray_tracing", "0"}, {"tod", "dusk"}});
+    no_rt.level = {.known = true, .light = config::LevelLight::kMissing};
+    expect(config::resolve(no_rt).value("tod") == "dusk", "ray tracing off: the time of day without relit data");
 }
 
 // Each capability a setting needs: without it, the setting is out of effect with the capability's words (or its root's).
@@ -668,7 +712,9 @@ void check_capabilities()
         const config::Setting& setting = core::at(all, i);
         for (const config::Need& need : setting.needs) {
             if (need.cond.op != config::Cond::Op::kHas || need.cond.cap == config::Cap::kLevelWithoutFog ||
-                need.cond.cap == config::Cap::kLevelOutdoor) { // (the level's facts: own cases below)
+                need.cond.cap == config::Cap::kLevelOutdoor || need.cond.cap == config::Cap::kLevelLightData ||
+                need.cond.cap == config::Cap::kLevelLightCurrent ||
+                need.cond.cap == config::Cap::kLevelSunInBake) { // (the level's facts: own cases below)
                 continue;
             }
             ++taken;
@@ -716,28 +762,29 @@ void check_capabilities()
     expect(!resolve(rtx50(), {}).on("paint_trails") && !resolve(rtx50(), {}).at("paint_trail_colour").in_effect,
            "paint trails off by default, their knobs out");
     expect(resolve(rtx50(), {{"paint_trails", "1"}}).value("paint_trail_colour").empty(), "the paint's colour by player by default");
-    // (added by the de-lit texture sets) rt_delight in effect whatever texture set is chosen: a de-lit set's textures
-    // that came flat are left alone by the renderer one by one (gpu_vulkan/vulkan_detail.h), its others keep it
-    config::Capabilities sets = rtx50();
-    sets.texture_sets = {"original", "pbrify", "seedvr2"};
-    for (const char* set : {"seedvr2", "pbrify", "original"}) {
-        const config::Resolution with_set = resolve(sets, {{"rt_pbr", "1"}, {"rt_delight", "1"}, {"texture_set", set}});
-        expect(with_set.on("rt_delight") && with_set.at("rt_delight_strength").in_effect,
-               std::string("texture_set=") + set + ": the draw-time de-lighting in effect (per texture in the renderer)");
+    // (the offline relit data) the draw-time de-lighting, the bounce pass, the in-game analysis's knobs retired - never
+    // in effect, "No longer used" / relit's own bounce
+    const config::Resolution asked_retired = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_pbr", "1"}, {"rt_delight", "1"},
+                                                              {"rt_gi", "1"}, {"rt_relit", "1"}, {"rt_relit_detail", "0.5"},
+                                                              {"rt_relit_cache", "0"}});
+    for (const char* key : {"rt_delight", "rt_delight_strength", "rt_gi", "rt_gi_strength", "rt_gi_rays", "rt_gi_distance",
+                            "rt_gi_denoise", "rt_relit_detail", "rt_relit_cache"}) {
+        expect(!asked_retired.at(key).in_effect && !asked_retired.at(key).reason.empty(),
+               std::string(key) + ": retired (" + asked_retired.at(key).reason + ")");
     }
+    expect(asked_retired.at("rt_gi").reason == t::kRelitBouncesLight, "rt_gi: retired - relit bounces the light");
+    check_level_light();
 }
 
 // The machines: what a typical ini resolves to on each.
 void check_machines()
 {
-    const Ini ini = {{"ray_tracing", "1"}, {"rt_shadows", "1"},     {"rt_shadow_strength", "0.75"}, {"rt_gi", "1"},
+    const Ini ini = {{"ray_tracing", "1"}, {"rt_shadows", "1"},     {"rt_shadow_strength", "0.75"}, {"rt_ao", "1"},
                      {"upscaler", "dlss"}, {"frame_generation", "4x"}, {"ray_reconstruction", "1"}, {"rt_pbr", "1"},
                      {"msaa", "4"},        {"grass", "1"},          {"rt_relit", "1"},             {"texture_set", "seedvr2"}};
     // RTX 50: everything as asked; DLSS-G makes 4x, Reflex on with it
     const config::Resolution r50 = resolve(rtx50(), ini);
     expect(r50.on("rt_shadows") && r50.on("rt_relit") && r50.on("rt_pbr"), "RTX 50: the effects on");
-    expect(!r50.on("rt_gi") && r50.at("rt_gi").reason == t::kRelitBouncesLight,
-           "RTX 50: the bounce pass out of effect - relit lights the bounce (one owner)");
     expect(r50.value("frame_generation") == "4x" && r50.value("upscaler") == "dlss", "RTX 50: 4x frame generation over DLSS");
     expect(r50.on("ray_reconstruction"), "RTX 50: Ray Reconstruction in effect");
     expect(r50.value("reflex") == "on" && r50.at("reflex").forced && r50.at("reflex").reason == t::kOnForFrameGeneration,
@@ -749,9 +796,10 @@ void check_machines()
         Ini unrelit = ini;
         std::erase_if(unrelit, [](const auto& each) { return each.first == "rt_relit"; });
         const config::Resolution plain = resolve(rtx50(), unrelit);
-        expect(plain.on("rt_gi") && !plain.on("rt_gi_denoise") &&
-                   plain.at("rt_gi_denoise").reason == t::kRayReconstructionDenoises,
-               "RTX 50 without relit: the bounce pass on, its denoiser left to Ray Reconstruction");
+        expect(plain.on("rt_relit") && plain.at("rt_relit").forced && plain.at("rt_relit").reason == t::kOnForLighting,
+               "RTX 50 without relit asked: the lighting passes turn it on (none on a bake)");
+        expect(!plain.on("rt_ao_denoise") && plain.at("rt_ao_denoise").reason == t::kRayReconstructionDenoises,
+               "RTX 50: the occlusion's denoiser left to Ray Reconstruction");
     }
     expect(r50.value("texture_set") == "original" && r50.at("texture_set").reason == t::kNotInstalled,
            "a texture set that isn't installed: the original");
@@ -772,15 +820,11 @@ void check_machines()
     expect(!ramd.on("ray_reconstruction") && ramd.at("ray_reconstruction").reason == t::kNeedsDlss,
            "AMD: no Ray Reconstruction - it needs DLSS");
     expect(ramd.on("rt_shadows") && ramd.on("rt_relit"), "AMD: ray tracing works");
-    {
-        Ini unrelit = ini;
-        std::erase_if(unrelit, [](const auto& each) { return each.first == "rt_relit"; });
-        expect(resolve(amd(), unrelit).on("rt_gi_denoise"), "AMD without relit: the bounce's own denoiser");
-    }
+    expect(ramd.on("rt_ao_denoise"), "AMD: the occlusion's own denoiser");
     // no ray tracing GPU: every ray-traced effect out, with the root reason
     const config::Resolution nort = resolve(no_rt_gpu(), ini);
     expect(!nort.on("ray_tracing") && nort.at("ray_tracing").reason == t::kNeedsRayGpu, "no RT GPU: ray tracing out");
-    for (const char* key : {"rt_shadows", "rt_shadow_strength", "rt_gi", "rt_relit"}) {
+    for (const char* key : {"rt_shadows", "rt_shadow_strength", "rt_ao", "rt_relit"}) {
         expect(!nort.at(key).in_effect && nort.at(key).reason == t::kNeedsRayGpu,
                std::string("no RT GPU: ") + key + " out - " + nort.at(key).reason);
     }
@@ -839,7 +883,7 @@ void check_forces_and_conflicts()
     expect(cycle.on("rt_relit") && cycle.at("tod_cycle_minutes").in_effect, "the day cycle: relit on, its length in effect");
     const config::Resolution levels = resolve(rtx50(), {{"ray_tracing", "1"}, {"tod_levels", "NO:night,AU:level"}});
     expect(levels.on("rt_relit"), "tod_levels with a time: relit on");
-    const config::Resolution level_only = resolve(rtx50(), {{"ray_tracing", "1"}, {"tod_levels", "AU:level"}});
+    const config::Resolution level_only = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_lights", "0"}, {"tod_levels", "AU:level"}});
     expect(!level_only.on("rt_relit"), "tod_levels with the levels' own: relit as asked (off)");
     const config::Resolution tod_nort = resolve(no_rt_gpu(), {{"ray_tracing", "1"}, {"tod", "night"}});
     expect(!tod_nort.on("rt_relit") && tod_nort.at("rt_relit").reason == t::kNeedsRayGpu, "tod without RT: relit asked, out");

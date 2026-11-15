@@ -100,6 +100,12 @@ const char* cap_reason(Cap cap)
         return t::kNeedsReliefMaps;
     case Cap::kLevelOutdoor:
         return t::kLevelIndoors;
+    case Cap::kLevelLightData:
+        return t::kLevelLightNotBuilt;
+    case Cap::kLevelLightCurrent:
+        return t::kLevelLightOutOfDate;
+    case Cap::kLevelSunInBake:
+        return t::kLevelNoSunlight;
     case Cap::kLevelWithoutFog:
     default:
         return t::kLevelHasFog;
@@ -136,6 +142,12 @@ bool has_cap(const Inputs& in, Cap cap)
         return caps.relief_maps;
     case Cap::kLevelOutdoor:
         return in.level.outdoor;
+    case Cap::kLevelLightData:
+        return in.level.light != LevelLight::kMissing;
+    case Cap::kLevelLightCurrent:
+        return in.level.light != LevelLight::kStale;
+    case Cap::kLevelSunInBake:
+        return in.level.light != LevelLight::kNoSun;
     case Cap::kLevelWithoutFog:
     default:
         return !in.level.known || !in.level.fog;

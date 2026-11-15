@@ -24,6 +24,7 @@ struct SettingsState {
     IniValues at_start; // (the ini when the game started: the start-up settings keep these values)
     Inputs running_inputs;
     Resolution running;
+    IniValues overrides; // (set_overrides)
 };
 
 SettingsState& settings_state()
@@ -99,9 +100,33 @@ void set_level_outdoor(bool outdoor)
     }
 }
 
+bool set_level_light(LevelLight light)
+{
+    if (settings_state().level.light == light) {
+        return false;
+    }
+    settings_state().level.light = light;
+    if (settings_state().started) {
+        refresh_running();
+    }
+    return true;
+}
+
+void set_overrides(IniValues values)
+{
+    settings_state().overrides = std::move(values);
+    if (settings_state().started) {
+        refresh_running();
+    }
+}
+
 Inputs current_inputs()
 {
-    return {.ini = ini_values(build_info::file_text()), .caps = settings_state().caps, .level = settings_state().level};
+    Inputs inputs{.ini = ini_values(build_info::file_text()), .caps = settings_state().caps, .level = settings_state().level};
+    for (const auto& [slot, value] : settings_state().overrides) {
+        inputs.ini[slot] = value;
+    }
+    return inputs;
 }
 
 Resolution current() { return resolve(current_inputs()); }

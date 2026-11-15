@@ -36,6 +36,7 @@
 #include "engine/audio/audio_device.h"
 #include "platform/run_log.h"
 #include "platform/process_flags.h"
+#include "platform/test_workspace.h"
 #include "engine/media/movie.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -523,7 +524,9 @@ bool& skip_intro_movies()
 {
     // (not original either: an extension may skip them - engine/ext/extension.h; -edit does: straight into the level
     // editor)
-    static bool skip = config_int("features", "skip_intro_movies", 0) != 0 || ext::skips_intro_movies();
+    // (and a batch run - platform/test_workspace.h: -relit-bake)
+    static bool skip =
+        config_int("features", "skip_intro_movies", 0) != 0 || ext::skips_intro_movies() || platform::batch_run();
     return skip;
 }
 

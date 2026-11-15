@@ -32,6 +32,13 @@ void init_events()
 
 void register_event_handler(EventHandler handler) { handlers()->push_back(handler); }
 
+void request_quit()
+{
+    SDL_Event event = {};
+    event.type = SDL_EVENT_QUIT;
+    SDL_PushEvent(&event);
+}
+
 void pump_sdl_events()
 {
     sys::keep_text_input();

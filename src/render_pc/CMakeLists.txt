@@ -59,6 +59,7 @@ add_library(thug2_render_pc STATIC
     building_relief.cpp
     water_geometry.cpp
     rt_relit_world.cpp
+    relit_bake.cpp
     pc_billboards.cpp
     pc_buffers.cpp
     pc_gamma.cpp

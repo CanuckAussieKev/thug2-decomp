@@ -18,6 +18,10 @@ void register_event_handler(EventHandler handler);
 // Hand every pending event to the handlers (os_layer::process_window_events, and Sio's device processing).
 void pump_sdl_events();
 
+// NOT ORIGINAL - the game asked to quit as the window's close button asks it (an SDL_EVENT_QUIT queued: a batch run's
+// end - render_pc/relit_bake.h).
+void request_quit();
+
 // 0x005F56E0: handle the window's pending messages (Originally from PartyMod Fixes: the SDL event pump, os_layer::pump_sdl_events).
 void process_window_events();
 

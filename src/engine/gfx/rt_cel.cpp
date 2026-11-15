@@ -212,8 +212,9 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     }
     const float length = std::sqrt(dot(lighting.toward, lighting.toward));
     const float n_dot_l = length > 0.0F ? std::max(0.0F, dot(vertex.normal, lighting.toward) / length) : 0.0F;
+    // (the level's own light: the lamps' term and the residual - rt_relit.h relit_own_light)
     const std::array<float, 3> residual =
-        lighting.residual ? vertex.residual : std::array<float, 3>{0.0F, 0.0F, 0.0F};
+        lighting.residual ? relit_own_light(model, vertex) : std::array<float, 3>{0.0F, 0.0F, 0.0F};
     // (the sun's visibility with the bake's sun the tracer missed - toward the bake's own sun only: rt_relit.h)
     const float missed = vertex.sun_missed * relit_missed_trust(model, lighting.toward);
     const float seen = std::clamp(vertex.sun + missed, 0.0F, 1.0F);

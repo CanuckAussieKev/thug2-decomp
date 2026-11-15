@@ -105,9 +105,44 @@ uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, std::
     return get_dynamic_lights_near(position, radius, out);
 }
 
+// NOT ORIGINAL - the one lighting path, for the game's fill and ambient (the offline relit data: the light energy
+// audit's characters' item): at the bake they stand for the level's indirect light and its own lamps' where a thing is,
+// so now they are the game's own times (indirect now + lamps) over (indirect at the bake + lamps) - the bake's own time
+// gives the game's own light, as the original (before, the lamps were added on top: the skater 1.3x the bake's beside a
+// lamp-lit door). The lamps' directional part (the field's local light toward where most of it comes from) is the
+// game's ambient's share of it, sent as a light of its own (local_light_sent) - so a face toward the lamp is lit as the
+// wall facing it, the light summing to the game's at the bake. While the lamps pass lights (rt_lights) it owns the
+// lamps: the field's give way by as much (each light counted once).
+struct GameShare {
+    std::array<float, 3> ambient{1.0F, 1.0F, 1.0F};
+    std::array<float, 3> directional{}; // (a share of the game's ambient)
+    std::array<float, 3> toward{0.0F, 1.0F, 0.0F};
+};
+GameShare game_share(const maths::Vec4& position)
+{
+    GameShare out;
+    const rt::FieldPoint at{position.x, position.y, position.z};
+    const rt::IndirectLight indirect = rt::indirect_light_at(at);
+    const rt::LocalLight lamps = rt::local_light_at(at);
+    const float kept = 1.0F - rt::lamps_drawn();
+    out.toward = lamps.toward;
+    for (std::size_t channel = 0; channel < out.ambient.size(); ++channel) {
+        const float around = core::at(lamps.ambient, channel);
+        const float facing = core::at(lamps.directional, channel);
+        const float bake = core::at(indirect.own, channel) + around + facing;
+        if (!(bake > rt::kLightFieldLeast)) {
+            continue; // (no field here: the game's own)
+        }
+        core::at(out.ambient, channel) =
+            std::clamp((core::at(indirect.now, channel) + (kept * around)) / bake, 0.0F, rt::kLightFieldMostRatio);
+        core::at(out.directional, channel) = std::clamp(kept * facing / bake, 0.0F, rt::kLightFieldMostRatio);
+    }
+    return out;
+}
+
 // NOT ORIGINAL - the relit mode and the one lighting path (rt_relit_world.h object_lighting, engine/gfx/rt_light_field.h):
 // the game's light `light` as sent, turned toward the relit sun, the key light (0) times the direct light now over the
-// bake's, the others - the fill - times the light field's indirect ratio where the thing is (`position`).
+// bake's, the others - the fill - times the game's share where the thing is (`position`: game_share).
 void relight(uint32_t light, const maths::Vec4* position)
 {
     rt_relit_world::ObjectLighting relit;
@@ -127,16 +162,16 @@ void relight(uint32_t light, const maths::Vec4* position)
         }
     }
     if (light != 0 && position != nullptr) {
-        const rt::LightRatio ratio = rt::light_ratio_at({position->x, position->y, position->z});
-        for (std::size_t channel = 0; channel < ratio.indirect.size(); ++channel) {
-            core::at(colour, channel) *= core::at(ratio.indirect, channel);
+        const GameShare share = game_share(*position);
+        for (std::size_t channel = 0; channel < share.ambient.size(); ++channel) {
+            core::at(colour, channel) *= core::at(share.ambient, channel);
         }
     }
 }
 
-// NOT ORIGINAL - the one lighting path: the ambient light sent times the light field's indirect ratio where the thing is,
-// and the level's own lights there added (their ambient part here, their directional part the local light sent -
-// pc_lights.h); the ambient held to 1 (the device's ambient is a colour of bytes).
+// NOT ORIGINAL - the one lighting path: the ambient light sent times the game's share where the thing is (game_share),
+// and the lamps' directional part sent as the local light (pc_lights.h); the ambient held to 1 (the device's ambient is
+// a colour of bytes).
 void relight_ambient(const maths::Vec4* position)
 {
     LocalLightSent& local = pc_lights_state().local_light_;
@@ -144,26 +179,16 @@ void relight_ambient(const maths::Vec4* position)
     if (position == nullptr) {
         return;
     }
-    const rt::FieldPoint at{position->x, position->y, position->z};
-    const rt::LightRatio ratio = rt::light_ratio_at(at);
-    rt::LocalLight lamps = rt::local_light_at(at);
-    // (added by the light energy audit - docs/design/vulkan.md "Each light counted once") while the lamps pass lights
-    // (rt_lights: its traced lamps on every pixel, the objects' too) it owns the level's own lights here: the field's
-    // give way by as much
-    const float kept = 1.0F - rt::lamps_drawn();
-    for (std::size_t channel = 0; channel < lamps.ambient.size(); ++channel) {
-        core::at(lamps.ambient, channel) *= kept;
-        core::at(lamps.directional, channel) *= kept;
-    }
+    const GameShare share = game_share(*position);
     const std::span<float> ambient(ambient_constant());
-    for (std::size_t channel = 0; channel < ratio.indirect.size(); ++channel) {
-        core::at(ambient, channel) = std::min(
-            (core::at(ambient, channel) * core::at(ratio.indirect, channel)) + core::at(lamps.ambient, channel), 1.0F);
+    for (std::size_t channel = 0; channel < share.ambient.size(); ++channel) {
+        const float game = core::at(ambient, channel);
+        core::at(local.colour, channel) = game * core::at(share.directional, channel);
+        core::at(ambient, channel) = std::min(game * core::at(share.ambient, channel), 1.0F);
     }
-    local.on = std::ranges::any_of(lamps.directional, [](float value) { return value > 0.0F; });
-    local.colour = lamps.directional;
+    local.on = std::ranges::any_of(local.colour, [](float value) { return value > 0.0F; });
     for (std::size_t axis = 0; axis < local.direction.size(); ++axis) {
-        core::at(local.direction, axis) = -core::at(lamps.toward, axis);
+        core::at(local.direction, axis) = -core::at(share.toward, axis);
     }
 }
 

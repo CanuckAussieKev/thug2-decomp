@@ -560,9 +560,9 @@ void cel_lighting(std::string& out, const FragmentKey& key)
     add(out, {"    vec4 surface_v0 = vec4(clamp(cel_out * 0.5, 0.0, 1.0), v_diffuse.a);"});
 }
 
-// --- (NOT ORIGINAL - [Graphics] rt_detail / rt_delight) the detail layer and the de-lighting ------------------------------
-// (vulkan_detail.h; docs/design/vulkan.md "Detail materials and de-lighting") A key with FragmentKey::detail set (always
-// with kSurfaceMap):
+// --- (NOT ORIGINAL - [Graphics] rt_detail) the detail layer ---------------------------------------------------------------
+// (vulkan_detail.h; docs/design/vulkan.md "Detail materials") A key with FragmentKey::detail set (always with
+// kSurfaceMap):
 //   - kDetailMaterial: the surface kind's tiling detail texture (R, G its high-passed normal's x along +u and y along +v,
 //     B its roughness swing about 0.5, A the albedo's luminance ratio x 0.5) read at stage 0's coordinates x scale.x;
 //     its weight w = strength x (1 - smoothstep(scale.z, scale.w, its level of detail)) - log2 of its texels a pixel, so
@@ -570,10 +570,9 @@ void cel_lighting(std::string& out, const FragmentKey& key)
 //     tangent-space normal with the detail's slope added (x the map's z) and renormalised; the roughness: the map's moved
 //     toward the kind's (material.x by material.w) plus the detail's swing x material.y x w; stage 0's colour x
 //     mix(1, A x 2, w) - its luminance only, so the colour stays the texture's; the specular tinted by the texel's colour
-//     by the kind's metalness (material.z);
-//   - kDetailDelight: stage 0's colour x (mean / local)^delight.x, clamped to 1 / delight.z - delight.z - the local
-//     luminance a coarse mip's (8 texels across the texture, bilinear by texel fetches: the stage's sampler may allow no
-//     mips) and the mean the texture's (delight.y, or its last mip's).
+//     by the kind's metalness (material.z).
+// (The block's `delight` vector is unused since rt_delight was retired - the de-lit texture sets take the painted light
+// out offline; kept so the block's layout stays.)
 constexpr const char* kDetailBlock = R"(layout(set = 0, binding = 15, std140) uniform DetailUniforms {
     vec4 scale;
     vec4 material;
@@ -636,19 +635,6 @@ float character_skin_weight(vec3 c)
     return order * smoothstep(0.06, 0.16, saturation) * (1.0 - smoothstep(0.7, 0.8, saturation)) *
            smoothstep(0.03, 0.15, hue) * (1.0 - smoothstep(0.85, 0.97, hue)) * smoothstep(0.1, 0.2, c.r);
 })";
-constexpr const char* kDetailFetch = R"(vec3 detail_fetch(sampler2D map, vec2 uv, int level)
-{
-    vec2 size = vec2(textureSize(map, level));
-    vec2 p = uv * size - 0.5;
-    vec2 f = fract(p);
-    vec2 i0 = mod(floor(p), size);
-    vec2 i1 = mod(floor(p) + 1.0, size);
-    vec3 a = texelFetch(map, ivec2(i0.x, i0.y), level).rgb;
-    vec3 b = texelFetch(map, ivec2(i1.x, i0.y), level).rgb;
-    vec3 c = texelFetch(map, ivec2(i0.x, i1.y), level).rgb;
-    vec3 e = texelFetch(map, ivec2(i1.x, i1.y), level).rgb;
-    return mix(mix(a, b, f.x), mix(c, e, f.x), f.y);
-})";
 
 void detail_declarations(std::string& out, const FragmentKey& key)
 {
@@ -660,9 +646,6 @@ void detail_declarations(std::string& out, const FragmentKey& key)
     add(out, {(key.detail & kDetailRelief) != 0U ? kDetailReliefBlock : kDetailBlock});
     if ((key.detail & kDetailMaterial) != 0U) {
         add(out, {"layout(set = 0, binding = 16) uniform sampler2D detail_map;"});
-    }
-    if ((key.detail & kDetailDelight) != 0U) {
-        add(out, {kDetailFetch});
     }
 }
 
@@ -1238,19 +1221,6 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
             // (added by cel shading - rt_cel_flatten) the colour toward a blurrier mip, its alpha (cut-outs) as it was
             add(out, {"    t", num(index), ".rgb = mix(t", num(index), ".rgb, texture(t", num(index), "_map, ",
                       coord_of(key, index), ", c.flatten.x).rgb, c.flatten.y);"});
-        }
-        if (index == 0 && (key.detail & kDetailDelight) != 0U) { // (NOT ORIGINAL - rt_delight: the painted light flattened)
-            add(out, {"    {\n        int dl_levels = textureQueryLevels(t0_map);\n"
-                      "        ivec2 dl_size = textureSize(t0_map, 0);\n"
-                      "        int dl_low = clamp(findMSB(max(dl_size.x, dl_size.y)) - 3, 0, dl_levels - 1);\n"
-                      "        if (d.delight.x > 0.0 && dl_low >= 1) {\n"
-                      "            vec2 dl_uv = ", relief ? std::string("relief_uv") : coord_of(key, 0), ";\n"
-                      "            const vec3 dl_luma = vec3(0.2126, 0.7152, 0.0722);\n"
-                      "            float dl_local = max(dot(detail_fetch(t0_map, dl_uv, dl_low), dl_luma), 1.0 / 255.0);\n"
-                      "            float dl_mean = d.delight.y >= 0.0 ? d.delight.y : "
-                      "dot(detail_fetch(t0_map, dl_uv, dl_levels - 1), dl_luma);\n"
-                      "            t0.rgb *= clamp(pow(max(dl_mean, 1.0 / 255.0) / dl_local, d.delight.x), 1.0 / d.delight.z, "
-                      "d.delight.z);\n        }\n    }"});
         }
         if (index == 0 && (key.detail & kDetailMaterial) != 0U) { // (NOT ORIGINAL - rt_detail: the albedo's luminance)
             add(out, {"    t0.rgb *= mix(1.0, detail_m.a * 2.0, clamp(detail_w, 0.0, 1.0));"});

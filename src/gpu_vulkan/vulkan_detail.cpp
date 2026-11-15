@@ -99,13 +99,6 @@ dmf::Kind kind_of_class(uint8_t material_class)
     }
 }
 
-// The classes the de-lighting leaves alone (see-through or liquid: their colour is the art, not painted light).
-bool delight_class(uint8_t material_class)
-{
-    const auto cls = static_cast<smf::MaterialClass>(material_class);
-    return cls != smf::MaterialClass::kGlass && cls != smf::MaterialClass::kWater;
-}
-
 // The next mip level of a detail texture (rows of RGBA texels): each channel the mean of the 2 x 2 above it.
 std::vector<uint8_t> next_level(std::span<const uint8_t> texels, uint32_t side)
 {
@@ -234,7 +227,6 @@ void set_rt_detail_settings(const RtDetailSettings& settings)
         const bool was_on = state.settings.on;
         state.settings = settings;
         state.settings.strength = std::clamp(settings.strength, 0.0F, 2.0F);
-        state.settings.delight_strength = std::clamp(settings.delight_strength, 0.0F, 1.0F);
         if (!settings.on) {
             state.tried = false;
             if (was_on && state.loaded) {
@@ -244,11 +236,9 @@ void set_rt_detail_settings(const RtDetailSettings& settings)
         state.generation.fetch_add(1, std::memory_order_acq_rel);
     }
     release(released);
-    if (settings.on || settings.delight) {
-        get_log("rt_detail: detail materials %s (strength %.2f), de-lighting %s (strength %.2f) - on the draws rt_pbr "
-                "lights with a surface map",
-                settings.on ? "on" : "off", static_cast<double>(settings.strength), settings.delight ? "on" : "off",
-                static_cast<double>(settings.delight_strength));
+    if (settings.on) {
+        get_log("rt_detail: detail materials on (strength %.2f) - on the draws rt_pbr lights with a surface map",
+                static_cast<double>(settings.strength));
     }
     if (settings.on && surface_maps_attached() > 0) {
         ensure_detail_library(); // (a live change: the device is there and maps are attached - read it now)
@@ -325,7 +315,7 @@ uint64_t detail_generation() { return detail_state().generation.load(std::memory
 
 uint32_t detail_textures_made() { return detail_state().made.load(std::memory_order_relaxed); }
 
-DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t material_class, bool delit)
+DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t material_class)
 {
     DetailDraw draw;
     DetailState& state = detail_state();
@@ -335,7 +325,7 @@ DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t materia
     const dmf::Assignment* assignment = found != state.assignments.end() ? &found->second : nullptr;
     const dmf::Kind kind = assignment != nullptr ? assignment->kind : kind_of_class(material_class);
     draw.kind = static_cast<uint8_t>(kind); // (added by surface relief: its depth by kind, with or without the layer)
-    if (!settings.on && !settings.delight) {
+    if (!settings.on) {
         return draw;
     }
     DetailUniforms& uniforms = draw.uniforms;
@@ -351,12 +341,6 @@ DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t materia
                                  std::clamp(known.entry.metalness, 0.0F, 1.0F),
                                  std::clamp(known.entry.roughness_weight, 0.0F, 1.0F)};
         }
-    }
-    // (a texture that came de-lit - a de-lit texture set's: its painted light is gone already, nothing to flatten)
-    if (settings.delight && settings.delight_strength > 0.0F && delight_class(material_class) && !delit) {
-        draw.flags = static_cast<uint8_t>(draw.flags | kDetailDelight);
-        const float mean = assignment != nullptr ? assignment->mean_luma : -1.0F;
-        uniforms.delight = {settings.delight_strength, mean, std::max(settings.delight_limit, 1.0F), 0.0F};
     }
     return draw;
 }

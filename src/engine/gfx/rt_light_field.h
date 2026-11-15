@@ -65,6 +65,13 @@ struct LocalLight {
 };
 inline constexpr float kLocalLightRidge = 0.25F; // the fit's direction held toward none where the normals don't vary
 
+// (the offline relit data - the characters' light, pc_lights.cpp) The indirect light at a point now and at the bake, the
+// level's scale in (the local light's units: local_at).
+struct IndirectLight {
+    FieldRgb now{};
+    FieldRgb own{};
+};
+
 struct LightRatio {
     FieldRgb whole{1.0F, 1.0F, 1.0F};
     FieldRgb indirect{1.0F, 1.0F, 1.0F};
@@ -80,6 +87,8 @@ public:
     [[nodiscard]] LightRatio whole() const;
     // The level's own lights at a point (none for an empty field).
     [[nodiscard]] LocalLight local_at(const FieldPoint& point) const;
+    // The indirect light at a point (its cells', as `at`; none for an empty field).
+    [[nodiscard]] IndirectLight indirect_at(const FieldPoint& point) const;
     // The factor the local light reaches things with (the relit level's scale: what a tint of 1 shows).
     void set_local_scale(float scale) { local_scale_ = scale; }
     [[nodiscard]] std::size_t cells() const { return cells_.size(); }
@@ -119,6 +128,8 @@ void set_light_field(std::shared_ptr<const LightField> field);
 [[nodiscard]] LightRatio light_ratio_at(const FieldPoint& point);
 // The level's own lights at a point (none without a field).
 [[nodiscard]] LocalLight local_light_at(const FieldPoint& point);
+// The indirect light at a point (none without a field).
+[[nodiscard]] IndirectLight indirect_light_at(const FieldPoint& point);
 // The level's whole (1 without a field).
 [[nodiscard]] LightRatio level_light_ratio();
 // A colour's r, g, b bytes (0xAARRGGBB, or as the tod manager keeps them - red low) times a ratio, held to a byte; the

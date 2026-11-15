@@ -64,7 +64,7 @@ std::string from_ini(const char* key)
     return value.data();
 }
 
-// The level and where it came from: -edit, -level, edit_level=, start_level= (the first given).
+// The level and where it came from: -edit, -level, -relit-bake, edit_level=, start_level= (the first given).
 struct Request {
     std::string level;
     bool edit = false;
@@ -75,6 +75,9 @@ const Request& the_request()
         Request request{.level = option_value(command_line(), "edit"), .edit = true};
         if (request.level.empty()) {
             request = {.level = option_value(command_line(), "level"), .edit = false};
+        }
+        if (request.level.empty()) { // (NOT ORIGINAL - the relit bake: render_pc/relit_bake.h)
+            request = {.level = option_value(command_line(), "relit-bake"), .edit = false};
         }
         if (request.level.empty()) {
             request = {.level = from_ini("edit_level"), .edit = true};
