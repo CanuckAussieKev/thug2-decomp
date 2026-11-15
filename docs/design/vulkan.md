@@ -2631,7 +2631,10 @@ after the grass, each density row shown only while its switch is on). No ray tra
   surface (`scatter::surface_of_terrain`: ASPHALT asphalt; CONCSMOOTH, CONCROUGH, WETCONC and DEFAULT - the levels'
   commonest, their concrete and paint - concrete; SIDEWALK, TILE paving; BRICK, ROCK brick; DIRT, DIRTPACKED, SAND dirt;
   GRAVEL; GRASS, GRASSDRIED; the rest nothing), its vert flag and its shape by the game's winding
-  (`TriMeshSource::get_triangle_normal`'s (v2 - v0) x (v1 - v0)): ground (normal y >= 0.96), wall (|y| < 0.25), ramp
+  (`TriMeshSource::get_triangle_normal`'s (v1 - v0) x (v2 - v0); the placement had it the other way round until
+  2026-11-15, which made the ceilings and the undersides of slabs "ground" and most floors "ceilings" - found by the
+  flat faces with nothing at all above them, 55 - 75% of the ones it turned down, 1 - 6% of the ones it turned up):
+  ground (normal y >= 0.96), wall (|y| < 0.25), ramp
   (between, or flagged vert; a slope of dirt, gravel or grass is a hillside, not a ramp), the rest (ceilings, steep
   ground) nothing. The level's grind rails come through `render::GameHooks::level_rails` (the skate module's rail
   manager; climbing nodes left out). Placed by hashes of each face's corners, the item's number and the level's checksum:
@@ -2709,17 +2712,26 @@ after the grass, each density row shown only while its switch is on). No ray tra
   sky; four samples run both passes; off as before. `thug2_vulkan_rt_reflections_check` unchanged (125). Cost (both
   passes, density 1, a street of decals and clutter at a skater's eye, 2560 x 1440): 0.05 ms on the RTX 5070 Ti, 0.84 ms
   on the integrated Radeon. `thug2_options_check` has the four keys.
+- **Placement alone** (`thug2_scatter_check`, no device, no game): ground wound as the game's collision gets decals and
+  the same faces the other way round (ceilings) none; a low roof covers, a canopy 400 above, a sheet 0.3 above the ground
+  and the side of a thin branch don't; no decal under a roof on a big patch, plenty round it. `--level <folder>...`
+  reads a level's own collision and counts what the placement makes (`--why` the faces' areas by shape and what covers
+  the flat ground).
 - **In the game** (load checks only, the workspace's 1280 x 720 with 8 samples): Boston - 1,105 decals (cracks 314,
   stains 486, gum 247, grime 50, wet 8) and 2,533 items (leaves 1,170, paper 614, cans 190, weeds 559) from 26,049 faces
-  and 1,024 rails, 0.3 MB on the device; New Orleans 42 decals and 60 items; Skatopia almost nothing (its dirt mostly
-  under other faces, its hard ground far from walls). The look - sizes, darkness, density, the art - is the user's to
+  and 1,024 rails, 0.3 MB on the device; New Orleans 42 decals and 60 items; Skatopia almost nothing. Those counts
+  were made with the faces' winding read the wrong way round (below); the same level files, read offline by
+  `thug2_scatter_check --level <folder>` (density 1, no rails, the shipped terrain order), place as follows - before ->
+  after: Skatopia 3 decals / 0 items -> 566 / 36,666; Boston 1,119 / 2,946 -> 6,891 / 13,056; New Orleans 44 / 35 ->
+  3,756 / 6,032; Barcelona 84 / 275 -> 10,973 / 26,238; Los Angeles 960 / 957 -> 7,650 / 13,740; Australia 1,317 / 798 ->
+  5,456 / 46,353. The look - sizes, darkness, density, the art - is the user's to
   judge.
 - **Not done yet:** puddles reflect only with single-sampled targets (no wet mask with MSAA); the decals don't change the
   material's roughness for the ray-traced passes other than the reflections (GI, shadows) or for `rt_pbr`'s per-pixel
   highlight; marks on a face whose collision is a different terrain than its texture follow the collision (as the grass);
   no fetched CC0 decal scans - the art is procedural (a library like the detail materials' could replace the atlas's
   rows later); clutter takes no push from the skater; tree positions aren't known, so leaves gather by kerbs and walls,
-  not under trees; Skatopia and other natural levels get little - the cover rule may be too strict there.
+  not under trees.
 
 ### Cel shading (`rt_cel`)
 
