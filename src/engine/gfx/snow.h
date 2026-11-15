@@ -19,10 +19,12 @@
 //      screen, open to the sky by the map), so the cover follows the drawn meshes, not the collision's coarser shapes.
 //   2. The trails (TrailField): a heightfield of what was pressed into the snow, in tiles of kTileTexels x kTileTexels
 //      texels kept for the whole level session (a tile is made where something first pressed). A texel holds four bytes:
-//      the press (0 - 255: the share of the snow pushed down), the berm (the snow pushed up beside a trail), the activity
-//      (where the layer is raised over the ground: a soft area round every trail - beyond it the ground is the snow's top)
-//      and a spare. Stamped each step from the pressers (the skaters' and peds' feet or boards, vehicles' wheels); filled
-//      in while snow falls (the press and berm lowered by one step a kFillSeconds / 255).
+//      the press (0 - 255: the share of the snow pushed down), the berm (the snow pushed up beside a trail) and two
+//      spares. The activity - where the layer is raised over the ground: a soft area kActiveReach round every trail,
+//      beyond it the ground is the snow's top - is a field of its own, kActiveScale times coarser (a smooth fall needs
+//      no finer texels, and a stamp then costs what its press covers, not its wide fall: a ped's knees in deep snow press
+//      every step). Stamped each step from the pressers (the skaters' and peds' feet or boards, bodies, vehicles'
+//      wheels); filled in while snow falls (the press and berm lowered by one step a kFillSeconds / 255).
 //   3. The spray (SprayParticle): puffs kicked up where a board carves, bigger on a landing, scaled by the speed - their
 //      starts made here with the snow's own random numbers (a PCG32 seeded per level session), each moving on its own
 //      (a throw under gravity) so the backend draws them from their start and age alone.
@@ -120,14 +122,16 @@ inline constexpr float kActiveReach = 64.0F; // the layer is raised this far rou
 inline constexpr float kBermWidth = 5.0F;    // the berm's ring outside a press
 inline constexpr float kBermHeight = 0.6F;   // a full berm: this share of the depth over the snow's top
 inline constexpr double kFillSeconds = 180.0; // a full trail filled in this long while snow falls
-// A texel's bytes (RGBA8 as the backend's texture holds it): press, berm, activity, spare.
+// A texel's bytes (RGBA8 as the backend's texture holds it): press, berm, two spares. The activity field's texel: its
+// first byte (the rest spare).
 inline constexpr uint32_t kPressShift = 0;
 inline constexpr uint32_t kBermShift = 8;
-inline constexpr uint32_t kActiveShift = 16;
+inline constexpr int kActiveScale = 8; // the activity's texel: this many of the trails' a side (kTileTexels / it whole)
+static_assert(kTileTexels % kActiveScale == 0, "a trails' tile is whole activity texels");
 using Tile = surface_trail::Tile;
 // A press: a capsule from `from` to `to` (x, z) of half width `radius`: the press within it (to `press`, 0 - 1, its
-// edge softened over the outer 40%), a berm in the ring kBermWidth outside it (to `berm`), the activity out to
-// kActiveReach beyond that. Each byte keeps the most it was given.
+// edge softened over the outer 40%), a berm in the ring kBermWidth outside it (to `berm`), the activity (its own
+// field) out to kActiveReach beyond that. Each byte keeps the most it was given.
 struct Stamp {
     std::array<float, 2> from{};
     std::array<float, 2> to{};
@@ -135,19 +139,28 @@ struct Stamp {
     float press = 0.0F;
     float berm = 0.0F;
 };
-// The snow's field: the ground seen from above (x, z), one word a texel - the snow's rules for a press and the filling in.
+// The snow's field: the ground seen from above (x, z), one word a texel - the snow's rules for a press and the filling in
+// - and its activity's field (kActiveScale times coarser).
 class TrailField : public surface_trail::Field {
 public:
-    explicit TrailField(float texel = 2.0F) : Field(texel, 1) {}
+    explicit TrailField(float texel = 2.0F) : Field(texel, 1), activity_(texel * static_cast<float>(kActiveScale), 1) {}
     void stamp(const Stamp& stamp);
     // Every press and berm lowered by `steps` (0 - 255; the activity stays).
     void fill(uint32_t steps);
-    // The heaviest press, berm and activity anywhere (the checks', the log's).
+    // The sums of every press, berm and activity anywhere (the checks', the log's).
     void totals(uint64_t* press, uint64_t* berm, uint64_t* active) const;
+    [[nodiscard]] const surface_trail::Field& activity() const { return activity_; }
+    // The activity at (x, z), 0 - 1: its texels blended (bilinear, between their centres - the device's linear filter).
+    [[nodiscard]] float active_at(float x, float z) const;
+    // Whether any of the activity's texels over the trails' tile (x, z) is raised: the tiles a layer is drawn on.
+    [[nodiscard]] bool tile_active(int x, int z) const;
+
+private:
+    surface_trail::Field activity_;
 };
-// The surface's height over the ground for a texel's bytes (world units; the backend's shaders are its twin): the
-// activity's depth less what was pressed, plus the berm.
-[[nodiscard]] float layer_height(uint32_t texel, float depth, float cover);
+// The surface's height over the ground for a texel's bytes and the activity there (world units; the backend's shaders
+// are its twin): the activity's depth less what was pressed, plus the berm.
+[[nodiscard]] float layer_height(uint32_t texel, float active, float depth, float cover);
 
 // --- the pressers -----------------------------------------------------------------------------------------------------
 enum class PresserKind : uint8_t {
@@ -228,6 +241,8 @@ struct Counts {
     uint64_t body = 0; // (of the stamps) a body joint's
 };
 [[nodiscard]] Counts counts();
+// The trails' tiles made this session (the log's).
+[[nodiscard]] std::size_t tile_count();
 // The session cleared (the checks'; a new sky map does it too).
 void reset();
 

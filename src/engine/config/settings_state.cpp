@@ -89,15 +89,16 @@ void set_level_facts(const LevelFacts& level)
     }
 }
 
-void set_level_outdoor(bool outdoor)
+bool set_level_outdoor(bool outdoor)
 {
     if (settings_state().level.outdoor == outdoor) {
-        return;
+        return false;
     }
     settings_state().level.outdoor = outdoor;
     if (settings_state().started) {
         refresh_running();
     }
+    return true;
 }
 
 bool set_level_light(LevelLight light)

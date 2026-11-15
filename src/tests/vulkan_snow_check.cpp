@@ -75,6 +75,7 @@ using render::GpuTexture;
 namespace value = render::gpu_value;
 namespace vk = render::vulkan;
 namespace snow = render::snow;
+namespace surface_trail = render::surface_trail;
 using Vec3 = std::array<float, 3>;
 using Matrix = std::array<std::array<float, 4>, 4>;
 
@@ -313,15 +314,54 @@ void check_stamp(Tally* tally)
     };
     constexpr uint32_t kByte = 0xFFU;
     const uint32_t middle = at(50.0F, 0.5F);
-    tally->check((middle & kByte) == kByte && ((middle >> snow::kActiveShift) & kByte) == kByte, "the trail's middle: pressed down, active");
+    tally->check((middle & kByte) == kByte && field.active_at(50.0F, 0.5F) > 0.97F, "the trail's middle: pressed down, active");
     const uint32_t berm = at(50.0F, kRadius + 2.5F);
     tally->check(((berm >> snow::kBermShift) & kByte) > 0 && (berm & kByte) < kByte / 2, "beside it: a berm");
-    const uint32_t beyond = at(50.0F, kRadius + snow::kBermWidth + snow::kActiveReach + 4.0F);
-    tally->check(beyond == 0, "beyond its reach: untouched");
+    // (the press and berm go no further than the berm's ring; the activity - its coarse texels, blended - its reach and
+    // a texel more)
+    const float reach = kRadius + snow::kBermWidth + snow::kActiveReach;
+    const float coarse = field.activity().texel();
+    tally->check(at(50.0F, kRadius + snow::kBermWidth + 1.0F) == 0 && field.active_at(50.0F, reach + coarse + 1.0F) == 0.0F &&
+                     field.active_at(50.0F, kRadius + snow::kBermWidth + 24.0F) > 0.2F,
+                 "the press within its ring, the activity falling to nothing at its reach");
     constexpr float kDepth = 4.0F;
-    tally->check(snow::layer_height(middle, kDepth, 1.0F) < 0.01F && snow::layer_height(berm, kDepth, 1.0F) > kDepth * 0.5F &&
-                     snow::layer_height(at(50.0F, 20.0F), kDepth, 1.0F) > 0.0F,
+    tally->check(snow::layer_height(middle, field.active_at(50.0F, 0.5F), kDepth, 1.0F) < 0.01F &&
+                     snow::layer_height(berm, field.active_at(50.0F, kRadius + 2.5F), kDepth, 1.0F) > kDepth * 0.5F &&
+                     snow::layer_height(at(50.0F, 20.0F), field.active_at(50.0F, 20.0F), kDepth, 1.0F) > 0.0F,
                  "the layer: down in the trail, raised beside it");
+    // (a stroke visits each texel whose centre is within its reach once - its rows' spans, not its box: a long slanted
+    // stroke, a short one, a dot, one along an axis - against every texel of the box tried)
+    for (const std::array<surface_trail::Point, 2>& segment :
+         std::to_array<std::array<surface_trail::Point, 2>>({{{{3.0F, 7.0F}, {180.0F, 140.0F}}},
+                                                              {{{-20.0F, 50.0F}, {-26.5F, 44.0F}}},
+                                                              {{{10.0F, 10.0F}, {10.0F, 10.0F}}},
+                                                              {{{-40.0F, 0.0F}, {60.0F, 0.0F}}}})) {
+        surface_trail::Field probe(1.5F);
+        const surface_trail::Point& from = core::at(segment, 0);
+        const surface_trail::Point& to = core::at(segment, 1);
+        constexpr float kReach = 9.5F;
+        std::size_t visits = 0;
+        probe.stroke(from, to, kReach, [&visits](float /*d*/, const surface_trail::Point& /*centre*/, surface_trail::TexelRef /*ref*/) {
+            ++visits;
+            return false;
+        });
+        std::size_t within = 0;
+        for (int z = -100; z <= 200; ++z) {
+            for (int x = -100; x <= 200; ++x) {
+                const surface_trail::Point centre{(static_cast<float>(x) + 0.5F) * 1.5F, (static_cast<float>(z) + 0.5F) * 1.5F};
+                within += surface_trail::distance_to_segment(centre, from, to) < kReach ? 1U : 0U;
+            }
+        }
+        tally->check(visits == within && within > 0,
+                     text::format("a stroke from (%.1f, %.1f) to (%.1f, %.1f): %zu texels visited, %zu within its reach",
+                                  static_cast<double>(core::at(from, 0)), static_cast<double>(core::at(from, 1)),
+                                  static_cast<double>(core::at(to, 0)), static_cast<double>(core::at(to, 1)), visits, within));
+    }
+    // (a stamp's cost: the press's texels and the activity's coarse ones - not its wide fall at the trails' texel)
+    std::size_t tiles = 0;
+    field.read_tiles([&tiles](const snow::Tile& /*tile*/) { ++tiles; });
+    tally->check(tiles <= 4 && field.activity().tile_count() <= 4,
+                 text::format("a stamp's tiles: %zu of the trails', %zu of the activity's", tiles, field.activity().tile_count()));
 }
 
 // A rider's path: `steps` steps along +x from `from` at `speed`, turning by `turn` radians a step.
@@ -358,6 +398,13 @@ uint32_t texel_at_world(float x, float z)
         const std::array<int, 2> texel = field.texel_of(x, z);
         found = field.texel_at(core::at(texel, 0), core::at(texel, 1));
     });
+    return found;
+}
+
+float active_at_world(float x, float z)
+{
+    float found = 0.0F;
+    snow::read_trails([&](const snow::TrailField& field) { found = field.active_at(x, z); });
     return found;
 }
 
@@ -469,6 +516,7 @@ void check_steps(Tally* tally)
     snow::reset();
     ride({0.0F, 0.0F, 0.0F}, kSpeed, 0.0F, kSteps);
     const uint32_t pressed = texel_at_world(300.0F, 0.0F);
+    const float pressed_active = active_at_world(300.0F, 0.0F);
     const auto half_steps = static_cast<int>(snow::kFillSeconds * kHalf / kStep);
     for (int step = 0; step < half_steps; ++step) {
         snow::step({}, kStep, true);
@@ -480,7 +528,7 @@ void check_steps(Tally* tally)
     const uint32_t full = texel_at_world(300.0F, 0.0F);
     constexpr uint32_t kByte = 0xFFU;
     tally->check((pressed & kByte) == kByte && (half & kByte) >= 125 && (half & kByte) <= 130 && (full & kByte) == 0 &&
-                     ((full >> snow::kActiveShift) & kByte) == ((pressed >> snow::kActiveShift) & kByte),
+                     pressed_active > 0.9F && active_at_world(300.0F, 0.0F) == pressed_active,
                  text::format("filled in while snow falls: %u, %u after %.0f s, %u after %.0f s (the activity kept)", pressed & kByte,
                               half & kByte, snow::kFillSeconds * kHalf, full & kByte, snow::kFillSeconds));
     snow::reset();

@@ -59,6 +59,66 @@ float distance_to_segment(const Point& point, const Point& from, const Point& to
     return std::sqrt((ex * ex) + (ez * ez));
 }
 
+std::vector<std::array<int, 2>> Field::row_spans(const Point& from, const Point& to, float reach, int first_z, int last_z, int first_x,
+                                                 int last_x) const
+{
+    // A capsule is convex: a row's line meets it in one span, whose ends lie on its outline - the two end discs' arcs
+    // and the two sides (the segment moved by `reach` either way along its normal). The span: the least and the most of
+    // where the line meets each.
+    constexpr float kHalf = 0.5F;
+    const float ax = core::at(from, 0);
+    const float az = core::at(from, 1);
+    const float bx = core::at(to, 0);
+    const float bz = core::at(to, 1);
+    const float dx = bx - ax;
+    const float dz = bz - az;
+    const float length = std::sqrt((dx * dx) + (dz * dz));
+    const float nx = length > 0.0F ? -dz / length * reach : 0.0F;
+    const float nz = length > 0.0F ? dx / length * reach : 0.0F;
+    std::vector<std::array<int, 2>> rows;
+    rows.reserve(static_cast<std::size_t>(std::max(last_z - first_z + 1, 0)));
+    for (int z = first_z; z <= last_z; ++z) {
+        const float line = (static_cast<float>(z) + kHalf) * texel_;
+        float least = 0.0F;
+        float most = 0.0F;
+        bool met = false;
+        const auto meet = [&](float x) {
+            least = met ? std::min(least, x) : x;
+            most = met ? std::max(most, x) : x;
+            met = true;
+        };
+        for (const Point& end : {from, to}) {
+            const float across = line - core::at(end, 1);
+            if (std::abs(across) < reach) {
+                const float half = std::sqrt((reach * reach) - (across * across));
+                meet(core::at(end, 0) - half);
+                meet(core::at(end, 0) + half);
+            }
+        }
+        if (length > 0.0F) {
+            for (const float side : {-1.0F, 1.0F}) {
+                const float sx = ax + (side * nx);
+                const float sz = az + (side * nz);
+                if (dz != 0.0F) {
+                    const float t = (line - sz) / dz;
+                    if (t >= 0.0F && t <= 1.0F) {
+                        meet(sx + (t * dx));
+                    }
+                }
+            }
+        }
+        if (!met) {
+            rows.push_back({first_x, first_x - 1});
+            continue;
+        }
+        // (a texel's slack each side: the texels whose centres the distance test then decides)
+        const int low = static_cast<int>(std::floor(least / texel_)) - 1;
+        const int high = static_cast<int>(std::floor(most / texel_)) + 1;
+        rows.push_back({std::max(low, first_x), std::min(high, last_x)});
+    }
+    return rows;
+}
+
 float smoothstep(float low, float high, float value)
 {
     const float along = std::clamp((value - low) / (high - low), 0.0F, 1.0F);

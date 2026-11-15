@@ -538,29 +538,81 @@ void TrailField::stamp(const Stamp& stamp)
     if (!(stamp.radius > 0.0F)) {
         return;
     }
-    const float reach = stamp.radius + kBermWidth + kActiveReach;
-    const float berm_span = ((1.0F - kBermStart) * stamp.radius) + kBermWidth;
+    // the press and the berm: the trails' texels as far as the berm's ring reaches
     const float active_from = stamp.radius + kBermWidth;
-    stroke(stamp.from, stamp.to, reach, [&](float d, const surface_trail::Point& /*centre*/, surface_trail::TexelRef ref) {
+    const float berm_span = ((1.0F - kBermStart) * stamp.radius) + kBermWidth;
+    stroke(stamp.from, stamp.to, active_from, [&](float d, const surface_trail::Point& /*centre*/, surface_trail::TexelRef ref) {
         const float press = stamp.press * (1.0F - smoothstep(kSoftEdge * stamp.radius, stamp.radius, d));
         const float t = (d - (kBermStart * stamp.radius)) / berm_span;
         const float berm = t > 0.0F && t < 1.0F ? stamp.berm * kBermPeak * t * (1.0F - t) : 0.0F;
-        const float active = 1.0F - smoothstep(active_from, reach, d);
         uint32_t& texel = ref.word(0);
         const uint32_t old_press = (texel >> kPressShift) & kByte;
         const uint32_t old_berm = (texel >> kBermShift) & kByte;
-        const uint32_t old_active = (texel >> kActiveShift) & kByte;
         const uint32_t new_press = std::max(old_press, to_byte(press));
         const uint32_t new_berm = std::max(old_berm, to_byte(berm));
-        const uint32_t new_active = std::max(old_active, to_byte(active));
-        const uint32_t made = (new_press << kPressShift) | (new_berm << kBermShift) | (new_active << kActiveShift) |
-                              (texel & ~((kByte << kPressShift) | (kByte << kBermShift) | (kByte << kActiveShift)));
+        const uint32_t made = (new_press << kPressShift) | (new_berm << kBermShift) |
+                              (texel & ~((kByte << kPressShift) | (kByte << kBermShift)));
         if (made == texel) {
             return false;
         }
         texel = made;
         return true;
     });
+    // the activity: its own coarse texels out to kActiveReach beyond (full over the press and berm, falling gently)
+    const float reach = active_from + kActiveReach;
+    activity_.stroke(stamp.from, stamp.to, reach, [&](float d, const surface_trail::Point& /*centre*/, surface_trail::TexelRef ref) {
+        uint32_t& texel = ref.word(0);
+        const uint32_t active = std::max(texel & kByte, to_byte(1.0F - smoothstep(active_from, reach, d)));
+        if (active == (texel & kByte)) {
+            return false;
+        }
+        texel = (texel & ~kByte) | active;
+        return true;
+    });
+}
+
+float TrailField::active_at(float x, float z) const
+{
+    // (between the texels' centres, as the device's linear filter takes them)
+    const float u = (x / activity_.texel()) - kHalf;
+    const float v = (z / activity_.texel()) - kHalf;
+    const float fu = std::floor(u);
+    const float fv = std::floor(v);
+    const auto x0 = static_cast<int>(fu);
+    const auto z0 = static_cast<int>(fv);
+    const float tu = u - fu;
+    const float tv = v - fv;
+    const auto at = [this](int tx, int tz) { return static_cast<float>(activity_.texel_at(tx, tz) & kByte) / kByteMax; };
+    const float top = (at(x0, z0) * (1.0F - tu)) + (at(x0 + 1, z0) * tu);
+    const float bottom = (at(x0, z0 + 1) * (1.0F - tu)) + (at(x0 + 1, z0 + 1) * tu);
+    return (top * (1.0F - tv)) + (bottom * tv);
+}
+
+bool TrailField::tile_active(int x, int z) const
+{
+    // (the activity's texels over the trails' tile - its block of the activity's tile; the ring round it isn't looked
+    // at: the activity falls over many of its texels, so a raised texel next to the block has raised ones in it)
+    constexpr int kAcross = kTileTexels / kActiveScale;
+    const int first_x = x * kAcross;
+    const int first_z = z * kAcross;
+    const int tile_x = surface_trail::floor_div(first_x, kTileTexels);
+    const int tile_z = surface_trail::floor_div(first_z, kTileTexels);
+    const Tile* tile = activity_.tile(tile_x, tile_z);
+    if (tile == nullptr) {
+        return false;
+    }
+    const int column = first_x - (tile_x * kTileTexels);
+    const int row = first_z - (tile_z * kTileTexels);
+    const std::span<const uint32_t> words = tile->plane(0);
+    for (int dz = 0; dz < kAcross; ++dz) {
+        for (int dx = 0; dx < kAcross; ++dx) {
+            const auto index = (static_cast<std::size_t>(row + dz) * kTileTexels) + static_cast<std::size_t>(column + dx);
+            if ((core::at(words, index) & kByte) != 0U) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 void TrailField::fill(uint32_t steps)
@@ -595,16 +647,19 @@ void TrailField::totals(uint64_t* press, uint64_t* berm, uint64_t* active) const
         for (const uint32_t texel : tile.texels) {
             *press += (texel >> kPressShift) & kByte;
             *berm += (texel >> kBermShift) & kByte;
-            *active += (texel >> kActiveShift) & kByte;
+        }
+    });
+    activity_.read_tiles([&](const surface_trail::Tile& tile) {
+        for (const uint32_t texel : tile.texels) {
+            *active += texel & kByte;
         }
     });
 }
 
-float layer_height(uint32_t texel, float depth, float cover)
+float layer_height(uint32_t texel, float active, float depth, float cover)
 {
     const float press = static_cast<float>((texel >> kPressShift) & kByte) / kByteMax;
     const float berm = static_cast<float>((texel >> kBermShift) & kByte) / kByteMax;
-    const float active = static_cast<float>((texel >> kActiveShift) & kByte) / kByteMax;
     return depth * cover * ((active * (1.0F - press)) + (kBermHeight * berm * (1.0F - press)));
 }
 
@@ -734,6 +789,13 @@ Counts counts()
     State& own = state();
     const std::scoped_lock lock(own.mutex);
     return own.counts;
+}
+
+std::size_t tile_count()
+{
+    State& own = state();
+    const std::scoped_lock lock(own.mutex);
+    return own.field.tile_count();
 }
 
 void reset()

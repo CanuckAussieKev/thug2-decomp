@@ -23,6 +23,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/engine_scene.h"
+#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/paint_trails.h"
 #include "engine/gfx/rig.h"
@@ -62,7 +63,15 @@ struct State {
     bool keyed = false;   // world_key is the loaded world's
     bool outdoor = false; // ... and it has a sky
     bool made = false;    // its sky map handed to the snow
+    // (the step's report: since the last)
+    uint32_t report_steps = 0;
+    double report_ms = 0.0;
+    double report_most = 0.0;
+    uint64_t report_pressers = 0;
+    uint64_t report_stamps = 0;
+    uint64_t report_body = 0;
 };
+constexpr uint32_t kReportSteps = 1200; // (twenty seconds at 60 steps a second)
 
 State& state()
 {
@@ -341,7 +350,11 @@ void step()
         own.world_key = scenes;
         own.outdoor = world_has_sky();
         own.made = false;
-        config::set_level_outdoor(own.outdoor);
+        if (config::set_level_outdoor(own.outdoor)) {
+            // (what the rule moved put to use: snow's settings follow the level - an outdoor level after the indoor
+            // front end gets its snow from the first frame, not from the next change on the Options screen)
+            graphics_options::reload_live("snow");
+        }
     }
     // (the paint trails - engine/gfx/paint_trails.h: the game's brushes, the loaded scenes' key their level session)
     if (paint::settings().on) {
@@ -363,10 +376,31 @@ void step()
         own.made = true;
         make_map();
     }
+    const auto start = std::chrono::steady_clock::now();
     const std::vector<snow::Presser> pressers = gather_pressers();
     const WeatherSystem* system = weather();
     const bool game_snow = system != nullptr && system->active() && system->snow_rate() > 0.0F;
     snow::step(pressers, frame_clock::get_slomo_frame_seconds(), snow::settings().falling || game_snow);
+    // (the step's cost in the log every kReportSteps: what it took, the most, the pressers and the stamps they made)
+    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    own.report_ms += ms;
+    own.report_most = std::max(own.report_most, ms);
+    own.report_pressers += pressers.size();
+    if (++own.report_steps >= kReportSteps) {
+        const snow::Counts counts = snow::counts();
+        const auto steps = static_cast<double>(own.report_steps);
+        get_log("snow: the trails' step takes %.2f ms (the most %.2f) - %.1f pressers and %.1f stamps a step (%.1f of them "
+                "a body's), %zu tiles",
+                own.report_ms / steps, own.report_most, static_cast<double>(own.report_pressers) / steps,
+                static_cast<double>(counts.stamps - own.report_stamps) / steps,
+                static_cast<double>(counts.body - own.report_body) / steps, snow::tile_count());
+        own.report_steps = 0;
+        own.report_ms = 0.0;
+        own.report_most = 0.0;
+        own.report_pressers = 0;
+        own.report_stamps = counts.stamps;
+        own.report_body = counts.body;
+    }
 }
 
 } // namespace render::snow_world

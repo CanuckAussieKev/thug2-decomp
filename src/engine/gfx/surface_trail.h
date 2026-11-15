@@ -157,15 +157,20 @@ public:
         const std::array<int, 2> last = texel_of(std::max(core::at(from, 0), core::at(to, 0)) + reach,
                                                  std::max(core::at(from, 1), core::at(to, 1)) + reach);
         constexpr float kHalf = 0.5F;
+        // (each row's texels the capsule can reach - its span across the row, a texel's slack each side: a long stroke
+        // slanted across the field visits what it covers, not its whole box)
+        const std::vector<std::array<int, 2>> rows =
+            row_spans(from, to, reach, core::at(first, 1), core::at(last, 1), core::at(first, 0), core::at(last, 0));
         for (int tz = floor_div(core::at(first, 1), kTileTexels); tz <= floor_div(core::at(last, 1), kTileTexels); ++tz) {
             for (int tx = floor_div(core::at(first, 0), kTileTexels); tx <= floor_div(core::at(last, 0), kTileTexels); ++tx) {
                 Tile* tile = nullptr;
                 const int z0 = std::max(core::at(first, 1), tz * kTileTexels);
                 const int z1 = std::min(core::at(last, 1), (tz * kTileTexels) + kTileTexels - 1);
-                const int x0 = std::max(core::at(first, 0), tx * kTileTexels);
-                const int x1 = std::min(core::at(last, 0), (tx * kTileTexels) + kTileTexels - 1);
                 bool changed = false;
                 for (int z = z0; z <= z1; ++z) {
+                    const std::array<int, 2>& row = core::at(rows, static_cast<std::size_t>(z - core::at(first, 1)));
+                    const int x0 = std::max(core::at(row, 0), tx * kTileTexels);
+                    const int x1 = std::min(core::at(row, 1), (tx * kTileTexels) + kTileTexels - 1);
                     for (int x = x0; x <= x1; ++x) {
                         const Point centre{(static_cast<float>(x) + kHalf) * texel_, (static_cast<float>(z) + kHalf) * texel_};
                         const float distance = distance_to_segment(centre, from, to);
@@ -189,6 +194,10 @@ public:
 
 private:
     Tile& tile_for(int x, int z);
+    // Each texel row's span (first, last texel: within [first_x, last_x]; first > last - none) the capsule from `from`
+    // to `to` of half width `reach` covers, rows first_z to last_z.
+    [[nodiscard]] std::vector<std::array<int, 2>> row_spans(const Point& from, const Point& to, float reach, int first_z, int last_z,
+                                                            int first_x, int last_x) const;
     float texel_;
     std::size_t planes_;
     uint64_t serial_;
