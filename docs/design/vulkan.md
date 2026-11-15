@@ -3507,3 +3507,8 @@ stacking another on top.
   lamps `rt_lights` traces) so the lamps pass replaces exactly that term. Where relit put the bake's sunlight into the
   tint (no sun-coloured residual), the stream has no direct light there and nothing casts a shadow onto it - the
   skater's shadow too.
+- **The fit's inputs fixed** (the audit's census found fits that changed between loads): the baked sun's samples are
+  taken by where each triangle is (a hash of its centre, one in a power-of-two step - `rt_record.cpp bake_samples`), so a
+  mesh more or less in the first frame changes only its own samples - before, every n-th triangle in the world's order
+  moved them all and the sun by degrees (sch: heading -43 / -45), enough to tip relit's fit. A sun channel the edges gave
+  nothing (a green sun: AU, sch) starts from the others' and the faces' turning sets it (relit cache v7).
