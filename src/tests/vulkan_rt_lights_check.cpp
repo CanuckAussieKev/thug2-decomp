@@ -21,7 +21,12 @@
 //   - (added for the cut-outs) the box made an alpha-tested caster: its texels' alpha 0 - the lamp's light goes through
 //     it (no floor shadowed, as without it); alpha 255 - shadowed as the solid box;
 //   - rt_lights off, or no lamp in view: every pixel exactly as drawn (no pass);
-//   - many lamps (49 over the floor): as the processor's, their sum held under the knee, no floor pixel burnt white.
+//   - many lamps (49 over the floor): as the processor's, their sum held under the knee, no floor pixel burnt white;
+//   - (added by the volumetric light) the lamp in the air: rt_fog's haze (no level fog, no sun) lit by the lamps' set -
+//     after still frames every half-resolution texel's light against the processor's march of the lamp's light through
+//     the haze (its phase, its falloff, the box's shadow): texels whose rays cross the box's shadow behind it as dark as
+//     the shadowed march says and darker than the unshadowed one (the lamp's cone of light in the air cut by the box),
+//     the lit ones as the march says.
 // Each lamp's light falls off from its core (rt_lights.h light_falloff): a point light's a tenth of its reach, an
 // emitter's a disc of its area - a street-wide glow lights a pool, not the street.
 //   thug2_vulkan_rt_lights_check [--device N] [--display N] [--no-validation] [--perf]
@@ -57,11 +62,13 @@
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_lights.h"
 #include "platform/run_log.h"
 #include "tests/check_window.h"
@@ -850,7 +857,7 @@ bool read_colour(render::Gpu& gpu, const Targets& targets, std::vector<uint8_t>*
 // A frame: the record given (the instances, an ambient light, `points`), cleared, the scene drawn, the listeners
 // (draw_viewport's call). Returns the lights passes recorded.
 uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes,
-                    std::span<const rt::Light> points, uint64_t frame)
+                    std::span<const rt::Light> points, uint64_t frame, bool world = false)
 {
     rt::FrameRecord& record = rt::frame_record();
     record = rt::FrameRecord{};
@@ -874,6 +881,9 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const Sc
     draw_scene(gpu, meshes);
     const uint64_t before = render::vulkan::rt_lights_passes();
     rt::opaque_view_drawn(view_drawn());
+    if (world) {
+        rt::world_view_drawn(view_drawn()); // (the volumetric fog's)
+    }
     const uint64_t passes = render::vulkan::rt_lights_passes() - before;
     gpu.end_scene();
     gpu.present();
@@ -1254,6 +1264,155 @@ void run_time_of_day(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     const Compared level = run_case(gpu, meshes, 0, points, whole, 4, &passes, &texels);
     tally->check(level.clear_cut > 5000 && level.wrong == 0,
                  text::format("  tod=level: the lamp's whole light as before (%d wrong)", level.wrong));
+}
+
+// --- (added by the volumetric light) the lamp in the air ----------------------------------------------------------------
+
+constexpr int kFogFrames = 40;
+constexpr Vec3 kFogLampAt{-30.0, 15.0, 0.0}; // (low beside the box: its shadow a wedge of the air behind it)
+constexpr uint32_t kFineSteps = 512;
+constexpr double kLeastLight = 2e-3;   // a texel the lamp lights at all (luma)
+constexpr double kShadowed = 0.85;     // the shadowed march under this share of the unshadowed: across the box's shadow
+constexpr double kLit = 0.99;          // ... over this: in its open light
+constexpr std::size_t kLeastTexels = 40;
+constexpr double kMostRatio = 1.3;     // the device's mean over the march's
+constexpr double kLeastRatio = 1.0 / kMostRatio;
+constexpr double kDarker = 0.85;       // the shadowed texels' light under this share of the unshadowed march's
+
+double luma_of(const Rgb& c) { return (0.2126 * core::at(c, 0)) + (0.7152 * core::at(c, 1)) + (0.0722 * core::at(c, 2)); }
+
+// Whether the way from `at` to the lamp is blocked (the scene's solids; stopped its size short).
+bool air_blocked(const Vec3& at, const Vec3& lamp, double size)
+{
+    const Vec3 to = minus(lamp, at);
+    const double stop = length_of(to) - size;
+    if (stop <= 0.0) {
+        return false;
+    }
+    const Vec3 direction = normalised(to);
+    return std::ranges::any_of(kScene, [&](const Solid& solid) { return intersect(solid, at, direction).distance <= stop; });
+}
+
+// The lamp's light the haze sends the eye along a view ray (the pass's thin haze: a linear "fog" from the camera to
+// kFogHazeEnd whose light alone is added - the medium's colour x its light share x the shafts' share), unshadowed and
+// shadowed by the scene.
+struct AirLight {
+    double open = 0.0;
+    double shadowed = 0.0;
+};
+AirLight air_light(const View& view, double px, double py, const rt::Emitter& lamp, float scale)
+{
+    const Seen seen = seen_at(view, px, py);
+    const double ndc_x = (2.0 * px / kTargetWidth) - 1.0;
+    const double ndc_y = 1.0 - (2.0 * py / kTargetHeight);
+    const Vec3 direction = normalised(
+        step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height), view.back, -1.0));
+    const double end = render::vulkan::kFogHazeEnd;
+    const double last = seen.solid == kNoSurface ? end : std::min(seen.distance, end);
+    const Vec3 lamp_at{core::at(lamp.position, 0), core::at(lamp.position, 1), core::at(lamp.position, 2)};
+    const Rgb colour{core::at(lamp.colour, 0) * lamp.intensity * scale, core::at(lamp.colour, 1) * lamp.intensity * scale,
+                     core::at(lamp.colour, 2) * lamp.intensity * scale};
+    // (the sky's pixels: the shafts' sky share - vulkan_rt_fog.h kFogSkyShare)
+    const double medium = core::at(render::vulkan::kFogHazeColour, 0) * (1.0 - render::vulkan::kFogAmbientShare) *
+                          (seen.solid == kNoSurface ? render::vulkan::kFogSkyShare : render::vulkan::kFogShaftShare);
+    AirLight out;
+    double kept = 1.0;
+    for (uint32_t i = 0; i < kFineSteps; ++i) {
+        const double s0 = last * i / kFineSteps;
+        const double s1 = last * (i + 1) / kFineSteps;
+        const double s = 0.5 * (s0 + s1);
+        const double e = std::exp(-std::log(std::max(end - s0, 1e-4 * end) / std::max(end - s1, 1e-4 * end)));
+        const Vec3 at = step(view.eye, direction, s);
+        const Vec3 to = minus(lamp_at, at);
+        const double d = length_of(to);
+        const double light = luma_of(colour) * falloff(d, lamp.core, lamp.reach) *
+                             rt::medium_phase(dot(direction, normalised(to)), render::vulkan::kRtFogAnisotropy) * medium;
+        out.open += kept * (1.0 - e) * light;
+        if (!air_blocked(at, lamp_at, lamp.size)) {
+            out.shadowed += kept * (1.0 - e) * light;
+        }
+        kept *= e;
+    }
+    return out;
+}
+
+void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    namespace vk = render::vulkan;
+    text::print("the lamp in the air (rt_fog's haze lit by the lamps' set, the box's shadow in it):\n");
+    vk::set_rt_light_settings(settings_for(true, 4));
+    rt::set_level_emitters({});
+    vk::RtFogSettings fog;
+    fog.on = true;
+    fog.haze = true;
+    vk::set_rt_fog_settings(fog);
+    const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
+                                            .colour = {1.0F, 0.9F, 0.7F},
+                                            .position = floats(kFogLampAt),
+                                            .radius = static_cast<float>(kLampReach)}}};
+    Targets targets;
+    const bool made = make_targets(gpu, 0, &targets);
+    tally->check(made, "  the targets made (a depth the fog can read)");
+    const uint64_t fog_before = vk::rt_fog_passes();
+    for (int frame = 0; made && frame < kFogFrames; ++frame) {
+        draw_frame(gpu, targets, meshes, points, static_cast<uint64_t>(frame) + 1, true);
+    }
+    const uint64_t fog_passes = vk::rt_fog_passes() - fog_before;
+    tally->check(fog_passes == kFogFrames,
+                 text::format("  the fog's pass recorded each frame (%llu)", static_cast<unsigned long long>(fog_passes)));
+    vk::RtFogTexels history;
+    vk::RtLitLamps lamps;
+    bool read = false;
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        read = made && vk::read_rt_fog_image(state, {0, 0, kTargetWidth, kTargetHeight}, vk::RtFogImage::kHistory, &history);
+        lamps = vk::rt_lights_lit_locked(state);
+    }
+    tally->check(read && lamps.lights.size() == 1, text::format("  the history read back, the lamps' set (%zu)", lamps.lights.size()));
+    if (read && lamps.lights.size() == 1) {
+        const View view = view_from(kEye);
+        double shadowed_device = 0.0;
+        double shadowed_march = 0.0;
+        double shadowed_open = 0.0;
+        double lit_device = 0.0;
+        double lit_march = 0.0;
+        std::size_t shadowed = 0;
+        std::size_t lit = 0;
+        for (uint32_t y = 0; y < history.height; ++y) {
+            for (uint32_t x = 0; x < history.width; ++x) {
+                // (the texel's 2 x 2 block, marched a pixel at a time: its middle)
+                const AirLight want = air_light(view, (2.0 * x) + 0.5, (2.0 * y) + 0.5, lamps.lights.front(), lamps.scale);
+                const std::array<float, 4>& got = core::at(history.texels, (static_cast<std::size_t>(y) * history.width) + x);
+                const double device = luma_of({core::at(got, 0), core::at(got, 1), core::at(got, 2)});
+                if (!(want.open > kLeastLight)) {
+                    continue;
+                }
+                if (want.shadowed < kShadowed * want.open) {
+                    shadowed_device += device;
+                    shadowed_march += want.shadowed;
+                    shadowed_open += want.open;
+                    ++shadowed;
+                } else if (want.shadowed > kLit * want.open) {
+                    lit_device += device;
+                    lit_march += want.shadowed;
+                    ++lit;
+                }
+            }
+        }
+        const double shadow_ratio = shadowed_march > 0.0 ? shadowed_device / shadowed_march : 0.0;
+        const double lit_ratio = lit_march > 0.0 ? lit_device / lit_march : 0.0;
+        tally->check(lit >= kLeastTexels && lit_ratio >= kLeastRatio && lit_ratio <= kMostRatio,
+                     text::format("  %zu texels in the lamp's open light: the device's light %.3f x the march's", lit,
+                                  lit_ratio));
+        tally->check(shadowed >= kLeastTexels && shadow_ratio >= kLeastRatio && shadow_ratio <= kMostRatio &&
+                         shadowed_device < kDarker * shadowed_open,
+                     text::format("  %zu texels across the box's shadow: %.3f x the shadowed march's, %.3f of the "
+                                  "unshadowed (a cone cut by the box)",
+                                  shadowed, shadow_ratio, shadowed_open > 0.0 ? shadowed_device / shadowed_open : 0.0));
+    }
+    release_targets(gpu, targets);
+    vk::set_rt_fog_settings({});
 }
 
 // (added for the washed-out streets) Many lamps over the floor - 49 bright point lights in a 7 x 7 grid 40 units up, as a
@@ -1676,6 +1835,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_time_of_day(gpu, meshes, tally); // (added by the time of day)
         run_many(gpu, meshes, tally);        // (added for the washed-out streets)
         run_counted_once(gpu, meshes, tally); // (added by the light energy audit)
+        run_fog_lamp(gpu, meshes, tally);     // (added by the volumetric light)
         if (options.perf) {
             run_perf(gpu, meshes, tally);
         }

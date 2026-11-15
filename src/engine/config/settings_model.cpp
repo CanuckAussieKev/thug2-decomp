@@ -652,12 +652,24 @@ std::vector<Decl> declarations()
         gfx("rt_sun_colour", K::kText, "auto")
             .tab(G::kSky, t::kOptSunColour)
             .pick({c("auto", t::kAuto), c("1,0.85,0.7", "Warm"), c("1,1,1", "White"), c("0.85,0.92,1", "Cool")})
-            .need(any({on("rt_sun"), on("rt_shafts"), on("rt_bloom"), on("rt_sky_model")}), t::kNeedsSunLight)
+            .need(any({on("rt_sun"), on("rt_bloom"), on("rt_sky_model")}), t::kNeedsSunLight)
             .live(E::kSun),
         gfx("rt_sun_size", K::kNumber, "1").need(on("rt_sun")).live(E::kSun),
-        gfx("rt_shafts", K::kSwitch, "0").tab(G::kSky, t::kOptShafts, t::kOptShaftsHelp).need(vulkan(), t::kNeedsVulkan).live(E::kSun),
-        gfx("rt_shaft_strength", K::kNumber, "0.8").need(on("rt_shafts")).live(E::kSun),
+        // (an older ini's screen-space rays: the volumetric light's shafts replaced them - rt_fog, rt_fog_strength)
+        gfx("rt_shafts", K::kSwitch, "0").retire(t::kRetiredShafts),
+        gfx("rt_shaft_strength", K::kNumber, "0.8").retire(t::kRetiredShafts),
         gfx("rt_fog", K::kSwitch, "0").tab(G::kSky, t::kOptFog, t::kOptFogHelp).need(ray_tracing()).live(E::kFog),
+        // (the light the air scatters - the sun's or the moon's, the lamps' - and the march's quality: vulkan_rt_fog.h)
+        gfx("rt_fog_strength", K::kNumber, "1")
+            .tab(G::kSky, t::kOptShafts, t::kOptShaftsHelp)
+            .pick({c("0", t::kOff), c("0.5", t::kLow), c("1", t::kMedium), c("2", t::kHigh)})
+            .need(on("rt_fog"))
+            .live(E::kFog),
+        gfx("rt_fog_quality", K::kNumber, "1")
+            .tab(G::kSky, t::kOptShaftQuality)
+            .pick({c("0", t::kLow), c("1", t::kMedium), c("2", t::kHigh)})
+            .need(on("rt_fog"))
+            .live(E::kFog),
         // (the haze is the fog pass's in a level without fog: the pass runs with rt_fog alone - vulkan_rt_fog.cpp)
         gfx("rt_fog_haze", K::kSwitch, "1")
             .tab(G::kSky, t::kOptHaze, t::kOptHazeHelp)
@@ -676,8 +688,9 @@ std::vector<Decl> declarations()
         gfx("rt_fog_mode", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
         gfx("rt_fog_density", K::kNumber, "1").need(on("rt_fog")).live(E::kFog),
         gfx("rt_fog_height", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
-        gfx("rt_fog_anisotropy", K::kNumber, "0.3").need(on("rt_fog")).live(E::kFog),
-        gfx("rt_fog_steps", K::kNumber, "32").need(on("rt_fog")).live(E::kFog),
+        gfx("rt_fog_anisotropy", K::kNumber, "0.75").need(on("rt_fog")).live(E::kFog),
+        // (0: rt_fog_quality's steps)
+        gfx("rt_fog_steps", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
 
         // ===== Colour: HDR and its tone mapping (gpu_vulkan/vulkan_hdr.h; rt_hdr itself the device's targets' format), the
         // bloom and the lens (vulkan_rt_sun.h)
@@ -1164,18 +1177,20 @@ const std::vector<Conflict>& conflicts()
 const std::vector<PresetValue>& preset_values(int choice)
 {
     // Original - every effect off, the game as it was; High - the cheaper effects (shadows, occlusion, reflections, the
-    // sky and sun, HDR, bloom, smooth curves); Ultra - every effect on (but the bounce pass: relit lights the bounce).
-    // Upscaling is left as it is (it trades sharpness for speed, whatever the preset).
-    constexpr std::array kKeys = {"ray_tracing", "rt_shadows", "rt_ao", "rt_gi", "rt_reflections", "rt_relit",
-                                  "rt_pbr",      "rt_fog",     "rt_sky", "rt_sky_model", "rt_clouds", "rt_sun",
-                                  "rt_shafts",   "rt_bloom",   "rt_hdr", "rt_tessellation"};
+    // sky and sun, the volumetric light, HDR, bloom, smooth curves); Ultra - every effect on (but the bounce pass: relit
+    // lights the bounce). Upscaling is left as it is (it trades sharpness for speed, whatever the preset).
+    // (High's light shafts were the screen-space rays, rt_shafts, until the volumetric light: they are the fog pass's
+    // now - rt_fog on in High)
+    constexpr std::array kKeys = {"ray_tracing", "rt_shadows", "rt_ao",  "rt_gi",  "rt_reflections",
+                                  "rt_relit",    "rt_pbr",     "rt_fog", "rt_sky", "rt_sky_model",
+                                  "rt_clouds",   "rt_sun",     "rt_bloom", "rt_hdr", "rt_tessellation"};
     constexpr std::array<const char*, kKeys.size()> kOriginal = {"0", "0", "0", "0", "0", "0", "0", "0",
-                                                                 "0", "0", "0", "0", "0", "0", "0", "0"};
-    constexpr std::array<const char*, kKeys.size()> kHigh = {"1", "1", "1", "0", "1", "0", "0", "0",
-                                                             "1", "1", "0", "1", "1", "1", "1", "1"};
+                                                                 "0", "0", "0", "0", "0", "0", "0"};
+    constexpr std::array<const char*, kKeys.size()> kHigh = {"1", "1", "1", "0", "1", "0", "0", "1",
+                                                             "1", "1", "0", "1", "1", "1", "1"};
     // (Ultra: the bounce pass off - the relit mode it turns on lights the bounce; one owner)
     constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "0", "1", "1", "1", "1",
-                                                              "1", "1", "1", "1", "1", "1", "1", "1"};
+                                                              "1", "1", "1", "1", "1", "1", "1"};
     const auto list = [&kKeys](const std::array<const char*, kKeys.size()>& values) {
         std::vector<PresetValue> made;
         made.reserve(kKeys.size());

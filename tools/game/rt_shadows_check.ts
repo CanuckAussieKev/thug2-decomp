@@ -25,8 +25,9 @@
 //   upscale_quality after the colon); the rest of the ini as the workspace and --set have it (the user's effects: --set
 //   Graphics.rt_gi=1 ...). compare: per spot, `on` against `off` - PSNR and SSIM (luma, 8x8 windows), the pixels turned
 //   black; each configuration's frame time from its logs; `on`'s logs must say the frames were upscaled.
-//   --effect sun (both commands): the sun's disc and glare, the screen-space rays, the bloom and the sky model
-//   ([Graphics] rt_sun, rt_shafts, rt_bloom, rt_sky_model - vulkan_rt_sun.h, vulkan_rt_sky.h) - all four 0 / 1 together;
+//   --effect sun (both commands): the sun's disc and glare, the bloom and the sky model ([Graphics] rt_sun, rt_bloom,
+//   rt_sky_model - vulkan_rt_sun.h, vulkan_rt_sky.h; the light shafts are the fog's: --effect fog) - all three 0 / 1
+//   together;
 //   the other effects as the workspace's ini and --set have them (the user's look: --set Graphics.rt_shadows=1 ...).
 //   --effect relit (both commands): the relit mode ([Graphics] rt_relit, engine/gfx/rt_relit.h - the bake taken apart
 //   and lit again) - rt_relit 0 / 1, the other effects as the workspace's ini and --set have them; --set reaches the
@@ -255,7 +256,6 @@ export function configValues(config: Config, effect: Effect = "shadows"): Record
             "Graphics.ray_tracing": "1",
             "Graphics.rt_sun": on,
             "Graphics.rt_bloom": on,
-            "Graphics.rt_shafts": on,
             "Graphics.rt_sky_model": on,
         };
     }
