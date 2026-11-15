@@ -46,6 +46,10 @@
 #include "engine/file/disk_files.h"
 #include "engine/gfx/screen.h"
 #include "engine/objects/entity.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/entity_hub.h"
+#include "engine/objects/motion.h"
+#include "engine/objects/rigidbody_component.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
@@ -87,6 +91,7 @@ constexpr std::size_t kKeyTextBytes = 64;
 constexpr std::size_t kLoadPrefix = 5; // "Load_"
 constexpr std::string_view kExtension = ".demo";
 constexpr unsigned char kFirstPrintable = 0x20; // (JSON escapes the control characters below it)
+constexpr const char* kStateHeader = "# frame skater objects random clock_ms";
 constexpr int kMaxEvery = 600;                  // -demo-every: at most a picture every 10 s
 // The player taking over a playback: a button pressed (port 0's bytes 2-3, set bits down) or a stick pushed past this
 // far from its middle (bytes 4-7), from this many frames after the level is up.
@@ -140,6 +145,8 @@ struct State {
     bool quit_sent = false;
     demo_format::Drift drift;
     std::string track;
+    // the simulation's exact state at each check point (state_line: hashes of its bits - tools/game/sim_check.ts)
+    std::string states;
     bool random_matched = true;
     bool up_matched = true;
     // the camera drawn this frame (viewport 0)
@@ -483,6 +490,67 @@ CheckPoint point_now(uint32_t frame)
         point.camera_forward = state().forward;
     }
     return point;
+}
+
+// The simulation's state at a check point, exactly (the bits, not the track's rounded text), as FNV-1a hashes: the
+// skater (position, velocity, the whole matrix, its state), every object that moves (motion or rigid body: its id,
+// position, velocity, matrix), the game's random streams and the clock's milliseconds. Two runs of a demo agree on a
+// line only if they agree on every bit of it - what proves that the display rate never feeds back into the simulation
+// (tools/game/sim_check.ts).
+constexpr uint64_t kFnvOffset = 0xCBF29CE484222325ULL;
+constexpr uint64_t kFnvPrime = 0x100000001B3ULL;
+
+void hash_bytes(uint64_t* hash, const void* bytes, std::size_t count)
+{
+    const std::span<const uint8_t> data(static_cast<const uint8_t*>(bytes), count);
+    for (const uint8_t byte : data) {
+        *hash = (*hash ^ byte) * kFnvPrime;
+    }
+}
+
+void hash_entity(uint64_t* hash, objects::GameEntity* entity)
+{
+    const maths::Vec4& position = entity->at_point();
+    const maths::Vec4& velocity = entity->vel();
+    hash_bytes(hash, &position, sizeof(position));
+    hash_bytes(hash, &velocity, sizeof(velocity));
+    for (const maths::Vec4& row : entity->basis_frame().row) {
+        hash_bytes(hash, &row, sizeof(row));
+    }
+}
+
+void hash_moving_object(objects::Entity* object, void* data)
+{
+    auto* entity = core::down_cast<objects::GameEntity>(object);
+    if (entity->fetch_module(objects::KinematicsModule::kType) == nullptr &&
+        entity->fetch_module(objects::BodyDynamicsModule::kType) == nullptr) {
+        return;
+    }
+    auto* hash = static_cast<uint64_t*>(data);
+    const uint32_t id = entity->ident();
+    hash_bytes(hash, &id, sizeof(id));
+    hash_entity(hash, entity);
+}
+
+std::string state_line(uint32_t frame)
+{
+    uint64_t skater_hash = kFnvOffset;
+    if (auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater))) {
+        hash_entity(&skater_hash, skater);
+        auto* pose = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kStateModuleKey));
+        const int32_t where = pose != nullptr ? pose->cur_phase() : -1;
+        hash_bytes(&skater_hash, &where, sizeof(where));
+    }
+    uint64_t objects_hash = kFnvOffset;
+    if (objects::EntityHub* hub = objects::object_hub_slot().get()) {
+        hub->for_each(hash_moving_object, &objects_hash);
+    }
+    uint64_t random_hash = kFnvOffset;
+    const maths::RandomStreams streams = maths::random_streams();
+    hash_bytes(&random_hash, streams.data(), sizeof(uint32_t) * streams.size());
+    return text::format("%u %016llX %016llX %016llX %u\n", frame, static_cast<unsigned long long>(skater_hash),
+                        static_cast<unsigned long long>(objects_hash), static_cast<unsigned long long>(random_hash),
+                        frame_clock::get_time());
 }
 
 std::string json_text(const std::string& value)
@@ -843,6 +911,7 @@ void begin_playback(uint32_t load)
     run.up = false;
     run.drift = {};
     run.track = std::string(demo_format::kCheckHeader) + "\n";
+    run.states = std::string(kStateHeader) + "\n";
     if (run.resampled) {
         run.track += text::format("# played at %u ticks a second, recorded at %u: frames are the recording's\n",
                                   ticks_a_second(), run.demo.tick_rate);
@@ -903,6 +972,7 @@ void report_run(bool ended)
     log_pace(renders_offline() ? "rendered playback" : "playback");
     const std::string base = output_base();
     fs::write_text(base + "track.txt", run.track);
+    fs::write_text(base + "state.txt", run.states);
     const std::string json = text::format(
         "{\n  \"demo\": %s,\n  \"level\": %s,\n  \"frames\": %u,\n  \"up_frame\": %u,\n  \"tick_rate\": %u,\n"
         "  \"demo_tick_rate\": %u,\n  \"ended\": %s,\n"
@@ -1179,6 +1249,7 @@ void playback_frame_end(uint32_t now, bool rendering)
         const auto frame = static_cast<uint32_t>(ended);
         const CheckPoint point = point_now(frame);
         run.track += demo_format::check_line(point) + "\n";
+        run.states += state_line(frame);
         if (const CheckPoint* recorded = run.demo.check_at(frame)) {
             const bool was_same = run.drift.first_frame < 0;
             demo_format::add_to_drift(&run.drift, *recorded, point, kTolerance);
