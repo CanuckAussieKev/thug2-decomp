@@ -1633,7 +1633,10 @@ mode separates them and lights the level again.
   by 1.2 times or more is lamp-lit: left out of the neighbourhoods (four rounds, as a wide pool shows its edges first),
   and the share of its light over that prediction (smoothstep 1.2 - 1.8) is its residual - the lamps', glows' and
   artists' own light, kept as it was. The rest gives its tint, kept by `rt_relit_detail` x its confidence (the
-  neighbourhood's otherwise); tints clamp at 2 (what a clamped tint can't carry goes to the residual too). One factor
+  neighbourhood's otherwise); tints clamp at 2 (what a clamped tint can't carry goes to the residual too). The
+  residual is then taken apart (`relit_split_residual`, "One lighting path" below): its part in the sun's colour on a
+  face toward the bake's sun, at least 0.6 of the sun's whole light there, is the bake's sun the rays missed
+  (`sun_missed`, lit by the direct light and only toward the bake's sun); the rest stays the residual. One factor
   (the level's `scale`, 0.7 - 1.4) keeps the level's mean brightness the bake's.
 - **Relit:** scale x tint x E' + residual (`rt_relit_residual=0` leaves the residual out), blended with the bake by
   `rt_relit_strength`. At the bake's own sun it is the bake again (detail 1: within a byte at 99.6% of the check's
@@ -1796,8 +1799,9 @@ linear ratio r shows as r ^ (1 / 2.2), so night is dim, not black):
   `rt_sun_source` does.
 - **The relit level** (`rt_relit`). The relit colours are `scale x tint x E' + residual` - the bake taken apart into its
   sun, sky and bounce - so the time scales each part: the sun's term by the direct light (its colour the clock's), the
-  sky's by the sky light, the bounce by their mix; the residual (the lamps' and glows' light the artists baked) stays
-  whole - lamp pools stay lit at night. The sun's rays are traced again as it moves (150,000 vertices a frame), the
+  sky's by the sky light, the bounce by their mix - each the lighting state's own term ("One lighting path"); the
+  bake's sun the rays missed (`sun_missed`) takes the direct light toward the bake's sun only; the residual (the lamps'
+  and glows' light the artists baked) stays whole - lamp pools stay lit at night. The sun's rays are traced again as it moves (150,000 vertices a frame), the
   bounce again from the colours at the level's own strength; the colours are written at most 120,000 vertices a frame
   while the clock runs (a new time spreads over a few frames, as the original's time of day colours a part of the
   level a frame). The clock steps every 30 seconds of the day - twice a second with a 24-minute day. At the scales 1 the
@@ -1814,19 +1818,14 @@ linear ratio r shows as r ^ (1 / 2.2), so night is dim, not black):
   BE, AU and NO, the cars' headlights). Where relit relights the level the level colour stays the level's own (relit
   dims the bake already); where the backend draws the sky (`rt_sky`) the dome's colour does too.
 - **The skater and objects**: without relit, the original's states' ambient and directional lights (blended). Where
-  relit relights the level, what it doesn't relight darkens as it does (`rt_daylight.h` `surface_light`: the direct
-  light and the sky's mixed by the level's share of each, as the relit bounce): the game's lights are the level's own
-  state's, the key light (light 0) x the direct light and its colour, the fill and the ambient x the sky light - the
-  skater, the peds, the cars; the objects' models coloured by the level's colour (sector models: the tables, chairs and
-  movables) get the level's own colour x `surface_light` (`CtodManager::colour_models`, after each of the clock's
-  sweeps, when it moves and every 30 frames for objects made since), while the scenes keep the level's own colour (relit
-  dims them). An unlit instance - its own baked vertex colours, lit by nothing (BO's cafe table and chairs) - never took
-  the model colour (the original applies an instance's colour to skinned instances only), so it is drawn with the
-  instance colour `surface_light` x 128 (`rt_relit_world::unlit_object_colour`, `Singleton::render`) while the clock
-  lights the relit level. The original's night state is about twice as bright as the relit night (its level colour 50 65 75 of 128
-  against `surface_light`'s 0.14 0.17 0.23 at midnight): lit by it the skater and the props stood out of the dark level.
-  Particles keep the original's states' level colour (their own glow). Relit turns the lights toward the clock's light;
-  the key light is not tinted again by the clock's colour.
+  relit relights the level they are lit by the one lighting path (below, "One lighting path"): the game's lights are
+  the level's own state's, the key light times the lighting state's direct light, the fill and ambient times the light
+  field's indirect light where the thing is; the objects' models the level's own colour times the field's light where
+  each stands; unlit instances (BO's cafe table and chairs) the field's light as their instance colour; the particles
+  the level's own colour times the level's light as a whole. *Replaced (2026-11-15):* `surface_light` (one global
+  darkening for everything relit didn't relight), `lights_by_day`, `CtodManager::colour_models`' global factor and the
+  global `unlit_object_colour` - a door under a lamp was darker than the lamp-lit wall round it, the skater darker than
+  the road he stood on.
 - **The sky** (`rt_sky`): drawn for the clock's sun - under the horizon too: the model's twilight - and matched to the
   level for the level's own sun (so the painted sky's colours belong to the level's own time and the model moves them
   to other times; matching at every time would repaint the level's sky at night). The night sky's light (0.0028,
@@ -1867,8 +1866,10 @@ level's own state and sun back. Online it is local: each player sees their own t
   (1e-4), after noon, and the light then is the level's own (direct and sky 1, no lamps, the afternoon state), half an
   hour later lower and further west; the moon; the light from noon to midnight (the sun's never brightens to dusk, the
   sky's never into the night), dusk's lamps coming on, midnight moonlit, dark but lit, exposure up; the original's
-  states' weights changing smoothly; the settings' text; `surface_light` 1 at the level's own time, dark and blue at
-  midnight - darker than the original's night; `cloud_light` as before without the clock and at the level's own time, at
+  states' weights changing smoothly; the settings' text; the lighting state's bounce 1 at the level's own time, dark
+  and blue at midnight - darker than the original's night; light_colour = direct x tint, the moon's light weak and much
+  softer than the sun's; the light field (`rt_light_field.h`): a moonlit street's and a lamp-lit corner's ratios, their
+  mix, the nearest cells, the level's whole; `cloud_light` as before without the clock and at the level's own time, at
   midnight no sun and no daylit sky, and no jump from the afternoon into the night.
 - `thug2_rt_scene_check`: the clock's light in the scene sun's rules (above game and level when relit, the baked sun
   before, none indoors, below a fixed direction, a zero light ignored).
@@ -3257,23 +3258,49 @@ The conventions a change here follows (`CONTRIBUTING.md` has the general ones):
 - **Settings** come with their README row, Options-screen row, settings report line and live reload where they can
   change while playing (`CONTRIBUTING.md`).
 
-## Design direction: one lighting state
+## One lighting path (the time of day's lighting state)
 
-The time of day grew as separate darkening steps layered on the original's baked lighting - the relit level, the
-characters' lights, a pass that recolours placed objects, one for unlit objects, the clouds' own light, the lamps as an
-option of their own. Each has its own idea of how dark it is and its own moment to apply, so neighbouring things
-disagree (a door darker than the lamp-lit wall around it, a skater darker than the road he stands on) and the night
-assembles itself over the first frames after a load. The direction from here, replacing those steps:
+What the time of day lights, and how - one state, one path; it replaced the darkening steps layered on the original's
+bake (the relit level's scales, the characters' lights scaled apart, a global colour for placed objects, one for unlit
+objects, the residual added back unscaled), which disagreed with each other and assembled the night over the first
+frames after a load. Without ray tracing, with `rt_relit=0` or in a level relit can't take apart, nothing here runs:
+the original's own time of day (`tod_manager.h`, blended by the clock) is the look, untouched.
 
-1. **One lighting state per frame**, made by the clock: the sun or moon (direction, colour, softness), the sky's
-   light, which lamps are on, the exposure. Everything that lights reads it; nothing keeps a copy.
-2. **True surface colours.** The level's baked light is taken out (de-lit), not scaled; objects and characters use
-   their textures' colours.
-3. **One lighting path** for the level, objects, characters, vehicles, particles and clouds: the same direct light and
-   shadows, sky light, bounce light and lamps.
-4. **Night is light and exposure**, not darkening factors applied to particular kinds of object.
-5. **Ready before the first frame**: the state is part of loading a level, so nothing switches on afterwards.
+1. **One lighting state per frame** (`engine/gfx/rt_daylight.h` `DayLight`, made by the clock - `day_clock.cpp` - and
+   nothing else): toward the sun or the moon, its light's colour and strength over the level's own sun's
+   (`light_colour` = `direct` x `direct_tint`: the moon's 0.22 and blue at night), its softness (`light_radius`: the
+   sun's 1.5 degrees, the moon's 6 - weak and soft), the sky's light (the sky model's irradiance at the sun's
+   elevation over the level's own, with the night sky's floor), the bounce (the direct light and the sky's in the
+   level's own shares), the lamps (`lamps`, `rt_lights=auto`), the stars, the moon's disc and the exposure. Relit
+   takes its terms as they are; the shadow pass's softness follows the light's radius; the bounce light's sun is
+   `light_colour`; the lamps and the exposure read it. Nobody keeps a factor of its own.
+2. **True surface colours** (`rt_relit.h`): the level's bake is taken apart into tint x light (de-lit, not scaled). The
+   residual - the bake's light over the model - is taken apart by what it is (`relit_split_residual`): on a face toward
+   the bake's sun, its part in the sun's colour that is at least 0.6 of the sun's whole light there is the bake's sun
+   the rays missed (`sun_missed`: more visibility toward the bake's sun; Berlin's fit puts the sun at 0.187 against the
+   sky's 0.61, so its sunlit wedges were residual), lit by the direct light now and only toward the bake's own sun
+   (whole within 2 degrees, none past 10: toward the moon the traced visibility alone - no hard wedges of the bake's
+   sun shadows at night); the rest - lamps, glows, the artists' lights - stays the residual, the level's own emitters,
+   constant through the day (`rt_relit_residual=0` leaves it out). The bake's occlusion beyond the traced sky stays in
+   the tint. `sun_baked` keeps the visibility toward the bake's sun for the field.
+3. **One lighting path** (`engine/gfx/rt_light_field.h`): the relit level's model evaluated where a thing is - each
+   vertex's direct light (a x N.L x visibility) and indirect (sky and bounce) now and at the bake, and the level's own
+   lights, kept in 128-unit cells; a point's light is its cells' (trilinear, the empty ones left out, else the nearest
+   within 3 cells, else the level's whole). What relit doesn't relight vertex by vertex was authored for the level's
+   own light, so it takes the light now over the bake's where it stands: the objects' models (`colour_models_by_place`),
+   unlit instances (`unlit_object_colour`), the game's lights for the skater, peds, cars and lit objects (the key light
+   x the direct light; the fill and ambient x the field's indirect ratio - `pc_lights.cpp relight`), the particles (the
+   level's whole). The screen-space passes - shadows, occlusion, bounce, lamps (`rt_lights`), reflections - already
+   light every pixel alike; every ray among them takes cut-outs by their alpha (`vulkan_rt_scene.h`
+   `cutout_rays_glsl`). The clouds read the state's sun, sky and night sky (`cloud_light`).
+4. **Night is light and exposure**: the moon's light, the night sky's, the level's own lamps and `rt_lights`' real
+   lamps, and the exposure (`DayLight::exposure`, `rt_hdr`) - no darkening factors per kind of object.
+5. **Ready before the first frame** (`rt_relit_world.h` `hold_first_light`): where the clock may light a level, the
+   frames after its loading screen goes down are drawn (the world must stand still to be relit; the clock waits for the
+   baked sun's fit; the night state's scripts run) under the loading screen's picture until the clock's light is
+   published and the level is relit for it (every mesh written, the field made) - at most 10 s. Round 2's two attempts
+   to make the first frame night without a hold (the clock run again inside the first frame's record; every relit
+   colour written in one frame) are not needed: the budgets run under the picture.
 
-The test it has to pass: Boston and Berlin at noon, dusk and night - a door under a lamp lit like the wall beside it,
-the skater and the objects as bright as the ground they stand on, no hard-edged moon shadows, nothing appearing after
-the load.
+The test: Boston and Berlin at noon, dusk and night - a door under a lamp lit like the wall beside it, the skater and
+the objects as bright as the ground they stand on, no hard-edged moon shadows, nothing appearing after the load.
