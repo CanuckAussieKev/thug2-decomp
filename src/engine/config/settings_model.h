@@ -242,7 +242,7 @@ inline constexpr uint32_t kVendorAmd = 0x1002;
 int rtx_series(const std::string& device_name);
 
 // (the offline relit data) What the level now loaded is lit from: its relit data, none built, data made from other
-// meshes (another overlay, building relief or smoothed curves changed since), or data saying its bake shows no sunlight.
+// meshes (another overlay, building relief, smoothed curves or the water grid changed since), or data saying its bake shows no sunlight.
 enum class LevelLight : uint8_t { kUnknown, kBuilt, kMissing, kStale, kNoSun };
 
 struct LevelFacts {

@@ -369,7 +369,7 @@ Refused while a game runs from the folder; a level's run given up (its game clos
 `thug2-decomp-relit\bake-report.txt` (a line a level: its scene, verdict - relit / no sun / no sunlight found -, meshes,
 vertices, lamps, the model's sun and lamps' c) and each level's log in `thug2-decomp-relit\logs\`. A level without data
 keeps the original game's lighting (relit, the time of day and the ray-traced lights out of effect there); data made
-with other geometry settings (building relief, smoothed curves) is out of date: build it again. Needs the Vulkan
+with other geometry settings (building relief, smoothed curves, `rt_water_geometry`) is out of date: build it again. Needs the Vulkan
 renderer's build with ray tracing (a ray tracing GPU, the 64-bit game). Nothing here goes online.
 
 ## Crashes

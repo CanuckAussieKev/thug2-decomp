@@ -1716,7 +1716,7 @@ traced or fitted while the game loads a level: the game reads the level's data a
   `thug2-decomp-relit\bake-report.txt` and each level's log). The game starts straight in the level, muted, windowed
   and behind the user's windows (`platform::batch_run`), with its own settings over the user's ini
   (`config::set_overrides`: the Vulkan renderer with ray tracing, the level's own time, the relit mode and the lighting
-  passes off - the buffers hold the bake). The geometry settings (building relief, smoothed curves) are the user's, so
+  passes off - the buffers hold the bake). The geometry settings (building relief, smoothed curves, the water's grid) are the user's, so
   the data matches the meshes the user's game makes. Every mesh of the level's world scenes is recorded, shown or hidden
   (`rt_record.cpp record_world`): the bake's inputs are the level's static meshes whatever its scripts show in the first
   frames - the same data at every bake (sch's sun no longer flips with what the first frame showed). Once the world's
@@ -1758,7 +1758,7 @@ traced or fitted while the game loads a level: the game reads the level's data a
   read, the world's meshes matched by content, what the level is lit by decided and published - the baked sun
   (`set_baked_sun`; none without data) and the level's facts for the settings model (`config::set_level_light`). **No
   fallbacks:** a level without data, with data made from other meshes (under 95% of the world's vertices matched -
-  another overlay, building relief or smoothed curves changed since), or whose data says no sun keeps the original
+  another overlay, building relief, smoothed curves or the water's grid changed since), or whose data says no sun keeps the original
   game's lighting: `rt_relit` is out of effect there (the reasons name the build step: "This level's lighting isn't
   built - run relit_bake", "... is out of date - run relit_bake", "This level has no sunlight to relight"), and with it
   the time of day (with ray tracing on) and the lighting passes - `rt_shadows`, `rt_ao`, `rt_lights` need the level

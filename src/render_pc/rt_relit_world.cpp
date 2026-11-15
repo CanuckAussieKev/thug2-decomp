@@ -770,8 +770,30 @@ Status level_verdict()
         all += entry.originals.size();
         matched += entry.analysed ? entry.originals.size() : 0;
     }
-    return all > 0 && static_cast<float>(matched) < rt::kRelitDataLeastShare * static_cast<float>(all) ? Status::kStale
-                                                                                                     : Status::kRelit;
+    const bool stale = all > 0 && static_cast<float>(matched) < rt::kRelitDataLeastShare * static_cast<float>(all);
+    if (stale) {
+        // (why: the meshes not found - their sizes, the first few; logged once a level)
+        static uint32_t logged_level = 0;
+        if (logged_level != st.level) {
+            logged_level = st.level;
+            std::string examples;
+            std::size_t missing = 0;
+            for (const VertexBufferData* buffer : st.order) {
+                const Entry& entry = st.entries.at(buffer);
+                if (entry.analysed) {
+                    continue;
+                }
+                ++missing;
+                if (missing <= 8) {
+                    examples += text::format(" %zu-vertex (content %016llx)", entry.input.positions.size(),
+                                             static_cast<unsigned long long>(entry.content));
+                }
+            }
+            get_log("rt_relit: level %08x - %zu of %zu world vertices in its relit data (%zu meshes not found:%s)", st.level,
+                    matched, all, missing, examples.c_str());
+        }
+    }
+    return stale ? Status::kStale : Status::kRelit;
 }
 
 // The level's facts for the settings model (relit and the time of day out of effect where the level keeps the
