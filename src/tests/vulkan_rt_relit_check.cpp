@@ -216,6 +216,12 @@ float luma(const Rgbf& colour)
     return (kLumaRed * std::get<0>(colour)) + (kLumaGreen * std::get<1>(colour)) + (kLumaBlue * std::get<2>(colour));
 }
 
+Rgbf times_rgb(const Rgbf& one, const Rgbf& other)
+{
+    return {std::get<0>(one) * std::get<0>(other), std::get<1>(one) * std::get<1>(other),
+            std::get<2>(one) * std::get<2>(other)};
+}
+
 Vec3 unit(const Vec3& vi)
 {
     const float length = std::sqrt(rt::dot(vi, vi));
@@ -1104,9 +1110,156 @@ void check_split(Tally* tally)
                               static_cast<double>(std::get<1>(lit)), static_cast<double>(wanted)));
 }
 
+// (added by lighting round 4) A lamp's light across meshes (rt_relit.h relit_local_across): a wall facing the street, a
+// lamp before its middle lighting a pool on it; a door recessed into the wall under the lamp, its own mesh, lit whole by
+// the same lamp. Within a mesh only the wall's pool can be told from its tint (its far ends are unlit); the door's
+// light is all the same lamp's, so it must come out as the residual as the wall's does - its tint the door's own, and
+// at night (the sky's light a tenth) the door keeps the lamp's light as the wall beside it does.
+void check_local_across(Tally* tally)
+{
+    text::print("the lamp's light across meshes (on the processor):\n");
+    constexpr float kSkyShare = 0.5F;            // every vertex sees half the sky, no sun, no bounce
+    constexpr Rgbf kWallTint{0.80F, 0.78F, 0.74F};
+    constexpr Rgbf kDoorTint{0.45F, 0.30F, 0.20F}; // a dark wooden door
+    constexpr Rgbf kLamp{0.90F, 0.75F, 0.45F};
+    constexpr Vec3 kLampPlace{0.0F, 260.0F, 80.0F};
+    constexpr float kReach = 420.0F;
+    rt::RelitModel model;
+    model.valid = true;
+    model.toward = {0.0F, 1.0F, 0.0F}; // (overhead: no light on the walls)
+    model.sun = {1.0F, 0.95F, 0.85F};
+    model.sky = {0.60F, 0.62F, 0.70F};
+    model.bounce = {};
+    model.scale = 1.0F;
+    const auto lamp_at = [&](const Vec3& point) {
+        const Vec3 off = rt::minus(point, kLampPlace);
+        const float fall = std::max(0.0F, 1.0F - (std::sqrt(rt::dot(off, off)) / kReach));
+        return rt::scaled(kLamp, fall * fall);
+    };
+    std::vector<rt::RelitMesh> meshes(2);
+    add_face(&core::at(meshes, 0), {.corner = {-900.0F, 0.0F, 0.0F}, .across = {1800.0F, 0.0F, 0.0F}, .up = {0.0F, 400.0F, 0.0F}},
+             kWallSteps * 3);
+    add_face(&core::at(meshes, 1), {.corner = {-60.0F, 0.0F, -30.0F}, .across = {120.0F, 0.0F, 0.0F}, .up = {0.0F, 220.0F, 0.0F}},
+             2);
+    std::vector<rt::RelitVertices> light(meshes.size());
+    std::vector<std::vector<Rgbf>> lamps(meshes.size());
+    for (std::size_t mesh = 0; mesh < meshes.size(); ++mesh) {
+        rt::RelitMesh& made = core::at(meshes, mesh);
+        const Rgbf& tint = mesh == 0 ? kWallTint : kDoorTint;
+        for (const Vec3& point : made.positions) {
+            rt::RelitVertex vertex;
+            vertex.used = true;
+            vertex.normal = {0.0F, 0.0F, 1.0F};
+            vertex.sky = kSkyShare;
+            core::at(light, mesh).push_back(vertex);
+            const Rgbf lamp = lamp_at(point);
+            core::at(lamps, mesh).push_back(lamp);
+            Rgbf baked{};
+            for (std::size_t ch = 0; ch < baked.size(); ++ch) {
+                core::at(baked, ch) = core::at(tint, ch) * ((core::at(model.sky, ch) * kSkyShare) + core::at(lamp, ch));
+            }
+            made.colours.push_back(to_argb(baked));
+        }
+    }
+    const rt::RelitParams params{.detail = 1.0F};
+    rt::decompose_relit(meshes, {}, params, &model, &light, false);
+    // the door's residual against the lamp's light on it (x its tint), and its tint against the wall's
+    double door_lamp = 0.0;
+    double door_back = 0.0;
+    Rgbf door_tint{};
+    for (std::size_t vertex = 0; vertex < core::at(light, 1).size(); ++vertex) {
+        const rt::RelitVertex& found = core::at(core::at(light, 1), vertex);
+        door_lamp += luma(times_rgb(kDoorTint, core::at(core::at(lamps, 1), vertex)));
+        door_back += luma(found.residual);
+        door_tint = rt::plus(door_tint, rt::scaled(found.tint, 1.0F / static_cast<float>(core::at(light, 1).size())));
+    }
+    Rgbf wall_tint{};
+    std::size_t unlit = 0;
+    for (std::size_t vertex = 0; vertex < core::at(light, 0).size(); ++vertex) {
+        if (luma(core::at(core::at(lamps, 0), vertex)) == 0.0F) {
+            wall_tint = rt::plus(wall_tint, core::at(core::at(light, 0), vertex).tint);
+            ++unlit;
+        }
+    }
+    wall_tint = rt::scaled(wall_tint, 1.0F / static_cast<float>(std::max<std::size_t>(unlit, 1)));
+    const float tint_ratio = luma(door_tint) / std::max(luma(wall_tint), kTiny);
+    const float true_ratio = luma(kDoorTint) / luma(kWallTint);
+    tally->check(door_back >= 0.6 * door_lamp && door_back <= 1.3 * door_lamp,
+                 text::format("the door lit whole by the lamp: its residual %.0f%% of the lamp's light on it",
+                              100.0 * door_back / std::max(door_lamp, kTinyDouble)));
+    tally->check(std::abs(tint_ratio - true_ratio) < 0.25F * true_ratio,
+                 text::format("the door's tint against the wall's %.3f (painted %.3f)", static_cast<double>(tint_ratio),
+                              static_cast<double>(true_ratio)));
+    // at night: the door's colour over its bake against the wall's beside it (the same lamp, the sky a tenth)
+    rt::RelitLighting night{.toward = model.toward};
+    night.sky_scale = {0.1F, 0.1F, 0.1F};
+    night.direct_scale = {0.0F, 0.0F, 0.0F};
+    const auto kept = [&](std::size_t mesh, const Vec3& spot) {
+        float best = 1e30F;
+        float ratio = 0.0F;
+        for (std::size_t vertex = 0; vertex < core::at(meshes, mesh).positions.size(); ++vertex) {
+            const Vec3 off = rt::minus(core::at(core::at(meshes, mesh).positions, vertex), spot);
+            const float distance = rt::dot(off, off);
+            if (distance < best) {
+                best = distance;
+                const uint32_t baked = core::at(core::at(meshes, mesh).colours, vertex);
+                const uint32_t lit = rt::relit_colour(model, core::at(core::at(light, mesh), vertex), night, baked);
+                ratio = luma(rt::colour_light(lit)) / std::max(luma(rt::colour_light(baked)), kTiny);
+            }
+        }
+        return ratio;
+    };
+    const float door_night = kept(1, {0.0F, 165.0F, -30.0F});
+    const float wall_night = kept(0, {100.0F, 165.0F, 0.0F});
+    tally->check(std::abs(door_night - wall_night) < 0.2F * wall_night,
+                 text::format("at night the door keeps %.0f%% of its bake, the wall beside it %.0f%%",
+                              100.0 * static_cast<double>(door_night), 100.0 * static_cast<double>(wall_night)));
+}
+
+// (added by lighting round 4) The fit against a bake whose colours are uneven (each vertex's tint up to 15% off its
+// surface's - the bake's own unevenness, painted dirt): the sky and the bounce against the sun as the bake's still.
+// An edge's error measured in its light's own units made the bounce - small everywhere - the cheapest term and took the
+// light from the sun (Berlin's fit: a fifth of its bake's sun).
+void check_uneven_fit(const Scene& scene, Tally* tally)
+{
+    text::print("the fit over uneven colours (on the processor):\n");
+    Level level = make_level();
+    constexpr float kUneven = 0.15F;
+    for (std::size_t mesh = 0; mesh < level.tints.size(); ++mesh) {
+        for (std::size_t vertex = 0; vertex < core::at(level.tints, mesh).size(); ++vertex) {
+            const uint32_t hash = (static_cast<uint32_t>(mesh) * 0x9E3779B9U) ^ (static_cast<uint32_t>(vertex) * 0x85EBCA6BU);
+            const float off = (static_cast<float>((hash >> 8U) & 0xFFFFU) / 65535.0F * 2.0F) - 1.0F;
+            core::at(core::at(level.tints, mesh), vertex) =
+                rt::scaled(core::at(core::at(level.tints, mesh), vertex), 1.0F + (kUneven * off));
+        }
+    }
+    const std::vector<rt::RelitVertices> light = bake(&level, {.toward = scene.sun, .light = kSunLight}, scene.params);
+    const rt::RelitModel model = rt::fit_relit_model(level.meshes, light, scene.sun);
+    bool parts = model.valid;
+    std::string found;
+    for (std::size_t channel = 0; channel < kSkyLight.size(); ++channel) {
+        const float sun = std::max(core::at(model.sun, channel), kTiny);
+        const float sky = core::at(model.sky, channel) / sun;
+        const float true_sky = core::at(kSkyLight, channel) / core::at(kSunLight, channel);
+        const float bounce = core::at(model.bounce, channel) / sun;
+        const float true_bounce = core::at(kBounceWeight, channel) / core::at(kSunLight, channel);
+        parts = parts && std::abs(sky - true_sky) < 0.2F * true_sky && std::abs(bounce - true_bounce) < 0.25F * true_bounce;
+        found += text::format(" sky over sun %.3f (%.3f), bounce over sun %.3f (%.3f);", static_cast<double>(sky),
+                              static_cast<double>(true_sky), static_cast<double>(bounce),
+                              static_cast<double>(true_bounce));
+    }
+    tally->check(parts, "each channel's sky and bounce against its sun within 20% / 25% of the bake's:" + found);
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     check_split(tally);
+    check_local_across(tally);
+    {
+        Scene uneven;
+        uneven.sun = unit(kSunToward);
+        check_uneven_fit(uneven, tally);
+    }
     rt::RayTracing* const backend = rt::ray_tracing();
     tally->check(backend != nullptr && backend->available(), "the ray tracing backend is installed");
     if (backend == nullptr) {

@@ -51,7 +51,8 @@ constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr float kSameSun = 0.99999F;          // two suns this close (their directions' dot product): the same
 constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
 constexpr uint32_t kCacheMagic = 0x4C523254U; // "T2RL"
-constexpr uint32_t kCacheVersion = 4; // (4: the residual taken apart - sun_missed)
+constexpr uint32_t kCacheVersion = 5; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
+                                      // local light across meshes, the probe through the cut-outs)
 constexpr std::size_t kKilobyte = 1024;
 constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
 constexpr std::size_t kVertexFloats =
@@ -247,6 +248,10 @@ uint64_t cache_key(const rt::RelitSettings& settings)
     key = fnv_value(key, rt::kRelitMaxTint);
     key = fnv_value(key, rt::kRelitMissedLeast); // (the residual's split)
     key = fnv_value(key, rt::kRelitMostMissed);
+    key = fnv_value(key, rt::kRelitLocalReach); // (the local light across meshes)
+    key = fnv_value(key, rt::kRelitLocalFacing);
+    key = fnv_value(key, rt::kRelitLocalOver);
+    key = fnv_value(key, rt::kRelitLocalLeast);
     return key;
 }
 

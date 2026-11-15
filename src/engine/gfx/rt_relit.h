@@ -14,7 +14,8 @@
 //   - B: the light bounced to it - the same rays' hits on the world, each bringing the baked colour where it lands
 //     (that surface's own tint x light: what it shows), averaged over all the rays (a miss brings none).
 // The level's light model is then E = a S + b K + g B per channel (red, green, blue): a, b, g found by a robust
-// least-squares fit over all its vertices (non-negative; reweighted three times toward the median absolute error, so
+// least-squares fit over its mesh edges (two neighbours' colours' ratio is their light's; non-negative; each edge's
+// error relative to its own light, so no term is favoured for being small; reweighted toward the median error, so
 // lamps and unusually coloured surfaces count little). The fit's a is the sun's colour and strength as the bake has
 // it, b the sky's, g how much the bounce counts.
 // With E known, each vertex's tint is v / E (per channel; E no lower than kRelitFloorShare of the level's mean, so a
@@ -38,6 +39,9 @@
 //     `residual`: the level's own emitters, whose light doesn't change with the time of day (only the exposure brings
 //     them up at night). Occlusion the bake has beyond the traced sky stays in the tint (a darker surface under every
 //     light).
+// A lamp's light is told within a mesh, against the mesh's own neighbourhood; then across meshes (relit_local_across):
+// a mesh the lamp lights whole takes its neighbours' local light, so the same lamp's light is the residual on every
+// surface it reaches.
 // Finally one factor (the level's `scale`, kept within kRelitScaleRange) makes the relit level's mean brightness at the
 // bake's own sun the bake's.
 //
@@ -80,7 +84,8 @@ inline constexpr uint32_t kRelitMaxSunRays = 64;
 inline constexpr float kRelitSunRadiusDegrees = 1.5F;
 inline constexpr float kRelitOffset = 2.0F;       // the rays start this far off the surface along its normal
 inline constexpr float kRelitRayLength = 1.0e6F;  // (further than any level)
-inline constexpr uint32_t kRelitWorldMask = 0x01; // the opaque level geometry (the TLAS's instance masks)
+inline constexpr uint32_t kRelitWorldMask = 0x05; // the level geometry: the opaque (0x01) and the cut-outs (0x04) -
+                                                 // the TLAS's instance masks; the cut-outs by their alpha (ProbeRequest::cutouts)
 inline constexpr float kRelitFloorShare = 0.05F;
 inline constexpr float kRelitConfidence = 0.35F;
 inline constexpr uint32_t kRelitSmoothPasses = 4;
@@ -92,6 +97,15 @@ inline constexpr float kRelitMissedLeast = 0.6F;  // the sun-coloured excess at 
 inline constexpr float kRelitMostMissed = 8.0F;   // sun_missed at most this (the bake's sun that much over the fit's: Berlin's ~5)
 inline constexpr float kRelitTrustInner = 2.0F;   // degrees: sun_missed whole toward the bake's sun ...
 inline constexpr float kRelitTrustOuter = 10.0F;  // ... and none this far from it
+// The level's own lights across meshes (relit_local_across): the neighbours of other meshes within kRelitLocalReach,
+// facing within kRelitLocalFacing (cosine) of the vertex, their weights (facing^2 x (1 - (d / reach)^2)^2) at least
+// kRelitLocalLeastWeight in all; their local light taken where it is over kRelitLocalOver times the vertex's own and at
+// least kRelitLocalLeast of the model's light there.
+inline constexpr float kRelitLocalReach = 160.0F;
+inline constexpr float kRelitLocalFacing = 0.5F;
+inline constexpr float kRelitLocalLeastWeight = 0.5F;
+inline constexpr float kRelitLocalOver = 1.25F;
+inline constexpr float kRelitLocalLeast = 0.05F;
 inline constexpr std::array<float, 2> kRelitScaleRange{0.7F, 1.4F};
 inline constexpr float kRelitPerByte = 1.0F / 128.0F; // a colour byte as light: 128 is 1 (the passes double it)
 inline constexpr float kRelitMaxValue = 255.0F / 128.0F;
@@ -217,6 +231,19 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // A vertex's residual taken apart (decompose_relit's last step): the bake's sun the tracer missed into sun_missed, the
 // rest kept. `model` the level's (its sun a and toward), `scale` the factor its colours are relit with.
 void relit_split_residual(const RelitModel& model, float scale, RelitVertex* vertex);
+// A vertex's local light - the level's own lights (lamps, glows) that reach it, per unit of its tint: its residual over
+// the model's scale x its tint (what the light field keeps, rt_light_field.h).
+[[nodiscard]] Rgbf relit_local_light(const RelitModel& model, const RelitVertex& vertex);
+// (decompose_relit's last step) The level's own lights told across meshes: a lamp's light is found as the residual
+// only where it falls off within a mesh (the mesh's neighbourhood's tint against a vertex's own), so a mesh the lamp
+// lights whole - a recessed door, a sign, a small facade piece - has it in its tint, and loses it with the sun at
+// night while the wall beside it keeps it. So each vertex of the meshes `wanted` says takes the local light of its
+// neighbours on other meshes (within kRelitLocalReach, facing the same way - kRelitLocalFacing - weighted by both)
+// where that is more than its own (kRelitLocalOver; and some of its light, kRelitLocalLeast): its colour taken apart
+// again over the model's light plus that local light - the tint the rest, the residual what the local light gives it
+// (the bake exactly again). The same lamp's light is then the residual on every surface it reaches.
+void relit_local_across(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitModel& model,
+                        std::span<RelitVertices> light);
 // How much of a vertex's sun_missed a light toward `toward` takes: 1 within kRelitTrustInner degrees of the bake's sun,
 // 0 past kRelitTrustOuter (smoothly between).
 [[nodiscard]] float relit_missed_trust(const RelitModel& model, const Vec3& toward);

@@ -128,9 +128,11 @@ void release_ray_tracing(Backend& state);
 // when ray tracing is on, else none.
 VkBufferUsageFlags ray_tracing_buffer_usage(const Backend& state);
 
-// Rays traced now through the current TLAS (a compute shader with ray queries, every instance taken as opaque, each
-// ray's cull mask its own; the
-// frame's work finished first, then the dispatch run and waited for): the checks' and rtprobe's. Takes the lock.
+// Rays traced now through the current TLAS (a compute shader with ray queries, each ray's cull mask its own; the
+// frame's work finished first, then the dispatch run and waited for): the checks', rtprobe's and the relit level's
+// (render::rt::RayTracing::probe_many). Every instance is taken as solid, unless the ray asks for the cut-outs: then the
+// one lighting path's test (cutout_rays_glsl's) - an alpha-tested instance hit only where its material's alpha test
+// passes at the hit, and an object's not at all. Takes the lock.
 inline constexpr uint32_t kMaskEverything = 0xFF; // (a cull mask that sees every instance)
 struct TracedRay {
     std::array<float, 3> origin{};
@@ -138,6 +140,7 @@ struct TracedRay {
     float t_min = 0.0F;
     float t_max = 0.0F;
     uint32_t cull_mask = kMaskEverything; // the instances it can hit (their masks: above)
+    bool cutouts = false;                 // (added by lighting round 4) the cut-outs by their alpha
 };
 struct TracedHit {
     bool hit = false;
