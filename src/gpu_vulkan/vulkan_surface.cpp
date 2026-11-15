@@ -42,10 +42,14 @@ constexpr float kLeastAlpha = 0.0064F; // (the shader's floor on GGX's alpha)
 constexpr float kLeastRelief = 0.05F;  // (added by surface relief: a depth in texels below which no relief is drawn)
 constexpr float kLeastFade = 0.01F;
 constexpr float kMostRelief = 16.0F;   // (relief_depth_of_map's ceiling)
-// (added for the surface reflections) the glossy kinds' share of a mirror's reflection (surface_map_gloss)
-constexpr float kGlossStone = 0.5F; // polished stone (cobbles and rock rough by their maps)
-constexpr float kGlossWood = 0.35F; // varnished planks
-constexpr float kGlossPaint = 0.3F; // painted or unclassified
+// (added for the surface reflections) the glossy kinds' share of a mirror's reflection and the roughness they never go
+// under (surface_map_gloss): stone, wood and paint a faint, blurred sheen - never a mirror, whatever their maps say
+constexpr KindGloss kGlossMetal{.gloss = 1.0F, .least_roughness = 0.05F, .metal = true};
+constexpr KindGloss kGlossTile{.gloss = 1.0F, .least_roughness = 0.12F, .metal = false}; // glazed tiles, polished floors
+constexpr KindGloss kGlossClear{.gloss = 1.0F, .least_roughness = 0.0F, .metal = false}; // glass and water
+constexpr KindGloss kGlossStone{.gloss = 0.2F, .least_roughness = 0.5F, .metal = false}; // stone, kerbs (brick by class)
+constexpr KindGloss kGlossWood{.gloss = 0.25F, .least_roughness = 0.35F, .metal = false}; // varnished planks
+constexpr KindGloss kGlossPaint{.gloss = 0.2F, .least_roughness = 0.4F, .metal = false};  // painted or unclassified
 
 struct MapEntry {
     Texture* map = nullptr;
@@ -469,31 +473,34 @@ float surface_map_f0(const Texture* colour)
     return detail.f0 >= 0.0F ? detail.f0 : found->second.f0;
 }
 
-float kind_gloss(uint8_t kind)
+KindGloss kind_gloss(uint8_t kind)
 {
     namespace dmf = detail_material_format;
     switch (static_cast<dmf::Kind>(kind)) {
     case dmf::Kind::kMetal:
+        return kGlossMetal;
     case dmf::Kind::kTile:
-        return 1.0F;
+        return kGlossTile;
     case dmf::Kind::kStone:
         return kGlossStone;
     case dmf::Kind::kWood:
         return kGlossWood;
     default:
-        return 0.0F; // (asphalt, concrete, brick, ground, grass, plaster, gravel: too rough to mirror anything)
+        return {}; // (asphalt, concrete, brick, ground, grass, plaster, gravel: too rough to mirror anything)
     }
 }
 
-float class_gloss(uint8_t material_class)
+KindGloss class_gloss(uint8_t material_class)
 {
     namespace smf = surface_map_format;
     switch (static_cast<smf::MaterialClass>(material_class)) {
     case smf::MaterialClass::kMetal:
+        return kGlossMetal;
     case smf::MaterialClass::kTile:
+        return kGlossTile;
     case smf::MaterialClass::kGlass:
     case smf::MaterialClass::kWater:
-        return 1.0F;
+        return kGlossClear;
     case smf::MaterialClass::kStone:
         return kGlossStone;
     case smf::MaterialClass::kWood:
@@ -501,7 +508,7 @@ float class_gloss(uint8_t material_class)
     case smf::MaterialClass::kDefault:
         return kGlossPaint;
     default:
-        return 0.0F; // (asphalt, concrete, plants, ground, cloth and the characters' classes)
+        return {}; // (asphalt, concrete, plants, ground, cloth and the characters' classes)
     }
 }
 
@@ -516,10 +523,13 @@ bool surface_map_gloss(const Texture* colour, SurfaceGloss* out)
         return false;
     }
     const DetailDraw& detail = detail_of(found->second);
-    out->f0 = detail.f0 >= 0.0F ? detail.f0 : found->second.f0;
     // (the kind decides where there is one - brick is stone by its class, glass and water have no kind)
-    const float by_class = class_gloss(found->second.material_class);
-    out->gloss = detail.kind != 0 && by_class < 1.0F ? kind_gloss(detail.kind) : by_class;
+    const KindGloss by_class = class_gloss(found->second.material_class);
+    const KindGloss gloss = detail.kind != 0 && by_class.gloss < 1.0F ? kind_gloss(detail.kind) : by_class;
+    out->gloss = gloss.gloss;
+    out->least_roughness = gloss.least_roughness;
+    const float f0 = detail.f0 >= 0.0F ? detail.f0 : found->second.f0;
+    out->f0 = gloss.metal ? f0 : std::min(f0, kMostDielectricF0);
     if (detail.flags != 0) {
         out->kind_roughness = std::get<0>(detail.uniforms.material);
         out->kind_roughness_weight = std::get<3>(detail.uniforms.material);
