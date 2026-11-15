@@ -46,6 +46,11 @@ constexpr uint32_t kDetailMapBinding = 16;      // the surface kind's tiling det
 // for their draws; after the detail layer's)
 constexpr uint32_t kSnowUniformsBinding = 17; // SnowUniforms
 constexpr uint32_t kSnowSkyBinding = 18;      // the level's sky map (RG16: the top's height, its cover - engine/gfx/snow.h)
+// (NOT ORIGINAL - [Graphics] paint_trails, vulkan_paint.h) the paint's coat: read only by keys with kTrailPaint (pushed
+// only for their draws; after the snow's)
+constexpr uint32_t kPaintUniformsBinding = 19; // PaintUniforms
+constexpr uint32_t kPaintCoatBinding = 20;     // the three fields' windows side by side: the coats (RGBA8, premultiplied)
+constexpr uint32_t kPaintPlaceBinding = 21;    // ... and the painted places along each field's axis (R32F)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.
@@ -178,6 +183,15 @@ struct SnowUniforms {
     Float4 range{};  // x: the heights' low; y: their span; z: the open slack (units); w: the cover's amount (0 - 1)
     Float4 size{};   // x, y: the map's columns and rows; z, w: the up share (normal y) where snow starts and is full
     Float4 albedo{}; // rgb: the snow's colour (before its light); w: how far the edge's noise moves the slope's rule
+};
+
+// (NOT ORIGINAL - [Graphics] paint_trails) Binding 19, the paint's coat (fragment shader): one per view, vulkan_paint.cpp
+// fills it.
+struct PaintUniforms {
+    Float4x4 eye_to_world{}; // the view's inverse: camera space -> the world
+    Float4 window{};   // x: a texel (world units); y: a window's side (texels); z: 1 / a texel; w: the paint's amount (0 - 1)
+    Float4 first_xy{}; // x, y: the x field's window's first texel (z, y); z, w: the y field's (x, z)
+    Float4 first_z{};  // x, y: the z field's (x, y); z: the share of an axis a surface faces to read its field; w: the slack
 };
 
 constexpr std::size_t kMatrixBytes = 64;

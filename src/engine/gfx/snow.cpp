@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/surface_trail.h"
 
 namespace render::snow {
 
@@ -24,6 +25,7 @@ namespace {
 
 using Vec3 = std::array<float, 3>;
 using Vec2 = std::array<float, 2>;
+using surface_trail::smoothstep;
 
 constexpr uint32_t kByte = 0xFFU;
 constexpr float kByteMax = 255.0F;
@@ -39,45 +41,8 @@ constexpr float kBermStart = 0.85F;      // (a berm rises from this share of the
 constexpr float kBermPeak = 4.0F;        // (4 t (1 - t): 1 at the ring's middle)
 constexpr float kSteepFace = 0.3F;       // (a face this steep or steeper: no centroid sample - a wall)
 constexpr double kForgetSeconds = 2.0;   // a presser not seen this long is forgotten
-constexpr int64_t kKeyHalf = int64_t{1} << 31U;
-constexpr uint32_t kKeyShift = 32;
 
-// --- the random numbers (PCG32 - O'Neill's permuted congruential generator: XSH RR) ---------------------------------
-class Random {
-public:
-    void seed(uint64_t value)
-    {
-        state_ = 0;
-        next();
-        state_ += value;
-        next();
-    }
-    uint32_t next()
-    {
-        constexpr uint64_t kMultiplier = 6364136223846793005ULL;
-        constexpr uint64_t kIncrement = 1442695040888963407ULL;
-        constexpr uint32_t kXorShift = 18;
-        constexpr uint32_t kShiftDown = 27;
-        constexpr uint32_t kRotateShift = 59;
-        constexpr uint32_t kRotateMask = 31;
-        const uint64_t old = state_;
-        state_ = (old * kMultiplier) + kIncrement;
-        const auto shifted = static_cast<uint32_t>(((old >> kXorShift) ^ old) >> kShiftDown);
-        const auto rotate = static_cast<uint32_t>(old >> kRotateShift);
-        return (shifted >> rotate) | (shifted << ((0U - rotate) & kRotateMask));
-    }
-    // 0 - 1
-    float unit()
-    {
-        constexpr float kScale = 1.0F / 16777216.0F;
-        constexpr uint32_t kTopBits = 8;
-        return static_cast<float>(next() >> kTopBits) * kScale;
-    }
-    float between(float low, float high) { return low + ((high - low) * unit()); }
-
-private:
-    uint64_t state_ = 0;
-};
+using Random = surface_trail::Random; // (the surface trails' own random numbers: never the game's)
 constexpr uint64_t kSeed = 0x534E4F57'5452414CULL; // (the session's: the same every run)
 
 // A presser's memory between steps.
@@ -112,41 +77,7 @@ State& state()
     return instance;
 }
 
-std::atomic<bool>& ground_flag()
-{
-    static std::atomic<bool> instance{false};
-    return instance;
-}
-
-float smoothstep(float low, float high, float value)
-{
-    const float along = std::clamp((value - low) / (high - low), 0.0F, 1.0F);
-    constexpr float kThree = 3.0F;
-    constexpr float kTwo = 2.0F;
-    return along * along * (kThree - (kTwo * along));
-}
-
 uint32_t to_byte(float value) { return static_cast<uint32_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * kByteMax)); }
-
-float distance_to_segment(const Vec2& point, const Vec2& from, const Vec2& to)
-{
-    const float dx = core::at(to, 0) - core::at(from, 0);
-    const float dz = core::at(to, 1) - core::at(from, 1);
-    const float px = core::at(point, 0) - core::at(from, 0);
-    const float pz = core::at(point, 1) - core::at(from, 1);
-    const float length2 = (dx * dx) + (dz * dz);
-    const float t = length2 > 0.0F ? std::clamp(((px * dx) + (pz * dz)) / length2, 0.0F, 1.0F) : 0.0F;
-    const float ex = px - (t * dx);
-    const float ez = pz - (t * dz);
-    return std::sqrt((ex * ex) + (ez * ez));
-}
-
-int64_t tile_key(int x, int z)
-{
-    return ((static_cast<int64_t>(x) + kKeyHalf) << kKeyShift) | (static_cast<int64_t>(z) + kKeyHalf);
-}
-
-int floor_div(int value, int by) { return value >= 0 ? value / by : -((-value + by - 1) / by); }
 
 // --- the sky map's cells -----------------------------------------------------------------------------------------------
 struct Cell {
@@ -549,105 +480,34 @@ Ground ground_at(const SkyMap& map, float x, float z)
 
 // --- the trails -------------------------------------------------------------------------------------------------------
 
-Tile& TrailField::tile_for(int x, int z)
-{
-    const int64_t key = tile_key(x, z);
-    const auto found = std::ranges::lower_bound(index_, key, {}, &std::pair<int64_t, std::size_t>::first);
-    if (found != index_.end() && found->first == key) {
-        return *core::at(tiles_, found->second);
-    }
-    auto made = std::make_unique<Tile>();
-    made->x = x;
-    made->z = z;
-    tiles_.push_back(std::move(made));
-    index_.insert(found, {key, tiles_.size() - 1});
-    return *tiles_.back();
-}
-
-const Tile* TrailField::tile(int x, int z) const
-{
-    const int64_t key = tile_key(x, z);
-    const auto found = std::ranges::lower_bound(index_, key, {}, &std::pair<int64_t, std::size_t>::first);
-    if (found != index_.end() && found->first == key) {
-        return core::at(tiles_, found->second).get();
-    }
-    return nullptr;
-}
-
-std::array<int, 2> TrailField::texel_of(float x, float z) const
-{
-    return {static_cast<int>(std::floor(x / texel_)), static_cast<int>(std::floor(z / texel_))};
-}
-
-uint32_t TrailField::texel_at(int x, int z) const
-{
-    const int tx = floor_div(x, kTileTexels);
-    const int tz = floor_div(z, kTileTexels);
-    const Tile* found = tile(tx, tz);
-    if (found == nullptr) {
-        return 0;
-    }
-    const auto column = static_cast<std::size_t>(x - (tx * kTileTexels));
-    const auto row = static_cast<std::size_t>(z - (tz * kTileTexels));
-    return core::at(found->texels, (row * kTileTexels) + column);
-}
-
 void TrailField::stamp(const Stamp& stamp)
 {
-    if (!(stamp.radius > 0.0F) || !std::isfinite(core::at(stamp.from, 0)) || !std::isfinite(core::at(stamp.from, 1)) ||
-        !std::isfinite(core::at(stamp.to, 0)) || !std::isfinite(core::at(stamp.to, 1))) {
+    if (!(stamp.radius > 0.0F)) {
         return;
     }
     const float reach = stamp.radius + kBermWidth + kActiveReach;
-    const std::array<int, 2> first =
-        texel_of(std::min(core::at(stamp.from, 0), core::at(stamp.to, 0)) - reach, std::min(core::at(stamp.from, 1), core::at(stamp.to, 1)) - reach);
-    const std::array<int, 2> last =
-        texel_of(std::max(core::at(stamp.from, 0), core::at(stamp.to, 0)) + reach, std::max(core::at(stamp.from, 1), core::at(stamp.to, 1)) + reach);
     const float berm_span = ((1.0F - kBermStart) * stamp.radius) + kBermWidth;
     const float active_from = stamp.radius + kBermWidth;
-    for (int tz = floor_div(core::at(first, 1), kTileTexels); tz <= floor_div(core::at(last, 1), kTileTexels); ++tz) {
-        for (int tx = floor_div(core::at(first, 0), kTileTexels); tx <= floor_div(core::at(last, 0), kTileTexels); ++tx) {
-            Tile* tile = nullptr;
-            const int z0 = std::max(core::at(first, 1), tz * kTileTexels);
-            const int z1 = std::min(core::at(last, 1), (tz * kTileTexels) + kTileTexels - 1);
-            const int x0 = std::max(core::at(first, 0), tx * kTileTexels);
-            const int x1 = std::min(core::at(last, 0), (tx * kTileTexels) + kTileTexels - 1);
-            bool changed = false;
-            for (int z = z0; z <= z1; ++z) {
-                for (int x = x0; x <= x1; ++x) {
-                    const Vec2 centre{(static_cast<float>(x) + kHalf) * texel_, (static_cast<float>(z) + kHalf) * texel_};
-                    const float d = distance_to_segment(centre, stamp.from, stamp.to);
-                    if (d >= reach) {
-                        continue;
-                    }
-                    const float press = stamp.press * (1.0F - smoothstep(kSoftEdge * stamp.radius, stamp.radius, d));
-                    const float t = (d - (kBermStart * stamp.radius)) / berm_span;
-                    const float berm = t > 0.0F && t < 1.0F ? stamp.berm * kBermPeak * t * (1.0F - t) : 0.0F;
-                    const float active = 1.0F - smoothstep(active_from, reach, d);
-                    if (tile == nullptr) {
-                        tile = &tile_for(tx, tz);
-                    }
-                    uint32_t& texel = core::at(tile->texels, (static_cast<std::size_t>(z - (tz * kTileTexels)) * kTileTexels) +
-                                                                 static_cast<std::size_t>(x - (tx * kTileTexels)));
-                    const uint32_t old_press = (texel >> kPressShift) & kByte;
-                    const uint32_t old_berm = (texel >> kBermShift) & kByte;
-                    const uint32_t old_active = (texel >> kActiveShift) & kByte;
-                    const uint32_t new_press = std::max(old_press, to_byte(press));
-                    const uint32_t new_berm = std::max(old_berm, to_byte(berm));
-                    const uint32_t new_active = std::max(old_active, to_byte(active));
-                    const uint32_t made = (new_press << kPressShift) | (new_berm << kBermShift) | (new_active << kActiveShift) |
-                                          (texel & ~((kByte << kPressShift) | (kByte << kBermShift) | (kByte << kActiveShift)));
-                    if (made != texel) {
-                        texel = made;
-                        changed = true;
-                    }
-                }
-            }
-            if (changed) {
-                ++tile->version;
-            }
+    stroke(stamp.from, stamp.to, reach, [&](float d, const surface_trail::Point& /*centre*/, surface_trail::TexelRef ref) {
+        const float press = stamp.press * (1.0F - smoothstep(kSoftEdge * stamp.radius, stamp.radius, d));
+        const float t = (d - (kBermStart * stamp.radius)) / berm_span;
+        const float berm = t > 0.0F && t < 1.0F ? stamp.berm * kBermPeak * t * (1.0F - t) : 0.0F;
+        const float active = 1.0F - smoothstep(active_from, reach, d);
+        uint32_t& texel = ref.word(0);
+        const uint32_t old_press = (texel >> kPressShift) & kByte;
+        const uint32_t old_berm = (texel >> kBermShift) & kByte;
+        const uint32_t old_active = (texel >> kActiveShift) & kByte;
+        const uint32_t new_press = std::max(old_press, to_byte(press));
+        const uint32_t new_berm = std::max(old_berm, to_byte(berm));
+        const uint32_t new_active = std::max(old_active, to_byte(active));
+        const uint32_t made = (new_press << kPressShift) | (new_berm << kBermShift) | (new_active << kActiveShift) |
+                              (texel & ~((kByte << kPressShift) | (kByte << kBermShift) | (kByte << kActiveShift)));
+        if (made == texel) {
+            return false;
         }
-    }
+        texel = made;
+        return true;
+    });
 }
 
 void TrailField::fill(uint32_t steps)
@@ -656,9 +516,9 @@ void TrailField::fill(uint32_t steps)
         return;
     }
     const uint32_t by = std::min(steps, kByte);
-    for (const std::unique_ptr<Tile>& tile : tiles_) {
+    change_tiles([by](surface_trail::Tile& tile) {
         bool changed = false;
-        for (uint32_t& texel : tile->texels) {
+        for (uint32_t& texel : tile.texels) {
             const uint32_t press = (texel >> kPressShift) & kByte;
             const uint32_t berm = (texel >> kBermShift) & kByte;
             if (press == 0 && berm == 0) {
@@ -669,10 +529,8 @@ void TrailField::fill(uint32_t steps)
             texel = (texel & ~((kByte << kPressShift) | (kByte << kBermShift))) | (new_press << kPressShift) | (new_berm << kBermShift);
             changed = true;
         }
-        if (changed) {
-            ++tile->version;
-        }
-    }
+        return changed;
+    });
 }
 
 void TrailField::totals(uint64_t* press, uint64_t* berm, uint64_t* active) const
@@ -680,13 +538,13 @@ void TrailField::totals(uint64_t* press, uint64_t* berm, uint64_t* active) const
     *press = 0;
     *berm = 0;
     *active = 0;
-    for (const std::unique_ptr<Tile>& tile : tiles_) {
-        for (const uint32_t texel : tile->texels) {
+    read_tiles([&](const surface_trail::Tile& tile) {
+        for (const uint32_t texel : tile.texels) {
             *press += (texel >> kPressShift) & kByte;
             *berm += (texel >> kBermShift) & kByte;
             *active += (texel >> kActiveShift) & kByte;
         }
-    }
+    });
 }
 
 float layer_height(uint32_t texel, float depth, float cover)
@@ -803,21 +661,5 @@ void reset()
     const std::scoped_lock lock(own.mutex);
     clear_session(own);
 }
-
-void set_current_ground(bool ground) { ground_flag().store(ground, std::memory_order_relaxed); }
-
-bool current_ground() { return ground_flag().load(std::memory_order_relaxed); }
-
-namespace {
-std::atomic<bool>& character_flag()
-{
-    static std::atomic<bool> instance{false};
-    return instance;
-}
-} // namespace
-
-void set_current_character(bool character) { character_flag().store(character, std::memory_order_relaxed); }
-
-bool current_character() { return character_flag().load(std::memory_order_relaxed); }
 
 } // namespace render::snow

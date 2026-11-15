@@ -12,6 +12,7 @@
 #include "engine/gfx/game_hooks.h"
 #include "engine/objects/rail_manager.h"
 #include "game/front_end/front_end.h"
+#include "game/rider/paint_brushes.h"
 #include "game/park_editing/park_editor.h"
 #include "game/skate/career.h"
 #include "game/skate/game_mode.h"
@@ -70,7 +71,8 @@ void install_game_hooks()
                     .game_halted = &game_halted,
                     .park_shell = &park_shell,
                     .level_script = &level_script,
-                    .level_rails = &level_rails});
+                    .level_rails = &level_rails,
+                    .paint_brushes = &skater::paint_brushes::gather});
 }
 
 } // namespace render

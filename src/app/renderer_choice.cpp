@@ -17,6 +17,7 @@
 #include "engine/config/settings_model.h"
 #include "engine/config/settings_state.h"
 #include "engine/gfx/graphics_options.h"
+#include "engine/gfx/paint_trails.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_daylight.h"
@@ -513,6 +514,15 @@ void read_snow(const Resolution& in_effect)
          .falling = in_effect.on("snowfall")});
 }
 
+// NOT ORIGINAL - paint trails (gpu_vulkan/vulkan_paint.h): every skater's line of paint, widening with its combo
+void read_paint(const Resolution& in_effect)
+{
+    const render::vulkan::PaintSettings defaults;
+    render::vulkan::set_paint_settings({.on = in_effect.on("paint_trails"),
+                                        .scale = in_effect.number("paint_trail_scale", defaults.scale),
+                                        .colour = render::paint::colour_from_text(in_effect.value("paint_trail_colour").c_str())});
+}
+
 // NOT ORIGINAL - decals and clutter (gpu_vulkan/vulkan_scatter.h): marks and small props over the level's surfaces
 void read_scatter(const Resolution& in_effect)
 {
@@ -664,6 +674,9 @@ void read_effect(config::Effect effect, const Resolution& in_effect)
         break;
     case Effect::kSnow:
         read_snow(in_effect);
+        break;
+    case Effect::kPaint:
+        read_paint(in_effect);
         break;
     case Effect::kCameraFx:
         read_camera_fx(in_effect);

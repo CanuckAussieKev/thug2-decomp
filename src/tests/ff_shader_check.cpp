@@ -4,7 +4,7 @@
 // SPIRV-Tools' validator (when the build has it: THUG2_SPIRV_VALIDATOR), and - unless --no-gpu - hands every module and
 // a pipeline for each sampled pair of shaders to a Vulkan driver (ff_shader_check_gpu.h).
 //   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion] [--cel]
-//                         [--retro] [--detail] [--water] [--characters]
+//                         [--retro] [--detail] [--water] [--characters] [--trails]
 // --detail (NOT ORIGINAL - rt_detail / rt_delight, gpu_vulkan/vulkan_detail.h): with --surface, every pair lit per pixel
 // with a surface map added again with each of the detail layer's bit sets (ff_key.h kDetail*; the relief's - rt_relief -
 // alone, with the layer and with both) - after --surface's.
@@ -25,6 +25,9 @@
 // --water (NOT ORIGINAL - rt_water, gpu_vulkan/vulkan_water.h): every pair that can be shaded as water added again
 // flat (FragmentKey::water kWaterFlat) and moving (kWaterMoving: its vertex half moves the surface - rt_water_geometry) -
 // after --surface's and --cel's, before --motion's, so they all meet. Compiled, validated and made into pipelines.
+// --trails (NOT ORIGINAL - the surface trails, ff_key.h FragmentKey::trails: the snow's cover, the paint's coat): every
+// pair that takes them added again with the snow, the paint, and both - after --water's (water never takes them), before
+// --motion's. Compiled, validated and made into pipelines.
 // --all-materials: every four-pass material shape, not a covering subset; --device: the physical device for the GPU
 // part (the context check's numbering); --pipelines: at most N pipelines (default: every sampled pair); --jobs: the
 // compiling threads (default 8); --dump: every generated shader's GLSL written into FOLDER (vNNNN.vert, fNNNN.frag).
@@ -89,6 +92,7 @@ struct Options {
     bool cel = false; // (added by cel shading)
     bool retro = false; // (the retro art style)
     bool water = false; // (rt_water)
+    bool trails = false; // (the surface trails: snow, paint)
     bool characters = false; // (added for the characters)
 };
 
@@ -110,6 +114,8 @@ Options read_options(std::span<char*> arguments)
             options.retro = true;
         } else if (argument == "--water") {
             options.water = true;
+        } else if (argument == "--trails") {
+            options.trails = true;
         } else if (argument == "--characters") {
             options.characters = true;
         } else if (argument == "--all-materials") {
@@ -413,6 +419,28 @@ void add_water_keys(ff_check::KeySets& sets)
                 static_cast<unsigned>(vertices));
 }
 
+// (NOT ORIGINAL - the surface trails) Each pair again with the snow's cover, the paint's coat and both, where it takes them.
+void add_trail_keys(ff_check::KeySets& sets)
+{
+    using namespace render::vulkan;
+    const std::vector<ShaderKey> pairs = sets.pairs;
+    std::size_t fragments = 0;
+    for (const ShaderKey& pair : pairs) {
+        for (const uint8_t trails : {kTrailSnow, kTrailPaint, kTrailKnown}) {
+            ShaderKey key = pair;
+            key.fragment.trails = trails;
+            key = normalised(key);
+            if (key.fragment.trails != trails) {
+                continue;
+            }
+            sets.vertex.insert(key.vertex);
+            fragments += sets.fragment.insert(key.fragment).second ? 1U : 0U;
+            sets.pairs.push_back(key);
+        }
+    }
+    text::print("trails: %u fragment keys with the snow, the paint or both added\n", static_cast<unsigned>(fragments));
+}
+
 // (the upscaler's) Each pair's halves again with the motion vectors, where the key takes them (not pre-transformed).
 void add_motion_keys(ff_check::KeySets& sets)
 {
@@ -481,6 +509,9 @@ int run(const Options& options)
     }
     if (options.water) {
         add_water_keys(sets);
+    }
+    if (options.trails) {
+        add_trail_keys(sets);
     }
     if (options.motion) {
         add_motion_keys(sets);

@@ -151,7 +151,9 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kWaterBindings = 5; // (NOT ORIGINAL - rt_water: kWaterUniformsBinding - kWaterWavesBinding)
     constexpr std::size_t kDetailBindings = 2; // (NOT ORIGINAL - rt_detail: kDetailUniformsBinding, kDetailMapBinding)
     constexpr std::size_t kSnowBindings = 2;   // (NOT ORIGINAL - snow: kSnowUniformsBinding, kSnowSkyBinding)
-    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings + kSnowBindings> bindings{};
+    constexpr std::size_t kPaintBindings = 3;  // (NOT ORIGINAL - paint: kPaintUniformsBinding - kPaintPlaceBinding)
+    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings + kSnowBindings + kPaintBindings>
+        bindings{};
     core::at(bindings, 0) = {.binding = kVertexUniformsBinding,
                              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                              .descriptorCount = 1,
@@ -187,7 +189,8 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kWaterFirstSlot = kCelBlockSlot + 1;
     constexpr std::size_t kDetailFirstSlot = kWaterFirstSlot + kWaterBindings;
     constexpr std::size_t kSnowFirstSlot = kDetailFirstSlot + kDetailBindings;
-    constexpr std::size_t kCelSceneSlot = kSnowFirstSlot + kSnowBindings;
+    constexpr std::size_t kPaintFirstSlot = kSnowFirstSlot + kSnowBindings;
+    constexpr std::size_t kCelSceneSlot = kPaintFirstSlot + kPaintBindings;
     static_assert(kCelSceneSlot + 1 == bindings.size(), "the scene is the last binding");
     core::at(bindings, kCelBlockSlot) = {.binding = kCelUniformsBinding,
                                            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -237,6 +240,16 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                               .descriptorCount = 1,
                                               .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                               .pImmutableSamplers = nullptr};
+    // (NOT ORIGINAL - paint, vulkan_paint.h) the paint's block, its coats and places: pushed only for the keys that read them
+    for (uint32_t paint = 0; paint < kPaintBindings; ++paint) {
+        core::at(bindings, kPaintFirstSlot + paint) = {
+            .binding = kPaintUniformsBinding + paint,
+            .descriptorType = paint == 0 ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr};
+    }
+    static_assert(kPaintPlaceBinding == kPaintUniformsBinding + kPaintBindings - 1, "the paint's bindings follow each other");
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,

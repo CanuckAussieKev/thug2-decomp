@@ -18,10 +18,12 @@
 #include <utility>
 #include <vector>
 
+#include "base/core/format.h"
 #include "devtools/compare_split.h"
 #include "devtools/demo.h"
 #include "devtools/demo_viewer.h"
 #include "engine/ext/extension.h"
+#include "engine/gfx/paint_trails.h"
 #include "engine/gfx/texture_sets.h"
 #include "engine/objects/entity.h"
 #include "engine/pad_input/input_event.h"
@@ -183,6 +185,7 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "rt dump [file]  the last frame's ray-tracing record as JSON (game folder)\n"
                               "rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it)\n"
                               "textures [original | pbrify | seedvr2]  the texture set in use / switched (not saved)\n"
+                              "paint [clear]   the paint trails' strokes and drops so far; clear: the paint wiped\n"
                               "help            this list";
 
 // --- the window ------------------------------------------------------------------------------------------------------
@@ -441,6 +444,16 @@ std::string run_command(const std::string& line)
     }
     if (command == "rt") {
         return rt_check::console_command(rest);
+    }
+    if (command == "paint") { // (the paint trails, engine/gfx/paint_trails.h: the same as the script command PaintTrailsClear)
+        if (lower(rest) == "clear") {
+            render::paint::clear();
+            return "paint: wiped";
+        }
+        const render::paint::Counts counts = render::paint::counts();
+        return text::format("paint: %s - %llu strokes, %llu drops over %llu steps this session", render::paint::settings().on ? "on" : "off",
+                            static_cast<unsigned long long>(counts.strokes), static_cast<unsigned long long>(counts.drops),
+                            static_cast<unsigned long long>(counts.steps));
     }
     if (command == "textures") {
         return render::texture_sets::console_command(rest);
