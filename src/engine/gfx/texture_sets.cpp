@@ -155,9 +155,20 @@ const std::string& active()
     return state().active;
 }
 
+namespace {
+int& originals_wanted()
+{
+    thread_local int wanted = 0;
+    return wanted;
+}
+} // namespace
+
+OriginalFiles::OriginalFiles() { ++originals_wanted(); }
+OriginalFiles::~OriginalFiles() { --originals_wanted(); }
+
 bool file_for(const char* overlay_name, std::string* path)
 {
-    if (overlay_name == nullptr) {
+    if (overlay_name == nullptr || originals_wanted() > 0) {
         return false;
     }
     const std::string_view name(overlay_name);
