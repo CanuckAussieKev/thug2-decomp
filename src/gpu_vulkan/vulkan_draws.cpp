@@ -455,7 +455,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     }
     constexpr std::size_t kWaterWrites = 5; // (NOT ORIGINAL - rt_water's: kWaterUniformsBinding - kWaterWavesBinding)
     constexpr std::size_t kDetailWrites = 2; // (NOT ORIGINAL - rt_detail's: kDetailUniformsBinding, kDetailMapBinding)
-    constexpr std::size_t kSnowWrites = 2;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding)
+    constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the scene)
     constexpr std::size_t kPaintWrites = 3;  // (NOT ORIGINAL - paint's: kPaintUniformsBinding - kPaintPlaceBinding)
     std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites> writes{};
     for (VkWriteDescriptorSet& write : writes) {
@@ -544,6 +544,18 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
         sky.dstBinding = kSnowSkyBinding;
         sky.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         sky.pImageInfo = &snow.sky;
+    }
+    // (NOT ORIGINAL - snow traced: the frame's scene at the cel shading's binding, unless a cel draw pushed it already)
+    const VkWriteDescriptorSetAccelerationStructureKHR snow_scene{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+        .pNext = nullptr,
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &snow.scene};
+    if (snow.on && snow.scene != VK_NULL_HANDLE && !(surface.cel && surface.scene != VK_NULL_HANDLE)) {
+        VkWriteDescriptorSet& traced = core::at(writes, count++);
+        traced.pNext = &snow_scene;
+        traced.dstBinding = kCelSceneBinding;
+        traced.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     }
     if (paint.on) { // (NOT ORIGINAL - paint: its block, the coats and their places)
         VkWriteDescriptorSet& block = core::at(writes, count++);
@@ -1264,7 +1276,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     // NOT ORIGINAL - the snow's cover on the world's ground and the scene objects ([Graphics] snow, vulkan_snow.h; nothing
     // with it off)
     SnowDescriptors snow;
-    snow_key(state, block, &shaders, &snow);
+    snow_key(state, block, call, &shaders, &snow);
     // NOT ORIGINAL - the paint trails' coat on the same draws, over the snow ([Graphics] paint_trails, vulkan_paint.h)
     PaintDescriptors paint;
     paint_key(state, block, &shaders, &paint);
@@ -1354,7 +1366,8 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
             bound.previous_stride = stride;
         }
     }
-    bind_cel_stream(state, commands, shaders.vertex.surface, cel.stream); // (added by cel shading)
+    // (added by cel shading; the snow's tint reads the same stream)
+    bind_cel_stream(state, commands, shaders.vertex.surface, cel.stream != nullptr ? cel.stream : snow.stream);
     issue_draw(state, commands, call);
     // (added by cel shading) a lit object's outline
     const bool hull_drawn =

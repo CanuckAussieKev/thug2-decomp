@@ -19,18 +19,22 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/snow.h"
+#include "engine/gfx/wind.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_motion.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_surface_trail.h"
 #include "platform/run_log.h"
 
@@ -46,6 +50,8 @@ constexpr uint64_t kReportUpload = 0x534E5704U;
 constexpr uint64_t kReportNoRoom = 0x534E5705U;
 constexpr uint64_t kReportFirstAir = 0x534E5706U;
 constexpr uint64_t kReportFirstCover = 0x534E5707U;
+constexpr uint64_t kReportHaze = 0x534E5708U;
+constexpr uint64_t kReportUncovered = 0x534E570900000000ULL;
 
 constexpr VkShaderStageFlags kStages =
     VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -56,7 +62,13 @@ constexpr uint32_t kBindingColours = 3; // the ground's colours seen (storage: t
 constexpr uint32_t kBindingSource = 4;  // the viewport's colour copied out
 constexpr uint32_t kBindingDepth = 5;   // the depth (the gather's)
 constexpr uint32_t kBindingSeen = 6;    // the ground's colours seen (sampled: the layer reads them)
-constexpr uint32_t kBindingCount = 7;
+constexpr uint32_t kBindingScene = 7;   // the frame's scene (the flakes' rays; only on a device with ray tracing)
+constexpr uint32_t kBindingLamps = 8;   // the lamps' grid round the camera (uniform: three vec4 a cell)
+constexpr uint32_t kBindingCount = 9;
+constexpr std::size_t kLampVectors = 3; // (a cell's vec4s)
+constexpr std::size_t kLampGridVectors =
+    kLampVectors * static_cast<std::size_t>(core::at(kSnowLampCells, 0) * core::at(kSnowLampCells, 1) * core::at(kSnowLampCells, 2));
+static_assert(kLampGridVectors * sizeof(std::array<float, 4>) <= 16384, "the lamps' block within every device's uniform range");
 constexpr uint32_t kGatherGroup = 8;
 constexpr VkFormat kSkyFormat = VK_FORMAT_R16G16_UNORM;
 constexpr VkFormat kTrailsFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -100,6 +112,16 @@ std::string constants_source()
     define("LIFT", kSnowLift);
     define("FLAKE_BOX", kSnowFlakeBox);
     define("FLAKE_HEIGHT", kSnowFlakeHeight);
+    define("NEAR_FLAKES", static_cast<float>(kSnowNearFlakes));
+    define("NEAR_BOX", kSnowNearBox);
+    define("NEAR_HEIGHT", kSnowNearHeight);
+    define("FLAKE_LEAST", kSnowFlakeLeast);
+    define("FLAKE_SPREAD", kSnowFlakeSpread);
+    define("FLAKE_ALPHA", kSnowFlakeAlpha);
+    define("FLAKE_SKY_REACH", kSnowSkyReach);
+    define("FLAKE_SUN_REACH", kSnowSunReach);
+    define("ALBEDO", kSnowAlbedo);
+    out += "#define LAMP_VECTORS " + std::to_string(kLampGridVectors) + "\n";
     return out;
 }
 
@@ -123,6 +145,14 @@ layout(std140, set = 0, binding = 0) uniform Block {
     vec4 right;            // xyz: the camera's right (world)
     vec4 up;               // xyz: the camera's up (world)
     vec4 flake;            // rgb: snow's colour in the light now; w: the flakes drawn
+    vec4 wind;             // x, z: downwind; y: the near flakes' drift (units, wrapped); w: the far flakes'
+    vec4 sky_light;        // rgb: the sky's light on the snow (x its share); w: unused
+    vec4 lens;             // x: the focal length (pixels); y: the aperture (units); z: the focus (units); w: the least
+                           // radius drawn (pixels)
+    vec4 haze;             // rgb: the falling snow's haze's light; w: its extinction a unit (0: none)
+    vec4 haze_range;       // x: where the haze starts (units); y: the sky's distance (units); z, w: unused
+    vec4 lamps_origin;     // xyz: the lamps' grid's first cell's middle; w: a cell's size (0: no grid)
+    vec4 lamps_size;       // xyz: the grid's cells (x, y, z); w: unused
 } p;
 layout(set = 0, binding = 1) uniform sampler2D u_sky;
 layout(set = 0, binding = 2) uniform sampler2D u_trails;
@@ -292,7 +322,13 @@ layout(location = 1) out vec4 o_motion;
 layout(set = 0, binding = 4) uniform sampler2D u_source;
 layout(set = 0, binding = 6) uniform sampler2D u_seen;
 
-float height_at(vec2 xz) { return layer_height(trail_at(xz), v_cover); }
+// The trails' relief: the layer's height as if it were raised everywhere (the activity's fall at the raised area's edge
+// left out - it is the layer meeting the ground's own snow, not a shape of the snow: its slope never shades)
+float height_at(vec2 xz)
+{
+    vec4 trail = trail_at(xz);
+    return p.snow.x * v_cover * ((1.0 - trail.r) + BERM_HEIGHT * trail.g * (1.0 - trail.r));
+}
 
 void main()
 {
@@ -366,12 +402,33 @@ void main()
 }
 )";
 
-// The falling snow: a flake a quad (an instance), its place a hash of its number drifting down through a box round the
-// camera; under a roof (the sky map's top over it) it isn't drawn.
+// The falling snow: flakes in the world. A flake a quad (an instance), its place a hash of its number falling through a
+// box round the camera - the first NEAR_FLAKES in a small box (the dense snow close by), the rest in the big one -,
+// carried downwind by the level's wind (engine/gfx/wind.h: the drift its gusts add up to, on the snow's clock) and
+// fluttering. Drawn as a disc of its true size on the screen, widened by the lens's defocus near the camera and to at
+// least lens.w pixels far off, its alpha the share of the disc the flake covers (big soft near flakes, tiny faint far
+// ones). Lit by the light now (the lighting state's: the sky's light, the direct light where it reaches the flake -
+// TRACED: a ray toward it through the frame's scene - scattered forward, so flakes glint looking toward the sun or the
+// moon, each flake's own twinkle) and the level's lamps round it (the light field's local light, a grid round the
+// camera). Not drawn under a roof (TRACED: a ray straight up; else the sky map's top over it).
 constexpr const char* kFlakeVertexBody = R"(
 layout(location = 0) out vec2 v_corner;
 layout(location = 1) out vec4 v_colour;
+layout(location = 2) out float v_soft;
 out gl_PerVertex { vec4 gl_Position; };
+layout(std140, set = 0, binding = 8) uniform Lamps { vec4 lamp[LAMP_VECTORS]; } lamps;
+#ifdef TRACED
+layout(set = 0, binding = 7) uniform accelerationStructureEXT u_scene;
+bool blocked(vec3 origin, vec3 direction, float reach, uint mask)
+{
+    rayQueryEXT q;
+    rayQueryInitializeEXT(q, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,
+                          direction, reach);
+    while (rayQueryProceedEXT(q)) {
+    }
+    return rayQueryGetIntersectionTypeEXT(q, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+}
+#endif
 
 uint hash(uint x)
 {
@@ -384,37 +441,104 @@ uint hash(uint x)
 }
 float unit(uint x) { return float(x >> 8u) / 16777216.0; }
 
+// The lamps' light at a point (the grid's cells blended, trilinear): the ambient part, and the directional part as it
+// reaches the eye through a flake (scattered forward toward where the light goes).
+vec3 lamp_cell(ivec3 c, vec3 view)
+{
+    int index = (c.z * int(p.lamps_size.y) + c.y) * int(p.lamps_size.x) + c.x;
+    vec4 a = lamps.lamp[index * 3];
+    vec4 b = lamps.lamp[index * 3 + 1];
+    vec4 d = lamps.lamp[index * 3 + 2];
+    vec3 toward = vec3(a.w, b.w, d.w);
+    float cosine = dot(view, toward); // (looking toward the lamps through the flake: their light scattered forward)
+    return a.rgb + b.rgb * (0.35 + 1.8 * pow(max(cosine, 0.0), 6.0));
+}
+vec3 lamp_light(vec3 at, vec3 view)
+{
+    if (p.lamps_origin.w <= 0.0) {
+        return vec3(0.0);
+    }
+    vec3 most = p.lamps_size.xyz - 1.0;
+    vec3 f = clamp((at - p.lamps_origin.xyz) / p.lamps_origin.w, vec3(0.0), most);
+    ivec3 c = ivec3(min(floor(f), max(most - 1.0, vec3(0.0))));
+    vec3 t = f - vec3(c);
+    ivec3 e = min(c + 1, ivec3(most));
+    vec3 x00 = mix(lamp_cell(ivec3(c.x, c.y, c.z), view), lamp_cell(ivec3(e.x, c.y, c.z), view), t.x);
+    vec3 x10 = mix(lamp_cell(ivec3(c.x, e.y, c.z), view), lamp_cell(ivec3(e.x, e.y, c.z), view), t.x);
+    vec3 x01 = mix(lamp_cell(ivec3(c.x, c.y, e.z), view), lamp_cell(ivec3(e.x, c.y, e.z), view), t.x);
+    vec3 x11 = mix(lamp_cell(ivec3(c.x, e.y, e.z), view), lamp_cell(ivec3(e.x, e.y, e.z), view), t.x);
+    return mix(mix(x00, x10, t.y), mix(x01, x11, t.y), t.z);
+}
+
 void main()
 {
     uint i = uint(gl_InstanceIndex);
-    float hx = unit(hash(i * 4u + 1u));
-    float hy = unit(hash(i * 4u + 2u));
-    float hz = unit(hash(i * 4u + 3u));
-    float hs = unit(hash(i * 4u + 4u));
+    bool near = i < uint(NEAR_FLAKES);
+    float box = near ? NEAR_BOX : FLAKE_BOX;
+    float height = near ? NEAR_HEIGHT : FLAKE_HEIGHT;
+    float drift = near ? p.wind.y : p.wind.w;
+    float hx = unit(hash(i * 5u + 1u));
+    float hy = unit(hash(i * 5u + 2u));
+    float hz = unit(hash(i * 5u + 3u));
+    float hs = unit(hash(i * 5u + 4u));
+    float hp = unit(hash(i * 5u + 5u));
     float t = p.camera.w;
-    float fall = 45.0 + 35.0 * hs;
-    vec2 drift = vec2(16.0, 6.0) * t + vec2(sin(t * 1.3 + hx * 40.0), cos(t * 1.1 + hz * 40.0)) * 5.0;
+    float fall = 38.0 + 30.0 * hs;
+    vec2 downwind = vec2(p.wind.x, p.wind.z);
+    vec2 flutter = vec2(sin(t * (0.9 + hp) + hx * 40.0), cos(t * (0.7 + hp) + hz * 40.0)) * (2.0 + 4.0 * hp);
+    vec2 shift = downwind * drift + flutter;
     vec3 world;
-    world.y = p.camera.y - 0.35 * FLAKE_HEIGHT + mod(hy * FLAKE_HEIGHT - fall * t, FLAKE_HEIGHT);
-    world.x = p.camera.x + (fract((hx * FLAKE_BOX + drift.x - p.camera.x) / FLAKE_BOX) - 0.5) * FLAKE_BOX;
-    world.z = p.camera.z + (fract((hz * FLAKE_BOX + drift.y - p.camera.z) / FLAKE_BOX) - 0.5) * FLAKE_BOX;
-    float distance = length(world - p.camera.xyz);
+    float rise = mod(hy * height - fall * t, height);
+    world.y = p.camera.y - 0.4 * height + rise;
+    world.x = p.camera.x + (fract((hx * box + shift.x - p.camera.x) / box) - 0.5) * box;
+    world.z = p.camera.z + (fract((hz * box + shift.y - p.camera.z) / box) - 0.5) * box;
+    vec3 to_flake = world - p.camera.xyz;
+    float flat_distance = length(to_flake.xz);
+    float distance = length(to_flake);
+    vec3 view = to_flake / max(distance, 1.0e-3);
+    // faded at its box's sides, top and bottom (the box wraps there) and far off
+    float edge = rise / height;
+    float fade = (1.0 - smoothstep(0.36 * box, 0.5 * box, flat_distance)) * smoothstep(0.0, 0.08, edge) *
+                 (1.0 - smoothstep(0.9, 1.0, edge));
+#ifdef TRACED
+    bool sheltered = blocked(world, vec3(0.0, 1.0, 0.0), FLAKE_SKY_REACH, 0x05u);
+    float lit = p.light.y > 0.0 && !blocked(world + p.light.xyz * 0.5, p.light.xyz, FLAKE_SUN_REACH, 0x07u) ? 1.0 : 0.0;
+#else
     vec2 f = (world.xz - p.sky_map.xy) / p.sky_map.z;
     vec3 top = sky_cell(ivec2(floor(f)));
     bool sheltered = top.z > 0.5 && top.x > world.y + 4.0;
-    float fade = (1.0 - smoothstep(0.32 * FLAKE_BOX, 0.5 * FLAKE_BOX, distance)) * smoothstep(6.0, 30.0, distance);
+    float lit = 1.0;
+#endif
+    // its light: the sky's, the direct light scattered forward (a glint looking toward it) with its twinkle, the lamps'
+    float forward = pow(max(dot(view, p.light.xyz), 0.0), 10.0);
+    float phase = 0.6 + 2.4 * forward;
+    float twinkle = 1.0 + 1.2 * pow(0.5 + 0.5 * sin(t * (6.0 + 9.0 * hp) + hs * 60.0), 24.0);
+    vec3 light = p.sky_light.rgb + p.light_colour.rgb * (lit * phase * twinkle) + lamp_light(world, view);
+    // its size on the screen: the true disc, widened by the defocus, at least lens.w pixels
+    vec4 clip = p.vp * vec4(world, 1.0);
+    float w = max(clip.w, 1.0e-3);
+    float radius = (FLAKE_LEAST + FLAKE_SPREAD * hs) * p.lens.x / w;
+    float blur = p.lens.y * p.lens.x * abs(1.0 / w - 1.0 / p.lens.z);
+    float drawn = max(sqrt(radius * radius + blur * blur), p.lens.w);
+    float coverage = clamp((radius * radius) / (drawn * drawn), 0.0, 1.0);
     vec2 corner = vec2((gl_VertexIndex & 1) == 0 ? -1.0 : 1.0, (gl_VertexIndex & 2) == 0 ? -1.0 : 1.0);
-    float size = 0.55 + 0.75 * hs;
-    vec3 at = world + (p.right.xyz * corner.x + p.up.xyz * corner.y) * size;
-    gl_Position = sheltered || fade <= 0.0 ? vec4(0.0) : to_target(p.vp * vec4(at, 1.0));
+    clip.xy += corner * drawn * 2.0 / p.rect.zw * clip.w;
+    bool hidden = sheltered || fade <= 0.0 || clip.w < 2.0 || coverage * fade < 0.002;
+    gl_Position = hidden ? vec4(0.0) : to_target(clip);
     v_corner = corner;
-    v_colour = vec4(p.flake.rgb * (0.95 + 0.1 * hs), 0.85 * fade);
+    v_soft = clamp(blur / drawn, 0.0, 1.0);
+    v_colour = vec4(ALBEDO * light * (0.92 + 0.16 * hs), FLAKE_ALPHA * coverage * fade);
 }
 )";
 
+// The air's discs: a crisp flake's edge, a defocused one's soft falloff. With the motion attachment, the share of the
+// pixel the disc took (z, the largest: the upscaler's reactive mask) - its motion left as the scene's behind it.
 constexpr const char* kAirFragmentBody = R"(
 layout(location = 0) in vec2 v_corner;
 layout(location = 1) in vec4 v_colour;
+#ifdef FLAKES
+layout(location = 2) in float v_soft;
+#endif
 layout(location = 0) out vec4 o_colour;
 #ifdef MOTION
 layout(location = 1) out vec4 o_motion;
@@ -423,14 +547,58 @@ layout(location = 1) out vec4 o_motion;
 void main()
 {
     float r = length(v_corner);
+#ifdef FLAKES
+    float crisp = 1.0 - smoothstep(0.55, 1.0, r);
+    float soft = max(1.0 - r * r, 0.0);
+    float alpha = v_colour.a * mix(crisp, soft * soft * 1.6, v_soft);
+#else
     float alpha = v_colour.a * (1.0 - smoothstep(0.45, 1.0, r));
+#endif
     if (alpha <= 0.002) {
         discard;
     }
+    alpha = min(alpha, 1.0);
     o_colour = vec4(finite_colour(v_colour.rgb), alpha);
 #ifdef MOTION
-    o_motion = vec4(0.0);
+    o_motion = vec4(0.0, 0.0, alpha, 0.0);
 #endif
+}
+)";
+
+// The falling snow's haze: what the snow too far off to draw as flakes does to the picture - a medium of the snow's
+// light, its extinction p.haze.w a unit from p.haze_range.x out (the sky: as far as p.haze_range.y), blended over the
+// world (colour x T + the haze's light x (1 - T)). A full-screen triangle; the depth read, not attached.
+constexpr const char* kHazeVertexBody = R"(
+out gl_PerVertex { vec4 gl_Position; };
+void main()
+{
+    vec2 corner = vec2(float((gl_VertexIndex << 1) & 2), float(gl_VertexIndex & 2));
+    gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0);
+}
+)";
+constexpr const char* kHazeFragmentBody = R"(
+layout(location = 0) out vec4 o_colour;
+#ifdef MULTISAMPLED
+layout(set = 0, binding = 5) uniform sampler2DMS u_depth;
+#else
+layout(set = 0, binding = 5) uniform sampler2D u_depth;
+#endif
+
+float linear_depth(float d)
+{
+    float ndc = (d - p.depth_map.x) * p.depth_map.y;
+    float z = (p.depth_projection.y - ndc * p.depth_projection.w) / (ndc * p.depth_projection.z - p.depth_projection.x);
+    float w = z * p.depth_projection.z + p.depth_projection.w;
+    return abs(p.depth_projection.z) > 0.5 ? w : abs(z);
+}
+
+void main()
+{
+    float d = texelFetch(u_depth, ivec2(gl_FragCoord.xy), 0).r;
+    float distance = d >= 1.0 ? p.haze_range.y : min(linear_depth(d), p.haze_range.y);
+    float tau = p.haze.w * max(distance - p.haze_range.x, 0.0);
+    float through = exp(-min(tau, 40.0));
+    o_colour = vec4(finite_colour(p.haze.rgb) * (1.0 - through), through);
 }
 )";
 
@@ -452,15 +620,22 @@ struct Block {
     std::array<float, 4> right{};
     std::array<float, 4> up{};
     std::array<float, 4> flake{};
+    std::array<float, 4> wind{};
+    std::array<float, 4> sky_light{};
+    std::array<float, 4> lens{};
+    std::array<float, 4> haze{};
+    std::array<float, 4> haze_range{};
+    std::array<float, 4> lamps_origin{};
+    std::array<float, 4> lamps_size{};
 };
-constexpr std::size_t kBlockBytes = 352;
+constexpr std::size_t kBlockBytes = 464;
 static_assert(sizeof(Block) == kBlockBytes, "the shaders' Block");
 
 struct TileConstants {
     std::array<int32_t, 4> tile{};
 };
 
-enum class DrawKind : uint8_t { kLayer, kSpray, kFlakes };
+enum class DrawKind : uint8_t { kLayer, kSpray, kFlakes, kHaze };
 
 struct DrawPipeline {
     DrawKind kind = DrawKind::kLayer;
@@ -468,6 +643,8 @@ struct DrawPipeline {
     VkFormat depth = VK_FORMAT_UNDEFINED;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     bool motion = false;
+    bool traced = false;       // (the flakes': their rays through the frame's scene)
+    bool multisampled = false; // (the haze's: the depth it reads)
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -505,8 +682,11 @@ struct SnowState {
     std::array<VkShaderModule, 2> layer_vertex{};
     std::array<VkShaderModule, 2> layer_fragment{};
     VkShaderModule spray_vertex = VK_NULL_HANDLE;
-    VkShaderModule flake_vertex = VK_NULL_HANDLE;
-    std::array<VkShaderModule, 2> air_fragment{};
+    std::array<VkShaderModule, 2> flake_vertex{};   // plain, traced
+    std::array<VkShaderModule, 4> air_fragment{};   // [motion x 2 + flakes]
+    VkShaderModule haze_vertex = VK_NULL_HANDLE;
+    std::array<VkShaderModule, 2> haze_fragment{};  // single-sampled depth, multisampled
+    bool scene_binding = false;                     // the set layout has kBindingScene
     std::vector<DrawPipeline> draws;
     Image source;
     bool failed = false;
@@ -622,6 +802,49 @@ SnowLight snow_light()
     return light;
 }
 
+// The lamps' grid round the camera: where its first cell's middle is (the camera's cell in the middle of it).
+std::array<float, 3> lamp_origin(const std::array<float, 3>& camera)
+{
+    std::array<float, 3> origin{};
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        const float cells = static_cast<float>(core::at(kSnowLampCells, axis) - 1) * kHalf;
+        core::at(origin, axis) = (std::round(core::at(camera, axis) / kSnowLampCell) - cells) * kSnowLampCell;
+    }
+    return origin;
+}
+
+// The level's own lights (the light field's local light: rt_light_field.h, the one lighting path's) at each cell of the
+// grid - three vec4 a cell: the ambient part and toward.x, the directional part and toward.y, toward.z. None without a
+// field (a level not relit: the flakes take the sky's and the direct light alone).
+std::vector<std::array<float, 4>> lamp_cells(const std::array<float, 3>& origin, bool* any)
+{
+    const std::shared_ptr<const rt::LightField> field = rt::light_field();
+    const auto count = static_cast<std::size_t>(core::at(kSnowLampCells, 0) * core::at(kSnowLampCells, 1) * core::at(kSnowLampCells, 2));
+    std::vector<std::array<float, 4>> cells(count * kLampVectors, std::array<float, 4>{});
+    *any = false;
+    if (field == nullptr) {
+        return cells;
+    }
+    std::size_t index = 0;
+    for (int z = 0; z < core::at(kSnowLampCells, 2); ++z) {
+        for (int y = 0; y < core::at(kSnowLampCells, 1); ++y) {
+            for (int x = 0; x < core::at(kSnowLampCells, 0); ++x) {
+                const rt::FieldPoint at{core::at(origin, 0) + (static_cast<float>(x) * kSnowLampCell),
+                                        core::at(origin, 1) + (static_cast<float>(y) * kSnowLampCell),
+                                        core::at(origin, 2) + (static_cast<float>(z) * kSnowLampCell)};
+                const rt::LocalLight local = field->local_at(at);
+                *any = *any || local.any();
+                core::at(cells, index++) = {core::at(local.ambient, 0), core::at(local.ambient, 1), core::at(local.ambient, 2),
+                                            core::at(local.toward, 0)};
+                core::at(cells, index++) = {core::at(local.directional, 0), core::at(local.directional, 1),
+                                            core::at(local.directional, 2), core::at(local.toward, 1)};
+                core::at(cells, index++) = {0.0F, 0.0F, 0.0F, core::at(local.toward, 2)};
+            }
+        }
+    }
+    return cells;
+}
+
 // --- the objects ----------------------------------------------------------------------------------------------------
 
 VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::string& source, std::string* error)
@@ -709,19 +932,23 @@ bool make_layouts(Backend& state, std::string* error)
 {
     SnowState& own = snow_state();
     const VkDevice device = state.context.device();
-    std::array<VkDescriptorSetLayoutBinding, kBindingCount> bindings{};
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    own.scene_binding = state.context.ray_tracing_enabled();
     for (uint32_t binding = 0; binding < kBindingCount; ++binding) {
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         if (binding == kBindingBlock) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         } else if (binding == kBindingColours) {
             type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        } else if (binding == kBindingLamps) {
+            type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        } else if (binding == kBindingScene) {
+            if (!own.scene_binding) {
+                continue;
+            }
+            type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         }
-        core::at(bindings, binding) = {.binding = binding,
-                                       .descriptorType = type,
-                                       .descriptorCount = 1,
-                                       .stageFlags = kStages,
-                                       .pImmutableSamplers = nullptr};
+        bindings.push_back({.binding = binding, .descriptorType = type, .descriptorCount = 1, .stageFlags = kStages, .pImmutableSamplers = nullptr});
     }
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
@@ -754,7 +981,7 @@ bool make_layouts(Backend& state, std::string* error)
 bool ensure_objects(Backend& state, std::string* error)
 {
     SnowState& own = snow_state();
-    if (core::at(own.air_fragment, 1) != VK_NULL_HANDLE) {
+    if (own.haze_vertex != VK_NULL_HANDLE) {
         return true;
     }
     const VkDevice device = state.context.device();
@@ -778,22 +1005,42 @@ bool ensure_objects(Backend& state, std::string* error)
             core::at(own.layer_fragment, variant) =
                 make_module(device, RtShaderStage::kFragment, source_of(kLayerFragmentBody, motion), error);
         }
-        if (core::at(own.air_fragment, variant) == VK_NULL_HANDLE) {
-            core::at(own.air_fragment, variant) =
-                make_module(device, RtShaderStage::kFragment, source_of(kAirFragmentBody, motion), error);
+        for (std::size_t flakes = 0; flakes < 2; ++flakes) {
+            VkShaderModule& module = core::at(own.air_fragment, (variant * 2) + flakes);
+            if (module == VK_NULL_HANDLE) {
+                std::string defines = variant == 1 ? "MOTION\n#define " : "";
+                defines += flakes == 1 ? "FLAKES" : "SPRAY";
+                module = make_module(device, RtShaderStage::kFragment, source_of(kAirFragmentBody, defines.c_str()), error);
+            }
+            if (module == VK_NULL_HANDLE) {
+                return false;
+            }
+        }
+        if (core::at(own.haze_fragment, variant) == VK_NULL_HANDLE) {
+            core::at(own.haze_fragment, variant) = make_module(device, RtShaderStage::kFragment,
+                                                               source_of(kHazeFragmentBody, variant == 1 ? "MULTISAMPLED" : nullptr), error);
         }
         if (core::at(own.layer_vertex, variant) == VK_NULL_HANDLE ||
-            core::at(own.layer_fragment, variant) == VK_NULL_HANDLE || core::at(own.air_fragment, variant) == VK_NULL_HANDLE) {
+            core::at(own.layer_fragment, variant) == VK_NULL_HANDLE || core::at(own.haze_fragment, variant) == VK_NULL_HANDLE) {
             return false;
         }
     }
     if (own.spray_vertex == VK_NULL_HANDLE) {
         own.spray_vertex = make_module(device, RtShaderStage::kVertex, source_of(kSprayVertexBody, nullptr), error);
     }
-    if (own.flake_vertex == VK_NULL_HANDLE) {
-        own.flake_vertex = make_module(device, RtShaderStage::kVertex, source_of(kFlakeVertexBody, nullptr), error);
+    if (core::at(own.flake_vertex, 0) == VK_NULL_HANDLE) {
+        core::at(own.flake_vertex, 0) = make_module(device, RtShaderStage::kVertex, source_of(kFlakeVertexBody, nullptr), error);
     }
-    return own.spray_vertex != VK_NULL_HANDLE && own.flake_vertex != VK_NULL_HANDLE;
+    if (own.scene_binding && core::at(own.flake_vertex, 1) == VK_NULL_HANDLE) {
+        core::at(own.flake_vertex, 1) = make_module(device, RtShaderStage::kVertex,
+                                                    source_of(kFlakeVertexBody, "TRACED\n#extension GL_EXT_ray_query : require"), error);
+    }
+    if (own.spray_vertex == VK_NULL_HANDLE || core::at(own.flake_vertex, 0) == VK_NULL_HANDLE ||
+        (own.scene_binding && core::at(own.flake_vertex, 1) == VK_NULL_HANDLE)) {
+        return false;
+    }
+    own.haze_vertex = make_module(device, RtShaderStage::kVertex, source_of(kHazeVertexBody, nullptr), error);
+    return own.haze_vertex != VK_NULL_HANDLE;
 }
 
 // A draw's pipeline for the targets' formats and samples (made on first use). The layer: triangles, no culling, the
@@ -804,17 +1051,25 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     SnowState& own = snow_state();
     for (const DrawPipeline& made : own.draws) {
         if (made.kind == wanted.kind && made.format == wanted.format && made.depth == wanted.depth &&
-            made.samples == wanted.samples && made.motion == wanted.motion) {
+            made.samples == wanted.samples && made.motion == wanted.motion && made.traced == wanted.traced &&
+            made.multisampled == wanted.multisampled) {
             return made.pipeline;
         }
     }
     const bool layer = wanted.kind == DrawKind::kLayer;
+    const bool haze = wanted.kind == DrawKind::kHaze;
     const std::size_t variant = wanted.motion ? 1 : 0;
     VkShaderModule vertex_module = core::at(own.layer_vertex, variant);
+    VkShaderModule fragment_module = core::at(own.layer_fragment, variant);
     if (wanted.kind == DrawKind::kSpray) {
         vertex_module = own.spray_vertex;
+        fragment_module = core::at(own.air_fragment, variant * 2);
     } else if (wanted.kind == DrawKind::kFlakes) {
-        vertex_module = own.flake_vertex;
+        vertex_module = core::at(own.flake_vertex, wanted.traced ? 1 : 0);
+        fragment_module = core::at(own.air_fragment, (variant * 2) + 1);
+    } else if (haze) {
+        vertex_module = own.haze_vertex;
+        fragment_module = core::at(own.haze_fragment, wanted.multisampled ? 1 : 0);
     }
     const std::array<VkPipelineShaderStageCreateInfo, 2> stages{{
         {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -828,7 +1083,7 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
          .pNext = nullptr,
          .flags = 0,
          .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-         .module = layer ? core::at(own.layer_fragment, variant) : core::at(own.air_fragment, variant),
+         .module = fragment_module,
          .pName = "main",
          .pSpecializationInfo = nullptr},
     }};
@@ -853,7 +1108,7 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     }
     VkPipelineInputAssemblyStateCreateInfo assembly{};
     assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    assembly.topology = layer ? VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    assembly.topology = layer || haze ? VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     VkPipelineViewportStateCreateInfo viewport{};
     viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewport.viewportCount = 1;
@@ -875,23 +1130,36 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
                                                            .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth.depthTestEnable = VK_TRUE;
+    depth.depthTestEnable = haze ? VK_FALSE : VK_TRUE;
     depth.depthWriteEnable = layer ? VK_TRUE : VK_FALSE;
     depth.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     std::array<VkPipelineColorBlendAttachmentState, 2> blend{};
     VkPipelineColorBlendAttachmentState& colour_blend = core::at(blend, 0);
     colour_blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
     if (!layer) {
+        // the air: over the colour by its alpha; the haze: colour x its transmittance (alpha) + its light
         colour_blend.blendEnable = VK_TRUE;
-        colour_blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-        colour_blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        colour_blend.srcColorBlendFactor = haze ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
+        colour_blend.dstColorBlendFactor = haze ? VK_BLEND_FACTOR_SRC_ALPHA : VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         colour_blend.colorBlendOp = VK_BLEND_OP_ADD;
         colour_blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
         colour_blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
         colour_blend.alphaBlendOp = VK_BLEND_OP_ADD;
     }
-    core::at(blend, 1).colorWriteMask =
-        layer ? VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT : 0;
+    // the motion: the layer's own (x, y); the air's share of the pixel (z, the largest - the upscaler's reactive mask)
+    VkPipelineColorBlendAttachmentState& motion_blend = core::at(blend, 1);
+    if (layer) {
+        motion_blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    } else if (!haze) {
+        motion_blend.blendEnable = VK_TRUE;
+        motion_blend.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        motion_blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        motion_blend.colorBlendOp = VK_BLEND_OP_MAX;
+        motion_blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        motion_blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        motion_blend.alphaBlendOp = VK_BLEND_OP_MAX;
+        motion_blend.colorWriteMask = VK_COLOR_COMPONENT_B_BIT;
+    }
     VkPipelineColorBlendStateCreateInfo blending{};
     blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     blending.attachmentCount = wanted.motion ? 2U : 1U;
@@ -906,7 +1174,7 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     rendering.colorAttachmentCount = wanted.motion ? 2U : 1U;
     rendering.pColorAttachmentFormats = formats.data();
-    rendering.depthAttachmentFormat = wanted.depth;
+    rendering.depthAttachmentFormat = haze ? VK_FORMAT_UNDEFINED : wanted.depth;
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     info.pNext = &rendering;
@@ -1031,8 +1299,9 @@ std::optional<VkDescriptorBufferInfo> cover_block(Backend& state)
     uniforms.eye_to_world = trail_eye_to_world(own.view.camera.view);
     uniforms.map = {map->x0, map->z0, 1.0F / map->cell, map->cell};
     uniforms.range = {map->low, map->span, snow::kOpenSlack + (snow::kOpenCellShare * map->cell), 1.0F};
-    uniforms.size = {static_cast<float>(map->columns), static_cast<float>(map->rows), snow::kLeastUp, snow::kFullUp};
+    uniforms.size = {static_cast<float>(map->columns), static_cast<float>(map->rows), snow::kLeastUp, snow::kCoatUp};
     uniforms.albedo = {kSnowAlbedo, kSnowAlbedo, kSnowAlbedo * 1.02F, kSnowEdgeNoise};
+    uniforms.slope = {snow::kThinUp, snow::kFullUp, snow::kCoatShare, kSnowSkyReach};
     const void* const data = &uniforms;
     const std::optional<RingSpan> span =
         state.ring.copy(std::span(static_cast<const uint8_t*>(data), sizeof(uniforms)), state.uniform_alignment);
@@ -1102,7 +1371,7 @@ bool plan_view(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
     return core::at(plan->rect, 2) != 0 && core::at(plan->rect, 3) != 0;
 }
 
-Block block_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view)
+Block block_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view, bool lamps = false)
 {
     const SnowState& own = snow_state();
     const snow::Settings settings = snow::settings();
@@ -1150,6 +1419,29 @@ Block block_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn&
     }
     const float flakes = settings.falling ? static_cast<float>(kSnowMostFlakes) : 0.0F;
     block.flake = {core::at(flake, 0), core::at(flake, 1), core::at(flake, 2), flakes};
+    // the wind's drift (wrapped by each box: the flakes' places are modulo their box)
+    const double drift = snow::wind_drift();
+    block.wind = {core::at(wind::kDirection, 0), static_cast<float>(std::fmod(drift, static_cast<double>(kSnowNearBox))),
+                  core::at(wind::kDirection, 1), static_cast<float>(std::fmod(drift, static_cast<double>(kSnowFlakeBox)))};
+    block.sky_light = {core::at(light.ambient, 0), core::at(light.ambient, 1), core::at(light.ambient, 2), 0.0F};
+    // the lens: the focal length in the view's pixels, its defocus focused on what the camera follows
+    const float focal = core::at(plan.rect, 3) != 0 ? static_cast<float>(core::at(plan.rect, 3)) * kHalf *
+                                                          std::abs(core::at(core::at(projection, 1), 1))
+                                                    : 1.0F;
+    const float focus = view.focus_known && view.focus_distance > 1.0F ? view.focus_distance : kSnowFocus;
+    block.lens = {focal, kSnowAperture, focus, kSnowLeastPixels};
+    // the haze while snow falls: the snow's light, half its direct light (the falling snow shades itself)
+    if (settings.falling) {
+        constexpr float kHazeDirect = 0.5F;
+        block.haze = {kSnowAlbedo * (core::at(light.ambient, 0) + (kHazeDirect * core::at(light.colour, 0))),
+                      kSnowAlbedo * (core::at(light.ambient, 1) + (kHazeDirect * core::at(light.colour, 1))),
+                      kSnowAlbedo * (core::at(light.ambient, 2) + (kHazeDirect * core::at(light.colour, 2))), kSnowHazeExtinction};
+    }
+    block.haze_range = {kSnowHazeStart, kSnowHazeSky, 0.0F, 0.0F};
+    const std::array<float, 3> origin = lamp_origin(view.camera.position);
+    block.lamps_origin = {core::at(origin, 0), core::at(origin, 1), core::at(origin, 2), lamps ? kSnowLampCell : 0.0F};
+    block.lamps_size = {static_cast<float>(core::at(kSnowLampCells, 0)), static_cast<float>(core::at(kSnowLampCells, 1)),
+                        static_cast<float>(core::at(kSnowLampCells, 2)), 0.0F};
     return block;
 }
 
@@ -1167,8 +1459,11 @@ std::optional<VkDescriptorBufferInfo> block_in_ring(Backend& state, const Block&
 struct Bound {
     VkDescriptorBufferInfo block{};
     bool gather = false;           // the colours as storage, the source and the depth
-    const Image* depth = nullptr;  // (the gather's: null - the source in its place)
+    const Image* depth = nullptr;  // (the gather's: null - the source in its place; the haze's)
     bool layer = false;            // the source and the colours seen
+    VkDescriptorBufferInfo lamps{}; // (the flakes': the lamps' grid)
+    VkAccelerationStructureKHR scene = VK_NULL_HANDLE; // (the flakes' traced rays)
+    bool haze = false;             // the depth alone
 };
 
 void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const Bound& bound)
@@ -1208,6 +1503,22 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     if (bound.layer) {
         core::at(images, kBindingSeen) = {.sampler = own.repeat, .imageView = own.colours.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
         add(kBindingSeen, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &core::at(images, kBindingSeen), nullptr);
+    }
+    if (bound.haze && bound.depth != nullptr) {
+        core::at(images, kBindingDepth) = {.sampler = own.nearest, .imageView = bound.depth->view,
+                                           .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
+        add(kBindingDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &core::at(images, kBindingDepth), nullptr);
+    }
+    if (bound.lamps.buffer != VK_NULL_HANDLE) {
+        add(kBindingLamps, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bound.lamps);
+    }
+    const VkWriteDescriptorSetAccelerationStructureKHR scene{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+                                                             .pNext = nullptr,
+                                                             .accelerationStructureCount = 1,
+                                                             .pAccelerationStructures = &bound.scene};
+    if (bound.scene != VK_NULL_HANDLE && own.scene_binding) {
+        add(kBindingScene, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, nullptr, nullptr);
+        core::at(writes, count - 1).pNext = &scene;
     }
     vkCmdPushDescriptorSetKHR(commands, point, own.layout, 0, count, writes.data());
 }
@@ -1353,6 +1664,59 @@ void begin_rendering(Backend& state, VkCommandBuffer commands, const ViewPlan& p
     depth->used = serial;
 }
 
+// The colour alone (the haze: the depth is read).
+void begin_colour_rendering(Backend& state, VkCommandBuffer commands, const ViewPlan& plan, const rt::ViewDrawn& view)
+{
+    VkRenderingAttachmentInfo colour_info{};
+    colour_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colour_info.imageView = plan.colour->attachment_view;
+    colour_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colour_info.resolveMode = VK_RESOLVE_MODE_NONE;
+    colour_info.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    colour_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    const VkRect2D area{.offset = {.x = static_cast<int32_t>(core::at(plan.rect, 0)), .y = static_cast<int32_t>(core::at(plan.rect, 1))},
+                        .extent = {.width = core::at(plan.rect, 2), .height = core::at(plan.rect, 3)}};
+    VkRenderingInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    info.renderArea = area;
+    info.layerCount = 1;
+    info.colorAttachmentCount = 1;
+    info.pColorAttachments = &colour_info;
+    vkCmdBeginRendering(commands, &info);
+    const VkViewport viewport{.x = static_cast<float>(area.offset.x),
+                              .y = static_cast<float>(area.offset.y),
+                              .width = static_cast<float>(area.extent.width),
+                              .height = static_cast<float>(area.extent.height),
+                              .minDepth = std::clamp(core::at(view.depth_range, 0), 0.0F, 1.0F),
+                              .maxDepth = std::clamp(core::at(view.depth_range, 1), 0.0F, 1.0F)};
+    vkCmdSetViewport(commands, 0, 1, &viewport);
+    vkCmdSetScissor(commands, 0, 1, &area);
+    plan.colour->used = state.frames.serial();
+}
+
+// The depth made readable by the haze's fragments (`to_read`), then an attachment again.
+void haze_barrier(VkCommandBuffer commands, Image* depth, bool to_read)
+{
+    const VkPipelineStageFlags tests = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    const VkImageLayout layout = to_read ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    const VkImageMemoryBarrier barrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = to_read ? VkAccessFlags{VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT} : VkAccessFlags{VK_ACCESS_SHADER_READ_BIT},
+        .dstAccessMask = to_read ? VkAccessFlags{VK_ACCESS_SHADER_READ_BIT}
+                                 : VkAccessFlags{VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT},
+        .oldLayout = depth->layout,
+        .newLayout = layout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = depth->image,
+        .subresourceRange = {.aspectMask = depth->aspect, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1},
+    };
+    vkCmdPipelineBarrier(commands, to_read ? tests : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         to_read ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : tests, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    depth->layout = layout;
+}
+
 // The tiles of the window that hold trails, nearest first, with their vertices' step.
 struct TileDraw {
     int x = 0; // the tile's first texel
@@ -1379,13 +1743,13 @@ std::vector<TileDraw> tiles_to_draw(const std::array<float, 3>& camera)
     return found;
 }
 
-bool ready_for(Backend& state, const ViewPlan& plan, DrawKind kind, VkPipeline* pipeline)
+bool ready_for(Backend& state, const ViewPlan& plan, DrawKind kind, VkPipeline* pipeline, bool traced = false)
 {
     SnowState& own = snow_state();
     std::string error;
     *pipeline = ensure_objects(state, &error)
                     ? draw_pipeline(state, {.kind = kind, .format = plan.colour->format, .depth = plan.depth->format,
-                                            .samples = plan.colour->samples, .motion = plan.motion},
+                                            .samples = plan.colour->samples, .motion = plan.motion, .traced = traced},
                                     &error)
                     : VK_NULL_HANDLE;
     const bool made = *pipeline != VK_NULL_HANDLE && (kind != DrawKind::kLayer || ensure_source(state, *plan.colour));
@@ -1448,7 +1812,21 @@ void begin_snow_view(Backend& state, const rt::ViewDrawn& view)
     }
 }
 
-void snow_key(Backend& state, const GpuStateBlock& block, ShaderKey* shaders, SnowDescriptors* out)
+SnowGround snow_ground(Backend& state)
+{
+    SnowState& own = snow_state();
+    const std::shared_ptr<const snow::SkyMap>& map = own.sky_uploaded;
+    if (!own.settings.on || own.sky.image == VK_NULL_HANDLE || map == nullptr || own.nearest == VK_NULL_HANDLE) {
+        return {};
+    }
+    own.sky.used = state.frames.serial();
+    return {.on = true,
+            .sky = {.sampler = own.nearest, .imageView = own.sky.view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            .map = {map->x0, map->z0, map->cell, snow::kOpenSlack + (snow::kOpenCellShare * map->cell)},
+            .range = {map->low, map->span, static_cast<float>(map->columns), static_cast<float>(map->rows)}};
+}
+
+void snow_key(Backend& state, const GpuStateBlock& block, const DrawCall& call, ShaderKey* shaders, SnowDescriptors* out)
 {
     *out = {};
     SnowState& own = snow_state();
@@ -1456,12 +1834,24 @@ void snow_key(Backend& state, const GpuStateBlock& block, ShaderKey* shaders, Sn
         !surface_trail::current_ground() || fvf_pre_transformed(block.vertex_format) || shaders->fragment.water != 0U) {
         return;
     }
+    // traced: the frame's scene has something to trace (a device with ray tracing - its pipelines take ray queries)
+    const SceneView scene = state.context.ray_tracing_enabled() ? current_scene(state) : SceneView{};
+    const bool traced = scene.tlas != VK_NULL_HANDLE && scene.instances > 0;
+    // the tint: the relit world's stream for this draw (its vertex colour the tint x the light)
+    Buffer* const stream = relit_stream_of(state, call);
     ShaderKey with_snow = *shaders;
-    with_snow.fragment.trails = static_cast<uint8_t>(with_snow.fragment.trails | kTrailSnow);
+    with_snow.fragment.trails = static_cast<uint8_t>(with_snow.fragment.trails | kTrailSnow | (traced ? kTrailSnowTraced : 0U) |
+                                                     (stream != nullptr ? kTrailSnowTint : 0U));
     with_snow = normalised(with_snow);
     if ((with_snow.fragment.trails & kTrailSnow) == 0U) {
+        if (first_report(state, kReportUncovered ^ hash_of(shaders->fragment))) { // (each kind of ground draw left once)
+            get_log("vulkan: snow: a ground draw its key can't cover (%s)", describe(shaders->fragment).c_str());
+        }
         return;
     }
+    out->scene = (with_snow.fragment.trails & kTrailSnowTraced) != 0U ? scene.tlas : VK_NULL_HANDLE;
+    out->stream = (with_snow.fragment.trails & kTrailSnowTint) != 0U ? stream : nullptr;
+    own.stats.traced_draws += out->scene != VK_NULL_HANDLE ? 1U : 0U;
     const std::optional<VkDescriptorBufferInfo> uniforms = cover_block(state);
     if (!uniforms) {
         return;
@@ -1572,30 +1962,57 @@ bool record_snow_air(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     ViewPlan plan;
-    VkPipeline spray_pipeline = VK_NULL_HANDLE;
-    VkPipeline flake_pipeline = VK_NULL_HANDLE;
-    if (!plan_view(state, view, &plan) || !ready_for(state, plan, DrawKind::kSpray, &spray_pipeline) ||
-        !ready_for(state, plan, DrawKind::kFlakes, &flake_pipeline)) {
+    if (!plan_view(state, view, &plan)) {
         return false;
     }
-    const std::optional<VkDescriptorBufferInfo> block = block_in_ring(state, block_for(state, plan, view));
+    // the flakes traced: a device with ray tracing and a scene with something in it
+    const SceneView scene = own.scene_binding ? current_scene(state) : SceneView{};
+    const bool traced = scene.tlas != VK_NULL_HANDLE && scene.instances > 0;
+    const bool haze = flakes > 0 && plan.sampled_depth;
+    VkPipeline spray_pipeline = VK_NULL_HANDLE;
+    VkPipeline flake_pipeline = VK_NULL_HANDLE;
+    VkPipeline haze_pipeline = VK_NULL_HANDLE;
+    std::string error;
+    if (!ready_for(state, plan, DrawKind::kSpray, &spray_pipeline) ||
+        (flakes > 0 && !ready_for(state, plan, DrawKind::kFlakes, &flake_pipeline, traced))) {
+        return false;
+    }
+    if (haze) {
+        haze_pipeline = draw_pipeline(state, {.kind = DrawKind::kHaze, .format = plan.colour->format, .depth = plan.depth->format,
+                                              .samples = plan.colour->samples, .motion = false,
+                                              .multisampled = plan.depth->samples != VK_SAMPLE_COUNT_1_BIT},
+                                      &error);
+        if (haze_pipeline == VK_NULL_HANDLE && first_report(state, kReportHaze)) {
+            get_log("vulkan: snow: the haze's pass couldn't be made (%s) - none drawn", error.c_str());
+        }
+    }
+    bool lamps_on = false;
+    const std::vector<std::array<float, 4>> lamps = flakes > 0 ? lamp_cells(lamp_origin(view.camera.position), &lamps_on)
+                                                               : std::vector<std::array<float, 4>>(kLampVectors);
+    const std::optional<VkDescriptorBufferInfo> block = block_in_ring(state, block_for(state, plan, view, lamps_on));
+    const void* const lamp_bytes = lamps.data();
+    const std::optional<RingSpan> lamp_span = state.ring.copy(
+        std::span(static_cast<const uint8_t*>(lamp_bytes), lamps.size() * sizeof(std::array<float, 4>)), state.uniform_alignment);
     std::optional<RingSpan> instances;
     if (!spray.empty()) {
         const void* const bytes = spray.data();
         instances = state.ring.copy(std::span(static_cast<const uint8_t*>(bytes), spray.size() * sizeof(snow::SprayParticle)),
                                     kStagingAlignment);
     }
-    if (!block || (!spray.empty() && !instances)) {
+    if (!block || !lamp_span || (!spray.empty() && !instances)) {
         if (first_report(state, kReportNoRoom)) {
             get_log("vulkan: snow: no room in the ring for the spray - skipped");
         }
         return false;
     }
+    const VkDescriptorBufferInfo lamp_info{.buffer = lamp_span->buffer, .offset = lamp_span->offset,
+                                           .range = lamps.size() * sizeof(std::array<float, 4>)};
     VkCommandBuffer commands = outside_pass(state);
     begin_rendering(state, commands, plan, view);
     if (flakes > 0) {
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, flake_pipeline);
-        push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, {.block = *block});
+        push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                         {.block = *block, .lamps = lamp_info, .scene = traced ? scene.tlas : VK_NULL_HANDLE});
         vkCmdDraw(commands, kStripVertices, flakes, 0, 0);
     }
     if (instances) {
@@ -1606,13 +2023,28 @@ bool record_snow_air(Backend& state, const rt::ViewDrawn& view)
         vkCmdDraw(commands, kStripVertices, static_cast<uint32_t>(spray.size()), 0, 0);
     }
     vkCmdEndRendering(commands);
+    // the haze: the snow too far off to draw, over the world by its depth (read, not attached)
+    if (haze && haze_pipeline != VK_NULL_HANDLE) {
+        haze_barrier(commands, plan.depth, true);
+        Memory::transition(commands, plan.colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        begin_colour_rendering(state, commands, plan, view);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, haze_pipeline);
+        push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, {.block = *block, .depth = plan.depth, .haze = true});
+        vkCmdDraw(commands, 3, 1, 0, 0);
+        vkCmdEndRendering(commands);
+        haze_barrier(commands, plan.depth, false);
+        ++own.stats.haze_passes;
+    }
     state.bound = BoundState{};
     own.sky.used = state.frames.serial();
     own.stats.last_spray = static_cast<uint32_t>(spray.size());
     own.stats.last_flakes = flakes;
+    own.stats.last_traced_air = traced && flakes > 0;
+    own.stats.last_lamp_cells = lamps_on ? static_cast<uint32_t>(lamps.size() / kLampVectors) : 0U;
     ++own.stats.air_passes;
     if (first_report(state, kReportFirstAir)) {
-        get_log("vulkan: snow: the first snow in the air (%u flakes, %zu spray particles)", flakes, spray.size());
+        get_log("vulkan: snow: the first snow in the air (%u flakes%s%s, %zu spray particles%s)", flakes, traced ? ", traced" : "",
+                lamps_on ? ", lamps" : "", spray.size(), haze ? ", the haze" : "");
     }
     return true;
 }
@@ -1648,9 +2080,11 @@ void release_snow(Backend& state)
                 vkDestroyPipeline(device, pipeline, nullptr);
             }
         }
-        for (VkShaderModule module : {core::at(own.layer_vertex, 0), core::at(own.layer_vertex, 1), core::at(own.layer_fragment, 0),
-                                      core::at(own.layer_fragment, 1), core::at(own.air_fragment, 0), core::at(own.air_fragment, 1),
-                                      own.spray_vertex, own.flake_vertex}) {
+        for (VkShaderModule module :
+             {core::at(own.layer_vertex, 0), core::at(own.layer_vertex, 1), core::at(own.layer_fragment, 0), core::at(own.layer_fragment, 1),
+              core::at(own.air_fragment, 0), core::at(own.air_fragment, 1), core::at(own.air_fragment, 2), core::at(own.air_fragment, 3),
+              own.spray_vertex, core::at(own.flake_vertex, 0), core::at(own.flake_vertex, 1), own.haze_vertex,
+              core::at(own.haze_fragment, 0), core::at(own.haze_fragment, 1)}) {
             if (module != VK_NULL_HANDLE) {
                 vkDestroyShaderModule(device, module, nullptr);
             }

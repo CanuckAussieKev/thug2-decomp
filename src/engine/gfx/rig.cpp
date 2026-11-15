@@ -7,8 +7,10 @@
 #include <cstring>
 #include <initializer_list>
 #include <memory>
+#include <mutex>
 #include <array>
 #include <span>
+#include <unordered_map>
 
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
@@ -50,6 +52,27 @@ void set_identity(maths::Mat4& matrix)
     core::at(matrix.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
     core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
+// NOT ORIGINAL - the live rigs by their matrices (rig_data_of_matrices).
+struct RigNotes {
+    std::mutex mutex;
+    std::unordered_map<const maths::Mat4*, RigData*> by_matrices;
+};
+RigNotes& rig_notes()
+{
+    static RigNotes notes;
+    return notes;
+}
+void note_rig(const maths::Mat4* matrices, RigData* data)
+{
+    RigNotes& notes = rig_notes();
+    const std::scoped_lock lock(notes.mutex);
+    if (data == nullptr) {
+        notes.by_matrices.erase(matrices);
+    } else {
+        notes.by_matrices[matrices] = data;
+    }
+}
+
 // A bone collapsed to a point: the identity's rotation rows replaced by (0, 0, 0, 1).
 void set_collapsed(maths::Mat4& matrix)
 {
@@ -227,6 +250,7 @@ Rig::Rig(RigData* data)
     link_bones(data);
     payload_ = data;
     max_lod_ = kMaxLod;
+    note_rig(matrix_array_, payload_); // (NOT ORIGINAL - rig_data_of_matrices)
 }
 
 // 0x004A3E80
@@ -251,12 +275,14 @@ Rig* Rig::construct_copy(const Rig* other)
     lod_ = other->lod_;
     flag_bits_ = other->flag_bits_;
     max_lod_ = other->max_lod_;
+    note_rig(matrix_array_, payload_); // (NOT ORIGINAL - rig_data_of_matrices)
     return this;
 }
 
 // 0x004A2CB0
 Rig::~Rig()
 {
+    note_rig(matrix_array_, nullptr); // (NOT ORIGINAL - rig_data_of_matrices)
     memory::Hub::dealloc(bone_array_);
     memory::Hub::dealloc(matrix_array_);
 }
@@ -600,6 +626,14 @@ void Rig::collapse_zero_scaled_bones()
         set_collapsed(core::at(matrices(), i));
         core::at(core::at(matrices(), i).row, 3) = core::at(core::at(matrices(), 0).row, 3);
     }
+}
+
+RigData* rig_data_of_matrices(const maths::Mat4* matrices)
+{
+    RigNotes& notes = rig_notes();
+    const std::scoped_lock lock(notes.mutex);
+    const auto found = notes.by_matrices.find(matrices);
+    return found == notes.by_matrices.end() ? nullptr : found->second;
 }
 
 } // namespace gfx

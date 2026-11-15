@@ -18,6 +18,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/surface_trail.h"
+#include "engine/gfx/wind.h"
 
 namespace render::snow {
 
@@ -41,6 +42,7 @@ constexpr float kBermStart = 0.85F;      // (a berm rises from this share of the
 constexpr float kBermPeak = 4.0F;        // (4 t (1 - t): 1 at the ring's middle)
 constexpr float kSteepFace = 0.3F;       // (a face this steep or steeper: no centroid sample - a wall)
 constexpr double kForgetSeconds = 2.0;   // a presser not seen this long is forgotten
+constexpr double kGustWraps = 3600.0;    // (the gusts' clock kept small)
 
 using Random = surface_trail::Random; // (the surface trails' own random numbers: never the game's)
 constexpr uint64_t kSeed = 0x534E4F57'5452414CULL; // (the session's: the same every run)
@@ -68,6 +70,8 @@ struct State {
     std::unordered_map<uint64_t, Memory> memory;
     double clock = 0.0;
     double fill_carry = 0.0;
+    double drift = 0.0;   // (wind_drift)
+    bool snowing = false; // (the last step's)
     Counts counts;
 };
 
@@ -274,6 +278,46 @@ void press_wheel(State& own, const Presser& presser, const Memory& memory, const
     ++own.counts.stamps;
 }
 
+// A body joint touching the snow (a bail's shoulder, hip and head, a hand plant): its path pressed, its radius wide.
+void press_body(State& own, const Presser& presser, const Memory& memory, const Ground& ground)
+{
+    const float top = ground.height + (own.settings.depth * ground.cover);
+    const float over = core::at(presser.at, 1) - top;
+    if (!ground.found || ground.cover <= 0.0F || over > kBodyReach || over < -(own.settings.depth + kBodyReach)) {
+        return;
+    }
+    own.field.stamp({.from = {core::at(memory.last, 0), core::at(memory.last, 2)},
+                     .to = {core::at(presser.at, 0), core::at(presser.at, 2)},
+                     .radius = presser.size,
+                     .press = kBodyPress,
+                     .berm = kBodyBerm});
+    ++own.counts.stamps;
+    ++own.counts.body;
+}
+
+// A mover with no wheels found (an instance drawn without bones) going over the ground: two tracks, either side of it.
+void press_mover(State& own, const Presser& presser, const Memory& memory, const Ground& ground, double seconds)
+{
+    const float over = core::at(presser.at, 1) - ground.height;
+    const float dx = core::at(presser.at, 0) - core::at(memory.last, 0);
+    const float dz = core::at(presser.at, 2) - core::at(memory.last, 2);
+    const float speed = seconds > 0.0 ? std::sqrt((dx * dx) + (dz * dz)) / static_cast<float>(seconds) : 0.0F;
+    if (!ground.found || ground.cover <= 0.0F || over > kMoverReach || over < -kMoverReach || speed < kMoverSpeed) {
+        return;
+    }
+    constexpr float kMoverBerm = 0.5F;
+    for (const float side : {-1.0F, 1.0F}) {
+        const float ox = core::at(presser.facing, 0) * presser.size * side;
+        const float oz = core::at(presser.facing, 1) * presser.size * side;
+        own.field.stamp({.from = {core::at(memory.last, 0) + ox, core::at(memory.last, 2) + oz},
+                         .to = {core::at(presser.at, 0) + ox, core::at(presser.at, 2) + oz},
+                         .radius = kMoverHalfWidth,
+                         .press = 1.0F,
+                         .berm = kMoverBerm});
+        ++own.counts.stamps;
+    }
+}
+
 void clear_session(State& own)
 {
     own.field = TrailField(trail_texel(own.settings.quality));
@@ -283,6 +327,7 @@ void clear_session(State& own)
     own.memory.clear();
     own.clock = 0.0;
     own.fill_carry = 0.0;
+    own.drift = 0.0;
     own.counts = {};
 }
 
@@ -324,6 +369,14 @@ int window_tiles(int quality)
 }
 
 // --- the sky map ------------------------------------------------------------------------------------------------------
+
+float slope_cover(float up)
+{
+    if (!std::isfinite(up)) {
+        return 0.0F;
+    }
+    return smoothstep(kLeastUp, kCoatUp, up) * (kCoatShare + ((1.0F - kCoatShare) * smoothstep(kThinUp, kFullUp, up)));
+}
 
 SkyMap make_sky_map(std::span<const Face> faces)
 {
@@ -386,7 +439,7 @@ SkyMap make_sky_map(std::span<const Face> faces)
             continue;
         }
         const float up = std::abs(core::at(normal, 1)) / length;
-        const float cover = face.settles ? smoothstep(kLeastUp, kFullUp, up) : 0.0F;
+        const float cover = face.settles ? slope_cover(up) : 0.0F;
         map.indoor_faces += face.settles ? 0U : 1U;
         // the projected triangle's cells: each centre inside it takes the face's height there
         const float area2 = core::at(normal, 1); // (twice the signed projected area, x z)
@@ -587,6 +640,7 @@ void step(std::span<const Presser> pressers, double seconds, bool snowing)
         return;
     }
     own.clock += seconds;
+    own.drift += static_cast<double>(wind::kSpeed * wind::gust(static_cast<float>(std::fmod(own.clock, kGustWraps)))) * seconds;
     ++own.counts.steps;
     for (const Presser& presser : pressers) {
         const Ground ground = ground_at(*own.map, core::at(presser.at, 0), core::at(presser.at, 2));
@@ -596,10 +650,19 @@ void step(std::span<const Presser> pressers, double seconds, bool snowing)
         const float dz = core::at(presser.at, 2) - core::at(memory.last, 2);
         const bool jumped = (dx * dx) + (dz * dz) > kTeleport * kTeleport;
         if (!made && !jumped) {
-            if (presser.kind == PresserKind::kWheel) {
+            switch (presser.kind) {
+            case PresserKind::kWheel:
                 press_wheel(own, presser, memory, ground);
-            } else {
+                break;
+            case PresserKind::kBody:
+                press_body(own, presser, memory, ground);
+                break;
+            case PresserKind::kMover:
+                press_mover(own, presser, memory, ground, seconds);
+                break;
+            case PresserKind::kCharacter:
                 press_character(own, presser, memory, ground, seconds);
+                break;
             }
         } else {
             memory = Memory{};
@@ -609,6 +672,7 @@ void step(std::span<const Presser> pressers, double seconds, bool snowing)
         memory.seen = own.clock;
     }
     std::erase_if(own.memory, [&own](const auto& entry) { return own.clock - entry.second.seen > kForgetSeconds; });
+    own.snowing = snowing;
     if (snowing) {
         own.fill_carry += seconds / kFillSeconds * static_cast<double>(kByteMax);
         const auto steps = static_cast<uint32_t>(own.fill_carry);
@@ -646,6 +710,23 @@ double clock()
     State& own = state();
     const std::scoped_lock lock(own.mutex);
     return own.clock;
+}
+
+double wind_drift()
+{
+    State& own = state();
+    const std::scoped_lock lock(own.mutex);
+    return own.drift;
+}
+
+float overcast_share()
+{
+    State& own = state();
+    const std::scoped_lock lock(own.mutex);
+    if (!own.settings.on || own.map == nullptr) {
+        return 0.0F;
+    }
+    return own.snowing || own.settings.falling ? kOvercastFalling : kOvercastLying;
 }
 
 Counts counts()

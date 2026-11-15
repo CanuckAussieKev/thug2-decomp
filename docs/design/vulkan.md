@@ -2738,8 +2738,33 @@ tracing needed; Direct3D 9 installs no `Sink` and draws none.
 
 `engine/gfx/snow.h` (where it settles, the trails, the spray - on the processor), `render_pc/snow_world` (the world read),
 `gpu_vulkan/vulkan_snow` (the cover, the layer, the air) - `[Graphics] snow` (off by default), `snow_depth` (4 inches),
-`snow_trail_quality` (2), `snowfall` (1), all live. No ray tracing needed; Direct3D 9 draws none. The way RDR2 does its
-snow: a thin layer of snow over the level and a heightfield of what was pressed into it - not grains.
+`snow_trail_quality` (2), `snowfall` (1), all live. No ray tracing needed (with it, each surface's own view of the sky
+and the flakes' light are traced); Direct3D 9 draws none. The way RDR2 does its snow: a thin layer of snow over the
+level and a heightfield of what was pressed into it - not grains. Round 2 (the user's feedback): the default depth 8
+inches (choices 3 / 8 / 14 / 20, at most 24), the slope's smooth curve, the traced sky visibility, the cover replacing
+the surface's whole colour, body contacts and movers pressing, the falling snow as flakes in the world with a haze, the
+winter sky in the lighting state, the decals under the snow.
+
+- **The slope** (`snow::slope_cover`, the shader's twin): full on flat ground and gentle slopes (normal y 0.93 and over),
+  thinning up ramps and banks to a light coat (0.3 of it) on steep faces - a quarter pipe's (y 0.3 - 0.4) -, none on a
+  near-vertical wall (y 0.08 and under); never thicker for a steeper face. A light coat lies in patches (a noise over the
+  surface: where it is thin only its higher patches hold snow). The sky map's cover is the same curve.
+- **Open to the sky, traced** (`kTrailSnowTraced`, a device with ray tracing and a scene to trace): each covered pixel
+  asks the frame's TLAS with a ray query straight up from just off its surface (its start moved up to 1.5 units by a
+  smooth noise over the ground, so an eave's line isn't ruled) - nothing over it within 4000 units: open. Mask 0x05 -
+  the level and the cut-out casters, opaque (trees, awnings and fences keep the snow off what is under them), not the
+  objects (a car driving off leaves no clear patch). So a surface under anything drawn holds none, and one open to the
+  sky does however steep or near something else - a rail under a ledge none, the ledge's top, a bench's seat, a car's
+  roof, a stair's treads all. The TLAS is bound at the cel shading's binding (9) - per pixel, every frame: no cache to
+  go stale (the cost below). Without ray tracing the sky map's cells, as before.
+- **The surface's whole colour** (`kTrailSnowTint`): a relit world draw's vertex colour is the tint the bake gave it x
+  the light; the cover reads the relit stream (`kVertexCelStream`, the cel shading's binding 2 - render_pc names the
+  source while the snow is on) and mixes the albedo toward the snow over the tint (word 1), so a road's dark asphalt, a
+  lawn's green and painted lines don't show through the snow - only the light stays. The pass colour (c0, the
+  programs' x2) is set over too, a later texture stage's texel (a detail layer, a lawn's grass) goes to what leaves the
+  colour as it is for its op, the untextured world program (`kVertexFactor`: the asphalt's) is covered as a texel, and
+  the per-pixel lighting's surface map loses its relief and gloss under the snow (its normal toward the surface's own,
+  its roughness 0.75).
 
 - **Where it settles: every outdoor level, by its geometry, not its textures.** No shipped level has snow surfaces (no
   snow terrain in any collision), so snow is weather: on, it covers the open ground of any level with a sky. Outdoors is
@@ -2747,8 +2772,8 @@ snow: a thin layer of snow over the level and a heightfield of what was pressed 
   `Cap::kLevelOutdoor` puts `snow` out of effect in an indoor level, "This level is indoors"). The **sky map**
   (`snow::make_sky_map`, once a level from its collision: every collidable face of every sector, triggers left out) is
   the level seen from above on a grid of cells (4 units, coarser for a level wider than 2048 cells): each cell the
-  topmost face's height at its centre and how much snow that face holds - smoothstep(0.5, 0.8) of its normal's y (none
-  on walls and steep banks, thinning on slopes), none on a face of a sector in the Indoor light group; a narrow face (a
+  topmost face's height at its centre and how much snow that face holds - the slope's curve of its normal's y (below),
+  none on a face of a sector in the Indoor light group; a narrow face (a
   ledge's top, a rail's) gets at least its middle's cell. A surface below its cell's top (+ 2 units + 0.6 cells) is
   under something - a roof, a bridge, an awning: no snow.
 - **The cover (the world's draws).** `render_pc` marks each draw of a world or scene-object mesh that isn't a
@@ -2802,10 +2827,39 @@ snow: a thin layer of snow over the level and a heightfield of what was pressed 
   the heights toward the light) and its occlusion (lower than round it); the packed snow in a trail is darker (x 0.8)
   and catches a highlight. Depth-tested and written; the upscaler's motion is the camera's. Untouched, the raised
   layer is the colour of the covered ground it stands on: only the trails show.
-- **The air (world_drawn, the same order: before the fog and the tone mapping).** The falling snow - 16,000 flakes in
-  a 1400 x 900 box round the camera, each a hash of its number drifting down at 45 - 80 units a second with a wind and a
-  wobble on the snow's own clock, not drawn where the sky map has a top over it (under a roof) - and the spray, soft
-  discs blended over the scene, lit as snow in the light now. No motion vectors.
+- **The air (world_drawn, the same order: before the fog and the tone mapping).** The falling snow is flakes in the
+  world: 22,000, the first 9,000 in a 340 x 260 box round the camera (the dense snow close by), the rest in a 1400 x 900
+  one, each a hash of its number falling at 38 - 68 units a second, carried downwind by the level's wind
+  (`engine/gfx/wind.h`, shared with the grass: its gusts added up on the snow's clock - `snow::wind_drift`, the same
+  every run) and fluttering; faded at its box's sides, top and bottom. Each is a disc of its true size on the screen
+  (0.2 - 0.52 units across a radius), widened by a lens's defocus (aperture 0.45 units, focused on what the camera
+  follows - `ViewDrawn::focus_distance`) and to at least 0.75 pixels, its alpha the share of the disc the flake covers:
+  big soft flakes close by, tiny faint ones far off, parallax by its place. Depth-tested against the scene. Lit by the
+  lighting state: the sky's light, the direct light where a ray toward it through the frame's scene reaches the flake
+  (dark in shade) scattered forward (a glint looking toward the sun or the moon) with each flake's twinkle, and the
+  level's lamps - the light field's local light (`rt_light_field.h local_at`, the one lighting path's) on a 9 x 4 x 9
+  grid of 128-unit cells round the camera, its directional part scattered forward too. Not drawn under a roof (a ray
+  straight up; without ray tracing the sky map). The spray as before. With the upscaler's motion attachment each disc
+  writes its share of the pixel (z, the largest - the reactive mask DLSS / FSR take: the history gives way where a flake
+  is) and leaves the scene's motion behind it, so the flakes aren't smeared.
+- **The haze**: the snow too far off to draw. While snow falls, after the flakes, a full-screen pass over the colour
+  (the depth read, not attached): a medium of the snow's light (its albedo x the sky's light and half the direct
+  light) with an extinction of 3.2e-4 a unit from 250 units out, the sky as at 9000 - colour x T + the haze x (1 - T).
+  Before the volumetric fog, which adds its own medium after it (the two aren't one march yet - the fog's isn't snow).
+- **The winter sky** (`rt::apply_overcast`, day_clock - the lighting state's one producer): with snow on the ground the
+  state takes 0.55 of a full overcast, while it falls all of it - the direct light down to 0.3 at full and its radius
+  toward 16 degrees (soft shadows), the sky's light greyer (0.75 of the way to its luminance) and gaining half of what
+  the deck took from the sun, the stars and the moon's disc hidden; the bounce, the shadows' strength and the exposure
+  follow. Only while the time of day lights the level (tod=level: the original's look).
+- **The decals** (`rt_decals`) lie under the snow: each corner's weight x (1 - the sky map's cover there, where it is
+  that cell's top face) - vulkan_snow.h `SnowGround`.
+- **What presses** (round 2): a character's body joints (its rig's - `gfx::rig_data_of_matrices`: each joint's bind
+  place through its bone's matrix; not the feet, whose bind pose stands under 14 units) within 5 units of the snow's top
+  press their path 4.5 units wide (a bail's slide, a hand plant); an instance drawn without bones that moves 20 units a
+  second or faster with its box's bottom within 30 units of the ground presses two tracks either side (0.4 of its box's
+  width, 4 - 60 units). The raised layer's fall at its edge is 64 units wide now, and its shading (the normal, the
+  occlusion, the walls' shadow) takes the trails' relief alone - the fall is the layer meeting the ground's own snow,
+  not a shape of it, so no step shows where it ends (nor at the window's edge).
 - **Purely visual.** Nothing of the game's is written: the collision, the physics, the scripts and the random streams
   are untouched (the skater rides on the level's collision under the snow); `tools/game/sim_check.ts` matrix on the
   reference demos stays 32/32 and `tools/sim_draw_independence.test.ts` passes (the snow reads the step's state in
@@ -2817,13 +2871,16 @@ snow: a thin layer of snow over the level and a heightfield of what was pressed 
   2048 alive; a landing bursts once; walking leaves a footprint a stride; a wheel presses; nothing from above the snow
   or indoors; the trails kept over 1000 steps; half filled in 90 s, all in 180, the activity kept; the same steps twice
   give the same trails and spray byte for byte). On the device: the trails' window read back holds exactly the
-  processor's texels, again after the camera moves 7 tiles, only the tiles that came in copied; the cover whitens the
+  processor's texels, again after the camera moves 7 tiles, only the tiles that came in copied; (round 2, on the
+  processor) the slope's curve, the overcast, a body joint's press and a mover's two tracks, the wind's drift twice the
+  same, a 60-degree bank's light coat, (on the device) the haze whitening the far ground and not the near; the cover whitens the
   open ground drawn with the game's material shader, leaves the ground under the roof's footprint, a wall and an
   unmarked draw alone, and snow off draws the picture as before; the layer leaves pixels far from a trail unchanged,
   changes those on it, the packed snow darker than beside it; the falling snow over the sky; the spray drawn is what is
   alive; every pixel finite; validation silent. `thug2_options_check` has the four keys and the indoor rule. Cost
   (the check's, RTX 5070 Ti, 2560 x 1440): the trails' window full (70 tiles drawn), 16,000 flakes and a carve's spray -
-  0.2 - 0.33 ms a frame on the device (one run 0.8 on a busy machine).
+  0.2 - 0.33 ms a frame on the device (one run 0.8 on a busy machine); round 2 (22,000 flakes, the haze, not traced -
+  the check has no TLAS) 0.22 ms.
 - **In the game** (BO, the user's [Graphics] with `tod=afternoon`, 853 x 480 DLSS input in a 1280 x 720 window): the
   sky map of 26,049 faces (3,633 indoor) in 85 ms - 2048 x 1989 cells of 5.7 units, 53,786 square metres open to the
   snow; the streets, sidewalks, planters and car roofs white, the building fronts not; a board's trail
@@ -2832,10 +2889,13 @@ snow: a thin layer of snow over the level and a heightfield of what was pressed 
   ground, not the cover); the trails' raised layer shows a soft step where its activity ends (24 units round a trail);
   foliage and trees without collision keep no snow off what is under them.
 - **Not done:** the ray-traced reflections and bounce light see the ground's own colours, not the snow (their materials
-  are the textures'); the BLAS keeps the level's geometry (the trails are drawn, not traced); the presses come from
-  where the characters stand, not their bones (a bail lying in the snow leaves a footprint-sized mark); wheels are
-  found by bone placement (a vehicle drawn without bones presses nothing); render-only geometry over the ground (a
-  tree's canopy without collision) doesn't keep snow off what is under it.
+  are the textures'; the hit shading would need the snow's state in each ray-traced pass - proposed: the snow's amount
+  as a function of the material table's shared GLSL, the hit's place and normal, the sky test a ray straight up from
+  the hit); the BLAS keeps the level's geometry (the trails are drawn, not traced); the haze is its own pass before the
+  volumetric fog, not a medium in the fog's march (no light shafts through the falling snow); without ray tracing the
+  sky map still decides what is open (a tree's canopy without collision keeps no snow off). Round 2's game run: a road
+  draw whose vertices have no relit stream keeps its bake's tint under the snow (Boston's street a little greyer than
+  its sidewalks).
 
 ### Surface trails: what the skaters leave on the level (snow, paint)
 

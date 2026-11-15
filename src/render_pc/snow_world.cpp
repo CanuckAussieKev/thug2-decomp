@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the surface trails' world: the snow's sky map and pressers, the paint's step (snow_world.h).
 #include "render_pc/snow_world.h"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <chrono>
@@ -24,6 +25,8 @@
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/paint_trails.h"
+#include "engine/gfx/rig.h"
+#include "render_pc/mesh_list.h"
 #include "engine/gfx/snow.h"
 #include "engine/gfx/surface_trail.h"
 #include "engine/gfx/weather.h"
@@ -205,12 +208,85 @@ bool finite(const std::array<float, 3>& point)
     return std::isfinite(core::at(point, 0)) && std::isfinite(core::at(point, 1)) && std::isfinite(core::at(point, 2));
 }
 
-// The pressers this step: each character's origin, each vehicle's wheels' hubs.
+// A point of the model's space in the world (row vectors: x along_x + y along_y + z along_z + origin).
+std::array<float, 3> to_world(const std::array<float, 3>& local, const std::array<std::array<float, 3>, 4>& basis)
+{
+    std::array<float, 3> world = core::at(basis, kTranslationRow);
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        core::at(world, axis) += (core::at(local, 0) * core::at(core::at(basis, 0), axis)) +
+                                 (core::at(local, 1) * core::at(core::at(basis, 1), axis)) +
+                                 (core::at(local, 2) * core::at(core::at(basis, 2), axis));
+    }
+    return world;
+}
+
+// A character's body joints (not its feet: those whose bind pose stands kFootJointHeight or higher) where they are now:
+// each joint's bind place (its inverse bind matrix inverted) taken by its bone's matrix (the skin's: inverse bind x
+// pose) and the instance's transform. None when its rig isn't known.
+void add_body_joints(const Singleton& instance, uint64_t id, const std::array<std::array<float, 3>, 4>& basis,
+                     std::vector<snow::Presser>* found)
+{
+    constexpr float kFootJointHeight = 14.0F; // (a standing skeleton's ankles and toes are under this)
+    constexpr float kBodyRadius = 4.5F;
+    const gfx::RigData* data = gfx::rig_data_of_matrices(instance.bones());
+    if (data == nullptr || data->num() != instance.bone_count_) {
+        return;
+    }
+    const std::span<const maths::Mat4> binds = data->inverse_binds();
+    const std::span<const maths::Mat4> bones(instance.bones(), static_cast<std::size_t>(instance.bone_count_));
+    for (std::size_t bone = 0; bone < bones.size(); ++bone) {
+        maths::Mat4 bind = core::at(binds, bone);
+        bind.invert_orthonormal();
+        const std::array<float, 3> joint = row_of(bind.floats(), kTranslationRow);
+        if (!finite(joint) || core::at(joint, 1) < kFootJointHeight) {
+            continue;
+        }
+        const std::span<const float, maths::Mat4::kFloatCount> skin = core::at(bones, bone).floats();
+        const std::array<std::array<float, 3>, 4> skin_basis{row_of(skin, 0), row_of(skin, 1), row_of(skin, 2),
+                                                             row_of(skin, kTranslationRow)};
+        const std::array<float, 3> at = to_world(to_world(joint, skin_basis), basis);
+        if (finite(at)) {
+            found->push_back({.id = id ^ ((static_cast<uint64_t>(bone) + 1) << 48U), .kind = snow::PresserKind::kBody, .at = at,
+                              .size = kBodyRadius});
+        }
+    }
+}
+
+// An instance drawn without bones, as a mover: its box's bottom middle, its sideways axis and half its track.
+void add_mover(const Singleton& instance, uint64_t id, const std::array<std::array<float, 3>, 4>& basis,
+               std::vector<snow::Presser>* found)
+{
+    constexpr float kLeastTrack = 4.0F;
+    constexpr float kMostTrack = 60.0F;
+    constexpr float kTrackShare = 0.4F; // (of the box's width: the wheels inside its sides)
+    const SceneRef* scene = instance.scene();
+    if (scene == nullptr) {
+        return;
+    }
+    const maths::BBox& box = scene->bounds();
+    if (!(box.max.x >= box.min.x) || !(box.max.y >= box.min.y) || !(box.max.z >= box.min.z) ||
+        box.max.x - box.min.x > kMostTrack * 4.0F) {
+        return; // (empty, or a building)
+    }
+    const std::array<float, 3> bottom{(box.min.x + box.max.x) * 0.5F, box.min.y, (box.min.z + box.max.z) * 0.5F};
+    const std::array<float, 3> at = to_world(bottom, basis);
+    const std::array<float, 3>& side = core::at(basis, 0);
+    const float flat = std::sqrt((core::at(side, 0) * core::at(side, 0)) + (core::at(side, 2) * core::at(side, 2)));
+    if (!finite(at) || !(flat > 0.0F)) {
+        return;
+    }
+    const float track = std::clamp((box.max.x - box.min.x) * kTrackShare * flat, kLeastTrack, kMostTrack);
+    found->push_back({.id = id, .kind = snow::PresserKind::kMover, .at = at,
+                      .facing = {core::at(side, 0) / flat, core::at(side, 2) / flat}, .size = track});
+}
+
+// The pressers this step: each character's origin and body joints, each vehicle's wheels' hubs, each instance drawn
+// without bones (a mover when it moves).
 std::vector<snow::Presser> gather_pressers()
 {
     std::vector<snow::Presser> found;
     for (const Singleton* instance = first_instance(); instance != nullptr; instance = instance->next()) {
-        if (!instance->active() || instance->bones() == nullptr || instance->bone_count_ < kLeastWheelBones) {
+        if (!instance->active()) {
             continue;
         }
         const std::span<const float, maths::Mat4::kFloatCount> values = instance->transform().floats();
@@ -222,11 +298,17 @@ std::vector<snow::Presser> gather_pressers()
             continue;
         }
         const auto id = static_cast<uint64_t>(std::bit_cast<uintptr_t>(instance));
+        const std::array<std::array<float, 3>, 4> basis{along_x, along_y, along_z, origin};
+        if (instance->bones() == nullptr || instance->bone_count_ < kLeastWheelBones) {
+            add_mover(*instance, id, basis, &found);
+            continue;
+        }
         if (instance->bone_count_ >= surface_trail::kSkeletonBones) {
             const float flat = std::sqrt((core::at(along_z, 0) * core::at(along_z, 0)) + (core::at(along_z, 2) * core::at(along_z, 2)));
             const std::array<float, 2> facing = flat > 0.0F ? std::array<float, 2>{core::at(along_z, 0) / flat, core::at(along_z, 2) / flat}
                                                             : std::array<float, 2>{0.0F, 1.0F};
             found.push_back({.id = id, .kind = snow::PresserKind::kCharacter, .at = origin, .facing = facing});
+            add_body_joints(*instance, id, basis, &found);
             continue;
         }
         const std::span<const maths::Mat4> bones(instance->bones(), static_cast<std::size_t>(instance->bone_count_));

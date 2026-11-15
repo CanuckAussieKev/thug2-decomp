@@ -193,4 +193,9 @@ private:
 // -x w and -y w terms rounded); `mirror` / `swap_z` negate entries to mirror it.
 void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, std::span<const float, 4> quat, bool mirror, bool swap_z);
 
+// NOT ORIGINAL - (the snow's body contacts: render_pc/snow_world) the skeleton data of the live rig whose bone matrices
+// are `matrices` (an instance drawn with a skeleton is given its rig's matrices); null when no live rig has them. Rigs
+// note themselves when made and forget themselves when destroyed.
+[[nodiscard]] RigData* rig_data_of_matrices(const maths::Mat4* matrices);
+
 } // namespace gfx

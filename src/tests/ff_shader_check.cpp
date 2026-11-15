@@ -26,7 +26,8 @@
 // flat (FragmentKey::water kWaterFlat) and moving (kWaterMoving: its vertex half moves the surface - rt_water_geometry) -
 // after --surface's and --cel's, before --motion's, so they all meet. Compiled, validated and made into pipelines.
 // --trails (NOT ORIGINAL - the surface trails, ff_key.h FragmentKey::trails: the snow's cover, the paint's coat): every
-// pair that takes them added again with the snow, the paint, and both - after --water's (water never takes them), before
+// pair that takes them added again with the snow (alone, traced - its ray query -, over the relit tint - the stream's
+// inputs), the paint, the snow and the paint, and all of them - after --water's (water never takes them), before
 // --motion's. Compiled, validated and made into pipelines.
 // --all-materials: every four-pass material shape, not a covering subset; --device: the physical device for the GPU
 // part (the context check's numbering); --pipelines: at most N pipelines (default: every sampled pair); --jobs: the
@@ -425,7 +426,11 @@ void add_trail_keys(ff_check::KeySets& sets)
     const std::vector<ShaderKey> pairs = sets.pairs;
     std::size_t fragments = 0;
     for (const ShaderKey& pair : pairs) {
-        for (const uint8_t trails : {kTrailSnow, kTrailPaint, kTrailKnown}) {
+        // (the snow's alone, traced, over the relit tint; the paint; all of them)
+        constexpr uint8_t kSnowTraced = kTrailSnow | kTrailSnowTraced;
+        constexpr uint8_t kSnowTint = kTrailSnow | kTrailSnowTint;
+        constexpr uint8_t kSnowPaint = kTrailSnow | kTrailPaint;
+        for (const uint8_t trails : {kTrailSnow, kSnowTraced, kSnowTint, kTrailPaint, kSnowPaint, kTrailKnown}) {
             ShaderKey key = pair;
             key.fragment.trails = trails;
             key = normalised(key);

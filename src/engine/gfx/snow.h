@@ -43,9 +43,9 @@
 namespace render::snow {
 
 // --- the settings ---------------------------------------------------------------------------------------------------
-inline constexpr float kDefaultDepth = 4.0F; // world units (inches): a few inches - the skater rides on the collision
+inline constexpr float kDefaultDepth = 8.0F; // world units (inches): the skater rides on the collision, in the snow
 inline constexpr float kLeastDepth = 1.0F;
-inline constexpr float kMostDepth = 8.0F;
+inline constexpr float kMostDepth = 24.0F;
 inline constexpr int kLeastQuality = 1;
 inline constexpr int kDefaultQuality = 2;
 inline constexpr int kMostQuality = 3;
@@ -65,8 +65,15 @@ void set_settings(const Settings& settings);
 // --- the sky map ----------------------------------------------------------------------------------------------------
 inline constexpr float kLeastCell = 4.0F;     // the sky map's finest cell (world units)
 inline constexpr uint32_t kMostCells = 2048;  // cells a side at most (a bigger level: coarser cells)
-inline constexpr float kLeastUp = 0.5F;       // a face's normal y: no snow below (walls, steep banks) ...
-inline constexpr float kFullUp = 0.8F;        // ... all of it from here (flat ground, gentle slopes)
+// How much snow a surface holds by its slope (its normal's y, `up`): slope_cover. Full on flat ground and gentle slopes
+// (kFullUp and over), thinning up ramps and banks to a light coat (kCoatShare) on steep ones - a quarter pipe's face -,
+// none on a near-vertical wall (kLeastUp and under). The world shader's cover is its twin.
+inline constexpr float kLeastUp = 0.08F;  // (about 85 degrees: a wall) no snow below ...
+inline constexpr float kCoatUp = 0.3F;    // ... the light coat whole from here (about 72 degrees) ...
+inline constexpr float kThinUp = 0.4F;    // ... thickening from here (66 degrees) ...
+inline constexpr float kFullUp = 0.93F;   // ... to all of it here (22 degrees)
+inline constexpr float kCoatShare = 0.3F; // the light coat: this share of the full cover
+[[nodiscard]] float slope_cover(float up);
 inline constexpr float kOpenSlack = 2.0F;     // a surface this far below its cell's top ...
 inline constexpr float kOpenCellShare = 0.6F; // ... + this share of the cell (a slope within it) is still the top
 
@@ -108,7 +115,8 @@ struct Ground {
 // (the trails' field and its tiles are the surface trails' - engine/gfx/surface_trail.h: one plane a texel here)
 inline constexpr int kTileTexels = surface_trail::kTileTexels;
 inline constexpr std::size_t kTileTexelCount = surface_trail::kTileTexelCount;
-inline constexpr float kActiveReach = 24.0F; // the layer is raised this far round a trail (then falls to the ground)
+inline constexpr float kActiveReach = 64.0F; // the layer is raised this far round a trail (then falls to the ground
+                                             // gently: the layer's shading takes the trails' shape alone, never this fall)
 inline constexpr float kBermWidth = 5.0F;    // the berm's ring outside a press
 inline constexpr float kBermHeight = 0.6F;   // a full berm: this share of the depth over the snow's top
 inline constexpr double kFillSeconds = 180.0; // a full trail filled in this long while snow falls
@@ -145,12 +153,15 @@ public:
 enum class PresserKind : uint8_t {
     kCharacter, // a skater or a ped (an instance with a skeleton): its board when moving fast, else its feet
     kWheel,     // a vehicle's wheel (its hub)
+    kBody,      // a joint of a character's body (not its feet): where it touches the snow - a bail, a hand plant
+    kMover,     // an instance with no wheels found (no bones) moving over the ground: its two tracks
 };
 struct Presser {
     uint64_t id = 0; // what it is (its instance and wheel): its own memory - strides, in the air - is kept by it
     PresserKind kind = PresserKind::kCharacter;
     std::array<float, 3> at{};     // where it stands (a character's origin; a wheel's hub)
-    std::array<float, 2> facing{}; // the way it faces (x, z; for the feet when standing still)
+    std::array<float, 2> facing{}; // the way it faces (x, z; for the feet when standing still); a mover's sideways axis
+    float size = 0.0F;             // a body joint's radius; a mover's half track (units)
 };
 inline constexpr float kRideSpeed = 150.0F;     // units a second: faster is riding (the board), slower walking (feet)
 inline constexpr float kBoardHalfWidth = 6.0F;  // (the board and the snow it shoves aside)
@@ -163,6 +174,12 @@ inline constexpr float kFootReach = 6.0F;       // a character this far over the
 inline constexpr float kAirborne = 18.0F;       // ... this far over it: in the air
 inline constexpr float kLandingRadius = 12.0F;
 inline constexpr float kTeleport = 240.0F;      // a move this long in a step: not a press (a restart, a respawn)
+inline constexpr float kBodyReach = 5.0F;       // a body joint this near the snow's top (over or under it): touching it
+inline constexpr float kBodyPress = 0.85F;
+inline constexpr float kBodyBerm = 0.45F;
+inline constexpr float kMoverSpeed = 20.0F;     // units a second: a mover slower than this presses nothing (props)
+inline constexpr float kMoverReach = 30.0F;     // its origin this far over the ground (or under it): on it
+inline constexpr float kMoverHalfWidth = 5.0F;  // a mover's tyre
 
 // --- the spray --------------------------------------------------------------------------------------------------------
 inline constexpr std::size_t kMostSpray = 2048; // particles alive at most (the oldest give way)
@@ -192,6 +209,15 @@ void step(std::span<const Presser> pressers, double seconds, bool snowing);
 void read_trails(const std::function<void(const TrailField& field)>& reader);
 [[nodiscard]] std::vector<SprayParticle> live_spray();
 [[nodiscard]] double clock();
+// How far the level's wind (engine/gfx/wind.h) has carried the falling snow since the session began (world units
+// downwind: its gusting speed added up step by step on the snow's clock - the flakes' drift, the same every run).
+[[nodiscard]] double wind_drift();
+// The winter sky the lighting state takes while there is snow (day_clock: rt::apply_overcast): kOvercastFalling while
+// it snows (the last step's), kOvercastLying with snow on the ground and none falling, 0 with snow off or no sky map
+// (indoors, or not made yet).
+inline constexpr float kOvercastFalling = 1.0F;
+inline constexpr float kOvercastLying = 0.55F;
+[[nodiscard]] float overcast_share();
 // (the log's, the checks') stamps made, spray started, fill steps, since the session began
 struct Counts {
     uint64_t stamps = 0;
@@ -199,6 +225,7 @@ struct Counts {
     uint64_t spray = 0;
     uint64_t fills = 0;
     uint64_t steps = 0;
+    uint64_t body = 0; // (of the stamps) a body joint's
 };
 [[nodiscard]] Counts counts();
 // The session cleared (the checks'; a new sky map does it too).

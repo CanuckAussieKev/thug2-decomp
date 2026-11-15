@@ -567,9 +567,9 @@ std::vector<Decl> declarations()
             .need(vulkan(), t::kNeedsVulkan)
             .need(has(Cap::kLevelOutdoor))
             .live(E::kSnow),
-        gfx("snow_depth", K::kNumber, "4")
+        gfx("snow_depth", K::kNumber, "8")
             .tab(G::kSurfaces, t::kOptSnowDepth)
-            .pick({c("2", "Dusting"), c("4", t::kMedium), c("6", "Deep"), c("8", "Powder day")})
+            .pick({c("3", "Dusting"), c("8", t::kMedium), c("14", "Deep"), c("20", "Powder day")})
             .need(on("snow"))
             .live(E::kSnow),
         gfx("snow_trail_quality", K::kNumber, "2")

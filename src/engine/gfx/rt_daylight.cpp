@@ -119,6 +119,25 @@ float luma_of(const DayRgb& colour)
                               (kLuma[2] * std::get<2>(colour)));
 }
 
+// What follows from the direct light and the sky's (day_light_at's, and again after apply_overcast changed them): the
+// bounce, the shadows' strength and the model's exposure.
+void finish_light(DayLight* light)
+{
+    // the bounce: what the surroundings send back is the direct light's and the sky's, in the level's own shares
+    for (std::size_t ch = 0; ch < light->bounce.size(); ++ch) {
+        core::at(light->bounce, ch) = (kDirectShare * core::at(light->light_colour, ch)) +
+                                      ((1.0F - kDirectShare) * core::at(light->sky, ch));
+    }
+    // the shadows: the sun's share of the light now over its share in the level's own light
+    const float direct = light->direct * luma_of(light->direct_tint);
+    const float sky = luma_of(light->sky);
+    const float share = (kDirectShare * direct) / std::max((kDirectShare * direct) + ((1.0F - kDirectShare) * sky), 1e-6F);
+    light->shadow = std::clamp(share / kDirectShare, 0.0F, 1.0F);
+    // the exposure: night brought partly up (the level's own light 1) - the model's light here; the clock adapts it to
+    // the relit level's own (day_clock)
+    light->exposure = adapted_exposure((kDirectShare * direct) + ((1.0F - kDirectShare) * sky));
+}
+
 // --- the sky's light, made once -----------------------------------------------------------------------------------------
 constexpr double kTableLowest = -20.0; // degrees: the table's first entry (the sky's light gone below it)
 constexpr std::size_t kTableEntries = 111; // one a degree, -20 to 90
@@ -533,28 +552,42 @@ DayLight day_light_at(const NativeDay& native, double hours)
             static_cast<float>(sky_ratio + (static_cast<double>(core::at(kNightSkyLight, ch)) * floor));
         core::at(light.night_sky, ch) = static_cast<float>(static_cast<double>(core::at(kNightSky, ch)) * floor);
     }
-    // the bounce: what the surroundings send back is the direct light's and the sky's, in the level's own shares
-    for (std::size_t ch = 0; ch < light.bounce.size(); ++ch) {
-        core::at(light.bounce, ch) = (kDirectShare * core::at(light.light_colour, ch)) +
-                                     ((1.0F - kDirectShare) * core::at(light.sky, ch));
-    }
-    // the shadows: the sun's share of the light now over its share in the level's own light
-    const float direct = light.direct * luma_of(light.direct_tint);
-    const float sky = luma_of(light.sky);
-    const float share = (kDirectShare * direct) / std::max((kDirectShare * direct) + ((1.0F - kDirectShare) * sky), 1e-6F);
-    light.shadow = std::clamp(share / kDirectShare, 0.0F, 1.0F);
+    finish_light(&light);
     light.lamps = static_cast<float>(1.0 - smoothstep(kLampsFull, kLampsOn, sun.elevation));
     light.stars = static_cast<float>(1.0 - smoothstep(kStarsFull, kStarsFrom, sun.elevation));
     light.moon_disc = static_cast<float>(night * smoothstep(-1.0, 3.0, moon.elevation));
-    // the exposure: night brought partly up (the level's own light 1) - the model's light here; the clock adapts it to
-    // the relit level's own (day_clock)
-    light.exposure = adapted_exposure((kDirectShare * direct) + ((1.0F - kDirectShare) * sky));
     // the stars turn about the celestial pole (north, as high as the latitude) with the hours
     const DayVec pole = direction_of(native.path.north_heading, native.path.latitude);
     light.stars_pole = {std::get<0>(pole), std::get<1>(pole), std::get<2>(pole),
                         static_cast<float>(light.hours / kHoursPerDay * 2.0 * kPi)};
     light.blend = tod_blend(sun.elevation, light.hours >= kNoonHours);
     return light;
+}
+
+void apply_overcast(DayLight* light, float share)
+{
+    const float s = std::isfinite(share) ? std::clamp(share, 0.0F, 1.0F) : 0.0F;
+    if (!light->on || s <= 0.0F) {
+        return;
+    }
+    // the cloud deck takes most of the direct light and softens what is left; part of what it takes comes down as the
+    // sky's light, which turns grey (white clouds overhead, not the blue sky)
+    const float kept = 1.0F - (s * (1.0F - kOvercastDirect));
+    const float taken = luma_of(light->light_colour) * (1.0F - kept);
+    light->direct *= kept;
+    for (std::size_t ch = 0; ch < light->light_colour.size(); ++ch) {
+        core::at(light->light_colour, ch) = light->direct * core::at(light->direct_tint, ch);
+    }
+    light->light_radius += (kOvercastRadiusDegrees - light->light_radius) * s;
+    const float sky_luma = luma_of(light->sky);
+    const float gained = kOvercastScatter * taken * kDirectShare / (1.0F - kDirectShare);
+    for (std::size_t ch = 0; ch < light->sky.size(); ++ch) {
+        const float grey = core::at(light->sky, ch) + ((sky_luma - core::at(light->sky, ch)) * kOvercastGrey * s);
+        core::at(light->sky, ch) = grey + gained;
+    }
+    light->stars *= 1.0F - s;
+    light->moon_disc *= 1.0F - s;
+    finish_light(light);
 }
 
 float adapted_exposure(float light)
