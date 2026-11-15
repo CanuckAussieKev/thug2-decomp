@@ -1,4 +1,4 @@
-// NOT ORIGINAL - the simulation's exactness check on recorded runs (docs/design/tick-rate.md "The proof"): the demos in
+// NOT ORIGINAL - the simulation's exactness check on recorded runs (docs/design/simulation-rate.md "The proof"): the demos in
 // tools/game/sim_reference played at 60 Hz with several display rates ([Graphics] max_fps: 0 = the original's one frame
 // a tick, 120 / 144 / 240 = render-only frames blended between the ticks), and each run's simulation state compared
 // frame by frame, bit for bit, with the reference recorded from the build before a change.
