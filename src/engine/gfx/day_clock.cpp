@@ -298,7 +298,7 @@ void lights_by_day(const gfx::TodParams& own, const rt::DayLight& light, gfx::To
     const auto scale = [](int value, float factor) {
         return std::clamp(static_cast<int>(std::lround(static_cast<float>(value) * factor)), 0, kMostByte);
     };
-    const float direct = light.direct;
+    const rt::DayRgb& direct = light.light_colour;
     params->ambient_red_ = scale(own.ambient_red_, std::get<0>(light.sky));
     params->ambient_green_ = scale(own.ambient_green_, std::get<1>(light.sky));
     params->ambient_blue_ = scale(own.ambient_blue_, std::get<2>(light.sky));
@@ -306,9 +306,9 @@ void lights_by_day(const gfx::TodParams& own, const rt::DayLight& light, gfx::To
     params->ambient_mod_hi_ = own.ambient_mod_hi_;
     params->heading0 = own.heading0;
     params->pitch0 = own.pitch0;
-    params->red0 = scale(own.red0, direct * std::get<0>(light.direct_tint));
-    params->green0 = scale(own.green0, direct * std::get<1>(light.direct_tint));
-    params->blue0 = scale(own.blue0, direct * std::get<2>(light.direct_tint));
+    params->red0 = scale(own.red0, std::get<0>(direct));
+    params->green0 = scale(own.green0, std::get<1>(direct));
+    params->blue0 = scale(own.blue0, std::get<2>(direct));
     params->mod_lo0_ = own.mod_lo0_;
     params->mod_hi0_ = own.mod_hi0_;
     params->heading_a_ = own.heading_a_;
@@ -341,7 +341,7 @@ void apply_original(Clock& own, gfx::CtodManager& manager, const rt::DayLight& l
     own.set_state = manager.current_state();
     const bool relit = rt::sun_relight().relights;
     const bool sky_drawn = rt::sky_replacement().on;
-    const rt::DayRgb surface = rt::surface_light(light);
+    const rt::DayRgb surface = light.bounce;
     const auto native = static_cast<std::size_t>(own.native.state);
     for (int system = 0; system < kSystems; ++system) {
         if (!core::at(own.have_params, system)) {

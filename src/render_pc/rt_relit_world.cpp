@@ -105,6 +105,7 @@ struct Entry {
     rt::RelitVertices light;
     bool analysed = false;
     rt::Vec3 sun_for{};    // the sun its vertices' sun was traced toward
+    float radius_for = rt::kRelitSunRadiusDegrees; // ... and the light's angular radius then (rt_daylight.h light_radius)
     rt::Vec3 bounce_for{}; // ... and the sun whose light its bounce was traced with
     uint64_t written = 0;  // the lighting its colours were written with (0: the originals)
     bool dirty = false;    // its bounce traced again since: to be written
@@ -132,6 +133,7 @@ struct State {
     std::vector<rt::RelitLevel> levels;
     bool levels_read = false;
     rt::Vec3 sun{};
+    float radius = rt::kRelitSunRadiusDegrees; // the light's angular radius (the lighting state's: the moon's softer)
     rt::Rgbf sun_colour{1.0F, 1.0F, 1.0F};
     bool sky_model = false; // (whether the sun's colour was the sky model's)
     uint64_t day_serial = 0; // (added by the time of day) the clock's light the colour was made for (0: none)
@@ -148,6 +150,13 @@ State& state()
 {
     static core::NoDestroy<State> made;
     return made.get();
+}
+
+// Whether an entry's sun was traced for another light than the one now (its direction or its softness).
+bool sun_stale(const Entry& entry)
+{
+    const State& st = state();
+    return rt::dot(entry.sun_for, st.sun) < kSameSun || entry.radius_for != st.radius;
 }
 
 // A colour's brightness (0 - 255; A8R8G8B8).
@@ -620,11 +629,11 @@ bool target_sun(rt::Vec3* toward)
 // when the sky model is on (rt_sky_model publishes a SunLight); else white.
 rt::Rgbf sun_colour_for(const rt::Vec3& toward)
 {
-    // (added by the time of day) the clock's: the sun's colour at its elevation over the level's sun's - the sky model's
-    // ratio, whatever rt_sky_model says -, or the moon's
+    // (added by the time of day) the clock's lighting state carries the light's colour with its strength (light_colour:
+    // RelitLighting::direct_scale) - none here
     const rt::DayLight day = rt::day_light();
     if (day.on) {
-        return day.direct_tint;
+        return {1.0F, 1.0F, 1.0F};
     }
     if (!rt::sun_light().on) {
         return {1.0F, 1.0F, 1.0F};
@@ -642,21 +651,17 @@ rt::Rgbf sun_colour_for(const rt::Vec3& toward)
     return out;
 }
 
-// (added by the time of day) The clock's scales for the model's terms: the direct light's strength (its colour is
-// sun_colour's), the sky's light, and the bounce's - the light it brings back is the sun's and the sky's, so their mix
-// (the level's share of each). All 1 without the clock.
+// (added by the time of day) The lighting state's terms for the model's (rt_daylight.h DayLight - the clock's, read as
+// they are): the direct light (its strength and colour), the sky's light and the bounce's. All 1 without the clock.
 rt::RelitLighting day_scales(const rt::DayLight& day)
 {
     rt::RelitLighting scales;
     if (!day.on) {
         return scales;
     }
-    const rt::DayRgb bounce = rt::surface_light(day);
-    for (std::size_t ch = 0; ch < 3; ++ch) {
-        core::at(scales.direct_scale, ch) = day.direct;
-        core::at(scales.sky_scale, ch) = core::at(day.sky, ch);
-        core::at(scales.bounce_scale, ch) = core::at(bounce, ch);
-    }
+    scales.direct_scale = day.light_colour;
+    scales.sky_scale = day.sky;
+    scales.bounce_scale = day.bounce;
     return scales;
 }
 
@@ -682,6 +687,7 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
             entry.light = found->second;
             entry.analysed = true;
             entry.sun_for = st.cache.model.toward;
+            entry.radius_for = rt::kRelitSunRadiusDegrees;
             entry.bounce_for = st.cache.model.toward;
             ++from_cache;
         }
@@ -722,6 +728,7 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
         if (core::at(wanted, iv) != 0) {
             entry.analysed = true;
             entry.sun_for = st.model.toward;
+            entry.radius_for = rt::kRelitSunRadiusDegrees;
             entry.bounce_for = st.model.toward;
         }
     }
@@ -752,7 +759,7 @@ void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
     // (nothing lit toward another sun - every frame once the sun is still: nothing to trace, the entries left in place)
     const bool any_stale = std::ranges::any_of(st.order, [&st](const VertexBufferData* buffer) {
         const Entry& entry = st.entries.at(buffer);
-        return entry.analysed && rt::dot(entry.sun_for, st.sun) < kSameSun;
+        return entry.analysed && sun_stale(entry);
     });
     if (!any_stale) {
         return;
@@ -763,7 +770,7 @@ void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
     std::size_t budget = kRelitRetraceVertices;
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
-        const bool stale = entry.analysed && rt::dot(entry.sun_for, st.sun) < kSameSun;
+        const bool stale = entry.analysed && sun_stale(entry);
         const bool take = stale && budget > 0;
         if (take) {
             budget -= std::min(budget, entry.input.positions.size());
@@ -777,7 +784,7 @@ void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
         rt::trace_relit_sun(meshes, wanted, st.sun,
                             {.sky_rays = settings.sky_rays,
                              .sun_rays = settings.sun_rays,
-                             .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
+                             .sun_radius_degrees = st.radius,
                              .detail = settings.detail},
                             tracer, &light, &stats);
         st.retraced += stats.vertices;
@@ -788,6 +795,7 @@ void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
         entry.light = std::move(core::at(light, iv));
         if (core::at(wanted, iv) != 0) {
             entry.sun_for = st.sun;
+            entry.radius_for = st.radius;
         }
     }
 }
@@ -806,7 +814,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
     bool stale = false;
     for (const VertexBufferData* buffer : st.order) {
         const Entry& entry = st.entries.at(buffer);
-        suns_ready = suns_ready && (!entry.analysed || rt::dot(entry.sun_for, st.sun) >= kSameSun);
+        suns_ready = suns_ready && (!entry.analysed || !sun_stale(entry));
         stale = stale || (entry.analysed && rt::dot(entry.bounce_for, st.sun) < kSameSun);
     }
     if (!suns_ready || !stale) {
@@ -889,7 +897,7 @@ void write_relit(uint64_t lighting, const rt::RelitLighting& light)
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
         if (!entry.analysed || (entry.written == lighting && !entry.dirty) ||
-            rt::dot(entry.sun_for, st.sun) < kSameSun) {
+            sun_stale(entry)) {
             continue;
         }
         if (budgeted) {
@@ -1092,12 +1100,13 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     const bool sky_model = rt::sun_light().on;
     const rt::DayLight day = rt::day_light(); // (added by the time of day)
     const uint64_t day_serial = day.on ? day.serial : 0;
-    if (rt::dot(toward, st.sun) < kSameSun ||
+    if (rt::dot(toward, st.sun) < kSameSun || (day.on ? day.light_radius : rt::kRelitSunRadiusDegrees) != st.radius ||
         sky_model != st.sky_model || day_serial != st.day_serial) { // (the sky model publishes after its first pass)
         st.sky_model = sky_model;
         st.day_serial = day_serial;
         st.day_scales = day_scales(day);
         st.sun = toward;
+        st.radius = day.on ? day.light_radius : rt::kRelitSunRadiusDegrees;
         st.sun_colour = sun_colour_for(toward);
         // (a running clock moves the sun twice a second: logged once a game hour of it)
         static double logged_hours = -1.0;
@@ -1116,6 +1125,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         entry_of_level != nullptr && entry_of_level->strength >= 0.0F ? entry_of_level->strength : settings.strength;
     uint64_t lighting = fnv_value(kFnvBasis, st.sun);
     lighting = fnv_value(lighting, st.sun_colour);
+    lighting = fnv_value(lighting, st.radius);
     lighting = fnv_value(lighting, strength);
     lighting = fnv_value(lighting, settings.residual);
     lighting = fnv_value(lighting, model_floats(st.model));
@@ -1230,7 +1240,7 @@ bool settled(rt::Vec3* sun, uint64_t* lighting)
     for (const VertexBufferData* buffer : st.order) {
         const Entry& entry = st.entries.at(buffer);
         if (entry.analysed && (entry.written != st.wanted_lighting || entry.dirty ||
-                               rt::dot(entry.sun_for, st.sun) < kSameSun || rt::dot(entry.bounce_for, st.sun) < kSameSun)) {
+                               sun_stale(entry) || rt::dot(entry.bounce_for, st.sun) < kSameSun)) {
             return false;
         }
     }

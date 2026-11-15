@@ -272,20 +272,35 @@ void check_light()
 void check_objects_and_clouds(const rt::NativeDay& day, const rt::DayLight& midnight)
 {
     const rt::DayLight own = rt::day_light_at(day, day.hours);
-    const rt::DayRgb own_surface = rt::surface_light(own);
-    const rt::DayRgb night_surface = rt::surface_light(midnight);
-    const rt::DayRgb off = rt::surface_light(rt::DayLight{});
-    expect(off == rt::DayRgb{1.0F, 1.0F, 1.0F}, "surface_light without the clock: 1");
-    expect(std::abs(std::get<1>(own_surface) - 1.0F) < 1e-3F, "surface_light at the level's own time: 1 (" +
+    const rt::DayRgb own_surface = own.bounce;
+    const rt::DayRgb night_surface = midnight.bounce;
+    const rt::DayRgb off = rt::DayLight{}.bounce;
+    expect(off == rt::DayRgb{1.0F, 1.0F, 1.0F}, "the lighting state's bounce without the clock: 1");
+    expect(std::abs(std::get<1>(own_surface) - 1.0F) < 1e-3F, "the bounce at the level's own time: 1 (" +
                                                                     number(std::get<1>(own_surface)) + ")");
     expect(std::get<1>(night_surface) > 0.08F && std::get<1>(night_surface) < 0.3F &&
                std::get<2>(night_surface) > std::get<0>(night_surface),
-           "surface_light at midnight: dark and blue, as the relit level's bounce (" + number(std::get<1>(night_surface)) +
+           "the bounce at midnight: dark and blue, as the relit level's bounce (" + number(std::get<1>(night_surface)) +
                ")");
     // (the original's own night - its night state's level colour, 50 65 75 of 128 - is the brighter one the objects stood
     // out by)
-    expect(std::get<1>(night_surface) < 65.0F / 128.0F, "surface_light at midnight: darker than the original's night");
+    expect(std::get<1>(night_surface) < 65.0F / 128.0F, "the bounce at midnight: darker than the original's night");
 
+    // (the one lighting state) the direct light's colour is its strength x tint; the sun sharp, the moon soft
+    for (const rt::DayLight* light : {&own, &midnight}) {
+        bool product = true;
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            product = product && std::abs(core::at(light->light_colour, ch) -
+                                          (light->direct * core::at(light->direct_tint, ch))) < 1e-6F;
+        }
+        expect(product, "the lighting state: light_colour = direct x direct_tint");
+    }
+    expect(own.light_radius == rt::kSunRadiusDegrees && !own.moonlit, "the lighting state: the sun's radius by day");
+    expect(midnight.moonlit && midnight.light_radius == rt::kMoonRadiusDegrees &&
+               midnight.light_radius > 3.0F * own.light_radius,
+           "the lighting state: the moon's light much softer than the sun's");
+    expect(std::get<1>(midnight.light_colour) < 0.3F, "the lighting state: the moon weak (" +
+                                                          number(std::get<1>(midnight.light_colour)) + ")");
     const rt::CloudLight none = rt::cloud_light(rt::DayLight{});
     expect(none.sun == 1.0F && none.sky == 1.0F && none.night_top == rt::DayRgb{} && none.night_bottom == rt::DayRgb{},
            "cloud_light without the clock: as before");
