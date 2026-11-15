@@ -84,8 +84,10 @@ struct Clocks {
 
 // How the run's random numbers were kept apart from what a session leaves behind (the RAND chunk; none: 0, a demo made
 // before 2026-11-13).
-// - kMusicApart: the music's shuffles drew from streams of their own while it recorded (audio::set_music_random_apart),
-//   so its playback does too. Without it the music's draws were the game's, as when a session's first level loaded.
+// - kMusicApart: the music's shuffles drew from streams of their own while it recorded - every recording since
+//   2026-11-13; since 2026-11-15 the music never draws the game's random numbers (audio/music_player.h), so a playback
+//   always does so. Without it the music's draws were the game's (as when a session's first level loaded): such a demo
+//   may part where the music changed track, and its playback says so.
 constexpr uint32_t kMusicApart = 1U << 0U;
 
 // A script global with a simple value (an integer, a float or a name) as it was when the recording began (the GLOB

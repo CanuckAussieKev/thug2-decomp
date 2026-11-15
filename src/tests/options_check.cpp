@@ -690,21 +690,15 @@ void check_capabilities()
     expect(!resolve(no_vulkan(), snowy).on("snow") && resolve(no_vulkan(), snowy).at("snow").reason == t::kNoVulkanGpu,
            "no Vulkan: no snow, at the root");
     expect(!resolve(rtx50(), {}).on("snow"), "snow off by default");
-    // (added by the de-lit texture sets) rt_delight out while a set made de-lit is chosen, in effect with the original
-    // and with a set made without it
-    config::Capabilities delit = rtx50();
-    delit.texture_sets = {"original", "pbrify", "seedvr2"};
-    delit.delit_texture_sets = {"seedvr2"};
-    const auto delight_with = [&](const char* set) {
-        return resolve(delit, {{"rt_pbr", "1"}, {"rt_delight", "1"}, {"texture_set", set}});
-    };
-    const config::Resolution flat_set = delight_with("seedvr2");
-    expect(!flat_set.on("rt_delight") && flat_set.at("rt_delight").reason == t::kDelightTexturesDelit,
-           "a de-lit texture set: the draw-time de-lighting out, with its reason");
-    expect(!flat_set.at("rt_delight_strength").in_effect, "a de-lit texture set: the de-lighting's strength out with it");
-    expect(delight_with("SeedVR2").at("rt_delight").reason == t::kDelightTexturesDelit, "the set's name in any case");
-    expect(delight_with("pbrify").on("rt_delight"), "a set made without de-lighting: the draw-time de-lighting kept");
-    expect(delight_with("original").on("rt_delight"), "the original textures: the draw-time de-lighting kept");
+    // (added by the de-lit texture sets) rt_delight in effect whatever texture set is chosen: a de-lit set's textures
+    // that came flat are left alone by the renderer one by one (gpu_vulkan/vulkan_detail.h), its others keep it
+    config::Capabilities sets = rtx50();
+    sets.texture_sets = {"original", "pbrify", "seedvr2"};
+    for (const char* set : {"seedvr2", "pbrify", "original"}) {
+        const config::Resolution with_set = resolve(sets, {{"rt_pbr", "1"}, {"rt_delight", "1"}, {"texture_set", set}});
+        expect(with_set.on("rt_delight") && with_set.at("rt_delight_strength").in_effect,
+               std::string("texture_set=") + set + ": the draw-time de-lighting in effect (per texture in the renderer)");
+    }
 }
 
 // The machines: what a typical ini resolves to on each.

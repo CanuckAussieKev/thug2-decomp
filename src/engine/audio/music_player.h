@@ -41,17 +41,17 @@ static_assert(sizeof(Playlist) == kPlaylistBytes, "layout must match the origina
 // played doesn't come first). Then runs a script (0x300CAD34) with the track's index. Originally from PartyMod Fixes: the shuffle
 // draws from the C runtime's rand (seeded at start-up from the time), so the order differs from launch to
 // launch.
+// NOT ORIGINAL - the music's random numbers (this shuffle's, the draw that keeps the last track from coming first, and
+// shuffle_user_soundtrack's) come from streams of its own, seeded with a fixed seed; the game's streams are never
+// touched by the music. The original drew them from the game's: a track ends in real time (its stream's end), so where
+// they fell in the game's sequence (4,000 numbers at a reshuffle - the first level of a session draws a new order)
+// depended on the wall clock, and a stall or a slower machine changed every later random number
+// (docs/design/simulation-rate.md "Determinism under load"). PartyMod's rand is the process's C runtime's (std::rand),
+// not the game's (crt::game_rand, which demos seed), so it doesn't touch the game's either.
 void play_next_track();
 
-// NOT ORIGINAL - while `apart`, the music's random numbers (play_next_track's and shuffle_user_soundtrack's shuffles)
-// come from streams of its own - the game's as they were when it was set - and the game's streams aren't touched: a
-// demo (devtools/demo.h) sets it while it records or plays. A track ends in real time (its stream's end), which a
-// replayed run doesn't repeat; drawing from the game's streams, the music moved every later random number by when it
-// happened (the first level of a session draws a new order: 4,000 numbers at the level's load).
-void set_music_random_apart(bool apart);
-
-// PartyMod's shuffle draw (its our_random): one of the game's random numbers in [0, n), thrown away, then
-// rand() % n.
+// PartyMod's shuffle draw (its our_random): one random number in [0, n) thrown away - the game's in the original, the
+// music's own here (play_next_track) -, then rand() % n.
 int shuffle_random(int count);
 
 // 0x00452680 (reached by a jump from 0x00452910, when tracks play in order): like play_next_track, but the next

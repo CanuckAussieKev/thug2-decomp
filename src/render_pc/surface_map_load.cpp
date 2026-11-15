@@ -1,12 +1,14 @@
 // NOT ORIGINAL - a texture dictionary's surface maps (surface_map_load.h).
 #include "render_pc/surface_map_load.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <span>
 #include <string>
 #include <vector>
 
+#include "base/core/format.h"
 #include "engine/file/data_overlay.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/gpu_handles.h"
@@ -69,6 +71,7 @@ void SurfacePack::read_originals(const char* name)
         return; // (the game's own dictionary: its texels are the originals)
     }
     set_ = texture_sets::active();
+    delit_ = texture_sets::delit_textures(set_, relative.data()); // (sorted: binary searched in attach)
     const texture_sets::OriginalFiles originals;
     file::Hdl handle = file::unseal(name, "rb");
     if (handle == nullptr) {
@@ -134,9 +137,11 @@ void SurfacePack::attach(GpuTexture* texture, uint32_t checksum, std::span<const
                                 .f0 = entry->f0,
                                 .checksum = entry->checksum,
                                 .content_hash = entry->content_hash,
-                                .flags = entry->flags};
+                                .flags = entry->flags,
+                                .delit = std::ranges::binary_search(delit_, checksum)};
     if (maps->attach(texture, info, texels)) {
         ++attached_;
+        attached_delit_ += info.delit ? 1U : 0U;
     }
 }
 
@@ -145,8 +150,10 @@ void SurfacePack::report() const
     if (!active()) {
         return;
     }
+    const std::string delit =
+        attached_delit_ != 0 ? text::format("; %u came de-lit - no draw-time de-lighting", attached_delit_) : std::string();
     get_log("surface maps: %s - %u of %zu maps attached%s%s", name_.c_str(), attached_, entries_.size(),
-            set_.empty() ? "" : (" (" + set_ + "'s textures, matched by their originals)").c_str(),
+            set_.empty() ? "" : (" (" + set_ + "'s textures, matched by their originals" + delit + ")").c_str(),
             stale_ != 0 ? " (some textures' texels differ from the maps': made again with unpack_game.ts --pbr-maps)" : "");
 }
 

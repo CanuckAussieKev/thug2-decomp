@@ -165,9 +165,11 @@ of each) and the scripts and objects frame by frame, first playback against seco
 - **The music's shuffles.** A new track is chosen when the last one ends - in real time - and the shuffle drew 4,000 of
   the game's random numbers (the session's first level: at its load). Every later number moved with it: in `viewtest` the
   pedestrian preselection then drew 266 numbers instead of 386, a script's random wait came out different and the
-  braking skater's idles were other ones, so it pushed off 8 frames later at frame 784. Now while a demo records or plays
-  the music draws from streams of its own (`audio::set_music_random_apart`); a recording notes it (`RAND`) and its
-  playback does the same. The game's own draws are untouched.
+  braking skater's idles were other ones, so it pushed off 8 frames later at frame 784. The music now always draws
+  from streams of its own (since 2026-11-15, in play as in a demo - `audio/music_player.h`,
+  docs/design/simulation-rate.md "The music's random numbers"); a recording notes it (`RAND`). A demo without the flag
+  (made before 2026-11-13) let the music draw the game's numbers: its playback can part where the music changed track,
+  and says so in the log.
 - **RandomNoRepeat / RandomPermute.** Their state (the last choice, the shuffled order) is kept per script site and
   outlives the script that used it: a level's scripts found the state of the last pass's. A demo's start drops them all
   (`script::forget_all_stored_randoms`, recording and playback alike).
@@ -271,7 +273,11 @@ real time only decides whether a frame is drawn or skipped to catch up. A demo p
    demo runs (`draws_unfocused`). When a recording or playback ends the log gives its pace (`demo: ... pace - game s
    in real s`, and the frames not drawn).
 5. **The skater.** The profile (appearance, trick style, specials, its info and stats) is saved with the demo and put
-   back before a playback if the current one differs.
+   back before a playback if the current one differs - and then handed to the skater with the game's own
+   `RefreshSkaterModel`, as the skater select does: the skater keeps its own copy of the stats, trick mappings and
+   stance, taken from the profile when it was given one, so a profile changed behind its back would leave it skating
+   with the session's stats (until 2026-11-15 it did: sim_grind, recorded with stats of 10, played anywhere else with
+   that folder's skater's).
 
 The **check track** - the skater's position, velocity, matrix rows and state, and the camera, every frame from the level
 up - is recorded with the input. A playback compares its own with it and logs the first frame that differs (more than
@@ -304,8 +310,8 @@ before the change 0.99 - every playback identical to the recording (1283 check p
 
 - **A second playback in one session** (a demo played to its end, QUIT, played again - and every pass of the viewer
   after a seek back) is exact for a demo made since 2026-11-13 ("What a session leaves behind" above). A demo without
-  the `GLOB` and `RAND` chunks (made before) is exact only as the first playback after the game starts: its music drew
-  from the game's random numbers and its globals weren't kept. Record it again.
+  the `GLOB` and `RAND` chunks (made before) can part from its recording: its music drew from the game's random numbers
+  when it was recorded, which no playback does any more, and its globals weren't kept. Record it again.
 - What a session leaves that isn't a simple script global, a stored random or the music (a structure or array global
   changed by a script, the career's flags, a goal's state) isn't put back: a level that reads one could still part on a
   second playback - the drift check shows where.

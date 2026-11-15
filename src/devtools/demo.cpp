@@ -35,7 +35,6 @@
 #include "devtools/demo_overlay.h"
 #include "devtools/demo_viewer.h"
 #include "devtools/screenshot.h"
-#include "engine/audio/music_player.h"
 #include "engine/gfx/render_device.h"
 #include "engine/media/video_writer.h"
 #include "engine/script/context.h"
@@ -62,6 +61,7 @@
 #include "game/front_end/front_end.h"
 #include "game/front_end/start_level.h"
 #include "game/rider/skater_state.h"
+#include "game/skate/appearance_cfuncs.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "platform/crt.h"
@@ -316,8 +316,22 @@ objects::RiderIdentity* current_profile()
     return roster != nullptr ? roster->fetch_active_account() : nullptr;
 }
 
+// The local skater, if there is one yet, given the profile again by the game's own RefreshSkaterModel (skater 0 from
+// profile 0 - the current one in a one-player game): its model, stats, trick mappings and stance from the profile.
+void refresh_skater(objects::RiderIdentity* profile)
+{
+    objects::ProfileRoster* roster = objects::profile_roster();
+    if (objects::find_object(kSkater) == nullptr || roster == nullptr || roster->fetch_account(0) != profile) {
+        get_log("demo: the skater isn't made yet - it takes the profile put back when it is");
+        return;
+    }
+    const script::StructPtr params = script::make_struct();
+    commands::cfunc_refresh_skater_model(params.get(), script::Context());
+    get_log("demo: the skater given the profile put back (its stats, tricks and stance)");
+}
+
 // The demo's skater made the current one again: its template if another is current, then its profile and info
-// where they differ.
+// where they differ - and the skater given them.
 void restore_profile(const Demo& demo)
 {
     objects::ProfileRoster* roster = objects::profile_roster();
@@ -325,16 +339,19 @@ void restore_profile(const Demo& demo)
     if (roster == nullptr || profile == nullptr) {
         return;
     }
+    const objects::RiderIdentity* current_before = profile;
     if (demo.skater_name != 0 && profile->fetch_title() != demo.skater_name &&
         roster->get_template(demo.skater_name) != nullptr) {
         roster->set_current_skater(demo.skater_name);
         profile = current_profile();
         get_log("demo: the skater %s made current again", demo.skater.c_str());
     }
+    bool put_back = profile != current_before;
     if (!demo.profile.empty() && profile_bytes(profile) != demo.profile) {
         std::vector<uint8_t> copy = demo.profile;
         profile->decode_from_bytes(copy.data(), copy.size());
         get_log("demo: the skater's appearance and tricks put back as recorded");
+        put_back = true;
     }
     if (!demo.details.empty() && details_bytes(profile) != demo.details) {
         std::vector<uint8_t> copy = demo.details;
@@ -342,6 +359,14 @@ void restore_profile(const Demo& demo)
         script::decode_from_bytes(read.get(), copy.data(), copy.size());
         profile->details_params()->append_structure_if_any(read.get());
         get_log("demo: the skater's info (stats...) put back as recorded");
+        put_back = true;
+    }
+    // (the skater made before the playback - the front end's - keeps what it took from the profile then: its stats,
+    // trick mappings and stance. The game hands a changed profile to it with RefreshSkaterModel, as the skater
+    // select and the create-a-skater screens do: so here, else the run skates with the session's own stats -
+    // sim_grind, recorded with stats of 10, played with the workspace skater's 3)
+    if (put_back) {
+        refresh_skater(profile);
     }
 }
 
@@ -566,10 +591,10 @@ void begin_recording(uint32_t load)
         run.name = "demo_" + demo.level + "_" + local_time_text("%Y-%m-%d_%H-%M-%S");
     }
     // (what a session leaves behind kept out of the run - measured, docs/demos.md "Limits": RandomNoRepeat /
-    // RandomPermute's states that scripts which ran before left, and the music's shuffles - their own streams while the
-    // demo runs, as a track ends in real time; the simple script globals recorded, for a playback to put back)
+    // RandomPermute's states that scripts which ran before left; the simple script globals recorded, for a playback to
+    // put back. The music's shuffles never draw the game's random numbers - audio/music_player.h -, which the RAND
+    // chunk notes)
     script::forget_all_stored_randoms();
-    audio::set_music_random_apart(true);
     demo.random_flags = demo_format::kMusicApart;
     demo.globals = globals_now();
     maths::seed_random(demo.seed);
@@ -828,11 +853,14 @@ void begin_playback(uint32_t load)
         return;
     }
     // (as begin_recording: the states a session's earlier scripts left dropped, the globals as recorded - none in a
-    // demo made before the GLOB chunk -, the music apart as it was recorded - a demo made before the RAND chunk drew
-    // it from the game's streams)
+    // demo made before the GLOB chunk)
     script::forget_all_stored_randoms();
     restore_globals(run.demo);
-    audio::set_music_random_apart((run.demo.random_flags & demo_format::kMusicApart) != 0U);
+    if ((run.demo.random_flags & demo_format::kMusicApart) == 0U) {
+        get_log("demo: %s was recorded while the music drew the game's random numbers - it may part from the "
+                "recording where the music changed track (record it again)",
+                run.name.c_str());
+    }
     maths::seed_random(run.demo.seed);
     crt::game_srand(run.demo.crt_seed);
     run.counting = true;
@@ -1240,9 +1268,6 @@ void menu_tick(modules::FrontEnd* front_end, bool game_owned)
     // (a demo's pause is the original freeze, whatever [features] live_pause says - game/front_end/live_pause.h: a
     // recording and its playback then pause alike)
     modules::live_pause::demo_running() = run.phase != Phase::kOff;
-    if (run.phase == Phase::kOff) {
-        audio::set_music_random_apart(false);
-    }
     // -demo: once the main menu has been up a moment (its scripts loaded), as -level starts its level
     if (run.phase == Phase::kPlayArmed && run.from_command_line) {
         const bool menu = render::current_level() == 0 && !(front_end != nullptr && front_end->is_paused()) &&
