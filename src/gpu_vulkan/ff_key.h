@@ -213,9 +213,19 @@ constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailDelight | kDetailRelie
 // (PaintUniforms at kPaintUniformsBinding, the coats and their places at kPaintCoatBinding / kPaintPlaceBinding), over
 // the snow's. The vertex half's `surface` has kVertexSurfaceInputs with it (the eye-space position handed on). A byte
 // of the two spares: the key stays 52 bytes, and 0 leaves its bytes - and its shaders - exactly as before.
+// kTrailSnowTraced (with kTrailSnow, on a device with ray tracing and a scene to trace): whether the surface is open to
+// the sky is a ray query straight up through the frame's scene (the TLAS at kCelSceneBinding: the level and the
+// cut-out casters - trees, awnings -, not the objects), so a surface under anything drawn holds no snow and one open to
+// the sky does, however steep or near something else; without it the sky map's cells (the collision seen from above).
 constexpr uint8_t kTrailSnow = 1;
 constexpr uint8_t kTrailPaint = 2;
-constexpr uint8_t kTrailKnown = kTrailSnow | kTrailPaint;
+constexpr uint8_t kTrailSnowTraced = 4;
+// kTrailSnowTint (with kTrailSnow, a world draw of the relit level - its vertex colour the relit tint x the light): the
+// vertex takes the relit world's stream (kVertexCelStream, the cel shading's binding), so the snow replaces the surface's
+// whole colour - the texture and the tint the vertex colour carries (a road's dark asphalt, a lawn's green, painted lines)
+// - and keeps only the light: the albedo is mixed toward the snow over the tint (word 1 of the stream).
+constexpr uint8_t kTrailSnowTint = 8;
+constexpr uint8_t kTrailKnown = kTrailSnow | kTrailPaint | kTrailSnowTraced | kTrailSnowTint;
 
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;

@@ -672,9 +672,15 @@ void detail_declarations(std::string& out, const FragmentKey& key)
 //   - the surface's world position from the eye-space one (v_surface_eye); its own normal from the position's screen
 //     derivatives, turned toward the eye; its up share n.y, moved by a value noise over the ground (snow.albedo.w) so
 //     the edge where a slope loses its snow isn't a straight line;
-//   - open to the sky: the sky map's four cells round the point (textureGather of the tops' heights) - each whose top is
+//   - how much it holds by its slope (snow::slope_cover's twin, the up share moved by the noise): full on flat ground,
+//     thinning up ramps and banks to a light coat on steep faces (a quarter pipe's), none on a near-vertical wall; a
+//     light coat lies in patches (a noise over the surface: where it is thin, only its higher patches hold snow);
+//   - open to the sky (snow_open): with kTrailSnowTraced a ray query straight up through the frame's scene from just off
+//     the surface (its start moved a little by a smooth noise over the ground, so an eave's line isn't ruled) - nothing
+//     drawn over it within snow.slope.w: open (the level and the cut-out casters - trees, awnings, fences -, not the
+//     objects); else the sky map's four cells round the point (textureGather of the tops' heights) - each whose top is
 //     at most snow.range.z over the point, or which has no face (0), counts; a quarter each, so a roof's edge is soft;
-//   - snow_amount = smoothstep(least up, full up, the up share) x the open share x snow.range.w;
+//   - snow_amount = the slope's cover (in patches) x the open share x snow.range.w;
 //   - the programs' albedo: stage 0's texel (the fixed programs), or the material's passes' sum (kMaterial) before the
 //     vertex colour multiplies it - mixed toward snow.albedo.rgb by snow_amount.
 constexpr const char* kSnowBlock = R"(layout(set = 0, binding = 17, std140) uniform SnowUniforms {
@@ -683,6 +689,7 @@ constexpr const char* kSnowBlock = R"(layout(set = 0, binding = 17, std140) unif
     vec4 range;
     vec4 size;
     vec4 albedo;
+    vec4 slope;
 } snow;
 layout(set = 0, binding = 18) uniform sampler2D snow_sky;
 float snow_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -694,7 +701,11 @@ float snow_noise(vec2 p)
     return mix(mix(snow_hash(i), snow_hash(i + vec2(1.0, 0.0)), f.x), mix(snow_hash(i + vec2(0.0, 1.0)),
                snow_hash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
-float snow_cover(vec3 world, vec3 n)
+float snow_slope(float up)
+{
+    return smoothstep(snow.size.z, snow.size.w, up) * (snow.slope.z + (1.0 - snow.slope.z) * smoothstep(snow.slope.x, snow.slope.y, up));
+}
+float snow_sky_open(vec3 world)
 {
     vec2 uv = (world.xz - snow.map.xy) * snow.map.z / max(snow.size.xy, vec2(1.0));
     vec4 tops = textureGather(snow_sky, uv, 0);
@@ -704,8 +715,34 @@ float snow_cover(vec3 world, vec3 n)
         float top = snow.range.x + max(t - 1.0, 0.0) / 65534.0 * snow.range.y;
         open += (t < 0.5 || world.y + snow.range.z >= top) ? 0.25 : 0.0;
     }
+    return open;
+}
+#ifdef SNOW_TRACED
+float snow_open(vec3 world, vec3 n)
+{
+    vec2 shift = (vec2(snow_noise(world.xz * 0.09), snow_noise(world.zx * 0.09 + 17.0)) - 0.5) * 3.0;
+    vec3 origin = world + n * 0.6 + vec3(shift.x, 0.3, shift.y);
+    rayQueryEXT q;
+    rayQueryInitializeEXT(q, SNOW_SCENE, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, SNOW_MASK, origin, 0.0,
+                          vec3(0.0, 1.0, 0.0), snow.slope.w);
+    while (rayQueryProceedEXT(q)) {
+    }
+    return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+}
+#else
+float snow_open(vec3 world, vec3 n) { return snow_sky_open(world); }
+#endif
+float snow_cover(vec3 world, vec3 n)
+{
     float edge = (snow_noise(world.xz * 0.027) - 0.5) * snow.albedo.w;
-    return smoothstep(snow.size.z, snow.size.w, n.y + edge) * open * snow.range.w;
+    float coat = snow_slope(n.y + edge);
+    if (coat <= 0.0) {
+        return 0.0;
+    }
+    float spot = snow_noise(world.xz * 0.31 + vec2(world.y * 0.37, -world.y * 0.29));
+    float patchy = smoothstep(1.0 - coat - 0.18, 1.0 - coat + 0.18, spot) * min(coat * 2.5, 1.0);
+    float amount = mix(patchy, coat, smoothstep(0.8, 1.0, coat));
+    return amount * snow_open(world, n) * snow.range.w;
 })";
 // (NOT ORIGINAL - [Graphics] paint_trails, vulkan_paint.h; docs/design/vulkan.md "Paint trails") the paint's coat: a key
 // with kTrailPaint reads the paint's three fields (engine/gfx/paint_trails.h: the level seen along x, y and z) where the
@@ -786,10 +823,17 @@ void trail_main(std::string& out, const FragmentKey& key)
 }
 
 // (NOT ORIGINAL - the surface trails) An albedo (`target`: its rgb) covered: the snow over the surface, the paint over both.
-void trail_albedo(std::string& out, const FragmentKey& key, const char* target, const char* indent)
+void trail_albedo(std::string& out, const FragmentKey& key, const char* target, const char* indent, const char* own = nullptr)
 {
-    if ((key.trails & kTrailSnow) != 0U) {
-        add(out, {indent, target, " = mix(", target, ", snow.albedo.rgb, snow_amount);"});
+    // the snow's colour over what else colours the surface besides `target`: `own` (a pass colour), the relit tint
+    const std::string snow_colour = own != nullptr ? std::string("(snow.albedo.rgb / ") + own + ")" : std::string("snow.albedo.rgb");
+    if ((key.trails & kTrailSnowTint) != 0U) {
+        // (the relit tint the vertex colour carries replaced too: the snow over it, where the vertex has the stream -
+        // word 2's alpha; the stream's tint is x 128 of 255, so x 2)
+        add(out, {indent, target, " = mix(", target, ", v_cel_residual.a > 0.5 ? ", snow_colour, " / max(v_cel_tint.rgb * 2.0, "
+                  "vec3(0.04)) : ", snow_colour, ", snow_amount);"});
+    } else if ((key.trails & kTrailSnow) != 0U) {
+        add(out, {indent, target, " = mix(", target, ", ", snow_colour, ", snow_amount);"});
     }
     if ((key.trails & kTrailPaint) != 0U) {
         add(out, {indent, target, " = mix(", target, ", paint_coat.rgb, paint_coat.a);"});
@@ -972,6 +1016,12 @@ void surface_lighting(std::string& out, const FragmentKey& key)
                   "d.material.y * detail_w;"});
     }
     add(out, {"    surface_rough = clamp(surface_rough, 0.08, 1.0);\n    vec3 surface_specular = vec3(0.0);"});
+    if ((key.trails & kTrailSnow) != 0U) {
+        // (NOT ORIGINAL - the snow: what it covers loses its own relief and gloss - the bricks' joints, the asphalt's
+        // grain - under it: the surface's own shape, the snow's roughness)
+        add(out, {"    surface_n = normalize(mix(surface_n, surface_geo, snow_amount));\n"
+                  "    surface_rough = mix(surface_rough, 0.75, snow_amount);"});
+    }
     if ((key.surface & kSurfaceCel) != 0U) {
         cel_lighting(out, key); // (added by cel shading)
         return;
@@ -1038,6 +1088,18 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
             add(out, {kSurfaceVaryingsIn});
         }
         if ((key.trails & kTrailSnow) != 0U) {
+            if ((key.trails & kTrailSnowTraced) != 0U) {
+                // (the frame's scene: the cel shading's binding, declared once - SNOW_MASK: the level 0x01 and the cut-out
+                // casters 0x04, vulkan_rt_scene.h; not the objects)
+                static_assert(kCelSceneBinding == 9, "the scene's binding named here");
+                if ((key.surface & kSurfaceCelShadow) == 0U) {
+                    add(out, {"layout(set = 0, binding = 9) uniform accelerationStructureEXT cel_scene;"});
+                }
+                add(out, {"#define SNOW_TRACED\n#define SNOW_SCENE cel_scene\n#define SNOW_MASK 0x05u"});
+            }
+            if ((key.trails & kTrailSnowTint) != 0U && (key.surface & kSurfaceCelStream) == 0U) {
+                add(out, {kCelVaryingsIn}); // (the relit world's stream: its tint)
+            }
             add(out, {kSnowBlock});
         }
         if ((key.trails & kTrailPaint) != 0U) {
@@ -1182,6 +1244,33 @@ void fragment_stages(std::string& out, const FragmentKey& key, uint32_t sampled)
             add(out, {"        vec4 tex = texture(t", num(stage), "_map, ", coord_of(key, stage), ");"});
             if (stage == 0) { // (NOT ORIGINAL - the surface trails: stage 0's texel covered)
                 trail_albedo(out, key, "tex.rgb", "        ");
+            } else if ((key.trails & kTrailSnow) != 0U) {
+                // (NOT ORIGINAL - the snow: a later stage's texture - a detail layer over the ground, a lawn's grass, the
+                // road's grit - under the snow too: its texel toward what leaves the colour as it is, for its op)
+                const char* neutral = nullptr;
+                switch (ops.colour_op) {
+                case StageOp::kModulate:
+                    neutral = "1.0";
+                    break;
+                case StageOp::kModulate2x:
+                case StageOp::kAddSigned:
+                case StageOp::kAddSigned2x:
+                    neutral = "0.5";
+                    break;
+                case StageOp::kModulate4x:
+                    neutral = "0.25";
+                    break;
+                case StageOp::kAdd:
+                case StageOp::kSubtract:
+                case StageOp::kAddSmooth:
+                    neutral = "0.0";
+                    break;
+                default:
+                    break;
+                }
+                if (neutral != nullptr) {
+                    add(out, {"        tex.rgb = mix(tex.rgb, vec3(", neutral, "), snow_amount);"});
+                }
             }
         }
         const OpArgs colour = {.a0 = arg_value(ops.colour_arg0, false),
@@ -1256,20 +1345,32 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
             add(out, {"    t0.rgb *= mix(1.0, detail_m.a * 2.0, clamp(detail_w, 0.0, 1.0));"});
         }
         if (index == 0 && key.program != PixelProgram::kMaterial) { // (NOT ORIGINAL - the surface trails' cover)
-            trail_albedo(out, key, "t0.rgb", "    ");
+            // (the pass colour c0 is the surface's colour too - x 2: 0.5 leaves the texel as it is - so the snow is set
+            // over it: a lawn's green pass colour, a kerb's grey, don't tint the snow)
+            trail_albedo(out, key, "t0.rgb", "    ", "max(c0.rgb * 2.0, vec3(0.04))");
         }
     }
 }
 
 // The fixed shaders (one pass).
-void ps_fixed(std::string& out, PixelProgram program)
+void ps_fixed(std::string& out, const FragmentKey& trail_key)
 {
+    const PixelProgram program = trail_key.program;
+    const uint8_t trails = trail_key.trails;
     switch (program) {
     case PixelProgram::kTextureVertexX4: // tex t0 / mul r0.rgb,t0,c0 / +mul_x2 r0.a,v0.a,t0.a / mul_x4 r0.rgb,v0,r0
         add(out, {"    r0.rgb = t0.rgb * c0.rgb;\n    r0.a = 2.0 * (v0.a * t0.a);\n    r0.rgb = 4.0 * (v0.rgb * r0.rgb);"});
         break;
     case PixelProgram::kVertexFactor: // mul_x2 r0.rgb,v0,c0 / +mov r0.a,v0.a
-        add(out, {"    r0.rgb = 2.0 * (v0.rgb * c0.rgb);\n    r0.a = v0.a;"});
+        if (trails != 0U) {
+            // (NOT ORIGINAL - the surface trails on an untextured draw - the road's asphalt: its albedo is the pass
+            // colour, covered as a texel is)
+            add(out, {"    vec3 vf = c0.rgb;"});
+            trail_albedo(out, trail_key, "vf", "    ");
+            add(out, {"    r0.rgb = 2.0 * (v0.rgb * vf);\n    r0.a = v0.a;"});
+        } else {
+            add(out, {"    r0.rgb = 2.0 * (v0.rgb * c0.rgb);\n    r0.a = v0.a;"});
+        }
         break;
     case PixelProgram::kBloomCutoff:
         // def c1 1,1,1,1 / def c2 0,0,0,0 / tex t0 / sub r0,t0,c0 / dp3 r1,r0,c1 / add r0.a,r1.a,c0.a /
@@ -1404,7 +1505,7 @@ void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled
     if (key.program == PixelProgram::kMaterial) {
         ps_material(out, key);
     } else {
-        ps_fixed(out, key.program);
+        ps_fixed(out, key);
     }
     add(out, {"    vec4 colour = r0;"});
     if ((key.detail & kDetailMaterial) != 0U) { // (NOT ORIGINAL - rt_detail: a metal's highlight takes its colour)
@@ -1498,7 +1599,7 @@ std::string fragment_shader_glsl(const FragmentKey& key)
 {
     const uint32_t sampled = sampled_stages(key);
     // (added by cel shading: the sun's visibility per pixel - ray queries are GLSL 4.60's)
-    const bool traced = (key.surface & kSurfaceCelShadow) != 0U;
+    const bool traced = (key.surface & kSurfaceCelShadow) != 0U || (key.trails & kTrailSnowTraced) != 0U;
     std::string out = std::string(traced ? "#version 460\n" : "#version 450\n") + "// generated: " + describe(key) + "\n";
     if (traced) {
         out += "#extension GL_EXT_ray_query : require\n";

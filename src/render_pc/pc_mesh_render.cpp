@@ -34,6 +34,7 @@
 #include "render_pc/water_geometry.h"
 #include "engine/gfx/surface_trail.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/snow.h"
 #include <bit>
 
 namespace render {
@@ -80,10 +81,11 @@ constexpr std::size_t kSkinVertexBytes = 0x4C;
 static_assert(sizeof(SkinVertex) == kSkinVertexBytes, "layout must match the original");
 
 // Not original - cel shading (engine/gfx/rt_cel.h): the relit world's stream for the draws from `vb` (none: their
-// vertex colour banded), named while the mode is on.
+// vertex colour banded), named while the mode is on - or the snow (engine/gfx/snow.h: its cover replaces the surface's
+// colour, the relit tint in the vertex colour too).
 void set_cel_source(VertexBuffer* vb)
 {
-    if (rt::cel_shading_on()) {
+    if (rt::cel_shading_on() || snow::settings().on) {
         gpu().set_cel_source(
             {.vertices = vb->buffer(), .offset = vb->arena_offset(), .stream = rt_relit_world::cel_stream(vb)});
     }

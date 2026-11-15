@@ -7,6 +7,7 @@
 
 #include "engine/gfx/grass.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/wind.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 
 // NOT ORIGINAL - grass (docs/design/vulkan.md "Grass"; [Graphics] grass - gpu_vulkan.h's GrassSettings): blades drawn
@@ -73,7 +74,7 @@ inline constexpr float kGrassMatchSlack = 8.0F;
 inline constexpr float kGrassLearn = 0.34F;
 inline constexpr float kGrassUnitsPerMetre = 39.37F;
 inline constexpr uint32_t kGrassMostDrawn = 1500000;
-inline constexpr std::array<float, 2> kGrassWindDirection{0.8F, 0.6F}; // (x, z)
+inline constexpr std::array<float, 2> kGrassWindDirection = wind::kDirection; // (x, z: the level's wind, engine/gfx/wind.h)
 
 // What a view's blades are shaped with (the settings and the view; also the reference's input).
 struct GrassView {

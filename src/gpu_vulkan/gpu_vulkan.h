@@ -471,7 +471,7 @@ void set_grass_settings(const GrassSettings& settings);
 // vehicles part, its spray, snow falling. `on` false (the default): nothing is gathered or drawn. No ray tracing needed.
 struct SnowSettings {
     bool on = false;
-    float depth = 4.0F; // world units (inches) of snow: 1 - 8
+    float depth = 8.0F; // world units (inches) of snow: 1 - 24 (snow::kLeastDepth - kMostDepth)
     int quality = 2;    // the trails' detail: 1 - 3
     bool falling = true;
 };

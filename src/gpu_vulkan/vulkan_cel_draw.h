@@ -44,6 +44,10 @@ void cel_set_scene_locked(VkAccelerationStructureKHR tlas);
 [[nodiscard]] VkAccelerationStructureKHR cel_scene();
 // render_pc's Gpu::CelSource (vulkan_gpu.cpp): the stream for the draws from `vertices` at `offset`.
 void set_cel_source_locked(Backend& state, const Gpu::CelSource& source);
+// (added by the snow - vulkan_snow.h: the snow replaces the surface's colour, the relit tint in it too) The relit world's
+// stream for this draw: the named source's when the draw's vertices are its buffer at its offset and the frame's world is
+// relit; null otherwise (render_pc names the source while cel shading or the snow is on).
+[[nodiscard]] Buffer* relit_stream_of(Backend& state, const DrawCall& call);
 
 // Whether the mode is on (the effects that step aside ask).
 [[nodiscard]] bool cel_on();

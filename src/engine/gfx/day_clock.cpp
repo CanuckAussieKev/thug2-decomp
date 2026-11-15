@@ -23,6 +23,7 @@
 #include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/snow.h"
 #include "engine/gfx/tod_manager.h"
 #include "platform/run_log.h"
 
@@ -508,6 +509,7 @@ void frame()
     }
     const double stepped = std::round(own.hours * kStepsPerHour) / kStepsPerHour;
     rt::DayLight light = rt::day_light_at(own.native, stepped);
+    rt::apply_overcast(&light, snow::overcast_share()); // (NOT ORIGINAL - the snow's winter sky: rt_daylight.h)
     light.exposure = exposure_now(own, light, seconds);
     rt::set_day_light(light);
     apply_original(own, *manager, light);

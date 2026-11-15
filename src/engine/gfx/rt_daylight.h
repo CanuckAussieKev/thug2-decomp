@@ -211,6 +211,17 @@ struct DayLight {
 };
 // The light at `hours` on the level's day.
 [[nodiscard]] DayLight day_light_at(const NativeDay& native, double hours);
+// (added by the snow) An overcast sky over that light, `share` 0 - 1 of a full winter overcast (day_clock applies it to
+// the state it makes - snow::overcast_share): the cloud deck keeps kOvercastDirect of the direct light at full and
+// widens its radius toward kOvercastRadiusDegrees (soft shadows), the sky's light turns grey (kOvercastGrey of the way to
+// its own luminance) and gains kOvercastScatter of what the deck took from the direct light (in the level's shares); the
+// stars and the moon's disc go behind it; the bounce, the shadows' strength and the model's exposure follow. Nothing
+// while the light is off or the share 0.
+inline constexpr float kOvercastDirect = 0.3F;
+inline constexpr float kOvercastRadiusDegrees = 16.0F;
+inline constexpr float kOvercastGrey = 0.75F;
+inline constexpr float kOvercastScatter = 0.5F;
+void apply_overcast(DayLight* light, float share);
 // The drawn clouds' light at the clock's time (the Vulkan sky pass's: its clouds are lit by the sun and by the sky's
 // bands it matched at the level's own time): the sun's light on them x `sun` (gone once the sun is kCloudSunGone under
 // the horizon - a cloud high up keeps the sunset's light a little after the ground has lost it), the sky's x `sky` (the

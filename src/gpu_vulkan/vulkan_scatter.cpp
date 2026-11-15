@@ -34,6 +34,7 @@
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_snow.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -61,7 +62,8 @@ constexpr uint32_t kBindingParams = 4; // the view's block (uniform, in the ring
 constexpr uint32_t kBindingAtlas = 5;  // the decals' atlas (sampled, mipmapped)
 constexpr uint32_t kBindingSource = 6; // the viewport's colour copied out (sampled)
 constexpr uint32_t kBindingDepth = 7;  // the depth (sampled)
-constexpr uint32_t kBindingCount = 8;
+constexpr uint32_t kBindingSnow = 8;   // (the decals') the snow's sky map (vulkan_snow.h SnowGround; else the atlas, unread)
+constexpr uint32_t kBindingCount = 9;
 constexpr std::size_t kLightBytes = 8;
 constexpr float kRanks = 256.0F;
 constexpr float kHalf = 0.5F;
@@ -123,6 +125,9 @@ layout(std140, set = 0, binding = 4) uniform Params {
     vec4 offsets;          // x, y: Direct3D 9's half pixel (1 / the size); z, w: the jitter (clip space)
     vec4 depth_projection; // P22, P32, P23, P33
     vec4 depth_map;        // x: the depth range's minimum; y: 1 / its span
+    vec4 snow_map;         // (the snow over the decals - vulkan_snow.h SnowGround) x, y: the sky map's first cell's
+                           // corner; z: a cell; w: the slack (0: no snow)
+    vec4 snow_range;       // x: the heights' low; y: their span; z, w: the columns and rows
 } p;
 
 const float TAU = 6.28318530718;
@@ -151,10 +156,28 @@ vec3 finite_colour(vec3 c)
 
 constexpr const char* kDecalVertexBody = R"(
 layout(std430, set = 0, binding = 0) readonly buffer Decals { float decals[]; };
+layout(set = 0, binding = 8) uniform sampler2D u_snow_sky;
 layout(location = 0) out vec2 v_uv;
 layout(location = 1) flat out vec2 v_cell;
 layout(location = 2) out float v_weight;
 out gl_PerVertex { vec4 gl_Position; };
+
+// The snow over a decal's corner (the sky map's cell there: its cover, when the corner is that cell's top face) - the
+// mark lies under it.
+float under_snow(vec3 position)
+{
+    if (p.snow_map.w <= 0.0) {
+        return 0.0;
+    }
+    ivec2 c = ivec2(floor((position.xz - p.snow_map.xy) / p.snow_map.z));
+    if (c.x < 0 || c.y < 0 || c.x >= int(p.snow_range.z) || c.y >= int(p.snow_range.w)) {
+        return 0.0;
+    }
+    vec2 cell = texelFetch(u_snow_sky, c, 0).rg;
+    float t = floor(cell.r * 65535.0 + 0.5);
+    float top = p.snow_range.x + max(t - 1.0, 0.0) / 65534.0 * p.snow_range.y;
+    return t < 0.5 || position.y + p.snow_map.w < top ? 0.0 : cell.g;
+}
 
 void main()
 {
@@ -164,7 +187,7 @@ void main()
     float opacity = float((packed >> 8u) & 255u) / 255.0;
     float own = min(float((packed >> 16u) & 255u) * DECAL_FADE_UNITS, p.lod.w);
     float d = distance(position, p.camera.xyz);
-    v_weight = opacity * (1.0 - smoothstep(DECAL_FADE_START * own, own, d));
+    v_weight = opacity * (1.0 - smoothstep(DECAL_FADE_START * own, own, d)) * (1.0 - under_snow(position));
     v_uv = vec2(decals[at + 3u], decals[at + 4u]);
     v_cell = vec2(float((packed >> 4u) & 3u), float(packed & 15u));
     gl_Position = to_screen(position);
@@ -385,8 +408,10 @@ struct ParamsBlock {
     std::array<float, 4> offsets{};
     std::array<float, 4> depth_projection{};
     std::array<float, 4> depth_map{};
+    std::array<float, 4> snow_map{};
+    std::array<float, 4> snow_range{};
 };
-constexpr std::size_t kParamsBytes = 224;
+constexpr std::size_t kParamsBytes = 256;
 static_assert(sizeof(ParamsBlock) == kParamsBytes, "the shaders' Params block");
 
 struct RangeConstants {
@@ -807,7 +832,7 @@ bool make_layouts(Backend& state, std::string* error)
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         if (binding == kBindingParams) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        } else if (binding == kBindingAtlas || binding == kBindingSource || binding == kBindingDepth) {
+        } else if (binding == kBindingAtlas || binding == kBindingSource || binding == kBindingDepth || binding == kBindingSnow) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         }
         core::at(bindings, binding) = {.binding = binding,
@@ -1356,7 +1381,7 @@ std::optional<VkDescriptorBufferInfo> block_in_ring(Backend& state, const Params
 
 // The bindings pushed for the decals' draw or the clutter's gather and draw.
 void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const VkDescriptorBufferInfo& params,
-                      bool decals, const Image* depth)
+                      bool decals, const Image* depth, const VkDescriptorImageInfo* snow_sky = nullptr)
 {
     const ScatterState& own = scatter_state();
     const VkDescriptorBufferInfo decal_vertices{
@@ -1387,6 +1412,7 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     if (decals) {
         add(kBindingDecals, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &decal_vertices, nullptr);
         add(kBindingAtlas, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &atlas);
+        add(kBindingSnow, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, snow_sky != nullptr ? snow_sky : &atlas);
     } else {
         add(kBindingItems, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &items, nullptr);
         add(kBindingLights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lights, nullptr);
@@ -1608,9 +1634,15 @@ bool pipeline_for(Backend& state, const ViewPlan& plan, bool decals, VkPipeline*
     return made;
 }
 
-bool params_in_ring(Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view, VkDescriptorBufferInfo* out)
+bool params_in_ring(Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view, VkDescriptorBufferInfo* out,
+                    const SnowGround& snow = {})
 {
-    const std::optional<VkDescriptorBufferInfo> params = block_in_ring(state, params_for(state, plan, view));
+    ParamsBlock block = params_for(state, plan, view);
+    if (snow.on) {
+        block.snow_map = snow.map;
+        block.snow_range = snow.range;
+    }
+    const std::optional<VkDescriptorBufferInfo> params = block_in_ring(state, block);
     if (!params) {
         if (first_report(state, kReportNoRoom)) {
             get_log("vulkan: scatter: no room in the ring for the pass's block - skipped");
@@ -1640,8 +1672,9 @@ bool record_decal_pass(Backend& state, const rt::ViewDrawn& view)
                   ensure_wet(state, *plan.colour);
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkDescriptorBufferInfo params{};
+    const SnowGround snow = snow_ground(state); // (NOT ORIGINAL - the snow over the marks: vulkan_snow.h)
     if (plan.draws.empty() || !pipeline_for(state, plan, true, &pipeline) ||
-        !params_in_ring(state, plan, view, &params)) {
+        !params_in_ring(state, plan, view, &params, snow)) {
         return false;
     }
     VkCommandBuffer commands = outside_pass(state);
@@ -1650,7 +1683,7 @@ bool record_decal_pass(Backend& state, const rt::ViewDrawn& view)
     drawn.motion = false; // (the second attachment is the wet mask's, not the motion's)
     begin_rendering(commands, state, drawn, false, view, plan.motion ? &own.wet : nullptr);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, params, true, plan.depth);
+    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, params, true, plan.depth, snow.on ? &snow.sky : nullptr);
     for (const ScatterDraw& draw : plan.draws) {
         vkCmdDraw(commands, draw.count, 1, draw.first, 0);
     }

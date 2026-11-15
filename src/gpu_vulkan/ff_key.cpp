@@ -135,7 +135,14 @@ void normalise_fragment(FragmentKey& key, bool points)
     // (NOT ORIGINAL - the surface trails, snow and paint: on the per-pixel lighting's programs, or the fixed-function stages
     // with a texture on stage 0 - the road's markings, the decal meshes -; never on water or points)
     const bool stage_texture = key.program == PixelProgram::kStages && (sampled_stages(key) & 1U) != 0U;
-    key.trails = (takes_surface(key) || stage_texture) && !points && key.water == 0U ? static_cast<uint8_t>(key.trails & kTrailKnown) : 0;
+    // (and the untextured world's program - vertex colour x pass colour: the road's asphalt)
+    const bool untextured = key.program == PixelProgram::kVertexFactor && key.unlit == 0;
+    key.trails = (takes_surface(key) || stage_texture || untextured) && !points && key.water == 0U
+                     ? static_cast<uint8_t>(key.trails & kTrailKnown)
+                     : 0;
+    if ((key.trails & kTrailSnow) == 0U) {
+        key.trails = static_cast<uint8_t>(key.trails & ~(kTrailSnowTraced | kTrailSnowTint)); // (the snow's own ways)
+    }
     if (key.program == PixelProgram::kMaterial) {
         const uint32_t passes = key.material_passes;
         key.material_alpha_flags = static_cast<uint8_t>(key.material_alpha_flags & ((1U << passes) - 1U));
@@ -378,7 +385,10 @@ ShaderKey normalised(const ShaderKey& key)
         result.fragment.point_sprite) {
         result.fragment.surface = 0;
         result.fragment.water = 0; // (rt_water: the same inputs)
-        result.fragment.trails = 0; // (the surface trails: the same inputs)
+    }
+    // (the surface trails: the camera-space position alone - an untextured draw too)
+    if (fvf_pre_transformed(result.vertex.fvf) || result.fragment.point_sprite) {
+        result.fragment.trails = 0;
     }
     if (!result.vertex.lighting) {
         result.fragment.surface = static_cast<uint8_t>(result.fragment.surface & ~kSurfaceLit);
@@ -394,6 +404,10 @@ ShaderKey normalised(const ShaderKey& key)
     }
     if ((surface & kSurfaceLit) != 0U) {
         surface = static_cast<uint8_t>(surface & ~kSurfaceCelStream);
+    }
+    // (NOT ORIGINAL - the snow's tint: the relit world's draws alone, as the cel stream's - not one lit by the lights)
+    if ((surface & kSurfaceLit) != 0U || result.vertex.lighting) {
+        result.fragment.trails = static_cast<uint8_t>(result.fragment.trails & ~kTrailSnowTint);
     }
     // (NOT ORIGINAL - rt_detail / rt_delight) the detail layer only on a surface-mapped draw lit per pixel, never in bands
     if ((surface & kSurfaceMap) == 0U || (surface & kSurfaceCel) != 0U) {
@@ -414,7 +428,7 @@ ShaderKey normalised(const ShaderKey& key)
     }
     result.vertex.surface =
         surface != 0 || result.fragment.water != 0U || result.fragment.trails != 0U ? kVertexSurfaceInputs : 0;
-    if ((surface & kSurfaceCelStream) != 0U) {
+    if ((surface & kSurfaceCelStream) != 0U || (result.fragment.trails & kTrailSnowTint) != 0U) {
         result.vertex.surface = static_cast<uint8_t>(result.vertex.surface | kVertexCelStream);
     }
     if ((surface & kSurfaceCelHull) != 0U) {
@@ -560,6 +574,8 @@ std::string describe(const FragmentKey& key)
         text += " detail=" + std::to_string(key.detail); // (NOT ORIGINAL - rt_detail / rt_delight)
     }
     text += (key.trails & kTrailSnow) != 0U ? " snow" : "";   // (NOT ORIGINAL - [Graphics] snow)
+    text += (key.trails & kTrailSnowTraced) != 0U ? "-traced" : "";
+    text += (key.trails & kTrailSnowTint) != 0U ? "-tint" : "";
     text += (key.trails & kTrailPaint) != 0U ? " paint" : ""; // (NOT ORIGINAL - [Graphics] paint_trails)
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);

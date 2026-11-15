@@ -664,6 +664,18 @@ void set_cel_source_locked(Backend& state, const Gpu::CelSource& source)
     cel().source = known ? SourceState{.vertices = vertices, .offset = source.offset, .stream = stream} : SourceState{};
 }
 
+Buffer* relit_stream_of(Backend& state, const DrawCall& call)
+{
+    const SourceState& source = cel().source;
+    if (source.vertices != nullptr && source.stream != nullptr && !source.vertices->versions.empty() &&
+        !source.stream->versions.empty() &&
+        core::at(source.vertices->versions, source.vertices->current).memory.buffer == call.vertex_buffer &&
+        source.offset == call.vertex_offset && frame_view(state).world.relit) {
+        return source.stream;
+    }
+    return nullptr;
+}
+
 bool cel_owns_shadows(const Backend& state)
 {
     if (!settings_now().on || !state.context.ray_tracing_enabled() || cel().scene == VK_NULL_HANDLE) {

@@ -54,8 +54,10 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/snow.h"
+#include "engine/gfx/wind.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_loader.h"
@@ -239,13 +241,65 @@ void check_sky_map(Tally* tally)
     const snow::Ground indoor = snow::ground_at(map, (kIndoorLow + kIndoorHigh) * kHalf, (kIndoorLow + kIndoorHigh) * kHalf);
     tally->check(indoor.found && indoor.cover < 0.01F, "an indoor sector's floor: no snow");
     const snow::Ground bank = snow::ground_at(map, kBankLow + 50.0F, 0.0F);
-    tally->check(bank.found && bank.cover < 0.01F, "a 60-degree bank: no snow");
+    tally->check(bank.found && bank.cover > 0.2F && bank.cover < 0.45F,
+                 text::format("a 60-degree bank: a light coat (%.2f)", static_cast<double>(bank.cover)));
     bool steps_kept = true;
     for (float x = kKerbLow - (2.0F * map.cell); x <= kKerbLow + (2.0F * map.cell); x += map.cell * 0.13F) {
         const float height = snow::ground_at(map, x, 0.0F).height;
         steps_kept = steps_kept && (std::abs(height) < 0.05F || std::abs(height - kKerbTop) < 0.05F);
     }
     tally->check(steps_kept, "the kerb's step: either side's height, never between");
+}
+
+// The slope's curve: full on flat ground, thinning up ramps, a light coat on a quarter pipe's steep face, none on a wall;
+// never thicker for a steeper face.
+void check_slope(Tally* tally)
+{
+    const auto at_degrees = [](float degrees) { return snow::slope_cover(std::cos(degrees * 0.017453293F)); };
+    const float flat = at_degrees(0.0F);
+    const float gentle = at_degrees(15.0F);
+    const float ramp = at_degrees(45.0F);
+    const float steep = at_degrees(75.0F);
+    const float wall = at_degrees(87.0F);
+    bool falling = true;
+    float before = 2.0F;
+    for (float degrees = 0.0F; degrees <= 90.0F; degrees += 0.5F) {
+        const float now = at_degrees(degrees);
+        falling = falling && now <= before + 1.0e-6F && now >= 0.0F && now <= 1.0F;
+        before = now;
+    }
+    tally->check(flat > 0.999F && gentle > 0.99F && ramp > 0.45F && ramp < 0.8F && steep > 0.08F && steep < 0.3F && wall == 0.0F &&
+                     falling,
+                 text::format("the slope's cover: flat %.2f, 15 degrees %.2f, 45 %.2f, 75 %.2f (a light coat), 87 %.2f; never "
+                              "thicker steeper",
+                              static_cast<double>(flat), static_cast<double>(gentle), static_cast<double>(ramp),
+                              static_cast<double>(steep), static_cast<double>(wall)));
+}
+
+// The winter sky over the lighting state: dimmer, softer direct light, a greyer sky, weaker shadows; none at share 0.
+void check_overcast(Tally* tally)
+{
+    render::rt::DayLight light;
+    light.on = true;
+    light.direct = 1.2F;
+    light.direct_tint = {1.0F, 0.95F, 0.85F};
+    light.light_colour = {1.2F, 1.14F, 1.02F};
+    light.sky = {0.8F, 0.95F, 1.3F};
+    light.light_radius = render::rt::kSunRadiusDegrees;
+    render::rt::DayLight same = light;
+    render::rt::apply_overcast(&same, 0.0F);
+    render::rt::DayLight grey = light;
+    render::rt::apply_overcast(&grey, 1.0F);
+    const auto spread = [](const render::rt::DayRgb& c) {
+        return std::max({core::at(c, 0), core::at(c, 1), core::at(c, 2)}) - std::min({core::at(c, 0), core::at(c, 1), core::at(c, 2)});
+    };
+    tally->check(same.direct == light.direct && same.sky == light.sky, "the overcast at 0: the light as it was");
+    tally->check(grey.direct < light.direct * 0.5F && grey.light_radius > 10.0F && spread(grey.sky) < spread(light.sky) * 0.5F &&
+                     grey.shadow < 1.0F && std::isfinite(grey.exposure),
+                 text::format("the overcast: direct %.2f -> %.2f, radius %.1f degrees, the sky's spread %.2f -> %.2f, shadows %.2f",
+                              static_cast<double>(light.direct), static_cast<double>(grey.direct),
+                              static_cast<double>(grey.light_radius), static_cast<double>(spread(light.sky)),
+                              static_cast<double>(spread(grey.sky)), static_cast<double>(grey.shadow)));
 }
 
 void check_stamp(Tally* tally)
@@ -368,6 +422,44 @@ void check_steps(Tally* tally)
         snow::step(std::span(&wheel, 1), kStep, false);
     }
     tally->check(snow::counts().stamps >= 28, "a wheel presses its track");
+    // a body joint lying in the snow (a bail's slide) presses its path; one up in the air nothing
+    snow::reset();
+    for (int step = 0; step < 30; ++step) {
+        const float x = static_cast<float>(step) * 6.0F;
+        const std::array<snow::Presser, 2> joints{{
+            {.id = 6, .kind = snow::PresserKind::kBody, .at = {x, 3.0F, -500.0F}, .size = 4.5F},
+            {.id = 7, .kind = snow::PresserKind::kBody, .at = {x, 30.0F, -600.0F}, .size = 4.5F},
+        }};
+        snow::step(joints, kStep, false);
+    }
+    tally->check(snow::counts().body >= 28 && (texel_at_world(90.0F, -500.0F) & 0xFFU) > 200U && texel_at_world(90.0F, -600.0F) == 0,
+                 text::format("a body joint in the snow presses its path (%llu), one in the air nothing",
+                              static_cast<unsigned long long>(snow::counts().body)));
+    // a mover without wheels found (no bones): two tracks either side of it, nothing between; a still one nothing
+    snow::reset();
+    for (int step = 0; step < 30; ++step) {
+        const std::array<snow::Presser, 2> movers{{
+            {.id = 8, .kind = snow::PresserKind::kMover, .at = {static_cast<float>(step) * 8.0F, 2.0F, 600.0F}, .facing = {0.0F, 1.0F},
+             .size = 30.0F},
+            {.id = 9, .kind = snow::PresserKind::kMover, .at = {0.0F, 2.0F, -900.0F}, .facing = {0.0F, 1.0F}, .size = 30.0F},
+        }};
+        snow::step(movers, kStep, false);
+    }
+    tally->check((texel_at_world(120.0F, 630.0F) & 0xFFU) == 0xFFU && (texel_at_world(120.0F, 570.0F) & 0xFFU) == 0xFFU &&
+                     (texel_at_world(120.0F, 600.0F) & 0xFFU) == 0U && texel_at_world(0.0F, -870.0F) == 0,
+                 "a mover: its two tracks pressed, not between them; a still one nothing");
+    // the wind's drift: on the snow's clock, the same every run
+    snow::reset();
+    for (int step = 0; step < 600; ++step) {
+        snow::step({}, kStep, false);
+    }
+    const double drift = snow::wind_drift();
+    snow::reset();
+    for (int step = 0; step < 600; ++step) {
+        snow::step({}, kStep, false);
+    }
+    tally->check(drift > 0.5 * 10.0 * render::wind::kSpeed && drift < 1.5 * 10.0 * render::wind::kSpeed && drift == snow::wind_drift(),
+                 text::format("the wind carried the snow %.0f units in 10 s, the same again", drift));
     // nothing from high above, nothing where no snow settles
     snow::reset();
     ride({0.0F, 60.0F, 0.0F}, kSpeed, 0.0F, kSteps);
@@ -842,6 +934,34 @@ void check_air(render::Gpu& gpu, const Scene& scene, Tally* tally)
     }
     tally->check(flake_pixels > 20 && vk::snow_stats().last_flakes == vk::kSnowMostFlakes,
                  text::format("snow falling: %zu pixels lighter (%u flakes)", flake_pixels, vk::snow_stats().last_flakes));
+    // the haze: the far ground whitened, the near hardly
+    double near_sum = 0.0;
+    double far_sum = 0.0;
+    std::size_t near_count = 0;
+    std::size_t far_count = 0;
+    for (uint32_t py = 0; py < kHeight; ++py) {
+        for (uint32_t px = 0; px < kWidth; ++px) {
+            std::array<float, 2> xz{};
+            float distance = 0.0F;
+            if (!ground_of(px, py, &xz, &distance)) {
+                continue;
+            }
+            const std::size_t pixel = (static_cast<std::size_t>(py) * kWidth) + px;
+            const double lighter = static_cast<double>(luma(core::at(falling, pixel)) - luma(core::at(still, pixel)));
+            if (distance < vk::kSnowHazeStart * 0.6F) {
+                near_sum += lighter;
+                ++near_count;
+            } else if (distance > vk::kSnowHazeStart * 2.0F) { // (the view's farthest ground is about 700 units off)
+                far_sum += lighter;
+                ++far_count;
+            }
+        }
+    }
+    const double near_mean = near_sum / static_cast<double>(std::max<std::size_t>(near_count, 1));
+    const double far_mean = far_sum / static_cast<double>(std::max<std::size_t>(far_count, 1));
+    tally->check(vk::snow_stats().haze_passes > 0 && near_count > 100 && far_count > 100 && far_mean > near_mean + 0.02,
+                 text::format("the falling snow's haze: the far ground %.3f lighter, the near %.3f (%llu passes)", far_mean, near_mean,
+                              static_cast<unsigned long long>(vk::snow_stats().haze_passes)));
     for (int lap = 0; lap < 4; ++lap) {
         ride({0.0F, 0.0F, 150.0F}, 900.0F, 0.15F, 60, 31);
     }
@@ -991,6 +1111,8 @@ int run(const Options& options, SDL_Window* window)
 {
     Tally tally;
     check_sky_map(&tally);
+    check_slope(&tally);
+    check_overcast(&tally);
     check_stamp(&tally);
     check_steps(&tally);
     if (!open_device(options, window)) {
