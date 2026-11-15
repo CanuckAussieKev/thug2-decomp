@@ -4,9 +4,7 @@
 
 #include "engine/config/settings_model.h"
 
-#include <algorithm>
 #include <array>
-#include <cctype>
 #include <cstdlib>
 #include <string>
 #include <string_view>
@@ -141,18 +139,6 @@ bool sun_fixed(const Reader& reader)
 {
     const std::string source = reader.value("rt_sun_source");
     return source != "level" && source != "game";
-}
-
-// The texture set in use isn't one made de-lit (base.ts --delight: its textures' painted light taken out before
-// upscaling - engine/gfx/texture_sets.h delight_version): rt_delight would flatten what is already flat.
-bool textures_not_delit(const Reader& reader)
-{
-    const std::string set = reader.value("texture_set");
-    return std::ranges::none_of(reader.caps().delit_texture_sets, [&](const std::string& each) {
-        return each.size() == set.size() && std::ranges::equal(each, set, [](char a, char b) {
-                   return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
-               });
-    });
 }
 
 // DLSS upscales: asked for (its choice needs an RTX), or auto on an RTX (vulkan_upscale.cpp: DLSS first on NVIDIA).
@@ -486,8 +472,8 @@ std::vector<Decl> declarations()
         gfx("rt_delight", K::kSwitch, "0")
             .tab(G::kSurfaces, t::kOptDelight, t::kOptDelightHelp)
             .need(on("rt_pbr"))
-            // (added by the de-lit texture sets: their textures came without the painted light)
-            .need(computed(&textures_not_delit, {"texture_set"}), t::kDelightTexturesDelit)
+            // (with a de-lit texture set chosen too: the renderer leaves the textures that set made flat alone, one by
+            // one - gpu_vulkan/vulkan_detail.h; the setting applies to the rest)
             .live(E::kDetail),
         gfx("rt_delight_strength", K::kNumber, "0.5")
             .tab(G::kSurfaces, t::kOptDelightStrength)
@@ -556,6 +542,23 @@ std::vector<Decl> declarations()
             .pick({c("30", "30 m"), c("50", "50 m"), c("80", "80 m"), c("120", "120 m")})
             .need(on("grass"))
             .live(E::kGrass),
+        // (snow: a layer over every outdoor level's open ground, its trails, its spray, snow falling - vulkan_snow.h)
+        gfx("snow", K::kSwitch, "0")
+            .tab(G::kSurfaces, t::kOptSnow, t::kOptSnowHelp)
+            .need(vulkan(), t::kNeedsVulkan)
+            .need(has(Cap::kLevelOutdoor))
+            .live(E::kSnow),
+        gfx("snow_depth", K::kNumber, "4")
+            .tab(G::kSurfaces, t::kOptSnowDepth)
+            .pick({c("2", "Dusting"), c("4", t::kMedium), c("6", "Deep"), c("8", "Powder day")})
+            .need(on("snow"))
+            .live(E::kSnow),
+        gfx("snow_trail_quality", K::kNumber, "2")
+            .tab(G::kSurfaces, t::kOptSnowTrails)
+            .pick({c("1", t::kLow), c("2", t::kMedium), c("3", t::kHigh)})
+            .need(on("snow"))
+            .live(E::kSnow),
+        gfx("snowfall", K::kSwitch, "1").tab(G::kSurfaces, t::kOptSnowfall).need(on("snow")).live(E::kSnow),
         gfx("rt_decals", K::kSwitch, "0").tab(G::kSurfaces, t::kOptDecals, t::kOptDecalsHelp).need(vulkan(), t::kNeedsVulkan).live(E::kScatter),
         gfx("rt_decals_density", K::kNumber, "1")
             .tab(G::kSurfaces, t::kOptDecalsDensity)

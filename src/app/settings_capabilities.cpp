@@ -93,14 +93,13 @@ FoundCapabilities find()
     caps.relief_maps = has_files(game + "Data\\levels", 1, kReliefSuffix) ||
                        has_files(frontend::data_overlay::get_folder() + "\\levels", 1, kReliefSuffix);
     caps.texture_sets = render::texture_sets::installed_sets();
-    caps.delit_texture_sets = render::texture_sets::delit_sets();
-    get_log("settings: capabilities - %s%s, ray tracing %s, %s, surface maps %s, material library %s, %zu texture set(s) "
-            "(%zu de-lit), building relief files %s",
+    get_log("settings: capabilities - %s%s, ray tracing %s, %s, surface maps %s, material library %s, %zu texture set(s), "
+            "building relief files %s",
             caps.gpu.empty() ? "no Vulkan device" : caps.gpu.c_str(),
             caps.rtx > 0 ? (" (RTX " + std::to_string(caps.rtx) + " series)").c_str() : "",
             caps.ray_queries ? "possible" : "not possible", caps.x64 ? "64-bit" : "32-bit",
             caps.surface_maps ? "found" : "none", caps.material_library ? "found" : "none", caps.texture_sets.size(),
-            caps.delit_texture_sets.size(), caps.relief_maps ? "found" : "none");
+            caps.relief_maps ? "found" : "none");
     return found;
 }
 

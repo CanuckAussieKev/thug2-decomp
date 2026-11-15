@@ -86,8 +86,9 @@ enum class Effect : uint8_t {
     kScatter,
     kWater,
     kCameraFx,
+    kSnow,
 };
-inline constexpr int kEffectCount = static_cast<int>(Effect::kCameraFx) + 1;
+inline constexpr int kEffectCount = static_cast<int>(Effect::kSnow) + 1;
 
 // What the machine, the build and the game's data have (Capabilities), and the level's facts (LevelFacts).
 enum class Cap : uint8_t {
@@ -103,6 +104,7 @@ enum class Cap : uint8_t {
     kHeightMaps,      // height maps for displacement (none are made yet)
     kReliefMaps,      // (added by building relief) facade structures made beside the level textures (tools/pbr_maps)
     kLevelWithoutFog, // the level has no fog of its own (true while no level is known)
+    kLevelOutdoor,    // (added by the snow) the level is outdoors - it has a sky (true while no level is known)
 };
 
 class Reader;
@@ -225,8 +227,6 @@ struct Capabilities {
     bool height_maps = false;
     bool relief_maps = false; // (added by building relief) "<dictionary>.relief" files: tools/pbr_maps/building_relief.ts
     std::vector<std::string> texture_sets; // the sets installed ("original" always is)
-    // (added by the de-lit texture sets) the installed sets made de-lit (base.ts --delight): rt_delight is out with one
-    std::vector<std::string> delit_texture_sets;
     int refresh_hz = 0;                    // the display's (0 unknown)
     std::string gpu;                       // the device's name (the report's)
 };
@@ -239,6 +239,7 @@ int rtx_series(const std::string& device_name);
 struct LevelFacts {
     bool known = false;
     bool fog = false; // the level has fog of its own
+    bool outdoor = true; // (added by the snow) the level has a sky (render_pc/snow_world.cpp says, each level)
 };
 
 struct Inputs {

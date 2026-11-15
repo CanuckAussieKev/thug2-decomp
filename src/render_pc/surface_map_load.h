@@ -33,9 +33,12 @@ private:
     std::string name_;
     std::unordered_map<uint32_t, uint64_t> originals_;
     std::string set_;
+    // (added for the de-lit texture sets) the textures set_ made de-lit in this dictionary (texture_sets::delit_textures)
+    std::vector<uint32_t> delit_;
     std::vector<uint8_t> file_;
     std::vector<surface_map_format::Entry> entries_;
     uint32_t attached_ = 0;
+    uint32_t attached_delit_ = 0;
     uint32_t stale_ = 0;
 };
 

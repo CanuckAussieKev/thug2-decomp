@@ -31,6 +31,10 @@ struct MapInfo {
     // (added for the characters - [Graphics] rt_characters) surface_map_format::kFlag*: a character model's map (used
     // only with rt_characters on), hair's strands along u, a garment's skin-coloured texels shaded as skin
     uint8_t flags = 0;
+    // (added for the de-lit texture sets - engine/gfx/texture_sets.h delit_textures) the texture came with its painted
+    // light already taken out (the texture set serving its dictionary lists it de-lit): [Graphics] rt_delight leaves it
+    // alone
+    bool delit = false;
 };
 
 class SurfaceMaps {

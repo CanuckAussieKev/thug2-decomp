@@ -100,7 +100,7 @@ dmf::Kind kind_of_class(uint8_t material_class)
 }
 
 // The classes the de-lighting leaves alone (see-through or liquid: their colour is the art, not painted light).
-bool delit_class(uint8_t material_class)
+bool delight_class(uint8_t material_class)
 {
     const auto cls = static_cast<smf::MaterialClass>(material_class);
     return cls != smf::MaterialClass::kGlass && cls != smf::MaterialClass::kWater;
@@ -325,7 +325,7 @@ uint64_t detail_generation() { return detail_state().generation.load(std::memory
 
 uint32_t detail_textures_made() { return detail_state().made.load(std::memory_order_relaxed); }
 
-DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t material_class)
+DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t material_class, bool delit)
 {
     DetailDraw draw;
     DetailState& state = detail_state();
@@ -352,7 +352,8 @@ DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t materia
                                  std::clamp(known.entry.roughness_weight, 0.0F, 1.0F)};
         }
     }
-    if (settings.delight && settings.delight_strength > 0.0F && delit_class(material_class)) {
+    // (a texture that came de-lit - a de-lit texture set's: its painted light is gone already, nothing to flatten)
+    if (settings.delight && settings.delight_strength > 0.0F && delight_class(material_class) && !delit) {
         draw.flags = static_cast<uint8_t>(draw.flags | kDetailDelight);
         const float mean = assignment != nullptr ? assignment->mean_luma : -1.0F;
         uniforms.delight = {settings.delight_strength, mean, std::max(settings.delight_limit, 1.0F), 0.0F};

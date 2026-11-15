@@ -574,6 +574,14 @@ bool make_entry(const WorldMesh& world, Entry* out)
     entry.content = fnv(fnv_value(kFnvBasis, stride), bytes);
     entry.content = fnv(entry.content, indices.subspan(std::size_t{geometry.index_offset} * index_bytes));
     entry.content = fnv_value(entry.content, geometry.strip);
+    // (added by building relief) the made vertices' sources too: their light is blended, not traced
+    for (const rt::RelitMesh::Source& source : entry.input.sources) {
+        entry.content = fnv_value(entry.content, source.count);
+        for (std::size_t c = 0; c < source.count; ++c) {
+            entry.content = fnv_value(entry.content, core::at(source.from, c));
+            entry.content = fnv_value(entry.content, core::at(source.weight, c));
+        }
+    }
     *out = std::move(entry);
     return true;
 }

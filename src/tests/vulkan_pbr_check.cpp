@@ -18,7 +18,7 @@
 //   - (NOT ORIGINAL - rt_detail / rt_delight, vulkan_detail.h) a detail-material library handed over from memory: the
 //     detail at full weight scales the albedo by its ratio (the colour's channels alike), faded out it leaves the picture
 //     as without it; the de-lighting flattens a texture dark on one half and bright on the other toward its mean, half
-//     strength halfway.
+//     strength halfway; the same texture marked as having come de-lit (a de-lit texture set lists it) left as it is.
 //   - (added by surface relief - rt_relief) parallax occlusion mapping: a brick-patterned height map (its normals made
 //     from it with a known bump) on a stone texture whose texels each have their own colour - the depth read back from
 //     the map, and at five view angles every pixel's texel against the processor marching the same ray through the same
@@ -1336,8 +1336,9 @@ std::vector<uint8_t> detail_library(float mean, dmf_kind kind = dmf_kind::kConcr
 }
 
 // A grey texture `side` texels square with `levels` levels (each the box mean of the one above), its left half `left`
-// and right half `right`, with a flat surface map attached under the check's checksum and hash.
-GpuTexture* detail_texture(render::Gpu& gpu, uint32_t side, uint32_t levels, float left, float right)
+// and right half `right`, with a flat surface map attached under the check's checksum and hash (`delit`: as a
+// texture a de-lit texture set lists - MapInfo::delit).
+GpuTexture* detail_texture(render::Gpu& gpu, uint32_t side, uint32_t levels, float left, float right, bool delit = false)
 {
     GpuTexture* texture = nullptr;
     if (gpu.create_texture({.width = side, .height = side, .levels = levels, .usage = 0, .format = value::kFormatA8R8G8B8,
@@ -1395,7 +1396,8 @@ GpuTexture* detail_texture(render::Gpu& gpu, uint32_t side, uint32_t levels, flo
     }
     if (render::surface::surface_maps() != nullptr) {
         render::surface::surface_maps()->attach(texture, {.width = kMapSide, .height = kMapSide, .material_class = 2, .f0 = kMapF0,
-                                                          .checksum = kDetailChecksum, .content_hash = kDetailHash},
+                                                          .checksum = kDetailChecksum, .content_hash = kDetailHash,
+                                                          .delit = delit},
                                                 map);
     }
     return texture;
@@ -1502,6 +1504,18 @@ void check_detail(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* 
     const std::array<float, 2> half = halves_of(detail_picture(gpu, target, shader, halves));
     tally->check(contrast(half) > contrast(after) && contrast(half) < contrast(before),
                  text::format("rt_delight: half strength between (%.2f)", static_cast<double>(contrast(half))));
+    // (added for the de-lit texture sets) the same texture as one a de-lit set lists (it came flat): left alone - its
+    // contrast as with the setting off - while the one it doesn't list, drawn with the same settings, is flattened
+    GpuTexture* came_delit = detail_texture(gpu, kDelitSide, kDelitLevels, kDarkHalf, kBrightHalf, true);
+    vk::set_rt_detail_settings({.delight = true, .delight_strength = 1.0F, .delight_limit = 4.0F});
+    const std::array<float, 2> listed = halves_of(detail_picture(gpu, target, shader, came_delit));
+    const std::array<float, 2> unlisted = halves_of(detail_picture(gpu, target, shader, halves));
+    tally->check(std::fabs(contrast(listed) - contrast(before)) < 0.01F && contrast(unlisted) < 1.1F,
+                 text::format("rt_delight per texture: one the set lists de-lit kept (%.2f, off %.2f), one it doesn't "
+                              "flattened (%.2f)",
+                              static_cast<double>(contrast(listed)), static_cast<double>(contrast(before)),
+                              static_cast<double>(contrast(unlisted))));
+    gpu.release_texture(came_delit);
     gpu.release_texture(halves);
     vk::set_rt_detail_settings({});
 }

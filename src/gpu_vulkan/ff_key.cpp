@@ -132,6 +132,10 @@ void normalise_fragment(FragmentKey& key, bool points)
         key.unlit = 0; // (a twin is always of a ps.1.1 program)
         normalise_stages(key);
     }
+    // (NOT ORIGINAL - [Graphics] snow: on the per-pixel lighting's programs, or the fixed-function stages with a texture on
+    // stage 0 - the road's markings, the decal meshes -; never on water or points)
+    const bool stage_texture = key.program == PixelProgram::kStages && (sampled_stages(key) & 1U) != 0U;
+    key.snow = key.snow != 0U && (takes_surface(key) || stage_texture) && !points && key.water == 0U ? kSnowCover : 0;
     if (key.program == PixelProgram::kMaterial) {
         const uint32_t passes = key.material_passes;
         key.material_alpha_flags = static_cast<uint8_t>(key.material_alpha_flags & ((1U << passes) - 1U));
@@ -374,6 +378,7 @@ ShaderKey normalised(const ShaderKey& key)
         result.fragment.point_sprite) {
         result.fragment.surface = 0;
         result.fragment.water = 0; // (rt_water: the same inputs)
+        result.fragment.snow = 0;  // (snow: the same inputs)
     }
     if (!result.vertex.lighting) {
         result.fragment.surface = static_cast<uint8_t>(result.fragment.surface & ~kSurfaceLit);
@@ -407,7 +412,8 @@ ShaderKey normalised(const ShaderKey& key)
     if ((detail & kDetailHair) != 0U) {
         detail = kDetailHair;
     }
-    result.vertex.surface = surface != 0 || result.fragment.water != 0U ? kVertexSurfaceInputs : 0;
+    result.vertex.surface =
+        surface != 0 || result.fragment.water != 0U || result.fragment.snow != 0U ? kVertexSurfaceInputs : 0;
     if ((surface & kSurfaceCelStream) != 0U) {
         result.vertex.surface = static_cast<uint8_t>(result.vertex.surface | kVertexCelStream);
     }
@@ -553,6 +559,7 @@ std::string describe(const FragmentKey& key)
     if (key.detail != 0) {
         text += " detail=" + std::to_string(key.detail); // (NOT ORIGINAL - rt_detail / rt_delight)
     }
+    text += key.snow != 0U ? " snow" : ""; // (NOT ORIGINAL - [Graphics] snow)
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);
     }
