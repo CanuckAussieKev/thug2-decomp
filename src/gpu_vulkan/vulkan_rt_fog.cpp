@@ -389,10 +389,15 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
         float shaped = phase(dot(direction, fog.sun.xyz));
         int steps = fog.low.w;
         float u = fract(jitter_at(local) + fog.fog_range.w);
+        // (the steps closer together near the eye - b x t^2: the haze's shafts between the buildings round the camera
+        // sampled every few metres, the far haze - smooth - in long segments; each segment's depth is still exact)
         for (int i = 0; i < steps; ++i) {
-            float s0 = b * (float(i) / float(steps));
-            float s1 = b * (float(i + 1) / float(steps));
-            float s = b * ((float(i) + u) / float(steps));
+            float t0 = float(i) / float(steps);
+            float t1 = float(i + 1) / float(steps);
+            float t = (float(i) + u) / float(steps);
+            float s0 = b * t0 * t0;
+            float s1 = b * t1 * t1;
+            float s = b * t * t;
             float tau = haze_depth(direction, s0, s1);
             if (water > -1.0e38) {
                 tau += layer_depth(direction, s0, s1, fog.aerial.x * fog.soft.y, fog.soft.z, water);

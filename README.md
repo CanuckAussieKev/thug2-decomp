@@ -471,7 +471,7 @@ for the restart. Every setting is declared once in the settings model (`src/engi
 | `rt_fog_mode` | 0 | 0: the volumetric fog replaces the level's own; 1: the level's fog kept as it was, only the sunlit shafts added over it |
 | `rt_fog_density` | 1 | How thick the fog is against the level's own (0-8; 1 the same) |
 | `rt_fog_height` | 0 | World units over which the fog thins going up from the camera's height (0: even everywhere; e.g. 800 for ground fog) |
-| `rt_fog_anisotropy` | 0.5 | How much brighter the air is looking toward the sun, the moon or a lamp (-0.9-0.9; 0 the same every way). Was 0.3 before the light shafts became the fog's |
+| `rt_fog_anisotropy` | 0.75 | How much brighter the air is looking toward the sun, the moon or a lamp (-0.9-0.9; 0 the same every way): haze scatters light forward, so shafts show best looking toward the light. Was 0.3 before the light shafts became the fog's |
 | `rt_fog_steps` | 0 | Samples along each ray (4-128): fewer is faster, more is smoother shafts; 0 takes `rt_fog_quality`'s |
 | `rt_fog_haze` | 1 | With `rt_fog` (its pass draws it), in a level with no fog (most of them, unless `DistanceClipping=1` and `Fog=1`): 1 adds a thin haze that only shows where light shines through it - shafts and a glow toward the sun; 0 leaves such levels alone. With `rt_sky_model=1` the haze becomes real air: distant buildings fade toward the sky's colour, it is thicker near the ground, thicker at dawn and dusk, wetter over water, and clearly brighter where the sun or moon lights it than in the shade |
 | `rt_fog_haze_density` | 0.3 | With `rt_fog_haze` and `rt_sky_model=1`: how thick that air is (1 three times the default and a lot hazier - far water milky, the view into a low sun whited out) |

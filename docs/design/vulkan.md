@@ -942,53 +942,113 @@ by one pass, the last listener at `rt::world_view_drawn` (`ViewOrder::kToneMappi
 
 ### Volumetric fog and light shafts
 
-`gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default; `rt_fog_mode`, `rt_fog_density`, `rt_fog_height`,
-`rt_fog_anisotropy`, `rt_fog_steps`) listens at `rt::world_view_drawn` (`ViewOrder::kFog`, 500: after the transparent
-passes, particles and weather, before tone mapping and the 2D). `rt::ViewDrawn::fog` (added to the contract) carries
-the level's fog as `render_pc` told the device - the game draws linear range fog, f = (end - d) / (end - start) over
-the distance from the eye, its end 7200 past its start with distance clipping (pc_fog.cpp).
+One volumetric light system: when something stands between the eye and the sun - a building, a tree, a cloud - the
+air shows it, as a shadow shaft in lit haze or a lit column through a gap; at night the moon and the street lights do
+the same. `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default; `rt_fog_strength`, `rt_fog_quality`,
+`rt_fog_mode`, `rt_fog_density`, `rt_fog_height`, `rt_fog_anisotropy`, `rt_fog_steps`, `rt_fog_haze*`) listens at
+`rt::world_view_drawn` (`ViewOrder::kFog`, 500: after the transparent passes, particles and weather, before the sun's
+glare, tone mapping and the 2D). Its model is `engine/gfx/rt_volume_light` (API-neutral; the checks' processor march
+uses the same functions). The screen-space rays the sun pass drew over the sky's silhouettes (`rt_shafts`) were retired
+by it: the shafts are this pass's, the only light in the air; the sun pass keeps the disc, its glare and the bloom.
 
+- **The light: one state.** The air is lit by `rt::medium_light()`: the scene's sun (`scene_sun` - the one every effect
+  lights by) and, while the clock lights the level (its origin `kClock` - "Time of day"), the clock's `DayLight` for it:
+  the sun by day, the moon at night, `light_colour` (the light now over the level's own sun's - the moon's 0.22 and
+  blue) and `light_radius` (the sun's 1.5 degrees, the moon's 6: each shadow ray aims at a point on the light's disc,
+  so the shafts' edges are as soft as the shadows'). Without the clock the light is the level's own: colour 1, a point
+  (the shafts as before the clock). So the shafts follow `tod`, a moved `rt_sun_source` and the console's `rt sun`.
+  The sky model (`rt_sky_model=1` or `rt_sun_colour`) colours it: the air's colour for the sun the level was lit with
+  (the clock's `native` sun - its colour is relative to that), luma kept. The game's own fog (modes 0 / 1) takes only
+  the light's hue: the game sets the fog's colour for the time of day itself (its states' fog colours), so the fog
+  colour carries the brightness; the haze, the pass's own medium, takes the light as it is.
 - **The medium.** The game's fog read as a medium whose extinction is 1 / (end - d) between start and end: its
   transmittance is exactly the game's f (to the power `rt_fog_density`), integrated per segment in closed form, so the
-  step count changes only how the light is sampled, never how thick the fog is. `rt_fog_height` H thins it by
-  exp(-(y - camera y) / H) (0: even).
-- **The light.** Each segment's light is sampled at one jittered point (interleaved gradient noise + the frame's
-  golden-ratio offset): a ray query toward the level's **baked sun** (`rt_sun`, as R4 uses it; the console's
-  `rt sun` overrides it), masks 0x01 + 0x02. L = fog colour x (0.5 + 0.5 x lit x phase), phase Henyey-Greenstein
-  (`rt_fog_anisotropy`) x 4 pi - 1 on average, so an unshadowed fog keeps the game's look; shaded fog is half as
-  bright, fog looking into the sun brighter. No colour for the sun (the bake has none): the fog's colour keeps the hue.
-  No sun (the fit not run yet, or a level whose bake shows none - the Foundry, indoors): L = the fog colour - the
-  game's fog exactly, no shafts. (Windows into a sunless interior would need a light the level doesn't have.)
+  step count changes only how the light is sampled, never how thick the fog is; `rt_fog_height` H thins it by
+  exp(-(y - camera y) / H). A level without fog (most of them) gets, with `rt_fog_haze=1` (the default), a haze: with
+  `rt_sky_model=1` aerial perspective (extinction 1/12000 a unit x `rt_fog_haze_density` at the level's ground,
+  thinning by e every `rt_fog_haze_height` above it, followed to 40000 units), else a thin linear haze to 4000 units
+  whose light alone is added. The haze's conditions (`haze_condition`): thicker round sunrise and sunset - x (1 + 1.5
+  exp(-((e - 2) / 8)^2)) with e the sun's elevation in degrees, 2.5 x at its peak, back to 1 by day and deep in the
+  night; and, with the material table, over water: a view ray that ends on water (its material's reflection class
+  `kReflectWater`, found by one ray from the camera) crosses a wetter layer over the water's surface - 2 x the haze's
+  ground extinction, thinning by e every 400 units. The game's own fog keeps its thickness (only the haze varies).
+- **The light at a sample.** Each segment's light is sampled at one jittered point (interleaved gradient noise + the
+  frame's golden-ratio offset): `here = ambient + medium x strength x (sun + lamps)`.
+  - ambient: the replaced fog's colour x 0.5 (a level with no light - indoors - its whole colour: the game's fog
+    exactly); the aerial haze's sky colour toward the ray x 0.45 (the shade's share - the far world fades into the
+    sky); nothing in the shafts mode and the thin haze.
+  - medium: the light the air sends the eye per unit of light - the fog's (or the thin haze's grey) colour x 0.5, x 0.5
+    over the game's fog (mode 1) and the thin haze, x 0.1 on the sky's pixels there; the aerial haze's 0.55 x
+    `kHazeSunlit` (0.55: an unshaded haze lit from the side as bright as the day sky by the horizon).
+  - sun: the light's colour x visible (a ray query toward a point on its disc; masks 0x01 + 0x02, with the material
+    table the cut-outs by their alpha too - `cutout_rays_glsl`, the one lighting path's test: light through foliage,
+    fences and grates) x the clouds (below) x the phase.
+  - the phase (`medium_phase`): 0.85 x Henyey-Greenstein(g = `rt_fog_anisotropy`, 0.75 by default - aerosols';
+    0.3 before) + 0.15 x HG(-0.3), x 4 pi (1 on average: an unshadowed fog keeps the game's look): strong forward
+    scattering, as haze's droplets do - the shafts stand out looking toward the light (24 x at it, 15 x 10 degrees off,
+    6 x at 20, 1 x at 45), faint looking away. (0.5 was tried first: in Berlin at dusk the default haze showed no
+    shafts at all - the haze is thin, its light only shows where the phase gathers it.)
+  - lamps: the lamps `rt_lights` lit this view (`rt_lights_lit_locked`: the clock's dusk-to-dawn set, the view's most
+    important first, x `rt_lights_strength` and the lamps' share on), at most `rt_fog_quality`'s 8 / 16 / 32: every
+    lamp's unshadowed light at the point (colour x intensity x `light_falloff` x the phase toward it), one of them -
+    picked by its share - traced for its shadow (stopped its size short) and standing for all (its light x the whole
+    over its share x seen: an unbiased estimate the history averages; a single lamp exact). The cones and pools under
+    street lights, cut by their fixtures and walls. Lamps need `rt_lights` (their owner); none by day.
+  Accumulated front to back: in += T (1 - e^-tau) here, T *= e^-tau.
+- **The clouds' shadows in the air** (`rt_clouds`): one map, owned by the sky pass (`vulkan_rt_sky_pass`
+  `CloudShadowMap`): at each viewport's `opaque_drawn`, while the clouds are drawn and `rt_cloud_shadows` or the fog
+  wants it, a 256 x 256 compute pass over 3.2 km of the cloud base's plane, centred where the camera's way toward the
+  light meets it (snapped to whole texels), each texel the light's transmittance through the layer from there (8
+  densities, no detail, the light at least 0.08 up; faded out between 0.02 and 0.15). A point reads the texel where
+  its way toward the light meets the base: each march step takes it (crepuscular rays - lit columns through gaps,
+  shadow shafts under clouds), and the shadows on the ground (`rt_cloud_shadows`) are the same map (the colour
+  multiplied toward it by 0.65 - the direct light's share - x the light's strength: faint by moonlight). Before, the
+  ground's shadows marched four densities per pixel toward the drawn sky's sun.
 - **The passes.** Half resolution (each texel marches one pixel of its 2 x 2 block, a different one each frame), a
   temporal pass (the texel's point reprojected through the viewport's previous camera, bilinear over the history
-  texels whose distance agrees, clamped to this frame's 3 x 3 neighbourhood, up to 12 frames), then a full-screen
-  blend colour x T + light, upsampled with weights that fall off with the distance difference (depth-aware). Per
-  viewport histories (split screen), up to 4.
+  texels whose distance agrees, clamped to this frame's 3 x 3 neighbourhood, up to 12 frames; a new history seeded with
+  12 marches), then a full-screen blend colour x T + light, upsampled with weights that fall off with the distance
+  difference (depth-aware). Per viewport histories (split screen), up to 4. The march's variants (a multisampled depth,
+  the aerial haze, the cut-outs and water - the material table and this frame's geometry for the same scene -, the
+  clouds' map) are made on first use.
 - **Modes.** `rt_fog_mode=0` (the default) replaces the level's fog: the Vulkan Gpu's fixed-function emulation leaves
-  the device's fog out of every draw while the pass draws (`rt_fog_replaces_level_fog`), and the pass draws it -
-  the same colour and distances. Its limit: transparent passes and particles don't write depth, so they get the fog
-  of the surface behind them. `rt_fog_mode=1` keeps the game's fog as drawn and adds only the sunlit part
-  (x 0.5): shafts over the original, nothing taken away.
-- **The sky** (the depth's far value: the sky dome, or the fog-coloured clear with distance clipping) is never dimmed;
-  it gets the sunlit light only, x 0.1 - the shafts against the sky.
+  the device's fog out of every draw while the pass draws (`rt_fog_replaces_level_fog`), and the pass draws it - the
+  same colour and distances. Its limit: transparent passes and particles don't write depth, so they get the fog of the
+  surface behind them. `rt_fog_mode=1` keeps the game's fog as drawn and adds only the light's part: shafts over the
+  original, nothing taken away. The sky (the depth's far value) is never dimmed by the game's fog - it gets the light x
+  0.1; the aerial haze hazes it as a surface at the far plane.
 - **Which fog.** THUG2's levels draw fog only where a script turns it on, or with `[Graphics] DistanceClipping=1` and
   `Fog=1` - then every mesh fogs over the last quarter before the far plane (pc_mesh_render.cpp), which `ViewDrawn::fog`
-  reports. None of the check's five levels has fog by default. So a level without fog gets, with `rt_fog_haze=1` (the
-  default) and a baked sun, a thin haze in shafts mode: light grey, a linear "fog" from the camera to 4000 units whose
-  sunlit light alone is added - shafts, a glow toward the sun, nothing dimmed. `rt_fog_haze=0` leaves such levels as
-  they are.
+  reports. A level without fog and without a light or lamps (rt_fog_haze=0, or indoors by day) gets no pass.
+- **Settings.** `rt_fog_strength` (1; Options "Light shafts" Off / Low / Medium / High = 0 / 0.5 / 1 / 2) scales the
+  light the air scatters - sun, moon, lamps - not the fog's ambient (the game's fog look kept). `rt_fog_quality` (1;
+  Options "Light shaft quality"): 16 / 32 / 64 steps and 8 / 16 / 32 lamps; `rt_fog_steps` above 0 overrides the
+  steps. The High preset turns `rt_fog` on (its shafts were the retired `rt_shafts`).
 - **Cost** (device timestamps around the passes, logged every 240 as "rt_fog: the passes take"): the check's scene at
-  1920 x 1080 - RTX 5070 Ti 0.48 / 0.99 / 2.03 ms at 16 / 32 / 64 steps, the AMD Radeon integrated GPU 14 / 28 / 52 ms
-  (the ray queries dominate: linear in the steps). In the game: see below.
-- **Checks.** `thug2_vulkan_rt_fog_check` (65 checks, both GPUs, validation with synchronization 0): a wall with a
-  window, the sun through it into an even fog - every low-resolution texel's distance, its transmittance against
-  exp(-integral) = (end - d) / (end - start) (largest error 5e-4, 16-bit floats) and its light against the
-  processor's march of the same pixel with the same jitter (98% within 2e-4); the shaft's texels lighter than the
-  others by what the exact integral says (0.065 against 0.073); after 40 still frames every history full and within
-  0.001 mean of the exact integral (2048 steps); the composite = surface x T + light (mean 0.8 levels); a moved
-  camera's histories kept (15k) or restarted (0.4k) with no ghost; shafts mode leaving pixels in no sunlit fog
-  unchanged; the sky never dimmed; no pass without fog, a scene or the setting. `--perf` times the passes.
-  `tools/game/rt_shadows_check.ts --effect fog` checks it in the game.
+  1920 x 1080 before the volumetric light - RTX 5070 Ti 0.48 / 0.99 / 2.03 ms at 16 / 32 / 64 steps, the AMD Radeon
+  integrated GPU 14 / 28 / 52 ms (the ray queries dominate: linear in the steps); a lamp adds one ray a step where
+  lamps light the air, the cut-outs' test a little per ray, the clouds' map one texture read a step and its 256 x 256
+  pass (a few hundredths of a ms). In the game: the record (`out/pending/volumetric-light.md`).
+- **Checks.** `thug2_vulkan_rt_fog_check` (82): a wall with a window, the sun through it into an even fog - every
+  low-resolution texel's distance, transmittance against exp(-integral) (largest error 5e-4) and light against the
+  processor's march of the same pixel with the same jitter (the same `medium_phase`); the shaft lighter by what the
+  exact integral says; still frames converge on the exact integral; the composite; a moved camera without ghosts;
+  shafts mode; the sky never dimmed; the haze; no pass without fog, a scene or the setting. Added by the volumetric
+  light: the clock lighting the level (a baked sun, the level relit, `DayLight` on) - the scene's sun is the clock's,
+  the fog lit by it, and after still frames the history matches its own direction's integral (0.0008) while the other
+  direction's is 40 x off (the shaft moved with `DayLight`); at night the moon's shafts in the haze carry its colour's
+  luma (0.190 of the sun's against 0.189) and are bluer (blue over red 1.69 against 1.00).
+  `thug2_vulkan_rt_lights_check` "the lamp in the air": a lamp low beside the box, the haze lit by `rt_lights`' set
+  through the real material table and geometry (the cut-outs' variant) - after still frames 5,214 texels in the lamp's
+  open light at 0.998 x the processor's march of its falloff and phase, 1,410 across the box's shadow at 0.988 x the
+  shadowed march and 0.70 of the unshadowed (the lamp's cone cut by the box). `thug2_vulkan_rt_sky_check`: the clouds'
+  shadow map made at the opaque world's end toward the scene's light, every 8th texel against the processor's
+  transmittance (`rt_clouds.h cloud_density`, worst 0.016), gaps (38% at least 0.8 clear) and shade (61% at most 0.4).
+  `thug2_vulkan_rt_sun_check`: the aerial haze's light between the shade's share of the sky and that share + the sunlit
+  haze through the phase. `tools/game/rt_shadows_check.ts --effect fog` checks it in the game.
+- **Not yet.** The lamps' light uses their colour, not their texture's tint (the lamps' pass's); the water layer only
+  where the view ray ends on water (a pier's pixels beside the sea don't cross it); clouds' shadows only with
+  `rt_clouds` (the painted sky's cards cast none); the clouds' map ignores the atmosphere's curvature past 1.6 km.
 
 ### One-bounce indirect light (`rt_gi`)
 
@@ -1068,7 +1128,7 @@ its lamps' amount (dusk to dawn), without it only in a dark level (the emitters'
   vertex colours aren't taken out (the traced light adds to them - `rt_lights_strength` balances it); no light grid
   (a view with more than `rt_lights_max` lamps drops the least important).
 
-### The sun, its glare and the sky (`rt_sun`, `rt_shafts`, `rt_bloom`, `rt_sky_model`)
+### The sun, its glare and the sky (`rt_sun`, `rt_bloom`, `rt_sky_model`)
 
 What read as dated beside the ray-traced light was mostly the original's own sun: a white halo sprite and a corona at
 `sun::render`'s place (engine/gfx/lens_flare: theta / phi from SetSun, drawn after the particles) and the lens flare's
@@ -1111,6 +1171,8 @@ only ever added light. Four settings, all off by default, change that; each work
   bake). (Changed by "One sun for every effect" below: the disc is drawn at the scene's sun - the one the shadows, the
   bounce, the fog's shafts and the sky table light by -, the game's shown sun only where there is none; `rt_sun_place`
   is retired.) The disc's colour is the model's for the drawn sun's elevation (or `rt_sun_colour`).
+- (Changed by the volumetric light: the rays below - `rt_shafts`, `rt_shaft_strength` - were removed; the light in the
+  air is the fog pass's, "Volumetric fog and light shafts". What follows describes them as they were.)
 - **The pass** (`gpu_vulkan/vulkan_rt_sun`, a listener at `world_drawn`, `rt::ViewOrder::kSun` = 600 - after the fog,
   before tone mapping): the viewport's colour copied out; (1) the rays (`rt_shafts`, half resolution): from each texel
   toward the sun's vanishing point on the screen, 48 points along the whole way (the start jittered by interleaved
@@ -1381,9 +1443,10 @@ their depth and stay in front of any sky).
   bounce light read the new level's sky from its first frame; without ray tracing the first view's pass does it, still
   before that frame is presented. The capture is drawn earlier in the same frame (`capture_sky`), the read-back stall
   once per level falls in the frame shown over the loading screen's last picture.
-- **Cloud shadows** (`rt_cloud_shadows=1`, off by default; at `opaque_drawn`): each surface pixel's way to the sun
-  through the layer, the density at four heights (no detail), the colour x mix(1, transmittance, 0.65) - drifting shadows
-  on the level; no ray tracing.
+- **Cloud shadows** (`rt_cloud_shadows=1`, off by default; at `opaque_drawn`): the clouds' shadow map (changed by the
+  volumetric light - one map toward the scene's light, the sun or the moon, read by the ground and by the fog's march:
+  "Volumetric fog and light shafts"), the colour x mix(1, transmittance, 0.65 x the light's strength) - drifting
+  shadows on the level; no ray tracing.
 - **The reflections' misses** (`rt_sky_for_rays`; `vulkan_rt_reflections`' SKY variant, bindings 9 - 12): with
   `rt_sky=1` a reflection ray that leaves the world sees the sky drawn - the sky-view table toward it and, where its
   direction falls on the viewport, this frame's clouds (their history, read as the composite reads it, faded out over
@@ -3205,7 +3268,7 @@ them at once).
 | H1 | HDR targets, tone mapping and colour grading (`rt_hdr`): the base the added light (GI, fog) needs | V7, V8 | done - `gpu_vulkan/vulkan_hdr` (above, "HDR and tone mapping"): float back buffer and world targets, the tone-mapping pass last at `world_drawn`, `thug2_vulkan_hdr_check`, `rt_shadows_check.ts --effect hdr` |
 | R5 fog | Volumetric fog and light shafts | R2, R4's baked sun | done - `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default): the level's own linear fog as a medium of the same transmittance, lit by the baked sun through ray queries at half resolution with temporal accumulation and a depth-aware upsample; replaces the game's fog (`rt_fog_mode=0`) or adds the shafts over it (1); a level without fog gets a haze's shafts (`rt_fog_haze`) - "Volumetric fog and light shafts" above |
 | GI | One-bounce diffuse indirect light ("secondary lighting") with ray queries | R2, R3, R5, the baked sun | done: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_gi`, `rt_gi_strength` / `_rays` / `_distance` / `_denoise`, off by default), a view listener at `kIndirect`: the sun's light bounced once off what is around a pixel (hits shaded with R3's material at R2's texture coordinates, a shadow ray toward the level's baked sun), R5's denoiser over the colour, added to the frame as strength x the pixel's albedo x the light through a screen blend (see "One-bounce indirect light"). `thug2_vulkan_rt_gi_check` (39 checks, both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect gi`; 1080p on the RTX 5070 Ti: 1.5 / 2.0 / 2.4 ms for 1 / 2 / 4 rays |
-| Sun | The sun, its glare, screen-space rays, an energy-conserving bloom and a sky model (aerial perspective) | R2, R4's baked sun, R5 fog, H1 | done: `gpu_vulkan/vulkan_rt_sun` + `vulkan_rt_sky`, `engine/gfx/rt_sky` (`[Graphics] rt_sun`, `rt_shafts`, `rt_bloom`, `rt_sky_model`, off by default): the original's sun sprite and lens flare replaced by a disc and aureole where the game shows its sun, radial rays over the depth's sky mask, a 13-tap / tent mip-chain bloom over float intermediates (the same with `rt_hdr` 0 and 1), the haze as aerial perspective coloured by a single-scattering sky (see "The sun, its glare and the sky"). `thug2_vulkan_rt_sun_check` (both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect sun` |
+| Sun | The sun, its glare, screen-space rays (retired by the volumetric light), an energy-conserving bloom and a sky model (aerial perspective) | R2, R4's baked sun, R5 fog, H1 | done: `gpu_vulkan/vulkan_rt_sun` + `vulkan_rt_sky`, `engine/gfx/rt_sky` (`[Graphics] rt_sun`, `rt_bloom`, `rt_sky_model`, off by default): the original's sun sprite and lens flare replaced by a disc and aureole where the game shows its sun, (radial rays over the depth's sky mask - removed: the fog's volumetric shafts), a 13-tap / tent mip-chain bloom over float intermediates (the same with `rt_hdr` 0 and 1), the haze as aerial perspective coloured by a single-scattering sky (see "The sun, its glare and the sky"). `thug2_vulkan_rt_sun_check` (both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect sun` |
 | PBR | Per-pixel lighting and surface maps (normal, roughness, height) made from the original textures | V3, V7 (R3, R4's sun to use them fully) | done: `gpu_vulkan/vulkan_surface`, `ff_key` `kSurface*`, `tools/pbr_maps` (`[Graphics] rt_pbr`, off by default): the classical generator, the bake relit per pixel toward its sun and the sky, objects' lights per pixel, GGX highlights, the maps in R3's table (see "Per-pixel lighting and surface maps"). `thug2_vulkan_pbr_check` (both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect pbr` |
 
 
@@ -3327,7 +3390,9 @@ the original's own time of day (`tod_manager.h`, blended by the clock) is the lo
    c0 + c1 . n, given as an ambient part and a directional light toward the lamps, device light 2 - so a skater facing
    a lamp-lit wall is lit as the wall), the particles (the level's whole). The screen-space passes - shadows, occlusion, bounce, lamps (`rt_lights`), reflections - already
    light every pixel alike; every ray among them takes cut-outs by their alpha (`vulkan_rt_scene.h`
-   `cutout_rays_glsl`). The clouds read the state's sun, sky and night sky (`cloud_light`).
+   `cutout_rays_glsl`). The clouds read the state's sun, sky and night sky (`cloud_light`). The air - the fog's and the
+   haze's light shafts, the clouds' shadows in them and on the ground - is lit by the state's light
+   (`rt_volume_light.h medium_light`: its direction, colour, strength and size; "Volumetric fog and light shafts").
 4. **Night is light and exposure**: the moon's light, the night sky's, the level's own lamps and `rt_lights`' real
    lamps, and the exposure (`DayLight::exposure`, `rt_hdr`) - no darkening factors per kind of object. The exposure is
    the eye adapting to the relit level's own light (the light field's whole, its lamps in it): (1 / light)^0.5 within 1

@@ -637,7 +637,7 @@ std::vector<Decl> declarations()
         gfx("rt_fog_mode", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
         gfx("rt_fog_density", K::kNumber, "1").need(on("rt_fog")).live(E::kFog),
         gfx("rt_fog_height", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
-        gfx("rt_fog_anisotropy", K::kNumber, "0.5").need(on("rt_fog")).live(E::kFog),
+        gfx("rt_fog_anisotropy", K::kNumber, "0.75").need(on("rt_fog")).live(E::kFog),
         // (0: rt_fog_quality's steps)
         gfx("rt_fog_steps", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
 

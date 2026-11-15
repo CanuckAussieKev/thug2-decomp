@@ -177,7 +177,8 @@ void set_hdr_settings(const HdrSettings& settings);
 // rt_fog, rt_fog_strength, rt_fog_quality, rt_fog_density, rt_fog_height, rt_fog_anisotropy, rt_fog_steps, rt_fog_mode,
 // rt_fog_haze (and rt_hdr: the fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray
 // tracing isn't enabled on the device.
-inline constexpr float kRtFogAnisotropy = 0.5F; // (rt_fog_anisotropy's default: 0.3 until the volumetric light)
+inline constexpr float kRtFogAnisotropy = 0.75F; // (rt_fog_anisotropy's default - haze's aerosols; 0.3 before the
+                                                 // volumetric light)
 inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_quality 1's steps)
 inline constexpr float kRtFogStrength = 1.0F;   // (rt_fog_strength's default)
 // rt_fog_quality 0 / 1 / 2: the march's steps and the lamps at most that light the air
