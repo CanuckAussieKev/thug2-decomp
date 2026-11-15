@@ -49,11 +49,11 @@ constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr float kSameSun = 0.99999F;          // two suns this close (their directions' dot product): the same
 constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
 constexpr uint32_t kCacheMagic = 0x4C523254U; // "T2RL"
-constexpr uint32_t kCacheVersion = 3;
+constexpr uint32_t kCacheVersion = 4; // (4: the residual taken apart - sun_missed)
 constexpr std::size_t kKilobyte = 1024;
 constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
 constexpr std::size_t kVertexFloats =
-    15; // a vertex in the cache: normal 3, sun, sky, bounce 3, tint 3, residual 3, used
+    17; // a vertex in the cache: normal 3, sun, sky, bounce 3, tint 3, residual 3, sun_missed, sun_baked, used
 constexpr std::size_t kModelFloats = 17; // the model: valid, toward 3, sun 3, sky 3, bounce 3, scale, error, vertices,
                                          // the sun's need
 constexpr float kRgbColourLimit = 4.0F;
@@ -355,6 +355,8 @@ std::array<float, kVertexFloats> vertex_floats(const rt::RelitVertex& vertex)
     floats.put(vertex.bounce);
     floats.put(vertex.tint);
     floats.put(vertex.residual);
+    floats.put(vertex.sun_missed);
+    floats.put(vertex.sun_baked);
     floats.put(vertex.used ? 1.0F : 0.0F);
     std::array<float, kVertexFloats> out{};
     std::ranges::copy(floats.values(), out.begin());
@@ -371,6 +373,8 @@ rt::RelitVertex vertex_of(const std::array<float, kVertexFloats>& values)
     vertex.bounce = cursor.next3();
     vertex.tint = cursor.next3();
     vertex.residual = cursor.next3();
+    vertex.sun_missed = cursor.next();
+    vertex.sun_baked = cursor.next();
     vertex.used = cursor.next() != 0.0F;
     return vertex;
 }
@@ -1342,7 +1346,7 @@ std::string describe_near(const rt::Vec3& point, float radius)
         const uint32_t original = core::at(near.entry->originals, near.vertex);
         const rt::Vec3& at = core::at(near.entry->input.positions, near.vertex);
         out += text::format("\n  vertex %.1f %.1f %.1f (%.1f away) normal %.2f %.2f %.2f: baked %06X relit %06X, sun %.2f "
-                            "sky %.2f bounce %.3f %.3f %.3f, tint %.2f %.2f %.2f, residual %.3f %.3f %.3f",
+                            "sky %.2f bounce %.3f %.3f %.3f, tint %.2f %.2f %.2f, residual %.3f %.3f %.3f, missed sun %.2f",
                             static_cast<double>(rt::x_of(at)), static_cast<double>(rt::y_of(at)),
                             static_cast<double>(rt::z_of(at)), static_cast<double>(near.distance),
                             static_cast<double>(rt::x_of(vertex.normal)), static_cast<double>(rt::y_of(vertex.normal)),
@@ -1354,7 +1358,8 @@ std::string describe_near(const rt::Vec3& point, float radius)
                             static_cast<double>(std::get<1>(vertex.tint)), static_cast<double>(std::get<2>(vertex.tint)),
                             static_cast<double>(std::get<0>(vertex.residual)),
                             static_cast<double>(std::get<1>(vertex.residual)),
-                            static_cast<double>(std::get<2>(vertex.residual)));
+                            static_cast<double>(std::get<2>(vertex.residual)),
+                            static_cast<double>(vertex.sun_missed));
     }
     return out;
 }
