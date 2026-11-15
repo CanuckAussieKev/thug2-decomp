@@ -51,9 +51,10 @@ constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr float kSameSun = 0.99999F;          // two suns this close (their directions' dot product): the same
 constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
 constexpr uint32_t kCacheMagic = 0x4C523254U; // "T2RL"
-constexpr uint32_t kCacheVersion = 6; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
+constexpr uint32_t kCacheVersion = 7; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
                                       // local light across meshes, the probe through the cut-outs; 6: the fit's
-                                      // shadow borders and faces, the bounce's local part)
+                                      // shadow borders and faces, the bounce's local part; 7: no sun channel left
+                                      // at nothing)
 constexpr std::size_t kKilobyte = 1024;
 constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
 constexpr std::size_t kVertexFloats =

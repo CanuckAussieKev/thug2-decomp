@@ -39,6 +39,7 @@ constexpr int kAlphaShift = 24;
 constexpr float kBytesPerLight = 128.0F;
 constexpr float kMaxByte = 255.0F;
 constexpr std::size_t kMinFitVertices = 100;
+constexpr float kDeadSunChannel = 0.1F; // (fit_relit_model) a channel's sun under this share of the strongest's: none
 constexpr float kMinSunLight = 0.05F;        // the fit's sun (luma) at least this: the bake shows a sun
 constexpr float kBlackLight = 1.0F / 128.0F; // a colour this dark (luma) isn't fitted: unlit or painted black
 constexpr int kFitRounds = 6; // the pairs' fit, then reweighted (and its light per edge made again) five times
@@ -1331,6 +1332,30 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
     model.sun_needed = with_sun > 0.0 ? static_cast<float>(without_sun / with_sun) : 0.0F;
     // the sun's strength against the rest told by which way the faces turn (facing_calibration), then each channel's
     // scale again (the median tint 1)
+    // (added by the light energy audit) A channel whose edges gave the sun nothing - their changes explained by the sky or
+    // the bounce alone (AU: red 0; sch: red and blue 0; Berlin in a workspace: red 0) - can't be put right by a factor:
+    // it starts from the other channels' sun, and the faces' turning in that channel tells its strength. A sun lights
+    // every channel; a fit that left one at nothing gave a green sun.
+    {
+        const float strongest = std::max({core::at(model.sun, 0), core::at(model.sun, 1), core::at(model.sun, 2)});
+        float seed = 0.0F;
+        int alive = 0;
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            if (core::at(model.sun, ch) >= kDeadSunChannel * strongest) {
+                seed += core::at(model.sun, ch);
+                ++alive;
+            }
+        }
+        if (strongest > 0.0F && alive > 0 && alive < 3) {
+            seed /= static_cast<float>(alive);
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                if (core::at(model.sun, ch) < kDeadSunChannel * strongest) {
+                    core::at(model.sun, ch) = seed;
+                    model.dead_channels += 1;
+                }
+            }
+        }
+    }
     Rgbf factors{1.0F, 1.0F, 1.0F};
     for (std::size_t ch = 0; ch < 3; ++ch) {
         core::at(factors, ch) = facing_calibration(meshes.first(count), light.first(count), model, ch);

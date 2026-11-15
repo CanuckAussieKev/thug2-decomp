@@ -206,6 +206,8 @@ struct RelitModel {
     float facing_model = 0.0F; // ... and the model's (medians' ratios) // meshes left out of the fit: one colour all over (painted, not lit by the bake)
     float shadow_baked = 0.0F;
     float shadow_model = 0.0F;
+    // (added by the light energy audit; reported) channels the edges gave no sun, started from the others' (fit_relit_model)
+    std::size_t dead_channels = 0;
 };
 
 struct RelitParams {
