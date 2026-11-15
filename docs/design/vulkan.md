@@ -1686,7 +1686,10 @@ pictures of whole streets - are stage 2 (counted by the survey below, not reliev
   wall triangles drawn with them; 913 skyline cards (stage 2). BO: 7 textures, 10 of 10 facade meshes relieved - 168
   wall triangles cut into 8,175 pieces and 6,711 sides, +40,029 vertices, their indices 617 -> 177,414, 20 - 23 ms at
   load; BE: 4 textures, 6 of 7 meshes (one with the windows alone) - 50 triangles, 8,293 pieces, 4,739 sides, +29,882
-  vertices, 361 -> 152,478 indices, 23 ms. GPU_PLACEHOLDER
+  vertices, 361 -> 152,478 indices, 23 ms. The device's time a frame with the
+  camera held on BO's and BE's first facade (frame profile, 1800 frames, two runs each): off 23.8 / 4.1 ms (BO), 14.0 /
+  8.0 (BE); on 7.5 / 6.9, 7.3 / 5.9 - the run-to-run spread (4 - 24 ms for the same settings) is larger than any cost
+  the relief adds; ~60k more triangles a level drawn and in the BLAS.
 - **Not done**: the skyline cards (stage 2); a per-distance level of detail; the detector's misses and false positives
   (a sign's letter tiles - BE's BERLIN - read as windows; low-resolution fronts with no set texels found partly) -
   `make --pictures` shows what was found; where three heights meet at a side's end the sides meet along one line split
