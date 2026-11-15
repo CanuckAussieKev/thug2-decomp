@@ -12,7 +12,9 @@ void write_default_setting(const char* name, uint32_t value);
 
 // RegQueryValueExA / RegSetValueExA over the value's own bytes: `data` holds `*size` bytes (the value's size comes
 // back there); `type` may be null; `key` an open HKEY. The Win32 result (ERROR_SUCCESS: 0).
-long query_registry_value(void* key, const char* name, unsigned long* type, void* data, unsigned long* size);
-long set_registry_value(void* key, const char* name, unsigned long type, const void* data, unsigned long size);
+// uint32_t, where the first version of this wrote `unsigned long`: Win32's DWORD is `unsigned long` (32 bits) on
+// Windows, and is 64 bits where the data model is LP64 - the same type on Windows, the right one everywhere else.
+long query_registry_value(void* key, const char* name, uint32_t* type, void* data, uint32_t* size);
+long set_registry_value(void* key, const char* name, uint32_t type, const void* data, uint32_t size);
 
 } // namespace sys

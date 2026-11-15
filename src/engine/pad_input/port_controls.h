@@ -44,8 +44,8 @@ constexpr int kBindItemRight = 23;
 
 // A port's controls (0x130 bytes, 0x007D6770 + 0x130 * port; -1 = none). init_input sets them all to -1.
 struct PortControls {
-    std::array<int32_t, kBindings> keys;    // +0x00 the keyboard's key (DIK code) for each action: registry "k<port>_<n>"
-    GUID joystick;              // +0x60 the joystick playing as this port: registry "pad<port>"
+    std::array<int32_t, kBindings> keys; // +0x00 the keyboard's key (DIK code) for each action: registry "k<port>_<n>"
+    GUID joystick;                       // +0x60 the joystick playing as this port: registry "pad<port>"
     std::array<int32_t, kBindings> gamepad; // +0x70 the joystick's control for each action: registry "gp<port>_<n>"
     std::array<int32_t, kBindings> mouse;   // +0xD0 the mouse's control for each action (nothing here sets them)
 };
@@ -54,10 +54,15 @@ constexpr std::size_t kPortControlsGamepadOffset = 0x70;
 constexpr std::size_t kPortControlsMouseOffset = 0xD0;
 constexpr std::size_t kPortControlsBytes = 0x130;
 
-static_assert(offsetof(PortControls, joystick) == kPortControlsJoystickOffset && offsetof(PortControls, gamepad) == kPortControlsGamepadOffset &&
-                  offsetof(PortControls, mouse) == kPortControlsMouseOffset && sizeof(PortControls) == kPortControlsBytes,
+static_assert(offsetof(PortControls, joystick) == kPortControlsJoystickOffset &&
+                  offsetof(PortControls, gamepad) == kPortControlsGamepadOffset &&
+                  offsetof(PortControls, mouse) == kPortControlsMouseOffset &&
+                  sizeof(PortControls) == kPortControlsBytes,
               "layout must match the original");
-inline std::array<PortControls, kPorts>& get_controls();
+// Not `inline`: its one definition is port_controls.cpp's, and an inline declaration whose definition is in a .cpp file
+// leaves every other file's call to an external symbol nothing emits (MSVC emits a copy of an inline function it can't
+// inline; clang doesn't), which the link reports as missing.
+std::array<PortControls, kPorts>& get_controls();
 
 // The graphics options (0x007D6434; the registry's "options", "distance" and "resolution" - PartyMod's
 // [Graphics] in thug2-decomp.ini, engine/gfx/settings.h).
