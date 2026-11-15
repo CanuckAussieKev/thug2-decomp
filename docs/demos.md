@@ -273,7 +273,11 @@ real time only decides whether a frame is drawn or skipped to catch up. A demo p
    demo runs (`draws_unfocused`). When a recording or playback ends the log gives its pace (`demo: ... pace - game s
    in real s`, and the frames not drawn).
 5. **The skater.** The profile (appearance, trick style, specials, its info and stats) is saved with the demo and put
-   back before a playback if the current one differs.
+   back before a playback if the current one differs - and then handed to the skater with the game's own
+   `RefreshSkaterModel`, as the skater select does: the skater keeps its own copy of the stats, trick mappings and
+   stance, taken from the profile when it was given one, so a profile changed behind its back would leave it skating
+   with the session's stats (until 2026-11-15 it did: sim_grind, recorded with stats of 10, played anywhere else with
+   that folder's skater's).
 
 The **check track** - the skater's position, velocity, matrix rows and state, and the camera, every frame from the level
 up - is recorded with the input. A playback compares its own with it and logs the first frame that differs (more than
