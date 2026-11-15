@@ -3310,9 +3310,12 @@ the original's own time of day (`tod_manager.h`, blended by the clock) is the lo
 5. **Ready before the first frame** (`rt_relit_world.h` `hold_first_light`): where the clock may light a level, the
    frames after its loading screen goes down are drawn (the world must stand still to be relit; the clock waits for the
    baked sun's fit; the night state's scripts run) under the loading screen's picture until the clock's light is
-   published and the level is relit for it (every mesh written, the field made) - at most 10 s. Round 2's two attempts
-   to make the first frame night without a hold (the clock run again inside the first frame's record; every relit
-   colour written in one frame) are not needed: the budgets run under the picture.
+   published and the level is relit for it (every mesh written, the field made) ten frames in a row - at most 10 s.
+   Why round 2's attempts left the level day-bright for good: relit keeps its entries by the vertex buffer's address,
+   and the night state's scripts free and make meshes; a buffer made at a freed one's address was taken for it,
+   already written, and drawn with its bake until the lighting changed again. `VertexBuffer::teardown` now forgets
+   the entry (`rt_relit_world::buffer_released`), and a write of the game's own over a relit buffer marks it to be
+   written again (`buffer_written`).
 
 The test: Boston and Berlin at noon, dusk and night - a door under a lamp lit like the wall beside it, the skater and
 the objects as bright as the ground they stand on, no hard-edged moon shadows, nothing appearing after the load.
