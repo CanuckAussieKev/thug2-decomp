@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chooseLevels, parseBakeLog, reportLine } from "./relit_bake.ts";
+import { bakeMade, chooseLevels, parseBakeLog, reportLine, startedLevel } from "./relit_bake.ts";
 
 const LOG = [
     "rt: a new world's first frame: 2843 world meshes",
@@ -38,6 +38,31 @@ test("a level whose bake shows no sun, and a run with no bake line", () => {
     const failed = parseBakeLog("rt: nothing\n");
     assert.equal(failed.written, false);
     assert.match(reportLine("ny", null, failed), /^ny\tFAILED\texit killed/);
+});
+
+test("a run that ended with a batch run's failure is FAILED, with its reason", () => {
+    const never = parseBakeLog(
+        "start level: Load_BO (free skate)\n" +
+            "relit bake: FAILED - Load_BO never came up: load_mainmenu still running after 300 s (the log's " +
+            '"start level:" line says why) - nothing written\n',
+    );
+    assert.equal(never.written, false);
+    assert.match(never.failure ?? "", /^Load_BO never came up/);
+    assert.match(reportLine("BO", 2, never), /^BO\tFAILED\texit 2\tLoad_BO never came up/);
+    const refused = parseBakeLog("start level: Load_xx isn't a level's load script - the main menu stays\n");
+    assert.match(reportLine("xx", 2, refused), /^xx\tFAILED\texit 2\tLoad_xx isn't a level's load script/);
+    // (written, but the game didn't end with 0: not made)
+    const crashed = parseBakeLog(LOG);
+    assert.equal(bakeMade(0, crashed), true);
+    assert.equal(bakeMade(5, crashed), false);
+    assert.match(reportLine("BO", 3, parseBakeLog("")), /^BO\tFAILED\texit 3\tthe level came up with another scene/);
+});
+
+test("a log shows its level started - not the main menu's world baked under its name", () => {
+    assert.equal(startedLevel("x\nstart level: Load_BO (free skate)\n", "BO"), true);
+    assert.equal(startedLevel("start level: load_thps3_ap (free skate)\n", "thps3_ap"), true);
+    assert.equal(startedLevel("relit bake: level a94aa09c (BO) - relit: 201 meshes\n", "BO"), false);
+    assert.equal(startedLevel("start level: Load_BOX (free skate)\n", "BO"), false);
 });
 
 test("the levels chosen: all installed, or by name with or without Load_", () => {

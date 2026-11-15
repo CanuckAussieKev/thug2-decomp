@@ -8,10 +8,21 @@
 #include <string>
 
 #include "platform/process_flags.h"
+#include "platform/sdl_events.h"
 
 namespace platform {
 
 namespace {
+
+struct BatchEnd {
+    bool asked = false;
+    int code = 0;
+};
+BatchEnd& batch_end()
+{
+    static BatchEnd end;
+    return end;
+}
 
 constexpr const wchar_t* kWorkspaceMarker = L"thug2-decomp-always-muted";
 
@@ -50,5 +61,17 @@ bool batch_run()
     }();
     return batch;
 }
+
+void end_batch_run(int code)
+{
+    BatchEnd& end = batch_end();
+    if (!end.asked) {
+        end.asked = true;
+        end.code = code;
+        os_layer::request_quit();
+    }
+}
+
+int batch_exit_code() { return batch_end().code; }
 
 } // namespace platform

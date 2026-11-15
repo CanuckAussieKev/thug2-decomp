@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -14,20 +15,23 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/config/settings_model.h"
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
+#include "engine/gfx/game_hooks.h"
 #include "engine/gfx/relit_data.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
+#include "engine/script/names.h"
+#include "engine/script/param_struct.h"
 #include "platform/platform_config.h"
 #include "platform/process_flags.h"
 #include "platform/run_log.h"
-#include "platform/sdl_events.h"
 #include "platform/test_workspace.h"
 
 namespace render::relit_bake {
@@ -49,12 +53,74 @@ struct State {
     uint64_t key = 0;     // the scenes' key the world has been ready for ...
     uint32_t steady = 0;  // ... this many frames in a row
     bool done = false;
+    bool waiting = false;                        // the wait for the level begun ...
+    std::chrono::steady_clock::time_point since; // ... then
+    bool level_seen = false;                     // the level asked for running (logged once) ...
+    uint32_t named_scene = 0;                    // ... and the scene its level structure names (0: none)
 };
 
 State& state()
 {
     static core::NoDestroy<State> made;
     return made.get();
+}
+
+// The load script of the level asked for: Load_<name> (the name may have its Load_ already - as -level takes it,
+// game/front_end/start_level.cpp read_in).
+std::string requested_load_name()
+{
+    std::string name = level_name();
+    constexpr std::size_t kPrefix = 5; // "load_"
+    if (name.size() < kPrefix || _strnicmp(name.c_str(), "load_", kPrefix) != 0) {
+        name = "Load_" + name;
+    }
+    return name;
+}
+uint32_t requested_load() { return checksums::hash_from_text(requested_load_name().c_str()); }
+
+// The load script running now (the skate module's level: load_mainmenu in the front end), 0 without one.
+uint32_t running_load()
+{
+    const auto level_script = render::game_hooks().level_script;
+    return level_script != nullptr ? level_script() : 0;
+}
+
+std::string load_name(uint32_t load)
+{
+    if (load == requested_load()) {
+        return requested_load_name();
+    }
+    const char* name = script::look_up_hash_name(load);
+    return name != nullptr ? std::string(name) : text::format("%08x", load);
+}
+
+// The scene the level whose load script is `load` names: its level structure's level= (levels.qb's Level_<x>, and the
+// ported levels' that make_menu_level adds the same way) - the scene its world is (rt_relit_world::level_scene). 0 when
+// no level structure names one.
+uint32_t named_scene(uint32_t load)
+{
+    static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
+    static const uint32_t kLevel = checksums::hash_from_text("level");
+    for (script::SymbolTableEntry* entry = script::get_next_symbol(nullptr); entry != nullptr;
+         entry = script::get_next_symbol(entry)) {
+        script::Struct* level = entry->type() == script::QbValueKind::kStruct ? entry->value().structure() : nullptr;
+        uint32_t its_load = 0;
+        if (level == nullptr || !level->read_hash_value(kLoadScript, &its_load, 0) || its_load != load) {
+            continue;
+        }
+        const char* scene = nullptr;
+        if (level->fetch_text(kLevel, &scene, 0) && scene != nullptr && *scene != '\0') {
+            return checksums::hash_from_text(scene);
+        }
+    }
+    return 0;
+}
+
+// The bake given up: nothing written, the game closed with `code` (platform::kBatch...).
+void give_up(State& st, int code)
+{
+    st.done = true;
+    platform::end_batch_run(code);
 }
 
 // The level's lamps as the lamps pass shines them: the emitters found in the level (glows; self-lit surfaces in a dark
@@ -276,9 +342,53 @@ void step(std::span<const rt_relit_world::WorldMesh> world, bool ready, uint64_t
     if (st.done) {
         return;
     }
+    const auto now = std::chrono::steady_clock::now();
+    if (!st.waiting) {
+        st.waiting = true;
+        st.since = now;
+    }
+    const double waited = std::chrono::duration<double>(now - st.since).count();
+    // Only the level asked for is baked: the front end's world (the main menu is a level of its own, its scene up from
+    // the first frames) or any other is waited past - game/front_end/start_level.h starts the level from the menu.
+    const uint32_t load = requested_load();
+    const uint32_t running = running_load();
+    if (running != load) {
+        st.steady = 0;
+        if (waited > kLevelWaitSeconds) {
+            get_log("relit bake: FAILED - %s never came up: %s still running after %.0f s (the log's \"start level:\" "
+                    "line says why) - nothing written",
+                    load_name(load).c_str(), running != 0 ? load_name(running).c_str() : "no level", waited);
+            give_up(st, platform::kBatchNoLevel);
+        }
+        return;
+    }
+    if (!st.level_seen) {
+        st.level_seen = true;
+        st.named_scene = named_scene(load);
+        get_log("relit bake: %s is up (%.0f s) - its world (scene %08x) baked once it has held for %u frames",
+                load_name(load).c_str(), waited, st.named_scene, kSteadyFrames);
+    }
     const bool emitters = rt::level_emitters() != nullptr && rt::level_emitters()->serial != 0;
     if (!ready || world.empty() || !emitters || rt_relit_world::level_scene() == 0) {
         st.steady = 0;
+        if (waited > kLevelWaitSeconds) {
+            get_log("relit bake: FAILED - %s came up but its world wasn't ready after %.0f s - nothing written",
+                    load_name(load).c_str(), waited);
+            give_up(st, platform::kBatchNoLevel);
+        }
+        return;
+    }
+    // (the world is the level's own - the scene its level structure names -, never another scene's data under its name:
+    // a world of another scene, the menu's still up as the level begins to load, is waited past)
+    const uint32_t scene = rt_relit_world::level_scene();
+    if (const uint32_t named = st.named_scene; named != 0 && scene != named) {
+        st.steady = 0;
+        if (waited > kLevelWaitSeconds) {
+            get_log("relit bake: FAILED - %s is up but its world is scene %08x, not %08x (its level structure's) after "
+                    "%.0f s - nothing written",
+                    load_name(load).c_str(), scene, named, waited);
+            give_up(st, platform::kBatchOtherScene);
+        }
         return;
     }
     if (scene_key != st.key) {
@@ -290,7 +400,7 @@ void step(std::span<const rt_relit_world::WorldMesh> world, bool ready, uint64_t
     }
     st.done = true;
     bake(world, tracer);
-    os_layer::request_quit();
+    platform::end_batch_run(platform::kBatchMade);
 }
 
 } // namespace render::relit_bake

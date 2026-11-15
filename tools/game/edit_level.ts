@@ -184,7 +184,9 @@ export function readLevels(game: string): { levels: Level[]; source: string } {
     const useJson = !fs.existsSync(qbSource) && fs.existsSync(jsonSource);
     const source = useJson ? jsonSource : qbSource;
     if (!fs.existsSync(source))
-        exitWith(`no Levels.qb or Levels.json in ${game} (looked for ${overlayQb}, ${ownQb}, ${overlayJson}, ${ownJson})`);
+        exitWith(
+            `no Levels.qb or Levels.json in ${game} (looked for ${overlayQb}, ${ownQb}, ${overlayJson}, ${ownJson})`,
+        );
     const ported = new Map<string, string>();
     for (const staging of STAGINGS) {
         for (const entry of readManifest(path.join(game, staging, "levels.json"))?.levels ?? []) {

@@ -18,7 +18,9 @@
 // --minutes: a level's bake given up after this long (the game closed). One game at a time; refused while a game runs
 // from the folder (the user may be playing) - it never closes a game it didn't start. Nothing here goes online.
 // Writes <game>\thug2-decomp-relit\bake-report.txt (a line per level: its verdict, its counts) and each level's game log
-// as thug2-decomp-relit\logs\<level>.log.
+// as thug2-decomp-relit\logs\<level>.log. A level is made only when the game wrote its data and ended with 0; the game
+// bakes only the level asked for (its load script running, its world the scene its level structure names) and ends with
+// 2 when the level never came up, 3 when it came up with another scene - FAILED in the report, with the log's reason.
 
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
@@ -58,7 +60,14 @@ export interface BakeResult {
     written: boolean;
     sun: string | null; // the model's sun (r g b)
     lampTerm: string | null; // the model's lamps' c (r g b)
+    failure: string | null; // why nothing was written ("relit bake: FAILED - ..." / "start level: ...")
 }
+
+// The game's exit codes for a batch run (src/platform/test_workspace.h kBatch...).
+export const EXIT_CODES: Readonly<Record<number, string>> = {
+    2: "the level never came up",
+    3: "the level came up with another scene",
+};
 
 export function parseBakeLog(log: string): BakeResult {
     const out: BakeResult = {
@@ -71,7 +80,11 @@ export function parseBakeLog(log: string): BakeResult {
         written: false,
         sun: null,
         lampTerm: null,
+        failure: null,
     };
+    const failure =
+        /relit bake: FAILED - (.*)/.exec(log) ?? /start level: (.*(?:isn't|can't|the main menu stays).*)/.exec(log);
+    if (failure) out.failure = failure[1]!.trim();
     const head =
         /relit bake: level ([0-9a-f]{8}) \([^)]*\) - ([^:]+): (\d+) meshes \(\d+ not relightable\), (\d+) vertices;.*?; (\d+) lamps;/.exec(
             log,
@@ -118,9 +131,32 @@ export function chooseLevels(levels: readonly Level[], wanted: string): { chosen
     return { chosen, unknown };
 }
 
+// Whether a run's log shows its level started (src/game/front_end/start_level.cpp "start level: Load_<level> (free
+// skate)"): a log without it baked whatever world was up - the main menu's, in builds before the bake checked its level -
+// and its data isn't the level's.
+export function startedLevel(log: string, level: string): boolean {
+    const name = level.replace(/^load_/i, "").toLowerCase();
+    for (const match of log.matchAll(/start level: Load_(\S+) \(free skate/gi)) {
+        if (match[1]!.toLowerCase() === name) return true;
+    }
+    return false;
+}
+
+// Whether a run made its level's data: the file written and the game ended with 0 (any other end - an exit code of a
+// failed batch run, a crash, killed - is a failure, whatever its log says).
+export function bakeMade(code: number | null, result: BakeResult): boolean {
+    return result.written && code === 0;
+}
+
 export function reportLine(level: string, code: number | null, result: BakeResult): string {
-    if (!result.written)
-        return `${level}\tFAILED\texit ${code ?? "killed"}\t${result.verdict ?? "no bake line in the log"}`;
+    if (!bakeMade(code, result)) {
+        const why =
+            result.failure ??
+            (code !== null ? EXIT_CODES[code] : undefined) ??
+            result.verdict ??
+            "no bake line in the log";
+        return `${level}\tFAILED\texit ${code ?? "killed"}\t${why}`;
+    }
     return [
         level,
         result.scene ?? "?",
@@ -198,10 +234,17 @@ async function main(): Promise<number> {
         if (running.length)
             exitWith(`THUG2 IS RUNNING FROM ${game} - not started (the user may be playing); close it first`);
         if (values["skip-built"]) {
-            const before = fs.existsSync(path.join(logs, `${level.load}.log`))
-                ? parseBakeLog(fs.readFileSync(path.join(logs, `${level.load}.log`), "utf8"))
+            const beforeLog = fs.existsSync(path.join(logs, `${level.load}.log`))
+                ? fs.readFileSync(path.join(logs, `${level.load}.log`), "utf8")
                 : null;
-            if (before?.written && before.file && fs.existsSync(before.file)) {
+            const before = beforeLog !== null ? parseBakeLog(beforeLog) : null;
+            if (
+                beforeLog !== null &&
+                before?.written &&
+                before.file &&
+                fs.existsSync(before.file) &&
+                startedLevel(beforeLog, level.load)
+            ) {
                 print(`${level.load}: built already (${path.basename(before.file)}) - left`);
                 lines.push(reportLine(level.load, 0, before));
                 continue;
@@ -214,7 +257,7 @@ async function main(): Promise<number> {
         const result = parseBakeLog(log);
         const line = reportLine(level.load, code, result);
         lines.push(line);
-        failed += result.written ? 0 : 1;
+        failed += bakeMade(code, result) ? 0 : 1;
         print(`  ${line.replaceAll("\t", "  ")}  (${((Date.now() - started) / 1000).toFixed(0)} s)`);
     }
     fs.writeFileSync(path.join(folder, "bake-report.txt"), `${lines.join("\n")}\n`);

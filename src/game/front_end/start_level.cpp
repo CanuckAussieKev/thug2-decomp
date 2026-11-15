@@ -32,6 +32,7 @@
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 #include "platform/process_flags.h"
+#include "platform/test_workspace.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include "base/core/format.h"
@@ -44,6 +45,7 @@ namespace {
 constexpr std::size_t kValueSize = 128;
 constexpr std::size_t kPathSize = 160;
 constexpr int kSettleFrames = 60;              // the menu runs this long before the level starts
+constexpr int kWaitReportFrames = 1800;        // (30 s of the front end's frames without the menu: logged why)
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
@@ -154,6 +156,7 @@ void start_free_skate(uint32_t load, bool edited_copy)
 // (start_level_state()).
 struct StartLevelState {
     int frames_{}; // the front end's frames with the main menu's scripts loaded
+    int waited_{}; // the frames before that (kWaitReportFrames: logged)
     bool done_{};
 };
 
@@ -359,6 +362,13 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool menu_scripts =
         is_script(name_hash("main_menu_skate_now")) || (own_menu && is_script(name_hash("main_menu_exit")));
     if (render::current_level() != 0 || (front_end && front_end->is_paused()) || !menu_scripts) {
+        // (a level that doesn't start says why, once: what it is still waiting for)
+        if (++start_level_state().waited_ == kWaitReportFrames) {
+            get_log("start level: %s still waits for the main menu after %d frames - career level %u (0: the front end), "
+                    "paused %d, the menu's scripts %s",
+                    get_requested(), kWaitReportFrames, static_cast<unsigned>(render::current_level()),
+                    (front_end != nullptr && front_end->is_paused()) ? 1 : 0, menu_scripts ? "loaded" : "not loaded");
+        }
         return;
     }
     if (++start_level_state().frames_ < kSettleFrames) {
@@ -367,6 +377,11 @@ void tick_frame(modules::FrontEnd* front_end)
     start_level_state().done_ = true;
     const bool loaded = read_in(get_requested(), nullptr);
     started_load().started_ = loaded;
+    if (!loaded && platform::batch_run()) {
+        // (a batch run - the relit bake - has nothing to do in the menu: closed at once, its exit code says so)
+        get_log("start level: %s can't start - the batch run ends", get_requested());
+        platform::end_batch_run(platform::kBatchNoLevel);
+    }
     if (loaded && !at_text().empty()) {
         if (parse_spot(at_text(), nullptr)) {
             start_spot().at_ = At::kWaitLevel;
