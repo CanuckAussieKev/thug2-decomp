@@ -235,6 +235,13 @@ struct RelitLighting {
 };
 // The model's light at a vertex: a S + b K + g B (S from its `sun` and normal toward `lighting.toward`).
 [[nodiscard]] Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
+// ... in its parts: the direct light (a x N.L x (S + the missed sun)) and the indirect (b K + g B) - what the light
+// field (rt_light_field.h) keeps.
+struct RelitParts {
+    Rgbf direct{};
+    Rgbf indirect{};
+};
+[[nodiscard]] RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
 // The colour a vertex is drawn with (A8R8G8B8; the original's alpha kept): the bake blended with the relit colour.
 [[nodiscard]] uint32_t relit_colour(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting,
                                     uint32_t original);

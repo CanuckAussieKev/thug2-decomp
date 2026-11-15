@@ -11,12 +11,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <memory>
 #include <numbers>
 #include <string>
 #include <vector>
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_light_field.h"
 #include "tests/no_error_dialogs.h"
 
 namespace {
@@ -372,9 +374,63 @@ void check_settings()
 
 } // namespace
 
+// (the one lighting path - engine/gfx/rt_light_field.h) The level's light where a thing is: a moonlit street's cell and a
+// lamp-lit corner's give their own ratios (the lamp's light the same at both times, so a thing under it stays lit), a
+// point between the two cells their mix, a point far from both the nearest's, the level's whole all of it; no field: 1.
+void check_light_field()
+{
+    const rt::LightRatio none = rt::light_ratio_at({0.0F, 0.0F, 0.0F});
+    expect(none == rt::LightRatio{}, "no light field: every ratio 1 (the original's look)");
+    auto field = std::make_shared<rt::LightField>();
+    // the street: lit by the sun at the bake (direct 0.5, indirect 0.5), by the moon now (0.05, 0.1)
+    const rt::LightParts street{.direct_now = {0.05F, 0.05F, 0.05F},
+                                .indirect_now = {0.1F, 0.1F, 0.1F},
+                                .direct_own = {0.5F, 0.5F, 0.5F},
+                                .indirect_own = {0.5F, 0.5F, 0.5F},
+                                .local = {}};
+    // the corner: in shade (indirect 0.4 at the bake, 0.08 now) under a lamp (0.6, its own light)
+    const rt::LightParts corner{.direct_now = {},
+                                .indirect_now = {0.08F, 0.08F, 0.08F},
+                                .direct_own = {},
+                                .indirect_own = {0.4F, 0.4F, 0.4F},
+                                .local = {0.6F, 0.6F, 0.6F}};
+    constexpr float kCell = rt::kLightFieldCell;
+    for (int i = 0; i < 4; ++i) {
+        field->add({(0.5F * kCell) + static_cast<float>(i), 10.0F, 0.5F * kCell}, street);
+        field->add({(1.5F * kCell) + static_cast<float>(i), 10.0F, 0.5F * kCell}, corner);
+    }
+    const rt::LightRatio on_street = field->at({0.5F * kCell, 0.5F * kCell, 0.5F * kCell});
+    expect(std::abs(std::get<1>(on_street.whole) - 0.15F) < 1e-4F &&
+               std::abs(std::get<1>(on_street.indirect) - 0.2F) < 1e-4F,
+           "the field on the moonlit street: whole " + number(std::get<1>(on_street.whole)) + " (0.15), indirect " +
+               number(std::get<1>(on_street.indirect)) + " (0.2)");
+    const rt::LightRatio under_lamp = field->at({1.5F * kCell, 0.5F * kCell, 0.5F * kCell});
+    expect(std::abs(std::get<1>(under_lamp.whole) - 0.68F) < 1e-4F,
+           "the field under the lamp: the lamp's own light kept - whole " + number(std::get<1>(under_lamp.whole)) +
+               " (0.68)");
+    const rt::LightRatio between = field->at({1.0F * kCell, 0.5F * kCell, 0.5F * kCell});
+    expect(std::get<1>(between.whole) > std::get<1>(on_street.whole) + 0.1F &&
+               std::get<1>(between.whole) < std::get<1>(under_lamp.whole) - 0.1F,
+           "between the two: their mix (" + number(std::get<1>(between.whole)) + ")");
+    const rt::LightRatio far_off = field->at({-2.5F * kCell, 0.5F * kCell, 0.5F * kCell});
+    expect(std::abs(std::get<1>(far_off.whole) - std::get<1>(on_street.whole)) < 1e-4F,
+           "a point with no cell round it: the nearest cells' light (" + number(std::get<1>(far_off.whole)) + ")");
+    const rt::LightRatio whole = field->whole();
+    expect(std::abs(std::get<1>(whole.whole) - ((0.15F + 0.68F) / 2.0F)) < 1e-4F,
+           "the level's whole: every vertex's light (" + number(std::get<1>(whole.whole)) + ")");
+    rt::set_light_field(field);
+    expect(rt::light_ratio_at({0.5F * kCell, 0.5F * kCell, 0.5F * kCell}) == on_street,
+           "the published field answers light_ratio_at");
+    rt::set_light_field(nullptr);
+    // a colour lit: each channel by its ratio, held to a byte, the alpha kept (red low, as the tod manager's)
+    const uint32_t lit = rt::scaled_colour(0x80406080U, {0.5F, 1.0F, 4.0F}, true);
+    expect(lit == 0x80FF6040U, "scaled_colour: each channel by its ratio, held to a byte (" + std::to_string(lit) + ")");
+}
+
 int main()
 {
     tests::no_error_dialogs();
+    check_light_field();
     check_path();
     check_native();
     check_light();

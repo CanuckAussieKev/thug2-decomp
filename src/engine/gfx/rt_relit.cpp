@@ -1202,7 +1202,7 @@ float relit_missed_trust(const RelitModel& model, const Vec3& toward)
     return smoothstep(cos_of(kRelitTrustOuter), cos_of(kRelitTrustInner), cosine);
 }
 
-Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
+RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
 {
     Rgbf pa{};
     for (std::size_t ch = 0; ch < pa.size(); ++ch) {
@@ -1215,14 +1215,24 @@ Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const Relit
         core::at(scaled.bounce, ch) *= core::at(lighting.bounce_scale, ch);
     }
     const Vec3 toward = normalised(lighting.toward);
-    Rgbf out = model_light(scaled, pa, vertex, toward);
-    if (vertex.sun_missed > 0.0F) {
-        // the bake's sun the tracer missed - only toward the bake's own sun
-        const float trust = relit_missed_trust(model, toward);
-        const float nl = std::max(0.0F, dot(vertex.normal, toward));
-        for (std::size_t ch = 0; ch < out.size(); ++ch) {
-            core::at(out, ch) += core::at(pa, ch) * nl * trust * vertex.sun_missed;
-        }
+    // (the bake's sun the tracer missed - only toward the bake's own sun)
+    const float seen = vertex.sun + (vertex.sun_missed > 0.0F ? relit_missed_trust(model, toward) * vertex.sun_missed : 0.0F);
+    const float nl = std::max(0.0F, dot(vertex.normal, toward));
+    RelitParts out;
+    for (std::size_t ch = 0; ch < pa.size(); ++ch) {
+        core::at(out.direct, ch) = core::at(pa, ch) * nl * seen;
+        core::at(out.indirect, ch) = (core::at(scaled.sky, ch) * vertex.sky) +
+                                     (core::at(scaled.bounce, ch) * core::at(vertex.bounce, ch));
+    }
+    return out;
+}
+
+Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
+{
+    const RelitParts parts = relit_parts(model, vertex, lighting);
+    Rgbf out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = core::at(parts.direct, ch) + core::at(parts.indirect, ch);
     }
     return out;
 }
