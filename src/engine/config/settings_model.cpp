@@ -238,6 +238,9 @@ std::vector<Decl> declarations()
             .need(has(Cap::k64Bit))
             .need(has(Cap::kNvidia))
             .off("off"),
+        // (the game's own ticks a second - engine/sys/tick_rate_settings.cpp: on its way out, the physics staying the
+        // original's 60 Hz; declared bare, without rules, while README still documents it - its removal deletes this line)
+        gfx("tick_rate", K::kNumber, "60"),
         gfx("present_mode", K::kChoice, "vsync")
             .tab(G::kGraphics, t::kOptPresentMode, t::kOptPresentModeHelp)
             .pick({c("vsync", t::kOn), c("mailbox", t::kPresentMailbox), c("immediate", t::kPresentImmediate)})
