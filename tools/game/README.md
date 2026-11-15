@@ -275,10 +275,11 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   demo's end (each seek back starts the run's check again). `console compare on | off | set <key> <value> | status` is
   the split comparison (`[Graphics] compare_split`, `[Compare]`).
 - **The simulation check** (docs/design/simulation-rate.md "The proof"): `node tools/game/sim_check.ts --game
-  <workspace> [--fps 0,120,144,240]` plays each demo in `tools/game/sim_reference` at each `[Graphics] max_fps` (ini put
-  back after each run) and compares every frame's simulation state - `<demo>.play.state.txt`: hashes of the skater's,
-  the moving objects' and the random streams' bits - with the reference, bit for bit. Exit code 0 when every frame of
-  every run matches. `--record` makes the max_fps=0 run the new reference (only from the build the reference is meant
+  <workspace> [--fps 0,120,144,240] [--load 0,7]` plays each demo in `tools/game/sim_reference` at each `[Graphics]
+  max_fps` (ini put back after each run) and compares every frame's simulation state - `<demo>.play.state.txt`: hashes
+  of the skater's, the moving objects' and the random streams' bits - with the reference, bit for bit. `--load` runs
+  each again with `[debug] load_test=N` (a 30 ms stall every Nth loop: late, undrawn steps - "Determinism under
+  load"); the report shows each run's late steps. Exit code 0 when every frame of every run matches. `--record` makes the max_fps=0 run the new reference (only from the build the reference is meant
   to be: main before a change). Workspaces only, under the lock.
 - `run_game.ps1 ... -Level <name>` - the game started with `-level <name>`: straight into free skate in that level
   (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front_end/start_level.h - also `[features] start_level=` in the

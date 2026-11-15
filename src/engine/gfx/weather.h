@@ -44,6 +44,12 @@ public:
     virtual void tick_grid();
     virtual void tick_frame(float frame_seconds);
     virtual void render();
+    // NOT ORIGINAL - what the platform's render moved on, on every step whether it is drawn or not
+    // (render::engine::render_frame; docs/design/simulation-rate.md "Determinism under load"): step once for each
+    // viewport with a camera (its position) before the frame is drawn, after_step as often after it. The engine's:
+    // nothing.
+    virtual void step(const std::array<float, 3>& /*camera*/) {}
+    virtual void after_step() {}
     // 0x004A1050 / 0x004A1060 / 0x004A1070 (slots 4 - 6): the blend modes ("STUB: plat_set_..._blend_mode").
     virtual void set_rain_blend_mode(uint32_t name, uint32_t fixed_alpha);
     virtual void set_splash_blend_mode(uint32_t name, uint32_t fixed_alpha);

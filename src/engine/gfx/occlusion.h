@@ -5,7 +5,9 @@
 
 #include "base/core/api.h"
 #include "base/core/layout_32bit.h"
+#include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
+#include "engine/gfx/render_camera.h"
 #include <utility>
 
 // Occlusion polygons and view culling (Nx engine, PC). Levels place four-cornered occlusion polygons; each frame
@@ -73,6 +75,23 @@ bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test);
 
 // 0x004DB570: whether a sphere is outside the view (1) or not (0).
 int sphere_outside_view(const maths::Vec4* centre, float radius);
+
+// NOT ORIGINAL - the simulation's view (docs/design/simulation-rate.md "Determinism under load"). The original's game
+// code asks whether a sphere is in the camera's view (objects suspended out of sight, a filming goal's target) of the
+// renderer's view - the one the last drawn frame left - so a step after a late, undrawn one saw an older camera. The
+// simulation's view is that same view worked out once every step, drawn or not, from the game's own cameras
+// (render::Device::step_frame, at the point of the step where the frame is drawn): on a drawn step it is the
+// view the original's renderer leaves, to the bit; an undrawn step, a render-only frame of [Graphics] max_fps, an
+// extension's camera (the demo viewer's, the level editor's) or a lens (fisheye) don't change it.
+struct SimulationView {
+    std::array<float, maths::kMatrixFloats> view{}; // the view matrix
+    float near_z{};
+    ViewShape shape{};
+};
+void set_simulation_view(const SimulationView& view);
+// Whether a sphere is outside the simulation's view (1) or not (0) - sphere_outside_view's test (the renderer's own
+// until a view is noted).
+int sphere_outside_simulation_view(const maths::Vec4* centre, float radius);
 // 0x004DB790: whether a sphere (moved by the object's transform) is in view; leaves how far its nearest point
 // is in front of the camera (0x007CA978).
 bool sphere_in_view(const maths::Vec4* centre, float radius);

@@ -71,8 +71,13 @@ public:
     // in the next free slot (none free: no more).
     void tick_frame(float frame_seconds) override;
     // 0x004CD120 (slot 3): drawn about the camera (rain and splashes, or snow), then every falling drop moved
-    // on a frame.
+    // on a frame. (Not original: drawn only - the rest is step and after_step.)
     void render() override;
+    // NOT ORIGINAL - render's parts that move the weather on (WeatherSystem::step / after_step): with rain, a splash
+    // added before the camera when one is due (two random numbers: the game's own stream); after the frame, the
+    // splashes aged and every falling drop moved on a frame.
+    void step(const std::array<float, 3>& camera) override;
+    void after_step() override;
     // 0x004CC4D0 / 0x004CC500 / 0x004CC530 (slots 4 - 6): the rain's / splashes' / snow's blend mode by name, with a
     // fixed alpha.
     void set_rain_blend_mode(uint32_t name, uint32_t fixed_alpha) override;
@@ -83,9 +88,12 @@ public:
     void render_rain(maths::Vec2 centre);
     // 0x004CC630: the snow: point sprites swaying on a sine.
     void render_snow(maths::Vec2 centre);
-    // 0x004CCC00: a new splash where a cast at a random place before the camera lands (when one is due), then every
-    // live splash drawn as a quad fading with its frames.
-    void render_splashes(float x, float z);
+    // 0x004CCC00, in three (not original: the first and the last run on every step - step / after_step): a new splash
+    // where a cast at a random place before `camera` lands (when one is due); every live splash drawn as a quad fading
+    // with its frames; every live splash a frame older.
+    void add_splash(float x, float z, const std::array<float, 3>& camera);
+    void render_splashes();
+    void age_splashes();
 };
 
 } // namespace render

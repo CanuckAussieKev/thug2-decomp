@@ -27,10 +27,17 @@ float through_x87(float value)
 } // namespace
 
 // 0x00494E00
-void Sparkle::render(bool advance)
+void Sparkle::render()
 {
     if (!args_.hidden() && !args_.held_back()) {
-        draw(advance);
+        draw();
+    }
+}
+
+void Sparkle::step(bool advance)
+{
+    if (!args_.hidden() && !args_.held_back()) {
+        advance_bursts(advance);
     }
 }
 

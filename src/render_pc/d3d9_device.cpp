@@ -60,6 +60,7 @@ public:
     void start_engine() override { render::start_engine(); }
     void begin_frame_draw() override { render::begin_frame_draw(); }
     void draw_world() override { render::draw_world(); }
+    void step_frame() override { render::step_frame(); }
     void finish_rendering() override { render::finish_rendering(); }
 
     // --- a lost device (the main loop's 0x0044EE90) ---

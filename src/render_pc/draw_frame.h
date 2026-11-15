@@ -29,6 +29,11 @@ void draw_screen_blur();
 // the 2D over the whole screen.
 void draw_world();
 
+// NOT ORIGINAL - what draw_world did besides drawing, once a step whether it is drawn or not (render::Device::step_frame):
+// the simulation's view noted (engine/gfx/occlusion.h SimulationView), a scene's meshes' triangle lists made the first
+// time it is seen.
+void step_frame();
+
 // The frame's camera, matrices, viewport and counters (draw_frame.cpp's record; the original's globals).
 
 } // namespace render

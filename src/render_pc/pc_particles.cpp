@@ -394,7 +394,9 @@ bool PcParticleSystem::age_out_oldest()
 }
 
 // 0x004BB0C0
-void PcParticleSystem::draw(bool advance)
+// Not original - the draw's first part on its own (advance_bursts, run on every step: EffectsDirector::step_particles),
+// the drawing below reading only.
+void PcParticleSystem::advance_bursts(bool advance)
 {
     // A new burst when the rate changed (or stopping when it's 0).
     start_or_stop_burst();
@@ -411,7 +413,13 @@ void PcParticleSystem::draw(bool advance)
     if (emitting) {
         newest->count = truncate((static_cast<double>(newest->age) * newest->rate) + 1.0F);
     }
-    if (age_out_oldest()) {
+    age_out_oldest();
+}
+
+void PcParticleSystem::draw()
+{
+    // (not original: the bursts as advance_bursts left them this step - the original's draw advanced them first)
+    if (live == 0) {
         return;
     }
     if (!args().local_positions()) {

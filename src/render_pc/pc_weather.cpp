@@ -2,7 +2,6 @@
 // values in registers, floats where it stores them.
 
 #include "render_pc/pc_weather.h"
-#include "engine/sys/frame_blend.h"
 
 #include <algorithm>
 #include <bit>
@@ -18,7 +17,6 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_scene_list.h"
-#include "engine/gfx/render_camera.h"
 #include "render_pc/render_state.h"
 #include "render_pc/simple_material.h"
 #include "render_pc/bitmap_texture.h"
@@ -253,14 +251,33 @@ void PcWeather::render()
     }
     const float x = camera_x();
     const float z = camera_z();
+    // (not original: drawn only - a splash added by step, the splashes aged and the drops moved by after_step, on every
+    // step whether it is drawn or not. Original behaviour: render_splashes added a splash first, aged them after
+    // drawing; then the drops moved a frame on.)
     if (rain_on()) {
-        render_splashes(x, z);
+        render_splashes();
         render_rain({.x = x, .y = z});
     } else {
         render_snow({.x = x, .y = z});
     }
-    // (not original: a render-only frame of [Graphics] max_fps moves no drop - engine/sys/frame_blend.h)
-    if (drops() == 0 || frame_blend::frame().extra) {
+}
+
+void PcWeather::step(const std::array<float, 3>& camera)
+{
+    if (active() && rain_on()) {
+        add_splash(camera_x(), camera_z(), camera);
+    }
+}
+
+void PcWeather::after_step()
+{
+    if (!active()) {
+        return;
+    }
+    if (rain_on()) {
+        age_splashes();
+    }
+    if (drops() == 0) {
         return;
     }
     for (uint8_t& slot : stage) { // (each falling drop a frame on; one finishing is freed)
@@ -476,19 +493,18 @@ void PcWeather::render_snow(maths::Vec2 centre)
     gpu().set_render_state(GpuRenderState::kPointSpriteEnable, 0);
 }
 
-// 0x004CCC00
-void PcWeather::render_splashes(float x, float z)
+// 0x004CCC00 (in three, not original: add_splash and age_splashes run on every step - step / after_step -, the drawing
+// in render_splashes reads only. Original behaviour: a splash added, the splashes drawn and aged, by each drawn frame.)
+void PcWeather::add_splash(float x, float z, const std::array<float, 3>& camera)
 {
     const float before = splash_due_;
     const double total = static_cast<double>(splash_rate()) + splash_due_;
-    // (not original: a render-only frame of [Graphics] max_fps adds no splash - engine/sys/frame_blend.h)
-    const bool advance = !frame_blend::frame().extra;
-    splash_due_ = advance ? static_cast<float>(total) : before;
-    if (advance && ftol(total) - ftol(before) != 0) {
+    splash_due_ = static_cast<float>(total);
+    if (ftol(total) - ftol(before) != 0) {
         // A cast down at a random place before the camera (along its heading up to 2048 out, across by up to
-        // 2048 either side - alternately - nearer in), its landing the splash's.
+        // 2048 either side - alternately - nearer in), its landing the splash's. (The camera: the original's
+        // renderer's, drawing the viewport's world - the viewport's own camera.)
         ProbeRay feeler;
-        const auto& camera = renderer().render_camera().position;
         maths::Vec4 heading = {.x = static_cast<float>(static_cast<double>(x) - core::at(camera, 0)),
                                .y = 0.0F,
                                .z = static_cast<float>(static_cast<double>(z) - core::at(camera, 2)),
@@ -519,6 +535,19 @@ void PcWeather::render_splashes(float x, float z)
         next_splash_ = (next_splash_ + 1) % kSplashCount;
         feeler.entity().get_release();
     }
+}
+
+void PcWeather::age_splashes()
+{
+    for (int& frames : splash_frames_) {
+        if (frames != 0) {
+            --frames;
+        }
+    }
+}
+
+void PcWeather::render_splashes()
+{
     choose_blend_mode(splash_blend_);
     change_phase(RenderStateId::kPhaseAlphaTest, 0);
     change_phase(RenderStateId::kAddressMode0, 0);
@@ -562,9 +591,6 @@ void PcWeather::render_splashes(float x, float z)
         out[kQuadSixthVertex] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0F, .v = 1.0F};
         used += kQuadFloats;
         out += kQuadVertices;
-        if (advance) { // (not original: a render-only frame ages no splash)
-            core::at(splash_frames_, i) = frames - 1;
-        }
     }
     const uint32_t triangles = used / 6 / 3;
     if (triangles != 0U) {

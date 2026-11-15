@@ -3,8 +3,12 @@
 // a tick, 120 / 144 / 240 = render-only frames blended between the ticks), and each run's simulation state compared
 // frame by frame, bit for bit, with the reference recorded from the build before a change.
 //
-//   node tools/game/sim_check.ts --game <workspace> [--demos a,b] [--fps 0,120,144,240] [--out <folder>]
+//   node tools/game/sim_check.ts --game <workspace> [--demos a,b] [--fps 0,120,144,240] [--load 0,7] [--out <folder>]
 //                                [--timeout 300] [--no-run] [--record]
+//
+// --load: each run also with [debug] load_test=N (N > 0: a 30 ms stall every Nth loop - late steps, not drawn), the
+// simulation compared with the same reference: it must not depend on whether a step was drawn
+// (docs/design/simulation-rate.md "Determinism under load"). 0 (the default alone) is the normal run.
 //
 // The state is the playback's <demo>.play.state.txt (src/devtools/demo.cpp state_line): per frame FNV-1a hashes of the
 // skater's bits (position, velocity, matrix, state), of every moving object's, of the game's random streams, and the
@@ -22,7 +26,7 @@ import { clearAutomationFiles, launchExeOrError, resolveGameFolder, runningGames
 import { ensureWorkspaceMuted, isWorkspace, setIniValue } from "./workspace_ini.ts";
 
 const USAGE =
-    "usage: node tools/game/sim_check.ts --game <workspace> [--demos a,b] [--fps 0,120,144,240] [--out <folder>] " +
+    "usage: node tools/game/sim_check.ts --game <workspace> [--demos a,b] [--fps 0,120,144,240] [--load 0,7] [--out <folder>] " +
     "[--timeout 300] [--no-run] [--record]";
 
 export const REFERENCE_FOLDER = path.join(path.dirname(fileURLToPath(import.meta.url)), "sim_reference");
@@ -93,15 +97,28 @@ export function undrawnFrames(log: string): number {
     return found ? Number.parseInt(found[1]!, 10) : -1;
 }
 
-export function reportLine(demo: string, fps: number, c: StateComparison | null, undrawn = -1): string {
-    const shown = fps === 0 ? "60 (max_fps=0)" : String(fps);
+// A run's folder name under the demo's: its display rate, and its load when there is one ("144", "144-load7").
+export function runName(fps: number, load = 0): string {
+    return load > 0 ? `${fps}-load${load}` : String(fps);
+}
+
+export function reportLine(demo: string, fps: number, c: StateComparison | null, undrawn = -1, load = 0): string {
+    const shown = (fps === 0 ? "60 (max_fps=0)" : String(fps)) + (load > 0 ? `, load ${load}` : "");
     const late = undrawn < 0 ? "?" : String(undrawn);
     if (!c) return `| ${demo} | ${shown} | no state file | | | ${late} | FAIL |`;
     const first = c.firstDiffers < 0 ? "none" : `${c.firstDiffers} (${c.firstWhat})`;
     return `| ${demo} | ${shown} | ${c.matched} / ${c.frames} | ${c.missing} | ${first} | ${late} | ${passed(c) ? "ok" : "FAIL"} |`;
 }
 
-async function playOnce(exe: string, game: string, demo: string, fps: number, folder: string, timeout: number) {
+async function playOnce(
+    exe: string,
+    game: string,
+    demo: string,
+    fps: number,
+    load: number,
+    folder: string,
+    timeout: number,
+) {
     const ini = path.join(game, "thug2-decomp.ini");
     const before = fs.existsSync(ini) ? fs.readFileSync(ini, "utf8") : "";
     const demos = path.join(game, "thug2-decomp-demos");
@@ -113,6 +130,7 @@ async function playOnce(exe: string, game: string, demo: string, fps: number, fo
         let text = setIniValue(before, "Graphics", "max_fps", String(fps));
         // (render-only frames aren't held back by the display's refresh: the rate asked for is drawn)
         text = setIniValue(text, "Graphics", "present_mode", fps === 0 ? "vsync" : "immediate");
+        text = setIniValue(text, "debug", "load_test", String(load));
         fs.writeFileSync(ini, text);
         ensureWorkspaceMuted(game);
         clearAutomationFiles(game);
@@ -120,7 +138,7 @@ async function playOnce(exe: string, game: string, demo: string, fps: number, fo
         const child = spawn(exe, ["-demo", demo, "-demo-quit"], { cwd: game, stdio: "ignore" });
         const code = await new Promise<number | null>((resolve) => {
             const timer = setTimeout(() => {
-                print(`${demo} at max_fps=${fps}: still running after ${timeout} s - closed`);
+                print(`${demo} at ${runName(fps, load)}: still running after ${timeout} s - closed`);
                 child.kill();
             }, timeout * 1000);
             child.on("exit", (exitCode) => {
@@ -129,7 +147,7 @@ async function playOnce(exe: string, game: string, demo: string, fps: number, fo
             });
         });
         print(
-            `${demo} at max_fps=${fps}: the game ended (exit code ${code}) after ${((Date.now() - started) / 1000).toFixed(1)} s`,
+            `${demo} at ${runName(fps, load)}: the game ended (exit code ${code}) after ${((Date.now() - started) / 1000).toFixed(1)} s`,
         );
     } finally {
         fs.writeFileSync(ini, before);
@@ -157,6 +175,7 @@ async function main(): Promise<number> {
             game: { type: "string" },
             demos: { type: "string" },
             fps: { type: "string", default: "0,120,144,240" },
+            load: { type: "string", default: "0" },
             out: { type: "string" },
             timeout: { type: "string", default: "300" },
             "no-run": { type: "boolean", default: false },
@@ -172,6 +191,11 @@ async function main(): Promise<number> {
         .map((r) => Number.parseInt(r, 10))
         .filter((r) => r >= 0);
     if (values.record && !rates.includes(0)) rates.unshift(0);
+    const loads = values.load
+        .split(",")
+        .map((r) => Number.parseInt(r, 10))
+        .filter((r) => r >= 0);
+    if (values.record && !loads.includes(0)) loads.unshift(0);
     const out = path.resolve(values.out ?? path.join(game, "thug2-decomp-demos", "sim_check"));
     fs.mkdirSync(out, { recursive: true });
     if (!values["no-run"]) {
@@ -187,8 +211,17 @@ async function main(): Promise<number> {
             const source = path.join(REFERENCE_FOLDER, `${demo}.demo`);
             if (fs.existsSync(source)) fs.copyFileSync(source, path.join(folder, `${demo}.demo`));
             if (!fs.existsSync(path.join(folder, `${demo}.demo`))) exitWith(`no ${demo}.demo`);
-            for (const fps of rates)
-                await playOnce(found.exe, game, demo, fps, path.join(out, demo, String(fps)), Number(values.timeout));
+            for (const load of loads)
+                for (const fps of rates)
+                    await playOnce(
+                        found.exe,
+                        game,
+                        demo,
+                        fps,
+                        load,
+                        path.join(out, demo, runName(fps, load)),
+                        Number(values.timeout),
+                    );
         }
     }
     const lines = [
@@ -210,12 +243,18 @@ async function main(): Promise<number> {
         const refFile = path.join(REFERENCE_FOLDER, `${demo}.state.txt`);
         if (!fs.existsSync(refFile)) exitWith(`no reference ${refFile} (--record makes it)`);
         const reference = parseStates(fs.readFileSync(refFile, "utf8"));
-        for (const fps of rates) {
-            const file = path.join(out, demo, String(fps), "state.txt");
-            const c = fs.existsSync(file) ? compareStates(reference, parseStates(fs.readFileSync(file, "utf8"))) : null;
-            if (!c || !passed(c)) failures++;
-            const log = path.join(out, demo, String(fps), "thug2-decomp.log");
-            lines.push(reportLine(demo, fps, c, fs.existsSync(log) ? undrawnFrames(fs.readFileSync(log, "utf8")) : -1));
+        for (const load of loads) {
+            for (const fps of rates) {
+                const run = path.join(out, demo, runName(fps, load));
+                const file = path.join(run, "state.txt");
+                const c = fs.existsSync(file)
+                    ? compareStates(reference, parseStates(fs.readFileSync(file, "utf8")))
+                    : null;
+                if (!c || !passed(c)) failures++;
+                const log = path.join(run, "thug2-decomp.log");
+                const late = fs.existsSync(log) ? undrawnFrames(fs.readFileSync(log, "utf8")) : -1;
+                lines.push(reportLine(demo, fps, c, late, load));
+            }
         }
     }
     fs.writeFileSync(path.join(out, "report.md"), `${lines.join("\n")}\n`);

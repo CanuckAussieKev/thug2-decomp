@@ -341,6 +341,47 @@ ViewCrop& view_crop()
     static ViewCrop state;
     return state;
 }
+
+// The camera's place and directions in `camera` (its position, backward and up) and the view matrix looking from it
+// (choose_camera's first part; the simulation's view works it out the same way).
+void look_from(const maths::Mat4* orientation, const maths::Vec4* position, RenderCamera* camera, maths::Mat4* view)
+{
+    core::at(camera->position, 0) = position->x;
+    core::at(camera->position, 1) = position->y;
+    core::at(camera->position, 2) = position->z;
+    core::at(camera->backward, 0) = core::at(orientation->row, 2).x;
+    core::at(camera->backward, 1) = core::at(orientation->row, 2).y;
+    core::at(camera->backward, 2) = core::at(orientation->row, 2).z;
+    core::at(camera->up, 0) = core::at(orientation->row, 1).x;
+    core::at(camera->up, 1) = core::at(orientation->row, 1).y;
+    core::at(camera->up, 2) = core::at(orientation->row, 1).z;
+    std::array<float, 3> target = {{core::at(camera->position, 0) - core::at(camera->backward, 0),
+                                    core::at(camera->position, 1) - core::at(camera->backward, 1),
+                                    core::at(camera->position, 2) - core::at(camera->backward, 2)}};
+    matrix_look_at(view, camera->position.data(), target.data(), camera->up.data());
+}
+
+// (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
+constexpr float kHalfDegreeInRadians = 0.008726646F;
+double half_angle_of(float angle) { return static_cast<double>(angle) * kHalfDegreeInRadians; }
+// The height at the near plane for a width there: 1 / (aspect / 1.1).
+float height_factor_of(float aspect) { return static_cast<float>(1.0 / (static_cast<double>(aspect) * kAspectScale)); }
+
+// The view's shape for culling from the lens's angle and aspect (choose_camera's last part).
+ViewShape view_shape_of(ViewShape shape, CameraLens lens)
+{
+    const double half_angle = half_angle_of(lens.angle);
+    const float height_factor = height_factor_of(lens.aspect);
+    shape.tan_x_ = maths::runtime32::tan(static_cast<float>(half_angle));
+    shape.tan_y_ = -(height_factor * shape.tan_x_);
+    const double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
+    const double tan_y2 = static_cast<double>(shape.tan_y_) * shape.tan_y_;
+    shape.sin_x_ = static_cast<float>(1.0 / std::sqrt((1.0 / tan_x2) + 1.0));
+    shape.sin_y_ = static_cast<float>(1.0 / std::sqrt((1.0 / tan_y2) + 1.0));
+    shape.cos_x_ = static_cast<float>(1.0 / std::sqrt(tan_x2 + 1.0));
+    shape.cos_y_ = static_cast<float>(1.0 / std::sqrt(tan_y2 + 1.0));
+    return shape;
+}
 } // namespace
 
 // 0x004DB200
@@ -357,19 +398,8 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     maths::Mat4 view;
     maths::Mat4 projection;
 
-    core::at(camera.position, 0) = position->x;
-    core::at(camera.position, 1) = position->y;
-    core::at(camera.position, 2) = position->z;
-    core::at(camera.backward, 0) = core::at(orientation->row, 2).x;
-    core::at(camera.backward, 1) = core::at(orientation->row, 2).y;
-    core::at(camera.backward, 2) = core::at(orientation->row, 2).z;
-    core::at(camera.up, 0) = core::at(orientation->row, 1).x;
-    core::at(camera.up, 1) = core::at(orientation->row, 1).y;
-    core::at(camera.up, 2) = core::at(orientation->row, 1).z;
-    std::array<float, 3> target = {{core::at(camera.position, 0) - core::at(camera.backward, 0), core::at(camera.position, 1) - core::at(camera.backward, 1),
-                       core::at(camera.position, 2) - core::at(camera.backward, 2)}};
     world = maths::Mat4{{{{.x = 1, .y = 0, .z = 0, .w = 0}, {.x = 0, .y = 1, .z = 0, .w = 0}, {.x = 0, .y = 0, .z = 1, .w = 0}, {.x = 0, .y = 0, .z = 0, .w = 1}}}};
-    matrix_look_at(&view, camera.position.data(), target.data(), camera.up.data());
+    look_from(orientation, position, &camera, &view);
 
     // (not original: stored_near_z() - the original: camera.nearZ = 2.0f;)
     camera.near_z_ = stored_near_z();
@@ -385,13 +415,12 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     // distance clipping's cull distance, 0x00786CAC) further out.
     camera.far_z_ = graphics_options::get_scaled(camera.far_z_, graphics_options::get_pull().draw_distance_scale_);
 
-    // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
-    const double half_angle = static_cast<double>(angle) * 0.008726646F;
+    const double half_angle = half_angle_of(angle);
     // (the view's width at the near plane: kNearPlaneDistance is twice the original's near plane, 2. Not original: with
     // the editor's ortho views' near plane further out - stored_near_z() - the width there, so the field of view stays
     // the angle; at 2 the same value as the original's tan * 4.)
     auto width = static_cast<float>(std::tan(half_angle) * kNearPlaneDistance * (static_cast<double>(camera.near_z_) / kDefaultNearZ));
-    auto height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * kAspectScale));
+    const float height_factor = height_factor_of(aspect);
     const float height = height_factor * width;
     matrix_perspective(&projection, width, height, camera.near_z_, camera.far_z_);
     if (zoom != 1.0F) {
@@ -439,17 +468,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     set_transform(2, &gfx.view_matrix());      // D3DTS_VIEW
     set_transform(3, &gfx.projection_matrix());
 
-    ViewShape shape = gfx.view_shape();
-    shape.tan_x_ = maths::runtime32::tan(static_cast<float>(half_angle));
-    shape.tan_y_ = -(height_factor * shape.tan_x_);
-    const double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
-    const double tan_y2 = static_cast<double>(shape.tan_y_) * shape.tan_y_;
-    shape.sin_x_ = static_cast<float>(1.0 / std::sqrt((1.0 / tan_x2) + 1.0));
-    shape.sin_y_ = static_cast<float>(1.0 / std::sqrt((1.0 / tan_y2) + 1.0));
-    shape.cos_x_ = static_cast<float>(1.0 / std::sqrt(tan_x2 + 1.0));
-    shape.cos_y_ = static_cast<float>(1.0 / std::sqrt(tan_y2 + 1.0));
-
-    gfx.set_view_shape(shape);
+    gfx.set_view_shape(view_shape_of(gfx.view_shape(), lens));
 
     // The camera's heading: a rotation about the vertical axis (0x00786C50).
     maths::Mat4 heading;
@@ -623,6 +642,24 @@ void for_each_scene(F fn)
         fn(scene_of(node));
         node = next;
     }
+}
+
+// (draw_viewport's, before a world scene is drawn - not original: on every step, step_frame) The scene's meshes'
+// triangle lists made the first time it is seen.
+void build_scenes_collision()
+{
+    for_each_scene([](PcScene* scene) {
+        if (scene->is_sky()) {
+            return;
+        }
+        SceneRef* group = scene->meshes();
+        if (!(group->flags() & kSceneCollisionBuiltFlag)) {
+            group->flags() |= kSceneCollisionBuiltFlag;
+            for (MeshRef* mesh : group->mesh_run()) {
+                mesh->build_collision();
+            }
+        }
+    });
 }
 
 void set_viewport()
@@ -950,13 +987,8 @@ void draw_viewport(int index)
         collect_occluders(viewer_location(camera), index);
         set_render_state(RenderStateId::kZWrite, 1);
         set_render_state(RenderStateId::kZTest, 1);
-        SceneRef* group = scene->meshes();
-        if (!(group->flags() & kSceneCollisionBuiltFlag)) {
-            group->flags() |= kSceneCollisionBuiltFlag;
-            for (MeshRef* mesh : group->mesh_run()) {
-                mesh->build_collision();
-            }
-        }
+        // (not original: the meshes' triangle lists made by step_frame, on every step - build_scenes_collision.
+        // Original behaviour: made here, the first time the scene is drawn.)
         draw_scene_group(scene, kMainScenePasses, index);
     });
     set_render_state(RenderStateId::kZWrite, 0);
@@ -1395,6 +1427,45 @@ void draw_world()
     frame_interp::end_frame(); // (not original: the blended instances and cameras put back as the tick left them)
     full_screen_viewport();
     set_viewport();
+}
+
+// NOT ORIGINAL - what draw_world did besides drawing, on every step (docs/design/simulation-rate.md "Determinism under
+// load"):
+// - a scene's meshes' triangle lists made the first time a viewport with a camera sees it (draw_viewport did it before
+//   drawing the scene; the lists are taken from the game's heap);
+// - the simulation's view (engine/gfx/occlusion.h SimulationView): the view draw_world leaves the renderer with - the
+//   last viewport with a camera, its world pass's camera (draw_viewport's "the world again") - worked out the same way
+//   from the game's camera as the step left it: its own angle, the viewport's aspect, the original's near plane. Not
+//   what only the drawing changes: an extension's camera or angle (the demo viewer's, the level editor's), the fisheye
+//   lens, the blend of [Graphics] max_fps, a split view's part, the upscaler's jitter (the projection only).
+void step_frame()
+{
+    const int count = modules::viewport_count();
+    for (int i = 0; i < count; ++i) {
+        if (fetch_current_view(i)->viewer().get_pull()) {
+            build_scenes_collision();
+            break;
+        }
+    }
+    for (int i = count - 1; i >= 0; --i) {
+        const ViewRegion* view = fetch_current_view(i);
+        void* camera = view->viewer().get_pull();
+        if (!camera) {
+            continue;
+        }
+        RenderCamera place = renderer().render_camera();
+        maths::Mat4 matrix;
+        look_from(cam_orientation(camera), viewer_location(camera), &place, &matrix);
+        SimulationView noted;
+        static_assert(sizeof(noted.view) == sizeof(matrix), "the view matrix's floats");
+        std::memcpy(noted.view.data(), &matrix, sizeof(matrix));
+        noted.near_z = kDefaultNearZ;
+        noted.shape = view_shape_of(
+            renderer().view_shape(),
+            {.angle = camera_angle(camera), .aspect = view->fetch_width_over_height(), .zoom = 1.0F});
+        set_simulation_view(noted);
+        return;
+    }
 }
 
 } // namespace render

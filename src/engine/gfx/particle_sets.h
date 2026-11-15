@@ -188,8 +188,12 @@ struct Sparkle : memory::HeapObject {
     virtual void free_resources() {}
     // Slot 3: told it was hidden or shown (conceal).
     virtual void on_visibility_changed(bool /*hidden*/) {}
-    // Slot 4: drawn - with `advance` its particles aged a frame (render).
-    virtual void draw(bool /*advance*/) {}
+    // Slot 4: drawn (render). Not original: only drawn - what the original's drawing also did to the particles (aged
+    // them a frame, began and ended bursts) is advance_bursts, run on every step whether it is drawn or not
+    // (EffectsDirector::step_particles; docs/design/simulation-rate.md "Determinism under load").
+    virtual void draw() {}
+    // NOT ORIGINAL - the first part of slot 4: the bursts begun and ended, with `advance` aged a frame (step).
+    virtual void advance_bursts(bool /*advance*/) {}
     // Slot 5: updated (tick_frame).
     virtual void update() {}
     // Slot 6: told its colours changed.
@@ -231,8 +235,11 @@ public:
 
     // (engine_particles.cpp)
     // 0x00494E00 / 0x00494E20: drawn / updated unless hidden or held back.
-    void render(bool advance);
+    void render();
     void tick_frame();
+    // NOT ORIGINAL - 0x00494E00's first part (advance_bursts) unless hidden or held back: once a step for each viewport
+    // the original drew it in, drawn or not (EffectsDirector::step_particles).
+    void step(bool advance);
     // 0x00494E40: its emit script's spawned scripts killed, then free_resources.
     void get_release();
     // 0x00494E70 (not a Ghidra function): hidden or shown - on_visibility_changed when it changes.
@@ -285,8 +292,14 @@ public:
     // 0x00496590: `particle`'s emit script's scripts killed; then the first system of its name released, deleted and
     // taken off the list.
     void retire_particle(Sparkle* particle);
-    // 0x00496640: with any, each rendered - advanced unless the game is paused (0x006FA7D4).
+    // 0x00496640: with any, each rendered. (Not original: only drawn - what the original's drawing advanced is
+    // step_particles.)
     void draw_particles();
+    // NOT ORIGINAL - 0x00496640's advance: each system's bursts stepped (Sparkle::step) - aged unless the game is paused
+    // (0x006FA7D4) - as a drawn frame's viewport did, on every step whether it is drawn or not
+    // (render::engine::render_frame; docs/design/simulation-rate.md "Determinism under load"): a system's bursts are
+    // what IsEmitting answers, and the scripts that wait for a system to end read it.
+    void step_particles();
     // 0x00496680: each updated.
     void tick_particles();
     // 0x004966B0: each given `rgba` (set_colour_scale), and the manager's colour = `rgba`.

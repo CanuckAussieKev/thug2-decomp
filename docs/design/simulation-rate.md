@@ -57,7 +57,8 @@ original's.
 5. With `max_fps`: render-only frames until the next step is due (`draw_extra_frames`).
 
 A late step is drawn less, never caught up (more than half a step late: not drawn, at most four in a row) - as the
-original. `get_frame_length()` is always 1 vblank.
+original. `get_frame_length()` is always 1 vblank. Whether a step is drawn changes nothing in the simulation
+("Determinism under load", below).
 
 ## Display at any rate
 
@@ -119,20 +120,114 @@ Run again with the latency probe's build: every run equal but sim_se at 240, whi
 in the other sim_se runs) and parted at frame 874 in the random streams - the late-frames case below (the same frame an
 earlier sim_se run at 120 with 22 late steps parted at).
 
-### Late frames
+(Those parted runs were the original's dependence on drawing, below - fixed since.)
 
-The original's simulation reads whether a step's frame will be drawn: a step more than half a step late isn't drawn
-(`mlp.cpp`), and then the animation blend skips its pose (`BlendChannel::blend_pose`), the vehicles skip their bones
-(`DrivableModule::refresh_bone_rig`) and nothing in `draw_world` runs. What those feed - bone-attached objects, script
-timings - then differs, so a run with late steps parts from one without: the original is not deterministic under load.
-Shown on purpose (2026-11-15: a build that slept 30 ms every 7th loop): sim_grind parted at frame 552 (an object), sim_se
-at 837 (the random streams: a script's object attached later); with the animation blend run on undrawn steps too
-sim_grind no longer parted, sim_se still did (something in `draw_world`). Render-only frames add load, so they make late
-steps likelier (one run of sim_se at 120: 22 late steps against 9, parted at frame 874) - not by feeding the
-simulation, but through the original's own dependence on drawing. `sim_check.ts` shows each run's late steps; a run
-without any is the comparison that counts. Making the simulation independent of drawing (every step simulated as if its
-frame were drawn - the original's result on a machine that keeps up) is a separate change: every reader of
-`suppress_draw` on the simulation's side and every effect of `draw_world` on game state.
+## Determinism under load
+
+Every step is simulated as if its frame were drawn (the decision of 2026-11-15): a machine that can't keep up - a late
+step isn't drawn - runs the same game, step for step, as one that draws every frame. Competitions are fair and a
+replay is exact under any load.
+
+### What depended on drawing
+
+The original's simulation read whether a step's frame would be drawn (a step more than half a step late isn't, `mlp.cpp`;
+the window inactive, the device lost), and its drawing (`draw_world`) changed the game's state. So a late step changed the
+game: shown on purpose with `[debug] load_test=7` (a 30 ms stall every 7th loop), sim_grind parted at frame 552 (an
+object) and sim_se at 837 (the random streams). Found, by reading the code and tracing every draw of the game's random
+streams (the first call that differs between a run with and without load, and the script making it):
+
+| what | where (the original's) | what it fed |
+|---|---|---|
+| the animation blend skipped its pose on an undrawn step | `BlendChannel::blend_pose` | the skeleton's bones: bone-attached objects, the bone positions scripts ask for (sim_grind's object) |
+| a vehicle skipped its bones | `DrivableModule::refresh_bone_rig` | what rides on the vehicle |
+| the particle systems' bursts begun, aged and ended only when drawn | `PcParticleSystem::draw` | `IsEmitting`: a script waiting for a system to end and then making the next (sim_se: a robot's sparks - `alloc_fast_particle`'s object, with its lock's random wobble, 13 frames later) |
+| "is it in the camera's view" asked of the renderer's view - the one the last drawn frame left | `sphere_visible_in_one_viewport` | objects suspended out of sight (`DormancyModule`), the filming goal's target, the shadow projections and flexible particles that cull |
+| a rain splash added when drawn | `PcWeather::render_splashes` | two of the game's random numbers a splash |
+| rain and snow drops moved on only when drawn | `PcWeather::render` | which drops the next step may start (`tick_frame` draws two random numbers for each) |
+| a scene's mesh triangle lists made the first time it was drawn | `draw_viewport` | blocks taken from the game's heap |
+
+### What moved
+
+One rule (`engine::render_frame`, `engine/gfx/engine.cpp`): what `draw_world` did to the game's state runs on every step,
+drawn or not, at the point of the step where `draw_world` would run - and the drawing only reads. On a step that is drawn
+the order and the values are the original's, so a run without late steps is the original's to the bit (the reference
+below, recorded before the change).
+
+- The pose and the vehicle's bones: set on every step (`suppress_draw` no longer read).
+- `Device::step_frame` (render_pc `draw_frame.cpp step_frame`): the simulation's view (`occlusion.h SimulationView`) - the
+  view the original's renderer was left with (the last viewport with a camera, its world pass), worked out from the
+  game's own camera as the step left it - which `sphere_visible_in_one_viewport` now asks; and a new scene's mesh lists.
+  The view doesn't change with what only the drawing changes: an extension's camera (the demo viewer's free camera, the
+  level editor's), the fisheye lens, `max_fps`'s blend, a split view, the upscaler's jitter.
+- `EffectsDirector::step_particles` (`Sparkle::step` -> `PcParticleSystem::advance_bursts`) once for each viewport with a
+  camera, as the original's drawing advanced them (twice in split screen, as the original); `draw` draws.
+- `WeatherSystem::step` (a splash added, before the frame) and `after_step` (the splashes aged, the drops moved on, after
+  it), once for each viewport with a camera; `render` draws.
+- `tools/sim_draw_independence.test.ts` keeps it so: `suppress_draw()` is read only by the main loop, `render_frame` and
+  the drawing (render_pc, gpu_vulkan).
+
+Left to the drawing, as presentation that the simulation doesn't read: the lens flare (its screen elements and the
+scripts that show and hide them run from the drawing, timed by the GPU's occlusion query for the sun - already outside
+the game's state on any machine), the glows, the projected-texture batches, the occluders' choice of what hides what (the
+renderer's own culling; the game's code asks the simulation's view, which doesn't use them), and the C runtime's `rand`
+draws of the drawing (particle seeds, primitives' sort keys) - the presentation's own random numbers, apart from the
+game's two streams. Not the original's either, and not tied to the step: `[Graphics] tod` with a cycle (`day_clock`) runs
+the level's time-of-day scripts by the wall clock - off by default. And kept as the original's: the simulation's view
+takes the viewport's aspect, so a wider window sees - and wakes - objects further to the side than a 4:3 one; a fixed
+view for the simulation would part from the original's on drawn frames.
+
+### Proof
+
+`node tools/game/sim_check.ts --load 0,7` (`[debug] load_test=7`, `README`): each demo at each display rate, with and
+without the stalls, against the same reference (recorded from main before the change, 5c403296). Late frames: the
+playback's steps not drawn. Without the change, the load runs part (sim_grind at 552, sim_se at 837); with it:
+
+The build of this change (2026-11-15, THUG2-2) - 32 of 32 runs equal to the reference on every frame:
+
+| demo | display rate | frames equal | missing | first differs | late frames | result |
+|---|---|---|---|---|---|---|
+| sim_grind | 60 (max_fps=0) | 693 / 693 | 0 | none | 3 | ok |
+| sim_grind | 120 | 693 / 693 | 0 | none | 3 | ok |
+| sim_grind | 144 | 693 / 693 | 0 | none | 3 | ok |
+| sim_grind | 240 | 693 / 693 | 0 | none | 3 | ok |
+| sim_grind | 60 (max_fps=0), load 7 | 693 / 693 | 0 | none | 103 | ok |
+| sim_grind | 120, load 7 | 693 / 693 | 0 | none | 110 | ok |
+| sim_grind | 144, load 7 | 693 / 693 | 0 | none | 200 | ok |
+| sim_grind | 240, load 7 | 693 / 693 | 0 | none | 202 | ok |
+| sim_se | 60 (max_fps=0) | 1177 / 1177 | 0 | none | 2 | ok |
+| sim_se | 120 | 1177 / 1177 | 0 | none | 2 | ok |
+| sim_se | 144 | 1177 / 1177 | 0 | none | 2 | ok |
+| sim_se | 240 | 1177 / 1177 | 0 | none | 2 | ok |
+| sim_se | 60 (max_fps=0), load 7 | 1177 / 1177 | 0 | none | 182 | ok |
+| sim_se | 120, load 7 | 1177 / 1177 | 0 | none | 237 | ok |
+| sim_se | 144, load 7 | 1177 / 1177 | 0 | none | 336 | ok |
+| sim_se | 240, load 7 | 1177 / 1177 | 0 | none | 338 | ok |
+| sim_vert | 60 (max_fps=0) | 713 / 713 | 0 | none | 2 | ok |
+| sim_vert | 120 | 713 / 713 | 0 | none | 2 | ok |
+| sim_vert | 144 | 713 / 713 | 0 | none | 2 | ok |
+| sim_vert | 240 | 713 / 713 | 0 | none | 2 | ok |
+| sim_vert | 60 (max_fps=0), load 7 | 713 / 713 | 0 | none | 105 | ok |
+| sim_vert | 120, load 7 | 713 / 713 | 0 | none | 110 | ok |
+| sim_vert | 144, load 7 | 713 / 713 | 0 | none | 203 | ok |
+| sim_vert | 240, load 7 | 713 / 713 | 0 | none | 205 | ok |
+| sim_wall | 60 (max_fps=0) | 624 / 624 | 0 | none | 2 | ok |
+| sim_wall | 120 | 624 / 624 | 0 | none | 2 | ok |
+| sim_wall | 144 | 624 / 624 | 0 | none | 2 | ok |
+| sim_wall | 240 | 624 / 624 | 0 | none | 2 | ok |
+| sim_wall | 60 (max_fps=0), load 7 | 624 / 624 | 0 | none | 91 | ok |
+| sim_wall | 120, load 7 | 624 / 624 | 0 | none | 93 | ok |
+| sim_wall | 144, load 7 | 624 / 624 | 0 | none | 179 | ok |
+| sim_wall | 240, load 7 | 624 / 624 | 0 | none | 180 | ok |
+
+`thug2_sim_check`'s online checks still pass; the source rule above runs in `npm test`.
+
+One run of sim_grind at 240 with load parted once in an earlier full pass (frames 65 - 80 in the random streams only -
+the skater and the objects equal throughout - and equal again from 81); eight runs of the same again were equal. That
+run's log shows a stall of about a second (the playback at 0.92 of real time against 1.00). sim_grind was recorded
+before demos kept the music's random numbers apart (`kMusicApart`), so its playback lets the music draw on the game's
+stream, and the music moves to its next track by the audio stream's own (wall-clock) state: the likely cause - not
+drawing. A wall-clock dependency of the original's own (the music's track changes draw on the game's stream; PartyMod's
+shuffle order comes from the C runtime's `rand`); demos recorded since keep the music apart.
 
 ## Input latency
 

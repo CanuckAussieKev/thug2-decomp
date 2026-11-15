@@ -60,11 +60,14 @@ struct PcParticleSystem final : Sparkle {
     void initialise() override;
     // 0x004BCE10 (slot 2): the bursts and the material freed.
     void free_resources() override;
-    // 0x004BB0C0 (slot 4): a new burst begun when the rate changes (or emitting stops), with `advance` the bursts aged
-    // a frame, the newest's count made up to its age, the oldest's particles past the lifetime let go (its seed moved
-    // on past them; the burst ended when none are left and none are coming); then, unless culled, every particle drawn
-    // as a camera-facing quad through the dynamic vertex buffer (0x1000 a draw at most).
-    void draw(bool advance) override;
+    // 0x004BB0C0 (slot 4), in two (not original: the first part runs on every step, drawn or not -
+    // EffectsDirector::step_particles): advance_bursts - a new burst begun when the rate changes (or emitting stops),
+    // with `advance` the bursts aged a frame, the newest's count made up to its age, the oldest's particles past the
+    // lifetime let go (its seed moved on past them; the burst ended when none are left and none are coming); draw -
+    // unless culled, every particle drawn as a camera-facing quad through the dynamic vertex buffer (0x1000 a draw at
+    // most).
+    void advance_bursts(bool advance) override;
+    void draw() override;
     // 0x004BC240 (slot 5): the path made again when it moves with the object.
     void update() override;
     // 0x004BB0B0 (slot 7): whether any burst is live.

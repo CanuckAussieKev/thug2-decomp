@@ -80,6 +80,20 @@ MlpState& mlp_state()
 int& skipped_in_a_row() { return mlp_state().skipped_in_a_row_; }
 int& skipped_total() { return mlp_state().skipped_total_; }
 
+// NOT ORIGINAL - [debug] load_test=N (N > 0): the loop stalled for kLoadTestMilliseconds every Nth loop, after its
+// frame - the next steps start late and aren't drawn, as on a machine that can't keep up. The simulation must come out
+// the same as without (docs/design/simulation-rate.md "Determinism under load"; tools/game/sim_check.ts --load).
+constexpr DWORD kLoadTestMilliseconds = 30;
+
+void load_test_stall()
+{
+    static const int kEvery = std::max(0, config_int("debug", "load_test", 0)); // (read once)
+    static uint32_t loops = 0;
+    if (kEvery > 0 && ++loops % static_cast<uint32_t>(kEvery) == 0) {
+        Sleep(kLoadTestMilliseconds);
+    }
+}
+
 // (the online session's GameSpy service, the skate module's rail debugging: engine/sys/game_hooks.h)
 void service_network() { sys::game_hooks().service_network(); }
 // A task list's tasks, in order (0x004070A0; the profiling flag is passed but unused).
@@ -517,6 +531,7 @@ void Hub::get_main_loop()
         }
         profiling_ = 0;
         frame_profile::loop_end(drawn, render::engine_parts().loading_screen_up());
+        load_test_stall(); // (not original: [debug] load_test)
     }
     latency_probe::stop(); // (not original: [debug] latency_probe's thread ends with the loop)
     is_finished_ = done_on_entry;

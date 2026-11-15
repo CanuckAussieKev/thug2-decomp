@@ -1006,6 +1006,7 @@ std::vector<Decl> declarations()
         debug("collision_event_screenshots", K::kSwitch, "1").need(on("collision_events")),
         debug("frame_profile", K::kSwitch, "0"),
         debug("latency_probe", K::kSwitch, "0"),
+        debug("load_test", K::kNumber, "0"),
         debug("rt_contract_check", K::kSwitch, "0").need(ray_tracing()),
         debug("rt_lights_log", K::kSwitch, "0").need(is_not("rt_lights", {"0"})),
         debug("rt_water_view", K::kSwitch, "0").need(on("rt_water")),

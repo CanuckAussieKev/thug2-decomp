@@ -24,6 +24,7 @@
 #include "engine/gfx/scene_lights.h"
 #include "engine/gfx/screen.h"
 #include "engine/gfx/spawned_polys.h"
+#include "engine/gfx/view_cam.h"
 #include "engine/gfx/viewport.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
@@ -38,6 +39,7 @@
 #include "platform/crt.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/occlusion.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's file names, unbounded as it builds them)
 
@@ -155,9 +157,34 @@ void render_frame()
     weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
     imposter_manager()->tick_frame();
     update_after_imposters();
+    // Not original - what the original's draw_world did to the game's state, done on every step whether its frame is
+    // drawn or not, at the same point of the step (docs/design/simulation-rate.md "Determinism under load"); the drawing
+    // then only reads. The backend's part (Device::step_frame: the simulation's view noted from the game's cameras -
+    // occlusion.h SimulationView, what the game's code culls by - and a new scene's mesh data); then once for each
+    // viewport with a camera, as draw_world drew each: the particle systems' bursts
+    // advanced (what IsEmitting answers), the weather's new splash (two of the game's random numbers); after the frame,
+    // the weather's splashes aged and drops moved on (which drops tick_frame may start next). Original behaviour: all of
+    // it inside draw_world, so a late step that wasn't drawn left it undone.
+    const bool steps = !engine_parts().loading_screen_up(); // (draw_world's own condition)
+    const int views = steps ? modules::viewport_count() : 0;
+    if (steps) {
+        device().step_frame();
+    }
+    for (int i = 0; i < views; ++i) {
+        if (gfx::ViewCam* camera = fetch_live_camera(i)) {
+            objects::particle_hub()->step_particles();
+            const maths::Vec4* at = camera->fetch_location();
+            weather()->step({{at->x, at->y, at->z}});
+        }
+    }
     if (!engine_parts().suppress_draw()) {
         const frame_profile::Scope phase("draw_world"); // (not original: [debug] frame_profile)
         device().draw_world();
+    }
+    for (int i = 0; i < views; ++i) {
+        if (fetch_live_camera(i)) {
+            weather()->after_step();
+        }
     }
 }
 
@@ -247,7 +274,11 @@ int sphere_visible_in_one_viewport(const maths::Vec4* centre, float radius)
     if (modules::viewport_count() > 1) {
         return 0;
     }
-    return sphere_visible(centre, radius);
+    // Not original - the simulation's view (occlusion.h SimulationView: the game's code asks this - objects suspended
+    // out of sight, a filming goal's target, the projections and particles that cull - and the answer is the same
+    // whether or not the steps before were drawn). Original behaviour: the renderer's view, as the last drawn frame
+    // left it - return sphere_visible(centre, radius);
+    return sphere_outside_simulation_view(centre, radius);
 }
 
 // 0x0048C510

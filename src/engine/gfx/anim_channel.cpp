@@ -44,7 +44,6 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/engine_parts.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>
@@ -514,7 +513,10 @@ void BlendChannel::push_timeline(float period)
 // 0x0047ED60
 bool BlendChannel::blend_pose(int index)
 {
-    if (render::engine_parts().suppress_draw() || (lookup_key_ == 0U)) {
+    // Not original - the pose blended on every simulation step, drawn or not (docs/design/simulation-rate.md
+    // "Determinism under load": bone-attached objects and the bone positions scripts ask for read it). Original
+    // behaviour: nothing done on a step whose frame isn't drawn - if (render::engine_parts().suppress_draw()) return false;
+    if (lookup_key_ == 0U) {
         return false;
     }
     Rig* skeleton = skeleton_of(bone_rig_);

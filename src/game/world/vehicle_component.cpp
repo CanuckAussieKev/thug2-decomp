@@ -49,7 +49,6 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/engine_mesh.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
 
 namespace objects {
@@ -940,9 +939,9 @@ void DrivableModule::tick_frame()
 // 0x0043A070
 void DrivableModule::refresh_bone_rig()
 {
-    if (render::engine_parts().suppress_draw()) { // (rendering off)
-        return;
-    }
+    // Not original - the bones set on every simulation step, drawn or not (docs/design/simulation-rate.md "Determinism
+    // under load": what rides on the vehicle reads them). Original behaviour: nothing done on a step whose frame isn't
+    // drawn - if (render::engine_parts().suppress_draw()) return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
     const std::span<maths::Mat4> bones = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->matrices();
     const int count = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->get_num_bones();

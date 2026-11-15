@@ -11,6 +11,7 @@ import {
     REFERENCE_FOLDER,
     referenceDemos,
     reportLine,
+    runName,
     undrawnFrames,
 } from "./sim_check.ts";
 
@@ -51,6 +52,14 @@ test("compareStates: a frame missing from the run fails it", () => {
 test("undrawnFrames reads the playback's late frames from the log", () => {
     assert.equal(undrawnFrames("demo: playback pace - 19.60 game s in 19.46 s, 22 of 1176 frames not drawn"), 22);
     assert.equal(undrawnFrames("nothing"), -1);
+});
+
+test("a run under load has its own folder and report line", () => {
+    assert.equal(runName(144), "144");
+    assert.equal(runName(0, 7), "0-load7");
+    const ref = states(["5 A B C 83"]);
+    const line = reportLine("d", 0, compareStates(ref, ref), 30, 7);
+    assert.match(line, /^\| d \| 60 \(max_fps=0\), load 7 \| 1 \/ 1 \| 0 \| none \| 30 \| ok \|$/);
 });
 
 test("every reference demo has its state file", () => {

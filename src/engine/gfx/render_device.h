@@ -124,6 +124,10 @@ public:
     virtual void begin_frame_draw() = 0;
     // The frame's views drawn - every viewport's world, the 2D, the screen effects (draw_world).
     virtual void draw_world() = 0;
+    // NOT ORIGINAL - what the backend's draw_world did besides drawing, once a step whether it is drawn or not
+    // (render::engine::render_frame calls it where draw_world would run): the view the game's code culls by worked out
+    // from the game's cameras (occlusion.h SimulationView), a scene's mesh data made the first time it is seen.
+    virtual void step_frame() = 0;
     // The frame ended and shown, the draw counts reset, a pending screenshot taken, the next frame's clear
     // (finish_rendering).
     virtual void finish_rendering() = 0;

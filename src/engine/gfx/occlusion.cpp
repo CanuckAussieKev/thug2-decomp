@@ -126,20 +126,38 @@ void set_plane(std::array<float, 4>& plane, std::span<const float> origin, std::
 }
 
 // The view tests shared by sphere_outside_view and sphere_in_view, on the centre in view space: in front of the near
-// plane and inside the four side planes.
-bool inside_frustum(const std::array<float, 4>& view, float radius)
+// plane and inside the four side planes - of the renderer's view (the one being drawn), or (not original) of the
+// simulation's (SimulationView).
+bool inside_frustum(const std::array<float, 4>& view, float radius, float near_z, const ViewShape& shape)
 {
-    if (static_cast<double>(radius) - core::at(view, 2) < near_plane_depth()) {
+    if (static_cast<double>(radius) - core::at(view, 2) < near_z) {
         return false;
     }
-    const double side_z = static_cast<double>(side_cos()) * core::at(view, 2);
-    const double side_x = static_cast<double>(side_sin()) * core::at(view, 0);
+    const double side_z = static_cast<double>(shape.sin_x_) * core::at(view, 2);
+    const double side_x = static_cast<double>(shape.cos_x_) * core::at(view, 0);
     if (side_z - side_x > radius || radius < side_z + side_x) {
         return false;
     }
-    const double vertical_z = static_cast<double>(vertical_cos()) * core::at(view, 2);
-    const double vertical_y = static_cast<double>(vertical_sin()) * core::at(view, 1);
+    const double vertical_z = static_cast<double>(shape.sin_y_) * core::at(view, 2);
+    const double vertical_y = static_cast<double>(shape.cos_y_) * core::at(view, 1);
     return !(vertical_y + vertical_z > radius || radius < vertical_z - vertical_y);
+}
+
+bool inside_frustum(const std::array<float, 4>& view, float radius)
+{
+    return inside_frustum(view, radius, near_plane_depth(), renderer().view_shape());
+}
+
+// NOT ORIGINAL - the simulation's view (set_simulation_view), once one was noted.
+struct SimulationViewState {
+    SimulationView view{};
+    bool noted = false;
+};
+
+SimulationViewState& simulation_view_state()
+{
+    static core::NoDestroy<SimulationViewState> state;
+    return state.get();
 }
 
 } // namespace
@@ -363,6 +381,23 @@ int sphere_outside_view(const maths::Vec4* centre, float radius)
     std::array<float, 4> view{};
     xform(view.data(), centre->data(), view_matrix_data());
     return inside_frustum(view, radius) ? 0 : 1;
+}
+
+void set_simulation_view(const SimulationView& view)
+{
+    simulation_view_state().view = view;
+    simulation_view_state().noted = true;
+}
+
+int sphere_outside_simulation_view(const maths::Vec4* centre, float radius)
+{
+    const SimulationViewState& own = simulation_view_state();
+    if (!own.noted) { // (none noted yet - nothing drawn either: the renderer's, as the original)
+        return sphere_outside_view(centre, radius);
+    }
+    std::array<float, 4> view{};
+    xform(view.data(), centre->data(), own.view.view.data());
+    return inside_frustum(view, radius, own.view.near_z, own.view.shape) ? 0 : 1;
 }
 
 // 0x004DB790
