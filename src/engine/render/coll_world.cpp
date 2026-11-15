@@ -161,6 +161,11 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
     for (size_t scene = 0; scene < grids.size(); ++scene) { // (the scene of the grid walked)
         int count = 0;
         for (HitMesh* const object : core::at(grids, scene)->objects_along_line(line, &count)) {
+            // (the list is the grid's shared table, null-terminated, and the original walks it to the null: a hit's
+            // callback - a trigger running a script - can query again and refill the table under this walk)
+            if (object == nullptr) {
+                break;
+            }
             if (may_touch(object, &query.box()) &&
                 collide_with_line(object, line, &query.direction(), hit, &query.box())) {
                 any = true;
