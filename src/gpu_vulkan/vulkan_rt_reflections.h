@@ -48,6 +48,13 @@
 //   kind's least (stone 0.5, paint 0.4, wood 0.35: never mirrors) -, faded out from 0.525 to 0.7 of it at the
 //   pixel; its rays spread over a cone of roughness^2 radians (at most 0.5) as rough glass's, blurred over its rough
 //   neighbours. rt_reflection_surfaces=0: the environment-mapped surfaces alone, as before; no map: as before.
+// - (added for the game's shine on rough surfaces) The world's own shine (environment-mapped, not water or glass - BO's
+//   kerbs: a sphere-mapped sky picture at reflectivity 1, which mirrored the skater's shoes sharply) is a sheen with
+//   Fresnel on, as the objects' clear coat: Schlick's from F0 0.05 x its shine x 2 strength (at most 1), its rays over a
+//   0.15 rad cone - with or without a surface map (BO's level maps don't match the seedvr2 textures: most aren't
+//   attached). Where a map is attached its kind's least roughness counts too (vulkan_rt_materials.cpp
+//   surface_reflection): metal and glazed tiles (under 0.2) keep the mirror; stone, paint, wood a wider cone; asphalt,
+//   concrete, brick, plaster, ground (least 1) no reflection at all. Water and glass keep their own.
 namespace render::vulkan {
 
 struct Backend;
