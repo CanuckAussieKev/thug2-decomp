@@ -1818,7 +1818,10 @@ linear ratio r shows as r ^ (1 / 2.2), so night is dim, not black):
   skater, the peds, the cars; the objects' models coloured by the level's colour (sector models: the tables, chairs and
   movables) get the level's own colour x `surface_light` (`CtodManager::colour_models`, after each of the clock's
   sweeps, when it moves and every 30 frames for objects made since), while the scenes keep the level's own colour (relit
-  dims them). The original's night state is about twice as bright as the relit night (its level colour 50 65 75 of 128
+  dims them). An unlit instance - its own baked vertex colours, lit by nothing (BO's cafe table and chairs) - never took
+  the model colour (the original applies an instance's colour to skinned instances only), so it is drawn with the
+  instance colour `surface_light` x 128 (`rt_relit_world::unlit_object_colour`, `Singleton::render`) while the clock
+  lights the relit level. The original's night state is about twice as bright as the relit night (its level colour 50 65 75 of 128
   against `surface_light`'s 0.14 0.17 0.23 at midnight): lit by it the skater and the props stood out of the dark level.
   Particles keep the original's states' level colour (their own glow). Relit turns the lights toward the clock's light;
   the key light is not tinted again by the clock's colour.

@@ -1203,6 +1203,22 @@ bool object_lighting(ObjectLighting* out)
     return true;
 }
 
+bool unlit_object_colour(std::array<uint8_t, 4>* out)
+{
+    const State& st = state();
+    if (st.status != Status::kRelit || !st.model.valid || st.day_serial == 0) {
+        return false;
+    }
+    constexpr float kOne = 128.0F; // (the instance colour's 1)
+    constexpr float kMostByte = 255.0F;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        core::at(*out, ch) = static_cast<uint8_t>(
+            std::lround(std::clamp(core::at(st.day_scales.bounce_scale, ch) * kOne, 0.0F, kMostByte)));
+    }
+    core::at(*out, 3) = static_cast<uint8_t>(kOne);
+    return true;
+}
+
 bool settled(rt::Vec3* sun, uint64_t* lighting)
 {
     const State& st = state();

@@ -71,6 +71,11 @@ struct ObjectLighting {
     std::array<float, 3> key_colour{1.0F, 1.0F, 1.0F};
 };
 [[nodiscard]] bool object_lighting(ObjectLighting* out);
+// (added by the time of day) The colour an unlit object - its own baked vertex colours, which the mode doesn't relight
+// (the tables, chairs and props drawn as instances without the game's lights) - is drawn with while the clock lights the
+// relit level: the level's darkening (rt_daylight.h surface_light, the relit bounce's scale) as the instance colour's
+// bytes (128 = 1). False: none (no clock, or the level not relit) - drawn as the original draws it.
+[[nodiscard]] bool unlit_object_colour(std::array<uint8_t, 4>* out);
 // (added by the scene's sun) Whether every mesh's colours are written for the sun the world is relit by now (its sun
 // and bounce traced, the writes done): `sun` that sun, `lighting` a number for that lighting (another when anything
 // that changes the colours changed). rt_record makes the shadows' agreement grid for that sun from them.

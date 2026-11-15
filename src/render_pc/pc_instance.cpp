@@ -32,6 +32,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/light_sets.h"
 #include "render_pc/mesh_pass.h"
+#include "render_pc/rt_relit_world.h"
 
 namespace render {
 
@@ -272,12 +273,34 @@ void Singleton::render(uint32_t draw_bits)
     }
 
     set_last_bones(nullptr);
+    // NOT ORIGINAL (added by the time of day): an unlit instance - its baked vertex colours - darkened with the relit
+    // level while the clock lights it (rt_relit_world.h unlit_object_colour); taken off again on every way out
+    struct Darkened {
+        bool on = false;
+        Darkened(const Darkened&) = delete;
+        Darkened& operator=(const Darkened&) = delete;
+        Darkened(Darkened&&) = delete;
+        Darkened& operator=(Darkened&&) = delete;
+        Darkened() = default;
+        ~Darkened()
+        {
+            if (on) {
+                renderer().set_instance_colour_on(0);
+            }
+        }
+    } darkened;
     if (((flags_ & 2) != 0U) && !scene_unlit(scene_)) {
         refresh_instance_lighting(this);
         change_phase(kStateLighting, 1);
         send_lights();
     } else {
         change_phase(kStateLighting, 0);
+        std::array<uint8_t, 4> colour{};
+        if (renderer().instance_colour_on() == 0U && rt_relit_world::unlit_object_colour(&colour)) {
+            renderer().set_instance_colour_on(1);
+            renderer().set_instance_colour(colour);
+            darkened.on = true;
+        }
     }
     if (bones_on_device(scene_) != 0) {
         const int count = bone_count_ < kMaxBones ? bone_count_ : kMaxBones;
