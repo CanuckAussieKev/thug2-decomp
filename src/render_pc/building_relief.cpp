@@ -177,7 +177,8 @@ void forget(const TextureImage* texture)
     }
 }
 
-std::vector<uint16_t> relieve_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material, bool dynamic)
+std::vector<uint16_t> relieve_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material, bool dynamic,
+                                   std::vector<relief::VertexSource>* sources)
 {
     if (!on() || structures().empty() || body == nullptr || material == nullptr || dynamic || body->has_vertex_bytes ||
         !body->scaled.empty() || fvf == 0 || core::at(body->index_counts, 0) < 3) {
@@ -226,6 +227,9 @@ std::vector<uint16_t> relieve_body(scene_format::MeshBody* body, uint32_t fvf, c
     std::vector<uint16_t> original(strip.begin(), strip.begin() + core::at(body->index_counts, 0));
     strip = result.strip;
     core::at(body->index_counts, 0) = static_cast<uint16_t>(result.strip.size());
+    if (sources != nullptr) {
+        *sources = result.sources;
+    }
     return original;
 }
 

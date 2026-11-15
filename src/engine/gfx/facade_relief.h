@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -66,11 +67,21 @@ struct Options {
     bool windows_only = false; // (the second try of a mesh too big with everything)
 };
 
+// A new vertex's sources: the original vertices (the wall triangle's corners) it is blended from, and their weights -
+// where it lies on the original surface (the ray-traced relit light reads the flat wall's light there: rt_relit.h
+// RelitMesh::sources).
+struct VertexSource {
+    std::array<uint16_t, 3> from{};
+    std::array<float, 3> weight{};
+    uint8_t count = 0;
+};
+
 struct Result {
     bool changed = false;          // false: the mesh is left as it was
     std::vector<uint8_t> vertices; // the original vertices, then the new ones
     uint32_t vertex_count = 0;
     std::vector<uint16_t> strip;   // the new first level of detail's strip
+    std::vector<VertexSource> sources; // each new vertex's (vertex_count - the original count of them)
     uint32_t triangles = 0;        // the original's (not degenerate)
     uint32_t walls = 0;            // of them, wall triangles of the facade (with texture coordinates, upright)
     uint32_t relieved = 0;         // ... cut into pieces with some off the surface

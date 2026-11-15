@@ -184,6 +184,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     // Not original - smoothed curves ([Graphics] rt_tessellation, mesh_smoothing.h): the body's curved triangles split
     // before its buffers are made. Original behaviour: the body as read.
     std::vector<uint16_t> original_strip;
+    std::vector<relief::VertexSource> relief_sources; // (not original: building relief's made vertices)
     if (mesh_smoothing::on()) {
         original_strip = mesh_smoothing::smooth_body(
             &body, vertex_format(core::at(body.vertex_types, 0)),
@@ -195,7 +196,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     if (building_relief::on()) {
         std::vector<uint16_t> before = building_relief::relieve_body(
             &body, vertex_format(core::at(body.vertex_types, 0)),
-            static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
+            static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic, &relief_sources);
         if (original_strip.empty()) {
             original_strip = std::move(before);
         }
@@ -223,6 +224,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     }
     // (not original: the smoothed mesh's original strip kept for the baked sun's samples, mesh_smoothing.h)
     mesh_smoothing::remember_original(core::at(mesh->index_buffers(), 0), std::move(original_strip));
+    mesh_smoothing::remember_sources(core::at(mesh->index_buffers(), 0), body.vertex_count, std::move(relief_sources));
     if (water_grid) {
         water_geometry::remember(core::at(mesh->index_buffers(), 0)); // (not original: water_geometry.h)
     }

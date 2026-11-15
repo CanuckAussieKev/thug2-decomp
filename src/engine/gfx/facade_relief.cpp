@@ -235,6 +235,7 @@ private:
     uint32_t out_count_ = 0;
     std::unordered_multimap<uint64_t, uint32_t> made_; // a new vertex's bytes' hash -> its index
     std::vector<std::array<uint32_t, 3>> out_triangles_;
+    std::vector<VertexSource> sources_;
     bool overflow_ = false;
 };
 
@@ -603,6 +604,13 @@ uint32_t Builder::vertex_at(const Wall& wall, const Point& point, float along, c
     }
     out_vertices_.insert(out_vertices_.end(), bytes.begin(), bytes.end());
     made_.emplace(hash, out_count_);
+    VertexSource made;
+    made.count = static_cast<uint8_t>(at.sources);
+    for (int k = 0; k < at.sources; ++k) {
+        core::at(made.from, k) = core::at(wall.corners, core::at(at.from, k));
+        core::at(made.weight, k) = core::at(at.weight, k);
+    }
+    sources_.push_back(made);
     return out_count_++;
 }
 
@@ -853,6 +861,7 @@ Result Builder::run()
     out.vertices = std::move(out_vertices_);
     out.vertex_count = out_count_;
     out.strip = std::move(strip);
+    out.sources = std::move(sources_);
     return out;
 }
 

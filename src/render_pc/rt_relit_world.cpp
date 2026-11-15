@@ -38,6 +38,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
+#include "render_pc/mesh_smoothing.h"
 #include "render_pc/rt_record.h"
 #include "render_pc/sub_mesh.h"
 #include "render_pc/vertex_buffers.h"
@@ -525,6 +526,22 @@ bool make_entry(const WorldMesh& world, Entry* out)
         }
     }
     entry.input.colours = entry.originals;
+    // (added by building relief) a relieved mesh's made vertices take the flat wall's light (rt_relit.h
+    // RelitMesh::sources): their sources, the last of its vertices
+    const std::span<const relief::VertexSource> made = mesh_smoothing::sources_of(core::at(mesh->index_buffers(), 0));
+    if (!made.empty() && made.size() <= count && mesh->vertex_count() == count) {
+        entry.input.sources.resize(count);
+        const std::size_t first = count - made.size();
+        for (std::size_t k = 0; k < made.size(); ++k) {
+            const relief::VertexSource& from = core::at(made, k);
+            rt::RelitMesh::Source& to = core::at(entry.input.sources, first + k);
+            to.count = from.count;
+            for (std::size_t c = 0; c < from.from.size(); ++c) {
+                core::at(to.from, c) = core::at(from.from, c);
+                core::at(to.weight, c) = core::at(from.weight, c);
+            }
+        }
+    }
     // the triangles as the RayTracing numbers them (a strip's odd ones turned back round)
     const std::size_t index_bytes = geometry.indices_32bit ? sizeof(uint32_t) : sizeof(uint16_t);
     const std::span<const uint8_t> indices(static_cast<const uint8_t*>(geometry.cpu_indices),

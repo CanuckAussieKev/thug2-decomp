@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "engine/gfx/facade_relief.h"
 #include "formats/relief_format.h"
 
 // NOT ORIGINAL - building relief at load ([Graphics] building_relief; engine/gfx/facade_relief.h, docs/design/vulkan.md
@@ -55,8 +56,9 @@ void forget(const TextureImage* texture);
 // when its material's first texture has a structure: a plain vertex format with texture coordinates; not skinned, no
 // per-vertex colour animation, no bone-scaled positions, not dynamic; its material neither transparent nor cut out.
 // Returns the first level of detail's strip as it was (empty: left as it was), for mesh_smoothing::remember_original.
+// `sources`: each new vertex's sources (facade_relief.h VertexSource) - for mesh_smoothing::remember_sources.
 [[nodiscard]] std::vector<uint16_t> relieve_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material,
-                                                 bool dynamic);
+                                                 bool dynamic, std::vector<relief::VertexSource>* sources);
 
 // The meshes relieved since the last call logged (one line; nothing when none were) and the totals cleared.
 void log_totals(const char* scene);

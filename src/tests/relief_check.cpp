@@ -328,6 +328,17 @@ void check_wall()
     std::printf("wall: %d stretches of outline open, %d elsewhere\n", outline, bad);
     expect(bad == 0, "wall: closed - every edge inside shared by two triangles wound opposite ways (or along their line)");
     expect(outline >= 4, "wall: the outline where the original was");
+    // (each new vertex's sources: the wall triangle's corners, weights summing to 1 - what the relit light blends)
+    bool sources_ok = r.sources.size() == r.vertex_count - mesh.count;
+    for (const relief::VertexSource& source : r.sources) {
+        float sum = 0.0F;
+        for (uint8_t k = 0; k < source.count; ++k) {
+            sum += core::at(source.weight, k);
+            sources_ok = sources_ok && core::at(source.from, k) < mesh.count;
+        }
+        sources_ok = sources_ok && source.count >= 1 && source.count <= 3 && std::fabs(sum - 1.0F) < kSlack;
+    }
+    expect(sources_ok, "wall: every new vertex's sources the original corners, weights summing to 1");
     const relief::Result again = relief::build(mesh.vertices, mesh.count, layout(), mesh.strip, facade(), {});
     expect(again.vertices == r.vertices && again.strip == r.strip, "wall: the same bytes twice");
     // (half the strength: the frame at half its height)

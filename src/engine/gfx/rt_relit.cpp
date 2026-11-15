@@ -275,9 +275,12 @@ void trace_in_batches(std::span<const RelitMesh> meshes, std::span<const uint8_t
         if (!is_wanted(wanted, mi)) {
             continue;
         }
-        const std::size_t vertices = core::at(meshes, mi).positions.size();
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const std::size_t vertices = mesh.positions.size();
+        const bool made = mesh.sources.size() == vertices;
         for (std::size_t vi = 0; vi < vertices; ++vi) {
-            const uint32_t count = rays_of(mi, vi);
+            // (building relief's made vertices take their sources' light: relit_derive)
+            const uint32_t count = made && core::at(mesh.sources, vi).count != 0 ? 0U : rays_of(mi, vi);
             if (count == 0) {
                 continue;
             }
@@ -292,6 +295,16 @@ void trace_in_batches(std::span<const RelitMesh> meshes, std::span<const uint8_t
         }
     }
     flush();
+}
+
+// (added by building relief) The made vertices of the meshes `wanted` says given their sources' light.
+void derive_wanted(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, std::vector<RelitVertices>* light)
+{
+    for (std::size_t mi = 0; mi < meshes.size() && mi < light->size(); ++mi) {
+        if (is_wanted(wanted, mi) && !core::at(meshes, mi).sources.empty()) {
+            relit_derive(core::at(meshes, mi), &core::at(*light, mi));
+        }
+    }
 }
 
 // The sun's direct term of a vertex toward `toward`.
@@ -1058,9 +1071,61 @@ void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out)
             core::at(*out, corner).used = true;
         }
     }
+    // (added by building relief) a made vertex's sources are traced for it - corners of no triangle any more (the
+    // relief's pieces replaced theirs): used, their normal the made vertices' that come from them
+    if (mesh.sources.size() == count) {
+        for (std::size_t vi = 0; vi < count; ++vi) {
+            const RelitMesh::Source& source = core::at(mesh.sources, vi);
+            for (uint8_t k = 0; k < source.count; ++k) {
+                const uint32_t from = core::at(source.from, k);
+                if (from < count && core::at(mesh.sources, from).count == 0 && !core::at(*out, from).used) {
+                    core::at(sums, from) = plus(core::at(sums, from), core::at(sums, vi));
+                }
+            }
+        }
+        for (std::size_t vi = 0; vi < count; ++vi) {
+            const RelitMesh::Source& source = core::at(mesh.sources, vi);
+            for (uint8_t k = 0; k < source.count; ++k) {
+                if (core::at(source.from, k) < count) {
+                    core::at(*out, core::at(source.from, k)).used = true;
+                }
+            }
+        }
+    }
     const bool given = mesh.normals.size() == count;
     for (std::size_t vi = 0; vi < count; ++vi) {
         core::at(*out, vi).normal = normalised(given ? core::at(mesh.normals, vi) : core::at(sums, vi));
+    }
+}
+
+void relit_derive(const RelitMesh& mesh, RelitVertices* light)
+{
+    const std::size_t count = std::min(mesh.sources.size(), light->size());
+    for (std::size_t vi = 0; vi < count; ++vi) {
+        const RelitMesh::Source& source = core::at(mesh.sources, vi);
+        if (source.count == 0) {
+            continue;
+        }
+        RelitVertex blended = core::at(*light, vi);
+        blended.sun = 0.0F;
+        blended.sky = 0.0F;
+        blended.bounce = {};
+        blended.bounce_local = {};
+        blended.sun_baked = 0.0F;
+        for (uint8_t k = 0; k < source.count; ++k) {
+            const uint32_t from = core::at(source.from, k);
+            if (from >= light->size()) {
+                continue;
+            }
+            const RelitVertex& own = core::at(*light, from);
+            const float w = core::at(source.weight, k);
+            blended.sun += own.sun * w;
+            blended.sky += own.sky * w;
+            blended.bounce = plus(blended.bounce, scaled(own.bounce, w));
+            blended.bounce_local = plus(blended.bounce_local, scaled(own.bounce_local, w));
+            blended.sun_baked += own.sun_baked * w;
+        }
+        core::at(*light, vi) = blended;
     }
 }
 
@@ -1176,6 +1241,7 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
             vertex.bounce = bounce;
             vertex.bounce_local = bounce_local;
         });
+    derive_wanted(meshes, wanted, light); // (added by building relief: the made vertices' light)
 }
 
 void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const Vec3& toward,
@@ -1227,6 +1293,7 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
             core::at(core::at(*light, ref.mesh), ref.vertex).sun =
                 static_cast<float>(open) / static_cast<float>(ref.count);
         });
+    derive_wanted(meshes, wanted, light); // (added by building relief: the made vertices' light)
 }
 
 RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const Vec3& toward)
