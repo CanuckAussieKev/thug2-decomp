@@ -15,7 +15,7 @@ In free skate the pause menu has **DEMOS** (single player, after YOUR OPTIONS - 
 | Item | What it does |
 |---|---|
 | RECORD DEMO | The level starts again and records (REC and the time in the top-right corner). The pause menu then shows **STOP RECORDING**: it saves `demo_<level>_<date>_<time>` (the frames in the pause menu are left out). F6 does the same. |
-| PLAY DEMO | The saved demos, newest first (level, length, date; the twelve newest): the chosen one's level loads and the run is played by the game itself - the recorded input drives the skater, physics and all, with the game's camera. REPLAY and the time are shown. **Any button or stick press hands the controls back** (the run stops there; Start also pauses as ever). |
+| PLAY DEMO | The saved demos, newest first (level, length, date; the twelve newest): the chosen one's level loads and the run is played by the game itself - the recorded input drives the skater, physics and all, with the game's camera, as the skater who recorded it (below, "Replays as proof"). The REPLAY badge shows who, when and the time. **Any button or stick press hands the controls back** (the run stops there; Start also pauses as ever) - and the player's own skater with them. |
 | WATCH REPLAY | The same list: the chosen demo plays in **the viewer** (below) - a timeline, cameras, keyframes, the split comparison. |
 | SAVE AS VIDEO | The same list: the chosen demo plays and is saved as `thug2-decomp-videos\<demo>.mp4` (SAVING VIDEO and the percentage are shown, not in the video), then VIDEO SAVED and the file for a few seconds. A button press stops it (VIDEO STOPPED: the file holds what was made). |
 
@@ -199,7 +199,8 @@ the run identical to the recording.
 
 A demo saved as a video is rendered, not filmed: every frame the video takes is drawn and handed to the encoder
 however long that takes (the game's logic is a fixed 1/60 s a frame, so a slow export plays the same run). The picture
-is taken over the frame before our tag, the menus and the console are drawn. Settings, `[demo]` in `thug2-decomp.ini`:
+is taken over the frame with the REPLAY badge in it ("Replays as proof"), before the other tags, the viewer's panels and
+the console are drawn. Settings, `[demo]` in `thug2-decomp.ini`:
 
 | Key | Default | |
 |---|---|---|
@@ -272,9 +273,10 @@ real time only decides whether a frame is drawn or skipped to catch up. A demo p
    frames are heavy, but the video plays at the recorded game time. The game keeps drawing in the background while a
    demo runs (`draws_unfocused`). When a recording or playback ends the log gives its pace (`demo: ... pace - game s
    in real s`, and the frames not drawn).
-5. **The skater.** The profile (appearance, trick style, specials, its info and stats) is saved with the demo and put
-   back before a playback if the current one differs - and then handed to the skater with the game's own
-   `RefreshSkaterModel`, as the skater select does: the skater keeps its own copy of the stats, trick mappings and
+5. **The skater.** The profile (appearance, trick style, specials, its info and stats) and the options that change a
+   run (auto kick, spin taps, the stat override) are saved with the demo; a playback lends them the player's place
+   ("Replays as proof" below) and hands them to the skater with the game's own `RefreshSkaterModel`, as the skater
+   select does: the skater keeps its own copy of the stats, trick mappings and
    stance, taken from the profile when it was given one, so a profile changed behind its back would leave it skating
    with the session's stats (until 2026-11-15 it did: sim_grind, recorded with stats of 10, played anywhere else with
    that folder's skater's).
@@ -327,8 +329,62 @@ before the change 0.99 - every playback identical to the recording (1283 check p
 - Keys our own tools read directly aren't in the demo (F7 BMX, F8 restart tester, F9 free camera, the console, mouse
   clicks on menus): using them while recording makes the playback differ.
 - Only port 0 is recorded (single player).
-- A playback puts the recorded skater back in memory only (not saved), and only where the current one differs.
+- A playback lends the recorded skater the player's place in memory only (nothing saved) and gives the player's back
+  when it ends.
+- Cheats (the career's global flags) aren't recorded: a demo recorded with one on parts from its playback where the
+  cheat matters.
 - The level's files must be the same as when it was recorded (a re-converted ported level can play differently).
+
+## Replays as proof
+
+A replay must never pass for live play - in a competition a player could otherwise record a run beforehand and play
+it back as if skating now. So:
+
+- **The recorded skater, always.** A playback shows the skater who recorded it, never the player's: the recorded
+  profile (name, model and CAS parts, board, trick style, specials, stats, trick mappings - `PROF` and `DETL`) and the
+  options that change a run (auto kick, spin taps, the stat override - `OPTS`). The player's place is lent to it
+  (`devtools/skater_loan.h`): the skater with that name is made current and given the recorded profile; a skater this
+  game hasn't gets it in the current profile. When the playback ends - played out, stopped, taken over by a button,
+  its level left for the main menu or another level, a network game - the player's own is given back exactly: the
+  lent profile copied back with the game's own copy, the player's skater current again, the options as they were,
+  and the skater (in the level or the main menu) rebuilt with `RefreshSkaterModel`. The log says "the player's own
+  skater given back - identical to before the replay" (the player's profile and info compared byte for byte).
+  Nothing is saved while it is lent. Demos made before 2026-11-15 have no `OPTS`: they play with the session's
+  options (the log says so).
+- **The REPLAY badge.** Every playback has it in the top-right corner, larger than the other tags: a play mark,
+  REPLAY, the recorded skater's name, RECORDED and the date, the time, and UNVERIFIED (a demo made before the seal) or
+  EDITED AFTER RECORDING (its seal broken) in red. It is drawn after everything else the game draws (the HUD, the pause
+  menu - the new front end's too -, a split view; only the frame counter and the console are drawn over it), whatever
+  the settings, the HUD switch or the viewer's panels say - no setting turns it off. It is in every picture taken of a
+  playback: a screenshot, a capture's frames (`-demo-capture`), a video (SAVE AS VIDEO, `-demo-video`). A screenshot's
+  sidecar has a `[replay]` section: the demo, the skater and its profile hash, the date, the level, the build, the
+  seal, the frame.
+- **Never in a network session.** A playback is refused online and in a network game; going online or a network game
+  starting ends one (the next frame), and the recorded input never replaces the live input there. Recording is refused
+  there too (it starts the level again, which a network game can't; the other players' input isn't recorded, so it
+  couldn't play back anyway).
+- **The seal.** Every demo saved since 2026-11-15 carries its identity - the build, the date, the level, the recorded
+  skater's name and profile hash (SHA-256 of `PROF` and `DETL`) - and a `SEAL` chunk: SHA-256 over every other chunk,
+  then a chain through every frame's input and check points (a link every 10 s; `formats/demo_format.h` has the exact
+  layout). A file changed after it was recorded - a frame's input, a check point, the skater, the date - no longer
+  matches: the log says "seal: changed after recording: ..." (and which 10 s stretch), a notice says "This replay was
+  changed after recording", and the badge says EDITED AFTER RECORDING. Such a replay still plays (with the badge), so
+  it can be looked at - refusing it would hide what was changed; a competition rejects it.
+
+What this does and doesn't prevent:
+
+- It stops a replay being shown as the player's live run in this game: the badge can't be turned off and is in every
+  picture, the player's skater isn't the one shown, and a replay can't run in a network session.
+- It shows a demo file edited by hand. It doesn't prove who made a file: the source is open, so anyone can write a
+  demo and seal it again - the seal shows a file wasn't changed after it was written, nothing more.
+- It can't stop tools outside the game that feed input in (a program pressing keys, a modified controller driver, a
+  "tool-assisted" run made frame by frame): the game sees that as a player's input.
+- What a competition can check: `node tools/game/verify_replay.ts <demo>` reports the identity, the seal (intact,
+  none, or what changed and where) and, with `--game <workspace>`, plays the run again from its input and compares it
+  with the recorded check points - the simulation is deterministic (the sim_check matrix), so a replay whose check
+  points weren't made by its own input parts from them. A run that plays back the same is a real run of this build,
+  levels and skater; whether a person played it live only watching them can tell. Exit code 0 intact (and simulated
+  the same), 1 changed or parted, 2 no seal.
 
 ## The file (`.demo`, version 1)
 
@@ -337,5 +393,9 @@ doesn't know and refuses a newer version. `INFO` (names, seeds, the frame the le
 `SETS` (settings), `PROF` / `DETL` (the skater), `INPT` (port 0's 32 bytes a frame, run-length coded), `CHEK` (the
 check points, 84 bytes each), `CLCK` (the clocks when the level was up; optional), `RAND` (u32 flags: bit 0, the
 music's random numbers apart; optional), `GLOB` (u32 count, then each simple script global at the recording's start:
-u32 name, u8 kind - 1 integer, 2 float, 13 name -, u32 value; optional). `formats/demo_format.h` has the
-fields; `thug2_format_check` round-trips it and checks a later chunk is skipped and a newer or broken file refused.
+u32 name, u8 kind - 1 integer, 2 float, 13 name -, u32 value; optional), `OPTS` (auto kick, spin taps, the stat
+override; optional), `SEAL` (last: the profile hash and the chain - "Replays as proof"; optional, every demo saved
+since 2026-11-15 has it; a chunk after it - a later version's - isn't sealed). `formats/demo_format.h` has the
+fields; `thug2_format_check` round-trips it, checks a later chunk is skipped and a newer or broken file refused, and
+that the seal finds a changed input, check point, header or skater (and the stretch); `verify_replay.test.ts` reads a
+demo the C++ wrote (the same bytes in both) and finds the same.

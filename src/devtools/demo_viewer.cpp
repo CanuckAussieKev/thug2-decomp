@@ -683,6 +683,8 @@ void draw()
 
 void device_lost() { panels_device_lost(); }
 
+float side_panel_width() { return the_state().active ? panels_side_width() : 0.0F; }
+
 void toggle_play()
 {
     State& view = the_state();

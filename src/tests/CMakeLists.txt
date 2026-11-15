@@ -72,7 +72,8 @@ endif()
 
 # NOT ORIGINAL - thug2_viewer_check.exe: the demo viewer's camera path (devtools/demo_camera_path.h: the keys' interpolation,
 # continuity, the yaw's wrap, the sidecar written and read back) and the split comparison's projection crop
-# (engine/gfx/rt_scene.h crop_clip_space) checked (src/tests/viewer_check.cpp).
+# (engine/gfx/rt_scene.h crop_clip_space) and a replay's skater lent and given back (devtools/skater_loan.h) checked
+# (src/tests/viewer_check.cpp).
 if(TARGET thug2_base)
     add_executable(thug2_viewer_check viewer_check.cpp "${PROJECT_SOURCE_DIR}/src/devtools/demo_camera_path.cpp")
     target_link_libraries(thug2_viewer_check PRIVATE thug2_base)

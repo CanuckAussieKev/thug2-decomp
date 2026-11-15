@@ -281,6 +281,11 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   each again with `[debug] load_test=N` (a 30 ms stall every Nth loop: late, undrawn steps - "Determinism under
   load"); the report shows each run's late steps. Exit code 0 when every frame of every run matches. `--record` makes the max_fps=0 run the new reference (only from the build the reference is meant
   to be: main before a change). Workspaces only, under the lock.
+- **A replay checked** (docs/demos.md "Replays as proof"): `node tools/game/verify_replay.ts <demo> [--game
+  <workspace>] [--json]` - who recorded it (the skater and its profile hash), when, the build, the level, and its seal
+  (intact, none, or what was changed after recording and in which frames); `--game` plays it again in that workspace
+  (`-demo <name> -demo-quit`, muted) and compares the run with its recorded check points. Exit code 0 intact (and the
+  same), 1 changed or parted, 2 no seal. Workspaces only, under the lock.
 - `run_game.ps1 ... -Level <name>` - the game started with `-level <name>`: straight into free skate in that level
   (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front_end/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T

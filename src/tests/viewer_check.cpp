@@ -1,6 +1,7 @@
 // NOT ORIGINAL - thug2_viewer_check: the demo viewer's pure parts checked (tests/CMakeLists.txt): the camera path's
 // interpolation (the keys hit, continuity, the yaw's wrap, ease and hold), its rows, the sidecar written and read back
-// (exactly, a newer version refused, a later line skipped), and the split comparison's projection crop.
+// (exactly, a newer version refused, a later line skipped), the split comparison's projection crop, and a replay's
+// skater lent and the player's given back (devtools/skater_loan.h).
 
 #include <algorithm>
 #include <array>
@@ -8,9 +9,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <map>
+#include <span>
 #include <string>
+#include <vector>
 
 #include "devtools/demo_camera_path.h"
+#include "devtools/skater_loan.h"
 #include "engine/gfx/rt_scene.h"
 #include "tests/no_error_dialogs.h"
 
@@ -363,11 +368,103 @@ void check_crop()
     check(whole == std::array<float, 4>{1.0F, 1.0F, 0.0F, 0.0F}, "crop: the whole is no crop");
 }
 
+// --- a replay's skater lent and given back (devtools/skater_loan.h) ---
+
+// The game's profiles, faked: skaters by name, each a profile and info as bytes; a "kept" copy is both.
+struct FakeProfiles {
+    struct Profile {
+        std::vector<uint8_t> look;
+        std::vector<uint8_t> info;
+    };
+    using Kept = Profile;
+    std::map<uint32_t, Profile> skaters;
+    uint32_t now = 0;
+    devtools::skater_loan::Options held_options;
+    int keeps = 0;
+
+    uint32_t current() const { return now; }
+    bool exists(uint32_t name) const { return skaters.contains(name); }
+    void make_current(uint32_t name) { now = name; }
+    Kept keep(uint32_t name)
+    {
+        ++keeps;
+        return skaters.at(name);
+    }
+    void put_back(uint32_t name, Kept& kept) { skaters.at(name) = kept; }
+    std::vector<uint8_t> profile(uint32_t name) const { return skaters.at(name).look; }
+    std::vector<uint8_t> details(uint32_t name) const { return skaters.at(name).info; }
+    void set_profile(uint32_t name, std::span<const uint8_t> bytes) { skaters.at(name).look.assign(bytes.begin(), bytes.end()); }
+    void set_details(uint32_t name, std::span<const uint8_t> bytes) { skaters.at(name).info.assign(bytes.begin(), bytes.end()); }
+    devtools::skater_loan::Options options() const { return held_options; }
+    void set_options(const devtools::skater_loan::Options& options) { held_options = options; }
+};
+
+void check_skater_loan()
+{
+    using devtools::skater_loan::Loan;
+    using devtools::skater_loan::Options;
+    using devtools::skater_loan::Wanted;
+    constexpr uint32_t kPlayer = 1;   // the player's custom skater
+    constexpr uint32_t kRecorded = 2; // the pro the replay was recorded with
+    constexpr uint32_t kMissing = 9;  // a skater this game hasn't
+    constexpr float kOverride = 13.0F;
+    const std::vector<uint8_t> recorded_look = {7, 7, 7};
+    const std::vector<uint8_t> recorded_info = {10, 10};
+    FakeProfiles game;
+    game.skaters[kPlayer] = {.look = {1, 2, 3}, .info = {3, 3}};
+    game.skaters[kRecorded] = {.look = {4, 5}, .info = {5}};
+    game.now = kPlayer;
+    game.held_options = {.auto_kick = true, .spin_taps = false, .stat_override = 0.0F};
+    const FakeProfiles before = game;
+    const Wanted wanted{.skater = kRecorded,
+                        .profile = recorded_look,
+                        .details = recorded_info,
+                        .options = Options{.auto_kick = false, .spin_taps = true, .stat_override = kOverride}};
+
+    Loan<FakeProfiles> loan;
+    const auto lent = loan.lend(game, wanted);
+    check(lent.skater && lent.profile && lent.options && loan.active(), "loan: the replay's skater, profile and options lent");
+    check(game.now == kRecorded && game.skaters.at(kRecorded).look == recorded_look &&
+              game.skaters.at(kRecorded).info == recorded_info && game.held_options.stat_override == kOverride,
+          "loan: the replay plays as recorded");
+    check(game.skaters.at(kPlayer).look == before.skaters.at(kPlayer).look, "loan: the player's own profile untouched");
+    // (the demo viewer's seek back: the level loaded again - the same loan, nothing noted again)
+    const auto again = loan.lend(game, wanted);
+    check(!again.any() && game.keeps == 1, "loan: lent again in the same playback: no second note of the player's");
+    bool identical = false;
+    const auto back = loan.give_back(game, &identical);
+    check(back.any() && identical && !loan.active(), "loan: given back, identical to before");
+    check(game.now == kPlayer && game.skaters.at(kRecorded).look == before.skaters.at(kRecorded).look &&
+              game.skaters.at(kRecorded).info == before.skaters.at(kRecorded).info &&
+              game.held_options == before.held_options,
+          "loan: the player's skater current, the pro's profile and the options as they were");
+    check(!loan.give_back(game, &identical).any() && identical, "loan: given back twice: nothing the second time");
+
+    // A replay of a skater this game hasn't: its profile written into the current one, then the player's put back.
+    const Wanted unknown{.skater = kMissing, .profile = recorded_look, .details = recorded_info, .options = {}};
+    const auto into_current = loan.lend(game, unknown);
+    check(into_current.profile && !into_current.skater && game.skaters.at(kPlayer).look == recorded_look,
+          "loan: a skater not here: into the current profile");
+    loan.give_back(game, &identical);
+    check(identical && game.skaters.at(kPlayer).look == before.skaters.at(kPlayer).look &&
+              game.skaters.at(kPlayer).info == before.skaters.at(kPlayer).info,
+          "loan: a skater not here: the player's profile put back byte for byte");
+
+    // A replay of the player's own skater as it is: nothing changes either way.
+    const Wanted same{.skater = kPlayer,
+                      .profile = before.skaters.at(kPlayer).look,
+                      .details = before.skaters.at(kPlayer).info,
+                      .options = before.held_options};
+    check(!loan.lend(game, same).any(), "loan: the player's own replay changes nothing");
+    check(!loan.give_back(game, &identical).any() && identical, "loan: and gives back nothing");
+}
+
 } // namespace
 
 int main()
 {
     tests::no_error_dialogs();
+    check_skater_loan();
     check_keys_hit();
     check_continuity();
     check_yaw_wrap();

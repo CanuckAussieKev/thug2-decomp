@@ -354,4 +354,24 @@ void ProfileRoster::get_release()
     ref_tally() = 0;
 }
 
+// NOT ORIGINAL - a profile kept aside and copied back (profile_manager.h): made and copied in the profiles' heap, as
+// the roster makes and copies its own.
+KeptProfile keep_profile_copy(RiderIdentity* from)
+{
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    KeptProfile kept(new_profile());
+    if (kept) {
+        kept->copy_from(from);
+    }
+    memory::Hub::get_pull()->leave_heap_scope();
+    return kept;
+}
+
+void put_profile_copy_back(RiderIdentity* into, RiderIdentity* kept)
+{
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    into->copy_from(kept);
+    memory::Hub::get_pull()->leave_heap_scope();
+}
+
 } // namespace objects
