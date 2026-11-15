@@ -9,6 +9,9 @@
 #include <ratio>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <map>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -22,6 +25,7 @@
 #include "engine/file/disk_files.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/memory/memory_report.h"
+#include "formats/texture_set_record.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 
@@ -30,6 +34,7 @@ namespace render::texture_sets {
 namespace {
 
 constexpr std::size_t kSettingSize = 64;
+constexpr std::size_t kReadChunk = 4096;
 constexpr std::string_view kDictionarySuffix = ".tex.xbx";
 constexpr std::string_view kLevelsPrefix = "levels\\";
 
@@ -46,6 +51,9 @@ struct TextureSetsState {
     std::string last_switch;        // the last switch's line (status)
     std::vector<LoadedDictionary> dictionaries;
     Reloader reloader = nullptr;
+    // the sets' records as read, by set name (read again after a switch: a set installed anew while the game runs)
+    std::mutex records_mutex;
+    std::map<std::string, texture_set_record::Record, std::less<>> records;
 };
 
 TextureSetsState& state()
@@ -150,49 +158,58 @@ std::vector<std::string> installed_sets()
     return sets;
 }
 
-int delight_version(std::string_view set)
+namespace {
+
+// A set's set.json read (empty for the original, a set not installed, and a record that can't be read - logged).
+texture_set_record::Record read_record(const std::string& name)
 {
-    const std::string name = set_name(set);
+    texture_set_record::Record record;
     if (name == kOriginal || !installed(name)) {
-        return 0;
+        return record;
     }
-    const fs::OwnedStream file =
-        fs::open_stream((sets_folder() + "\\" + name + "\\set.json").c_str(), "rb", fs::StreamSharing::kSecure);
+    const std::string path = sets_folder() + "\\" + name + "\\set.json";
+    const fs::OwnedStream file = fs::open_stream(path.c_str(), "rb", fs::StreamSharing::kSecure);
     if (!file) {
-        return 0;
+        return record;
     }
     std::string text;
-    std::array<char, 4096> buffer{};
+    std::array<char, kReadChunk> buffer{};
     for (size_t got = 0; (got = fs::disk().stream_read(file.get(), buffer.data(), 1, buffer.size())) > 0;) {
         text.append(buffer.data(), got);
     }
-    // (base.ts writes the record as JSON: the top-level "delight": <version>, before the files)
-    constexpr std::string_view kKey = "\"delight\"";
-    const size_t at = text.find(kKey);
-    if (at == std::string::npos) {
-        return 0;
+    if (!texture_set_record::read(text, &record)) {
+        get_log("texture sets: %s isn't a set record base.ts wrote (or is damaged) - its textures taken as not de-lit",
+                path.c_str());
     }
-    size_t pos = text.find_first_not_of(" \t\r\n", at + kKey.size());
-    if (pos == std::string::npos || text[pos] != ':') {
-        return 0;
-    }
-    pos = text.find_first_not_of(" \t\r\n", pos + 1);
-    int version = 0;
-    for (; pos < text.size() && std::isdigit(static_cast<unsigned char>(text[pos])) != 0 && version < 100000; ++pos) {
-        version = version * 10 + (text[pos] - '0');
-    }
-    return version;
+    return record;
 }
 
-std::vector<std::string> delit_sets()
+// What `use` gives for a set's record (read the first time it is wanted; the records' lock held).
+template <class Use>
+auto with_record(std::string_view set, const Use& use)
 {
-    std::vector<std::string> sets;
-    for (const std::string& set : installed_sets()) {
-        if (delight_version(set) > 0) {
-            sets.push_back(set);
-        }
+    const std::string name = set_name(set);
+    TextureSetsState& st = state();
+    const std::scoped_lock lock(st.records_mutex);
+    auto found = st.records.find(name);
+    if (found == st.records.end()) {
+        found = st.records.emplace(name, read_record(name)).first;
     }
-    return sets;
+    return use(found->second);
+}
+
+} // namespace
+
+int delight_version(std::string_view set)
+{
+    return with_record(set, [](const texture_set_record::Record& record) { return record.delight; });
+}
+
+std::vector<uint32_t> delit_textures(std::string_view set, std::string_view overlay_name)
+{
+    return with_record(set, [&](const texture_set_record::Record& record) {
+        return record.delight > 0 ? texture_set_record::delit_of(record, overlay_name) : std::vector<uint32_t>{};
+    });
 }
 
 const std::string& active()
@@ -268,6 +285,10 @@ bool tick()
     }
     const std::string from = st.active;
     st.active = to; // (the data overlay serves the new set's files from here on)
+    {
+        const std::scoped_lock lock(st.records_mutex);
+        st.records.clear(); // (read again: the dictionaries read below take their de-lit lists from them)
+    }
     const auto start = std::chrono::steady_clock::now();
     int dictionaries = 0;
     int textures = 0;
@@ -302,7 +323,8 @@ std::string status_text()
     read_once();
     std::string sets;
     for (const std::string& set : installed_sets()) {
-        sets += " " + set;
+        const int delight = delight_version(set);
+        sets += " " + set + (delight > 0 ? text::format(" (de-lit, v%d)", delight) : std::string());
     }
     std::string text = "textures: " + state().active + " in use; installed: original" + sets;
     if (!state().wanted.empty()) {
