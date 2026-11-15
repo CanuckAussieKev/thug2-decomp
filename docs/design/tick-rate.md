@@ -12,7 +12,9 @@ Status (2026-11-15): phases 1 and 2 are done - the plumbing and the mechanical s
 two yardsticks that measure how far another rate is from 60. Phase 3 is done for 120 and 240 ("The 60 Hz grid" and
 "The skater's frame" below): timers, counters, script runs and waits, the skater's forces, checks and events all keep
 the 60 Hz run's frame; on the recorded demo 120 Hz stays within 0.13 in of the 60 Hz run for 10 s with every state and
-jump equal. 144 (2.4 ticks a frame - the frames begin inside ticks) is not there yet. Phase 5 (online) remains.
+jump equal. 144 (2.4 ticks a frame - the frames begin inside ticks) is not there yet. Phase 5's network cadence is done
+("Online" below). The next step - the skater's physics truly stepping at the tick rate, with input read every tick
+("Phase 4: physics at the tick rate") - waits on a decision: what it costs is measured below.
 
 ## How the clock works
 
@@ -287,6 +289,50 @@ it), and the skater's "this frame" events (landing, off an edge, a grind, a jump
 (`ControllerPressed`) or by time (`get_time`, on the grid), not by a one-tick edge. Left: live input faster than 60
 (a press shorter than 1/60 s), and the script check unchanged at 60 (it compares QB and TypeScript on the same runtime).
 
+### Phase 4: physics at the tick rate (a decision first)
+
+The goal set after phase 3b: at tick rate N the skater (and what else integrates motion) steps at N Hz and reads
+input every tick - truly faster control, not 60 Hz physics drawn faster - and the same inputs give the same line,
+landings and trick outcomes at 60, 120, 144 and 240 (within 0.5 in over a 10 s line). The harness measures what that
+needs (`thug2_tick_rate_check --harness`, the rows below; illustrative values in the game's units):
+
+| kernel | metric | 60 Hz | 120 - 60 | 144 - 60 | 240 - 60 |
+|---|---|---:|---:|---:|---:|
+| roll to a stop, the original's step once a tick | distance | 660.49 in | +7.13 | +8.32 | +10.69 |
+| roll to a stop, solved exactly | distance | 674.75 in | +0.00007 | -0.0002 | -0.0003 |
+| quarterpipe (12 faces, R 120 in, in at 700 in/s), the original's ground step once a tick | air above the lip | 91.84 in | -1.76 | -1.39 | -0.94 |
+| | take-off vy | 449.50 in/s | -4.33 | -3.42 | -2.30 |
+| quarterpipe, solved exactly (faces crossed at their own time) | air above the lip | 90.73 in | 0 | 0 | 0 |
+| | take-off vy | 446.77 in/s | 0 | 0 | 0 |
+| ollie, landing at the tick's end (the original's) | landing vy | -330.0 in/s | -9.17 | -4.58 | 0 |
+| ollie, landing at its own time | landing vy | -330.0 in/s | 0 | 0 | 0 |
+| manual balance (3 button presses), the original's update once a tick | lean at 3 s | -26.49 | -1.14 | -3.69 | -1.71 |
+| manual balance, solved exactly, buttons read at the tick | lean at 3 s | -28.77 | 0 | -2.38 | 0 |
+| manual balance, solved exactly, each press at its own time | lean at 3 s | -28.77 | 0 | 0 | 0 |
+
+What it shows:
+
+1. The original's update run once a tick at the tick's length is *not* rate-independent: every per-frame formula
+   (semi-implicit Euler, a straight move then a snap to the face found, events seen at the tick's end) has an error of
+   the order of the step, so 60 and 240 differ by inches in a second or two, and a 10 s line parts entirely (another
+   landing frame, a missed grind). Running the original's code at N Hz cannot meet the goal.
+2. The same models solved exactly - each force law integrated in closed form (or finely), faces, lips and landings
+   crossed at their own times, input events applied at their own time inside the tick (SDL's event timestamps) - give
+   the same numbers at every rate to 1e-4, 144 included.
+3. But the exact solution is not the original's 60 Hz run: the 60 Hz row of each exact kernel differs from the
+   original's (the roll goes 14 in, 2%, further; the quarterpipe's air is 1.1 in lower; the balance leans 9% more).
+   "The same at every rate, 60 included" and "60 stays the original's, bit for bit" cannot both hold once the physics
+   steps at the tick rate: whatever physics runs at 240 must also run at 60, and that physics is not the original's.
+
+So it needs a decision (recorded with the options in the phase's report): let the game at 60 change to the exact
+physics (and how old demos replay - an original-physics path kept only for them, or not), or keep 60 as the original
+and settle for 60 Hz physics with faster input (a press re-running the 1/60 s frame in progress), which is exact but not
+truly N Hz. Until then the skater keeps phase 3b's frame.
+
+Exact at every rate is still only exact to the floats: a grazing contact (a wall touched within a hundredth of an
+inch) turns last-bit differences into a different line, as phase 3b's 240 Hz run showed (0.0005 in -> 8 in after a
+grazing lateral hit). Positions summed in double precision would push that further out; nothing removes it entirely.
+
 ### Phase 5: demos and online
 
 Demos (done in phase 1 - 2): version 2 with a RATE chunk for a demo recorded at another rate; a 60 Hz demo is still the
@@ -294,7 +340,20 @@ version 1 file it always was (older builds read it; they refuse version 2). A pl
 holds each recorded frame over its time (tick_compare's runs); the viewer, `-demo-capture` and videos play a demo only at
 its own rate. `-demo-quit` runs are tools' runs: a pad left connected doesn't take them over.
 
-Online - what the translation needs so 60 Hz peers (stock THUG2, THUGPRO, this game at 60) see normal play:
+Online (done 2026-11-15, `engine/net/net_cadence.h`): the network runs once each 1/60 s, in the tick that ends the 1/60
+s frame (`frame_clock::grid_frame_ends`; every tick at 60) - the app's four tasks (receive, the received messages to
+their handlers, send, the connection metrics: `net_app.cpp`), the server's relay and score tasks
+(`skate_net_relay.cpp`) and the skater's object update (`RiderHostSync::tick_frame`,
+the send choice `net_cadence::skater_update_due`). So `AppHost::frame_count` counts 1/60 s frames (the forced update
+every 15th, the server's resend every 60th, the join and rejoin delays in `add_at_frame` all keep their 60 Hz meaning),
+the clock stamps are the 60 Hz grid's (`get_time`), the state sent is the frame's end state, and the same messages go
+out as at 60 - nothing on the wire changes. The remote skaters' playback (`nonlocal_playback.cpp playback_clock`) reads
+the network's clock plus the tick's time since it ran (`frame_clock::ms_since_grid_frame_end`), so other players move
+every tick between their 60 Hz states; its corrections (falling back past the newest state, catching up ten frames)
+happen with the network, once a 1/60 s. Proof (`thug2_tick_rate_check`): 10 s of a client's skater updates - the
+network's ticks, the grid clock, the frame count, the game's send choice - are the 60 Hz run's at 120, 144 and 240
+(the same 320 updates, stamps and frame counts), and the playback clock moves every tick and never back. Two copies on
+a local server remain a test by hand. The list this replaced:
 
 1. **Send cadence by time.** `local_net_logic.cpp`'s forced send every 15 ticks and `% kSendEveryFrames` count ticks: at
    120 Hz they would send twice as often. Send when the 60 Hz frame count (ticks x 60 / rate) crosses the multiple - the

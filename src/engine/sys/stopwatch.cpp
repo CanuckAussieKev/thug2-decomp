@@ -226,13 +226,18 @@ uint32_t get_time()
     return get_tick_time();
 }
 
-// NOT ORIGINAL - the original's get_time: the milliseconds of the tick itself (get_time at 60).
-uint32_t get_tick_time()
+namespace {
+// The milliseconds of vblank count `vblanks` (the original's get_time's sum: 1000 / rate x the low 32 bits, truncated
+// through 64 bits).
+uint32_t tick_milliseconds(uint64_t vblanks)
 {
-    const double milliseconds =
-        (1000.0 / vblanks_per_second()) * static_cast<double>(static_cast<uint32_t>(get_vblanks()));
+    const double milliseconds = (1000.0 / vblanks_per_second()) * static_cast<double>(static_cast<uint32_t>(vblanks));
     return static_cast<uint32_t>(static_cast<int64_t>(milliseconds));
 }
+} // namespace
+
+// NOT ORIGINAL - the original's get_time: the milliseconds of the tick itself (get_time at 60).
+uint32_t get_tick_time() { return tick_milliseconds(get_vblanks()); }
 
 // 0x005BE910
 double get_frame_seconds() { return raw_frame_duration() / vblanks_per_second(); }
@@ -282,6 +287,19 @@ bool grid_frame_ends()
     }
     const uint64_t now = get_vblanks();
     return frame_of(now + 1) != frame_of(now);
+}
+
+uint32_t ms_since_grid_frame_end()
+{
+    if (tick_rate::original()) {
+        return 0;
+    }
+    const uint64_t now = get_vblanks();
+    uint64_t last = now; // (the last tick that ended a frame: tick k does when tick k + 1 is in the next one)
+    while (last > 0 && frame_of(last + 1) == frame_of(last)) {
+        --last;
+    }
+    return tick_milliseconds(now) - tick_milliseconds(last);
 }
 
 bool& script_frame_end_pass()

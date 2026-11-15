@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/net/net_cadence.h"
 #include "engine/sys/frame_pacing.h"
 #include "engine/sys/tick_rate.h"
 #include "tests/no_error_dialogs.h"
@@ -223,6 +224,82 @@ void check_other_rates()
     }
     tick_rate::set_rate(1000);
     expect(tick_rate::rate() == 240, "set_rate clamps");
+    tick_rate::set_rate(60);
+}
+
+// --- online: the network's cadence (engine/net/net_cadence.h) ---
+
+// One skater update as it leaves: the app's clock stamp and frame count.
+struct Sent {
+    uint32_t clock = 0;
+    uint32_t frame = 0;
+    bool operator==(const Sent&) const = default;
+};
+
+// 10 s of a client's skater updates at `rate`: the network runs in the ticks that end a 1/60 s frame
+// (frame_clock::grid_frame_ends - tick_rate::ticks_since_frame_end is 0 there), the clock is the 60 Hz grid's
+// milliseconds (frame_clock::get_time), the app counts a frame each time it runs, the send decision is the game's
+// (net_cadence::skater_update_due; the connection's send interval two frames of 60 a second, 33 ms). `gated` false: the
+// network every tick as before phase 5.
+std::vector<Sent> skater_updates(int rate, bool gated)
+{
+    tick_rate::set_rate(rate);
+    constexpr uint32_t kTransmitPeriod = 2 * 1000 / 60;
+    std::vector<Sent> out;
+    uint32_t frame_count = 0;
+    uint32_t last_transmit = 0;
+    for (uint64_t tick = 1; tick <= static_cast<uint64_t>(rate) * 10; ++tick) {
+        if (gated && tick_rate::ticks_since_frame_end(tick) != 0) {
+            continue;
+        }
+        const auto clock = static_cast<uint32_t>(
+            static_cast<int64_t>((1000.0 / 60) * static_cast<double>(static_cast<uint32_t>(tick_rate::frame_of_tick(tick)))));
+        ++frame_count;
+        if (net_cadence::skater_update_due({.on_server = false,
+                                            .frame_count = frame_count,
+                                            .clock_ms = clock,
+                                            .last_transmit_ms = last_transmit,
+                                            .transmit_period_ms = kTransmitPeriod})) {
+            last_transmit = clock;
+            out.push_back({.clock = clock, .frame = frame_count});
+        }
+    }
+    return out;
+}
+
+void check_online_cadence()
+{
+    const std::vector<Sent> at60 = skater_updates(60, true);
+    expect(at60 == skater_updates(60, false), "online at 60: the network every tick, as the original");
+    for (const int rate : {120, 144, 240}) {
+        const std::string at = std::to_string(rate) + ": ";
+        expect(skater_updates(rate, true) == at60,
+               at + "online: the same skater updates (clock stamps, frame counts) as at 60 - " +
+                   std::to_string(at60.size()) + " in 10 s");
+        // the remote skaters' playback clock (nonlocal_playback.cpp playback_clock): the network's clock plus the tick
+        // time since it ran - never going back, the tick's own time between the network's ticks
+        bool monotone = true;
+        bool follows = true;
+        uint32_t clock = 0;
+        uint64_t clock_tick = 0;
+        uint32_t previous = 0;
+        const auto tick_ms = [rate](uint64_t tick) {
+            return static_cast<uint32_t>(static_cast<int64_t>((1000.0 / rate) * static_cast<double>(static_cast<uint32_t>(tick))));
+        };
+        for (uint64_t tick = 1; tick <= static_cast<uint64_t>(rate) * 10; ++tick) {
+            const uint64_t since = tick_rate::ticks_since_frame_end(tick);
+            if (since == 0) {
+                clock = static_cast<uint32_t>(static_cast<int64_t>(
+                    (1000.0 / 60) * static_cast<double>(static_cast<uint32_t>(tick_rate::frame_of_tick(tick)))));
+                clock_tick = tick;
+            }
+            follows = follows && clock_tick == tick - since;
+            const uint32_t played = clock + (tick_ms(tick) - tick_ms(clock_tick));
+            monotone = monotone && played >= previous;
+            previous = played;
+        }
+        expect(monotone && follows, at + "online: the remote skaters' playback clock moves every tick, never back");
+    }
     tick_rate::set_rate(60);
 }
 
@@ -545,6 +622,209 @@ double wait_ends(int rate, bool grid)
     return 0.0;
 }
 
+// A quarterpipe ridden at the tick rate (phase 4's question: what true N Hz stepping costs). A side view: flat ground,
+// then a quarter circle of radius 120 in made of 12 flat faces (7.5 degrees each, as a level's mesh), then 12 in of
+// vertical wall to the lip; ground gravity -1100 in/s^2, in at 700 in/s, no friction. Two models:
+// - `stepped`: the original's ground step, run once a tick at the tick's length (core_ground.cpp do_ground_physics: the
+//   velocity turned into the face's plane keeping its speed, gravity along the face, a straight move by v h, then the
+//   ground feeler along the face's up puts it on the face it finds) - true N Hz stepping of the original scheme;
+// - `continuous`: the same model solved exactly - along a face with its constant acceleration, a face's end crossed at
+//   its own time and the velocity turned onto the next face there - the same at every tick length (the 60 Hz run too).
+// Reports the lip's take-off speed and the air's height above the lip.
+struct Quarterpipe {
+    double launch_vy = 0.0;
+    double apex = 0.0;
+    double lip_time = 0.0;
+};
+Quarterpipe quarterpipe(int rate, bool continuous)
+{
+    tick_rate::set_rate(rate);
+    const double h = tick_rate::tick_seconds();
+    constexpr double kRadius = 120.0;
+    constexpr int kFaces = 12;
+    constexpr double kWall = 12.0;
+    constexpr double kGravity = -1100.0;
+    constexpr double kPi = 3.14159265358979323846;
+    // the faces: [0] the flat ground from x = -400, [1..12] the arc, [13] the wall; vertices along the surface
+    std::vector<std::array<double, 2>> point = {{-400.0, 0.0}};
+    for (int k = 0; k <= kFaces; ++k) {
+        const double angle = (-kPi / 2) + ((kPi / 2) * k / kFaces);
+        point.push_back({kRadius * std::cos(angle), kRadius + (kRadius * std::sin(angle))});
+    }
+    point.push_back({kRadius, kRadius + kWall});
+    const int faces = static_cast<int>(point.size()) - 1;
+    const auto tangent = [&](int f) {
+        const double dx = point[f + 1][0] - point[f][0];
+        const double dy = point[f + 1][1] - point[f][1];
+        const double length = std::hypot(dx, dy);
+        return std::array<double, 2>{dx / length, dy / length};
+    };
+    const double top = kRadius + kWall;
+    Quarterpipe out;
+    double px = -300.0;
+    double py = 0.0;
+    double vx = 700.0;
+    double vy = 0.0;
+    int face = 0;
+    double time = 0.0;
+    const auto take_off = [&](double t_lip) {
+        out.launch_vy = vy;
+        out.lip_time = t_lip;
+        out.apex = (vy * vy) / (-2.0 * kGravity); // (straight up from the lip: the air's height, exact at any rate)
+    };
+    if (continuous) {
+        // along face `face` at distance s from its start, speed u along it
+        double s = std::hypot(px - point[0][0], py - point[0][1]);
+        double u = vx;
+        for (int tick = 0; tick < 100000; ++tick) {
+            double left = h;
+            while (left > 0.0) {
+                const std::array<double, 2> t = tangent(face);
+                const double a = kGravity * t[1];
+                const double length = std::hypot(point[face + 1][0] - point[face][0], point[face + 1][1] - point[face][1]);
+                // time to the face's end: s + u r + a r^2 / 2 = length
+                const double c = s - length;
+                double r = 0.0;
+                if (std::fabs(a) < 1e-12) {
+                    r = u > 0.0 ? -c / u : 1e30;
+                } else {
+                    const double disc = (u * u) - (2.0 * a * c);
+                    r = disc < 0.0 ? 1e30 : (-u + std::sqrt(disc)) / a;
+                    if (r < 0.0) {
+                        r = (-u - std::sqrt(disc)) / a;
+                    }
+                }
+                if (r > left) {
+                    s += (u * left) + (0.5 * a * left * left);
+                    u += a * left;
+                    left = 0.0;
+                    continue;
+                }
+                u += a * r;
+                left -= r;
+                if (face + 1 == faces) {
+                    vy = u; // (the wall is vertical: all of it up)
+                    take_off(time + (h - left));
+                    return out;
+                }
+                ++face; // (the velocity turned onto the next face, its speed kept)
+                s = 0.0;
+            }
+            time += h;
+        }
+        return out;
+    }
+    for (int tick = 0; tick < 100000; ++tick) {
+        const std::array<double, 2> t = tangent(face);
+        // the velocity into the face's plane, its speed kept (align_to_plane)
+        const double speed = std::hypot(vx, vy);
+        const double sign = ((vx * t[0]) + (vy * t[1])) < 0.0 ? -1.0 : 1.0;
+        vx = sign * speed * t[0];
+        vy = sign * speed * t[1];
+        // gravity along the face
+        const double along = kGravity * t[1];
+        vx += along * t[0] * h;
+        vy += along * t[1] * h;
+        const double nx = px + (vx * h);
+        const double ny = py + (vy * h);
+        time += h;
+        // the ground feeler along the face's up (n = (-t.y, t.x)): the first face it meets
+        const double ux = -t[1];
+        const double uy = t[0];
+        bool found = false;
+        for (int f = 0; f < faces && !found; ++f) {
+            const double ax = point[f][0];
+            const double ay = point[f][1];
+            const double ex = point[f + 1][0] - ax;
+            const double ey = point[f + 1][1] - ay;
+            // nx + ux q = ax + ex w (q in the feeler's span, w in [0, 1])
+            const double det = (ux * -ey) - (uy * -ex);
+            if (std::fabs(det) < 1e-12) {
+                continue;
+            }
+            const double bx = ax - nx;
+            const double by = ay - ny;
+            const double q = ((bx * -ey) - (by * -ex)) / det;
+            const double w = ((ux * by) - (uy * bx)) / det;
+            if (w >= 0.0 && w <= 1.0 && q >= -200.0 && q <= 36.0) {
+                px = nx + (ux * q);
+                py = ny + (uy * q);
+                face = f;
+                found = true;
+            }
+        }
+        if (!found || ny > top) {
+            // past the lip: in the air with the step's velocity (straight up the wall)
+            take_off(time);
+            return out;
+        }
+    }
+    return out;
+}
+
+// A manual's balance (manual_balance.cpp Balance::tick_frame - illustrative values): the lean grows by itself (lean +=
+// (g lean + lean speed) i a 1/60 s frame, i the instability) and the buttons push the lean speed back (acc a frame);
+// the same button presses in time (left 0.30 - 0.55 s, right 1.10 - 1.25 s, left 1.90 - 2.05 s). `stepped`: the
+// original's frame update once a tick at the tick's length (its amounts times dt x 60); `exact`: the same linear model
+// solved exactly over each tick (the same at every tick length), the buttons read at the tick's start; `timed`: solved
+// exactly with each press taking effect at its own time inside the tick (input events carry their time). The lean at 3 s.
+double balance_lean(int rate, bool exact, bool timed = false)
+{
+    tick_rate::set_rate(rate);
+    const double h = tick_rate::tick_seconds();
+    constexpr double kGrow = 0.01;    // g i: a frame's growth of the lean by itself
+    constexpr double kCarry = 0.2;    // i: a frame's lean from the lean speed
+    constexpr double kAcc = 0.3;      // a frame's push of the lean speed
+    double lean = 40.0;
+    double speed = 0.0;
+    const auto push = [](double t) {
+        if (t >= 0.30 && t < 0.55) {
+            return -kAcc;
+        }
+        if (t >= 1.10 && t < 1.25) {
+            return kAcc;
+        }
+        if (t >= 1.90 && t < 2.05) {
+            return -kAcc;
+        }
+        return 0.0;
+    };
+    const int ticks = rate * 3;
+    for (int tick = 0; tick < ticks; ++tick) {
+        const double t = tick * h;
+        const double p = push(t + 1e-9) * 60.0; // (per second)
+        if (!exact) {
+            const double f = h * 60.0;
+            lean = ((kGrow * f) + 1.0) * lean + (kCarry * speed * f);
+            speed += p * h;
+            continue;
+        }
+        // lean' = 60 g lean + 60 i speed, speed' = p: with k = 60 g, c = 60 i, over a span r exactly
+        const auto solve = [&](double r, double push_now) {
+            const double k = kGrow * 60.0;
+            const double c = kCarry * 60.0;
+            const double e = std::exp(k * r);
+            const double next_lean =
+                (lean * e) + (c * speed * (e - 1.0) / k) + (c * push_now * (((e - 1.0) / k) - r) / k);
+            speed += push_now * r;
+            lean = next_lean;
+        };
+        if (!timed) {
+            solve(h, p);
+            continue;
+        }
+        // (split at the presses' own times inside the tick)
+        double from = t;
+        for (const double edge : {0.30, 0.55, 1.10, 1.25, 1.90, 2.05, t + h}) {
+            if (edge > from && edge <= t + h) {
+                solve(edge - from, push(from + 1e-9) * 60.0);
+                from = edge;
+            }
+        }
+    }
+    return lean;
+}
+
 template <typename F> void add_row(const std::string& kernel, const std::string& metric, const std::string& unit, F value)
 {
     Row row{.kernel = kernel, .metric = metric, .unit = unit, .at60 = value(60)};
@@ -585,6 +865,17 @@ void run_harness()
     add_row("script Wait 0.5 s (60 Hz grid)", "goes on in", "s", [](int r) { return wait_ends(r, true); });
     add_row("10-tick window (as is)", "length", "s", [](int r) { return window_seconds(r, false); });
     add_row("10-tick window (ticks_for)", "length", "s", [](int r) { return window_seconds(r, true); });
+    add_row("online: skater updates (net cadence)", "a second", "", [](int r) { return skater_updates(r, true).size() / 10.0; });
+    add_row("online: skater updates (every tick)", "a second", "", [](int r) { return skater_updates(r, false).size() / 10.0; });
+    add_row("quarterpipe (stepped a tick)", "take-off vy", "in/s", [](int r) { return quarterpipe(r, false).launch_vy; });
+    add_row("quarterpipe (stepped a tick)", "air above lip", "in", [](int r) { return quarterpipe(r, false).apex; });
+    add_row("quarterpipe (stepped a tick)", "at the lip", "s", [](int r) { return quarterpipe(r, false).lip_time; });
+    add_row("quarterpipe (continuous)", "take-off vy", "in/s", [](int r) { return quarterpipe(r, true).launch_vy; });
+    add_row("quarterpipe (continuous)", "air above lip", "in", [](int r) { return quarterpipe(r, true).apex; });
+    add_row("quarterpipe (continuous)", "at the lip", "s", [](int r) { return quarterpipe(r, true).lip_time; });
+    add_row("manual balance (stepped)", "lean at 3 s", "", [](int r) { return balance_lean(r, false); });
+    add_row("manual balance (exact)", "lean at 3 s", "", [](int r) { return balance_lean(r, true); });
+    add_row("manual balance (exact, timed)", "lean at 3 s", "", [](int r) { return balance_lean(r, true, true); });
     tick_rate::set_rate(60);
 
     std::printf("\nexactness yardstick: each kernel at 60 and the difference from it at 120 / 144 / 240\n");
@@ -604,6 +895,7 @@ int main(int argc, char** argv)
     if (!harness_only) {
         check_original_rate();
         check_other_rates();
+        check_online_cadence();
     }
     run_harness();
     if (!harness_only) {

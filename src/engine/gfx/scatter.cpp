@@ -345,8 +345,9 @@ public:
             if (!finite3(first) || !finite3(second) || !finite3(third)) {
                 continue;
             }
-            // (the game's winding: (v2 - v0) x (v1 - v0) - TriMeshSource::get_triangle_normal - faces up on the ground)
-            const Vec3 normal = cross(minus(third, first), minus(second, first));
+            // (the game's winding: (v1 - v0) x (v2 - v0) - TriMeshSource::get_triangle_normal - faces up on the ground;
+            // measured on the levels' collision: the faces with nothing at all above them are the ones this turns up)
+            const Vec3 normal = cross(minus(second, first), minus(third, first));
             const float twice = length(normal);
             if (!(twice * kHalf > kLeastArea)) {
                 continue;

@@ -271,13 +271,15 @@ Vec3 unit(const Vec3& a)
 
 // --- the faces -----------------------------------------------------------------------------------------------------
 
+// (wound as the game's collision: (v1 - v0) x (v2 - v0) faces up on the ground - the corners go round the other way
+// from the order they are given in, which looks down on a flat quad)
 void add_quad(std::vector<scatter::Face>* faces, const std::array<Vec3, 4>& corners, scatter::Surface surface,
               bool vert = false)
 {
-    faces->push_back({.corners = {core::at(corners, 0), core::at(corners, 1), core::at(corners, 2)},
+    faces->push_back({.corners = {core::at(corners, 0), core::at(corners, 2), core::at(corners, 1)},
                       .surface = surface,
                       .vert = vert});
-    faces->push_back({.corners = {core::at(corners, 0), core::at(corners, 2), core::at(corners, 3)},
+    faces->push_back({.corners = {core::at(corners, 0), core::at(corners, 3), core::at(corners, 2)},
                       .surface = surface,
                       .vert = vert});
 }

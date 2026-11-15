@@ -88,6 +88,16 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_tess_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_scatter_check.exe: the decals' and clutter's placement rules (engine/gfx/scatter.h) on made-up
+# collision - the "covered" rule: a low roof covers, a tall canopy, a scrap of scenery a unit up or a thin branch's side
+# don't; with `--level <folder>...` a level's own collision read offline and the decals / clutter counted
+# (src/tests/scatter_check.cpp; pure: no game, no device).
+if(TARGET thug2_base)
+    add_executable(thug2_scatter_check scatter_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/scatter.cpp"
+                                       "${PROJECT_SOURCE_DIR}/src/engine/gfx/scatter_art.cpp")
+    target_link_libraries(thug2_scatter_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_fisheye_check.exe: the fisheye lens' maths (engine/gfx/fisheye_lens.h) - the lens family, the
 # game camera's widening and projection, the chain from the widened camera through the lens pass's mapping
 # (src/tests/fisheye_check.cpp; pure: no game, no device).
