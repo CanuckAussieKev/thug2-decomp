@@ -52,6 +52,9 @@ void material_released(const MaterialRef* material);
 // A vertex buffer's contents written to the card (VertexBuffer::get_unlock): its mesh changed, unless the write is a
 // colour-only one (ColourWrite).
 void vertex_buffer_written(const VertexBufferData* buffer);
+// (added for the relit level's writes) A vertex buffer destroyed (VertexBuffer::teardown): whatever was kept for it
+// forgotten - another buffer made later at the same address is a new one.
+void vertex_buffer_released(const VertexBufferData* buffer);
 // The device's buffers released (release_buffers, before a reset): every mesh removed.
 void forget_meshes();
 

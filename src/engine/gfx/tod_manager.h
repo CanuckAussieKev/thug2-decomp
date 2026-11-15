@@ -250,9 +250,10 @@ public:
     // Part `part` of light group `group` of system `index` given the colours (as update_system colours a part: the
     // sky scene only for a sky system; the scenes' own colour and the models with the first part).
     void colour_group_part(int index, int group, int part, uint32_t level_color, uint32_t sky_color) const;
-    // (added by the time of day - day_clock.h) The models apply_color colours with the whole level (those of objects
-    // without a sector of their name, or an outdoor one) given `color` alone - the scenes left as they are.
-    void colour_models(uint32_t color) const;
+    // (added by the time of day - day_clock.h; the one lighting path) The models apply_color colours with the whole
+    // level (those of objects without a sector of their name, or an outdoor one) given `color` times the level's light
+    // where each stands over the bake's (engine/gfx/rt_light_field.h light_ratio_at, whole) - the scenes left as they are.
+    void colour_models_by_place(uint32_t color) const;
 
     // The fields other code reads and sets.
     std::array<TodSystem, kSystems>& systems() { return systems_; }

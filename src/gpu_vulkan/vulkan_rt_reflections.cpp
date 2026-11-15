@@ -648,6 +648,7 @@ struct ReflectionState {
     bool standard_samples = false;
     bool failed = false;
     bool wet_failed = false; // (added by the decals) the puddles' trace couldn't be made
+    std::string wet_error;   // ... and why
     uint64_t passes = 0;
     uint64_t without_mirrors = 0;
     uint64_t uses = 0;
@@ -749,14 +750,18 @@ std::string wet_trace_body()
             "            bool puddle = wet > reflectivity;\n"
             "            reflectivity = max(reflectivity, wet);\n",
             false) &&
-        put("float weight = reflection_weight(reflectivity, surface.reflection_class, surface.f0, -dot(view, n));\n",
+        put("float weight = reflection_weight(reflectivity, surface.reflection_class, surface.f0, -dot(view, sn));\n",
             "if (puddle) {\n                        mask = 1.0;\n                    }\n"
-            "                    float weight = puddle ? reflection_weight(reflectivity, CLASS_WATER, WET_F0, -dot(view, n))\n"
+            "                    float weight = puddle ? reflection_weight(reflectivity, CLASS_WATER, WET_F0, -dot(view, sn))\n"
             "                                          : reflection_weight(reflectivity, surface.reflection_class, surface.f0,\n"
-            "                                                              -dot(view, n));\n",
+            "                                                              -dot(view, sn));\n",
             true) &&
         put("if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {",
-            "if (!puddle && pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {", true);
+            "if (!puddle && pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {", true) &&
+        put("if (!object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_SURFACE &&",
+            "if (!puddle && !object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_SURFACE &&", true) &&
+        put("if (surface.reflection_class == CLASS_SURFACE) {", "if (!puddle && surface.reflection_class == CLASS_SURFACE) {",
+            true);
     return ok ? body : std::string();
 }
 
@@ -1509,33 +1514,41 @@ VkImageUsageFlags rt_reflections_depth_usage(const Backend& state, VkFormat form
 namespace {
 
 // (added by the decals) The trace with the puddles (vulkan_scatter.h), single-sampled, with or without the sky - made on
-// first use; null (logged once) when it can't be.
-VkPipeline wet_pipeline(Backend& state, bool sky)
+// first use; null (logged once, the reason in `why` when given) when it can't be.
+VkPipeline wet_pipeline(Backend& state, bool sky, std::string* why = nullptr)
 {
     ReflectionState& own = reflections();
     VkPipeline& made = core::at(own.trace_wet, sky ? 1U : 0U);
     if (made == VK_NULL_HANDLE && !own.wet_failed) {
-        std::string error = "the trace's text";
+        std::string error = "the trace's text: a line the puddles are put in by (wet_trace_body) isn't in it";
         const std::string body = wet_trace_body();
         if (!body.empty()) {
             made = make_compute(state.context.device(), own.layout, compute_source(body.c_str(), false, true, sky), &error);
         }
         if (made == VK_NULL_HANDLE) {
             own.wet_failed = true;
+            own.wet_error = error;
             get_log("vulkan: rt_reflections: the puddles' trace couldn't be made (%s) - puddles don't reflect",
                     error.c_str());
         }
+    }
+    if (made == VK_NULL_HANDLE && why != nullptr) {
+        *why = own.wet_error;
     }
     return made;
 }
 
 } // namespace
 
-bool make_rt_reflection_wet_trace(Backend& state)
+bool make_rt_reflection_wet_trace(Backend& state, std::string* error)
 {
-    std::string error;
-    return state.context.ray_tracing_enabled() && ensure_objects(state, &error) &&
-           wet_pipeline(state, false) != VK_NULL_HANDLE && wet_pipeline(state, true) != VK_NULL_HANDLE;
+    std::string why;
+    const bool made = state.context.ray_tracing_enabled() && ensure_objects(state, &why) &&
+                      wet_pipeline(state, false, &why) != VK_NULL_HANDLE && wet_pipeline(state, true, &why) != VK_NULL_HANDLE;
+    if (!made && error != nullptr) {
+        *error = why.empty() ? std::string("ray tracing isn't enabled") : why;
+    }
+    return made;
 }
 
 bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
@@ -1914,6 +1927,7 @@ void release_rt_reflections(Backend& state)
     own.trace = {};
     own.trace_wet = {};
     own.wet_failed = false;
+    own.wet_error.clear();
     own.surface = VK_NULL_HANDLE;
     own.vertex = VK_NULL_HANDLE;
     own.layout = VK_NULL_HANDLE;

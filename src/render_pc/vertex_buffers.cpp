@@ -207,6 +207,7 @@ long IdxStore::get_unlock()
 // 0x004D6720
 uint32_t VertexBuffer::teardown()
 {
+    rt_record::vertex_buffer_released(this); // (not original: the relit level's record of it forgotten)
     // (NOT ORIGINAL: a buffer the card never made - its creation failed - has nothing to release)
     const uint32_t references = buffer_ != nullptr ? gpu().release_vertex_buffer(buffer_) : 0;
     buffer_ = nullptr;

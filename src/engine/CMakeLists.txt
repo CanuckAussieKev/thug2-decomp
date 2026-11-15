@@ -133,6 +133,7 @@ add_library(thug2_engine STATIC
     gfx/smooth_tess.cpp
     gfx/rt_sun.cpp
     gfx/rt_daylight.cpp
+    gfx/rt_light_field.cpp
     gfx/day_clock.cpp
     gfx/surface_maps.cpp
     gfx/water_surfaces.cpp

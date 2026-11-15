@@ -1709,6 +1709,36 @@ SceneView current_scene(const Backend& state)
 
 std::string_view scene_geometry_glsl() { return kGeometryGlsl; }
 
+std::string_view cutout_rays_glsl()
+{
+    static constexpr const char* kCutoutRays = R"(
+bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach)
+{
+    if (mask == 0u || reach <= 0.0) {
+        return false;
+    }
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0, direction, reach);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+            uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+            HitVertices v;
+            bool keep = true;
+            if (hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                             rayQueryGetIntersectionPrimitiveIndexEXT(query, false), v)) {
+                keep = material_alpha_passes_at(id, hit_uv(v, rayQueryGetIntersectionBarycentricsEXT(query, false)));
+            }
+            if (keep) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+    }
+    return rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+}
+)";
+    return kCutoutRays;
+}
+
 VkBufferUsageFlags ray_tracing_buffer_usage(const Backend& state)
 {
     return state.context.ray_tracing_enabled()

@@ -57,7 +57,7 @@ constexpr float kPerMille = 1000.0F; // (added for the characters: rt_ao_charact
 constexpr float kMaxGiStrength = 4.0F;
 constexpr float kMaxGiDistance = 5000.0F;
 constexpr uint32_t kGiMask = 0x01 | 0x02 | 0x04; // the bounce rays (and the surface's own): world, objects, alpha-tested
-constexpr uint32_t kGiSunMask = 0x01 | 0x02;      // the rays toward the sun: the opaque world and objects
+constexpr uint32_t kGiSunMask = 0x01 | 0x02 | 0x04; // the rays toward the sun: world, objects, cut-outs by alpha
 constexpr float kSunDistance = 20000.0F;         // how far a ray toward the sun looks (world units)
 constexpr float kBounceSpread = 0.05F; // a bounce ray's footprint grows this much per unit (it stands for a wide cone)
 constexpr float kSmallestUnit = 1e-3F; // (the rays' noise unit, however dark the level's lights)
@@ -143,7 +143,6 @@ Value kept_in_range(Value v) { return clamp(v, 0.0, 1.0); }
 // offset's scale, w the depth sample's offset (x); extra: x the frame's index, y the mask. What both effects' rays share:
 constexpr const char* kTraceShared = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
-layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;
 #ifdef MULTISAMPLED
 layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
 #else
@@ -291,12 +290,7 @@ vec3 hemisphere_ray(Hemisphere h, uint i, uint rays)
 constexpr const char* kAoTraceBody = R"(
 float occluded(vec3 origin, vec3 direction, uint mask)
 {
-    rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,
-                          direction, pc.params.x);
-    while (rayQueryProceedEXT(query)) {
-    }
-    return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 0.0 : 1.0;
+    return ray_blocked(mask, origin, direction, pc.params.x) ? 1.0 : 0.0; // (cut-outs by their alpha)
 }
 
 void main()
@@ -393,12 +387,7 @@ vec3 hit_albedo(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x
 
 bool sun_blocked(vec3 origin)
 {
-    rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
-                          uint(lights.shape.z) & 0xFFu, origin, 0.0, lights.to_sun.xyz, lights.shape.y);
-    while (rayQueryProceedEXT(query)) {
-    }
-    return rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+    return ray_blocked(uint(lights.shape.z) & 0xFFu, origin, lights.to_sun.xyz, lights.shape.y); // (cut-outs by alpha)
 }
 
 // The light a bounce ray brings back to `origin` (travelled: the camera's distance to it, for the start offsets).
@@ -911,13 +900,14 @@ std::string source_of(const char* body, bool traces, bool multisampled, bool rgb
     }
     if (traces) {
         source += "#extension GL_EXT_ray_query : require\n";
-        if (rgb) {
-            source += "#define THUG2_MATERIAL_SET 1\n";
-            source += material_glsl();
-        }
-        // (both effects' rays: the occlusion's read the objects' vertex normals too)
+        // (both effects' rays take the cut-outs by their alpha - the material table's alpha test, set 1 - and the
+        // occlusion's read the objects' vertex normals too)
+        source += "#define THUG2_MATERIAL_SET 1\n";
+        source += material_glsl();
         source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 7\n";
         source += scene_geometry_glsl();
+        source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
+        source += cutout_rays_glsl(); // (the one lighting path's ray test)
     }
     source += kCommon;
     if (traces) {
@@ -1007,12 +997,12 @@ bool ensure_objects(Backend& state, EffectsState& own, std::string* error)
             *error = "the descriptor layout or the sampler";
             return false;
         }
-        own.material_layout = rgb ? state.materials.layout() : VK_NULL_HANDLE;
+        own.material_layout = state.materials.layout(); // (both: the rays' cut-out test)
         const std::array<VkDescriptorSetLayout, 2> sets{own.set_layout, own.material_layout};
         const VkPipelineLayoutCreateInfo layout_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                                      .pNext = nullptr,
                                                      .flags = 0,
-                                                     .setLayoutCount = rgb ? 2U : 1U,
+                                                     .setLayoutCount = 2U,
                                                      .pSetLayouts = sets.data(),
                                                      .pushConstantRangeCount = 1,
                                                      .pPushConstantRanges = &constants};
@@ -1679,7 +1669,7 @@ LightsBlock lights_block(EffectsState& own, float* unit)
         const rt::DayLight day = rt::day_light();
         if (day.on) {
             for (std::size_t i = 0; i < 3; ++i) {
-                core::at(block.sun, i) = kGiSunLight * day.direct * core::at(day.direct_tint, i);
+                core::at(block.sun, i) = kGiSunLight * core::at(day.light_colour, i);
             }
         }
     }
@@ -1804,7 +1794,7 @@ bool effect_ready(Backend& state, EffectsState& own)
         }
         return false;
     }
-    if (rgb && (!state.materials.ready() || state.materials.descriptor_set() == VK_NULL_HANDLE)) {
+    if (!state.materials.ready() || state.materials.descriptor_set() == VK_NULL_HANDLE) {
         if (first_report(state, kReportNoMaterials + key)) {
             get_log("vulkan: rt_gi: no material table - the indirect light pass skipped");
         }
@@ -1925,7 +1915,7 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
         }
         return false;
     }
-    if (rgb && own.material_layout != state.materials.layout()) {
+    if (own.material_layout != state.materials.layout()) {
         return false; // (the table was made again with another layout: not while the device lives)
     }
     // the viewport, inside the target
@@ -2016,6 +2006,9 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
             trace_images.albedo = &slot->albedo;
             trace_images.lights = lights_span->buffer;
             trace_images.lights_offset = lights_span->offset;
+        }
+        {
+            // (both effects' rays: the cut-outs' alpha test reads the material table)
             const VkDescriptorSet material_set = state.materials.descriptor_set();
             vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1,
                                     &material_set, 0, nullptr);

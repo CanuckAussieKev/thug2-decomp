@@ -20,6 +20,7 @@
 #include "engine/gfx/game_hooks.h"
 #include "engine/gfx/lens_flare.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/tod_manager.h"
 #include "platform/run_log.h"
@@ -43,8 +44,6 @@ constexpr uint8_t kHalfAlpha = 0x80;
 constexpr uint32_t kByteMask = 0xFFU;
 constexpr uint32_t kGreenShift = 8U;
 constexpr uint32_t kBlueShift = 16U;
-// The models' colour (relit) sent again this often (frames) - objects made since get it - and at once when it moves.
-constexpr int kModelsEvery = 1; // (every frame: an object made gets the night's colour before it is first drawn)
 constexpr int kMostByte = 255;
 
 uint32_t rgba(int red, int green, int blue)
@@ -52,15 +51,6 @@ uint32_t rgba(int red, int green, int blue)
     return static_cast<uint32_t>(static_cast<uint8_t>(red)) |
            static_cast<uint32_t>(static_cast<uint8_t>(green)) << kGreenShift |
            static_cast<uint32_t>(static_cast<uint8_t>(blue)) << kBlueShift | static_cast<uint32_t>(kHalfAlpha) << 24U;
-}
-
-// r, g, b times `scale`'s channels (rounded, held to a byte).
-uint32_t scaled_rgba(int red, int green, int blue, const rt::DayRgb& scale)
-{
-    const auto byte = [](int value, float factor) {
-        return std::clamp(static_cast<int>(std::lround(static_cast<float>(value) * factor)), 0, kMostByte);
-    };
-    return rgba(byte(red, std::get<0>(scale)), byte(green, std::get<1>(scale)), byte(blue, std::get<2>(scale)));
 }
 
 bool near_colour(uint32_t a, uint32_t b)
@@ -115,12 +105,9 @@ struct Colouring {
     uint32_t sweep_sky = 0;
     int group = 0;
     int part = 0;
-    // (the relit mode) the models' own colour - the scenes keep the level's, the relit colours dim them
+    // (the relit mode) the models' colour - the level's own, lit where each stands (colour_models_by_place)
     bool models_own = false;
     uint32_t models = 0;
-    uint32_t sent_models = 0;
-    bool models_sent = false;
-    int models_age = 0;
 };
 
 struct Clock {
@@ -155,6 +142,12 @@ Clock& clock()
 {
     static Clock state;
     return state;
+}
+
+bool& ready_slot()
+{
+    static bool ready = true;
+    return ready;
 }
 
 // The level's own sun as the game shows it (the sprite's theta and phi when the clock took over), if shown.
@@ -269,53 +262,42 @@ void colour_step(Clock& own, gfx::CtodManager& manager, int system)
         colours.sent = true;
         colours.sent_level = colours.sweep_level;
         colours.sent_sky = colours.sweep_sky;
-        colours.models_sent = false; // (the sweep coloured the models with the level)
     }
 }
 
-// (the relit mode) The models given their own colour once a sweep is done, when it moves, and every kModelsEvery
-// frames for the objects made since.
-void models_step(gfx::CtodManager& manager, Colouring& colours)
+// (the relit mode - the one lighting path) The models given the level's own colour times the light where each stands
+// (CtodManager::colour_models_by_place) once a sweep is done, every frame: they move, objects are made, the light
+// changes.
+void models_step(gfx::CtodManager& manager, const Colouring& colours)
 {
     if (!colours.models_own || colours.sweeping) {
         return;
     }
-    ++colours.models_age;
-    if (colours.models_sent && colours.models_age < kModelsEvery && near_colour(colours.models, colours.sent_models)) {
-        return;
-    }
-    manager.colour_models(colours.models);
-    colours.sent_models = colours.models;
-    colours.models_sent = true;
-    colours.models_age = 0;
+    manager.colour_models_by_place(colours.models);
 }
 
-// (the relit mode) The objects' and characters' lights: the level's own state's, each scaled as the relit mode scales
-// the level's light - the key light (light 0, the sun's) by the direct light, the fill and the ambient by the sky's -
-// so they darken with the level (the original's own states' lights are another, brighter night).
-void lights_by_day(const gfx::TodParams& own, const rt::DayLight& light, gfx::TodParams* params)
+// (the relit mode - the one lighting path) The objects' and characters' lights: the level's own state's, as the bake
+// was lit - the light now reaches them where they are (pc_lights.cpp: the key light times the lighting state's direct
+// light, the fill and the ambient times the light field's indirect ratio there - engine/gfx/rt_light_field.h).
+void own_lights(const gfx::TodParams& own, gfx::TodParams* params)
 {
-    const auto scale = [](int value, float factor) {
-        return std::clamp(static_cast<int>(std::lround(static_cast<float>(value) * factor)), 0, kMostByte);
-    };
-    const float direct = light.direct;
-    params->ambient_red_ = scale(own.ambient_red_, std::get<0>(light.sky));
-    params->ambient_green_ = scale(own.ambient_green_, std::get<1>(light.sky));
-    params->ambient_blue_ = scale(own.ambient_blue_, std::get<2>(light.sky));
+    params->ambient_red_ = own.ambient_red_;
+    params->ambient_green_ = own.ambient_green_;
+    params->ambient_blue_ = own.ambient_blue_;
     params->ambient_mod_lo_ = own.ambient_mod_lo_;
     params->ambient_mod_hi_ = own.ambient_mod_hi_;
     params->heading0 = own.heading0;
     params->pitch0 = own.pitch0;
-    params->red0 = scale(own.red0, direct * std::get<0>(light.direct_tint));
-    params->green0 = scale(own.green0, direct * std::get<1>(light.direct_tint));
-    params->blue0 = scale(own.blue0, direct * std::get<2>(light.direct_tint));
+    params->red0 = own.red0;
+    params->green0 = own.green0;
+    params->blue0 = own.blue0;
     params->mod_lo0_ = own.mod_lo0_;
     params->mod_hi0_ = own.mod_hi0_;
     params->heading_a_ = own.heading_a_;
     params->pitch1 = own.pitch1;
-    params->red1 = scale(own.red1, std::get<0>(light.sky));
-    params->green1 = scale(own.green1, std::get<1>(light.sky));
-    params->blue1 = scale(own.blue1, std::get<2>(light.sky));
+    params->red1 = own.red1;
+    params->green1 = own.green1;
+    params->blue1 = own.blue1;
     params->mod_lo1_ = own.mod_lo1_;
     params->mod_hi1_ = own.mod_hi1_;
 }
@@ -341,7 +323,7 @@ void apply_original(Clock& own, gfx::CtodManager& manager, const rt::DayLight& l
     own.set_state = manager.current_state();
     const bool relit = rt::sun_relight().relights;
     const bool sky_drawn = rt::sky_replacement().on;
-    const rt::DayRgb surface = rt::surface_light(light);
+    const rt::LightRatio level_light = rt::level_light_ratio(); // (the one lighting path: the level's whole)
     const auto native = static_cast<std::size_t>(own.native.state);
     for (int system = 0; system < kSystems; ++system) {
         if (!core::at(own.have_params, system)) {
@@ -352,14 +334,22 @@ void apply_original(Clock& own, gfx::CtodManager& manager, const rt::DayLight& l
         const gfx::TodParams& own_params = core::at(core::at(own.params, system), native);
         Colouring& colours = core::at(own.colouring, system);
         colours.level = rgba(params.lev_red_, params.lev_green_, params.lev_blue_);
-        // (the relit mode dims the bake itself: the scenes' colour stays the level's; what it doesn't relight - the
-        // objects' models, by their colour, and the objects and characters lit by the game's lights - takes the same
-        // darkening as the relit level; the particles keep the original's state's colour - params' lev, theirs alone)
+        // (the relit mode lights the bake itself: the scenes' colour stays the level's; what it doesn't relight vertex
+        // by vertex is lit by the same light where it is - the one lighting path, engine/gfx/rt_light_field.h: the
+        // objects' models their own colour times the light where each stands, the objects and characters lit by the
+        // game's lights the level's own state's lights (pc_lights.cpp scales them where they are), the particles -
+        // params' lev, theirs alone - the level's own colour times the level's light as a whole)
         colours.models_own = relit && !sky_system;
         if (relit) {
             colours.level = rgba(own_params.lev_red_, own_params.lev_green_, own_params.lev_blue_);
-            colours.models = scaled_rgba(own_params.lev_red_, own_params.lev_green_, own_params.lev_blue_, surface);
-            lights_by_day(own_params, light, &params);
+            colours.models = colours.level;
+            own_lights(own_params, &params);
+            const auto lit = [](int value, float ratio) {
+                return std::clamp(static_cast<int>(std::lround(static_cast<float>(value) * ratio)), 0, kMostByte);
+            };
+            params.lev_red_ = lit(own_params.lev_red_, std::get<0>(level_light.whole));
+            params.lev_green_ = lit(own_params.lev_green_, std::get<1>(level_light.whole));
+            params.lev_blue_ = lit(own_params.lev_blue_, std::get<2>(level_light.whole));
         }
         // (the backend's sky has its own night: the dome's colour stays the level's)
         if (sky_drawn) {
@@ -421,6 +411,7 @@ void give_back(Clock& own, gfx::CtodManager* manager)
 
 void frame()
 {
+    ready_slot() = true; // (every way out but the wait for the baked sun leaves the light settled)
     Clock& own = clock();
     gfx::CtodManager* manager = gfx::tod_manager();
     const uint32_t level = level_scene();
@@ -478,6 +469,7 @@ void frame()
     if (!know_native(own)) {
         own.status = "tod: waiting for the level's baked sun";
         rt::set_day_light({});
+        ready_slot() = false;
         return;
     }
     // the time: from the choice when it changes, then running with the cycle (stopped while the game is paused)
@@ -509,5 +501,7 @@ void frame()
 }
 
 const char* status() { return clock().status.c_str(); }
+
+bool light_ready() { return ready_slot(); }
 
 } // namespace render::day_clock

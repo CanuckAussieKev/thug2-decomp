@@ -73,7 +73,6 @@ void main()
 
 // The fragment shader (after the material and geometry tables' GLSL; MULTISAMPLED defined for a multisampled depth).
 constexpr const char* kFragmentBody = R"(
-layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;
 #ifdef MULTISAMPLED
 layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
 #else
@@ -211,18 +210,10 @@ vec3 light_tint(uint id)
     return brightest > 4e-3 ? sum / brightest : vec3(1.0);
 }
 
-// Whether a ray is blocked before `reach`.
+// Whether a ray is blocked before `reach` (the cut-outs by their alpha: vulkan_rt_scene.h cutout_rays_glsl).
 float blocked(uint mask, vec3 origin, vec3 direction, float reach)
 {
-    if (mask == 0u || reach <= 0.0) {
-        return 0.0;
-    }
-    rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,
-                          direction, reach);
-    while (rayQueryProceedEXT(query)) {
-    }
-    return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 0.0 : 1.0;
+    return ray_blocked(mask, origin, direction, reach) ? 1.0 : 0.0;
 }
 
 const uint MOST = 8u;
@@ -538,6 +529,8 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     source += material_glsl();
     source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 2\n";
     source += scene_geometry_glsl();
+    source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
+    source += cutout_rays_glsl(); // (the one lighting path's ray test: the lamps' light through the cut-outs' holes)
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source, error);
     if (fragment == VK_NULL_HANDLE) {

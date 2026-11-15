@@ -216,7 +216,9 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     const float n_dot_l = length > 0.0F ? std::max(0.0F, dot(vertex.normal, lighting.toward) / length) : 0.0F;
     const std::array<float, 3> residual =
         lighting.residual ? vertex.residual : std::array<float, 3>{0.0F, 0.0F, 0.0F};
-    return {word(ambient, kBytesPerLight, n_dot_l), word(tint, kBytesPerLight, std::clamp(vertex.sun, 0.0F, 1.0F)),
+    // (the sun's visibility with the bake's sun the tracer missed - toward the bake's own sun only: rt_relit.h)
+    const float seen = vertex.sun + (vertex.sun_missed * relit_missed_trust(model, lighting.toward));
+    return {word(ambient, kBytesPerLight, n_dot_l), word(tint, kBytesPerLight, std::clamp(seen, 0.0F, 1.0F)),
             word(residual, kBytesPerLight, 1.0F)};
 }
 

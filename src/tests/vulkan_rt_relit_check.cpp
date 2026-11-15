@@ -1040,8 +1040,73 @@ void run_perf(render::Gpu& gpu, const Scene& scene, rt::RayTracing& backend)
     }
 }
 
+// (added by the one lighting path) The residual taken apart (rt_relit.h relit_split_residual): a face toward the bake's
+// sun, in the tracer's shade, brighter by the sun's whole light in the sun's colour - the bake's sun the rays missed -
+// is sun_missed, its residual gone, and lit as the bake at the bake's sun but not toward another light (no wedge); a
+// dim lamp-coloured glow there, or anything on a face turned away, stays the residual.
+void check_split(Tally* tally)
+{
+    text::print("the residual taken apart (on the processor):\n");
+    rt::RelitModel model;
+    model.valid = true;
+    model.toward = {0.0F, 1.0F, 0.0F};
+    model.sun = {0.50F, 0.48F, 0.42F};
+    model.sky = {0.30F, 0.32F, 0.36F};
+    model.bounce = {0.0F, 0.0F, 0.0F};
+    model.scale = 1.0F;
+    rt::RelitVertex wedge;
+    wedge.used = true;
+    wedge.normal = {0.0F, 1.0F, 0.0F};
+    wedge.sun = 0.0F;
+    wedge.sky = 0.8F;
+    wedge.tint = {0.8F, 0.7F, 0.6F};
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        core::at(wedge.residual, ch) = core::at(wedge.tint, ch) * core::at(model.sun, ch);
+    }
+    const rt::RelitVertex unsplit = wedge;
+    rt::relit_split_residual(model, model.scale, &wedge);
+    tally->check(std::abs(wedge.sun_missed - 1.0F) < 1e-4F && luma(wedge.residual) < 1e-4F,
+                 text::format("the bake's sun the rays missed: sun_missed %.3f, residual %.4f left",
+                              static_cast<double>(wedge.sun_missed), static_cast<double>(luma(wedge.residual))));
+    constexpr uint32_t kGreyAlpha = 0x80000000U;
+    const rt::RelitLighting at_bake{.toward = model.toward};
+    const int same = channel_difference(rt::relit_colour(model, wedge, at_bake, kGreyAlpha),
+                                        rt::relit_colour(model, unsplit, at_bake, kGreyAlpha));
+    tally->check(same <= 1, text::format("at the bake's sun it is lit as before (%d apart)", same));
+    // a light 30 degrees from the bake's: the rays' shade alone (sky), no wedge of the bake's sun
+    const rt::RelitLighting moved{.toward = {0.5F, 0.8660254F, 0.0F}};
+    rt::RelitVertex shaded = unsplit;
+    shaded.residual = {};
+    const int wedge_gone = channel_difference(rt::relit_colour(model, wedge, moved, kGreyAlpha),
+                                              rt::relit_colour(model, shaded, moved, kGreyAlpha));
+    tally->check(wedge_gone <= 1 && rt::relit_missed_trust(model, moved.toward) == 0.0F &&
+                     rt::relit_missed_trust(model, model.toward) == 1.0F,
+                 text::format("toward another light the missed sun is gone (%d from the shade alone)", wedge_gone));
+    // a dim warm glow on the same face: the level's own light, kept
+    rt::RelitVertex glow = unsplit;
+    glow.residual = {0.30F, 0.20F, 0.05F};
+    rt::relit_split_residual(model, model.scale, &glow);
+    tally->check(glow.sun_missed == 0.0F && glow.residual == rt::Rgbf{0.30F, 0.20F, 0.05F},
+                 "a dim warm glow stays the residual (the level's own light)");
+    // a face turned from the bake's sun: nothing of the sun's
+    rt::RelitVertex away = unsplit;
+    away.normal = {0.0F, -1.0F, 0.0F};
+    rt::relit_split_residual(model, model.scale, &away);
+    tally->check(away.sun_missed == 0.0F && away.residual == unsplit.residual,
+                 "on a face turned from the bake's sun the residual stays");
+    // the moon's weak light: the missed sun follows the direct light's strength and colour
+    rt::RelitLighting moon = at_bake;
+    moon.direct_scale = {0.14F, 0.16F, 0.22F};
+    const rt::Rgbf lit = rt::relit_light(model, wedge, moon);
+    const float wanted = (0.16F * std::get<1>(model.sun)) + (std::get<1>(model.sky) * wedge.sky);
+    tally->check(std::abs(std::get<1>(lit) - wanted) < 1e-4F,
+                 text::format("the missed sun takes the lighting state's direct light (%.4f, %.4f wanted)",
+                              static_cast<double>(std::get<1>(lit)), static_cast<double>(wanted)));
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
+    check_split(tally);
     rt::RayTracing* const backend = rt::ray_tracing();
     tally->check(backend != nullptr && backend->available(), "the ray tracing backend is installed");
     if (backend == nullptr) {

@@ -142,6 +142,11 @@ inline constexpr double kMoonFrom = -4.0;     // the sun lower than this: the mo
 inline constexpr double kMoonFull = -12.0;    // its light whole from here down
 inline constexpr float kMoonLight = 0.22F;    // the moon's direct light (display-referred, the level's sun 1)
 inline constexpr DayRgb kMoonTint{0.62F, 0.74F, 1.0F};
+// The light's angular radius (degrees) - how soft the shadows it casts are (the relit level's sun rays are jittered over
+// it; the shadow pass's softness follows it): the sun's disc softened as the bake's shadows are, the moon's light much
+// softer - weak and diffuse, its shadows blurred edges, never the hard wedges of the bake's sun.
+inline constexpr float kSunRadiusDegrees = 1.5F;
+inline constexpr float kMoonRadiusDegrees = 6.0F;
 // the night sky's light (display-referred): with the moon about the original's own night (its night state's level
 // colour, 50 65 75 of 128 - tod_manager.qb), so its night lights and skater fit it
 inline constexpr DayRgb kNightSkyLight{0.14F, 0.18F, 0.26F};
@@ -178,7 +183,11 @@ struct DayLight {
     bool moonlit = false;     // `light` is the moon
     float direct = 1.0F;      // the direct light's strength over the level's own sun's (display-referred)
     DayRgb direct_tint{1.0F, 1.0F, 1.0F}; // its colour over the level's own sun's (the moon's blue at night)
+    DayRgb light_colour{1.0F, 1.0F, 1.0F}; // direct x direct_tint: the direct light now over the level's own sun's
+    float light_radius = kSunRadiusDegrees; // the direct light's angular radius (degrees): how soft its shadows are
     DayRgb sky{1.0F, 1.0F, 1.0F};         // the sky's light over the level's own (display-referred)
+    DayRgb bounce{1.0F, 1.0F, 1.0F};      // the light bounced off the surroundings over the level's own: the direct
+                                          // light's and the sky's in the level's own shares (kDirectShare)
     float shadow = 1.0F;      // the sun's shadows' strength over the level's own (their share of the light)
     float lamps = 0.0F;       // 0 - 1: the lamps (rt_lights) on
     float stars = 0.0F;       // 0 - 1
@@ -191,11 +200,6 @@ struct DayLight {
 };
 // The light at `hours` on the level's day.
 [[nodiscard]] DayLight day_light_at(const NativeDay& native, double hours);
-// What the light does to a surface over the level's own (display-referred, per channel): the level's mix of the direct
-// light and the sky's (kDirectShare - as the relit level's bounce scales) - what the relit mode makes of the level as a
-// whole. The objects and the characters the relit mode doesn't relight take it (day_clock: their tint, their lights),
-// so they darken with the level. All 1 while `on` is false.
-[[nodiscard]] DayRgb surface_light(const DayLight& light);
 // The drawn clouds' light at the clock's time (the Vulkan sky pass's: its clouds are lit by the sun and by the sky's
 // bands it matched at the level's own time): the sun's light on them x `sun` (gone once the sun is kCloudSunGone under
 // the horizon - a cloud high up keeps the sunset's light a little after the ground has lost it), the sky's x `sky` (the

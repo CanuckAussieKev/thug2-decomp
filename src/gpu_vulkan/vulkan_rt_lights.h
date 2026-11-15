@@ -18,7 +18,8 @@
 //     camera finds its triangle and its material's texel - as the bounce light does; a pixel whose surface isn't found
 //     is left alone), then every light's unshadowed light there - colour x intensity x falloff (rt_lights.h
 //     light_falloff) x N.L -, the brightest rt_lights_shadowed of them traced: a ray query toward each (the opaque world
-//     and objects - masks 0x01, 0x02; an object's pixel only the world's, as the shadows) stopping its size short of it
+//     and objects - masks 0x01, 0x02 - and the cut-outs by their alpha, 0x04: vulkan_rt_scene.h cutout_rays_glsl; an
+//     object's pixel only the world's, as the shadows) stopping its size short of it
 //     (a lamp's own fixture doesn't shadow it), its colour tinted by its material's texture's mean (the texture's
 //     smallest level); the others' light added in the share of the traced ones' that got through;
 //   - that light's sum held under rt_lights.h kLightMost (limited_light: many lamps over one spot brighten it, they
@@ -32,7 +33,7 @@ namespace render::vulkan {
 
 struct Backend;
 
-inline constexpr uint32_t kLightsShadowMask = 0x01 | 0x02; // (the opaque world and objects)
+inline constexpr uint32_t kLightsShadowMask = 0x01 | 0x02 | 0x04; // (+ the cut-outs, by their alpha)
 inline constexpr uint32_t kLightsSurfaceMask = 0x01 | 0x02 | 0x04; // (the camera's ray: + the alpha-tested)
 inline constexpr unsigned kMostShadowedLights = 8;
 

@@ -56,26 +56,35 @@ struct WorldMesh {
 void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& tracer);
 // A mesh destroyed (rt_record::mesh_released): whatever was kept for it forgotten.
 void mesh_released(const MeshRef* mesh);
+// A vertex buffer destroyed (rt_record::vertex_buffer_released): its entry forgotten. Entries are kept by the buffer's
+// address: without this a buffer made later at the same address - the night state's scripts make and free meshes as
+// they show and hide parts of the level - was taken for the old one, already written, and drawn with its bake.
+void buffer_released(const VertexBufferData* buffer);
+// The game wrote a buffer's contents itself (rt_record::vertex_buffer_written, not a relit write): over the relit
+// colours - they are written again (the next writes, as a new lighting's).
+void buffer_written(const VertexBufferData* buffer);
 // (added by the camera effects) The level's main scene - the first world scene that isn't a sky -, its checksum (0:
 // none): rt_grade=level's key.
 [[nodiscard]] uint32_t level_scene();
 // The baked colours of a buffer the mode has written into (A8R8G8B8, a word a vertex), or empty: it holds its own.
 [[nodiscard]] std::span<const uint32_t> original_colours(const VertexBufferData* buffer);
 // How the skater's and the objects' lights follow the relit world (pc_lights.cpp): while the world is relit by a sun
-// other than the bake's, or a coloured one, the game's directional lights turned by the rotation that takes the bake's
-// sun to the relit one (rows: x' = row . x) and the first (the key light) tinted by the sun's colour. False: as they are
-// (the mode off, or relit by the bake's own sun and colour - the game's lights then as the original's, beside a world
-// that looks as the original's).
+// other than the bake's, a coloured one, or the clock's light, the game's directional lights turned by the rotation that
+// takes the bake's sun to the relit one (rows: x' = row . x) and the first (the key light) times the direct light now
+// over the bake's (the sun's colour; the lighting state's light_colour - the moon's at night); the others and the
+// ambient take the light field's indirect ratio where the thing is (pc_lights.cpp). False: as they are (the mode off, or
+// relit by the bake's own sun and colour - the game's lights then as the original's, beside a world that looks as the
+// original's).
 struct ObjectLighting {
     std::array<std::array<float, 3>, 3> rotation{};
     std::array<float, 3> key_colour{1.0F, 1.0F, 1.0F};
 };
 [[nodiscard]] bool object_lighting(ObjectLighting* out);
-// (added by the time of day) The colour an unlit object - its own baked vertex colours, which the mode doesn't relight
-// (the tables, chairs and props drawn as instances without the game's lights) - is drawn with while the clock lights the
-// relit level: the level's darkening (rt_daylight.h surface_light, the relit bounce's scale) as the instance colour's
-// bytes (128 = 1). False: none (no clock, or the level not relit) - drawn as the original draws it.
-[[nodiscard]] bool unlit_object_colour(std::array<uint8_t, 4>* out);
+// (the one lighting path) The colour an unlit object at `position` - its own baked vertex colours, which the mode doesn't
+// relight (the tables, chairs and props drawn as instances without the game's lights) - is drawn with: the level's
+// light there now over the bake's (engine/gfx/rt_light_field.h light_ratio_at, whole) as the instance colour's bytes
+// (128 = 1). False: none (the level not relit, no field yet, or the light there the bake's) - drawn as the original.
+[[nodiscard]] bool unlit_object_colour(const std::array<float, 3>& position, std::array<uint8_t, 4>* out);
 // (added by the scene's sun) Whether every mesh's colours are written for the sun the world is relit by now (its sun
 // and bounce traced, the writes done): `sun` that sun, `lighting` a number for that lighting (another when anything
 // that changes the colours changed). rt_record makes the shadows' agreement grid for that sun from them.
@@ -86,6 +95,21 @@ bool settled(std::array<float, 3>* sun, uint64_t* lighting);
 // (the console's `rt probe`) The relit world's vertices within `radius` of `point`: their count and mean baked and
 // relit brightness, and the nearest few's parts (sun, sky, bounce, tint, residual) and colours.
 [[nodiscard]] std::string describe_near(const std::array<float, 3>& point, float radius);
+// (the console's `rt probe`) Whether the mesh `id` is relit: its entry's state and its vertices' mean baked and relit
+// brightness, or that the mode keeps none for it.
+[[nodiscard]] std::string describe_mesh(rt::MeshId id);
+// (the one lighting path - load readiness) A level's first light: from the frame after a loading screen goes down,
+// whether the frame shown should still be the loading screen's picture - while ray tracing relights the level, the
+// clock may light it (rt_daylight.h tod_may_run: elsewhere the first frame is the bake, as it should be) and the
+// lighting isn't ready: the clock's light published (day_clock.h light_ready), the level relit for it (every mesh's
+// colours written, the light field made) or found not to be relit (no sun, opted out, the mode off), for
+// kFirstLightSteadyFrames frames in a row - at most
+// kFirstLightMostSeconds. So the first frame shown of a level loaded at night is already night; the frames before it
+// are drawn (the world must stand still to be relit) but covered. Called once a frame by draw_world; `loading` true
+// while the loading screen is up (the next level's hold armed).
+inline constexpr double kFirstLightMostSeconds = 10.0;
+inline constexpr uint32_t kFirstLightSteadyFrames = 10; // ready this many frames in a row
+[[nodiscard]] bool hold_first_light(bool loading);
 // The console's `rt relit` (devtools/rt_check.cpp): the state in a line.
 [[nodiscard]] std::string status_text();
 

@@ -45,8 +45,21 @@ std::vector<std::string> installed_sets();
 const std::string& active();
 
 // The chosen set's file for a game file name as the data overlay keeps it ("levels\bo\bo.tex.xbx": lower case,
-// backslashes), if it is a texture dictionary the set has: its full path in `path`.
+// backslashes), if it is a texture dictionary the set has: its full path in `path`. None while an OriginalFiles lives
+// on this thread.
 bool file_for(const char* overlay_name, std::string* path);
+// While one lives (on the thread that made it), the files the game reads are its own - no set's: what the surface maps
+// (render_pc/surface_map_load.h) read a set's dictionary's original from, to know its textures by the original texels
+// the maps were made from.
+class OriginalFiles {
+public:
+    OriginalFiles();
+    ~OriginalFiles();
+    OriginalFiles(const OriginalFiles&) = delete;
+    OriginalFiles& operator=(const OriginalFiles&) = delete;
+    OriginalFiles(OriginalFiles&&) = delete;
+    OriginalFiles& operator=(OriginalFiles&&) = delete;
+};
 
 // The set to switch to (by the front end's next frame). Returns what happens, one line ("pbrify: switching" / "pbrify:
 // not installed - tools/pipeline/hd_textures/base.ts" / "pbrify already in use").

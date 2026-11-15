@@ -180,6 +180,7 @@ bool same_light(const DayLight& a, const DayLight& b)
 {
     return a.on == b.on && a.hours == b.hours && a.sun == b.sun && a.moon == b.moon && a.light == b.light &&
            a.native == b.native && a.moonlit == b.moonlit && a.direct == b.direct && a.direct_tint == b.direct_tint &&
+           a.light_colour == b.light_colour && a.light_radius == b.light_radius && a.bounce == b.bounce &&
            a.sky == b.sky && a.shadow == b.shadow && a.lamps == b.lamps && a.stars == b.stars &&
            a.moon_disc == b.moon_disc && a.exposure == b.exposure && a.night_sky == b.night_sky &&
            a.stars_pole == b.stars_pole && a.blend == b.blend;
@@ -518,6 +519,10 @@ DayLight day_light_at(const NativeDay& native, double hours)
         light.light = held_up(light.moon);
         light.direct = static_cast<float>(static_cast<double>(kMoonLight) * night * moon_up);
         light.direct_tint = kMoonTint;
+        light.light_radius = kMoonRadiusDegrees;
+    }
+    for (std::size_t ch = 0; ch < light.light_colour.size(); ++ch) {
+        core::at(light.light_colour, ch) = light.direct * core::at(light.direct_tint, ch);
     }
     // the sky's light, over the level's own, and the night's floor under it
     const double own_sky = sky_light_at(own.elevation);
@@ -527,6 +532,11 @@ DayLight day_light_at(const NativeDay& native, double hours)
         core::at(light.sky, ch) =
             static_cast<float>(sky_ratio + (static_cast<double>(core::at(kNightSkyLight, ch)) * floor));
         core::at(light.night_sky, ch) = static_cast<float>(static_cast<double>(core::at(kNightSky, ch)) * floor);
+    }
+    // the bounce: what the surroundings send back is the direct light's and the sky's, in the level's own shares
+    for (std::size_t ch = 0; ch < light.bounce.size(); ++ch) {
+        core::at(light.bounce, ch) = (kDirectShare * core::at(light.light_colour, ch)) +
+                                     ((1.0F - kDirectShare) * core::at(light.sky, ch));
     }
     // the shadows: the sun's share of the light now over its share in the level's own light
     const float direct = light.direct * luma_of(light.direct_tint);
@@ -546,19 +556,6 @@ DayLight day_light_at(const NativeDay& native, double hours)
                         static_cast<float>(light.hours / kHoursPerDay * 2.0 * kPi)};
     light.blend = tod_blend(sun.elevation, light.hours >= kNoonHours);
     return light;
-}
-
-DayRgb surface_light(const DayLight& light)
-{
-    DayRgb out{1.0F, 1.0F, 1.0F};
-    if (!light.on) {
-        return out;
-    }
-    for (std::size_t ch = 0; ch < out.size(); ++ch) {
-        core::at(out, ch) = (kDirectShare * light.direct * core::at(light.direct_tint, ch)) +
-                            ((1.0F - kDirectShare) * core::at(light.sky, ch));
-    }
-    return out;
 }
 
 CloudLight cloud_light(const DayLight& light)

@@ -23,6 +23,7 @@
 #include "engine/gfx/lens_flare.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/particle_sets.h"
+#include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/screen_effects.h"
 #include "engine/lists/key_map.h"
 #include "engine/objects/compositemgr.h"
@@ -1341,14 +1342,18 @@ void CtodManager::colour_group_part(int index, int group, int part, uint32_t lev
                 ftol(part * step), ftol((part + 1) * step));
 }
 
-// NOT ORIGINAL (added by the time of day) - apply_color's models alone.
-void CtodManager::colour_models(uint32_t color) const
+// NOT ORIGINAL (added by the time of day; the one lighting path) - apply_color's models alone, each lit by the level's
+// light where it stands.
+void CtodManager::colour_models_by_place(uint32_t color) const
 {
     for (objects::ObjectModule* model = objects::object_hub_slot()->find_first_module_of_kind(kModel); model;
          model = model->next_of_type()) {
-        const render::WorldCell* sector = look_up_sector(model->entity()->ident());
+        objects::GameEntity* entity = model->entity();
+        const render::WorldCell* sector = look_up_sector(entity->ident());
         if (!sector || sector->light_group() == kOutdoor) {
-            set_model_color(model, color);
+            const maths::Vec4& at = entity->at_point();
+            const render::rt::LightRatio ratio = render::rt::light_ratio_at({at.x, at.y, at.z});
+            set_model_color(model, render::rt::scaled_colour(color, ratio.whole, true));
         }
     }
 }

@@ -12,12 +12,13 @@
 //     frame, as the manager's own transitions are). The state nearest the time is set with set_tod_instant as the
 //     game's own time-of-day menu does, so the level's own scripts for it run (tod_manager_state_transition: the night
 //     geometry and fake lights of BO, BA, BE, AU and NO, the cars' headlights). Where the relit mode relights the level
-//     (rt_scene.h sun_relight) it already dims the bake: the scenes' colour is left at the level's own, and what it
-//     doesn't relight takes the same darkening (rt_daylight.h surface_light) - the objects' models their own colour
-//     (the level's x it), the objects and characters lit by the game's lights the level's own state's lights, the key
-//     light x the direct light, the fill and the ambient x the sky's (the original's own night is about twice as
-//     bright as the relit one: lit by it they stood out of the dark level); the particles keep the original's states'
-//     colour. Where the backend draws the sky (rt_sky) the dome's colour is the level's too.
+//     (rt_scene.h sun_relight) the scenes' colour is left at the level's own and the light is one path (docs/design/
+//     vulkan.md "One lighting path"): the relit level from the lighting state, and what it doesn't relight vertex by
+//     vertex lit by the same light where it is (engine/gfx/rt_light_field.h) - the objects' models the level's own
+//     colour times the light where each stands, the objects and characters the level's own state's lights (the key
+//     light times the direct light, the fill and ambient times the field's indirect light there - pc_lights.cpp), the
+//     particles the level's own colour times the level's light as a whole. Where the backend draws the sky (rt_sky)
+//     the dome's colour is the level's too.
 //   - the original's sun sprite and lens flare (sun::set_sun) at the clock's sun, hidden while it is down.
 // It leaves everything as it is - nothing called, nothing published but `on` false - while tod=level with no cycle
 // (the default: today's look exactly), in the front end (load_mainmenu), with no level loaded, and while the original runs its
@@ -30,5 +31,9 @@ namespace render::day_clock {
 void frame();
 // The clock's state in a line (the console's `rt tod`).
 [[nodiscard]] const char* status();
+// Whether the frame's lighting state is settled: the clock isn't wanted (tod=level, the front end, the original's own
+// day) or it has published the light at its time - false while it waits for the level's baked sun (render_pc's first
+// light hold: rt_relit_world.h hold_first_light).
+[[nodiscard]] bool light_ready();
 
 } // namespace render::day_clock

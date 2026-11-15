@@ -18,6 +18,7 @@
 #include "base/core/packed_colour.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/gfx/rt_light_field.h"
 #include "render_pc/rt_relit_world.h"
 
 namespace render {
@@ -101,26 +102,45 @@ uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, std::
     return get_dynamic_lights_near(position, radius, out);
 }
 
-// NOT ORIGINAL - the relit mode (rt_relit_world.h object_lighting): the game's light `light` as sent, turned toward the
-// relit sun and (the key light) tinted by its colour.
-void relight(uint32_t light)
+// NOT ORIGINAL - the relit mode and the one lighting path (rt_relit_world.h object_lighting, engine/gfx/rt_light_field.h):
+// the game's light `light` as sent, turned toward the relit sun, the key light (0) times the direct light now over the
+// bake's, the others - the fill - times the light field's indirect ratio where the thing is (`position`).
+void relight(uint32_t light, const maths::Vec4* position)
 {
     rt_relit_world::ObjectLighting relit;
-    if (!rt_relit_world::object_lighting(&relit)) {
+    const std::span<float, 3> colour = light_color_constant(light);
+    if (rt_relit_world::object_lighting(&relit)) {
+        const std::span<float, 3> direction = light_direction_constant(light);
+        const std::array<float, 3> was{core::at(direction, 0), core::at(direction, 1), core::at(direction, 2)};
+        for (std::size_t axis = 0; axis < was.size(); ++axis) {
+            const std::array<float, 3>& row = core::at(relit.rotation, axis);
+            core::at(direction, axis) = (core::at(row, 0) * core::at(was, 0)) + (core::at(row, 1) * core::at(was, 1)) +
+                                        (core::at(row, 2) * core::at(was, 2));
+        }
+        if (light == 0) {
+            for (std::size_t channel = 0; channel < relit.key_colour.size(); ++channel) {
+                core::at(colour, channel) *= core::at(relit.key_colour, channel);
+            }
+        }
+    }
+    if (light != 0 && position != nullptr) {
+        const rt::LightRatio ratio = rt::light_ratio_at({position->x, position->y, position->z});
+        for (std::size_t channel = 0; channel < ratio.indirect.size(); ++channel) {
+            core::at(colour, channel) *= core::at(ratio.indirect, channel);
+        }
+    }
+}
+
+// NOT ORIGINAL - the one lighting path: the ambient light sent times the light field's indirect ratio where the thing is.
+void relight_ambient(const maths::Vec4* position)
+{
+    if (position == nullptr) {
         return;
     }
-    const std::span<float, 3> direction = light_direction_constant(light);
-    const std::array<float, 3> was{core::at(direction, 0), core::at(direction, 1), core::at(direction, 2)};
-    for (std::size_t axis = 0; axis < was.size(); ++axis) {
-        const std::array<float, 3>& row = core::at(relit.rotation, axis);
-        core::at(direction, axis) = (core::at(row, 0) * core::at(was, 0)) + (core::at(row, 1) * core::at(was, 1)) +
-                                    (core::at(row, 2) * core::at(was, 2));
-    }
-    if (light == 0) {
-        const std::span<float, 3> colour = light_color_constant(light);
-        for (std::size_t channel = 0; channel < relit.key_colour.size(); ++channel) {
-            core::at(colour, channel) *= core::at(relit.key_colour, channel);
-        }
+    const rt::LightRatio ratio = rt::light_ratio_at({position->x, position->y, position->z});
+    const std::span<float> ambient(ambient_constant());
+    for (std::size_t channel = 0; channel < ratio.indirect.size(); ++channel) {
+        core::at(ambient, channel) *= core::at(ratio.indirect, channel);
     }
 }
 
@@ -214,8 +234,11 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
             fetch_light_tint(&color, static_cast<int>(i));
             send_color(light_color_constant(i), color, core::at(intensities(), i));
             send_negated(light_direction_constant(i), *render::get_light_direction(static_cast<int>(i)));
-            relight(i); // (not original: the relit mode's sun - rt_relit_world.h)
+            relight(i, position); // (not original: the relit mode's sun, the one lighting path - rt_relit_world.h)
         }
+    }
+    if ((overrides & 1) == 0U) {
+        relight_ambient(position); // (not original: the one lighting path)
     }
     if (radius == 0U) {
         return;

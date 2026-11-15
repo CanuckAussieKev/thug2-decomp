@@ -1143,8 +1143,20 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                                                                   ? std::max(0.0F, rest - core::at(predicted, ch))
                                                                   : 0.0F);
             }
+            vertex.sun_baked = vertex.sun; // (traced toward the bake's sun for the analysis)
+            relit_split_residual(*model, model->scale, &vertex);
             baked_sum += luma(y);
             relit_sum += luma(predicted) + luma(vertex.residual);
+            if (vertex.sun_missed > 0.0F) {
+                // (the missed sun counted with the model's light, as `predicted`)
+                const float nl = std::max(0.0F, dot(vertex.normal, model->toward));
+                Rgbf missed{};
+                for (std::size_t ch = 0; ch < 3; ++ch) {
+                    core::at(missed, ch) =
+                        core::at(vertex.tint, ch) * core::at(model->sun, ch) * nl * vertex.sun_missed;
+                }
+                relit_sum += luma(missed);
+            }
         }
     }
     if (rescale) {
@@ -1154,24 +1166,75 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
     }
 }
 
-Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
+void relit_split_residual(const RelitModel& model, float scale, RelitVertex* vertex)
+{
+    vertex->sun_missed = 0.0F;
+    const float nl = dot(vertex->normal, model.toward);
+    if (!vertex->used || nl <= kRelitFacing) {
+        return;
+    }
+    // the sun-coloured part: the most of the sun's whole light here (scale x tint x a x N.L per channel) that fits in
+    // every channel of the residual
+    float missed = kRelitMostMissed;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        const float whole = scale * core::at(vertex->tint, ch) * core::at(model.sun, ch) * nl;
+        if (whole <= kLeastLight) {
+            return;
+        }
+        missed = std::min(missed, core::at(vertex->residual, ch) / whole);
+    }
+    if (!(missed >= kRelitMissedLeast)) {
+        return; // (a dim glow, or another colour than the sun's: the level's own light)
+    }
+    vertex->sun_missed = missed;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        const float whole = scale * core::at(vertex->tint, ch) * core::at(model.sun, ch) * nl;
+        core::at(vertex->residual, ch) = std::max(0.0F, core::at(vertex->residual, ch) - (missed * whole));
+    }
+}
+
+float relit_missed_trust(const RelitModel& model, const Vec3& toward)
+{
+    const float cosine = dot(normalised(model.toward), normalised(toward));
+    const auto cos_of = [](float degrees) {
+        return static_cast<float>(std::cos(static_cast<double>(degrees) * kRadiansPerDegree));
+    };
+    return smoothstep(cos_of(kRelitTrustOuter), cos_of(kRelitTrustInner), cosine);
+}
+
+RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
 {
     Rgbf pa{};
     for (std::size_t ch = 0; ch < pa.size(); ++ch) {
-        core::at(pa, ch) = core::at(model.sun, ch) * core::at(lighting.sun_colour, ch);
+        // (added by the time of day) the direct light at the lighting state's strength and colour
+        core::at(pa, ch) = core::at(model.sun, ch) * core::at(lighting.sun_colour, ch) * core::at(lighting.direct_scale, ch);
     }
-    constexpr Rgbf kOnes{1.0F, 1.0F, 1.0F};
-    if (lighting.direct_scale == kOnes && lighting.sky_scale == kOnes && lighting.bounce_scale == kOnes) {
-        return model_light(model, pa, vertex, normalised(lighting.toward));
-    }
-    // (added by the time of day) each term at the clock's strength
     RelitModel scaled = model;
     for (std::size_t ch = 0; ch < pa.size(); ++ch) {
-        core::at(pa, ch) *= core::at(lighting.direct_scale, ch);
         core::at(scaled.sky, ch) *= core::at(lighting.sky_scale, ch);
         core::at(scaled.bounce, ch) *= core::at(lighting.bounce_scale, ch);
     }
-    return model_light(scaled, pa, vertex, normalised(lighting.toward));
+    const Vec3 toward = normalised(lighting.toward);
+    // (the bake's sun the tracer missed - only toward the bake's own sun)
+    const float seen = vertex.sun + (vertex.sun_missed > 0.0F ? relit_missed_trust(model, toward) * vertex.sun_missed : 0.0F);
+    const float nl = std::max(0.0F, dot(vertex.normal, toward));
+    RelitParts out;
+    for (std::size_t ch = 0; ch < pa.size(); ++ch) {
+        core::at(out.direct, ch) = core::at(pa, ch) * nl * seen;
+        core::at(out.indirect, ch) = (core::at(scaled.sky, ch) * vertex.sky) +
+                                     (core::at(scaled.bounce, ch) * core::at(vertex.bounce, ch));
+    }
+    return out;
+}
+
+Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
+{
+    const RelitParts parts = relit_parts(model, vertex, lighting);
+    Rgbf out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = core::at(parts.direct, ch) + core::at(parts.indirect, ch);
+    }
+    return out;
 }
 
 uint32_t relit_colour(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting,

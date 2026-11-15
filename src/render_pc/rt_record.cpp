@@ -1471,6 +1471,22 @@ std::string describe_screen_point(float across, float down)
         break;
     }
     constexpr float kNearby = 96.0F;
+    out += "\n  " + rt_relit_world::describe_mesh(found.mesh);
+    // (what is drawn over it, seen through: the transparent instances alone - mask 0x80 - a decal, a glow, an overlay)
+    constexpr uint32_t kSeenThroughMask = 0x80;
+    const rt::ProbeResult over = rt->probe(
+        {.origin = camera.position, .direction = direction, .max_distance = 100000.0F, .cull_mask = kSeenThroughMask});
+    if (over.traced && over.hit && over.distance <= found.distance + 1.0F) {
+        out += text::format("\n  seen through in front (%.1f): mesh %u, material %u", static_cast<double>(over.distance),
+                            static_cast<unsigned>(over.mesh), static_cast<unsigned>(over.material));
+        for (const auto& [material, entry] : st.materials) {
+            if (entry.id == over.material) {
+                out += text::format(" %08X, pass 0 blend %u", material->checksum(), core::at(material->blend_modes(), 0));
+                break;
+            }
+        }
+        out += "\n  " + rt_relit_world::describe_mesh(over.mesh);
+    }
     out += "\n  " + rt_relit_world::describe_near(point, kNearby);
     get_log("%s", out.c_str());
     return out;
@@ -1552,6 +1568,13 @@ void vertex_buffer_written(const VertexBufferData* buffer)
         return;
     }
     state().written.insert(buffer);
+    rt_relit_world::buffer_written(buffer); // (the game's own write over the relit colours)
+}
+
+void vertex_buffer_released(const VertexBufferData* buffer)
+{
+    state().written.erase(buffer);
+    rt_relit_world::buffer_released(buffer);
 }
 
 void forget_meshes()
