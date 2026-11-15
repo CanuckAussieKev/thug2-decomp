@@ -1286,11 +1286,13 @@ void check_puddles(render::Gpu& gpu, Tally* tally)
                               "stain beside it none)",
                               wet_pixels, stray));
     bool compiled = false;
+    std::string why;
     {
         const std::scoped_lock lock(state.mutex);
-        compiled = vk::make_rt_reflection_wet_trace(state);
+        compiled = vk::make_rt_reflection_wet_trace(state, &why);
     }
-    tally->check(compiled, "the reflections' trace with the puddles made (with and without the sky)");
+    tally->check(compiled, "the reflections' trace with the puddles made (with and without the sky)" +
+                               (compiled ? std::string() : " - " + why));
     vk::set_rt_reflection_settings({});
     vk::set_scatter_settings({});
     release(gpu, targets);
