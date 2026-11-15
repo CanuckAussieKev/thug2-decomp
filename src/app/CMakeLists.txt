@@ -20,35 +20,80 @@ add_library(thug2_app OBJECT
     encode_video.cpp
 )
 # The layers the shared start-up composes (the backends it installs, the game and below).
+# NOT ORIGINAL - a portable build has no Direct3D 9, DirectSound or DirectInput: the PC rendering layer's device runs on
+# the Vulkan backend, the sound output is the port's silent one and the input is SDL3's (engine/pad_input/sdl_input.cpp).
+if(THUG2_PORTABLE)
+    target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_pc
+                                           thug2_media_ffmpeg thug2_fs_win32 thug2_net_winsock
+                                           thug2_script_qb thug2_engine
+                                           thug2_wire thug2_formats thug2_platform thug2_base)
+else()
 target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_pc thug2_gpu_d3d9
                                        thug2_audio_dsound thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                        thug2_script_qb thug2_engine
                                        thug2_wire thug2_formats thug2_platform thug2_base)
+endif()
 # The Vulkan backend (src/gpu_vulkan): installed by app/renderer_choice.cpp with renderer=vulkan.
 if(THUG2_VULKAN)
     target_link_libraries(thug2_app PUBLIC thug2_gpu_vulkan)
     target_compile_definitions(thug2_app PRIVATE THUG2_VULKAN)
 endif()
 
+if(THUG2_PORTABLE)
+    # NOT ORIGINAL - a portable build's entry point: port/app_main.cpp's main() hands WinMain the program's command line
+    # (there is no WinMain to be started with, and no plugin DLLs: no ENABLE_EXPORTS).
+    add_executable(thug2
+        extensions.cpp
+        no_editor.cpp
+        ${PROJECT_SOURCE_DIR}/port/app_main.cpp
+        ${PROJECT_SOURCE_DIR}/port/install_layout.cpp
+        ${PROJECT_SOURCE_DIR}/port/sdl_audio_device.cpp
+        ${PROJECT_SOURCE_DIR}/port/gamespy_stub.cpp
+    )
+    set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
+    # NOT ORIGINAL - the ad-hoc signature the linker gives a Mach-O is invalid to the kernel once the file is copied
+    # anywhere (macOS kills the copy at load: "Code Signature Invalid"). Signing it in place after every build keeps
+    # the build folder's own binary runnable; a copy needs `codesign --force --sign - <copy>`.
+    if(APPLE)
+        add_custom_command(TARGET thug2 POST_BUILD
+            COMMAND codesign --force --sign - "$<TARGET_FILE:thug2>"
+            COMMENT "Signing thug2-decomp ad hoc")
+    endif()
+else()
 add_executable(thug2 WIN32
     extensions.cpp
     no_editor.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp ENABLE_EXPORTS ON)
+endif()
 # Every layer, highest first (the libraries bring the system and third-party libraries they need). The platform layer
 # whole: some of what it exports is for the plugin alone (platform/child_process.h, folder_dialog.h - the level
 # editor's Import Level), which the exe itself never calls, and a static library's unreferenced objects aren't linked.
+if(THUG2_PORTABLE)
+    target_link_libraries(thug2 PRIVATE thug2_app thug2_frontend thug2_devtools thug2_game thug2_render_pc
+                                        thug2_media_ffmpeg thug2_fs_win32 thug2_net_winsock
+                                        thug2_script_qb thug2_engine
+                                        thug2_wire thug2_formats $<LINK_LIBRARY:WHOLE_ARCHIVE,thug2_platform> thug2_base)
+else()
 target_link_libraries(thug2 PRIVATE thug2_app thug2_frontend thug2_devtools thug2_game thug2_render_pc thug2_gpu_d3d9
                                     thug2_audio_dsound thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                     thug2_script_qb thug2_engine
                                     thug2_wire thug2_formats $<LINK_LIBRARY:WHOLE_ARCHIVE,thug2_platform> thug2_base)
+endif()
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL3.dll and SDL's controller mappings.
+# (NOT ORIGINAL - a portable build loads the system's SDL3 and MoltenVK: only the controller mappings are copied.)
+if(THUG2_PORTABLE)
+    add_custom_command(TARGET thug2 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "$<TARGET_FILE_DIR:thug2>"
+        COMMENT "Copying gamecontrollerdb.txt next to thug2-decomp")
+else()
 add_custom_command(TARGET thug2 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/${THUG2_ARCH}/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2>/d3dx9_43.dll"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl3_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL3.dll" "$<TARGET_FILE_DIR:thug2>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "$<TARGET_FILE_DIR:thug2>"
     COMMENT "Copying d3dx9_43.dll, SDL3.dll and gamecontrollerdb.txt next to thug2-decomp.exe")
+endif()
 # FFmpeg's DLLs (the FFmpeg movie codec's, when tools/ffmpeg/build_ffmpeg.ts has built them: cmake/ffmpeg.cmake).
 if(THUG2_FFMPEG_DLLS)
     add_custom_command(TARGET thug2 POST_BUILD

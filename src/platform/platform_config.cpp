@@ -37,12 +37,20 @@ PlatformConfigState& platform_config_state()
 void prepare_all()
 {
     GetModuleFileNameA(nullptr, platform_config_state().executable_directory_.data(), kPathLength);
-    // up to the last backslash
-    if (const size_t slash = std::string_view(platform_config_state().executable_directory_.data()).rfind('\\');
-        slash != std::string_view::npos) {
-        core::at(platform_config_state().executable_directory_, slash + 1) = '\0';
+    // up to the last separator (NOT ORIGINAL (macOS port): a backslash on Windows, a slash on this platform)
+    {
+        const std::string_view path(platform_config_state().executable_directory_.data());
+        size_t slash = path.rfind('\\');
+        const size_t forward = path.rfind('/');
+        if (forward != std::string_view::npos && (slash == std::string_view::npos || forward > slash)) {
+            slash = forward;
+        }
+        if (slash != std::string_view::npos) {
+            core::at(platform_config_state().executable_directory_, slash + 1) = '\0';
+        }
     }
-    text::format_to(platform_config_state().file_, "%s%s", platform_config_state().executable_directory_.data(), kFileName);
+    text::format_to(platform_config_state().file_, "%s%s", platform_config_state().executable_directory_.data(),
+                    kFileName);
 }
 
 const char* executable_directory() { return platform_config_state().executable_directory_.data(); }
@@ -59,7 +67,8 @@ int get_int(const char* section, const char* key, int fallback)
 
 int fetch_text(const char* section, const char* key, const char* fallback, char* out, size_t size)
 {
-    return static_cast<int>(GetPrivateProfileStringA(section, key, fallback, out, static_cast<DWORD>(size), platform_config_state().file_.data()));
+    return static_cast<int>(GetPrivateProfileStringA(section, key, fallback, out, static_cast<DWORD>(size),
+                                                     platform_config_state().file_.data()));
 }
 
 std::string file_text()

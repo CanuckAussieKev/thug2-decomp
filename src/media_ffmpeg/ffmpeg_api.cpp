@@ -12,10 +12,20 @@ namespace media::ffmpeg {
 
 namespace {
 
+// NOT ORIGINAL (macOS port) - the files' names on this platform: FFmpeg's libraries are dylibs, and a portable build
+// loads the system's (Homebrew's) rather than the four DLLs tools/ffmpeg/build_ffmpeg.ts builds for Windows. The
+// versioned name first, the linker's plain one second (crt::library_function tries the file beside the exe too).
+#ifdef __APPLE__
+constexpr crt::Dll kAvutil{.file = "libavutil.61.dylib"};
+constexpr crt::Dll kAvcodec{.file = "libavcodec.63.dylib"};
+constexpr crt::Dll kAvformat{.file = "libavformat.63.dylib"};
+constexpr crt::Dll kSwscale{.file = "libswscale.10.dylib"};
+#else
 constexpr crt::Dll kAvutil{.file = "avutil-59.dll"};
 constexpr crt::Dll kAvcodec{.file = "avcodec-61.dll"};
 constexpr crt::Dll kAvformat{.file = "avformat-61.dll"};
 constexpr crt::Dll kSwscale{.file = "swscale-8.dll"};
+#endif
 
 // FFmpeg's version numbers: major << 16 | minor << 8 | micro.
 constexpr unsigned kMajorShift = 16;

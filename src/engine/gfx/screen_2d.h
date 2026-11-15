@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <memory>
 
+#include <windows.h>
+
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
 #include "engine/gfx/engine_texture.h"
@@ -46,7 +48,9 @@ public:
     [[nodiscard]] ScreenWindow* free_windows() const { return free_windows_; }
     void set_free_windows(ScreenWindow* value) { free_windows_ = value; }
     int& gradient_width() { return gradient_width_; }
-    void*& screen_mutex() { return screen_mutex_; }
+    // NOT ORIGINAL (macOS port) - HANDLE, not void*: one type on Windows, two on this platform (the port's HANDLE is
+    // its own handle type).
+    HANDLE& screen_mutex() { return screen_mutex_; }
     float& tick_seconds() { return tick_seconds_; }
     [[nodiscard]] float elapsed_seconds() const { return elapsed_seconds_; }
     void set_elapsed_seconds(float value) { elapsed_seconds_ = value; }
@@ -79,7 +83,7 @@ private:
 
     // The loading bar (loading_bar.cpp).
     int gradient_width_{};
-    void* screen_mutex_{}; // the loading screen's lock (a HANDLE), held while it is drawn
+    HANDLE screen_mutex_{}; // the loading screen's lock, held while it is drawn
     float tick_seconds_{};
     float elapsed_seconds_{};
     float total_seconds_{};
@@ -87,9 +91,12 @@ private:
     int progress_width_{kDefaultProgressWidth};
     int progress_height_{kDefaultProgressHeight};
     std::array<int, 2> bar_border_{{kDefaultBarBorder, kDefaultBarBorder}};
-    std::array<uint8_t, 4> progress_from_color_{{0x00, kDefaultProgressFromGreen, kDefaultProgressFromBlue, kDefaultProgressAlpha}};
-    std::array<uint8_t, 4> progress_to_color_{{kDefaultProgressToRed, kDefaultProgressToGreen, kDefaultProgressToBlue, kDefaultProgressAlpha}};
-    std::array<uint8_t, 4> progress_edge_color_{{kDefaultProgressEdge, kDefaultProgressEdge, kDefaultProgressEdge, kDefaultProgressAlpha}};
+    std::array<uint8_t, 4> progress_from_color_{
+        {0x00, kDefaultProgressFromGreen, kDefaultProgressFromBlue, kDefaultProgressAlpha}};
+    std::array<uint8_t, 4> progress_to_color_{
+        {kDefaultProgressToRed, kDefaultProgressToGreen, kDefaultProgressToBlue, kDefaultProgressAlpha}};
+    std::array<uint8_t, 4> progress_edge_color_{
+        {kDefaultProgressEdge, kDefaultProgressEdge, kDefaultProgressEdge, kDefaultProgressAlpha}};
 
     // The loading screen's picture (loading_screen.cpp).
     std::unique_ptr<render::BitmapTexture> loading_screen_picture_;

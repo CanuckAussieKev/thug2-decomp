@@ -352,6 +352,13 @@ add_library(thug2_engine STATIC
     script/cfuncs_polys.cpp
     script/cfuncs_memory.cpp
 )
+# NOT ORIGINAL - a portable build has no LZHAM (its own source is MSVC's Win32 API and its macOS branch is MSVC inline
+# assembly): engine/net/net_lzham.cpp is left out of the compile and port/lzham_stub.cpp stands in for its two functions.
+# (The file stays in the list above: tools/cmake_layers.ts reads it there.)
+if(THUG2_PORTABLE)
+    set_source_files_properties(net/net_lzham.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
+    target_sources(thug2_engine PRIVATE ${PROJECT_SOURCE_DIR}/port/lzham_stub.cpp)
+endif()
 # (the UI fonts, compressed at build time: ui/ui_fonts.cpp includes them)
 target_include_directories(thug2_engine PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
 # NOT ORIGINAL - the relit mode's per-level choices (gfx/rt_relit_levels.json) built into the exe as text: gfx/rt_relit.cpp
@@ -372,4 +379,10 @@ target_include_directories(thug2_engine PRIVATE "${CMAKE_BINARY_DIR}/relit_level
 add_dependencies(thug2_engine editor_fonts)
 # lzham: THUGPRO's compression method (net/net_lzham.cpp); imgui: our UI layers' backend (ui/ui_backend.cpp: the current
 # ImGui context's own part)
-target_link_libraries(thug2_engine PUBLIC thug2_wire thug2_platform PRIVATE lzham imgui)
+# NOT ORIGINAL - the portable build leaves net_lzham.cpp out (LZHAM's own source is written for MSVC's Win32 API and
+# its macOS branch is MSVC inline assembly; port/README.md) and takes the port's stub for the two functions.
+if(THUG2_PORTABLE)
+    target_link_libraries(thug2_engine PUBLIC thug2_wire thug2_platform PRIVATE imgui)
+else()
+    target_link_libraries(thug2_engine PUBLIC thug2_wire thug2_platform PRIVATE lzham imgui)
+endif()

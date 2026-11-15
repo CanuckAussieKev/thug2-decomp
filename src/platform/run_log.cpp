@@ -75,7 +75,14 @@ std::string game_folder_path(const char* file_name)
 {
     std::array<char, MAX_PATH> path{};
     GetModuleFileNameA(nullptr, path.data(), MAX_PATH);
-    if (const size_t slash = std::string_view(path.data()).rfind('\\'); slash != std::string_view::npos) {
+    // NOT ORIGINAL (macOS port) - the last separator, a backslash on Windows and a slash on this platform
+    const std::string_view full(path.data());
+    size_t slash = full.rfind('\\');
+    const size_t forward = full.rfind('/');
+    if (forward != std::string_view::npos && (slash == std::string_view::npos || forward > slash)) {
+        slash = forward;
+    }
+    if (slash != std::string_view::npos) {
         core::at(path, slash + 1) = '\0';
     }
     return std::string(path.data()) + file_name;

@@ -12,6 +12,21 @@ else()
     message(FATAL_ERROR "Build with an x86 or x64 preset.")
 endif()
 
+# NOT ORIGINAL - the macOS (arm64) port: THUG2_PORTABLE is set for a build that is not a Windows one. The parts of the
+# build that are Windows' own - the .exe's WinMain, DirectInput, DirectSound, Direct3D 9, Winsock, the Win32 file layer
+# and the SDKs that come as Windows binaries - are left out, and POSIX, SDL3 and Vulkan on MoltenVK take their place.
+# A Windows build is unchanged: each "if(THUG2_PORTABLE)" below is the new branch of code that was already there.
+set(THUG2_PORTABLE OFF)
+if(NOT WIN32)
+    set(THUG2_PORTABLE ON)
+endif()
+# The fetched third-party code's warnings off: MSVC's /W0, clang's and GCC's -w.
+if(MSVC)
+    set(THUG2_WARNINGS_OFF /W0)
+else()
+    set(THUG2_WARNINGS_OFF -w)
+endif()
+
 # The x64 port goes library by library (docs/design/x64-port.md "Order of work"): an x64 configure builds only the
 # libraries of src/ named here (base, platform, engine... as in tools/layers.json) and the checks whose libraries
 # are all built; "gamespy_sdk" here builds the GameSpy SDK. The fetched libraries the others compile themselves
@@ -20,9 +35,21 @@ endif()
 set(THUG2_X64_READY base formats wire platform gamespy_sdk engine net_winsock render_pc gpu_d3d9 gpu_vulkan audio_dsound media_ffmpeg
                     input_dinput fs_win32 script_qb game frontend editor devtools app)
 
-# Whether this configure builds `name` (a library of src/, or gamespy_sdk): always on x86; on x64 when x64-ready.
+# NOT ORIGINAL - the macOS port's order of work (port/README.md): the layers that are plain C++ first, then the ones
+# the platform layer and the backends hold. A layer not named here is left out of the configure, so its absence is the
+# only thing a missing piece of that layer can break.
+set(THUG2_PORT_READY base formats wire platform engine render_pc game frontend devtools script_qb media_ffmpeg fs_win32 net_winsock gpu_vulkan app)
+
+# Whether this configure builds `name` (a library of src/, or gamespy_sdk): always on x86; on x64 when x64-ready; on a
+# portable build when port-ready.
 function(thug2_builds name result)
-    if(THUG2_ARCH STREQUAL "x86" OR name IN_LIST THUG2_X64_READY)
+    if(THUG2_PORTABLE)
+        if(name IN_LIST THUG2_PORT_READY)
+            set(${result} TRUE PARENT_SCOPE)
+        else()
+            set(${result} FALSE PARENT_SCOPE)
+        endif()
+    elseif(THUG2_ARCH STREQUAL "x86" OR name IN_LIST THUG2_X64_READY)
         set(${result} TRUE PARENT_SCOPE)
     else()
         set(${result} FALSE PARENT_SCOPE)
@@ -63,16 +90,24 @@ set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH
 # moved to SDL 3 - its 3.2 series' last release). Downloaded and checked against its SHA-256 at configure time; not
 # stored in the repo. Its headers are in include/SDL3, as the code includes them (<SDL3/...>).
 include(FetchContent)
-FetchContent_Declare(sdl3
-    URL https://github.com/libsdl-org/SDL/releases/download/release-3.2.30/SDL3-devel-3.2.30-VC.zip
-    URL_HASH SHA256=3a93c2182ddaf64692a8907928e6a54467f0f7c1caddf3019cfa69fbf1dfe3f2
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-FetchContent_MakeAvailable(sdl3)
-add_library(sdl3 SHARED IMPORTED)
-set_target_properties(sdl3 PROPERTIES
-    IMPORTED_IMPLIB "${sdl3_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL3.lib"
-    IMPORTED_LOCATION "${sdl3_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL3.dll"
-    INTERFACE_INCLUDE_DIRECTORIES "${sdl3_SOURCE_DIR}/include")
+if(THUG2_PORTABLE)
+    # NOT ORIGINAL - a portable build takes the system's SDL3 (Homebrew's, or one found through CMAKE_PREFIX_PATH): the
+    # release package above is a Visual C++ one. Its 3.2 series' API is unchanged in 3.4, which is what 2026 ships.
+    find_package(SDL3 3.2 CONFIG REQUIRED)
+    add_library(sdl3 INTERFACE)
+    target_link_libraries(sdl3 INTERFACE SDL3::SDL3)
+else()
+    FetchContent_Declare(sdl3
+        URL https://github.com/libsdl-org/SDL/releases/download/release-3.2.30/SDL3-devel-3.2.30-VC.zip
+        URL_HASH SHA256=3a93c2182ddaf64692a8907928e6a54467f0f7c1caddf3019cfa69fbf1dfe3f2
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    FetchContent_MakeAvailable(sdl3)
+    add_library(sdl3 SHARED IMPORTED)
+    set_target_properties(sdl3 PROPERTIES
+        IMPORTED_IMPLIB "${sdl3_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL3.lib"
+        IMPORTED_LOCATION "${sdl3_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL3.dll"
+        INTERFACE_INCLUDE_DIRECTORIES "${sdl3_SOURCE_DIR}/include")
+endif()
 # The package's SDL3.dll is copied into the game folder with the exe (below). SDL's controller mappings, the same
 # way: the gamecontrollerdb.txt PartyMod ships is SDL_GameControllerDB's at commit 8b2d1a7 (2022-09-06), zlib (SDL 3
 # reads SDL 2's mapping format).
@@ -88,6 +123,10 @@ endif()
 # Microsoft's NuGet package Microsoft.DXSDK.D3DX 9.29.952.8 (the DirectX SDK June 2010's d3dx9_43.dll, import library
 # and headers; its licence is summarised in THIRD_PARTY_NOTICES.md). A .nupkg is a zip: downloaded under a .zip name
 # and checked against its SHA-256. src/gpu_d3d9/d3dx.cpp is the one place that calls it.
+# NOT ORIGINAL - a portable build has no Direct3D 9 and so no D3DX9 (the package is a Windows binary): nothing of the
+# build that is ported (base, formats, wire, engine, render_pc, the Vulkan backend) refers to it, and the D3D9 backend
+# and the checks that compare against D3DX's maths are left out (THUG2_PORT_READY).
+if(NOT THUG2_PORTABLE)
 FetchContent_Declare(d3dx9
     URL https://www.nuget.org/api/v2/package/Microsoft.DXSDK.D3DX/9.29.952.8
     URL_HASH SHA256=ead0906ae8a26c18a7525da7490127a2110f7c58f18293738283e30e97c6ea4b
@@ -100,6 +139,7 @@ set_target_properties(d3dx9 PROPERTIES
     IMPORTED_IMPLIB "${THUG2_D3DX9_NATIVE}/release/lib/${THUG2_ARCH}/d3dx9.lib"
     IMPORTED_LOCATION "${THUG2_D3DX9_NATIVE}/release/bin/${THUG2_ARCH}/D3DX9_43.dll"
     INTERFACE_INCLUDE_DIRECTORIES "${THUG2_D3DX9_NATIVE}/include")
+endif()
 
 # --- Dear ImGui 1.91.9b, its docking branch (MIT, see THIRD_PARTY_NOTICES.md) ----------------------------
 # Our UI layers (the level editor's src/editor/level_editor_ui*.cpp, the new front end's src/frontend/new_frontend*.cpp):
@@ -121,19 +161,34 @@ target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
 target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT)
 # One ImGui for the exe and its plugins (one context, GImGui, and one font atlas, which the new front end shares): built
 # into the exe, which exports its API (IMGUI_API); a plugin compiles its headers through imgui_import, below.
-target_compile_definitions(imgui PUBLIC "IMGUI_API=__declspec(dllexport)")
-target_compile_options(imgui PRIVATE /W0)
+if(THUG2_PORTABLE)
+    # NOT ORIGINAL - no plugin DLLs on a portable build: ImGui is the exe's own, its API has no import/export mark.
+    target_compile_definitions(imgui PUBLIC "IMGUI_API=__attribute__((visibility(\"default\")))")
+else()
+    target_compile_definitions(imgui PUBLIC "IMGUI_API=__declspec(dllexport)")
+endif()
+target_compile_options(imgui PRIVATE ${THUG2_WARNINGS_OFF})
 add_library(imgui_import INTERFACE)
 target_include_directories(imgui_import INTERFACE ${imgui_SOURCE_DIR})
-target_compile_definitions(imgui_import INTERFACE IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT
-                                                  "IMGUI_API=__declspec(dllimport)")
-add_library(imgui_backends STATIC
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_dx9.cpp)
+if(THUG2_PORTABLE)
+    target_compile_definitions(imgui_import INTERFACE IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT)
+else()
+    target_compile_definitions(imgui_import INTERFACE IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT
+                                                      "IMGUI_API=__declspec(dllimport)")
+endif()
+# NOT ORIGINAL - the portable build has no Direct3D 9: only ImGui's SDL3 platform backend, its Vulkan UI backend drawing
+# the lists itself (gpu_vulkan/vulkan_ui_backend.cpp).
+if(THUG2_PORTABLE)
+    add_library(imgui_backends STATIC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
+else()
+    add_library(imgui_backends STATIC
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_dx9.cpp)
+endif()
 # (the backends are the graphics backend's alone: not exported)
 target_compile_definitions(imgui_backends PUBLIC "IMGUI_IMPL_API=")
 target_link_libraries(imgui_backends PUBLIC imgui PRIVATE sdl3)
-target_compile_options(imgui_backends PRIVATE /W0)
+target_compile_options(imgui_backends PRIVATE ${THUG2_WARNINGS_OFF})
 
 # --- stb_image_write 1.16 (Sean Barrett, public domain or MIT, see THIRD_PARTY_NOTICES.md) ---------
 # The screenshot key's PNG writer (src/platform/screenshot_files.cpp): the stb repository at commit 1ee679c (2021-07-12, stb_image_write's last change), headers only.
@@ -147,7 +202,7 @@ file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/stb_image_write_impl.cpp
     CONTENT "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#define STBI_WRITE_NO_STDIO\n#include \"stb_image_write.h\"\n")
 add_library(stb_image_write STATIC ${CMAKE_BINARY_DIR}/stb_image_write_impl.cpp)
 target_include_directories(stb_image_write PUBLIC ${stb_SOURCE_DIR})
-target_compile_options(stb_image_write PRIVATE /W0)
+target_compile_options(stb_image_write PRIVATE ${THUG2_WARNINGS_OFF})
 
 # --- LZHAM 1.0 (Rich Geldreich; public domain, earlier releases MIT - see THIRD_PARTY_NOTICES.md) -----------------
 # THUGPRO's compression method 3 on the wire (src/engine/net/net_lzham.cpp: the THUGPRO peer mode, register TP-R11):
@@ -180,6 +235,10 @@ thug2_builds(gamespy_sdk THUG2_GAMESPY_SDK)
 if(THUG2_GAMESPY_SDK)
     include(cmake/gamespy_sdk.cmake)
 endif()
+# NOT ORIGINAL - the portable build has no LZHAM: its own source is written for MSVC's Win32 API and its macOS branch is
+# MSVC inline assembly, which clang refuses. engine/net/net_lzham.cpp is left out and port/lzham_stub.cpp stands in for
+# its two functions (THUGPRO's peers are still reached, their messages sent uncompressed).
+if(NOT THUG2_PORTABLE)
 file(GLOB LZHAM_DECOMP_SOURCES ${lzham_SOURCE_DIR}/lzhamdecomp/*.cpp)
 add_library(lzham STATIC
     ${LZHAM_DECOMP_SOURCES}
@@ -192,7 +251,8 @@ add_library(lzham STATIC
     ${lzham_SOURCE_DIR}/lzhamlib/lzham_lib.cpp)
 target_include_directories(lzham PUBLIC ${lzham_SOURCE_DIR}/include
     PRIVATE ${lzham_SOURCE_DIR}/lzhamdecomp ${lzham_SOURCE_DIR}/lzhamcomp)
-target_compile_options(lzham PRIVATE /W0)
+target_compile_options(lzham PRIVATE ${THUG2_WARNINGS_OFF})
+endif()
 
 # --- The build's commit (the screenshot sidecar names the exe's source) -------------------------------------------
 set(THUG2_BUILD_INFO "${CMAKE_BINARY_DIR}/generated/build_info.h")
@@ -217,7 +277,7 @@ FetchContent_Declare(font_jetbrains_mono
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(font_inter font_jetbrains_mono)
 add_executable(imgui_binary_to_compressed ${imgui_SOURCE_DIR}/misc/fonts/binary_to_compressed_c.cpp)
-target_compile_options(imgui_binary_to_compressed PRIVATE /W0)
+target_compile_options(imgui_binary_to_compressed PRIVATE ${THUG2_WARNINGS_OFF})
 target_compile_definitions(imgui_binary_to_compressed PRIVATE _CRT_SECURE_NO_WARNINGS)
 set(THUG2_EDITOR_FONTS
     "Inter_Regular|${font_inter_SOURCE_DIR}/extras/ttf/Inter-Regular.ttf"
@@ -273,7 +333,25 @@ target_include_directories(thug2_options INTERFACE src)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md)
 # /w14062: an enumerator that a switch over its enum leaves out (a switch that lists every case has no default)
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
-target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)
+if(MSVC)
+    target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)
+else()
+    # NOT ORIGINAL - the portable build's flags: -fsigned-char is the one that matters (char is signed on Windows and on
+    # x86, unsigned on arm64: a byte read from a file or a script compared to a negative char would stop matching), and
+    # port/macos_compat.h stands in front of every file for what MSVC's runtime and Win32 gave the source.
+    target_compile_definitions(thug2_options INTERFACE THUG2_PORTABLE)
+    target_compile_options(thug2_options INTERFACE -Wall -Wextra -fsigned-char -Wno-ignored-attributes)
+    target_compile_options(thug2_options INTERFACE -include ${PROJECT_SOURCE_DIR}/port/macos_compat.h)
+    # NOT ORIGINAL - port/win32_shim/windows.h: the Win32 names the layers above the platform use (files, threads and their
+    # sync, timers, the registry, the ini file, the module and the command line), given bodies over POSIX in
+    # port/win32.cpp. Its include directory comes before src, so `#include <windows.h>` lands there.
+    target_include_directories(thug2_options INTERFACE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/port/win32_shim)
+    add_library(thug2_port_win32 STATIC ${PROJECT_SOURCE_DIR}/port/win32.cpp)
+    target_include_directories(thug2_port_win32 PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/port/win32_shim)
+    target_compile_options(thug2_port_win32 PRIVATE -Wall -Wextra -fsigned-char -Wno-ignored-attributes)
+    target_compile_options(thug2_port_win32 PRIVATE -include ${PROJECT_SOURCE_DIR}/port/macos_compat.h)
+    target_link_libraries(thug2_options INTERFACE thug2_port_win32)
+endif()
 
 # --- The layers (docs/architecture.md "Layers"; tools/layers.json is the map, tools/cmake_layers.ts checks that the
 # libraries below link as it says) ---------------------------------------------------------------------------------
@@ -313,7 +391,10 @@ foreach(library IN ITEMS base formats wire platform engine render_pc gpu_d3d9 gp
 endforeach()
 add_subdirectory(src/tests)
 # The level editor's launcher, thug2-editor.exe (no layer of the game: src/editor/launcher/CMakeLists.txt).
-add_subdirectory(src/editor/launcher)
+# (NOT ORIGINAL - not on a portable build: it is plain Win32, and the editor's plugin is a Windows DLL.)
+if(NOT THUG2_PORTABLE)
+    add_subdirectory(src/editor/launcher)
+endif()
 # The retail-limits DLL for the original game (32-bit only: src/retail_limits/CMakeLists.txt).
 if(THUG2_ARCH STREQUAL "x86")
     add_subdirectory(src/retail_limits)
@@ -321,8 +402,11 @@ endif()
 
 # On x64 the fetched libraries the build compiles itself are built only when an x64-ready library links them.
 if(THUG2_ARCH STREQUAL "x64")
-    set_target_properties(imgui imgui_backends stb_image_write lzham imgui_binary_to_compressed
-        PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    set(THUG2_FETCHED_LIBS imgui imgui_backends stb_image_write imgui_binary_to_compressed)
+    if(TARGET lzham)
+        list(APPEND THUG2_FETCHED_LIBS lzham)
+    endif()
+    set_target_properties(${THUG2_FETCHED_LIBS} PROPERTIES EXCLUDE_FROM_ALL TRUE)
     if(THUG2_VULKAN)
         set_target_properties(volk vulkan_memory_allocator PROPERTIES EXCLUDE_FROM_ALL TRUE)
     endif()
