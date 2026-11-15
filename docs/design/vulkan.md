@@ -3289,24 +3289,41 @@ the original's own time of day (`tod_manager.h`, blended by the clock) is the lo
 2. **True surface colours** (`rt_relit.h`): the level's bake is taken apart into tint x light (de-lit, not scaled). The
    residual - the bake's light over the model - is taken apart by what it is (`relit_split_residual`): on a face toward
    the bake's sun, its part in the sun's colour that is at least 0.6 of the sun's whole light there is the bake's sun
-   the rays missed (`sun_missed`: more visibility toward the bake's sun; Berlin's fit puts the sun at 0.187 against the
-   sky's 0.61, so its sunlit wedges were residual), lit by the direct light now and only toward the bake's own sun
+   the rays missed (`sun_missed`: more visibility toward the bake's sun, at most twice its light), lit by the direct
+   light now and only toward the bake's own sun
    (whole within 2 degrees, none past 10: toward the moon the traced visibility alone - no hard wedges of the bake's
    sun shadows at night); the rest - lamps, glows, the artists' lights - stays the residual, the level's own emitters,
-   constant through the day (`rt_relit_residual=0` leaves it out). The bake's occlusion beyond the traced sky stays in
-   the tint. `sun_baked` keeps the visibility toward the bake's sun for the field.
+   constant through the day (`rt_relit_residual=0` leaves it out). A lamp's light is told within a mesh (against the
+   mesh's own neighbourhood), then across meshes (`relit_local_across`): a mesh a lamp lights whole takes the local light
+   of its neighbours on other meshes facing the same way. The bounce keeps its part from the residuals where its rays
+   land (`bounce_local`: a lamp-lit wall's light bounced into a recess) at full strength through the day. The bake's
+   occlusion beyond the traced sky stays in the tint. `sun_baked` keeps the visibility toward the bake's sun for the
+   field.
+   **The fit** (round 4): an edge's error is relative to its own light and judged by the candidate itself (in the
+   light's units the bounce - small everywhere - was the cheapest term); meshes of one colour all over (painted, not lit
+   by the bake: 1238 of Berlin's 2843) give no edges; an edge across a traced shadow's border counts only where the
+   bake steps down into the traced shade too (~18000 traced borders step 1.00 at the median in Berlin's and Boston's
+   bakes - the traced geometry's own shadows); and the sun's strength against the rest is set per channel by the faces'
+   turning, mesh by mesh (the faces toward the sun over those turned from it, the bake's against the model's).
+   Berlin's sun 0.19 -> 0.55 (its faces 1.85x in the model, 2.17x in the bake), Boston's 0.24 -> 0.44. The fit logs
+   these numbers. Relit's probe rays take the cut-outs by their alpha (`ProbeRequest::cutouts`, the shared test).
 3. **One lighting path** (`engine/gfx/rt_light_field.h`): the relit level's model evaluated where a thing is - each
    vertex's direct light (a x N.L x visibility) and indirect (sky and bounce) now and at the bake, and the level's own
    lights, kept in 128-unit cells; a point's light is its cells' (trilinear, the empty ones left out, else the nearest
    within 3 cells, else the level's whole). What relit doesn't relight vertex by vertex was authored for the level's
    own light, so it takes the light now over the bake's where it stands: the objects' models (`colour_models_by_place`),
    unlit instances (`unlit_object_colour`), the game's lights for the skater, peds, cars and lit objects (the key light
-   x the direct light; the fill and ambient x the field's indirect ratio - `pc_lights.cpp relight`), the particles (the
-   level's whole). The screen-space passes - shadows, occlusion, bounce, lamps (`rt_lights`), reflections - already
+   x the direct light; the fill and ambient x the field's indirect ratio - `pc_lights.cpp relight`; the level's own
+   lights added as a light of their own - `local_at`: per cell a fit of the local light over the way a surface faces,
+   c0 + c1 . n, given as an ambient part and a directional light toward the lamps, device light 2 - so a skater facing
+   a lamp-lit wall is lit as the wall), the particles (the level's whole). The screen-space passes - shadows, occlusion, bounce, lamps (`rt_lights`), reflections - already
    light every pixel alike; every ray among them takes cut-outs by their alpha (`vulkan_rt_scene.h`
    `cutout_rays_glsl`). The clouds read the state's sun, sky and night sky (`cloud_light`).
 4. **Night is light and exposure**: the moon's light, the night sky's, the level's own lamps and `rt_lights`' real
-   lamps, and the exposure (`DayLight::exposure`, `rt_hdr`) - no darkening factors per kind of object.
+   lamps, and the exposure (`DayLight::exposure`, `rt_hdr`) - no darkening factors per kind of object. The exposure is
+   the eye adapting to the relit level's own light (the light field's whole, its lamps in it): (1 / light)^0.5 within 1
+   and 2, reached over ~1.5 s (`adapted_exposure`, `day_clock.cpp exposure_now`) - Boston's night 2.0, Berlin's 1.85,
+   a dusk ~1.4, noon 1. The night sky's radiance is set for it.
 5. **Ready before the first frame** (`rt_relit_world.h` `hold_first_light`): where the clock may light a level, the
    frames after its loading screen goes down are drawn (the world must stand still to be relit; the clock waits for the
    baked sun's fit; the night state's scripts run) under the loading screen's picture until the clock's light is
