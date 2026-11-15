@@ -2646,9 +2646,11 @@ snow: a thin layer of snow over the level and a heightfield of what was pressed 
   on walls and steep banks, thinning on slopes), none on a face of a sector in the Indoor light group; a narrow face (a
   ledge's top, a rail's) gets at least its middle's cell. A surface below its cell's top (+ 2 units + 0.6 cells) is
   under something - a roof, a bridge, an awning: no snow.
-- **The cover (the world's draws).** `render_pc` marks each draw of a world or scene-object mesh that isn't a skinned
-  character (`snow::set_current_ground`, beside the water's marks in `MeshRef::render`); such a draw on one of the
-  per-pixel lighting's programs gets `FragmentKey::snow` (a byte of the two spares: the key stays 52 bytes). Its
+- **The cover (the world's draws).** `render_pc` marks each draw of a world or scene-object mesh that isn't a
+  character's (`snow::set_current_ground`, beside the water's marks in `MeshRef::render`; `Singleton::render` says while
+  it draws an instance with a skeleton - 24 bones or more -, skinned or a mesh a bone); such a draw on one of the
+  per-pixel lighting's programs, or on the fixed-function stages with a texture on stage 0 (the road's markings, the
+  decal meshes), gets `FragmentKey::snow` (a byte of the two spares: the key stays 52 bytes). Its
   fragment shader works out the surface's world position (the eye-space one handed on, the view's inverse), its own
   normal from the position's screen derivatives (turned toward the eye), the up share moved by a value noise (the edge
   of a slope's snow isn't a straight line) and the open share from the sky map's four cells (`textureGather`: a
@@ -2714,7 +2716,16 @@ snow: a thin layer of snow over the level and a heightfield of what was pressed 
   open ground drawn with the game's material shader, leaves the ground under the roof's footprint, a wall and an
   unmarked draw alone, and snow off draws the picture as before; the layer leaves pixels far from a trail unchanged,
   changes those on it, the packed snow darker than beside it; the falling snow over the sky; the spray drawn is what is
-  alive; every pixel finite; validation silent. `thug2_options_check` has the four keys and the indoor rule.
+  alive; every pixel finite; validation silent. `thug2_options_check` has the four keys and the indoor rule. Cost
+  (the check's, RTX 5070 Ti, 2560 x 1440): the trails' window full (70 tiles drawn), 16,000 flakes and a carve's spray -
+  0.2 - 0.33 ms a frame on the device (one run 0.8 on a busy machine).
+- **In the game** (BO, the user's [Graphics] with `tod=afternoon`, 853 x 480 DLSS input in a 1280 x 720 window): the
+  sky map of 26,049 faces (3,633 indoor) in 85 ms - 2048 x 1989 cells of 5.7 units, 53,786 square metres open to the
+  snow; the streets, sidewalks, planters and car roofs white, the building fronts not; a board's trail
+  with its berms down the street, spray off a carve and a landing, flakes falling, the trail shallower a minute later.
+  Known: the decals (`rt_decals`: cracks, oil, tyre marks) are drawn over the snow (their pass reads the shaded
+  ground, not the cover); the trails' raised layer shows a soft step where its activity ends (24 units round a trail);
+  foliage and trees without collision keep no snow off what is under them.
 - **Not done:** the ray-traced reflections and bounce light see the ground's own colours, not the snow (their materials
   are the textures'); the BLAS keeps the level's geometry (the trails are drawn, not traced); the presses come from
   where the characters stand, not their bones (a bail lying in the snow leaves a footprint-sized mark); wheels are
