@@ -238,9 +238,6 @@ std::vector<Decl> declarations()
             .need(has(Cap::k64Bit))
             .need(has(Cap::kNvidia))
             .off("off"),
-        // (the game's own ticks a second - engine/sys/tick_rate_settings.cpp: on its way out, the physics staying the
-        // original's 60 Hz; declared bare, without rules, while README still documents it - its removal deletes this line)
-        gfx("tick_rate", K::kNumber, "60"),
         gfx("present_mode", K::kChoice, "vsync")
             .tab(G::kGraphics, t::kOptPresentMode, t::kOptPresentModeHelp)
             .pick({c("vsync", t::kOn), c("mailbox", t::kPresentMailbox), c("immediate", t::kPresentImmediate)})
@@ -1008,6 +1005,7 @@ std::vector<Decl> declarations()
         debug("collision_events", K::kSwitch, "0"),
         debug("collision_event_screenshots", K::kSwitch, "1").need(on("collision_events")),
         debug("frame_profile", K::kSwitch, "0"),
+        debug("latency_probe", K::kSwitch, "0"),
         debug("rt_contract_check", K::kSwitch, "0").need(ray_tracing()),
         debug("rt_lights_log", K::kSwitch, "0").need(is_not("rt_lights", {"0"})),
         debug("rt_water_view", K::kSwitch, "0").need(on("rt_water")),
