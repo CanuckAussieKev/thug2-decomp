@@ -477,6 +477,17 @@ struct SnowSettings {
 };
 void set_snow_settings(const SnowSettings& settings);
 [[nodiscard]] SnowSettings snow_settings();
+// NOT ORIGINAL - paint trails (vulkan_paint.h; docs/design/vulkan.md "Paint trails"): [Graphics] paint_trails,
+// paint_trail_scale, paint_trail_colour - all put to use at once. Every skater's board leaves a line of paint in its
+// colour, widening and splattering with its combo, kept for the level session. `on` false (the default): nothing is
+// stamped or drawn. No ray tracing needed.
+struct PaintSettings {
+    bool on = false;
+    float scale = 1.0F;  // the lines' width and the splatter's reach: 0.5 - 2
+    uint32_t colour = 0; // 0xRRGGBB for this machine's first player; 0: its slot's colour
+};
+void set_paint_settings(const PaintSettings& settings);
+[[nodiscard]] PaintSettings paint_settings();
 // NOT ORIGINAL - decals and clutter (vulkan_scatter.h; docs/design/vulkan.md "Decals and clutter"): [Graphics] rt_decals,
 // rt_decals_density, clutter, clutter_density - all put to use at once. Marks (cracks, stains, oil, tyre marks, gum, wet
 // patches, grime) and small props (leaves, litter, weeds, pebbles) over the level's surfaces, read from its collision and

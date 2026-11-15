@@ -694,6 +694,21 @@ void check_capabilities()
     expect(!resolve(no_vulkan(), snowy).on("snow") && resolve(no_vulkan(), snowy).at("snow").reason == t::kNoVulkanGpu,
            "no Vulkan: no snow, at the root");
     expect(!resolve(rtx50(), {}).on("snow"), "snow off by default");
+    // (added by the paint trails) Vulkan, no ray tracing; indoors too; its width and colour with it; a colour of the
+    // player's own (an open choice: #RRGGBB) kept as written
+    const Ini painted = {{"paint_trails", "1"}, {"paint_trail_scale", "1.5"}, {"paint_trail_colour", "#12ab34"}};
+    const config::Resolution painting = resolve(no_rt_gpu(), painted);
+    expect(painting.on("paint_trails") && painting.value("paint_trail_scale") == "1.5" &&
+               painting.value("paint_trail_colour") == "#12ab34",
+           "paint trails without a ray tracing GPU, a colour of the player's own kept");
+    config::Inputs painted_indoors = inputs_of(rtx50(), painted);
+    painted_indoors.level.outdoor = false;
+    expect(config::resolve(painted_indoors).on("paint_trails"), "paint trails indoors too");
+    expect(!resolve(no_vulkan(), painted).on("paint_trails") && resolve(no_vulkan(), painted).at("paint_trails").reason == t::kNoVulkanGpu,
+           "no Vulkan: no paint trails, and why");
+    expect(!resolve(rtx50(), {}).on("paint_trails") && !resolve(rtx50(), {}).at("paint_trail_colour").in_effect,
+           "paint trails off by default, their knobs out");
+    expect(resolve(rtx50(), {{"paint_trails", "1"}}).value("paint_trail_colour").empty(), "the paint's colour by player by default");
     // (added by the de-lit texture sets) rt_delight in effect whatever texture set is chosen: a de-lit set's textures
     // that came flat are left alone by the renderer one by one (gpu_vulkan/vulkan_detail.h), its others keep it
     config::Capabilities sets = rtx50();

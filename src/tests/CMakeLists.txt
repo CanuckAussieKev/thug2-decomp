@@ -288,6 +288,18 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_snow_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_paint_check.exe: the paint trails (engine/gfx/paint_trails.h's strokes, splatter and fields,
+# gpu_vulkan/vulkan_paint.h's windows and coat) on this machine - a slim line with no combo, wider and splattered as the
+# combo grows, kept through a bail, a rail's stripe on its top (the ground under it its own), a wallride on the wall, the
+# same steps twice the same; the windows on the device after the camera moves; the coat on a drawn ground and wall (none
+# beside the line, under the stripe, on an unmarked draw); validation; the cost at 2560x1440
+# (src/tests/vulkan_paint_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_paint_check vulkan_paint_check.cpp)
+    target_link_libraries(thug2_vulkan_paint_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_paint_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_scatter_check.exe: the decals and clutter (engine/gfx/scatter.h's placement,
 # gpu_vulkan/vulkan_scatter.h's passes) on this machine - a synthetic street's collision: the same placement every time,
 # each decal's kind its surface's, every vertex on its face and none past an edge, nothing on the skate lines (a quarter

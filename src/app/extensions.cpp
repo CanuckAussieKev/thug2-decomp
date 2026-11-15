@@ -23,6 +23,7 @@
 #include "frontend/new_frontend_extension.h"
 #include "game/commands/career_complete.h"
 #include "game/front_end/start_level.h"
+#include "game/rider/paint_brushes.h"
 #include "game/rider/thaw_bmx.h"
 #include "render_pc/texture_set_reload.h"
 
@@ -111,6 +112,7 @@ void register_added_script_commands()
     skater::thaw_bmx::register_script_functions();                   // (ThawBmx_Available, the bike's members)
     frontend::new_frontend::extension().register_script_commands(); // (the overlay's pause items: NewFrontend_...)
     devtools::demo::extension().register_script_commands();          // (the overlay's DEMOS menu: Demo_...)
+    skater::paint_brushes::register_script_functions();              // (PaintTrailsClear)
 }
 
 // (the demos last: a recording takes port 0 as every other source left it; a playback replaces it)

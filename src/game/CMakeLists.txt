@@ -202,6 +202,7 @@ add_library(thug2_game STATIC
     rider/core_physics_acid_drop.cpp
     rider/debug_collision.cpp
     rider/collision_events.cpp
+    rider/paint_brushes.cpp
     rider/core_jump.cpp
     rider/core_collision.cpp
     rider/core_grind.cpp

@@ -31,6 +31,7 @@
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_surface_trail.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -470,15 +471,6 @@ struct DrawPipeline {
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
-// A slot of the trails' window: which tile it holds (and its version), or none.
-struct Slot {
-    bool filled = false; // a tile's texels (else zeros)
-    bool known = false;  // the slot's content is known (false: never written)
-    int x = 0;
-    int z = 0;
-    uint32_t version = 0;
-};
-
 // The light the snow is turned to (the cover's own light is the world's: this is only the layer's and the air's).
 struct SnowLight {
     std::array<float, 3> toward{0.0F, 1.0F, 0.0F};
@@ -495,10 +487,7 @@ struct SnowState {
     // the trails' window and the ground's colours seen
     Image trails;
     Image colours;
-    std::vector<Slot> slots;
-    int window_tiles = 0;
-    float texel = 0.0F;
-    std::array<int, 2> window{}; // the first tile (x, z)
+    TrailWindow window; // (the surface trails' window: vulkan_surface_trail.h)
     uint64_t window_frame = 0;   // the frame whose first view placed it
     // the view
     rt::ViewDrawn view;
@@ -569,55 +558,6 @@ SnowListener& listener()
 }
 
 using Matrix = std::array<std::array<float, 4>, 4>;
-
-// A row-vector 4 x 4 matrix (D3D's layout) inverted (Gauss-Jordan in double precision; a singular one: the identity).
-Matrix inverted(const Matrix& matrix)
-{
-    std::array<std::array<double, 8>, 4> work{};
-    for (std::size_t row = 0; row < 4; ++row) {
-        for (std::size_t column = 0; column < 4; ++column) {
-            core::at(core::at(work, row), column) = static_cast<double>(core::at(core::at(matrix, row), column));
-        }
-        core::at(core::at(work, row), 4 + row) = 1.0;
-    }
-    for (std::size_t column = 0; column < 4; ++column) {
-        std::size_t pivot = column;
-        for (std::size_t row = column + 1; row < 4; ++row) {
-            if (std::abs(core::at(core::at(work, row), column)) > std::abs(core::at(core::at(work, pivot), column))) {
-                pivot = row;
-            }
-        }
-        constexpr double kSingular = 1.0e-12;
-        if (std::abs(core::at(core::at(work, pivot), column)) < kSingular) {
-            Matrix identity{};
-            for (std::size_t k = 0; k < 4; ++k) {
-                core::at(core::at(identity, k), k) = 1.0F;
-            }
-            return identity;
-        }
-        std::swap(core::at(work, pivot), core::at(work, column));
-        const double scale = 1.0 / core::at(core::at(work, column), column);
-        for (double& value : core::at(work, column)) {
-            value *= scale;
-        }
-        for (std::size_t row = 0; row < 4; ++row) {
-            if (row == column) {
-                continue;
-            }
-            const double factor = core::at(core::at(work, row), column);
-            for (std::size_t k = 0; k < 8; ++k) {
-                core::at(core::at(work, row), k) -= factor * core::at(core::at(work, column), k);
-            }
-        }
-    }
-    Matrix out{};
-    for (std::size_t row = 0; row < 4; ++row) {
-        for (std::size_t column = 0; column < 4; ++column) {
-            core::at(core::at(out, row), column) = static_cast<float>(core::at(core::at(work, row), 4 + column));
-        }
-    }
-    return out;
-}
 
 Float4x4 flat(const Matrix& matrix)
 {
@@ -992,63 +932,6 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     return pipeline;
 }
 
-bool ensure_image(Backend& state, Image* image, VkFormat format, Extent extent, VkImageUsageFlags usage)
-{
-    if (image->image != VK_NULL_HANDLE && image->format == format && image->extent.width == extent.width &&
-        image->extent.height == extent.height) {
-        return true;
-    }
-    retire_image(state, image);
-    const ImageRequest request{.format = format,
-                               .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
-                               .extent = extent,
-                               .levels = 1,
-                               .samples = VK_SAMPLE_COUNT_1_BIT,
-                               .usage = usage,
-                               .alpha_one = false};
-    if (!state.memory.create_image(request, image)) {
-        return false;
-    }
-    if ((usage & VK_IMAGE_USAGE_STORAGE_BIT) != 0) {
-        image->resting = VK_IMAGE_LAYOUT_GENERAL;
-    }
-    prepare_image(state, image);
-    return true;
-}
-
-// Bytes into the staging ring; the regions copied into `image` (moved to be written, then back to its resting layout).
-bool copy_into(Backend& state, Image* image, const std::vector<uint8_t>& bytes, std::span<VkBufferImageCopy> regions)
-{
-    if (regions.empty()) {
-        return true;
-    }
-    const std::optional<RingSpan> staged = state.staging.copy(bytes, kStagingAlignment);
-    if (!staged) {
-        return false;
-    }
-    for (VkBufferImageCopy& region : regions) {
-        region.bufferOffset += staged->offset;
-    }
-    VkCommandBuffer commands = outside_pass(state);
-    const VkImageLayout resting = image->resting;
-    Memory::transition(commands, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    vkCmdCopyBufferToImage(commands, staged->buffer, image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                           static_cast<uint32_t>(regions.size()), regions.data());
-    Memory::transition(commands, image, resting);
-    image->used = state.frames.serial();
-    return true;
-}
-
-VkBufferImageCopy region_at(VkDeviceSize offset, int32_t x, int32_t y, uint32_t width, uint32_t height)
-{
-    return {.bufferOffset = offset,
-            .bufferRowLength = 0,
-            .bufferImageHeight = 0,
-            .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
-            .imageOffset = {.x = x, .y = y, .z = 0},
-            .imageExtent = {.width = width, .height = height, .depth = 1}};
-}
-
 // The level's sky map onto the device (once a map).
 bool upload_sky(Backend& state)
 {
@@ -1064,15 +947,15 @@ bool upload_sky(Backend& state)
     }
     constexpr VkImageUsageFlags kUsage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     own.sky.resting = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    if (!ensure_image(state, &own.sky, kSkyFormat, {.width = map->columns, .height = map->rows}, kUsage)) {
+    if (!ensure_trail_image(state, &own.sky, kSkyFormat, {.width = map->columns, .height = map->rows}, kUsage)) {
         own.sky_uploaded.reset();
         return false;
     }
     own.sky.resting = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     std::vector<uint8_t> bytes(map->cells.size() * sizeof(uint32_t));
     std::memcpy(bytes.data(), map->cells.data(), bytes.size());
-    std::array<VkBufferImageCopy, 1> region{region_at(0, 0, 0, map->columns, map->rows)};
-    if (!copy_into(state, &own.sky, bytes, region)) {
+    std::array<VkBufferImageCopy, 1> region{image_region(0, 0, 0, map->columns, map->rows)};
+    if (!copy_into_image(state, &own.sky, bytes, region)) {
         if (first_report(state, kReportUpload)) {
             get_log("vulkan: snow: the sky map (%ux%u) couldn't be put on the device - no snow", map->columns, map->rows);
         }
@@ -1084,12 +967,8 @@ bool upload_sky(Backend& state)
     return true;
 }
 
-int floor_div(int value, int by) { return value >= 0 ? value / by : -((-value + by - 1) / by); }
-
-int slot_of(int value, int count) { return ((value % count) + count) % count; }
-
-// The trails' window placed round the camera, and every slot whose tile came in or changed copied (the colours seen of a
-// slot given another tile cleared).
+// The trails' window placed round the camera (the surface trails' window: only the tiles that came in or changed copied),
+// the colours seen of a slot given another tile cleared.
 bool update_window(Backend& state, const std::array<float, 3>& camera)
 {
     SnowState& own = snow_state();
@@ -1097,74 +976,41 @@ bool update_window(Backend& state, const std::array<float, 3>& camera)
     const int tiles = snow::window_tiles(settings.quality);
     const float texel = snow::trail_texel(settings.quality);
     const auto side = static_cast<uint32_t>(tiles * snow::kTileTexels);
-    if (own.window_tiles != tiles || own.texel != texel || own.trails.image == VK_NULL_HANDLE) {
+    if (own.window.tiles != tiles || own.window.texel != texel || own.trails.image == VK_NULL_HANDLE) {
         own.trails.resting = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        if (!ensure_image(state, &own.trails, kTrailsFormat, {.width = side, .height = side},
-                          VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ||
-            !ensure_image(state, &own.colours, kColoursFormat, {.width = side, .height = side},
-                          VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
+        if (!ensure_trail_image(state, &own.trails, kTrailsFormat, {.width = side, .height = side},
+                                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ||
+            !ensure_trail_image(state, &own.colours, kColoursFormat, {.width = side, .height = side},
+                                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
             return false;
         }
         own.trails.resting = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        own.window_tiles = tiles;
-        own.texel = texel;
-        own.slots.assign(static_cast<std::size_t>(tiles) * static_cast<std::size_t>(tiles), Slot{});
+        const TrailWindow before = own.window;
+        own.window = TrailWindow{};
+        own.window.tiles_copied = before.tiles_copied;
+        own.window.slots_cleared = before.slots_cleared;
     }
-    const float tile_units = texel * static_cast<float>(snow::kTileTexels);
-    const int centre_x = static_cast<int>(std::floor(core::at(camera, 0) / tile_units));
-    const int centre_z = static_cast<int>(std::floor(core::at(camera, 2) / tile_units));
-    own.window = {centre_x - (tiles / 2), centre_z - (tiles / 2)};
-    std::vector<uint8_t> trail_bytes;
-    std::vector<VkBufferImageCopy> trail_regions;
-    std::vector<VkBufferImageCopy> colour_regions;
-    constexpr std::size_t kTileTrailBytes = snow::kTileTexelCount * kTrailTexelBytes;
+    std::vector<std::array<int, 2>> moved;
+    bool done = false;
     snow::read_trails([&](const snow::TrailField& field) {
-        for (int dz = 0; dz < tiles; ++dz) {
-            for (int dx = 0; dx < tiles; ++dx) {
-                const int x = core::at(own.window, 0) + dx;
-                const int z = core::at(own.window, 1) + dz;
-                const int sx = slot_of(x, tiles);
-                const int sz = slot_of(z, tiles);
-                Slot& slot = core::at(own.slots, (static_cast<std::size_t>(sz) * static_cast<std::size_t>(tiles)) + static_cast<std::size_t>(sx));
-                const snow::Tile* tile = field.tile(x, z);
-                const bool same_place = slot.known && slot.x == x && slot.z == z;
-                if (same_place && ((tile == nullptr && !slot.filled) || (tile != nullptr && slot.filled && slot.version == tile->version))) {
-                    continue;
-                }
-                if (!same_place) { // (another tile's colours seen: forgotten)
-                    colour_regions.push_back(region_at(0, sx * snow::kTileTexels, sz * snow::kTileTexels, snow::kTileTexels,
-                                                       snow::kTileTexels));
-                }
-                if (tile == nullptr && slot.known && !slot.filled) {
-                    slot = {.filled = false, .known = true, .x = x, .z = z, .version = 0};
-                    continue; // (zeros there already)
-                }
-                const VkDeviceSize offset = trail_bytes.size();
-                trail_bytes.resize(trail_bytes.size() + kTileTrailBytes);
-                if (tile != nullptr) {
-                    std::memcpy(std::span(trail_bytes).subspan(static_cast<std::size_t>(offset), kTileTrailBytes).data(),
-                                tile->texels.data(), kTileTrailBytes);
-                    ++own.stats.tiles_copied;
-                } else {
-                    ++own.stats.slots_cleared;
-                }
-                trail_regions.push_back(region_at(offset, sx * snow::kTileTexels, sz * snow::kTileTexels, snow::kTileTexels,
-                                                  snow::kTileTexels));
-                slot = {.filled = tile != nullptr, .known = true, .x = x, .z = z, .version = tile != nullptr ? tile->version : 0};
-            }
-        }
+        const std::array<Image*, 1> images{&own.trails};
+        done = update_trail_window(state, &own.window, field, {core::at(camera, 0), core::at(camera, 2)}, tiles, images, &moved);
     });
-    own.stats.window = own.window;
+    own.stats.tiles_copied = own.window.tiles_copied;
+    own.stats.slots_cleared = own.window.slots_cleared;
+    own.stats.window = own.window.first;
     own.stats.window_size = tiles;
-    if (!copy_into(state, &own.trails, trail_bytes, trail_regions)) {
+    if (!done) {
         return false;
     }
-    if (!colour_regions.empty()) {
-        const std::vector<uint8_t> zeros(snow::kTileTexelCount * kColourTexelBytes, 0);
-        for (VkBufferImageCopy& region : colour_regions) {
-            region.bufferOffset = 0;
+    if (!moved.empty()) { // (another tile's colours seen: forgotten)
+        std::vector<VkBufferImageCopy> colour_regions;
+        for (const std::array<int, 2>& slot : moved) {
+            colour_regions.push_back(image_region(0, core::at(slot, 0) * snow::kTileTexels, core::at(slot, 1) * snow::kTileTexels,
+                                                  snow::kTileTexels, snow::kTileTexels));
         }
-        return copy_into(state, &own.colours, zeros, colour_regions);
+        const std::vector<uint8_t> zeros(snow::kTileTexelCount * kColourTexelBytes, 0);
+        return copy_into_image(state, &own.colours, zeros, colour_regions);
     }
     return true;
 }
@@ -1182,7 +1028,7 @@ std::optional<VkDescriptorBufferInfo> cover_block(Backend& state)
         return std::nullopt;
     }
     SnowUniforms uniforms{};
-    uniforms.eye_to_world = flat(inverted(own.view.camera.view));
+    uniforms.eye_to_world = trail_eye_to_world(own.view.camera.view);
     uniforms.map = {map->x0, map->z0, 1.0F / map->cell, map->cell};
     uniforms.range = {map->low, map->span, snow::kOpenSlack + (snow::kOpenCellShare * map->cell), 1.0F};
     uniforms.size = {static_cast<float>(map->columns), static_cast<float>(map->rows), snow::kLeastUp, snow::kFullUp};
@@ -1269,10 +1115,10 @@ Block block_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn&
     }
     block.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1), core::at(view.camera.position, 2),
                     static_cast<float>(std::fmod(snow::clock(), kClockWraps))};
-    block.trails = {own.texel, static_cast<float>(own.window_tiles * snow::kTileTexels),
-                    static_cast<float>(core::at(own.window, 0) * snow::kTileTexels),
-                    static_cast<float>(core::at(own.window, 1) * snow::kTileTexels)};
-    block.snow = {settings.depth, kSnowNearTiles * own.texel * static_cast<float>(snow::kTileTexels), 0.0F, 0.0F};
+    block.trails = {own.window.texel, static_cast<float>(own.window.tiles * snow::kTileTexels),
+                    static_cast<float>(core::at(own.window.first, 0) * snow::kTileTexels),
+                    static_cast<float>(core::at(own.window.first, 1) * snow::kTileTexels)};
+    block.snow = {settings.depth, kSnowNearTiles * own.window.texel * static_cast<float>(snow::kTileTexels), 0.0F, 0.0F};
     if (const std::shared_ptr<const snow::SkyMap>& map = own.sky_uploaded; map != nullptr) {
         block.sky_map = {map->x0, map->z0, map->cell, 0.0F};
         block.sky_range = {map->low, map->span, static_cast<float>(map->columns), static_cast<float>(map->rows)};
@@ -1518,8 +1364,8 @@ std::vector<TileDraw> tiles_to_draw(const std::array<float, 3>& camera)
 {
     const SnowState& own = snow_state();
     std::vector<TileDraw> found;
-    const float tile_units = own.texel * static_cast<float>(snow::kTileTexels);
-    for (const Slot& slot : own.slots) {
+    const float tile_units = own.window.texel * static_cast<float>(snow::kTileTexels);
+    for (const TrailSlot& slot : own.window.slots) {
         if (!slot.filled) {
             continue;
         }
@@ -1607,13 +1453,13 @@ void snow_key(Backend& state, const GpuStateBlock& block, ShaderKey* shaders, Sn
     *out = {};
     SnowState& own = snow_state();
     if (!own.settings.on || !own.view_known || own.sky.image == VK_NULL_HANDLE || own.sky_uploaded == nullptr ||
-        !snow::current_ground() || fvf_pre_transformed(block.vertex_format) || shaders->fragment.water != 0U) {
+        !surface_trail::current_ground() || fvf_pre_transformed(block.vertex_format) || shaders->fragment.water != 0U) {
         return;
     }
     ShaderKey with_snow = *shaders;
-    with_snow.fragment.snow = kSnowCover;
+    with_snow.fragment.trails = static_cast<uint8_t>(with_snow.fragment.trails | kTrailSnow);
     with_snow = normalised(with_snow);
-    if (with_snow.fragment.snow == 0U) {
+    if ((with_snow.fragment.trails & kTrailSnow) == 0U) {
         return;
     }
     const std::optional<VkDescriptorBufferInfo> uniforms = cover_block(state);
@@ -1705,7 +1551,7 @@ bool record_snow_layer(Backend& state, const rt::ViewDrawn& view)
         get_log("vulkan: snow: the first trails drawn (%ux%u, %u sample%s%s; %zu tiles, a texel %.1f units)", core::at(plan.rect, 2),
                 core::at(plan.rect, 3), static_cast<unsigned>(plan.colour->samples),
                 plan.colour->samples == VK_SAMPLE_COUNT_1_BIT ? "" : "s", plan.motion ? ", motion" : "", tiles.size(),
-                static_cast<double>(own.texel));
+                static_cast<double>(own.window.texel));
     }
     return true;
 }

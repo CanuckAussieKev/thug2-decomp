@@ -559,6 +559,23 @@ std::vector<Decl> declarations()
             .need(on("snow"))
             .live(E::kSnow),
         gfx("snowfall", K::kSwitch, "1").tab(G::kSurfaces, t::kOptSnowfall).need(on("snow")).live(E::kSnow),
+        // (paint trails: every skater's line of paint, widening and splattering with its combo - vulkan_paint.h)
+        gfx("paint_trails", K::kSwitch, "0")
+            .tab(G::kGameplay, t::kOptPaint, t::kOptPaintHelp)
+            .need(vulkan(), t::kNeedsVulkan)
+            .live(E::kPaint),
+        gfx("paint_trail_scale", K::kNumber, "1")
+            .tab(G::kGameplay, t::kOptPaintScale)
+            .pick({c("0.6", "Thin"), c("1", t::kMedium), c("1.5", "Wide"), c("2", "Huge")})
+            .need(on("paint_trails"))
+            .live(E::kPaint),
+        gfx("paint_trail_colour", K::kChoice, "")
+            .tab(G::kGameplay, t::kOptPaintColour)
+            .pick({c("", "By player"), c("pink", "Pink"), c("cyan", "Cyan"), c("lime", "Lime"), c("orange", "Orange"),
+                   c("yellow", "Yellow"), c("violet", "Violet"), c("red", "Red"), c("white", "White")})
+            .open()
+            .need(on("paint_trails"))
+            .live(E::kPaint),
         gfx("rt_decals", K::kSwitch, "0").tab(G::kSurfaces, t::kOptDecals, t::kOptDecalsHelp).need(vulkan(), t::kNeedsVulkan).live(E::kScatter),
         gfx("rt_decals_density", K::kNumber, "1")
             .tab(G::kSurfaces, t::kOptDecalsDensity)
