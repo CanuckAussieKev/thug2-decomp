@@ -2477,8 +2477,8 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
 gpu_vulkan.h; `parse_art_style` takes any case and the old 0 / 1). `cel` is no post-process: it is cel shading, the
 rendering mode ("Cel shading" below - `style_has_pass` is false for it and off, so the listener isn't added). `vhs`,
 `retro` and `watercolour` are "Art styles: vhs, retro, watercolour" below. The Options screen has them all in its Style
-tab: `rt_style` first, then every style's knobs (`rt_style_*`, `rt_cel_*`), each listed only while its style is picked
-(`shown_table`). The four looks here (`gpu_vulkan/vulkan_style_looks`, formulas in its header) reuse the toon filter's passes and
+tab: `rt_style` first, then every style's knobs (`rt_style_*`, `rt_cel_*`), each in effect only while its style is picked
+(the settings model's needs - docs/design/settings.md; greyed otherwise). The four looks here (`gpu_vulkan/vulkan_style_looks`, formulas in its header) reuse the toon filter's passes and
 listener - the viewport's colour copied out (resolved), the linear depth, the half-resolution colour and its Kuwahara
 smoothing - and add a composite of their own (a fragment pipeline per look, format and samples), so they share its
 place (`ViewOrder::kStyle`, after the tone mapping and the upscaler, before the 2D), its per-viewport handling and its
@@ -2519,8 +2519,8 @@ the frame's seed (the frame serial).
   `rt_style_paper` (0.5, comic and sketch), `rt_style_grain` (0.5: noir, thermal, the papers), `rt_style_vignette` (0.5:
   noir, thermal), `rt_style_noir_contrast` (1.8), `rt_style_noir_dark` (0,0,0), `rt_style_noir_light` (0.95,0.92,0.84),
   `rt_style_thermal_focus` (0.6); the toon's smooth / bands / outlines / width / saturation / strength apply where they
-  fit (README). Options: the Style tab's rows for each, each listed only under the looks that use it (the
-  shown-when rules in frontend/new_frontend_options.cpp). The push constants grew to 192 bytes (four look vectors; the device's limit checked).
+  fit (README). Options: the Style tab's rows for each, each in effect only under the looks that use it (the
+  settings model's needs, engine/config/settings_model.cpp). The push constants grew to 192 bytes (four look vectors; the device's limit checked).
 - **Checked:** `thug2_vulkan_style_check` (133 checks, the RTX 5070 Ti and the integrated Radeon, validation with
   synchronization validation 0). Each look against its processor twin (`style_look_reference`, fed the pass's own
   smoothed colour and linear depth, at the frame's seed - `style_last_parameters`): every pixel within 2.5 steps (0

@@ -28,9 +28,11 @@ player's own copy of the game's data. A few rules keep the source clean and the 
   with the proposal rather than landing a workaround.
 - **The original's behaviour is the default.** A change that differs from it carries a `NOT ORIGINAL` comment
   saying what it does and why, and an ini switch where a player might want the original back.
-- **A new or changed setting** comes with: its row in the README's settings table, its row in the Options screen
-  (`src/frontend/new_frontend_options.cpp`, the text in `new_frontend_text.h`), the settings report, live reload in
-  `src/engine/gfx/graphics_options.cpp` when it can change while playing, and `options_check`.
+- **A new or changed setting** is declared once in the settings model (`src/engine/config/settings_model.cpp`, its
+  words in `settings_text.h`; `docs/design/settings.md`): its tab and choices for the Options screen, its default, its
+  rules (what it needs, what it turns on, what works against it). Then its row in the README's settings table (the
+  `options_check` holds the two together), and the code reads it through the model's resolution - never the ini
+  directly.
 - **Portable C++.** The goal is a source tree that builds with MSVC and GCC: standard C++ and standard library, no
   MSVC-only extensions, no `NOLINT` (fix what clang-tidy reports).
 - **Layers.** `src/` is built in layers (`docs/architecture.md`); `tools/layers.test.ts` checks who may include whom.
