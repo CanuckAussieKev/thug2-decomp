@@ -185,6 +185,8 @@ void check_native()
     expect(night.hours == rt::kNightHours, "a level whose own state is night: its time midnight");
 }
 
+void check_objects_and_clouds(const rt::NativeDay& day, const rt::DayLight& midnight);
+
 void check_light()
 {
     const rt::NativeDay day = rt::fit_native_day(
@@ -262,6 +264,55 @@ void check_light()
            "the sky's light rises with the sun (overhead 1, " + number(rt::sky_light_at(-20.0)) + " at -20)");
     expect(rt::sun_light_at(-5.0) < 1e-6 && rt::sun_light_at(10.0) < rt::sun_light_at(50.0),
            "the sun's light: none below the horizon, more the higher it is");
+    check_objects_and_clouds(day, midnight);
+}
+
+// (added for the night's objects and clouds) What isn't relit darkens as the level does; the clouds at night are lit by
+// the night sky alone, and nothing jumps over the dusk.
+void check_objects_and_clouds(const rt::NativeDay& day, const rt::DayLight& midnight)
+{
+    const rt::DayLight own = rt::day_light_at(day, day.hours);
+    const rt::DayRgb own_surface = rt::surface_light(own);
+    const rt::DayRgb night_surface = rt::surface_light(midnight);
+    const rt::DayRgb off = rt::surface_light(rt::DayLight{});
+    expect(off == rt::DayRgb{1.0F, 1.0F, 1.0F}, "surface_light without the clock: 1");
+    expect(std::abs(std::get<1>(own_surface) - 1.0F) < 1e-3F, "surface_light at the level's own time: 1 (" +
+                                                                    number(std::get<1>(own_surface)) + ")");
+    expect(std::get<1>(night_surface) > 0.08F && std::get<1>(night_surface) < 0.3F &&
+               std::get<2>(night_surface) > std::get<0>(night_surface),
+           "surface_light at midnight: dark and blue, as the relit level's bounce (" + number(std::get<1>(night_surface)) +
+               ")");
+    // (the original's own night - its night state's level colour, 50 65 75 of 128 - is the brighter one the objects stood
+    // out by)
+    expect(std::get<1>(night_surface) < 65.0F / 128.0F, "surface_light at midnight: darker than the original's night");
+
+    const rt::CloudLight none = rt::cloud_light(rt::DayLight{});
+    expect(none.sun == 1.0F && none.sky == 1.0F && none.night_top == rt::DayRgb{} && none.night_bottom == rt::DayRgb{},
+           "cloud_light without the clock: as before");
+    const rt::CloudLight at_own = rt::cloud_light(own);
+    expect(at_own.sun == 1.0F && std::abs(at_own.sky - 1.0F) < 1e-3F && at_own.night_top == rt::DayRgb{},
+           "cloud_light at the level's own time: as before (sky " + number(at_own.sky) + ")");
+    const rt::CloudLight night = rt::cloud_light(midnight);
+    const float night_sky = std::get<2>(midnight.night_sky);
+    expect(night.sun == 0.0F && night.sky < 1e-3F && std::get<2>(night.night_top) > night_sky &&
+               std::get<2>(night.night_top) <= night_sky * (1.0F + rt::kCloudMoonGlow) + 1e-6F &&
+               std::get<2>(night.night_bottom) < std::get<2>(night.night_top),
+           "cloud_light at midnight: no sun, no daylit sky, the night sky's light a little brighter on the tops (sky " +
+               number(night.sky) + ")");
+    // continuous from the afternoon into the night (a step of 3 minutes)
+    double worst = 0.0;
+    rt::CloudLight last = rt::cloud_light(rt::day_light_at(day, 15.0));
+    for (double hours = 15.05; hours <= 23.99; hours += 0.05) {
+        const rt::CloudLight now = rt::cloud_light(rt::day_light_at(day, hours));
+        // (the sun's share and the sky's ratio as they are - 0 to 1 -, the night's light against its whole)
+        worst = std::max({worst, static_cast<double>(std::abs(now.sun - last.sun)),
+                          static_cast<double>(std::abs(now.sky - last.sky)),
+                          static_cast<double>(std::abs(std::get<2>(now.night_top) - std::get<2>(last.night_top)) /
+                                              std::max(std::get<2>(night.night_top), 1e-6F))});
+        last = now;
+    }
+    // (the night's light comes in with the sky's night floor, over the sun's first 4 degrees down: about 20 minutes)
+    expect(worst < 0.25, "cloud_light: no jump from the afternoon into the night (worst step " + number(worst) + ")");
 }
 
 void check_settings()

@@ -548,6 +548,38 @@ DayLight day_light_at(const NativeDay& native, double hours)
     return light;
 }
 
+DayRgb surface_light(const DayLight& light)
+{
+    DayRgb out{1.0F, 1.0F, 1.0F};
+    if (!light.on) {
+        return out;
+    }
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = (kDirectShare * light.direct * core::at(light.direct_tint, ch)) +
+                            ((1.0F - kDirectShare) * core::at(light.sky, ch));
+    }
+    return out;
+}
+
+CloudLight cloud_light(const DayLight& light)
+{
+    CloudLight out;
+    if (!light.on) {
+        return out;
+    }
+    const double sun = heading_of(light.sun).elevation;
+    const double own = heading_of(light.native).elevation;
+    out.sun = static_cast<float>(smoothstep(kCloudSunGone, kCloudSunWhole, sun));
+    const double own_sky = sky_light_at(own);
+    out.sky = own_sky > 0.0 ? std::clamp(static_cast<float>(sky_light_at(sun) / own_sky), 0.0F, kCloudMostSky) : 1.0F;
+    const float glow = kCloudMoonGlow * light.moon_disc;
+    for (std::size_t ch = 0; ch < out.night_top.size(); ++ch) {
+        core::at(out.night_top, ch) = core::at(light.night_sky, ch) * (1.0F + glow);
+        core::at(out.night_bottom, ch) = core::at(light.night_sky, ch) * (kCloudNightBase + glow);
+    }
+    return out;
+}
+
 void set_day_light(const DayLight& light)
 {
     Published& slot = published();

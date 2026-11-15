@@ -191,6 +191,29 @@ struct DayLight {
 };
 // The light at `hours` on the level's day.
 [[nodiscard]] DayLight day_light_at(const NativeDay& native, double hours);
+// What the light does to a surface over the level's own (display-referred, per channel): the level's mix of the direct
+// light and the sky's (kDirectShare - as the relit level's bounce scales) - what the relit mode makes of the level as a
+// whole. The objects and the characters the relit mode doesn't relight take it (day_clock: their tint, their lights),
+// so they darken with the level. All 1 while `on` is false.
+[[nodiscard]] DayRgb surface_light(const DayLight& light);
+// The drawn clouds' light at the clock's time (the Vulkan sky pass's: its clouds are lit by the sun and by the sky's
+// bands it matched at the level's own time): the sun's light on them x `sun` (gone once the sun is kCloudSunGone under
+// the horizon - a cloud high up keeps the sunset's light a little after the ground has lost it), the sky's x `sky` (the
+// sky's light now over the level's own time's - sky_light_at, linear), plus the night sky's own light (night_sky) on
+// their tops and bases - with the moon up a little more: at night a cloud is a dim silhouette barely lighter than the
+// sky round it, not a daylit one. All 1 / 0 while `on` is false; continuous over the dusk.
+inline constexpr double kCloudSunGone = -6.0;  // degrees: the sun's light on the clouds from none here ...
+inline constexpr double kCloudSunWhole = 0.0;  // ... to all here
+inline constexpr float kCloudMostSky = 4.0F;   // the sky's ratio at most (a noon over a dusk level's own time)
+inline constexpr float kCloudNightBase = 0.6F; // the night sky's light on the clouds' bases (x night_sky)
+inline constexpr float kCloudMoonGlow = 0.5F;  // and more on both with the full moon up (x night_sky x moon_disc)
+struct CloudLight {
+    float sun = 1.0F;
+    float sky = 1.0F;
+    DayRgb night_top{};
+    DayRgb night_bottom{};
+};
+[[nodiscard]] CloudLight cloud_light(const DayLight& light);
 // The sky's light on a level surface with the sun `elevation` degrees up, linear, relative to the sun overhead's
 // (rt_sky.h's single scattering, cosine-weighted over the upper hemisphere; a table made once, read between degrees).
 [[nodiscard]] double sky_light_at(double elevation);

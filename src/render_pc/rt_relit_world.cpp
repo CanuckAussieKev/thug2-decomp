@@ -650,11 +650,11 @@ rt::RelitLighting day_scales(const rt::DayLight& day)
     if (!day.on) {
         return scales;
     }
+    const rt::DayRgb bounce = rt::surface_light(day);
     for (std::size_t ch = 0; ch < 3; ++ch) {
         core::at(scales.direct_scale, ch) = day.direct;
         core::at(scales.sky_scale, ch) = core::at(day.sky, ch);
-        core::at(scales.bounce_scale, ch) = (rt::kDirectShare * day.direct * core::at(day.direct_tint, ch)) +
-                                            ((1.0F - rt::kDirectShare) * core::at(day.sky, ch));
+        core::at(scales.bounce_scale, ch) = core::at(bounce, ch);
     }
     return scales;
 }
@@ -1197,8 +1197,8 @@ bool object_lighting(ObjectLighting* out)
         }
     }
     out->rotation = rotation;
-    // (added by the time of day: the clock's colour and strength are the original's own lights' - its states' -, so the
-    // key light is only turned)
+    // (added by the time of day: the clock sends the level's own state's lights scaled by its light - day_clock.cpp
+    // lights_by_day -, so the key light is only turned)
     out->key_colour = st.day_serial != 0 ? rt::Rgbf{1.0F, 1.0F, 1.0F} : st.sun_colour;
     return true;
 }
