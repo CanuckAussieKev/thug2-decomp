@@ -946,7 +946,7 @@ by one pass, the last listener at `rt::world_view_drawn` (`ViewOrder::kToneMappi
 
 One volumetric light system: when something stands between the eye and the sun - a building, a tree, a cloud - the
 air shows it, as a shadow shaft in lit haze or a lit column through a gap; at night the moon and the street lights do
-the same. `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default; `rt_fog_strength`, `rt_fog_quality`,
+the same. `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default; `rt_fog_air`, `rt_fog_strength`, `rt_fog_quality`,
 `rt_fog_mode`, `rt_fog_density`, `rt_fog_height`, `rt_fog_anisotropy`, `rt_fog_steps`, `rt_fog_haze*`) listens at
 `rt::world_view_drawn` (`ViewOrder::kFog`, 500: after the transparent passes, particles and weather, before the sun's
 glare, tone mapping and the 2D). Its model is `engine/gfx/rt_volume_light` (API-neutral; the checks' processor march
@@ -974,6 +974,19 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
   night; and, with the material table, over water: a view ray that ends on water (its material's reflection class
   `kReflectWater`, found by one ray from the camera) crosses a wetter layer over the water's surface - 2 x the haze's
   ground extinction, thinning by e every 400 units. The game's own fog keeps its thickness (only the haze varies).
+- **The street air** (added in the second round: at the defaults the physical haze - an optical depth of ~0.05 over a
+  street - showed neither shafts between buildings nor anything round lamps). `rt_volume_light.h street_air`: the air's
+  lowest layer, outdoors (where a sun or moon lights the level), a second medium along every ray in every mode:
+  extinction 3e-4 / m at the level's street level (BakedSun::street - the middle of the upward faces' heights, so
+  Berlin's plaza, not its sunken streets) x `air_condition` - 8 x round dawn and dusk (a Gaussian round 3 degrees, 10
+  wide), 12 x at night, +3 in rain - x `rt_fog_air` (Options "Light shafts": Clear 0 / Light 0.5 / Normal 1 / Thick
+  2.5), thinning by e every 8 m (4 m at night: a night's mist lies low), falling snow (the game's, or `snow` with
+  snowfall) 1.2e-3 / m more over 60 m, the wetter layer over water. Its light the aerial haze's per unit of light, its
+  shade the replaced fog's ambient (the sky's in the aerial march, none where only shafts are added); the two media's
+  light mixed by their share of each segment's optical depth. Numbers (the check's): across a 20 m street 2 m up 0.035
+  at dusk, 0.044 at night; along 300 m 0.56 at dusk, 0.07 by day. Physically the beams show looking toward the light
+  (the phase), a lamp's glow looking at it; a lamp's cone seen from the side stays faint unless the air is Thick or wet.
+  render_pc publishes the weather each frame (`set_air_weather`).
 - **The light at a sample.** Each segment's light is sampled at one jittered point (interleaved gradient noise + the
   frame's golden-ratio offset): `here = ambient + medium x strength x (sun + lamps)`.
   - ambient: the replaced fog's colour x 0.5 (a level with no light - indoors - its whole colour: the game's fog
@@ -1006,7 +1019,11 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
   shadow shafts under clouds), and the shadows on the ground (`rt_cloud_shadows`) are the same map (the colour
   multiplied toward it by 0.65 - the direct light's share - x the light's strength: faint by moonlight). Before, the
   ground's shadows marched four densities per pixel toward the drawn sky's sun.
-- **The passes.** Half resolution (each texel marches one pixel of its 2 x 2 block, a different one each frame), a
+- **The passes.** A quarter of the resolution each way at `rt_fog_quality` 0 and 1, half at 2 (each texel marches one
+  pixel of its 4 x 4 or 2 x 2 block, a different one each frame in ordered-dither order); the steps spaced b t^2 (dense
+  near the eye) and in pairs - one point of each pair, the first or the second by turns frame to frame, traces the
+  light's shadow ray and the picked lamp's for both; lamps a view ray never comes within reach of left out (a bit mask
+  per texel; the pick one random number streamed over the lamps); the march stops once T is under 1e-4. Then a
   temporal pass (the texel's point reprojected through the viewport's previous camera, bilinear over the history
   texels whose distance agrees, clamped to this frame's 3 x 3 neighbourhood, up to 12 frames; a new history seeded with
   12 marches), then a full-screen blend colour x T + light, upsampled with weights that fall off with the distance
@@ -1022,15 +1039,18 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
 - **Which fog.** THUG2's levels draw fog only where a script turns it on, or with `[Graphics] DistanceClipping=1` and
   `Fog=1` - then every mesh fogs over the last quarter before the far plane (pc_mesh_render.cpp), which `ViewDrawn::fog`
   reports. A level without fog and without a light or lamps (rt_fog_haze=0, or indoors by day) gets no pass.
-- **Settings.** `rt_fog_strength` (1; Options "Light shafts" Off / Low / Medium / High = 0 / 0.5 / 1 / 2) scales the
-  light the air scatters - sun, moon, lamps - not the fog's ambient (the game's fog look kept). `rt_fog_quality` (1;
-  Options "Light shaft quality"): 16 / 32 / 64 steps and 8 / 16 / 32 lamps; `rt_fog_steps` above 0 overrides the
-  steps. The High preset turns `rt_fog` on (its shafts were the retired `rt_shafts`).
+- **Settings.** `rt_fog_air` (1; Options "Light shafts" Clear / Light / Normal / Thick = 0 / 0.5 / 1 / 2.5): the street
+  air's thickness. `rt_fog_strength` (1, the ini's) scales the light the air scatters - sun, moon, lamps - not the
+  fog's ambient. `rt_fog_quality` (1; Options "Light shaft quality"): 16 / 32 / 48 steps, 8 / 16 / 32 lamps, a quarter /
+  a quarter / half the resolution; `rt_fog_steps` above 0 overrides the steps. The High preset turns `rt_fog` on (its shafts were the retired `rt_shafts`).
 - **Cost** (device timestamps around the passes, logged every 240 as "rt_fog: the passes take"): the check's scene at
   1920 x 1080 before the volumetric light - RTX 5070 Ti 0.48 / 0.99 / 2.03 ms at 16 / 32 / 64 steps, the AMD Radeon
   integrated GPU 14 / 28 / 52 ms (the ray queries dominate: linear in the steps); a lamp adds one ray a step where
   lamps light the air, the cut-outs' test a little per ray, the clouds' map one texture read a step and its 256 x 256
-  pass (a few hundredths of a ms). In the game: the record (`out/pending/volumetric-light.md`).
+  pass (a few hundredths of a ms). The first round in Berlin at 1440p: 5 - 10 ms. With the quarter resolution, the
+  rays every other step and the lamps culled (the street air on): the check's street at 2560 x 1440 0.24 / 0.39 / 1.69
+  ms at Low / Medium / High (--perf holds Medium under 1 ms); in the game at 2560 x 1440, Medium, clouds and lamps on:
+  Berlin 0.6 - 1.3 ms (one window 1.8), Boston 0.55 - 1.1 ms.
 - **Checks.** `thug2_vulkan_rt_fog_check` (82): a wall with a window, the sun through it into an even fog - every
   low-resolution texel's distance, transmittance against exp(-integral) (largest error 5e-4) and light against the
   processor's march of the same pixel with the same jitter (the same `medium_phase`); the shaft lighter by what the

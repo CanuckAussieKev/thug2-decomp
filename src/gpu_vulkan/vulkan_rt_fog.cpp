@@ -1853,8 +1853,10 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     // haze's, x the light's whole colour (over a level's fog the tint is a hue: its brightness given back here)
     if (own.light.have) {
         const rt::StreetAir air = rt::street_air(own.light.sun_elevation, rt::air_weather(), own.settings.air);
+        // (over the level's street level - the middle of its upward faces -, not its lowest floor)
+        const float street = baked.scene != 0 && baked.street_known ? baked.street : ground;
         block.air = {static_cast<float>(air.extinction), air.height > 0.0 ? static_cast<float>(1.0 / air.height) : 0.0F,
-                     ground, static_cast<float>(air.snow)};
+                     street, static_cast<float>(air.snow)};
         const float scatter = (1.0F - kFogAerialSkyShare) * rt::kHazeSunlit;
         block.air_light = {scatter, scatter, scatter,
                            air.snow_height > 0.0 ? static_cast<float>(1.0 / air.snow_height) : 0.0F};
@@ -2172,6 +2174,13 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                 static_cast<double>(clipped.fog.end), static_cast<double>(own.settings.density),
                 static_cast<double>(own.settings.height), static_cast<double>(own.settings.anisotropy),
                 own.have_sun ? "a sun" : "no sun");
+        if (core::at(block.air, 0) > 0.0F) {
+            get_log("vulkan: rt_fog: the street air over y %.0f (extinction 1/%.0f a unit there, %.0f units its height; "
+                    "falling snow 1/%.0f)",
+                    static_cast<double>(core::at(block.air, 2)), 1.0 / static_cast<double>(core::at(block.air, 0)),
+                    core::at(block.air, 1) > 0.0F ? 1.0 / static_cast<double>(core::at(block.air, 1)) : 0.0,
+                    core::at(block.air, 3) > 0.0F ? 1.0 / static_cast<double>(core::at(block.air, 3)) : 0.0);
+        }
         if (own.aerial) {
             get_log("vulkan: rt_fog: the haze's ground at y %.0f (extinction 1/%.0f a unit there, %.0f units its height)",
                     static_cast<double>(core::at(block.aerial, 2)),

@@ -71,8 +71,8 @@ inline constexpr double kAirNightHeight = 4.0;  // metres: a night's mist lies l
 // + kAirRainExtra x rain) - e the sun's elevation in degrees, night 0 above kAirNightFrom rising smoothly to 1 at
 // kAirNightTo (the ground's radiative cooling: a night's mist), rain 1 while it rains (wet air)
 inline constexpr double kAirLowSunExtra = 7.0; // round sunrise and sunset: 8 x a clear day (~1.6 km of visibility)
-inline constexpr double kAirLowSunPeak = 0.0;  // degrees
-inline constexpr double kAirLowSunWidth = 7.0; // degrees
+inline constexpr double kAirLowSunPeak = 3.0;  // degrees (the clock's dawn and dusk: 8 up)
+inline constexpr double kAirLowSunWidth = 10.0; // degrees
 inline constexpr double kAirNightExtra = 11.0; // a night's mist: 12 x a clear day (~1.1 km), shallower (below)
 inline constexpr double kAirNightFrom = -3.0;  // degrees
 inline constexpr double kAirNightTo = -12.0;   // degrees

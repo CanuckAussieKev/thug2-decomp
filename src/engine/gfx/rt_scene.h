@@ -485,6 +485,11 @@ struct BakedSun {
     // kGroundShare) - the haze thickens toward it. ground_known false: none found.
     float ground = 0.0F;
     bool ground_known = false;
+    // (added by the street air) The level's street level (world y): the middle of its upward faces' heights (rt_sun.h
+    // kStreetShare) - where most of what is skated on lies; the street air lies over it. street_known false: none
+    // found (the ground stands for it).
+    float street = 0.0F;
+    bool street_known = false;
 };
 void set_baked_sun(BakedSun sun);
 const BakedSun& baked_sun();
