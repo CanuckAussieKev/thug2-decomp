@@ -33,6 +33,11 @@
 namespace render::relit_bake {
 
 inline constexpr uint32_t kSteadyFrames = 90; // the world ready this many frames in a row first (its scripts settle)
+// Only the level asked for is baked: its load script running (the skate module's level - the front end's main menu is a
+// level of its own, load_mainmenu, its world up long before the level's) and its world the scene its level structure
+// names (level=). Not so within this long of the first frame, the bake is given up - nothing written, the process's
+// exit code platform::kBatchNoLevel or kBatchOtherScene (platform/test_workspace.h; tools/game/relit_bake.ts reports it).
+inline constexpr double kLevelWaitSeconds = 300.0;
 
 // Whether this run is a relit bake (the command line's -relit-bake), and the level it names.
 [[nodiscard]] bool requested();

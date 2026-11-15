@@ -1717,7 +1717,12 @@ traced or fitted while the game loads a level: the game reads the level's data a
   and behind the user's windows (`platform::batch_run`), with its own settings over the user's ini
   (`config::set_overrides`: the Vulkan renderer with ray tracing, the level's own time, the relit mode and the lighting
   passes off - the buffers hold the bake). The geometry settings (building relief, smoothed curves, the water's grid) are the user's, so
-  the data matches the meshes the user's game makes. Every mesh of the level's world scenes is recorded, shown or hidden
+  the data matches the meshes the user's game makes. Only the level asked for is baked: its load script running (the
+  skate module's level - the main menu is a level of its own, `load_mainmenu`, whose world is up and steady long
+  before the level's: its 90 steady drawn frames could come before the menu's 60 front-end frames that start the
+  level - `max_fps` draws more frames than the 60 Hz ticks - and the menu was baked under the level's name) and its world the scene its level structure names
+  (`level=`). Otherwise nothing is written and the game ends with exit code 2 (the level never came up within 5
+  minutes, or `start level:` refused it) or 3 (another scene) - FAILED in the report. Every mesh of the level's world scenes is recorded, shown or hidden
   (`rt_record.cpp record_world`): the bake's inputs are the level's static meshes whatever its scripts show in the first
   frames - the same data at every bake (sch's sun no longer flips with what the first frame showed). Once the world's
   structures are built, its baked sun fitted (`rt_sun.h`, over the same meshes) and its emitters found

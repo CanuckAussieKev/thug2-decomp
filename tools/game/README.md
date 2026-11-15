@@ -367,7 +367,10 @@ its own settings over the ini (the ini isn't changed) - which writes `thug2-deco
 and closes. Every installed level by default (edit_level.ts --list's: THUG2's own, the overlay's, the ported ones).
 Refused while a game runs from the folder; a level's run given up (its game closed) after --minutes. Writes
 `thug2-decomp-relit\bake-report.txt` (a line a level: its scene, verdict - relit / no sun / no sunlight found -, meshes,
-vertices, lamps, the model's sun and lamps' c) and each level's log in `thug2-decomp-relit\logs\`. A level without data
+vertices, lamps, the model's sun and lamps' c) and each level's log in `thug2-decomp-relit\logs\`. The game bakes only
+the level asked for (its load script running, its world the scene its level structure names - never the main menu's
+under its name) and ends with exit code 2 when the level never came up or 3 when another scene did: FAILED in the
+report with the log's reason; --skip-built keeps only a level whose log shows it started. A level without data
 keeps the original game's lighting (relit, the time of day and the ray-traced lights out of effect there); data made
 with other geometry settings (building relief, smoothed curves, `rt_water_geometry`) is out of date: build it again. Needs the Vulkan
 renderer's build with ray tracing (a ray tracing GPU, the 64-bit game). Nothing here goes online.

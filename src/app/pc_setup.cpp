@@ -22,6 +22,7 @@
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 #include "platform/sdl_events.h"
+#include "platform/test_workspace.h"
 
 namespace sys {
 
@@ -70,7 +71,8 @@ void init_pc_setup()
 void fast_exit()
 {
     app_window::save_placement(); // (not original: an application's window kept as it was left - platform/app_window.h)
-    ExitProcess(0);
+    // (not original either: a batch run's exit code - 0 unless it failed, platform/test_workspace.h end_batch_run)
+    ExitProcess(static_cast<UINT>(platform::batch_exit_code()));
 }
 
 } // namespace sys
