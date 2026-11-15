@@ -110,9 +110,12 @@ void format_width_or_precision_argument_is_not_an_int();
 void format_ends_inside_a_conversion();
 
 // The size an integer conversion's length modifier names (0: none given - int).
-constexpr size_t kIntSize = 4;
-constexpr size_t kLongSize = 4; // (32 bits, as on Windows - the game's printf)
-constexpr size_t kLongLongSize = 8;
+// The platform's own sizes. `long` is 4 bytes on Windows (LLP64) and 8 where the data model is LP64 (macOS, Linux),
+// and `%ld` names a `long` on both; classify<long>() reads sizeof, so the length modifier must too, or a format string
+// that is right on both platforms is refused at compile time where the two disagree.
+constexpr size_t kIntSize = sizeof(int);
+constexpr size_t kLongSize = sizeof(long);
+constexpr size_t kLongLongSize = sizeof(long long);
 
 constexpr bool is_integer(ArgKind kind) { return kind == ArgKind::kSigned || kind == ArgKind::kUnsigned; }
 

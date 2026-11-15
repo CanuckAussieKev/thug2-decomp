@@ -27,6 +27,10 @@ namespace render::vulkan {
 
 namespace {
 
+// (VK_KHR_portability_subset's name: a provisional extension, whose macro the headers only define with
+// VK_ENABLE_BETA_EXTENSIONS. A portability implementation such as MoltenVK requires it to be enabled when offered.)
+constexpr const char* kPortabilitySubsetExtension = "VK_KHR_portability_subset";
+
 constexpr const char* kValidationLayer = "VK_LAYER_KHRONOS_validation";
 // The instance version asked for: what the loader offers, up to 1.3 (dynamic rendering, synchronization2 - the
 // backend's later steps may use them where the device has them).
@@ -41,14 +45,16 @@ std::string_view name_of(const char* text) { return text; }
 constexpr std::size_t kMostQueues = 8;
 
 // What a library asks for of a features structure, and what the device has.
-template <typename Features> struct Asked {
+template <typename Features>
+struct Asked {
     const Features* wanted = nullptr;
     const Features* offered = nullptr;
 };
 
 // The VkBool32 flags of a features structure (from `first`: after its sType and pNext) or'ed into `into` where the
 // library asks and the device has them; whether any was.
-template <typename Features> bool merge_flags(const Asked<Features>& asked_for, std::size_t first, Features* into)
+template <typename Features>
+bool merge_flags(const Asked<Features>& asked_for, std::size_t first, Features* into)
 {
     const Features& wanted = *asked_for.wanted;
     const Features& offered = *asked_for.offered;
@@ -109,8 +115,9 @@ bool add_features(VkPhysicalDevice physical, const ContextAdditions::DeviceWants
     asked.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     asked.pNext = &offered12;
     vkGetPhysicalDeviceFeatures2(physical, &asked);
-    const bool any12 = merge_flags(Asked<VkPhysicalDeviceVulkan12Features>{.wanted = &wants.features12, .offered = &offered12},
-                                   offsetof(VkPhysicalDeviceVulkan12Features, samplerMirrorClampToEdge), features12);
+    const bool any12 =
+        merge_flags(Asked<VkPhysicalDeviceVulkan12Features>{.wanted = &wants.features12, .offered = &offered12},
+                    offsetof(VkPhysicalDeviceVulkan12Features, samplerMirrorClampToEdge), features12);
     merge_flags(Asked<VkPhysicalDeviceVulkan13Features>{.wanted = &wants.features13, .offered = &offered13},
                 offsetof(VkPhysicalDeviceVulkan13Features, robustImageAccess), features13);
     return any12;
@@ -284,19 +291,17 @@ void record_clear(VkCommandBuffer commands, VkImage image, const std::array<floa
         .pInheritanceInfo = nullptr,
     };
     vkBeginCommandBuffer(commands, &begin);
-    const VkImageMemoryBarrier to_clear = layout_change(image, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0,
-                                                        VK_ACCESS_TRANSFER_WRITE_BIT);
+    const VkImageMemoryBarrier to_clear = layout_change(
+        image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT);
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
                          nullptr, 1, &to_clear);
     VkClearColorValue value{};
     std::ranges::copy(colour, std::begin(value.float32));
     vkCmdClearColorImage(commands, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &value, 1, &kColourRange);
-    const VkImageMemoryBarrier to_present = layout_change(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                                                          VK_ACCESS_TRANSFER_WRITE_BIT, 0);
-    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
-                         nullptr, 0, nullptr, 1, &to_present);
+    const VkImageMemoryBarrier to_present = layout_change(
+        image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_TRANSFER_WRITE_BIT, 0);
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr,
+                         0, nullptr, 1, &to_present);
     vkEndCommandBuffer(commands);
 }
 
@@ -335,8 +340,8 @@ std::vector<QueueFamilyInfo> queue_families(VkPhysicalDevice device, VkSurfaceKH
         if (surface != VK_NULL_HANDLE) {
             vkGetPhysicalDeviceSurfaceSupportKHR(device, index, surface, &presents);
         }
-        families.push_back({.index = index, .flags = family.queueFlags, .count = family.queueCount,
-                            .presents = presents == VK_TRUE});
+        families.push_back(
+            {.index = index, .flags = family.queueFlags, .count = family.queueCount, .presents = presents == VK_TRUE});
         ++index;
     }
     return families;
@@ -365,10 +370,7 @@ VkFormat first_depth_format(VkPhysicalDevice device, std::span<const VkFormat> c
     return VK_FORMAT_UNDEFINED;
 }
 
-Context::~Context()
-{
-    destroy();
-}
+Context::~Context() { destroy(); }
 
 void Context::report(const std::string& text) const
 {
@@ -421,6 +423,13 @@ bool Context::create_instance(bool validation)
         layers.push_back(kValidationLayer);
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
+    // NOT ORIGINAL - a portability implementation (MoltenVK, on macOS) makes its instance only when the portability
+    // enumeration extension is enabled and the flag that goes with it is set; other drivers don't offer it.
+    VkInstanceCreateFlags instance_flags = 0;
+    if (has_extension(instance_extensions(), VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
+        extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        instance_flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    }
     // NOT ORIGINAL - a library's additions (ContextAdditions), without repeats
     if (additions_ != nullptr) {
         std::vector<const char*> added;
@@ -444,7 +453,7 @@ bool Context::create_instance(bool validation)
     const VkInstanceCreateInfo info{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pNext = nullptr,
-        .flags = 0,
+        .flags = instance_flags,
         .pApplicationInfo = &application,
         .enabledLayerCount = static_cast<uint32_t>(layers.size()),
         .ppEnabledLayerNames = layers.data(),
@@ -536,6 +545,11 @@ bool Context::create_device()
         .pQueuePriorities = &priority,
     };
     std::vector<const char*> extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    // NOT ORIGINAL - VK_KHR_portability_subset: a portability implementation (MoltenVK) requires it to be enabled when
+    // it is offered, and a device made without it fails.
+    if (has_extension(device_extensions(physical_device_), kPortabilitySubsetExtension)) {
+        extensions.push_back(kPortabilitySubsetExtension);
+    }
     // The features the Gpu's resources and draws use, where the device has them (none is required here: the Gpu asks
     // draws_supported()).
     VkPhysicalDeviceFeatures offered{};
@@ -798,7 +812,8 @@ bool Context::create_swapchain()
         .clipped = VK_TRUE,
         .oldSwapchain = old,
     };
-    result = owner_ != nullptr ? owner_->create(info, &swapchain_) : vkCreateSwapchainKHR(device_, &info, nullptr, &swapchain_);
+    result = owner_ != nullptr ? owner_->create(info, &swapchain_)
+                               : vkCreateSwapchainKHR(device_, &info, nullptr, &swapchain_);
     destroy_swapchain(old);
     if (result != VK_SUCCESS) {
         swapchain_ = VK_NULL_HANDLE;
@@ -886,7 +901,8 @@ FrameResult Context::clear_frame(const std::array<float, 4>& colour)
     vkWaitForFences(device_, 1, &frame.done, VK_TRUE, kNoTimeout);
     uint32_t image = 0;
     VkResult result = owner_ != nullptr ? owner_->acquire(swapchain_, kNoTimeout, frame.acquired, &image)
-                                        : vkAcquireNextImageKHR(device_, swapchain_, kNoTimeout, frame.acquired, VK_NULL_HANDLE, &image);
+                                        : vkAcquireNextImageKHR(device_, swapchain_, kNoTimeout, frame.acquired,
+                                                                VK_NULL_HANDLE, &image);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         return remake_swapchain() ? FrameResult::kRemade : FrameResult::kFailed;
     }
@@ -1015,14 +1031,20 @@ DeviceProbe probe_device(int wanted)
                                         .pEngineName = "thug2-decomp",
                                         .engineVersion = 1,
                                         .apiVersion = api};
+    // NOT ORIGINAL - the probe's own instance takes a portability implementation's enumeration extension too (see
+    // create_instance: MoltenVK makes no instance without it)
+    const bool portability = has_extension(instance_extensions(), VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    const char* const portability_extension = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+    const VkInstanceCreateFlags portability_flags =
+        portability ? static_cast<VkInstanceCreateFlags>(VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR) : 0U;
     const VkInstanceCreateInfo info{.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
                                     .pNext = nullptr,
-                                    .flags = 0,
+                                    .flags = portability_flags,
                                     .pApplicationInfo = &application,
                                     .enabledLayerCount = 0,
                                     .ppEnabledLayerNames = nullptr,
-                                    .enabledExtensionCount = 0,
-                                    .ppEnabledExtensionNames = nullptr};
+                                    .enabledExtensionCount = portability ? 1U : 0U,
+                                    .ppEnabledExtensionNames = portability ? &portability_extension : nullptr};
     VkInstance instance = nullptr;
     if (vkCreateInstance(&info, nullptr, &instance) != VK_SUCCESS) {
         probe.problem = "vkCreateInstance failed";
@@ -1057,7 +1079,8 @@ DeviceProbe probe_device(int wanted)
         }
     }
     if (chosen == nullptr) {
-        probe.problem = wanted >= 0 ? text::format("no device %d that draws", wanted) : std::string("no device that draws");
+        probe.problem =
+            wanted >= 0 ? text::format("no device %d that draws", wanted) : std::string("no device that draws");
     } else {
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(chosen, &properties);
