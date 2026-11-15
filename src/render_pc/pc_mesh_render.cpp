@@ -32,6 +32,7 @@
 #include "render_pc/rt_record.h"
 #include "render_pc/rt_relit_world.h"
 #include "render_pc/water_geometry.h"
+#include "engine/gfx/snow.h"
 #include "engine/gfx/rt_cel.h"
 #include <bit>
 
@@ -320,8 +321,12 @@ void MeshRef::render()
         if (!flat) {
             water_geometry::before_draw(core::at(index_buffers_, 0), level);
         }
+        // (not original: snow's cover - engine/gfx/snow.h - on the world's meshes and the scene objects', not on a
+        // character's - skinned here, or a mesh a bone while Singleton::render says it draws one)
+        snow::set_current_ground(!flat && per_vertex_data_ == nullptr && !snow::current_character());
         gpu().draw_indexed(static_cast<GpuPrimitive>(primitive_type_), 0, 0, vertex_count_, 0, primitives);
         water_geometry::after_draw();
+        snow::set_current_ground(false);
     } else {
         for (uint32_t pass = 0; pass < mat->pass_count(); ++pass) {
             std::array<float, 3> instance{};

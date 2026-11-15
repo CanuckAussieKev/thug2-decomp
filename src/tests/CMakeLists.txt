@@ -267,6 +267,18 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_grass_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_snow_check.exe: the snow (engine/gfx/snow.h's sky map, trails and spray,
+# gpu_vulkan/vulkan_snow.h's cover, layer and air) on this machine - where snow settles (open ground, not under a roof,
+# not on a steep bank or an indoor floor), the presses stamped and kept, the filling in, the same session twice, the
+# spray bounded; the trails' window on the device after the camera moves; the cover on a drawn ground (none under the
+# roof, on a wall, on an unmarked draw); the layer over a trail (only near it, the packed snow darker); the air; validation;
+# the cost at 2560x1440 (src/tests/vulkan_snow_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_snow_check vulkan_snow_check.cpp)
+    target_link_libraries(thug2_vulkan_snow_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_snow_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_scatter_check.exe: the decals and clutter (engine/gfx/scatter.h's placement,
 # gpu_vulkan/vulkan_scatter.h's passes) on this machine - a synthetic street's collision: the same placement every time,
 # each decal's kind its surface's, every vertex on its face and none past an edge, nothing on the skate lines (a quarter
