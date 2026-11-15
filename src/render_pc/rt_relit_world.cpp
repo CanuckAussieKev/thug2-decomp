@@ -30,6 +30,7 @@
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
+#include "engine/gfx/day_clock.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
@@ -1314,6 +1315,61 @@ bool unlit_object_colour(const std::array<float, 3>& position, std::array<uint8_
     }
     core::at(*out, 3) = static_cast<uint8_t>(kOne);
     return !same; // (the light there the bake's: drawn as the original draws it)
+}
+
+bool hold_first_light(bool loading)
+{
+    struct Hold {
+        bool armed = false;
+        bool holding = false;
+        std::chrono::steady_clock::time_point since{};
+        uint32_t frames = 0;
+    };
+    static Hold hold;
+    if (loading) {
+        hold.armed = true;
+        hold.holding = false;
+        return false;
+    }
+    if (hold.armed) {
+        hold.armed = false;
+        // (only where the light can differ from the bake's at the first frame: the clock may light the level)
+        hold.holding = rt::relit_settings().on && rt::ray_tracing() != nullptr && rt::tod_may_run(rt::tod_settings());
+        hold.since = std::chrono::steady_clock::now();
+        hold.frames = 0;
+    }
+    if (!hold.holding) {
+        return false;
+    }
+    ++hold.frames;
+    const State& st = state();
+    bool relit_ready = false;
+    switch (st.status) {
+    case Status::kOff:
+    case Status::kNoSun:
+    case Status::kOptedOut:
+    case Status::kNoModel:
+        relit_ready = true;
+        break;
+    case Status::kWaiting:
+        relit_ready = false;
+        break;
+    case Status::kRelit: {
+        rt::Vec3 sun{};
+        uint64_t lighting = 0;
+        relit_ready = settled(&sun, &lighting) && st.field_lighting == st.wanted_lighting;
+        break;
+    }
+    }
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - hold.since).count();
+    const bool ready = relit_ready && day_clock::light_ready();
+    if (ready || seconds >= kFirstLightMostSeconds) {
+        hold.holding = false;
+        get_log("rt_relit: the level's first light %s after %u frames (%.0f ms) - %s", ready ? "ready" : "not ready",
+                hold.frames, seconds * 1000.0, ready ? "shown" : "shown as it is");
+        return false;
+    }
+    return true;
 }
 
 bool settled(rt::Vec3* sun, uint64_t* lighting)

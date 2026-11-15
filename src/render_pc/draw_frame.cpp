@@ -24,6 +24,7 @@
 
 #include "engine/ext/extension.h"
 #include "engine/objects/movie_manager.h"
+#include "render_pc/loading_screen.h"
 #include "render_pc/rt_relit_world.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/mat4.h"
@@ -1377,8 +1378,15 @@ void draw_world()
         // in the front end).
         // Original behaviour: nothing more is drawn.
         ext::draw_over_frame();
+        // Not original - the one lighting path's load readiness (rt_relit_world.h hold_first_light): the loading
+        // screen's picture kept over the frame until the level's first light is ready. Original behaviour: nothing.
+        if (rt_relit_world::hold_first_light(false)) {
+            full_screen_viewport();
+            draw_loading_screen_picture();
+        }
         change_fog(fog);
     } else {
+        (void)rt_relit_world::hold_first_light(true); // (not original: the next level's first light held)
         frame_interp::forget();   // (not original: nothing blended across a load)
         depth_lines_draw::drop(); // (not original: lines handed over before the loading screen aren't drawn after it)
         ghost_draw::drop();       // (not original: the same for ghosts)

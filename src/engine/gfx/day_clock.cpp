@@ -144,6 +144,12 @@ Clock& clock()
     return state;
 }
 
+bool& ready_slot()
+{
+    static bool ready = true;
+    return ready;
+}
+
 // The level's own sun as the game shows it (the sprite's theta and phi when the clock took over), if shown.
 bool own_game_sun(const Clock& own, rt::DayVec* toward)
 {
@@ -405,6 +411,7 @@ void give_back(Clock& own, gfx::CtodManager* manager)
 
 void frame()
 {
+    ready_slot() = true; // (every way out but the wait for the baked sun leaves the light settled)
     Clock& own = clock();
     gfx::CtodManager* manager = gfx::tod_manager();
     const uint32_t level = level_scene();
@@ -462,6 +469,7 @@ void frame()
     if (!know_native(own)) {
         own.status = "tod: waiting for the level's baked sun";
         rt::set_day_light({});
+        ready_slot() = false;
         return;
     }
     // the time: from the choice when it changes, then running with the cycle (stopped while the game is paused)
@@ -493,5 +501,7 @@ void frame()
 }
 
 const char* status() { return clock().status.c_str(); }
+
+bool light_ready() { return ready_slot(); }
 
 } // namespace render::day_clock

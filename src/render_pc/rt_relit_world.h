@@ -88,6 +88,16 @@ bool settled(std::array<float, 3>* sun, uint64_t* lighting);
 // (the console's `rt probe`) The relit world's vertices within `radius` of `point`: their count and mean baked and
 // relit brightness, and the nearest few's parts (sun, sky, bounce, tint, residual) and colours.
 [[nodiscard]] std::string describe_near(const std::array<float, 3>& point, float radius);
+// (the one lighting path - load readiness) A level's first light: from the frame after a loading screen goes down,
+// whether the frame shown should still be the loading screen's picture - while ray tracing relights the level, the
+// clock may light it (rt_daylight.h tod_may_run: elsewhere the first frame is the bake, as it should be) and the
+// lighting isn't ready: the clock's light published (day_clock.h light_ready), the level relit for it (every mesh's
+// colours written, the light field made) or found not to be relit (no sun, opted out, the mode off) - at most
+// kFirstLightMostSeconds. So the first frame shown of a level loaded at night is already night; the frames before it
+// are drawn (the world must stand still to be relit) but covered. Called once a frame by draw_world; `loading` true
+// while the loading screen is up (the next level's hold armed).
+inline constexpr double kFirstLightMostSeconds = 10.0;
+[[nodiscard]] bool hold_first_light(bool loading);
 // The console's `rt relit` (devtools/rt_check.cpp): the state in a line.
 [[nodiscard]] std::string status_text();
 

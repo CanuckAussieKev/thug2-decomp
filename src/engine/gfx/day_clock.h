@@ -31,5 +31,9 @@ namespace render::day_clock {
 void frame();
 // The clock's state in a line (the console's `rt tod`).
 [[nodiscard]] const char* status();
+// Whether the frame's lighting state is settled: the clock isn't wanted (tod=level, the front end, the original's own
+// day) or it has published the light at its time - false while it waits for the level's baked sun (render_pc's first
+// light hold: rt_relit_world.h hold_first_light).
+[[nodiscard]] bool light_ready();
 
 } // namespace render::day_clock
