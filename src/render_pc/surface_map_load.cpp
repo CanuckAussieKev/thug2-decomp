@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "base/core/format.h"
@@ -64,20 +65,30 @@ SurfacePack::SurfacePack(const char* name)
 // each texture is known by its checksum and its original's first level - the same dictionary read as the game has it.
 void SurfacePack::read_originals(const char* name)
 {
+    originals_ = original_hashes(name, &set_);
+    if (!set_.empty()) {
+        std::array<char, file::kOverlayPathSize> relative{};
+        frontend::data_overlay::overlay_name(name, relative);
+        delit_ = texture_sets::delit_textures(set_, relative.data()); // (sorted: binary searched in attach)
+    }
+}
+
+std::unordered_map<uint32_t, uint64_t> original_hashes(const char* name, std::string* set)
+{
+    std::unordered_map<uint32_t, uint64_t> originals;
     std::array<char, file::kOverlayPathSize> relative{};
     frontend::data_overlay::overlay_name(name, relative);
     std::string set_file;
     if (!texture_sets::file_for(relative.data(), &set_file)) {
-        return; // (the game's own dictionary: its texels are the originals)
+        return originals; // (the game's own dictionary: its texels are the originals)
     }
-    set_ = texture_sets::active();
-    delit_ = texture_sets::delit_textures(set_, relative.data()); // (sorted: binary searched in attach)
-    const texture_sets::OriginalFiles originals;
+    *set = texture_sets::active();
+    const texture_sets::OriginalFiles from_the_game;
     file::Hdl handle = file::unseal(name, "rb");
     if (handle == nullptr) {
-        get_log("surface maps: %s - the original of %s's dictionary isn't there: its maps can't be matched", name,
-                set_.c_str());
-        return;
+        get_log("texture sets: %s - the original of %s's dictionary isn't there: its maps can't be matched", name,
+                set->c_str());
+        return originals;
     }
     std::vector<uint8_t> bytes;
     const uint32_t size = file::get_file_size(handle);
@@ -91,7 +102,7 @@ void SurfacePack::read_originals(const char* name)
     util::ByteReader reader(std::span<const uint8_t>(bytes.data(), bytes.size()));
     texture_format::DictionaryHeader dictionary;
     if (!texture_format::read_dictionary_header(reader, &dictionary)) {
-        return;
+        return originals;
     }
     for (int32_t i = 0; i < dictionary.count; ++i) {
         texture_format::TextureHeader header;
@@ -104,14 +115,15 @@ void SurfacePack::read_originals(const char* name)
             uint32_t level_bytes = 0;
             whole = texture_format::read_level(reader, &data, &level_bytes);
             if (whole && level == 0) {
-                originals_.insert_or_assign(header.checksum,
-                                            smf::content_hash(std::span<const uint8_t>(data, level_bytes)));
+                originals.insert_or_assign(header.checksum,
+                                           smf::content_hash(std::span<const uint8_t>(data, level_bytes)));
             }
         }
         if (!whole) {
             break;
         }
     }
+    return originals;
 }
 
 void SurfacePack::attach(GpuTexture* texture, uint32_t checksum, std::span<const uint8_t> first_level)

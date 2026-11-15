@@ -84,6 +84,8 @@ bool draws_hud();
 // The panels over the frame (after a video's picture).
 void draw();
 void device_lost();
+// The right panel's width in pixels while it is shown (0: hidden, or no viewer) - what is drawn beside it keeps clear.
+float side_panel_width();
 
 // The console's `viewer ...`: what happened.
 std::string console_command(const std::string& args);

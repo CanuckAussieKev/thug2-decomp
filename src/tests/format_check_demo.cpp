@@ -2,17 +2,20 @@
 
 #include "tests/format_check_demo.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "formats/demo_format.h"
+#include "formats/sha256.h"
 
 namespace format_check_demo {
 
@@ -57,6 +60,31 @@ constexpr float kDriftStep = 0.5F;
 constexpr float kDriftLargest = kDriftStep * static_cast<float>(kDriftFrames - kDriftFrom);
 constexpr int32_t kOtherState = 5;
 constexpr uint32_t kLineFrame = 2;
+// the seal
+constexpr std::size_t kChunkHeader = 8;
+constexpr std::size_t kMillion = 1000000;
+constexpr float kStatOverride = 13.0F;
+constexpr std::size_t kInputRunData = 8 + 4 + 2; // (ports, frames, the first run's count, then its data's byte 2)
+constexpr std::size_t kFirstPointPosition = 4 + 4 + 4; // (count, frame, flags)
+constexpr std::size_t kSkaterNameLastLetter = 4 + 2 + 4 + 8; // ("BO", then "Tony Hawk"'s last letter)
+constexpr uint32_t kLongFrames = 1500;
+constexpr uint32_t kLaterFrame = 1000;
+constexpr uint32_t kLaterStretch = 600; // (the link holding frame 1000: 600 - 1199)
+constexpr uint8_t kOtherByte = 0xEE;
+constexpr uint32_t kTinyFrames = 3;
+constexpr std::string_view kTinyHex =
+    "544855473244454d01000000494e464f7100000002000000424f09000000546f6e79204861776b13000000323032362d3131"
+    "2d31352031323a30303a3030070000006162633132333478563412f0debc9aeeffc000000000000000000003000000010000"
+    "00010000000000000000000000000000000000000000000000000000000000000053455453040000000000000050524f4605"
+    "00000001020300ff4445544c03000000090807494e5054740000000100000003000000010000008080008080808080808080"
+    "8080808080808080808080808080808080808080800100000080800180808080808080808080808080808080808080808080"
+    "808080808080800100000080800280808080808080808080808080808080808080808080808080808080804348454b580000"
+    "000100000001000000030000000000803f00000040000080bf0000803f0000003f000080be00000000000000000000803f00"
+    "0000000000803f00000000010000000000803f0000ca42008095c300000000cdcc4cbe48e17a3f4f50545306000000010000"
+    "0000005345414c8c000000010000009f7cf6ce970dc05eb4a937646d61110f4b2f9e1c9173a7c95c7611c4ca8795cda891aa"
+    "9b06be9cf6e26651bc6ed9d2e9ac4f608570a62adeba3c54e2c0a8679e5802000001000000d7143dbbb96c17239f2dfc20fa"
+    "4dd7f8f1b837328307b2492e2e0945b75823b55fe40407233c8928610d6f047b75f757d447a0fa9b9172b90b28dfc96cc8e2"
+    "03";
 
 int& failures()
 {
@@ -280,6 +308,136 @@ void check_drift()
     check(demo_format::check_line(point_at(kLineFrame)).starts_with("2 3 2.000 4.000 -2.000"), "drift: a track line");
 }
 
+// The offset of the first chunk tagged `tag` in a demo's bytes (its tag), or the size if none.
+std::size_t chunk_at(const std::vector<uint8_t>& bytes, std::string_view tag)
+{
+    std::size_t at = kInfoTagOffset;
+    while (at + kChunkHeader <= bytes.size()) {
+        if (std::equal(tag.begin(), tag.end(), bytes.begin() + static_cast<std::ptrdiff_t>(at))) {
+            return at;
+        }
+        uint32_t size = 0;
+        for (std::size_t i = 0; i < 4; ++i) {
+            size |= static_cast<uint32_t>(core::at(bytes, at + 4 + i)) << (kBitsPerByte * i);
+        }
+        at += kChunkHeader + size;
+    }
+    return bytes.size();
+}
+
+std::string hex_of(std::span<const uint8_t> bytes)
+{
+    std::string out;
+    for (const uint8_t byte : bytes) {
+        out += text::format("%02x", static_cast<unsigned>(byte));
+    }
+    return out;
+}
+
+// The tiny demo whose bytes tools/game/verify_replay.test.ts holds (kTinyHex): the same seal in C++ and TypeScript.
+demo_format::Demo tiny()
+{
+    demo_format::Demo demo;
+    demo.level = "BO";
+    demo.skater = "Tony Hawk";
+    demo.created = "2026-11-15 12:00:00";
+    demo.build = "abc1234";
+    demo.level_load = kLevelLoad;
+    demo.skater_name = kSkaterName;
+    demo.seed = kSeed;
+    demo.ports = 1;
+    demo.profile.assign(kProfile.begin(), kProfile.end());
+    demo.details.assign(kDetails.begin(), kDetails.end());
+    demo.options = {.present = true, .auto_kick = true, .spin_taps = false, .stat_override = 0.0F};
+    for (uint32_t frame = 0; frame < kTinyFrames; ++frame) {
+        demo_format::PortData data{};
+        data.fill(kStickCentred);
+        core::at(data, kChangingByte) = static_cast<uint8_t>(frame);
+        demo.inputs.push_back(data);
+    }
+    demo.checks.push_back(point_at(1));
+    return demo;
+}
+
+// The seal: a written demo reads back intact; a byte changed in the input, the header or the skater is found (and
+// where); a demo without a seal says so; the options round-trip; SHA-256's own test vectors.
+void check_seal()
+{
+    constexpr std::array<uint8_t, 3> kAbc = {'a', 'b', 'c'};
+    check(sha256::hex(sha256::of(kAbc)) ==
+              "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          "seal: SHA-256 of \"abc\"");
+    check(sha256::hex(sha256::of({})) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "seal: SHA-256 of nothing");
+    std::vector<uint8_t> million(kMillion, 'a');
+    check(sha256::hex(sha256::of(million)) == "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0",
+          "seal: SHA-256 of a million a's");
+
+    demo_format::Demo demo = sample();
+    demo.options = {.present = true, .auto_kick = false, .spin_taps = true, .stat_override = kStatOverride};
+    const std::vector<uint8_t> bytes = demo_format::write_demo(demo);
+    demo_format::Demo back;
+    std::string error;
+    check(demo_format::read_demo(bytes, &back, &error) && back.seal.state == demo_format::SealState::kIntact,
+          "seal: a written demo is intact (" + demo_format::seal_text(back.seal) + ")");
+    check(back.options == demo.options, "seal: the options read back");
+    check(back.seal.profile_hash == demo_format::profile_hash(demo), "seal: the skater's profile hash");
+
+    // the input of frame 250 changed (its run's data byte): found in frames 0 - 299 (one link: 300 frames)
+    std::vector<uint8_t> input = bytes;
+    const std::size_t input_at = chunk_at(input, "INPT");
+    core::at(input, input_at + kChunkHeader + kInputRunData) ^= 1U;
+    check(demo_format::read_demo(input, &back, &error) && back.seal.state == demo_format::SealState::kChanged &&
+              back.seal.changed_from == 0 && !back.seal.header_changed && !back.seal.profile_changed,
+          "seal: a changed input found (" + demo_format::seal_text(back.seal) + ")");
+    // a check point's position changed
+    std::vector<uint8_t> point = bytes;
+    const std::size_t checks_at = chunk_at(point, "CHEK");
+    core::at(point, checks_at + kChunkHeader + kFirstPointPosition) ^= 1U;
+    check(demo_format::read_demo(point, &back, &error) && back.seal.state == demo_format::SealState::kChanged &&
+              back.seal.changed_from >= 0,
+          "seal: a changed check point found (" + demo_format::seal_text(back.seal) + ")");
+    // the skater's name in INFO ("Tony Hawk" -> "Tony Hawl")
+    std::vector<uint8_t> header = bytes;
+    const std::size_t info_at = chunk_at(header, "INFO");
+    core::at(header, info_at + kChunkHeader + kSkaterNameLastLetter) = 'l';
+    check(demo_format::read_demo(header, &back, &error) && back.skater == "Tony Hawl" &&
+              back.seal.state == demo_format::SealState::kChanged && back.seal.header_changed,
+          "seal: a changed header found (" + demo_format::seal_text(back.seal) + ")");
+    // the skater's profile
+    std::vector<uint8_t> profile = bytes;
+    core::at(profile, chunk_at(profile, "PROF") + kChunkHeader) ^= 1U;
+    check(demo_format::read_demo(profile, &back, &error) && back.seal.state == demo_format::SealState::kChanged &&
+              back.seal.profile_changed,
+          "seal: a changed skater found (" + demo_format::seal_text(back.seal) + ")");
+    // a longer demo: the stretch named
+    demo_format::Demo longer = sample();
+    for (uint32_t frame = kFrames; frame < kLongFrames; ++frame) {
+        longer.inputs.push_back(longer.inputs.back());
+    }
+    core::at(core::at(longer.inputs, kLaterFrame), kChangingByte) = kOtherByte;
+    std::vector<uint8_t> long_changed = demo_format::write_demo(longer);
+    // (the input chunk of the same demo with that frame's byte another value put into the sealed file: the same
+    // length - one run's byte differs)
+    core::at(core::at(longer.inputs, kLaterFrame), kChangingByte) = kOtherByte + 1;
+    const std::vector<uint8_t> resealed = demo_format::write_demo(longer);
+    const std::size_t from = chunk_at(resealed, "INPT");
+    const std::size_t to = chunk_at(resealed, "CHEK");
+    std::copy(resealed.begin() + static_cast<std::ptrdiff_t>(from), resealed.begin() + static_cast<std::ptrdiff_t>(to),
+              long_changed.begin() + static_cast<std::ptrdiff_t>(from));
+    check(demo_format::read_demo(long_changed, &back, &error) && back.seal.changed_from == kLaterStretch &&
+              back.seal.changed_to == kLaterStretch + demo_format::kSealStride,
+          "seal: the changed stretch named (" + demo_format::seal_text(back.seal) + ")");
+    // the seal cut off (the chunk removed): no seal
+    std::vector<uint8_t> unsealed = bytes;
+    unsealed.resize(chunk_at(unsealed, "SEAL"));
+    check(demo_format::read_demo(unsealed, &back, &error) && back.seal.state == demo_format::SealState::kNone,
+          "seal: a demo without one says so");
+    // the tiny demo, byte for byte as verify_replay.test.ts has it
+    const std::string tiny_hex = hex_of(demo_format::write_demo(tiny()));
+    check(tiny_hex == kTinyHex, "seal: the tiny demo's bytes as tools/game/verify_replay.test.ts has them:\n" + tiny_hex);
+}
+
 } // namespace
 
 int run()
@@ -288,6 +446,7 @@ int run()
     check_round_trip();
     check_versions();
     check_drift();
+    check_seal();
     return failures();
 }
 

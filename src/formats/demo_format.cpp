@@ -50,7 +50,11 @@ constexpr uint32_t kClocks = tag("CLCK");
 constexpr uint32_t kRandom = tag("RAND");
 constexpr uint32_t kGlobals = tag("GLOB");
 constexpr uint32_t kRate = tag("RATE");
+constexpr uint32_t kOptions = tag("OPTS");
+constexpr uint32_t kSeal = tag("SEAL");
 constexpr std::size_t kGlobalBytes = 9; // name, kind, word
+constexpr std::string_view kSealLabel = "THUG2DEM seal 1";
+constexpr uint32_t kMaxLinks = (kMaxFrames / kSealStride) + 1;
 
 // A growing little-endian writer.
 class Out {
@@ -197,7 +201,159 @@ float distance(const std::array<float, 3>& a, const std::array<float, 3>& b)
     return std::sqrt(sum);
 }
 
+// --- the seal (demo_format.h, SEAL) ---
+
+sha256::Hasher start_hasher(uint32_t version)
+{
+    sha256::Hasher hasher;
+    hasher.add(std::span(raw::bytes(kSealLabel.data()), kSealLabel.size()));
+    hasher.add_u32(version);
+    return hasher;
+}
+
+// A chunk before the seal into its start (the input and the check points are the links').
+void add_to_start(sha256::Hasher* start, uint32_t id, std::span<const uint8_t> body)
+{
+    if (id == kInput || id == kChecks || id == kSeal) {
+        return;
+    }
+    start->add_u32(id);
+    start->add_u32(static_cast<uint32_t>(body.size()));
+    start->add(body);
+}
+
+struct Chain {
+    std::vector<sha256::Digest> links;
+    sha256::Digest end{};
+};
+
+Chain make_chain(const sha256::Digest& start, const Demo& demo, uint32_t stride)
+{
+    Chain chain;
+    sha256::Digest link = start;
+    const uint32_t frames = demo.frames();
+    std::size_t next_check = 0;
+    for (uint32_t frame = 0; frame < frames; ++frame) {
+        sha256::Hasher hasher;
+        hasher.add(link);
+        hasher.add_u32(frame);
+        for (uint32_t port = 0; port < demo.ports; ++port) {
+            hasher.add(*demo.input(frame, port));
+        }
+        while (next_check < demo.checks.size() && core::at(demo.checks, next_check).frame == frame) {
+            Out point;
+            write_point(point, core::at(demo.checks, next_check));
+            hasher.add(point.bytes());
+            ++next_check;
+        }
+        link = hasher.finish();
+        if ((frame + 1) % stride == 0 || frame + 1 == frames) {
+            chain.links.push_back(link);
+        }
+    }
+    sha256::Hasher end;
+    end.add(link);
+    end.add_u32(static_cast<uint32_t>(demo.checks.size() - next_check));
+    for (; next_check < demo.checks.size(); ++next_check) {
+        Out point;
+        write_point(point, core::at(demo.checks, next_check));
+        end.add(point.bytes());
+    }
+    chain.end = end.finish();
+    return chain;
+}
+
+sha256::Digest read_digest(util::ByteReader& in)
+{
+    sha256::Digest digest{};
+    in.bytes(digest.data(), digest.size());
+    return digest;
+}
+
+// The seal checked against the file: `start` made from the chunks before it, the demo read.
+void check_seal(std::span<const uint8_t> body, const sha256::Digest& start, Demo* demo)
+{
+    Seal& seal = demo->seal;
+    seal.state = SealState::kChanged;
+    util::ByteReader in(body);
+    const uint32_t version = in.u32();
+    seal.profile_hash = read_digest(in);
+    const sha256::Digest stored_start = read_digest(in);
+    const uint32_t stride = in.u32();
+    const uint32_t count = in.u32();
+    if (!in.ok() || version != kSealVersion || stride == 0 || count > kMaxLinks) {
+        seal.end_changed = true;
+        return;
+    }
+    std::vector<sha256::Digest> links(count);
+    for (sha256::Digest& link : links) {
+        link = read_digest(in);
+    }
+    const sha256::Digest stored_end = read_digest(in);
+    if (!in.ok()) {
+        seal.end_changed = true;
+        return;
+    }
+    seal.profile_changed = profile_hash(*demo) != seal.profile_hash;
+    seal.header_changed = stored_start != start;
+    const Chain chain = make_chain(stored_start, *demo, stride);
+    if (chain.links.size() != links.size()) {
+        seal.changed_from = 0;
+        seal.changed_to = demo->frames();
+    } else {
+        for (std::size_t i = 0; i < links.size(); ++i) {
+            if (core::at(links, i) != core::at(chain.links, i)) {
+                seal.changed_from = static_cast<int64_t>(i) * stride;
+                seal.changed_to = std::min<int64_t>((static_cast<int64_t>(i) + 1) * stride, demo->frames());
+                break;
+            }
+        }
+    }
+    seal.end_changed = seal.changed_from < 0 && chain.end != stored_end;
+    if (!seal.profile_changed && !seal.header_changed && seal.changed_from < 0 && !seal.end_changed) {
+        seal.state = SealState::kIntact;
+    }
+}
+
 } // namespace
+
+sha256::Digest profile_hash(const Demo& demo)
+{
+    sha256::Hasher hasher;
+    hasher.add_u32(kProfile);
+    hasher.add_u32(static_cast<uint32_t>(demo.profile.size()));
+    hasher.add(demo.profile);
+    hasher.add_u32(kDetails);
+    hasher.add_u32(static_cast<uint32_t>(demo.details.size()));
+    hasher.add(demo.details);
+    return hasher.finish();
+}
+
+std::string seal_text(const Seal& seal)
+{
+    if (seal.state == SealState::kNone) {
+        return "none (recorded before replays were sealed)";
+    }
+    if (seal.state == SealState::kIntact) {
+        return "intact";
+    }
+    std::string what;
+    const auto add = [&what](const std::string& part) { what += (what.empty() ? "" : ", ") + part; };
+    if (seal.header_changed) {
+        add("its header (level, skater, date, build, settings)");
+    }
+    if (seal.profile_changed) {
+        add("the skater");
+    }
+    if (seal.changed_from >= 0) {
+        add(text::format("the input or check points in frames %lld - %lld", static_cast<long long>(seal.changed_from),
+                         static_cast<long long>(seal.changed_to - 1)));
+    }
+    if (seal.end_changed) {
+        add("the seal itself or the last check points");
+    }
+    return "changed after recording: " + what;
+}
 
 const PortData* Demo::input(uint32_t frame, uint32_t port) const
 {
@@ -229,6 +385,12 @@ std::vector<uint8_t> write_demo(const Demo& demo)
     Out file;
     file.put(std::span(raw::bytes(kMagic.data()), kMagic.size()));
     file.u32(kVersion);
+    // (every chunk into the file and into the seal's start: the SEAL chunk goes last)
+    sha256::Hasher start = start_hasher(kVersion);
+    const auto put = [&file, &start](uint32_t id, Out& body) {
+        file.chunk(id, body);
+        add_to_start(&start, id, body.bytes());
+    };
 
     Out info;
     info.text(demo.level);
@@ -247,7 +409,7 @@ std::vector<uint8_t> write_demo(const Demo& demo)
         info.u32(word);
     }
     info.u32(demo.random_at_up.crt);
-    file.chunk(kInfo, info);
+    put(kInfo, info);
 
     Out settings;
     settings.u32(static_cast<uint32_t>(demo.settings.size()));
@@ -255,17 +417,17 @@ std::vector<uint8_t> write_demo(const Demo& demo)
         settings.text(key);
         settings.text(value);
     }
-    file.chunk(kSettings, settings);
+    put(kSettings, settings);
 
     if (!demo.profile.empty()) {
         Out profile;
         profile.put(demo.profile);
-        file.chunk(kProfile, profile);
+        put(kProfile, profile);
     }
     if (!demo.details.empty()) {
         Out details;
         details.put(demo.details);
-        file.chunk(kDetails, details);
+        put(kDetails, details);
     }
 
     Out input;
@@ -285,14 +447,14 @@ std::vector<uint8_t> write_demo(const Demo& demo)
             frame += count;
         }
     }
-    file.chunk(kInput, input);
+    put(kInput, input);
 
     Out checks;
     checks.u32(static_cast<uint32_t>(demo.checks.size()));
     for (const CheckPoint& point : demo.checks) {
         write_point(checks, point);
     }
-    file.chunk(kChecks, checks);
+    put(kChecks, checks);
 
     if (demo.clocks.present) {
         Out clocks;
@@ -301,12 +463,12 @@ std::vector<uint8_t> write_demo(const Demo& demo)
         clocks.u32(demo.clocks.last_change);
         clocks.f32(demo.clocks.pace);
         clocks.i32(demo.clocks.offset);
-        file.chunk(kClocks, clocks);
+        put(kClocks, clocks);
     }
     if (demo.random_flags != 0) {
         Out random;
         random.u32(demo.random_flags);
-        file.chunk(kRandom, random);
+        put(kRandom, random);
     }
     if (!demo.globals.empty()) {
         Out globals;
@@ -316,8 +478,29 @@ std::vector<uint8_t> write_demo(const Demo& demo)
             globals.u8(global.kind);
             globals.u32(global.word);
         }
-        file.chunk(kGlobals, globals);
+        put(kGlobals, globals);
     }
+    if (demo.options.present) {
+        Out options;
+        options.u8(demo.options.auto_kick ? 1 : 0);
+        options.u8(demo.options.spin_taps ? 1 : 0);
+        options.f32(demo.options.stat_override);
+        put(kOptions, options);
+    }
+
+    const sha256::Digest begun = start.finish();
+    const Chain chain = make_chain(begun, demo, kSealStride);
+    Out seal;
+    seal.u32(kSealVersion);
+    seal.put(profile_hash(demo));
+    seal.put(begun);
+    seal.u32(kSealStride);
+    seal.u32(static_cast<uint32_t>(chain.links.size()));
+    for (const sha256::Digest& link : chain.links) {
+        seal.put(link);
+    }
+    seal.put(chain.end);
+    file.chunk(kSeal, seal);
     return std::move(file.bytes());
 }
 
@@ -402,6 +585,11 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
     }
     bool has_info = false;
     bool has_input = false;
+    // (the seal's start: the chunks before the first SEAL; the chunks after it - a later version's - aren't sealed)
+    sha256::Hasher start = start_hasher(demo.version);
+    std::span<const uint8_t> seal_body;
+    bool sealed = false;
+    sha256::Digest begun{};
     while (in.remaining() > 0) {
         const uint32_t id = in.u32();
         const uint32_t size = in.u32();
@@ -411,7 +599,25 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
         }
         util::ByteReader body(in.rest().first(size));
         in.skip(size);
-        if (id == kInfo) {
+        if (!sealed) {
+            if (id == kSeal) {
+                sealed = true;
+                seal_body = body.rest();
+                begun = start.finish();
+            } else {
+                add_to_start(&start, id, body.rest());
+            }
+        }
+        if (id == kOptions) {
+            demo.options.auto_kick = body.u8() != 0;
+            demo.options.spin_taps = body.u8() != 0;
+            demo.options.stat_override = body.f32();
+            if (!body.ok()) {
+                why = "bad options chunk";
+                return false;
+            }
+            demo.options.present = true;
+        } else if (id == kInfo) {
             if (!read_info(body, &demo)) {
                 why = "bad info chunk";
                 return false;
@@ -465,6 +671,9 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
     if (!has_info || !has_input) {
         why = has_info ? "no input chunk" : "no info chunk";
         return false;
+    }
+    if (sealed) {
+        check_seal(seal_body, begun, &demo);
     }
     if (out) {
         *out = std::move(demo);

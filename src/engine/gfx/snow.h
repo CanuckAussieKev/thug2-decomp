@@ -38,6 +38,8 @@
 #include <span>
 #include <vector>
 
+#include "engine/gfx/surface_trail.h"
+
 namespace render::snow {
 
 // --- the settings ---------------------------------------------------------------------------------------------------
@@ -103,8 +105,9 @@ struct Ground {
 [[nodiscard]] Ground ground_at(const SkyMap& map, float x, float z);
 
 // --- the trails -----------------------------------------------------------------------------------------------------
-inline constexpr int kTileTexels = 64;
-inline constexpr std::size_t kTileTexelCount = static_cast<std::size_t>(kTileTexels) * kTileTexels;
+// (the trails' field and its tiles are the surface trails' - engine/gfx/surface_trail.h: one plane a texel here)
+inline constexpr int kTileTexels = surface_trail::kTileTexels;
+inline constexpr std::size_t kTileTexelCount = surface_trail::kTileTexelCount;
 inline constexpr float kActiveReach = 24.0F; // the layer is raised this far round a trail (then falls to the ground)
 inline constexpr float kBermWidth = 5.0F;    // the berm's ring outside a press
 inline constexpr float kBermHeight = 0.6F;   // a full berm: this share of the depth over the snow's top
@@ -113,12 +116,7 @@ inline constexpr double kFillSeconds = 180.0; // a full trail filled in this lon
 inline constexpr uint32_t kPressShift = 0;
 inline constexpr uint32_t kBermShift = 8;
 inline constexpr uint32_t kActiveShift = 16;
-struct Tile {
-    int x = 0; // the tile's place (texels / kTileTexels from the world's origin)
-    int z = 0;
-    uint32_t version = 0; // a new number each time a texel changes
-    std::array<uint32_t, kTileTexelCount> texels{}; // row by row (z)
-};
+using Tile = surface_trail::Tile;
 // A press: a capsule from `from` to `to` (x, z) of half width `radius`: the press within it (to `press`, 0 - 1, its
 // edge softened over the outer 40%), a berm in the ring kBermWidth outside it (to `berm`), the activity out to
 // kActiveReach beyond that. Each byte keeps the most it was given.
@@ -129,28 +127,15 @@ struct Stamp {
     float press = 0.0F;
     float berm = 0.0F;
 };
-class TrailField {
+// The snow's field: the ground seen from above (x, z), one word a texel - the snow's rules for a press and the filling in.
+class TrailField : public surface_trail::Field {
 public:
-    explicit TrailField(float texel = 2.0F) : texel_(texel) {}
-    [[nodiscard]] float texel() const { return texel_; }
+    explicit TrailField(float texel = 2.0F) : Field(texel, 1) {}
     void stamp(const Stamp& stamp);
     // Every press and berm lowered by `steps` (0 - 255; the activity stays).
     void fill(uint32_t steps);
-    // The tile at (x, z), or null when nothing was pressed there.
-    [[nodiscard]] const Tile* tile(int x, int z) const;
-    [[nodiscard]] std::size_t tile_count() const { return tiles_.size(); }
-    // A texel's bytes (0 where no tile is).
-    [[nodiscard]] uint32_t texel_at(int x, int z) const;
-    // The texel holding world (x, z).
-    [[nodiscard]] std::array<int, 2> texel_of(float x, float z) const;
     // The heaviest press, berm and activity anywhere (the checks', the log's).
     void totals(uint64_t* press, uint64_t* berm, uint64_t* active) const;
-
-private:
-    Tile& tile_for(int x, int z);
-    float texel_;
-    std::vector<std::unique_ptr<Tile>> tiles_; // (in the order made: a session's are few hundred at most)
-    std::vector<std::pair<int64_t, std::size_t>> index_; // sorted by key: the tile's place
 };
 // The surface's height over the ground for a texel's bytes (world units; the backend's shaders are its twin): the
 // activity's depth less what was pressed, plus the berm.
@@ -218,16 +203,5 @@ struct Counts {
 [[nodiscard]] Counts counts();
 // The session cleared (the checks'; a new sky map does it too).
 void reset();
-
-// --- the drawn world --------------------------------------------------------------------------------------------------
-// render_pc says, for each draw, whether it is the world's ground or a scene object's - a mesh that isn't skinned (the
-// characters keep their own colours): only those take the snow's cover. Cleared after the draw.
-void set_current_ground(bool ground);
-[[nodiscard]] bool current_ground();
-// An instance with this many bones or more is a character (a skater, a ped - their skeleton): render_pc says while one
-// is drawn (Singleton::render), and none of its draws is the ground.
-inline constexpr int kSkeletonBones = 24;
-void set_current_character(bool character);
-[[nodiscard]] bool current_character();
 
 } // namespace render::snow

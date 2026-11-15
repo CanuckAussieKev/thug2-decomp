@@ -6,6 +6,8 @@
 // of those drawn with a few bones - vehicles). Read only: nothing of the game's is written. Whether the level is outdoors
 // (a sky scene loaded) is told to the settings (config::set_level_outdoor: snow's rule) whenever the loaded scenes
 // change, snow or not - a walk of the few scene nodes a step; with snow off (Direct3D 9, snow=0) nothing else is done.
+// The surface trails' other user, the paint (engine/gfx/paint_trails.h), is stepped here too, on the same steps: the
+// game's brushes (GameHooks::paint_brushes), the loaded scenes' key its level session - while paint_trails is on.
 namespace render::snow_world {
 
 // Device::step_frame (every simulation step, drawn or not): the world's sky map made when the loaded scenes changed (an

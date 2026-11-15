@@ -1601,6 +1601,105 @@ off on thin meshes - is the same code.
   reflections fall on the rounded shapes; the baked sun's samples keep reading the original strips.
 - **Not done**: the optional bevel highlight on hard edges (a lighting change, not geometry); a per-distance level.
 
+### Building relief (`building_relief`)
+
+THUG2's buildings are boxes with pictures of buildings on them: the windows, their frames and sills, the floor bands and
+cornices are painted on flat walls, and in a ray-traced frame that reads at once - the sun lights a window like the
+brick round it, no sill throws a shadow, no recess darkens. `[Graphics] building_relief=1` (the default on Vulkan when
+the facade files are there; `0`, any other renderer or no files: exactly what was drawn before) builds that structure
+as real geometry. Stage 1: the building fronts on real box buildings. The flat skyline cards outside the levels -
+pictures of whole streets - are stage 2 (counted by the survey below, not relieved).
+
+- **Where the structure comes from: the player's own textures, offline** (`tools/pbr_maps/building_relief.ts make
+  --game <folder>`, beside the surface maps; `facades.ts` the detector, `relief_file.ts` / `formats/relief_format.h`
+  the file). Not brightness as depth: a texture is a facade when it shows a regular set of rectangles unlike its wall -
+  windows - found as structure: the wall's colour (the median), each texel's distance from it, the texture's repeats
+  across and down (a shift by a period correlates, half of it doesn't - a smooth texture is the other way round), a
+  grid's cells averaged into one; the windows the connected pieces unlike the wall that fill their box, alike in size,
+  snapped into columns and rows; round each window a frame (a brighter ring), a sill (brighter rows under it - also when
+  painted against the glass), and floor bands (even rows without windows, unlike the wall). Heights by kind, in texture
+  widths (so the game scales them by how wide the texture is drawn): a window 0.35 of its narrower side in, a frame 0.06
+  out, a sill 0.15 out, a band half its own height out. What isn't clearly one - brick, stone, bookshelves, doors,
+  lit-window cards, specks - is skipped: the windows must be at least 2, at least 5% of the texture, rectangles after
+  snapping, in a grid (a whole building's front), its wall even, ribbons (glass all across) no lighter than the wall;
+  and in the world (the level's own texture coordinates on its walls) a window must be 16 - 480 units wide and 20 - 480
+  tall. Which textures: a material's first pass, not see-through, drawn mostly (60%) on walls (within 15 degrees of
+  upright), not mostly on skyline cards. The structure is found in a texture set's texels where one serves the
+  dictionary (the ini's set first, then any installed: SeedVR2's or PBRify's 4x texels give the windows' edges better)
+  and keyed to the original's checksum and content hash, as the surface maps are - the game finds it for the original
+  and any set alike. A dictionary whose sources (its bytes, the set's, the detector's version) are unchanged since its
+  file was made is skipped; `--pictures <folder>` writes each wall texture beside its height map (the structure drawn:
+  grey the wall, dark in, light out; blue: no structure, left flat).
+- **The geometry: once, at load, on the processor** (`engine/gfx/facade_relief`, `render_pc/building_relief`) - the
+  same place as the smoothed curves (after them: walls are flat, smoothing leaves them) and for the same reasons: every
+  renderer draws it, the BLAS is built from the drawn buffers (`rt_record`), so **shadows, occlusion and reflections
+  fall on the relief** - a sill shadows the wall under it at noon, the window recesses darken with ray-traced AO, a low
+  sun rakes the bands. A scene mesh drawn with a facade texture: its walls (triangles within 15 degrees of upright, with
+  texture coordinates) joined into planes (sharing an edge - welded by position -, wound alike, facing the same way, the
+  same texture coordinates along it); each wall triangle cut along the structure's rectangle edges (lines of constant u
+  and v in the texture's cells - a convex polygon clipped line by line) into pieces wholly inside or outside every
+  rectangle; a piece moved along its plane's normal by its height (the last rectangle holding it x the units the plane
+  draws a texture width across x `building_relief_strength`, capped at 12 units in, 4 out; under 0.25 left flat).
+  Between pieces of different heights a side is built from the higher one down to the lower (facing the lower side),
+  across cut lines and across a plane's shared edges alike; along a plane's outline (an open edge, a crease - the
+  building's corner, the roof line) a piece off the surface is closed by a side back to the original edge. So the
+  surface stays closed and its outline is where the original was: no cracks, nothing to see through; the silhouette at
+  a building's corner gains the windows' notches and the sills' ends.
+- **Crack-free by construction**: a corner is the corner; a cut line's point on a triangle's edge is made from the
+  edge's two ends in one order (the lower welded position first) and the line - both triangles on the edge make it to
+  the bit; a point inside a triangle from the two lines crossing there. A plane with any piece off its surface is built
+  whole (every triangle of it cut the same way: no T-junctions along its shared edges); one with a triangle too finely
+  cut (more than 96 lines along u or v) stays as it is. The original vertices stay first and unchanged (other levels of
+  detail, the editor's moves, the colour writes); the new ones follow; a mesh too big for 16 bits is tried with the
+  windows alone, then left as it was. The baked sun's samples keep the file's strip (`remember_original`), as with the
+  smoothed curves.
+- **Visual only**: the collision is the game's own `.col` (never touched); the simulation reads none of it. Drawing
+  only reads it.
+- **Level of detail**: what a level draws far away is its meshes' own coarser levels of detail, which keep the original
+  triangles; the cost is bounded by the structure (a window is ~10 pieces and 4 sides) and the caps above, not by
+  distance. A per-distance level (a second strip per mesh, chosen by distance) is not done.
+- **Checked**: `thug2_relief_check` (processor only): a wall of two triangles with a window, its sill and its frame in
+  each of two cells - the window's middle 12 units in (the cap), the sill 4 out (the cap), the frame 1.6 out, the wall
+  where it was; closed (every edge shared by two triangles wound opposite ways, but the original outline's, used once
+  and on it); the original vertices first and unchanged; the same bytes twice; half the strength half the height; a
+  wall of two quads with a texture seam (vertices repeated) joined, closed across the seam; a corner of two walls, each
+  closed back to the corner; a floor, no texture coordinates, a strength of 0, no rectangles, too many cuts - unchanged;
+  a big wall of 40 x 30 cells within 16 bits (the windows alone, or as it was); the file read back, damaged files
+  refused, the same bytes as the tool's writer. `thug2_vulkan_rt_shadow_check`'s case "building relief: a sill's
+  shadow on its wall": a box whose front is facade_relief's geometry for one sill, drawn and traced through the Vulkan
+  Gpu, the frame compared pixel by pixel with the processor's answer for the same wall with the sill as a box of its
+  own - the sill's shadow on the wall under it there (at least 40 clear-cut pixels of it; measured 443 of 41,110 compared,
+  none wrong). The reference's shadow rays start as far off the surface as the pass's (about a unit): with a sill 4
+  out, that push moves the band's lower edge up by more than a pixel or two - a property of the shadow pass's bias
+  that relief makes visible (contact shadows a unit short), not of the geometry. The tool:
+  `tools/pbr_maps/facades.test.ts` (synthetic facades: a 4 x 4 grid's cell found, windows in, sills out, the wall
+  flat; a whole building's front; plain grain, brick courses, one door, a busy picture left flat; the repeats of a
+  period, not of a smooth texture), `relief_file.test.ts`.
+- **The survey** (`building_relief.ts survey --game <folder> [--levels ...]`): per level, the facade textures, their
+  wall triangles and area at the playable area's edge (sectors with collision) and in the background (without), with
+  samples; and the skyline cards (flat sectors without collision outside the collision's bounds grown by 500 units).
+- **The relit light** (`rt_relit`, the time of day's): the relief's vertices are lit as the flat wall at their place -
+  `rt_relit.h` RelitMesh::sources: each new vertex's sources (the wall triangle's corners and weights, recorded by
+  facade_relief) - their traced sun, sky and bounce blended, never traced from the relief's own corners. Traced there,
+  a vertex at the foot of a sill's side or in a recess corner saw half its rays blocked and spread that over its whole
+  piece: BE's window grid came out dark at noon (the first run). The relief's own shadows and occlusion are the
+  per-pixel passes' (shadows, AO); the original vertices the sources name are traced for them though no triangle uses
+  them any more. A relieved mesh's cache entry counts its sources (its content hash).
+- **Measured** (x64, RTX 5070 Ti, 2560 x 1440, the main install's `[Graphics]`, the files made from its SeedVR2 / PBRify
+  sets): the survey over every level in the game folder - 417 facade textures (the `_net` copies counted too), 19,969
+  wall triangles drawn with them; 913 skyline cards (stage 2). BO: 7 textures, 10 of 10 facade meshes relieved - 168
+  wall triangles cut into 8,175 pieces and 6,711 sides, +40,029 vertices, their indices 617 -> 177,414, 20 - 23 ms at
+  load; BE: 4 textures, 6 of 7 meshes (one with the windows alone) - 50 triangles, 8,293 pieces, 4,739 sides, +29,882
+  vertices, 361 -> 152,478 indices, 23 ms. The device's time a frame with the
+  camera held on BO's and BE's first facade (frame profile, 1800 frames, two runs each): off 23.8 / 4.1 ms (BO), 14.0 /
+  8.0 (BE); on 7.5 / 6.9, 7.3 / 5.9 - the run-to-run spread (4 - 24 ms for the same settings) is larger than any cost
+  the relief adds; ~60k more triangles a level drawn and in the BLAS.
+- **Not done**: the skyline cards (stage 2); a per-distance level of detail; the detector's misses and false positives
+  (a sign's letter tiles - BE's BERLIN - read as windows; low-resolution fronts with no set texels found partly) -
+  `make --pictures` shows what was found; where three heights meet at a side's end the sides meet along one line split
+  in two (collinear: closed, not edge-matched); a recess cut by a seam between two meshes of one wall shows an end wall
+  at the seam (the planes are per mesh).
+
 ### Relit: the bake taken apart (`rt_relit`)
 
 `engine/gfx/rt_relit` (the analysis, API-neutral) and `render_pc/rt_relit_world` (the world's meshes, the cache, the
@@ -2651,10 +2750,10 @@ snow: a thin layer of snow over the level and a heightfield of what was pressed 
   ledge's top, a rail's) gets at least its middle's cell. A surface below its cell's top (+ 2 units + 0.6 cells) is
   under something - a roof, a bridge, an awning: no snow.
 - **The cover (the world's draws).** `render_pc` marks each draw of a world or scene-object mesh that isn't a
-  character's (`snow::set_current_ground`, beside the water's marks in `MeshRef::render`; `Singleton::render` says while
+  character's (`surface_trail::set_current_ground`, beside the water's marks in `MeshRef::render`; `Singleton::render` says while
   it draws an instance with a skeleton - 24 bones or more -, skinned or a mesh a bone); such a draw on one of the
   per-pixel lighting's programs, or on the fixed-function stages with a texture on stage 0 (the road's markings, the
-  decal meshes), gets `FragmentKey::snow` (a byte of the two spares: the key stays 52 bytes). Its
+  decal meshes), gets `FragmentKey::trails`' snow bit (a byte of the two spares, shared with the paint: the key stays 52 bytes). Its
   fragment shader works out the surface's world position (the eye-space one handed on, the view's inverse), its own
   normal from the position's screen derivatives (turned toward the eye), the up share moved by a value noise (the edge
   of a slope's snow isn't a straight line) and the open share from the sky map's four cells (`textureGather`: a
@@ -2664,7 +2763,7 @@ snow: a thin layer of snow over the level and a heightfield of what was pressed 
   (its own key); characters keep their colours. The surface's own normal decides, so the cover follows the drawn
   meshes, not the collision's coarser shapes: a car's roof, a bench's seat, a wall's top all hold snow where they face
   up and nothing is over them.
-- **The trails** (`snow::TrailField`, on the processor, kept for the whole level session): a heightfield in tiles of
+- **The trails** (`snow::TrailField` - a surface trails' field, below -, on the processor, kept for the whole level session): a heightfield in tiles of
   64 x 64 texels (2 units at quality 2; 3 at 1; 1.5 at 3), made where something first pressed; a texel holds four bytes
   - the press (the share of the snow pushed down), the berm (snow pushed up beside a trail), the activity (where the
   layer is raised over the ground) and a spare. A stamp is a capsule (from the presser's last place to this one) - the
@@ -2735,6 +2834,103 @@ snow: a thin layer of snow over the level and a heightfield of what was pressed 
   where the characters stand, not their bones (a bail lying in the snow leaves a footprint-sized mark); wheels are
   found by bone placement (a vehicle drawn without bones presses nothing); render-only geometry over the ground (a
   tree's canopy without collision) doesn't keep snow off what is under it.
+
+### Surface trails: what the skaters leave on the level (snow, paint)
+
+`engine/gfx/surface_trail.h` (the fields, the drawn world's marks, the trails' random numbers), `gpu_vulkan/vulkan_surface_trail`
+(the window on the device) - one system the snow's trails and the paint trails both keep their state in and draw through.
+
+- **A field** is a surface seen along one axis - from above (x, z) or from a side (z, y; x, y) - cut into tiles of 64 x 64
+  texels, made where something first stamped and kept for the whole level session. A texel is one or more 32-bit words,
+  its planes (the snow's one: press, berm, activity; the paint's two: the coat, the painted place). A **stroke** hands
+  each texel within a capsule's reach (one step's move, from the last place to this one) to its owner's rule with its
+  distance from the stroke - the snow presses and banks, the paint coats; each tile's version goes up when a texel of it
+  changes. Each field made has a serial: a new session's field is never mistaken for the last one's.
+- **The window** (`update_trail_window`): the device holds `tiles` x `tiles` tiles round the camera, each in the slot of
+  its place modulo `tiles` (toroidal), one image a plane - several windows may sit side by side in one image (the
+  paint's three). As the camera moves only the tiles that came in are copied, and a tile again only when its version
+  changed; a slot given another place is reported (the snow clears the colours it saw there).
+- **The drawn world's marks**: `render_pc` says for each draw whether it is the world's ground or a scene object's mesh
+  that isn't skinned (`set_current_ground`), and while it draws a character (`set_current_character`, 24 bones or
+  more): only marked draws take the snow's cover or the paint; characters and water never do.
+- **On the world's draws** both are one key byte, `FragmentKey::trails` (kTrailSnow, kTrailPaint), on the per-pixel
+  lighting's programs and the fixed stages with a texture: the shader works out the surface's world position and its
+  own normal once (`trail_main`), the snow's amount and the paint's coat from them, and covers the albedo before the
+  light - the snow, then the paint over it (`trail_albedo`) - so the one lighting path lights both.
+- **The same every run**: the stamps are made once a simulation step (`render_pc` `step_frame`, drawn or not) from what
+  the step left, and their random numbers are the trails' own (a PCG32 seeded the same each session - never the game's).
+
+### Paint trails (`paint_trails`)
+
+`engine/gfx/paint_trails.h` (the strokes, the splatter, the three fields - on the processor), `game/rider/paint_brushes`
+(what the skaters do, read only), `gpu_vulkan/vulkan_paint` (the windows, the coat) - `[Graphics] paint_trails` (off by
+default), `paint_trail_scale` (1), `paint_trail_colour` (by player), all live (the Options screen's Gameplay tab). No
+ray tracing needed; Direct3D 9 draws none. Free skate as a paint session: every skater's board leaves a line of paint
+wherever it rides, and the line shows the combo as it is built. No score; the paint stays for the session.
+
+- **Where it paints: the modes that are free skate** - `is_freeskate` (one or two players), `is_singlesession`'s free
+  skate and the online lobby (`netlobby`): `GameHooks::paint_brushes` hands over no brush anywhere else (the career, the
+  scored games - their modes untouched).
+- **The brushes, once a simulation step** (`render_pc` `snow_world::step`, beside the snow's, the loaded scenes' key the
+  level session): for each skater of the skate module - its object id, its place (the skater's, on the board), its up
+  (the surface's normal on the ground, a ramp, a rail and a wall: the skater's basis' up row) and forward rows, its
+  contact from the skater state component (ground; rail or lip - a stripe; wall - a wallride; nothing in the air, a
+  wallplant, walking, driving or a bail) and its combo's running score (its score's pot x the multiplier). Read only.
+- **The fields**: three - along x, y and z (from the sides and from above), 2-unit texels, two planes: the coat (RGBA8,
+  the colour premultiplied by its coverage) and the painted place along the axis (a float). A stroke goes into each
+  field whose axis the surface faces by 0.45 or more of its normal (a 45-degree ramp into two). Each texel's place is
+  the stroke's surface's plane at its centre; a fringe two texels past the coat writes the place where nothing is
+  painted (the device reads the nearest places).
+- **A coat** over a texel: the new colour x its coverage over what is there; a coat of another surface (more than 6
+  units along the axis away - the ground under a rail, a ledge's top over the street) is kept unless the new one covers
+  more. A line's coverage is 0.92 at its middle, its edge softened over its outer 35%.
+- **The combo**: its size `combo_size(score)` = log10(1 + score / 50) / log10(1 + 2,000,000 / 50), clamped to 1 - a single
+  300-point trick 0.18 (the line twice the board), 1000 points 0.29, 10,000 0.50, 100,000 0.72, 1,000,000 0.93. The line's half width is 4 units (the board) + 30 x the size,
+  x `paint_trail_scale`; a rail's stripe 1.8 + 2.2 x the size. **The splatter** from a size of 0.02: 90 drops a second
+  x the size, each thrown to a side (0.35 - 1 of the half width + 44 x the size) and ahead (-0.15 - 1 of 80 x the size)
+  on the surface, 1 - (1.6 + 5.5 x the size) units round, with up to three specks round it; on a rail along its stripe
+  only. All from the paint's own random numbers, the brushes in their ids' order: the same steps, the same paint.
+- **The session**: a move of more than 240 units in a step (a restart) starts a new line; a skater not seen for 2 s is
+  forgotten; a bail stamps nothing and wipes nothing - the paint stays. A new level (another scene key), `paint_trails`
+  off, or the script command `PaintTrailsClear` (the console's) wipes it.
+- **Colours**: by player slot (the object id) - pink, cyan, lime, orange, yellow, violet, red, white; this machine's
+  first player takes `paint_trail_colour` when it is set (a name or #RRGGBB).
+- **Online**: every client paints every skater from what it already has - their places, orientations and states
+  (the skater state the game's messages carry). A remote player's combo isn't sent between players (the game sends a
+  combo's points only when it lands - to the server - and the totals periodically): its line stays slim, and where its
+  total rises the paint bursts there (`Brush::landed`, 10 - 80 drops by the points' size). Nothing new goes on the wire.
+  Its colour is its slot's (the colour each player chose isn't sent). Not done: a custom online game mode of its own
+  ("custom" in the host's list) - the lobby's free skate paints already.
+- **The device**: the three fields' windows (20 tiles a side round the camera's place on each field's plane: 2560
+  units, 65 m) side by side in two images - the coats (RGBA8) and the places (R32F), 3840 x 1280 each (39 MB) -,
+  brought up to date by the frame's first view. A marked draw on a program that takes it gets kTrailPaint
+  (`PaintUniforms` at binding 19, the images at 20 - 21): the fragment reads each field its own normal faces by 0.4 or
+  more - the four texels round the point blended by hand, each counted only where its place is this surface's (6
+  units + 1.5 texels x the slope across the field) -, takes the field with the most coat and mixes the albedo toward
+  its colour by its coverage, before the light (the bake, the time of day's relit light, the per-pixel lighting, the
+  traced shadows light it).
+- **Purely visual.** Nothing of the game's is written: the brushes are read, the physics, the scores, the scripts and
+  the game's random streams untouched; `tools/game/sim_check.ts` and `tools/sim_draw_independence.test.ts` are the proof.
+- **Checked.** `thug2_vulkan_paint_check` - on the processor: the combo's curve and the colour's text; no combo, a slim
+  line on the ground and nothing beyond it, in the field from above alone; wider and splattered more as the combo grows
+  (three sizes); kept texel for texel through a 300-step bail; a rail's stripe on its top, narrow, the ground's line
+  under it kept; a wallride in the field from the side; a 45-degree ramp in two fields; the same steps twice the same
+  byte for byte; a restart draws no line between; a remote player's landed combo bursts; player 2's colour and this
+  machine's chosen one. On the device: the three windows read back hold exactly the fields' coats and places, again
+  after the camera moves 7 tiles - only the tiles that came in copied; the coat on a drawn ground (the line's colour, the
+  ground beside it and under a rail's stripe 30 units up), on a wall (a wallride), none on an unmarked draw or with paint
+  off; every pixel finite; validation silent. The cost (RTX 5070 Ti, 2560 x 1440): the ground and a wall with the coat
+  0.047 ms against 0.028 without - about 0.02 ms a frame for the coat; a session's windows copied in once (146 tiles),
+  then only the tiles a stroke changed. `thug2_ff_shader_check --trails` compiles and validates every key with the
+  snow, the paint and both (123,329 shaders, none failed).
+- **In the game** (BO, a workspace at 1280 x 720): a push down the street leaves a board-wide pink line; a manual's combo
+  (to about 470 points) widens it two to three times with splatter specks beside it, narrower where the combo was
+  smaller; a bail leaves the line as it was (a gap only where the board was in the air and the skater sliding); a demo's
+  grind (`sim_grind`) a stripe along the ledge's top; the overview from high above shows every line of the session.
+- **Known:** a line far off is thinner than a pixel and breaks up (the coats are read texel by texel, no smaller
+  levels); a coat of another surface in the same texel is replaced when the new one covers more (a rail's stripe over
+  the ground's line under it, within a texel); the windows reach 32 m round the camera, the paint beyond is kept but not
+  drawn until the camera comes near; the ray-traced reflections and bounce light see the surfaces' own colours.
 
 ### Decals and clutter (`rt_decals`, `clutter`)
 

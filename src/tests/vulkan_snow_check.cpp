@@ -551,14 +551,14 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, const Frame& frame)
     const float z1 = core::at(frame.camera, 2) + kGround;
     const std::array<Vertex, kQuadCorners> ground{at(x0, 0.0F, z0), at(x1, 0.0F, z0), at(x0, 0.0F, z1),
                                                   at(x1, 0.0F, z0), at(x1, 0.0F, z1), at(x0, 0.0F, z1)};
-    snow::set_current_ground(frame.marked);
+    render::surface_trail::set_current_ground(frame.marked);
     gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, ground.data(), sizeof(Vertex));
     if (frame.wall) {
         const std::array<Vertex, kQuadCorners> wall{at(-kWallSide, 0.0F, kWallZ), at(kWallSide, 0.0F, kWallZ), at(-kWallSide, kWallTop, kWallZ),
                                                     at(kWallSide, 0.0F, kWallZ), at(kWallSide, kWallTop, kWallZ), at(-kWallSide, kWallTop, kWallZ)};
         gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, wall.data(), sizeof(Vertex));
     }
-    snow::set_current_ground(false);
+    render::surface_trail::set_current_ground(false);
     render::rt::opaque_view_drawn(view);
     render::rt::world_view_drawn(view);
     gpu.set_render_target(0, nullptr);

@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/facade_relief.h"
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/smooth_tess.h"
 #include "engine/gfx/surface_material.h"
@@ -54,6 +55,13 @@ struct Settings {
 std::unordered_map<const IndexBufferData*, std::vector<uint16_t>>& originals()
 {
     static std::unordered_map<const IndexBufferData*, std::vector<uint16_t>> kept;
+    return kept;
+}
+
+// (added by building relief) the relieved meshes' made vertices' sources (remember_sources)
+std::unordered_map<const IndexBufferData*, std::vector<relief::VertexSource>>& made_sources()
+{
+    static std::unordered_map<const IndexBufferData*, std::vector<relief::VertexSource>> kept;
     return kept;
 }
 
@@ -181,8 +189,26 @@ std::span<const uint16_t> original_strip(const IndexBufferData* drawn)
     return found == originals().end() ? std::span<const uint16_t>{} : std::span<const uint16_t>(found->second);
 }
 
+void remember_sources(const IndexBufferData* drawn, uint32_t vertex_count, std::vector<relief::VertexSource> sources)
+{
+    if (drawn != nullptr && !sources.empty() && sources.size() <= vertex_count) {
+        made_sources()[drawn] = std::move(sources);
+    }
+}
+
+std::span<const relief::VertexSource> sources_of(const IndexBufferData* drawn)
+{
+    const auto found = made_sources().find(drawn);
+    return found == made_sources().end() ? std::span<const relief::VertexSource>{}
+                                         : std::span<const relief::VertexSource>(found->second);
+}
+
 void copy_original(const IndexBufferData* from, const IndexBufferData* to)
 {
+    const std::span<const relief::VertexSource> made = sources_of(from);
+    if (!made.empty() && to != nullptr) {
+        made_sources()[to] = std::vector<relief::VertexSource>(made.begin(), made.end());
+    }
     const std::span<const uint16_t> original = original_strip(from);
     if (!original.empty() && to != nullptr) {
         originals()[to] = std::vector<uint16_t>(original.begin(), original.end());
@@ -191,6 +217,9 @@ void copy_original(const IndexBufferData* from, const IndexBufferData* to)
 
 void forget_original(const IndexBufferData* drawn)
 {
+    if (!made_sources().empty()) {
+        made_sources().erase(drawn);
+    }
     if (!originals().empty()) {
         originals().erase(drawn);
     }

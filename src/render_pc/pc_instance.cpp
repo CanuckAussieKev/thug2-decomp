@@ -34,6 +34,7 @@
 #include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/snow.h"
+#include "engine/gfx/surface_trail.h"
 #include "render_pc/mesh_pass.h"
 #include "render_pc/rt_relit_world.h"
 
@@ -253,10 +254,10 @@ void Singleton::render(uint32_t draw_bits)
         Character& operator=(const Character&) = delete;
         Character(Character&&) = delete;
         Character& operator=(Character&&) = delete;
-        explicit Character(bool on) { snow::set_current_character(on); }
-        ~Character() { snow::set_current_character(false); }
+        explicit Character(bool on) { surface_trail::set_current_character(on); }
+        ~Character() { surface_trail::set_current_character(false); }
     };
-    const Character character(bones_ != nullptr && bone_count_ >= snow::kSkeletonBones);
+    const Character character(bones_ != nullptr && bone_count_ >= surface_trail::kSkeletonBones);
     if (skinned_by_shader(this)) {
         set_world_transform(transform_.data());
         if (last_bones() != bones_) {

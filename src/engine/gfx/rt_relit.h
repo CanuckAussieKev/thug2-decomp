@@ -162,6 +162,17 @@ struct RelitMesh {
     // Its triangles as the RayTracing numbers them (a hit's primitive): a strip's odd ones turned back round, so all
     // wind the same way; a degenerate one (two corners the same) kept in its place.
     std::vector<std::array<uint32_t, 3>> triangles;
+    // (added by building relief - engine/gfx/facade_relief.h) A vertex made from others: the relief's points lie on a
+    // flat wall's triangle (moved off it), so their traced light is that triangle's corners' blended - the wall's light
+    // at that point, as without relief - never traced from the relief's own corners (a point at the foot of a sill's
+    // side or in a recess's corner would see half its rays blocked, and its light spread over the whole piece: per
+    // vertex the relief's own shadows can't be drawn - the shadow pass draws them per pixel). One per vertex, or empty.
+    struct Source {
+        std::array<uint32_t, 3> from{};
+        std::array<float, 3> weight{};
+        uint8_t count = 0; // 0: the vertex's own (traced)
+    };
+    std::vector<Source> sources;
 };
 
 // What the analysis keeps for each vertex (the cache holds it): its light's parts and its colour's.
@@ -225,6 +236,10 @@ struct RelitStats {
 // The vertices' normals (where the mesh gives none: its triangles', area-weighted, turned by `facing` - +1 or -1, the
 // world's winding: relit_facing) and which vertices are used.
 void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out);
+// (added by building relief) The meshes' made vertices (RelitMesh::sources) given their sources' traced light - the
+// sun's, the sky's and the bounce's shares - blended (their own normals, colours and the rest kept). The tracing does it
+// last; also for light read back (the cache).
+void relit_derive(const RelitMesh& mesh, RelitVertices* light);
 // The world's winding: +1 when its triangles' (b - a) x (c - a) points out of their front, -1 when into it - found
 // from the upward-facing area (floors outnumber ceilings): the sign that turns most of it up.
 [[nodiscard]] float relit_facing(std::span<const RelitMesh> meshes);

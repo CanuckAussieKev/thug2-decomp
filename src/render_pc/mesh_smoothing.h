@@ -4,6 +4,7 @@
 #include <span>
 #include <vector>
 
+#include "engine/gfx/facade_relief.h"
 #include "engine/gfx/smooth_tess.h"
 
 // NOT ORIGINAL - smoothed curved surfaces at load ([Graphics] rt_tessellation; engine/gfx/smooth_tess.h, docs/design/
@@ -44,6 +45,12 @@ void remember_original(const IndexBufferData* drawn, std::vector<uint16_t> origi
 [[nodiscard]] std::span<const uint16_t> original_strip(const IndexBufferData* drawn);
 void copy_original(const IndexBufferData* from, const IndexBufferData* to);
 void forget_original(const IndexBufferData* drawn);
+
+// (added by building relief) The made vertices' sources of a relieved mesh (the last `sources.size()` of its
+// `vertex_count`), by its first level of detail's index buffer, kept, copied and forgotten with its original strip: what
+// the relit light's analysis blends their light from (rt_relit_world.cpp, rt_relit.h RelitMesh::sources). Empty: none.
+void remember_sources(const IndexBufferData* drawn, uint32_t vertex_count, std::vector<relief::VertexSource> sources);
+[[nodiscard]] std::span<const relief::VertexSource> sources_of(const IndexBufferData* drawn);
 
 // The heights a material's mesh is displaced by ([Graphics] rt_displacement above 0): the lookup fills `out` (its lookup
 // and context; the scale is the setting's) and says whether the material has a height map. The seam for the generated

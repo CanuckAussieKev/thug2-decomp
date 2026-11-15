@@ -1,4 +1,4 @@
-// NOT ORIGINAL - snow: the loaded world's sky map and its pressers handed to the snow (snow_world.h).
+// NOT ORIGINAL - the surface trails' world: the snow's sky map and pressers, the paint's step (snow_world.h).
 #include "render_pc/snow_world.h"
 
 #include <array>
@@ -23,7 +23,9 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/sector.h"
+#include "engine/gfx/paint_trails.h"
 #include "engine/gfx/snow.h"
+#include "engine/gfx/surface_trail.h"
 #include "engine/gfx/weather.h"
 #include "engine/lists/key_map.h"
 #include "engine/memory/arena_alloc.h"
@@ -46,7 +48,7 @@ constexpr uint64_t kFnvBasis = 0xCBF29CE484222325ULL;
 constexpr uint64_t kFnvPrime = 0x100000001B3ULL;
 constexpr std::size_t kRow = 4;            // (a Mat4's floats a row)
 constexpr std::size_t kTranslationRow = 3;
-constexpr int kLeastWheelBones = 2; // fewer than snow::kSkeletonBones (but some): a vehicle - its wheels the bones off its sides
+constexpr int kLeastWheelBones = 2; // fewer than surface_trail::kSkeletonBones (but some): a vehicle - its wheels the bones off its sides
 constexpr float kWheelSide = 15.0F; // a bone this far off the middle (its x) and ...
 constexpr float kWheelLow = 40.0F;  // ... no higher than this over the origin: a wheel's hub
 constexpr float kSquareInchesPerSquareMetre = 1550.0031F;
@@ -220,7 +222,7 @@ std::vector<snow::Presser> gather_pressers()
             continue;
         }
         const auto id = static_cast<uint64_t>(std::bit_cast<uintptr_t>(instance));
-        if (instance->bone_count_ >= snow::kSkeletonBones) {
+        if (instance->bone_count_ >= surface_trail::kSkeletonBones) {
             const float flat = std::sqrt((core::at(along_z, 0) * core::at(along_z, 0)) + (core::at(along_z, 2) * core::at(along_z, 2)));
             const std::array<float, 2> facing = flat > 0.0F ? std::array<float, 2>{core::at(along_z, 0) / flat, core::at(along_z, 2) / flat}
                                                             : std::array<float, 2>{0.0F, 1.0F};
@@ -258,6 +260,11 @@ void step()
         own.outdoor = world_has_sky();
         own.made = false;
         config::set_level_outdoor(own.outdoor);
+    }
+    // (the paint trails - engine/gfx/paint_trails.h: the game's brushes, the loaded scenes' key their level session)
+    if (paint::settings().on) {
+        const frame_profile::Scope paint_phase("paint"); // ([debug] frame_profile)
+        paint::step_from_game(frame_clock::get_slomo_frame_seconds(), own.world_key);
     }
     if (!snow::settings().on) {
         if (own.made) {

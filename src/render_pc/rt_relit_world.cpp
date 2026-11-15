@@ -24,6 +24,7 @@
 #include "engine/file/disk_files.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/engine_scene.h"
+#include "engine/gfx/facade_relief.h"
 #include "engine/gfx/mesh_records.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
@@ -38,6 +39,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
+#include "render_pc/mesh_smoothing.h"
 #include "render_pc/rt_record.h"
 #include "render_pc/sub_mesh.h"
 #include "render_pc/vertex_buffers.h"
@@ -551,6 +553,22 @@ bool make_entry(const WorldMesh& world, Entry* out)
         }
     }
     entry.input.colours = entry.originals;
+    // (added by building relief) a relieved mesh's made vertices take the flat wall's light (rt_relit.h
+    // RelitMesh::sources): their sources, the last of its vertices
+    const std::span<const relief::VertexSource> made = mesh_smoothing::sources_of(core::at(mesh->index_buffers(), 0));
+    if (!made.empty() && made.size() <= count && mesh->vertex_count() == count) {
+        entry.input.sources.resize(count);
+        const std::size_t first = count - made.size();
+        for (std::size_t k = 0; k < made.size(); ++k) {
+            const relief::VertexSource& from = core::at(made, k);
+            rt::RelitMesh::Source& to = core::at(entry.input.sources, first + k);
+            to.count = from.count;
+            for (std::size_t corner = 0; corner < from.from.size(); ++corner) {
+                core::at(to.from, corner) = core::at(from.from, corner);
+                core::at(to.weight, corner) = core::at(from.weight, corner);
+            }
+        }
+    }
     // the triangles as the RayTracing numbers them (a strip's odd ones turned back round)
     const std::size_t index_bytes = geometry.indices_32bit ? sizeof(uint32_t) : sizeof(uint16_t);
     const std::span<const uint8_t> indices(static_cast<const uint8_t*>(geometry.cpu_indices),
@@ -583,6 +601,14 @@ bool make_entry(const WorldMesh& world, Entry* out)
     entry.content = fnv(fnv_value(kFnvBasis, stride), bytes);
     entry.content = fnv(entry.content, indices.subspan(std::size_t{geometry.index_offset} * index_bytes));
     entry.content = fnv_value(entry.content, geometry.strip);
+    // (added by building relief) the made vertices' sources too: their light is blended, not traced
+    for (const rt::RelitMesh::Source& source : entry.input.sources) {
+        entry.content = fnv_value(entry.content, source.count);
+        for (std::size_t corner = 0; corner < source.count; ++corner) {
+            entry.content = fnv_value(entry.content, core::at(source.from, corner));
+            entry.content = fnv_value(entry.content, core::at(source.weight, corner));
+        }
+    }
     *out = std::move(entry);
     return true;
 }
