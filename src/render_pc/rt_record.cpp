@@ -747,13 +747,19 @@ void record_world(rt::RayTracing& rt)
             continue;
         }
         uint64_t count = 0;
-        // (the relit bake - relit_bake.h: every mesh of the level's world, shown or hidden - its static meshes, whatever
-        // its scripts show in the first frames)
+        // (the relit bake - relit_bake.h: every mesh of the level's world, shown or hidden, is taken apart - its data
+        // has them all, whatever a script shows later; the rays meet the meshes the level shows once it has settled, as
+        // the game draws it - a hidden mesh is registered, not an instance)
         const bool every = relit_bake::requested();
         for (const MeshRef* mesh : meshes->mesh_run()) {
             ++count;
-            if (mesh != nullptr && (every || mesh_shown(mesh))) {
+            if (mesh == nullptr) {
+                continue;
+            }
+            if (mesh_shown(mesh)) {
                 add_instance(mesh, rt::kWorld, identity, rt);
+                state().world.push_back(mesh);
+            } else if (every && mesh_id(mesh, rt) != 0) {
                 state().world.push_back(mesh);
             }
         }
@@ -1309,6 +1315,9 @@ void emitter_work()
     found.dark = rt::dark_level(found.median_luma);
     std::vector<rt::EmitterTriangle> triangles;
     for (const MeshRef* mesh : st.world) {
+        if (!mesh_shown(mesh)) {
+            continue; // (the relit bake's hidden meshes: not lit, no lamp - relit_bake.h)
+        }
         const MaterialRef* material = mesh->material();
         const auto entry = material != nullptr ? st.materials.find(material) : st.materials.end();
         if (entry == st.materials.end() || moving_material(material)) {

@@ -1468,6 +1468,7 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
     model.sun_needed = with_sun > 0.0 ? static_cast<float>(without_sun / with_sun) : 0.0F;
     // the sun's strength against the rest told by which way the faces turn (facing_calibration), then each channel's
     // scale again (the median tint 1)
+    bool seeded = false; // (the offline relit data: every channel's sun seeded - the faces' turning alone tells it)
     // (added by the light energy audit) A channel whose edges gave the sun nothing - their changes explained by the sky or
     // the bounce alone (AU: red 0; sch: red and blue 0; Berlin in a workspace: red 0) - can't be put right by a factor:
     // it starts from the other channels' sun, and the faces' turning in that channel tells its strength. A sun lights
@@ -1481,6 +1482,18 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
                 seed += core::at(model.sun, ch);
                 ++alive;
             }
+        }
+        // (the offline relit data) no channel's edges gave the sun anything - the bake's sun shows mostly in which way the
+        // faces turn, little along the edges (TR, thps3_la, hof: a baked sun found with confidence 0.38 - 0.47, the fit's
+        // sun 0): every channel starts from a share of the sky's (grey), and the faces' turning below sets its strength (a bake
+        // whose faces don't turn with the sun takes it down to nothing: no model)
+        seeded = !(strongest > 0.0F);
+        if (seeded) {
+            constexpr float kSunSeedOfSky = 0.5F;
+            // (a white sun: one channel's sky can be fitted to nothing too - z_lv's green)
+            const float grey = (core::at(model.sky, 0) + core::at(model.sky, 1) + core::at(model.sky, 2)) / 3.0F;
+            model.sun = {kSunSeedOfSky * grey, kSunSeedOfSky * grey, kSunSeedOfSky * grey};
+            model.dead_channels = 3;
         }
         if (strongest > 0.0F && alive > 0 && alive < 3) {
             seed /= static_cast<float>(alive);
@@ -1497,6 +1510,9 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
         core::at(factors, ch) = facing_calibration(meshes.first(count), light.first(count), model, ch);
     }
     model.sun_calibration = luma(factors);
+    if (seeded && factors == Rgbf{1.0F, 1.0F, 1.0F}) {
+        model.sun = {}; // (too few meshes show both sides to tell the seeded sun's strength: none - no model)
+    }
     if (factors != Rgbf{1.0F, 1.0F, 1.0F}) {
         for (std::size_t ch = 0; ch < 3; ++ch) {
             core::at(model.sun, ch) *= core::at(factors, ch);
@@ -1699,7 +1715,7 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
     }
     // (the offline relit data) the bake's sunlight a tint still holds - where the rays saw a caster the bake didn't -
     // made direct light
-    relit_sun_in_tint(meshes.first(count), wanted, *model, std::span<RelitVertices>(*light).first(count));
+    model->sun_in_tint = relit_sun_in_tint(meshes.first(count), wanted, *model, std::span<RelitVertices>(*light).first(count));
     // the level's own lights across the meshes: what a lamp puts on its neighbours, it puts on a mesh it lights whole
     relit_local_across(meshes.first(count), wanted, *model, std::span<RelitVertices>(*light).first(count));
     for (std::size_t mi = 0; mi < count; ++mi) {
@@ -2046,7 +2062,8 @@ void fit_relit_lamps(std::span<const RelitMesh> meshes, std::span<const RelitVer
                     }
                     const double value = ((y2 * core::at(ei, ch)) - (y1 * core::at(ej, ch))) / change;
                     if (std::isfinite(value)) {
-                        core::at(votes, ch).push_back({.value = value, .weight = std::abs(change) / whole});
+                        // (each vote's error goes as the edge's light over the change: weighed by the inverse of its variance)
+                        core::at(votes, ch).push_back({.value = value, .weight = (change * change) / (whole * whole)});
                     }
                 }
             }
@@ -2054,6 +2071,7 @@ void fit_relit_lamps(std::span<const RelitMesh> meshes, std::span<const RelitVer
     }
     for (std::size_t ch = 0; ch < 3; ++ch) {
         std::vector<Vote>& channel = core::at(votes, ch);
+        core::at(model->lamp_votes, ch) = channel.size();
         if (channel.size() < kRelitLampEdges) {
             continue;
         }
@@ -2071,15 +2089,17 @@ void fit_relit_lamps(std::span<const RelitMesh> meshes, std::span<const RelitVer
                 break;
             }
         }
+        core::at(model->lamp_median, ch) = static_cast<float>(median);
         core::at(model->lamps, ch) = static_cast<float>(std::max(0.0, median));
     }
 }
 
-void relit_sun_in_tint(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitModel& model,
-                       std::span<RelitVertices> light)
+std::size_t relit_sun_in_tint(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted,
+                              const RelitModel& model, std::span<RelitVertices> light)
 {
+    std::size_t given = 0;
     if (!model.valid) {
-        return;
+        return given;
     }
     const std::size_t count = std::min(meshes.size(), light.size());
     const Vec3 sun = normalised(model.toward);
@@ -2162,6 +2182,7 @@ void relit_sun_in_tint(std::span<const RelitMesh> meshes, std::span<const uint8_
                 continue;
             }
             vertex.sun_missed += missed;
+            ++given;
             const Rgbf with_sun = baked_light(model, vertex);
             for (std::size_t ch = 0; ch < 3; ++ch) {
                 core::at(vertex.tint, ch) = std::clamp(
@@ -2171,6 +2192,7 @@ void relit_sun_in_tint(std::span<const RelitMesh> meshes, std::span<const uint8_
             }
         }
     }
+    return given;
 }
 
 float relit_missed_trust(const RelitModel& model, const Vec3& toward)

@@ -217,6 +217,11 @@ struct RelitModel {
     float shadow_model = 0.0F;
     // (added by the light energy audit; reported) channels the edges gave no sun, started from the others' (fit_relit_model)
     std::size_t dead_channels = 0;
+    // (the offline relit data; reported) the lamps' fit: its edges' votes per channel and their weighted median before it
+    // is held at 0; the vertices the bake's sunlight was taken out of the tint at (relit_sun_in_tint)
+    std::array<std::size_t, 3> lamp_votes{};
+    Rgbf lamp_median{};
+    std::size_t sun_in_tint = 0;
 };
 
 struct RelitParams {
@@ -319,8 +324,9 @@ void fit_relit_lamps(std::span<const RelitMesh> meshes, std::span<const RelitVer
 inline constexpr float kRelitSunInTintOver = 1.5F;
 inline constexpr float kRelitSunInTintColour = 0.97F; // the excess's colour against the sun's (cosine) at least this
 inline constexpr float kRelitSunInTintLeast = 0.2F;   // the missed sun found at least this (of the whole sun)
-void relit_sun_in_tint(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitModel& model,
-                       std::span<RelitVertices> light);
+// Returns how many vertices it gave the sun.
+std::size_t relit_sun_in_tint(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted,
+                              const RelitModel& model, std::span<RelitVertices> light);
 // The level's own light at a vertex - its lamps' term and its residual (scale x tint x c x L + residual): what the
 // lamps pass's light is held against, what the light field keeps as the local light. Constant through the day.
 [[nodiscard]] Rgbf relit_own_light(const RelitModel& model, const RelitVertex& vertex);

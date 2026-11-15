@@ -205,6 +205,11 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             model.vertices, model.dead_channels, missed, lamp_lit,
             lamp_lit > 0 ? lamp_light / static_cast<double>(lamp_lit) : 0.0,
             used > 0 ? residual / static_cast<double>(used) : 0.0);
+    get_log("relit bake: the lamps' fit - %zu %zu %zu edge votes, their medians %.4f %.4f %.4f; the bake's sunlight taken "
+            "out of the tints at %zu vertices",
+            core::at(model.lamp_votes, 0), core::at(model.lamp_votes, 1), core::at(model.lamp_votes, 2),
+            static_cast<double>(std::get<0>(model.lamp_median)), static_cast<double>(std::get<1>(model.lamp_median)),
+            static_cast<double>(std::get<2>(model.lamp_median)), model.sun_in_tint);
     get_log("relit bake: %s %s (%zu KB, content %016llx) - %.0f ms in all", written.written && written.closed ? "wrote" : "couldn't write",
             path.c_str(), bytes.size() / kKilobyte, static_cast<unsigned long long>(data.content), ms_since(start));
 }
