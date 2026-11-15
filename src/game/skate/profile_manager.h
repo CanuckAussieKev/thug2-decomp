@@ -199,4 +199,10 @@ private:
 
 objects::ProfileRoster* profile_roster();
 
+// NOT ORIGINAL - a copy of a profile kept aside (the game's own copy_from, in the profiles' heap) and copied back: a
+// replay lends the player's place to its recorded skater and gives the player's back exactly (devtools/demo.cpp).
+using KeptProfile = memory::HeapUnique<RiderIdentity>;
+KeptProfile keep_profile_copy(RiderIdentity* from);
+void put_profile_copy_back(RiderIdentity* into, RiderIdentity* kept);
+
 } // namespace objects

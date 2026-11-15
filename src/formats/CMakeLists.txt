@@ -5,6 +5,7 @@ add_library(thug2_formats STATIC
     bundle_format.cpp
     collision_format.cpp
     demo_format.cpp
+    sha256.cpp
     font_format.cpp
     image_format.cpp
     lzss_unpack.cpp

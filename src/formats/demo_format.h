@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "formats/sha256.h"
+
 // NOT ORIGINAL - the demo files (ours, added at the user's request: a run recorded and played back, rendered under
 // different settings for before / after pictures - devtools/demo.h, docs/demos.md). The game never had them.
 //
@@ -35,6 +37,20 @@
 //         could simulate faster than the original's 60 (since removed: the game simulates at exactly 60 -
 //         docs/design/simulation-rate.md). Read: 60 plays as any demo; another rate is refused (its input frames are
 //         that rate's ticks, not the game's). Never written: every demo is a version 1 file.
+//   OPTS  (since 2026-11-15; optional) the player's options that change a run: u8 auto kick, u8 spin taps (the skate
+//         module's player settings, port 0), f32 the stat override (SetStatOverride; 0: none). A playback lends them
+//         with the skater and gives the player's back at its end.
+//   SEAL  (since 2026-11-15; optional, written last) what shows a demo changed after it was recorded: u32 seal
+//         version (1), the recorded skater's profile hash (32 bytes: profile_hash below), the start (32 bytes), u32
+//         link stride (frames), u32 link count, the links (32 bytes each), the end (32 bytes). SHA-256 throughout:
+//           start      = H("THUG2DEM seal 1", u32 file version, every chunk before SEAL but INPT and CHEK as written:
+//                        u32 tag, u32 size, body)
+//           link(f+1)  = H(link(f), u32 f, frame f's port data (each port), the check points of frame f as CHEK
+//                        has them, in its order); link(0) = start
+//           links      = link(stride), link(2 stride)... and link(frames) last (ceil(frames / stride) of them)
+//           end        = H(link(frames), u32 count, the check points not taken by a frame, in CHEK's order)
+//         Anyone with this source can seal an edited file again: the seal shows a file changed by hand, not who made
+//         it (docs/demos.md "Replays as proof").
 namespace demo_format {
 
 constexpr std::array<char, 8> kMagic = {'T', 'H', 'U', 'G', '2', 'D', 'E', 'M'};
@@ -100,6 +116,33 @@ struct Global {
     bool operator==(const Global&) const = default;
 };
 
+// The player's options that change a run (the OPTS chunk).
+struct Options {
+    bool present = false; // (a demo made before 2026-11-15: none - played with the session's)
+    bool auto_kick = false;
+    bool spin_taps = false;
+    float stat_override = 0.0F;
+    bool operator==(const Options&) const = default;
+};
+
+// The seal, as read_demo found it (write_demo seals every file it writes; this field isn't written).
+enum class SealState : uint8_t {
+    kNone,    // no SEAL chunk (a demo made before 2026-11-15)
+    kIntact,  // every link as recorded
+    kChanged, // something differs: changed after it was recorded
+};
+constexpr uint32_t kSealVersion = 1;
+constexpr uint32_t kSealStride = 600; // a link every 10 s
+struct Seal {
+    SealState state = SealState::kNone;
+    sha256::Digest profile_hash{}; // the recorded skater's, as the seal holds it
+    bool header_changed = false;   // the names, date, build, level, settings, skater or session chunks
+    bool profile_changed = false;  // the skater's profile or info (PROF, DETL) against the hash
+    int64_t changed_from = -1;     // the first frame of the first stretch whose input or check points differ (-1: none)
+    int64_t changed_to = -1;       // (the stretch's end, exclusive)
+    bool end_changed = false;      // the check points after the last frame, or the seal's own layout
+};
+
 struct Demo {
     uint32_t version = kVersion;
     std::string level;
@@ -117,6 +160,8 @@ struct Demo {
     Clocks clocks;
     uint32_t random_flags = 0; // kMusicApart...
     std::vector<Global> globals; // (none: a demo made before the GLOB chunk)
+    Options options;
+    Seal seal; // (read_demo's finding)
     std::vector<std::pair<std::string, std::string>> settings;
     std::vector<uint8_t> profile;
     std::vector<uint8_t> details;
@@ -133,8 +178,12 @@ struct Demo {
     [[nodiscard]] std::string setting(const std::string& key) const;
 };
 
-// The file's bytes.
+// The file's bytes (sealed: the SEAL chunk last).
 std::vector<uint8_t> write_demo(const Demo& demo);
+// The recorded skater's identity: H("PROF", u32 size, the profile's bytes, "DETL", u32 size, the info's bytes).
+sha256::Digest profile_hash(const Demo& demo);
+// What the seal says, in a few words: "intact", "none (recorded before seals)", "changed after recording: ...".
+std::string seal_text(const Seal& seal);
 // Read from a file's bytes: false (and why in `error`) for a file that isn't one, a newer version, or a broken one.
 bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error);
 
