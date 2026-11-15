@@ -2249,10 +2249,15 @@ Both act only on the draws `rt_pbr` lights with a surface map (`kSurfaceMap`, ne
   bilinear by `texelFetch` (the game's samplers often allow no mips). It flattens the shadows, occlusion and highlights
   painted into the 2004 colour maps toward the texture's average, leaving the fine detail, so the per-pixel and
   ray-traced lighting do the shading. In the shader: the player's files are not changed. Glass and water are left.
-  Out of effect while a texture set made de-lit is chosen (`base.ts --delight`: the pipeline's `hd_textures/delight.ts`
-  took the painted light out of its textures before upscaling; `set.json` "delight", read at start-up by
-  `texture_sets::delit_sets()` into the settings capabilities - the Options screen says "Off - these textures are
-  already flat"); kept for the original textures and for sets made without it.
+  Per texture with a de-lit texture set (`base.ts --delight`: the pipeline's `hd_textures/delight.ts` took the painted
+  light out of some textures before upscaling - about 1% with its version 2, only where the evidence is clear): the
+  set's `set.json` lists each file's de-lit textures ("delit", checksums - `formats/texture_set_record.h`). As a
+  dictionary loads, its surface maps (`render_pc/surface_map_load.cpp`) take that file's list from
+  `texture_sets::delit_textures(set, file)` and attach each map with `MapInfo::delit`; `detail_draw` gives a texture
+  that came de-lit no `kDetailDelight` - one rule, in the key - and every other texture, in the same set too, keeps
+  the setting. A set switch reads the dictionaries again, so their maps carry the new set's lists. The settings model
+  has no rule for it: `rt_delight` stays in effect whatever set is chosen (Options: "textures that aren't already
+  flat"). `thug2_vulkan_pbr_check` draws the same texture listed and not listed; `thug2_format_check` reads a record.
 - **Off is as before.** With both off no key has `detail` set: every shader is the same - `thug2_ff_shader_check
   --no-gpu --surface --cel --motion --retro --dump` wrote 341,478 shaders byte-identical to main's. `--detail` (after
   `--surface`) adds every surface-mapped key with each of the three bit sets.

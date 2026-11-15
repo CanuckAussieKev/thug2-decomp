@@ -2,6 +2,7 @@
 
 #include "tests/format_check_surface.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -14,6 +15,7 @@
 #include "base/core/format.h"
 #include "formats/detail_material_format.h"
 #include "formats/surface_map_format.h"
+#include "formats/texture_set_record.h"
 
 namespace format_check_surface {
 
@@ -220,6 +222,70 @@ void check_detail_library()
     check(dmf::read_library(dmf::write_file({}, {}), &library) && library.kinds.empty(), "detail library: an empty one is valid");
 }
 
+// (added for the de-lit texture sets) A set's record as base.ts writes it (JSON.stringify(record, null, 1)): the
+// de-lighting version, each file's de-lit textures - a texture listed comes de-lit, one not listed (in the same
+// dictionary of the same set) doesn't.
+constexpr std::string_view kSetRecord = R"({
+ "model": "seedvr2",
+ "match": true,
+ "delight": 2,
+ "files": [
+  {
+   "name": "levels\\bo\\bo.tex.xbx",
+   "original": "ec94ba56590e1da34cd4f9a1f623e7503dbd4b7a099cc9da0a2b3ee4e2b9b07f",
+   "installed": "b40768a0371c24eb5a3ba0128d4dd5055df4b2e5ca1e61ad76708413f84e860c",
+   "delit": [
+    "0a1b2c3d",
+    "00000042"
+   ]
+  },
+  {
+   "name": "levels\\bo_sky\\bo_sky.tex.xbx",
+   "original": "6cdb",
+   "installed": "0de1",
+   "delit": []
+  },
+  {
+   "name": "levels\\\u0041u\\au.tex.xbx",
+   "original": "1e5",
+   "installed": "2.5e-3",
+   "extra": {"nested": [1, -2.5, null, false, "x"]},
+   "delit": ["ffffffff", "not hex"]
+  }
+ ]
+}
+)";
+constexpr uint32_t kListed = 0x0A1B2C3DU;
+constexpr uint32_t kListedSmall = 0x42U;
+constexpr uint32_t kUnlisted = 0x0A1B2C3EU;
+constexpr int kRecordDelight = 2;
+
+void check_texture_set_record()
+{
+    namespace tsr = texture_set_record;
+    tsr::Record record;
+    check(tsr::read(kSetRecord, &record) && record.delight == kRecordDelight && record.files.size() == 3,
+          "texture set record: read (de-lighting version 2, three files)");
+    const std::vector<uint32_t> bo = tsr::delit_of(record, "levels\\bo\\bo.tex.xbx");
+    check(bo == std::vector<uint32_t>{kListedSmall, kListed}, "texture set record: a file's de-lit textures, sorted");
+    check(std::ranges::binary_search(bo, kListed) && !std::ranges::binary_search(bo, kUnlisted),
+          "texture set record: a texture listed is de-lit, one not listed in the same file isn't");
+    check(tsr::delit_of(record, "LEVELS/BO/BO.TEX.XBX") == bo, "texture set record: names without regard to case, / as \\");
+    check(tsr::delit_of(record, "levels\\bo_sky\\bo_sky.tex.xbx").empty(), "texture set record: a file with none de-lit");
+    check(tsr::delit_of(record, "levels\\au\\au.tex.xbx") == std::vector<uint32_t>{0xFFFFFFFFU},
+          "texture set record: escapes read, other members skipped, a checksum that isn't hex left out");
+    check(tsr::delit_of(record, "levels\\se\\se.tex.xbx").empty(), "texture set record: a file it doesn't list");
+    tsr::Record plain;
+    check(tsr::read(R"({"model": "pbrify", "match": false, "files": [{"name": "a.tex.xbx", "original": "", "installed": ""}]})",
+                    &plain) &&
+              plain.delight == 0 && plain.files.size() == 1 && plain.files.front().delit.empty(),
+          "texture set record: a set made without de-lighting");
+    check(!tsr::read(kSetRecord.substr(0, kSetRecord.size() / 2), &plain) && plain.files.empty(),
+          "texture set record refused: cut short");
+    check(!tsr::read("[1, 2]", &plain) && !tsr::read("{\"delight\": 2,}", &plain) && !tsr::read("", &plain),
+          "texture set record refused: not an object, a trailing comma, nothing");
+}
+
 } // namespace
 
 int run()
@@ -229,6 +295,7 @@ int run()
     check_round_trip();
     check_refused();
     check_detail_library();
+    check_texture_set_record();
     return failures();
 }
 

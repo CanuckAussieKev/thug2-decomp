@@ -17,7 +17,9 @@
 //     far away the original look is untouched - and a real material: roughness, F0 (the per-pixel highlight's and the
 //     ray-traced passes' through surface_map_f0), metalness (the highlight tinted by the texel);
 //   - rt_delight: the light painted into the colour textures (shadows, occlusion, highlights) flattened toward the
-//     texture's mean luminance by its low-frequency luminance, in the shader - the player's files are not changed.
+//     texture's mean luminance by its low-frequency luminance, in the shader - the player's files are not changed. A
+//     texture a de-lit texture set made flat already (its set.json lists it - engine/gfx/texture_sets.h
+//     delit_textures) is left alone, one texture at a time: the set's other textures keep it.
 // ff_shaders.cpp writes the shaders (its "detail layer" comment has the formulas); DetailUniforms (ff_uniforms.h) is
 // their block. With both off nothing here runs and every key's detail byte stays 0 (but for rt_relief's kDetailRelief,
 // set by vulkan_surface.cpp, which reads the texture's kind from here).
@@ -38,9 +40,11 @@ struct DetailDraw {
     uint8_t kind = 0;
 };
 
-// What a draw of a colour texture with a surface map gets: the texture's checksum and content hash (its first level's)
-// and its map's class. All 0 / null with rt_detail and rt_delight off. Takes the detail state's own lock.
-[[nodiscard]] DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t material_class);
+// What a draw of a colour texture with a surface map gets: the texture's checksum and content hash (its first level's),
+// its map's class and whether the texture came de-lit (engine/gfx/surface_maps.h MapInfo::delit: the texture set
+// serving it took its painted light out before upscaling - rt_delight leaves such a texture alone and applies to every
+// other one, in the same set too). All 0 / null with rt_detail and rt_delight off. Takes the detail state's own lock.
+[[nodiscard]] DetailDraw detail_draw(uint32_t checksum, uint64_t content_hash, uint8_t material_class, bool delit);
 // Changes whenever the settings or the library change (callers cache detail_draw's answers by it).
 [[nodiscard]] uint64_t detail_generation();
 // The library read and its textures made when rt_detail is on and they aren't (Gpu calls: the thread that makes

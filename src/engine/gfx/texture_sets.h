@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -40,12 +41,15 @@ bool installed(std::string_view set);
 // The known sets installed (kKnownSets' order).
 std::vector<std::string> installed_sets();
 // The de-lighting version a set's textures were made with (its set.json's "delight": base.ts --delight took the light
-// painted into them out before upscaling - tools/pipeline/hd_textures/delight.ts); 0 for a set made without it, one
-// not installed, and the original. The settings model takes [Graphics] rt_delight - the same light flattened at draw
-// time - out of effect while such a set is chosen (config Capabilities::delit_texture_sets).
+// painted into some of them out before upscaling - tools/pipeline/hd_textures/delight.ts); 0 for a set made without
+// it, one not installed, and the original.
 int delight_version(std::string_view set);
-// The installed sets whose textures are de-lit (delight_version > 0; kKnownSets' order).
-std::vector<std::string> delit_sets();
+// The textures of the dictionary `overlay_name` ("levels\bo\bo.tex.xbx") that `set` made de-lit (its set.json's
+// "delit" for that file - formats/texture_set_record.h), sorted checksums; empty for the original, a set made without
+// de-lighting and a file it lists none for. The surface maps (render_pc/surface_map_load.h) mark them as they attach,
+// and the renderer leaves those textures out of [Graphics] rt_delight - the same light flattened at draw time - while
+// the set's other textures (most of them: delight.ts takes only what it is sure of) keep it.
+std::vector<uint32_t> delit_textures(std::string_view set, std::string_view overlay_name);
 
 // The set in use ("original" until [Graphics] texture_set names an installed one - read at the first file the game asks
 // for, logged).

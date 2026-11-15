@@ -66,6 +66,7 @@ struct MapEntry {
     DetailDraw detail{};
     float relief_depth = 0.0F; // (added by surface relief) the map's k (relief_depth_of_map)
     uint8_t flags = 0;         // (added for the characters) surface_map_format::kFlag*
+    bool delit = false;        // (added for the de-lit texture sets) MapInfo::delit: no draw-time de-lighting
 };
 
 // (added for the characters) Whether a map is used: a character model's only with rt_characters on.
@@ -118,7 +119,7 @@ const DetailDraw& detail_of(MapEntry& entry)
 {
     const uint64_t generation = detail_generation();
     if (entry.generation != generation) {
-        entry.detail = detail_draw(entry.checksum, entry.content_hash, entry.material_class);
+        entry.detail = detail_draw(entry.checksum, entry.content_hash, entry.material_class, entry.delit);
         entry.generation = generation;
     }
     return entry.detail;
@@ -285,7 +286,8 @@ public:
                      .checksum = info.checksum,
                      .content_hash = info.content_hash,
                      .relief_depth = relief_depth,
-                     .flags = info.flags};
+                     .flags = info.flags,
+                     .delit = info.delit};
         }
         ensure_detail_library(); // (added by the detail materials: the library read the first time it is wanted)
         if (replaced != nullptr) {
