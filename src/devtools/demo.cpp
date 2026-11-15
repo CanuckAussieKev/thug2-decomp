@@ -35,7 +35,6 @@
 #include "devtools/demo_overlay.h"
 #include "devtools/demo_viewer.h"
 #include "devtools/screenshot.h"
-#include "engine/audio/music_player.h"
 #include "engine/gfx/render_device.h"
 #include "engine/media/video_writer.h"
 #include "engine/script/context.h"
@@ -566,10 +565,10 @@ void begin_recording(uint32_t load)
         run.name = "demo_" + demo.level + "_" + local_time_text("%Y-%m-%d_%H-%M-%S");
     }
     // (what a session leaves behind kept out of the run - measured, docs/demos.md "Limits": RandomNoRepeat /
-    // RandomPermute's states that scripts which ran before left, and the music's shuffles - their own streams while the
-    // demo runs, as a track ends in real time; the simple script globals recorded, for a playback to put back)
+    // RandomPermute's states that scripts which ran before left; the simple script globals recorded, for a playback to
+    // put back. The music's shuffles never draw the game's random numbers - audio/music_player.h -, which the RAND
+    // chunk notes)
     script::forget_all_stored_randoms();
-    audio::set_music_random_apart(true);
     demo.random_flags = demo_format::kMusicApart;
     demo.globals = globals_now();
     maths::seed_random(demo.seed);
@@ -828,11 +827,14 @@ void begin_playback(uint32_t load)
         return;
     }
     // (as begin_recording: the states a session's earlier scripts left dropped, the globals as recorded - none in a
-    // demo made before the GLOB chunk -, the music apart as it was recorded - a demo made before the RAND chunk drew
-    // it from the game's streams)
+    // demo made before the GLOB chunk)
     script::forget_all_stored_randoms();
     restore_globals(run.demo);
-    audio::set_music_random_apart((run.demo.random_flags & demo_format::kMusicApart) != 0U);
+    if ((run.demo.random_flags & demo_format::kMusicApart) == 0U) {
+        get_log("demo: %s was recorded while the music drew the game's random numbers - it may part from the "
+                "recording where the music changed track (record it again)",
+                run.name.c_str());
+    }
     maths::seed_random(run.demo.seed);
     crt::game_srand(run.demo.crt_seed);
     run.counting = true;
@@ -1240,9 +1242,6 @@ void menu_tick(modules::FrontEnd* front_end, bool game_owned)
     // (a demo's pause is the original freeze, whatever [features] live_pause says - game/front_end/live_pause.h: a
     // recording and its playback then pause alike)
     modules::live_pause::demo_running() = run.phase != Phase::kOff;
-    if (run.phase == Phase::kOff) {
-        audio::set_music_random_apart(false);
-    }
     // -demo: once the main menu has been up a moment (its scripts loaded), as -level starts its level
     if (run.phase == Phase::kPlayArmed && run.from_command_line) {
         const bool menu = render::current_level() == 0 && !(front_end != nullptr && front_end->is_paused()) &&

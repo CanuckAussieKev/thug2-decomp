@@ -84,4 +84,9 @@ void set_random_streams(const RandomStreams& streams)
     stream2() = {.add = add2, .mul = mul2, .value = value2};
 }
 
+RandomStreams seeded_streams(uint32_t seed)
+{
+    return {kInitialAdd, kInitialMul, seed, kInitialAdd, kInitialMul, seed};
+}
+
 } // namespace maths

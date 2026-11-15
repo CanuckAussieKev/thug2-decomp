@@ -78,7 +78,8 @@ the same state on every frame, to the bit.
 the reference, bit for bit. The state (`devtools/demo.cpp state_line`, the playback's `<demo>.play.state.txt`): FNV-1a
 hashes of the skater's position, velocity, whole matrix and state; of every object with a motion or rigid-body
 component (its id, position, velocity, matrix); of the game's two random streams; and the clock's milliseconds. The
-reference was recorded from main before the change (5c403296), at max_fps=0.
+reference was recorded from main before the change (5c403296), at max_fps=0 (sim_grind's again on 2026-11-15, when
+the music got its own random numbers: "The music's random numbers").
 
 | demo | level | what it does | frames |
 |---|---|---|---:|
@@ -176,6 +177,73 @@ the level's time-of-day scripts by the wall clock - off by default. And kept as 
 takes the viewport's aspect, so a wider window sees - and wakes - objects further to the side than a 4:3 one; a fixed
 view for the simulation would part from the original's on drawn frames.
 
+### The music's random numbers
+
+Not drawing, but the same kind of dependency: the music player chooses its next track when the last one's stream ends -
+in real time - and the original drew that choice from the game's random streams (a reshuffle: 4,000 numbers - the
+first level of a session draws a new order; and one to keep the last track from coming first). Where those draws fell
+in the game's sequence depended on the wall clock, so a stall, a slower disk or a slower machine moved every later random
+number of the game: a different pedestrian, a different idle, a different wait. Demos kept the music apart while they
+ran (since 2026-11-13); since 2026-11-15 the engine always does (`audio/music_player.h`): the music draws from streams of
+its own, seeded with a fixed seed, swapped in for the game's over the scopes that draw (`MusicDraws`), and
+the game's streams are never touched by it. One path, no switch. PartyMod's shuffle order comes from the process's C
+runtime `rand` (`std::rand`, seeded from the time at start-up) - not the game's C runtime `rand` (`crt::game_rand`,
+which demos seed and the game's effects draw), so it touches neither of the game's sequences. The track-title script it
+runs (`spawn_update_music_track_text`) only restyles screen elements. `tools/music_random.test.ts` keeps it so: every
+function of the music player that draws does it inside `MusicDraws`, and nothing else in the audio draws the game's
+streams. The sound effects' random choices (`surface_kind.cpp`, a sound action by its chance) stay on the game's streams:
+they're made by the step, not by the clock.
+
+A demo recorded before 2026-11-13 (no `RAND` chunk) let the music draw the game's numbers; its playback now keeps them
+apart like every other, so it can part from its recording where the music changed track (the playback says so in the
+log). sim_grind was such a demo (the reshuffle at frame 64 of its playback); its reference was recorded again from the
+build of this change (2026-11-15): frames 0 - 64 bit for bit as before, every frame from 65 on new - where the old
+playback's music drew the game's numbers. Its playback parts from its own recording (it did before this change too:
+from frame 5, ahead of the music - the demo is older than later changes to the skater), so sim_grind checks that its
+playback is the same at every rate and load, not that it replays the recording; a fresh recording of it would carry
+the `RAND` chunk.
+
+All four demos, each display rate, with and without the stalls, twice in a row (the build of this change, THUG2-2,
+2026-11-15) - 32 of 32 runs equal to the reference on every frame in both passes; sim_se, sim_vert and sim_wall against
+their references unchanged. Late frames: pass 1 / pass 2.
+
+| demo | display rate | frames equal | missing | first differs | late frames | result |
+|---|---|---|---|---|---|---|
+| sim_grind | 60 (max_fps=0) | 693 / 693 | 0 | none | 3 / 3 | ok |
+| sim_grind | 120 | 693 / 693 | 0 | none | 3 / 3 | ok |
+| sim_grind | 144 | 693 / 693 | 0 | none | 3 / 3 | ok |
+| sim_grind | 240 | 693 / 693 | 0 | none | 3 / 3 | ok |
+| sim_grind | 60 (max_fps=0), load 7 | 693 / 693 | 0 | none | 102 / 103 | ok |
+| sim_grind | 120, load 7 | 693 / 693 | 0 | none | 110 / 111 | ok |
+| sim_grind | 144, load 7 | 693 / 693 | 0 | none | 201 / 199 | ok |
+| sim_grind | 240, load 7 | 693 / 693 | 0 | none | 201 / 202 | ok |
+| sim_se | 60 (max_fps=0) | 1177 / 1177 | 0 | none | 2 / 2 | ok |
+| sim_se | 120 | 1177 / 1177 | 0 | none | 2 / 2 | ok |
+| sim_se | 144 | 1177 / 1177 | 0 | none | 2 / 2 | ok |
+| sim_se | 240 | 1177 / 1177 | 0 | none | 2 / 46 | ok |
+| sim_se | 60 (max_fps=0), load 7 | 1177 / 1177 | 0 | none | 170 / 856 | ok |
+| sim_se | 120, load 7 | 1177 / 1177 | 0 | none | 228 / 248 | ok |
+| sim_se | 144, load 7 | 1177 / 1177 | 0 | none | 336 / 337 | ok |
+| sim_se | 240, load 7 | 1177 / 1177 | 0 | none | 338 / 344 | ok |
+| sim_vert | 60 (max_fps=0) | 713 / 713 | 0 | none | 13 / 2 | ok |
+| sim_vert | 120 | 713 / 713 | 0 | none | 2 / 2 | ok |
+| sim_vert | 144 | 713 / 713 | 0 | none | 2 / 2 | ok |
+| sim_vert | 240 | 713 / 713 | 0 | none | 2 / 2 | ok |
+| sim_vert | 60 (max_fps=0), load 7 | 713 / 713 | 0 | none | 105 / 104 | ok |
+| sim_vert | 120, load 7 | 713 / 713 | 0 | none | 112 / 112 | ok |
+| sim_vert | 144, load 7 | 713 / 713 | 0 | none | 203 / 204 | ok |
+| sim_vert | 240, load 7 | 713 / 713 | 0 | none | 205 / 205 | ok |
+| sim_wall | 60 (max_fps=0) | 624 / 624 | 0 | none | 2 / 2 | ok |
+| sim_wall | 120 | 624 / 624 | 0 | none | 2 / 2 | ok |
+| sim_wall | 144 | 624 / 624 | 0 | none | 2 / 2 | ok |
+| sim_wall | 240 | 624 / 624 | 0 | none | 2 / 2 | ok |
+| sim_wall | 60 (max_fps=0), load 7 | 624 / 624 | 0 | none | 91 / 91 | ok |
+| sim_wall | 120, load 7 | 624 / 624 | 0 | none | 92 / 94 | ok |
+| sim_wall | 144, load 7 | 624 / 624 | 0 | none | 178 / 181 | ok |
+| sim_wall | 240, load 7 | 624 / 624 | 0 | none | 180 / 182 | ok |
+
+(sim_se at 60 with load in pass 2: 856 of its 1177 steps not drawn - a slower pass than the others - and still equal.)
+
 ### Proof
 
 `node tools/game/sim_check.ts --load 0,7` (`[debug] load_test=7`, `README`): each demo at each display rate, with and
@@ -223,11 +291,11 @@ The build of this change (2026-11-15, THUG2-2) - 32 of 32 runs equal to the refe
 
 One run of sim_grind at 240 with load parted once in an earlier full pass (frames 65 - 80 in the random streams only -
 the skater and the objects equal throughout - and equal again from 81); eight runs of the same again were equal. That
-run's log shows a stall of about a second (the playback at 0.92 of real time against 1.00). sim_grind was recorded
-before demos kept the music's random numbers apart (`kMusicApart`), so its playback lets the music draw on the game's
-stream, and the music moves to its next track by the audio stream's own (wall-clock) state: the likely cause - not
-drawing. A wall-clock dependency of the original's own (the music's track changes draw on the game's stream; PartyMod's
-shuffle order comes from the C runtime's `rand`); demos recorded since keep the music apart.
+run's log shows a stall of about a second (the playback at 0.92 of real time against 1.00). sim_grind was then a demo
+from before the music was kept apart, so its playback let the music's reshuffle draw on the game's streams at a moment
+set by the audio stream's (wall-clock) state: the cause - not drawing. The music now never draws the game's numbers
+("The music's random numbers" above); sim_grind's reference was recorded again with that change, and two full passes
+since were equal on every run.
 
 ## Input latency
 
