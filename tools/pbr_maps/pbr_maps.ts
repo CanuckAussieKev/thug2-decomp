@@ -19,17 +19,21 @@
 // files for --restore. --models (added for the characters - [Graphics] rt_characters): the character models'
 // dictionaries too (models.ts: the skaters', CAS parts', peds', cutscenes'), classified skin / cloth / denim / leather /
 // rubber / hair, their entries flagged as a model's; --models-only: those alone. --delight: the classical maps made from
-// the texture's de-lit colour (the pipeline's hd_textures/delight.ts - the painted light taken out first, its strength
-// from the faces using the texture), so a painted shadow or highlight makes no slope or roughness swing of its own;
-// the map is still keyed to the original texels (the game finds it for the original and any set alike).
+// the texture's de-lit colour (the pipeline's hd_textures/delight.ts - painted light taken out first where the level
+// gives evidence of it: a gradient up the faces, occlusion where surfaces meet; everything else as it is), so a
+// painted shadow makes no slope or roughness swing of its own; the map is still keyed to the original texels (the game
+// finds it for the original and any set alike).
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { decode } from "thug2-level-converter-core/level_port/dxt.ts";
+import * as hd from "thug2-level-converter-core/level_port/hd_textures.ts";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { readTex, type Texture } from "thug2-level-converter-core/level_port/tex.ts";
 import * as scene from "thug2-level-converter-core/level_port/thug2_scene.ts";
 import { exitWith, isMain } from "thug2-level-converter-core/lib/cli.ts";
+import * as atlas from "../pipeline/hd_textures/atlas.ts";
 import * as delit from "../pipeline/hd_textures/delight.ts";
+import { SceneGeometry } from "../pipeline/hd_textures/delight_geometry.ts";
 import { gameRoot } from "../qbjs/game_scripts.ts";
 import { CLASS, type ClassName, classify, RULES, type Stats, type Usage } from "./classes.ts";
 import { classicalMaps, type Rgba, scaleNormals } from "./classical.ts";
@@ -197,8 +201,32 @@ export function textureRgba(texture: Texture): Rgba | null {
     return { width, height, data };
 }
 
-// The image de-lit (delight.ts; wrapped both ways, as classical.ts filters): `coherence` the faces' (null: unknown).
-export function delightedImage(image: Rgba, coherence: number | null): Rgba {
+// What the de-lighting needs from a dictionary's level (its scene): the faces using each texture, how the level maps
+// it (uv rectangles: tiling, atlas regions) and the geometry the lighting model is checked against.
+export interface DelightSource {
+    orientations: Map<number, delit.Orientation>;
+    uses: atlas.UvIndex;
+    geometry: SceneGeometry | null;
+}
+
+export function delightSourceOf(scn: Buffer | null): DelightSource {
+    const none: DelightSource = { orientations: new Map(), uses: new Map(), geometry: null };
+    if (!scn) return none;
+    try {
+        const parsed = scene.readScene(scn, "scene");
+        return {
+            orientations: delit.orientationsOf(delit.faceOrientations(parsed)),
+            uses: atlas.sceneUses(parsed),
+            geometry: new SceneGeometry([parsed]),
+        };
+    } catch {
+        return none;
+    }
+}
+
+// The image de-lit (delight.ts, as base.ts --delight does it: skipped classes left, tiling as the level maps it -
+// unknown: tiled both ways, never changed - and atlases region by region). `dictionary`: its name (levels/<x>/...).
+export function delightedImage(image: Rgba, dictionary: string, checksum: number, source: DelightSource): Rgba {
     const swap = (data: Uint8Array): Uint8Array => {
         const out = Uint8Array.from(data);
         for (let i = 0; i < out.length; i += 4) {
@@ -207,18 +235,31 @@ export function delightedImage(image: Rgba, coherence: number | null): Rgba {
         }
         return out;
     };
-    const result = delit.delight(swap(image.data), image.width, image.height, { wrapU: true, wrapV: true, coherence });
-    return { width: image.width, height: image.height, data: swap(result.bgra) };
-}
-
-// The faces using each texture in a scene (delight.ts: their coherence sets the de-lighting's strength).
-export function orientationsOf(scn: Buffer | null): Map<number, delit.Orientation> {
-    if (!scn) return new Map();
-    try {
-        return delit.orientationsOf(delit.faceOrientations(scene.readScene(scn, "scene")));
-    } catch {
-        return new Map();
-    }
+    const bgra = swap(image.data);
+    const geometry = source.geometry ?? undefined;
+    const skip = delit.skipReason(
+        dictionary,
+        bgra,
+        hd.alphaKind(bgra),
+        source.orientations.get(checksum),
+        geometry?.facts(checksum),
+    );
+    if (skip) return image;
+    const uses = source.uses.get(checksum);
+    const found = uses ? atlas.findRegions(uses, bgra, image.width, image.height) : null;
+    const result =
+        found?.kind === "atlas"
+            ? delit.delightRegions(bgra, image.width, image.height, found.regions, {
+                  evidenceFor: delit.regionEvidence(geometry, checksum, image.width, image.height),
+              })
+            : (() => {
+                  const wrap = delit.tilingOf(uses, { wrapU: true, wrapV: true });
+                  return delit.delight(bgra, image.width, image.height, {
+                      ...wrap,
+                      evidence: delit.textureEvidence(geometry, checksum, wrap),
+                  });
+              })();
+    return result.stats.changed ? { width: image.width, height: image.height, data: swap(result.bgra) } : image;
 }
 
 // How the dictionary's level uses each texture (its scene: <x>.scn.xbx for <x>.tex.xbx).
@@ -445,11 +486,11 @@ export function make(game: string, options: MakeOptions): MakeResult {
                 : [],
         );
         let bumps = 0;
-        const orientations = options.delight ? orientationsOf(dictionary.scn()) : new Map<number, delit.Orientation>();
+        const delightSource = options.delight ? delightSourceOf(dictionary.scn()) : null;
         for (const [key, original] of images) {
             const texture = keyed.get(key)!;
-            const image = options.delight
-                ? delightedImage(original, orientations.get(texture.checksum)?.coherence ?? null)
+            const image = delightSource
+                ? delightedImage(original, dictionary.name, texture.checksum, delightSource)
                 : original;
             const name = names.get(key)!;
             const rule = RULES[name];
