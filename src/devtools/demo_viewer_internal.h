@@ -128,5 +128,7 @@ bool panel_event(const void* native_event, bool mouse, bool keyboard);
 bool panels_want_mouse();
 bool panels_want_keyboard();
 void panels_device_lost();
+// The right panel's width in pixels as last drawn (0: the panels hidden, or a video being made).
+float panels_side_width();
 
 } // namespace devtools::demo_viewer

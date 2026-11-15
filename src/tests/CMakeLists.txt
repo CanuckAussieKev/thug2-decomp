@@ -72,7 +72,8 @@ endif()
 
 # NOT ORIGINAL - thug2_viewer_check.exe: the demo viewer's camera path (devtools/demo_camera_path.h: the keys' interpolation,
 # continuity, the yaw's wrap, the sidecar written and read back) and the split comparison's projection crop
-# (engine/gfx/rt_scene.h crop_clip_space) checked (src/tests/viewer_check.cpp).
+# (engine/gfx/rt_scene.h crop_clip_space) and a replay's skater lent and given back (devtools/skater_loan.h) checked
+# (src/tests/viewer_check.cpp).
 if(TARGET thug2_base)
     add_executable(thug2_viewer_check viewer_check.cpp "${PROJECT_SOURCE_DIR}/src/devtools/demo_camera_path.cpp")
     target_link_libraries(thug2_viewer_check PRIVATE thug2_base)
@@ -86,6 +87,15 @@ if(TARGET thug2_base)
     add_executable(thug2_tess_check tess_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/smooth_tess.cpp"
                                     "${PROJECT_SOURCE_DIR}/src/engine/gfx/water_tess.cpp")
     target_link_libraries(thug2_tess_check PRIVATE thug2_base)
+endif()
+
+# NOT ORIGINAL - thug2_relief_check.exe: building relief (engine/gfx/facade_relief.h) on walls whose result is known - a
+# window in, its sill and frame out, the surface closed, the outline where it was; seams, corners, what stays flat; and
+# the facade-structure file (formats/relief_format.h) against the tool's writer (src/tests/relief_check.cpp; pure).
+if(TARGET thug2_base AND TARGET thug2_formats)
+    add_executable(thug2_relief_check relief_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/facade_relief.cpp"
+                                      "${PROJECT_SOURCE_DIR}/src/engine/gfx/smooth_tess.cpp")
+    target_link_libraries(thug2_relief_check PRIVATE thug2_base thug2_formats)
 endif()
 
 # NOT ORIGINAL - thug2_scatter_check.exe: the decals' and clutter's placement rules (engine/gfx/scatter.h) on made-up
@@ -276,6 +286,18 @@ if(TARGET thug2_gpu_vulkan)
     add_executable(thug2_vulkan_snow_check vulkan_snow_check.cpp)
     target_link_libraries(thug2_vulkan_snow_check PRIVATE thug2_gpu_vulkan sdl3)
     target_compile_definitions(thug2_vulkan_snow_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
+# NOT ORIGINAL - thug2_vulkan_paint_check.exe: the paint trails (engine/gfx/paint_trails.h's strokes, splatter and fields,
+# gpu_vulkan/vulkan_paint.h's windows and coat) on this machine - a slim line with no combo, wider and splattered as the
+# combo grows, kept through a bail, a rail's stripe on its top (the ground under it its own), a wallride on the wall, the
+# same steps twice the same; the windows on the device after the camera moves; the coat on a drawn ground and wall (none
+# beside the line, under the stripe, on an unmarked draw); validation; the cost at 2560x1440
+# (src/tests/vulkan_paint_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_paint_check vulkan_paint_check.cpp)
+    target_link_libraries(thug2_vulkan_paint_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_paint_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
 # NOT ORIGINAL - thug2_vulkan_scatter_check.exe: the decals and clutter (engine/gfx/scatter.h's placement,

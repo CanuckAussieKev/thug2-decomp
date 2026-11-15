@@ -14,10 +14,15 @@ struct FrontEnd;
 // level (node array) loads.
 //
 // thug2-decomp.ini [features] restart_tester=0 turns it off (default 1).
+#include <string>
+
 namespace frontend::restart_tester {
 
 bool& is_switched_on();
 // Once a frame from the front end's input logic (its extension).
 void tick_frame(modules::FrontEnd* front_end);
+// (added by the light energy audit: the console's `restart` - tools/game/light_audit.ts walks a level's restarts) What
+// F8 does, now: the skater at the level's next restart not visited yet; the reply says which (or why none).
+std::string next_restart();
 
 } // namespace frontend::restart_tester

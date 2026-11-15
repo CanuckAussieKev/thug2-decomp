@@ -25,6 +25,7 @@
 #include "engine/file/disk_files.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/engine_scene.h"
+#include "engine/gfx/facade_relief.h"
 #include "engine/gfx/mesh_records.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
@@ -40,6 +41,7 @@
 #include "platform/frame_profile.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
+#include "render_pc/mesh_smoothing.h"
 #include "render_pc/rt_record.h"
 #include "render_pc/sub_mesh.h"
 #include "render_pc/vertex_buffers.h"
@@ -57,9 +59,10 @@ constexpr float kSameSun = 0.99999F;          // two suns this close (their dire
 constexpr float kBounceSameSun = 0.9961947F;
 constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
 constexpr uint32_t kCacheMagic = 0x4C523254U; // "T2RL"
-constexpr uint32_t kCacheVersion = 6; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
+constexpr uint32_t kCacheVersion = 7; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
                                       // local light across meshes, the probe through the cut-outs; 6: the fit's
-                                      // shadow borders and faces, the bounce's local part)
+                                      // shadow borders and faces, the bounce's local part; 7: no sun channel left
+                                      // at nothing)
 constexpr std::size_t kKilobyte = 1024;
 constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
 constexpr std::size_t kVertexFloats =
@@ -68,6 +71,7 @@ constexpr std::size_t kVertexFloats =
 constexpr std::size_t kModelFloats = 17; // the model: valid, toward 3, sun 3, sky 3, bounce 3, scale, error, vertices,
                                          // the sun's need
 constexpr float kRgbColourLimit = 4.0F;
+constexpr float kWholeStrength = 0.999F; // (the light energy audit) relit at this strength or more: its colours are its parts'
 constexpr float kChangedLuma = 2.0F; // (the log: a vertex changed by more than this, of 255)
 constexpr float kLumaRed = 0.299F;
 constexpr float kLumaGreen = 0.587F;
@@ -569,25 +573,49 @@ void write_cache(const CacheId& id)
 
 // --- the meshes ------------------------------------------------------------------------------------------------------
 
-// An entry for a world mesh read from its buffer's copy, or false: nothing the mode can relight (no colours, no copy
-// of its vertices or indices, skinned).
-bool make_entry(const WorldMesh& world, Entry* out)
+// The buffer a world mesh's geometry was drawn from (its buffers take turns), or null.
+VertexBuffer* drawn_buffer(const WorldMesh& world)
 {
-    const rt::Geometry& geometry = *world.geometry;
     const MeshRef* mesh = world.mesh;
     VertexBuffer* buffer = mesh->vertex_store(mesh->current_vertex_buffer_);
     if (mesh->vertex_buffer_count() > 1) {
-        // (the buffers take turns: the one the geometry was drawn from)
         for (uint32_t iv = 0; iv < mesh->vertex_buffer_count(); ++iv) {
             if (mesh->vertex_store(iv) == world.source) {
                 buffer = mesh->vertex_store(iv);
             }
         }
     }
-    if (buffer == nullptr || buffer != world.source || buffer->data() == nullptr || geometry.dynamic ||
-        geometry.cpu_indices == nullptr || geometry.vertex_stride == 0 ||
-        geometry.colour_format != rt::kColourA8R8G8B8 ||
+    return buffer;
+}
+
+// Why the mode can't relight a world mesh (the light energy audit's census names these), or null: it can.
+const char* refusal(const WorldMesh& world)
+{
+    const rt::Geometry& geometry = *world.geometry;
+    const VertexBuffer* buffer = drawn_buffer(world);
+    if (geometry.dynamic) {
+        return "dynamic (rewritten by the processor)";
+    }
+    if (buffer == nullptr || buffer != world.source || buffer->data() == nullptr) {
+        return "no copy of its vertices";
+    }
+    if (geometry.cpu_indices == nullptr) {
+        return "no copy of its indices";
+    }
+    if (geometry.vertex_stride == 0 || geometry.colour_format != rt::kColourA8R8G8B8 ||
         geometry.colour_offset + sizeof(uint32_t) > geometry.vertex_stride) {
+        return "no vertex colours";
+    }
+    return nullptr;
+}
+
+// An entry for a world mesh read from its buffer's copy, or false: nothing the mode can relight (refusal says why).
+bool make_entry(const WorldMesh& world, Entry* out)
+{
+    const rt::Geometry& geometry = *world.geometry;
+    const MeshRef* mesh = world.mesh;
+    VertexBuffer* buffer = drawn_buffer(world);
+    if (refusal(world) != nullptr) {
         return false;
     }
     const uint32_t stride = geometry.vertex_stride;
@@ -627,6 +655,22 @@ bool make_entry(const WorldMesh& world, Entry* out)
         }
     }
     entry.input.colours = entry.originals;
+    // (added by building relief) a relieved mesh's made vertices take the flat wall's light (rt_relit.h
+    // RelitMesh::sources): their sources, the last of its vertices
+    const std::span<const relief::VertexSource> made = mesh_smoothing::sources_of(core::at(mesh->index_buffers(), 0));
+    if (!made.empty() && made.size() <= count && mesh->vertex_count() == count) {
+        entry.input.sources.resize(count);
+        const std::size_t first = count - made.size();
+        for (std::size_t k = 0; k < made.size(); ++k) {
+            const relief::VertexSource& from = core::at(made, k);
+            rt::RelitMesh::Source& to = core::at(entry.input.sources, first + k);
+            to.count = from.count;
+            for (std::size_t corner = 0; corner < from.from.size(); ++corner) {
+                core::at(to.from, corner) = core::at(from.from, corner);
+                core::at(to.weight, corner) = core::at(from.weight, corner);
+            }
+        }
+    }
     // the triangles as the RayTracing numbers them (a strip's odd ones turned back round)
     const std::size_t index_bytes = geometry.indices_32bit ? sizeof(uint32_t) : sizeof(uint16_t);
     const std::span<const uint8_t> indices(static_cast<const uint8_t*>(geometry.cpu_indices),
@@ -659,6 +703,14 @@ bool make_entry(const WorldMesh& world, Entry* out)
     entry.content = fnv(fnv_value(kFnvBasis, stride), bytes);
     entry.content = fnv(entry.content, indices.subspan(std::size_t{geometry.index_offset} * index_bytes));
     entry.content = fnv_value(entry.content, geometry.strip);
+    // (added by building relief) the made vertices' sources too: their light is blended, not traced
+    for (const rt::RelitMesh::Source& source : entry.input.sources) {
+        entry.content = fnv_value(entry.content, source.count);
+        for (std::size_t corner = 0; corner < source.count; ++corner) {
+            entry.content = fnv_value(entry.content, core::at(source.from, corner));
+            entry.content = fnv_value(entry.content, core::at(source.weight, corner));
+        }
+    }
     *out = std::move(entry);
     return true;
 }
@@ -684,17 +736,29 @@ void write_colours(Entry& entry, std::span<const uint32_t> colours)
     entry.buffer->get_unlock();
 }
 
+// (added by the light energy audit) the entry's light stream given to the ray tracing - or taken back (null): the passes
+// that light a pixel again read what its colours were written with (rt_scene.h set_light_stream)
+void publish_stream(Entry& entry, GpuVertexBuffer* stream)
+{
+    if (rt::RayTracing* tracer = rt::ray_tracing(); tracer != nullptr && entry.input.id != 0) {
+        tracer->set_light_stream(entry.input.id, stream);
+    }
+}
+
 void restore(Entry& entry)
 {
     if (entry.written != 0) {
+        publish_stream(entry, nullptr); // (the bake's colours: no parts of relit's)
         write_colours(entry, entry.originals);
         entry.written = 0;
+        entry.cel_written = 0;
     }
 }
 
 // (added by cel shading) an entry's cel stream let go of
 void release_cel(Entry& entry)
 {
+    publish_stream(entry, nullptr);
     if (entry.cel != nullptr) {
         gpu().release_vertex_buffer(entry.cel);
         entry.cel = nullptr;
@@ -1356,6 +1420,7 @@ void write_relit(uint64_t lighting, const rt::RelitLighting& light)
         write_colours(entry, colours);
         entry.written = lighting;
         entry.dirty = false;
+        entry.cel_written = 0; // (its stream follows the colours - a bounce traced again too)
         ++written;
         for (std::size_t vi = 0; vi < colours.size(); ++vi) {
             const float was = luma_of(core::at(entry.originals, vi));
@@ -1396,10 +1461,14 @@ void write_relit(uint64_t lighting, const rt::RelitLighting& light)
 void write_cel(uint64_t lighting, const rt::RelitLighting& light)
 {
     State& st = state();
-    if (!rt::cel_settings().on) {
+    // (added by the light energy audit) the stream is the relit world's light in its parts: the cel draws read it, and so
+    // do the ray-traced passes that light a pixel again (rt_scene.h set_light_stream) - written while either can
+    if (!rt::cel_settings().on && rt::ray_tracing() == nullptr) {
         release_all_cel();
         return;
     }
+    // (a blend with the bake - strength under 1 - isn't what the parts say: those colours keep the passes' old ways)
+    const bool parts_drawn = light.strength >= kWholeStrength;
     uint64_t wanted = fnv_value(lighting, rt::cel_settings_serial());
     wanted = wanted == 0 ? 1 : wanted;
     std::size_t written = 0;
@@ -1432,6 +1501,7 @@ void write_cel(uint64_t lighting, const rt::RelitLighting& light)
         }
         gpu().unlock_vertex_buffer(entry.cel);
         entry.cel_written = wanted;
+        publish_stream(entry, parts_drawn ? entry.cel : nullptr);
         ++written;
     }
     rt::Rgbf sun{};
@@ -1440,7 +1510,7 @@ void write_cel(uint64_t lighting, const rt::RelitLighting& light)
     }
     rt::set_cel_world({.relit = true, .sun = sun, .toward = light.toward});
     if (written > 0) {
-        get_log("rt_cel: %zu meshes' cel streams written (the sun's light %.3f %.3f %.3f)", written,
+        get_log("rt_relit: %zu meshes' light streams written (the sun's light %.3f %.3f %.3f)", written,
                 static_cast<double>(std::get<0>(sun)), static_cast<double>(std::get<1>(sun)),
                 static_cast<double>(std::get<2>(sun)));
     }
@@ -1875,6 +1945,51 @@ uint32_t colour_held(const Entry& entry, std::size_t vertex)
     }
     entry.buffer->get_unlock();
     return colour & 0xFFFFFFU;
+}
+
+std::string census_bucket(const WorldMesh& world)
+{
+    const State& st = state();
+    if (world.geometry == nullptr || world.source == nullptr) {
+        return "not traced";
+    }
+    if (const char* why = refusal(world); why != nullptr) {
+        return std::string("not relit: ") + why;
+    }
+    const auto found = st.entries.find(world.source);
+    if (found == st.entries.end()) {
+        return st.status == Status::kRelit ? "not relit: not met yet" : std::string("kept bake: ") + status_name(st.status);
+    }
+    const Entry& entry = found->second;
+    if (st.status != Status::kRelit) {
+        return std::string("kept bake: ") + status_name(st.status);
+    }
+    if (!entry.analysed) {
+        return "relit: not analysed yet";
+    }
+    if (entry.written == 0) {
+        return "relit: not written yet";
+    }
+    const bool animated = std::ranges::any_of(entry.animated, [](uint8_t a) { return a != 0; });
+    if (entry.cel_written == 0) {
+        return animated ? "relit: no light stream (some vertices animated)" : "relit: no light stream";
+    }
+    return animated ? "relit: light stream (some vertices animated - those keep their colour)" : "relit: light stream";
+}
+
+std::string census_status()
+{
+    const State& st = state();
+    return text::format("relit %s; model sun %.2f %.2f %.2f, sky %.2f %.2f %.2f, bounce %.2f %.2f %.2f, scale %.2f, "
+                        "%zu entries",
+                        status_name(st.status), static_cast<double>(std::get<0>(st.model.sun)),
+                        static_cast<double>(std::get<1>(st.model.sun)), static_cast<double>(std::get<2>(st.model.sun)),
+                        static_cast<double>(std::get<0>(st.model.sky)), static_cast<double>(std::get<1>(st.model.sky)),
+                        static_cast<double>(std::get<2>(st.model.sky)),
+                        static_cast<double>(std::get<0>(st.model.bounce)),
+                        static_cast<double>(std::get<1>(st.model.bounce)),
+                        static_cast<double>(std::get<2>(st.model.bounce)), static_cast<double>(st.model.scale),
+                        st.entries.size());
 }
 
 std::string describe_mesh(rt::MeshId id)

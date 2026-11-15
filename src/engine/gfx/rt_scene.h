@@ -272,6 +272,12 @@ public:
     // view of the frame shares made ready from the frame's sun before the first view is drawn (the Vulkan Gpu: the sky
     // model's table and the sun's light the effects read).
     virtual void prepare_frame() {}
+    // (added by the light energy audit - docs/design/vulkan.md "Each light counted once") A world mesh's light stream:
+    // the relit mode's parts of the light its vertex colours were written with (engine/gfx/rt_cel.h - five words a
+    // vertex, vertex for vertex), or null: its colours are the bake's (or the game's) as they are. The passes that
+    // light a pixel again (the shadows, the occlusion, the bounce, the lamps) read it where they hit the mesh, so each
+    // part of its light has one owner. The buffer stays the caller's; it is given again (or null) before it is released.
+    virtual void set_light_stream(MeshId mesh, GpuVertexBuffer* stream) { (void)mesh, (void)stream; }
 };
 
 // The installed backend (null: none - Direct3D 9, or no ray tracing on this device / off in the ini).

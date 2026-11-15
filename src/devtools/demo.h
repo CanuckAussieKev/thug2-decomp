@@ -19,9 +19,10 @@ class Source;
 //   THUG2.exe -level <name> -record <demo>      records from the start-up's level load; F6 (or quitting) saves.
 //   The developer console: demo record [name] / demo stop / demo play <name> / demo status (devtools/console.h).
 // Playing back:
-//   THUG2.exe -demo <demo>                      the demo's level loaded in free skate (its skater put back if the
-//                                               profile differs), the run played from the recorded input; at its end
-//                                               the controls are the player's again.
+//   THUG2.exe -demo <demo>                      the demo's level loaded in free skate with the recorded skater (lent
+//                                               the player's place: devtools/skater_loan.h), the run played from the
+//                                               recorded input; at its end the controls - and the player's own
+//                                               skater, exactly as before - are the player's again.
 //   -demo-capture <folder>                      also every frame from the level's first as <folder>\frame_0001.png...
 //                                               (relative: to the game folder), then the game quits;
 //   -demo-every <n>                             with it: one frame in n.
@@ -35,8 +36,10 @@ class Source;
 // script commands Demo_Item, Demo_GetEntry, Demo_Record, Demo_Stop and Demo_Play): RECORD DEMO (as F6; STOP RECORDING
 // saves, the frames in the pause menu left out), PLAY DEMO and SAVE AS VIDEO (thug2-decomp-videos\<demo>.mp4) from a
 // list of the saved demos. A playback started there or with -demo is the player's to take over: a button pressed or a
-// stick pushed stops it and the controls are theirs (that frame's input too: Start pauses). REC / REPLAY / SAVING
-// VIDEO in the top-right corner (devtools/demo_overlay.h; never in a capture or a video).
+// stick pushed stops it and the controls are theirs (that frame's input too: Start pauses). REC / SAVING VIDEO in the
+// top-right corner (devtools/demo_overlay.h); every playback shows the REPLAY badge - the recorded skater's name, the
+// recording's date, an edited demo's warning - over everything, in every picture taken of it (screenshots, captures,
+// videos) and in a screenshot's sidecar; nothing turns it off (docs/demos.md "Replays as proof").
 // What makes the run the same each time: the load starts from the same random numbers (both streams and the C
 // runtime's rand seeded from the demo), the main loop's logic is a fixed 1/60 s a frame whether the frame is drawn
 // or not (a live recording or playback skips late frames' drawing like any play, so it runs at real speed; a capture or
@@ -47,13 +50,17 @@ class Source;
 // first frame that differs and the largest drift ("demo: ... drift"), and writes its track to <capture
 // folder>\track.txt and run.json (or thug2-decomp-demos\<demo>.play.track.txt / .play.run.json).
 //
-// Refused in network games and online. Keys our tools read directly (F7, F8, F9, the console) aren't recorded: using
+// Playback is refused in network games and online, and a network game or another level ends one. Recording too is
+// refused there (it starts the level again). Keys our tools read directly (F7, F8, F9, the console) aren't recorded: using
 // them while recording makes the playback differ.
 namespace devtools::demo {
 
 // The extension (app/ registers it after the start level's) and the input source (after the automation channel's).
 ext::Extension& extension();
 input::Source& input_source();
+// The REPLAY badge, the REC / video tags and the demo viewer's panels: drawn over the frame after the other
+// extensions' (app/ registers it after the new front end's, before the screenshot's: over its menus, in its pictures).
+ext::Extension& badge_extension();
 
 // The console's commands: "" or what went wrong / what happened.
 std::string record_now(const std::string& name);

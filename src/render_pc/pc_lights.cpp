@@ -20,6 +20,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/rt_light_field.h"
+#include "engine/gfx/rt_lights.h"
 #include "render_pc/rt_relit_world.h"
 
 namespace render {
@@ -145,7 +146,15 @@ void relight_ambient(const maths::Vec4* position)
     }
     const rt::FieldPoint at{position->x, position->y, position->z};
     const rt::LightRatio ratio = rt::light_ratio_at(at);
-    const rt::LocalLight lamps = rt::local_light_at(at);
+    rt::LocalLight lamps = rt::local_light_at(at);
+    // (added by the light energy audit - docs/design/vulkan.md "Each light counted once") while the lamps pass lights
+    // (rt_lights: its traced lamps on every pixel, the objects' too) it owns the level's own lights here: the field's
+    // give way by as much
+    const float kept = 1.0F - rt::lamps_drawn();
+    for (std::size_t channel = 0; channel < lamps.ambient.size(); ++channel) {
+        core::at(lamps.ambient, channel) *= kept;
+        core::at(lamps.directional, channel) *= kept;
+    }
     const std::span<float> ambient(ambient_constant());
     for (std::size_t channel = 0; channel < ratio.indirect.size(); ++channel) {
         core::at(ambient, channel) = std::min(

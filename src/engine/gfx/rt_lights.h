@@ -107,6 +107,13 @@ void set_level_emitters(LevelEmitters emitters);
 [[nodiscard]] std::shared_ptr<const LevelEmitters> level_emitters();
 void set_emitters_wanted(bool wanted); // (the pass, when on)
 [[nodiscard]] bool emitters_wanted();
+// (added by the light energy audit - docs/design/vulkan.md "Each light counted once") How much the lamps pass lights
+// now (0 - 1: its lamps' amount, 0 while it draws nothing): on the objects and characters it then owns the level's own
+// lights - the light field's local light (rt_light_field.h local_at) gives way to it by as much
+// (render_pc/pc_lights.cpp), as relit's residual does on the world (the larger of the two there). The pass sets it each
+// view it records or skips.
+void set_lamps_drawn(float amount);
+[[nodiscard]] float lamps_drawn();
 
 // A view's lights: the frame record's point lights and the level's emitters whose reach touches the frustum of
 // `clip_from_world` (D3D's row-vector view x projection), the most important `max` of them (at most kMaxViewLights).

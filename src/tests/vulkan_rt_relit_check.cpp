@@ -48,6 +48,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -827,6 +828,89 @@ void check_bake_sun(const Scene& scene, const rt::RelitModel& model, const std::
     tally->check(exact == total, text::format("strength 0: the bake exactly at %zu of %zu vertices", exact, total));
 }
 
+// 3b. (added by the light energy audit - docs/design/vulkan.md "Each light counted once") Every ray-traced light on at
+// the bake's own time: the level's bake is exact lighting (the processor's), so the relit colour with the passes on must
+// still be the bake. Each vertex as the passes see it through its light stream (rt_cel.h - the processor's twins of
+// the shaders' formulas): the shadows put the pixel's own visibility (the sun's rays from the vertex - its traced S -,
+// the missed sun kept) in place of the one the colour was written with, the occlusion and the bounce leave the stream's
+// pixels to relit, and the lamps (the bake's own lamp, traced) draw only what the residual doesn't hold. For contrast,
+// the passes as they were before (each on top: the shadow's whole strength where the rays are blocked, the occlusion's
+// darkening by the sky the vertex doesn't see, the lamp added) - the doubles this replaced.
+void check_counted_once(const Scene& scene, const rt::RelitModel& model, const std::vector<rt::RelitVertices>& light,
+                        Tally* tally)
+{
+    constexpr float kShadowStrength = 1.0F;
+    constexpr float kAoStrength = 0.8F;
+    constexpr float kOnceBytes = 2.0F;    // within this many of the bake's bytes, each channel
+    constexpr float kStackedBytes = 4.0F; // the old stack: off by more than this
+    constexpr float kLampHeld = 0.9F;     // a lamp-lit vertex whose residual holds this much of the lamp's light
+    const rt::RelitLighting lighting{.toward = scene.sun, .strength = 1.0F};
+    std::size_t total = 0;
+    std::size_t once = 0;
+    std::size_t stacked_off = 0;
+    std::size_t streams = 0;
+    std::size_t lamp_vertices = 0;
+    std::size_t lamp_off = 0;
+    std::size_t used = 0;
+    for (std::size_t mesh = 0; mesh < scene.level.meshes.size(); ++mesh) {
+        for (std::size_t vertex = 0; vertex < core::at(light, mesh).size(); ++vertex) {
+            const rt::RelitVertex& found = core::at(core::at(light, mesh), vertex);
+            if (!found.used) {
+                continue;
+            }
+            ++total;
+            ++used;
+            const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
+            const Rgbf bake = rt::colour_light(baked);
+            const Rgbf drawn = rt::colour_light(rt::relit_colour(model, found, lighting, baked));
+            const rt::StreamParts parts = rt::stream_parts(rt::cel_stream_words(model, found, lighting));
+            streams += parts.valid ? 1 : 0;
+            // the shadows: the pixel's visibility (its rays: the vertex's traced S) with the missed sun kept
+            const float visible = std::clamp(found.sun + parts.missed, 0.0F, 1.0F);
+            const Rgbf before = rt::stream_light(parts, parts.seen);
+            const Rgbf after = rt::stream_light(parts, visible);
+            const Rgbf& lamp = core::at(core::at(scene.level.lamps, mesh), vertex);
+            float worst_once = 0.0F;
+            float worst_stacked = 0.0F;
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                const float factor = core::at(before, ch) > 1e-4F ? core::at(after, ch) / core::at(before, ch) : 1.0F;
+                // the occlusion and the bounce: relit's (nothing here); the lamps: what the residual doesn't hold
+                const float lamps = std::max(core::at(lamp, ch) - core::at(parts.residual, ch), 0.0F);
+                const float final_light = (core::at(drawn, ch) * std::min(factor, 2.0F)) + lamps;
+                worst_once = std::max(worst_once, std::abs(final_light - core::at(bake, ch)) * 128.0F);
+                // the old stack: the traced shadow's whole strength, the occlusion by the sky unseen, the lamp on top
+                const float stacked = (core::at(drawn, ch) * (1.0F - (kShadowStrength * (1.0F - found.sun))) *
+                                       (1.0F - (kAoStrength * (1.0F - found.sky)))) +
+                                      core::at(lamp, ch);
+                worst_stacked = std::max(worst_stacked, std::abs(stacked - core::at(bake, ch)) * 128.0F);
+            }
+            // (a lamp's light relit took into the tint - its fall-off within a mesh too gentle to tell from the surface's
+            // own colour - isn't the residual: the lamps pass can't tell it is drawn. Counted apart: a known limit,
+            // docs/design/vulkan.md "Each light counted once")
+            const bool lamp_lit = luma(lamp) > 0.0F;
+            const bool lamp_in_tint = lamp_lit && luma(parts.residual) < kLampHeld * luma(lamp);
+            lamp_vertices += lamp_lit ? 1 : 0;
+            lamp_off += lamp_in_tint ? 1 : 0;
+            if (lamp_in_tint) {
+                --total;
+                continue;
+            }
+            once += worst_once <= kOnceBytes ? 1 : 0;
+            stacked_off += worst_stacked > kStackedBytes ? 1 : 0;
+        }
+    }
+    tally->check(streams == used, text::format("every used vertex has its light stream (%zu of %zu)", streams, used));
+    tally->check(share(once, total) >= kWithinByteShare,
+                 text::format("every light term on at the bake's time: the bake within %.0f bytes at %zu of %zu "
+                              "vertices (each term counted once; %zu of the %zu lamp-lit left out: relit put their lamp "
+                              "in the tint)",
+                              static_cast<double>(kOnceBytes), once, total, lamp_off, lamp_vertices));
+    tally->check(stacked_off > total / 10,
+                 text::format("(contrast) the passes stacked on the relit colour as before: %zu of %zu vertices off "
+                              "the bake by more than %.0f bytes - the doubles",
+                              stacked_off, total, static_cast<double>(kStackedBytes)));
+}
+
 struct Agreement {
     std::size_t agree = 0;
     std::size_t count = 0;
@@ -1464,6 +1548,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         check_tints(scene, light, tally);
         check_asked(gpu, device, scene, *backend, light, tally); // (added for the relit mode's moving light)
         check_bake_sun(scene, model, light, tally);
+        check_counted_once(scene, model, light, tally); // (added by the light energy audit)
         check_moved(scene, model, *backend, &light, tally);
         check_sunless(scene, light, *backend, tally);
         check_level_list(tally);

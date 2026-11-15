@@ -39,6 +39,7 @@ constexpr int kAlphaShift = 24;
 constexpr float kBytesPerLight = 128.0F;
 constexpr float kMaxByte = 255.0F;
 constexpr std::size_t kMinFitVertices = 100;
+constexpr float kDeadSunChannel = 0.1F; // (fit_relit_model) a channel's sun under this share of the strongest's: none
 constexpr float kMinSunLight = 0.05F;        // the fit's sun (luma) at least this: the bake shows a sun
 constexpr float kBlackLight = 1.0F / 128.0F; // a colour this dark (luma) isn't fitted: unlit or painted black
 constexpr int kFitRounds = 6; // the pairs' fit, then reweighted (and its light per edge made again) five times
@@ -306,9 +307,12 @@ void trace_in_batches(std::span<const RelitMesh> meshes, std::span<const uint8_t
         if (!is_wanted(wanted, mi)) {
             continue;
         }
-        const std::size_t vertices = core::at(meshes, mi).positions.size();
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const std::size_t vertices = mesh.positions.size();
+        const bool made = mesh.sources.size() == vertices;
         for (std::size_t vi = 0; vi < vertices; ++vi) {
-            const uint32_t count = rays_of(mi, vi);
+            // (building relief's made vertices take their sources' light: relit_derive)
+            const uint32_t count = made && core::at(mesh.sources, vi).count != 0 ? 0U : rays_of(mi, vi);
             if (count == 0) {
                 continue;
             }
@@ -323,6 +327,37 @@ void trace_in_batches(std::span<const RelitMesh> meshes, std::span<const uint8_t
         }
     }
     flush();
+}
+
+// (added by building relief) The made vertices of the meshes `wanted` says given their sources' light.
+void derive_wanted(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, std::vector<RelitVertices>* light)
+{
+    for (std::size_t mi = 0; mi < meshes.size() && mi < light->size(); ++mi) {
+        if (is_wanted(wanted, mi) && !core::at(meshes, mi).sources.empty()) {
+            relit_derive(core::at(meshes, mi), &core::at(*light, mi));
+        }
+    }
+}
+
+// (added for the moving light) derive_wanted after a trace: at once, or once an asked trace's answers are taken - the
+// meshes its spans are in (a mesh's made vertices are its last: derived again when its last span is taken).
+void derive_traced(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, std::vector<RelitVertices>* light,
+                   const RelitAsk* ask)
+{
+    if (ask == nullptr || (ask->answered && ask->spans.empty())) {
+        derive_wanted(meshes, wanted, light);
+        return;
+    }
+    if (!ask->answered) {
+        return;
+    }
+    std::vector<uint8_t> spanned(meshes.size(), 0);
+    for (const RelitSpan& span : ask->spans) {
+        if (span.mesh < spanned.size()) {
+            core::at(spanned, span.mesh) = 1;
+        }
+    }
+    derive_wanted(meshes, spanned, light);
 }
 
 // The sun's direct term of a vertex toward `toward`.
@@ -1089,9 +1124,61 @@ void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out)
             core::at(*out, corner).used = true;
         }
     }
+    // (added by building relief) a made vertex's sources are traced for it - corners of no triangle any more (the
+    // relief's pieces replaced theirs): used, their normal the made vertices' that come from them
+    if (mesh.sources.size() == count) {
+        for (std::size_t vi = 0; vi < count; ++vi) {
+            const RelitMesh::Source& source = core::at(mesh.sources, vi);
+            for (uint8_t k = 0; k < source.count; ++k) {
+                const uint32_t from = core::at(source.from, k);
+                if (from < count && core::at(mesh.sources, from).count == 0 && !core::at(*out, from).used) {
+                    core::at(sums, from) = plus(core::at(sums, from), core::at(sums, vi));
+                }
+            }
+        }
+        for (std::size_t vi = 0; vi < count; ++vi) {
+            const RelitMesh::Source& source = core::at(mesh.sources, vi);
+            for (uint8_t k = 0; k < source.count; ++k) {
+                if (core::at(source.from, k) < count) {
+                    core::at(*out, core::at(source.from, k)).used = true;
+                }
+            }
+        }
+    }
     const bool given = mesh.normals.size() == count;
     for (std::size_t vi = 0; vi < count; ++vi) {
         core::at(*out, vi).normal = normalised(given ? core::at(mesh.normals, vi) : core::at(sums, vi));
+    }
+}
+
+void relit_derive(const RelitMesh& mesh, RelitVertices* light)
+{
+    const std::size_t count = std::min(mesh.sources.size(), light->size());
+    for (std::size_t vi = 0; vi < count; ++vi) {
+        const RelitMesh::Source& source = core::at(mesh.sources, vi);
+        if (source.count == 0) {
+            continue;
+        }
+        RelitVertex blended = core::at(*light, vi);
+        blended.sun = 0.0F;
+        blended.sky = 0.0F;
+        blended.bounce = {};
+        blended.bounce_local = {};
+        blended.sun_baked = 0.0F;
+        for (uint8_t k = 0; k < source.count; ++k) {
+            const uint32_t from = core::at(source.from, k);
+            if (from >= light->size()) {
+                continue;
+            }
+            const RelitVertex& own = core::at(*light, from);
+            const float w = core::at(source.weight, k);
+            blended.sun += own.sun * w;
+            blended.sky += own.sky * w;
+            blended.bounce = plus(blended.bounce, scaled(own.bounce, w));
+            blended.bounce_local = plus(blended.bounce_local, scaled(own.bounce_local, w));
+            blended.sun_baked += own.sun_baked * w;
+        }
+        core::at(*light, vi) = blended;
     }
 }
 
@@ -1208,6 +1295,7 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
             vertex.bounce_local = bounce_local;
         },
         ask);
+    derive_traced(meshes, wanted, light, ask); // (added by building relief: the made vertices' light)
 }
 
 void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const Vec3& toward,
@@ -1270,6 +1358,7 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                 static_cast<float>(open) / static_cast<float>(ref.count);
         },
         ask);
+    derive_traced(meshes, wanted, light, ask); // (added by building relief: the made vertices' light)
 }
 
 RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const Vec3& toward)
@@ -1374,6 +1463,30 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
     model.sun_needed = with_sun > 0.0 ? static_cast<float>(without_sun / with_sun) : 0.0F;
     // the sun's strength against the rest told by which way the faces turn (facing_calibration), then each channel's
     // scale again (the median tint 1)
+    // (added by the light energy audit) A channel whose edges gave the sun nothing - their changes explained by the sky or
+    // the bounce alone (AU: red 0; sch: red and blue 0; Berlin in a workspace: red 0) - can't be put right by a factor:
+    // it starts from the other channels' sun, and the faces' turning in that channel tells its strength. A sun lights
+    // every channel; a fit that left one at nothing gave a green sun.
+    {
+        const float strongest = std::max({core::at(model.sun, 0), core::at(model.sun, 1), core::at(model.sun, 2)});
+        float seed = 0.0F;
+        int alive = 0;
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            if (core::at(model.sun, ch) >= kDeadSunChannel * strongest) {
+                seed += core::at(model.sun, ch);
+                ++alive;
+            }
+        }
+        if (strongest > 0.0F && alive > 0 && alive < 3) {
+            seed /= static_cast<float>(alive);
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                if (core::at(model.sun, ch) < kDeadSunChannel * strongest) {
+                    core::at(model.sun, ch) = seed;
+                    model.dead_channels += 1;
+                }
+            }
+        }
+    }
     Rgbf factors{1.0F, 1.0F, 1.0F};
     for (std::size_t ch = 0; ch < 3; ++ch) {
         core::at(factors, ch) = facing_calibration(meshes.first(count), light.first(count), model, ch);

@@ -87,8 +87,9 @@ enum class Effect : uint8_t {
     kWater,
     kCameraFx,
     kSnow,
+    kPaint, // (added by the paint trails)
 };
-inline constexpr int kEffectCount = static_cast<int>(Effect::kSnow) + 1;
+inline constexpr int kEffectCount = static_cast<int>(Effect::kPaint) + 1;
 
 // What the machine, the build and the game's data have (Capabilities), and the level's facts (LevelFacts).
 enum class Cap : uint8_t {
@@ -102,6 +103,7 @@ enum class Cap : uint8_t {
     kSurfaceMaps,     // surface maps made beside the textures (tools/pbr_maps)
     kMaterialLibrary, // the detail-material library (tools/detail_materials)
     kHeightMaps,      // height maps for displacement (none are made yet)
+    kReliefMaps,      // (added by building relief) facade structures made beside the level textures (tools/pbr_maps)
     kLevelWithoutFog, // the level has no fog of its own (true while no level is known)
     kLevelOutdoor,    // (added by the snow) the level is outdoors - it has a sky (true while no level is known)
 };
@@ -224,6 +226,7 @@ struct Capabilities {
     bool surface_maps = false;
     bool material_library = false;
     bool height_maps = false;
+    bool relief_maps = false; // (added by building relief) "<dictionary>.relief" files: tools/pbr_maps/building_relief.ts
     std::vector<std::string> texture_sets; // the sets installed ("original" always is)
     int refresh_hz = 0;                    // the display's (0 unknown)
     std::string gpu;                       // the device's name (the report's)

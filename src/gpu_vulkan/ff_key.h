@@ -203,14 +203,19 @@ constexpr uint8_t kDetailHair = 0x20;
 constexpr uint8_t kDetailCharacter = kDetailSkin | kDetailCloth | kDetailHair;
 constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailDelight | kDetailRelief | kDetailCharacter;
 
-// (NOT ORIGINAL - [Graphics] snow, gpu_vulkan/vulkan_snow.h; docs/design/vulkan.md "Snow") FragmentKey::snow: the snow's
-// cover blended into the surface's colour before its light - by how much the surface faces up (its own slope, from the
-// screen derivatives of its world position) and whether it is open to the sky (the level's sky map, SnowUniforms at
-// kSnowUniformsBinding, the map at kSnowSkyBinding) - on the same programs as the per-pixel lighting (the light is the
-// vertex colour they end with, so snow is lit as the surface was: the bake, the time of day, the shadows), never on
-// water. The vertex half's `surface` has kVertexSurfaceInputs with it (the eye-space position handed on). A byte of the
-// two spares: the key stays 52 bytes, and 0 leaves its bytes - and its shaders - exactly as before.
-constexpr uint8_t kSnowCover = 1;
+// (NOT ORIGINAL - the surface trails: [Graphics] snow - gpu_vulkan/vulkan_snow.h -, [Graphics] paint_trails -
+// gpu_vulkan/vulkan_paint.h; docs/design/vulkan.md "Surface trails") FragmentKey::trails: what the skaters leave on the
+// level blended into the surface's colour before its light, on the same programs as the per-pixel lighting (the light is
+// the vertex colour they end with, so it is lit as the surface was: the bake, the time of day, the shadows), never on
+// water. kTrailSnow: the snow's cover - by how much the surface faces up (its own slope, from the screen derivatives of
+// its world position) and whether it is open to the sky (the level's sky map, SnowUniforms at kSnowUniformsBinding, the
+// map at kSnowSkyBinding). kTrailPaint: the paint's coat - the paint fields' texel where the surface is painted
+// (PaintUniforms at kPaintUniformsBinding, the coats and their places at kPaintCoatBinding / kPaintPlaceBinding), over
+// the snow's. The vertex half's `surface` has kVertexSurfaceInputs with it (the eye-space position handed on). A byte
+// of the two spares: the key stays 52 bytes, and 0 leaves its bytes - and its shaders - exactly as before.
+constexpr uint8_t kTrailSnow = 1;
+constexpr uint8_t kTrailPaint = 2;
+constexpr uint8_t kTrailKnown = kTrailSnow | kTrailPaint;
 
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;
@@ -295,7 +300,7 @@ struct FragmentKey {
     uint8_t surface = 0; // (NOT ORIGINAL - rt_pbr) the per-pixel lighting's switches (kSurface*); 0: as the original's
     uint8_t water = 0;   // (NOT ORIGINAL - rt_water) kWaterFlat / kWaterMoving: shaded as water (above); 0: as the original's
     uint8_t detail = 0;  // (NOT ORIGINAL - rt_detail / rt_delight) the detail layer's switches (kDetail*); 0: as before
-    uint8_t snow = 0;    // (NOT ORIGINAL - [Graphics] snow) kSnowCover: the snow's cover on the colour; 0: as before
+    uint8_t trails = 0;  // (NOT ORIGINAL - the surface trails) kTrail*: the snow's cover, the paint, on the colour; 0: as before
     std::array<uint8_t, 1> spare{}; // (keeps the key free of padding where it is a part of another: it is hashed as bytes)
     std::array<StageKey, kStageCount> stages{};
 

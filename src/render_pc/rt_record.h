@@ -63,6 +63,10 @@ void forget_meshes();
 // across and down) traced: what it hits - the instance's kind, its mesh, its material (passes, reflectivity, class) -
 // and the relit world's vertices round the hit (rt_relit_world::describe_near).
 [[nodiscard]] std::string describe_screen_point(float across, float down);
+// (the light energy audit's census - the console's `rt census`) Every mesh of the loaded scenes by what lights it: the
+// sky's, hidden, not traced, or what the relit mode makes of it (rt_relit_world::census_bucket) - with its material's
+// kind (opaque, cut-out, blended, additive): meshes, vertices and example materials per bucket, a line each.
+[[nodiscard]] std::string world_census();
 
 // While one lives, vertex buffer writes are colour-only: the positions are as they were, so no mesh's BLAS is built
 // again - the rule for every write that changes only colours (MeshRef::apply_vertex_colors' colour animations, the relit

@@ -833,6 +833,12 @@ bool with_context(Body body)
 
 } // namespace
 
+float panels_side_width()
+{
+    const State& view = state();
+    return view.exporting || !view.ui_visible ? 0.0F : kSideWidth * ui().scale;
+}
+
 void draw_panels()
 {
     const State& view = state();

@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <ratio>
 #include <span>
 #include <string>
@@ -32,6 +33,7 @@
 #include "engine/gfx/render_camera.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/rt_checks.h"
+#include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
@@ -81,6 +83,10 @@ constexpr float kLumaRed = 0.299F;              // a colour's brightness (Rec. 6
 constexpr float kLumaGreen = 0.587F;
 constexpr float kLumaBlue = 0.114F;
 constexpr float kHalfAgreed = 0.5F;             // (the log's count of cells where the bake disagrees)
+constexpr float kThirdOf = 1.0F / 3.0F;                 // (bake_samples: a triangle's centre)
+constexpr uint64_t kSampleHashBasis = 0xCBF29CE484222325ULL; // (bake_samples: FNV-1a's, over the centre's units)
+constexpr uint64_t kSampleHashPrime = 0x100000001B3ULL;
+constexpr unsigned kSampleHashFold = 29U;
 constexpr std::size_t kFitTriangles = 40000;       // triangles looked at for the fit (the upward ones sampled)
 constexpr std::size_t kAgreementTriangles = 400000; // ... and for where the bake agrees (one ray a point) ...
 constexpr uint32_t kAgreementPoints = 6;            // ... points in each
@@ -1013,22 +1019,43 @@ std::vector<rt::BakeSample> bake_samples(SampleCount count)
         total += mesh.count();
     }
     std::vector<rt::BakeSample> samples;
-    const std::size_t step = std::max<std::size_t>(1, total / std::max<std::size_t>(1, count.triangles));
-    std::size_t next = 0;
-    std::size_t walked = 0;
+    // (changed by the light energy audit: the same triangles whatever else the frame drew) A triangle is taken by where
+    // it is - a hash of its centre, to a unit - one in `step` of them, `step` a power of two: a sector more or less in
+    // the first frame (a script's mesh, the evening's lamps) changes only its own samples. Before, every step-th
+    // triangle in the world's order: one mesh more moved every sample after it, and the baked sun moved by degrees
+    // between two loads of a level (sch: heading -43 / -45, elevation 38 / 35) - enough to tip relit's fit.
+    std::size_t step = 1;
+    while (step * std::max<std::size_t>(1, count.triangles) < total) {
+        step <<= 1U;
+    }
     for (const MeshTriangles& mesh : meshes) {
         const uint32_t triangles = mesh.count();
-        for (; next < walked + triangles; next += step) {
+        for (uint32_t index = 0; index < triangles; ++index) {
             std::array<uint32_t, 3> corner{};
+            if (!mesh.corners(index, &corner)) {
+                continue;
+            }
+            if (step > 1) {
+                const auto [first, second, third] = corner;
+                const rt::Vec3 centre = rt::scaled(
+                    rt::plus(rt::plus(mesh.position(first), mesh.position(second)), mesh.position(third)), kThirdOf);
+                uint64_t hash = kSampleHashBasis;
+                for (const float axis : {rt::x_of(centre), rt::y_of(centre), rt::z_of(centre)}) {
+                    hash = (hash ^ static_cast<uint64_t>(static_cast<int64_t>(std::lround(axis)))) * kSampleHashPrime;
+                }
+                hash ^= hash >> kSampleHashFold;
+                if ((hash & (step - 1)) != 0) {
+                    continue;
+                }
+            }
             UpTriangle up;
-            if (!mesh.corners(static_cast<uint32_t>(next - walked), &corner) || !up_triangle(mesh, corner, &up)) {
+            if (!up_triangle(mesh, corner, &up)) {
                 continue;
             }
             for (uint32_t k = 0; k < count.points; ++k) {
                 samples.push_back(point_of(mesh, corner, up, weights_of(k)));
             }
         }
-        walked += triangles;
     }
     return samples;
 }
@@ -1118,6 +1145,7 @@ void new_world_work(rt::RayTracing& rt)
 void relit_work(rt::RayTracing& rt)
 {
     State& st = state();
+    rt::note_census_frame(); // (the light energy audit's census: the frames its counts are over)
     if (!rt::relit_settings().on && st.relit_idle) {
         return;
     }
@@ -1378,6 +1406,7 @@ void record_frame()
     }
     State& st = state();
     rt::set_screen_probe(&describe_screen_point); // (the console's `rt probe` - rt_relit.h screen_probe)
+    rt::set_world_census(&world_census);          // (the console's `rt census` - rt_light_census.h)
     const auto now = std::chrono::steady_clock::now();
     if (st.first_frame_timed) {
         st.first_frame_timed = false;
@@ -1403,6 +1432,89 @@ void record_frame()
     }
     record_lights();
     st.written.clear();
+}
+
+std::string world_census()
+{
+    State& st = state();
+    // (each bucket: meshes, vertices, and a few materials' checksums as examples), by bucket and the material's kind
+    struct Bucket {
+        std::size_t meshes = 0;
+        std::size_t vertices = 0;
+        std::vector<uint32_t> examples;
+    };
+    std::map<std::string, Bucket> buckets;
+    const auto kind_of = [&st](const MeshRef* mesh) -> const char* {
+        const MaterialRef* material = mesh->material();
+        if (material == nullptr) {
+            return "no material";
+        }
+        const uint32_t first = blend_mode(material, 0);
+        if (first == kBlendAdd || first == kBlendFixedAdd) {
+            return "additive";
+        }
+        const auto found = st.materials.find(material);
+        const uint32_t flags = found != st.materials.end() ? found->second.material.flags : 0U;
+        if ((flags & rt::kTransparent) != 0U) {
+            return (flags & rt::kAlphaTested) != 0U ? "blended cut-out" : "blended";
+        }
+        return (flags & rt::kAlphaTested) != 0U ? "cut-out" : "opaque";
+    };
+    const auto add = [&buckets](const std::string& name, const MeshRef* mesh) {
+        Bucket& bucket = buckets[name];
+        ++bucket.meshes;
+        bucket.vertices += mesh->vertex_count();
+        const MaterialRef* material = mesh->material();
+        const uint32_t checksum = material != nullptr ? material->checksum() : 0U;
+        if (bucket.examples.size() < 4 && std::ranges::find(bucket.examples, checksum) == bucket.examples.end()) {
+            bucket.examples.push_back(checksum);
+        }
+    };
+    const memory::ListNode* node = engine_parts().scene_list().next();
+    while (node != nullptr && !node->is_head()) {
+        const auto* scene = static_cast<const PcScene*>(node->data());
+        node = node->next();
+        const SceneRef* meshes = scene != nullptr ? scene->meshes() : nullptr;
+        if (meshes == nullptr) {
+            continue;
+        }
+        for (const MeshRef* mesh : meshes->mesh_run()) {
+            if (mesh == nullptr) {
+                continue;
+            }
+            const std::string kind = kind_of(mesh);
+            if (scene->is_sky()) {
+                add("sky (lit by the sky's own pass) | " + kind, mesh);
+                continue;
+            }
+            if (meshes->unknown40() != 0U) {
+                add("scene not drawn as the world | " + kind, mesh);
+                continue;
+            }
+            if (!mesh_shown(mesh)) {
+                add("not shown now | " + kind, mesh);
+                continue;
+            }
+            const auto found = st.meshes.find(mesh);
+            if (found == st.meshes.end()) {
+                add("not traced (no geometry the rays can read) | " + kind, mesh);
+                continue;
+            }
+            const rt_relit_world::WorldMesh world{
+                .mesh = mesh, .id = found->second.id, .geometry = &found->second.geometry, .source = found->second.source};
+            add(rt_relit_world::census_bucket(world) + " | " + kind, mesh);
+        }
+    }
+    std::string out = "rt census: world: " + rt_relit_world::census_status() + "\n";
+    for (const auto& [name, bucket] : buckets) {
+        out += text::format("rt census: world mesh %s: %zu meshes, %zu vertices; e.g. materials", name.c_str(),
+                            bucket.meshes, bucket.vertices);
+        for (const uint32_t checksum : bucket.examples) {
+            out += text::format(" %08X", checksum);
+        }
+        out += "\n";
+    }
+    return out;
 }
 
 std::string describe_screen_point(float across, float down)

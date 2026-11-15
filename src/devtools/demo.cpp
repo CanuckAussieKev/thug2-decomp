@@ -14,6 +14,7 @@
 #include <cstring>
 #include <ctime>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -35,6 +36,7 @@
 #include "devtools/demo_overlay.h"
 #include "devtools/demo_viewer.h"
 #include "devtools/screenshot.h"
+#include "devtools/skater_loan.h"
 #include "engine/gfx/render_device.h"
 #include "engine/media/video_writer.h"
 #include "engine/script/context.h"
@@ -110,6 +112,7 @@ constexpr uint32_t kAlmostDone = 99; // (a video's progress: 100% only once it i
 constexpr int kSecondsPerMinute = 60;
 constexpr size_t kHexNameDigits = 8;         // (a checksum written as a name: 8 hex digits)
 constexpr int kGlobalsNamed = 12;            // (the globals put back: this many named in the log)
+constexpr size_t kShortHash = 12;            // (a profile hash in the log, the badge: this many hex digits)
 
 enum class Phase : uint8_t { kOff, kRecordArmed, kRecording, kPlayArmed, kPlaying, kFinishing };
 
@@ -330,44 +333,142 @@ void refresh_skater(objects::RiderIdentity* profile)
     get_log("demo: the skater given the profile put back (its stats, tricks and stance)");
 }
 
-// The demo's skater made the current one again: its template if another is current, then its profile and info
-// where they differ - and the skater given them.
-void restore_profile(const Demo& demo)
-{
-    objects::ProfileRoster* roster = objects::profile_roster();
-    objects::RiderIdentity* profile = current_profile();
-    if (roster == nullptr || profile == nullptr) {
-        return;
+// The game's side of a replay's skater loan (devtools/skater_loan.h): the profile roster's skaters by name (the
+// templates; one this game hasn't is the current profile), the skate module's player settings (port 0) and stat
+// override.
+class GameProfiles {
+public:
+    using Kept = objects::KeptProfile;
+
+    uint32_t current()
+    {
+        objects::RiderIdentity* profile = current_profile();
+        return profile != nullptr ? profile->fetch_title() : 0;
     }
-    const objects::RiderIdentity* current_before = profile;
-    if (demo.skater_name != 0 && profile->fetch_title() != demo.skater_name &&
-        roster->get_template(demo.skater_name) != nullptr) {
-        roster->set_current_skater(demo.skater_name);
-        profile = current_profile();
-        get_log("demo: the skater %s made current again", demo.skater.c_str());
+    bool exists(uint32_t name)
+    {
+        objects::ProfileRoster* roster = objects::profile_roster();
+        return roster != nullptr && roster->get_template(name) != nullptr;
     }
-    bool put_back = profile != current_before;
-    if (!demo.profile.empty() && profile_bytes(profile) != demo.profile) {
-        std::vector<uint8_t> copy = demo.profile;
-        profile->decode_from_bytes(copy.data(), copy.size());
-        get_log("demo: the skater's appearance and tricks put back as recorded");
-        put_back = true;
+    void make_current(uint32_t name)
+    {
+        if (exists(name)) {
+            objects::profile_roster()->set_current_skater(name);
+        }
     }
-    if (!demo.details.empty() && details_bytes(profile) != demo.details) {
-        std::vector<uint8_t> copy = demo.details;
+    Kept keep(uint32_t name) { return objects::keep_profile_copy(by_name(name)); }
+    void put_back(uint32_t name, Kept& kept)
+    {
+        if (kept) {
+            objects::put_profile_copy_back(by_name(name), kept.get());
+        }
+    }
+    std::vector<uint8_t> profile(uint32_t name) { return profile_bytes(by_name(name)); }
+    std::vector<uint8_t> details(uint32_t name) { return details_bytes(by_name(name)); }
+    void set_profile(uint32_t name, std::span<const uint8_t> bytes)
+    {
+        std::vector<uint8_t> copy(bytes.begin(), bytes.end());
+        by_name(name)->decode_from_bytes(copy.data(), copy.size());
+    }
+    // (the info made exactly the recorded one: emptied, then the recording's whole info read in)
+    void set_details(uint32_t name, std::span<const uint8_t> bytes)
+    {
+        std::vector<uint8_t> copy(bytes.begin(), bytes.end());
         const script::StructPtr read = script::make_struct();
         script::decode_from_bytes(read.get(), copy.data(), copy.size());
-        profile->details_params()->append_structure_if_any(read.get());
-        get_log("demo: the skater's info (stats...) put back as recorded");
-        put_back = true;
+        script::Struct* details = by_name(name)->details_params();
+        details->get_clear();
+        details->append_structure_if_any(read.get());
     }
-    // (the skater made before the playback - the front end's - keeps what it took from the profile then: its stats,
-    // trick mappings and stance. The game hands a changed profile to it with RefreshSkaterModel, as the skater
-    // select and the create-a-skater screens do: so here, else the run skates with the session's own stats -
-    // sim_grind, recorded with stats of 10, played with the workspace skater's 3)
-    if (put_back) {
-        refresh_skater(profile);
+    skater_loan::Options options()
+    {
+        const modules::Skate::PlayerSettings& player = core::at(skate()->participants(), 0);
+        return {.auto_kick = player.auto_kick_, .spin_taps = player.spin_taps_, .stat_override = skate()->forced_stat()};
     }
+    void set_options(const skater_loan::Options& options)
+    {
+        skate()->set_auto_eject(0, options.auto_kick);
+        skate()->set_turn_tap_count(0, options.spin_taps);
+        skate()->set_forced_stat(options.stat_override);
+    }
+
+private:
+    static modules::Skate* skate() { return modules::Skate::sole(); }
+    objects::RiderIdentity* by_name(uint32_t name)
+    {
+        objects::ProfileRoster* roster = objects::profile_roster();
+        objects::RiderIdentity* found = roster != nullptr ? roster->get_template(name) : nullptr;
+        return found != nullptr ? found : current_profile();
+    }
+};
+
+using SkaterLoan = skater_loan::Loan<GameProfiles>;
+SkaterLoan& skater_loan_now()
+{
+    static core::NoDestroy<SkaterLoan> loan;
+    return loan.get();
+}
+
+// The recorded skater lent the player's place for the playback: made current, its profile and info as recorded, the
+// options it was recorded with - the skater given them (RefreshSkaterModel). Never the player's: a replay shows who
+// recorded it. (The skater made before the playback - the front end's - keeps what it took from the profile then: its
+// stats, trick mappings and stance; the game hands a changed profile to it with RefreshSkaterModel, as the skater
+// select and the create-a-skater screens do - else the run skates with the session's own stats: sim_grind, recorded
+// with stats of 10, played with the workspace skater's 3.)
+void lend_skater(const Demo& demo)
+{
+    if (objects::profile_roster() == nullptr || current_profile() == nullptr || modules::Skate::sole() == nullptr) {
+        return;
+    }
+    GameProfiles game;
+    std::optional<skater_loan::Options> options;
+    if (demo.options.present) {
+        options = skater_loan::Options{.auto_kick = demo.options.auto_kick,
+                                       .spin_taps = demo.options.spin_taps,
+                                       .stat_override = demo.options.stat_override};
+    }
+    const bool first = !skater_loan_now().active();
+    const skater_loan::Changes changes = skater_loan_now().lend(
+        game, {.skater = demo.skater_name, .profile = demo.profile, .details = demo.details, .options = options});
+    if (first && demo.skater_name != 0 && !game.exists(demo.skater_name)) {
+        get_log("demo: %s's skater (%08X) isn't one of this game's - the recording's profile goes into the current one",
+                demo.skater.c_str(), demo.skater_name);
+    }
+    if (changes.any()) {
+        std::string what;
+        for (const auto& [changed, part] : {std::pair{changes.skater, "made current"},
+                                            std::pair{changes.profile, "its profile and info"},
+                                            std::pair{changes.options, "its options"}}) {
+            if (changed) {
+                what += std::string(what.empty() ? "" : ", ") + part;
+            }
+        }
+        get_log("demo: the recorded skater %s lent the player's place (%s)", demo.skater.c_str(), what.c_str());
+        refresh_skater(current_profile());
+    }
+    if (!demo.options.present && first) {
+        get_log("demo: %s was recorded before the options were kept - played with the session's auto kick, spin taps "
+                "and stat override",
+                state().name.c_str());
+    }
+}
+
+// The player's own skater given back once no playback runs (its end, a stop, the player taking over, the level left,
+// a network game): the lent profile made its copy again, the player's skater current, the options - and the skater
+// given them. Waits while a level loads (the skater's model isn't built mid-load).
+void give_back_skater()
+{
+    if (!skater_loan_now().active() || frontend::automation::loading_now()) {
+        return;
+    }
+    GameProfiles game;
+    bool identical = false;
+    const skater_loan::Changes changes = skater_loan_now().give_back(game, &identical);
+    if (changes.any()) {
+        refresh_skater(current_profile());
+    }
+    get_log("demo: the player's own skater given back - %s", identical ? "identical to before the replay"
+                                                                       : "NOT identical to before the replay");
 }
 
 demo_format::Clocks clocks_now()
@@ -564,6 +665,9 @@ bool write_bytes(const std::string& path, std::span<const uint8_t> bytes)
 
 void notice(const std::string& text) { sys::screenshot::show_notice(text); }
 
+// Online, or a network game (its mode): no demo runs there.
+bool net_game() { return !frontend::automation::online_refusal().empty(); }
+
 // --- recording ---
 
 void begin_recording(uint32_t load)
@@ -586,6 +690,13 @@ void begin_recording(uint32_t load)
         demo.skater = shown != nullptr ? shown : "";
         demo.profile = profile_bytes(profile);
         demo.details = details_bytes(profile);
+    }
+    if (modules::Skate::sole() != nullptr) {
+        const skater_loan::Options options = GameProfiles().options();
+        demo.options = {.present = true,
+                        .auto_kick = options.auto_kick,
+                        .spin_taps = options.spin_taps,
+                        .stat_override = options.stat_override};
     }
     if (run.name.empty()) {
         run.name = "demo_" + demo.level + "_" + local_time_text("%Y-%m-%d_%H-%M-%S");
@@ -647,10 +758,12 @@ std::string save_recording()
         return "couldn't write " + path;
     }
     const std::string json = text::format(
-        "{\n  \"name\": %s,\n  \"level\": %s,\n  \"skater\": %s,\n  \"created\": %s,\n  \"build\": %s,\n"
-        "  \"frames\": %u,\n  \"seconds\": %.2f,\n  \"up_frame\": %u,\n  \"checks\": %u,\n  \"settings\": %s\n}\n",
+        "{\n  \"name\": %s,\n  \"level\": %s,\n  \"skater\": %s,\n  \"skater_profile_hash\": %s,\n  \"created\": %s,\n"
+        "  \"build\": %s,\n  \"frames\": %u,\n  \"seconds\": %.2f,\n  \"up_frame\": %u,\n  \"checks\": %u,\n"
+        "  \"settings\": %s\n}\n",
         json_text(run.name).c_str(), json_text(demo.level).c_str(), json_text(demo.skater).c_str(),
-        json_text(demo.created).c_str(), json_text(demo.build).c_str(), demo.frames(),
+        json_text(sha256::hex(demo_format::profile_hash(demo))).c_str(), json_text(demo.created).c_str(),
+        json_text(demo.build).c_str(), demo.frames(),
         static_cast<double>(demo.frames()) / kFramesPerSecond, demo.up_frame, static_cast<unsigned>(demo.checks.size()),
         settings_json(demo.settings).c_str());
     fs::write_text(folder + run.name + ".json", json);
@@ -811,6 +924,14 @@ bool load_demo(const std::string& name, std::string* why)
     }
     run.demo = std::move(demo);
     run.name = clean_name(name);
+    // (an edited replay plays - with the badge saying so; docs/demos.md "Replays as proof")
+    get_log("demo: %s - recorded %s by %s in %s, build %s, skater profile %s; seal: %s", run.name.c_str(),
+            run.demo.created.c_str(), run.demo.skater.c_str(), run.demo.level.c_str(), run.demo.build.c_str(),
+            sha256::hex(demo_format::profile_hash(run.demo)).substr(0, kShortHash).c_str(),
+            demo_format::seal_text(run.demo.seal).c_str());
+    if (run.demo.seal.state == demo_format::SealState::kChanged) {
+        notice("This replay was changed after recording");
+    }
     return true;
 }
 
@@ -832,7 +953,7 @@ std::string start_playback()
         run.phase = Phase::kOff;
         return "refused: " + online;
     }
-    restore_profile(run.demo);
+    lend_skater(run.demo);
     run.phase = Phase::kPlayArmed;
     std::string why;
     if (!frontend::begin_level::read_in_load(run.demo.level_load, false, &why)) {
@@ -932,7 +1053,8 @@ void report_run(bool ended)
         "  \"first_camera_distance\": %.4f,\n  \"max_skater_distance\": %.4f,\n  \"max_camera_distance\": %.4f,\n"
         "  \"random_matched_at_up\": %s,\n  \"up_matched\": %s,\n  \"capture\": %s,\n  \"taken_over\": %s,\n"
         "  \"video\": %s,\n  \"video_codec\": %s,\n  \"video_frames\": %lld,\n  \"video_ok\": %s,\n"
-        "  \"settings\": %s,\n  \"recorded_settings\": %s\n}\n",
+        "  \"settings\": %s,\n  \"recorded_settings\": %s,\n  \"skater\": %s,\n  \"skater_profile_hash\": %s,\n"
+        "  \"recorded\": %s,\n  \"build\": %s,\n  \"seal\": %s,\n  \"seal_intact\": %s\n}\n",
         json_text(run.name).c_str(), json_text(run.demo.level).c_str(), run.demo.frames(), run.demo.up_frame,
         ended ? "true" : "false", drift.compared, static_cast<long long>(drift.first_frame),
         static_cast<double>(drift.first.skater), static_cast<double>(drift.first.camera),
@@ -940,7 +1062,11 @@ void report_run(bool ended)
         run.random_matched ? "true" : "false", run.up_matched ? "true" : "false", json_text(run.capture).c_str(),
         run.taken_over ? "true" : "false", json_text(run.video).c_str(), json_text(run.video_codec).c_str(),
         static_cast<long long>(run.video_written), (!run.video.empty() && !run.video_failed) ? "true" : "false",
-        settings_json(settings_now()).c_str(), settings_json(run.demo.settings).c_str());
+        settings_json(settings_now()).c_str(), settings_json(run.demo.settings).c_str(),
+        json_text(run.demo.skater).c_str(), json_text(sha256::hex(demo_format::profile_hash(run.demo))).c_str(),
+        json_text(run.demo.created).c_str(), json_text(run.demo.build).c_str(),
+        json_text(demo_format::seal_text(run.demo.seal)).c_str(),
+        run.demo.seal.state == demo_format::SealState::kIntact ? "true" : "false");
     fs::write_text(base + "run.json", json);
     get_log("demo: the run's track and summary in %strack.txt / run.json", base.c_str());
 }
@@ -1050,9 +1176,12 @@ void on_level_load(uint32_t load)
         begin_recording(load);
     } else if (run.phase == Phase::kPlayArmed) {
         begin_playback(load);
-    } else if (running()) {
-        get_log("demo: another level started (%s) during the %s", level_name(load).c_str(),
-                run.phase == Phase::kRecording ? "recording - it goes on" : "playback");
+    } else if (run.phase == Phase::kRecording) {
+        get_log("demo: another level started (%s) during the recording - it goes on", level_name(load).c_str());
+    } else if (run.phase == Phase::kPlaying) {
+        // (a replay is its own level's run: another level is the player's - the replay ends, the player's skater back)
+        get_log("demo: another level started (%s) - the replay ends", level_name(load).c_str());
+        stop_now();
     }
 }
 
@@ -1082,6 +1211,11 @@ void port_polled(input::PortPoll& poll)
     if (run.phase == Phase::kRecording && now < run.demo.inputs.size()) {
         std::memcpy(core::at(run.demo.inputs, now).data(), poll.data.data(), bytes);
     } else if (run.phase == Phase::kPlaying) {
+        // (a recorded input never drives a networked session: the live input stays, the replay ends at the menu's
+        // frame - menu_tick)
+        if (net_game()) {
+            return;
+        }
         // (the player's own input first: a button pressed or a stick pushed once the level has been up a moment stops
         // the playback, and this frame is the player's - Start pauses as ever)
         const bool moved = player_moved(poll.data);
@@ -1268,6 +1402,24 @@ void menu_tick(modules::FrontEnd* front_end, bool game_owned)
     // (a demo's pause is the original freeze, whatever [features] live_pause says - game/front_end/live_pause.h: a
     // recording and its playback then pause alike)
     modules::live_pause::demo_running() = run.phase != Phase::kOff;
+    // (no replay can pose as live play: a network game or going online ends one - never driving a networked
+    // session's input -, as does leaving its level once it was up (for the main menu: the pause menu's QUIT); the
+    // viewer's way back by the main menu is kPlayArmed, not this)
+    if (run.phase == Phase::kPlaying || run.phase == Phase::kPlayArmed) {
+        const std::string online = frontend::automation::online_refusal();
+        if (!online.empty()) {
+            get_log("demo: %s - the replay ends", online.c_str());
+            stop_now();
+        } else if (run.phase == Phase::kPlaying && run.up && skate() != nullptr &&
+                   skate()->level() != run.demo.level_load) {
+            get_log("demo: the replay's level was left - the replay ends");
+            stop_now();
+        }
+    }
+    // (once no replay runs: the player's own skater back - its end, a stop, the player taking over)
+    if (run.phase != Phase::kPlaying && run.phase != Phase::kPlayArmed) {
+        give_back_skater();
+    }
     // -demo: once the main menu has been up a moment (its scripts loaded), as -level starts its level
     if (run.phase == Phase::kPlayArmed && run.from_command_line) {
         const bool menu = render::current_level() == 0 && !(front_end != nullptr && front_end->is_paused()) &&
@@ -1356,10 +1508,52 @@ std::string clock_text(uint32_t frames)
     return text::format("%u:%02u", seconds / kSecondsPerMinute, seconds % kSecondsPerMinute);
 }
 
-// Over the frame (render::draw_world's end, before the menus and the console): a video's picture, then our tag.
+// A playback is on (or about to start: its level loading, the viewer's way back by the main menu): the badge is up.
+bool replay_on()
+{
+    const Phase phase = state().phase;
+    return phase == Phase::kPlaying || phase == Phase::kPlayArmed;
+}
+
+std::string upper(std::string text)
+{
+    std::ranges::transform(text, text.begin(),
+                           [](char character) { return static_cast<char>(std::toupper(static_cast<unsigned char>(character))); });
+    return text;
+}
+
+// The REPLAY badge's lines: who recorded it, when, the time; a demo without a seal or with a broken one says so.
+demo_overlay::Badge badge_now()
+{
+    const State& run = state();
+    const Demo& demo = run.demo;
+    demo_overlay::Badge badge;
+    badge.lines.push_back(upper(demo.skater.empty() ? std::string("Unknown skater") : demo.skater));
+    // ("2026-11-13 12:39:25" -> "2026-11-13 12:39")
+    constexpr size_t kDateAndMinutes = 16;
+    badge.lines.push_back("RECORDED " + demo.created.substr(0, kDateAndMinutes));
+    const uint32_t now = run.phase == Phase::kPlaying && run.frame > 0 ? run.frame - 1 : 0;
+    badge.lines.push_back(clock_text(now) + " / " + clock_text(demo.frames()));
+    if (demo.seal.state == demo_format::SealState::kChanged) {
+        badge.warning = "EDITED AFTER RECORDING";
+    } else if (demo.seal.state == demo_format::SealState::kNone) {
+        badge.warning = "UNVERIFIED";
+    }
+    badge.right_inset = demo_viewer::side_panel_width();
+    return badge;
+}
+
+// Over the frame, after every other extension's but the screenshot's, the counters' and the console's
+// (badge_extension): the demo viewer's panels, the REPLAY badge over them, a video's picture (the badge in it), then
+// the other tags (never in a video). A playback's badge is drawn whatever the settings, the HUD or the viewer's
+// panels say - in the pause menu, in a split view, in a capture, a screenshot and a video.
 void over_frame()
 {
     State& run = state();
+    if (run.viewer && run.video.empty()) {
+        demo_viewer::draw();
+    }
+    const float below = replay_on() ? demo_overlay::draw_badge(badge_now()) : 0.0F;
     if (run.phase == Phase::kPlaying && !run.video.empty() && !run.video_failed && run.counting && run.frame > 0) {
         const uint32_t now = run.frame - 1;
         if (now >= run.video_from && now < run.video_to &&
@@ -1368,7 +1562,7 @@ void over_frame()
         }
     }
     if (!run.capture.empty()) {
-        return; // (a capture's pictures are taken after this: nothing of ours in them)
+        return; // (a capture's pictures are taken after this: nothing of ours but the badge in them)
     }
     const uint32_t now = run.frame > 0 ? run.frame - 1 : 0;
     if (run.phase == Phase::kRecording) {
@@ -1376,25 +1570,42 @@ void over_frame()
     } else if (run.phase == Phase::kPlaying && !run.video.empty()) {
         const uint32_t total = run.video_to > run.video_from ? run.video_to - run.video_from : 1;
         const uint32_t done = now > run.video_from ? now - run.video_from : 0;
-        demo_overlay::draw("SAVING VIDEO", text::format("%u%%", std::min(done * kPercent / total, kAlmostDone)), false);
-    } else if (run.phase == Phase::kPlaying && !run.viewer) {
-        demo_overlay::draw("REPLAY", clock_text(now) + " / " + clock_text(run.demo.frames()), false);
+        demo_overlay::draw("SAVING VIDEO", text::format("%u%%", std::min(done * kPercent / total, kAlmostDone)), false,
+                           below);
     } else if (!run.result_tag.empty()) {
         if (platform::ticks_ms() - run.result_since > kResultMs) {
             run.result_tag.clear();
         } else {
-            demo_overlay::draw(run.result_tag, run.result_line, false);
+            demo_overlay::draw(run.result_tag, run.result_line, false, below);
         }
     }
-    // (the demo viewer's panels: after the video's picture - never in it)
-    if (run.viewer && run.video.empty()) {
-        demo_viewer::draw();
+}
+
+// A screenshot's sidecar during a playback: what it is a picture of.
+bool describe_replay(ext::Description* out)
+{
+    if (!replay_on()) {
+        return false;
     }
+    const State& run = state();
+    const Demo& demo = run.demo;
+    out->title = "replay";
+    out->fields = {
+        {"playing", "a recorded replay - not live play"},
+        {"demo", run.name},
+        {"skater", demo.skater},
+        {"skater profile hash", sha256::hex(demo_format::profile_hash(demo))},
+        {"recorded", demo.created},
+        {"level", demo.level},
+        {"build", demo.build},
+        {"seal", demo_format::seal_text(demo.seal)},
+        {"frame", text::format("%u of %u", run.frame > 0 ? run.frame - 1 : 0, demo.frames())},
+    };
+    return true;
 }
 
 // --- the menus' script commands (the data overlay's DEMOS menu: tools/pipeline/menu_level/demo_menu.ts) ---
 
-bool net_game() { return !frontend::automation::online_refusal().empty(); }
 
 // The demo files' names in a folder listing (fs::Disk's).
 class DemoFiles final : public fs::FoundVisitor {
@@ -1551,7 +1762,6 @@ void register_functions()
 class DemoExtension final : public ext::Extension {
 public:
     void register_script_commands() override { register_functions(); }
-    void draw_over_frame() override { over_frame(); }
     void device_lost() override
     {
         demo_overlay::device_lost();
@@ -1621,12 +1831,26 @@ public:
     void poll_port(input::PortPoll& poll) override { port_polled(poll); }
 };
 
+// What is drawn over the frame: after the new front end's menus (a replay's badge over the pause menu too), before
+// the screenshot's pictures are taken (the badge in them); a screenshot's sidecar section during a playback.
+class BadgeExtension final : public ext::Extension {
+public:
+    void draw_over_frame() override { over_frame(); }
+    bool describe(ext::Description* out) override { return describe_replay(out); }
+};
+
 } // namespace
 
 ext::Extension& extension()
 {
     static DemoExtension demo;
     return demo;
+}
+
+ext::Extension& badge_extension()
+{
+    static BadgeExtension badge;
+    return badge;
 }
 
 input::Source& input_source()

@@ -5,6 +5,7 @@ add_library(thug2_formats STATIC
     bundle_format.cpp
     collision_format.cpp
     demo_format.cpp
+    sha256.cpp
     font_format.cpp
     image_format.cpp
     lzss_unpack.cpp
@@ -15,6 +16,7 @@ add_library(thug2_formats STATIC
     skeleton_format.cpp
     detail_material_format.cpp
     surface_map_format.cpp
+    relief_format.cpp
     texture_set_record.cpp
     texture_format.cpp
     wave_format.cpp

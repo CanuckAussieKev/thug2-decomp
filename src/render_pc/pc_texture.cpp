@@ -17,6 +17,7 @@
 #include "engine/memory/mem.h"
 #include "engine/file/file_load.h"
 #include "render_pc/bitmap_texture.h"
+#include "render_pc/building_relief.h"
 #include "render_pc/surface_map_load.h"
 #include "engine/lists/key_map.h"
 #include "base/maths/maths.h"
@@ -1313,6 +1314,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
     }
     uint32_t format = 0; // (the original's is whatever its stack held until a texture sets it)
     SurfacePack surface_maps(name); // NOT ORIGINAL - the dictionary's surface maps (surface_map_load.h)
+    building_relief::ReliefPack relief(name); // NOT ORIGINAL - its building fronts' structure (building_relief.h)
     for (int i = 0; i < count; ++i) {
         texture_format::TextureHeader header;
         util::ByteReader header_reader(bytes.data(), sizeof(bytes));
@@ -1386,6 +1388,10 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
                     surface_maps.attach(*d3d, header.checksum,
                                         std::span<const uint8_t>(static_cast<const uint8_t*>(rect.bits), size));
                 }
+                if (level == 0 && relief.active()) { // NOT ORIGINAL - its facade structure, if it has one
+                    relief.attach(texture, header.checksum,
+                                  std::span<const uint8_t>(static_cast<const uint8_t*>(rect.bits), size));
+                }
                 gpu().unlock_texture(*d3d, level);
             }
         }
@@ -1397,6 +1403,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
     }
     file::shut(file);
     surface_maps.report();
+    relief.report();
     return table;
 }
 

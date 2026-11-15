@@ -230,6 +230,19 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (fsr:quality by default), the rest as the ini and --set have it. compare: per spot, `on` against `off` - PSNR (at
   least 20 dB) and SSIM (luma, 8 x 8 windows), at most 0.2% turned black; each configuration's frame time; the `on`
   logs must show "upscaler: the first frame upscaled by" and no failure, the `off` ones no upscaled frame.
+- `node tools/game/light_audit.ts walk|capture|compare|html|textures ...` - the light energy audit (docs/design/vulkan.md
+  "Each light counted once"): `walk --game C:\Games\THUG2-<n> --build <x64 build> --out <folder> [--levels BO,BE,LA,NO,nj
+  | all] [--restarts 4]` loads each level in a game of its own, takes the census there (`console rt census`: the world's
+  meshes by what lights them - relit with its light stream, kept bake and why, not relit and why, the sky's, hidden -
+  and the objects', models' and particles' ways a frame) and walks its first restarts (`console restart`: F8's) - their
+  places into `<out>/spots.json`, the census into `<out>/census/<level>.txt`; `capture ... --config bake|full [--tag
+  name] [--probe]` stands the skater at each place (teleport, the game's camera) and captures it - `bake`: rt_relit and
+  every ray-traced light off, `full`: relit with rt_shadows, rt_ao, rt_gi, rt_lights=auto - both at tod=level with the
+  effects that don't light off; any build (no console command needed); `--probe` logs `rt probe` on a 4 x 3 grid of each
+  picture; `compare <out> --a <tag-config> --b <tag-config>` - each region's brightness ratio (whole, lit, shade,
+  corners, lamps, the skater's box) with limits, heat maps and the worst cells (with the nearest probe's mesh and
+  material); `html <out>` a self-contained page; `textures --game <folder> --out <folder>` every level's textures by
+  their file's alpha against how the levels draw them (nothing run). Workspaces only, under the lock, muted.
 - `node tools/game/tess_gap.ts run --game C:\Games\THUG2-<n> --build <x64 build> --level <name> --at x,y,z,heading --out
   <folder> [--set S.key=v]...` - how far the drawn surfaces are from the collision with `rt_tessellation` 0 and 1: under
   the workspace's lock, the build deployed, the level loaded twice (`ray_tracing=1`), the skater stood at --at and a fan
@@ -290,6 +303,11 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   each again with `[debug] load_test=N` (a 30 ms stall every Nth loop: late, undrawn steps - "Determinism under
   load"); the report shows each run's late steps. Exit code 0 when every frame of every run matches. `--record` makes the max_fps=0 run the new reference (only from the build the reference is meant
   to be: main before a change). Workspaces only, under the lock.
+- **A replay checked** (docs/demos.md "Replays as proof"): `node tools/game/verify_replay.ts <demo> [--game
+  <workspace>] [--json]` - who recorded it (the skater and its profile hash), when, the build, the level, and its seal
+  (intact, none, or what was changed after recording and in which frames); `--game` plays it again in that workspace
+  (`-demo <name> -demo-quit`, muted) and compares the run with its recorded check points. Exit code 0 intact (and the
+  same), 1 changed or parted, 2 no seal. Workspaces only, under the lock.
 - `run_game.ps1 ... -Level <name>` - the game started with `-level <name>`: straight into free skate in that level
   (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front_end/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T

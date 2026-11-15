@@ -9,6 +9,7 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
+#include "render_pc/building_relief.h"
 #include "render_pc/render_state.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/gpu.h"
@@ -134,6 +135,7 @@ void TextureRef::unlist()
 // 0x004E06A0
 TextureRef::~TextureRef()
 {
+    building_relief::forget(this); // (not original: its facade structure, building_relief.h)
     unlist();
     if (surface) {
         gpu().release_surface(surface);

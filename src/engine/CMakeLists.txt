@@ -131,8 +131,10 @@ add_library(thug2_engine STATIC
     gfx/rt_scene.cpp
     gfx/fisheye_lens.cpp
     gfx/smooth_tess.cpp
+    gfx/facade_relief.cpp
     gfx/rt_sun.cpp
     gfx/rt_daylight.cpp
+    gfx/rt_light_census.cpp
     gfx/rt_light_field.cpp
     gfx/day_clock.cpp
     gfx/surface_maps.cpp
@@ -145,6 +147,8 @@ add_library(thug2_engine STATIC
     gfx/rt_lights.cpp
     gfx/grass.cpp
     gfx/snow.cpp
+    gfx/surface_trail.cpp
+    gfx/paint_trails.cpp
     gfx/scatter.cpp
     gfx/scatter_art.cpp
     gfx/rt_cel.cpp

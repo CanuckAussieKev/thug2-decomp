@@ -21,14 +21,17 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
+#include "engine/config/ini_text.h"
 #include "engine/ext/extension.h"
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
 #include "engine/gfx/day_clock.h"
+#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/rt_checks.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -39,6 +42,8 @@ namespace devtools::rt_check {
 namespace rt = render::rt;
 
 namespace {
+
+constexpr std::size_t kIniChunk = 4096; // (`rt set`: the ini read a piece at a time)
 
 constexpr uint64_t kSummaryFrames = 600; // a summary line this often
 constexpr int kLoggedViolations = 200;   // violations logged in full; the rest counted
@@ -840,6 +845,41 @@ std::string console_command(const std::string& arguments)
         get_log("rt: %s", text.c_str());
         return text;
     }
+    if (verb == "census") {
+        // (the light energy audit, engine/gfx/rt_light_census.h: what lights each mesh of the world, and the ways the
+        // objects, models and particles took their light since the last `rt census`)
+        // (logged by the automation channel when it asks; printed on the console)
+        return rt::world_census_text() + "rt census: " + rt::light_census_text(rt::take_light_census()) + "\n";
+    }
+    if (verb == "set") {
+        // (the light energy audit's matched captures: a [Graphics] setting written to the ini and put to use at once,
+        // as the Options screen does - only one that changes while the game runs)
+        std::string value;
+        in >> value;
+        if (file.empty() || value.empty()) {
+            return "rt set <[Graphics] key> <value>";
+        }
+        const std::string path = game_folder_path("thug2-decomp.ini");
+        std::string ini;
+        {
+            const fs::OwnedStream reading = fs::open_stream(path.c_str(), "rb", fs::StreamSharing::kSecure);
+            std::array<char, kIniChunk> chunk{};
+            for (size_t got = 0;
+                 reading && (got = fs::disk().stream_read(reading.get(), chunk.data(), 1, chunk.size())) > 0;) {
+                ini.append(chunk.data(), got);
+            }
+        }
+        ini = config::ini_set(ini, {.section = "Graphics", .key = file}, value);
+        {
+            const fs::OwnedStream writing = fs::open_stream(path.c_str(), "wb", fs::StreamSharing::kSecure);
+            if (!writing || fs::disk().stream_write(writing.get(), ini.data(), 1, ini.size()) != ini.size()) {
+                return "rt set: the ini couldn't be written";
+            }
+        }
+        const bool live = render::graphics_options::reload_live(file.c_str());
+        get_log("rt: set %s=%s (%s)", file.c_str(), value.c_str(), live ? "in effect" : "at the next start");
+        return text::format("%s=%s %s", file.c_str(), value.c_str(), live ? "in effect" : "at the next start");
+    }
     if (verb == "summary" || verb.empty()) {
         if (rt::ray_tracing() != &checker()) {
             return "the contract check isn't on ([debug] rt_contract_check=1)";
@@ -848,7 +888,7 @@ std::string console_command(const std::string& arguments)
         get_log("%s", text.c_str());
         return text;
     }
-    return "rt summary | rt dump [file] | rt probe <across> <down> | rt sun [<x> <y> <z> | off] | rt agree <x> <z> | rt relit [on | off | strength <v> | residual <0|1>] | rt tod [<tod> | cycle <on | off>]";
+    return "rt summary | rt dump [file] | rt probe <across> <down> | rt census | rt set <key> <value> | rt sun [<x> <y> <z> | off] | rt agree <x> <z> | rt relit [on | off | strength <v> | residual <0|1>] | rt tod [<tod> | cycle <on | off>]";
 }
 
 std::string record_json(const rt::FrameRecord& record)

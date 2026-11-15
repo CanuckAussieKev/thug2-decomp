@@ -276,6 +276,17 @@ std::vector<Decl> declarations()
             .need(on("rt_tessellation"))
             .need(any({has(Cap::kHeightMaps), on("rt_tess_test_heights")}), t::kNeedsHeightMaps)
             .off("0"),
+        // (added by building relief: facade_relief.h - the building fronts' windows, sills and bands as geometry, made at
+        // load from the facade structures beside the level textures)
+        gfx("building_relief", K::kSwitch, "1")
+            .tab(G::kGraphics, t::kOptBuildingRelief, t::kOptBuildingReliefHelp)
+            .need(vulkan(), t::kNeedsVulkan)
+            .need(has(Cap::kReliefMaps))
+            .off("0"),
+        gfx("building_relief_strength", K::kNumber, "1")
+            .tab(G::kGraphics, t::kOptBuildingReliefStrength)
+            .pick({c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
+            .need(on("building_relief")),
         // PartyMod's (engine/gfx/settings.cpp, platform/sdl_window.cpp)
         gfx("ResolutionX", K::kNumber, "0"),
         gfx("ResolutionY", K::kNumber, "0"),
@@ -377,7 +388,13 @@ std::vector<Decl> declarations()
             .need(on("rt_ao"))
             .need(negate(on("ray_reconstruction")), t::kRayReconstructionDenoises)
             .live(E::kAo),
-        gfx("rt_gi", K::kSwitch, "0").tab(G::kLighting, t::kOptGi, t::kOptGiHelp).need(ray_tracing()).live(E::kGi),
+        // (the light energy audit - docs/design/vulkan.md "Each light counted once": a relit level's bounce is relit's,
+        // traced per vertex, and the objects take it through the light field - one owner, so the pass is out of effect)
+        gfx("rt_gi", K::kSwitch, "0")
+            .tab(G::kLighting, t::kOptGi, t::kOptGiHelp)
+            .need(ray_tracing())
+            .need(negate(on("rt_relit")), t::kRelitBouncesLight)
+            .live(E::kGi),
         gfx("rt_gi_strength", K::kNumber, "1")
             .tab(G::kLighting, t::kOptGiStrength)
             .pick(percent({{"0.5", "50%"}, {"1", "100%"}, {"1.5", "150%"}, {"2", "200%"}}))
@@ -548,6 +565,23 @@ std::vector<Decl> declarations()
             .need(on("snow"))
             .live(E::kSnow),
         gfx("snowfall", K::kSwitch, "1").tab(G::kSurfaces, t::kOptSnowfall).need(on("snow")).live(E::kSnow),
+        // (paint trails: every skater's line of paint, widening and splattering with its combo - vulkan_paint.h)
+        gfx("paint_trails", K::kSwitch, "0")
+            .tab(G::kGameplay, t::kOptPaint, t::kOptPaintHelp)
+            .need(vulkan(), t::kNeedsVulkan)
+            .live(E::kPaint),
+        gfx("paint_trail_scale", K::kNumber, "1")
+            .tab(G::kGameplay, t::kOptPaintScale)
+            .pick({c("0.6", "Thin"), c("1", t::kMedium), c("1.5", "Wide"), c("2", "Huge")})
+            .need(on("paint_trails"))
+            .live(E::kPaint),
+        gfx("paint_trail_colour", K::kChoice, "")
+            .tab(G::kGameplay, t::kOptPaintColour)
+            .pick({c("", "By player"), c("pink", "Pink"), c("cyan", "Cyan"), c("lime", "Lime"), c("orange", "Orange"),
+                   c("yellow", "Yellow"), c("violet", "Violet"), c("red", "Red"), c("white", "White")})
+            .open()
+            .need(on("paint_trails"))
+            .live(E::kPaint),
         gfx("rt_decals", K::kSwitch, "0").tab(G::kSurfaces, t::kOptDecals, t::kOptDecalsHelp).need(vulkan(), t::kNeedsVulkan).live(E::kScatter),
         gfx("rt_decals_density", K::kNumber, "1")
             .tab(G::kSurfaces, t::kOptDecalsDensity)
@@ -1130,8 +1164,8 @@ const std::vector<Conflict>& conflicts()
 const std::vector<PresetValue>& preset_values(int choice)
 {
     // Original - every effect off, the game as it was; High - the cheaper effects (shadows, occlusion, reflections, the
-    // sky and sun, HDR, bloom, smooth curves); Ultra - every effect on. Upscaling is left as it is (it trades sharpness
-    // for speed, whatever the preset).
+    // sky and sun, HDR, bloom, smooth curves); Ultra - every effect on (but the bounce pass: relit lights the bounce).
+    // Upscaling is left as it is (it trades sharpness for speed, whatever the preset).
     constexpr std::array kKeys = {"ray_tracing", "rt_shadows", "rt_ao", "rt_gi", "rt_reflections", "rt_relit",
                                   "rt_pbr",      "rt_fog",     "rt_sky", "rt_sky_model", "rt_clouds", "rt_sun",
                                   "rt_shafts",   "rt_bloom",   "rt_hdr", "rt_tessellation"};
@@ -1139,7 +1173,8 @@ const std::vector<PresetValue>& preset_values(int choice)
                                                                  "0", "0", "0", "0", "0", "0", "0", "0"};
     constexpr std::array<const char*, kKeys.size()> kHigh = {"1", "1", "1", "0", "1", "0", "0", "0",
                                                              "1", "1", "0", "1", "1", "1", "1", "1"};
-    constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "1", "1", "1", "1", "1",
+    // (Ultra: the bounce pass off - the relit mode it turns on lights the bounce; one owner)
+    constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "0", "1", "1", "1", "1",
                                                               "1", "1", "1", "1", "1", "1", "1", "1"};
     const auto list = [&kKeys](const std::array<const char*, kKeys.size()>& values) {
         std::vector<PresetValue> made;

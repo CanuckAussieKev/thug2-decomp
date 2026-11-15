@@ -45,7 +45,6 @@ constexpr uint64_t kReportAlphaPipeline = 0x52340007U;
 constexpr float kMaxStrength = 1.0F;
 constexpr float kMaxSoftnessDegrees = 5.0F;
 constexpr unsigned kMaxRays = 16;
-constexpr float kRayLength = 1.0e6F;   // (world units: further than any level's far plane)
 constexpr unsigned kMaxSkyRays = 16;
 constexpr double kDegreesToRadians = 3.14159265358979323846 / 180.0;
 constexpr std::size_t kMatrixSide = 4;
@@ -82,7 +81,9 @@ layout(push_constant) uniform Pass {
     mat4 to_world;  // (pixel x, pixel y, depth, 1) -> world, homogeneous
     ivec4 rect;     // the viewport: x, y, width, height
     vec4 to_light;  // xyz: toward the light (normalised); w: the strength
-    vec4 shape;     // x: tan of the light's angular radius; y: rays; z: the ray's length; w: the sky test's rays (0: off)
+    vec4 shape;     // x: tan of the light's angular radius; y: rays; z: the setting's strength (the relit world's:
+                    // how far a pixel's own ray replaces the visibility its colour was written with); w: the sky
+                    // test's rays (0: off)
     vec4 camera;    // xyz: the camera's position; w: the instance mask's bits
 } pc;
 layout(location = 0) out vec4 o_factor;
@@ -144,6 +145,7 @@ const float OFFSET_SCALE = 1.0; // the ray's start pushed off the surface by thi
 const float SKY_TILT = 0.6;     // the sky test's slanted rays: this far out from straight up per unit up (about 31 deg)
 
 const uint OBJECTS_MASK = 0x02u; // (kMaskObjects: the skater, peds, vehicles)
+const float RAY_LENGTH = 1.0e6;  // (world units: further than any level's far plane)
 
 float blocked_by(uint mask, vec3 origin, vec3 direction)
 {
@@ -153,16 +155,46 @@ float blocked_by(uint mask, vec3 origin, vec3 direction)
 #ifdef ALPHA_TESTED
     // (added for the alpha-tested casters - a cannon's spoked wheels, railings, foliage: instance mask 0x04) the one
     // lighting path's ray test (vulkan_rt_scene.h cutout_rays_glsl): light goes through their holes
-    return ray_blocked(mask, origin, direction, pc.shape.z) ? 1.0 : 0.0;
+    return ray_blocked(mask, origin, direction, RAY_LENGTH) ? 1.0 : 0.0;
 #else
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,
-                          direction, pc.shape.z);
+                          direction, RAY_LENGTH);
     while (rayQueryProceedEXT(query)) {
     }
     return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 0.0 : 1.0;
 #endif
 }
+
+#ifdef ALPHA_TESTED
+// (added by the light energy audit - docs/design/vulkan.md "Each light counted once") The relit world's light at the
+// pixel: a ray from the camera through it against the world (its cut-outs by their alpha) ends where the depth does on
+// a mesh with a light stream. Its colour was written with the sun's visibility traced per vertex (`seen`); the pass then
+// puts the pixel's own visibility in its place - not on top of it.
+bool world_light_here(vec3 to_camera, float distance, out WorldLight w)
+{
+    w = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0);
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, 0x05u, pc.camera.xyz, 0.0,
+                          -to_camera / max(distance, 1e-6), distance * 1.02 + 2.0);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
+            cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                        rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
+                        rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
+                        rayQueryGetIntersectionBarycentricsEXT(query, false))) {
+            rayQueryConfirmIntersectionEXT(query);
+        }
+    }
+    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT ||
+        rayQueryGetIntersectionTEXT(query, true) < distance - (2.0 + 0.02 * distance)) {
+        return false;
+    }
+    return hit_world_light(rayQueryGetIntersectionInstanceIdEXT(query, true),
+                           rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                           rayQueryGetIntersectionBarycentricsEXT(query, true), w);
+}
+#endif
 
 // (added for the skater's shadow) Whether the pixel shows an object - a ray from the camera through it against the
 // objects alone ends where the depth does.
@@ -182,7 +214,7 @@ void main()
     ivec2 p = ivec2(gl_FragCoord.xy);
     float d = depth_at(p);
     if (d >= 1.0) {
-        o_factor = vec4(1.0); // (the sky, or nothing drawn)
+        o_factor = vec4(vec3(0.5), 1.0); // (the sky, or nothing drawn: the blend doubles it)
         return;
     }
     vec3 here = world_at(p, d);
@@ -240,6 +272,22 @@ void main()
             cast_by_objects = objects_sum / float(rays);
         }
     }
+#ifdef ALPHA_TESTED
+    // (added by the light energy audit) A relit world pixel: its light's parts are known (the light stream), so the sun's
+    // visibility it was drawn with is replaced by the pixel's own - the bake's sun the rays missed kept (`missed`),
+    // the objects' shadows on it taking the direct light they block, the level's lamps and the sky untouched. No sky
+    // test and no agreement: relit's residual and missed sun already hold where the bake lit what the rays shade.
+    WorldLight w;
+    if (!object_pixel && world_light_here(to_camera, distance, w)) {
+        float visible = clamp(1.0 - occlusion + w.missed, 0.0, 1.0) * (1.0 - cast_by_objects);
+        float seen = mix(w.seen, visible, clamp(pc.shape.z, 0.0, 1.0));
+        vec3 before = world_light_with(w, w.seen, w.sky);
+        vec3 after = world_light_with(w, seen, w.sky);
+        vec3 factor = mix(vec3(1.0), after / max(before, vec3(1e-4)), greaterThan(before, vec3(1e-4)));
+        o_factor = vec4(clamp(factor * 0.5, 0.0, 1.0), 1.0); // (the blend doubles it: up to twice brighter)
+        return;
+    }
+#endif
     // The sky test: a point under a roof (none of the rays up - straight up, and slanted round it - reaches the sky)
     // is lit by the level's own lamps, which the original baked in: no sun shadow there. Each ray seeing the sky lets
     // in a share of the shadow, all of it from half the rays on.
@@ -259,7 +307,7 @@ void main()
         occlusion *= agreement_at(here);
     }
     occlusion = max(occlusion, cast_by_objects);
-    o_factor = vec4(vec3(1.0 - pc.to_light.w * occlusion), 1.0);
+    o_factor = vec4(vec3(0.5 * (1.0 - pc.to_light.w * occlusion)), 1.0); // (the blend doubles it)
 }
 )";
 
@@ -575,8 +623,10 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     // colour x the factor: (dst x src) + (dst x 0); alpha kept
     VkPipelineColorBlendAttachmentState blend{};
     blend.blendEnable = VK_TRUE;
+    // (the light energy audit) colour x 2 x the output: a relit world pixel's own visibility may lighten what its vertices'
+    // shade darkened (the shader writes half the factor)
     blend.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
-    blend.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    blend.dstColorBlendFactor = VK_BLEND_FACTOR_SRC_COLOR;
     blend.colorBlendOp = VK_BLEND_OP_ADD;
     blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -935,7 +985,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         day.on ? own.settings.softness * day.light_radius / rt::kSunRadiusDegrees : own.settings.softness;
     constants.shape = {
         static_cast<float>(std::tan(static_cast<double>(softness) * kDegreesToRadians)),
-        static_cast<float>(soft ? own.settings.rays : 1U), kRayLength,
+        static_cast<float>(soft ? own.settings.rays : 1U), own.settings.strength,
         static_cast<float>(own.settings.covered ? 0U : own.settings.sky_rays)};
     const uint32_t mask = kMaskWorld | (own.settings.objects ? kMaskObjects : 0U) | (alpha ? kMaskAlphaTested : 0U);
     constants.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),

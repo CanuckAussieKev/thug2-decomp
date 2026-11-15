@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "engine/gfx/paint_trails.h"
+
 // NOT ORIGINAL - what the engine's graphics ask of the game above them, without knowing the game's classes: the skate
 // module's career level and players, the game mode, the front end's pause and the park editor's shell (the screen's
 // aspect and the time of day's lights). The game installs them once (render::install_game_hooks,
@@ -36,6 +38,11 @@ struct GameHooks {
     // manager, not the moving objects'; climbing nodes left out): each segment's two ends, world x y z - a node with
     // no next its own point twice. Nothing without a skate module.
     void (*level_rails)(std::vector<std::array<float, kRailSegmentFloats>>* segments);
+    // (added by the paint trails - engine/gfx/paint_trails.h) Each skater this step, read only: where its board is, the
+    // surface under it (ground, rail, wall - none in the air, walking, bailing, driving), its combo's running score,
+    // and the points of a combo a remote player landed (its total's rise, as the game was sent it). None outside the
+    // modes that paint (free skate, one or two players; the online lobby's free skate).
+    void (*paint_brushes)(std::vector<paint::Brush>* brushes);
 };
 
 void set_game_hooks(const GameHooks& hooks);

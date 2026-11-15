@@ -85,6 +85,7 @@ struct GeometryRecord {
     uint flags;
     uint instance_flags;
     uint normal_offset;
+    uvec2 light_address;
 };
 layout(set = THUG2_GEOMETRY_SET, binding = THUG2_GEOMETRY_BINDING, scalar) readonly buffer GeometryRecords {
     GeometryRecord geometry_records[];
@@ -95,10 +96,11 @@ const uint GEOMETRY_INDEX32 = 2u;
 const uint GEOMETRY_UV = 4u;
 const uint GEOMETRY_COLOUR = 8u;
 const uint GEOMETRY_NORMAL = 16u;
+const uint GEOMETRY_LIGHT = 32u;
 GeometryRecord geometry_record(uint instance)
 {
     if (instance >= uint(geometry_records.length())) {
-        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u));
     }
     return geometry_records[instance];
 }
@@ -193,6 +195,55 @@ vec4 hit_colour(HitVertices v, vec2 barycentrics)
 {
     return v.colour[0] * (1.0 - barycentrics.x - barycentrics.y) + v.colour[1] * barycentrics.x +
            v.colour[2] * barycentrics.y;
+}
+// (added by the light energy audit) The relit world's light stream (engine/gfx/rt_cel.h: five A8R8G8B8 words a vertex,
+// light x 128 in rgb) blended at a hit.
+struct WorldLight {
+    vec3 ambient;   // the sky's and the bounce's light
+    float n_dot_l;
+    vec3 tint;      // x the level's scale
+    float seen;     // the sun's visibility the colour was written with
+    vec3 residual;  // the level's own lights
+    vec3 sun;       // the direct light's colour and strength
+    float missed;   // the part of `seen` the rays didn't see (the bake's sun)
+    vec3 sky;       // the sky's part of `ambient`
+    float sky_share; // the vertex's K
+};
+const float LIGHT_PER_UNORM = 255.0 / 128.0;
+bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out WorldLight w)
+{
+    GeometryRecord g = geometry_record(instance);
+    w = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0);
+    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_LIGHT) == 0u) {
+        return false;
+    }
+    float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
+    for (uint k = 0u; k < 3u; ++k) {
+        uint at = geometry_corner(g, primitive, k) * 20u;
+        vec4 w0 = unpackUnorm4x8(geometry_word(g.light_address, at)).zyxw; // (B, G, R, A in memory)
+        vec4 w1 = unpackUnorm4x8(geometry_word(g.light_address, at + 4u)).zyxw;
+        vec4 w2 = unpackUnorm4x8(geometry_word(g.light_address, at + 8u)).zyxw;
+        vec4 w3 = unpackUnorm4x8(geometry_word(g.light_address, at + 12u)).zyxw;
+        vec4 w4 = unpackUnorm4x8(geometry_word(g.light_address, at + 16u)).zyxw;
+        if (w2.a < 0.5) {
+            return false; // (a vertex the game animates: its colour isn't relit's)
+        }
+        float s = weights[k];
+        w.ambient += w0.rgb * (s * LIGHT_PER_UNORM);
+        w.n_dot_l += w0.a * s;
+        w.tint += w1.rgb * (s * LIGHT_PER_UNORM);
+        w.seen += w1.a * s;
+        w.residual += w2.rgb * (s * LIGHT_PER_UNORM);
+        w.sun += w3.rgb * (s * LIGHT_PER_UNORM);
+        w.missed += w3.a * s;
+        w.sky += w4.rgb * (s * LIGHT_PER_UNORM);
+        w.sky_share += w4.a * s;
+    }
+    return true;
+}
+vec3 world_light_with(WorldLight w, float seen, vec3 sky)
+{
+    return w.tint * (max(w.ambient - w.sky, vec3(0.0)) + sky + w.sun * (w.n_dot_l * seen)) + w.residual;
 }
 )";
 
@@ -358,6 +409,7 @@ public:
     uint64_t probe_later(std::span<const rt::ProbeRequest> rays) override;
     bool probe_ready(uint64_t ticket, std::vector<rt::ProbeResult>* results) override;
     void probe_forget(uint64_t ticket) override;
+    void set_light_stream(rt::MeshId mesh, GpuVertexBuffer* stream) override;
 };
 
 // (added for the relit mode's moving light) Rays recorded into a frame's work (probe_later), answered once the device
@@ -378,6 +430,7 @@ struct Scene {
     std::unordered_map<rt::MeshId, Mesh> meshes;
     std::unordered_map<rt::MaterialId, float> alpha_refs; // each material's alpha reference (0..1), from set_material
     std::unordered_set<rt::MaterialId> reflective;        // (R5's reflections) the materials with a reflectivity
+    std::unordered_map<rt::MeshId, GpuVertexBuffer*> light_streams; // (the light energy audit) set_light_stream's
     std::array<FrameScene, Frames::kSlots> frames{};
     uint32_t current = 0; // the slot of the last TLAS built
     bool any_built = false;
@@ -1282,6 +1335,17 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
         row.flags |= geometry.indices_32bit ? kGeometryIndex32 : 0U;
     }
     row.instance_flags = given.flags;
+    // (added by the light energy audit) the relit world's light stream, read by the passes that light a pixel again
+    const auto stream = made.light_streams.find(given.mesh);
+    if (stream != made.light_streams.end()) {
+        Buffer* const light = live_buffer(state, object(stream->second));
+        if (light != nullptr) {
+            BufferVersion& light_version = current_version(light);
+            light_version.last_use = std::max(light_version.last_use, serial);
+            row.light_address = address_words(address_of(made.device, light_version.memory.buffer));
+            row.flags |= kGeometryLight;
+        }
+    }
     return row;
 }
 
@@ -1604,6 +1668,22 @@ void VulkanRayTracing::remove_mesh(rt::MeshId mesh)
     }
     forget_mesh(state, made, &found->second);
     made.meshes.erase(found);
+    made.light_streams.erase(mesh);
+}
+
+void VulkanRayTracing::set_light_stream(rt::MeshId mesh, GpuVertexBuffer* stream)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    Scene& made = scene();
+    if (!made.installed || mesh == 0) {
+        return;
+    }
+    if (stream == nullptr) {
+        made.light_streams.erase(mesh);
+    } else {
+        made.light_streams[mesh] = stream;
+    }
 }
 
 void VulkanRayTracing::mesh_changed(rt::MeshId mesh)
@@ -2089,6 +2169,7 @@ void release_ray_tracing(Backend& state)
         forget_mesh(state, made, &mesh);
     }
     made.meshes.clear();
+    made.light_streams.clear();
     made.alpha_refs.clear();
     made.reflective.clear();
     for (FrameScene& frame : made.frames) {

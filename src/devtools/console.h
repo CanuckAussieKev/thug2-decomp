@@ -22,6 +22,7 @@ class Extension;
 //                   rt_sun_source for this run
 //   rt tod [<tod> | cycle <on | off>]  the time of day for this run (rt_daylight.h; [Graphics] tod's words or HH:MM),
 //                   the clock running or not; alone: the clock's state (day_clock.h)
+//   paint [clear]   the paint trails (engine/gfx/paint_trails.h): this session's strokes and drops; clear wipes the paint
 //   help            the commands
 namespace devtools::console {
 
