@@ -666,6 +666,57 @@ void detail_declarations(std::string& out, const FragmentKey& key)
     }
 }
 
+// --- (NOT ORIGINAL - [Graphics] snow) the snow's cover ------------------------------------------------------------------
+// (vulkan_snow.h; docs/design/vulkan.md "Snow") A key with FragmentKey::snow works out snow_amount at the start (its
+// derivatives in uniform control flow) and blends the snow's colour into the surface's before its light:
+//   - the surface's world position from the eye-space one (v_surface_eye); its own normal from the position's screen
+//     derivatives, turned toward the eye; its up share n.y, moved by a value noise over the ground (snow.albedo.w) so
+//     the edge where a slope loses its snow isn't a straight line;
+//   - open to the sky: the sky map's four cells round the point (textureGather of the tops' heights) - each whose top is
+//     at most snow.range.z over the point, or which has no face (0), counts; a quarter each, so a roof's edge is soft;
+//   - snow_amount = smoothstep(least up, full up, the up share) x the open share x snow.range.w;
+//   - the programs' albedo: stage 0's texel (the fixed programs), or the material's passes' sum (kMaterial) before the
+//     vertex colour multiplies it - mixed toward snow.albedo.rgb by snow_amount.
+constexpr const char* kSnowBlock = R"(layout(set = 0, binding = 17, std140) uniform SnowUniforms {
+    mat4 eye_to_world;
+    vec4 map;
+    vec4 range;
+    vec4 size;
+    vec4 albedo;
+} snow;
+layout(set = 0, binding = 18) uniform sampler2D snow_sky;
+float snow_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float snow_noise(vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(snow_hash(i), snow_hash(i + vec2(1.0, 0.0)), f.x), mix(snow_hash(i + vec2(0.0, 1.0)),
+               snow_hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float snow_cover(vec3 world, vec3 n)
+{
+    vec2 uv = (world.xz - snow.map.xy) * snow.map.z / max(snow.size.xy, vec2(1.0));
+    vec4 tops = textureGather(snow_sky, uv, 0);
+    float open = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        float t = tops[i] * 65535.0;
+        float top = snow.range.x + max(t - 1.0, 0.0) / 65534.0 * snow.range.y;
+        open += (t < 0.5 || world.y + snow.range.z >= top) ? 0.25 : 0.0;
+    }
+    float edge = (snow_noise(world.xz * 0.027) - 0.5) * snow.albedo.w;
+    return smoothstep(snow.size.z, snow.size.w, n.y + edge) * open * snow.range.w;
+})";
+constexpr const char* kSnowMain = R"(    float snow_amount = 0.0;
+    {
+        vec3 sw = (snow.eye_to_world * vec4(v_surface_eye, 1.0)).xyz;
+        vec3 sn = cross(dFdx(sw), dFdy(sw));
+        float sl = length(sn);
+        sn = sl > 1.0e-12 ? sn / sl : vec3(0.0, 1.0, 0.0);
+        if (dot(sn, snow.eye_to_world[3].xyz - sw) < 0.0) sn = -sn;
+        snow_amount = snow_cover(sw, sn);
+    })";
+
 // (added by surface relief) relief_uv / relief_dx / relief_dy (stage 0's coordinates moved, their derivatives) and
 // relief_shadow (the sun's share the relief lets through) - kDetailReliefBlock's comment has the formulas.
 void relief_march(std::string& out, const FragmentKey& key)
@@ -901,6 +952,13 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     if (key.water != 0U) {
         add(out, {water_declarations_glsl(key.water == kWaterMoving)}); // (NOT ORIGINAL - rt_water, water_shader.h)
     }
+    if (key.snow != 0U) { // (NOT ORIGINAL - [Graphics] snow: its inputs alone without the surface's)
+        static_assert(kSnowUniformsBinding == 17 && kSnowSkyBinding == 18, "kSnowBlock names them");
+        if (key.surface == 0 && key.water == 0U) {
+            add(out, {kSurfaceVaryingsIn});
+        }
+        add(out, {kSnowBlock});
+    }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
     if (key.motion != 0U) {
         add(out, {"layout(location = ", num(kMotionNowVarying), ") in vec4 v_motion_now;"});
@@ -1037,6 +1095,9 @@ void fragment_stages(std::string& out, const FragmentKey& key, uint32_t sampled)
         add(out, {"    {"});
         if (has_stage(sampled, stage)) {
             add(out, {"        vec4 tex = texture(t", num(stage), "_map, ", coord_of(key, stage), ");"});
+            if (stage == 0 && key.snow != 0U) { // (NOT ORIGINAL - [Graphics] snow: stage 0's texel covered)
+                add(out, {"        tex.rgb = mix(tex.rgb, snow.albedo.rgb, snow_amount);"});
+            }
         }
         const OpArgs colour = {.a0 = arg_value(ops.colour_arg0, false),
                                .a1 = arg_value(ops.colour_arg1, false),
@@ -1108,6 +1169,9 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
         }
         if (index == 0 && (key.detail & kDetailMaterial) != 0U) { // (NOT ORIGINAL - rt_detail: the albedo's luminance)
             add(out, {"    t0.rgb *= mix(1.0, detail_m.a * 2.0, clamp(detail_w, 0.0, 1.0));"});
+        }
+        if (index == 0 && key.snow != 0U && key.program != PixelProgram::kMaterial) { // (NOT ORIGINAL - snow's cover)
+            add(out, {"    t0.rgb = mix(t0.rgb, snow.albedo.rgb, snow_amount);"});
         }
     }
 }
@@ -1231,11 +1295,17 @@ void ps_material(std::string& out, const FragmentKey& key)
     for (uint32_t pass = 1; pass < key.material_passes; ++pass) {
         ps_material_pass(out, key, pass);
     }
+    if (key.snow != 0U) { // (NOT ORIGINAL - [Graphics] snow: the passes' albedo covered before the light)
+        add(out, {"    r0.rgb = mix(r0.rgb, snow.albedo.rgb, snow_amount);"});
+    }
     add(out, {"    r0.rgb = 2.0 * (r0.rgb * v0.rgb);"}); // mul_x2 r0.rgb, r0, v0
 }
 
 void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled)
 {
+    if (key.snow != 0U) {
+        add(out, {kSnowMain}); // (NOT ORIGINAL - [Graphics] snow: before any branch on a pixel's values)
+    }
     if (key.program == PixelProgram::kStages) {
         fragment_stages(out, key, sampled);
         return;

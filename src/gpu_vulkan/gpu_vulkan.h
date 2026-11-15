@@ -466,6 +466,17 @@ struct GrassSettings {
 };
 void set_grass_settings(const GrassSettings& settings);
 [[nodiscard]] GrassSettings grass_settings();
+// NOT ORIGINAL - snow (vulkan_snow.h; docs/design/vulkan.md "Snow"): [Graphics] snow, snow_depth, snow_trail_quality,
+// snowfall - all put to use at once. A layer of snow over every outdoor level's open ground that the skaters, peds and
+// vehicles part, its spray, snow falling. `on` false (the default): nothing is gathered or drawn. No ray tracing needed.
+struct SnowSettings {
+    bool on = false;
+    float depth = 4.0F; // world units (inches) of snow: 1 - 8
+    int quality = 2;    // the trails' detail: 1 - 3
+    bool falling = true;
+};
+void set_snow_settings(const SnowSettings& settings);
+[[nodiscard]] SnowSettings snow_settings();
 // NOT ORIGINAL - decals and clutter (vulkan_scatter.h; docs/design/vulkan.md "Decals and clutter"): [Graphics] rt_decals,
 // rt_decals_density, clutter, clutter_density - all put to use at once. Marks (cracks, stains, oil, tyre marks, gum, wet
 // patches, grime) and small props (leaves, litter, weeds, pebbles) over the level's surfaces, read from its collision and

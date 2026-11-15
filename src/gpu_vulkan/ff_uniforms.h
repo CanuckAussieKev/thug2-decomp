@@ -42,6 +42,10 @@ constexpr uint32_t kWaterWavesBinding = 14;   // the ripples' tiling texture (sl
 // FragmentKey::detail (pushed only for their draws; after the water's)
 constexpr uint32_t kDetailUniformsBinding = 15; // DetailUniforms
 constexpr uint32_t kDetailMapBinding = 16;      // the surface kind's tiling detail texture (kDetailMaterial)
+// (NOT ORIGINAL - [Graphics] snow, vulkan_snow.h) the snow's cover: read only by keys with FragmentKey::snow (pushed only
+// for their draws; after the detail layer's)
+constexpr uint32_t kSnowUniformsBinding = 17; // SnowUniforms
+constexpr uint32_t kSnowSkyBinding = 18;      // the level's sky map (RG16: the top's height, its cover - engine/gfx/snow.h)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.
@@ -167,6 +171,15 @@ struct DetailUniforms {
     Float4 character{};
 };
 
+// (NOT ORIGINAL - [Graphics] snow) Binding 17, the snow's cover (fragment shader): one per view, vulkan_snow.cpp fills it.
+struct SnowUniforms {
+    Float4x4 eye_to_world{}; // the view's inverse: camera space -> the world
+    Float4 map{};    // x, z: the sky map's first cell's corner (world); z: 1 / a cell's size; w: a cell's size
+    Float4 range{};  // x: the heights' low; y: their span; z: the open slack (units); w: the cover's amount (0 - 1)
+    Float4 size{};   // x, y: the map's columns and rows; z, w: the up share (normal y) where snow starts and is full
+    Float4 albedo{}; // rgb: the snow's colour (before its light); w: how far the edge's noise moves the slope's rule
+};
+
 constexpr std::size_t kMatrixBytes = 64;
 constexpr std::size_t kVectorBytes = 16;
 static_assert(offsetof(VertexUniforms, texture_matrix) == 3 * kMatrixBytes, "std140: matrices are 64 bytes");
@@ -187,5 +200,6 @@ static_assert(sizeof(CelUniforms) == kCelVectors * kVectorBytes, "std140: no pad
 constexpr std::size_t kWaterVectors = 10;
 static_assert(sizeof(WaterUniforms) == (3 * kMatrixBytes) + (kWaterVectors * kVectorBytes), "std140: no padding");
 static_assert(sizeof(DetailUniforms) == 5 * kVectorBytes, "std140: no padding");
+static_assert(sizeof(SnowUniforms) == kMatrixBytes + (4 * kVectorBytes), "std140: no padding");
 
 } // namespace render::vulkan

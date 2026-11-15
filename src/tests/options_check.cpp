@@ -656,7 +656,8 @@ void check_capabilities()
     for (size_t i = 0; i < all.size(); ++i) {
         const config::Setting& setting = core::at(all, i);
         for (const config::Need& need : setting.needs) {
-            if (need.cond.op != config::Cond::Op::kHas || need.cond.cap == config::Cap::kLevelWithoutFog) {
+            if (need.cond.op != config::Cond::Op::kHas || need.cond.cap == config::Cap::kLevelWithoutFog ||
+                need.cond.cap == config::Cap::kLevelOutdoor) { // (the level's facts: own cases below)
                 continue;
             }
             ++taken;
@@ -675,6 +676,20 @@ void check_capabilities()
            "a level with fog of its own: no haze");
     expect(!fog.at("rt_fog_haze_density").in_effect, "a level with fog of its own: the haze's air out of effect");
     expect(fog.on("rt_fog"), "a level with fog of its own: the volumetric fog still on");
+    // (added by the snow) snow on outdoor levels only - the level's fact; its three knobs with it; Vulkan, no ray tracing
+    const Ini snowy = {{"snow", "1"}, {"snow_depth", "6"}, {"snow_trail_quality", "3"}, {"snowfall", "1"}};
+    const config::Resolution outside = resolve(no_rt_gpu(), snowy);
+    expect(outside.on("snow") && outside.on("snowfall") && outside.value("snow_depth") == "6" &&
+               outside.value("snow_trail_quality") == "3",
+           "snow on an outdoor level without a ray tracing GPU");
+    config::Inputs indoor_inputs = inputs_of(rtx50(), snowy);
+    indoor_inputs.level.outdoor = false;
+    const config::Resolution indoor = config::resolve(indoor_inputs);
+    expect(!indoor.on("snow") && indoor.at("snow").reason == t::kLevelIndoors, "an indoor level: no snow, and why");
+    expect(!indoor.at("snow_depth").in_effect && !indoor.at("snowfall").in_effect, "an indoor level: snow's knobs out");
+    expect(!resolve(no_vulkan(), snowy).on("snow") && resolve(no_vulkan(), snowy).at("snow").reason == t::kNoVulkanGpu,
+           "no Vulkan: no snow, at the root");
+    expect(!resolve(rtx50(), {}).on("snow"), "snow off by default");
     // (added by the de-lit texture sets) rt_delight out while a set made de-lit is chosen, in effect with the original
     // and with a set made without it
     config::Capabilities delit = rtx50();

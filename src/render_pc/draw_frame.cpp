@@ -52,6 +52,7 @@
 #include "render_pc/scene_render.h"
 #include "render_pc/rt_record.h"
 #include "render_pc/grass_world.h"
+#include "render_pc/snow_world.h"
 #include "render_pc/scatter_world.h"
 #include "platform/frame_profile.h"
 #include "engine/gfx/screen.h"
@@ -1440,6 +1441,8 @@ void draw_world()
 //   lens, the blend of [Graphics] max_fps, a split view's part, the upscaler's jitter (the projection only).
 void step_frame()
 {
+    // (snow - snow_world.h: the world's sky map and what presses into the snow, read on every step; nothing with snow off)
+    snow_world::step();
     const int count = modules::viewport_count();
     for (int i = 0; i < count; ++i) {
         if (fetch_current_view(i)->viewer().get_pull()) {

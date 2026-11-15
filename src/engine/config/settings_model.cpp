@@ -545,6 +545,23 @@ std::vector<Decl> declarations()
             .pick({c("30", "30 m"), c("50", "50 m"), c("80", "80 m"), c("120", "120 m")})
             .need(on("grass"))
             .live(E::kGrass),
+        // (snow: a layer over every outdoor level's open ground, its trails, its spray, snow falling - vulkan_snow.h)
+        gfx("snow", K::kSwitch, "0")
+            .tab(G::kSurfaces, t::kOptSnow, t::kOptSnowHelp)
+            .need(vulkan(), t::kNeedsVulkan)
+            .need(has(Cap::kLevelOutdoor))
+            .live(E::kSnow),
+        gfx("snow_depth", K::kNumber, "4")
+            .tab(G::kSurfaces, t::kOptSnowDepth)
+            .pick({c("2", "Dusting"), c("4", t::kMedium), c("6", "Deep"), c("8", "Powder day")})
+            .need(on("snow"))
+            .live(E::kSnow),
+        gfx("snow_trail_quality", K::kNumber, "2")
+            .tab(G::kSurfaces, t::kOptSnowTrails)
+            .pick({c("1", t::kLow), c("2", t::kMedium), c("3", t::kHigh)})
+            .need(on("snow"))
+            .live(E::kSnow),
+        gfx("snowfall", K::kSwitch, "1").tab(G::kSurfaces, t::kOptSnowfall).need(on("snow")).live(E::kSnow),
         gfx("rt_decals", K::kSwitch, "0").tab(G::kSurfaces, t::kOptDecals, t::kOptDecalsHelp).need(vulkan(), t::kNeedsVulkan).live(E::kScatter),
         gfx("rt_decals_density", K::kNumber, "1")
             .tab(G::kSurfaces, t::kOptDecalsDensity)

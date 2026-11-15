@@ -31,6 +31,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/gfx/snow.h"
 #include "render_pc/mesh_pass.h"
 #include "render_pc/rt_relit_world.h"
 
@@ -243,6 +244,17 @@ Singleton::~Singleton()
 // 0x004D1130
 void Singleton::render(uint32_t draw_bits)
 {
+    // NOT ORIGINAL - snow (engine/gfx/snow.h): a character's meshes (a skeleton's instance, drawn skinned or a mesh a bone)
+    // keep their own colours - the snow's cover is the world's and the scene objects'; cleared on every way out
+    struct Character {
+        Character(const Character&) = delete;
+        Character& operator=(const Character&) = delete;
+        Character(Character&&) = delete;
+        Character& operator=(Character&&) = delete;
+        explicit Character(bool on) { snow::set_current_character(on); }
+        ~Character() { snow::set_current_character(false); }
+    };
+    const Character character(bones_ != nullptr && bone_count_ >= snow::kSkeletonBones);
     if (skinned_by_shader(this)) {
         set_world_transform(transform_.data());
         if (last_bones() != bones_) {
