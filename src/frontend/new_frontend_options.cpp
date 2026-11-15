@@ -258,8 +258,8 @@ const std::vector<ShownWhen>& shown_table()
         {.key = "rt_ao_characters", .parent = "rt_ao", .values = {"1"}}, // (added for the characters)
         {.key = "rt_gi_strength", .parent = "rt_gi", .values = {"1"}},
         {.key = "rt_gi_rays", .parent = "rt_gi", .values = {"1"}},
-        {.key = "rt_lights_strength", .parent = "rt_lights", .values = {"1"}},
-        {.key = "rt_lights_shadowed", .parent = "rt_lights", .values = {"1"}},
+        {.key = "rt_lights_strength", .parent = "rt_lights", .values = {"1", "auto"}},
+        {.key = "rt_lights_shadowed", .parent = "rt_lights", .values = {"1", "auto"}},
         {.key = "rt_pbr_specular", .parent = "rt_pbr", .values = {"1"}},
         {.key = "rt_pbr_normal_strength", .parent = "rt_pbr", .values = {"1"}},
         {.key = "rt_relief_strength", .parent = "rt_relief", .values = {"1"}},
@@ -531,7 +531,10 @@ const std::vector<Spec>& get_specs()
                         {{.value = "1", .label = "1"}, {.value = "2", .label = "2"}, {.value = "4", .label = "4"}, {.value = "8", .label = "8"}},
                         1, Apply::kLive),
         // (NOT ORIGINAL - the night lighting: gpu_vulkan/vulkan_rt_lights.h)
-        graphics_switch("rt_lights", text_tools::kOptLights, text_tools::kOptLightsHelp, 0, Apply::kLive),
+        // (added for the lamps at night: Auto, the default - lit only in the dark, the time of day's night or a dark level)
+        graphics_choice("rt_lights", text_tools::kOptLights, text_tools::kOptLightsHelp,
+                        {{.value = "0", .label = kOff}, {.value = "auto", .label = text_tools::kAuto}, {.value = "1", .label = text_tools::kOn}},
+                        1, Apply::kLive),
         graphics_choice("rt_lights_strength", text_tools::kOptLightsStrength, "",
                         {{.value = "0.35", .label = text_tools::kLow}, {.value = "0.6", .label = text_tools::kMedium}, {.value = "1", .label = text_tools::kHigh}, {.value = "2", .label = "Max"}},
                         2, Apply::kLive),

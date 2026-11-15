@@ -109,6 +109,10 @@ void set_rt_gi_settings(const RtGiSettings& settings);
 inline constexpr float kRtLightsStrength = 1.0F; // (rt_lights_strength's default: each lamp's own brightness - its light falls off as a pool, rt_lights.h light_falloff)
 struct RtLightSettings {
     bool on = false;
+    // (added for the lamps at night) rt_lights=auto (the default): the pass is set up but lights only while it is dark -
+    // the time of day's lamps on (rt_daylight.h DayLight::lamps, dusk to dawn), or without the clock a dark level (its
+    // emitters' median brightness, rt_lights.h dark_level); `on` true with it
+    bool automatic = false;
     float strength = kRtLightsStrength; // how much of the lights' light is added (0 - 8)
     unsigned shadowed = 4;              // the brightest lights at a pixel traced for shadows (1 - 8)
     unsigned max_lights = 64;           // lights a view at most (1 - 256), the most important
@@ -131,7 +135,8 @@ struct RtReflectionSettings {
     float strength = kRtReflectionStrength; // how far a fully reflective surface's colour goes toward what it mirrors (0 - 1)
     // (added for the water and glass) rt_reflection_fresnel: how much a surface reflects depends on the angle it is
     // seen at (Schlick's Fresnel) - water and glass little face-on and a mirror at grazing angles, other shiny surfaces
-    // as before face-on and more at grazing angles; false: the same at every angle (reflectivity x strength, as before).
+    // a clear coat's sheen (the world's own shine since 2026-11-15 too: blurred, F0 0.05 - vulkan_rt_reflections.h);
+    // false: the same at every angle (reflectivity x strength, as before - a mirror).
     bool fresnel = true;
     // rt_glass_roughness: the half-angle of the cone glass reflects into (radians; 0: a perfect mirror) - a few rays
     // a pixel, blurred over its neighbours.

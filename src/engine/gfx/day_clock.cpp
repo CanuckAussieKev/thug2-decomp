@@ -44,7 +44,7 @@ constexpr uint32_t kByteMask = 0xFFU;
 constexpr uint32_t kGreenShift = 8U;
 constexpr uint32_t kBlueShift = 16U;
 // The models' colour (relit) sent again this often (frames) - objects made since get it - and at once when it moves.
-constexpr int kModelsEvery = 30;
+constexpr int kModelsEvery = 1; // (every frame: an object made gets the night's colour before it is first drawn)
 constexpr int kMostByte = 255;
 
 uint32_t rgba(int red, int green, int blue)
@@ -251,13 +251,19 @@ void colour_step(Clock& own, gfx::CtodManager& manager, int system)
         colours.part = 0;
     }
     const int groups = manager.light_groups(system);
-    if (colours.group < groups) {
+    // (a part a frame while the clock runs - tod_cycle -, as the original's own transitions; a time set - a level
+    // loaded, tod changed - all at once, so no frame shows the level's colour arriving group by group)
+    const bool at_once = !rt::tod_settings().cycle;
+    do {
+        if (colours.group >= groups) {
+            break;
+        }
         manager.colour_group_part(system, colours.group, colours.part, colours.sweep_level, colours.sweep_sky);
         if (++colours.part >= manager.group_parts(system, colours.group)) {
             colours.part = 0;
             ++colours.group;
         }
-    }
+    } while (at_once);
     if (colours.group >= groups) {
         colours.sweeping = false;
         colours.sent = true;

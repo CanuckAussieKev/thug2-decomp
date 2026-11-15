@@ -303,8 +303,16 @@ void read_rt_gi() { render::vulkan::set_rt_gi_settings(make_rt_gi()); }
 render::vulkan::RtLightSettings make_rt_lights()
 {
     const render::vulkan::RtLightSettings defaults;
+    // (rt_lights=auto, the default: lit only while it is dark - the time of day's night, or a dark level; 1 always, 0
+    // never)
+    constexpr std::size_t kLongest = 16;
+    std::array<char, kLongest> text{};
+    graphics_text("rt_lights", "auto", text.data(), text.size());
+    const std::string_view value(text.data());
+    const bool automatic = value != "0" && value != "1";
     return render::vulkan::RtLightSettings{
-        .on = graphics_flag("rt_lights", false),
+        .on = value != "0",
+        .automatic = automatic,
         .strength = ini_float("rt_lights_strength", defaults.strength),
         .shadowed = static_cast<unsigned>(
             std::max(1, graphics_int("rt_lights_shadowed", static_cast<int>(defaults.shadowed)))),

@@ -1031,7 +1031,9 @@ shadows and the occlusion):
 
 Night and indoor levels look flat: their lamps, neon and lit windows are bright textures that light nothing (the game
 bakes their light into the vertex colours round them - no shadows, nothing on the skater). `rt_lights=1` makes them
-lights for a ray-traced pass (`gpu_vulkan/vulkan_rt_lights.h`, the light sources in `engine/gfx/rt_lights.h`):
+lights for a ray-traced pass (`gpu_vulkan/vulkan_rt_lights.h`, the light sources in `engine/gfx/rt_lights.h`).
+`rt_lights=auto` (the default since 2026-11-15) sets the pass up but lights only after dark: with the time of day by
+its lamps' amount (dusk to dawn), without it only in a dark level (the emitters' median brightness below); 0 never.
 - **Sources.** The frame record's point lights (the level's light nodes - `engine/gfx/scene_lights.h` - and any a script
   makes), and the level's **emitters**, found once a world by `render_pc/rt_record.cpp` (after the structures settle):
   *glows* - world meshes whose first pass blends additively (modes 1, 2: lamp halos, neon tubes, light cones, light
@@ -1843,6 +1845,12 @@ linear ratio r shows as r ^ (1 / 2.2), so night is dim, not black):
   own time (none at twilight, the moon's at night). **The lamps** (`rt_lights`): their strength x the lamps' amount (off
   by day, on at night). **The bounce light** (`rt_gi`): its sun x the direct light and its colour. **HDR**
   (`rt_hdr`): the exposure's factor x the clock's.
+
+**A time set** (added 2026-11-15): without `tod_cycle` the original's colour sweep is done in one frame and the models
+get their colour every frame (an object made is coloured before it is first drawn); only `tod_cycle` spreads the sweep
+over frames. Still spread: the relit mode's retrace / writes (150k / 120k vertices a frame), and a level's first frame
+is drawn before the clock knows the baked sun - a night load shows its own look for a frame and the night over the
+next few.
 
 **The original's own time of day wins** (`day_clock.h`): the clock does nothing in the front end, in a career level that
 runs its own cycling time of day (`CtodManager::runs_its_day` - career mode, the manager active, `tod_manager_inactive`
