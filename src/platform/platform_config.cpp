@@ -5,6 +5,7 @@
 
 #include <windows.h>
 #include "base/core/checked_index.h"
+#include <string>
 #include <string_view>
 
 #include <cstdio>
@@ -59,6 +60,23 @@ int get_int(const char* section, const char* key, int fallback)
 int fetch_text(const char* section, const char* key, const char* fallback, char* out, size_t size)
 {
     return static_cast<int>(GetPrivateProfileStringA(section, key, fallback, out, static_cast<DWORD>(size), platform_config_state().file_.data()));
+}
+
+std::string file_text()
+{
+    std::string text;
+    std::FILE* file = nullptr;
+    if (fopen_s(&file, platform_config_state().file_.data(), "rb") != 0 || file == nullptr) {
+        return text;
+    }
+    constexpr size_t kChunk = 4096;
+    std::array<char, kChunk> chunk{};
+    size_t read = 0;
+    while ((read = std::fread(chunk.data(), 1, chunk.size(), file)) > 0) {
+        text.append(chunk.data(), read);
+    }
+    std::fclose(file);
+    return text;
 }
 
 } // namespace build_info

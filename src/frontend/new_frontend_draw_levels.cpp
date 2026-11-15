@@ -48,6 +48,8 @@ constexpr float kChoiceCutInset = 6.0F;
 constexpr float kChoicePadX = 14.0F;
 constexpr float kChoicePadY = 8.0F;
 constexpr float kChoiceGap = 6.0F;
+// (a setting that works against another: its note's colour)
+constexpr uint32_t kConflictColour = 0xFFF28C28;
 constexpr float kNoteLineBox = 15.6F; // the note's line: its size times its line height
 constexpr float kNoteGap = 8.0F;
 
@@ -110,6 +112,32 @@ constexpr float kLevelKickerGap = 10.0F;
 constexpr float kWipeSkewSides = 2.0F; // the skew is added on both sides of the window
 constexpr float kWipePhases = 2.0F;    // the band comes in over the first half and goes out over the second
 
+// An option row's value as shown: the choice in use - another setting's, or the one standing in for a choice this
+// machine can't run - else the one chosen.
+std::string row_value(const Menu& menu, int option)
+{
+    const options::RowState& state = menu.option_state(option);
+    const int in_use = state.shown >= 0 ? state.shown : menu.option_choice(option);
+    return core::at(core::at(options::get_specs(), option).choices, in_use).label;
+}
+
+// How an option stands in the settings model, above its help line: what works against it, and why it is greyed or set
+// by another setting. The panel's new bottom.
+float row_notes(Ctx& ctx, const options::RowState& state, float left, float bottom)
+{
+    for (const std::string* line : {&state.conflict, &state.reason}) {
+        if (line->empty()) {
+            continue;
+        }
+        const Style note = mono12(line == &state.conflict ? kConflictColour : Menu::kHouseYellow, false);
+        draw_text(ctx.dl, note, *ctx.f,
+                  {.x = ctx.f->get_x(left), .y = datum(note, *ctx.f, ctx.f->get_y(bottom - kNoteLineBox), kTextLineHeight)},
+                  line->c_str());
+        bottom -= kNoteLineBox + kNoteGap;
+    }
+    return bottom;
+}
+
 } // namespace
 namespace internal {
 
@@ -148,13 +176,16 @@ void options_screen(Ctx& ctx, float window_width, float window_height)
         const float top = list_top + (static_cast<float>(i - first) * row_h);
         const bool action = std::cmp_equal(i, rows.size());
         const char* label = action ? text_tools::kGameOptions : core::at(specs, core::at(rows, i)).label;
+        // (a row the settings model has out of effect is greyed - it can still be set)
+        const bool dim = !action && !menu.option_state(core::at(rows, i)).in_effect;
         // (a short label for the row: the design's 40 px type in a 470 px column)
-        get_row(ctx, rs, top, pad2(i + 1).c_str(), label,
-                {.amount = menu.row_amount(i), .cut = Menu::kHouseYellow, .dim = false});
-        const std::string shown = action ? std::string(text_tools::kGameOptionsValue)
-                                         : core::at(core::at(specs, core::at(rows, i)).choices, menu.option_choice(core::at(rows, i))).label;
+        get_row(ctx, rs, top, pad2(i + 1).c_str(), label, {.amount = menu.row_amount(i), .cut = Menu::kHouseYellow, .dim = dim});
+        const std::string shown = action ? std::string(text_tools::kGameOptionsValue) : row_value(menu, core::at(rows, i));
         const float base = datum(rs.name, *ctx.f, ctx.f->get_y(top), rs.line_height_);
         value.colour = i == menu.option_row() ? Menu::kHouseYellow : kMuted;
+        if (dim) {
+            value.colour = kMuted2;
+        }
         // (the value at the column's right, where the label leaves room for it)
         const float value_x = ctx.f->get_x(kColumnInner) - get_measure(value, *ctx.f, shown.c_str());
         if (ctx.f->get_x(rs.text_x_) + get_measure(rs.name, *ctx.f, label) + ctx.f->current_s(kOptionValueGap) <
@@ -198,9 +229,10 @@ void options_screen(Ctx& ctx, float window_width, float window_height)
         float x = left;
         float const y0 = bottom - hints_height;
         const int chosen = menu.option_choice(option);
+        const options::RowState& state = menu.option_state(option);
         for (size_t i = 0; i < spec.choices.size(); ++i) {
-            if (!options::choice_shown(spec, i)) {
-                continue; // (a texture set that isn't installed)
+            if (i < state.possible.size() && !core::at(state.possible, i)) {
+                continue; // (not possible here - a texture set that isn't installed, 3x without an RTX 50)
             }
             const float w =(get_measure(seg, *ctx.f, core::at(spec.choices, i).label) / ctx.f->scale()) + 28.0F;
             const bool on = ints::as_signed(i) == chosen;
@@ -253,6 +285,7 @@ void options_screen(Ctx& ctx, float window_width, float window_height)
             }
             bottom -= kNoteLineBox + kNoteGap;
         }
+        bottom = row_notes(ctx, state, left, bottom);
         if (spec.help && (*spec.help != '\0')) {
             draw_text(ctx.dl, body, *ctx.f,
                       {.x = ctx.f->get_x(left),

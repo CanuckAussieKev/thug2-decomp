@@ -36,6 +36,9 @@
 #include "frontend/new_frontend_mirror.h"
 #include "frontend/new_frontend_model.h"
 #include "frontend/new_frontend_options.h"
+#include "engine/config/ini_text.h"
+#include "engine/config/settings_model.h"
+#include "engine/config/settings_state.h"
 #include "frontend/new_frontend_text.h"
 #include "engine/ext/extension.h"
 #include "engine/audio/continue_music.h"
@@ -319,12 +322,6 @@ paint::Art art_for(const std::string& image)
 
 // --- the options ---
 
-// The choices the screen offers: every one, but the texture sets only when installed (engine/gfx/texture_sets.h).
-bool choice_offered(const options::Spec& spec, const char* value)
-{
-    return std::strcmp(spec.key, "texture_set") != 0 || render::texture_sets::installed(value);
-}
-
 void load_option_values()
 {
     const std::string text = read_text(ini_path());
@@ -332,7 +329,6 @@ void load_option_values()
     std::vector<int> choices(specs.size());
     const bool first = edit_session().start_values_.empty();
     if (first) {
-        options::set_choice_filter(&choice_offered);
         edit_session().start_values_.resize(specs.size());
         edit_session().restart_pending_.assign(specs.size(), false);
         const std::string problems = options::check_tables();
@@ -354,6 +350,11 @@ void load_option_values()
         core::at(choices, preset) = options::preset_of(text);
     }
     menu_state().set_option_values(std::move(choices));
+    // (each row as the settings model has it with this machine's capabilities: greyed with its reason, set by another,
+    // a conflict - and the choices possible here)
+    config::Inputs inputs = config::current_inputs();
+    inputs.ini = config::ini_values(text);
+    menu_state().set_option_states(options::row_states(config::resolve(inputs)));
 }
 
 // A changed setting put to use: a live one at once (its switch set, or the renderer's effect read again); one read at

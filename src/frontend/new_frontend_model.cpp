@@ -726,24 +726,14 @@ void Menu::set_option_group(int group)
         bundle_ = ((group % count) + count) % count;
     }
     option_row_ = 0;
-    shown_dirty_ = true;
 }
 
-void Menu::set_option_values(std::vector<int> choices)
+void Menu::set_option_values(std::vector<int> choices) { options_ = std::move(choices); }
+
+const options::RowState& Menu::option_state(int option) const
 {
-    // (the row the cursor is on stays on its setting as the list changes)
-    const std::vector<int>& before = option_rows();
-    const bool on_setting = option_row_ >= 0 && std::cmp_less(option_row_, before.size());
-    const int setting = on_setting ? core::at(before, option_row_) : -1;
-    options_ = std::move(choices);
-    shown_dirty_ = true;
-    const std::vector<int>& after = option_rows();
-    if (on_setting) {
-        const auto found = std::ranges::find(after, setting);
-        option_row_ = found != after.end() ? static_cast<int>(found - after.begin()) : static_cast<int>(after.size());
-    } else if (option_row_ >= 0) {
-        option_row_ = static_cast<int>(after.size()); // (the Game options row stays the last)
-    }
+    static const options::RowState kNone;
+    return option >= 0 && std::cmp_less(option, option_states_.size()) ? core::at(option_states_, option) : kNone;
 }
 
 int Menu::get_selected() const
@@ -766,16 +756,7 @@ const std::vector<int>& Menu::option_rows() const
     if (bundle_ < 0 || std::cmp_greater_equal(bundle_, groups.size())) {
         return kNone;
     }
-    if (shown_dirty_) {
-        shown_rows_.clear();
-        for (const int row : core::at(groups, bundle_).rows) {
-            if (options::row_shown(row, options_)) {
-                shown_rows_.push_back(row);
-            }
-        }
-        shown_dirty_ = false;
-    }
-    return shown_rows_;
+    return core::at(groups, bundle_).rows; // (every row: one not in effect is greyed, not hidden)
 }
 
 int Menu::option_choice(int option) const
@@ -992,8 +973,11 @@ ActStep Menu::change_option(int step, bool wrap)
         return {};
     }
     const int current = option_choice(option);
-    // (the next choice offered that way - options::choice_shown: a texture set that isn't installed is passed over)
-    const options::Spec& spec = core::at(options::get_specs(), option);
+    // (the next choice possible here - the settings model's: a texture set that isn't installed is passed over)
+    const options::RowState& state = option_state(option);
+    const auto possible = [&state](int choice) {
+        return std::cmp_greater_equal(choice, state.possible.size()) || core::at(state.possible, choice);
+    };
     int next = current;
     for (int tries = 0; tries < choice_count; ++tries) {
         const int candidate = wrap ? (((next + step) % choice_count) + choice_count) % choice_count
@@ -1002,11 +986,11 @@ ActStep Menu::change_option(int step, bool wrap)
             break; // (at an end)
         }
         next = candidate;
-        if (options::choice_shown(spec, static_cast<size_t>(next))) {
+        if (possible(next)) {
             break;
         }
     }
-    if (next == current || !options::choice_shown(spec, static_cast<size_t>(next))) {
+    if (next == current || !possible(next)) {
         return {};
     }
     if (options_.size() < options::get_specs().size()) {

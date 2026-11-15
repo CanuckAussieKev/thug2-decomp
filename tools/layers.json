@@ -33,6 +33,9 @@
                 "of": ["engine", "game"],
                 "headers": [
                     "src/engine/audio/continue_music.h",
+                    "src/engine/config/ini_text.h",
+                    "src/engine/config/settings_model.h",
+                    "src/engine/config/settings_state.h",
                     "src/engine/ext/extension.h",
                     "src/engine/file/data_overlay.h",
                     "src/engine/file/disk.h",

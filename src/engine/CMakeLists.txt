@@ -152,6 +152,10 @@ add_library(thug2_engine STATIC
     gfx/occlusion.cpp
     gfx/hd_ui.cpp
     gfx/graphics_options.cpp
+    config/settings_model.cpp
+    config/settings_resolve.cpp
+    config/ini_text.cpp
+    config/settings_state.cpp
     pad_input/key_names.cpp
     objects/anim_blender.cpp
     objects/ride_tracker.cpp

@@ -3,6 +3,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 #include <cstddef>
+#include <string>
 
 // The PC settings: thug2-decomp.ini next to the exe ([features] and the others). Window, graphics, input, glyph, online and logging options are read from its
 // sections below at start-up. (Not the game's own registry settings.)
@@ -28,5 +29,8 @@ bool fetch_flag(const char* section, const char* key, bool fallback);
 int get_int(const char* section, const char* key, int fallback);
 // GetPrivateProfileString: the characters copied into `out`.
 int fetch_text(const char* section, const char* key, const char* fallback, char* out, size_t size);
+// NOT ORIGINAL - the settings file's whole text as it is now ("" when there is none): the settings model reads every
+// key from it at once (engine/config/settings_state.h).
+std::string file_text();
 
 } // namespace build_info

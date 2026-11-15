@@ -5,22 +5,20 @@
 #include <string>
 #include <vector>
 
+#include "engine/config/ini_text.h"
+#include "engine/config/settings_model.h"
+
 // NOT ORIGINAL - the new front end's Options screen (ours; see new_frontend.h): the settings of thug2-decomp.ini it
-// offers (docs/design/frontend/Options.dc.html's groups and keys, plus new_frontend and thaw_bmx), and the ini text
-// read and changed in place - pure (no files, no game).
+// offers - the settings model's (engine/config/settings_model.h: every setting with a tab, in its order) - and how each
+// row stands: a setting that isn't in effect is greyed with the model's reason ("Needs Ray tracing"), one another
+// setting sets shows the value in use, one that works against another says so. Pure (no files, no game).
 namespace frontend::new_frontend::options {
 
-// When a change is seen.
-enum class Apply : uint8_t {
-    kLive,     // at once (the feature's switch is set as the ini is written)
-    kRelaunch, // the next time the game starts (read once at start-up)
-    kPreset,   // not a key of its own: a choice sets several others (graphics_preset - preset_values)
-};
-
-struct Choice {
-    const char* value; // as written to the ini ("" written as an empty value: the game's own default)
-    const char* label; // the segmented control's text
-};
+using Apply = config::Apply;
+using Choice = config::Choice;
+using IniKey = config::IniKey;
+using config::ini_get;
+using config::ini_set;
 
 struct Spec {
     const char* section; // the ini section ("features", "Graphics", ...)
@@ -28,86 +26,53 @@ struct Spec {
     const char* label;
     const char* help;
     std::vector<Choice> choices;
-    int fallback; // the choice when the key isn't there (the feature's own default)
+    int fallback; // the choice when the key isn't there (the setting's default)
     Apply apply;
+    int setting; // its index in config::settings()
 };
 
 struct GroupSet {
     const char* id;        // "graphics", ... (automation)
     const char* name;      // "Graphics"
-    std::vector<int> rows; // indices into get_specs() (named by key in the groups' table; resolved once)
+    std::vector<int> rows; // indices into get_specs(), in the model's order
 };
 
-// Every option offered, and the groups they are shown in (Graphics, Lighting, Surfaces, Sky, Colour, Upscaling,
-// Interface, Gameplay, Online, Mods, Sound).
+// Every option offered, and the groups (tabs) they are shown in.
 const std::vector<Spec>& get_specs();
 const std::vector<GroupSet>& bunches();
-// What is wrong with the tables, one line each ("" when nothing): a group's key that is no setting, a setting in no
-// group or in two, a fallback that is no choice, two choices with one value, a preset's key or value that is no
-// setting's choice. (bunches() asserts it is empty; the options check prints it.)
+// What is wrong with the model or the screen's tables, one line each ("" when nothing): config::check_model()'s lines,
+// a tab with no rows, a preset's key that isn't offered. (bunches() asserts it is empty; the options check prints it.)
 std::string check_tables();
-// --- rows shown only while another setting is set a certain way (a toon knob under Art style: Toon) ---
-
-// `key` is listed only while `parent` (another setting's key, an earlier row of the same group) has one of `values`
-// (as written to the ini). The hidden row's own value is kept - and still written by a graphics preset.
-struct ShownWhen {
-    const char* key;
-    const char* parent;
-    std::vector<const char*> values;
-};
-const std::vector<ShownWhen>& shown_rules();
-// Whether the row `option` is listed, given every setting's chosen index (`choices`, one per get_specs() entry - a
-// missing or short list reads the fallbacks). A setting with no rule is always listed.
-bool row_shown(int option, const std::vector<int>& choices);
-// What is wrong with the rules, one line each: a key or parent that is no setting, a value that is no choice of the
-// parent, a parent that isn't an earlier row of the child's group, a parent that is itself hidden by a rule.
-// (check_tables includes it.)
-std::string check_shown_rules();
 
 // The option `section`/`key` (any case): its index, -1 if none.
 int get_find(const std::string& section, const std::string& key);
 
 // The choice an ini value is (numbers compared as numbers: "1.50" is "1.5"); `present` false: the key isn't in the
-// file - the fallback. A value matching no choice: the fallback too (the screen shows what the game uses for it ...
-// as near as the choices go).
+// file - the fallback. A value matching no choice: the fallback too (the screen shows what the game uses for it ... as
+// near as the choices go).
 int choice_of(const Spec& spec, const std::string& value, bool present);
 
-// --- choices the game can't offer now (a texture set that isn't installed) ---
+// --- each row as the settings model resolves it ---
 
-// Whether a setting's choice is offered: the filter the game installs (new_frontend.cpp - the texture sets installed);
-// without one every choice is (as the options check sees them).
-using ChoiceFilter = bool (*)(const Spec& spec, const char* value);
-void set_choice_filter(ChoiceFilter filter);
-[[nodiscard]] bool choice_shown(const Spec& spec, size_t choice);
+struct RowState {
+    bool in_effect = true; // greyed when not
+    bool forced = false;   // another setting sets its value (`shown` is the one in use)
+    std::string reason;    // why it is greyed, forced or not what was asked ("" none)
+    std::string conflict;  // what works against it ("" none)
+    int shown = -1;        // the choice in use when it isn't the one asked (forced, or not possible here); -1: as asked
+    std::vector<bool> possible; // one per choice: offered here (a texture set installed, 3x on an RTX 50)
+};
+// One per get_specs() entry.
+std::vector<RowState> row_states(const config::Resolution& resolution);
 
 // --- the graphics preset (the Graphics group's first row: Custom, Original, High, Ultra) ---
 
-struct PresetValue {
-    const char* key; // a [Graphics] key
-    const char* value;
-};
+using PresetValue = config::PresetValue;
 // The preset setting's index in get_specs().
 int preset_option();
 // What choosing the preset's `choice` writes ([Graphics] keys and values; none for Custom).
 const std::vector<PresetValue>& preset_values(int choice);
 // The preset the ini text's [Graphics] keys are (Custom, 0, when they are no preset's).
 int preset_of(const std::string& text);
-
-// --- ini text (the file as GetPrivateProfileString reads it: [section] lines, key=value lines, ';' / '#' comment
-// lines; names in any case, spaces around them ignored) ---
-
-// A setting's place in an ini file: its [section] and its key.
-struct IniKey {
-    std::string section;
-    std::string key;
-};
-
-// The value of `at`'s key in its section (the first such line of the first such section, as Windows reads it). False if
-// there is none.
-bool ini_get(const std::string& text, const IniKey& at, std::string* value);
-// The text with `at`'s key = `value` in its section: the first such line's value replaced (its spacing before the '=' kept), or
-// a line added after the section's last line that isn't blank (a missing section added at the end) - every other
-// line, comment and unknown key as it was, the file's line ending kept (\r\n unless it only uses \n).
-std::string ini_set(const std::string& text, const IniKey& at, const std::string& value);
 
 } // namespace frontend::new_frontend::options

@@ -106,12 +106,18 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_fisheye_check PRIVATE thug2_base)
 endif()
 
-# NOT ORIGINAL - thug2_options_check.exe: the new front end's Options screen's tables - every setting in one group (named
-# by key), its default among its choices, each choice written to an ini text and read back, the graphics presets
-# (src/tests/options_check.cpp; frontend/new_frontend_options.cpp is pure: no game).
+# NOT ORIGINAL - thug2_options_check.exe: the settings model (engine/config/settings_model.h) and the Options screen
+# over it - the model's checks, README's settings tables against it, every rule (needs, capabilities, choices, forces,
+# conflicts) on several machines, each choice written to an ini text and read back, the graphics presets
+# (src/tests/options_check.cpp; the model, its resolver and frontend/new_frontend_options.cpp are pure: no game).
 if(TARGET thug2_base)
-    add_executable(thug2_options_check options_check.cpp "${PROJECT_SOURCE_DIR}/src/frontend/new_frontend_options.cpp")
+    add_executable(thug2_options_check options_check.cpp
+        "${PROJECT_SOURCE_DIR}/src/frontend/new_frontend_options.cpp"
+        "${PROJECT_SOURCE_DIR}/src/engine/config/settings_model.cpp"
+        "${PROJECT_SOURCE_DIR}/src/engine/config/settings_resolve.cpp"
+        "${PROJECT_SOURCE_DIR}/src/engine/config/ini_text.cpp")
     target_link_libraries(thug2_options_check PRIVATE thug2_base)
+    target_compile_definitions(thug2_options_check PRIVATE THUG2_README="${PROJECT_SOURCE_DIR}/README.md")
 endif()
 
 # NOT ORIGINAL - thug2_frame_pacing_check.exe: [Graphics] max_fps's maths without the game - transforms blended between

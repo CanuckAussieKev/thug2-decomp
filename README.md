@@ -377,6 +377,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `tess_log` | 0 | With `[Graphics] rt_tessellation=1`: a line for every mesh smoothed at load - where it is, its size, the triangles split, its level and how far it moved from the original (`rt_tessellation: mesh at ...`) |
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 | `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
+| `rt_lights_log` | 0 | With `[Graphics] rt_lights` not 0: a `rt_lights:` line for the lamps each level gives the night lighting |
 
 **`[Graphics]`** - from PartyMod, plus ours. With `new_frontend=1` the Options screen sets ours from the game (its
 Graphics, Lighting, Surfaces, Sky, Colour, Camera, Style and Upscaling tabs - Camera: motion blur, depth of field and the grade; the Graphics tab's preset sets every effect at once:
@@ -384,7 +385,7 @@ Original - all off; High - `ray_tracing`, `rt_shadows`, `rt_ao`, `rt_reflections
 `rt_shafts`, `rt_hdr`, `rt_bloom`, `rt_tessellation`; Ultra - every effect, `rt_gi`, `rt_relit`, `rt_pbr`, `rt_fog`
 and `rt_clouds` too; upscaling is left as it is). On Vulkan the effects' settings change at once; `renderer`,
 `ray_tracing`, `rt_hdr`, `rt_tessellation`, the upscaling keys, `anisotropy`, `msaa` and the distance scales wait
-for the restart
+for the restart. Every setting is declared once in the settings model (`src/engine/config/settings_model.cpp`, `docs/design/settings.md`): what each one needs (other settings, the GPU, the 64-bit game, generated data), what turns it on and what works against it. The Options screen greys a setting that isn't in effect and says why ("Needs a ray tracing GPU"), shows the value in use when another setting sets it, and marks conflicts; the log and a screenshot's settings report say the same
 
 | Key | Default | Effect |
 |---|---|---|
@@ -405,6 +406,7 @@ for the restart
 | `draw_distance_scale` / `lod_distance_scale` | 1 | Multiply the far plane / objects' level-of-detail distances |
 | `max_fps` | 0 | Frames drawn between the game's 60 Hz ticks: 0 the original (one frame a tick), 60-1000 a cap, `uncapped` as many as fit. The game itself still runs at 60 (the same physics, scripts and replays); each frame shows models, skeletons and the camera blended between the last two ticks, so the picture is up to 1/60 s behind the game. Cuts and teleports aren't blended. Changes at once from the Options screen |
 | `frame_generation` | off | On Vulkan (64-bit build): `2x`, `3x` or `4x` frames shown for each drawn one, made between them from their motion - NVIDIA DLSS Frame Generation on an RTX 40 / 50 (3x and 4x on an RTX 50; with Reflex), else AMD FSR 3 frame generation on any GPU (2x). The HUD and menus are kept out of the made frames; under a menu, on loading screens and in the level editor no frames are made. It needs the upscaler's motion: with `upscaler=off` the upscaler runs at native resolution (DLAA / FSR anti-aliasing). It multiplies `max_fps`'s frames: aim `max_fps` x the multiplier at the display's refresh (60 Hz ticks + 2x for 120 Hz, + 4x for 240 Hz; `max_fps=120` + 2x for 240 Hz); `present_mode=immediate` on a G-SYNC / FreeSync display, or `mailbox` - with `vsync` the display's rate holds the frames back. DLSS-G makes frames only while the game's window has the focus. Adds latency (the drawn frame waits for the made ones before it). `frame_generation_provider=auto` / `dlss` / `fsr` picks one. Read at start-up |
+| `frame_generation_provider` | auto | With `frame_generation`: which makes the frames - `auto` (DLSS Frame Generation on an RTX 40 / 50, else AMD FSR 3's), `dlss` (on a GPU without it: FSR's) or `fsr` (2x at most). Read at start-up |
 | `reflex` | off | NVIDIA Reflex low latency on its own: `on` or `boost` (also keeps the GPU's clocks up) - the frame starts as late as it can and still be ready in time, cutting the input lag a busy GPU adds. Always on with DLSS frame generation. Read at start-up |
 | `tick_rate` | 60 | Experimental: the game's own ticks a second - 60 (the original), 120, 144 or 240 (60-240). The physics, scripts and timers step in shorter ticks; at 60 nothing changes. Not finished: the skater's forces and checks still act once each 1/60 s (at 120 and 240 a run matches the 60 Hz one; 144 drifts), so control isn't yet faster than at 60. Online, the game sends and receives at the original's 60 a second at any rate (the same messages as at 60) and other players move smoothly between their updates (not yet tried against other players). A demo plays only at the rate it was recorded at (except a plain playback, which holds each recorded frame over its time). Read at start-up |
 | `present_mode` | vsync | `vsync` (presents wait for the display, the original), `mailbox` (no waiting, no tearing) or `immediate` (no waiting, may tear) where the device offers it. With `vsync` the display's refresh rate caps `max_fps` too. On Vulkan it changes at once; on Direct3D 9 `mailbox` is `immediate` |
@@ -468,9 +470,9 @@ for the restart
 | `rt_fog_height` | 0 | World units over which the fog thins going up from the camera's height (0: even everywhere; e.g. 800 for ground fog) |
 | `rt_fog_anisotropy` | 0.3 | How much brighter the fog is looking toward the sun (-0.9-0.9; 0 the same every way) |
 | `rt_fog_steps` | 32 | Samples along each ray (4-128): fewer is faster, more is smoother shafts |
-| `rt_fog_haze` | 1 | In a level with no fog (most of them, unless `DistanceClipping=1` and `Fog=1`): 1 adds a thin haze that only shows where the sun shines through it - shafts and a glow toward the sun; 0 leaves such levels alone. With `rt_sky_model=1` the haze becomes real air: distant buildings fade toward the sky's colour, it is thicker near the ground, and it is clearly brighter where the sun lights it than in the shade |
-| `rt_fog_haze_density` | 0.3 | With `rt_sky_model=1`: how thick that air is (1 three times the default and a lot hazier - far water milky, the view into a low sun whited out) |
-| `rt_fog_haze_height` | 600 | With `rt_sky_model=1`: world units over which the haze thins going up from the level's ground |
+| `rt_fog_haze` | 1 | With `rt_fog` (its pass draws it), in a level with no fog (most of them, unless `DistanceClipping=1` and `Fog=1`): 1 adds a thin haze that only shows where the sun shines through it - shafts and a glow toward the sun; 0 leaves such levels alone. With `rt_sky_model=1` the haze becomes real air: distant buildings fade toward the sky's colour, it is thicker near the ground, and it is clearly brighter where the sun lights it than in the shade |
+| `rt_fog_haze_density` | 0.3 | With `rt_fog_haze` and `rt_sky_model=1`: how thick that air is (1 three times the default and a lot hazier - far water milky, the view into a low sun whited out) |
+| `rt_fog_haze_height` | 600 | With `rt_fog_haze` and `rt_sky_model=1`: world units over which the haze thins going up from the level's ground |
 | `rt_sun` | 0 | On Vulkan: 1 draws the sun itself - a bright disc with a glow round it, light spilling past the edges in front of it - where the game shows its sun, instead of the game's sun sprite and lens flare (both hidden). A level with no sun at all keeps the game's |
 | `rt_sun_size` | 1 | How big the sun's disc is (0.25-4) |
 | `rt_sun_colour` | auto | The sun's colour: `auto` - from its height (warm when low, white when high); or `r,g,b` (0-1 each) |
@@ -507,6 +509,8 @@ for the restart
 | `rt_relit_strength` | 1 | How much of the relit light is used (0 the level's own lighting, 1 all relit) |
 | `rt_relit_residual` | 1 | 1 keeps the level's own lights the sun and sky can't explain - lamps, glows - as the level had it, at every time of day (the bake's sunlight the rays missed follows the sun and the moon instead); 0 leaves them out |
 | `rt_relit_detail` | 1 | How much of each spot's own baked shading is kept where the sun and sky explain it (0-1; 0 relights the most) |
+| `rt_relit_sky_rays` / `rt_relit_sun_rays` | 24 / 4 | With the relit mode: rays a vertex toward the sky / the sun when a level is taken apart (more: a smoother bake, a longer first start) |
+| `rt_relit_cache` | 1 | With the relit mode: the analysis kept in `thug2-decomp-relit\` beside the exe (0: worked out at every level start) |
 | `rt_cel` | 0 | No longer a switch: cel shading is `rt_style=cel` (an older ini's `rt_cel` line does nothing; the `rt_cel_*` knobs below still tune it). Cel shading, on Vulkan, draws the game light in a few flat bands with crisp edges, shadows in a cool tint, a rim of light round skaters and peds, ink outlines (thick round characters and objects, thin over the level), flatter textures and a banded sky (with `rt_sky`). Fullest with `ray_tracing=1` and `rt_relit=1` (the level's own light banded, hard ray-traced shadows); without them the level's baked light is banded. Any other `rt_style` turns it off. All the `rt_cel` keys change at once |
 | `rt_cel_bands` | 3 | With `rt_style=cel`: how many steps of sunlight (2-4, the shadow among them) |
 | `rt_cel_shadow_colour` | 0.62,0.66,0.86 | With `rt_style=cel`: the shadows' tint, `r,g,b` (0-1 or 0-255) or `#rrggbb` |
@@ -515,7 +519,7 @@ for the restart
 | `rt_cel_flatten` | 0.5 | With `rt_style=cel`: how far texture detail is flattened into colour (0-1) |
 | `upscaler` | off | On Vulkan (64-bit build): `dlss` (NVIDIA RTX), `fsr` (AMD FSR - any GPU) or `auto` (DLSS on NVIDIA, else FSR) draws the world at a lower resolution and rebuilds it at the window's - faster, smoother edges; the HUD and menus stay sharp. Multisampling (`msaa`, `AntiAliasing`) is off while it is on. `off` changes nothing |
 | `upscale_quality` | quality | With `upscaler`: how much is drawn - `dlaa` (all of it: anti-aliasing only), `quality` (67%), `balanced` (58%), `performance` (50%), `ultra` (33%) |
-| `ray_reconstruction` | 0 | With `upscaler=dlss` on an RTX GPU: 1 lets DLSS Ray Reconstruction clean up the ray-traced effects' noise (`rt_ao`, `rt_gi`) instead of their own filters |
+| `ray_reconstruction` | 0 | With ray tracing and DLSS upscaling (`upscaler=dlss`, or `auto`, on an RTX GPU): 1 lets DLSS Ray Reconstruction clean up the ray-traced effects' noise (`rt_ao`, `rt_gi`) instead of their own filters |
 | `upscale_sharpness` | 0 | With `upscaler=fsr`: 0-1 sharpening after the upscale |
 | `fsr_version` | 0 | With `upscaler=fsr`: 0 the newest FSR the GPU runs (FSR 4 on the GPUs that have it), 3 FSR 3.1 |
 | `rt_pbr` | 0 | On Vulkan (no ray tracing needed; best with it): 1 lights surfaces per pixel - the textures' bumps and cracks catch the sun, shiny ones get highlights, and skaters and objects are lit per pixel. Needs the surface maps made from your textures first: `node tools/pbr_maps/pbr_maps.ts make --game <folder>` (or `unpack_game.ts --pbr-maps classical`); `remove` takes them away |
@@ -593,6 +597,7 @@ for the restart
 | `[Graphics] compare_split` / `compare_divider` / `compare_labels`, `[Compare]` | 0 / 0.5 / 1, empty | A split comparison: the screen-space effects with `[Graphics]`'s settings left of a divider (A) and with `[Compare]`'s values over them on the right (B - e.g. `rt_ao=1`); the divider dragged with the mouse or Alt+Left / Right; the demo viewer's Compare panel sets them too. What can't differ per side (renderer, ray_tracing, rt_hdr, the upscaler - off while split -, rt_tessellation, rt_relit, msaa) is drawn the same on both. The console: `compare on / off / set <key> <value>` - [docs/demos.md](docs/demos.md) "The split comparison" |
 | `[demo] video_fps` / `video_quality` / `video_codec` / `video_scale` | 60 / 80 / auto / 100 | A demo saved as a video (SAVE AS VIDEO, `-demo-video`): frames a second (1-60, the game's own 60 at most), quality 1-100, the encoder (`auto`: NVIDIA's H.264, else Windows' H.264, else MPEG-4; `h264`; `mpeg4`), the size in % of the game's picture (10-400). Video only, no sound - [docs/demos.md](docs/demos.md) |
 | `[online] thugpro_peer` | 0 | Chat and server info with THUGPRO players (on by itself with `OnlineGameName=thugpro`) |
+| `[frontend] respect_locks` | 0 | The new front end's Free Skate level select: 0 every level, 1 only the ones unlocked |
 
 **`[Keybinds]`**, **`[Gamepad]`**, **`[Logging]`**
 

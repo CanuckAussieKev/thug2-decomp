@@ -6,6 +6,7 @@
 #include <vector>
 #include <utility>
 
+#include "frontend/new_frontend_options.h"
 #include "frontend/new_frontend_text.h"
 #include "base/core/checked_index.h"
 #include "base/maths/rect.h"
@@ -227,10 +228,14 @@ public:
     // The sections' views made again (the locks changed): each section's row kept where it still is.
     void set_views(std::vector<SectionView> views);
     [[nodiscard]] const std::string& get_last_level() const { return last_level_; }
-    // The options' choices, one per Options::get_specs() entry. The rows listed follow them (option_rows): a setting
-    // that matters only while another is set a certain way is hidden otherwise - the cursor stays on its setting.
+    // The options' choices, one per Options::get_specs() entry, and how each row stands in the settings model (greyed
+    // with its reason when it isn't in effect, the value in use when another setting sets it, the choices possible
+    // here) - every row of a tab is listed, in effect or not.
     void set_option_values(std::vector<int> choices);
+    void set_option_states(std::vector<options::RowState> states) { option_states_ = std::move(states); }
     [[nodiscard]] const std::vector<int>& option_values() const { return options_; }
+    // The row state of option `option` (a default one - in effect, every choice possible - when there is none).
+    [[nodiscard]] const options::RowState& option_state(int option) const;
     void set_option_group(int group);
 
     // A screen opened from outside the menus (with the wipe): the level select for `levels` when it's Levels.
@@ -339,10 +344,9 @@ private:
     LevelsFor levels_for_ = LevelsFor::kFreeSkate;
     int section_ = 0;
     std::vector<int> options_;
+    std::vector<options::RowState> option_states_;
     int bundle_ = 0;
     int option_row_ = 0;
-    mutable std::vector<int> shown_rows_; // the group's settings listed (option_rows' answer), made again when dirty
-    mutable bool shown_dirty_ = true;
     float scroll_ = 0.0F, scroll_target_ = 0.0F;
     int visible_rows_ = kVisibleRowCount;
     std::vector<RowAnim> rows_;
