@@ -1108,6 +1108,25 @@ void check_split(Tally* tally)
     tally->check(std::abs(std::get<1>(lit) - wanted) < 1e-4F,
                  text::format("the missed sun takes the lighting state's direct light (%.4f, %.4f wanted)",
                               static_cast<double>(std::get<1>(lit)), static_cast<double>(wanted)));
+    // (added by lighting round 4) the bounce's local part - a lamp-lit wall's light bounced into a recess - keeps its
+    // strength at night; the rest of the bounce takes the clock's
+    rt::RelitModel bouncy = model;
+    bouncy.bounce = {0.8F, 0.8F, 0.8F};
+    rt::RelitVertex recess = unsplit;
+    recess.sky = 0.0F;
+    recess.bounce = {0.5F, 0.5F, 0.5F};
+    recess.bounce_local = {0.3F, 0.3F, 0.3F};
+    rt::RelitLighting night = at_bake;
+    night.direct_scale = {0.1F, 0.1F, 0.1F};
+    night.sky_scale = {0.1F, 0.1F, 0.1F};
+    night.bounce_scale = {0.1F, 0.1F, 0.1F};
+    const float at_night = std::get<1>(rt::relit_parts(bouncy, recess, night).indirect);
+    const float by_day = std::get<1>(rt::relit_parts(bouncy, recess, at_bake).indirect);
+    const float lamp_bounce = 0.8F * ((0.2F * 0.1F) + 0.3F);
+    tally->check(std::abs(at_night - lamp_bounce) < 1e-5F && std::abs(by_day - (0.8F * 0.5F)) < 1e-5F,
+                 text::format("the bounce's local part kept at night (%.4f, %.4f wanted; %.4f at the bake)",
+                              static_cast<double>(at_night), static_cast<double>(lamp_bounce),
+                              static_cast<double>(by_day)));
 }
 
 // (added by lighting round 4) A lamp's light across meshes (rt_relit.h relit_local_across): a wall facing the street, a

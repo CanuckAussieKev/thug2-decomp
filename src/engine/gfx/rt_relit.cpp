@@ -207,6 +207,40 @@ Rgbf colour_at(const RelitMesh& mesh, uint32_t primitive, const Vec3& point)
     return out;
 }
 
+// A per-vertex light (`values`, one a vertex of `mesh`) at a point of a triangle: its corners' blended (colour_at's
+// barycentrics); none when the mesh's values don't fit.
+Rgbf light_at(const RelitMesh& mesh, const std::vector<Rgbf>& values, uint32_t primitive, const Vec3& point)
+{
+    if (primitive >= mesh.triangles.size() || values.size() != mesh.positions.size()) {
+        return {};
+    }
+    const auto [one, two, three] = core::at(mesh.triangles, primitive);
+    if (one >= values.size() || two >= values.size() || three >= values.size()) {
+        return {};
+    }
+    const Vec3& pa = core::at(mesh.positions, one);
+    const Vec3 e1 = minus(core::at(mesh.positions, two), pa);
+    const Vec3 e2 = minus(core::at(mesh.positions, three), pa);
+    const Vec3 pv = minus(point, pa);
+    const float d11 = dot(e1, e1);
+    const float d12 = dot(e1, e2);
+    const float d22 = dot(e2, e2);
+    const float det = (d11 * d22) - (d12 * d12);
+    float vi = 0.0F;
+    float w = 0.0F;
+    if (std::abs(det) > kLeastLight) {
+        vi = std::clamp(((d22 * dot(pv, e1)) - (d12 * dot(pv, e2))) / det, 0.0F, 1.0F);
+        w = std::clamp(((d11 * dot(pv, e2)) - (d12 * dot(pv, e1))) / det, 0.0F, 1.0F - vi);
+    }
+    const float u = 1.0F - vi - w;
+    Rgbf out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = (core::at(core::at(values, one), ch) * u) + (core::at(core::at(values, two), ch) * vi) +
+                            (core::at(core::at(values, three), ch) * w);
+    }
+    return out;
+}
+
 // The vertices of the wanted meshes in batches of whole vertices with at most kBatchRays rays: `rays_of` says a
 // vertex's count, `make` writes them, `take` reads their answers.
 struct VertexRef {
@@ -1067,7 +1101,8 @@ void trace_relit_light(std::span<const RelitMesh> meshes, std::span<const uint8_
 }
 
 void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitParams& params,
-                     RayTracing& tracer, std::vector<RelitVertices>* light, RelitStats* stats)
+                     RayTracing& tracer, std::vector<RelitVertices>* light, RelitStats* stats,
+                     std::span<const std::vector<Rgbf>> local)
 {
     if (light->size() != meshes.size()) {
         return;
@@ -1105,6 +1140,7 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                 static_cast<double>(hashed(static_cast<uint32_t>((ref.mesh * kMeshSalt) + ref.vertex))) * kHashScale;
             uint32_t open = 0;
             Rgbf bounce{};
+            Rgbf bounce_local{};
             for (uint32_t idx = 0; idx < ref.count; ++idx) {
                 const ProbeResult& answer = core::at(answers, idx);
                 if (!answer.hit) {
@@ -1117,17 +1153,28 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                 }
                 const Vec3 direction =
                     hemisphere_direction(vertex.normal, basis, {.index = idx, .count = ref.count, .turn = turn});
-                const Rgbf there = colour_at(core::at(meshes, found->second), answer.primitive,
-                                             plus(origin, scaled(direction, answer.distance)));
+                const Vec3 point = plus(origin, scaled(direction, answer.distance));
+                const Rgbf there = colour_at(core::at(meshes, found->second), answer.primitive, point);
                 for (std::size_t ch = 0; ch < bounce.size(); ++ch) {
                     core::at(bounce, ch) += core::at(there, ch);
+                }
+                if (found->second < local.size()) {
+                    const Rgbf own = light_at(core::at(meshes, found->second), core::at(local, found->second),
+                                              answer.primitive, point);
+                    for (std::size_t ch = 0; ch < bounce.size(); ++ch) {
+                        core::at(bounce_local, ch) += core::at(own, ch);
+                    }
                 }
             }
             vertex.sky = static_cast<float>(open) / static_cast<float>(ref.count);
             for (float& ch : bounce) {
                 ch /= static_cast<float>(ref.count);
             }
+            for (float& ch : bounce_local) {
+                ch /= static_cast<float>(ref.count);
+            }
             vertex.bounce = bounce;
+            vertex.bounce_local = bounce_local;
         });
 }
 
@@ -1680,9 +1727,12 @@ RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const
         core::at(pa, ch) = core::at(model.sun, ch) * core::at(lighting.sun_colour, ch) * core::at(lighting.direct_scale, ch);
     }
     RelitModel scaled = model;
+    Rgbf bounced{}; // (the bounce: the sun's and the sky's part at the clock's strength, the level's own lights' whole)
     for (std::size_t ch = 0; ch < pa.size(); ++ch) {
         core::at(scaled.sky, ch) *= core::at(lighting.sky_scale, ch);
-        core::at(scaled.bounce, ch) *= core::at(lighting.bounce_scale, ch);
+        const float local = std::min(core::at(vertex.bounce_local, ch), core::at(vertex.bounce, ch));
+        core::at(bounced, ch) =
+            ((core::at(vertex.bounce, ch) - local) * core::at(lighting.bounce_scale, ch)) + local;
     }
     const Vec3 toward = normalised(lighting.toward);
     // (the bake's sun the tracer missed - only toward the bake's own sun)
@@ -1692,7 +1742,7 @@ RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const
     for (std::size_t ch = 0; ch < pa.size(); ++ch) {
         core::at(out.direct, ch) = core::at(pa, ch) * nl * seen;
         core::at(out.indirect, ch) = (core::at(scaled.sky, ch) * vertex.sky) +
-                                     (core::at(scaled.bounce, ch) * core::at(vertex.bounce, ch));
+                                     (core::at(model.bounce, ch) * core::at(bounced, ch));
     }
     return out;
 }

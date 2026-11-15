@@ -51,12 +51,14 @@ constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr float kSameSun = 0.99999F;          // two suns this close (their directions' dot product): the same
 constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
 constexpr uint32_t kCacheMagic = 0x4C523254U; // "T2RL"
-constexpr uint32_t kCacheVersion = 5; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
-                                      // local light across meshes, the probe through the cut-outs)
+constexpr uint32_t kCacheVersion = 6; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
+                                      // local light across meshes, the probe through the cut-outs; 6: the fit's
+                                      // shadow borders and faces, the bounce's local part)
 constexpr std::size_t kKilobyte = 1024;
 constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
 constexpr std::size_t kVertexFloats =
-    17; // a vertex in the cache: normal 3, sun, sky, bounce 3, tint 3, residual 3, sun_missed, sun_baked, used
+    20; // a vertex in the cache: normal 3, sun, sky, bounce 3, tint 3, residual 3, sun_missed, sun_baked, used,
+        // bounce_local 3
 constexpr std::size_t kModelFloats = 17; // the model: valid, toward 3, sun 3, sky 3, bounce 3, scale, error, vertices,
                                          // the sun's need
 constexpr float kRgbColourLimit = 4.0F;
@@ -368,6 +370,7 @@ std::array<float, kVertexFloats> vertex_floats(const rt::RelitVertex& vertex)
     floats.put(vertex.sun_missed);
     floats.put(vertex.sun_baked);
     floats.put(vertex.used ? 1.0F : 0.0F);
+    floats.put(vertex.bounce_local);
     std::array<float, kVertexFloats> out{};
     std::ranges::copy(floats.values(), out.begin());
     return out;
@@ -386,6 +389,7 @@ rt::RelitVertex vertex_of(const std::array<float, kVertexFloats>& values)
     vertex.sun_missed = cursor.next();
     vertex.sun_baked = cursor.next();
     vertex.used = cursor.next() != 0.0F;
+    vertex.bounce_local = cursor.next3();
     return vertex;
 }
 
@@ -862,6 +866,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
     std::vector<rt::RelitMesh> meshes;
     std::vector<rt::RelitVertices> light;
     std::vector<uint8_t> wanted;
+    std::vector<std::vector<rt::Rgbf>> local; // (each vertex's own light: the bounce's local part)
     std::size_t budget = kRelitBounceVertices;
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
@@ -877,6 +882,11 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
                     ? rt::relit_colour(st.model, core::at(entry.light, vi), lighting, core::at(entry.originals, vi))
                     : core::at(entry.originals, vi);
         }
+        std::vector<rt::Rgbf> own(entry.input.positions.size());
+        for (std::size_t vi = 0; vi < own.size() && vi < entry.light.size(); ++vi) {
+            core::at(own, vi) = lighting.residual && entry.analysed ? core::at(entry.light, vi).residual : rt::Rgbf{};
+        }
+        local.push_back(std::move(own));
         meshes.push_back(std::move(entry.input));
         meshes.back().colours = std::move(relit);
         light.push_back(std::move(entry.light));
@@ -888,7 +898,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
                                         .sun_rays = settings.sun_rays,
                                         .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
                                         .detail = settings.detail},
-                        tracer, &light, &stats);
+                        tracer, &light, &stats, local);
     st.rebounced += stats.vertices;
     for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
         Entry& entry = st.entries.at(core::at(st.order, iv));

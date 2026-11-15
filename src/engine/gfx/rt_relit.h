@@ -170,6 +170,10 @@ struct RelitVertex {
     float sun = 0.0F; // the share of the sun's rays that reached the sky (toward the sun the vertex was traced for)
     float sky = 0.0F; // K
     Rgbf bounce{};    // B
+    // (added by lighting round 4) the part of B that is the level's own light where its rays land (their residual): a
+    // lamp-lit wall's light bounced into a recess - constant through the day, as the residual is (traced with the
+    // bounce once the residuals are known: trace_relit_sky's `local`)
+    Rgbf bounce_local{};
     Rgbf tint{};
     Rgbf residual{};        // the level's own light here (lamps, glows): constant through the day
     float sun_missed = 0.0F; // the bake's sun the tracer missed (visibility toward the bake's sun, over S)
@@ -230,8 +234,10 @@ void trace_relit_light(std::span<const RelitMesh> meshes, std::span<const uint8_
 // Only the sky's share and the bounce (the vertices' normals made already), for the meshes `wanted` says - again after
 // the sun moved, the meshes' colours then the relit ones: the light the sun now puts on the surfaces round a vertex
 // bounced to it (one bounce of the new light; the sky's share comes out the same).
+// `local`: each mesh's vertices' own light (their residual), when known - the bounce's part from it (bounce_local).
 void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitParams& params,
-                     RayTracing& tracer, std::vector<RelitVertices>* light, RelitStats* stats);
+                     RayTracing& tracer, std::vector<RelitVertices>* light, RelitStats* stats,
+                     std::span<const std::vector<Rgbf>> local = {});
 // Only the sun's share toward `toward`, for the meshes `wanted` says.
 void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const Vec3& toward,
                      const RelitParams& params, RayTracing& tracer, std::vector<RelitVertices>* light,
