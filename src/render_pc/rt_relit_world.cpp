@@ -245,6 +245,8 @@ uint64_t cache_key(const rt::RelitSettings& settings)
     key = fnv_value(key, settings.detail);
     key = fnv_value(key, rt::kRelitSmoothPasses);
     key = fnv_value(key, rt::kRelitMaxTint);
+    key = fnv_value(key, rt::kRelitMissedLeast); // (the residual's split)
+    key = fnv_value(key, rt::kRelitMostMissed);
     return key;
 }
 
@@ -1237,6 +1239,28 @@ GpuVertexBuffer* cel_stream(const VertexBufferData* buffer)
     return found != st.entries.end() && found->second.cel_written != 0 ? found->second.cel : nullptr;
 }
 
+void buffer_released(const VertexBufferData* buffer)
+{
+    State& st = state();
+    const auto entry = st.entries.find(buffer);
+    if (entry == st.entries.end()) {
+        return;
+    }
+    release_cel(entry->second); // (added by cel shading)
+    std::erase_if(st.buffer_of, [buffer](const auto& kept) { return kept.second == buffer; });
+    st.entries.erase(entry);
+    std::erase(st.order, buffer);
+}
+
+void buffer_written(const VertexBufferData* buffer)
+{
+    State& st = state();
+    const auto entry = st.entries.find(buffer);
+    if (entry != st.entries.end() && entry->second.written != 0) {
+        entry->second.dirty = true;
+    }
+}
+
 void mesh_released(const MeshRef* mesh)
 {
     State& st = state();
@@ -1324,6 +1348,7 @@ bool hold_first_light(bool loading)
         bool holding = false;
         std::chrono::steady_clock::time_point since{};
         uint32_t frames = 0;
+        uint32_t steady = 0; // frames in a row the lighting has been ready
     };
     static Hold hold;
     if (loading) {
@@ -1337,6 +1362,7 @@ bool hold_first_light(bool loading)
         hold.holding = rt::relit_settings().on && rt::ray_tracing() != nullptr && rt::tod_may_run(rt::tod_settings());
         hold.since = std::chrono::steady_clock::now();
         hold.frames = 0;
+        hold.steady = 0;
     }
     if (!hold.holding) {
         return false;
@@ -1362,7 +1388,10 @@ bool hold_first_light(bool loading)
     }
     }
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - hold.since).count();
-    const bool ready = relit_ready && day_clock::light_ready();
+    // (ready for kFirstLightSteadyFrames frames in a row: the night state's scripts show their meshes over the frames
+    // after the clock sets it, each relit as it comes)
+    hold.steady = relit_ready && day_clock::light_ready() ? hold.steady + 1 : 0;
+    const bool ready = hold.steady >= kFirstLightSteadyFrames;
     if (ready || seconds >= kFirstLightMostSeconds) {
         hold.holding = false;
         get_log("rt_relit: the level's first light %s after %u frames (%.0f ms) - %s", ready ? "ready" : "not ready",
@@ -1424,6 +1453,71 @@ std::string status_text()
 
 uint32_t level_scene() { return main_scene(); }
 
+// (the console's `rt probe`) The colour word a vertex holds in its buffer's copy now (what the card was last sent).
+uint32_t colour_held(const Entry& entry, std::size_t vertex)
+{
+    uint8_t* data = nullptr;
+    entry.buffer->get_lock(0, 0, &data, gpu_value::kLockReadOnly);
+    uint32_t colour = 0;
+    if (data != nullptr) {
+        const std::span<const uint8_t> bytes(data, entry.buffer->size());
+        const std::size_t at = (vertex * entry.stride) + entry.colour_offset;
+        if (at + sizeof(colour) <= bytes.size()) {
+            std::memcpy(&colour, bytes.subspan(at, sizeof(colour)).data(), sizeof(colour));
+        }
+    }
+    entry.buffer->get_unlock();
+    return colour & 0xFFFFFFU;
+}
+
+std::string describe_mesh(rt::MeshId id)
+{
+    const State& st = state();
+    for (const auto& [buffer, entry] : st.entries) {
+        if (entry.input.id != id) {
+            continue;
+        }
+        double baked = 0.0;
+        double relit = 0.0;
+        std::size_t count = 0;
+        std::size_t animated = 0;
+        for (std::size_t vi = 0; vi < entry.originals.size() && vi < entry.light.size(); ++vi) {
+            ++count;
+            animated += vi < entry.animated.size() && core::at(entry.animated, vi) != 0 ? 1 : 0;
+            baked += luma_of(core::at(entry.originals, vi));
+            relit += luma_of(rt::relit_colour(st.model, core::at(entry.light, vi), st.written_light,
+                                              core::at(entry.originals, vi)));
+        }
+        const double each = static_cast<double>(std::max<std::size_t>(count, 1));
+        std::string out = text::format("relit mesh: %s, %s, %zu vertices (%zu animated), mean baked %.1f relit %.1f",
+                                       entry.analysed ? "analysed" : "not analysed",
+                                       entry.written == 0 ? "not written"
+                                                          : (entry.written == st.wanted_lighting ? "written" : "stale"),
+                                       count, animated, baked / each, relit / each);
+        // its first vertices' parts (a big quad's corners)
+        constexpr std::size_t kShownVertices = 24;
+        for (std::size_t vi = 0; vi < std::min(count, kShownVertices); ++vi) {
+            const rt::RelitVertex& vertex = core::at(entry.light, vi);
+            const rt::Vec3& at = core::at(entry.input.positions, vi);
+            out += text::format("\n    corner %.0f %.0f %.0f n %.2f %.2f %.2f: baked %06X relit %06X held %06X, sun now %.2f baked %.2f, "
+                                "sky %.2f, tint %.2f %.2f %.2f, residual %.3f %.3f %.3f, missed %.2f",
+                                static_cast<double>(rt::x_of(at)), static_cast<double>(rt::y_of(at)),
+                                static_cast<double>(rt::z_of(at)), static_cast<double>(rt::x_of(vertex.normal)),
+                                static_cast<double>(rt::y_of(vertex.normal)), static_cast<double>(rt::z_of(vertex.normal)),
+                                core::at(entry.originals, vi) & 0xFFFFFFU,
+                                rt::relit_colour(st.model, vertex, st.written_light, core::at(entry.originals, vi)) & 0xFFFFFFU,
+                                colour_held(entry, vi), static_cast<double>(vertex.sun), static_cast<double>(vertex.sun_baked),
+                                static_cast<double>(vertex.sky), static_cast<double>(std::get<0>(vertex.tint)),
+                                static_cast<double>(std::get<1>(vertex.tint)), static_cast<double>(std::get<2>(vertex.tint)),
+                                static_cast<double>(std::get<0>(vertex.residual)),
+                                static_cast<double>(std::get<1>(vertex.residual)),
+                                static_cast<double>(std::get<2>(vertex.residual)), static_cast<double>(vertex.sun_missed));
+        }
+        return out;
+    }
+    return "relit mesh: none kept for it (not relit - drawn with its own colours)";
+}
+
 std::string describe_near(const rt::Vec3& point, float radius)
 {
     const State& st = state();
@@ -1478,18 +1572,25 @@ std::string describe_near(const rt::Vec3& point, float radius)
                                    static_cast<double>(std::get<1>(st.written_light.direct_scale)),
                                    static_cast<double>(std::get<1>(st.written_light.sky_scale)),
                                    static_cast<double>(std::get<1>(st.written_light.bounce_scale)));
+    // (the one lighting path) what a thing standing here is lit by
+    const rt::LightRatio here = rt::light_ratio_at(point);
+    out += text::format("; the light field here: whole %.3f %.3f %.3f, indirect %.3f %.3f %.3f",
+                        static_cast<double>(std::get<0>(here.whole)), static_cast<double>(std::get<1>(here.whole)),
+                        static_cast<double>(std::get<2>(here.whole)), static_cast<double>(std::get<0>(here.indirect)),
+                        static_cast<double>(std::get<1>(here.indirect)), static_cast<double>(std::get<2>(here.indirect)));
     for (const Near& near : nearest) {
         const rt::RelitVertex& vertex = core::at(near.entry->light, near.vertex);
         const uint32_t original = core::at(near.entry->originals, near.vertex);
         const rt::Vec3& at = core::at(near.entry->input.positions, near.vertex);
-        out += text::format("\n  vertex %.1f %.1f %.1f (%.1f away) normal %.2f %.2f %.2f: baked %06X relit %06X, sun %.2f "
+        out += text::format("\n  vertex %.1f %.1f %.1f (%.1f away) normal %.2f %.2f %.2f: baked %06X relit %06X held %06X, sun %.2f "
                             "sky %.2f bounce %.3f %.3f %.3f, tint %.2f %.2f %.2f, residual %.3f %.3f %.3f, missed sun %.2f",
                             static_cast<double>(rt::x_of(at)), static_cast<double>(rt::y_of(at)),
                             static_cast<double>(rt::z_of(at)), static_cast<double>(near.distance),
                             static_cast<double>(rt::x_of(vertex.normal)), static_cast<double>(rt::y_of(vertex.normal)),
                             static_cast<double>(rt::z_of(vertex.normal)), original & 0xFFFFFFU,
                             rt::relit_colour(st.model, vertex, st.written_light, original) & 0xFFFFFFU,
-                            static_cast<double>(vertex.sun), static_cast<double>(vertex.sky),
+                            colour_held(*near.entry, near.vertex), static_cast<double>(vertex.sun),
+                            static_cast<double>(vertex.sky),
                             static_cast<double>(std::get<0>(vertex.bounce)), static_cast<double>(std::get<1>(vertex.bounce)),
                             static_cast<double>(std::get<2>(vertex.bounce)), static_cast<double>(std::get<0>(vertex.tint)),
                             static_cast<double>(std::get<1>(vertex.tint)), static_cast<double>(std::get<2>(vertex.tint)),

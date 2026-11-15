@@ -89,7 +89,7 @@ inline constexpr float kRelitLampLow = 1.2F;
 inline constexpr float kRelitLampHigh = 1.8F;
 inline constexpr float kRelitFacing = 0.05F;      // a face toward the bake's sun (N.L above this) can have missed sun
 inline constexpr float kRelitMissedLeast = 0.6F;  // the sun-coloured excess at least this share of the sun's light
-inline constexpr float kRelitMostMissed = 4.0F;   // sun_missed at most this (the bake's sun that much over the fit's)
+inline constexpr float kRelitMostMissed = 8.0F;   // sun_missed at most this (the bake's sun that much over the fit's: Berlin's ~5)
 inline constexpr float kRelitTrustInner = 2.0F;   // degrees: sun_missed whole toward the bake's sun ...
 inline constexpr float kRelitTrustOuter = 10.0F;  // ... and none this far from it
 inline constexpr std::array<float, 2> kRelitScaleRange{0.7F, 1.4F};
