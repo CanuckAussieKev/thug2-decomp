@@ -185,34 +185,25 @@ bool other_lists_at_music_volume() { return script::fetch_int_value(kForceAmbien
 
 bool in_range(float volume) { return !(volume > 100.0F) && !(volume < 0.0F); } // (NaN passes)
 
-// NOT ORIGINAL - set_music_random_apart's: whether the music draws apart, and its own streams while it does.
-struct MusicRandom {
-    bool apart = false;
-    maths::RandomStreams streams{};
-};
-MusicRandom& music_random()
+// NOT ORIGINAL - the music's own random streams (play_next_track's and shuffle_user_soundtrack's shuffles). The
+// original drew them from the game's: a track ends when its stream does, in real time, so where in the game's sequence
+// those draws fell (4,000 at a reshuffle) depended on the wall clock, and a stall moved every later random number of
+// the game. Seeded once, always with the same seed; the game's streams are never touched by the music.
+constexpr uint32_t kMusicRandomSeed = 0x4D555349U; // ("MUSI")
+maths::RandomStreams& music_streams()
 {
-    static core::NoDestroy<MusicRandom> state;
-    return state.get();
+    static core::NoDestroy<maths::RandomStreams> streams{maths::seeded_streams(kMusicRandomSeed)};
+    return streams.get();
 }
 
-// NOT ORIGINAL - while the music's random numbers are apart (set_music_random_apart), its streams swapped in for the
-// game's over a scope that draws them, and back out after.
+// NOT ORIGINAL - the music's streams swapped in for the game's over a scope that draws them, and back out after.
 class MusicDraws {
 public:
-    MusicDraws() : apart_(music_random().apart)
-    {
-        if (apart_) {
-            game_ = maths::random_streams();
-            maths::set_random_streams(music_random().streams);
-        }
-    }
+    MusicDraws() : game_(maths::random_streams()) { maths::set_random_streams(music_streams()); }
     ~MusicDraws()
     {
-        if (apart_) {
-            music_random().streams = maths::random_streams();
-            maths::set_random_streams(game_);
-        }
+        music_streams() = maths::random_streams();
+        maths::set_random_streams(game_);
     }
     MusicDraws(const MusicDraws&) = delete;
     MusicDraws& operator=(const MusicDraws&) = delete;
@@ -220,20 +211,10 @@ public:
     MusicDraws& operator=(MusicDraws&&) = delete;
 
 private:
-    bool apart_;
-    maths::RandomStreams game_{};
+    maths::RandomStreams game_;
 };
 
 } // namespace
-
-void set_music_random_apart(bool apart)
-{
-    MusicRandom& music = music_random();
-    if (apart && !music.apart) {
-        music.streams = maths::random_streams(); // (its own from here: the game's as it is now)
-    }
-    music.apart = apart;
-}
 
 // 0x00450F70
 void pause_music(int pause)
@@ -495,9 +476,9 @@ void play_track(const char* name, bool loop)
     }
 }
 
-// PartyMod's our_random, at the shuffle's two draws (0x004523A7 / 0x004523B4). It keeps drawing the
-// game's number so the game's random stream advances as before. (rand() % 0 would divide by zero; the game's
-// Rnd(0) is 0, so that's kept for an empty order.)
+// PartyMod's our_random, at the shuffle's two draws (0x004523A7 / 0x004523B4). It keeps drawing a Rnd number, thrown
+// away, so the stream advances as the original's did - the music's own streams here (MusicDraws), the game's in the
+// original. (rand() % 0 would divide by zero; Rnd(0) is 0, so that's kept for an empty order.)
 int shuffle_random(int count)
 {
     const int game = maths::rnd(count);
@@ -510,7 +491,7 @@ int shuffle_random(int count)
 // 0x00452200
 void play_next_track()
 {
-    const MusicDraws draws; // NOT ORIGINAL (set_music_random_apart)
+    const MusicDraws draws; // NOT ORIGINAL (the music's own random numbers)
     Playlist& list = core::at(get_playlists(), current_playlist());
     if (!music_on() || (list.unknownca8_ != 0U)) {
         return;
@@ -561,7 +542,7 @@ void play_next_track()
                 core::at(get_order(), second) = swap;
             }
         }
-        // Not the last one again first: swap it with another place (this draw is the game's, under PartyMod too).
+        // Not the last one again first: swap it with another place (this draw is Rnd's, under PartyMod too - the music's own streams).
         if (core::at(get_order(), 0) == last) {
             const int other = order_count() > 1 ? maths::rnd(order_count() - 1) + 1 : 0;
             const int swap = core::at(get_order(), 0);
@@ -723,10 +704,10 @@ uint32_t free_stream_id(uint32_t id)
     }
 }
 
-// 0x00450310 (with the game's random numbers: PartyMod's shuffle change is only in play_next_track's)
+// 0x00450310 (with Rnd - the music's own streams, MusicDraws: PartyMod's shuffle change is only in play_next_track's)
 void shuffle_user_soundtrack()
 {
-    const MusicDraws draws; // NOT ORIGINAL (set_music_random_apart)
+    const MusicDraws draws; // NOT ORIGINAL (the music's own random numbers)
     int count = user_soundtrack_tracks(user_soundtrack()); // the soundtrack's tracks
     if (count == 0) {
         return;
