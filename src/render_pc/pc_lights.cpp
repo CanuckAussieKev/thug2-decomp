@@ -108,11 +108,12 @@ uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, std::
 // NOT ORIGINAL - the one lighting path, for the game's fill and ambient (the offline relit data: the light energy
 // audit's characters' item): at the bake they stand for the level's indirect light and its own lamps' where a thing is,
 // so now they are the game's own times (indirect now + lamps) over (indirect at the bake + lamps) - the bake's own time
-// gives the game's own light, as the original (before, the lamps were added on top: the skater 1.3x the bake's beside a
-// lamp-lit door). The lamps' directional part (the field's local light toward where most of it comes from) is the
-// game's ambient's share of it, sent as a light of its own (local_light_sent) - so a face toward the lamp is lit as the
-// wall facing it, the light summing to the game's at the bake. While the lamps pass lights (rt_lights) it owns the
-// lamps: the field's give way by as much (each light counted once).
+// gives the game's own light, exactly the original's (before, the lamps were added on top: the skater 1.3x the bake's
+// beside a lamp-lit door). The lamps' directional part (the field's local light toward where most of it comes from)
+// shows as the daylight it was under fades: by the share of the direct and indirect light gone since the bake, it moves
+// out of the ambient into a light of its own toward the lamps (local_light_sent) - a face toward the lamp is lit as the
+// wall facing it at night, the lamp's light the same in all. While the lamps pass lights (rt_lights) it owns the lamps:
+// the field's give way by as much (each light counted once).
 struct GameShare {
     std::array<float, 3> ambient{1.0F, 1.0F, 1.0F};
     std::array<float, 3> directional{}; // (a share of the game's ambient)
@@ -133,9 +134,14 @@ GameShare game_share(const maths::Vec4& position)
         if (!(bake > rt::kLightFieldLeast)) {
             continue; // (no field here: the game's own)
         }
-        core::at(out.ambient, channel) =
-            std::clamp((core::at(indirect.now, channel) + (kept * around)) / bake, 0.0F, rt::kLightFieldMostRatio);
-        core::at(out.directional, channel) = std::clamp(kept * facing / bake, 0.0F, rt::kLightFieldMostRatio);
+        // (the share of the daylight still there: 1 at the bake's own time)
+        const float day_own = core::at(indirect.own, channel) + core::at(indirect.direct_own, channel);
+        const float day_now = core::at(indirect.now, channel) + core::at(indirect.direct_now, channel);
+        const float day = day_own > rt::kLightFieldLeast ? std::clamp(day_now / day_own, 0.0F, 1.0F) : 1.0F;
+        core::at(out.ambient, channel) = std::clamp(
+            (core::at(indirect.now, channel) + (kept * (around + (facing * day)))) / bake, 0.0F, rt::kLightFieldMostRatio);
+        core::at(out.directional, channel) =
+            std::clamp(kept * facing * (1.0F - day) / bake, 0.0F, rt::kLightFieldMostRatio);
     }
     return out;
 }

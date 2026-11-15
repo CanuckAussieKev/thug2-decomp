@@ -1775,9 +1775,10 @@ traced or fitted while the game loads a level: the game reads the level's data a
   max(L - own, 0)), the light field's local light, the bounce's local part.
 - **The skater and the objects:** the game's directional lights turned toward the relit sun, the key light the direct
   light now; the fill and the ambient the game's own times (indirect now + lamps) over (indirect at the bake + lamps)
-  where the thing stands, the lamps' directional part the game's ambient's share of it as a light of its own
-  (`pc_lights.cpp game_share`) - at the bake's own time the game's own light (before, the lamps were added on top: BO-4's
-  skater 1.3x the bake's).
+  where the thing stands; the lamps' directional part moves out of the ambient into a light of its own toward them by
+  the share of the daylight gone since the bake (`pc_lights.cpp game_share`) - at the bake's own time exactly the
+  game's own light (before, the lamps were added on top: BO-4's skater 1.3x the bake's; a first try that sent the
+  directional part at the bake too left a skater facing away from a lamp at 0.74 in TR).
 - **Retired with it:** the in-game analysis (the fit and the trace at the first still frame, the cache
   `thug2-decomp-relit\<scene>.bin`), `rt_relit_detail`, `rt_relit_cache`, and the draw-time de-lighting `rt_delight` /
   `rt_delight_strength` (the light painted into textures is taken out offline, by the de-lit texture sets).

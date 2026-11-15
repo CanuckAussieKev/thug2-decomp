@@ -260,6 +260,8 @@ IndirectLight LightField::indirect_at(const FieldPoint& point) const
     for (std::size_t ch = 0; ch < out.now.size(); ++ch) {
         core::at(out.now, ch) = core::at(sum.indirect_now, ch) * local_scale_ / count;
         core::at(out.own, ch) = core::at(sum.indirect_own, ch) * local_scale_ / count;
+        core::at(out.direct_now, ch) = core::at(sum.direct_now, ch) * local_scale_ / count;
+        core::at(out.direct_own, ch) = core::at(sum.direct_own, ch) * local_scale_ / count;
     }
     return out;
 }

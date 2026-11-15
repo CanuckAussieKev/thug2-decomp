@@ -70,6 +70,8 @@ inline constexpr float kLocalLightRidge = 0.25F; // the fit's direction held tow
 struct IndirectLight {
     FieldRgb now{};
     FieldRgb own{};
+    FieldRgb direct_now{}; // (and the direct light's, now and at the bake)
+    FieldRgb direct_own{};
 };
 
 struct LightRatio {
