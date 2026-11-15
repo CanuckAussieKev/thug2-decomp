@@ -169,6 +169,8 @@ The game builds as a 32-bit or a 64-bit program from the same source (docs/desig
 `thug2-decomp.exe` and its plugin, with the 64-bit DLLs next to it (Running, below). The 32-bit build stays
 the reference the 64-bit one is compared with.
 
+More - x64 command-line builds, `THUG2_GAME_DIR=NONE`, the checks, build problems: `docs/building.md`.
+
 Prefer a solution file? `cmake -S . -B out/vs -G "Visual Studio 18 2026" -A Win32`, then open `out\vs\thug2_decomp.slnx`
 and build **Debug | Win32**. Builds are Debug: debug-CRT reports and run-time check failures go to `thug2-decomp.log`
 with a call stack. The C runtime is a DLL (one heap for the exe and its plugin): a Debug build runs on the debug
@@ -682,6 +684,10 @@ hosts or enters a lobby.
 A level that crashes on load in only one ported game is usually a converter problem (`thug2-<game>-level-converter`).
 
 ## Contributing
+
+The rules for changes - where code may come from, changing the engine rather than patching symptoms, what a
+new setting needs, the checks before a pull request - are in `CONTRIBUTING.md`; builds and checks in detail in
+`docs/building.md`.
 
 Code from Morten1337's THUGPRO repositories is used with his permission for insight only, never copied as is, and
 each borrowed idea is credited where it's used.

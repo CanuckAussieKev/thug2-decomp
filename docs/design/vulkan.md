@@ -3237,3 +3237,43 @@ A Python scan over `src/` (comments stripped) counts the Direct3D calls by name,
 FVF combinations and primitive types named beside them, and the pixel shader sources. Values passed through
 variables (material tables, the renderer's cache) are counted as such: the scan lists what is named, not every value
 used at run time.
+
+## Working on the renderer
+
+The conventions a change here follows (`CONTRIBUTING.md` has the general ones):
+
+- **Where Vulkan is seen.** The Vulkan, volk, memory-allocator and shader-compiler headers are included only in
+  `src/gpu_vulkan` and the check programs listed in `tools/vulkan_headers.test.ts` (`CHECKS`); only `src/app`
+  includes the backend's headers. A new `src/tests/vulkan_*_check.cpp` is added to that list.
+- **The order of the passes** after the world is drawn is `rt::ViewOrder` in `src/engine/gfx/rt_scene.h` - each
+  effect is a view listener at its own number (shadows, occlusion, bounce light, the lamps, decals, grass, the
+  upscaler, the art styles, the camera effects, the lens, the grade, frame generation last). A new effect takes a
+  free number there, with a comment on what it must come after and before.
+- **The fixed-function key** (`FragmentKey`, `src/gpu_vulkan/ff_key.h`) has a fixed size: every byte is spoken for, so
+  a new shader variant takes spare bits of an existing field and says so in the key's text form (`ff_key.cpp`).
+- **Check programs.** Each feature has one (`thug2_vulkan_<feature>_check`, `thug2_ff_shader_check`,
+  `thug2_daylight_check`, `thug2_options_check`, `thug2_rt_scene_check`): a change adds cases for what it changes. They
+  open their window without taking focus (`src/tests/check_window.h`).
+- **Settings** come with their README row, Options-screen row, settings report line and live reload where they can
+  change while playing (`CONTRIBUTING.md`).
+
+## Design direction: one lighting state
+
+The time of day grew as separate darkening steps layered on the original's baked lighting - the relit level, the
+characters' lights, a pass that recolours placed objects, one for unlit objects, the clouds' own light, the lamps as an
+option of their own. Each has its own idea of how dark it is and its own moment to apply, so neighbouring things
+disagree (a door darker than the lamp-lit wall around it, a skater darker than the road he stands on) and the night
+assembles itself over the first frames after a load. The direction from here, replacing those steps:
+
+1. **One lighting state per frame**, made by the clock: the sun or moon (direction, colour, softness), the sky's
+   light, which lamps are on, the exposure. Everything that lights reads it; nothing keeps a copy.
+2. **True surface colours.** The level's baked light is taken out (de-lit), not scaled; objects and characters use
+   their textures' colours.
+3. **One lighting path** for the level, objects, characters, vehicles, particles and clouds: the same direct light and
+   shadows, sky light, bounce light and lamps.
+4. **Night is light and exposure**, not darkening factors applied to particular kinds of object.
+5. **Ready before the first frame**: the state is part of loading a level, so nothing switches on afterwards.
+
+The test it has to pass: Boston and Berlin at noon, dusk and night - a door under a lamp lit like the wall beside it,
+the skater and the objects as bright as the ground they stand on, no hard-edged moon shadows, nothing appearing after
+the load.
