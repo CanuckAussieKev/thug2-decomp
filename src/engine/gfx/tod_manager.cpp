@@ -1347,6 +1347,18 @@ void CtodManager::colour_group_part(int index, int group, int part, uint32_t lev
                 ftol(part * step), ftol((part + 1) * step));
 }
 
+// NOT ORIGINAL (added by the time of day) - apply_color's models alone.
+void CtodManager::colour_models(uint32_t color) const
+{
+    for (objects::ObjectModule* model = objects::object_hub_slot()->find_first_module_of_kind(kModel); model;
+         model = model->next_of_type()) {
+        const render::WorldCell* sector = look_up_sector(model->entity()->ident());
+        if (!sector || sector->light_group() == kOutdoor) {
+            set_model_color(model, color);
+        }
+    }
+}
+
 CtodManager*& tod_manager()
 {
     static gfx::CtodManager* tod_manager{};

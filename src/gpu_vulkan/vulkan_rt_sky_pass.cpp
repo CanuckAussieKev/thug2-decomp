@@ -1710,14 +1710,20 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
         }
         return plain > 0.0 ? matched / plain : 1.0;
     };
-    const double horizon_scale = brightness_of(1, 0) * kCloudAmbientBottom;
-    const double zenith_scale = brightness_of(3, 2) * kCloudAmbientTop;
+    // (added by the time of day) the match's bands are the level's own time's: the clouds lit as the sky is now - the
+    // sun's light gone after sunset, the sky's scaled to the time, the night sky's own on them (rt_daylight.h
+    // cloud_light; all as before without the clock)
+    const rt::CloudLight timed = rt::cloud_light(rt::day_light());
+    const double horizon_scale = brightness_of(1, 0) * kCloudAmbientBottom * timed.sky;
+    const double zenith_scale = brightness_of(3, 2) * kCloudAmbientTop * timed.sky;
     for (std::size_t channel = 0; channel < 3; ++channel) {
-        core::at(sun_light, channel) = static_cast<float>(core::at(through, channel) * sun_scale);
+        core::at(sun_light, channel) = static_cast<float>(core::at(through, channel) * sun_scale * timed.sun);
         core::at(ambient_bottom, channel) =
-            static_cast<float>(core::at(core::at(own.match.model, 1), channel) * horizon_scale);
+            static_cast<float>((core::at(core::at(own.match.model, 1), channel) * horizon_scale) +
+                               core::at(timed.night_bottom, channel));
         core::at(ambient_top, channel) =
-            static_cast<float>(core::at(core::at(own.match.model, 3), channel) * zenith_scale);
+            static_cast<float>((core::at(core::at(own.match.model, 3), channel) * zenith_scale) +
+                               core::at(timed.night_top, channel));
     }
     const uint64_t frames = slot != nullptr ? slot->frames : 0;
     const auto jitter_offset = static_cast<float>(std::fmod(static_cast<double>(frames) * kGolden, 1.0));

@@ -114,8 +114,12 @@ const uint INSTANCE_OBJECT = 32u; // (rt::InstanceFlag kObject)
 const uint CLASS_WATER = 1u;      // (rt::kReflectWater, kReflectGlass)
 const uint CLASS_GLASS = 2u;
 const uint CLASS_SURFACE = 3u;    // (rt::kReflectSurface: glossy by its surface map)
-const uint MASK_PASS_CLEAR = 1u;
-const float MAX_CONE = 0.5;       // (a rough surface's cone at most: rt_glass_roughness's ceiling)  // (a mask pass's kind: rt::kMaskClear; kMaskOpaque 2)
+const uint MASK_PASS_CLEAR = 1u;  // (a mask pass's kind: rt::kMaskClear; kMaskOpaque 2)
+const float MAX_CONE = 0.5;       // (a rough surface's cone at most: rt_glass_roughness's ceiling)
+// (added for the objects' clear coat) a shiny object's paint - the cars' - reflects as a clear coat: Schlick's Fresnel
+// from this F0 face-on, slightly rough (its rays over a cone this wide, radians)
+const float COAT_F0 = 0.05;
+const float COAT_CONE = 0.06;
 
 
 // How much of the reflection the pixel shows: `c` the cosine between the view and the surface's normal.
@@ -315,10 +319,34 @@ void main()
                     // (the mask: where on its texture the surface reflects - the share of the environment pass the
                     // game's pixel shader leaves at the pixel's footprint: each mask pass's alpha, 1 - a or a)
                     vec2 bary = rayQueryGetIntersectionBarycentricsEXT(query, true);
-                    float mask = environment_mask(id, rayQueryGetIntersectionInstanceIdEXT(query, true),
+                    uint hit_instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
+                    float mask = environment_mask(id, hit_instance,
                                                   rayQueryGetIntersectionPrimitiveIndexEXT(query, true), v, bary,
                                                   a, b, c, pass.ambient.w * t);
-                    float weight = reflection_weight(reflectivity, surface.reflection_class, surface.f0, -dot(view, n));
+                    // (added for the smooth reflections) the mesh's own normals where it has them (the objects: the
+                    // cars' low-poly bodies), interpolated - the reflection follows the shading, not each triangle;
+                    // the triangle's own (n) keeps the ray off the surface
+                    vec3 sn = n;
+                    vec3 vertex_normal;
+                    if (hit_normal(hit_instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), bary,
+                                   vertex_normal)) {
+                        mat3 normal_to_world = transpose(inverse(mat3(rayQueryGetIntersectionObjectToWorldEXT(query, true))));
+                        vec3 smooth_n = normal_to_world * vertex_normal;
+                        float smooth_length = length(smooth_n);
+                        if (smooth_length > 1e-12 && !any(isnan(smooth_n))) {
+                            smooth_n /= smooth_length;
+                            sn = dot(smooth_n, n) < 0.0 ? -smooth_n : smooth_n;
+                        }
+                    }
+                    bool object = (geometry_record(hit_instance).instance_flags & INSTANCE_OBJECT) != 0u;
+                    float weight = reflection_weight(reflectivity, surface.reflection_class, surface.f0, -dot(view, sn));
+                    if (object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_WATER &&
+                        surface.reflection_class != CLASS_GLASS && surface.reflection_class != CLASS_SURFACE) {
+                        // (added for the objects' clear coat) a shiny object - a car's paint - is a clear coat, not
+                        // a mirror: Schlick's Fresnel from COAT_F0 face-on x its shine x 2 strength (at most 1)
+                        float schlick = pow(1.0 - clamp(-dot(view, sn), 0.0, 1.0), 5.0);
+                        weight = reflectivity * min(1.0, 2.0 * pass.params.x) * (COAT_F0 + (1.0 - COAT_F0) * schlick);
+                    }
                     if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {
                         vec4 texel = material_texel_lod(id, hit_uv(v, bary), level_for(id, v, a, b, c, pass.ambient.w * t));
                         // The game drew its environment map there in place of the texture (its pixel shader's lerp by
@@ -327,25 +355,34 @@ void main()
                         // under the reflection: face-on the pane shows (1 - F) of it, the reflection the rest; the
                         // environment map is kept only for what the rays miss (the base layer, premultiplied).
                         uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
-                        vec3 light = (geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u ? lighting(n)
+                        vec3 light = (geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u ? lighting(sn)
                                    : ((v.flags & GEOMETRY_COLOUR) != 0u ? hit_colour(v, bary).rgb * 2.0 : vec3(1.0));
                         vec3 own = clamp(texel.rgb * surface.colour.rgb * light, 0.0, 1.0);
                         float share = mask * (1.0 - clamp(weight, 0.0, 1.0));
                         base_layer = vec4(own * share, share);
                     }
                     weight *= mask;
-                    vec3 mirror = reflect(view, n);
+                    vec3 mirror = reflect(view, sn);
+                    if (dot(mirror, n) <= 0.0) {
+                        mirror = reflect(view, n); // (the smooth normal turned it into the surface: the triangle's)
+                    }
                     float rough = pass.fresnel.x >= 0.5 && surface.reflection_class == CLASS_GLASS ? pass.fresnel.y : 0.0;
+                    if (object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_WATER &&
+                        surface.reflection_class != CLASS_GLASS && surface.reflection_class != CLASS_SURFACE) {
+                        rough = COAT_CONE;
+                    }
                     if (surface.reflection_class == CLASS_SURFACE) {
                         // (added for the surface reflections) a surface glossy by its map: Schlick's Fresnel at the
                         // map's F0, its grazing rise held to 1 - roughness (a rough surface never turns into a mirror),
                         // x its kind's gloss (the reflectivity) x rt_reflection_surfaces x 2 strength (at most 1); the
-                        // map's roughness at the hit fades it out toward the roughest that reflects and spreads its
-                        // rays over a cone as wide as its GGX lobe
+                        // map's roughness at the hit - never under its kind's least (stone, paint and wood are never
+                        // mirrors) - fades it out toward the roughest that reflects and spreads its rays over a cone as
+                        // wide as its GGX lobe
                         float r = clamp(material_surface_lod(id, hit_uv(v, bary),
                                                              level_for(id, v, a, b, c, pass.ambient.w * t)).b, 0.0, 1.0);
                         r = mix(r, surface.kind_roughness, surface.kind_roughness_weight); // (the kind's, rt_detail)
-                        float cosine = clamp(-dot(view, n), 0.0, 1.0);
+                        r = max(r, surface.least_roughness);
+                        float cosine = clamp(-dot(view, sn), 0.0, 1.0);
                         float f0 = surface.f0;
                         float fresnel = f0 + (max(1.0 - r, f0) - f0) * pow(1.0 - cosine, 5.0);
                         weight = mask * reflectivity * pass.surface.x * min(1.0, 2.0 * pass.params.x) * fresnel *

@@ -43,12 +43,24 @@ constexpr uint8_t kHalfAlpha = 0x80;
 constexpr uint32_t kByteMask = 0xFFU;
 constexpr uint32_t kGreenShift = 8U;
 constexpr uint32_t kBlueShift = 16U;
+// The models' colour (relit) sent again this often (frames) - objects made since get it - and at once when it moves.
+constexpr int kModelsEvery = 30;
+constexpr int kMostByte = 255;
 
 uint32_t rgba(int red, int green, int blue)
 {
     return static_cast<uint32_t>(static_cast<uint8_t>(red)) |
            static_cast<uint32_t>(static_cast<uint8_t>(green)) << kGreenShift |
            static_cast<uint32_t>(static_cast<uint8_t>(blue)) << kBlueShift | static_cast<uint32_t>(kHalfAlpha) << 24U;
+}
+
+// r, g, b times `scale`'s channels (rounded, held to a byte).
+uint32_t scaled_rgba(int red, int green, int blue, const rt::DayRgb& scale)
+{
+    const auto byte = [](int value, float factor) {
+        return std::clamp(static_cast<int>(std::lround(static_cast<float>(value) * factor)), 0, kMostByte);
+    };
+    return rgba(byte(red, std::get<0>(scale)), byte(green, std::get<1>(scale)), byte(blue, std::get<2>(scale)));
 }
 
 bool near_colour(uint32_t a, uint32_t b)
@@ -103,6 +115,12 @@ struct Colouring {
     uint32_t sweep_sky = 0;
     int group = 0;
     int part = 0;
+    // (the relit mode) the models' own colour - the scenes keep the level's, the relit colours dim them
+    bool models_own = false;
+    uint32_t models = 0;
+    uint32_t sent_models = 0;
+    bool models_sent = false;
+    int models_age = 0;
 };
 
 struct Clock {
@@ -245,7 +263,55 @@ void colour_step(Clock& own, gfx::CtodManager& manager, int system)
         colours.sent = true;
         colours.sent_level = colours.sweep_level;
         colours.sent_sky = colours.sweep_sky;
+        colours.models_sent = false; // (the sweep coloured the models with the level)
     }
+}
+
+// (the relit mode) The models given their own colour once a sweep is done, when it moves, and every kModelsEvery
+// frames for the objects made since.
+void models_step(gfx::CtodManager& manager, Colouring& colours)
+{
+    if (!colours.models_own || colours.sweeping) {
+        return;
+    }
+    ++colours.models_age;
+    if (colours.models_sent && colours.models_age < kModelsEvery && near_colour(colours.models, colours.sent_models)) {
+        return;
+    }
+    manager.colour_models(colours.models);
+    colours.sent_models = colours.models;
+    colours.models_sent = true;
+    colours.models_age = 0;
+}
+
+// (the relit mode) The objects' and characters' lights: the level's own state's, each scaled as the relit mode scales
+// the level's light - the key light (light 0, the sun's) by the direct light, the fill and the ambient by the sky's -
+// so they darken with the level (the original's own states' lights are another, brighter night).
+void lights_by_day(const gfx::TodParams& own, const rt::DayLight& light, gfx::TodParams* params)
+{
+    const auto scale = [](int value, float factor) {
+        return std::clamp(static_cast<int>(std::lround(static_cast<float>(value) * factor)), 0, kMostByte);
+    };
+    const float direct = light.direct;
+    params->ambient_red_ = scale(own.ambient_red_, std::get<0>(light.sky));
+    params->ambient_green_ = scale(own.ambient_green_, std::get<1>(light.sky));
+    params->ambient_blue_ = scale(own.ambient_blue_, std::get<2>(light.sky));
+    params->ambient_mod_lo_ = own.ambient_mod_lo_;
+    params->ambient_mod_hi_ = own.ambient_mod_hi_;
+    params->heading0 = own.heading0;
+    params->pitch0 = own.pitch0;
+    params->red0 = scale(own.red0, direct * std::get<0>(light.direct_tint));
+    params->green0 = scale(own.green0, direct * std::get<1>(light.direct_tint));
+    params->blue0 = scale(own.blue0, direct * std::get<2>(light.direct_tint));
+    params->mod_lo0_ = own.mod_lo0_;
+    params->mod_hi0_ = own.mod_hi0_;
+    params->heading_a_ = own.heading_a_;
+    params->pitch1 = own.pitch1;
+    params->red1 = scale(own.red1, std::get<0>(light.sky));
+    params->green1 = scale(own.green1, std::get<1>(light.sky));
+    params->blue1 = scale(own.blue1, std::get<2>(light.sky));
+    params->mod_lo1_ = own.mod_lo1_;
+    params->mod_hi1_ = own.mod_hi1_;
 }
 
 // The original's side at the clock's time: its state, its parameters, its colours.
@@ -269,6 +335,7 @@ void apply_original(Clock& own, gfx::CtodManager& manager, const rt::DayLight& l
     own.set_state = manager.current_state();
     const bool relit = rt::sun_relight().relights;
     const bool sky_drawn = rt::sky_replacement().on;
+    const rt::DayRgb surface = rt::surface_light(light);
     const auto native = static_cast<std::size_t>(own.native.state);
     for (int system = 0; system < kSystems; ++system) {
         if (!core::at(own.have_params, system)) {
@@ -277,19 +344,23 @@ void apply_original(Clock& own, gfx::CtodManager& manager, const rt::DayLight& l
         const bool sky_system = manager.systems().at(static_cast<std::size_t>(system)).sky;
         gfx::TodParams params = blended(own, system, blend);
         const gfx::TodParams& own_params = core::at(core::at(own.params, system), native);
-        // (the relit mode dims the bake itself; the backend's sky has its own night: their colours stay the level's)
+        Colouring& colours = core::at(own.colouring, system);
+        colours.level = rgba(params.lev_red_, params.lev_green_, params.lev_blue_);
+        // (the relit mode dims the bake itself: the scenes' colour stays the level's; what it doesn't relight - the
+        // objects' models, by their colour, and the objects and characters lit by the game's lights - takes the same
+        // darkening as the relit level; the particles keep the original's state's colour - params' lev, theirs alone)
+        colours.models_own = relit && !sky_system;
         if (relit) {
-            params.lev_red_ = own_params.lev_red_;
-            params.lev_green_ = own_params.lev_green_;
-            params.lev_blue_ = own_params.lev_blue_;
+            colours.level = rgba(own_params.lev_red_, own_params.lev_green_, own_params.lev_blue_);
+            colours.models = scaled_rgba(own_params.lev_red_, own_params.lev_green_, own_params.lev_blue_, surface);
+            lights_by_day(own_params, light, &params);
         }
+        // (the backend's sky has its own night: the dome's colour stays the level's)
         if (sky_drawn) {
             params.sky_red_ = own_params.sky_red_;
             params.sky_green_ = own_params.sky_green_;
             params.sky_blue_ = own_params.sky_blue_;
         }
-        Colouring& colours = core::at(own.colouring, system);
-        colours.level = rgba(params.lev_red_, params.lev_green_, params.lev_blue_);
         colours.sky = rgba(params.sky_red_, params.sky_green_, params.sky_blue_);
         if (!sky_system && !manager.level_lights_reset() &&
             (!own.params_sent || std::memcmp(&params, &own.sent_params, sizeof(params)) != 0)) {
@@ -298,6 +369,7 @@ void apply_original(Clock& own, gfx::CtodManager& manager, const rt::DayLight& l
             own.params_sent = true;
         }
         colour_step(own, manager, system);
+        models_step(manager, colours);
     }
 }
 

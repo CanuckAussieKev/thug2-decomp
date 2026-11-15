@@ -67,21 +67,30 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
 // The F0 of `colour`'s map's class (0: no map) - or, with rt_detail, its surface kind's (vulkan_detail.h).
 [[nodiscard]] float surface_map_f0(const Texture* colour);
 // (added for the surface reflections - vulkan_rt_reflections.h) How glossy `colour`'s surface is by its map: its surface
-// kind's (detail_material_format::Kind - the library's, else its class's) share of a mirror's reflection, 0 - 1 -
-// metal, glazed tiles and polished floors, glass and water whole, polished stone half, wood and paint less; asphalt,
-// concrete, brick, plaster, ground, plants and cloth none. 0 without a map, for a character
-// model's map, or with rt_pbr off - its F0 and its kind's roughness (the detail library's, and how far it replaces the
-// map's: 0 without the library) beside it. False: no map used.
+// kind's (detail_material_format::Kind - the library's, else its class's) share of a mirror's reflection, 0 - 1, and the
+// roughness it never goes under - metal (0.05), glazed tiles and polished floors (0.12), glass and water (0) whole;
+// stone (0.5), paint (0.4) and wood (0.35) a faint, blurred sheen at most (0.2, 0.2, 0.25: a kerb or a painted wall is
+// never a mirror); asphalt, concrete, brick, plaster, ground, plants and cloth none. 0 without a map, for a character
+// model's map, or with rt_pbr off - its F0 (held to kMostDielectricF0 but for metal: only metal reflects more than a
+// clear coat face-on) and its kind's roughness (the detail library's, and how far it replaces the map's: 0 without the
+// library) beside it. False: no map used.
+inline constexpr float kMostDielectricF0 = 0.05F;
 struct SurfaceGloss {
     float gloss = 0.0F;
     float f0 = 0.0F;
     float kind_roughness = 0.0F;
     float kind_roughness_weight = 0.0F;
+    float least_roughness = 0.0F;
 };
 [[nodiscard]] bool surface_map_gloss(const Texture* colour, SurfaceGloss* out);
-// The gloss of a surface kind / of a map's class (surface_map_gloss's tables).
-[[nodiscard]] float kind_gloss(uint8_t kind);
-[[nodiscard]] float class_gloss(uint8_t material_class);
+// The gloss of a surface kind / of a map's class (surface_map_gloss's tables): the share, the least roughness, metal.
+struct KindGloss {
+    float gloss = 0.0F;
+    float least_roughness = 0.0F;
+    bool metal = false;
+};
+[[nodiscard]] KindGloss kind_gloss(uint8_t kind);
+[[nodiscard]] KindGloss class_gloss(uint8_t material_class);
 // `colour` is being destroyed: its map taken out of the table, for the caller to release (null: none).
 [[nodiscard]] Texture* take_surface_map(const Texture* colour);
 // The maps attached since the device was made (the log; checks).

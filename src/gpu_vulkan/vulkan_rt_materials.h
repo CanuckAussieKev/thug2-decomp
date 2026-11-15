@@ -54,7 +54,7 @@ inline constexpr uint32_t kMaterialRecordsBinding = 0;
 inline constexpr uint32_t kMaterialSamplersBinding = 1;
 inline constexpr uint32_t kMaterialTexturesBinding = 2;
 
-// A row of binding 0 (scalar layout: 108 bytes). The GLSL's `Material` has the same members in the same order.
+// A row of binding 0 (scalar layout: 112 bytes). The GLSL's `Material` has the same members in the same order.
 struct MaterialRecord {
     uint32_t texture = 0; // slot in textures[] (0: white)
     uint32_t sampler = 0; // index in samplers[]
@@ -89,8 +89,11 @@ struct MaterialRecord {
     // how far it replaces the surface map's (0: the map's alone) - as the per-pixel lighting takes them
     float kind_roughness = 0.0F;
     float kind_roughness_weight = 0.0F;
+    // (added for the surface reflections' floor) the roughness the surface's reflection never goes under (its kind's:
+    // stone, paint and wood are never mirrors whatever their maps say)
+    float least_roughness = 0.0F;
 };
-inline constexpr std::size_t kMaterialRecordBytes = 108;
+inline constexpr std::size_t kMaterialRecordBytes = 112;
 inline constexpr uint32_t kMaskUvSetShift = 4;
 inline constexpr uint32_t kMaskTextureAlpha = 1U << 8; // the alpha the texel's alone (else x the vertex alpha, doubled)
 static_assert(sizeof(MaterialRecord) == kMaterialRecordBytes);
@@ -115,7 +118,7 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 //                     vec4 colour; float reflectivity; uint environment_pass;
 //                     uint reflection_class; uint reflection_mask; uint surface_slot; float f0;
 //                     uint mask_texture[3]; uint mask_sampler[3]; uint mask_mode[3];
-//                     float kind_roughness; float kind_roughness_weight; };
+//                     float kind_roughness; float kind_roughness_weight; float least_roughness; };
 //   const uint MATERIAL_ALPHA_TESTED = 2u, MATERIAL_TRANSPARENT = 64u;   (rt::InstanceFlag's values)
 //   Material material(uint id)                       - the record (id: rt::MaterialId; 0: untextured white)
 //   vec4 material_texel(uint id, vec2 uv)            - its texture at level 0 through its sampler (non-uniform indexing)

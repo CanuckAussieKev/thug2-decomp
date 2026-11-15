@@ -34,9 +34,10 @@
 //   - rt_sky (the sky's misses): the floor's reflections that miss the box show the sky drawn - the sky-view table toward
 //     the reflected direction, as the game's colour - where they kept the floor's own colour without it.
 //   - (added for the surface reflections) The floor without a shine of its own, its texture given a surface map (rt_pbr):
-//     a smooth glazed tile reflects by Fresnel at the map's F0 (the weights against the processor's, as above); a rough
-//     tile, a concrete map, rt_reflection_surfaces=0 and rt_pbr off leave every pixel as drawn (concrete and pbr off:
-//     no pass at all).
+//     a smooth glazed tile reflects by Fresnel at the map's F0 - held to 0.05, its roughness never under its kind's
+//     0.12 - (the weights against the processor's, as above); smooth metal keeps its map's F0; a smooth stone map is only
+//     a faint sheen (its gloss 0.2, its roughness never under 0.5: never a mirror); a rough tile, a concrete map,
+//     rt_reflection_surfaces=0 and rt_pbr off leave every pixel as drawn (concrete and pbr off: no pass at all).
 //   thug2_vulkan_rt_reflections_check [--device N] [--display N] [--no-validation] [--seed N]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
@@ -79,6 +80,7 @@
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
+#include "gpu_vulkan/vulkan_surface.h"
 #include "platform/run_log.h"
 #include "tests/check_window.h"
 #include "tests/no_error_dialogs.h"
@@ -1134,9 +1136,12 @@ struct MirrorCase {
     float glass_reflectance = render::vulkan::kRtGlassReflectance; // (rt_glass_reflectance: glass's F0)
     uint32_t box_colour = kGrey; // (added for the skinned meshes' attributes) the box's vertex colour
     // (added for the surface reflections) above 0: the floor has no shine of its own, its white texture a smooth
-    // glazed-tile surface map of this F0 (Mirror::surface) - rt_reflection_surfaces `surfaces`
+    // surface map of this F0 as the pass takes it (Mirror::surface) - rt_reflection_surfaces `surfaces`; its kind's
+    // gloss and the roughness it never goes under (the smooth map's 0 raised to it)
     float surface_f0 = 0.0F;
     float surfaces = 1.0F;
+    float surface_gloss = 1.0F;
+    float surface_least = 0.0F;
 };
 
 // Schlick's approximation of the Fresnel reflectance, and the exact one for unpolarised light from air into an index n
@@ -1163,8 +1168,13 @@ double reference_weight(const MirrorCase& test, double cosine)
     const double reflectivity = test.reflectivity;
     const double strength = test.strength;
     if (test.surface_f0 > 0.0F) {
-        // (a smooth glazed tile: its gloss 1, Fresnel at its F0 whatever rt_reflection_fresnel says)
-        return static_cast<double>(test.surfaces) * std::min(1.0, 2.0 * strength) * schlick(test.surface_f0, cosine);
+        // (a smooth map: Fresnel at its F0 whatever rt_reflection_fresnel says, the grazing rise held to 1 - its
+        // roughness - the kind's least)
+        const double f0 = test.surface_f0;
+        const double grazing = std::max(1.0 - static_cast<double>(test.surface_least), f0);
+        const double fresnel = f0 + ((grazing - f0) * std::pow(1.0 - std::clamp(cosine, 0.0, 1.0), 5.0));
+        return static_cast<double>(test.surfaces) * static_cast<double>(test.surface_gloss) *
+               std::min(1.0, 2.0 * strength) * fresnel;
     }
     double mask = 1.0;
     if (test.fresnel && test.mask == rt::kReflectWhereBaseClear) {
@@ -1544,7 +1554,11 @@ void run_mirror(render::Gpu& gpu, Mirror& mirror, const MirrorCase& test, Tally*
         if (read_without && read_with) {
             // (four samples: the depth read at sample 0 - Vulkan's standard place, 0.375, 0.125 in the pixel)
             constexpr Offset kSampleZero{-0.125, -0.375};
-            compare_mirror(with, without, test.samples == 0 ? Offset{} : kSampleZero, test, tally);
+            // (a rough case - a surface map's least roughness: its rays spread over a cone and blurred, the colours no
+            // mirror's; its weights alone, at most the processor's)
+            if (test.roughness <= 0.0F) {
+                compare_mirror(with, without, test.samples == 0 ? Offset{} : kSampleZero, test, tally);
+            }
             check_image(test, tally);
         }
     }
@@ -1783,11 +1797,36 @@ void run_surface(render::Gpu& gpu, Mirror& mirror, Tally* tally)
                                     .f0 = kTileF0},
                    map);
     };
+    // (a cone of roughness^2 radians: the case's `roughness` - its pixels rough, the weight at most the reference)
+    constexpr float kTileLeast = 0.12F;
+    constexpr float kMetalLeast = 0.05F;
+    constexpr float kStoneLeast = 0.5F;
+    constexpr float kStoneGloss = 0.2F;
+    const bool metal = textured && attach(static_cast<uint8_t>(smf::MaterialClass::kMetal), 0);
+    tally->check(metal, "a white texture with a smooth metal surface map");
+    if (metal) {
+        run_mirror(gpu, mirror, {.name = "smooth metal by its surface map (its F0 kept, roughness at least 0.05)",
+                                 .samples = 0, .strength = 0.5F, .reflectivity = 0.0F, .fresnel = true,
+                                 .roughness = kMetalLeast * kMetalLeast, .surface_f0 = kTileF0,
+                                 .surface_least = kMetalLeast},
+                   tally);
+    }
+    const bool stone = textured && attach(static_cast<uint8_t>(smf::MaterialClass::kStone), 0);
+    tally->check(stone, "a white texture with a smooth stone surface map");
+    if (stone) {
+        run_mirror(gpu, mirror, {.name = "smooth stone by its surface map (a faint sheen: F0 0.05, roughness at least 0.5)",
+                                 .samples = 0, .strength = 0.5F, .reflectivity = 0.0F, .fresnel = true,
+                                 .roughness = kStoneLeast * kStoneLeast, .surface_f0 = render::vulkan::kMostDielectricF0,
+                                 .surface_gloss = kStoneGloss, .surface_least = kStoneLeast},
+                   tally);
+    }
     const bool tile = textured && attach(static_cast<uint8_t>(smf::MaterialClass::kTile), 0);
     tally->check(tile, "a white texture with a smooth glazed tile's surface map");
     if (tile) {
-        run_mirror(gpu, mirror, {.name = "a glazed tile by its surface map", .samples = 0, .strength = 0.5F,
-                                 .reflectivity = 0.0F, .fresnel = true, .surface_f0 = kTileF0},
+        run_mirror(gpu, mirror, {.name = "a glazed tile by its surface map (F0 held to 0.05, roughness at least 0.12)",
+                                 .samples = 0, .strength = 0.5F, .reflectivity = 0.0F, .fresnel = true,
+                                 .roughness = kTileLeast * kTileLeast, .surface_f0 = render::vulkan::kMostDielectricF0,
+                                 .surface_least = kTileLeast},
                    tally);
         rt::Material floor = floor_surface(0.0F);
         floor.texture = mirror.surface;

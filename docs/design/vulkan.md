@@ -1216,13 +1216,24 @@ blue); the glass was the reflections'.
   never did. Now the material table (`vulkan_rt_materials.cpp` surface_reflection) gives a material with no shine of its
   own, not seen through, whose texture has a map a reflectivity from the map's surface kind (`vulkan_surface.cpp`
   surface_map_gloss: the detail library's kind where there is one, else the map's class - metal, glazed tiles, glass and
-  water 1, stone 0.5, wood 0.35, paint 0.3; asphalt, concrete, brick, plaster, ground, plants, cloth and the
+  water 1, stone 0.2, wood 0.25, paint 0.2 - since the night's kerb, which mirrored a shoe: before 0.5, 0.35 and 0.3 -;
+  asphalt, concrete, brick, plaster, ground, plants, cloth and the
   characters' maps 0), class `rt::kReflectSurface`, the map's F0, and the kind's roughness and its weight (the library's;
   the record grew to 108 bytes). The pass reads the map's roughness at the pixel (mixed toward the kind's as the per-pixel
   lighting does): weight = gloss x `rt_reflection_surfaces` x min(1, 2 x strength) x (F0 + (max(1 - r, F0) - F0)(1 - c)^5)
   x (1 - smoothstep(0.525, 0.7, r)) - a rough surface never turns into a mirror at grazing angles, the roughest (r above
   0.7: the maps' stone, plaster, paint) not at all - and its rays spread over a cone of r^2 radians (at most 0.5) as
-  rough glass's. Such materials count as reflective instances. The maps make few surfaces glossy (THUG2's levels: the
+  rough glass's. Each kind has a roughness it never goes under (`least_roughness`, the record now 112 bytes): metal
+  0.05, glazed tiles 0.12, glass and water 0, wood 0.35, paint 0.4, stone 0.5 - a kerb or a painted wall is a faint,
+  blurred sheen at most, never a mirror, whatever its map says - and its F0 is held to 0.05 but for metal (only metal
+  reflects more than a clear coat face-on).
+- **Objects' clear coat and smooth normals** (2026-11-15): a shiny object (environment-mapped, not water, glass or a
+  map's surface) - a car's paint - reflected as the shiny surfaces do, its whole shine face-on: a dark hood was a sharp,
+  bright mirror. With Fresnel on it is a clear coat now: its shine x min(1, 2 x strength) x Schlick's from F0 0.05, its
+  rays over a 0.06 radian cone. And where the reflecting mesh has normals of its own (the objects) the mirror direction
+  and the Fresnel follow them, interpolated (`hit_normal`, by the instance's inverse transpose) - the low-poly bodies'
+  triangles no longer show in the reflection; the triangle's normal still keeps the ray off the surface (and replaces
+  a smooth normal that would send the ray into it). Such materials count as reflective instances. The maps make few surfaces glossy (THUG2's levels: the
   metal kinds - rails, the Airport's moving walkways - and glazed tiles; stone and paint stay matte), so most views
   change little. Off (`rt_reflections=0`) and without maps nothing changes; `rt_reflection_surfaces=0` gives the earlier
   look.
@@ -1800,15 +1811,33 @@ linear ratio r shows as r ^ (1 / 2.2), so night is dim, not black):
   so the level's own scripts for it run (`tod_manager_state_transition`: the night geometry and fake lights of BO, BA,
   BE, AU and NO, the cars' headlights). Where relit relights the level the level colour stays the level's own (relit
   dims the bake already); where the backend draws the sky (`rt_sky`) the dome's colour does too.
-- **The skater and objects**: the original's states' ambient and directional lights (blended), turned by relit toward
-  the clock's light; the key light is not tinted again by the clock's colour.
+- **The skater and objects**: without relit, the original's states' ambient and directional lights (blended). Where
+  relit relights the level, what it doesn't relight darkens as it does (`rt_daylight.h` `surface_light`: the direct
+  light and the sky's mixed by the level's share of each, as the relit bounce): the game's lights are the level's own
+  state's, the key light (light 0) x the direct light and its colour, the fill and the ambient x the sky light - the
+  skater, the peds, the cars; the objects' models coloured by the level's colour (sector models: the tables, chairs and
+  movables) get the level's own colour x `surface_light` (`CtodManager::colour_models`, after each of the clock's
+  sweeps, when it moves and every 30 frames for objects made since), while the scenes keep the level's own colour (relit
+  dims them). An unlit instance - its own baked vertex colours, lit by nothing (BO's cafe table and chairs) - never took
+  the model colour (the original applies an instance's colour to skinned instances only), so it is drawn with the
+  instance colour `surface_light` x 128 (`rt_relit_world::unlit_object_colour`, `Singleton::render`) while the clock
+  lights the relit level. The original's night state is about twice as bright as the relit night (its level colour 50 65 75 of 128
+  against `surface_light`'s 0.14 0.17 0.23 at midnight): lit by it the skater and the props stood out of the dark level.
+  Particles keep the original's states' level colour (their own glow). Relit turns the lights toward the clock's light;
+  the key light is not tinted again by the clock's colour.
 - **The sky** (`rt_sky`): drawn for the clock's sun - under the horizon too: the model's twilight - and matched to the
   level for the level's own sun (so the painted sky's colours belong to the level's own time and the model moves them
   to other times; matching at every time would repaint the level's sky at night). The night sky's light (0.0028,
   0.0045, 0.0095 exposed overhead, 1.5 x at the horizon) is added to the sky-view table after the match's gains, so the
   fog's aerial haze and the reflections see it too; the composite adds the stars (cells on a cube about the celestial
   pole, turned with the hours; about 6% of cells hold a star, most faint) and the moon's disc (0.009 rad, twice the
-  real one, as the sun's is) before the clouds, which cover them. The original's sun sprite and lens flare follow the
+  real one, as the sun's is) before the clouds, which cover them. The clouds (`rt_daylight.h` `cloud_light`): the
+  match's bands are the level's own time's, so the clouds' sky light is scaled by the sky's light now over then
+  (`sky_light_at`, linear), the sun's light on them fades out from the horizon to 6 degrees down (a high cloud keeps the
+  sunset a little longer), and the night sky's own light is added - on their tops x (1 + 0.5 x the moon's disc), on
+  their bases x (0.6 + 0.5 x it): at night a cloud is a dim, blue silhouette barely lighter than the sky round it, not
+  the daylit grey it was (the bands' daylight on the clouds made them glow over a starry sky); continuous through the
+  dusk. The original's sun sprite and lens flare follow the
   clock's sun (`sun::set_sun`), hidden while it is down; the ray-traced disc likewise.
 - **The shadows** (`rt_shadows`): their strength x the direct light's share of the light over its share at the level's
   own time (none at twilight, the moon's at night). **The lamps** (`rt_lights`): their strength x the lamps' amount (off
@@ -1830,7 +1859,9 @@ level's own state and sun back. Online it is local: each player sees their own t
   (1e-4), after noon, and the light then is the level's own (direct and sky 1, no lamps, the afternoon state), half an
   hour later lower and further west; the moon; the light from noon to midnight (the sun's never brightens to dusk, the
   sky's never into the night), dusk's lamps coming on, midnight moonlit, dark but lit, exposure up; the original's
-  states' weights changing smoothly; the settings' text.
+  states' weights changing smoothly; the settings' text; `surface_light` 1 at the level's own time, dark and blue at
+  midnight - darker than the original's night; `cloud_light` as before without the clock and at the level's own time, at
+  midnight no sun and no daylit sky, and no jump from the afternoon into the night.
 - `thug2_rt_scene_check`: the clock's light in the scene sun's rules (above game and level when relit, the baked sun
   before, none indoors, below a fixed direction, a zero light ignored).
 - `thug2_vulkan_rt_sky_check` (+11): without the night term the sky-view table is the level's to the bit; at noon, dusk
@@ -2287,7 +2318,7 @@ last vector (`DetailUniforms::relief`, the former spare), so it needs no new bin
 ### Characters (`rt_characters`)
 
 The skaters, the CAS parts and the peds were the flattest things on screen with `rt_pbr` on: one texture of painted skin,
-flat clothes, an ordinary highlight on hair. `[Graphics] rt_characters=1` (off by default; with `rt_pbr`) gives their
+flat clothes, an ordinary highlight on hair. `[Graphics] rt_characters=1` (on by default since 2026-11-15 - nothing changes without the maps; with `rt_pbr`) gives their
 models surface maps of their own and shades skin, cloth and hair as such; `rt_characters_skin` / `_cloth` / `_hair`
 (0 - 2, default 1) set each; `rt_ao_characters` (0 - 1, default 1) is the ray-traced occlusion's strength on them.
 

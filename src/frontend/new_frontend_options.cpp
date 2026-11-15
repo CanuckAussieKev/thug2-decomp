@@ -585,7 +585,7 @@ const std::vector<Spec>& get_specs()
                         {{.value = "0.25", .label = text_tools::kLow}, {.value = "0.5", .label = text_tools::kMedium}, {.value = "0.75", .label = text_tools::kHigh}},
                         1, Apply::kLive),
         // (added for the characters: their surface maps, skin, cloth and hair - gpu_vulkan/vulkan_surface.h)
-        graphics_switch("rt_characters", text_tools::kOptCharacters, text_tools::kOptCharactersHelp, 0, Apply::kLive),
+        graphics_switch("rt_characters", text_tools::kOptCharacters, text_tools::kOptCharactersHelp, 1, Apply::kLive),
         graphics_choice("rt_characters_skin", text_tools::kOptCharactersSkin, "",
                         {{.value = "0", .label = kOff}, {.value = "0.5", .label = text_tools::kLow}, {.value = "1", .label = text_tools::kMedium}, {.value = "1.5", .label = text_tools::kHigh}},
                         2, Apply::kLive),

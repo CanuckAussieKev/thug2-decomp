@@ -101,6 +101,7 @@ struct Material {
     uint mask_mode[3];
     float kind_roughness;
     float kind_roughness_weight;
+    float least_roughness;
 };
 layout(set = THUG2_MATERIAL_SET, binding = 0, scalar) readonly buffer MaterialRecords { Material material_records[]; };
 layout(set = THUG2_MATERIAL_SET, binding = 1) uniform sampler material_samplers[32];
@@ -111,7 +112,7 @@ Material material(uint id)
 {
     if (id >= uint(material_records.length())) {
         return Material(0u, 0u, 0u, 0u, 0.0, 0u, vec4(1.0), 0.0, 0xFFFFFFFFu, 0u, 0u, 0u, 0.0, uint[3](0u, 0u, 0u),
-                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u), 0.0, 0.0);
+                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u), 0.0, 0.0, 0.0);
     }
     return material_records[id];
 }
@@ -194,6 +195,7 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
         record->f0 = found.f0;
         record->kind_roughness = found.kind_roughness;
         record->kind_roughness_weight = found.kind_roughness_weight;
+        record->least_roughness = found.least_roughness;
     }
 }
 

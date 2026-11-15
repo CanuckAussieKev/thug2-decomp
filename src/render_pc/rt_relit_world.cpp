@@ -650,11 +650,11 @@ rt::RelitLighting day_scales(const rt::DayLight& day)
     if (!day.on) {
         return scales;
     }
+    const rt::DayRgb bounce = rt::surface_light(day);
     for (std::size_t ch = 0; ch < 3; ++ch) {
         core::at(scales.direct_scale, ch) = day.direct;
         core::at(scales.sky_scale, ch) = core::at(day.sky, ch);
-        core::at(scales.bounce_scale, ch) = (rt::kDirectShare * day.direct * core::at(day.direct_tint, ch)) +
-                                            ((1.0F - rt::kDirectShare) * core::at(day.sky, ch));
+        core::at(scales.bounce_scale, ch) = core::at(bounce, ch);
     }
     return scales;
 }
@@ -1197,9 +1197,25 @@ bool object_lighting(ObjectLighting* out)
         }
     }
     out->rotation = rotation;
-    // (added by the time of day: the clock's colour and strength are the original's own lights' - its states' -, so the
-    // key light is only turned)
+    // (added by the time of day: the clock sends the level's own state's lights scaled by its light - day_clock.cpp
+    // lights_by_day -, so the key light is only turned)
     out->key_colour = st.day_serial != 0 ? rt::Rgbf{1.0F, 1.0F, 1.0F} : st.sun_colour;
+    return true;
+}
+
+bool unlit_object_colour(std::array<uint8_t, 4>* out)
+{
+    const State& st = state();
+    if (st.status != Status::kRelit || !st.model.valid || st.day_serial == 0) {
+        return false;
+    }
+    constexpr float kOne = 128.0F; // (the instance colour's 1)
+    constexpr float kMostByte = 255.0F;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        core::at(*out, ch) = static_cast<uint8_t>(
+            std::lround(std::clamp(core::at(st.day_scales.bounce_scale, ch) * kOne, 0.0F, kMostByte)));
+    }
+    core::at(*out, 3) = static_cast<uint8_t>(kOne);
     return true;
 }
 

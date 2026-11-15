@@ -106,7 +106,7 @@ const std::vector<Expected>& expected()
         {.key = "rt_detail_strength", .fallback = "1", .live = true},
         {.key = "rt_delight", .fallback = "0", .live = true},
         {.key = "rt_delight_strength", .fallback = "0.5", .live = true},
-        {.key = "rt_characters", .fallback = "0", .live = true}, // (added for the characters)
+        {.key = "rt_characters", .fallback = "1", .live = true}, // (added for the characters)
         {.key = "rt_characters_skin", .fallback = "1", .live = true},
         {.key = "rt_characters_cloth", .fallback = "1", .live = true},
         {.key = "rt_characters_hair", .fallback = "1", .live = true},
