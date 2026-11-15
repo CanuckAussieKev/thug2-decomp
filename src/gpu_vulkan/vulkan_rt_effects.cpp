@@ -254,6 +254,27 @@ uint rays_mask(vec3 here, vec3 to_camera, float distance, inout vec3 normal)
     return mask & ~OBJECTS_MASK;
 }
 
+// (added by the light energy audit - docs/design/vulkan.md "Each light counted once") Whether the pixel shows the relit
+// world: a ray from the camera through it against the world ends where the depth does on a mesh with a light stream
+// (vulkan_rt_scene.h hit_world_light). Its sky's light was traced per vertex (relit's K - the occlusion the level's sky
+// light has there) and its bounce too (relit's B): neither is added again here.
+bool relit_world_pixel(vec3 here, vec3 to_camera, float distance)
+{
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT, 0x05u, pc.camera.xyz, 0.0,
+                          -to_camera / max(distance, 1e-6), distance * 1.02 + 2.0);
+    while (rayQueryProceedEXT(query)) {
+    }
+    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT ||
+        abs(rayQueryGetIntersectionTEXT(query, true) - distance) > 2.0 + 0.02 * distance) {
+        return false;
+    }
+    WorldLight w;
+    return hit_world_light(rayQueryGetIntersectionInstanceIdEXT(query, true),
+                           rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                           rayQueryGetIntersectionBarycentricsEXT(query, true), w);
+}
+
 // The rays' directions: the hemisphere around `normal` (an orthonormal basis without a branch on the normal's
 // direction), cosine-weighted, ray i of `rays` this frame - a 2D R2 sequence advanced by the frame's index, turned per
 // pixel by a hash of its place in the viewport.
@@ -320,6 +341,9 @@ void main()
     }
     if (on_character && pc.extra.z != 1000) {
         hits *= float(pc.extra.z) * 0.001; // (added for the characters: rt_ao_characters)
+    }
+    if (relit_world_pixel(here, to_camera, distance)) {
+        hits = 0.0; // (the light energy audit: the relit world's occlusion is its sky term's - relit owns it)
     }
     imageStore(o_out, local, vec4(hits / float(rays), 0.0, 0.0, 0.0));
     imageStore(o_guide, local, uvec4(floatBitsToUint(here), pack_normal(normal)));
@@ -478,6 +502,9 @@ void main()
     vec3 origin = here + normal * start_offset(distance);
     float footprint = length(world_at(p + ivec2(1, 0), d) - here);
     vec4 albedo = surface_albedo(here, distance, footprint);
+    if (albedo.a > 0.0 && relit_world_pixel(here, to_camera, distance)) {
+        albedo = vec4(0.0); // (the light energy audit: the relit world's bounce is relit's - nothing added here)
+    }
     Hemisphere h = hemisphere_of(normal, local);
     uint rays = uint(pc.params.y);
     vec3 sum = vec3(0.0);

@@ -52,6 +52,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
@@ -1258,6 +1259,228 @@ void run_time_of_day(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
 // (added for the washed-out streets) Many lamps over the floor - 49 bright point lights in a 7 x 7 grid 40 units up, as a
 // lamp-lit street packs them: the pass as the processor's (the sum held under the knee), the knee reached (their raw sum
 // past it), and no floor pixel burnt white - before, their summed light at the default strength washed it out.
+// --- (added by the light energy audit) each light counted once on the relit world ------------------------------------
+// docs/design/vulkan.md "Each light counted once": the floor given a light stream (engine/gfx/rt_cel.h - the relit
+// world's parts: its colour's ambient, the sun's light and the visibility it was written with, the lamps' residual), the
+// ray-traced passes read it (vulkan_rt_scene.h hit_world_light) and replace the parts they own instead of adding to them:
+//   - the shadows: a floor whose colour already holds the box's shadow (seen 0) is left as it is in that shadow - the
+//     traced shadow isn't put on the baked one - and lit where the pixel's own ray sees the sun (up to twice: the blend);
+//     a floor written lit (seen 1) takes the shadow's share of its light, A / (A + S), not the whole strength;
+//   - the lamps: the floor's residual (the bake's lamp) at least the traced lamp's light - nothing added, where the box
+//     (no stream) takes the lamp's light as before.
+
+constexpr std::array<double, 3> kStreamSun{1.0, 0.75, 0.4}; // (toward the sun - normalised below)
+constexpr double kStreamAmbient = 0.5; // the floor's sky light (light units: 1 = a colour byte's 128)
+constexpr double kStreamDirect = 0.4;  // the sun's light (the model's a)
+
+// The floor's stream words for every vertex: tint 1, the sun seen `seen`, the residual `residual`.
+std::vector<rt::CelWords> floor_stream(std::size_t vertices, float seen, float residual)
+{
+    rt::RelitModel model;
+    model.valid = true;
+    model.sun = {static_cast<float>(kStreamDirect), static_cast<float>(kStreamDirect), static_cast<float>(kStreamDirect)};
+    model.sky = {static_cast<float>(kStreamAmbient), static_cast<float>(kStreamAmbient),
+                 static_cast<float>(kStreamAmbient)};
+    model.scale = 1.0F;
+    rt::RelitVertex vertex;
+    vertex.normal = {0.0F, 1.0F, 0.0F};
+    vertex.sun = seen;
+    vertex.sky = 1.0F;
+    vertex.tint = {1.0F, 1.0F, 1.0F};
+    vertex.residual = {residual, residual, residual};
+    vertex.used = true;
+    rt::RelitLighting lighting;
+    lighting.toward = {0.0F, 1.0F, 0.0F}; // (N.L 1: the floor faces the sun the stream was written for)
+    return std::vector<rt::CelWords>(vertices, rt::cel_stream_words(model, vertex, lighting));
+}
+
+bool set_floor_stream(render::Gpu& gpu, const SceneMesh& floor, std::span<const rt::CelWords> words,
+                      render::GpuVertexBuffer** stream)
+{
+    const auto bytes = static_cast<uint32_t>(words.size() * rt::kCelStreamBytes);
+    void* data = nullptr;
+    if ((*stream == nullptr && gpu.create_vertex_buffer(bytes, 0, 0, value::kPoolDefault, stream) != value::kResultOk) ||
+        gpu.lock_vertex_buffer(*stream, 0, 0, &data, 0) != value::kResultOk) {
+        return false;
+    }
+    std::memcpy(data, words.data(), bytes);
+    if (gpu.unlock_vertex_buffer(*stream) != value::kResultOk) {
+        return false;
+    }
+    rt::ray_tracing()->set_light_stream(floor.id, *stream);
+    return true;
+}
+
+// The floor's pixels well inside the sun's light or the box's shadow (no edge within kClearCut + 1 pixels): their
+// drawn colour and whether they are shadowed.
+struct FloorPixel {
+    int x = 0;
+    int y = 0;
+    bool shadowed = false;
+};
+std::vector<FloorPixel> floor_pixels(const Vec3& toward)
+{
+    const View view = view_from(kEye);
+    std::vector<int> state(static_cast<std::size_t>(kColumns) * kRows, -1); // -1 not floor, 0 lit, 1 shadowed
+    for (int y = 0; y < kRows; ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            const Seen seen = seen_at(view, x, y);
+            if (seen.solid != 1 || y_of(seen.normal) < 0.5) {
+                continue;
+            }
+            const Hit hit = intersect(core::at(kScene, 1), step(seen.point, seen.normal, 1.0), toward);
+            core::at(state, (static_cast<std::size_t>(y) * kColumns) + static_cast<std::size_t>(x)) =
+                hit.distance < kNoHit ? 1 : 0;
+        }
+    }
+    std::vector<FloorPixel> out;
+    constexpr int kMargin = kClearCut + 1;
+    for (int y = kMargin; y < kRows - kMargin; ++y) {
+        for (int x = kMargin; x < kColumns - kMargin; ++x) {
+            const int here = core::at(state, (static_cast<std::size_t>(y) * kColumns) + static_cast<std::size_t>(x));
+            bool clear = here >= 0;
+            for (int dy = -kMargin; dy <= kMargin && clear; ++dy) {
+                for (int dx = -kMargin; dx <= kMargin && clear; ++dx) {
+                    clear = core::at(state, (static_cast<std::size_t>(y + dy) * kColumns) +
+                                                static_cast<std::size_t>(x + dx)) == here;
+                }
+            }
+            if (clear) {
+                out.push_back({.x = x, .y = y, .shadowed = here == 1});
+            }
+        }
+    }
+    return out;
+}
+
+// The floor's clear-cut pixels against their expected colour: the drawn colour x `lit` where the sun reaches, x
+// `shadowed` in the box's shadow (each held to [0, 1]). Counts the pixels of each and the wrong ones.
+struct FloorCompared {
+    int lit = 0;
+    int shadowed = 0;
+    int wrong = 0;
+    double worst = 0.0;
+};
+FloorCompared compare_floor(const std::vector<uint8_t>& texels, std::span<const FloorPixel> pixels, double lit,
+                            double shadowed)
+{
+    FloorCompared out;
+    const Rgb drawn = drawn_colour(core::at(kScene, 0).drawn);
+    for (const FloorPixel& pixel : pixels) {
+        const Rgb got = pixel_at(texels, pixel.x, pixel.y);
+        const double factor = pixel.shadowed ? shadowed : lit;
+        bool bad = false;
+        for (std::size_t c = 0; c < 3; ++c) {
+            const double want = std::clamp(core::at(drawn, c) * factor, 0.0, 1.0);
+            const double error = std::abs(core::at(got, c) - want) * kByteRange;
+            out.worst = std::max(out.worst, error);
+            bad = bad || error > kTolerance;
+        }
+        out.wrong += bad ? 1 : 0;
+        out.lit += pixel.shadowed ? 0 : 1;
+        out.shadowed += pixel.shadowed ? 1 : 0;
+    }
+    return out;
+}
+
+void run_counted_once(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("each light counted once on the relit world (the floor's light stream):\n");
+    const SceneMesh& floor = meshes.front();
+    render::GpuVertexBuffer* stream = nullptr;
+    const Vec3 toward = normalised({core::at(kStreamSun, 0), core::at(kStreamSun, 1), core::at(kStreamSun, 2)});
+    const std::array<float, 3> toward_sun = floats(toward);
+    rt::set_sun_override(&toward_sun);
+    render::vulkan::set_rt_light_settings({});
+    render::vulkan::RtShadowSettings shadows;
+    shadows.on = true;
+    shadows.strength = 1.0F;
+    shadows.softness = 0.0F;
+    shadows.rays = 1;
+    shadows.match_bake = false;
+    render::vulkan::set_rt_shadow_settings(shadows);
+    const std::vector<FloorPixel> pixels = floor_pixels(toward);
+    // (the stream's bytes: the expected factors from the same rounding the shader reads)
+    const auto light_of = [](double value) { return std::round(value * 128.0) / 128.0; };
+    const double ambient = light_of(kStreamAmbient);
+    const double direct = light_of(kStreamDirect);
+    struct Run {
+        const char* what;
+        float seen;
+        double lit;
+        double shadowed;
+    };
+    const std::array<Run, 2> runs{{
+        {"written in the box's shadow (seen 0): the shadow not put on again, the sunlit floor lit",
+         0.0F, std::min(2.0, (ambient + direct) / ambient), 1.0},
+        {"written in the sun (seen 1): the shadow takes the sun's share", 1.0F, 1.0, ambient / (ambient + direct)},
+    }};
+    for (const Run& run : runs) {
+        const std::vector<rt::CelWords> words = floor_stream(floor.triangles.size(), run.seen, 0.0F);
+        bool ok = set_floor_stream(gpu, floor, words, &stream);
+        Targets targets;
+        std::vector<uint8_t> texels;
+        ok = ok && make_targets(gpu, 0, &targets);
+        if (ok) {
+            draw_frame(gpu, targets, meshes, {}, 1);
+            draw_frame(gpu, targets, meshes, {}, 2); // (the stream's write before the geometry table's frame)
+            ok = read_colour(gpu, targets, &texels);
+        }
+        release_targets(gpu, targets);
+        const FloorCompared got = ok ? compare_floor(texels, pixels, run.lit, run.shadowed) : FloorCompared{};
+        tally->check(ok && got.lit > 1000 && got.shadowed > 300 && got.wrong == 0,
+                     text::format("%s: %d lit and %d shadowed floor pixels, %d wrong (worst %.2f of 255)", run.what,
+                                  got.lit, got.shadowed, got.wrong, got.worst));
+    }
+    render::vulkan::set_rt_shadow_settings({});
+    rt::set_sun_override(nullptr);
+    // the lamps: the floor's residual at least the lamp's light - the floor as drawn; the box (no stream) lit
+    {
+        render::vulkan::set_rt_light_settings(settings_for(true, 4));
+        rt::set_level_emitters({});
+        const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
+                                                .colour = {1.0F, 0.9F, 0.7F},
+                                                .position = floats(kLampAt),
+                                                .radius = static_cast<float>(kLampReach)}}};
+        const std::vector<rt::CelWords> words = floor_stream(floor.triangles.size(), 1.0F, rt::kRelitMaxValue);
+        bool ok = set_floor_stream(gpu, floor, words, &stream);
+        Targets targets;
+        std::vector<uint8_t> texels;
+        ok = ok && make_targets(gpu, 0, &targets);
+        if (ok) {
+            draw_frame(gpu, targets, meshes, points, 1);
+            draw_frame(gpu, targets, meshes, points, 2);
+            ok = read_colour(gpu, targets, &texels);
+        }
+        release_targets(gpu, targets);
+        int floor_changed = 0;
+        int box_changed = 0;
+        const View view = view_from(kEye);
+        for (int y = kClearCut; ok && y < kRows - kClearCut; ++y) {
+            for (int x = kClearCut; x < kColumns - kClearCut; ++x) {
+                const Seen seen = seen_at(view, x, y);
+                if (seen.solid == kNoSurface) {
+                    continue;
+                }
+                const Rgb drawn = drawn_colour(core::at(kScene, seen.solid - 1).drawn);
+                const Rgb got = pixel_at(texels, x, y);
+                const bool changed = std::abs(core::at(got, 0) - core::at(drawn, 0)) * kByteRange > kTolerance;
+                floor_changed += seen.solid == 1 && changed ? 1 : 0;
+                box_changed += seen.solid == 2 && changed ? 1 : 0;
+            }
+        }
+        tally->check(ok && floor_changed == 0 && box_changed > 200,
+                     text::format("the lamp over a floor whose residual holds it: %d floor pixels changed (0 wanted), "
+                                  "%d of the box's lit",
+                                  floor_changed, box_changed));
+        render::vulkan::set_rt_light_settings({});
+    }
+    rt::ray_tracing()->set_light_stream(floor.id, nullptr);
+    if (stream != nullptr) {
+        gpu.release_vertex_buffer(stream);
+    }
+}
+
 void run_many(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
 {
     constexpr int kSide = 7;
@@ -1452,6 +1675,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_off(gpu, meshes, tally);
         run_time_of_day(gpu, meshes, tally); // (added by the time of day)
         run_many(gpu, meshes, tally);        // (added for the washed-out streets)
+        run_counted_once(gpu, meshes, tally); // (added by the light energy audit)
         if (options.perf) {
             run_perf(gpu, meshes, tally);
         }

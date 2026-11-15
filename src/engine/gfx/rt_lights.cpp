@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -247,6 +248,21 @@ bool emitters_wanted()
     const std::scoped_lock lock(slot.mutex);
     return slot.wanted;
 }
+
+namespace {
+std::atomic<float>& lamps_drawn_slot()
+{
+    static std::atomic<float> drawn{0.0F};
+    return drawn;
+}
+} // namespace
+
+void set_lamps_drawn(float amount)
+{
+    lamps_drawn_slot().store(std::isfinite(amount) ? std::clamp(amount, 0.0F, 1.0F) : 0.0F, std::memory_order_relaxed);
+}
+
+float lamps_drawn() { return lamps_drawn_slot().load(std::memory_order_relaxed); }
 
 float emitter_core(float area)
 {

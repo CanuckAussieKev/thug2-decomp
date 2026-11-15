@@ -23,6 +23,7 @@
 #include "engine/gfx/lens_flare.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/particle_sets.h"
+#include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/screen_effects.h"
 #include "engine/lists/key_map.h"
@@ -1354,6 +1355,9 @@ void CtodManager::colour_models_by_place(uint32_t color) const
             const maths::Vec4& at = entity->at_point();
             const render::rt::LightRatio ratio = render::rt::light_ratio_at({at.x, at.y, at.z});
             set_model_color(model, render::rt::scaled_colour(color, ratio.whole, true));
+            render::rt::note_light_path(render::rt::LightPath::kModelByPlace);
+        } else {
+            render::rt::note_light_path(render::rt::LightPath::kModelIndoor); // (the light energy audit's census)
         }
     }
 }

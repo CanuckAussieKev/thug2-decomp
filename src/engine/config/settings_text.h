@@ -131,7 +131,7 @@ inline constexpr const char* kOptShadowSoftness = "Shadow softness";
 inline constexpr const char* kOptShadowObjects = "Skater shadows";
 inline constexpr const char* kOptShadowObjectsHelp = "Skaters, peds and cars cast them too.";
 inline constexpr const char* kOptAo = "Ambient occlusion";
-inline constexpr const char* kOptAoHelp = "Darker corners and contact shadows.";
+inline constexpr const char* kOptAoHelp = "Darker corners and contact shadows. With Relit lighting: on the skater and objects.";
 inline constexpr const char* kOptAoStrength = "Occlusion darkness";
 inline constexpr const char* kOptAoRadius = "Occlusion reach";
 inline constexpr const char* kOptAoRays = "Occlusion rays";
@@ -366,6 +366,7 @@ inline constexpr const char* kOnForFrameGeneration = "On - needed by Frame gener
 inline constexpr const char* kNativeForFrameGeneration = "DLAA - Frame generation upscales at full size";
 inline constexpr const char* kOnForSun = "On - needed by Sun";
 inline constexpr const char* kOnForTimeOfDay = "On - needed by Time of day";
+inline constexpr const char* kRelitBouncesLight = "Relit lighting bounces the light already";
 inline constexpr const char* kOnForThugproLobbies = "On with THUGPRO lobbies";
 // (conflicts: two settings that work against each other - both stay in effect)
 inline constexpr const char* kVsyncHoldsFrames = "V-sync holds generated frames to your display's rate";

@@ -489,7 +489,7 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
                 .location = kPreviousPositionLocation, .binding = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0};
         }
         if (cel_input) {
-            for (uint32_t word = 0; word < rt::kCelStreamWords; ++word) {
+            for (uint32_t word = 0; word < rt::kCelStreamAttributes; ++word) {
                 core::at(attributes, attribute_count++) = {.location = kCelLocation + word,
                                                            .binding = kCelStreamBinding,
                                                            .format = VK_FORMAT_B8G8R8A8_UNORM,

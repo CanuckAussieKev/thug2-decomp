@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the developer console (console.h).
 
 #include "devtools/console.h"
+#include "devtools/restart_tester.h"
 #include "devtools/rt_check.h"
 
 #include <SDL3/SDL.h>
@@ -182,6 +183,9 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "rt summary      ray tracing's contract check: its counts and violations\n"
                               "rt dump [file]  the last frame's ray-tracing record as JSON (game folder)\n"
                               "rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it)\n"
+                              "rt census       what lights the world's meshes, objects and particles (logged)\n"
+                              "rt set <key> <value>  a [Graphics] setting written and put to use\n"
+                              "restart         the skater at the level's next restart (F8)\n"
                               "textures [original | pbrify | seedvr2]  the texture set in use / switched (not saved)\n"
                               "help            this list";
 
@@ -441,6 +445,9 @@ std::string run_command(const std::string& line)
     }
     if (command == "rt") {
         return rt_check::console_command(rest);
+    }
+    if (command == "restart") {
+        return frontend::restart_tester::next_restart(); // (the light energy audit's level walk: F8's next restart)
     }
     if (command == "textures") {
         return render::texture_sets::console_command(rest);

@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <ratio>
 #include <span>
 #include <string>
@@ -32,6 +33,7 @@
 #include "engine/gfx/render_camera.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/rt_checks.h"
+#include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
@@ -1117,6 +1119,7 @@ void new_world_work(rt::RayTracing& rt)
 void relit_work(rt::RayTracing& rt)
 {
     State& st = state();
+    rt::note_census_frame(); // (the light energy audit's census: the frames its counts are over)
     if (!rt::relit_settings().on && st.relit_idle) {
         return;
     }
@@ -1377,6 +1380,7 @@ void record_frame()
     }
     State& st = state();
     rt::set_screen_probe(&describe_screen_point); // (the console's `rt probe` - rt_relit.h screen_probe)
+    rt::set_world_census(&world_census);          // (the console's `rt census` - rt_light_census.h)
     const auto now = std::chrono::steady_clock::now();
     if (st.first_frame_timed) {
         st.first_frame_timed = false;
@@ -1402,6 +1406,89 @@ void record_frame()
     }
     record_lights();
     st.written.clear();
+}
+
+std::string world_census()
+{
+    State& st = state();
+    // (each bucket: meshes, vertices, and a few materials' checksums as examples), by bucket and the material's kind
+    struct Bucket {
+        std::size_t meshes = 0;
+        std::size_t vertices = 0;
+        std::vector<uint32_t> examples;
+    };
+    std::map<std::string, Bucket> buckets;
+    const auto kind_of = [&st](const MeshRef* mesh) -> const char* {
+        const MaterialRef* material = mesh->material();
+        if (material == nullptr) {
+            return "no material";
+        }
+        const uint32_t first = blend_mode(material, 0);
+        if (first == kBlendAdd || first == kBlendFixedAdd) {
+            return "additive";
+        }
+        const auto found = st.materials.find(material);
+        const uint32_t flags = found != st.materials.end() ? found->second.material.flags : 0U;
+        if ((flags & rt::kTransparent) != 0U) {
+            return (flags & rt::kAlphaTested) != 0U ? "blended cut-out" : "blended";
+        }
+        return (flags & rt::kAlphaTested) != 0U ? "cut-out" : "opaque";
+    };
+    const auto add = [&buckets](const std::string& name, const MeshRef* mesh) {
+        Bucket& bucket = buckets[name];
+        ++bucket.meshes;
+        bucket.vertices += mesh->vertex_count();
+        const MaterialRef* material = mesh->material();
+        const uint32_t checksum = material != nullptr ? material->checksum() : 0U;
+        if (bucket.examples.size() < 4 && std::ranges::find(bucket.examples, checksum) == bucket.examples.end()) {
+            bucket.examples.push_back(checksum);
+        }
+    };
+    const memory::ListNode* node = engine_parts().scene_list().next();
+    while (node != nullptr && !node->is_head()) {
+        const auto* scene = static_cast<const PcScene*>(node->data());
+        node = node->next();
+        const SceneRef* meshes = scene != nullptr ? scene->meshes() : nullptr;
+        if (meshes == nullptr) {
+            continue;
+        }
+        for (const MeshRef* mesh : meshes->mesh_run()) {
+            if (mesh == nullptr) {
+                continue;
+            }
+            const std::string kind = kind_of(mesh);
+            if (scene->is_sky()) {
+                add("sky (lit by the sky's own pass) | " + kind, mesh);
+                continue;
+            }
+            if (meshes->unknown40() != 0U) {
+                add("scene not drawn as the world | " + kind, mesh);
+                continue;
+            }
+            if (!mesh_shown(mesh)) {
+                add("not shown now | " + kind, mesh);
+                continue;
+            }
+            const auto found = st.meshes.find(mesh);
+            if (found == st.meshes.end()) {
+                add("not traced (no geometry the rays can read) | " + kind, mesh);
+                continue;
+            }
+            const rt_relit_world::WorldMesh world{
+                .mesh = mesh, .id = found->second.id, .geometry = &found->second.geometry, .source = found->second.source};
+            add(rt_relit_world::census_bucket(world) + " | " + kind, mesh);
+        }
+    }
+    std::string out = "rt census: world: " + rt_relit_world::census_status() + "\n";
+    for (const auto& [name, bucket] : buckets) {
+        out += text::format("rt census: world mesh %s: %zu meshes, %zu vertices; e.g. materials", name.c_str(),
+                            bucket.meshes, bucket.vertices);
+        for (const uint32_t checksum : bucket.examples) {
+            out += text::format(" %08X", checksum);
+        }
+        out += "\n";
+    }
+    return out;
 }
 
 std::string describe_screen_point(float across, float down)

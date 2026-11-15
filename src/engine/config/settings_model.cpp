@@ -377,7 +377,13 @@ std::vector<Decl> declarations()
             .need(on("rt_ao"))
             .need(negate(on("ray_reconstruction")), t::kRayReconstructionDenoises)
             .live(E::kAo),
-        gfx("rt_gi", K::kSwitch, "0").tab(G::kLighting, t::kOptGi, t::kOptGiHelp).need(ray_tracing()).live(E::kGi),
+        // (the light energy audit - docs/design/vulkan.md "Each light counted once": a relit level's bounce is relit's,
+        // traced per vertex, and the objects take it through the light field - one owner, so the pass is out of effect)
+        gfx("rt_gi", K::kSwitch, "0")
+            .tab(G::kLighting, t::kOptGi, t::kOptGiHelp)
+            .need(ray_tracing())
+            .need(negate(on("rt_relit")), t::kRelitBouncesLight)
+            .live(E::kGi),
         gfx("rt_gi_strength", K::kNumber, "1")
             .tab(G::kLighting, t::kOptGiStrength)
             .pick(percent({{"0.5", "50%"}, {"1", "100%"}, {"1.5", "150%"}, {"2", "200%"}}))
@@ -1113,8 +1119,8 @@ const std::vector<Conflict>& conflicts()
 const std::vector<PresetValue>& preset_values(int choice)
 {
     // Original - every effect off, the game as it was; High - the cheaper effects (shadows, occlusion, reflections, the
-    // sky and sun, HDR, bloom, smooth curves); Ultra - every effect on. Upscaling is left as it is (it trades sharpness
-    // for speed, whatever the preset).
+    // sky and sun, HDR, bloom, smooth curves); Ultra - every effect on (but the bounce pass: relit lights the bounce).
+    // Upscaling is left as it is (it trades sharpness for speed, whatever the preset).
     constexpr std::array kKeys = {"ray_tracing", "rt_shadows", "rt_ao", "rt_gi", "rt_reflections", "rt_relit",
                                   "rt_pbr",      "rt_fog",     "rt_sky", "rt_sky_model", "rt_clouds", "rt_sun",
                                   "rt_shafts",   "rt_bloom",   "rt_hdr", "rt_tessellation"};
@@ -1122,7 +1128,8 @@ const std::vector<PresetValue>& preset_values(int choice)
                                                                  "0", "0", "0", "0", "0", "0", "0", "0"};
     constexpr std::array<const char*, kKeys.size()> kHigh = {"1", "1", "1", "0", "1", "0", "0", "0",
                                                              "1", "1", "0", "1", "1", "1", "1", "1"};
-    constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "1", "1", "1", "1", "1",
+    // (Ultra: the bounce pass off - the relit mode it turns on lights the bounce; one owner)
+    constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "0", "1", "1", "1", "1",
                                                               "1", "1", "1", "1", "1", "1", "1", "1"};
     const auto list = [&kKeys](const std::array<const char*, kKeys.size()>& values) {
         std::vector<PresetValue> made;

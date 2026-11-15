@@ -148,9 +148,12 @@ const uint OBJECT_FLAG = 32u; // (rt::kObject: the skater, peds, vehicles)
 // The pixel's surface: a ray from the camera finds its triangle (kept where it ends at the depth's point); its albedo -
 // its material's texel at the hit's texture coordinates x the material's colour, at most 1 (the vertex colours, the
 // level's baked light, left out) - in rgb, 1 in a when found; `object` whether it is an object's.
-vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object)
+// (added by the light energy audit) `relit`: the pixel is the relit world's, `world` its light's parts there.
+vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object, out bool relit, out WorldLight world)
 {
     object = false;
+    relit = false;
+    world = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0);
     vec3 eye = pc.camera.xyz;
     vec3 view = (here - eye) / max(distance, 1e-6);
     rayQueryEXT query;
@@ -168,6 +171,8 @@ vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object)
     uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
     uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
     object = (geometry_record(instance).instance_flags & OBJECT_FLAG) != 0u;
+    relit = !object && hit_world_light(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                                       rayQueryGetIntersectionBarycentricsEXT(query, true), world);
     HitVertices v;
     if (!hit_vertices(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), v)) {
         return vec4(min(material(id).colour.rgb, vec3(1.0)), 1.0);
@@ -237,7 +242,9 @@ void main()
     }
     float footprint = length(world_at(p + ivec2(1, 0), d) - here);
     bool object;
-    vec4 albedo = surface_albedo(here, distance, footprint, object);
+    bool relit;
+    WorldLight world;
+    vec4 albedo = surface_albedo(here, distance, footprint, object, relit, world);
     if (!(albedo.a > 0.0)) {
         discard;
     }
@@ -319,7 +326,14 @@ void main()
         float room = u_lights.params.w - knee;
         lit *= (knee + room * over / (room + over)) / luminance;
     }
-    vec3 added = u_lights.params.x * albedo.rgb * lit;
+    // (added by the light energy audit - docs/design/vulkan.md "Each light counted once") On the relit world the level's
+    // own lights are in its colour already (relit's residual: the bake's lamps, unshadowed); the lamps traced here are
+    // the same lights - the larger of the two is drawn, never their sum.
+    vec3 lamps = u_lights.params.x * lit;
+    if (relit) {
+        lamps = max(lamps - world.residual, vec3(0.0));
+    }
+    vec3 added = albedo.rgb * lamps;
     if (any(isnan(added)) || any(isinf(added))) {
         discard;
     }
@@ -852,6 +866,7 @@ VkImageUsageFlags rt_lights_depth_usage(const Backend& state, VkFormat format)
 bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
 {
     LightsState& own = lights_state();
+    rt::set_lamps_drawn(0.0F); // (the light energy audit: set again below once the pass lights)
     if (!own.settings.on || own.failed) {
         return false;
     }
@@ -882,6 +897,8 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     // without the clock rt_lights=auto lights only a dark level
     const rt::DayLight day = rt::day_light();
     const float lamps = day.on ? day.lamps : (!own.settings.automatic || level->dark ? 1.0F : 0.0F);
+    // (the light energy audit) the objects' share of the level's own lights follows: this pass owns them while it lights
+    rt::set_lamps_drawn(own.settings.strength > 0.0F ? lamps : 0.0F);
     if (!(lamps > 0.0F)) {
         return false;
     }

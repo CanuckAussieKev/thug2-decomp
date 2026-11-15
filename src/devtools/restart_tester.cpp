@@ -236,4 +236,13 @@ void tick_frame(modules::FrontEnd* front_end)
     get_next();
 }
 
+std::string next_restart()
+{
+    if (render::current_level() == 0) {
+        return "restart: not in a level";
+    }
+    get_next(); // (it logs the restart: "restart tester: n / N <name> at (x, y, z)")
+    return "restart: done (the log names it)";
+}
+
 } // namespace frontend::restart_tester

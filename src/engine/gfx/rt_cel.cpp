@@ -215,9 +215,52 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     const std::array<float, 3> residual =
         lighting.residual ? vertex.residual : std::array<float, 3>{0.0F, 0.0F, 0.0F};
     // (the sun's visibility with the bake's sun the tracer missed - toward the bake's own sun only: rt_relit.h)
-    const float seen = vertex.sun + (vertex.sun_missed * relit_missed_trust(model, lighting.toward));
-    return {word(ambient, kBytesPerLight, n_dot_l), word(tint, kBytesPerLight, std::clamp(seen, 0.0F, 1.0F)),
-            word(residual, kBytesPerLight, 1.0F)};
+    const float missed = vertex.sun_missed * relit_missed_trust(model, lighting.toward);
+    const float seen = std::clamp(vertex.sun + missed, 0.0F, 1.0F);
+    // (the light energy audit's parts: the direct light's colour as relit_parts takes it, the sky's part of the ambient)
+    std::array<float, 3> sun{};
+    std::array<float, 3> sky{};
+    for (std::size_t ch = 0; ch < sun.size(); ++ch) {
+        core::at(sun, ch) =
+            core::at(model.sun, ch) * core::at(lighting.sun_colour, ch) * core::at(lighting.direct_scale, ch);
+        core::at(sky, ch) = core::at(model.sky, ch) * core::at(lighting.sky_scale, ch) * vertex.sky;
+    }
+    return {word(ambient, kBytesPerLight, n_dot_l), word(tint, kBytesPerLight, seen),
+            word(residual, kBytesPerLight, 1.0F), word(sun, kBytesPerLight, std::clamp(missed, 0.0F, seen)),
+            word(sky, kBytesPerLight, std::clamp(vertex.sky, 0.0F, 1.0F))};
+}
+
+StreamParts stream_parts(const CelWords& words)
+{
+    StreamParts out;
+    const auto rgb = [](uint32_t value) {
+        return std::array<float, 3>{static_cast<float>((value >> kRedShift) & kByteMask) / kBytesPerLight,
+                                    static_cast<float>((value >> kGreenShift) & kByteMask) / kBytesPerLight,
+                                    static_cast<float>(value & kByteMask) / kBytesPerLight};
+    };
+    const auto alpha = [](uint32_t value) { return static_cast<float>((value >> kAlphaShift) & kByteMask) / kMaxByte; };
+    out.ambient = rgb(std::get<0>(words));
+    out.n_dot_l = alpha(std::get<0>(words));
+    out.tint = rgb(std::get<1>(words));
+    out.seen = alpha(std::get<1>(words));
+    out.residual = rgb(std::get<2>(words));
+    out.valid = alpha(std::get<2>(words)) >= kHalf;
+    out.sun = rgb(std::get<3>(words));
+    out.missed = alpha(std::get<3>(words));
+    out.sky = rgb(std::get<4>(words));
+    out.sky_share = alpha(std::get<4>(words));
+    return out;
+}
+
+std::array<float, 3> stream_light(const StreamParts& parts, float seen)
+{
+    std::array<float, 3> out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = (core::at(parts.tint, ch) *
+                             (core::at(parts.ambient, ch) + (core::at(parts.sun, ch) * parts.n_dot_l * seen))) +
+                            core::at(parts.residual, ch);
+    }
+    return out;
 }
 
 float cel_round(float steps, CelEdge edge)

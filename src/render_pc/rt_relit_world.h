@@ -89,8 +89,8 @@ struct ObjectLighting {
 // and bounce traced, the writes done): `sun` that sun, `lighting` a number for that lighting (another when anything
 // that changes the colours changed). rt_record makes the shadows' agreement grid for that sun from them.
 bool settled(std::array<float, 3>* sun, uint64_t* lighting);
-// (added by cel shading - engine/gfx/rt_cel.h) The cel stream of a buffer the mode has relit, while rt_cel is on (its
-// three words a vertex, vertex for vertex); null: none - the draws band its vertex colour.
+// (added by cel shading - engine/gfx/rt_cel.h) The cel stream of a buffer the mode has relit (its words a vertex,
+// vertex for vertex - the light stream the ray-traced passes read too); null: none - the draws band its vertex colour.
 [[nodiscard]] GpuVertexBuffer* cel_stream(const VertexBufferData* buffer);
 // (the console's `rt probe`) The relit world's vertices within `radius` of `point`: their count and mean baked and
 // relit brightness, and the nearest few's parts (sun, sky, bounce, tint, residual) and colours.
@@ -98,6 +98,10 @@ bool settled(std::array<float, 3>* sun, uint64_t* lighting);
 // (the console's `rt probe`) Whether the mesh `id` is relit: its entry's state and its vertices' mean baked and relit
 // brightness, or that the mode keeps none for it.
 [[nodiscard]] std::string describe_mesh(rt::MeshId id);
+// (the light energy audit's census - the console's `rt census`) What the mode makes of a world mesh: a bucket's name
+// ("relit: light stream", "not relit: dynamic ...", "kept bake: <why>"...), and the level's state with its model.
+[[nodiscard]] std::string census_bucket(const WorldMesh& world);
+[[nodiscard]] std::string census_status();
 // (the one lighting path - load readiness) A level's first light: from the frame after a loading screen goes down,
 // whether the frame shown should still be the loading screen's picture - while ray tracing relights the level, the
 // clock may light it (rt_daylight.h tod_may_run: elsewhere the first frame is the bake, as it should be) and the

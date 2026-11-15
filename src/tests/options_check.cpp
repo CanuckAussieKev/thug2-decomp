@@ -24,6 +24,7 @@
 #include <set>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -246,6 +247,10 @@ bool exclusive(const config::Setting& setting)
     constexpr std::array kStyleKnobs = {"rt_style_", "rt_fisheye_", "rt_cel_"};
     constexpr std::array kOthers = {"AntiAliasing",      "upscale_quality", "ray_reconstruction",
                                     "upscale_sharpness", "fsr_version",     "frame_generation_provider"};
+    // (the light energy audit: the bounce pass and the relit mode both light the bounce - one owner, relit's)
+    if (key.starts_with("rt_gi")) {
+        return true;
+    }
     return std::ranges::any_of(kStyleKnobs, [&key](const char* each) { return key.starts_with(each); }) ||
            std::ranges::any_of(kOthers, [&key](const char* each) { return key == each; });
 }
@@ -379,7 +384,7 @@ void check_presets()
         expect(options::preset_of(text) == choice,
                std::string("the ") + core::at(spec.choices, choice).label + " preset recognised once written");
         const std::string changed =
-            options::ini_set(text, {.section = "Graphics", .key = "rt_gi"}, options::preset_of(text) == 3 ? "0" : "1");
+            options::ini_set(text, {.section = "Graphics", .key = "rt_relit"}, options::preset_of(text) == 3 ? "0" : "1");
         expect(options::preset_of(changed) != choice, std::string("the ") + core::at(spec.choices, choice).label + " preset left by a change");
     }
     // (Ultra on an RTX 50: every effect it sets in effect)
@@ -389,7 +394,9 @@ void check_presets()
     }
     const config::Resolution resolution = resolve(rtx50(), ultra);
     for (const options::PresetValue& set : options::preset_values(3)) {
-        expect(resolution.on(set.key), std::string("Ultra on an RTX 50: ") + set.key + " in effect");
+        if (std::string_view(set.value) != "0") {
+            expect(resolution.on(set.key), std::string("Ultra on an RTX 50: ") + set.key + " in effect");
+        }
     }
 }
 
@@ -694,7 +701,9 @@ void check_machines()
                      {"msaa", "4"},        {"grass", "1"},          {"rt_relit", "1"},             {"texture_set", "seedvr2"}};
     // RTX 50: everything as asked; DLSS-G makes 4x, Reflex on with it
     const config::Resolution r50 = resolve(rtx50(), ini);
-    expect(r50.on("rt_shadows") && r50.on("rt_gi") && r50.on("rt_relit") && r50.on("rt_pbr"), "RTX 50: the effects on");
+    expect(r50.on("rt_shadows") && r50.on("rt_relit") && r50.on("rt_pbr"), "RTX 50: the effects on");
+    expect(!r50.on("rt_gi") && r50.at("rt_gi").reason == t::kRelitBouncesLight,
+           "RTX 50: the bounce pass out of effect - relit lights the bounce (one owner)");
     expect(r50.value("frame_generation") == "4x" && r50.value("upscaler") == "dlss", "RTX 50: 4x frame generation over DLSS");
     expect(r50.on("ray_reconstruction"), "RTX 50: Ray Reconstruction in effect");
     expect(r50.value("reflex") == "on" && r50.at("reflex").forced && r50.at("reflex").reason == t::kOnForFrameGeneration,
@@ -702,8 +711,14 @@ void check_machines()
     expect(!r50.at("msaa").in_effect && r50.value("msaa") == "0" && r50.at("msaa").reason == t::kOffWhileUpscaling,
            "RTX 50: msaa off while upscaling");
     expect(!r50.on("rt_ao_denoise") || !r50.on("rt_ao"), "RTX 50: no AO denoiser while Ray Reconstruction cleans it up");
-    expect(!r50.on("rt_gi_denoise") && r50.at("rt_gi_denoise").reason == t::kRayReconstructionDenoises,
-           "RTX 50: the bounce's denoiser left to Ray Reconstruction");
+    {
+        Ini unrelit = ini;
+        std::erase_if(unrelit, [](const auto& each) { return each.first == "rt_relit"; });
+        const config::Resolution plain = resolve(rtx50(), unrelit);
+        expect(plain.on("rt_gi") && !plain.on("rt_gi_denoise") &&
+                   plain.at("rt_gi_denoise").reason == t::kRayReconstructionDenoises,
+               "RTX 50 without relit: the bounce pass on, its denoiser left to Ray Reconstruction");
+    }
     expect(r50.value("texture_set") == "original" && r50.at("texture_set").reason == t::kNotInstalled,
            "a texture set that isn't installed: the original");
     expect(r50.on("grass"), "RTX 50: grass");
@@ -722,8 +737,12 @@ void check_machines()
     expect(!ramd.on("reflex") && !ramd.at("reflex").forced, "AMD: no Reflex");
     expect(!ramd.on("ray_reconstruction") && ramd.at("ray_reconstruction").reason == t::kNeedsDlss,
            "AMD: no Ray Reconstruction - it needs DLSS");
-    expect(ramd.on("rt_shadows") && ramd.on("rt_gi"), "AMD: ray tracing works");
-    expect(ramd.on("rt_gi_denoise"), "AMD: the bounce's own denoiser");
+    expect(ramd.on("rt_shadows") && ramd.on("rt_relit"), "AMD: ray tracing works");
+    {
+        Ini unrelit = ini;
+        std::erase_if(unrelit, [](const auto& each) { return each.first == "rt_relit"; });
+        expect(resolve(amd(), unrelit).on("rt_gi_denoise"), "AMD without relit: the bounce's own denoiser");
+    }
     // no ray tracing GPU: every ray-traced effect out, with the root reason
     const config::Resolution nort = resolve(no_rt_gpu(), ini);
     expect(!nort.on("ray_tracing") && nort.at("ray_tracing").reason == t::kNeedsRayGpu, "no RT GPU: ray tracing out");

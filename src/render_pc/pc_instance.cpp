@@ -31,6 +31,8 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/gfx/rt_light_census.h"
+#include "engine/gfx/rt_light_field.h"
 #include "render_pc/mesh_pass.h"
 #include "render_pc/rt_relit_world.h"
 
@@ -303,6 +305,8 @@ void Singleton::render(uint32_t draw_bits)
         refresh_instance_lighting(this);
         change_phase(kStateLighting, 1);
         send_lights();
+        render::rt::note_light_path(render::rt::light_field() != nullptr ? render::rt::LightPath::kObjectLit
+                                                                         : render::rt::LightPath::kObjectLitOwn);
     } else {
         change_phase(kStateLighting, 0);
         std::array<uint8_t, 4> colour{};
@@ -313,6 +317,8 @@ void Singleton::render(uint32_t draw_bits)
             renderer().set_instance_colour(colour);
             darkened.on = true;
         }
+        render::rt::note_light_path(darkened.on ? render::rt::LightPath::kObjectUnlitField
+                                                : render::rt::LightPath::kObjectUnlitOwn);
     }
     if (bones_on_device(scene_) != 0) {
         const int count = bone_count_ < kMaxBones ? bone_count_ : kMaxBones;

@@ -20,6 +20,7 @@
 #include "engine/gfx/game_hooks.h"
 #include "engine/gfx/lens_flare.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/tod_manager.h"
@@ -342,6 +343,7 @@ void apply_original(Clock& own, gfx::CtodManager& manager, const rt::DayLight& l
     const bool relit = rt::sun_relight().relights;
     const bool sky_drawn = rt::sky_replacement().on;
     const rt::LightRatio level_light = rt::level_light_ratio(); // (the one lighting path: the level's whole)
+    rt::note_light_path(rt::LightPath::kParticlesWhole); // (the light energy audit's census: one value for every particle)
     const auto native = static_cast<std::size_t>(own.native.state);
     for (int system = 0; system < kSystems; ++system) {
         if (!core::at(own.have_params, system)) {
