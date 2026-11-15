@@ -185,6 +185,16 @@ void send_lights()
     const uint32_t blue = get_channel(core::at(light_sets().light_constants(), 2));
     gpu().set_render_state(GpuRenderState::kAmbient,
                            kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
+    // NOT ORIGINAL - the one lighting path: the level's own lights where the instance stands, as a light of their own
+    // (pc_lights.h local_light_sent); off after the instances are drawn
+    const LocalLightSent& local = local_light_sent();
+    if (local.on) {
+        GpuLight lamp{.type = gpu_value::kLightDirectional};
+        lamp.diffuse = {core::at(local.colour, 0), core::at(local.colour, 1), core::at(local.colour, 2), 1.0F};
+        lamp.direction = local.direction;
+        gpu().set_light(kLocalLightIndex, lamp);
+    }
+    gpu().enable_light(kLocalLightIndex, local.on);
 }
 
 
@@ -351,6 +361,7 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
             instance->render(kRenderOpaque | kRenderTransparent);
         }
     }
+    gpu().enable_light(kLocalLightIndex, false); // (not original: the local light - send_lights)
     gpu().set_transform(GpuTransform::kWorld, get_view_world());
     set_world_transform(nullptr);
 }
@@ -428,6 +439,7 @@ void draw_instance_batch(BatchPass batch_pass)
             gpu().set_render_state(GpuRenderState::kColourVertex, 0);
             gpu().enable_light(0, false);
             gpu().enable_light(1, false);
+            gpu().enable_light(kLocalLightIndex, false); // (not original: the local light - send_lights)
         }
     }
     gpu().set_transform(GpuTransform::kWorld, get_view_world());

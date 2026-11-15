@@ -910,7 +910,6 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
             return;
         }
     }
-    constexpr float kLeastTint = 0.05F;
     const rt::RelitLighting own{.toward = st.model.toward};
     auto field = std::make_shared<rt::LightField>();
     for (const VertexBufferData* buffer : st.order) {
@@ -932,17 +931,15 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
                                  .indirect_now = now.indirect,
                                  .direct_own = baked.direct,
                                  .indirect_own = baked.indirect,
-                                 .local = {}};
+                                 .local = {},
+                                 .normal = vertex.normal};
             if (light.residual) {
-                for (std::size_t ch = 0; ch < 3; ++ch) {
-                    core::at(parts.local, ch) =
-                        core::at(vertex.residual, ch) /
-                        (std::max(st.model.scale, kLeastTint) * std::max(core::at(vertex.tint, ch), kLeastTint));
-                }
+                parts.local = rt::relit_local_light(st.model, vertex);
             }
             field->add(core::at(entry.input.positions, vi), parts);
         }
     }
+    field->set_local_scale(st.model.scale); // (what the local light shows on a tint of 1)
     st.field_lighting = lighting;
     const rt::LightRatio whole = field->whole();
     static double logged_hours = -1.0;

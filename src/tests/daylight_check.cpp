@@ -408,6 +408,9 @@ void check_light_field()
     expect(std::abs(std::get<1>(under_lamp.whole) - 0.68F) < 1e-4F,
            "the field under the lamp: the lamp's own light kept - whole " + number(std::get<1>(under_lamp.whole)) +
                " (0.68)");
+    expect(std::abs(std::get<1>(under_lamp.indirect) - 0.2F) < 1e-4F,
+           "under the lamp the indirect ratio is the sky's and bounce's alone (the lamp a light of its own) - " +
+               number(std::get<1>(under_lamp.indirect)) + " (0.2)");
     const rt::LightRatio between = field->at({1.0F * kCell, 0.5F * kCell, 0.5F * kCell});
     expect(std::get<1>(between.whole) > std::get<1>(on_street.whole) + 0.1F &&
                std::get<1>(between.whole) < std::get<1>(under_lamp.whole) - 0.1F,
@@ -427,10 +430,54 @@ void check_light_field()
     expect(lit == 0x80FF6040U, "scaled_colour: each channel by its ratio, held to a byte (" + std::to_string(lit) + ")");
 }
 
+// (added by lighting round 4) The level's own lights as a light of their own (rt_light_field.h local_at): a corner where
+// a lamp lights a wall facing +x (0.6 on it), the ground a little (0.15), the wall's back nothing; a thing standing there
+// takes the lamp's light as a light from +x - its side facing the lamp lit about as the wall facing it, its back side
+// barely; the level's scale in; none where the field has no local light.
+void check_local_light()
+{
+    auto field = std::make_shared<rt::LightField>();
+    constexpr float kCell = rt::kLightFieldCell;
+    const auto part = [](float local, const rt::FieldPoint& normal) {
+        return rt::LightParts{.direct_now = {},
+                              .indirect_now = {0.1F, 0.1F, 0.1F},
+                              .direct_own = {},
+                              .indirect_own = {0.4F, 0.4F, 0.4F},
+                              .local = {local, local, local},
+                              .normal = normal};
+    };
+    for (int i = 0; i < 8; ++i) {
+        const float step = static_cast<float>(i) * 4.0F;
+        field->add({(0.5F * kCell) + step, 20.0F + step, 0.5F * kCell}, part(0.6F, {1.0F, 0.0F, 0.0F}));
+        field->add({(0.5F * kCell) - step, 20.0F + step, 0.5F * kCell}, part(0.0F, {-1.0F, 0.0F, 0.0F}));
+        field->add({(0.5F * kCell) + step, 1.0F, (0.5F * kCell) + step}, part(0.15F, {0.0F, 1.0F, 0.0F}));
+    }
+    const rt::FieldPoint here{0.5F * kCell, 0.5F * kCell, 0.5F * kCell};
+    const rt::LocalLight lamp = field->local_at(here);
+    const auto on_face = [&](const rt::LocalLight& light, const rt::FieldPoint& normal) {
+        const float facing = std::max(0.0F, (std::get<0>(normal) * std::get<0>(light.toward)) +
+                                                (std::get<1>(normal) * std::get<1>(light.toward)) +
+                                                (std::get<2>(normal) * std::get<2>(light.toward)));
+        return std::get<1>(light.ambient) + (std::get<1>(light.directional) * facing);
+    };
+    const float toward_lamp = on_face(lamp, {1.0F, 0.0F, 0.0F});
+    const float away = on_face(lamp, {-1.0F, 0.0F, 0.0F});
+    expect(std::get<0>(lamp.toward) > 0.9F && std::abs(toward_lamp - 0.6F) < 0.15F && away < 0.2F,
+           "the lamp's light as a light from +x (" + number(std::get<0>(lamp.toward)) + "): a side facing it " +
+               number(toward_lamp) + " (the wall's 0.6), the back " + number(away));
+    field->set_local_scale(1.2F);
+    const float scaled = on_face(field->local_at(here), {1.0F, 0.0F, 0.0F});
+    expect(std::abs(scaled - (1.2F * toward_lamp)) < 1e-4F, "the level's scale in it (" + number(scaled) + ")");
+    auto dark = std::make_shared<rt::LightField>();
+    dark->add(here, part(0.0F, {0.0F, 1.0F, 0.0F}));
+    expect(!dark->local_at(here).any() && !rt::local_light_at(here).any(), "no local light: none (and none without a field)");
+}
+
 int main()
 {
     tests::no_error_dialogs();
     check_light_field();
+    check_local_light();
     check_path();
     check_native();
     check_light();

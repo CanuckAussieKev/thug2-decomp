@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cmath>
 #include <span>
+#include <algorithm>
 #include <utility>
 #include <cstdint>
 #include "engine/memory/manager.h"
@@ -38,6 +39,7 @@ namespace {
 struct PcLightsState {
     maths::Vec4 scene_light_direction_{};
     uint32_t scene_light_direction_guard_{};
+    LocalLightSent local_light_{}; // NOT ORIGINAL - the one lighting path's local light (pc_lights.h)
 };
 
 PcLightsState& pc_lights_state()
@@ -131,18 +133,36 @@ void relight(uint32_t light, const maths::Vec4* position)
     }
 }
 
-// NOT ORIGINAL - the one lighting path: the ambient light sent times the light field's indirect ratio where the thing is.
+// NOT ORIGINAL - the one lighting path: the ambient light sent times the light field's indirect ratio where the thing is,
+// and the level's own lights there added (their ambient part here, their directional part the local light sent -
+// pc_lights.h); the ambient held to 1 (the device's ambient is a colour of bytes).
 void relight_ambient(const maths::Vec4* position)
 {
+    LocalLightSent& local = pc_lights_state().local_light_;
+    local.on = false;
     if (position == nullptr) {
         return;
     }
-    const rt::LightRatio ratio = rt::light_ratio_at({position->x, position->y, position->z});
+    const rt::FieldPoint at{position->x, position->y, position->z};
+    const rt::LightRatio ratio = rt::light_ratio_at(at);
+    const rt::LocalLight lamps = rt::local_light_at(at);
     const std::span<float> ambient(ambient_constant());
     for (std::size_t channel = 0; channel < ratio.indirect.size(); ++channel) {
-        core::at(ambient, channel) *= core::at(ratio.indirect, channel);
+        core::at(ambient, channel) = std::min(
+            (core::at(ambient, channel) * core::at(ratio.indirect, channel)) + core::at(lamps.ambient, channel), 1.0F);
+    }
+    local.on = std::ranges::any_of(lamps.directional, [](float value) { return value > 0.0F; });
+    local.colour = lamps.directional;
+    for (std::size_t axis = 0; axis < local.direction.size(); ++axis) {
+        core::at(local.direction, axis) = -core::at(lamps.toward, axis);
     }
 }
+
+} // namespace
+
+const LocalLightSent& local_light_sent() { return pc_lights_state().local_light_; }
+
+namespace {
 
 } // namespace
 
@@ -219,6 +239,7 @@ uint32_t* PcModelLights::read_diffuse_light_tint(uint32_t* out, int light)
 // 0x004B63B0
 void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius)
 {
+    pc_lights_state().local_light_.on = false; // (not original: the local light - relight_ambient)
     uint32_t color = 0;
     if ((overrides & 1) != 0U) {
         color = ambient;
@@ -360,6 +381,7 @@ bool delete_model_lights(gsl::owner<PcModelLights*> lights)
 // 0x004B6940
 void reset_lights()
 {
+    pc_lights_state().local_light_.on = false; // (not original: no local light - pc_lights.h)
     send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), light_sets().ambient_intensity());
     for (int i = 0; i < 2; ++i) {
         uint32_t color = 0;
