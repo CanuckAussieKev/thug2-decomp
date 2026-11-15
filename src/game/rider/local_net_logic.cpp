@@ -11,8 +11,10 @@
 
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
+#include "engine/sys/stopwatch.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
+#include "engine/net/net_cadence.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
@@ -44,7 +46,6 @@ namespace objects {
 namespace {
 // A skater's object update to the host (the layout: wire/object_updates.h): what it sends, how often.
 constexpr int kTimedFlagCount = 24;
-constexpr uint32_t kSendEveryFrames = 15;
 constexpr int kObjectUpdateRank = 0x81;
 // NOT ORIGINAL grouping - local_net_logic.cpp's state (the original's globals). Made on first use, never destroyed
 // (local_net_logic_state()).
@@ -123,7 +124,7 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
     uint32_t flags = 0;
     const net::AppHost* app = client_app(core::down_cast<Rider>(entity())->view_slot());
     ObjectModule* component_6c = entity()->fetch_module(kComponent6c);
-    const bool force = get_on_server() || static_cast<uint32_t>(app->frame_count()) % 15 == 0;
+    const bool force = get_on_server() || static_cast<uint32_t>(app->frame_count()) % net_cadence::kForcedEveryFrames == 0;
     UpdateState now{};
     read_update_state(this, component_6c, now);
     for (int k = 0; k < 3; ++k) {
@@ -162,11 +163,16 @@ void RiderHostSync::send_update()
     auto* app = core::down_cast<net::Guest>(client_app(core::down_cast<Rider>(entity())->view_slot()));
     ObjectModule* component_6c = entity()->fetch_module(kComponent6c);
     const bool on_server = get_on_server();
-    if (!on_server && static_cast<uint32_t>(app->frame_count()) % kSendEveryFrames != 0) {
+    const auto frame = static_cast<uint32_t>(app->frame_count());
+    if (!on_server && frame % net_cadence::kForcedEveryFrames != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
         net::ConnSearch search;
         const net::Conn* conn = app->begin_conn_walk(&search);
-        if (app->clock() - last_transmit_at_ < conn->get_transmit_period()) {
+        if (!net_cadence::skater_update_due({.on_server = on_server,
+                                             .frame_count = frame,
+                                             .clock_ms = app->clock(),
+                                             .last_transmit_ms = last_transmit_at_,
+                                             .transmit_period_ms = conn->get_transmit_period()})) {
             return;
         }
     }
@@ -259,6 +265,11 @@ void RiderHostSync::seal()
 // 0x005136C0
 void RiderHostSync::tick_frame()
 {
+    // (not original: at another tick rate once a 1/60 s frame, in the tick that ends it - the network's cadence,
+    // engine/net/net_cadence.h; every tick at 60)
+    if (!frame_clock::grid_frame_ends()) {
+        return;
+    }
     if (is_versus_session() && find_own_player_record()) {
         send_update();
     }

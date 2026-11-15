@@ -122,4 +122,14 @@ uint64_t frame_of_tick(uint64_t ticks)
     return ((ticks * static_cast<uint64_t>(kOriginal)) + rate - 1) / rate;
 }
 
+uint64_t ticks_since_frame_end(uint64_t ticks)
+{
+    // (tick k ends a frame when tick k + 1 is in the next one)
+    uint64_t back = 0;
+    while (back < ticks && frame_of_tick(ticks - back + 1) == frame_of_tick(ticks - back)) {
+        ++back;
+    }
+    return back;
+}
+
 } // namespace tick_rate

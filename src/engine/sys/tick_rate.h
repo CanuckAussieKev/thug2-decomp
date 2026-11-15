@@ -66,5 +66,9 @@ float per_tick_amount(float amount_per_60th);
 uint64_t frames_ended_by(uint64_t ticks);
 // The 1/60 s frame the tick `ticks` (covering (ticks - 1, ticks] of them) ends in: ceil(ticks * 60 / rate).
 uint64_t frame_of_tick(uint64_t ticks);
+// The ticks since the last tick that ended a 1/60 s frame, from tick `ticks` (0 when `ticks` ends one - always at 60):
+// what moves between the 60 Hz grid's frame ends (the remote skaters' playback, docs/design/tick-rate.md "Online")
+// adds this tick's share of time to the grid's clock.
+uint64_t ticks_since_frame_end(uint64_t ticks);
 
 } // namespace tick_rate

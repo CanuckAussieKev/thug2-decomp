@@ -56,6 +56,10 @@ int grid_frames();
 // This tick ends a 1/60 s frame (always at 60): what the original keeps for "this frame" (a flag set for the rest of a
 // tick) keeps it until then.
 bool grid_frame_ends();
+// The milliseconds of tick time since the last tick that ended a 1/60 s frame (0 in a tick that ends one - always at
+// 60). The network runs in those ticks (engine/net/net_cadence.h); what is played between them (the remote skaters,
+// game/rider/nonlocal_playback.cpp) adds this to the network's clock.
+uint32_t ms_since_grid_frame_end();
 // Set while the front end runs the spawned scripts and the game flow's - at another rate in the tick that ends a 1/60 s
 // frame (they run after the objects in a tick, so the 60 Hz run's do at the frame's end): their waits step then, the
 // objects' own scripts' in the tick that starts it (QbScript::update_wait). Never set at 60.

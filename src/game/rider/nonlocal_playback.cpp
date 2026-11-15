@@ -29,6 +29,7 @@
 #include "game/rider/special_item.h"
 #include "game/rider/state_history.h"
 #include "engine/sys/game_clock.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/objects/control_pad.h"
 #include "game/skate/skate_module.h"
@@ -82,6 +83,10 @@ maths::Vec4& frame_position(SkaterStateHistoryFrame* frame) { return frame->posi
 // The network manager's client app: +8 its frame count.
 net::AppHost* client_app() { return online::online_hub()->fetch_patron(0); }
 int frame_rate() { return game_config::frame_rate(); }
+// The time the playback reads: the client app's clock - set once a 1/60 s frame, when the network runs - and (not
+// original) at another tick rate the tick's time since then, so the remote skaters move every tick between the 60 Hz
+// states (engine/net/net_cadence.h; the clock itself at 60).
+uint32_t playback_clock(const net::AppHost* app) { return app->clock() + frame_clock::ms_since_grid_frame_end(); }
 int get_now() { return frame_clock::game_clock_elapsed() + clock_offset(); }
 // The level's rails (the skate module's +0x24).
 GrindRailHub* get_level_rails() { return modules::Skate::sole()->rail_manager().get(); }
@@ -123,7 +128,7 @@ void RiderRemoteSync::interpolate()
     if (sync_frame_ == 0) {
         // Playback starts at the newest state, a fixed time behind it.
         const int newest = (past_frames_->state_count() - 1) % kHistory;
-        sync_frame_ = app->clock();
+        sync_frame_ = playback_clock(app);
         const int delay = static_cast<int>(static_cast<double>(kMsPerSecond) / frame_rate());
         SkaterStateHistoryFrame* frame = history_frame(past_frames_, newest);
         play_idx_ = newest;
@@ -151,9 +156,12 @@ void RiderRemoteSync::interpolate()
     }
     const int count = past_frames_->state_count();
     const int oldest = count % kHistory; // (the next to be written)
-    uint32_t now = app->clock() - sync_frame_ + sync_time_;
+    uint32_t now = playback_clock(app) - sync_frame_ + sync_time_;
     SkaterStateHistoryFrame* last = history_frame(past_frames_, (count - 1) % kHistory);
-    if (now > history_frame_stamp(last)) {
+    // (not original: the corrections below once a 1/60 s frame, with the network - at another tick rate the ticks
+    // between only play on: the same correction a second as at 60)
+    const bool corrects = frame_clock::grid_frame_ends();
+    if (corrects && now > history_frame_stamp(last)) {
         // Past the newest state: the playback falls back (by a second's frames, or to the state when further).
         int adjust = 0;
         if (now - history_frame_stamp(last) > kMillisecondsPerSecond) {
@@ -162,7 +170,7 @@ void RiderRemoteSync::interpolate()
             adjust = -kMillisecondsPerSecond / frame_rate();
         }
         sync_time_ += adjust;
-        now = app->clock() - sync_frame_ + sync_time_;
+        now = playback_clock(app) - sync_frame_ + sync_time_;
     }
     // The first state not yet reached, from the oldest (none: nothing played this frame).
     int entry = oldest;
@@ -175,7 +183,7 @@ void RiderRemoteSync::interpolate()
     const int lag = (oldest - entry + kHistory) % kHistory;
     play_idx_ = entry;
     nonlocal_lag() = lag;
-    if (lag >= kCatchUpFrames) {
+    if (corrects && lag >= kCatchUpFrames) {
         sync_time_ += kMillisecondsPerSecond / frame_rate() * kCatchUpFrames; // (far behind: ten frames on)
     } else if (lag == 0) {
         skater->reset_27c();
@@ -669,7 +677,7 @@ void RiderRemoteSync::play_history_events()
         return;
     }
     const int first = past_frames_->message_count() % kHistory;
-    const uint32_t now = app->clock() - sync_frame_ + sync_time_;
+    const uint32_t now = playback_clock(app) - sync_frame_ + sync_time_;
     auto& messages = past_frames_->messages();
     auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_);
     int slot = first;
