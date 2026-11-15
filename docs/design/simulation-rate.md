@@ -195,7 +195,8 @@ they're made by the step, not by the clock.
 
 A demo recorded before 2026-11-13 (no `RAND` chunk) let the music draw the game's numbers; its playback now keeps them
 apart like every other, so it can part from its recording where the music changed track (the playback says so in the
-log). sim_grind was such a demo (the reshuffle at frame 64 of its playback); it was recorded again.
+log). sim_grind was such a demo (the reshuffle at frame 64 of its playback); its reference is to be recorded again
+from a build with this change.
 
 ### Proof
 
@@ -247,7 +248,7 @@ the skater and the objects equal throughout - and equal again from 81); eight ru
 run's log shows a stall of about a second (the playback at 0.92 of real time against 1.00). sim_grind was then a demo
 from before the music was kept apart, so its playback let the music's reshuffle draw on the game's streams at a moment
 set by the audio stream's (wall-clock) state: the cause - not drawing. The music now never draws the game's numbers
-("The music's random numbers" above) and sim_grind was recorded again.
+("The music's random numbers" above); sim_grind's reference is to be recorded again.
 
 ## Input latency
 

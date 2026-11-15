@@ -25,10 +25,14 @@ function functions(lines: string[]): { name: string; body: string[] }[] {
     const out: { name: string; body: string[] }[] = [];
     for (let i = 1; i < lines.length; i++) {
         if (lines[i] !== "{") continue;
-        const name = /(\w+)\s*\(/.exec(lines[i - 1])?.[1] ?? "";
+        const name = /(\w+)\s*\(/.exec(lines[i - 1] ?? "")?.[1] ?? "";
         const body: string[] = [];
         let j = i + 1;
-        for (; j < lines.length && lines[j] !== "}"; j++) body.push(lines[j]);
+        for (; j < lines.length; j++) {
+            const line = lines[j] ?? "";
+            if (line === "}") break;
+            body.push(line);
+        }
         out.push({ name, body });
         i = j;
     }
