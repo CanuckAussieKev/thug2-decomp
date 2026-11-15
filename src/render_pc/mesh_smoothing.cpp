@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/facade_relief.h"
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/smooth_tess.h"
 #include "engine/gfx/surface_material.h"

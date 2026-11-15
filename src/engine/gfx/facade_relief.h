@@ -94,9 +94,9 @@ struct Result {
     bool too_big = false;          // nothing fit 16 bits: left as it was
 };
 
-// The height at texture coordinates (u, v) - any repeat - in texture widths: the last rectangle of the cell holding it,
+// The height at texture coordinates `uv` - any repeat - in texture widths: the last rectangle of the cell holding it,
 // else 0 (the wall).
-[[nodiscard]] float height_at(const Structure& structure, double u, double v, bool windows_only = false);
+[[nodiscard]] float height_at(const Structure& structure, std::array<double, 2> uv, bool windows_only = false);
 
 // The mesh with its walls relieved (Result::changed false: keep it as it is). `layout` must have texture coordinates;
 // the first set is the structure's.

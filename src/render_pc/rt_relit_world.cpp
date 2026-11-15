@@ -24,6 +24,7 @@
 #include "engine/file/disk_files.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/engine_scene.h"
+#include "engine/gfx/facade_relief.h"
 #include "engine/gfx/mesh_records.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
@@ -536,9 +537,9 @@ bool make_entry(const WorldMesh& world, Entry* out)
             const relief::VertexSource& from = core::at(made, k);
             rt::RelitMesh::Source& to = core::at(entry.input.sources, first + k);
             to.count = from.count;
-            for (std::size_t c = 0; c < from.from.size(); ++c) {
-                core::at(to.from, c) = core::at(from.from, c);
-                core::at(to.weight, c) = core::at(from.weight, c);
+            for (std::size_t corner = 0; corner < from.from.size(); ++corner) {
+                core::at(to.from, corner) = core::at(from.from, corner);
+                core::at(to.weight, corner) = core::at(from.weight, corner);
             }
         }
     }
@@ -577,9 +578,9 @@ bool make_entry(const WorldMesh& world, Entry* out)
     // (added by building relief) the made vertices' sources too: their light is blended, not traced
     for (const rt::RelitMesh::Source& source : entry.input.sources) {
         entry.content = fnv_value(entry.content, source.count);
-        for (std::size_t c = 0; c < source.count; ++c) {
-            entry.content = fnv_value(entry.content, core::at(source.from, c));
-            entry.content = fnv_value(entry.content, core::at(source.weight, c));
+        for (std::size_t corner = 0; corner < source.count; ++corner) {
+            entry.content = fnv_value(entry.content, core::at(source.from, corner));
+            entry.content = fnv_value(entry.content, core::at(source.weight, corner));
         }
     }
     *out = std::move(entry);

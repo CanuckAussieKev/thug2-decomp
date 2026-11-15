@@ -1674,7 +1674,24 @@ pictures of whole streets - are stage 2 (counted by the survey below, not reliev
 - **The survey** (`building_relief.ts survey --game <folder> [--levels ...]`): per level, the facade textures, their
   wall triangles and area at the playable area's edge (sectors with collision) and in the background (without), with
   samples; and the skyline cards (flat sectors without collision outside the collision's bounds grown by 500 units).
-MEASURED_PLACEHOLDER
+- **The relit light** (`rt_relit`, the time of day's): the relief's vertices are lit as the flat wall at their place -
+  `rt_relit.h` RelitMesh::sources: each new vertex's sources (the wall triangle's corners and weights, recorded by
+  facade_relief) - their traced sun, sky and bounce blended, never traced from the relief's own corners. Traced there,
+  a vertex at the foot of a sill's side or in a recess corner saw half its rays blocked and spread that over its whole
+  piece: BE's window grid came out dark at noon (the first run). The relief's own shadows and occlusion are the
+  per-pixel passes' (shadows, AO); the original vertices the sources name are traced for them though no triangle uses
+  them any more. A relieved mesh's cache entry counts its sources (its content hash).
+- **Measured** (x64, RTX 5070 Ti, 2560 x 1440, the main install's `[Graphics]`, the files made from its SeedVR2 / PBRify
+  sets): the survey over every level in the game folder - 417 facade textures (the `_net` copies counted too), 19,969
+  wall triangles drawn with them; 913 skyline cards (stage 2). BO: 7 textures, 10 of 10 facade meshes relieved - 168
+  wall triangles cut into 8,175 pieces and 6,711 sides, +40,029 vertices, their indices 617 -> 177,414, 20 - 23 ms at
+  load; BE: 4 textures, 6 of 7 meshes (one with the windows alone) - 50 triangles, 8,293 pieces, 4,739 sides, +29,882
+  vertices, 361 -> 152,478 indices, 23 ms. GPU_PLACEHOLDER
+- **Not done**: the skyline cards (stage 2); a per-distance level of detail; the detector's misses and false positives
+  (a sign's letter tiles - BE's BERLIN - read as windows; low-resolution fronts with no set texels found partly) -
+  `make --pictures` shows what was found; where three heights meet at a side's end the sides meet along one line split
+  in two (collinear: closed, not edge-matched); a recess cut by a seam between two meshes of one wall shows an end wall
+  at the seam (the planes are per mesh).
 
 ### Relit: the bake taken apart (`rt_relit`)
 

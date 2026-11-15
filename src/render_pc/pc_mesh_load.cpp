@@ -12,6 +12,7 @@
 #include <array>
 #include <gsl/pointers>
 
+#include "engine/gfx/facade_relief.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/mesh_formats.h"
 #include "base/core/dbg.h"

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "base/core/format.h"
