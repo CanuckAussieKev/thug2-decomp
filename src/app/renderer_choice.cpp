@@ -506,6 +506,17 @@ void read_grass(const Resolution& in_effect)
                                         .distance = in_effect.number("grass_distance", defaults.distance)});
 }
 
+// NOT ORIGINAL - snow (gpu_vulkan/vulkan_snow.h): a layer over every outdoor level's open ground, its trails and spray
+void read_snow(const Resolution& in_effect)
+{
+    const render::vulkan::SnowSettings defaults;
+    render::vulkan::set_snow_settings(
+        {.on = in_effect.on("snow"),
+         .depth = in_effect.number("snow_depth", defaults.depth),
+         .quality = static_cast<int>(std::lround(in_effect.number("snow_trail_quality", static_cast<float>(defaults.quality)))),
+         .falling = in_effect.on("snowfall")});
+}
+
 // NOT ORIGINAL - decals and clutter (gpu_vulkan/vulkan_scatter.h): marks and small props over the level's surfaces
 void read_scatter(const Resolution& in_effect)
 {
@@ -654,6 +665,9 @@ void read_effect(config::Effect effect, const Resolution& in_effect)
         break;
     case Effect::kWater:
         read_water(in_effect);
+        break;
+    case Effect::kSnow:
+        read_snow(in_effect);
         break;
     case Effect::kCameraFx:
         read_camera_fx(in_effect);
