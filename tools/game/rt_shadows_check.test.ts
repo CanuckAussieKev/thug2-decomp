@@ -368,13 +368,12 @@ test("sun: its ini values and log lines", () => {
         "Graphics.ray_tracing": "1",
         "Graphics.rt_sun": "1",
         "Graphics.rt_bloom": "1",
-        "Graphics.rt_shafts": "1",
         "Graphics.rt_sky_model": "1",
     });
     assert.equal(configValues("off", "sun")["Graphics.rt_sun"], "0");
     assert.deepEqual(configValues("baseline", "sun"), {});
     const drawn =
-        "vulkan: rt_sun: the first pass (1280x720, 1 sample; the sun's disc and glare, rays, the frame bloomed; 7 bloom levels)\n" +
+        "vulkan: rt_sun: the first pass (1280x720, 1 sample; the sun's disc and glare, the frame bloomed; 7 bloom levels)\n" +
         "sun: the original's sun and lens flare left out (the renderer draws the sun)";
     const none = "vulkan: rt_sun: no sun in this level (none baked, or the fit not run yet) - the original's sun kept";
     const failed = "vulkan: rt_sun: the passes couldn't be made (a compile error) - no sun, rays or bloom";

@@ -21,6 +21,12 @@
 //   - The sky: never dimmed; lighter only by the shafts' share.
 //   - No fog in the level: with rt_fog_haze=0 no pass, nothing changed; with the haze nothing darker, the shaft
 //     lighter. No scene, rt_fog off: no pass, nothing changed.
+//   - (added by the volumetric light) The clock's light (rt_daylight.h DayLight through rt_volume_light.h
+//     medium_light): with the clock lighting the level its light's direction lights the air - after still frames the
+//     history against the exact integral for that direction, and against the other direction's worse (the shaft moved
+//     with it); the fog noted that sun. At night the moon lights the haze's shafts: their light the moon's colour's
+//     share of the sun's, bluer. (A lamp's cone in the air: thug2_vulkan_rt_lights_check; the clouds' shadow map:
+//     thug2_vulkan_rt_sky_check.)
 //   - --perf: the pass's cost at 1920 x 1080 with 16, 32 and 64 steps (frames timed with and without it).
 //   thug2_vulkan_rt_fog_check [--device N] [--display N] [--no-validation] [--perf]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
@@ -48,7 +54,9 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -327,10 +335,18 @@ Seen seen_along(const Ray& ray)
 
 // --- the fog, as the pass marches it -----------------------------------------------------------------------------
 
-const Vec3& to_sun()
+// (changed by the volumetric light: the light the air is lit by may move - the clock's case)
+Vec3& light_toward()
 {
-    static const Vec3 kToward = normalised(step(Vec3{}, kLightTravels, -1.0));
-    return kToward;
+    static Vec3 toward = normalised(step(Vec3{}, kLightTravels, -1.0));
+    return toward;
+}
+const Vec3& to_sun() { return light_toward(); }
+// While the clock lights the scene (DayLight), the frames don't set the console's `rt sun`.
+bool& clock_lights()
+{
+    static bool lights = false;
+    return lights;
 }
 
 bool sunlit(const Vec3& at)
@@ -341,17 +357,11 @@ bool sunlit(const Vec3& at)
     });
 }
 
-constexpr double kLeastPhaseDenominator = 1e-4; // (the shader's)
 constexpr double kLeastLeft = 1e-4;             // the shortest way to the fog's end a segment counts (x its length)
 constexpr double kMostDepth = 40.0;             // a segment's optical depth at most
 
-double phase(double cosine)
-{
-    const double anisotropy = kAnisotropy;
-    const double denominator =
-        std::max(1.0 + (anisotropy * anisotropy) - (2.0 * anisotropy * cosine), kLeastPhaseDenominator);
-    return (1.0 - (anisotropy * anisotropy)) / (denominator * std::sqrt(denominator));
-}
+// (the air's phase - engine/gfx/rt_volume_light.h medium_phase: the march's)
+double phase(double cosine) { return render::rt::medium_phase(cosine, kAnisotropy); }
 
 // (the pass's tint: the baked sun has no colour)
 std::array<double, 3> tint() { return {1.0, 1.0, 1.0}; }
@@ -785,7 +795,7 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Vec3& eye, b
     draw_scene(gpu, eye, targets.width, targets.height);
     // (the sun as the console's `rt sun` sets it: the level's baked one otherwise - none in this scene)
     const std::array<float, 3> toward = floats(to_sun());
-    render::rt::set_sun_override(&toward);
+    render::rt::set_sun_override(clock_lights() ? nullptr : &toward);
     const uint64_t before = render::vulkan::rt_fog_passes();
     render::rt::world_view_drawn(view_drawn(eye, targets.width, targets.height, fog_on));
     const uint64_t passes = render::vulkan::rt_fog_passes() - before;
@@ -1381,6 +1391,144 @@ void run_haze(render::Gpu& gpu, const Scene& scene, Tally* tally)
     release_targets(gpu, targets);
 }
 
+// --- (added by the volumetric light) the clock's light ------------------------------------------------------------
+
+constexpr Vec3 kOtherLightTravels{-0.35, -0.45, 1.0}; // (the sun moved round: the shaft through the window moves)
+constexpr std::array<float, 3> kMoonColour{0.16F, 0.19F, 0.27F}; // (the clock's moon: weak and blue)
+constexpr double kMostMoonRatioError = 0.25; // the moon's shafts' light over the sun's against its colour's luma
+constexpr double kLeastBluer = 1.3;          // the moon's shafts' blue over red against the sun's
+
+// The clock lighting the scene with its light toward `toward` (the level relit, a baked sun found - as rt_sun.h's
+// resolve_scene_sun asks before it takes the clock's light).
+void clock_light(const Vec3& toward, const std::array<float, 3>& colour, bool moon)
+{
+    namespace rt = render::rt;
+    light_toward() = normalised(toward);
+    clock_lights() = true;
+    rt::set_baked_sun({.scene = 1, .found = true, .toward = floats(normalised(step(Vec3{}, kLightTravels, -1.0))),
+                       .confidence = 1.0F});
+    rt::set_sun_relight({.relights = true});
+    rt::DayLight day;
+    day.on = true;
+    day.light = floats(light_toward());
+    day.moon = day.light;
+    day.sun = moon ? std::array<float, 3>{0.0F, -0.5F, 0.866F} : day.light;
+    day.moonlit = moon;
+    day.light_colour = colour;
+    day.light_radius = 0.0F; // (a point: the exact integral's)
+    rt::set_day_light(day);
+}
+
+void clock_off()
+{
+    namespace rt = render::rt;
+    rt::set_day_light({});
+    rt::set_sun_relight({});
+    rt::set_baked_sun({});
+    clock_lights() = false;
+    light_toward() = normalised(step(Vec3{}, kLightTravels, -1.0));
+}
+
+// The converged history's mean error against the exact integral for the light now.
+double converged_error(const View& view)
+{
+    render::vulkan::RtFogTexels history;
+    render::vulkan::RtFogTexels info;
+    if (!read_fog(render::vulkan::RtFogImage::kHistory, &history) ||
+        !read_fog(render::vulkan::RtFogImage::kHistoryInfo, &info)) {
+        return 1.0;
+    }
+    std::vector<double> errors;
+    for (std::size_t i = 0; i < history.texels.size(); ++i) {
+        Fogged want;
+        if (block_light(view, pixel_of(core::at(info.texels, i), 2), &want)) {
+            errors.push_back(light_error(core::at(history.texels, i), want));
+        }
+    }
+    return errors.empty() ? 1.0 : mean(errors);
+}
+
+// The history's light summed over every texel (rgb).
+std::array<double, 3> history_sum()
+{
+    render::vulkan::RtFogTexels history;
+    std::array<double, 3> sum{};
+    if (read_fog(render::vulkan::RtFogImage::kHistory, &history)) {
+        for (const std::array<float, 4>& texel : history.texels) {
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                core::at(sum, channel) += core::at(texel, channel);
+            }
+        }
+    }
+    return sum;
+}
+
+void run_clock(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    namespace rt = render::rt;
+    text::print("the clock's light (DayLight: the sun moved, the moon at night):\n");
+    use_settings(settings_of(false), scene.top.handle);
+    Targets targets;
+    const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, &targets);
+    tally->check(made, "the targets made");
+    if (made) {
+        const View view = view_from(kEye, kTargetWidth, kTargetHeight);
+        const Vec3 first = normalised(step(Vec3{}, kLightTravels, -1.0));
+        const Vec3 other = normalised(step(Vec3{}, kOtherLightTravels, -1.0));
+        std::array<double, 2> own_error{};
+        std::array<double, 2> other_error{};
+        for (std::size_t which = 0; which < 2; ++which) {
+            const Vec3& toward = which == 0 ? first : other;
+            clock_light(toward, {1.0F, 1.0F, 1.0F}, false);
+            for (int frame = 0; frame < kStillFrames; ++frame) {
+                draw_frame(gpu, targets, kEye);
+            }
+            const rt::SunUsed used = rt::sun_used(rt::SunUser::kFog);
+            const Vec3 noted{core::at(used.toward, 0), core::at(used.toward, 1), core::at(used.toward, 2)};
+            tally->check(rt::scene_sun().origin == rt::SunOrigin::kClock && used.have && dot(noted, toward) > 0.99999,
+                         text::format("  light %zu: the scene's sun the clock's, the fog lit by it", which + 1));
+            core::at(own_error, which) = converged_error(view);
+            light_toward() = which == 0 ? other : first;
+            core::at(other_error, which) = converged_error(view);
+            light_toward() = toward;
+        }
+        for (std::size_t which = 0; which < 2; ++which) {
+            tally->check(core::at(own_error, which) < kMostConvergedMean &&
+                             core::at(other_error, which) > 3.0 * core::at(own_error, which),
+                         text::format("  light %zu: the history against its own direction's integral %.4f, the other "
+                                      "direction's %.4f (the shaft moved with the light)",
+                                      which + 1, core::at(own_error, which), core::at(other_error, which)));
+        }
+        // the moon: the haze (no level fog) lit by its light - the moon's colour's share of the sun's, bluer
+        render::vulkan::RtFogSettings haze = settings_of(false);
+        haze.haze = true;
+        use_settings(haze, scene.top.handle);
+        std::array<std::array<double, 3>, 2> sums{};
+        for (std::size_t which = 0; which < 2; ++which) {
+            clock_light(first, which == 0 ? std::array<float, 3>{1.0F, 1.0F, 1.0F} : kMoonColour, which == 1);
+            for (int frame = 0; frame < kStillFrames; ++frame) {
+                draw_frame(gpu, targets, kEye, false);
+            }
+            core::at(sums, which) = history_sum();
+        }
+        const auto luma = [](const std::array<double, 3>& c) {
+            return (0.2126 * core::at(c, 0)) + (0.7152 * core::at(c, 1)) + (0.0722 * core::at(c, 2));
+        };
+        const double moon_luma = luma({core::at(kMoonColour, 0), core::at(kMoonColour, 1), core::at(kMoonColour, 2)});
+        const double ratio = luma(sums.front()) > 0.0 ? luma(sums.back()) / luma(sums.front()) : 0.0;
+        const auto blue_over_red = [](const std::array<double, 3>& c) {
+            return core::at(c, 0) > 0.0 ? core::at(c, 2) / core::at(c, 0) : 0.0;
+        };
+        tally->check(ratio > 0.0 && std::abs((ratio / moon_luma) - 1.0) < kMostMoonRatioError &&
+                         blue_over_red(sums.back()) > kLeastBluer * blue_over_red(sums.front()),
+                     text::format("  the moon's shafts in the haze: %.3f of the sun's light (its colour's luma %.3f), "
+                                  "blue over red %.2f against the sun's %.2f",
+                                  ratio, moon_luma, blue_over_red(sums.back()), blue_over_red(sums.front())));
+    }
+    clock_off();
+    release_targets(gpu, targets);
+}
+
 // The passes at 1920 x 1080 timed on the device (their own timestamps) with 16, 32, 64 steps.
 void run_perf(render::Gpu& gpu, const Scene& scene)
 {
@@ -1504,6 +1652,7 @@ int run(const Options& options, SDL_Window* window)
         run_untouched(gpu, "no fog in the level, rt_fog_haze=0: the pass skipped", settings_of(false), scene.top.handle,
                       false, &tally);
         run_haze(gpu, scene, &tally);
+        run_clock(gpu, scene, &tally); // (added by the volumetric light)
         run_untouched(gpu, "no scene: the pass skipped", settings_of(false), VK_NULL_HANDLE, true, &tally);
         render::vulkan::RtFogSettings off = settings_of(false);
         off.on = false;

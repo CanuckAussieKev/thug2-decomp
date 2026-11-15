@@ -174,10 +174,15 @@ struct HdrSettings {
 void set_hdr_settings(const HdrSettings& settings);
 [[nodiscard]] HdrSettings hdr_settings();
 // NOT ORIGINAL - volumetric fog and light shafts (vulkan_rt_fog.h, docs/design/vulkan.md "Volumetric fog"): [Graphics]
-// rt_fog, rt_fog_density, rt_fog_height, rt_fog_anisotropy, rt_fog_steps, rt_fog_mode, rt_fog_haze (and rt_hdr: the
-// fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray tracing isn't enabled on the device.
-inline constexpr float kRtFogAnisotropy = 0.3F; // (rt_fog_anisotropy's default)
-inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_steps' default)
+// rt_fog, rt_fog_strength, rt_fog_quality, rt_fog_density, rt_fog_height, rt_fog_anisotropy, rt_fog_steps, rt_fog_mode,
+// rt_fog_haze (and rt_hdr: the fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray
+// tracing isn't enabled on the device.
+inline constexpr float kRtFogAnisotropy = 0.5F; // (rt_fog_anisotropy's default: 0.3 until the volumetric light)
+inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_quality 1's steps)
+inline constexpr float kRtFogStrength = 1.0F;   // (rt_fog_strength's default)
+// rt_fog_quality 0 / 1 / 2: the march's steps and the lamps at most that light the air
+inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{16, 32, 64};
+inline constexpr std::array<unsigned, 3> kRtFogQualityLamps{8, 16, 32};
 inline constexpr float kRtFogHazeHeight = 600.0F; // (rt_fog_haze_height's default: world units)
 inline constexpr float kRtFogHazeDensity = 0.3F;  // (rt_fog_haze_density's default)
 enum class RtFogMode : uint8_t {
@@ -188,8 +193,13 @@ struct RtFogSettings {
     bool on = false;
     float density = 1.0F;                 // x the level's fog thickness (1: as thick as the game's; 0 - 8)
     float height = 0.0F;                  // world units over which the fog thins by e above the camera (0: even)
-    float anisotropy = kRtFogAnisotropy;  // Henyey-Greenstein g: 0 even, toward 0.9 bright toward the sun (-0.9 - 0.9)
+    float anisotropy = kRtFogAnisotropy;  // the forward lobe's g (rt_volume_light.h medium_phase): 0 even, toward 0.9
+                                          // bright toward the light (-0.9 - 0.9)
     unsigned steps = kRtFogSteps;         // samples along each ray (4 - 128)
+    unsigned lamps = 16;                  // lamps at most (rt_lights' lit set, the most important first) that light the
+                                          // air (0 - 32)
+    float strength = kRtFogStrength;      // x the light the air scatters - the sun's, the moon's, the lamps' (0 - 4; 0:
+                                          // no shafts, the fog and haze only)
     RtFogMode mode = RtFogMode::kReplace;
     bool hdr = false;                     // the light added above 1 kept (rt_hdr=1: a floating-point target)
     bool haze = true; // a level without fog gets a thin haze's sunlit shafts (rt_fog_haze; 0: nothing there)
@@ -205,20 +215,17 @@ struct RtFogSettings {
 void set_rt_fog_settings(const RtFogSettings& settings);
 [[nodiscard]] RtFogSettings rt_fog_settings();
 
-// NOT ORIGINAL - the sun, its glare, the screen-space rays and the bloom (vulkan_rt_sun.h, vulkan_rt_sky.h;
-// docs/design/vulkan.md "The sun, its glare and the sky"): [Graphics] rt_sun, rt_sun_size, rt_bloom, rt_bloom_strength,
-// rt_shafts, rt_shaft_strength, rt_sky_model, rt_sun_colour, rt_lens_dirt (and rt_hdr). Nothing is drawn differently
-// while all are off. The sun's parts need a sun - where the game shows one, else the level's baked one (ray tracing
-// enabled); the bloom needs neither.
+// NOT ORIGINAL - the sun, its glare and the bloom (vulkan_rt_sun.h, vulkan_rt_sky.h; docs/design/vulkan.md "The sun,
+// its glare and the sky"): [Graphics] rt_sun, rt_sun_size, rt_bloom, rt_bloom_strength, rt_sky_model, rt_sun_colour,
+// rt_lens_dirt (and rt_hdr). Nothing is drawn differently while all are off. The sun's parts need a sun - where the game
+// shows one, else the level's baked one (ray tracing enabled); the bloom needs neither. (The screen-space rays, rt_shafts,
+// were retired by the volumetric light: the fog pass's shafts are the one light in the air.)
 inline constexpr float kRtBloomStrength = 0.05F; // (rt_bloom_strength's default)
-inline constexpr float kRtShaftStrength = 0.8F;  // (rt_shaft_strength's default)
 struct RtSunSettings {
     bool sun = false;          // the sun's disc and glare drawn, the original's sun sprite and lens flare hidden
     float sun_size = 1.0F;     // x the disc's default size (0.25 - 4)
     bool bloom = false;        // the frame's bright light spread (energy-conserving, a mip chain)
     float bloom_strength = kRtBloomStrength; // the share of each pixel's light spread (0 - 0.5)
-    bool shafts = false;       // screen-space rays from the sun over what blocks it
-    float shaft_strength = kRtShaftStrength; // (0 - 4)
     bool sky_model = false;    // the sky model's colours used by the fog (aerial perspective) and the bounce light
     bool colour_set = false;   // rt_sun_colour=r,g,b: the sun's colour given (0 - 1 each), not the model's
     std::array<float, 3> colour{1.0F, 1.0F, 1.0F};

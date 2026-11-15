@@ -56,6 +56,10 @@ inline constexpr uint32_t kFogScale = 2;       // the march's resolution: 1 / th
 inline constexpr uint32_t kFogMaxHistory = 12; // frames
 inline constexpr uint32_t kFogViewSlots = 4;
 inline constexpr uint32_t kFogMask = 0x01 | 0x02; // (world, objects: what shadows the fog)
+// (added by the volumetric light) with the material table and the frame's geometry the cut-outs too, by their alpha
+// (vulkan_rt_scene.h cutout_rays_glsl: light through foliage, fences and grates - the one lighting path's test)
+inline constexpr uint32_t kFogCutoutMask = 0x01 | 0x02 | 0x04;
+inline constexpr uint32_t kFogMostLamps = 32; // the lamps' block's room (rt_fog_quality's most)
 inline constexpr float kFogAmbientShare = 0.5F;   // a above
 inline constexpr float kFogSkyShare = 0.1F;
 inline constexpr float kFogShaftShare = 0.5F;       // mode 1's
