@@ -16,7 +16,11 @@
 // The level's light model is then E = a S + b K + g B per channel (red, green, blue): a, b, g found by a robust
 // least-squares fit over its mesh edges (two neighbours' colours' ratio is their light's; non-negative; each edge's
 // error relative to its own light, so no term is favoured for being small; reweighted toward the median error, so
-// lamps and unusually coloured surfaces count little). The fit's a is the sun's colour and strength as the bake has
+// lamps and unusually coloured surfaces count little). Meshes of one colour all over (painted, not lit by the bake) are
+// left out; an edge across a traced shadow's border counts only where the bake's colours step down into it too (most
+// traced borders have no step in the bake: the traced geometry's own shadows); and the sun's strength against the rest
+// is then set by which way faces turn - in each mesh, its faces toward the sun over those turned away, the bake's
+// against the model's, the meshes' median (rt_relit.cpp facing_calibration). The fit's a is the sun's colour and strength as the bake has
 // it, b the sky's, g how much the bounce counts.
 // With E known, each vertex's tint is v / E (per channel; E no lower than kRelitFloorShare of the level's mean, so a
 // vertex the model says is in darkness doesn't get a huge tint). Where E is small next to the level's median (a vertex
@@ -94,7 +98,8 @@ inline constexpr float kRelitLampLow = 1.2F;
 inline constexpr float kRelitLampHigh = 1.8F;
 inline constexpr float kRelitFacing = 0.05F;      // a face toward the bake's sun (N.L above this) can have missed sun
 inline constexpr float kRelitMissedLeast = 0.6F;  // the sun-coloured excess at least this share of the sun's light
-inline constexpr float kRelitMostMissed = 8.0F;   // sun_missed at most this (the bake's sun that much over the fit's: Berlin's ~5)
+inline constexpr float kRelitMostMissed = 2.0F;   // sun_missed at most this (the bake's sun up to twice the fit's where the
+                                                  // rays missed it; more is the level's own light - lamps facing the sun)
 inline constexpr float kRelitTrustInner = 2.0F;   // degrees: sun_missed whole toward the bake's sun ...
 inline constexpr float kRelitTrustOuter = 10.0F;  // ... and none this far from it
 // The level's own lights across meshes (relit_local_across): the neighbours of other meshes within kRelitLocalReach,
@@ -186,6 +191,17 @@ struct RelitModel {
     float sun_needed =
         0.0F; // the fit's objective without the sun over with it (reported: no test of a sun - rt_sun.h's
               // fit is)
+    // (reported, not kept in the cache) the rays' shadow edges - a vertex in the traced sun beside one in its shade,
+    // facing the same way: how many, and the medians of their colours' ratio in the bake and of their light's in the
+    // model (the sun's strength told from the shadows alone: the model's far under the bake's - a sun fitted too weak)
+    std::size_t shadow_edges = 0;
+    std::size_t shadow_edges_kept = 0;
+    float sun_calibration = 1.0F; // the factor the faces' turning put on the edges' sun (rt_relit.cpp facing_calibration) // ... of them with the bake's step: those the fit is told by
+    std::size_t one_colour_meshes = 0;
+    float facing_baked = 0.0F; // the faces toward the sun (in the rays' sun) over those turned from it: the bake's ...
+    float facing_model = 0.0F; // ... and the model's (medians' ratios) // meshes left out of the fit: one colour all over (painted, not lit by the bake)
+    float shadow_baked = 0.0F;
+    float shadow_model = 0.0F;
 };
 
 struct RelitParams {
@@ -222,6 +238,7 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                      RelitStats* stats);
 // The model fitted to the traced light and the baked colours. Not valid when too few vertices are lit or the sun's
 // term comes out as nothing.
+// An edge across a traced shadow's border counts only where the bake's colours step down into the traced shade too.
 [[nodiscard]] RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light,
                                          const Vec3& toward);
 // The tints and residuals of the meshes `wanted` says, and (with `rescale`) the model's scale.

@@ -1251,6 +1251,43 @@ void check_uneven_fit(const Scene& scene, Tally* tally)
     tally->check(parts, "each channel's sky and bounce against its sun within 20% / 25% of the bake's:" + found);
 }
 
+// (added by lighting round 4) The rays meeting casters the bake didn't have (the traced geometry's own: cut-outs, night
+// pieces, other meshes): slabs high up the bake never saw throw traced shadows over the ground where the bake is sunlit
+// (hiding little of its sky) - more traced borders than the bake's own. Their borders show no step in the bake, and
+// they mustn't tell the sun's strength: each channel's sky against its sun still the bake's (told by them, the fit
+// took the sun to nothing - Berlin's to a fifth).
+void check_unbaked_casters(const Scene& scene, Tally* tally)
+{
+    text::print("the fit with casters the bake didn't have (on the processor):\n");
+    Level level = make_level();
+    (void)bake(&level, {.toward = scene.sun, .light = kSunLight}, scene.params);
+    std::vector<rt::RelitMesh> traced = level.meshes;
+    for (const Vec3& low : {Vec3{-500.0F, 700.0F, -500.0F}, Vec3{100.0F, 700.0F, -300.0F}, Vec3{-300.0F, 700.0F, 300.0F},
+                            Vec3{500.0F, 700.0F, 500.0F}, Vec3{900.0F, 700.0F, -100.0F}, Vec3{300.0F, 700.0F, 900.0F}}) {
+        rt::RelitMesh wall = box(low, {350.0F, 10.0F, 350.0F});
+        wall.id = kCpuIds + static_cast<rt::MeshId>(traced.size());
+        traced.push_back(std::move(wall));
+    }
+    CpuTracer cpu(traced);
+    std::vector<rt::RelitVertices> light;
+    rt::RelitStats stats;
+    rt::trace_relit_light(level.meshes, {}, scene.sun, scene.params, cpu, &light, &stats);
+    const rt::RelitModel model = rt::fit_relit_model(level.meshes, light, scene.sun);
+    bool parts = model.valid;
+    std::string found;
+    for (std::size_t channel = 0; channel < kSkyLight.size(); ++channel) {
+        const float sun = std::max(core::at(model.sun, channel), kTiny);
+        const float sky = core::at(model.sky, channel) / sun;
+        const float true_sky = core::at(kSkyLight, channel) / core::at(kSunLight, channel);
+        parts = parts && std::abs(sky - true_sky) < 0.2F * true_sky;
+        found += text::format(" sky over sun %.3f (%.3f);", static_cast<double>(sky), static_cast<double>(true_sky));
+    }
+    tally->check(parts, text::format("each channel's sky against its sun within 20%% of the bake's (%zu traced shadow "
+                                     "edges, %zu with the bake's step):",
+                                     model.shadow_edges, model.shadow_edges_kept) +
+                            found);
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     check_split(tally);
@@ -1259,6 +1296,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         Scene uneven;
         uneven.sun = unit(kSunToward);
         check_uneven_fit(uneven, tally);
+        check_unbaked_casters(uneven, tally);
     }
     rt::RayTracing* const backend = rt::ray_tracing();
     tally->check(backend != nullptr && backend->available(), "the ray tracing backend is installed");

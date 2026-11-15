@@ -748,6 +748,22 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
     }
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     const rt::RelitModel& fitted = st.model;
+    // (how much the residual's split had to give the bake's sun the rays missed: a fit that finds the bake's sun needs
+    // little of it)
+    std::size_t lit_vertices = 0;
+    std::size_t missed_vertices = 0;
+    double missed_sum = 0.0;
+    for (const VertexBufferData* buffer : st.order) {
+        for (const rt::RelitVertex& vertex : st.entries.at(buffer).light) {
+            lit_vertices += vertex.used ? 1 : 0;
+            if (vertex.used && vertex.sun_missed > 0.0F) {
+                ++missed_vertices;
+                missed_sum += vertex.sun_missed;
+            }
+        }
+    }
+    get_log("rt_relit: the bake's sun the rays missed at %zu of %zu vertices (mean %.2f of the fit's sun there)",
+            missed_vertices, lit_vertices, missed_vertices > 0 ? missed_sum / static_cast<double>(missed_vertices) : 0.0);
     get_log("rt_relit: level %08x - %zu meshes (%zu from the cache, %zu traced: %zu vertices, %zu rays), %.0f ms; the "
             "model %s: sun %.3f %.3f %.3f, sky %.3f %.3f %.3f, bounce %.3f %.3f %.3f, scale %.3f, median residual %.4f "
             "over %zu vertices, without the sun %.2f times worse",
@@ -759,6 +775,15 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
             static_cast<double>(std::get<1>(fitted.bounce)), static_cast<double>(std::get<2>(fitted.bounce)),
             static_cast<double>(fitted.scale), static_cast<double>(fitted.error), fitted.vertices,
             static_cast<double>(fitted.sun_needed));
+    if (to_trace > 0 && fitted.shadow_edges > 0) {
+        get_log("rt_relit: the traced sun's shadow edges: %zu (%zu with the bake's step, the fit's), their colours lit over "
+                "shaded %.2f in the bake, their light %.2f in the model; %zu meshes of one colour left out of the fit; "
+                "the faces toward the sun over those turned from it %.2f in the bake, %.2f in the model (the edges' sun "
+                "x %.2f for them)",
+                fitted.shadow_edges, fitted.shadow_edges_kept, static_cast<double>(fitted.shadow_baked),
+                static_cast<double>(fitted.shadow_model), fitted.one_colour_meshes, static_cast<double>(fitted.facing_baked),
+                static_cast<double>(fitted.facing_model), static_cast<double>(fitted.sun_calibration));
+    }
     if (settings.cache && to_trace > 0 && st.model.valid) {
         write_cache({.level = st.level, .key = key});
         st.cache = {};
