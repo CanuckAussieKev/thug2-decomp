@@ -184,6 +184,7 @@ struct SceneStats {
     uint64_t asked_new = 0;
     uint64_t asked_geometry = 0;
     uint64_t asked_written = 0;
+    uint64_t rebuilt_after_refits = 0; // a dynamic mesh built again once kRefitsBeforeRebuild refits had worn it
     uint32_t last_instances = 0;  // in the last TLAS
     uint32_t retired_pending = 0; // structures and buffers waiting for their submissions
 };

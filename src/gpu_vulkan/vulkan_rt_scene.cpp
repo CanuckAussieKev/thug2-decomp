@@ -821,14 +821,16 @@ void log_scene(Scene& made, bool now)
     const SceneStats& stats = made.stats;
     get_log("vulkan: ray tracing scene: %u meshes (%u built, %u compacted, %u dynamic, %u refused), BLAS %.1f MB "
             "(%.1f MB before compaction), TLAS + instances %.1f MB, scratch %.1f MB; %u instances in the last TLAS; "
-            "%llu builds, %llu refits, %llu TLAS builds (asked for: %llu new meshes, %llu new geometry, %llu written)",
+            "%llu builds, %llu refits, %llu TLAS builds (asked for: %llu new meshes, %llu new geometry, %llu written; %llu "
+            "dynamic ones after their refits)",
             stats.meshes, stats.built, stats.compacted, stats.dynamic, stats.refused,
             static_cast<double>(stats.blas_bytes) / kMegabyte, static_cast<double>(stats.built_bytes) / kMegabyte,
             static_cast<double>(stats.tlas_bytes) / kMegabyte, static_cast<double>(stats.scratch_bytes) / kMegabyte,
             stats.last_instances, static_cast<unsigned long long>(stats.builds),
             static_cast<unsigned long long>(stats.refits), static_cast<unsigned long long>(stats.tlas_builds),
             static_cast<unsigned long long>(stats.asked_new), static_cast<unsigned long long>(stats.asked_geometry),
-            static_cast<unsigned long long>(stats.asked_written));
+            static_cast<unsigned long long>(stats.asked_written),
+            static_cast<unsigned long long>(stats.rebuilt_after_refits));
 }
 
 void count_bytes(Scene& made)
@@ -1242,6 +1244,7 @@ bool plan_job(Backend& state, Scene& made, rt::MeshId id, Mesh& mesh, MeshWork w
         }
         job->scratch = sizes.buildScratchSize;
         job->compact = !mesh.geometry.dynamic && made.queries != VK_NULL_HANDLE;
+        made.stats.rebuilt_after_refits += mesh.needs_build ? 0 : 1; // (a skinned mesh's, its refits used up)
         mesh.refits = 0;
         mesh.compacted = false;
         mesh.built_bytes = mesh.blas.memory.bytes;

@@ -136,18 +136,21 @@ struct Entry {
     std::size_t bounce_done = 0;
     uint64_t sun_done_for = 0;
     uint64_t bounce_done_for = 0;
-    uint64_t field_for = 0; // (the light field being made: the lighting its vertices were added for)
+    uint64_t field_for = 0; // (the light field being made: the lighting its vertices were all added for ...)
+    uint64_t field_lighting = 0; // (... the lighting its vertices are being added for, the first field_done of them)
+    std::size_t field_done = 0;
     // (added by cel shading - engine/gfx/rt_cel.h) its decomposition as the cel stream, and what it was written for
     GpuVertexBuffer* cel = nullptr;
     uint64_t cel_written = 0;
 };
 
-// (one relight at a time) A part of a relight's work a frame - its sun's rays, its bounce's, its writes - is about
-// kRelitFrameMs of the frame while the game is shown: the vertices a frame from the time a vertex took over the last
-// frames. A light that keeps moving (a running clock) then costs each frame the same small time whatever the level's
+// (one relight at a time) The relit mode's work a frame - the sun's rays, the bounce's, the writes, the light field -
+// is about kRelitFrameMs of the frame in all while the game is shown (each part what is left of it when its turn comes,
+// at least a little): the vertices a frame from the time a vertex took over the last frames. A light that keeps moving (a running clock) then costs each frame the same small time whatever the level's
 // size, and a light picked by hand rolls in over a second or two instead of a long frame. While the loading screen holds
 // a level's first light (hold_first_light) the most a frame (kRelitRetraceVertices...): it is done sooner.
-constexpr double kRelitFrameMs = 1.5;
+constexpr double kRelitFrameMs = 2.0;
+constexpr double kRelitLeastMs = 0.25; // (a part's share of the frame at least: every part goes on)
 constexpr std::size_t kRelitFirstPaced = 4096; // vertices a frame before a time is measured
 constexpr std::size_t kRelitLeastPaced = 64;   // ... and at least this many (a relight always goes on)
 constexpr std::size_t kRelitMeasuredLeast = 32; // a frame of fewer vertices doesn't tell the time a vertex takes
@@ -157,6 +160,11 @@ struct Pace {
     double ms_per_vertex = 0.0; // (0: not measured yet)
 };
 
+double ms_since(std::chrono::steady_clock::time_point start);
+
+// What is left of this frame's kRelitFrameMs (update's start: State::frame_start), at least kRelitLeastMs.
+double frame_left();
+
 std::size_t paced_vertices(const Pace& pace, std::size_t most, bool hurried)
 {
     if (hurried) {
@@ -165,7 +173,7 @@ std::size_t paced_vertices(const Pace& pace, std::size_t most, bool hurried)
     if (pace.ms_per_vertex <= 0.0) {
         return std::min(most, kRelitFirstPaced);
     }
-    const double fits = kRelitFrameMs / pace.ms_per_vertex;
+    const double fits = frame_left() / pace.ms_per_vertex;
     return std::clamp(fits >= static_cast<double>(most) ? most : static_cast<std::size_t>(fits), kRelitLeastPaced, most);
 }
 
@@ -245,6 +253,7 @@ struct State {
     Pace bounce_pace;
     Pace write_pace;
     bool hurried = false;
+    std::chrono::steady_clock::time_point frame_start{}; // (update's start this frame: the parts share kRelitFrameMs)
     Job job; // (the trace asked of the device, answered a frame or two later - one at a time)
 };
 
@@ -253,6 +262,8 @@ State& state()
     static core::NoDestroy<State> made;
     return made.get();
 }
+
+double frame_left() { return std::max(kRelitLeastMs, kRelitFrameMs - ms_since(state().frame_start)); }
 
 // Whether an entry's sun was traced for another light than the one now (its direction or its softness).
 bool sun_stale(const Entry& entry)
@@ -1248,7 +1259,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
         if (entry.hits_for == hits_key) {
             continue;
         }
-        if (!st.hurried && ms_since(start) >= kRelitFrameMs) {
+        if (!st.hurried && ms_since(start) >= frame_left()) {
             return; // (the rest next frame)
         }
         // (the colours the rays bring back: as relit now)
@@ -1311,17 +1322,23 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
         st.field_building_for = lighting;
     }
     const auto start = std::chrono::steady_clock::now();
+    const double share = frame_left();
+    constexpr std::size_t kFieldTimed = 256; // (the time looked at every this many vertices)
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
         if (!entry.analysed || entry.field_for == lighting) {
             continue;
         }
-        if (!st.hurried && ms_since(start) >= kRelitFrameMs) {
-            return; // (the rest next frame)
+        if (entry.field_lighting != lighting) { // (its vertices added from the first, for this field)
+            entry.field_lighting = lighting;
+            entry.field_done = 0;
         }
-        entry.field_for = lighting;
         const std::size_t vertices = std::min(entry.input.positions.size(), entry.light.size());
-        for (std::size_t vi = 0; vi < vertices; ++vi) {
+        for (std::size_t vi = entry.field_done; vi < vertices; ++vi) {
+            if (!st.hurried && vi % kFieldTimed == 0 && ms_since(start) >= share) {
+                entry.field_done = vi;
+                return; // (the rest next frame - inside a mesh too)
+            }
             const rt::RelitVertex& vertex = core::at(entry.light, vi);
             if (!vertex.used || (vi < entry.animated.size() && core::at(entry.animated, vi) != 0)) {
                 continue;
@@ -1341,6 +1358,7 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
             }
             st.field_building->add(core::at(entry.input.positions, vi), parts);
         }
+        entry.field_for = lighting;
     }
     std::shared_ptr<rt::LightField> field = std::move(st.field_building);
     st.field_building_for = 0;
@@ -1521,6 +1539,7 @@ void write_cel(uint64_t lighting, const rt::RelitLighting& light)
 void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& tracer)
 {
     State& st = state();
+    st.frame_start = std::chrono::steady_clock::now();
     const rt::RelitSettings settings = rt::relit_settings();
     if (!settings.on) {
         if (st.status != Status::kOff) {
@@ -1648,7 +1667,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
                     static_cast<double>(std::get<0>(st.day_scales.direct_scale)),
                     static_cast<double>(std::get<1>(st.day_scales.sky_scale)));
             get_log("rt_relit: relight %llu, bounce pass %llu (%llu done); a vertex takes %.2f us toward the sun, %.2f us "
-                    "for its bounce, %.2f us to write (about %.1f ms of each a frame while the level is shown)",
+                    "for its bounce, %.2f us to write (about %.1f ms of them all a frame while the level is shown)",
                     static_cast<unsigned long long>(st.relights), static_cast<unsigned long long>(st.bounce_begun),
                     static_cast<unsigned long long>(st.bounce_finished), st.sun_pace.ms_per_vertex * 1000.0,
                     st.bounce_pace.ms_per_vertex * 1000.0, st.write_pace.ms_per_vertex * 1000.0, kRelitFrameMs);

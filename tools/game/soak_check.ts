@@ -34,7 +34,7 @@ export interface Window {
 const FRAME_LINE =
     /^vulkan: frame (\d+): .*?; ([\d.]+) ms a frame .*? over the last (\d+); uploads (\d+) \(([\d.]+) MB\)/;
 const SCENE_LINE =
-    /^vulkan: ray tracing scene: .*?; (\d+) builds, \d+ refits, \d+ TLAS builds(?: \(asked for: \d+ new meshes, \d+ new geometry, (\d+) written\))?/;
+    /^vulkan: ray tracing scene: .*?; (\d+) builds, \d+ refits, \d+ TLAS builds(?: \(asked for: \d+ new meshes, \d+ new geometry, (\d+) written[;)])?/;
 const LOADING_LINE = /^loading console: the loading screen was up/;
 
 // The log's stretches between loading screens, each its windows (the scene's counts as the last line before each).
