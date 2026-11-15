@@ -1845,6 +1845,16 @@ uint32_t colour_held(const Entry& entry, std::size_t vertex)
     return colour & 0xFFFFFFU;
 }
 
+namespace {
+// (the census) What the level is lit by: the mode's state, or - the mode out of effect (the settings model turns it off
+// where the level keeps the original's lighting) - what its data says.
+Status shown_status()
+{
+    const State& st = state();
+    return st.status == Status::kOff && st.verdict != Status::kWaiting ? st.verdict : st.status;
+}
+} // namespace
+
 std::string census_bucket(const WorldMesh& world)
 {
     const State& st = state();
@@ -1856,11 +1866,11 @@ std::string census_bucket(const WorldMesh& world)
     }
     const auto found = st.entries.find(world.source);
     if (found == st.entries.end()) {
-        return st.status == Status::kRelit ? "not relit: not met yet" : std::string("kept bake: ") + status_name(st.status);
+        return st.status == Status::kRelit ? "not relit: not met yet" : std::string("kept bake: ") + status_name(shown_status());
     }
     const Entry& entry = found->second;
     if (st.status != Status::kRelit) {
-        return std::string("kept bake: ") + status_name(st.status);
+        return std::string("kept bake: ") + status_name(shown_status());
     }
     if (!entry.analysed) {
         return entry.looked_up ? "not relit: not in the level's relit data" : "relit: not looked up yet";
@@ -1880,7 +1890,7 @@ std::string census_status()
     const State& st = state();
     return text::format("relit %s; model sun %.2f %.2f %.2f, sky %.2f %.2f %.2f, bounce %.2f %.2f %.2f, lamps %.2f %.2f "
                         "%.2f, scale %.2f, %zu entries",
-                        status_name(st.status), static_cast<double>(std::get<0>(st.model.sun)),
+                        status_name(shown_status()), static_cast<double>(std::get<0>(st.model.sun)),
                         static_cast<double>(std::get<1>(st.model.sun)), static_cast<double>(std::get<2>(st.model.sun)),
                         static_cast<double>(std::get<0>(st.model.sky)), static_cast<double>(std::get<1>(st.model.sky)),
                         static_cast<double>(std::get<2>(st.model.sky)),
