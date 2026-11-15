@@ -321,8 +321,9 @@ void MeshRef::render()
         if (!flat) {
             water_geometry::before_draw(core::at(index_buffers_, 0), level);
         }
-        // (not original: snow's cover - engine/gfx/snow.h - on the world's meshes and the scene objects', not on a
-        // character's - skinned here, or a mesh a bone while Singleton::render says it draws one)
+        // (not original: the surface trails' cover - the snow's and the paint's, engine/gfx/surface_trail.h - on the world's
+        // meshes and the scene objects', not on a character's - skinned here, or a mesh a bone while Singleton::render
+        // says it draws one)
         surface_trail::set_current_ground(!flat && per_vertex_data_ == nullptr && !surface_trail::current_character());
         gpu().draw_indexed(static_cast<GpuPrimitive>(primitive_type_), 0, 0, vertex_count_, 0, primitives);
         water_geometry::after_draw();

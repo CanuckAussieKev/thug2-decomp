@@ -2781,8 +2781,8 @@ wherever it rides, and the line shows the combo as it is built. No score; the pa
 - **A coat** over a texel: the new colour x its coverage over what is there; a coat of another surface (more than 6
   units along the axis away - the ground under a rail, a ledge's top over the street) is kept unless the new one covers
   more. A line's coverage is 0.92 at its middle, its edge softened over its outer 35%.
-- **The combo**: its size `combo_size(score)` = log10(1 + score / 250) / log10(1 + 2,000,000 / 250), clamped to 1 - 1000
-  points 0.18, 10,000 0.41, 100,000 0.67, 1,000,000 0.92. The line's half width is 4 units (the board) + 30 x the size,
+- **The combo**: its size `combo_size(score)` = log10(1 + score / 50) / log10(1 + 2,000,000 / 50), clamped to 1 - a single
+  300-point trick 0.18 (the line twice the board), 1000 points 0.29, 10,000 0.50, 100,000 0.72, 1,000,000 0.93. The line's half width is 4 units (the board) + 30 x the size,
   x `paint_trail_scale`; a rail's stripe 1.8 + 2.2 x the size. **The splatter** from a size of 0.02: 90 drops a second
   x the size, each thrown to a side (0.35 - 1 of the half width + 44 x the size) and ahead (-0.15 - 1 of 80 x the size)
   on the surface, 1 - (1.6 + 5.5 x the size) units round, with up to three specks round it; on a rail along its stripe
@@ -2816,8 +2816,18 @@ wherever it rides, and the line shows the combo as it is built. No score; the pa
   machine's chosen one. On the device: the three windows read back hold exactly the fields' coats and places, again
   after the camera moves 7 tiles - only the tiles that came in copied; the coat on a drawn ground (the line's colour, the
   ground beside it and under a rail's stripe 30 units up), on a wall (a wallride), none on an unmarked draw or with paint
-  off; every pixel finite; validation silent. The cost: the ground and a wall drawn at 2560 x 1440 with the coat against
-  without.
+  off; every pixel finite; validation silent. The cost (RTX 5070 Ti, 2560 x 1440): the ground and a wall with the coat
+  0.047 ms against 0.028 without - about 0.02 ms a frame for the coat; a session's windows copied in once (146 tiles),
+  then only the tiles a stroke changed. `thug2_ff_shader_check --trails` compiles and validates every key with the
+  snow, the paint and both (123,329 shaders, none failed).
+- **In the game** (BO, a workspace at 1280 x 720): a push down the street leaves a board-wide pink line; a manual's combo
+  (to about 470 points) widens it two to three times with splatter specks beside it, narrower where the combo was
+  smaller; a bail leaves the line as it was (a gap only where the board was in the air and the skater sliding); a demo's
+  grind (`sim_grind`) a stripe along the ledge's top; the overview from high above shows every line of the session.
+- **Known:** a line far off is thinner than a pixel and breaks up (the coats are read texel by texel, no smaller
+  levels); a coat of another surface in the same texel is replaced when the new one covers more (a rail's stripe over
+  the ground's line under it, within a texel); the windows reach 32 m round the camera, the paint beyond is kept but not
+  drawn until the camera comes near; the ray-traced reflections and bounce light see the surfaces' own colours.
 
 ### Decals and clutter (`rt_decals`, `clutter`)
 

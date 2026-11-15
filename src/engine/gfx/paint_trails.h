@@ -54,8 +54,9 @@ inline constexpr std::size_t kPaletteSize = 8;
 
 // --- the combo --------------------------------------------------------------------------------------------------------
 // The combo's size, 0 - 1, from its running score (its points times its multiplier): log-scaled, so a small combo
-// shows at once and a huge one keeps growing - 1000 points 0.18, 10,000 0.41, 100,000 0.67, 1,000,000 0.92, kFullCombo 1.
-inline constexpr float kComboUnit = 250.0F;
+// shows at once (a single trick of 300 points 0.18) and a huge one keeps growing - 1000 points 0.29, 10,000 0.50,
+// 100,000 0.72, 1,000,000 0.93, kFullCombo 1.
+inline constexpr float kComboUnit = 50.0F;
 inline constexpr float kFullCombo = 2000000.0F;
 [[nodiscard]] float combo_size(float score);
 
