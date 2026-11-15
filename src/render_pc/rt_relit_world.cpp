@@ -136,6 +136,7 @@ struct State {
     bool sky_model = false; // (whether the sun's colour was the sky model's)
     uint64_t day_serial = 0; // (added by the time of day) the clock's light the colour was made for (0: none)
     rt::RelitLighting day_scales; // (added by the time of day) its scales (direct, sky, bounce)
+    rt::RelitLighting written_light; // the lighting the colours were last written with (`rt probe`'s)
     uint64_t lighting = 0;
     uint64_t wanted_lighting = 0; // (added by the scene's sun) the lighting the colours are written with now
     Cached cache;
@@ -1132,6 +1133,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
                                   .sky_scale = st.day_scales.sky_scale,
                                   .bounce_scale = st.day_scales.bounce_scale};
     rebounce(tracer, settings, light);
+    st.written_light = light;
     st.wanted_lighting = lighting;
     write_relit(lighting, light);
     write_cel(lighting, light); // (added by cel shading)
@@ -1270,5 +1272,81 @@ std::string status_text()
 }
 
 uint32_t level_scene() { return main_scene(); }
+
+std::string describe_near(const rt::Vec3& point, float radius)
+{
+    const State& st = state();
+    if (st.status != Status::kRelit || !st.model.valid) {
+        return std::string("relit: ") + status_name(st.status);
+    }
+    struct Near {
+        float distance = 0.0F;
+        const Entry* entry = nullptr;
+        std::size_t vertex = 0;
+    };
+    constexpr std::size_t kShown = 6;
+    std::vector<Near> nearest;
+    std::size_t count = 0;
+    double baked = 0.0;
+    double relit = 0.0;
+    double residual = 0.0;
+    double sunlit = 0.0;
+    for (const VertexBufferData* buffer : st.order) {
+        const Entry& entry = st.entries.at(buffer);
+        const std::size_t vertices = std::min(entry.input.positions.size(), entry.light.size());
+        for (std::size_t vi = 0; vi < vertices; ++vi) {
+            const rt::RelitVertex& vertex = core::at(entry.light, vi);
+            if (!vertex.used) {
+                continue;
+            }
+            const rt::Vec3 apart = rt::minus(core::at(entry.input.positions, vi), point);
+            const float distance = std::sqrt(rt::dot(apart, apart));
+            if (!(distance <= radius)) {
+                continue;
+            }
+            ++count;
+            const uint32_t original = core::at(entry.originals, vi);
+            baked += luma_of(original);
+            relit += luma_of(rt::relit_colour(st.model, vertex, st.written_light, original));
+            residual += (kLumaRed * std::get<0>(vertex.residual)) + (kLumaGreen * std::get<1>(vertex.residual)) +
+                        (kLumaBlue * std::get<2>(vertex.residual));
+            sunlit += vertex.sun;
+            nearest.push_back({.distance = distance, .entry = &entry, .vertex = vi});
+            std::ranges::sort(nearest, {}, &Near::distance);
+            if (nearest.size() > kShown) {
+                nearest.pop_back();
+            }
+        }
+    }
+    const double each = static_cast<double>(std::max<std::size_t>(count, 1));
+    std::string out = text::format("relit near %.1f %.1f %.1f (%.0f units): %zu vertices, mean baked %.1f relit %.1f, "
+                                   "residual %.3f, sun share %.2f; scales direct %.3f sky %.3f bounce %.3f",
+                                   static_cast<double>(rt::x_of(point)), static_cast<double>(rt::y_of(point)),
+                                   static_cast<double>(rt::z_of(point)), static_cast<double>(radius), count,
+                                   baked / each, relit / each, residual / each, sunlit / each,
+                                   static_cast<double>(std::get<1>(st.written_light.direct_scale)),
+                                   static_cast<double>(std::get<1>(st.written_light.sky_scale)),
+                                   static_cast<double>(std::get<1>(st.written_light.bounce_scale)));
+    for (const Near& near : nearest) {
+        const rt::RelitVertex& vertex = core::at(near.entry->light, near.vertex);
+        const uint32_t original = core::at(near.entry->originals, near.vertex);
+        const rt::Vec3& at = core::at(near.entry->input.positions, near.vertex);
+        out += text::format("\n  vertex %.1f %.1f %.1f (%.1f away) normal %.2f %.2f %.2f: baked %06X relit %06X, sun %.2f "
+                            "sky %.2f bounce %.3f %.3f %.3f, tint %.2f %.2f %.2f, residual %.3f %.3f %.3f",
+                            static_cast<double>(rt::x_of(at)), static_cast<double>(rt::y_of(at)),
+                            static_cast<double>(rt::z_of(at)), static_cast<double>(near.distance),
+                            static_cast<double>(rt::x_of(vertex.normal)), static_cast<double>(rt::y_of(vertex.normal)),
+                            static_cast<double>(rt::z_of(vertex.normal)), original & 0xFFFFFFU,
+                            rt::relit_colour(st.model, vertex, st.written_light, original) & 0xFFFFFFU,
+                            static_cast<double>(vertex.sun), static_cast<double>(vertex.sky),
+                            static_cast<double>(std::get<0>(vertex.bounce)), static_cast<double>(std::get<1>(vertex.bounce)),
+                            static_cast<double>(std::get<2>(vertex.bounce)), static_cast<double>(std::get<0>(vertex.tint)),
+                            static_cast<double>(std::get<1>(vertex.tint)), static_cast<double>(std::get<2>(vertex.tint)),
+                            static_cast<double>(std::get<0>(vertex.residual)),
+                            static_cast<double>(std::get<1>(vertex.residual)),
+                            static_cast<double>(std::get<2>(vertex.residual)));
+    }
+    return out;
+}
 
 } // namespace render::rt_relit_world

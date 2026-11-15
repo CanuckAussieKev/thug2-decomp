@@ -885,6 +885,13 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     // the view's lights
     const std::shared_ptr<const rt::LevelEmitters> level = rt::level_emitters();
     log_emitters(*level);
+    // (added by the time of day - engine/gfx/rt_daylight.h) the lamps on as the clock says: off by day, on at night;
+    // without the clock rt_lights=auto lights only a dark level
+    const rt::DayLight day = rt::day_light();
+    const float lamps = day.on ? day.lamps : (!own.settings.automatic || level->dark ? 1.0F : 0.0F);
+    if (!(lamps > 0.0F)) {
+        return false;
+    }
     rt::ViewLightRequest request;
     request.camera = view.camera.position;
     const Matrix view_projection = view_projection_of(view.camera);
@@ -945,10 +952,7 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     auto block = std::make_unique<LightsBlock>();
     block->count = {static_cast<uint32_t>(own.last_view.size()), own.settings.shadowed, kLightsShadowMask,
                     kLightsSurfaceMask};
-    // (added by the time of day - engine/gfx/rt_daylight.h) the lamps on as the clock says: off by day, on at night
-    const rt::DayLight day = rt::day_light();
-    block->params = {day.on ? own.settings.strength * day.lamps : own.settings.strength, kOffsetScale, rt::kLightKnee,
-                     rt::kLightMost};
+    block->params = {own.settings.strength * lamps, kOffsetScale, rt::kLightKnee, rt::kLightMost};
     for (std::size_t i = 0; i < own.last_view.size(); ++i) {
         const rt::Emitter& light = core::at(own.last_view, i);
         LightRecord& record = core::at(block->lights, i);

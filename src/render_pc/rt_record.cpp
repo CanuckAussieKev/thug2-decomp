@@ -1376,6 +1376,7 @@ void record_frame()
         return;
     }
     State& st = state();
+    rt::set_screen_probe(&describe_screen_point); // (the console's `rt probe` - rt_relit.h screen_probe)
     const auto now = std::chrono::steady_clock::now();
     if (st.first_frame_timed) {
         st.first_frame_timed = false;
@@ -1401,6 +1402,78 @@ void record_frame()
     }
     record_lights();
     st.written.clear();
+}
+
+std::string describe_screen_point(float across, float down)
+{
+    rt::RayTracing* rt = backend();
+    const rt::FrameRecord& record = rt::frame_record();
+    if (rt == nullptr || record.cameras.empty()) {
+        return "rt probe: no ray tracing or no camera";
+    }
+    const rt::Camera& camera = record.cameras.front();
+    // (D3D's row-vector view: its columns are the camera's right, up and forward in the world; the projection's
+    // diagonal the screen's scale)
+    const auto& view = camera.view;
+    const auto& projection = camera.projection;
+    const float x = ((2.0F * across) - 1.0F) / std::get<0>(std::get<0>(projection));
+    const float y = (1.0F - (2.0F * down)) / std::get<1>(std::get<1>(projection));
+    // (the view looks along +z when the projection's w takes +z - a left-handed one -, along -z otherwise)
+    const float ahead = std::get<3>(std::get<2>(projection)) >= 0.0F ? 1.0F : -1.0F;
+    std::array<float, 3> direction{};
+    for (std::size_t i = 0; i < 3; ++i) {
+        const auto& row = core::at(view, i);
+        core::at(direction, i) = (std::get<2>(row) * ahead) + (std::get<0>(row) * x) + (std::get<1>(row) * y);
+    }
+    const rt::ProbeResult found =
+        rt->probe({.origin = camera.position, .direction = direction, .max_distance = 100000.0F});
+    if (!found.traced || !found.hit) {
+        return text::format("rt probe %.3f %.3f: %s", static_cast<double>(across), static_cast<double>(down),
+                            found.traced ? "miss" : "no scene");
+    }
+    const float length = std::sqrt(rt::dot(direction, direction));
+    const rt::Vec3 point = {std::get<0>(camera.position) + (std::get<0>(direction) * found.distance / length),
+                            std::get<1>(camera.position) + (std::get<1>(direction) * found.distance / length),
+                            std::get<2>(camera.position) + (std::get<2>(direction) * found.distance / length)};
+    const uint32_t flags = found.instance < record.instances.size() ? record.instances[found.instance].flags : 0U;
+    std::string out = text::format("rt probe %.3f %.3f: hit %.1f at %.1f %.1f %.1f, instance %u flags %04X (%s), mesh %u, "
+                                   "material %u",
+                                   static_cast<double>(across), static_cast<double>(down),
+                                   static_cast<double>(found.distance), static_cast<double>(std::get<0>(point)),
+                                   static_cast<double>(std::get<1>(point)), static_cast<double>(std::get<2>(point)),
+                                   found.instance, flags, (flags & rt::kObject) != 0U ? "object" : "world",
+                                   static_cast<unsigned>(found.mesh), static_cast<unsigned>(found.material));
+    const State& st = state();
+    for (const auto& [mesh, entry] : st.meshes) {
+        if (entry.id == found.mesh) {
+            out += text::format(", %u vertices, scene mesh flags %08X", mesh->vertex_count(), mesh->flags());
+            break;
+        }
+    }
+    for (const auto& [material, entry] : st.materials) {
+        if (entry.id != found.material) {
+            continue;
+        }
+        const rt::Material& made = entry.material;
+        out += text::format("\n  material %08X: reflectivity %.2f class %u mask %u env pass %u", material->checksum(),
+                            static_cast<double>(made.reflectivity), static_cast<unsigned>(made.reflection_class),
+                            static_cast<unsigned>(made.reflection_mask), static_cast<unsigned>(made.environment_pass));
+        const uint32_t count = std::min(material->pass_count(), kPassCount);
+        for (uint32_t pass = 0; pass < count; ++pass) {
+            const TextureImage* texture = core::at(material->textures(), pass);
+            const std::array<float, 4>& colour = core::at(material->pass_color(), pass);
+            out += text::format(" | pass %u flags %04X blend %u colour %.2f %.2f %.2f %.2f tex %08X", pass,
+                                core::at(material->pass_flags(), pass), core::at(material->blend_modes(), pass),
+                                static_cast<double>(core::at(colour, 0)), static_cast<double>(core::at(colour, 1)),
+                                static_cast<double>(core::at(colour, 2)), static_cast<double>(core::at(colour, 3)),
+                                texture != nullptr ? texture->checksum : 0U);
+        }
+        break;
+    }
+    constexpr float kNearby = 96.0F;
+    out += "\n  " + rt_relit_world::describe_near(point, kNearby);
+    get_log("%s", out.c_str());
+    return out;
 }
 
 void camera_chosen(int viewport)

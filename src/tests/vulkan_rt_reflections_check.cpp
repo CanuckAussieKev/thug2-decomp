@@ -1160,6 +1160,9 @@ double fresnel_exact(double n, double cosine)
 // (rt::kReflectWaterF0: the record's f0 for water; real glass's 0.04 - rt_glass_reflectance, 0.2 by default)
 constexpr double kWaterF0 = 0.02;
 constexpr double kGlassF0 = 0.04;
+// (added for the game's shine on rough surfaces: the pass's COAT_F0 and WORLD_SHEEN_CONE)
+constexpr double kCoatF0 = 0.05;
+constexpr float kWorldSheenCone = 0.15F;
 
 // The weight the pass gives a floor pixel seen at `cosine` (its reflection_weight, worked out on the processor) - the
 // floor's texture is white (alpha 1): the mask 1 - a mirrors nothing, a everything.
@@ -1187,9 +1190,9 @@ double reference_weight(const MirrorCase& test, double cosine)
     if (test.kind == rt::kReflectWater || test.kind == rt::kReflectGlass) {
         return most * schlick(test.kind == rt::kReflectWater ? kWaterF0 : test.glass_reflectance, cosine) * mask;
     }
-    const double face_on = reflectivity * strength;
-    const double schlick_term = std::pow(1.0 - std::clamp(cosine, 0.0, 1.0), 5.0);
-    return (face_on + ((std::max(most, face_on) - face_on) * schlick_term)) * mask;
+    // (changed for the game's shine on rough surfaces) the world's own shine with Fresnel on: a clear coat's sheen -
+    // Schlick's from kCoatF0 face-on x its shine x 2 strength (at most 1), never the shine itself face-on (a mirror)
+    return most * schlick(kCoatF0, cosine) * mask;
 }
 
 // ... at a floor pixel: under the cover, nothing where its texel is opaque (alpha 255 x the grey vertex alpha doubled,
@@ -1849,6 +1852,20 @@ void run_surface(render::Gpu& gpu, Mirror& mirror, Tally* tally)
         got = draw_off_on(gpu, mirror, on);
         tally->check(concrete && got.read && got.passes == 0 && got.same,
                      "smooth concrete: nothing reflective, no pass, every pixel as drawn");
+        // (added for the game's shine on rough surfaces) the floor given the game's own shine (an environment pass,
+        // reflectivity 1 - a perfect mirror without a map): with a concrete map it mirrors nothing; with a stone map a
+        // blurred sheen (something changes, the pass's rough pixels)
+        rt::Material shiny = floor_surface(1.0F);
+        shiny.texture = mirror.surface;
+        rt::ray_tracing()->set_material(mirror.floor_material, shiny);
+        got = draw_off_on(gpu, mirror, on);
+        tally->check(concrete && got.read && got.passes == 1 && got.same,
+                     "the game's shine on smooth concrete: the pass ran, every pixel as drawn (never a mirror)");
+        const bool shiny_stone = attach(static_cast<uint8_t>(smf::MaterialClass::kStone), 0);
+        rt::ray_tracing()->set_material(mirror.floor_material, shiny);
+        got = draw_off_on(gpu, mirror, on);
+        tally->check(shiny_stone && got.read && got.passes == 1 && !got.same,
+                     "the game's shine on smooth stone: a blurred sheen (the pass changed the floor)");
         // rt_pbr off (no maps used): no pass
         attach(static_cast<uint8_t>(smf::MaterialClass::kTile), 0);
         render::vulkan::set_rt_pbr_settings({});
@@ -1976,7 +1993,7 @@ void run_sky_misses(render::Gpu& gpu, Mirror& mirror, Tally* tally)
     sky.match = 0.0F;
     sky.clouds = false;
     vk::set_rt_sky_settings(sky);
-    vk::set_rt_reflection_settings({.on = true, .strength = 1.0F});
+    vk::set_rt_reflection_settings({.on = true, .strength = 1.0F, .fresnel = false});
     Targets targets; // (made with the reflections on: their depth samplable)
     const bool made = make_targets(gpu, 0, &targets);
     vk::AtmosphereTexels table;
@@ -1993,7 +2010,7 @@ void run_sky_misses(render::Gpu& gpu, Mirror& mirror, Tally* tally)
     std::vector<uint8_t> plain;
     vk::set_rt_reflection_settings({});
     const bool read_plain = made && draw_frame(gpu, targets, mirror, 3, false) == 0 && read_colour(gpu, targets, &plain);
-    vk::set_rt_reflection_settings({.on = true, .strength = 1.0F});
+    vk::set_rt_reflection_settings({.on = true, .strength = 1.0F, .fresnel = false});
     const bool read_unseen =
         made && draw_frame(gpu, targets, mirror, 4, false) == 1 && read_colour(gpu, targets, &unseen);
     int kept = 0;
@@ -2116,7 +2133,9 @@ int run(const Options& options, SDL_Window* window)
                     .fresnel = true, .kind = rt::kReflectGlass, .glass_reflectance = kRealGlass},
                    &tally);
         run_mirror(gpu, mirror,
-                   {.name = "shiny", .samples = 0, .strength = kHalf, .reflectivity = kMostlyShiny, .fresnel = true},
+                   {.name = "shiny (the world's own shine: a sheen - clear coat Fresnel, its rays over a 0.15 rad cone)",
+                    .samples = 0, .strength = kHalf, .reflectivity = kMostlyShiny, .fresnel = true,
+                    .roughness = kWorldSheenCone},
                    &tally);
         // (the mask: the floor's white texture is opaque - a reflection where the base is opaque everywhere, none where
         // it is clear)

@@ -93,6 +93,11 @@ void set_relit_settings(const RelitSettings& settings);
 // The mode's state in a line (render_pc/rt_relit_world sets it; the console's `rt relit` prints it).
 void set_relit_status(std::string text);
 [[nodiscard]] std::string relit_status();
+// (the console's `rt probe <across> <down>` - devtools reaches render_pc through it) What the picture shows at a point:
+// render_pc/rt_record.h describe_screen_point, set by render_pc while ray tracing records frames; none: a line saying so.
+using ScreenProbe = std::string (*)(float across, float down);
+void set_screen_probe(ScreenProbe probe);
+[[nodiscard]] std::string screen_probe(float across, float down);
 
 // --- per-level choices (rt_relit_levels.json, built in; thug2-decomp-relit.json beside the exe adds to it) -----------
 struct RelitLevel {

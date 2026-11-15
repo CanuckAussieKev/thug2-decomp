@@ -50,6 +50,9 @@ constexpr KindGloss kGlossClear{.gloss = 1.0F, .least_roughness = 0.0F, .metal =
 constexpr KindGloss kGlossStone{.gloss = 0.2F, .least_roughness = 0.5F, .metal = false}; // stone, kerbs (brick by class)
 constexpr KindGloss kGlossWood{.gloss = 0.25F, .least_roughness = 0.35F, .metal = false}; // varnished planks
 constexpr KindGloss kGlossPaint{.gloss = 0.2F, .least_roughness = 0.4F, .metal = false};  // painted or unclassified
+// (added for the game's shine on rough surfaces) asphalt, concrete, brick, plaster, ground: no gloss of their own, and
+// whatever shine the game gave them (an environment-mapped pass) never a mirror - roughness 1, past what reflects
+constexpr KindGloss kGlossNever{.gloss = 0.0F, .least_roughness = 1.0F, .metal = false};
 
 struct MapEntry {
     Texture* map = nullptr;
@@ -486,7 +489,7 @@ KindGloss kind_gloss(uint8_t kind)
     case dmf::Kind::kWood:
         return kGlossWood;
     default:
-        return {}; // (asphalt, concrete, brick, ground, grass, plaster, gravel: too rough to mirror anything)
+        return kGlossNever; // (asphalt, concrete, brick, ground, grass, plaster, gravel: too rough to mirror anything)
     }
 }
 
@@ -508,7 +511,7 @@ KindGloss class_gloss(uint8_t material_class)
     case smf::MaterialClass::kDefault:
         return kGlossPaint;
     default:
-        return {}; // (asphalt, concrete, plants, ground, cloth and the characters' classes)
+        return kGlossNever; // (asphalt, concrete, plants, ground, cloth and the characters' classes)
     }
 }
 

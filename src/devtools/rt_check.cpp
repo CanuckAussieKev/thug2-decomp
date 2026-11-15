@@ -809,6 +809,13 @@ std::string console_command(const std::string& arguments)
         }
         return render::day_clock::status();
     }
+    if (verb == "probe") {
+        // (what the picture shows at a point, 0 - 1 across and down: engine/gfx/rt_relit.h screen_probe)
+        const float across = std::strtof(file.c_str(), nullptr);
+        float down = 0.5F;
+        in >> down;
+        return rt::screen_probe(across, down);
+    }
     if (verb == "relit") {
         // (the relit mode, engine/gfx/rt_relit.h: on / off, its strength, the residual; no word: its state)
         rt::RelitSettings settings = rt::relit_settings();
@@ -841,7 +848,7 @@ std::string console_command(const std::string& arguments)
         get_log("%s", text.c_str());
         return text;
     }
-    return "rt summary | rt dump [file] | rt sun [<x> <y> <z> | off] | rt agree <x> <z> | rt relit [on | off | strength <v> | residual <0|1>] | rt tod [<tod> | cycle <on | off>]";
+    return "rt summary | rt dump [file] | rt probe <across> <down> | rt sun [<x> <y> <z> | off] | rt agree <x> <z> | rt relit [on | off | strength <v> | residual <0|1>] | rt tod [<tod> | cycle <on | off>]";
 }
 
 std::string record_json(const rt::FrameRecord& record)

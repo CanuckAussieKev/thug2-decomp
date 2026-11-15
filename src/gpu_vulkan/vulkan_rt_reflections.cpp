@@ -120,6 +120,10 @@ const float MAX_CONE = 0.5;       // (a rough surface's cone at most: rt_glass_r
 // from this F0 face-on, slightly rough (its rays over a cone this wide, radians)
 const float COAT_F0 = 0.05;
 const float COAT_CONE = 0.06;
+// (added for the game's shine on rough surfaces) the world's own shine: a sheen over this cone (radians); a surface map's
+// least roughness under MIRROR_LEAST (metal, glazed tiles) keeps the mirror
+const float WORLD_SHEEN_CONE = 0.15;
+const float MIRROR_LEAST = 0.2;
 
 
 // How much of the reflection the pixel shows: `c` the cosine between the view and the surface's normal.
@@ -370,6 +374,20 @@ void main()
                     if (object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_WATER &&
                         surface.reflection_class != CLASS_GLASS && surface.reflection_class != CLASS_SURFACE) {
                         rough = COAT_CONE;
+                    }
+                    if (!object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_SURFACE &&
+                        surface.reflection_class != CLASS_WATER && surface.reflection_class != CLASS_GLASS &&
+                        !(surface.least_roughness > 0.0 && surface.least_roughness < MIRROR_LEAST)) {
+                        // (added for the game's shine on rough surfaces) the world's own shine - a sphere-mapped sky
+                        // picture on a kerb, a ledge, a floor - is a sheen, not a mirror, unless its surface map says
+                        // it is metal or a glazed tile: Schlick's Fresnel from COAT_F0 face-on x its shine x 2 strength
+                        // (at most 1), its rays over a cone (WORLD_SHEEN_CONE, wider for a rougher kind), faded out for
+                        // a kind too rough to reflect (concrete, brick, asphalt: none)
+                        float r = surface.least_roughness;
+                        float schlick = pow(1.0 - clamp(-dot(view, sn), 0.0, 1.0), 5.0);
+                        weight = mask * reflectivity * min(1.0, 2.0 * pass.params.x) * (COAT_F0 + (1.0 - COAT_F0) * schlick) *
+                                 (1.0 - smoothstep(0.75 * pass.surface.y, pass.surface.y, r));
+                        rough = max(WORLD_SHEEN_CONE, min(r * r * pass.surface.z, MAX_CONE));
                     }
                     if (surface.reflection_class == CLASS_SURFACE) {
                         // (added for the surface reflections) a surface glossy by its map: Schlick's Fresnel at the

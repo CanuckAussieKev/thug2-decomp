@@ -23,6 +23,8 @@
 // begin_frame comes at the first viewport's world camera, before the world is drawn: the record's instances and lights
 // are complete then, its cameras those of the viewports drawn so far (the others' are added as they are drawn; the
 // record stays unchanged otherwise until the next frame).
+#include <string>
+
 namespace render {
 
 struct MeshRef;
@@ -52,6 +54,11 @@ void material_released(const MaterialRef* material);
 void vertex_buffer_written(const VertexBufferData* buffer);
 // The device's buffers released (release_buffers, before a reset): every mesh removed.
 void forget_meshes();
+
+// (the console's `rt probe <x> <y>`) A ray from the first viewport's camera through the point of its picture (0 - 1
+// across and down) traced: what it hits - the instance's kind, its mesh, its material (passes, reflectivity, class) -
+// and the relit world's vertices round the hit (rt_relit_world::describe_near).
+[[nodiscard]] std::string describe_screen_point(float across, float down);
 
 // While one lives, vertex buffer writes are colour-only (MeshRef::apply_vertex_colors).
 class ColourWrite {
