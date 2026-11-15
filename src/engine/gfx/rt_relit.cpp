@@ -242,18 +242,49 @@ Rgbf light_at(const RelitMesh& mesh, const std::vector<Rgbf>& values, uint32_t p
 }
 
 // The vertices of the wanted meshes in batches of whole vertices with at most kBatchRays rays: `rays_of` says a
-// vertex's count, `make` writes them, `take` reads their answers.
-struct VertexRef {
-    std::size_t mesh = 0;
-    std::size_t vertex = 0;
-    uint32_t first = 0; // its first ray in the batch
-    uint32_t count = 0;
-};
+// vertex's count, `make` writes them, `take` reads their answers. (added for the moving light) With `ask`: one half -
+// the rays recorded into it (asked), or its answers taken (answered).
+using VertexRef = RelitRun;
 
 template <typename RaysOf, typename Make, typename Take>
 void trace_in_batches(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, RayTracing& tracer,
-                      RelitStats* stats, RaysOf rays_of, Make make, Take take)
+                      RelitStats* stats, RaysOf rays_of, Make make, Take take, RelitAsk* ask)
 {
+    if (ask != nullptr && ask->answered) {
+        const bool whole = ask->answers.size() == ask->requests.size();
+        for (const VertexRef& ref : ask->runs) {
+            take(ref, whole ? std::span<const ProbeResult>(ask->answers).subspan(ref.first, ref.count)
+                            : std::span<const ProbeResult>());
+        }
+        stats->vertices += ask->runs.size();
+        stats->rays += ask->requests.size();
+        return;
+    }
+    if (ask != nullptr) {
+        std::vector<RelitSpan> spans = ask->spans;
+        if (spans.empty()) {
+            for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+                if (is_wanted(wanted, mi)) {
+                    spans.push_back({.mesh = mi, .first = 0, .end = core::at(meshes, mi).positions.size()});
+                }
+            }
+        }
+        for (const RelitSpan& span : spans) {
+            const std::size_t mi = span.mesh;
+            const std::size_t vertices = std::min(span.end, mi < meshes.size() ? core::at(meshes, mi).positions.size() : 0);
+            for (std::size_t vi = span.first; vi < vertices; ++vi) {
+                const uint32_t count = rays_of(mi, vi);
+                if (count == 0) {
+                    continue;
+                }
+                const VertexRef ref{
+                    .mesh = mi, .vertex = vi, .first = static_cast<uint32_t>(ask->requests.size()), .count = count};
+                make(ref, &ask->requests);
+                ask->runs.push_back(ref);
+            }
+        }
+        return;
+    }
     std::vector<ProbeRequest> requests;
     std::vector<ProbeResult> results;
     std::vector<VertexRef> batch;
@@ -1102,7 +1133,7 @@ void trace_relit_light(std::span<const RelitMesh> meshes, std::span<const uint8_
 
 void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitParams& params,
                      RayTracing& tracer, std::vector<RelitVertices>* light, RelitStats* stats,
-                     std::span<const std::vector<Rgbf>> local)
+                     std::span<const std::vector<Rgbf>> local, RelitAsk* ask)
 {
     if (light->size() != meshes.size()) {
         return;
@@ -1175,12 +1206,13 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
             }
             vertex.bounce = bounce;
             vertex.bounce_local = bounce_local;
-        });
+        },
+        ask);
 }
 
 void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const Vec3& toward,
                      const RelitParams& params, RayTracing& tracer, std::vector<RelitVertices>* light,
-                     RelitStats* stats)
+                     RelitStats* stats, RelitAsk* ask)
 {
     if (light->size() != meshes.size()) {
         return;
@@ -1189,7 +1221,17 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
     const std::pair<Vec3, Vec3> sides = basis_of(sun);
     const uint32_t sun_rays = std::max(1U, params.sun_rays);
     const double radius = static_cast<double>(params.sun_radius_degrees) * kRadiansPerDegree;
-    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+    // (the wanted meshes' sun cleared where it is taken - not when the rays are only asked; only the asked spans' when
+    // the ask has spans)
+    if (ask != nullptr && ask->answered && !ask->spans.empty()) {
+        for (const RelitSpan& span : ask->spans) {
+            RelitVertices& vertices = core::at(*light, span.mesh);
+            for (std::size_t vi = span.first; vi < span.end && vi < vertices.size(); ++vi) {
+                core::at(vertices, vi).sun = 0.0F;
+            }
+        }
+    }
+    for (std::size_t mi = 0; mi < meshes.size() && (ask == nullptr || (ask->answered && ask->spans.empty())); ++mi) {
         if (!is_wanted(wanted, mi)) {
             continue;
         }
@@ -1226,7 +1268,8 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
             const auto open = std::ranges::count_if(answers, [](const ProbeResult& answer) { return !answer.hit; });
             core::at(core::at(*light, ref.mesh), ref.vertex).sun =
                 static_cast<float>(open) / static_cast<float>(ref.count);
-        });
+        },
+        ask);
 }
 
 RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const Vec3& toward)

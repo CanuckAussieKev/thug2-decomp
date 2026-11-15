@@ -251,6 +251,15 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   33 ms - alone). The report (also `report <folder>`): per level and run the drawn frames a second, their spacing (average,
   99th percentile - the "1% low" -, the worst, the hitches over 33.4 ms) and a drawn loop's work and phases, from 120
   loops after the level's loading screen. `compare <before> <after>` puts two folders' median runs side by side.
+  `--scenario <file>`: the file's automation commands (a line each, `#` comments) instead of the skating, then quit -
+  e.g. `tools/game/scenarios/live_settings_soak.txt` (with `--set Graphics.tod=night --set Graphics.tod_cycle=off
+  --seconds 330`): the time of day set by hand four times, its clock started, the characters' shading changed six times
+  (`console set <key> <value>`: a [Graphics] key written to the ini and put to use as the Options screen does), then
+  two minutes left alone with the clock running.
+- `node tools/game/soak_check.ts <game.log>` - whether a session stays as fast at its end as at its start: the
+  renderer's windows (frame time, uploads, the ray-traced scene's BLAS builds and why they were asked for) over the level
+  the session spent longest in, its last third against its first; exit 1 when one grew past 1.5 times (plus a little).
+  The guard of the live-settings soak above.
   Several games on the machine (other workspaces) share its processor and GPU: take `--runs 2` or more and compare
   medians.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]

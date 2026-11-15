@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <ratio>
 #include <span>
 #include <string>
@@ -36,6 +37,7 @@
 #include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_sun.h"
 #include "engine/memory/arena_alloc.h"
+#include "platform/frame_profile.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "render_pc/rt_record.h"
@@ -49,6 +51,10 @@ namespace {
 constexpr uint64_t kFnvBasis = 14695981039346656037ULL;
 constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr float kSameSun = 0.99999F;          // two suns this close (their directions' dot product): the same
+// (one relight at a time) The bounce - the light the surfaces round a vertex bring it - changes slowly as the sun moves:
+// traced again, as a pass of its own beside the relights, once the sun is this far (the cosine of 5 degrees) from the
+// sun it was traced for. A running clock's sun moves that far in 10 s of a 12-minute day.
+constexpr float kBounceSameSun = 0.9961947F;
 constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
 constexpr uint32_t kCacheMagic = 0x4C523254U; // "T2RL"
 constexpr uint32_t kCacheVersion = 6; // (4: the residual taken apart - sun_missed; 5: the fit's relative error, the
@@ -113,11 +119,81 @@ struct Entry {
     float radius_for = rt::kRelitSunRadiusDegrees; // ... and the light's angular radius then (rt_daylight.h light_radius)
     rt::Vec3 bounce_for{}; // ... and the sun whose light its bounce was traced with
     uint64_t written = 0;  // the lighting its colours were written with (0: the originals)
-    bool dirty = false;    // its bounce traced again since: to be written
+    bool dirty = false;    // the game wrote its colours since: to be written again
     uint64_t listed = 0;   // the update that last put it in the order (State::listing)
+    // the colours and own light its vertices show the bounce's rays (rebounce), and the light they were made for: made
+    // once a relight, not every frame of it
+    std::vector<uint32_t> hit_colours;
+    std::vector<rt::Rgbf> hit_local;
+    uint64_t hits_for = 0;
+    // (one relight at a time) how far its sun's trace has got for the relight `sun_done_for` and its bounce's for the
+    // bounce pass `bounce_done_for` (vertices: a frame's share may end inside a mesh)
+    std::size_t sun_done = 0;
+    std::size_t bounce_done = 0;
+    uint64_t sun_done_for = 0;
+    uint64_t bounce_done_for = 0;
+    uint64_t field_for = 0; // (the light field being made: the lighting its vertices were added for)
     // (added by cel shading - engine/gfx/rt_cel.h) its decomposition as the cel stream, and what it was written for
     GpuVertexBuffer* cel = nullptr;
     uint64_t cel_written = 0;
+};
+
+// (one relight at a time) A part of a relight's work a frame - its sun's rays, its bounce's, its writes - is about
+// kRelitFrameMs of the frame while the game is shown: the vertices a frame from the time a vertex took over the last
+// frames. A light that keeps moving (a running clock) then costs each frame the same small time whatever the level's
+// size, and a light picked by hand rolls in over a second or two instead of a long frame. While the loading screen holds
+// a level's first light (hold_first_light) the most a frame (kRelitRetraceVertices...): it is done sooner.
+constexpr double kRelitFrameMs = 1.5;
+constexpr std::size_t kRelitFirstPaced = 4096; // vertices a frame before a time is measured
+constexpr std::size_t kRelitLeastPaced = 64;   // ... and at least this many (a relight always goes on)
+constexpr std::size_t kRelitMeasuredLeast = 32; // a frame of fewer vertices doesn't tell the time a vertex takes
+constexpr double kRelitPaceKeep = 0.75;          // the time a vertex takes: this much of the old, the rest the new
+
+struct Pace {
+    double ms_per_vertex = 0.0; // (0: not measured yet)
+};
+
+std::size_t paced_vertices(const Pace& pace, std::size_t most, bool hurried)
+{
+    if (hurried) {
+        return most;
+    }
+    if (pace.ms_per_vertex <= 0.0) {
+        return std::min(most, kRelitFirstPaced);
+    }
+    const double fits = kRelitFrameMs / pace.ms_per_vertex;
+    return std::clamp(fits >= static_cast<double>(most) ? most : static_cast<std::size_t>(fits), kRelitLeastPaced, most);
+}
+
+void measured(Pace* pace, double ms, std::size_t vertices)
+{
+    if (vertices < kRelitMeasuredLeast) {
+        return;
+    }
+    const double now = ms / static_cast<double>(vertices);
+    pace->ms_per_vertex = pace->ms_per_vertex > 0.0
+                              ? (kRelitPaceKeep * pace->ms_per_vertex) + ((1.0 - kRelitPaceKeep) * now)
+                              : now;
+}
+
+double ms_since(std::chrono::steady_clock::time_point start)
+{
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+}
+
+// (one relight at a time - its rays never waited for) A trace of some entries' sun or bounce asked of the device
+// (rt::RayTracing::probe_later): the order its rays' mesh indices are of, the vertices asked and their rays, the light it was
+// asked for (State::relights; the bounce's: its pass, State::bounce_begun), and for the pace the vertices and the time
+// the asking took.
+struct Job {
+    enum class Kind : uint8_t { kNone, kSun, kBounce };
+    Kind kind = Kind::kNone;
+    uint64_t ticket = 0;
+    std::vector<const VertexBufferData*> order;
+    rt::RelitAsk ask; // (its spans: the vertices asked)
+    uint64_t relight = 0;
+    std::size_t vertices = 0;
+    double ask_ms = 0.0;
 };
 
 struct Cached {
@@ -150,6 +226,22 @@ struct State {
     uint64_t field_lighting = 0; // (the one lighting path) the lighting the light field was made for (0: none)
     std::size_t retraced = 0;
     std::size_t rebounced = 0;
+    uint64_t relights = 0; // the lights taken (update: one relight at a time)
+    // (one relight at a time) the bounce's passes: the sun the one under way traces for, the passes begun and the last
+    // one done (the lighting's number counts it: the colours written again when one is done)
+    rt::Vec3 bounce_sun{};
+    uint64_t bounce_begun = 0;
+    uint64_t bounce_finished = 0;
+    // (one relight at a time) the light field being made for the lighting `field_building_for`, over frames
+    std::shared_ptr<rt::LightField> field_building;
+    uint64_t field_building_for = 0;
+    // (one relight at a time) the time a vertex takes to trace toward the sun, to trace the bounce and to write, as
+    // measured (Pace), and whether the loading screen holds the first light now (hold_first_light: the relight hurried)
+    Pace sun_pace;
+    Pace bounce_pace;
+    Pace write_pace;
+    bool hurried = false;
+    Job job; // (the trace asked of the device, answered a frame or two later - one at a time)
 };
 
 State& state()
@@ -164,6 +256,16 @@ bool sun_stale(const Entry& entry)
     const State& st = state();
     return rt::dot(entry.sun_for, st.sun) < kSameSun || entry.radius_for != st.radius;
 }
+
+// Whether an entry's bounce is still to trace in the bounce's pass under way.
+bool bounce_stale(const Entry& entry)
+{
+    const State& st = state();
+    return st.bounce_begun != st.bounce_finished && rt::dot(entry.bounce_for, st.bounce_sun) < kSameSun;
+}
+
+// Whether the bounce is due again: an entry's traced for a sun kBounceSameSun or further from the one now.
+bool bounce_due(const Entry& entry) { return rt::dot(entry.bounce_for, state().sun) < kBounceSameSun; }
 
 // A colour's brightness (0 - 255; A8R8G8B8).
 float luma_of(uint32_t argb)
@@ -618,6 +720,12 @@ void restore_all()
         restore(entry);
     }
     release_all_cel(); // (added by cel shading: the stream goes with the relit colours)
+    State& st = state();
+    st.wanted_lighting = 0; // (no relight under way: the next light is taken at once)
+    if (st.job.ticket != 0 && rt::ray_tracing() != nullptr) {
+        rt::ray_tracing()->probe_forget(st.job.ticket); // (its answers not wanted)
+    }
+    st.job = Job{};
 }
 
 // The sun the world is lit by now, and whether there is one (changed by the scene's sun: rt_scene.h relit_target_sun -
@@ -795,56 +903,233 @@ void analyse(rt::RayTracing& tracer, const rt::RelitSettings& settings)
     }
 }
 
-// The sun's rays traced again for entries lit toward another sun - at most kRelitRetraceVertices vertices this frame.
-void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
-{
-    State& st = state();
-    // (nothing lit toward another sun - every frame once the sun is still: nothing to trace, the entries left in place)
-    const bool any_stale = std::ranges::any_of(st.order, [&st](const VertexBufferData* buffer) {
-        const Entry& entry = st.entries.at(buffer);
-        return entry.analysed && sun_stale(entry);
-    });
-    if (!any_stale) {
-        return;
-    }
+// (one relight at a time - its rays never waited for) The entries' meshes and light taken out for a trace, in an order's
+// order, and put back after; for the bounce's rays with their hit colours and own light swapped in (the bake's colours
+// kept in hit_colours meanwhile).
+struct Gathered {
     std::vector<rt::RelitMesh> meshes;
     std::vector<rt::RelitVertices> light;
-    std::vector<uint8_t> wanted;
-    std::size_t budget = kRelitRetraceVertices;
-    for (const VertexBufferData* buffer : st.order) {
+    std::vector<std::vector<rt::Rgbf>> local;
+};
+
+void gather(std::span<const VertexBufferData* const> order, bool bounce, Gathered* out)
+{
+    State& st = state();
+    for (const VertexBufferData* buffer : order) {
         Entry& entry = st.entries.at(buffer);
-        const bool stale = entry.analysed && sun_stale(entry);
-        const bool take = stale && budget > 0;
-        if (take) {
-            budget -= std::min(budget, entry.input.positions.size());
-        }
-        meshes.push_back(std::move(entry.input));
-        light.push_back(std::move(entry.light));
-        wanted.push_back(take ? 1 : 0);
-    }
-    if (std::ranges::count(wanted, uint8_t{1}) > 0) {
-        rt::RelitStats stats;
-        rt::trace_relit_sun(meshes, wanted, st.sun,
-                            {.sky_rays = settings.sky_rays,
-                             .sun_rays = settings.sun_rays,
-                             .sun_radius_degrees = st.radius,
-                             .detail = settings.detail},
-                            tracer, &light, &stats);
-        st.retraced += stats.vertices;
-    }
-    for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
-        Entry& entry = st.entries.at(core::at(st.order, iv));
-        entry.input = std::move(core::at(meshes, iv));
-        entry.light = std::move(core::at(light, iv));
-        if (core::at(wanted, iv) != 0) {
-            entry.sun_for = st.sun;
-            entry.radius_for = st.radius;
+        out->meshes.push_back(std::move(entry.input));
+        out->light.push_back(std::move(entry.light));
+        if (bounce) {
+            std::swap(out->meshes.back().colours, entry.hit_colours);
+            out->local.push_back(std::move(entry.hit_local));
         }
     }
 }
 
+void put_back(std::span<const VertexBufferData* const> order, bool bounce, Gathered* in)
+{
+    State& st = state();
+    for (std::size_t iv = 0; iv < order.size(); ++iv) {
+        Entry& entry = st.entries.at(core::at(order, iv));
+        entry.input = std::move(core::at(in->meshes, iv));
+        entry.light = std::move(core::at(in->light, iv));
+        if (bounce) {
+            std::swap(entry.input.colours, entry.hit_colours); // (the bake's back; the hits' kept for the next frame)
+            entry.hit_local = std::move(core::at(in->local, iv));
+        }
+    }
+}
+
+// The trace's rays toward the sun (its sun's share) or over the sky (the sky's share and the bounce) for the wanted:
+// traced now (`ask` null), asked, or answered (rt_relit.h RelitAsk).
+void trace_part(Job::Kind kind, Gathered& parts, std::span<const uint8_t> wanted, rt::RayTracing& tracer,
+                const rt::RelitSettings& settings, rt::RelitStats* stats, rt::RelitAsk* ask)
+{
+    const State& st = state();
+    if (kind == Job::Kind::kBounce) {
+        rt::trace_relit_sky(parts.meshes, wanted,
+                            rt::RelitParams{.sky_rays = settings.sky_rays,
+                                            .sun_rays = settings.sun_rays,
+                                            .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
+                                            .detail = settings.detail},
+                            tracer, &parts.light, stats, parts.local, ask);
+    } else {
+        rt::trace_relit_sun(parts.meshes, wanted, st.sun,
+                            {.sky_rays = settings.sky_rays,
+                             .sun_rays = settings.sun_rays,
+                             .sun_radius_degrees = st.radius,
+                             .detail = settings.detail},
+                            tracer, &parts.light, stats, ask);
+    }
+}
+
+// Whether an entry's sun (or bounce) is traced for another light than the one now.
+bool stale_for(Job::Kind kind, const Entry& entry)
+{
+    return entry.analysed && (kind == Job::Kind::kBounce ? bounce_stale(entry) : sun_stale(entry));
+}
+
+// An entry's sun traced for the light now, or its bounce for the bounce's pass: marked so.
+void mark_traced(Job::Kind kind, Entry& entry)
+{
+    const State& st = state();
+    if (kind == Job::Kind::kBounce) {
+        entry.bounce_done = entry.input.positions.size();
+        entry.bounce_for = st.bounce_sun; // (written again when the pass is done: the lighting's number moves)
+    } else {
+        entry.sun_done = entry.input.positions.size();
+        entry.sun_for = st.sun;
+        entry.radius_for = st.radius;
+    }
+}
+
+// The asked spans traced: each entry's trace taken on to the span's end, marked traced at its last vertex.
+void mark_spans(Job::Kind kind, std::span<const VertexBufferData* const> order, std::span<const rt::RelitSpan> spans)
+{
+    State& st = state();
+    for (const rt::RelitSpan& span : spans) {
+        Entry& entry = st.entries.at(core::at(order, span.mesh));
+        std::size_t& done = kind == Job::Kind::kBounce ? entry.bounce_done : entry.sun_done;
+        done = span.end;
+        if (done >= entry.input.positions.size()) {
+            mark_traced(kind, entry);
+        }
+    }
+}
+
+// This frame's share of the vertices still to trace for the light now (its sun's or its bounce's), at most `budget`:
+// spans of the entries in the order, each from where its trace got to - the last one may end inside a mesh -, and the
+// meshes they are in (`wanted`: traced whole by a trace at once).
+std::size_t choose_share(Job::Kind kind, std::size_t budget, std::vector<uint8_t>* wanted,
+                         std::vector<rt::RelitSpan>* spans)
+{
+    State& st = state();
+    std::size_t chosen = 0;
+    for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
+        Entry& entry = st.entries.at(core::at(st.order, iv));
+        const bool take = stale_for(kind, entry) && chosen < budget;
+        if (take) {
+            const uint64_t pass = kind == Job::Kind::kBounce ? st.bounce_begun : st.relights;
+            uint64_t& done_for = kind == Job::Kind::kBounce ? entry.bounce_done_for : entry.sun_done_for;
+            std::size_t& done = kind == Job::Kind::kBounce ? entry.bounce_done : entry.sun_done;
+            if (done_for != pass) {
+                done_for = pass;
+                done = 0;
+            }
+            const std::size_t end = std::min(entry.input.positions.size(), done + (budget - chosen));
+            spans->push_back({.mesh = iv, .first = done, .end = end});
+            chosen += end > done ? end - done : 0;
+        }
+        wanted->push_back(take ? 1 : 0);
+    }
+    return chosen;
+}
+
+// A trace of this frame's share for the light now: while the level is shown, its rays asked of the device in this
+// frame's work and their answers taken a frame or two later (finish_job) - the frame never waits for the device, which
+// cost a whole frame's work each time (the frame's commands finished first); while the loading screen holds the first
+// light (hurried), or where the tracer can't ask (probe_later 0), the share's meshes traced whole at once.
+void start_trace(Job::Kind kind, std::size_t budget, rt::RayTracing& tracer, const rt::RelitSettings& settings)
+{
+    State& st = state();
+    const bool bounce = kind == Job::Kind::kBounce;
+    const auto start = std::chrono::steady_clock::now();
+    std::vector<uint8_t> wanted;
+    rt::RelitAsk ask;
+    const std::size_t vertices = choose_share(kind, budget, &wanted, &ask.spans);
+    Gathered parts;
+    gather(st.order, bounce, &parts);
+    rt::RelitStats stats;
+    if (!st.hurried) {
+        trace_part(kind, parts, wanted, tracer, settings, &stats, &ask);
+        if (ask.requests.empty()) { // (no ray to ask - the share all turned from the sun: answered as it is)
+            ask.answered = true;
+            trace_part(kind, parts, {}, tracer, settings, &stats, &ask);
+            put_back(st.order, bounce, &parts);
+            mark_spans(kind, st.order, ask.spans);
+            return;
+        }
+        const uint64_t ticket = tracer.probe_later(ask.requests);
+        if (ticket != 0) {
+            put_back(st.order, bounce, &parts);
+            st.job = Job{.kind = kind,
+                         .ticket = ticket,
+                         .order = st.order,
+                         .ask = std::move(ask),
+                         .relight = bounce ? st.bounce_begun : st.relights,
+                         .vertices = vertices,
+                         .ask_ms = ms_since(start)};
+            return;
+        }
+    }
+    trace_part(kind, parts, wanted, tracer, settings, &stats, nullptr);
+    put_back(st.order, bounce, &parts);
+    for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
+        if (core::at(wanted, iv) != 0) {
+            mark_traced(kind, st.entries.at(core::at(st.order, iv)));
+        }
+    }
+    (bounce ? st.rebounced : st.retraced) += stats.vertices;
+    measured(bounce ? &st.bounce_pace : &st.sun_pace, ms_since(start), vertices);
+}
+
+// The trace asked of the device, its answers taken once they are there (false: still waited for). Answers for a light
+// no longer the one now, or for an order a mesh has left since, are dropped (asked again).
+bool finish_job(rt::RayTracing& tracer, const rt::RelitSettings& settings)
+{
+    State& st = state();
+    std::vector<rt::ProbeResult> answers;
+    if (!tracer.probe_ready(st.job.ticket, &answers)) {
+        return false;
+    }
+    Job job = std::move(st.job);
+    st.job = Job{};
+    const bool whole = std::ranges::all_of(job.order, [&st](const VertexBufferData* buffer) {
+        const auto found = st.entries.find(buffer);
+        return found != st.entries.end() && found->second.analysed;
+    });
+    const uint64_t pass = job.kind == Job::Kind::kBounce ? st.bounce_begun : st.relights;
+    if (job.relight != pass || !whole || answers.size() != job.ask.requests.size()) {
+        return true;
+    }
+    const auto start = std::chrono::steady_clock::now();
+    const bool bounce = job.kind == Job::Kind::kBounce;
+    job.ask.answers = std::move(answers);
+    job.ask.answered = true;
+    Gathered parts;
+    gather(job.order, bounce, &parts);
+    rt::RelitStats stats;
+    trace_part(job.kind, parts, {}, tracer, settings, &stats, &job.ask);
+    put_back(job.order, bounce, &parts);
+    mark_spans(job.kind, job.order, job.ask.spans);
+    (bounce ? st.rebounced : st.retraced) += stats.vertices;
+    measured(bounce ? &st.bounce_pace : &st.sun_pace, job.ask_ms + ms_since(start), job.vertices);
+    return true;
+}
+
+// The sun's rays traced again for entries lit toward another sun - this frame's paced share (at most
+// kRelitRetraceVertices vertices).
+void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
+{
+    State& st = state();
+    if (st.job.kind != Job::Kind::kNone) { // (one trace in flight at a time)
+        if (st.job.kind == Job::Kind::kSun) {
+            finish_job(tracer, settings);
+        }
+        return;
+    }
+    // (nothing lit toward another sun - every frame once the sun is still: nothing to trace, the entries left in place)
+    const bool any_stale = std::ranges::any_of(st.order, [&st](const VertexBufferData* buffer) {
+        return stale_for(Job::Kind::kSun, st.entries.at(buffer));
+    });
+    if (!any_stale) {
+        return;
+    }
+    start_trace(Job::Kind::kSun, paced_vertices(st.sun_pace, kRelitRetraceVertices, st.hurried), tracer, settings);
+}
+
 // The bounce traced again for entries whose bounce is another sun's - once every sun is traced, from the colours as
-// relit now (one bounce of the new light) - at most kRelitBounceVertices vertices this frame.
+// relit now (one bounce of the new light) - this frame's paced share (at most kRelitBounceVertices vertices).
 void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const rt::RelitLighting& lit)
 {
     // (added by the time of day) the hits' colours at the level's own strength: the bounce's scale is the clock's
@@ -853,63 +1138,72 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
     lighting.sky_scale = {1.0F, 1.0F, 1.0F};
     lighting.bounce_scale = {1.0F, 1.0F, 1.0F};
     State& st = state();
-    bool suns_ready = true;
-    bool stale = false;
-    for (const VertexBufferData* buffer : st.order) {
-        const Entry& entry = st.entries.at(buffer);
-        suns_ready = suns_ready && (!entry.analysed || !sun_stale(entry));
-        stale = stale || (entry.analysed && rt::dot(entry.bounce_for, st.sun) < kSameSun);
-    }
-    if (!suns_ready || !stale) {
+    if (st.job.kind != Job::Kind::kNone) { // (one trace in flight at a time)
+        if (st.job.kind == Job::Kind::kBounce) {
+            finish_job(tracer, settings);
+        }
         return;
     }
-    std::vector<rt::RelitMesh> meshes;
-    std::vector<rt::RelitVertices> light;
-    std::vector<uint8_t> wanted;
-    std::vector<std::vector<rt::Rgbf>> local; // (each vertex's own light: the bounce's local part)
-    std::size_t budget = kRelitBounceVertices;
+    // the pass under way done, or a new one begun - toward the sun now, once every mesh's sun is traced for it and the
+    // bounce is due (kBounceSameSun)
+    if (st.bounce_begun != st.bounce_finished) {
+        const bool left = std::ranges::any_of(st.order, [&st](const VertexBufferData* buffer) {
+            return stale_for(Job::Kind::kBounce, st.entries.at(buffer));
+        });
+        if (!left) {
+            st.bounce_finished = st.bounce_begun;
+            return;
+        }
+    } else {
+        bool suns_ready = true;
+        bool due = false;
+        for (const VertexBufferData* buffer : st.order) {
+            const Entry& entry = st.entries.at(buffer);
+            suns_ready = suns_ready && (!entry.analysed || !sun_stale(entry));
+            due = due || (entry.analysed && bounce_due(entry));
+        }
+        if (!suns_ready || !due) {
+            return;
+        }
+        ++st.bounce_begun;
+        st.bounce_sun = st.sun;
+    }
+    // (the hits' colours for the pass - the same for every frame of it: made once a pass, over frames as the writes
+    // are - kRelitFrameMs of them a frame while the level is shown -, before its first rays; before, every entry's were
+    // made again each frame the bounce was traced: all the level's vertices a frame)
+    uint64_t hits_key = fnv_value(kFnvBasis, lighting.toward);
+    hits_key = fnv_value(hits_key, lighting.sun_colour);
+    hits_key = fnv_value(hits_key, lighting.strength);
+    hits_key = fnv_value(hits_key, lighting.residual);
+    hits_key = fnv_value(hits_key, model_floats(st.model));
+    hits_key = fnv_value(hits_key, st.bounce_begun); // (and made again for each pass: the bounce they show moved)
+    hits_key = hits_key == 0 ? 1 : hits_key;
+    const auto start = std::chrono::steady_clock::now();
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
-        const bool take = entry.analysed && rt::dot(entry.bounce_for, st.sun) < kSameSun && budget > 0;
-        if (take) {
-            budget -= std::min(budget, entry.input.positions.size());
+        if (entry.hits_for == hits_key) {
+            continue;
         }
-        // (the colours the rays bring back: as relit now - the bake's go back after)
-        std::vector<uint32_t> relit(entry.originals.size());
-        for (std::size_t vi = 0; vi < relit.size(); ++vi) {
-            core::at(relit, vi) =
+        if (!st.hurried && ms_since(start) >= kRelitFrameMs) {
+            return; // (the rest next frame)
+        }
+        // (the colours the rays bring back: as relit now)
+        entry.hit_colours.resize(entry.originals.size());
+        for (std::size_t vi = 0; vi < entry.hit_colours.size(); ++vi) {
+            core::at(entry.hit_colours, vi) =
                 vi < entry.light.size() && entry.analysed
                     ? rt::relit_colour(st.model, core::at(entry.light, vi), lighting, core::at(entry.originals, vi))
                     : core::at(entry.originals, vi);
         }
-        std::vector<rt::Rgbf> own(entry.input.positions.size());
-        for (std::size_t vi = 0; vi < own.size() && vi < entry.light.size(); ++vi) {
-            core::at(own, vi) = lighting.residual && entry.analysed ? core::at(entry.light, vi).residual : rt::Rgbf{};
+        entry.hit_local.assign(entry.input.positions.size(), rt::Rgbf{});
+        for (std::size_t vi = 0; vi < entry.hit_local.size() && vi < entry.light.size(); ++vi) {
+            core::at(entry.hit_local, vi) =
+                lighting.residual && entry.analysed ? core::at(entry.light, vi).residual : rt::Rgbf{};
         }
-        local.push_back(std::move(own));
-        meshes.push_back(std::move(entry.input));
-        meshes.back().colours = std::move(relit);
-        light.push_back(std::move(entry.light));
-        wanted.push_back(take ? 1 : 0);
+        entry.hits_for = hits_key;
     }
-    rt::RelitStats stats;
-    rt::trace_relit_sky(meshes, wanted,
-                        rt::RelitParams{.sky_rays = settings.sky_rays,
-                                        .sun_rays = settings.sun_rays,
-                                        .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
-                                        .detail = settings.detail},
-                        tracer, &light, &stats, local);
-    st.rebounced += stats.vertices;
-    for (std::size_t iv = 0; iv < st.order.size(); ++iv) {
-        Entry& entry = st.entries.at(core::at(st.order, iv));
-        entry.input = std::move(core::at(meshes, iv));
-        entry.input.colours = entry.originals;
-        entry.light = std::move(core::at(light, iv));
-        if (core::at(wanted, iv) != 0) {
-            entry.bounce_for = st.sun;
-            entry.dirty = true;
-        }
-    }
+    start_trace(Job::Kind::kBounce, paced_vertices(st.bounce_pace, kRelitBounceVertices, st.hurried), tracer,
+                settings);
 }
 
 void log_status(Status status)
@@ -941,17 +1235,27 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
     }
     for (const VertexBufferData* buffer : st.order) {
         const Entry& entry = st.entries.at(buffer);
-        if (entry.analysed && (sun_stale(entry) || rt::dot(entry.bounce_for, st.sun) < kSameSun)) {
+        if (entry.analysed && sun_stale(entry)) {
             return;
         }
     }
     const rt::RelitLighting own{.toward = st.model.toward};
-    auto field = std::make_shared<rt::LightField>();
+    // (one relight at a time) made over frames - kRelitFrameMs of it a frame while the level is shown, every entry once:
+    // made at once it was all the level's vertices in one frame, each relight (a running clock's: a 40 ms frame a second)
+    if (st.field_building == nullptr || st.field_building_for != lighting) {
+        st.field_building = std::make_shared<rt::LightField>();
+        st.field_building_for = lighting;
+    }
+    const auto start = std::chrono::steady_clock::now();
     for (const VertexBufferData* buffer : st.order) {
-        const Entry& entry = st.entries.at(buffer);
-        if (!entry.analysed) {
+        Entry& entry = st.entries.at(buffer);
+        if (!entry.analysed || entry.field_for == lighting) {
             continue;
         }
+        if (!st.hurried && ms_since(start) >= kRelitFrameMs) {
+            return; // (the rest next frame)
+        }
+        entry.field_for = lighting;
         const std::size_t vertices = std::min(entry.input.positions.size(), entry.light.size());
         for (std::size_t vi = 0; vi < vertices; ++vi) {
             const rt::RelitVertex& vertex = core::at(entry.light, vi);
@@ -971,9 +1275,11 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
             if (light.residual) {
                 parts.local = rt::relit_local_light(st.model, vertex);
             }
-            field->add(core::at(entry.input.positions, vi), parts);
+            st.field_building->add(core::at(entry.input.positions, vi), parts);
         }
     }
+    std::shared_ptr<rt::LightField> field = std::move(st.field_building);
+    st.field_building_for = 0;
     field->set_local_scale(st.model.scale); // (what the local light shows on a tint of 1)
     st.field_lighting = lighting;
     const rt::LightRatio whole = field->whole();
@@ -991,16 +1297,38 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
     rt::set_light_field(std::move(field));
 }
 
+// Whether the relight toward the light the world is lit by now is still under way (update's one relight at a time): an
+// entry's sun traced toward another light, its colours not written for the lighting yet, or the light field
+// not made for it yet. (A game write over relit colours - Entry::dirty - is written again on its own, and the bounce is
+// a pass of its own: neither is a relight.)
+bool relight_running()
+{
+    const State& st = state();
+    if (st.wanted_lighting == 0) {
+        return false;
+    }
+    for (const VertexBufferData* buffer : st.order) {
+        const Entry& entry = st.entries.at(buffer);
+        if (entry.analysed && (sun_stale(entry) || entry.written != st.wanted_lighting)) {
+            return true;
+        }
+    }
+    return st.field_lighting != st.wanted_lighting;
+}
+
 // The entries' relit colours written where they are stale (the lighting changed, the bounce traced again) and their
 // sun is traced, and the change logged once per lighting.
 void write_relit(uint64_t lighting, const rt::RelitLighting& light)
 {
     State& st = state();
     std::size_t written = 0;
-    // (added by the time of day) while the clock lights the level, at most kRelitWriteVertices vertices a frame: a new
-    // time's colours spread over frames, as the original's time of day colours a part of the level a frame
+    // (added by the time of day) while the clock lights the level, a share of the vertices a frame: a new time's
+    // colours spread over frames, as the original's time of day colours a part of the level a frame (paced: at most
+    // kRelitWriteVertices)
     const bool budgeted = rt::day_light().on;
-    std::size_t budget = kRelitWriteVertices;
+    const std::size_t paced = paced_vertices(st.write_pace, kRelitWriteVertices, st.hurried);
+    std::size_t budget = paced;
+    const auto start = std::chrono::steady_clock::now();
     std::vector<uint32_t> colours;
     struct Change {
         std::size_t vertices = 0;
@@ -1010,8 +1338,7 @@ void write_relit(uint64_t lighting, const rt::RelitLighting& light)
     } change;
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
-        if (!entry.analysed || (entry.written == lighting && !entry.dirty) ||
-            sun_stale(entry)) {
+        if (!entry.analysed || (entry.written == lighting && !entry.dirty) || sun_stale(entry)) {
             continue;
         }
         if (budgeted) {
@@ -1038,6 +1365,9 @@ void write_relit(uint64_t lighting, const rt::RelitLighting& light)
             change.relit += now;
             change.moved += std::abs(now - was) > kChangedLuma ? 1 : 0;
         }
+    }
+    if (budgeted) {
+        measured(&st.write_pace, ms_since(start), paced - budget);
     }
     // (added by the time of day: a running clock writes new colours twice a second - logged once a game hour)
     static double logged_hours = -1.0;
@@ -1144,6 +1474,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         st.cache = {};
         st.lighting = 0;
         st.logged = Status::kOff;
+        st.bounce_finished = st.bounce_begun; // (a bounce pass of the level before not taken on)
         for (auto& [buffer, entry] : st.entries) {
             entry.analysed = false;
         }
@@ -1218,8 +1549,18 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     const bool sky_model = rt::sun_light().on;
     const rt::DayLight day = rt::day_light(); // (added by the time of day)
     const uint64_t day_serial = day.on ? day.serial : 0;
-    if (rt::dot(toward, st.sun) < kSameSun || (day.on ? day.light_radius : rt::kRelitSunRadiusDegrees) != st.radius ||
-        sky_model != st.sky_model || day_serial != st.day_serial) { // (the sky model publishes after its first pass)
+    // (one relight at a time - the rule that keeps a moving sun's cost bounded) A new light is taken only once the
+    // relight toward the last one is done: every mesh's sun and bounce traced for it, its colours written, the light
+    // field made. A light that moves meanwhile - a running clock steps the sun several times a second, more often than
+    // a relight takes - waits, and the newest is taken next. Before, each step made every mesh stale again and the
+    // per-frame budgets started over from the first mesh: the same first meshes were traced and written (uploaded)
+    // every frame, the rest never, the bounce and the light field never made - and the slower the frames, the more
+    // often a new step came, until every frame was spent on it (a 3 fps Boston with tod_cycle on).
+    const bool newer = rt::dot(toward, st.sun) < kSameSun ||
+                       (day.on ? day.light_radius : rt::kRelitSunRadiusDegrees) != st.radius ||
+                       sky_model != st.sky_model || day_serial != st.day_serial; // (the sky model publishes late)
+    if (newer && !relight_running()) {
+        ++st.relights;
         st.sky_model = sky_model;
         st.day_serial = day_serial;
         st.day_scales = day_scales(day);
@@ -1236,9 +1577,17 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
                     static_cast<double>(std::get<1>(st.sun_colour)), static_cast<double>(std::get<2>(st.sun_colour)),
                     static_cast<double>(std::get<0>(st.day_scales.direct_scale)),
                     static_cast<double>(std::get<1>(st.day_scales.sky_scale)));
+            get_log("rt_relit: relight %llu, bounce pass %llu (%llu done); a vertex takes %.2f us toward the sun, %.2f us "
+                    "for its bounce, %.2f us to write (about %.1f ms of each a frame while the level is shown)",
+                    static_cast<unsigned long long>(st.relights), static_cast<unsigned long long>(st.bounce_begun),
+                    static_cast<unsigned long long>(st.bounce_finished), st.sun_pace.ms_per_vertex * 1000.0,
+                    st.bounce_pace.ms_per_vertex * 1000.0, st.write_pace.ms_per_vertex * 1000.0, kRelitFrameMs);
         }
     }
-    retrace(tracer, settings);
+    {
+        const frame_profile::Scope phase("relit_retrace");
+        retrace(tracer, settings);
+    }
     const float strength =
         entry_of_level != nullptr && entry_of_level->strength >= 0.0F ? entry_of_level->strength : settings.strength;
     uint64_t lighting = fnv_value(kFnvBasis, st.sun);
@@ -1247,6 +1596,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     lighting = fnv_value(lighting, strength);
     lighting = fnv_value(lighting, settings.residual);
     lighting = fnv_value(lighting, model_floats(st.model));
+    lighting = fnv_value(lighting, st.bounce_finished); // (one relight at a time: a bounce pass done - written again)
     if (st.day_serial != 0) { // (added by the time of day)
         lighting = fnv_value(lighting, st.day_scales.direct_scale);
         lighting = fnv_value(lighting, st.day_scales.sky_scale);
@@ -1260,11 +1610,20 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
                                   .direct_scale = st.day_scales.direct_scale,
                                   .sky_scale = st.day_scales.sky_scale,
                                   .bounce_scale = st.day_scales.bounce_scale};
-    rebounce(tracer, settings, light);
+    {
+        const frame_profile::Scope phase("relit_rebounce");
+        rebounce(tracer, settings, light);
+    }
     st.written_light = light;
     st.wanted_lighting = lighting;
-    write_relit(lighting, light);
-    make_light_field(lighting, light); // (the one lighting path)
+    {
+        const frame_profile::Scope phase("relit_write");
+        write_relit(lighting, light);
+    }
+    {
+        const frame_profile::Scope phase("relit_field");
+        make_light_field(lighting, light); // (the one lighting path)
+    }
     write_cel(lighting, light); // (added by cel shading)
     rt::note_sun_used(rt::SunUser::kRelit, true, st.sun);
 }
@@ -1378,7 +1737,9 @@ bool unlit_object_colour(const std::array<float, 3>& position, std::array<uint8_
     return !same; // (the light there the bake's: drawn as the original draws it)
 }
 
-bool hold_first_light(bool loading)
+namespace {
+
+bool first_light_held(bool loading)
 {
     struct Hold {
         bool armed = false;
@@ -1438,6 +1799,15 @@ bool hold_first_light(bool loading)
     return true;
 }
 
+} // namespace
+
+bool hold_first_light(bool loading)
+{
+    const bool held = first_light_held(loading);
+    state().hurried = held || loading; // (the relight's pace: the most a frame while nothing of the level is shown)
+    return held;
+}
+
 bool settled(rt::Vec3* sun, uint64_t* lighting)
 {
     const State& st = state();
@@ -1446,8 +1816,8 @@ bool settled(rt::Vec3* sun, uint64_t* lighting)
     }
     for (const VertexBufferData* buffer : st.order) {
         const Entry& entry = st.entries.at(buffer);
-        if (entry.analysed && (entry.written != st.wanted_lighting || entry.dirty ||
-                               sun_stale(entry) || rt::dot(entry.bounce_for, st.sun) < kSameSun)) {
+        if (entry.analysed && (entry.written != st.wanted_lighting || entry.dirty || sun_stale(entry) ||
+                               bounce_stale(entry) || bounce_due(entry))) {
             return false;
         }
     }

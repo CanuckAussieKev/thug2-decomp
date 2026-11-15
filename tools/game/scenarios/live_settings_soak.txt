@@ -1,0 +1,32 @@
+# A session with settings changed while the game runs (frame_bench.ts run --scenario): the time of day set by hand a few
+# times, then its clock running (the sun moving every few frames), the characters' shading changed a few times, then two
+# minutes left alone with the clock running. Run with tod=night and tod_cycle=off in the ini (--set). Frame times,
+# uploads and BLAS builds per log window must stay flat over it (out of the game's log: frame_bench report and the
+# "vulkan: frame" / "ray tracing scene" lines).
+wait 1200
+console set tod dusk
+wait 900
+console set tod afternoon
+wait 900
+console set tod noon
+wait 600
+console set tod morning
+wait 600
+console set tod_cycle on
+wait 600
+console set tod_cycle_minutes 12
+wait 600
+console set rt_characters_cloth 1
+wait 120
+console set rt_characters_cloth 0.5
+wait 120
+console set rt_characters_cloth 0
+wait 120
+console set rt_characters_cloth 1.5
+wait 120
+console set rt_characters_hair 1.5
+wait 120
+console set rt_characters_hair 0.5
+wait 120
+# left alone, the clock running
+wait 7200

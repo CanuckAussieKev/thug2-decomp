@@ -5,7 +5,7 @@
 //
 //   node tools/game/frame_bench.ts run --game C:\Games\THUG2-<n> --out <folder> [--build <x64 build folder>]
 //        [--settings <ini>] [--levels BO,AU,z_dt,sch,foun] [--seconds 30] [--runs 1] [--samples] [--no-lock]
-//        [--owner <name>] [--set Section.key=value]...
+//        [--owner <name>] [--set Section.key=value]... [--scenario <file>]
 //   node tools/game/frame_bench.ts report <folder> [--skip 120]
 //   node tools/game/frame_bench.ts compare <before folder> <after folder>
 //
@@ -13,7 +13,8 @@
 // -Arch x64; without it the folder's exe as it is), the ini's [Graphics] from --settings (default the main install's,
 // read only - every key but the window's) and --set's, `[debug] frame_profile=1` (2 with --samples). Each level is
 // started with -level and driven by the automation channel - pushing forward, an ollie and a turn every five seconds
-// for --seconds - then quit; the logic is a fixed step a loop, so a run is the same each time. Gathered into
+// for --seconds - then quit (--scenario <file>: the file's automation commands instead, a line each, `#` comments -
+// e.g. tools/game/scenarios/live_settings_soak.txt, settings changed while the game runs); the logic is a fixed step a loop, so a run is the same each time. Gathered into
 // <out>/<level>/run<k>/: frames.jsonl (a line a loop), game.log, samples.txt (+ samples-named.txt).
 // report: per level and run, the loops from --skip after the last loading screen to the end of the scenario.
 // Workspaces only; muted (workspace_ini.ts).
@@ -28,7 +29,7 @@ import { graphicsOf } from "./first_frame_check.ts";
 import { iniFor } from "./renderer_parity.ts";
 import { ensureWorkspaceMuted, isWorkspace } from "./workspace_ini.ts";
 
-const USAGE = `usage: frame_bench.ts run --game <workspace> --out <folder> [--build <folder>] [--settings <ini>]
+const USAGE = `usage: frame_bench.ts run --game <workspace> --out <folder> [--build <folder>] [--settings <ini>] [--scenario <file>]
                       [--levels BO,AU,z_dt,sch,foun] [--seconds 30] [--runs 1] [--samples] [--no-lock]
                       [--owner name] [--set S.key=v]...
        frame_bench.ts report <folder> [--skip 120]
@@ -51,6 +52,16 @@ export function scenario(level: string, seconds: number): string[] {
     }
     out.push("quit");
     return out;
+}
+
+// The scenario's commands for a level from a file (--scenario): its lines - blank ones and `#` comments left out - once
+// the level is up, then quit.
+export function scenarioFrom(level: string, text: string): string[] {
+    const lines = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line !== "" && !line.startsWith("#"));
+    return [`waitfor level ${level} 300`, ...lines, "quit"];
 }
 
 // --- reading a run ---------------------------------------------------------------------------------------------------
@@ -429,6 +440,7 @@ interface RunOptions {
     owner: string;
     set: Record<string, string>;
     skip: number;
+    scenario: string | null; // (--scenario's commands, read)
 }
 
 async function runLevel(options: RunOptions, level: string, folder: string): Promise<string> {
@@ -440,7 +452,9 @@ async function runLevel(options: RunOptions, level: string, folder: string): Pro
     for (const file of [log, frames, samples]) fs.rmSync(file, { force: true });
     const args = ["-Game", game, "-Arch", "x64", "-Seconds", String(options.seconds + 400), "-HangSeconds", "120"];
     args.push("-Shot", level, "-ShotDir", folder, "-Level", level);
-    args.push("-Commands", scenario(level, options.seconds).join(";"));
+    const commands =
+        options.scenario !== null ? scenarioFrom(level, options.scenario) : scenario(level, options.seconds);
+    args.push("-Commands", commands.join(";"));
     const result = await powershell("run_game.ps1", args);
     fs.mkdirSync(folder, { recursive: true });
     fs.writeFileSync(path.join(folder, "run.txt"), result.out);
@@ -546,6 +560,7 @@ async function main(): Promise<number> {
             owner: { type: "string", default: "frame-bench" },
             set: { type: "string", multiple: true },
             skip: { type: "string", default: "120" },
+            scenario: { type: "string" },
         },
         allowPositionals: true,
     });
@@ -580,6 +595,7 @@ async function main(): Promise<number> {
             owner: values.owner,
             set,
             skip,
+            scenario: values.scenario ? fs.readFileSync(path.resolve(values.scenario), "utf8") : null,
         });
     }
     print(USAGE);

@@ -135,6 +135,7 @@ struct State {
     bool begun = false;    // begin_frame called this frame
     bool world_passes = false;
     int colour_writes = 0;
+    int colour_writes_told = 0; // (of them, the game's own colours the relit mode is told of: ColourWrite::Relit::kTell)
     bool relit_idle = true; // the relit mode off and told so
 };
 
@@ -1564,7 +1565,14 @@ void material_released(const MaterialRef* material)
 
 void vertex_buffer_written(const VertexBufferData* buffer)
 {
-    if (backend() == nullptr || state().colour_writes > 0) {
+    if (backend() == nullptr) {
+        return;
+    }
+    const State& st = state();
+    if (st.colour_writes > 0) { // (colour-only: no BLAS built again - ColourWrite)
+        if (st.colour_writes_told > 0) {
+            rt_relit_world::buffer_written(buffer); // (the game's own colours over the relit ones)
+        }
         return;
     }
     state().written.insert(buffer);
@@ -1592,7 +1600,15 @@ void forget_meshes()
     st.skinned_ready.clear(); // (the buffers made again: skinned again before they are traced)
 }
 
-ColourWrite::ColourWrite() { ++state().colour_writes; }
-ColourWrite::~ColourWrite() { --state().colour_writes; }
+ColourWrite::ColourWrite(Relit relit) : relit_(relit)
+{
+    ++state().colour_writes;
+    state().colour_writes_told += relit_ == Relit::kTell ? 1 : 0;
+}
+ColourWrite::~ColourWrite()
+{
+    --state().colour_writes;
+    state().colour_writes_told -= relit_ == Relit::kTell ? 1 : 0;
+}
 
 } // namespace render::rt_record

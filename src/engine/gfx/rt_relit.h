@@ -231,17 +231,41 @@ void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out);
 void trace_relit_light(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const Vec3& toward,
                        const RelitParams& params, RayTracing& tracer, std::vector<RelitVertices>* light,
                        RelitStats* stats);
+// (added for the relit mode's moving light - render_pc/rt_relit_world.cpp) A trace in two halves, so the device's work
+// is never waited for: asked (`ask` not answered: the rays recorded into it, nothing traced, the light left as it is),
+// then - once the tracer has the answers to `requests` (RayTracing::probe_later / probe_ready) in `answers` and
+// `answered` set - the same call again with the same meshes in the same order: the answers taken into the light.
+// `spans`, when given, are the vertices asked (`wanted` then unused): a part of a mesh, so a frame's share of the work
+// needn't be a whole mesh.
+struct RelitSpan {
+    std::size_t mesh = 0;
+    std::size_t first = 0; // its first vertex ...
+    std::size_t end = 0;   // ... and the one after its last
+};
+struct RelitRun {
+    std::size_t mesh = 0;
+    std::size_t vertex = 0;
+    uint32_t first = 0; // its first ray among the requests
+    uint32_t count = 0;
+};
+struct RelitAsk {
+    std::vector<RelitSpan> spans;
+    std::vector<ProbeRequest> requests;
+    std::vector<RelitRun> runs;
+    std::vector<ProbeResult> answers;
+    bool answered = false;
+};
 // Only the sky's share and the bounce (the vertices' normals made already), for the meshes `wanted` says - again after
 // the sun moved, the meshes' colours then the relit ones: the light the sun now puts on the surfaces round a vertex
 // bounced to it (one bounce of the new light; the sky's share comes out the same).
 // `local`: each mesh's vertices' own light (their residual), when known - the bounce's part from it (bounce_local).
 void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitParams& params,
                      RayTracing& tracer, std::vector<RelitVertices>* light, RelitStats* stats,
-                     std::span<const std::vector<Rgbf>> local = {});
+                     std::span<const std::vector<Rgbf>> local = {}, RelitAsk* ask = nullptr);
 // Only the sun's share toward `toward`, for the meshes `wanted` says.
 void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const Vec3& toward,
                      const RelitParams& params, RayTracing& tracer, std::vector<RelitVertices>* light,
-                     RelitStats* stats);
+                     RelitStats* stats, RelitAsk* ask = nullptr);
 // The model fitted to the traced light and the baked colours. Not valid when too few vertices are lit or the sun's
 // term comes out as nothing.
 // An edge across a traced shadow's border counts only where the bake's colours step down into the traced shade too.

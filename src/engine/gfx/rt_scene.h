@@ -230,6 +230,24 @@ public:
             results->push_back(probe(ray));
         }
     }
+    // (added for the relit mode's moving light - render_pc/rt_relit_world.cpp) Many rays traced without a wait: recorded
+    // into the frame being made, after its TLAS (between begin_frame and the frame's end), and answered once the device
+    // has done that frame - a frame or two later. A ticket (0: not possible now - no scene, or one is in flight already:
+    // probe_many then, or later); probe_ready gives the answers in order once they are there (true - empty when they were
+    // lost: the scene gone) and forgets the ticket; probe_forget lets go of one not wanted any more. One in flight at a
+    // time. A backend without it answers 0 (its callers trace with probe_many).
+    virtual uint64_t probe_later(std::span<const ProbeRequest> rays)
+    {
+        (void)rays;
+        return 0;
+    }
+    virtual bool probe_ready(uint64_t ticket, std::vector<ProbeResult>* results)
+    {
+        (void)ticket;
+        results->clear();
+        return true;
+    }
+    virtual void probe_forget(uint64_t ticket) { (void)ticket; }
     // (added by R1) A registered mesh's triangles now somewhere else (another of its buffers - a skinned mesh's
     // vertex buffers take turns -, buffers made again after a device reset, an edit): the same id, new geometry, and
     // its contents changed as mesh_changed says.

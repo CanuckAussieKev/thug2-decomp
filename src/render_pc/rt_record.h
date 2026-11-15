@@ -23,6 +23,7 @@
 // begin_frame comes at the first viewport's world camera, before the world is drawn: the record's instances and lights
 // are complete then, its cameras those of the viewports drawn so far (the others' are added as they are drawn; the
 // record stays unchanged otherwise until the next frame).
+#include <cstdint>
 #include <string>
 
 namespace render {
@@ -63,15 +64,23 @@ void forget_meshes();
 // and the relit world's vertices round the hit (rt_relit_world::describe_near).
 [[nodiscard]] std::string describe_screen_point(float across, float down);
 
-// While one lives, vertex buffer writes are colour-only (MeshRef::apply_vertex_colors).
+// While one lives, vertex buffer writes are colour-only: the positions are as they were, so no mesh's BLAS is built
+// again - the rule for every write that changes only colours (MeshRef::apply_vertex_colors' colour animations, the relit
+// mode's writes, the scene lights' PcGeom::change_colors). `relit` kTell: the game's own new colours over a buffer the
+// relit mode may own - it is told (rt_relit_world::buffer_written: written again) - unlike the relit mode's own writes
+// (they must never queue themselves again) and the colour animations (vertices the relit mode leaves alone).
 class ColourWrite {
 public:
-    ColourWrite();
+    enum class Relit : uint8_t { kQuiet, kTell };
+    explicit ColourWrite(Relit relit = Relit::kQuiet);
     ~ColourWrite();
     ColourWrite(const ColourWrite&) = delete;
     ColourWrite& operator=(const ColourWrite&) = delete;
     ColourWrite(ColourWrite&&) = delete;
     ColourWrite& operator=(ColourWrite&&) = delete;
+
+private:
+    Relit relit_;
 };
 
 } // namespace rt_record

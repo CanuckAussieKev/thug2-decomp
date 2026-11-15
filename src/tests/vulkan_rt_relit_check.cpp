@@ -153,9 +153,10 @@ constexpr uint32_t kPerfTiles = 12;
 constexpr float kPerfTile = 2000.0F;
 constexpr uint32_t kPerfTileQuads = 40;
 constexpr uint32_t kGrey = 0xFF808080U;
-constexpr uint64_t kPerfFrames = 10;
-constexpr uint64_t kAfterPerfFrame = 20;
-constexpr uint64_t kLastFrame = 30;
+constexpr uint64_t kPerfFrames = 40; // (after the asked traces' frames)
+constexpr uint64_t kAskedFrame = kWarmFrames + 1; // (the asked trace's frames: up to kPerfFrames)
+constexpr uint64_t kAfterPerfFrame = 50;
+constexpr uint64_t kLastFrame = 60;
 
 struct Options {
     int display = 0;
@@ -929,6 +930,112 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
     tally->check(same, "the clock's scales at 1 (tod=level): every relit colour as without them");
 }
 
+// (added for the relit mode's moving light - render_pc/rt_relit_world.cpp) A trace in its two halves (rt_relit.h
+// RelitAsk): the rays asked inside a frame (RayTracing::probe_later - recorded into it, nothing waited for: not
+// answered in that frame), answered frames later (probe_ready), the answers taken - the light exactly as traced at once.
+// The sun's share toward the moved sun, then the bounce.
+void check_asked(render::Gpu& gpu, std::span<const DeviceMesh> device, const Scene& scene, rt::RayTracing& backend,
+                 const std::vector<rt::RelitVertices>& light, Tally* tally)
+{
+    const Vec3 other = unit(kMovedSun);
+    uint64_t number = kAskedFrame;
+    bool asked_all = true;
+    bool waited_none = true;
+    bool answered_all = true;
+    // the trace asked and answered over frames: false if it couldn't be asked or wasn't answered in time
+    const auto over_frames = [&](rt::RelitAsk* ask) {
+        rt::FrameRecord record;
+        record.frame = number++;
+        for (const DeviceMesh& mesh : device) {
+            rt::Instance instance{.mesh = mesh.id, .flags = rt::kWorld | rt::kOpaque | rt::kCastsShadow};
+            instance.object_to_world = {{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}}};
+            record.instances.push_back(instance);
+        }
+        backend.begin_frame(record);
+        gpu.begin_scene();
+        const uint64_t ticket = backend.probe_later(ask->requests);
+        std::vector<rt::ProbeResult> answers;
+        const bool at_once = ticket != 0 && backend.probe_ready(ticket, &answers);
+        gpu.end_scene();
+        gpu.present();
+        asked_all = asked_all && ticket != 0;
+        waited_none = waited_none && !at_once;
+        bool ready = at_once;
+        while (ticket != 0 && !ready && number < kPerfFrames) {
+            frame(gpu, device, number++);
+            ready = backend.probe_ready(ticket, &answers);
+        }
+        answered_all = answered_all && ready && answers.size() == ask->requests.size();
+        ask->answers = std::move(answers);
+        ask->answered = true;
+        return ready;
+    };
+    const auto same = [](const std::vector<rt::RelitVertices>& one, const std::vector<rt::RelitVertices>& other_light,
+                         auto part) {
+        for (std::size_t mesh = 0; mesh < one.size(); ++mesh) {
+            for (std::size_t vertex = 0; vertex < core::at(one, mesh).size(); ++vertex) {
+                if (!part(core::at(core::at(one, mesh), vertex), core::at(core::at(other_light, mesh), vertex))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    rt::RelitStats stats;
+    std::vector<rt::RelitVertices> now = light;
+    rt::trace_relit_sun(scene.level.meshes, {}, other, scene.params, backend, &now, &stats);
+    std::vector<rt::RelitVertices> later = light;
+    rt::RelitAsk sun_ask;
+    rt::trace_relit_sun(scene.level.meshes, {}, other, scene.params, backend, &later, &stats, &sun_ask);
+    const bool untouched = same(later, light, [](const rt::RelitVertex& a, const rt::RelitVertex& b) {
+        return a.sun == b.sun;
+    });
+    if (over_frames(&sun_ask)) {
+        rt::trace_relit_sun(scene.level.meshes, {}, other, scene.params, backend, &later, &stats, &sun_ask);
+    }
+    const bool sun_same = same(later, now, [](const rt::RelitVertex& a, const rt::RelitVertex& b) {
+        return a.sun == b.sun;
+    });
+    // the same in two shares that each end inside a mesh (spans: each mesh's first half, then the rest)
+    std::vector<rt::RelitVertices> halves = light;
+    for (const bool first_half : {true, false}) {
+        rt::RelitAsk share;
+        for (std::size_t mesh = 0; mesh < scene.level.meshes.size(); ++mesh) {
+            const std::size_t size = core::at(scene.level.meshes, mesh).positions.size();
+            share.spans.push_back(
+                {.mesh = mesh, .first = first_half ? 0 : size / 2, .end = first_half ? size / 2 : size});
+        }
+        rt::trace_relit_sun(scene.level.meshes, {}, other, scene.params, backend, &halves, &stats, &share);
+        if (over_frames(&share)) {
+            rt::trace_relit_sun(scene.level.meshes, {}, other, scene.params, backend, &halves, &stats, &share);
+        }
+    }
+    const bool halves_same = same(halves, now, [](const rt::RelitVertex& a, const rt::RelitVertex& b) {
+        return a.sun == b.sun;
+    });
+    // the bounce, from the colours as they are
+    rt::trace_relit_sky(scene.level.meshes, {}, scene.params, backend, &now, &stats);
+    rt::RelitAsk sky_ask;
+    rt::trace_relit_sky(scene.level.meshes, {}, scene.params, backend, &later, &stats, {}, &sky_ask);
+    if (over_frames(&sky_ask)) {
+        rt::trace_relit_sky(scene.level.meshes, {}, scene.params, backend, &later, &stats, {}, &sky_ask);
+    }
+    const bool sky_same = same(later, now, [](const rt::RelitVertex& a, const rt::RelitVertex& b) {
+        return a.sky == b.sky && a.bounce == b.bounce;
+    });
+    tally->check(asked_all && !sun_ask.requests.empty() && !sky_ask.requests.empty(),
+                 text::format("a trace's rays asked inside a frame (%zu toward the sun, %zu over the sky)",
+                              sun_ask.requests.size(), sky_ask.requests.size()));
+    tally->check(untouched, "asking leaves the light as it is");
+    tally->check(waited_none, "the asked rays not answered in the frame they were asked in (nothing waited for)");
+    tally->check(answered_all, text::format("the asked rays answered within %llu frames",
+                                            static_cast<unsigned long long>(kPerfFrames - kAskedFrame)));
+    tally->check(sun_same && sky_same, "the answers taken: the sun's share, the sky's and the bounce exactly as traced "
+                                       "at once");
+    tally->check(halves_same, "asked in two shares ending inside the meshes (spans): the sun's share exactly as traced "
+                              "at once");
+}
+
 // The baked sun's samples (rt_sun.h, as render_pc's rt_record makes them): each upward-facing triangle's centre, its
 // normal turned up and its corners' brightness (0 - 255).
 std::vector<rt::BakeSample> bake_samples(const Level& level)
@@ -1355,6 +1462,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         check_model(model, tally);
         rt::decompose_relit(scene.level.meshes, {}, scene.params, &model, &light, true);
         check_tints(scene, light, tally);
+        check_asked(gpu, device, scene, *backend, light, tally); // (added for the relit mode's moving light)
         check_bake_sun(scene, model, light, tally);
         check_moved(scene, model, *backend, &light, tally);
         check_sunless(scene, light, *backend, tally);

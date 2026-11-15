@@ -355,6 +355,19 @@ public:
     void prepare_frame() override;
     rt::ProbeResult probe(const rt::ProbeRequest& ray) override;
     void probe_many(std::span<const rt::ProbeRequest> rays, std::vector<rt::ProbeResult>* results) override;
+    uint64_t probe_later(std::span<const rt::ProbeRequest> rays) override;
+    bool probe_ready(uint64_t ticket, std::vector<rt::ProbeResult>* results) override;
+    void probe_forget(uint64_t ticket) override;
+};
+
+// (added for the relit mode's moving light) Rays recorded into a frame's work (probe_later), answered once the device
+// has done it: their hits' read-back buffer, the submission they went with and the instances' meshes then.
+struct LaterProbe {
+    uint64_t ticket = 0;
+    uint64_t serial = 0;
+    DeviceBuffer hits;
+    std::size_t count = 0;
+    std::vector<rt::MeshId> meshes;
 };
 
 struct Scene {
@@ -380,6 +393,8 @@ struct Scene {
     bool budget_logged = false;
     bool changed = false; // built or compacted since the scene's last line
     uint32_t compactions_wanted = 0; // meshes with compaction_wanted
+    std::vector<LaterProbe> later; // (probe_later's, not answered yet - one at a time: the probe's descriptor set)
+    uint64_t next_ticket = 1;
     VulkanRayTracing backend;
 };
 
@@ -753,12 +768,14 @@ void log_scene(Scene& made, bool now)
     const SceneStats& stats = made.stats;
     get_log("vulkan: ray tracing scene: %u meshes (%u built, %u compacted, %u dynamic, %u refused), BLAS %.1f MB "
             "(%.1f MB before compaction), TLAS + instances %.1f MB, scratch %.1f MB; %u instances in the last TLAS; "
-            "%llu builds, %llu refits, %llu TLAS builds",
+            "%llu builds, %llu refits, %llu TLAS builds (asked for: %llu new meshes, %llu new geometry, %llu written)",
             stats.meshes, stats.built, stats.compacted, stats.dynamic, stats.refused,
             static_cast<double>(stats.blas_bytes) / kMegabyte, static_cast<double>(stats.built_bytes) / kMegabyte,
             static_cast<double>(stats.tlas_bytes) / kMegabyte, static_cast<double>(stats.scratch_bytes) / kMegabyte,
             stats.last_instances, static_cast<unsigned long long>(stats.builds),
-            static_cast<unsigned long long>(stats.refits), static_cast<unsigned long long>(stats.tlas_builds));
+            static_cast<unsigned long long>(stats.refits), static_cast<unsigned long long>(stats.tlas_builds),
+            static_cast<unsigned long long>(stats.asked_new), static_cast<unsigned long long>(stats.asked_geometry),
+            static_cast<unsigned long long>(stats.asked_written));
 }
 
 void count_bytes(Scene& made)
@@ -1493,6 +1510,18 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
 
 // --- the RayTracing --------------------------------------------------------------------------------------------------
 
+// A mesh registered (an id already registered let go of first) - under the lock.
+void register_mesh(Backend& state, Scene& made, rt::MeshId mesh, const rt::Geometry& geometry)
+{
+    const auto found = made.meshes.find(mesh);
+    if (found != made.meshes.end()) {
+        forget_mesh(state, made, &found->second);
+    }
+    Mesh& entry = made.meshes[mesh];
+    entry = Mesh{};
+    entry.geometry = geometry;
+}
+
 void VulkanRayTracing::add_mesh(rt::MeshId mesh, const rt::Geometry& geometry)
 {
     Backend& state = backend();
@@ -1501,13 +1530,8 @@ void VulkanRayTracing::add_mesh(rt::MeshId mesh, const rt::Geometry& geometry)
     if (!made.installed || mesh == 0) {
         return;
     }
-    const auto found = made.meshes.find(mesh);
-    if (found != made.meshes.end()) {
-        forget_mesh(state, made, &found->second);
-    }
-    Mesh& entry = made.meshes[mesh];
-    entry = Mesh{};
-    entry.geometry = geometry;
+    register_mesh(state, made, mesh, geometry);
+    ++made.stats.asked_new;
 }
 
 // The same triangles from other buffers (a skinned mesh's vertex buffers take turns; buffers made again): a built
@@ -1523,22 +1547,24 @@ bool same_triangles(const rt::Geometry& before, const rt::Geometry& now)
 
 void VulkanRayTracing::update_mesh(rt::MeshId mesh, const rt::Geometry& geometry)
 {
-    {
-        Backend& state = backend();
-        const std::scoped_lock lock(state.mutex);
-        Scene& made = scene();
-        const auto found = made.meshes.find(mesh);
-        if (made.installed && found != made.meshes.end() && found->second.built && !found->second.refused &&
-            same_triangles(found->second.geometry, geometry)) {
-            // (fixed for the skater's shadow) the same triangles in another buffer - a skinned mesh cycling its vertex
-            // buffers, or one moved in an arena - hold a newer pose: refitted, as mesh_changed does. Before, only the
-            // buffer was swapped and the structure kept the pose it was built with.
-            found->second.geometry = geometry;
-            found->second.needs_refit = true;
-            return;
-        }
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    Scene& made = scene();
+    if (!made.installed || mesh == 0) {
+        return;
     }
-    add_mesh(mesh, geometry); // (an id already registered is let go of first)
+    const auto found = made.meshes.find(mesh);
+    if (found != made.meshes.end() && found->second.built && !found->second.refused &&
+        same_triangles(found->second.geometry, geometry)) {
+        // (fixed for the skater's shadow) the same triangles in another buffer - a skinned mesh cycling its vertex
+        // buffers, or one moved in an arena - hold a newer pose: refitted, as mesh_changed does. Before, only the
+        // buffer was swapped and the structure kept the pose it was built with.
+        found->second.geometry = geometry;
+        found->second.needs_refit = true;
+        return;
+    }
+    register_mesh(state, made, mesh, geometry);
+    ++made.stats.asked_geometry;
 }
 
 void VulkanRayTracing::set_material(rt::MaterialId material, const rt::Material& surface)
@@ -1595,6 +1621,7 @@ void VulkanRayTracing::mesh_changed(rt::MeshId mesh)
     } else {
         entry.needs_build = true; // (a static mesh's vertices rewritten: built again)
         entry.refused = false;
+        ++made.stats.asked_written;
     }
 }
 
@@ -1679,6 +1706,167 @@ rt::ProbeResult VulkanRayTracing::probe(const rt::ProbeRequest& ray)
     return results.empty() ? rt::ProbeResult{} : results.front();
 }
 
+// The probe's buffers: the rays packed into an upload buffer, the hits' read-back buffer (false: none made).
+bool make_probe_buffers(Backend& state, std::span<const TracedRay> rays, DeviceBuffer* ray_buffer, DeviceBuffer* hit_buffer)
+{
+    const VkDeviceSize ray_bytes = rays.size() * sizeof(PackedRay);
+    const VkDeviceSize hit_bytes = rays.size() * sizeof(PackedHit);
+    if (!state.memory.create_buffer(ray_bytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kUpload, ray_buffer) ||
+        !state.memory.create_buffer(hit_bytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kReadBack,
+                                    hit_buffer) ||
+        ray_buffer->mapped == nullptr || hit_buffer->mapped == nullptr) {
+        state.memory.destroy_buffer(ray_buffer);
+        state.memory.destroy_buffer(hit_buffer);
+        return false;
+    }
+    std::vector<PackedRay> packed(rays.size());
+    for (std::size_t i = 0; i < rays.size(); ++i) {
+        const TracedRay& ray = core::at(rays, i);
+        core::at(packed, i) = {.origin_t_min = {std::get<0>(ray.origin), std::get<1>(ray.origin),
+                                                std::get<2>(ray.origin), ray.t_min},
+                               .direction_t_max = {std::get<0>(ray.direction), std::get<1>(ray.direction),
+                                                   std::get<2>(ray.direction), ray.t_max},
+                               .cull_mask = {ray.cull_mask, ray.cutouts ? 1U : 0U, 0, 0}};
+    }
+    std::memcpy(ray_buffer->mapped, packed.data(), ray_bytes);
+    state.memory.flush(*ray_buffer, 0, ray_bytes);
+    return true;
+}
+
+// The probe's descriptor set pointed at `frame`'s TLAS and the buffers - only while no recorded dispatch that reads it
+// is still to run (the frame's work finished first, or no probe_later in flight).
+void write_probe_set(const Scene& made, const FrameScene& frame, const DeviceBuffer& ray_buffer,
+                     const DeviceBuffer& hit_buffer)
+{
+    const VkDeviceSize ray_bytes = ray_buffer.bytes;
+    const VkDeviceSize hit_bytes = hit_buffer.bytes;
+    const VkWriteDescriptorSetAccelerationStructureKHR structure{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+        .pNext = nullptr,
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &frame.tlas.handle};
+    const VkDescriptorBufferInfo ray_info{.buffer = ray_buffer.buffer, .offset = 0, .range = ray_bytes};
+    const VkDescriptorBufferInfo hit_info{.buffer = hit_buffer.buffer, .offset = 0, .range = hit_bytes};
+    const VkDescriptorBufferInfo geometry_info{.buffer = frame.geometry.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+    const std::array<VkWriteDescriptorSet, 4> writes{{
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+         .pNext = &structure,
+         .dstSet = made.probe.set,
+         .dstBinding = 0,
+         .dstArrayElement = 0,
+         .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+         .pImageInfo = nullptr,
+         .pBufferInfo = nullptr,
+         .pTexelBufferView = nullptr},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+         .pNext = nullptr,
+         .dstSet = made.probe.set,
+         .dstBinding = 1,
+         .dstArrayElement = 0,
+         .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .pImageInfo = nullptr,
+         .pBufferInfo = &ray_info,
+         .pTexelBufferView = nullptr},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+         .pNext = nullptr,
+         .dstSet = made.probe.set,
+         .dstBinding = 2,
+         .dstArrayElement = 0,
+         .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .pImageInfo = nullptr,
+         .pBufferInfo = &hit_info,
+         .pTexelBufferView = nullptr},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+         .pNext = nullptr,
+         .dstSet = made.probe.set,
+         .dstBinding = 3,
+         .dstArrayElement = 0,
+         .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .pImageInfo = nullptr,
+         .pBufferInfo = &geometry_info,
+         .pTexelBufferView = nullptr},
+    }};
+    vkUpdateDescriptorSets(made.device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+}
+
+// The probe's dispatch of `count` rays recorded (its set written first): after the host's writes and the TLAS's build
+// (recorded before it - in the frame's stream, for probe_later), its hits made visible to the host.
+void record_probe(Backend& state, const Scene& made, VkCommandBuffer commands, uint32_t count)
+{
+    const VkDescriptorSet material_set = state.materials.descriptor_set();
+    barrier(commands, VK_PIPELINE_STAGE_HOST_BIT | kBuildStage,
+            VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.probe.pipeline);
+    const std::array<VkDescriptorSet, 2> sets{made.probe.set, material_set};
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.probe.pipeline_layout, 0,
+                            static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
+    vkCmdPushConstants(commands, made.probe.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(count),
+                       &count);
+    vkCmdDispatch(commands, (count + kProbeGroup - 1) / kProbeGroup, 1, 1);
+    barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_HOST_BIT,
+            VK_ACCESS_HOST_READ_BIT);
+}
+
+// The hits read back from the probe's buffer.
+void read_hits(Backend& state, const DeviceBuffer& hit_buffer, std::size_t count, std::vector<TracedHit>* hits)
+{
+    vmaInvalidateAllocation(state.memory.allocator(), hit_buffer.allocation, 0, VK_WHOLE_SIZE);
+    std::vector<PackedHit> packed(count);
+    std::memcpy(packed.data(), hit_buffer.mapped, count * sizeof(PackedHit));
+    hits->clear();
+    hits->reserve(packed.size());
+    for (const PackedHit& each : packed) {
+        hits->push_back({.hit = (each.flags & kProbeHitFlag) != 0,
+                         .t = each.t,
+                         .instance = each.instance,
+                         .custom_index = each.custom_index,
+                         .primitive = each.primitive,
+                         .barycentrics = each.barycentrics,
+                         .front_face = (each.flags & kProbeFrontFlag) != 0});
+    }
+}
+
+// A probe's request as the pass's ray (its direction made a unit one: distances in the request's units).
+TracedRay traced_of(const rt::ProbeRequest& ray)
+{
+    const std::array<float, 3>& way = ray.direction;
+    const float length = std::sqrt((std::get<0>(way) * std::get<0>(way)) + (std::get<1>(way) * std::get<1>(way)) +
+                                   (std::get<2>(way) * std::get<2>(way)));
+    // (a ray of no length: traced to nothing - t_max 0)
+    const float scale = length > 0.0F ? 1.0F / length : 0.0F;
+    return {.origin = ray.origin,
+            .direction = {std::get<0>(way) * scale, std::get<1>(way) * scale,
+                          length > 0.0F ? std::get<2>(way) * scale : 1.0F},
+            .t_min = 0.0F,
+            .t_max = length > 0.0F ? ray.max_distance : 0.0F,
+            .cull_mask = ray.cull_mask & rt::kAllMasks,
+            .cutouts = ray.cutouts};
+}
+
+// A hit as the probe's answer (`meshes`: the traced TLAS's instances' meshes).
+rt::ProbeResult result_of(const TracedHit& hit, std::span<const rt::MeshId> meshes)
+{
+    rt::ProbeResult result;
+    result.traced = true;
+    result.hit = hit.hit;
+    if (hit.hit) {
+        result.distance = hit.t;
+        result.instance = hit.instance;
+        result.material = hit.custom_index;
+        result.primitive = hit.primitive;
+        if (hit.instance < meshes.size()) {
+            result.mesh = core::at(meshes, hit.instance);
+        }
+    }
+    return result;
+}
+
 void VulkanRayTracing::probe_many(std::span<const rt::ProbeRequest> rays, std::vector<rt::ProbeResult>* results)
 {
     constexpr std::size_t kBatch = std::size_t{1} << 20; // rays a dispatch (its buffers: about 80 MB)
@@ -1689,19 +1877,7 @@ void VulkanRayTracing::probe_many(std::span<const rt::ProbeRequest> rays, std::v
         const std::size_t count = std::min(kBatch, rays.size() - first);
         traced.assign(count, TracedRay{});
         for (std::size_t i = 0; i < count; ++i) {
-            const rt::ProbeRequest& ray = core::at(rays, first + i);
-            const std::array<float, 3>& way = ray.direction;
-            const float length = std::sqrt((std::get<0>(way) * std::get<0>(way)) +
-                                            (std::get<1>(way) * std::get<1>(way)) + (std::get<2>(way) * std::get<2>(way)));
-            // (a ray of no length: traced to nothing - t_max 0)
-            const float scale = length > 0.0F ? 1.0F / length : 0.0F;
-            core::at(traced, i) = {.origin = ray.origin,
-                                   .direction = {std::get<0>(way) * scale, std::get<1>(way) * scale,
-                                                 length > 0.0F ? std::get<2>(way) * scale : 1.0F},
-                                   .t_min = 0.0F,
-                                   .t_max = length > 0.0F ? ray.max_distance : 0.0F,
-                                   .cull_mask = ray.cull_mask & rt::kAllMasks,
-                                   .cutouts = ray.cutouts};
+            core::at(traced, i) = traced_of(core::at(rays, first + i));
         }
         if (trace_rays_now(traced, &hits) != TraceResult::kTraced || hits.size() != count) {
             return;
@@ -1709,20 +1885,80 @@ void VulkanRayTracing::probe_many(std::span<const rt::ProbeRequest> rays, std::v
         const std::scoped_lock lock(backend().mutex);
         const FrameScene& frame = core::at(scene().frames, scene().current);
         for (std::size_t i = 0; i < count; ++i) {
-            const TracedHit& hit = core::at(hits, i);
-            rt::ProbeResult& result = core::at(*results, first + i);
-            result.traced = true;
-            result.hit = hit.hit;
-            if (hit.hit) {
-                result.distance = hit.t;
-                result.instance = hit.instance;
-                result.material = hit.custom_index;
-                result.primitive = hit.primitive;
-                if (hit.instance < frame.meshes.size()) {
-                    result.mesh = core::at(frame.meshes, hit.instance);
-                }
-            }
+            core::at(*results, first + i) = result_of(core::at(hits, i), frame.meshes);
         }
+    }
+}
+
+// (added for the relit mode's moving light) The rays recorded into the frame's stream after its TLAS's build - no wait:
+// answered by probe_ready once the device has done the frame.
+uint64_t VulkanRayTracing::probe_later(std::span<const rt::ProbeRequest> rays)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    Scene& made = scene();
+    constexpr std::size_t kMostRays = std::size_t{1} << 20; // (probe_many's batch)
+    if (!made.installed || !made.any_built || !state.draws_made || rays.empty() || rays.size() > kMostRays ||
+        !made.later.empty()) {
+        return 0;
+    }
+    const FrameScene& frame = core::at(made.frames, made.current);
+    if (!frame.built || !make_probe_pass(made, state)) {
+        return 0;
+    }
+    std::vector<TracedRay> traced(rays.size());
+    for (std::size_t i = 0; i < rays.size(); ++i) {
+        core::at(traced, i) = traced_of(core::at(rays, i));
+    }
+    DeviceBuffer ray_buffer;
+    LaterProbe probe{.ticket = made.next_ticket++, .serial = 0, .hits = {}, .count = rays.size(), .meshes = frame.meshes};
+    if (!make_probe_buffers(state, traced, &ray_buffer, &probe.hits)) {
+        return 0;
+    }
+    write_probe_set(made, frame, ray_buffer, probe.hits);
+    record_probe(state, made, outside_pass(state), static_cast<uint32_t>(rays.size()));
+    probe.serial = state.frames.serial();
+    state.frames.retire(ray_buffer); // (destroyed once the frame is done)
+    const uint64_t ticket = probe.ticket;
+    made.later.push_back(std::move(probe));
+    return ticket;
+}
+
+bool VulkanRayTracing::probe_ready(uint64_t ticket, std::vector<rt::ProbeResult>* results)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    Scene& made = scene();
+    results->clear();
+    const auto found =
+        std::ranges::find_if(made.later, [ticket](const LaterProbe& each) { return each.ticket == ticket; });
+    if (found == made.later.end()) {
+        return true; // (lost: the scene released)
+    }
+    if (state.frames.completed() < found->serial) {
+        return false;
+    }
+    std::vector<TracedHit> hits;
+    read_hits(state, found->hits, found->count, &hits);
+    results->reserve(hits.size());
+    for (const TracedHit& hit : hits) {
+        results->push_back(result_of(hit, found->meshes));
+    }
+    state.memory.destroy_buffer(&found->hits);
+    made.later.erase(found);
+    return true;
+}
+
+void VulkanRayTracing::probe_forget(uint64_t ticket)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    Scene& made = scene();
+    const auto found =
+        std::ranges::find_if(made.later, [ticket](const LaterProbe& each) { return each.ticket == ticket; });
+    if (found != made.later.end()) {
+        state.frames.retire(found->hits); // (its dispatch may be still to run: destroyed once this frame is done)
+        made.later.erase(found);
     }
 }
 
@@ -1866,6 +2102,10 @@ void release_ray_tracing(Backend& state)
         destroy_now(state, made, &each);
     }
     made.retiring.clear();
+    for (LaterProbe& each : made.later) { // (added for probe_later: the device is idle here)
+        state.memory.destroy_buffer(&each.hits);
+    }
+    made.later.clear();
     destroy_probe_pass(made);
     if (made.queries != VK_NULL_HANDLE) {
         vkDestroyQueryPool(made.device, made.queries, nullptr);
@@ -1906,111 +2146,15 @@ TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHi
     const FrameScene& frame = core::at(made.frames, made.current);
     DeviceBuffer ray_buffer;
     DeviceBuffer hit_buffer;
-    const VkDeviceSize ray_bytes = rays.size() * sizeof(PackedRay);
-    const VkDeviceSize hit_bytes = rays.size() * sizeof(PackedHit);
-    if (!state.memory.create_buffer(ray_bytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kUpload, &ray_buffer) ||
-        !state.memory.create_buffer(hit_bytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kReadBack,
-                                    &hit_buffer) ||
-        ray_buffer.mapped == nullptr || hit_buffer.mapped == nullptr) {
-        state.memory.destroy_buffer(&ray_buffer);
-        state.memory.destroy_buffer(&hit_buffer);
+    if (!make_probe_buffers(state, rays, &ray_buffer, &hit_buffer)) {
         return TraceResult::kFailed;
     }
-    {
-        std::vector<PackedRay> packed(rays.size());
-        for (std::size_t i = 0; i < rays.size(); ++i) {
-            const TracedRay& ray = core::at(rays, i);
-            core::at(packed, i) = {.origin_t_min = {std::get<0>(ray.origin), std::get<1>(ray.origin),
-                                                    std::get<2>(ray.origin), ray.t_min},
-                                   .direction_t_max = {std::get<0>(ray.direction), std::get<1>(ray.direction),
-                                                       std::get<2>(ray.direction), ray.t_max},
-                                   .cull_mask = {ray.cull_mask, ray.cutouts ? 1U : 0U, 0, 0}};
-        }
-        std::memcpy(ray_buffer.mapped, packed.data(), ray_bytes);
-        state.memory.flush(ray_buffer, 0, ray_bytes);
-    }
-    const VkWriteDescriptorSetAccelerationStructureKHR structure{
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-        .pNext = nullptr,
-        .accelerationStructureCount = 1,
-        .pAccelerationStructures = &frame.tlas.handle};
-    const VkDescriptorBufferInfo ray_info{.buffer = ray_buffer.buffer, .offset = 0, .range = ray_bytes};
-    const VkDescriptorBufferInfo hit_info{.buffer = hit_buffer.buffer, .offset = 0, .range = hit_bytes};
-    const VkDescriptorBufferInfo geometry_info{.buffer = frame.geometry.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
-    const std::array<VkWriteDescriptorSet, 4> writes{{
-        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-         .pNext = &structure,
-         .dstSet = made.probe.set,
-         .dstBinding = 0,
-         .dstArrayElement = 0,
-         .descriptorCount = 1,
-         .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-         .pImageInfo = nullptr,
-         .pBufferInfo = nullptr,
-         .pTexelBufferView = nullptr},
-        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-         .pNext = nullptr,
-         .dstSet = made.probe.set,
-         .dstBinding = 1,
-         .dstArrayElement = 0,
-         .descriptorCount = 1,
-         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-         .pImageInfo = nullptr,
-         .pBufferInfo = &ray_info,
-         .pTexelBufferView = nullptr},
-        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-         .pNext = nullptr,
-         .dstSet = made.probe.set,
-         .dstBinding = 2,
-         .dstArrayElement = 0,
-         .descriptorCount = 1,
-         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-         .pImageInfo = nullptr,
-         .pBufferInfo = &hit_info,
-         .pTexelBufferView = nullptr},
-        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-         .pNext = nullptr,
-         .dstSet = made.probe.set,
-         .dstBinding = 3,
-         .dstArrayElement = 0,
-         .descriptorCount = 1,
-         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-         .pImageInfo = nullptr,
-         .pBufferInfo = &geometry_info,
-         .pTexelBufferView = nullptr},
-    }};
-    vkUpdateDescriptorSets(made.device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
-    const VkDescriptorSet material_set = state.materials.descriptor_set();
     const auto count = static_cast<uint32_t>(rays.size());
-    const bool ran = state.memory.submit_now([&](VkCommandBuffer commands) {
-        barrier(commands, VK_PIPELINE_STAGE_HOST_BIT | kBuildStage,
-                VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.probe.pipeline);
-        const std::array<VkDescriptorSet, 2> sets{made.probe.set, material_set};
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.probe.pipeline_layout, 0,
-                                static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
-        vkCmdPushConstants(commands, made.probe.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(count),
-                           &count);
-        vkCmdDispatch(commands, (count + kProbeGroup - 1) / kProbeGroup, 1, 1);
-        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_HOST_BIT,
-                VK_ACCESS_HOST_READ_BIT);
-    });
+    write_probe_set(made, frame, ray_buffer, hit_buffer);
+    const bool ran =
+        state.memory.submit_now([&](VkCommandBuffer commands) { record_probe(state, made, commands, count); });
     if (ran) {
-        vmaInvalidateAllocation(state.memory.allocator(), hit_buffer.allocation, 0, VK_WHOLE_SIZE);
-        std::vector<PackedHit> packed(rays.size());
-        std::memcpy(packed.data(), hit_buffer.mapped, hit_bytes);
-        hits->reserve(packed.size());
-        for (const PackedHit& each : packed) {
-            hits->push_back({.hit = (each.flags & kProbeHitFlag) != 0,
-                             .t = each.t,
-                             .instance = each.instance,
-                             .custom_index = each.custom_index,
-                             .primitive = each.primitive,
-                             .barycentrics = each.barycentrics,
-                             .front_face = (each.flags & kProbeFrontFlag) != 0});
-        }
+        read_hits(state, hit_buffer, rays.size(), hits);
     }
     state.memory.destroy_buffer(&ray_buffer);
     state.memory.destroy_buffer(&hit_buffer);

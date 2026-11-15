@@ -168,6 +168,11 @@ struct SceneStats {
     uint64_t builds = 0;          // BLAS builds recorded, ever
     uint64_t refits = 0;          // updates recorded, ever
     uint64_t tlas_builds = 0;
+    // why the builds were asked for, ever: a mesh registered (or registered again), its geometry replaced
+    // (update_mesh with other triangles), a static mesh's vertices rewritten (mesh_changed - never a colour-only write)
+    uint64_t asked_new = 0;
+    uint64_t asked_geometry = 0;
+    uint64_t asked_written = 0;
     uint32_t last_instances = 0;  // in the last TLAS
     uint32_t retired_pending = 0; // structures and buffers waiting for their submissions
 };

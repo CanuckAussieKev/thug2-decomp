@@ -22,6 +22,7 @@
 #include "render_pc/sub_mesh.h"
 #include "render_pc/mesh_list.h"
 #include "render_pc/pc_scene.h"
+#include "render_pc/rt_record.h"
 #include "engine/gfx/model.h"
 #include "base/core/ints.h"
 #include "engine/memory/arena_alloc.h"
@@ -778,6 +779,10 @@ void PcGeom::change_colors(std::span<const uint32_t> in)
     if (!meshes_) {
         return;
     }
+    // (not original: ray tracing's record - the colours alone written, the positions as they were: no BLAS built
+    // again; the relit mode told, its buffers' colours being the game's to change. The scene lights recolour most of a
+    // level's meshes at each change of the time of day: every one of their BLASes was built again)
+    const rt_record::ColourWrite colours_only(rt_record::ColourWrite::Relit::kTell);
     size_t in_at = 0;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = core::at(mesh_run(), i);

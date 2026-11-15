@@ -16,9 +16,15 @@
 // - Meshes shown later (a level's scripts show and hide its parts) are taken apart when they first stand in a still
 //   world, with the level's model as it is.
 // - When the sun moves (rt_scene.h scene_sun: the console's `rt sun`, rt_sun_source=game or x,y,z) each mesh's sun
-//   rays are traced again -
-//   at most kRelitRetraceVertices vertices a frame, the meshes rewritten as they are done -, then its sky rays, for
-//   the bounce of the new light (the hits' colours the relit ones; kRelitBounceVertices vertices a frame).
+//   rays are traced again and its colours written - a relight. One relight at a time (the rule that keeps a moving
+//   light's cost bounded): a new light is taken only once the relight toward the last one is done (every mesh traced
+//   and written, the light field made); a light that moves meanwhile - the time of day's running clock - waits, and
+//   the newest is taken next. The bounce (its sky rays, the hits' colours the relit ones) changes slowly as the sun
+//   moves: it is traced again as a pass of its own, once the sun is 5 degrees from the one it was traced for, and the
+//   colours written again when the pass is done. The work a frame is paced by time (about 1.5 ms each of the sun's
+//   rays, the bounce's and the writes while the level is shown; the most - kRelitRetraceVertices... - while the
+//   loading screen holds the first light), and the rays are asked of the device inside the frame and answered a frame
+//   or two later (rt::RayTracing::probe_later): the frame never waits for the device.
 // - The analysis is kept on disk: thug2-decomp-relit\<the level's scene checksum>.bin beside the exe, each mesh by a
 //   hash of its vertices and indices (and the settings that change the results): a mesh found there isn't traced
 //   again, so a level's second load costs only the fit of its sun (rt_sun.h) and the writes.

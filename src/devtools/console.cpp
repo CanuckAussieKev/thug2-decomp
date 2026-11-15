@@ -22,6 +22,9 @@
 #include "devtools/demo.h"
 #include "devtools/demo_viewer.h"
 #include "engine/ext/extension.h"
+#include "engine/config/ini_text.h"
+#include "engine/file/disk_files.h"
+#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/texture_sets.h"
 #include "engine/objects/entity.h"
 #include "engine/pad_input/input_event.h"
@@ -388,6 +391,32 @@ ConsoleExtension& the_extension()
     return console;
 }
 
+// `set <key> <value>`: a [Graphics] key written to thug2-decomp.ini and put to use the way the Options screen does it
+// (graphics_options::reload_live) - for tests that change settings while the game runs (the automation channel's
+// `console set tod dusk`).
+std::string set_graphics_key(const std::string& rest)
+{
+    std::istringstream words(rest);
+    std::string key;
+    std::string value;
+    words >> key >> value;
+    if (key.empty() || value.empty()) {
+        return "set <key> <value>";
+    }
+    const std::string path = game_folder_path(build_info::kFileName);
+    std::string text;
+    if (!fs::read_text(path, &text)) {
+        return "set: couldn't read " + path;
+    }
+    const fs::Written written = fs::write_text(path, config::ini_set(text, {.section = "Graphics", .key = key}, value));
+    if (!written.written || !written.closed) {
+        return "set: couldn't write " + path;
+    }
+    get_log("console: [Graphics] %s=%s written to %s", key.c_str(), value.c_str(), path.c_str());
+    const bool live = render::graphics_options::reload_live(key.c_str());
+    return "[Graphics] " + key + "=" + value + (live ? " - put to use" : " - at the next start");
+}
+
 } // namespace
 
 bool is_switched_on() { return switched(); }
@@ -444,6 +473,9 @@ std::string run_command(const std::string& line)
     }
     if (command == "textures") {
         return render::texture_sets::console_command(rest);
+    }
+    if (command == "set") {
+        return set_graphics_key(rest);
     }
     return "unknown command: " + command + " (help lists them)";
 }
