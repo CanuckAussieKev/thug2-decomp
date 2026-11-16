@@ -1,6 +1,7 @@
 // CScript's life: construction and destruction, the pooled new / delete, stopping (reset_script_state), setting the
 // script to run. See qb_script.h for the class and docs/script-runtime.md.
 
+#include "engine/script/trace_hooks.h"
 #include "script_qb/qb_script.h"
 #include "engine/script/cscript.h"
 
@@ -263,6 +264,8 @@ void QbScript::bind_script(uint32_t name, const uint8_t* code, Struct* params, o
         report_stopped();
         return;
     }
+    trace_hooks::note_command(this, trace_hooks::CommandKind::kStart, name, object ? object->ident() : 0,
+                              copy ? copy : params); // NOT ORIGINAL (trace_hooks.h)
     // The first line: the script's default parameters.
     pc_ = parse_arguments(args_.get(), tokens_at(pc_), nullptr).address();
     if (copy) {

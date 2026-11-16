@@ -30,6 +30,7 @@ constexpr int kAddStep = 0x10101010;
 constexpr int kSampleMask = 0xFFFF; // a stream's sample is its low 16 bits
 constexpr int kSampleBits = 16;
 constexpr float kSpreadScale = 0.0002F; // 1 / 5000: the centred sample's range to +/-1
+constexpr int kSpreadSamples = 10000;   // signed_spread's sample range
 
 // Advance a stream and return its new 16-bit sample.
 uint32_t get_next(RandomState& state)
@@ -55,11 +56,35 @@ void seed_random(uint32_t seed)
     stream2() = {.add = kInitialAdd, .mul = kInitialMul, .value = seed};
 }
 
+namespace {
+DrawListener& draw_listener()
+{
+    static DrawListener listener = nullptr;
+    return listener;
+}
+} // namespace
+
+void set_draw_listener(DrawListener listener) { draw_listener() = listener; }
+
 // 0x00403DE0
-int rnd(int limit) { return scale_tool(get_next(stream1()), limit); }
+int rnd(int limit)
+{
+    const int result = scale_tool(get_next(stream1()), limit);
+    if (const DrawListener listener = draw_listener()) { // NOT ORIGINAL (random.h)
+        listener(0, limit, result);
+    }
+    return result;
+}
 
 // 0x00403E30
-int roll_side_stream(int limit) { return scale_tool(get_next(stream2()), limit); }
+int roll_side_stream(int limit)
+{
+    const int result = scale_tool(get_next(stream2()), limit);
+    if (const DrawListener listener = draw_listener()) { // NOT ORIGINAL (random.h)
+        listener(1, limit, result);
+    }
+    return result;
+}
 
 // 0x00403E80
 float signed_spread(float range) { return static_cast<float>(plus_or_minus_exact(range)); }
@@ -68,7 +93,11 @@ float signed_spread(float range) { return static_cast<float>(plus_or_minus_exact
 double plus_or_minus_exact(float range)
 {
     // A sample in [0, 10000), centred on 0 and scaled so that +/-5000 maps to +/-range.
-    const double centred = static_cast<double>(scale_tool(get_next(stream1()), 10000)) - 5000.0F;
+    const int sample = scale_tool(get_next(stream1()), kSpreadSamples);
+    if (const DrawListener listener = draw_listener()) { // NOT ORIGINAL (random.h)
+        listener(0, kSpreadSamples, sample);
+    }
+    const double centred = static_cast<double>(sample) - 5000.0F;
     return centred * range * kSpreadScale;
 }
 

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -18,6 +19,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -39,6 +41,7 @@
 #include "devtools/skater_loan.h"
 #include "engine/gfx/render_device.h"
 #include "engine/media/video_writer.h"
+#include "engine/script/cell.h"
 #include "engine/script/context.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
@@ -55,6 +58,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/script/token_reader.h"
+#include "engine/script/trace_hooks.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/mlp.h"
 #include "engine/sys/stopwatch.h"
@@ -144,6 +148,7 @@ struct State {
     std::string track;
     // the simulation's exact state at each check point (state_line: hashes of its bits - tools/game/sim_check.ts)
     std::string states;
+    bool trace = false; // -demo-trace: the simulation trace written beside the state (trace_start)
     bool random_matched = true;
     bool up_matched = true;
     // the camera drawn this frame (viewport 0)
@@ -630,6 +635,210 @@ std::string state_line(uint32_t frame)
                         frame_clock::get_time());
 }
 
+// The simulation trace (-demo-trace, docs/design/simulation-rate.md "The trace"): from the level's load to the
+// playback's end, every command a script runs (script_qb's statements and expressions, QB's and TypeScript's alike:
+// engine/script/trace_hooks.h) with its arguments, every random draw with the script running then, and at each check
+// point every moving object's own hash - two runs of a demo diffed line by line show the first command, draw or object
+// that parts them. Written as <demo>.play.trace.txt.
+constexpr int kTraceDepth = 4;     // structures nested deeper are written as {...}
+constexpr size_t kTraceArgs = 400; // characters of a command's arguments written at most
+
+std::string& trace_text()
+{
+    static core::NoDestroy<std::string> text;
+    return text.get();
+}
+
+void trace_value(std::string& out, script::QbValueKind kind, const script::Cell& cell, int depth);
+void trace_struct(std::string& out, script::Struct* structure, int depth)
+{
+    out += '{';
+    if (depth > kTraceDepth) {
+        out += "...}";
+        return;
+    }
+    bool first = true;
+    for (script::Component* component = structure ? structure->step_to_entry(nullptr) : nullptr; component;
+         component = structure->step_to_entry(component)) {
+        if (!first) {
+            out += ' ';
+        }
+        first = false;
+        if (component->name != 0U) {
+            out += text::format("%08x=", component->name);
+        }
+        trace_value(out, script::value_kind(*component), component->value, depth + 1);
+    }
+    out += '}';
+}
+
+void trace_value(std::string& out, script::QbValueKind kind, const script::Cell& cell, int depth)
+{
+    using script::QbValueKind;
+    switch (kind) {
+    case QbValueKind::kInteger:
+        out += text::format("%d", cell.integer());
+        break;
+    case QbValueKind::kFloat:
+        out += text::format("%.9gf", static_cast<double>(cell.real()));
+        break;
+    case QbValueKind::kName:
+        out += text::format("#%08x", cell.low_word());
+        break;
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
+        out += '"';
+        out += cell.text() != nullptr ? cell.text() : "";
+        out += '"';
+        break;
+    case QbValueKind::kPair:
+        if (const script::Pair* pair = cell.pair()) {
+            out += text::format("(%.9g,%.9g)", static_cast<double>(pair->x()), static_cast<double>(pair->y()));
+        }
+        break;
+    case QbValueKind::kVector:
+        if (const script::Vector* vector = cell.vector()) {
+            out += text::format("(%.9g,%.9g,%.9g)", static_cast<double>(vector->x()), static_cast<double>(vector->y()),
+                                static_cast<double>(vector->z()));
+        }
+        break;
+    case QbValueKind::kStruct:
+    case QbValueKind::kStructRef:
+        trace_struct(out, cell.structure(), depth);
+        break;
+    case QbValueKind::kArray:
+    case QbValueKind::kArrayRef:
+        if (script::Array* array = cell.array()) {
+            out += text::format("[%u]", array->extent());
+        }
+        break;
+    default:
+        out += text::format("<kind %d>", static_cast<int>(kind));
+        break;
+    }
+}
+
+// "<frame> <script>@<its object>/<call depth>" - the script record and where it is.
+std::string trace_who(const script::Script* script)
+{
+    if (script == nullptr) {
+        return text::format("%u -", state().frame);
+    }
+    const objects::Entity* object = script->entity().get_pull();
+    return text::format("%u %08x@%08X/%d", state().frame, script->script_title(),
+                        object != nullptr ? object->ident() : 0U, script->call_depth());
+}
+
+// The code that drew: its callers' places in the exe (module offsets - tools/symbolize.ts names them).
+std::string trace_callers()
+{
+    constexpr ULONG kSkipped = 3; // (this, trace_draw, the generator)
+    constexpr ULONG kCallers = 6;
+    std::array<void*, kCallers> frames{};
+    const USHORT count = RtlCaptureStackBackTrace(kSkipped, kCallers, frames.data(), nullptr);
+    const auto base = std::bit_cast<uintptr_t>(GetModuleHandleW(nullptr));
+    std::string out = " at";
+    for (USHORT i = 0; i < count; ++i) {
+        out += text::format(" %llx", static_cast<unsigned long long>(std::bit_cast<uintptr_t>(core::at(frames, i)) - base));
+    }
+    return out;
+}
+
+// A C function's name as the trace writes it: one name per function (a function may have several symbols - a
+// statement's C function reaches the trace by its function, a TypeScript call by the name it was called by).
+uint32_t trace_name(uint32_t name)
+{
+    static core::NoDestroy<std::unordered_map<script::NativeFunction, uint32_t>> names;
+    const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
+    if (symbol == nullptr || symbol->type() != script::QbValueKind::kNativeFunc) {
+        return name;
+    }
+    if (names.get().empty()) {
+        for (script::SymbolTableEntry* each = script::get_next_symbol(nullptr); each != nullptr;
+             each = script::get_next_symbol(each)) {
+            if (each->type() == script::QbValueKind::kNativeFunc) {
+                const auto [at, added] = names.get().emplace(each->value().function(), each->name_value());
+                if (!added && each->name_value() < at->second) {
+                    at->second = each->name_value(); // (the smallest: the same whatever the table's order)
+                }
+            }
+        }
+    }
+    const auto found = names.get().find(symbol->value().function());
+    return found != names.get().end() ? found->second : name;
+}
+
+void trace_command(const script::Script* script, script::trace_hooks::CommandKind kind, uint32_t name, uint32_t object,
+                   script::Struct* args)
+{
+    name = trace_name(name);
+    std::string line = trace_who(script);
+    const char* what = " cmd ";
+    if (kind == script::trace_hooks::CommandKind::kExpression) {
+        what = " fn ";
+    } else if (kind == script::trace_hooks::CommandKind::kStart) {
+        what = " start ";
+    }
+    line += what;
+    if (object != 0U) {
+        line += text::format("%08X:", object);
+    }
+    line += text::format("%08x ", name);
+    std::string arguments;
+    trace_struct(arguments, args, 0);
+    if (arguments.size() > kTraceArgs) {
+        arguments.resize(kTraceArgs);
+        arguments += "...";
+    }
+    line += arguments;
+    if (kind == script::trace_hooks::CommandKind::kStart) {
+        line += trace_callers();
+    }
+    line += '\n';
+    trace_text() += line;
+}
+
+void trace_draw(int stream, int limit, int result)
+{
+    trace_text() += trace_who(script::get_running_script()) + text::format(" rnd%d %d -> %d", stream, limit, result) +
+                    trace_callers() + "\n";
+}
+
+void trace_object(objects::Entity* object, void* /*data*/)
+{
+    auto* entity = core::down_cast<objects::GameEntity>(object);
+    if (entity->fetch_module(objects::KinematicsModule::kType) == nullptr &&
+        entity->fetch_module(objects::BodyDynamicsModule::kType) == nullptr) {
+        return;
+    }
+    uint64_t hash = kFnvOffset;
+    hash_entity(&hash, entity);
+    const maths::Vec4& at = entity->at_point();
+    trace_text() += text::format("%u object %08X %016llX (%.9g, %.9g, %.9g)\n", state().frame, entity->ident(),
+                                 static_cast<unsigned long long>(hash), static_cast<double>(at[0]),
+                                 static_cast<double>(at[1]), static_cast<double>(at[2]));
+}
+
+void trace_start()
+{
+    trace_text() = "# the simulation trace: frame, script@object/depth, what it did (devtools/demo.cpp)\n";
+    script::trace_hooks::hooks().command = trace_command;
+    maths::set_draw_listener(trace_draw);
+}
+
+void trace_check_point()
+{
+    if (objects::EntityHub* hub = objects::object_hub_slot().get()) {
+        hub->for_each(trace_object, nullptr);
+    }
+}
+
+void trace_stop()
+{
+    script::trace_hooks::hooks().command = nullptr;
+    maths::set_draw_listener(nullptr);
+}
+
 std::string json_text(const std::string& value)
 {
     std::string out = "\"";
@@ -1005,6 +1214,9 @@ void begin_playback(uint32_t load)
         run.video_to = run.demo.frames();
     }
     run.phase = Phase::kPlaying;
+    if (run.trace) {
+        trace_start();
+    }
     get_log("demo: playing %s in %s - %u frames (%.1f s), skater %s, recorded %s", run.name.c_str(),
             run.demo.level.c_str(), run.demo.frames(), static_cast<double>(run.demo.frames()) / kFramesPerSecond,
             run.demo.skater.c_str(), run.demo.created.c_str());
@@ -1047,6 +1259,9 @@ void report_run(bool ended)
     const std::string base = output_base();
     fs::write_text(base + "track.txt", run.track);
     fs::write_text(base + "state.txt", run.states);
+    if (run.trace) {
+        fs::write_text(base + "trace.txt", trace_text());
+    }
     const std::string json = text::format(
         "{\n  \"demo\": %s,\n  \"level\": %s,\n  \"frames\": %u,\n  \"up_frame\": %u,\n  \"ended\": %s,\n"
         "  \"compared\": %u,\n  \"first_divergence_frame\": %lld,\n  \"first_skater_distance\": %.4f,\n"
@@ -1077,6 +1292,9 @@ void finish_playback(bool ended)
     run.counting = false;
     if (!(run.viewer && run.reported && !ended)) {
         report_run(ended);
+    }
+    if (run.trace) {
+        trace_stop();
     }
     end_video(ended);
     if (run.viewer) {
@@ -1312,6 +1530,9 @@ void playback_frame_end(uint32_t now, bool rendering)
         const CheckPoint point = point_now(now);
         run.track += demo_format::check_line(point) + "\n";
         run.states += state_line(now);
+        if (run.trace) {
+            trace_check_point();
+        }
         if (const CheckPoint* recorded = run.demo.check_at(now)) {
             const bool was_same = run.drift.first_frame < 0;
             demo_format::add_to_drift(&run.drift, *recorded, point, kTolerance);
@@ -1473,6 +1694,7 @@ void prepare_all()
         // (a tool's run: nothing the player does stops it, and the game quits at its end)
         run.takeover = run.capture.empty() && run.video.empty();
         run.quit_at_end = line.find("-demo-quit") != std::string::npos || !run.video.empty();
+        run.trace = line.find("-demo-trace") != std::string::npos;
         // (-viewer: in the demo viewer - with -demo-video, its camera path saved as that video, then the game quits)
         run.viewer = line.find("-viewer") != std::string::npos && run.capture.empty();
         if (run.viewer) {

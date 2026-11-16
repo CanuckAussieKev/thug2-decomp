@@ -39,6 +39,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include <unordered_map>
 
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
@@ -56,6 +57,7 @@
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
 #include "engine/script/tokens.h"
+#include "engine/script/trace_hooks.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/loading_console.h"
 #include "platform/run_log.h"
@@ -79,6 +81,22 @@ constexpr size_t kLoopFrameCount = 10;
 // Steps in one Update after which a script that never yields is logged; scripts logged at most this many.
 constexpr uint32_t kRunawayStepCount = 5000000U;
 constexpr int kLoggedScriptCount = 16;
+
+// NOT ORIGINAL - the trace's name for a statement's C function (prepare_script_tokens turned its name into the
+// function's number): the symbol holding it (trace_hooks.h - only while the trace is on).
+uint32_t native_function_name(NativeFunction function)
+{
+    static std::unordered_map<NativeFunction, uint32_t> names; // (the C functions are all defined at start-up)
+    if (names.empty()) {
+        for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
+            if (symbol->type() == QbValueKind::kNativeFunc) {
+                names.emplace(symbol->value().function(), symbol->name_value());
+            }
+        }
+    }
+    const auto found = names.find(function);
+    return found != names.end() ? found->second : 0;
+}
 
 // The object's and its components' script member functions. The object's: Entity::invoke_method (the original's
 // slot 2) and Entity::invoke_method_by_name (slot 3).
@@ -213,6 +231,7 @@ bool QbScript::execute_command(Tokens& pc)
         const uint32_t name = fetch_word32(pc);
         pc += 4;
         parse_function_params(pc);
+        trace_hooks::note_command(this, trace_hooks::CommandKind::kStatement, name, 0, stmt_args_.get()); // NOT ORIGINAL
         if (const auto stubbed = check::command(this, name, 0, stmt_args_.get())) { // NOT ORIGINAL (script_check.h)
             return *stubbed;
         }
@@ -227,6 +246,8 @@ bool QbScript::execute_command(Tokens& pc)
         const MemberFunctionEntry* entry = member_entry_at(pc);
         pc += 4;
         parse_function_params(pc);
+        trace_hooks::note_command(this, trace_hooks::CommandKind::kStatement, entry->callsign_, 0,
+                                  stmt_args_.get()); // NOT ORIGINAL (trace_hooks.h)
         if (const auto stubbed = check::command(this, entry->callsign_, 0, stmt_args_.get())) { // NOT ORIGINAL
             return *stubbed;
         }
@@ -241,6 +262,10 @@ bool QbScript::execute_command(Tokens& pc)
         const NativeFunction function = native_function_at(pc);
         pc += 4;
         parse_function_params(pc);
+        if (trace_hooks::hooks().command) { // NOT ORIGINAL (trace_hooks.h)
+            trace_hooks::note_command(this, trace_hooks::CommandKind::kStatement, native_function_name(function), 0,
+                                      stmt_args_.get());
+        }
         if (const auto stubbed = check::native_function(this, function, stmt_args_.get())) { // NOT ORIGINAL
             return *stubbed;
         }
@@ -284,6 +309,8 @@ bool QbScript::execute_command(Tokens& pc)
             const uint32_t member = fetch_word32(pc);
             pc += 4;
             parse_function_params(pc);
+            trace_hooks::note_command(this, trace_hooks::CommandKind::kStatement, member, name,
+                                      stmt_args_.get()); // NOT ORIGINAL (trace_hooks.h)
             if (const auto stubbed = check::command(this, member, name, stmt_args_.get())) {
                 return *stubbed;
             }
@@ -327,6 +354,8 @@ bool QbScript::execute_command(Tokens& pc)
 // `function` on `object`, its arguments in stmt_args_.
 bool QbScript::run_command_on(uint32_t function, objects::Entity* object)
 {
+    trace_hooks::note_command(this, trace_hooks::CommandKind::kStatement, function, object ? object->ident() : 0,
+                              stmt_args_.get()); // NOT ORIGINAL (trace_hooks.h)
     const SymbolTableEntry* symbol = resolve_symbol(function);
     if (!symbol && script_title_ == kQuietScriptName) {
         return false;
@@ -355,6 +384,7 @@ bool QbScript::run_command_on(uint32_t function, objects::Entity* object)
 // arguments in stmt_args_.
 bool QbScript::run_command(uint32_t name)
 {
+    trace_hooks::note_command(this, trace_hooks::CommandKind::kStatement, name, 0, stmt_args_.get()); // NOT ORIGINAL
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol) {
         if (script_title_ != kQuietScriptName) {

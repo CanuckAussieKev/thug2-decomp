@@ -26,6 +26,11 @@ constexpr std::size_t kRandomStreamWords = 6;
 using RandomStreams = std::array<uint32_t, kRandomStreamWords>;
 RandomStreams random_streams();
 void set_random_streams(const RandomStreams& streams);
+// NOT ORIGINAL - told every draw (the stream: 0 the first, 1 the second; the limit; the result) while set: the
+// simulation trace (devtools/demo.h -demo-trace). Null (the default): nothing told.
+using DrawListener = void (*)(int stream, int limit, int result);
+void set_draw_listener(DrawListener listener);
+
 // NOT ORIGINAL - both streams as seed_random(seed) would leave them, without touching the game's: streams of one's own
 // (the music's - audio/music_player.cpp).
 RandomStreams seeded_streams(uint32_t seed);

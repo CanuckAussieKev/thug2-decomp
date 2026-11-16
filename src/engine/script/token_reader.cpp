@@ -19,6 +19,7 @@
 #include "base/maths/random.h"
 #include "engine/script/cell.h"
 #include "engine/script/check_hooks.h"
+#include "engine/script/trace_hooks.h"
 #include "engine/script/expression.h"
 #include "engine/script/qb.h"
 #include "engine/script/tokens.h"
@@ -1075,6 +1076,8 @@ Tokens push_name(Tokens cursor, Struct* args, Component& value, bool after_dot)
             // (the byte the function returns, as it is)
             const auto routine = symbol->value().function();
             // NOT ORIGINAL - the script check answers for it (check_hooks.h; never set in the game)
+            trace_hooks::note_command(script, trace_hooks::CommandKind::kExpression, symbol->name_value(), 0,
+                                      params); // NOT ORIGINAL (trace_hooks.h)
             const auto hook = check_hooks::hooks().expression_call;
             const std::optional<bool> stubbed = hook ? hook(symbol->name_value(), params, script) : std::nullopt;
             value.value.set_word(stubbed ? static_cast<uint32_t>(*stubbed)

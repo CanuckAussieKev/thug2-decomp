@@ -29,6 +29,9 @@ class Source;
 //   -demo-video <file.mp4>                      saves it as a video ([demo] video_fps / video_quality / video_codec /
 //                                               video_scale: engine/media/video_writer.h), then the game quits;
 //   -demo-quit                                  quits at the end (without -demo-capture).
+//   -demo-trace                                 writes the simulation trace too: <demo>.play.trace.txt (every script
+//                                               command with its arguments, every random draw, each check point's
+//                                               moving objects - demo.cpp trace_start).
 //   -viewer                                     in the demo viewer (devtools/demo_viewer.h: a timeline, cameras,
 //                                               keyframes, the split comparison); with -demo-video, the viewer's
 //                                               camera path (the demo's .camera.txt) saved as that video, then it quits.
