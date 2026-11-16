@@ -2149,9 +2149,11 @@ goal, so every change produces the physical inputs it reads. Relit data v4:
   (`BakedSun::candidates`: its best, the coarse set's next best `kCandidateApartDegrees` apart, and a low sun's ring) are
   each traced and fitted; the one whose sun improves the fit most (`RelitModel::sun_needed`, the edges' objective without
   the sun over with it - the edges across its traced shadows count only where the bake steps down there too) is the sun,
-  when that gain is at least `kRelitMinSunGain` (1.03: measured over 16 levels, the sunless ones at most 1.015 - NO at
-  night, kyoto, SE (Pro Skater) in the evening -, the sunlit ones from 1.043 - LA, CA, SE2, which the correlation alone
-  missed); its confidence is the share its sun carries of an open surface's light (`relit_sun_share`: a sin e /
+  when that gain is at least `kRelitMinSunGain` (1.01: SE - Pro Skater, evening - 1.006, kyoto 1.008; the outdoor
+  afternoon levels from 1.015 - LA, CA, SE2, which the correlation alone missed, from 1.04) and the level's own data
+  allows one - not a night state (its bake's directional light is the moon's), not roofed (its floors' median traced sky
+  share at least `kRelitIndoorSky` 0.15: with the gain alone the skate shops' and warehouses' lamp pools "found" low suns);
+  its confidence is the share its sun carries of an open surface's light (`relit_sun_share`: a sin e /
   (a sin e + b) - the artists' sun against their ambient, reported). The mean edge error (`relit_edge_error`) is reported,
   not used: it favours the weakest sun.
 - **Lamps by their light** (`solve_relit_lamps`): one intensity per lamp and channel from the bake - y_i (E_j + sum I G_j)

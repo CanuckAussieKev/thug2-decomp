@@ -326,12 +326,17 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // The candidates are told apart by how much their sun improves the fit (RelitModel::sun_needed: the edges' objective
 // without the sun over with it - the edges across the candidate's traced shadows count only where the bake steps down
 // there too, so the right sun keeps the most of them; the mean edge error, relit_edge_error, favours the weakest sun and
-// can't). A sun is in the bake when the best one's fit is at least kRelitMinSunGain times worse without it. Measured
-// over 16 levels (round A2): the sunless ones at most 1.015 (NO, night; kyoto 1.008; SE - Pro Skater, evening - 1.006),
-// the sunlit ones from 1.043 (LA, CA 1.044, SE2 1.050, BO 1.051 ... thps2_chopperdrop 1.289); kRelitMinSunGain between.
+// can't). A sun is in the bake when the best one's fit is at least kRelitMinSunGain times worse without it (measured,
+// round A2: SE - Pro Skater, evening - 1.006, kyoto 1.008, practice 1.000; the outdoor afternoon levels from z_ho's 1.015
+// and fl / vc / thps3_la's 1.026 - 1.029 up to vn's 2.27).
 // Its sun's share of an open surface's light (relit_sun_share) is reported as the confidence: a bake's own a against
 // b - Boston's 0.27, CA's 0.14 (its artists' sun weak), the physical clear sky's 0.6 - 0.85 - is the bake's art, not a test.
-inline constexpr float kRelitMinSunGain = 1.03F;
+inline constexpr float kRelitMinSunGain = 1.01F;
+// ... and only in a level whose own data allows a sun: not a night state (its bake's directional light is the moon's),
+// not roofed - its upward faces' median sky share (their traced K) at least kRelitIndoorSky (the rebake over 98 levels:
+// with the gain alone the skate shops and warehouses - floors seeing 0.00 - 0.05 of the sky - "found" low suns, a term
+// that fits their lamps' pools; the outdoor levels' floors see 0.26 - 0.94).
+inline constexpr float kRelitIndoorSky = 0.15F;
 // (the offline relit data) A lamp as the lamps pass shines it (rt_lights.h Emitter: an emitter found in the level or a
 // point light).
 struct RelitLamp {

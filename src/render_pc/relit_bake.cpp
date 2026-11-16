@@ -160,7 +160,8 @@ std::vector<rt::RelitLamp> level_lamps()
 
 // (lighting round A2) The level's own time's light (its own day from its baked sun and its time-of-day state at load -
 // the same day the clock makes: rt_daylight.h fit_native_day), in the global unit.
-rt::DayLight own_day_light(const rt::BakedSun& sun)
+// The level's own time-of-day state at load (the original's).
+rt::TodState own_state()
 {
     rt::TodState state = rt::TodState::kAfternoon;
     if (const gfx::CtodManager* manager = gfx::tod_manager(); manager != nullptr) {
@@ -170,9 +171,35 @@ rt::DayLight own_day_light(const rt::BakedSun& sun)
                 : own == gfx::kNight   ? rt::TodState::kNight
                                        : rt::TodState::kAfternoon;
     }
+    return state;
+}
+
+rt::DayLight own_day_light(const rt::BakedSun& sun)
+{
     const rt::NativeDay native = rt::fit_native_day(
-        {.sun = sun.toward, .have_sun = sun.found, .from_bake = sun.found, .state = state});
+        {.sun = sun.toward, .have_sun = sun.found, .from_bake = sun.found, .state = own_state()});
     return rt::day_light_at(native, native.hours);
+}
+
+// (round A2) The median share of the sky the level's upward faces see (their traced K): under kRelitIndoorSky the
+// level is roofed - indoors.
+float open_sky(std::span<const rt::RelitVertices> light)
+{
+    constexpr float kUpward = 0.7F;
+    std::vector<float> open;
+    for (const rt::RelitVertices& vertices : light) {
+        for (const rt::RelitVertex& vertex : vertices) {
+            if (vertex.used && rt::y_of(vertex.normal) >= kUpward) {
+                open.push_back(vertex.sky);
+            }
+        }
+    }
+    if (open.empty()) {
+        return 0.0F;
+    }
+    const auto middle = open.begin() + static_cast<std::ptrdiff_t>(open.size() / 2);
+    std::ranges::nth_element(open, middle);
+    return *middle;
 }
 
 void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& tracer)
@@ -300,10 +327,17 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                 }
             }
         }
-        const bool sunless = !(pick.found && pick.gain >= rt::kRelitMinSunGain);
+        // (the level's own data: a night state's bake shows the night - its directional light the moon's, not a sun;
+        // a roofed level's floors see too little of the sky for its bake's sun to be told - daylight reaches it through
+        // its openings, traced, whatever the bake)
+        const float floors_sky = open_sky(light);
+        const bool night = own_state() == rt::TodState::kNight;
+        const bool roofed = floors_sky < rt::kRelitIndoorSky;
+        const bool sunless = night || roofed || !(pick.found && pick.gain >= rt::kRelitMinSunGain);
         get_log("relit bake: the relit fit's sun - %s (the fit %.4f x worse without it, its share %.2f of an open "
-                "surface's light; the sunless model's error %.4f, the sun's %.4f)",
+                "surface's light; the floors see %.2f of the sky%s%s; the sunless model's error %.4f, the sun's %.4f)",
                 sunless ? "none" : "found", static_cast<double>(pick.gain), static_cast<double>(pick.share),
+                static_cast<double>(floors_sky), roofed ? " - roofed" : "", night ? "; a night state" : "",
                 static_cast<double>(sunless_error), static_cast<double>(pick.error));
         data.sun.found = !sunless;
         data.sun.confidence = pick.found ? pick.share : 0.0F;
