@@ -137,7 +137,7 @@ of it shipped; on an unpacked game it switches sets (tools/pipeline/hd_textures/
   is the version the `.qb` would have been - the boot scripts' copies in `qb_scripts` (without the loose files' debug
   prints), a level's `*_scripts` copy once its archive is in, the loose file before. The `.ts`'s last line,
   `// qb-file {...}`, is its manifest (its source name, the hash of the `.qb` it was made from, how many globals it
-  has - in its `.json` -, the file's checksum names); the game turns the `import ... from "qb"` into a read of the
+  has - in its `.json` -, the file's checksum names, its scripts' outlines - "Outlines" below); the game turns the `import ... from "qb"` into a read of the
   runtime, wraps the file as `compile_ts.ts` does - each line where it was - and caches its bytecode
   (`thug2-decomp-ts\cache\ts-<hash>.qbc`). The emitted files have no type syntax; a type annotation added by hand isn't
   stripped in the game yet (a syntax error: the file isn't defined). Its globals: `<name>.json` read the same way, after
@@ -167,6 +167,29 @@ QuickJS (`src/script_qb/cscript_ts.cpp`, `ts_bridge.cpp`):
 
 A JavaScript fault is logged (`ts: <script>: ...`) and ends the level. Where the original hangs - an object-qualified
 call on a missing object - a TypeScript level is logged and told false instead.
+
+### Outlines
+
+Some of the engine reads a script's code without running it: the gap list walks every node's TriggerScript and what it
+calls for EndGap (`engine/script/nodes.cpp for_each_script_call` - each script call's arguments parsed on the way, so a
+Random or RandomRange among them draws from the game's random numbers), the level editor's trigger walks do the same
+for other commands, the editor camera flags scripts by the names they call (`game/world/editor_camera.cpp`). A
+TypeScript script's body was only its token, so these walks found nothing: no gaps listed, and none of the walk's draws -
+the random numbers parted from QB's on the level's first frame, and with them the simulation (2026-11-16, the
+simulation check's demos with `ts_scripts=1`: three of four parted).
+
+So each script keeps its **outline**: its QB statements, as the `.qb` has them after its first line (the default
+parameters), through its endscript. `unpack_game.ts` writes them in the `.ts`'s manifest (`"outlines": {"<name>":
+[base64, ...]}`, a list per name in definition order - `tools/qbjs/outline.ts`, the game's own token walk), the runtime
+hands each to `defineScript` with its script, and the game makes the body `01 4A <id> 01 <outline>`: the interpreter
+runs the TypeScript at the `4A` and never goes past it; every reader of script code steps over the first line and the
+`4A`'s statement and reads exactly the statements the original script has (prepared at load as the `.qb`'s are). With
+them the simulation is the QB interpreter's bit for bit (docs/design/simulation-rate.md "QB and TypeScript scripts").
+
+The outline is made from the `.qb` with the TypeScript, so the two agree; a TypeScript script changed by hand keeps its
+old outline until both are made again (`--refresh`). When the scripts become natural TypeScript, these readers need an
+answer the TypeScript gives itself (the calls a script makes, in order, with their arguments) - the outline stands for
+it until then.
 
 In the game the value helpers count no work (QB has no such bound - a level's whole node array may be copied): a
 runaway script is stopped by the bridge's interrupt budget.

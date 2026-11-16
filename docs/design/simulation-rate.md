@@ -301,6 +301,40 @@ set by the audio stream's (wall-clock) state: the cause - not drawing. The music
 ("The music's random numbers" above); sim_grind's reference was recorded again with that change, and two full passes
 since were equal on every run.
 
+## QB and TypeScript scripts
+
+The simulation is the same whichever runs the scripts - the `.qb` files or their TypeScript (`[features]
+ts_scripts=1`, docs/qb-ts.md) - bit for bit: the C++ interpreter is the host either way (its scheduling, waits, spawns,
+commands and random numbers are the game's), so only what the scripts themselves do can part them. `sim_check.ts`
+names the mode in its report; `--scripts qb|ts` holds it to one.
+
+Until 2026-11-16 three demos of four parted with TypeScript scripts (sim_se from frame 5, objects; sim_vert from 13,
+random; sim_grind from 76, objects). One cause: the gap list's walk over the level's TriggerScripts at load
+(`for_each_script_call`) reads each script's QB code and parses every call's arguments on the way - drawing a Random's
+random numbers - and a TypeScript script had no QB code to read: on the level's first frame QB drew 58 random numbers
+(sim_se) that TypeScript didn't. With the walk left out in both modes the traces were equal entry for entry. The fix:
+each TypeScript script keeps its **outline**, its QB statements, which the interpreter never runs and the walks read
+(docs/qb-ts.md "Outlines").
+
+### The trace
+
+`-demo-trace` (sim_check `--trace`) writes a playback's simulation trace, `<demo>.play.trace.txt`: from the level's
+load, every command a script runs - each statement's script, C function or member function and each C function inside an
+expression, with its arguments (`engine/script/trace_hooks.h`, the same from a QB statement and a TypeScript level's
+call) -, each script a record is given to run (and its callers' places), every random draw with the script running
+then and its callers' places (`maths::set_draw_listener`), and at each check point every moving object's hash.
+`tools/game/sim_trace_diff.ts` finds where two traces part. What a trace showed besides the cause above, neither
+feeding the simulation of these demos: the lens flare launches its MaybeHideLensFlare script from the drawing code
+(`sun::render`, on the sun's occlusion query: a GPU result a frame or more late), at frames that differ with the
+machine's load; the music's track shuffle draws from its own streams ("The music's random numbers").
+
+### Proof
+
+2026-11-16, a workspace, x64 RelWithDebInfo: with TypeScript scripts (unpacked with the outlines, `ts_scripts=1`)
+`sim_check --fps 0,120,144,240 --load 0,7` - 32 of 32 runs equal to the reference on every frame (late frames 6-49
+without load, 102-342 with load 7); with QB scripts (packed) `--fps 0` 4 of 4. The reference is unchanged (recorded with
+QB scripts).
+
 ## Input latency
 
 What sits between a press and the picture, at 60 steps a second:

@@ -4,7 +4,15 @@
 // frame by frame, bit for bit, with the reference recorded from the build before a change.
 //
 //   node tools/game/sim_check.ts --game <workspace> [--demos a,b] [--fps 0,120,144,240] [--load 0,7] [--out <folder>]
-//                                [--timeout 300] [--no-run] [--record]
+//                                [--timeout 300] [--no-run] [--record] [--trace] [--scripts qb|ts]
+//
+// --scripts: the scripts the workspace must run - qb (the .qb files, packed) or ts ([features] ts_scripts=1, the folder
+// unpacked: tools/qbjs/unpack_game.ts) - refused when it doesn't; the report names the mode either way. The simulation
+// is the same in both, bit for bit (docs/qb-ts.md "Outlines"): a change to the scripts' runtime is checked in both.
+//
+// --trace: each run also writes the simulation trace (-demo-trace: every script command with its arguments, every
+// random draw, each check point's moving objects - src/devtools/demo.cpp) as trace.txt in its folder; two runs' traces
+// diffed show the first command, draw or object that parts them.
 //
 // --load: each run also with [debug] load_test=N (N > 0: a 30 ms stall every Nth loop - late steps, not drawn), the
 // simulation compared with the same reference: it must not depend on whether a step was drawn
@@ -27,7 +35,7 @@ import { ensureWorkspaceMuted, isWorkspace, setIniValue } from "./workspace_ini.
 
 const USAGE =
     "usage: node tools/game/sim_check.ts --game <workspace> [--demos a,b] [--fps 0,120,144,240] [--load 0,7] [--out <folder>] " +
-    "[--timeout 300] [--no-run] [--record]";
+    "[--timeout 300] [--no-run] [--record] [--trace] [--scripts qb|ts]";
 
 export const REFERENCE_FOLDER = path.join(path.dirname(fileURLToPath(import.meta.url)), "sim_reference");
 
@@ -110,6 +118,9 @@ export function reportLine(demo: string, fps: number, c: StateComparison | null,
     return `| ${demo} | ${shown} | ${c.matched} / ${c.frames} | ${c.missing} | ${first} | ${late} | ${passed(c) ? "ok" : "FAIL"} |`;
 }
 
+// A playback's files (the trace only with --trace), copied into the run's folder without "play.".
+const OUTPUTS = ["play.track.txt", "play.run.json", "play.state.txt", "play.trace.txt"];
+
 async function playOnce(
     exe: string,
     game: string,
@@ -118,12 +129,12 @@ async function playOnce(
     load: number,
     folder: string,
     timeout: number,
+    trace = false,
 ) {
     const ini = path.join(game, "thug2-decomp.ini");
     const before = fs.existsSync(ini) ? fs.readFileSync(ini, "utf8") : "";
     const demos = path.join(game, "thug2-decomp-demos");
-    for (const ext of ["play.track.txt", "play.run.json", "play.state.txt"])
-        fs.rmSync(path.join(demos, `${demo}.${ext}`), { force: true });
+    for (const ext of OUTPUTS) fs.rmSync(path.join(demos, `${demo}.${ext}`), { force: true });
     fs.rmSync(folder, { recursive: true, force: true });
     fs.mkdirSync(folder, { recursive: true });
     try {
@@ -135,7 +146,8 @@ async function playOnce(
         ensureWorkspaceMuted(game);
         clearAutomationFiles(game);
         const started = Date.now();
-        const child = spawn(exe, ["-demo", demo, "-demo-quit"], { cwd: game, stdio: "ignore" });
+        const args = ["-demo", demo, "-demo-quit", ...(trace ? ["-demo-trace"] : [])];
+        const child = spawn(exe, args, { cwd: game, stdio: "ignore" });
         const code = await new Promise<number | null>((resolve) => {
             const timer = setTimeout(() => {
                 print(`${demo} at ${runName(fps, load)}: still running after ${timeout} s - closed`);
@@ -152,12 +164,46 @@ async function playOnce(
     } finally {
         fs.writeFileSync(ini, before);
     }
-    for (const ext of ["play.track.txt", "play.run.json", "play.state.txt"]) {
+    for (const ext of OUTPUTS) {
         const from = path.join(demos, `${demo}.${ext}`);
         if (fs.existsSync(from)) fs.copyFileSync(from, path.join(folder, ext.replace("play.", "")));
     }
     const log = path.join(game, "thug2-decomp.log");
     if (fs.existsSync(log)) fs.copyFileSync(log, path.join(folder, "thug2-decomp.log"));
+}
+
+// A key's value in an ini's section (the last one there; "" when none) - the game's settings file.
+export function iniValue(text: string, section: string, key: string): string {
+    let inSection = false;
+    let found = "";
+    for (const raw of text.split(/\r?\n/)) {
+        const line = raw.trim();
+        const header = /^\[(.*)\]$/.exec(line);
+        if (header) inSection = header[1]!.trim().toLowerCase() === section.toLowerCase();
+        else if (inSection) {
+            const eq = line.indexOf("=");
+            if (eq > 0 && line.slice(0, eq).trim().toLowerCase() === key.toLowerCase())
+                found = line.slice(eq + 1).trim();
+        }
+    }
+    return found;
+}
+
+// The scripts a game folder runs: "ts" when [features] ts_scripts is set (not 0) and the folder is unpacked, "qb" when
+// neither, "mismatch" otherwise (the game refuses to start: src/script_qb/ts_bridge.cpp check_folder_matches).
+export function scriptsMode(iniText: string, unpacked: boolean): "qb" | "ts" | "mismatch" {
+    const value = iniValue(iniText, "features", "ts_scripts");
+    const ts = value !== "" && value !== "0";
+    if (ts !== unpacked) return "mismatch";
+    return ts ? "ts" : "qb";
+}
+
+export function folderScriptsMode(game: string): "qb" | "ts" | "mismatch" {
+    const ini = path.join(game, "thug2-decomp.ini");
+    const unpacked =
+        fs.existsSync(path.join(game, "thug2-decomp-backup", "unpacked.json")) &&
+        !fs.existsSync(path.join(game, "Data", "pre", "qb_scripts.prx"));
+    return scriptsMode(fs.existsSync(ini) ? fs.readFileSync(ini, "utf8") : "", unpacked);
 }
 
 export function referenceDemos(folder = REFERENCE_FOLDER): string[] {
@@ -180,6 +226,8 @@ async function main(): Promise<number> {
             timeout: { type: "string", default: "300" },
             "no-run": { type: "boolean", default: false },
             record: { type: "boolean", default: false },
+            trace: { type: "boolean", default: false },
+            scripts: { type: "string" },
         },
     });
     if (!values.game) exitWith(`${USAGE}\nerror: --game is needed`);
@@ -196,6 +244,12 @@ async function main(): Promise<number> {
         .map((r) => Number.parseInt(r, 10))
         .filter((r) => r >= 0);
     if (values.record && !loads.includes(0)) loads.unshift(0);
+    const mode = folderScriptsMode(game);
+    if (values.scripts !== undefined && values.scripts !== mode)
+        exitWith(
+            `${game} runs ${mode === "mismatch" ? "neither (its ini and folder disagree)" : `${mode} scripts`}, not ${values.scripts} - ` +
+                "switch it: node tools/qbjs/unpack_game.ts --game <folder> (ts; [features] ts_scripts=1) or --restore (qb; ts_scripts=0)",
+        );
     const out = path.resolve(values.out ?? path.join(game, "thug2-decomp-demos", "sim_check"));
     fs.mkdirSync(out, { recursive: true });
     if (!values["no-run"]) {
@@ -221,6 +275,7 @@ async function main(): Promise<number> {
                         load,
                         path.join(out, demo, runName(fps, load)),
                         Number(values.timeout),
+                        values.trace,
                     );
         }
     }
@@ -228,6 +283,8 @@ async function main(): Promise<number> {
         "# Simulation check",
         "",
         "Each run's state (src/devtools/demo.cpp state_line) against the reference, frame by frame, bit for bit.",
+        "",
+        `Scripts: ${mode === "ts" ? "TypeScript ([features] ts_scripts=1, the folder unpacked)" : mode === "qb" ? "QB (the .qb files)" : "the ini and the folder disagree"}.`,
         "",
         "| demo | display rate | frames equal | missing | first differs | late frames | result |",
         "|---|---|---|---|---|---|---|",

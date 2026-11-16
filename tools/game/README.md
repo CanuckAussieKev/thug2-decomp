@@ -306,7 +306,14 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   of the skater's, the moving objects' and the random streams' bits - with the reference, bit for bit. `--load` runs
   each again with `[debug] load_test=N` (a 30 ms stall every Nth loop: late, undrawn steps - "Determinism under
   load"); the report shows each run's late steps. Exit code 0 when every frame of every run matches. `--record` makes the max_fps=0 run the new reference (only from the build the reference is meant
-  to be: main before a change). Workspaces only, under the lock.
+  to be: main before a change). Workspaces only, under the lock. The report names the scripts the workspace ran;
+  `--scripts qb|ts` refuses a workspace that runs the other (switch with `node tools/qbjs/unpack_game.ts` and
+  `[features] ts_scripts=1`, or `--restore`) - a change to the scripts' runtime is checked in both ("QB and TypeScript
+  scripts"). `--trace` also writes each run's simulation trace (`trace.txt`: `-demo-trace`, every script command with
+  its arguments, every random draw with its script and callers, each check point's moving objects).
+- **Two simulation traces compared**: `node tools/game/sim_trace_diff.ts <trace A> <trace B> [--context 8] [--skip
+  <regex>]` - the first entry where they part (callers left out of the comparison; `node tools/symbolize.ts --pdb-dir
+  <build> <offsets>` names them), e.g. one demo with QB and with TypeScript scripts.
 - **A replay checked** (docs/demos.md "Replays as proof"): `node tools/game/verify_replay.ts <demo> [--game
   <workspace>] [--json]` - who recorded it (the skater and its profile hash), when, the build, the level, and its seal
   (intact, none, or what was changed after recording and in which frames); `--game` plays it again in that workspace

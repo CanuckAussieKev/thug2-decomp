@@ -6,12 +6,14 @@ import * as path from "node:path";
 import { test } from "node:test";
 import {
     compareStates,
+    iniValue,
     parseStates,
     passed,
     REFERENCE_FOLDER,
     referenceDemos,
     reportLine,
     runName,
+    scriptsMode,
     undrawnFrames,
 } from "./sim_check.ts";
 
@@ -66,4 +68,15 @@ test("every reference demo has its state file", () => {
     const demos = referenceDemos();
     assert.ok(demos.length > 0);
     for (const demo of demos) assert.ok(fs.existsSync(path.join(REFERENCE_FOLDER, `${demo}.state.txt`)), demo);
+});
+
+test("the scripts a folder runs: its ini's ts_scripts and whether it is unpacked", () => {
+    const ini = "[Graphics]\nts_scripts=1\n[features]\nmute_audio=1\nts_scripts = 1\n";
+    assert.equal(iniValue(ini, "features", "ts_scripts"), "1");
+    assert.equal(iniValue(ini, "Features", "missing"), "");
+    assert.equal(scriptsMode(ini, true), "ts");
+    assert.equal(scriptsMode(ini, false), "mismatch");
+    assert.equal(scriptsMode("[features]\nts_scripts=0\n", false), "qb");
+    assert.equal(scriptsMode("", false), "qb");
+    assert.equal(scriptsMode("", true), "mismatch");
 });

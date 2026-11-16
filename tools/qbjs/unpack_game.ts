@@ -9,8 +9,9 @@
 // German archives aren't unpacked: their scripts are the English ones with other text, so the scripts' text becomes
 // tokens with a table per language - Data\lang\en.json, fr.json, de.json (localize.ts). --check keeps every archive in
 // its folder, its text in the scripts - the script check runs each version of a file. The .ts's last line -
-// `// qb-file {...}` - is its manifest: the file's source name, the hash of the .qb it was made from and the file's
-// checksum names.
+// `// qb-file {...}` - is its manifest: the file's source name, the hash of the .qb it was made from, the file's
+// checksum names and its scripts' outlines (outline.ts: each script's QB statements, for the engine code that reads a
+// script without running it).
 //
 //   node tools/qbjs/unpack_game.ts --game <folder>            unpack (the game folder as installed)
 //   node tools/qbjs/unpack_game.ts --game <folder> --refresh  put back, then unpack again (after make_menu_level.ts or
@@ -42,6 +43,7 @@ import { emitTS } from "./emit_ts.ts";
 import { fileHash, gameRoot, scriptBytes } from "./game_scripts.ts";
 import type { ModuleIR } from "./ir.ts";
 import { Localizer, notLocalised } from "./localize.ts";
+import { outlineManifest, scriptOutlines } from "./outline.ts";
 import { readIR } from "./reader.ts";
 
 const BACKUP = "thug2-decomp-backup";
@@ -98,7 +100,9 @@ export function scriptTS(
         const ts = emitTS(ir, {}, { check, data });
         const names = Object.entries(ir.names ?? {}).flatMap(([n, text]) => [Number(n), text]);
         const globals = ir.definitions.filter((d) => d.kind === "global").length;
-        const manifest = JSON.stringify({ source, from, globals, names });
+        // (each script's outline: its QB statements, for the engine's readers of script code - outline.ts)
+        const outlines = outlineManifest(scriptOutlines(bytes, ir));
+        const manifest = JSON.stringify({ source, from, globals, names, outlines });
         return { ts: `${ts.endsWith("\n") ? ts : `${ts}\n`}// qb-file ${manifest}\n`, json };
     } catch {
         return null;

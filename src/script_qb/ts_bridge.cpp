@@ -52,6 +52,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/tokens.h"
+#include "engine/script/trace_hooks.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
 #include "platform/frame_profile.h"
@@ -685,6 +686,8 @@ JSValue native_call_function(JSContext* c, JSValueConst /*self*/, int /*argc*/, 
         return throw_error(c, error);
     }
     const auto routine = symbol->value().function();
+    trace_hooks::note_command(get_running_script(), trace_hooks::CommandKind::kExpression, symbol->name_value(), 0,
+                              params); // (the simulation trace: trace_hooks.h)
     // (the script check answers for it: script_check.h)
     const std::optional<bool> stubbed = check::command(get_running_script(), symbol->name_value(), 0, params);
     const bool result = stubbed ? *stubbed : routine(params, Context(get_running_script()));
@@ -693,23 +696,84 @@ JSValue native_call_function(JSContext* c, JSValueConst /*self*/, int /*argc*/, 
     return JS_NewBool(c, result);
 }
 
-// defineScript(n, id): script n's symbol, a body of one kTsBody token naming its definition `id` (runtime.js: each
-// definition has its own, so the symbol table alone says which runs - a temporary load undone puts the older back),
-// as the loader defines a .qb file's scripts.
-JSValue native_define_script(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
+// Base64 text's bytes (RFC 4648, '=' padding; anything else ends it): an outline as the manifest carries it.
+std::vector<uint8_t> decode_base64(std::string_view text)
+{
+    constexpr int kBitsPerChar = 6;
+    constexpr int kByteBits = 8;
+    constexpr uint32_t kByteMask = 0xFFU;
+    const auto value_of = [](char ch) -> int {
+        constexpr int kDigits = 52;
+        constexpr int kPlus = 62;
+        constexpr int kSlash = 63;
+        constexpr int kLetters = 26;
+        if (ch >= 'A' && ch <= 'Z') {
+            return ch - 'A';
+        }
+        if (ch >= 'a' && ch <= 'z') {
+            return ch - 'a' + kLetters;
+        }
+        if (ch >= '0' && ch <= '9') {
+            return ch - '0' + kDigits;
+        }
+        if (ch == '+') {
+            return kPlus;
+        }
+        return ch == '/' ? kSlash : -1;
+    };
+    std::vector<uint8_t> out;
+    out.reserve((text.size() / 4) * 3);
+    uint32_t bits = 0;
+    int held = 0;
+    for (const char ch : text) {
+        const int value = value_of(ch);
+        if (value < 0) {
+            break;
+        }
+        bits = (bits << kBitsPerChar) | static_cast<uint32_t>(value);
+        held += kBitsPerChar;
+        if (held >= kByteBits) {
+            held -= kByteBits;
+            out.push_back(static_cast<uint8_t>((bits >> static_cast<uint32_t>(held)) & kByteMask));
+        }
+    }
+    return out;
+}
+
+// defineScript(n, id[, outline]): script n's symbol, a body of one kTsBody token naming its definition `id` (runtime.js:
+// each definition has its own, so the symbol table alone says which runs - a temporary load undone puts the older
+// back) and its outline (base64), as the loader defines a .qb file's scripts.
+JSValue native_define_script(JSContext* c, JSValueConst /*self*/, int argc, JSValueConst* argv)
 {
     Engine& e = engine();
     const uint32_t name = to_u32(c, argv[0]);
     const uint32_t id = to_u32(c, argv[1]);
-    // 01 (the defaults' empty line), 4A <id>, 01, 24 (the end)
-    const std::array<uint8_t, 8> body{0x01,
-                                      token_byte(QbToken::kTsBody),
-                                      static_cast<uint8_t>(id),
-                                      static_cast<uint8_t>(id >> 8U),
-                                      static_cast<uint8_t>(id >> 16U),
-                                      static_cast<uint8_t>(id >> 24U),
-                                      0x01,
-                                      token_byte(QbToken::kScriptEnd)};
+    // 01 (the defaults' empty line), 4A <id>, 01, then its outline (its QB statements, ending in 24 - the manifest's,
+    // tools/qbjs/outline.ts), else 24 (the end). The interpreter runs the level at the 4A and never goes past it; the
+    // engine's readers of script code (the gap list's walk - nodes.cpp for_each_script_call -, the editor's) step over
+    // the first line and the 4A's statement and read the outline - exactly the statements the .qb's script has.
+    std::vector<uint8_t> body{0x01,
+                              token_byte(QbToken::kTsBody),
+                              static_cast<uint8_t>(id),
+                              static_cast<uint8_t>(id >> 8U),
+                              static_cast<uint8_t>(id >> 16U),
+                              static_cast<uint8_t>(id >> 24U),
+                              0x01};
+    std::vector<uint8_t> outline;
+    if (argc >= 3 && JS_IsString(argv[2])) {
+        if (const char* text = JS_ToCString(c, argv[2])) {
+            outline = decode_base64(text);
+            JS_FreeCString(c, text);
+        }
+        if (outline.empty() || outline.back() != token_byte(QbToken::kScriptEnd)) {
+            get_log("ts: %s's outline isn't a script's statements - left out", find_checksum_name_or_unknown(name));
+            outline.clear();
+        }
+    }
+    if (outline.empty()) {
+        outline.push_back(token_byte(QbToken::kScriptEnd));
+    }
+    body.insert(body.end(), outline.begin(), outline.end());
     SymbolTableEntry* existing = find_symbol(name);
     if (existing) {
         replace_symbol_for_definition(existing, e.loading_temporary);
