@@ -4,18 +4,24 @@
 #include <string_view>
 
 #include <atomic>
+#include <condition_variable>
+#include <cstring>
+#include <mutex>
+#include <thread>
 
 #include <cstdio>
 #include <cstdlib>
 #include <cwchar>
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <io.h>
 #include <array>
 
 #include "platform/crash.h"
+#include "platform/platform_config.h"
 #include "base/core/address.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -63,6 +69,74 @@ const char* keep_tail(const char* line)
     return core::at(log_tail().tail_, slot).data();
 }
 
+// NOT ORIGINAL - the lines waiting for the log file. The drawing thread never waits on the disk (a busy disk held a frame
+// in the log's flush for seconds): log_line copies the line into a slot of this ring (no allocation: a crash is logged
+// through here) and a thread of its own writes the slots and flushes. A full ring drops the line and counts it (the
+// writer says how many). log_flush writes what is waiting at once: the end of the process and every crash.
+constexpr unsigned kQueueSlots = 1024;
+constexpr size_t kSlotWidth = 2048; // (a longer line is cut)
+struct LogQueue {
+    std::mutex mutex_; // the ring's: head_, tail_, dropped_
+    std::condition_variable wake_;
+    std::mutex file_mutex_; // the file's: whoever writes the slots holds it
+    std::array<std::array<char, kSlotWidth>, kQueueSlots> slots_{};
+    std::array<unsigned short, kQueueSlots> lengths_{};
+    unsigned long long head_ = 0; // the next slot to fill
+    unsigned long long tail_ = 0; // the next to write
+    unsigned dropped_ = 0;
+    bool started_ = false;
+};
+
+LogQueue& log_queue()
+{
+    static core::NoDestroy<LogQueue> state;
+    return state.get();
+}
+
+// The waiting lines written to the file and flushed (the file's lock held).
+void write_waiting(LogQueue& queue)
+{
+    FILE* const log = run_log_state().log_;
+    unsigned long long end = 0;
+    unsigned long long begin = 0;
+    {
+        const std::scoped_lock lock(queue.mutex_);
+        begin = queue.tail_;
+        end = queue.head_;
+    }
+    // (a slot between tail_ and head_ is only read here: the producers fill the ones past head_)
+    for (unsigned long long at = begin; at < end; ++at) {
+        const size_t slot = static_cast<size_t>(at % kQueueSlots);
+        std::fwrite(core::at(queue.slots_, slot).data(), 1, core::at(queue.lengths_, slot), log);
+        std::fputc('\n', log);
+    }
+    unsigned dropped = 0;
+    {
+        const std::scoped_lock lock(queue.mutex_);
+        queue.tail_ = end;
+        dropped = std::exchange(queue.dropped_, 0U);
+    }
+    if (dropped != 0) {
+        std::fprintf(log, "log: %u lines dropped (the disk was too slow)\n", dropped);
+    }
+    if (end != begin || dropped != 0) {
+        std::fflush(log);
+    }
+}
+
+void log_writer()
+{
+    LogQueue& queue = log_queue();
+    for (;;) {
+        {
+            std::unique_lock lock(queue.mutex_);
+            queue.wake_.wait(lock, [&queue] { return queue.head_ != queue.tail_ || queue.dropped_ != 0; });
+        }
+        const std::scoped_lock file_lock(queue.file_mutex_);
+        write_waiting(queue);
+    }
+}
+
 // Not original - who else wants each line (the loading console - engine/gfx/loading_console.h).
 std::atomic<void (*)(const char*)>& stored_listener()
 {
@@ -83,15 +157,14 @@ std::string game_folder_path(const char* file_name)
 
 int config_int(const char* section, const char* key, int fallback)
 {
-    return static_cast<int>(
-        GetPrivateProfileIntA(section, key, fallback, game_folder_path("thug2-decomp.ini").c_str()));
+    return build_info::cached_profile_int(game_folder_path("thug2-decomp.ini").c_str(), section, key, fallback);
 }
 
 std::string config_text(const char* section, const char* key, const char* fallback)
 {
     std::array<char, 256> text{};
-    GetPrivateProfileStringA(section, key, fallback, text.data(), static_cast<DWORD>(text.size()),
-                             game_folder_path("thug2-decomp.ini").c_str());
+    build_info::cached_profile_text(game_folder_path("thug2-decomp.ini").c_str(), section, key, fallback, text.data(),
+                                    text.size());
     return text.data();
 }
 
@@ -99,7 +172,10 @@ bool config_set_int(const char* section, const char* key, int value)
 {
     std::array<char, kNumberTextSize> text{};
     text::format_to(text, "%d", value);
-    return WritePrivateProfileStringA(section, key, text.data(), game_folder_path("thug2-decomp.ini").c_str()) != 0;
+    const bool written =
+        WritePrivateProfileStringA(section, key, text.data(), game_folder_path("thug2-decomp.ini").c_str()) != 0;
+    build_info::forget_cached_reads();
+    return written;
 }
 
 void log_open()
@@ -113,6 +189,9 @@ void log_open()
                 run_log_state().log_ = nullptr;
             }
         }
+    }
+    if (run_log_state().log_) {
+        std::thread(log_writer).detach();
     }
     // (crashes, CRT reports, run-time check failures... logged, the process ended, never a dialog - platform/crash.h)
     install_crash_handling(false);
@@ -140,9 +219,38 @@ void log_line(const char* line)
     if (!run_log_state().log_) {
         return;
     }
-    std::fputs(line, run_log_state().log_);
-    fputc('\n', run_log_state().log_);
-    fflush(run_log_state().log_);
+    LogQueue& queue = log_queue();
+    {
+        const std::scoped_lock lock(queue.mutex_);
+        if (queue.head_ - queue.tail_ >= kQueueSlots) {
+            ++queue.dropped_;
+        } else {
+            const size_t slot = static_cast<size_t>(queue.head_ % kQueueSlots);
+            const size_t length = std::min(std::strlen(line), kSlotWidth);
+            std::memcpy(core::at(queue.slots_, slot).data(), line, length);
+            core::at(queue.lengths_, slot) = static_cast<unsigned short>(length);
+            ++queue.head_;
+        }
+    }
+    queue.wake_.notify_one();
+}
+
+void log_flush()
+{
+    LogQueue& queue = log_queue();
+    if (!run_log_state().log_ || run_log_state().console_) {
+        return;
+    }
+    // (the writer may be stuck in the disk: wait for it a while, not for ever)
+    constexpr int kTries = 200;
+    for (int tries = 0; tries < kTries; ++tries) {
+        if (queue.file_mutex_.try_lock()) {
+            write_waiting(queue);
+            queue.file_mutex_.unlock();
+            return;
+        }
+        Sleep(10);
+    }
 }
 
 void set_log_listener(void (*listener)(const char* line)) { stored_listener() = listener; }

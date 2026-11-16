@@ -81,6 +81,8 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     after the next level's loading screen (not the front end's) and is done at once (armed): with `-Level`, a level's
     first frame onward (a `camera` given before the load holds through it). Script command too:
     `TeleportSkaterStanding pos=(x, y, z) heading=f`.
+    `screenshot` takes one picture as the screenshot key does (the picture, its sidecar and the folder's work are on a
+    worker thread; the log's "screenshot: saved" line).
     E.g. the user's screenshot spot, still and drifting sideways:
     `-Level foun -Commands "waitfor level foun 150;teleport -4087.3 -390 2386.6 -177.3;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949;wait 60;capture 120 still;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949 0.05 0 0;capture 120 side"`.
   - **One ray, two ways** (ray tracing's check against the game's collision): `rtprobe <x> <y> <z> <dx> <dy> <dz> [max]`
@@ -277,6 +279,11 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   device watch's `vulkan: frame N has waited X s for the device`. The guard of the live-settings soak above, and of
   `tools/game/scenarios/college_tod_cycle_soak.txt` (`--levels BO --seconds 900`: a minute in Boston, then College for
   ten minutes, skating and idle, a day every two minutes - the College freeze's scenario).
+  `tools/game/scenarios/boston_disk_soak.txt` is the disk-I/O guard (`--levels BO --seconds 700`: ten minutes in Boston,
+  a 12-minute day, a screenshot every 30 s) - run it while `powershell -File tools\game\disk_hammer.ps1 -Folder
+  <a folder on the game's drive>` keeps the disk busy: the main loop never waits on the disk (the log, the status and
+  command files, the screenshots are written by threads of their own), so no frame spacing past 100 ms after the
+  load, no `stall:` line, no `log: N lines dropped`.
   Several games on the machine (other workspaces) share its processor and GPU: take `--runs 2` or more and compare
   medians.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]

@@ -126,6 +126,7 @@ void run_crash_hook()
     run_crash_hook();
     get_log("  the process ends (exit code %u = 0x%08X)", exit_code, exit_code);
     std::fflush(stdout);
+    log_flush(); // (the report written before the process ends)
     TerminateProcess(GetCurrentProcess(), exit_code);
     for (;;) {
         Sleep(INFINITE);

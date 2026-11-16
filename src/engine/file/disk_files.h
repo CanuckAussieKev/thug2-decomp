@@ -80,6 +80,11 @@ struct Written {
 };
 THUG2_API Written write_text(const std::string& path, std::string_view text);
 
+// Whether `path` is a file - answered from the disk once, then remembered for the run (the loose data overlays, the
+// texture sets and THUGPRO's files are looked for by name each time the game opens a file, mid-play: a disk that is
+// busy must not hold a frame in these questions). Folders the game writes into while it runs aren't asked this way.
+bool is_file_remembered(const std::string& path);
+
 // fprintf to a stream: the text written whole (a %c of 0 included), as text::print_to writes to a FILE*.
 template <typename... Args>
 void print_to(DiskStream* stream, text::FormatFor<Args...> format, Args... args)
