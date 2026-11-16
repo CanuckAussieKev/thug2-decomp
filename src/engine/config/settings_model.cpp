@@ -684,6 +684,15 @@ std::vector<Decl> declarations()
             .need(on("rt_relit"))
             .live(E::kFog),
         gfx("rt_fog_strength", K::kNumber, "1").need(on("rt_fog")).live(E::kFog),
+        // (added by the god rays: the light the air scatters near the sun drawn at the screen's resolution - its streaks
+        // through branches and past towers; 1 the air's own light, more the look's emphasis - rt_volume_light.h
+        // god_ray_peak. Lit by the relit level's sun alone, as the air)
+        gfx("rt_fog_god_rays", K::kNumber, "1")
+            .tab(G::kSky, t::kOptGodRays, t::kOptGodRaysHelp)
+            .pick({c("0", t::kOff), c("1", t::kOn), c("2", t::kGodRaysStrong)})
+            .need(on("rt_fog"))
+            .need(on("rt_relit"))
+            .live(E::kFog),
         gfx("rt_fog_quality", K::kNumber, "1")
             .tab(G::kSky, t::kOptShaftQuality)
             .pick({c("0", t::kLow), c("1", t::kMedium), c("2", t::kHigh)})

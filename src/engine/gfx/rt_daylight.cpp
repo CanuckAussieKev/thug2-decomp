@@ -420,7 +420,10 @@ NativeDay fit_native_day(const NativeInputs& in)
     }
     // north turned so that the path's sun at the level's time is the level's sun (its heading)
     const SkyPlace at = sun_place(path, day.hours);
-    if (in.state == TodState::kAfternoon || in.state == TodState::kMorning) {
+    if (in.north_set) {
+        // (added by the level's compass) the level's data says where north is
+        path.north_heading = std::fmod(std::fmod(in.north_heading, kFullTurn) + kFullTurn, kFullTurn);
+    } else if (in.state == TodState::kAfternoon || in.state == TodState::kMorning) {
         path.north_heading = std::fmod(sun.azimuth - at.azimuth + kFullTurn, kFullTurn);
     } else {
         path.north_heading = 0.0;

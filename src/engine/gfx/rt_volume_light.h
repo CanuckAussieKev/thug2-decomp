@@ -128,6 +128,11 @@ struct AirArt {
     double range = 0.0;     // metres: the volume round the eye (0: everywhere)
     double along = 1.0;     // (added by the distinct shafts) x its range looking at the light
     double deep = 1.0;      // (added by the distinct shafts) x its height (the beams over and between the roofs in it)
+    // (added by the god rays - god_ray_peak below) x the forward peak's light the screen draws, and how much of the
+    // peak's air is taken to lie between the eye and what stands toward the light (0: as the volume lies - physical; 1:
+    // all of it, the beams in the near air - the streaks through branches games and films show, as a hazer would)
+    double rays = 1.0;
+    double rays_near = 0.0;
 };
 [[nodiscard]] AirArt air_art(AirLook look);
 // The ini's spelling: "clear", "cinematic", "misty" (and "0" / "1" / "2"); anything else the default.
@@ -189,6 +194,46 @@ inline constexpr double kMediumForwardShare = 0.85;
 inline constexpr double kMediumBackG = -0.3;
 [[nodiscard]] double henyey_greenstein(double cosine, double g); // x 4 pi
 [[nodiscard]] double medium_phase(double cosine, double g);
+
+// --- (added by the god rays) the forward peak's shadows, seen on the screen: [Graphics] rt_fog_god_rays -------------
+// Looking toward a low sun through branches, past a tower, the air shows streaks radiating from the sun: the light its
+// forward lobe scatters toward the eye, cut by everything between the eye's lines of sight and the sun. That light
+// comes from within a few degrees of the sun, and its shadows are as fine as the branches seen against the sky - finer
+// than the march's quarter-resolution texels and its steps (a glow with the big shadow columns only). So the light the
+// phase gathers near the light's way - its peak, the forward lobe over its value kGodRayConeDegrees from the light - is
+// taken out of the march and drawn at the screen's resolution instead:
+//   - the march (vulkan_rt_fog step 1) scatters the light with march_sun_phase - medium_phase without the peak - and
+//     adds up, beside it, the peak's light unshadowed per unit of the peak's phase (its potential: the media's light per
+//     unit of light x what reaches the eye, x the clouds' shadow - the geometry's shadows are the screen's);
+//   - the screen (steps 2a / 2b, half the viewport's resolution): along the line from each pixel toward the light's place
+//     on the screen, the share of it that is sky (the depth's far value: cut-outs' gaps are sky) and the mean distance of
+//     what stands on it - in three radial passes of kGodRayTaps taps each, the first over 1/kGodRayTaps^2 of the line,
+//     the next 1/kGodRayTaps, the last the whole line (kGodRayTaps^3 points: the rays sharp, the same every frame -
+//     nothing to accumulate);
+//   - what stands on the line shadows the air between it and the eye: air at a distance t from the eye is shadowed by
+//     what the line holds at the fraction 1 - t / d of its way (d its distance) - over the air before it, evenly: the
+//     line's plain mean -, the air past it lit. So open = 1 - (1 - sky share) x the share of the peak's air before d
+//     (god_ray_open; the air's look decides that share - AirArt::rays_near);
+//   - the composite adds peak(view) x potential x open x the light's colour x rt_fog_god_rays x the look's `rays`.
+// Unshadowed the light is the march's before (the peak moved, not made: rt_fog_god_rays 1 the physical medium; more is
+// the look's emphasis, as rt_fog_strength); a pixel whose line to the light crosses a branch, a roof, a tower is darker
+// by the share of the light's surroundings they hide - the rays and their gaps. The peak is the light's: the moon's at
+// night, gone where no light lights the air; off screen (the light behind the eye) there is no peak to see.
+inline constexpr double kGodRayConeDegrees = 30.0;
+inline constexpr int kGodRayTaps = 10; // per radial pass (three passes)
+inline constexpr float kGodRaysDefault = 1.0F;
+inline constexpr float kMostGodRays = 2.0F;
+// The peak (x 4 pi): kMediumForwardShare x max(HG(cosine, g) - HG(cos kGodRayConeDegrees, g), 0).
+[[nodiscard]] double god_ray_peak(double cosine, double g);
+// The phase the march scatters the sun's or moon's light with: medium_phase, less the peak while the god rays take it.
+[[nodiscard]] double march_sun_phase(double cosine, double g, bool god_rays);
+// What of the peak's light gets through along a line toward the light: its sky share and the share of the peak's air
+// lying before what stands on it.
+[[nodiscard]] double god_ray_open(double sky_share, double air_before);
+// The share of the street air's light along a view ray at `cosine` to the light's way that lies within `distance` (world
+// units) of the eye - its volume round the eye (air_reach: whole to half its range, gone by its range; the fall taken
+// as straight) - for a look with a volume; with `rays_near` all of it.
+[[nodiscard]] double air_share_before(double distance, double cosine, const AirArt& art);
 
 // The sunlit haze's brightness under the level's own sun (display-referred, x the light's colour and the phase): about
 // the day sky's near the horizon - an unshaded haze lit from the side looks as bright as the sky behind it.

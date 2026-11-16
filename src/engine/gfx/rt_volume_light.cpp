@@ -13,6 +13,7 @@ namespace {
 
 constexpr double kDegreesPerRadian = 180.0 / std::numbers::pi;
 constexpr double kLeastDenominator = 1e-4;
+constexpr double kCinematicRays = 1.5; // (added by the god rays: the cinematic air's peak light x this)
 
 double elevation_of(const std::array<float, 3>& toward)
 {
@@ -98,7 +99,9 @@ AirArt air_art(AirLook look)
                 .lamp_glow = 3.0,
                 .range = 60.0,
                 .along = 4.0,
-                .deep = 4.0};
+                .deep = 4.0,
+                .rays = kCinematicRays,
+                .rays_near = 1.0};
     case AirLook::kMisty:
         return {.density = 5.0,
                 .least = 4.0,
@@ -107,7 +110,8 @@ AirArt air_art(AirLook look)
                 .shade = 1.0,
                 .glow = 1.0,
                 .lamp_glow = 3.0,
-                .range = 150.0};
+                .range = 150.0,
+                .rays_near = 1.0};
     case AirLook::kNone:
         break;
     }
@@ -169,6 +173,43 @@ double medium_phase(double cosine, double g)
 {
     return (kMediumForwardShare * henyey_greenstein(cosine, g)) +
            ((1.0 - kMediumForwardShare) * henyey_greenstein(cosine, kMediumBackG));
+}
+
+double god_ray_peak(double cosine, double g)
+{
+    const double edge = henyey_greenstein(std::cos(kGodRayConeDegrees / kDegreesPerRadian), g);
+    return kMediumForwardShare * std::max(henyey_greenstein(cosine, g) - edge, 0.0);
+}
+
+double march_sun_phase(double cosine, double g, bool god_rays)
+{
+    return medium_phase(cosine, g) - (god_rays ? god_ray_peak(cosine, g) : 0.0);
+}
+
+double god_ray_open(double sky_share, double air_before)
+{
+    return 1.0 - ((1.0 - std::clamp(sky_share, 0.0, 1.0)) * std::clamp(air_before, 0.0, 1.0));
+}
+
+double air_share_before(double distance, double cosine, const AirArt& art)
+{
+    if (art.rays_near >= 1.0) {
+        return 1.0;
+    }
+    double physical = 0.0;
+    if (art.range > 0.0) {
+        const double stretch = air_stretch(cosine, art);
+        const double whole = 0.5 * art.range * kUnitsPerMetre * stretch;
+        const double gone = 2.0 * whole;
+        const double x = std::min(distance, gone);
+        double mass = std::min(x, whole);
+        if (x > whole) {
+            const double u = x - whole;
+            mass += u - ((u * u) / (2.0 * (gone - whole)));
+        }
+        physical = std::clamp(mass / (whole + (0.5 * (gone - whole))), 0.0, 1.0);
+    }
+    return physical + ((1.0 - physical) * std::clamp(art.rays_near, 0.0, 1.0));
 }
 
 double air_phase(double cosine, double g, const AirArt& art) { return medium_phase(cosine, g) + art.side; }

@@ -1089,6 +1089,33 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
   world clearer than physical). In the game (Boston, Berlin at dusk, College at 06:20 and noon, the tone map and the
   clock's sun strength 0.5 - 0.9 on top): the lit air adds ~5 - 30 levels where the sun reaches it, at noon a median of
   ~2 - 5 over the clear air.
+- **God rays** (added in the fifth round, `rt_fog_god_rays`, Options "God rays" Off / On / Strong - 0 / 1 / 2; the
+  user's reference: streaks radiating from a low sun, broken by branches into many fine rays). Measured first: looking
+  toward College's low sun the air showed a glow and the big shadow columns only - the march's quarter-resolution
+  texels and its steps can't hold a branch's shadow a few pixels wide. The light the phase gathers near the light's
+  way is what shows those: its forward peak (`rt_volume_light.h god_ray_peak`: 0.85 x (HG(cos, g) - HG(cos 30 deg, g)),
+  none past 30 degrees) is taken out of the march (`march_sun_phase`) and drawn at the screen's resolution instead - the
+  same light, moved, not made:
+  - the march adds up the peak's potential beside its light (the media's light per unit of light x what reaches the
+    eye x the clouds' shadow, unshadowed by the world - luma, the peak taking the light's colour), in its info image;
+  - step 2a, half the viewport's pixels each way: each texel's share of sky (the depth's far value - cut-outs' gaps are
+    sky) and the distance of what stands there; step 2b, three radial passes of 10 taps toward the light's place on the
+    screen, over 1/100, 1/10 and the whole of the way (1000 points: sharp rays, the same every frame - no history, so
+    nothing smears under DLSS);
+  - the composite adds peak(view) x potential x open x the light's colour x the setting x the look's `rays`, where open =
+    1 - (1 - the line's sky share) x the share of the air before what stands on it (its mean distance): a thing shadows
+    the air between it and the eye along the lines toward the light - air at a distance t is shadowed by what the line
+    holds at the fraction 1 - t / d of its way, evenly, so the line's plain mean; the air past it is lit. The air's look
+    sets that share (`AirArt::rays_near`): `clear` the volume as it lies (physical - faint: the air in front of a tree
+    15 m away is a fifth of the beams' 60 m), `cinematic` and `misty` all of it near (the beams in the near air, as a
+    hazer puts them) and cinematic's light x 1.5 (`rays`).
+  - The light behind the eye: its peak isn't on the screen (no radial passes; the composite draws it unshadowed - 0
+    but at a wide view's edge). Off the screen in front: the lines run on from the screen's edge (clamped).
+  The check (thug2_vulkan_rt_fog_check): the march's phase plus the peak is the phase; a comb of five posts against a
+  10-degree sun seen from 40 m: across a row above the comb, four rays (one per gap) each 0.12 over its dips. In the
+  game (College 06:10, the sun behind the clock tower and through the plaza's trees): a fan of rays round the tower's
+  spire and its dark streak; open sky unchanged (no occluder, no rays - the glow as before). Cost: the four half-size
+  passes 0.05 - 0.1 ms at 1280 x 720.
 - **The light is the relit level's** (third round): `medium_light` lights the air only where the relit mode relights
   the level (`SunRelight::relights` - its offline data built and current, `rt_relit` on, the level not opted out). A
   level without relit data has no sunlit air and no street air: the fog pass draws the level's own fog (its colour
@@ -2083,6 +2110,21 @@ degrees up - and north is turned so that the path's sun then is the level's sun 
 (BO's baked sun, heading -75 and 52 up: 14:26; z_dt's 14:21; a sun higher than the path's noon lowers the latitude
 until it fits). A level whose own time-of-day state is night (NO) has midnight as its time, evening sunset. So a time
 moves the sun from where the level has it: `tod=afternoon` on BO is the same sun an hour later.
+
+**Each level's compass** (added 2026-11-16, the user's "orient the level such that the sun follows that path"). Where a
+level's north lies is data: `"north": <heading>` in its entry of the built-in level list
+(`engine/gfx/rt_relit_levels.json`; `thug2-decomp-relit.json` beside the exe adds to it and wins). The clock reads it
+(`rt_relit.h relit_level_entry`) when the level arrives, with its relit file's start, before fitting the level's day
+(`NativeInputs::north_heading`) - level data, the same in every run and with any renderer - the path turned there, the level's own time still
+the time its sun is as high on its side of noon (its own light unchanged), its own sun the path's at that time. One
+producer: every effect reads `DayLight` (the sky, the disc and its glare, the relit level, the shadows, the air and its
+god rays, the clouds and their shadows, the light field), so they all turn with it. No rebake: the relit data is the
+bake taken apart, relit toward whatever sun the clock gives. Without an entry north is where the bake's sun puts it -
+every other level unchanged. College (`sch`): north at heading 105.6 - its clock tower's faces are square to the axes
+(the plaza's face looks along +z: from the plaza at (936.7, -412.8, 1384.1) the tower is at heading -175.6), so at
+`tod=06:10` the sun, 10.3 degrees up, rises straight behind the tower seen head-on from the plaza (`start_at=936.7,
+-412.8,1384.1,-175.6`). Its own time (15:52) then has its sun at heading 11 instead of the bake's -45: at that hour
+the shadows fall 56 degrees round from the original's - the price of the compass; the level's own look is `tod=level`.
 
 **The light at a time** (`day_light_at`; all relative to the level's own time, display-referred like the bake - a
 linear ratio r shows as r ^ (1 / 2.2), so night is dim, not black):

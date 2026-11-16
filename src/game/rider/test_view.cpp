@@ -18,6 +18,10 @@
 #include "engine/script/context.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
+#include "game/rider/walk_camera.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/entity.h"
+#include "base/core/down_cast.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 #include "base/core/checked_index.h"
@@ -31,7 +35,11 @@ constexpr float kMinDirectionLength = 1e-6F;
 constexpr float kMinRightLength = 1e-4F;
 constexpr double kDegreesPerHalfTurn = 180.0;
 
-constexpr float kProbeAbove = 12.0F;   // the ground ray starts this far above the point...
+constexpr uint32_t kSkaterCamObject = 0x967C138C; // the camera object (by id: game/online/gamenet_players.cpp's)
+constexpr uint32_t kWalkCamera = 0xC7D37EC2;      // WalkCamera
+constexpr int kCutFrames = 3;                     // the walk camera's frames that jump straight to its target
+
+constexpr float kProbeAbove = 12.0F;  // the ground ray starts this far above the point...
 constexpr float kProbeBelow = 4000.0F; // ...and ends this far below it
 
 Vec3 perpendicular(Vec3 a, Vec3 b)
@@ -164,6 +172,16 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     skater->custom_restart().set_pos(saved_pos);
     skater->custom_restart().set_matrix(saved_matrix);
     skater->custom_restart().set_walking(saved_walking);
+    // A teleport is a cut: the walk camera turned straight to the skater's new facing and put behind it within its
+    // next frames (as the game's own spectate does), not swung round from wherever it looked before - start_at's
+    // heading is what the player sees first.
+    auto* cameras = core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(kSkaterCamObject));
+    objects::ObjectModule* walk = cameras != nullptr ? cameras->fetch_module(kWalkCamera) : nullptr;
+    if (!on_board && walk != nullptr) {
+        auto* foot = core::down_cast<objects::FootView>(walk);
+        foot->apply_queued_change();
+        foot->set_instant_frames(kCutFrames);
+    }
     get_log("test view: skater teleported %s to (%.1f, %.1f, %.1f) heading %.1f degrees%s",
             on_board ? "on its board" : "standing", position.x, position.y, position.z, heading_degrees,
             grounded ? " (on the ground below)" : " (no ground below: as given)");

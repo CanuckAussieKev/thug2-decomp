@@ -232,8 +232,6 @@ struct State {
     uint32_t level = 0;
     Status status = Status::kOff;
     Status logged = Status::kOff;
-    std::vector<rt::RelitLevel> levels;
-    bool levels_read = false;
     rt::Vec3 sun{};
     float radius = rt::kRelitSunRadiusDegrees; // the light's angular radius (the lighting state's: the moon's softer)
     rt::Rgbf sun_colour{1.0F, 1.0F, 1.0F};
@@ -331,36 +329,8 @@ uint32_t main_scene()
     return 0;
 }
 
-// The per-level list: built in, then the user's file beside the exe.
-const std::vector<rt::RelitLevel>& levels()
-{
-    State& st = state();
-    if (!st.levels_read) {
-        st.levels_read = true;
-        if (!rt::parse_relit_levels(rt::built_in_relit_levels(), &st.levels)) {
-            get_log("rt_relit: the built-in level list isn't valid JSON of its layout");
-        }
-        std::string text;
-        const std::string path = std::string(build_info::executable_directory()) + "thug2-decomp-relit.json";
-        if (fs::read_text(path, &text)) {
-            const bool read = rt::parse_relit_levels(text, &st.levels);
-            get_log("rt_relit: %s %s", read ? "read" : "couldn't read (not JSON of the layout)", path.c_str());
-        }
-    }
-    return st.levels;
-}
-
-// The level's entry (the last one naming it wins), or null.
-const rt::RelitLevel* level_entry(uint32_t level)
-{
-    const rt::RelitLevel* found = nullptr;
-    for (const rt::RelitLevel& entry : levels()) {
-        if (checksums::hash_from_text(entry.name.c_str()) == level) {
-            found = &entry;
-        }
-    }
-    return found;
-}
+// The level's entry (rt_relit.h: the built-in list, then the user's file beside the exe), or null.
+const rt::RelitLevel* level_entry(uint32_t level) { return rt::relit_level_entry(level); }
 
 // --- the level's relit data -----------------------------------------------------------------------------------------
 

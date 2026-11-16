@@ -200,8 +200,20 @@ constexpr double kAlleyHalf = 200.0;
 constexpr double kBarLow = 300.0;
 constexpr double kBarSide = 12.0;
 constexpr double kBarZ = kStreetZ - 40.0;
+// (added by the god rays) a comb 760 m from the others: kCombTeeth posts 1 m wide, 4 m apart (centre to centre), 17.5 m
+// tall, across x at z kCombZ - the low sun seen through it from kCombEye gives a ray through each gap
+constexpr double kCombZ = 30000.0;
+constexpr int kCombTeeth = 5;
+constexpr double kCombPost = 40.0;
+constexpr double kCombPitch = 160.0;
+constexpr double kCombHigh = 700.0;
+constexpr Solid comb_post(int k)
+{
+    const double left = ((static_cast<double>(k) - (0.5 * (kCombTeeth - 1))) * kCombPitch) - (0.5 * kCombPost);
+    return {.low = {left, 0.0, kCombZ - kCombPost}, .high = {left + kCombPost, kCombHigh, kCombZ}, .colour = 0xFF505050};
+}
 // the ground, then the wall (z -2 - 2) round a window x -20 - 20, y 60 - 100; then the street's (and its bar)
-const std::array<Solid, 9> kSolids{{
+const std::array<Solid, 14> kSolids{{
     {.low = {-kGroundHalf, 0.0, -kGroundHalf}, .high = {kGroundHalf, 0.0, kGroundHalf}, .colour = 0xFF909090},
     {.low = {-150.0, 0.0, -2.0}, .high = {-20.0, 150.0, 2.0}, .colour = 0xFFA08060},
     {.low = {20.0, 0.0, -2.0}, .high = {150.0, 150.0, 2.0}, .colour = 0xFFA08060},
@@ -213,6 +225,12 @@ const std::array<Solid, 9> kSolids{{
     {.low = {-kStreetHalf, 0.0, kStreetZ - kStreetDeep}, .high = {-kAlleyHalf, kStreetHigh, kStreetZ}, .colour = 0xFF706050},
     {.low = {kAlleyHalf, 0.0, kStreetZ - kStreetDeep}, .high = {kStreetHalf, kStreetHigh, kStreetZ}, .colour = 0xFF706050},
     {.low = {-kAlleyHalf, kBarLow, kBarZ}, .high = {kAlleyHalf, kBarLow + kBarSide, kBarZ + kBarSide}, .colour = 0xFF404040},
+    // (added by the god rays) the comb: kCombTeeth posts against the low sun, far from the rest
+    comb_post(0),
+    comb_post(1),
+    comb_post(2),
+    comb_post(3),
+    comb_post(4),
 }};
 
 constexpr Vec3 kLightTravels{0.15, -0.45, 1.0}; // (the sun behind the wall, low: the shaft goes down into +z)
@@ -2229,6 +2247,105 @@ void run_bar(render::Gpu& gpu, const Scene& scene, Tally* tally)
     street_off();
 }
 
+// (added by the god rays - rt_volume_light.h god_ray_peak) The low sun seen through the comb: the eye 40 m in front of it,
+// 5 m up, looking straight at the sun 10 degrees up (behind the posts' middle). Above the comb's top every line toward
+// the sun crosses the posts or the gaps between them: across a row of the rays' image there, the open share rises and
+// falls - one ray through each gap, kCombTeeth - 1 of them, apart (each one's peak over the dips beside it by
+// kLeastRayContrast). And the model: the peak taken out of the march and put back on the screen is the phase whole.
+constexpr Vec3 kCombEye{0.0, 200.0, kCombZ + 1600.0};
+constexpr double kCombSunDegrees = 10.0;
+constexpr double kLeastRayContrast = 0.1;
+constexpr uint32_t kRaysRowAbove = 40; // (texels of the rays' image above the comb's top: the row read)
+void run_rays(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    namespace rt = render::rt;
+    text::print("the god rays through a comb against the low sun (%ux%u):\n", kBarWidth, kBarHeight);
+    bool whole = true;
+    for (double c = -1.0; c <= 1.0; c += 0.01) {
+        const double split = rt::march_sun_phase(c, 0.75, true) + rt::god_ray_peak(c, 0.75);
+        whole = whole && std::abs(split - rt::medium_phase(c, 0.75)) < 1e-9 && rt::god_ray_peak(c, 0.75) >= 0.0;
+    }
+    whole = whole && rt::god_ray_peak(std::cos(rt::kGodRayConeDegrees * std::numbers::pi / 180.0), 0.75) < 1e-9;
+    tally->check(whole, "  the march's phase and the screen's peak add up to the phase, the peak none past its cone");
+    const rt::AirArt clear_art = rt::air_art(rt::AirLook::kClear);
+    const rt::AirArt cine_art = rt::air_art(rt::AirLook::kCinematic);
+    const rt::AirArt volume{.range = 60.0, .along = 4.0};
+    const double tree = 15.0 * rt::kUnitsPerMetre; // (a tree 15 m away, looking at the light)
+    tally->check(rt::air_share_before(tree, 1.0, cine_art) == 1.0 && rt::air_share_before(tree, 1.0, clear_art) == 0.0 &&
+                     std::abs(rt::air_share_before(tree, 1.0, volume) - (15.0 / 180.0)) < 1e-9 &&
+                     rt::god_ray_open(0.25, 1.0) == 0.25 && rt::god_ray_open(0.25, 0.0) == 1.0,
+                 text::format("  the air before a tree 15 m away: cinematic all of it, a 60 m volume's %.3f (physical)",
+                              rt::air_share_before(tree, 1.0, volume)));
+    street_on(rt::AirLook::kCinematic);
+    const double sun = kCombSunDegrees * std::numbers::pi / 180.0;
+    const Vec3 toward{0.0, std::sin(sun), -std::cos(sun)};
+    clock_light(toward, {1.0F, 1.0F, 1.0F}, false);
+    look_at() = step(kCombEye, toward, 1000.0);
+    render::vulkan::RtFogSettings settings = settings_of(false);
+    settings.density = 0.0F;
+    settings.air = rt::AirLook::kCinematic;
+    settings.god_rays = 1.0F;
+    use_settings(settings, scene.top.handle);
+    Targets targets;
+    const bool made = make_targets(gpu, kBarWidth, kBarHeight, &targets);
+    tally->check(made, "the targets made");
+    if (made) {
+        constexpr int kFrames = 4;
+        for (int frame = 0; frame < kFrames; ++frame) {
+            draw_frame(gpu, targets, kCombEye);
+        }
+        render::vulkan::RtFogTexels rays;
+        bool read = false;
+        {
+            render::vulkan::Backend& state = render::vulkan::backend();
+            const std::scoped_lock lock(state.mutex);
+            read = render::vulkan::read_rt_fog_image(state, {0, 0, kBarWidth, kBarHeight}, render::vulkan::RtFogImage::kRays,
+                                                     &rays);
+        }
+        tally->check(read && rays.width == kBarWidth / 2 && rays.height == kBarHeight / 2,
+                     "  the rays' image read back (half the viewport)");
+        // the comb's top on the screen (the lens: kHalfFovTan across, the view's aspect): its row in the rays' image
+        const Vec3 up = cross(cross(toward, kUp), toward);
+        const Vec3 to_top = minus(Vec3{0.0, kCombHigh, kCombZ}, kCombEye);
+        const double rise = dot(to_top, normalised(up)) / dot(to_top, toward);
+        const double half_tall = kHalfFovTan * static_cast<double>(kBarHeight) / static_cast<double>(kBarWidth);
+        const auto top = static_cast<uint32_t>(std::lround(0.5 * (1.0 - (rise / half_tall)) * (kBarHeight / 2.0)));
+        const uint32_t row = top > kRaysRowAbove ? top - kRaysRowAbove : 0;
+        std::vector<double> open;
+        for (uint32_t x = 0; read && row < rays.height && x < rays.width; ++x) {
+            open.push_back(std::get<0>(core::at(rays.texels, (static_cast<std::size_t>(row) * rays.width) + x)));
+        }
+        // the rays: local peaks each over the lowest point on both sides before the next higher one by the contrast
+        int peaks = 0;
+        double least_rise = 1.0;
+        for (std::size_t x = 1; x + 1 < open.size(); ++x) {
+            const double here = core::at(open, x);
+            if (!(here >= core::at(open, x - 1) && here > core::at(open, x + 1))) {
+                continue;
+            }
+            double left_low = here;
+            for (std::size_t k = x; k-- > 0 && core::at(open, k) <= here;) {
+                left_low = std::min(left_low, core::at(open, k));
+            }
+            double right_low = here;
+            for (std::size_t k = x + 1; k < open.size() && core::at(open, k) <= here; ++k) {
+                right_low = std::min(right_low, core::at(open, k));
+            }
+            const double rise = here - std::max(left_low, right_low);
+            if (rise >= kLeastRayContrast) {
+                ++peaks;
+                least_rise = std::min(least_rise, rise);
+            }
+        }
+        tally->check(peaks == kCombTeeth - 1,
+                     text::format("  %d rays apart across the row %u texels above the comb (row %u; %d gaps between the "
+                                  "posts), the least over its dips by %.2f",
+                                  peaks, kRaysRowAbove, row, kCombTeeth - 1, least_rise));
+    }
+    release_targets(gpu, targets);
+    street_off();
+}
+
 // The passes at 2560 x 1440 timed on the device (their own timestamps) at rt_fog_quality 0, 1, 2 - in the street at
 // dusk (the street air on, the alley's beam): Medium held to kMostMediumMilliseconds.
 constexpr double kMostMediumMilliseconds = 1.0;
@@ -2254,12 +2371,16 @@ void run_perf(render::Gpu& gpu, const Scene& scene, Tally* tally)
         render::vulkan::finish_work(state);
         return render::vulkan::rt_fog_timing();
     };
-    constexpr std::array<const char*, 3> kNames{"Low", "Medium", "High"};
-    for (std::size_t quality = 0; quality < kNames.size(); ++quality) {
+    // (added by the god rays: Medium again without them - their cost the difference)
+    constexpr std::array<const char*, 4> kNames{"Low", "Medium", "High", "Medium, no god rays"};
+    constexpr std::size_t kWithoutRays = 3;
+    for (std::size_t run = 0; run < kNames.size(); ++run) {
+        const std::size_t quality = run == kWithoutRays ? 1 : run;
         render::vulkan::RtFogSettings settings = base;
         settings.steps = core::at(render::vulkan::kRtFogQualitySteps, quality);
         settings.scale = core::at(render::vulkan::kRtFogQualityScale, quality);
         settings.map = core::at(render::vulkan::kRtFogQualityMap, quality);
+        settings.god_rays = run == kWithoutRays ? 0.0F : settings.god_rays;
         use_settings(settings, scene.top.handle);
         const render::vulkan::RtFogTiming before = timing();
         for (int frame = 0; frame < kFrames; ++frame) {
@@ -2271,9 +2392,9 @@ void run_perf(render::Gpu& gpu, const Scene& scene, Tally* tally)
         const uint64_t samples = after.samples - before.samples;
         const double milliseconds =
             samples == 0 ? 0.0 : (after.milliseconds - before.milliseconds) / static_cast<double>(samples);
-        text::print("  %-6s (%u steps, 1/%u): %.3f ms (%llu passes timed)\n", core::at(kNames, quality), settings.steps,
+        text::print("  %-6s (%u steps, 1/%u): %.3f ms (%llu passes timed)\n", core::at(kNames, run), settings.steps,
                     settings.scale, milliseconds, static_cast<unsigned long long>(samples));
-        if (quality == 1) {
+        if (run == 1) {
             tally->check(samples > 0 && milliseconds < kMostMediumMilliseconds,
                          text::format("  Medium within %.1f ms at %ux%u", kMostMediumMilliseconds, kPerfWidth,
                                       kPerfHeight));
@@ -2375,6 +2496,7 @@ int run(const Options& options, SDL_Window* window)
         run_clock(gpu, scene, &tally);  // (added by the volumetric light)
         run_streets(gpu, scene, &tally); // (added by the street air; the side view by the cinematic air)
         run_bar(gpu, scene, &tally);     // (added by the distinct shafts)
+        run_rays(gpu, scene, &tally);    // (added by the god rays)
         run_untouched(gpu, "no scene: the pass skipped", settings_of(false), VK_NULL_HANDLE, true, &tally);
         render::vulkan::RtFogSettings off = settings_of(false);
         off.on = false;

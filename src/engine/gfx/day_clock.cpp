@@ -124,6 +124,8 @@ struct LevelHead {
     bool read = false;
     bool found = false; // a file of this level's scene
     rt::RelitLevelHead head;
+    bool north_set = false; // (the level's compass) its north given by its entry
+    double north_heading = 0.0;
 };
 
 struct Clock {
@@ -192,7 +194,8 @@ bool own_game_sun(const Clock& own, rt::DayVec* toward)
 // The level's relit data read from the start of its file (relit_data.h: its scene, verdict and baked sun), and what it
 // says published to the settings model (whether the time of day has data to light the level by) - the simulation's
 // facts about the level, known when it arrives: the renderer adds whether the data still matches the level's meshes
-// on its first frame (render_pc/rt_relit_world.cpp), which only the relit mode reads.
+// on its first frame (render_pc/rt_relit_world.cpp), which only the relit mode reads. With it the level's north
+// (rt_relit.h relit_level_entry: rt_relit_levels.json's "north", the level's compass) - level data, not the renderer's.
 void read_level_data(Clock& own)
 {
     own.data = LevelHead{.read = true};
@@ -205,6 +208,10 @@ void read_level_data(Clock& own)
     }
     own.data.found = got > 0 && rt::read_relit_head(std::string_view(bytes.data(), got), &own.data.head) &&
                      own.data.head.scene == own.level;
+    if (const rt::RelitLevel* entry = rt::relit_level_entry(own.level); entry != nullptr && entry->north_set) {
+        own.data.north_set = true;
+        own.data.north_heading = static_cast<double>(entry->north_heading);
+    }
     config::LevelLight light = config::LevelLight::kMissing;
     if (own.data.found) {
         light = own.data.head.verdict == rt::RelitVerdict::kRelit ? config::LevelLight::kBuilt : config::LevelLight::kNoSun;
@@ -228,14 +235,16 @@ void know_native(Clock& own)
     } else {
         in.have_sun = own_game_sun(own, &in.sun);
     }
+    in.north_set = own.data.north_set;
+    in.north_heading = own.data.north_heading;
     own.native = rt::fit_native_day(in);
     own.native_known = true;
     const rt::SkyPlace sun = rt::heading_of(own.native.toward);
     get_log("tod: level %08x's own time %s - its sun %s (heading %.0f, %.0f degrees up), latitude %.1f, north at "
-            "heading %.0f",
+            "heading %.1f%s",
             own.level, rt::tod_text({.preset = rt::TodPreset::kClock, .hours = static_cast<float>(own.native.hours)}).c_str(),
             in.from_bake ? "baked" : (in.have_sun ? "the game's" : "assumed"), sun.azimuth, sun.elevation,
-            own.native.path.latitude, own.native.path.north_heading);
+            own.native.path.latitude, own.native.path.north_heading, in.north_set ? " (the level's data)" : "");
 }
 
 void read_params(Clock& own, gfx::CtodManager& manager)

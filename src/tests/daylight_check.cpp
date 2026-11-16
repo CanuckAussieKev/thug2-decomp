@@ -185,6 +185,30 @@ void check_native()
            "no sun: 45 degrees up at the default latitude");
     const rt::NativeDay night = rt::fit_native_day({.state = rt::TodState::kNight});
     expect(night.hours == rt::kNightHours, "a level whose own state is night: its time midnight");
+    // (added by the level's compass) a level whose data gives its north: the path turned there - its own time the same
+    // (its sun as high), its sun's heading north + the path's azimuth; every time of day turned with it
+    const rt::DayVec college_sun{-0.5788F, 0.5691F, 0.5840F};
+    const rt::NativeDay fitted =
+        rt::fit_native_day({.sun = college_sun, .have_sun = true, .from_bake = true, .state = rt::TodState::kAfternoon});
+    constexpr double kCollegeNorth = 105.6;
+    const rt::NativeDay oriented = rt::fit_native_day({.sun = college_sun,
+                                                       .have_sun = true,
+                                                       .from_bake = true,
+                                                       .state = rt::TodState::kAfternoon,
+                                                       .north_set = true,
+                                                       .north_heading = kCollegeNorth});
+    const rt::SkyPlace own_place = rt::heading_of(oriented.toward);
+    const rt::SkyPlace path_place = rt::sun_place(oriented.path, oriented.hours);
+    const double own_turn = std::remainder(own_place.azimuth - (kCollegeNorth + path_place.azimuth), 360.0);
+    expect(std::abs(oriented.path.north_heading - kCollegeNorth) < 1e-9 && std::abs(oriented.hours - fitted.hours) < 1e-9 &&
+               std::abs(own_place.elevation - rt::heading_of(college_sun).elevation) < 0.05 && std::abs(own_turn) < 0.05,
+           "a level's north from its data: the path turned there (own time " + number(oriented.hours) +
+               " as without it, its sun as high, heading " + number(own_place.azimuth) + ")");
+    constexpr double kMorning = 6.0 + (10.0 / 60.0);
+    const rt::SkyPlace morning = rt::heading_of(rt::day_light_at(oriented, kMorning).sun);
+    expect(std::abs(std::remainder(morning.azimuth - (-175.6), 360.0)) < 0.5 && std::abs(morning.elevation - 10.3) < 0.3,
+           "College at 06:10 with its north at 105.6: the sun behind the clock tower seen from the plaza (heading " +
+               number(morning.azimuth) + ", " + number(morning.elevation) + " degrees up)");
 }
 
 void check_objects_and_clouds(const rt::NativeDay& day, const rt::DayLight& midnight);

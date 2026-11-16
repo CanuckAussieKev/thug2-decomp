@@ -48,6 +48,11 @@
 //      (bilinear over the texels whose distance agrees), clamped to this frame's 3 x 3 neighbourhood (changed by the
 //      distinct shafts: its mean +- kFogHistorySpread deviations, inside its least and most), blended with this
 //      frame's by 1 / its length (up to kFogMaxHistory);
+//   (added by the god rays - rt_volume_light.h god_ray_peak; rt_fog_god_rays) the march leaves out the phase's forward
+//      peak and adds up its potential (raw info's a); 2a. what each texel of half the viewport's pixels puts in the
+//      light's way (its sky share, the distance of what stands there); 2b. three radial passes toward the light's place
+//      on the screen (10 taps over 1/100, 1/10 and the whole of the way) - the composite adds the peak x the potential x
+//      what is open along the line (the air before what stands on it shadowed by it), the light's colour, the setting.
 //   3. composite (full resolution, a blend): colour = colour x T + in - the low-resolution result upsampled with
 //      weights falling off with the difference between each texel's distance and the pixel's own (depth-aware); every
 //      sample of a multisampled target the pixel's value, alpha kept.
@@ -152,6 +157,9 @@ enum class RtFogImage : uint8_t {
     kRawInfo, // step 1: r the distance marched to (-1: the sky), g the full-resolution pixel's x, b its y (viewport's)
     kHistory, // step 2: as kRaw
     kHistoryInfo, // step 2: r the distance, g the history's length
+    // (added by the god rays) step 2b's last radial pass (half the viewport's pixels): r the light's surroundings open
+    // along the texel's line to the light x the peak's weight, g the weight (r / g: what is open); none when no rays ran
+    kRays,
 };
 struct RtFogTexels {
     uint32_t width = 0;
