@@ -227,6 +227,20 @@ SunFit fit_baked_sun(std::span<const BakeSample> samples, RayTracing& tracer)
     std::ranges::nth_element(heights, heights.begin() + at);
     fit.sun.ground = *(heights.begin() + at);
     fit.sun.ground_known = true;
+    // (added by the street air) the street level: the middle of the upward samples' heights
+    std::vector<float> up;
+    up.reserve(samples.size());
+    for (const BakeSample& sample : samples) {
+        if (core::at(sample.normal, 1) >= kStreetUp) {
+            up.push_back(core::at(sample.position, 1));
+        }
+    }
+    if (!up.empty()) {
+        const auto middle = static_cast<std::ptrdiff_t>(static_cast<double>(up.size() - 1) * kStreetShare);
+        std::ranges::nth_element(up, up.begin() + middle);
+        fit.sun.street = std::max(*(up.begin() + middle), fit.sun.ground);
+        fit.sun.street_known = true;
+    }
     return fit;
 }
 

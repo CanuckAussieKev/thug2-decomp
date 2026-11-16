@@ -391,6 +391,8 @@ struct LightsState {
     std::vector<PassPipeline> pipelines;
     PassTiming timing;
     std::vector<rt::Emitter> last_view;
+    float last_scale = 0.0F; // (added by the volumetric light) strength x the lamps on, for last_view
+    uint64_t last_frame = 0; // the frame last_view was lit in (0: never)
     uint64_t emitters_logged = 0;
     bool failed = false;
     uint64_t passes = 0;
@@ -917,6 +919,8 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     request.point_scale = own.settings.level;
     request.emitter_scale = own.settings.emissive;
     own.last_view = rt::select_view_lights(rt::frame_record(), level.get(), request);
+    own.last_scale = own.settings.strength * lamps;
+    own.last_frame = state.frame;
     if (own.last_view.empty()) {
         return false;
     }
@@ -1108,6 +1112,13 @@ std::vector<rt::Emitter> rt_lights_last_view()
 {
     const std::scoped_lock lock(backend().mutex);
     return lights_state().last_view;
+}
+
+RtLitLamps rt_lights_lit_locked(const Backend& state)
+{
+    (void)state;
+    const LightsState& own = lights_state();
+    return {.lights = own.last_view, .scale = own.last_scale, .frame = own.last_frame};
 }
 
 void release_rt_lights(Backend& state)

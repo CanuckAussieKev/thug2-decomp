@@ -140,6 +140,29 @@ bool rt_sky_for_rays(Backend& state, const std::array<uint32_t, 4>& rect, RtSkyF
 //   vec3 sky_for_ray(vec3 dir, mat4 to_pixel, vec4 sun, vec4 low, vec4 rect, vec4 tint)   exposed linear
 [[nodiscard]] std::string rt_sky_rays_glsl(uint32_t first_binding);
 
+// (added by the volumetric light - engine/gfx/rt_volume_light.h) The clouds' shadow map: the light's transmittance
+// through the cloud layer (rt::medium_light: the sun, or the moon at night), made at each viewport's opaque_drawn while
+// the clouds are drawn and rt_cloud_shadows is on - one map, read by both: the shadows on the ground and the shafts
+// through the clouds' gaps in the air (changed by the cinematic air: the fog's march no longer asks for it alone - the
+// air shaded by clouds the ground isn't was two lights; one light for both).
+struct CloudShadowMap {
+    VkDescriptorImageInfo image{}; // a combined image sampler (linear, clamped; GENERAL): r the transmittance
+    std::array<float, 4> place{};  // x, z its centre (world), y the cloud base's height (world), w 1 / its width
+    std::array<float, 4> light{};  // xyz toward the light, w the shadow's share kept (fading out with a low light)
+};
+// The map made in this frame (for the viewport drawing now: its opaque_drawn came before). False: none (no clouds, no
+// light, not wanted). The caller holds the lock.
+bool cloud_shadow_map(const Backend& state, CloudShadowMap* out);
+// The GLSL that reads it (after the caller's own set 0 bindings; the sampler at set 0, `binding`):
+//   float cloud_map_kept(vec3 at, vec4 place, vec4 light) - the share of the light that gets through the clouds to `at`
+[[nodiscard]] std::string cloud_map_glsl(uint32_t binding);
+
+// How many maps were made (the checks').
+[[nodiscard]] uint64_t cloud_maps_made();
+// For the check: the map last made read back (the frame's work finished first): kCloudMapSize^2 transmittances, row by
+// row, and where it lies. The caller holds the lock.
+bool read_cloud_shadow_map(Backend& state, std::vector<float>* texels, CloudShadowMap* made);
+
 void release_rt_sky(Backend& state);
 
 } // namespace render::vulkan

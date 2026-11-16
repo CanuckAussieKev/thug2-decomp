@@ -661,7 +661,7 @@ void check_needs()
 void check_level_light()
 {
     const Ini asked = {{"ray_tracing", "1"}, {"rt_relit", "0"},  {"rt_shadows", "1"}, {"rt_ao", "1"},
-                       {"rt_lights", "auto"}, {"tod", "night"}, {"tod_cycle", "on"}};
+                       {"rt_lights", "auto"}, {"tod", "night"}, {"tod_cycle", "on"}, {"rt_fog", "1"}};
     const auto level_with = [&asked](config::LevelLight light) {
         config::Inputs inputs = inputs_of(rtx50(), asked);
         inputs.level = {.known = true, .light = light};
@@ -690,6 +690,10 @@ void check_level_light()
         for (const char* pass : {"rt_shadows", "rt_ao", "rt_lights", "tod_cycle_minutes"}) {
             expect(!level.at(pass).in_effect, std::string(each.what) + ": " + pass + " out of effect (no pass on a bake)");
         }
+        // (added by the cinematic air: the air is lit by the relit level's sun alone - the fog keeps the level's own
+        // look, the air's look out of effect with the relit data's reason)
+        expect(level.on("rt_fog") && !level.at("rt_fog_air").in_effect && level.at("rt_fog_air").reason == each.reason,
+               std::string(each.what) + ": the fog on, the air's look out of effect - " + level.at("rt_fog_air").reason);
         expect(level.at("rt_shadows").reason == each.reason,
                std::string(each.what) + ": the shadows say why at the root - " + level.at("rt_shadows").reason);
         expect(std::string(each.reason).find("relit_bake") != std::string::npos ||
@@ -914,6 +918,15 @@ void check_forces_and_conflicts()
     expect(resolve(fast_display, {{"frame_generation", "4x"}, {"present_mode", "immediate"}, {"max_fps", "120"}}).active.empty(),
            "120 x 4 on a 480 Hz display: none");
     // the haze, its air and the sky model; smooth curves' strength; the grade under an art style with its own
+    // (added by the cinematic air) the air's look: cinematic by default, the ini's old numbers as its steps
+    const config::Resolution air = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_relit", "1"}});
+    expect(air.value("rt_fog_air") == "cinematic" && air.at("rt_fog_air").in_effect, "the air's look: cinematic");
+    const config::Resolution air_two =
+        resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_relit", "1"}, {"rt_fog_air", "2"}});
+    expect(air_two.value("rt_fog_air") == "misty", "rt_fog_air=2: misty");
+    const config::Resolution air_unrelit =
+        resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_relit", "0"}, {"rt_lights", "0"}});
+    expect(!air_unrelit.at("rt_fog_air").in_effect, "the air's look needs relit lighting");
     const config::Resolution haze = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}});
     expect(haze.on("rt_fog_haze") && !haze.at("rt_fog_haze_density").in_effect &&
                haze.at("rt_fog_haze_density").reason == t::kNeedsHazeAndSkyModel,

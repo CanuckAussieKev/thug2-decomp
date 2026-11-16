@@ -46,6 +46,16 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view);
 [[nodiscard]] uint64_t rt_lights_passes();
 [[nodiscard]] std::vector<rt::Emitter> rt_lights_last_view(); // the lights the last pass shone
 
+// (added by the volumetric light) The lamps the last pass lit - the view's most important first - and their light's
+// scale (rt_lights_strength x the lamps on: the clock's dusk to dawn), and the frame they were lit in: the fog's march
+// (vulkan_rt_fog.h) scatters the same lamps into the air. The caller holds the lock.
+struct RtLitLamps {
+    std::vector<rt::Emitter> lights;
+    float scale = 0.0F;
+    uint64_t frame = 0; // (0: never; Backend::frame otherwise)
+};
+[[nodiscard]] RtLitLamps rt_lights_lit_locked(const Backend& state);
+
 // The pass's objects released (the device's shutdown; the caller holds the lock).
 void release_rt_lights(Backend& state);
 

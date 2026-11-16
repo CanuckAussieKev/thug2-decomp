@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -25,6 +26,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_sky_match.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -49,8 +51,9 @@ constexpr uint64_t kReportNoRoom = 0x534B5005U;
 constexpr uint64_t kReportNoSun = 0x534B5006U;
 constexpr uint64_t kReportNoCapture = 0x534B5007U;
 constexpr uint64_t kReportShadows = 0x534B5008U;
-constexpr uint32_t kShadowSamples = 4;
-constexpr double kShadowStrength = 0.65; // how dark a cloud's full shadow is (0 - 1)
+// how dark a cloud's full shadow is on the ground (0 - 1: the share of a surface's light that is the direct light's)
+constexpr double kShadowStrength = 0.65;
+constexpr uint64_t kReportCloudMap = 0x534B5009U;
 
 constexpr uint32_t kGroupSide = 8;
 constexpr std::size_t kMatrixSide = 4;
@@ -91,6 +94,9 @@ layout(set = 0, binding = 6) uniform SkyBlock {
     vec4 moon;            // (added by the time of day) xyz toward the moon; w its disc (0 - 1)
     vec4 stars;           // xyz toward the celestial pole; w the stars' turn about it (radians)
     vec4 night;           // x the stars (0 - 1)
+    vec4 cloud_map;       // (the clouds' shadow map - rt_volume_light.h) x, z its centre (world), y the cloud base's
+                          // height (world), w 1 / its width (world units)
+    vec4 cloud_light;     // xyz toward the light it is made for (rt::medium_light), w how much of its shadow is kept
 } sky;
 
 vec3 direction_of(vec2 p)
@@ -355,8 +361,37 @@ void main()
 }
 )";
 
-// 5. The clouds' shadows on the world (rt_cloud_shadows; at opaque_drawn): each surface pixel's way to the sun through
-// the layer, its density at kShadowSamples heights (no detail), its transmittance; the colour multiplied toward it.
+// 5. The clouds' shadow map (rt_volume_light.h; at opaque_drawn, before anything reads it): each texel the light's
+// transmittance through the layer from where it lies on the cloud base, toward the light (rt::medium_light: the sun, or
+// the moon at night), kCloudMapSamples densities (no detail) - what the fog's march and the shadows on the ground read.
+constexpr const char* kCloudMapBody = R"(
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 7, rgba16f) uniform writeonly image2D o_a;
+
+void main()
+{
+    ivec2 q = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(q, ivec2(CLOUD_MAP_SIZE)))) {
+        return;
+    }
+    vec2 uv = (vec2(q) + 0.5) / float(CLOUD_MAP_SIZE);
+    vec2 world = sky.cloud_map.xz + (uv - 0.5) / sky.cloud_map.w;
+    vec2 across = sky.offset.xy + (world - sky.camera.xz) / GAME_UNITS_PER_METRE;
+    vec3 l = sky.cloud_light.xyz;
+    float rise = max(l.y, CLOUD_MAP_LEAST_RISE);
+    float depth = 0.0;
+    for (int k = 0; k < CLOUD_MAP_SAMPLES; ++k) {
+        float h = CLOUD_BASE + (float(k) + 0.5) / float(CLOUD_MAP_SAMPLES) * (CLOUD_TOP - CLOUD_BASE);
+        float t = (h - CLOUD_BASE) / rise;
+        depth += cloud_density(vec3(across.x + l.x * t, h, across.y + l.z * t), sky.sun.w, false);
+    }
+    depth *= CLOUD_DENSITY * sky.sun_light.w * (CLOUD_TOP - CLOUD_BASE) / float(CLOUD_MAP_SAMPLES) / rise;
+    imageStore(o_a, q, vec4(exp(-depth)));
+}
+)";
+
+// 5b. The clouds' shadows on the world (rt_cloud_shadows; at opaque_drawn, after the map): each surface pixel's light
+// through the clouds, read from the map, the colour multiplied toward it by the share sky.cloud_light.w.
 constexpr const char* kShadowBody = R"(
 #ifdef MULTISAMPLED
 layout(set = 0, binding = 0) uniform sampler2DMS u_depth;
@@ -373,21 +408,7 @@ void main()
         discard;
     }
     vec4 w = sky.to_world * vec4(vec2(p), d, 1.0);
-    vec3 at = w.xyz / w.w;
-    float altitude = sky.camera.w + (at.y - sky.camera.y) / GAME_UNITS_PER_METRE;
-    vec2 across = sky.offset.xy + (at.xz - sky.camera.xz) / GAME_UNITS_PER_METRE;
-    vec3 sun = sky.sun.xyz;
-    float rise = max(sun.y, 0.08);
-    float depth = 0.0;
-    for (int k = 0; k < SHADOW_SAMPLES; ++k) {
-        float h = CLOUD_BASE + (float(k) + 0.5) / float(SHADOW_SAMPLES) * (CLOUD_TOP - CLOUD_BASE);
-        float t = (h - altitude) / rise;
-        vec3 point = vec3(across.x + sun.x * t, h, across.y + sun.z * t);
-        depth += cloud_density(point, sky.sun.w, false);
-    }
-    depth *= CLOUD_DENSITY * sky.sun_light.w * (CLOUD_TOP - CLOUD_BASE) / float(SHADOW_SAMPLES) / rise;
-    float kept = mix(1.0, exp(-depth), SHADOW_STRENGTH * smoothstep(0.02, 0.15, sun.y));
-    o_colour = vec4(vec3(kept), 1.0);
+    o_colour = vec4(vec3(cloud_map_kept(w.xyz / w.w, sky.cloud_map, sky.cloud_light)), 1.0);
 }
 )";
 
@@ -455,8 +476,10 @@ struct SkyBlock {
     std::array<float, 4> moon{};  // (added by the time of day)
     std::array<float, 4> stars{};
     std::array<float, 4> night{};
+    std::array<float, 4> cloud_map{};   // (added by the volumetric light: the clouds' shadow map)
+    std::array<float, 4> cloud_light{};
 };
-constexpr std::size_t kSkyBlockBytes = 336;
+constexpr std::size_t kSkyBlockBytes = 368;
 static_assert(sizeof(SkyBlock) == kSkyBlockBytes, "the shaders' std140 block");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -472,7 +495,8 @@ constexpr uint32_t kBindingHistA = 9;
 constexpr uint32_t kBindingHistB = 10;
 constexpr uint32_t kBindingLoadA = 11;
 constexpr uint32_t kBindingLoadB = 12;
-constexpr uint32_t kBindingCount = 13;
+constexpr uint32_t kBindingCloudMap = 13; // (the clouds' shadow map, read by the shadows on the ground)
+constexpr uint32_t kBindingCount = 14;
 
 using Matrix = std::array<std::array<double, kMatrixSide>, kMatrixSide>;
 
@@ -537,7 +561,18 @@ struct SkyPassState {
     RtSkyTiming timing;
     uint64_t window_samples = 0;
     std::array<double, 3> window_milliseconds{};
+    // (added by the volumetric light) the clouds' shadow map: made at each viewport's opaque_drawn while the clouds are
+    // drawn and the ground's shadows or the fog's march want it
+    VkPipeline cloud_map = VK_NULL_HANDLE;
+    Image map;
+    bool map_fresh = true;      // (not yet moved to GENERAL)
+    CloudShadowMap made_map;    // what it holds now
+    uint64_t map_frame = 0;     // the frame it was made in (Backend::frame)
+    bool map_made = false;      // (made at all)
+    uint64_t maps = 0;
 };
+
+
 
 SkyPassState& pass_state()
 {
@@ -703,9 +738,10 @@ std::string source_of(const char* body, const char* define)
     source += atmosphere_glsl(kBindingTransmittance, kBindingSkyView);
     source += cloud_glsl(kBindingCloudNoise);
     source += "#define GAME_UNITS_PER_METRE " + std::to_string(rt::kGameUnitsPerMetre) + "\n";
-    source += "#define SHADOW_SAMPLES " + std::to_string(kShadowSamples) + "\n";
-    source += "#define SHADOW_STRENGTH " + std::to_string(kShadowStrength) + "\n";
+    source += "#define CLOUD_MAP_SIZE " + std::to_string(rt::kCloudMapSize) + "\n";
+    source += "#define CLOUD_MAP_SAMPLES " + std::to_string(rt::kCloudMapSamples) + "\n";
     source += kCommon;
+    source += cloud_map_glsl(kBindingCloudMap);
     source += body;
     return source;
 }
@@ -1115,6 +1151,7 @@ struct PassBindings {
     const Image* depth = nullptr;
     bool sky = false;    // the sky-view table and the transmittance
     bool clouds = false; // the noise
+    bool cloud_map = false; // (the clouds' shadow map)
     const Image* out_a = nullptr;
     const Image* out_b = nullptr;
     const Image* hist_a = nullptr;
@@ -1155,6 +1192,9 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         for (uint32_t i = 0; i < 3; ++i) {
             add(kBindingCloudNoise + i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cloud_noise_descriptor(i));
         }
+    }
+    if (bound.cloud_map) {
+        add(kBindingCloudMap, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, own.made_map.image);
     }
     const std::array<std::pair<uint32_t, const Image*>, 2> sampled{
         {{kBindingHistA, bound.hist_a}, {kBindingHistB, bound.hist_b}}};
@@ -1848,12 +1888,59 @@ void record_commands(Backend& state, const Recording& recording, VkCommandBuffer
     }
 }
 
-// The clouds' shadows over a viewport's opaque world (rt_cloud_shadows; the listener's opaque_drawn). False: skipped.
+// The clouds' shadow map's pipeline and image (once). False: they can't be made (logged once).
+bool ensure_cloud_map(Backend& state, std::string* error)
+{
+    SkyPassState& own = pass_state();
+    if (own.cloud_map == VK_NULL_HANDLE) {
+        own.cloud_map = make_compute(state.context.device(), own.layout, source_of(kCloudMapBody, nullptr), error);
+        if (own.cloud_map == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
+    if (own.map.image == VK_NULL_HANDLE) {
+        if (!make_storage_image(state, {.width = rt::kCloudMapSize, .height = rt::kCloudMapSize}, &own.map)) {
+            *error = "the clouds' shadow map's image";
+            return false;
+        }
+        own.map_fresh = true;
+    }
+    return true;
+}
+
+// Where the map lies for a view (its block's fields - rt_volume_light.h): centred where the camera's way toward the
+// light meets the cloud base, snapped to whole texels.
+void place_cloud_map(const rt::MediumLight& light, SkyBlock* block)
+{
+    const double units = rt::kGameUnitsPerMetre;
+    const std::array<double, 3> camera{core::at(block->camera, 0), core::at(block->camera, 1),
+                                       core::at(block->camera, 2)};
+    const std::array<double, 3> toward{core::at(light.toward, 0), core::at(light.toward, 1),
+                                       core::at(light.toward, 2)};
+    // (the camera's altitude in the clouds' metres is block->camera.w: the base is that far below / above it)
+    const double base_y = core::at(camera, 1) + ((rt::kCloudBase - core::at(block->camera, 3)) * units);
+    const std::array<double, 2> centre = rt::cloud_map_place(camera, toward, base_y);
+    const double width = 2.0 * rt::kCloudMapHalf * units;
+    const double texel = width / static_cast<double>(rt::kCloudMapSize);
+    block->cloud_map = {static_cast<float>(std::round(core::at(centre, 0) / texel) * texel),
+                        static_cast<float>(base_y),
+                        static_cast<float>(std::round(core::at(centre, 1) / texel) * texel),
+                        static_cast<float>(1.0 / width)};
+    block->cloud_light = {core::at(light.toward, 0), core::at(light.toward, 1), core::at(light.toward, 2), 1.0F};
+}
+
+// The clouds' shadow map for a viewport (at its opaque_drawn), then the shadows on its opaque world (rt_cloud_shadows):
+// the colour multiplied toward the light's share through the clouds - the direct light's share of it (kShadowStrength
+// of a surface's light, x the light's strength over the level's own sun's: the moon's shadows faint). False: skipped.
 bool record_shadow_pass(Backend& state, const rt::ViewDrawn& view)
 {
-    const SkyPassState& own = pass_state();
+    SkyPassState& own = pass_state();
     const RtSkySettings& settings = own.settings;
-    if (own.failed || !settings.on || !settings.clouds || !settings.cloud_shadows || !own.matched) {
+    if (own.failed || !settings.on || !settings.clouds || !own.matched || !settings.cloud_shadows) {
+        return false;
+    }
+    const rt::MediumLight light = rt::medium_light();
+    if (!light.have) {
         return false;
     }
     Recording recording;
@@ -1881,34 +1968,102 @@ bool record_shadow_pass(Backend& state, const rt::ViewDrawn& view)
     if (!ensure_objects(state, &error) || !update_cloud_noise(state, commands)) {
         return false;
     }
-    const VkPipeline pipeline = composite_pipeline(state, *recording.colour, *recording.depth, true, &error, true);
-    if (pipeline == VK_NULL_HANDLE) {
+    if (!ensure_cloud_map(state, &error)) {
+        if (first_report(state, kReportCloudMap)) {
+            get_log("vulkan: rt_sky: the clouds' shadow map couldn't be made (%s) - no cloud shadows", error.c_str());
+        }
+        own.failed = true;
         return false;
     }
     recording.clouds = true;
     RtSkyFrame unused;
-    const SkyBlock block = block_for(clipped, recording, to_world, own.frame.sun, &unused);
-    const void* const block_bytes = &block;
-    const std::optional<RingSpan> span =
-        state.ring.copy(std::span(static_cast<const uint8_t*>(block_bytes), sizeof(block)), state.uniform_alignment);
-    if (!span) {
+    SkyBlock block = block_for(clipped, recording, to_world, own.frame.sun, &unused);
+    place_cloud_map(light, &block);
+    const auto block_in_ring = [&state](const SkyBlock& written) -> std::optional<VkDescriptorBufferInfo> {
+        const void* const block_bytes = &written;
+        const std::optional<RingSpan> span = state.ring.copy(
+            std::span(static_cast<const uint8_t*>(block_bytes), sizeof(written)), state.uniform_alignment);
+        if (!span) {
+            return std::nullopt;
+        }
+        return VkDescriptorBufferInfo{.buffer = span->buffer, .offset = span->offset, .range = sizeof(written)};
+    };
+    const std::optional<VkDescriptorBufferInfo> map_block = block_in_ring(block);
+    if (!map_block) {
+        return false;
+    }
+    // 1. the map (after every earlier read of it - the viewport before's fog and shadows)
+    if (own.map_fresh) {
+        const VkImageMemoryBarrier to_general{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                                              .pNext = nullptr,
+                                              .srcAccessMask = 0,
+                                              .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+                                              .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                                              .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                                              .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                              .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                              .image = own.map.image,
+                                              .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                   .baseMipLevel = 0,
+                                                                   .levelCount = 1,
+                                                                   .baseArrayLayer = 0,
+                                                                   .layerCount = 1}};
+        vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0,
+                             nullptr, 0, nullptr, 1, &to_general);
+        own.map.layout = VK_IMAGE_LAYOUT_GENERAL;
+        own.map_fresh = false;
+    } else {
+        const VkMemoryBarrier read_before{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                                          .pNext = nullptr,
+                                          .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
+                                          .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT};
+        vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &read_before, 0, nullptr, 0, nullptr);
+    }
+    dispatch(commands, own.cloud_map, {.clouds = true, .out_a = &own.map, .block = *map_block},
+             {.width = rt::kCloudMapSize, .height = rt::kCloudMapSize});
+    const float fade = static_cast<float>(rt::cloud_map_fade(core::at(light.toward, 1)));
+    own.made_map = CloudShadowMap{
+        .image = {.sampler = own.linear, .imageView = own.map.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        .place = block.cloud_map,
+        .light = {core::at(light.toward, 0), core::at(light.toward, 1), core::at(light.toward, 2), fade}};
+    own.map_frame = state.frame;
+    own.map_made = true;
+    ++own.maps;
+    const uint64_t serial = state.frames.serial();
+    own.map.used = serial;
+    cloud_noise_used(serial);
+    if (first_report(state, kReportCloudMap)) {
+        get_log("vulkan: rt_sky: the clouds' shadow map made (%ux%u over %.0f m, toward the %s, %.1f degrees up)",
+                rt::kCloudMapSize, rt::kCloudMapSize, 2.0 * rt::kCloudMapHalf, light.moonlit ? "moon" : "sun",
+                light.sun_elevation);
+    }
+    if (!settings.cloud_shadows) {
+        return true;
+    }
+    // 2. the shadows on the ground: the direct light's share of the light (kShadowStrength), as strong as the light is
+    const VkPipeline pipeline = composite_pipeline(state, *recording.colour, *recording.depth, true, &error, true);
+    if (pipeline == VK_NULL_HANDLE) {
+        return false;
+    }
+    const float strength = std::clamp((0.2126F * core::at(light.colour, 0)) + (0.7152F * core::at(light.colour, 1)) +
+                                          (0.0722F * core::at(light.colour, 2)),
+                                      0.0F, 1.0F);
+    core::at(block.cloud_light, 3) = static_cast<float>(kShadowStrength) * fade * strength;
+    const std::optional<VkDescriptorBufferInfo> shadow_block = block_in_ring(block);
+    if (!shadow_block) {
         return false;
     }
     depth_barrier(commands, recording.depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
     record_composite(commands, pipeline, recording.colour, nullptr,
-                     {.depth = recording.depth,
-                      .clouds = true,
-                      .block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(block)}},
-                     recording.rect);
+                     {.depth = recording.depth, .cloud_map = true, .block = *shadow_block}, recording.rect);
     depth_barrier(commands, recording.depth, recording.depth->resting, false);
     if (recording.colour->layout != recording.colour->resting) {
         Memory::transition(commands, recording.colour, recording.colour->resting);
     }
     state.bound = BoundState{};
-    const uint64_t serial = state.frames.serial();
     recording.colour->used = serial;
     recording.depth->used = serial;
-    cloud_noise_used(serial);
     if (first_report(state, kReportShadows)) {
         get_log("vulkan: rt_sky: the clouds' shadows drawn over the level (%ux%u)", core::at(recording.rect, 2),
                 core::at(recording.rect, 3));
@@ -2213,6 +2368,64 @@ std::string rt_sky_rays_glsl(uint32_t first_binding)
     return out;
 }
 
+bool cloud_shadow_map(const Backend& state, CloudShadowMap* out)
+{
+    const SkyPassState& own = pass_state();
+    if (!own.map_made || own.map_frame != state.frame || own.made_map.image.imageView == VK_NULL_HANDLE) {
+        return false;
+    }
+    *out = own.made_map;
+    return true;
+}
+
+std::string cloud_map_glsl(uint32_t binding)
+{
+    std::string glsl = "layout(set = 0, binding = " + std::to_string(binding) + ") uniform sampler2D u_cloud_map;\n";
+    glsl += "const float CLOUD_MAP_LEAST_RISE = " + std::to_string(rt::kCloudMapLeastRise) + ";\n";
+    glsl += R"(
+// The share of the light that gets through the clouds to `at` (the clouds' shadow map - vulkan_rt_sky_pass.h): read
+// where at's way toward the light meets the cloud base; light.w of its shadow kept.
+float cloud_map_kept(vec3 at, vec4 place, vec4 light)
+{
+    if (!(light.w > 0.0)) {
+        return 1.0;
+    }
+    float rise = max(light.y, CLOUD_MAP_LEAST_RISE);
+    vec2 base = at.xz + light.xz * (max(place.y - at.y, 0.0) / rise);
+    vec2 uv = (base - place.xz) * place.w + 0.5;
+    float through = textureLod(u_cloud_map, uv, 0.0).r;
+    return mix(1.0, clamp(through, 0.0, 1.0), light.w);
+}
+)";
+    return glsl;
+}
+
+
+uint64_t cloud_maps_made() { return pass_state().maps; }
+
+bool read_cloud_shadow_map(Backend& state, std::vector<float>* texels, CloudShadowMap* made)
+{
+    SkyPassState& own = pass_state();
+    texels->clear();
+    if (!own.map_made || own.map.image == VK_NULL_HANDLE || !finish_work(state)) {
+        return false;
+    }
+    constexpr std::size_t kChannels = 4;
+    const std::size_t count = static_cast<std::size_t>(own.map.extent.width) * own.map.extent.height;
+    std::vector<uint8_t> bytes(count * kChannels * sizeof(uint16_t));
+    if (!state.memory.read_image_level(&own.map, 0, &bytes)) {
+        return false;
+    }
+    texels->resize(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        uint16_t half = 0;
+        std::memcpy(&half, &core::at(bytes, i * kChannels * sizeof(uint16_t)), sizeof(half));
+        core::at(*texels, i) = half_to_float(half);
+    }
+    *made = own.made_map;
+    return true;
+}
+
 void release_rt_sky(Backend& state)
 {
     SkyPassState& own = pass_state();
@@ -2225,7 +2438,7 @@ void release_rt_sky(Backend& state)
         for (const CompositePipeline& made : own.composites) {
             vkDestroyPipeline(device, made.pipeline, nullptr);
         }
-        for (const VkPipeline pipeline : {own.march.front(), own.march.back(), own.temporal}) {
+        for (const VkPipeline pipeline : {own.march.front(), own.march.back(), own.temporal, own.cloud_map}) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
             }
@@ -2247,6 +2460,9 @@ void release_rt_sky(Backend& state)
         if (own.timer != VK_NULL_HANDLE) {
             vkDestroyQueryPool(device, own.timer, nullptr);
         }
+    }
+    if (own.map.image != VK_NULL_HANDLE) {
+        state.memory.destroy_image(&own.map);
     }
     const RtSkySettings settings = own.settings;
     const uint64_t serial = own.settings_serial;

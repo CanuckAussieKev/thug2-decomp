@@ -248,24 +248,33 @@ render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
                                        .grade_lut = lut_path};
 }
 
-// NOT ORIGINAL - volumetric fog, its light shafts and the haze of a level without fog (gpu_vulkan/vulkan_rt_fog.h)
+// NOT ORIGINAL - volumetric fog, its light shafts and the haze of a level without fog (gpu_vulkan/vulkan_rt_fog.h).
+// rt_fog_quality picks the march's steps, its resolution and the lamps that light the air; rt_fog_steps, when given
+// (above 0), the steps.
 render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
 {
     const render::vulkan::RtFogSettings defaults;
+    const auto quality = static_cast<std::size_t>(
+        std::clamp(in_effect.integer("rt_fog_quality", 1), 0, static_cast<int>(render::vulkan::kRtFogQualitySteps.size()) - 1));
+    const int steps = in_effect.integer("rt_fog_steps", 0);
     return render::vulkan::RtFogSettings{
         .on = in_effect.on("rt_fog"),
         .density = in_effect.number("rt_fog_density", defaults.density),
         .height = in_effect.number("rt_fog_height", defaults.height),
         .anisotropy = in_effect.number("rt_fog_anisotropy", defaults.anisotropy),
-        .steps = at_least_one(in_effect, "rt_fog_steps", render::vulkan::kRtFogSteps),
+        .steps = steps > 0 ? static_cast<unsigned>(steps) : core::at(render::vulkan::kRtFogQualitySteps, quality),
+        .lamps = core::at(render::vulkan::kRtFogQualityLamps, quality),
+        .strength = in_effect.number("rt_fog_strength", defaults.strength),
         .mode = in_effect.integer("rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts : render::vulkan::RtFogMode::kReplace,
         .hdr = hdr_on(in_effect),
         .haze = in_effect.on("rt_fog_haze"),
         .haze_density = in_effect.number("rt_fog_haze_density", defaults.haze_density),
-        .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height)};
+        .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height),
+        .air = render::rt::parse_air_look(in_effect.value("rt_fog_air")),
+        .scale = core::at(render::vulkan::kRtFogQualityScale, quality)};
 }
 
-// NOT ORIGINAL - the sun's disc and glare, screen-space rays, the bloom and the sky model (gpu_vulkan/vulkan_rt_sun.h,
+// NOT ORIGINAL - the sun's disc and glare, the bloom and the sky model (gpu_vulkan/vulkan_rt_sun.h,
 // vulkan_rt_sky.h). rt_sun_colour: auto (the sky model's colour for the sun's elevation) or r,g,b (0 - 1 each).
 render::vulkan::RtSunSettings make_rt_sun(const Resolution& in_effect)
 {
@@ -273,8 +282,6 @@ render::vulkan::RtSunSettings make_rt_sun(const Resolution& in_effect)
                                       .sun_size = in_effect.number("rt_sun_size", render::vulkan::RtSunSettings{}.sun_size),
                                       .bloom = in_effect.on("rt_bloom"),
                                       .bloom_strength = in_effect.number("rt_bloom_strength", render::vulkan::kRtBloomStrength),
-                                      .shafts = in_effect.on("rt_shafts"),
-                                      .shaft_strength = in_effect.number("rt_shaft_strength", render::vulkan::kRtShaftStrength),
                                       .sky_model = in_effect.on("rt_sky_model"),
                                       .lens_dirt = in_effect.on("rt_lens_dirt"),
                                       .hdr = hdr_on(in_effect)};

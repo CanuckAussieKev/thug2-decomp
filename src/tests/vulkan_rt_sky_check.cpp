@@ -55,6 +55,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_sky_match.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -1615,6 +1616,88 @@ void check_turned(render::Gpu& gpu, const Targets& targets, Tally* tally)
                      outside, checked));
 }
 
+// (added by the volumetric light) The clouds' shadow map (vulkan_rt_sky_pass.h CloudShadowMap - the shadows on the
+// ground and the light shafts in the air both read it): made at the viewport's opaque_drawn toward the scene's light;
+// each texel the light's transmittance through the layer from where it lies on the cloud base - against the
+// processor's (rt_clouds.h cloud_density, the same samples) - and the map holding gaps and shadows (at the check's
+// coverage both a good share: the lit columns and the shade the shafts are made of).
+constexpr double kMostMapError = 0.02;   // (16-bit floats, the noise's filtering)
+constexpr double kMapOpen = 0.8;         // a texel this clear: a gap
+constexpr double kMapShaded = 0.4;       // ... this dark: under a cloud
+constexpr double kLeastMapShare = 0.03;
+constexpr uint32_t kMapStride = 8;       // texels compared: every 8th each way
+
+void check_cloud_map(render::Gpu& gpu, const Targets& targets, const rt::CloudNoise& noise, Tally* tally)
+{
+    vk::RtSkySettings settings = sky_settings(true, false, 0.0F);
+    settings.cloud_shadows = true;
+    vk::set_rt_sky_settings(settings);
+    draw_frame(gpu, targets, sky_pose()); // (the match made for the settings)
+    gpu.begin_scene();
+    gpu.set_render_target(0, targets.colour);
+    gpu.set_depth_surface(targets.depth);
+    draw_scene(gpu, sky_pose(), targets.width, targets.height);
+    const uint64_t before = vk::cloud_maps_made();
+    rt::opaque_view_drawn(view_drawn(sky_pose(), targets.width, targets.height));
+    gpu.end_scene();
+    tally->check(vk::cloud_maps_made() == before + 1, "  the clouds' shadow map made at the opaque world's end");
+    std::vector<float> map;
+    vk::CloudShadowMap made;
+    bool read = false;
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        read = vk::read_cloud_shadow_map(state, &map, &made);
+    }
+    const vk::RtSkyFrame frame = vk::rt_sky_frame();
+    tally->check(read && map.size() == static_cast<std::size_t>(rt::kCloudMapSize) * rt::kCloudMapSize,
+                 "  the map read back");
+    if (!read || map.empty()) {
+        return;
+    }
+    const Vec3 light{core::at(made.light, 0), core::at(made.light, 1), core::at(made.light, 2)};
+    tally->check(dot(light, to_sun()) > 0.99999, "  made toward the scene's light");
+    const double rise = std::max(y_of(light), rt::kCloudMapLeastRise);
+    const double width = 1.0 / static_cast<double>(core::at(made.place, 3));
+    double worst = 0.0;
+    int open = 0;
+    int shaded = 0;
+    for (std::size_t i = 0; i < map.size(); ++i) {
+        const double value = core::at(map, i);
+        open += value >= kMapOpen ? 1 : 0;
+        shaded += value <= kMapShaded ? 1 : 0;
+    }
+    for (uint32_t y = kMapStride / 2; y < rt::kCloudMapSize; y += kMapStride) {
+        for (uint32_t x = kMapStride / 2; x < rt::kCloudMapSize; x += kMapStride) {
+            const double u = (x + 0.5) / rt::kCloudMapSize;
+            const double v = (y + 0.5) / rt::kCloudMapSize;
+            const double world_x = core::at(made.place, 0) + ((u - 0.5) * width);
+            const double world_z = core::at(made.place, 2) + ((v - 0.5) * width);
+            const double across_x =
+                core::at(frame.offset, 0) + ((world_x - core::at(frame.camera, 0)) / rt::kGameUnitsPerMetre);
+            const double across_z =
+                core::at(frame.offset, 1) + ((world_z - core::at(frame.camera, 2)) / rt::kGameUnitsPerMetre);
+            double depth = 0.0;
+            for (uint32_t k = 0; k < rt::kCloudMapSamples; ++k) {
+                const double h = rt::kCloudBase + ((k + 0.5) / rt::kCloudMapSamples * (rt::kCloudTop - rt::kCloudBase));
+                const double t = (h - rt::kCloudBase) / rise;
+                depth += rt::cloud_density(noise, {across_x + (x_of(light) * t), h, across_z + (z_of(light) * t)},
+                                           frame.coverage, false);
+            }
+            depth *= rt::kCloudDensity * (rt::kCloudTop - rt::kCloudBase) / rt::kCloudMapSamples / rise;
+            const double want = std::exp(-depth);
+            worst = std::max(worst, std::abs(want - core::at(map, (static_cast<std::size_t>(y) * rt::kCloudMapSize) + x)));
+        }
+    }
+    tally->check(worst <= kMostMapError,
+                 text::format("  the map against the processor's transmittance (every 8th texel): worst %.4f", worst));
+    const double count = static_cast<double>(map.size());
+    tally->check(open / count >= kLeastMapShare && shaded / count >= kLeastMapShare,
+                 text::format("  gaps (%.0f%% at least %.1f clear) and shade (%.0f%% at most %.1f) - the shafts' "
+                              "columns and the clouds' shadows",
+                              100.0 * open / count, kMapOpen, 100.0 * shaded / count, kMapShaded));
+}
+
 void run_clouds(render::Gpu& gpu, Tally* tally)
 {
     text::print("the clouds:\n");
@@ -1642,6 +1725,7 @@ void run_clouds(render::Gpu& gpu, Tally* tally)
     check_steady(gpu, targets, info, tally);
     check_seeded(march, first_history, info, tally);
     check_turned(gpu, targets, tally);
+    check_cloud_map(gpu, targets, noise, tally); // (added by the volumetric light)
     // the composite with clouds: no NaN
     std::vector<Rgb> colour;
     read_colour(targets, &colour);

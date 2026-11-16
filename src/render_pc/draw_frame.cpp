@@ -74,6 +74,8 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_volume_light.h"
+#include "engine/gfx/snow.h"
 #include "engine/gfx/fisheye_lens.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
@@ -1095,6 +1097,15 @@ void draw_viewport(int index)
     flexible_particle_manager()->render_systems(index > 0);
     objects::particle_hub()->draw_particles();
     weather()->render(); // (through the jump 0x004A10A0)
+    {
+        // (not original: what the weather puts in the air - the volumetric light's street air, rt_volume_light.h)
+        const WeatherSystem* now = weather();
+        const bool active = now != nullptr && now->active();
+        const snow::Settings snow_layer = snow::settings();
+        rt::set_air_weather({.rain = active && now->rain_on() && now->rain_rate() > 0.0F,
+                             .snow = (active && !now->rain_on() && now->snow_rate() > 0.0F) ||
+                                     (snow_layer.on && snow_layer.falling)});
+    }
     set_render_state(RenderStateId::kZWrite, 1);
     engine::draw_shatters();
     set_render_state(RenderStateId::kZWrite, 0);

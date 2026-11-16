@@ -21,7 +21,25 @@
 //   - The sky: never dimmed; lighter only by the shafts' share.
 //   - No fog in the level: with rt_fog_haze=0 no pass, nothing changed; with the haze nothing darker, the shaft
 //     lighter. No scene, rt_fog off: no pass, nothing changed.
-//   - --perf: the pass's cost at 1920 x 1080 with 16, 32 and 64 steps (frames timed with and without it).
+//   - (added by the volumetric light) The clock's light (rt_daylight.h DayLight through rt_volume_light.h
+//     medium_light): with the clock lighting the level its light's direction lights the air - after still frames the
+//     history against the exact integral for that direction, and against the other direction's worse (the shaft moved
+//     with it); the fog noted that sun. At night the moon lights the haze's shafts: their light the moon's colour's
+//     share of the sun's, bluer. (A lamp's cone in the air: thug2_vulkan_rt_lights_check; the clouds' shadow map:
+//     thug2_vulkan_rt_sky_check.)
+//   - (added by the street air) The street air (rt_volume_light.h street_air): its model's numbers - a dusk street's
+//     optical depth across 20 metres enough for shafts, a 300-metre view's not whited out, the day's thinner; the
+//     march at a quarter's resolution (4 x 4 blocks) against the processor's; then a street - two rows of buildings, an
+//     alley through the near row, the sun 4 degrees up behind it at dusk - in nothing but the street air: after still
+//     frames the history against the exact integral, and the beam through the alley lighter than the shade by a
+//     measurable contrast. (The lamps' cones in the street air at night: thug2_vulkan_rt_lights_check.)
+//   - (added by the cinematic air) The air's looks (rt_volume_light.h AirLook): the model's numbers per look - the
+//     cinematic street's beam and a lamp's cone seen from the side several times the clear air's, the far view along a
+//     street not whited out by any but Misty, noon thin -; the street seen from the side (the beam crossing the view at
+//     a right angle to the light) at the cinematic step: the history against the exact integral and the beam well over
+//     the shade - and the clear air's side view faint. A level the relit mode doesn't relight: no light in the air.
+//   - --perf: the pass's cost at 2560 x 1440 at rt_fog_quality 0 / 1 / 2 (the device's timestamps), Medium held to a
+//     bound.
 //   thug2_vulkan_rt_fog_check [--device N] [--display N] [--no-validation] [--perf]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
@@ -35,6 +53,7 @@
 #include <exception>
 #include <limits>
 #include <mutex>
+#include <numbers>
 #include <span>
 #include <string>
 #include <string_view>
@@ -48,7 +67,9 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -68,8 +89,8 @@ constexpr int kWindowWidth = 320;
 constexpr int kWindowHeight = 240;
 constexpr uint32_t kTargetWidth = 320;
 constexpr uint32_t kTargetHeight = 240;
-constexpr uint32_t kPerfWidth = 1920;
-constexpr uint32_t kPerfHeight = 1080;
+constexpr uint32_t kPerfWidth = 2560;
+constexpr uint32_t kPerfHeight = 1440;
 constexpr int kBitsPerByte = 8;
 constexpr uint32_t kFvf = 0x042; // XYZ | DIFFUSE
 constexpr uint32_t kClearColour = 0xFF405878;
@@ -92,7 +113,12 @@ constexpr int kStillFrames = 40;
 // raw image holds, is frame index kFogMaxHistory - 1, and every frame after counts on from there)
 constexpr uint64_t kFirstMarch = render::vulkan::kFogMaxHistory - 1;
 constexpr double kPerByte = 1.0 / 255.0;
-constexpr uint32_t kScale = render::vulkan::kFogScale;
+// (changed by the street air) the march's block (2: the exact cases; the quarter-resolution case 4)
+uint32_t& march_scale()
+{
+    static uint32_t scale = 2;
+    return scale;
+}
 
 struct Options {
     int display = 0;
@@ -158,13 +184,26 @@ struct Solid {
 
 constexpr double kGroundHalf = 300.0;
 constexpr uint32_t kMaskWorld = 0x01;
-// the ground, then the wall (z -2 - 2) round a window x -20 - 20, y 60 - 100
-const std::array<Solid, 5> kSolids{{
+// (added by the street air) the street, 30000 units (760 m) from the window's scene - neither sees nor shades the other:
+// a ground square, the near row of buildings (25 m high, 30 m deep) with an alley 10 m wide through it at x -200 - 200;
+// the street 50 m wide north of it (z kStreetZ - kStreetZ + 2000)
+constexpr double kStreetZ = -30000.0;
+constexpr double kStreetHalf = 4000.0;
+constexpr double kStreetHigh = 1000.0;
+constexpr double kStreetDeep = 1200.0;
+constexpr double kAlleyHalf = 200.0;
+// the ground, then the wall (z -2 - 2) round a window x -20 - 20, y 60 - 100; then the street's
+const std::array<Solid, 8> kSolids{{
     {.low = {-kGroundHalf, 0.0, -kGroundHalf}, .high = {kGroundHalf, 0.0, kGroundHalf}, .colour = 0xFF909090},
     {.low = {-150.0, 0.0, -2.0}, .high = {-20.0, 150.0, 2.0}, .colour = 0xFFA08060},
     {.low = {20.0, 0.0, -2.0}, .high = {150.0, 150.0, 2.0}, .colour = 0xFFA08060},
     {.low = {-20.0, 0.0, -2.0}, .high = {20.0, 60.0, 2.0}, .colour = 0xFFA08060},
     {.low = {-20.0, 100.0, -2.0}, .high = {20.0, 150.0, 2.0}, .colour = 0xFFA08060},
+    {.low = {-kStreetHalf, 0.0, kStreetZ - kStreetHalf},
+     .high = {kStreetHalf, 0.0, kStreetZ + kStreetHalf},
+     .colour = 0xFF606060},
+    {.low = {-kStreetHalf, 0.0, kStreetZ - kStreetDeep}, .high = {-kAlleyHalf, kStreetHigh, kStreetZ}, .colour = 0xFF706050},
+    {.low = {kAlleyHalf, 0.0, kStreetZ - kStreetDeep}, .high = {kStreetHalf, kStreetHigh, kStreetZ}, .colour = 0xFF706050},
 }};
 
 constexpr Vec3 kLightTravels{0.15, -0.45, 1.0}; // (the sun behind the wall, low: the shaft goes down into +z)
@@ -172,6 +211,17 @@ constexpr Vec3 kEye{160.0, 70.0, 150.0};
 constexpr Vec3 kMovedEye{140.0, 80.0, 175.0};
 constexpr Vec3 kAt{0.0, 40.0, 60.0};
 constexpr Vec3 kUp{0.0, 1.0, 0.0};
+// (added by the street air) where the camera looks and how far it sees: the window's scene's, or the street's
+Vec3& look_at()
+{
+    static Vec3 at = kAt;
+    return at;
+}
+float& far_z()
+{
+    static float reach = kFarZ;
+    return reach;
+}
 
 double x_of(const Vec3& v) { return core::at(v, 0); }
 double y_of(const Vec3& v) { return core::at(v, 1); }
@@ -278,7 +328,7 @@ View view_from(const Vec3& eye, uint32_t width, uint32_t height)
 {
     View view;
     view.eye = eye;
-    view.back = normalised(minus(eye, kAt));
+    view.back = normalised(minus(eye, look_at()));
     view.right = normalised(cross(kUp, view.back));
     view.up = cross(view.back, view.right);
     view.half_width = kHalfFovTan;
@@ -327,10 +377,18 @@ Seen seen_along(const Ray& ray)
 
 // --- the fog, as the pass marches it -----------------------------------------------------------------------------
 
-const Vec3& to_sun()
+// (changed by the volumetric light: the light the air is lit by may move - the clock's case)
+Vec3& light_toward()
 {
-    static const Vec3 kToward = normalised(step(Vec3{}, kLightTravels, -1.0));
-    return kToward;
+    static Vec3 toward = normalised(step(Vec3{}, kLightTravels, -1.0));
+    return toward;
+}
+const Vec3& to_sun() { return light_toward(); }
+// While the clock lights the scene (DayLight), the frames don't set the console's `rt sun`.
+bool& clock_lights()
+{
+    static bool lights = false;
+    return lights;
 }
 
 bool sunlit(const Vec3& at)
@@ -341,17 +399,11 @@ bool sunlit(const Vec3& at)
     });
 }
 
-constexpr double kLeastPhaseDenominator = 1e-4; // (the shader's)
 constexpr double kLeastLeft = 1e-4;             // the shortest way to the fog's end a segment counts (x its length)
 constexpr double kMostDepth = 40.0;             // a segment's optical depth at most
 
-double phase(double cosine)
-{
-    const double anisotropy = kAnisotropy;
-    const double denominator =
-        std::max(1.0 + (anisotropy * anisotropy) - (2.0 * anisotropy * cosine), kLeastPhaseDenominator);
-    return (1.0 - (anisotropy * anisotropy)) / (denominator * std::sqrt(denominator));
-}
+// (the air's phase - engine/gfx/rt_volume_light.h medium_phase: the march's)
+double phase(double cosine) { return render::rt::medium_phase(cosine, kAnisotropy); }
 
 // (the pass's tint: the baked sun has no colour)
 std::array<double, 3> tint() { return {1.0, 1.0, 1.0}; }
@@ -359,6 +411,7 @@ std::array<double, 3> tint() { return {1.0, 1.0, 1.0}; }
 struct Fogged {
     std::array<double, 3> light{};
     double transmittance = 1.0;
+    double largest_step = 0.0; // (one step's light at most, any channel)
 };
 
 // A view ray: from the eye along the direction to the surface `distance` away (-1: the sky).
@@ -367,11 +420,16 @@ struct ViewRay {
     Vec3 direction{};
     double distance = -1.0;
 };
-// How it is marched: `steps` segments, the light sampled at `jitter` in each (0 - 1); shafts mode or not.
+// How it is marched: `steps` segments, the light sampled at `jitter` in each (0 - 1); shafts mode or not; (added by the
+// street air) the light's rays a pair of steps at a time - at the first or the second (`parity`, the frame's) - or each
+// step's own; `dark`: no sun (the shade's light alone).
 struct Marching {
     uint32_t steps = 0;
     double jitter = 0.0;
     bool shafts = false;
+    bool pairs = false;
+    uint32_t parity = 0;
+    bool dark = false;
 };
 
 // The share of the fog's light the sun gives where the replacing mode isn't drawing (the sky, shafts mode).
@@ -383,41 +441,169 @@ double sunlit_share(bool sky, bool replace)
     return replace ? 1.0 : render::vulkan::kFogShaftShare;
 }
 
-// The fog along a view ray as the pass marches it (or, with many steps and the middle, the exact integral's stand-in).
+// (added by the street air) The media the case marches: the level's fog (its range, thickness and colour) and the
+// street air (rt_volume_light.h street_air; none in the window's cases) over the ground at y `ground`.
+struct Media {
+    double start = kFogStart;
+    double end = kFogEnd;
+    double density = 1.0;
+    std::array<float, 3> colour = kFogColour;
+    render::rt::StreetAir air{};
+    double ground = 0.0;
+    render::rt::AirArt art{}; // (added by the cinematic air) the street air's look: its shade's light, its even lobe
+};
+Media& media()
+{
+    static Media now;
+    return now;
+}
+
+// A layer's optical depth between s0 and s1 along a ray from height `eye_y` rising `dy` a unit (the pass's
+// layer_depth): `sigma` at `ground` and below, thinning by e every 1 / inv_h above it.
+double layer_depth(double eye_y, double dy, double s0, double s1, double sigma, double inv_h, double ground)
+{
+    constexpr double kFlat = 1e-12;
+    constexpr double kShort = 1e-4;
+    const double u0 = eye_y - ground;
+    double lo = s0;
+    double hi = s1;
+    double below = 0.0;
+    if (inv_h > 0.0) {
+        if (std::abs(dy) < kFlat) {
+            if (u0 <= 0.0) {
+                below = s1 - s0;
+                hi = lo;
+            }
+        } else {
+            const double cut = std::clamp(-u0 / dy, s0, s1);
+            if (dy > 0.0) {
+                below = cut - s0;
+                lo = cut;
+            } else {
+                below = s1 - cut;
+                hi = cut;
+            }
+        }
+    }
+    double depth = sigma * below;
+    if (hi > lo) {
+        const double k = dy * inv_h;
+        if (std::abs(k) * (hi - lo) < kShort) {
+            depth += sigma * std::exp(-std::max(u0 + (dy * 0.5 * (lo + hi)), 0.0) * inv_h) * (hi - lo);
+        } else {
+            depth += sigma *
+                     (std::exp(-std::max(u0 + (dy * lo), 0.0) * inv_h) - std::exp(-std::max(u0 + (dy * hi), 0.0) * inv_h)) /
+                     k;
+        }
+    }
+    return depth;
+}
+
+// The street air's optical depth between s0 and s1 (the pass's air_depth; no water here).
+double air_depth(const ViewRay& ray, double s0, double s1)
+{
+    const Media& now = media();
+    const double eye_y = y_of(ray.eye);
+    const double dy = y_of(ray.direction);
+    double depth = 0.0;
+    if (now.air.extinction > 0.0) {
+        // (its volume round the eye: the cinematic air's - rt_volume_light.h air_reach, at the segment's middle)
+        depth += layer_depth(eye_y, dy, s0, s1, now.air.extinction,
+                             now.air.height > 0.0 ? 1.0 / now.air.height : 0.0, now.ground) *
+                 render::rt::air_reach(0.5 * (s0 + s1), now.art);
+    }
+    if (now.air.snow > 0.0) {
+        depth += layer_depth(eye_y, dy, s0, s1, now.air.snow,
+                             now.air.snow_height > 0.0 ? 1.0 / now.air.snow_height : 0.0, now.ground);
+    }
+    return depth;
+}
+
+constexpr double kLeastTransmittance = 1e-4; // the march stops under it
+
+// The fog along a view ray as the pass marches it (or, with many steps, every step traced and the middle, the exact
+// integral's stand-in). (Changed by the street air:) the steps closer together near the eye (first + span x t^2); the
+// light's ray traced once a pair of steps at the first or the second (`parity`); the street air a second medium.
 Fogged march(const ViewRay& ray, const Marching& how)
 {
     Fogged out;
+    const Media& now = media();
     const bool sky = ray.distance < 0.0;
     const bool replace = !how.shafts && !sky;
-    const double start = kFogStart;
-    const double end = kFogEnd;
-    const double first = std::max(start, 0.0);
+    const bool air_on = now.air.extinction > 0.0 || now.air.snow > 0.0;
+    const double start = now.start;
+    const double end = now.end;
+    const double first = air_on ? 0.0 : std::max(start, 0.0);
     const double last = sky ? end : std::min(ray.distance, end);
     if (!(last > first)) {
         return out;
     }
     const double span = last - first;
     const double fade = end - start;
-    const double shaped = phase(dot(ray.direction, to_sun()));
+    const double shaped = how.dark ? 0.0 : phase(dot(ray.direction, to_sun()));
     const double share = sunlit_share(sky, replace);
     const double ambient = render::vulkan::kFogAmbientShare;
+    const double scatter = (1.0 - render::vulkan::kFogAerialSkyShare) * render::rt::kHazeSunlit * (sky ? render::vulkan::kFogSkyShare : 1.0);
     const std::array<double, 3> sun_tint = tint();
-    for (uint32_t i = 0; i < how.steps; ++i) {
-        const double near_end = first + (span * (static_cast<double>(i) / how.steps));
-        const double far_end = first + (span * (static_cast<double>(i + 1) / how.steps));
-        const double sampled = first + (span * ((static_cast<double>(i) + how.jitter) / how.steps));
-        const Vec3 at = step(ray.eye, ray.direction, sampled);
-        const double depth =
-            std::log(std::max(end - near_end, kLeastLeft * fade) / std::max(end - far_end, kLeastLeft * fade));
-        const double kept = std::exp(-std::min(std::max(depth, 0.0), kMostDepth));
-        const double lit = sunlit(at) ? shaped : 0.0;
-        for (std::size_t channel = 0; channel < 3; ++channel) {
-            const double fog = core::at(kFogColour, channel);
-            const double here = replace ? fog * (ambient + ((1.0 - ambient) * lit * core::at(sun_tint, channel)))
-                                        : fog * (1.0 - ambient) * lit * share * core::at(sun_tint, channel);
-            core::at(out.light, channel) += out.transmittance * (1.0 - kept) * here;
+    // (the pass's march_at: with the cinematic air's volume round the eye left by the ray, half the steps in it)
+    const double volume_end = now.art.range * render::rt::kUnitsPerMetre;
+    const uint32_t near_steps = air_on && volume_end > first && last - first > 4.0 * (volume_end - first) ? how.steps / 2 : 0;
+    const auto boundary = [&](double x) {
+        if (near_steps == 0) {
+            const double t = x / how.steps;
+            return first + (span * t * t);
         }
+        if (x <= near_steps) {
+            const double t = x / near_steps;
+            return first + ((volume_end - first) * t * t);
+        }
+        const double t = (x - near_steps) / (how.steps - near_steps);
+        return volume_end + ((last - volume_end) * t * t);
+    };
+    const auto point_of = [&](uint32_t i) { return boundary(static_cast<double>(i) + how.jitter); };
+    double seen = 0.0;
+    for (uint32_t i = 0; i < how.steps; ++i) {
+        const double near_end = boundary(static_cast<double>(i));
+        const double far_end = boundary(static_cast<double>(i + 1));
+        if (!how.pairs) {
+            seen = sunlit(step(ray.eye, ray.direction, point_of(i))) ? 1.0 : 0.0;
+        } else if ((i & 1U) == 0) {
+            const uint32_t traced = std::min(i + how.parity, how.steps - 1);
+            seen = sunlit(step(ray.eye, ray.direction, point_of(traced))) ? 1.0 : 0.0;
+        }
+        const double x0 = std::clamp(near_end, start, end);
+        const double x1 = std::clamp(far_end, start, end);
+        const double fog_depth =
+            x1 > x0 ? now.density * std::log(std::max(end - x0, kLeastLeft * fade) / std::max(end - x1, kLeastLeft * fade))
+                    : 0.0;
+        const double depth_air = air_on ? air_depth(ray, near_end, far_end) : 0.0;
+        const double depth = std::max(fog_depth, 0.0) + std::max(depth_air, 0.0);
+        if (!(depth > 1e-9)) {
+            continue;
+        }
+        const double kept = std::exp(-std::min(depth, kMostDepth));
+        const double lit = seen * shaped;
+        double step_light = 0.0;
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            const double fog = core::at(now.colour, channel);
+            const double tinted = lit * core::at(sun_tint, channel);
+            const double here_fog = replace ? fog * (ambient + ((1.0 - ambient) * tinted))
+                                            : fog * (1.0 - ambient) * tinted * share;
+            // (the street air's light: its look's even lobe added to the phase, its shade x the look's share)
+            const double lit_air =
+                how.dark ? 0.0 : seen * (shaped + now.art.side) * now.art.glow * core::at(sun_tint, channel);
+            const double here_air = (replace ? fog * ambient * now.art.shade : 0.0) + (scatter * lit_air);
+            const double here = ((std::max(fog_depth, 0.0) * here_fog) + (std::max(depth_air, 0.0) * here_air)) / depth;
+            const double added = out.transmittance * (1.0 - kept) * here;
+            core::at(out.light, channel) += added;
+            step_light = std::max(step_light, added);
+        }
+        out.largest_step = std::max(out.largest_step, step_light);
         out.transmittance *= kept;
+        if (out.transmittance < kLeastTransmittance) {
+            out.transmittance = 0.0;
+            break;
+        }
     }
     if (!replace) {
         out.transmittance = 1.0;
@@ -450,6 +636,14 @@ Fogged exact_at(const View& view, Pixel pixel, bool shafts)
     return march({.eye = view.eye, .direction = direction, .distance = seen.distance},
                  {.steps = kFineSteps, .jitter = kMiddle, .shafts = shafts});
 }
+// The same with the sun blocked everywhere (the shade's light alone).
+Fogged dark_at(const View& view, Pixel pixel)
+{
+    const Vec3 direction = direction_at(view, pixel);
+    const Seen seen = seen_along({.origin = view.eye, .direction = direction});
+    return march({.eye = view.eye, .direction = direction, .distance = seen.distance},
+                 {.steps = kFineSteps, .jitter = kMiddle, .dark = true});
+}
 
 // The exact transmittance: the game's linear fog, ((end - distance) / (end - start)) clamped.
 double exact_transmittance(double distance)
@@ -457,8 +651,8 @@ double exact_transmittance(double distance)
     if (distance < 0.0) {
         return 1.0;
     }
-    const double clamped = std::clamp(distance, static_cast<double>(kFogStart), static_cast<double>(kFogEnd));
-    return (kFogEnd - clamped) / (kFogEnd - kFogStart);
+    const double clamped = std::clamp(distance, media().start, media().end);
+    return (media().end - clamped) / (media().end - media().start);
 }
 
 // --- the acceleration structures (the check's own) -----------------------------------------------------------------
@@ -681,11 +875,11 @@ struct Matrices {
 Matrices matrices_for(const Vec3& eye, uint32_t width, uint32_t height)
 {
     Matrices out;
-    maths::matrix_look_at_rh(out.view, floats(eye), floats(kAt), floats(kUp));
+    maths::matrix_look_at_rh(out.view, floats(eye), floats(look_at()), floats(kUp));
     const double lens_width = 2.0 * kNearZ * kHalfFovTan;
     const double lens_height = lens_width * static_cast<double>(height) / static_cast<double>(width);
     maths::matrix_perspective_rh(out.projection, static_cast<float>(lens_width), static_cast<float>(lens_height),
-                                 kNearZ, kFarZ);
+                                 kNearZ, far_z());
     return out;
 }
 
@@ -735,7 +929,10 @@ render::rt::ViewDrawn view_drawn(const Vec3& eye, uint32_t width, uint32_t heigh
     view.camera.position = floats(eye);
     view.rect = {0, 0, width, height};
     view.depth_range = {0.0F, 1.0F};
-    view.fog = {.on = fog_on, .start = kFogStart, .end = kFogEnd, .colour = kFogColour};
+    view.fog = {.on = fog_on,
+                .start = static_cast<float>(media().start),
+                .end = static_cast<float>(media().end),
+                .colour = media().colour};
     return view;
 }
 
@@ -785,7 +982,7 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Vec3& eye, b
     draw_scene(gpu, eye, targets.width, targets.height);
     // (the sun as the console's `rt sun` sets it: the level's baked one otherwise - none in this scene)
     const std::array<float, 3> toward = floats(to_sun());
-    render::rt::set_sun_override(&toward);
+    render::rt::set_sun_override(clock_lights() ? nullptr : &toward);
     const uint64_t before = render::vulkan::rt_fog_passes();
     render::rt::world_view_drawn(view_drawn(eye, targets.width, targets.height, fog_on));
     const uint64_t passes = render::vulkan::rt_fog_passes() - before;
@@ -805,7 +1002,8 @@ bool read_fog(render::vulkan::RtFogImage which, render::vulkan::RtFogTexels* out
     const std::scoped_lock lock(state.mutex);
     const Rect whole{0, 0, kTargetWidth, kTargetHeight};
     return render::vulkan::read_rt_fog_image(state, whole, which, out) &&
-           out->width == (kTargetWidth + kScale - 1) / kScale && out->height == (kTargetHeight + kScale - 1) / kScale;
+           out->width == (kTargetWidth + march_scale() - 1) / march_scale() &&
+           out->height == (kTargetHeight + march_scale() - 1) / march_scale();
 }
 
 // --- comparing ---------------------------------------------------------------------------------------------------
@@ -844,7 +1042,6 @@ constexpr double kMostGhost95 = 0.05;
 constexpr int kInteriorRadius = 2;         // the pixels around one that must see its surface
 constexpr int kDarkRadius = 3;             // ... whose rays must cross no sunlit fog
 constexpr uint32_t kDarkSteps = 256;       // the march that tells which rays cross sunlit fog
-constexpr double kBlockPixels = 4.0;       // in a texel's 2 x 2 block
 constexpr int kLeastLighterChannels = 300; // the haze's shaft
 
 using Rgb = std::array<double, 3>;
@@ -931,6 +1128,7 @@ void compare_raw(const View& view, uint64_t frame, bool shafts, Tally* tally)
     int surface_pixels = 0;
     int sky_pixels = 0;
     double one_step = 0.0;
+    std::vector<double> step_lights;
     for (std::size_t i = 0; i < raw.texels.size(); ++i) {
         const std::array<float, 4>& got = core::at(raw.texels, i);
         const std::array<float, 4>& where = core::at(info.texels, i);
@@ -948,13 +1146,20 @@ void compare_raw(const View& view, uint64_t frame, bool shafts, Tally* tally)
         const double transmittance = shafts ? 1.0 : exact_transmittance(seen.distance);
         transmittance_errors.push_back(std::abs(static_cast<double>(core::at(got, 3)) - transmittance));
         const Fogged want = march({.eye = view.eye, .direction = direction, .distance = gpu_distance},
-                                  {.steps = kSteps, .jitter = jitter_of(pixel, frame), .shafts = shafts});
+                                  {.steps = kSteps,
+                                   .jitter = jitter_of(pixel, frame),
+                                   .shafts = shafts,
+                                   .pairs = true,
+                                   .parity = static_cast<uint32_t>(frame & 1U)});
         light_errors.push_back(light_error(got, want));
-        one_step = std::max(one_step, (1.0 - exact_transmittance(seen.distance)) / kSteps);
+        // (a sample on either side of the shaft's edge: a pair of steps' light - the light's rays a pair at a time)
+        one_step = std::max(one_step, 2.0 * want.largest_step);
     }
     tally->check(sky_wrong <= kMostSkyDifferences,
                  text::format("the sky where the processor sees it (%d of %d texels differ)", sky_wrong, sky_pixels));
-    tally->check(surface_pixels > kLeastSurfaceTexels, text::format("%d texels on a surface", surface_pixels));
+    const int scale_squared = static_cast<int>((march_scale() / 2) * (march_scale() / 2));
+    tally->check(surface_pixels > kLeastSurfaceTexels / scale_squared,
+                 text::format("%d texels on a surface", surface_pixels));
     tally->check(percentile(distance_errors, kNinetyNinth) < kMostDistanceError,
                  text::format("the distance marched to: 99th percentile relative error %.2g",
                               percentile(distance_errors, kNinetyNinth)));
@@ -965,7 +1170,7 @@ void compare_raw(const View& view, uint64_t frame, bool shafts, Tally* tally)
     tally->check(percentile(light_errors, kNinetyEighth) < kMostLightError &&
                      percentile(light_errors, kAll) < one_step + kStepSlack,
                  text::format("the light against the processor's march (same jitter, %u steps): 98%% within %.2g, all "
-                              "within %.3f (one step's %.3f)",
+                              "within %.3f (a pair of steps' %.3f)",
                               kSteps, percentile(light_errors, kNinetyEighth), percentile(light_errors, kAll),
                               one_step));
 }
@@ -987,8 +1192,9 @@ void compare_shaft(const View& view, Tally* tally)
     const uint32_t width = history.width;
     for (std::size_t i = 0; i < history.texels.size(); ++i) {
         const Pixel pixel{
-            .x = std::min(static_cast<int>(i % width) * static_cast<int>(kScale), static_cast<int>(kTargetWidth) - 1),
-            .y = std::min(static_cast<int>(i / width) * static_cast<int>(kScale), static_cast<int>(kTargetHeight) - 1)};
+            .x = std::min(static_cast<int>(i % width) * static_cast<int>(march_scale()), static_cast<int>(kTargetWidth) - 1),
+            .y = std::min(static_cast<int>(i / width) * static_cast<int>(march_scale()),
+                          static_cast<int>(kTargetHeight) - 1)};
         const Seen seen = seen_at(view, pixel);
         if (seen.solid == kNoSurface) {
             continue;
@@ -1015,17 +1221,18 @@ void compare_shaft(const View& view, Tally* tally)
                               mean(inside), mean(inside_want), mean(outside)));
 }
 
-// The exact light for a texel's 2 x 2 block (the four pixels its frames march, averaged); false when they don't all see
-// one surface.
+// The exact light for a texel's block (the pixels its frames march, averaged: 2 x 2, or 4 x 4); false when they don't
+// all see one surface.
 bool block_light(const View& view, Pixel pixel, Fogged* out)
 {
-    const int scale = static_cast<int>(kScale);
+    const int scale = static_cast<int>(march_scale());
     const Pixel corner{.x = (pixel.x / scale) * scale, .y = (pixel.y / scale) * scale};
     *out = Fogged{};
     std::size_t first = kNoSurface;
-    for (int which = 0; which < 4; ++which) {
-        const Pixel each{.x = std::min(corner.x + (which & 1), static_cast<int>(kTargetWidth) - 1),
-                         .y = std::min(corner.y + (which >> 1), static_cast<int>(kTargetHeight) - 1)};
+    const int pixels = scale * scale;
+    for (int which = 0; which < pixels; ++which) {
+        const Pixel each{.x = std::min(corner.x + (which % scale), static_cast<int>(kTargetWidth) - 1),
+                         .y = std::min(corner.y + (which / scale), static_cast<int>(kTargetHeight) - 1)};
         const Seen seen = seen_at(view, each);
         if (which == 0) {
             first = seen.solid;
@@ -1035,14 +1242,16 @@ bool block_light(const View& view, Pixel pixel, Fogged* out)
         }
         const Fogged one = exact_at(view, each, false);
         for (std::size_t channel = 0; channel < 3; ++channel) {
-            core::at(out->light, channel) += core::at(one.light, channel) / kBlockPixels;
+            core::at(out->light, channel) += core::at(one.light, channel) / static_cast<double>(pixels);
         }
     }
     return true;
 }
 
 // The history after a still camera's frames against the exact integral, and one frame's march against it.
-void compare_converged(const View& view, Tally* tally)
+// (`all_full`: every history at its longest - a still camera; the street's grazing ground keeps restarting some, its
+// blocks' pixels too far apart for the history's distance test)
+void compare_converged(const View& view, Tally* tally, bool all_full = true)
 {
     render::vulkan::RtFogTexels history;
     render::vulkan::RtFogTexels info;
@@ -1070,7 +1279,8 @@ void compare_converged(const View& view, Tally* tally)
         history_errors.push_back(light_error(core::at(history.texels, i), want));
         raw_errors.push_back(light_error(core::at(raw.texels, i), want));
     }
-    tally->check(full == counted, text::format("every history full (%d of %d at %u frames)", full, counted,
+    tally->check(full == counted || (!all_full && full * 10 >= counted * 9),
+                 text::format("every history full (%d of %d at %u frames)", full, counted,
                                                render::vulkan::kFogMaxHistory));
     tally->check(mean(history_errors) < kMostConvergedMean &&
                      percentile(history_errors, kNinetyFifth) < kMostConverged95,
@@ -1244,7 +1454,9 @@ render::vulkan::RtFogSettings settings_of(bool shafts)
             .steps = kSteps,
             .mode = shafts ? render::vulkan::RtFogMode::kShafts : render::vulkan::RtFogMode::kReplace,
             .hdr = false,
-            .haze = false};
+            .haze = false,
+            .air = render::rt::AirLook::kNone, // (the street air: its own cases)
+            .scale = march_scale()};
 }
 
 void use_settings(const render::vulkan::RtFogSettings& settings, VkAccelerationStructureKHR scene)
@@ -1381,14 +1593,502 @@ void run_haze(render::Gpu& gpu, const Scene& scene, Tally* tally)
     release_targets(gpu, targets);
 }
 
-// The passes at 1920 x 1080 timed on the device (their own timestamps) with 16, 32, 64 steps.
-void run_perf(render::Gpu& gpu, const Scene& scene)
+// --- (added by the volumetric light) the clock's light ------------------------------------------------------------
+
+constexpr Vec3 kOtherLightTravels{-0.35, -0.45, 1.0}; // (the sun moved round: the shaft through the window moves)
+constexpr std::array<float, 3> kMoonColour{0.16F, 0.19F, 0.27F}; // (the clock's moon: weak and blue)
+constexpr double kMostMoonRatioError = 0.25; // the moon's shafts' light over the sun's against its colour's luma
+constexpr double kLeastBluer = 1.3;          // the moon's shafts' blue over red against the sun's
+
+// The clock lighting the scene with its light toward `toward` (the level relit, a baked sun found - as rt_sun.h's
+// resolve_scene_sun asks before it takes the clock's light).
+void clock_light(const Vec3& toward, const std::array<float, 3>& colour, bool moon)
 {
-    text::print("cost at %ux%u (the passes' timestamps on the device, 60 frames each):\n", kPerfWidth, kPerfHeight);
-    use_settings(settings_of(false), scene.top.handle); // (on before the targets: their depth made samplable)
+    namespace rt = render::rt;
+    light_toward() = normalised(toward);
+    clock_lights() = true;
+    // (the level's ground at y 0: the street air's - added by the street air)
+    rt::set_baked_sun({.scene = 1,
+                       .found = true,
+                       .toward = floats(normalised(step(Vec3{}, kLightTravels, -1.0))),
+                       .confidence = 1.0F,
+                       .ground = 0.0F,
+                       .ground_known = true});
+    rt::set_sun_relight({.relights = true});
+    rt::DayLight day;
+    day.on = true;
+    day.light = floats(light_toward());
+    day.moon = day.light;
+    day.sun = moon ? std::array<float, 3>{0.0F, -0.5F, 0.866F} : day.light;
+    day.moonlit = moon;
+    day.light_colour = colour;
+    day.light_radius = 0.0F; // (a point: the exact integral's)
+    rt::set_day_light(day);
+}
+
+void clock_off()
+{
+    namespace rt = render::rt;
+    rt::set_day_light({});
+    rt::set_sun_relight({});
+    rt::set_baked_sun({});
+    clock_lights() = false;
+    light_toward() = normalised(step(Vec3{}, kLightTravels, -1.0));
+}
+
+// The converged history's mean error against the exact integral for the light now.
+double converged_error(const View& view)
+{
+    render::vulkan::RtFogTexels history;
+    render::vulkan::RtFogTexels info;
+    if (!read_fog(render::vulkan::RtFogImage::kHistory, &history) ||
+        !read_fog(render::vulkan::RtFogImage::kHistoryInfo, &info)) {
+        return 1.0;
+    }
+    std::vector<double> errors;
+    for (std::size_t i = 0; i < history.texels.size(); ++i) {
+        Fogged want;
+        if (block_light(view, pixel_of(core::at(info.texels, i), 2), &want)) {
+            errors.push_back(light_error(core::at(history.texels, i), want));
+        }
+    }
+    return errors.empty() ? 1.0 : mean(errors);
+}
+
+// The history's light summed over every texel (rgb).
+std::array<double, 3> history_sum()
+{
+    render::vulkan::RtFogTexels history;
+    std::array<double, 3> sum{};
+    if (read_fog(render::vulkan::RtFogImage::kHistory, &history)) {
+        for (const std::array<float, 4>& texel : history.texels) {
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                core::at(sum, channel) += core::at(texel, channel);
+            }
+        }
+    }
+    return sum;
+}
+
+void run_clock(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    namespace rt = render::rt;
+    text::print("the clock's light (DayLight: the sun moved, the moon at night):\n");
+    use_settings(settings_of(false), scene.top.handle);
+    Targets targets;
+    const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, &targets);
+    tally->check(made, "the targets made");
+    if (made) {
+        const View view = view_from(kEye, kTargetWidth, kTargetHeight);
+        const Vec3 first = normalised(step(Vec3{}, kLightTravels, -1.0));
+        const Vec3 other = normalised(step(Vec3{}, kOtherLightTravels, -1.0));
+        std::array<double, 2> own_error{};
+        std::array<double, 2> other_error{};
+        for (std::size_t which = 0; which < 2; ++which) {
+            const Vec3& toward = which == 0 ? first : other;
+            clock_light(toward, {1.0F, 1.0F, 1.0F}, false);
+            for (int frame = 0; frame < kStillFrames; ++frame) {
+                draw_frame(gpu, targets, kEye);
+            }
+            const rt::SunUsed used = rt::sun_used(rt::SunUser::kFog);
+            const Vec3 noted{core::at(used.toward, 0), core::at(used.toward, 1), core::at(used.toward, 2)};
+            tally->check(rt::scene_sun().origin == rt::SunOrigin::kClock && used.have && dot(noted, toward) > 0.99999,
+                         text::format("  light %zu: the scene's sun the clock's, the fog lit by it", which + 1));
+            core::at(own_error, which) = converged_error(view);
+            light_toward() = which == 0 ? other : first;
+            core::at(other_error, which) = converged_error(view);
+            light_toward() = toward;
+        }
+        for (std::size_t which = 0; which < 2; ++which) {
+            tally->check(core::at(own_error, which) < kMostConvergedMean &&
+                             core::at(other_error, which) > 3.0 * core::at(own_error, which),
+                         text::format("  light %zu: the history against its own direction's integral %.4f, the other "
+                                      "direction's %.4f (the shaft moved with the light)",
+                                      which + 1, core::at(own_error, which), core::at(other_error, which)));
+        }
+        // the moon: the haze (no level fog) lit by its light - the moon's colour's share of the sun's, bluer
+        render::vulkan::RtFogSettings haze = settings_of(false);
+        haze.haze = true;
+        use_settings(haze, scene.top.handle);
+        std::array<std::array<double, 3>, 2> sums{};
+        for (std::size_t which = 0; which < 2; ++which) {
+            clock_light(first, which == 0 ? std::array<float, 3>{1.0F, 1.0F, 1.0F} : kMoonColour, which == 1);
+            for (int frame = 0; frame < kStillFrames; ++frame) {
+                draw_frame(gpu, targets, kEye, false);
+            }
+            core::at(sums, which) = history_sum();
+        }
+        const auto luma = [](const std::array<double, 3>& c) {
+            return (0.2126 * core::at(c, 0)) + (0.7152 * core::at(c, 1)) + (0.0722 * core::at(c, 2));
+        };
+        const double moon_luma = luma({core::at(kMoonColour, 0), core::at(kMoonColour, 1), core::at(kMoonColour, 2)});
+        const double ratio = luma(sums.front()) > 0.0 ? luma(sums.back()) / luma(sums.front()) : 0.0;
+        const auto blue_over_red = [](const std::array<double, 3>& c) {
+            return core::at(c, 0) > 0.0 ? core::at(c, 2) / core::at(c, 0) : 0.0;
+        };
+        tally->check(ratio > 0.0 && std::abs((ratio / moon_luma) - 1.0) < kMostMoonRatioError &&
+                         blue_over_red(sums.back()) > kLeastBluer * blue_over_red(sums.front()),
+                     text::format("  the moon's shafts in the haze: %.3f of the sun's light (its colour's luma %.3f), "
+                                  "blue over red %.2f against the sun's %.2f",
+                                  ratio, moon_luma, blue_over_red(sums.back()), blue_over_red(sums.front())));
+    }
+    clock_off();
+    release_targets(gpu, targets);
+}
+
+// --- (added by the street air) ----------------------------------------------------------------------------------------
+
+// The model's numbers: a horizontal view 2 m over the ground through the street air.
+constexpr double kEyeMetres = 2.0;
+constexpr double kStreetMetres = 20.0;
+constexpr double kFarMetres = 300.0;
+constexpr double kLeastStreetDepth = 0.02;  // a dusk (night) street's across: enough for shafts
+constexpr double kMostFarDepth = 0.75;      // ... and a 300-metre view's at dusk: not whited out
+constexpr double kMostFarDayDepth = 0.15;   // ... by day
+constexpr double kLeastGlowLevels = 4.0;    // a lamp's glow in the night's air (levels of 255)
+// (changed by the cinematic air: the mist in the look's volume round the eye - air_reach)
+double horizontal_depth(const render::rt::StreetAir& air, double metres, const render::rt::AirArt& art = {})
+{
+    constexpr int kSamples = 600;
+    const double at_eye = air.height > 0.0 ? std::exp(-kEyeMetres * render::rt::kUnitsPerMetre / air.height) : 1.0;
+    const double snow =
+        air.snow_height > 0.0 ? air.snow * std::exp(-kEyeMetres * render::rt::kUnitsPerMetre / air.snow_height) : 0.0;
+    const double length = metres * render::rt::kUnitsPerMetre;
+    double reach = 0.0;
+    for (int i = 0; i < kSamples; ++i) {
+        reach += render::rt::air_reach((static_cast<double>(i) + 0.5) * length / kSamples, art) / kSamples;
+    }
+    return ((air.extinction * at_eye * reach) + snow) * length;
+}
+
+// (added by the cinematic air) the cinematic step's least: a beam across a street at dusk seen from the side and a lamp's
+// cone (levels of 255), x the clear air's at least; along 300 m at dusk its optical depth and the veil of open sunlit air
+// seen from the side (dusk, noon) at most
+constexpr double kLeastCinematicBeam = 10.0;
+constexpr double kLeastCinematicCone = 3.5;
+constexpr double kLeastCinematicOverClear = 4.0;
+constexpr double kMostCinematicFarDepth = 0.6;
+constexpr double kMostCinematicNoonDepth = 0.15;
+constexpr double kMostDuskVeil = 1.2; // (linear light, before the tone map; the game at dusk: a few tens of levels)
+constexpr double kMostNoonVeil = 0.16;
+
+void run_air_model(Tally* tally)
+{
+    namespace rt = render::rt;
+    using rt::AirLook;
+    text::print("the street air's model (rt_volume_light.h street_air; its looks - AirLook):\n");
+    const rt::StreetAir dusk = rt::street_air(2.0, {}, AirLook::kClear);
+    const rt::StreetAir night = rt::street_air(-20.0, {}, AirLook::kClear);
+    const rt::StreetAir day = rt::street_air(50.0, {}, AirLook::kClear);
+    const rt::StreetAir misty = rt::street_air(2.0, {}, AirLook::kMisty);
+    const rt::StreetAir wet = rt::street_air(50.0, {.rain = true}, AirLook::kClear);
+    const rt::StreetAir snowing = rt::street_air(50.0, {.snow = true}, AirLook::kClear);
+    const rt::StreetAir none = rt::street_air(2.0, {}, AirLook::kNone);
+    const rt::StreetAir cine_dusk = rt::street_air(2.0, {}, AirLook::kCinematic);
+    const rt::StreetAir cine_night = rt::street_air(-20.0, {}, AirLook::kCinematic);
+    const rt::StreetAir cine_day = rt::street_air(50.0, {}, AirLook::kCinematic);
+    tally->check(horizontal_depth(dusk, kStreetMetres) > kLeastStreetDepth &&
+                     horizontal_depth(night, kStreetMetres) > kLeastStreetDepth,
+                 text::format("  clear: across a 20 m street 2 m up: dusk's optical depth %.3f, night's %.3f",
+                              horizontal_depth(dusk, kStreetMetres), horizontal_depth(night, kStreetMetres)));
+    tally->check(horizontal_depth(dusk, kFarMetres) < kMostFarDepth &&
+                     horizontal_depth(day, kFarMetres) < kMostFarDayDepth,
+                 text::format("  clear: along 300 m: dusk's %.3f, the day's %.3f (the far end not whited out)",
+                              horizontal_depth(dusk, kFarMetres), horizontal_depth(day, kFarMetres)));
+    const rt::AirArt cine = rt::air_art(AirLook::kCinematic);
+    const double cine_far = horizontal_depth(cine_dusk, kFarMetres, cine);
+    const double cine_noon = horizontal_depth(cine_day, kFarMetres, cine);
+    // (the veil: open air in the sun all the way, seen at a right angle to the light - (1 - T) x its light per unit)
+    const double side_light = (1.0 - render::vulkan::kFogAerialSkyShare) * rt::kHazeSunlit * cine.glow *
+                              rt::air_phase(0.0, render::vulkan::kRtFogAnisotropy, cine);
+    const double dusk_veil = (1.0 - std::exp(-cine_far)) * side_light;
+    const double noon_veil = (1.0 - std::exp(-cine_noon)) * side_light;
+    tally->check(cine_far < kMostCinematicFarDepth && cine_noon < kMostCinematicNoonDepth && dusk_veil < kMostDuskVeil &&
+                     noon_veil < kMostNoonVeil,
+                 text::format("  cinematic: along 300 m: dusk's %.3f, noon's %.3f (its volume %.0f m round the eye: the "
+                              "far world through the haze alone); open sunlit air from the side veils dusk %.1f levels, "
+                              "noon %.1f; across 20 m at dusk %.3f, at night %.3f",
+                              cine_far, cine_noon, cine.range, dusk_veil * kLevels, noon_veil * kLevels,
+                              horizontal_depth(cine_dusk, kStreetMetres, cine),
+                              horizontal_depth(cine_night, kStreetMetres, cine)));
+    tally->check(dusk.extinction > 3.0 * day.extinction && night.extinction > 3.0 * day.extinction &&
+                     misty.extinction > 1.5 * cine_dusk.extinction && cine_dusk.extinction > dusk.extinction &&
+                     cine_day.extinction > day.extinction && wet.extinction > day.extinction && snowing.snow > 0.0 &&
+                     day.snow == 0.0 && none.extinction == 0.0,
+                 text::format("  clear: denser at dusk (x %.1f the day's) and night (x %.1f), wet x %.1f, falling snow "
+                              "%.2g a unit; cinematic x %.1f clear's at dusk, x %.1f at noon; misty x %.1f cinematic's; "
+                              "none: none",
+                              dusk.extinction / day.extinction, night.extinction / day.extinction,
+                              wet.extinction / day.extinction, snowing.snow, cine_dusk.extinction / dusk.extinction,
+                              cine_day.extinction / day.extinction, misty.extinction / cine_dusk.extinction));
+    // a street lamp at night (its head 4.5 m up; intensity 4, core 20 units, reach 12 cores - rt_lights.h's emitters)
+    // seen from 15 m away, 2 m up: the glow round it looking at it, and the cone under it seen from the side (a ray
+    // 1.5 m up passing under it) - the air's light per the pass's march (x the haze's light share, the look's phase)
+    const auto lamp_air = [](const rt::StreetAir& night, const rt::AirArt& art, const Vec3& from, const Vec3& to) {
+        constexpr Vec3 kLamp{0.0, 4.5 * render::rt::kUnitsPerMetre, 0.0};
+        constexpr double kIntensity = 4.0;
+        constexpr double kCore = 20.0;
+        constexpr double kReach = 240.0;
+        constexpr int kSamples = 4000;
+        const Vec3 along = minus(to, from);
+        const double length = std::hypot(x_of(along), y_of(along), z_of(along));
+        const Vec3 direction = normalised(along);
+        const double scatter = (1.0 - render::vulkan::kFogAerialSkyShare) * render::rt::kHazeSunlit;
+        double light = 0.0;
+        for (int i = 0; i < kSamples; ++i) {
+            const double s = (static_cast<double>(i) + 0.5) * length / kSamples;
+            const Vec3 at = step(from, direction, s);
+            const Vec3 to_lamp = minus(kLamp, at);
+            const double d = std::hypot(x_of(to_lamp), y_of(to_lamp), z_of(to_lamp));
+            const double x = d / kReach;
+            const double window = d < kReach ? (1.0 - (x * x * x * x)) : 0.0;
+            const double falloff = window * window * kCore * kCore / ((kCore * kCore) + (d * d));
+            const double sigma = night.extinction * std::exp(-std::max(y_of(at), 0.0) / night.height);
+            light += sigma * (length / kSamples) * kIntensity * falloff * art.lamp_glow *
+                     rt::air_phase(dot(direction, normalised(to_lamp)), render::vulkan::kRtFogAnisotropy, art) * scatter;
+        }
+        return light;
+    };
+    const double metre = render::rt::kUnitsPerMetre;
+    const Vec3 glow_from{-15.0 * metre, 2.0 * metre, 0.0};
+    const Vec3 glow_to{0.0, 4.5 * metre, 0.0};
+    const Vec3 cone_from{-15.0 * metre, 1.5 * metre, 6.0 * metre};
+    const Vec3 cone_to{15.0 * metre, 1.5 * metre, -6.0 * metre};
+    const rt::AirArt clear_art = rt::air_art(AirLook::kClear);
+    const rt::AirArt cine_art = rt::air_art(AirLook::kCinematic);
+    const double glow = lamp_air(night, clear_art, glow_from, glow_to);
+    const double cone = lamp_air(night, clear_art, cone_from, cone_to);
+    const double cine_glow = lamp_air(cine_night, cine_art, glow_from, glow_to);
+    const double cine_cone = lamp_air(cine_night, cine_art, cone_from, cone_to);
+    tally->check(glow * kLevels > kLeastGlowLevels,
+                 text::format("  clear: a street lamp at night: its glow looking at it %.1f levels, its cone from the "
+                              "side %.1f (the air's forward scattering: halos; cones from the side faint)",
+                              glow * kLevels, cone * kLevels));
+    tally->check(cine_cone * kLevels > kLeastCinematicCone && cine_cone > kLeastCinematicOverClear * cone,
+                 text::format("  cinematic: the lamp's glow %.1f levels, its cone from the side %.1f (x %.1f clear's)",
+                              cine_glow * kLevels, cine_cone * kLevels, cone > 0.0 ? cine_cone / cone : 0.0));
+    // a beam across a street at dusk seen from the side: a sunlit slab 10 m wide (the alley's), the view 2 m up crossing
+    // it at 100 degrees from the light's way - its light over the shade's (single scattering, x the sun's 1)
+    const auto beam = [](const rt::StreetAir& air, const rt::AirArt& art) {
+        constexpr double kBeamMetres = 10.0;
+        constexpr double kSideCosine = -0.17;
+        const double scatter = (1.0 - render::vulkan::kFogAerialSkyShare) * render::rt::kHazeSunlit;
+        const double sigma = air.extinction * std::exp(-kEyeMetres * render::rt::kUnitsPerMetre / air.height);
+        return sigma * kBeamMetres * render::rt::kUnitsPerMetre * scatter * art.glow *
+               rt::air_phase(kSideCosine, render::vulkan::kRtFogAnisotropy, art);
+    };
+    const double clear_beam = beam(dusk, clear_art);
+    const double cine_beam = beam(cine_dusk, cine_art);
+    tally->check(cine_beam * kLevels > kLeastCinematicBeam && cine_beam > kLeastCinematicOverClear * clear_beam,
+                 text::format("  a beam 10 m wide across a street at dusk from the side: clear %.1f levels, cinematic "
+                              "%.1f (x %.1f), misty %.1f",
+                              clear_beam * kLevels, cine_beam * kLevels, cine_beam / clear_beam,
+                              beam(misty, rt::air_art(AirLook::kMisty)) * kLevels));
+    // (the relit level's light alone: a scene sun on a level the relit mode doesn't relight lights no air)
+    const rt::SceneSun sun{.origin = rt::SunOrigin::kLevel, .toward = {0.0F, 0.5F, 0.866F}};
+    tally->check(rt::medium_light_from(sun, {.relights = true}, {}).have &&
+                     !rt::medium_light_from(sun, {.relights = false}, {}).have,
+                 "  the air lit only on a relit level (its sun the relit mode's)");
+}
+
+// The march at a quarter's resolution: one frame's against the processor's, then the history after still frames.
+void run_quarter(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    text::print("the march at a quarter's resolution (4 x 4 blocks - rt_fog_quality 0 and 1):\n");
+    march_scale() = 4;
+    use_settings(settings_of(false), scene.top.handle);
+    Targets targets;
+    const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, &targets);
+    tally->check(made, "the targets made");
+    if (made) {
+        const View view = view_from(kEye, kTargetWidth, kTargetHeight);
+        tally->check(draw_frame(gpu, targets, kEye) == 1, "the listener recorded the passes");
+        compare_raw(view, kFirstMarch, false, tally);
+        for (int frame = 1; frame < kStillFrames; ++frame) {
+            draw_frame(gpu, targets, kEye);
+        }
+        compare_raw(view, kFirstMarch + kStillFrames - 1, false, tally);
+        compare_converged(view, tally, false);
+    }
+    release_targets(gpu, targets);
+    march_scale() = 2;
+}
+
+// The street: the sun 4 degrees up behind the near row, its light through the alley into the street's air.
+constexpr Vec3 kStreetToward{0.17, 0.0703, -1.0}; // (about 4 degrees up, a little east of the alley's line)
+constexpr Vec3 kStreetEye{600.0, 80.0, kStreetZ + 1900.0};
+constexpr Vec3 kStreetAt{0.0, 250.0, kStreetZ};
+constexpr float kStreetFarZ = 40000.0F;
+constexpr double kStreetFogEnd = 20000.0;
+constexpr std::array<float, 3> kStreetShade{0.45F, 0.42F, 0.40F}; // (the level's fog colour: the air's shade)
+constexpr double kBeamLeast = 0.004;     // a texel's ray crosses the beam: the exact light above the shade's by this
+constexpr double kShadeMost = 0.0005;    // ... crosses none
+constexpr double kLeastStreetContrast = 0.008; // the beam over the shade at least (2 levels)
+constexpr double kMostBeamError = 0.25;        // the beam's light against the exact integral's (share)
+constexpr std::size_t kLeastBeamTexels = 100;
+constexpr double kNinetieth = 0.9;
+
+// (added by the cinematic air) the street seen from the side: the eye in the street 25 m east of the alley's beam (in the
+// cinematic air's volume round the eye), looking west across it (the view at about 100 degrees from the light's way), a
+// little down - the ground beyond the beam
+constexpr Vec3 kSideEye{1000.0, 80.0, kStreetZ + 800.0};
+constexpr Vec3 kSideAt{0.0, 40.0, kStreetZ + 800.0};
+constexpr double kLeastSideContrast = 0.04; // the cinematic beam seen from the side over the shade at least (10 levels)
+
+void street_on(render::rt::AirLook look)
+{
+    namespace rt = render::rt;
+    const Vec3 toward = normalised(kStreetToward);
+    const double elevation = std::asin(y_of(toward)) * 180.0 / std::numbers::pi;
+    media() = {.start = 0.0,
+               .end = kStreetFogEnd,
+               .density = 0.0,
+               .colour = kStreetShade,
+               .air = rt::street_air(elevation, {}, look),
+               .ground = 0.0,
+               .art = rt::air_art(look)};
+    look_at() = kStreetAt;
+    far_z() = kStreetFarZ;
+    clock_light(toward, {1.0F, 1.0F, 1.0F}, false);
+}
+
+void street_off()
+{
+    clock_off();
+    media() = Media{};
+    look_at() = kAt;
+    far_z() = kFarZ;
+}
+
+double luma3(const std::array<double, 3>& c)
+{
+    return (0.2126 * core::at(c, 0)) + (0.7152 * core::at(c, 1)) + (0.0722 * core::at(c, 2));
+}
+
+// A street at dusk in the street air alone, seen from `eye` toward `at` in a look: the history against the exact
+// integral, the beam through the alley over the shade by `least` at least. Its core's contrast (the brightest tenth of
+// the beam's texels over the shade's mean), -1 when it couldn't be measured.
+struct StreetCase {
+    const char* name = "";
+    render::rt::AirLook look = render::rt::AirLook::kClear;
+    Vec3 eye{};
+    Vec3 at{};
+    double least = 0.0;
+    bool ground_only = false; // the texels whose rays end on the ground (the beam crossed low, nothing past it)
+    double beam_least = kBeamLeast; // a texel's ray crosses the beam: its exact light over the shade's by this
+};
+double run_street(render::Gpu& gpu, const Scene& scene, const StreetCase& how, Tally* tally)
+{
+    text::print("%s (the level's fog's thickness 0; rt_fog_air=%s):\n", how.name, render::rt::air_look_name(how.look));
+    street_on(how.look);
+    look_at() = how.at;
+    render::vulkan::RtFogSettings settings = settings_of(false);
+    settings.density = 0.0F;
+    settings.air = how.look;
+    use_settings(settings, scene.top.handle);
+    Targets targets;
+    double contrast = -1.0;
+    const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, &targets);
+    tally->check(made, "the targets made");
+    if (made) {
+        const View view = view_from(how.eye, kTargetWidth, kTargetHeight);
+        for (int frame = 0; frame < kStillFrames; ++frame) {
+            draw_frame(gpu, targets, how.eye);
+        }
+        compare_converged(view, tally, false);
+        render::vulkan::RtFogTexels history;
+        render::vulkan::RtFogTexels info;
+        const bool read = read_fog(render::vulkan::RtFogImage::kHistory, &history) &&
+                          read_fog(render::vulkan::RtFogImage::kHistoryInfo, &info);
+        std::vector<double> inside;
+        std::vector<double> inside_want;
+        std::vector<double> outside;
+        for (std::size_t i = 0; read && i < history.texels.size(); i += 2) {
+            if (how.ground_only && std::get<0>(core::at(info.texels, i)) < 0.0F) {
+                continue; // (the side view's sky: its rays leave the street over the roofs' shadow)
+            }
+            const Pixel pixel = pixel_of(core::at(info.texels, i), 2);
+            const Fogged lit = exact_at(view, pixel, false);
+            const Fogged dark = dark_at(view, pixel);
+            const double want = luma3(lit.light) - luma3(dark.light);
+            const std::array<float, 4>& texel = core::at(history.texels, i);
+            const double got =
+                luma3({core::at(texel, 0), core::at(texel, 1), core::at(texel, 2)}) - luma3(dark.light);
+            if (want > how.beam_least) {
+                inside.push_back(got);
+                inside_want.push_back(want);
+            } else if (want < kShadeMost) {
+                outside.push_back(got);
+            }
+        }
+        tally->check(inside.size() > kLeastBeamTexels && outside.size() > kLeastBeamTexels,
+                     text::format("  %zu texels' rays cross the beam through the alley, %zu only the shade",
+                                  inside.size(), outside.size()));
+        // (the beam's brightest tenth: the rays along its core - the rest graze its edges)
+        const double core_light = percentile(inside, kNinetieth);
+        contrast = core_light - mean(outside);
+        tally->check(core_light - mean(outside) > how.least &&
+                         std::abs(mean(inside) - mean(inside_want)) < kMostBeamError * mean(inside_want),
+                     text::format("  the beam: its core %.4f over the shade (%.1f levels), its mean %.4f (the exact "
+                                  "integral's %.4f), the shade's own %.4f",
+                                  core_light - mean(outside), (core_light - mean(outside)) * kLevels, mean(inside),
+                                  mean(inside_want), mean(outside)));
+    }
+    release_targets(gpu, targets);
+    street_off();
+    return contrast;
+}
+
+void run_streets(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    using render::rt::AirLook;
+    run_street(gpu, scene,
+               {.name = "a street at dusk in the street air alone, toward the low sun",
+                .look = AirLook::kClear,
+                .eye = kStreetEye,
+                .at = kStreetAt,
+                .least = kLeastStreetContrast},
+               tally);
+    // (added by the cinematic air) the beam seen from the side: the cinematic step's over the shade by a clear margin,
+    // several times the physical air's
+    const double clear = run_street(gpu, scene,
+                                    {.name = "the street from the side, the clear air",
+                                     .look = AirLook::kClear,
+                                     .eye = kSideEye,
+                                     .at = kSideAt,
+                                     .least = 0.0,
+                                     .ground_only = true,
+                                     .beam_least = 0.1 * kBeamLeast}, // (the clear air's faint beam)
+                                    tally);
+    const double cinematic = run_street(gpu, scene,
+                                        {.name = "the street from the side, the cinematic air",
+                                         .look = AirLook::kCinematic,
+                                         .eye = kSideEye,
+                                         .at = kSideAt,
+                                         .least = kLeastSideContrast,
+                                         .ground_only = true},
+                                        tally);
+    tally->check(clear >= 0.0 && cinematic > kLeastCinematicOverClear * clear,
+                 text::format("  from the side: the cinematic beam %.1f levels over its shade, the clear air's %.1f (x %.1f)",
+                              cinematic * kLevels, clear * kLevels, clear > 0.0 ? cinematic / clear : 0.0));
+}
+
+// The passes at 2560 x 1440 timed on the device (their own timestamps) at rt_fog_quality 0, 1, 2 - in the street at
+// dusk (the street air on, the alley's beam): Medium held to kMostMediumMilliseconds.
+constexpr double kMostMediumMilliseconds = 1.0;
+void run_perf(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    text::print("cost at %ux%u in the street at dusk (the passes' timestamps on the device, 60 frames each):\n",
+                kPerfWidth, kPerfHeight);
+    street_on(render::rt::AirLook::kCinematic);
+    render::vulkan::RtFogSettings base = settings_of(false);
+    base.density = 0.0F;
+    base.air = render::rt::AirLook::kCinematic;
+    use_settings(base, scene.top.handle); // (on before the targets: their depth made samplable)
     Targets targets;
     if (!make_targets(gpu, kPerfWidth, kPerfHeight, &targets)) {
         text::print("  the targets couldn't be made\n");
+        street_off();
         return;
     }
     constexpr int kFrames = 60;
@@ -1398,23 +2098,32 @@ void run_perf(render::Gpu& gpu, const Scene& scene)
         render::vulkan::finish_work(state);
         return render::vulkan::rt_fog_timing();
     };
-    for (const unsigned steps : {16U, 32U, 64U}) {
-        render::vulkan::RtFogSettings settings = settings_of(false);
-        settings.steps = steps;
+    constexpr std::array<const char*, 3> kNames{"Low", "Medium", "High"};
+    for (std::size_t quality = 0; quality < kNames.size(); ++quality) {
+        render::vulkan::RtFogSettings settings = base;
+        settings.steps = core::at(render::vulkan::kRtFogQualitySteps, quality);
+        settings.scale = core::at(render::vulkan::kRtFogQualityScale, quality);
         use_settings(settings, scene.top.handle);
         const render::vulkan::RtFogTiming before = timing();
         for (int frame = 0; frame < kFrames; ++frame) {
-            draw_frame(gpu, targets, kEye);
+            draw_frame(gpu, targets, kStreetEye);
             const std::scoped_lock lock(state.mutex);
             render::vulkan::finish_work(state);
         }
         const render::vulkan::RtFogTiming after = timing();
         const uint64_t samples = after.samples - before.samples;
-        text::print("  %2u steps: %.3f ms (%llu passes timed)\n", steps,
-                    samples == 0 ? 0.0 : (after.milliseconds - before.milliseconds) / static_cast<double>(samples),
-                    static_cast<unsigned long long>(samples));
+        const double milliseconds =
+            samples == 0 ? 0.0 : (after.milliseconds - before.milliseconds) / static_cast<double>(samples);
+        text::print("  %-6s (%u steps, 1/%u): %.3f ms (%llu passes timed)\n", core::at(kNames, quality), settings.steps,
+                    settings.scale, milliseconds, static_cast<unsigned long long>(samples));
+        if (quality == 1) {
+            tally->check(samples > 0 && milliseconds < kMostMediumMilliseconds,
+                         text::format("  Medium within %.1f ms at %ux%u", kMostMediumMilliseconds, kPerfWidth,
+                                      kPerfHeight));
+        }
     }
     release_targets(gpu, targets);
+    street_off();
 }
 
 int window_position(int display)
@@ -1499,17 +2208,21 @@ int run(const Options& options, SDL_Window* window)
     tally.check(built, "the check's acceleration structures built (a BLAS of the wall and the ground, a TLAS)");
     if (built) {
         render::Gpu& gpu = render::vulkan::gpu();
+        run_air_model(&tally); // (added by the street air)
         run_replace(gpu, scene, &tally);
+        run_quarter(gpu, scene, &tally); // (added by the street air)
         run_shafts(gpu, scene, &tally);
         run_untouched(gpu, "no fog in the level, rt_fog_haze=0: the pass skipped", settings_of(false), scene.top.handle,
                       false, &tally);
         run_haze(gpu, scene, &tally);
+        run_clock(gpu, scene, &tally);  // (added by the volumetric light)
+        run_streets(gpu, scene, &tally); // (added by the street air; the side view by the cinematic air)
         run_untouched(gpu, "no scene: the pass skipped", settings_of(false), VK_NULL_HANDLE, true, &tally);
         render::vulkan::RtFogSettings off = settings_of(false);
         off.on = false;
         run_untouched(gpu, "rt_fog off: no pass", off, scene.top.handle, true, &tally);
         if (options.perf) {
-            run_perf(gpu, scene);
+            run_perf(gpu, scene, &tally);
         }
     }
     render::vulkan::rt_fog_set_scene(VK_NULL_HANDLE);
