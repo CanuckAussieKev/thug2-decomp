@@ -6,6 +6,7 @@
 
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "engine/gfx/ui_backend.h"
 
 // NOT ORIGINAL - Vulkan's render::Gpu and render::GpuContext (vulkan_gpu.cpp, vulkan_draws.cpp, vulkan_gpu_context.cpp;
@@ -187,7 +188,6 @@ inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{16, 32, 48};
 inline constexpr std::array<unsigned, 3> kRtFogQualityLamps{8, 16, 32};
 inline constexpr std::array<unsigned, 3> kRtFogQualityScale{4, 4, 2};
 inline constexpr unsigned kRtFogScale = 4;    // (rt_fog_quality 1's scale)
-inline constexpr float kRtFogAir = 1.0F;      // (rt_fog_air's default: the street air as the conditions make it)
 inline constexpr float kRtFogHazeHeight = 600.0F; // (rt_fog_haze_height's default: world units)
 inline constexpr float kRtFogHazeDensity = 0.3F;  // (rt_fog_haze_density's default)
 enum class RtFogMode : uint8_t {
@@ -216,10 +216,10 @@ struct RtFogSettings {
     // meets its sky dome) and the near sea its own colour.
     float haze_density = kRtFogHazeDensity;
     float haze_height = kRtFogHazeHeight;
-    // (added by the street air - engine/gfx/rt_volume_light.h street_air) the near-ground air's thickness: x the
-    // conditions' (rt_fog_air, Options "Light shafts": 0 none, 1 as the time of day and the weather make it, 2.5
-    // thick - a misty morning; 0 - 4), and the march's resolution (rt_fog_quality's: 2 or 4)
-    float air = kRtFogAir;
+    // (added by the street air - engine/gfx/rt_volume_light.h street_air; changed by the cinematic air) the near-ground
+    // air's look (rt_fog_air, Options "Atmosphere": clear - physical -, cinematic, misty; rt_volume_light.h AirLook),
+    // and the march's resolution (rt_fog_quality's: 2 or 4)
+    render::rt::AirLook air = render::rt::AirLook::kCinematic;
     unsigned scale = kRtFogScale;
 };
 void set_rt_fog_settings(const RtFogSettings& settings);

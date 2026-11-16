@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string_view>
 
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
@@ -17,8 +18,14 @@
 // phase function are here too, so the device's march and the checks' processor march are the same model.
 namespace render::rt {
 
+//
+// (changed by the cinematic air) The light is the relit level's: the air is lit by a sun only where the relit mode
+// relights the level (rt_scene.h SunRelight::relights - its offline data read, the mode on, the level not opted out), so
+// the air's light is the light the level's surfaces show. A level without relit data has none: its fog is its own look
+// (the game's colour whole, the lamps' light in it), no sunlit air, no street air. (The console's `rt sun` - an override,
+// an experiment - lights the air whatever the level.)
 struct MediumLight {
-    bool have = false;      // a light (none indoors, or before the baked sun is fitted)
+    bool have = false;      // a light (none indoors, on a level the relit mode doesn't relight, or before its sun is read)
     bool clock = false;     // the clock's light (DayLight): its colour and size are used
     bool moonlit = false;   // the moon
     std::array<float, 3> toward{};                // normalised
@@ -27,9 +34,9 @@ struct MediumLight {
                                  // light_radius - the sun's, the larger moon's); 0, a point, without the clock
     double sun_elevation = 0.0;                   // degrees: the sun's (not the moon's) - the haze's conditions
 };
-// The light from a scene sun and a clock state (pure: the checks').
-[[nodiscard]] MediumLight medium_light_from(const SceneSun& scene, const DayLight& day);
-// The frame's (scene_sun(), day_light()).
+// The light from a scene sun, the relit mode's word on the level and a clock state (pure: the checks').
+[[nodiscard]] MediumLight medium_light_from(const SceneSun& scene, const SunRelight& relight, const DayLight& day);
+// The frame's (scene_sun(), sun_relight(), day_light()).
 [[nodiscard]] MediumLight medium_light();
 
 // The haze is thicker round sunrise and sunset (the morning's mist, the evening's haze): x (1 + kHazeLowSunExtra x
@@ -53,7 +60,7 @@ inline constexpr double kWaterHazeHeight = 400.0; // world units
 // moisture and dust held near the ground (the boundary layer's bottom; a mist in the morning and at night, when the
 // ground cools the air over it). The street air is that layer:
 //   - its extinction at the level's ground: kAirClearDay per metre (a clear day's city air, ~13 km of visibility), x
-//     air_condition (the time of day and the weather) x the thickness ([Graphics] rt_fog_air: Options "Light shafts");
+//     air_condition (the time of day and the weather), as the look (AirLook, below) shapes it;
 //   - thinning by e every kAirHeight metres above the ground (kAirNightHeight at night: the cooled ground's mist lies
 //     low, the lamps' cones down to the street in it, the lamps' heads near its top) - as the haze, as thick as there
 //     below it: a horizontal view a few metres up crosses it whole, a view up the buildings soon leaves it - the far
@@ -79,7 +86,49 @@ inline constexpr double kAirNightTo = -12.0;   // degrees
 inline constexpr double kAirRainExtra = 3.0;
 inline constexpr double kAirSnow = 1.2e-3;      // per metre (light snowfall: ~3 km of visibility)
 inline constexpr double kAirSnowHeight = 60.0;  // metres
-inline constexpr double kAirMostThickness = 4.0; // rt_fog_air at most
+
+// --- (added by the cinematic air) the air's look: [Graphics] rt_fog_air, Options "Atmosphere" -----------------------
+// The model above is the physical one, and physically a street's air is thin: beams between buildings show only looking
+// toward a low sun, a street lamp's cone seen from the side not at all. Games (and films - a smoke machine on every set)
+// show light in the air far more than a real street does: a beam that reads across a street needs air so thick that the
+// same air, followed a few hundred metres, whites out the far world. The look is that departure, explicit and in steps,
+// the way games' volumetric fog does it (a volume round the camera, its scattering set apart from its thickness, each
+// light's own share in it):
+//   - kClear: the physical air, exactly the model above (every factor 1, the phase medium_phase's, everywhere);
+//   - kCinematic (the default): the beams and cones of a modern game -
+//       a volume round the eye: the street air whole to `range` / 2 from the camera, gone by `range` (smoothly) - the
+//       beams and cones near the player, the far world seen through the aerial haze alone, so it doesn't milk out;
+//       denser (`density`), never thinner than `least` x a clear day's (a thin base by day), a night's mist `night` x;
+//       scattering more than it takes away: the sun's (or moon's) light it scatters x `glow`, the lamps' x `lamp_glow`
+//       (a film lights its practicals for the haze; a lamp's few hundred lumens over a sun's hundred thousand), what it
+//       dims by its extinction alone - not energy-conserving, by design;
+//       its phase given an even lobe (`side`, over medium_phase's: x 4 pi, 1 the light an even medium would scatter):
+//       the lit air shows from the side, not only looking into the light - beams across the street, cones from the
+//       pavement;
+//       its shade's light (the sky's, the fog's ambient) x `shade`: the air out of the light stays clear, the beams
+//       stand out against it;
+//   - kMisty: a misty morning - thick at any hour, a wider volume, the shade's light whole.
+// Only the street air takes the look: the aerial haze (the atmosphere's - the far world's), the level's own fog and the
+// falling snow keep their own. kNone: no street air (the checks' cases of the other media alone).
+enum class AirLook : uint8_t { kNone, kClear, kCinematic, kMisty };
+struct AirArt {
+    double density = 1.0;   // x the street air's extinction
+    double least = 0.0;     // its air_condition at least (x a clear day's)
+    double night = 1.0;     // x the night's mist (kAirNightExtra)
+    double side = 0.0;      // the even lobe added to its phase (x 4 pi)
+    double shade = 1.0;     // x its shade's light
+    double glow = 1.0;      // x the sun's or moon's light it scatters
+    double lamp_glow = 1.0; // x the lamps' light it scatters
+    double range = 0.0;     // metres: the volume round the eye (0: everywhere)
+};
+[[nodiscard]] AirArt air_art(AirLook look);
+// The ini's spelling: "clear", "cinematic", "misty" (and "0" / "1" / "2"); anything else the default.
+[[nodiscard]] AirLook parse_air_look(std::string_view text);
+[[nodiscard]] const char* air_look_name(AirLook look);
+// The street air's phase (x 4 pi) for a look's side lobe: medium_phase + side.
+[[nodiscard]] double air_phase(double cosine, double g, const AirArt& art);
+// How much of the street air there is `distance` world units from the eye: 1 to range / 2, 0 from range (smoothstep).
+[[nodiscard]] double air_reach(double distance, const AirArt& art);
 
 // What the weather puts in the air: render_pc publishes it each frame from the game's weather and the snow's settings.
 struct AirWeather {
@@ -90,19 +139,20 @@ struct AirWeather {
 void set_air_weather(const AirWeather& weather);
 [[nodiscard]] AirWeather air_weather();
 
-[[nodiscard]] double air_condition(double sun_elevation_degrees, bool rain);
+// (the look's `night` x the night's mist; at least its `least`)
+[[nodiscard]] double air_condition(double sun_elevation_degrees, bool rain, const AirArt& art = {});
 // How much it is night for the air (0 by day, 1 from kAirNightTo down; smooth between): its mist's share.
 [[nodiscard]] double air_night(double sun_elevation_degrees);
 
-// The street air for a light (its sun's elevation), the weather and the thickness (rt_fog_air; 0: none): extinctions
-// per world unit, heights in world units.
+// The street air for a light (its sun's elevation), the weather and the look (kNone: none): extinctions per world unit,
+// heights in world units. Falling snow is the snow's whatever the look.
 struct StreetAir {
     double extinction = 0.0; // at its ground
     double height = 0.0;
     double snow = 0.0;
     double snow_height = 0.0;
 };
-[[nodiscard]] StreetAir street_air(double sun_elevation_degrees, const AirWeather& weather, double thickness);
+[[nodiscard]] StreetAir street_air(double sun_elevation_degrees, const AirWeather& weather, AirLook look);
 
 // The air's phase function x 4 pi (1 on average over the sphere): strong forward scattering, as haze's droplets do (Mie),
 // two Henyey-Greenstein lobes - kMediumForwardShare forward with g (rt_fog_anisotropy), the rest back with

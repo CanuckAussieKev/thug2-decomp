@@ -270,7 +270,7 @@ render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
         .haze = in_effect.on("rt_fog_haze"),
         .haze_density = in_effect.number("rt_fog_haze_density", defaults.haze_density),
         .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height),
-        .air = in_effect.number("rt_fog_air", defaults.air),
+        .air = render::rt::parse_air_look(in_effect.value("rt_fog_air")),
         .scale = core::at(render::vulkan::kRtFogQualityScale, quality)};
 }
 

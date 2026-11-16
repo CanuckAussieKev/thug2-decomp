@@ -673,12 +673,18 @@ std::vector<Decl> declarations()
         gfx("rt_shaft_strength", K::kNumber, "0.8").retire(t::kRetiredShafts),
         gfx("rt_fog", K::kSwitch, "0").tab(G::kSky, t::kOptFog, t::kOptFogHelp).need(ray_tracing()).live(E::kFog),
         // (the light the air scatters - the sun's or the moon's, the lamps' - and the march's quality: vulkan_rt_fog.h)
-        // (changed by the street air: the shafts' look is the air's thickness - rt_volume_light.h street_air - not a
-        // multiplier on its light; rt_fog_strength stays the ini's)
-        gfx("rt_fog_air", K::kNumber, "1")
-            .tab(G::kSky, t::kOptShafts, t::kOptShaftsHelp)
-            .pick({c("0", t::kAirClear), c("0.5", t::kAirLight), c("1", t::kAirNormal), c("2.5", t::kAirThick)})
+        // (changed by the street air: the shafts' look is the air's - rt_volume_light.h street_air - not a multiplier on
+        // its light; rt_fog_strength stays the ini's. Changed by the cinematic air: the air's look in steps - clear, the
+        // physical air; cinematic, the default; misty - rt_volume_light.h AirLook. The air is lit by the relit level's
+        // sun alone: without the level relit there is no sunlit air - rt_volume_light.h MediumLight)
+        gfx("rt_fog_air", K::kChoice, "cinematic")
+            .tab(G::kSky, t::kOptAtmosphere, t::kOptAtmosphereHelp)
+            .pick({c("clear", t::kAirClear), c("cinematic", t::kAirCinematic), c("misty", t::kAirMisty)})
+            .alias("0", "clear")
+            .alias("1", "cinematic")
+            .alias("2", "misty")
             .need(on("rt_fog"))
+            .need(on("rt_relit"))
             .live(E::kFog),
         gfx("rt_fog_strength", K::kNumber, "1").need(on("rt_fog")).live(E::kFog),
         gfx("rt_fog_quality", K::kNumber, "1")

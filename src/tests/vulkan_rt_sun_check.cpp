@@ -1304,7 +1304,7 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
     fog.haze = true;
     fog.haze_density = kAerialHazeDensity;
     fog.haze_height = kAerialHeight;
-    fog.air = 0.0F; // (the aerial haze alone: the street air's own cases are thug2_vulkan_rt_fog_check's)
+    fog.air = render::rt::AirLook::kNone; // (the aerial haze alone: the street air's own cases are thug2_vulkan_rt_fog_check's)
     vk::set_rt_fog_settings(fog);
     vk::rt_fog_set_scene(scene.top.handle);
     Targets targets;
@@ -1482,7 +1482,10 @@ void run_scene_sun(render::Gpu& gpu, const Scene& scene, Tally* tally)
             const rt::SunUsed used = rt::sun_used(user);
             // (the drawn sun with no scene sun is drawn where the game shows it, lighting nothing)
             const bool drawn_anyway = user == rt::SunUser::kDrawnSun && mode.expect == nullptr;
-            const bool ok = used.noted && (drawn_anyway || used.have == (mode.expect != nullptr)) &&
+            // (changed by the cinematic air: the air is lit by the relit level's sun alone - rt_volume_light.h
+            // MediumLight; on a level the relit mode doesn't relight the fog has none)
+            const bool lit = mode.expect != nullptr && (user != rt::SunUser::kFog || mode.relight.relights);
+            const bool ok = used.noted && (drawn_anyway || used.have == lit) &&
                             (mode.expect == nullptr || !used.have || same(used.toward, *mode.expect));
             agree = agree && ok;
             const char* state = "not asked";

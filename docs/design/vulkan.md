@@ -982,14 +982,43 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
   lowest layer, outdoors (where a sun or moon lights the level), a second medium along every ray in every mode:
   extinction 3e-4 / m at the level's street level (BakedSun::street - the middle of the upward faces' heights, so
   Berlin's plaza, not its sunken streets) x `air_condition` - 8 x round dawn and dusk (a Gaussian round 3 degrees, 10
-  wide), 12 x at night, +3 in rain - x `rt_fog_air` (Options "Light shafts": Clear 0 / Light 0.5 / Normal 1 / Thick
-  2.5), thinning by e every 8 m (4 m at night: a night's mist lies low), falling snow (the game's, or `snow` with
+  wide), 12 x at night, +3 in rain - as the look (below) shapes it, thinning by e every 8 m (4 m at night: a night's mist lies low), falling snow (the game's, or `snow` with
   snowfall) 1.2e-3 / m more over 60 m, the wetter layer over water. Its light the aerial haze's per unit of light, its
   shade the replaced fog's ambient (the sky's in the aerial march, none where only shafts are added); the two media's
   light mixed by their share of each segment's optical depth. Numbers (the check's): across a 20 m street 2 m up 0.035
   at dusk, 0.044 at night; along 300 m 0.56 at dusk, 0.07 by day. Physically the beams show looking toward the light
   (the phase), a lamp's glow looking at it; a lamp's cone seen from the side stays faint unless the air is Thick or wet.
   render_pc publishes the weather each frame (`set_air_weather`).
+- **The air's look - a departure from physical, on purpose** (added in the third round; `rt_volume_light.h AirLook`,
+  `[Graphics] rt_fog_air`, Options "Atmosphere"). The street air above is the physical one, and at the defaults it showed
+  what real air shows: beams only looking toward a low sun, lamps a faint halo, nothing from the side. The user chose
+  (2026-11-16) the look of modern games - RDR2's god rays between buildings at a low sun, cones under street lamps,
+  columns through cloud gaps, all readable from the side. Physically that needs air so thick (a 10 m beam at 20 levels
+  over its shade wants ~8 x a dusk street's extinction) that followed a few hundred metres it whites the far world out
+  - so games don't do it physically: their volumetric fog is a volume round the camera whose scattering is set apart
+  from its thickness, each light with its own share in it. The look does the same, in steps:
+  - `clear`: the physical model, every factor 1 (round two's air exactly).
+  - `cinematic` (the default): the street air x 2 (`density`), never under 1.5 x a clear day's (`least`: a thin base at
+    noon), the night's mist x 1.5; it scatters the sun's or moon's light x 1.7 (`glow`) and the lamps' x 5
+    (`lamp_glow`: a lamp's few hundred lumens against the sun's hundred thousand - a film lights its practicals for the
+    haze) while it dims only by its extinction - not energy-conserving, by design; its phase gets an even lobe of 2.5
+    over `medium_phase` (`side`, x 4 pi - an even medium's light is 1): the lit air reads from the side, not only
+    toward the light; its shade's light (the sky's, the fog's ambient) x 0.35 (`shade`): the air out of the light stays
+    clear and the beams stand out; and it is a volume round the eye - whole to 30 m, gone by 60 m (`range`, smoothstep
+    on each segment's middle distance): the beams near the player, the far world seen through the aerial haze alone.
+  - `misty`: x 5, at least 4 x a clear day's, glow 1, lamps x 3, side 1.5, its shade whole, 150 m round the eye.
+  Only the street air takes the look - the aerial haze, the level's own fog and the falling snow keep theirs. The
+  check's numbers (thug2_vulkan_rt_fog_check): a 10 m beam across a street at dusk seen from the side 0.4 levels clear,
+  13.6 cinematic; the side view of the check's street (the device's march) 8+ levels over the shade, the clear air's
+  under 1; a street lamp's cone seen from the side 0.0 / 4.0 levels (its glow looking at it 6.5 / 105); along 300 m at
+  dusk an optical depth of 0.56 clear, 0.17 cinematic (the far world clearer than physical); open sunlit air seen from
+  the side veils ~57 levels at dusk, ~11 at noon.
+- **The light is the relit level's** (third round): `medium_light` lights the air only where the relit mode relights
+  the level (`SunRelight::relights` - its offline data built and current, `rt_relit` on, the level not opted out). A
+  level without relit data has no sunlit air and no street air: the fog pass draws the level's own fog (its colour
+  whole, the lamps' light in it) or, without fog, nothing - one owner of the level's sun, as for the shadows. The
+  settings model says so: `rt_fog_air` needs `rt_relit` (greyed with the relit data's reason). The console's `rt sun`
+  override still lights it (an experiment; the checks' sun).
 - **The light at a sample.** Each segment's light is sampled at one jittered point (interleaved gradient noise + the
   frame's golden-ratio offset): `here = ambient + medium x strength x (sun + lamps)`.
   - ambient: the replaced fog's colour x 0.5 (a level with no light - indoors - its whole colour: the game's fog
@@ -1042,8 +1071,8 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
 - **Which fog.** THUG2's levels draw fog only where a script turns it on, or with `[Graphics] DistanceClipping=1` and
   `Fog=1` - then every mesh fogs over the last quarter before the far plane (pc_mesh_render.cpp), which `ViewDrawn::fog`
   reports. A level without fog and without a light or lamps (rt_fog_haze=0, or indoors by day) gets no pass.
-- **Settings.** `rt_fog_air` (1; Options "Light shafts" Clear / Light / Normal / Thick = 0 / 0.5 / 1 / 2.5): the street
-  air's thickness. `rt_fog_strength` (1, the ini's) scales the light the air scatters - sun, moon, lamps - not the
+- **Settings.** `rt_fog_air` (cinematic; Options "Atmosphere" Clear / Cinematic / Misty - the ini also takes 0 / 1 / 2;
+  round two's numbers 0 - 4 were never released): the street air's look, above. `rt_fog_strength` (1, the ini's) scales the light the air scatters - sun, moon, lamps - not the
   fog's ambient. `rt_fog_quality` (1; Options "Light shaft quality"): 16 / 32 / 48 steps, 8 / 16 / 32 lamps, a quarter /
   a quarter / half the resolution; `rt_fog_steps` above 0 overrides the steps. The High preset turns `rt_fog` on (its shafts were the retired `rt_shafts`).
 - **Cost** (device timestamps around the passes, logged every 240 as "rt_fog: the passes take"): the check's scene at
