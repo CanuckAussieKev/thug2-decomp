@@ -119,7 +119,9 @@ struct Clock {
     int waited = 0;
     uint64_t stale_fit = 0; // the baked sun's fit when the level changed (the level before's: not this one's)
     rt::NativeDay native;
-    uint32_t own_state = 0;   // the manager's state when the clock took the level over
+    bool native_north_set = false; // (added by the level's compass) the level's north the day was fitted with
+    double native_north = 0.0;
+    uint32_t own_state = 0;  // the manager's state when the clock took the level over
     sun::Placed own_sun{};    // the sun then
     bool started = false;
     rt::TodChoice choice;
@@ -183,6 +185,8 @@ bool own_game_sun(const Clock& own, rt::DayVec* toward)
     return std::sin(phi) > 0.0;
 }
 
+constexpr double kSameNorth = 1e-6; // degrees (added by the level's compass)
+
 // The level's own day (once its baked sun is known, or it has none): false while it waits for the fit.
 bool know_native(Clock& own)
 {
@@ -193,7 +197,11 @@ bool know_native(Clock& own)
     }
     const bool fitted = baked.scene != 0 && baked.scene != own.stale_fit; // (this level's fit)
     const bool baked_now = fitted && baked.found;
-    if (own.native_known && (own.native.from_bake || !baked_now)) {
+    // (added by the level's compass) the level's north from its data, once render_pc has published this level's
+    const rt::LevelNorth north = rt::level_north();
+    const bool north_now = north.level == own.level && north.set;
+    const bool north_same = north_now == own.native_north_set && (!north_now || std::abs(north.heading - own.native_north) < kSameNorth);
+    if (own.native_known && (own.native.from_bake || !baked_now) && north_same) {
         return true;
     }
     if (!own.native_known && tracing && !fitted && own.waited < kBakeWaitFrames) {
@@ -208,15 +216,20 @@ bool know_native(Clock& own)
     } else {
         in.have_sun = own_game_sun(own, &in.sun);
     }
+    in.north_set = north_now;
+    in.north_heading = north.heading;
+    own.native_north_set = north_now;
+    own.native_north = north.heading;
     const bool refit = own.native_known;
     own.native = rt::fit_native_day(in);
     own.native_known = true;
     const rt::SkyPlace sun = rt::heading_of(own.native.toward);
     get_log("tod: level %08x's own time %s - its sun %s (heading %.0f, %.0f degrees up), latitude %.1f, north at "
-            "heading %.0f%s",
+            "heading %.1f%s%s",
             own.level, rt::tod_text({.preset = rt::TodPreset::kClock, .hours = static_cast<float>(own.native.hours)}).c_str(),
             in.from_bake ? "baked" : (in.have_sun ? "the game's" : "assumed"), sun.azimuth, sun.elevation,
-            own.native.path.latitude, own.native.path.north_heading, refit ? " (the baked sun found: fitted again)" : "");
+            own.native.path.latitude, own.native.path.north_heading, north_now ? " (the level's data)" : "",
+            refit ? " (fitted again)" : "");
     if (refit) {
         own.started = false; // (the time again from the choice, on the new day)
     }

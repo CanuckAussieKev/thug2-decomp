@@ -990,6 +990,10 @@ bool parse_level(JsonReader& reader, RelitLevel* level)
             level->strength = std::clamp(static_cast<float>(scalar.number), 0.0F, 1.0F);
         } else if (key == "sun" && scalar.is_text) {
             level->keeps_baked_sun = scalar.text == "level";
+        } else if (key == "north" && scalar.is_number && std::isfinite(scalar.number)) {
+            constexpr double kFullTurn = 360.0;
+            level->north_set = true;
+            level->north_heading = static_cast<float>(std::fmod(std::fmod(scalar.number, kFullTurn) + kFullTurn, kFullTurn));
         }
         if (reader.take('}')) {
             return true;
