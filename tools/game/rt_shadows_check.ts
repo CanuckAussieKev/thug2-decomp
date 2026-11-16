@@ -1592,7 +1592,7 @@ async function main(): Promise<number> {
         fog: "Graphics.rt_fog_density",
         gi: "Graphics.rt_gi_strength",
         sun: "Graphics.rt_bloom_strength",
-        sky: "Graphics.rt_sky_match",
+        sky: "Graphics.rt_cloud_coverage",
         tess: "Graphics.rt_tess_max_deviation",
         relit: "Graphics.rt_relit_strength",
         upscale: "Graphics.upscale_sharpness",

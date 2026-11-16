@@ -59,15 +59,31 @@ double ray_length(const Ray& ray, bool* ground)
 
 double altitude(const Dir& point) { return std::sqrt(dot3(point, point)) - kGroundRadius; }
 
-// The densities at a point (Rayleigh's, Mie's: 1 at the ground).
+// The densities at a point (Rayleigh's, Mie's: 1 at the ground; the ozone's: 1 at kOzoneCentre) - or, summed along a
+// ray, their density-weighted lengths.
 struct Densities {
     double rayleigh = 0.0;
     double mie = 0.0;
+    double ozone = 0.0;
+    void add(const Densities& other, double length)
+    {
+        rayleigh += other.rayleigh * length;
+        mie += other.mie * length;
+        ozone += other.ozone * length;
+    }
 };
+Densities plus(const Densities& one, const Densities& other, double length)
+{
+    Densities out = one;
+    out.add(other, length);
+    return out;
+}
 Densities densities_at(const Dir& point)
 {
     const double height = std::max(0.0, altitude(point));
-    return {.rayleigh = std::exp(-height / kRayleighHeight), .mie = std::exp(-height / kMieHeight)};
+    return {.rayleigh = std::exp(-height / kRayleighHeight),
+            .mie = std::exp(-height / kMieHeight),
+            .ozone = std::max(0.0, 1.0 - (std::abs(height - kOzoneCentre) / kOzoneHalfWidth))};
 }
 
 // One of `count` segments along a ray `length` long: its start and end (lengths growing with the square of the
@@ -92,7 +108,8 @@ Rgb extinction_of(const Densities& depth)
     Rgb out{};
     for (std::size_t channel = 0; channel < out.size(); ++channel) {
         core::at(out, channel) =
-            (core::at(kRayleigh, channel) * depth.rayleigh) + ((kMieScattering / kMieAlbedo) * depth.mie);
+            (core::at(kRayleigh, channel) * depth.rayleigh) + ((kMieScattering / kMieAlbedo) * depth.mie) +
+            (core::at(kOzoneAbsorption, channel) * depth.ozone);
     }
     return out;
 }
@@ -114,8 +131,7 @@ bool depth_to_top(const Ray& ray, uint32_t steps, Densities* depth)
     for (uint32_t index = 0; index < steps; ++index) {
         const Segment part = segment(length, {.index = index, .count = steps});
         const Densities here = densities_at(along(ray, kHalf * (part.start + part.end)));
-        depth->rayleigh += here.rayleigh * (part.end - part.start);
-        depth->mie += here.mie * (part.end - part.start);
+        depth->add(here, part.end - part.start);
     }
     return true;
 }
@@ -156,20 +172,18 @@ Rgb sky_radiance(const Dir& view, const Dir& sun, const SkySteps& steps)
         const double span = part.end - part.start;
         const Dir point = along(ray, kHalf * (part.start + part.end));
         const Densities here = densities_at(point);
-        const Densities to_here{.rayleigh = travelled.rayleigh + (kHalf * here.rayleigh * span),
-                                .mie = travelled.mie + (kHalf * here.mie * span)};
+        const Densities to_here = plus(travelled, here, kHalf * span);
         Densities to_sun;
         if (depth_to_top({.origin = point, .direction = sun}, std::max(1U, steps.light), &to_sun)) {
             const Rgb kept = transmittance_of(
-                extinction_of({.rayleigh = to_here.rayleigh + to_sun.rayleigh, .mie = to_here.mie + to_sun.mie}));
+                extinction_of(plus(to_here, to_sun, 1.0)));
             for (std::size_t channel = 0; channel < sum.size(); ++channel) {
                 const double scattered = (core::at(kRayleigh, channel) * here.rayleigh * rayleigh_phase) +
                                          (kMieScattering * here.mie * mie_phase);
                 core::at(sum, channel) += core::at(kept, channel) * scattered * span;
             }
         }
-        travelled.rayleigh += here.rayleigh * span;
-        travelled.mie += here.mie * span;
+        travelled.add(here, span);
     }
     return sum;
 }
@@ -304,8 +318,7 @@ Rgb transmittance_to_top(const RadiusCosine& point, uint32_t steps)
     Densities depth;
     for (uint32_t index = 0; index < count; ++index) {
         const Densities here = densities_at(along(ray, (static_cast<double>(index) + kHalf) * span));
-        depth.rayleigh += here.rayleigh * span;
-        depth.mie += here.mie * span;
+        depth.add(here, span);
     }
     return transmittance_of(extinction_of(depth));
 }
@@ -432,8 +445,7 @@ Rgb sky_radiance_ms(const Dir& view, const Dir& sun, const SkySteps& steps, cons
         const double span = part.end - part.start;
         const Dir point = along(ray, kHalf * (part.start + part.end));
         const Densities here = densities_at(point);
-        const Densities to_here{.rayleigh = travelled.rayleigh + (kHalf * here.rayleigh * span),
-                                .mie = travelled.mie + (kHalf * here.mie * span)};
+        const Densities to_here = plus(travelled, here, kHalf * span);
         const Rgb seen = transmittance_of(extinction_of(to_here));
         const Rgb sun_t = sun_seen_from(point, sun, steps.light);
         const double radius = length3(point);
@@ -445,8 +457,7 @@ Rgb sky_radiance_ms(const Dir& view, const Dir& sun, const SkySteps& steps, cons
             const double multiple = (rayleigh_s + mie_s) * core::at(psi, channel);
             core::at(sum, channel) += core::at(seen, channel) * (single + multiple) * span;
         }
-        travelled.rayleigh += here.rayleigh * span;
-        travelled.mie += here.mie * span;
+        travelled.add(here, span);
     }
     if (ground) {
         const Dir at_ground = along(ray, length);
