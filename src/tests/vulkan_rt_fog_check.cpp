@@ -545,16 +545,26 @@ Fogged march(const ViewRay& ray, const Marching& how)
     const double ambient = render::vulkan::kFogAmbientShare;
     const double scatter = (1.0 - render::vulkan::kFogAerialSkyShare) * render::rt::kHazeSunlit * (sky ? render::vulkan::kFogSkyShare : 1.0);
     const std::array<double, 3> sun_tint = tint();
-    const auto point_of = [&](uint32_t i) {
-        const double t = (static_cast<double>(i) + how.jitter) / how.steps;
-        return first + (span * t * t);
+    // (the pass's march_at: with the cinematic air's volume round the eye left by the ray, half the steps in it)
+    const double volume_end = now.art.range * render::rt::kUnitsPerMetre;
+    const uint32_t near_steps = air_on && volume_end > first && last - first > 4.0 * (volume_end - first) ? how.steps / 2 : 0;
+    const auto boundary = [&](double x) {
+        if (near_steps == 0) {
+            const double t = x / how.steps;
+            return first + (span * t * t);
+        }
+        if (x <= near_steps) {
+            const double t = x / near_steps;
+            return first + ((volume_end - first) * t * t);
+        }
+        const double t = (x - near_steps) / (how.steps - near_steps);
+        return volume_end + ((last - volume_end) * t * t);
     };
+    const auto point_of = [&](uint32_t i) { return boundary(static_cast<double>(i) + how.jitter); };
     double seen = 0.0;
     for (uint32_t i = 0; i < how.steps; ++i) {
-        const double t0 = static_cast<double>(i) / how.steps;
-        const double t1 = static_cast<double>(i + 1) / how.steps;
-        const double near_end = first + (span * t0 * t0);
-        const double far_end = first + (span * t1 * t1);
+        const double near_end = boundary(static_cast<double>(i));
+        const double far_end = boundary(static_cast<double>(i + 1));
         if (!how.pairs) {
             seen = sunlit(step(ray.eye, ray.direction, point_of(i))) ? 1.0 : 0.0;
         } else if ((i & 1U) == 0) {

@@ -422,6 +422,22 @@ float air_depth(vec3 direction, float s0, float s1, float water)
     return depth;
 }
 
+// (added by the cinematic air) Where along the ray the march's x-th step boundary lies (x in 0 - steps): a + (b - a) t^2,
+// or with `near_steps` steps for the volume round the eye, those over a - split and the rest over split - b, each t^2.
+float march_at(float x, float a, float b, float split, int near_steps, int steps)
+{
+    if (near_steps <= 0) {
+        float t = x / float(steps);
+        return a + (b - a) * t * t;
+    }
+    if (x <= float(near_steps)) {
+        float t = x / float(near_steps);
+        return a + (split - a) * t * t;
+    }
+    float t = (x - float(near_steps)) / float(steps - near_steps);
+    return split + (b - split) * t * t;
+}
+
 #ifdef AERIAL
 // The sky's pixels are the world past the haze's reach (the sky dome's painted horizon - the sea, the hills - goes on
 // where the level's meshes end): marched as a surface at the far plane along the ray (where the camera clips the meshes
@@ -508,7 +524,6 @@ void main()
         // (the street air's: its look's even lobe added - rt_volume_light.h air_phase)
         vec3 sun_air = fog.sun_tint.rgb * (shaped + fog.air_light.z);
         int steps = fog.low.w;
-        float span = b - a;
         float u = fract(jitter_at(local) + fog.fog_range.w);
         uint reached = lamps_reached(direction, b);
         // (changed by the street air: the light's rays every other step) the steps in pairs: one point of each pair -
@@ -518,19 +533,27 @@ void main()
         float sun_seen = 0.0;
         float lamp_seen = 0.0;
         // (the steps closer together near the eye - a + span x t^2: the shafts between the buildings round the camera
-        // sampled every few metres, the far air - smooth - in long segments; each segment's depth is still exact)
+        // sampled every few metres, the far air - smooth - in long segments; each segment's depth is still exact.
+        // Added by the cinematic air: with a volume round the eye that the ray leaves, half the steps go to it - its
+        // beams sampled a metre or two apart - and the rest to the way past it)
+        int near_steps = 0;
+        float split = b;
+        if (air_on && fog.air_look.z > 0.0) {
+            float volume_end = fog.air_look.y + 1.0 / fog.air_look.z;
+            // (only where the t^2 spacing alone would give it fewer: the ray more than 4 x the volume long)
+            if (volume_end > a && b - a > 4.0 * (volume_end - a)) {
+                near_steps = steps / 2;
+                split = volume_end;
+            }
+        }
         for (int i = 0; i < steps; ++i) {
-            float t0 = float(i) / float(steps);
-            float t1 = float(i + 1) / float(steps);
-            float t = (float(i) + u) / float(steps);
-            float s0 = a + span * t0 * t0;
-            float s1 = a + span * t1 * t1;
-            float s = a + span * t * t;
+            float s0 = march_at(float(i), a, b, split, near_steps, steps);
+            float s1 = march_at(float(i + 1), a, b, split, near_steps, steps);
+            float s = march_at(float(i) + u, a, b, split, near_steps, steps);
             vec3 at = fog.camera.xyz + direction * s;
             if ((i & 1) == 0) {
                 int j = min(i + parity, steps - 1);
-                float tj = (float(j) + u) / float(steps);
-                vec3 traced = fog.camera.xyz + direction * (a + span * tj * tj);
+                vec3 traced = fog.camera.xyz + direction * march_at(float(j) + u, a, b, split, near_steps, steps);
                 sun_seen = light_seen(traced, local, j);
                 lamp_seen = reached != 0u ? lamps_seen(traced, direction, reached, local, j) : 0.0;
             }
