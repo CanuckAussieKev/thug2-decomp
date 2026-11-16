@@ -499,19 +499,15 @@ struct ScatterSettings {
 };
 void set_scatter_settings(const ScatterSettings& settings);
 [[nodiscard]] ScatterSettings scatter_settings();
-// NOT ORIGINAL - water shading (vulkan_water.h; docs/design/vulkan.md "Water"): [Graphics] rt_water, rt_water_waves,
-// rt_water_wind, rt_water_wind_heading, rt_water_clarity, rt_water_foam, rt_water_tint, rt_water_geometry. The game's
+// NOT ORIGINAL - water shading (vulkan_water.h; docs/design/vulkan.md "Water"): [Graphics] rt_water, rt_wind (the
+// weather's, engine/gfx/wind.h), rt_water_clarity, rt_water_foam, rt_water_tint, rt_water_geometry. The game's
 // water surfaces (the moving materials render_pc marks - engine/gfx/water_surfaces.h - where they face up) drawn with
 // waves (with rt_water_geometry, its surface moved by them too), a reflection,
 // refraction, colour by depth, shoreline foam and the sun's glitter. on false (the default): every draw as before. No
 // ray tracing needed (with it, the baked sun lights the glitter); Direct3D 9 ignores it.
-inline constexpr float kWaterHeadingAuto = -1.0F; // rt_water_wind_heading=auto: the level's own
 inline constexpr std::array<float, 3> kWaterTint{0.2F, 0.45F, 0.5F}; // (a set tint's default: a harbour's green-blue)
 struct WaterSettings {
     bool on = false;
-    float waves = 1.0F;   // x the level's wave height (0: flat - 3)
-    float wind = 1.0F;    // the wind's strength: the ripples' size and speed (0 - 2)
-    float heading = kWaterHeadingAuto; // the way the wind blows, degrees from world +x toward +z (negative: the level's)
     float clarity = 1.0F; // x how far one sees into the level's water (0: opaque - 4)
     float foam = 1.0F;    // the shoreline foam (0: none - 2)
     bool tint_auto = true;              // rt_water_tint=auto: the water's own colour as the game draws it

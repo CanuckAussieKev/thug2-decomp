@@ -19,6 +19,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/water_surfaces.h"
+#include "engine/gfx/wind.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -47,7 +48,6 @@ constexpr uint32_t kBlendSourceAlpha = 5;   // D3DBLEND_SRCALPHA
 constexpr uint32_t kBlendInverseAlpha = 6;  // D3DBLEND_INVSRCALPHA
 constexpr float kDefaultSky = 0.6F;         // the sky's grey where nothing else is known
 constexpr float kSkyBlue = 0.75F;           // (its blue)
-constexpr double kDegrees = std::numbers::pi / 180.0;
 
 // --- the shaders -------------------------------------------------------------------------------------------------
 
@@ -199,10 +199,13 @@ struct WaterState {
     bool opaque_done = false;   // the view's opaque world finished (rt::opaque_view_drawn)
     bool replaying = false;     // a kept opaque water draw is being drawn again
     bool replay_moves = false;  // ... a draw of a split water mesh (water::current_waves when it was kept)
+    water::WaterBody replay_body; // ... its body (water::current_body when it was kept)
+    uint64_t block_body = 0;      // the body whose waves the block in the ring holds (its id ^ version; 0: none)
     struct Deferred {
         GpuStateBlock block;
         DrawCall call;
         bool moves = false;
+        water::WaterBody body;
     };
     std::vector<Deferred> deferred; // the view's opaque water draws, kept for opaque_drawn
     WaterStats stats;
@@ -246,11 +249,13 @@ public:
         own.replaying = true;
         for (const WaterState::Deferred& kept : own.deferred) {
             own.replay_moves = kept.moves;
+            own.replay_body = kept.body;
             (void)record_draw(state, kept.block, kept.call); // (the game's own states: the depth as it drew it)
             ++own.stats.replayed;
         }
         own.replaying = false;
         own.replay_moves = false;
+        own.replay_body = {};
         own.deferred.clear();
     }
     void world_drawn(const rt::ViewDrawn& view) override
@@ -777,16 +782,10 @@ float smoothstep(float low, float high, float value)
 void set_water_settings(const WaterSettings& settings)
 {
     WaterSettings kept = settings;
-    constexpr float kMostWaves = 3.0F;
-    constexpr float kMostWind = 2.0F;
     constexpr float kMostClarity = 4.0F;
     constexpr float kMostFoam = 2.0F;
-    constexpr float kFullTurn = 360.0F;
-    kept.waves = finite_or(kept.waves, 1.0F, 0.0F, kMostWaves);
-    kept.wind = finite_or(kept.wind, 1.0F, 0.0F, kMostWind);
     kept.clarity = finite_or(kept.clarity, 1.0F, 0.0F, kMostClarity);
     kept.foam = finite_or(kept.foam, 1.0F, 0.0F, kMostFoam);
-    kept.heading = std::isfinite(kept.heading) && kept.heading >= 0.0F ? std::fmod(kept.heading, kFullTurn) : kWaterHeadingAuto;
     for (float& channel : kept.tint) {
         channel = finite_or(channel, 0.0F, 0.0F, 1.0F);
     }
@@ -825,14 +824,11 @@ WaterUniforms water_uniforms(const WaterSettings& settings, const WaterView& vie
     out.target = {view.target.width > 0 ? 1.0F / static_cast<float>(view.target.width) : 0.0F,
                   view.target.height > 0 ? 1.0F / static_cast<float>(view.target.height) : 0.0F, view.copied ? 1.0F : 0.0F,
                   settings.hdr ? 1.0F : 0.0F};
-    const float heading = settings.heading >= 0.0F ? settings.heading : level.heading;
-    const double angle = static_cast<double>(heading) * kDegrees;
-    out.time = {static_cast<float>(drawn.game_seconds), static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)),
-                settings.wind};
-    // (rt_water_waves above 1 grows as its square: Choppy 1.5 x 2.25, Rough 2 x 4 the level's swell)
-    const float waves = settings.waves <= 1.0F ? settings.waves : settings.waves * settings.waves;
-    out.waves = {std::max(level.waves, 0.0F) * waves, std::max(level.visibility * settings.clarity, 1.0F),
-                 settings.foam, kWaterDetail};
+    // (changed by the physical waves) the weather's wind's way (engine/gfx/wind.h) and the body's waves (water_waves.h)
+    const water::WaterBody& body = view.body;
+    out.time = {static_cast<float>(drawn.game_seconds), core::at(wind::kDirection, 0), core::at(wind::kDirection, 1),
+                body.known ? body.wind : 0.0F};
+    out.waves = {0.0F, std::max(level.visibility * settings.clarity, 1.0F), settings.foam, kWaterDetail};
     out.tint = {core::at(settings.tint, 0), core::at(settings.tint, 1), core::at(settings.tint, 2), settings.tint_auto ? 1.0F : 0.0F};
     // the sun: the scene's (the shadows', the drawn sun's), else the one the game shows
     std::array<float, 3> toward{};
@@ -852,8 +848,13 @@ WaterUniforms water_uniforms(const WaterSettings& settings, const WaterView& vie
     out.sky = {core::at(sky, 0), core::at(sky, 1), core::at(sky, 2), view.sky_bound ? 1.0F : 0.0F};
     out.camera = {core::at(drawn.camera.position, 0), core::at(drawn.camera.position, 1), core::at(drawn.camera.position, 2),
                   kWaterRefraction};
-    out.misc = {settings.screen_reflections ? 1.0F : 0.0F, std::max(level.swell_length, 1.0F), settings.debug_view ? 1.0F : 0.0F,
-                0.0F};
+    out.misc = {settings.screen_reflections ? 1.0F : 0.0F, 0.0F, settings.debug_view ? 1.0F : 0.0F, 0.0F};
+    if (body.known) {
+        const water::SeaWaves& sea = body.waves;
+        out.swell = {core::at(sea.slopes, 0), core::at(sea.slopes, 1), core::at(sea.slopes, 2), core::at(sea.slopes, 3)};
+        out.swell_speed = {core::at(sea.speeds, 0), core::at(sea.speeds, 1), core::at(sea.speeds, 2), core::at(sea.speeds, 3)};
+        out.sea = {sea.height, sea.wavelength, sea.ripples, sea.whitecaps};
+    }
     return out;
 }
 
@@ -958,15 +959,18 @@ std::vector<std::array<float, 4>> water_waves_reference(uint32_t level)
 
 namespace {
 
+// The body the water draw shows (the kept draw's when it is drawn again).
+water::WaterBody drawn_body(const WaterState& own) { return own.replaying ? own.replay_body : water::current_body(); }
+
 // Whether a water draw moves its surface (rt_water_geometry): render_pc split its mesh into a grid (or the kept draw's
-// was), and the swell has any height (calm water is drawn flat - as without rt_water_geometry, to the bit).
+// was), and its body's swell has any height (still water is drawn flat - as without rt_water_geometry, to the bit).
 bool water_moves(const WaterState& own)
 {
     if (!own.settings.geometry || !(own.replaying ? own.replay_moves : water::current_waves())) {
         return false;
     }
-    const float waves = own.settings.waves <= 1.0F ? own.settings.waves : own.settings.waves * own.settings.waves;
-    return water::level_water().waves * waves > 0.0F;
+    const water::WaterBody body = drawn_body(own);
+    return body.known && body.waves.height > 0.0F;
 }
 
 } // namespace
@@ -1005,7 +1009,7 @@ bool defer_water_draw(Backend& state, const GpuStateBlock& block, const DrawCall
         own.deferred.size() >= kMostKept) {
         return false;
     }
-    own.deferred.push_back({.block = block, .call = call, .moves = water::current_waves()});
+    own.deferred.push_back({.block = block, .call = call, .moves = water::current_waves(), .body = water::current_body()});
     return true;
 }
 
@@ -1060,9 +1064,13 @@ bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescrip
     }
     Image* const sky = sky_image(state);
     const uint64_t frame = state.frames.serial();
-    if (own.block_serial != own.view_serial || own.block_frame != frame || (sky != nullptr) != (own.sky_image != nullptr)) {
-        const WaterUniforms uniforms =
-            water_uniforms(own.settings, {.view = own.view, .target = colour->extent, .copied = own.copy_has_depth, .sky_bound = sky != nullptr});
+    const water::WaterBody body = drawn_body(own);
+    const uint64_t body_key = body.known ? (body.id ^ (uint64_t{body.version} << 48U)) | 1U : 0U;
+    if (own.block_serial != own.view_serial || own.block_frame != frame || (sky != nullptr) != (own.sky_image != nullptr) ||
+        own.block_body != body_key) {
+        const WaterUniforms uniforms = water_uniforms(
+            own.settings,
+            {.view = own.view, .body = body, .target = colour->extent, .copied = own.copy_has_depth, .sky_bound = sky != nullptr});
         const void* const data = &uniforms;
         const std::span<const uint8_t> raw(static_cast<const uint8_t*>(data), sizeof(uniforms));
         const std::optional<RingSpan> span = state.ring.copy(raw, state.uniform_alignment);
@@ -1072,6 +1080,7 @@ bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescrip
         own.block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(uniforms)};
         own.block_serial = own.view_serial;
         own.block_frame = frame;
+        own.block_body = body_key;
     }
     own.sky_image = sky;
     const Image& depth_shown = own.copy_has_depth ? own.linear_depth : state.blank;
@@ -1092,13 +1101,12 @@ bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescrip
     const water::LevelWater level = water::level_water();
     constexpr uint32_t kLevelShift = 32U; // (the level's checksum above the report's key)
     if (first_report(state, kReportLevel + (uint64_t{level.level} << kLevelShift))) {
-        get_log("vulkan: rt_water: level %08X - waves %.2f x %.2f (swell %.0f units), visibility %.0f x %.2f units, wind %.2f "
-                "toward %.0f degrees, foam %.2f, tint %s",
-                level.level, static_cast<double>(level.waves), static_cast<double>(own.settings.waves),
-                static_cast<double>(level.swell_length), static_cast<double>(level.visibility),
-                static_cast<double>(own.settings.clarity), static_cast<double>(own.settings.wind),
-                static_cast<double>(own.settings.heading >= 0.0F ? own.settings.heading : level.heading),
-                static_cast<double>(own.settings.foam), own.settings.tint_auto ? "auto" : "set");
+        get_log("vulkan: rt_water: level %08X - visibility %.0f x %.2f units, foam %.2f, tint %s; the waves each body's "
+                "(the first drawn: %s, wind over it %.1f m/s, waves %.1f units high, %.0f long)",
+                level.level, static_cast<double>(level.visibility), static_cast<double>(own.settings.clarity),
+                static_cast<double>(own.settings.foam), own.settings.tint_auto ? "auto" : "set",
+                body.known ? "measured" : "not measured - still", static_cast<double>(body.wind),
+                static_cast<double>(body.waves.height), static_cast<double>(body.waves.wavelength));
     }
     // (the images the draw reads used by this submission - the draw is recorded into it next)
     for (Image* image : {&own.scene, &own.waves}) {
