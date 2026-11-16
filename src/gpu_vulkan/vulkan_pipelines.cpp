@@ -8,12 +8,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <ios>
 #include <span>
 #include <string>
-#include <system_error>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -94,23 +90,20 @@ std::vector<uint8_t> read_file(const std::string& path)
 }
 
 // (the caches' saver, off the drawing thread) `bytes` written beside `path` and moved over it: a reader - the next
-// start - never sees half a file, and the game's disk layer isn't used from another thread.
+// start - never sees half a file. (The disk layer's calls hold no state of their own: a thread may make them.)
 bool write_file_replacing(const std::string& path, std::span<const uint8_t> bytes)
 {
     const std::string temporary = path + ".saving";
-    {
-        std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
-        if (!out) {
-            return false;
-        }
-        out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-        if (!out) {
-            return false;
-        }
+    fs::DiskStream* const out = fs::disk().open_stream(temporary.c_str(), "wb", fs::StreamSharing::kAll);
+    if (out == nullptr) {
+        return false;
     }
-    std::error_code error;
-    std::filesystem::rename(temporary, path, error);
-    return !error;
+    const std::size_t written = fs::disk().stream_write(out, bytes.data(), 1, bytes.size());
+    if (fs::disk().stream_close(out) != 0 || written != bytes.size()) {
+        fs::disk().remove(temporary.c_str());
+        return false;
+    }
+    return fs::disk().replace(temporary.c_str(), path.c_str(), false);
 }
 
 // A little-endian reader over a file's bytes.

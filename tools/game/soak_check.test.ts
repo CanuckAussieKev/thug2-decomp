@@ -62,8 +62,10 @@ test("stalls: each stall once, the device's waits, the longest", () => {
 });
 
 test("the judged stretch: the longest level's, from its first window - start-up stalls left out", () => {
-    const early = "stall: the main loop's loop 5 has run 1.5 s (the game not responding) - in logic; its stack: a.exe+0x1";
-    const late = "stall: the main loop's loop 900 has run 3.0 s (the game not responding) - in logic; its stack: a.exe+0x2";
+    const early =
+        "stall: the main loop's loop 5 has run 1.5 s (the game not responding) - in logic; its stack: a.exe+0x1";
+    const late =
+        "stall: the main loop's loop 900 has run 3.0 s (the game not responding) - in logic; its stack: a.exe+0x2";
     const log = [LOADING, early, frame(300, 10, 300, 1), late, frame(600, 10, 300, 1)].join("\n");
     const judged = judgedText(log);
     assert.ok(!judged.includes("loop 5 "));
