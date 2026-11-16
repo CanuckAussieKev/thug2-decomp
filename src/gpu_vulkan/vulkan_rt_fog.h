@@ -50,7 +50,7 @@
 //   3. composite (full resolution, a blend): colour = colour x T + in - the low-resolution result upsampled with
 //      weights falling off with the difference between each texel's distance and the pixel's own (depth-aware); every
 //      sample of a multisampled target the pixel's value, alpha kept. (Changed by the physical air:) the aerial march's
-//      light is linear radiance - its composite reads a copy of the colour and writes (colour^2.2 x T + in)^(1/2.2).
+//      light is linear radiance - its composite reads a copy of the colour and writes colour x T + in (round F: linear).
 // Modes (rt_fog_mode):
 //   0 replace (the default): the level's own fog is turned off in the draws (rt_fog_replaces_level_fog; the Vulkan
 //     Gpu's fixed-function emulation) and the pass draws it instead - the same colour, distances and transmittance, but
@@ -66,7 +66,7 @@
 //   shafts mode - colour kFogHazeColour, from the camera to kFogHazeEnd - only its sunlit light added (the shafts, the
 //   glow toward the sun; nothing dimmed, the shade left as the level lit it); else the pass is skipped and nothing
 //   changes.
-// Without rt_hdr the light added is clamped to 1.
+// (Round F) The light added is never clamped: the frame is linear light, rt_hdr chooses only the output.
 // The histories are kept per viewport (its rectangle and target size): up to kFogViewSlots (split screen's two), the
 // least recently drawn dropped; a viewport not drawn in the frame before starts again.
 namespace render::vulkan {

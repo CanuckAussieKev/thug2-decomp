@@ -22,6 +22,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
@@ -101,7 +102,7 @@ layout(set = 0, binding = 7) uniform FogBlock {
     vec4 fog_colour;    // rgb; w the density (x the level's)
     vec4 fog_range;     // x start, y end, z 1 / the height falloff (0: even), w the frame's jitter (0 - 1)
     vec4 offsets;       // xy depth sample 0 from the pixel's centre; zw the pixel of its block this frame marches
-    vec4 shares;        // x ambient, y sky, z shafts (mode 1), w 1: the light unclamped (rt_hdr)
+    vec4 shares;        // x ambient, y sky, z shafts (mode 1), w unused (round F: was rt_hdr's clamp)
     ivec4 rect;         // the viewport in the target's pixels
     ivec4 low;          // the low-resolution images' width and height, the scale, the steps
     ivec4 flags;        // x the mode (2: aerial), y the mask, z the longest history, w the frame's index
@@ -1090,15 +1091,14 @@ void main()
 #else
     vec3 was = texelFetch(u_copy, ivec2(gl_FragCoord.xy), 0).rgb;
 #endif
-    vec3 linear = min(pow(max(was, vec3(0.0)), vec3(2.2)), vec3(65000.0)) * transmittance + light_in;
-    vec3 shown = min(pow(linear, vec3(1.0 / 2.2)), vec3(fog.shares.w < 0.5 ? 1.0 : 65504.0));
-    o_colour = vec4(shown, 0.0);
+    // (round F: the frame is linear light - nothing converted, nothing clamped)
+    vec3 linear = min(max(was, vec3(0.0)), vec3(65000.0)) * transmittance + light_in;
+    o_colour = vec4(min(linear, vec3(65504.0)), 0.0);
     return;
 #endif
-    if (fog.shares.w < 0.5) {
-        light_in = min(light_in, vec3(1.0));
-    }
-    o_colour = vec4(light_in, transmittance);
+    // (round F) the level fog path's light is display-referred (the level's fog colour as its light - A5): decoded as
+    // the frame's inputs are, then added to the linear frame; never clamped (rt_hdr chooses only the output)
+    o_colour = vec4(linear_from_display(light_in), transmittance);
 }
 )";
 
@@ -1594,7 +1594,7 @@ VkPipeline composite_pipeline(Backend& state, VkFormat format, VkSampleCountFlag
         }
     }
     const VkDevice device = state.context.device();
-    const std::string body = std::string(linear ? "#define LINEAR_COMPOSITE\n" : "") + kCompositeBody;
+    const std::string body = std::string(linear ? "#define LINEAR_COMPOSITE\n" : "") + rt::kDisplayTransferGlsl + kCompositeBody;
     const VkShaderModule fragment = make_module(
         device, RtShaderStage::kFragment, source_of(body.c_str(), false, samples != VK_SAMPLE_COUNT_1_BIT), error);
     if (fragment == VK_NULL_HANDLE) {
@@ -2482,7 +2482,6 @@ AerialLight aerial_light(const rt::ViewDrawn& view, float ground)
         return out;
     }
     constexpr uint32_t kLightSteps = 64;
-    constexpr double kGamma = 2.2;
     const auto luma = [](const rt::Rgb& c) {
         return (0.2126 * core::at(c, 0)) + (0.7152 * core::at(c, 1)) + (0.0722 * core::at(c, 2));
     };
@@ -2498,7 +2497,7 @@ AerialLight aerial_light(const rt::ViewDrawn& view, float ground)
         const double native_direct = luma(rt::sun_transmittance(native, kLightSteps));
         for (std::size_t i = 0; i < 3; ++i) {
             core::at(irradiance, i) =
-                std::pow(std::max(static_cast<double>(core::at(own.light.colour, i)), 0.0), kGamma) * native_direct;
+                rt::linear_from_display(static_cast<double>(core::at(own.light.colour, i))) * native_direct;
         }
         const double through = luma(rt::sun_transmittance(elevation, kLightSteps));
         top = through > 1e-6 ? luma(irradiance) / through : 0.0;
@@ -2551,7 +2550,7 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     const std::array<float, 2> pick = block_pixel(slot.scale, slot.passes);
     block.offsets = {sample.front(), sample.back(), pick.front(), pick.back()};
     // (no light - indoors: the replaced fog is the game's colour whole, the lamps' light added in it)
-    block.shares = {own.have_sun ? kFogAmbientShare : 1.0F, kFogSkyShare, kFogShaftShare, own.settings.hdr ? 1.0F : 0.0F};
+    block.shares = {own.have_sun ? kFogAmbientShare : 1.0F, kFogSkyShare, kFogShaftShare, 0.0F}; // (w: unused - round F)
     block.rect = {static_cast<int32_t>(core::at(view.rect, 0)), static_cast<int32_t>(core::at(view.rect, 1)),
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
     const Extent low = low_extent(view.rect, slot.scale);
