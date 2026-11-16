@@ -916,6 +916,9 @@ the original's own lighting already says otherwise, is decided so:
 
 ### HDR and tone mapping (`rt_hdr`)
 
+(The metering below was rewritten by the physical air - "The physical air, sun and camera": one controller, both ways,
+a calibrated camera.)
+
 `gpu_vulkan/vulkan_hdr` (`[Graphics] rt_hdr`, off by default; no ray tracing needed). The light the effects add - the
 ray-traced passes at `opaque_drawn`, one-bounce light, fog and light shafts at `world_drawn` - must not clip at the 8-bit
 targets' white, so with `rt_hdr=1` the world is drawn into 16-bit float targets and mapped back to the display's 0 - 1
@@ -977,7 +980,72 @@ by one pass, the last listener at `rt::world_view_drawn` (`ViewOrder::kToneMappi
   target, the bound, `rt_exposure_adapt=0` the curve alone.
 - **Not done:** HDR output to an HDR display (the swapchain stays 8-bit sRGB-less UNORM).
 
+### The physical air, sun and camera (`rt_fog_air` as the weather, `rt_sun`, `rt_bloom`, `rt_exposure_adapt`)
+
+Lighting is physical: the air, the sky, the sun and the camera are what a path tracer would use, and nothing is tuned
+toward a look (the user's rule, 2026-11-16: fix inputs, never outputs; levels may look different). Before it, a low
+sun through the "misty" air with Strong god rays showed a ~40-degree white blot (the painted aureole x the cinematic
+air's glow x the god rays' x2 x a Thick haze capped "for Barcelona's harbour", over a meter that only went down):
+
+- **One unit.** The sky model's radiances per unit of the sun's irradiance x `rt::sky_exposure()` = pi / E, E the
+  horizontal irradiance under the reference day (the sun 45 degrees up in the clear weather's air, every order of
+  scattering): linear 1 is a white diffuser under that day - the game's white. The sky's zenith then is 0.09 of white
+  and its horizon 2.9 x the zenith a quarter turn from the sun (a measured clear sky's 0.05 - 0.2 and about 2 - 3;
+  `daylight_check`), where the old target put the zenith at 0.3 and the horizon at 5 - 9 x it.
+- **One medium** (`engine/gfx/rt_sky.h` Aerosol, `rt_volume_light.h`): the weather (`rt_fog_air`: clear 40 km, hazy
+  10 km, misty 2 km at the ground - a 100 m mist under the clear day's haze) is a visibility (Koschmieder: 3.912 / the
+  extinction at 550 nm, the air's own Rayleigh included); the aerosol's extinction follows Angstrom's law over the
+  model's 680 / 550 / 440 nm, its single-scattering albedo and its Cornette-Shanks g are its type's (continental haze
+  0.9 / 0.8, droplets 0.97 / 0.8). The sky's three tables (the aerosol a push constant: the transmittance and Psi made
+  again when it changes), the sun's transmittance and colour, the level's air (the fog pass's aerial march) and the
+  level fog's street air read the same `rt::aerosol()`. Rain (5 km) and falling snow (3 km) add a grey layer near the
+  ground. The clear day's aerosol optical depth overhead is 0.10 (it was 0.01 - a sky with almost no haze).
+- **The aerial march** (`vulkan_rt_fog` AERIAL): Rayleigh + aerosol single scattering of the light's irradiance (its
+  shadow ray / the air's sun map / the clouds' map) through both phases, every higher order as the sky's own (Psi at
+  the ground), the lamps' irradiance (pi x their light); each segment exact for an even medium; one transmittance (the
+  extinction's luma); composited in linear light over a copy of the colour. The sky's pixels are left alone where the
+  atmosphere is drawn (its sky-view table holds the whole ray). Gone: the cap toward the sun (`kFogAerialGlow`), the
+  sky's colour as the haze's light, the shade/sun shares, the time-of-day and water multipliers, the cinematic and misty
+  looks (`AirArt`: the volume round the eye, side lobes, glows - x3 the lamps), `rt_fog_strength`,
+  `rt_fog_anisotropy`, `rt_fog_haze_density` / `_height`. The air's sun map is a sampling device only (`kAirMapReach`
+  100 m; the march's steps `steps` inside it, half as many past it). The air is lit from the true sun (the light's
+  direction held 6 degrees up for the level's shadows is not the air's).
+- **God rays** (`rt_fog_god_rays` on / off): the shadowing of the aerosol phase's forward peak (over its value 30
+  degrees out) found at the screen's resolution - every point of a view ray toward the light projects onto the same
+  screen line (epipolar) -, the share of the air before what stands there the medium's own ((1 - e^(-sigma d)) / (1 -
+  T)). Unshadowed it is the march's own light, moved, not made (`rt_fog_check`: the phases add up; open at most 1).
+- **The sun** (`rt_sun`): the real sun - 0.53 degrees across, limb-darkened (u 0.6), its mean radiance the atmosphere's
+  transmitted sun over its solid angle in the unit (`rt::sun_disc_radiance`: 5 x 10^4 at noon, a few thousand at 3
+  degrees) - drawn in the sky by the sky pass (behind the clouds) with `rt_sky`, else by the sun's pass. No painted
+  aureole (it is the sky's own forward scattering: Cornette-Shanks g 0.8 falls to half 9.7 degrees out), no 2 x disc,
+  no `rt_sun_size`, no `rt_sun_colour`.
+- **The lens** (`rt_bloom`): one energy-conserving spread of all the light in linear light - the eye's veiling glare
+  (Stiles and Holladay, L = 10 E / theta^2: kGlarePerOctave = 1.3% of the light per doubling of the angle, one per
+  level of the chain); no separate sun glare, no `rt_bloom_strength`.
+- **The camera** (`vulkan_hdr`, `rt_exposure_adapt`): one controller - the centre-weighted log average of the linear
+  luminance, exposed as a calibrated camera (ISO 2720 K = 12.5: the average at 0.104 of white) with the eye's
+  adaptation (Krawczyk et al.: the key falls in the dark - the unit made absolute by the sun's 128 000 lux at the top),
+  both ways within +-`rt_exposure_adapt` stops. The clock's own exposure (DayLight::exposure, up only) and the meter's
+  down-only RMS are gone; the night sky's radiance is no longer tuned for an exposure.
+- **One light state**: the direct light's share of the level's own light from the model at its own sun
+  (`DayLight::direct_share`, `rt::direct_share_at`) for the bounce, the shadows' strength, the overcast and the snow -
+  not 0.65 for every level; the sun's colour without the clock always the atmosphere's (no relight waiting for the sky
+  model to publish); the clouds' shadows only as the sun's visibility in the shadows' pass (the multiply over all the
+  light gone); glass F0 0.04 (`rt_glass_reflectance` retired).
+- **What a path tracer reads**: sigma_s / sigma_a per band (`rt::kRayleigh`, `rt::aerosol()`, `kOzoneAbsorption`, the
+  densities' heights), the phases (Rayleigh, Cornette-Shanks g), the sun (a disc of `kSunAngularRadius`, radiance
+  `sun_disc_radiance`, transmittance `sun_transmittance` - next-event estimation), the sky's radiance (the sky-view
+  table) for rays that leave, the unit (`sky_exposure`), and the camera (2^stops, then the tone curve; the glare's
+  spread).
+- **Still not physical** (named, for later rounds): the level fog's own path (a level's art fog, display-referred, its
+  street air's light `kFogStreetAirLight`), the moon's light and the night sky's radiance (the time of day's art values),
+  the light's direction held 6 degrees up, the frame's display-referred colour target (the passes convert to linear and
+  back), lamp intensities (rt_lights).
+
 ### Volumetric fog and light shafts
+
+(Its air was rewritten by the physical air - "The physical air, sun and camera": the weather's aerosol, no looks, no
+cap; what follows is its history.)
 
 One volumetric light system: when something stands between the eye and the sun - a building, a tree, a cloud - the
 air shows it, as a shadow shaft in lit haze or a lit column through a gap; at night the moon and the street lights do
@@ -1291,6 +1359,9 @@ its lamps' amount (dusk to dawn), without it only in a dark level (the emitters'
   (a view with more than `rt_lights_max` lamps drops the least important).
 
 ### The sun, its glare and the sky (`rt_sun`, `rt_bloom`, `rt_sky_model`)
+
+(The disc, the aureole and the glare were rewritten by the physical air - "The physical air, sun and camera": the real
+sun, the sky's own aureole, the eye's glare.)
 
 What read as dated beside the ray-traced light was mostly the original's own sun: a white halo sprite and a corona at
 `sun::render`'s place (engine/gfx/lens_flare: theta / phi from SetSun, drawn after the particles) and the lens flare's
