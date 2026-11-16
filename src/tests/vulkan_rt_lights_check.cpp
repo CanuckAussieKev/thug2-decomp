@@ -1303,7 +1303,7 @@ struct AirLight {
 // (added by the street air) with `air` the street air too (rt_volume_light.h street_air over the floor's height): a
 // second medium, its light the haze's per unit of light (vulkan_rt_fog.cpp's march: mixed by each segment's depth)
 AirLight air_light(const View& view, double px, double py, const rt::Emitter& lamp, float scale,
-                   const rt::StreetAir& air = {}, const rt::AirArt& art = {})
+                   const rt::StreetAir& air = {}, const rt::AirArt& art = {}, const Vec3& toward = {})
 {
     const Seen seen = seen_at(view, px, py);
     const double ndc_x = (2.0 * px / kTargetWidth) - 1.0;
@@ -1331,7 +1331,7 @@ AirLight air_light(const View& view, double px, double py, const rt::Emitter& la
         // (the street air: its extinction at the point's height over the floor, y 0 - fine steps)
         // (the cinematic air: in its volume round the eye - rt_volume_light.h air_reach)
         const double street = air.height > 0.0 ? air.extinction * std::exp(-std::max(y_of(at), 0.0) / air.height) *
-                                                     (s1 - s0) * rt::air_reach(s, art)
+                                                     (s1 - s0) * rt::air_reach(s, art, dot(direction, toward))
                                                 : 0.0;
         const double e = std::exp(-(haze + street));
         const Vec3 to = minus(lamp_at, at);
@@ -1472,6 +1472,8 @@ std::array<double, 2> fog_lamp_night_sums(render::Gpu& gpu, std::span<const Scen
     }
     const rt::MediumLight light = rt::medium_light();
     *air_out = rt::street_air(light.sun_elevation, {}, air);
+    // (the volume round the eye reaches further toward the light - rt_volume_light.h air_stretch)
+    const Vec3 toward{core::at(light.toward, 0), core::at(light.toward, 1), core::at(light.toward, 2)};
     const View view = view_from(kEye);
     *texels_out = history.texels.size();
     double processor = 0.0;
@@ -1480,7 +1482,7 @@ std::array<double, 2> fog_lamp_night_sums(render::Gpu& gpu, std::span<const Scen
             const std::array<float, 4>& got = core::at(history.texels, (static_cast<std::size_t>(y) * history.width) + x);
             core::at(sums, 0) += luma_of({core::at(got, 0), core::at(got, 1), core::at(got, 2)});
             processor += air_light(view, (2.0 * x) + 0.5, (2.0 * y) + 0.5, lamps.lights.front(), lamps.scale, *air_out,
-                                   rt::air_art(air))
+                                   rt::air_art(air), toward)
                              .shadowed;
         }
     }

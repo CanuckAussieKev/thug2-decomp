@@ -110,6 +110,11 @@ inline constexpr double kAirSnowHeight = 60.0;  // metres
 //   - kMisty: a misty morning - thick at any hour, a wider volume, the shade's light whole.
 // Only the street air takes the look: the aerial haze (the atmosphere's - the far world's), the level's own fog and the
 // falling snow keep their own. kNone: no street air (the checks' cases of the other media alone).
+// (Changed by the distinct shafts - docs/design/vulkan.md "Distinct shafts":) the volume round the eye reaches further
+// along the light's way (`along` x its range looking straight at the light, x (1 + (along - 1) cos^2) between: the long
+// beams of a low sun toward it, the far world elsewhere as before), it lies deeper (`deep` x its height: a low sun's
+// beams come over and between the roofs, where the physical layer has all but thinned away), and its air's shadows come
+// from the air's sun map (below) - sharp and taken at every step.
 enum class AirLook : uint8_t { kNone, kClear, kCinematic, kMisty };
 struct AirArt {
     double density = 1.0;   // x the street air's extinction
@@ -120,6 +125,8 @@ struct AirArt {
     double glow = 1.0;      // x the sun's or moon's light it scatters
     double lamp_glow = 1.0; // x the lamps' light it scatters
     double range = 0.0;     // metres: the volume round the eye (0: everywhere)
+    double along = 1.0;     // (added by the distinct shafts) x its range looking at the light
+    double deep = 1.0;      // (added by the distinct shafts) x its height (the beams over and between the roofs in it)
 };
 [[nodiscard]] AirArt air_art(AirLook look);
 // The ini's spelling: "clear", "cinematic", "misty" (and "0" / "1" / "2"); anything else the default.
@@ -127,8 +134,22 @@ struct AirArt {
 [[nodiscard]] const char* air_look_name(AirLook look);
 // The street air's phase (x 4 pi) for a look's side lobe: medium_phase + side.
 [[nodiscard]] double air_phase(double cosine, double g, const AirArt& art);
-// How much of the street air there is `distance` world units from the eye: 1 to range / 2, 0 from range (smoothstep).
-[[nodiscard]] double air_reach(double distance, const AirArt& art);
+// How much of the street air there is `distance` world units from the eye: 1 to range / 2, 0 from range (smoothstep) -
+// the range x air_stretch for a view ray at `cosine` to the light's way.
+[[nodiscard]] double air_stretch(double cosine, const AirArt& art);
+[[nodiscard]] double air_reach(double distance, const AirArt& art, double cosine = 0.0);
+
+// (added by the distinct shafts) The air's sun map: where the volume round the eye is in the sun, made each frame from
+// the light's side - rays traced down the light's way through a square of texels (rt_fog_quality's: 512 / 1024 / 1536 a
+// side) across the plane square to it, round the eye's place in it (snapped to whole texels: shadows don't swim as
+// the camera moves), each texel the distance to the first thing its ray hits (the cut-outs by their alpha - the one
+// lighting path's test). A point of the air is lit where it lies before that distance; a texel's penumbra is the light's
+// disc's (the distance from what shadows it x the disc's tangent). Every step of the march inside the volume reads it,
+// in place of a ray of its own each other step - so the beams' edges are sharp and the gaps between them dark. The
+// square holds every point of the volume (the stretched reach too: air_map_half), beyond it the march traces rays as
+// before. The rays start kAirMapLift world units up the light's way (as far as the light's own rays look).
+[[nodiscard]] double air_map_half(const AirArt& art); // its half side in world units (0: no volume, no map)
+inline constexpr double kAirMapLift = 100000.0;       // world units (the fog's light rays' reach)
 
 // What the weather puts in the air: render_pc publishes it each frame from the game's weather and the snow's settings.
 struct AirWeather {

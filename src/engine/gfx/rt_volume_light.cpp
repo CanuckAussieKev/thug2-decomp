@@ -25,7 +25,7 @@ double elevation_of(const std::array<float, 3>& toward)
 MediumLight medium_light_from(const SceneSun& scene, const SunRelight& relight, const DayLight& day)
 {
     MediumLight light;
-    // (the relit level's light alone: no relit data, no sunlit air - rt_volume_light.h; the console's t sun - an
+    // (the relit level's light alone: no relit data, no sunlit air - rt_volume_light.h; the console's `rt sun` - an
     // experiment, and the checks' sun - lights it whatever the level)
     if (!scene.found() || (!relight.relights && scene.origin != SunOrigin::kOverride)) {
         return light;
@@ -89,14 +89,16 @@ AirArt air_art(AirLook look)
     case AirLook::kClear:
         return {};
     case AirLook::kCinematic:
-        return {.density = 2.5,
+        return {.density = 2.0,
                 .least = 1.0,
                 .night = 1.5,
                 .side = 6.0,
-                .shade = 0.35,
+                .shade = 0.2,
                 .glow = 3.0,
-                .lamp_glow = 5.0,
-                .range = 60.0};
+                .lamp_glow = 3.0,
+                .range = 60.0,
+                .along = 4.0,
+                .deep = 4.0};
     case AirLook::kMisty:
         return {.density = 5.0,
                 .least = 4.0,
@@ -148,7 +150,8 @@ StreetAir street_air(double sun_elevation_degrees, const AirWeather& weather, Ai
     air.extinction =
         kAirClearDay * air_condition(sun_elevation_degrees, weather.rain, art) * art.density / kUnitsPerMetre;
     const double night = air_night(sun_elevation_degrees);
-    air.height = (kAirHeight + ((kAirNightHeight - kAirHeight) * night)) * kUnitsPerMetre;
+    // (the look's depth by day: a night's mist lies low whatever the look - the lamps' heads near its top)
+    air.height = ((kAirHeight * art.deep) + ((kAirNightHeight - (kAirHeight * art.deep)) * night)) * kUnitsPerMetre;
     if (weather.snow) {
         air.snow = kAirSnow / kUnitsPerMetre;
         air.snow_height = kAirSnowHeight * kUnitsPerMetre;
@@ -170,14 +173,39 @@ double medium_phase(double cosine, double g)
 
 double air_phase(double cosine, double g, const AirArt& art) { return medium_phase(cosine, g) + art.side; }
 
-double air_reach(double distance, const AirArt& art)
+double air_stretch(double cosine, const AirArt& art)
+{
+    const double c = std::max(cosine, 0.0);
+    return 1.0 + ((art.along - 1.0) * c * c);
+}
+
+double air_reach(double distance, const AirArt& art, double cosine)
 {
     if (!(art.range > 0.0)) {
         return 1.0;
     }
-    const double range = art.range * kUnitsPerMetre;
+    const double range = art.range * kUnitsPerMetre * air_stretch(cosine, art);
     const double t = std::clamp((distance - (0.5 * range)) / (0.5 * range), 0.0, 1.0);
-    return 1.0 - (t * t * (3.0 - (2.0 * t)));
+    // (the stretched volume thins as it lengthens: toward the light the same optical depth over a longer way - the beams
+    // reach further, the glow toward the light no thicker)
+    return (1.0 - (t * t * (3.0 - (2.0 * t)))) / air_stretch(cosine, art);
+}
+
+double air_map_half(const AirArt& art)
+{
+    if (!(art.range > 0.0)) {
+        return 0.0;
+    }
+    // (the farthest a point of the volume lies from the eye across the light's way: range x stretch x sine, over the
+    // angles - a small search; at least the range)
+    constexpr int kAngles = 90;
+    double widest = 1.0;
+    for (int i = 0; i <= kAngles; ++i) {
+        const double angle = 0.5 * std::numbers::pi * static_cast<double>(i) / kAngles;
+        widest = std::max(widest, air_stretch(std::cos(angle), art) * std::sin(angle));
+    }
+    constexpr double kMargin = 1.03;
+    return art.range * kUnitsPerMetre * widest * kMargin;
 }
 
 double cloud_map_fade(double rise)

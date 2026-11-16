@@ -38,8 +38,15 @@
 //      lamps' light it scatters, apart from its extinction), an even lobe added to its phase, its shade's share and a
 //      volume round the eye (its mist thinned to none by `range` at each segment's middle; a ray more than 4 x the
 //      volume long gives it half the steps).
+//   (added by the distinct shafts) 0. where the air's look has a volume round the eye (rt_volume_light.h air_map_half):
+//      the air's sun map - a square of rt_fog_quality's 512 / 1024 / 1536 texels across the light's way round the eye,
+//      each the distance down the light's way to the first thing its ray hits; the march reads it at every step inside
+//      the square (a bilinear compare, the light's disc's penumbra) instead of a ray each other step - the volume's
+//      shadows sharp, the gaps between the beams dark. A ray that leaves the volume marches `steps` inside it and half as
+//      many past it, those in a geometric series (the first kilometres - the clouds' gaps - as finely as the far haze).
 //   2. temporal: the texel's point reprojected through the viewport's camera of the frame before; the history read there
-//      (bilinear over the texels whose distance agrees), clamped to this frame's 3 x 3 neighbourhood, blended with this
+//      (bilinear over the texels whose distance agrees), clamped to this frame's 3 x 3 neighbourhood (changed by the
+//      distinct shafts: its mean +- kFogHistorySpread deviations, inside its least and most), blended with this
 //      frame's by 1 / its length (up to kFogMaxHistory);
 //   3. composite (full resolution, a blend): colour = colour x T + in - the low-resolution result upsampled with
 //      weights falling off with the difference between each texel's distance and the pixel's own (depth-aware); every
@@ -67,6 +74,8 @@ namespace render::vulkan {
 struct Backend;
 
 inline constexpr uint32_t kFogMaxHistory = 12; // frames
+// (added by the distinct shafts) the history held within this many deviations of its 3 x 3 neighbours' mean (step 2)
+inline constexpr float kFogHistorySpread = 1.5F;
 inline constexpr uint32_t kFogViewSlots = 4;
 inline constexpr uint32_t kFogMask = 0x01 | 0x02; // (world, objects: what shadows the fog)
 // (added by the volumetric light) with the material table and the frame's geometry the cut-outs too, by their alpha

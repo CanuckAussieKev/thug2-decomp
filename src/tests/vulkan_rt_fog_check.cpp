@@ -38,6 +38,9 @@
 //     street not whited out by any but Misty, noon thin -; the street seen from the side (the beam crossing the view at
 //     a right angle to the light) at the cinematic step: the history against the exact integral and the beam well over
 //     the shade - and the clear air's side view faint. A level the relit mode doesn't relight: no light in the air.
+//   - (added by the distinct shafts) A bar across the alley's mouth: its thin shadow through the beam, seen edge-on from
+//     the side at Medium's resolution (the air's sun map read at every step) - the line's width and depth against the
+//     exact integral's. (The processor's march mirrors the pass's: every step's light inside the map's square.)
 //   - --perf: the pass's cost at 2560 x 1440 at rt_fog_quality 0 / 1 / 2 (the device's timestamps), Medium held to a
 //     bound.
 //   thug2_vulkan_rt_fog_check [--device N] [--display N] [--no-validation] [--perf]
@@ -192,8 +195,13 @@ constexpr double kStreetHalf = 4000.0;
 constexpr double kStreetHigh = 1000.0;
 constexpr double kStreetDeep = 1200.0;
 constexpr double kAlleyHalf = 200.0;
-// the ground, then the wall (z -2 - 2) round a window x -20 - 20, y 60 - 100; then the street's
-const std::array<Solid, 8> kSolids{{
+// (added by the distinct shafts) a bar across the alley's mouth (x -200 - 200), 12 units (0.3 m) square, 300 units up:
+// its shadow a thin sheet through the beam - seen edge-on from the side, a dark line across it
+constexpr double kBarLow = 300.0;
+constexpr double kBarSide = 12.0;
+constexpr double kBarZ = kStreetZ - 40.0;
+// the ground, then the wall (z -2 - 2) round a window x -20 - 20, y 60 - 100; then the street's (and its bar)
+const std::array<Solid, 9> kSolids{{
     {.low = {-kGroundHalf, 0.0, -kGroundHalf}, .high = {kGroundHalf, 0.0, kGroundHalf}, .colour = 0xFF909090},
     {.low = {-150.0, 0.0, -2.0}, .high = {-20.0, 150.0, 2.0}, .colour = 0xFFA08060},
     {.low = {20.0, 0.0, -2.0}, .high = {150.0, 150.0, 2.0}, .colour = 0xFFA08060},
@@ -204,6 +212,7 @@ const std::array<Solid, 8> kSolids{{
      .colour = 0xFF606060},
     {.low = {-kStreetHalf, 0.0, kStreetZ - kStreetDeep}, .high = {-kAlleyHalf, kStreetHigh, kStreetZ}, .colour = 0xFF706050},
     {.low = {kAlleyHalf, 0.0, kStreetZ - kStreetDeep}, .high = {kStreetHalf, kStreetHigh, kStreetZ}, .colour = 0xFF706050},
+    {.low = {-kAlleyHalf, kBarLow, kBarZ}, .high = {kAlleyHalf, kBarLow + kBarSide, kBarZ + kBarSide}, .colour = 0xFF404040},
 }};
 
 constexpr Vec3 kLightTravels{0.15, -0.45, 1.0}; // (the sun behind the wall, low: the shaft goes down into +z)
@@ -510,7 +519,7 @@ double air_depth(const ViewRay& ray, double s0, double s1)
         // (its volume round the eye: the cinematic air's - rt_volume_light.h air_reach, at the segment's middle)
         depth += layer_depth(eye_y, dy, s0, s1, now.air.extinction,
                              now.air.height > 0.0 ? 1.0 / now.air.height : 0.0, now.ground) *
-                 render::rt::air_reach(0.5 * (s0 + s1), now.art);
+                 render::rt::air_reach(0.5 * (s0 + s1), now.art, dot(ray.direction, to_sun()));
     }
     if (now.air.snow > 0.0) {
         depth += layer_depth(eye_y, dy, s0, s1, now.air.snow,
@@ -520,6 +529,8 @@ double air_depth(const ViewRay& ray, double s0, double s1)
 }
 
 constexpr double kLeastTransmittance = 1e-4; // the march stops under it
+constexpr double kSplitPast = 1.05;          // (the pass's: a ray this far past the volume round the eye leaves it)
+constexpr uint32_t kLeastFarSteps = 4;
 
 // The fog along a view ray as the pass marches it (or, with many steps, every step traced and the middle, the exact
 // integral's stand-in). (Changed by the street air:) the steps closer together near the eye (first + span x t^2); the
@@ -545,31 +556,55 @@ Fogged march(const ViewRay& ray, const Marching& how)
     const double ambient = render::vulkan::kFogAmbientShare;
     const double scatter = (1.0 - render::vulkan::kFogAerialSkyShare) * render::rt::kHazeSunlit * (sky ? render::vulkan::kFogSkyShare : 1.0);
     const std::array<double, 3> sun_tint = tint();
-    // (the pass's march_at: with the cinematic air's volume round the eye left by the ray, half the steps in it)
-    const double volume_end = now.art.range * render::rt::kUnitsPerMetre;
-    const uint32_t near_steps = air_on && volume_end > first && last - first > 4.0 * (volume_end - first) ? how.steps / 2 : 0;
+    // (the pass's march_at: with the cinematic air's volume round the eye left by the ray, `steps` steps in it (t^2) and
+    // half as many more past it in a geometric series - the volume stretched toward the light: air_stretch)
+    const double volume_end =
+        now.art.range * render::rt::kUnitsPerMetre * render::rt::air_stretch(dot(ray.direction, to_sun()), now.art);
+    const bool split = air_on && volume_end > first && last > kSplitPast * volume_end;
+    const uint32_t near_steps = split ? how.steps : 0;
+    const uint32_t total = split ? how.steps + std::max<uint32_t>(how.steps / 2, kLeastFarSteps) : how.steps;
     const auto boundary = [&](double x) {
         if (near_steps == 0) {
-            const double t = x / how.steps;
+            const double t = x / total;
             return first + (span * t * t);
         }
         if (x <= near_steps) {
             const double t = x / near_steps;
             return first + ((volume_end - first) * t * t);
         }
-        const double t = (x - near_steps) / (how.steps - near_steps);
-        return volume_end + ((last - volume_end) * t * t);
+        const double t = (x - near_steps) / (total - near_steps);
+        return volume_end * std::pow(last / volume_end, t);
     };
     const auto point_of = [&](uint32_t i) { return boundary(static_cast<double>(i) + how.jitter); };
+    // (the air's sun map: the pass reads it at every step in its square - rt_volume_light.h air_map_half - and traces
+    // the light's rays in pairs elsewhere)
+    const double half_side = render::rt::air_map_half(now.art);
+    const auto in_map = [&](const Vec3& at) {
+        if (!(half_side > 0.0) || how.dark) {
+            return false;
+        }
+        const Vec3 toward = to_sun();
+        const Vec3 across = std::abs(y_of(toward)) < 0.9 ? Vec3{0.0, 1.0, 0.0} : Vec3{1.0, 0.0, 0.0};
+        const Vec3 side = normalised(cross(toward, across));
+        const Vec3 up = cross(side, toward);
+        const Vec3 from_eye = minus(at, ray.eye);
+        return std::abs(dot(from_eye, side)) <= half_side && std::abs(dot(from_eye, up)) <= half_side;
+    };
     double seen = 0.0;
-    for (uint32_t i = 0; i < how.steps; ++i) {
+    double pair_seen = 0.0;
+    for (uint32_t i = 0; i < total; ++i) {
         const double near_end = boundary(static_cast<double>(i));
         const double far_end = boundary(static_cast<double>(i + 1));
-        if (!how.pairs) {
-            seen = sunlit(step(ray.eye, ray.direction, point_of(i))) ? 1.0 : 0.0;
-        } else if ((i & 1U) == 0) {
-            const uint32_t traced = std::min(i + how.parity, how.steps - 1);
-            seen = sunlit(step(ray.eye, ray.direction, point_of(traced))) ? 1.0 : 0.0;
+        const Vec3 point = step(ray.eye, ray.direction, point_of(i));
+        if (!how.pairs || in_map(point)) {
+            seen = sunlit(point) ? 1.0 : 0.0;
+        } else {
+            if ((i & 1U) == 0 || in_map(step(ray.eye, ray.direction, point_of(i - 1)))) {
+                const uint32_t traced = (i & 1U) == 0 ? std::min(i + how.parity, total - 1) : i;
+                const Vec3 at = step(ray.eye, ray.direction, point_of(traced));
+                pair_seen = sunlit(in_map(at) ? point : at) ? 1.0 : 0.0;
+            }
+            seen = pair_seen;
         }
         const double x0 = std::clamp(near_end, start, end);
         const double x1 = std::clamp(far_end, start, end);
@@ -2073,6 +2108,126 @@ void run_streets(render::Gpu& gpu, const Scene& scene, Tally* tally)
                               cinematic * kLevels, clear * kLevels, clear > 0.0 ? cinematic / clear : 0.0));
 }
 
+// (added by the distinct shafts) The bar's shadow in the beam, seen from the side at Medium's resolution (a quarter's,
+// 1280 x 720 - the game's window): a thin sheet of shade through the lit air, edge-on - a dark line across the beam.
+// Down columns of texels, where the exact integral shows the line (a notch: the light on both sides of it at least
+// kNotchShare over its floor), the pass's history's line against it: its width (the texels under half its depth) within
+// kMostNotchWidthGap texels, its depth at least kLeastNotchDepth of the exact one's - the air's shadows sharp, not
+// smeared by the march, the history or the map.
+constexpr uint32_t kBarWidth = 1280;
+constexpr uint32_t kBarHeight = 720;
+constexpr int kNotchReach = 6;            // texels each side of a notch its sides are looked for in
+constexpr double kNotchShare = 0.3;       // a notch at least this share of its sides' light deep
+constexpr double kLeastNotchLight = 0.01; // (its sides lit at least this)
+constexpr int kNotchFollow = 3;           // the pass's notch looked for this many texels round the exact one's
+constexpr double kMostNotchWidthGap = 1.0;
+constexpr double kLeastNotchDepth = 0.5;
+constexpr std::size_t kLeastNotchColumns = 5;
+struct Notch {
+    int at = -1;
+    double depth = 0.0;
+    int width = 0;
+};
+// The notch in a column's light (`light` top to bottom) at `centre` (or the deepest anywhere when centre < 0)
+Notch notch_in(const std::vector<double>& light, int centre)
+{
+    Notch best;
+    const int count = static_cast<int>(light.size());
+    const int from = centre < 0 ? kNotchReach : std::max(kNotchReach, centre - kNotchFollow);
+    const int to = centre < 0 ? count - kNotchReach : std::min(count - kNotchReach, centre + kNotchFollow + 1);
+    for (int y = from; y < to; ++y) {
+        double above = 0.0;
+        double below = 0.0;
+        for (int k = 1; k <= kNotchReach; ++k) {
+            above = std::max(above, core::at(light, static_cast<std::size_t>(y - k)));
+            below = std::max(below, core::at(light, static_cast<std::size_t>(y + k)));
+        }
+        const double sides = std::min(above, below);
+        const double depth = sides - core::at(light, static_cast<std::size_t>(y));
+        const bool counts = centre >= 0 || (sides > kLeastNotchLight && depth > kNotchShare * sides);
+        if (counts && depth > best.depth) {
+            best = {.at = y, .depth = depth, .width = 0};
+        }
+    }
+    if (best.at >= 0) {
+        const double half = core::at(light, static_cast<std::size_t>(best.at)) + (0.5 * best.depth);
+        int top = best.at;
+        int bottom = best.at;
+        while (top > 0 && core::at(light, static_cast<std::size_t>(top - 1)) < half) {
+            --top;
+        }
+        while (bottom + 1 < count && core::at(light, static_cast<std::size_t>(bottom + 1)) < half) {
+            ++bottom;
+        }
+        best.width = bottom - top + 1;
+    }
+    return best;
+}
+
+void run_bar(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    text::print("the bar's shadow in the beam from the side (cinematic, a quarter's resolution at %ux%u):\n", kBarWidth,
+                kBarHeight);
+    street_on(render::rt::AirLook::kCinematic);
+    look_at() = kSideAt;
+    march_scale() = 4;
+    render::vulkan::RtFogSettings settings = settings_of(false);
+    settings.density = 0.0F;
+    settings.air = render::rt::AirLook::kCinematic;
+    use_settings(settings, scene.top.handle);
+    Targets targets;
+    const bool made = make_targets(gpu, kBarWidth, kBarHeight, &targets);
+    tally->check(made, "the targets made");
+    if (made) {
+        const View view = view_from(kSideEye, kBarWidth, kBarHeight);
+        for (int frame = 0; frame < kStillFrames; ++frame) {
+            draw_frame(gpu, targets, kSideEye);
+        }
+        render::vulkan::RtFogTexels history;
+        render::vulkan::RtFogTexels info;
+        bool read = false;
+        {
+            render::vulkan::Backend& state = render::vulkan::backend();
+            const std::scoped_lock lock(state.mutex);
+            const Rect whole{0, 0, kBarWidth, kBarHeight};
+            read = render::vulkan::read_rt_fog_image(state, whole, render::vulkan::RtFogImage::kHistory, &history) &&
+                   render::vulkan::read_rt_fog_image(state, whole, render::vulkan::RtFogImage::kHistoryInfo, &info);
+        }
+        tally->check(read && history.texels.size() == info.texels.size(), "the history read back");
+        std::vector<double> width_gaps;
+        std::vector<double> depth_shares;
+        std::vector<double> exact_widths;
+        constexpr uint32_t kColumnStep = 8;
+        for (uint32_t x = kColumnStep / 2; read && x < history.width; x += kColumnStep) {
+            std::vector<double> exact(history.height);
+            std::vector<double> got(history.height);
+            for (uint32_t y = 0; y < history.height; ++y) {
+                const std::size_t i = (static_cast<std::size_t>(y) * history.width) + x;
+                const std::array<float, 4>& texel = core::at(history.texels, i);
+                core::at(got, y) = luma3({core::at(texel, 0), core::at(texel, 1), core::at(texel, 2)});
+                core::at(exact, y) = luma3(exact_at(view, pixel_of(core::at(info.texels, i), 2), false).light);
+            }
+            const Notch want = notch_in(exact, -1);
+            if (want.at < 0) {
+                continue;
+            }
+            const Notch seen = notch_in(got, want.at);
+            width_gaps.push_back(std::abs(static_cast<double>(seen.width - want.width)));
+            depth_shares.push_back(seen.depth / want.depth);
+            exact_widths.push_back(want.width);
+        }
+        tally->check(width_gaps.size() >= kLeastNotchColumns &&
+                         mean(width_gaps) <= kMostNotchWidthGap && mean(depth_shares) >= kLeastNotchDepth,
+                     text::format("  the bar's line in %zu columns: %.1f texels wide (exact), the pass's width off by %.2f "
+                                  "texels (%.1f pixels) on average, its depth %.2f of the exact one's",
+                                  width_gaps.size(), mean(exact_widths), mean(width_gaps),
+                                  mean(width_gaps) * static_cast<double>(march_scale()), mean(depth_shares)));
+    }
+    release_targets(gpu, targets);
+    march_scale() = 2;
+    street_off();
+}
+
 // The passes at 2560 x 1440 timed on the device (their own timestamps) at rt_fog_quality 0, 1, 2 - in the street at
 // dusk (the street air on, the alley's beam): Medium held to kMostMediumMilliseconds.
 constexpr double kMostMediumMilliseconds = 1.0;
@@ -2103,6 +2258,7 @@ void run_perf(render::Gpu& gpu, const Scene& scene, Tally* tally)
         render::vulkan::RtFogSettings settings = base;
         settings.steps = core::at(render::vulkan::kRtFogQualitySteps, quality);
         settings.scale = core::at(render::vulkan::kRtFogQualityScale, quality);
+        settings.map = core::at(render::vulkan::kRtFogQualityMap, quality);
         use_settings(settings, scene.top.handle);
         const render::vulkan::RtFogTiming before = timing();
         for (int frame = 0; frame < kFrames; ++frame) {
@@ -2217,6 +2373,7 @@ int run(const Options& options, SDL_Window* window)
         run_haze(gpu, scene, &tally);
         run_clock(gpu, scene, &tally);  // (added by the volumetric light)
         run_streets(gpu, scene, &tally); // (added by the street air; the side view by the cinematic air)
+        run_bar(gpu, scene, &tally);     // (added by the distinct shafts)
         run_untouched(gpu, "no scene: the pass skipped", settings_of(false), VK_NULL_HANDLE, true, &tally);
         render::vulkan::RtFogSettings off = settings_of(false);
         off.on = false;
