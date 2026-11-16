@@ -9,7 +9,7 @@
 //
 //   node tools/game/soak_check.ts <game.log>
 //
-// It also fails a session that stalled: the stall watch's "stall:" lines (a main-loop loop past 2 s with no loading
+// It also fails a session that stalled: the stall watch's "stall:" lines (a main-loop loop past 1 s with no loading
 // screen up) and the device watch's ("vulkan: frame N has waited X s for the device"). The College freeze's guard:
 // tools/game/scenarios/college_tod_cycle_soak.txt.
 //
@@ -121,7 +121,7 @@ export function verdict(log: string): Verdict | null {
     return { first, last, growing };
 }
 
-// The stall watch's lines (src/platform/frame_profile.h: a loop of the main loop past 2 s, no loading screen up) and the
+// The stall watch's lines (src/platform/frame_profile.h: a loop of the main loop past 1 s, no loading screen up) and the
 // device watch's (src/gpu_vulkan/vulkan_frames.cpp: a frame's fence waited for past 2 s): how many, and the longest.
 const STALL_LINE = /^stall: the main loop's loop \d+ has run ([\d.]+) s/;
 const DEVICE_WAIT_LINE = /^vulkan: frame \d+ has waited ([\d.]+) s for the device/;

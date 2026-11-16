@@ -227,13 +227,17 @@ public:
 
     // Nothing is lost in Vulkan as Direct3D 9's device is: the swapchain is made again at the window's size and the
     // device's bindings put back as Direct3D 9's Reset leaves them - the back buffer made again when the settings' size
-    // changed (the PC layer has released and makes again its default-pool objects around this, as for Direct3D 9).
+    // changed (the PC layer releases and makes again only its back buffer's targets around this: the buffers live on -
+    // loses_device_objects).
     bool reset() override
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         return state.device_made && finish_work(state) && state.context.remake() && reset_device_bindings(state);
     }
+
+    // (the buffers and textures live on through a focus change and a reset: GpuContext::loses_device_objects)
+    [[nodiscard]] bool loses_device_objects() const override { return false; }
 
     // (the back buffer made again at it by the next reset: reset_device_bindings)
     void set_back_buffer_size(const GpuBackBufferSize& size) override

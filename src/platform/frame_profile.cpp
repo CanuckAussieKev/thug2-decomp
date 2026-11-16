@@ -430,7 +430,7 @@ bool on_main_thread() { return GetCurrentThreadId() == state().main_thread.load(
 // logged with the phase the main thread is in (with frame_profile on) and its stack, again every kStallRepeatSeconds
 // while it lasts, and its end with its length. A freeze then says where it is in the log, even when the process is
 // killed. A loading screen's loops are left alone (a level's load does seconds of work in a loop).
-constexpr double kStallSeconds = 2.0;
+constexpr double kStallSeconds = 1.0;
 constexpr double kStallRepeatSeconds = 10.0;
 constexpr DWORD kStallLookMs = 250;
 

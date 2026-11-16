@@ -25,6 +25,7 @@
 #include "engine/audio/music_player.h"
 #include "engine/net/transport.h"
 #include "engine/memory/manager.h"
+#include "engine/gfx/gpu_context.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "game/online/gamenet_qr2.h"
 #include "game/online/gamenet_manager.h"
@@ -252,7 +253,13 @@ void handle_window_event(SDL_Event* event)
             set_app_active(false);
         }
     } else if (event->type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
-        render::engine_parts().set_device_lost(true);
+        // Not PartyMod's - the device taken as lost (reset: every default-pool object made again) only where a focus
+        // change loses it (render::GpuContext::loses_device_objects: Direct3D 9's); Vulkan's loses nothing - its reset
+        // here was a 10-15 s frame each time the window got the focus back.
+        // Original behaviour (PartyMod v1.0.4): always.
+        if (render::gpu_context().loses_device_objects()) {
+            render::engine_parts().set_device_lost(true);
+        }
         set_app_active(true);
     }
     // Not PartyMod's - an application's window (the editor mode: platform/app_window.h) is resizable: its place kept,
@@ -282,7 +289,11 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
         } else {
             ShowWindow(sys::game_window(), SW_MINIMIZE);
             set_app_active(false);
-            render::engine_parts().set_device_lost(true); // the device is taken as lost (reset when active again)
+            // the device is taken as lost (reset when active again) - not original: only where that loses it
+            // (render::GpuContext::loses_device_objects)
+            if (render::gpu_context().loses_device_objects()) {
+                render::engine_parts().set_device_lost(true);
+            }
             InvalidateRect(nullptr, nullptr, TRUE);
         }
         return 0;

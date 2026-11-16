@@ -8,8 +8,13 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <ios>
 #include <span>
 #include <string>
+#include <system_error>
+#include <thread>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -88,14 +93,24 @@ std::vector<uint8_t> read_file(const std::string& path)
     return bytes;
 }
 
-bool write_file(const std::string& path, std::span<const uint8_t> bytes)
+// (the caches' saver, off the drawing thread) `bytes` written beside `path` and moved over it: a reader - the next
+// start - never sees half a file, and the game's disk layer isn't used from another thread.
+bool write_file_replacing(const std::string& path, std::span<const uint8_t> bytes)
 {
-    fs::DiskStream* const out = fs::disk().open_stream(path.c_str(), "wb", fs::StreamSharing::kAll);
-    if (out == nullptr) {
-        return false;
+    const std::string temporary = path + ".saving";
+    {
+        std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
+        if (!out) {
+            return false;
+        }
+        out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        if (!out) {
+            return false;
+        }
     }
-    const std::size_t written = fs::disk().stream_write(out, bytes.data(), 1, bytes.size());
-    return fs::disk().stream_close(out) == 0 && written == bytes.size();
+    std::error_code error;
+    std::filesystem::rename(temporary, path, error);
+    return !error;
 }
 
 // A little-endian reader over a file's bytes.
@@ -313,43 +328,88 @@ void Pipelines::load(const std::string& folder)
     }
 }
 
-void Pipelines::save()
+namespace {
+
+// The caches written: the shader file's bytes as given, the driver's pipeline cache read under its lock (the drawing
+// thread makes pipelines through it meanwhile) - each file written beside its own and moved over it.
+void write_caches(VkDevice device, VkPipelineCache cache, std::mutex* cache_lock, const std::string& folder,
+                  const std::vector<uint8_t>& shaders)
 {
-    if (!dirty_ || folder_.empty() || device_ == nullptr) {
-        return;
-    }
-    dirty_ = false;
     const auto began = std::chrono::steady_clock::now();
     std::size_t bytes = 0;
+    if (write_file_replacing(folder + kShaderFile, shaders)) {
+        bytes += shaders.size();
+    }
+    if (cache != VK_NULL_HANDLE) {
+        std::vector<uint8_t> data;
+        {
+            const std::scoped_lock lock(*cache_lock);
+            std::size_t size = 0;
+            if (vkGetPipelineCacheData(device, cache, &size, nullptr) == VK_SUCCESS && size > 0) {
+                data.resize(size);
+                if (vkGetPipelineCacheData(device, cache, &size, data.data()) == VK_SUCCESS) {
+                    data.resize(size);
+                } else {
+                    data.clear();
+                }
+            }
+        }
+        if (!data.empty() && write_file_replacing(folder + kPipelineFile, data)) {
+            bytes += data.size();
+        }
+    }
+    get_log("vulkan: the shader and pipeline caches saved (%.1f MB) in %.0f ms, off the drawing thread",
+            static_cast<double>(bytes) / (1024.0 * 1024.0), seconds_since(began) * 1000.0);
+}
+
+// The shader file's bytes: every SPIR-V module by its GLSL's hash.
+std::vector<uint8_t> shader_file_bytes(const std::unordered_map<uint64_t, std::vector<uint32_t>>& spirv)
+{
     std::vector<uint8_t> shaders;
     append(shaders, kShaderFileMagic);
     append(shaders, kShaderFileVersion);
-    append(shaders, static_cast<uint32_t>(spirv_.size()));
-    for (const auto& [hash, words] : spirv_) {
+    append(shaders, static_cast<uint32_t>(spirv.size()));
+    for (const auto& [hash, words] : spirv) {
         append(shaders, hash);
         append(shaders, static_cast<uint32_t>(words.size()));
         const std::size_t at = shaders.size();
         shaders.resize(at + (words.size() * sizeof(uint32_t)));
         std::memcpy(std::span(shaders).subspan(at).data(), words.data(), words.size() * sizeof(uint32_t));
     }
-    write_file(folder_ + kShaderFile, shaders);
-    bytes += shaders.size();
-    if (cache_ != VK_NULL_HANDLE) {
-        std::size_t size = 0;
-        if (vkGetPipelineCacheData(device_, cache_, &size, nullptr) == VK_SUCCESS && size > 0) {
-            std::vector<uint8_t> data(size);
-            if (vkGetPipelineCacheData(device_, cache_, &size, data.data()) == VK_SUCCESS) {
-                data.resize(size);
-                write_file(folder_ + kPipelineFile, data);
-                bytes += data.size();
-            }
-        }
+    return shaders;
+}
+
+} // namespace
+
+// (the freeze audit) The caches are saved off the drawing thread: a 128 MB write on it was a 9 s frame once (the disk
+// busy, the file scanned). One save at a time - a save asked for meanwhile waits for the next time (still dirty); the
+// shader file's bytes are taken here (small), the driver's cache on the saver under the cache's lock.
+void Pipelines::save()
+{
+    if (!dirty_ || folder_.empty() || device_ == nullptr || saving_.load()) {
+        return;
     }
-    // (saved on the thread that draws - while playing, the frame it lands on waits for it)
-    if (const double seconds = seconds_since(began); seconds > kSlowPipelineSeconds) {
-        get_log("vulkan: the shader and pipeline caches saved (%.1f MB) in %.0f ms", static_cast<double>(bytes) / (1024.0 * 1024.0),
-                seconds * 1000.0);
+    dirty_ = false;
+    if (saver_.joinable()) {
+        saver_.join(); // (finished: saving_ is false)
     }
+    saving_.store(true);
+    saver_ = std::jthread([this, shaders = shader_file_bytes(spirv_)] {
+        write_caches(device_, cache_, &cache_lock_, folder_, shaders);
+        saving_.store(false);
+    });
+}
+
+void Pipelines::save_now()
+{
+    if (saver_.joinable()) {
+        saver_.join();
+    }
+    if (!dirty_ || folder_.empty() || device_ == nullptr) {
+        return;
+    }
+    dirty_ = false;
+    write_caches(device_, cache_, &cache_lock_, folder_, shader_file_bytes(spirv_));
 }
 
 void Pipelines::shutdown()
@@ -357,7 +417,7 @@ void Pipelines::shutdown()
     if (device_ == nullptr) {
         return;
     }
-    save();
+    save_now(); // (a save under way finished first)
     for (const auto& [key, pipeline] : pipelines_) {
         if (pipeline != VK_NULL_HANDLE) {
             vkDestroyPipeline(device_, pipeline, nullptr);
@@ -478,7 +538,7 @@ VkShaderModule Pipelines::module(bool vertex, const ShaderKey& key, std::string*
 bool Pipelines::make_graphics(const VkGraphicsPipelineCreateInfo& info, VkPipeline* made)
 {
     // (Vulkan 1.3's creation feedback - the draws need 1.3: whether the pipeline cache had it. The caches are written
-    // again - 70 MB and more, on the thread that draws, a frame's stall - only when the pipeline cache grew.)
+    // again - 70 MB and more, by the saver off the drawing thread - only when the pipeline cache grew.)
     VkPipelineCreationFeedback whole{};
     VkPipelineCreationFeedbackCreateInfo feedback{.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO,
                                                   .pNext = info.pNext,
@@ -488,7 +548,11 @@ bool Pipelines::make_graphics(const VkGraphicsPipelineCreateInfo& info, VkPipeli
     VkGraphicsPipelineCreateInfo chained = info;
     chained.pNext = &feedback;
     const auto start = std::chrono::steady_clock::now();
-    const bool ok = vkCreateGraphicsPipelines(device_, cache_, 1, &chained, nullptr, made) == VK_SUCCESS;
+    bool ok = false;
+    {
+        const std::scoped_lock lock(cache_lock_); // (the saver may be reading the cache: save)
+        ok = vkCreateGraphicsPipelines(device_, cache_, 1, &chained, nullptr, made) == VK_SUCCESS;
+    }
     stats_.pipeline_seconds += seconds_since(start);
     if (!ok) {
         *made = VK_NULL_HANDLE;
