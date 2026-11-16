@@ -33,7 +33,11 @@
 //      The street air (engine/gfx/rt_volume_light.h street_air - outdoors, where a sun or moon lights the level) is a
 //      second medium along every ray in every mode: its extinction added to the fog's (or the haze's), its light - the
 //      haze's per unit of light, its shade's the replaced fog's ambient (or the sky's in the aerial march; none where
-//      only the shafts are added) - mixed with the fog's by their shares of each segment's optical depth.
+//      only the shafts are added) - mixed with the fog's by their shares of each segment's optical depth. (Added by the
+//      cinematic air - rt_volume_light.h AirLook, rt_fog_air:) its look sets its density, its glow (the sun's and the
+//      lamps' light it scatters, apart from its extinction), an even lobe added to its phase, its shade's share and a
+//      volume round the eye (its mist thinned to none by `range` at each segment's middle; a ray more than 4 x the
+//      volume long gives it half the steps).
 //   2. temporal: the texel's point reprojected through the viewport's camera of the frame before; the history read there
 //      (bilinear over the texels whose distance agrees), clamped to this frame's 3 x 3 neighbourhood, blended with this
 //      frame's by 1 / its length (up to kFogMaxHistory);

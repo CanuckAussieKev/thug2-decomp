@@ -572,11 +572,7 @@ struct SkyPassState {
     uint64_t maps = 0;
 };
 
-std::atomic<bool>& cloud_map_wanted_flag()
-{
-    static std::atomic<bool> wanted{false};
-    return wanted;
-}
+
 
 SkyPassState& pass_state()
 {
@@ -1940,8 +1936,7 @@ bool record_shadow_pass(Backend& state, const rt::ViewDrawn& view)
 {
     SkyPassState& own = pass_state();
     const RtSkySettings& settings = own.settings;
-    if (own.failed || !settings.on || !settings.clouds || !own.matched ||
-        !(settings.cloud_shadows || cloud_map_wanted_flag().load(std::memory_order_relaxed))) {
+    if (own.failed || !settings.on || !settings.clouds || !own.matched || !settings.cloud_shadows) {
         return false;
     }
     const rt::MediumLight light = rt::medium_light();
@@ -2405,7 +2400,6 @@ float cloud_map_kept(vec3 at, vec4 place, vec4 light)
     return glsl;
 }
 
-void set_cloud_map_wanted(bool wanted) { cloud_map_wanted_flag().store(wanted, std::memory_order_relaxed); }
 
 uint64_t cloud_maps_made() { return pass_state().maps; }
 

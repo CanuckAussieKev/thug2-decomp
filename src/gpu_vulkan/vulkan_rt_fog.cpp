@@ -2267,7 +2267,7 @@ void set_rt_fog_settings(const RtFogSettings& settings)
     kept.lamps = std::min(kept.lamps, kFogMostLamps);
     kept.scale = kept.scale >= kMostScale ? kMostScale : kLeastScale;
     kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : kRtFogStrength;
-    set_cloud_map_wanted(kept.on); // (the clouds' shadow map for the shafts through their gaps)
+
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);

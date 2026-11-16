@@ -89,12 +89,12 @@ AirArt air_art(AirLook look)
     case AirLook::kClear:
         return {};
     case AirLook::kCinematic:
-        return {.density = 2.0,
-                .least = 1.5,
+        return {.density = 2.5,
+                .least = 1.0,
                 .night = 1.5,
                 .side = 2.5,
                 .shade = 0.35,
-                .glow = 1.7,
+                .glow = 3.0,
                 .lamp_glow = 5.0,
                 .range = 60.0};
     case AirLook::kMisty:

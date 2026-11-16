@@ -1043,8 +1043,10 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
     street lights, cut by their fixtures and walls. Lamps need `rt_lights` (their owner); none by day.
   Accumulated front to back: in += T (1 - e^-tau) here, T *= e^-tau.
 - **The clouds' shadows in the air** (`rt_clouds`): one map, owned by the sky pass (`vulkan_rt_sky_pass`
-  `CloudShadowMap`): at each viewport's `opaque_drawn`, while the clouds are drawn and `rt_cloud_shadows` or the fog
-  wants it, a 256 x 256 compute pass over 3.2 km of the cloud base's plane, centred where the camera's way toward the
+  `CloudShadowMap`): at each viewport's `opaque_drawn`, while the clouds are drawn and `rt_cloud_shadows` is on
+  (third round: the fog no longer asks for it alone - at a low sun the map's long way through the layer darkened
+  the air of a street whose ground the clouds don't shade: two lights; now the air takes the clouds' shadows exactly
+  where the ground does), a 256 x 256 compute pass over 3.2 km of the cloud base's plane, centred where the camera's way toward the
   light meets it (snapped to whole texels), each texel the light's transmittance through the layer from there (8
   densities, no detail, the light at least 0.08 up; faded out between 0.02 and 0.15). A point reads the texel where
   its way toward the light meets the base: each march step takes it (crepuscular rays - lit columns through gaps,

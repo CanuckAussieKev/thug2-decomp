@@ -142,8 +142,9 @@ bool rt_sky_for_rays(Backend& state, const std::array<uint32_t, 4>& rect, RtSkyF
 
 // (added by the volumetric light - engine/gfx/rt_volume_light.h) The clouds' shadow map: the light's transmittance
 // through the cloud layer (rt::medium_light: the sun, or the moon at night), made at each viewport's opaque_drawn while
-// the clouds are drawn and rt_cloud_shadows or the fog's march (set_cloud_map_wanted) wants it - one map, read by both:
-// the shadows on the ground and the shafts through the clouds' gaps in the air.
+// the clouds are drawn and rt_cloud_shadows is on - one map, read by both: the shadows on the ground and the shafts
+// through the clouds' gaps in the air (changed by the cinematic air: the fog's march no longer asks for it alone - the
+// air shaded by clouds the ground isn't was two lights; one light for both).
 struct CloudShadowMap {
     VkDescriptorImageInfo image{}; // a combined image sampler (linear, clamped; GENERAL): r the transmittance
     std::array<float, 4> place{};  // x, z its centre (world), y the cloud base's height (world), w 1 / its width
@@ -155,8 +156,7 @@ bool cloud_shadow_map(const Backend& state, CloudShadowMap* out);
 // The GLSL that reads it (after the caller's own set 0 bindings; the sampler at set 0, `binding`):
 //   float cloud_map_kept(vec3 at, vec4 place, vec4 light) - the share of the light that gets through the clouds to `at`
 [[nodiscard]] std::string cloud_map_glsl(uint32_t binding);
-// The fog's march wants the map (rt_fog on). Thread: any.
-void set_cloud_map_wanted(bool wanted);
+
 // How many maps were made (the checks').
 [[nodiscard]] uint64_t cloud_maps_made();
 // For the check: the map last made read back (the frame's work finished first): kCloudMapSize^2 transmittances, row by

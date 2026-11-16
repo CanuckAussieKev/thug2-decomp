@@ -1769,8 +1769,8 @@ constexpr double kLeastCinematicCone = 3.5;
 constexpr double kLeastCinematicOverClear = 4.0;
 constexpr double kMostCinematicFarDepth = 0.6;
 constexpr double kMostCinematicNoonDepth = 0.15;
-constexpr double kMostDuskVeil = 0.25;
-constexpr double kMostNoonVeil = 0.06;
+constexpr double kMostDuskVeil = 0.5;
+constexpr double kMostNoonVeil = 0.08;
 
 void run_air_model(Tally* tally)
 {
@@ -1812,7 +1812,7 @@ void run_air_model(Tally* tally)
                               horizontal_depth(cine_dusk, kStreetMetres, cine),
                               horizontal_depth(cine_night, kStreetMetres, cine)));
     tally->check(dusk.extinction > 3.0 * day.extinction && night.extinction > 3.0 * day.extinction &&
-                     misty.extinction > 2.0 * cine_dusk.extinction && cine_dusk.extinction > dusk.extinction &&
+                     misty.extinction > 1.5 * cine_dusk.extinction && cine_dusk.extinction > dusk.extinction &&
                      cine_day.extinction > day.extinction && wet.extinction > day.extinction && snowing.snow > 0.0 &&
                      day.snow == 0.0 && none.extinction == 0.0,
                  text::format("  clear: denser at dusk (x %.1f the day's) and night (x %.1f), wet x %.1f, falling snow "
@@ -1933,7 +1933,7 @@ constexpr double kNinetieth = 0.9;
 // little down - the ground beyond the beam
 constexpr Vec3 kSideEye{1000.0, 80.0, kStreetZ + 800.0};
 constexpr Vec3 kSideAt{0.0, 40.0, kStreetZ + 800.0};
-constexpr double kLeastSideContrast = 0.03; // the cinematic beam seen from the side over the shade at least (7.5 levels)
+constexpr double kLeastSideContrast = 0.04; // the cinematic beam seen from the side over the shade at least (10 levels)
 
 void street_on(render::rt::AirLook look)
 {

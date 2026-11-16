@@ -501,7 +501,7 @@ for the restart. Every setting is declared once in the settings model (`src/engi
 | `rt_cloud_coverage` | auto | How much of the sky is cloud: `auto` - a little less than the level's own sky had (a clear painted sky stays mostly clear); or 0-1 - about that share of the sky (0 clear, 0.5 half, 1 overcast) |
 | `rt_cloud_speed` | 1 | How fast the clouds drift (0 still; 2 twice as fast) |
 | `rt_cloud_quality` | 1 | 0 quarter resolution (fastest), 1 half, 2 full |
-| `rt_cloud_shadows` | 0 | With `rt_clouds`: 1 lets the clouds' shadows drift over the level (the same shadows the light shafts in `rt_fog` take from the clouds; faint by moonlight) |
+| `rt_cloud_shadows` | 0 | With `rt_clouds`: 1 lets the clouds' shadows drift over the level - and over the air: with `rt_fog`, light columns through the gaps in the clouds and shadow shafts under them (without it neither the ground nor the air is shaded by the clouds); faint by moonlight |
 | `rt_tessellation` | 0 | Any renderer: 1 rounds off the levels' and objects' faceted curves - quarter pipes, rails, pipes, car bodies, round props - when a level loads (more triangles that follow the curve; flat walls, hard edges, see-through and cut-out surfaces, skaters and peds stay as they are). The skater still rides the original surfaces: the drawn ones stay within `rt_tess_max_deviation` of them. Takes effect from the next level loaded |
 | `rt_tess_level` | 3 | The most pieces a curved edge is cut into (2-8; each mesh gets as many as its curves need, up to this) |
 | `rt_tess_max_deviation` | 2 | How far (world units, an inch each) a smoothed surface may move from the original one - the largest gap between the wheels and what is drawn |
