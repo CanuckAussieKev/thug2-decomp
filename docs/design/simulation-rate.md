@@ -353,8 +353,8 @@ machine's load (since 2026-11-16 the step's: "What moved" above); the music's tr
 ### Proof
 
 2026-11-16, a workspace, x64 RelWithDebInfo, references recorded with QB scripts from the same build:
-`sim_check --fps 0,120,144,240 --load 0,7` with QB scripts (packed) QB_RESULT, with TypeScript scripts (unpacked,
-`ts_scripts=1`) TS_RESULT. The script check (`plan --declarations-only`, both passes) compared every TriggerScript's
+`sim_check --fps 0,120,144,240 --load 0,7` with QB scripts (packed) 32 of 32 runs equal to the reference on every frame,
+with TypeScript scripts (unpacked, `ts_scripts=1`) 32 of 32. The script check (`plan --declarations-only`, both passes) compared every TriggerScript's
 declaration read from its QB code with the one read from its `.json`: 36,658 scripts (17,669 declaring calls), every
 version of every file, THUG2's and the ported levels' - 0 different.
 

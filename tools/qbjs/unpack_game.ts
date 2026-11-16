@@ -44,8 +44,9 @@ import { emitTS } from "./emit_ts.ts";
 import { fileHash, gameRoot, scriptBytes } from "./game_scripts.ts";
 import type { ModuleIR } from "./ir.ts";
 import { Localizer, notLocalised } from "./localize.ts";
+import { addTriggers, type QbDataValue } from "./qb_data.ts";
 import { readIR } from "./reader.ts";
-import { gameTriggerData, type TriggerData, tokensOf, triggersValue } from "./trigger_data.ts";
+import { gameTriggerData, TextTokens, type TriggerData, triggersValue } from "./trigger_data.ts";
 
 const BACKUP = "thug2-decomp-backup";
 type Record = { moved: string[]; made: string[]; folders: string[] };
@@ -84,7 +85,8 @@ function scriptFolders(root: string): string[] {
 // localize: the IR's text given tokens before it's written (localize.ts).
 // The globals are the module's data (`json`, null when it has none: emit_data.ts, docs/qb-ts.md "Data") - the file's
 // <name>.json beside its <name>.ts -, and its scripts' trigger data (`triggers`: trigger_data.ts, docs/qb-ts.md
-// "Trigger data"); the manifest's `globals` and `triggers` count them (the game wants the .json when they aren't 0).
+// "Trigger data" - added to the .json once every file's text has its tokens: addTriggers); the manifest's `globals`
+// and `triggers` count them (the game wants the .json when they aren't 0).
 export function scriptTS(
     source: string,
     name: string,
@@ -92,20 +94,20 @@ export function scriptTS(
     triggers: TriggerData,
     check = false,
     localize?: (ir: ModuleIR) => void,
-): { ts: string; json: string | null } | null {
+): { ts: string; json: string | null; triggers: [number, QbDataValue][]; ir: ModuleIR } | null {
     const bytes = scriptBytes(name, read);
     try {
         const ir = readIR(bytes, source);
         localize?.(ir);
         const from = fileHash(bytes);
         const data = basename(name).replace(/\.qb$/i, ".json");
-        const declared = triggersValue(triggers.declarations({ bytes, ir }, tokensOf(ir)));
-        const json = emitData(ir, from, declared, (n) => triggers.nameText(n));
+        const declared = triggersValue(triggers.declarations({ bytes, ir }));
+        const json = emitData(ir, from, [], () => undefined, declared.length > 0);
         const ts = emitTS(ir, {}, { check, data });
         const names = Object.entries(ir.names ?? {}).flatMap(([n, text]) => [Number(n), text]);
         const globals = ir.definitions.filter((d) => d.kind === "global").length;
         const manifest = JSON.stringify({ source, from, globals, triggers: declared.length, names });
-        return { ts: `${ts.endsWith("\n") ? ts : `${ts}\n`}// qb-file ${manifest}\n`, json };
+        return { ts: `${ts.endsWith("\n") ? ts : `${ts}\n`}// qb-file ${manifest}\n`, json, triggers: declared, ir };
     } catch {
         return null;
     }
@@ -178,6 +180,18 @@ export function unpack(
     // (the scripts' trigger data is made against the boot files and every level's TriggerScripts: read first, from
     // the game as installed)
     const triggers = gameTriggerData(root);
+    // (each file's trigger data, added to its .json at the end - once every file's text has its tokens)
+    const tokens = new TextTokens();
+    const declared: {
+        json: string;
+        triggers: [number, QbDataValue][];
+        own: Map<string, string>;
+        names: { [n: number]: string };
+    }[] = [];
+    const declare = (json: string, made: NonNullable<ReturnType<typeof scriptTS>>, boot: boolean) => {
+        const own = tokens.of(made.ir, boot);
+        if (made.triggers.length) declared.push({ json, triggers: made.triggers, own, names: made.ir.names ?? {} });
+    };
     const record: Record = { moved: [], made: [], folders: [] };
     const failed: string[] = [];
     const rel = (path: string) => relative(root, path);
@@ -254,6 +268,7 @@ export function unpack(
                     mkdirSync(dirname(path), { recursive: true });
                     writeFileSync(path.replace(/\.qb$/i, ".ts"), made.ts);
                     if (made.json !== null) writeFileSync(path.replace(/\.qb$/i, ".json"), made.json);
+                    declare(path.replace(/\.qb$/i, ".json"), made, !source.toLowerCase().startsWith("data\\levels\\"));
                     continue;
                 }
                 failed.push(`${rel(folder)}\\${entry.name}`);
@@ -298,9 +313,20 @@ export function unpack(
             }
             make(path.replace(/\.qb$/i, ".ts"), made.ts);
             if (made.json !== null) make(path.replace(/\.qb$/i, ".json"), made.json);
+            declare(path.replace(/\.qb$/i, ".json"), made, folder === "Data" && !name.startsWith("levels\\"));
         }
         save();
     }
+    // The scripts' trigger data, its text given the tokens of the file's strings or the boot files'
+    for (const d of declared)
+        writeFileSync(
+            d.json,
+            addTriggers(
+                readFileSync(d.json, "utf8"),
+                tokens.tokenized(d.triggers, d.own),
+                (n) => d.names[n] ?? triggers.nameText(n),
+            ),
+        );
     // (the text tables: en.json and each language's)
     if (Object.keys(localizer.tables.en ?? {}).length)
         for (const language of Object.keys(localizer.tables))

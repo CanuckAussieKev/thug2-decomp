@@ -7,7 +7,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import { emitData } from "./emit_data.ts";
 import { command, field, integer, name, param, script, word } from "./fixtures.ts";
-import { member, nameChecksum, type QbDataValue, readQbData } from "./qb_data.ts";
+import { addTriggers, member, nameChecksum, type QbDataValue, readQbData } from "./qb_data.ts";
 import { randomChoice } from "./random-fixtures.ts";
 import { readIR } from "./reader.ts";
 import {
@@ -15,6 +15,7 @@ import {
     CAMERA_FLAG,
     DECLARED_FUNCTIONS,
     type Source,
+    TextTokens,
     TriggerData,
     triggerScripts,
     triggersValue,
@@ -223,4 +224,32 @@ test("the declared functions are the engine's (declared_calls.cpp), in its order
     const cpp = readFileSync(new URL("../../src/engine/script/declared_calls.cpp", import.meta.url), "utf8");
     const listed = [...cpp.matchAll(/checksums::hash_from_text\("([A-Za-z0-9_]+)"\),/g)].map((m) => m[1]);
     assert.deepEqual(listed, [...DECLARED_FUNCTIONS]);
+});
+
+test("trigger data added to a written data file is the file written with it; strings take their tokens", () => {
+    const module = source([
+        ...name("Speed"),
+        7,
+        ...integer(3),
+        1,
+        ...script("Trg", [...command("EndGap", [...field("GapID", name("A")), ...field("text", text("Ledge hop"))])]),
+    ]);
+    const data = new TriggerData([], new Set([n("Trg")]));
+    const triggers = triggersValue(data.declarations(module));
+    const plain = emitData(module.ir, "1", [], () => undefined, true)!;
+    assert.equal(addTriggers(plain, triggers), emitData(module.ir, "1", triggers));
+    const textOf = (values: [number, QbDataValue][]) => {
+        const calls = member(values[0]![1], "calls")!;
+        const endGap = (member(calls, "EndGap") as { elements: QbDataValue[] }).elements[0]!;
+        return member(endGap, "text") as { token?: string };
+    };
+    // (a boot file's literal of the same text: its token - the file's own first)
+    const tokens = new TextTokens();
+    const bootIR = readIR(Uint8Array.from([...script("Helper", command("Print", text("Ledge hop"))), 0]), "boot.qb");
+    const call = (bootIR.definitions[0] as { body: { fields: { value: { value: { token?: string } } }[] }[] }).body[0]!;
+    call.fields[0]!.value.value.token = "boot.ledge_hop";
+    tokens.of(bootIR, true);
+    assert.equal(textOf(tokens.tokenized(triggers, new Map())).token, "boot.ledge_hop");
+    const own = new Map([[`3:${[...Buffer.from("Ledge hop")].join(",")}`, "lvl.ledge_hop"]]);
+    assert.equal(textOf(tokens.tokenized(triggers, own)).token, "lvl.ledge_hop");
 });

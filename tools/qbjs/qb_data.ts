@@ -364,3 +364,18 @@ export function writeQbData(
     layout(top, "", WIDTH + 1, out); // (begun past the width: the file's own object always broken over lines)
     return `${out.join("")}\n`;
 }
+
+// A data file `json` (writeQbData's, with no triggers) with `triggers` added - the same text writeQbData writes with
+// them (the file's members are each on a line of their own).
+export function addTriggers(
+    json: string,
+    triggers: [number, QbDataValue][],
+    nameText: (n: number) => string | undefined = () => undefined,
+): string {
+    if (!triggers.length) return json;
+    const alone = writeQbData({ source: "", from: "", globals: [], triggers }, nameText);
+    const section = alone.slice(alone.indexOf('    "triggers": '), alone.lastIndexOf("\n}\n"));
+    const end = json.lastIndexOf("\n}\n");
+    if (end < 0 || json.includes('\n    "triggers": ')) throw Error("not a data file without triggers");
+    return `${json.slice(0, end)},\n${section}\n}\n`;
+}

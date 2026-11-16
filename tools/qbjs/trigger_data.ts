@@ -656,22 +656,50 @@ export function triggersValue(declarations: [number, Declaration][]): [number, Q
     });
 }
 
-// A module's strings' tokens by their text (localize.ts gave its literals tokens): a declared string that is one of
-// them takes its token.
-export function tokensOf(ir: ModuleIR): (bytes: number[]) => string | undefined {
-    const byText = new Map<string, string>();
-    const visit = (node: unknown): void => {
-        if (Array.isArray(node)) node.forEach(visit);
-        else if (node && typeof node === "object") {
-            const x = node as { type?: number; bytes?: number[]; token?: string };
-            if ((x.type === 3 || x.type === 4) && Array.isArray(x.bytes) && typeof x.token === "string")
-                byText.set(`${x.type}:${x.bytes.join(",")}`, x.token);
-            else Object.values(node).forEach(visit);
-        }
-    };
-    visit(ir.definitions);
-    return (bytes) => byText.get(`3:${bytes.join(",")}`) ?? byText.get(`4:${bytes.join(",")}`);
+// The translation tokens of the scripts' strings by their text (localize.ts gave the literals tokens), file by file: a
+// declared string takes its file's token for that text, else the boot files' (a helper the gap is declared through
+// - its text one of theirs) when they have only one for it, else none (its text as it is).
+export class TextTokens {
+    private readonly boot = new Map<string, string | null>(); // (null: two tokens for one text)
+    // A localised module's tokens; `boot`: whether it is a boot file's (its tokens offered to every file).
+    of(ir: ModuleIR, boot: boolean): Map<string, string> {
+        const own = new Map<string, string>();
+        const visit = (node: unknown): void => {
+            if (Array.isArray(node)) node.forEach(visit);
+            else if (node && typeof node === "object") {
+                const x = node as { type?: number; bytes?: number[]; token?: string };
+                if ((x.type === 3 || x.type === 4) && Array.isArray(x.bytes) && typeof x.token === "string")
+                    own.set(textKey(x.type, x.bytes), x.token);
+                else Object.values(node).forEach(visit);
+            }
+        };
+        visit(ir.definitions);
+        if (boot)
+            for (const [key, token] of own) {
+                const had = this.boot.get(key);
+                this.boot.set(key, had === undefined || had === token ? token : null);
+            }
+        return own;
+    }
+    // `values` with their strings given tokens - `own`'s, else the boot files'.
+    tokenized(values: [number, QbDataValue][], own: Map<string, string>): [number, QbDataValue][] {
+        const token = (type: number, bytes: number[]) => {
+            const key = textKey(type, bytes);
+            return own.get(key) ?? this.boot.get(key) ?? undefined;
+        };
+        const walk = (v: QbDataValue): QbDataValue => {
+            if (v.type === 3 || v.type === 4) {
+                const t = token(v.type, v.bytes);
+                return t === undefined ? v : { ...v, token: t };
+            }
+            if (v.type === 10) return { type: 10, members: v.members.map(([n, m]) => [n, walk(m)]) };
+            if (v.type === 12) return { ...v, elements: v.elements.map(walk) };
+            return v;
+        };
+        return values.map(([n, v]) => [n, walk(v)]);
+    }
 }
+const textKey = (type: number, bytes: number[]) => `${type}:${bytes.join(",")}`;
 
 // The trigger data of a game folder's files (game_scripts.ts qbVersions - Data's, the archives', the overlays'): the boot
 // files the game loads at start-up - every file outside levels\ (and Anteara Mod's, which replace them only with

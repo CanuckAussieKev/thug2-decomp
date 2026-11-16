@@ -417,7 +417,8 @@ export async function readCoverage(path: string): Promise<Map<string, Set<string
         } else if (line.startsWith("cover ")) current.add(line.slice(6));
         else if (line.startsWith("loaded "))
             current.add(line); // (the version the game ran: "loaded <hash>")
-        else if (line.startsWith("global ")) current.add(line); // (a global the file defined: "global <name> <len> <hash>")
+        else if (line.startsWith("global "))
+            current.add(line); // (a global the file defined: "global <name> <len> <hash>")
         else if (line.startsWith("declare ")) current.add(line); // (a trigger script's declaration: "declare <name> <text>")
     }
     return out;

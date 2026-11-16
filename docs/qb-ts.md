@@ -182,10 +182,16 @@ these by walking each script's code (`for_each_script_call` 0x0045C950, 0x004E4F
 
   ```json
   "triggers": {
-      "BO_Gap_FountainHop": {"calls": {"EndGap": [{"GapID": "FountainHop", "score": 250, "text": {"$tr": "bo_scripts.fountain_hop"}}]}},
-      "BO_KillskaterWater": {"calls": {"SK3_KillSkater_Water": [{}], "SK3_Killskater_Finish": [{...}], "KillSkater": [{}]},
-                             "keeps_editor_camera_out": true}
-  }
+      "TRGP_Teleport_LibraryScript": {
+          "calls": {"TeleportSkaterToNode": [{"nodename": "TRG_Restart_LibraryInterior01", "orient": true}]},
+          "keeps_editor_camera_out": true
+      },
+      "TRG_Rail_Planter81Script": {
+          "calls": {
+              "EndGap": [
+                  {"end": true, "GapID": "Commons1"},
+                  {"text": {"$tr": "sk4_scripts.ledge_hop"}, "score": 25, "end": true, "GapID": "Commons1"},
+                  ...
   ```
 
   For each of the declared functions (EndGap, StartGap, SK3_KillSkater, SK3_KillSkater_Water, SK3_KillSkater_Pungee,
@@ -195,7 +201,9 @@ these by walking each script's code (`for_each_script_call` 0x0045C950, 0x004E4F
   order reached, as values; and the camera's flag. Shatter's and ShatterAndDie's calls are declared without their
   arguments (the pieces' scatter, often random - no reader wants them). Only the scripts some level's nodes name by
   `TriggerScript=` are declared (what the engine asks about; a script typed into the editor's "Run a script" that no
-  node names has none - it shows no kind);
+  node names has none - it shows no kind). A declared string takes the translation token of its text - the file's own,
+  else the boot files' (a gap's name is often a helper's literal: `sk4_scripts.ledge_hop`) -, so a gap reads in the
+  game's language; the trigger data is added to the `.json` files once every file's text has its tokens;
 - a QB script's is read from its code by the original's rules - the same walks.
 
 The rules the tool follows are the engine's (the code as the loader prepares it, the walks' token by token reading, the
