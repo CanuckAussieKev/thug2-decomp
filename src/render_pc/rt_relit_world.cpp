@@ -118,6 +118,9 @@ struct Entry {
     uint64_t content = 0;            // its content's hash (the relit data's key: relit_data.h relit_mesh_content)
     std::vector<uint32_t> originals; // the game's colours (the bake's: relit never writes them)
     std::vector<uint8_t> animated;   // a vertex whose colour the game animates: 1
+    // (lighting round A) the bake's shadow drawn as geometry - a blended mesh whose vertex colours are all black (it adds
+    // no colour, only takes light away): hidden in the relit level (its store's colour word: transparent)
+    bool baked_shadow = false;
     rt::RelitMesh input;
     rt::RelitVertices light;
     bool analysed = false;   // its light read from the level's data
@@ -496,6 +499,8 @@ bool make_entry(const WorldMesh& world, Entry* out)
         }
     }
     entry.input.colours = entry.originals;
+    entry.baked_shadow = world.blended && !entry.originals.empty() &&
+                         std::ranges::all_of(entry.originals, [](uint32_t colour) { return luma_of(colour) < 1.0F; });
     // (added by building relief) a relieved mesh's made vertices take the flat wall's light (rt_relit.h
     // RelitMesh::sources): their sources, the last of its vertices
     const std::span<const relief::VertexSource> made = mesh_smoothing::sources_of(core::at(mesh->index_buffers(), 0));
@@ -1293,9 +1298,12 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
         }
         const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked), std::size_t{count} * rt::kCelStreamBytes);
         for (std::size_t vi = 0; vi < count; ++vi) {
-            const rt::CelWords words = vi < entry.light.size() && core::at(entry.animated, vi) == 0
-                                           ? rt::cel_stream_words(st.model, core::at(entry.light, vi), light)
-                                           : rt::kCelNoStream;
+            rt::CelWords words = vi < entry.light.size() && core::at(entry.animated, vi) == 0 && !entry.baked_shadow
+                                     ? rt::cel_stream_words(st.model, core::at(entry.light, vi), light)
+                                     : rt::kCelNoStream;
+            if (entry.baked_shadow) {
+                core::at(words, rt::kCelColourWord) = rt::kCelHiddenColour; // (the bake's shadow: not drawn)
+            }
             std::memcpy(bytes.subspan(vi * rt::kCelStreamBytes, rt::kCelStreamBytes).data(), words.data(),
                         rt::kCelStreamBytes);
             if (core::at(words, rt::kCelColourWord) != 0) {
@@ -1798,6 +1806,9 @@ std::string census_bucket(const WorldMesh& world)
     }
     if (entry.written == 0) {
         return "relit: not written yet";
+    }
+    if (entry.baked_shadow) {
+        return "relit: the bake's shadow drawn as geometry - hidden";
     }
     const bool animated = std::ranges::any_of(entry.animated, [](uint8_t a) { return a != 0; });
     if (entry.stream == nullptr) {

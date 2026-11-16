@@ -57,6 +57,10 @@ struct WorldMesh {
     rt::MeshId id = 0;
     const rt::Geometry* geometry = nullptr;
     const VertexBufferData* source = nullptr;
+    // (lighting round A) its material's first pass blends over what is under it (not additive): with black vertex colours
+    // such a mesh adds no colour of its own - it is the bake's shadow drawn as geometry (College's court: the fence's
+    // shadow lines), which the relit level hides (its light store's colour word says so: rt_cel.h)
+    bool blended = false;
 };
 
 // (the offline relit data - engine/gfx/relit_data.h) A new world's first frame (rt_record's new_world_work, whether

@@ -1131,10 +1131,13 @@ std::vector<rt_relit_world::WorldMesh> world_meshes()
     for (const MeshRef* mesh : st.world) {
         const auto found = st.meshes.find(mesh);
         if (found != st.meshes.end()) {
+            const MaterialRef* material = mesh->material();
+            const uint32_t first = material != nullptr ? blend_mode(material, 0) : 0U;
             world.push_back({.mesh = mesh,
                              .id = found->second.id,
                              .geometry = &found->second.geometry,
-                             .source = found->second.source});
+                             .source = found->second.source,
+                             .blended = first != 0U && first != kBlendAdd && first != kBlendFixedAdd});
         }
     }
     return world;

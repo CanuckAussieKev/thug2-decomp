@@ -104,6 +104,9 @@ void set_cel_world(const CelWorld& world);
 // The cel draws read words 0 - 2 (kCelStreamAttributes); every relit draw word 5.
 inline constexpr uint32_t kCelStreamWords = 6;
 inline constexpr uint32_t kCelColourWord = 5;
+// (word 5) a mesh the relit level hides - the bake's shadow drawn as geometry: the draw's colour transparent black (its
+// alpha 128: the shader replaces the whole colour with nothing)
+inline constexpr uint32_t kCelHiddenColour = 0x80000000U;
 inline constexpr uint32_t kCelStreamAttributes = 3;
 inline constexpr uint32_t kCelStreamBytes = kCelStreamWords * 4;
 using CelWords = std::array<uint32_t, kCelStreamWords>;

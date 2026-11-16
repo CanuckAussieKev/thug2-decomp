@@ -254,7 +254,9 @@ void vertex_lighting(std::string& out, const VertexKey& key)
     if ((key.surface & kVertexRelitColour) != 0U) {
         // (NOT ORIGINAL - lighting round A) the relit light store's colour in place of the vertex colour's (its alpha 1
         // where the vertex has one; the game's alpha kept)
-        add(out, {"    if (a_relit.a > 0.5) {\n        diffuse_in.rgb = a_relit.rgb;\n    }"});
+        // (a mesh relit hides - the bake's shadow drawn as geometry: alpha 128 - nothing drawn)
+        add(out, {"    if (a_relit.a > 0.75) {\n        diffuse_in.rgb = a_relit.rgb;\n    } else if (a_relit.a > 0.25) {\n"
+                  "        diffuse_in = vec4(0.0);\n    }"});
     }
     add(out, {"    vec4 specular_in = ", (key.fvf & kFvfSpecular) != 0U ? "a_specular" : "vec4(0.0)", ";"});
     if (!key.lighting || fvf_pre_transformed(key.fvf)) {
