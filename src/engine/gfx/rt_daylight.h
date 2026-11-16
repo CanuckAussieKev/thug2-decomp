@@ -119,12 +119,28 @@ struct NativeDay {
 // the sun kDuskElevation up after noon; night - midnight.
 inline constexpr double kDefaultSunElevation = 45.0;
 inline constexpr double kHighestMargin = 2.0; // a sun too high for kTodLatitude: the latitude this much under the fit
+// (added by the level's compass) A level whose north is given (its data - rt_relit_levels.json's "north", published by
+// set_level_north): the path turned so north lies there instead; the level's own time still the time its sun is that
+// high on that side of noon, so its own light is unchanged, and its own sun the path's then - the bake's direction
+// only where the given north is the one the fit would find. Every effect follows (they all read DayLight).
 struct NativeInputs {
     DayVec sun{};
     bool have_sun = false;
     bool from_bake = false;
     TodState state = TodState::kAfternoon;
+    bool north_set = false;
+    double north_heading = 0.0; // degrees, round from +z toward +x
 };
+// The level's north as its data gives it (render_pc publishes it for the level it relights; the clock reads it before
+// fitting the level's day): `level` the scene's checksum (0: none yet).
+struct LevelNorth {
+    uint32_t level = 0;
+    bool set = false;
+    double heading = 0.0;
+    bool operator==(const LevelNorth&) const = default;
+};
+void set_level_north(const LevelNorth& north);
+[[nodiscard]] LevelNorth level_north();
 [[nodiscard]] NativeDay fit_native_day(const NativeInputs& in);
 // A preset's time in that day: dawn and dusk when the sun is kDuskElevation up (rising, setting), morning 9:00, noon,
 // afternoon 15:30, night midnight, a clock time its own, level the level's.

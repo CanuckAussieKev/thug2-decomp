@@ -1483,6 +1483,10 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         return;
     }
     const rt::RelitLevel* entry_of_level = level_entry(level);
+    // (added by the level's compass) its north, as its entry gives it, for the time of day's sun path (rt_daylight.h)
+    rt::set_level_north({.level = level,
+                         .set = entry_of_level != nullptr && entry_of_level->north_set,
+                         .heading = entry_of_level != nullptr ? static_cast<double>(entry_of_level->north_heading) : 0.0});
     // (added by the scene's sun) whether rt_sun_source=game may light this level by the game's sun: its entry may keep
     // the baked one; the mode says it relights the level once the model is found (rt_scene.h scene_sun)
     const bool keeps_baked_sun = entry_of_level != nullptr && entry_of_level->keeps_baked_sun;

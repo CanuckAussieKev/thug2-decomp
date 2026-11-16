@@ -230,6 +230,10 @@ struct RtFogSettings {
     render::rt::AirLook air = render::rt::AirLook::kCinematic;
     unsigned scale = kRtFogScale;
     unsigned map = kRtFogMap; // (added by the distinct shafts) the air's sun map's side (rt_fog_quality's; 64 - 2048)
+    // (added by the god rays - rt_volume_light.h god_ray_peak) the forward peak's light drawn at the screen's resolution,
+    // its shadows the streaks toward the light: x this (rt_fog_god_rays, Options "God rays"; 0: off - the march keeps the
+    // whole phase; 1 the physical medium's light; up to 2)
+    float god_rays = render::rt::kGodRaysDefault;
 };
 void set_rt_fog_settings(const RtFogSettings& settings);
 [[nodiscard]] RtFogSettings rt_fog_settings();
