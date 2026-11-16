@@ -58,6 +58,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/script/token_reader.h"
+#include "engine/gfx/day_clock.h"
 #include "engine/script/trace_hooks.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/mlp.h"
@@ -1530,6 +1531,11 @@ void playback_frame_end(uint32_t now, bool rendering)
         const CheckPoint point = point_now(now);
         run.track += demo_format::check_line(point) + "\n";
         run.states += state_line(now);
+        // (the time of day's clock, when it runs: its time, the level's state and the sun - a comment line the
+        // reference's comparison skips; tools/game/sim_check.ts compares it between the runs of one demo)
+        if (const std::string tod = render::day_clock::state_line(); !tod.empty()) {
+            run.states += text::format("#tod %u %s\n", now, tod.c_str());
+        }
         if (run.trace) {
             trace_check_point();
         }

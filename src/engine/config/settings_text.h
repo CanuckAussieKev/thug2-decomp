@@ -360,6 +360,7 @@ inline constexpr const char* kLevelIndoors = "This level is indoors";
 inline constexpr const char* kLevelLightNotBuilt = "This level's lighting isn't built - run relit_bake";
 inline constexpr const char* kLevelLightOutOfDate = "This level's lighting is out of date - run relit_bake";
 inline constexpr const char* kLevelNoSunlight = "This level has no sunlight to relight";
+inline constexpr const char* kNeedsNetworkGame = "Needs an online game";
 inline constexpr const char* kNotInstalled = "Not installed";
 inline constexpr const char* kNoVulkanGpu = "Direct3D 9 - no Vulkan GPU here";
 inline constexpr const char* kRetired = "No longer used";
@@ -398,5 +399,7 @@ inline constexpr const char* kOnForThugproLobbies = "On with THUGPRO lobbies";
 inline constexpr const char* kVsyncHoldsFrames = "V-sync holds generated frames to your display's rate";
 inline constexpr const char* kPastRefresh = "More frames than your display can show";
 inline constexpr const char* kFixedSunStopsClock = "A fixed sun direction overrides the time of day's sun";
+// (limits: a setting in effect only in part)
+inline constexpr const char* kTodLightingOnline = "Online: lighting only - the level stays the same for every player";
 
 } // namespace config::text

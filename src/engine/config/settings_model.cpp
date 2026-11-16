@@ -330,7 +330,6 @@ std::vector<Decl> declarations()
                    c("afternoon", t::kTodAfternoon), c("dusk", t::kTodDusk), c("night", t::kTodNight)})
             .open()
             .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
-            .need(level_lit_or_no_rt(Cap::kLevelLightCurrent), t::kLevelLightOutOfDate)
             .need(level_lit_or_no_rt(Cap::kLevelSunInBake), t::kLevelNoSunlight)
             .off("level")
             .live(E::kTimeOfDay),
@@ -340,7 +339,6 @@ std::vector<Decl> declarations()
             .alias("0", "off")
             .alias("1", "on")
             .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
-            .need(level_lit_or_no_rt(Cap::kLevelLightCurrent), t::kLevelLightOutOfDate)
             .need(level_lit_or_no_rt(Cap::kLevelSunInBake), t::kLevelNoSunlight)
             .off("off")
             .live(E::kTimeOfDay),
@@ -351,7 +349,6 @@ std::vector<Decl> declarations()
             .live(E::kTimeOfDay),
         gfx("tod_levels", K::kText, "")
             .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
-            .need(level_lit_or_no_rt(Cap::kLevelLightCurrent), t::kLevelLightOutOfDate)
             .need(level_lit_or_no_rt(Cap::kLevelSunInBake), t::kLevelNoSunlight)
             .off("")
             .live(E::kTimeOfDay),
@@ -1205,6 +1202,19 @@ const std::vector<Conflict>& conflicts()
          .reason = t::kFixedSunStopsClock},
     };
     return kConflicts;
+}
+
+const std::vector<Limit>& limits()
+{
+    // (the time of day in a network session - engine/gfx/day_clock.h: the clock lights the level, never sets the
+    // level's own time-of-day states - their scripts make and remove the level's objects, collision and trigger scripts
+    // among them, which every player must share; the original never changes them in a multiplayer game either)
+    static const std::vector<Limit> kLimits = {
+        {.keys = {"tod", "tod_cycle", "tod_levels"},
+         .when = all({has(Cap::kNetworkGame), tod_runs()}),
+         .reason = t::kTodLightingOnline},
+    };
+    return kLimits;
 }
 
 const std::vector<PresetValue>& preset_values(int choice)

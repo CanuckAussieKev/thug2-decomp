@@ -106,6 +106,8 @@ const char* cap_reason(Cap cap)
         return t::kLevelLightOutOfDate;
     case Cap::kLevelSunInBake:
         return t::kLevelNoSunlight;
+    case Cap::kNetworkGame:
+        return t::kNeedsNetworkGame;
     case Cap::kLevelWithoutFog:
     default:
         return t::kLevelHasFog;
@@ -148,6 +150,8 @@ bool has_cap(const Inputs& in, Cap cap)
         return in.level.light != LevelLight::kStale;
     case Cap::kLevelSunInBake:
         return in.level.light != LevelLight::kNoSun;
+    case Cap::kNetworkGame:
+        return in.level.network;
     case Cap::kLevelWithoutFog:
     default:
         return !in.level.known || !in.level.fog;
@@ -191,6 +195,20 @@ public:
                 const int found = find(key);
                 if (found >= 0) {
                     core::at(out_.items, found).conflicts.emplace_back(conflict.reason);
+                }
+            }
+        }
+        const std::vector<Limit>& limited = limits();
+        for (size_t i = 0; i < limited.size(); ++i) {
+            const Limit& limit = core::at(limited, i);
+            if (!holds(limit.when)) {
+                continue;
+            }
+            out_.limited.push_back(static_cast<int>(i));
+            for (const char* key : limit.keys) {
+                const int found = find(key);
+                if (found >= 0 && core::at(out_.items, found).in_effect) {
+                    core::at(out_.items, found).limits.emplace_back(limit.reason);
                 }
             }
         }
@@ -718,6 +736,17 @@ void check_forces_and_conflicts(std::string* problems)
             }
         }
         check_cond(conflict.when, "conflict", problems);
+    }
+    for (const Limit& limit : limits()) {
+        for (const char* key : limit.keys) {
+            if (find(key) < 0) {
+                add(std::string("limit: ") + key + " is no setting");
+            }
+        }
+        if (limit.reason == nullptr) {
+            add("limit: no words");
+        }
+        check_cond(limit.when, "limit", problems);
     }
 }
 

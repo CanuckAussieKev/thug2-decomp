@@ -110,6 +110,8 @@ enum class Cap : uint8_t {
     kLevelLightData,    // the level's relit data is built (tools/game/relit_bake.ts)
     kLevelLightCurrent, // ... and made from the level's meshes as they are now
     kLevelSunInBake,    // ... and the level's bake has sunlight to take apart (an indoor level's has none)
+    // (added by the time of day's clock) the game now is a network session (LevelFacts::network; false while none)
+    kNetworkGame,
 };
 
 class Reader;
@@ -183,6 +185,15 @@ struct Force {
     const char* reason = nullptr;
 };
 
+// A setting kept in effect but only in part while `when` holds - the time of day in a network session: its lighting,
+// never the level's own time-of-day states (their scripts make and remove the level's objects, collision among them,
+// which every player must share). Its rows say so.
+struct Limit {
+    std::vector<const char*> keys;
+    Cond when;
+    const char* reason = nullptr;
+};
+
 // Two or more settings that work against each other while `when` holds - each stays in effect; each row says so.
 struct Conflict {
     std::vector<const char*> keys;
@@ -199,6 +210,7 @@ struct PresetValue {
 const std::vector<Setting>& settings();
 const std::vector<Force>& forces();
 const std::vector<Conflict>& conflicts();
+const std::vector<Limit>& limits();
 // What choosing graphics_preset's choice `choice` writes (none for Custom, 0).
 const std::vector<PresetValue>& preset_values(int choice);
 
@@ -249,7 +261,11 @@ struct LevelFacts {
     bool known = false;
     bool fog = false; // the level has fog of its own
     bool outdoor = true; // (added by the snow) the level has a sky (render_pc/snow_world.cpp says, each level)
-    LevelLight light = LevelLight::kUnknown; // (render_pc/rt_relit_world.cpp says, each level)
+    // (the level's relit data: what the file says - built, missing, no sun - is read when the level arrives, by the
+    // simulation's clock, engine/gfx/day_clock.cpp; whether it matches the level's meshes - stale - the renderer adds,
+    // render_pc/rt_relit_world.cpp)
+    LevelLight light = LevelLight::kUnknown;
+    bool network = false; // (added by the time of day's clock) a network session: engine/gfx/day_clock.cpp says
 };
 
 struct Inputs {
@@ -269,6 +285,7 @@ struct Resolved {
     bool changed = false;   // the effective value isn't the one asked (forced, a choice not possible here, out of effect)
     std::string reason;     // why, for the player ("" when it is in effect as asked)
     std::vector<std::string> conflicts; // what works against it (Conflict reasons)
+    std::vector<std::string> limits;    // what it does only in part now (Limit reasons)
     // One per choice: "" when it is possible here, else why not (a texture set not installed, 3x without an RTX 50) -
     // the Options screen offers only the possible ones.
     std::vector<std::string> blocked;
@@ -278,6 +295,7 @@ class Resolution {
 public:
     std::vector<Resolved> items; // one per settings() entry
     std::vector<int> active;     // the conflicts() in force
+    std::vector<int> limited;    // the limits() in force
 
     // The setting `key`'s answer (an undeclared key: an empty one, not in effect).
     [[nodiscard]] const Resolved& at(const char* key) const;

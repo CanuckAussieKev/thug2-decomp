@@ -251,6 +251,8 @@ struct TodManagerState {
     TodParamsFilter params_filter_ = nullptr;
     // NOT ORIGINAL - set_multiplayer_unlock's (null: none).
     MultiplayerUnlock multiplayer_unlock_ = nullptr;
+    // NOT ORIGINAL - tod_state_sets' count.
+    uint64_t state_sets_ = 0;
 };
 
 TodManagerState& tod_manager_state()
@@ -277,6 +279,7 @@ void set_tod_params_filter(TodParamsFilter filter) { tod_manager_state().params_
 void set_multiplayer_unlock(MultiplayerUnlock unlock) noexcept { tod_manager_state().multiplayer_unlock_ = unlock; }
 MultiplayerUnlock get_multiplayer_unlock() { return tod_manager_state().multiplayer_unlock_; }
 bool tod_lights_locked() { return lights_locked(); }
+uint64_t tod_state_sets() { return tod_manager_state().state_sets_; }
 
 uint32_t next_tod_state(uint32_t state)
 {
@@ -1195,6 +1198,7 @@ void CtodManager::set_tod_instant(uint32_t state)
     if (lights_locked()) { // (the unlock: NOT ORIGINAL - set_multiplayer_unlock)
         return;
     }
+    ++tod_manager_state().state_sets_; // (NOT ORIGINAL - tod_state_sets: the time of day's clock sees who set it)
     // How long until `state`, from the first non-sky system.
     TodSystem& current = system_at(this, current_system());
     int remaining = current.transitioning ? current.transition_length_ - current.time

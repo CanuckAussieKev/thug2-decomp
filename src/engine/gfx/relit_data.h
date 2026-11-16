@@ -24,6 +24,7 @@
 //
 // Little-endian; the vertices' parts as half floats. API-neutral (no file access here: the callers read and write).
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -84,6 +85,18 @@ inline constexpr float kRelitVerdictMargin = 1.0F;
 [[nodiscard]] std::string write_relit_data(const RelitLevelData& data);
 // The file read; false (with `why`) when it isn't one of this version.
 bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* why);
+// (added by the time of day's clock - engine/gfx/day_clock.h) The level's own facts from the start of its file alone -
+// its scene, verdict and baked sun's direction: what the simulation's clock needs when the level arrives (the level's
+// own day, and whether the data is there for the time of day), read without the rest (the vertices' parts are the
+// renderer's). kRelitHeadBytes is enough of the file for it.
+struct RelitLevelHead {
+    uint32_t scene = 0;
+    RelitVerdict verdict = RelitVerdict::kNoSun;
+    bool sun_found = false;
+    std::array<float, 3> toward{}; // toward the baked sun, normalised
+};
+inline constexpr std::size_t kRelitHeadBytes = 128;
+bool read_relit_head(std::string_view bytes, RelitLevelHead* out);
 // A mesh's content hash (what the data keys it by): its positions, its triangles (RelitMesh's, as the RayTracing numbers
 // them) and its made vertices' sources. Not its colours: the game writes them (scene lights at a change of the time of
 // day, colour animations) - a mesh found at night is the mesh the bake took apart by day.

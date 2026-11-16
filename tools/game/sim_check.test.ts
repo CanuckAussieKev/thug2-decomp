@@ -6,14 +6,17 @@ import * as path from "node:path";
 import { test } from "node:test";
 import {
     compareStates,
+    compareTod,
     iniValue,
     parseStates,
+    parseTod,
     passed,
     REFERENCE_FOLDER,
     referenceDemos,
     reportLine,
     runName,
     scriptsMode,
+    todLine,
     undrawnFrames,
 } from "./sim_check.ts";
 
@@ -79,4 +82,24 @@ test("the scripts a folder runs: its ini's ts_scripts and whether it is unpacked
     assert.equal(scriptsMode("[features]\nts_scripts=0\n", false), "qb");
     assert.equal(scriptsMode("", false), "qb");
     assert.equal(scriptsMode("", true), "mismatch");
+});
+
+test("the time of day's lines: kept apart from the state, compared with the first run", () => {
+    const lines = [
+        HEADER,
+        "5 A B C 83",
+        "#tod 5 13.5 6a3f6d2d 0.1 0.9 0.2",
+        "6 A B C 100",
+        "#tod 6 13.51 6a3f6d2d 0.1 0.9 0.2",
+    ];
+    const text = lines.join("\n");
+    assert.equal(parseStates(text).size, 2);
+    const first = parseTod(text);
+    assert.equal(first.get(6), "13.51 6a3f6d2d 0.1 0.9 0.2");
+    const same = compareTod(first, parseTod(text));
+    assert.equal(same.firstDiffers, -1);
+    assert.match(todLine("d", 144, same, 7), /^\| d \| 144, load 7 \| 2 \/ 2 \| none \| ok \|$/);
+    const other = compareTod(first, parseTod(text.replace("#tod 6 13.51", "#tod 6 13.52")));
+    assert.equal(other.firstDiffers, 6);
+    assert.equal(compareTod(first, new Map()).firstDiffers, 5);
 });

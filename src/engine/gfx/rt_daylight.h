@@ -65,8 +65,11 @@ inline constexpr float kMostCycleMinutes = 1440.0F;
 struct TodSettings {
     TodChoice choice;
     bool cycle = false;                         // tod_cycle=on: the clock runs
-    float cycle_minutes = kDefaultCycleMinutes; // real minutes for a whole day
+    float cycle_minutes = kDefaultCycleMinutes; // minutes of game time for a whole day (the simulation's steps)
     std::vector<TodLevel> levels;
+    // (a network session - the settings model's limit, engine/config/settings_model.h limits) the clock lights the level
+    // but never sets the level's own time-of-day states: their scripts make and remove objects every player shares
+    bool lighting_only = false;
 };
 void set_tod_settings(const TodSettings& settings);
 [[nodiscard]] TodSettings tod_settings();
