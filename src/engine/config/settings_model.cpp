@@ -540,11 +540,8 @@ std::vector<Decl> declarations()
             .tab(G::kSurfaces, t::kOptFresnel, t::kOptFresnelHelp)
             .need(on("rt_reflections"))
             .live(E::kReflections),
-        gfx("rt_glass_reflectance", K::kNumber, "0.2")
-            .tab(G::kSurfaces, t::kOptGlassReflectance)
-            .pick({c("0.04", "Real"), c("0.1", "10%"), c("0.2", "20%"), c("0.35", "35%")})
-            .need(on("rt_reflections"))
-            .live(E::kReflections),
+        // (retired by the physical air: glass reflects as glass does - F0 0.04)
+        gfx("rt_glass_reflectance", K::kNumber, "0.2").retire(t::kRetiredPhysical),
         gfx("rt_glass_roughness", K::kNumber, "0.05")
             .tab(G::kSurfaces, t::kOptGlassRoughness)
             .pick({c("0", "Mirror"), c("0.05", t::kLow), c("0.1", t::kMedium), c("0.2", t::kHigh)})
@@ -668,39 +665,31 @@ std::vector<Decl> declarations()
         gfx("rt_sky_match", K::kNumber, "0.8").retire(t::kRetired), // (the sky is the time of day's atmosphere alone)
         gfx("rt_sky_model", K::kSwitch, "0").tab(G::kSky, t::kOptSkyModel, t::kOptSkyModelHelp).need(ray_tracing()).live(E::kSun),
         gfx("rt_sun", K::kSwitch, "0").tab(G::kSky, t::kOptSun, t::kOptSunHelp).need(vulkan(), t::kNeedsVulkan).live(E::kSun),
-        // (the sun's colour: the disc's, and the light the sky table hands the other effects - made while the sun, its
-        // rays, the bloom or the sky model is on: vulkan_rt_scene.cpp)
-        gfx("rt_sun_colour", K::kText, "auto")
-            .tab(G::kSky, t::kOptSunColour)
-            .pick({c("auto", t::kAuto), c("1,0.85,0.7", "Warm"), c("1,1,1", "White"), c("0.85,0.92,1", "Cool")})
-            .need(any({on("rt_sun"), on("rt_bloom"), on("rt_sky_model")}), t::kNeedsSunLight)
-            .live(E::kSun),
-        gfx("rt_sun_size", K::kNumber, "1").need(on("rt_sun")).live(E::kSun),
+        // (retired by the physical air: the sun's colour is the atmosphere's, its disc the real sun's size)
+        gfx("rt_sun_colour", K::kText, "auto").retire(t::kRetiredPhysical),
+        gfx("rt_sun_size", K::kNumber, "1").retire(t::kRetiredPhysical),
         // (an older ini's screen-space rays: the volumetric light's shafts replaced them - rt_fog, rt_fog_strength)
         gfx("rt_shafts", K::kSwitch, "0").retire(t::kRetiredShafts),
         gfx("rt_shaft_strength", K::kNumber, "0.8").retire(t::kRetiredShafts),
         gfx("rt_fog", K::kSwitch, "0").tab(G::kSky, t::kOptFog, t::kOptFogHelp).need(ray_tracing()).live(E::kFog),
-        // (the light the air scatters - the sun's or the moon's, the lamps' - and the march's quality: vulkan_rt_fog.h)
-        // (changed by the street air: the shafts' look is the air's - rt_volume_light.h street_air - not a multiplier on
-        // its light; rt_fog_strength stays the ini's. Changed by the cinematic air: the air's look in steps - clear, the
-        // physical air; cinematic, the default; misty - rt_volume_light.h AirLook. The air is lit by the relit level's
-        // sun alone: without the level relit there is no sunlit air - rt_volume_light.h MediumLight)
-        gfx("rt_fog_air", K::kChoice, "cinematic")
+        // (changed by the physical air: the weather - how clear the air is, a visibility - rt_sky.h Weather: the sky's
+        // aerosol and the level's air, one medium. An older ini's "cinematic" is hazy. The air is lit by the relit
+        // level's sun alone: without the level relit there is no sunlit air - rt_volume_light.h MediumLight)
+        gfx("rt_fog_air", K::kChoice, "clear")
             .tab(G::kSky, t::kOptAtmosphere, t::kOptAtmosphereHelp)
-            .pick({c("clear", t::kAirClear), c("cinematic", t::kAirCinematic), c("misty", t::kAirMisty)})
+            .pick({c("clear", t::kAirClear), c("hazy", t::kAirHazy), c("misty", t::kAirMisty)})
             .alias("0", "clear")
-            .alias("1", "cinematic")
+            .alias("1", "hazy")
+            .alias("cinematic", "hazy")
             .alias("2", "misty")
-            .need(on("rt_fog"))
-            .need(on("rt_relit"))
+            .need(any({on("rt_fog"), on("rt_sky"), on("rt_sky_model")}), t::kNeedsFogOrSky)
             .live(E::kFog),
-        gfx("rt_fog_strength", K::kNumber, "1").need(on("rt_fog")).live(E::kFog),
-        // (added by the god rays: the light the air scatters near the sun drawn at the screen's resolution - its streaks
-        // through branches and past towers; 1 the air's own light, more the look's emphasis - rt_volume_light.h
-        // god_ray_peak. Lit by the relit level's sun alone, as the air)
-        gfx("rt_fog_god_rays", K::kNumber, "1")
+        gfx("rt_fog_strength", K::kNumber, "1").retire(t::kRetiredPhysical),
+        // (added by the god rays: the shadows of the light the air scatters near the sun resolved at the screen's
+        // resolution - its streaks through branches and past towers; on or off - rt_volume_light.h god_ray_peak. Lit by
+        // the relit level's sun alone, as the air)
+        gfx("rt_fog_god_rays", K::kSwitch, "1")
             .tab(G::kSky, t::kOptGodRays, t::kOptGodRaysHelp)
-            .pick({c("0", t::kOff), c("1", t::kOn), c("2", t::kGodRaysStrong)})
             .need(on("rt_fog"))
             .need(on("rt_relit"))
             .live(E::kFog),
@@ -715,19 +704,13 @@ std::vector<Decl> declarations()
             .need(on("rt_fog"))
             .need(has(Cap::kLevelWithoutFog))
             .live(E::kFog),
-        // (the haze's air: the sky model's aerial perspective)
-        gfx("rt_fog_haze_density", K::kNumber, "0.3")
-            .tab(G::kSky, t::kOptHazeDensity)
-            .pick({c("0.15", t::kLow), c("0.3", t::kMedium), c("0.6", t::kHigh), c("1", "Thick")})
-            .need(all({on("rt_fog_haze"), on("rt_sky_model")}), t::kNeedsHazeAndSkyModel)
-            .live(E::kFog),
-        gfx("rt_fog_haze_height", K::kNumber, "600")
-            .need(all({on("rt_fog_haze"), on("rt_sky_model")}), t::kNeedsHazeAndSkyModel)
-            .live(E::kFog),
+        // (retired by the physical air: the haze is the weather's aerosol - rt_fog_air -, its phase the aerosol's)
+        gfx("rt_fog_haze_density", K::kNumber, "0.3").retire(t::kRetiredPhysical),
+        gfx("rt_fog_haze_height", K::kNumber, "600").retire(t::kRetiredPhysical),
         gfx("rt_fog_mode", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
         gfx("rt_fog_density", K::kNumber, "1").need(on("rt_fog")).live(E::kFog),
         gfx("rt_fog_height", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
-        gfx("rt_fog_anisotropy", K::kNumber, "0.75").need(on("rt_fog")).live(E::kFog),
+        gfx("rt_fog_anisotropy", K::kNumber, "0.75").retire(t::kRetiredPhysical),
         // (0: rt_fog_quality's steps)
         gfx("rt_fog_steps", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
 
@@ -763,11 +746,8 @@ std::vector<Decl> declarations()
             .live(E::kHdr),
         gfx("rt_grade_lut", K::kText, "").need(on("rt_hdr")).live(E::kHdr),
         gfx("rt_bloom", K::kSwitch, "0").tab(G::kColour, t::kOptBloom, t::kOptBloomHelp).need(vulkan(), t::kNeedsVulkan).live(E::kSun),
-        gfx("rt_bloom_strength", K::kNumber, "0.05")
-            .tab(G::kColour, t::kOptBloomStrength)
-            .pick({c("0.02", t::kLow), c("0.05", t::kMedium), c("0.1", t::kHigh), c("0.2", "Max")})
-            .need(on("rt_bloom"))
-            .live(E::kSun),
+        // (retired by the physical air: the glare is the eye's - vulkan_rt_sun.h kGlarePerOctave)
+        gfx("rt_bloom_strength", K::kNumber, "0.05").retire(t::kRetiredPhysical),
         gfx("rt_lens_dirt", K::kSwitch, "0").need(any({on("rt_bloom"), on("rt_sun")}), t::kNeedsBloomOrSun).live(E::kSun),
 
         // ===== Camera: motion blur, depth of field, the colour grade (gpu_vulkan/vulkan_camera_fx.h)

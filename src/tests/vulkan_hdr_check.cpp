@@ -426,8 +426,8 @@ bool fill_grey(render::Gpu& gpu, GpuSurface* target, uint16_t grey)
 }
 
 // The processor's meter over the inputs' pixels in `rect` (vk::meter_place / meter_weight / meter_light - the meter's
-// twins), the exposure's factor `scale` on them.
-float processor_mean(const std::vector<uint16_t>& values, std::array<uint32_t, 4> rect, float scale)
+// twins): their centre-weighted log average.
+float processor_mean(const std::vector<uint16_t>& values, std::array<uint32_t, 4> rect)
 {
     double light = 0.0;
     double weight = 0.0;
@@ -440,15 +440,15 @@ float processor_mean(const std::vector<uint16_t>& values, std::array<uint32_t, 4
             std::array<float, 3> colour{};
             for (std::size_t channel = 0; channel < kChannels; ++channel) {
                 const float value = from_half(core::at(in, channel));
-                core::at(colour, channel) = std::isfinite(value) ? value * scale : (value > 0.0F ? 65504.0F : 0.0F);
+                core::at(colour, channel) = std::isfinite(value) ? value : (value > 0.0F ? 65504.0F : 0.0F);
             }
             const float w = vk::meter_weight(place);
             const double counted = vk::meter_light(colour);
-            light += static_cast<double>(w) * counted * counted;
+            light += static_cast<double>(w) * std::log(counted);
             weight += static_cast<double>(w);
         }
     }
-    return static_cast<float>(std::sqrt(light / weight));
+    return static_cast<float>(std::exp(light / weight));
 }
 
 // One pass of the meter over `target` (filled), its reading and the pixel (0, 0)'s red as mapped.
@@ -470,9 +470,9 @@ Metered meter_pass(render::Gpu& gpu, GpuSurface* target, std::array<uint32_t, 4>
     return out;
 }
 
-// The meter: a bright view brought down by its mean over the key (at most rt_exposure_adapt stops), a dim one left
-// alone, its mean the processor's, a view's exposure moving toward its target over time and starting there after a
-// gap; rt_exposure_adapt=0: no meter.
+// The meter (changed by the physical air: one controller, both ways): a view's exposure its log average under the
+// calibrated key (at most rt_exposure_adapt stops either way), its mean the processor's, moving toward its target over
+// time and starting there after a gap; rt_exposure_adapt=0: no meter.
 void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* tally)
 {
     text::print("the meter (rt_exposure_adapt):\n");
@@ -507,24 +507,31 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                                   static_cast<double>(white.reading.factor), static_cast<double>(white.shown),
                                   static_cast<double>(shown)));
     }
-    // a dim view (another viewport, its own slot): left alone
+    // a mid-grey view (another viewport, its own slot): its stops the processor's, both ways
+    const float grey_mean = vk::meter_light({0.5F, 0.5F, 0.5F});
+    const float grey_stops = vk::meter_target_stops(grey_mean, metered.exposure_adapt);
     {
         const std::array<uint32_t, 4> left_half{0, 0, kWidth / 2, kHeight};
         const bool filled = fill_grey(gpu, target, kHalfGrey);
         const Metered grey = meter_pass(gpu, target, left_half);
-        tally->check(filled && grey.ran && grey.reading.stops == 0.0F && grey.reading.factor == 1.0F &&
-                         std::abs(grey.shown - 0.5F) < kStep + kSlack,
-                     text::format("a mid-grey view (its own viewport): metered %.4f, under the key %.2f - %.3f stops, "
-                                  "grey shown as %.4f",
-                                  static_cast<double>(grey.reading.mean), static_cast<double>(vk::kMeterKey),
-                                  static_cast<double>(grey.reading.stops), static_cast<double>(grey.shown)));
+        const float factor = std::exp2(grey_stops / 2.2F);
+        const std::array<float, 3> mapped =
+            vk::tone_map_reference(parameters, nullptr, {0.5F * factor, 0.5F * factor, 0.5F * factor});
+        const float shown = core::at(mapped, 0);
+        tally->check(filled && grey.ran && std::abs(grey.reading.stops - grey_stops) < kTolerance &&
+                         std::abs(grey.shown - shown) < kStep + kSlack,
+                     text::format("a mid-grey view (its own viewport): metered %.4f, the key %.3f - %.3f stops (%.3f), "
+                                  "grey shown as %.4f (%.4f)",
+                                  static_cast<double>(grey.reading.mean), static_cast<double>(vk::meter_key(grey_mean)),
+                                  static_cast<double>(grey.reading.stops), static_cast<double>(grey_stops),
+                                  static_cast<double>(grey.shown), static_cast<double>(shown)));
     }
     // the check's random image (to 8 x white, not a number, infinities) on the white view's viewport at once after it:
     // its mean the processor's; on its way from the white's stops toward its target, not there
     {
         const bool filled = fill(gpu, target, values);
         const Metered before = meter_pass(gpu, target, whole);
-        const float mean = processor_mean(values, whole, parameters.scale);
+        const float mean = processor_mean(values, whole);
         const float stops = vk::meter_target_stops(mean, metered.exposure_adapt);
         tally->check(filled && before.ran && std::abs(before.reading.mean - mean) < kTolerance * mean &&
                          std::abs(before.reading.target - stops) < kTolerance,
@@ -536,14 +543,17 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         // (a dim image there: brought back up over time - between where it was and its target)
         const bool dimmed = fill_grey(gpu, target, kHalfGrey);
         const Metered moving = meter_pass(gpu, target, whole);
-        tally->check(dimmed && moving.ran && moving.reading.stops > before.reading.stops && moving.reading.stops < 0.0F,
-                     text::format("then mid-grey a moment later: back up gradually - %.3f stops (from %.3f toward 0)",
-                                  static_cast<double>(moving.reading.stops), static_cast<double>(before.reading.stops)));
+        const bool between = (moving.reading.stops - before.reading.stops) * (grey_stops - moving.reading.stops) > 0.0F;
+        tally->check(dimmed && moving.ran && between,
+                     text::format("then mid-grey a moment later: there gradually - %.3f stops (from %.3f toward %.3f)",
+                                  static_cast<double>(moving.reading.stops), static_cast<double>(before.reading.stops),
+                                  static_cast<double>(grey_stops)));
         // (after a gap - a menu over it, a level loading - it starts at its target)
         constexpr auto kGap = std::chrono::milliseconds(600);
         std::this_thread::sleep_for(kGap);
+        const bool refilled = fill_grey(gpu, target, kHalfGrey); // (the pass maps the target in place: grey again)
         const Metered later = meter_pass(gpu, target, whole);
-        tally->check(later.ran && later.reading.stops == 0.0F,
+        tally->check(refilled && later.ran && std::abs(later.reading.stops - grey_stops) < kTolerance,
                      text::format("after 0.6 s unseen: at its target at once (%.3f stops)",
                                   static_cast<double>(later.reading.stops)));
     }
@@ -561,6 +571,19 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                      text::format("16 x white with rt_exposure_adapt %.1f: metered %.1f (a sample's most), %.3f stops",
                                   static_cast<double>(kMostStops), static_cast<double>(bright.reading.mean),
                                   static_cast<double>(bright.reading.stops)));
+        // (added by the physical air) a dark view brought up - at most rt_exposure_adapt stops; the night's key under
+        // the day's (the eye adapted to the dark doesn't make it day)
+        constexpr uint16_t kDark = 0x2A66; // (0.05: linear 0.0014)
+        std::this_thread::sleep_for(std::chrono::milliseconds(600));
+        const bool dark_filled = fill_grey(gpu, target, kDark);
+        const Metered dark = meter_pass(gpu, target, whole);
+        tally->check(dark_filled && dark.ran && std::abs(dark.reading.stops - kMostStops) < kTolerance &&
+                         vk::meter_key(dark.reading.mean) < vk::kMeterKey,
+                     text::format("a dark view: metered %.5f, up %.3f stops (the most); the key there %.4f (daylight's "
+                                  "%.4f)",
+                                  static_cast<double>(dark.reading.mean), static_cast<double>(dark.reading.stops),
+                                  static_cast<double>(vk::meter_key(dark.reading.mean)),
+                                  static_cast<double>(vk::kMeterKey)));
     }
     // off: no meter - white shown as the curve alone
     {

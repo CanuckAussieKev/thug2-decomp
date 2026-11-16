@@ -302,7 +302,7 @@ void check_overcast(Tally* tally)
     };
     tally->check(same.direct == light.direct && same.sky == light.sky, "the overcast at 0: the light as it was");
     tally->check(grey.direct < light.direct * 0.5F && grey.light_radius > 10.0F && spread(grey.sky) < spread(light.sky) * 0.5F &&
-                     grey.shadow < 1.0F && std::isfinite(grey.exposure),
+                     grey.shadow < 1.0F,
                  text::format("the overcast: direct %.2f -> %.2f, radius %.1f degrees, the sky's spread %.2f -> %.2f, shadows %.2f",
                               static_cast<double>(light.direct), static_cast<double>(grey.direct),
                               static_cast<double>(grey.light_radius), static_cast<double>(spread(light.sky)),

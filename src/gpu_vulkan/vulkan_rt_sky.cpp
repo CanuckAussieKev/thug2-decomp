@@ -47,7 +47,13 @@ layout(push_constant) uniform Sky {
     vec4 sun;      // xyz the model's sun (cos e, sin e, 0); w the exposure
     ivec4 steps;   // x segments along a view ray, y along a ray toward the sun
     vec4 view_sun; // (added by the sky) xyz the drawn sky's sun (world); w 1: the rows are read from its sky-view table
+    // (added by the physical air - rt_sky.h Aerosol) the weather's aerosol: its scattering and extinction per metre at
+    // the ground (rgb), x its layer's 1 / height, y the mist's density over it, z the mist's 1 / height, w g
+    vec4 aerosol_s;
+    vec4 aerosol_t;
+    vec4 aerosol_h;
 } sky;
+#define AIR sky
 #ifdef FROM_SKY_VIEW
 layout(set = 0, binding = 1) uniform sampler2D u_view;
 #endif
@@ -77,7 +83,8 @@ float ray_length(vec3 o, vec3 d, out bool ground)
 vec3 densities(vec3 p)
 {
     float h = max(0.0, length(p) - GROUND);
-    return vec3(exp(-h / RAYLEIGH_HEIGHT), exp(-h / MIE_HEIGHT), max(0.0, 1.0 - abs(h - OZONE_CENTRE) / OZONE_HALF_WIDTH));
+    float aerosol = exp(-h * AIR.aerosol_h.x) + AIR.aerosol_h.y * exp(-h * AIR.aerosol_h.z);
+    return vec3(exp(-h / RAYLEIGH_HEIGHT), aerosol, max(0.0, 1.0 - abs(h - OZONE_CENTRE) / OZONE_HALF_WIDTH));
 }
 
 vec2 segment(float len, int i, int n)
@@ -89,7 +96,7 @@ vec2 segment(float len, int i, int n)
 
 vec3 extinction(vec3 depth)
 {
-    return RAYLEIGH * depth.x + vec3(MIE_SCATTERING / MIE_ALBEDO) * depth.y + OZONE * depth.z;
+    return RAYLEIGH * depth.x + AIR.aerosol_t.rgb * depth.y + OZONE * depth.z;
 }
 
 bool depth_to_top(vec3 o, vec3 d, int steps, out vec3 depth)
@@ -127,9 +134,9 @@ vec3 radiance(vec3 view, vec3 sun)
     float len = ray_length(o, view, ground);
     float mu = dot(view, sun);
     float rayleigh_phase = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
-    float g = MIE_G;
+    float g = AIR.aerosol_h.w;
     float mie_phase = 3.0 / (8.0 * PI) * ((1.0 - g * g) * (1.0 + mu * mu)) /
-                      ((2.0 + g * g) * pow(1.0 + g * g - 2.0 * g * mu, 1.5));
+                      ((2.0 + g * g) * pow(max(1.0 + g * g - 2.0 * g * mu, 1e-9), 1.5));
     vec3 sum = vec3(0.0);
     vec3 travelled = vec3(0.0);
     int n = sky.steps.x;
@@ -141,7 +148,7 @@ vec3 radiance(vec3 view, vec3 sun)
         vec3 to_sun;
         if (depth_to_top(p, sun, sky.steps.y, to_sun)) {
             vec3 tau = extinction(travelled + 0.5 * here * ds + to_sun);
-            sum += exp(-tau) * (RAYLEIGH * here.x * rayleigh_phase + vec3(MIE_SCATTERING * here.y * mie_phase)) * ds;
+            sum += exp(-tau) * (RAYLEIGH * here.x * rayleigh_phase + AIR.aerosol_s.rgb * (here.y * mie_phase)) * ds;
         }
         travelled += here * ds;
     }
@@ -198,7 +205,11 @@ layout(set = 0, binding = 2) uniform sampler2D u_multiple;
 layout(push_constant) uniform Atmosphere {
     vec4 sun;        // xyz the model's sun (cos e, sin e, 0); w the exposure
     vec4 night;      // (added by the time of day) rgb the night sky's light overhead, exposed (0 by day)
+    vec4 aerosol_s;  // (added by the physical air: as the table's block)
+    vec4 aerosol_t;
+    vec4 aerosol_h;
 } atmosphere;
+#define AIR atmosphere
 )";
 
 constexpr const char* kAtmosphereReads = R"(
@@ -293,7 +304,7 @@ void main()
             for (int k = 0; k < MS_STEPS; ++k) {
                 vec3 p = o + w * ((float(k) + 0.5) * ds);
                 vec3 here = densities(p);
-                vec3 sigma_s = RAYLEIGH * here.x + vec3(MIE_SCATTERING * here.y);
+                vec3 sigma_s = RAYLEIGH * here.x + AIR.aerosol_s.rgb * here.y;
                 vec3 sigma_t = extinction(here);
                 vec3 kept = exp(-sigma_t * ds);
                 vec3 integral = (1.0 - kept) / max(sigma_t, vec3(1e-30));
@@ -325,9 +336,9 @@ vec3 radiance_ms(vec3 view, vec3 sun)
     float len = ray_length(o, view, ground);
     float mu = dot(view, sun);
     float rayleigh_phase = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
-    float g = MIE_G;
+    float g = AIR.aerosol_h.w;
     float mie_phase = 3.0 / (8.0 * PI) * ((1.0 - g * g) * (1.0 + mu * mu)) /
-                      ((2.0 + g * g) * pow(1.0 + g * g - 2.0 * g * mu, 1.5));
+                      ((2.0 + g * g) * pow(max(1.0 + g * g - 2.0 * g * mu, 1e-9), 1.5));
     vec3 sum = vec3(0.0);
     vec3 travelled = vec3(0.0);
     for (int i = 0; i < VIEW_STEPS; ++i) {
@@ -337,7 +348,7 @@ vec3 radiance_ms(vec3 view, vec3 sun)
         vec3 here = densities(p);
         vec3 seen = exp(-extinction(travelled + 0.5 * here * ds));
         vec3 rayleigh_s = RAYLEIGH * here.x;
-        vec3 mie_s = vec3(MIE_SCATTERING * here.y);
+        vec3 mie_s = AIR.aerosol_s.rgb * here.y;
         vec3 single = sun_seen_from(p, sun) * (rayleigh_s * rayleigh_phase + mie_s * mie_phase);
         vec3 multiple = (rayleigh_s + mie_s) * multiple_at(p, sun);
         sum += seen * (single + multiple) * ds;
@@ -378,22 +389,43 @@ void main()
 }
 )";
 
+// (added by the physical air) the aerosol as the shaders' blocks take it (rt_sky.h Aerosol)
+struct AerosolConstants {
+    std::array<float, 4> scattering{};
+    std::array<float, 4> extinction{};
+    std::array<float, 4> heights{};
+};
+
+AerosolConstants aerosol_constants(const rt::Aerosol& air)
+{
+    AerosolConstants out;
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        core::at(out.scattering, channel) = static_cast<float>(core::at(air.scattering, channel));
+        core::at(out.extinction, channel) = static_cast<float>(core::at(air.extinction, channel));
+    }
+    out.heights = {static_cast<float>(1.0 / air.height), static_cast<float>(air.mist),
+                   static_cast<float>(air.mist_height > 0.0 ? 1.0 / air.mist_height : 0.0), static_cast<float>(air.g)};
+    return out;
+}
+
 struct TableConstants {
     std::array<float, 4> sun{};
     std::array<int32_t, 4> steps{};
     std::array<float, 4> view_sun{}; // (added by the sky)
+    AerosolConstants aerosol;        // (added by the physical air)
 };
-constexpr std::size_t kTableConstantBytes = 48;
+constexpr std::size_t kTableConstantBytes = 96;
 static_assert(sizeof(TableConstants) == kTableConstantBytes, "the shader's push-constant block");
 
 struct AtmosphereConstants {
     std::array<float, 4> sun{};
     std::array<float, 4> night{}; // (added by the time of day) rgb the night sky overhead (exposed linear)
+    AerosolConstants aerosol;     // (added by the physical air)
 };
-constexpr std::size_t kAtmosphereConstantBytes = 32;
+constexpr std::size_t kAtmosphereConstantBytes = 80;
 static_assert(sizeof(AtmosphereConstants) == kAtmosphereConstantBytes, "the shaders' push-constant block");
 
-constexpr uint32_t kTransmittanceSteps = 40;
+constexpr uint32_t kTransmittanceSteps = 80; // (changed by the physical air: a hazier ground layer)
 
 // The atmosphere's objects and tables.
 struct AtmosphereState {
@@ -407,6 +439,7 @@ struct AtmosphereState {
     Image multiple_table;
     Image sky_view_table;
     bool fixed_made = false; // the transmittance and Psi (they don't depend on the sun)
+    rt::Aerosol fixed_aerosol; // (added by the physical air) the air they were made for
     bool view_valid = false;
     AtmosphereInput input;   // what the sky-view table was made for
     bool failed = false;
@@ -446,6 +479,7 @@ struct SkyState {
     // (added by the sky) what the table was last made from: the sky-view table (and which one) or the model
     bool made_follow = false;
     uint64_t made_generation = 0;
+    rt::Aerosol made_aerosol; // (added by the physical air)
 };
 
 SkyState& sky_state()
@@ -482,10 +516,7 @@ std::string defines()
     add("RAYLEIGH", "vec3(" + number(core::at(rt::kRayleigh, 0)) + ", " + number(core::at(rt::kRayleigh, 1)) + ", " +
                         number(core::at(rt::kRayleigh, 2)) + ")");
     add("RAYLEIGH_HEIGHT", number(rt::kRayleighHeight));
-    add("MIE_SCATTERING", number(rt::kMieScattering));
-    add("MIE_ALBEDO", number(rt::kMieAlbedo));
-    add("MIE_HEIGHT", number(rt::kMieHeight));
-    add("MIE_G", number(rt::kMieG));
+
     add("OZONE", "vec3(" + number(core::at(rt::kOzoneAbsorption, 0)) + ", " + number(core::at(rt::kOzoneAbsorption, 1)) +
                      ", " + number(core::at(rt::kOzoneAbsorption, 2)) + ")");
     add("OZONE_CENTRE", number(rt::kOzoneCentre));
@@ -702,9 +733,6 @@ bool visible_sun(std::array<float, 3>* toward)
 std::array<float, 3> sun_colour_for(const std::array<float, 3>& toward)
 {
     SkyState& own = sky_state();
-    if (own.settings.colour_set) {
-        return own.settings.colour;
-    }
     if (!own.visible_valid || own.visible_toward != toward) {
         own.visible_colour = rt::sun_colour_at(elevation_of(toward));
         own.visible_toward = toward;
@@ -722,7 +750,8 @@ SkyColours sky_colours(const std::array<float, 3>& toward)
     const RtSunSettings& settings = own.settings;
     SkyColours colours;
     const double elevation = elevation_of(toward);
-    colours.sun = settings.colour_set ? settings.colour : rt::sun_colour_at(elevation);
+    (void)settings;
+    colours.sun = rt::sun_colour_at(elevation);
     const rt::Rgb zenith = rt::sky_radiance({0.0, 1.0, 0.0}, rt::sun_direction_at(elevation), kColourSteps);
     colours.zenith = display_of({core::at(zenith, 0) * rt::sky_exposure(), core::at(zenith, 1) * rt::sky_exposure(),
                                  core::at(zenith, 2) * rt::sky_exposure()});
@@ -748,7 +777,7 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
     const float same = (core::at(toward, 0) * core::at(own.toward, 0)) + (core::at(toward, 1) * core::at(own.toward, 1)) +
                        (core::at(toward, 2) * core::at(own.toward, 2));
     if (own.valid && same >= kSameDirection && own.made_follow == follow &&
-        (!follow || own.made_generation == atmosphere.generation)) {
+        (!follow || own.made_generation == atmosphere.generation) && own.made_aerosol == rt::aerosol()) {
         return true;
     }
     std::string error;
@@ -783,6 +812,8 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
     constants.sun = {static_cast<float>(core::at(model, 0)), static_cast<float>(core::at(model, 1)),
                      static_cast<float>(core::at(model, 2)), static_cast<float>(rt::sky_exposure())};
     constants.steps = {static_cast<int32_t>(kTableSteps.view), static_cast<int32_t>(kTableSteps.light), 0, 0};
+    const rt::Aerosol air = rt::aerosol();
+    constants.aerosol = aerosol_constants(air);
     if (follow) {
         const std::array<float, 3>& sun = atmosphere.input.sun;
         constants.view_sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2), 1.0F};
@@ -832,19 +863,20 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
         atmosphere.sky_view_table.used = state.frames.serial();
     }
     own.toward = toward;
+    own.made_aerosol = air;
     own.valid = true;
     own.made_follow = follow;
     own.made_generation = atmosphere.generation;
     ++own.updates;
     // what the other effects are told (the bounce light's sun colour)
     const SkyColours colours = sky_colours(toward);
-    const bool published = own.settings.sky_model || own.settings.colour_set;
+    const bool published = own.settings.sky_model;
     rt::set_sun_light({.on = published, .toward = toward, .colour = colours.sun, .sky = colours.zenith});
     if (first_report(state, kReportFirst)) {
-        get_log("vulkan: rt_sky: the sky's table made (sun %.1f degrees up; its colour %.3f %.3f %.3f%s)",
+        get_log("vulkan: rt_sky: the sky's table made (sun %.1f degrees up; its colour %.3f %.3f %.3f; %s air)",
                 elevation * kDegreesPerRadian, static_cast<double>(core::at(colours.sun, 0)),
                 static_cast<double>(core::at(colours.sun, 1)), static_cast<double>(core::at(colours.sun, 2)),
-                own.settings.colour_set ? ", set by rt_sun_colour" : "");
+                rt::weather_name(rt::weather()));
     }
     return true;
 }
@@ -1100,7 +1132,12 @@ bool update_atmosphere(Backend& state, VkCommandBuffer commands, const Atmospher
     constants.sun = {static_cast<float>(core::at(model, 0)), static_cast<float>(core::at(model, 1)),
                      static_cast<float>(core::at(model, 2)), static_cast<float>(rt::sky_exposure())};
     constants.night = {core::at(input.night, 0), core::at(input.night, 1), core::at(input.night, 2), 0.0F};
+    constants.aerosol = aerosol_constants(input.aerosol);
+    if (own.fixed_made && !(own.fixed_aerosol == input.aerosol)) {
+        own.fixed_made = false; // (another weather: the transmittance and Psi made again)
+    }
     if (!own.fixed_made) {
+        own.fixed_aerosol = input.aerosol;
         atmosphere_pass(commands, own.transmittance, &own.transmittance_table, constants);
         atmosphere_pass(commands, own.multiple, &own.multiple_table, constants);
         own.fixed_made = true;

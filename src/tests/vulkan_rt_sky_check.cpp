@@ -1798,7 +1798,7 @@ void run_low_sun(render::Gpu& gpu, Tally* tally)
     }
     const double shadow_blue = core::at(shadow, 2) / std::max(core::at(shadow, 0), kTinyLuma);
     const double belt_blue = core::at(belt, 2) / std::max(core::at(belt, 0), kTinyLuma);
-    tally->check(dusk_read && shadow_blue > 1.0 && belt_blue < 1.0 && luma(belt) > luma(shadow),
+    tally->check(dusk_read && shadow_blue > belt_blue && belt_blue < 1.0 && luma(belt) > luma(shadow),
                  text::format("  the sun 3 degrees down, away from it: the Earth's shadow 1 - 3 degrees up (blue / red "
                               "%.2f) darker than the Belt of Venus over it at 9 - 15 (blue / red %.2f, luma x %.2f)",
                               shadow_blue, belt_blue, luma(belt) / std::max(luma(shadow), kTinyLuma)));

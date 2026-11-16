@@ -907,6 +907,407 @@ the original's own lighting already says otherwise, is decided so:
   (`rt_shadow_match_bake`, `other_sun_work`), the sky test (`rt_shadow_covered`, `rt_shadow_sky_rays`). The passes
   need the level relit, and a relit level holds none of the bake's light - there is nothing left to agree with.
 
+### HDR and tone mapping (`rt_hdr`)
+
+(The metering below was rewritten by the physical air - "The physical air, sun and camera": one controller, both ways,
+a calibrated camera.)
+
+`gpu_vulkan/vulkan_hdr` (`[Graphics] rt_hdr`, off by default; no ray tracing needed). The light the effects add - the
+ray-traced passes at `opaque_drawn`, one-bounce light, fog and light shafts at `world_drawn` - must not clip at the 8-bit
+targets' white, so with `rt_hdr=1` the world is drawn into 16-bit float targets and mapped back to the display's 0 - 1
+by one pass, the last listener at `rt::world_view_drawn` (`ViewOrder::kToneMapping`); the 2D is drawn after, unchanged.
+
+- **Which targets:** the back buffer is made `VK_FORMAT_R16G16B16A16_SFLOAT` (its surface still reports the settings'
+  8-bit format to the game); render_pc asks `rt::world_target_format` for the targets the world is drawn into instead of
+  the back buffer - the two full-size screen copies (the bloom's and the motion blur's), `[Graphics] msaa`'s scene
+  surface and the game view's picture (the editor's Scene panel) - and gets `kFormatA16B16G16R16F` (D3DFMT 113) or our
+  `kFormatX16B16G16R16F` (read with alpha 1, as X8R8G8B8). `rt::hdr_colour()` says whether it is on (set when the device
+  is made). The quarter-size and smaller screen copies, textures, the UI's previews stay 8-bit: they hold what is
+  already mapped, or nothing of the world.
+- **Values:** the game's own colours, display-referred (not linear): 1 is the original's white, as before. Draws are no
+  longer clipped at 1 (additive glows, doubled vertex colours keep their range). Values above 1 are welcome in the
+  colour target bound at `opaque_drawn` and `world_drawn` when `rt::hdr_colour()` is true (GI, fog: add light there, in
+  this same space - or linearise with gamma 2.2 for the maths and go back); with it false the target is 8-bit and
+  everything is clipped at 1 per draw as the original's. Negative values and NaN are read as 0 by the pass.
+- **The pass:** the bound target's viewport copied out (`vkCmdCopyImage`, any sample count), then a full-screen
+  triangle writes `rgb` back (alpha kept): exposure (`rt_exposure` stops of linear light: a factor 2^(stops/2.2) on
+  these values), saturation (Rec. 709 luma), contrast (a power about 0.5), the curve - `rt_tonemap=0`: unchanged up to a
+  knee, then 1 - d exp(-(c - k)/d), the knee chosen so that `rt_white_point` (default 1.25: knee ~0.911, the original's
+  white shown at ~247) is within half a step of white, `rt_white_point=1` an exact clip; `rt_tonemap=1`: Narkowicz's
+  ACES fit on the linearised colour, scaled so the white point is white - then an optional `.cube` 3D LUT
+  (`rt_grade_lut`, trilinear, from a storage buffer) and a clamp to 0 - 1. A multisampled target: each sample mapped,
+  their mean written to every sample (no sample-rate shading needed). A view drawn into an 8-bit target isn't mapped.
+- **What else knows:** the present blits the float back buffer into the swapchain (the conversion clamps); the gamma
+  pass works in the frame's format; `read_front_buffer` and the screenshot's `read_render_target` convert to B8G8R8A8
+  (`read_hdr_as_bgra8`: clamped, rounded); `copy_surface` of a multisampled float target into an 8-bit one resolves in its
+  own format first, then blits (`resolve_for_copy`).
+- **Checked:** `thug2_vulkan_hdr_check` (80 checks, both GPUs here, validation and synchronization validation 0): the
+  pass against `tone_map_reference` (its processor twin) on every 16-bit float 0 - 16, random ones up to 8, NaN, both
+  infinities, negatives and denormals under eight settings (defaults, a clip, exposure +2 / -1.5, ACES, saturation and
+  contrast, white point 4, a 17^3 LUT) - within 1/255 (the largest difference 0.12 of a step: the target's rounding),
+  alpha untouched; every value up to the knee unchanged bit for bit; only the viewport changed; 8-bit targets and the
+  setting off: no pass; four samples: values above 1 through the resolve, each pixel the mean of its mapped samples (from
+  its coverage), the copy into an 8-bit target within a step; the back buffer: float, reported X8R8G8B8, its shot and
+  front-buffer reads the mapped bytes. The pass costs 0.04 ms at 1920 x 1080 (0.24 ms with four samples) on the
+  RTX 5070 Ti, 1.1 ms (6.4 ms) on the integrated Radeon. In the game: `tools/game/rt_shadows_check.ts --effect hdr`.
+- **The metering - auto exposure** (`rt_exposure_adapt`, stops; 2 by default, 0 off; added after the user's College
+  screenshot at 06:20: "the sun is completely blinding" - a white blot over the middle third of the picture that ate the
+  buildings round it). Measured first at that view (captures at `rt_exposure -6`, each term switched off in turn; display
+  values, the original's white 1): toward the 12-degree sun the frame held 3.5 (the sky's own sun and the sun pass's
+  disc and glare 1.1, the sky model's haze at the user's Thick `rt_fog_haze_density` +1.2, the physical street air
+  +0.2, the cinematic air's excess +0.9), the buildings 20 - 30 degrees off it 0.4 - 0.5 (0.2 without the air), the
+  street 0.46 - and the curve shows nothing above its white point (1.25). Physically the glow is right (a low sun's
+  aureole through morning haze is many times a sunlit wall); what was missing is what a camera or an eye does looking
+  there: stop down. So before the curve each viewport is metered (`vulkan_hdr.h` "The metering"): 64 x 64 samples of
+  its linear luminance (each at most 16 - a sensor's white), weighted toward the centre, their root mean square (a
+  highlight-weighted meter: a plain mean hardly moved for a glow over a tenth of the picture); above `kMeterKey` (0.55 -
+  the brightest ordinary view's: College at noon 0.35 - 0.56, Berlin and Boston by day and dusk 0.1 - 0.44 measured from
+  captures - none touched) the exposure comes down by log2(meter / key) stops, at most `rt_exposure_adapt`, never up (the
+  clock's exposure brings the night up); toward darker over 0.4 s, back over 1.2 s, a new or long-unseen viewport at its
+  target at once. One compute group over the viewport's copy writes the viewport's slot (four, by its rectangle), the
+  curve's pass reads it - no read-back. The user's view: ~1.8 stops down - the glow round the sun, the buildings and
+  flags against it, the street darker (out/pending/glare.md's captures). College's tower views toward the sun 0.6 - 1
+  stop down. Cost: within the pass's 0.04 ms at 1920 x 1080 (RTX 5070 Ti). Checked (`thug2_vulkan_hdr_check`): a white
+  view's meter and stops against the processor's twins (meter_light / meter_target_stops), a mid-grey one untouched, the
+  check's random image's meter within 0.2% of the processor's, the way back up gradual, a 0.6 s gap starting at the
+  target, the bound, `rt_exposure_adapt=0` the curve alone.
+- **Not done:** HDR output to an HDR display (the swapchain stays 8-bit sRGB-less UNORM).
+
+### The physical air, sun and camera (`rt_fog_air` as the weather, `rt_sun`, `rt_bloom`, `rt_exposure_adapt`)
+
+Lighting is physical: the air, the sky, the sun and the camera are what a path tracer would use, and nothing is tuned
+toward a look (the user's rule, 2026-11-16: fix inputs, never outputs; levels may look different). Before it, a low
+sun through the "misty" air with Strong god rays showed a ~40-degree white blot (the painted aureole x the cinematic
+air's glow x the god rays' x2 x a Thick haze capped "for Barcelona's harbour", over a meter that only went down):
+
+- **One unit.** The sky model's radiances per unit of the sun's irradiance x `rt::sky_exposure()` = pi / E, E the
+  horizontal irradiance under the reference day (the sun 45 degrees up in the clear weather's air, every order of
+  scattering): linear 1 is a white diffuser under that day - the game's white. The sky's zenith then is 0.09 of white
+  and its horizon 2.9 x the zenith a quarter turn from the sun (a measured clear sky's 0.05 - 0.2 and about 2 - 3;
+  `daylight_check`), where the old target put the zenith at 0.3 and the horizon at 5 - 9 x it.
+- **One medium** (`engine/gfx/rt_sky.h` Aerosol, `rt_volume_light.h`): the weather (`rt_fog_air`: clear 40 km, hazy
+  10 km, misty 2 km at the ground - a 100 m mist under the clear day's haze) is a visibility (Koschmieder: 3.912 / the
+  extinction at 550 nm, the air's own Rayleigh included); the aerosol's extinction follows Angstrom's law over the
+  model's 680 / 550 / 440 nm, its single-scattering albedo and its Cornette-Shanks g are its type's (continental haze
+  0.9 / 0.8, droplets 0.97 / 0.8). The sky's three tables (the aerosol a push constant: the transmittance and Psi made
+  again when it changes), the sun's transmittance and colour, the level's air (the fog pass's aerial march) and the
+  level fog's street air read the same `rt::aerosol()`. Rain (5 km) and falling snow (3 km) add a grey layer near the
+  ground. The clear day's aerosol optical depth overhead is 0.10 (it was 0.01 - a sky with almost no haze).
+- **The aerial march** (`vulkan_rt_fog` AERIAL): Rayleigh + aerosol single scattering of the light's irradiance (its
+  shadow ray / the air's sun map / the clouds' map) through both phases, every higher order as the sky's own (Psi at
+  the ground), the lamps' irradiance (pi x their light); each segment exact for an even medium; one transmittance (the
+  extinction's luma); composited in linear light over a copy of the colour. The sky's pixels are left alone where the
+  atmosphere is drawn (its sky-view table holds the whole ray). Gone: the cap toward the sun (`kFogAerialGlow`), the
+  sky's colour as the haze's light, the shade/sun shares, the time-of-day and water multipliers, the cinematic and misty
+  looks (`AirArt`: the volume round the eye, side lobes, glows - x3 the lamps), `rt_fog_strength`,
+  `rt_fog_anisotropy`, `rt_fog_haze_density` / `_height`. The air's sun map is a sampling device only (`kAirMapReach`
+  100 m; the march's steps `steps` inside it, half as many past it). The air is lit from the true sun (the light's
+  direction held 6 degrees up for the level's shadows is not the air's).
+- **God rays** (`rt_fog_god_rays` on / off): the shadowing of the aerosol phase's forward peak (over its value 30
+  degrees out) found at the screen's resolution - every point of a view ray toward the light projects onto the same
+  screen line (epipolar) -, the share of the air before what stands there the medium's own ((1 - e^(-sigma d)) / (1 -
+  T)). Unshadowed it is the march's own light, moved, not made (`rt_fog_check`: the phases add up; open at most 1).
+- **The sun** (`rt_sun`): the real sun - 0.53 degrees across, limb-darkened (u 0.6), its mean radiance the atmosphere's
+  transmitted sun over its solid angle in the unit (`rt::sun_disc_radiance`: 5 x 10^4 at noon, a few thousand at 3
+  degrees) - drawn in the sky by the sky pass (behind the clouds) with `rt_sky`, else by the sun's pass. No painted
+  aureole (it is the sky's own forward scattering: Cornette-Shanks g 0.8 falls to half 9.7 degrees out), no 2 x disc,
+  no `rt_sun_size`, no `rt_sun_colour`.
+- **The lens** (`rt_bloom`): one energy-conserving spread of all the light in linear light - the eye's veiling glare
+  (Stiles and Holladay, L = 10 E / theta^2: kGlarePerOctave = 1.3% of the light per doubling of the angle, one per
+  level of the chain); no separate sun glare, no `rt_bloom_strength`.
+- **The camera** (`vulkan_hdr`, `rt_exposure_adapt`): one controller - the centre-weighted log average of the linear
+  luminance, exposed as a calibrated camera (ISO 2720 K = 12.5: the average at 0.104 of white) with the eye's
+  adaptation (Krawczyk et al.: the key falls in the dark - the unit made absolute by the sun's 128 000 lux at the top),
+  both ways within +-`rt_exposure_adapt` stops. The clock's own exposure (DayLight::exposure, up only) and the meter's
+  down-only RMS are gone; the night sky's radiance is no longer tuned for an exposure.
+- **One light state**: the direct light's share of the level's own light from the model at its own sun
+  (`DayLight::direct_share`, `rt::direct_share_at`) for the bounce, the shadows' strength, the overcast and the snow -
+  not 0.65 for every level; the sun's colour without the clock always the atmosphere's (no relight waiting for the sky
+  model to publish); the clouds' shadows only as the sun's visibility in the shadows' pass (the multiply over all the
+  light gone); glass F0 0.04 (`rt_glass_reflectance` retired).
+- **What a path tracer reads**: sigma_s / sigma_a per band (`rt::kRayleigh`, `rt::aerosol()`, `kOzoneAbsorption`, the
+  densities' heights), the phases (Rayleigh, Cornette-Shanks g), the sun (a disc of `kSunAngularRadius`, radiance
+  `sun_disc_radiance`, transmittance `sun_transmittance` - next-event estimation), the sky's radiance (the sky-view
+  table) for rays that leave, the unit (`sky_exposure`), and the camera (2^stops, then the tone curve; the glare's
+  spread).
+- **Still not physical** (named, for later rounds): the level fog's own path (a level's art fog, display-referred, its
+  street air's light `kFogStreetAirLight`), the moon's light and the night sky's radiance (the time of day's art values),
+  the light's direction held 6 degrees up, the frame's display-referred colour target (the passes convert to linear and
+  back), lamp intensities (rt_lights).
+
+### Volumetric fog and light shafts
+
+(Its air was rewritten by the physical air - "The physical air, sun and camera": the weather's aerosol, no looks, no
+cap; what follows is its history.)
+
+One volumetric light system: when something stands between the eye and the sun - a building, a tree, a cloud - the
+air shows it, as a shadow shaft in lit haze or a lit column through a gap; at night the moon and the street lights do
+the same. `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default; `rt_fog_air`, `rt_fog_strength`, `rt_fog_quality`,
+`rt_fog_mode`, `rt_fog_density`, `rt_fog_height`, `rt_fog_anisotropy`, `rt_fog_steps`, `rt_fog_haze*`) listens at
+`rt::world_view_drawn` (`ViewOrder::kFog`, 500: after the transparent passes, particles and weather, before the sun's
+glare, tone mapping and the 2D). Its model is `engine/gfx/rt_volume_light` (API-neutral; the checks' processor march
+uses the same functions). The screen-space rays the sun pass drew over the sky's silhouettes (`rt_shafts`) were retired
+by it: the shafts are this pass's, the only light in the air; the sun pass keeps the disc, its glare and the bloom.
+
+- **The light: one state.** The air is lit by `rt::medium_light()`: the scene's sun (`scene_sun` - the one every effect
+  lights by) and, while the clock lights the level (its origin `kClock` - "Time of day"), the clock's `DayLight` for it:
+  the sun by day, the moon at night, `light_colour` (the light now over the level's own sun's - the moon's 0.22 and
+  blue) and `light_radius` (the sun's 1.5 degrees, the moon's 6: each shadow ray aims at a point on the light's disc,
+  so the shafts' edges are as soft as the shadows'). Without the clock the light is the level's own: colour 1, a point
+  (the shafts as before the clock). So the shafts follow `tod`, a moved `rt_sun_source` and the console's `rt sun`.
+  The sky model (`rt_sky_model=1` or `rt_sun_colour`) colours it: the air's colour for the sun the level was lit with
+  (the clock's `native` sun - its colour is relative to that), luma kept. The game's own fog (modes 0 / 1) takes only
+  the light's hue: the game sets the fog's colour for the time of day itself (its states' fog colours), so the fog
+  colour carries the brightness; the haze, the pass's own medium, takes the light as it is.
+- **The medium.** The game's fog read as a medium whose extinction is 1 / (end - d) between start and end: its
+  transmittance is exactly the game's f (to the power `rt_fog_density`), integrated per segment in closed form, so the
+  step count changes only how the light is sampled, never how thick the fog is; `rt_fog_height` H thins it by
+  exp(-(y - camera y) / H). A level without fog (most of them) gets, with `rt_fog_haze=1` (the default), a haze: with
+  `rt_sky_model=1` aerial perspective (extinction 1/12000 a unit x `rt_fog_haze_density` at the level's ground,
+  thinning by e every `rt_fog_haze_height` above it, followed to 40000 units), else a thin linear haze to 4000 units
+  whose light alone is added. The haze's conditions (`haze_condition`): thicker round sunrise and sunset - x (1 + 1.5
+  exp(-((e - 2) / 8)^2)) with e the sun's elevation in degrees, 2.5 x at its peak, back to 1 by day and deep in the
+  night; and, with the material table, over water: a view ray that ends on water (its material's reflection class
+  `kReflectWater`, found by one ray from the camera) crosses a wetter layer over the water's surface - 2 x the haze's
+  ground extinction, thinning by e every 400 units. The game's own fog keeps its thickness (only the haze varies).
+- **The street air** (added in the second round: at the defaults the physical haze - an optical depth of ~0.05 over a
+  street - showed neither shafts between buildings nor anything round lamps). `rt_volume_light.h street_air`: the air's
+  lowest layer, outdoors (where a sun or moon lights the level), a second medium along every ray in every mode:
+  extinction 3e-4 / m at the level's street level (BakedSun::street - the middle of the upward faces' heights, so
+  Berlin's plaza, not its sunken streets) x `air_condition` - 8 x round dawn and dusk (a Gaussian round 3 degrees, 10
+  wide), 12 x at night, +3 in rain - as the look (below) shapes it, thinning by e every 8 m (4 m at night: a night's mist lies low), falling snow (the game's, or `snow` with
+  snowfall) 1.2e-3 / m more over 60 m, the wetter layer over water. Its light the aerial haze's per unit of light, its
+  shade the replaced fog's ambient (the sky's in the aerial march, none where only shafts are added); the two media's
+  light mixed by their share of each segment's optical depth. Numbers (the check's): across a 20 m street 2 m up 0.035
+  at dusk, 0.044 at night; along 300 m 0.56 at dusk, 0.07 by day. Physically the beams show looking toward the light
+  (the phase), a lamp's glow looking at it; a lamp's cone seen from the side stays faint unless the air is Thick or wet.
+  render_pc publishes the weather each frame (`set_air_weather`).
+- **The air's look - a departure from physical, on purpose** (added in the third round; `rt_volume_light.h AirLook`,
+  `[Graphics] rt_fog_air`, Options "Atmosphere"). The street air above is the physical one, and at the defaults it showed
+  what real air shows: beams only looking toward a low sun, lamps a faint halo, nothing from the side. The user chose
+  (2026-11-16) the look of modern games - RDR2's god rays between buildings at a low sun, cones under street lamps,
+  columns through cloud gaps, all readable from the side. Physically that needs air so thick (a 10 m beam at 20 levels
+  over its shade wants ~8 x a dusk street's extinction) that followed a few hundred metres it whites the far world out
+  - so games don't do it physically: their volumetric fog is a volume round the camera whose scattering is set apart
+  from its thickness, each light with its own share in it. The look does the same, in steps:
+  - `clear`: the physical model, every factor 1 (round two's air exactly).
+  - `cinematic` (the default): the street air x 2.5 (x 2.0 since the distinct shafts, below: its layer is deeper) (`density`; no base over a clear day's - `least` 1: the low sun's
+    and the night's own conditions carry it, noon stays clear), the night's mist x 1.5; it scatters the sun's or moon's
+    light x 3 (`glow`; since the low sun's glare only its even lobe's - `air_sun_phase`: medium_phase + side x glow, the
+    forward lobe the physical one: x 3 on the whole phase put 3 x real haze's forward peak in the eye looking into a low
+    sun, +0.9 of white at College's 06:20 view, now +0.3; the beams toward the sun 15 - 30% dimmer, from the side as
+    before, the tower column's contrast kept - 0.50 / 0.48 - 0.55 across it) and the lamps' x 5 (`lamp_glow`: a lamp's few hundred lumens against the sun's hundred thousand
+    - a film lights its practicals for the haze) while it dims only by its extinction - not energy-conserving, by
+    design; its phase gets an even lobe of 6 over `medium_phase` (`side`, x 4 pi - an even medium's light is 1): the lit
+    air reads from the side, not only toward the light (2.5 was tried first: in the game the beams across Berlin's
+    river street and the light past College's tower read only looking toward the sun); its shade's light (the sky's,
+    the fog's ambient) x 0.35 (`shade`; 0.2 since the distinct shafts): the air out of the light stays clear and the beams stand out; and it is a
+    volume round the eye - whole to 30 m, gone by 60 m (`range`, smoothstep on each segment's middle distance; a ray
+    more than 4 x that long marches half its steps in it): the beams near the player, the far world seen through the
+    aerial haze alone.
+  - `misty`: x 5, at least 4 x a clear day's, glow 1, lamps x 3, side 1.5, its shade whole, 150 m round the eye.
+- **Distinct shafts** (added in the fourth round, the user's "option A": god rays with dark gaps). Measured first: the
+  same pose with `rt_fog_air` cinematic and clear, the difference the cinematic air's own light
+  (`tools/game/shaft_contrast.ts`: veil = its median, beam / gap = its 90th / 10th percentiles, structure = how much of
+  it is shafts and gaps rather than a smooth glow). Round three at dusk added a beam of 4 - 9 levels (Boston toward the
+  sun 8.8, Berlin's river street 4.1, College 06:20 7 - 14), at night an even veil (Berlin 45 levels median, structure
+  0.03). The march's resolution and history were not the cause - the check's thin bar (below) is drawn within a texel
+  of the exact integral -, the model was:
+  - the volume round the eye was too short: at a 6 - 12 degree sun the air near the eye is in the buildings' shadows
+    (a 20 m roof shades 190 m), the beams lie further out. It now reaches `along` (4) x its range looking straight at
+    the light, x (1 + 3 cos^2) between (`air_stretch`) - and thins as it lengthens (its mist / the stretch: the same
+    optical depth toward the light over a longer way, so the glow toward a low sun is no thicker; without it College's
+    high view whited out toward the 12-degree sun);
+  - the layer was too shallow: thinning by e every 8 m, it has all but gone at the roofs a low sun's beams come over.
+    By day it is `deep` (4) x that - 32 m; a night's mist stays 4 m (the lamps' heads near its top). Its density x 2.0
+    instead of 2.5 keeps the eye-level veil (noon from the side under the check's bound);
+  - the shade's light x 0.2 (was 0.35), the lamps' glow x 3 (was 5: the night's even veil).
+  - The air's shadows: **the air's sun map** (`rt_volume_light.h air_map_half`, `vulkan_rt_fog` step 0): each frame a
+    square across the light's way round the eye (its half side the volume's widest reach across the light, the stretch
+    included: 1.77 x the range), 512 / 1024 / 1536 texels a side by `rt_fog_quality` (0.15 m at Medium), each texel the
+    distance down the light's way to the first thing its ray hits (the cut-outs by their alpha - the one lighting
+    path's test; rays from `kAirMapLift` up the light's way, as far as the light's own rays look). The march reads it
+    at every step inside the square - a bilinear compare, moved across the light's disc by the distance from what
+    shadows it (the penumbra) - instead of a ray each other step, alternating frame to frame; beyond the square the rays
+    as before. A ray that leaves the volume marches `steps` in it (t^2) and half as many past it in a geometric series:
+    the first kilometres (the clouds' gaps, read from the clouds' map every step) as finely as the far haze.
+  - The history is held to its 3 x 3 neighbours' mean +- 1.5 deviations (inside their least and most) - a moved
+    camera's history doesn't smear a beam's edge.
+  The check (thug2_vulkan_rt_fog_check): a 0.3 m bar across the alley, its shadow through the beam seen edge-on from
+  the side at 1280 x 720 at Medium's quarter resolution: the line 6 texels wide in the exact integral, the pass's within
+  0.3 - 0.8 texels of it, as deep (0.9 - 1.2). (A 512-texel map lost that bar at one map size - the axis-aligned box's
+  edges fell between the texels' rays; Medium is 1024.) In the game (the user's settings, 1280 x 720 with DLSS quality,
+  tod held): College 06:20 - the tower's shadow column a dark wedge through the lit air from the high view and round
+  the tower from behind it (beam 49 - 57 levels, round three 7 - 12); Boston / Berlin toward the dusk sun dark gaps
+  between buildings in the lit air (structure 0.46, was 0.41) but faint (beams ~10 - 18 levels: at 6 degrees the
+  streets are in shade); night's veil halved in Berlin's street (median 8.6 levels, was 19.4) and Berlin's start
+  (33 vs 45); noon and the far view unchanged (median ~0).
+  Only the street air takes the look - the aerial haze, the level's own fog and the falling snow keep theirs. The
+  check's numbers (thug2_vulkan_rt_fog_check; linear light, the sun at 1, before the tone map): a 10 m beam across a
+  street at dusk seen from the side 0.4 levels clear, 67 cinematic; the side view of the check's street (the device's
+  march) 35.6 levels over the shade, the clear air's 0.7; a street lamp's cone seen from the side 0.0 / 10.9 levels
+  (its glow looking at it 6.5 / 149); along 300 m at dusk an optical depth of 0.56 clear, 0.21 cinematic (the far
+  world clearer than physical). In the game (Boston, Berlin at dusk, College at 06:20 and noon, the tone map and the
+  clock's sun strength 0.5 - 0.9 on top): the lit air adds ~5 - 30 levels where the sun reaches it, at noon a median of
+  ~2 - 5 over the clear air.
+- **God rays** (added in the fifth round, `rt_fog_god_rays`, Options "God rays" Off / On / Strong - 0 / 1 / 2; the
+  user's reference: streaks radiating from a low sun, broken by branches into many fine rays). Measured first: looking
+  toward College's low sun the air showed a glow and the big shadow columns only - the march's quarter-resolution
+  texels and its steps can't hold a branch's shadow a few pixels wide. The light the phase gathers near the light's
+  way is what shows those: its forward peak (`rt_volume_light.h god_ray_peak`: 0.85 x (HG(cos, g) - HG(cos 30 deg, g)),
+  none past 30 degrees) is taken out of the march (`march_sun_phase`) and drawn at the screen's resolution instead - the
+  same light, moved, not made:
+  - the march adds up the peak's potential beside its light (the media's light per unit of light x what reaches the
+    eye x the clouds' shadow, unshadowed by the world - luma, the peak taking the light's colour), in its info image;
+  - step 2a, half the viewport's pixels each way: each texel's share of sky (the depth's far value - cut-outs' gaps are
+    sky) and the distance of what stands there; step 2b, three radial passes of 10 taps toward the light's place on the
+    screen, over 1/100, 1/10 and the whole of the way (1000 points: sharp rays, the same every frame - no history, so
+    nothing smears under DLSS);
+  - the composite adds peak(view) x potential x open x the light's colour x the setting x the look's `rays`, where open =
+    1 - (1 - the line's sky share) x the share of the air before what stands on it (its mean distance): a thing shadows
+    the air between it and the eye along the lines toward the light - air at a distance t is shadowed by what the line
+    holds at the fraction 1 - t / d of its way, evenly, so the line's plain mean; the air past it is lit. The air's look
+    sets that share (`AirArt::rays_near`): `clear` the volume as it lies (physical - faint: the air in front of a tree
+    15 m away is a fifth of the beams' 60 m), `cinematic` and `misty` all of it near (the beams in the near air, as a
+    hazer puts them) and cinematic's light x 1.5 (`rays`).
+  - The light behind the eye: its peak isn't on the screen (no radial passes; the composite draws it unshadowed - 0
+    but at a wide view's edge). Off the screen in front: the lines run on from the screen's edge (clamped).
+  The check (thug2_vulkan_rt_fog_check): the march's phase plus the peak is the phase; a comb of five posts against a
+  10-degree sun seen from 40 m: across a row above the comb, four rays (one per gap) each 0.12 over its dips. In the
+  game (College 06:10, the sun behind the clock tower and through the plaza's trees): a fan of rays round the tower's
+  spire and its dark streak; open sky unchanged (no occluder, no rays - the glow as before). Cost: the four half-size
+  passes 0.05 - 0.1 ms at 1280 x 720.
+- **The light is the relit level's** (third round): `medium_light` lights the air only where the relit mode relights
+  the level (`SunRelight::relights` - its offline data built and current, `rt_relit` on, the level not opted out). A
+  level without relit data has no sunlit air and no street air: the fog pass draws the level's own fog (its colour
+  whole, the lamps' light in it) or, without fog, nothing - one owner of the level's sun, as for the shadows. The
+  settings model says so: `rt_fog_air` needs `rt_relit` (greyed with the relit data's reason). The console's `rt sun`
+  override still lights it (an experiment; the checks' sun).
+- **The light at a sample.** Each segment's light is sampled at one jittered point (interleaved gradient noise + the
+  frame's golden-ratio offset): `here = ambient + medium x strength x (sun + lamps)`.
+  - ambient: the replaced fog's colour x 0.5 (a level with no light - indoors - its whole colour: the game's fog
+    exactly); the aerial haze's sky colour toward the ray x 0.45 (the shade's share - the far world fades into the
+    sky); nothing in the shafts mode and the thin haze.
+  - medium: the light the air sends the eye per unit of light - the fog's (or the thin haze's grey) colour x 0.5, x 0.5
+    over the game's fog (mode 1) and the thin haze, x 0.1 on the sky's pixels there; the aerial haze's 0.55 x
+    `kHazeSunlit` (0.55: an unshaded haze lit from the side as bright as the day sky by the horizon).
+  - sun: the light's colour x visible (a ray query toward a point on its disc; masks 0x01 + 0x02, with the material
+    table the cut-outs by their alpha too - `cutout_rays_glsl`, the one lighting path's test: light through foliage,
+    fences and grates) x the clouds (below) x the phase.
+  - the phase (`medium_phase`): 0.85 x Henyey-Greenstein(g = `rt_fog_anisotropy`, 0.75 by default - aerosols';
+    0.3 before) + 0.15 x HG(-0.3), x 4 pi (1 on average: an unshadowed fog keeps the game's look): strong forward
+    scattering, as haze's droplets do - the shafts stand out looking toward the light (24 x at it, 15 x 10 degrees off,
+    6 x at 20, 1 x at 45), faint looking away. (0.5 was tried first: in Berlin at dusk the default haze showed no
+    shafts at all - the haze is thin, its light only shows where the phase gathers it.)
+  - lamps: the lamps `rt_lights` lit this view (`rt_lights_lit_locked`: the clock's dusk-to-dawn set, the view's most
+    important first, x `rt_lights_strength` and the lamps' share on), at most `rt_fog_quality`'s 8 / 16 / 32: every
+    lamp's unshadowed light at the point (colour x intensity x `light_falloff` x the phase toward it), one of them -
+    picked by its share - traced for its shadow (stopped its size short) and standing for all (its light x the whole
+    over its share x seen: an unbiased estimate the history averages; a single lamp exact). The cones and pools under
+    street lights, cut by their fixtures and walls. Lamps need `rt_lights` (their owner); none by day.
+  Accumulated front to back: in += T (1 - e^-tau) here, T *= e^-tau.
+- **The clouds' shadows in the air** (`rt_clouds`): one map, owned by the sky pass (`vulkan_rt_sky_pass`
+  `CloudShadowMap`): at each viewport's `opaque_drawn`, while the clouds are drawn and `rt_cloud_shadows` is on
+  (third round: the fog no longer asks for it alone - at a low sun the map's long way through the layer darkened
+  the air of a street whose ground the clouds don't shade: two lights; now the air takes the clouds' shadows exactly
+  where the ground does), a 256 x 256 compute pass over 3.2 km of the cloud base's plane, centred where the camera's way toward the
+  light meets it (snapped to whole texels), each texel the light's transmittance through the layer from there (8
+  densities, no detail, the light at least 0.08 up; faded out between 0.02 and 0.15). A point reads the texel where
+  its way toward the light meets the base: each march step takes it (crepuscular rays - lit columns through gaps,
+  shadow shafts under clouds), and the shadows on the ground (`rt_cloud_shadows`) are the same map - with `rt_shadows`
+  the sun's visibility in that pass (only the sun's own light drops; see "Cloud shadows"), else the colour multiplied
+  toward it by 0.65 x the light's strength. Before, the
+  ground's shadows marched four densities per pixel toward the drawn sky's sun.
+- **The passes.** A quarter of the resolution each way at `rt_fog_quality` 0 and 1, half at 2 (each texel marches one
+  pixel of its 4 x 4 or 2 x 2 block, a different one each frame in ordered-dither order); the steps spaced b t^2 (dense
+  near the eye) and in pairs - one point of each pair, the first or the second by turns frame to frame, traces the
+  light's shadow ray and the picked lamp's for both; lamps a view ray never comes within reach of left out (a bit mask
+  per texel; the pick one random number streamed over the lamps); the march stops once T is under 1e-4. Then a
+  temporal pass (the texel's point reprojected through the viewport's previous camera, bilinear over the history
+  texels whose distance agrees, clamped to this frame's 3 x 3 neighbourhood, up to 12 frames; a new history seeded with
+  12 marches), then a full-screen blend colour x T + light, upsampled with weights that fall off with the distance
+  difference (depth-aware). Per viewport histories (split screen), up to 4. The march's variants (a multisampled depth,
+  the aerial haze, the cut-outs and water - the material table and this frame's geometry for the same scene -, the
+  clouds' map) are made on first use.
+- **Modes.** `rt_fog_mode=0` (the default) replaces the level's fog: the Vulkan Gpu's fixed-function emulation leaves
+  the device's fog out of every draw while the pass draws (`rt_fog_replaces_level_fog`), and the pass draws it - the
+  same colour and distances. Its limit: transparent passes and particles don't write depth, so they get the fog of the
+  surface behind them. `rt_fog_mode=1` keeps the game's fog as drawn and adds only the light's part: shafts over the
+  original, nothing taken away. The sky (the depth's far value) is never dimmed by the game's fog - it gets the light x
+  0.1; the aerial haze hazes it as a surface at the far plane.
+- **Which fog.** THUG2's levels draw fog only where a script turns it on, or with `[Graphics] DistanceClipping=1` and
+  `Fog=1` - then every mesh fogs over the last quarter before the far plane (pc_mesh_render.cpp), which `ViewDrawn::fog`
+  reports. A level without fog and without a light or lamps (rt_fog_haze=0, or indoors by day) gets no pass.
+- **Settings.** `rt_fog_air` (cinematic; Options "Atmosphere" Clear / Cinematic / Misty - the ini also takes 0 / 1 / 2;
+  round two's numbers 0 - 4 were never released): the street air's look, above. `rt_fog_strength` (1, the ini's) scales the light the air scatters - sun, moon, lamps - not the
+  fog's ambient. `rt_fog_quality` (1; Options "Light shaft quality"): 16 / 32 / 48 steps, 8 / 16 / 32 lamps, a quarter /
+  a quarter / half the resolution; `rt_fog_steps` above 0 overrides the steps. The High preset turns `rt_fog` on (its shafts were the retired `rt_shafts`).
+- **Cost** (device timestamps around the passes, logged every 240 as "rt_fog: the passes take"): the check's scene at
+  1920 x 1080 before the volumetric light - RTX 5070 Ti 0.48 / 0.99 / 2.03 ms at 16 / 32 / 64 steps, the AMD Radeon
+  integrated GPU 14 / 28 / 52 ms (the ray queries dominate: linear in the steps); a lamp adds one ray a step where
+  lamps light the air, the cut-outs' test a little per ray, the clouds' map one texture read a step and its 256 x 256
+  pass (a few hundredths of a ms). The first round in Berlin at 1440p: 5 - 10 ms. With the quarter resolution, the
+  rays every other step and the lamps culled (the street air on): the check's street at 2560 x 1440 0.24 / 0.39 / 1.69
+  ms at Low / Medium / High (--perf holds Medium under 1 ms); in the game at 2560 x 1440, Medium, clouds and lamps on:
+  Berlin 0.6 - 1.3 ms (one window 1.8), Boston 0.55 - 1.1 ms.
+- **Checks.** `thug2_vulkan_rt_fog_check` (82): a wall with a window, the sun through it into an even fog - every
+  low-resolution texel's distance, transmittance against exp(-integral) (largest error 5e-4) and light against the
+  processor's march of the same pixel with the same jitter (the same `medium_phase`); the shaft lighter by what the
+  exact integral says; still frames converge on the exact integral; the composite; a moved camera without ghosts;
+  shafts mode; the sky never dimmed; the haze; no pass without fog, a scene or the setting. Added by the volumetric
+  light: the clock lighting the level (a baked sun, the level relit, `DayLight` on) - the scene's sun is the clock's,
+  the fog lit by it, and after still frames the history matches its own direction's integral (0.0008) while the other
+  direction's is 40 x off (the shaft moved with `DayLight`); at night the moon's shafts in the haze carry its colour's
+  luma (0.190 of the sun's against 0.189) and are bluer (blue over red 1.69 against 1.00).
+  `thug2_vulkan_rt_lights_check` "the lamp in the air": a lamp low beside the box, the haze lit by `rt_lights`' set
+  through the real material table and geometry (the cut-outs' variant) - after still frames 5,214 texels in the lamp's
+  open light at 0.998 x the processor's march of its falloff and phase, 1,410 across the box's shadow at 0.988 x the
+  shadowed march and 0.70 of the unshadowed (the lamp's cone cut by the box). `thug2_vulkan_rt_sky_check`: the clouds'
+  shadow map made at the opaque world's end toward the scene's light, every 8th texel against the processor's
+  transmittance (`rt_clouds.h cloud_density`, worst 0.016), gaps (38% at least 0.8 clear) and shade (61% at most 0.4).
+  `thug2_vulkan_rt_sun_check`: the aerial haze's light between the shade's share of the sky and that share + the sunlit
+  haze through the phase. `tools/game/rt_shadows_check.ts --effect fog` checks it in the game.
+- **Not yet.** The lamps' light uses their colour, not their texture's tint (the lamps' pass's); the water layer only
+  where the view ray ends on water (a pier's pixels beside the sea don't cross it); clouds' shadows only with
+  `rt_clouds` (the painted sky's cards cast none); the clouds' map ignores the atmosphere's curvature past 1.6 km.
+
+### One-bounce indirect light (`rt_gi`)
+
+`gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_gi`, `rt_gi_strength` / `_rays` / `_distance` / `_denoise`, off by
+default) - the occlusion's passes and denoiser run a second time over a colour (`rt::ViewOrder::kIndirect`, after the
+shadows and the occlusion):
+
+- **The rays:** per pixel `rt_gi_rays` cosine-weighted ray queries (masks 0x01 + 0x02 + 0x04, alpha tested) up to
+  `rt_gi_distance`, the occlusion's directions; a hit brings its albedo x the sun's light x N.L where a ray toward the
+  sun (0x01 + 0x02) is clear; a miss nothing. The hit's albedo: R3's material at the texture coordinates R2's geometry
+  table gives, at a level for the ray's spread, x the material's colour, at most 1 - the vertex colours (the bake) left
+  out. The sun: the console's `rt sun`, else the level's baked sun (above), white; none where the bake shows none.
+- **Why the sun only:** THUG2's vertex colours already hold the artists' sky and ambient light; what they lack is light
+  bounced off sunlit surfaces. A first version also lit the hits by the frame record's ambient and let misses bring it
+  as the sky, subtracting the sky afterwards: the ambient is the skater's (the same in every level), and BO's shaded
+  courtyard got no bounce at all while doubled material colours brightened the Foundry. The shader keeps both terms
+  (and the apply a sky to subtract), all 0.
+- **The pixel's own albedo** (what the bounce lights): a ray from the camera finds the pixel's triangle (kept where it
+  ends at the depth's point, as the reflections do) and reads its material the same way at the pixel's footprint. The
+  filters run on the light alone (E, demodulated): the texture's detail isn't blurred.
+- **Adding it to a baked frame:** the frame colour is albedo x baked light, and neither is known apart. The pass adds
+  strength x albedo x E with the blend's `ONE_MINUS_DST_COLOR, ONE` - a screen: what is added is scaled by what the
+  colour leaves below white, so a lit pixel gains little and none passes white, a dark one gains most; nothing is ever
+  darkened. A float target (HDR) gets `ONE, ONE`: values above 1 kept.
+- **Denoiser:** R5's temporal and a-trous shaders compiled with `VALUE_RGB` (the value a colour, the history's length in
+  alpha; the noise floors scaled by the most one ray brings) - the occlusion's are the same shaders as before, its check
+  unchanged (38/38).
+- **Checked:** `thug2_vulkan_rt_gi_check` - a white floor, a red wall, a grey pillar, the sun from the pillar's side:
+  the raw light at ~39.7k clear-cut pixels exactly the processor's trace of the same rays (one sample and four), the
+  albedo found, the colour formula at every pixel, a reddish bounce beside the wall, an open floor untouched, the
+  denoised light against a 256-ray reference (mean 0.007, 99th percentile 0.023), NVIDIA and AMD, validation and
+  synchronization validation 0. In the game `rt_shadows_check.ts --effect gi` (five levels): off identical to main's
+  build (at most 0.06%, the noise); on: nothing darker or black, no runaway, the Foundry (no baked sun) unchanged,
+  1.7-30% of a picture brightened, the baked-dark pixels brightened 1.7 times as often as the baked-bright ones.
+- **Cost** (`rt_gi: <x> ms a pass on the device`, timestamps around all its passes; 1920x1080, z_dt's street, RTX 5070 Ti,
+  denoised): 1 ray 1.45-1.49 ms, 2 rays (the default) 1.89-2.07 ms, 4 rays 2.44 ms - the camera ray, the albedo and the
+  denoiser are about 1 ms of it. Not measured on the AMD (integrated) device in the game.
+
 ### Lights at night (`rt_lights`)
 
 Night and indoor levels look flat: their lamps, neon and lit windows are bright textures that light nothing (the game
@@ -950,6 +1351,672 @@ its lamps' amount (dusk to dawn), without it only in a dark level (the emitters'
   lamps, else a dark level's); otherwise relit lights the same lamps per vertex (L, traced at the bake from the same
   list, in the same units). The lamps' list is in the level's relit data (path-tracer input: position, colour x
   intensity, falloff core and reach).
+
+- **Not yet**: the lamps' light in the bounce (`rt_gi`) and in the reflections' hits; the lights already baked into the
+  vertex colours aren't taken out (the traced light adds to them - `rt_lights_strength` balances it); no light grid
+  (a view with more than `rt_lights_max` lamps drops the least important).
+
+### The sun, its glare and the sky (`rt_sun`, `rt_bloom`, `rt_sky_model`)
+
+(The disc, the aureole and the glare were rewritten by the physical air - "The physical air, sun and camera": the real
+sun, the sky's own aureole, the eye's glare.)
+
+What read as dated beside the ray-traced light was mostly the original's own sun: a white halo sprite and a corona at
+`sun::render`'s place (engine/gfx/lens_flare: theta / phi from SetSun, drawn after the particles) and the lens flare's
+screen elements over the picture; and the fog's haze was a flat grey veil with no sun colour (the bake gives none) that
+only ever added light. Four settings, all off by default, change that; each works the same with `rt_hdr=0` and
+`rt_hdr=1` (rt_hdr is only the internal range: the output is 8-bit either way).
+
+- **The sky model** (`engine/gfx/rt_sky`, `gpu_vulkan/vulkan_rt_sky`). Single scattering in a spherical atmosphere:
+  Rayleigh air (5.8 / 13.6 / 33.1 x 10^-6 per metre, scale height 8 km), Mie haze (8 x 10^-6, 1.2 km, Cornette-Shanks
+  g 0.8), the viewer 100 m up. From the baked sun's elevation it gives the sun's transmittance - its colour relative to
+  the sun overhead, as the game's display-referred colours (^1/2.2, the brightest channel 1): (1, 0.61, 0.18) at 2
+  degrees, (1, 0.88, 0.64) at 10, (1, 0.95, 0.83) at 20, (1, 0.99, 0.96) at 45 - and the sky's radiance in any
+  direction, exposed so the zenith with the sun 45 degrees up has luminance 0.3 (linear). The device keeps a table of
+  the sky (64 azimuths from the sun's x 32 elevations, finer near the horizon - 32 segments per ray, 16 toward the sun -
+  + a row: the transmittance, the colour, the zenith), made again only when the sun moves. `rt_sun_colour=r,g,b`
+  overrides the colour. `rt::set_sun_light` (a contract addition) publishes it while `rt_sky_model=1` or a colour is
+  set: the one-bounce light (`rt_gi`) tints its sun by it (its luma kept - nothing else about it changes); the shadows
+  don't use it (they darken the bake, which has no colour to replace). It is published by the fog's or the sun's pass,
+  so the bounce takes the colour from the frame after one of them runs.
+- **Aerial perspective** (`vulkan_rt_fog`, `rt_sky_model=1`, a level without fog, `rt_fog_haze=1`). The haze becomes a
+  medium of its own: extinction `kFogAerialExtinction` (1/12000 a unit) x `rt_fog_haze_density` x `rt_fog_density` at
+  the level's ground, thinning by e every `rt_fog_haze_height` (600) above it and as thick as there below it - the
+  ground is the 10th percentile of the bake samples' heights (`rt::BakedSun::ground`, a contract addition; the camera's
+  height when unknown; logged with the first pass) - integrated in closed form along each segment, followed to 40000
+  units. Its light at a sample: sky x (0.45 + 0.55 x lit), with sky the table's colour toward the ray (no lower than
+  0.03 rad above the horizon) and lit the same ray query toward the sun as before: a long unshaded path ends as the
+  sky's colour - the far world fades into the sky, never brighter or whiter than it (the glow toward the sun is the
+  table's own aureole); shaded haze is the sky's share alone, so the shadows of buildings show as beams. Composited as
+  the replaced fog (colour x T + light). The sky's pixels are hazed too, as a surface at the far plane along the ray
+  (or 40000, the nearer): the sky dome paints the world past the meshes - AU's open sea, hills - and a mesh that reaches
+  that far meets it with the same haze. (Fixed after the user's AU screenshot: the first version left the sky
+  undimmed and lit the haze with sky x 0.45 + the sun's colour x a phase - up to ~1.2 x the sky toward the sun -, so
+  AU's far sea, cut where its mesh ends, went flat white with stepped edges against the dome's dark painted sea.) A
+  level with its own (scripted or distance) fog keeps its look: only its sunlight takes the sun's colour (luma kept).
+- **Which sun is drawn.** The sun the player sees is the game's own: render_pc's `draw_viewport` tells rt_scene where
+  `sun::render` would put its sprite every viewport (`rt::set_game_sun`, a contract addition - render's theta / phi
+  from the level's SetSun / InitSun), and the disc, its glare and the rays are drawn there (`rt_sun_place=game`, the
+  default then). It needn't be the baked sun the level was lit with: z_dt's and BO's game sun is 20 degrees up toward
+  +z, their baked ones 53 and 52 degrees up elsewhere - the original game had the same split (its sprite against its
+  bake). (Changed by "One sun for every effect" below: the disc is drawn at the scene's sun - the one the shadows, the
+  bounce, the fog's shafts and the sky table light by -, the game's shown sun only where there is none; `rt_sun_place`
+  is retired.) The disc's colour is the model's for the drawn sun's elevation (or `rt_sun_colour`).
+- (Changed by the volumetric light: the rays below - `rt_shafts`, `rt_shaft_strength` - were removed; the light in the
+  air is the fog pass's, "Volumetric fog and light shafts". What follows describes them as they were.)
+- **The pass** (`gpu_vulkan/vulkan_rt_sun`, a listener at `world_drawn`, `rt::ViewOrder::kSun` = 600 - after the fog,
+  before tone mapping): the viewport's colour copied out; (1) the rays (`rt_shafts`, half resolution): from each texel
+  toward the sun's vanishing point on the screen, 48 points along the whole way (the start jittered by interleaved
+  gradient noise), each a source where the depth is the sky's, exp(-angle to the sun / 0.12) bright, weighted 0.975^i,
+  averaged; x `rt_shaft_strength` (0.8), the sun's colour, a fade - none with the sun behind the camera, fading out as its
+  place leaves the screen by half the screen's size; (2) the source (full resolution, two 16-bit float images - so the
+  sun's light keeps its range with an 8-bit target): the frame's colour (a multisampled target's mean) and the light
+  added - on the sky's pixels (a multisampled pixel's share of sky samples) the disc (`rt_sun`: radius 0.0093 rad x
+  `rt_sun_size` - twice the real sun's -, 24 x its colour, limb-darkened, its edge one pixel soft) and its aureole
+  (0.5 e^(-angle/0.04) + 0.15 e^(-angle/0.25)), and the rays upsampled; (3) the bloom: X = 0.25 x the added light +
+  `rt_bloom_strength` (0.05) x the frame's colour with `rt_bloom` - the frame's part left out while the game's own bloom
+  is on (`rt::ViewDrawn::game_bloom`, a contract addition: z_dt and BO turn it on), so the two don't double up - down a
+  chain of half-size images (Jimenez's 13 taps, weights summing to 1) to 7 levels or a shorter side of 8, then up (a
+  3 x 3 tent, each level's own added at weight 1/levels): B, a blur of X holding the same light; (4) the composite (a
+  full-screen pass, alpha kept): frame + light + B - X - light moved, never made. An 8-bit target clips the result as
+  the game's draws do; with `rt_hdr=1` the tone mapping maps it. `rt_lens_dirt=1` adds faint procedural spots lit by B
+  (light added: off by default, and off in the energy checks).
+- **The original's sun.** While the pass draws a sun (`rt_sun=1` and a sun to draw), `rt::set_sun_glare_replaced`
+  tells `draw_viewport` to skip `sun::render` - no sprite, no corona, no occlusion query - and
+  `sun::hide_for_replacement` fades the lens flare's container out (as the original does when the sun is behind the
+  camera); "sun: the original's sun and lens flare left out" is logged. With no sun at all the original's is kept.
+- **Cost** (device timestamps between the parts, logged every 240 as "rt_sun: the passes take"): the check's scene at
+  1920 x 1080, everything on (`--perf`): RTX 5070 Ti 0.22 ms - rays 0.11, source 0.02, bloom 0.07, composite 0.03; the
+  AMD Radeon integrated GPU 10.3 ms - rays 6.2, source 1.0, bloom 1.6, composite 1.5 (`rt_shafts=0` there). In the game
+  at 1280 x 720 with 8x MSAA (z_dt, BO; NVIDIA): 0.18 - 0.25 ms with rt_hdr=0, 0.32 - 0.40 with rt_hdr=1 and every
+  other effect on. The sky table is remade only when the sun moves (a 64 x 33 dispatch).
+- **Checked:** `thug2_vulkan_rt_sun_check` (76 checks, the RTX 5070 Ti and the AMD Radeon, validation and
+  synchronization validation 0): the device's sky table against rt_sky.h's integrals (256 / 128 segments) at 2, 5, 10,
+  20, 45 and 80 degrees - 0.1-0.4% mean, 0.4-1.7% at the 99th percentile -, the transmittance and colour within 0.002
+  of the 1024 / 512-segment reference, the colour warmer the lower it is, the zenith bluer than the horizon; the sun's
+  place on the screen against the camera's lens (exact), a pixel's angle, the light added at ~75,000 clear-cut pixels
+  against the formula (worst 0.13% relative, none on surfaces), the disc's centre white (8-bit) / above 20 (float), no
+  pass and the original's sun kept with no sun, still left out with the sun behind the camera; every ray texel against
+  the processor's march over its own ray-cast sky mask (97th percentile 2e-4), the wall beside the window lit by the rays
+  5 times as much as far from it; the bloom: X (with the disc at 20 x white) through the first level and the chain's top
+  within 0.3%, the composite into a float target keeping the picture's sum (0.6787 -> 0.6782) with the disc kept above
+  1, into an 8-bit target clipped at 1, the frame's own bloom alone keeping an 8-bit frame's mean to 0.00 levels; the
+  aerial haze's transmittance at ~14,000 texels against the closed form of its height profile (within 5e-4) and its
+  light at least the sky's share of the model's sky colour and at most that colour; ~5,300 sky texels hazed as a surface
+  at the far plane (within 5e-4); everything off: no pass, the picture
+  unchanged. The other checks (rt 20, shadows 45, effects 38, reflections 39, materials 34, fog 71, gi 29, hdr 80) pass
+  unchanged on both GPUs. In the game, `tools/game/rt_shadows_check.ts --effect sun` (z_dt and BO, five spots, two runs,
+  main's build as the baseline): `off` against main's build 0.00-0.01% changed; `on` bounded (mean luma change 0.7-25,
+  nothing black, at most 3.8% white - the disc and its glare with the sun in open sky).
+
+### Water, glass and the skater's shadow (`rt_reflection_fresnel`, `rt_glass_roughness`, the haze, `rt_shadow_objects`)
+
+After the user's screenshots - Australia's sea "too bright", Barcelona's harbour milky and whited out looking into the
+sun, Australia's glass building "a bit too much like mirrors", the skater's blocky shadow beside the ray-traced ones -
+each effect was switched off in turn at the same spots (`tools/game/rt_shadows.json` AU-water, BA;
+`rt_shadows_check.ts`): the reflections changed AU's and BA's water by nothing (their sea materials have no
+environment pass - they aren't reflective to R5 - and BA's water is transparent, which the pass never sees); the sky
+model's aerial haze made both seas milky and the harbour white (with `rt_sky_model=0` the sea is the original's deep
+blue); the glass was the reflections'.
+
+- **The haze** (`vulkan_rt_fog`): `rt_fog_haze_density` defaults to 0.3 (was 1): an extinction of 1/40000 a unit at the
+  level's ground - the near sea keeps its own colour, the horizon still softens, and AU's sea still meets its sky
+  dome's painted sea without a band (both hazed to the same distance). Its light toward a low sun is capped: no
+  brighter than the model's sky at the same height a quarter turn from the sun, x (1 + `kFogAerialGlow`, 0.35) - the
+  table's aureole lit all the haze toward the sun white. (The sun check's aerial reference applies the same cap.)
+- **Which reflective surfaces are what** (`render_pc/rt_record.cpp` classify_reflective, logged per material with
+  `[debug] rt_reflection_materials=1`): `rt::Material::reflection_class` - water: a pass with a UV wibble or a texture
+  animation (moving water textures); glass: the environment pass lerped in by the first pass's alpha (blend modes 12 /
+  13 - the reflection painted into the clear parts of a texture: the windows in AU's and BA's wall textures, e.g.
+  8A6663D9 on the user's building), or under a later pass blended over it by its alpha (a wall texture whose clear
+  texels are its windows, the environment map drawn first: BO's brick buildings), or a first pass that is seen through
+  (transparent, alpha or fixed blend); shiny: the rest (an opaque surface with its reflection added or blended over:
+  metal, paint, polished floors). And `reflection_mask`: modes 13 / 12 - the environment lerped in by the pass before's
+  alpha, the glass's own colour put back (below). Both are in R3's material record (56 bytes a row then; 100 now, with the surface maps' `surface_texture` and `f0` - "One F0" below - and the mask passes' nine words).
+- **Where a surface reflects: its environment pass's share** (`environment_share` in rt_record.cpp; the user's Boston
+  street, `rt_shadows.json` BO-facade: a whole brick facade turned mirror-grey, not just its windows). The game's
+  generated pixel shader (`render_pc/pixel_shaders.cpp`) puts the first pass in r0 and blends each later pass into it by
+  its mode, a pass's alpha being its texel's (pass flag 0x1000) or the vertex alpha x the texel's, doubled. So the
+  environment colour E reaches the screen scaled by its own mode (after the first pass: 1 add, 5 blend, 2 / 6 by the
+  fixed alpha, 12 / 13 by the pass before's alpha; 3 / 4 subtract it, 7 - 10 multiply or brighten by its alpha alone,
+  0 and 11 do nothing - those draw no environment colour: not reflective) and then by every later pass's: 5 x (1 - a)
+  (the wall drawn over its windows), 6 x (1 - fixed alpha), 7 x a, 8 x fixed alpha, 12 / 13 x (1 - a) / a of the pass
+  before; adds, subtracts and brightens leave it. The constant factors go into the reflectivity, the per-pixel ones
+  into `rt::Material::mask_passes` (up to three: a pass's texture, its texture coordinate set - pass n reads set n,
+  `rt::Geometry::uv_sets` -, addressing, kMaskClear 1 - a / kMaskOpaque a, whether the vertex alpha counts); R3's record
+  carries each one's texture slot, sampler and mode (100 bytes a row then; 108 since the surface reflections with the surface maps' two fields before them), and the reflection pass multiplies the weight by
+  every factor at the pixel (each texture at the level of its own coordinates' footprint; Fresnel on or off). BO's
+  facades are an environment pass first (a 32 x 32 sky picture) under the wall texture by mode 5: before, the
+  reflectivity of the environment pass covered the whole wall; now only where the wall texture is clear.
+- **Fresnel** (`rt_reflection_fresnel=1`, the default; 0 the first version's look): the pixel's weight from Schlick's
+  curve at the cosine c between the view and the triangle's normal - water F0 0.02, glass `rt_glass_reflectance` (0.2; real glass's 0.04 left AU's panes - bright textures, not dark rooms - with a mean change of 1.4 levels against the first version's 12: no reflection to see): weight = reflectivity x
+  min(1, 2 x strength) x (F0 + (1 - F0)(1 - c)^5) (the default strength 0.5 is the physical amount); shiny surfaces
+  keep reflectivity x strength face-on and rise along the same curve to reflectivity x min(1, 2 x strength) at grazing
+  angles. x the mask at the pixel (the mask passes' factors, above). Schlick's curve is within
+  0.06 of the exact reflectance of water (n 1.333) and glass (n 1.5) at every angle (the check).
+- **Masked glass's own colour.** Where the game lerped its environment map in by the texture's alpha it drew the sky
+  picture *in place of* the texture - there is no glass colour in the frame to show face-on. The pass puts it back: the
+  texel x the pass's colour x the vertex colour doubled (objects: the frame's lights) - what the game's shader would have
+  drawn without the environment pass - into a second image (the base layer, premultiplied by mask x (1 - F)), and the
+  apply blends `ONE, ONE_MINUS_SRC_ALPHA`: colour x (1 - mask(1 - F) - mask F h) + mask(1 - F) x own + mask F h x
+  reflection (h: the share of the rays that hit something). Face-on a pane is mostly its own colour, at grazing angles
+  the reflection; where the rays miss, F of the game's environment map stays (the sky it painted). Other classes keep
+  the first version's blend (colour toward the reflection by the weight; the environment map under it).
+- **Rough glass** (`rt_glass_roughness`, 0.05 radians; 0: a mirror): glass traces 4 rays over a cone round the mirror
+  direction (a golden-angle disc, turned by a quarter of its step in each pixel of a 2 x 2 block), averages their hits
+  and stores its weight negative; the apply blurs such pixels with their rough neighbours (a 3 x 3 tent by weight) - 16
+  directions seen per neighbourhood, no noise, no history. Water and shiny surfaces stay one deterministic mirror ray.
+- **Surfaces glossy by their surface maps** (`rt_reflection_surfaces`, 1; needs `rt_pbr`'s maps; added 2026-11-15):
+  before, only the environment-mapped materials reflected - polished floors and metal the game left without a shine
+  never did. Now the material table (`vulkan_rt_materials.cpp` surface_reflection) gives a material with no shine of its
+  own, not seen through, whose texture has a map a reflectivity from the map's surface kind (`vulkan_surface.cpp`
+  surface_map_gloss: the detail library's kind where there is one, else the map's class - metal, glazed tiles, glass and
+  water 1, stone 0.2, wood 0.25, paint 0.2 - since the night's kerb, which mirrored a shoe: before 0.5, 0.35 and 0.3 -;
+  asphalt, concrete, brick, plaster, ground, plants, cloth and the
+  characters' maps 0), class `rt::kReflectSurface`, the map's F0, and the kind's roughness and its weight (the library's;
+  the record grew to 108 bytes). The pass reads the map's roughness at the pixel (mixed toward the kind's as the per-pixel
+  lighting does): weight = gloss x `rt_reflection_surfaces` x min(1, 2 x strength) x (F0 + (max(1 - r, F0) - F0)(1 - c)^5)
+  x (1 - smoothstep(0.525, 0.7, r)) - a rough surface never turns into a mirror at grazing angles, the roughest (r above
+  0.7: the maps' stone, plaster, paint) not at all - and its rays spread over a cone of r^2 radians (at most 0.5) as
+  rough glass's. Each kind has a roughness it never goes under (`least_roughness`, the record now 112 bytes): metal
+  0.05, glazed tiles 0.12, glass and water 0, wood 0.35, paint 0.4, stone 0.5 - a kerb or a painted wall is a faint,
+  blurred sheen at most, never a mirror, whatever its map says - and its F0 is held to 0.05 but for metal (only metal
+  reflects more than a clear coat face-on).
+- **Objects' clear coat and smooth normals** (2026-11-15): a shiny object (environment-mapped, not water, glass or a
+  map's surface) - a car's paint - reflected as the shiny surfaces do, its whole shine face-on: a dark hood was a sharp,
+  bright mirror. With Fresnel on it is a clear coat now: its shine x min(1, 2 x strength) x Schlick's from F0 0.05, its
+  rays over a 0.06 radian cone. And where the reflecting mesh has normals of its own (the objects) the mirror direction
+  and the Fresnel follow them, interpolated (`hit_normal`, by the instance's inverse transpose) - the low-poly bodies'
+  triangles no longer show in the reflection; the triangle's normal still keeps the ray off the surface (and replaces
+  a smooth normal that would send the ray into it). Such materials count as reflective instances. The maps make few surfaces glossy (THUG2's levels: the
+  metal kinds - rails, the Airport's moving walkways - and glazed tiles; stone and paint stay matte), so most views
+  change little. Off (`rt_reflections=0`) and without maps nothing changes; `rt_reflection_surfaces=0` gives the earlier
+  look.
+- **The skater's shadow** (`rt_shadow_objects`, now 1 by default): the skater, peds and vehicles cast ray-traced shadows,
+  and while a shadow pass casts them `rt::set_object_shadows_replaced` (a contract addition) tells the shadow component
+  (`engine/objects/shadow_component.cpp` refresh_shadow) to hide each object's own shadow - the detailed one (the model
+  in a 256 x 256 texture projected on the ground - the blocky one), the simple blob, the volume. A view with no pass (no
+  baked sun yet, a level whose bake shows none - the Foundry -, `rt_shadows=0`, objects off) gives them back. Objects
+  receive only the world's shadows: a pixel whose surface is an object (a ray from the camera against the objects alone
+  ends at the depth) traces without the objects' mask - the low-poly body traced against itself drew blotches.
+- **No faceted shading on characters** (the user's NJ screenshot: dark triangles over the skater's shirt and arms).
+  Switched off one at a time at that spot (`tools/game/rt_shadows.json` nj-skater): only `rt_shadows` drew them, and
+  only for a sun the skater's back faced away from. The pass shaded a pixel facing away from the light as in shadow by
+  the normal rebuilt from the depth - a triangle's, flat - so the skater's smooth body went dark triangle by triangle.
+  An object's pixel now skips that test (the game's own lighting already darkens its far side) and takes the world's
+  shadows only; the occlusion's and bounce light's rays likewise leave out the objects from an object's own pixels.
+  The skater's shadow itself was checked against his pose: a grid of `rtprobe` rays along the sun through him gives his
+  whole silhouette (head, arms, the board held across), a sun from the side casts it whole on the road, and while
+  riding (push, ollie) the shadow follows each pose. `update_mesh` with the same triangles in another buffer (a skinned
+  mesh's buffers taking turns) now refits as `mesh_changed` does - before, it kept the pose the structure was built
+  with (`thug2_vulkan_rt_check`: a mesh's two buffers taking turns, update_mesh only). `[debug] rt_objects=1` logs each
+  object mesh's flags as ray tracing sees them (the skater's six alpha-blended parts cast no shadow, as before).
+- **No faceted occlusion on characters** (the user's AU screenshot: the skater in the shade beside a wall, his shirt,
+  face and arms in hard light and dark triangles). Switched off one at a time at that spot with the user's settings:
+  only `rt_ao` drew them (`rt_gi` the same, fainter; shadows, the relit mode, per-pixel lighting and Ray Reconstruction
+  not). Leaving the objects out of an object pixel's rays wasn't enough: the rays' hemisphere was still turned by the
+  depth's normal - its triangle's, flat - so the ground and the wall took a different share of each triangle. The
+  occlusion's and the bounce's rays now leave an object's pixel around the normal the game lights it with: the camera
+  ray that finds the object (`rays_mask`) reads its triangle's vertex normals from the geometry table, blended at the
+  hit and taken to the world by the inverse transpose of the instance's matrix (turned to the side the depth's normal
+  faces). The table gained them: `rt::Geometry::normal_offset` / `normal_format` (`kNormalFloat3`; render_pc from the
+  vertex format - the mesh's own `normal_offset()` is not where the drawn vertex has it: the skater's skinned meshes,
+  format 152, give 24 there, their colour's place, with the normal at 12), the record's `normal_offset` and
+  `kGeometryNormal`, `hit_normal()` in its GLSL (the record 52 bytes). The occlusion binds the table too (binding 7) -
+  the TLAS's own when it traces the scene builder's, else one record with nothing live (a caller's own TLAS: the
+  depth's normals, as before). The world's pixels are untouched; the guide's normal (the denoiser's) is the smooth one on
+  objects. `thug2_vulkan_rt_gi_check` (39 checks, both GPUs, validation 0): a 12 x 8 sphere with its vertex normals as
+  an object beside the red wall, both effects' raw rays averaged over 48 frames x 16 rays - across its triangles' edges
+  the occlusion steps 0.001 beyond the steps within a triangle (at most 0.006), the bounce 0.0003; the same sphere
+  without normals 0.021 and 0.0086 (the measure sees the facets: at least 0.012).
+- **Checked:** `thug2_vulkan_rt_reflections_check` (115 checks): Schlick against the exact Fresnel; the mirror as water,
+  glass (four samples), glass at real glass's 0.04, shiny and both masks, and the floor under a cover pass (stripes of
+  clear and opaque texels through its second texture coordinate set, with Fresnel and without: the opaque stripes
+  exactly as without the pass) - every clear-cut reflected pixel's colour and the pass's own weight (its
+  image's alpha, within 1.5e-3) against the processor's for the angle it is seen at, the masked glass's colour put back
+  (hits and misses); rough glass against the same glass as a mirror (the light added 0.96 - 0.98 of it, softer, no pixel
+  black, no NaN, every weight at most the mirror's); the first version's cases with Fresnel off unchanged. The shadow
+  check (45), the sun check (aerial haze with the cap) and the others pass on both GPUs, validation with synchronization
+  0. In the game: `rt_shadows_check.ts --effect reflections --groups AU-water,BA` (the user's three views and AU-sea, the
+  user's settings with `--set`).
+
+### The sky: the atmosphere and volumetric clouds (`rt_sky`, `rt_clouds`)
+
+THUG2's sky is a textured dome per level - the `<level>_Sky` scenes (`is_sky`: a scene whose name holds "_sky"), drawn
+by `draw_viewport` after the world's opaque passes from a camera at the origin with an infinite far plane, depth test on
+and no depth writes, so it fills only the pixels the world left at the depth's far value. What the skies hold (the
+fifteen main levels' scenes read offline): an opaque dome of 4-5 photographic textures (BO, CA, SE, TR share one; AU's
+paints its sea below the horizon, BE's adds an opaque brown ring at -5 degrees), and in seven of them transparent layers
+drawn after it: AP, DJ, NO, PH and SC put cloud cards (alpha-blended, draw order 1200-1210) 40-65 km out over a plain
+grey dome; LA adds a sun glow (additive), a smog band and haze strips just above the horizon. No sky scene holds
+mountains or skyline geometry - the distant hills, cities and SE2's storm overhead are the levels' own meshes (they keep
+their depth and stay in front of any sky).
+
+`[Graphics] rt_sky=1` (Vulkan, no ray tracing needed; off by default - `rt_sky=0` draws exactly what main draws):
+
+- **The split** (contract additions in `rt_scene.h`: `SkyReplacement`, `ViewListener::sky_drawn`, `sky_view_drawn`,
+  `ViewOrder::kSky`). `draw_viewport` draws the sky scene's opaque meshes (the backdrop), tells the listeners, then its
+  transparent meshes only with `keep_layers` - true without clouds (LA keeps its smog bands, DJ its cloud cards over the
+  new atmosphere), false with `rt_clouds=1` (the volumetric clouds replace the painted cards; a double layer of clouds
+  read wrong). The listener draws over every pixel still at the far plane - the backdrop with it.
+- **The level's own sky** (`SkyCapture`, `rt_sky_match.h`; since the low sun's sky only its clouds' share is used - the
+  coverage). Once per sky scene `render_pc` draws all its meshes from the
+  origin into six 90-degree faces (a 384 x 256 texture, cleared to the background colour) and hands it over; the pass
+  reads it back once and analyses it: per band of elevation - just below the horizon (-8 to -0.5 degrees: a painted sea,
+  the far ground - logged, never matched), the horizon (0.5 - 10), half way (15 - 45), overhead (55 - 90) - the clear sky's colour (texels weighted
+  by 1 - cloudiness, cloudiness from saturation: 0.32 and more clear, 0.10 and less cloud) and everything's mean; the
+  clouds' share between 3 and 35 degrees up (the sky a player sees) and their colour. Logged: "rt_sky: the level's sky".
+- **The atmosphere** (`rt_sky.h`, `vulkan_rt_sky`): the existing model - Rayleigh, Mie, the same radii, scale heights and
+  phases, so the sun's colour, the fog's haze and the drawn sky are one model - and (added by the low sun's sky) ozone:
+  absorption only, Hillaire's 0.650 / 1.881 / 0.085 per 10^6 m in a tent 10 - 40 km up. Overhead it takes 3% of the
+  green; along a low sun's path it takes the orange and green out of the light reaching the far sky, so with the sun
+  3 degrees down the sky away from it shows the Earth's shadow (1 - 3 degrees up, blue over red 1.4, dark) under the
+  Belt of Venus (9 - 15 degrees, blue over red 0.76, pink, 1.5 x brighter) and the twilight zenith stays blue (without
+  ozone that band was a greenish yellow). The light scattered more than once
+  added after Hillaire (EGSR 2020): Psi(altitude, sun) = L2 / (1 - f) from 8 x 8 directions round each point (the second
+  order with an even phase and the ground's light, albedo 0.3), added as scattering x Psi along each view ray. Three
+  tables, 16-bit floats: the transmittance (256 x 64, Bruneton's mapping, made once), Psi (32 x 32, once), and the sky
+  from the viewer (192 x 108: across sqrt(azimuth / pi) from the sun, down the elevation's signed square root - fine near
+  the sun and the horizon, below it too), made again when the sun moves. Exposure as before (the zenith
+  0.3 with the sun 45 degrees up): the multiple scattering lifts the sky 1.15 x (sun 10 degrees up) to 1.5 x (45).
+- **No match to the painted sky** (since 2026-11-16, the user: "If we implement TOD, we need TOD. Maintaining the old
+  style is not part of that."). Before, `rt_sky_match` (0.8 by default) multiplied the model per channel toward the
+  dome's colours band by band (horizon, half way, overhead), the gains worked out once for the level's own sun and kept
+  at every hour, and the clouds took the dome's cloud hue and brightness; at College 06:10 that held a midday blue
+  away from a 10-degree sun (the gains there: horizon 0.27 0.25 0.33, half way 0.40 0.39 0.48, overhead 0.65 0.61 0.77 -
+  their blue over red 1.2 x, applied to a sky the model had already turned pale) and white clouds lit by the noon
+  model's horizon colour. Now the sky-view table is the model's alone, at every time of day, driven by the clock's sun
+  (`rt::DayLight`); `rt_sky_match` is retired (a setting that does nothing). From the capture only the amount of cloud
+  is taken (the clouds' coverage, auto). The original look is `rt_sky=0` (the painted dome) - and `tod=level` keeps the
+  level's own lighting. Below the horizon the dome is still not asked (its painted ground came back as a band): the
+  sky-view table shows the horizon's haze there (the sky 0.6 degrees up in the same azimuth) giving way to the model's
+  own far ground by up to 60% over 20 degrees down - the far world's aerial haze, which reads this table, and the sky
+  meet without a band.
+- **The sun** it is drawn for: the one the player sees (`visible_sun`: the game's SetSun, the baked sun without one; a
+  fixed 50 degrees up when neither exists - logged). The fog's table follows the drawn sky (`set_table_follows_sky_view`:
+  its rows read from the sky-view table, the drawn sun in the last row's entry 3 - `sky_display` measures azimuths from
+  it), so the aerial haze fades the far world - and, since the haze fix, the sky's own pixels at the far plane - into
+  this sky's colour: AU's sea meets the horizon without a band. Its last row (the lighting sun's transmittance and colour,
+  the bounce light's tint) is the model's for the baked sun, as before.
+- **The clouds** (`rt_clouds=1`; `rt_clouds.h` is the model and its processor twin, `vulkan_rt_clouds` the device's).
+  A shell 1.5 - 4 km above the ground round the planet. Noise made at start-up by three compute passes from an integer
+  hash (no assets; the processor computes the same bytes): a 128^3 shape (Perlin-Worley; Worley fractals at 4, 8, 16
+  cells), a 32^3 detail (Worley at 4, 8, 16), a 256^2 weather map (patches; the clouds' kind), all tiling (9 km, 1.1 km,
+  42 km; the weather's b a clump field - Worley at 16 cells, 2.6 km). The density: the cover - the weather's patches
+  x its clumps, so a patch is a field of separate clouds with sky between them, not a sheet (the first version's flat
+  grey ceiling seen from 1500 units up: whole patches of cover, the shape's threshold opened to 0.3, read as one
+  overcast base); a height profile per kind whose top falls toward the cover's edge (domes, not the clumps' vertical
+  walls); the shape thresholded by the cover (never past 0.65 - 0.9 of its range short of overcast), the detail eroding
+  the edges. The model turns from none to overcast over a narrow range of its own coverage, so the settings' coverage
+  goes through `rt::cloud_amount` (kCloudAmounts, measured by the check's sweep): a coverage c leaves about 1 - c of
+  the sky above 12 degrees clear (0.25: 75%, 0.5: 49%, 0.75: 24%, 1: none). The light: the sun's through the cloud
+  (six growing steps; the sun's light at the layer is the atmosphere's transmittance half way up it - red over blue
+  2.2 with the sun 10 degrees up, 8.9 at 3), Wrenninge's three octaves (Beer's law, multiple scattering), two
+  Henyey-Greenstein lobes (0.8 forward - the silver lining toward the sun - and -0.3), a powder term, the sky's light;
+  Hillaire's energy-conserving step. The sky's light (`rt_clouds.h cloud_sky_light`, since the low sun's sky) is read
+  from the drawn sky-view table by the march itself - their tops the mean light of the upper hemisphere, their bases of
+  the lower one (the far ground lit by the sun and the sky, through the haze), 6 elevations x 4 azimuths each, cos e
+  weighted, every tap a texel's centre (the processor's twin reads the same texels of the table read back): the sky as
+  it is now, the night sky's light in it at night. Before, it was the model's horizon and zenith colours at the level's
+  own time scaled by the hour's brightness (and matched to the dome): noon blue on the dawn clouds' shade, and with the
+  horizon band 2 - 3 x the hemisphere's mean the shade outshone the sun's side - white clouds at dawn. The clouds now
+  take nothing of the dome's colour (its cloud hue and brightness were a gain on them); at 06:10 their sun side is
+  warm, at dusk peach and gold. Coverage auto from the level (0.2 + 0.7 x its share, at most 0.75: a painted sky's grey
+  cards and haze count as cloud, and a clear one should stay mostly clear), or `rt_cloud_coverage`. The layer is a
+  shell round the planet
+  (`cloud_layer_span`): a level ray meets its base 134 km off and the far clouds sink toward the horizon (d^2 / 2R: 197 m
+  at 50 km), foreshortened; the march stops 40 km into the layer and the composite fades the clouds into the sky by e per
+  20 km, so toward the horizon they melt into the haze instead of running out to it as a sheet.
+  They drift with the game clock (`ViewDrawn::game_seconds`, a contract addition: a demo replays the same sky) at 12 m/s
+  x `rt_cloud_speed`, and the camera's place moves through them.
+- **The passes** (`vulkan_rt_sky_pass`, at `sky_drawn`): the march at a quarter, half (the default) or full resolution
+  (`rt_cloud_quality` 0 / 1 / 2: 32 / 48 / 96 steps), only texels whose block has sky, each texel's samples jittered by
+  interleaved gradient noise + the frame's golden-ratio offset; a temporal pass (the texel's direction reprojected through
+  the viewport's last camera - the clouds are far, a direction is enough -, the history bilinear there, clamped to this
+  frame's 3 x 3 neighbourhood, 0.1 of this frame); the composite: a full-screen triangle at the far plane, depth-tested
+  (less or equal) against the world's depth - every sample of the sky, no other - writing the sky-view table toward the
+  pixel x the clouds' transmittance + their light (the history upsampled, texels without sky left out), the clouds faded
+  into the sky with distance (e per 20 km), display-referred. An 8-bit target clips at 1; with `rt_hdr=1` values above 1
+  stay for the tone mapping. Split screen: a history per viewport (up to 4). A history that starts again - a new
+  viewport, a new level's capture - is seeded in its first frame (the march and the temporal pass 12 times with the next
+  frames' jitter, the composite after the last), so the clouds show converged.
+- **A level's own sky meshes** (SE2's storm overhead): level geometry, not part of the sky scene - `rtprobe` from the
+  sky spot (1500 units over the first restart) meets it 1,030 - 1,360 units up in every direction from 50 degrees to
+  overhead (one instance, one material): a low ceiling about 2,500 units over the island, its edges faded by its own
+  alpha and drawn over whatever sky is behind it. The edge the first version showed was its dark grey against the flat
+  grey-white cloud base (the grey ceiling above); against separate cumulus with blue between them it reads as a storm
+  front over fair-weather clouds (out/sky2's SE2 pictures). A blend toward the dome's colour near far, high geometry was
+  tried and left out: the storm is near (1 - 1.4 thousand units), so depth can't tell it from a building's top or a
+  palm's leaves without haloing those.
+- **Level start**: with ray tracing, `RayTracing::prepare_frame` (the first frame after a load's work) also matches the
+  level's sky and makes the atmosphere's tables before any view is drawn (`prepare_rt_sky`), so the fog's table and the
+  bounce light read the new level's sky from its first frame; without ray tracing the first view's pass does it, still
+  before that frame is presented. The capture is drawn earlier in the same frame (`capture_sky`), the read-back stall
+  once per level falls in the frame shown over the loading screen's last picture.
+- **Cloud shadows** (`rt_cloud_shadows=1`, off by default; at `opaque_drawn`): the clouds' shadow map (changed by the
+  volumetric light - one map toward the scene's light, the sun or the moon, read by the ground and by the fog's march:
+  "Volumetric fog and light shafts"). With the ray-traced shadows on (`vulkan_rt_shadows`' CLOUDS variant, bindings 4
+  and 5) the map is the sun's visibility: where the sun's rays reach a pixel the clouds take their share of the sun's
+  light - a relit pixel's `seen` times the transmittance (its light rebuilt from its parts: the sky's, the bounce's and
+  the lamps' stay), any other pixel's occlusion raised by it - and a pixel already in the sun's shade (or under a roof)
+  loses nothing more. Without them (no ray tracing, cel's own shadows) the fallback: the colour x mix(1, transmittance,
+  0.65 x the light's strength) over all of it. (2026-11-16, the freeze audit: the multiply over all the light took the
+  sky's light too - a Boston street in a building's morning shade went near black under a blue sky.)
+- **The reflections' misses** (`rt_sky_for_rays`; `vulkan_rt_reflections`' SKY variant, bindings 9 - 12): with
+  `rt_sky=1` a reflection ray that leaves the world sees the sky drawn - the sky-view table toward it and, where its
+  direction falls on the viewport, this frame's clouds (their history, read as the composite reads it, faded out over
+  the viewport's last 8%; beyond it the sky alone) - as the game's colour; with `rt_sky=0` the misses keep the game's
+  environment map as before.
+- **Not done**: (the time of day: "Time of day" below); clouds in reflections only where the reflected
+  direction is on screen.
+- **Checked**: `thug2_vulkan_rt_sky_check` (92 checks since the low sun's sky; the RTX 5070 Ti and the AMD Radeon integrated GPU, validation and
+  synchronization validation 0, no ray tracing asked for): the transmittance table against 2048 segments, Psi against
+  the processor's integral, the sky-view table against `sky_radiance_ms` (below the horizon: the same haze-to-ground
+  blend on the processor) at 10 and 45 degrees, the multiple scattering brightening the sky, the zenith bluer than the
+  horizon; a painted capture analysed on the device exactly as on the processor, the clouds' coverage from it and the
+  sky-view table with it the model's to the bit (no colour of the dome in it); below the horizon the horizon's haze,
+  not the capture's dark sea (across the horizon luma within 2%, chromaticity within 0.01); a khaki ring painted under
+  the horizon seen by the ground band and changing nothing; (the low sun's sky) the sun's light reddened (red over blue
+  3.2 at 10 degrees up, 22 at 3, 2.3 at the clouds at 10), the anti-solar sky 5 - 40 degrees up paler with the sun 10
+  degrees up than at noon (saturation 0.34 against 0.46), with it 3 degrees down the Earth's shadow under the Belt of
+  Venus (above), the clouds seen toward a 10-degree sun warm (red over blue 1.65; 0.94 with it 45 up); the composite in an 8-bit and a
+  float target; the noise the processor's to a step; every marched texel against the processor's march; the clear share
+  of the sky above 12 degrees by coverage (0.25: 75%, 0.5: 49%, 0.75: 24%, 1: 0%); the layer's curvature (a level ray
+  meets its base 133.5 km off, 50 km across it lies 196 m under a flat layer: d^2 / 2R); after 30 still frames the
+  history steadier than the march; the first frame seeded (its history 3 x nearer the settled one than a march); a
+  turned camera without ghosts; no NaN. `thug2_vulkan_rt_reflections_check` (99): with rt_sky every clear-cut miss shows
+  the sky-view table toward its reflection (29,338 pixels, 0 off by more than 3 / 255), and with no sky drawn the misses
+  are unchanged. The other checks on both GPUs: sun 77, fog 76, hdr 80, gi 32, rt 20, shadows 45, effects 51,
+  materials 34, rt_scene, format. In the game `tools/game/rt_shadows_check.ts --effect sky` (tools/game/rt_sky.json, the
+  user's [Graphics] settings - every RT effect, 8 x MSAA, tessellation): drawn everywhere; bounded but one picture -
+  TR-horizon, looking into the low sun from 1500 units up, has 12.7% turned white (the bound is 8%: the original is
+  near-white there too, 230 - 245; the drawn sky's glare reaches 255); mean luma change at most 55.8 (NO-up), at most
+  0.34% turned black.
+- **Cost** (device timestamps, logged every 240 passes as "rt_sky: the passes take"): `--perf` at 1920 x 1080 (the
+  check's scene, half the screen sky) - the sky alone 0.015 ms on the RTX 5070 Ti, 0.85 ms on the AMD integrated GPU;
+  with clouds at half resolution 0.13 ms (march 0.09, temporal 0.01, composite 0.03) and 7.4 ms (4.7, 1.1, 1.6); a
+  seeded first frame 12 x the march and temporal pass once. In the game at 1280 x 720 with 8 x MSAA and every other
+  effect on: 0.04 - 0.12 ms on the RTX 5070 Ti.
+- **Dark levels**: (retired with the match) the sun on the clouds was x a smoothstep of the dome's brightness, so NO's
+  painted night kept its clouds dim. Now night is the clock's: with `tod` running NO is lit at midnight (the moon's
+  sky, the clouds' sun gone); with `tod=level` the sky is drawn for the game's sun as the level sets it.
+
+### The first frame after a load
+
+With the effects on, the first frame the player sees after a load is as complete as one a second later - nothing
+fades in. Before, four things were deferred: the baked sun was fitted only once the world had stood still for 60
+frames (shadows, the bounce light, the fog's shafts and the haze's sun skipped until then, then ~0.35 s of tracing
+mid-play); the BLASes' compaction ran a few frames later (memory only - every BLAS was already built in the first
+frame); the temporal effects (AO, GI, fog) started from empty histories and faded in over 12 - 32 frames; and the sky
+model's table / sun colour was made by the sun's pass, after the bounce light had read last frame's colour. Now:
+
+- **A new world's work in its first frame** (`render_pc/rt_record`): the loaded scenes' key (each non-sky scene, its
+  meshes and their count - not which are shown, so a sector turned on or off keeps the fit) differs from the one last
+  settled - a level's first frame, the editor's load. Right after that frame's `begin_frame` and before any view is
+  drawn: `RayTracing::settle` (added to the contract; the Vulkan backend finishes the frame's work, then builds the
+  frame's scene again - which collects the compacted sizes, copies each static BLAS into its smaller structure and
+  rebuilds the TLAS over the new addresses - in rounds until no size is waited for), then the baked sun's fit when it is
+  wanted. The frame is presented over the loading screen's last picture, so this is loading time. Log: "rt: a new
+  world's first frame: ... ms in all before it is drawn" and "rt: the new world's first frame took ... ms".
+- **Every history starts again** with a new world (`settle` resets the AO's, GI's and fog's): a camera held at the
+  same place across the load would otherwise find the last world's history.
+- **Meshes not skinned yet are traced by nothing**: a mesh skinned on the processor is recorded as a transparent
+  instance (mask 0x80) until one of its vertex buffers has been written after it was first recorded - before that its
+  buffers hold the unskinned data, which in a level's first frame cast large wrong shadows and occlusion (AU: 40% of the
+  first picture darkened, the seeded histories carrying it for ~30 frames). The same held for a ped appearing mid-play.
+- **The frame's sun before the views**: `RayTracing::prepare_frame` (added; every frame after `begin_frame`) - the
+  Vulkan backend brings the sky model's table and `rt::set_sun_light` up to date for the frame's sun while the sun's
+  effects or the sky model are on.
+- **Seeded histories** (`gpu_vulkan/vulkan_rt_history.h`): a history that starts again - a new viewport or target, a
+  load, a viewport not drawn the frame before, the settings changed, or a **cut** (the camera moved more than 250 units
+  or turned more than 45 degrees between two frames: a teleport, a restart, looking behind) - runs the trace and the
+  temporal pass as many times in that frame as the history holds, each with the next frame's directions / jitter from
+  the same camera: AO and GI 32 times (then the spatial filter once), the fog 12 marches. The frame shows what a still
+  camera shows after that many frames; pixels disoccluded in a continuing shot still start again on their own. The cost
+  is that many passes in the one frame (logged once per effect: "a history started again ... seeded").
+- **Pipelines**: every effect's pipelines are made the first time its pass runs - now all in that first frame, before
+  it is presented (the fog's and the shadows' no longer wait for the sun). The RT shaders are compiled by glslang each
+  run (no SPIR-V cache yet - the front end's first frame pays for most of it: 0.3 - 2 s measured, the driver's own cache
+  warm or not).
+- **Off**: with no ray-tracing backend `rt_record` does nothing; with ray tracing but no effect wanting the sun, only
+  the compaction (milliseconds).
+- **Checked**: `thug2_vulkan_rt_effects_check` (the first denoised frame and a camera cut against the 256-ray reference,
+  every history 32 long), `thug2_vulkan_rt_gi_check` (the first frame against its reference), `thug2_vulkan_rt_fog_check`
+  (the first frame's history full and converged; the raw march compared at the seeded frame index). In the game,
+  `tools/game/first_frame_check.ts` (tools/game/README.md): the automation channel's `capture 61 <folder> afterload`
+  takes a level's first frame and the 60 after it from a camera held through the load, with the user's `[Graphics]`
+  (`on`) and with ray tracing off (`off`: the scene's own motion); frame 1 against frame 60 outside both noise masks.
+  Measured (RTX 5070 Ti, 1280 x 720, the user's settings: every effect, msaa 8): BO 0.000% of the compared pixels
+  changed, AU 0.007%, z_dt 0.081%, foun 0.015% (at most 0.5%); the work before the first frame is drawn 255 / 361 / 186
+  / 265 ms (the structures 13 - 55 ms of it, the rest the sun's fit), the first frame 389 / 1557 / 330 / 365 ms in all
+  (the seeded histories and the pipelines first used there; the front end's first frame ~330 ms). Before, the first
+  frame showed no shadows / bounce / haze sun and AO / GI faded in; the fit's ~0.35 s came a second into play.
+
+### Smoothed curves (`rt_tessellation`)
+
+THUG2's curves are facets: a quarter pipe is 6-12 flat strips, a rail 6-8 sides, a cannon wheel or a car's wing a few
+dozen triangles, and their silhouettes and shading show it. `[Graphics] rt_tessellation=1` (off by default;
+`rt_tessellation=0` loads and draws exactly what main does - one test of a flag per mesh at load) rounds them off.
+
+- **Where it is done: once, at load, on the processor** (`engine/gfx/smooth_tess`, `render_pc/mesh_smoothing`). A
+  scene mesh's body (`read_mesh`, before its buffers are made) gets its curved triangles split: the new vertices after
+  its own, a new strip for its first level of detail. Nothing in the draw path changes - the fixed-function emulation,
+  the pipelines, the Direct3D 9 renderer and the ray tracing all get more triangles - so it costs no shader variant, no
+  tessellation stage (absent from the AMD integrated GPU's and MoltenVK's portability subsets anyway) and no mesh
+  shaders, and **what rays see is what is drawn**: `rt_record` registers each mesh's first level of detail from its
+  buffers, so its BLAS is built from the smoothed geometry (the shadows, occlusion and reflections fall on the rounded
+  surface; `rtprobe` hits it - below). The other levels of detail keep the original vertices (still first) and strips.
+  One reader keeps the original triangles: the baked sun's samples (R4: `fit_baked_sun` and the bake's agreement walk
+  the world's triangles, each counted the same) - split triangles would weigh 9 - 16 times and move the fitted sun (sch:
+  elevation 36 -> 31, the agreement's samples 195,000 -> 673,000: shadows changed level-wide, the first check run caught
+  it); `mesh_smoothing` keeps each smoothed mesh's original strip by its index buffer (shared copies share it, copies
+  copy it) and `rt_record` samples that.
+  Distance-adaptive factors would mean a second strip per mesh or a tessellation stage; instead each mesh gets the level
+  its curves need (below), which keeps it crack-free with a fixed vertex buffer.
+- **Which meshes**: every scene mesh (levels, objects, cars - models loaded from memory too) with a plain vertex format
+  (a position, optionally a normal, a colour and texture coordinate pairs), not skinned (skaters and peds are left
+  out), no per-vertex colour animation, no bone-scaled positions, not dynamic, its material's first pass neither
+  transparent (decals, glass, water) nor cut out (alpha reference above 8: foliage, fences' meshes). Within a mesh only
+  triangles with a **curved edge** are split: the corners' normals come from the geometry (the file's normals are
+  lighting, and most level meshes have none) - faces joined across edges where they meet at under 50 degrees (smoothing
+  groups, the faces' normals averaged by their corner angles) - and an edge is curved when exactly two faces of the mesh
+  share it, wound alike, at under 50 degrees, and its curve leaves the straight edge by more than 0.02 units. Flat walls
+  and floors (parallel normals: no curve), hard edges (creases), open edges and the meshes' boundaries stay straight.
+  Measured: BO 585 of 2173 meshes (11,577 triangles split; indices 39,250 -> 294,202), sch 961 of 1711 (24,380;
+  117,492 -> 650,697); 52 / 104 ms at load.
+- **The shape**: Phong tessellation (Boubekeur and Alexa 2008: a point of the flat triangle pulled toward its corners'
+  tangent planes) with shape factor 0.5, raised per edge by 2 (1 / cos h - 1) / sin^2 h (h half the angle between the
+  edge's two normals) so an edge's middle lies on the circular arc its normals describe; inside a triangle the edges'
+  factors blend toward their own edge. On a 16-sided cylinder of radius 100 the new points lie within 0.02 of the circle
+  (the facets: 1.92); on an 8-sided rail of radius 3, 0.008 (0.23). A mesh's level (2 - `rt_tess_level`, default 3) is
+  the one that follows its largest curve to about 0.05 units (the error falls as 1 / level^2).
+- **Crack-free**: one level a mesh, so two split triangles on an edge cut it alike; a curved edge's points are made from
+  its two ends' positions and normals only, in one order (the lower welded position first), so the triangles on it - with
+  the same vertex indices or across a texture seam (positions repeated) - get the same points to the bit; a straight edge
+  of a split triangle is not cut: its points collapse onto its two ends (degenerate slivers, a fan), so meshes and
+  triangles beside it meet it at its original two vertices - no T-junctions anywhere.
+- **Collision is the original's** (nothing in physics changes; the game's collision is its own `.col` data), so the
+  drawn surface must stay near it: each mesh's largest distance of a new point from its original flat triangle is
+  measured, and past `rt_tess_max_deviation` (default 2 units) the shape factor is scaled down until it is exactly that.
+  Measured per level ([debug] `tess_log=1` logs every mesh): sch's median 0.69, BO's 1.36; 270 meshes a level reach the
+  cap (big low-poly shapes - mounds, domes, statues - whose uncapped bulge would be 2 - 99 units). At sch's quarter pipe
+  `tools/game/tess_gap.ts` (a fan of rays cast both through the collision - `colprobe` - and the ray-traced scene -
+  `rtprobe` - with rt_tessellation 0 and 1, the gap along the slope's normal) finds the drawn surface moved by at most
+  0.77 (mean 0.16) and only behind the collision (the arc lies behind its chords): the wheels can float that much over
+  the drawn curve between its original vertices, never sink (0.04 at most in front); the original's own drawn meshes
+  already differ from its collision by up to 2.5 there.
+- **Displacement** (`rt_displacement` > 0: units for the full height range): a new point moves along the smoothed normal
+  by scale x (height - 0.5), inside the cap left by the curve; only new points shared outright by both triangles of an
+  edge, or inside a triangle (a seam's two sides would read different texels and open); never on thin meshes (bounds'
+  smallest side under 24 units: rails, poles). The heights come from `mesh_smoothing::set_height_lookup` - the seam for
+  generated height maps (a material's lookup on the processor, at load); none is installed yet, and
+  `rt_tess_test_heights=1` gives every material a test pattern (ridges along u) to see it work.
+- **Checked**: `thug2_tess_check` (processor only - the tessellation runs there, so it is the same on every GPU): a
+  16-sided cylinder with a seam down its side and one round its middle (every inner edge shared by two triangles wound
+  opposite ways after welding by position; the seam's new points made on both sides at the same positions; texture
+  coordinates continuous; every triangle still facing out; the original vertices first and unchanged; nothing NaN),
+  capped to 0.5 (the deviation exactly the cap, every point between the facets and the circle), displaced by a ridged
+  height (within the cap, still crack-free); an 8-sided rail (smoothed, not displaced); a quarter pipe with floor and
+  deck in two meshes side by side (on the arc within 0.0014 between its end segments - 0.26 at the floor's and the
+  coping's corners, which have one side's normals only -, the deck behind the coping's crease untouched, the two meshes
+  meeting at their original vertices only); a flat floor, a box and `rt_tess_level=1` unchanged; a mesh too big for 16
+  bits left as it is. In the game `tools/game/rt_shadows_check.ts --effect tess` (the plan's `qpsch` / `qpBO` groups:
+  sch's quarter pipe still and with the skater riding up it, fences, barriers, a taxi; BO's start, cannons, statues):
+  off against main's build changed 0.00 - 0.01% (identical but for animation), on against off bounded (mean luma change
+  at most 0.8, nothing turned black or white - no holes, no sky through a crack).
+- **Cost**: the draws' triangles - the smoothed meshes' indices x 5.5 - 7.5 (BO 39,250 -> 294,202; the split triangles'
+  rows are strips of their own, joined by degenerate triangles); in sch at the start with the user's settings (every
+  ray-traced effect on, 8 x MSAA, 1280 x 720, RTX 5070 Ti) the frame lines read 21.9 / 24.5 ms against 22.0 / 25.1 off -
+  within the run-to-run noise (the frame is bound by the processor; the device waits 0.3 ms); memory: sch +66,780
+  vertices (~2.5 MB) and +533,205 indices (~1 MB); 50 - 180 ms more at load.
+- **Not done**: no distance-adaptive or screen-space factors (one level a mesh, made at load: changing it needs the level
+  reloaded); skinned meshes; the generated height maps (the seam is there).
+
+**Smoothing (`rt_tess_smooth`, `rt_tess_smooth_strength`)** - with `rt_tessellation=1`, off by default; `rt_tess_smooth=0`
+is the crease angle's rule above to the bit (`thug2_tess_check --level` hashes every result of five levels: the same
+hashes as the build before it). The crease angle alone can't tell a six-sided rail (60 degrees between sides) from a
+box's corner, nor a ledge's 45-degree chamfer from a curve. With smoothing an edge's two faces are joined by these rules
+in order (`smooth_tess.cpp` `joins`):
+
+1. over 85 degrees: hard (a box's corners, stairs, a ledge's top - whatever the normals say);
+2. a **prism's edge**: round. Rails, pipes and poles: both faces run along the edge (`|n . e| < 0.03`), the edge is at
+   least twice as long as they are wide, they are alike in width (within 25%) and at most 16 units wide, the angle is
+   over the crease angle and at most 75 degrees (5 - 7 sides), and across each face the next edge parallel to it is such
+   an edge at an angle within 10 degrees - a ring of equal sides (a kerb's or a roof's profile isn't one: its next edge
+   meets the ground at another angle). Round whatever its normals say: the levels' rails are mostly flat-shaded;
+3. the **mesh's normals** where it has them: both ends of the edge sharing their vertices or their normals (under 8
+   degrees apart) - smooth (up to 85 degrees: a car's roof, a prop modelled with smooth normals); split normals - hard
+   from 20 degrees (bevels, chamfers, a kerb's edges);
+4. otherwise the crease angle (50 degrees), as without smoothing.
+
+The level: the error's (as above, up to `rt_tess_level`), or more - enough pieces that none of an edge's turns by more
+than 15 degrees (up to 4; a curve the cap flattens counted by its capped bulge), so outlines read round whatever their
+size on screen: a six-sided rail is cut into 4 pieces a side. The strength scales Phong's shape factor (0.5 - 1 of the
+way from the facets to the arc). Everything else - crack-free edges, the cap, the original vertices first, displacement
+off on thin meshes - is the same code.
+
+- **Checked** (`thug2_tess_check`, 21 more checks): a flat-shaded six-sided rail of radius 3 (split normals, every edge
+  welded by position) unchanged without smoothing, round with it - 24 prism edges, level 4, the new points within 0.027
+  of the circle and the drawn surface (sampled across every triangle) within 0.046 inside it, the facets' 0.40; no
+  cracks; the original vertices first; the same bytes smoothed twice; strength 0.5 moves it half as far, 0 not at all;
+  a six-sided column 40 wide and a square beam stay faceted; a box with averaged normals keeps its corners; a ledge's
+  flat-shaded 45-degree chamfer rounded without smoothing and kept crisp with it (2 edges kept by their normals); a
+  six-sided cylinder of radius 100 with shared normals capped at 1 (11.9 uncapped) without cracks; the seamed cylinder
+  crack-free.
+- **The levels** (`thug2_tess_check --level <folder>...`, offline: the game's .scn and .col read, every mesh the game
+  would smooth smoothed): BO, AU, NO, BA and sch - 58 - 305 prism edges a level rounded, 307 - 2,423 edges joined by
+  their shared normals, 28 - 482 kept hard by split ones; indices (the smoothed meshes') off -> on: BO 294,202 ->
+  393,990, AU 499,727 -> 626,063, NO 267,197 -> 297,156, BA 347,282 -> 413,401, sch 650,697 -> 708,694 (+9 - 34%); load
+  time 27 -> 30, 37 -> 41, 25 -> 26, 27 -> 29, 44 -> 45 ms.
+- **The wheels and the collision**: the collision is the game's own (`.col`, never touched). For every new point whose
+  place on the original surface lies on the collision (within 0.1) where the collision is a slope - the vert faces
+  (quarter pipes' faces carry the vert flag) and the other slopes (banks, bowls, transitions; normal's up share 0.05 -
+  0.97) - its gap to the collision. Quarter pipes with smoothing: median 0.22 - 0.53, 95% 1.38 - 1.81, at most the cap
+  (2) - the same as without it (0.22 - 0.53, 1.30 - 1.82); nearly all behind the collision (the arc lies behind its
+  chords: the wheels float over the drawn curve between its original vertices, never sink - the most in front 0.8 -
+  1.97 on convex parts). With `rt_tess_max_deviation=1`: quarter pipes' median 0.11 - 0.32, 95% 0.80 - 0.99, at most 1.
+- **Ray tracing**: unchanged - the BLAS is built from the drawn (smoothed) buffers, so shadows, occlusion and
+  reflections fall on the rounded shapes; the baked sun's samples keep reading the original strips.
+- **Not done**: the optional bevel highlight on hard edges (a lighting change, not geometry); a per-distance level.
+
+### Building relief (`building_relief`)
+
+THUG2's buildings are boxes with pictures of buildings on them: the windows, their frames and sills, the floor bands and
+cornices are painted on flat walls, and in a ray-traced frame that reads at once - the sun lights a window like the
+brick round it, no sill throws a shadow, no recess darkens. `[Graphics] building_relief=1` (the default on Vulkan when
+the facade files are there; `0`, any other renderer or no files: exactly what was drawn before) builds that structure
+as real geometry. Stage 1: the building fronts on real box buildings. The flat skyline cards outside the levels -
+pictures of whole streets - are stage 2 (counted by the survey below, not relieved).
+
+- **Where the structure comes from: the player's own textures, offline** (`tools/pbr_maps/building_relief.ts make
+  --game <folder>`, beside the surface maps; `facades.ts` the detector, `relief_file.ts` / `formats/relief_format.h`
+  the file). Not brightness as depth: a texture is a facade when it shows a regular set of rectangles unlike its wall -
+  windows - found as structure: the wall's colour (the median), each texel's distance from it, the texture's repeats
+  across and down (a shift by a period correlates, half of it doesn't - a smooth texture is the other way round), a
+  grid's cells averaged into one; the windows the connected pieces unlike the wall that fill their box, alike in size,
+  snapped into columns and rows; round each window a frame (a brighter ring), a sill (brighter rows under it - also when
+  painted against the glass), and floor bands (even rows without windows, unlike the wall). Heights by kind, in texture
+  widths (so the game scales them by how wide the texture is drawn): a window 0.35 of its narrower side in, a frame 0.06
+  out, a sill 0.15 out, a band half its own height out. What isn't clearly one - brick, stone, bookshelves, doors,
+  lit-window cards, specks - is skipped: the windows must be at least 2, at least 5% of the texture, rectangles after
+  snapping, in a grid (a whole building's front), its wall even, ribbons (glass all across) no lighter than the wall;
+  and in the world (the level's own texture coordinates on its walls) a window must be 16 - 480 units wide and 20 - 480
+  tall. Which textures: a material's first pass, not see-through, drawn mostly (60%) on walls (within 15 degrees of
+  upright), not mostly on skyline cards. The structure is found in a texture set's texels where one serves the
+  dictionary (the ini's set first, then any installed: SeedVR2's or PBRify's 4x texels give the windows' edges better)
+  and keyed to the original's checksum and content hash, as the surface maps are - the game finds it for the original
+  and any set alike. A dictionary whose sources (its bytes, the set's, the detector's version) are unchanged since its
+  file was made is skipped; `--pictures <folder>` writes each wall texture beside its height map (the structure drawn:
+  grey the wall, dark in, light out; blue: no structure, left flat).
+- **The geometry: once, at load, on the processor** (`engine/gfx/facade_relief`, `render_pc/building_relief`) - the
+  same place as the smoothed curves (after them: walls are flat, smoothing leaves them) and for the same reasons: every
+  renderer draws it, the BLAS is built from the drawn buffers (`rt_record`), so **shadows, occlusion and reflections
+  fall on the relief** - a sill shadows the wall under it at noon, the window recesses darken with ray-traced AO, a low
+  sun rakes the bands. A scene mesh drawn with a facade texture: its walls (triangles within 15 degrees of upright, with
+  texture coordinates) joined into planes (sharing an edge - welded by position -, wound alike, facing the same way, the
+  same texture coordinates along it); each wall triangle cut along the structure's rectangle edges (lines of constant u
+  and v in the texture's cells - a convex polygon clipped line by line) into pieces wholly inside or outside every
+  rectangle; a piece moved along its plane's normal by its height (the last rectangle holding it x the units the plane
+  draws a texture width across x `building_relief_strength`, capped at 12 units in, 4 out; under 0.25 left flat).
+  Between pieces of different heights a side is built from the higher one down to the lower (facing the lower side),
+  across cut lines and across a plane's shared edges alike; along a plane's outline (an open edge, a crease - the
+  building's corner, the roof line) a piece off the surface is closed by a side back to the original edge. So the
+  surface stays closed and its outline is where the original was: no cracks, nothing to see through; the silhouette at
+  a building's corner gains the windows' notches and the sills' ends.
+- **Crack-free by construction**: a corner is the corner; a cut line's point on a triangle's edge is made from the
+  edge's two ends in one order (the lower welded position first) and the line - both triangles on the edge make it to
+  the bit; a point inside a triangle from the two lines crossing there. A plane with any piece off its surface is built
+  whole (every triangle of it cut the same way: no T-junctions along its shared edges); one with a triangle too finely
+  cut (more than 96 lines along u or v) stays as it is. The original vertices stay first and unchanged (other levels of
+  detail, the editor's moves, the colour writes); the new ones follow; a mesh too big for 16 bits is tried with the
+  windows alone, then left as it was. The baked sun's samples keep the file's strip (`remember_original`), as with the
+  smoothed curves.
+- **Visual only**: the collision is the game's own `.col` (never touched); the simulation reads none of it. Drawing
+  only reads it.
+- **Level of detail**: what a level draws far away is its meshes' own coarser levels of detail, which keep the original
+  triangles; the cost is bounded by the structure (a window is ~10 pieces and 4 sides) and the caps above, not by
+  distance. A per-distance level (a second strip per mesh, chosen by distance) is not done.
+- **Checked**: `thug2_relief_check` (processor only): a wall of two triangles with a window, its sill and its frame in
+  each of two cells - the window's middle 12 units in (the cap), the sill 4 out (the cap), the frame 1.6 out, the wall
+  where it was; closed (every edge shared by two triangles wound opposite ways, but the original outline's, used once
+  and on it); the original vertices first and unchanged; the same bytes twice; half the strength half the height; a
+  wall of two quads with a texture seam (vertices repeated) joined, closed across the seam; a corner of two walls, each
+  closed back to the corner; a floor, no texture coordinates, a strength of 0, no rectangles, too many cuts - unchanged;
+  a big wall of 40 x 30 cells within 16 bits (the windows alone, or as it was); the file read back, damaged files
+  refused, the same bytes as the tool's writer. `thug2_vulkan_rt_shadow_check`'s case "building relief: a sill's
+  shadow on its wall": a box whose front is facade_relief's geometry for one sill, drawn and traced through the Vulkan
+  Gpu, the frame compared pixel by pixel with the processor's answer for the same wall with the sill as a box of its
+  own - the sill's shadow on the wall under it there (at least 40 clear-cut pixels of it; measured 443 of 41,110 compared,
+  none wrong). The reference's shadow rays start as far off the surface as the pass's (about a unit): with a sill 4
+  out, that push moves the band's lower edge up by more than a pixel or two - a property of the shadow pass's bias
+  that relief makes visible (contact shadows a unit short), not of the geometry. The tool:
+  `tools/pbr_maps/facades.test.ts` (synthetic facades: a 4 x 4 grid's cell found, windows in, sills out, the wall
+  flat; a whole building's front; plain grain, brick courses, one door, a busy picture left flat; the repeats of a
+  period, not of a smooth texture), `relief_file.test.ts`.
+- **The survey** (`building_relief.ts survey --game <folder> [--levels ...]`): per level, the facade textures, their
+  wall triangles and area at the playable area's edge (sectors with collision) and in the background (without), with
+  samples; and the skyline cards (flat sectors without collision outside the collision's bounds grown by 500 units).
+- **The relit light** (`rt_relit`, the time of day's): the relief's vertices are lit as the flat wall at their place -
+  `rt_relit.h` RelitMesh::sources: each new vertex's sources (the wall triangle's corners and weights, recorded by
+  facade_relief) - their traced sun, sky and bounce blended, never traced from the relief's own corners. Traced there,
+  a vertex at the foot of a sill's side or in a recess corner saw half its rays blocked and spread that over its whole
+  piece: BE's window grid came out dark at noon (the first run). The relief's own shadows and occlusion are the
+  per-pixel passes' (shadows, AO); the original vertices the sources name are traced for them though no triangle uses
+  them any more. A relieved mesh's cache entry counts its sources (its content hash).
+- **Measured** (x64, RTX 5070 Ti, 2560 x 1440, the main install's `[Graphics]`, the files made from its SeedVR2 / PBRify
+  sets): the survey over every level in the game folder - 417 facade textures (the `_net` copies counted too), 19,969
+  wall triangles drawn with them; 913 skyline cards (stage 2). BO: 7 textures, 10 of 10 facade meshes relieved - 168
+  wall triangles cut into 8,175 pieces and 6,711 sides, +40,029 vertices, their indices 617 -> 177,414, 20 - 23 ms at
+  load; BE: 4 textures, 6 of 7 meshes (one with the windows alone) - 50 triangles, 8,293 pieces, 4,739 sides, +29,882
+  vertices, 361 -> 152,478 indices, 23 ms. The device's time a frame with the
+  camera held on BO's and BE's first facade (frame profile, 1800 frames, two runs each): off 23.8 / 4.1 ms (BO), 14.0 /
+  8.0 (BE); on 7.5 / 6.9, 7.3 / 5.9 - the run-to-run spread (4 - 24 ms for the same settings) is larger than any cost
+  the relief adds; ~60k more triangles a level drawn and in the BLAS.
+- **Not done**: the skyline cards (stage 2); a per-distance level of detail; the detector's misses and false positives
+  (a sign's letter tiles - BE's BERLIN - read as windows; low-resolution fronts with no set texels found partly) -
+  `make --pictures` shows what was found; where three heights meet at a side's end the sides meet along one line split
+  in two (collinear: closed, not edge-matched); a recess cut by a seam between two meshes of one wall shows an end wall
+  at the seam (the planes are per mesh).
 
 ### Relit: the bake taken apart, offline (`rt_relit`)
 

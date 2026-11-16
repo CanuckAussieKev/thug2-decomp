@@ -19,6 +19,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_light_field.h"
+#include "engine/gfx/rt_sky.h"
 #include "tests/no_error_dialogs.h"
 
 namespace {
@@ -169,7 +170,7 @@ void check_native()
         // the level's light at its own time is the level's
         const rt::DayLight light = rt::day_light_at(day, day.hours);
         expect(std::abs(light.direct - 1.0F) < 1e-3F && std::abs(std::get<1>(light.sky) - 1.0F) < 1e-3F &&
-                   std::abs(light.shadow - 1.0F) < 1e-3F && light.exposure == 1.0F && light.lamps == 0.0F &&
+                   std::abs(light.shadow - 1.0F) < 1e-3F && light.lamps == 0.0F &&
                    light.stars == 0.0F && !light.moonlit && same_direction(light.light, sun) &&
                    light.blend == rt::TodBlend{},
                std::string(baked.name) + ": at its own time the light is the level's (direct " + number(light.direct) +
@@ -228,6 +229,10 @@ void check_light()
         // brighter than it)
         const double sky = std::get<1>(light.sky);
         sky_darkening = sky_darkening && sky <= last_sky + 1e-6;
+        if (sky > last_sky + 1e-6) {
+            std::printf("  (the sky's light rises at %.2f h: %.5f -> %.5f, the sun %.2f up)\n", hours, last_sky, sky,
+                        rt::heading_of(light.sun).elevation);
+        }
         last_sky = sky;
         if (!light.moonlit) {
             darkening = darkening && light.direct <= last_direct + 1e-6;
@@ -252,12 +257,10 @@ void check_light()
     expect(midnight.moonlit && midnight.lamps == 1.0F && midnight.stars == 1.0F && midnight.moon_disc > 0.9F &&
                midnight.direct > 0.05F && midnight.direct <= rt::kMoonLight &&
                std::get<2>(midnight.direct_tint) > std::get<0>(midnight.direct_tint) &&
-               rt::heading_of(midnight.light).elevation >= rt::kLowestLight - 1e-3,
+               (std::get<0>(midnight.light) * std::get<0>(midnight.moon)) + (std::get<1>(midnight.light) * std::get<1>(midnight.moon)) + (std::get<2>(midnight.light) * std::get<2>(midnight.moon)) > 0.9999F,
            "midnight: moonlit (direct " + number(midnight.direct) + ", blue), lamps and stars on");
     const double night_sky = std::get<1>(midnight.sky);
-    expect(night_sky > 0.05 && night_sky < 0.3 && midnight.exposure > 1.0F && midnight.exposure <= rt::kMostExposure,
-           "midnight: dark but lit (sky " + number(night_sky) + "), the exposure brought up (" +
-               number(midnight.exposure) + ")");
+    expect(night_sky > 0.05 && night_sky < 0.3, "midnight: dark but lit (sky " + number(night_sky) + ")");
     expect(midnight.blend == rt::TodBlend{.from = rt::TodState::kNight, .to = rt::TodState::kNight},
            "midnight: the original's night state");
     // the original's states blended without a jump: their weights along the elevation, both sides of noon
@@ -493,32 +496,36 @@ void check_local_light()
     expect(!dark->local_at(here).any() && !rt::local_light_at(here).any(), "no local light: none (and none without a field)");
 }
 
-// (added by lighting round 4) The exposure adapting to the level's light: none by day, a dim night brought part of the
-// way up and never past kMostExposure, a dusk between; over the frames toward it, there in the end.
-void check_exposure()
+// (added by the physical air) The light's unit: a white diffuser under the reference day (the sun 45 degrees up in the
+// clear weather's air) - its direct and sky light per unit of the sun's irradiance, the unit's factor, the zenith's
+// radiance in it and the sky's horizon over its zenith a quarter turn from the sun (a clear sky's about 1.5 - 4).
+void check_unit()
 {
-    expect(rt::adapted_exposure(1.0F) == 1.0F && rt::adapted_exposure(1.4F) == 1.0F,
-           "by day (the level's own light or more): 1");
-    expect(std::abs(rt::adapted_exposure(0.5F) - 1.4142F) < 1e-3F,
-           "half the light: " + number(rt::adapted_exposure(0.5F)));
-    expect(rt::adapted_exposure(0.1F) == rt::kMostExposure && rt::adapted_exposure(0.0F) == rt::kMostExposure,
-           "a dark night: held at " + number(rt::kMostExposure));
-    float now = 1.0F;
-    for (int frame = 0; frame < 30; ++frame) {
-        now = rt::adapt_exposure(now, 2.0F, 1.0 / 60.0);
-    }
-    const float half_second = now;
-    for (int frame = 0; frame < 1200; ++frame) {
-        now = rt::adapt_exposure(now, 2.0F, 1.0 / 60.0);
-    }
-    expect(half_second > 1.2F && half_second < 1.4F && now == 2.0F,
-           "adapting: " + number(half_second) + " after half a second, there after twenty");
+    const rt::Aerosol clear = rt::aerosol_for(rt::Weather::kClear);
+    const rt::GroundLight day = rt::ground_light(rt::kReferenceElevation, clear);
+    const double unit = rt::sky_exposure();
+    const rt::MultipleTable table = rt::multiple_table({.steps = 10, .light = 8});
+    const rt::Dir sun = rt::sun_direction_at(rt::kReferenceElevation);
+    constexpr rt::SkySteps kSteps{.view = 64, .light = 32};
+    const auto luma = [](const rt::Rgb& c) {
+        return (0.2126 * std::get<0>(c)) + (0.7152 * std::get<1>(c)) + (0.0722 * std::get<2>(c));
+    };
+    const double zenith = luma(rt::sky_radiance_ms({0.0, 1.0, 0.0}, sun, kSteps, table)) * unit;
+    const double horizon =
+        luma(rt::sky_radiance_ms({0.0, std::sin(0.02), std::cos(0.02)}, sun, kSteps, table)) * unit;
+    expect(day.direct > 0.4 && day.direct < 0.7 && day.sky > 0.05 && day.sky < 0.25 &&
+               std::abs(unit - (std::numbers::pi / (day.direct + day.sky))) < 1e-9,
+           "the unit's day: direct " + number(day.direct) + ", sky " + number(day.sky) + " of the sun's irradiance; x " +
+               number(unit));
+    expect(zenith > 0.03 && zenith < 0.3 && horizon / zenith > 1.0 && horizon / zenith < 6.0,
+           "the reference day's zenith " + number(zenith) + " of white (a clear sky's 0.05 - 0.2), the horizon " +
+               number(horizon / zenith) + " x it a quarter turn from the sun");
 }
 
 int main()
 {
     tests::no_error_dialogs();
-    check_exposure();
+    check_unit();
     check_light_field();
     check_local_light();
     check_path();

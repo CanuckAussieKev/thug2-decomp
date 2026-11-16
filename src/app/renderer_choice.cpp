@@ -223,7 +223,7 @@ render::vulkan::RtReflectionSettings make_rt_reflections(const Resolution& in_ef
         .strength = in_effect.number("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength),
         .fresnel = in_effect.on("rt_reflection_fresnel"),
         .glass_roughness = in_effect.number("rt_glass_roughness", render::vulkan::kRtGlassRoughness),
-        .glass_reflectance = in_effect.number("rt_glass_reflectance", render::vulkan::kRtGlassReflectance),
+        .glass_reflectance = render::vulkan::kRtGlassReflectance,
         // (out of effect without rt_pbr: no surface maps to say which surfaces are glossy)
         .surfaces = in_effect.at("rt_reflection_surfaces").in_effect
                         ? in_effect.number("rt_reflection_surfaces", render::vulkan::kRtReflectionSurfaces)
@@ -263,41 +263,26 @@ render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
         .on = in_effect.on("rt_fog"),
         .density = in_effect.number("rt_fog_density", defaults.density),
         .height = in_effect.number("rt_fog_height", defaults.height),
-        .anisotropy = in_effect.number("rt_fog_anisotropy", defaults.anisotropy),
         .steps = steps > 0 ? static_cast<unsigned>(steps) : core::at(render::vulkan::kRtFogQualitySteps, quality),
         .lamps = core::at(render::vulkan::kRtFogQualityLamps, quality),
-        .strength = in_effect.number("rt_fog_strength", defaults.strength),
         .mode = in_effect.integer("rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts : render::vulkan::RtFogMode::kReplace,
         .hdr = hdr_on(in_effect),
         .haze = in_effect.on("rt_fog_haze"),
-        .haze_density = in_effect.number("rt_fog_haze_density", defaults.haze_density),
-        .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height),
-        .air = render::rt::parse_air_look(in_effect.value("rt_fog_air")),
+        .weather = render::rt::parse_weather(in_effect.value("rt_fog_air").c_str()),
         .scale = core::at(render::vulkan::kRtFogQualityScale, quality),
         .map = core::at(render::vulkan::kRtFogQualityMap, quality),
-        .god_rays = in_effect.number("rt_fog_god_rays", defaults.god_rays)};
+        .god_rays = in_effect.on("rt_fog_god_rays")};
 }
 
-// NOT ORIGINAL - the sun's disc and glare, the bloom and the sky model (gpu_vulkan/vulkan_rt_sun.h,
-// vulkan_rt_sky.h). rt_sun_colour: auto (the sky model's colour for the sun's elevation) or r,g,b (0 - 1 each).
+// NOT ORIGINAL - the sun's disc, the eye's glare and the sky model (gpu_vulkan/vulkan_rt_sun.h, vulkan_rt_sky.h). The
+// sun's colour is the atmosphere's (rt_sun_colour retired by the physical air).
 render::vulkan::RtSunSettings make_rt_sun(const Resolution& in_effect)
 {
-    render::vulkan::RtSunSettings sun{.sun = in_effect.on("rt_sun"),
-                                      .sun_size = in_effect.number("rt_sun_size", render::vulkan::RtSunSettings{}.sun_size),
-                                      .bloom = in_effect.on("rt_bloom"),
-                                      .bloom_strength = in_effect.number("rt_bloom_strength", render::vulkan::kRtBloomStrength),
-                                      .sky_model = in_effect.on("rt_sky_model"),
-                                      .lens_dirt = in_effect.on("rt_lens_dirt"),
-                                      .hdr = hdr_on(in_effect)};
-    const config::Resolved& colour_setting = in_effect.at("rt_sun_colour");
-    std::array<float, 3> colour{};
-    if (colour_setting.in_effect && parse_rgb(colour_setting.value, &colour)) {
-        sun.colour_set = true;
-        sun.colour = colour;
-    } else if (colour_setting.in_effect && colour_setting.value != "auto") {
-        get_log("[Graphics] rt_sun_colour=%s isn't auto or r,g,b - the sky model's colour used", colour_setting.value.c_str());
-    }
-    return sun;
+    return {.sun = in_effect.on("rt_sun"),
+            .bloom = in_effect.on("rt_bloom"),
+            .sky_model = in_effect.on("rt_sky_model"),
+            .lens_dirt = in_effect.on("rt_lens_dirt"),
+            .hdr = hdr_on(in_effect)};
 }
 
 // NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h).

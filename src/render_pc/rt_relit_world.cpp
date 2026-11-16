@@ -62,7 +62,6 @@ constexpr float kSameSun = 0.99999F;          // two suns this close (their dire
 // traced again, as a pass of its own beside the relights, once the sun is this far (the cosine of 5 degrees) from the
 // sun it was traced for. A running clock's sun moves that far in 10 s of a 12-minute day.
 constexpr float kBounceSameSun = 0.9961947F;
-constexpr float kMinElevation = 0.02F;        // a sun below this (sine of its elevation) lights nothing new: kept there
 constexpr std::size_t kKilobyte = 1024;
 constexpr double kDegrees = 180.0 / 3.14159265358979323846; // (the log's heading and elevation)
 constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
@@ -600,29 +599,18 @@ bool target_sun(rt::Vec3* toward)
     if (!(length > 0.0F) || !std::isfinite(length)) {
         return false;
     }
-    *toward = rt::scaled(*toward, 1.0F / length);
-    if (rt::y_of(*toward) < kMinElevation) { // (at or under the horizon: held just above it)
-        const float across =
-            std::sqrt((rt::x_of(*toward) * rt::x_of(*toward)) + (rt::z_of(*toward) * rt::z_of(*toward)));
-        const float keep = std::sqrt(1.0F - (kMinElevation * kMinElevation));
-        *toward = across > 0.0F
-                      ? rt::Vec3{rt::x_of(*toward) * keep / across, kMinElevation, rt::z_of(*toward) * keep / across}
-                      : rt::Vec3{0.0F, 1.0F, 0.0F};
-    }
+    *toward = rt::scaled(*toward, 1.0F / length); // (lighting round A: where it is - under the horizon its light is gone)
     return true;
 }
 
-// The sun's colour over the bake's: the sky model's colour at the sun's elevation over its colour at the bake's sun's,
-// when the sky model is on (rt_sky_model publishes a SunLight); else white.
+// The sun's colour over the bake's: the atmosphere's colour at the sun's elevation over its colour at the bake's sun's
+// (changed by the physical air: always the model's - no second source waiting for the sky model to publish).
 rt::Rgbf sun_colour_for(const rt::Vec3& toward)
 {
     // (added by the time of day) the clock's lighting state carries the light's colour with its strength (light_colour:
     // RelitLighting::direct_scale) - none here
     const rt::DayLight day = rt::day_light();
     if (day.on) {
-        return {1.0F, 1.0F, 1.0F};
-    }
-    if (!rt::sun_light().on) {
         return {1.0F, 1.0F, 1.0F};
     }
     const std::array<float, 3> now =
@@ -1419,7 +1407,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     // often a new step came, until every frame was spent on it (a 3 fps Boston with tod_cycle on).
     const bool newer = rt::dot(toward, st.sun) < kSameSun ||
                        (day.on ? day.light_radius : rt::kRelitSunRadiusDegrees) != st.radius ||
-                       sky_model != st.sky_model || day_serial != st.day_serial; // (the sky model publishes late)
+                       day_serial != st.day_serial;
     if (newer && !relight_running()) {
         ++st.relights;
         st.sky_model = sky_model;

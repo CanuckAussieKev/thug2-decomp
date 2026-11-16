@@ -151,27 +151,10 @@ struct Clock {
     uint64_t took_over_settings = 0;
     bool sun_placed = false;
     rt::DayVec placed_sun{};
-    float exposure = 0.0F; // (the eye adapting) the exposure now; 0: none yet - the first is the target
     std::string status = "tod: level (the level as it is)";
 };
-
-// The exposure this step: toward the relit level's light now over its own (the light field's whole - everything the
-// level shows, its lamps with it) where it is relit, else the clock's model's; adapted over the steps. (Presentation
-// only: nothing the simulation reads.)
-float exposure_now(Clock& own, const rt::DayLight& light, double seconds)
-{
-    float target = light.exposure;
-    if (rt::light_field() != nullptr) {
-        constexpr float kLumaRed = 0.299F;
-        constexpr float kLumaGreen = 0.587F;
-        constexpr float kLumaBlue = 0.114F;
-        const rt::LightRatio level = rt::level_light_ratio();
-        target = rt::adapted_exposure((kLumaRed * std::get<0>(level.whole)) + (kLumaGreen * std::get<1>(level.whole)) +
-                                      (kLumaBlue * std::get<2>(level.whole)));
-    }
-    own.exposure = own.exposure > 0.0F ? rt::adapt_exposure(own.exposure, target, seconds) : target;
-    return own.exposure;
-}
+// (the exposure is the camera's alone - the HDR pass meters the picture: gpu_vulkan/vulkan_hdr.h; changed by the
+// physical air: the clock's own exposure, a second controller, retired)
 
 Clock& clock()
 {
@@ -537,19 +520,16 @@ void step()
     const double stepped = std::round(own.hours * kStepsPerHour) / kStepsPerHour;
     rt::DayLight light = rt::day_light_at(own.native, stepped);
     rt::apply_overcast(&light, snow::overcast_share()); // (NOT ORIGINAL - the snow's winter sky: rt_daylight.h)
-    light.exposure = exposure_now(own, light, kStepSeconds);
     rt::set_day_light(light);
     apply_original(own, *manager, light, settings.lighting_only);
     place_sun(own, light);
     const rt::SkyPlace sun = rt::heading_of(light.sun);
-    own.status = text::format("tod: %s%s - %s, the sun %.1f degrees up%s; light %.2f (%s), sky %.2f, lamps %.2f, "
-                              "exposure %.2f%s",
+    own.status = text::format("tod: %s%s - %s, the sun %.1f degrees up%s; light %.2f (%s), sky %.2f, lamps %.2f%s",
                               rt::tod_text(choice).c_str(), settings.cycle ? " (running)" : "",
                               rt::tod_text({.preset = rt::TodPreset::kClock, .hours = static_cast<float>(light.hours)}).c_str(),
                               sun.elevation, light.moonlit ? ", moonlit" : "", static_cast<double>(light.direct),
                               light.moonlit ? "the moon" : "the sun", static_cast<double>(std::get<1>(light.sky)),
-                              static_cast<double>(light.lamps), static_cast<double>(light.exposure),
-                              settings.lighting_only ? " (online: lighting only)" : "");
+                              static_cast<double>(light.lamps), settings.lighting_only ? " (online: lighting only)" : "");
 }
 
 const char* status() { return clock().status.c_str(); }

@@ -121,7 +121,9 @@ void set_rt_light_settings(const RtLightSettings& settings);
 // or where no surface is reflective.
 inline constexpr float kRtReflectionStrength = 0.5F; // (rt_reflection_strength's default)
 inline constexpr float kRtGlassRoughness = 0.05F;    // (rt_glass_roughness's default: radians)
-inline constexpr float kRtGlassReflectance = 0.2F;   // (rt_glass_reflectance's default: glass's F0)
+// glass's F0: ((n - 1) / (n + 1))^2 for window glass's n = 1.5 (changed by the physical air: rt_glass_reflectance, 0.2 to
+// make the game's bright pane textures reflect, retired - a pane too bright is its texture's, the material's input)
+inline constexpr float kRtGlassReflectance = 0.04F;
 inline constexpr float kRtReflectionSurfaces = 1.0F;  // (rt_reflection_surfaces's default)
 struct RtReflectionSettings {
     bool on = false;
@@ -134,9 +136,7 @@ struct RtReflectionSettings {
     // rt_glass_roughness: the half-angle of the cone glass reflects into (radians; 0: a perfect mirror) - a few rays
     // a pixel, blurred over its neighbours.
     float glass_roughness = kRtGlassRoughness;
-    // rt_glass_reflectance: glass's reflectance face-on (Schlick's F0). Real glass's is 0.04 - a real window is dark
-    // behind; the game's panes are bright textures, and at 0.04 their reflection all but vanished (AU's glass building:
-    // a mean change of 1.4 levels against the mirror's 12), so the default is 0.2.
+    // glass's reflectance face-on (Schlick's F0): real glass's (kRtGlassReflectance - the checks may set another)
     float glass_reflectance = kRtGlassReflectance;
     // (added for the surface reflections) rt_reflection_surfaces: x the reflections of the surfaces the game gave no
     // shine whose surface maps say they are glossy (rt_pbr's maps: metal, glazed tiles, polished floors and stone,
@@ -169,13 +169,12 @@ struct HdrSettings {
 void set_hdr_settings(const HdrSettings& settings);
 [[nodiscard]] HdrSettings hdr_settings();
 // NOT ORIGINAL - volumetric fog and light shafts (vulkan_rt_fog.h, docs/design/vulkan.md "Volumetric fog"): [Graphics]
-// rt_fog, rt_fog_air, rt_fog_strength, rt_fog_quality, rt_fog_density, rt_fog_height, rt_fog_anisotropy, rt_fog_steps,
-// rt_fog_mode, rt_fog_haze (and rt_hdr: the fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray
-// tracing isn't enabled on the device.
-inline constexpr float kRtFogAnisotropy = 0.75F; // (rt_fog_anisotropy's default - haze's aerosols; 0.3 before the
-                                                 // volumetric light)
+// rt_fog, rt_fog_air (the weather - engine/gfx/rt_sky.h), rt_fog_quality, rt_fog_density, rt_fog_height, rt_fog_steps,
+// rt_fog_mode, rt_fog_haze, rt_fog_god_rays (and rt_hdr: the fog's light unclamped). Nothing is drawn differently while
+// `on` is false, or when ray tracing isn't enabled on the device. (Retired by the physical air: rt_fog_strength - a
+// multiplier on the air's light -, rt_fog_anisotropy - the phase is the aerosol's -, rt_fog_haze_density and
+// rt_fog_haze_height - the haze is the weather's aerosol.)
 inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_quality 1's steps)
-inline constexpr float kRtFogStrength = 1.0F;   // (rt_fog_strength's default)
 // rt_fog_quality 0 / 1 / 2: the march's steps, the lamps at most that light the air and the march's resolution (1 / the
 // scale of the viewport's on each axis; changed by the street air: a quarter's at Low and Medium, half at High)
 inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{16, 32, 48};
@@ -186,8 +185,6 @@ inline constexpr unsigned kRtFogScale = 4;    // (rt_fog_quality 1's scale)
 // 0 / 1 / 2
 inline constexpr std::array<unsigned, 3> kRtFogQualityMap{512, 1024, 1536};
 inline constexpr unsigned kRtFogMap = 1024; // (rt_fog_quality 1's)
-inline constexpr float kRtFogHazeHeight = 600.0F; // (rt_fog_haze_height's default: world units)
-inline constexpr float kRtFogHazeDensity = 0.3F;  // (rt_fog_haze_density's default)
 enum class RtFogMode : uint8_t {
     kReplace = 0, // the level's own fog replaced by the volumetric one (its colour and distances; shadowed by the world)
     kShafts = 1,  // the level's own fog kept, only the sunlit shafts' light added over it
@@ -196,52 +193,39 @@ struct RtFogSettings {
     bool on = false;
     float density = 1.0F;                 // x the level's fog thickness (1: as thick as the game's; 0 - 8)
     float height = 0.0F;                  // world units over which the fog thins by e above the camera (0: even)
-    float anisotropy = kRtFogAnisotropy;  // the forward lobe's g (rt_volume_light.h medium_phase): 0 even, toward 0.9
-                                          // bright toward the light (-0.9 - 0.9)
     unsigned steps = kRtFogSteps;         // samples along each ray (4 - 128)
     unsigned lamps = 16;                  // lamps at most (rt_lights' lit set, the most important first) that light the
                                           // air (0 - 32)
-    float strength = kRtFogStrength;      // x the light the air scatters - the sun's, the moon's, the lamps' (0 - 4; 0:
-                                          // no shafts, the fog and haze only)
     RtFogMode mode = RtFogMode::kReplace;
     bool hdr = false;                     // the light added above 1 kept (rt_hdr=1: a floating-point target)
-    bool haze = true; // a level without fog gets a thin haze's sunlit shafts (rt_fog_haze; 0: nothing there)
-    // (added by the sun's glare) With the sky model (rt_sky_model=1) the haze is a medium of its own - aerial
-    // perspective: it dims what is far toward the sky's colour, thicker near the ground: its thickness (x the default:
-    // rt_fog_haze_density) and the height over which it thins by e (rt_fog_haze_height, world units above the level's
-    // ground). The default thickness was 1 until the water and glass work: Australia's sea a mile out read milky
-    // white and Barcelona's harbour whited out toward a low sun; 0.3 keeps the far world soft (no seam where AU's sea
-    // meets its sky dome) and the near sea its own colour.
-    float haze_density = kRtFogHazeDensity;
-    float haze_height = kRtFogHazeHeight;
-    // (added by the street air - engine/gfx/rt_volume_light.h street_air; changed by the cinematic air) the near-ground
-    // air's look (rt_fog_air, Options "Atmosphere": clear - physical -, cinematic, misty; rt_volume_light.h AirLook),
-    // and the march's resolution (rt_fog_quality's: 2 or 4)
-    render::rt::AirLook air = render::rt::AirLook::kCinematic;
+    // a level without fog gets the atmosphere's air (rt_fog_haze; 0: nothing there): with the sky model (rt_sky_model=1)
+    // the aerial perspective - the weather's aerosol and the air, the sky's own coefficients
+    bool haze = true;
+    // (changed by the physical air) the weather (rt_fog_air, Options "Air": clear, hazy, misty - a visibility; rt_sky.h
+    // Weather - the sky's aerosol too), and the march's resolution (rt_fog_quality's: 2 or 4)
+    render::rt::Weather weather = render::rt::Weather::kClear;
     unsigned scale = kRtFogScale;
     unsigned map = kRtFogMap; // (added by the distinct shafts) the air's sun map's side (rt_fog_quality's; 64 - 2048)
-    // (added by the god rays - rt_volume_light.h god_ray_peak) the forward peak's light drawn at the screen's resolution,
-    // its shadows the streaks toward the light: x this (rt_fog_god_rays, Options "God rays"; 0: off - the march keeps the
-    // whole phase; 1 the physical medium's light; up to 2)
-    float god_rays = render::rt::kGodRaysDefault;
+    // (added by the physical air) the air's sun map used at all - how the near air's visibility is sampled, not what it
+    // is: the checks judge the march's integral against exact visibility without it
+    bool air_map = true;
+    // (added by the god rays - rt_volume_light.h god_ray_peak) the forward peak's shadows resolved at the screen's
+    // resolution (rt_fog_god_rays, Options "God rays": on / off - off: the march keeps the whole phase)
+    bool god_rays = true;
 };
 void set_rt_fog_settings(const RtFogSettings& settings);
 [[nodiscard]] RtFogSettings rt_fog_settings();
 
 // NOT ORIGINAL - the sun, its glare and the bloom (vulkan_rt_sun.h, vulkan_rt_sky.h; docs/design/vulkan.md "The sun,
-// its glare and the sky"): [Graphics] rt_sun, rt_sun_size, rt_bloom, rt_bloom_strength, rt_sky_model, rt_sun_colour,
-// rt_lens_dirt (and rt_hdr). Nothing is drawn differently while all are off. The sun's parts need a sun - where the game
-// shows one, else the level's baked one (ray tracing enabled); the bloom needs neither. (The screen-space rays, rt_shafts,
-// were retired by the volumetric light: the fog pass's shafts are the one light in the air.)
-inline constexpr float kRtBloomStrength = 0.05F; // (rt_bloom_strength's default)
+// its glare and the sky"): [Graphics] rt_sun, rt_bloom, rt_sky_model, rt_lens_dirt (and rt_hdr). Nothing is drawn
+// differently while all are off. The sun's parts need a sun - where the game shows one, else the level's baked one (ray
+// tracing enabled); the glare needs neither. (The screen-space rays, rt_shafts, were retired by the volumetric light:
+// the fog pass's shafts are the one light in the air. Retired by the physical air: rt_sun_size - the disc is the real
+// sun's size -, rt_bloom_strength - the glare is the eye's -, rt_sun_colour - the sun's colour is the atmosphere's.)
 struct RtSunSettings {
-    bool sun = false;          // the sun's disc and glare drawn, the original's sun sprite and lens flare hidden
-    float sun_size = 1.0F;     // x the disc's default size (0.25 - 4)
-    bool bloom = false;        // the frame's bright light spread (energy-conserving, a mip chain)
-    float bloom_strength = kRtBloomStrength; // the share of each pixel's light spread (0 - 0.5)
+    bool sun = false;          // the sun's disc drawn, the original's sun sprite and lens flare hidden
+    bool bloom = false;        // the eye's glare: the frame's light spread (energy-conserving, a mip chain)
     bool sky_model = false;    // the sky model's colours used by the fog (aerial perspective) and the bounce light
-    bool colour_set = false;   // rt_sun_colour=r,g,b: the sun's colour given (0 - 1 each), not the model's
-    std::array<float, 3> colour{1.0F, 1.0F, 1.0F};
     bool lens_dirt = false;    // a faint dirt on the lens lit by the bloom (procedural)
     bool hdr = false;          // rt_hdr=1: the light kept above 1 (the tone mapping maps it)
 };

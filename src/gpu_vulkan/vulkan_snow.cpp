@@ -1078,8 +1078,9 @@ SnowLight snow_light()
         toward = day.light;
         found = true;
         for (std::size_t c = 0; c < 3; ++c) {
-            core::at(light.colour, c) = rt::kDirectShare * core::at(day.light_colour, c);
-            core::at(light.ambient, c) = kAmbientShare * core::at(day.sky, c);
+            // (the level's own shares: the model's at its sun - rt_daylight.h direct_share)
+            core::at(light.colour, c) = day.direct_share * core::at(day.light_colour, c);
+            core::at(light.ambient, c) = (1.0F - day.direct_share) * core::at(day.sky, c);
         }
     } else if (rt::sun_override(&toward)) {
         found = true;

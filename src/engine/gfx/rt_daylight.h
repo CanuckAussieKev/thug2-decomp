@@ -144,7 +144,6 @@ inline constexpr double kNightHours = 0.0;
 [[nodiscard]] double preset_hours(const TodChoice& choice, const NativeDay& native);
 
 // --- the light at a time -----------------------------------------------------------------------------------------------
-inline constexpr double kLowestLight = 6.0;   // degrees: the light's direction (relit, the shadows) held this high
 inline constexpr double kSunGoneLow = -0.5;   // the sun's direct light from 0 here ...
 inline constexpr double kSunGoneHigh = 2.0;   // ... to its transmittance's here
 inline constexpr double kMoonFrom = -4.0;     // the sun lower than this: the moon lights the scene
@@ -161,24 +160,21 @@ inline constexpr float kMoonRadiusDegrees = 6.0F;
 inline constexpr DayRgb kNightSkyLight{0.14F, 0.18F, 0.26F};
 inline constexpr double kNightFrom = 0.0;     // the night's floor from 0 here (the sun setting) ...
 inline constexpr double kNightFull = -4.0;    // ... to whole here (while the twilight is still brighter)
-// the night sky's radiance overhead (exposed linear; set with the night's exposure at kMostExposure - the eye adapted to
-// the dark level brings the sky up with it: at the exposure's 1.3 before it was 0.0028 0.0045 0.0095)
+// the night sky's radiance overhead (linear, in the sky's unit - rt_sky.h; changed by the physical air: no longer tuned
+// for an exposure - the camera's meter exposes it with the rest of the night)
 inline constexpr DayRgb kNightSky{0.0018F, 0.0029F, 0.0062F};
 inline constexpr double kLampsOn = 6.0;       // the lamps start to come on with the sun this high ...
 inline constexpr double kLampsFull = -4.0;    // ... and are whole here
 inline constexpr double kStarsFrom = -6.0;    // the stars from none here ...
 inline constexpr double kStarsFull = -16.0;   // ... to all here
-inline constexpr float kDirectShare = 0.65F;  // the share of the level's own light that is the sun's (the shadows')
-// The exposure (the eye adapting to the light): (1 / light)^kExposurePower, the light the level's now over its own
-// (display-referred), within 1 and kMostExposure - night brought up part of the way, never to day: a night street at a
-// fifth of its day light shows at two fifths. Reached over about kExposureAdaptSeconds (1 - 1/e of the way).
-inline constexpr float kMostExposure = 2.0F;
-inline constexpr double kExposurePower = 0.5;
-inline constexpr double kExposureAdaptSeconds = 1.5;
-// The exposure for a light (the level's now over its own, luma).
-[[nodiscard]] float adapted_exposure(float light);
-// The exposure `now` a frame of `seconds` on toward `target`.
-[[nodiscard]] float adapt_exposure(float now, float target, double seconds);
+// the share of the level's own light that is the sun's (the shadows') without the clock - with it the model's at the
+// level's own sun (direct_share_at; changed by the physical air: one number for every level was the old way)
+inline constexpr float kDirectShare = 0.65F;
+// The share of a level surface's light that is the sun's direct light with the sun `elevation` degrees up: its
+// transmittance x sine over that and the whole sky's (rt_sky.h's model, the frame's air; single scattering).
+[[nodiscard]] float direct_share_at(double elevation);
+// (The exposure is the camera's alone - gpu_vulkan/vulkan_hdr.h's meter; the clock's own exposure was retired by the
+// physical air.)
 // The original's states blended by the sun's elevation: afternoon above kStateDay, evening (after noon) / morning
 // (before) at kStateLow, night below kStateNight - smoothly between.
 inline constexpr double kStateDay = 20.0;
@@ -197,7 +193,8 @@ struct DayLight {
     double hours = 0.0;       // the clock (solar time)
     DayVec sun{};             // toward the sun (below the horizon at night)
     DayVec moon{};            // toward the moon
-    DayVec light{};           // toward what lights the scene - the sun, or the moon at night -, at least kLowestLight up
+    DayVec light{};           // toward what lights the scene - the sun, or the moon at night - where it is (lighting round
+                              // A: no longer held up; under the horizon its light is gone)
     DayVec native{};          // the level's own sun (the drawn sky is matched to the level for it)
     bool moonlit = false;     // `light` is the moon
     float direct = 1.0F;      // the direct light's strength over the level's own sun's (display-referred)
@@ -206,14 +203,15 @@ struct DayLight {
     float light_radius = kSunRadiusDegrees; // the direct light's angular radius (degrees): how soft its shadows are
     DayRgb sky{1.0F, 1.0F, 1.0F};         // the sky's light over the level's own (display-referred)
     DayRgb bounce{1.0F, 1.0F, 1.0F};      // the light bounced off the surroundings over the level's own: the direct
-                                          // light's and the sky's in the level's own shares (kDirectShare)
+                                          // light's and the sky's in the level's own shares (direct_share)
+    float direct_share = kDirectShare;    // (added by the physical air) the direct light's share of the level's own
+                                          // light - the model's at its own sun (direct_share_at)
     float shadow = 1.0F;      // the sun's shadows' strength over the level's own (their share of the light)
     float lamps = 0.0F;       // 0 - 1: the lamps (rt_lights) on
     float stars = 0.0F;       // 0 - 1
     float moon_disc = 0.0F;   // 0 - 1: the moon drawn
-    float exposure = 1.0F;    // the HDR exposure's factor (the clock's: adapted to the relit level's light where it has
-                              // one - day_clock -, else to this light's model)
-    DayRgb night_sky{};       // added to the drawn sky (exposed linear, overhead)
+    DayRgb night_sky{};       // added to the drawn sky (linear radiance in the sky's unit, overhead - not pre-exposed:
+                              // the camera's meter exposes it with everything else)
     std::array<float, 4> stars_pole{}; // xyz toward the celestial pole; w the stars' turn about it (radians)
     TodBlend blend;           // the original's states
     uint64_t serial = 0;      // (set_day_light numbers each change)
