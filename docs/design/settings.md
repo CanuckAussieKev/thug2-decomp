@@ -21,6 +21,10 @@ start (and, for a live renderer setting, the part of the renderer it changes - `
 - **forces** (`forces()`) - a value one setting sets on another while a condition holds. The target's needs still
   apply.
 - **conflicts** (`conflicts()`) - settings that work against each other; both stay in effect, each row says so.
+- **limits** (`limits()`) - a setting kept in effect but only in part while a condition holds; each row says so (the
+  Options row's note, the settings report's `[limited: ...]`, the log). The time of day in a network session
+  (`Cap::kNetworkGame`, the session a fact the simulation's clock publishes): its lighting only, never the level's own
+  time-of-day states - their scripts make and remove objects every player shares (`engine/gfx/day_clock.h`).
 
 ## The resolver
 
@@ -50,7 +54,8 @@ and any another rule moved with it.
 - Frame generation with no upscaler: the upscaler on (`auto`) at native size (`dlaa`). DLSS frame generation: Reflex
   on. A sun other than the level's (`rt_sun_source`) or a running time of day: the relit mode on - and its knobs in
   effect with it. `OnlineGameName=thugpro`: `thugpro_peer` on.
-- The time of day's sun replaces `rt_sun_source=game`; a fixed direction beats the clock (a conflict). Frame generation
+- The time of day's sun replaces `rt_sun_source=game`; a fixed direction beats the clock (a conflict). Online the time
+  of day is lighting only (a limit). Frame generation
   under V-sync, and `max_fps` times the multiplier past the display's refresh rate, are conflicts.
 - msaa and `AntiAliasing` are off while upscaling; `AntiAliasing` is out while msaa picks the samples. The AO and
   bounce denoisers are out while Ray Reconstruction cleans up. FSR's sharpening and version need FSR upscaling (or

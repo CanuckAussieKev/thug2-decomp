@@ -26,6 +26,7 @@
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_light_field.h"
+#include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/snow.h"
 #include "engine/gfx/tod_manager.h"
