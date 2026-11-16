@@ -559,7 +559,9 @@ Direct3D 9 (V7).
   written every 10 s when something new was made - a shader compiled, or a pipeline the cache didn't have (Vulkan 1.3's
   creation feedback says; a pipeline the cache had marked them too until 2026-11-16, and the 70+ MB written on the
   thread that draws stalled a frame 60 - 70 ms every 10 s while playing - "vulkan: the shader and pipeline caches
-  saved ... in N ms" when it takes over 8 ms, "vulkan: a pipeline took N ms to make" likewise) (the 64-bit build's two files end in `-x64`: a 32-bit driver's cache
+  saved ... in N ms" when it takes over 8 ms, "vulkan: a pipeline took N ms to make" likewise; since 2026-11-16 the
+  write is a thread of its own - the driver's cache read under the lock pipeline creation takes, each file written
+  beside its own and renamed over it, one save at a time: a 128 MB write had taken 9 s on the drawing thread) (the 64-bit build's two files end in `-x64`: a 32-bit driver's cache
   is never given to the 64-bit one). foun makes 52 pipelines from 40 shaders (0.9 s of glslang in the
   Debug build the first time, none after).
 - **The key from the state block** (`draw_shader_key`): the render states, the four stages' operations, arguments,
@@ -690,11 +692,15 @@ Direct3D 9 (V7).
   render target 0 - and the start-up movies draw before anything sets one. The Vulkan `Gpu`'s state block holds none
   then (zero width and height), and its draws skipped every draw with an empty viewport: the movies were black. An
   unset viewport is now taken as the whole of target 0 at the first draw, clear or `get_viewport`.
-- **A reset** (`GpuContext::reset`, after the focus comes back; the PC layer's default-pool objects released around
-  it and the state block reset after it, as for Direct3D 9) makes the swapchain again and leaves the bindings as
+- **A reset** (`GpuContext::reset`: a new back-buffer size; the PC layer's back-buffer targets released around it and
+  the state block reset after it, as for Direct3D 9) makes the swapchain again and leaves the bindings as
   Direct3D 9's `Reset` does: target 0 the back buffer, the others none, the device's depth surface, no vertex streams
   or indices. When the settings' size or samples changed, the back buffer and its depth surface are made again at the
-  new ones (the game itself never changes them after start-up: its resolution is the ini's).
+  new ones (the game itself never changes them after start-up: its resolution is the ini's). Nothing is lost on a focus
+  change (`GpuContext::loses_device_objects` false): the window's focus coming back no longer resets the device, and a
+  reset leaves the vertex and index buffers alone - until 2026-11-16 each focus change released and made again every
+  buffer (each uploaded, every ray-traced structure built again, the relit level relit from buffers holding relit
+  colours): a 10-15 s frame each time, a "not responding" College.
 - **A stage reading its texture with none set**: Direct3D 9 draws as if the stage were disabled (the loading bar:
   stage 0 still selects the texture the loading picture left, none is set, and the bar is drawn in its vertices'
   colours). The Vulkan `Gpu` sampled its blank white texture there; `draw_shader_key` now disables the first texture
@@ -1091,8 +1097,9 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
   light meets it (snapped to whole texels), each texel the light's transmittance through the layer from there (8
   densities, no detail, the light at least 0.08 up; faded out between 0.02 and 0.15). A point reads the texel where
   its way toward the light meets the base: each march step takes it (crepuscular rays - lit columns through gaps,
-  shadow shafts under clouds), and the shadows on the ground (`rt_cloud_shadows`) are the same map (the colour
-  multiplied toward it by 0.65 - the direct light's share - x the light's strength: faint by moonlight). Before, the
+  shadow shafts under clouds), and the shadows on the ground (`rt_cloud_shadows`) are the same map - with `rt_shadows`
+  the sun's visibility in that pass (only the sun's own light drops; see "Cloud shadows"), else the colour multiplied
+  toward it by 0.65 x the light's strength. Before, the
   ground's shadows marched four densities per pixel toward the drawn sky's sun.
 - **The passes.** A quarter of the resolution each way at `rt_fog_quality` 0 and 1, half at 2 (each texel marches one
   pixel of its 4 x 4 or 2 x 2 block, a different one each frame in ordered-dither order); the steps spaced b t^2 (dense
@@ -1544,8 +1551,13 @@ their depth and stay in front of any sky).
   once per level falls in the frame shown over the loading screen's last picture.
 - **Cloud shadows** (`rt_cloud_shadows=1`, off by default; at `opaque_drawn`): the clouds' shadow map (changed by the
   volumetric light - one map toward the scene's light, the sun or the moon, read by the ground and by the fog's march:
-  "Volumetric fog and light shafts"), the colour x mix(1, transmittance, 0.65 x the light's strength) - drifting
-  shadows on the level; no ray tracing.
+  "Volumetric fog and light shafts"). With the ray-traced shadows on (`vulkan_rt_shadows`' CLOUDS variant, bindings 4
+  and 5) the map is the sun's visibility: where the sun's rays reach a pixel the clouds take their share of the sun's
+  light - a relit pixel's `seen` times the transmittance (its light rebuilt from its parts: the sky's, the bounce's and
+  the lamps' stay), any other pixel's occlusion raised by it - and a pixel already in the sun's shade (or under a roof)
+  loses nothing more. Without them (no ray tracing, cel's own shadows) the fallback: the colour x mix(1, transmittance,
+  0.65 x the light's strength) over all of it. (2026-11-16, the freeze audit: the multiply over all the light took the
+  sky's light too - a Boston street in a building's morning shade went near black under a blue sky.)
 - **The reflections' misses** (`rt_sky_for_rays`; `vulkan_rt_reflections`' SKY variant, bindings 9 - 12): with
   `rt_sky=1` a reflection ray that leaves the world sees the sky drawn - the sky-view table toward it and, where its
   direction falls on the viewport, this frame's clouds (their history, read as the composite reads it, faded out over
