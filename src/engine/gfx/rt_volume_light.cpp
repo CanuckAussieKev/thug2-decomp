@@ -92,7 +92,7 @@ AirArt air_art(AirLook look)
         return {.density = 2.5,
                 .least = 1.0,
                 .night = 1.5,
-                .side = 2.5,
+                .side = 6.0,
                 .shade = 0.35,
                 .glow = 3.0,
                 .lamp_glow = 5.0,

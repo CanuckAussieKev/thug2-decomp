@@ -998,21 +998,26 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
   - so games don't do it physically: their volumetric fog is a volume round the camera whose scattering is set apart
   from its thickness, each light with its own share in it. The look does the same, in steps:
   - `clear`: the physical model, every factor 1 (round two's air exactly).
-  - `cinematic` (the default): the street air x 2 (`density`), never under 1.5 x a clear day's (`least`: a thin base at
-    noon), the night's mist x 1.5; it scatters the sun's or moon's light x 1.7 (`glow`) and the lamps' x 5
-    (`lamp_glow`: a lamp's few hundred lumens against the sun's hundred thousand - a film lights its practicals for the
-    haze) while it dims only by its extinction - not energy-conserving, by design; its phase gets an even lobe of 2.5
-    over `medium_phase` (`side`, x 4 pi - an even medium's light is 1): the lit air reads from the side, not only
-    toward the light; its shade's light (the sky's, the fog's ambient) x 0.35 (`shade`): the air out of the light stays
-    clear and the beams stand out; and it is a volume round the eye - whole to 30 m, gone by 60 m (`range`, smoothstep
-    on each segment's middle distance): the beams near the player, the far world seen through the aerial haze alone.
+  - `cinematic` (the default): the street air x 2.5 (`density`; no base over a clear day's - `least` 1: the low sun's
+    and the night's own conditions carry it, noon stays clear), the night's mist x 1.5; it scatters the sun's or moon's
+    light x 3 (`glow`) and the lamps' x 5 (`lamp_glow`: a lamp's few hundred lumens against the sun's hundred thousand
+    - a film lights its practicals for the haze) while it dims only by its extinction - not energy-conserving, by
+    design; its phase gets an even lobe of 6 over `medium_phase` (`side`, x 4 pi - an even medium's light is 1): the lit
+    air reads from the side, not only toward the light (2.5 was tried first: in the game the beams across Berlin's
+    river street and the light past College's tower read only looking toward the sun); its shade's light (the sky's,
+    the fog's ambient) x 0.35 (`shade`): the air out of the light stays clear and the beams stand out; and it is a
+    volume round the eye - whole to 30 m, gone by 60 m (`range`, smoothstep on each segment's middle distance; a ray
+    more than 4 x that long marches half its steps in it): the beams near the player, the far world seen through the
+    aerial haze alone.
   - `misty`: x 5, at least 4 x a clear day's, glow 1, lamps x 3, side 1.5, its shade whole, 150 m round the eye.
   Only the street air takes the look - the aerial haze, the level's own fog and the falling snow keep theirs. The
-  check's numbers (thug2_vulkan_rt_fog_check): a 10 m beam across a street at dusk seen from the side 0.4 levels clear,
-  13.6 cinematic; the side view of the check's street (the device's march) 8+ levels over the shade, the clear air's
-  under 1; a street lamp's cone seen from the side 0.0 / 4.0 levels (its glow looking at it 6.5 / 105); along 300 m at
-  dusk an optical depth of 0.56 clear, 0.17 cinematic (the far world clearer than physical); open sunlit air seen from
-  the side veils ~57 levels at dusk, ~11 at noon.
+  check's numbers (thug2_vulkan_rt_fog_check; linear light, the sun at 1, before the tone map): a 10 m beam across a
+  street at dusk seen from the side 0.4 levels clear, 67 cinematic; the side view of the check's street (the device's
+  march) 35.6 levels over the shade, the clear air's 0.7; a street lamp's cone seen from the side 0.0 / 10.9 levels
+  (its glow looking at it 6.5 / 149); along 300 m at dusk an optical depth of 0.56 clear, 0.21 cinematic (the far
+  world clearer than physical). In the game (Boston, Berlin at dusk, College at 06:20 and noon, the tone map and the
+  clock's sun strength 0.5 - 0.9 on top): the lit air adds ~5 - 30 levels where the sun reaches it, at noon a median of
+  ~2 - 5 over the clear air.
 - **The light is the relit level's** (third round): `medium_light` lights the air only where the relit mode relights
   the level (`SunRelight::relights` - its offline data built and current, `rt_relit` on, the level not opted out). A
   level without relit data has no sunlit air and no street air: the fog pass draws the level's own fog (its colour

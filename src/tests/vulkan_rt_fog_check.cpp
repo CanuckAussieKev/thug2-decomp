@@ -1769,8 +1769,8 @@ constexpr double kLeastCinematicCone = 3.5;
 constexpr double kLeastCinematicOverClear = 4.0;
 constexpr double kMostCinematicFarDepth = 0.6;
 constexpr double kMostCinematicNoonDepth = 0.15;
-constexpr double kMostDuskVeil = 0.5;
-constexpr double kMostNoonVeil = 0.08;
+constexpr double kMostDuskVeil = 1.2; // (linear light, before the tone map; the game at dusk: a few tens of levels)
+constexpr double kMostNoonVeil = 0.16;
 
 void run_air_model(Tally* tally)
 {
