@@ -188,6 +188,10 @@ inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{16, 32, 48};
 inline constexpr std::array<unsigned, 3> kRtFogQualityLamps{8, 16, 32};
 inline constexpr std::array<unsigned, 3> kRtFogQualityScale{4, 4, 2};
 inline constexpr unsigned kRtFogScale = 4;    // (rt_fog_quality 1's scale)
+// (added by the distinct shafts) the air's sun map's side (texels - rt_volume_light.h air_map_half) at rt_fog_quality
+// 0 / 1 / 2
+inline constexpr std::array<unsigned, 3> kRtFogQualityMap{512, 1024, 1536};
+inline constexpr unsigned kRtFogMap = 1024; // (rt_fog_quality 1's)
 inline constexpr float kRtFogHazeHeight = 600.0F; // (rt_fog_haze_height's default: world units)
 inline constexpr float kRtFogHazeDensity = 0.3F;  // (rt_fog_haze_density's default)
 enum class RtFogMode : uint8_t {
@@ -221,6 +225,7 @@ struct RtFogSettings {
     // and the march's resolution (rt_fog_quality's: 2 or 4)
     render::rt::AirLook air = render::rt::AirLook::kCinematic;
     unsigned scale = kRtFogScale;
+    unsigned map = kRtFogMap; // (added by the distinct shafts) the air's sun map's side (rt_fog_quality's; 64 - 2048)
 };
 void set_rt_fog_settings(const RtFogSettings& settings);
 [[nodiscard]] RtFogSettings rt_fog_settings();

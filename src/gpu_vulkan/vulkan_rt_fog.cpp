@@ -75,6 +75,9 @@ constexpr std::array<std::array<uint8_t, 4>, 4> kBayer4{{{0, 8, 2, 10}, {12, 4, 
 constexpr std::array<std::array<uint8_t, 2>, 2> kBayer2{{{0, 2}, {3, 1}}};
 constexpr uint32_t kLeastScale = 2;
 constexpr uint32_t kMostScale = 4;
+constexpr unsigned kLeastAirMap = 64; // (the air's sun map's side, texels)
+constexpr double kAirMapUpright = 0.9; // (a light this near straight up: the map's axes from the x axis)
+constexpr unsigned kMostAirMap = 2048;
 
 // The full-screen triangle (three vertices, no buffers).
 constexpr const char* kVertexSource = R"(#version 460
@@ -118,7 +121,14 @@ layout(set = 0, binding = 7) uniform FogBlock {
                         // x the look's glow (the sun's light it scatters)
     vec4 air_look;      // (added by the cinematic air - rt_volume_light.h AirArt) x the lamps' light it scatters over
                         // the other media's, y where its volume round the eye starts thinning, z 1 / how far it thins
-                        // to none (0: everywhere)
+                        // to none (0: everywhere), w x its range looking at the light (AirArt::along)
+    // (added by the distinct shafts - rt_volume_light.h air_map_half) the air's sun map: its square across the light's
+    // way - xyz its side's and its up's axes, the side's w its half side (world units; 0: no map), the up's w how far
+    // below its centre's plane its rays reach; the centre's xyz the eye's place snapped to its texels, w how far up the
+    // light's way its rays start
+    vec4 map_side;
+    vec4 map_up;
+    vec4 map_centre;
 } fog;
 
 #ifdef MULTISAMPLED
@@ -164,6 +174,9 @@ layout(set = 0, binding = 10, std140) uniform FogLamps {
     vec4 colour[FOG_MOST_LAMPS]; // rgb its light (colour x intensity x rt_lights' strength x the lamps on), w its reach
     vec4 more[FOG_MOST_LAMPS];   // x its falloff's core
 } lamps;
+// (added by the distinct shafts) the air's sun map (step 0's): each texel the distance down the light's way to the first
+// thing its ray hits
+layout(set = 0, binding = 13, r32f) uniform readonly image2D u_air_map;
 
 // Whether the light gets from `at` along `toward` for `reach` (the world and the objects; with CUTOUTS the cut-outs by
 // their alpha too - the one lighting path's test, vulkan_rt_scene.h cutout_rays_glsl).
@@ -233,6 +246,55 @@ float light_seen(vec3 at, ivec2 p, int i)
         return 0.0;
     }
     return visible(at, toward_light(p, i), SUN_DISTANCE) * through;
+}
+
+// (added by the distinct shafts - rt_volume_light.h air_map_half) How much of the light reaches `at` by the air's sun
+// map: -1 where `at` is outside its square (or there is none) - the light's ray is traced there instead. Its penumbra:
+// the place read moved across the light's disc (a point of it a step - the history averages them) by the distance from
+// the nearest thing round there that shadows it x the disc's tangent; then the four texels round it, bilinearly - lit
+// where the point lies before their first hit.
+float map_texel(ivec2 t, ivec2 size) { return imageLoad(u_air_map, clamp(t, ivec2(0), size - ivec2(1))).r; }
+float map_light_seen(vec3 at, ivec2 p, int i)
+{
+    float half_side = fog.map_side.w;
+    if (!(half_side > 0.0)) {
+        return -1.0;
+    }
+    vec3 rel = at - fog.map_centre.xyz;
+    vec2 uv = vec2(dot(rel, fog.map_side.xyz), dot(rel, fog.map_up.xyz));
+    if (any(greaterThan(abs(uv), vec2(half_side)))) {
+        return -1.0;
+    }
+    if (!(fog.sun_tint.w > 0.5)) {
+        return 0.0;
+    }
+    float through = 1.0;
+#ifdef CLOUDS
+    through = cloud_map_kept(at, fog.cloud_map, fog.cloud_light);
+#endif
+    if (!(through > 0.0)) {
+        return 0.0;
+    }
+    ivec2 size = imageSize(u_air_map);
+    float texel = 2.0 * half_side / float(size.x);
+    float depth = fog.map_centre.w - dot(rel, fog.sun.xyz); // (down the light's way from the map's plane)
+    vec2 f = (uv + half_side) / texel - 0.5;
+    ivec2 b = ivec2(floor(f));
+    float nearest = min(min(map_texel(b, size), map_texel(b + ivec2(1, 0), size)),
+                        min(map_texel(b + ivec2(0, 1), size), map_texel(b + ivec2(1, 1), size)));
+    float r = min(max(depth - nearest, 0.0) * fog.soft.x / texel, 8.0);
+    if (r > 0.0) {
+        float a = 6.2831853 * hash01(p, fog.flags.w, i, 0x5Du);
+        f += vec2(cos(a), sin(a)) * (sqrt(hash01(p, fog.flags.w, i, 0x77u)) * r);
+        b = ivec2(floor(f));
+    }
+    vec2 w = f - vec2(b);
+    float bias = 2.0 * texel; // (a slope's texel)
+    float l00 = depth < map_texel(b, size) + bias ? 1.0 : 0.0;
+    float l10 = depth < map_texel(b + ivec2(1, 0), size) + bias ? 1.0 : 0.0;
+    float l01 = depth < map_texel(b + ivec2(0, 1), size) + bias ? 1.0 : 0.0;
+    float l11 = depth < map_texel(b + ivec2(1, 1), size) + bias ? 1.0 : 0.0;
+    return mix(mix(l00, l10, w.x), mix(l01, l11, w.x), w.y) * through;
 }
 
 // a lamp's falloff (engine/gfx/rt_lights.h light_falloff - the same formula as the lamps' pass)
@@ -402,7 +464,8 @@ float water_under(vec3 direction, float distance)
 // falling snow, and over water its wetter layer.
 // (changed by the cinematic air: its mist in a volume round the eye - rt_volume_light.h air_reach, at the segment's
 // middle; the falling snow everywhere)
-float air_depth(vec3 direction, float s0, float s1, float water)
+// (changed by the distinct shafts: the volume `stretch` x as far along the ray - rt_volume_light.h air_stretch)
+float air_depth(vec3 direction, float s0, float s1, float water, float stretch)
 {
     float depth = 0.0;
     if (fog.air.x > 0.0) {
@@ -411,7 +474,7 @@ float air_depth(vec3 direction, float s0, float s1, float water)
             mist += layer_depth(direction, s0, s1, fog.air.x * fog.soft.y, fog.soft.z, water);
         }
         if (fog.air_look.z > 0.0) {
-            float t = clamp((0.5 * (s0 + s1) - fog.air_look.y) * fog.air_look.z, 0.0, 1.0);
+            float t = clamp((0.5 * (s0 + s1) - fog.air_look.y * stretch) * fog.air_look.z / stretch, 0.0, 1.0);
             mist *= 1.0 - t * t * (3.0 - 2.0 * t);
         }
         depth += mist;
@@ -423,7 +486,9 @@ float air_depth(vec3 direction, float s0, float s1, float water)
 }
 
 // (added by the cinematic air) Where along the ray the march's x-th step boundary lies (x in 0 - steps): a + (b - a) t^2,
-// or with `near_steps` steps for the volume round the eye, those over a - split and the rest over split - b, each t^2.
+// or with `near_steps` steps for the volume round the eye, those over a - split (t^2) and the rest over split - b.
+// (Changed by the distinct shafts:) the rest in a geometric series - each segment the same share longer than the one
+// before -, so the first kilometres past the volume (the cloud gaps' columns) get as many steps as the far haze.
 float march_at(float x, float a, float b, float split, int near_steps, int steps)
 {
     if (near_steps <= 0) {
@@ -435,7 +500,7 @@ float march_at(float x, float a, float b, float split, int near_steps, int steps
         return a + (split - a) * t * t;
     }
     float t = (x - float(near_steps)) / float(steps - near_steps);
-    return split + (b - split) * t * t;
+    return split * pow(b / split, t);
 }
 
 #ifdef AERIAL
@@ -528,34 +593,54 @@ void main()
         uint reached = lamps_reached(direction, b);
         // (changed by the street air: the light's rays every other step) the steps in pairs: one point of each pair -
         // the first or the second, by turns frame to frame - traces the sun's (or the moon's) shadow ray and the picked
-        // lamp's; both steps take what it saw
+        // lamp's; both steps take what it saw. (Changed by the distinct shafts:) inside the air's sun map's square
+        // every step reads the map for the light's share instead - the lamps' rays stay in pairs
         int parity = fog.flags.w & 1;
-        float sun_seen = 0.0;
+        int traced_pair = -1;
+        float traced_sun = 0.0;
         float lamp_seen = 0.0;
         // (the steps closer together near the eye - a + span x t^2: the shafts between the buildings round the camera
         // sampled every few metres, the far air - smooth - in long segments; each segment's depth is still exact.
         // Added by the cinematic air: with a volume round the eye that the ray leaves, half the steps go to it - its
-        // beams sampled a metre or two apart - and the rest to the way past it)
+        // beams sampled a metre or two apart - and the rest to the way past it. Changed by the distinct shafts: the
+        // volume reaches `stretch` x as far looking toward the light; a ray that leaves it gives it `steps` steps and
+        // the way past it half as many more, in a geometric series)
+        float stretch = 1.0;
+        if (fog.air_look.w > 1.0) {
+            float c = max(dot(direction, fog.sun.xyz), 0.0);
+            stretch = 1.0 + (fog.air_look.w - 1.0) * c * c;
+        }
         int near_steps = 0;
+        int total = steps;
         float split = b;
         if (air_on && fog.air_look.z > 0.0) {
-            float volume_end = fog.air_look.y + 1.0 / fog.air_look.z;
-            // (only where the t^2 spacing alone would give it fewer: the ray more than 4 x the volume long)
-            if (volume_end > a && b - a > 4.0 * (volume_end - a)) {
-                near_steps = steps / 2;
+            float volume_end = (fog.air_look.y + 1.0 / fog.air_look.z) * stretch;
+            if (volume_end > a && b > 1.05 * volume_end) {
+                near_steps = steps;
+                total = steps + max(steps / 2, 4);
                 split = volume_end;
             }
         }
-        for (int i = 0; i < steps; ++i) {
-            float s0 = march_at(float(i), a, b, split, near_steps, steps);
-            float s1 = march_at(float(i + 1), a, b, split, near_steps, steps);
-            float s = march_at(float(i) + u, a, b, split, near_steps, steps);
+        for (int i = 0; i < total; ++i) {
+            float s0 = march_at(float(i), a, b, split, near_steps, total);
+            float s1 = march_at(float(i + 1), a, b, split, near_steps, total);
+            float s = march_at(float(i) + u, a, b, split, near_steps, total);
             vec3 at = fog.camera.xyz + direction * s;
-            if ((i & 1) == 0) {
-                int j = min(i + parity, steps - 1);
-                vec3 traced = fog.camera.xyz + direction * march_at(float(j) + u, a, b, split, near_steps, steps);
-                sun_seen = light_seen(traced, local, j);
+            if ((i >> 1) != traced_pair) {
+                traced_pair = i >> 1;
+                int j = min(i + parity, total - 1);
+                vec3 traced = fog.camera.xyz + direction * march_at(float(j) + u, a, b, split, near_steps, total);
+                float mapped = map_light_seen(traced, local, j);
+                traced_sun = mapped >= 0.0 ? -1.0 : light_seen(traced, local, j);
                 lamp_seen = reached != 0u ? lamps_seen(traced, direction, reached, local, j) : 0.0;
+            }
+            float sun_seen = map_light_seen(at, local, i);
+            if (sun_seen < 0.0) {
+                // (outside the map's square: the pair's traced ray - traced now when the pair's own point was inside)
+                if (traced_sun < 0.0) {
+                    traced_sun = light_seen(at, local, i);
+                }
+                sun_seen = traced_sun;
             }
 #ifdef AERIAL
             float tau_main = layer_depth(direction, s0, s1, fog.aerial.x, fog.aerial.y, fog.aerial.z);
@@ -574,7 +659,7 @@ void main()
                 tau_main = fog.fog_colour.w * height * log(max(end - x0, 1e-4 * fade) / max(end - x1, 1e-4 * fade));
             }
 #endif
-            float tau_air = air_on ? air_depth(direction, s0, s1, water) : 0.0;
+            float tau_air = air_on ? air_depth(direction, s0, s1, water, stretch) : 0.0;
             float tau = max(tau_main, 0.0) + max(tau_air, 0.0);
             if (!(tau > 1e-9)) {
                 continue;
@@ -605,6 +690,51 @@ void main()
 }
 )";
 
+// (added by the distinct shafts) Step 0: the air's sun map (rt_volume_light.h air_map_half) - one texel each: a ray down
+// the light's way from the map's plane, the distance to the first thing it hits (with CUTOUTS the cut-outs by their
+// alpha - the one lighting path's test, vulkan_rt_scene.h cutout_rays_glsl's), 3e38 where it hits nothing.
+constexpr const char* kAirMapBody = R"(
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 13, r32f) uniform writeonly image2D o_air_map;
+
+void main()
+{
+    ivec2 t = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(o_air_map);
+    if (any(greaterThanEqual(t, size))) {
+        return;
+    }
+    float half_side = fog.map_side.w;
+    float texel = 2.0 * half_side / float(size.x);
+    vec2 uv = (vec2(t) + 0.5) * texel - half_side;
+    vec3 down = -fog.sun.xyz;
+    vec3 origin = fog.map_centre.xyz + fog.map_side.xyz * uv.x + fog.map_up.xyz * uv.y - down * fog.map_centre.w;
+    float reach = fog.map_centre.w + fog.map_up.w;
+    uint mask = uint(fog.flags.y) & 0xFFu;
+    rayQueryEXT query;
+#ifdef CUTOUTS
+    rayQueryInitializeEXT(query, u_scene, 0u, mask, origin, 0.0, down, reach);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
+            cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                        rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
+                        rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
+                        rayQueryGetIntersectionBarycentricsEXT(query, false))) {
+            rayQueryConfirmIntersectionEXT(query);
+        }
+    }
+#else
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT, mask, origin, 0.0, down, reach);
+    while (rayQueryProceedEXT(query)) {
+    }
+#endif
+    float hit = rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT
+                    ? 3.0e38
+                    : rayQueryGetIntersectionTEXT(query, true);
+    imageStore(o_air_map, t, vec4(hit));
+}
+)";
+
 // Step 2: the history.
 constexpr const char* kTemporalBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -632,9 +762,14 @@ void main()
     vec4 now = imageLoad(u_in, q);
     vec4 info = imageLoad(u_in_info, q);
     float distance = info.x;
-    // this frame's spread around the texel: what the history may be
+    // this frame's spread around the texel: what the history may be. (Changed by the distinct shafts:) the neighbours'
+    // mean +- HISTORY_SPREAD x their deviation, inside their least and most - a history that has moved off a beam's edge
+    // (a camera turning, the light moving) is held to what this frame shows there, not to the whole 3 x 3's range
     vec4 low = now;
     vec4 high = now;
+    vec4 sum = vec4(0.0);
+    vec4 squares = vec4(0.0);
+    float counted = 0.0;
     for (int dy = -1; dy <= 1; ++dy) {
         for (int dx = -1; dx <= 1; ++dx) {
             ivec2 n = q + ivec2(dx, dy);
@@ -642,9 +777,16 @@ void main()
                 vec4 v = imageLoad(u_in, n);
                 low = min(low, v);
                 high = max(high, v);
+                sum += v;
+                squares += v * v;
+                counted += 1.0;
             }
         }
     }
+    vec4 middle = sum / counted;
+    vec4 deviation = sqrt(max(squares / counted - middle * middle, vec4(0.0)));
+    low = max(low, middle - HISTORY_SPREAD * deviation);
+    high = min(high, middle + HISTORY_SPREAD * deviation);
     vec4 history = now;
     float history_length = 0.0;
     if (fog.camera_before.w > 0.5) {
@@ -753,8 +895,11 @@ struct FogBlock {
     std::array<float, 4> air_light{};
     std::array<float, 4> air_ambient{};
     std::array<float, 4> air_look{}; // (added by the cinematic air)
+    std::array<float, 4> map_side{}; // (added by the distinct shafts)
+    std::array<float, 4> map_up{};
+    std::array<float, 4> map_centre{};
 };
-constexpr std::size_t kFogBlockBytes = 464;
+constexpr std::size_t kFogBlockBytes = 512;
 
 // The lamps' block (binding 10, std140).
 struct FogLampsBlock {
@@ -783,7 +928,8 @@ constexpr uint32_t kBindingSky = 9; // (the sky model's table: the aerial march'
 constexpr uint32_t kBindingLamps = 10;    // (added by the volumetric light) the lamps' block
 constexpr uint32_t kBindingCloudMap = 11; // the clouds' shadow map (vulkan_rt_sky_pass.h)
 constexpr uint32_t kBindingGeometry = 12; // the frame's geometry table (CUTOUTS: the cut-outs' test, the water's)
-constexpr uint32_t kBindingCount = 13;
+constexpr uint32_t kBindingAirMap = 13;   // (added by the distinct shafts) the air's sun map
+constexpr uint32_t kBindingCount = 14;
 constexpr uint32_t kMaterialSet = 1; // (CUTOUTS: the material table's set)
 
 // The march's variants (bits): a multisampled depth, the sky model's haze, the cut-outs and water (the material table
@@ -838,6 +984,12 @@ struct FogState {
     VkShaderModule vertex = VK_NULL_HANDLE;
     std::array<VkPipeline, kVariants> march{}; // by variant (made on first use)
     std::array<bool, kVariants> march_failed{};
+    // (added by the distinct shafts) the air's sun map: its pass (without / with the cut-outs; made on first use) and its
+    // image (rt_fog_quality's side; every viewport's in turn - each makes it before its march)
+    std::array<VkPipeline, 2> air_map_pass{};
+    std::array<bool, 2> air_map_failed{};
+    Image air_map;
+    bool air_map_made = false;
     VkPipeline temporal = VK_NULL_HANDLE;
     std::vector<CompositePipeline> composites;
     std::vector<std::unique_ptr<ViewSlot>> slots;
@@ -937,6 +1089,7 @@ std::string source_of(const char* body, bool traces, bool multisampled, uint32_t
     if (multisampled) {
         source += "#define MULTISAMPLED\n";
     }
+    source += "#define HISTORY_SPREAD " + std::to_string(kFogHistorySpread) + "\n";
     if (aerial) {
         source += "#define AERIAL\n";
         source += "#define AERIAL_LOWEST " + std::to_string(kFogAerialLowest) + "\n";
@@ -1126,6 +1279,22 @@ VkPipeline march_pipeline(Backend& state, uint32_t variant, std::string* error)
                      source_of(kMarchBody, true, (variant & kVariantMultisampled) != 0, variant), error);
     core::at(own.march_failed, variant) = core::at(own.march, variant) == VK_NULL_HANDLE;
     return core::at(own.march, variant);
+}
+
+// (added by the distinct shafts) The air's sun map's pass (with the cut-outs or without; made on first use - VK_NULL_HANDLE:
+// it can't be, not tried again).
+VkPipeline air_map_pipeline(Backend& state, bool cutouts, std::string* error)
+{
+    FogState& own = fog_state();
+    const std::size_t which = cutouts ? 1 : 0;
+    if (core::at(own.air_map_pass, which) != VK_NULL_HANDLE || core::at(own.air_map_failed, which)) {
+        return core::at(own.air_map_pass, which);
+    }
+    core::at(own.air_map_pass, which) =
+        make_compute(state.context.device(), cutouts ? own.layout_materials : own.layout,
+                     source_of(kAirMapBody, true, false, cutouts ? kVariantCutouts : 0U), error);
+    core::at(own.air_map_failed, which) = core::at(own.air_map_pass, which) == VK_NULL_HANDLE;
+    return core::at(own.air_map_pass, which);
 }
 
 // The composite pass's pipeline for a colour target (made on first use).
@@ -1433,6 +1602,52 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
     return &slot;
 }
 
+// (added by the distinct shafts) The air's sun map's image at `side` texels (made again when the side changes; GENERAL,
+// cleared to "nothing hit" when made - the march binds it whether or not a map is made this frame).
+bool ensure_air_map(Backend& state, VkCommandBuffer commands, uint32_t side)
+{
+    FogState& own = fog_state();
+    if (own.air_map_made && own.air_map.extent.width == side) {
+        return true;
+    }
+    if (own.air_map_made) {
+        retire_image(state, &own.air_map);
+        own.air_map_made = false;
+    }
+    if (!make_storage_image(state, VK_FORMAT_R32_SFLOAT, {.width = side, .height = side}, &own.air_map)) {
+        return false;
+    }
+    own.air_map_made = true;
+    const VkImageSubresourceRange all{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                      .baseMipLevel = 0,
+                                      .levelCount = 1,
+                                      .baseArrayLayer = 0,
+                                      .layerCount = 1};
+    const VkImageMemoryBarrier to_general{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                                          .pNext = nullptr,
+                                          .srcAccessMask = 0,
+                                          .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                                          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                                          .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                                          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                          .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                          .image = own.air_map.image,
+                                          .subresourceRange = all};
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &to_general);
+    constexpr float kNothingHit = 3.0e38F;
+    const VkClearColorValue nothing{.float32 = {kNothingHit, kNothingHit, kNothingHit, kNothingHit}};
+    vkCmdClearColorImage(commands, own.air_map.image, VK_IMAGE_LAYOUT_GENERAL, &nothing, 1, &all);
+    own.air_map.layout = VK_IMAGE_LAYOUT_GENERAL;
+    const VkMemoryBarrier cleared{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                                  .pNext = nullptr,
+                                  .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                                  .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT};
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &cleared, 0,
+                         nullptr, 0, nullptr);
+    return true;
+}
+
 // The new images moved to GENERAL and cleared (no NaN read from an unwritten history), before the passes.
 void clear_slot(VkCommandBuffer commands, ViewSlot* slot)
 {
@@ -1490,6 +1705,7 @@ struct PassBindings {
     const Image* in_info = nullptr;
     const Image* history = nullptr;
     const Image* history_info = nullptr;
+    const Image* air_map = nullptr; // (added by the distinct shafts)
     VkDescriptorBufferInfo block{};
 };
 
@@ -1540,12 +1756,13 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
                 .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
         add(kBindingDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).pImageInfo = &info;
     }
-    const std::array<std::pair<uint32_t, const Image*>, 6> storage{{{kBindingOut, bound.out},
+    const std::array<std::pair<uint32_t, const Image*>, 7> storage{{{kBindingOut, bound.out},
                                                                     {kBindingOutInfo, bound.out_info},
                                                                     {kBindingIn, bound.in},
                                                                     {kBindingInInfo, bound.in_info},
                                                                     {kBindingHistory, bound.history},
-                                                                    {kBindingHistoryInfo, bound.history_info}}};
+                                                                    {kBindingHistoryInfo, bound.history_info},
+                                                                    {kBindingAirMap, bound.air_map}}};
     for (const auto& [binding, image] : storage) {
         if (image == nullptr) {
             continue;
@@ -1843,6 +2060,52 @@ std::array<float, 2> block_pixel(uint32_t scale, uint64_t pass)
     return {0.0F, 0.0F};
 }
 
+// (added by the distinct shafts) The air's sun map's square in the block (rt_volume_light.h air_map_half): across the
+// light's way, the eye's place in it snapped to whole texels. Nothing when the look has no volume round the eye.
+void set_air_map(const rt::ViewDrawn& view, const rt::AirArt& art, FogBlock* block)
+{
+    const FogState& own = fog_state();
+    const double half_side = rt::air_map_half(art);
+    if (!(half_side > 0.0)) {
+        return;
+    }
+    using Vector = std::array<double, 3>;
+    const auto cross = [](const Vector& a, const Vector& b) {
+        return Vector{(core::at(a, 1) * core::at(b, 2)) - (core::at(a, 2) * core::at(b, 1)),
+                      (core::at(a, 2) * core::at(b, 0)) - (core::at(a, 0) * core::at(b, 2)),
+                      (core::at(a, 0) * core::at(b, 1)) - (core::at(a, 1) * core::at(b, 0))};
+    };
+    const auto dot = [](const Vector& a, const Vector& b) {
+        return (core::at(a, 0) * core::at(b, 0)) + (core::at(a, 1) * core::at(b, 1)) + (core::at(a, 2) * core::at(b, 2));
+    };
+    const Vector toward{core::at(own.to_sun, 0), core::at(own.to_sun, 1), core::at(own.to_sun, 2)};
+    const Vector across = std::abs(core::at(toward, 1)) < kAirMapUpright ? Vector{0.0, 1.0, 0.0} : Vector{1.0, 0.0, 0.0};
+    Vector side = cross(toward, across);
+    const double side_length = std::sqrt(dot(side, side));
+    if (!(side_length > 0.0)) {
+        return;
+    }
+    for (double& v : side) {
+        v /= side_length;
+    }
+    const Vector up = cross(side, toward);
+    const double texel = 2.0 * half_side / static_cast<double>(own.air_map.extent.width);
+    const Vector eye{core::at(view.camera.position, 0), core::at(view.camera.position, 1),
+                     core::at(view.camera.position, 2)};
+    const double u = std::round(dot(eye, side) / texel) * texel;
+    const double v = std::round(dot(eye, up) / texel) * texel;
+    const double w = dot(eye, toward);
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(block->map_side, i) = static_cast<float>(core::at(side, i));
+        core::at(block->map_up, i) = static_cast<float>(core::at(up, i));
+        core::at(block->map_centre, i) =
+            static_cast<float>((core::at(side, i) * u) + (core::at(up, i) * v) + (core::at(toward, i) * w));
+    }
+    core::at(block->map_side, 3) = static_cast<float>(half_side);
+    core::at(block->map_up, 3) = static_cast<float>(2.0 * half_side);
+    core::at(block->map_centre, 3) = static_cast<float>(rt::kAirMapLift);
+}
+
 FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const ViewSlot& slot, bool have_before,
                    VkSampleCountFlagBits samples)
 {
@@ -1924,7 +2187,12 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
                              (tint_luma > 1e-4F ? whole_luma / tint_luma : 1.0F) * static_cast<float>(art.glow)};
         const double range = art.range * rt::kUnitsPerMetre;
         block.air_look = {static_cast<float>(art.lamp_glow), static_cast<float>(0.5 * range),
-                          range > 0.0 ? static_cast<float>(2.0 / range) : 0.0F, 0.0F};
+                          range > 0.0 ? static_cast<float>(2.0 / range) : 0.0F, static_cast<float>(art.along)};
+        // (added by the distinct shafts) the air's sun map round the eye, where the look has a volume and a light
+        // lights it
+        if (own.have_sun && own.air_map_made) {
+            set_air_map(view, art, &block);
+        }
     }
     if (own.cutouts) {
         // (the wetter air over water: the haze's and the street air's)
@@ -2086,6 +2354,15 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     // (added by the first frame - vulkan_rt_history.h: a history that starts again is seeded with a full history's
     // frames of marches, so nothing fades in)
     const uint32_t seeds = seed_frames(true, !have_before, kFogMaxHistory);
+    // (added by the distinct shafts) the air's sun map's image (bound by every march; made this frame where the look
+    // has a volume round the eye and a light)
+    if (!ensure_air_map(state, commands, own.settings.map)) {
+        if (first_report(state, kReportImages)) {
+            get_log("vulkan: rt_fog: the air's sun map (%u texels a side) couldn't be made - the fog pass skipped",
+                    own.settings.map);
+        }
+        return false;
+    }
     FogBlock block = block_for(clipped, to_world, *slot, have_before, colour->samples);
     const auto block_in_ring = [&state](const FogBlock& written) -> std::optional<VkDescriptorBufferInfo> {
         const void* const block_bytes = &written;
@@ -2136,6 +2413,27 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &ready, 0, nullptr, 0, nullptr);
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
 
+    // 0. (added by the distinct shafts) the air's sun map, once a frame (the seeds' marches share the camera and light)
+    if (core::at(block.map_side, 3) > 0.0F) {
+        const VkPipeline map_pass = air_map_pipeline(state, own.cutouts, &error);
+        if (map_pass == VK_NULL_HANDLE) {
+            core::at(block.map_side, 3) = 0.0F; // (no map: the march traces the light's rays everywhere)
+            const std::optional<VkDescriptorBufferInfo> without = block_in_ring(block);
+            if (!without) {
+                return false;
+            }
+            block_info = *without;
+            if (first_report(state, kReportPipeline)) {
+                get_log("vulkan: rt_fog: the air's sun map's pass couldn't be made (%s) - the light's rays traced instead",
+                        error.c_str());
+            }
+        } else {
+            dispatch(commands, map_pass,
+                     {.scene = true, .cutouts = own.cutouts, .air_map = &own.air_map, .block = block_info},
+                     {.width = own.air_map.extent.width, .height = own.air_map.extent.height});
+        }
+    }
+
     const Image* history = nullptr;
     const Image* history_info = nullptr;
     for (uint32_t seed = 0; seed < seeds; ++seed) {
@@ -2166,6 +2464,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                   .depth = depth,
                   .out = &slot->raw,
                   .out_info = &slot->raw_info,
+                  .air_map = &own.air_map,
                   .block = block_info},
                  low);
         // 2. the history
@@ -2266,6 +2565,7 @@ void set_rt_fog_settings(const RtFogSettings& settings)
     kept.steps = std::clamp(kept.steps, kMinSteps, kMaxSteps);
     kept.lamps = std::min(kept.lamps, kFogMostLamps);
     kept.scale = kept.scale >= kMostScale ? kMostScale : kLeastScale;
+    kept.map = std::clamp(kept.map, kLeastAirMap, kMostAirMap);
     kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : kRtFogStrength;
 
     {
@@ -2394,7 +2694,16 @@ void release_rt_fog(Backend& state)
         release_slot(state, slot.get(), true);
     }
     own.slots.clear();
+    if (own.air_map_made) {
+        state.memory.destroy_image(&own.air_map);
+        own.air_map_made = false;
+    }
     if (device != nullptr) {
+        for (const VkPipeline pipeline : own.air_map_pass) {
+            if (pipeline != VK_NULL_HANDLE) {
+                vkDestroyPipeline(device, pipeline, nullptr);
+            }
+        }
         for (const CompositePipeline& made : own.composites) {
             vkDestroyPipeline(device, made.pipeline, nullptr);
         }
@@ -2432,6 +2741,8 @@ void release_rt_fog(Backend& state)
     own.composites.clear();
     own.march = {};
     own.march_failed = {};
+    own.air_map_pass = {};
+    own.air_map_failed = {};
     own.layout_materials = VK_NULL_HANDLE;
     own.material_layout = VK_NULL_HANDLE;
     own.temporal = VK_NULL_HANDLE;

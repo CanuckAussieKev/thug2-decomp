@@ -67,6 +67,8 @@ namespace render::vulkan {
 struct Backend;
 
 inline constexpr uint32_t kFogMaxHistory = 12; // frames
+// (added by the distinct shafts) the history held within this many deviations of its 3 x 3 neighbours' mean (step 2)
+inline constexpr float kFogHistorySpread = 1.5F;
 inline constexpr uint32_t kFogViewSlots = 4;
 inline constexpr uint32_t kFogMask = 0x01 | 0x02; // (world, objects: what shadows the fog)
 // (added by the volumetric light) with the material table and the frame's geometry the cut-outs too, by their alpha

@@ -271,7 +271,8 @@ render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
         .haze_density = in_effect.number("rt_fog_haze_density", defaults.haze_density),
         .haze_height = in_effect.number("rt_fog_haze_height", defaults.haze_height),
         .air = render::rt::parse_air_look(in_effect.value("rt_fog_air")),
-        .scale = core::at(render::vulkan::kRtFogQualityScale, quality)};
+        .scale = core::at(render::vulkan::kRtFogQualityScale, quality),
+        .map = core::at(render::vulkan::kRtFogQualityMap, quality)};
 }
 
 // NOT ORIGINAL - the sun's disc and glare, the bloom and the sky model (gpu_vulkan/vulkan_rt_sun.h,
