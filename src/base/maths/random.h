@@ -35,4 +35,22 @@ void set_draw_listener(DrawListener listener);
 // (the music's - audio/music_player.cpp).
 RandomStreams seeded_streams(uint32_t seed);
 
+// NOT ORIGINAL - streams of one's own swapped in for the game's over a scope (`own` drawn from, and left as the scope
+// left it), the game's put back after: draws that aren't the game's (engine/script/declared_calls.cpp - a QB
+// script's declaration read from its code) never move the game's sequence, nor reach the draw listener.
+class OwnStreams {
+public:
+    explicit OwnStreams(RandomStreams& own);
+    ~OwnStreams();
+    OwnStreams(const OwnStreams&) = delete;
+    OwnStreams& operator=(const OwnStreams&) = delete;
+    OwnStreams(OwnStreams&&) = delete;
+    OwnStreams& operator=(OwnStreams&&) = delete;
+
+private:
+    RandomStreams* own_;
+    RandomStreams game_;
+    DrawListener listener_;
+};
+
 } // namespace maths

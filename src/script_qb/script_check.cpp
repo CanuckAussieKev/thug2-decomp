@@ -28,6 +28,7 @@
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
 #include "engine/script/check_hooks.h"
+#include "engine/script/declared_calls.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/script/load.h"
 #include "engine/script/param_struct.h"
@@ -167,6 +168,7 @@ struct Settings {
     uint32_t calls = 400;   // stubbed calls a run may make
     uint32_t steps = 50000; // statements a run may run
     int log_runs = 0;       // 1: each run's header logged before it runs (to find a run that crashes the game)
+    int declarations_only = 0; // 1: no runs - each module's globals and trigger data alone (docs/script-check.md)
 };
 
 struct State {
@@ -417,6 +419,54 @@ void read_settings()
     settings->fetch_int_value(checksums::hash_from_text("calls"), &out.calls, 0);
     settings->fetch_int_value(checksums::hash_from_text("steps"), &out.steps, 0);
     settings->fetch_int_value(checksums::hash_from_text("log_runs"), &out.log_runs, 0);
+    settings->fetch_int_value(checksums::hash_from_text("declarations_only"), &out.declarations_only, 0);
+}
+
+// --- trigger data (engine/script/declared_calls.h) -------------------------------------------------------------------
+
+// The calls the declaration being written lists (declared_calls::for_each_call's callback has no context of its own):
+// where they go, and whether they are written without their arguments.
+struct DeclaredText {
+    std::string* text = nullptr;
+    bool calls_only = false;
+};
+DeclaredText& declared_text()
+{
+    static DeclaredText text;
+    return text;
+}
+void write_declared_call(Struct* params, const uint8_t* /*call*/)
+{
+    std::string& out = *declared_text().text;
+    out += out.back() == '[' ? "" : ",";
+    if (declared_text().calls_only) {
+        out += "{}";
+    } else {
+        write_struct(out, params, 0);
+    }
+}
+// A script's declaration as text - the same whether it is read from its QB code (the QB pass) or its file's data (the
+// TypeScript pass): each function's calls' arguments (Shatter's and ShatterAndDie's: the calls alone, as declared), and
+// the camera's flag.
+std::string declaration_text(uint32_t script)
+{
+    static const std::array<uint32_t, 2> kCallsOnly{checksums::hash_from_text("Shatter"),
+                                                    checksums::hash_from_text("ShatterAndDie")};
+    std::string out;
+    clear_script_flag_6f_2564(); // (as the gap list's walk reads them: for_each_node_script_call)
+    for (const uint32_t function : declared_calls::functions()) {
+        std::string calls = "[";
+        declared_text() = {.text = &calls, .calls_only = std::ranges::find(kCallsOnly, function) != kCallsOnly.end()};
+        declared_calls::for_each_call(script, function, &write_declared_call);
+        declared_text() = {};
+        calls += "]";
+        if (calls != "[]") {
+            out += hex(function) + "=" + calls + " ";
+        }
+    }
+    set_script_flag_6f_2564();
+    out += declared_calls::keeps_editor_camera_out(script) ? "keeps-camera-out" : "-";
+    return out;
 }
 
 // --- running -------------------------------------------------------------------------------------------------------
@@ -820,6 +870,14 @@ void run_plan(const std::string& folder)
                 out += "global " + hex(name) + " " + value + "\n";
             }
         }
+        // Its scripts' trigger data - the plan's check_triggers: those any level's nodes name by TriggerScript= -, each
+        // QB's made from its code, the TypeScript pass's read from the file's .json: compared (`declare` lines).
+        if (Array* triggers = global_array("check_triggers")) {
+            for (uint32_t i = 0; i < triggers->extent(); ++i) {
+                const uint32_t script = triggers->cell_at(i).word();
+                out += "declare " + hex(script) + " " + declaration_text(script) + "\n";
+            }
+        }
         s.coverage.clear();
         s.statements.clear();
         s.ts_coverage.clear();
@@ -827,7 +885,7 @@ void run_plan(const std::string& folder)
         s.targeted.clear();
         Array* scripts = global_array("check_scripts");
         std::unordered_map<uint32_t, Array*> arguments; // (TypeScript: each script's argument sets)
-        for (uint32_t i = 0; scripts && i < scripts->extent(); ++i) {
+        for (uint32_t i = 0; scripts && s.settings.declarations_only == 0 && i < scripts->extent(); ++i) {
             Struct* entry = scripts->struct_at(i);
             uint32_t name = 0;
             entry->read_hash_value(checksums::hash_from_text("name"), &name, 0);

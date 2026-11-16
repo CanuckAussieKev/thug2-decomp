@@ -32,6 +32,7 @@
 #include "engine/objects/proximity.h"
 #include "engine/script/load.h"
 #include "engine/script/node_manager.h"
+#include "engine/script/declared_calls.h"
 #include "engine/script/nodes.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
@@ -187,7 +188,7 @@ void read_level_gaps()
     script::clear_script_flag_6f_2564();
     for (const uint32_t script : scripts) {
         if (is_script(script)) {
-            level_nodes::for_each_script_call({.script = script, .target = end_gap()}, &on_level_gap, nullptr, 0);
+            declared_calls::for_each_call(script, end_gap(), &on_level_gap);
         }
     }
     script::set_script_flag_6f_2564();

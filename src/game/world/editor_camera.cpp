@@ -18,10 +18,9 @@
 #include "base/maths/mat4.h"
 #include "engine/objects/control_pad.h"
 #include "engine/render/probe_ray.h"
-#include "engine/script/cache.h"
+#include "engine/script/declared_calls.h"
 #include "engine/script/nodes.h"
 #include "engine/script/qb.h"
-#include "engine/script/tokens.h"
 #include "engine/script/param_struct.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/objects/input_component.h"
@@ -41,7 +40,6 @@
 namespace objects {
 
 namespace {
-constexpr std::size_t kSeenCapacity = 20;
 constexpr float kMaxZoom = 2000.0F;
 constexpr float kShadowSizeFactor = 1.2F;
 constexpr float kStartZoom = 700.0F;
@@ -57,10 +55,6 @@ constexpr uint32_t kButtonLowerB = 0x1000;
 constexpr uint32_t kButtonShift = 0x1000000;
 constexpr float kRiseStep = 0.2F;
 constexpr float kMoveStep = 0.5F;
-constexpr uint32_t kSK3KillSkaterFinish = 0x0B38ED6B; // SK3_KillSkater_Finish
-constexpr uint32_t kSK3KillSkater = 0xDEA3057B; // SK3_KillSkater
-constexpr uint32_t kTeleportSkaterToNode = 0x9FBBD5F0; // TeleportSkaterToNode
-constexpr uint32_t kCAGBoundary = 0x8F308205; // CAG_Boundary
 constexpr uint32_t kLoadSk5Ed = 0xE8B4B836; // Load_Sk5Ed
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint32_t kMinHeight = 0x9CDF40CD; // min_height
@@ -84,18 +78,10 @@ constexpr uint32_t kEditorCamUpDownSpeedMax = 0x5C445EAD; // EditorCam_UpDownSpe
 constexpr uint32_t kEditorCamMaxHeight = 0x61D56FA0; // EditorCam_MaxHeight
 constexpr uint32_t kEditorCamMoveSpeedMax = 0xBFB0D8DF; // EditorCam_MoveSpeedMax
 constexpr uint32_t kEditorCamCursorCollisionFirstUpOffset = 0xC7210318; // EditorCam_CursorCollisionFirstUpOffset
-std::array<uint32_t, 4>& editor_camera_skip_names()
-{
-    static std::array<uint32_t, 4> editor_camera_skip_names{{kSK3KillSkaterFinish, kSK3KillSkater, kTeleportSkaterToNode, kCAGBoundary}};
-    return editor_camera_skip_names;
-}
-constexpr uint32_t kEditorCameraName{0x43BFAB74};
 // NOT ORIGINAL grouping - editor_camera.cpp's state (the original's globals). Made on first use, never destroyed
 // (editor_camera_state()).
 struct EditorCameraState {
-    std::array<uint32_t, kSeenCapacity> editor_camera_seen_{};
     uint8_t editor_camera_flagged_{};
-    int editor_camera_seen_count_{};
 };
 
 EditorCameraState& editor_camera_state()
@@ -119,8 +105,6 @@ constexpr double kHeightSlack = 0.01;              // 0x0064B310
 float get_global(uint32_t name) { return script::fetch_float(name); }
 
 uint8_t& get_flagged() { return editor_camera_state().editor_camera_flagged_; }
-int& get_seen_count() { return editor_camera_state().editor_camera_seen_count_; }
-std::array<uint32_t, kSeenCapacity>& get_seen() { return editor_camera_state().editor_camera_seen_; }
 
 // The collision feeler (render::ProbeRay): its line, a hit callback, the hit's point and normal; what it hit held by
 // a smart pointer (let go of by its destructor).
@@ -198,67 +182,6 @@ CameraButtons read_camera_buttons(const PadSnapshot& pad, PadInputModule* input)
 
 } // namespace
 
-// 0x004E4F50
-bool script_flagged(uint32_t name)
-{
-    for (int i = 0; i < get_seen_count(); ++i) {
-        if (core::at(get_seen(), i) == name) {
-            return false;
-        }
-    }
-    core::at(get_seen(), get_seen_count()++) = name;
-    if (name == kEditorCameraName) {
-        return false;
-    }
-    for (const uint32_t skip_name : editor_camera_skip_names()) {
-        if (name == skip_name) {
-            return true;
-        }
-    }
-    script::ScriptStore* cache = script::script_store();
-    const uint8_t* code = cache->fetch_script(name);
-    if (!code) {
-        return false;
-    }
-    script::Tokens token = script::tokens_at(code);
-    token = script::skip_to_end_of_statement(token);
-    while (script::as_token(*token) != script::QbToken::kScriptEnd) { // (end of script)
-        script::Tokens next;
-        if (script::as_token(*token) == script::QbToken::kName) { // a name: a script called?
-            uint32_t called = script::fetch_word32(token + 1);
-            next = token + script::kTokenWithWordBytes;
-            bool flagged = false;
-            if (script::as_token(*next) == script::QbToken::kColon) { // (a name after a colon-like 0x42 token: the second name's the script)
-                ++next;
-                if (script::as_token(*next) == script::QbToken::kName) {
-                    called = script::fetch_word32(next + 1);
-                    next += script::kTokenWithWordBytes;
-                    flagged = script_flagged(called);
-                } else {
-                    token = script::skip_to_end_of_statement(next);
-                    continue;
-                }
-            } else {
-                flagged = script_flagged(called);
-            }
-            if (flagged) {
-                cache->release_script(name);
-                return true;
-            }
-            token = script::skip_to_end_of_statement(next);
-        } else if (script::as_token(*token) == script::QbToken::kShortIf) {
-            token = script::step_over_token(token);
-            if (script::as_token(*token) == script::QbToken::kNot) {
-                ++token;
-            }
-        } else {
-            token = script::skip_to_end_of_statement(token);
-        }
-    }
-    cache->release_script(name);
-    return false;
-}
-
 // 0x004E5320
 void flag_scripted_hit(render::ProbeRay* feeler)
 {
@@ -278,8 +201,9 @@ void flag_scripted_hit(render::ProbeRay* feeler)
     if (script == 0U) {
         return;
     }
-    get_seen_count() = 0;
-    if (script_flagged(script)) {
+    // (NOT ORIGINAL - the script's declaration, declared_calls.h: the original read the script's code here,
+    // 0x004E4F50, with its list of the scripts seen - 0x007CCBE8 - emptied first)
+    if (declared_calls::keeps_editor_camera_out(script)) {
         get_flagged() = 1;
     }
 }

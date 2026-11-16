@@ -24,11 +24,18 @@ struct DataHooks {
     std::function<bool(std::string_view key, Component& component, std::string& error)> script_value;
     // A global read: its symbol defined (the cell taken over).
     std::function<void(uint32_t name, QbValueKind kind, Cell& cell)> define;
+    // A script's trigger data ("triggers": tools/qbjs/trigger_data.ts, engine/script/declared_calls.h): its JSON text
+    // (read with read_value when asked).
+    std::function<void(uint32_t script, std::string_view json)> declare;
 };
 
-// Every global of data file `json` defined, in the file's order. `from`: the hash of the .qb it was made from (its
-// "from"). False when the file isn't one - `error` says where; the globals before that point are defined.
+// Every global of data file `json` defined, in the file's order, and its scripts' trigger data declared (hooks.declare).
+// `from`: the hash of the .qb it was made from (its "from"). False when the file isn't one - `error` says where; the
+// globals before that point are defined.
 bool define_data(std::string_view json, const DataHooks& hooks, std::string* from, std::string& error);
+
+// One value's JSON (a script's trigger data) read into a cell the caller owns. False: `error` says why.
+bool read_value(std::string_view json, const DataHooks& hooks, QbValueKind& kind, Cell& cell, std::string& error);
 
 // UTF-8 text (a JavaScript string's, QuickJS's JS_ToCString) as bytes: each character one byte - the scripts' strings
 // (qb_ts.js bytes). A character past 0xFF can't be one: none (as a bad sequence).

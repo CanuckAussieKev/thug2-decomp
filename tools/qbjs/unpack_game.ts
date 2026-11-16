@@ -9,9 +9,10 @@
 // German archives aren't unpacked: their scripts are the English ones with other text, so the scripts' text becomes
 // tokens with a table per language - Data\lang\en.json, fr.json, de.json (localize.ts). --check keeps every archive in
 // its folder, its text in the scripts - the script check runs each version of a file. The .ts's last line -
-// `// qb-file {...}` - is its manifest: the file's source name, the hash of the .qb it was made from, the file's
-// checksum names and its scripts' outlines (outline.ts: each script's QB statements, for the engine code that reads a
-// script without running it).
+// `// qb-file {...}` - is its manifest: the file's source name, the hash of the .qb it was made from, how many globals
+// and scripts' trigger data its .json holds and the file's checksum names. A script's trigger data - what it does when
+// a node's TriggerScript runs it: its gaps, kills, teleports... - is declared in the .json too (trigger_data.ts): the
+// engine reads that, never script code.
 //
 //   node tools/qbjs/unpack_game.ts --game <folder>            unpack (the game folder as installed)
 //   node tools/qbjs/unpack_game.ts --game <folder> --refresh  put back, then unpack again (after make_menu_level.ts or
@@ -43,8 +44,8 @@ import { emitTS } from "./emit_ts.ts";
 import { fileHash, gameRoot, scriptBytes } from "./game_scripts.ts";
 import type { ModuleIR } from "./ir.ts";
 import { Localizer, notLocalised } from "./localize.ts";
-import { outlineManifest, scriptOutlines } from "./outline.ts";
 import { readIR } from "./reader.ts";
+import { gameTriggerData, type TriggerData, tokensOf, triggersValue } from "./trigger_data.ts";
 
 const BACKUP = "thug2-decomp-backup";
 type Record = { moved: string[]; made: string[]; folders: string[] };
@@ -82,11 +83,13 @@ function scriptFolders(root: string): string[] {
 // ("Data\\levels\\bo\\bo_scripts.qb", lower case - as game_scripts.ts qbVersions names them), `name` its game path.
 // localize: the IR's text given tokens before it's written (localize.ts).
 // The globals are the module's data (`json`, null when it has none: emit_data.ts, docs/qb-ts.md "Data") - the file's
-// <name>.json beside its <name>.ts; the manifest's `globals` counts them (the game wants the .json when it isn't 0).
+// <name>.json beside its <name>.ts -, and its scripts' trigger data (`triggers`: trigger_data.ts, docs/qb-ts.md
+// "Trigger data"); the manifest's `globals` and `triggers` count them (the game wants the .json when they aren't 0).
 export function scriptTS(
     source: string,
     name: string,
     read: Buffer,
+    triggers: TriggerData,
     check = false,
     localize?: (ir: ModuleIR) => void,
 ): { ts: string; json: string | null } | null {
@@ -96,13 +99,12 @@ export function scriptTS(
         localize?.(ir);
         const from = fileHash(bytes);
         const data = basename(name).replace(/\.qb$/i, ".json");
-        const json = emitData(ir, from);
+        const declared = triggersValue(triggers.declarations({ bytes, ir }, tokensOf(ir)));
+        const json = emitData(ir, from, declared, (n) => triggers.nameText(n));
         const ts = emitTS(ir, {}, { check, data });
         const names = Object.entries(ir.names ?? {}).flatMap(([n, text]) => [Number(n), text]);
         const globals = ir.definitions.filter((d) => d.kind === "global").length;
-        // (each script's outline: its QB statements, for the engine's readers of script code - outline.ts)
-        const outlines = outlineManifest(scriptOutlines(bytes, ir));
-        const manifest = JSON.stringify({ source, from, globals, names, outlines });
+        const manifest = JSON.stringify({ source, from, globals, triggers: declared.length, names });
         return { ts: `${ts.endsWith("\n") ? ts : `${ts}\n`}// qb-file ${manifest}\n`, json };
     } catch {
         return null;
@@ -173,6 +175,9 @@ export function unpack(
         throw Error(
             `${root}: already unpacked, without ${BACKUP}\\unpacked.json (moved away?) - put that folder back first`,
         );
+    // (the scripts' trigger data is made against the boot files and every level's TriggerScripts: read first, from
+    // the game as installed)
+    const triggers = gameTriggerData(root);
     const record: Record = { moved: [], made: [], folders: [] };
     const failed: string[] = [];
     const rel = (path: string) => relative(root, path);
@@ -244,7 +249,7 @@ export function unpack(
                     localizer.localize(source, ir, Object.fromEntries(versions), unpatched);
                 };
                 archiveScripts.add(entry.name.replace(/\//g, "\\").toLowerCase());
-                const made = scriptTS(source, entry.name, data, check, check ? undefined : localize);
+                const made = scriptTS(source, entry.name, data, triggers, check, check ? undefined : localize);
                 if (made !== null) {
                     mkdirSync(dirname(path), { recursive: true });
                     writeFileSync(path.replace(/\.qb$/i, ".ts"), made.ts);
@@ -278,7 +283,14 @@ export function unpack(
             const localize = (ir: ModuleIR) => {
                 localizer.localize(source, ir, {});
             };
-            const made = scriptTS(source, name, readFileSync(path), check, check || plain ? undefined : localize);
+            const made = scriptTS(
+                source,
+                name,
+                readFileSync(path),
+                triggers,
+                check,
+                check || plain ? undefined : localize,
+            );
             move(path); // (one that doesn't translate too: the game reads no .qb)
             if (made === null) {
                 failed.push(rel(path));
@@ -352,6 +364,8 @@ export function unpack(
             "tools/qbjs/unpack_game.ts: the game runs from loose files and .ts scripts (ts_scripts=1).\r\n" +
             "To put everything back: node tools/qbjs/unpack_game.ts --game <this game folder> --restore\r\n",
     );
+    for (const script of triggers.failed) console.log(`trigger data not made (not declared): ${script}`);
+    for (const script of triggers.randomDependent) console.log(`WARNING - trigger data depends on a Random: ${script}`);
     return { record, failed };
 }
 

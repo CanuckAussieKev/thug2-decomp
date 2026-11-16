@@ -37,7 +37,7 @@ const STATEMENT_STARTS = (t: number) =>
 const MODULE_CAP = 64 * 1024 * 1024;
 
 export type ReaderLimits = { nodes?: number; depth?: number };
-export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLimits = {}): ModuleIR {
+function qbReader(bytes: Uint8Array, source: string, limits: ReaderLimits) {
     let p = 0,
         nodes = 0;
     const fail = (message: string): never => {
@@ -887,41 +887,68 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         lineEnded = ended;
         return { name: n, defaults, body };
     }
-    const definitions: Definition[] = [];
-    const names = new Map<number, string>();
-    lines();
-    while (b[p] !== 0) {
-        need(1);
-        node();
-        const offset = p;
-        if (b[p] === 0x2b) {
-            ++p;
-            const checksum = word();
-            const zero = b.indexOf(0, p);
-            if (zero < 0) fail("unterminated checksum-name record");
-            names.set(checksum, b.toString("latin1", p, zero));
-            p = zero + 1;
-            lines();
-            continue;
-        }
-        if (b[p] === 0x23) {
-            ++p;
-            const { name: n, defaults, body } = scriptParts();
-            definitions.push({ kind: "script", offset, name: n, defaults, body });
-        } else if (b[p] === 0x16) {
-            const n = name();
-            lines();
-            if (byte() !== 7) fail("expected global assignment");
-            lines();
-            const rhs = withoutCallerParameters(value(0));
-            staticDefaults([{ name: n, value: rhs, offset }]);
-            definitions.push({ kind: "global", offset, name: n, value: rhs });
-        } else fail(`unsupported definition token 0x${b[p]!.toString(16)}`);
+    // A statement's arguments from `at` (just past its name), as parse_arguments reads them: the fields and where they
+    // end (the line's end, not passed).
+    const argumentsAt = (at: number): { fields: Field[]; end: number } => {
+        p = at;
+        nodes = 0;
+        lineEnded = false;
+        commandAtJump = false;
+        const fields = parameters(0);
+        return { fields, end: p };
+    };
+    const module = (): ModuleIR => {
+        const definitions: Definition[] = [];
+        const names = new Map<number, string>();
         lines();
-    }
-    // (bytes after the end-of-file token are never read: read_qb_file and its names pass stop there)
-    ++p;
-    return { format: 2, source, definitions, ...(names.size ? { names: Object.fromEntries(names) } : {}) };
+        while (b[p] !== 0) {
+            need(1);
+            node();
+            const offset = p;
+            if (b[p] === 0x2b) {
+                ++p;
+                const checksum = word();
+                const zero = b.indexOf(0, p);
+                if (zero < 0) fail("unterminated checksum-name record");
+                names.set(checksum, b.toString("latin1", p, zero));
+                p = zero + 1;
+                lines();
+                continue;
+            }
+            if (b[p] === 0x23) {
+                ++p;
+                const { name: n, defaults, body } = scriptParts();
+                definitions.push({ kind: "script", offset, name: n, defaults, body });
+            } else if (b[p] === 0x16) {
+                const n = name();
+                lines();
+                if (byte() !== 7) fail("expected global assignment");
+                lines();
+                const rhs = withoutCallerParameters(value(0));
+                staticDefaults([{ name: n, value: rhs, offset }]);
+                definitions.push({ kind: "global", offset, name: n, value: rhs });
+            } else fail(`unsupported definition token 0x${b[p]!.toString(16)}`);
+            lines();
+        }
+        // (bytes after the end-of-file token are never read: read_qb_file and its names pass stop there)
+        ++p;
+        return { format: 2, source, definitions, ...(names.size ? { names: Object.fromEntries(names) } : {}) };
+    };
+    return { module, argumentsAt };
+}
+
+export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLimits = {}): ModuleIR {
+    return qbReader(bytes, source, limits).module();
+}
+
+// A reader of `bytes` for one statement's arguments at a time: argumentsAt(offset) - the fields from just past the
+// statement's name, and where they end (tools/qbjs/trigger_data.ts: the engine's walk over a script's calls parses each
+// call's arguments where it stands).
+export function argumentsReader(
+    bytes: Uint8Array,
+    source = "input.qb",
+): (offset: number) => { fields: Field[]; end: number } {
+    return qbReader(bytes, source, {}).argumentsAt;
 }
 
 // Shared by the IR and JS CLIs: bound reads and protect the original QB file.

@@ -2,6 +2,7 @@
 // script run headless on the game's own interpreter, each branch forced in turn, as QB and as TypeScript.
 //
 //   node tools/qbjs/script_check.ts plan --game <folder> [--only <path>[,...]] [--runs N] [--frames N]
+//       [--declarations-only]  (no runs: each module's globals and its scripts' trigger data compared alone)
 //       writes <game>\thug2-decomp-check: plan.qb (the modules, the budgets) and one part per module (its scripts and
 //       the argument sets to call each with: none, then up to three of the literal ones its callers pass)
 //   then, in that game folder (a workspace, under its lock): thug2-decomp.exe -script-check <that folder>, once with
@@ -18,6 +19,7 @@ import { checksum } from "../qb_checksum.ts";
 import { fileHash, gameRoot, type QbVersion, qbVersions, unpatchedOrigin } from "./game_scripts.ts";
 import type { Definition, Expr, Field, ModuleIR, Statement } from "./ir.ts";
 import { readIR } from "./reader.ts";
+import { triggerScripts } from "./trigger_data.ts";
 
 const hex = (n: number) => (n >>> 0).toString(16).padStart(8, "0");
 
@@ -227,6 +229,9 @@ export function writePlan(folder: string, all: PlanModule[], settings: Record<st
     mkdirSync(folder, { recursive: true });
     // (a share's modules only - their argument sets still from every module's calls)
     const args = callerArguments(all);
+    // (the scripts whose trigger data each pass writes - `declare` lines: those any level's nodes name by TriggerScript=)
+    const triggers = new Set<number>();
+    for (const m of all) triggerScripts(m.ir, triggers);
     const shared = share ? all.filter((m) => share.has(m.file)) : all;
     // (a file with more than one version: each version run too, as it is - <file>@<hash>, its own part)
     type Entry = PlanModule & { version?: PlanVersion };
@@ -265,9 +270,24 @@ export function writePlan(folder: string, all: PlanModule[], settings: Record<st
                 1,
             );
         }
+        const declared = m.ir.definitions.filter((d) => d.kind === "script" && triggers.has(d.name >>> 0));
         writeFileSync(
             join(folder, part),
-            Uint8Array.from([...nameBytes(checksum("check_scripts")), 7, 5, ...scripts, 6, 1, 0]),
+            Uint8Array.from([
+                ...nameBytes(checksum("check_scripts")),
+                7,
+                5,
+                ...scripts,
+                6,
+                1,
+                ...nameBytes(checksum("check_triggers")),
+                7,
+                5,
+                ...declared.flatMap((d) => [...nameBytes(d.name), 1]),
+                6,
+                1,
+                0,
+            ]),
         );
         entries.push(
             3,
@@ -398,6 +418,7 @@ export async function readCoverage(path: string): Promise<Map<string, Set<string
         else if (line.startsWith("loaded "))
             current.add(line); // (the version the game ran: "loaded <hash>")
         else if (line.startsWith("global ")) current.add(line); // (a global the file defined: "global <name> <len> <hash>")
+        else if (line.startsWith("declare ")) current.add(line); // (a trigger script's declaration: "declare <name> <text>")
     }
     return out;
 }
@@ -652,6 +673,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 calls: Number(value("--calls") ?? 600),
                 steps: Number(value("--steps") ?? 50000),
                 log_runs: args.includes("--log-runs") ? 1 : 0,
+                declarations_only: args.includes("--declarations-only") ? 1 : 0,
             },
             share,
         );
@@ -707,6 +729,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                     }
             // The files' globals, QB's (read from the .qb) against the TypeScript pass's (a standalone module's with
             // ts_scripts=1): each by its value's text, hashed
+            const declaredOf = (lines: Set<string> | undefined) =>
+                new Map(
+                    [...(lines ?? [])]
+                        .filter((l) => l.startsWith("declare "))
+                        .map((l) => {
+                            const [, name, ...value] = l.split(" ");
+                            return [name!, value.join(" ")] as const;
+                        }),
+                );
             const globalsOf = (lines: Set<string> | undefined) =>
                 new Map(
                     [...(lines ?? [])]
@@ -718,6 +749,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 );
             let globals = 0;
             const globalDifferences: string[] = [];
+            let declarations = 0;
+            const declarationDifferences: string[] = [];
             for (const [file, lines] of cover) {
                 if (!tsCover.has(file)) continue;
                 const qbGlobals = globalsOf(lines);
@@ -728,11 +761,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                         globalDifferences.push(
                             `${file} ${name}: QB ${qbGlobals.get(name) ?? "none"}, TS ${tsGlobals.get(name) ?? "none"}`,
                         );
+                // The scripts' trigger data: QB's read from their code, the TypeScript pass's from the files' .json
+                const qbDeclared = declaredOf(lines);
+                const tsDeclared = declaredOf(tsCover.get(file));
+                declarations += qbDeclared.size;
+                for (const name of new Set([...qbDeclared.keys(), ...tsDeclared.keys()]))
+                    if (qbDeclared.get(name) !== tsDeclared.get(name))
+                        declarationDifferences.push(
+                            `${file} ${name}: QB ${qbDeclared.get(name) ?? "none"}, TS ${tsDeclared.get(name) ?? "none"}`,
+                        );
             }
             results.push({
                 ...verdict,
                 globals,
                 globalDifferences,
+                declarations,
+                declarationDifferences,
                 unknownVersions: unknown,
                 coverage: coverageOf(cover, modules),
                 tsCoverage: coverageOf(tsCover, modules),
@@ -749,6 +793,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             tsCoverage: results.flatMap((r) => r.tsCoverage),
             globals: results.reduce((n, r) => n + r.globals, 0),
             globalDifferences: results.flatMap((r) => r.globalDifferences),
+            declarations: results.reduce((n, r) => n + r.declarations, 0),
+            declarationDifferences: results.flatMap((r) => r.declarationDifferences),
         };
         const unknownVersions = result.unknownVersions;
         const total = result.coverage.reduce((n, c) => n + c.branches, 0);
@@ -774,6 +820,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             `Statements: ${ran} of ${statements} run (${percent(ran, statements)}%); scripts run: ${started} of ${scripts}; ${unreachableCount} statements no run can reach (after a return or a loop that never ends, or in an arm its if can't take) not counted.`,
             `TypeScript (measured in its own runs, the same counts): branches ${tsTaken} of ${total} (${percent(tsTaken, total)}%); statements ${tsRan} of ${statements} (${percent(tsRan, statements)}%); scripts run: ${tsStarted} of ${scripts}.`,
             `Globals: ${result.globals} compared (QB's from the .qb files, the TypeScript pass's - from the files' .json data with ts_scripts=1); different: ${result.globalDifferences.length}.`,
+            `Trigger data: ${result.declarations} scripts compared (QB's read from their code, the TypeScript pass's from the files' .json - engine/script/declared_calls.h); different: ${result.declarationDifferences.length}.`,
             "",
             "## Differences (first line that differs)",
             "",
@@ -787,6 +834,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             "",
             ...(result.globalDifferences.length
                 ? result.globalDifferences.slice(0, 500).map((d) => `- ${d}`)
+                : ["(none)"]),
+            "",
+            "## Trigger data that differs",
+            "",
+            ...(result.declarationDifferences.length
+                ? result.declarationDifferences.slice(0, 500).map((d) => `- ${d}`)
                 : ["(none)"]),
             "",
             "## Branches not taken",

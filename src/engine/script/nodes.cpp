@@ -24,6 +24,7 @@
 #include "engine/script/param_struct.h"
 #include "base/core/checked_index.h"
 #include "engine/script/cscript.h"
+#include "engine/script/declared_calls.h"
 
 namespace level_nodes {
 
@@ -294,7 +295,11 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
         return;
     }
     script::ScriptStore* cache = script::script_store();
-    script::Tokens token = script::tokens_at(cache->fetch_script(script));
+    const uint8_t* code = cache->fetch_script(script);
+    if (!code) {
+        return; // NOT ORIGINAL - a name that isn't a script (a gapscript= or scr= naming none): the original read null
+    }
+    script::Tokens token = script::tokens_at(code);
     gsl::owner<Struct*> params = nullptr;
     if (void* memory = script::spawn_param_bag()) {
         params = memory::construct_in<script::Struct>(memory);
@@ -369,7 +374,9 @@ void for_each_node_script_call(NodeCallSearch search, ScriptCallCallback callbac
     while (Struct* node = hub()->get_next_node()) {
         uint32_t script = 0;
         if (node->read_hash_value(script_param, &script, 0)) {
-            for_each_script_call({.script = script, .target = target}, callback, nullptr, 0);
+            // NOT ORIGINAL - the script's declared calls (declared_calls.h), not its code: the original walked the
+            // script here (for_each_script_call)
+            declared_calls::for_each_call(script, target, callback);
         }
     }
     hub()->end_walk();

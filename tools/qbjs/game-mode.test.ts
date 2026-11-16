@@ -111,39 +111,6 @@ test("game mode: requests out, results and the record's parameters in, the level
     assert.throws(() => qb.resume!(7, params, true), /Unknown QB level/);
 });
 
-test("game mode: each script defined with its outline from the module's manifest, a name's in definition order", () => {
-    const defined: [number, number, unknown][] = [];
-    const game = {
-        symbol: () => undefined,
-        defineScript: (n: number, id: number, outline?: string) => defined.push([n, id, outline]),
-        frame: () => 0,
-    };
-    const context = runInNewContext(
-        `globalThis.__qbGame = game;\n${helperSource("random")}${helperSource("values")}` +
-            readFileSync(new URL("../../scripting/runtime.js", import.meta.url), "utf8") +
-            "\nglobalThis",
-        { game },
-    ) as { qb: Record<string, (...a: unknown[]) => unknown> };
-    const hex = (x: number) => x.toString(16).padStart(8, "0");
-    const n = checksum;
-    context.qb.module!({
-        format: 2,
-        scripts: [],
-        requires: { values: 2 },
-        outlines: { [hex(n("Twice"))]: ["AQ==", "Ag=="], [hex(n("Once"))]: ["JA=="] },
-    });
-    for (const name of ["Twice", "Once", "Twice", "None"]) context.qb.define!(n(name), function* () {});
-    same(
-        defined.map(([name, , outline]) => [name, outline ?? null]),
-        [
-            [n("Twice"), "AQ=="],
-            [n("Once"), "JA=="],
-            [n("Twice"), "Ag=="],
-            [n("None"), null],
-        ],
-    );
-});
-
 test("game mode, [debug] ts_types=1: the types each site sees, and which calls waited", () => {
     const { qb, nextFrame, definitions } = load(true);
     const n = checksum;

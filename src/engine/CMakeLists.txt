@@ -317,6 +317,7 @@ add_library(thug2_engine STATIC
     script/node_manager.cpp
     script/node_prefixes.cpp
     script/nodes.cpp
+    script/declared_calls.cpp
     script/cache.cpp
     script/load.cpp
     script/host.cpp

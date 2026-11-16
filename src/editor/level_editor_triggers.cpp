@@ -36,6 +36,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/proximity.h"
 #include "engine/script/node_manager.h"
+#include "engine/script/declared_calls.h"
 #include "engine/script/nodes.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
@@ -254,20 +255,19 @@ Calls get_walk(uint32_t script)
                                       get_checksums("SK3_Killskater_Finish"), get_checksums("KillSkater")});
     script::clear_script_flag_6f_2564(); // (as for_each_node_script_call walks them)
     for (const uint32_t target : kKills) {
-        level_nodes::for_each_script_call({.script = script, .target = target}, &on_kill, nullptr, 0);
+        declared_calls::for_each_call(script, target, &on_kill);
     }
-    level_nodes::for_each_script_call({.script = script, .target = kill_skater_water()}, &on_water, nullptr, 0);
-    level_nodes::for_each_script_call({.script = script, .target = get_teleport()}, &on_teleport, nullptr, 0);
-    level_nodes::for_each_script_call({.script = script, .target = start_gap()}, &on_start_gap, nullptr, 0);
-    level_nodes::for_each_script_call({.script = script, .target = end_gap()}, &on_end_gap, nullptr, 0);
+    declared_calls::for_each_call(script, kill_skater_water(), &on_water);
+    declared_calls::for_each_call(script, get_teleport(), &on_teleport);
+    declared_calls::for_each_call(script, start_gap(), &on_start_gap);
+    declared_calls::for_each_call(script, end_gap(), &on_end_gap);
     // (the feature map: jump boosts, breakables, THAW's rail speed-ups - and the editor's own)
-    level_nodes::for_each_script_call({.script = script, .target = get_checksums("trigger_jump_boost")}, &on_boost, nullptr, 0);
-    level_nodes::for_each_script_call({.script = script, .target = get_checksums("Shatter")}, &on_shatter, nullptr, 0);
-    level_nodes::for_each_script_call({.script = script, .target = get_checksums("ShatterAndDie")}, &on_shatter, nullptr, 0);
-    level_nodes::for_each_script_call({.script = script, .target = get_checksums("RailAccelerate")}, &on_rail_accelerate, nullptr, 0);
-    level_nodes::for_each_script_call({.script = script, .target = get_checksums("ed_RailSpeed")}, &on_rail_accelerate, nullptr, 0);
-    level_nodes::for_each_script_call({.script = script, .target = get_checksums("LevelEditor_PlayCamera")}, &on_camera, nullptr,
-                                      0); // (map4)
+    declared_calls::for_each_call(script, get_checksums("trigger_jump_boost"), &on_boost);
+    declared_calls::for_each_call(script, get_checksums("Shatter"), &on_shatter);
+    declared_calls::for_each_call(script, get_checksums("ShatterAndDie"), &on_shatter);
+    declared_calls::for_each_call(script, get_checksums("RailAccelerate"), &on_rail_accelerate);
+    declared_calls::for_each_call(script, get_checksums("ed_RailSpeed"), &on_rail_accelerate);
+    declared_calls::for_each_call(script, get_checksums("LevelEditor_PlayCamera"), &on_camera); // (map4)
     script::set_script_flag_6f_2564();
     trigger_edit().calls_ = nullptr;
     return calls;

@@ -8,7 +8,7 @@
 //
 // --scripts: the scripts the workspace must run - qb (the .qb files, packed) or ts ([features] ts_scripts=1, the folder
 // unpacked: tools/qbjs/unpack_game.ts) - refused when it doesn't; the report names the mode either way. The simulation
-// is the same in both, bit for bit (docs/qb-ts.md "Outlines"): a change to the scripts' runtime is checked in both.
+// is the same in both, bit for bit (docs/design/simulation-rate.md "QB and TypeScript scripts"): a change to the scripts' runtime is checked in both.
 //
 // --trace: each run also writes the simulation trace (-demo-trace: every script command with its arguments, every
 // random draw, each check point's moving objects - src/devtools/demo.cpp) as trace.txt in its folder; two runs' traces

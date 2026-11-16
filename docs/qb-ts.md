@@ -136,8 +136,8 @@ of it shipped; on an unpacked game it switches sets (tools/pipeline/hd_textures/
   read the way the game reads any file (`packs::read_in`: the data overlay, then the loaded archives, then Data), so it
   is the version the `.qb` would have been - the boot scripts' copies in `qb_scripts` (without the loose files' debug
   prints), a level's `*_scripts` copy once its archive is in, the loose file before. The `.ts`'s last line,
-  `// qb-file {...}`, is its manifest (its source name, the hash of the `.qb` it was made from, how many globals it
-  has - in its `.json` -, the file's checksum names, its scripts' outlines - "Outlines" below); the game turns the `import ... from "qb"` into a read of the
+  `// qb-file {...}`, is its manifest (its source name, the hash of the `.qb` it was made from, how many globals and how
+  many scripts' trigger data its `.json` holds - "Data", "Trigger data" below -, the file's checksum names); the game turns the `import ... from "qb"` into a read of the
   runtime, wraps the file as `compile_ts.ts` does - each line where it was - and caches its bytecode
   (`thug2-decomp-ts\cache\ts-<hash>.qbc`). The emitted files have no type syntax; a type annotation added by hand isn't
   stripped in the game yet (a syntax error: the file isn't defined). Its globals: `<name>.json` read the same way, after
@@ -168,28 +168,50 @@ QuickJS (`src/script_qb/cscript_ts.cpp`, `ts_bridge.cpp`):
 A JavaScript fault is logged (`ts: <script>: ...`) and ends the level. Where the original hangs - an object-qualified
 call on a missing object - a TypeScript level is logged and told false instead.
 
-### Outlines
+### Trigger data
 
-Some of the engine reads a script's code without running it: the gap list walks every node's TriggerScript and what it
-calls for EndGap (`engine/script/nodes.cpp for_each_script_call` - each script call's arguments parsed on the way, so a
-Random or RandomRange among them draws from the game's random numbers), the level editor's trigger walks do the same
-for other commands, the editor camera flags scripts by the names they call (`game/world/editor_camera.cpp`). A
-TypeScript script's body was only its token, so these walks found nothing: no gaps listed, and none of the walk's draws -
-the random numbers parted from QB's on the level's first frame, and with them the simulation (2026-11-16, the
-simulation check's demos with `ts_scripts=1`: three of four parted).
+Some of the engine wants to know what a script does without running it: the gap list (every EndGap a level's nodes'
+TriggerScripts reach, its text and score - `game/skate/gap_checklist.cpp`, at the level's load), the level editor's
+trigger kinds (kills, teleports, gaps, boosts... - `editor/level_editor_triggers*.cpp`) and the editor camera's keep-out
+flag (a trigger whose script kills, teleports or is a boundary - `game/world/editor_camera.cpp`). The original found
+these by walking each script's code (`for_each_script_call` 0x0045C950, 0x004E4F50). They read a script's
+**declaration** now (`engine/script/declared_calls.h`), never its code:
 
-So each script keeps its **outline**: its QB statements, as the `.qb` has them after its first line (the default
-parameters), through its endscript. `unpack_game.ts` writes them in the `.ts`'s manifest (`"outlines": {"<name>":
-[base64, ...]}`, a list per name in definition order - `tools/qbjs/outline.ts`, the game's own token walk), the runtime
-hands each to `defineScript` with its script, and the game makes the body `01 4A <id> 01 <outline>`: the interpreter
-runs the TypeScript at the `4A` and never goes past it; every reader of script code steps over the first line and the
-`4A`'s statement and reads exactly the statements the original script has (prepared at load as the `.qb`'s are). With
-them the simulation is the QB interpreter's bit for bit (docs/design/simulation-rate.md "QB and TypeScript scripts").
+- a TypeScript script's is **declared data** - its file's `.json`, `"triggers"` ("Data" below), made by `unpack_game.ts`
+  from the `.qb` the TypeScript is made from (`tools/qbjs/trigger_data.ts`), human-readable and editable:
 
-The outline is made from the `.qb` with the TypeScript, so the two agree; a TypeScript script changed by hand keeps its
-old outline until both are made again (`--refresh`). When the scripts become natural TypeScript, these readers need an
-answer the TypeScript gives itself (the calls a script makes, in order, with their arguments) - the outline stands for
-it until then.
+  ```json
+  "triggers": {
+      "BO_Gap_FountainHop": {"calls": {"EndGap": [{"GapID": "FountainHop", "score": 250, "text": {"$tr": "bo_scripts.fountain_hop"}}]}},
+      "BO_KillskaterWater": {"calls": {"SK3_KillSkater_Water": [{}], "SK3_Killskater_Finish": [{...}], "KillSkater": [{}]},
+                             "keeps_editor_camera_out": true}
+  }
+  ```
+
+  For each of the declared functions (EndGap, StartGap, SK3_KillSkater, SK3_KillSkater_Water, SK3_KillSkater_Pungee,
+  SK3_Killskater_Finish, KillSkater, TeleportSkaterToNode, trigger_jump_boost, Shatter, ShatterAndDie, RailAccelerate,
+  ed_RailSpeed, LevelEditor_PlayCamera) the arguments of every call to it the script makes - directly, or through the
+  scripts it calls (their arguments passed on), SetEventHandler's `scr=` handlers and (EndGap's) `gapscript=` - in the
+  order reached, as values; and the camera's flag. Shatter's and ShatterAndDie's calls are declared without their
+  arguments (the pieces' scatter, often random - no reader wants them). Only the scripts some level's nodes name by
+  `TriggerScript=` are declared (what the engine asks about; a script typed into the editor's "Run a script" that no
+  node names has none - it shows no kind);
+- a QB script's is read from its code by the original's rules - the same walks.
+
+The rules the tool follows are the engine's (the code as the loader prepares it, the walks' token by token reading, the
+arguments evaluated with the game's value rules - `scripting/values.js`), against the file's own scripts and the boot
+files' (the files outside `levels\`). Reading a call's arguments evaluates them: a Random among them is a choice, and
+**no declared value depends on one** (the tool reports one that would; in THUG2's and the ported levels' scripts none
+does). In the game a QB script's walk draws such choices from random streams of its own (`maths::OwnStreams`), never the
+game's: reading a script's calls is no part of the simulation, so QB and TypeScript scripts leave the game's random
+numbers alike (the original's walk drew from the game's at every level load - 58 numbers in Boston's first frame).
+
+**Proof**: the script check compares, for every version of every file, each TriggerScript's declaration read from its QB
+code (the QB pass) with the one read from its `.json` (the TypeScript pass) - `declare` lines (docs/script-check.md
+"Trigger data"); `trigger_data.test.ts` covers the rules on synthetic scripts.
+
+When the scripts become natural TypeScript, the data stays the source of what a trigger does: a script's TypeScript
+and its trigger data are edited together.
 
 In the game the value helpers count no work (QB has no such bound - a level's whole node array may be copied): a
 runaway script is stopped by the bridge's interrupt budget.

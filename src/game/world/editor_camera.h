@@ -117,10 +117,8 @@ private:
 constexpr std::size_t kEditorViewModuleBytes = 0x9C;
 static_assert(core::layout_32bit(sizeof(EditorViewModule) == kEditorViewModuleBytes), "size");
 
-// 0x004E4F50: whether the script `name` (or one it calls, by name - with a guard against loops in the list at
-// 0x007CCBE8) is one of the four flagged scripts at 0x0067EFD8; 0x0067EFE8's script and those already seen give
-// false.
-bool script_flagged(uint32_t name);
+// (0x004E4F50, whether a script is flagged - it, or one it calls by name, is one of the four scripts at 0x0067EFD8 -
+// is the script's declaration now: declared_calls::keeps_editor_camera_out)
 // 0x004E5320: a feeler's hit callback: an object whose node's TriggerScript is flagged sets 0x007CCC38.
 void flag_scripted_hit(render::ProbeRay* feeler);
 // 0x004E5390 (`end` in ESI, `start` in EDI): whether a line from `start` to `end` hits a flagged object (faces
