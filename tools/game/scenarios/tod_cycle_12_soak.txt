@@ -1,0 +1,37 @@
+# The time of day's clock in the simulation over a whole day (frame_bench.ts run --levels BO --scenario this file
+# --seconds 900): a 12-minute day - game time, the simulation's steps - run through once in the start level, skating
+# and left alone in turns: dawn, noon, dusk and night, the level's own time-of-day states set by the clock as it passes
+# them (their scripts: the night geometry). Frame times, uploads and BLAS builds must stay flat (soak_check.ts over its
+# game.log). For College: tod_cycle_12_soak_college.txt.
+console set tod_cycle_minutes 12
+console set tod_cycle on
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+wait 3600
+wait 3600

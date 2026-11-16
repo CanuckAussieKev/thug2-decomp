@@ -120,6 +120,9 @@ std::vector<RowState> row_states(const config::Resolution& resolution)
         row.in_effect = item.in_effect;
         row.forced = item.forced;
         row.reason = item.reason;
+        if (row.reason.empty() && !item.limits.empty()) {
+            row.reason = item.limits.front(); // (in effect, only in part: the time of day online)
+        }
         if (!item.conflicts.empty()) {
             row.conflict = item.conflicts.front();
         }

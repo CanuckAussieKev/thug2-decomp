@@ -16,9 +16,13 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "base/core/checksums.h"
+#include "engine/file/disk_files.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
+#include "platform/platform_config.h"
+#include "platform/run_log.h"
 #include "rt_relit_levels.h"
 
 namespace render::rt {
@@ -1101,6 +1105,35 @@ bool parse_relit_levels(std::string_view json, std::vector<RelitLevel>* out)
 }
 
 std::string_view built_in_relit_levels() { return kRelitLevelsJson; }
+
+const std::vector<RelitLevel>& relit_levels()
+{
+    static const std::vector<RelitLevel> kLevels = [] {
+        std::vector<RelitLevel> levels;
+        if (!parse_relit_levels(built_in_relit_levels(), &levels)) {
+            get_log("rt_relit: the built-in level list isn't valid JSON of its layout");
+        }
+        std::string text;
+        const std::string path = std::string(build_info::executable_directory()) + "thug2-decomp-relit.json";
+        if (fs::read_text(path, &text)) {
+            const bool read = parse_relit_levels(text, &levels);
+            get_log("rt_relit: %s %s", read ? "read" : "couldn't read (not JSON of the layout)", path.c_str());
+        }
+        return levels;
+    }();
+    return kLevels;
+}
+
+const RelitLevel* relit_level_entry(uint32_t scene)
+{
+    const RelitLevel* found = nullptr;
+    for (const RelitLevel& entry : relit_levels()) {
+        if (checksums::hash_from_text(entry.name.c_str()) == scene) {
+            found = &entry;
+        }
+    }
+    return found;
+}
 
 Rgbf colour_light(uint32_t argb)
 {

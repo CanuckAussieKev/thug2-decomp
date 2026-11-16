@@ -1,0 +1,38 @@
+# tod_cycle_12_soak.txt in College (THPS4's, sch), reached by a level change as a player does (frame_bench.ts run
+# --levels BO --scenario this file --seconds 1000): a minute in Boston, then a whole 12-minute day in College, skating
+# and left alone in turns. soak_check.ts over its game.log judges the College stretch (the longest).
+console set tod_cycle_minutes 12
+console set tod_cycle on
+wait 3600
+level sch
+waitfor level sch 300
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+wait 3600
+wait 3600

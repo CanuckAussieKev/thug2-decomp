@@ -32,6 +32,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/weather.h"
 #include "engine/gfx/lens_flare.h"
+#include "engine/gfx/day_clock.h"
 #include <gsl/pointers>
 #include <array>
 #include "base/core/compiler.h"
@@ -171,6 +172,10 @@ void render_frame()
     const int views = steps ? modules::viewport_count() : 0;
     if (steps) {
         device().step_frame();
+        // Not original - the time of day's clock (day_clock.h): its time moved on by the step, the level's time-of-day
+        // state set where it is due (its scripts), the light published for the drawing to read - before the views'
+        // sun steps, which read the sun it places. Original behaviour: nothing.
+        day_clock::step();
     }
     for (int i = 0; i < views; ++i) {
         if (gfx::ViewCam* camera = fetch_live_camera(i)) {

@@ -148,6 +148,11 @@ struct RelitLevel {
 bool parse_relit_levels(std::string_view json, std::vector<RelitLevel>* out);
 // The built-in list (src/engine/gfx/rt_relit_levels.json).
 [[nodiscard]] std::string_view built_in_relit_levels();
+// The list in use: the built-in one, then thug2-decomp-relit.json beside the exe - read once, at the first ask (the
+// time of day's clock asks when a level arrives - its north -, render_pc's relit mode for the rest).
+[[nodiscard]] const std::vector<RelitLevel>& relit_levels();
+// A level's entry (its scene's checksum: the last entry naming it wins), or null.
+[[nodiscard]] const RelitLevel* relit_level_entry(uint32_t scene);
 
 // --- the analysis (the relit bake's, offline; the sun's and the bounce's traces also the game's real-time half) ------
 

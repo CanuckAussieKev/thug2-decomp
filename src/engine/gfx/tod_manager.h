@@ -328,6 +328,11 @@ void set_multiplayer_unlock(MultiplayerUnlock unlock) noexcept;
 MultiplayerUnlock get_multiplayer_unlock();
 // What those three test: a multiplayer game (0x005651F0) not unlocked.
 bool tod_lights_locked();
+// NOT ORIGINAL - the time of day's clock (engine/gfx/day_clock.h): how many times set_tod_instant has set a state (its
+// callers: the scripts' TODManager_SetTODInstant / AdvanceTODState, the level editor's level properties, THUGPRO's peer,
+// the clock). A count the clock compares with its own sets - the level's scripts set the state since, an event - instead
+// of comparing the manager's state with what it set.
+uint64_t tod_state_sets();
 
 // The singleton (0x007CE490).
 THUG2_API CtodManager*& tod_manager();

@@ -20,7 +20,10 @@
 //
 // The state is the playback's <demo>.play.state.txt (src/devtools/demo.cpp state_line): per frame FNV-1a hashes of the
 // skater's bits (position, velocity, matrix, state), of every moving object's, of the game's random streams, and the
-// clock's milliseconds. A run passes when every frame of the reference is there with the same line. --record writes
+// clock's milliseconds. With the time of day's clock running ([Graphics] tod / tod_cycle in the workspace's ini) each
+// check point also has a "#tod <frame> <hours> <state> <sun x y z>" line (engine/gfx/day_clock.h state_line): the
+// reference doesn't have them (a comment to it), and each run's are compared with the demo's first run - the same time,
+// state and sun on every frame at every display rate and load. A run passes when every frame of the reference is there with the same line. --record writes
 // the max_fps=0 run as the new reference (sim_reference/<demo>.state.txt) - only from the build the reference is meant
 // to be (main before a change). The reference was made in a workspace's own data (scripts, levels): compare in the same
 // kind of folder. Workspaces only - never the main install; take the workspace's lock first (tools/game/game_lock.ps1).
@@ -91,6 +94,38 @@ export function compareStates(reference: Map<number, string>, run: Map<number, s
         }
     }
     return out;
+}
+
+// The time of day's lines (#tod <frame> <rest>) by frame.
+export function parseTod(text: string): Map<number, string> {
+    const out = new Map<number, string>();
+    for (const line of text.split(/\r?\n/)) {
+        const found = /^#tod (\d+) (.+)$/.exec(line.trim());
+        if (found) out.set(Number.parseInt(found[1]!, 10), found[2]!.trim());
+    }
+    return out;
+}
+
+export interface TodComparison {
+    frames: number; // the first run's
+    matched: number;
+    firstDiffers: number; // -1: none (a frame missing from the run counts as differing)
+}
+
+// A run's time of day against the demo's first run, frame by frame.
+export function compareTod(first: Map<number, string>, run: Map<number, string>): TodComparison {
+    const out: TodComparison = { frames: first.size, matched: 0, firstDiffers: -1 };
+    for (const frame of [...first.keys()].sort((a, b) => a - b)) {
+        if (run.get(frame) === first.get(frame)) out.matched++;
+        else if (out.firstDiffers < 0) out.firstDiffers = frame;
+    }
+    return out;
+}
+
+export function todLine(demo: string, fps: number, c: TodComparison, load = 0): string {
+    const shown = (fps === 0 ? "60 (max_fps=0)" : String(fps)) + (load > 0 ? `, load ${load}` : "");
+    const ok = c.frames > 0 && c.firstDiffers < 0;
+    return `| ${demo} | ${shown} | ${c.matched} / ${c.frames} | ${c.firstDiffers < 0 ? "none" : c.firstDiffers} | ${ok ? "ok" : "FAIL"} |`;
 }
 
 export function passed(c: StateComparison): boolean {
@@ -290,6 +325,7 @@ async function main(): Promise<number> {
         "|---|---|---|---|---|---|---|",
     ];
     let failures = 0;
+    const todLines: string[] = [];
     for (const demo of demos) {
         if (values.record) {
             const made = path.join(out, demo, "0", "state.txt");
@@ -300,13 +336,20 @@ async function main(): Promise<number> {
         const refFile = path.join(REFERENCE_FOLDER, `${demo}.state.txt`);
         if (!fs.existsSync(refFile)) exitWith(`no reference ${refFile} (--record makes it)`);
         const reference = parseStates(fs.readFileSync(refFile, "utf8"));
+        let firstTod: Map<number, string> | null = null;
         for (const load of loads) {
             for (const fps of rates) {
                 const run = path.join(out, demo, runName(fps, load));
                 const file = path.join(run, "state.txt");
-                const c = fs.existsSync(file)
-                    ? compareStates(reference, parseStates(fs.readFileSync(file, "utf8")))
-                    : null;
+                const text = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
+                const c = text !== null ? compareStates(reference, parseStates(text)) : null;
+                const tod = text !== null ? parseTod(text) : new Map<number, string>();
+                firstTod ??= tod;
+                if (firstTod.size > 0) {
+                    const clock = compareTod(firstTod, tod);
+                    if (clock.firstDiffers >= 0) failures++;
+                    todLines.push(todLine(demo, fps, clock, load));
+                }
                 if (!c || !passed(c)) failures++;
                 const log = path.join(run, "thug2-decomp.log");
                 const late = fs.existsSync(log) ? undrawnFrames(fs.readFileSync(log, "utf8")) : -1;
@@ -314,6 +357,15 @@ async function main(): Promise<number> {
             }
         }
     }
+    if (todLines.length > 0)
+        lines.push(
+            "",
+            "Time of day (the clock's time, the level's state and the sun at each check point, against the demo's first run):",
+            "",
+            "| demo | display rate | frames equal | first differs | result |",
+            "|---|---|---|---|---|",
+            ...todLines,
+        );
     fs.writeFileSync(path.join(out, "report.md"), `${lines.join("\n")}\n`);
     print(lines.join("\n"));
     print(`\nreport: ${path.join(out, "report.md")}`);

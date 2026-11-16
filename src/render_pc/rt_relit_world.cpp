@@ -232,8 +232,6 @@ struct State {
     uint32_t level = 0;
     Status status = Status::kOff;
     Status logged = Status::kOff;
-    std::vector<rt::RelitLevel> levels;
-    bool levels_read = false;
     rt::Vec3 sun{};
     float radius = rt::kRelitSunRadiusDegrees; // the light's angular radius (the lighting state's: the moon's softer)
     rt::Rgbf sun_colour{1.0F, 1.0F, 1.0F};
@@ -331,36 +329,8 @@ uint32_t main_scene()
     return 0;
 }
 
-// The per-level list: built in, then the user's file beside the exe.
-const std::vector<rt::RelitLevel>& levels()
-{
-    State& st = state();
-    if (!st.levels_read) {
-        st.levels_read = true;
-        if (!rt::parse_relit_levels(rt::built_in_relit_levels(), &st.levels)) {
-            get_log("rt_relit: the built-in level list isn't valid JSON of its layout");
-        }
-        std::string text;
-        const std::string path = std::string(build_info::executable_directory()) + "thug2-decomp-relit.json";
-        if (fs::read_text(path, &text)) {
-            const bool read = rt::parse_relit_levels(text, &st.levels);
-            get_log("rt_relit: %s %s", read ? "read" : "couldn't read (not JSON of the layout)", path.c_str());
-        }
-    }
-    return st.levels;
-}
-
-// The level's entry (the last one naming it wins), or null.
-const rt::RelitLevel* level_entry(uint32_t level)
-{
-    const rt::RelitLevel* found = nullptr;
-    for (const rt::RelitLevel& entry : levels()) {
-        if (checksums::hash_from_text(entry.name.c_str()) == level) {
-            found = &entry;
-        }
-    }
-    return found;
-}
+// The level's entry (rt_relit.h: the built-in list, then the user's file beside the exe), or null.
+const rt::RelitLevel* level_entry(uint32_t level) { return rt::relit_level_entry(level); }
 
 // --- the level's relit data -----------------------------------------------------------------------------------------
 
@@ -1483,10 +1453,6 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         return;
     }
     const rt::RelitLevel* entry_of_level = level_entry(level);
-    // (added by the level's compass) its north, as its entry gives it, for the time of day's sun path (rt_daylight.h)
-    rt::set_level_north({.level = level,
-                         .set = entry_of_level != nullptr && entry_of_level->north_set,
-                         .heading = entry_of_level != nullptr ? static_cast<double>(entry_of_level->north_heading) : 0.0});
     // (added by the scene's sun) whether rt_sun_source=game may light this level by the game's sun: its entry may keep
     // the baked one; the mode says it relights the level once the model is found (rt_scene.h scene_sun)
     const bool keeps_baked_sun = entry_of_level != nullptr && entry_of_level->keeps_baked_sun;

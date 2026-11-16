@@ -129,6 +129,9 @@ void add_setting(Fields* out, const config::Setting& setting, const config::Reso
     for (const std::string& conflict : now.conflicts) {
         text += " [conflict: " + conflict + "]";
     }
+    for (const std::string& limit : now.limits) {
+        text += " [limited: " + limit + "]";
+    }
     if (setting.apply == config::Apply::kRelaunch) {
         const std::string* started = find_key(at_start, setting.key);
         const std::string then = started != nullptr ? *started : std::string(setting.fallback);
@@ -281,6 +284,14 @@ public:
                 keys += (keys.empty() ? "" : " + ") + std::string(key);
             }
             out->fields.emplace_back("conflict " + keys, conflict.reason);
+        }
+        for (const int index : now.limited) {
+            const config::Limit& limit = core::at(config::limits(), index);
+            std::string keys;
+            for (const char* key : limit.keys) {
+                keys += (keys.empty() ? "" : " + ") + std::string(key);
+            }
+            out->fields.emplace_back("limited " + keys, limit.reason);
         }
         return true;
     }

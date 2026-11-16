@@ -2117,7 +2117,7 @@ at once on Vulkan):
 | --- | --- | --- |
 | `tod` | `level` | `level`: the level as it was made. `dawn` / `dusk`: the sun 3 degrees up, rising / setting. `morning` 9:00, `noon` 12:00, `afternoon` 15:30, `night` midnight (solar time), or a clock time `HH:MM` |
 | `tod_cycle` | `off` | `on`: the clock runs from that time - day, sunset, night, sunrise (paused with the game) |
-| `tod_cycle_minutes` | `24` | Real minutes for a whole day (1 - 1440) |
+| `tod_cycle_minutes` | `24` | Minutes of game time for a whole day (1 - 1440): the simulation's steps, slow motion with them, paused with the game |
 | `tod_levels` | (none) | Some levels' own times: `NO:night,AU:dusk` (the level's scene name, any case) |
 
 The console's `rt tod [<tod> | cycle <on | off>]` sets them for one run and prints the clock (`rt tod` alone).
@@ -2127,17 +2127,18 @@ elevation from sin e = sin(lat) sin(dec) + cos(lat) cos(dec) cos(h) (h the hour 
 noon), its azimuth from north through east; latitude 34 N and declination +15 (early May / August: sunrise 5:18, sunset
 18:41, noon 71 degrees up). The moon is full - opposite the sun (12 hours on, the declination turned round): up all
 night, highest (41 degrees) at midnight. The level's own lighting is one time of that day: the time after noon at which
-the path's sun is as high as the level's sun - the sun its bake was made with (`rt_sun.h`'s fit, with ray tracing), else
-the sun the game shows, else 45 degrees up - and north is turned so that the path's sun then is the level's sun exactly
+the path's sun is as high as the level's sun - the sun its bake was made with (its relit data's baked sun, read from the
+start of the level's file when the level arrives - with or without ray tracing), else the sun the game shows, else 45
+degrees up - and north is turned so that the path's sun then is the level's sun exactly
 (BO's baked sun, heading -75 and 52 up: 14:26; z_dt's 14:21; a sun higher than the path's noon lowers the latitude
 until it fits). A level whose own time-of-day state is night (NO) has midnight as its time, evening sunset. So a time
 moves the sun from where the level has it: `tod=afternoon` on BO is the same sun an hour later.
 
 **Each level's compass** (added 2026-11-16, the user's "orient the level such that the sun follows that path"). Where a
 level's north lies is data: `"north": <heading>` in its entry of the built-in level list
-(`engine/gfx/rt_relit_levels.json`; `thug2-decomp-relit.json` beside the exe adds to it and wins). render_pc publishes it
-for the level it relights (`rt_daylight.h set_level_north`), the clock reads it before fitting the level's day
-(`NativeInputs::north_heading`; fitted again if it arrives after) - the path turned there, the level's own time still
+(`engine/gfx/rt_relit_levels.json`; `thug2-decomp-relit.json` beside the exe adds to it and wins). The clock reads it
+(`rt_relit.h relit_level_entry`) when the level arrives, with its relit file's start, before fitting the level's day
+(`NativeInputs::north_heading`) - level data, the same in every run and with any renderer - the path turned there, the level's own time still
 the time its sun is as high on its side of noon (its own light unchanged), its own sun the path's at that time. One
 producer: every effect reads `DayLight` (the sky, the disc and its glare, the relit level, the shadows, the air and its
 god rays, the clouds and their shadows, the light field), so they all turn with it. No rebake: the relit data is the
@@ -2216,17 +2217,51 @@ linear ratio r shows as r ^ (1 / 2.2), so night is dim, not black):
   by day, on at night). **The bounce light** (`rt_gi`): its sun x the direct light and its colour. **HDR**
   (`rt_hdr`): the exposure's factor x the clock's.
 
-**A time set** (added 2026-11-15): without `tod_cycle` the original's colour sweep is done in one frame and the models
-get their colour every frame (an object made is coloured before it is first drawn); only `tod_cycle` spreads the sweep
-over frames. Still spread: the relit mode's retrace / writes (150k / 120k vertices a frame), and a level's first frame
-is drawn before the clock knows the baked sun - a night load shows its own look for a frame and the night over the
-next few.
+**A time set** (added 2026-11-15): without `tod_cycle` the original's colour sweep is done in one step and the models
+get their colour every step (an object made is coloured before it is first drawn); only `tod_cycle` spreads the sweep
+over steps. Still spread: the relit mode's retrace / writes (150k / 120k vertices a frame).
+
+**The clock is simulation** (2026-11-16, `day_clock.h`): it runs in `engine::render_frame`'s step - every step, drawn
+or not, before the views' sun steps (`lens_flare.h sun::step`, which reads the sun it places) - and its time moves by
+the step's game time (`frame_clock::get_slomo_frame_seconds`: `tod_cycle_minutes` counts game time; stopped while the
+game is paused, as the original's own day). It used to run in `draw_world` on the wall clock, setting the level's
+time-of-day state - whose scripts make and remove level geometry with collision and trigger scripts (below) - from the
+drawing, at moments that depended on the frame rate and the machine's load; and its level's own day waited for the
+renderer's first frame (the baked sun's fit). Now the level's own day and the fact the time of day needs (data there,
+a sun in it) come from the start of the level's relit file, read when the level arrives (`relit_data.h
+read_relit_head`); data made from other meshes - which only the renderer can tell, on the level's first frame - keeps
+relit out but no longer the time of day (the original's states then, as without ray tracing). A demo's playback has
+the same time, state and sun on every step at any display rate and load (`tools/game/sim_check.ts`'s time-of-day
+table). The drawing only reads the published `DayLight`; `tools/sim_draw_independence.test.ts` "the drawing calls
+nothing that runs scripts" follows the calls from render_pc and gpu_vulkan into any function that starts a script.
+`scripts_took_over` is an event now: `tod_manager.h tod_state_sets` counts every `set_tod_instant`, and a set the
+clock didn't make pauses it.
+
+**What the level's time-of-day scripts change** (the 2026-11-16 survey of every level's node array): the transition
+(`tod_manager_state_transition`) kills and creates nodes by name (`<State>On` / `<State>Off`, `DefaultOn/Off`,
+`TRG_SFX_TrigBox_Day/Night`) and fades `TRG_<State>_LevelLight` lights. In THUG2: AU 187 nodes (184 LevelGeometry with
+collision, 3 sound boxes; a gap start - Kenny Fingers - on a night fountain light), BA 205 (197 geometry, a QP boost
+trigger), BE 140 (138 geometry, 2 GameObjects; bulb-shatter triggers, MorningOn_ThunderGhostKill), BO 281 (275 geometry;
+the library doors that teleport the skater, a sticker-slap trigger on NightOn_06_BO_NoSkating), NO 382 (377 geometry),
+ST 183 (173 geometry, 10 sound boxes), TestLevel 1; the rest none. Ported: THUG1's NJ 57 (34 geometry, 23 sound
+boxes), NY 84 (82 geometry), RU 17 (14 geometry), SD 9 and HI 2 sound boxes; KON 19 fake lights only; the others none.
+Lighting alone: the fake lights, the cars' headlights and textures, `UpdateFxLighting`. Gameplay: the geometry
+(collision, its trigger scripts - gaps, teleports, boosts, goal stickers), the sound boxes (trigger scripts).
+
+**Online** (2026-11-16): the original never changes the time of day in a multiplayer game - `set_tod_instant`,
+`reset_level_lights` and `enable_bloom` do nothing there (`tod_lights_locked`; THUGPRO's DLL lifts it for its peers'
+time of day), its own cycle runs only in a career game, and a level's load asks for its state through the same locked
+call. So in a network session the settings model limits the time of day to its lighting (`settings_model.h limits`,
+`Cap::kNetworkGame` - the clock publishes the session as a fact; the Options rows say "Online: lighting only"): the
+clock lights the level - DayLight, the original's blended lights and colours, the sun sprite - and never sets the
+level's state, so every player keeps the same objects and collision. One rule, no per-level list.
 
 **The original's own time of day wins** (`day_clock.h`): the clock does nothing in the front end, in a career level that
 runs its own cycling time of day (`CtodManager::runs_its_day` - career mode, the manager active, `tod_manager_inactive`
 not set), during a cutscene's temporary state, and once a script sets the level's state over the clock's (the park
 editor's lighting, a network peer's time of day) - until `tod` is changed again. Turned back to `level`, it puts the
-level's own state and sun back. Online it is local: each player sees their own time.
+level's own state (where it moved it) and sun back. Online it is local and lighting only (above): each player sees their
+own time over the same level.
 
 **Checked:**
 

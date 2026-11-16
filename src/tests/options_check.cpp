@@ -655,9 +655,11 @@ void check_needs()
 }
 
 // (the offline relit data - engine/gfx/relit_data.h) The level's relit data: without it, with data made from other
-// meshes, or with a bake that has no sunlight, the level keeps the original game's lighting - relit, the time of day
-// (with ray tracing) and the lighting passes out of effect, the reason naming the build step; a level with data as
-// asked; no level known yet: as asked. The lighting passes turn relit on.
+// meshes, or with a bake that has no sunlight, the level keeps the original game's lighting - relit and the lighting
+// passes out of effect, the reason naming the build step; the time of day (with ray tracing) too without data or
+// sunlight - what the level's file says, known when the level arrives (engine/gfx/day_clock.cpp) - but not for data
+// made from other meshes, which the renderer finds on the level's first frame: the simulation's clock never waits on
+// the drawing. A level with data as asked; no level known yet: as asked. The lighting passes turn relit on.
 void check_level_light()
 {
     const Ini asked = {{"ray_tracing", "1"}, {"rt_relit", "0"},  {"rt_shadows", "1"}, {"rt_ao", "1"},
@@ -685,9 +687,15 @@ void check_level_light()
         const config::Resolution level = level_with(each.light);
         expect(!level.on("rt_relit") && level.at("rt_relit").reason == each.reason,
                std::string(each.what) + ": relit out of effect - " + level.at("rt_relit").reason);
-        expect(level.value("tod") == "level" && level.at("tod").reason == each.reason,
-               std::string(each.what) + ": the time of day out of effect (the level's own) - " + level.at("tod").reason);
-        for (const char* pass : {"rt_shadows", "rt_ao", "rt_lights", "tod_cycle_minutes"}) {
+        if (each.light == config::LevelLight::kStale) {
+            expect(level.value("tod") == "night" && level.on("tod_cycle") && level.at("tod_cycle_minutes").in_effect,
+                   std::string(each.what) + ": the time of day as asked (the original's states - relit out)");
+        } else {
+            expect(level.value("tod") == "level" && level.at("tod").reason == each.reason,
+                   std::string(each.what) + ": the time of day out of effect (the level's own) - " + level.at("tod").reason);
+            expect(!level.at("tod_cycle_minutes").in_effect, std::string(each.what) + ": tod_cycle_minutes out of effect");
+        }
+        for (const char* pass : {"rt_shadows", "rt_ao", "rt_lights"}) {
             expect(!level.at(pass).in_effect, std::string(each.what) + ": " + pass + " out of effect (no pass on a bake)");
         }
         // (added by the cinematic air: the air is lit by the relit level's sun alone - the fog keeps the level's own
@@ -704,6 +712,29 @@ void check_level_light()
     config::Inputs no_rt = inputs_of(rtx50(), {{"ray_tracing", "0"}, {"tod", "dusk"}});
     no_rt.level = {.known = true, .light = config::LevelLight::kMissing};
     expect(config::resolve(no_rt).value("tod") == "dusk", "ray tracing off: the time of day without relit data");
+}
+
+// (the time of day's clock - engine/gfx/day_clock.h) A network session: the time of day stays in effect, limited to its
+// lighting (the level's own time-of-day states - objects and collision every player shares - left as they are), each
+// of its rows saying so; not limited offline, nor online while it doesn't run (tod=level, no cycle).
+void check_network_limit()
+{
+    const Ini asked = {{"ray_tracing", "1"}, {"tod", "dusk"}, {"tod_cycle", "on"}};
+    config::Inputs online = inputs_of(rtx50(), asked);
+    online.level = {.known = true, .light = config::LevelLight::kBuilt, .network = true};
+    const config::Resolution limited = config::resolve(online);
+    for (const char* key : {"tod", "tod_cycle"}) {
+        expect(limited.at(key).in_effect && limited.at(key).limits.size() == 1 &&
+                   limited.at(key).limits.front() == t::kTodLightingOnline,
+               std::string("online: ") + key + " in effect, its lighting only");
+    }
+    expect(limited.value("tod") == "dusk" && limited.limited.size() == 1, "online: the time asked, one limit in force");
+    online.level.network = false;
+    const config::Resolution offline = config::resolve(online);
+    expect(offline.at("tod").limits.empty() && offline.limited.empty(), "offline: no limit");
+    config::Inputs idle = inputs_of(rtx50(), {{"ray_tracing", "1"}});
+    idle.level = {.known = true, .light = config::LevelLight::kBuilt, .network = true};
+    expect(config::resolve(idle).limited.empty(), "online with the level's own time (tod=level, no cycle): no limit");
 }
 
 // Each capability a setting needs: without it, the setting is out of effect with the capability's words (or its root's).
@@ -778,6 +809,7 @@ void check_capabilities()
     }
     expect(asked_retired.at("rt_gi").reason == t::kRelitBouncesLight, "rt_gi: retired - relit bounces the light");
     check_level_light();
+    check_network_limit();
 }
 
 // The machines: what a typical ini resolves to on each.

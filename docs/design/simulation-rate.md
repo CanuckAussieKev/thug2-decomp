@@ -179,16 +179,25 @@ below, recorded before the change).
   container is made before the frame is drawn rather than in its middle, and the one exact screen corner (0, 0) the
   original took for "off the projection" isn't tested before making it (the container is made at alpha 0: nothing
   shows).
+- `day_clock::step` (`engine/gfx/day_clock.h`, 2026-11-16) once a step, before the views' sun steps: the time of day's
+  clock - `[Graphics] tod` / `tod_cycle` - moved on by the step's game time, the level's time-of-day state set where it
+  is due (its scripts: night geometry with collision and trigger scripts), its light published for the drawing to read.
+  It ran in `draw_world` on the wall clock before, and waited for the renderer's first frame for the level's own sun -
+  now that comes from the start of the level's relit file, read when the level arrives. A playback writes the clock's
+  time, state and sun beside each check point (`#tod` lines, a comment to the reference), and `sim_check.ts` compares
+  them between the runs of a demo.
 - `tools/sim_draw_independence.test.ts` keeps it so: `suppress_draw()` is read only by the main loop, `render_frame` and
-  the drawing (render_pc, gpu_vulkan); and the drawing starts no script (none in render_pc or gpu_vulkan; in
-  lens_flare.cpp only `sun::step`).
+  the drawing (render_pc, gpu_vulkan); the drawing starts no script (none in render_pc or gpu_vulkan; in
+  lens_flare.cpp only `sun::step`); and the drawing calls nothing that runs scripts through any chain of calls
+  (`tools/sim_draw_calls.ts`: every function of render_pc and gpu_vulkan but `Device::step_frame`, each call followed
+  into the functions that start a script - the old `draw_world -> day_clock::frame -> set_tod_instant -> refresh_all ->
+  spawn_script` is the case it was made for).
 
 Left to the drawing, as presentation that the simulation doesn't read: the lens flare's showing and fading (its
 elements' morphs, timed by the GPU's occlusion query - no script, nothing the game asks), the glows, the projected-texture batches, the occluders' choice of what hides what (the
 renderer's own culling; the game's code asks the simulation's view, which doesn't use them), and the C runtime's `rand`
 draws of the drawing (particle seeds, primitives' sort keys) - the presentation's own random numbers, apart from the
-game's two streams. Not the original's either, and not tied to the step: `[Graphics] tod` with a cycle (`day_clock`) runs
-the level's time-of-day scripts by the wall clock - off by default. And kept as the original's: the simulation's view
+game's two streams. And kept as the original's: the simulation's view
 takes the viewport's aspect, so a wider window sees - and wakes - objects further to the side than a 4:3 one; a fixed
 view for the simulation would part from the original's on drawn frames.
 

@@ -25,6 +25,9 @@ void set_level_facts(const LevelFacts& level);
 // (the offline relit data) What the level now loaded is lit from (render_pc/rt_relit_world.cpp, each new level); true
 // when it changed.
 bool set_level_light(LevelLight light);
+// (added by the time of day's clock) whether the game now is a network session (engine/gfx/day_clock.cpp says, each
+// step it changes); true when it changed.
+bool set_network_game(bool network);
 // (added by the snow) whether the level now is outdoors (has a sky): the snow's rule (render_pc/snow_world.cpp says);
 // true when it changed (the caller puts what moved to use)
 bool set_level_outdoor(bool outdoor);

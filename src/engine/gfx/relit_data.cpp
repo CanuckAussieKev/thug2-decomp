@@ -368,4 +368,29 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
     return true;
 }
 
+bool read_relit_head(std::string_view bytes, RelitLevelHead* out)
+{
+    Reader in(bytes);
+    uint32_t magic = 0;
+    uint32_t version = 0;
+    uint32_t verdict = 0;
+    RelitLevelData data; // (the fields before the sun, read as read_relit_data reads them)
+    if (!in.get(&magic) || magic != kRelitDataMagic || !in.get(&version) || version != kRelitDataVersion) {
+        return false;
+    }
+    if (!in.get(&data.scene) || !in.get(&data.content) || !in.get(&verdict) || !in.get(&data.sky_rays) ||
+        !in.get(&data.sun_rays) || !in.get(&data.lamps) || !in.get(&data.sun_margin) || !in.get(&data.model_margin) ||
+        !in.get(&data.facing) || verdict > static_cast<uint32_t>(RelitVerdict::kNoModel)) {
+        return false;
+    }
+    uint32_t found = 0;
+    RelitLevelHead head{.scene = data.scene, .verdict = static_cast<RelitVerdict>(verdict)};
+    if (!in.get(&found) || !in.get3(&head.toward)) {
+        return false;
+    }
+    head.sun_found = found != 0;
+    *out = head;
+    return true;
+}
+
 } // namespace render::rt

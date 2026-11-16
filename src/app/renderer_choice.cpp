@@ -77,6 +77,8 @@ void read_time_of_day(const Resolution& in_effect)
     if (in_effect.at("tod_cycle_minutes").in_effect) {
         settings.cycle_minutes = in_effect.number("tod_cycle_minutes", settings.cycle_minutes);
     }
+    settings.lighting_only = !in_effect.at("tod").limits.empty() || !in_effect.at("tod_cycle").limits.empty() ||
+                             !in_effect.at("tod_levels").limits.empty();
     const std::string& levels = in_effect.value("tod_levels");
     if (!render::rt::parse_tod_levels(levels, &settings.levels)) {
         get_log("[Graphics] tod_levels=%s: an entry isn't <level>:<tod> - those before it used", levels.c_str());
@@ -89,6 +91,9 @@ void read_time_of_day(const Resolution& in_effect)
                                      .c_str()
                                : "",
                 settings.levels.empty() ? "" : " (some levels their own: tod_levels)");
+        if (settings.lighting_only) {
+            get_log("[Graphics] tod: a network session - the lighting only, the level's own time-of-day states kept");
+        }
     }
 }
 

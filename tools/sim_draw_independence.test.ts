@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { test } from "node:test";
+import { CallGraph, sourceFiles as cppSources } from "./sim_draw_calls.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -74,4 +75,51 @@ test("the drawing starts no script", () => {
             if (SCRIPT_START.test(code) && current !== "step") found.push(`${flare}:${index + 1} (${current})`);
         });
     assert.deepEqual(found, []);
+});
+
+// The drawing calls nothing that runs scripts - through any chain of calls (tools/sim_draw_calls.ts): the time of day's
+// clock once ran the level's time-of-day scripts from draw_world (render_pc -> engine/gfx/day_clock -> tod_manager's
+// set_tod_instant -> refresh_all -> spawn_script); it is engine::render_frame's step now (day_clock::step). The drawing
+// is every function in render_pc and gpu_vulkan but Device::step_frame (render_pc's part of the step: render_frame runs
+// it on every step, drawn or not).
+const STEP_PARTS = new Set(["src/render_pc/draw_frame.cpp step_frame"]);
+
+test("the drawing calls nothing that runs scripts", () => {
+    const graph = new CallGraph(cppSources(ROOT));
+    const drawing = graph.functions.filter(
+        (def) => /^src\/(render_pc|gpu_vulkan)\//.test(def.file) && !STEP_PARTS.has(`${def.file} ${def.name}`),
+    );
+    assert.ok(
+        drawing.some((def) => def.name === "draw_world"),
+        "draw_world found",
+    );
+    // (the chain the check exists for: the clock's step reaches a script)
+    const clock = graph.functions.find((def) => def.file === "src/engine/gfx/day_clock.cpp" && def.name === "step");
+    assert.ok(clock !== undefined && graph.runsScripts(clock), "day_clock::step runs scripts (set_tod_instant)");
+    assert.deepEqual(graph.callsIntoScripts(drawing), []);
+});
+
+test("a chain of calls into a script is found", () => {
+    const graph = new CallGraph([
+        {
+            name: "src/render_pc/draw.cpp",
+            text: "namespace render {\nvoid draw_world()\n{\n    day_clock::frame();\n}\n} // namespace render\n",
+        },
+        {
+            name: "src/engine/gfx/day_clock.cpp",
+            text:
+                "namespace render::day_clock {\nnamespace {\nvoid apply(gfx::Manager& manager)\n{\n" +
+                "    manager.set_state(1);\n}\n} // namespace\nvoid frame()\n{\n    apply(*manager());\n}\n" +
+                "} // namespace render::day_clock\n",
+        },
+        {
+            name: "src/engine/gfx/manager.cpp",
+            text:
+                "namespace gfx {\nvoid Manager::set_state(int state)\n{\n    refresh(state);\n}\n" +
+                "void Manager::refresh(int state)\n{\n    script::spawn_script(kTransition, nullptr);\n}\n" +
+                "} // namespace gfx\n",
+        },
+    ]);
+    const drawing = graph.functions.filter((def) => def.file.startsWith("src/render_pc/"));
+    assert.deepEqual(graph.callsIntoScripts(drawing), ["src/render_pc/draw.cpp:4 draw_world -> day_clock::frame"]);
 });

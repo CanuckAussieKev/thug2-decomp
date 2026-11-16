@@ -645,30 +645,4 @@ DayLight day_light()
     return slot.light;
 }
 
-namespace {
-struct NorthSlot {
-    std::mutex mutex;
-    LevelNorth north;
-};
-NorthSlot& north_slot()
-{
-    static NorthSlot slot;
-    return slot;
-}
-} // namespace
-
-void set_level_north(const LevelNorth& north)
-{
-    NorthSlot& slot = north_slot();
-    const std::scoped_lock lock(slot.mutex);
-    slot.north = north;
-}
-
-LevelNorth level_north()
-{
-    NorthSlot& slot = north_slot();
-    const std::scoped_lock lock(slot.mutex);
-    return slot.north;
-}
-
 } // namespace render::rt

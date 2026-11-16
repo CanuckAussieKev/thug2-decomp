@@ -101,6 +101,18 @@ bool set_level_outdoor(bool outdoor)
     return true;
 }
 
+bool set_network_game(bool network)
+{
+    if (settings_state().level.network == network) {
+        return false;
+    }
+    settings_state().level.network = network;
+    if (settings_state().started) {
+        refresh_running();
+    }
+    return true;
+}
+
 bool set_level_light(LevelLight light)
 {
     if (settings_state().level.light == light) {
@@ -186,6 +198,14 @@ std::string describe(const Resolution& resolution)
             keys += (keys.empty() ? "" : " + ") + std::string(key);
         }
         lines += "conflict: " + keys + " - " + conflict.reason + "\n";
+    }
+    for (const int index : resolution.limited) {
+        const Limit& limit = core::at(limits(), index);
+        std::string keys;
+        for (const char* key : limit.keys) {
+            keys += (keys.empty() ? "" : " + ") + std::string(key);
+        }
+        lines += "limited: " + keys + " - " + limit.reason + "\n";
     }
     return lines;
 }
