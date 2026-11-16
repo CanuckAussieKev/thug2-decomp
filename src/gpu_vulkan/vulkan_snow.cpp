@@ -506,20 +506,12 @@ void main()
     float flat_light = (1.0 - direct) + direct * max(l.y, 0.0);
     float own_light = (1.0 - direct) * ao * (0.6 + 0.4 * n.y) + direct * max(dot(n, l), 0.0) * mix(0.35, 1.0, lit);
     float turn = mix(1.0, own_light / max(flat_light, 0.05), 0.8);
-    // the ground's colour under it: what is behind this pixel (the covered ground a little further on, every pixel of
-    // it - a thin shadow whole) where that is much the colour the gather saw under it; else (a kerb's face, a pole's foot
-    // behind it - not the ground's) the colour seen there, the gather's texels (in the trails' window; else, and never
-    // seen, what is behind)
+    // the ground's colour under it: the colour the gather saw there (in the trails' window); else - and never seen - what
+    // is behind this pixel (the covered ground a little further on). Never what is behind where the gather saw the
+    // ground: that may be what the snow buries (a skater's shins, a pole's foot), not the ground
     vec4 seen = inside > 0.0 ? texture(u_seen, xz / (p.trails.x * p.trails.y)) : vec4(0.0);
     vec3 behind = finite_colour(texelFetch(u_source, ivec2(gl_FragCoord.xy), 0).rgb);
-    vec3 base = behind;
-    if (seen.a > 0.05) {
-        vec3 under = seen.rgb / seen.a;
-        const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
-        float seen_luma = dot(under, LUMA);
-        float differs = abs(dot(behind, LUMA) - seen_luma) / max(seen_luma, 1.0e-3);
-        base = mix(behind, under, inside * smoothstep(0.6, 0.9, differs));
-    }
+    vec3 base = seen.a > 0.05 ? mix(behind, seen.rgb / seen.a, inside) : behind;
     vec3 colour = base * clamp(turn, 0.4, 1.5) * mix(1.0, PACKED_SHADE, packed);
     vec3 v = normalize(p.camera.xyz - v_world);
     vec3 h = normalize(l + v);

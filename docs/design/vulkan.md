@@ -2751,7 +2751,10 @@ and the flakes' light are traced); Direct3D 9 draws none. The way RDR2 does its 
 level and a heightfield of what was pressed into it - not grains. Round 2 (the user's feedback): the default depth 8
 inches (choices 3 / 8 / 14 / 20, at most 24), the slope's smooth curve, the traced sky visibility, the cover replacing
 the surface's whole colour, body contacts and movers pressing, the falling snow as flakes in the world with a haze, the
-winter sky in the lighting state, the decals under the snow.
+winter sky in the lighting state, the decals under the snow. Round 4 (the user: "snowfall still kind of looks like a
+filter in front of the screen"; depth only where the trails were): the flakes anchored in the world on every axis with
+their own motion for the upscaler, streaks, the gusts' eddies, depth layering and the snow under them lighting them;
+the snow's layer over all the open ground round the camera, banked against kerbs and walls.
 
 - **The slope** (`snow::slope_cover`, the shader's twin): full on flat ground and gentle slopes (normal y 0.93 and over),
   thinning up ramps and banks to a light coat (0.3 of it) on steep faces - a quarter pipe's (y 0.3 - 0.4) -, none on a
@@ -2851,9 +2854,10 @@ winter sky in the lighting state, the decals under the snow.
   screen - moved onto the drawn ground by the depth there (the sky map's height is its collision's, a blend of its
   cells: twice the point goes onto the surface the depth says is along the ray), the colour taken bilinearly - and,
   where the depth there is the ground's, keeps it (a toroidal image beside the trails'; a point hidden this frame
-  keeps its last colour; a new sky map forgets them all). The layer takes what is behind its pixel (the covered ground a
-  little further on, every pixel of it) where that is much the colour the gather saw under it, else the colour seen (a
-  kerb's face, a pole's foot behind it); beyond the trails' window, what is behind. It turns that by its own shape
+  keeps its last colour; a new sky map forgets them all). The layer takes the colour seen under it; beyond the trails'
+  window (and ground never seen), what is behind its pixel - never where the gather saw the ground: behind the layer is
+  what it buries (tried in the round: taking what is behind where it was much the colour seen showed a skater's shins
+  through 20 inches of snow). It turns that by its own shape
   against the flat snow in the light now (the time of day's light and sky, else the level's own sun at its own light -
   65% direct): the banks' normal and occlusion from the vertices, the trails' relief, normal and occlusion and the
   shadow of their walls (a 6-step march over the heights toward the light), the packed snow in a trail darker (x 0.8)
@@ -2937,6 +2941,17 @@ winter sky in the lighting state, the decals under the snow.
   pipeline caches, above - not snow's), now only when the cache grew. After (the same scenario, the user's ini at the
   1080p the workspace allows, depth 20): CA 59.9 fps, 1% low 26 ms, the worst frame after the first second 65 ms
   (GPU spikes while the user's own game ran on the same card); BO 57 fps, none over 33 ms; a 210 s BO soak flat.
+- **The cost (round 4).** `tools/game/frame_bench.ts` (the user's [Graphics], snow_depth 20, the workspace's 1080p window:
+  DLSS quality 1280 x 720 input; 60 s of the scripted ride each) against round 3's build: the snow's passes on the device
+  0.09 -> 0.18 ms in BO and 0.11 -> 0.19 ms in CA (the layer 0.04 -> 0.15: five grid levels, ~80,000 vertices, each
+  its surface and its four neighbours' - 28 sky-map texels a surface - and a ray straight up; the gather over the
+  whole trails' window, 256 tiles at quality 3, three depth reads a texel; the flakes 0.03 with their second, motion,
+  draw); the processor's trails' step 0.35 -> 0.27 ms (BO) and 0.43 -> 0.30 ms (CA), the activity's strokes gone, and
+  the lamps' grid's 324 light-field fits a frame gone. Frame rate unchanged (CA 60 / 60 fps, 99th percentile 19.95 /
+  19.91 ms). `thug2_vulkan_snow_check`'s cost at 2560 x 1440 (not traced): 0.32 - 0.35 ms (round 3: 0.22). A 210 s BO
+  soak (depth 20, riding): flat (10.3 -> 10.1 ms a frame, BLAS builds 1.58 -> 1.74 a frame; round 3's build the same:
+  8.1 -> 8.6) - a first run that grew had ~20 s of 90 - 240 ms loops on the processor (the ray-traced scene's begin, the
+  machine shared), not repeated.
 - **Purely visual.** Nothing of the game's is written: the collision, the physics, the scripts and the random streams
   are untouched (the skater rides on the level's collision under the snow); `tools/game/sim_check.ts` matrix on the
   reference demos stays 32/32 and `tools/sim_draw_independence.test.ts` passes (the snow reads the step's state in
@@ -2960,6 +2975,13 @@ winter sky in the lighting state, the decals under the snow.
   (the check's, RTX 5070 Ti, 2560 x 1440): the trails' window full (70 tiles drawn), 16,000 flakes and a carve's spray -
   0.2 - 0.33 ms a frame on the device (one run 0.8 on a busy machine); round 2 (22,000 flakes, the haze, not traced -
   the check has no TLAS) 0.22 ms.
+  Round 4 adds: on the processor, `snow::surface_at` - the depth on open ground, a kerb lower than the snow banked (more
+  than the depth at its foot, less 12 units off, the depth 40 off, never over the kerb's own snow), a drift at a tall
+  thing's foot (over the depth, at most twice it), nothing raised indoors; on the device, the layer over all the open
+  ground (a wall's foot under its bank, its middle as it was), and the falling flakes against their twin
+  (`vk::flake_place`): drawn where it puts them, still at their own place in the world when the camera moves 12 units
+  aside and 8 up (none left where they were on the screen), and where their own move took them a tenth of a second on.
+  The flakes' second (motion) draw isn't in the check (it has no upscaler): the game's log says "their own motion".
 - **In the game** (BO, the user's [Graphics] with `tod=afternoon`, 853 x 480 DLSS input in a 1280 x 720 window): the
   sky map of 26,049 faces (3,633 indoor) in 85 ms - 2048 x 1989 cells of 5.7 units, 53,786 square metres open to the
   snow; the streets, sidewalks, planters and car roofs white, the building fronts not; a board's trail
@@ -2974,7 +2996,11 @@ winter sky in the lighting state, the decals under the snow.
   volumetric fog, not a medium in the fog's march (no light shafts through the falling snow); without ray tracing the
   sky map still decides what is open (a tree's canopy without collision keeps no snow off). Round 2's game run: a road
   draw whose vertices have no relit stream keeps its bake's tint under the snow (Boston's street a little greyer than
-  its sidewalks).
+  its sidewalks). Round 4: the layer's colour is still the ground's as seen (not lit as a surface of its own): a thin
+  shadow (a cable's) shows stepped on the layer (the gather's 1.5-unit texels); the layer's edges follow the sky map's cells (round a parked car - collision boxes, 4 - 6-unit cells - a
+  ragged rim, its roof's slab not the body's shape); the trails beyond the trails' window aren't drawn (untouched snow
+  there); a step the snow doesn't bridge leaves its foot's cell to the flat cover (a gap the depth deep, one grid cell
+  wide - 1.5 units near, 24 at the reach); no shadow cast by the layer on the world (its own relief shades it).
 
 ### Surface trails: what the skaters leave on the level (snow, paint)
 

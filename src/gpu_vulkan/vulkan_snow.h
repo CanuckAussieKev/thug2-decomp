@@ -28,8 +28,8 @@
 //      bridge (a wall, a roof's edge); TRACED, none where a ray straight up meets something drawn (as the cover). Its
 //      colour is the shaded ground under it: a compute pass puts each texel of the trails' window's ground point on the
 //      screen (moved onto the drawn ground by the depth there) and, where the depth there is the ground's, keeps the
-//      colour seen (a toroidal image beside the trails': a point hidden this frame keeps its last colour); the layer takes
-//      what is behind its pixel where that is much the colour seen under it, else the colour seen; then turns it by its
+//      colour seen (a toroidal image beside the trails': a point hidden this frame keeps its last colour; beyond the
+//      window, what is behind the layer's pixel); then turns it by its
 //      own shape against the flat snow in the light now (the banks' normal and occlusion from the vertices, the trails'
 //      relief, the trail walls' shadow - a short march over their heights toward the light), the packed snow in a trail
 //      darker and glossier. Depth-tested and written, with the upscaler's motion (the camera's).
