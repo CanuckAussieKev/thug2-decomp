@@ -118,4 +118,17 @@ RandomStreams seeded_streams(uint32_t seed)
     return {kInitialAdd, kInitialMul, seed, kInitialAdd, kInitialMul, seed};
 }
 
+OwnStreams::OwnStreams(RandomStreams& own) : own_(&own), game_(random_streams()), listener_(draw_listener())
+{
+    set_random_streams(own);
+    draw_listener() = nullptr;
+}
+
+OwnStreams::~OwnStreams()
+{
+    *own_ = random_streams();
+    set_random_streams(game_);
+    draw_listener() = listener_;
+}
+
 } // namespace maths

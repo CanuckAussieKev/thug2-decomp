@@ -151,6 +151,7 @@
                     "src/engine/script/cell.h",
                     "src/engine/script/context.h",
                     "src/engine/script/cscript.h",
+                    "src/engine/script/declared_calls.h",
                     "src/engine/script/degree_ratio.h",
                     "src/engine/script/fwd.h",
                     "src/engine/script/load.h",

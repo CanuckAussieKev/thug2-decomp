@@ -199,19 +199,10 @@ maths::RandomStreams& music_streams()
 // NOT ORIGINAL - the music's streams swapped in for the game's over a scope that draws them, and back out after.
 class MusicDraws {
 public:
-    MusicDraws() : game_(maths::random_streams()) { maths::set_random_streams(music_streams()); }
-    ~MusicDraws()
-    {
-        music_streams() = maths::random_streams();
-        maths::set_random_streams(game_);
-    }
-    MusicDraws(const MusicDraws&) = delete;
-    MusicDraws& operator=(const MusicDraws&) = delete;
-    MusicDraws(MusicDraws&&) = delete;
-    MusicDraws& operator=(MusicDraws&&) = delete;
+    MusicDraws() : own_(music_streams()) {}
 
 private:
-    maths::RandomStreams game_;
+    maths::OwnStreams own_;
 };
 
 } // namespace

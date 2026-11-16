@@ -6,7 +6,14 @@
 // The file:
 //
 //   { "format": "qb-data 1", "source": "Data\\levels\\bo\\bo.qb", "from": "<the .qb's hash>",
-//     "globals": { "<name>": <value>, ... } }
+//     "globals": { "<name>": <value>, ... },
+//     "triggers": { "<script>": <its trigger data>, ... } }       (optional: tools/qbjs/trigger_data.ts)
+//
+// A script's trigger data - what it does when a node's TriggerScript runs it, which the engine reads instead of its
+// code (engine/script/declared_calls.h) - is a structure:
+//
+//   { "calls": { "<function>": [<a call's arguments: a structure>, ...], ... },   (the declared functions' calls, in
+//     "keeps_editor_camera_out": true }                                           order; the flag only when set)
 //
 // Values - plain JSON where it can only mean one thing, a one-key object with a $ tag elsewhere:
 //
@@ -52,6 +59,7 @@ export type QbData = {
     source: string;
     from: string;
     globals: [number, QbDataValue][]; // in the file's order
+    triggers: [number, QbDataValue][]; // its scripts' trigger data (structures), in the file's order
     names: Map<number, string>; // every name's text the file spells out (checksum -> text)
 };
 
@@ -82,7 +90,13 @@ const bitsOf = (x: number) => new Uint32Array(new Float32Array([x]).buffer)[0]!;
 // `text`: the translated texts (token -> text: Data\lang\<language>.json, English's under it); without, a $tr string's
 // bytes are its token's.
 export function readQbData(json: string, text?: (token: string) => string | undefined): QbData {
-    const file = JSON.parse(json) as { format?: unknown; source?: unknown; from?: unknown; globals?: unknown };
+    const file = JSON.parse(json) as {
+        format?: unknown;
+        source?: unknown;
+        from?: unknown;
+        globals?: unknown;
+        triggers?: unknown;
+    };
     if (file.format !== FORMAT) throw Error(`not a ${FORMAT} file (format ${JSON.stringify(file.format)})`);
     const names = new Map<number, string>();
     const name = (t: string) => {
@@ -163,12 +177,18 @@ export function readQbData(json: string, text?: (token: string) => string | unde
                 throw Error(`unknown tag ${tag}`);
         }
     };
-    const globals = file.globals;
+    const globals = file.globals ?? {};
     if (globals === null || typeof globals !== "object" || Array.isArray(globals)) throw Error("no globals");
+    const triggers = file.triggers ?? {};
+    if (triggers === null || typeof triggers !== "object" || Array.isArray(triggers))
+        throw Error("triggers aren't an object");
+    const declared = Object.entries(triggers).map(([k, v]): [number, QbDataValue] => [name(k), value(v)]);
+    for (const [, d] of declared) if (d.type !== 10) throw Error("a script's trigger data isn't a structure");
     return {
         source: String(file.source ?? ""),
         from: String(file.from ?? ""),
         globals: Object.entries(globals).map(([k, v]) => [name(k), value(v)]),
+        triggers: declared,
         names,
     };
 }
@@ -253,7 +273,7 @@ function layout(d: Doc, indent: string, used: number, out: string[]): void {
 
 // `nameText`: a checksum's text where known (the writer checks it spells that checksum), else undefined.
 export function writeQbData(
-    data: { source: string; from: string; globals: [number, QbDataValue][] },
+    data: { source: string; from: string; globals: [number, QbDataValue][]; triggers?: [number, QbDataValue][] },
     nameText: (n: number) => string | undefined = () => undefined,
 ): string {
     const nameOf = (n: number) => {
@@ -325,10 +345,37 @@ export function writeQbData(
                     "}",
                 ),
             ),
+            ...(data.triggers?.length
+                ? [
+                      prefixed(
+                          '"triggers": ',
+                          list(
+                              "{",
+                              data.triggers.map(([n, v]) => prefixed(`${keyText(n)}: `, value(v))),
+                              "}",
+                          ),
+                      ),
+                  ]
+                : []),
         ],
         "}",
     );
     const out: string[] = [];
     layout(top, "", WIDTH + 1, out); // (begun past the width: the file's own object always broken over lines)
     return `${out.join("")}\n`;
+}
+
+// A data file `json` (writeQbData's, with no triggers) with `triggers` added - the same text writeQbData writes with
+// them (the file's members are each on a line of their own).
+export function addTriggers(
+    json: string,
+    triggers: [number, QbDataValue][],
+    nameText: (n: number) => string | undefined = () => undefined,
+): string {
+    if (!triggers.length) return json;
+    const alone = writeQbData({ source: "", from: "", globals: [], triggers }, nameText);
+    const section = alone.slice(alone.indexOf('    "triggers": '), alone.lastIndexOf("\n}\n"));
+    const end = json.lastIndexOf("\n}\n");
+    if (end < 0 || json.includes('\n    "triggers": ')) throw Error("not a data file without triggers");
+    return `${json.slice(0, end)},\n${section}\n}\n`;
 }

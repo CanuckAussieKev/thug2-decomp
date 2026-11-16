@@ -13,9 +13,6 @@ globalThis.qb = (() => {
     let leftover = null;
     // A file's module sources (loadingSource), for forget.
     const ownerSources = new Map();
-    // The module being loaded: its scripts' outlines (the manifest's - tools/qbjs/outline.ts), each name's in definition
-    // order: what define hands the game with the script.
-    let outlines = null;
     let rng = null;
     const random = () => {
         if (globalThis.qbRandom?.apiVersion !== 1) throw Error('QB random API 1 required');
@@ -264,7 +261,6 @@ globalThis.qb = (() => {
                 if (m.requires.random === 1) random();
             }
             loadingFormat = m.format; loadFuel = 1000000;
-            outlines = m.outlines && typeof m.outlines === 'object' ? m.outlines : null;
             // (a standalone module - the game reads no .qb for it: the file's checksum names, as its loader registers them)
             if (game && Array.isArray(m.names)) game.registerNames?.(m.names);
         },
@@ -293,10 +289,7 @@ globalThis.qb = (() => {
             // symbol table says which definition runs - a temporary load undone, a level unloaded - as for QB.
             const id = freshId();
             scripts.set(id, {fn, format: loadingFormat, owner: loadingOwner});
-            // (its outline - its QB statements, which the engine reads without running the script: the gap list's walk
-            // and the editor's - goes after its body's token; the interpreter never reaches it)
-            const outline = outlines?.[n.toString(16).padStart(8, '0')]?.shift();
-            game.defineScript(n, id, typeof outline === 'string' ? outline : undefined);
+            game.defineScript(n, id);
         },
         // The module being loaded (the game: its file's) - what it defines belongs to it; forget(owner): all of that
         // let go of (its file unloaded).

@@ -335,9 +335,17 @@ Until 2026-11-16 three demos of four parted with TypeScript scripts (sim_se from
 random; sim_grind from 76, objects). One cause: the gap list's walk over the level's TriggerScripts at load
 (`for_each_script_call`) reads each script's QB code and parses every call's arguments on the way - drawing a Random's
 random numbers - and a TypeScript script had no QB code to read: on the level's first frame QB drew 58 random numbers
-(sim_se) that TypeScript didn't. With the walk left out in both modes the traces were equal entry for entry. The fix:
-each TypeScript script keeps its **outline**, its QB statements, which the interpreter never runs and the walks read
-(docs/qb-ts.md "Outlines").
+(sim_se) that TypeScript didn't. With the walk left out in both modes the traces were equal entry for entry.
+
+What the engine asks of a script without running it - the gap list's gaps, the level editor's trigger kinds, the
+editor camera's keep-out flag - is now the script's **declaration** (`engine/script/declared_calls.h`, docs/qb-ts.md
+"Trigger data"): a TypeScript script's is declared data in its file's `.json`, a QB script's is read from its code by
+the original's walks, and reading a script's calls draws nothing from the game's random numbers (a QB walk's Random
+choices come from streams of its own, `maths::OwnStreams`). So neither mode draws at the level's load what the original
+drew there: the game's random sequence differs from the original's from that point - the simulation is the same in QB
+and TypeScript and from run to run, which is what fairness needs; matching the original's random sequence isn't asked
+(physics is the original's bit for bit either way). The references were recorded again with it (sim_grind, sim_se and
+sim_vert changed; sim_wall drew nothing there).
 
 ### The trace
 
@@ -353,10 +361,11 @@ machine's load (since 2026-11-16 the step's: "What moved" above); the music's tr
 
 ### Proof
 
-2026-11-16, a workspace, x64 RelWithDebInfo: with TypeScript scripts (unpacked with the outlines, `ts_scripts=1`)
-`sim_check --fps 0,120,144,240 --load 0,7` - 32 of 32 runs equal to the reference on every frame (late frames 6-49
-without load, 102-342 with load 7); with QB scripts (packed) `--fps 0` 4 of 4. The reference is unchanged (recorded with
-QB scripts).
+2026-11-16, a workspace, x64 RelWithDebInfo, references recorded with QB scripts from the same build:
+`sim_check --fps 0,120,144,240 --load 0,7` with QB scripts (packed) 32 of 32 runs equal to the reference on every frame,
+with TypeScript scripts (unpacked, `ts_scripts=1`) 32 of 32. The script check (`plan --declarations-only`, both passes) compared every TriggerScript's
+declaration read from its QB code with the one read from its `.json`: 36,658 scripts (17,669 declaring calls), every
+version of every file, THUG2's and the ported levels' - 0 different.
 
 ## Input latency
 

@@ -70,10 +70,12 @@ struct CallSearch {
     uint32_t script;
     uint32_t target;
 };
-THUG2_API void for_each_script_call(CallSearch search, ScriptCallCallback callback, script::Struct* params,
+void for_each_script_call(CallSearch search, ScriptCallCallback callback, script::Struct* params,
                           int depth);
-// 0x0045CCA0: for_each_script_call over the script each node names by `script_param` (e.g. TriggerScript=), with the
-// script flag 0x006F2564 cleared meanwhile (the gap list finds every EndGap this way).
+// 0x0045CCA0: the calls to `target` of the script each node names by `script_param` (e.g. TriggerScript=), with the
+// script flag 0x006F2564 cleared meanwhile (the gap list finds every EndGap this way) - read from the scripts'
+// declarations (declared_calls.h; `target` one of its functions): the original walked each script's code
+// (for_each_script_call).
 // The nodes' parameter naming the script, and the function looked for.
 struct NodeCallSearch {
     uint32_t param;

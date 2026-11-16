@@ -78,6 +78,12 @@ scripts - and at the first front-end frame runs the plan instead of the game, th
   QB's there and then; `ts.txt` has each module's count and every run that differed, with its first differing line.
 - **Globals**: every symbol a file defines but its scripts, as its value's text hashed (`global` lines) - QB's from the
   `.qb`, TypeScript's from the file's `.json` (docs/qb-ts.md "Data") - compared by `compare`.
+- **Trigger data**: each of the file's scripts that some level's nodes name by `TriggerScript=` (the part's
+  `check_triggers`), its declaration as text (`declare` lines: each declared function's calls with their arguments, the
+  editor camera's flag - `engine/script/declared_calls.h`) - QB's read from its code by the original's walks, TypeScript's
+  from the file's `.json` (docs/qb-ts.md "Trigger data") - compared by `compare` ("Trigger data" in the report).
+  `plan --declarations-only` makes a plan without runs: each module loaded, its globals and trigger data written, in a
+  few minutes a pass.
 - **Trace**: each stub call (the frame, the name, the object, the arguments - floats by their bits, a long argument list as
   its length and 64-bit hash), each forced decision, and how the run ended: the number of decisions and a hash of what
   each would have been and took, then the script's final parameters.

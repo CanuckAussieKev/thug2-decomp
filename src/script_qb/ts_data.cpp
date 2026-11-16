@@ -137,11 +137,11 @@ public:
                 if (key == "from" && from) {
                     *from = text;
                 }
-            } else if (key != "globals") {
+            } else if (key != "globals" && key != "triggers") {
                 return fail("an unknown key");
             } else if (!format) {
-                return fail("globals before the format");
-            } else if (!globals()) {
+                return fail(key + " before the format");
+            } else if (key == "globals" ? !globals() : !triggers()) {
                 return false;
             }
             if (!take(',')) {
@@ -596,6 +596,98 @@ private:
         return fail("an unknown tag " + tag);
     }
 
+    // {"<script>": <its declaration>, ...}: each declaration's text handed on as it is (read when asked:
+    // read_value).
+    bool triggers()
+    {
+        if (!expect('{', "triggers are an object")) {
+            return false;
+        }
+        if (take('}')) {
+            return true;
+        }
+        for (;;) {
+            std::string key;
+            if (!string(key) || !expect(':', "':' after a script's name")) {
+                return false;
+            }
+            space();
+            const size_t start = at_;
+            if (!skip(0)) {
+                return false;
+            }
+            if (hooks_->declare) {
+                hooks_->declare(name_checksum(key), json_.substr(start, at_ - start));
+            }
+            if (!take(',')) {
+                return expect('}', "',' or '}' in the triggers");
+            }
+        }
+    }
+
+    // Past a value, whatever it is (its text checked only as far as finding its end).
+    bool skip(size_t depth)
+    {
+        if (depth > kMaxDepth) {
+            return fail("a value too deep");
+        }
+        space();
+        if (!more()) {
+            return fail("a value");
+        }
+        if (here() == '"') {
+            std::string text;
+            return string(text);
+        }
+        if (here() == '{' || here() == '[') {
+            const char close = here() == '{' ? '}' : ']';
+            ++at_;
+            if (take(close)) {
+                return true;
+            }
+            for (;;) {
+                if (close == '}') {
+                    std::string key;
+                    if (!string(key) || !expect(':', "':' after a key")) {
+                        return false;
+                    }
+                }
+                if (!skip(depth + 1)) {
+                    return false;
+                }
+                if (!take(',')) {
+                    return expect(close, "',' or the end of a list");
+                }
+            }
+        }
+        if (word("true") || word("false") || word("null")) {
+            return true;
+        }
+        std::string text;
+        return number(text);
+    }
+
+public:
+    // One value: its kind and cell, the caller's.
+    bool one(QbValueKind& kind, Cell& cell)
+    {
+        Read read;
+        if (!value(read, 0)) {
+            return false;
+        }
+        if (!read.script.empty()) {
+            return fail("a script value");
+        }
+        space();
+        if (more()) {
+            return fail("text after the value");
+        }
+        kind = read.kind;
+        cell = read.cell;
+        return true;
+    }
+
+private:
     bool globals()
     {
         if (!expect('{', "globals are an object")) {
@@ -652,6 +744,13 @@ bool define_data(std::string_view json, const DataHooks& hooks, std::string* fro
     error.clear();
     Reader reader(json, hooks, error);
     return reader.file(from);
+}
+
+bool read_value(std::string_view json, const DataHooks& hooks, QbValueKind& kind, Cell& cell, std::string& error)
+{
+    error.clear();
+    Reader reader(json, hooks, error);
+    return reader.one(kind, cell);
 }
 
 } // namespace script::qb::ts

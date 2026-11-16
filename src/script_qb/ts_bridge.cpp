@@ -45,6 +45,8 @@
 #include "engine/memory/mem.h"
 #include "engine/script/cell.h"
 #include "engine/script/context.h"
+#include "engine/script/cache.h"
+#include "engine/script/declared_calls.h"
 #include "engine/script/load.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -313,6 +315,7 @@ uint64_t fingerprint(Struct* structure)
 }
 JSValue array_to_js(JSContext* c, Array* array, size_t depth);
 JSValue call_qb(const char* method, std::span<JSValue> args);
+declared_calls::Source& trigger_source(); // (the TypeScript scripts' trigger data: TriggerData below)
 
 // A value kind and its cell as a value object (JS_EXCEPTION for a kind no script value has).
 JSValue cell_to_js(JSContext* c, QbValueKind kind, const Cell& cell, size_t depth)
@@ -696,84 +699,24 @@ JSValue native_call_function(JSContext* c, JSValueConst /*self*/, int /*argc*/, 
     return JS_NewBool(c, result);
 }
 
-// Base64 text's bytes (RFC 4648, '=' padding; anything else ends it): an outline as the manifest carries it.
-std::vector<uint8_t> decode_base64(std::string_view text)
-{
-    constexpr int kBitsPerChar = 6;
-    constexpr int kByteBits = 8;
-    constexpr uint32_t kByteMask = 0xFFU;
-    const auto value_of = [](char ch) -> int {
-        constexpr int kDigits = 52;
-        constexpr int kPlus = 62;
-        constexpr int kSlash = 63;
-        constexpr int kLetters = 26;
-        if (ch >= 'A' && ch <= 'Z') {
-            return ch - 'A';
-        }
-        if (ch >= 'a' && ch <= 'z') {
-            return ch - 'a' + kLetters;
-        }
-        if (ch >= '0' && ch <= '9') {
-            return ch - '0' + kDigits;
-        }
-        if (ch == '+') {
-            return kPlus;
-        }
-        return ch == '/' ? kSlash : -1;
-    };
-    std::vector<uint8_t> out;
-    out.reserve((text.size() / 4) * 3);
-    uint32_t bits = 0;
-    int held = 0;
-    for (const char ch : text) {
-        const int value = value_of(ch);
-        if (value < 0) {
-            break;
-        }
-        bits = (bits << kBitsPerChar) | static_cast<uint32_t>(value);
-        held += kBitsPerChar;
-        if (held >= kByteBits) {
-            held -= kByteBits;
-            out.push_back(static_cast<uint8_t>((bits >> static_cast<uint32_t>(held)) & kByteMask));
-        }
-    }
-    return out;
-}
-
-// defineScript(n, id[, outline]): script n's symbol, a body of one kTsBody token naming its definition `id` (runtime.js:
-// each definition has its own, so the symbol table alone says which runs - a temporary load undone puts the older
-// back) and its outline (base64), as the loader defines a .qb file's scripts.
-JSValue native_define_script(JSContext* c, JSValueConst /*self*/, int argc, JSValueConst* argv)
+// defineScript(n, id): script n's symbol, a body of one kTsBody token naming its definition `id` (runtime.js: each
+// definition has its own, so the symbol table alone says which runs - a temporary load undone puts the older back),
+// as the loader defines a .qb file's scripts. (What the engine asks of a script without running it - its trigger data
+// - is its file's data: declared_calls.h, TriggerData below.)
+JSValue native_define_script(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
 {
     Engine& e = engine();
     const uint32_t name = to_u32(c, argv[0]);
     const uint32_t id = to_u32(c, argv[1]);
-    // 01 (the defaults' empty line), 4A <id>, 01, then its outline (its QB statements, ending in 24 - the manifest's,
-    // tools/qbjs/outline.ts), else 24 (the end). The interpreter runs the level at the 4A and never goes past it; the
-    // engine's readers of script code (the gap list's walk - nodes.cpp for_each_script_call -, the editor's) step over
-    // the first line and the 4A's statement and read the outline - exactly the statements the .qb's script has.
-    std::vector<uint8_t> body{0x01,
-                              token_byte(QbToken::kTsBody),
-                              static_cast<uint8_t>(id),
-                              static_cast<uint8_t>(id >> 8U),
-                              static_cast<uint8_t>(id >> 16U),
-                              static_cast<uint8_t>(id >> 24U),
-                              0x01};
-    std::vector<uint8_t> outline;
-    if (argc >= 3 && JS_IsString(argv[2])) {
-        if (const char* text = JS_ToCString(c, argv[2])) {
-            outline = decode_base64(text);
-            JS_FreeCString(c, text);
-        }
-        if (outline.empty() || outline.back() != token_byte(QbToken::kScriptEnd)) {
-            get_log("ts: %s's outline isn't a script's statements - left out", find_checksum_name_or_unknown(name));
-            outline.clear();
-        }
-    }
-    if (outline.empty()) {
-        outline.push_back(token_byte(QbToken::kScriptEnd));
-    }
-    body.insert(body.end(), outline.begin(), outline.end());
+    // 01 (the defaults' empty line), 4A <id>, 01, 24 (the end)
+    const std::array<uint8_t, 8> body{0x01,
+                                      token_byte(QbToken::kTsBody),
+                                      static_cast<uint8_t>(id),
+                                      static_cast<uint8_t>(id >> 8U),
+                                      static_cast<uint8_t>(id >> 16U),
+                                      static_cast<uint8_t>(id >> 24U),
+                                      0x01,
+                                      token_byte(QbToken::kScriptEnd)};
     SymbolTableEntry* existing = find_symbol(name);
     if (existing) {
         replace_symbol_for_definition(existing, e.loading_temporary);
@@ -979,6 +922,7 @@ bool start_engine()
         return false;
     }
     JSContext* c = e.context;
+    declared_calls::set_source(&trigger_source()); // (the TypeScript scripts' trigger data: their files' - load_data)
     const JSValue global = JS_GetGlobalObject(c);
     const JSValue game = JS_NewObject(c);
     add_native(c, game, "symbol", native_symbol, 1);
@@ -1169,12 +1113,155 @@ bool script_value_of(std::string_view key, Component& component, std::string& er
     return made;
 }
 
-// A data file's globals defined (ts_data.h) - of the file being loaded. `from`: the hash of the .qb its .ts was made
-// from, which the data must have been made from too.
+// --- trigger data (declared_calls.h) ------------------------------------------------------------------------------
+
+// Who a definition belongs to, as a number: its file's checksum - a temporary load's apart (owner_value).
+uint64_t owner_key(uint32_t file_checksum, bool temporary)
+{
+    constexpr uint64_t kTemporaryOwners = uint64_t{1} << 32U;
+    return temporary ? kTemporaryOwners + file_checksum : file_checksum;
+}
+
+// The TypeScript scripts' declarations: each definition's (by the number its kTsBody names) - its file's .json
+// "triggers" entry, kept as text and read when asked (a level's hundreds of them read once, at its load, by the gap
+// list) - and whom it belongs to (let go of with its file: forget_file).
+class TriggerData final : public declared_calls::Source {
+public:
+    void declare(uint64_t owner, uint32_t definition, std::string_view json)
+    {
+        entries_[definition] = Entry{.owner = owner, .json = std::string(json)};
+    }
+    void forget(uint64_t owner) { std::erase_if(entries_, [owner](const auto& entry) { return entry.second.owner == owner; }); }
+
+    bool owns(uint32_t script) override { return definition_of(script).has_value(); }
+
+    void for_each_call(uint32_t script, uint32_t function, level_nodes::ScriptCallCallback callback) override
+    {
+        Struct* declaration = read(script);
+        if (!declaration) {
+            return;
+        }
+        Struct* calls = nullptr;
+        Array* list = nullptr;
+        if (declaration->read_sub_struct(checksums::hash_from_text("calls"), &calls, 0) && calls &&
+            calls->fetch_list(function, &list, 0) && list) {
+            for (uint32_t i = 0; i < list->extent(); ++i) {
+                callback(list->struct_at(i), nullptr);
+            }
+        }
+        free_declaration(declaration);
+    }
+
+    bool keeps_editor_camera_out(uint32_t script) override
+    {
+        Struct* declaration = read(script);
+        if (!declaration) {
+            return false;
+        }
+        const bool keeps_out = declaration->has_bare_flag(checksums::hash_from_text("keeps_editor_camera_out"));
+        free_declaration(declaration);
+        return keeps_out;
+    }
+
+private:
+    struct Entry {
+        uint64_t owner = 0;
+        std::string json;
+    };
+    std::unordered_map<uint32_t, Entry> entries_;
+
+    // The definition script `script` is now, when it is a TypeScript one: the number its body's kTsBody names.
+    static std::optional<uint32_t> definition_of(uint32_t script)
+    {
+        const SymbolTableEntry* symbol = find_symbol(script);
+        if (!symbol || symbol->type() != QbValueKind::kScriptBody) {
+            return std::nullopt;
+        }
+        ScriptStore* store = script_store();
+        const uint8_t* code = store->fetch_script(script);
+        if (!code) {
+            return std::nullopt;
+        }
+        const Tokens token = skip_newline_tokens(tokens_at(code));
+        std::optional<uint32_t> definition;
+        if (as_token(*token) == QbToken::kTsBody) {
+            definition = fetch_word32(token + 1);
+        }
+        store->release_script(script);
+        return definition;
+    }
+
+    // Script `script`'s declaration read (none: it declares nothing - or isn't TypeScript): the caller frees it.
+    Struct* read(uint32_t script)
+    {
+        const std::optional<uint32_t> definition = definition_of(script);
+        const auto found = definition ? entries_.find(*definition) : entries_.end();
+        if (found == entries_.end()) {
+            return nullptr;
+        }
+        const DataHooks hooks{.text = translated_text, .script_value = {}, .define = {}, .declare = {}};
+        QbValueKind kind = QbValueKind::kNone;
+        Cell cell;
+        std::string error;
+        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
+        const bool made = read_value(found->second.json, hooks, kind, cell, error);
+        memory::leave_heap_scope();
+        if (!made || kind != QbValueKind::kStruct) {
+            get_log("ts: %s's trigger data isn't a structure: %s", find_checksum_name_or_unknown(script),
+                    error.c_str());
+            if (made) {
+                const gsl::owner<Component*> value = new_component();
+                value->value = cell;
+                set_value_kind(*value, kind);
+                release_component(value);
+                free_component(value);
+            }
+            return nullptr;
+        }
+        return cell.structure();
+    }
+
+    static void free_declaration(Struct* declaration)
+    {
+        declaration->get_clear();
+        delete_struct(declaration);
+    }
+};
+
+TriggerData& trigger_data()
+{
+    static TriggerData data;
+    return data;
+}
+declared_calls::Source& trigger_source() { return trigger_data(); }
+
+// A data file's globals defined (ts_data.h) - of the file being loaded - and its scripts' trigger data declared (each
+// the definition the module just gave its name). `from`: the hash of the .qb its .ts was made from, which the data must
+// have been made from too.
 bool load_data(const std::string& json, uint32_t from, std::string& error)
 {
     constexpr int kHex = 16;
-    const DataHooks hooks{.text = translated_text, .script_value = script_value_of, .define = define_global};
+    Engine& e = engine();
+    const uint64_t owner = owner_key(checksums::hash_from_text(e.loading_file.c_str()), e.loading_temporary);
+    const auto declare = [owner](uint32_t script, std::string_view text) {
+        const SymbolTableEntry* symbol = find_symbol(script);
+        if (!symbol || symbol->type() != QbValueKind::kScriptBody) {
+            get_log("ts: trigger data for %s, which isn't a script - left out", find_checksum_name_or_unknown(script));
+            return;
+        }
+        ScriptStore* store = script_store();
+        const uint8_t* code = store->fetch_script(script);
+        if (!code) {
+            return;
+        }
+        const Tokens token = skip_newline_tokens(tokens_at(code));
+        if (as_token(*token) == QbToken::kTsBody) {
+            trigger_data().declare(owner, fetch_word32(token + 1), text);
+        }
+        store->release_script(script);
+    };
+    const DataHooks hooks{
+        .text = translated_text, .script_value = script_value_of, .define = define_global, .declare = declare};
     std::string made_from;
     if (!define_data(json, hooks, &made_from, error)) {
         return false;
@@ -1299,9 +1386,10 @@ size_t json_string_end(const std::string& text, size_t at)
 
 // The JavaScript the runtime runs for a script file's TypeScript (as tools/qbjs/compile_ts.ts makes it): the "qb"
 // import read from globalThis.qbTs, the module's manifest from the file's last line - `// qb-file {"source": ...,
-// "from": <the .qb's hash>, "globals": <how many - in its data file>, "names": [checksum, name, ...]}` - before it;
-// each line where it was (faults' lines are the file's). False when the file has no qb-file line.
-bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, uint32_t* globals, std::string* error)
+// "from": <the .qb's hash>, "globals": <how many - in its data file>, "triggers": <how many scripts' trigger data - in
+// its data file too>, "names": [checksum, name, ...]}` - before it; each line where it was (faults' lines are the
+// file's). `entries`: what its data file holds, globals and trigger data. False when the file has no qb-file line.
+bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, uint32_t* entries, std::string* error)
 {
     static constexpr std::string_view kFileLine = "// qb-file {";
     const size_t file_line = ts.rfind(kFileLine);
@@ -1327,13 +1415,15 @@ bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, uint
     if (const size_t at = manifest.find("\"from\":\""); at != std::string::npos) {
         *from = static_cast<uint32_t>(std::strtoul(manifest.c_str() + at + 8, nullptr, 16));
     }
-    *globals = 0;
-    static constexpr std::string_view kGlobals = "\"globals\":";
-    if (const size_t at = manifest.find(kGlobals); at != std::string::npos) {
-        constexpr int kDecimal = 10;
-        constexpr size_t kDigits = 10; // (a 32-bit count)
-        const std::string count = manifest.substr(at + kGlobals.size(), kDigits);
-        *globals = static_cast<uint32_t>(std::strtoul(count.c_str(), nullptr, kDecimal));
+    // (what its data file holds: its globals and its scripts' trigger data - none of either, no data file)
+    *entries = 0;
+    for (const std::string_view key : {std::string_view("\"globals\":"), std::string_view("\"triggers\":")}) {
+        if (const size_t at = manifest.find(key); at != std::string::npos) {
+            constexpr int kDecimal = 10;
+            constexpr size_t kDigits = 10; // (a 32-bit count)
+            const std::string count = manifest.substr(at + key.size(), kDigits);
+            *entries += static_cast<uint32_t>(std::strtoul(count.c_str(), nullptr, kDecimal));
+        }
     }
     std::string body = ts.substr(0, file_line);
     bool random = false;
@@ -1438,7 +1528,7 @@ bool load_standalone(const char* filename, bool temporary)
     const std::string data_name = name.substr(0, name.size() - 3) + ".json";
     std::string data;
     if (globals != 0 && !(chosen ? fs::read_text(data_name, &data) : read_game_file(data_name, &data))) {
-        get_log("ts: ERROR - %s has no %s (its %u globals): not loaded - tools/qbjs/unpack_game.ts", name.c_str(),
+        get_log("ts: ERROR - %s has no %s (its %u globals and trigger data): not loaded - tools/qbjs/unpack_game.ts", name.c_str(),
                 data_name.c_str(), static_cast<unsigned>(globals));
         return true;
     }
@@ -1642,6 +1732,7 @@ void forget_file(uint32_t file_checksum, bool temporary_only)
         if (temporary || !temporary_only) {
             std::array<JSValue, 1> owner{owner_value(engine().context, file_checksum, temporary)};
             JS_FreeValue(engine().context, call_qb("forget", owner));
+            trigger_data().forget(owner_key(file_checksum, temporary));
         }
     }
     // (a module's functions and its scope refer to each other: only the cycle collector frees them - a level's module

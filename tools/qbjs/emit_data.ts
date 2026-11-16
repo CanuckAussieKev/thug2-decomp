@@ -123,9 +123,18 @@ export function globalKey(module: ModuleIR, n: number): string {
         : `_0x${(n >>> 0).toString(16).padStart(8, "0")}`;
 }
 
-// The module's data file (null: it defines no globals). `from`: the hash of the .qb it was made from.
-export function emitData(module: ModuleIR, from: string): string | null {
+// The module's data file (null: it defines no globals and declares no trigger data). `from`: the hash of the .qb it
+// was made from; `triggers`: its scripts' trigger data (trigger_data.ts triggersValue; `later`: it has some, added
+// afterwards - qb_data.ts addTriggers); `names`: the text of names the module's own names table doesn't spell (the
+// trigger data's keys).
+export function emitData(
+    module: ModuleIR,
+    from: string,
+    triggers: [number, QbDataValue][] = [],
+    names: (n: number) => string | undefined = () => undefined,
+    later = false,
+): string | null {
     const globals = moduleGlobals(module);
-    if (!globals.length) return null;
-    return writeQbData({ source: module.source, from, globals }, (n) => module.names?.[n]);
+    if (!globals.length && !triggers.length && !later) return null;
+    return writeQbData({ source: module.source, from, globals, triggers }, (n) => module.names?.[n] ?? names(n));
 }
