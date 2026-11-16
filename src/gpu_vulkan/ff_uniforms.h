@@ -148,15 +148,20 @@ struct WaterUniforms {
     Float4x4 projection{};   // the view's projection (camera space -> Direct3D's clip space, y up)
     Float4 viewport{};       // the view's rectangle in the target: x, y, width, height (pixels)
     Float4 target{};         // x, y: 1 / the target's width and height; z: 1 when the copy behind the water is there; w: HDR
-    Float4 time{};           // x: the game's seconds; y, z: the wind's direction (world x, z); w: the wind's strength
-    Float4 waves{};          // x: the waves' height; y: how far one sees into the water (units); z: foam; w: the texture's
-                             // detail kept
+    Float4 time{};           // x: the game's seconds; y, z: the wind's direction (world x, z); w: the wind over the body (m/s)
+    Float4 waves{};          // x: unused; y: how far one sees into the water (units); z: foam; w: the texture's detail kept
     Float4 tint{};           // rgb: the water's colour; w: 1 - the texture's own (auto)
     Float4 sun{};            // xyz: toward the sun (world); w: 1 when there is one
     Float4 sun_colour{};     // rgb: the sun's colour; w: the glitter's peak
     Float4 sky{};            // rgb: the sky's colour where nothing else is known; w: 1 when the sky capture is bound
     Float4 camera{};         // xyz: the camera's position (world); w: the refraction's strength
-    Float4 misc{};           // x: screen-space reflections on; y: the swell's longest wavelength; z: the debug view; w: unused
+    Float4 misc{};           // x: screen-space reflections on; y: unused; z: the debug view; w: unused
+    // (added by the physical waves - engine/gfx/water_waves.h SeaWaves, the body drawn) the four Gerstner waves' slopes
+    // (amplitude x k) and phase speeds (units a second); x the significant height Hs (units), y the peak's wavelength
+    // (units), z x the ripple texture's slope, w the whitecaps' share (0 - 1)
+    Float4 swell{};
+    Float4 swell_speed{};
+    Float4 sea{};
 };
 
 // (NOT ORIGINAL - rt_detail / rt_delight) Binding 15, the detail layer's (fragment shader): vulkan_detail.cpp fills it.
@@ -217,7 +222,7 @@ constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 6;
 static_assert(sizeof(SurfaceUniforms) == kSurfaceVectors * kVectorBytes, "std140: no padding");
 constexpr std::size_t kCelVectors = 11;
 static_assert(sizeof(CelUniforms) == kCelVectors * kVectorBytes, "std140: no padding");
-constexpr std::size_t kWaterVectors = 10;
+constexpr std::size_t kWaterVectors = 13;
 static_assert(sizeof(WaterUniforms) == (3 * kMatrixBytes) + (kWaterVectors * kVectorBytes), "std140: no padding");
 static_assert(sizeof(DetailUniforms) == 5 * kVectorBytes, "std140: no padding");
 static_assert(sizeof(SnowUniforms) == kMatrixBytes + (5 * kVectorBytes), "std140: no padding");

@@ -134,8 +134,9 @@ uint64_t scenes_key()
     return key;
 }
 
-// Every collidable face of the loaded world's sectors (the skies' left out), an indoor sector's marked.
-std::vector<snow::Face> gather_faces(bool* has_sky)
+} // namespace
+
+std::vector<snow::Face> collision_faces(bool* has_sky)
 {
     const uint32_t indoor = checksums::hash_from_text("Indoor");
     std::vector<snow::Face> faces;
@@ -180,11 +181,13 @@ std::vector<snow::Face> gather_faces(bool* has_sky)
     return faces;
 }
 
+namespace {
+
 void make_map()
 {
     const auto start = std::chrono::steady_clock::now();
     bool has_sky = false;
-    const std::vector<snow::Face> faces = gather_faces(&has_sky);
+    const std::vector<snow::Face> faces = collision_faces(&has_sky);
     if (!has_sky) {
         snow::set_sky_map(nullptr);
         get_log("snow: this level has no sky (indoors) - no snow here");

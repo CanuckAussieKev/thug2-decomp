@@ -31,6 +31,7 @@
 #include "base/maths/vec4.h"
 #include "render_pc/rt_record.h"
 #include "render_pc/rt_relit_world.h"
+#include "render_pc/water_bodies.h"
 #include "render_pc/water_geometry.h"
 #include "engine/gfx/surface_trail.h"
 #include "engine/gfx/rt_cel.h"
@@ -323,6 +324,8 @@ void MeshRef::render()
         // (not original: the water's grid moved by the swell - water_geometry.h; nothing while no backend wants water)
         if (!flat) {
             water_geometry::before_draw(core::at(index_buffers_, 0), level);
+            // (not original: the physical waves - the body drawn; a mesh drawn as an instance's is in its model's space)
+            water_bodies::before_draw(core::at(index_buffers_, 0), mesh_pass().current_instance() != nullptr);
         }
         // (not original: the surface trails' cover - the snow's and the paint's, engine/gfx/surface_trail.h - on the world's
         // meshes and the scene objects', not on a character's - skinned here, or a mesh a bone while Singleton::render

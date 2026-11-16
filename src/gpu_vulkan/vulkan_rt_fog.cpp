@@ -275,6 +275,18 @@ float light_seen(vec3 at, ivec2 p, int i)
     return visible(at, toward_light(p, i), SUN_DISTANCE) * through;
 }
 
+// (added by the indoor air) How much of the sky the air at `at` sees: a ray toward a point of the upper hemisphere,
+// even in solid angle (cos theta uniform), a fresh one each pair, pixel and frame - the history averages them into the
+// open share of the sky round the point. The light scattered more than once (Psi) and the sky's own light are the sky's:
+// they reach the air only through what is open above it - none in a closed room, all of it in the open.
+float sky_seen(vec3 at, ivec2 p, int i)
+{
+    float z = hash01(p, fog.flags.w, i, 0x3Bu);
+    float a = 6.2831853 * hash01(p, fog.flags.w, i, 0xC5u);
+    float r = sqrt(max(1.0 - z * z, 0.0));
+    return visible(at, vec3(r * cos(a), z, r * sin(a)), SUN_DISTANCE);
+}
+
 // (added by the distinct shafts - rt_volume_light.h air_map_half) How much of the light reaches `at` by the air's sun
 // map: -1 where `at` is outside its square (or there is none) - the light's ray is traced there instead. Its penumbra:
 // the place read moved across the light's disc (a point of it a step - the history averages them) by the distance from
@@ -543,7 +555,9 @@ float far_along(ivec2 p)
 // reach). Linear radiance in the sky's unit, what a path tracer's single-scattering estimate of the same medium gives:
 //   the light's: its irradiance (sun_tint) x its visibility (the shadow ray, the air's sun map, the clouds' map) x
 //     (Rayleigh's scattering x its phase + the aerosol's x Cornette-Shanks' - the god rays' peak taken out);
-//   every higher order: the scattering x Psi (ambient - the atmosphere's multiple-scattering transfer at the ground);
+//   every higher order: the scattering x Psi (ambient - the atmosphere's multiple-scattering transfer at the ground) x
+//     the sky's open share at the point (sky_seen - added by the indoor air: Psi is the sky's light; a closed room's air
+//     gets none of it);
 //   the lamps': their irradiance (pi x the lamps' light) x the phases;
 // each segment's integral exact for a medium even along it - its source x (1 - e^-tau) / tau -, T x e^-tau (tau the
 // extinction's luma: one transmittance for the three channels).
@@ -582,6 +596,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
         int traced_pair = -1;
         float traced_sun = 0.0;
         float lamp_seen = 0.0;
+        float sky_open = 1.0; // (added by the indoor air: the pair's open share of the sky)
         for (int i = 0; i < steps; ++i) {
             float s0 = march_at(float(i), a, b, split, near_steps, steps);
             float s1 = march_at(float(i + 1), a, b, split, near_steps, steps);
@@ -594,6 +609,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
                 float mapped = map_light_seen(traced, local, j);
                 traced_sun = mapped >= 0.0 ? -1.0 : light_seen(traced, local, j);
                 lamp_seen = reached != 0u ? lamps_seen(traced, direction, reached, local, j) : 0.0;
+                sky_open = sky_seen(traced, local, j);
             }
             float sun_seen = map_light_seen(at, local, i);
             if (sun_seen < 0.0) {
@@ -617,7 +633,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
                 continue;
             }
             float e = exp(-min(tau, 40.0));
-            vec3 source = fog.ambient.rgb * (r_s + a_s);
+            vec3 source = fog.ambient.rgb * ((r_s + a_s) * sky_open);
             if (lit) {
                 source += fog.sun_tint.rgb * (sun_seen * (r_s * rayleigh_phase + a_s * aerosol_phase));
             }

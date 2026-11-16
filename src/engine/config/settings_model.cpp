@@ -613,16 +613,18 @@ std::vector<Decl> declarations()
             .need(on("clutter"))
             .live(E::kScatter),
         gfx("rt_water", K::kSwitch, "0").tab(G::kSurfaces, t::kOptWater, t::kOptWaterHelp).need(vulkan(), t::kNeedsVulkan).live(E::kWater),
-        gfx("rt_water_waves", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptWaterWaves)
-            .pick({c("0", "Flat"), c("0.5", "Calm"), c("1", "Normal"), c("1.5", "Choppy"), c("2", "Rough")})
+        // (added by the physical waves: the weather's wind 10 m up, metres a second - engine/gfx/wind.h; auto: the air's
+        // weather's, rt_fog_air. Each water body's waves are its wind's, fetch's and depth's - water_waves.h)
+        gfx("rt_wind", K::kText, "auto")
+            .tab(G::kSurfaces, t::kOptWaterWind, t::kOptWindHelp)
+            .pick({c("auto", t::kAuto), c("0", "Still"), c("2", "Light air"), c("5", "Breeze"), c("9", "Fresh"),
+                   c("14", "Strong")})
             .need(on("rt_water"))
             .live(E::kWater),
-        gfx("rt_water_wind", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptWaterWind)
-            .pick({c("0", "Still"), c("0.5", "Light"), c("1", "Breeze"), c("1.5", "Strong"), c("2", "Gale")})
-            .need(on("rt_water"))
-            .live(E::kWater),
+        // (retired by the physical waves: the waves' height and the wind's strength and way are the weather's wind over
+        // each body - rt_wind)
+        gfx("rt_water_waves", K::kNumber, "1").retire(t::kRetiredWaves),
+        gfx("rt_water_wind", K::kNumber, "1").retire(t::kRetiredWaves),
         gfx("rt_water_clarity", K::kNumber, "1")
             .tab(G::kSurfaces, t::kOptWaterClarity)
             .pick({c("0.5", "Murky"), c("1", "Normal"), c("2", "Clear"), c("3", "Crystal")})
@@ -643,7 +645,7 @@ std::vector<Decl> declarations()
             .tab(G::kSurfaces, t::kOptWaterGeometry, t::kOptWaterGeometryHelp)
             .need(on("rt_water"))
             .live(E::kWater),
-        gfx("rt_water_wind_heading", K::kText, "auto").need(on("rt_water")).live(E::kWater),
+        gfx("rt_water_wind_heading", K::kText, "auto").retire(t::kRetiredWaves),
         gfx("rt_water_screen_reflections", K::kSwitch, "1").need(on("rt_water")).live(E::kWater),
 
         // ===== Sky: the sky and clouds (gpu_vulkan/vulkan_rt_sky_pass.h), the sun, its rays, the bloom and the sky model

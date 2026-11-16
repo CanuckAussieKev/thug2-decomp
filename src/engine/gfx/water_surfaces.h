@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "engine/gfx/water_waves.h"
+
 // NOT ORIGINAL - water shading's contract (docs/design/vulkan.md "Water"; the Vulkan Gpu's [Graphics] rt_water):
 // render_pc says which material it is drawing with when that material is water - one of the game's moving water
 // surfaces - and a backend that shades water (gpu_vulkan/vulkan_water.h) asks for each draw. API-neutral: no Vulkan.
@@ -30,21 +32,34 @@ void set_current(const GpuTexture* texture, uint32_t material);
 [[nodiscard]] const GpuTexture* current_texture();
 [[nodiscard]] uint32_t current_material();
 
-// The level's water as render_pc's table gives it (render_pc/water_materials.cpp; set when the level changes): a calm
-// harbour or canal has lower, shorter waves and murkier water than the open sea. The backend's settings scale it.
-inline constexpr float kLevelWaves = 0.4F;         // (a level without an entry: a sheltered water's)
-inline constexpr float kLevelSwellLength = 500.0F;
-inline constexpr float kLevelVisibility = 450.0F;
-inline constexpr float kLevelHeading = 30.0F;
+// The level's water as render_pc's table gives it (render_pc/water_materials.cpp; set when the level changes): how clear
+// it is - a canal murkier than the open sea. (Changed by the physical waves: its waves, swell length and wind heading
+// are no longer the level's - they are each water body's, from the weather's wind, its fetch, depth and shelter below.)
+inline constexpr float kLevelVisibility = 450.0F;  // (a level without an entry)
 struct LevelWater {
     uint32_t level = 0;                       // the level's main scene's checksum (0: none loaded)
-    float waves = kLevelWaves;                // the swell's steepness scale (1: the open sea)
-    float swell_length = kLevelSwellLength;   // the swell's longest wavelength (units)
     float visibility = kLevelVisibility;      // how far one sees into the water (units)
-    float heading = kLevelHeading;            // the wind's way, degrees from +x toward +z
 };
 void set_level_water(const LevelWater& level);
 [[nodiscard]] LevelWater level_water();
+
+// (added by the physical waves - water_waves.h, docs/design/vulkan.md "Water") The water body a draw shows: render_pc
+// measures each water mesh of the level from the level's own geometry as it loads (render_pc/water_bodies.h: its fetch
+// along the wind, the depth to its bed, how open it is to the sky) and hands the backend the mesh being drawn - its waves
+// worked out for the weather's wind (engine/gfx/wind.h). `known` false: no body measured for the draw (not a level
+// mesh, or not measured yet) - it is drawn still.
+struct WaterBody {
+    bool known = false;
+    uint64_t id = 0;         // the body (its mesh) - with `version`, what the backend keys its block by
+    uint32_t version = 0;    // changes when its waves are worked out again (the wind changed, the level was measured)
+    float fetch = 0.0F;      // metres to the upwind shore (kOpenFetch: open to the horizon)
+    float depth = 0.0F;      // metres to the bed (kDeepWater: none found)
+    float openness = 0.0F;   // its share of the sky open above it (0: under a roof - 1: in the open)
+    float wind = 0.0F;       // the wind over it (m/s 10 m up: the weather's x its openness)
+    SeaWaves waves;          // what its waves are (water_waves.h)
+};
+void set_current_body(const WaterBody& body);
+[[nodiscard]] WaterBody current_body();
 
 // The moving surface ([Graphics] rt_water_geometry, docs/design/vulkan.md "Moving water"): a backend that moves the water's
 // vertices by its swell wants the water's meshes split into a grid as a level loads (render_pc/water_geometry.h - only

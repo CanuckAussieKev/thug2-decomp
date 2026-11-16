@@ -97,17 +97,18 @@ uint32_t main_scene()
     return 0;
 }
 
-// Each level's water (by its scene's name): the open sea's swell, the harbours', the canals' - and how clear it is.
+// Each level's water (by its scene's name): how clear it is. (Changed by the physical waves: the swell's height, length
+// and the wind's heading per level are gone - each body's waves are its wind's, fetch's and depth's: water_bodies.h.)
 struct LevelEntry {
     const char* name = nullptr;
     water::LevelWater water;
 };
 constexpr std::array kLevels = {
-    LevelEntry{.name = "AU", .water = {.waves = 1.0F, .swell_length = 900.0F, .visibility = 900.0F, .heading = 205.0F}},
-    LevelEntry{.name = "BA", .water = {.waves = 0.4F, .swell_length = 520.0F, .visibility = 600.0F, .heading = 120.0F}},
-    LevelEntry{.name = "BE", .water = {.waves = 0.15F, .swell_length = 300.0F, .visibility = 220.0F, .heading = 60.0F}},
-    LevelEntry{.name = "NO", .water = {.waves = 0.22F, .swell_length = 350.0F, .visibility = 180.0F, .heading = 30.0F}},
-    LevelEntry{.name = "SE", .water = {.waves = 0.5F, .swell_length = 600.0F, .visibility = 450.0F, .heading = 330.0F}},
+    LevelEntry{.name = "AU", .water = {.visibility = 900.0F}},
+    LevelEntry{.name = "BA", .water = {.visibility = 600.0F}},
+    LevelEntry{.name = "BE", .water = {.visibility = 220.0F}},
+    LevelEntry{.name = "NO", .water = {.visibility = 180.0F}},
+    LevelEntry{.name = "SE", .water = {.visibility = 450.0F}},
 };
 
 // The level's water told when the level changes (render_pc's draws: the main scene looked up once per water material).

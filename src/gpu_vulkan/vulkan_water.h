@@ -6,6 +6,7 @@
 #include <volk.h>
 
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/water_surfaces.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -18,12 +19,12 @@
 // lighting can take (ff_key.h FragmentKey::water), it is drawn into the view's own rectangle, and it is opaque or blended
 // by its alpha. Its fragment shader (water_shader.h) then works out, per pixel where the surface faces up (not a
 // waterfall) and its texture isn't warm (not lava):
-//   1. waves: a normal from four Gerstner waves about the wind (the level's swell: LevelWater - a harbour's lower and
-//      shorter than the sea's - x rt_water_waves; each fading where a pixel spans a fifth of its length) and two layers
-//      of a tiling ripple texture (made on the device at the first water draw: 256 x 256, 64 waves with whole cycles
-//      across the tile, mostly along the wind - band-limited per mip level, so far water flattens instead of
-//      shimmering) drifting with the wind (rt_water_wind) - all moving with the game's clock (pauses with the game; a
-//      replay draws the same);
+//   1. waves: a normal from four Gerstner waves about the wind (the body's wind sea - water_surfaces.h WaterBody,
+//      engine/gfx/water_waves.h: the weather's wind over it, its fetch, depth and shelter; each fading where a pixel spans
+//      a fifth of its length) and two layers of a tiling ripple texture (made on the device at the first water draw:
+//      256 x 256, 64 waves with whole cycles across the tile, mostly along the wind - band-limited per mip level, so far
+//      water flattens instead of shimmering) as steep as the spectrum's short waves - all moving with the game's clock
+//      (pauses with the game; a replay draws the same). A puddle under a roof is still;
 //   2. a reflection along the wave normal, weighted by Fresnel (Schlick, water's F0 0.02): a ray marched over the
 //      depth behind the water in camera space (22 growing steps, the crossing halved 5 times; none where it leaves the
 //      view or passes behind something), else the sky - as the screen shows it toward that direction (where nothing
@@ -41,7 +42,8 @@
 //      shows its bed nearly clear, deep water the scattered colour (the hue at the brightness the game gave the
 //      surface - the bake, the pass colours) - and visibility the level's x rt_water_clarity; the texture's own detail
 //      kept faintly (its texel over its mean, 35%);
-//   5. foam where the water is shallow (within 24 units of its bed), in the ripples' drifting pattern, x rt_water_foam;
+//   5. foam where the waves break (water shallower than their height / 0.78) and whitecaps as the wind whitens the
+//      sea, in the ripples' drifting pattern, x rt_water_foam;
 //   6. the sun's glitter: normalised Blinn-Phong (power 1500) of the scene's sun (rt::scene_sun, or the sun the game
 //      shows) on the wave normals, Fresnel at the half vector, where the bake says the surface is sunlit; up to 6 with
 //      rt_hdr (the bloom picks it up), 1 without.
@@ -100,6 +102,7 @@ bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescrip
 // The view's block as the shader reads it, from the settings, the level's water and a view (also the check's).
 struct WaterView {
     rt::ViewDrawn view;
+    water::WaterBody body;  // the body drawn (engine/gfx/water_surfaces.h: its waves - still when not known)
     Extent target;          // the colour target's size
     bool copied = false;    // the copy behind the water is there
     bool sky_bound = false; // the level's sky capture is bound
