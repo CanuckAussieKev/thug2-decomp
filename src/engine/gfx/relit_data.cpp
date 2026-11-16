@@ -23,8 +23,8 @@ namespace {
 
 constexpr uint64_t kFnvBasis = 14695981039346656037ULL;
 constexpr uint64_t kFnvPrime = 1099511628211ULL;
-constexpr std::size_t kVertexHalves = 17; // sun_baked, sky, bounce 3, bounce_local 3, tint 3, residual 3, lamp 3, sun_missed
-constexpr uint32_t kMostCells = 1U << 20U;   // an agreement grid at most this many cells
+constexpr std::size_t kVertexHalves = 11; // sun_baked, sky, bounce 3, tint 3, lamp 3
+constexpr uint32_t kMostLamps = 1U << 20U;   // a level's lamps at most this many
 constexpr uint32_t kMostVertices = 1U << 24U; // a mesh at most this many vertices
 // (half floats)
 constexpr uint32_t kFloatSign = 0x80000000U;
@@ -130,10 +130,10 @@ const char* relit_verdict_name(RelitVerdict verdict)
     switch (verdict) {
     case RelitVerdict::kRelit:
         return "relit";
-    case RelitVerdict::kNoSun:
-        return "no sun in the bake";
+    case RelitVerdict::kRelitSunless:
+        return "relit (no sun in the bake)";
     case RelitVerdict::kNoModel:
-        return "no sunlight found in the bake";
+        return "the bake couldn't be taken apart";
     }
     return "?";
 }
@@ -242,27 +242,28 @@ std::string write_relit_data(const RelitLevelData& data)
     out.put(sun.confidence);
     out.put(static_cast<uint32_t>(sun.ground_known ? 1 : 0));
     out.put(sun.ground);
-    out.put(sun.columns);
-    out.put(sun.rows);
-    out.put(std::get<0>(sun.origin));
-    out.put(std::get<1>(sun.origin));
-    out.put(sun.cell);
-    out.put(static_cast<uint32_t>(sun.agreement.size()));
-    for (const float cell : sun.agreement) {
-        out.put(cell);
-    }
     // the model
     const RelitModel& model = data.model;
     out.put(static_cast<uint32_t>(model.valid ? 1 : 0));
+    out.put(static_cast<uint32_t>(model.sunless ? 1 : 0));
     out.put3(model.toward);
     out.put3(model.sun);
     out.put3(model.sky);
+    out.put3(model.day_sky);
     out.put3(model.bounce);
     out.put3(model.lamps);
-    out.put(model.scale);
     out.put(model.error);
     out.put(static_cast<uint64_t>(model.vertices));
     out.put(model.sun_needed);
+    // the lamps
+    out.put(static_cast<uint32_t>(data.lamp_list.size()));
+    for (const RelitLamp& lamp : data.lamp_list) {
+        out.put3(lamp.position);
+        out.put(lamp.size);
+        out.put3(lamp.light);
+        out.put(lamp.core);
+        out.put(lamp.reach);
+    }
     // the meshes
     out.put(static_cast<uint32_t>(data.meshes.size()));
     for (const RelitDataMesh& mesh : data.meshes) {
@@ -272,14 +273,11 @@ std::string write_relit_data(const RelitLevelData& data)
             out.half(vertex.sun_baked);
             out.half(vertex.sky);
             out.half3(vertex.bounce);
-            out.half3(vertex.bounce_local);
             out.half3(vertex.tint);
-            out.half3(vertex.residual);
             out.half3(vertex.lamp);
-            out.half(vertex.sun_missed);
         }
     }
-    static_assert(kVertexHalves == 17);
+    static_assert(kVertexHalves == 11);
     return std::move(out.text());
 }
 
@@ -300,7 +298,7 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
         return fail("not a relit data file");
     }
     if (!in.get(&version) || version != kRelitDataVersion) {
-        return fail("made by another version of the relit bake");
+        return fail("made by another version of the relit bake - out of date");
     }
     if (!in.get(&data.scene) || !in.get(&data.content) || !in.get(&verdict) || !in.get(&data.sky_rays) ||
         !in.get(&data.sun_rays) || !in.get(&data.lamps) || !in.get(&data.sun_margin) || !in.get(&data.model_margin) ||
@@ -314,33 +312,35 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
     BakedSun& sun = data.sun;
     uint32_t found = 0;
     uint32_t ground_known = 0;
-    uint32_t cells = 0;
     if (!in.get(&found) || !in.get3(&sun.toward) || !in.get(&sun.confidence) || !in.get(&ground_known) ||
-        !in.get(&sun.ground) || !in.get(&sun.columns) || !in.get(&sun.rows) || !in.get(&std::get<0>(sun.origin)) ||
-        !in.get(&std::get<1>(sun.origin)) || !in.get(&sun.cell) || !in.get(&cells)) {
+        !in.get(&sun.ground)) {
         return fail("cut short (the baked sun)");
-    }
-    if (cells > kMostCells || (cells != 0 && static_cast<uint64_t>(sun.columns) * sun.rows != cells)) {
-        return fail("a broken agreement grid");
     }
     sun.found = found != 0;
     sun.ground_known = ground_known != 0;
-    sun.agreement.resize(cells);
-    for (float& cell : sun.agreement) {
-        if (!in.get(&cell)) {
-            return fail("cut short (the agreement grid)");
-        }
-    }
     RelitModel& model = data.model;
     uint32_t valid = 0;
+    uint32_t sunless = 0;
     uint64_t vertices = 0;
-    if (!in.get(&valid) || !in.get3(&model.toward) || !in.get3(&model.sun) || !in.get3(&model.sky) ||
-        !in.get3(&model.bounce) || !in.get3(&model.lamps) || !in.get(&model.scale) || !in.get(&model.error) ||
-        !in.get(&vertices) || !in.get(&model.sun_needed)) {
+    if (!in.get(&valid) || !in.get(&sunless) || !in.get3(&model.toward) || !in.get3(&model.sun) ||
+        !in.get3(&model.sky) || !in.get3(&model.day_sky) || !in.get3(&model.bounce) || !in.get3(&model.lamps) ||
+        !in.get(&model.error) || !in.get(&vertices) || !in.get(&model.sun_needed)) {
         return fail("cut short (the model)");
     }
     model.valid = valid != 0;
+    model.sunless = sunless != 0;
     model.vertices = static_cast<std::size_t>(vertices);
+    uint32_t lamps = 0;
+    if (!in.get(&lamps) || lamps > kMostLamps) {
+        return fail("cut short (the lamps)");
+    }
+    data.lamp_list.resize(lamps);
+    for (RelitLamp& lamp : data.lamp_list) {
+        if (!in.get3(&lamp.position) || !in.get(&lamp.size) || !in.get3(&lamp.light) || !in.get(&lamp.core) ||
+            !in.get(&lamp.reach)) {
+            return fail("cut short (a lamp)");
+        }
+    }
     uint32_t meshes = 0;
     if (!in.get(&meshes)) {
         return fail("cut short (the meshes)");
@@ -354,8 +354,7 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
         mesh.vertices.resize(count);
         for (RelitVertex& vertex : mesh.vertices) {
             if (!in.half(&vertex.sun_baked) || !in.half(&vertex.sky) || !in.half3(&vertex.bounce) ||
-                !in.half3(&vertex.bounce_local) || !in.half3(&vertex.tint) || !in.half3(&vertex.residual) ||
-                !in.half3(&vertex.lamp) || !in.half(&vertex.sun_missed)) {
+                !in.half3(&vertex.tint) || !in.half3(&vertex.lamp)) {
                 return fail("cut short (a mesh's vertices)");
             }
             vertex.sun = vertex.sun_baked;
@@ -375,8 +374,12 @@ bool read_relit_head(std::string_view bytes, RelitLevelHead* out)
     uint32_t version = 0;
     uint32_t verdict = 0;
     RelitLevelData data; // (the fields before the sun, read as read_relit_data reads them)
-    if (!in.get(&magic) || magic != kRelitDataMagic || !in.get(&version) || version != kRelitDataVersion) {
+    if (!in.get(&magic) || magic != kRelitDataMagic || !in.get(&version)) {
         return false;
+    }
+    if (version != kRelitDataVersion) {
+        *out = RelitLevelHead{.stale = true};
+        return true; // (a relit data file - out of date)
     }
     if (!in.get(&data.scene) || !in.get(&data.content) || !in.get(&verdict) || !in.get(&data.sky_rays) ||
         !in.get(&data.sun_rays) || !in.get(&data.lamps) || !in.get(&data.sun_margin) || !in.get(&data.model_margin) ||
@@ -391,6 +394,14 @@ bool read_relit_head(std::string_view bytes, RelitLevelHead* out)
     head.sun_found = found != 0;
     *out = head;
     return true;
+}
+
+bool relit_data_stale(std::string_view bytes)
+{
+    Reader in(bytes);
+    uint32_t magic = 0;
+    uint32_t version = 0;
+    return in.get(&magic) && magic == kRelitDataMagic && in.get(&version) && version != kRelitDataVersion;
 }
 
 } // namespace render::rt

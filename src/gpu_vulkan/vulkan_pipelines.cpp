@@ -694,7 +694,10 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
         // (the upscaler's motion: binding 1 - the vertices of the frame before, the same layout - its position)
         const bool motion_input = key.shaders.vertex.motion != 0U;
         // (added by cel shading: the cel stream at binding 2 - three D3DCOLOR words a vertex, rt_cel.h)
-        const bool cel_input = (key.shaders.vertex.surface & kVertexCelStream) != 0U;
+        const bool cel_words = (key.shaders.vertex.surface & kVertexCelStream) != 0U;
+        // (lighting round A: the relit light store's colour word at the same binding)
+        const bool relit_colour = (key.shaders.vertex.surface & kVertexRelitColour) != 0U;
+        const bool cel_input = cel_words || relit_colour;
         std::array<VkVertexInputBindingDescription, 3> bindings{{
             {.binding = 0, .stride = layout.bytes, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
             {.binding = 1, .stride = layout.bytes, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
@@ -707,20 +710,26 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
             }
             ++binding_count;
         }
-        std::array<VkVertexInputAttributeDescription, kMostAttributes + 4> attributes{};
+        std::array<VkVertexInputAttributeDescription, kMostAttributes + 5> attributes{};
         std::copy_n(layout.attributes.begin(), layout.count, attributes.begin());
         uint32_t attribute_count = layout.count;
         if (motion_input) {
             core::at(attributes, attribute_count++) = {
                 .location = kPreviousPositionLocation, .binding = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0};
         }
-        if (cel_input) {
+        if (cel_words) {
             for (uint32_t word = 0; word < rt::kCelStreamAttributes; ++word) {
                 core::at(attributes, attribute_count++) = {.location = kCelLocation + word,
                                                            .binding = kCelStreamBinding,
                                                            .format = VK_FORMAT_B8G8R8A8_UNORM,
                                                            .offset = word * 4};
             }
+        }
+        if (relit_colour) {
+            core::at(attributes, attribute_count++) = {.location = kRelitColourLocation,
+                                                       .binding = kCelStreamBinding,
+                                                       .format = VK_FORMAT_B8G8R8A8_UNORM,
+                                                       .offset = rt::kCelColourWord * 4};
         }
         const VkPipelineVertexInputStateCreateInfo input{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,

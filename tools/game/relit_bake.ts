@@ -52,7 +52,7 @@ export const DATA_FOLDER = "thug2-decomp-relit";
 // What a bake's log says (src/render_pc/relit_bake.cpp's "relit bake:" lines).
 export interface BakeResult {
     scene: string | null; // the level's scene checksum (8 hex: the data file's name)
-    verdict: string | null; // "relit", "no sun in the bake", "no sunlight found in the bake"
+    verdict: string | null; // "relit", "relit (no sun in the bake)", "the bake couldn't be taken apart"
     meshes: number | null;
     vertices: number | null;
     lamps: number | null;
@@ -60,6 +60,9 @@ export interface BakeResult {
     written: boolean;
     sun: string | null; // the model's sun (r g b)
     lampTerm: string | null; // the model's lamps' c (r g b)
+    // (lighting round A) the level's lighting state as its own data shows it: its time-of-day state at load, the baked
+    // sun's confidence, the brightest surfaces against the median, its glows / self-lit triangles / lamps
+    evidence: string | null;
     failure: string | null; // why nothing was written ("relit bake: FAILED - ..." / "start level: ...")
 }
 
@@ -80,6 +83,7 @@ export function parseBakeLog(log: string): BakeResult {
         written: false,
         sun: null,
         lampTerm: null,
+        evidence: null,
         failure: null,
     };
     const failure =
@@ -104,6 +108,8 @@ export function parseBakeLog(log: string): BakeResult {
         out.sun = model[1]!;
         out.lampTerm = model[2]!;
     }
+    const evidence = /relit bake: evidence - (.*)/.exec(log);
+    if (evidence) out.evidence = evidence[1]!.trim();
     const file = /relit bake: (wrote|couldn't write) (\S+\.relit)/.exec(log);
     if (file) {
         out.written = file[1] === "wrote";
@@ -166,6 +172,7 @@ export function reportLine(level: string, code: number | null, result: BakeResul
         `${result.lamps ?? "?"} lamps`,
         `sun ${result.sun ?? "-"}`,
         `lamps' c ${result.lampTerm ?? "-"}`,
+        result.evidence ?? "-",
     ].join("\t");
 }
 

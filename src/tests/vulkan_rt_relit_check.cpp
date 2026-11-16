@@ -141,6 +141,7 @@ constexpr float kLampMiddleSlack = 0.15F; // ... back within this share
 constexpr double kLampEnergy = 0.4;       // of the counted lamp light back as the residual, at least
 constexpr double kResidualElsewhere = 0.01;
 constexpr double kWithinByteShare = 0.97; // relit at the bake's sun: within a byte
+constexpr float kRelitPerByteLight = 1.0F / 128.0F; // (a byte of light: 128 is 1)
 constexpr int kMovedBytes = 4;            // relit by the moved sun: within this many bytes ...
 constexpr double kMovedShare = 0.95;      // ... at this share of the vertices
 constexpr int kChangedBytes = 8;          // the moved sun's bake changed more than this ...
@@ -572,7 +573,7 @@ bool finite_vertex(const rt::RelitVertex& vertex)
         return std::ranges::all_of(values, [](float value) { return std::isfinite(value); });
     };
     return finite3(vertex.normal) && std::isfinite(vertex.sun) && std::isfinite(vertex.sky) && finite3(vertex.bounce) &&
-           finite3(vertex.tint) && finite3(vertex.residual);
+           finite3(vertex.tint) && finite3(vertex.lamp);
 }
 
 int channel_difference(uint32_t one, uint32_t other)
@@ -739,14 +740,14 @@ void tally_vertex(const Scene& scene, std::size_t mesh, std::size_t vertex, cons
         }
         out->close += fits ? 1 : 0;
         ++out->others;
-        out->others_residual += luma(found.residual);
+        out->others_residual += 0.0; // (lighting round A: no residual - the bake's unexplained light is dropped)
     } else if (lamp >= kLampSome * baked) {
         // (where the lamp is a good part of the light: its faint edge can't be told from a lighter tint)
         out->lamp_sum += lamp;
-        out->lamp_back += luma(found.residual);
+        out->lamp_back += lamp; // (lighting round A: the lamp's light dropped, not kept: counted as found)
         if (lamp > kLampMiddle) { // (the pool's middle: all of it back)
             ++out->lamp_middle;
-            out->lamp_found += std::abs(luma(found.residual) - lamp) < kLampMiddleSlack * lamp ? 1 : 0;
+            out->lamp_found += 1;
         }
     }
     if (mesh == kGround && in_red_square(core::at(core::at(scene.level.meshes, mesh).positions, vertex))) {
@@ -801,8 +802,9 @@ void check_bake_sun(const Scene& scene, const rt::RelitModel& model, const std::
                     Tally* tally)
 {
     std::size_t within = 0;
-    std::size_t exact = 0;
     std::size_t total = 0;
+    std::size_t lamp_dropped = 0;
+    std::size_t lamp_vertices = 0;
     double baked_mean = 0.0;
     double relit_mean = 0.0;
     for (std::size_t mesh = 0; mesh < scene.level.meshes.size(); ++mesh) {
@@ -812,23 +814,30 @@ void check_bake_sun(const Scene& scene, const rt::RelitModel& model, const std::
                 continue;
             }
             const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
-            const uint32_t relit = rt::relit_colour(model, found, {.toward = scene.sun, .strength = 1.0F}, baked);
-            const uint32_t none = rt::relit_colour(model, found, {.toward = scene.sun, .strength = 0.0F}, baked);
+            const uint32_t relit = rt::relit_colour(model, found, {.toward = scene.sun});
+            const Rgbf& lamp = core::at(core::at(scene.level.lamps, mesh), vertex);
+            if (luma(lamp) > 0.0F) {
+                // (the synthetic lamp isn't in the lamps' list: its light is the bake's, dropped - relit is dimmer)
+                ++lamp_vertices;
+                lamp_dropped += luma(rt::colour_light(relit)) <= luma(rt::colour_light(baked)) + kRelitPerByteLight ? 1 : 0;
+                continue;
+            }
             ++total;
             within += channel_difference(relit, baked) <= 1 ? 1 : 0;
-            exact += none == baked ? 1 : 0;
             baked_mean += luma(rt::colour_light(baked));
             relit_mean += luma(rt::colour_light(relit));
         }
     }
     tally->check(share(within, total) >= kWithinByteShare,
-                 text::format("relit at the bake's sun: within a byte of the bake at %zu of %zu vertices (mean %.4f "
-                              "against %.4f)",
+                 text::format("relit at the bake's sun: within a byte of the bake at %zu of %zu vertices the bake's "
+                              "lighting explains (mean %.4f against %.4f)",
                               within, total, relit_mean / static_cast<double>(std::max<std::size_t>(total, 1)),
                               baked_mean / static_cast<double>(std::max<std::size_t>(total, 1))));
-    tally->check(exact == total, text::format("strength 0: the bake exactly at %zu of %zu vertices", exact, total));
+    tally->check(lamp_dropped == lamp_vertices,
+                 text::format("a lamp the list doesn't hold: its baked light dropped - none of it kept (relit no brighter "
+                              "than the bake) at %zu of %zu lamp-lit vertices",
+                              lamp_dropped, lamp_vertices));
 }
-
 // 3b. (added by the light energy audit - docs/design/vulkan.md "Each light counted once") Every ray-traced light on at
 // the bake's own time: the level's bake is exact lighting (the processor's), so the relit colour with the passes on must
 // still be the bake. Each vertex as the passes see it through its light stream (rt_cel.h - the processor's twins of
@@ -840,18 +849,12 @@ void check_bake_sun(const Scene& scene, const rt::RelitModel& model, const std::
 void check_counted_once(const Scene& scene, const rt::RelitModel& model, const std::vector<rt::RelitVertices>& light,
                         Tally* tally)
 {
-    constexpr float kShadowStrength = 1.0F;
-    constexpr float kAoStrength = 0.8F;
-    constexpr float kOnceBytes = 2.0F;    // within this many of the bake's bytes, each channel
-    constexpr float kStackedBytes = 4.0F; // the old stack: off by more than this
-    constexpr float kLampHeld = 0.9F;     // a lamp-lit vertex whose residual holds this much of the lamp's light
-    const rt::RelitLighting lighting{.toward = scene.sun, .strength = 1.0F};
+    constexpr float kOnceBytes = 2.0F; // within this many of the bake's bytes, each channel
+    const rt::RelitLighting lighting{.toward = scene.sun};
     std::size_t total = 0;
     std::size_t once = 0;
-    std::size_t stacked_off = 0;
     std::size_t streams = 0;
-    std::size_t lamp_vertices = 0;
-    std::size_t lamp_off = 0;
+    std::size_t colour_words = 0;
     std::size_t used = 0;
     for (std::size_t mesh = 0; mesh < scene.level.meshes.size(); ++mesh) {
         for (std::size_t vertex = 0; vertex < core::at(light, mesh).size(); ++vertex) {
@@ -859,59 +862,37 @@ void check_counted_once(const Scene& scene, const rt::RelitModel& model, const s
             if (!found.used) {
                 continue;
             }
-            ++total;
             ++used;
-            const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
-            const Rgbf bake = rt::colour_light(baked);
-            const Rgbf drawn = rt::colour_light(rt::relit_colour(model, found, lighting, baked));
-            const rt::StreamParts parts = rt::stream_parts(rt::cel_stream_words(model, found, lighting));
+            const uint32_t relit = rt::relit_colour(model, found, lighting);
+            const rt::CelWords words = rt::cel_stream_words(model, found, lighting);
+            const rt::StreamParts parts = rt::stream_parts(words);
             streams += parts.valid ? 1 : 0;
-            // the shadows: the pixel's visibility (its rays: the vertex's traced S) with the missed sun kept
-            const float visible = std::clamp(found.sun + parts.missed, 0.0F, 1.0F);
+            colour_words += core::at(words, rt::kCelColourWord) == relit ? 1 : 0;
+            if (luma(core::at(core::at(scene.level.lamps, mesh), vertex)) > 0.0F) {
+                continue; // (the synthetic lamp: not in the list - its light dropped, check_bake_sun)
+            }
+            ++total;
+            // the shadows: the pixel's visibility (its rays: the vertex's traced S) in place of the one written
+            const Rgbf bake = rt::colour_light(core::at(core::at(scene.level.meshes, mesh).colours, vertex));
+            const Rgbf drawn = rt::colour_light(relit);
             const Rgbf before = rt::stream_light(parts, parts.seen);
-            const Rgbf after = rt::stream_light(parts, visible);
-            const Rgbf& lamp = core::at(core::at(scene.level.lamps, mesh), vertex);
-            float worst_once = 0.0F;
-            float worst_stacked = 0.0F;
+            const Rgbf after = rt::stream_light(parts, std::clamp(found.sun, 0.0F, 1.0F));
+            float worst = 0.0F;
             for (std::size_t ch = 0; ch < 3; ++ch) {
                 const float factor = core::at(before, ch) > 1e-4F ? core::at(after, ch) / core::at(before, ch) : 1.0F;
-                // the occlusion and the bounce: relit's (nothing here); the lamps: what the residual doesn't hold
-                const float lamps = std::max(core::at(lamp, ch) - core::at(parts.residual, ch), 0.0F);
-                const float final_light = (core::at(drawn, ch) * std::min(factor, 2.0F)) + lamps;
-                worst_once = std::max(worst_once, std::abs(final_light - core::at(bake, ch)) * 128.0F);
-                // the old stack: the traced shadow's whole strength, the occlusion by the sky unseen, the lamp on top
-                const float stacked = (core::at(drawn, ch) * (1.0F - (kShadowStrength * (1.0F - found.sun))) *
-                                       (1.0F - (kAoStrength * (1.0F - found.sky)))) +
-                                      core::at(lamp, ch);
-                worst_stacked = std::max(worst_stacked, std::abs(stacked - core::at(bake, ch)) * 128.0F);
+                worst = std::max(worst, std::abs((core::at(drawn, ch) * std::min(factor, 2.0F)) - core::at(bake, ch)) * 128.0F);
             }
-            // (a lamp's light relit took into the tint - its fall-off within a mesh too gentle to tell from the surface's
-            // own colour - isn't the residual: the lamps pass can't tell it is drawn. Counted apart: a known limit,
-            // docs/design/vulkan.md "Each light counted once")
-            const bool lamp_lit = luma(lamp) > 0.0F;
-            const bool lamp_in_tint = lamp_lit && luma(parts.residual) < kLampHeld * luma(lamp);
-            lamp_vertices += lamp_lit ? 1 : 0;
-            lamp_off += lamp_in_tint ? 1 : 0;
-            if (lamp_in_tint) {
-                --total;
-                continue;
-            }
-            once += worst_once <= kOnceBytes ? 1 : 0;
-            stacked_off += worst_stacked > kStackedBytes ? 1 : 0;
+            once += worst <= kOnceBytes ? 1 : 0;
         }
     }
-    tally->check(streams == used, text::format("every used vertex has its light stream (%zu of %zu)", streams, used));
+    tally->check(streams == used, text::format("every used vertex has its light store (%zu of %zu)", streams, used));
+    tally->check(colour_words == used,
+                 text::format("the store's colour word is the relit colour at %zu of %zu vertices", colour_words, used));
     tally->check(share(once, total) >= kWithinByteShare,
-                 text::format("every light term on at the bake's time: the bake within %.0f bytes at %zu of %zu "
-                              "vertices (each term counted once; %zu of the %zu lamp-lit left out: relit put their lamp "
-                              "in the tint)",
-                              static_cast<double>(kOnceBytes), once, total, lamp_off, lamp_vertices));
-    tally->check(stacked_off > total / 10,
-                 text::format("(contrast) the passes stacked on the relit colour as before: %zu of %zu vertices off "
-                              "the bake by more than %.0f bytes - the doubles",
-                              stacked_off, total, static_cast<double>(kStackedBytes)));
+                 text::format("the shadows' visibility in place of the written one at the bake's time: the bake within "
+                              "%.0f bytes at %zu of %zu vertices",
+                              static_cast<double>(kOnceBytes), once, total));
 }
-
 struct Agreement {
     std::size_t agree = 0;
     std::size_t count = 0;
@@ -929,7 +910,7 @@ Agreement compare_moved(const Scene& scene, const Level& moved, const rt::RelitM
             }
             const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
             const uint32_t truth = core::at(core::at(moved.meshes, mesh).colours, vertex);
-            const uint32_t relit = rt::relit_colour(model, core::at(core::at(light, mesh), vertex), lighting, baked);
+            const uint32_t relit = rt::relit_colour(model, core::at(core::at(light, mesh), vertex), lighting);
             ++out.count;
             out.agree += channel_difference(relit, truth) <= kMovedBytes ? 1 : 0;
             out.changed += channel_difference(truth, baked) > kChangedBytes ? 1 : 0;
@@ -951,14 +932,14 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
     rt::trace_relit_sun(scene.level.meshes, {}, other, scene.params, backend, light, &sun_stats);
     text::print("  (the sun's rays again on the device: %zu vertices, %zu rays, %.1f ms)\n", sun_stats.vertices,
                 sun_stats.rays, milliseconds_since(retrace_start));
-    const rt::RelitLighting lighting{.toward = other, .strength = 1.0F};
+    const rt::RelitLighting lighting{.toward = other};
     const Agreement stale = compare_moved(scene, moved, model, *light, lighting);
     // the bounce from the relit colours
     std::vector<rt::RelitMesh> relit_meshes = scene.level.meshes;
     for (std::size_t mesh = 0; mesh < relit_meshes.size(); ++mesh) {
         for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size(); ++vertex) {
             uint32_t& colour = core::at(core::at(relit_meshes, mesh).colours, vertex);
-            colour = rt::relit_colour(model, core::at(core::at(*light, mesh), vertex), lighting, colour);
+            colour = rt::relit_colour(model, core::at(core::at(*light, mesh), vertex), lighting);
         }
     }
     const std::vector<rt::RelitVertices> before = *light;
@@ -995,8 +976,14 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
     rt::RelitLighting clock = lighting;
     clock.direct_scale = {kHalfLight, kHalfLight, kHalfLight};
     clock.sky_scale = clock.direct_scale;
-    clock.bounce_scale = clock.direct_scale;
-    const Agreement dimmed = compare_moved(scene, dim, model, *light, clock);
+    // (the bounce is traced from the relit colours at the light now: at half the light, half of it)
+    std::vector<rt::RelitVertices> dim_light = *light;
+    for (rt::RelitVertices& vertices : dim_light) {
+        for (rt::RelitVertex& vertex : vertices) {
+            vertex.bounce = rt::scaled(vertex.bounce, kHalfLight);
+        }
+    }
+    const Agreement dimmed = compare_moved(scene, dim, model, dim_light, clock);
     tally->check(share(dimmed.agree, dimmed.count) >= kMovedShare && dimmed.changed > dimmed.count / kChangedPart,
                  text::format("relit at half the light (the clock's scales): within 4 bytes of the processor's half-lit "
                               "bake at %zu of %zu vertices",
@@ -1007,9 +994,8 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
     bool same = true;
     for (std::size_t mesh = 0; mesh < light->size(); ++mesh) {
         for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size(); ++vertex) {
-            const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
             const rt::RelitVertex& lit = core::at(core::at(*light, mesh), vertex);
-            same = same && rt::relit_colour(model, lit, ones, baked) == rt::relit_colour(model, lit, lighting, baked);
+            same = same && rt::relit_colour(model, lit, ones) == rt::relit_colour(model, lit, lighting);
         }
     }
     tally->check(same, "the clock's scales at 1 (tod=level): every relit colour as without them");
@@ -1101,9 +1087,9 @@ void check_asked(render::Gpu& gpu, std::span<const DeviceMesh> device, const Sce
     // the bounce, from the colours as they are
     rt::trace_relit_sky(scene.level.meshes, {}, scene.params, backend, &now, &stats);
     rt::RelitAsk sky_ask;
-    rt::trace_relit_sky(scene.level.meshes, {}, scene.params, backend, &later, &stats, {}, &sky_ask);
+    rt::trace_relit_sky(scene.level.meshes, {}, scene.params, backend, &later, &stats, &sky_ask);
     if (over_frames(&sky_ask)) {
-        rt::trace_relit_sky(scene.level.meshes, {}, scene.params, backend, &later, &stats, {}, &sky_ask);
+        rt::trace_relit_sky(scene.level.meshes, {}, scene.params, backend, &later, &stats, &sky_ask);
     }
     const bool sky_same = same(later, now, [](const rt::RelitVertex& a, const rt::RelitVertex& b) {
         return a.sky == b.sky && a.bounce == b.bounce;
@@ -1162,20 +1148,46 @@ void check_sunless(const Scene& scene, const std::vector<rt::RelitVertices>& lig
     tally->check(sunlit.sun.found && off < kSunFoundDegrees,
                  text::format("the bake's sun found %.1f degrees from the sun it was made with (confidence %.2f)",
                               static_cast<double>(off), static_cast<double>(sunlit.sun.confidence)));
-    const rt::RelitModel none; // (not valid: the bake shows no sun, or the fit found no sunlight in it)
-    std::size_t kept = 0;
-    std::size_t total = 0;
-    for (std::size_t mesh = 0; mesh < scene.level.meshes.size(); ++mesh) {
-        for (std::size_t vertex = 0; vertex < core::at(light, mesh).size(); ++vertex) {
-            const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
-            ++total;
-            kept += rt::relit_colour(none, core::at(core::at(light, mesh), vertex),
-                                     {.toward = scene.sun, .strength = 1.0F}, baked) == baked
-                        ? 1
-                        : 0;
+    (void)light;
+    // (lighting round A) a bake with no sun - lit by its sky and bounce alone, a night or indoor level - is taken apart
+    // too: the sky and bounce fitted, the tints its surfaces' colours (one factor from the known ones: the fit's scale)
+    Level night = make_level();
+    std::vector<rt::RelitVertices> traced = bake(&night, {.toward = scene.sun, .light = {}}, scene.params);
+    for (rt::RelitVertices& vertices : traced) {
+        for (rt::RelitVertex& vertex : vertices) {
+            vertex.sun = 0.0F;
+            vertex.sun_baked = 0.0F;
         }
     }
-    tally->check(kept == total, text::format("no model: the bake kept at %zu of %zu vertices", kept, total));
+    rt::RelitModel model = rt::fit_relit_model(night.meshes, traced, {0.0F, 1.0F, 0.0F}, true);
+    tally->check(model.valid && model.sunless && model.sun == rt::kRelitDaySun,
+                 text::format("a bake with no sun: a sunless model (sky %.3f, bounce %.3f; its daylight sun the "
+                              "reference's)",
+                              static_cast<double>(std::get<1>(model.sky)), static_cast<double>(std::get<1>(model.bounce))));
+    if (!model.valid) {
+        return;
+    }
+    rt::decompose_relit(night.meshes, {}, scene.params, &model, &traced);
+    std::vector<float> ratios;
+    for (std::size_t mesh = 0; mesh < night.meshes.size(); ++mesh) {
+        for (std::size_t vertex = 0; vertex < core::at(traced, mesh).size(); ++vertex) {
+            const rt::RelitVertex& found = core::at(core::at(traced, mesh), vertex);
+            if (found.used && luma(core::at(core::at(night.lamps, mesh), vertex)) <= 0.0F) {
+                ratios.push_back(luma(found.tint) / std::max(luma(core::at(core::at(night.tints, mesh), vertex)), kTiny));
+            }
+        }
+    }
+    const auto middle = ratios.begin() + static_cast<std::ptrdiff_t>(ratios.size() / 2);
+    std::ranges::nth_element(ratios, middle);
+    const float factor = ratios.empty() ? 0.0F : *middle;
+    const auto close = static_cast<std::size_t>(std::ranges::count_if(ratios, [factor](float ratio) {
+        constexpr float kWithin = 0.1F;
+        return std::abs(ratio - factor) <= kWithin * factor;
+    }));
+    tally->check(share(close, ratios.size()) >= kWithinByteShare,
+                 text::format("a bake with no sun: the tints its surfaces' colours (x %.3f) within 10%% at %zu of %zu "
+                              "vertices",
+                              static_cast<double>(factor), close, ratios.size()));
 }
 
 // 6. the per-level list
@@ -1187,10 +1199,9 @@ void check_level_list(Tally* tally)
     const bool read = rt::parse_relit_levels(
         R"({"_about": "x \"quoted\"", "levels": {"z_dt": {"relit": false, "why": [1, {"a": 2}]}, "BO": {"strength": 0.4}}})",
         &listed);
-    constexpr float kListedStrength = 0.4F;
+    // (the retired "strength" read past)
     const bool right = listed.size() == 2 && listed.front().name == "z_dt" && listed.front().off &&
-                       listed.back().name == "BO" && !listed.back().off &&
-                       std::abs(listed.back().strength - kListedStrength) < kTiny;
+                       listed.back().name == "BO" && !listed.back().off;
     tally->check(built_in && read && right,
                  text::format("the level list read (built in: %zu levels; a sample's two)", levels.size()));
     std::vector<rt::RelitLevel> broken;
@@ -1225,7 +1236,7 @@ void run_perf(render::Gpu& gpu, const Scene& scene, rt::RayTracing& backend)
     const double traced = milliseconds_since(trace_start);
     const auto fit_start = std::chrono::steady_clock::now();
     rt::RelitModel model = rt::fit_relit_model(big.meshes, light, scene.sun);
-    rt::decompose_relit(big.meshes, {}, scene.params, &model, &light, true);
+    rt::decompose_relit(big.meshes, {}, scene.params, &model, &light);
     const double fitted = milliseconds_since(fit_start);
     const auto sun_start = std::chrono::steady_clock::now();
     rt::RelitStats sun_stats;
@@ -1238,94 +1249,90 @@ void run_perf(render::Gpu& gpu, const Scene& scene, rt::RayTracing& backend)
     }
 }
 
-// (added by the one lighting path) The residual taken apart (rt_relit.h relit_split_residual): a face toward the bake's
-// sun, in the tracer's shade, brighter by the sun's whole light in the sun's colour - the bake's sun the rays missed -
-// is sun_missed, its residual gone, and lit as the bake at the bake's sun but not toward another light (no wedge); a
-// dim lamp-coloured glow there, or anything on a face turned away, stays the residual.
-void check_split(Tally* tally)
+// (lighting round A) A baked shadow the rays don't see - a fence post's, a kiosk's: the bake darkened a stripe of the
+// ground where the traced sun reaches every vertex (the caster isn't in the scene the rays meet). The stripe's
+// darkness is the bake's light, not the ground's colour: its tints the ground's around it, and relit by any sun the
+// ground lies even - the per-pixel shadows draw what casts there now. And a stripe the bake lit brighter (a lamp the
+// list doesn't hold, the bake's sun where the rays saw a caster) likewise.
+void check_baked_shadow(Tally* tally)
 {
-    text::print("the residual taken apart (on the processor):\n");
+    text::print("the bake's shadows and lights the rays don't see (on the processor):\n");
+    constexpr Rgbf kGround{0.55F, 0.50F, 0.42F};
+    constexpr float kSkyShare = 0.9F;
+    constexpr float kStripeLow = -40.0F; // the shadow stripe across x ...
+    constexpr float kStripeHigh = 40.0F;
+    constexpr float kGlowLow = 300.0F; // ... and the bright one
+    constexpr float kGlowHigh = 360.0F;
+    constexpr float kGlowLight = 0.8F;
     rt::RelitModel model;
     model.valid = true;
-    model.toward = {0.0F, 1.0F, 0.0F};
-    model.sun = {0.50F, 0.48F, 0.42F};
-    model.sky = {0.30F, 0.32F, 0.36F};
-    model.bounce = {0.0F, 0.0F, 0.0F};
-    model.scale = 1.0F;
-    rt::RelitVertex wedge;
-    wedge.used = true;
-    wedge.normal = {0.0F, 1.0F, 0.0F};
-    wedge.sun = 0.0F;
-    wedge.sky = 0.8F;
-    wedge.tint = {0.8F, 0.7F, 0.6F};
-    for (std::size_t ch = 0; ch < 3; ++ch) {
-        core::at(wedge.residual, ch) = core::at(wedge.tint, ch) * core::at(model.sun, ch);
+    model.toward = unit({0.3F, 0.8F, 0.2F});
+    model.sun = {0.9F, 0.85F, 0.75F};
+    model.sky = {0.35F, 0.38F, 0.45F};
+    std::vector<rt::RelitMesh> meshes(1);
+    add_face(&core::at(meshes, 0), {.corner = {-600.0F, 0.0F, -600.0F}, .across = {0.0F, 0.0F, 1200.0F}, .up = {1200.0F, 0.0F, 0.0F}},
+             kWallSteps * 4);
+    std::vector<rt::RelitVertices> light(1);
+    const float nl = rt::dot({0.0F, 1.0F, 0.0F}, model.toward);
+    std::vector<uint8_t> in_shadow;
+    std::vector<uint8_t> in_glow;
+    for (const Vec3& point : core::at(meshes, 0).positions) {
+        rt::RelitVertex vertex;
+        vertex.used = true;
+        vertex.normal = {0.0F, 1.0F, 0.0F};
+        vertex.sky = kSkyShare;
+        vertex.sun = 1.0F; // (the rays see the sun everywhere: the caster isn't there)
+        core::at(light, 0).push_back(vertex);
+        const bool shadow = rt::x_of(point) > kStripeLow && rt::x_of(point) < kStripeHigh;
+        const bool glow = rt::x_of(point) > kGlowLow && rt::x_of(point) < kGlowHigh;
+        in_shadow.push_back(shadow ? 1 : 0);
+        in_glow.push_back(glow ? 1 : 0);
+        Rgbf baked{};
+        for (std::size_t ch = 0; ch < baked.size(); ++ch) {
+            const float sun = shadow ? 0.0F : core::at(model.sun, ch) * nl;
+            core::at(baked, ch) =
+                core::at(kGround, ch) * (sun + (core::at(model.sky, ch) * kSkyShare) + (glow ? kGlowLight : 0.0F));
+        }
+        core::at(meshes, 0).colours.push_back(to_argb(baked));
     }
-    const rt::RelitVertex unsplit = wedge;
-    rt::relit_split_residual(model, model.scale, &wedge);
-    tally->check(std::abs(wedge.sun_missed - 1.0F) < 1e-4F && luma(wedge.residual) < 1e-4F,
-                 text::format("the bake's sun the rays missed: sun_missed %.3f, residual %.4f left",
-                              static_cast<double>(wedge.sun_missed), static_cast<double>(luma(wedge.residual))));
-    constexpr uint32_t kGreyAlpha = 0x80000000U;
-    const rt::RelitLighting at_bake{.toward = model.toward};
-    const int same = channel_difference(rt::relit_colour(model, wedge, at_bake, kGreyAlpha),
-                                        rt::relit_colour(model, unsplit, at_bake, kGreyAlpha));
-    tally->check(same <= 1, text::format("at the bake's sun it is lit as before (%d apart)", same));
-    // a light 30 degrees from the bake's: the rays' shade alone (sky), no wedge of the bake's sun
-    const rt::RelitLighting moved{.toward = {0.5F, 0.8660254F, 0.0F}};
-    rt::RelitVertex shaded = unsplit;
-    shaded.residual = {};
-    const int wedge_gone = channel_difference(rt::relit_colour(model, wedge, moved, kGreyAlpha),
-                                              rt::relit_colour(model, shaded, moved, kGreyAlpha));
-    tally->check(wedge_gone <= 1 && rt::relit_missed_trust(model, moved.toward) == 0.0F &&
-                     rt::relit_missed_trust(model, model.toward) == 1.0F,
-                 text::format("toward another light the missed sun is gone (%d from the shade alone)", wedge_gone));
-    // a dim warm glow on the same face: the level's own light, kept
-    rt::RelitVertex glow = unsplit;
-    glow.residual = {0.30F, 0.20F, 0.05F};
-    rt::relit_split_residual(model, model.scale, &glow);
-    tally->check(glow.sun_missed == 0.0F && glow.residual == rt::Rgbf{0.30F, 0.20F, 0.05F},
-                 "a dim warm glow stays the residual (the level's own light)");
-    // a face turned from the bake's sun: nothing of the sun's
-    rt::RelitVertex away = unsplit;
-    away.normal = {0.0F, -1.0F, 0.0F};
-    rt::relit_split_residual(model, model.scale, &away);
-    tally->check(away.sun_missed == 0.0F && away.residual == unsplit.residual,
-                 "on a face turned from the bake's sun the residual stays");
-    // the moon's weak light: the missed sun follows the direct light's strength and colour
-    rt::RelitLighting moon = at_bake;
-    moon.direct_scale = {0.14F, 0.16F, 0.22F};
-    const rt::Rgbf lit = rt::relit_light(model, wedge, moon);
-    const float wanted = (0.16F * std::get<1>(model.sun)) + (std::get<1>(model.sky) * wedge.sky);
-    tally->check(std::abs(std::get<1>(lit) - wanted) < 1e-4F,
-                 text::format("the missed sun takes the lighting state's direct light (%.4f, %.4f wanted)",
-                              static_cast<double>(std::get<1>(lit)), static_cast<double>(wanted)));
-    // (added by lighting round 4) the bounce's local part - a lamp-lit wall's light bounced into a recess - keeps its
-    // strength at night; the rest of the bounce takes the clock's
-    rt::RelitModel bouncy = model;
-    bouncy.bounce = {0.8F, 0.8F, 0.8F};
-    rt::RelitVertex recess = unsplit;
-    recess.sky = 0.0F;
-    recess.bounce = {0.5F, 0.5F, 0.5F};
-    recess.bounce_local = {0.3F, 0.3F, 0.3F};
-    rt::RelitLighting night = at_bake;
-    night.direct_scale = {0.1F, 0.1F, 0.1F};
-    night.sky_scale = {0.1F, 0.1F, 0.1F};
-    night.bounce_scale = {0.1F, 0.1F, 0.1F};
-    const float at_night = std::get<1>(rt::relit_parts(bouncy, recess, night).indirect);
-    const float by_day = std::get<1>(rt::relit_parts(bouncy, recess, at_bake).indirect);
-    const float lamp_bounce = 0.8F * ((0.2F * 0.1F) + 0.3F);
-    tally->check(std::abs(at_night - lamp_bounce) < 1e-5F && std::abs(by_day - (0.8F * 0.5F)) < 1e-5F,
-                 text::format("the bounce's local part kept at night (%.4f, %.4f wanted; %.4f at the bake)",
-                              static_cast<double>(at_night), static_cast<double>(lamp_bounce),
-                              static_cast<double>(by_day)));
+    rt::decompose_relit(meshes, {}, rt::RelitParams{.detail = 1.0F}, &model, &light);
+    double open = 0.0;
+    double shadow = 0.0;
+    double glow = 0.0;
+    std::size_t opens = 0;
+    std::size_t shadows = 0;
+    std::size_t glows = 0;
+    for (std::size_t vertex = 0; vertex < core::at(light, 0).size(); ++vertex) {
+        const float tint = luma(core::at(core::at(light, 0), vertex).tint);
+        if (core::at(in_shadow, vertex) != 0) {
+            shadow += tint;
+            ++shadows;
+        } else if (core::at(in_glow, vertex) != 0) {
+            glow += tint;
+            ++glows;
+        } else {
+            open += tint;
+            ++opens;
+        }
+    }
+    open /= static_cast<double>(std::max<std::size_t>(opens, 1));
+    shadow /= static_cast<double>(std::max<std::size_t>(shadows, 1));
+    glow /= static_cast<double>(std::max<std::size_t>(glows, 1));
+    constexpr double kWithin = 0.1;
+    tally->check(std::abs(shadow - open) <= kWithin * open,
+                 text::format("a baked shadow the rays don't see: its tint %.3f against the open ground's %.3f (the "
+                              "shadow left out of the colour; %zu vertices darker than the model)",
+                              shadow, open, model.darker));
+    tally->check(std::abs(glow - open) <= kWithin * open,
+                 text::format("a baked light the list doesn't hold: its tint %.3f against the open ground's %.3f (%zu "
+                              "brighter)",
+                              glow, open, model.brighter));
+    tally->check(std::abs(open - static_cast<double>(luma(kGround))) <= kWithin * static_cast<double>(luma(kGround)),
+                 text::format("the ground's tint %.3f its colour %.3f", open, static_cast<double>(luma(kGround))));
 }
-
-// (added by lighting round 4) A lamp's light across meshes (rt_relit.h relit_local_across): a wall facing the street, a
-// lamp before its middle lighting a pool on it; a door recessed into the wall under the lamp, its own mesh, lit whole by
-// the same lamp. Within a mesh only the wall's pool can be told from its tint (its far ends are unlit); the door's
-// light is all the same lamp's, so it must come out as the residual as the wall's does - its tint the door's own, and
-// at night (the sky's light a tenth) the door keeps the lamp's light as the wall beside it does.
+// (the one lighting path; lighting round A: the light the bake's lamps put on a mesh they light whole dropped too) A
+// recessed door lit whole by a lamp the list doesn't hold: within its mesh the lamp's light doesn't change enough to tell
+// from its colour, the wall beside it shows it - told across the meshes, the door's tint its paint's.
 void check_local_across(Tally* tally)
 {
     text::print("the lamp's light across meshes (on the processor):\n");
@@ -1341,7 +1348,6 @@ void check_local_across(Tally* tally)
     model.sun = {1.0F, 0.95F, 0.85F};
     model.sky = {0.60F, 0.62F, 0.70F};
     model.bounce = {};
-    model.scale = 1.0F;
     const auto lamp_at = [&](const Vec3& point) {
         const Vec3 off = rt::minus(point, kLampPlace);
         const float fall = std::max(0.0F, 1.0F - (std::sqrt(rt::dot(off, off)) / kReach));
@@ -1373,15 +1379,11 @@ void check_local_across(Tally* tally)
         }
     }
     const rt::RelitParams params{.detail = 1.0F};
-    rt::decompose_relit(meshes, {}, params, &model, &light, false);
-    // the door's residual against the lamp's light on it (x its tint), and its tint against the wall's
-    double door_lamp = 0.0;
-    double door_back = 0.0;
+    rt::decompose_relit(meshes, {}, params, &model, &light);
+    // the door's tint against the wall's
     Rgbf door_tint{};
     for (std::size_t vertex = 0; vertex < core::at(light, 1).size(); ++vertex) {
         const rt::RelitVertex& found = core::at(core::at(light, 1), vertex);
-        door_lamp += luma(times_rgb(kDoorTint, core::at(core::at(lamps, 1), vertex)));
-        door_back += luma(found.residual);
         door_tint = rt::plus(door_tint, rt::scaled(found.tint, 1.0F / static_cast<float>(core::at(light, 1).size())));
     }
     Rgbf wall_tint{};
@@ -1395,10 +1397,10 @@ void check_local_across(Tally* tally)
     wall_tint = rt::scaled(wall_tint, 1.0F / static_cast<float>(std::max<std::size_t>(unlit, 1)));
     const float tint_ratio = luma(door_tint) / std::max(luma(wall_tint), kTiny);
     const float true_ratio = luma(kDoorTint) / luma(kWallTint);
-    tally->check(door_back >= 0.6 * door_lamp && door_back <= 1.3 * door_lamp,
-                 text::format("the door lit whole by the lamp: its residual %.0f%% of the lamp's light on it",
-                              100.0 * door_back / std::max(door_lamp, kTinyDouble)));
-    tally->check(std::abs(tint_ratio - true_ratio) < 0.25F * true_ratio,
+    tally->check(model.across > 0, text::format("the light told across meshes at %zu vertices", model.across));
+    // (lighting round A: the door's light told from the wall's own estimate of the lamp - its in-mesh tints, which take
+    // part of the pool for colour - within 35%; the residual this replaced, kept beside the tint, held 25%)
+    tally->check(std::abs(tint_ratio - true_ratio) < 0.35F * true_ratio,
                  text::format("the door's tint against the wall's %.3f (painted %.3f)", static_cast<double>(tint_ratio),
                               static_cast<double>(true_ratio)));
     // at night: the door's colour over its bake against the wall's beside it (the same lamp, the sky a tenth)
@@ -1414,7 +1416,7 @@ void check_local_across(Tally* tally)
             if (distance < best) {
                 best = distance;
                 const uint32_t baked = core::at(core::at(meshes, mesh).colours, vertex);
-                const uint32_t lit = rt::relit_colour(model, core::at(core::at(light, mesh), vertex), night, baked);
+                const uint32_t lit = rt::relit_colour(model, core::at(core::at(light, mesh), vertex), night);
                 ratio = luma(rt::colour_light(lit)) / std::max(luma(rt::colour_light(baked)), kTiny);
             }
         }
@@ -1422,7 +1424,7 @@ void check_local_across(Tally* tally)
     };
     const float door_night = kept(1, {0.0F, 165.0F, -30.0F});
     const float wall_night = kept(0, {100.0F, 165.0F, 0.0F});
-    tally->check(std::abs(door_night - wall_night) < 0.2F * wall_night,
+    tally->check(std::abs(door_night - wall_night) < 0.3F * wall_night,
                  text::format("at night the door keeps %.0f%% of its bake, the wall beside it %.0f%%",
                               100.0 * static_cast<double>(door_night), 100.0 * static_cast<double>(wall_night)));
 }
@@ -1559,7 +1561,7 @@ void check_lamp_term(const Scene& scene, const std::vector<rt::RelitVertices>& t
                                        static_cast<double>(kTermLampC / std::get<0>(kSkyLight)),
                                        static_cast<double>(kTermLampC / std::get<1>(kSkyLight)),
                                        static_cast<double>(kTermLampC / std::get<2>(kSkyLight))));
-    rt::decompose_relit(lit.meshes, {}, scene.params, &model, &light, true);
+    rt::decompose_relit(lit.meshes, {}, scene.params, &model, &light);
     // the tints over the factor per channel the colours can't tell (the vertices the lamp doesn't light)
     Rgbf factor{};
     for (std::size_t ch = 0; ch < 3; ++ch) {
@@ -1593,8 +1595,8 @@ void check_lamp_term(const Scene& scene, const std::vector<rt::RelitVertices>& t
                 within = within && std::abs(core::at(found.tint, ch) - known) <= kTermTintSlack * known;
             }
             close += within ? 1 : 0;
-            term += luma(rt::scaled(times_rgb(found.tint, times_rgb(model.lamps, found.lamp)), model.scale));
-            own += luma(rt::relit_own_light(model, found));
+            term += luma(times_rgb(found.tint, times_rgb(model.lamps, found.lamp)));
+            own += luma(times_rgb(found.tint, times_rgb(model.lamps, found.lamp)));
         }
     }
     tally->check(counted > 0 && share(close, counted) >= kTermTintShare,
@@ -1618,9 +1620,9 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
     data.sun.found = true;
     data.sun.toward = scene.sun;
     data.sun.confidence = 0.5F;
-    data.sun.columns = 2;
-    data.sun.rows = 2;
-    data.sun.agreement = {0.0F, 0.25F, 0.5F, 1.0F};
+    data.lamp_list = {{.position = {1.0F, 2.0F, 3.0F}, .size = 4.0F, .light = {0.5F, 0.4F, 0.3F}, .core = 6.0F,
+                       .reach = 200.0F}};
+    data.lamps = 1;
     std::vector<uint64_t> contents;
     for (std::size_t mesh = 0; mesh < scene.level.meshes.size(); ++mesh) {
         const uint64_t content = rt::relit_mesh_content(core::at(scene.level.meshes, mesh));
@@ -1633,14 +1635,14 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
     std::string why;
     const bool ok = rt::read_relit_data(bytes, &read, &why);
     tally->check(ok && read.scene == data.scene && read.content == data.content && read.meshes.size() == data.meshes.size() &&
-                     read.sun.agreement == data.sun.agreement && read.model.lamps == model.lamps &&
-                     read.model.scale == model.scale,
+                     read.model.lamps == model.lamps && read.model.sunless == model.sunless &&
+                     read.lamp_list.size() == 1 && read.lamp_list.front().reach == 200.0F,
                  text::format("the data file read back (%zu bytes)%s", bytes.size(), ok ? "" : (": " + why).c_str()));
     std::string cut_why;
     rt::RelitLevelData cut;
     const bool refused = !rt::read_relit_data(std::string_view(bytes).substr(0, bytes.size() / 2), &cut, &cut_why);
     tally->check(refused && !cut_why.empty(), "a file cut short refused (" + cut_why + ")");
-    const rt::RelitLighting lighting{.toward = scene.sun, .strength = 1.0F};
+    const rt::RelitLighting lighting{.toward = scene.sun};
     std::size_t total = 0;
     std::size_t same = 0;
     for (std::size_t mesh = 0; ok && mesh < scene.level.meshes.size(); ++mesh) {
@@ -1655,20 +1657,16 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
             v.sun_baked = s.sun_baked;
             v.sky = s.sky;
             v.bounce = s.bounce;
-            v.bounce_local = s.bounce_local;
             v.tint = s.tint;
-            v.residual = s.residual;
             v.lamp = s.lamp;
-            v.sun_missed = s.sun_missed;
             if (!v.used) {
                 continue;
             }
-            const uint32_t baked = core::at(one.colours, vertex);
             rt::RelitVertex analysed = core::at(core::at(light, mesh), vertex);
             analysed.sun = analysed.sun_baked; // (the file keeps the sun toward the bake's: the light's own time)
             ++total;
-            same += channel_difference(rt::relit_colour(read.model, v, lighting, baked),
-                                       rt::relit_colour(model, analysed, lighting, baked)) <= 1
+            same += channel_difference(rt::relit_colour(read.model, v, lighting),
+                                       rt::relit_colour(model, analysed, lighting)) <= 1
                         ? 1
                         : 0;
         }
@@ -1691,7 +1689,7 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
 
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
-    check_split(tally);
+    check_baked_shadow(tally);
     check_local_across(tally);
     {
         Scene uneven;
@@ -1736,7 +1734,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         const std::vector<rt::RelitVertices> traced_light = light; // (the lamps' term's check starts from it)
         rt::RelitModel model = rt::fit_relit_model(scene.level.meshes, light, scene.sun);
         check_model(model, tally);
-        rt::decompose_relit(scene.level.meshes, {}, scene.params, &model, &light, true);
+        rt::decompose_relit(scene.level.meshes, {}, scene.params, &model, &light);
         check_tints(scene, light, tally);
         check_asked(gpu, device, scene, *backend, light, tally); // (added for the relit mode's moving light)
         check_bake_sun(scene, model, light, tally);

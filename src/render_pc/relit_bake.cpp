@@ -27,6 +27,7 @@
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
+#include "engine/gfx/tod_manager.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/platform_config.h"
@@ -196,33 +197,70 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
     rt::RelitStats lamp_stats;
     const std::vector<rt::RelitLamp> lamps = level_lamps();
     data.lamps = static_cast<uint32_t>(lamps.size());
+    data.lamp_list = lamps;
     double trace_ms = 0.0;
     double fit_ms = 0.0;
-    if (!data.sun.found) {
-        data.verdict = rt::RelitVerdict::kNoSun;
-    } else {
+    double bounce_ms = 0.0;
+    {
+        // (lighting round A) every bake is taken apart: with the sun its fit found, or - a night or indoor bake, no sun
+        // in it - by its sky, bounce and lamps alone (the vertices' sun share 0; their rays traced straight up only for
+        // the shape of the trace)
+        const bool sunless = !data.sun.found;
+        const rt::Vec3 toward = sunless ? rt::Vec3{0.0F, 1.0F, 0.0F} : data.sun.toward;
         const rt::RelitParams params{.sky_rays = rt::kRelitBakeSkyRays,
                                      .sun_rays = rt::kRelitBakeSunRays,
                                      .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
                                      .detail = 1.0F,
                                      .keep_sky = false};
         const auto traced = std::chrono::steady_clock::now();
-        rt::trace_relit_light(meshes, {}, data.sun.toward, params, tracer, &light, &stats);
+        rt::trace_relit_light(meshes, {}, toward, params, tracer, &light, &stats);
+        if (sunless) {
+            for (rt::RelitVertices& traced_vertices : light) {
+                for (rt::RelitVertex& vertex : traced_vertices) {
+                    vertex.sun = 0.0F;
+                    vertex.sun_baked = 0.0F;
+                }
+            }
+        }
         rt::trace_relit_lamps(meshes, {}, lamps, tracer, &light, &lamp_stats);
         trace_ms = ms_since(traced);
         const auto fitted = std::chrono::steady_clock::now();
-        rt::RelitModel model = rt::fit_relit_model(meshes, light, data.sun.toward);
+        rt::RelitModel model = rt::fit_relit_model(meshes, light, toward, sunless);
         if (model.valid) {
             rt::fit_relit_lamps(meshes, light, &model);
         }
-        data.model_margin = luma(model.sun) / rt::kRelitMinSunLight;
+        data.model_margin = sunless ? (luma(model.sky) + luma(model.bounce)) / rt::kRelitMinSunLight
+                                    : luma(model.sun) / rt::kRelitMinSunLight;
         if (model.valid) {
-            rt::decompose_relit(meshes, {}, params, &model, &light, true);
-            data.verdict = rt::RelitVerdict::kRelit;
+            rt::decompose_relit(meshes, {}, params, &model, &light);
+            data.verdict = sunless ? rt::RelitVerdict::kRelitSunless : rt::RelitVerdict::kRelit;
         } else {
             data.verdict = rt::RelitVerdict::kNoModel;
         }
         fit_ms = ms_since(fitted);
+        if (model.valid) {
+            // the bounce of the relit light at the level's own time (the hits' colours the relit ones: tint x light),
+            // not the bake's colours - nothing of the bake's light is kept
+            const auto bounced = std::chrono::steady_clock::now();
+            const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
+            const rt::RelitLighting own{.toward = model.toward,
+                                        .direct_scale = sunless ? rt::Rgbf{} : rt::Rgbf{1.0F, 1.0F, 1.0F},
+                                        .lamps = found != nullptr && found->dark ? 1.0F : 0.0F};
+            std::vector<rt::RelitMesh> relit = meshes;
+            for (std::size_t mi = 0; mi < relit.size(); ++mi) {
+                rt::RelitMesh& mesh = core::at(relit, mi);
+                const rt::RelitVertices& lit = core::at(light, mi);
+                for (std::size_t vi = 0; vi < mesh.colours.size() && vi < lit.size(); ++vi) {
+                    core::at(mesh.colours, vi) = rt::relit_colour(model, core::at(lit, vi), own);
+                }
+            }
+            rt::RelitParams again = params;
+            again.keep_sky = true;
+            rt::RelitStats bounce_stats;
+            rt::trace_relit_sky(relit, {}, again, tracer, &light, &bounce_stats);
+            stats.rays += bounce_stats.rays;
+            bounce_ms = ms_since(bounced);
+        }
         data.model = model;
         for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
             data.meshes.push_back({.content = core::at(contents, mi), .vertices = std::move(core::at(light, mi))});
@@ -236,19 +274,24 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
     const fs::Written written = fs::write_text(path, bytes);
     // the summary (tools/game/relit_bake.ts reads these lines)
     std::size_t used = 0;
-    std::size_t missed = 0;
     std::size_t lamp_lit = 0;
-    double residual = 0.0;
     double lamp_light = 0.0;
+    std::vector<float> tints;
     for (const rt::RelitDataMesh& mesh : data.meshes) {
         for (const rt::RelitVertex& vertex : mesh.vertices) {
             used += vertex.tint != rt::Rgbf{} ? 1 : 0;
-            missed += vertex.sun_missed > 0.0F ? 1 : 0;
-            const rt::Rgbf lamp = rt::scaled(vertex.lamp, luma(data.model.lamps));
-            lamp_lit += luma(lamp) > kLeastColour ? 1 : 0;
-            lamp_light += luma(lamp);
-            residual += luma(vertex.residual);
+            if (vertex.tint != rt::Rgbf{}) {
+                tints.push_back(luma(vertex.tint));
+            }
+            lamp_lit += luma(vertex.lamp) > kLeastColour ? 1 : 0;
+            lamp_light += luma(vertex.lamp);
         }
+    }
+    float median_tint = 0.0F;
+    if (!tints.empty()) {
+        const auto middle = tints.begin() + static_cast<std::ptrdiff_t>(tints.size() / 2);
+        std::ranges::nth_element(tints, middle);
+        median_tint = *middle;
     }
     const rt::RelitModel& model = data.model;
     get_log("relit bake: level %08x (%s) - %s: %zu meshes (%zu not relightable), %zu vertices; the baked sun %s "
@@ -259,23 +302,63 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             static_cast<double>(data.sun_margin), lamps.size(), stats.rays + lamp_stats.rays, lamp_stats.rays, trace_ms,
             fit_ms);
     get_log("relit bake: the model sun %.3f %.3f %.3f sky %.3f %.3f %.3f bounce %.3f %.3f %.3f lamps %.3f %.3f %.3f "
-            "scale %.3f (margin %.2f, median error %.4f, %zu vertices fitted, %zu dead sun channels); the bake's sun "
-            "the rays missed at %zu vertices, lamp light at %zu (mean %.3f), residual mean %.4f",
+            "(%s; margin %.2f, median error %.4f, %zu vertices fitted, %zu dead sun channels); the median tint %.3f; the "
+            "lamps light %zu vertices (mean L %.3f); the bounce of the relit light %.0f ms",
             static_cast<double>(std::get<0>(model.sun)), static_cast<double>(std::get<1>(model.sun)),
             static_cast<double>(std::get<2>(model.sun)), static_cast<double>(std::get<0>(model.sky)),
             static_cast<double>(std::get<1>(model.sky)), static_cast<double>(std::get<2>(model.sky)),
             static_cast<double>(std::get<0>(model.bounce)), static_cast<double>(std::get<1>(model.bounce)),
             static_cast<double>(std::get<2>(model.bounce)), static_cast<double>(std::get<0>(model.lamps)),
             static_cast<double>(std::get<1>(model.lamps)), static_cast<double>(std::get<2>(model.lamps)),
-            static_cast<double>(model.scale), static_cast<double>(data.model_margin), static_cast<double>(model.error),
-            model.vertices, model.dead_channels, missed, lamp_lit,
-            lamp_lit > 0 ? lamp_light / static_cast<double>(lamp_lit) : 0.0,
-            used > 0 ? residual / static_cast<double>(used) : 0.0);
-    get_log("relit bake: the lamps' fit - %zu %zu %zu edge votes, their medians %.4f %.4f %.4f; the bake's sunlight taken "
-            "out of the tints at %zu vertices",
+            model.sunless ? "no sun in the bake" : "the bake's sun",
+            static_cast<double>(data.model_margin), static_cast<double>(model.error), model.vertices,
+            model.dead_channels, static_cast<double>(median_tint), lamp_lit,
+            lamp_lit > 0 ? lamp_light / static_cast<double>(lamp_lit) : 0.0, bounce_ms);
+    get_log("relit bake: the lamps' fit - %zu %zu %zu edge votes, their medians %.4f %.4f %.4f; the bake's light the model "
+            "doesn't explain dropped - brighter at %zu vertices, darker (its shadows the rays don't see) at %zu, told "
+            "across meshes at %zu",
             core::at(model.lamp_votes, 0), core::at(model.lamp_votes, 1), core::at(model.lamp_votes, 2),
             static_cast<double>(std::get<0>(model.lamp_median)), static_cast<double>(std::get<1>(model.lamp_median)),
-            static_cast<double>(std::get<2>(model.lamp_median)), model.sun_in_tint);
+            static_cast<double>(std::get<2>(model.lamp_median)), model.brighter, model.darker, model.across);
+    // (lighting round A) the level's lighting state as its own data shows it - never assumed: its time-of-day state at
+    // load, its lamps, how bright its brightest surfaces are against its median, the baked sun's confidence - the
+    // evidence the bake report's table gives for each level (tools/game/relit_bake.ts)
+    {
+        const char* state_name = "unknown";
+        if (const gfx::CtodManager* manager = gfx::tod_manager(); manager != nullptr) {
+            const uint32_t own = manager->current_state();
+            state_name = own == gfx::kMorning     ? "morning"
+                         : own == gfx::kAfternoon ? "afternoon"
+                         : own == gfx::kEvening   ? "evening"
+                         : own == gfx::kNight     ? "night"
+                                                  : "other";
+        }
+        std::vector<float> lumas;
+        for (const rt::RelitMesh& mesh : meshes) {
+            for (const uint32_t colour : mesh.colours) {
+                lumas.push_back(luma(rt::colour_light(colour)));
+            }
+        }
+        float median = 0.0F;
+        float brightest = 0.0F;
+        if (!lumas.empty()) {
+            constexpr double kBrightShare = 0.95;
+            const auto middle = lumas.begin() + static_cast<std::ptrdiff_t>(lumas.size() / 2);
+            std::ranges::nth_element(lumas, middle);
+            median = *middle;
+            const auto top = lumas.begin() + static_cast<std::ptrdiff_t>(static_cast<double>(lumas.size() - 1) * kBrightShare);
+            std::ranges::nth_element(lumas, top);
+            brightest = *top;
+        }
+        const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
+        get_log("relit bake: evidence - the level's own time of day %s; the baked sun's confidence %.2f (%s); vertex light "
+                "median %.3f, brightest 5%% from %.3f (x%.2f); %zu glow and %zu self-lit triangles, %zu lamps (%s level)",
+                state_name, static_cast<double>(data.sun.confidence), data.sun.found ? "a sun" : "no sun",
+                static_cast<double>(median), static_cast<double>(brightest),
+                median > 0.0F ? static_cast<double>(brightest / median) : 0.0,
+                found != nullptr ? found->glow_triangles : 0U, found != nullptr ? found->self_lit_triangles : 0U,
+                lamps.size(), found != nullptr && found->dark ? "a dark" : "a lit");
+    }
     get_log("relit bake: %s %s (%zu KB, content %016llx) - %.0f ms in all", written.written && written.closed ? "wrote" : "couldn't write",
             path.c_str(), bytes.size() / kKilobyte, static_cast<unsigned long long>(data.content), ms_since(start));
 }
@@ -336,9 +419,6 @@ config::IniValues overrides()
 void step(std::span<const rt_relit_world::WorldMesh> world, bool ready, uint64_t scene_key, rt::RayTracing& tracer)
 {
     State& st = state();
-    // (what the bake needs found for each world: its baked sun and its emitters)
-    rt::set_baked_sun_wanted(true);
-    rt::set_emitters_wanted(true);
     if (st.done) {
         return;
     }

@@ -49,12 +49,16 @@ struct BakeSample {
     std::array<float, 3> position{}; // a point on the triangle (its centre)
     std::array<float, 3> normal{};   // the triangle's, turned up
     float brightness = 0.0F;         // its baked vertex colours' luma (0 - 255)
+    // (lighting round A) the mesh it lies on (any number the same for one mesh's samples): sun_score also judges each
+    // sample against its own mesh's others - a level painted in many colours (Skatopia's yards, dirt and grass) hides its
+    // sun's shadows from a score over the whole level's brightness, not from one within each surface
+    uint32_t group = 0;
 };
 
 // The best direction's score at least this: the bake shows a sun (the outdoor levels tried score 0.38 - 0.54, the
 // Foundry - indoors - 0.07 - 0.24).
 inline constexpr float kMinConfidence = 0.3F;
-inline constexpr float kMinElevationDegrees = 8.0F;
+inline constexpr float kMinElevationDegrees = 2.0F; // (lighting round A: from 8 - an evening bake's low sun, Skatopia's, lay under it)
 // (added by the sun's glare) BakedSun::ground: this quantile of the samples' heights (the floor, not a rooftop).
 inline constexpr double kGroundShare = 0.1;
 // (added by the street air) BakedSun::street: this quantile of the heights of the samples facing up (normal y at least
@@ -63,7 +67,10 @@ inline constexpr double kStreetShare = 0.5;
 inline constexpr float kStreetUp = 0.85F;
 
 // The correlation between "lit" (the direction not blocked) and the samples' brightness: -1 - 1, 0 when either group is
-// under 3% of the samples (no shadow to tell by).
+// under 3% of the samples (no shadow to tell by). (lighting round A) The larger of two: over the samples' brightness as it
+// is, and over each one's brightness against its own mesh's (the logarithm, its mesh's mean taken off - a mesh of at
+// least kGroupLeast samples; the rest against the level's) - the surfaces' own colours taken out, their light left.
+inline constexpr std::size_t kGroupLeast = 8;
 [[nodiscard]] float sun_score(std::span<const BakeSample> samples, std::span<const uint8_t> lit);
 
 // Directions over the sky (toward it): `count` spread evenly from kMinElevationDegrees to straight up.
@@ -84,26 +91,6 @@ struct SunFit {
 };
 // The fit, tracing through `tracer` (probe_many against its current scene).
 [[nodiscard]] SunFit fit_baked_sun(std::span<const BakeSample> samples, RayTracing& tracer);
-
-// Where the bake agrees with the sun found (BakedSun::agreement), from samples traced toward it (`lit`: not blocked):
-// the samples' brightness split halfway between the lit ones' mean and the blocked ones'; a grid over the samples (all
-// but the outermost kAgreementOutliers on each side; along the longer side as many cells as give each about
-// kAgreementPerCell blocked samples, 4 to kAgreementSide); in each cell the share of its blocked samples that are dark,
-// pulled toward the level's own share by kAgreementPrior samples' worth (a cell with few to tell by), smoothed over its
-// neighbours (weighted by their samples), then mapped from kAgreementLow (0) to kAgreementHigh (1). Too few samples on
-// either side: no grid (1 everywhere).
-inline constexpr uint32_t kAgreementSide = 64;
-inline constexpr double kAgreementPerCell = 8.0;
-inline constexpr double kAgreementOutliers = 0.01; // the samples' share on each side left out of the grid's area
-inline constexpr float kAgreementPrior = 2.0F;
-inline constexpr float kAgreementLow = 0.35F;
-inline constexpr float kAgreementHigh = 0.65F;
-void make_agreement(std::span<const BakeSample> samples, std::span<const uint8_t> lit, BakedSun* sun);
-// The same, the samples traced toward `sun`'s direction through `tracer` (one ray each).
-void trace_agreement(std::span<const BakeSample> samples, RayTracing& tracer, BakedSun* sun);
-// The agreement at a point (its x and z) as the shadow pass reads it (bilinear between the cells' centres, clamped at
-// the edges): 1 with no grid.
-[[nodiscard]] float agreement_at(const BakedSun& sun, const Vec3& point);
 
 // --- (added by the scene's sun) which sun lights the scene: rt_scene.h scene_sun's rules ----------------------------
 // A game sun lower than this (degrees) lights with the baked sun instead: its shadows would cross the whole level.

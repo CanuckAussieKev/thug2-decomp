@@ -675,9 +675,6 @@ RtSunSettings& sun_settings_held() { return sky_state().settings; }
 
 bool frame_sun(std::array<float, 3>* toward)
 {
-    if (!rt::baked_sun_wanted()) {
-        rt::set_baked_sun_wanted(true);
-    }
     const rt::SceneSun sun = rt::scene_sun();
     if (!sun.found()) {
         return false;

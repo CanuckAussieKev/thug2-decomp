@@ -687,7 +687,7 @@ bool surface_descriptors_for(Backend& state, const GpuStateBlock& block, const S
 // (added by cel shading) The relit world's stream at binding 2, vertex for vertex from its start.
 void bind_cel_stream(Backend& state, VkCommandBuffer commands, uint8_t vertex_surface, Buffer* stream)
 {
-    if ((vertex_surface & kVertexCelStream) == 0U || stream == nullptr) {
+    if ((vertex_surface & (kVertexCelStream | kVertexRelitColour)) == 0U || stream == nullptr) {
         return;
     }
     const VkBuffer stream_buffer = cel_stream_buffer(state, stream);
@@ -1280,6 +1280,13 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     // NOT ORIGINAL - the paint trails' coat on the same draws, over the snow ([Graphics] paint_trails, vulkan_paint.h)
     PaintDescriptors paint;
     paint_key(state, block, &shaders, &paint);
+    // NOT ORIGINAL - (lighting round A) a world draw of the relit level: its colour is the relit light store's (the stream's
+    // colour word, rt_cel.h - the surface's tint x its light), read in place of the vertex colour, its alpha the game's.
+    // The game's vertex buffers are never written by relit.
+    Buffer* const relit = relit_colour_stream(state, call, shaders.vertex);
+    if (relit != nullptr) {
+        shaders.vertex.surface = static_cast<uint8_t>(shaders.vertex.surface | kVertexRelitColour);
+    }
     std::string why;
     if (!supported(shaders, &why)) {
         if (first_report(state, hash_of(shaders.vertex) ^ hash_of(shaders.fragment))) {
@@ -1367,7 +1374,8 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         }
     }
     // (added by cel shading; the snow's tint reads the same stream)
-    bind_cel_stream(state, commands, shaders.vertex.surface, cel.stream != nullptr ? cel.stream : snow.stream);
+    Buffer* const bound_stream = cel.stream != nullptr ? cel.stream : (snow.stream != nullptr ? snow.stream : relit);
+    bind_cel_stream(state, commands, shaders.vertex.surface, bound_stream);
     issue_draw(state, commands, call);
     // (added by cel shading) a lit object's outline
     const bool hull_drawn =

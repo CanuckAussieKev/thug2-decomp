@@ -116,7 +116,7 @@ void vertex_declarations(std::string& out, const VertexKey& key)
         add(out, {"layout(location = ", num(kMotionNowVarying), ") out vec4 v_motion_now;"});
         add(out, {"layout(location = ", num(kMotionBeforeVarying), ") out vec4 v_motion_before;"});
     }
-    if (key.surface != 0) {
+    if ((key.surface & ~kVertexRelitColour) != 0) { // (the relit colour alone hands nothing on)
         add(out, {kSurfaceVaryingsOut});
     }
     if ((key.surface & kVertexCelStream) != 0U) { // (added by cel shading)
@@ -124,6 +124,9 @@ void vertex_declarations(std::string& out, const VertexKey& key)
             add(out, {"layout(location = ", num(kCelLocation + word), ") in vec4 a_cel", num(word), ";"});
         }
         add(out, {kCelVaryingsOut});
+    }
+    if ((key.surface & kVertexRelitColour) != 0U) { // (NOT ORIGINAL - lighting round A: the relit light store)
+        add(out, {"layout(location = ", num(kRelitColourLocation), ") in vec4 a_relit;"});
     }
     if ((key.surface & kVertexCelHull) != 0U) {
         add(out, {kCelBlock});
@@ -248,11 +251,16 @@ std::string source_colour(ColourSource source, const char* material)
 void vertex_lighting(std::string& out, const VertexKey& key)
 {
     add(out, {"    vec4 diffuse_in = ", (key.fvf & kFvfDiffuse) != 0U ? "a_diffuse" : "vec4(1.0)", ";"});
+    if ((key.surface & kVertexRelitColour) != 0U) {
+        // (NOT ORIGINAL - lighting round A) the relit light store's colour in place of the vertex colour's (its alpha 1
+        // where the vertex has one; the game's alpha kept)
+        add(out, {"    if (a_relit.a > 0.5) {\n        diffuse_in.rgb = a_relit.rgb;\n    }"});
+    }
     add(out, {"    vec4 specular_in = ", (key.fvf & kFvfSpecular) != 0U ? "a_specular" : "vec4(0.0)", ";"});
     if (!key.lighting || fvf_pre_transformed(key.fvf)) {
         // Unlit: the vertex's colours (a missing diffuse is opaque white, a missing specular black).
         add(out, {"    v_diffuse = diffuse_in;\n    v_specular = specular_in;"});
-        if (key.surface != 0) {
+        if ((key.surface & ~kVertexRelitColour) != 0) { // (the relit colour alone hands nothing on)
             add(out, {"    v_surface_base = vec4(0.0);\n    v_surface_cd = diffuse_in;"}); // (NOT ORIGINAL - rt_pbr)
         }
         return;
@@ -280,7 +288,7 @@ void vertex_lighting(std::string& out, const VertexKey& key)
     add(out, {"    }"});
     add(out, {"    v_diffuse = clamp(vec4(ce.rgb + ca.rgb * (u.ambient.rgb + lit_ambient) + cd.rgb * lit_diffuse, cd.a), "
               "0.0, 1.0);"});
-    if (key.surface != 0) {
+    if ((key.surface & ~kVertexRelitColour) != 0) { // (the relit colour alone hands nothing on)
         // (NOT ORIGINAL - rt_pbr) the formula's parts that don't depend on the normal, for the fragment shader to finish
         add(out, {"    v_surface_base = vec4(ce.rgb + ca.rgb * (u.ambient.rgb + lit_ambient), 0.0);\n    v_surface_cd = cd;"});
     }
@@ -1541,7 +1549,7 @@ std::string vertex_shader_glsl(const VertexKey& key)
     vertex_position(out, key);
     vertex_normal(out, key);
     vertex_lighting(out, key);
-    if (key.surface != 0) {
+    if ((key.surface & ~kVertexRelitColour) != 0) { // (the relit colour alone hands nothing on)
         add(out, {"    v_surface_normal = normal;\n    v_surface_eye = eye.xyz;"}); // (NOT ORIGINAL - rt_pbr)
     }
     if ((key.surface & kVertexCelStream) != 0U) { // (added by cel shading: the stream handed on)

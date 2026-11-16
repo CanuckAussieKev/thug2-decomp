@@ -244,7 +244,6 @@ void set_sun_override(const std::array<float, 3>* toward_sun)
 namespace {
 struct BakedSunSlot {
     BakedSun sun;
-    bool wanted = false;
 };
 BakedSunSlot& baked_slot()
 {
@@ -253,14 +252,8 @@ BakedSunSlot& baked_slot()
 }
 } // namespace
 
-void set_baked_sun(BakedSun sun)
-{
-    baked_slot().sun = std::move(sun);
-    set_sun_agreement({}); // (added by the scene's sun: another fit - the other sun's grid no longer holds)
-}
+void set_baked_sun(BakedSun sun) { baked_slot().sun = std::move(sun); }
 const BakedSun& baked_sun() { return baked_slot().sun; }
-void set_baked_sun_wanted(bool wanted) { baked_slot().wanted = wanted; }
-bool baked_sun_wanted() { return baked_slot().wanted; }
 
 bool sun_override(std::array<float, 3>* toward_sun)
 {
@@ -343,7 +336,6 @@ struct SceneSunSlot {
     SunRelight relight;
     SceneSun last;     // (the serial's: what scene_sun gave last)
     std::array<SunUsed, static_cast<std::size_t>(SunUser::kCount)> used{};
-    BakedSun agreement; // the scene's sun's grid when it isn't the baked one
 };
 SceneSunSlot& scene_sun_slot()
 {
@@ -488,27 +480,6 @@ void clear_sun_used()
     SceneSunSlot& slot = scene_sun_slot();
     const std::scoped_lock lock(slot.mutex);
     slot.used = {};
-}
-
-void set_sun_agreement(BakedSun agreement)
-{
-    SceneSunSlot& slot = scene_sun_slot();
-    const std::scoped_lock lock(slot.mutex);
-    slot.agreement = std::move(agreement);
-}
-
-const BakedSun* agreement_for(const std::array<float, 3>& toward)
-{
-    const BakedSun& baked = baked_sun();
-    if (baked.scene != 0 && baked.found && dot3(baked.toward, toward) >= kSameDirection) {
-        return &baked;
-    }
-    SceneSunSlot& slot = scene_sun_slot();
-    const std::scoped_lock lock(slot.mutex);
-    if (!slot.agreement.agreement.empty() && dot3(slot.agreement.toward, toward) >= kSameDirection) {
-        return &slot.agreement;
-    }
-    return nullptr;
 }
 
 namespace {

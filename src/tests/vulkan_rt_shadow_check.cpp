@@ -49,6 +49,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/facade_relief.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/smooth_tess.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -84,7 +85,6 @@ constexpr double kNoHit = std::numeric_limits<double>::infinity();
 constexpr std::size_t kNoSurface = 0;
 constexpr int kMinShadowed = 400; // (the comparison isn't empty)
 constexpr int kMinLit = 400;
-constexpr int kMinCovered = 30;
 constexpr int kMinReliefShadow = 40; // (building relief's case: the sill's shadow isn't empty)
 constexpr uint32_t kByteMask = 0xFF;
 constexpr uint32_t kRedShift = 16;
@@ -821,8 +821,10 @@ Expected expected_at(const Case& test, const Comparison& comparison, Pixel pixel
     const View view = view_for(rect);
     Expected out;
     // (the left viewport of a split isn't passed over: its pixels stay as drawn)
-    out.strength = in_left || test.no_scene ? 0.0F : test.settings.strength;
-    const bool sky = !test.settings.covered;
+    // (lighting round A - one shadow model: a pixel without a light store loses its direct light's share, the lighting
+    // state's - set to kStrength here; no sky test)
+    out.strength = in_left || test.no_scene ? 0.0F : kStrength;
+    const bool sky = false;
     out.answer = reference(view, pixel, casters, sky);
     out.clear_cut = !out.answer.uncertain;
     out.darkest = colour_of(out.answer.surface, out.answer.shadowed, out.strength);
@@ -932,10 +934,6 @@ void compare(const Case& test, const std::vector<uint8_t>& texels, Tally* tally)
         tally->check(counts.cast_on_relief >= kMinReliefShadow,
                      text::format("building relief: %d clear-cut pixels of the wall in the sill's shadow",
                                   counts.cast_on_relief));
-    }
-    if (!test.settings.covered && !test.no_scene) {
-        tally->check(counts.covered >= kMinCovered,
-                     text::format("the sky test: %d clear-cut pixels under the floating box left lit", counts.covered));
     }
 }
 
@@ -1063,9 +1061,7 @@ std::vector<Case> cases()
     // (shadows under roofs too: the reference's plain rule - the sky test has a case of its own)
     // (the frame record's light as the scene's sun - a fixed rt_sun_source: there's no level bake here to find one in)
     render::rt::set_sun_choice({.source = render::rt::SunSource::kFixed, .fixed = floats(toward_light())});
-    const render::vulkan::RtShadowSettings hard{.on = true, .strength = kStrength, .covered = true};
-    render::vulkan::RtShadowSettings roofed = hard;
-    roofed.covered = false;
+    const render::vulkan::RtShadowSettings hard{.on = true};
     render::vulkan::RtShadowSettings objects = hard;
     objects.objects = true;
     render::vulkan::RtShadowSettings soft = hard;
@@ -1078,7 +1074,6 @@ std::vector<Case> cases()
         {.name = "soft (2 degrees, 8 rays)", .samples = 0, .settings = soft},
         {.name = "a split view: the pass on the right one", .samples = 0, .settings = hard, .split = true},
         {.name = "no scene: the pass skipped", .samples = 0, .settings = hard, .no_scene = true},
-        {.name = "the sky test: no shadow where no sky is seen", .samples = 0, .settings = roofed},
     };
 }
 
@@ -1158,7 +1153,8 @@ Opened open_device(const Options& options, SDL_Window* window)
                                          .ray_tracing = true},
                                         window);
     // (on before the device: its depth surfaces are made samplable)
-    render::vulkan::set_rt_shadow_settings({.on = true, .strength = kStrength});
+    render::vulkan::set_rt_shadow_settings({.on = true});
+    render::rt::set_direct_share(kStrength); // (the lighting state's direct share: what a full shadow takes away)
     render::GpuContext& context = render::vulkan::gpu_context();
     if (!context.create_instance()) {
         text::print("the device could not be opened\n");
@@ -1237,7 +1233,7 @@ int run(const Options& options, SDL_Window* window)
         run_case(render::vulkan::gpu(),
                  {.name = "building relief: a sill's shadow on its wall",
                   .samples = 0,
-                  .settings = {.on = true, .strength = kStrength, .covered = true}},
+                  .settings = {.on = true}},
                  scene, &tally);
     }
     render::vulkan::rt_shadows_set_scene(VK_NULL_HANDLE);

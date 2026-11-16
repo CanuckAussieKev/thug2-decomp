@@ -2143,9 +2143,6 @@ float from_half(uint16_t half)
 void read_light()
 {
     FogState& own = fog_state();
-    if (!rt::baked_sun_wanted()) {
-        rt::set_baked_sun_wanted(true);
-    }
     own.light = rt::medium_light();
     own.have_sun = own.light.have;
     own.sun_tint = {1.0F, 1.0F, 1.0F};

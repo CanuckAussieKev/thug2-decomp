@@ -779,18 +779,6 @@ std::string console_command(const std::string& arguments)
     if (verb == "dump") {
         return write_dump(file);
     }
-    if (verb == "agree") {
-        // (the baked sun's agreement at x z: rt_sun.h)
-        const float x = std::strtof(file.c_str(), nullptr);
-        float z = 0.0F;
-        in >> z;
-        const rt::BakedSun& sun = rt::baked_sun();
-        const std::string text = "agreement at " + std::to_string(x) + " " + std::to_string(z) + ": " +
-                                 std::to_string(rt::agreement_at(sun, {x, 0.0F, z})) + " (fit " + std::to_string(sun.scene) +
-                                 ", " + std::to_string(sun.columns) + "x" + std::to_string(sun.rows) + ")";
-        get_log("rt: %s", text.c_str());
-        return text;
-    }
     if (verb == "sun") {
         return sun_command(file, in);
     }
@@ -822,20 +810,12 @@ std::string console_command(const std::string& arguments)
         return rt::screen_probe(across, down);
     }
     if (verb == "relit") {
-        // (the relit mode, engine/gfx/rt_relit.h: on / off, its strength, the residual; no word: its state)
+        // (the relit mode, engine/gfx/rt_relit.h: on / off; no word: its state)
         rt::RelitSettings settings = rt::relit_settings();
         if (file == "on" || file == "off") {
             settings.on = file == "on";
-        } else if (file == "strength") {
-            float strength = settings.strength;
-            in >> strength;
-            settings.strength = strength;
-        } else if (file == "residual") {
-            int residual = settings.residual ? 1 : 0;
-            in >> residual;
-            settings.residual = residual != 0;
         } else if (!file.empty()) {
-            return "rt relit [on | off | strength <0-1> | residual <0|1>]";
+            return "rt relit [on | off]";
         }
         if (!file.empty()) {
             rt::set_relit_settings(settings);
@@ -888,7 +868,7 @@ std::string console_command(const std::string& arguments)
         get_log("%s", text.c_str());
         return text;
     }
-    return "rt summary | rt dump [file] | rt probe <across> <down> | rt census | rt set <key> <value> | rt sun [<x> <y> <z> | off] | rt agree <x> <z> | rt relit [on | off | strength <v> | residual <0|1>] | rt tod [<tod> | cycle <on | off>]";
+    return "rt summary | rt dump [file] | rt probe <across> <down> | rt census | rt set <key> <value> | rt sun [<x> <y> <z> | off] | rt relit [on | off] | rt tod [<tod> | cycle <on | off>]";
 }
 
 std::string record_json(const rt::FrameRecord& record)

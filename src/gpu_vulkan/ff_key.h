@@ -164,6 +164,9 @@ constexpr uint8_t kVertexCelHull = 0x04;   // the position pushed out along the 
 // (NOT ORIGINAL - [Graphics] rt_water_geometry) the position moved by the water's swell, the move handed on
 // (FragmentKey::water kWaterMoving - water_shader.h)
 constexpr uint8_t kVertexWaterMoving = 0x08;
+// (NOT ORIGINAL - lighting round A, engine/gfx/rt_cel.h) the relit world's light store's colour word read at binding 2
+// (kRelitColourLocation) in place of the vertex colour's rgb - where its alpha says the vertex has one
+constexpr uint8_t kVertexRelitColour = 0x10;
 // (NOT ORIGINAL - [Graphics] rt_water, gpu_vulkan/vulkan_water.h) FragmentKey::water: 1 - the program's colour shaded
 // as water (waves, reflection, refraction, depth colour, foam, the sun's glitter) where the surface faces up - on the
 // same programs as the per-pixel lighting, independent of its bits (a key may have water alone). The vertex half's

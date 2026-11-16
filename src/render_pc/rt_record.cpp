@@ -83,14 +83,11 @@ constexpr uint32_t kColourBytes = 4;
 constexpr float kLumaRed = 0.299F;              // a colour's brightness (Rec. 601 luma)
 constexpr float kLumaGreen = 0.587F;
 constexpr float kLumaBlue = 0.114F;
-constexpr float kHalfAgreed = 0.5F;             // (the log's count of cells where the bake disagrees)
 constexpr float kThirdOf = 1.0F / 3.0F;                 // (bake_samples: a triangle's centre)
 constexpr uint64_t kSampleHashBasis = 0xCBF29CE484222325ULL; // (bake_samples: FNV-1a's, over the centre's units)
 constexpr uint64_t kSampleHashPrime = 0x100000001B3ULL;
 constexpr unsigned kSampleHashFold = 29U;
 constexpr std::size_t kFitTriangles = 40000;       // triangles looked at for the fit (the upward ones sampled)
-constexpr std::size_t kAgreementTriangles = 400000; // ... and for where the bake agrees (one ray a point) ...
-constexpr uint32_t kAgreementPoints = 6;            // ... points in each
 constexpr float kMinUp = 0.7F;                  // the samples' triangles face up (or down) at least this much
 constexpr uint64_t kFnvBasis = 14695981039346656037ULL;
 constexpr uint64_t kFnvPrime = 1099511628211ULL;
@@ -123,8 +120,6 @@ struct State {
     uint64_t settled_key = 0;
     uint64_t fitted_key = 0;
     uint64_t fits = 0;
-    uint64_t agreed_lighting = 0; // (added by the scene's sun) the relit lighting the other sun's grid was made from
-    uint64_t agreements = 0;
     // (the offline relit data) the baked sun the level's data holds (rt_relit_world::new_world), published as the fit
     rt::BakedSun level_sun;
     uint64_t emitters_key = 0; // (added by the night lighting) the loaded scenes' key the emitters were found for
@@ -1040,7 +1035,9 @@ std::vector<rt::BakeSample> bake_samples(SampleCount count)
     while (step * std::max<std::size_t>(1, count.triangles) < total) {
         step <<= 1U;
     }
+    uint32_t group = 0; // (lighting round A: each sample's mesh - rt_sun.h BakeSample::group)
     for (const MeshTriangles& mesh : meshes) {
+        ++group;
         const uint32_t triangles = mesh.count();
         for (uint32_t index = 0; index < triangles; ++index) {
             std::array<uint32_t, 3> corner{};
@@ -1066,6 +1063,7 @@ std::vector<rt::BakeSample> bake_samples(SampleCount count)
             }
             for (uint32_t k = 0; k < count.points; ++k) {
                 samples.push_back(point_of(mesh, corner, up, weights_of(k)));
+                samples.back().group = group;
             }
         }
     }
@@ -1080,21 +1078,12 @@ std::array<double, 2> heading_elevation(const rt::Vec3& toward)
             std::asin(std::clamp(static_cast<double>(rt::y_of(toward)), -1.0, 1.0)) * kDegrees};
 }
 
-// The fit made and logged: the sun, and with one found where the bake agrees.
+// The fit made and logged: the sun.
 void make_fit(rt::RayTracing& rt)
 {
     const auto start = std::chrono::steady_clock::now();
     rt::SunFit fit = rt::fit_baked_sun(bake_samples({.triangles = kFitTriangles, .points = 1}), rt);
     fit.sun.scene = ++state().fits;
-    if (fit.sun.found) {
-        const std::vector<rt::BakeSample> dense =
-            bake_samples({.triangles = kAgreementTriangles, .points = kAgreementPoints});
-        rt::trace_agreement(dense, rt, &fit.sun);
-        const auto disagree = std::ranges::count_if(fit.sun.agreement, [](float value) { return value < kHalfAgreed; });
-        get_log("rt: the baked sun's agreement: %zu samples, %ux%u cells of %.0f, %td of them where the bake lights "
-                "what the sun can't reach (no traced shadow there)",
-                dense.size(), fit.sun.columns, fit.sun.rows, static_cast<double>(fit.sun.cell), disagree);
-    }
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     const auto [heading, elevation] = heading_elevation(fit.sun.toward);
     get_log("rt: the baked sun: %s toward %.3f %.3f %.3f (heading %.0f, elevation %.0f), confidence %.2f - %zu samples, "
@@ -1143,7 +1132,8 @@ void new_world_work(rt::RayTracing& rt)
         return;
     }
     const bool settle = st.scene_key != st.settled_key;
-    const bool fit = rt::baked_sun_wanted() && st.scene_key != st.fitted_key;
+    // (lighting round A: the baked sun is always the level's data's - published in every new world)
+    const bool fit = st.scene_key != st.fitted_key;
     if (settle && st.scene_key != st.fitted_key && rt::baked_sun().scene != 0) {
         rt::set_baked_sun({}); // (another world: the old fit no longer holds)
     }
@@ -1192,55 +1182,9 @@ void relit_work(rt::RayTracing& rt)
     }
     const std::vector<rt_relit_world::WorldMesh> world = world_meshes();
     const bool ready = !st.world.empty() && st.settled_key == st.scene_key &&
-                       (!rt::baked_sun_wanted() || st.fitted_key == st.scene_key);
+                       st.fitted_key == st.scene_key;
     rt_relit_world::update(world, ready, rt);
     st.relit_idle = !rt::relit_settings().on;
-}
-
-// (added by the scene's sun) The shadows' agreement grid for a scene sun that isn't the baked one (rt_sun_source=game,
-// x,y,z or the console's): once the relit mode has written the colours for that sun (rt_relit_world::settled), the same
-// samples as the bake's grid, their colours the relit ones, traced toward it - the relit colours hold the bake's
-// shadows turned to that sun, and lamps, glows and the artists' own light (the relit residual) keep the traced shadow
-// off where they kept the bake bright. Made once a lighting; until then the traced shadow everywhere.
-// Turned off (kOtherSunAgreement false): the relit colours hold a new sun too weakly (Boston's fit: sun 0.23 against sky
-// 0.66, sampled per vertex), so hundreds of cells read "lit anyway" and cut square, hard-edged lit holes into real
-// shadows. A sun that isn't the baked one now gets the traced shadow everywhere (the time of day moves it all the time).
-constexpr bool kOtherSunAgreement = false;
-void other_sun_work(rt::RayTracing& rt)
-{
-    if (!kOtherSunAgreement) {
-        return;
-    }
-    State& st = state();
-    const rt::SceneSun sun = rt::scene_sun();
-    if (!sun.found() || sun.origin == rt::SunOrigin::kLevel || rt::agreement_for(sun.toward) != nullptr) {
-        return;
-    }
-    rt::Vec3 relit_sun{};
-    uint64_t lighting = 0;
-    constexpr float kSameSun = 0.99999F;
-    if (!rt_relit_world::settled(&relit_sun, &lighting) || rt::dot(relit_sun, sun.toward) < kSameSun ||
-        lighting == st.agreed_lighting) {
-        return;
-    }
-    st.agreed_lighting = lighting;
-    const auto start = std::chrono::steady_clock::now();
-    constexpr uint64_t kOtherSun = uint64_t{1} << 63U; // (its numbers apart from the fits')
-    rt::BakedSun grid;
-    grid.scene = kOtherSun | ++st.agreements;
-    grid.found = true;
-    grid.toward = sun.toward;
-    const std::vector<rt::BakeSample> dense =
-        bake_samples({.triangles = kAgreementTriangles, .points = kAgreementPoints, .as_drawn = true});
-    rt::trace_agreement(dense, rt, &grid);
-    const auto disagree = std::ranges::count_if(grid.agreement, [](float value) { return value < kHalfAgreed; });
-    const auto [heading, elevation] = heading_elevation(sun.toward);
-    get_log("rt: the agreement for %s (heading %.0f, elevation %.0f) from the relit colours: %zu samples, %ux%u cells "
-            "of %.0f, %td of them lit anyway (no traced shadow there) - %.0f ms",
-            rt::sun_origin_name(sun.origin), heading, elevation, dense.size(), grid.columns, grid.rows,
-            static_cast<double>(grid.cell), disagree,
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
-    rt::set_sun_agreement(std::move(grid));
 }
 
 // (added by the night lighting - engine/gfx/rt_lights.h) The world's emissive surfaces turned into lights, once a world
@@ -1304,7 +1248,7 @@ float median_luma()
 void emitter_work()
 {
     State& st = state();
-    if (!rt::emitters_wanted() || st.world.empty() || st.settled_key != st.scene_key || st.emitters_key == st.scene_key) {
+    if (st.world.empty() || st.settled_key != st.scene_key || st.emitters_key == st.scene_key) {
         return;
     }
     st.emitters_key = st.scene_key;
@@ -1659,7 +1603,6 @@ void camera_chosen(int viewport)
         rt->begin_frame(rt::frame_record());
         new_world_work(*rt); // (added by the first frame: a new world's structures and sun, before it is drawn)
         relit_work(*rt);
-        other_sun_work(*rt); // (added by the scene's sun)
         emitter_work();      // (added by the night lighting)
         if (relit_bake::requested()) { // (the relit bake: the level's data made, then the game closed - relit_bake.h)
             State& st = state();

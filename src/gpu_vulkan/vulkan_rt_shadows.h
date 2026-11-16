@@ -8,25 +8,19 @@
 // NOT ORIGINAL - ray-traced sun shadows (docs/design/vulkan.md, R4; [Graphics] rt_shadows - gpu_vulkan.h's
 // RtShadowSettings): after a viewport's opaque world is drawn (rt::opaque_view_drawn), one full-screen pass over the
 // colour target reads the depth target, rebuilds each pixel's world position from the view's camera, traces a ray query
-// toward the frame's directional light through the scene the acceleration structures hold, and darkens the colour where
-// the ray is blocked:
-//     colour *= 1 - strength * occlusion
-// It modulates what the original drew (its baked vertex lighting, its own shadow textures): it adds the shadows the
-// world casts in the sun and takes nothing else away.
+// toward the scene's sun through the scene the acceleration structures hold - one shadow model (lighting round A,
+// docs/design/vulkan.md "Each light counted once"): the sun's visibility at every lit pixel (its world casters', the
+// objects' and the clouds' share) takes the place of the light the pixel was drawn with -
+//   - a relit world pixel (its light store, rt_cel.h, read at its triangle): its colour was written with the vertex's
+//     own visibility; the pass scales it by its light with the pixel's visibility over its light with the vertex's
+//     (the lamps, the sky and the bounce untouched) - lighter or darker;
+//   - every other lit pixel (the skater, the objects, a world vertex the game animates): it loses its direct light's
+//     share (rt_light_field.h direct_share - the lighting state's) where the sun doesn't reach it.
+// No darkening over a bake: the passes need the level relit (the settings model), and a relit level holds none of the
+// bake's light. (Retired with the old model: the shadow's strength, the bake's agreement grid and the sky test.)
 //
-// - The sun: the scene's (engine/gfx/rt_scene.h scene_sun, [Graphics] rt_sun_source - the one every effect lights by):
-//   the game's sun where the level is relit by it, else the one the level's lighting was baked with (engine/gfx/rt_sun.h
-//   - found from the world's vertex colours in the level's first frame; the game's own directional lights are the same
-//   two in every level and light the skater, not the level), or a fixed direction; the console's `rt sun` overrides it.
-//   A level whose bake shows no sun (indoors) gets no pass at all; nor before the fit is made (a new world's first
-//   frame, before it is drawn).
-// - Where the bake disagrees (rt_shadow_match_bake): occlusion times the agreement grid for the sun traced toward at the
-//   pixel's x, z (binding 2; rt_sun.h make_agreement; rt_scene.h agreement_for - the baked sun's, or the one made from
-//   the relit colours for another sun) - none where the level is bright although the sun is blocked.
-// - The sky test (rt_shadow_covered=0, the default): a blocked pixel also traces rt_shadow_sky_rays rays up (straight up,
-//   the rest slanted 31 degrees round it); none reaching the sky - a roof over it - leaves it as the level lit it, each
-//   one that does lets in a share of the shadow (all of it from half the rays on).
-//
+// - The sun: the scene's (engine/gfx/rt_scene.h scene_sun - the clock's while it runs, else the level's own from its
+//   relit data); the console's `rt sun` overrides it. None (a bake with no sun at its own time): no pass.
 // - Multisampled targets: each sample traced on its own (the pass runs per sample, reading that sample's depth) when the
 //   device has sample-rate shading, else per pixel from sample 0's depth (written to every sample).
 // - The normal for the ray's offset comes from the depth: the neighbour on the nearer side along x and along y (not the

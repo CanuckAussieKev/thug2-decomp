@@ -109,7 +109,7 @@ enum class Cap : uint8_t {
     // (the offline relit data - engine/gfx/relit_data.h; true while no level is known)
     kLevelLightData,    // the level's relit data is built (tools/game/relit_bake.ts)
     kLevelLightCurrent, // ... and made from the level's meshes as they are now
-    kLevelSunInBake,    // ... and the level's bake has sunlight to take apart (an indoor level's has none)
+    kLevelTakenApart,   // ... and the relit bake could take the level's bake apart (every bake with lit vertices: sun or none)
     // (added by the time of day's clock) the game now is a network session (LevelFacts::network; false while none)
     kNetworkGame,
 };
@@ -255,7 +255,7 @@ int rtx_series(const std::string& device_name);
 
 // (the offline relit data) What the level now loaded is lit from: its relit data, none built, data made from other
 // meshes (another overlay, building relief, smoothed curves or the water grid changed since), or data saying its bake shows no sunlight.
-enum class LevelLight : uint8_t { kUnknown, kBuilt, kMissing, kStale, kNoSun };
+enum class LevelLight : uint8_t { kUnknown, kBuilt, kMissing, kStale, kNoModel };
 
 struct LevelFacts {
     bool known = false;

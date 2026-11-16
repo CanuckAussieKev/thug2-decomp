@@ -207,15 +207,17 @@ void read_level_data(Clock& own)
     if (const fs::OwnedStream stream = fs::open_stream(path.c_str(), "rb")) {
         got = fs::disk().stream_read(stream.get(), bytes.data(), 1, bytes.size());
     }
-    own.data.found = got > 0 && rt::read_relit_head(std::string_view(bytes.data(), got), &own.data.head) &&
-                     own.data.head.scene == own.level;
+    const bool read = got > 0 && rt::read_relit_head(std::string_view(bytes.data(), got), &own.data.head);
+    const bool stale = read && own.data.head.stale; // (lighting round A: an older relit bake's file - out of date)
+    own.data.found = read && !stale && own.data.head.scene == own.level;
     if (const rt::RelitLevel* entry = rt::relit_level_entry(own.level); entry != nullptr && entry->north_set) {
         own.data.north_set = true;
         own.data.north_heading = static_cast<double>(entry->north_heading);
     }
-    config::LevelLight light = config::LevelLight::kMissing;
+    config::LevelLight light = stale ? config::LevelLight::kStale : config::LevelLight::kMissing;
     if (own.data.found) {
-        light = own.data.head.verdict == rt::RelitVerdict::kRelit ? config::LevelLight::kBuilt : config::LevelLight::kNoSun;
+        light = rt::relit_verdict_relights(own.data.head.verdict) ? config::LevelLight::kBuilt
+                                                                  : config::LevelLight::kNoModel;
     }
     if (config::set_level_light(light)) {
         graphics_options::reload_live("rt_relit"); // (the time of day's settings with it: they read the level's facts)

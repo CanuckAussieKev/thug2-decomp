@@ -87,7 +87,7 @@ struct LightRecord {
 };
 layout(set = 0, binding = 3, std140) uniform Lights {
     uvec4 count;  // x lights, y traced a pixel, z the shadow rays' mask, w the camera ray's mask
-    vec4 params;  // x strength, y the rays' offset scale, z, w the knee and the most of the lights' sum (limited_light)
+    vec4 params;  // x strength, y the rays' offset scale, z, w 0
     LightRecord lights[256];
 } u_lights;
 layout(push_constant) uniform Pass {
@@ -153,7 +153,7 @@ vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object,
 {
     object = false;
     relit = false;
-    world = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0);
+    world = NO_WORLD_LIGHT;
     vec3 eye = pc.camera.xyz;
     vec3 view = (here - eye) / max(distance, 1e-6);
     rayQueryEXT query;
@@ -317,23 +317,13 @@ void main()
         total += weight[k];
     }
     lit += rest * (total > 0.0 ? through / total : 0.0);
-    // (added for the washed-out streets) the sum held under params.w (rt_lights.h limited_light): many lamps over one
-    // spot light it up to its own colour, they don't burn it white
-    float luminance = dot(lit, vec3(0.299, 0.587, 0.114));
-    float knee = u_lights.params.z;
-    if (luminance > knee) {
-        float over = luminance - knee;
-        float room = u_lights.params.w - knee;
-        lit *= (knee + room * over / (room + over)) / luminance;
-    }
-    // (added by the light energy audit - docs/design/vulkan.md "Each light counted once") On the relit world the level's
-    // own lights are in its colour already (relit's residual: the bake's lamps, unshadowed); the lamps traced here are
-    // the same lights - the larger of the two is drawn, never their sum.
+    // (lighting round A - the lamps lit by their data alone: no cap on their sum, nothing taken off it) The lamps' light
+    // on the surface: its albedo - on the relit world the texture's times the light store's tint (its colour, none of
+    // the bake's light in it); the relit store lights no lamps per vertex while this pass lights them (rt_lights.h
+    // lamps_drawn: one owner) - and the HDR tone map is what compresses the result.
     vec3 lamps = u_lights.params.x * lit;
-    if (relit) {
-        lamps = max(lamps - world.residual, vec3(0.0));
-    }
-    vec3 added = albedo.rgb * lamps;
+    vec3 surface = relit ? albedo.rgb * world.tint : albedo.rgb;
+    vec3 added = surface * lamps;
     if (any(isnan(added)) || any(isinf(added))) {
         discard;
     }
@@ -840,7 +830,6 @@ void set_rt_light_settings(const RtLightSettings& settings)
         const std::scoped_lock lock(backend().mutex);
         lights_state().settings = kept;
     }
-    rt::set_emitters_wanted(kept.on && kept.emissive > 0.0F);
     if (kept.on) {
         rt::add_view_listener(&listener());
     } else {
@@ -898,7 +887,7 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     // (added by the time of day - engine/gfx/rt_daylight.h) the lamps on as the clock says: off by day, on at night;
     // without the clock rt_lights=auto lights only a dark level
     const rt::DayLight day = rt::day_light();
-    const float lamps = day.on ? day.lamps : (!own.settings.automatic || level->dark ? 1.0F : 0.0F);
+    const float lamps = own.settings.automatic ? rt::lamps_on(day, level->dark) : (day.on ? day.lamps : 1.0F);
     // (the light energy audit) the objects' share of the level's own lights follows: this pass owns them while it lights
     rt::set_lamps_drawn(own.settings.strength > 0.0F ? lamps : 0.0F);
     if (!(lamps > 0.0F)) {
@@ -966,7 +955,7 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     auto block = std::make_unique<LightsBlock>();
     block->count = {static_cast<uint32_t>(own.last_view.size()), own.settings.shadowed, kLightsShadowMask,
                     kLightsSurfaceMask};
-    block->params = {own.settings.strength * lamps, kOffsetScale, rt::kLightKnee, rt::kLightMost};
+    block->params = {own.settings.strength * lamps, kOffsetScale, 0.0F, 0.0F};
     for (std::size_t i = 0; i < own.last_view.size(); ++i) {
         const rt::Emitter& light = core::at(own.last_view, i);
         LightRecord& record = core::at(block->lights, i);

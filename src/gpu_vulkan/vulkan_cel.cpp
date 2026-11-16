@@ -634,9 +634,6 @@ void set_cel_settings(const rt::CelSettings& settings)
     if (settings.on) {
         rt::add_view_listener(&listener());
         rt::set_depth_sampling_wanted(true); // (the outlines read the depth)
-        if (!rt::baked_sun_wanted()) {
-            rt::set_baked_sun_wanted(true); // (the sun the draws trace toward)
-        }
         const rt::CelSettings kept = rt::cel_settings();
         get_log("rt_cel: cel shading on (%u bands, shadow colour %.2f %.2f %.2f, rim %.2f, outlines %.2f, flatten %.2f)",
                 kept.bands, static_cast<double>(std::get<0>(kept.shadow_colour)),
@@ -674,6 +671,20 @@ Buffer* relit_stream_of(Backend& state, const DrawCall& call)
         return source.stream;
     }
     return nullptr;
+}
+
+Buffer* relit_colour_stream(Backend& state, const DrawCall& call, const VertexKey& vertex)
+{
+    if (vertex.lighting || fvf_pre_transformed(vertex.fvf) || (vertex.fvf & kFvfDiffuse) == 0U || vertex.points) {
+        return nullptr;
+    }
+    // (the colour word's attribute location - kRelitColourLocation - within the device's)
+    static const bool fits = [&state]() {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(state.context.physical_device(), &properties);
+        return properties.limits.maxVertexInputAttributes > kRelitColourLocation;
+    }();
+    return fits ? relit_stream_of(state, call) : nullptr;
 }
 
 bool cel_owns_shadows(const Backend& state)

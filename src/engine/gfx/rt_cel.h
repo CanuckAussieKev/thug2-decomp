@@ -87,22 +87,28 @@ void set_cel_world(const CelWorld& world);
 // (added by the light energy audit: the stream is the relit world's light as written - its parts - and the ray-traced
 // passes read it too, through the geometry table: gpu_vulkan/vulkan_rt_scene.h hit_world_light. Each part of a relit
 // world pixel's light then has one owner - docs/design/vulkan.md "One lighting path", "Each light counted once".)
-// Five D3DCOLOR words a vertex (A8R8G8B8 - the shader reads them as the vertex colour, rgba 0 - 1):
-//   0: the sky's and bounce's light (rgb, light x 128 - the bake's scale), N.L toward the sun (a, x 255);
-//   1: the tint x the level's scale (rgb, x 128, at most 2), the vertex's share of the sun's rays (a, x 255) - with the
-//      bake's sun the tracer missed (the visibility the colour was written with, at most 1);
-//   2: the lamps' residual (rgb, x 128), 255 in a: the vertex has the stream (0: the shader bands the vertex colour);
+// (lighting round A) It is the relit world's light store: the game's vertex buffers are never written - every world
+// draw from a relit mesh reads word 5 in place of its vertex colour (its alpha the game's), and the ray-traced passes
+// replace their own part of it per pixel.
+// Six D3DCOLOR words a vertex (A8R8G8B8 - the shader reads them as the vertex colour, rgba 0 - 1):
+//   0: the sky's and bounce's light (rgb, light x 128), N.L toward the sun (a, x 255);
+//   1: the tint - the surface's colour (rgb, x 128, at most 2), the vertex's share of the sun's rays (a, x 255): the
+//      visibility its colour was written with;
+//   2: the lamps' light on it (tint x L x the lamps on - rgb, x 128), 255 in a: the vertex has the stream (0: an
+//      animated vertex - the draw keeps the game's colour, the cel shader bands it);
 //   3: the direct light's colour and strength the colour was written with (rgb, x 128: the model's sun x the lighting
-//      state's), the missed sun's share of the visibility in word 1 (a, x 255: the bake's sun the rays didn't see - a
-//      per-pixel ray doesn't see it either);
-//   4: the sky's part of word 0's light (rgb, x 128 - the rest is the bounce), the vertex's sky share K (a, x 255).
-// The cel draws read words 0 - 2 (kCelStreamAttributes).
-inline constexpr uint32_t kCelStreamWords = 5;
+//      state's), 0 in a;
+//   4: the sky's part of word 0's light (rgb, x 128 - the rest is the bounce), the vertex's sky share K (a, x 255);
+//   5: the colour the world is drawn with - tint x (word 0 + word 3 x N.L x word 1's a) + word 2 (rgb, x 128; held at
+//      2), 255 in a (rt_relit.h relit_colour; kRelitColourLocation).
+// The cel draws read words 0 - 2 (kCelStreamAttributes); every relit draw word 5.
+inline constexpr uint32_t kCelStreamWords = 6;
+inline constexpr uint32_t kCelColourWord = 5;
 inline constexpr uint32_t kCelStreamAttributes = 3;
 inline constexpr uint32_t kCelStreamBytes = kCelStreamWords * 4;
 using CelWords = std::array<uint32_t, kCelStreamWords>;
 [[nodiscard]] CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
-inline constexpr CelWords kCelNoStream{0U, 0U, 0U, 0U, 0U};
+inline constexpr CelWords kCelNoStream{0U, 0U, 0U, 0U, 0U, 0U};
 // (added by the light energy audit) A vertex's stream read back (light units: 1 is a colour byte's 128) - the processor's
 // twin of gpu_vulkan/vulkan_rt_scene.h hit_world_light at a vertex; `valid` false for kCelNoStream (word 2's alpha 0).
 struct StreamParts {
@@ -110,16 +116,16 @@ struct StreamParts {
     float n_dot_l = 0.0F;
     std::array<float, 3> tint{};
     float seen = 0.0F;
-    std::array<float, 3> residual{};
+    std::array<float, 3> lamps{};
     std::array<float, 3> sun{};
-    float missed = 0.0F;
     std::array<float, 3> sky{};
     float sky_share = 0.0F;
+    std::array<float, 3> colour{};
     bool valid = false;
 };
 [[nodiscard]] StreamParts stream_parts(const CelWords& words);
 // The light its colour shows with the sun's visibility `seen` (the twin of the GLSL world_light_with, the sky as it is):
-// tint x (ambient + sun x N.L x seen) + residual.
+// tint x (ambient + sun x N.L x seen) + lamps.
 [[nodiscard]] std::array<float, 3> stream_light(const StreamParts& parts, float seen);
 
 // --- the bands (the shaders' formulas on the processor) ---------------------------------------------------------------

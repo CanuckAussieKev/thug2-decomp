@@ -336,9 +336,6 @@ void set_rt_pbr_settings(const RtPbrSettings& settings)
         state.sun = {};
     }
     surface::set_surface_maps(settings.on ? &registry() : nullptr);
-    if (settings.on && !rt::baked_sun_wanted()) {
-        rt::set_baked_sun_wanted(true); // (the bake's sun: fitted when ray tracing is on)
-    }
     if (settings.on) {
         get_log("rt_pbr: per-pixel lighting on (specular %.2f, normals %.2f%s%s%s)", static_cast<double>(settings.specular),
                 static_cast<double>(settings.normal_strength), settings.objects ? ", objects too" : "",

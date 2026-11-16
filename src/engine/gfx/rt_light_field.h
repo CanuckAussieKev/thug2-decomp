@@ -125,6 +125,13 @@ private:
 
 // What the frame's light is where things are: the field made for the lighting now (null: none - every ratio 1).
 void set_light_field(std::shared_ptr<const LightField> field);
+// (lighting round A - one shadow model) The direct light's share of the light on the level's open, upward faces now (0 -
+// 1; render_pc/rt_relit_world sets it with the field: the sum of their direct light over their whole light, at full
+// visibility) - what the sun's visibility takes from a pixel lit by the game's lights (the skater, the objects), whose
+// light has no parts of its own; kDefaultDirectShare until a field is made.
+inline constexpr float kDefaultDirectShare = 0.65F;
+void set_direct_share(float share);
+[[nodiscard]] float direct_share();
 [[nodiscard]] std::shared_ptr<const LightField> light_field();
 // The ratios at a point (1 without a field).
 [[nodiscard]] LightRatio light_ratio_at(const FieldPoint& point);

@@ -18,6 +18,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -44,10 +45,8 @@ constexpr uint64_t kReportPipeline = 0x52340005U;
 constexpr uint64_t kReportFirstPass = 0x52340006U;
 constexpr uint64_t kReportAlphaPipeline = 0x52340007U;
 
-constexpr float kMaxStrength = 1.0F;
 constexpr float kMaxSoftnessDegrees = 5.0F;
 constexpr unsigned kMaxRays = 16;
-constexpr unsigned kMaxSkyRays = 16;
 constexpr double kDegreesToRadians = 3.14159265358979323846 / 180.0;
 constexpr std::size_t kMatrixSide = 4;
 constexpr std::size_t kMatrixFloats = kMatrixSide * kMatrixSide;
@@ -77,19 +76,11 @@ layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
 #else
 layout(set = 0, binding = 1) uniform sampler2D u_depth;
 #endif
-// Where the level's bake agrees with the traced shadows (engine/gfx/rt_sun.h make_agreement): a grid over x and z.
-layout(std430, set = 0, binding = 2) readonly buffer Agreement {
-    vec4 area;  // x, z: the grid's corner; z: 1 / a cell's side; w: 1 when there is a grid
-    uvec4 size; // columns, rows
-    float cells[];
-} u_agreement;
 layout(push_constant) uniform Pass {
     mat4 to_world;  // (pixel x, pixel y, depth, 1) -> world, homogeneous
     ivec4 rect;     // the viewport: x, y, width, height
-    vec4 to_light;  // xyz: toward the light (normalised); w: the strength
-    vec4 shape;     // x: tan of the light's angular radius; y: rays; z: the setting's strength (the relit world's:
-                    // how far a pixel's own ray replaces the visibility its colour was written with); w: the sky
-                    // test's rays (0: off)
+    vec4 to_light;  // xyz: toward the light (normalised); w: the direct light's share on a pixel without a light store
+    vec4 shape;     // x: tan of the light's angular radius; y: rays; z, w: 0
     vec4 camera;    // xyz: the camera's position; w: the instance mask's bits
 } pc;
 layout(location = 0) out vec4 o_factor;
@@ -149,25 +140,7 @@ vec3 surface_step(ivec2 p, float d, vec3 here, ivec2 step)
     return here - world_at(behind, d_behind);
 }
 
-// The agreement at a point (rt_sun.cpp agreement_at: bilinear between the cells' centres, clamped at the edges).
-float agreement_at(vec3 p)
-{
-    if (u_agreement.area.w == 0.0) {
-        return 1.0;
-    }
-    vec2 g = (p.xz - u_agreement.area.xy) * u_agreement.area.z - 0.5;
-    vec2 f = g - floor(g);
-    ivec2 last = ivec2(u_agreement.size.xy) - 1;
-    ivec2 a = clamp(ivec2(floor(g)), ivec2(0), last);
-    ivec2 b = clamp(ivec2(floor(g)) + 1, ivec2(0), last);
-    int columns = int(u_agreement.size.x);
-    float near = mix(u_agreement.cells[a.y * columns + a.x], u_agreement.cells[a.y * columns + b.x], f.x);
-    float far = mix(u_agreement.cells[b.y * columns + a.x], u_agreement.cells[b.y * columns + b.x], f.x);
-    return mix(near, far, f.y);
-}
-
 const float OFFSET_SCALE = 1.0; // the ray's start pushed off the surface by this much, growing with distance
-const float SKY_TILT = 0.6;     // the sky test's slanted rays: this far out from straight up per unit up (about 31 deg)
 
 const uint OBJECTS_MASK = 0x02u; // (kMaskObjects: the skater, peds, vehicles)
 const float RAY_LENGTH = 1.0e6;  // (world units: further than any level's far plane)
@@ -198,7 +171,7 @@ float blocked_by(uint mask, vec3 origin, vec3 direction)
 // puts the pixel's own visibility in its place - not on top of it.
 bool world_light_here(vec3 to_camera, float distance, out WorldLight w)
 {
-    w = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0);
+    w = NO_WORLD_LIGHT;
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, 0x05u, pc.camera.xyz, 0.0,
                           -to_camera / max(distance, 1e-6), distance * 1.02 + 2.0);
@@ -297,47 +270,25 @@ void main()
             cast_by_objects = objects_sum / float(rays);
         }
     }
+    // (lighting round A - one shadow model, docs/design/vulkan.md "Each light counted once") The sun's visibility at
+    // the pixel - its world casters', the objects' and the clouds' share - takes the place of what its light was made
+    // with. A relit world pixel's light's parts are known (the light store): its colour was written with the vertex's
+    // own visibility (`seen`), which the pixel's own replaces - the lamps, the sky and the bounce untouched.
+    float visible = (1.0 - occlusion) * (1.0 - cast_by_objects) * clouds_through(here);
 #ifdef ALPHA_TESTED
-    // (added by the light energy audit) A relit world pixel: its light's parts are known (the light stream), so the sun's
-    // visibility it was drawn with is replaced by the pixel's own - the bake's sun the rays missed kept (`missed`),
-    // the objects' shadows on it taking the direct light they block, the level's lamps and the sky untouched. No sky
-    // test and no agreement: relit's residual and missed sun already hold where the bake lit what the rays shade.
     WorldLight w;
     if (!object_pixel && world_light_here(to_camera, distance, w)) {
-        // (the freeze audit) the clouds' shadow takes its share of the sun's light here, and nothing else
-        float visible = clamp(1.0 - occlusion + w.missed, 0.0, 1.0) * (1.0 - cast_by_objects) * clouds_through(here);
-        float seen = mix(w.seen, visible, clamp(pc.shape.z, 0.0, 1.0));
         vec3 before = world_light_with(w, w.seen, w.sky);
-        vec3 after = world_light_with(w, seen, w.sky);
+        vec3 after = world_light_with(w, visible, w.sky);
         vec3 factor = mix(vec3(1.0), after / max(before, vec3(1e-4)), greaterThan(before, vec3(1e-4)));
         o_factor = vec4(clamp(factor * 0.5, 0.0, 1.0), 1.0); // (the blend doubles it: up to twice brighter)
         return;
     }
 #endif
-    // The sky test: a point under a roof (none of the rays up - straight up, and slanted round it - reaches the sky)
-    // is lit by the level's own lamps, which the original baked in: no sun shadow there. Each ray seeing the sky lets
-    // in a share of the shadow, all of it from half the rays on.
-    float sun_reaches = 1.0 - occlusion; // (the freeze audit: where the sun's rays get through - the clouds' share below)
-    uint sky_rays = uint(pc.shape.w);
-    if (occlusion > 0.0 && sky_rays > 0u) {
-        float offset = OFFSET_SCALE * (1.0 + distance * 0.0005 + distance * distance * 6e-8);
-        vec3 origin = here + normal * offset;
-        float open = 1.0 - blocked_by(world_mask, origin, vec3(0.0, 1.0, 0.0));
-        float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.00583715, 0.06711056))));
-        for (uint i = 1u; i < sky_rays; ++i) {
-            float angle = turn + 6.2831853 * float(i) / float(sky_rays - 1u);
-            open += 1.0 - blocked_by(world_mask, origin, normalize(vec3(cos(angle) * SKY_TILT, 1.0, sin(angle) * SKY_TILT)));
-        }
-        occlusion *= clamp(2.0 * open / float(sky_rays), 0.0, 1.0);
-    }
-    if (occlusion > 0.0) {
-        occlusion *= agreement_at(here);
-    }
-    occlusion = max(occlusion, cast_by_objects);
-    // (the freeze audit) where the sun's rays get through, the clouds take their share of its light as a blocker would
-    // (under a roof - the sun's rays blocked - nothing more)
-    occlusion = clamp(occlusion + sun_reaches * (1.0 - clouds_through(here)), 0.0, 1.0);
-    o_factor = vec4(vec3(0.5 * (1.0 - pc.to_light.w * occlusion)), 1.0); // (the blend doubles it)
+    // Every other lit pixel (the skater, the peds, the objects - lit by the game's lights - and a world vertex the game
+    // animates): its direct light's share of its light (pc.to_light.w: the lighting state's - rt_light_field.h
+    // direct_share) is what the sun's visibility takes away.
+    o_factor = vec4(vec3(0.5 * (1.0 - pc.to_light.w * (1.0 - visible))), 1.0); // (the blend doubles it)
 }
 )";
 
@@ -350,15 +301,6 @@ struct PassConstants {
     std::array<float, 4> camera{};
 };
 static_assert(sizeof(PassConstants) == kPushConstantBytes,"Vulkan's guaranteed push-constant space");
-
-// The agreement buffer's header, as the shader's block lays it out; the cells follow.
-struct AgreementHeader {
-    std::array<float, 4> area{};
-    std::array<uint32_t, 4> size{};
-};
-constexpr VkDeviceSize kAgreementBytes =
-    sizeof(AgreementHeader) + (sizeof(float) * std::size_t{rt::kAgreementSide} * rt::kAgreementSide);
-constexpr uint64_t kNoAgreement = ~uint64_t{0};
 
 // A pipeline for a colour format and sample count.
 struct PassPipeline {
@@ -381,8 +323,6 @@ struct ShadowState {
     VkPipelineLayout alpha_layout = VK_NULL_HANDLE;
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
-    DeviceBuffer agreement;                  // the bake's agreement (update_agreement)
-    uint64_t agreement_scene = ~uint64_t{0}; // the grid it holds (its BakedSun::scene; 0: none - the header says so)
     VkShaderModule vertex = VK_NULL_HANDLE;
     std::vector<PassPipeline> pipelines;
     bool failed = false; // the shaders or layouts couldn't be made (not tried again)
@@ -445,7 +385,7 @@ bool ensure_layouts(Backend& state, std::string* error)
         return true;
     }
     const VkDevice device = state.context.device();
-    const std::array<VkDescriptorSetLayoutBinding, 5> bindings{{
+    const std::array<VkDescriptorSetLayoutBinding, 4> bindings{{
         {.binding = 0,
          .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
          .descriptorCount = 1,
@@ -453,11 +393,6 @@ bool ensure_layouts(Backend& state, std::string* error)
          .pImmutableSamplers = nullptr},
         {.binding = 1,
          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-         .descriptorCount = 1,
-         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-         .pImmutableSamplers = nullptr},
-        {.binding = 2,
-         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
          .descriptorCount = 1,
          .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
          .pImmutableSamplers = nullptr},
@@ -509,7 +444,7 @@ bool ensure_layouts(Backend& state, std::string* error)
     // (added for the alpha-tested casters) the same + the geometry table, and the material table's set
     own.material_layout = state.materials.layout();
     if (own.material_layout != VK_NULL_HANDLE) {
-        std::array<VkDescriptorSetLayoutBinding, 6> alpha_bindings{};
+        std::array<VkDescriptorSetLayoutBinding, 5> alpha_bindings{};
         std::copy(bindings.begin(), bindings.end(), alpha_bindings.begin());
         alpha_bindings.back() = {.binding = kBindingGeometry,
                                  .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -540,42 +475,8 @@ bool ensure_layouts(Backend& state, std::string* error)
             }
         }
     }
-    if (!state.memory.create_buffer(kAgreementBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kUpload,
-                                    &own.agreement) ||
-        own.agreement.mapped == nullptr) {
-        *error = "the agreement's buffer";
-        return false;
-    }
-    own.agreement_scene = kNoAgreement;
     own.vertex = make_module(device, RtShaderStage::kVertex, kVertexSource, error);
     return own.vertex != VK_NULL_HANDLE;
-}
-
-// The agreement's buffer written when the grid for the sun traced toward (rt_scene.h agreement_for: the baked sun's, or
-// the relit colours' for another scene sun) or match_bake changed: its header, then its cells (a grid of at most
-// kAgreementSide x kAgreementSide). (Written while frames in flight may read it: at a level's start, or when the scene's
-// sun moves - the frame or two that mix both are the sun's change anyway.)
-void update_agreement(Backend& state, const std::array<float, 3>& to_light)
-{
-    ShadowState& own = shadows();
-    const rt::BakedSun* grid = own.settings.match_bake ? rt::agreement_for(to_light) : nullptr;
-    const bool used = grid != nullptr && !grid->agreement.empty() &&
-                      grid->agreement.size() == static_cast<std::size_t>(grid->columns) * grid->rows &&
-                      grid->columns <= rt::kAgreementSide && grid->rows <= rt::kAgreementSide;
-    const uint64_t key = used ? grid->scene : 0U;
-    if (key == own.agreement_scene) {
-        return;
-    }
-    own.agreement_scene = key;
-    AgreementHeader header{};
-    const std::span<uint8_t> mapped(static_cast<uint8_t*>(own.agreement.mapped), kAgreementBytes);
-    if (used) {
-        header.area = {std::get<0>(grid->origin), std::get<1>(grid->origin), 1.0F / grid->cell, 1.0F};
-        header.size = {grid->columns, grid->rows, 0U, 0U};
-        std::memcpy(mapped.subspan(sizeof(header)).data(), grid->agreement.data(), grid->agreement.size() * sizeof(float));
-    }
-    std::memcpy(mapped.data(), &header, sizeof(header));
-    state.memory.flush(own.agreement, 0, kAgreementBytes);
 }
 
 // The pipeline for a colour target (made on first use).
@@ -875,15 +776,12 @@ Sun sun_direction(std::array<float, 3>* to_light)
 void set_rt_shadow_settings(const RtShadowSettings& settings)
 {
     RtShadowSettings kept = settings;
-    kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : 0.0F;
     kept.softness = std::isfinite(kept.softness) ? std::clamp(kept.softness, 0.0F, kMaxSoftnessDegrees) : 0.0F;
     kept.rays = std::clamp(kept.rays, 1U, kMaxRays);
-    kept.sky_rays = std::clamp(kept.sky_rays, 1U, kMaxSkyRays);
     {
         const std::scoped_lock lock(backend().mutex);
         shadows().settings = kept;
     }
-    rt::set_baked_sun_wanted(kept.on); // (every scene sun but a fixed one needs the fit: an indoor level has none)
     if (!kept.on || !kept.objects) {
         rt::set_object_shadows_replaced(false); // (the objects' own shadows back)
     }
@@ -1030,16 +928,16 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     // (added by the time of day - engine/gfx/rt_daylight.h) the shadows as strong as the sun's (or moon's) share of the
     // light at the clock's time: none at twilight
     const rt::DayLight day = rt::day_light();
-    const float strength = day.on ? own.settings.strength * day.shadow : own.settings.strength;
-    constants.to_light = {core::at(to_light, 0), core::at(to_light, 1), core::at(to_light, 2), strength};
+    // (lighting round A - one shadow model: a pixel without a light store loses its direct light's share - the lighting
+    // state's, rt_light_field.h direct_share - where the sun doesn't reach it)
+    constants.to_light = {core::at(to_light, 0), core::at(to_light, 1), core::at(to_light, 2), rt::direct_share()};
     const bool soft = own.settings.softness > 0.0F && own.settings.rays > 1;
     // (the lighting state's light: rt_shadow_softness is the sun's; the moon's, wider, softens them as much more)
     const float softness =
         day.on ? own.settings.softness * day.light_radius / rt::kSunRadiusDegrees : own.settings.softness;
     constants.shape = {
         static_cast<float>(std::tan(static_cast<double>(softness) * kDegreesToRadians)),
-        static_cast<float>(soft ? own.settings.rays : 1U), own.settings.strength,
-        static_cast<float>(own.settings.covered ? 0U : own.settings.sky_rays)};
+        static_cast<float>(soft ? own.settings.rays : 1U), 0.0F, 0.0F};
     const uint32_t mask = kMaskWorld | (own.settings.objects ? kMaskObjects : 0U) | (alpha ? kMaskAlphaTested : 0U);
     constants.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                         core::at(view.camera.position, 2),
@@ -1097,8 +995,6 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     const VkDescriptorImageInfo depth_image{.sampler = own.sampler,
                                             .imageView = depth->view,
                                             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
-    update_agreement(state, to_light);
-    const VkDescriptorBufferInfo agreement{.buffer = own.agreement.buffer, .offset = 0, .range = kAgreementBytes};
     const VkDescriptorBufferInfo geometry{
         .buffer = frame_scene.geometry, .offset = 0, .range = alpha ? frame_scene.geometry_bytes : VK_WHOLE_SIZE};
     // (the freeze audit) the clouds' block: the map's place and light, from the ring
@@ -1115,7 +1011,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     const VkDescriptorBufferInfo clouds_info{.buffer = clouds_span ? clouds_span->buffer : VK_NULL_HANDLE,
                                              .offset = clouds_span ? clouds_span->offset : 0,
                                              .range = sizeof(clouds_block)};
-    std::array<VkWriteDescriptorSet, 6> writes{};
+    std::array<VkWriteDescriptorSet, 5> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -1128,16 +1024,12 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     depth_write.dstBinding = 1;
     depth_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     depth_write.pImageInfo = &depth_image;
-    VkWriteDescriptorSet& agreement_write = writes.at(2);
-    agreement_write.dstBinding = 2;
-    agreement_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    agreement_write.pBufferInfo = &agreement;
-    VkWriteDescriptorSet& geometry_write = writes.at(3);
+    VkWriteDescriptorSet& geometry_write = writes.at(2);
     geometry_write.dstBinding = kBindingGeometry;
     geometry_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     geometry_write.pBufferInfo = &geometry;
-    // the writes pushed: 0-2, the geometry table's (alpha), the clouds' two (clouds) - in a row
-    uint32_t pushed = 3;
+    // the writes pushed: 0-1, the geometry table's (alpha), the clouds' two (clouds) - in a row
+    uint32_t pushed = 2;
     if (alpha) {
         ++pushed;
     }
@@ -1177,9 +1069,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         if (colour->samples != VK_SAMPLE_COUNT_1_BIT) {
             traced = state.context.enabled_features().sampleRateShading == VK_TRUE ? "per sample" : "per pixel";
         }
-        get_log("vulkan: rt_shadows: the first shadow pass (%ux%u, %s, strength %.2f, softness %.2f deg x %u rays%s%s)",
-                width, height, traced,
-                static_cast<double>(own.settings.strength), static_cast<double>(own.settings.softness),
+        get_log("vulkan: rt_shadows: the first shadow pass (%ux%u, %s, softness %.2f deg x %u rays%s%s)",
+                width, height, traced, static_cast<double>(own.settings.softness),
                 soft ? own.settings.rays : 1U, own.settings.objects ? ", objects cast" : "",
                 alpha ? ", alpha-tested casters by their alpha" : "");
     }
@@ -1225,7 +1116,6 @@ void release_rt_shadows(Backend& state)
             vkDestroySampler(device, own.sampler, nullptr);
         }
     }
-    state.memory.destroy_buffer(&own.agreement);
     own.pipelines.clear();
     own.vertex = VK_NULL_HANDLE;
     own.layout = VK_NULL_HANDLE;

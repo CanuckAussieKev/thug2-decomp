@@ -473,14 +473,8 @@ struct BakedSun {
     bool found = false;
     std::array<float, 3> toward{}; // toward the sun, normalised
     float confidence = 0.0F;       // the fit's correlation (0 - 1)
-    // Where the bake agrees, over the level seen from above (a grid of cells along x and z): 1 - where the sun is
-    // blocked, the baked colours are dark (the bake has that shadow: a traced one is welcome); 0 - they are bright
-    // anyway (lamps, a roof or a caster the bake left out: no traced shadow there). Empty: 1 everywhere.
-    std::vector<float> agreement; // row by row (z), each row along x
-    uint32_t columns = 0;
-    uint32_t rows = 0;
-    std::array<float, 2> origin{}; // the grid's lowest x and z
-    float cell = 0.0F;             // a cell's side (world units)
+    // (lighting round A: the agreement grid - where the bake's shadows agreed with the traced ones - is retired with the
+    // shadows' old "over the bake" model; a relit level has none of the bake's light left to agree with)
     // (added by the sun's glare) The level's ground height (world y): low among its upward faces (rt_sun.h
     // kGroundShare) - the haze thickens toward it. ground_known false: none found.
     float ground = 0.0F;
@@ -493,9 +487,6 @@ struct BakedSun {
 };
 void set_baked_sun(BakedSun sun);
 const BakedSun& baked_sun();
-// Whether a fit is wanted (the shadow pass asks for one; render_pc fits a new world in its first frame).
-void set_baked_sun_wanted(bool wanted);
-bool baked_sun_wanted();
 
 // (added by the sun's glare) The sun's light as a sky model gives it (engine/gfx/rt_sky.h; the Vulkan Gpu's
 // [Graphics] rt_sky_model, or rt_sun_colour set by hand): `on` false - none given (every effect lights with a white sun,
@@ -595,13 +586,6 @@ struct SunUsed {
 void note_sun_used(SunUser user, bool have, const std::array<float, 3>& toward);
 SunUsed sun_used(SunUser user);
 void clear_sun_used();
-// The agreement grid (BakedSun's fields; `toward` its sun) for the scene's sun when it isn't the baked one: made by
-// render_pc/rt_record once the relit mode has written the colours for that sun - the relit colours hold the bake's
-// shadows for it, and lamps and glows (the residual) keep the traced shadow off as the bake's own light did. `scene`
-// numbers it (another than any fit's). agreement_for gives the grid for a direction: the baked sun's own, or this one's,
-// or null (none for it yet: the traced shadow everywhere).
-void set_sun_agreement(BakedSun agreement);
-const BakedSun* agreement_for(const std::array<float, 3>& toward);
 
 // --- (added by the sky) a sky drawn by the backend - the Vulkan Gpu's [Graphics] rt_sky ------------------------------
 // While `on`, render_pc's draw_viewport draws the sky scene's opaque meshes (the backdrop: its dome, a ground ring), then

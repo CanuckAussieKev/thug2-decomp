@@ -6,18 +6,21 @@
 // and only read by the game: nothing of it is traced or fitted while the game runs.
 //
 // One file a level, thug2-decomp-relit\<the level's main scene checksum, 8 hex>.relit beside the exe:
-//   - the level's verdict: relit (its bake shows a sun and the light model was found), no sun (rt_sun.h's fit found
-//     none: indoors - the level keeps the original game's lighting), no model (the fit found no sunlight in the bake);
-//   - the baked sun (rt_scene.h BakedSun: its direction, confidence, the agreement grid and the ground height) - every
-//     effect's level sun comes from here;
-//   - the light model (rt_relit.h RelitModel: the sun's a, the sky's b, the bounce's g, the lamps' c, the level's
-//     scale) and the margins its verdict was decided with;
+//   - the level's verdict: relit (its bake shows a sun and the light model was found), relit without a sun (rt_sun.h's
+//     fit found none - a night or indoor bake: lit by its sky, bounce and lamps, the clock's sun brings the daylight),
+//     no model (the bake couldn't be taken apart: too few lit vertices);
+//   - the baked sun (rt_scene.h BakedSun: its direction, confidence and the ground height) - every effect's level sun
+//     comes from here;
+//   - the light model (rt_relit.h RelitModel: the bake's sun a, sky b, bounce g and lamps c - what was taken out of the
+//     tints -, whether the bake has no sun, the reference day's sky) and the margins its verdict was decided with;
+//   - the level's lamps (rt_relit.h RelitLamp: position, colour x intensity, falloff core and reach) - the lights the
+//     L term was traced from;
 //   - each world mesh by the hash of its content (relit_mesh_content: its positions, its triangles and building
 //     relief's made vertices' sources - not its colours: the level's scene lights and colour animations rewrite those
-//     while the game runs, the time of day's night lamps with them), its vertices' parts: the sun's share toward the bake's sun, the
-//     sky's share K, the bounce B and its local part, the tint, the residual, the lamps' light L, the bake's sun the
-//     rays missed. The normals and which vertices are used are made again from the mesh (relit_normals, with the
-//     world's winding kept here).
+//     while the game runs, the time of day's night lamps with them), its vertices: the tint - the surface's colour, none
+//     of the bake's light in it -, the sun's share toward the bake's sun, the sky's share K, the bounce B (of the relit
+//     light at the bake's sun) and the lamps' light L. The normals and which vertices are used are made again from the
+//     mesh (relit_normals, with the world's winding kept here).
 // The level's content key is the meshes' hashes, sorted: a level whose meshes changed (another overlay, building relief
 // or smoothed curves turned on or off) no longer matches its data - the game then runs the level's original lighting
 // and says the data is out of date.
@@ -38,17 +41,25 @@
 namespace render::rt {
 
 inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
-inline constexpr uint32_t kRelitDataVersion = 2; // (2: the meshes keyed without their colours)
+// (2: the meshes keyed without their colours; 3 - lighting round A: tints with none of the bake's light, no residual /
+// missed sun / scale / agreement grid, sunless bakes relit, the lamps' list. A file of another version is out of date:
+// the game says to run relit_bake.)
+inline constexpr uint32_t kRelitDataVersion = 3;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.
 inline constexpr float kRelitDataLeastShare = 0.95F;
 
 enum class RelitVerdict : uint8_t {
-    kRelit = 0,   // the level is relit from this data
-    kNoSun = 1,   // the bake shows no sun: the level keeps the original game's lighting
-    kNoModel = 2, // the fit found no sunlight in the bake: likewise
+    kRelit = 0,        // the level is relit from this data
+    kRelitSunless = 1, // ... its bake shows no sun (night, indoors): lit by its sky, bounce and lamps
+    kNoModel = 2,      // the bake couldn't be taken apart: the level keeps the original game's lighting
 };
+// Whether a verdict relights the level.
+[[nodiscard]] constexpr bool relit_verdict_relights(RelitVerdict verdict)
+{
+    return verdict == RelitVerdict::kRelit || verdict == RelitVerdict::kRelitSunless;
+}
 [[nodiscard]] const char* relit_verdict_name(RelitVerdict verdict);
 
 struct RelitDataMesh {
@@ -59,14 +70,15 @@ struct RelitDataMesh {
 struct RelitLevelData {
     uint32_t scene = 0;   // the level's main scene's checksum (the file's name)
     uint64_t content = 0; // relit_level_content of its meshes
-    RelitVerdict verdict = RelitVerdict::kNoSun;
+    RelitVerdict verdict = RelitVerdict::kNoModel;
     BakedSun sun;         // (its scene number left 0: the game numbers the fits it publishes)
     RelitModel model;
     float facing = 1.0F;  // the world's winding (relit_facing)
     // how the data was made (reported)
     uint32_t sky_rays = 0;
     uint32_t sun_rays = 0;
-    uint32_t lamps = 0;   // the lamps the L term was traced from
+    uint32_t lamps = 0;   // the lamps the L term was traced from (lamp_list's size)
+    std::vector<RelitLamp> lamp_list;
     // the verdict's margins: the baked sun's confidence over rt_sun.h kMinConfidence, the model's sun (luma) over the
     // least that counts as sunlight - both at least kRelitVerdictMargin to be relit
     float sun_margin = 0.0F;
@@ -88,15 +100,19 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
 // (added by the time of day's clock - engine/gfx/day_clock.h) The level's own facts from the start of its file alone -
 // its scene, verdict and baked sun's direction: what the simulation's clock needs when the level arrives (the level's
 // own day, and whether the data is there for the time of day), read without the rest (the vertices' parts are the
-// renderer's). kRelitHeadBytes is enough of the file for it.
+// renderer's). kRelitHeadBytes is enough of the file for it. `stale`: a relit data file of another version (made by an
+// older relit bake - out of date).
 struct RelitLevelHead {
     uint32_t scene = 0;
-    RelitVerdict verdict = RelitVerdict::kNoSun;
+    bool stale = false;
+    RelitVerdict verdict = RelitVerdict::kNoModel;
     bool sun_found = false;
     std::array<float, 3> toward{}; // toward the baked sun, normalised
 };
 inline constexpr std::size_t kRelitHeadBytes = 128;
 bool read_relit_head(std::string_view bytes, RelitLevelHead* out);
+// Whether the bytes are a relit data file of another version than this game's (out of date: run relit_bake again).
+[[nodiscard]] bool relit_data_stale(std::string_view bytes);
 // A mesh's content hash (what the data keys it by): its positions, its triangles (RelitMesh's, as the RayTracing numbers
 // them) and its made vertices' sources. Not its colours: the game writes them (scene lights at a change of the time of
 // day, colour animations) - a mesh found at night is the mesh the bake took apart by day.

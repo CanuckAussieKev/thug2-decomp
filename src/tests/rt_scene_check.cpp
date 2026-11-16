@@ -218,8 +218,6 @@ constexpr float kConeDegrees = 10.0F;
 constexpr std::size_t kConeCount = 30;
 constexpr float kConeSlack = 0.01F;      // degrees
 constexpr float kFoundWithin = 4.0F;     // degrees: the fit finds the sun again this close
-constexpr float kAgrees = 0.9F;          // agreement this high in the bake's own shadow ...
-constexpr float kDisagrees = 0.1F;       // ... and this low under a caster it left out
 constexpr float kDegreesPerRadian = 57.2957795F;
 constexpr float kRadiansPerDegree = 0.0174532925F;
 constexpr int kGroundHalf = 60; // the ground's samples: a grid from -60 to 60 ...
@@ -233,11 +231,8 @@ struct Box {
 // The scenes: a wall and a pillar standing on the ground; a canopy over one corner (x, z 25 - 70); a roof over all.
 const Box kWall{.low = {5.0F, 0.0F, -70.0F}, .high = {12.0F, 40.0F, 10.0F}};
 const Box kPillar{.low = {-35.0F, 0.0F, 20.0F}, .high = {-28.0F, 30.0F, 27.0F}};
-const Box kCanopy{.low = {25.0F, 20.0F, 25.0F}, .high = {70.0F, 22.0F, 70.0F}};
 const Box kRoof{.low = {-100.0F, 50.0F, -100.0F}, .high = {100.0F, 52.0F, 100.0F}};
 const rt::Vec3 kSun{0.62F, 0.55F, -0.56F};      // toward the sun the bake was lit by
-const rt::Vec3 kInWallShadow{-10.0F, 0.0F, -10.0F}; // a point in the wall's shadow
-const rt::Vec3 kUnderCanopy{40.0F, 0.0F, 50.0F};   // one in the canopy's
 
 // A scene of boxes traced on the processor (slabs) - the fit's tracer.
 class BoxTracer final : public rt::RayTracing {
@@ -328,7 +323,6 @@ void check_sun_helpers()
                                    return degrees_between(toward, kSun) <= kConeDegrees + kConeSlack;
                                }),
            "directions_round: within the angle");
-    expect(rt::agreement_at(rt::BakedSun{}, {}) == 1.0F, "agreement_at: no grid - 1");
 }
 
 void check_baked_sun()
@@ -344,21 +338,19 @@ void check_baked_sun()
                 static_cast<double>(rt::y_of(fit.sun.toward)), static_cast<double>(rt::z_of(fit.sun.toward)),
                 static_cast<double>(off_by), static_cast<double>(fit.sun.confidence), fit.rays);
     expect(fit.sun.found && off_by < kFoundWithin, "fit_baked_sun: the sun found again");
-    // where the bake agrees: the wall's shadow is in the bake; the canopy's isn't
-    BoxTracer canopied({kWall, kPillar, kCanopy});
-    std::vector<uint8_t> lit(samples.size());
-    for (std::size_t i = 0; i < samples.size(); ++i) {
-        const rt::Vec3& at = core::at(samples, i).position;
-        core::at(lit, i) = canopied.blocked({rt::x_of(at), kRayStart, rt::z_of(at)}, kSun) ? 0 : 1;
+    // (lighting round A) a level painted in many colours - each surface its own brightness, the sun's shadows within
+    // them: the score against each surface's own still finds the sun
+    std::vector<rt::BakeSample> painted = samples;
+    for (std::size_t i = 0; i < painted.size(); ++i) {
+        rt::BakeSample& sample = core::at(painted, i);
+        constexpr std::size_t kSurfaces = 16;
+        constexpr float kPaintStep = 0.35F;
+        sample.group = static_cast<uint32_t>(i % kSurfaces);
+        sample.brightness *= 0.3F + (kPaintStep * static_cast<float>(sample.group % 5));
     }
-    rt::BakedSun agreed = fit.sun;
-    rt::make_agreement(samples, lit, &agreed);
-    const float in_shadow = rt::agreement_at(agreed, kInWallShadow);
-    const float under_canopy = rt::agreement_at(agreed, kUnderCanopy);
-    std::printf("agreement: %ux%u cells, %.2f in the wall's shadow, %.2f under the canopy\n", agreed.columns, agreed.rows,
-                static_cast<double>(in_shadow), static_cast<double>(under_canopy));
-    expect(in_shadow > kAgrees, "make_agreement: the bake's own shadow agrees");
-    expect(under_canopy < kDisagrees, "make_agreement: lit under a caster the bake left out - no agreement");
+    const rt::SunFit painted_fit = rt::fit_baked_sun(painted, outdoors);
+    expect(painted_fit.sun.found && degrees_between(painted_fit.sun.toward, kSun) < kFoundWithin,
+           "fit_baked_sun: the sun found in a level painted in many colours (each surface's own brightness)");
     // a roof over everything and the bake from lamps (nothing of the sun): no sun
     BoxTracer indoors({kRoof});
     std::vector<rt::BakeSample> lamp_lit = ground_samples(indoors, kSun);
@@ -445,7 +437,8 @@ void check_scene_sun()
            "scene sun: the clock, the level not relit yet - the baked sun");
     in.relight = {.relights = true};
     in.baked_found = false;
-    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kNone, "scene sun: the clock, indoors - none");
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kClock,
+           "scene sun: the clock, a bake with no sun - the clock's (the level relit by its sky, bounce and lamps)");
     in.baked_found = true;
     in.choice = {.source = rt::SunSource::kFixed, .fixed = fixed};
     expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kFixed, "scene sun: a fixed direction above the clock");

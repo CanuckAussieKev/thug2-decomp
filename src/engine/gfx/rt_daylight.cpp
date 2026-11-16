@@ -514,7 +514,13 @@ DayLight day_light_at(const NativeDay& native, double hours)
     light.sun = toward_place(native.path, sun);
     light.moon = toward_place(native.path, moon);
     light.native = native.toward;
-    const SkyPlace own = heading_of(native.toward);
+    // (lighting round A) the light is over the level's own sun's - or, where the level's own time has none (a night
+    // level: its sun under the horizon), over a reference day's, a sun kDefaultSunElevation up: what a level whose bake
+    // has no sun is lit by in daylight (rt_relit.h kRelitDaySun)
+    SkyPlace own = heading_of(native.toward);
+    if (!(own.elevation > 0.0)) {
+        own.elevation = kDefaultSunElevation;
+    }
 
     // the sun's direct light, over the level's own (display-referred), its colour the model's over the level's sun's
     const double own_sun = sun_light_at(own.elevation);

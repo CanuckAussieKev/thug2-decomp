@@ -104,8 +104,8 @@ const char* cap_reason(Cap cap)
         return t::kLevelLightNotBuilt;
     case Cap::kLevelLightCurrent:
         return t::kLevelLightOutOfDate;
-    case Cap::kLevelSunInBake:
-        return t::kLevelNoSunlight;
+    case Cap::kLevelTakenApart:
+        return t::kLevelNotTakenApart;
     case Cap::kNetworkGame:
         return t::kNeedsNetworkGame;
     case Cap::kLevelWithoutFog:
@@ -148,8 +148,8 @@ bool has_cap(const Inputs& in, Cap cap)
         return in.level.light != LevelLight::kMissing;
     case Cap::kLevelLightCurrent:
         return in.level.light != LevelLight::kStale;
-    case Cap::kLevelSunInBake:
-        return in.level.light != LevelLight::kNoSun;
+    case Cap::kLevelTakenApart:
+        return in.level.light != LevelLight::kNoModel;
     case Cap::kNetworkGame:
         return in.level.network;
     case Cap::kLevelWithoutFog:

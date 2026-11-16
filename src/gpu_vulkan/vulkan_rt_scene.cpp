@@ -196,30 +196,30 @@ vec4 hit_colour(HitVertices v, vec2 barycentrics)
     return v.colour[0] * (1.0 - barycentrics.x - barycentrics.y) + v.colour[1] * barycentrics.x +
            v.colour[2] * barycentrics.y;
 }
-// (added by the light energy audit) The relit world's light stream (engine/gfx/rt_cel.h: five A8R8G8B8 words a vertex,
-// light x 128 in rgb) blended at a hit.
+// (added by the light energy audit) The relit world's light store (engine/gfx/rt_cel.h: six A8R8G8B8 words a vertex,
+// light x 128 in rgb) blended at a hit - what a hit's surface is (its tint: the albedo, x the texture) and how it is lit.
 struct WorldLight {
     vec3 ambient;   // the sky's and the bounce's light
     float n_dot_l;
-    vec3 tint;      // x the level's scale
+    vec3 tint;      // the surface's colour (none of the bake's light in it)
     float seen;     // the sun's visibility the colour was written with
-    vec3 residual;  // the level's own lights
+    vec3 lamps;     // the lamps' light on it (tint x L x the lamps on - relit's per-vertex share)
     vec3 sun;       // the direct light's colour and strength
-    float missed;   // the part of `seen` the rays didn't see (the bake's sun)
     vec3 sky;       // the sky's part of `ambient`
     float sky_share; // the vertex's K
 };
+const WorldLight NO_WORLD_LIGHT = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), vec3(0.0), 0.0);
 const float LIGHT_PER_UNORM = 255.0 / 128.0;
 bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out WorldLight w)
 {
     GeometryRecord g = geometry_record(instance);
-    w = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0);
+    w = NO_WORLD_LIGHT;
     if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_LIGHT) == 0u) {
         return false;
     }
     float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
     for (uint k = 0u; k < 3u; ++k) {
-        uint at = geometry_corner(g, primitive, k) * 20u;
+        uint at = geometry_corner(g, primitive, k) * 24u; // (rt_cel.h kCelStreamBytes)
         vec4 w0 = unpackUnorm4x8(geometry_word(g.light_address, at)).zyxw; // (B, G, R, A in memory)
         vec4 w1 = unpackUnorm4x8(geometry_word(g.light_address, at + 4u)).zyxw;
         vec4 w2 = unpackUnorm4x8(geometry_word(g.light_address, at + 8u)).zyxw;
@@ -233,9 +233,8 @@ bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out World
         w.n_dot_l += w0.a * s;
         w.tint += w1.rgb * (s * LIGHT_PER_UNORM);
         w.seen += w1.a * s;
-        w.residual += w2.rgb * (s * LIGHT_PER_UNORM);
+        w.lamps += w2.rgb * (s * LIGHT_PER_UNORM);
         w.sun += w3.rgb * (s * LIGHT_PER_UNORM);
-        w.missed += w3.a * s;
         w.sky += w4.rgb * (s * LIGHT_PER_UNORM);
         w.sky_share += w4.a * s;
     }
@@ -243,7 +242,7 @@ bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out World
 }
 vec3 world_light_with(WorldLight w, float seen, vec3 sky)
 {
-    return w.tint * (max(w.ambient - w.sky, vec3(0.0)) + sky + w.sun * (w.n_dot_l * seen)) + w.residual;
+    return w.tint * (max(w.ambient - w.sky, vec3(0.0)) + sky + w.sun * (w.n_dot_l * seen)) + w.lamps;
 }
 )";
 

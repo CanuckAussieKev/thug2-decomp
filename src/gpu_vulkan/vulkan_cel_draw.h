@@ -48,6 +48,10 @@ void set_cel_source_locked(Backend& state, const Gpu::CelSource& source);
 // stream for this draw: the named source's when the draw's vertices are its buffer at its offset and the frame's world is
 // relit; null otherwise (render_pc names the source while cel shading or the snow is on).
 [[nodiscard]] Buffer* relit_stream_of(Backend& state, const DrawCall& call);
+// (lighting round A) The relit light store a draw reads its colour from (rt_cel.h kCelColourWord - VertexKey::surface's
+// kVertexRelitColour): the relit world's stream for its vertices, for an unlit 3D draw with vertex colours on a device
+// with the attribute's location; null: the draw keeps its vertex colour.
+[[nodiscard]] Buffer* relit_colour_stream(Backend& state, const DrawCall& call, const VertexKey& vertex);
 
 // Whether the mode is on (the effects that step aside ask).
 [[nodiscard]] bool cel_on();

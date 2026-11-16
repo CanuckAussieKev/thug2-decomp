@@ -167,15 +167,11 @@ render::vulkan::RtShadowSettings make_rt_shadows(const Resolution& in_effect)
     const render::vulkan::RtShadowSettings defaults;
     return render::vulkan::RtShadowSettings{
         .on = in_effect.on("rt_shadows"),
-        .strength = in_effect.number("rt_shadow_strength", defaults.strength),
         .softness = in_effect.number("rt_shadow_softness", defaults.softness),
         .rays = at_least_one(in_effect, "rt_shadow_rays", defaults.rays),
         // (1 by default since the water and glass work: the skater's own projected shadow - a blocky 256 x 256
         // texture - is hidden while the ray-traced one is drawn; rt::object_shadows_replaced)
-        .objects = in_effect.on("rt_shadow_objects"),
-        .covered = in_effect.on("rt_shadow_covered"),
-        .sky_rays = at_least_one(in_effect, "rt_shadow_sky_rays", render::vulkan::kRtShadowSkyRays),
-        .match_bake = in_effect.on("rt_shadow_match_bake")};
+        .objects = in_effect.on("rt_shadow_objects")};
 }
 
 // NOT ORIGINAL - ray-traced ambient occlusion (gpu_vulkan/vulkan_rt_effects.h)
@@ -334,10 +330,7 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
 // needs ray tracing and the level's relit data (the level's facts: engine/gfx/relit_data.h)
 void read_rt_relit(const Resolution& in_effect)
 {
-    const render::rt::RelitSettings defaults;
     render::rt::set_relit_settings({.on = in_effect.on("rt_relit"),
-                                    .strength = in_effect.number("rt_relit_strength", defaults.strength),
-                                    .residual = in_effect.on("rt_relit_residual"),
                                     .sky_rays = at_least_one(in_effect, "rt_relit_sky_rays", render::rt::kRelitSkyRays),
                                     .sun_rays = at_least_one(in_effect, "rt_relit_sun_rays", render::rt::kRelitSunRays)});
 }
@@ -759,7 +752,6 @@ struct CompareState {
     std::array<EffectSet, 2> sides{};
     render::graphics_options::CompareSettings overrides; // (the ones that can differ)
     uint32_t differ = 0;          // (the effects set again at a swap)
-    bool wants_baked_sun = false; // (either side's shadows from the bake, or its bounce)
     int applied = 0;
 };
 
@@ -798,10 +790,6 @@ void set_effects(const EffectSet& set, uint32_t which)
     }
     if (wanted(config::Effect::kSky)) {
         render::vulkan::set_rt_sky_settings(set.sky);
-    }
-    // (one side's shadows off would clear the baked sun the other's wants: render_pc fits it once a world)
-    if (compare_state().wants_baked_sun) {
-        render::rt::set_baked_sun_wanted(true);
     }
     render::rt::set_settings_swap(false);
 }
@@ -845,15 +833,6 @@ bool compare_prepare(const render::graphics_options::CompareSettings& overrides,
     }
     std::get<0>(state.sides) = make_effects(config::running());
     std::get<1>(state.sides) = make_effects(config::running_with(state.overrides));
-    const auto wants = [](const EffectSet& set) {
-        return set.shadows.on || set.gi.on; // (every scene sun but a fixed one needs the fit)
-    };
-    state.wants_baked_sun = wants(std::get<0>(state.sides)) || wants(std::get<1>(state.sides));
-    // (asked for now: render_pc fits the baked sun in a new world's first frame - with A's shadows off and B's on, A's
-    // settings alone wouldn't ask, and B's shadows would have no sun)
-    if (state.wants_baked_sun) {
-        render::rt::set_baked_sun_wanted(true);
-    }
     // (the depth samplable for B's effects although A's have them off: vulkan_gpu's depth targets)
     if (state.differ != 0U) {
         render::rt::set_depth_sampling_wanted(true);

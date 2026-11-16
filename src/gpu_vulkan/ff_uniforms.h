@@ -65,6 +65,9 @@ constexpr uint32_t kPreviousPositionLocation = kFirstTexSetLocation + kMaxTexSet
 // (added by cel shading) The cel stream's three words (D3DCOLOR each; binding 2, rt_cel.h's layout) - read with
 // VertexKey::surface's kVertexCelStream.
 constexpr uint32_t kCelLocation = kPreviousPositionLocation + 1;
+// (lighting round A) The relit light store's colour word (rt_cel.h kCelColourWord, binding 2) - read with VertexKey::
+// surface's kVertexRelitColour in place of the vertex colour.
+constexpr uint32_t kRelitColourLocation = kCelLocation + 3;
 constexpr uint32_t kCelStreamBinding = 2;
 
 // Binding 0, the vertex shader's.

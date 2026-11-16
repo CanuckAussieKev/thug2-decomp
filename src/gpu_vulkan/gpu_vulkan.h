@@ -50,23 +50,13 @@ void configure(const Choices& choices);
 // NOT ORIGINAL - ray-traced sun shadows (vulkan_rt_shadows.h, docs/design/vulkan.md R4): [Graphics] rt_shadows,
 // rt_shadow_strength, rt_shadow_softness, rt_shadow_rays, rt_shadow_objects. Nothing is drawn differently while `on` is
 // false, or when ray tracing isn't enabled on the device (Choices::ray_tracing and the device's extensions).
-inline constexpr float kRtShadowStrength = 0.5F; // (rt_shadow_strength's default)
-inline constexpr unsigned kRtShadowSkyRays = 5;  // (rt_shadow_sky_rays')
+// (lighting round A: one shadow model - the sun's visibility at every lit pixel; rt_shadow_strength, rt_shadow_covered,
+// rt_shadow_sky_rays and rt_shadow_match_bake are retired with the old "darken over the bake" model)
 struct RtShadowSettings {
     bool on = false;
-    float strength = kRtShadowStrength; // how much of the colour a full shadow takes away (0 - 1)
     float softness = 0.0F; // the light's angular radius in degrees (0: hard edges, one ray; up to 5)
     unsigned rays = 4;     // rays per pixel (per sample) when soft (1 - 16)
     bool objects = false;  // the objects (the skater, peds, vehicles) cast shadows too
-    // Shadows under roofs too (indoors, under bridges and awnings): false (the default) leaves a point that sees no sky
-    // as the original lit it - its lamps are baked in - true darkens wherever the sun is blocked.
-    bool covered = false;
-    unsigned sky_rays = kRtShadowSkyRays; // the sky test's rays a pixel (1 - 16: straight up, the rest slanted round it)
-    // Shadows only where the level's bake agrees (engine/gfx/rt_sun.h make_agreement): where its colours are bright
-    // although the sun is blocked - lamps, a roof or a caster the bake left out - none. The grid is the baked sun's, or
-    // with another scene sun (rt_sun_source=game) the one made from the relit colours for it (rt_scene.h
-    // agreement_for); none made for it yet: the traced shadow everywhere.
-    bool match_bake = true;
     // (changed by the scene's sun: the sun traced toward is rt_scene.h scene_sun - [Graphics] rt_sun_source -, every
     // effect's; rt_shadow_sun is retired)
 };

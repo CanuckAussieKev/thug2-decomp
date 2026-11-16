@@ -29,6 +29,7 @@
 #include <span>
 #include <vector>
 
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 
 namespace render::rt {
@@ -75,12 +76,8 @@ inline constexpr float kSelfLitLuma = 112.0F;
 inline constexpr float kSelfLitOverLevel = 2.5F;
 // A point light's falloff core (point_core): this share of its reach (the game's radius).
 inline constexpr float kPointCoreShare = 0.1F;
-// (added for the washed-out streets) The lights' sum at a pixel is kept under kLightMost (its luminance; the pass's GLSL
-// is the same): up to kLightKnee as it is, then rising ever more slowly toward kLightMost - many lamps over one spot
-// light it up to its own colour (albedo x strength), they don't burn it white.
-inline constexpr float kLightKnee = 0.5F;
-inline constexpr float kLightMost = 1.0F;
-[[nodiscard]] float limited_light(float luminance);
+// (lighting round A: the lamps' sum is no longer held under a knee - the lamps are lit by their data, the HDR tone map
+// alone compresses the result)
 inline constexpr std::size_t kMaxViewLights = 256;
 
 [[nodiscard]] constexpr bool dark_level(float median_luma) { return median_luma <= kDarkLevelLuma; }
@@ -94,7 +91,8 @@ inline constexpr std::size_t kMaxViewLights = 256;
 // the strongest (intensity x reach) first.
 [[nodiscard]] std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles);
 
-// The emitters of the world now loaded (render_pc sets them in a new world's first frame while emitters_wanted()).
+// The emitters of the world now loaded (render_pc sets them in a new world's first frame, whenever ray tracing records:
+// the level's lamps are its own whether the lamps pass draws them or relit lights them per vertex - lighting round A).
 struct LevelEmitters {
     uint64_t serial = 0; // a new value for each world's set (0: none yet)
     std::vector<Emitter> emitters;
@@ -105,8 +103,6 @@ struct LevelEmitters {
 };
 void set_level_emitters(LevelEmitters emitters);
 [[nodiscard]] std::shared_ptr<const LevelEmitters> level_emitters();
-void set_emitters_wanted(bool wanted); // (the pass, when on)
-[[nodiscard]] bool emitters_wanted();
 // (added by the light energy audit - docs/design/vulkan.md "Each light counted once") How much the lamps pass lights
 // now (0 - 1: its lamps' amount, 0 while it draws nothing): on the objects and characters it then owns the level's own
 // lights - the light field's local light (rt_light_field.h local_at) gives way to it by as much
@@ -114,6 +110,14 @@ void set_emitters_wanted(bool wanted); // (the pass, when on)
 // view it records or skips.
 void set_lamps_drawn(float amount);
 [[nodiscard]] float lamps_drawn();
+// (lighting round A) How much the lamps are on - one rule for the lamps pass and relit's per-vertex lamps: the clock's
+// lamps (rt_daylight.h DayLight::lamps) while it lights the level; without it 1 in a dark level (LevelEmitters::dark),
+// else 0.
+[[nodiscard]] float lamps_on(const DayLight& day, bool dark_level);
+// (lighting round A) Whether the bounce light pass (rt_gi) lights the bounce per pixel now: relit's per-vertex bounce
+// gives way to it (one owner). The pass sets it each view it records or skips.
+void set_bounce_drawn(bool drawn);
+[[nodiscard]] bool bounce_drawn();
 
 // A view's lights: the frame record's point lights and the level's emitters whose reach touches the frustum of
 // `clip_from_world` (D3D's row-vector view x projection), the most important `max` of them (at most kMaxViewLights).

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iterator>
+#include <unordered_map>
 #include <numeric>
 #include <span>
 #include <string>
@@ -35,9 +36,6 @@ constexpr float kFineDegrees = 10.0F;
 constexpr std::size_t kFinest = 40;
 constexpr float kFinestDegrees = 3.0F;
 constexpr float kNearlyVertical = 0.99F; // an axis this close to straight up takes x for its side
-constexpr double kMinCells = 4.0;        // the agreement grid's cells along its longer side, at least
-constexpr float kCellSlack = 1.0001F;    // (the last sample inside the last cell)
-constexpr float kCentreWeight = 2.0F;    // a cell's own share counts this many times its neighbours'
 constexpr float kNotScored = -1.0F;
 
 Vec3 normalised(const Vec3& v)
@@ -92,26 +90,14 @@ std::size_t best_of(const std::vector<float>& scores)
     return static_cast<std::size_t>(std::distance(scores.begin(), std::ranges::max_element(scores)));
 }
 
-// The low and high values of the samples along an axis, but their outermost kAgreementOutliers on each side.
-std::pair<float, float> bounds_of(std::span<const BakeSample> samples, std::size_t axis)
-{
-    std::vector<float> values(samples.size());
-    for (std::size_t i = 0; i < samples.size(); ++i) {
-        core::at(values, i) = core::at(core::at(samples, i).position, axis);
-    }
-    const auto edge = static_cast<std::size_t>(static_cast<double>(values.size() - 1) * kAgreementOutliers);
-    const std::size_t last = values.size() - 1 - edge;
-    std::ranges::nth_element(values, values.begin() + static_cast<std::ptrdiff_t>(edge));
-    const float low = core::at(values, edge);
-    std::ranges::nth_element(values, values.begin() + static_cast<std::ptrdiff_t>(last));
-    return {low, core::at(values, last)};
-}
-
 } // namespace
 
-float sun_score(std::span<const BakeSample> samples, std::span<const uint8_t> lit)
+namespace {
+
+// The point-biserial correlation of `values` with `lit` (0 when either side is under kMinGroup of them, or no spread).
+float biserial(std::span<const double> values, std::span<const uint8_t> lit)
 {
-    const std::size_t count = std::min(samples.size(), lit.size());
+    const std::size_t count = std::min(values.size(), lit.size());
     if (count == 0) {
         return 0.0F;
     }
@@ -120,7 +106,7 @@ float sun_score(std::span<const BakeSample> samples, std::span<const uint8_t> li
     double lit_sum = 0.0;
     std::size_t lit_count = 0;
     for (std::size_t i = 0; i < count; ++i) {
-        const double value = core::at(samples, i).brightness;
+        const double value = core::at(values, i);
         sum += value;
         squares += value * value;
         if (core::at(lit, i) != 0) {
@@ -143,6 +129,35 @@ float sun_score(std::span<const BakeSample> samples, std::span<const uint8_t> li
     return static_cast<float>(((lit_mean - shaded_mean) / deviation) * std::sqrt(share * (1.0 - share)));
 }
 
+} // namespace
+
+float sun_score(std::span<const BakeSample> samples, std::span<const uint8_t> lit)
+{
+    const std::size_t count = std::min(samples.size(), lit.size());
+    if (count == 0) {
+        return 0.0F;
+    }
+    std::vector<double> raw(count);
+    std::vector<double> logs(count);
+    double level_sum = 0.0;
+    std::unordered_map<uint32_t, std::pair<double, std::size_t>> groups;
+    constexpr double kLeastBrightness = 1.0; // (a byte: the logarithm of black held)
+    for (std::size_t i = 0; i < count; ++i) {
+        const BakeSample& sample = core::at(samples, i);
+        core::at(raw, i) = sample.brightness;
+        core::at(logs, i) = std::log(std::max(static_cast<double>(sample.brightness), kLeastBrightness));
+        level_sum += core::at(logs, i);
+        auto& [group_sum, group_count] = groups[sample.group];
+        group_sum += core::at(logs, i);
+        ++group_count;
+    }
+    const double level_mean = level_sum / static_cast<double>(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto& [group_sum, group_count] = groups.at(core::at(samples, i).group);
+        core::at(logs, i) -= group_count >= kGroupLeast ? group_sum / static_cast<double>(group_count) : level_mean;
+    }
+    return std::max(biserial(raw, lit.first(count)), biserial(logs, lit.first(count)));
+}
 std::vector<Vec3> sky_directions(std::size_t count)
 {
     std::vector<Vec3> out;
@@ -244,142 +259,6 @@ SunFit fit_baked_sun(std::span<const BakeSample> samples, RayTracing& tracer)
     return fit;
 }
 
-void make_agreement(std::span<const BakeSample> samples, std::span<const uint8_t> lit, BakedSun* sun)
-{
-    sun->agreement.clear();
-    sun->columns = 0;
-    sun->rows = 0;
-    const std::span<const BakeSample> used = samples.first(std::min(samples.size(), lit.size()));
-    double lit_sum = 0.0;
-    double blocked_sum = 0.0;
-    std::size_t lit_count = 0;
-    for (std::size_t i = 0; i < used.size(); ++i) {
-        const float brightness = core::at(used, i).brightness;
-        if (core::at(lit, i) != 0) {
-            lit_sum += brightness;
-            ++lit_count;
-        } else {
-            blocked_sum += brightness;
-        }
-    }
-    const std::size_t blocked_count = used.size() - lit_count;
-    const double least = kMinGroup * static_cast<double>(used.size());
-    if (used.empty() || static_cast<double>(lit_count) < least || static_cast<double>(blocked_count) < least) {
-        return;
-    }
-    const double split =
-        ((lit_sum / static_cast<double>(lit_count)) + (blocked_sum / static_cast<double>(blocked_count))) * kHalf;
-    // the grid: over the samples but the outermost; along the longer side as many cells as give each about
-    // kAgreementPerCell blocked samples
-    const auto [low_x, high_x] = bounds_of(used, 0);
-    const auto [low_z, high_z] = bounds_of(used, 2);
-    const float side = std::max({high_x - low_x, high_z - low_z, 1.0F});
-    const double across = std::sqrt(static_cast<double>(blocked_count) / kAgreementPerCell);
-    const auto cells = static_cast<float>(std::clamp(std::floor(across), kMinCells, double{kAgreementSide}));
-    const float cell = (side / cells) * kCellSlack;
-    const auto columns =
-        static_cast<uint32_t>(std::clamp(std::ceil((high_x - low_x) / cell), 1.0F, float{kAgreementSide}));
-    const auto rows = static_cast<uint32_t>(std::clamp(std::ceil((high_z - low_z) / cell), 1.0F, float{kAgreementSide}));
-    const auto cell_of = [&](const Vec3& at) {
-        const auto column =
-            static_cast<std::size_t>(std::clamp((x_of(at) - low_x) / cell, 0.0F, static_cast<float>(columns - 1)));
-        const auto row =
-            static_cast<std::size_t>(std::clamp((z_of(at) - low_z) / cell, 0.0F, static_cast<float>(rows - 1)));
-        return (row * columns) + column;
-    };
-    std::vector<float> blocked(static_cast<std::size_t>(columns) * rows, 0.0F);
-    std::vector<float> dark(blocked.size(), 0.0F);
-    std::size_t dark_count = 0;
-    for (std::size_t i = 0; i < used.size(); ++i) {
-        const BakeSample& sample = core::at(used, i);
-        if (core::at(lit, i) != 0) {
-            continue;
-        }
-        const std::size_t at = cell_of(sample.position);
-        core::at(blocked, at) += 1.0F;
-        if (sample.brightness < split) {
-            core::at(dark, at) += 1.0F;
-            ++dark_count;
-        }
-    }
-    // each cell's share of dark among its blocked samples (pulled toward the level's), smoothed over its neighbours
-    const float level_share = static_cast<float>(dark_count) / static_cast<float>(blocked_count);
-    sun->agreement.assign(blocked.size(), 1.0F);
-    for (uint32_t row = 0; row < rows; ++row) {
-        for (uint32_t column = 0; column < columns; ++column) {
-            float weights = 0.0F;
-            float sum = 0.0F;
-            for (uint32_t near_row = row > 0 ? row - 1 : 0; near_row <= std::min(rows - 1, row + 1); ++near_row) {
-                for (uint32_t near_column = column > 0 ? column - 1 : 0; near_column <= std::min(columns - 1, column + 1);
-                     ++near_column) {
-                    const std::size_t at = (static_cast<std::size_t>(near_row) * columns) + near_column;
-                    const float count = core::at(blocked, at);
-                    const float share = (core::at(dark, at) + (kAgreementPrior * level_share)) / (count + kAgreementPrior);
-                    const float weight = (near_row == row && near_column == column ? kCentreWeight : 1.0F) * (count + 1.0F);
-                    weights += weight;
-                    sum += weight * share;
-                }
-            }
-            const float value =
-                std::clamp(((sum / weights) - kAgreementLow) / (kAgreementHigh - kAgreementLow), 0.0F, 1.0F);
-            constexpr float kSmoothA = 3.0F; // (smoothstep: 3v^2 - 2v^3)
-            constexpr float kSmoothB = 2.0F;
-            core::at(sun->agreement, (static_cast<std::size_t>(row) * columns) + column) =
-                value * value * (kSmoothA - (kSmoothB * value));
-        }
-    }
-    sun->columns = columns;
-    sun->rows = rows;
-    sun->origin = {low_x, low_z};
-    sun->cell = cell;
-}
-
-void trace_agreement(std::span<const BakeSample> samples, RayTracing& tracer, BakedSun* sun)
-{
-    std::vector<ProbeRequest> rays;
-    rays.reserve(samples.size());
-    for (const BakeSample& sample : samples) {
-        rays.push_back({.origin = plus(sample.position, scaled(sample.normal, kOffset)),
-                        .direction = sun->toward,
-                        .max_distance = kRayLength,
-                        .cull_mask = kMaskWorld});
-    }
-    std::vector<ProbeResult> hits;
-    tracer.probe_many(rays, &hits);
-    if (hits.size() != samples.size()) {
-        return;
-    }
-    std::vector<uint8_t> lit(samples.size());
-    std::ranges::transform(hits, lit.begin(), [](const ProbeResult& hit) { return hit.hit ? uint8_t{0} : uint8_t{1}; });
-    make_agreement(samples, lit, sun);
-}
-
-float agreement_at(const BakedSun& sun, const Vec3& point)
-{
-    const float x = x_of(point);
-    const float z = z_of(point);
-    if (sun.agreement.empty() || sun.columns == 0 || sun.rows == 0 || !(sun.cell > 0.0F)) {
-        return 1.0F;
-    }
-    constexpr float kCentre = 0.5F; // (a cell's value is at its centre)
-    const float grid_x = ((x - std::get<0>(sun.origin)) / sun.cell) - kCentre;
-    const float grid_z = ((z - std::get<1>(sun.origin)) / sun.cell) - kCentre;
-    const float first_x = std::floor(grid_x);
-    const float first_z = std::floor(grid_z);
-    const float across_x = grid_x - first_x;
-    const float across_z = grid_z - first_z;
-    const auto value = [&sun](float column_at, float row_at) {
-        const auto column =
-            static_cast<std::size_t>(std::clamp(column_at, 0.0F, static_cast<float>(sun.columns - 1)));
-        const auto row = static_cast<std::size_t>(std::clamp(row_at, 0.0F, static_cast<float>(sun.rows - 1)));
-        return core::at(sun.agreement, (row * sun.columns) + column);
-    };
-    const float near = (value(first_x, first_z) * (1.0F - across_x)) + (value(first_x + 1.0F, first_z) * across_x);
-    const float far =
-        (value(first_x, first_z + 1.0F) * (1.0F - across_x)) + (value(first_x + 1.0F, first_z + 1.0F) * across_x);
-    return (near * (1.0F - across_z)) + (far * across_z);
-}
-
 // --- (added by the scene's sun) -------------------------------------------------------------------------------------
 
 namespace {
@@ -447,14 +326,16 @@ SceneSun resolve_scene_sun(const SunInputs& in)
     if (in.baked_scene == 0) {
         return {.origin = SunOrigin::kWaiting};
     }
-    if (!in.baked_found) {
-        return {}; // (indoors: the level keeps its bake)
-    }
-    if (in.clock_set && in.relight.relights) { // (added by the time of day)
+    // (added by the time of day; lighting round A: before the baked sun - a level whose bake shows no sun, night or
+    // indoors, is relit by its sky, bounce and lamps, and the clock's sun lights it too)
+    if (in.clock_set && in.relight.relights) {
         const SceneSun clock = sun_of(SunOrigin::kClock, in.clock_toward);
         if (clock.found()) {
             return clock;
         }
+    }
+    if (!in.baked_found) {
+        return {}; // (no sun in the bake, and no clock: the level at its own time has none)
     }
     if (in.choice.source == SunSource::kGame && in.game_set && in.relight.relights && !in.relight.level_keeps_bake) {
         const SceneSun game = sun_of(SunOrigin::kGame, in.game_toward);

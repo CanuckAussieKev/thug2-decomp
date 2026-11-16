@@ -18,6 +18,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -258,8 +259,9 @@ uint rays_mask(vec3 here, vec3 to_camera, float distance, inout vec3 normal)
 // world: a ray from the camera through it against the world ends where the depth does on a mesh with a light stream
 // (vulkan_rt_scene.h hit_world_light). Its sky's light was traced per vertex (relit's K - the occlusion the level's sky
 // light has there) and its bounce too (relit's B): neither is added again here.
-bool relit_world_pixel(vec3 here, vec3 to_camera, float distance)
+bool relit_world_light(vec3 here, vec3 to_camera, float distance, out WorldLight w)
 {
+    w = NO_WORLD_LIGHT;
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT, 0x05u, pc.camera.xyz, 0.0,
                           -to_camera / max(distance, 1e-6), distance * 1.02 + 2.0);
@@ -269,10 +271,14 @@ bool relit_world_pixel(vec3 here, vec3 to_camera, float distance)
         abs(rayQueryGetIntersectionTEXT(query, true) - distance) > 2.0 + 0.02 * distance) {
         return false;
     }
-    WorldLight w;
     return hit_world_light(rayQueryGetIntersectionInstanceIdEXT(query, true),
                            rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
                            rayQueryGetIntersectionBarycentricsEXT(query, true), w);
+}
+bool relit_world_pixel(vec3 here, vec3 to_camera, float distance)
+{
+    WorldLight w;
+    return relit_world_light(here, to_camera, distance, w);
 }
 
 // The rays' directions: the hemisphere around `normal` (an orthonormal basis without a branch on the normal's
@@ -443,15 +449,22 @@ vec3 incoming(vec3 origin, vec3 direction, float travelled, uint mask)
                              rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
                              rayQueryGetIntersectionBarycentricsEXT(query, true),
                              rayQueryGetIntersectionObjectToWorldEXT(query, true), lights.shape.x * t, -direction, n);
-    vec3 light = lights.ambient.rgb;
+    // (lighting round A) a hit on the relit world: its surface is the light store's (the texture's colour x its tint,
+    // none of the bake's light) lit by the same lighting state - the store's sun and sky, and its lamps' light
+    WorldLight hit;
+    bool relit = hit_world_light(rayQueryGetIntersectionInstanceIdEXT(query, true),
+                                 rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                                 rayQueryGetIntersectionBarycentricsEXT(query, true), hit);
+    vec3 light = relit ? hit.sky : lights.ambient.rgb;
+    vec3 sun = relit ? hit.sun : lights.sun.rgb;
     float facing = dot(n, lights.to_sun.xyz);
     if (lights.to_sun.w > 0.0 && facing > 0.0) {
         vec3 point = origin + direction * t;
         if (!sun_blocked(point + n * start_offset(travelled + t))) {
-            light += lights.sun.rgb * facing;
+            light += sun * facing;
         }
     }
-    return albedo * light;
+    return relit ? albedo * (hit.tint * light + hit.lamps) : albedo * light;
 }
 
 // The pixel's own albedo (a 1 when found, else 0).
@@ -502,8 +515,11 @@ void main()
     vec3 origin = here + normal * start_offset(distance);
     float footprint = length(world_at(p + ivec2(1, 0), d) - here);
     vec4 albedo = surface_albedo(here, distance, footprint);
-    if (albedo.a > 0.0 && relit_world_pixel(here, to_camera, distance)) {
-        albedo = vec4(0.0); // (the light energy audit: the relit world's bounce is relit's - nothing added here)
+    WorldLight world;
+    if (albedo.a > 0.0 && relit_world_light(here, to_camera, distance, world)) {
+        // (lighting round A) the relit world's surface: the texture's colour x the light store's tint - the bounce is
+        // this pass's while it lights (relit lights none per vertex: rt_lights.h bounce_drawn)
+        albedo.rgb *= world.tint;
     }
     Hemisphere h = hemisphere_of(normal, local);
     uint rays = uint(pc.params.y);
@@ -2243,15 +2259,11 @@ void set_rt_gi_settings(const RtGiSettings& settings)
             reset_effect_history(indirect());
         }
     }
-    // (the bounce's sun is the level's baked one: render_pc fits it in a new world's first frame. Set after the shadows'
-    // settings - renderer_choice's order -, whose own `off` would clear it)
-    if (kept.on) {
-        rt::set_baked_sun_wanted(true);
-    }
     if (kept.on) {
         rt::add_view_listener(&indirect_listener());
     } else {
         rt::remove_view_listener(&indirect_listener());
+        rt::set_bounce_drawn(false); // (relit lights the bounce per vertex again)
     }
 }
 
@@ -2295,7 +2307,13 @@ void rt_gi_reset_history(Backend& state)
 // (added by cel shading, vulkan_cel_draw.h: its bands take the soft gradients away - no occlusion, no bounce while on)
 bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view) { return !cel_on() && record_effect(state, effects(), view); }
 
-bool record_rt_gi_pass(Backend& state, const rt::ViewDrawn& view) { return !cel_on() && record_effect(state, indirect(), view); }
+bool record_rt_gi_pass(Backend& state, const rt::ViewDrawn& view)
+{
+    // (lighting round A) while this pass lights the bounce per pixel, relit lights none per vertex (one owner)
+    const bool drawn = !cel_on() && record_effect(state, indirect(), view);
+    rt::set_bounce_drawn(drawn);
+    return drawn;
+}
 
 uint64_t rt_ao_passes() { return effects().passes; }
 

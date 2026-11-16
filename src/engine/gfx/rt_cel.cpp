@@ -204,31 +204,25 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     if (!model.valid || !vertex.used) {
         return kCelNoStream;
     }
-    // (the relit level's indirect light, as it lights the vertex: rt_relit.h relit_parts - the time of day's scales in)
-    const std::array<float, 3> ambient = relit_parts(model, vertex, lighting).indirect;
-    std::array<float, 3> tint{};
-    for (std::size_t ch = 0; ch < tint.size(); ++ch) {
-        core::at(tint, ch) = model.scale * core::at(vertex.tint, ch);
-    }
+    // (the relit level's light as it lights the vertex: rt_relit.h relit_parts - the lighting state's terms in)
+    const RelitParts parts = relit_parts(model, vertex, lighting);
     const float length = std::sqrt(dot(lighting.toward, lighting.toward));
     const float n_dot_l = length > 0.0F ? std::max(0.0F, dot(vertex.normal, lighting.toward) / length) : 0.0F;
-    // (the level's own light: the lamps' term and the residual - rt_relit.h relit_own_light)
-    const std::array<float, 3> residual =
-        lighting.residual ? relit_own_light(model, vertex) : std::array<float, 3>{0.0F, 0.0F, 0.0F};
-    // (the sun's visibility with the bake's sun the tracer missed - toward the bake's own sun only: rt_relit.h)
-    const float missed = vertex.sun_missed * relit_missed_trust(model, lighting.toward);
-    const float seen = std::clamp(vertex.sun + missed, 0.0F, 1.0F);
-    // (the light energy audit's parts: the direct light's colour as relit_parts takes it, the sky's part of the ambient)
+    const float seen = std::clamp(vertex.sun, 0.0F, 1.0F);
+    // the lamps' light on the surface (tint x L x the lamps on), the direct light's colour and strength, the sky's part
+    std::array<float, 3> lamps{};
     std::array<float, 3> sun{};
     std::array<float, 3> sky{};
+    const Rgbf& sky_light = lighting.day && model.sunless ? model.day_sky : model.sky;
     for (std::size_t ch = 0; ch < sun.size(); ++ch) {
+        core::at(lamps, ch) = core::at(vertex.tint, ch) * core::at(parts.lamps, ch);
         core::at(sun, ch) =
             core::at(model.sun, ch) * core::at(lighting.sun_colour, ch) * core::at(lighting.direct_scale, ch);
-        core::at(sky, ch) = core::at(model.sky, ch) * core::at(lighting.sky_scale, ch) * vertex.sky;
+        core::at(sky, ch) = core::at(sky_light, ch) * core::at(lighting.sky_scale, ch) * vertex.sky;
     }
-    return {word(ambient, kBytesPerLight, n_dot_l), word(tint, kBytesPerLight, seen),
-            word(residual, kBytesPerLight, 1.0F), word(sun, kBytesPerLight, std::clamp(missed, 0.0F, seen)),
-            word(sky, kBytesPerLight, std::clamp(vertex.sky, 0.0F, 1.0F))};
+    return {word(parts.indirect, kBytesPerLight, n_dot_l), word(vertex.tint, kBytesPerLight, seen),
+            word(lamps, kBytesPerLight, 1.0F), word(sun, kBytesPerLight, 0.0F),
+            word(sky, kBytesPerLight, std::clamp(vertex.sky, 0.0F, 1.0F)), relit_colour(model, vertex, lighting)};
 }
 
 StreamParts stream_parts(const CelWords& words)
@@ -244,12 +238,12 @@ StreamParts stream_parts(const CelWords& words)
     out.n_dot_l = alpha(std::get<0>(words));
     out.tint = rgb(std::get<1>(words));
     out.seen = alpha(std::get<1>(words));
-    out.residual = rgb(std::get<2>(words));
+    out.lamps = rgb(std::get<2>(words));
     out.valid = alpha(std::get<2>(words)) >= kHalf;
     out.sun = rgb(std::get<3>(words));
-    out.missed = alpha(std::get<3>(words));
     out.sky = rgb(std::get<4>(words));
     out.sky_share = alpha(std::get<4>(words));
+    out.colour = rgb(std::get<5>(words));
     return out;
 }
 
@@ -259,7 +253,7 @@ std::array<float, 3> stream_light(const StreamParts& parts, float seen)
     for (std::size_t ch = 0; ch < out.size(); ++ch) {
         core::at(out, ch) = (core::at(parts.tint, ch) *
                              (core::at(parts.ambient, ch) + (core::at(parts.sun, ch) * parts.n_dot_l * seen))) +
-                            core::at(parts.residual, ch);
+                            core::at(parts.lamps, ch);
     }
     return out;
 }

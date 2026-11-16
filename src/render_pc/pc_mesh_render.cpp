@@ -85,7 +85,8 @@ static_assert(sizeof(SkinVertex) == kSkinVertexBytes, "layout must match the ori
 // colour, the relit tint in the vertex colour too).
 void set_cel_source(VertexBuffer* vb)
 {
-    if (rt::cel_shading_on() || snow::settings().on) {
+    // (lighting round A: and the relit mode - the world's draws read its light store in place of their vertex colour)
+    if (rt::cel_shading_on() || snow::settings().on || rt::relit_settings().on) {
         gpu().set_cel_source(
             {.vertices = vb->buffer(), .offset = vb->arena_offset(), .stream = rt_relit_world::cel_stream(vb)});
     }

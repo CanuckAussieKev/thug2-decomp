@@ -330,7 +330,7 @@ std::vector<Decl> declarations()
                    c("afternoon", t::kTodAfternoon), c("dusk", t::kTodDusk), c("night", t::kTodNight)})
             .open()
             .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
-            .need(level_lit_or_no_rt(Cap::kLevelSunInBake), t::kLevelNoSunlight)
+            .need(level_lit_or_no_rt(Cap::kLevelTakenApart), t::kLevelNotTakenApart)
             .off("level")
             .live(E::kTimeOfDay),
         gfx("tod_cycle", K::kChoice, "off")
@@ -339,7 +339,7 @@ std::vector<Decl> declarations()
             .alias("0", "off")
             .alias("1", "on")
             .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
-            .need(level_lit_or_no_rt(Cap::kLevelSunInBake), t::kLevelNoSunlight)
+            .need(level_lit_or_no_rt(Cap::kLevelTakenApart), t::kLevelNotTakenApart)
             .off("off")
             .live(E::kTimeOfDay),
         gfx("tod_cycle_minutes", K::kNumber, "24")
@@ -349,7 +349,7 @@ std::vector<Decl> declarations()
             .live(E::kTimeOfDay),
         gfx("tod_levels", K::kText, "")
             .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
-            .need(level_lit_or_no_rt(Cap::kLevelSunInBake), t::kLevelNoSunlight)
+            .need(level_lit_or_no_rt(Cap::kLevelTakenApart), t::kLevelNotTakenApart)
             .off("")
             .live(E::kTimeOfDay),
         // (the offline relit data: a ray-traced light replaces its own part of the relit level's light - never stacks
@@ -359,11 +359,9 @@ std::vector<Decl> declarations()
             .need(ray_tracing())
             .need(on("rt_relit"))
             .live(E::kShadows),
-        gfx("rt_shadow_strength", K::kNumber, "0.5")
-            .tab(G::kLighting, t::kOptShadowStrength)
-            .pick(percent({{"0.25", "25%"}, {"0.5", "50%"}, {"0.75", "75%"}, {"1", "100%"}}))
-            .need(on("rt_shadows"))
-            .live(E::kShadows),
+        // (lighting round A - one shadow model: the sun's visibility at every lit pixel, never a blend or a darkening
+        // over the bake - its strength, the sky test and the bake's agreement retired)
+        gfx("rt_shadow_strength", K::kNumber, "0.5").retire(t::kOneShadowModel),
         gfx("rt_shadow_softness", K::kNumber, "0")
             .tab(G::kLighting, t::kOptShadowSoftness)
             .pick({c("0", "Hard"), c("0.5", "0.5"), c("1", "1"), c("2", "2"), c("4", "4")})
@@ -378,9 +376,9 @@ std::vector<Decl> declarations()
             .need(on("rt_shadows"))
             .need(is_not("rt_shadow_softness", {"0"}), t::kNeedsSoftShadows)
             .live(E::kShadows),
-        gfx("rt_shadow_match_bake", K::kSwitch, "1").need(on("rt_shadows")).live(E::kShadows),
-        gfx("rt_shadow_covered", K::kSwitch, "0").need(on("rt_shadows")).live(E::kShadows),
-        gfx("rt_shadow_sky_rays", K::kNumber, "5").need(on("rt_shadows")).live(E::kShadows),
+        gfx("rt_shadow_match_bake", K::kSwitch, "1").retire(t::kOneShadowModel),
+        gfx("rt_shadow_covered", K::kSwitch, "0").retire(t::kOneShadowModel),
+        gfx("rt_shadow_sky_rays", K::kNumber, "5").retire(t::kOneShadowModel),
         gfx("rt_ao", K::kSwitch, "0").tab(G::kLighting, t::kOptAo, t::kOptAoHelp).need(ray_tracing()).need(on("rt_relit")).live(E::kAo),
         gfx("rt_ao_strength", K::kNumber, "0.6")
             .tab(G::kLighting, t::kOptAoStrength)
@@ -408,14 +406,29 @@ std::vector<Decl> declarations()
             .need(on("rt_ao"))
             .need(negate(on("ray_reconstruction")), t::kRayReconstructionDenoises)
             .live(E::kAo),
-        // (the light energy audit, then the offline relit data - docs/design/vulkan.md "Each light counted once": the
-        // relit level's bounce is relit's, traced per vertex, and the objects take it through the light field; the
-        // lighting passes run only on a relit level - the bounce pass never had a part of its own left)
-        gfx("rt_gi", K::kSwitch, "0").retire(t::kRelitBouncesLight),
-        gfx("rt_gi_strength", K::kNumber, "1").retire(t::kRelitBouncesLight),
-        gfx("rt_gi_rays", K::kNumber, "2").retire(t::kRelitBouncesLight),
-        gfx("rt_gi_distance", K::kNumber, "600").retire(t::kRelitBouncesLight),
-        gfx("rt_gi_denoise", K::kSwitch, "1").retire(t::kRelitBouncesLight),
+        // (lighting round A: the bounce light per pixel again - from the relit level's light store, its surfaces'
+        // colours and light; relit's per-vertex bounce gives way to it while it lights: rt_lights.h bounce_drawn. One
+        // owner, as the shadows and the lamps. Like them it needs the level relit and turns it on.)
+        gfx("rt_gi", K::kSwitch, "0")
+            .tab(G::kLighting, t::kOptGi, t::kOptGiHelp)
+            .need(ray_tracing())
+            .need(on("rt_relit"))
+            .live(E::kGi),
+        gfx("rt_gi_strength", K::kNumber, "1")
+            .tab(G::kLighting, t::kOptGiStrength)
+            .pick(percent({{"0.5", "50%"}, {"1", "100%"}, {"1.5", "150%"}, {"2", "200%"}}))
+            .need(on("rt_gi"))
+            .live(E::kGi),
+        gfx("rt_gi_rays", K::kNumber, "4")
+            .tab(G::kLighting, t::kOptGiRays)
+            .pick({c("1", "1"), c("2", "2"), c("4", "4"), c("8", "8")})
+            .need(on("rt_gi"))
+            .live(E::kGi),
+        gfx("rt_gi_distance", K::kNumber, "600").need(on("rt_gi")).live(E::kGi),
+        gfx("rt_gi_denoise", K::kSwitch, "1")
+            .need(on("rt_gi"))
+            .need(negate(on("ray_reconstruction")), t::kRayReconstructionDenoises)
+            .live(E::kGi),
         // (Auto, the default: lit only in the dark - the time of day's night or a dark level)
         gfx("rt_lights", K::kChoice, "auto")
             .tab(G::kLighting, t::kOptLights, t::kOptLightsHelp)
@@ -448,15 +461,13 @@ std::vector<Decl> declarations()
             .need(ray_tracing())
             .need(has(Cap::kLevelLightData))
             .need(has(Cap::kLevelLightCurrent))
-            .need(has(Cap::kLevelSunInBake))
+            .need(has(Cap::kLevelTakenApart))
             .off("0")
             .live(E::kRelit),
-        gfx("rt_relit_strength", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptRelitStrength)
-            .pick(percent({{"0.25", "25%"}, {"0.5", "50%"}, {"0.75", "75%"}, {"1", "100%"}}))
-            .need(on("rt_relit"))
-            .live(E::kRelit),
-        gfx("rt_relit_residual", K::kSwitch, "1").need(on("rt_relit")).live(E::kRelit),
+        // (lighting round A: relit is the surfaces' colours lit physically - never blended with the bake, and nothing of
+        // the bake's light kept as a residual)
+        gfx("rt_relit_strength", K::kNumber, "1").retire(t::kRelitPhysical),
+        gfx("rt_relit_residual", K::kSwitch, "1").retire(t::kRelitPhysical),
         // (the offline relit data: made once by the relit bake - the tints' detail and the cache are the bake's)
         gfx("rt_relit_detail", K::kNumber, "1").retire(t::kRetired),
         gfx("rt_relit_sky_rays", K::kNumber, "24").need(on("rt_relit")).live(E::kRelit),
@@ -1190,7 +1201,8 @@ const std::vector<Force>& forces()
         // (the offline relit data: the lighting passes replace their own part of the relit level's light)
         {.key = "rt_relit",
          .value = "1",
-         .when = any({asked_is("rt_shadows", {"1"}), asked_is("rt_ao", {"1"}), asked_is("rt_lights", {"1", "auto"})}),
+         .when = any({asked_is("rt_shadows", {"1"}), asked_is("rt_ao", {"1"}), asked_is("rt_lights", {"1", "auto"}),
+                      asked_is("rt_gi", {"1"})}),
          .reason = t::kOnForLighting},
         {.key = "thugpro_peer", .value = "1", .when = is("OnlineGameName", {"thugpro"}), .reason = t::kOnForThugproLobbies},
     };
@@ -1231,16 +1243,17 @@ const std::vector<PresetValue>& preset_values(int choice)
     // Original - every effect off, the game as it was; High - the cheaper effects (shadows, occlusion, reflections, the
     // sky and sun, the volumetric light, HDR, bloom, smooth curves); Ultra - every effect on. Upscaling is left as it
     // is (it trades sharpness for speed, whatever the preset).
-    // (rt_gi retired with the offline relit data: relit lights the bounce. High's light shafts were the screen-space
-    // rays, rt_shafts, until the volumetric light: they are the fog pass's now - rt_fog on in High)
+    // (rt_gi back with lighting round A - the bounce light per pixel from the relit light store - on in Ultra. High's
+    // light shafts were the screen-space rays, rt_shafts, until the volumetric light: they are the fog pass's now -
+    // rt_fog on in High)
     constexpr std::array kKeys = {"ray_tracing", "rt_shadows", "rt_ao",     "rt_reflections", "rt_relit",
                                   "rt_pbr",      "rt_fog",     "rt_sky",    "rt_sky_model",   "rt_clouds",
-                                  "rt_sun",      "rt_bloom",   "rt_hdr",    "rt_tessellation"};
-    constexpr std::array<const char*, kKeys.size()> kOriginal = {"0", "0", "0", "0", "0", "0", "0",
+                                  "rt_sun",      "rt_bloom",   "rt_hdr",    "rt_tessellation", "rt_gi"};
+    constexpr std::array<const char*, kKeys.size()> kOriginal = {"0", "0", "0", "0", "0", "0", "0", "0",
                                                                  "0", "0", "0", "0", "0", "0", "0"};
-    constexpr std::array<const char*, kKeys.size()> kHigh = {"1", "1", "1", "1", "0", "0", "1",
-                                                             "1", "1", "0", "1", "1", "1", "1"};
-    constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "1", "1", "1", "1",
+    constexpr std::array<const char*, kKeys.size()> kHigh = {"1", "1", "1", "1", "0", "0", "1", "1",
+                                                             "1", "0", "1", "1", "1", "1", "0"};
+    constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "1", "1", "1", "1", "1",
                                                               "1", "1", "1", "1", "1", "1", "1"};
     const auto list = [&kKeys](const std::array<const char*, kKeys.size()>& values) {
         std::vector<PresetValue> made;

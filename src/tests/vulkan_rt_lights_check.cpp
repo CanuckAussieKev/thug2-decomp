@@ -289,9 +289,11 @@ void check_sources(Tally* tally)
                               (0.5F * std::pow(1.0F - std::pow(rt::kPointCoreShare, 4.0F), 2.0F))) < 1e-5F &&
                      rt::light_falloff(10.0F * core, core, reach) < 0.01F,
                  "the falloff: 1 at the light, about 1/2 at its core's edge, under 1% ten cores away, 0 at its reach");
-    tally->check(rt::limited_light(0.5F) == 0.5F && rt::limited_light(rt::kLightKnee) == rt::kLightKnee &&
-                     rt::limited_light(100.0F) < rt::kLightMost && rt::limited_light(3.0F) > rt::limited_light(2.0F),
-                 "the lights' sum: as it is up to the knee, then rising ever more slowly, never past the most");
+    // (lighting round A: the lights' sum is no longer held under a knee - the lamps light by their data, the tone map
+    // compresses; rt_lights.h lamps_on: one rule for the pass and relit's per-vertex lamps)
+    tally->check(rt::lamps_on({.on = true, .lamps = 0.25F}, false) == 0.25F && rt::lamps_on({}, true) == 1.0F &&
+                     rt::lamps_on({}, false) == 0.0F,
+                 "the lamps on: the clock's amount while it runs, else a dark level's lamps whole");
     // the view's selection: a camera at the origin looking down -z (D3D's right-handed look-at, as the game's)
     std::array<float, 16> view_matrix{};
     std::array<float, 16> projection{};
@@ -573,13 +575,10 @@ Answer answer_at(const Seen& seen, std::span<const Lamp> lamps, unsigned traced)
     for (std::size_t c = 0; c < 3; ++c) {
         core::at(light, c) = core::at(lit, c) + (core::at(rest, c) * share);
     }
-    // the sum held under the knee (rt::limited_light)
+    // (lighting round A: the sum as it is - no knee)
     answer.raw = (0.299 * light[0]) + (0.587 * light[1]) + (0.114 * light[2]);
-    const double scale = answer.raw > static_cast<double>(rt::kLightKnee)
-                             ? static_cast<double>(rt::limited_light(static_cast<float>(answer.raw))) / answer.raw
-                             : 1.0;
     for (std::size_t c = 0; c < 3; ++c) {
-        core::at(answer.added, c) = static_cast<double>(kStrength) * core::at(albedo, c) * core::at(light, c) * scale;
+        core::at(answer.added, c) = static_cast<double>(kStrength) * core::at(albedo, c) * core::at(light, c);
     }
     return answer;
 }
@@ -1555,23 +1554,24 @@ constexpr std::array<double, 3> kStreamSun{1.0, 0.75, 0.4}; // (toward the sun -
 constexpr double kStreamAmbient = 0.5; // the floor's sky light (light units: 1 = a colour byte's 128)
 constexpr double kStreamDirect = 0.4;  // the sun's light (the model's a)
 
-// The floor's stream words for every vertex: tint 1, the sun seen `seen`, the residual `residual`.
-std::vector<rt::CelWords> floor_stream(std::size_t vertices, float seen, float residual)
+// The floor's stream words for every vertex: tint 1, the sun seen `seen`, relit's own lamps' light `lamp` (L, lit
+// whole: the pass not lighting).
+std::vector<rt::CelWords> floor_stream(std::size_t vertices, float seen, float lamp)
 {
     rt::RelitModel model;
     model.valid = true;
     model.sun = {static_cast<float>(kStreamDirect), static_cast<float>(kStreamDirect), static_cast<float>(kStreamDirect)};
     model.sky = {static_cast<float>(kStreamAmbient), static_cast<float>(kStreamAmbient),
                  static_cast<float>(kStreamAmbient)};
-    model.scale = 1.0F;
     rt::RelitVertex vertex;
     vertex.normal = {0.0F, 1.0F, 0.0F};
     vertex.sun = seen;
     vertex.sky = 1.0F;
     vertex.tint = {1.0F, 1.0F, 1.0F};
-    vertex.residual = {residual, residual, residual};
+    vertex.lamp = {lamp, lamp, lamp};
     vertex.used = true;
     rt::RelitLighting lighting;
+    lighting.lamps = 1.0F;
     lighting.toward = {0.0F, 1.0F, 0.0F}; // (N.L 1: the floor faces the sun the stream was written for)
     return std::vector<rt::CelWords>(vertices, rt::cel_stream_words(model, vertex, lighting));
 }
@@ -1676,10 +1676,8 @@ void run_counted_once(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     render::vulkan::set_rt_light_settings({});
     render::vulkan::RtShadowSettings shadows;
     shadows.on = true;
-    shadows.strength = 1.0F;
     shadows.softness = 0.0F;
     shadows.rays = 1;
-    shadows.match_bake = false;
     render::vulkan::set_rt_shadow_settings(shadows);
     const std::vector<FloorPixel> pixels = floor_pixels(toward);
     // (the stream's bytes: the expected factors from the same rounding the shader reads)
@@ -1716,7 +1714,8 @@ void run_counted_once(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     }
     render::vulkan::set_rt_shadow_settings({});
     rt::set_sun_override(nullptr);
-    // the lamps: the floor's residual at least the lamp's light - the floor as drawn; the box (no stream) lit
+    // (lighting round A) the lamps: lit by their data on the relit floor (its albedo the texture's x the store's tint)
+    // and on the box - no subtraction of a baked residual
     {
         render::vulkan::set_rt_light_settings(settings_for(true, 4));
         rt::set_level_emitters({});
@@ -1724,7 +1723,7 @@ void run_counted_once(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
                                                 .colour = {1.0F, 0.9F, 0.7F},
                                                 .position = floats(kLampAt),
                                                 .radius = static_cast<float>(kLampReach)}}};
-        const std::vector<rt::CelWords> words = floor_stream(floor.triangles.size(), 1.0F, rt::kRelitMaxValue);
+        const std::vector<rt::CelWords> words = floor_stream(floor.triangles.size(), 1.0F, 0.0F);
         bool ok = set_floor_stream(gpu, floor, words, &stream);
         Targets targets;
         std::vector<uint8_t> texels;
@@ -1751,9 +1750,8 @@ void run_counted_once(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
                 box_changed += seen.solid == 2 && changed ? 1 : 0;
             }
         }
-        tally->check(ok && floor_changed == 0 && box_changed > 200,
-                     text::format("the lamp over a floor whose residual holds it: %d floor pixels changed (0 wanted), "
-                                  "%d of the box's lit",
+        tally->check(ok && floor_changed > 200 && box_changed > 200,
+                     text::format("the lamp over the relit floor: %d floor pixels and %d of the box's lit by it",
                                   floor_changed, box_changed));
         render::vulkan::set_rt_light_settings({});
     }
@@ -1803,8 +1801,8 @@ void run_many(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
             most_raw = std::max(most_raw, answer_at(seen, lamps, 4).raw);
         }
     }
-    tally->check(most_raw > static_cast<double>(rt::kLightKnee),
-                 text::format("their summed light reaches past the knee (%.2f)", most_raw));
+    tally->check(most_raw > 1.0,
+                 text::format("their summed light reaches past 1 (%.2f) - drawn as it is, no cap", most_raw));
     // at the default strength (rt_lights_strength): no floor pixel burnt white
     settings.strength = render::vulkan::kRtLightsStrength;
     render::vulkan::set_rt_light_settings(settings);

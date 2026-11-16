@@ -235,19 +235,6 @@ std::shared_ptr<const LevelEmitters> level_emitters()
     return slot.emitters;
 }
 
-void set_emitters_wanted(bool wanted)
-{
-    EmitterSlot& slot = emitter_slot();
-    const std::scoped_lock lock(slot.mutex);
-    slot.wanted = wanted;
-}
-
-bool emitters_wanted()
-{
-    EmitterSlot& slot = emitter_slot();
-    const std::scoped_lock lock(slot.mutex);
-    return slot.wanted;
-}
 
 namespace {
 std::atomic<float>& lamps_drawn_slot()
@@ -264,22 +251,32 @@ void set_lamps_drawn(float amount)
 
 float lamps_drawn() { return lamps_drawn_slot().load(std::memory_order_relaxed); }
 
+float lamps_on(const DayLight& day, bool dark_level)
+{
+    if (day.on) {
+        return std::isfinite(day.lamps) ? std::clamp(day.lamps, 0.0F, 1.0F) : 0.0F;
+    }
+    return dark_level ? 1.0F : 0.0F;
+}
+
+namespace {
+std::atomic<bool>& bounce_drawn_slot()
+{
+    static std::atomic<bool> slot{false};
+    return slot;
+}
+} // namespace
+
+void set_bounce_drawn(bool drawn) { bounce_drawn_slot().store(drawn, std::memory_order_relaxed); }
+
+bool bounce_drawn() { return bounce_drawn_slot().load(std::memory_order_relaxed); }
+
 float emitter_core(float area)
 {
     return std::max(kEmitterMinCore, std::sqrt(std::max(area, 0.0F) / kPi));
 }
 
 float point_core(float reach) { return kPointCoreShare * reach; }
-
-float limited_light(float luminance)
-{
-    if (!(luminance > kLightKnee)) {
-        return luminance;
-    }
-    const float over = luminance - kLightKnee;
-    const float room = kLightMost - kLightKnee;
-    return kLightKnee + (room * over / (room + over));
-}
 
 float light_falloff(float distance, float core, float reach)
 {

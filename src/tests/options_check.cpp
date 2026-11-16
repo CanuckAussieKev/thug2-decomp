@@ -361,9 +361,9 @@ void check_ini()
     expect(old.value("rt_style") == "toon" && old.value("tod_cycle") == "on" && old.at("upscale_quality").asked == "dlaa" &&
                old.on("rt_bloom"),
            "older spellings read as their choices");
-    const config::Resolution bad = resolve(rtx50(), {{"rt_grade", "sepia"}, {"rt_shadow_strength", "dark"}});
+    const config::Resolution bad = resolve(rtx50(), {{"rt_grade", "sepia"}, {"rt_ao_strength", "dark"}});
     expect(bad.value("rt_grade") == "off" && bad.at("rt_grade").reason == t::kNotAChoice, "a value that is no choice: the default, said so");
-    expect(same_value(bad.at("rt_shadow_strength").asked, "0.5"), "a number that isn't one: the default");
+    expect(same_value(bad.at("rt_ao_strength").asked, "0.6"), "a number that isn't one: the default");
 }
 
 void check_presets()
@@ -649,7 +649,7 @@ void check_needs()
            "the needs on other settings toggled (" + std::to_string(toggled) + ", " + std::to_string(held) + " held)");
     // (the ones held above: the relit mode's knobs follow it - out of effect with it off and nothing forcing it)
     const config::Resolution relit_off = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_relit", "0"}, {"rt_lights", "0"}});
-    for (const char* key : {"rt_relit_strength", "rt_relit_residual", "rt_relit_sky_rays", "rt_relit_sun_rays"}) {
+    for (const char* key : {"rt_relit_sky_rays", "rt_relit_sun_rays"}) {
         expect(!relit_off.at(key).in_effect, std::string(key) + " out of effect with the relit mode off");
     }
 }
@@ -682,7 +682,7 @@ void check_level_light()
         const char* what;
     } kept[] = {{config::LevelLight::kMissing, t::kLevelLightNotBuilt, "no relit data"},
                 {config::LevelLight::kStale, t::kLevelLightOutOfDate, "relit data made from other meshes"},
-                {config::LevelLight::kNoSun, t::kLevelNoSunlight, "a bake with no sunlight"}};
+                {config::LevelLight::kNoModel, t::kLevelNotTakenApart, "a bake with no sunlight"}};
     for (const auto& each : kept) {
         const config::Resolution level = level_with(each.light);
         expect(!level.on("rt_relit") && level.at("rt_relit").reason == each.reason,
@@ -705,7 +705,7 @@ void check_level_light()
         expect(level.at("rt_shadows").reason == each.reason,
                std::string(each.what) + ": the shadows say why at the root - " + level.at("rt_shadows").reason);
         expect(std::string(each.reason).find("relit_bake") != std::string::npos ||
-                   each.light == config::LevelLight::kNoSun,
+                   each.light == config::LevelLight::kNoModel,
                std::string(each.what) + ": the reason names the build step");
     }
     // without ray tracing the time of day is the original's own (tod_manager) - the level's data doesn't matter
@@ -749,7 +749,7 @@ void check_capabilities()
             if (need.cond.op != config::Cond::Op::kHas || need.cond.cap == config::Cap::kLevelWithoutFog ||
                 need.cond.cap == config::Cap::kLevelOutdoor || need.cond.cap == config::Cap::kLevelLightData ||
                 need.cond.cap == config::Cap::kLevelLightCurrent ||
-                need.cond.cap == config::Cap::kLevelSunInBake) { // (the level's facts: own cases below)
+                need.cond.cap == config::Cap::kLevelTakenApart) { // (the level's facts: own cases below)
                 continue;
             }
             ++taken;
@@ -802,12 +802,29 @@ void check_capabilities()
     const config::Resolution asked_retired = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_pbr", "1"}, {"rt_delight", "1"},
                                                               {"rt_gi", "1"}, {"rt_relit", "1"}, {"rt_relit_detail", "0.5"},
                                                               {"rt_relit_cache", "0"}});
-    for (const char* key : {"rt_delight", "rt_delight_strength", "rt_gi", "rt_gi_strength", "rt_gi_rays", "rt_gi_distance",
-                            "rt_gi_denoise", "rt_relit_detail", "rt_relit_cache"}) {
+    for (const char* key : {"rt_delight", "rt_delight_strength", "rt_relit_detail", "rt_relit_cache"}) {
         expect(!asked_retired.at(key).in_effect && !asked_retired.at(key).reason.empty(),
                std::string(key) + ": retired (" + asked_retired.at(key).reason + ")");
     }
-    expect(asked_retired.at("rt_gi").reason == t::kRelitBouncesLight, "rt_gi: retired - relit bounces the light");
+    // (lighting round A) the bounce light per pixel back - from the relit light store, relit on with it; one shadow
+    // model (strength, the sky test, the bake's agreement retired); relit as the surfaces' colours lit (its blend with
+    // the bake and its residual retired)
+    expect(asked_retired.at("rt_gi").in_effect && asked_retired.at("rt_relit").in_effect,
+           "rt_gi: in effect again on a relit level (the bounce light per pixel)");
+    const config::Resolution gi_alone = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_gi", "1"}});
+    expect(gi_alone.at("rt_relit").in_effect, "rt_gi turns rt_relit on (it replaces relit's own bounce)");
+    const config::Resolution old_keys =
+        resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_relit", "1"}, {"rt_shadows", "1"}, {"rt_shadow_strength", "0.5"},
+                          {"rt_shadow_match_bake", "1"}, {"rt_shadow_covered", "0"}, {"rt_shadow_sky_rays", "5"},
+                          {"rt_relit_strength", "0.5"}, {"rt_relit_residual", "1"}});
+    for (const char* key : {"rt_shadow_strength", "rt_shadow_match_bake", "rt_shadow_covered", "rt_shadow_sky_rays"}) {
+        expect(!old_keys.at(key).in_effect && old_keys.at(key).reason == t::kOneShadowModel,
+               std::string(key) + ": retired - one shadow model");
+    }
+    for (const char* key : {"rt_relit_strength", "rt_relit_residual"}) {
+        expect(!old_keys.at(key).in_effect && old_keys.at(key).reason == t::kRelitPhysical,
+               std::string(key) + ": retired - relit lit physically");
+    }
     check_level_light();
     check_network_limit();
 }
@@ -815,7 +832,7 @@ void check_capabilities()
 // The machines: what a typical ini resolves to on each.
 void check_machines()
 {
-    const Ini ini = {{"ray_tracing", "1"}, {"rt_shadows", "1"},     {"rt_shadow_strength", "0.75"}, {"rt_ao", "1"},
+    const Ini ini = {{"ray_tracing", "1"}, {"rt_shadows", "1"},     {"rt_shadow_softness", "1"}, {"rt_ao", "1"},
                      {"upscaler", "dlss"}, {"frame_generation", "4x"}, {"ray_reconstruction", "1"}, {"rt_pbr", "1"},
                      {"msaa", "4"},        {"grass", "1"},          {"rt_relit", "1"},             {"texture_set", "seedvr2"}};
     // RTX 50: everything as asked; DLSS-G makes 4x, Reflex on with it
@@ -860,7 +877,7 @@ void check_machines()
     // no ray tracing GPU: every ray-traced effect out, with the root reason
     const config::Resolution nort = resolve(no_rt_gpu(), ini);
     expect(!nort.on("ray_tracing") && nort.at("ray_tracing").reason == t::kNeedsRayGpu, "no RT GPU: ray tracing out");
-    for (const char* key : {"rt_shadows", "rt_shadow_strength", "rt_ao", "rt_relit"}) {
+    for (const char* key : {"rt_shadows", "rt_ao", "rt_relit"}) {
         expect(!nort.at(key).in_effect && nort.at(key).reason == t::kNeedsRayGpu,
                std::string("no RT GPU: ") + key + " out - " + nort.at(key).reason);
     }
@@ -912,7 +929,7 @@ void check_forces_and_conflicts()
     const config::Resolution sun = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_sun_source", "game"}});
     expect(sun.on("rt_relit") && sun.at("rt_relit").forced && sun.at("rt_relit").reason == t::kOnForSun,
            "rt_sun_source=game: relit on");
-    expect(sun.at("rt_relit_strength").in_effect, "relit forced on: its strength in effect");
+    expect(sun.at("rt_relit_sky_rays").in_effect, "relit forced on: its rays in effect");
     const config::Resolution tod = resolve(rtx50(), {{"ray_tracing", "1"}, {"tod", "night"}});
     expect(tod.on("rt_relit") && tod.at("rt_relit").reason == t::kOnForTimeOfDay, "tod=night: relit on");
     const config::Resolution cycle = resolve(rtx50(), {{"ray_tracing", "1"}, {"tod_cycle", "on"}});
