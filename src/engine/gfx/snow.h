@@ -157,6 +157,7 @@ public:
 
 private:
     surface_trail::Field activity_;
+    std::vector<uint32_t> settled_; // each tile (in the order made): its version + 1 when it was last found filled in
 };
 // The surface's height over the ground for a texel's bytes and the activity there (world units; the backend's shaders
 // are its twin): the activity's depth less what was pressed, plus the berm.

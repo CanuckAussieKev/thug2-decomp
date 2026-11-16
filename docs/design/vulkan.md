@@ -556,7 +556,10 @@ Direct3D 9 (V7).
   (Direct3D 9's depth units as 2^24 steps; the slope-scaled bias as it is), the blend factor, the primitive within its
   class and the vertex stride. Pipelines are made on first use and kept; the GLSL's SPIR-V is kept on disk by its hash
   (`thug2-decomp-vulkan-shaders.bin`) and the driver's pipeline cache beside it (`thug2-decomp-vulkan-pipelines.bin`),
-  written every 10 s when something new was made (the 64-bit build's two files end in `-x64`: a 32-bit driver's cache
+  written every 10 s when something new was made - a shader compiled, or a pipeline the cache didn't have (Vulkan 1.3's
+  creation feedback says; a pipeline the cache had marked them too until 2026-11-16, and the 70+ MB written on the
+  thread that draws stalled a frame 60 - 70 ms every 10 s while playing - "vulkan: the shader and pipeline caches
+  saved ... in N ms" when it takes over 8 ms, "vulkan: a pipeline took N ms to make" likewise) (the 64-bit build's two files end in `-x64`: a 32-bit driver's cache
   is never given to the 64-bit one). foun makes 52 pipelines from 40 shaders (0.9 s of glslang in the
   Debug build the first time, none after).
 - **The key from the state block** (`draw_shader_key`): the render states, the four stages' operations, arguments,
@@ -2797,10 +2800,11 @@ winter sky in the lighting state, the decals under the snow.
   up and nothing is over them.
 - **The trails** (`snow::TrailField` - a surface trails' field, below -, on the processor, kept for the whole level session): a heightfield in tiles of
   64 x 64 texels (2 units at quality 2; 3 at 1; 1.5 at 3), made where something first pressed; a texel holds four bytes
-  - the press (the share of the snow pushed down), the berm (snow pushed up beside a trail), the activity (where the
-  layer is raised over the ground) and a spare. A stamp is a capsule (from the presser's last place to this one) - the
-  press full inside it, softened over its outer 40%; the berm in the ring 5 units outside (4t(1 - t) across it); the
-  activity out to 24 units further; each byte keeps the most it was given. The layer's height over the ground is
+  - the press (the share of the snow pushed down), the berm (snow pushed up beside a trail) and two spares. The
+  activity (where the layer is raised over the ground) is a field of its own, 8 times coarser (round 3, below). A stamp
+  is a capsule (from the presser's last place to this one) - the press full inside it, softened over its outer 40%; the
+  berm in the ring 5 units outside (4t(1 - t) across it); the activity out to 24 units further (64 since round 2);
+  each byte keeps the most it was given. The layer's height over the ground is
   depth x cover x (activity x (1 - press) + 0.6 x berm x (1 - press)) (`snow::layer_height`, the shaders' twin).
   While snow falls (`snowfall`, or the game's own snow weather) every press and berm drops by one 255th each 180 / 255
   s - a full trail fills in over three minutes; the activity stays (the layer stays raised, now untouched).
@@ -2865,6 +2869,34 @@ winter sky in the lighting state, the decals under the snow.
   width, 4 - 60 units). The raised layer's fall at its edge is 64 units wide now, and its shading (the normal, the
   occlusion, the walls' shadow) takes the trails' relief alone - the fall is the layer meeting the ground's own snow,
   not a shape of it, so no step shows where it ends (nor at the window's edge).
+- **The cost (round 3).** The user's report: unplayable with snow on - in CA with snow_depth 20, 30 - 260 ms frames
+  and one of 18.5 s. Measured (`tools/game/frame_bench.ts`, the user's ini, CA and BO, the new log lines below): the
+  snow's step on the processor took 29 ms on average and up to 285 ms (frames to 725 ms) - 700 - 1000 pressers a step
+  and 115 stamps, 113 of them body joints (in 20 inches of snow a walking ped's knees are inside it, so every ped
+  presses every step), each writing its activity out to 74 units at the trails' texel: ~10,000 texels a stamp. Not
+  the shaders: the snow's passes take 0.1 ms on the device and no pipeline was made while playing. So:
+  - the activity is a field of its own (`TrailField::activity`, `snow::kActiveScale` = 8 trails' texels a side - 12
+    units at quality 3): a stamp writes the press and the berm only as far as the berm's ring, the activity on its
+    coarse texels (~150 a stamp). Its smooth 64-unit fall loses nothing at that size: the device samples it through
+    its own toroidal window (binding 9, linear - `TrailField::active_at` its twin) and the layer is drawn on the
+    trails' window tiles the activity raised (`TrailField::tile_active`), pressed or not;
+  - a stroke (`surface_trail::Field::stroke`, the paint's too) visits each texel row's span of its capsule
+    (`row_spans`: where the row meets the end discs and the two sides), not the capsule's box - the same texels (the
+    check counts them against every texel of the box), a long slanted stroke no longer its square;
+  - an outdoor level after the indoor front end gets its snow from its first frame (`config::set_level_outdoor` says
+    when the fact changed and `snow_world` puts the settings to use - it waited for a change on the Options screen).
+  The same steps (the same 115 stamps) now take 0.27 - 0.66 ms (the most 4.9). The log says it every 1200 steps
+  (`snow: the trails' step takes ... pressers and ... stamps a step (... of them a body's), ... tiles`) and the
+  device's time for the passes every 600 frames (`vulkan: snow: the passes take ... - the trails' layer, the flakes and
+  spray, the haze`). The cover's own cost (the world shader's ray straight up, per pixel) is the rest of snow's: with
+  snow on against off, 0.5 - 0.6 ms of the frame's device time at 1280 x 720 (DLSS's input for a 1080p window - the
+  workspace's second monitor is 1080p), so about 1 ms at the user's 1707 x 960.
+  Also: the fill (snowing) passes by the tiles already filled in and not pressed since (`TrailField` keeps each tile's
+  version then) - it walked every tile the session made each 0.7 s (8 ms at 1,264 tiles after 3.5 minutes in BO, more
+  the longer one rides). And the frames over 33 ms left with snow on were the renderer's cache saves every 10 s (the
+  pipeline caches, above - not snow's), now only when the cache grew. After (the same scenario, the user's ini at the
+  1080p the workspace allows, depth 20): CA 59.9 fps, 1% low 26 ms, the worst frame after the first second 65 ms
+  (GPU spikes while the user's own game ran on the same card); BO 57 fps, none over 33 ms; a 210 s BO soak flat.
 - **Purely visual.** Nothing of the game's is written: the collision, the physics, the scripts and the random streams
   are untouched (the skater rides on the level's collision under the snow); `tools/game/sim_check.ts` matrix on the
   reference demos stays 32/32 and `tools/sim_draw_independence.test.ts` passes (the snow reads the step's state in
@@ -2875,7 +2907,9 @@ winter sky in the lighting state, the decals under the snow.
   trail and raised beside it); the steps (a rider presses along its path and throws spray - more carving; at most
   2048 alive; a landing bursts once; walking leaves a footprint a stride; a wheel presses; nothing from above the snow
   or indoors; the trails kept over 1000 steps; half filled in 90 s, all in 180, the activity kept; the same steps twice
-  give the same trails and spray byte for byte). On the device: the trails' window read back holds exactly the
+  give the same trails and spray byte for byte; round 3: the press within its ring and the activity falling to nothing
+  at its reach, a stamp's tiles few in both fields, four strokes visiting exactly the texels within their reach). On
+  the device: the trails' window read back holds exactly the
   processor's texels, again after the camera moves 7 tiles, only the tiles that came in copied; (round 2, on the
   processor) the slope's curve, the overcast, a body joint's press and a mover's two tracks, the wind's drift twice the
   same, a 60-degree bank's light coat, (on the device) the haze whitening the far ground and not the near; the cover whitens the

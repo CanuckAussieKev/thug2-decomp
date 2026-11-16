@@ -621,8 +621,17 @@ void TrailField::fill(uint32_t steps)
         return;
     }
     const uint32_t by = std::min(steps, kByte);
-    change_tiles([by](surface_trail::Tile& tile) {
+    settled_.resize(tile_count(), 0U);
+    std::size_t index = 0;
+    change_tiles([&](surface_trail::Tile& tile) {
+        // (a tile already filled in and not pressed since - its version as it was then - is passed by: the fill's cost
+        // is the tiles still filling in, not every tile the session made)
+        uint32_t& settled = core::at(settled_, index++);
+        if (settled != 0U && settled == tile.version + 1U) {
+            return false;
+        }
         bool changed = false;
+        bool left = false;
         for (uint32_t& texel : tile.texels) {
             const uint32_t press = (texel >> kPressShift) & kByte;
             const uint32_t berm = (texel >> kBermShift) & kByte;
@@ -633,7 +642,10 @@ void TrailField::fill(uint32_t steps)
             const uint32_t new_berm = berm > by ? berm - by : 0U;
             texel = (texel & ~((kByte << kPressShift) | (kByte << kBermShift))) | (new_press << kPressShift) | (new_berm << kBermShift);
             changed = true;
+            left = left || new_press != 0U || new_berm != 0U;
         }
+        // (its version after this fill: one more when it changed)
+        settled = left ? 0U : tile.version + (changed ? 1U : 0U) + 1U;
         return changed;
     });
 }

@@ -110,6 +110,8 @@ private:
     VkShaderModule module(bool vertex, const ShaderKey& key, std::string* error);
     // GLSL's module: its SPIR-V from the disk cache or compiled; VK_NULL_HANDLE when it doesn't compile.
     VkShaderModule spirv_module(ShaderStage stage, const std::string& source, std::string* error, bool ray_query = false);
+    // vkCreateGraphicsPipelines through the cache, timed; the caches marked to be saved unless the cache had it.
+    bool make_graphics(const VkGraphicsPipelineCreateInfo& info, VkPipeline* made);
     void load(const std::string& folder);
 
     VkDevice device_ = nullptr;

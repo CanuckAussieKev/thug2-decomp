@@ -24,6 +24,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/vulkan_draw_state.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "platform/run_log.h"
 
 namespace render::vulkan {
 
@@ -40,6 +41,7 @@ constexpr uint32_t kShaderFileMagic = 0x53324854U; // "TH2S"
 constexpr uint32_t kShaderFileVersion = 1;
 constexpr uint64_t kFnvOffset = 0xCBF29CE484222325ULL;
 constexpr uint64_t kFnvPrime = 0x100000001B3ULL;
+constexpr double kSlowPipelineSeconds = 0.008; // a pipeline (its shaders compiled and made) slower than this: logged
 constexpr std::size_t kMostSpirvWords = 1U << 20U; // (a sanity limit for the file's entries)
 
 uint64_t fnv1a(std::span<const uint8_t> bytes)
@@ -317,6 +319,8 @@ void Pipelines::save()
         return;
     }
     dirty_ = false;
+    const auto began = std::chrono::steady_clock::now();
+    std::size_t bytes = 0;
     std::vector<uint8_t> shaders;
     append(shaders, kShaderFileMagic);
     append(shaders, kShaderFileVersion);
@@ -329,6 +333,7 @@ void Pipelines::save()
         std::memcpy(std::span(shaders).subspan(at).data(), words.data(), words.size() * sizeof(uint32_t));
     }
     write_file(folder_ + kShaderFile, shaders);
+    bytes += shaders.size();
     if (cache_ != VK_NULL_HANDLE) {
         std::size_t size = 0;
         if (vkGetPipelineCacheData(device_, cache_, &size, nullptr) == VK_SUCCESS && size > 0) {
@@ -336,8 +341,14 @@ void Pipelines::save()
             if (vkGetPipelineCacheData(device_, cache_, &size, data.data()) == VK_SUCCESS) {
                 data.resize(size);
                 write_file(folder_ + kPipelineFile, data);
+                bytes += data.size();
             }
         }
+    }
+    // (saved on the thread that draws - while playing, the frame it lands on waits for it)
+    if (const double seconds = seconds_since(began); seconds > kSlowPipelineSeconds) {
+        get_log("vulkan: the shader and pipeline caches saved (%.1f MB) in %.0f ms", static_cast<double>(bytes) / (1024.0 * 1024.0),
+                seconds * 1000.0);
     }
 }
 
@@ -464,12 +475,38 @@ VkShaderModule Pipelines::module(bool vertex, const ShaderKey& key, std::string*
     return made;
 }
 
+bool Pipelines::make_graphics(const VkGraphicsPipelineCreateInfo& info, VkPipeline* made)
+{
+    // (Vulkan 1.3's creation feedback - the draws need 1.3: whether the pipeline cache had it. The caches are written
+    // again - 70 MB and more, on the thread that draws, a frame's stall - only when the pipeline cache grew.)
+    VkPipelineCreationFeedback whole{};
+    VkPipelineCreationFeedbackCreateInfo feedback{.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO,
+                                                  .pNext = info.pNext,
+                                                  .pPipelineCreationFeedback = &whole,
+                                                  .pipelineStageCreationFeedbackCount = 0,
+                                                  .pPipelineStageCreationFeedbacks = nullptr};
+    VkGraphicsPipelineCreateInfo chained = info;
+    chained.pNext = &feedback;
+    const auto start = std::chrono::steady_clock::now();
+    const bool ok = vkCreateGraphicsPipelines(device_, cache_, 1, &chained, nullptr, made) == VK_SUCCESS;
+    stats_.pipeline_seconds += seconds_since(start);
+    if (!ok) {
+        *made = VK_NULL_HANDLE;
+        return false;
+    }
+    const bool from_cache = (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT) != 0U &&
+                            (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT) != 0U;
+    dirty_ = dirty_ || !from_cache;
+    return true;
+}
+
 VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
 {
     const auto found = pipelines_.find(key);
     if (found != pipelines_.end()) {
         return found->second;
     }
+    const auto began = std::chrono::steady_clock::now();
     const VkShaderModule vertex = module(true, key.shaders, error);
     const VkShaderModule fragment = module(false, key.shaders, error);
     VkPipeline made = VK_NULL_HANDLE;
@@ -662,20 +699,19 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
                                                 .subpass = 0,
                                                 .basePipelineHandle = VK_NULL_HANDLE,
                                                 .basePipelineIndex = -1};
-        const auto start = std::chrono::steady_clock::now();
-        if (vkCreateGraphicsPipelines(device_, cache_, 1, &info, nullptr, &made) != VK_SUCCESS) {
-            made = VK_NULL_HANDLE;
-            if (error != nullptr && error->empty()) {
-                *error = "vkCreateGraphicsPipelines refused it";
-            }
+        if (!make_graphics(info, &made) && error != nullptr && error->empty()) {
+            *error = "vkCreateGraphicsPipelines refused it";
         }
-        stats_.pipeline_seconds += seconds_since(start);
     }
     if (made == VK_NULL_HANDLE) {
         ++stats_.refused;
     } else {
         ++stats_.pipelines;
-        dirty_ = true;
+    }
+    // (a pipeline made while drawing stalls that frame: the slow ones named - their fragment key - with what they took)
+    if (const double seconds = seconds_since(began); seconds > kSlowPipelineSeconds) {
+        get_log("vulkan: a pipeline took %.0f ms to make (%s; %u made so far)", seconds * 1000.0,
+                describe(key.shaders.fragment).c_str(), static_cast<unsigned>(stats_.pipelines));
     }
     pipelines_.emplace(key, made);
     return made;
@@ -828,20 +864,14 @@ VkPipeline Pipelines::screen_pass(VkFormat colour_format, const std::string& fra
                                                 .subpass = 0,
                                                 .basePipelineHandle = VK_NULL_HANDLE,
                                                 .basePipelineIndex = -1};
-        const auto start = std::chrono::steady_clock::now();
-        if (vkCreateGraphicsPipelines(device_, cache_, 1, &info, nullptr, &made) != VK_SUCCESS) {
-            made = VK_NULL_HANDLE;
-            if (error != nullptr && error->empty()) {
-                *error = "vkCreateGraphicsPipelines refused it";
-            }
+        if (!make_graphics(info, &made) && error != nullptr && error->empty()) {
+            *error = "vkCreateGraphicsPipelines refused it";
         }
-        stats_.pipeline_seconds += seconds_since(start);
     }
     if (made == VK_NULL_HANDLE) {
         ++stats_.refused;
     } else {
         ++stats_.pipelines;
-        dirty_ = true;
     }
     screen_pipelines_.emplace(key, made);
     return made;
@@ -1035,20 +1065,14 @@ VkPipeline Pipelines::ui_pass(VkFormat colour_format, VkFormat depth_format, uin
                                                 .subpass = 0,
                                                 .basePipelineHandle = VK_NULL_HANDLE,
                                                 .basePipelineIndex = -1};
-        const auto start = std::chrono::steady_clock::now();
-        if (vkCreateGraphicsPipelines(device_, cache_, 1, &info, nullptr, &made) != VK_SUCCESS) {
-            made = VK_NULL_HANDLE;
-            if (error != nullptr && error->empty()) {
-                *error = "vkCreateGraphicsPipelines refused it";
-            }
+        if (!make_graphics(info, &made) && error != nullptr && error->empty()) {
+            *error = "vkCreateGraphicsPipelines refused it";
         }
-        stats_.pipeline_seconds += seconds_since(start);
     }
     if (made == VK_NULL_HANDLE) {
         ++stats_.refused;
     } else {
         ++stats_.pipelines;
-        dirty_ = true;
     }
     screen_pipelines_.emplace(key, made);
     return made;

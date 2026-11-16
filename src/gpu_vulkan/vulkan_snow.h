@@ -21,7 +21,8 @@
 //   2. The layer (opaque_drawn, rt::ViewOrder::kSnow: after the ray-traced shadows, occlusion, bounce, lamps and
 //      reflections have shaded the ground, before the clutter and the grass): where the trails raised it, a grid over
 //      the ground - a vertex a trail texel - lifted snow_depth over the sky map's ground and cut by the trails (the
-//      layer's height: snow::layer_height's twin). Its colour is the shaded snow under it: a compute pass puts each
+//      layer's height: snow::layer_height's twin; where it is raised - the activity - its own coarser window beside the
+//      trails', the layer drawn on the trails' tiles it raised). Its colour is the shaded snow under it: a compute pass puts each
 //      active texel's ground point on the screen and, where the depth there is the ground's, keeps the colour seen
 //      (a toroidal image beside the trails': a point hidden this frame - under the skater - keeps its last colour), then
 //      the layer is that colour x how the trail's own slope turns it to the light against the flat snow (the time of
