@@ -1,4 +1,4 @@
-// NOT ORIGINAL - the sun, its glare, screen-space rays and the bloom (vulkan_rt_sun.h; docs/design/vulkan.md "The sun,
+// NOT ORIGINAL - the sun, its glare and the bloom (vulkan_rt_sun.h; docs/design/vulkan.md "The sun,
 // its glare and the sky").
 #include "gpu_vulkan/vulkan_rt_sun.h"
 
@@ -50,7 +50,6 @@ constexpr double kSingular = 1e-300;
 constexpr float kMinSize = 0.25F;
 constexpr float kMaxSize = 4.0F;
 constexpr float kMaxBloom = 0.5F;
-constexpr float kMaxShaft = 4.0F;
 constexpr double kInFront = 1e-9;
 constexpr double kDegreesPerRadian = 57.29577951308232;
 
@@ -70,14 +69,13 @@ layout(set = 0, binding = 6) uniform SunBlock {
     vec4 camera;        // xyz
     vec4 sun;           // xyz toward the sun; w 1: there is one in front
     vec4 sun_colour;    // rgb its colour; w the disc's intensity
-    vec4 sun_screen;    // xy its place (the target's pixels, centres whole); z 1 in front; w the rays' fade
+    vec4 sun_screen;    // xy its place (the target's pixels, centres whole); z 1 in front
     vec4 disc;          // x its angular radius, y a pixel's angle, z the near glow's width, w the wide glow's
     vec4 aureole;       // x the near glow's share, y the wide glow's
-    vec4 shafts;        // x strength, y decay, z the reach, w the source's width (radians)
     vec4 bloom;         // x the share of the frame's colour spread, y of the light added, z lens dirt, w 1: kept above 1 (rt_hdr)
     ivec4 rect;         // the viewport in the target's pixels
-    ivec4 low;          // xy the half-resolution images' size, z the rays' points, w the bloom's levels
-    ivec4 flags;        // x the colour's samples, y the disc, z the rays, w the bloom
+    ivec4 low;          // xy the half-resolution images' size, w the bloom's levels
+    ivec4 flags;        // x the colour's samples, y the disc, w the bloom
 } sun;
 
 layout(push_constant) uniform Level {
@@ -106,53 +104,8 @@ vec3 finite_colour(vec3 c)
 }
 )";
 
-// Step 1: the rays (half resolution).
-constexpr const char* kShaftsBody = R"(
-layout(local_size_x = 8, local_size_y = 8) in;
-#ifdef MULTISAMPLED
-layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
-#else
-layout(set = 0, binding = 1) uniform sampler2D u_depth;
-#endif
-layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D o_a;
-
-float jitter_at(vec2 p) { return fract(52.9829189 * fract(0.06711056 * p.x + 0.00583715 * p.y)); }
-
-// a point's light: the sky's (nothing in front of the sun there), brighter nearer the sun
-float source_at(vec2 local)
-{
-    ivec2 at = clamp(ivec2(floor(local + 0.5)), ivec2(0), sun.rect.zw - ivec2(1));
-    if (texelFetch(u_depth, sun.rect.xy + at, 0).r < 1.0) {
-        return 0.0;
-    }
-    return exp(-angle_to_sun(vec2(sun.rect.xy) + local) / sun.shafts.w);
-}
-
-void main()
-{
-    ivec2 q = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(q, sun.low.xy))) {
-        return;
-    }
-    vec2 at = vec2(q) * 2.0 + 0.5;
-    vec2 toward = sun.sun_screen.xy - vec2(sun.rect.xy);
-    int n = sun.low.z;
-    vec2 delta = (toward - at) * (sun.shafts.z / float(n));
-    float u = jitter_at(vec2(q));
-    float sum = 0.0;
-    float weights = 0.0;
-    float w = 1.0;
-    for (int i = 0; i < n; ++i) {
-        sum += w * source_at(at + delta * (float(i) + u));
-        weights += w;
-        w *= sun.shafts.y;
-    }
-    float value = weights > 0.0 ? sum / weights : 0.0;
-    imageStore(o_a, q, vec4(sun.sun_colour.rgb * (value * sun.shafts.x * sun.sun_screen.w), 1.0));
-}
-)";
-
-// Step 2: the source (full resolution): the frame's colour, and the light added.
+// Step 1: the source (full resolution): the frame's colour, and the light added. (The screen-space rays that were step
+// 1 - rt_shafts - were retired by the volumetric light: vulkan_rt_fog's shafts are the light in the air.)
 constexpr const char* kSourceBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 #ifdef MULTISAMPLED
@@ -164,7 +117,6 @@ layout(set = 0, binding = 1) uniform sampler2D u_depth;
 #endif
 layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D o_a;
 layout(set = 0, binding = 3, rgba16f) uniform writeonly image2D o_b;
-layout(set = 0, binding = 4) uniform sampler2D u_a;
 
 void main()
 {
@@ -196,9 +148,6 @@ void main()
         float limb = 1.0 - 0.6 * (1.0 - sqrt(max(1.0 - t * t, 0.0)));
         float glow = sun.aureole.x * exp(-theta / sun.disc.z) + sun.aureole.y * exp(-theta / sun.disc.w);
         light += sky * sun.sun_colour.rgb * (sun.sun_colour.w * limb * edge + glow);
-    }
-    if (sun.flags.z != 0) {
-        light += textureLod(u_a, (vec2(p) + 0.5) / (2.0 * vec2(sun.low.xy)), 0.0).rgb;
     }
     imageStore(o_a, p, vec4(colour, 1.0));
     imageStore(o_b, p, vec4(light, sky));
@@ -354,13 +303,12 @@ struct SunBlock {
     std::array<float, 4> sun_screen{};
     std::array<float, 4> disc{};
     std::array<float, 4> aureole{};
-    std::array<float, 4> shafts{};
     std::array<float, 4> bloom{};
     std::array<int32_t, 4> rect{};
     std::array<int32_t, 4> low{};
     std::array<int32_t, 4> flags{};
 };
-constexpr std::size_t kSunBlockBytes = 240;
+constexpr std::size_t kSunBlockBytes = 224;
 static_assert(sizeof(SunBlock) == kSunBlockBytes, "the shaders' std140 block");
 
 struct LevelConstants {
@@ -399,7 +347,6 @@ struct SunSlot {
     Image copy;   // the colour's viewport copied out (the target's format and samples)
     Image base;   // the frame's colour (16-bit floats)
     Image light;  // the light added
-    Image shafts; // half resolution
     std::vector<Image> down; // level 1 (half) and smaller
     std::vector<Image> up;   // levels 1 .. n - 1 (the last level's up is its down)
     bool fresh = true;
@@ -408,7 +355,7 @@ struct SunSlot {
 };
 
 constexpr uint32_t kTimerSets = 8;   // (the sets of timestamps the passes are timed with, used in turn)
-constexpr uint32_t kTimerPoints = 5; // before, after the rays, the source, the bloom, the composite
+constexpr uint32_t kTimerPoints = 5; // before, after the colour's copy, the source, the bloom, the composite
 constexpr uint64_t kTimingLogEvery = 240;
 
 struct SunState {
@@ -417,8 +364,7 @@ struct SunState {
     VkSampler nearest = VK_NULL_HANDLE;
     VkSampler linear = VK_NULL_HANDLE;
     VkShaderModule vertex = VK_NULL_HANDLE;
-    std::array<VkPipeline, 2> shafts{}; // single-sampled depth, multisampled
-    std::array<VkPipeline, 2> source{};
+    std::array<VkPipeline, 2> source{}; // single-sampled depth, multisampled
     VkPipeline down_first = VK_NULL_HANDLE;
     VkPipeline down = VK_NULL_HANDLE;
     VkPipeline up = VK_NULL_HANDLE;
@@ -611,13 +557,10 @@ bool ensure_objects(Backend& state, std::string* error)
     }
     for (std::size_t multisampled = 0; multisampled < 2; ++multisampled) {
         const char* define = multisampled != 0 ? "MULTISAMPLED" : nullptr;
-        if (core::at(own.shafts, multisampled) == VK_NULL_HANDLE) {
-            core::at(own.shafts, multisampled) = make_compute(device, own.layout, source_of(kShaftsBody, define), error);
-        }
         if (core::at(own.source, multisampled) == VK_NULL_HANDLE) {
             core::at(own.source, multisampled) = make_compute(device, own.layout, source_of(kSourceBody, define), error);
         }
-        if (core::at(own.shafts, multisampled) == VK_NULL_HANDLE || core::at(own.source, multisampled) == VK_NULL_HANDLE) {
+        if (core::at(own.source, multisampled) == VK_NULL_HANDLE) {
             return false;
         }
     }
@@ -882,7 +825,7 @@ Extent half_of(const Extent& extent)
 
 std::vector<Image*> images_of(SunSlot& slot)
 {
-    std::vector<Image*> images{&slot.base, &slot.light, &slot.shafts};
+    std::vector<Image*> images{&slot.base, &slot.light};
     for (Image& image : slot.down) {
         images.push_back(&image);
     }
@@ -977,8 +920,7 @@ SunSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ima
     if (made) {
         prepare_image(state, &slot.copy);
     }
-    made = made && make_storage_image(state, full, &slot.base) && make_storage_image(state, full, &slot.light) &&
-           make_storage_image(state, half_of(full), &slot.shafts);
+    made = made && make_storage_image(state, full, &slot.base) && make_storage_image(state, full, &slot.light);
     const std::vector<Extent> sizes = level_sizes(full);
     slot.down.resize(sizes.size());
     slot.up.resize(sizes.size() - 1);
@@ -1242,7 +1184,7 @@ void read_timer(Backend& state, uint32_t set, const Extent& size)
     if (own.window_samples >= kTimingLogEvery) {
         const auto count = static_cast<double>(own.window_samples);
         const std::array<double, 4>& w = own.window_milliseconds;
-        get_log("vulkan: rt_sun: the passes take %.3f ms on the device - rays %.3f, source %.3f, bloom %.3f, composite "
+        get_log("vulkan: rt_sun: the passes take %.3f ms on the device - copy %.3f, source %.3f, bloom %.3f, composite "
                 "%.3f (%ux%u; the last %llu passes' average)",
                 (core::at(w, 0) + core::at(w, 1) + core::at(w, 2) + core::at(w, 3)) / count, core::at(w, 0) / count,
                 core::at(w, 1) / count, core::at(w, 2) / count, core::at(w, 3) / count, size.width, size.height,
@@ -1257,7 +1199,6 @@ void read_timer(Backend& state, uint32_t set, const Extent& size)
 // What this view gets, worked out from the settings, the sun and the camera.
 struct Plan {
     bool disc = false;
-    bool shafts = false;
     bool bloom = false;
     bool frame_bloomed = false;
 };
@@ -1303,10 +1244,6 @@ RtSunFrame frame_for(const RtSunSettings& settings, const rt::ViewDrawn& view, c
         const double x = core::at(at, 0) / core::at(at, 3);
         const double y = core::at(at, 1) / core::at(at, 3);
         frame.screen = {static_cast<float>(x), static_cast<float>(y)};
-        const double outside_x = std::max({0.0, left - x, x - (left + width)}) / std::max(width, 1.0);
-        const double outside_y = std::max({0.0, top - y, y - (top + height)}) / std::max(height, 1.0);
-        const double outside = std::max(outside_x, outside_y);
-        frame.fade = static_cast<float>(std::clamp(1.0 - (outside / kSunShaftFadeOut), 0.0, 1.0));
     }
     return frame;
 }
@@ -1336,18 +1273,17 @@ SunBlock block_for(const BlockInput& input)
                  frame.sun && frame.in_front ? 1.0F : 0.0F};
     block.sun_colour = {core::at(frame.colour, 0), core::at(frame.colour, 1), core::at(frame.colour, 2),
                         kSunDiscIntensity};
-    block.sun_screen = {core::at(frame.screen, 0), core::at(frame.screen, 1), frame.in_front ? 1.0F : 0.0F, frame.fade};
+    block.sun_screen = {core::at(frame.screen, 0), core::at(frame.screen, 1), frame.in_front ? 1.0F : 0.0F, 0.0F};
     block.disc = {frame.disc_radius, frame.pixel_angle, kSunAureoleNearWidth, kSunAureoleWideWidth};
     block.aureole = {kSunAureoleNear, kSunAureoleWide, 0.0F, 0.0F};
-    block.shafts = {settings.shaft_strength, kSunShaftDecay, kSunShaftReach, kSunShaftWidth};
     block.bloom = {plan.frame_bloomed ? settings.bloom_strength : 0.0F, kSunGlareBloom,
                    settings.lens_dirt ? 1.0F : 0.0F, settings.hdr ? 1.0F : 0.0F};
     block.rect = {static_cast<int32_t>(core::at(view.rect, 0)), static_cast<int32_t>(core::at(view.rect, 1)),
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
     const Extent half = half_of({.width = core::at(view.rect, 2), .height = core::at(view.rect, 3)});
-    block.low = {static_cast<int32_t>(half.width), static_cast<int32_t>(half.height),
-                 static_cast<int32_t>(kSunShaftSamples), static_cast<int32_t>(input.levels)};
-    block.flags = {static_cast<int32_t>(input.samples), plan.disc ? 1 : 0, plan.shafts ? 1 : 0, plan.bloom ? 1 : 0};
+    block.low = {static_cast<int32_t>(half.width), static_cast<int32_t>(half.height), 0,
+                 static_cast<int32_t>(input.levels)};
+    block.flags = {static_cast<int32_t>(input.samples), plan.disc ? 1 : 0, 0, plan.bloom ? 1 : 0};
     return block;
 }
 
@@ -1403,7 +1339,7 @@ const Image& bloom_top(const SunSlot& slot) { return slot.up.empty() ? slot.down
 bool find_sun(Backend& state, const RtSunSettings& settings, std::array<float, 3>* toward)
 {
     SunState& own = sun_state();
-    const bool want_sun = settings.sun || settings.shafts;
+    const bool want_sun = settings.sun;
     bool have_sun = want_sun && visible_sun(toward);
     // (added by the time of day) the clock's sun under the horizon: no disc (the moon is the sky pass's)
     const rt::DayLight day = rt::day_light();
@@ -1529,26 +1465,20 @@ void record_commands(Backend& state, const Recording& recording)
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
     const std::size_t multisampled = colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U;
     const LevelConstants no_level{};
-    // 1. the rays
-    if (recording.plan.shafts) {
-        dispatch(commands, core::at(own.shafts, multisampled),
-                 {.depth = depth, .out_a = &slot->shafts, .block = recording.block}, no_level, half_of(full));
-    }
     stamps.stamp(1, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    // 2. the source
+    // 1. the source
     dispatch(commands, core::at(own.source, multisampled),
              {.colour = &slot->copy,
               .depth = depth,
               .out_a = &slot->base,
               .out_b = &slot->light,
-              .in_a = &slot->shafts,
               .block = recording.block},
              no_level, full);
     stamps.stamp(2, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    // 3. the bloom
+    // 2. the bloom
     record_bloom(commands, slot, recording.block);
     stamps.stamp(3, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    // 4. the composite
+    // 3. the composite
     const Image& top_level = bloom_top(*slot);
     const LevelConstants composite_level{
         .size = {static_cast<int32_t>(top_level.extent.width), static_cast<int32_t>(top_level.extent.height), 0, 0},
@@ -1579,11 +1509,11 @@ void log_first_pass(const Recording& recording, const rt::ViewDrawn& view, const
         where = frame.in_front ? "in front" : "behind";
     }
     const Plan& plan = recording.plan;
-    get_log("vulkan: rt_sun: the first pass (%ux%u, %u sample%s; %s%s%s; %zu bloom levels, the frame's share %.3f%s; sun "
+    get_log("vulkan: rt_sun: the first pass (%ux%u, %u sample%s; %s%s; %zu bloom levels, the frame's share %.3f%s; sun "
             "%s, colour %.3f %.3f %.3f)",
             core::at(recording.rect, 2), core::at(recording.rect, 3), static_cast<unsigned>(recording.colour->samples),
             recording.colour->samples == 1 ? "" : "s", plan.disc ? "the sun's disc and glare, " : "",
-            plan.shafts ? "rays, " : "", plan.frame_bloomed ? "the frame bloomed" : "the sun's light bloomed",
+            plan.frame_bloomed ? "the frame bloomed" : "the sun's light bloomed",
             recording.slot->down.size(), static_cast<double>(frame_share),
             view.game_bloom ? ", the game's own bloom on" : "", where, static_cast<double>(core::at(frame.colour, 0)),
             static_cast<double>(core::at(frame.colour, 1)), static_cast<double>(core::at(frame.colour, 2)));
@@ -1593,7 +1523,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
 {
     SunState& own = sun_state();
     const RtSunSettings& settings = sun_settings_held();
-    if (own.failed || !(settings.sun || settings.shafts || settings.bloom)) {
+    if (own.failed || !(settings.sun || settings.bloom)) {
         rt::set_sun_glare_replaced(false);
         return false;
     }
@@ -1626,9 +1556,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     const RtSunFrame frame = frame_for(settings, clipped, matrices, have_sun ? &toward : nullptr);
     Plan& plan = recording.plan;
     plan.disc = settings.sun && have_sun && frame.in_front;
-    plan.shafts = settings.shafts && have_sun && frame.in_front && frame.fade > 0.0F;
     plan.frame_bloomed = settings.bloom && !view.game_bloom;
-    plan.bloom = plan.frame_bloomed || plan.disc || plan.shafts;
+    plan.bloom = plan.frame_bloomed || plan.disc;
     own.frame = frame;
     if (!plan.bloom) {
         return false; // (nothing to add: the sun behind the camera, no bloom of the frame)
@@ -1681,8 +1610,6 @@ void set_rt_sun_settings(const RtSunSettings& settings)
     kept.sun_size = std::isfinite(kept.sun_size) ? std::clamp(kept.sun_size, kMinSize, kMaxSize) : 1.0F;
     kept.bloom_strength =
         std::isfinite(kept.bloom_strength) ? std::clamp(kept.bloom_strength, 0.0F, kMaxBloom) : kRtBloomStrength;
-    kept.shaft_strength =
-        std::isfinite(kept.shaft_strength) ? std::clamp(kept.shaft_strength, 0.0F, kMaxShaft) : kRtShaftStrength;
     for (float& channel : kept.colour) {
         channel = std::isfinite(channel) ? std::clamp(channel, 0.0F, 1.0F) : 1.0F;
     }
@@ -1699,7 +1626,7 @@ void set_rt_sun_settings(const RtSunSettings& settings)
             rt::set_sun_glare_replaced(kept.sun);
         }
     }
-    if (kept.sun || kept.shafts || kept.bloom) {
+    if (kept.sun || kept.bloom) {
         rt::add_view_listener(&listener());
     } else {
         rt::remove_view_listener(&listener());
@@ -1715,7 +1642,7 @@ RtSunSettings rt_sun_settings()
 VkImageUsageFlags rt_sun_depth_usage(const Backend& state, VkFormat format)
 {
     const RtSunSettings& settings = sun_settings_held();
-    if (!(settings.sun || settings.shafts || settings.bloom)) {
+    if (!(settings.sun || settings.bloom)) {
         return 0;
     }
     VkFormatProperties properties{};
@@ -1746,10 +1673,8 @@ bool read_rt_sun_image(Backend& state, const std::array<uint32_t, 4>& rect, RtSu
         if (slot.get() != latest) {
             continue;
         }
-        Image* image = &slot->shafts;
+        Image* image = &slot->base;
         switch (which) {
-        case RtSunImage::kShafts:
-            break;
         case RtSunImage::kBase:
             image = &slot->base;
             break;
@@ -1799,8 +1724,7 @@ void release_rt_sun(Backend& state)
         for (const CompositePipeline& made : own.composites) {
             vkDestroyPipeline(device, made.pipeline, nullptr);
         }
-        for (const VkPipeline pipeline : {own.shafts.front(), own.shafts.back(), own.source.front(), own.source.back(),
-                                          own.down_first, own.down, own.up}) {
+        for (const VkPipeline pipeline : {own.source.front(), own.source.back(), own.down_first, own.down, own.up}) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
             }
@@ -1828,7 +1752,6 @@ void release_rt_sun(Backend& state)
     own.timed = 0;
     own.timer_serials = {};
     own.composites.clear();
-    own.shafts = {};
     own.source = {};
     own.down_first = VK_NULL_HANDLE;
     own.down = VK_NULL_HANDLE;

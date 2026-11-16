@@ -9,10 +9,12 @@
 
 // NOT ORIGINAL - volumetric fog and light shafts (docs/design/vulkan.md "Volumetric fog"; [Graphics] rt_fog - gpu_vulkan.h's
 // RtFogSettings). After a viewport's whole world is drawn (rt::world_view_drawn, ViewOrder::kFog: after the transparent
-// passes, the particles and the weather, before tone mapping and the 2D), compute passes over images of half the
-// viewport's size, then one full-screen pass over the colour target:
-//   1. march: each texel takes one pixel of its 2 x 2 block (a different one each frame) and follows the view ray from
-//      the camera to the depth's surface (the sky: to the fog's end) through `steps` segments. The fog is the level's own
+// passes, the particles and the weather, before tone mapping and the 2D), compute passes over images of a quarter of the
+// viewport's size on each axis (half at rt_fog_quality 2: RtFogSettings::scale), then one full-screen pass over the
+// colour target:
+//   1. march: each texel takes one pixel of its 4 x 4 (2 x 2) block - a different one each frame, in ordered-dither
+//      order - and follows the view ray from the camera to the depth's surface (the sky: to the fog's end) through
+//      `steps` segments, closer together near the eye (b t^2). The fog is the level's own
 //      (rt::ViewDrawn::fog): the game's linear range fog f(d) = (end - d) / (end - start) is a medium whose extinction is
 //      1 / (end - d) between start and end - integrated exactly over each segment, so its transmittance T is the game's
 //      f (to the power rt_fog_density), whatever the step count - times the height falloff exp(-(y - camera y) / H)
@@ -23,7 +25,15 @@
 //          L = fog colour x (a + (1 - a) x lit x phase x tint)   (a = 0.5: the share the sky and the surroundings give)
 //      phase = Henyey-Greenstein with g = rt_fog_anisotropy, x 4 pi (1 on average over the sphere: an unshadowed fog
 //      looks as the game's does), tint = 1 (the bake gives the sun no colour; the fog's carries the hue). No sun (the
-//      fit not run yet, or a level whose bake shows none - indoors, the Foundry): L = the fog colour - no shafts. Accumulated front to back: in += T (1 - e^-tau) L, T *= e^-tau;
+//      fit not run yet, or a level whose bake shows none - indoors, the Foundry): L = the fog colour - no shafts.
+//      Accumulated front to back: in += T (1 - e^-tau) L, T *= e^-tau (stopped once T is under 1e-4). (Changed by the
+//      street air, for its cost:) the steps go in pairs, one point of each pair - the first or the second by turns,
+//      frame to frame - tracing the light's shadow ray and the picked lamp's for both; the lamps a view ray never comes
+//      within reach of left out of its march.
+//      The street air (engine/gfx/rt_volume_light.h street_air - outdoors, where a sun or moon lights the level) is a
+//      second medium along every ray in every mode: its extinction added to the fog's (or the haze's), its light - the
+//      haze's per unit of light, its shade's the replaced fog's ambient (or the sky's in the aerial march; none where
+//      only the shafts are added) - mixed with the fog's by their shares of each segment's optical depth.
 //   2. temporal: the texel's point reprojected through the viewport's camera of the frame before; the history read there
 //      (bilinear over the texels whose distance agrees), clamped to this frame's 3 x 3 neighbourhood, blended with this
 //      frame's by 1 / its length (up to kFogMaxHistory);
@@ -52,10 +62,13 @@ namespace render::vulkan {
 
 struct Backend;
 
-inline constexpr uint32_t kFogScale = 2;       // the march's resolution: 1 / this of the viewport's on each axis
 inline constexpr uint32_t kFogMaxHistory = 12; // frames
 inline constexpr uint32_t kFogViewSlots = 4;
 inline constexpr uint32_t kFogMask = 0x01 | 0x02; // (world, objects: what shadows the fog)
+// (added by the volumetric light) with the material table and the frame's geometry the cut-outs too, by their alpha
+// (vulkan_rt_scene.h cutout_rays_glsl: light through foliage, fences and grates - the one lighting path's test)
+inline constexpr uint32_t kFogCutoutMask = 0x01 | 0x02 | 0x04;
+inline constexpr uint32_t kFogMostLamps = 32; // the lamps' block's room (rt_fog_quality's most)
 inline constexpr float kFogAmbientShare = 0.5F;   // a above
 inline constexpr float kFogSkyShare = 0.1F;
 inline constexpr float kFogShaftShare = 0.5F;       // mode 1's

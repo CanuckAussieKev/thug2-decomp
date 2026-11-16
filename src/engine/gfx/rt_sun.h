@@ -57,6 +57,10 @@ inline constexpr float kMinConfidence = 0.3F;
 inline constexpr float kMinElevationDegrees = 8.0F;
 // (added by the sun's glare) BakedSun::ground: this quantile of the samples' heights (the floor, not a rooftop).
 inline constexpr double kGroundShare = 0.1;
+// (added by the street air) BakedSun::street: this quantile of the heights of the samples facing up (normal y at least
+// kStreetUp) - the street level of a level whose lowest floor lies under it (Berlin's plaza over its sunken streets).
+inline constexpr double kStreetShare = 0.5;
+inline constexpr float kStreetUp = 0.85F;
 
 // The correlation between "lit" (the direction not blocked) and the samples' brightness: -1 - 1, 0 when either group is
 // under 3% of the samples (no shadow to tell by).

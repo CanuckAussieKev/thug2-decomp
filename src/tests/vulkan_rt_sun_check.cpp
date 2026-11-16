@@ -1,4 +1,4 @@
-// NOT ORIGINAL - thug2_vulkan_rt_sun_check.exe: the Vulkan Gpu's sun, its glare, the screen-space rays, the bloom and the
+// NOT ORIGINAL - thug2_vulkan_rt_sun_check.exe: the Vulkan Gpu's sun, its glare, the bloom and the
 // sky model (gpu_vulkan/vulkan_rt_sun.h, vulkan_rt_sky.h; engine/gfx/rt_sky.h) tried on this machine against references
 // worked out on the processor.
 //
@@ -11,16 +11,16 @@
 //   - The sun's disc and glare (rt_sun): the sun's place on the screen against the camera's own lens; the light added
 //     at every pixel against the formula (the processor's ray through the pixel, its angle to the sun, the sky test) away
 //     from the silhouettes; the original's glare reported replaced; none without a sun.
-//   - The rays (rt_shafts): every half-resolution texel against the processor's march of the same points (its own sky
-//     mask, ray-cast); the texels whose way to the sun crosses the window brighter than those behind the wall.
+//   (The screen-space rays, rt_shafts, were retired by the volumetric light: thug2_vulkan_rt_fog_check checks the shafts.)
 //   - The bloom: the chain's top keeps the light it was given (X: the frame + the sun's light, the disc 24 x the game's
 //     white - above 1, kept by the 16-bit images with an 8-bit target); the composite into a 16-bit float target
 //     (rt_hdr=1) keeps the picture's sum, values above 1 kept; into an 8-bit target (rt_hdr=0) the frame's sum kept by
 //     the bloom alone, the result clipped at 1; no NaN anywhere.
 //   - The aerial haze (rt_fog + rt_sky_model, no level fog): every texel's transmittance against the closed-form integral
 //     of the haze's height profile (exponential above its ground, even below it) - the sky's texels as a surface at the
-//     far plane (the world past the meshes' reach: a mesh cut there meets the sky unseen); its light between the sky's share of the model's sky colour
-//     and that colour itself (a long path ends as the sky, never brighter: AU's far sea went white against its sky dome).
+//     far plane (the world past the meshes' reach: a mesh cut there meets the sky unseen); its light between the sky's
+//     share of the model's sky colour (the shade) and that share and the sunlit haze's light through the air's phase
+//     (rt_volume_light.h: the light in the air, brighter toward the sun).
 //   - Everything off, or no sun and no bloom: no pass, the picture unchanged.
 //   - --perf: the passes' cost at 1920 x 1080 (their timestamps).
 //   thug2_vulkan_rt_sun_check [--device N] [--display N] [--no-validation] [--perf]
@@ -52,6 +52,7 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -808,11 +809,10 @@ Rgb scaled(const Rgb& colour, double by)
 }
 // --- the settings --------------------------------------------------------------------------------------------------
 
-vk::RtSunSettings sun_settings(bool sun, bool shafts, bool bloom, bool hdr)
+vk::RtSunSettings sun_settings(bool sun, bool bloom, bool hdr)
 {
     vk::RtSunSettings settings;
     settings.sun = sun;
-    settings.shafts = shafts;
     settings.bloom = bloom;
     settings.hdr = hdr;
     return settings;
@@ -941,7 +941,7 @@ Rgb disc_light(const vk::RtSunFrame& frame, double theta)
 void run_disc(render::Gpu& gpu, bool floats, Tally* tally)
 {
     text::print("the sun's disc and glare (rt_sun=1, %s):\n", floats ? "a 16-bit float target, rt_hdr=1" : "an 8-bit target, rt_hdr=0");
-    vk::set_rt_sun_settings(sun_settings(true, false, false, floats));
+    vk::set_rt_sun_settings(sun_settings(true, false, floats));
     Targets targets;
     const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, floats, &targets);
     tally->check(made, "the targets made");
@@ -1033,126 +1033,6 @@ void run_disc(render::Gpu& gpu, bool floats, Tally* tally)
     release_targets(gpu, targets);
 }
 
-// --- 3. the rays -----------------------------------------------------------------------------------------------------
-
-constexpr double kMostShaftError = 0.01; // absolute, 97% of the texels
-constexpr double kMostShaftMean = 2e-3;  // absolute, the mean
-constexpr double kShaftShare = 0.97;
-constexpr double kLeastContrast = 2.0;   // through the window / behind the wall
-
-float jitter_of(int x, int y)
-{
-    constexpr float kNoiseScale = 52.9829189F;
-    constexpr float kNoiseX = 0.06711056F;
-    constexpr float kNoiseY = 0.00583715F;
-    const float inner = (kNoiseX * static_cast<float>(x)) + (kNoiseY * static_cast<float>(y));
-    const float scaled = kNoiseScale * (inner - std::floor(inner));
-    return scaled - std::floor(scaled);
-}
-
-// The rays' value at a half-resolution texel (the pass's march; vulkan_rt_sun.h step 1), before the colour.
-struct Texel {
-    int x = 0;
-    int y = 0;
-};
-double shaft_at(const View& view, const std::vector<uint8_t>& mask, const vk::RtSunFrame& frame, Texel texel)
-{
-    const Point start{.x = (texel.x * 2.0) + kHalf, .y = (texel.y * 2.0) + kHalf};
-    const int points = static_cast<int>(vk::kSunShaftSamples);
-    const double delta_x = (core::at(frame.screen, 0) - start.x) * (vk::kSunShaftReach / points);
-    const double delta_y = (core::at(frame.screen, 1) - start.y) * (vk::kSunShaftReach / points);
-    const double jitter = jitter_of(texel.x, texel.y);
-    double sum = 0.0;
-    double weights = 0.0;
-    double weight = 1.0;
-    for (int index = 0; index < points; ++index) {
-        const Point here{.x = start.x + (delta_x * (index + jitter)), .y = start.y + (delta_y * (index + jitter))};
-        const int column = std::clamp(static_cast<int>(std::floor(here.x + kHalf)), 0, static_cast<int>(view.width) - 1);
-        const int row = std::clamp(static_cast<int>(std::floor(here.y + kHalf)), 0, static_cast<int>(view.height) - 1);
-        double source = 0.0;
-        if (core::at(mask, (static_cast<std::size_t>(row) * view.width) + column) != 0) {
-            source = std::exp(-angle_between(direction_at(view, {.x = here.x, .y = here.y}), to_sun()) /
-                              vk::kSunShaftWidth);
-        }
-        sum += weight * source;
-        weights += weight;
-        weight *= vk::kSunShaftDecay;
-    }
-    return (sum / weights) * vk::kRtShaftStrength * frame.fade;
-}
-
-constexpr double kNearWindow = 40.0;  // pixels from the sun's place: the wall round the window
-constexpr double kFarFromWindow = 120.0;
-constexpr double kLeastNearRays = 0.01;
-
-void run_shafts(render::Gpu& gpu, Tally* tally)
-{
-    text::print("the rays (rt_shafts=1):\n");
-    vk::set_rt_sun_settings(sun_settings(false, true, false, false));
-    Targets targets;
-    const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, false, &targets);
-    tally->check(made, "the targets made");
-    if (!made) {
-        release_targets(gpu, targets);
-        return;
-    }
-    const Pose pose = sun_pose();
-    const View view = view_from(pose, kTargetWidth, kTargetHeight);
-    tally->check(draw_frame(gpu, targets, pose) == 1, "the pass recorded");
-    tally->check(!render::rt::sun_glare_replaced(), "rt_sun=0: the original's sun kept");
-    const vk::RtSunFrame frame = vk::rt_sun_frame();
-    vk::RtSunTexels shafts;
-    const uint32_t half_width = (kTargetWidth + 1) / 2;
-    const uint32_t half_height = (kTargetHeight + 1) / 2;
-    const bool read = read_sun(vk::RtSunImage::kShafts, kTargetWidth, kTargetHeight, &shafts) &&
-                      shafts.width == half_width && shafts.height == half_height;
-    tally->check(read && count_not_finite(shafts.texels) == 0, "the rays read back, no NaN");
-    if (!read) {
-        release_targets(gpu, targets);
-        return;
-    }
-    const std::vector<uint8_t> mask = sky_mask(view);
-    const double colour_luma = luma({core::at(frame.colour, 0), core::at(frame.colour, 1), core::at(frame.colour, 2)});
-    std::vector<double> errors;
-    double near_sum = 0.0;
-    double far_sum = 0.0;
-    int near_count = 0;
-    int far_count = 0;
-    for (uint32_t row = 0; row < half_height; ++row) {
-        for (uint32_t column = 0; column < half_width; ++column) {
-            const double want =
-                shaft_at(view, mask, frame, {.x = static_cast<int>(column), .y = static_cast<int>(row)});
-            const double got =
-                luma(rgb_of(core::at(shafts.texels, (static_cast<std::size_t>(row) * half_width) + column)));
-            errors.push_back(std::abs(got - (want * colour_luma)));
-            // (the wall's pixels: near the window its rays see the sky through it; far from it, mostly wall)
-            const std::size_t pixel = (static_cast<std::size_t>(row) * 2 * kTargetWidth) + (column * std::size_t{2});
-            if (core::at(mask, pixel) != 0) {
-                continue;
-            }
-            const double distance =
-                std::hypot((column * 2.0) - core::at(frame.screen, 0), (row * 2.0) - core::at(frame.screen, 1));
-            if (distance < kNearWindow) {
-                near_sum += got;
-                ++near_count;
-            } else if (distance > kFarFromWindow) {
-                far_sum += got;
-                ++far_count;
-            }
-        }
-    }
-    const double error = percentile(errors, kShaftShare);
-    const double mean_error = mean_of(errors);
-    tally->check(error <= kMostShaftError && mean_error <= kMostShaftMean,
-                 text::format("every texel against the processor's march: %.4f at the 97th percentile, %.5f mean",
-                              error, mean_error));
-    const double near_mean = near_count > 0 ? near_sum / near_count : 0.0;
-    const double far_mean = far_count > 0 ? far_sum / far_count : 0.0;
-    tally->check(near_mean > kLeastContrast * far_mean && near_mean > kLeastNearRays,
-                 text::format("rays from the window: the wall near it %.4f, far from it %.4f", near_mean, far_mean));
-    release_targets(gpu, targets);
-}
-
 // --- 4. the bloom ----------------------------------------------------------------------------------------------------
 
 constexpr double kMostEnergyError = 0.015; // relative
@@ -1235,7 +1115,7 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
     draw_frame(gpu, targets, pose);
     std::vector<Rgb> plain;
     const bool read_plain = read_colour(targets, &plain);
-    vk::set_rt_sun_settings(sun_settings(true, true, true, floats));
+    vk::set_rt_sun_settings(sun_settings(true, true, floats));
     tally->check(draw_frame(gpu, targets, pose) == 1, "the pass recorded");
     vk::RtSunTexels base;
     vk::RtSunTexels light;
@@ -1289,7 +1169,7 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
     }
     // the frame's own bloom alone (no sun): the 8-bit frame's sum kept
     if (!floats) {
-        vk::set_rt_sun_settings(sun_settings(false, false, true, false));
+        vk::set_rt_sun_settings(sun_settings(false, true, false));
         tally->check(draw_frame(gpu, targets, pose) == 1, "the bloom alone: the pass recorded");
         std::vector<Rgb> bloomed_frame;
         if (read_colour(targets, &bloomed_frame)) {
@@ -1400,18 +1280,22 @@ void judge_aerial_texel(const View& view, const std::array<float, 4>& marched, c
         out->worst = std::max(out->worst, std::abs(transmittance - want));
         out->thinnest = std::min(out->thinnest, want);
     }
-    // the light at least the sky's share of the sky's colour (what the shade gives) and at most the sky's colour (an
-    // unshaded path: the far world fades into the sky, never past it)
+    // the light at least the sky's share of the sky's colour (what the shade gives) and at most that share and the
+    // sunlit haze's light (changed by the volumetric light - rt_volume_light.h: the shade's share of the sky, and the
+    // sun's light scattered toward the eye by the air's phase, kHazeSunlit at phase 1, its colour's luma 1)
     const double sky_luma = (1.0 - want) * sky_luma_toward(direction);
+    const double sunlit = (1.0 - want) * (1.0 - static_cast<double>(vk::kFogAerialSkyShare)) *
+                          static_cast<double>(render::rt::kHazeSunlit) *
+                          render::rt::medium_phase(dot(direction, to_sun()), static_cast<double>(vk::kRtFogAnisotropy));
     const double light = luma(rgb_of(marched));
     out->below += light < (vk::kFogAerialSkyShare * sky_luma * kSkySlack) - kSkySlackAbsolute ? 1 : 0;
-    out->above += light > (sky_luma / kSkySlack) + kSkySlackAbsolute ? 1 : 0;
+    out->above += light > (((vk::kFogAerialSkyShare * sky_luma) + sunlit) / kSkySlack) + kSkySlackAbsolute ? 1 : 0;
 }
 
 void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
 {
     text::print("the aerial haze (rt_fog=1, rt_fog_haze=1, rt_sky_model=1, no level fog):\n");
-    vk::RtSunSettings sky = sun_settings(false, false, false, false);
+    vk::RtSunSettings sky = sun_settings(false, false, false);
     sky.sky_model = true;
     vk::set_rt_sun_settings(sky);
     vk::RtFogSettings fog;
@@ -1420,6 +1304,7 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
     fog.haze = true;
     fog.haze_density = kAerialHazeDensity;
     fog.haze_height = kAerialHeight;
+    fog.air = 0.0F; // (the aerial haze alone: the street air's own cases are thug2_vulkan_rt_fog_check's)
     vk::set_rt_fog_settings(fog);
     vk::rt_fog_set_scene(scene.top.handle);
     Targets targets;
@@ -1452,7 +1337,7 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
             tally->check(counted.below == 0,
                          text::format("the light at least the sky's share of the sky's colour (%d below)", counted.below));
             tally->check(counted.above == 0,
-                         text::format("the light at most the sky's colour (%d above)", counted.above));
+                         text::format("the light at most the shade's share and the sunlit haze's (%d above)", counted.above));
         }
     }
     release_targets(gpu, targets);
@@ -1481,8 +1366,8 @@ void draw_scene_sun_frame(render::Gpu& gpu, const Targets& targets, const Pose& 
 void run_scene_sun(render::Gpu& gpu, const Scene& scene, Tally* tally)
 {
     namespace rt = render::rt;
-    text::print("one sun for every effect (rt_sun_source: shadows, fog, the drawn sun and its rays):\n");
-    vk::set_rt_sun_settings(sun_settings(true, true, false, false));
+    text::print("one sun for every effect (rt_sun_source: shadows, fog, the drawn sun):\n");
+    vk::set_rt_sun_settings(sun_settings(true, false, false));
     vk::RtFogSettings fog;
     fog.on = true;
     vk::set_rt_fog_settings(fog);
@@ -1651,7 +1536,7 @@ void run_untouched(render::Gpu& gpu, Tally* tally)
 void run_perf(render::Gpu& gpu)
 {
     text::print("cost at %ux%u (the passes' timestamps on the device, 60 frames, everything on):\n", kPerfWidth, kPerfHeight);
-    vk::set_rt_sun_settings(sun_settings(true, true, true, false));
+    vk::set_rt_sun_settings(sun_settings(true, true, false));
     Targets targets;
     if (!make_targets(gpu, kPerfWidth, kPerfHeight, false, &targets)) {
         text::print("  the targets couldn't be made\n");
@@ -1677,7 +1562,7 @@ void run_perf(render::Gpu& gpu)
         for (std::size_t i = 0; i < parts.size(); ++i) {
             core::at(parts, i) = (core::at(after.milliseconds, i) - core::at(before.milliseconds, i)) / samples;
         }
-        text::print("  %.3f ms: rays %.3f, source %.3f, bloom %.3f, composite %.3f (%.0f passes timed)\n",
+        text::print("  %.3f ms: copy %.3f, source %.3f, bloom %.3f, composite %.3f (%.0f passes timed)\n",
                     core::at(parts, 0) + core::at(parts, 1) + core::at(parts, 2) + core::at(parts, 3), core::at(parts, 0),
                     core::at(parts, 1), core::at(parts, 2), core::at(parts, 3), samples);
     }
@@ -1712,7 +1597,7 @@ Opened open_device(const Options& options, SDL_Window* window)
         {.validation = options.validation, .device_index = options.device, .on_message = print_line, .ray_tracing = true},
         window);
     // (on before the device: its depth surfaces are made samplable)
-    vk::set_rt_sun_settings(sun_settings(true, true, true, false));
+    vk::set_rt_sun_settings(sun_settings(true, true, false));
     render::GpuContext& context = vk::gpu_context();
     if (!context.create_instance()) {
         text::print("the device could not be opened\n");
@@ -1769,7 +1654,6 @@ int run(const Options& options, SDL_Window* window)
         run_sky(&tally);
         run_disc(gpu, false, &tally);
         run_disc(gpu, true, &tally);
-        run_shafts(gpu, &tally);
         run_bloom(gpu, false, &tally);
         run_bloom(gpu, true, &tally);
         run_aerial(gpu, scene, &tally);

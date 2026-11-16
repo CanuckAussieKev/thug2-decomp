@@ -1773,7 +1773,7 @@ void VulkanRayTracing::prepare_frame()
     if (made.installed && state.draws_made) {
         prepare_rt_sky(state);
     }
-    if (!made.installed || !state.draws_made || !(settings.sun || settings.shafts || settings.bloom || settings.sky_model)) {
+    if (!made.installed || !state.draws_made || !(settings.sun || settings.bloom || settings.sky_model)) {
         return;
     }
     std::array<float, 3> toward{};
