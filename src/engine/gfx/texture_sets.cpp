@@ -69,7 +69,7 @@ std::string lower(std::string_view text)
     return out;
 }
 
-bool is_file(const std::string& path) { return fs::disk().kind(path.c_str()) == fs::PathKind::kFile; }
+bool is_file(const std::string& path) { return fs::is_file_remembered(path); }
 
 // A set's name as the ini and the console give it: lower case, trimmed; "" is the original.
 std::string set_name(std::string_view text)

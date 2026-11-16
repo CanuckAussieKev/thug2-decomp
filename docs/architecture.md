@@ -525,6 +525,12 @@ everything above it uses the game's own types and may change them freely.
     `read_text` / `write_text` as std::fstream read and wrote, `print_to`, `list`). `app/main.cpp` installs Win32's
     (`src/fs_win32`, static library `thug2_fs_win32`, on the engine: `fs::win32::disk()`) first thing in WinMain; a
     std::filesystem / POSIX one could stand in for a GCC build.
+  - The drawing thread never waits on the disk while the game plays (2026-11-16: a busy disk held a frame in a file's
+    close for 7 s): the run log's lines go into a ring and a thread of its own writes and flushes them (`log_flush`
+    writes what waits, at the end of the process and of a crash report); the test-automation channel's status
+    file and its command-file polling run on `fs::run_in_background` / `fs::write_file_later`
+    (`engine/file/disk_worker.h`, one worker thread); a screenshot's folder, name, file times, PNG and files are a
+    thread's; the pipeline and shader caches are saved by a thread of their own, bounded in size.
   - What stays in the platform layer: the run log (`platform/run_log`, opened before anything is installed), the ini
     (`thug2-decomp.ini` through the Win32 profile API: `config_int` and the callers' own `GetPrivateProfileString` /
     `WritePrivateProfileString`) and the crash reports, which must work while the game is failing. Only `fs_win32/`,

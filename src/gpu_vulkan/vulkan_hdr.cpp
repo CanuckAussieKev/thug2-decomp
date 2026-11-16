@@ -17,6 +17,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/file/disk.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
@@ -605,6 +606,21 @@ uint8_t to_byte(float value)
     return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * kByteMax));
 }
 
+// Every 16-bit float's 8-bit value (to_byte of half_value), made on first use: the screenshot's read-back converts two
+// million pixels on the drawing thread, and a table look-up is a fifth of the arithmetic.
+const std::vector<uint8_t>& half_bytes()
+{
+    static core::NoDestroy<std::vector<uint8_t>> kTable([] {
+        constexpr std::size_t kHalves = 0x10000;
+        std::vector<uint8_t> table(kHalves);
+        for (std::size_t bits = 0; bits < kHalves; ++bits) {
+            core::at(table, bits) = to_byte(half_value(static_cast<uint16_t>(bits)));
+        }
+        return table;
+    }());
+    return kTable.get();
+}
+
 // A .cube line's words (split at spaces and tabs).
 std::vector<std::string_view> cube_words(std::string_view line)
 {
@@ -1039,20 +1055,21 @@ bool read_hdr_as_bgra8(Backend& state, Image* image, Extent extent, std::vector<
     const std::span<const uint8_t> from(raw);
     const std::span<uint8_t> into(*bgra);
     constexpr uint32_t kHighByte = 8;
+    const std::vector<uint8_t>& bytes = half_bytes();
     for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
         const std::span<const uint8_t> texel = from.subspan(pixel * kHdrPixelBytes, kHdrPixelBytes);
-        std::array<float, 4> rgba{};
+        std::array<uint8_t, 4> rgba{};
         for (std::size_t channel = 0; channel < rgba.size(); ++channel) {
             const auto bits = static_cast<uint16_t>(core::at(texel, channel * 2) |
                                                     (core::at(texel, (channel * 2) + 1) << kHighByte));
-            core::at(rgba, channel) = half_value(bits);
+            core::at(rgba, channel) = core::at(bytes, bits);
         }
         // (B, G, R, A)
         const std::span<uint8_t> out = into.subspan(pixel * kBgraPixelBytes, kBgraPixelBytes);
-        core::at(out, 0) = to_byte(core::at(rgba, 2));
-        core::at(out, 1) = to_byte(core::at(rgba, 1));
-        core::at(out, 2) = to_byte(core::at(rgba, 0));
-        core::at(out, 3) = to_byte(core::at(rgba, 3));
+        core::at(out, 0) = core::at(rgba, 2);
+        core::at(out, 1) = core::at(rgba, 1);
+        core::at(out, 2) = core::at(rgba, 0);
+        core::at(out, 3) = core::at(rgba, 3);
     }
     return true;
 }

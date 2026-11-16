@@ -4,9 +4,12 @@
 
 #include <array>
 #include <cstddef>
+#include <mutex>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
+#include "base/core/no_destroy.h"
 #include "engine/file/disk_files.h"
 
 namespace fs {
@@ -14,6 +17,18 @@ namespace fs {
 namespace {
 
 constexpr size_t kReadPieceBytes = 4096; // a whole file is read in pieces of this many bytes
+
+// NOT ORIGINAL grouping - the answers is_file_remembered gave (were globals). Made on first use, never destroyed.
+struct Remembered {
+    std::mutex mutex_;
+    std::unordered_map<std::string, bool> files_;
+};
+
+Remembered& remembered()
+{
+    static core::NoDestroy<Remembered> state;
+    return state.get();
+}
 
 // The disk app/ installed (a constant-initialised pointer: no guard, nothing to destroy).
 Disk*& installed()
@@ -25,6 +40,20 @@ Disk*& installed()
 } // namespace
 
 Disk& disk() { return *installed(); }
+
+bool is_file_remembered(const std::string& path)
+{
+    {
+        const std::scoped_lock lock(remembered().mutex_);
+        if (const auto found = remembered().files_.find(path); found != remembered().files_.end()) {
+            return found->second;
+        }
+    }
+    const bool is_one = disk().kind(path.c_str()) == PathKind::kFile; // (the disk, with no lock held)
+    const std::scoped_lock lock(remembered().mutex_);
+    remembered().files_.emplace(path, is_one);
+    return is_one;
+}
 
 void install_disk(Disk& disk) { installed() = &disk; }
 

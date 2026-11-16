@@ -102,6 +102,8 @@ class Struct;
 //                                         object <checksum>" or "miss". In a level only.
 //   echo <text>                           logged and shown as the result (a marker for tools)
 //   console <line>                        the developer console's command (console.h), its output logged and the result
+//   screenshot                            a picture as the screenshot key takes it (devtools/screenshot.h: the picture
+//                                         and its sidecar written on a worker thread; the log's "screenshot: saved" line)
 //   quit                                  the game closes (as its window's close button)
 //   crash <kind>                          a deliberate fault, to check the crash handling (platform/crash.h): access, rtc,
 //                                         crterror, invalidparam, purecall, abort, overrun (the game's /GS box),
@@ -168,6 +170,7 @@ enum class Op : uint8_t {
     kEcho,
     kConsole,
     kQuit,
+    kScreenshot,
     kJumpTo,
     kViewCam,
     kCapture,

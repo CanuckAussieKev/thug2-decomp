@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <condition_variable>
+#include <deque>
 #include <fstream>
 #include <ios>
 #include <map>
@@ -82,7 +84,8 @@ struct State {
     int64_t last_drawn_end = 0;
     uint64_t loops = 0;
     Window window;
-    std::ofstream lines;
+    std::string pending; // (the lines since the last window: handed to the line writer's thread each window)
+    bool lines_started = false;
     int names_written = 0;
     bool sampler_started = false;
     // (the stall watch - always on) the last loop's end, whether a loading screen was up then, the watch started
@@ -91,6 +94,51 @@ struct State {
     std::atomic<uint64_t> beats{0};
     bool watch_started = false;
 };
+
+// The frame lines' file, written by a thread of its own: the profile measures the main loop, and a write to the disk
+// on that loop (a busy disk held one for seconds) would be what it finds.
+struct LineWriter {
+    std::mutex mutex_;
+    std::condition_variable wake_;
+    std::deque<std::string> chunks_;
+};
+
+LineWriter& line_writer()
+{
+    static core::NoDestroy<LineWriter> kept;
+    return kept.get();
+}
+
+void run_line_writer(const std::string& path)
+{
+    std::ofstream file(path, std::ios::out | std::ios::trunc);
+    LineWriter& writer = line_writer();
+    for (;;) {
+        std::string chunk;
+        {
+            std::unique_lock lock(writer.mutex_);
+            writer.wake_.wait(lock, [&writer] { return !writer.chunks_.empty(); });
+            chunk = std::move(writer.chunks_.front());
+            writer.chunks_.pop_front();
+        }
+        file << chunk;
+        file.flush();
+    }
+}
+
+constexpr std::size_t kMostChunks = 64; // (a disk too slow for them: the profile's lines dropped, not the loop held)
+
+void send_lines(std::string text)
+{
+    LineWriter& writer = line_writer();
+    {
+        const std::scoped_lock lock(writer.mutex_);
+        if (writer.chunks_.size() < kMostChunks) {
+            writer.chunks_.push_back(std::move(text));
+        }
+    }
+    writer.wake_.notify_one();
+}
 
 State& state()
 {
@@ -159,11 +207,9 @@ void log_window(State& st, int64_t now)
 
 void write_line(State& st, bool drawn, bool loading, double loop_ms, double work_ms)
 {
-    if (!st.lines.is_open()) {
-        st.lines.open(game_folder_path("thug2-decomp-frames.jsonl"), std::ios::out | std::ios::trunc);
-        if (!st.lines) {
-            return;
-        }
+    if (!st.lines_started) {
+        st.lines_started = true;
+        std::thread(run_line_writer, game_folder_path("thug2-decomp-frames.jsonl")).detach();
     }
     const int count = st.count.load();
     if (count != st.names_written) {
@@ -174,7 +220,7 @@ void write_line(State& st, bool drawn, bool loading, double loop_ms, double work
             names += "\"";
         }
         names += "]}\n";
-        st.lines << names;
+        st.pending += names;
         st.names_written = count;
     }
     std::string line = text::format(R"({"f":%llu,"d":%d,"l":%d,"t":%.3f,"w":%.3f,"p":[)",
@@ -189,7 +235,7 @@ void write_line(State& st, bool drawn, bool loading, double loop_ms, double work
         line += text::format("%.3f", ms);
     }
     line += "]}\n";
-    st.lines << line;
+    st.pending += line;
 }
 
 // --- the sampler (x64, MSVC: the walk reads the stack guarded) ---------------------------------------------------
@@ -558,6 +604,26 @@ void loop_begin()
     }
 }
 
+void flush()
+{
+    State& st = state();
+    if (!st.lines_started) {
+        return;
+    }
+    send_lines(std::move(st.pending));
+    st.pending.clear();
+    constexpr int kTries = 50;
+    for (int tries = 0; tries < kTries; ++tries) {
+        {
+            const std::scoped_lock lock(line_writer().mutex_);
+            if (line_writer().chunks_.empty()) {
+                break;
+            }
+        }
+        Sleep(10);
+    }
+}
+
 void loop_end(bool drawn, bool loading)
 {
     State& st = state();
@@ -597,7 +663,8 @@ void loop_end(bool drawn, bool loading)
     st.last_end = now;
     if (static_cast<double>(now - win.start) * tick_ms() >= kWindowSeconds * kMilliseconds) {
         log_window(st, now);
-        st.lines.flush();
+        send_lines(std::move(st.pending));
+        st.pending.clear();
     }
 }
 

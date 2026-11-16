@@ -548,6 +548,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     ShowWindow(sys::game_window(), SW_SHOWMINIMIZED);
     c_exit();
     memory::shut_down_manager();
+    log_flush();
     exit_now(0);
 }
 

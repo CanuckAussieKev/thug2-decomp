@@ -140,6 +140,14 @@ struct Job {
     double milliseconds = 0.0;
     int mouse_x_ = -1, mouse_y_ = -1; // (in the image's pixels; -1: not over the window)
     std::string note;                 // (an event's picture: request_event_shot)
+    // What the worker needs to make the folder, pick the name and write the sidecar - all the disk's work (stats, the
+    // folder, the ini's folder setting) is the worker's: the drawing thread never waits on it. The sections were read
+    // from the game on the main thread; the worker adds the file's name and folder and the exe's and DLL's file times.
+    std::vector<Section> sections;
+    std::vector<std::string> log_tail;
+    std::string heading_stem; // (the picture's file stem: names are picked from it)
+    uint32_t capture_ms = 0;  // (the main thread's part: the back buffer read)
+    std::string exe_path, dll_path;
 };
 // NOT ORIGINAL grouping - the picture being written and the message shown about it (were globals). Made on first use,
 // never destroyed (screenshot_job()).
@@ -226,8 +234,14 @@ struct ShotFiles {
     std::string_view taken;
 };
 
-// Everything the sidecar says, read on the main thread (every field safe when it isn't there).
-std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
+// The exe's and the DLL's paths, left for the caller to stat (gather_sections `paths`).
+struct BuildPaths {
+    std::string exe, dll;
+};
+
+// Everything the sidecar says, read on the main thread (every field safe when it isn't there). With `paths` the exe's
+// and the DLL's file times are left empty (a stat is the disk's: the caller's worker makes them from the paths).
+std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files, BuildPaths* paths = nullptr)
 {
     const std::string png(files.png);
     const std::string folder(files.folder);
@@ -258,7 +272,10 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     std::array<char, MAX_PATH> exe = {""};
     GetModuleFileNameA(nullptr, exe.data(), MAX_PATH);
     build.fields.push_back({.key = "exe", .value = std::string(file_name_of(exe.data()))});
-    build.fields.push_back({.key = "exe file", .value = file_time(exe.data())});
+    build.fields.push_back({.key = "exe file", .value = paths ? std::string() : file_time(exe.data())});
+    if (paths) {
+        paths->exe = exe.data();
+    }
     HMODULE dll = nullptr;
     std::array<char, MAX_PATH> dll_path = {""};
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -268,7 +285,10 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     build.fields.push_back(
         {.key = "dll", .value = (core::at(dll_path, 0) != '\0') ? std::string(file_name_of(dll_path.data())) : ""});
     build.fields.push_back(
-        {.key = "dll file", .value = (core::at(dll_path, 0) != '\0') ? file_time(dll_path.data()) : ""});
+        {.key = "dll file", .value = (core::at(dll_path, 0) != '\0' && !paths) ? file_time(dll_path.data()) : ""});
+    if (paths) {
+        paths->dll = dll_path.data();
+    }
     build.fields.push_back({.key = "dll commit", .value = THUG2_BUILD_COMMIT});
     sections.push_back(build);
 
@@ -372,12 +392,57 @@ void tick_message()
 
 // --- taking and writing ---
 
+std::string get_folder();
+
+// The disk's part of a picture, on the worker: the folder made, the name picked (a free one of the stem), the sidecar's
+// fields that name files or stat them filled in and its text made. False (job.error says why) when there is no folder
+// or no free name.
+bool name_the_files(Job& job)
+{
+    job.folder = get_folder();
+    if (job.folder.empty()) {
+        job.error = "no folder (see the log)";
+        return false;
+    }
+    job.png = pick_name(job.heading_stem, [&job](const std::string& name) {
+        return fs::disk().kind((job.folder + name).c_str()) != fs::PathKind::kNone;
+    });
+    if (job.png.empty()) {
+        job.error = "no free name in " + job.folder;
+        return false;
+    }
+    job.txt = sidecar_name(job.png);
+    for (Section& section : job.sections) {
+        for (Prop& field : section.fields) {
+            if (section.title == "screenshot" && field.key == "file") {
+                field.value = job.png;
+            } else if (section.title == "screenshot" && field.key == "folder") {
+                field.value = job.folder;
+            } else if (section.title == "build" && field.key == "exe file") {
+                field.value = file_time(job.exe_path.c_str());
+            } else if (section.title == "build" && field.key == "dll file" && !job.dll_path.empty()) {
+                field.value = file_time(job.dll_path.c_str());
+            }
+        }
+    }
+    job.sidecar = format_sidecar("THUG2 decomp screenshot " + job.png, job.sections, job.log_tail);
+    return true;
+}
+
 void emit_out(const std::shared_ptr<Job>& job)
 {
     LARGE_INTEGER start;
     LARGE_INTEGER end;
     LARGE_INTEGER frequency;
     QueryPerformanceCounter(&start);
+    // (the PNG's compression is a core's work for a while: the game's threads come first - the frame rate shows no dip)
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+    if (!name_the_files(*job)) {
+        job->frame.bytes.clear();
+        job->frame.bytes.shrink_to_fit();
+        job->done = true;
+        return;
+    }
     std::vector<uint8_t> rgb;
     std::vector<uint8_t> png;
     const bool read = to_rgb(job->frame, &rgb);
@@ -463,15 +528,10 @@ void get_take()
 {
     TickCycle frame;
     std::string error;
+    const uint32_t began = platform::ticks_ms();
     if (!render::device().capture_back_buffer(&frame, &error)) {
         get_log("screenshot: not taken - %s", error.c_str());
         screenshot_job().message_ = "Screenshot failed: " + error;
-        screenshot_job().message_since_ = platform::ticks_ms();
-        return;
-    }
-    std::string folder = get_folder();
-    if (folder.empty()) {
-        screenshot_job().message_ = "Screenshot failed: no folder (see the log)";
         screenshot_job().message_since_ = platform::ticks_ms();
         return;
     }
@@ -479,13 +539,6 @@ void get_take()
     std::tm local = {};
     localtime_s(&local, &now);
     const Stamp stamp{.year = local.tm_year + 1900, .month = local.tm_mon + 1, .day = local.tm_mday, .hour = local.tm_hour, .minute = local.tm_min, .second = local.tm_sec};
-    const std::string png = pick_name(file_stem(stamp), [&folder](const std::string& name) {
-        return fs::disk().kind((folder + name).c_str()) != fs::PathKind::kNone;
-    });
-    if (png.empty()) {
-        get_log("screenshot: no free name in %s", folder.c_str());
-        return;
-    }
     std::array<char, kTakenTextSize> taken{};
     text::format_to(taken, "%04d-%02d-%02d %02d:%02d:%02d", stamp.year, stamp.month, stamp.day, stamp.hour,
                     stamp.minute, stamp.second);
@@ -514,16 +567,19 @@ void get_take()
     } else {
         mouse = "not over the window";
     }
-    job->folder = folder;
-    job->png = png;
-    job->txt = sidecar_name(png);
-    std::vector<Section> sections = gather_sections(frame, {.png = png, .folder = folder, .taken = taken.data()});
+    job->capture_ms = platform::ticks_ms() - began;
+    job->heading_stem = file_stem(stamp);
+    BuildPaths paths;
+    std::vector<Section> sections = gather_sections(frame, {.png = "", .folder = "", .taken = taken.data()}, &paths);
     sections.front().fields.push_back({.key = "mouse", .value = mouse});
     if (!screenshot_state().event_note_.empty()) {
         job->note = screenshot_state().event_note_;
         sections.front().fields.push_back({.key = "for", .value = screenshot_state().event_note_});
     }
-    job->sidecar = format_sidecar("THUG2 decomp screenshot " + png, sections, get_log_tail(kLogLines));
+    job->sections = std::move(sections);
+    job->log_tail = get_log_tail(kLogLines);
+    job->exe_path = std::move(paths.exe);
+    job->dll_path = std::move(paths.dll);
     job->frame = std::move(frame);
     screenshot_job().job_ = job;
     std::thread(emit_out, job).detach();
@@ -755,8 +811,9 @@ void before_present(bool rendering)
         const std::shared_ptr<Job> job = std::move(screenshot_job().job_);
         const std::string note = job->note.empty() ? "" : " for " + job->note;
         if (job->ok) {
-            get_log("screenshot: saved %s%s (and %s) in %.0f ms%s", job->folder.c_str(), job->png.c_str(),
-                    job->txt.c_str(), job->milliseconds, note.c_str());
+            get_log("screenshot: saved %s%s (and %s) in %.0f ms (%u ms of it the drawing thread's: the back buffer read)%s",
+                    job->folder.c_str(), job->png.c_str(), job->txt.c_str(), job->milliseconds, job->capture_ms,
+                    note.c_str());
             if (job->note.empty()) {
                 screenshot_job().message_ = "Screenshot saved: " + job->png;
             }

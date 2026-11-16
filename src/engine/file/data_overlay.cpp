@@ -20,6 +20,7 @@
 #include "base/core/checked_index.h"
 #include "engine/file/file_load.h"
 #include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 
 namespace frontend::data_overlay {
 
@@ -29,7 +30,7 @@ constexpr int kOverlayNameLimit = 259; // the longest name that fits with its te
 constexpr std::size_t kOverlayPrefixLength = 5;
 
 bool is_folder(const std::string& path) { return fs::disk().kind(path.c_str()) == fs::PathKind::kFolder; }
-bool is_file(const std::string& path) { return fs::disk().kind(path.c_str()) == fs::PathKind::kFile; }
+bool is_file(const std::string& path) { return fs::is_file_remembered(path); }
 
 } // namespace
 
