@@ -137,6 +137,10 @@ struct RelitLevel {
     bool off = false;       // "relit": false - the level keeps its bake
     float strength = -1.0F; // "strength": 0 - 1 (below 0: not set - the setting's)
     bool keeps_baked_sun = false; // (added by the scene's sun) "sun": "level" - lit by its baked sun under rt_sun_source=game
+    // (added by the level's compass) "north": the world heading (degrees, round from +z toward +x) of the level's north -
+    // the time of day's sun path turned by it (rt_daylight.h NativeInputs::north); not set: north follows the bake's sun
+    bool north_set = false;
+    float north_heading = 0.0F;
 };
 // The levels a document lists: {"levels": {"<name>": {"relit": false, "strength": 0.5, "sun": "level"}, ...}} (other
 // keys ignored; "sun": "game" - the default - undoes a "level" listed before).

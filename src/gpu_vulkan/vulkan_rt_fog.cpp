@@ -56,6 +56,7 @@ constexpr uint64_t kReportNoRoom = 0x52460008U;
 constexpr uint64_t kReportSeeded = 0x52460009U; // (added by the first frame: a history seeded - vulkan_rt_history.h)
 
 constexpr uint64_t kReportLight = 0x5246000AU; // (added by the volumetric light: what lights the air)
+constexpr uint64_t kReportRays = 0x5246000BU; // (added by the god rays: their passes not made)
 
 constexpr float kMaxDensity = 8.0F;
 constexpr float kMaxStrength = 4.0F;
@@ -130,7 +131,27 @@ layout(set = 0, binding = 7) uniform FogBlock {
     vec4 map_side;
     vec4 map_up;
     vec4 map_centre;
+    // (added by the god rays - rt_volume_light.h god_ray_peak) xy the light's place on the screen in the rays' images'
+    // texels (half the viewport's pixels), z rt_fog_god_rays, w 0: off (the march keeps the whole phase), 1: on, the
+    // light in front of the eye (the radial passes run), 2: on, the light behind it (its peak nowhere on the screen)
+    vec4 rays;
+    vec4 rays_look; // x how much of the peak's air lies before what stands toward the light (rt_volume_light.h AirArt::rays_near)
 } fog;
+
+// Henyey-Greenstein x 4 pi (1 on average over the sphere)
+float hg(float c, float g)
+{
+    float k = max(1.0 + g * g - 2.0 * g * c, 1e-4);
+    return (1.0 - g * g) / (k * sqrt(k));
+}
+// (added by the god rays) the forward peak the screen draws (rt_volume_light.h god_ray_peak): 0 while they are off
+float god_peak(float c)
+{
+    if (!(fog.rays.w > 0.5)) {
+        return 0.0;
+    }
+    return MEDIUM_FORWARD * max(hg(c, fog.sun.w) - hg(GOD_RAYS_CONE_COS, fog.sun.w), 0.0);
+}
 
 #ifdef MULTISAMPLED
 layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
@@ -210,12 +231,6 @@ float hash01(ivec2 p, int frame, int i, uint salt)
     return float(h >> 8u) / 16777216.0;
 }
 
-// Henyey-Greenstein x 4 pi (1 on average over the sphere)
-float hg(float c, float g)
-{
-    float k = max(1.0 + g * g - 2.0 * g * c, 1e-4);
-    return (1.0 - g * g) / (k * sqrt(k));
-}
 // the air's phase (engine/gfx/rt_volume_light.h medium_phase: Mie's strong forward lobe and a weak back one)
 float phase(float c) { return MEDIUM_FORWARD * hg(c, fog.sun.w) + (1.0 - MEDIUM_FORWARD) * hg(c, MEDIUM_BACK_G); }
 
@@ -582,10 +597,15 @@ void main()
 #endif
     vec3 light_in = vec3(0.0);
     float transmittance = 1.0;
+    float potential = 0.0; // (added by the god rays)
+    bool gather_peak = fog.rays.w > 0.5 && fog.sun_tint.w > 0.5;
     bool lit_air = fog.sun_tint.w > 0.5 || lamps.count.x > 0;
     if (b > a && (replace || lit_air)) {
         float water = water_under(direction, distance);
-        float shaped = phase(dot(direction, fog.sun.xyz));
+        // (changed by the god rays: their forward peak taken out - the screen draws it, its shadows at the screen's
+        // resolution; the march adds up its potential beside the light - rt_volume_light.h march_sun_phase)
+        float toward_sun = dot(direction, fog.sun.xyz);
+        float shaped = phase(toward_sun) - god_peak(toward_sun);
         vec3 sun = fog.sun_tint.rgb * shaped;
         // (the street air's: its look's even lobe added x its glow, the forward lobe the physical one - rt_volume_light.h
         // air_sun_phase)
@@ -680,6 +700,18 @@ void main()
                 air_ambient + air_medium * (sun_air * (sun_seen * fog.air_ambient.w) + lamp_air);
             vec3 here = (max(tau_main, 0.0) * here_main + max(tau_air, 0.0) * here_air) / tau;
             light_in += transmittance * (1.0 - e) * here;
+            if (gather_peak) {
+                // (the god rays' potential: the light the peak's phase would scatter here per unit of it, unshadowed by
+                // the world - the screen's shadows stand for those - but under the clouds' shadow, luma of the media's
+                // light per unit of light: the main medium's colour, the street air's grey x its light's brightness)
+                float clouds_kept = 1.0;
+#ifdef CLOUDS
+                clouds_kept = cloud_map_kept(at, fog.cloud_map, fog.cloud_light);
+#endif
+                float per_unit = (max(tau_main, 0.0) * dot(medium, vec3(0.2126, 0.7152, 0.0722)) +
+                                  max(tau_air, 0.0) * air_medium.x * fog.air_ambient.w) / tau;
+                potential += transmittance * (1.0 - e) * per_unit * clouds_kept;
+            }
             transmittance *= e;
             if (transmittance < 1e-4) {
                 transmittance = 0.0; // (nothing past here is seen)
@@ -688,7 +720,7 @@ void main()
         }
     }
     imageStore(o_out, q, vec4(light_in, replace ? transmittance : 1.0));
-    imageStore(o_info, q, vec4(distance, float(local.x), float(local.y), 0.0));
+    imageStore(o_info, q, vec4(distance, float(local.x), float(local.y), potential));
 }
 )";
 
@@ -831,11 +863,131 @@ void main()
 }
 )";
 
+// (added by the god rays - rt_volume_light.h god_ray_peak) Step 2a: what each texel of the rays' images (half the
+// viewport's pixels each way) puts in the light's way: r its 2 x 2 pixels' share of sky (the depth's far value; the
+// cut-outs' gaps are sky - open), g the rest's distance x their share, b their share (what stands there, and how far).
+constexpr const char* kRaysMaskBody = R"(
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 15, rgba16f) uniform writeonly image2D o_rays;
+
+void main()
+{
+    ivec2 t = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(t, imageSize(o_rays)))) {
+        return;
+    }
+    float sky = 0.0;
+    float solid = 0.0;
+    float solid_distance = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        ivec2 local = min(2 * t + ivec2(i & 1, i >> 1), fog.rect.zw - ivec2(1));
+        float d = distance_of(fog.rect.xy + local);
+        if (d < 0.0) {
+            sky += 0.25;
+        } else {
+            solid += 0.25;
+            solid_distance += 0.25 * d;
+        }
+    }
+    imageStore(o_rays, t, vec4(sky, solid_distance, solid, 0.0));
+}
+)";
+
+// Step 2b: one radial pass - each texel the mean of RAYS_TAPS points of the image before along the line toward the
+// light's place, over RAYS_LENGTH of the way there (the passes 1/taps^2, 1/taps, the whole way: taps^3 points in all).
+constexpr const char* kRaysRadialBody = R"(
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 14) uniform sampler2D u_rays;
+layout(set = 0, binding = 15, rgba16f) uniform writeonly image2D o_rays;
+
+void main()
+{
+    ivec2 t = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(o_rays);
+    if (any(greaterThanEqual(t, size))) {
+        return;
+    }
+    vec2 x = vec2(t) + 0.5;
+    vec2 d = (fog.rays.xy - x) * RAYS_LENGTH;
+    vec4 sum = vec4(0.0);
+    for (int i = 0; i < RAYS_TAPS; ++i) {
+        vec2 at = x + d * ((float(i) + 0.5) / float(RAYS_TAPS));
+        sum += textureLod(u_rays, at / vec2(size), 0.0);
+    }
+    imageStore(o_rays, t, sum / float(RAYS_TAPS));
+}
+)";
+
 // Step 3: the composite (a blend: colour x T + the light).
 constexpr const char* kCompositeBody = R"(
 layout(set = 0, binding = 4, rgba16f) uniform readonly image2D u_in;
 layout(set = 0, binding = 5, rgba32f) uniform readonly image2D u_in_info;
+// (added by the god rays) this frame's march's info (its potential in a) and the rays' visibility (r / g)
+layout(set = 0, binding = 8, rgba32f) uniform readonly image2D u_march_info;
+layout(set = 0, binding = 14) uniform sampler2D u_rays;
 layout(location = 0) out vec4 o_colour;
+
+// (added by the god rays) The share of the air's light along the view ray `direction` within `d` of the eye: the street
+// air's volume round the eye (rt_volume_light.h air_reach - whole to half its range, gone by its range, the range
+// stretched toward the light; its fall taken as straight - rt_volume_light.h air_share_before), else none.
+float air_before(vec3 direction, float d)
+{
+    if (fog.air.x > 0.0 && fog.air_look.z > 0.0) {
+        float c = max(dot(direction, fog.sun.xyz), 0.0);
+        float stretch = fog.air_look.w > 1.0 ? 1.0 + (fog.air_look.w - 1.0) * c * c : 1.0;
+        float whole = fog.air_look.y * stretch;
+        float gone = whole + stretch / fog.air_look.z;
+        float x = min(d, gone);
+        float mass = min(x, whole);
+        if (x > whole) {
+            float u = x - whole;
+            mass += u - u * u / (2.0 * (gone - whole));
+        }
+        return clamp(mass / (whole + 0.5 * (gone - whole)), 0.0, 1.0);
+    }
+    return 0.0; // (the air the whole way: its share before a near thing nil)
+}
+
+// (added by the god rays) The peak's light at the pixel: the march's potential there (upsampled as the light is, by
+// distance), x the peak toward the pixel, x what of the light's surroundings is open along its line to the light.
+vec3 god_rays_light(ivec2 local, float distance, ivec2 base, vec2 f, float tolerance)
+{
+    float peak = god_peak(dot(direction_of(fog.rect.xy + local), fog.sun.xyz));
+    if (!(peak > 0.0) || !(fog.sun_tint.w > 0.5)) {
+        return vec3(0.0);
+    }
+    float sum = 0.0;
+    float weights = 0.0;
+    float nearest = 0.0;
+    float nearest_gap = 3.0e38;
+    for (int corner = 0; corner < 4; ++corner) {
+        ivec2 n = clamp(base + ivec2(corner & 1, corner >> 1), ivec2(0), fog.low.xy - ivec2(1));
+        float w = ((corner & 1) != 0 ? f.x : 1.0 - f.x) * ((corner >> 1) != 0 ? f.y : 1.0 - f.y);
+        vec4 info = imageLoad(u_march_info, n);
+        float gap = (distance < 0.0) != (info.x < 0.0) ? 1.0e30 : (distance < 0.0 ? 0.0 : abs(info.x - distance));
+        if (gap < nearest_gap) {
+            nearest_gap = gap;
+            nearest = info.w;
+        }
+        w *= exp(-min(gap / tolerance, 60.0));
+        sum += w * info.w;
+        weights += w;
+    }
+    float potential = weights > 1e-4 ? sum / weights : nearest;
+    float open = 1.0;
+    if (fog.rays.w < 1.5) {
+        vec2 size = vec2(textureSize(u_rays, 0));
+        vec4 r = textureLod(u_rays, (vec2(local) + 0.5) * 0.5 / size, 0.0);
+        if (r.b > 1e-4) {
+            // what stands on the line, at its mean distance: the air before it - at a distance t, shadowed by what the
+            // line holds at the fraction 1 - t / that distance of its way, evenly (the open share of the line) -; the air
+            // past it lit (a thing shadows only the air between it and the eye along the lines toward the light)
+            float before = mix(air_before(direction_of(fog.rect.xy + local), r.g / r.b), 1.0, fog.rays_look.x);
+            open = 1.0 - (1.0 - clamp(r.r, 0.0, 1.0)) * before;
+        }
+    }
+    return fog.sun_tint.rgb * (peak * max(potential, 0.0) * open * fog.rays.z);
+}
 
 void main()
 {
@@ -864,7 +1016,7 @@ void main()
         weights += w;
     }
     vec4 v = weights > 1e-4 ? sum / weights : nearest;
-    vec3 light_in = max(v.rgb, vec3(0.0));
+    vec3 light_in = max(v.rgb, vec3(0.0)) + god_rays_light(local, distance, base, f, tolerance);
     if (fog.shares.w < 0.5) {
         light_in = min(light_in, vec3(1.0));
     }
@@ -900,8 +1052,10 @@ struct FogBlock {
     std::array<float, 4> map_side{}; // (added by the distinct shafts)
     std::array<float, 4> map_up{};
     std::array<float, 4> map_centre{};
+    std::array<float, 4> rays{}; // (added by the god rays)
+    std::array<float, 4> rays_look{};
 };
-constexpr std::size_t kFogBlockBytes = 512;
+constexpr std::size_t kFogBlockBytes = 544;
 
 // The lamps' block (binding 10, std140).
 struct FogLampsBlock {
@@ -931,7 +1085,9 @@ constexpr uint32_t kBindingLamps = 10;    // (added by the volumetric light) the
 constexpr uint32_t kBindingCloudMap = 11; // the clouds' shadow map (vulkan_rt_sky_pass.h)
 constexpr uint32_t kBindingGeometry = 12; // the frame's geometry table (CUTOUTS: the cut-outs' test, the water's)
 constexpr uint32_t kBindingAirMap = 13;   // (added by the distinct shafts) the air's sun map
-constexpr uint32_t kBindingCount = 14;
+constexpr uint32_t kBindingRaysIn = 14;   // (added by the god rays) the rays' image read (sampled, linear)
+constexpr uint32_t kBindingRaysOut = 15;  // ... and written
+constexpr uint32_t kBindingCount = 16;
 constexpr uint32_t kMaterialSet = 1; // (CUTOUTS: the material table's set)
 
 // The march's variants (bits): a multisampled depth, the sky model's haze, the cut-outs and water (the material table
@@ -950,7 +1106,7 @@ struct CompositePipeline {
 
 using Matrix = std::array<std::array<double, kMatrixSide>, kMatrixSide>;
 
-constexpr std::size_t kSlotImages = 6;
+constexpr std::size_t kSlotImages = 8;
 
 // A viewport's images and history.
 struct ViewSlot {
@@ -961,6 +1117,8 @@ struct ViewSlot {
     Image raw_info;                    // step 1: the distance, the pixel marched
     std::array<Image, 2> histories;    // step 2's, this frame's and the one before (by `current`)
     std::array<Image, 2> history_info; // likewise: the distance, the history's length
+    std::array<Image, 2> rays;         // (added by the god rays) the rays' images (half the viewport's pixels), in turn
+    Image* rays_written = nullptr; // the one the composite read last (read_rt_fog_image's kRays)
     uint32_t current = 0;
     bool fresh = true;
     bool have_before = false;
@@ -983,6 +1141,13 @@ struct FogState {
     VkPipelineLayout layout_materials = VK_NULL_HANDLE; // (set 0 + the material table's: the CUTOUTS variants)
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
+    VkSampler linear_sampler = VK_NULL_HANDLE; // (added by the god rays)
+    // (added by the god rays) the rays' passes: the mask (by the depth's samples: single, multi) and the three radial
+    // passes (made on first use; failed ones not tried again)
+    std::array<VkPipeline, 2> rays_mask{};
+    std::array<VkPipeline, 3> rays_radial{};
+    bool rays_failed = false;
+    std::array<float, 4> rays{}; // this view's block.rays
     VkShaderModule vertex = VK_NULL_HANDLE;
     std::array<VkPipeline, kVariants> march{}; // by variant (made on first use)
     std::array<bool, kVariants> march_failed{};
@@ -1092,6 +1257,12 @@ std::string source_of(const char* body, bool traces, bool multisampled, uint32_t
         source += "#define MULTISAMPLED\n";
     }
     source += "#define HISTORY_SPREAD " + std::to_string(kFogHistorySpread) + "\n";
+    // (the phase's parts every pass needs - the god rays' peak in the march, the rays' passes and the composite)
+    source += "#define MEDIUM_FORWARD " + std::to_string(rt::kMediumForwardShare) + "\n";
+    source += "#define MEDIUM_BACK_G " + std::to_string(rt::kMediumBackG) + "\n";
+    source += "#define GOD_RAYS_CONE_COS " +
+              std::to_string(std::cos(rt::kGodRayConeDegrees * std::numbers::pi / 180.0)) + "\n";
+    source += "#define RAYS_TAPS " + std::to_string(rt::kGodRayTaps) + "\n";
     if (aerial) {
         source += "#define AERIAL\n";
         source += "#define AERIAL_LOWEST " + std::to_string(kFogAerialLowest) + "\n";
@@ -1101,8 +1272,6 @@ std::string source_of(const char* body, bool traces, bool multisampled, uint32_t
         source += "#extension GL_EXT_ray_query : require\n";
         source += "#define SUN_DISTANCE " + std::to_string(kFogSunDistance) + "\n";
         source += "#define FOG_MOST_LAMPS " + std::to_string(kFogMostLamps) + "\n";
-        source += "#define MEDIUM_FORWARD " + std::to_string(rt::kMediumForwardShare) + "\n";
-        source += "#define MEDIUM_BACK_G " + std::to_string(rt::kMediumBackG) + "\n";
         if ((variant & kVariantClouds) != 0) {
             source += "#define CLOUDS\n";
         }
@@ -1169,7 +1338,8 @@ bool make_layouts(Backend& state, std::string* error)
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         if (binding == kBindingScene) {
             type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        } else if (binding == kBindingDepth || binding == kBindingSky || binding == kBindingCloudMap) {
+        } else if (binding == kBindingDepth || binding == kBindingSky || binding == kBindingCloudMap ||
+                   binding == kBindingRaysIn) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         } else if (binding == kBindingBlock || binding == kBindingLamps) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1196,8 +1366,14 @@ bool make_layouts(Backend& state, std::string* error)
     sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler_info.maxLod = 0.0F;
+    // (added by the god rays) the rays' images read between their taps, clamped at the screen's edges (a light off the
+    // screen: its line goes on as the edge shows it)
+    VkSamplerCreateInfo linear_info = sampler_info;
+    linear_info.magFilter = VK_FILTER_LINEAR;
+    linear_info.minFilter = VK_FILTER_LINEAR;
     if (vkCreateDescriptorSetLayout(device, &set_info, nullptr, &own.set_layout) != VK_SUCCESS ||
-        vkCreateSampler(device, &sampler_info, nullptr, &own.sampler) != VK_SUCCESS) {
+        vkCreateSampler(device, &sampler_info, nullptr, &own.sampler) != VK_SUCCESS ||
+        vkCreateSampler(device, &linear_info, nullptr, &own.linear_sampler) != VK_SUCCESS) {
         *error = "the descriptor layout or the sampler";
         return false;
     }
@@ -1297,6 +1473,36 @@ VkPipeline air_map_pipeline(Backend& state, bool cutouts, std::string* error)
                      source_of(kAirMapBody, true, false, cutouts ? kVariantCutouts : 0U), error);
     core::at(own.air_map_failed, which) = core::at(own.air_map_pass, which) == VK_NULL_HANDLE;
     return core::at(own.air_map_pass, which);
+}
+
+// (added by the god rays) The rays' passes (made on first use): the mask for the depth's samples and the three radial
+// passes (their lengths 1/taps^2, 1/taps, 1). False: they can't be made (logged by the caller once; not tried again).
+bool rays_pipelines(Backend& state, bool multisampled, std::string* error)
+{
+    FogState& own = fog_state();
+    if (own.rays_failed) {
+        return false;
+    }
+    const VkDevice device = state.context.device();
+    VkPipeline& mask = core::at(own.rays_mask, multisampled ? 1 : 0);
+    if (mask == VK_NULL_HANDLE) {
+        mask = make_compute(device, own.layout, source_of(kRaysMaskBody, false, multisampled), error);
+    }
+    const double taps = rt::kGodRayTaps;
+    const std::array<double, 3> lengths{1.0 / (taps * taps), 1.0 / taps, 1.0};
+    for (std::size_t i = 0; i < lengths.size() && mask != VK_NULL_HANDLE; ++i) {
+        VkPipeline& radial = core::at(own.rays_radial, i);
+        if (radial == VK_NULL_HANDLE) {
+            const std::string body = "#define RAYS_LENGTH " + std::to_string(core::at(lengths, i)) + "\n" + kRaysRadialBody;
+            radial = make_compute(device, own.layout, source_of(body.c_str(), false, false), error);
+            if (radial == VK_NULL_HANDLE) {
+                break;
+            }
+        }
+    }
+    own.rays_failed = mask == VK_NULL_HANDLE ||
+                      std::ranges::any_of(own.rays_radial, [](VkPipeline made) { return made == VK_NULL_HANDLE; });
+    return !own.rays_failed;
 }
 
 // The composite pass's pipeline for a colour target (made on first use).
@@ -1525,7 +1731,9 @@ std::array<Image*, kSlotImages> images_of(ViewSlot& slot)
             &slot.histories.front(),
             &slot.histories.back(),
             &slot.history_info.front(),
-            &slot.history_info.back()};
+            &slot.history_info.back(),
+            &slot.rays.front(),
+            &slot.rays.back()};
 }
 
 void release_slot(Backend& state, ViewSlot* slot, bool now)
@@ -1562,6 +1770,12 @@ Extent low_extent(const std::array<uint32_t, 4>& rect, uint32_t scale)
     return {.width = (core::at(rect, 2) + scale - 1) / scale, .height = (core::at(rect, 3) + scale - 1) / scale};
 }
 
+// (added by the god rays) The rays' images: half the viewport's pixels each way.
+Extent rays_extent(const std::array<uint32_t, 4>& rect)
+{
+    return {.width = (core::at(rect, 2) + 1) / 2, .height = (core::at(rect, 3) + 1) / 2};
+}
+
 ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Extent& target, uint32_t scale)
 {
     FogState& own = fog_state();
@@ -1590,7 +1804,8 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
                 make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &slot.raw_info);
     for (std::size_t i = 0; i < 2; ++i) {
         made = made && make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &core::at(slot.histories, i)) &&
-               make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &core::at(slot.history_info, i));
+               make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &core::at(slot.history_info, i)) &&
+               make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, rays_extent(rect), &core::at(slot.rays, i));
     }
     if (!made) {
         release_slot(state, &slot, true);
@@ -1708,6 +1923,8 @@ struct PassBindings {
     const Image* history = nullptr;
     const Image* history_info = nullptr;
     const Image* air_map = nullptr; // (added by the distinct shafts)
+    const Image* rays_in = nullptr; // (added by the god rays: read through the linear sampler)
+    const Image* rays_out = nullptr;
     VkDescriptorBufferInfo block{};
 };
 
@@ -1758,7 +1975,13 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
                 .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
         add(kBindingDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).pImageInfo = &info;
     }
-    const std::array<std::pair<uint32_t, const Image*>, 7> storage{{{kBindingOut, bound.out},
+    if (bound.rays_in != nullptr) {
+        VkDescriptorImageInfo& info = core::at(infos, kBindingRaysIn);
+        info = {.sampler = own.linear_sampler, .imageView = bound.rays_in->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+        add(kBindingRaysIn, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).pImageInfo = &info;
+    }
+    const std::array<std::pair<uint32_t, const Image*>, 8> storage{{{kBindingRaysOut, bound.rays_out},
+                                                                    {kBindingOut, bound.out},
                                                                     {kBindingOutInfo, bound.out_info},
                                                                     {kBindingIn, bound.in},
                                                                     {kBindingInInfo, bound.in_info},
@@ -2217,7 +2440,51 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
         const float sunlit = (1.0F - kFogAerialSkyShare) * rt::kHazeSunlit;
         block.medium = {sunlit, sunlit, sunlit, own.settings.strength};
     }
+    block.rays = own.rays; // (added by the god rays: set_rays)
+    block.rays_look = {static_cast<float>(rt::air_art(own.settings.air).rays_near), 0.0F, 0.0F, 0.0F};
     return block;
+}
+
+// (added by the god rays) Where the light is on the screen, in the rays' images' texels (a texel t's middle is t + 0.5,
+// the viewport's pixel 2t + 0.5), and whether they run: none while rt_fog_god_rays is 0 or no light lights the air;
+// the light behind the eye (or on its plane) - its peak nowhere on the screen - the march still hands it over and the
+// composite draws it unshadowed (it is 0 there but at the very edge of a wide view).
+void set_rays(const Matrix& to_pixel, const std::array<uint32_t, 4>& rect)
+{
+    FogState& own = fog_state();
+    own.rays = {};
+    if (!(own.settings.god_rays > 0.0F) || !own.have_sun) {
+        return;
+    }
+    std::array<double, 4> clip{};
+    for (std::size_t row = 0; row < kMatrixSide; ++row) {
+        double sum = 0.0;
+        for (std::size_t k = 0; k < 3; ++k) {
+            sum += core::at(core::at(to_pixel, row), k) * static_cast<double>(core::at(own.to_sun, k));
+        }
+        core::at(clip, row) = sum;
+    }
+    // (the setting x the air's look's emphasis - rt_volume_light.h AirArt::rays)
+    const auto strength = static_cast<float>(own.settings.god_rays * rt::air_art(own.settings.air).rays);
+    constexpr double kInFront = 1e-6;
+    constexpr float kOn = 1.0F;
+    constexpr float kBehind = 2.0F;
+    const double w = core::at(clip, 3);
+    if (!(w > kInFront)) {
+        own.rays = {0.0F, 0.0F, strength, kBehind};
+        return;
+    }
+    // (very far off the screen: brought in along its way from the screen's corner - the line toward it the same to a
+    // texel's width)
+    constexpr double kFarthest = 1.0e6;
+    double x = (core::at(clip, 0) / w) - static_cast<double>(core::at(rect, 0));
+    double y = (core::at(clip, 1) / w) - static_cast<double>(core::at(rect, 1));
+    const double farthest = std::max(std::abs(x), std::abs(y));
+    if (farthest > kFarthest) {
+        x *= kFarthest / farthest;
+        y *= kFarthest / farthest;
+    }
+    own.rays = {static_cast<float>((x + 0.5) * 0.5), static_cast<float>((y + 0.5) * 0.5), strength, kOn};
 }
 
 // What the pass draws (for the log).
@@ -2367,6 +2634,13 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         }
         return false;
     }
+    set_rays(to_pixel, clipped.rect); // (added by the god rays)
+    if (core::at(own.rays, 3) > 0.0F && !rays_pipelines(state, colour->samples != VK_SAMPLE_COUNT_1_BIT, &error)) {
+        own.rays = {}; // (the march keeps the whole phase)
+        if (first_report(state, kReportRays)) {
+            get_log("vulkan: rt_fog: the god rays' passes couldn't be made (%s) - none", error.c_str());
+        }
+    }
     FogBlock block = block_for(clipped, to_world, *slot, have_before, colour->samples);
     const auto block_in_ring = [&state](const FogBlock& written) -> std::optional<VkDescriptorBufferInfo> {
         const void* const block_bytes = &written;
@@ -2484,9 +2758,34 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                   .block = block_info},
                  low);
     }
+    // 2a / 2b. (added by the god rays) the light's surroundings seen along each texel's line to the light: the mask,
+    // then three radial passes, the images in turn - the last one written is the composite's
+    const Image* rays = &slot->rays.front();
+    constexpr float kRaysOnScreen = 1.5F; // (rays.w 1: the light in front - 2 behind)
+    if (core::at(own.rays, 3) > 0.0F && core::at(own.rays, 3) < kRaysOnScreen) {
+        const Extent half = rays_extent(clipped.rect);
+        Image* const first = &slot->rays.front();
+        Image* const second = &slot->rays.back();
+        dispatch(commands, core::at(own.rays_mask, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1 : 0),
+                 {.depth = depth, .rays_in = second, .rays_out = first, .block = block_info}, half);
+        Image* from = first;
+        Image* to = second;
+        for (const VkPipeline radial : own.rays_radial) {
+            dispatch(commands, radial, {.rays_in = from, .rays_out = to, .block = block_info}, half);
+            std::swap(from, to);
+        }
+        rays = from;
+        slot->rays_written = from;
+    }
     // 3. the composite
     record_composite(commands, composite, colour,
-                     {.depth = depth, .in = history, .in_info = history_info, .block = block_info}, clipped.rect);
+                     {.depth = depth,
+                      .in = history,
+                      .in_info = history_info,
+                      .history_info = &slot->raw_info,
+                      .rays_in = rays,
+                      .block = block_info},
+                     clipped.rect);
     if (timing) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timer, (pair * 2) + 1);
         ++own.timed;
@@ -2571,6 +2870,8 @@ void set_rt_fog_settings(const RtFogSettings& settings)
     kept.scale = kept.scale >= kMostScale ? kMostScale : kLeastScale;
     kept.map = std::clamp(kept.map, kLeastAirMap, kMostAirMap);
     kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : kRtFogStrength;
+    kept.god_rays = std::isfinite(kept.god_rays) ? std::clamp(kept.god_rays, 0.0F, rt::kMostGodRays)
+                                                 : rt::kGodRaysDefault;
 
     {
         Backend& state = backend();
@@ -2658,6 +2959,11 @@ bool read_rt_fog_image(Backend& state, const std::array<uint32_t, 4>& rect, RtFo
             image = &core::at(slot->histories, last);
         } else if (which == RtFogImage::kHistoryInfo) {
             image = &core::at(slot->history_info, last);
+        } else if (which == RtFogImage::kRays) {
+            if (slot->rays_written == nullptr) {
+                return false;
+            }
+            image = slot->rays_written;
         }
         if (!finish_work(state)) {
             return false;
@@ -2719,6 +3025,19 @@ void release_rt_fog(Backend& state)
         if (own.temporal != VK_NULL_HANDLE) {
             vkDestroyPipeline(device, own.temporal, nullptr);
         }
+        for (const VkPipeline pipeline : own.rays_mask) {
+            if (pipeline != VK_NULL_HANDLE) {
+                vkDestroyPipeline(device, pipeline, nullptr);
+            }
+        }
+        for (const VkPipeline pipeline : own.rays_radial) {
+            if (pipeline != VK_NULL_HANDLE) {
+                vkDestroyPipeline(device, pipeline, nullptr);
+            }
+        }
+        if (own.linear_sampler != VK_NULL_HANDLE) {
+            vkDestroySampler(device, own.linear_sampler, nullptr);
+        }
         if (own.layout_materials != VK_NULL_HANDLE) {
             vkDestroyPipelineLayout(device, own.layout_materials, nullptr);
         }
@@ -2747,6 +3066,10 @@ void release_rt_fog(Backend& state)
     own.march_failed = {};
     own.air_map_pass = {};
     own.air_map_failed = {};
+    own.rays_mask = {};
+    own.rays_radial = {};
+    own.rays_failed = false;
+    own.linear_sampler = VK_NULL_HANDLE;
     own.layout_materials = VK_NULL_HANDLE;
     own.material_layout = VK_NULL_HANDLE;
     own.temporal = VK_NULL_HANDLE;
