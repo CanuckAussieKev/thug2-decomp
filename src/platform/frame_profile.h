@@ -48,5 +48,8 @@ private:
 void loop_begin();
 // ... and ends: whether it was drawn, whether a loading screen was up.
 void loop_end(bool drawn, bool loading);
+// The profile's lines since the last window written to its file now (the end of the process; waits for the file's thread, at
+// most half a second).
+void flush();
 
 } // namespace frame_profile

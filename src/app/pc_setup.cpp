@@ -20,7 +20,9 @@
 #include "engine/script/patched.h"
 #include "platform/app_window.h"
 #include "platform/platform_config.h"
+#include "platform/run_log.h"
 #include "platform/debug_log.h"
+#include "platform/frame_profile.h"
 #include "platform/sdl_events.h"
 #include "platform/test_workspace.h"
 
@@ -72,6 +74,8 @@ void fast_exit()
 {
     app_window::save_placement(); // (not original: an application's window kept as it was left - platform/app_window.h)
     // (not original either: a batch run's exit code - 0 unless it failed, platform/test_workspace.h end_batch_run)
+    frame_profile::flush();
+    log_flush(); // (the log is written by a thread of its own: what it has not written yet, written now)
     ExitProcess(static_cast<UINT>(platform::batch_exit_code()));
 }
 

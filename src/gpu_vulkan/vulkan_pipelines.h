@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -22,9 +23,10 @@
 // and writes and their comparison, the depth bias, the blend factor, the primitive within its class and the vertex stride.
 //
 // The shaders are generated (ff_shaders.h) and compiled by glslang at run time; the SPIR-V is kept on disk by the hash
-// of its GLSL (thug2-decomp-vulkan-shaders.bin), and the driver's pipeline cache beside it
-// (thug2-decomp-vulkan-pipelines.bin), so a second run of a level makes its pipelines from both. The 64-bit build's
-// files end in -x64 (an x86 driver's cache is never given to x64's).
+// of its GLSL (thug2-decomp-vulkan-shaders.bin), and each pipeline's driver cache data beside it
+// (thug2-decomp-vulkan-pipelines.bin), so a second run of a level makes its pipelines from both. Both files keep what
+// the newest runs used, up to a size (a save drops the rest). The 64-bit build's files end in -x64 (an x86 driver's
+// cache is never given to x64's).
 namespace render::vulkan {
 
 // (added by the upscaler) The motion attachment's format (vulkan_motion.h): the move in 0 - 1 of the viewport (x, y),
@@ -112,27 +114,41 @@ public:
     static constexpr uint32_t kUiUvOffset = 8;
     static constexpr uint32_t kUiColourOffset = 16;
 
+    // The caches kept between runs, each entry with the run (generation_) that last used it: a save keeps the newest
+    // up to a size (kShaderCacheBytes / kPipelineCacheBytes), so they never grow without limit. The data is shared
+    // (the saver's snapshot copies the pointers, not the megabytes).
+    struct SpirvEntry {
+        std::shared_ptr<const std::vector<uint32_t>> words; // (empty: it didn't compile)
+        uint32_t used = 0;
+    };
+    // One pipeline's driver cache data (a cache of its own made from it, read back after the pipeline was made).
+    struct PipelineBlob {
+        std::shared_ptr<const std::vector<uint8_t>> data;
+        uint32_t used = 0;
+    };
+
 private:
     VkShaderModule module(bool vertex, const ShaderKey& key, std::string* error);
     // GLSL's module: its SPIR-V from the disk cache or compiled; VK_NULL_HANDLE when it doesn't compile.
     VkShaderModule spirv_module(ShaderStage stage, const std::string& source, std::string* error, bool ray_query = false);
-    // vkCreateGraphicsPipelines through the cache, timed; the caches marked to be saved unless the cache had it.
-    bool make_graphics(const VkGraphicsPipelineCreateInfo& info, VkPipeline* made);
+    // vkCreateGraphicsPipelines through the pipeline's own cache blob (`identity`: a hash of what the pipeline is made
+    // of), timed; the caches marked to be saved unless the blob had it.
+    bool make_graphics(const VkGraphicsPipelineCreateInfo& info, uint64_t identity, VkPipeline* made);
     void load(const std::string& folder);
 
     VkDevice device_ = nullptr;
     VkDescriptorSetLayout set_layout_ = VK_NULL_HANDLE;
     VkPipelineLayout layout_ = VK_NULL_HANDLE;
-    VkPipelineCache cache_ = VK_NULL_HANDLE;
     std::string folder_;
     std::unordered_map<PipelineKey, VkPipeline, PipelineKeyHash> pipelines_;
     std::unordered_map<VertexKey, VkShaderModule, VertexKeyHash> vertex_modules_;
     std::unordered_map<FragmentKey, VkShaderModule, FragmentKeyHash> fragment_modules_;
     std::unordered_map<uint64_t, VkShaderModule> screen_modules_; // by the GLSL's hash
     std::unordered_map<uint64_t, VkPipeline> screen_pipelines_;   // by the fragment's hash and the format (and the UI's)
-    std::unordered_map<uint64_t, std::vector<uint32_t>> spirv_; // by the GLSL's hash
+    std::unordered_map<uint64_t, SpirvEntry> spirv_;       // by the GLSL's hash
+    std::unordered_map<uint64_t, PipelineBlob> blobs_;     // by the pipeline's identity
+    uint32_t generation_ = 1;                              // this run's number (the files' last + 1)
     bool dirty_ = false;
-    std::mutex cache_lock_;          // (cache_ is used by the drawing thread's pipelines and the saver's read)
     std::jthread saver_;             // (the last save's thread - joined when it goes)
     std::atomic<bool> saving_{false}; // (a save under way)
     bool ray_queries_ = false; // (added by cel shading)

@@ -585,6 +585,15 @@ bool parse_quit(const CommandWords& words, OrderCode& command, std::string* erro
     return true;
 }
 
+bool parse_screenshot(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    command.op = Op::kScreenshot;
+    if (words.tokens->size() != 1) {
+        return fail_with(error, "screenshot takes nothing");
+    }
+    return true;
+}
+
 struct CommandParser {
     const char* keyword;
     bool (*parse)(const CommandWords& words, OrderCode& command, std::string* error);
@@ -610,6 +619,7 @@ constexpr auto kCommandParsers = std::to_array<CommandParser>({
     {.keyword = "echo", .parse = parse_echo},
     {.keyword = "console", .parse = parse_console},
     {.keyword = "crash", .parse = parse_crash},
+    {.keyword = "screenshot", .parse = parse_screenshot},
     {.keyword = "quit", .parse = parse_quit},
 });
 

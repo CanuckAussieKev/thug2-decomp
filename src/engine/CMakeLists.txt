@@ -173,6 +173,7 @@ add_library(thug2_engine STATIC
     objects/object_proximity.cpp
     objects/pager_message.cpp
     file/async.cpp
+    file/disk_worker.cpp
     file/file_load.cpp
     file/packs.cpp
     file/archive.cpp

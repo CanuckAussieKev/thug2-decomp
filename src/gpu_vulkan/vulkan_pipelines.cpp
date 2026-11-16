@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <span>
 #include <string>
 #include <thread>
@@ -39,7 +40,13 @@ constexpr const char* kShaderFile =
 constexpr const char* kPipelineFile =
     core::kPointers32Bit ? "thug2-decomp-vulkan-pipelines.bin" : "thug2-decomp-vulkan-pipelines-x64.bin";
 constexpr uint32_t kShaderFileMagic = 0x53324854U; // "TH2S"
-constexpr uint32_t kShaderFileVersion = 1;
+constexpr uint32_t kShaderFileVersion = 2;
+constexpr uint32_t kPipelineFileMagic = 0x50324854U; // "TH2P"
+constexpr uint32_t kPipelineFileVersion = 1;
+// The files' sizes are bounded (the freeze audit: they reached 90 + 44 MB): a save keeps the entries the newest runs
+// used, up to these.
+constexpr std::size_t kShaderCacheBytes = 24U << 20U;
+constexpr std::size_t kPipelineCacheBytes = 40U << 20U;
 constexpr uint64_t kFnvOffset = 0xCBF29CE484222325ULL;
 constexpr uint64_t kFnvPrime = 0x100000001B3ULL;
 constexpr double kSlowPipelineSeconds = 0.008; // a pipeline (its shaders compiled and made) slower than this: logged
@@ -128,6 +135,17 @@ public:
         }
         words->resize(count);
         std::memcpy(words->data(), bytes_.subspan(at_, size).data(), size);
+        at_ += size;
+        return true;
+    }
+
+    bool read_bytes(std::size_t size, std::vector<uint8_t>* data)
+    {
+        if (at_ + size > bytes_.size()) {
+            return false;
+        }
+        data->assign(bytes_.begin() + static_cast<std::ptrdiff_t>(at_),
+                     bytes_.begin() + static_cast<std::ptrdiff_t>(at_ + size));
         at_ += size;
         return true;
     }
@@ -284,99 +302,156 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
 
 void Pipelines::load(const std::string& folder)
 {
-    std::vector<uint8_t> cache_bytes;
+    uint32_t newest = 0;
     if (!folder.empty()) {
-        cache_bytes = read_file(folder + kPipelineFile);
         const std::vector<uint8_t> shader_bytes = read_file(folder + kShaderFile);
         Reader reader(shader_bytes);
         uint32_t magic = 0;
         uint32_t version = 0;
+        uint32_t generation = 0;
         uint32_t count = 0;
-        if (reader.read(&magic) && reader.read(&version) && reader.read(&count) && magic == kShaderFileMagic &&
-            version == kShaderFileVersion) {
+        if (reader.read(&magic) && reader.read(&version) && reader.read(&generation) && reader.read(&count) &&
+            magic == kShaderFileMagic && version == kShaderFileVersion) {
+            newest = std::max(newest, generation);
             for (uint32_t entry = 0; entry < count; ++entry) {
                 uint64_t hash = 0;
+                uint32_t used = 0;
                 uint32_t words = 0;
                 std::vector<uint32_t> spirv;
-                if (!reader.read(&hash) || !reader.read(&words) || words > kMostSpirvWords ||
+                if (!reader.read(&hash) || !reader.read(&used) || !reader.read(&words) || words > kMostSpirvWords ||
                     !reader.read_words(words, &spirv)) {
                     break;
                 }
-                spirv_.emplace(hash, std::move(spirv));
+                spirv_.emplace(hash, SpirvEntry{.words = std::make_shared<const std::vector<uint32_t>>(std::move(spirv)),
+                                                .used = used});
+            }
+        }
+        // (a file of the driver's whole cache - before the blobs - isn't read: it has no entries to keep or drop)
+        const std::vector<uint8_t> pipeline_bytes = read_file(folder + kPipelineFile);
+        Reader blobs(pipeline_bytes);
+        if (blobs.read(&magic) && blobs.read(&version) && blobs.read(&generation) && blobs.read(&count) &&
+            magic == kPipelineFileMagic && version == kPipelineFileVersion) {
+            newest = std::max(newest, generation);
+            for (uint32_t entry = 0; entry < count; ++entry) {
+                uint64_t identity = 0;
+                uint32_t used = 0;
+                uint32_t size = 0;
+                std::vector<uint8_t> data;
+                if (!blobs.read(&identity) || !blobs.read(&used) || !blobs.read(&size) ||
+                    !blobs.read_bytes(size, &data)) {
+                    break;
+                }
+                blobs_.emplace(identity, PipelineBlob{.data = std::make_shared<const std::vector<uint8_t>>(std::move(data)),
+                                                      .used = used});
             }
         }
     }
-    VkPipelineCacheCreateInfo info{.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
-                                   .pNext = nullptr,
-                                   .flags = 0,
-                                   .initialDataSize = cache_bytes.size(),
-                                   .pInitialData = cache_bytes.empty() ? nullptr : cache_bytes.data()};
-    if (vkCreatePipelineCache(device_, &info, nullptr, &cache_) != VK_SUCCESS) {
-        // (another driver's or a damaged file: an empty cache)
-        info.initialDataSize = 0;
-        info.pInitialData = nullptr;
-        if (vkCreatePipelineCache(device_, &info, nullptr, &cache_) != VK_SUCCESS) {
-            cache_ = VK_NULL_HANDLE;
-        }
-    }
+    generation_ = newest + 1;
 }
 
 namespace {
 
-// The caches written: the shader file's bytes as given, the driver's pipeline cache read under its lock (the drawing
-// thread makes pipelines through it meanwhile) - each file written beside its own and moved over it.
-void write_caches(VkDevice device, VkPipelineCache cache, std::mutex* cache_lock, const std::string& folder,
-                  const std::vector<uint8_t>& shaders)
+// What a save writes: the entries as they were when it was asked for (the data shared, never copied).
+struct Snapshot {
+    uint32_t generation = 1;
+    std::vector<std::pair<uint64_t, Pipelines::SpirvEntry>> shaders;
+    std::vector<std::pair<uint64_t, Pipelines::PipelineBlob>> blobs;
+};
+
+// The newest entries (by `used`, this run's first) that fit in `cap` bytes.
+template <typename Entry, typename Size>
+void keep_newest(std::vector<std::pair<uint64_t, Entry>>* entries, std::size_t cap, Size size_of)
+{
+    std::ranges::stable_sort(*entries, [](const auto& left, const auto& right) { return left.second.used > right.second.used; });
+    std::size_t total = 0;
+    std::size_t keep = 0;
+    for (const auto& [key, entry] : *entries) {
+        total += size_of(entry);
+        if (total > cap) {
+            break;
+        }
+        ++keep;
+    }
+    entries->resize(keep);
+}
+
+// The caches written (off the drawing thread), each file beside its own and moved over it.
+void write_caches(Snapshot snapshot, const std::string& folder)
 {
     const auto began = std::chrono::steady_clock::now();
     std::size_t bytes = 0;
-    if (write_file_replacing(folder + kShaderFile, shaders)) {
-        bytes += shaders.size();
-    }
-    if (cache != VK_NULL_HANDLE) {
-        std::vector<uint8_t> data;
-        {
-            const std::scoped_lock lock(*cache_lock);
-            std::size_t size = 0;
-            if (vkGetPipelineCacheData(device, cache, &size, nullptr) == VK_SUCCESS && size > 0) {
-                data.resize(size);
-                if (vkGetPipelineCacheData(device, cache, &size, data.data()) == VK_SUCCESS) {
-                    data.resize(size);
-                } else {
-                    data.clear();
-                }
-            }
+    std::size_t dropped = 0;
+    {
+        const std::size_t before = snapshot.shaders.size();
+        keep_newest(&snapshot.shaders, kShaderCacheBytes,
+                    [](const Pipelines::SpirvEntry& entry) { return entry.words->size() * sizeof(uint32_t); });
+        dropped += before - snapshot.shaders.size();
+        std::vector<uint8_t> file;
+        append(file, kShaderFileMagic);
+        append(file, kShaderFileVersion);
+        append(file, snapshot.generation);
+        append(file, static_cast<uint32_t>(snapshot.shaders.size()));
+        for (const auto& [hash, entry] : snapshot.shaders) {
+            append(file, hash);
+            append(file, entry.used);
+            append(file, static_cast<uint32_t>(entry.words->size()));
+            const std::size_t at = file.size();
+            file.resize(at + (entry.words->size() * sizeof(uint32_t)));
+            std::memcpy(std::span(file).subspan(at).data(), entry.words->data(), entry.words->size() * sizeof(uint32_t));
         }
-        if (!data.empty() && write_file_replacing(folder + kPipelineFile, data)) {
-            bytes += data.size();
+        if (write_file_replacing(folder + kShaderFile, file)) {
+            bytes += file.size();
         }
     }
-    get_log("vulkan: the shader and pipeline caches saved (%.1f MB) in %.0f ms, off the drawing thread",
-            static_cast<double>(bytes) / (1024.0 * 1024.0), seconds_since(began) * 1000.0);
+    {
+        const std::size_t before = snapshot.blobs.size();
+        keep_newest(&snapshot.blobs, kPipelineCacheBytes,
+                    [](const Pipelines::PipelineBlob& entry) { return entry.data->size(); });
+        dropped += before - snapshot.blobs.size();
+        std::vector<uint8_t> file;
+        append(file, kPipelineFileMagic);
+        append(file, kPipelineFileVersion);
+        append(file, snapshot.generation);
+        append(file, static_cast<uint32_t>(snapshot.blobs.size()));
+        for (const auto& [identity, entry] : snapshot.blobs) {
+            append(file, identity);
+            append(file, entry.used);
+            append(file, static_cast<uint32_t>(entry.data->size()));
+            file.insert(file.end(), entry.data->begin(), entry.data->end());
+        }
+        if (write_file_replacing(folder + kPipelineFile, file)) {
+            bytes += file.size();
+        }
+    }
+    get_log("vulkan: the shader and pipeline caches saved (%.1f MB, %zu entries dropped for the size) in %.0f ms, off the drawing thread",
+            static_cast<double>(bytes) / (1024.0 * 1024.0), dropped, seconds_since(began) * 1000.0);
 }
 
-// The shader file's bytes: every SPIR-V module by its GLSL's hash.
-std::vector<uint8_t> shader_file_bytes(const std::unordered_map<uint64_t, std::vector<uint32_t>>& spirv)
+// (the freeze audit) The caches are saved off the drawing thread: a 128 MB write on it was a 9 s frame once (the disk
+// busy, the file scanned). One save at a time - a save asked for meanwhile waits for the next time (still dirty); the
+// entries are taken here as pointers (a few thousand), everything else is the saver's.
+Snapshot take_snapshot(uint32_t generation, const std::unordered_map<uint64_t, Pipelines::SpirvEntry>& spirv,
+                       const std::unordered_map<uint64_t, Pipelines::PipelineBlob>& blobs)
 {
-    std::vector<uint8_t> shaders;
-    append(shaders, kShaderFileMagic);
-    append(shaders, kShaderFileVersion);
-    append(shaders, static_cast<uint32_t>(spirv.size()));
-    for (const auto& [hash, words] : spirv) {
-        append(shaders, hash);
-        append(shaders, static_cast<uint32_t>(words.size()));
-        const std::size_t at = shaders.size();
-        shaders.resize(at + (words.size() * sizeof(uint32_t)));
-        std::memcpy(std::span(shaders).subspan(at).data(), words.data(), words.size() * sizeof(uint32_t));
+    Snapshot snapshot;
+    snapshot.generation = generation;
+    snapshot.shaders.reserve(spirv.size());
+    for (const auto& [hash, entry] : spirv) {
+        if (entry.words && !entry.words->empty()) {
+            snapshot.shaders.emplace_back(hash, entry);
+        }
     }
-    return shaders;
+    snapshot.blobs.reserve(blobs.size());
+    for (const auto& [identity, blob] : blobs) {
+        if (blob.data && !blob.data->empty()) {
+            snapshot.blobs.emplace_back(identity, blob);
+        }
+    }
+    return snapshot;
 }
 
 } // namespace
 
-// (the freeze audit) The caches are saved off the drawing thread: a 128 MB write on it was a 9 s frame once (the disk
-// busy, the file scanned). One save at a time - a save asked for meanwhile waits for the next time (still dirty); the
-// shader file's bytes are taken here (small), the driver's cache on the saver under the cache's lock.
 void Pipelines::save()
 {
     if (!dirty_ || folder_.empty() || device_ == nullptr || saving_.load()) {
@@ -387,8 +462,8 @@ void Pipelines::save()
         saver_.join(); // (finished: saving_ is false)
     }
     saving_.store(true);
-    saver_ = std::jthread([this, shaders = shader_file_bytes(spirv_)] {
-        write_caches(device_, cache_, &cache_lock_, folder_, shaders);
+    saver_ = std::jthread([this, snapshot = take_snapshot(generation_, spirv_, blobs_)]() mutable {
+        write_caches(std::move(snapshot), folder_);
         saving_.store(false);
     });
 }
@@ -402,7 +477,7 @@ void Pipelines::save_now()
         return;
     }
     dirty_ = false;
-    write_caches(device_, cache_, &cache_lock_, folder_, shader_file_bytes(spirv_));
+    write_caches(take_snapshot(generation_, spirv_, blobs_), folder_);
 }
 
 void Pipelines::shutdown()
@@ -442,16 +517,13 @@ void Pipelines::shutdown()
     vertex_modules_.clear();
     fragment_modules_.clear();
     spirv_.clear();
-    if (cache_ != VK_NULL_HANDLE) {
-        vkDestroyPipelineCache(device_, cache_, nullptr);
-    }
+    blobs_.clear();
     if (layout_ != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device_, layout_, nullptr);
     }
     if (set_layout_ != VK_NULL_HANDLE) {
         vkDestroyDescriptorSetLayout(device_, set_layout_, nullptr);
     }
-    cache_ = VK_NULL_HANDLE;
     layout_ = VK_NULL_HANDLE;
     set_layout_ = VK_NULL_HANDLE;
     device_ = nullptr;
@@ -472,21 +544,28 @@ VkShaderModule Pipelines::spirv_module(ShaderStage stage, const std::string& sou
             if (error != nullptr) {
                 *error = compiled.log + "\n" + source;
             }
-            kept = spirv_.emplace(hash, std::vector<uint32_t>{}).first;
+            kept = spirv_.emplace(hash, SpirvEntry{}).first;
         } else {
-            kept = spirv_.emplace(hash, std::move(compiled.spirv)).first;
+            kept = spirv_
+                       .emplace(hash, SpirvEntry{.words = std::make_shared<const std::vector<uint32_t>>(std::move(compiled.spirv)),
+                                                 .used = generation_})
+                       .first;
             dirty_ = true;
         }
     } else {
         ++stats_.shaders_from_disk;
     }
+    if (kept->second.used != generation_) {
+        kept->second.used = generation_; // (kept in the next save: this run used it; nothing is written for that alone)
+    }
     VkShaderModule made = VK_NULL_HANDLE;
-    if (!kept->second.empty()) {
+    if (kept->second.words && !kept->second.words->empty()) {
+        const std::vector<uint32_t>& words = *kept->second.words;
         const VkShaderModuleCreateInfo info{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                                             .pNext = nullptr,
                                             .flags = 0,
-                                            .codeSize = kept->second.size() * sizeof(uint32_t),
-                                            .pCode = kept->second.data()};
+                                            .codeSize = words.size() * sizeof(uint32_t),
+                                            .pCode = words.data()};
         if (vkCreateShaderModule(device_, &info, nullptr, &made) != VK_SUCCESS) {
             made = VK_NULL_HANDLE;
         }
@@ -528,10 +607,12 @@ VkShaderModule Pipelines::module(bool vertex, const ShaderKey& key, std::string*
     return made;
 }
 
-bool Pipelines::make_graphics(const VkGraphicsPipelineCreateInfo& info, VkPipeline* made)
+bool Pipelines::make_graphics(const VkGraphicsPipelineCreateInfo& info, uint64_t identity, VkPipeline* made)
 {
-    // (Vulkan 1.3's creation feedback - the draws need 1.3: whether the pipeline cache had it. The caches are written
-    // again - 70 MB and more, by the saver off the drawing thread - only when the pipeline cache grew.)
+    // (Vulkan 1.3's creation feedback - the draws need 1.3: whether the cache had it. Each pipeline has a cache of its
+    // own, made from the blob kept for it and read back when it wasn't in it: the files hold exactly the pipelines the
+    // runs use, each with the run that last did, and a save keeps the newest up to a size - the driver's one big cache
+    // can't be pruned.)
     VkPipelineCreationFeedback whole{};
     VkPipelineCreationFeedbackCreateInfo feedback{.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO,
                                                   .pNext = info.pNext,
@@ -541,20 +622,45 @@ bool Pipelines::make_graphics(const VkGraphicsPipelineCreateInfo& info, VkPipeli
     VkGraphicsPipelineCreateInfo chained = info;
     chained.pNext = &feedback;
     const auto start = std::chrono::steady_clock::now();
-    bool ok = false;
-    {
-        const std::scoped_lock lock(cache_lock_); // (the saver may be reading the cache: save)
-        ok = vkCreateGraphicsPipelines(device_, cache_, 1, &chained, nullptr, made) == VK_SUCCESS;
+    const auto kept = blobs_.find(identity);
+    const bool had_blob = kept != blobs_.end() && kept->second.data && !kept->second.data->empty();
+    VkPipelineCacheCreateInfo cache_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+                                         .pNext = nullptr,
+                                         .flags = 0,
+                                         .initialDataSize = had_blob ? kept->second.data->size() : 0,
+                                         .pInitialData = had_blob ? kept->second.data->data() : nullptr};
+    VkPipelineCache cache = VK_NULL_HANDLE;
+    if (vkCreatePipelineCache(device_, &cache_info, nullptr, &cache) != VK_SUCCESS) {
+        cache = VK_NULL_HANDLE;
     }
+    const bool ok = vkCreateGraphicsPipelines(device_, cache, 1, &chained, nullptr, made) == VK_SUCCESS;
     stats_.pipeline_seconds += seconds_since(start);
     if (!ok) {
         *made = VK_NULL_HANDLE;
-        return false;
     }
-    const bool from_cache = (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT) != 0U &&
-                            (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT) != 0U;
-    dirty_ = dirty_ || !from_cache;
-    return true;
+    if (ok && cache != VK_NULL_HANDLE) {
+        const bool from_cache = had_blob && (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT) != 0U &&
+                                (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT) != 0U;
+        if (from_cache) {
+            kept->second.used = generation_;
+        } else {
+            std::size_t size = 0;
+            std::vector<uint8_t> data;
+            if (vkGetPipelineCacheData(device_, cache, &size, nullptr) == VK_SUCCESS && size > 0) {
+                data.resize(size);
+                if (vkGetPipelineCacheData(device_, cache, &size, data.data()) == VK_SUCCESS) {
+                    data.resize(size);
+                    blobs_[identity] = PipelineBlob{.data = std::make_shared<const std::vector<uint8_t>>(std::move(data)),
+                                                    .used = generation_};
+                    dirty_ = true;
+                }
+            }
+        }
+    }
+    if (cache != VK_NULL_HANDLE) {
+        vkDestroyPipelineCache(device_, cache, nullptr);
+    }
+    return ok;
 }
 
 VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
@@ -756,7 +862,7 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
                                                 .subpass = 0,
                                                 .basePipelineHandle = VK_NULL_HANDLE,
                                                 .basePipelineIndex = -1};
-        if (!make_graphics(info, &made) && error != nullptr && error->empty()) {
+        if (!make_graphics(info, static_cast<uint64_t>(PipelineKeyHash{}(key)), &made) && error != nullptr && error->empty()) {
             *error = "vkCreateGraphicsPipelines refused it";
         }
     }
@@ -921,7 +1027,7 @@ VkPipeline Pipelines::screen_pass(VkFormat colour_format, const std::string& fra
                                                 .subpass = 0,
                                                 .basePipelineHandle = VK_NULL_HANDLE,
                                                 .basePipelineIndex = -1};
-        if (!make_graphics(info, &made) && error != nullptr && error->empty()) {
+        if (!make_graphics(info, key, &made) && error != nullptr && error->empty()) {
             *error = "vkCreateGraphicsPipelines refused it";
         }
     }
@@ -1122,7 +1228,7 @@ VkPipeline Pipelines::ui_pass(VkFormat colour_format, VkFormat depth_format, uin
                                                 .subpass = 0,
                                                 .basePipelineHandle = VK_NULL_HANDLE,
                                                 .basePipelineIndex = -1};
-        if (!make_graphics(info, &made) && error != nullptr && error->empty()) {
+        if (!make_graphics(info, key, &made) && error != nullptr && error->empty()) {
             *error = "vkCreateGraphicsPipelines refused it";
         }
     }

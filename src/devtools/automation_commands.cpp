@@ -435,6 +435,12 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         }
         return true;
     }
+    case Op::kScreenshot:
+        if (!sys::screenshot::request_event_shot("automation")) {
+            get_log("automation: screenshot - one is still being written, dropped");
+        }
+        get_finish(runner, "ok");
+        return true;
     case Op::kQuit: {
         get_finish(runner, "ok");
         SDL_Event event = {};

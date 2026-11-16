@@ -51,6 +51,7 @@
 #include "engine/sys/editor_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/pad_input/input_event.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
@@ -424,6 +425,7 @@ void apply_option(const ActStep& action)
         edit_session().options_note_ = text_tools::kCouldntSave;
         return;
     }
+    build_info::forget_cached_reads(); // (the settings reads are cached: platform/platform_config.h)
     edit_session().options_note_.clear();
     for (const auto& [index, written] : writes) {
         const options::Spec& set = core::at(specs, index);
@@ -567,10 +569,10 @@ mirror::Policy mirror_policy()
 {
     mirror::Policy policy;
     const std::string ini = ini_path();
-    policy.lists = GetPrivateProfileIntA("frontend", "restyle_menus", 1, ini.c_str()) != 0;
-    policy.dialogs = GetPrivateProfileIntA("frontend", "restyle_dialogs", 1, ini.c_str()) != 0;
-    policy.skaters = GetPrivateProfileIntA("frontend", "restyle_skater_select", 1, ini.c_str()) != 0;
-    policy.online = GetPrivateProfileIntA("frontend", "restyle_online", 1, ini.c_str()) != 0;
+    policy.lists = build_info::cached_profile_int(ini.c_str(), "frontend", "restyle_menus", 1) != 0;
+    policy.dialogs = build_info::cached_profile_int(ini.c_str(), "frontend", "restyle_dialogs", 1) != 0;
+    policy.skaters = build_info::cached_profile_int(ini.c_str(), "frontend", "restyle_skater_select", 1) != 0;
+    policy.online = build_info::cached_profile_int(ini.c_str(), "frontend", "restyle_online", 1) != 0;
     const std::string mode = game_screens::active_ruleset_label();
     policy.editor = menu_mirror().left_original_ != nullptr || mode == "parkeditor" || mode == "creategoals" ||
                     script_integer("in_cat_preview_mode") == 1;

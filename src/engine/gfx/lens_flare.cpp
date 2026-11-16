@@ -72,7 +72,6 @@ constexpr uint32_t kMorphTime = 0xA99F828E;          // "morph_time"
 constexpr uint32_t kSunPos = 0x2E089F23;             // "sun_pos"
 constexpr uint32_t kContainer = 0x43AAD2DD;          // "Lens_Flare_Container"
 constexpr uint32_t kAlpha = 0x2F1FC695;              // "alpha"
-constexpr uint32_t kCreateLensFlare = 0xD355725F;    // "CreateLensFlare"
 constexpr uint32_t kDoUpdateLensFlare = 0x204F4CEC;  // "DoUpdateLensFlare"
 constexpr uint32_t kMaybeHideLensFlare = 0xD4F107CB; // "MaybeHideLensFlare"
 constexpr uint32_t kBlend = 0x54628ED7;              // "blend"
@@ -217,6 +216,33 @@ void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)
             core::at(core::at(colors, corner), i) = static_cast<uint8_t>(get_truncated(get_color()[i] * scale));
         }
     }
+}
+
+// Where the sun is for `camera` (render's, 0x00443870): theta round the vertical, phi up, `radius` from the camera.
+maths::Vec4 sun_place(gfx::ViewCam* camera)
+{
+    maths::Vec4 sun_pos = *camera->fetch_location();
+    maths::Mat4 rotation{};
+    rotation.reset_to_identity();
+    rotation.rotate_y(get_theta());
+    maths::Vec4 direction = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
+    direction = direction * rotation;
+    rotation.reset_to_identity();
+    maths::Vec4 axis = maths::cross_vec(direction, maths::Vec4{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F});
+    axis.make_unit();
+    rotation.spin_by(axis, get_phi());
+    direction = direction * rotation;
+    sun_pos = sun_pos + get_radius() * direction;
+    sun_pos[3] = 1.0F;
+    return sun_pos;
+}
+
+// Whether the sun at `sun_pos` is behind `camera` (render's test, 0x00443870).
+bool behind(gfx::ViewCam* camera, const maths::Vec4& sun_pos)
+{
+    maths::Vec4 to_sun = sun_pos - *camera->fetch_location();
+    to_sun.make_unit();
+    return get_dot(to_sun, (*camera->fetch_mat())[2]) >= 0.0;
 }
 
 } // namespace
@@ -462,8 +488,13 @@ void show_flare(const maths::Vec4* sun, float time)
     const maths::Vec4 centre = screen_centre();
     frontend::ElementPtr container;
     frontend::UiTree::fetch_part(&container, kContainer, 0);
+    // Not original - the container is made by the simulation's step (sun::step), never by the drawing: without it there
+    // is nothing to place (a drawn camera that sees the sun where the game's camera doesn't - the level editor's, the
+    // demo viewer's). Original behaviour: CreateLensFlare launched here -
+    //   script::launch_script(CreateLensFlare, nullptr, nullptr, false, nullptr);
     if (container.is_null()) {
-        script::launch_script(kCreateLensFlare, nullptr, nullptr, false, nullptr);
+        container.get_release();
+        return;
     }
     if (script::fetch_int_value(kDoUpdateLensFlare) == 0) {
         container.get_release();
@@ -483,27 +514,13 @@ void render(gfx::ViewCam* camera)
     // Not original - a render-only frame of [Graphics] max_fps (engine/sys/frame_blend.h): the sun and its corona drawn
     // only - no script launched, no flare shown or hidden, no query, no time or position noted (its tick's frame did).
     const bool extra = frame_blend::frame().extra;
+    // Not original - no sun: nothing drawn; MaybeHideLensFlare is launched by the simulation's step (sun::step).
+    // Original behaviour: launched here, on every drawn frame -
+    //   script::launch_script(MaybeHideLensFlare, nullptr, nullptr, false, nullptr);
     if (!get_shown()) {
-        if (extra) {
-            return;
-        }
-        script::launch_script(kMaybeHideLensFlare, nullptr, nullptr, false, nullptr);
         return;
     }
-    // where the sun is: theta round the vertical, phi up, `radius` from the camera
-    maths::Vec4 sun_pos = *camera->fetch_location();
-    maths::Mat4 rotation{};
-    rotation.reset_to_identity();
-    rotation.rotate_y(get_theta());
-    maths::Vec4 direction = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
-    direction = direction * rotation;
-    rotation.reset_to_identity();
-    maths::Vec4 axis = maths::cross_vec(direction, maths::Vec4{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F});
-    axis.make_unit();
-    rotation.spin_by(axis, get_phi());
-    direction = direction * rotation;
-    sun_pos = sun_pos + get_radius() * direction;
-    sun_pos[3] = 1.0F;
+    const maths::Vec4 sun_pos = sun_place(camera);
     if (!extra) {
         get_position() = sun_pos;
     }
@@ -511,9 +528,7 @@ void render(gfx::ViewCam* camera)
     corner_colors(colors, 1.0);
 
     // behind the camera, or off the projection: the lens flare hidden
-    maths::Vec4 to_sun = sun_pos - *camera->fetch_location();
-    to_sun.make_unit();
-    if (get_dot(to_sun, (*camera->fetch_mat())[2]) >= 0.0) {
+    if (behind(camera, sun_pos)) {
         if (!extra) {
             hide_flare(nullptr, script::Context());
         }
@@ -577,7 +592,13 @@ void render(gfx::ViewCam* camera)
             if (!(static_cast<double>(morph_out_time()) * kMillisecondsPerSecond < static_cast<double>(unseen))) {
                 params->push_float(checksums::Name{kMorphTime}, morph_out_time());
             }
-            script::launch_script(kMaybeHideLensFlare, params, nullptr, false, nullptr);
+            // Not original - the flare's elements faded out by HideLensFlare's own work, no script started: the drawing
+            // never runs a script (the occlusion query's answer comes a frame or more late, by the GPU's timing - a script
+            // started on it would change the game's state at frames that differ with the machine's load). The step has
+            // made the container, so MaybeHideLensFlare would have done just this (its morph_time defaults to 0, as
+            // hide_flare's). Original behaviour:
+            //   script::launch_script(MaybeHideLensFlare, params, nullptr, false, nullptr);
+            hide_flare(params, script::Context());
             script::free_struct(params);
         }
     } else {
@@ -603,6 +624,25 @@ void render(gfx::ViewCam* camera)
         } else {
             show_flare(&screen, morph_in_time());
         }
+    }
+}
+
+// NOT ORIGINAL (lens_flare.h): render's scripts, on every step
+void step(gfx::ViewCam* camera)
+{
+    if (!get_shown()) {
+        script::launch_script(kMaybeHideLensFlare, nullptr, nullptr, false, nullptr);
+        return;
+    }
+    if (behind(camera, sun_place(camera))) {
+        return;
+    }
+    frontend::ElementPtr container;
+    frontend::UiTree::fetch_part(&container, kContainer, 0);
+    const bool missing = container.is_null();
+    container.get_release();
+    if (missing) {
+        script::launch_script(kMaybeHideLensFlare, nullptr, nullptr, false, nullptr);
     }
 }
 

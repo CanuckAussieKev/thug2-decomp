@@ -109,7 +109,7 @@ CasCheck& cas_check()
     return state.get();
 }
 
-bool is_file(const std::string& path) { return fs::disk().kind(path.c_str()) == fs::PathKind::kFile; }
+bool is_file(const std::string& path) { return fs::is_file_remembered(path); }
 
 // A path as the game folder keeps it: lower case, '\', without a leading "data\".
 std::string get_relative(const char* path)

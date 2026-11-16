@@ -98,12 +98,20 @@ void unhide_flare(script::Struct* params, script::Context context);
 // 0x00443180: the sun's quad facing `camera` at `position` (its corners' x y z into `corners`, 12 floats), and
 // `prim` given the sun's texture and set up to draw it.
 void build_sun_quad(gfx::ViewCam* camera, render::VertexRun* quad, const maths::Vec4* position, std::array<float, kSunCornerFloats>& corners);
-// 0x00443780: the lens flare placed for the sun at `sun` on the screen (made by CreateLensFlare if there's no
-// container; nothing unless DoUpdateLensFlare is set; shown again if hidden).
+// 0x00443780: the lens flare placed for the sun at `sun` on the screen (nothing unless DoUpdateLensFlare is set; shown
+// again if hidden). Not original: nothing without the container - step makes it; the original launched CreateLensFlare.
 void show_flare(const maths::Vec4* sun, float time);
 // 0x00443870: the sun drawn for `camera` (each frame): the sun and corona, the visibility query, the lens flare
-// shown or faded (MaybeHideLensFlare).
+// shown or faded (hide_flare). Not original: it starts no script - the original's MaybeHideLensFlare launches are
+// step's, or (the sun not seen, the container made) hide_flare's work done directly, which is what that script does then.
 void render(gfx::ViewCam* camera);
+// NOT ORIGINAL - render's part that changed the game's state, run by the simulation on every step for each viewport
+// with a camera, from the game's own camera, drawn or not (engine::render_frame; docs/design/simulation-rate.md
+// "Determinism under load"): with no sun, MaybeHideLensFlare launched (the original: every drawn frame); with the sun in
+// front of the camera and no Lens_Flare_Container, MaybeHideLensFlare launched to make it (CreateLensFlare - the
+// original made it from the drawing, by either of its answers to the occlusion query). Whether the sun is seen (the
+// GPU's query, a frame or more late) only shows or fades the flare's elements, in render.
+void step(gfx::ViewCam* camera);
 // NOT ORIGINAL - the sun drawn by a ray-tracing backend instead (rt_scene.h sun_glare_replaced): nothing of the
 // original's drawn, the lens flare's elements faded out at once if they are shown.
 void hide_for_replacement();

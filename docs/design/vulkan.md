@@ -562,7 +562,12 @@ Direct3D 9 (V7).
   saved ... in N ms" when it takes over 8 ms, "vulkan: a pipeline took N ms to make" likewise; since 2026-11-16 the
   write is a thread of its own - the driver's cache read under the lock pipeline creation takes, each file written
   beside its own and renamed over it, one save at a time: a 128 MB write had taken 9 s on the drawing thread) (the 64-bit build's two files end in `-x64`: a 32-bit driver's cache
-  is never given to the 64-bit one). foun makes 52 pipelines from 40 shaders (0.9 s of glslang in the
+  is never given to the 64-bit one). Since 2026-11-16 the files are bounded (they had reached 90 + 44 MB): the driver's
+  one big cache can't be pruned, so each pipeline has a cache of its own - made from the blob kept for its key (a hash of
+  the pipeline's key), read back when the pipeline wasn't in it - and the pipelines file holds those blobs, each with the
+  run (a counter in the file's header) that last used it; the shaders file's modules carry the same. A save keeps the
+  newest up to 24 MB of shaders and 40 MB of pipelines and drops the rest ("N entries dropped for the size" in the
+  save's log line); a file in the old format (the driver's whole cache) isn't read and is replaced at the first save. foun makes 52 pipelines from 40 shaders (0.9 s of glslang in the
   Debug build the first time, none after).
 - **The key from the state block** (`draw_shader_key`): the render states, the four stages' operations, arguments,
   coordinate indices and transform flags, and the bound pixel shader's program. A pixel shader is recognised from the

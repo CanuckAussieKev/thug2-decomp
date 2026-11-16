@@ -23,6 +23,18 @@ void prepare_all();
 // The exe's folder, ending in a backslash.
 const char* executable_directory();
 
+// The settings reads below are answered from memory (NOT ORIGINAL: a read is a visit to the disk, and a game whose
+// settings were read twice a second by its menus' restyle stood still for it while the disk was busy): the first
+// read of a setting is the file's, an answer older than half a second is given again as it is and read anew by a
+// thread of its own - a settings file changed by hand shows within a second -, and forget_cached_reads() (the game
+// has just written the file) makes the next read the file's.
+void forget_cached_reads();
+// GetPrivateProfileInt of `path`, cached (the reads below, and run_log's config_int).
+int cached_profile_int(const char* path, const char* section, const char* key, int fallback);
+// GetPrivateProfileString of `path`, cached: the characters copied into `out` (at most `size` with the end).
+int cached_profile_text(const char* path, const char* section, const char* key, const char* fallback, char* out,
+                        size_t size);
+
 // GetPrivateProfileInt != 0.
 bool fetch_flag(const char* section, const char* key, bool fallback);
 // GetPrivateProfileInt.

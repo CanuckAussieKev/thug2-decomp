@@ -419,6 +419,7 @@ std::string set_graphics_key(const std::string& rest)
     if (!written.written || !written.closed) {
         return "set: couldn't write " + path;
     }
+    build_info::forget_cached_reads(); // (the settings reads are cached: platform/platform_config.h)
     get_log("console: [Graphics] %s=%s written to %s", key.c_str(), value.c_str(), path.c_str());
     const bool live = render::graphics_options::reload_live(key.c_str());
     return "[Graphics] " + key + "=" + value + (live ? " - put to use" : " - at the next start");

@@ -12,6 +12,9 @@ void log_open();
 // A line, as it is: kept for get_log_tail, passed to the listener, written to the log (or the console) with its
 // line end.
 THUG2_API void log_line(const char* line);
+// Every line given so far written to the file (and flushed). The lines go to the file from a thread of its own (the
+// drawing thread never waits on the disk); this one waits for it - the end of the process, a crash report's end.
+void log_flush();
 // A printf-style line (as log_line); the format is checked against the arguments when it's compiled (text::format).
 template <typename... Args>
 void get_log(text::FormatFor<Args...> format, Args... args)

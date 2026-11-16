@@ -98,6 +98,8 @@ std::string describe(const OrderCode& command)
         return "fe " + command.target;
     case Op::kQuit:
         return "quit";
+    case Op::kScreenshot:
+        return "screenshot";
     case Op::kCrash:
         return "crash " + command.target;
     case Op::kJumpTo:

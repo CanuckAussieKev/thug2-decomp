@@ -1,0 +1,128 @@
+# Boston (BO) for ten minutes with the time of day's clock on a 12-minute day, a screenshot every 30 s (the key's
+# path: capture, PNG, sidecar), skating straight on and turning - the disk-I/O scenario (frame_bench.ts run --levels BO
+# --scenario this file --seconds 700, while tools/game/disk_hammer.ps1 keeps the disk busy). The main loop never
+# waits on the disk: no frame past 100 ms after the load, no "stall:" line (soak_check.ts over its game.log), and the
+# log written by its own thread ("log: N lines dropped" never shows).
+console set tod_cycle on
+console set tod_cycle_minutes 12
+wait 600
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold left 30
+wait 30
+screenshot
+wait 30
+hold up 1700
+wait 1740
+hold right 30
+wait 30
+screenshot
+wait 30

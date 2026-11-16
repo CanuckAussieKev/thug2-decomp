@@ -31,6 +31,7 @@
 #include "engine/objects/particle_component.h"
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/weather.h"
+#include "engine/gfx/lens_flare.h"
 #include <gsl/pointers>
 #include <array>
 #include "base/core/compiler.h"
@@ -162,7 +163,8 @@ void render_frame()
     // then only reads. The backend's part (Device::step_frame: the simulation's view noted from the game's cameras -
     // occlusion.h SimulationView, what the game's code culls by - and a new scene's mesh data); then once for each
     // viewport with a camera, as draw_world drew each: the particle systems' bursts
-    // advanced (what IsEmitting answers), the weather's new splash (two of the game's random numbers); after the frame,
+    // advanced (what IsEmitting answers), the weather's new splash (two of the game's random numbers), the sun's scripts
+    // (lens_flare.h sun::step: MaybeHideLensFlare, the flare's screen elements made - a script run); after the frame,
     // the weather's splashes aged and drops moved on (which drops tick_frame may start next). Original behaviour: all of
     // it inside draw_world, so a late step that wasn't drawn left it undone.
     const bool steps = !engine_parts().loading_screen_up(); // (draw_world's own condition)
@@ -175,6 +177,7 @@ void render_frame()
             objects::particle_hub()->step_particles();
             const maths::Vec4* at = camera->fetch_location();
             weather()->step({{at->x, at->y, at->z}});
+            sun::step(camera);
         }
     }
     if (!engine_parts().suppress_draw()) {
