@@ -156,6 +156,34 @@ export function stalls(log: string): Stalls {
     return out;
 }
 
+// The part of the log the verdict judges: the stretch between loading screens with the most frames, from its first
+// renderer window on (a level's first frames - pipelines made, the first light held, the start-up - left out).
+export function judgedText(log: string): string {
+    const segments: string[][] = [[]];
+    for (const line of log.split(/\r?\n/)) {
+        if (LOADING_LINE.test(line)) {
+            segments.push([]);
+            continue;
+        }
+        segments[segments.length - 1]!.push(line);
+    }
+    let best: string[] = [];
+    let bestFrames = -1;
+    for (const lines of segments) {
+        let frames = 0;
+        for (const line of lines) {
+            const frame = FRAME_LINE.exec(line);
+            if (frame) frames += Number(frame[3]);
+        }
+        if (frames > bestFrames) {
+            bestFrames = frames;
+            best = lines;
+        }
+    }
+    const first = best.findIndex((line) => FRAME_LINE.test(line));
+    return first < 0 ? "" : best.slice(first + 1).join("\n");
+}
+
 function thirdText(name: string, t: Third): string {
     return (
         `${name}: ${t.frames} frames, ${t.ms.toFixed(1)} ms a frame, ${t.uploads.toFixed(1)} uploads a frame, ` +
@@ -180,7 +208,7 @@ async function main(): Promise<number> {
     print(thirdText("first third", result.first));
     print(thirdText("last third ", result.last));
     print(result.growing.length === 0 ? "flat" : `GROWING: ${result.growing.join(", ")}`);
-    const stalled = stalls(log);
+    const stalled = stalls(judgedText(log)); // (the judged stretch: start-up and loading stalls left out)
     print(
         stalled.count + stalled.deviceWaits === 0
             ? "no stalls"
