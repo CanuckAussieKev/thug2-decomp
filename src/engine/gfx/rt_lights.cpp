@@ -53,57 +53,57 @@ struct Cluster {
 
 // The symmetric 3x3 (xx, yy, zz, xy, xz, yz) taken apart (Jacobi): its eigenvalues, largest first, and their unit
 // vectors.
-void eigen_of(const std::array<double, 6>& m, std::array<double, 3>* values, std::array<std::array<double, 3>, 3>* vectors)
+void eigen_of(const std::array<double, 6>& moments, std::array<double, 3>* values, std::array<std::array<double, 3>, 3>* vectors)
 {
-    std::array<std::array<double, 3>, 3> a{{{m[0], m[3], m[4]}, {m[3], m[1], m[5]}, {m[4], m[5], m[2]}}};
-    std::array<std::array<double, 3>, 3> v{{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}}};
-    constexpr int kSweeps = 32;
+    std::array<std::array<double, 3>, 3> rows{{{core::at(moments, 0), core::at(moments, 3), core::at(moments, 4)}, {core::at(moments, 3), core::at(moments, 1), core::at(moments, 5)}, {core::at(moments, 4), core::at(moments, 5), core::at(moments, 2)}}};
+    std::array<std::array<double, 3>, 3> axes{{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}}};
+    constexpr int kSweeps = 32; // (Jacobi converges in a handful for a 3x3)
     constexpr double kTiny = 1e-12;
     for (int sweep = 0; sweep < kSweeps; ++sweep) {
-        const double off = std::abs(a[0][1]) + std::abs(a[0][2]) + std::abs(a[1][2]);
-        if (off <= kTiny * (std::abs(a[0][0]) + std::abs(a[1][1]) + std::abs(a[2][2]) + kTiny)) {
+        const double off = std::abs(core::at(core::at(rows, 0), 1)) + std::abs(core::at(core::at(rows, 0), 2)) + std::abs(core::at(core::at(rows, 1), 2));
+        if (off <= kTiny * (std::abs(core::at(core::at(rows, 0), 0)) + std::abs(core::at(core::at(rows, 1), 1)) + std::abs(core::at(core::at(rows, 2), 2)) + kTiny)) {
             break;
         }
         for (std::size_t p = 0; p < 2; ++p) {
             for (std::size_t q = p + 1; q < 3; ++q) {
-                const double apq = core::at(core::at(a, p), q);
+                const double apq = core::at(core::at(rows, p), q);
                 if (!(std::abs(apq) > 0.0)) {
                     continue;
                 }
-                const double theta = (core::at(core::at(a, q), q) - core::at(core::at(a, p), p)) / (2.0 * apq);
+                const double theta = (core::at(core::at(rows, q), q) - core::at(core::at(rows, p), p)) / (2.0 * apq);
                 const double t = (theta >= 0.0 ? 1.0 : -1.0) / (std::abs(theta) + std::sqrt((theta * theta) + 1.0));
                 const double c = 1.0 / std::sqrt((t * t) + 1.0);
                 const double sn = t * c;
                 for (std::size_t k = 0; k < 3; ++k) {
-                    const double akp = core::at(core::at(a, k), p);
-                    const double akq = core::at(core::at(a, k), q);
-                    core::at(core::at(a, k), p) = (c * akp) - (sn * akq);
-                    core::at(core::at(a, k), q) = (sn * akp) + (c * akq);
+                    const double akp = core::at(core::at(rows, k), p);
+                    const double akq = core::at(core::at(rows, k), q);
+                    core::at(core::at(rows, k), p) = (c * akp) - (sn * akq);
+                    core::at(core::at(rows, k), q) = (sn * akp) + (c * akq);
                 }
                 for (std::size_t k = 0; k < 3; ++k) {
-                    const double apk = core::at(core::at(a, p), k);
-                    const double aqk = core::at(core::at(a, q), k);
-                    core::at(core::at(a, p), k) = (c * apk) - (sn * aqk);
-                    core::at(core::at(a, q), k) = (sn * apk) + (c * aqk);
+                    const double apk = core::at(core::at(rows, p), k);
+                    const double aqk = core::at(core::at(rows, q), k);
+                    core::at(core::at(rows, p), k) = (c * apk) - (sn * aqk);
+                    core::at(core::at(rows, q), k) = (sn * apk) + (c * aqk);
                 }
                 for (std::size_t k = 0; k < 3; ++k) {
-                    const double vkp = core::at(core::at(v, k), p);
-                    const double vkq = core::at(core::at(v, k), q);
-                    core::at(core::at(v, k), p) = (c * vkp) - (sn * vkq);
-                    core::at(core::at(v, k), q) = (sn * vkp) + (c * vkq);
+                    const double vkp = core::at(core::at(axes, k), p);
+                    const double vkq = core::at(core::at(axes, k), q);
+                    core::at(core::at(axes, k), p) = (c * vkp) - (sn * vkq);
+                    core::at(core::at(axes, k), q) = (sn * vkp) + (c * vkq);
                 }
             }
         }
     }
     std::array<std::size_t, 3> order{0, 1, 2};
-    std::ranges::sort(order, [&a](std::size_t one, std::size_t other) {
-        return core::at(core::at(a, one), one) > core::at(core::at(a, other), other);
+    std::ranges::sort(order, [&rows](std::size_t one, std::size_t other) {
+        return core::at(core::at(rows, one), one) > core::at(core::at(rows, other), other);
     });
     for (std::size_t k = 0; k < 3; ++k) {
         const std::size_t from = core::at(order, k);
-        core::at(*values, k) = std::max(0.0, core::at(core::at(a, from), from));
-        core::at(*vectors, k) = {core::at(core::at(v, 0), from), core::at(core::at(v, 1), from),
-                                 core::at(core::at(v, 2), from)};
+        core::at(*values, k) = std::max(0.0, core::at(core::at(rows, from), from));
+        core::at(*vectors, k) = {core::at(core::at(axes, 0), from), core::at(core::at(axes, 1), from),
+                                 core::at(core::at(axes, 2), from)};
     }
 }
 
@@ -133,8 +133,8 @@ bool emitter_of(const Cluster& cluster, float facing, Emitter* out)
         return false;
     }
     const double inverse = 1.0 / cluster.area;
-    Vec3 centre{static_cast<float>(cluster.centre[0] * inverse), static_cast<float>(cluster.centre[1] * inverse),
-                static_cast<float>(cluster.centre[2] * inverse)};
+    Vec3 centre{static_cast<float>(core::at(cluster.centre, 0) * inverse), static_cast<float>(core::at(cluster.centre, 1) * inverse),
+                static_cast<float>(core::at(cluster.centre, 2) * inverse)};
     Vec3 colour{static_cast<float>(cluster.colour[0] * inverse), static_cast<float>(cluster.colour[1] * inverse),
                 static_cast<float>(cluster.colour[2] * inverse)};
     const float brightest = std::max({x_of(colour), y_of(colour), z_of(colour)});
@@ -151,7 +151,7 @@ bool emitter_of(const Cluster& cluster, float facing, Emitter* out)
     const float core = emitter_core(static_cast<float>(cluster.area));
     // (lighting round A2) a flat self-lit cluster facing down - its triangles' fronts, by the world's winding - is a
     // ceiling's lit panel, a light; facing up (or the winding unknown) a pool of light baked on the floor
-    const bool facing_down = facing != 0.0F && cluster.normals[1] * static_cast<double>(facing) < 0.0;
+    const bool facing_down = facing != 0.0F && core::at(cluster.normals, 1) * static_cast<double>(facing) < 0.0;
     if (flat_up && !(cluster.kind == EmitterKind::kSelfLit && facing_down)) {
         if (cluster.kind == EmitterKind::kSelfLit) {
             return false; // (a baked pool of light on the floor, not a lamp)
@@ -166,32 +166,32 @@ bool emitter_of(const Cluster& cluster, float facing, Emitter* out)
     float tube_core = core;
     float reach = std::clamp(core * kEmitterReachPerCore, kEmitterMinReach, kEmitterMaxReach);
     {
-        const std::array<double, 3> mean{cluster.centre[0] * inverse, cluster.centre[1] * inverse,
-                                         cluster.centre[2] * inverse};
+        const std::array<double, 3> mean{core::at(cluster.centre, 0) * inverse, core::at(cluster.centre, 1) * inverse,
+                                         core::at(cluster.centre, 2) * inverse};
         const std::array<double, 6> covariance{
-            (cluster.moments[0] * inverse) - (mean[0] * mean[0]), (cluster.moments[1] * inverse) - (mean[1] * mean[1]),
-            (cluster.moments[2] * inverse) - (mean[2] * mean[2]), (cluster.moments[3] * inverse) - (mean[0] * mean[1]),
-            (cluster.moments[4] * inverse) - (mean[0] * mean[2]), (cluster.moments[5] * inverse) - (mean[1] * mean[2])};
+            (core::at(cluster.moments, 0) * inverse) - (core::at(mean, 0) * core::at(mean, 0)), (core::at(cluster.moments, 1) * inverse) - (core::at(mean, 1) * core::at(mean, 1)),
+            (core::at(cluster.moments, 2) * inverse) - (core::at(mean, 2) * core::at(mean, 2)), (core::at(cluster.moments, 3) * inverse) - (core::at(mean, 0) * core::at(mean, 1)),
+            (core::at(cluster.moments, 4) * inverse) - (core::at(mean, 0) * core::at(mean, 2)), (core::at(cluster.moments, 5) * inverse) - (core::at(mean, 1) * core::at(mean, 2))};
         std::array<double, 3> values{};
         std::array<std::array<double, 3>, 3> vectors{};
         eigen_of(covariance, &values, &vectors);
-        const double longest = std::sqrt(values[0]);
-        const double middle = std::sqrt(values[1]);
-        const double thinnest = std::sqrt(values[2]);
-        const double coherence = std::sqrt((cluster.normals[0] * cluster.normals[0]) +
-                                        (cluster.normals[1] * cluster.normals[1]) +
-                                        (cluster.normals[2] * cluster.normals[2])) *
+        const double longest = std::sqrt(core::at(values, 0));
+        const double middle = std::sqrt(core::at(values, 1));
+        const double thinnest = std::sqrt(core::at(values, 2));
+        const double coherence = std::sqrt((core::at(cluster.normals, 0) * core::at(cluster.normals, 0)) +
+                                        (core::at(cluster.normals, 1) * core::at(cluster.normals, 1)) +
+                                        (core::at(cluster.normals, 2) * core::at(cluster.normals, 2))) *
                               inverse;
         const auto unit = [](const std::array<double, 3>& v) {
-            const double length = std::sqrt((v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]));
-            return length > 0.0 ? Vec3{static_cast<float>(v[0] / length), static_cast<float>(v[1] / length),
-                                       static_cast<float>(v[2] / length)}
+            const double length = std::sqrt((core::at(v, 0) * core::at(v, 0)) + (core::at(v, 1) * core::at(v, 1)) + (core::at(v, 2) * core::at(v, 2)));
+            return length > 0.0 ? Vec3{static_cast<float>(core::at(v, 0) / length), static_cast<float>(core::at(v, 1) / length),
+                                       static_cast<float>(core::at(v, 2) / length)}
                                 : Vec3{0.0F, 1.0F, 0.0F};
         };
         constexpr double kLeastSpread = 1e-6;
         if (longest > static_cast<double>(kLineRatio) * std::max(middle, kLeastSpread)) {
             shape = EmitterShape::kLine;
-            axis = unit(vectors[0]);
+            axis = unit(core::at(vectors, 0));
             half_length = static_cast<float>(longest) * kSpreadToHalfLength;
             // (a tube: its core its half thickness - the area over its length -, its light 1/d near it: reach by its
             // length)
@@ -322,18 +322,18 @@ std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles
             const double py = y_of(point);
             const double pz = z_of(point);
             const double each = area * kQuarter;
-            cluster.moments[0] += px * px * each;
-            cluster.moments[1] += py * py * each;
-            cluster.moments[2] += pz * pz * each;
-            cluster.moments[3] += px * py * each;
-            cluster.moments[4] += px * pz * each;
-            cluster.moments[5] += py * pz * each;
+            core::at(cluster.moments, 0) += px * px * each;
+            core::at(cluster.moments, 1) += py * py * each;
+            core::at(cluster.moments, 2) += pz * pz * each;
+            core::at(cluster.moments, 3) += px * py * each;
+            core::at(cluster.moments, 4) += px * pz * each;
+            core::at(cluster.moments, 5) += py * pz * each;
         }
         {
             const double unit_scale = area / static_cast<double>(twice_area);
             const std::array<double, 3> n{x_of(normal) * unit_scale, y_of(normal) * unit_scale,
                                           z_of(normal) * unit_scale};
-            const double agree = (n[0] * cluster.normals[0]) + (n[1] * cluster.normals[1]) + (n[2] * cluster.normals[2]);
+            const double agree = (core::at(n, 0) * core::at(cluster.normals, 0)) + (core::at(n, 1) * core::at(cluster.normals, 1)) + (core::at(n, 2) * core::at(cluster.normals, 2));
             const double sign = agree < 0.0 ? -1.0 : 1.0;
             for (std::size_t k = 0; k < 3; ++k) {
                 core::at(cluster.normals, k) += sign * core::at(n, k);
