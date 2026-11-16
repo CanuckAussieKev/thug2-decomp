@@ -943,7 +943,28 @@ by one pass, the last listener at `rt::world_view_drawn` (`ViewOrder::kToneMappi
   its coverage), the copy into an 8-bit target within a step; the back buffer: float, reported X8R8G8B8, its shot and
   front-buffer reads the mapped bytes. The pass costs 0.04 ms at 1920 x 1080 (0.24 ms with four samples) on the
   RTX 5070 Ti, 1.1 ms (6.4 ms) on the integrated Radeon. In the game: `tools/game/rt_shadows_check.ts --effect hdr`.
-- **Not done:** auto-exposure; HDR output to an HDR display (the swapchain stays 8-bit sRGB-less UNORM).
+- **The metering - auto exposure** (`rt_exposure_adapt`, stops; 2 by default, 0 off; added after the user's College
+  screenshot at 06:20: "the sun is completely blinding" - a white blot over the middle third of the picture that ate the
+  buildings round it). Measured first at that view (captures at `rt_exposure -6`, each term switched off in turn; display
+  values, the original's white 1): toward the 12-degree sun the frame held 3.5 (the sky's own sun and the sun pass's
+  disc and glare 1.1, the sky model's haze at the user's Thick `rt_fog_haze_density` +1.2, the physical street air
+  +0.2, the cinematic air's excess +0.9), the buildings 20 - 30 degrees off it 0.4 - 0.5 (0.2 without the air), the
+  street 0.46 - and the curve shows nothing above its white point (1.25). Physically the glow is right (a low sun's
+  aureole through morning haze is many times a sunlit wall); what was missing is what a camera or an eye does looking
+  there: stop down. So before the curve each viewport is metered (`vulkan_hdr.h` "The metering"): 64 x 64 samples of
+  its linear luminance (each at most 16 - a sensor's white), weighted toward the centre, their root mean square (a
+  highlight-weighted meter: a plain mean hardly moved for a glow over a tenth of the picture); above `kMeterKey` (0.55 -
+  the brightest ordinary view's: College at noon 0.35 - 0.56, Berlin and Boston by day and dusk 0.1 - 0.44 measured from
+  captures - none touched) the exposure comes down by log2(meter / key) stops, at most `rt_exposure_adapt`, never up (the
+  clock's exposure brings the night up); toward darker over 0.4 s, back over 1.2 s, a new or long-unseen viewport at its
+  target at once. One compute group over the viewport's copy writes the viewport's slot (four, by its rectangle), the
+  curve's pass reads it - no read-back. The user's view: ~1.8 stops down - the glow round the sun, the buildings and
+  flags against it, the street darker (out/pending/glare.md's captures). College's tower views toward the sun 0.6 - 1
+  stop down. Cost: within the pass's 0.04 ms at 1920 x 1080 (RTX 5070 Ti). Checked (`thug2_vulkan_hdr_check`): a white
+  view's meter and stops against the processor's twins (meter_light / meter_target_stops), a mid-grey one untouched, the
+  check's random image's meter within 0.2% of the processor's, the way back up gradual, a 0.6 s gap starting at the
+  target, the bound, `rt_exposure_adapt=0` the curve alone.
+- **Not done:** HDR output to an HDR display (the swapchain stays 8-bit sRGB-less UNORM).
 
 ### Volumetric fog and light shafts
 
@@ -1000,7 +1021,10 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
   - `clear`: the physical model, every factor 1 (round two's air exactly).
   - `cinematic` (the default): the street air x 2.5 (x 2.0 since the distinct shafts, below: its layer is deeper) (`density`; no base over a clear day's - `least` 1: the low sun's
     and the night's own conditions carry it, noon stays clear), the night's mist x 1.5; it scatters the sun's or moon's
-    light x 3 (`glow`) and the lamps' x 5 (`lamp_glow`: a lamp's few hundred lumens against the sun's hundred thousand
+    light x 3 (`glow`; since the low sun's glare only its even lobe's - `air_sun_phase`: medium_phase + side x glow, the
+    forward lobe the physical one: x 3 on the whole phase put 3 x real haze's forward peak in the eye looking into a low
+    sun, +0.9 of white at College's 06:20 view, now +0.3; the beams toward the sun 15 - 30% dimmer, from the side as
+    before, the tower column's contrast kept - 0.50 / 0.48 - 0.55 across it) and the lamps' x 5 (`lamp_glow`: a lamp's few hundred lumens against the sun's hundred thousand
     - a film lights its practicals for the haze) while it dims only by its extinction - not energy-conserving, by
     design; its phase gets an even lobe of 6 over `medium_phase` (`side`, x 4 pi - an even medium's light is 1): the lit
     air reads from the side, not only toward the light (2.5 was tried first: in the game the beams across Berlin's

@@ -109,7 +109,9 @@ layout(set = 0, binding = 7) uniform FogBlock {
     vec4 sun_light;     // rgb the sun's colour (the sky model's); w how far the haze is followed
     vec4 medium;        // rgb the light the medium sends the eye per unit of light (phase 1); w the strength
     vec4 soft;          // x tan of the light's angular radius, y the water layer's extinction over the haze's at the
-                        // ground, z 1 / its height (world units), w unused
+                        // ground, z 1 / its height (world units), w (added by the low sun's glare) the even lobe of
+                        // the street air's phase for the sun's or moon's light, x the look's glow (rt_volume_light.h
+                        // air_sun_phase: its forward lobe stays the physical one)
     vec4 cloud_map;     // the clouds' shadow map's place (vulkan_rt_sky_pass.h CloudShadowMap)
     vec4 cloud_light;   // xyz toward its light, w its shadow's share kept (0: no map)
     vec4 air;           // (the street air - rt_volume_light.h street_air) x its extinction per unit at its ground, y 1 /
@@ -118,7 +120,6 @@ layout(set = 0, binding = 7) uniform FogBlock {
                         // phase (rt_volume_light.h AirArt: the air's look), w 1 / the snow's height
     vec4 air_ambient;   // rgb its shade's light where the level's fog is replaced (the fog's colour's share; the aerial
                         // march: the sky's), w the sun's brightness over its tint's (the tint is a hue over a level's fog)
-                        // x the look's glow (the sun's light it scatters)
     vec4 air_look;      // (added by the cinematic air - rt_volume_light.h AirArt) x the lamps' light it scatters over
                         // the other media's, y where its volume round the eye starts thinning, z 1 / how far it thins
                         // to none (0: everywhere), w x its range looking at the light (AirArt::along)
@@ -586,8 +587,9 @@ void main()
         float water = water_under(direction, distance);
         float shaped = phase(dot(direction, fog.sun.xyz));
         vec3 sun = fog.sun_tint.rgb * shaped;
-        // (the street air's: its look's even lobe added - rt_volume_light.h air_phase)
-        vec3 sun_air = fog.sun_tint.rgb * (shaped + fog.air_light.z);
+        // (the street air's: its look's even lobe added x its glow, the forward lobe the physical one - rt_volume_light.h
+        // air_sun_phase)
+        vec3 sun_air = fog.sun_tint.rgb * (shaped + fog.soft.w);
         int steps = fog.low.w;
         float u = fract(jitter_at(local) + fog.fog_range.w);
         uint reached = lamps_reached(direction, b);
@@ -2184,7 +2186,9 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
         block.air_ambient = {core::at(view.fog.colour, 0) * kFogAmbientShare,
                              core::at(view.fog.colour, 1) * kFogAmbientShare,
                              core::at(view.fog.colour, 2) * kFogAmbientShare,
-                             (tint_luma > 1e-4F ? whole_luma / tint_luma : 1.0F) * static_cast<float>(art.glow)};
+                             tint_luma > 1e-4F ? whole_luma / tint_luma : 1.0F};
+        // (the sun's or moon's light: its even lobe x the look's glow - rt_volume_light.h air_sun_phase)
+        core::at(block.soft, 3) = static_cast<float>(art.side * art.glow);
         const double range = art.range * rt::kUnitsPerMetre;
         block.air_look = {static_cast<float>(art.lamp_glow), static_cast<float>(0.5 * range),
                           range > 0.0 ? static_cast<float>(2.0 / range) : 0.0F, static_cast<float>(art.along)};

@@ -173,6 +173,11 @@ double medium_phase(double cosine, double g)
 
 double air_phase(double cosine, double g, const AirArt& art) { return medium_phase(cosine, g) + art.side; }
 
+double air_sun_phase(double cosine, double g, const AirArt& art)
+{
+    return medium_phase(cosine, g) + (art.side * art.glow);
+}
+
 double air_stretch(double cosine, const AirArt& art)
 {
     const double c = std::max(cosine, 0.0);

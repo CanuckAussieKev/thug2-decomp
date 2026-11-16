@@ -99,7 +99,8 @@ inline constexpr double kAirSnowHeight = 60.0;  // metres
 //       a volume round the eye: the street air whole to `range` / 2 from the camera, gone by `range` (smoothly) - the
 //       beams and cones near the player, the far world seen through the aerial haze alone, so it doesn't milk out;
 //       denser (`density`), never thinner than `least` x a clear day's (a thin base by day), a night's mist `night` x;
-//       scattering more than it takes away: the sun's (or moon's) light it scatters x `glow`, the lamps' x `lamp_glow`
+//       scattering more than it takes away: the sun's (or moon's) light its even lobe scatters x `glow` (its forward
+//       lobe the physical one - air_sun_phase), the lamps' x `lamp_glow`
 //       (a film lights its practicals for the haze; a lamp's few hundred lumens over a sun's hundred thousand), what it
 //       dims by its extinction alone - not energy-conserving, by design;
 //       its phase given an even lobe (`side`, over medium_phase's: x 4 pi, 1 the light an even medium would scatter):
@@ -122,7 +123,7 @@ struct AirArt {
     double night = 1.0;     // x the night's mist (kAirNightExtra)
     double side = 0.0;      // the even lobe added to its phase (x 4 pi)
     double shade = 1.0;     // x its shade's light
-    double glow = 1.0;      // x the sun's or moon's light it scatters
+    double glow = 1.0;      // x the sun's or moon's light its even lobe scatters (air_sun_phase)
     double lamp_glow = 1.0; // x the lamps' light it scatters
     double range = 0.0;     // metres: the volume round the eye (0: everywhere)
     double along = 1.0;     // (added by the distinct shafts) x its range looking at the light
@@ -132,8 +133,14 @@ struct AirArt {
 // The ini's spelling: "clear", "cinematic", "misty" (and "0" / "1" / "2"); anything else the default.
 [[nodiscard]] AirLook parse_air_look(std::string_view text);
 [[nodiscard]] const char* air_look_name(AirLook look);
-// The street air's phase (x 4 pi) for a look's side lobe: medium_phase + side.
+// The street air's phase (x 4 pi) for a look's side lobe: medium_phase + side (the lamps' - x lamp_glow).
 [[nodiscard]] double air_phase(double cosine, double g, const AirArt& art);
+// (added by the low sun's glare) The sun's or moon's light the street air scatters toward the eye per unit of light
+// (x 4 pi): medium_phase + side x glow. The look's gain is its even lobe's - the light it shows from the side, which
+// physical air hardly does; the forward lobe stays the physical one (energy-conserving: looking into the light the air
+// is no brighter per unit of its thickness than real haze). x glow on the whole phase put 3 x the physical forward
+// peak in the eye looking into a low sun - a white blot over the middle of the picture (College at 06:20).
+[[nodiscard]] double air_sun_phase(double cosine, double g, const AirArt& art);
 // How much of the street air there is `distance` world units from the eye: 1 to range / 2, 0 from range (smoothstep) -
 // the range x air_stretch for a view ray at `cosine` to the light's way.
 [[nodiscard]] double air_stretch(double cosine, const AirArt& art);

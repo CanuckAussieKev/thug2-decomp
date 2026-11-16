@@ -21,6 +21,7 @@ namespace render::vulkan {
 enum class ShaderStage : uint8_t {
     kVertex,
     kFragment,
+    kCompute, // (added by the HDR pass's metering)
 };
 
 struct CompiledShader {

@@ -453,6 +453,7 @@ for the restart. Every setting is declared once in the settings model (`src/engi
 | `rt_glass_reflectance` | 0.2 | How much glass reflects looking straight at it (0.04 is real glass - against the game's bright window textures its reflection all but disappears) |
 | `rt_hdr` | 0 | On Vulkan (no ray tracing needed): 1 draws the world in high dynamic range - brighter than white kept - and maps it back to the screen before the HUD; with the settings below left alone it looks like 0 (the brightest whites a touch softer) |
 | `rt_exposure` | 0 | With `rt_hdr=1`: stops of light (+1 twice as bright, -1 half) |
+| `rt_exposure_adapt` | 2 | With `rt_hdr=1`: auto exposure - how many stops the picture may be brought down when the view is brighter than an ordinary daylit one (looking into a low sun: the glow back in range, buildings in silhouette against it, as a camera does); it adapts in about half a second (darker) and a second (back). Ordinary views are untouched; 0 turns it off. New: before it a low sun whited out the middle of the picture |
 | `rt_tonemap` | 0 | With `rt_hdr=1`: 0 keeps the game's colours and rolls off only the brightest toward `rt_white_point`; 1 a filmic curve (ACES) - deeper shadows, brighter mid-tones |
 | `rt_white_point` | 1.25 | With `rt_hdr=1`: the brightness shown as pure white (1-8); 1 clips at white as the game does |
 | `rt_saturation` / `rt_contrast` | 1 | With `rt_hdr=1`: colour (0 grey, above 1 stronger) and contrast (a power about mid-grey; above 1 more) |

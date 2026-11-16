@@ -25,6 +25,7 @@
 #include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -35,6 +36,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -377,7 +379,7 @@ void check_curve(render::Gpu& gpu, const CurveCase& test, const vk::GradeLut& lu
 // Values that must pass bit for bit: [0, 1] with white point 1, [0, knee] with the defaults.
 void check_identity(render::Gpu& gpu, float white_point, const std::vector<uint16_t>& values, Tally* tally)
 {
-    vk::HdrSettings settings{.on = true};
+    vk::HdrSettings settings{.on = true, .exposure_adapt = 0.0F};
     settings.white_point = white_point;
     vk::set_hdr_settings(settings);
     vk::set_hdr_lut({});
@@ -414,12 +416,176 @@ void check_identity(render::Gpu& gpu, float white_point, const std::vector<uint1
     gpu.release_surface(target);
 }
 
+// --- the metering (added by the low sun's glare) ------------------------------------------------------------------
+
+// A lockable float target filled with one grey (a 16-bit float's bits).
+bool fill_grey(render::Gpu& gpu, GpuSurface* target, uint16_t grey)
+{
+    const std::vector<uint16_t> one(static_cast<std::size_t>(kWidth) * kHeight, grey);
+    return fill(gpu, target, one);
+}
+
+// The processor's meter over the inputs' pixels in `rect` (vk::meter_place / meter_weight / meter_light - the meter's
+// twins), the exposure's factor `scale` on them.
+float processor_mean(const std::vector<uint16_t>& values, std::array<uint32_t, 4> rect, float scale)
+{
+    double light = 0.0;
+    double weight = 0.0;
+    for (uint32_t j = 0; j < vk::kMeterGrid; ++j) {
+        for (uint32_t i = 0; i < vk::kMeterGrid; ++i) {
+            const std::array<float, 2> place = vk::meter_place(i, j);
+            const auto x = core::at(rect, 0) + static_cast<uint32_t>(core::at(place, 0) * static_cast<float>(core::at(rect, 2)));
+            const auto y = core::at(rect, 1) + static_cast<uint32_t>(core::at(place, 1) * static_cast<float>(core::at(rect, 3)));
+            const std::array<uint16_t, 3> in = pixel_inputs(values, (static_cast<std::size_t>(y) * kWidth) + x);
+            std::array<float, 3> colour{};
+            for (std::size_t channel = 0; channel < kChannels; ++channel) {
+                const float value = from_half(core::at(in, channel));
+                core::at(colour, channel) = std::isfinite(value) ? value * scale : (value > 0.0F ? 65504.0F : 0.0F);
+            }
+            const float w = vk::meter_weight(place);
+            const double counted = vk::meter_light(colour);
+            light += static_cast<double>(w) * counted * counted;
+            weight += static_cast<double>(w);
+        }
+    }
+    return static_cast<float>(std::sqrt(light / weight));
+}
+
+// One pass of the meter over `target` (filled), its reading and the pixel (0, 0)'s red as mapped.
+struct Metered {
+    bool ran = false;
+    vk::MeterReading reading;
+    float shown = 0.0F;
+};
+Metered meter_pass(render::Gpu& gpu, GpuSurface* target, std::array<uint32_t, 4> rect)
+{
+    Metered out;
+    std::vector<uint8_t> bytes;
+    out.ran = run_pass(gpu, target, rect) == 1 && vk::read_surface(target, &bytes) &&
+              vk::read_meter(vk::backend(), rect, &out.reading);
+    if (out.ran) {
+        const std::size_t pixel = (static_cast<std::size_t>(core::at(rect, 1)) * kWidth) + core::at(rect, 0);
+        out.shown = from_half(half_at(bytes, {.pixel = pixel, .channel = 0}));
+    }
+    return out;
+}
+
+// The meter: a bright view brought down by its mean over the key (at most rt_exposure_adapt stops), a dim one left
+// alone, its mean the processor's, a view's exposure moving toward its target over time and starting there after a
+// gap; rt_exposure_adapt=0: no meter.
+void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* tally)
+{
+    text::print("the meter (rt_exposure_adapt):\n");
+    constexpr uint16_t kHalfGrey = 0x3800;  // 0.5
+    constexpr uint16_t kHalfWhite = 0x3C00; // 1.0
+    constexpr float kTolerance = 2.0e-3F;
+    const vk::HdrSettings metered{.on = true};
+    vk::set_hdr_settings(metered);
+    vk::set_hdr_lut({});
+    const vk::ToneParameters parameters = vk::tone_parameters(metered);
+    GpuSurface* target = make_target(gpu, value::kFormatA16B16G16R16F, 0, true);
+    if (target == nullptr) {
+        tally->check(false, "a float target for the meter");
+        return;
+    }
+    const std::array<uint32_t, 4> whole{0, 0, kWidth, kHeight};
+    // a white view: down by log2(1 / key) stops, its colours x 2^(stops / 2.2) (below the knee: shown as that)
+    {
+        const bool filled = fill_grey(gpu, target, kHalfWhite);
+        const Metered white = meter_pass(gpu, target, whole);
+        const float mean = vk::meter_light({1.0F, 1.0F, 1.0F});
+        const float stops = vk::meter_target_stops(mean, metered.exposure_adapt);
+        const float factor = std::exp2(stops / 2.2F);
+        const std::array<float, 3> mapped = vk::tone_map_reference(parameters, nullptr, {factor, factor, factor});
+        const float shown = core::at(mapped, 0);
+        tally->check(filled && white.ran && std::abs(white.reading.mean - mean) < kTolerance * mean &&
+                         std::abs(white.reading.stops - stops) < kTolerance && std::abs(white.shown - shown) < kStep + kSlack,
+                     text::format("a white view (a new viewport: there at once): metered %.4f (the processor's %.4f), "
+                                  "%.3f stops (%.3f), factor %.4f, white shown as %.4f (%.4f)",
+                                  static_cast<double>(white.reading.mean), static_cast<double>(mean),
+                                  static_cast<double>(white.reading.stops), static_cast<double>(stops),
+                                  static_cast<double>(white.reading.factor), static_cast<double>(white.shown),
+                                  static_cast<double>(shown)));
+    }
+    // a dim view (another viewport, its own slot): left alone
+    {
+        const std::array<uint32_t, 4> left_half{0, 0, kWidth / 2, kHeight};
+        const bool filled = fill_grey(gpu, target, kHalfGrey);
+        const Metered grey = meter_pass(gpu, target, left_half);
+        tally->check(filled && grey.ran && grey.reading.stops == 0.0F && grey.reading.factor == 1.0F &&
+                         std::abs(grey.shown - 0.5F) < kStep + kSlack,
+                     text::format("a mid-grey view (its own viewport): metered %.4f, under the key %.2f - %.3f stops, "
+                                  "grey shown as %.4f",
+                                  static_cast<double>(grey.reading.mean), static_cast<double>(vk::kMeterKey),
+                                  static_cast<double>(grey.reading.stops), static_cast<double>(grey.shown)));
+    }
+    // the check's random image (to 8 x white, not a number, infinities) on the white view's viewport at once after it:
+    // its mean the processor's; on its way from the white's stops toward its target, not there
+    {
+        const bool filled = fill(gpu, target, values);
+        const Metered before = meter_pass(gpu, target, whole);
+        const float mean = processor_mean(values, whole, parameters.scale);
+        const float stops = vk::meter_target_stops(mean, metered.exposure_adapt);
+        tally->check(filled && before.ran && std::abs(before.reading.mean - mean) < kTolerance * mean &&
+                         std::abs(before.reading.target - stops) < kTolerance,
+                     text::format("the random image: metered %.4f (the processor's %.4f; each sample at most %.0f), "
+                                  "heading for %.3f stops (%.3f)",
+                                  static_cast<double>(before.reading.mean), static_cast<double>(mean),
+                                  static_cast<double>(vk::kMeterBrightest), static_cast<double>(before.reading.target),
+                                  static_cast<double>(stops)));
+        // (a dim image there: brought back up over time - between where it was and its target)
+        const bool dimmed = fill_grey(gpu, target, kHalfGrey);
+        const Metered moving = meter_pass(gpu, target, whole);
+        tally->check(dimmed && moving.ran && moving.reading.stops > before.reading.stops && moving.reading.stops < 0.0F,
+                     text::format("then mid-grey a moment later: back up gradually - %.3f stops (from %.3f toward 0)",
+                                  static_cast<double>(moving.reading.stops), static_cast<double>(before.reading.stops)));
+        // (after a gap - a menu over it, a level loading - it starts at its target)
+        constexpr auto kGap = std::chrono::milliseconds(600);
+        std::this_thread::sleep_for(kGap);
+        const Metered later = meter_pass(gpu, target, whole);
+        tally->check(later.ran && later.reading.stops == 0.0F,
+                     text::format("after 0.6 s unseen: at its target at once (%.3f stops)",
+                                  static_cast<double>(later.reading.stops)));
+    }
+    // the bound: 16 x white brought down at most rt_exposure_adapt stops
+    {
+        constexpr float kMostStops = 2.5F;
+        vk::HdrSettings wide = metered;
+        wide.exposure_adapt = kMostStops;
+        vk::set_hdr_settings(wide);
+        std::this_thread::sleep_for(std::chrono::milliseconds(600));
+        const bool filled = fill_grey(gpu, target, kHalfSixteen);
+        const Metered bright = meter_pass(gpu, target, whole);
+        tally->check(filled && bright.ran && std::abs(bright.reading.stops + kMostStops) < kTolerance &&
+                         std::abs(bright.reading.mean - vk::kMeterBrightest) < kTolerance * vk::kMeterBrightest,
+                     text::format("16 x white with rt_exposure_adapt %.1f: metered %.1f (a sample's most), %.3f stops",
+                                  static_cast<double>(kMostStops), static_cast<double>(bright.reading.mean),
+                                  static_cast<double>(bright.reading.stops)));
+    }
+    // off: no meter - white shown as the curve alone
+    {
+        vk::HdrSettings off = metered;
+        off.exposure_adapt = 0.0F;
+        vk::set_hdr_settings(off);
+        const bool filled = fill_grey(gpu, target, kHalfWhite);
+        std::vector<uint8_t> bytes;
+        const bool ran = filled && run_pass(gpu, target, whole) == 1 && vk::read_surface(target, &bytes);
+        const float shown = ran ? from_half(half_at(bytes, {.pixel = 0, .channel = 0})) : 0.0F;
+        const std::array<float, 3> mapped = vk::tone_map_reference(vk::tone_parameters(off), nullptr, {1.0F, 1.0F, 1.0F});
+        const float wanted = core::at(mapped, 0);
+        tally->check(ran && std::abs(shown - wanted) < kStep + kSlack,
+                     text::format("rt_exposure_adapt=0: white shown as the curve alone (%.4f, %.4f)",
+                                  static_cast<double>(shown), static_cast<double>(wanted)));
+    }
+    gpu.release_surface(target);
+}
+
 // Only the viewport mapped; an 8-bit target and the setting off left alone.
 void check_skips(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* tally)
 {
     text::print("a viewport, an 8-bit target, the setting off:\n");
     constexpr float kTwoStops = 2.0F;
-    vk::set_hdr_settings({.on = true, .exposure = kTwoStops});
+    vk::set_hdr_settings({.on = true, .exposure = kTwoStops, .exposure_adapt = 0.0F});
     vk::set_hdr_lut({});
     GpuSurface* target = make_target(gpu, value::kFormatA16B16G16R16F, 0, true);
     constexpr uint32_t kLeft = 64;
@@ -530,7 +696,7 @@ std::array<float, 3> inside_colour()
 void check_multisampled(render::Gpu& gpu, Tally* tally)
 {
     text::print("four samples:\n");
-    const vk::HdrSettings settings{.on = true, .exposure = 1.0F};
+    const vk::HdrSettings settings{.on = true, .exposure = 1.0F, .exposure_adapt = 0.0F};
     vk::set_hdr_settings(settings);
     vk::set_hdr_lut({});
     const vk::ToneParameters parameters = vk::tone_parameters(settings);
@@ -621,7 +787,7 @@ void check_multisampled(render::Gpu& gpu, Tally* tally)
 void check_back_buffer(render::Gpu& gpu, Tally* tally)
 {
     text::print("the back buffer:\n");
-    const vk::HdrSettings settings{.on = true, .exposure = 1.0F};
+    const vk::HdrSettings settings{.on = true, .exposure = 1.0F, .exposure_adapt = 0.0F};
     vk::set_hdr_settings(settings);
     vk::set_hdr_lut({});
     GpuSurface* back = nullptr;
@@ -780,7 +946,7 @@ void measure_cost(render::Gpu& gpu)
         gpu.release_surface(target);
         const double each = static_cast<double>(stamps.back() - stamps.front()) * static_cast<double>(properties.limits.timestampPeriod) /
                             kNanosecondsPerMillisecond / kTimedPasses;
-        text::print("the cost: %.3f ms a pass at %ux%u, %u sample%s (the copy and the curve)\n", each, kTimedWidth,
+        text::print("the cost: %.3f ms a pass at %ux%u, %u sample%s (the copy, the meter and the curve)\n", each, kTimedWidth,
                     kTimedHeight, samples == 0 ? 1U : samples, samples == 0 ? "" : "s");
     }
     vkDestroyQueryPool(state.context.device(), pool, nullptr);
@@ -877,7 +1043,8 @@ int run(const Options& options, SDL_Window* window)
     render::Gpu& gpu = vk::gpu();
     const std::vector<uint16_t> values = input_values();
     const vk::GradeLut lut = test_lut();
-    const vk::HdrSettings defaults{.on = true};
+    // (the curve's cases unmetered - check_meter has the meter)
+    const vk::HdrSettings defaults{.on = true, .exposure_adapt = 0.0F};
     vk::HdrSettings clip = defaults;
     clip.white_point = 1.0F;
     vk::HdrSettings brighter = defaults;
@@ -915,6 +1082,7 @@ int run(const Options& options, SDL_Window* window)
     check_identity(gpu, 1.0F, values, &tally);
     check_identity(gpu, vk::kHdrWhitePoint, values, &tally);
     check_skips(gpu, values, &tally);
+    check_meter(gpu, values, &tally);
     check_multisampled(gpu, &tally);
     check_back_buffer(gpu, &tally);
     check_cube_files(&tally);
