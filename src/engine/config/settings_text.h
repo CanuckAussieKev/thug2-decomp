@@ -175,7 +175,6 @@ inline constexpr const char* kOptReflectionsHelp = "Ray-traced reflections on sh
 inline constexpr const char* kOptReflectionStrength = "Reflection strength";
 inline constexpr const char* kOptFresnel = "Angle reflections";
 inline constexpr const char* kOptFresnelHelp = "Water and glass mirror more at an angle.";
-inline constexpr const char* kOptGlassReflectance = "Glass shine";
 inline constexpr const char* kOptGlassRoughness = "Glass blur";
 inline constexpr const char* kOptGrass = "Grass";
 inline constexpr const char* kOptGrassHelp = "Real blades on lawns. They part under your board.";

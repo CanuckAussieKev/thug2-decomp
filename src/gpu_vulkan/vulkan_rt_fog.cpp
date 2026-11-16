@@ -2280,6 +2280,12 @@ void read_light()
         rt::set_baked_sun_wanted(true);
     }
     own.light = rt::medium_light();
+    // (changed by the physical air) the air is lit from where the sun is - the sky's and the disc's sun -, not from the
+    // light's direction held kLowestLight up for the level's shadows: its glow toward the sun lies round the drawn sun,
+    // and the light reaching the air is the sun's through its own air mass
+    if (own.light.have && own.light.clock && !own.light.moonlit) {
+        own.light.toward = rt::day_light().sun;
+    }
     own.have_sun = own.light.have;
     own.sun_tint = {1.0F, 1.0F, 1.0F};
     rt::note_sun_used(rt::SunUser::kFog, own.light.have, own.light.toward);

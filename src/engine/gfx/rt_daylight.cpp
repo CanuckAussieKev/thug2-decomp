@@ -124,15 +124,16 @@ float luma_of(const DayRgb& colour)
 void finish_light(DayLight* light)
 {
     // the bounce: what the surroundings send back is the direct light's and the sky's, in the level's own shares
+    const float own = std::clamp(light->direct_share, 1e-3F, 1.0F);
     for (std::size_t ch = 0; ch < light->bounce.size(); ++ch) {
-        core::at(light->bounce, ch) = (kDirectShare * core::at(light->light_colour, ch)) +
-                                      ((1.0F - kDirectShare) * core::at(light->sky, ch));
+        core::at(light->bounce, ch) =
+            (own * core::at(light->light_colour, ch)) + ((1.0F - own) * core::at(light->sky, ch));
     }
     // the shadows: the sun's share of the light now over its share in the level's own light
     const float direct = light->direct * luma_of(light->direct_tint);
     const float sky = luma_of(light->sky);
-    const float share = (kDirectShare * direct) / std::max((kDirectShare * direct) + ((1.0F - kDirectShare) * sky), 1e-6F);
-    light->shadow = std::clamp(share / kDirectShare, 0.0F, 1.0F);
+    const float share = (own * direct) / std::max((own * direct) + ((1.0F - own) * sky), 1e-6F);
+    light->shadow = std::clamp(share / own, 0.0F, 1.0F);
 }
 
 // --- the sky's light, made once -----------------------------------------------------------------------------------------
@@ -168,16 +169,26 @@ std::vector<double> make_sky_table()
         }
         core::at(table, entry) = sum;
     }
-    const double overhead = table.back();
-    for (double& value : table) {
-        value = overhead > 0.0 ? value / overhead : 0.0;
-    }
+    return table;
+}
+
+// (the table unnormalised - the sky's irradiance per unit of the sun's - and normalised to the sun overhead's)
+const std::vector<double>& sky_irradiance_table()
+{
+    static const std::vector<double> table = make_sky_table();
     return table;
 }
 
 const std::vector<double>& sky_table()
 {
-    static const std::vector<double> table = make_sky_table();
+    static const std::vector<double> table = [] {
+        std::vector<double> out = sky_irradiance_table();
+        const double overhead = out.back();
+        for (double& value : out) {
+            value = overhead > 0.0 ? value / overhead : 0.0;
+        }
+        return out;
+    }();
     return table;
 }
 
@@ -199,7 +210,7 @@ bool same_light(const DayLight& a, const DayLight& b)
            a.native == b.native && a.moonlit == b.moonlit && a.direct == b.direct && a.direct_tint == b.direct_tint &&
            a.light_colour == b.light_colour && a.light_radius == b.light_radius && a.bounce == b.bounce &&
            a.sky == b.sky && a.shadow == b.shadow && a.lamps == b.lamps && a.stars == b.stars &&
-           a.moon_disc == b.moon_disc && a.night_sky == b.night_sky &&
+           a.moon_disc == b.moon_disc && a.night_sky == b.night_sky && a.direct_share == b.direct_share &&
            a.stars_pole == b.stars_pole && a.blend == b.blend;
 }
 
@@ -473,6 +484,18 @@ double sky_light_at(double elevation)
     return (core::at(table, below) * (1.0 - fraction)) + (core::at(table, above) * fraction);
 }
 
+float direct_share_at(double elevation)
+{
+    const std::vector<double>& table = sky_irradiance_table();
+    const double at = std::clamp(elevation - kTableLowest, 0.0, static_cast<double>(kTableEntries - 1));
+    const auto below = static_cast<std::size_t>(std::floor(at));
+    const std::size_t above = std::min(below + 1, kTableEntries - 1);
+    const double fraction = at - static_cast<double>(below);
+    const double sky = (core::at(table, below) * (1.0 - fraction)) + (core::at(table, above) * fraction);
+    const double direct = elevation > 0.0 ? sun_light_at(elevation) * std::sin(elevation * kRadians) : 0.0;
+    return direct + sky > 0.0 ? static_cast<float>(direct / (direct + sky)) : 0.0F;
+}
+
 double sun_light_at(double elevation)
 {
     const Rgb through = sun_transmittance(elevation * kRadians, kTransmittanceSteps);
@@ -513,6 +536,7 @@ DayLight day_light_at(const NativeDay& native, double hours)
     light.moon = toward_place(native.path, moon);
     light.native = native.toward;
     const SkyPlace own = heading_of(native.toward);
+    light.direct_share = direct_share_at(own.elevation); // (added by the physical air)
 
     // the sun's direct light, over the level's own (display-referred), its colour the model's over the level's sun's
     const double own_sun = sun_light_at(own.elevation);
@@ -583,7 +607,8 @@ void apply_overcast(DayLight* light, float share)
     }
     light->light_radius += (kOvercastRadiusDegrees - light->light_radius) * s;
     const float sky_luma = luma_of(light->sky);
-    const float gained = kOvercastScatter * taken * kDirectShare / (1.0F - kDirectShare);
+    const float own = std::clamp(light->direct_share, 1e-3F, 0.999F);
+    const float gained = kOvercastScatter * taken * own / (1.0F - own);
     for (std::size_t ch = 0; ch < light->sky.size(); ++ch) {
         const float grey = core::at(light->sky, ch) + ((sky_luma - core::at(light->sky, ch)) * kOvercastGrey * s);
         core::at(light->sky, ch) = grey + gained;

@@ -529,11 +529,8 @@ std::vector<Decl> declarations()
             .tab(G::kSurfaces, t::kOptFresnel, t::kOptFresnelHelp)
             .need(on("rt_reflections"))
             .live(E::kReflections),
-        gfx("rt_glass_reflectance", K::kNumber, "0.2")
-            .tab(G::kSurfaces, t::kOptGlassReflectance)
-            .pick({c("0.04", "Real"), c("0.1", "10%"), c("0.2", "20%"), c("0.35", "35%")})
-            .need(on("rt_reflections"))
-            .live(E::kReflections),
+        // (retired by the physical air: glass reflects as glass does - F0 0.04)
+        gfx("rt_glass_reflectance", K::kNumber, "0.2").retire(t::kRetiredPhysical),
         gfx("rt_glass_roughness", K::kNumber, "0.05")
             .tab(G::kSurfaces, t::kOptGlassRoughness)
             .pick({c("0", "Mirror"), c("0.05", t::kLow), c("0.1", t::kMedium), c("0.2", t::kHigh)})

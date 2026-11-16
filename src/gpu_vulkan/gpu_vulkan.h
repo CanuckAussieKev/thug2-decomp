@@ -131,7 +131,9 @@ void set_rt_light_settings(const RtLightSettings& settings);
 // or where no surface is reflective.
 inline constexpr float kRtReflectionStrength = 0.5F; // (rt_reflection_strength's default)
 inline constexpr float kRtGlassRoughness = 0.05F;    // (rt_glass_roughness's default: radians)
-inline constexpr float kRtGlassReflectance = 0.2F;   // (rt_glass_reflectance's default: glass's F0)
+// glass's F0: ((n - 1) / (n + 1))^2 for window glass's n = 1.5 (changed by the physical air: rt_glass_reflectance, 0.2 to
+// make the game's bright pane textures reflect, retired - a pane too bright is its texture's, the material's input)
+inline constexpr float kRtGlassReflectance = 0.04F;
 inline constexpr float kRtReflectionSurfaces = 1.0F;  // (rt_reflection_surfaces's default)
 struct RtReflectionSettings {
     bool on = false;
@@ -144,9 +146,7 @@ struct RtReflectionSettings {
     // rt_glass_roughness: the half-angle of the cone glass reflects into (radians; 0: a perfect mirror) - a few rays
     // a pixel, blurred over its neighbours.
     float glass_roughness = kRtGlassRoughness;
-    // rt_glass_reflectance: glass's reflectance face-on (Schlick's F0). Real glass's is 0.04 - a real window is dark
-    // behind; the game's panes are bright textures, and at 0.04 their reflection all but vanished (AU's glass building:
-    // a mean change of 1.4 levels against the mirror's 12), so the default is 0.2.
+    // glass's reflectance face-on (Schlick's F0): real glass's (kRtGlassReflectance - the checks may set another)
     float glass_reflectance = kRtGlassReflectance;
     // (added for the surface reflections) rt_reflection_surfaces: x the reflections of the surfaces the game gave no
     // shine whose surface maps say they are glossy (rt_pbr's maps: metal, glazed tiles, polished floors and stone,

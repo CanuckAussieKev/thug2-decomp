@@ -637,17 +637,14 @@ bool target_sun(rt::Vec3* toward)
     return true;
 }
 
-// The sun's colour over the bake's: the sky model's colour at the sun's elevation over its colour at the bake's sun's,
-// when the sky model is on (rt_sky_model publishes a SunLight); else white.
+// The sun's colour over the bake's: the atmosphere's colour at the sun's elevation over its colour at the bake's sun's
+// (changed by the physical air: always the model's - no second source waiting for the sky model to publish).
 rt::Rgbf sun_colour_for(const rt::Vec3& toward)
 {
     // (added by the time of day) the clock's lighting state carries the light's colour with its strength (light_colour:
     // RelitLighting::direct_scale) - none here
     const rt::DayLight day = rt::day_light();
     if (day.on) {
-        return {1.0F, 1.0F, 1.0F};
-    }
-    if (!rt::sun_light().on) {
         return {1.0F, 1.0F, 1.0F};
     }
     const std::array<float, 3> now =
@@ -1484,7 +1481,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     // often a new step came, until every frame was spent on it (a 3 fps Boston with tod_cycle on).
     const bool newer = rt::dot(toward, st.sun) < kSameSun ||
                        (day.on ? day.light_radius : rt::kRelitSunRadiusDegrees) != st.radius ||
-                       sky_model != st.sky_model || day_serial != st.day_serial; // (the sky model publishes late)
+                       day_serial != st.day_serial;
     if (newer && !relight_running()) {
         ++st.relights;
         st.sky_model = sky_model;

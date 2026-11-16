@@ -168,7 +168,12 @@ inline constexpr double kLampsOn = 6.0;       // the lamps start to come on with
 inline constexpr double kLampsFull = -4.0;    // ... and are whole here
 inline constexpr double kStarsFrom = -6.0;    // the stars from none here ...
 inline constexpr double kStarsFull = -16.0;   // ... to all here
-inline constexpr float kDirectShare = 0.65F;  // the share of the level's own light that is the sun's (the shadows')
+// the share of the level's own light that is the sun's (the shadows') without the clock - with it the model's at the
+// level's own sun (direct_share_at; changed by the physical air: one number for every level was the old way)
+inline constexpr float kDirectShare = 0.65F;
+// The share of a level surface's light that is the sun's direct light with the sun `elevation` degrees up: its
+// transmittance x sine over that and the whole sky's (rt_sky.h's model, the frame's air; single scattering).
+[[nodiscard]] float direct_share_at(double elevation);
 // (The exposure is the camera's alone - gpu_vulkan/vulkan_hdr.h's meter; the clock's own exposure was retired by the
 // physical air.)
 // The original's states blended by the sun's elevation: afternoon above kStateDay, evening (after noon) / morning
@@ -198,7 +203,9 @@ struct DayLight {
     float light_radius = kSunRadiusDegrees; // the direct light's angular radius (degrees): how soft its shadows are
     DayRgb sky{1.0F, 1.0F, 1.0F};         // the sky's light over the level's own (display-referred)
     DayRgb bounce{1.0F, 1.0F, 1.0F};      // the light bounced off the surroundings over the level's own: the direct
-                                          // light's and the sky's in the level's own shares (kDirectShare)
+                                          // light's and the sky's in the level's own shares (direct_share)
+    float direct_share = kDirectShare;    // (added by the physical air) the direct light's share of the level's own
+                                          // light - the model's at its own sun (direct_share_at)
     float shadow = 1.0F;      // the sun's shadows' strength over the level's own (their share of the light)
     float lamps = 0.0F;       // 0 - 1: the lamps (rt_lights) on
     float stars = 0.0F;       // 0 - 1
