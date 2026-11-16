@@ -231,22 +231,19 @@ inline constexpr float kOvercastRadiusDegrees = 16.0F;
 inline constexpr float kOvercastGrey = 0.75F;
 inline constexpr float kOvercastScatter = 0.5F;
 void apply_overcast(DayLight* light, float share);
-// The drawn clouds' light at the clock's time (the Vulkan sky pass's: its clouds are lit by the sun and by the sky's
-// bands it matched at the level's own time): the sun's light on them x `sun` (gone once the sun is kCloudSunGone under
-// the horizon - a cloud high up keeps the sunset's light a little after the ground has lost it), the sky's x `sky` (the
-// sky's light now over the level's own time's - sky_light_at, linear), plus the night sky's own light (night_sky) on
-// their tops and bases - with the moon up a little more: at night a cloud is a dim silhouette barely lighter than the
-// sky round it, not a daylit one. All 1 / 0 while `on` is false; continuous over the dusk.
+// The drawn clouds' light at the clock's time (the Vulkan sky pass's). Their sky light is the drawn sky's own, read from
+// its table (rt_clouds.h cloud_sky_light: the sky as it is now, the night sky's light in it); the sun's light on them
+// is the atmosphere's transmittance at the layer (reddened when low) x `sun` (gone once the sun is kCloudSunGone under
+// the horizon - a cloud high up keeps the sunset's light a little after the ground has lost it); with the full moon up
+// `moon_glow` (night_sky x kCloudMoonGlow x the moon's disc) is added on their tops and bases: at night a cloud is a dim
+// silhouette barely lighter than the sky round it, not a daylit one. 1 / none while `on` is false; continuous over
+// the dusk.
 inline constexpr double kCloudSunGone = -6.0;  // degrees: the sun's light on the clouds from none here ...
 inline constexpr double kCloudSunWhole = 0.0;  // ... to all here
-inline constexpr float kCloudMostSky = 4.0F;   // the sky's ratio at most (a noon over a dusk level's own time)
-inline constexpr float kCloudNightBase = 0.6F; // the night sky's light on the clouds' bases (x night_sky)
-inline constexpr float kCloudMoonGlow = 0.5F;  // and more on both with the full moon up (x night_sky x moon_disc)
+inline constexpr float kCloudMoonGlow = 0.5F;  // (x night_sky x moon_disc)
 struct CloudLight {
     float sun = 1.0F;
-    float sky = 1.0F;
-    DayRgb night_top{};
-    DayRgb night_bottom{};
+    DayRgb moon_glow{}; // exposed linear, added to the sky's light on them
 };
 [[nodiscard]] CloudLight cloud_light(const DayLight& light);
 // The sky's light on a level surface with the sun `elevation` degrees up, linear, relative to the sun overhead's

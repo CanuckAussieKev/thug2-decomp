@@ -76,13 +76,9 @@ void release_sky(Backend& state);
 // --- (added by the sky: [Graphics] rt_sky) the atmosphere with every order of scattering ------------------------------
 // Three tables of rt_sky.h's multiple-scattering model (16-bit floats, GENERAL layout): the transmittance (256 x 64,
 // made once), Psi (32 x 32, once) and the sky seen from the viewer (192 x 108, exposed linear radiance), made again
-// whenever its input changes: the drawn sky's sun, the gains that match it to the level (each band's colour multiplied
-// - the horizon's, half way up's, overhead's, interpolated between their elevations); below the horizon the horizon's haze
-// giving way to the model's far ground (never the level's dome: what it paints down there is left out of the match).
-// The bands' centres (radians: 4, 30 and 72 degrees - rt_sky_match.h kSkyBandRanges), where each gain holds.
-inline constexpr float kGainHorizon = 0.07F;
-inline constexpr float kGainMiddle = 0.52F;
-inline constexpr float kGainZenith = 1.26F;
+// whenever its input changes: the drawn sky's sun (the time of day's - rt::DayLight - or the level's); below the horizon
+// the horizon's haze giving way to the model's far ground. The sky is the model's alone at every time of day: the level's
+// painted dome is not matched (retired with rt_sky_match - the original look is rt_sky=0).
 // Below the horizon: the haze's elevation (radians, just above the horizon - the model's viewer is kViewerAltitude up,
 // its own horizon 0.3 degrees down), how far down (radians) the model's ground comes in, and how much of it at most.
 inline constexpr double kHazeElevation = 0.01;
@@ -91,10 +87,8 @@ inline constexpr double kBelowShare = 0.7;
 inline constexpr double kNightHorizon = 1.5; // (added by the time of day) the night sky at the horizon over overhead
 struct AtmosphereInput {
     std::array<float, 3> sun{0.0F, 1.0F, 0.0F}; // toward the drawn sky's sun (world, normalised)
-    std::array<std::array<float, 3>, 3> gains{{{1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}}};
-    std::array<float, 3> gain_elevations{kGainHorizon, kGainMiddle, kGainZenith}; // radians
     // (added by the time of day - engine/gfx/rt_daylight.h DayLight::night_sky) the night sky's light overhead, added
-    // after the gains (exposed linear; kNightHorizon times it at the horizon and below); 0 by day and without the clock
+    // to the model's (exposed linear; kNightHorizon times it at the horizon and below); 0 by day and without the clock
     std::array<float, 3> night{};
     bool operator==(const AtmosphereInput&) const = default;
 };

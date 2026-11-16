@@ -73,10 +73,11 @@ float ray_length(vec3 o, vec3 d, out bool ground)
     return max(0.0, -r * mu + sqrt(max(0.0, base + TOP * TOP)));
 }
 
-vec2 densities(vec3 p)
+// (Rayleigh's, Mie's, the ozone's - rt_sky.h)
+vec3 densities(vec3 p)
 {
     float h = max(0.0, length(p) - GROUND);
-    return vec2(exp(-h / RAYLEIGH_HEIGHT), exp(-h / MIE_HEIGHT));
+    return vec3(exp(-h / RAYLEIGH_HEIGHT), exp(-h / MIE_HEIGHT), max(0.0, 1.0 - abs(h - OZONE_CENTRE) / OZONE_HALF_WIDTH));
 }
 
 vec2 segment(float len, int i, int n)
@@ -86,13 +87,16 @@ vec2 segment(float len, int i, int n)
     return vec2(len * a * a, len * b * b);
 }
 
-vec3 extinction(vec2 depth) { return RAYLEIGH * depth.x + vec3(MIE_SCATTERING / MIE_ALBEDO) * depth.y; }
+vec3 extinction(vec3 depth)
+{
+    return RAYLEIGH * depth.x + vec3(MIE_SCATTERING / MIE_ALBEDO) * depth.y + OZONE * depth.z;
+}
 
-bool depth_to_top(vec3 o, vec3 d, int steps, out vec2 depth)
+bool depth_to_top(vec3 o, vec3 d, int steps, out vec3 depth)
 {
     bool ground;
     float len = ray_length(o, d, ground);
-    depth = vec2(0.0);
+    depth = vec3(0.0);
     if (ground) {
         return false;
     }
@@ -109,7 +113,7 @@ vec3 viewer() { return vec3(0.0, GROUND + VIEWER_ALTITUDE, 0.0); }
 constexpr const char* kTableMain = R"(
 vec3 transmittance(vec3 d)
 {
-    vec2 depth;
+    vec3 depth;
     if (!depth_to_top(viewer(), d, sky.steps.y, depth)) {
         return vec3(0.0);
     }
@@ -127,14 +131,14 @@ vec3 radiance(vec3 view, vec3 sun)
     float mie_phase = 3.0 / (8.0 * PI) * ((1.0 - g * g) * (1.0 + mu * mu)) /
                       ((2.0 + g * g) * pow(1.0 + g * g - 2.0 * g * mu, 1.5));
     vec3 sum = vec3(0.0);
-    vec2 travelled = vec2(0.0);
+    vec3 travelled = vec3(0.0);
     int n = sky.steps.x;
     for (int i = 0; i < n; ++i) {
         vec2 s = segment(len, i, n);
         float ds = s.y - s.x;
         vec3 p = o + view * (0.5 * (s.x + s.y));
-        vec2 here = densities(p);
-        vec2 to_sun;
+        vec3 here = densities(p);
+        vec3 to_sun;
         if (depth_to_top(p, sun, sky.steps.y, to_sun)) {
             vec3 tau = extinction(travelled + 0.5 * here * ds + to_sun);
             sum += exp(-tau) * (RAYLEIGH * here.x * rayleigh_phase + vec3(MIE_SCATTERING * here.y * mie_phase)) * ds;
@@ -193,7 +197,6 @@ layout(set = 0, binding = 1) uniform sampler2D u_transmittance;
 layout(set = 0, binding = 2) uniform sampler2D u_multiple;
 layout(push_constant) uniform Atmosphere {
     vec4 sun;        // xyz the model's sun (cos e, sin e, 0); w the exposure
-    vec4 gains[3];   // the horizon's, half way up's, overhead's gains (rgb); w its elevation (radians)
     vec4 night;      // (added by the time of day) rgb the night sky's light overhead, exposed (0 by day)
 } atmosphere;
 )";
@@ -255,7 +258,7 @@ void main()
     vec3 o = vec3(0.0, r, 0.0);
     vec3 dir = vec3(sqrt(max(0.0, 1.0 - mu * mu)), mu, 0.0);
     float ds = d / float(TRANS_STEPS);
-    vec2 depth = vec2(0.0);
+    vec3 depth = vec3(0.0);
     for (int i = 0; i < TRANS_STEPS; ++i) {
         depth += densities(o + dir * ((float(i) + 0.5) * ds)) * ds;
     }
@@ -289,7 +292,7 @@ void main()
             vec3 throughput = vec3(1.0);
             for (int k = 0; k < MS_STEPS; ++k) {
                 vec3 p = o + w * ((float(k) + 0.5) * ds);
-                vec2 here = densities(p);
+                vec3 here = densities(p);
                 vec3 sigma_s = RAYLEIGH * here.x + vec3(MIE_SCATTERING * here.y);
                 vec3 sigma_t = extinction(here);
                 vec3 kept = exp(-sigma_t * ds);
@@ -311,10 +314,9 @@ void main()
 }
 )";
 
-// 3. The sky seen from the viewer (rt_sky.h sky_radiance_ms x the exposure), matched to the level (the gains). Below the
-// horizon the horizon's haze (the sky just above it, in the same azimuth) giving way to the model's own far ground by
-// BELOW_SHARE over BELOW_FADE radians down - the level's dome is never asked what is down there (a painted ring of
-// ground would come back as a band): the far world's aerial haze, which reads this table, meets the sky without one.
+// 3. The sky seen from the viewer (rt_sky.h sky_radiance_ms x the exposure). Below the horizon the horizon's haze (the
+// sky just above it, in the same azimuth) giving way to the model's own far ground by BELOW_SHARE over BELOW_FADE
+// radians down: the far world's aerial haze, which reads this table, meets the sky without a band.
 constexpr const char* kSkyViewMain = R"(
 vec3 radiance_ms(vec3 view, vec3 sun)
 {
@@ -327,12 +329,12 @@ vec3 radiance_ms(vec3 view, vec3 sun)
     float mie_phase = 3.0 / (8.0 * PI) * ((1.0 - g * g) * (1.0 + mu * mu)) /
                       ((2.0 + g * g) * pow(1.0 + g * g - 2.0 * g * mu, 1.5));
     vec3 sum = vec3(0.0);
-    vec2 travelled = vec2(0.0);
+    vec3 travelled = vec3(0.0);
     for (int i = 0; i < VIEW_STEPS; ++i) {
         vec2 s = segment(len, i, VIEW_STEPS);
         float ds = s.y - s.x;
         vec3 p = o + view * (0.5 * (s.x + s.y));
-        vec2 here = densities(p);
+        vec3 here = densities(p);
         vec3 seen = exp(-extinction(travelled + 0.5 * here * ds));
         vec3 rayleigh_s = RAYLEIGH * here.x;
         vec3 mie_s = vec3(MIE_SCATTERING * here.y);
@@ -349,23 +351,6 @@ vec3 radiance_ms(vec3 view, vec3 sun)
     return sum;
 }
 
-vec3 gain_at(float e)
-{
-    vec4 h = atmosphere.gains[0];
-    vec4 m = atmosphere.gains[1];
-    vec4 z = atmosphere.gains[2];
-    if (e <= h.w) {
-        return h.rgb;
-    }
-    if (e <= m.w) {
-        return mix(h.rgb, m.rgb, (e - h.w) / max(m.w - h.w, 1e-4));
-    }
-    if (e <= z.w) {
-        return mix(m.rgb, z.rgb, (e - m.w) / max(z.w - m.w, 1e-4));
-    }
-    return z.rgb;
-}
-
 void main()
 {
     ivec2 q = ivec2(gl_GlobalInvocationID.xy);
@@ -378,10 +363,10 @@ void main()
     float s = 2.0 * v - 1.0;
     float e = sign(s) * s * s * (0.5 * PI);
     vec3 view = vec3(cos(e) * cos(azimuth), sin(e), cos(e) * sin(azimuth));
-    vec3 value = radiance_ms(view, atmosphere.sun.xyz) * atmosphere.sun.w * gain_at(e);
+    vec3 value = radiance_ms(view, atmosphere.sun.xyz) * atmosphere.sun.w;
     if (e < 0.0) {
         vec3 level = vec3(cos(HAZE_ELEVATION) * cos(azimuth), sin(HAZE_ELEVATION), cos(HAZE_ELEVATION) * sin(azimuth));
-        vec3 haze = radiance_ms(level, atmosphere.sun.xyz) * atmosphere.sun.w * gain_at(HAZE_ELEVATION);
+        vec3 haze = radiance_ms(level, atmosphere.sun.xyz) * atmosphere.sun.w;
         value = mix(haze, value, BELOW_SHARE * smoothstep(0.0, 1.0, -e / BELOW_FADE));
     }
     // (added by the time of day) the night sky's own light - the moon's scattered and the airglow: overhead, half as
@@ -403,10 +388,9 @@ static_assert(sizeof(TableConstants) == kTableConstantBytes, "the shader's push-
 
 struct AtmosphereConstants {
     std::array<float, 4> sun{};
-    std::array<std::array<float, 4>, 3> gains{};
     std::array<float, 4> night{}; // (added by the time of day) rgb the night sky overhead (exposed linear)
 };
-constexpr std::size_t kAtmosphereConstantBytes = 80;
+constexpr std::size_t kAtmosphereConstantBytes = 32;
 static_assert(sizeof(AtmosphereConstants) == kAtmosphereConstantBytes, "the shaders' push-constant block");
 
 constexpr uint32_t kTransmittanceSteps = 40;
@@ -502,6 +486,10 @@ std::string defines()
     add("MIE_ALBEDO", number(rt::kMieAlbedo));
     add("MIE_HEIGHT", number(rt::kMieHeight));
     add("MIE_G", number(rt::kMieG));
+    add("OZONE", "vec3(" + number(core::at(rt::kOzoneAbsorption, 0)) + ", " + number(core::at(rt::kOzoneAbsorption, 1)) +
+                     ", " + number(core::at(rt::kOzoneAbsorption, 2)) + ")");
+    add("OZONE_CENTRE", number(rt::kOzoneCentre));
+    add("OZONE_HALF_WIDTH", number(rt::kOzoneHalfWidth));
     add("DISPLAY_GAMMA", number(rt::kDisplayGamma));
     add("LOWEST", number(rt::kSkyLutLowest));
     add("WIDTH", std::to_string(rt::kSkyLutWidth));
@@ -1111,11 +1099,6 @@ bool update_atmosphere(Backend& state, VkCommandBuffer commands, const Atmospher
     AtmosphereConstants constants{};
     constants.sun = {static_cast<float>(core::at(model, 0)), static_cast<float>(core::at(model, 1)),
                      static_cast<float>(core::at(model, 2)), static_cast<float>(rt::sky_exposure())};
-    for (std::size_t band = 0; band < constants.gains.size(); ++band) {
-        const std::array<float, 3>& gain = core::at(input.gains, band);
-        core::at(constants.gains, band) = {core::at(gain, 0), core::at(gain, 1), core::at(gain, 2),
-                                           core::at(input.gain_elevations, band)};
-    }
     constants.night = {core::at(input.night, 0), core::at(input.night, 1), core::at(input.night, 2), 0.0F};
     if (!own.fixed_made) {
         atmosphere_pass(commands, own.transmittance, &own.transmittance_table, constants);

@@ -151,4 +151,29 @@ struct CloudResult {
 // The phase of the two lobes at an asymmetry scale (1 for the first octave).
 [[nodiscard]] double cloud_phase(double cosine, double asymmetry_scale);
 
+// (added by the low sun's sky) The sky's light on the clouds - CloudRay's ambient_bottom / ambient_top - read from the
+// drawn sky itself: rt_sky.h's sky-view table (kSkyViewWidth x kSkyViewHeight, exposed linear), the sky as it is at
+// the time of day, so a cloud's shaded side takes the dawn's pale sky at dawn and the deep blue at noon (before, the
+// light was the model's at the level's own time, scaled by the time's brightness and tinted by the level's painted sky:
+// midday blue on dawn clouds). Their tops: the mean light of the upper hemisphere (the sky); their bases: of the lower
+// one (what the table shows down there - the far ground lit by the sun and the sky, through the haze). Each the mean
+// over kCloudSkyRows elevations (evenly spaced) x kCloudSkyAzimuths azimuths from the sun's (0 - 180: the table is
+// symmetric about the sun's azimuth), each tap the texel holding that direction (no filtering: the device reads the
+// same texels), weighted by cos e (its share of the sphere), the weights of each set summing to 1.
+inline constexpr uint32_t kCloudSkyRows = 6;
+inline constexpr uint32_t kCloudSkyAzimuths = 4;
+struct CloudSkyTap {
+    uint32_t column = 0;
+    uint32_t row = 0;
+    double weight = 0.0;
+    bool top = false;
+};
+[[nodiscard]] std::vector<CloudSkyTap> cloud_sky_taps();
+struct CloudSkyLight {
+    std::array<double, 3> bottom{};
+    std::array<double, 3> top{};
+};
+// The taps' sums over a sky-view table read back (row by row, kSkyViewWidth texels a row, rgb + a; negatives as 0).
+[[nodiscard]] CloudSkyLight cloud_sky_light(const std::vector<std::array<float, 4>>& table);
+
 } // namespace render::rt

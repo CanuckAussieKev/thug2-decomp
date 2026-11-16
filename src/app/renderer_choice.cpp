@@ -316,7 +316,6 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
         }
     }
     return render::vulkan::RtSkySettings{.on = in_effect.on("rt_sky"),
-                                         .match = in_effect.number("rt_sky_match", render::vulkan::kRtSkyMatch),
                                          .clouds = in_effect.on("rt_clouds"),
                                          .coverage = cover,
                                          .speed = in_effect.number("rt_cloud_speed", 1.0F),

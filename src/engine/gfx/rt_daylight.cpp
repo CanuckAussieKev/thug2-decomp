@@ -624,14 +624,10 @@ CloudLight cloud_light(const DayLight& light)
         return out;
     }
     const double sun = heading_of(light.sun).elevation;
-    const double own = heading_of(light.native).elevation;
     out.sun = static_cast<float>(smoothstep(kCloudSunGone, kCloudSunWhole, sun));
-    const double own_sky = sky_light_at(own);
-    out.sky = own_sky > 0.0 ? std::clamp(static_cast<float>(sky_light_at(sun) / own_sky), 0.0F, kCloudMostSky) : 1.0F;
     const float glow = kCloudMoonGlow * light.moon_disc;
-    for (std::size_t ch = 0; ch < out.night_top.size(); ++ch) {
-        core::at(out.night_top, ch) = core::at(light.night_sky, ch) * (1.0F + glow);
-        core::at(out.night_bottom, ch) = core::at(light.night_sky, ch) * (kCloudNightBase + glow);
+    for (std::size_t ch = 0; ch < out.moon_glow.size(); ++ch) {
+        core::at(out.moon_glow, ch) = core::at(light.night_sky, ch) * glow;
     }
     return out;
 }

@@ -195,16 +195,37 @@ bool world_light_here(vec3 to_camera, float distance, out WorldLight w)
 #endif
 
 // (added for the skater's shadow) Whether the pixel shows an object - a ray from the camera through it against the
-// objects alone ends where the depth does.
-bool on_object(vec3 here, vec3 to_camera, float distance)
+// objects alone ends where the depth does. (the one lighting path - the objects' shadows) With its object's lights
+// (vulkan_rt_scene.h hit_object_light: the game's lights it was drawn with) `lit` is true, `all` the light it takes
+// here and `key` the key light's part of it - the direct light, the one the sun's shadow takes away; `normal` the
+// depth's, for a mesh without normals of its own.
+bool on_object(vec3 here, vec3 to_camera, float distance, vec3 normal, out bool lit, out vec3 all, out vec3 key)
 {
+    lit = false;
+    all = vec3(0.0);
+    key = vec3(0.0);
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT, OBJECTS_MASK, pc.camera.xyz, 0.0,
                           -to_camera / max(distance, 1e-6), distance * 1.02 + 2.0);
     while (rayQueryProceedEXT(query)) {
     }
-    return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT &&
-           rayQueryGetIntersectionTEXT(query, true) >= distance - (2.0 + 0.02 * distance);
+    bool hit = rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT &&
+               rayQueryGetIntersectionTEXT(query, true) >= distance - (2.0 + 0.02 * distance);
+#ifdef ALPHA_TESTED
+    ObjectLight light;
+    uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
+    if (hit && hit_object_light(instance, light)) {
+        vec3 own;
+        if (hit_normal(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                       rayQueryGetIntersectionBarycentricsEXT(query, true), own) && dot(own, own) > 1e-12) {
+            normal = normalize(mat3(rayQueryGetIntersectionObjectToWorldEXT(query, true)) * own);
+        }
+        lit = true;
+        all = object_light_with(light, normal, 1.0);
+        key = all - object_light_with(light, normal, 0.0);
+    }
+#endif
+    return hit;
 }
 
 void main()
@@ -226,15 +247,18 @@ void main()
     // blotches over the skater) - the objects receive the world's shadows only.
     uint world_mask = mask & ~OBJECTS_MASK;
     uint objects_mask = mask & OBJECTS_MASK;
-    bool object_pixel = on_object(here, to_camera, distance);
-    if (object_pixel) {
-        objects_mask = 0u;
-    }
     vec3 normal = cross(surface_step(p, d, here, ivec2(1, 0)), surface_step(p, d, here, ivec2(0, 1)));
     float normal_length = length(normal);
     normal = normal_length > 1e-20 ? normal / normal_length : to_camera / max(distance, 1e-6);
     if (dot(normal, to_camera) < 0.0) {
         normal = -normal;
+    }
+    bool object_lit;
+    vec3 object_all;
+    vec3 object_key;
+    bool object_pixel = on_object(here, to_camera, distance, normal, object_lit, object_all, object_key);
+    if (object_pixel) {
+        objects_mask = 0u;
     }
     vec3 light = pc.to_light.xyz;
     float occlusion = 1.0; // (facing away from the light: in its own shadow)
@@ -285,9 +309,21 @@ void main()
         return;
     }
 #endif
-    // Every other lit pixel (the skater, the peds, the objects - lit by the game's lights - and a world vertex the game
-    // animates): its direct light's share of its light (pc.to_light.w: the lighting state's - rt_light_field.h
-    // direct_share) is what the sun's visibility takes away.
+    if (object_lit) {
+        // (the one lighting path - the objects' shadows) an object's pixel loses only what its key light - the direct
+        // light - brings here, as a relit world pixel loses only its direct light: its ambient, its fill and the
+        // level's lamps stay (the device's lighting held to 1, as Direct3D's is). Before, the whole pixel was
+        // multiplied, so a skater in a building's or a cloud's shadow went black. (Lighting round A: the sun's whole
+        // visibility - no strength.)
+        vec3 before = min(object_all, vec3(1.0));
+        vec3 after = min(max(object_all - object_key * (1.0 - visible), vec3(0.0)), vec3(1.0));
+        vec3 factor = mix(vec3(1.0), after / max(before, vec3(1e-4)), greaterThan(before, vec3(1e-4)));
+        o_factor = vec4(clamp(factor * 0.5, 0.0, 1.0), 1.0); // (the blend doubles it)
+        return;
+    }
+    // Every other lit pixel (an object whose lights aren't known, a world vertex the game animates): its direct light's
+    // share of its light (pc.to_light.w: the lighting state's - rt_light_field.h direct_share) is what the sun's
+    // visibility takes away.
     o_factor = vec4(vec3(0.5 * (1.0 - pc.to_light.w * (1.0 - visible))), 1.0); // (the blend doubles it)
 }
 )";

@@ -665,7 +665,7 @@ std::vector<Decl> declarations()
             .live(E::kSky),
         gfx("rt_cloud_speed", K::kNumber, "1").need(on("rt_clouds")).live(E::kSky),
         gfx("rt_cloud_shadows", K::kSwitch, "0").need(on("rt_clouds")).live(E::kSky),
-        gfx("rt_sky_match", K::kNumber, "0.8").need(on("rt_sky")).live(E::kSky),
+        gfx("rt_sky_match", K::kNumber, "0.8").retire(t::kRetired), // (the sky is the time of day's atmosphere alone)
         gfx("rt_sky_model", K::kSwitch, "0").tab(G::kSky, t::kOptSkyModel, t::kOptSkyModelHelp).need(ray_tracing()).live(E::kSun),
         gfx("rt_sun", K::kSwitch, "0").tab(G::kSky, t::kOptSun, t::kOptSunHelp).need(vulkan(), t::kNeedsVulkan).live(E::kSun),
         // (the sun's colour: the disc's, and the light the sky table hands the other effects - made while the sun, its

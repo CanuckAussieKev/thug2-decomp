@@ -1990,7 +1990,6 @@ void run_sky_misses(render::Gpu& gpu, Mirror& mirror, Tally* tally)
     rt::set_sun_override(&toward);
     vk::RtSkySettings sky;
     sky.on = true;
-    sky.match = 0.0F;
     sky.clouds = false;
     vk::set_rt_sky_settings(sky);
     vk::set_rt_reflection_settings({.on = true, .strength = 1.0F, .fresnel = false});

@@ -104,7 +104,6 @@ layout(set = 0, binding = 3, std140) uniform Pass {
     vec4 sky_sun;
     vec4 sky_low;
     vec4 sky_rect;
-    vec4 sky_tint;
     // (added for the surface reflections) x rt_reflection_surfaces, y the roughest map texel that reflects, z the cone's
     // half-angle per GGX alpha (the roughness squared)
     vec4 surface;
@@ -250,7 +249,7 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
     if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
 #ifdef SKY
         // (added by the sky) rt_sky: the miss sees the sky drawn - its atmosphere and clouds - as the game's colours
-        vec3 sky = sky_for_ray(direction, pass.sky_to_pixel, pass.sky_sun, pass.sky_low, pass.sky_rect, pass.sky_tint);
+        vec3 sky = sky_for_ray(direction, pass.sky_to_pixel, pass.sky_sun, pass.sky_low, pass.sky_rect);
         return vec4(clamp(pow(max(sky, vec3(0.0)), vec3(1.0 / 2.2)), 0.0, 1.0), 1.0);
 #else
         return vec4(0.0);
@@ -585,10 +584,9 @@ struct TraceBlock {
     std::array<float, 4> sky_sun{};
     std::array<float, 4> sky_low{};
     std::array<float, 4> sky_rect{};
-    std::array<float, 4> sky_tint{};
     std::array<float, 4> surface{}; // (added for the surface reflections)
 };
-constexpr std::size_t kTraceBlockBytes = 432;
+constexpr std::size_t kTraceBlockBytes = 416;
 static_assert(sizeof(TraceBlock) == kTraceBlockBytes, "the shader's Pass block (std140)");
 
 // The bindings of set 0 (push descriptors): 0 the scene, 1 the depth, 2 the reflection written, 3 the pass's block,
@@ -1644,7 +1642,6 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
         block.sky_sun = sky.sun;
         block.sky_low = sky.low;
         block.sky_rect = sky.rect;
-        block.sky_tint = sky.tint;
     }
     std::array<uint8_t, sizeof(TraceBlock)> block_bytes{};
     std::memcpy(block_bytes.data(), &block, sizeof(block));

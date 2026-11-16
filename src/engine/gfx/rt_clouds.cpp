@@ -484,4 +484,59 @@ CloudResult march_clouds(const CloudNoise& noise, const CloudRay& ray)
     return result;
 }
 
+std::vector<CloudSkyTap> cloud_sky_taps()
+{
+    std::vector<CloudSkyTap> taps;
+    constexpr double kDegrees = std::numbers::pi / 180.0;
+    const auto texel_of = [](double azimuth, double elevation) {
+        const std::array<double, 2> uv = sky_view_uv(
+            {std::cos(elevation) * std::cos(azimuth), std::sin(elevation), std::cos(elevation) * std::sin(azimuth)});
+        const auto index = [](double unit, uint32_t size) {
+            return std::min(size - 1, static_cast<uint32_t>(std::max(0.0, unit * static_cast<double>(size))));
+        };
+        return std::array<uint32_t, 2>{index(core::at(uv, 0), kSkyViewWidth), index(core::at(uv, 1), kSkyViewHeight)};
+    };
+    for (const bool top : {false, true}) {
+        const std::size_t first = taps.size();
+        double sum = 0.0;
+        for (uint32_t row = 0; row < kCloudSkyRows; ++row) {
+            const double elevation =
+                (top ? 1.0 : -1.0) * (static_cast<double>(row) + kHalf) * (90.0 / kCloudSkyRows) * kDegrees;
+            for (uint32_t column = 0; column < kCloudSkyAzimuths; ++column) {
+                const double azimuth = (static_cast<double>(column) + kHalf) * (180.0 / kCloudSkyAzimuths) * kDegrees;
+                const std::array<uint32_t, 2> texel = texel_of(azimuth, elevation);
+                // (the texel's own elevation: its centre's)
+                const Dir centre = sky_view_direction(
+                    {(static_cast<double>(core::at(texel, 0)) + kHalf) / static_cast<double>(kSkyViewWidth),
+                     (static_cast<double>(core::at(texel, 1)) + kHalf) / static_cast<double>(kSkyViewHeight)});
+                const double rise = core::at(centre, 1);
+                const double weight = std::sqrt(std::max(0.0, 1.0 - (rise * rise)));
+                taps.push_back({.column = core::at(texel, 0), .row = core::at(texel, 1), .weight = weight, .top = top});
+                sum += weight;
+            }
+        }
+        for (std::size_t i = first; i < taps.size(); ++i) {
+            core::at(taps, i).weight *= sum > 0.0 ? 1.0 / sum : 0.0;
+        }
+    }
+    return taps;
+}
+
+CloudSkyLight cloud_sky_light(const std::vector<std::array<float, 4>>& table)
+{
+    CloudSkyLight out;
+    for (const CloudSkyTap& tap : cloud_sky_taps()) {
+        const std::size_t index = (static_cast<std::size_t>(tap.row) * kSkyViewWidth) + tap.column;
+        if (index >= table.size()) {
+            continue;
+        }
+        const std::array<float, 4>& texel = core::at(table, index);
+        std::array<double, 3>& sum = tap.top ? out.top : out.bottom;
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            core::at(sum, channel) += tap.weight * std::max(0.0, static_cast<double>(core::at(texel, channel)));
+        }
+    }
+    return out;
+}
+
 } // namespace render::rt

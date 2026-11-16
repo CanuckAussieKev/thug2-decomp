@@ -13,8 +13,12 @@
 //     exp(-h / kRayleighHeight); phase 3 / (16 pi) (1 + mu^2).
 //   - Mie (aerosols, haze): scattering kMieScattering, extinction kMieScattering / kMieAlbedo, density exp(-h /
 //     kMieHeight); phase Cornette-Shanks with g = kMieG.
-//   - The sun's transmittance from a point toward it: exp(-optical depth) through both to the atmosphere's top (0 when
-//     the ground is in the way).
+//   - Ozone (added by the low sun's sky): absorption only, kOzoneAbsorption per metre where it is densest, its density a
+//     tent kOzoneHalfWidth either side of kOzoneCentre (Hillaire's EGSR 2020 values). Overhead it takes 3% of the green,
+//     little; along a low sun's long path it takes the orange and green out of the light that reaches the far sky - the
+//     twilight sky stays blue overhead and the anti-solar sky's band at sunset turns pink rather than yellow.
+//   - The sun's transmittance from a point toward it: exp(-optical depth) through all three to the atmosphere's top (0
+//     when the ground is in the way).
 //   - The sky's radiance along a view ray (per unit of the sun's irradiance): the integral over the ray of
 //     T(viewer -> x) x (Rayleigh's and Mie's scattering at x x their phase) x the sun's transmittance at x.
 // Both are integrals along rays: SkySteps says how many segments (their lengths growing with the square of the
@@ -42,6 +46,9 @@ inline constexpr double kMieScattering = 8.0e-6;
 inline constexpr double kMieAlbedo = 0.9;
 inline constexpr double kMieHeight = 1200.0;
 inline constexpr double kMieG = 0.8;
+inline constexpr Rgb kOzoneAbsorption{0.650e-6, 1.881e-6, 0.085e-6};
+inline constexpr double kOzoneCentre = 25000.0;    // metres above the ground
+inline constexpr double kOzoneHalfWidth = 15000.0; // (none under 10 km or over 40 km)
 inline constexpr double kDisplayGamma = 2.2;
 inline constexpr double kZenithTarget = 0.3; // the zenith's luminance (linear) with the sun 45 degrees up
 inline constexpr double kExposureElevation = 0.78539816339744831; // (45 degrees)

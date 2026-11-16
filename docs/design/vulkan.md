@@ -1530,28 +1530,39 @@ their depth and stay in front of any sky).
   transparent meshes only with `keep_layers` - true without clouds (LA keeps its smog bands, DJ its cloud cards over the
   new atmosphere), false with `rt_clouds=1` (the volumetric clouds replace the painted cards; a double layer of clouds
   read wrong). The listener draws over every pixel still at the far plane - the backdrop with it.
-- **The level's own sky** (`SkyCapture`, `rt_sky_match.h`). Once per sky scene `render_pc` draws all its meshes from the
+- **The level's own sky** (`SkyCapture`, `rt_sky_match.h`; since the low sun's sky only its clouds' share is used - the
+  coverage). Once per sky scene `render_pc` draws all its meshes from the
   origin into six 90-degree faces (a 384 x 256 texture, cleared to the background colour) and hands it over; the pass
   reads it back once and analyses it: per band of elevation - just below the horizon (-8 to -0.5 degrees: a painted sea,
   the far ground - logged, never matched), the horizon (0.5 - 10), half way (15 - 45), overhead (55 - 90) - the clear sky's colour (texels weighted
   by 1 - cloudiness, cloudiness from saturation: 0.32 and more clear, 0.10 and less cloud) and everything's mean; the
   clouds' share between 3 and 35 degrees up (the sky a player sees) and their colour. Logged: "rt_sky: the level's sky".
 - **The atmosphere** (`rt_sky.h`, `vulkan_rt_sky`): the existing model - Rayleigh, Mie, the same radii, scale heights and
-  phases, so the sun's colour, the fog's haze and the drawn sky are one model - with the light scattered more than once
+  phases, so the sun's colour, the fog's haze and the drawn sky are one model - and (added by the low sun's sky) ozone:
+  absorption only, Hillaire's 0.650 / 1.881 / 0.085 per 10^6 m in a tent 10 - 40 km up. Overhead it takes 3% of the
+  green; along a low sun's path it takes the orange and green out of the light reaching the far sky, so with the sun
+  3 degrees down the sky away from it shows the Earth's shadow (1 - 3 degrees up, blue over red 1.4, dark) under the
+  Belt of Venus (9 - 15 degrees, blue over red 0.76, pink, 1.5 x brighter) and the twilight zenith stays blue (without
+  ozone that band was a greenish yellow). The light scattered more than once
   added after Hillaire (EGSR 2020): Psi(altitude, sun) = L2 / (1 - f) from 8 x 8 directions round each point (the second
   order with an even phase and the ground's light, albedo 0.3), added as scattering x Psi along each view ray. Three
   tables, 16-bit floats: the transmittance (256 x 64, Bruneton's mapping, made once), Psi (32 x 32, once), and the sky
   from the viewer (192 x 108: across sqrt(azimuth / pi) from the sun, down the elevation's signed square root - fine near
-  the sun and the horizon, below it too), made again when the sun or the match changes. Exposure as before (the zenith
+  the sun and the horizon, below it too), made again when the sun moves. Exposure as before (the zenith
   0.3 with the sun 45 degrees up): the multiple scattering lifts the sky 1.15 x (sun 10 degrees up) to 1.5 x (45).
-- **The match** (`rt_sky_match`, 0.8 by default). Gains per channel for the horizon, half way and overhead bands -
-  the level's colour (its clear sky with clouds on, everything's without: an overcast level stays grey) over the model's
-  band mean, linear, clamped to 0.05 - 20, to the power `rt_sky_match` - interpolated between the bands' centres (4, 30,
-  72 degrees). Below the horizon the dome is not asked (its painted ground - BE's brown ring, BO's khaki far ground -
-  came back as a warm band right under the horizon): the sky-view table shows the horizon's haze there (the sky 0.6
-  degrees up in the same azimuth) giving way to the model's own far ground by up to 60% over 20 degrees down - the far
-  world's aerial haze, which reads this table, and the sky meet without a band. The sky keeps the model's shape -
-  brighter toward the sun, a gradient to the horizon - with each level's colours. Logged: "rt_sky: matched - gains ...".
+- **No match to the painted sky** (since 2026-11-16, the user: "If we implement TOD, we need TOD. Maintaining the old
+  style is not part of that."). Before, `rt_sky_match` (0.8 by default) multiplied the model per channel toward the
+  dome's colours band by band (horizon, half way, overhead), the gains worked out once for the level's own sun and kept
+  at every hour, and the clouds took the dome's cloud hue and brightness; at College 06:10 that held a midday blue
+  away from a 10-degree sun (the gains there: horizon 0.27 0.25 0.33, half way 0.40 0.39 0.48, overhead 0.65 0.61 0.77 -
+  their blue over red 1.2 x, applied to a sky the model had already turned pale) and white clouds lit by the noon
+  model's horizon colour. Now the sky-view table is the model's alone, at every time of day, driven by the clock's sun
+  (`rt::DayLight`); `rt_sky_match` is retired (a setting that does nothing). From the capture only the amount of cloud
+  is taken (the clouds' coverage, auto). The original look is `rt_sky=0` (the painted dome) - and `tod=level` keeps the
+  level's own lighting. Below the horizon the dome is still not asked (its painted ground came back as a band): the
+  sky-view table shows the horizon's haze there (the sky 0.6 degrees up in the same azimuth) giving way to the model's
+  own far ground by up to 60% over 20 degrees down - the far world's aerial haze, which reads this table, and the sky
+  meet without a band.
 - **The sun** it is drawn for: the one the player sees (`visible_sun`: the game's SetSun, the baked sun without one; a
   fixed 50 degrees up when neither exists - logged). The fog's table follows the drawn sky (`set_table_follows_sky_view`:
   its rows read from the sky-view table, the drawn sun in the last row's entry 3 - `sky_display` measures azimuths from
@@ -1570,12 +1581,20 @@ their depth and stay in front of any sky).
   the edges. The model turns from none to overcast over a narrow range of its own coverage, so the settings' coverage
   goes through `rt::cloud_amount` (kCloudAmounts, measured by the check's sweep): a coverage c leaves about 1 - c of
   the sky above 12 degrees clear (0.25: 75%, 0.5: 49%, 0.75: 24%, 1: none). The light: the sun's through the cloud
-  (six growing steps), Wrenninge's three octaves (Beer's law, multiple scattering), two Henyey-Greenstein lobes (0.8
-  forward - the silver lining toward the sun - and -0.3), a powder term, the sky's light (the model's horizon colour at
-  the base x0.6, its zenith's at the top, each as bright as the matched sky - not tinted twice); Hillaire's
-  energy-conserving step. Coverage auto from the level (0.2 + 0.7 x its share, at most 0.75: a painted sky's grey cards
-  and haze count as cloud, and a clear one should stay mostly clear), or `rt_cloud_coverage`; the clouds' colour x the
-  level's cloud hue and brightness (dark storm clouds stay dark). The layer is a shell round the planet
+  (six growing steps; the sun's light at the layer is the atmosphere's transmittance half way up it - red over blue
+  2.2 with the sun 10 degrees up, 8.9 at 3), Wrenninge's three octaves (Beer's law, multiple scattering), two
+  Henyey-Greenstein lobes (0.8 forward - the silver lining toward the sun - and -0.3), a powder term, the sky's light;
+  Hillaire's energy-conserving step. The sky's light (`rt_clouds.h cloud_sky_light`, since the low sun's sky) is read
+  from the drawn sky-view table by the march itself - their tops the mean light of the upper hemisphere, their bases of
+  the lower one (the far ground lit by the sun and the sky, through the haze), 6 elevations x 4 azimuths each, cos e
+  weighted, every tap a texel's centre (the processor's twin reads the same texels of the table read back): the sky as
+  it is now, the night sky's light in it at night. Before, it was the model's horizon and zenith colours at the level's
+  own time scaled by the hour's brightness (and matched to the dome): noon blue on the dawn clouds' shade, and with the
+  horizon band 2 - 3 x the hemisphere's mean the shade outshone the sun's side - white clouds at dawn. The clouds now
+  take nothing of the dome's colour (its cloud hue and brightness were a gain on them); at 06:10 their sun side is
+  warm, at dusk peach and gold. Coverage auto from the level (0.2 + 0.7 x its share, at most 0.75: a painted sky's grey
+  cards and haze count as cloud, and a clear one should stay mostly clear), or `rt_cloud_coverage`. The layer is a
+  shell round the planet
   (`cloud_layer_span`): a level ray meets its base 134 km off and the far clouds sink toward the horizon (d^2 / 2R: 197 m
   at 50 km), foreshortened; the march stops 40 km into the layer and the composite fades the clouds into the sky by e per
   20 km, so toward the horizon they melt into the haze instead of running out to it as a sheet.
@@ -1621,14 +1640,17 @@ their depth and stay in front of any sky).
   environment map as before.
 - **Not done**: (the time of day: "Time of day" below); clouds in reflections only where the reflected
   direction is on screen.
-- **Checked**: `thug2_vulkan_rt_sky_check` (60 checks; the RTX 5070 Ti and the AMD Radeon integrated GPU, validation and
+- **Checked**: `thug2_vulkan_rt_sky_check` (92 checks since the low sun's sky; the RTX 5070 Ti and the AMD Radeon integrated GPU, validation and
   synchronization validation 0, no ray tracing asked for): the transmittance table against 2048 segments, Psi against
   the processor's integral, the sky-view table against `sky_radiance_ms` (below the horizon: the same haze-to-ground
   blend on the processor) at 10 and 45 degrees, the multiple scattering brightening the sky, the zenith bluer than the
-  horizon; a painted capture analysed on the device exactly as on the processor, `rt_sky_match=1` putting each band's
-  centre at the model x the capture's colour over the model's band, 0 leaving the gains 1; below the horizon the
-  horizon's haze, not the capture's dark sea (across the horizon luma within 2%, chromaticity within 0.01); a khaki ring
-  painted under the horizon seen by the ground band and changing nothing in the match; the composite in an 8-bit and a
+  horizon; a painted capture analysed on the device exactly as on the processor, the clouds' coverage from it and the
+  sky-view table with it the model's to the bit (no colour of the dome in it); below the horizon the horizon's haze,
+  not the capture's dark sea (across the horizon luma within 2%, chromaticity within 0.01); a khaki ring painted under
+  the horizon seen by the ground band and changing nothing; (the low sun's sky) the sun's light reddened (red over blue
+  3.2 at 10 degrees up, 22 at 3, 2.3 at the clouds at 10), the anti-solar sky 5 - 40 degrees up paler with the sun 10
+  degrees up than at noon (saturation 0.34 against 0.46), with it 3 degrees down the Earth's shadow under the Belt of
+  Venus (above), the clouds seen toward a 10-degree sun warm (red over blue 1.65; 0.94 with it 45 up); the composite in an 8-bit and a
   float target; the noise the processor's to a step; every marched texel against the processor's march; the clear share
   of the sky above 12 degrees by coverage (0.25: 75%, 0.5: 49%, 0.75: 24%, 1: 0%); the layer's curvature (a level ray
   meets its base 133.5 km off, 50 km across it lies 196 m under a flat layer: d^2 / 2R); after 30 still frames the
@@ -1646,8 +1668,9 @@ their depth and stay in front of any sky).
   with clouds at half resolution 0.13 ms (march 0.09, temporal 0.01, composite 0.03) and 7.4 ms (4.7, 1.1, 1.6); a
   seeded first frame 12 x the march and temporal pass once. In the game at 1280 x 720 with 8 x MSAA and every other
   effect on: 0.04 - 0.12 ms on the RTX 5070 Ti.
-- **Dark levels**: the sun on the clouds x a smoothstep of the dome's brightness (0.18 - 0.30 of its mean luma): NO's
-  night sky (0.23) keeps its clouds dim grey; the day and dusk levels are unchanged.
+- **Dark levels**: (retired with the match) the sun on the clouds was x a smoothstep of the dome's brightness, so NO's
+  painted night kept its clouds dim. Now night is the clock's: with `tod` running NO is lit at midnight (the moon's
+  sky, the clouds' sun gone); with `tod=level` the sky is drawn for the game's sun as the level sets it.
 
 ### The first frame after a load
 
@@ -2178,19 +2201,16 @@ linear ratio r shows as r ^ (1 / 2.2), so night is dim, not black):
   darkening for everything relit didn't relight), `lights_by_day`, `CtodManager::colour_models`' global factor and the
   global `unlit_object_colour` - a door under a lamp was darker than the lamp-lit wall round it, the skater darker than
   the road he stood on.
-- **The sky** (`rt_sky`): drawn for the clock's sun - under the horizon too: the model's twilight - and matched to the
-  level for the level's own sun (so the painted sky's colours belong to the level's own time and the model moves them
-  to other times; matching at every time would repaint the level's sky at night). The night sky's light (0.0028,
-  0.0045, 0.0095 exposed overhead, 1.5 x at the horizon) is added to the sky-view table after the match's gains, so the
+- **The sky** (`rt_sky`): drawn for the clock's sun - under the horizon too: the model's twilight - the atmosphere
+  alone (not matched to the level's painted sky since the low sun's sky: its colours held a midday blue at dawn). The
+  night sky's light (0.0028, 0.0045, 0.0095 exposed overhead, 1.5 x at the horizon) is added to the sky-view table, so the
   fog's aerial haze and the reflections see it too; the composite adds the stars (cells on a cube about the celestial
   pole, turned with the hours; about 6% of cells hold a star, most faint) and the moon's disc (0.009 rad, twice the
-  real one, as the sun's is) before the clouds, which cover them. The clouds (`rt_daylight.h` `cloud_light`): the
-  match's bands are the level's own time's, so the clouds' sky light is scaled by the sky's light now over then
-  (`sky_light_at`, linear), the sun's light on them fades out from the horizon to 6 degrees down (a high cloud keeps the
-  sunset a little longer), and the night sky's own light is added - on their tops x (1 + 0.5 x the moon's disc), on
-  their bases x (0.6 + 0.5 x it): at night a cloud is a dim, blue silhouette barely lighter than the sky round it, not
-  the daylit grey it was (the bands' daylight on the clouds made them glow over a starry sky); continuous through the
-  dusk. The original's sun sprite and lens flare follow the
+  real one, as the sun's is) before the clouds, which cover them. The clouds (`rt_daylight.h` `cloud_light`): their
+  sky light is the drawn sky-view table's (the hour's sky, its night light in it); the sun's light on them - reddened
+  by the air to the layer - fades out from the horizon to 6 degrees down (a high cloud keeps the sunset a little
+  longer), and with the full moon up 0.5 x the night sky's light is added on them: at night a cloud is a dim, blue
+  silhouette barely lighter than the sky round it; continuous through the dusk. The original's sun sprite and lens flare follow the
   clock's sun (`sun::set_sun`), hidden while it is down; the ray-traced disc likewise.
 - **The shadows** (`rt_shadows`): their strength x the direct light's share of the light over its share at the level's
   own time (none at twilight, the moon's at night). **The lamps** (`rt_lights`): their strength x the lamps' amount (off
@@ -4112,7 +4132,7 @@ stacking another on top.
   | term | level geometry | objects / props | characters | particles |
   |---|---|---|---|---|
   | sun / moon direct | relit (a x N.L x direct scale) | the field's ratio x their bake | the game's key light x the state's light colour | the level's whole ratio |
-  | its shadowing | `rt_shadows` per pixel in place of relit's per-vertex S (T(v) / T(seen)); without it relit's S | `rt_shadows` (the world's shadows) | `rt_shadows` (the world's) | - |
+  | its shadowing | `rt_shadows` per pixel in place of relit's per-vertex S (T(v) / T(seen)); without it relit's S | `rt_shadows` (the world's shadows) | `rt_shadows` (the world's, on the key light alone) | - |
   | sky / ambient | relit (b x K) | the field | the game's fill / ambient x the field's indirect ratio | the level's whole |
   | occlusion | relit's K (the bake's own occlusion in the tint); `rt_ao` leaves the stream's pixels | `rt_ao` | `rt_ao` (`rt_ao_characters`) | - |
   | bounce | relit (g x B, `bounce_local`); `rt_gi` out of effect with relit | the field | the game's fill x the field | - |
@@ -4130,6 +4150,18 @@ stacking another on top.
   (the shader writes half), so the pass may also lighten what the vertices' interpolated shade darkened. No agreement or
   sky test there: relit's residual and missed sun already say where the bake lit what the rays shade. `day.shadow` isn't
   used for it either: the stream's direct light is the state's.
+- **The objects' shadows** (the same variant): an object drawn lit by the game's lights - the skater, the peds, the
+  vehicles - has them in the frame record (`rt::ObjectLight`: the device's ambient, light 0 - the key light, the direct
+  light -, light 1 - the fill -, the level's lamps' local light, as `pc_instance.cpp` sends them; `rt_record::object_lit`,
+  a frame's lag: the record is made before the draws), and its instances' rows point at them
+  (`GeometryRecord::object_light_address`, `kGeometryObjectLight`; `hit_object_light`, `object_light_with`). In the sun's
+  shadow (the rays, the clouds' shadow) its pixel loses only the key light at its normal (the mesh's own, else the
+  depth's): (A + F + L + K (1 - strength x occlusion)) / (A + F + L + K), each held to 1 as Direct3D's lighting is.
+  Before, the pass multiplied the object's whole colour by 1 - strength x occlusion, so with `rt_shadow_strength=1` a
+  skater under a cloud's shadow (06:10 in College's plaza) or a building's, or in moonlight's shade, was drawn black -
+  only what the game draws unlit (the laces) left. An object drawn with its own colours (no lights: props lit by the
+  field) has no record and keeps the old multiply. Every instance of a character gets its lights - its parts share one
+  skeleton and are lit once (`send_lights` only for the first), so each takes the lights it is drawn with.
 - **Check:** `thug2_vulkan_rt_lights_check` "each light counted once" - a floor written in the box's shadow keeps it
   (not darkened again) and is lit where the pixel sees the sun; one written lit takes A / (A + S) in the shadow; a lamp
   over a floor whose residual holds it adds nothing. `thug2_vulkan_rt_relit_check` 3b - the synthetic level whose bake

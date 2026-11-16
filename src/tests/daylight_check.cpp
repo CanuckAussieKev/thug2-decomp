@@ -328,31 +328,27 @@ void check_objects_and_clouds(const rt::NativeDay& day, const rt::DayLight& midn
     expect(std::get<1>(midnight.light_colour) < 0.3F, "the lighting state: the moon weak (" +
                                                           number(std::get<1>(midnight.light_colour)) + ")");
     const rt::CloudLight none = rt::cloud_light(rt::DayLight{});
-    expect(none.sun == 1.0F && none.sky == 1.0F && none.night_top == rt::DayRgb{} && none.night_bottom == rt::DayRgb{},
-           "cloud_light without the clock: as before");
+    expect(none.sun == 1.0F && none.moon_glow == rt::DayRgb{}, "cloud_light without the clock: the sun whole, no glow");
     const rt::CloudLight at_own = rt::cloud_light(own);
-    expect(at_own.sun == 1.0F && std::abs(at_own.sky - 1.0F) < 1e-3F && at_own.night_top == rt::DayRgb{},
-           "cloud_light at the level's own time: as before (sky " + number(at_own.sky) + ")");
+    expect(at_own.sun == 1.0F && at_own.moon_glow == rt::DayRgb{}, "cloud_light at the level's own time: the sun whole");
     const rt::CloudLight night = rt::cloud_light(midnight);
     const float night_sky = std::get<2>(midnight.night_sky);
-    expect(night.sun == 0.0F && night.sky < 1e-3F && std::get<2>(night.night_top) > night_sky &&
-               std::get<2>(night.night_top) <= night_sky * (1.0F + rt::kCloudMoonGlow) + 1e-6F &&
-               std::get<2>(night.night_bottom) < std::get<2>(night.night_top),
-           "cloud_light at midnight: no sun, no daylit sky, the night sky's light a little brighter on the tops (sky " +
-               number(night.sky) + ")");
+    expect(night.sun == 0.0F && std::get<2>(night.moon_glow) > 0.0F &&
+               std::get<2>(night.moon_glow) <= night_sky * rt::kCloudMoonGlow + 1e-6F,
+           "cloud_light at midnight: no sun, the full moon's glow on them (" + number(std::get<2>(night.moon_glow)) +
+               ")");
     // continuous from the afternoon into the night (a step of 3 minutes)
     double worst = 0.0;
     rt::CloudLight last = rt::cloud_light(rt::day_light_at(day, 15.0));
     for (double hours = 15.05; hours <= 23.99; hours += 0.05) {
         const rt::CloudLight now = rt::cloud_light(rt::day_light_at(day, hours));
-        // (the sun's share and the sky's ratio as they are - 0 to 1 -, the night's light against its whole)
+        // (the sun's share as it is - 0 to 1 -, the moon's glow against its whole)
         worst = std::max({worst, static_cast<double>(std::abs(now.sun - last.sun)),
-                          static_cast<double>(std::abs(now.sky - last.sky)),
-                          static_cast<double>(std::abs(std::get<2>(now.night_top) - std::get<2>(last.night_top)) /
-                                              std::max(std::get<2>(night.night_top), 1e-6F))});
+                          static_cast<double>(std::abs(std::get<2>(now.moon_glow) - std::get<2>(last.moon_glow)) /
+                                              std::max(std::get<2>(night.moon_glow), 1e-6F))});
         last = now;
     }
-    // (the night's light comes in with the sky's night floor, over the sun's first 4 degrees down: about 20 minutes)
+    // (the moon's disc comes in over the sun's first degrees down)
     expect(worst < 0.25, "cloud_light: no jump from the afternoon into the night (worst step " + number(worst) + ")");
 }
 

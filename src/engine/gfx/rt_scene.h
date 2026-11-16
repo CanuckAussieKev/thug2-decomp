@@ -73,12 +73,34 @@ enum InstanceFlag : uint32_t {
     kTransparent = 1U << 6, // blended: seen through, casts no shadow by default
 };
 
+// (the one lighting path - the objects' shadows) The game's lights an object is lit by (render_pc/pc_lights.cpp, as its
+// draw sends them: the device's ambient, light 0 - the key light, the direct light: the sun's or the moon's -, light 1
+// - the fill -, and the level's own lamps' directional part, pc_lights.h local_light_sent), colours in the device's
+// units (1: full), directions the way each light travels (Direct3D's: a surface facing -direction takes it all). A
+// pixel of the object in the sun's shadow loses the key light alone - what the sun brings -, as a relit world pixel
+// loses its direct light alone: the fill, the ambient and the lamps stay (docs/design/vulkan.md "Each light counted
+// once").
+struct ObjectLight {
+    std::array<float, 3> ambient{};
+    std::array<float, 3> key{};
+    std::array<float, 3> key_direction{0.0F, -1.0F, 0.0F};
+    std::array<float, 3> fill{};
+    std::array<float, 3> fill_direction{0.0F, -1.0F, 0.0F};
+    std::array<float, 3> local{};
+    std::array<float, 3> local_direction{0.0F, -1.0F, 0.0F};
+    bool operator==(const ObjectLight&) const = default;
+};
+inline constexpr uint32_t kNoObjectLight = 0xFFFFFFFFU;
+
 // One draw of a mesh this frame.
 struct Instance {
     MeshId mesh = 0;
     MaterialId material = 0;
     uint32_t flags = 0;
     std::array<std::array<float, 4>, 3> object_to_world{}; // rows: x' = row0 . (x, y, z, 1)
+    // (the objects' shadows) its object's lights: an index into FrameRecord::object_lights (kNoObjectLight: none - the
+    // world's meshes, an object drawn with its own baked colours)
+    uint32_t light = kNoObjectLight;
 };
 
 struct Light {
@@ -175,6 +197,7 @@ struct FrameRecord {
     std::vector<Instance> instances;
     std::vector<Light> lights;
     std::vector<Camera> cameras;
+    std::vector<ObjectLight> object_lights; // (the objects' shadows) Instance::light's
 };
 
 inline constexpr uint32_t kAllMasks = 0xFF; // a ray that can hit every instance

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <span>
@@ -37,6 +38,8 @@
 #include "engine/gfx/surface_trail.h"
 #include "render_pc/mesh_pass.h"
 #include "render_pc/rt_relit_world.h"
+#include "render_pc/rt_record.h"
+#include "engine/gfx/rt_scene.h"
 
 namespace render {
 
@@ -201,6 +204,30 @@ void send_lights()
     gpu().enable_light(kLocalLightIndex, local.on);
 }
 
+// NOT ORIGINAL - the one lighting path (the objects' shadows - engine/gfx/rt_scene.h ObjectLight): the lights
+// send_lights sent, for ray tracing's record (rt_record::object_lit): the ambient as the device takes it, the key and
+// fill lights, the level's lamps' local light when it is on.
+rt::ObjectLight lights_sent()
+{
+    const auto& constants = light_sets().light_constants();
+    const GpuLight& key = pc_instance_state().device_light0_;
+    const GpuLight& fill = pc_instance_state().device_light1_;
+    rt::ObjectLight out;
+    for (std::size_t channel = 0; channel < out.ambient.size(); ++channel) {
+        core::at(out.ambient, channel) = std::clamp(core::at(constants, channel), 0.0F, 1.0F);
+        core::at(out.key, channel) = core::at(key.diffuse, channel);
+        core::at(out.key_direction, channel) = core::at(key.direction, channel);
+        core::at(out.fill, channel) = core::at(fill.diffuse, channel);
+        core::at(out.fill_direction, channel) = core::at(fill.direction, channel);
+    }
+    const LocalLightSent& local = local_light_sent();
+    if (local.on) {
+        out.local = local.colour;
+        out.local_direction = local.direction;
+    }
+    return out;
+}
+
 
 } // namespace
 
@@ -270,6 +297,11 @@ void Singleton::render(uint32_t draw_bits)
             }
             set_last_bones(bones_);
         }
+        // (not original: the objects' shadows) the lights it is drawn with - sent above, or for the instance before
+        // that shares its bones (a character's parts: one skeleton, lit once)
+        if (!scene_unlit(scene_)) {
+            rt_record::object_lit(this, lights_sent());
+        }
         gpu().set_transform(GpuTransform::kWorld, transform_.data());
         pc_instance_state().palette_base_ = bones_;
         pc_instance_state().bone_count_ = bone_count_;
@@ -318,6 +350,7 @@ void Singleton::render(uint32_t draw_bits)
         refresh_instance_lighting(this);
         change_phase(kStateLighting, 1);
         send_lights();
+        rt_record::object_lit(this, lights_sent()); // (not original: the objects' shadows)
         render::rt::note_light_path(render::rt::light_field() != nullptr ? render::rt::LightPath::kObjectLit
                                                                          : render::rt::LightPath::kObjectLitOwn);
     } else {
