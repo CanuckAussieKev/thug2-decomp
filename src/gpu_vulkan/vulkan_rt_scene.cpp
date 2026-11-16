@@ -86,6 +86,7 @@ struct GeometryRecord {
     uint instance_flags;
     uint normal_offset;
     uvec2 light_address;
+    uvec2 object_light_address;
 };
 layout(set = THUG2_GEOMETRY_SET, binding = THUG2_GEOMETRY_BINDING, scalar) readonly buffer GeometryRecords {
     GeometryRecord geometry_records[];
@@ -97,10 +98,11 @@ const uint GEOMETRY_UV = 4u;
 const uint GEOMETRY_COLOUR = 8u;
 const uint GEOMETRY_NORMAL = 16u;
 const uint GEOMETRY_LIGHT = 32u;
+const uint GEOMETRY_OBJECT_LIGHT = 64u;
 GeometryRecord geometry_record(uint instance)
 {
     if (instance >= uint(geometry_records.length())) {
-        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u));
+        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u), uvec2(0u));
     }
     return geometry_records[instance];
 }
@@ -245,6 +247,49 @@ vec3 world_light_with(WorldLight w, float seen, vec3 sky)
 {
     return w.tint * (max(w.ambient - w.sky, vec3(0.0)) + sky + w.sun * (w.n_dot_l * seen)) + w.residual;
 }
+// (the objects' shadows) The lights an object is lit by (rt::ObjectLight, three floats a part in its order).
+struct ObjectLight {
+    vec3 ambient;
+    vec3 key;
+    vec3 key_direction;
+    vec3 fill;
+    vec3 fill_direction;
+    vec3 local;
+    vec3 local_direction;
+};
+vec3 object_light_part(uvec2 address, uint part)
+{
+    uint at = part * 12u;
+    return vec3(uintBitsToFloat(geometry_word(address, at)), uintBitsToFloat(geometry_word(address, at + 4u)),
+                uintBitsToFloat(geometry_word(address, at + 8u)));
+}
+bool hit_object_light(uint instance, out ObjectLight l)
+{
+    GeometryRecord g = geometry_record(instance);
+    l = ObjectLight(vec3(0.0), vec3(0.0), vec3(0.0, -1.0, 0.0), vec3(0.0), vec3(0.0, -1.0, 0.0), vec3(0.0),
+                    vec3(0.0, -1.0, 0.0));
+    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_OBJECT_LIGHT) == 0u) {
+        return false;
+    }
+    l.ambient = object_light_part(g.object_light_address, 0u);
+    l.key = object_light_part(g.object_light_address, 1u);
+    l.key_direction = object_light_part(g.object_light_address, 2u);
+    l.fill = object_light_part(g.object_light_address, 3u);
+    l.fill_direction = object_light_part(g.object_light_address, 4u);
+    l.local = object_light_part(g.object_light_address, 5u);
+    l.local_direction = object_light_part(g.object_light_address, 6u);
+    return true;
+}
+float object_n_dot_l(vec3 normal, vec3 travel)
+{
+    float length_of = length(travel);
+    return length_of > 1e-6 ? max(dot(normal, -travel / length_of), 0.0) : 0.0;
+}
+vec3 object_light_with(ObjectLight l, vec3 normal, float seen)
+{
+    return l.ambient + l.key * (object_n_dot_l(normal, l.key_direction) * seen) +
+           l.fill * object_n_dot_l(normal, l.fill_direction) + l.local * object_n_dot_l(normal, l.local_direction);
+}
 )";
 
 // The device's address of a buffer.
@@ -307,6 +352,9 @@ struct FrameScene {
     // many instances have a reflective material
     DeviceBuffer geometry;
     uint32_t reflective = 0;
+    // (the objects' shadows) the record's objects' lights (rt::ObjectLight, kObjectLightFloats floats each - at most an
+    // instance's worth), read by address from their instances' rows
+    DeviceBuffer object_lights;
 };
 
 // The probe's compute pass (made on first use).
@@ -1073,6 +1121,7 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
     retire_structure(state, made, &frame->tlas);
     retire(made, VK_NULL_HANDLE, &frame->instances, state.frames.serial());
     retire(made, VK_NULL_HANDLE, &frame->geometry, state.frames.serial());
+    retire(made, VK_NULL_HANDLE, &frame->object_lights, state.frames.serial());
     frame->capacity = 0;
     const VkDeviceSize instance_bytes = static_cast<VkDeviceSize>(capacity) * sizeof(VkAccelerationStructureInstanceKHR);
     if (!state.memory.create_buffer(instance_bytes + kInstanceAlignment,
@@ -1086,6 +1135,13 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
     if (!state.memory.create_buffer(static_cast<VkDeviceSize>(capacity) * sizeof(GeometryRecord),
                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kUpload, &frame->geometry) ||
         frame->geometry.mapped == nullptr) {
+        return false;
+    }
+    // (the objects' shadows: the objects' lights, read by address)
+    if (!state.memory.create_buffer(static_cast<VkDeviceSize>(capacity) * kObjectLightFloats * sizeof(float),
+                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                    BufferPlace::kUpload, &frame->object_lights) ||
+        frame->object_lights.mapped == nullptr) {
         return false;
     }
     frame->instances_address = align_up(address_of(made.device, frame->instances.buffer), kInstanceAlignment);
@@ -1362,12 +1418,35 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     instances.reserve(record.instances.size());
     std::vector<GeometryRecord> rows;
     rows.reserve(record.instances.size());
+    // (the objects' shadows) the objects' lights, each where its instances' rows point
+    const std::size_t lights = std::min(record.object_lights.size(), static_cast<std::size_t>(frame.capacity));
+    const std::span<float> light_floats(static_cast<float*>(frame.object_lights.mapped), lights * kObjectLightFloats);
+    for (std::size_t i = 0; i < lights; ++i) {
+        const rt::ObjectLight& light = core::at(record.object_lights, i);
+        std::size_t at = i * kObjectLightFloats;
+        for (const std::array<float, 3>* part : {&light.ambient, &light.key, &light.key_direction, &light.fill,
+                                                &light.fill_direction, &light.local, &light.local_direction}) {
+            for (const float value : *part) {
+                core::at(light_floats, at++) = value;
+            }
+        }
+    }
+    if (lights > 0) {
+        state.memory.flush(frame.object_lights, 0, lights * kObjectLightFloats * sizeof(float));
+    }
+    const VkDeviceAddress lights_address =
+        lights > 0 ? address_of(made.device, frame.object_lights.buffer) : VkDeviceAddress{0};
     for (const rt::Instance& given : record.instances) {
         const auto found = made.meshes.find(given.mesh);
         const Mesh* const mesh = found == made.meshes.end() ? nullptr : &found->second;
         instances.push_back(instance_of(given, mesh, alpha_tested_for(made, given)));
         frame.meshes.push_back(given.mesh);
         rows.push_back(geometry_record_of(state, made, given, mesh));
+        if ((rows.back().flags & kGeometryLive) != 0 && given.light < lights) {
+            constexpr VkDeviceAddress kLightBytes = kObjectLightFloats * sizeof(float);
+            rows.back().object_light_address = address_words(lights_address + (VkDeviceAddress{given.light} * kLightBytes));
+            rows.back().flags |= kGeometryObjectLight;
+        }
         if ((rows.back().flags & kGeometryLive) != 0 && made.reflective.contains(given.material)) {
             ++frame.reflective;
         }
@@ -2179,6 +2258,7 @@ void release_ray_tracing(Backend& state)
         retire_structure(state, made, &frame.tlas);
         retire(made, VK_NULL_HANDLE, &frame.instances, 0);
         retire(made, VK_NULL_HANDLE, &frame.geometry, 0);
+        retire(made, VK_NULL_HANDLE, &frame.object_lights, 0);
         frame = FrameScene{};
     }
     retire(made, VK_NULL_HANDLE, &made.scratch, 0);

@@ -146,6 +146,13 @@ struct State {
     int colour_writes = 0;
     int colour_writes_told = 0; // (of them, the game's own colours the relit mode is told of: ColourWrite::Relit::kTell)
     bool relit_idle = true; // the relit mode off and told so
+    // (the objects' shadows) each lit instance's lights as its last draw sent them (object_lit), and the record's frame
+    // then
+    struct Lit {
+        rt::ObjectLight light;
+        uint64_t frame = 0;
+    };
+    std::unordered_map<const Singleton*, Lit> object_lights;
 };
 
 State& state()
@@ -701,8 +708,10 @@ void log_object_mesh(const MeshRef* mesh, rt::MeshId id, uint32_t flags, rt::Mat
             shown(geometry.uv_format, geometry.uv_offset), geometry.uv_sets);
 }
 
-// One instance of a mesh with a world transform (a Direct3D matrix).
-void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, rt::RayTracing& rt)
+// One instance of a mesh with a world transform (a Direct3D matrix); `light`: its object's lights in the record
+// (rt::Instance::light).
+void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, rt::RayTracing& rt,
+                  uint32_t light = rt::kNoObjectLight)
 {
     const rt::MeshId id = mesh_id(mesh, rt);
     if (id == 0) {
@@ -729,8 +738,11 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
         }
     }
     log_object_mesh(mesh, id, flags, material);
-    rt::frame_record().instances.push_back(
-        {.mesh = id, .material = material, .flags = flags, .object_to_world = rt::object_to_world_rows(world.floats())});
+    rt::frame_record().instances.push_back({.mesh = id,
+                                            .material = material,
+                                            .flags = flags,
+                                            .object_to_world = rt::object_to_world_rows(world.floats()),
+                                            .light = light});
 }
 
 // The loaded scenes' meshes but the sky's (draw_viewport's world passes; the world transform is the identity).
@@ -782,6 +794,15 @@ void record_object(const Singleton* instance, rt::RayTracing& rt)
         return;
     }
     const maths::Mat4& transform = instance->transform();
+    // (the objects' shadows) the lights its last draw was lit by - drawn since the record before (object_lit)
+    uint32_t light = rt::kNoObjectLight;
+    const State& st = state();
+    if (const auto lit = st.object_lights.find(instance);
+        lit != st.object_lights.end() && lit->second.frame + 1 >= st.frame) {
+        rt::FrameRecord& record = rt::frame_record();
+        light = static_cast<uint32_t>(record.object_lights.size());
+        record.object_lights.push_back(lit->second.light);
+    }
     const auto bones_on_device = static_cast<int>(scene->unknown78());
     const int bone_count = instance->bone_count_;
     if (bones_on_device != 0 && instance->bones() != nullptr && bone_count > 0) {
@@ -794,7 +815,7 @@ void record_object(const Singleton* instance, rt::RayTracing& rt)
             }
             maths::Mat4 world = transform;
             maths::matrix_multiply(&world, &core::at(bones, static_cast<std::size_t>(bone)), &world);
-            add_instance(mesh, rt::kObject, world, rt);
+            add_instance(mesh, rt::kObject, world, rt, light);
         }
         return;
     }
@@ -807,9 +828,9 @@ void record_object(const Singleton* instance, rt::RayTracing& rt)
             const std::span<const maths::Mat4> bones(instance->bones(), static_cast<std::size_t>(bone_count));
             maths::Mat4 world;
             maths::matrix_multiply(&world, &core::at(bones, static_cast<std::size_t>(mesh->unknown98)), &transform);
-            add_instance(mesh, rt::kObject, world, rt);
+            add_instance(mesh, rt::kObject, world, rt, light);
         } else {
-            add_instance(mesh, rt::kObject, transform, rt);
+            add_instance(mesh, rt::kObject, transform, rt, light);
         }
     }
 }
@@ -1432,6 +1453,15 @@ std::array<std::array<float, 4>, 4> rows_of(const maths::Mat4& matrix)
 
 bool on() { return backend() != nullptr; }
 
+void object_lit(const Singleton* instance, const rt::ObjectLight& light)
+{
+    if (backend() == nullptr) {
+        return;
+    }
+    State& st = state();
+    st.object_lights.insert_or_assign(instance, State::Lit{.light = light, .frame = st.frame});
+}
+
 void record_frame()
 {
     rt::RayTracing* rt = backend();
@@ -1458,6 +1488,9 @@ void record_frame()
     record.instances.clear();
     record.lights.clear();
     record.cameras.clear();
+    record.object_lights.clear();
+    // (the objects' shadows: an instance not drawn for a while forgotten - its address may be another's next)
+    std::erase_if(st.object_lights, [&st](const auto& kept) { return kept.second.frame + 2 < st.frame; });
     record_world(*rt);
     for (const Singleton* instance = first_instance(); instance != nullptr; instance = instance->next()) {
         if (instance->active() && instance->viewports() != 0U) {

@@ -31,6 +31,10 @@ namespace render {
 struct MeshRef;
 struct MaterialRef;
 struct VertexBufferData;
+struct Singleton;
+namespace rt {
+struct ObjectLight;
+}
 
 namespace rt_record {
 
@@ -42,6 +46,11 @@ namespace rt_record {
 void record_frame();
 // draw_viewport, the world's camera chosen: the viewport's camera added; the frame's first: begin_frame.
 void camera_chosen(int viewport);
+// (the one lighting path - the objects' shadows) An instance drawn lit by the game's lights (Singleton::render, as it
+// sends them - pc_instance.cpp): its lights kept for its instances in the next record (rt_scene.h ObjectLight; the
+// record is made before the frame's draws, so with the lights of the draw before - a frame's lag, as the skinned
+// meshes' geometry).
+void object_lit(const Singleton* instance, const rt::ObjectLight& light);
 // draw_viewport: the world's and the objects' passes begin / end (the sky's are outside them).
 void set_world_passes(bool inside);
 // A mesh drawn (MeshRef::render), with the world transform it is drawn with: reported to a check that wants draws,

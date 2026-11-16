@@ -4112,7 +4112,7 @@ stacking another on top.
   | term | level geometry | objects / props | characters | particles |
   |---|---|---|---|---|
   | sun / moon direct | relit (a x N.L x direct scale) | the field's ratio x their bake | the game's key light x the state's light colour | the level's whole ratio |
-  | its shadowing | `rt_shadows` per pixel in place of relit's per-vertex S (T(v) / T(seen)); without it relit's S | `rt_shadows` (the world's shadows) | `rt_shadows` (the world's) | - |
+  | its shadowing | `rt_shadows` per pixel in place of relit's per-vertex S (T(v) / T(seen)); without it relit's S | `rt_shadows` (the world's shadows) | `rt_shadows` (the world's, on the key light alone) | - |
   | sky / ambient | relit (b x K) | the field | the game's fill / ambient x the field's indirect ratio | the level's whole |
   | occlusion | relit's K (the bake's own occlusion in the tint); `rt_ao` leaves the stream's pixels | `rt_ao` | `rt_ao` (`rt_ao_characters`) | - |
   | bounce | relit (g x B, `bounce_local`); `rt_gi` out of effect with relit | the field | the game's fill x the field | - |
@@ -4130,6 +4130,18 @@ stacking another on top.
   (the shader writes half), so the pass may also lighten what the vertices' interpolated shade darkened. No agreement or
   sky test there: relit's residual and missed sun already say where the bake lit what the rays shade. `day.shadow` isn't
   used for it either: the stream's direct light is the state's.
+- **The objects' shadows** (the same variant): an object drawn lit by the game's lights - the skater, the peds, the
+  vehicles - has them in the frame record (`rt::ObjectLight`: the device's ambient, light 0 - the key light, the direct
+  light -, light 1 - the fill -, the level's lamps' local light, as `pc_instance.cpp` sends them; `rt_record::object_lit`,
+  a frame's lag: the record is made before the draws), and its instances' rows point at them
+  (`GeometryRecord::object_light_address`, `kGeometryObjectLight`; `hit_object_light`, `object_light_with`). In the sun's
+  shadow (the rays, the clouds' shadow) its pixel loses only the key light at its normal (the mesh's own, else the
+  depth's): (A + F + L + K (1 - strength x occlusion)) / (A + F + L + K), each held to 1 as Direct3D's lighting is.
+  Before, the pass multiplied the object's whole colour by 1 - strength x occlusion, so with `rt_shadow_strength=1` a
+  skater under a cloud's shadow (06:10 in College's plaza) or a building's, or in moonlight's shade, was drawn black -
+  only what the game draws unlit (the laces) left. An object drawn with its own colours (no lights: props lit by the
+  field) has no record and keeps the old multiply. Every instance of a character gets its lights - its parts share one
+  skeleton and are lit once (`send_lights` only for the first), so each takes the lights it is drawn with.
 - **Check:** `thug2_vulkan_rt_lights_check` "each light counted once" - a floor written in the box's shadow keeps it
   (not darkened again) and is lit where the pixel sees the sun; one written lit takes A / (A + S) in the shadow; a lamp
   over a floor whose residual holds it adds nothing. `thug2_vulkan_rt_relit_check` 3b - the synthetic level whose bake
