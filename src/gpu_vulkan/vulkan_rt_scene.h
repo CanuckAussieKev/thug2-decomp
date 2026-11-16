@@ -68,7 +68,7 @@ struct SceneView {
 // frame (its rayQueryGetIntersectionInstanceIdEXT), the buffers it was built from as device addresses (read by
 // GL_EXT_buffer_reference) and the vertex's layout - a strip's corners are the scene's own 32-bit list (triangle i of
 // the strip is primitive i, its odd ones turned back round, as the BLAS has them). Written by the processor at
-// begin_frame (the buffers' current memory, which the frame's submission then keeps); 60 bytes, scalar layout.
+// begin_frame (the buffers' current memory, which the frame's submission then keeps); 68 bytes, scalar layout.
 struct GeometryRecord {
     std::array<uint32_t, 2> vertex_address{}; // the vertex buffer's start (low, high word)
     std::array<uint32_t, 2> index_address{};  // the index buffer's start (0: not indexed - corner = primitive x 3 + k)
@@ -84,8 +84,11 @@ struct GeometryRecord {
     // (added by the light energy audit) the mesh's light stream (rt::RayTracing::set_light_stream: rt_cel.h's words,
     // kCelStreamBytes a vertex from its start - with kGeometryLight)
     std::array<uint32_t, 2> light_address{};
+    // (the one lighting path - the objects' shadows) its object's lights (rt::ObjectLight: kObjectLightFloats floats,
+    // the frame's own buffer - with kGeometryObjectLight)
+    std::array<uint32_t, 2> object_light_address{};
 };
-inline constexpr std::size_t kGeometryRecordBytes = 60;
+inline constexpr std::size_t kGeometryRecordBytes = 68;
 static_assert(sizeof(GeometryRecord) == kGeometryRecordBytes);
 inline constexpr uint32_t kGeometryLive = 1U << 0;    // its mesh is built (else every other field is 0)
 inline constexpr uint32_t kGeometryIndex32 = 1U << 1; // 32-bit indices (else 16-bit)
@@ -93,6 +96,10 @@ inline constexpr uint32_t kGeometryUv = 1U << 2;
 inline constexpr uint32_t kGeometryColour = 1U << 3;
 inline constexpr uint32_t kGeometryNormal = 1U << 4; // (added for the skater's smooth shading) the vertex normals
 inline constexpr uint32_t kGeometryLight = 1U << 5;  // (added by the light energy audit) the light stream
+inline constexpr uint32_t kGeometryObjectLight = 1U << 6; // (the objects' shadows) its object's lights
+// (the objects' shadows) An object's lights as the shaders read them: rt::ObjectLight's seven colours / directions,
+// three floats each, in its order.
+inline constexpr std::size_t kObjectLightFloats = 21;
 // (added for the reflections' masks) bits 8 - 11: the texture coordinate sets from uv_offset (rt::Geometry::uv_sets,
 // those within the stride; at least 1 with kGeometryUv)
 inline constexpr uint32_t kGeometryUvSetsShift = 8;
@@ -117,6 +124,13 @@ inline constexpr uint32_t kGeometryUvSetsMask = 0xF;
 //        when the mesh has none or a corner has no stream (an animated vertex)
 //   vec3 world_light_with(WorldLight w, float seen, vec3 sky) - the light a vertex colour of that stream shows with the
 //        sun's visibility `seen` and the sky's part `sky`: tint x (bounce + sky + sun x N.L x seen) + residual
+//   struct ObjectLight { vec3 ambient; vec3 key; vec3 key_direction; vec3 fill; vec3 fill_direction; vec3 local;
+//        vec3 local_direction; };
+//   bool hit_object_light(uint instance, out ObjectLight l) - (the objects' shadows) the lights the instance's object
+//        is lit by (rt::ObjectLight); false when the record has none
+//   vec3 object_light_with(ObjectLight l, vec3 normal, float seen) - the light a surface of the object facing `normal`
+//        (the world's, unit) takes with the sun's visibility `seen` on its key light: ambient + key x N.L x seen +
+//        fill x N.L + local x N.L, each N.L toward where its light comes from (Direct3D's lighting)
 // The positions are the object's (rayQueryGetIntersectionObjectToWorldEXT takes them to the world).
 std::string_view scene_geometry_glsl();
 // (the one lighting path's rays) Every ray that asks whether light gets through - the sun's shadows, the bounce light's
