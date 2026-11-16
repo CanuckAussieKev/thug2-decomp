@@ -1664,33 +1664,25 @@ float relit_edge_error(std::span<const RelitMesh> meshes, std::span<const RelitV
     if (errors.empty()) {
         return 1.0F;
     }
-    const auto middle = errors.begin() + static_cast<std::ptrdiff_t>(errors.size() / 2);
-    std::ranges::nth_element(errors, middle);
-    return *middle;
+    // (the mean, not the median: the sun's evidence - its shadows' borders, the faces turned to it or from it - is in a
+    // minority of the edges; a median over them all is the flat surfaces', the same for every model)
+    double sum = 0.0;
+    for (const float error : errors) {
+        sum += static_cast<double>(error);
+    }
+    return static_cast<float>(sum / static_cast<double>(errors.size()));
 }
 
-float relit_sun_share(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const RelitModel& model)
+float relit_sun_share(const RelitModel& model)
 {
     if (model.sunless || !model.valid) {
         return 0.0F;
     }
-    double direct = 0.0;
-    double whole = 0.0;
-    const std::size_t count = std::min(meshes.size(), light.size());
-    for (std::size_t mi = 0; mi < count; ++mi) {
-        const RelitMesh& mesh = core::at(meshes, mi);
-        const RelitVertices& vertices = core::at(light, mi);
-        const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
-        for (std::size_t vi = 0; vi < vertex_count; ++vi) {
-            const RelitVertex& vertex = core::at(vertices, vi);
-            if (!vertex.used || luma(colour_light(core::at(mesh.colours, vi))) < kBlackLight) {
-                continue;
-            }
-            direct += static_cast<double>(luma(model.sun) * sun_term(vertex, model.toward));
-            whole += static_cast<double>(luma(model_light(model, model.sun, vertex, model.toward)));
-        }
-    }
-    return whole > 0.0 ? static_cast<float>(direct / whole) : 0.0F;
+    // (an open level surface: the sun's light there - a x its sine - over the whole, the sky's b with it)
+    const float sine = std::max(0.0F, y_of(model.toward));
+    const float direct = luma(model.sun) * sine;
+    const float whole = direct + luma(model.sky);
+    return whole > 0.0F ? direct / whole : 0.0F;
 }
 
 void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitParams& params,
@@ -2052,10 +2044,47 @@ struct LampTerm {
 
 } // namespace
 
+void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
+                      std::span<const RelitLamp> lamps)
+{
+    const std::size_t count = std::min({meshes.size(), light.size(), links.size()});
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        RelitVertices& vertices = core::at(light, mi);
+        const RelitMeshLinks& mesh_links = core::at(links, mi);
+        if (mesh_links.first.empty()) {
+            continue;
+        }
+        for (std::size_t vi = 0; vi < vertices.size() && vi + 1 < mesh_links.first.size(); ++vi) {
+            Rgbf sum{};
+            for (uint32_t k = core::at(mesh_links.first, vi); k < core::at(mesh_links.first, vi + 1); ++k) {
+                const RelitLampLink& link = core::at(mesh_links.links, k);
+                sum = plus(sum, scaled(core::at(lamps, link.lamp).light, link.weight));
+            }
+            core::at(vertices, vi).lamp = sum;
+        }
+        if (!core::at(meshes, mi).sources.empty()) {
+            relit_derive(core::at(meshes, mi), &vertices); // (building relief's made vertices: their sources' light)
+        }
+    }
+}
+
 void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                       std::span<RelitLamp> lamps, RelitModel* model)
+                       std::span<RelitLamp> lamps, RelitModel* model, bool lit_in_bake)
 {
     model->lamps = {1.0F, 1.0F, 1.0F};
+    // (a lamp the bake doesn't tell shines by its own surface: pi x the radiance its glow shows)
+    for (RelitLamp& lamp : lamps) {
+        lamp.light = scaled(lamp.light, kRelitLambertian);
+        lamp.solved = false;
+    }
+    if (!lit_in_bake) {
+        model->lamps = {}; // (the bake's lamps were off: none of its light theirs)
+        model->lamps_solved = 0;
+        model->lamp_votes = {};
+        model->lamp_median = {};
+        relit_lamp_light(meshes, light, links, lamps);
+        return;
+    }
     model->lamps_solved = 0;
     model->lamp_votes = {};
     model->lamp_median = {};
@@ -2198,13 +2227,18 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
             }
         }
     }
-    // the lamps every channel told; the rest take their median ratio to the found brightness (per channel)
+    // (reported) the solved lamps against their own surfaces' light (pi x radiance): those the bake says are dark, the
+    // median and the 95th percentile of the rest
     Rgbf median_ratio{};
+    model->lamps_dark = 0;
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        model->lamps_dark += core::at(told, li) == 7U && !(luma(core::at(solved, li)) > 0.0F) ? 1 : 0;
+    }
     for (std::size_t ch = 0; ch < 3; ++ch) {
         std::vector<float> ratios;
         for (std::size_t li = 0; li < lamps.size(); ++li) {
             const float own = core::at(core::at(lamps, li).light, ch);
-            if (core::at(told, li) == 7U && own > kLeastLight) {
+            if (core::at(told, li) == 7U && own > kLeastLight && luma(core::at(solved, li)) > 0.0F) {
                 ratios.push_back(core::at(core::at(solved, li), ch) / own);
             }
         }
@@ -2212,39 +2246,22 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
             const auto middle = ratios.begin() + static_cast<std::ptrdiff_t>(ratios.size() / 2);
             std::ranges::nth_element(ratios, middle);
             core::at(median_ratio, ch) = *middle;
+            constexpr double kHigh = 0.95;
+            const auto high = ratios.begin() + static_cast<std::ptrdiff_t>(static_cast<double>(ratios.size() - 1) * kHigh);
+            std::ranges::nth_element(ratios, high);
+            core::at(model->lamp_high, ch) = *high;
         }
     }
-    model->lamp_median = median_ratio;
-    const bool any = std::ranges::any_of(told, [](uint8_t bits) { return bits == 7U; });
+    model->lamp_median = median_ratio; // (reported: the solved over their own surfaces' pi x radiance)
     for (std::size_t li = 0; li < lamps.size(); ++li) {
         RelitLamp& lamp = core::at(lamps, li);
-        if (!any) {
-            continue; // (no lamp told: each keeps its found brightness)
-        }
         lamp.solved = core::at(told, li) == 7U;
         model->lamps_solved += lamp.solved ? 1 : 0;
-        for (std::size_t ch = 0; ch < 3; ++ch) {
-            core::at(lamp.light, ch) = lamp.solved ? core::at(core::at(solved, li), ch)
-                                                   : core::at(lamp.light, ch) * core::at(median_ratio, ch);
+        if (lamp.solved) {
+            lamp.light = core::at(solved, li);
         }
     }
-    // L again from the links
-    for (std::size_t mi = 0; mi < count; ++mi) {
-        RelitVertices& vertices = core::at(light, mi);
-        if (core::at(links, mi).first.empty()) {
-            continue;
-        }
-        for (std::size_t vi = 0; vi < vertices.size(); ++vi) {
-            Rgbf sum{};
-            for (const RelitLampLink& link : links_of(mi, static_cast<uint32_t>(vi))) {
-                sum = plus(sum, scaled(core::at(lamps, link.lamp).light, link.weight));
-            }
-            core::at(vertices, vi).lamp = sum;
-        }
-        if (!core::at(meshes, mi).sources.empty()) {
-            relit_derive(core::at(meshes, mi), &vertices); // (building relief's made vertices: their sources' light)
-        }
-    }
+    relit_lamp_light(meshes, light, links, lamps);
 }
 
 void relit_to_unit(RelitModel* model, std::span<RelitVertices> light, std::span<RelitLamp> lamps)
@@ -2266,7 +2283,9 @@ void relit_to_unit(RelitModel* model, std::span<RelitVertices> light, std::span<
     }
     for (std::size_t ch = 0; ch < 3; ++ch) {
         for (RelitLamp& lamp : lamps) {
-            core::at(lamp.light, ch) /= core::at(scale, ch);
+            if (lamp.solved) {
+                core::at(lamp.light, ch) /= core::at(scale, ch);
+            }
         }
         core::at(model->sun, ch) /= core::at(scale, ch);
         core::at(model->sky, ch) /= core::at(scale, ch);

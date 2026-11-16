@@ -1699,7 +1699,7 @@ void check_lamp_term(const Scene& scene, const std::vector<rt::RelitVertices>& t
                  text::format("the lamps' light traced: %zu vertices lit by the lamp, %zu turned from it lit (%zu rays)",
                               reached, behind, stats.rays));
     rt::RelitModel model = rt::fit_relit_model(lit.meshes, light, scene.sun);
-    rt::solve_relit_lamps(lit.meshes, light, links, lamps, &model);
+    rt::solve_relit_lamps(lit.meshes, light, links, lamps, &model, true);
     // the fit's scale (its sky against the bake's) carries over to the lamp: the intensity in the fit's units
     bool c_close = model.valid && model.lamps_solved == 1 && lamps.front().solved;
     std::array<float, 3> wanted{};

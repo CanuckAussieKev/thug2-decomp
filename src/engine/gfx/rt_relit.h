@@ -232,7 +232,9 @@ struct RelitModel {
     // is held at 0; the vertices the bake's sunlight was taken out of the tint at (relit_sun_in_tint)
     std::array<std::size_t, 3> lamp_votes{}; // (round A2) the lamps' solve: the edges it was told by per channel
     Rgbf lamp_median{};                      // ... and the solved lamps' median intensity over their found brightness
-    std::size_t lamps_solved = 0;            // the lamps the bake's edges told (the rest: the median ratio x their own)
+    std::size_t lamps_solved = 0;            // the lamps the bake's edges told (the rest: their own surfaces' light)
+    std::size_t lamps_dark = 0;              // ... of them told dark (no light of theirs in the bake)
+    Rgbf lamp_high{};                        // ... the lit ones' 95th percentile over their own surfaces' light
     // (reported) the vertices whose bake differs from the model by kRelitLampLow or more: brighter (lamps the list
     // doesn't hold, the bake's sun where the rays saw a caster) and darker (the bake's shadows where the rays saw the
     // sun, its darkened corners) - that light dropped, their tints their surroundings'; and those told across meshes
@@ -314,17 +316,22 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // (lighting round A2 - the baked sun picked by the relit fit) How well a model explains the bake: over every mesh edge
 // of two lit vertices (one-colour meshes left out: the same edges for every model of the level) the edge's error
 // |y_i E_j - y_j E_i| / (y_i E_j + y_j E_i) per channel - its colours' ratio against its light's -, luma-weighted, the
-// median. Models fitted toward different suns are told apart by it (the edge set doesn't change with the sun).
+// mean (the sun's evidence is in a minority of the edges). Models fitted toward different suns are told apart by it
+// (the edge set doesn't change with the sun).
 [[nodiscard]] float relit_edge_error(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light,
                                      const RelitModel& model);
-// The sun's share of the model's light over the level's lit vertices (luma: the sum of a S N.L over the sum of E) - the
-// baked sun's confidence when the relit fit picks it (0 for a sunless model).
-[[nodiscard]] float relit_sun_share(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light,
-                                   const RelitModel& model);
-// A sun is in the bake when the best candidate's model explains it better than the sunless one does and its sun
-// carries at least this share of the light (an open level under a clear sun: 0.5 - 0.8 of a level surface's light;
-// a window's patch in a room, a few percent).
-inline constexpr float kRelitMinSunShare = 0.2F;
+// The sun's share of the model's light on an open level surface (luma: a sin(e) over a sin(e) + b) - the baked sun's
+// confidence when the relit fit picks it (0 for a sunless model).
+[[nodiscard]] float relit_sun_share(const RelitModel& model);
+// The candidates are told apart by how much their sun improves the fit (RelitModel::sun_needed: the edges' objective
+// without the sun over with it - the edges across the candidate's traced shadows count only where the bake steps down
+// there too, so the right sun keeps the most of them; the mean edge error, relit_edge_error, favours the weakest sun and
+// can't). A sun is in the bake when the best one's fit is at least kRelitMinSunGain times worse without it. Measured
+// over 16 levels (round A2): the sunless ones at most 1.015 (NO, night; kyoto 1.008; SE - Pro Skater, evening - 1.006),
+// the sunlit ones from 1.043 (LA, CA 1.044, SE2 1.050, BO 1.051 ... thps2_chopperdrop 1.289); kRelitMinSunGain between.
+// Its sun's share of an open surface's light (relit_sun_share) is reported as the confidence: a bake's own a against
+// b - Boston's 0.27, CA's 0.14 (its artists' sun weak), the physical clear sky's 0.6 - 0.85 - is the bake's art, not a test.
+inline constexpr float kRelitMinSunGain = 1.03F;
 // (the offline relit data) A lamp as the lamps pass shines it (rt_lights.h Emitter: an emitter found in the level or a
 // point light).
 struct RelitLamp {
@@ -372,18 +379,24 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
 // sun, sky and bounce are fitted: over the mesh edges of two lit vertices with lamps (one-colour meshes left out), a
 // shared surface colour makes y_i (E_j + sum_l I_l G_jl) = y_j (E_i + sum_l I_l G_il) - linear in the intensities; their
 // non-negative least squares (each edge relative to its own light, reweighted toward the median error kLampRounds
-// times; projected coordinate descent). A lamp no edge tells (under kRelitLampEdges edges) takes the solved lamps' median
-// ratio to their found brightness. Then each vertex's L again from its links and the solved intensities, and the model's
-// lamps' coefficient 1 (the lamps' light is theirs). Fewer than kRelitLampEdges edges in all: no lamp is solved, every
-// lamp keeps its found brightness.
+// times; projected coordinate descent). Only a bake whose lamps were on (`lit_in_bake`: its own time's lamps -
+// rt_lights.h lamps_on - or a dark level) tells their light; in a daytime bake, and for a lamp no edge tells (under
+// kRelitLampEdges edges), a lamp shines by its own surface: a Lambertian emitter of the radiance its glow shows (the
+// game's colours are radiance in the unit) - pi x it at the surface (lamp_geometry's 1). Then each vertex's L again
+// (relit_lamp_light), and the model's lamps' coefficient 1 (0 for the decomposition of a bake whose lamps were off).
 inline constexpr std::size_t kRelitLampEdges = 64;
+inline constexpr float kRelitLambertian = 3.14159265F; // (a Lambertian surface's exitance over its radiance)
 void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                       std::span<RelitLamp> lamps, RelitModel* model);
+                       std::span<RelitLamp> lamps, RelitModel* model, bool lit_in_bake);
+// Each vertex's L from its links and the lamps' intensities (building relief's made vertices from their sources).
+void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
+                      std::span<const RelitLamp> lamps);
 // (lighting round A2 - one light unit for every level) The decomposition in the global unit, from energy alone: the
 // light bounced to a vertex, B, is the radiance its surroundings show - in the bake's own colours, so in the game's unit
 // whatever the bake's exposure - and a surface's light takes it whole (one bounce adds the surroundings' radiance x the
 // cosine-weighted share that reaches it: coefficient 1). The fit's g (per channel) is then the factor between its tints
-// and albedos: tints x g (held to kRelitMaxTint), each vertex's L and the lamps' intensities / g, the model's sun and sky / g (the
+// and albedos: tints x g (held to kRelitMaxTint), each vertex's L and the solved lamps' intensities / g (a lamp shining
+// by its own surface is in the unit already: relit_lamp_light makes L again after), the model's sun and sky / g (the
 // bake's own light in the unit), its bounce and lamps 1, `albedo_scale` g's luma. The same rule for a sunlit, a night and an
 // indoor bake (no exposure guessed, no corpus value); the bake's own sun and sky are then replaced by the physical ones.
 void relit_to_unit(RelitModel* model, std::span<RelitVertices> light, std::span<RelitLamp> lamps);

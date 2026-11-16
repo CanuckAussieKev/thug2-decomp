@@ -256,6 +256,23 @@ SunFit fit_baked_sun(std::span<const BakeSample> samples, RayTracing& tracer)
                 fit.sun.candidates.push_back({x_of(toward), y_of(toward), z_of(toward), core::at(coarse_scores, index)});
             }
         }
+        // a low sun's ring too (an evening bake's sun - its long shadows lie across many-coloured ground, where the
+        // correlation ranks it low): kCandidateRingHeadings headings at each of kCandidateRingElevations, apart from
+        // those taken (their score not looked at: kNotScored)
+        for (const float elevation : kCandidateRingElevations) {
+            for (std::size_t k = 0; k < kCandidateRingHeadings; ++k) {
+                const double heading = (static_cast<double>(k) * 360.0 / kCandidateRingHeadings) * kRadiansPerDegree;
+                const double up = static_cast<double>(elevation) * kRadiansPerDegree;
+                const Vec3 toward{static_cast<float>(std::cos(up) * std::sin(heading)), static_cast<float>(std::sin(up)),
+                                  static_cast<float>(std::cos(up) * std::cos(heading))};
+                const bool near_one = std::ranges::any_of(fit.sun.candidates, [&](const std::array<float, 4>& taken) {
+                    return dot(toward, {std::get<0>(taken), std::get<1>(taken), std::get<2>(taken)}) > apart;
+                });
+                if (!near_one) {
+                    fit.sun.candidates.push_back({x_of(toward), y_of(toward), z_of(toward), kNotScored});
+                }
+            }
+        }
     }
     // (added by the sun's glare) the level's ground: the samples' heights' kGroundShare quantile
     std::vector<float> heights;

@@ -1033,7 +1033,7 @@ air's glow x the god rays' x2 x a Thick haze capped "for Barcelona's harbour", o
 - **Still not physical** (named, for later rounds): the level fog's own path (a level's art fog, display-referred, its
   street air's light `kFogStreetAirLight`), the moon's light and the night sky's radiance (the time of day's art values),
   the light's direction held 6 degrees up, the frame's display-referred colour target (the passes convert to linear and
-  back), lamp intensities (rt_lights).
+  back); lamp intensities are solved from the bakes since lighting round A2 (below).
 
 ### Volumetric fog and light shafts
 
@@ -2034,7 +2034,7 @@ its darkened corners), the tint is its surroundings' and that light is dropped; 
 neighbours' difference across meshes (`relit_light_across`). Kept per vertex: the tint, S toward the bake's sun, K, the
 bounce of the relit light at the bake's sun, L; and the lamps' list. Gone: the residual, the missed sun, the level's
 scale, the agreement grid. A bake with no sun (night, indoors - New Orleans) is taken apart too: its sky, bounce and
-lamps; the clock's daylight is the corpus median sun and sky (`kRelitDaySun`, `kRelitDaySky`). The baked sun's search
+lamps; (round A2) the clock's daylight is the physical sky's and sun's, like every level's (below: "Lighting round A2"). The baked sun's search
 reaches 2 degrees up (an evening bake's sun) and judges each sample against its own mesh too. Data v3; older files are
 out of date. **In the game** relit never writes the game's vertex buffers: the light stream (rt_cel.h, six words - the
 sixth the colour) is the light store every relit world draw reads in place of its vertex colour (VertexKey
@@ -2125,6 +2125,66 @@ traced or fitted while the game loads a level: the game reads the level's data a
   bounce and a lamp - taken apart by the same functions the bake runs, and the data file written and read back: the
   level's colours from the file the bake's within a byte); `thug2_options_check` (relit, the time of day and the
   lighting passes out of effect without data, with stale data and without sunlight, with the build step in the reason).
+
+### Lighting round A2: one light unit, the sun by the relit fit, lamps by their light (`rt_relit`, `rt_lights`)
+
+The user's standard (2026-11-17): lighting handled physically, as in modern games - no per-level or per-object tuned
+values, no blending toward the bake, no compensation; a path tracer (ReSTIR DI/GI + DLSS Ray Reconstruction) is the end
+goal, so every change produces the physical inputs it reads. Relit data v4:
+
+- **One light unit for every level.** The light a relit surface gets is the global unit's (`rt_daylight.h`
+  `DayLight::sun_light` / `sky_light`, `absolute_light_at` from `rt_sky.h ground_light_table`: the sun's transmitted light
+  per unit of N.L and the sky's every-order light on a level surface, x `sky_exposure() / pi` - 1 on a level surface under
+  the reference day, a white diffuser's radiance, `daylight_check`: 1.000). `RelitLighting` carries that light; a level's
+  own time (tod=level) is its own day's (`fit_native_day` at its own state) in the same unit. Each level's fitted a, b no
+  longer scale anything: the fit only takes the bake apart. Gone: `kRelitDaySun` / `kRelitDaySky` (the sunless levels'
+  borrowed corpus median), `direct_scale` / `sky_scale` / `sun_colour` on the relit light.
+- **Albedos by energy, not by a statistic** (`relit_to_unit`): the bounce B is the surroundings' radiance in the bake's
+  own colours, so a surface takes it whole (coefficient 1) whatever the bake's exposure; the fit's g (per channel) is
+  then the factor between its tints (median 1, an arbitrary scale) and albedos. Tints x g are the albedos (the check:
+  the known tints again within 0.1%); the same rule for a sunlit, a night and an indoor bake. The lamps solved in the
+  fit's units are divided by it too. The game's colours are radiance in the unit (round B's definition), so a bake's own
+  daylight against the physical is reported (`daylight_ratio`), never used to scale.
+- **The baked sun picked by the relit fit** (`relit_bake.cpp`): the correlation search's candidates
+  (`BakedSun::candidates`: its best, the coarse set's next best `kCandidateApartDegrees` apart, and a low sun's ring) are
+  each traced and fitted; the one whose sun improves the fit most (`RelitModel::sun_needed`, the edges' objective without
+  the sun over with it - the edges across its traced shadows count only where the bake steps down there too) is the sun,
+  when that gain is at least `kRelitMinSunGain` (1.03: measured over 16 levels, the sunless ones at most 1.015 - NO at
+  night, kyoto, SE (Pro Skater) in the evening -, the sunlit ones from 1.043 - LA, CA, SE2, which the correlation alone
+  missed); its confidence is the share its sun carries of an open surface's light (`relit_sun_share`: a sin e /
+  (a sin e + b) - the artists' sun against their ambient, reported). The mean edge error (`relit_edge_error`) is reported,
+  not used: it favours the weakest sun.
+- **Lamps by their light** (`solve_relit_lamps`): one intensity per lamp and channel from the bake - y_i (E_j + sum I G_j)
+  = y_j (E_i + sum I G_i) along every mesh edge (a shared surface colour), linear in the intensities, solved as
+  non-negative least squares (projected coordinate descent, Cauchy-reweighted) - no level-wide c (which came out negative
+  at night). Only a bake whose lamps were on (its own time's lamps, a dark level) tells their light; otherwise, and for a
+  lamp no edge tells, a lamp shines by its own surface: a Lambertian emitter of the radiance its glow shows, pi x it.
+  The game's lamps pass shines the data's solved lamps (`rt_relit_world::data_emitters`), relit's L is made from the
+  same; the level's own point lights stay the game's.
+- **Shapes** (`rt_lights.h EmitterShape`, `lamp_geometry` - the same function in the lamps pass's GLSL): a cluster's
+  principal axes make it a point, a panel (thin, facing one way: a ceiling's lit panel, a lit window - a two-sided
+  Lambertian disc of its area) or a line (4 x longer than wide: a tube - its light 1/d near it, 1/d^2 far). A flat
+  self-lit cluster facing down by the world's winding (`world_facing`) is a ceiling light, facing up a baked pool (no
+  light). Self-lit surfaces are looked for in a level whose bake shows no sun however bright it is (indoors, at night).
+- **The bounce, judged by energy**: the white furnace (a closed room of radiance R: K 0, B R exactly) and the albedo-weighted
+  series (rho E0 (1 + rho + ... + rho^n) after the game's `kRelitBouncePasses` = 3 passes a light) in
+  `thug2_vulkan_rt_relit_check`. The world's bounce is relit's (per vertex, from the relit colours, three passes); live
+  `rt_gi` lights the objects and characters - the per-pixel world bounce is the path tracer's (ReSTIR GI).
+- **One direct share** (`rt_daylight.h direct_share_now`): the shadows pass's share for pixels without a light store - the
+  clock's light's own (sun_light x sine over that plus sky_light), the model's at the level's sun without it (0 without
+  one); the light field's measured share is deleted. `direct_share_at` uses the same absolute light.
+- **What a path tracer reads (the relit data, v4)**: per vertex the albedo (tint x the material's texture), S/K/B/L as a
+  hybrid's cache; the lamps (`RelitLamp`: position, shape - point / panel / line with its axis and half length -, core,
+  reach, intensity per channel in the global unit, candela, lumens and correlated colour temperature, whether the bake
+  told it); the emissive triangles (`RelitEmissive`: corners, radiance = intensity / pi, their lamp) for light sampling
+  (ReSTIR DI); the sun (`BakedSun`, `sun_disc_radiance`), the sky (the sky-view table), the medium (round B), all in the
+  one unit (`unit_illuminance()` lux = 1). **Still missing / not physical**: the bake's lamps are its displayed glow
+  (clipped at 2 x white) where the bake doesn't tell them - real lamp surfaces are 10^2 - 10^4 x brighter; the moon's and
+  the night sky's light are art values (`moon_light_absolute`, `night_sky_absolute` from kMoonLight / kNightSkyLight);
+  the objects' and characters' lights are still the game's ratios (`object_lighting`'s key colour); the frame is
+  display-referred (the light store is linear in the unit, the colour word tint x light read as a display colour);
+  materials' roughness / metalness for the reflections; the rays' 2-unit offset leaks at concave seams (a vertex on a
+  wall's foot starts its rays on the floor's plane: K too high there - the furnace check measures its interior only).
 
 ### One sun for every effect (`rt_sun_source`)
 

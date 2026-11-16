@@ -1379,7 +1379,8 @@ void emitter_work()
             "is %s, median brightness %.0f of 128) and %td point lights on now - %.0f ms",
             found.emitters.size(), glows, found.glow_triangles,
             static_cast<std::ptrdiff_t>(found.emitters.size()) - glows, found.self_lit_triangles,
-            found.dark ? "dark" : "not dark: no self-lit", static_cast<double>(found.median_luma), points,
+            found.dark ? "dark" : (sunless ? "not dark, but its bake's search shows no sun: self-lit looked for" : "not dark: no self-lit"),
+            static_cast<double>(found.median_luma), points,
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
     rt::set_level_emitters(std::move(found));
 }

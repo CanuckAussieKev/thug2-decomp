@@ -222,15 +222,17 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
     data.lamps = static_cast<uint32_t>(lamps.size());
     rt::RelitLampLinks links;
     double trace_ms = 0.0;
+    rt::Rgbf bake_sky{}; // (round A2, the evidence) the bake's own sky light in the global unit, and its sun's elevation
+    float sun_elevation = 0.0F;
     double fit_ms = 0.0;
     double bounce_ms = 0.0;
     {
         // (lighting round A) every bake is taken apart: with a sun, or - a night or indoor bake, no sun in it - by its sky,
         // bounce and lamps alone. (round A2) Which: the relit fit itself picks the baked sun - each of the baked sun's
         // search's candidates (rt_scene.h BakedSun::candidates: a correlation of "lit" with the brightness alone misses
-        // a sun whose shadows fall on many-coloured ground) traced and fitted, the one whose model explains the bake best
-        // (relit_edge_error over the same edges for all), against the sunless model; a sun when it explains it better
-        // and carries at least rt_relit.h kRelitMinSunShare of the light - its confidence that share.
+        // a sun whose shadows fall on many-coloured ground; and a low sun's ring) traced and fitted, the one whose sun
+        // improves the fit most (RelitModel::sun_needed); a sun when it does so by rt_relit.h kRelitMinSunGain - its
+        // confidence the share of an open surface's light its sun carries (relit_sun_share, reported).
         const rt::RelitParams params{.sky_rays = rt::kRelitBakeSkyRays,
                                      .sun_rays = rt::kRelitBakeSunRays,
                                      .sun_radius_degrees = rt::kRelitSunRadiusDegrees,
@@ -259,6 +261,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             bool found = false;
             rt::Vec3 toward{};
             float error = 0.0F;
+            float gain = 0.0F; // the fit's objective without the sun over with it (RelitModel::sun_needed)
             float share = 0.0F;
             rt::RelitModel model;
             std::vector<std::vector<float>> suns;
@@ -274,18 +277,19 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             }
             const rt::RelitModel fitted = rt::fit_relit_model(meshes, light, toward, false);
             const float error = fitted.valid ? rt::relit_edge_error(meshes, light, fitted) : 1.0F;
-            const float share = rt::relit_sun_share(meshes, light, fitted);
+            const float share = rt::relit_sun_share(fitted);
             constexpr double kDegrees = 180.0 / 3.14159265358979323846;
             get_log("relit bake: a sun candidate heading %.0f elevation %.0f (search score %.2f) - error %.4f, the sun's "
-                    "share %.2f (%s)",
+                    "share %.2f, the fit without the sun %.4f x worse (%s)",
                     std::atan2(static_cast<double>(rt::x_of(toward)), static_cast<double>(rt::z_of(toward))) * kDegrees,
                     std::asin(std::clamp(static_cast<double>(rt::y_of(toward)), -1.0, 1.0)) * kDegrees,
                     static_cast<double>(std::get<3>(candidate)), static_cast<double>(error), static_cast<double>(share),
-                    fitted.valid ? "valid" : "no sunlight");
-            if (fitted.valid && (!pick.found || error < pick.error)) {
+                    static_cast<double>(fitted.sun_needed), fitted.valid ? "valid" : "no sunlight");
+            if (fitted.valid && (!pick.found || fitted.sun_needed > pick.gain)) {
                 pick.found = true;
                 pick.toward = toward;
                 pick.error = error;
+                pick.gain = fitted.sun_needed;
                 pick.share = share;
                 pick.model = fitted;
                 pick.suns.assign(light.size(), {});
@@ -296,14 +300,17 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                 }
             }
         }
-        const bool sunless = !(pick.found && (pick.error < sunless_error || !model.valid) &&
-                               pick.share >= rt::kRelitMinSunShare);
+        const bool sunless = !(pick.found && pick.gain >= rt::kRelitMinSunGain);
+        get_log("relit bake: the relit fit's sun - %s (the fit %.4f x worse without it, its share %.2f of an open "
+                "surface's light; the sunless model's error %.4f, the sun's %.4f)",
+                sunless ? "none" : "found", static_cast<double>(pick.gain), static_cast<double>(pick.share),
+                static_cast<double>(sunless_error), static_cast<double>(pick.error));
         data.sun.found = !sunless;
         data.sun.confidence = pick.found ? pick.share : 0.0F;
         if (pick.found) {
             data.sun.toward = pick.toward;
         }
-        data.sun_margin = data.sun.confidence / rt::kRelitMinSunShare;
+        data.sun_margin = pick.found ? pick.gain / rt::kRelitMinSunGain : 0.0F; // (the verdict's: the fit's gain)
         if (!sunless) {
             set_suns(&pick.suns);
             model = pick.model;
@@ -314,7 +321,11 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         const auto fitted = std::chrono::steady_clock::now();
         if (model.valid) {
             // (round A2) each lamp's intensity solved from the bake (no level-wide c)
-            rt::solve_relit_lamps(meshes, light, links, lamps, &model);
+            // (only a bake whose lamps were on tells their light: its own time's lamps, or a dark level)
+            const std::shared_ptr<const rt::LevelEmitters> emitters = rt::level_emitters();
+            const bool lit_in_bake =
+                rt::lamps_on(own_day_light(data.sun), emitters != nullptr && emitters->dark) > 0.0F;
+            rt::solve_relit_lamps(meshes, light, links, lamps, &model, lit_in_bake);
         }
         data.model_margin = sunless ? (luma(model.sky) + luma(model.bounce)) / rt::kRelitMinSunLight
                                     : luma(model.sun) / rt::kRelitMinSunLight;
@@ -332,6 +343,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         const rt::DayLight own_day = own_day_light(data.sun);
         if (model.valid) {
             rt::relit_to_unit(&model, light, lamps);
+            rt::relit_lamp_light(meshes, light, links, lamps); // (L in the unit: the lamps' own and the solved)
             const float elevation_sine = std::max(0.0F, rt::y_of(model.toward));
             const float baked = luma(rt::plus(rt::scaled(model.sun, elevation_sine), model.sky));
             const float physical = luma(rt::plus(rt::scaled(own_day.sun_light, elevation_sine), own_day.sky_light));
@@ -348,6 +360,9 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                     static_cast<double>(std::get<1>(own_day.sky_light)), static_cast<double>(std::get<2>(own_day.sky_light)),
                     static_cast<double>(model.daylight_ratio));
             model.sun = sunless ? rt::Rgbf{} : own_day.sun_light;
+            bake_sky = model.sky;
+            sun_elevation = sunless ? 0.0F : static_cast<float>(std::asin(std::clamp(static_cast<double>(rt::y_of(model.toward)), -1.0, 1.0)) *
+                                               180.0 / 3.14159265358979323846);
             model.sky = own_day.sky_light;
         }
         // the lamps in physical units (a path tracer's: candela, lumens, colour temperature) and the emissive triangles
@@ -463,13 +478,15 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         std::ranges::nth_element(kelvins, middle);
         median_kelvin = *middle;
     }
-    get_log("relit bake: the lamps' solve - %zu %zu %zu edges, %zu of %zu lamps told by the bake (the rest x the median "
-            "ratio %.3f %.3f %.3f to their found brightness); shapes: %zu points, %zu panels, %zu lines; %.0f lumens in all, "
+    get_log("relit bake: the lamps' solve - %zu %zu %zu edges, %zu of %zu lamps told by the bake (the rest by their own "
+            "surfaces' radiance; %zu told dark, the lit ones %.3f %.3f %.3f x their surfaces' light, median, %.2f at the "
+            "95th percentile); shapes: %zu points, %zu panels, %zu lines; %.0f lumens in all, "
             "median %.0f K; %zu emissive triangles; the bake's light the model doesn't explain dropped - brighter at %zu "
             "vertices, darker (its shadows the rays don't see) at %zu, told across meshes at %zu",
             core::at(model.lamp_votes, 0), core::at(model.lamp_votes, 1), core::at(model.lamp_votes, 2),
-            model.lamps_solved, data.lamp_list.size(), static_cast<double>(std::get<0>(model.lamp_median)),
+            model.lamps_solved, data.lamp_list.size(), model.lamps_dark, static_cast<double>(std::get<0>(model.lamp_median)),
             static_cast<double>(std::get<1>(model.lamp_median)), static_cast<double>(std::get<2>(model.lamp_median)),
+            static_cast<double>(std::get<1>(model.lamp_high)),
             core::at(shapes, 0), core::at(shapes, 1), core::at(shapes, 2), lumens, static_cast<double>(median_kelvin),
             data.emissive.size(), model.brighter, model.darker, model.across);
     // (lighting round A) the level's lighting state as its own data shows it - never assumed: its time-of-day state at
@@ -502,14 +519,35 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             std::ranges::nth_element(lumas, top);
             brightest = *top;
         }
+        // (round A2) indoors or out, from the rays: the median share of the sky the level's upward faces see (a floor
+        // under a roof sees none of it)
+        std::vector<float> open;
+        for (const rt::RelitDataMesh& mesh : data.meshes) {
+            for (const rt::RelitVertex& vertex : mesh.vertices) {
+                constexpr float kUpward = 0.7F;
+                if (vertex.used && rt::y_of(vertex.normal) >= kUpward) {
+                    open.push_back(vertex.sky);
+                }
+            }
+        }
+        float open_sky = 0.0F;
+        if (!open.empty()) {
+            const auto middle = open.begin() + static_cast<std::ptrdiff_t>(open.size() / 2);
+            std::ranges::nth_element(open, middle);
+            open_sky = *middle;
+        }
         const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
-        get_log("relit bake: evidence - the level's own time of day %s; the baked sun's confidence %.2f (%s); vertex light "
-                "median %.3f, brightest 5%% from %.3f (x%.2f); %zu glow and %zu self-lit triangles, %zu lamps (%s level)",
+        get_log("relit bake: evidence - the level's own time of day %s; the baked sun's confidence %.2f (%s, %.0f degrees "
+                "up); vertex light median %.3f, brightest 5%% from %.3f (x%.2f); %zu glow and %zu self-lit triangles, %zu "
+                "lamps (%s level); upward faces see %.2f of the sky (median); the bake's sky %.3f %.3f %.3f in the global "
+                "unit, its daylight %.2f of the physical",
                 state_name, static_cast<double>(data.sun.confidence), data.sun.found ? "a sun" : "no sun",
-                static_cast<double>(median), static_cast<double>(brightest),
+                static_cast<double>(sun_elevation), static_cast<double>(median), static_cast<double>(brightest),
                 median > 0.0F ? static_cast<double>(brightest / median) : 0.0,
                 found != nullptr ? found->glow_triangles : 0U, found != nullptr ? found->self_lit_triangles : 0U,
-                lamps.size(), found != nullptr && found->dark ? "a dark" : "a lit");
+                lamps.size(), found != nullptr && found->dark ? "a dark" : "a lit", static_cast<double>(open_sky),
+                static_cast<double>(std::get<0>(bake_sky)), static_cast<double>(std::get<1>(bake_sky)),
+                static_cast<double>(std::get<2>(bake_sky)), static_cast<double>(data.model.daylight_ratio));
     }
     get_log("relit bake: %s %s (%zu KB, content %016llx) - %.0f ms in all", written.written && written.closed ? "wrote" : "couldn't write",
             path.c_str(), bytes.size() / kKilobyte, static_cast<unsigned long long>(data.content), ms_since(start));

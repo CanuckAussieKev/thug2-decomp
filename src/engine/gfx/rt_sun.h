@@ -88,6 +88,9 @@ struct Cone {
 // brightness misses a sun whose shadows fall on many-coloured ground: Skatopia's evening).
 inline constexpr std::size_t kSunCandidates = 12;
 inline constexpr float kCandidateApartDegrees = 8.0F;
+// ... and a low sun's ring: these headings round at each of these elevations (degrees)
+inline constexpr std::size_t kCandidateRingHeadings = 8;
+inline constexpr std::array<float, 3> kCandidateRingElevations{6.0F, 13.0F, 22.0F};
 struct SunFit {
     BakedSun sun;            // (scene left 0: the caller numbers it)
     std::size_t samples = 0;
