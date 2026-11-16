@@ -998,18 +998,54 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
   - so games don't do it physically: their volumetric fog is a volume round the camera whose scattering is set apart
   from its thickness, each light with its own share in it. The look does the same, in steps:
   - `clear`: the physical model, every factor 1 (round two's air exactly).
-  - `cinematic` (the default): the street air x 2.5 (`density`; no base over a clear day's - `least` 1: the low sun's
+  - `cinematic` (the default): the street air x 2.5 (x 2.0 since the distinct shafts, below: its layer is deeper) (`density`; no base over a clear day's - `least` 1: the low sun's
     and the night's own conditions carry it, noon stays clear), the night's mist x 1.5; it scatters the sun's or moon's
     light x 3 (`glow`) and the lamps' x 5 (`lamp_glow`: a lamp's few hundred lumens against the sun's hundred thousand
     - a film lights its practicals for the haze) while it dims only by its extinction - not energy-conserving, by
     design; its phase gets an even lobe of 6 over `medium_phase` (`side`, x 4 pi - an even medium's light is 1): the lit
     air reads from the side, not only toward the light (2.5 was tried first: in the game the beams across Berlin's
     river street and the light past College's tower read only looking toward the sun); its shade's light (the sky's,
-    the fog's ambient) x 0.35 (`shade`): the air out of the light stays clear and the beams stand out; and it is a
+    the fog's ambient) x 0.35 (`shade`; 0.2 since the distinct shafts): the air out of the light stays clear and the beams stand out; and it is a
     volume round the eye - whole to 30 m, gone by 60 m (`range`, smoothstep on each segment's middle distance; a ray
     more than 4 x that long marches half its steps in it): the beams near the player, the far world seen through the
     aerial haze alone.
   - `misty`: x 5, at least 4 x a clear day's, glow 1, lamps x 3, side 1.5, its shade whole, 150 m round the eye.
+- **Distinct shafts** (added in the fourth round, the user's "option A": god rays with dark gaps). Measured first: the
+  same pose with `rt_fog_air` cinematic and clear, the difference the cinematic air's own light
+  (`tools/game/shaft_contrast.ts`: veil = its median, beam / gap = its 90th / 10th percentiles, structure = how much of
+  it is shafts and gaps rather than a smooth glow). Round three at dusk added a beam of 4 - 9 levels (Boston toward the
+  sun 8.8, Berlin's river street 4.1, College 06:20 7 - 14), at night an even veil (Berlin 45 levels median, structure
+  0.03). The march's resolution and history were not the cause - the check's thin bar (below) is drawn within a texel
+  of the exact integral -, the model was:
+  - the volume round the eye was too short: at a 6 - 12 degree sun the air near the eye is in the buildings' shadows
+    (a 20 m roof shades 190 m), the beams lie further out. It now reaches `along` (4) x its range looking straight at
+    the light, x (1 + 3 cos^2) between (`air_stretch`) - and thins as it lengthens (its mist / the stretch: the same
+    optical depth toward the light over a longer way, so the glow toward a low sun is no thicker; without it College's
+    high view whited out toward the 12-degree sun);
+  - the layer was too shallow: thinning by e every 8 m, it has all but gone at the roofs a low sun's beams come over.
+    By day it is `deep` (4) x that - 32 m; a night's mist stays 4 m (the lamps' heads near its top). Its density x 2.0
+    instead of 2.5 keeps the eye-level veil (noon from the side under the check's bound);
+  - the shade's light x 0.2 (was 0.35), the lamps' glow x 3 (was 5: the night's even veil).
+  - The air's shadows: **the air's sun map** (`rt_volume_light.h air_map_half`, `vulkan_rt_fog` step 0): each frame a
+    square across the light's way round the eye (its half side the volume's widest reach across the light, the stretch
+    included: 1.77 x the range), 512 / 1024 / 1536 texels a side by `rt_fog_quality` (0.15 m at Medium), each texel the
+    distance down the light's way to the first thing its ray hits (the cut-outs by their alpha - the one lighting
+    path's test; rays from `kAirMapLift` up the light's way, as far as the light's own rays look). The march reads it
+    at every step inside the square - a bilinear compare, moved across the light's disc by the distance from what
+    shadows it (the penumbra) - instead of a ray each other step, alternating frame to frame; beyond the square the rays
+    as before. A ray that leaves the volume marches `steps` in it (t^2) and half as many past it in a geometric series:
+    the first kilometres (the clouds' gaps, read from the clouds' map every step) as finely as the far haze.
+  - The history is held to its 3 x 3 neighbours' mean +- 1.5 deviations (inside their least and most) - a moved
+    camera's history doesn't smear a beam's edge.
+  The check (thug2_vulkan_rt_fog_check): a 0.3 m bar across the alley, its shadow through the beam seen edge-on from
+  the side at 1280 x 720 at Medium's quarter resolution: the line 6 texels wide in the exact integral, the pass's within
+  0.3 - 0.8 texels of it, as deep (0.9 - 1.2). (A 512-texel map lost that bar at one map size - the axis-aligned box's
+  edges fell between the texels' rays; Medium is 1024.) In the game (the user's settings, 1280 x 720 with DLSS quality,
+  tod held): College 06:20 - the tower's shadow column a dark wedge through the lit air from the high view and round
+  the tower from behind it (beam 49 - 57 levels, round three 7 - 12); Boston / Berlin toward the dusk sun dark gaps
+  between buildings in the lit air (structure 0.46, was 0.41) but faint (beams ~10 - 18 levels: at 6 degrees the
+  streets are in shade); night's veil halved in Berlin's street (median 8.6 levels, was 19.4) and Berlin's start
+  (33 vs 45); noon and the far view unchanged (median ~0).
   Only the street air takes the look - the aerial haze, the level's own fog and the falling snow keep theirs. The
   check's numbers (thug2_vulkan_rt_fog_check; linear light, the sun at 1, before the tone map): a 10 m beam across a
   street at dusk seen from the side 0.4 levels clear, 67 cinematic; the side view of the check's street (the device's

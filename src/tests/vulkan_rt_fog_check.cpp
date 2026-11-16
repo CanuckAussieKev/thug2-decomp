@@ -38,6 +38,9 @@
 //     street not whited out by any but Misty, noon thin -; the street seen from the side (the beam crossing the view at
 //     a right angle to the light) at the cinematic step: the history against the exact integral and the beam well over
 //     the shade - and the clear air's side view faint. A level the relit mode doesn't relight: no light in the air.
+//   - (added by the distinct shafts) A bar across the alley's mouth: its thin shadow through the beam, seen edge-on from
+//     the side at Medium's resolution (the air's sun map read at every step) - the line's width and depth against the
+//     exact integral's. (The processor's march mirrors the pass's: every step's light inside the map's square.)
 //   - --perf: the pass's cost at 2560 x 1440 at rt_fog_quality 0 / 1 / 2 (the device's timestamps), Medium held to a
 //     bound.
 //   thug2_vulkan_rt_fog_check [--device N] [--display N] [--no-validation] [--perf]
@@ -2171,7 +2174,6 @@ void run_bar(render::Gpu& gpu, const Scene& scene, Tally* tally)
     render::vulkan::RtFogSettings settings = settings_of(false);
     settings.density = 0.0F;
     settings.air = render::rt::AirLook::kCinematic;
-    if (std::getenv("BAR_MAP") != nullptr) { settings.map = static_cast<unsigned>(std::atoi(std::getenv("BAR_MAP"))); }
     use_settings(settings, scene.top.handle);
     Targets targets;
     const bool made = make_targets(gpu, kBarWidth, kBarHeight, &targets);
@@ -2210,13 +2212,6 @@ void run_bar(render::Gpu& gpu, const Scene& scene, Tally* tally)
                 continue;
             }
             const Notch seen = notch_in(got, want.at);
-            if (std::getenv("BAR_DEBUG") != nullptr && x < 60) {
-                std::string line = text::format("col %u notch at %d (w %d d %.4f) seen (w %d d %.4f):", x, want.at, want.width, want.depth, seen.width, seen.depth);
-                for (int y = std::max(0, want.at - 10); y < std::min<int>(static_cast<int>(history.height), want.at + 11); ++y) {
-                    line += text::format(" %.3f/%.3f", core::at(exact, static_cast<std::size_t>(y)), core::at(got, static_cast<std::size_t>(y)));
-                }
-                text::print("%s\n", line.c_str());
-            }
             width_gaps.push_back(std::abs(static_cast<double>(seen.width - want.width)));
             depth_shares.push_back(seen.depth / want.depth);
             exact_widths.push_back(want.width);
@@ -2369,13 +2364,6 @@ int run(const Options& options, SDL_Window* window)
     tally.check(built, "the check's acceleration structures built (a BLAS of the wall and the ground, a TLAS)");
     if (built) {
         render::Gpu& gpu = render::vulkan::gpu();
-        if (std::getenv("BAR_DEBUG") != nullptr) {
-            run_bar(gpu, scene, &tally);
-            if (options.perf) {
-                run_perf(gpu, scene, &tally);
-            }
-            return 0;
-        }
         run_air_model(&tally); // (added by the street air)
         run_replace(gpu, scene, &tally);
         run_quarter(gpu, scene, &tally); // (added by the street air)
