@@ -18,6 +18,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -233,7 +234,7 @@ void main()
     ivec2 p = ivec2(gl_FragCoord.xy);
     float d = depth_at(p);
     if (d >= 1.0) {
-        o_factor = vec4(vec3(0.5), 1.0); // (the sky, or nothing drawn: the blend doubles it)
+        o_factor = vec4(1.0); // (the sky, or nothing drawn)
         return;
     }
     vec3 here = world_at(p, d);
@@ -305,7 +306,8 @@ void main()
         vec3 before = world_light_with(w, w.seen, w.sky);
         vec3 after = world_light_with(w, visible, w.sky);
         vec3 factor = mix(vec3(1.0), after / max(before, vec3(1e-4)), greaterThan(before, vec3(1e-4)));
-        o_factor = vec4(clamp(factor * 0.5, 0.0, 1.0), 1.0); // (the blend doubles it: up to twice brighter)
+        // (round F: the frame is linear light - a ratio of display-referred light decoded; up to twice brighter)
+        o_factor = vec4(linear_from_display(clamp(factor, 0.0, 2.0)), 1.0);
         return;
     }
 #endif
@@ -318,13 +320,13 @@ void main()
         vec3 before = min(object_all, vec3(1.0));
         vec3 after = min(max(object_all - object_key * (1.0 - visible), vec3(0.0)), vec3(1.0));
         vec3 factor = mix(vec3(1.0), after / max(before, vec3(1e-4)), greaterThan(before, vec3(1e-4)));
-        o_factor = vec4(clamp(factor * 0.5, 0.0, 1.0), 1.0); // (the blend doubles it)
+        o_factor = vec4(linear_from_display(clamp(factor, 0.0, 2.0)), 1.0); // (round F: as above)
         return;
     }
     // Every other lit pixel (an object whose lights aren't known, a world vertex the game animates): its direct light's
     // share of its light (pc.to_light.w: the lighting state's - rt_light_field.h direct_share) is what the sun's
     // visibility takes away.
-    o_factor = vec4(vec3(0.5 * (1.0 - pc.to_light.w * (1.0 - visible))), 1.0); // (the blend doubles it)
+    o_factor = vec4(vec3(1.0 - pc.to_light.w * (1.0 - visible)), 1.0); // (a share of linear light: round F)
 }
 )";
 
@@ -557,6 +559,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
         source += "#define CLOUDS\n";
         source += cloud_map_glsl(kBindingCloudMap);
     }
+    source += rt::kDisplayTransferGlsl; // (round F)
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source, error);
     if (fragment == VK_NULL_HANDLE) {
@@ -610,7 +613,8 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     blend.blendEnable = VK_TRUE;
     // (the light energy audit) colour x 2 x the output: a relit world pixel's own visibility may lighten what its vertices'
     // shade darkened (the shader writes half the factor)
-    blend.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
+    // (round F: colour x the factor, unclamped on the float frame - was 2 x colour x factor, a factor halved to fit 8 bits)
+    blend.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
     blend.dstColorBlendFactor = VK_BLEND_FACTOR_SRC_COLOR;
     blend.colorBlendOp = VK_BLEND_OP_ADD;
     blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
