@@ -475,7 +475,7 @@ float air_depth(vec3 direction, float s0, float s1, float water, float stretch)
         }
         if (fog.air_look.z > 0.0) {
             float t = clamp((0.5 * (s0 + s1) - fog.air_look.y * stretch) * fog.air_look.z / stretch, 0.0, 1.0);
-            mist *= 1.0 - t * t * (3.0 - 2.0 * t);
+            mist *= (1.0 - t * t * (3.0 - 2.0 * t)) / stretch; // (thinner as it lengthens: air_reach)
         }
         depth += mist;
     }

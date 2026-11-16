@@ -18,7 +18,8 @@ test("an even veil has no contrast and no structure", () => {
 
 test("beams with dark gaps between them have contrast 1 and structure", () => {
     const air = new Float32Array(width * height);
-    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) air[y * width + x] = Math.floor(x / 8) % 2 ? 60 : 0;
+    for (let y = 0; y < height; y++)
+        for (let x = 0; x < width; x++) air[y * width + x] = Math.floor(x / 8) % 2 ? 60 : 0;
     const stats = shaftStats(air, width, height, whole, 8);
     assert.equal(stats.beam, 60);
     assert.equal(stats.gap, 0);

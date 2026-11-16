@@ -95,7 +95,7 @@ AirArt air_art(AirLook look)
                 .side = 6.0,
                 .shade = 0.2,
                 .glow = 3.0,
-                .lamp_glow = 5.0,
+                .lamp_glow = 3.0,
                 .range = 60.0,
                 .along = 4.0,
                 .deep = 4.0};
@@ -186,7 +186,9 @@ double air_reach(double distance, const AirArt& art, double cosine)
     }
     const double range = art.range * kUnitsPerMetre * air_stretch(cosine, art);
     const double t = std::clamp((distance - (0.5 * range)) / (0.5 * range), 0.0, 1.0);
-    return 1.0 - (t * t * (3.0 - (2.0 * t)));
+    // (the stretched volume thins as it lengthens: toward the light the same optical depth over a longer way - the beams
+    // reach further, the glow toward the light no thicker)
+    return (1.0 - (t * t * (3.0 - (2.0 * t)))) / air_stretch(cosine, art);
 }
 
 double air_map_half(const AirArt& art)
