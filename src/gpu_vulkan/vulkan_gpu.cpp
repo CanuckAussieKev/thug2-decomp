@@ -1500,6 +1500,7 @@ public:
         // The back buffer copied into the swapchain and shown; the frame's work submitted (vulkan_frames.h).
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
+        state.linear_phase = false; // (round F: a view whose tone mapping didn't run ends with the frame)
         return record_present(state);
     }
     void set_gamma_ramp(const GpuGammaRamp& ramp) override
@@ -1648,7 +1649,7 @@ long create_device_objects(Backend& state)
     if (!state.ring.init(&state.memory) || !create_draw_objects(state)) {
         return kInvalid;
     }
-    rt::set_hdr_colour(hdr_wanted(state)); // NOT ORIGINAL - [Graphics] rt_hdr (vulkan_hdr.h): before the targets
+    rt::set_hdr_colour(hdr_wanted(state)); // NOT ORIGINAL - the linear frame (round F, vulkan_hdr.h): before the targets
     if (!make_device_surfaces(state)) {
         return kInvalid;
     }

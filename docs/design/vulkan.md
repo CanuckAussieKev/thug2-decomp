@@ -1032,8 +1032,43 @@ air's glow x the god rays' x2 x a Thick haze capped "for Barcelona's harbour", o
   spread).
 - **Still not physical** (named, for later rounds): the level fog's own path (a level's art fog, display-referred, its
   street air's light `kFogStreetAirLight`), the moon's light and the night sky's radiance (the time of day's art values),
-  the light's direction held 6 degrees up, the frame's display-referred colour target (the passes convert to linear and
-  back), lamp intensities (rt_lights).
+  the light's direction held 6 degrees up, lamp intensities (rt_lights). (The frame's display-referred colour target:
+  fixed by round F, below.)
+
+### A linear, scene-referred frame (round F; `rt_hdr` retired)
+
+Before it the world's target held the game's display-referred colours and each effect converted `^2.2` / `^(1/2.2)`
+round its own maths; `rt_hdr=0` kept 8-bit targets and with them a second lighting pipeline (the fog's light clamped to
+1, the sky and the sun's composite clipped, the water's glitter capped at 1, the bounce and the lamps screen-blended).
+Now:
+
+- **One transfer** (`engine/gfx/rt_display.h`): the original's colours (textures, vertex colours, the bake, fog and
+  clear colours, the relit stream's light) are display-referred - gamma 2.2, 1 its white; `linear_from_display` /
+  `display_from_linear` and their GLSL twins are the only conversions. A pure power law (not sRGB's piecewise curve):
+  it is multiplicative, so a lit surface (texel x light) decodes the same at its inputs or its output, and a ratio of
+  display-referred light decodes as its power.
+- **The frame**: on Vulkan always 16-bit float, linear light in the sky's unit (1 = a white diffuser under the
+  reference day). From a world view's `view_begins` to its tone mapping (`Backend::linear_phase`) a draw into the float
+  target decodes its fragment at the output (`ff_shaders.cpp fragment_linear_output` - before the fog, which mixes
+  the decoded fog colour, and before the blend: alpha, additive glows and multiplying decals all compose light); a
+  stage sampling a float texture (a copy of this view's world) encodes it back so the game's colour arithmetic keeps
+  its inputs; clears are decoded. The 2D, loading screens, movies, 8-bit targets (the sky capture, previews) and the
+  game's own screen blur and bloom (drawn after the tone mapping) keep the display's colours, as the original's.
+- **The effects** compose linear light: the fog's composites (`colour x T + in`; the level fog's display-referred light
+  decoded), the sun's disc and glare, the sky pass, the reflections (the sky as radiance; a hit - still the bake's
+  light, M8 - decoded), the bounce and the lamps (added, their albedos decoded), the shadows (`colour x factor` on the
+  float frame; a ratio of display-referred light decoded, a share of linear light as it is). Effects whose own model
+  is still display-referred (the snow layer and flakes, clutter, water) encode what they read from the frame and
+  decode what they write - their rounds replace the model.
+- **One output transform** (`vulkan_hdr`, `ViewOrder::kToneMapping` 972: after the upscaler, cel, motion blur / depth
+  of field and the lens, before the art styles and the grade): exposure `2^rt_exposure` x the meter's `2^stops` on the
+  light (the meter reads linear luminance), then the display's encoding once, then the display's preferences
+  (saturation, contrast, the Game / ACES curve, the grade LUT) on the encoded colour.
+- **Upscalers** take the linear HDR colour: DLSS / Ray Reconstruction `colorBuffersHDR`, FSR
+  `ENABLE_HIGH_DYNAMIC_RANGE`; exposure 1 (the unit's white is 1).
+- **Not done**: an HDR display's output (an HDR10 / scRGB swap chain - a key of its own choosing only the output); the
+  relit stream and DayLight still hand the draws display-referred light (A2's light units, round M's per-pixel BRDF:
+  then only the texel is decoded).
 
 ### Volumetric fog and light shafts
 

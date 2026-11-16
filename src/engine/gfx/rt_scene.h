@@ -399,7 +399,8 @@ inline constexpr int kIndirect = 300;   // global illumination (one bounce)
 inline constexpr int kReflections = 400;
 inline constexpr int kFog = 500;        // volumetric fog / light shafts (world_drawn)
 inline constexpr int kSun = 600;        // (added by the sun's glare) the sun's disc, its rays and the bloom (world_drawn)
-inline constexpr int kToneMapping = 900; // HDR -> the display (world_drawn, last)
+inline constexpr int kToneMapping = 972; // linear light -> the display (world_drawn; round F: after the upscaler,
+                                         // the camera and the lens - which take linear light -, before the art styles)
 inline constexpr int kSky = 50;          // (added by the sky) the atmosphere and the clouds (sky_drawn)
 inline constexpr int kUpscale = 950;      // (added by the upscaler) the view's lower resolution up to its output_rect
 inline constexpr int kStyle = 975;        // (added by the art style) the toon filter, at the output's size (world_drawn)
@@ -466,15 +467,17 @@ ViewLens view_lens();
 void note_focus_point(const std::array<float, 3>& point);
 bool focus_point(std::array<float, 3>* point);
 
-// --- HDR: the world's colour in floating point (added by the HDR round; the Vulkan Gpu's [Graphics] rt_hdr) ---------
-// While hdr_colour() is true the targets the world is drawn into hold 16-bit floats (RGBA16F): the back buffer (its
+// --- The world's colour in floating point: the linear frame (added by the HDR round; round F) ----------------------
+// While hdr_colour() is true (the Vulkan Gpu: always - rt_hdr retired) the targets the world is drawn into hold 16-bit
+// floats (RGBA16F) of linear, scene-referred light (rt_display.h; the sky's unit): the back buffer (its
 // format still reported as the settings' 8-bit one - copies and read-backs out of it converted), the full-size screen
 // copies the world goes into while a blur or the bloom is on, [Graphics] msaa's scene surface and the game view's
 // picture (render_pc asks for them through world_target_format). Values above 1 are kept there - light the effects add
 // at opaque_drawn (R4 / R5, one-bounce light) and world_drawn (fog) - until the tone mapping (ViewOrder::kToneMapping,
-// last at world_drawn) brings the view back to 0 - 1 in place; the 2D is drawn over that as before. False (the
-// default, Direct3D 9, rt_hdr=0): 8-bit targets, every value clipped to 0 - 1 by each draw as the original's.
-// The values are the game's own display-referred colours (not linear): 1 is the original's white.
+// at world_drawn) brings the view to the display's 0 - 1 in place - the one encode; the 2D is drawn over that in the
+// display's colours as before. The game's draws decode their display-referred colours where they write the world (the
+// Vulkan Gpu's ff_shaders fragment_linear_output). False (the default, Direct3D 9): 8-bit targets of the game's own
+// display-referred colours, every value clipped to 0 - 1 by each draw as the original's.
 bool hdr_colour();
 void set_hdr_colour(bool on); // (the backend, when it makes its device; before render_pc makes its targets)
 // `format` (a Direct3D 9 colour format) for a target the world is drawn into: A8R8G8B8 / X8R8G8B8 as

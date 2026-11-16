@@ -19,6 +19,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/snow.h"
@@ -343,7 +344,8 @@ void main()
     int n = int(p.trails.y);
     // (its slot: the texel modulo the window, for a negative texel too - GLSL's % is undefined for negative operands)
     ivec2 slot = texel - n * ivec2(floor(vec2(texel) / float(n)));
-    imageStore(u_colours, slot, vec4(finite_colour(colour), 1.0));
+    // (round F) kept as the snow's own model reads it: the display's colours (the frame holds linear light)
+    imageStore(u_colours, slot, vec4(display_from_linear(finite_colour(colour)), 1.0));
 }
 )";
 
@@ -510,13 +512,14 @@ void main()
     // is behind this pixel (the covered ground a little further on). Never what is behind where the gather saw the
     // ground: that may be what the snow buries (a skater's shins, a pole's foot), not the ground
     vec4 seen = inside > 0.0 ? texture(u_seen, xz / (p.trails.x * p.trails.y)) : vec4(0.0);
-    vec3 behind = finite_colour(texelFetch(u_source, ivec2(gl_FragCoord.xy), 0).rgb);
+    vec3 behind = display_from_linear(finite_colour(texelFetch(u_source, ivec2(gl_FragCoord.xy), 0).rgb)); // (round F)
     vec3 base = seen.a > 0.05 ? mix(behind, seen.rgb / seen.a, inside) : behind;
     vec3 colour = base * clamp(turn, 0.4, 1.5) * mix(1.0, PACKED_SHADE, packed);
     vec3 v = normalize(p.camera.xyz - v_world);
     vec3 h = normalize(l + v);
     colour += p.light_colour.rgb * (0.3 * packed * lit * pow(max(dot(n, h), 0.0), 40.0));
-    o_colour = vec4(finite_colour(colour), 1.0);
+    // (round F: the layer's own model - display-referred, the audit's S1 - decoded to the frame's linear light)
+    o_colour = vec4(linear_from_display(finite_colour(colour)), 1.0);
 #ifdef MOTION
     vec2 now = v_now.xy / v_now.w;
     vec2 before = v_before.w > 0.0 ? v_before.xy / v_before.w : now;
@@ -781,7 +784,7 @@ void main()
     o_colour = vec4(0.0);
     o_motion = vec4(v_motion, 0.0, 0.0);
 #else
-    o_colour = vec4(finite_colour(v_colour.rgb), alpha);
+    o_colour = vec4(linear_from_display(finite_colour(v_colour.rgb)), alpha); // (round F: display-referred light decoded)
 #ifdef MOTION
 #ifdef FLAKES
     o_motion = vec4(0.0, 0.0, alpha >= MOTION_SHARE ? 0.5 * alpha : alpha, 0.0);
@@ -826,7 +829,7 @@ void main()
     float distance = d >= 1.0 ? p.haze_range.y : min(linear_depth(d), p.haze_range.y);
     float tau = p.haze.w * max(distance - p.haze_range.x, 0.0);
     float through = exp(-min(tau, 40.0));
-    o_colour = vec4(finite_colour(p.haze.rgb) * (1.0 - through), through);
+    o_colour = vec4(linear_from_display(finite_colour(p.haze.rgb)) * (1.0 - through), through); // (round F)
 }
 )";
 
@@ -1135,6 +1138,7 @@ std::string source_of(const char* body, const char* define)
         source += '\n';
     }
     source += constants_source();
+    source += rt::kDisplayTransferGlsl; // (round F: the frame is linear light)
     source += kCommon;
     source += body;
     return source;

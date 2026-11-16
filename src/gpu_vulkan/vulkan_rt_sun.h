@@ -12,8 +12,8 @@
 // rt::ViewOrder::kSun: after the volumetric fog - whose shafts are the light in the air: the screen-space rays this pass
 // drew, rt_shafts, were retired by the volumetric light -, before tone mapping and the 2D):
 //   0. the viewport's colour copied out (any sample count);
-//   1. source (full resolution, two 16-bit float images - so the sun's light keeps its range with rt_hdr=0 too): the
-//      frame's colour as linear light (each channel ^ 2.2 - a multisampled one's samples' mean), and the light added
+//   1. source (full resolution, two 16-bit float images): the frame's colour - linear light (round F; a multisampled
+//      one's samples' mean) -, and the light added
 //      to it - over the sky's pixels (a multisampled one's share of sky samples) the sun's disc where the sky pass
 //      doesn't draw it (rt_sun over the level's painted sky: rt_sky=0). (Changed by the physical air:) the disc is the
 //      real sun - kSunAngularRadius wide (0.53 degrees across), limb-darkened, its radiance the atmosphere's
@@ -29,9 +29,8 @@
 //      the last one's angle): the veiling glare of Stiles and Holladay (CIE disability glare, L = 10 E / theta^2:
 //      kGlarePerOctave of the light in each doubling of the angle). The sun's glare is this, nothing of its own.
 //   3. composite (a full-screen pass over the colour target, alpha kept): linear = frame + light + B - X - the light
-//      moved, never made: the picture's sum is unchanged by the glare -, written back as the game's colours (^ 1 / 2.2).
-//      Every sample of a multisampled target gets the pixel's value. With an 8-bit target (rt_hdr=0) the target clips
-//      the result at 1 as the original's draws do; with rt_hdr=1 the tone mapping that follows maps it.
+//      moved, never made: the picture's sum is unchanged by the glare -, written back as linear light (round F: never
+//      clipped; the tone mapping that follows shows it). Every sample of a multisampled target gets the pixel's value.
 // A path tracer would take the same sun (a light kSunAngularRadius across, its radiance sun_disc_radiance) and lens
 // (this spread).
 // rt_sun=1 also tells render_pc to leave out the original's sun sprite, corona and lens flare (rt::set_sun_glare_replaced)

@@ -814,7 +814,7 @@ vk::RtSunSettings sun_settings(bool sun, bool bloom, bool hdr)
     vk::RtSunSettings settings;
     settings.sun = sun;
     settings.bloom = bloom;
-    settings.hdr = hdr;
+    (void)hdr; // (round F: no per-effect hdr - the frame is linear light)
     return settings;
 }
 
@@ -1054,11 +1054,10 @@ constexpr double kLeastSpreadPeak = 10.0;  // the disc's light: well above 1
 constexpr double kMostFloatCopyError = 1e-3;
 
 // (added by the physical air) the game's colours as linear light (the composite's and the glare's)
-constexpr double kGamma = 2.2;
 Rgb linear_of(const Rgb& colour)
 {
-    return {std::pow(std::max(core::at(colour, 0), 0.0), kGamma), std::pow(std::max(core::at(colour, 1), 0.0), kGamma),
-            std::pow(std::max(core::at(colour, 2), 0.0), kGamma)};
+    // (round F: the frame is linear light - the target's values are the light)
+    return {std::max(core::at(colour, 0), 0.0), std::max(core::at(colour, 1), 0.0), std::max(core::at(colour, 2), 0.0)};
 }
 
 double mean_luma(const vk::RtSunTexels& image)
@@ -1172,16 +1171,16 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
                      std::abs(bloomed - spread) <= kMostEnergyError * spread,
                  text::format("the light kept: X's mean %.5f, the first level down %.5f, the chain's top %.5f", spread,
                               down, bloomed));
-    // the frame's own colour copied out as linear light (each channel ^ 2.2: 8-bit within half a level's slope)
+    // the frame's own colour copied out as linear light (round F: as it is - 8-bit within half a level)
     double base_error = 0.0;
     for (std::size_t index = 0; index < plain.size(); ++index) {
         const Rgb copied = rgb_of(core::at(base.texels, index));
         for (std::size_t channel = 0; channel < kChannels; ++channel) {
-            const double want = std::pow(core::at(core::at(plain, index), channel), kGamma);
+            const double want = core::at(core::at(plain, index), channel);
             base_error = std::max(base_error, std::abs(core::at(copied, channel) - want));
         }
     }
-    tally->check(base_error <= (floats ? kMostFloatCopyError : kGamma * kHalf * kPerByte),
+    tally->check(base_error <= (floats ? kMostFloatCopyError : kHalf * kPerByte),
                  text::format("the frame copied out as linear light (the largest difference %.5f)", base_error));
     std::vector<Rgb> after;
     const bool read_after = read_colour(targets, &after);

@@ -20,6 +20,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/scatter.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -220,7 +221,8 @@ void main()
         discard;
     }
     float amount = clamp(texel.a * v_weight, 0.0, 1.0);
-    o_colour = vec4(mix(vec3(1.0), clamp(texel.rgb, 0.0, 1.0), amount), 1.0);
+    // (round F) the mark's multiply - display-referred - decoded: the frame is linear light
+    o_colour = vec4(linear_from_display(mix(vec3(1.0), clamp(texel.rgb, 0.0, 1.0), amount)), 1.0);
 #ifdef WET
     // (a wet patch: its darkening is its wetness - the art's full darkening, about 0.4, a puddle)
     float wet = v_cell.y == WET_ROW ? clamp((1.0 - texel.g) * 2.5, 0.0, 1.0) * amount : 0.0;
@@ -366,10 +368,11 @@ void main()
     vec3 ground = finite_colour(vec3(rg, bk.x));
     float shade = m.w * (0.7 + 0.3 * clamp(n.y, 0.0, 1.0));
     if (kind == KIND_PEBBLE) {
-        v_colour = ground * (0.8 + 0.4 * h) * shade;
+        v_colour = ground * linear_from_display((0.8 + 0.4 * h) * shade); // (round F: a display ratio decoded)
     } else {
-        float lit = clamp(dot(ground, vec3(0.2126, 0.7152, 0.0722)) / GROUND_ALBEDO, 0.0, 4.0);
-        v_colour = own_colour(kind, h, n.w) * lit * shade;
+        // (round F: the ground's colour is the frame's linear light - its model, the audit's S9, reads display values)
+        float lit = clamp(dot(display_from_linear(ground), vec3(0.2126, 0.7152, 0.0722)) / GROUND_ALBEDO, 0.0, 4.0);
+        v_colour = linear_from_display(own_colour(kind, h, n.w) * lit * shade);
     }
 #ifdef MOTION
     v_now = vec4(clip.xy - p.offsets.zw * clip.w, 0.0, clip.w);
@@ -786,6 +789,7 @@ std::string source_of(const char* body, bool items, bool writes_lights, const ch
     }
     source += writes_lights ? "#define LIGHTS_ACCESS\n" : "#define LIGHTS_ACCESS readonly\n";
     source += constants_source();
+    source += rt::kDisplayTransferGlsl; // (round F: the frame is linear light)
     source += kCommon;
     if (items) {
         source += kItemCommon;

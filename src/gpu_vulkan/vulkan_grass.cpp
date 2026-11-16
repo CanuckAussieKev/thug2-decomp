@@ -19,6 +19,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/grass.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -341,7 +342,8 @@ void main()
                       ? vec4(clip.x + clip.w * p.offsets.x, -clip.y + clip.w * p.offsets.y, clip.z, clip.w)
                       : vec4(0.0);
     float shade = mix(ROOT_SHADE, TIP_SHADE, t) * (1.0 + SHADE_SPREAD * (s.shade * 2.0 - 1.0));
-    v_colour = finite_colour(vec3(rg, bk.x)) * shade;
+    // (round F) the ground's colour is the frame's linear light; the blade's shade a ratio of display values, decoded
+    v_colour = finite_colour(vec3(rg, bk.x)) * linear_from_display(shade);
 #ifdef MOTION
     v_now = vec4(clip.xy - p.offsets.zw * clip.w, 0.0, clip.w);
     v_before = p.vp_before * vec4(position, 1.0);
@@ -807,6 +809,7 @@ std::string source_of(const char* body, bool writes_colours, const char* define)
     }
     source += writes_colours ? "#define COLOURS_ACCESS\n" : "#define COLOURS_ACCESS readonly\n";
     source += constants_source();
+    source += rt::kDisplayTransferGlsl; // (round F: the frame is linear light)
     source += kCommon;
     source += body;
     return source;

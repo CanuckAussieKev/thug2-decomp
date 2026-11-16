@@ -893,7 +893,9 @@ void check_cover(render::Gpu& gpu, const Scene& scene, Tally* tally)
     for (std::size_t pixel = 0; pixel < unmarked.size() && pixel < off.size(); ++pixel) {
         unmarked_most = std::max(unmarked_most, std::abs(luma(core::at(unmarked, pixel)) - luma(core::at(off, pixel))));
     }
-    tally->check(unmarked.size() == off.size() && unmarked_most < 0.01F,
+    // (round F: the layer's display-referred shading turn, applied to the linear frame through its encode / decode,
+    // moves an unmarked pixel up to about twice as much in linear terms)
+    tally->check(unmarked.size() == off.size() && unmarked_most < 0.025F,
                  text::format("a draw not marked as the ground: no snow (the most a pixel changed %.4f)", static_cast<double>(unmarked_most)));
     // the wall's middle (facing the camera): its own colour
     std::size_t wall = 0;
@@ -1034,7 +1036,8 @@ void check_air(render::Gpu& gpu, const Scene& scene, Tally* tally)
     }
     const double near_mean = near_sum / static_cast<double>(std::max<std::size_t>(near_count, 1));
     const double far_mean = far_sum / static_cast<double>(std::max<std::size_t>(far_count, 1));
-    tally->check(vk::snow_stats().haze_passes > 0 && near_count > 100 && far_count > 100 && far_mean > near_mean + 0.02,
+    // (round F: the haze's light added in linear terms - less above the 8-bit levels than on display values)
+    tally->check(vk::snow_stats().haze_passes > 0 && near_count > 100 && far_count > 100 && far_mean > near_mean + 0.01,
                  text::format("the falling snow's haze: the far ground %.3f lighter, the near %.3f (%llu passes)", far_mean, near_mean,
                               static_cast<unsigned long long>(vk::snow_stats().haze_passes)));
     for (int lap = 0; lap < 4; ++lap) {

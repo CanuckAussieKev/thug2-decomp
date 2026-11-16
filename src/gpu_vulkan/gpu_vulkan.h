@@ -147,17 +147,19 @@ struct RtReflectionSettings {
 void set_rt_reflection_settings(const RtReflectionSettings& settings);
 [[nodiscard]] RtReflectionSettings rt_reflection_settings();
 
-// NOT ORIGINAL - HDR rendering, tone mapping and colour grading (vulkan_hdr.h, docs/design/vulkan.md "HDR"): [Graphics]
-// rt_hdr, rt_exposure, rt_exposure_adapt, rt_tonemap, rt_saturation, rt_contrast, rt_white_point, rt_grade_lut. Independent of ray
-// tracing. While `on` is false nothing changes; on, the world is drawn into 16-bit float targets and brought back to the
-// display's 0 - 1 by a tone-mapping pass before the 2D. Read when the device is made (`on`; the rest any time).
+// NOT ORIGINAL - the linear frame, its exposure, tone mapping and colour grading (vulkan_hdr.h, docs/design/vulkan.md
+// "HDR" and "A linear, scene-referred frame"): [Graphics] rt_exposure, rt_exposure_adapt, rt_tonemap, rt_saturation,
+// rt_contrast, rt_white_point, rt_grade_lut. Independent of ray tracing. `on` (the game: always - round F; rt_hdr
+// retired): the world is drawn into 16-bit float targets in linear light and brought to the display's 0 - 1 by one
+// pass before the 2D; false (a check's): the 8-bit display-referred frame, nothing changed. Read when the device is made
+// (`on`; the rest any time).
 inline constexpr float kHdrWhitePoint = 1.25F; // (rt_white_point's default)
 inline constexpr float kHdrExposureAdapt = 2.0F; // (rt_exposure_adapt's default - added by the low sun's glare)
 struct HdrSettings {
     bool on = false;
     float exposure = 0.0F;   // stops (0: 1x; +1: twice the light)
     unsigned tonemap = 0;    // 0: the colours as drawn, a soft shoulder from just below 1 to the white point;
-                             // 1: ACES (Narkowicz's fit), applied to the colours made linear (gamma 2.2)
+                             // 1: ACES (Narkowicz's fit), on the exposed light
     float saturation = 1.0F; // 1: unchanged; 0: grey; above 1: more
     float contrast = 1.0F;   // 1: unchanged; a power around mid-grey (0.5)
     float white_point = kHdrWhitePoint; // the value (1 - 8) shown as white; 1: everything above 1 clipped
@@ -170,7 +172,7 @@ void set_hdr_settings(const HdrSettings& settings);
 [[nodiscard]] HdrSettings hdr_settings();
 // NOT ORIGINAL - volumetric fog and light shafts (vulkan_rt_fog.h, docs/design/vulkan.md "Volumetric fog"): [Graphics]
 // rt_fog, rt_fog_air (the weather - engine/gfx/rt_sky.h), rt_fog_quality, rt_fog_density, rt_fog_height, rt_fog_steps,
-// rt_fog_mode, rt_fog_haze, rt_fog_god_rays (and rt_hdr: the fog's light unclamped). Nothing is drawn differently while
+// rt_fog_mode, rt_fog_haze, rt_fog_god_rays. Nothing is drawn differently while
 // `on` is false, or when ray tracing isn't enabled on the device. (Retired by the physical air: rt_fog_strength - a
 // multiplier on the air's light -, rt_fog_anisotropy - the phase is the aerosol's -, rt_fog_haze_density and
 // rt_fog_haze_height - the haze is the weather's aerosol.)
@@ -197,7 +199,6 @@ struct RtFogSettings {
     unsigned lamps = 16;                  // lamps at most (rt_lights' lit set, the most important first) that light the
                                           // air (0 - 32)
     RtFogMode mode = RtFogMode::kReplace;
-    bool hdr = false;                     // the light added above 1 kept (rt_hdr=1: a floating-point target)
     // a level without fog gets the atmosphere's air (rt_fog_haze; 0: nothing there): with the sky model (rt_sky_model=1)
     // the aerial perspective - the weather's aerosol and the air, the sky's own coefficients
     bool haze = true;
@@ -217,7 +218,7 @@ void set_rt_fog_settings(const RtFogSettings& settings);
 [[nodiscard]] RtFogSettings rt_fog_settings();
 
 // NOT ORIGINAL - the sun, its glare and the bloom (vulkan_rt_sun.h, vulkan_rt_sky.h; docs/design/vulkan.md "The sun,
-// its glare and the sky"): [Graphics] rt_sun, rt_bloom, rt_sky_model, rt_lens_dirt (and rt_hdr). Nothing is drawn
+// its glare and the sky"): [Graphics] rt_sun, rt_bloom, rt_sky_model, rt_lens_dirt. Nothing is drawn
 // differently while all are off. The sun's parts need a sun - where the game shows one, else the level's baked one (ray
 // tracing enabled); the glare needs neither. (The screen-space rays, rt_shafts, were retired by the volumetric light:
 // the fog pass's shafts are the one light in the air. Retired by the physical air: rt_sun_size - the disc is the real
@@ -227,13 +228,12 @@ struct RtSunSettings {
     bool bloom = false;        // the eye's glare: the frame's light spread (energy-conserving, a mip chain)
     bool sky_model = false;    // the sky model's colours used by the fog (aerial perspective) and the bounce light
     bool lens_dirt = false;    // a faint dirt on the lens lit by the bloom (procedural)
-    bool hdr = false;          // rt_hdr=1: the light kept above 1 (the tone mapping maps it)
 };
 void set_rt_sun_settings(const RtSunSettings& settings);
 [[nodiscard]] RtSunSettings rt_sun_settings();
 
 // NOT ORIGINAL - a modern sky (vulkan_rt_sky_pass.h, docs/design/vulkan.md "The sky"): [Graphics] rt_sky,
-// rt_clouds, rt_cloud_coverage, rt_cloud_speed, rt_cloud_quality, rt_cloud_shadows (and rt_hdr). Nothing is drawn
+// rt_clouds, rt_cloud_coverage, rt_cloud_speed, rt_cloud_quality, rt_cloud_shadows. Nothing is drawn
 // differently while `on` is false: the level's own sky dome as always. No ray tracing needed (the drawn sun comes from
 // the game; with ray tracing the baked sun is the fallback).
 inline constexpr float kRtCloudCoverageAuto = -1.0F;
@@ -244,7 +244,6 @@ struct RtSkySettings {
     float speed = 1.0F;            // x the clouds' drift (0: still)
     unsigned quality = 1;          // 0: quarter resolution, 32 steps; 1: half, 48; 2: full, 96
     bool cloud_shadows = false;    // the clouds' shadows on the level (darkening, not ray traced)
-    bool hdr = false;              // rt_hdr=1: the sky's light above 1 kept
 };
 void set_rt_sky_settings(const RtSkySettings& settings);
 [[nodiscard]] RtSkySettings rt_sky_settings();
@@ -516,7 +515,6 @@ struct WaterSettings {
     float foam = 1.0F;    // the shoreline foam (0: none - 2)
     bool tint_auto = true;              // rt_water_tint=auto: the water's own colour as the game draws it
     std::array<float, 3> tint = kWaterTint; // rt_water_tint=r,g,b (0 - 1)
-    bool hdr = false;     // rt_hdr=1: the sun's glitter above 1 kept
     bool screen_reflections = true; // the reflections marched over the screen (else the sky alone)
     bool debug_view = false;        // [debug] rt_water_view=1: where the reflection was found, in colours
     // rt_water_geometry=1 (the default): the water's surface moved by its swell - its meshes split into a grid as a level

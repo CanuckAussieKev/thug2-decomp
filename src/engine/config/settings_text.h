@@ -226,8 +226,6 @@ inline constexpr const char* kOptFogHelp = "Fog and haze the light shines throug
 inline constexpr const char* kOptHaze = "Haze";
 inline constexpr const char* kOptHazeHelp = "Thin air for levels with no fog.";
 
-inline constexpr const char* kOptHdr = "HDR";
-inline constexpr const char* kOptHdrHelp = "Brighter than white. Unlocks the rows below.";
 inline constexpr const char* kOptExposure = "Exposure";
 inline constexpr const char* kOptExposureAdapt = "Auto exposure";
 inline constexpr const char* kOptExposureAdaptHelp = "How far the camera adjusts to bright and dark views.";
@@ -363,6 +361,7 @@ inline constexpr const char* kNoVulkanGpu = "Direct3D 9 - no Vulkan GPU here";
 inline constexpr const char* kRetired = "No longer used";
 inline constexpr const char* kRetiredShafts = "Light shafts are part of Volumetric fog now";
 inline constexpr const char* kRetiredPhysical = "The light is physical now"; // (the physical air - README)
+inline constexpr const char* kRetiredLinearFrame = "Always on now"; // (round F, a linear frame - README)
 inline constexpr const char* kNotAChoice = "Not a choice - the default is used";
 inline constexpr const char* kOffWhileUpscaling = "Off while upscaling";
 inline constexpr const char* kMsaaIsUsed = "Anti-aliasing is used instead";

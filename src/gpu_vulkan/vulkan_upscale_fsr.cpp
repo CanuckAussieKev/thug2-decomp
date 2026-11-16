@@ -79,8 +79,9 @@ public:
         version.version = FFX_UPSCALER_VERSION;
         ffxCreateContextDescUpscale desc{};
         desc.header.type = FFX_API_CREATE_CONTEXT_DESC_TYPE_UPSCALE;
-        // (the colour is the display's 0 - 1 after the tone mapping: perceptual, not HDR)
-        desc.flags = FFX_UPSCALE_ENABLE_NON_LINEAR_COLORSPACE;
+        // (round F: the colour is the frame's linear, scene-referred light, before the tone mapping; its exposure 1 -
+        // the unit's white diffuser is 1: FSR's own auto exposure would carry state from one run to the next)
+        desc.flags = FFX_UPSCALE_ENABLE_HIGH_DYNAMIC_RANGE;
         desc.maxRenderSize = {.width = output.width, .height = output.height};
         desc.maxUpscaleSize = {.width = output.width, .height = output.height};
         desc.fpMessage = on_message;
@@ -157,7 +158,7 @@ public:
         dispatch.cameraFar = frame.far_z;
         dispatch.cameraFovAngleVertical = frame.vertical_fov;
         dispatch.viewSpaceToMetersFactor = kMetresPerUnit;
-        dispatch.flags = FFX_UPSCALE_FLAG_NON_LINEAR_COLOR_SRGB;
+        dispatch.flags = 0; // (linear light: round F)
         const ffxReturnCode_t done = ffx_functions().dispatch(&context_, &dispatch.header);
         if (done != FFX_API_RETURN_OK) {
             *error = "ffxDispatch returned " + std::to_string(done);

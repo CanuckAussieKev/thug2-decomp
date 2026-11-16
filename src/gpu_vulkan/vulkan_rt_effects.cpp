@@ -18,6 +18,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -399,7 +400,7 @@ vec3 hit_albedo(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x
     HitVertices v;
     n = facing;
     if (!hit_vertices(instance, primitive, v)) {
-        return min(material(id).colour.rgb, vec3(1.0));
+        return linear_from_display(min(material(id).colour.rgb, vec3(1.0)));
     }
     vec3 a = to_world * vec4(v.position[0], 1.0);
     vec3 b = to_world * vec4(v.position[1], 1.0);
@@ -412,7 +413,9 @@ vec3 hit_albedo(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x
         }
     }
     vec2 uv = hit_uv(v, barycentrics);
-    return min((material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb, vec3(1.0));
+    // (round F) the game's display-referred colours decoded: an albedo in linear light, as the frame's inputs are
+    return linear_from_display(min((material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb,
+                                   vec3(1.0)));
 }
 
 bool sun_blocked(vec3 origin)
@@ -464,7 +467,7 @@ vec3 incoming(vec3 origin, vec3 direction, float travelled, uint mask)
             light += sun * facing;
         }
     }
-    return relit ? albedo * (hit.tint * light + hit.lamps) : albedo * light;
+    return relit ? albedo * (linear_from_display(hit.tint) * light + hit.lamps) : albedo * light; // (tint: round F)
 }
 
 // The pixel's own albedo (a 1 when found, else 0).
@@ -952,6 +955,7 @@ std::string source_of(const char* body, bool traces, bool multisampled, bool rgb
         source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
         source += cutout_rays_glsl(); // (the one lighting path's ray test)
     }
+    source += rt::kDisplayTransferGlsl; // (round F: the textures' colours decoded to linear albedo)
     source += kCommon;
     if (traces) {
         source += kTraceShared;
@@ -1156,13 +1160,13 @@ VkPipeline apply_pipeline(Backend& state, EffectsState& own, VkFormat format, Vk
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     // the occlusion: colour x the factor - (dst x src) + (dst x 0); the indirect light: colour + what is added x (1 -
-    // colour) - a screen, which never takes the colour past white - or, on a float target, + what is added; alpha kept
+    // colour) was a screen on an 8-bit target - round F: the frame is linear light, the light is added; alpha kept
     VkPipelineColorBlendAttachmentState blend{};
     blend.blendEnable = VK_TRUE;
     blend.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
     blend.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
     if (rgb) {
-        blend.srcColorBlendFactor = float_format(format) ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+        blend.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // (round F: light is added - the screen blend retired)
         blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
     }
     blend.colorBlendOp = VK_BLEND_OP_ADD;

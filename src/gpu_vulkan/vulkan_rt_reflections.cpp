@@ -18,6 +18,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -248,9 +249,10 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
     }
     if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
 #ifdef SKY
-        // (added by the sky) rt_sky: the miss sees the sky drawn - its atmosphere and clouds - as the game's colours
+        // (added by the sky) rt_sky: the miss sees the sky drawn - its atmosphere and clouds - as linear light, as the
+        // frame holds it (round F: nothing converted, nothing clamped)
         vec3 sky = sky_for_ray(direction, pass.sky_to_pixel, pass.sky_sun, pass.sky_low, pass.sky_rect);
-        return vec4(clamp(pow(max(sky, vec3(0.0)), vec3(1.0 / 2.2)), 0.0, 1.0), 1.0);
+        return vec4(min(max(sky, vec3(0.0)), vec3(65504.0)), 1.0);
 #else
         return vec4(0.0);
 #endif
@@ -276,7 +278,10 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
     } else if ((v.flags & GEOMETRY_COLOUR) != 0u) {
         colour *= hit_colour(v, barycentrics).rgb * 2.0;
     }
-    return vec4(clamp(colour, 0.0, 1.0), 1.0);
+    // (round F) the hit as the game would draw it - its display-referred colours, within the draws' 0 - 1 - decoded to
+    // linear light as the frame's inputs are (ff_shaders.cpp fragment_linear_output). (Its light is still the bake's:
+    // the audit's M8.)
+    return vec4(linear_from_display(clamp(colour, 0.0, 1.0)), 1.0);
 }
 
 void main()
@@ -718,6 +723,7 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
     }
     source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 7\n";
     source += scene_geometry_glsl();
+    source += rt::kDisplayTransferGlsl;
     source += body;
     return source;
 }
