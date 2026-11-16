@@ -205,7 +205,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         // (lighting round A) every bake is taken apart: with the sun its fit found, or - a night or indoor bake, no sun
         // in it - by its sky, bounce and lamps alone (the vertices' sun share 0; their rays traced straight up only for
         // the shape of the trace)
-        const bool sunless = !data.sun.found;
+        bool sunless = !data.sun.found;
         const rt::Vec3 toward = sunless ? rt::Vec3{0.0F, 1.0F, 0.0F} : data.sun.toward;
         const rt::RelitParams params{.sky_rays = rt::kRelitBakeSkyRays,
                                      .sun_rays = rt::kRelitBakeSunRays,
@@ -226,6 +226,19 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         trace_ms = ms_since(traced);
         const auto fitted = std::chrono::steady_clock::now();
         rt::RelitModel model = rt::fit_relit_model(meshes, light, toward, sunless);
+        if (!model.valid && !sunless) {
+            // (a sun found, but the fit finds no sunlight in the bake's colours - thps3_skateshop: a bright window's
+            // light read as a sun) the bake is lit by its sky, bounce and lamps: taken apart so
+            sunless = true;
+            data.sun.found = false; // (no sun: the level's own time has none, the clock's brings it)
+            for (rt::RelitVertices& traced_vertices : light) {
+                for (rt::RelitVertex& vertex : traced_vertices) {
+                    vertex.sun = 0.0F;
+                    vertex.sun_baked = 0.0F;
+                }
+            }
+            model = rt::fit_relit_model(meshes, light, {0.0F, 1.0F, 0.0F}, true);
+        }
         if (model.valid) {
             rt::fit_relit_lamps(meshes, light, &model);
         }
