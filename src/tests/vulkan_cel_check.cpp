@@ -551,7 +551,7 @@ void check_twins(Tally* tally)
     constexpr uint32_t kAmbientBlue = 45; // (0.5 x 0.5 + 0.1 = 0.35)
     constexpr uint32_t kTintRed = 192;    // (1.5)
     constexpr uint32_t kShareByte = 128;  // (0.5)
-    constexpr uint32_t kResidualRed = 32; // (0.25)
+    constexpr uint32_t kResidualRed = 48; // (the lamps' light on the surface: tint 1.5 x L 0.25)
     constexpr uint32_t kByteBits = 0xFFU;
     rt::RelitModel model;
     model.valid = true;
@@ -565,7 +565,7 @@ void check_twins(Tally* tally)
     vertex.sky = kVertexSky;
     vertex.bounce = kVertexBounce;
     vertex.tint = kVertexTint;
-    vertex.lamp = kVertexResidual; // (lighting round A: the lamps' light L, the tint 1 - word 2's light)
+    vertex.lamp = kVertexResidual; // (lighting round A: the lamps' light L - word 2 holds it on the surface, x the tint)
     const rt::CelWords words =
         rt::cel_stream_words(model, vertex, {.toward = {0.0F, 1.0F, 0.0F}, .sun_colour = {1, 1, 1}, .lamps = 1.0F});
     const auto channel = [](uint32_t word, uint32_t shift) { return (word >> shift) & kByteBits; };
