@@ -271,8 +271,12 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   two minutes left alone with the clock running.
 - `node tools/game/soak_check.ts <game.log>` - whether a session stays as fast at its end as at its start: the
   renderer's windows (frame time, uploads, the ray-traced scene's BLAS builds and why they were asked for) over the level
-  the session spent longest in, its last third against its first; exit 1 when one grew past 1.5 times (plus a little).
-  The guard of the live-settings soak above.
+  the session spent longest in, its last third against its first; exit 1 when one grew past 1.5 times (plus a little),
+  or when the game stalled: the stall watch's `stall:` lines (always on - a main-loop loop past 2 s with no loading
+  screen up, logged with its phase and the main thread's stack as module+0xRVA for `node tools/symbolize.ts`) or the
+  device watch's `vulkan: frame N has waited X s for the device`. The guard of the live-settings soak above, and of
+  `tools/game/scenarios/college_tod_cycle_soak.txt` (`--levels BO --seconds 900`: a minute in Boston, then College for
+  ten minutes, skating and idle, a day every two minutes - the College freeze's scenario).
   Several games on the machine (other workspaces) share its processor and GPU: take `--runs 2` or more and compare
   medians.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]

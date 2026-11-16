@@ -9,7 +9,11 @@
 //
 //   node tools/game/soak_check.ts <game.log>
 //
-// Exit 0 flat, 1 growing (the windows printed either way).
+// It also fails a session that stalled: the stall watch's "stall:" lines (a main-loop loop past 2 s with no loading
+// screen up) and the device watch's ("vulkan: frame N has waited X s for the device"). The College freeze's guard:
+// tools/game/scenarios/college_tod_cycle_soak.txt.
+//
+// Exit 0 flat and no stall, 1 growing or stalled (the windows printed either way).
 
 import * as fs from "node:fs";
 import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
@@ -117,6 +121,41 @@ export function verdict(log: string): Verdict | null {
     return { first, last, growing };
 }
 
+// The stall watch's lines (src/platform/frame_profile.h: a loop of the main loop past 2 s, no loading screen up) and the
+// device watch's (src/gpu_vulkan/vulkan_frames.cpp: a frame's fence waited for past 2 s): how many, and the longest.
+const STALL_LINE = /^stall: the main loop's loop \d+ has run ([\d.]+) s/;
+const DEVICE_WAIT_LINE = /^vulkan: frame \d+ has waited ([\d.]+) s for the device/;
+
+export interface Stalls {
+    count: number; // each stall once (its first line; a stall's later lines say it lasts)
+    longestSeconds: number; // the longest any line saw one run
+    deviceWaits: number; // the device watch's lines
+}
+
+export function stalls(log: string): Stalls {
+    const out: Stalls = { count: 0, longestSeconds: 0, deviceWaits: 0 };
+    let inStall = false;
+    for (const line of log.split(/\r?\n/)) {
+        const stall = STALL_LINE.exec(line);
+        if (stall) {
+            out.count += inStall ? 0 : 1;
+            inStall = true;
+            out.longestSeconds = Math.max(out.longestSeconds, Number(stall[1]));
+            continue;
+        }
+        if (line.startsWith("stall: over")) {
+            inStall = false;
+            continue;
+        }
+        const wait = DEVICE_WAIT_LINE.exec(line);
+        if (wait) {
+            out.deviceWaits += 1;
+            out.longestSeconds = Math.max(out.longestSeconds, Number(wait[1]));
+        }
+    }
+    return out;
+}
+
 function thirdText(name: string, t: Third): string {
     return (
         `${name}: ${t.frames} frames, ${t.ms.toFixed(1)} ms a frame, ${t.uploads.toFixed(1)} uploads a frame, ` +
@@ -141,7 +180,14 @@ async function main(): Promise<number> {
     print(thirdText("first third", result.first));
     print(thirdText("last third ", result.last));
     print(result.growing.length === 0 ? "flat" : `GROWING: ${result.growing.join(", ")}`);
-    return result.growing.length === 0 ? 0 : 1;
+    const stalled = stalls(log);
+    print(
+        stalled.count + stalled.deviceWaits === 0
+            ? "no stalls"
+            : `STALLED: ${stalled.count} stall(s) of the main loop, ${stalled.deviceWaits} wait(s) for the device past ` +
+                  `2 s; the longest seen ${stalled.longestSeconds.toFixed(1)} s (the log's "stall:" lines: phase and stack)`,
+    );
+    return result.growing.length === 0 && stalled.count + stalled.deviceWaits === 0 ? 0 : 1;
 }
 
 if (isMain(import.meta.url)) await runMain(() => main());
