@@ -43,3 +43,35 @@ test("whether a frame is drawn is read only by the loop and the drawing", () => 
     }
     assert.deepEqual(found, []);
 });
+
+// The drawing starts no script: a script changes the game's state (its records, the screen elements the game's scripts
+// ask about, the heap), and the drawing runs only on drawn steps - and the lens flare's on the sun's occlusion query, a
+// GPU answer a frame or more late. The original's sun launched MaybeHideLensFlare / CreateLensFlare from the drawing;
+// they are sun::step's now (engine/gfx/lens_flare.h), run by render_frame on every step.
+const SCRIPT_START = /\b(launch_script|spawn_script|run_script_once|run_script)\s*\(/;
+
+test("the drawing starts no script", () => {
+    const found: string[] = [];
+    for (const folder of ["src/render_pc", "src/gpu_vulkan"]) {
+        for (const path of sourceFiles(join(ROOT, folder))) {
+            const name = relative(ROOT, path).replaceAll("\\", "/");
+            readFileSync(path, "utf8")
+                .split(/\r?\n/)
+                .forEach((line, index) => {
+                    if (SCRIPT_START.test(line.replace(/\/\/.*$/, ""))) found.push(`${name}:${index + 1}`);
+                });
+        }
+    }
+    // lens_flare.cpp: only sun::step starts scripts (the function a line is in: the last definition begun at column 0)
+    const flare = "src/engine/gfx/lens_flare.cpp";
+    let current = "";
+    readFileSync(join(ROOT, flare), "utf8")
+        .split(/\r?\n/)
+        .forEach((line, index) => {
+            const code = line.replace(/\/\/.*$/, "");
+            const definition = /^[A-Za-z].*?\b(\w+)\s*\([^;]*$/.exec(code);
+            if (definition?.[1] !== undefined) current = definition[1];
+            if (SCRIPT_START.test(code) && current !== "step") found.push(`${flare}:${index + 1} (${current})`);
+        });
+    assert.deepEqual(found, []);
+});

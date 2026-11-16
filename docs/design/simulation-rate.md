@@ -165,12 +165,26 @@ below, recorded before the change).
   camera, as the original's drawing advanced them (twice in split screen, as the original); `draw` draws.
 - `WeatherSystem::step` (a splash added, before the frame) and `after_step` (the splashes aged, the drops moved on, after
   it), once for each viewport with a camera; `render` draws.
+- `sun::step` (`engine/gfx/lens_flare.h`) once for each viewport with a camera, from the game's camera: the sun's
+  scripts. The original's sun (`sun::render`, in `draw_world`) started scripts from the drawing - MaybeHideLensFlare on
+  every drawn frame without a sun, and, with the sun in front of the camera, CreateLensFlare (the flare's screen
+  elements: game heap, the screen element tree the game's scripts ask about) or MaybeHideLensFlare by the answer of the
+  sun's occlusion query - a GPU result a frame or more late, so its frames differed with the machine's load even when
+  every frame was drawn (a trace: frames 6 and 7 in one run, 7 and 12 in another). Now the step launches
+  MaybeHideLensFlare without a sun, and, with the sun in front of the game's camera and no flare container, to make it -
+  both on every step, from simulation state only. The query only shows or fades the flare's elements in `render`: the
+  sun not seen, `hide_flare` (HideLensFlare's work - what MaybeHideLensFlare does once the container is there) instead
+  of the script; seen, the elements placed as before. A drawn camera that sees the sun where the game's doesn't (the
+  level editor's, the demo viewer's) gets no flare until the game's camera has made it. Not the original's: the
+  container is made before the frame is drawn rather than in its middle, and the one exact screen corner (0, 0) the
+  original took for "off the projection" isn't tested before making it (the container is made at alpha 0: nothing
+  shows).
 - `tools/sim_draw_independence.test.ts` keeps it so: `suppress_draw()` is read only by the main loop, `render_frame` and
-  the drawing (render_pc, gpu_vulkan).
+  the drawing (render_pc, gpu_vulkan); and the drawing starts no script (none in render_pc or gpu_vulkan; in
+  lens_flare.cpp only `sun::step`).
 
-Left to the drawing, as presentation that the simulation doesn't read: the lens flare (its screen elements and the
-scripts that show and hide them run from the drawing, timed by the GPU's occlusion query for the sun - already outside
-the game's state on any machine), the glows, the projected-texture batches, the occluders' choice of what hides what (the
+Left to the drawing, as presentation that the simulation doesn't read: the lens flare's showing and fading (its
+elements' morphs, timed by the GPU's occlusion query - no script, nothing the game asks), the glows, the projected-texture batches, the occluders' choice of what hides what (the
 renderer's own culling; the game's code asks the simulation's view, which doesn't use them), and the C runtime's `rand`
 draws of the drawing (particle seeds, primitives' sort keys) - the presentation's own random numbers, apart from the
 game's two streams. Not the original's either, and not tied to the step: `[Graphics] tod` with a cycle (`day_clock`) runs
@@ -324,9 +338,9 @@ expression, with its arguments (`engine/script/trace_hooks.h`, the same from a Q
 call) -, each script a record is given to run (and its callers' places), every random draw with the script running
 then and its callers' places (`maths::set_draw_listener`), and at each check point every moving object's hash.
 `tools/game/sim_trace_diff.ts` finds where two traces part. What a trace showed besides the cause above, neither
-feeding the simulation of these demos: the lens flare launches its MaybeHideLensFlare script from the drawing code
-(`sun::render`, on the sun's occlusion query: a GPU result a frame or more late), at frames that differ with the
-machine's load; the music's track shuffle draws from its own streams ("The music's random numbers").
+feeding the simulation of these demos: the lens flare launched its MaybeHideLensFlare script from the drawing code
+(`sun::render`, on the sun's occlusion query: a GPU result a frame or more late), at frames that differed with the
+machine's load (since 2026-11-16 the step's: "What moved" above); the music's track shuffle draws from its own streams ("The music's random numbers").
 
 ### Proof
 
