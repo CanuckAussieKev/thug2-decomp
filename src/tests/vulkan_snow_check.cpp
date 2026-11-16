@@ -6,14 +6,16 @@
 //     it is drawn, so the cover's "under something" can be seen), a 60-degree bank, an indoor sector's floor, a kerb's
 //     10-unit step: open ground holds snow, the roof's top is the top under it, the bank and the indoor floor none, the
 //     kerb's edge stays a step (never blended); the same faces give the same cells;
-//   - the trails: a stamped capsule pressed down along it (the press full inside, the berm beside it, the activity round
-//     it, nothing beyond); the layer's height there (snow::layer_height) - none in the trail, more than the depth on the
-//     berm;
+//   - the trails: a stamped capsule pressed down along it (the press full inside, the berm beside it, nothing beyond);
+//     the layer's height there (snow::layer_height) - none in the trail, more than the depth on the berm;
+//   - the surface (snow::surface_at): the depth on open ground, a kerb lower than the snow banked smoothly (the ground
+//     beside it raised toward the kerb's snow, the most at its foot), a wall's foot drifted to at most twice the depth,
+//     none raised where no snow settles;
 //   - the steps: a rider at 600 units a second presses a trail along its path and throws spray, more on a carve than
 //     straight on; the spray never more than kMostSpray; a landing stamps once and bursts; walking leaves footprints a
 //     stride apart; a wheel presses; nothing pressed from high above the snow, nor where no snow settles; the trails kept
 //     over 1000 steps with nothing pressing; while snow falls the press fills in (half in kFillSeconds / 2, all in
-//     kFillSeconds, the activity kept); the same steps twice (reset between) give the same trails and spray byte for byte.
+//     kFillSeconds); the same steps twice (reset between) give the same trails and spray byte for byte.
 // On the device (a 320x240 16-bit float target with a depth surface; the camera 60 units up looking 35 degrees down):
 //   - the window: trails pressed near the camera and far from it; the trails' texture read back holds exactly the
 //     window's tiles (every texel against the processor's), and again after the camera moves 7 tiles - the tiles that
@@ -22,8 +24,12 @@
 //     ground turns white where it is open to the sky, stays dark under the roof's footprint and on a wall standing on it,
 //     and isn't touched when the draw isn't marked or snow is off;
 //   - the layer: a trail across the view - pixels whose ground is far from it unchanged, pixels on it changed, the packed
-//     snow at its middle darker than the untouched snow beside it; every pixel finite;
-//   - the air: the falling snow changes the sky's pixels, the spray drawn is what is alive (at most kMostSpray);
+//     snow at its middle darker than the untouched snow beside it; every pixel finite; away from the trails, the layer
+//     over all the open ground - a wall's foot under its bank, the wall's middle as it was;
+//   - the air: the falling snow changes the sky's pixels, the spray drawn is what is alive (at most kMostSpray); the
+//     flakes drawn where their place (vk::flake_place, the shader's twin) puts them, still there in the world when the
+//     camera moves (parallax, not where they were on the screen), and where their own move took them a tenth of a
+//     second on;
 //   - the validation layer (with synchronization validation) says nothing all along;
 //   - the cost at 2560x1440 (the window full of trails, snow falling, a carve's spray) printed.
 //   thug2_vulkan_snow_check [--device N] [--display N] [--no-validation]
@@ -314,21 +320,15 @@ void check_stamp(Tally* tally)
     };
     constexpr uint32_t kByte = 0xFFU;
     const uint32_t middle = at(50.0F, 0.5F);
-    tally->check((middle & kByte) == kByte && field.active_at(50.0F, 0.5F) > 0.97F, "the trail's middle: pressed down, active");
+    tally->check((middle & kByte) == kByte, "the trail's middle: pressed down");
     const uint32_t berm = at(50.0F, kRadius + 2.5F);
     tally->check(((berm >> snow::kBermShift) & kByte) > 0 && (berm & kByte) < kByte / 2, "beside it: a berm");
-    // (the press and berm go no further than the berm's ring; the activity - its coarse texels, blended - its reach and
-    // a texel more)
-    const float reach = kRadius + snow::kBermWidth + snow::kActiveReach;
-    const float coarse = field.activity().texel();
-    tally->check(at(50.0F, kRadius + snow::kBermWidth + 1.0F) == 0 && field.active_at(50.0F, reach + coarse + 1.0F) == 0.0F &&
-                     field.active_at(50.0F, kRadius + snow::kBermWidth + 24.0F) > 0.2F,
-                 "the press within its ring, the activity falling to nothing at its reach");
+    // (the press and berm go no further than the berm's ring)
+    tally->check(at(50.0F, kRadius + snow::kBermWidth + 1.0F) == 0, "the press within its ring");
     constexpr float kDepth = 4.0F;
-    tally->check(snow::layer_height(middle, field.active_at(50.0F, 0.5F), kDepth, 1.0F) < 0.01F &&
-                     snow::layer_height(berm, field.active_at(50.0F, kRadius + 2.5F), kDepth, 1.0F) > kDepth * 0.5F &&
-                     snow::layer_height(at(50.0F, 20.0F), field.active_at(50.0F, 20.0F), kDepth, 1.0F) > 0.0F,
-                 "the layer: down in the trail, raised beside it");
+    tally->check(snow::layer_height(middle, kDepth) < 0.01F && snow::layer_height(berm, kDepth) > kDepth &&
+                     std::abs(snow::layer_height(at(50.0F, 20.0F), kDepth) - kDepth) < 0.01F,
+                 "the layer: down in the trail, over the snow's top on the berm, the snow's depth beyond");
     // (a stroke visits each texel whose centre is within its reach once - its rows' spans, not its box: a long slanted
     // stroke, a short one, a dot, one along an axis - against every texel of the box tried)
     for (const std::array<surface_trail::Point, 2>& segment :
@@ -357,11 +357,40 @@ void check_stamp(Tally* tally)
                                   static_cast<double>(core::at(from, 0)), static_cast<double>(core::at(from, 1)),
                                   static_cast<double>(core::at(to, 0)), static_cast<double>(core::at(to, 1)), visits, within));
     }
-    // (a stamp's cost: the press's texels and the activity's coarse ones - not its wide fall at the trails' texel)
+    // (a stamp's cost: the press's texels - no wide fall round it)
     std::size_t tiles = 0;
     field.read_tiles([&tiles](const snow::Tile& /*tile*/) { ++tiles; });
-    tally->check(tiles <= 4 && field.activity().tile_count() <= 4,
-                 text::format("a stamp's tiles: %zu of the trails', %zu of the activity's", tiles, field.activity().tile_count()));
+    tally->check(tiles <= 4, text::format("a stamp's tiles: %zu", tiles));
+}
+
+// The snow's surface where nothing pressed it (snow::surface_at): the depth on open ground, banked against a kerb lower
+// than the snow and drifted at the foot of something tall, never raised where no snow settles.
+void check_surface(Tally* tally)
+{
+    const snow::SkyMap map = snow::make_sky_map(level_faces());
+    constexpr float kDepth = 14.0F; // (deeper than the kerb's 10 units: buried)
+    const snow::Surface open = snow::surface_at(map, -300.0F, -300.0F, kDepth);
+    tally->check(open.found && std::abs(open.snow - kDepth) < 0.01F,
+                 text::format("open ground: the snow's depth (%.2f)", static_cast<double>(open.snow)));
+    const snow::Surface foot = snow::surface_at(map, kKerbLow - 3.0F, 0.0F, kDepth);
+    const snow::Surface slope = snow::surface_at(map, kKerbLow - 12.0F, 0.0F, kDepth);
+    const snow::Surface beyond = snow::surface_at(map, kKerbLow - 40.0F, 0.0F, kDepth);
+    const snow::Surface kerb = snow::surface_at(map, kKerbLow + 30.0F, 0.0F, kDepth);
+    const float foot_top = foot.ground + foot.snow;
+    const float kerb_top = kerb.ground + kerb.snow;
+    tally->check(foot.found && foot.snow > kDepth + 4.0F && foot.snow <= 2.0F * kDepth + 0.01F && foot_top <= kerb_top + 0.01F &&
+                     slope.snow > kDepth && slope.snow < foot.snow && std::abs(beyond.snow - kDepth) < 0.01F,
+                 text::format("a kerb lower than the snow banked: %.1f at its foot, %.1f 12 units off, %.1f 40 off (the kerb's "
+                              "snow's top %.1f over the ground)",
+                              static_cast<double>(foot.snow), static_cast<double>(slope.snow), static_cast<double>(beyond.snow),
+                              static_cast<double>(kerb_top)));
+    // (the roof: 150 units over the ground beside it - a drift at its foot, at most twice the depth)
+    const snow::Surface drift = snow::surface_at(map, 0.0F, kRoofLow - 3.0F, kDepth);
+    tally->check(drift.found && drift.snow > kDepth && drift.snow <= 2.0F * kDepth + 0.01F,
+                 text::format("at a tall thing's foot: a drift of %.1f (the depth %.0f, at most twice it)",
+                              static_cast<double>(drift.snow), static_cast<double>(kDepth)));
+    const snow::Surface indoor = snow::surface_at(map, (kIndoorLow + kIndoorHigh) * kHalf, (kIndoorLow + kIndoorHigh) * kHalf, kDepth);
+    tally->check(indoor.found && indoor.snow == 0.0F, "where no snow settles (indoors): never raised");
 }
 
 // A rider's path: `steps` steps along +x from `from` at `speed`, turning by `turn` radians a step.
@@ -398,13 +427,6 @@ uint32_t texel_at_world(float x, float z)
         const std::array<int, 2> texel = field.texel_of(x, z);
         found = field.texel_at(core::at(texel, 0), core::at(texel, 1));
     });
-    return found;
-}
-
-float active_at_world(float x, float z)
-{
-    float found = 0.0F;
-    snow::read_trails([&](const snow::TrailField& field) { found = field.active_at(x, z); });
     return found;
 }
 
@@ -516,7 +538,6 @@ void check_steps(Tally* tally)
     snow::reset();
     ride({0.0F, 0.0F, 0.0F}, kSpeed, 0.0F, kSteps);
     const uint32_t pressed = texel_at_world(300.0F, 0.0F);
-    const float pressed_active = active_at_world(300.0F, 0.0F);
     const auto half_steps = static_cast<int>(snow::kFillSeconds * kHalf / kStep);
     for (int step = 0; step < half_steps; ++step) {
         snow::step({}, kStep, true);
@@ -527,9 +548,8 @@ void check_steps(Tally* tally)
     }
     const uint32_t full = texel_at_world(300.0F, 0.0F);
     constexpr uint32_t kByte = 0xFFU;
-    tally->check((pressed & kByte) == kByte && (half & kByte) >= 125 && (half & kByte) <= 130 && (full & kByte) == 0 &&
-                     pressed_active > 0.9F && active_at_world(300.0F, 0.0F) == pressed_active,
-                 text::format("filled in while snow falls: %u, %u after %.0f s, %u after %.0f s (the activity kept)", pressed & kByte,
+    tally->check((pressed & kByte) == kByte && (half & kByte) >= 125 && (half & kByte) <= 130 && (full & kByte) == 0,
+                 text::format("filled in while snow falls: %u, %u after %.0f s, %u after %.0f s", pressed & kByte,
                               half & kByte, snow::kFillSeconds * kHalf, full & kByte, snow::kFillSeconds));
     snow::reset();
 }
@@ -834,8 +854,10 @@ void check_cover(render::Gpu& gpu, const Scene& scene, Tally* tally)
     set_level(level_faces());
     draw_frame(gpu, scene, {});
     const Picture on = read_picture(scene.colour);
+    dump_picture(on, "cover");
     draw_frame(gpu, scene, {.marked = false});
     const Picture unmarked = read_picture(scene.colour);
+    dump_picture(unmarked, "unmarked");
     std::size_t open = 0;
     std::size_t open_white = 0;
     std::size_t roofed = 0;
@@ -867,7 +889,12 @@ void check_cover(render::Gpu& gpu, const Scene& scene, Tally* tally)
                  text::format("the open ground turned white: %zu of %zu pixels", open_white, open));
     tally->check(roofed > 100 && roofed_same == roofed,
                  text::format("under the roof: unchanged, %zu of %zu pixels", roofed_same, roofed));
-    tally->check(unmarked == off, "a draw not marked as the ground: no snow");
+    float unmarked_most = 0.0F; // (the layer is over it - the colour it was seen in)
+    for (std::size_t pixel = 0; pixel < unmarked.size() && pixel < off.size(); ++pixel) {
+        unmarked_most = std::max(unmarked_most, std::abs(luma(core::at(unmarked, pixel)) - luma(core::at(off, pixel))));
+    }
+    tally->check(unmarked.size() == off.size() && unmarked_most < 0.01F,
+                 text::format("a draw not marked as the ground: no snow (the most a pixel changed %.4f)", static_cast<double>(unmarked_most)));
     // the wall's middle (facing the camera): its own colour
     std::size_t wall = 0;
     std::size_t wall_same = 0;
@@ -929,7 +956,7 @@ void check_layer(render::Gpu& gpu, const Scene& scene, Tally* tally)
             const std::size_t pixel = (static_cast<std::size_t>(py) * kWidth) + px;
             const float x = core::at(xz, 0);
             const float dz = std::abs(core::at(xz, 1) - kTrailZ);
-            const float reach = snow::kBoardHalfWidth + snow::kBermWidth + snow::kActiveReach;
+            const float reach = snow::kBoardHalfWidth + snow::kBermWidth + 24.0F;
             const float before = luma(core::at(untouched, pixel));
             const float after = luma(core::at(trail, pixel));
             changed += std::abs(after - before) > 0.005F ? 1U : 0U;
@@ -1019,6 +1046,227 @@ void check_air(render::Gpu& gpu, const Scene& scene, Tally* tally)
     tally->check(vk::snow_stats().last_spray == alive && alive > 0 && alive <= snow::kMostSpray,
                  text::format("the spray drawn: %u particles (%zu alive)", vk::snow_stats().last_spray, alive));
     tally->check(finite_picture(falling) && finite_picture(spraying), "every pixel finite");
+    snow::reset();
+}
+
+// Where a world point is on the check's 320 x 240 picture (false: behind the camera).
+bool pixel_of(const Vec3& point, const Vec3& camera, std::array<float, 2>* pixel, float* depth)
+{
+    const Axes axes = camera_axes();
+    Vec3 d{};
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        core::at(d, axis) = core::at(point, axis) - core::at(camera, axis);
+    }
+    const float z = dot(d, axes.forward);
+    if (z < 1.0F) {
+        return false;
+    }
+    const float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
+    const float ndc_x = dot(d, axes.right) * kVerticalScale / aspect / z;
+    const float ndc_y = dot(d, axes.up) * kVerticalScale / z;
+    *pixel = {((ndc_x * kHalf) + kHalf) * static_cast<float>(kWidth), (kHalf - (ndc_y * kHalf)) * static_cast<float>(kHeight)};
+    *depth = z;
+    return true;
+}
+
+constexpr float kLit = 0.02F; // (a flake's pixel: this much lighter than the picture without the flakes)
+
+// How much lighter than `before` the picture is round a pixel (the most of a 5 x 5 square).
+float lighter_round(const Picture& after, const Picture& before, const std::array<float, 2>& at)
+{
+    float most = -1.0F;
+    for (int dy = -2; dy <= 2; ++dy) {
+        for (int dx = -2; dx <= 2; ++dx) {
+            const int x = static_cast<int>(std::floor(core::at(at, 0))) + dx;
+            const int y = static_cast<int>(std::floor(core::at(at, 1))) + dy;
+            if (x < 0 || y < 0 || std::cmp_greater_equal(x, kWidth) || std::cmp_greater_equal(y, kHeight)) {
+                continue;
+            }
+            const std::size_t pixel = (static_cast<std::size_t>(y) * kWidth) + static_cast<std::size_t>(x);
+            most = std::max(most, luma(core::at(after, pixel)) - luma(core::at(before, pixel)));
+        }
+    }
+    return most;
+}
+
+// The near flakes the check can see well (vk::flake_place, the shader's twin): in front, not too near or far, over the
+// ground, inside their box, the biggest first.
+std::vector<uint32_t> visible_flakes(const vk::FlakeClock& clock, const Vec3& camera)
+{
+    std::vector<std::pair<float, uint32_t>> found;
+    for (uint32_t index = 0; index < vk::kSnowNearFlakes; ++index) {
+        const vk::FlakePlace place = vk::flake_place(index, clock, camera);
+        std::array<float, 2> pixel{};
+        float depth = 0.0F;
+        const float flat = std::hypot(core::at(place.world, 0) - core::at(camera, 0), core::at(place.world, 2) - core::at(camera, 2));
+        const float rise = (core::at(place.world, 1) - (core::at(camera, 1) - (0.4F * vk::kSnowNearHeight))) / vk::kSnowNearHeight;
+        std::array<float, 2> behind{};
+        float ground_distance = 0.0F;
+        if (!pixel_of(place.world, camera, &pixel, &depth) || depth < 70.0F || depth > 130.0F || core::at(place.world, 1) < 8.0F ||
+            !ground_of(static_cast<uint32_t>(std::max(core::at(pixel, 0), 0.0F)), static_cast<uint32_t>(std::max(core::at(pixel, 1), 0.0F)),
+                       &behind, &ground_distance) ||
+            ground_distance > vk::kSnowHazeStart * 0.9F || // (the ground behind it nearer than the haze: no haze over it)
+            flat > 0.3F * vk::kSnowNearBox || rise < 0.15F || rise > 0.85F || core::at(pixel, 0) < 12.0F ||
+            core::at(pixel, 0) > static_cast<float>(kWidth) - 12.0F || core::at(pixel, 1) < 12.0F ||
+            core::at(pixel, 1) > static_cast<float>(kHeight) - 12.0F) {
+            continue;
+        }
+        found.emplace_back(place.radius, index);
+    }
+    std::ranges::sort(found, [](const auto& a, const auto& b) { return a.first > b.first; });
+    std::vector<uint32_t> out;
+    for (std::size_t k = 0; k < found.size() && out.size() < 12; ++k) {
+        out.push_back(found[k].second);
+    }
+    return out;
+}
+
+// The falling flakes stay in the world: a flake drawn where its place (the shader's twin) puts it; with the camera moved
+// sideways (the clock held) the same flake drawn at its own place seen from there - not where it was on the screen; and
+// with the clock moved on (the camera held) drawn where its own move took it.
+void check_flakes(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    Vec3 moved_camera = kCamera; // (12 units to the side and 8 up)
+    core::at(moved_camera, 0) += 12.0F;
+    core::at(moved_camera, 1) += 8.0F;
+    std::vector<snow::Face> faces;
+    add_flat(&faces, {-kGround, kGround, -kGround, kGround}, 0.0F);
+    // the pictures without the flakes (snow on, none falling: the layer, no haze), from both places
+    vk::set_snow_settings({.on = true, .depth = 6.0F, .quality = 2, .falling = false});
+    set_level(faces);
+    draw_frame(gpu, scene, {.marked = false, .wall = false});
+    draw_frame(gpu, scene, {.marked = false, .wall = false});
+    const Picture none = read_picture(scene.colour);
+    draw_frame(gpu, scene, {.camera = moved_camera, .marked = false, .wall = false});
+    draw_frame(gpu, scene, {.camera = moved_camera, .marked = false, .wall = false});
+    const Picture none_aside = read_picture(scene.colour);
+    vk::set_snow_settings({.on = true, .depth = 6.0F, .quality = 2, .falling = true});
+    for (int step = 0; step < 30; ++step) {
+        snow::step({}, kStep, true);
+    }
+    // (a frame read back ends it: the next one's flakes moved nothing since - no streaks to compare)
+    draw_frame(gpu, scene, {.marked = false, .wall = false});
+    (void)read_picture(scene.colour);
+    draw_frame(gpu, scene, {.marked = false, .wall = false});
+    const Picture here = read_picture(scene.colour);
+    const vk::FlakeClock clock = vk::flake_clock();
+    const std::vector<uint32_t> flakes = visible_flakes(clock, kCamera);
+    // the camera moved, the clock held: each flake still where it was in the world - seen from there at its own place
+    // (parallax), not where it was on the screen
+    draw_frame(gpu, scene, {.camera = moved_camera, .marked = false, .wall = false});
+    const Picture aside = read_picture(scene.colour);
+    std::size_t drawn = 0;
+    std::size_t stayed = 0;
+    std::size_t screen_bound = 0;
+    for (const uint32_t index : flakes) {
+        const vk::FlakePlace place = vk::flake_place(index, clock, kCamera);
+        const vk::FlakePlace from_aside = vk::flake_place(index, clock, moved_camera);
+        std::array<float, 2> was{};
+        std::array<float, 2> now{};
+        float depth = 0.0F;
+        pixel_of(place.world, kCamera, &was, &depth);
+        pixel_of(from_aside.world, moved_camera, &now, &depth);
+        const bool same_place = std::abs(core::at(from_aside.world, 0) - core::at(place.world, 0)) < 0.01F &&
+                                std::abs(core::at(from_aside.world, 1) - core::at(place.world, 1)) < 0.01F &&
+                                std::abs(core::at(from_aside.world, 2) - core::at(place.world, 2)) < 0.01F;
+        const bool shifted = std::hypot(core::at(now, 0) - core::at(was, 0), core::at(now, 1) - core::at(was, 1)) > 6.0F;
+        drawn += lighter_round(here, none, was) > kLit ? 1U : 0U;
+        stayed += same_place && shifted && lighter_round(aside, none_aside, now) > kLit ? 1U : 0U;
+        screen_bound += shifted && lighter_round(aside, none_aside, was) > kLit && lighter_round(aside, none_aside, now) <= kLit ? 1U : 0U;
+    }
+    tally->check(flakes.size() >= 6 && drawn * 3 >= flakes.size() * 2,
+                 text::format("the flakes where their place puts them: %zu of %zu near flakes drawn there", drawn, flakes.size()));
+    tally->check(stayed * 3 >= flakes.size() * 2 && screen_bound * 4 < flakes.size(),
+                 text::format("the camera moved, the flakes stay in the world: %zu of %zu drawn at their own place from there "
+                              "(parallax), %zu where they were on the screen",
+                              stayed, flakes.size(), screen_bound));
+    // the clock moved on a tenth of a second (the camera held): each flake drawn where its own move took it
+    for (int step = 0; step < 6; ++step) {
+        snow::step({}, kStep, true);
+    }
+    draw_frame(gpu, scene, {.marked = false, .wall = false});
+    (void)read_picture(scene.colour);
+    const vk::FlakeClock moved_on = vk::flake_clock();
+    draw_frame(gpu, scene, {.marked = false, .wall = false});
+    const Picture later = read_picture(scene.colour);
+    const vk::FlakeClock then = vk::flake_clock();
+    std::size_t followed = 0;
+    float fallen = 0.0F;
+    for (const uint32_t index : flakes) {
+        const vk::FlakePlace place = vk::flake_place(index, then, kCamera);
+        std::array<float, 2> pixel{};
+        float depth = 0.0F;
+        pixel_of(place.world, kCamera, &pixel, &depth);
+        followed += lighter_round(later, none, pixel) > kLit ? 1U : 0U;
+        const vk::FlakePlace moving = vk::flake_place(index, moved_on, kCamera);
+        fallen += -core::at(moving.moved, 1);
+    }
+    tally->check(moved_on.since > 0.09 && fallen > 0.0F && followed * 3 >= flakes.size() * 2,
+                 text::format("their own motion: %zu of %zu drawn where %.2f s of falling and the wind took them (%.1f units down "
+                              "on average)",
+                              followed, flakes.size(), moved_on.since,
+                              static_cast<double>(fallen / static_cast<float>(std::max<std::size_t>(flakes.size(), 1)))));
+    snow::reset();
+}
+
+// The layer away from the trails: snow_depth over all the open ground, banked against a wall standing on it (in the
+// collision and drawn) - the wall's foot buried, its middle as it was.
+void check_raised(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    constexpr float kDepth = 8.0F;
+    constexpr Vec3 kNearer{0.0F, 50.0F, kWallZ - 170.0F}; // (the wall 170 units ahead: its foot and middle seen)
+    std::vector<snow::Face> faces;
+    add_flat(&faces, {-kGround, kGround, -kGround, kGround}, 0.0F);
+    add_flat(&faces, {-kWallSide, kWallSide, kWallZ + 2.0F, kWallZ + 10.0F}, kWallTop); // (on the sky map's cells: 4 units)
+    vk::set_snow_settings({});
+    draw_frame(gpu, scene, {.camera = kNearer});
+    const Picture off = read_picture(scene.colour);
+    vk::set_snow_settings({.on = true, .depth = kDepth, .quality = 2, .falling = false});
+    set_level(faces);
+    for (int frame = 0; frame < 3; ++frame) {
+        draw_frame(gpu, scene, {.camera = kNearer});
+    }
+    const Picture on = read_picture(scene.colour);
+    dump_picture(on, "raised");
+    const Axes axes = camera_axes();
+    const float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
+    std::size_t foot = 0;
+    std::size_t foot_buried = 0;
+    std::size_t middle = 0;
+    std::size_t middle_same = 0;
+    for (uint32_t py = 0; py < kHeight; ++py) {
+        for (uint32_t px = 0; px < kWidth; ++px) {
+            // (where the pixel's ray meets the wall's plane: on the wall when it does so above the ground)
+            const float ndc_x = ((2.0F * (static_cast<float>(px) + kHalf)) / static_cast<float>(kWidth)) - 1.0F;
+            const float ndc_y = 1.0F - ((2.0F * (static_cast<float>(py) + kHalf)) / static_cast<float>(kHeight));
+            Vec3 direction{};
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                core::at(direction, axis) = (core::at(axes.right, axis) * ndc_x * aspect / kVerticalScale) +
+                                            (core::at(axes.up, axis) * ndc_y / kVerticalScale) + core::at(axes.forward, axis);
+            }
+            const float t = (kWallZ - core::at(kNearer, 2)) / core::at(direction, 2);
+            const float x = core::at(kNearer, 0) + (t * core::at(direction, 0));
+            const float height = core::at(kNearer, 1) + (t * core::at(direction, 1));
+            if (std::abs(x) > kWallSide * 0.6F || height < 0.5F) {
+                continue;
+            }
+            const std::size_t pixel = (static_cast<std::size_t>(py) * kWidth) + px;
+            const float before = luma(core::at(off, pixel));
+            const float after = luma(core::at(on, pixel));
+            if (height < kDepth) {
+                ++foot;
+                foot_buried += after > before + 0.3F ? 1U : 0U;
+            } else if (height > 3.0F * kDepth && height < kWallTop - 10.0F) {
+                ++middle;
+                middle_same += std::abs(after - before) < 0.01F ? 1U : 0U;
+            }
+        }
+    }
+    tally->check(foot >= 10 && foot_buried * 10 >= foot * 9 && middle >= 10 && middle_same == middle,
+                 text::format("the layer over all the open ground, banked at a wall: its foot under the snow (%zu of %zu "
+                              "pixels), its middle as it was (%zu of %zu); %u levels drawn",
+                              foot_buried, foot, middle_same, middle, vk::snow_stats().last_levels));
+    tally->check(finite_picture(on), "every pixel finite");
     snow::reset();
 }
 
@@ -1162,6 +1410,7 @@ int run(const Options& options, SDL_Window* window)
     check_slope(&tally);
     check_overcast(&tally);
     check_stamp(&tally);
+    check_surface(&tally);
     check_steps(&tally);
     if (!open_device(options, window)) {
         return vk::loader_version() == 0 ? 2 : 1;
@@ -1183,7 +1432,9 @@ int run(const Options& options, SDL_Window* window)
         check_window(gpu, scene, &tally);
         check_cover(gpu, scene, &tally);
         check_layer(gpu, scene, &tally);
+        check_raised(gpu, scene, &tally);
         check_air(gpu, scene, &tally);
+        check_flakes(gpu, scene, &tally);
         measure_cost(gpu, scene, &tally);
     }
     vk::set_snow_settings({});

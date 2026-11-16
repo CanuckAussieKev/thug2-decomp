@@ -508,14 +508,20 @@ Ground ground_at(const SkyMap& map, float x, float z)
     bool all = true;
     float least = std::numeric_limits<float>::max();
     float most = -std::numeric_limits<float>::max();
+    float thinnest = 1.0F;
+    float fullest = 0.0F;
     for (const Cell& cell : cells) {
         all = all && cell.found;
         if (cell.found) {
             least = std::min(least, cell.height);
             most = std::max(most, cell.height);
+            thinnest = std::min(thinnest, cell.cover);
+            fullest = std::max(fullest, cell.cover);
         }
     }
-    if (all && most - least <= kStepHeight) {
+    constexpr float kFullCover = 0.99F;
+    const bool sloped = thinnest > 0.0F && fullest < kFullCover;
+    if (all && (most - least <= kStepHeight || (sloped && most - least <= kSlopeSpan * map.cell))) {
         const auto blend = [&](float c00, float c10, float c01, float c11) {
             const float top = c00 + ((c10 - c00) * tx);
             const float bottom = c01 + ((c11 - c01) * tx);
@@ -531,6 +537,40 @@ Ground ground_at(const SkyMap& map, float x, float z)
     return {.height = nearest.height, .cover = nearest.cover, .found = nearest.found};
 }
 
+Surface surface_at(const SkyMap& map, float x, float z, float depth)
+{
+    const Ground ground = ground_at(map, x, z);
+    if (!ground.found) {
+        return {};
+    }
+    const float own = ground.height + (depth * ground.cover);
+    const float most = own + (kBankShare * depth * ground.cover);
+    const float reach = std::max(depth, kBankLeastReach);
+    constexpr float kDiagonal = 0.70710678F;
+    constexpr std::array<std::array<float, 2>, 8> kWays{{{1.0F, 0.0F},
+                                                         {-1.0F, 0.0F},
+                                                         {0.0F, 1.0F},
+                                                         {0.0F, -1.0F},
+                                                         {kDiagonal, kDiagonal},
+                                                         {-kDiagonal, kDiagonal},
+                                                         {kDiagonal, -kDiagonal},
+                                                         {-kDiagonal, -kDiagonal}}};
+    float top = own;
+    for (const float ring : kBankRings) {
+        const float away = ring * reach;
+        for (const std::array<float, 2>& way : kWays) {
+            const float cx = x + (core::at(way, 0) * away);
+            const float cz = z + (core::at(way, 1) * away);
+            const Cell cell = cell_at(map, static_cast<int>(std::floor((cx - map.x0) / map.cell)),
+                                      static_cast<int>(std::floor((cz - map.z0) / map.cell)));
+            if (cell.found && cell.cover > kBankCover) { // (a flat top: a kerb's, a wall's, a roof's - not a ramp's)
+                top = std::max(top, std::min(cell.height + (depth * cell.cover), most) - (kBankSlope * away));
+            }
+        }
+    }
+    return {.ground = ground.height, .snow = top - ground.height, .found = true};
+}
+
 // --- the trails -------------------------------------------------------------------------------------------------------
 
 void TrailField::stamp(const Stamp& stamp)
@@ -539,9 +579,9 @@ void TrailField::stamp(const Stamp& stamp)
         return;
     }
     // the press and the berm: the trails' texels as far as the berm's ring reaches
-    const float active_from = stamp.radius + kBermWidth;
+    const float reach = stamp.radius + kBermWidth;
     const float berm_span = ((1.0F - kBermStart) * stamp.radius) + kBermWidth;
-    stroke(stamp.from, stamp.to, active_from, [&](float d, const surface_trail::Point& /*centre*/, surface_trail::TexelRef ref) {
+    stroke(stamp.from, stamp.to, reach, [&](float d, const surface_trail::Point& /*centre*/, surface_trail::TexelRef ref) {
         const float press = stamp.press * (1.0F - smoothstep(kSoftEdge * stamp.radius, stamp.radius, d));
         const float t = (d - (kBermStart * stamp.radius)) / berm_span;
         const float berm = t > 0.0F && t < 1.0F ? stamp.berm * kBermPeak * t * (1.0F - t) : 0.0F;
@@ -558,61 +598,6 @@ void TrailField::stamp(const Stamp& stamp)
         texel = made;
         return true;
     });
-    // the activity: its own coarse texels out to kActiveReach beyond (full over the press and berm, falling gently)
-    const float reach = active_from + kActiveReach;
-    activity_.stroke(stamp.from, stamp.to, reach, [&](float d, const surface_trail::Point& /*centre*/, surface_trail::TexelRef ref) {
-        uint32_t& texel = ref.word(0);
-        const uint32_t active = std::max(texel & kByte, to_byte(1.0F - smoothstep(active_from, reach, d)));
-        if (active == (texel & kByte)) {
-            return false;
-        }
-        texel = (texel & ~kByte) | active;
-        return true;
-    });
-}
-
-float TrailField::active_at(float x, float z) const
-{
-    // (between the texels' centres, as the device's linear filter takes them)
-    const float u = (x / activity_.texel()) - kHalf;
-    const float v = (z / activity_.texel()) - kHalf;
-    const float fu = std::floor(u);
-    const float fv = std::floor(v);
-    const auto x0 = static_cast<int>(fu);
-    const auto z0 = static_cast<int>(fv);
-    const float tu = u - fu;
-    const float tv = v - fv;
-    const auto at = [this](int tx, int tz) { return static_cast<float>(activity_.texel_at(tx, tz) & kByte) / kByteMax; };
-    const float top = (at(x0, z0) * (1.0F - tu)) + (at(x0 + 1, z0) * tu);
-    const float bottom = (at(x0, z0 + 1) * (1.0F - tu)) + (at(x0 + 1, z0 + 1) * tu);
-    return (top * (1.0F - tv)) + (bottom * tv);
-}
-
-bool TrailField::tile_active(int x, int z) const
-{
-    // (the activity's texels over the trails' tile - its block of the activity's tile; the ring round it isn't looked
-    // at: the activity falls over many of its texels, so a raised texel next to the block has raised ones in it)
-    constexpr int kAcross = kTileTexels / kActiveScale;
-    const int first_x = x * kAcross;
-    const int first_z = z * kAcross;
-    const int tile_x = surface_trail::floor_div(first_x, kTileTexels);
-    const int tile_z = surface_trail::floor_div(first_z, kTileTexels);
-    const Tile* tile = activity_.tile(tile_x, tile_z);
-    if (tile == nullptr) {
-        return false;
-    }
-    const int column = first_x - (tile_x * kTileTexels);
-    const int row = first_z - (tile_z * kTileTexels);
-    const std::span<const uint32_t> words = tile->plane(0);
-    for (int dz = 0; dz < kAcross; ++dz) {
-        for (int dx = 0; dx < kAcross; ++dx) {
-            const auto index = (static_cast<std::size_t>(row + dz) * kTileTexels) + static_cast<std::size_t>(column + dx);
-            if ((core::at(words, index) & kByte) != 0U) {
-                return true;
-            }
-        }
-    }
-    return false;
 }
 
 void TrailField::fill(uint32_t steps)
@@ -650,29 +635,23 @@ void TrailField::fill(uint32_t steps)
     });
 }
 
-void TrailField::totals(uint64_t* press, uint64_t* berm, uint64_t* active) const
+void TrailField::totals(uint64_t* press, uint64_t* berm) const
 {
     *press = 0;
     *berm = 0;
-    *active = 0;
     read_tiles([&](const surface_trail::Tile& tile) {
         for (const uint32_t texel : tile.texels) {
             *press += (texel >> kPressShift) & kByte;
             *berm += (texel >> kBermShift) & kByte;
         }
     });
-    activity_.read_tiles([&](const surface_trail::Tile& tile) {
-        for (const uint32_t texel : tile.texels) {
-            *active += texel & kByte;
-        }
-    });
 }
 
-float layer_height(uint32_t texel, float active, float depth, float cover)
+float layer_height(uint32_t texel, float snow)
 {
     const float press = static_cast<float>((texel >> kPressShift) & kByte) / kByteMax;
     const float berm = static_cast<float>((texel >> kBermShift) & kByte) / kByteMax;
-    return depth * cover * ((active * (1.0F - press)) + (kBermHeight * berm * (1.0F - press)));
+    return snow * (1.0F - press) * (1.0F + (kBermHeight * berm));
 }
 
 std::array<float, 3> spray_place(const SprayParticle& particle, float age)

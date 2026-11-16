@@ -2800,14 +2800,13 @@ winter sky in the lighting state, the decals under the snow.
   up and nothing is over them.
 - **The trails** (`snow::TrailField` - a surface trails' field, below -, on the processor, kept for the whole level session): a heightfield in tiles of
   64 x 64 texels (2 units at quality 2; 3 at 1; 1.5 at 3), made where something first pressed; a texel holds four bytes
-  - the press (the share of the snow pushed down), the berm (snow pushed up beside a trail) and two spares. The
-  activity (where the layer is raised over the ground) is a field of its own, 8 times coarser (round 3, below). A stamp
+  - the press (the share of the snow pushed down), the berm (snow pushed up beside a trail) and two spares. A stamp
   is a capsule (from the presser's last place to this one) - the press full inside it, softened over its outer 40%; the
-  berm in the ring 5 units outside (4t(1 - t) across it); the activity out to 24 units further (64 since round 2);
-  each byte keeps the most it was given. The layer's height over the ground is
-  depth x cover x (activity x (1 - press) + 0.6 x berm x (1 - press)) (`snow::layer_height`, the shaders' twin).
-  While snow falls (`snowfall`, or the game's own snow weather) every press and berm drops by one 255th each 180 / 255
-  s - a full trail fills in over three minutes; the activity stays (the layer stays raised, now untouched).
+  berm in the ring 5 units outside (4t(1 - t) across it); each byte keeps the most it was given. The layer's height
+  over the ground is the snow there x (1 - press) x (1 + 0.6 x berm) (`snow::layer_height`, the shaders' twin - the
+  snow there `snow::surface_at`'s, below). While snow falls (`snowfall`, or the game's own snow weather) every press
+  and berm drops by one 255th each 180 / 255 s - a full trail fills in over three minutes. (Rounds 1 - 3 kept an
+  activity besides - where the layer was raised round a trail; round 4 raises it everywhere, so it is gone.)
 - **What presses, once a simulation step** (`render_pc` `step_frame`, every step whether drawn or not: the same
   positions make the same trails however the frames go): the instances drawn with a skeleton (24 bones or more:
   skaters and peds - their origin, where they stand) and the wheels of those with a few bones (a bone off the middle by
@@ -2821,36 +2820,77 @@ winter sky in the lighting state, the decals under the snow.
   landing's burst 24 - 90 all round. Each its start, velocity, life (0.45 - 1.5 s), size and shade from the snow's own
   random numbers (a PCG32 seeded the same each session - never the game's); it moves on its own (a throw under
   gravity, `snow::spray_place`), so the device draws it from its start and age alone.
-- **The window and the layer (opaque_drawn, `ViewOrder::kSnow` 440).** The trails' texture (RGBA8) is a window of 10
-  tiles a side round the camera (6 at quality 1, 16 at 3), each tile in the slot of its place modulo 10 (sampled
-  repeating: the window is toroidal). As the camera moves the tiles that come in are copied into the slots of those
-  that went - the others stay -, and a tile is copied again only when its version changed; nothing is lost near the
-  camera and the processor keeps every trail. Each window tile that holds trails is drawn as a grid, a vertex a texel
-  (every other texel beyond 3 tiles): lifted over the sky map's ground (its four cells blended where their tops agree
-  within 6 units, else the nearest - a kerb stays a step, and a triangle on a step is dropped) by the layer's height,
-  its activity faded at the window's edge. Its colour is the shaded snow under it: a compute pass puts each active
-  texel's ground point on the screen and keeps the colour there where the depth is the ground's (a toroidal image
-  beside the trails'; a point hidden this frame keeps its last colour; one never seen takes what is behind its pixel),
-  then the layer turns it by its own slope against the flat snow in the light now (the time of day's light and sky,
-  else the level's own sun at its own light - 65% direct), with the shadow of the trail's walls (a 6-step march over
-  the heights toward the light) and its occlusion (lower than round it); the packed snow in a trail is darker (x 0.8)
-  and catches a highlight. Depth-tested and written; the upscaler's motion is the camera's. Untouched, the raised
-  layer is the colour of the covered ground it stands on: only the trails show.
-- **The air (world_drawn, the same order: before the fog and the tone mapping).** The falling snow is flakes in the
-  world: 22,000, the first 9,000 in a 340 x 260 box round the camera (the dense snow close by), the rest in a 1400 x 900
-  one, each a hash of its number falling at 38 - 68 units a second, carried downwind by the level's wind
-  (`engine/gfx/wind.h`, shared with the grass: its gusts added up on the snow's clock - `snow::wind_drift`, the same
-  every run) and fluttering; faded at its box's sides, top and bottom. Each is a disc of its true size on the screen
-  (0.2 - 0.52 units across a radius), widened by a lens's defocus (aperture 0.45 units, focused on what the camera
-  follows - `ViewDrawn::focus_distance`) and to at least 0.75 pixels, its alpha the share of the disc the flake covers:
-  big soft flakes close by, tiny faint ones far off, parallax by its place. Depth-tested against the scene. Lit by the
-  lighting state: the sky's light, the direct light where a ray toward it through the frame's scene reaches the flake
-  (dark in shade) scattered forward (a glint looking toward the sun or the moon) with each flake's twinkle, and the
-  level's lamps - the light field's local light (`rt_light_field.h local_at`, the one lighting path's) on a 9 x 4 x 9
-  grid of 128-unit cells round the camera, its directional part scattered forward too. Not drawn under a roof (a ray
-  straight up; without ray tracing the sky map). The spray as before. With the upscaler's motion attachment each disc
-  writes its share of the pixel (z, the largest - the reactive mask DLSS / FSR take: the history gives way where a flake
-  is) and leaves the scene's motion behind it, so the flakes aren't smeared.
+- **The window and the layer (opaque_drawn, `ViewOrder::kSnow` 440; round 4).** The trails' texture (RGBA8) is a
+  window of 10 tiles a side round the camera (6 at quality 1, 16 at 3), each tile in the slot of its place modulo 10
+  (sampled repeating: the window is toroidal). As the camera moves the tiles that come in are copied into the slots of
+  those that went - the others stay -, and a tile is copied again only when its version changed; nothing is lost near
+  the camera and the processor keeps every trail. **The layer is the snow's own surface over all the open ground round
+  the camera**, not only round the trails: a camera-centred grid of levels (`kSnowGridQuads` 128 cells a side; the
+  first level's cell the trails' texel, each next twice the last's, as many as reach `kSnowLayerReach` 1500 units -
+  five levels to 1536 at quality 3, 38 m - drawn with one 16-bit index buffer, the vertex's place from its index; near
+  a level's edge its every other vertex moves onto the next level's grid, so the two meet without a crack, and a level
+  leaves to the one inside it the square that one covers). Each vertex is the snow's top there - `snow::surface_at`,
+  the shaders' twin: the sky map's ground (its cells blended where their tops agree within 6 units, or where they are
+  one sloped face's - every cell holding some snow and less than all of it, a ramp or a bank, rising no more than two
+  cells across; else the nearest cell's) plus `snow_depth` x the cover there, **banked against what stands higher
+  round it**: three rings (0.5, 1, 1.7 x the depth, at least 4 units) of eight samples, a flat top among them (a kerb's,
+  a wall's, a roof's: all the snow - a ramp sheds its own) holding its own snow's top there and falling 0.6 a unit
+  toward the point, the point taking the highest, at most twice its own snow over its own ground. So a kerb lower than
+  the snow is buried in a smooth bank, a wall gets a drift at its foot, a bench without collision under 20 inches of
+  powder is under the snow (the layer is opaque and depth-tested), and ground that holds none (under a roof, indoors,
+  a wall's face) is never raised. Its height fades to the flat cover from 0.6 of the reach to the reach; the trails
+  cut it (`layer_height`; outside the trails' window nothing pressed). No triangle across a step the snow doesn't
+  bridge - a rise over a grid cell of more than 10 units (at least the depth) + 0.8 x the cell (a wall, a roof's or an
+  awning's edge: a sheet there would be snow up the wall or hanging from the awning), or where the sky map's cells
+  disagree by more than a kerb (a car's or a ledge's shape too fine for its cells); the ground's own covered snow shows
+  in the cell at its foot. With ray tracing, a vertex whose ray straight up meets something drawn (mask 0x05: a tree,
+  an awning without collision - the cover's rule) holds no snow. The vertex also gives its shape: the normal and the
+  occlusion (lower than round it) of the surface's top four cells round it, a wall's rise held to a step's so it
+  doesn't tilt the bank beside it.
+  Its colour is the shaded ground under it: a compute pass puts each texel of the trails' window's ground point on the
+  screen - moved onto the drawn ground by the depth there (the sky map's height is its collision's, a blend of its
+  cells: twice the point goes onto the surface the depth says is along the ray), the colour taken bilinearly - and,
+  where the depth there is the ground's, keeps it (a toroidal image beside the trails'; a point hidden this frame
+  keeps its last colour; a new sky map forgets them all). The layer takes what is behind its pixel (the covered ground a
+  little further on, every pixel of it) where that is much the colour the gather saw under it, else the colour seen (a
+  kerb's face, a pole's foot behind it); beyond the trails' window, what is behind. It turns that by its own shape
+  against the flat snow in the light now (the time of day's light and sky, else the level's own sun at its own light -
+  65% direct): the banks' normal and occlusion from the vertices, the trails' relief, normal and occlusion and the
+  shadow of their walls (a 6-step march over the heights toward the light), the packed snow in a trail darker (x 0.8)
+  with a highlight. Depth-tested and written; the upscaler's motion is the camera's. (Fixed on the way: the gather's
+  slot was GLSL's `%` of a negative texel - undefined: the texels west and south of the world's origin were never
+  gathered.)
+- **The air (world_drawn, the same order: before the fog and the tone mapping; round 4).** The user: "snowfall still
+  kind of looks like a filter in front of the screen". What the frames showed (`capture` series still, strafing,
+  rising, turning; BO): with the camera still, each falling flake left a vertical trail fixed on the screen - the
+  flakes wrote the scene's motion behind them, so DLSS reprojected their history with the background and they smeared
+  where the screen was, not where they fell; the flakes' height was the camera's (the box's bottom `camera.y - 0.4 x
+  height` plus its fall: rising with the camera moved every flake with it); the near box was 40 times denser than the
+  far and defocused through a 0.45-unit aperture, so the flakes near the lens were big faint blobs all over the
+  picture; one size distribution, one brightness, one fall speed. Now: 22,000 flakes, the first 12,000 in a 440 x 320
+  box round the camera, the rest in the 1400 x 900 one, each a hash of its number - **its place wrapped into its box in
+  the world's own frame on every axis** (the box only says which copy of the pattern is drawn), so the camera moves
+  through the snow (parallax both ways); falling 34 - 68 units a second (the bigger faster), carried downwind by the
+  level's wind (`engine/gfx/wind.h`, its gusts added up on the snow's clock - `snow::wind_drift`), swinging on a spiral
+  of its own, and moved by **the gusts' eddies**: rolls carried downwind at the wind's speed - a stream function's curl
+  across the wind (260 x 340-unit cells, 16 units x the gust) and rolls round axes across it (200-unit cells, 26 units
+  x the gust, up and down along the wind) - a displacement field the same for every flake at a place, so they swirl
+  together and stay as evenly spread. None nearer the camera than 40 units (faded in from 16), the lens's defocus an
+  eye's (0.15 units). Each a disc of its true size (0.25 + 0.6 x a share squared: most small, a few big), at least 0.75
+  pixels, **drawn as a streak**: its own move on the screen since the frame before (its fall, drift, flutter and the
+  eddies' - `before` in the block, never the wrap - and the camera's, the frame before's view) over half the frame, at
+  most 16 pixels, a capsule whose alpha is spread over its length (the disc's area against the capsule's). With the
+  upscaler's motion **a second draw of the flakes writes each one's own motion** (x, y) where it covers 30% of the pixel
+  or more (the same vertex shader, MOTION_ONLY: no lighting, its shelter ray kept), and the first writes its share as
+  the reactive mask (half of it where its own motion is the pixel's): the upscaler takes a flake's history from where
+  it was. Lit from above by the sky's light and the direct light where its own ray toward it reaches it (traced; mask
+  0x07), or more where the snow on the ground under it was lit more - the gather's colours over the snow's albedo, the
+  one lighting path's own result: the lamps, the bounce (the lamps' grid of rounds 2 - 3 is gone: its local light at a
+  lamp's cell was 4.7 against a night sky of 0.1, so the flakes glowed across the street from a lamp) -; from below by
+  what that snow sends up (half a sphere's: a flake reads brighter than the snow behind it, as the ground isn't lit from
+  below); the direct light scattered forward (a glint looking toward the sun or the moon) with each flake's twinkle;
+  each flake's own brightness 0.78 - 1.12. Not drawn under a roof (a ray straight up; without ray tracing the sky map).
+  `vk::flake_place` is the vertex shader's twin (the check's). The spray as before.
 - **The haze**: the snow too far off to draw. While snow falls, after the flakes, a full-screen pass over the colour
   (the depth read, not attached): a medium of the snow's light (its albedo x the sky's light and half the direct
   light) with an extinction of 3.2e-4 a unit from 250 units out, the sky as at 9000 - colour x T + the haze x (1 - T).
