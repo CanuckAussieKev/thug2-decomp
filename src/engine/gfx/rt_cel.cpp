@@ -213,12 +213,10 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     std::array<float, 3> lamps{};
     std::array<float, 3> sun{};
     std::array<float, 3> sky{};
-    const Rgbf& sky_light = lighting.day && model.sunless ? model.day_sky : model.sky;
     for (std::size_t ch = 0; ch < sun.size(); ++ch) {
         core::at(lamps, ch) = core::at(vertex.tint, ch) * core::at(parts.lamps, ch);
-        core::at(sun, ch) =
-            core::at(model.sun, ch) * core::at(lighting.sun_colour, ch) * core::at(lighting.direct_scale, ch);
-        core::at(sky, ch) = core::at(sky_light, ch) * core::at(lighting.sky_scale, ch) * vertex.sky;
+        core::at(sun, ch) = core::at(lighting.sun, ch);
+        core::at(sky, ch) = core::at(lighting.sky, ch) * vertex.sky;
     }
     return {word(parts.indirect, kBytesPerLight, n_dot_l), word(vertex.tint, kBytesPerLight, seen),
             word(lamps, kBytesPerLight, 1.0F), word(sun, kBytesPerLight, 0.0F),

@@ -322,7 +322,7 @@ void main()
         return;
     }
     // Every other lit pixel (an object whose lights aren't known, a world vertex the game animates): its direct light's
-    // share of its light (pc.to_light.w: the lighting state's - rt_light_field.h direct_share) is what the sun's
+    // share of its light (pc.to_light.w: the lighting state's - rt_daylight.h direct_share_now) is what the sun's
     // visibility takes away.
     o_factor = vec4(vec3(0.5 * (1.0 - pc.to_light.w * (1.0 - visible))), 1.0); // (the blend doubles it)
 }
@@ -964,9 +964,13 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     // (added by the time of day - engine/gfx/rt_daylight.h) the shadows as strong as the sun's (or moon's) share of the
     // light at the clock's time: none at twilight
     const rt::DayLight day = rt::day_light();
-    // (lighting round A - one shadow model: a pixel without a light store loses its direct light's share - the lighting
-    // state's, rt_light_field.h direct_share - where the sun doesn't reach it)
-    constants.to_light = {core::at(to_light, 0), core::at(to_light, 1), core::at(to_light, 2), rt::direct_share()};
+    // (lighting round A - one shadow model: a pixel without a light store loses its direct light's share where the sun
+    // doesn't reach it - round A2: the lighting state's one share, rt_daylight.h direct_share_now)
+    const rt::BakedSun& own_sun = rt::baked_sun();
+    const double own_elevation =
+        std::asin(std::clamp(static_cast<double>(core::at(own_sun.toward, 1)), -1.0, 1.0)) / kDegreesToRadians;
+    constants.to_light = {core::at(to_light, 0), core::at(to_light, 1), core::at(to_light, 2),
+                          rt::direct_share_now(day, own_sun.found, own_elevation)};
     const bool soft = own.settings.softness > 0.0F && own.settings.rays > 1;
     // (the lighting state's light: rt_shadow_softness is the sun's; the moon's, wider, softens them as much more)
     const float softness =

@@ -206,6 +206,12 @@ struct DayLight {
                                           // light's and the sky's in the level's own shares (direct_share)
     float direct_share = kDirectShare;    // (added by the physical air) the direct light's share of the level's own
                                           // light - the model's at its own sun (direct_share_at)
+    // (lighting round A2 - one light unit for every level) the light now in the global unit (rt_sky.h ground_light_table:
+    // linear, 1 the light on a level surface under the reference day - a white diffuser's radiance; what relit's tints,
+    // the albedos, are lit by): the direct light per unit of N.L (the sun's transmitted light, or the moon's at night) and
+    // the sky's on a level surface (the atmosphere's every order, the night's floor added)
+    DayRgb sun_light{};
+    DayRgb sky_light{};
     float shadow = 1.0F;      // the sun's shadows' strength over the level's own (their share of the light)
     float lamps = 0.0F;       // 0 - 1: the lamps (rt_lights) on
     float stars = 0.0F;       // 0 - 1
@@ -218,6 +224,26 @@ struct DayLight {
 };
 // The light at `hours` on the level's day.
 [[nodiscard]] DayLight day_light_at(const NativeDay& native, double hours);
+// (lighting round A2 - one light unit for every level) The sun's and the sky's light in the global unit (DayLight's
+// sun_light / sky_light) with the sun `elevation` degrees up in the frame's air (rt_sky.h aerosol(); a table a degree,
+// made again when the weather changes) - none from the sun under the horizon; no night floor, no moon.
+struct AbsoluteLight {
+    DayRgb sun{};
+    DayRgb sky{};
+};
+[[nodiscard]] AbsoluteLight absolute_light_at(double elevation);
+// The night's light in the global unit (art values, as the moon's and the night sky's display-referred ones they come
+// from - kMoonLight, kNightSkyLight: still not physical, docs/design/vulkan.md): the full moon's direct light per unit
+// of N.L, and the night sky's on a level surface.
+[[nodiscard]] DayRgb moon_light_absolute();
+[[nodiscard]] DayRgb night_sky_absolute();
+// (lighting round A2 - one direct share) The direct light's share of an open level surface's light now - what the sun's
+// visibility takes from a pixel lit by the game's lights (the skater, the objects: no light store of their own; the
+// shadows pass): with the clock its light's share now in the global unit (sun_light x the light's sine over that plus
+// sky_light - the moon's at night), without it the model's at
+// the level's own sun (`own_sun`: whether its bake has one, `own_elevation` its degrees up) - 0 in a bake without a sun.
+// The one source: the light field's own measured share is gone.
+[[nodiscard]] float direct_share_now(const DayLight& day, bool own_sun, double own_elevation);
 // (added by the snow) An overcast sky over that light, `share` 0 - 1 of a full winter overcast (day_clock applies it to
 // the state it makes - snow::overcast_share): the cloud deck keeps kOvercastDirect of the direct light at full and
 // widens its radius toward kOvercastRadiusDegrees (soft shadows), the sky's light turns grey (kOvercastGrey of the way to

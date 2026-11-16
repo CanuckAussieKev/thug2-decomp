@@ -205,7 +205,8 @@ bool same_light(const DayLight& a, const DayLight& b)
            a.light_colour == b.light_colour && a.light_radius == b.light_radius && a.bounce == b.bounce &&
            a.sky == b.sky && a.shadow == b.shadow && a.lamps == b.lamps && a.stars == b.stars &&
            a.moon_disc == b.moon_disc && a.night_sky == b.night_sky && a.direct_share == b.direct_share &&
-           a.stars_pole == b.stars_pole && a.blend == b.blend;
+           a.stars_pole == b.stars_pole && a.blend == b.blend && a.sun_light == b.sun_light &&
+           a.sky_light == b.sky_light;
 }
 
 } // namespace
@@ -480,14 +481,13 @@ double sky_light_at(double elevation)
 
 float direct_share_at(double elevation)
 {
-    const std::vector<double>& table = sky_irradiance_table();
-    const double at = std::clamp(elevation - kTableLowest, 0.0, static_cast<double>(kTableEntries - 1));
-    const auto below = static_cast<std::size_t>(std::floor(at));
-    const std::size_t above = std::min(below + 1, kTableEntries - 1);
-    const double fraction = at - static_cast<double>(below);
-    const double sky = (core::at(table, below) * (1.0 - fraction)) + (core::at(table, above) * fraction);
-    const double direct = elevation > 0.0 ? sun_light_at(elevation) * std::sin(elevation * kRadians) : 0.0;
-    return direct + sky > 0.0 ? static_cast<float>(direct / (direct + sky)) : 0.0F;
+    // (lighting round A2: from the light in the global unit - every order of the sky's scattering, the frame's air - so
+    // the shares and the light the relit world is lit by are one model)
+    const AbsoluteLight at = absolute_light_at(elevation);
+    const double direct =
+        elevation > 0.0 ? static_cast<double>(luma_of(at.sun)) * std::sin(elevation * kRadians) : 0.0;
+    const double whole = direct + static_cast<double>(luma_of(at.sky));
+    return whole > 0.0 ? static_cast<float>(direct / whole) : 0.0F;
 }
 
 double sun_light_at(double elevation)
@@ -568,6 +568,22 @@ DayLight day_light_at(const NativeDay& native, double hours)
     for (std::size_t ch = 0; ch < light.light_colour.size(); ++ch) {
         core::at(light.light_colour, ch) = light.direct * core::at(light.direct_tint, ch);
     }
+    // (lighting round A2) the same light in the global unit: the sun's, or the full moon's once the sun is down (the
+    // moon's elevation and the night's depth as above); the sky's with the night's floor (smoothly from kNightFrom)
+    {
+        const AbsoluteLight now = absolute_light_at(sun.elevation);
+        const DayRgb moonlight = moon_light_absolute();
+        const DayRgb night_floor = night_sky_absolute();
+        const double moon_share = night * moon_up;
+        const double floor_share = 1.0 - smoothstep(kNightFull, kNightFrom, sun.elevation);
+        for (std::size_t ch = 0; ch < light.sun_light.size(); ++ch) {
+            core::at(light.sun_light, ch) =
+                light.moonlit ? static_cast<float>(static_cast<double>(core::at(moonlight, ch)) * moon_share)
+                              : core::at(now.sun, ch);
+            core::at(light.sky_light, ch) = static_cast<float>(
+                static_cast<double>(core::at(now.sky, ch)) + (static_cast<double>(core::at(night_floor, ch)) * floor_share));
+        }
+    }
     // the sky's light, over the level's own: the twilight's and the night sky's (changed by the physical air: added as
     // light, linear - the night's light is always there, lost in the daylight by day, the level's own light holding its
     // share of it - so the sum only falls as the sun sets, whatever the air does to the twilight)
@@ -591,6 +607,79 @@ DayLight day_light_at(const NativeDay& native, double hours)
     return light;
 }
 
+AbsoluteLight absolute_light_at(double elevation)
+{
+    struct Cache {
+        std::mutex mutex;
+        bool made = false;
+        Aerosol air;
+        std::vector<GroundLightRgb> table;
+    };
+    static Cache cache;
+    const Aerosol air = aerosol();
+    const std::scoped_lock lock(cache.mutex);
+    if (!cache.made || !(cache.air == air)) {
+        cache.table = ground_light_table(kTableLowest, kTableEntries, air);
+        cache.air = air;
+        cache.made = true;
+    }
+    const double at = std::clamp(elevation - kTableLowest, 0.0, static_cast<double>(kTableEntries - 1));
+    const auto below = static_cast<std::size_t>(std::floor(at));
+    const std::size_t above = std::min(below + 1, kTableEntries - 1);
+    const double fraction = at - static_cast<double>(below);
+    AbsoluteLight out;
+    const double gone = smoothstep(kSunGoneLow, kSunGoneHigh, elevation);
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        const GroundLightRgb& low = core::at(cache.table, below);
+        const GroundLightRgb& high = core::at(cache.table, above);
+        core::at(out.sun, ch) = static_cast<float>(
+            ((core::at(low.sun, ch) * (1.0 - fraction)) + (core::at(high.sun, ch) * fraction)) * gone);
+        core::at(out.sky, ch) =
+            static_cast<float>((core::at(low.sky, ch) * (1.0 - fraction)) + (core::at(high.sky, ch) * fraction));
+    }
+    return out;
+}
+
+DayRgb moon_light_absolute()
+{
+    // (the moon's display-referred light over a reference day's sun, made linear, x that day's sun - kMoonTint its hue)
+    const AbsoluteLight day = absolute_light_at(kDefaultSunElevation);
+    const double sun = (core::at(kLuma, 0) * static_cast<double>(day.sun[0])) +
+                       (core::at(kLuma, 1) * static_cast<double>(day.sun[1])) +
+                       (core::at(kLuma, 2) * static_cast<double>(day.sun[2]));
+    const double moon = std::pow(static_cast<double>(kMoonLight), kDisplayGamma) * sun;
+    DayRgb out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = static_cast<float>(moon * static_cast<double>(core::at(kMoonTint, ch)));
+    }
+    return out;
+}
+
+DayRgb night_sky_absolute()
+{
+    const AbsoluteLight day = absolute_light_at(kDefaultSunElevation);
+    const double sky = (core::at(kLuma, 0) * static_cast<double>(day.sky[0])) +
+                       (core::at(kLuma, 1) * static_cast<double>(day.sky[1])) +
+                       (core::at(kLuma, 2) * static_cast<double>(day.sky[2]));
+    DayRgb out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) =
+            static_cast<float>(std::pow(static_cast<double>(core::at(kNightSkyLight, ch)), kDisplayGamma) * sky);
+    }
+    return out;
+}
+
+float direct_share_now(const DayLight& day, bool own_sun, double own_elevation)
+{
+    if (day.on) {
+        // (the light in the global unit: the direct light on a level surface over its whole light)
+        const float direct = luma_of(day.sun_light) * std::max(0.0F, core::at(day.light, 1));
+        const float whole = direct + luma_of(day.sky_light);
+        return whole > 0.0F ? std::clamp(direct / whole, 0.0F, 1.0F) : 0.0F;
+    }
+    return own_sun && own_elevation > 0.0 ? direct_share_at(own_elevation) : 0.0F;
+}
+
 void apply_overcast(DayLight* light, float share)
 {
     const float s = std::isfinite(share) ? std::clamp(share, 0.0F, 1.0F) : 0.0F;
@@ -604,6 +693,19 @@ void apply_overcast(DayLight* light, float share)
     light->direct *= kept;
     for (std::size_t ch = 0; ch < light->light_colour.size(); ++ch) {
         core::at(light->light_colour, ch) = light->direct * core::at(light->direct_tint, ch);
+    }
+    // (lighting round A2) the same in the global unit: the deck takes the direct light's share off a level surface
+    // (its light per N.L x the sine) and sends kOvercastScatter of it down as the sky's, greyed the same way
+    {
+        const double sine = std::max(0.0, static_cast<double>(light->light[1]));
+        const float taken_now = luma_of(light->sun_light) * static_cast<float>(sine) * (1.0F - kept);
+        const float sky_now = luma_of(light->sky_light);
+        for (std::size_t ch = 0; ch < light->sun_light.size(); ++ch) {
+            core::at(light->sun_light, ch) *= kept;
+            const float grey =
+                core::at(light->sky_light, ch) + ((sky_now - core::at(light->sky_light, ch)) * kOvercastGrey * s);
+            core::at(light->sky_light, ch) = grey + (kOvercastScatter * taken_now);
+        }
     }
     light->light_radius += (kOvercastRadiusDegrees - light->light_radius) * s;
     const float sky_luma = luma_of(light->sky);

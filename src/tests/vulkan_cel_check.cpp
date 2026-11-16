@@ -547,8 +547,9 @@ void check_twins(Tally* tally)
     constexpr Vec3 kVertexTint{1.5F, 1.0F, 0.5F};
     constexpr Vec3 kVertexResidual{0.25F, 0.0F, 0.0F};
     constexpr uint32_t kFull = 255;
-    constexpr uint32_t kAmbientRed = 38;  // (0.4 x 0.5 + 0.5 x 0.2 = 0.3)
-    constexpr uint32_t kAmbientBlue = 45; // (0.5 x 0.5 + 0.1 = 0.35)
+    // (lighting round A2: the bounce's coefficient 1 - B is radiance in the light's unit)
+    constexpr uint32_t kAmbientRed = 51;  // (0.4 x 0.5 + 0.2 = 0.4)
+    constexpr uint32_t kAmbientBlue = 58; // (0.5 x 0.5 + 0.2 = 0.45)
     constexpr uint32_t kTintRed = 192;    // (1.5)
     constexpr uint32_t kShareByte = 128;  // (0.5)
     constexpr uint32_t kResidualRed = 48; // (the lamps' light on the surface: tint 1.5 x L 0.25)
@@ -567,7 +568,7 @@ void check_twins(Tally* tally)
     vertex.tint = kVertexTint;
     vertex.lamp = kVertexResidual; // (lighting round A: the lamps' light L - word 2 holds it on the surface, x the tint)
     const rt::CelWords words =
-        rt::cel_stream_words(model, vertex, {.toward = {0.0F, 1.0F, 0.0F}, .sun_colour = {1, 1, 1}, .lamps = 1.0F});
+        rt::cel_stream_words(model, vertex, {.toward = {0.0F, 1.0F, 0.0F}, .sun = model.sun, .sky = model.sky, .lamps = 1.0F});
     const auto channel = [](uint32_t word, uint32_t shift) { return (word >> shift) & kByteBits; };
     const bool words_ok =
         channel(std::get<0>(words), kAlphaShift) == kFull && channel(std::get<0>(words), kRedShift) == kAmbientRed &&

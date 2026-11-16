@@ -83,6 +83,11 @@ struct Cone {
 };
 [[nodiscard]] std::vector<Vec3> directions_round(const Cone& cone);
 
+// (lighting round A2) BakedSun::candidates: the best and this many of the coarse set's next best, each at least
+// kCandidateApartDegrees from those before it - the relit bake's fit picks among them (a correlation of "lit" with the
+// brightness misses a sun whose shadows fall on many-coloured ground: Skatopia's evening).
+inline constexpr std::size_t kSunCandidates = 12;
+inline constexpr float kCandidateApartDegrees = 8.0F;
 struct SunFit {
     BakedSun sun;            // (scene left 0: the caller numbers it)
     std::size_t samples = 0;

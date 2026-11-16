@@ -114,7 +114,9 @@ constexpr Rgbf kPillarTint{0.62F, 0.62F, 0.60F};
 // off to nothing at kLampRadius.
 constexpr Rgbf kSunLight{1.00F, 0.95F, 0.85F};
 constexpr Rgbf kSkyLight{0.35F, 0.40F, 0.50F};
-constexpr Rgbf kBounceWeight{0.5F, 0.5F, 0.5F};
+// (lighting round A2: the bounce is radiance in the light's own unit - its coefficient 1, physically; the fit's g only
+// describes a bake)
+constexpr Rgbf kBounceWeight{1.0F, 1.0F, 1.0F};
 constexpr Vec3 kSunToward{0.55F, 0.70F, 0.45F};
 constexpr Vec3 kMovedSun{-0.60F, 0.55F, 0.20F};
 constexpr Rgbf kLampLight{0.70F, 0.55F, 0.30F};
@@ -442,6 +444,17 @@ struct BakeSun {
     Rgbf light{};
     Rgbf sky = kSkyLight; // (added by the time of day: a dimmer sky's)
 };
+// (lighting round A2) The lighting a model's own light gives - its sun and sky (x the scales) toward `toward`: what the
+// game's lighting state gives in the global unit (rt_relit.h RelitLighting).
+rt::RelitLighting lit_by(const rt::RelitModel& model, const Vec3& toward, float sun_scale = 1.0F, float sky_scale = 1.0F,
+                         float lamps = 0.0F)
+{
+    return {.toward = toward,
+            .sun = model.sunless ? Rgbf{} : rt::scaled(model.sun, sun_scale),
+            .sky = rt::scaled(model.sky, sky_scale),
+            .lamps = lamps};
+}
+
 std::vector<rt::RelitVertices> bake(Level* level, const BakeSun& sun, const rt::RelitParams& params)
 {
     // (start from the tints alone; ids of the processor's own, so its hits find their meshes)
@@ -469,7 +482,7 @@ std::vector<rt::RelitVertices> bake(Level* level, const BakeSun& sun, const rt::
             rt::RelitMesh& mesh = core::at(level->meshes, index);
             for (std::size_t vertex = 0; vertex < mesh.positions.size(); ++vertex) {
                 const Rgbf lit =
-                    rt::relit_light(truth, core::at(core::at(light, index), vertex), {.toward = truth.toward});
+                    rt::relit_light(truth, core::at(core::at(light, index), vertex), lit_by(truth, truth.toward));
                 const Rgbf& tint = core::at(core::at(level->tints, index), vertex);
                 const Rgbf& lamp = core::at(core::at(level->lamps, index), vertex);
                 Rgbf baked{};
@@ -797,6 +810,148 @@ void check_tints(const Scene& scene, const std::vector<rt::RelitVertices>& light
     tally->check(counted.finite, "no value NaN or infinite");
 }
 
+// 2b. (lighting round A2 - one light unit) relit_to_unit: the fit's tints (median 1 - an arbitrary scale) times its
+// bounce coefficient g are the albedos (the bounce's energy balance: B is the surroundings' radiance, taken whole) - the
+// known tints again with no factor; the model's sun and sky the bake's true light.
+void check_unit(const Scene& scene, const rt::RelitModel& model, const std::vector<rt::RelitVertices>& light,
+                Tally* tally)
+{
+    constexpr float kUnitSlack = 0.08F;
+    const Rgbf factor = tint_factor(scene, light);
+    bool close = true;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        close = close && std::abs(core::at(factor, ch) - 1.0F) <= kUnitSlack &&
+                std::abs(core::at(model.sun, ch) - core::at(kSunLight, ch)) <= kUnitSlack * core::at(kSunLight, ch) &&
+                std::abs(core::at(model.sky, ch) - core::at(kSkyLight, ch)) <= kUnitSlack * core::at(kSkyLight, ch);
+    }
+    tally->check(close && model.bounce == Rgbf{1.0F, 1.0F, 1.0F},
+                 text::format("the albedos by the bounce's energy balance (scale %.3f): the known tints over %.3f %.3f "
+                              "%.3f; the sun %.3f (true %.3f), the sky %.3f (true %.3f)",
+                              static_cast<double>(model.albedo_scale), static_cast<double>(std::get<0>(factor)),
+                              static_cast<double>(std::get<1>(factor)), static_cast<double>(std::get<2>(factor)),
+                              static_cast<double>(std::get<1>(model.sun)), static_cast<double>(std::get<1>(kSunLight)),
+                              static_cast<double>(std::get<1>(model.sky)), static_cast<double>(std::get<1>(kSkyLight))));
+}
+
+// 2c. (lighting round A2 - the bounce judged by energy, not against a bake) A closed box seen from inside (its faces
+// turned in), on the processor's tracer:
+//   - the white furnace: every surface shows the same radiance R - the sky's share K is 0 and the bounce B is R exactly
+//     (the estimator keeps energy: nothing made, nothing lost);
+//   - the albedo-weighted bounce: every surface of albedo rho lit by E0 of its own (the lamps' term), its colour
+//     rho (E0 + B) and B traced again from those colours kRelitBouncePasses times - the series rho E0 (1 + rho + ... +
+//     rho^n) to a byte; what the passes leave out of the infinite series (rho^(n+1) of the whole) reported.
+void check_furnace(Tally* tally)
+{
+    constexpr float kSide = 400.0F;
+    constexpr float kRadiance = 0.5F;
+    constexpr float kAlbedo = 0.5F;
+    constexpr float kOwnLight = 0.8F;
+    constexpr float kFurnaceSlack = 2.0F / 128.0F; // (the colours are bytes: 128 is 1)
+    constexpr uint32_t kRoomSteps = 12; // (finer than the level's walls: fewer of its vertices on its edges)
+    rt::RelitMesh room;
+    const std::array<Face, 6> faces{{
+        {.corner = {0.0F, 0.0F, 0.0F}, .across = {0.0F, 0.0F, kSide}, .up = {0.0F, kSide, 0.0F}},
+        {.corner = {kSide, 0.0F, kSide}, .across = {0.0F, 0.0F, -kSide}, .up = {0.0F, kSide, 0.0F}},
+        {.corner = {kSide, 0.0F, 0.0F}, .across = {-kSide, 0.0F, 0.0F}, .up = {0.0F, kSide, 0.0F}},
+        {.corner = {0.0F, 0.0F, kSide}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, kSide, 0.0F}},
+        {.corner = {0.0F, kSide, 0.0F}, .across = {0.0F, 0.0F, kSide}, .up = {kSide, 0.0F, 0.0F}},
+        {.corner = {0.0F, 0.0F, 0.0F}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, 0.0F, kSide}},
+    }};
+    for (const Face& face : faces) {
+        add_face(&room, face, kRoomSteps);
+    }
+    // (turned in: the room seen from inside - its normals given, a closed room has no winding to tell by)
+    room.normals.assign(room.positions.size(), Vec3{});
+    for (auto& triangle : room.triangles) {
+        std::swap(std::get<1>(triangle), std::get<2>(triangle));
+        const auto& [a, b, c] = triangle;
+        const Vec3 inward = unit(rt::cross(rt::minus(core::at(room.positions, b), core::at(room.positions, a)),
+                                           rt::minus(core::at(room.positions, c), core::at(room.positions, a))));
+        for (const uint32_t corner : triangle) {
+            core::at(room.normals, corner) = inward;
+        }
+    }
+    room.id = kCpuIds + 1;
+    room.colours.assign(room.positions.size(), to_argb({kRadiance, kRadiance, kRadiance}));
+    std::vector<rt::RelitMesh> meshes{room};
+    CpuTracer cpu(meshes);
+    const rt::RelitParams params{.sky_rays = 64, .sun_rays = 1};
+    std::vector<rt::RelitVertices> light;
+    rt::RelitStats stats;
+    rt::trace_relit_light(meshes, {}, {0.0F, 1.0F, 0.0F}, params, cpu, &light, &stats);
+    float worst = 0.0F;
+    float most_sky = 0.0F;
+    std::size_t used = 0;
+    // (a face's inner vertices: one on the room's edge starts its rays off the next face's plane - the rays' offset)
+    const auto inner = [&room](std::size_t vi) {
+        int on_side = 0;
+        for (const float value : core::at(room.positions, vi)) {
+            on_side += value <= 0.0F || value >= kSide ? 1 : 0;
+        }
+        return on_side == 1;
+    };
+    for (std::size_t vi = 0; vi < light.front().size(); ++vi) {
+        const rt::RelitVertex& vertex = core::at(light.front(), vi);
+        if (!vertex.used || !inner(vi)) {
+            continue;
+        }
+        ++used;
+        most_sky = std::max(most_sky, vertex.sky);
+        worst = std::max(worst, std::abs(std::get<1>(vertex.bounce) - kRadiance));
+    }
+    tally->check(used > 0 && most_sky == 0.0F && worst <= kFurnaceSlack,
+                 text::format("the white furnace: a closed room of radiance %.2f - its bounce within %.4f of it at %zu "
+                              "vertices, its sky %.3f",
+                              static_cast<double>(kRadiance), static_cast<double>(worst), used,
+                              static_cast<double>(most_sky)));
+    // the albedo-weighted bounce, pass by pass as the game makes them
+    rt::RelitModel model;
+    model.valid = true;
+    model.bounce = {1.0F, 1.0F, 1.0F};
+    for (rt::RelitVertex& vertex : light.front()) {
+        vertex.tint = {kAlbedo, kAlbedo, kAlbedo};
+        vertex.lamp = {kOwnLight, kOwnLight, kOwnLight};
+        vertex.bounce = {};
+    }
+    const rt::RelitLighting own{.toward = {0.0F, 1.0F, 0.0F}, .lamps = 1.0F};
+    rt::RelitParams again = params;
+    again.keep_sky = true;
+    for (uint32_t pass = 0; pass < rt::kRelitBouncePasses; ++pass) {
+        for (std::size_t vi = 0; vi < meshes.front().colours.size(); ++vi) {
+            core::at(meshes.front().colours, vi) = rt::relit_colour(model, core::at(light.front(), vi), own);
+        }
+        rt::trace_relit_sky(meshes, {}, again, cpu, &light, &stats);
+    }
+    float expected = 0.0F;
+    float power = 1.0F;
+    for (uint32_t order = 0; order <= rt::kRelitBouncePasses; ++order) {
+        expected += kAlbedo * kOwnLight * power;
+        power *= kAlbedo;
+    }
+    // (the median of the inner vertices: those near the room's edges see the edge vertices' leaks - their rays start
+    // off the next face's plane)
+    std::vector<float> shown;
+    for (std::size_t vi = 0; vi < light.front().size(); ++vi) {
+        const rt::RelitVertex& vertex = core::at(light.front(), vi);
+        if (vertex.used && inner(vi)) {
+            shown.push_back(luma(rt::colour_light(rt::relit_colour(model, vertex, own))));
+        }
+    }
+    float middle_shown = 0.0F;
+    if (!shown.empty()) {
+        const auto middle = shown.begin() + static_cast<std::ptrdiff_t>(shown.size() / 2);
+        std::ranges::nth_element(shown, middle);
+        middle_shown = *middle;
+    }
+    const float whole = kAlbedo * kOwnLight / (1.0F - kAlbedo);
+    tally->check(std::abs(middle_shown - expected) <= kFurnaceSlack,
+                 text::format("the albedo-weighted bounce: albedo %.2f, its own light %.2f, %u passes - the colours' "
+                              "median %.4f, the series' %.4f; the orders past them %.0f%% of the whole %.4f",
+                              static_cast<double>(kAlbedo), static_cast<double>(kOwnLight), rt::kRelitBouncePasses,
+                              static_cast<double>(middle_shown), static_cast<double>(expected),
+                              100.0 * static_cast<double>((whole - expected) / whole), static_cast<double>(whole)));
+}
+
 // 3. relit at the bake's own sun: the bake again; strength 0: the bake exactly
 void check_bake_sun(const Scene& scene, const rt::RelitModel& model, const std::vector<rt::RelitVertices>& light,
                     Tally* tally)
@@ -814,7 +969,7 @@ void check_bake_sun(const Scene& scene, const rt::RelitModel& model, const std::
                 continue;
             }
             const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
-            const uint32_t relit = rt::relit_colour(model, found, {.toward = scene.sun});
+            const uint32_t relit = rt::relit_colour(model, found, lit_by(model, scene.sun));
             const Rgbf& lamp = core::at(core::at(scene.level.lamps, mesh), vertex);
             if (luma(lamp) > 0.0F) {
                 // (the synthetic lamp isn't in the lamps' list: its light is the bake's, dropped - relit is dimmer)
@@ -850,7 +1005,7 @@ void check_counted_once(const Scene& scene, const rt::RelitModel& model, const s
                         Tally* tally)
 {
     constexpr float kOnceBytes = 2.0F; // within this many of the bake's bytes, each channel
-    const rt::RelitLighting lighting{.toward = scene.sun};
+    const rt::RelitLighting lighting = lit_by(model, scene.sun);
     std::size_t total = 0;
     std::size_t once = 0;
     std::size_t streams = 0;
@@ -932,20 +1087,23 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
     rt::trace_relit_sun(scene.level.meshes, {}, other, scene.params, backend, light, &sun_stats);
     text::print("  (the sun's rays again on the device: %zu vertices, %zu rays, %.1f ms)\n", sun_stats.vertices,
                 sun_stats.rays, milliseconds_since(retrace_start));
-    const rt::RelitLighting lighting{.toward = other};
+    const rt::RelitLighting lighting = lit_by(model, other);
     const Agreement stale = compare_moved(scene, moved, model, *light, lighting);
-    // the bounce from the relit colours
+    // the bounce from the relit colours - (round A2) the game's passes for a light (rt_relit.h kRelitBouncePasses), each
+    // from the colours the last left
     std::vector<rt::RelitMesh> relit_meshes = scene.level.meshes;
-    for (std::size_t mesh = 0; mesh < relit_meshes.size(); ++mesh) {
-        for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size(); ++vertex) {
-            uint32_t& colour = core::at(core::at(relit_meshes, mesh).colours, vertex);
-            colour = rt::relit_colour(model, core::at(core::at(*light, mesh), vertex), lighting);
-        }
-    }
     const std::vector<rt::RelitVertices> before = *light;
     rt::RelitStats sky_stats;
     const auto bounce_start = std::chrono::steady_clock::now();
-    rt::trace_relit_sky(relit_meshes, {}, scene.params, backend, light, &sky_stats);
+    for (uint32_t pass = 0; pass < rt::kRelitBouncePasses; ++pass) {
+        for (std::size_t mesh = 0; mesh < relit_meshes.size(); ++mesh) {
+            for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size(); ++vertex) {
+                uint32_t& colour = core::at(core::at(relit_meshes, mesh).colours, vertex);
+                colour = rt::relit_colour(model, core::at(core::at(*light, mesh), vertex), lighting);
+            }
+        }
+        rt::trace_relit_sky(relit_meshes, {}, scene.params, backend, light, &sky_stats);
+    }
     text::print("  (the bounce again on the device: %zu rays, %.1f ms)\n", sky_stats.rays,
                 milliseconds_since(bounce_start));
     bool sky_kept = true;
@@ -973,9 +1131,7 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
     };
     Level dim = make_level();
     (void)bake(&dim, {.toward = other, .light = halved(kSunLight), .sky = halved(kSkyLight)}, scene.params);
-    rt::RelitLighting clock = lighting;
-    clock.direct_scale = {kHalfLight, kHalfLight, kHalfLight};
-    clock.sky_scale = clock.direct_scale;
+    const rt::RelitLighting clock = lit_by(model, other, kHalfLight, kHalfLight);
     // (the bounce is traced from the relit colours at the light now: at half the light, half of it)
     std::vector<rt::RelitVertices> dim_light = *light;
     for (rt::RelitVertices& vertices : dim_light) {
@@ -989,8 +1145,7 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
                               "bake at %zu of %zu vertices",
                               dimmed.agree, dimmed.count));
     // the scales at 1: the arithmetic as without them, to the bit
-    rt::RelitLighting ones = lighting;
-    ones.direct_scale = {1.0F, 1.0F, 1.0F};
+    const rt::RelitLighting ones = lit_by(model, other, 1.0F, 1.0F);
     bool same = true;
     for (std::size_t mesh = 0; mesh < light->size(); ++mesh) {
         for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size(); ++vertex) {
@@ -1160,9 +1315,9 @@ void check_sunless(const Scene& scene, const std::vector<rt::RelitVertices>& lig
         }
     }
     rt::RelitModel model = rt::fit_relit_model(night.meshes, traced, {0.0F, 1.0F, 0.0F}, true);
-    tally->check(model.valid && model.sunless && model.sun == rt::kRelitDaySun,
-                 text::format("a bake with no sun: a sunless model (sky %.3f, bounce %.3f; its daylight sun the "
-                              "reference's)",
+    tally->check(model.valid && model.sunless && model.sun == Rgbf{},
+                 text::format("a bake with no sun: a sunless model (sky %.3f, bounce %.3f; no sun of its own - the "
+                              "clock's daylight is the physical sky's)",
                               static_cast<double>(std::get<1>(model.sky)), static_cast<double>(std::get<1>(model.bounce))));
     if (!model.valid) {
         return;
@@ -1404,9 +1559,8 @@ void check_local_across(Tally* tally)
                  text::format("the door's tint against the wall's %.3f (painted %.3f)", static_cast<double>(tint_ratio),
                               static_cast<double>(true_ratio)));
     // at night: the door's colour over its bake against the wall's beside it (the same lamp, the sky a tenth)
-    rt::RelitLighting night{.toward = model.toward};
-    night.sky_scale = {0.1F, 0.1F, 0.1F};
-    night.direct_scale = {0.0F, 0.0F, 0.0F};
+    constexpr float kNightSky = 0.1F;
+    const rt::RelitLighting night = lit_by(model, model.toward, 0.0F, kNightSky);
     const auto kept = [&](std::size_t mesh, const Vec3& spot) {
         float best = 1e30F;
         float ratio = 0.0F;
@@ -1504,26 +1658,28 @@ void check_unbaked_casters(const Scene& scene, Tally* tally)
 // --- (the offline relit data - engine/gfx/relit_data.h) the lamps' term, the data file -------------------------------
 
 // 6. the lamps' term: a lamp the lamps pass would shine, its light traced (trace_relit_lamps) and put into a copy of the
-// level's bake as tint x c x L; the fit finds c (fit_relit_lamps) and the lamp's light ends as the lamps' term - the
-// tints the known ones there too, not the lamp's light hidden in them.
+// level's bake as tint x its true intensity x its geometry; the list gives it another intensity (its found brightness);
+// (lighting round A2) the solve recovers the true intensity from the bake (solve_relit_lamps) and the lamp's light ends
+// as the lamps' term - the tints the known ones there too, not the lamp's light hidden in them.
 constexpr Vec3 kTermLampAt{800.0F, 120.0F, -700.0F};
 constexpr Rgbf kTermLampLight{1.2F, 1.0F, 0.8F};
 constexpr float kTermLampCore = 250.0F;
 constexpr float kTermLampReach = 1000.0F;
-constexpr float kTermLampC = 0.8F;
+constexpr float kTermLampC = 0.8F;        // the true intensity over the listed one
 constexpr float kTermLit = 0.1F;          // a vertex the lamp lights this much (luma of L) counted
-constexpr float kTermCSlack = 0.25F;      // c over the sky's b: within this share of the bake's
+constexpr float kTermCSlack = 0.15F;      // the solved intensity within this share of the true one
 constexpr float kTermTintSlack = 0.1F;    // the lamp-lit vertices' tints within this share of the known ones ...
 constexpr double kTermTintShare = 0.8;    // ... at this share of them
 constexpr float kTermOwnShare = 0.7F;     // the lamps' term at least this share of their own light
 void check_lamp_term(const Scene& scene, const std::vector<rt::RelitVertices>& traced, rt::RayTracing& backend,
                      Tally* tally)
 {
-    const std::vector<rt::RelitLamp> lamps{
+    std::vector<rt::RelitLamp> lamps{
         {.position = kTermLampAt, .size = 0.0F, .light = kTermLampLight, .core = kTermLampCore, .reach = kTermLampReach}};
     std::vector<rt::RelitVertices> light = traced;
     rt::RelitStats stats;
-    rt::trace_relit_lamps(scene.level.meshes, {}, lamps, backend, &light, &stats);
+    rt::RelitLampLinks links;
+    rt::trace_relit_lamps(scene.level.meshes, {}, lamps, backend, &light, &stats, &links);
     Level lit = scene.level;
     std::size_t reached = 0;
     std::size_t behind = 0;
@@ -1543,24 +1699,26 @@ void check_lamp_term(const Scene& scene, const std::vector<rt::RelitVertices>& t
                  text::format("the lamps' light traced: %zu vertices lit by the lamp, %zu turned from it lit (%zu rays)",
                               reached, behind, stats.rays));
     rt::RelitModel model = rt::fit_relit_model(lit.meshes, light, scene.sun);
-    rt::fit_relit_lamps(lit.meshes, light, &model);
-    bool c_close = model.valid;
+    rt::solve_relit_lamps(lit.meshes, light, links, lamps, &model);
+    // the fit's scale (its sky against the bake's) carries over to the lamp: the intensity in the fit's units
+    bool c_close = model.valid && model.lamps_solved == 1 && lamps.front().solved;
+    std::array<float, 3> wanted{};
     for (std::size_t ch = 0; ch < 3; ++ch) {
-        const float found = core::at(model.lamps, ch) / std::max(core::at(model.sky, ch), kTiny);
-        const float wanted = kTermLampC / core::at(kSkyLight, ch);
-        c_close = c_close && std::abs(found - wanted) <= kTermCSlack * wanted;
+        const float units = core::at(model.sky, ch) / core::at(kSkyLight, ch);
+        core::at(wanted, ch) = kTermLampC * core::at(kTermLampLight, ch) * units;
+        c_close = c_close && std::abs(core::at(lamps.front().light, ch) - core::at(wanted, ch)) <=
+                                 kTermCSlack * core::at(wanted, ch);
     }
-    tally->check(c_close, text::format("the lamps' c found: %.3f %.3f %.3f (over the sky's b %.2f %.2f %.2f; the bake's "
-                                       "%.2f %.2f %.2f)",
-                                       static_cast<double>(std::get<0>(model.lamps)),
-                                       static_cast<double>(std::get<1>(model.lamps)),
-                                       static_cast<double>(std::get<2>(model.lamps)),
-                                       static_cast<double>(std::get<0>(model.lamps) / std::get<0>(model.sky)),
-                                       static_cast<double>(std::get<1>(model.lamps) / std::get<1>(model.sky)),
-                                       static_cast<double>(std::get<2>(model.lamps) / std::get<2>(model.sky)),
-                                       static_cast<double>(kTermLampC / std::get<0>(kSkyLight)),
-                                       static_cast<double>(kTermLampC / std::get<1>(kSkyLight)),
-                                       static_cast<double>(kTermLampC / std::get<2>(kSkyLight))));
+    tally->check(c_close, text::format("the lamp's intensity solved from the bake: %.3f %.3f %.3f (true %.3f %.3f %.3f; "
+                                       "listed %.2f %.2f %.2f; %zu edges)",
+                                       static_cast<double>(std::get<0>(lamps.front().light)),
+                                       static_cast<double>(std::get<1>(lamps.front().light)),
+                                       static_cast<double>(std::get<2>(lamps.front().light)),
+                                       static_cast<double>(std::get<0>(wanted)), static_cast<double>(std::get<1>(wanted)),
+                                       static_cast<double>(std::get<2>(wanted)),
+                                       static_cast<double>(std::get<0>(kTermLampLight)),
+                                       static_cast<double>(std::get<1>(kTermLampLight)),
+                                       static_cast<double>(std::get<2>(kTermLampLight)), core::at(model.lamp_votes, 1)));
     rt::decompose_relit(lit.meshes, {}, scene.params, &model, &light);
     // the tints over the factor per channel the colours can't tell (the vertices the lamp doesn't light)
     Rgbf factor{};
@@ -1642,7 +1800,7 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
     rt::RelitLevelData cut;
     const bool refused = !rt::read_relit_data(std::string_view(bytes).substr(0, bytes.size() / 2), &cut, &cut_why);
     tally->check(refused && !cut_why.empty(), "a file cut short refused (" + cut_why + ")");
-    const rt::RelitLighting lighting{.toward = scene.sun};
+    const rt::RelitLighting lighting = lit_by(model, scene.sun);
     std::size_t total = 0;
     std::size_t same = 0;
     for (std::size_t mesh = 0; ok && mesh < scene.level.meshes.size(); ++mesh) {
@@ -1736,6 +1894,9 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         check_model(model, tally);
         rt::decompose_relit(scene.level.meshes, {}, scene.params, &model, &light);
         check_tints(scene, light, tally);
+        rt::relit_to_unit(&model, light, {}); // (lighting round A2: the albedos, the light in the global unit)
+        check_unit(scene, model, light, tally);
+        check_furnace(tally); // (lighting round A2)
         check_asked(gpu, device, scene, *backend, light, tally); // (added for the relit mode's moving light)
         check_bake_sun(scene, model, light, tally);
         check_counted_once(scene, model, light, tally); // (added by the light energy audit)

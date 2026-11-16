@@ -207,6 +207,8 @@ SunFit fit_baked_sun(std::span<const BakeSample> samples, RayTracing& tracer)
     }
     std::vector<Vec3> directions = sky_directions(kCoarse);
     std::vector<float> scores = scores_of(samples, directions, tracer, &fit.rays);
+    const std::vector<Vec3> coarse = directions; // (kept for the candidates)
+    const std::vector<float> coarse_scores = scores;
     Vec3 best = core::at(directions, best_of(scores));
     float best_score = std::ranges::max(scores);
     // (the coarse set's next best, for the log)
@@ -232,6 +234,29 @@ SunFit fit_baked_sun(std::span<const BakeSample> samples, RayTracing& tracer)
     fit.sun.toward = best;
     fit.sun.confidence = std::max(0.0F, best_score);
     fit.sun.found = best_score >= kMinConfidence;
+    // (lighting round A2) the candidates for the relit bake's own pick: the best, then the coarse set's in their order,
+    // apart from those taken
+    {
+        const auto apart = static_cast<float>(std::cos(static_cast<double>(kCandidateApartDegrees) * kRadiansPerDegree));
+        fit.sun.candidates.push_back({x_of(best), y_of(best), z_of(best), best_score});
+        std::vector<std::size_t> ranked(coarse_scores.size());
+        std::iota(ranked.begin(), ranked.end(), std::size_t{0});
+        std::ranges::sort(ranked, [&coarse_scores](std::size_t one, std::size_t other) {
+            return core::at(coarse_scores, one) > core::at(coarse_scores, other);
+        });
+        for (const std::size_t index : ranked) {
+            if (fit.sun.candidates.size() > kSunCandidates || !(core::at(coarse_scores, index) > kNotScored)) {
+                break;
+            }
+            const Vec3& toward = core::at(coarse, index);
+            const bool near_one = std::ranges::any_of(fit.sun.candidates, [&](const std::array<float, 4>& taken) {
+                return dot(toward, {std::get<0>(taken), std::get<1>(taken), std::get<2>(taken)}) > apart;
+            });
+            if (!near_one) {
+                fit.sun.candidates.push_back({x_of(toward), y_of(toward), z_of(toward), core::at(coarse_scores, index)});
+            }
+        }
+    }
     // (added by the sun's glare) the level's ground: the samples' heights' kGroundShare quantile
     std::vector<float> heights;
     heights.reserve(samples.size());

@@ -1448,8 +1448,7 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
     if (sunless) {
         // (lighting round A) a bake with no sun: its light the sky and the bounce (the lamps fitted next) - valid when
         // they light it; its sun the daylight the clock brings
-        model.sun = kRelitDaySun;
-        model.day_sky = kRelitDaySky;
+        model.sun = {};
         model.valid = luma(model.sky) + luma(model.bounce) >= kMinSunLight;
         return model;
     }
@@ -1527,7 +1526,6 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
     }
     // (sun_needed is only reported: a bake with no sun is told by rt_sun.h's fit, before this one runs)
     model.valid = luma(model.sun) >= kMinSunLight;
-    model.day_sky = model.sky;
     // (reported: the traced sun's edges - a vertex in the rays' sun beside one in their shade, facing the same way -
     // their colours' ratio in the bake and their light's in the model, the medians: the sun's strength told from the
     // shadows alone)
@@ -1625,6 +1623,74 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
     model.shadow_baked = median_of(&baked_ratios);
     model.shadow_model = median_of(&model_ratios);
     return model;
+}
+
+float relit_edge_error(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const RelitModel& model)
+{
+    constexpr std::array<float, 3> kWeights{kLumaRed, kLumaGreen, kLumaBlue};
+    std::vector<float> errors;
+    const std::size_t count = std::min(meshes.size(), light.size());
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const RelitVertices& vertices = core::at(light, mi);
+        if (one_colour(mesh, vertices)) {
+            continue;
+        }
+        const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
+        const auto lit = [&](uint32_t vi) {
+            return vi < vertex_count && core::at(vertices, vi).used &&
+                   luma(colour_light(core::at(mesh.colours, vi))) >= kBlackLight;
+        };
+        for (const auto& [one, two, three] : mesh.triangles) {
+            for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
+                if (iv >= ja || !lit(iv) || !lit(ja)) { // (each edge once: from its lower vertex)
+                    continue;
+                }
+                const Rgbf yi = colour_light(core::at(mesh.colours, iv));
+                const Rgbf yj = colour_light(core::at(mesh.colours, ja));
+                const Rgbf ei = model_light(model, model.sun, core::at(vertices, iv), model.toward);
+                const Rgbf ej = model_light(model, model.sun, core::at(vertices, ja), model.toward);
+                float error = 0.0F;
+                for (std::size_t ch = 0; ch < 3; ++ch) {
+                    const float cross_one = core::at(yi, ch) * core::at(ej, ch);
+                    const float cross_two = core::at(yj, ch) * core::at(ei, ch);
+                    const float sum = cross_one + cross_two;
+                    error += core::at(kWeights, ch) * (sum > kLeastLight ? std::abs(cross_one - cross_two) / sum : 1.0F);
+                }
+                errors.push_back(error);
+            }
+        }
+    }
+    if (errors.empty()) {
+        return 1.0F;
+    }
+    const auto middle = errors.begin() + static_cast<std::ptrdiff_t>(errors.size() / 2);
+    std::ranges::nth_element(errors, middle);
+    return *middle;
+}
+
+float relit_sun_share(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const RelitModel& model)
+{
+    if (model.sunless || !model.valid) {
+        return 0.0F;
+    }
+    double direct = 0.0;
+    double whole = 0.0;
+    const std::size_t count = std::min(meshes.size(), light.size());
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const RelitVertices& vertices = core::at(light, mi);
+        const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
+        for (std::size_t vi = 0; vi < vertex_count; ++vi) {
+            const RelitVertex& vertex = core::at(vertices, vi);
+            if (!vertex.used || luma(colour_light(core::at(mesh.colours, vi))) < kBlackLight) {
+                continue;
+            }
+            direct += static_cast<double>(luma(model.sun) * sun_term(vertex, model.toward));
+            whole += static_cast<double>(luma(model_light(model, model.sun, vertex, model.toward)));
+        }
+    }
+    return whole > 0.0 ? static_cast<float>(direct / whole) : 0.0F;
 }
 
 void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted, const RelitParams& params,
@@ -1822,7 +1888,7 @@ std::size_t relit_light_across(std::span<const RelitMesh> meshes, std::span<cons
 
 void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted,
                        std::span<const RelitLamp> lamps, RayTracing& tracer, std::vector<RelitVertices>* light,
-                       RelitStats* stats)
+                       RelitStats* stats, RelitLampLinks* links)
 {
     if (light->size() != meshes.size()) {
         return;
@@ -1857,11 +1923,17 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
         const auto found = grid.find(key_of(cell_of(x_of(at)), cell_of(y_of(at)), cell_of(z_of(at))));
         return found != grid.end() ? found->second : none;
     };
-    // a vertex's lamps: those it faces within their reach, bright enough to count
+    // a vertex's lamps: those it faces within their reach, bright enough to count (lamp_geometry: the shape's)
     struct Reach {
         uint32_t lamp = 0;
-        float weight = 0.0F; // falloff x cosine
+        float weight = 0.0F; // lamp_geometry
+        Vec3 from{};         // the point the light comes from
     };
+    std::vector<LampShape> shapes;
+    shapes.reserve(lamps.size());
+    for (const RelitLamp& lamp : lamps) {
+        shapes.push_back(lamp_shape(lamp));
+    }
     const auto reached = [&](std::size_t mi, std::size_t vi, std::vector<Reach>* out) {
         out->clear();
         const RelitVertex& vertex = core::at(core::at(*light, mi), vi);
@@ -1870,19 +1942,23 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
         }
         const Vec3& at = core::at(core::at(meshes, mi).positions, vi);
         for (const uint32_t li : lamps_near(at)) {
-            const RelitLamp& lamp = core::at(lamps, li);
-            const Vec3 apart = minus(lamp.position, at);
-            const float distance = std::sqrt(dot(apart, apart));
-            if (!(distance > 0.0F) || distance >= lamp.reach) {
-                continue;
-            }
-            const float facing = dot(vertex.normal, scaled(apart, 1.0F / distance));
-            const float weight = facing * light_falloff(distance, lamp.core, lamp.reach);
+            Vec3 from{};
+            const float weight = lamp_geometry(core::at(shapes, li), at, vertex.normal, &from);
             if (weight > kLeastFalloff) {
-                out->push_back({.lamp = li, .weight = weight});
+                out->push_back({.lamp = li, .weight = weight, .from = from});
             }
         }
     };
+    // (round A2) the links kept per vertex while the answers come, then packed
+    std::vector<std::vector<std::vector<RelitLampLink>>> gathered;
+    if (links != nullptr) {
+        gathered.resize(meshes.size());
+        for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+            if (is_wanted(wanted, mi)) {
+                core::at(gathered, mi).resize(core::at(*light, mi).size());
+            }
+        }
+    }
     for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
         if (is_wanted(wanted, mi)) {
             for (RelitVertex& vertex : core::at(*light, mi)) {
@@ -1904,7 +1980,7 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
                 plus(core::at(core::at(meshes, ref.mesh).positions, ref.vertex), scaled(vertex.normal, kRelitOffset));
             for (const Reach& reach : scratch) {
                 const RelitLamp& lamp = core::at(lamps, reach.lamp);
-                const Vec3 apart = minus(lamp.position, origin);
+                const Vec3 apart = minus(reach.from, origin);
                 const float distance = std::sqrt(dot(apart, apart));
                 requests->push_back({.origin = origin,
                                      .direction = normalised(apart),
@@ -1925,105 +2001,335 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
                 }
                 const Reach& reach = core::at(scratch, k);
                 vertex.lamp = plus(vertex.lamp, scaled(core::at(lamps, reach.lamp).light, reach.weight));
+                if (links != nullptr) {
+                    core::at(core::at(gathered, ref.mesh), ref.vertex).push_back({.lamp = reach.lamp, .weight = reach.weight});
+                }
             }
         },
         nullptr);
     derive_wanted(meshes, wanted, light); // (building relief's made vertices: their sources' light)
+    if (links != nullptr) {
+        links->assign(meshes.size(), {});
+        for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+            RelitMeshLinks& packed = core::at(*links, mi);
+            const std::vector<std::vector<RelitLampLink>>& per_vertex = core::at(gathered, mi);
+            if (per_vertex.empty()) {
+                continue;
+            }
+            packed.first.reserve(per_vertex.size() + 1);
+            for (const std::vector<RelitLampLink>& vertex_links : per_vertex) {
+                packed.first.push_back(static_cast<uint32_t>(packed.links.size()));
+                packed.links.insert(packed.links.end(), vertex_links.begin(), vertex_links.end());
+            }
+            packed.first.push_back(static_cast<uint32_t>(packed.links.size()));
+        }
+    }
 }
 
-void fit_relit_lamps(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, RelitModel* model)
+LampShape lamp_shape(const RelitLamp& lamp)
 {
-    model->lamps = {};
-    const std::size_t count = std::min(meshes.size(), light.size());
-    // each edge's c per channel and its weight: y_i (E_j + c L_j) = y_j (E_i + c L_i) -> c = (y_j E_i - y_i E_j) /
-    // (y_i L_j - y_j L_i); the weight the denominator over the edge's light (how much the lamps' term changes there)
-    struct Vote {
-        double value = 0.0;
-        double weight = 0.0;
-    };
-    std::array<std::vector<Vote>, 3> votes;
-    constexpr double kLeastChange = 0.05; // the lamps' light along an edge changing by this share of its light at least
-    for (std::size_t mi = 0; mi < count; ++mi) {
-        const RelitMesh& mesh = core::at(meshes, mi);
-        const RelitVertices& vertices = core::at(light, mi);
-        if (one_colour(mesh, vertices)) {
-            continue;
+    return {.position = lamp.position,
+            .shape = lamp.shape,
+            .axis = lamp.axis,
+            .half_length = lamp.half_length,
+            .core = lamp.core,
+            .reach = lamp.reach};
+}
+
+namespace {
+
+// One edge of the lamps' solve, per channel: sum_l I_l x coefficient_l = target, weighed by `weight`.
+struct LampEdge {
+    double target = 0.0;
+    double weight = 0.0;
+    uint32_t first = 0; // its coefficients in the solve's list
+    uint32_t count = 0;
+};
+struct LampTerm {
+    uint32_t lamp = 0;
+    double value = 0.0;
+};
+
+} // namespace
+
+void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
+                       std::span<RelitLamp> lamps, RelitModel* model)
+{
+    model->lamps = {1.0F, 1.0F, 1.0F};
+    model->lamps_solved = 0;
+    model->lamp_votes = {};
+    model->lamp_median = {};
+    const std::size_t count = std::min({meshes.size(), light.size(), links.size()});
+    if (lamps.empty()) {
+        return;
+    }
+    RelitModel without = *model; // (the model's light without the lamps)
+    without.lamps = {};
+    const auto links_of = [&](std::size_t mi, uint32_t vi) {
+        const RelitMeshLinks& mesh_links = core::at(links, mi);
+        if (vi + 1 >= mesh_links.first.size()) {
+            return std::span<const RelitLampLink>();
         }
-        const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
-        for (const auto& [one, two, three] : mesh.triangles) {
-            for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
-                if (iv >= vertex_count || ja >= vertex_count || iv == ja) {
-                    continue;
-                }
-                const RelitVertex& first = core::at(vertices, iv);
-                const RelitVertex& second = core::at(vertices, ja);
-                if (!first.used || !second.used) {
-                    continue;
-                }
-                const Rgbf yi = colour_light(core::at(mesh.colours, iv));
-                const Rgbf yj = colour_light(core::at(mesh.colours, ja));
-                if (luma(yi) < kBlackLight || luma(yj) < kBlackLight) {
-                    continue;
-                }
-                RelitModel without = *model; // (the model's light without the lamps)
-                without.lamps = {};
-                const Rgbf ei = model_light(without, without.sun, first, without.toward);
-                const Rgbf ej = model_light(without, without.sun, second, without.toward);
-                for (std::size_t ch = 0; ch < 3; ++ch) {
-                    const double y1 = core::at(yi, ch);
-                    const double y2 = core::at(yj, ch);
-                    const double change = (y1 * core::at(second.lamp, ch)) - (y2 * core::at(first.lamp, ch));
-                    const double whole = (y1 * core::at(ej, ch)) + (y2 * core::at(ei, ch));
-                    if (!(whole > kSingular) || std::abs(change) < kLeastChange * whole) {
+        const uint32_t from = core::at(mesh_links.first, vi);
+        const uint32_t to = core::at(mesh_links.first, vi + 1);
+        return std::span<const RelitLampLink>(mesh_links.links).subspan(from, to - from);
+    };
+    std::vector<Rgbf> solved(lamps.size(), Rgbf{});
+    std::vector<uint8_t> told(lamps.size(), 0);
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        std::vector<LampEdge> edges;
+        std::vector<LampTerm> terms;
+        for (std::size_t mi = 0; mi < count; ++mi) {
+            const RelitMesh& mesh = core::at(meshes, mi);
+            const RelitVertices& vertices = core::at(light, mi);
+            if (core::at(links, mi).first.empty() || one_colour(mesh, vertices)) {
+                continue;
+            }
+            const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
+            for (const auto& [one, two, three] : mesh.triangles) {
+                for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
+                    if (iv >= ja || ja >= vertex_count) { // (each edge once)
                         continue;
                     }
-                    const double value = ((y2 * core::at(ei, ch)) - (y1 * core::at(ej, ch))) / change;
-                    if (std::isfinite(value)) {
-                        // (each vote's error goes as the edge's light over the change: weighed by the inverse of its variance)
-                        core::at(votes, ch).push_back({.value = value, .weight = (change * change) / (whole * whole)});
+                    const RelitVertex& first = core::at(vertices, iv);
+                    const RelitVertex& second = core::at(vertices, ja);
+                    const std::span<const RelitLampLink> li = links_of(mi, iv);
+                    const std::span<const RelitLampLink> lj = links_of(mi, ja);
+                    if (!first.used || !second.used || (li.empty() && lj.empty())) {
+                        continue;
+                    }
+                    const Rgbf colour_one = colour_light(core::at(mesh.colours, iv));
+                    const Rgbf colour_two = colour_light(core::at(mesh.colours, ja));
+                    const double y1 = core::at(colour_one, ch);
+                    const double y2 = core::at(colour_two, ch);
+                    if (y1 < kBlackLight || y2 < kBlackLight) {
+                        continue;
+                    }
+                    const Rgbf light_one = model_light(without, without.sun, first, without.toward);
+                    const Rgbf light_two = model_light(without, without.sun, second, without.toward);
+                    const double e1 = core::at(light_one, ch);
+                    const double e2 = core::at(light_two, ch);
+                    // y1 (e2 + sum I G2) = y2 (e1 + sum I G1)  ->  sum I (y1 G2 - y2 G1) = y2 e1 - y1 e2
+                    LampEdge edge;
+                    edge.first = static_cast<uint32_t>(terms.size());
+                    for (const RelitLampLink& link : lj) {
+                        terms.push_back({.lamp = link.lamp, .value = y1 * static_cast<double>(link.weight)});
+                    }
+                    for (const RelitLampLink& link : li) {
+                        terms.push_back({.lamp = link.lamp, .value = -y2 * static_cast<double>(link.weight)});
+                    }
+                    edge.count = static_cast<uint32_t>(terms.size()) - edge.first;
+                    edge.target = (y2 * e1) - (y1 * e2);
+                    const double whole = (y1 * e2) + (y2 * e1) + kSingular;
+                    edge.weight = 1.0 / (whole * whole);
+                    edges.push_back(edge);
+                }
+            }
+        }
+        core::at(model->lamp_votes, ch) = edges.size();
+        if (edges.size() < kRelitLampEdges) {
+            continue;
+        }
+        // each lamp's column: its edges and coefficients
+        std::vector<std::vector<std::pair<uint32_t, double>>> columns(lamps.size());
+        for (std::size_t ei = 0; ei < edges.size(); ++ei) {
+            const LampEdge& edge = core::at(edges, ei);
+            for (uint32_t k = 0; k < edge.count; ++k) {
+                const LampTerm& term = core::at(terms, edge.first + k);
+                core::at(columns, term.lamp).emplace_back(static_cast<uint32_t>(ei), term.value);
+            }
+        }
+        // the non-negative least squares: projected coordinate descent, the residuals kept; reweighted toward the median
+        // relative error (Cauchy) between rounds - an edge across a baked shadow or a lamp the list doesn't hold counts little
+        std::vector<double> intensity(lamps.size(), 0.0);
+        std::vector<double> residual(edges.size()); // target - sum I x coefficient
+        std::vector<double> robust(edges.size(), 1.0);
+        for (std::size_t ei = 0; ei < edges.size(); ++ei) {
+            core::at(residual, ei) = core::at(edges, ei).target;
+        }
+        constexpr int kLampRounds = 4;
+        constexpr int kSweeps = 40;
+        for (int round = 0; round < kLampRounds; ++round) {
+            for (int sweep = 0; sweep < kSweeps; ++sweep) {
+                for (std::size_t li = 0; li < lamps.size(); ++li) {
+                    const auto& column = core::at(columns, li);
+                    if (column.size() < kRelitLampEdges) {
+                        continue;
+                    }
+                    double numerator = 0.0;
+                    double denominator = 0.0;
+                    for (const auto& [ei, value] : column) {
+                        const double w = core::at(edges, ei).weight * core::at(robust, ei);
+                        numerator += w * value * core::at(residual, ei);
+                        denominator += w * value * value;
+                    }
+                    if (!(denominator > 0.0)) {
+                        continue;
+                    }
+                    const double was = core::at(intensity, li);
+                    const double now = std::max(0.0, was + (numerator / denominator));
+                    if (now != was) {
+                        for (const auto& [ei, value] : column) {
+                            core::at(residual, ei) -= (now - was) * value;
+                        }
+                        core::at(intensity, li) = now;
                     }
                 }
+            }
+            // the errors relative to each edge's light; their median sets the Cauchy scale
+            std::vector<double> errors;
+            errors.reserve(edges.size());
+            for (std::size_t ei = 0; ei < edges.size(); ++ei) {
+                errors.push_back(std::abs(core::at(residual, ei)) * std::sqrt(core::at(edges, ei).weight));
+            }
+            std::vector<double> sorted = errors;
+            const auto middle = sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2);
+            std::ranges::nth_element(sorted, middle);
+            const double scale = std::max(*middle, kSingular) * 2.0;
+            for (std::size_t ei = 0; ei < edges.size(); ++ei) {
+                const double r = core::at(errors, ei) / scale;
+                core::at(robust, ei) = 1.0 / (1.0 + (r * r));
+            }
+        }
+        for (std::size_t li = 0; li < lamps.size(); ++li) {
+            if (core::at(columns, li).size() >= kRelitLampEdges) {
+                core::at(core::at(solved, li), ch) = static_cast<float>(core::at(intensity, li));
+                core::at(told, li) |= static_cast<uint8_t>(1U << ch);
+            }
+        }
+    }
+    // the lamps every channel told; the rest take their median ratio to the found brightness (per channel)
+    Rgbf median_ratio{};
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        std::vector<float> ratios;
+        for (std::size_t li = 0; li < lamps.size(); ++li) {
+            const float own = core::at(core::at(lamps, li).light, ch);
+            if (core::at(told, li) == 7U && own > kLeastLight) {
+                ratios.push_back(core::at(core::at(solved, li), ch) / own);
+            }
+        }
+        if (!ratios.empty()) {
+            const auto middle = ratios.begin() + static_cast<std::ptrdiff_t>(ratios.size() / 2);
+            std::ranges::nth_element(ratios, middle);
+            core::at(median_ratio, ch) = *middle;
+        }
+    }
+    model->lamp_median = median_ratio;
+    const bool any = std::ranges::any_of(told, [](uint8_t bits) { return bits == 7U; });
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        RelitLamp& lamp = core::at(lamps, li);
+        if (!any) {
+            continue; // (no lamp told: each keeps its found brightness)
+        }
+        lamp.solved = core::at(told, li) == 7U;
+        model->lamps_solved += lamp.solved ? 1 : 0;
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            core::at(lamp.light, ch) = lamp.solved ? core::at(core::at(solved, li), ch)
+                                                   : core::at(lamp.light, ch) * core::at(median_ratio, ch);
+        }
+    }
+    // L again from the links
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        RelitVertices& vertices = core::at(light, mi);
+        if (core::at(links, mi).first.empty()) {
+            continue;
+        }
+        for (std::size_t vi = 0; vi < vertices.size(); ++vi) {
+            Rgbf sum{};
+            for (const RelitLampLink& link : links_of(mi, static_cast<uint32_t>(vi))) {
+                sum = plus(sum, scaled(core::at(lamps, link.lamp).light, link.weight));
+            }
+            core::at(vertices, vi).lamp = sum;
+        }
+        if (!core::at(meshes, mi).sources.empty()) {
+            relit_derive(core::at(meshes, mi), &vertices); // (building relief's made vertices: their sources' light)
+        }
+    }
+}
+
+void relit_to_unit(RelitModel* model, std::span<RelitVertices> light, std::span<RelitLamp> lamps)
+{
+    // (per channel: the balance holds in each - the fit's per-channel scales, its tints' medians 1, put right too)
+    Rgbf scale{};
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        const float g = core::at(model->bounce, ch);
+        core::at(scale, ch) = std::isfinite(g) && g > 0.0F ? g : 1.0F;
+    }
+    for (RelitVertices& vertices : light) {
+        for (RelitVertex& vertex : vertices) {
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                core::at(vertex.tint, ch) =
+                    std::clamp(core::at(vertex.tint, ch) * core::at(scale, ch), 0.0F, kRelitMaxTint);
+                core::at(vertex.lamp, ch) /= core::at(scale, ch);
             }
         }
     }
     for (std::size_t ch = 0; ch < 3; ++ch) {
-        std::vector<Vote>& channel = core::at(votes, ch);
-        core::at(model->lamp_votes, ch) = channel.size();
-        if (channel.size() < kRelitLampEdges) {
-            continue;
+        for (RelitLamp& lamp : lamps) {
+            core::at(lamp.light, ch) /= core::at(scale, ch);
         }
-        std::ranges::sort(channel, [](const Vote& a, const Vote& b) { return a.value < b.value; });
-        double total = 0.0;
-        for (const Vote& vote : channel) {
-            total += vote.weight;
-        }
-        double running = 0.0;
-        double median = 0.0;
-        for (const Vote& vote : channel) {
-            running += vote.weight;
-            if (running >= total * kHalf) {
-                median = vote.value;
-                break;
-            }
-        }
-        core::at(model->lamp_median, ch) = static_cast<float>(median);
-        core::at(model->lamps, ch) = static_cast<float>(std::max(0.0, median));
+        core::at(model->sun, ch) /= core::at(scale, ch);
+        core::at(model->sky, ch) /= core::at(scale, ch);
+    }
+    model->bounce = {1.0F, 1.0F, 1.0F};
+    model->lamps = {1.0F, 1.0F, 1.0F};
+    model->albedo_scale = luma(scale);
+}
+
+void relit_lamp_photometry(RelitLamp* lamp, double unit_lux)
+{
+    constexpr double kMetresPerUnit = 1.0 / 39.37; // (the world's units are inches)
+    constexpr double kPiD = 3.14159265358979323846;
+    const double radius = static_cast<double>(lamp->core) * kMetresPerUnit;
+    const double y = (0.2126 * static_cast<double>(std::get<0>(lamp->light))) +
+                     (0.7152 * static_cast<double>(std::get<1>(lamp->light))) +
+                     (0.0722 * static_cast<double>(std::get<2>(lamp->light)));
+    // the light right at it (lux) over its core's area: E = I r^2 / (r^2 + d^2) -> I r^2 far off
+    double candela = y * unit_lux * radius * radius;
+    double lumens = 4.0 * kPiD * candela; // a sphere
+    if (lamp->shape == EmitterShape::kPanel) {
+        lumens = 2.0 * kPiD * candela; // two Lambertian sides
+    } else if (lamp->shape == EmitterShape::kLine) {
+        // a line: E -> I core h / d^2 far off, broadside; a Lambertian cylinder sends pi^2 x that
+        candela = y * unit_lux * radius * static_cast<double>(lamp->half_length) * kMetresPerUnit;
+        lumens = kPiD * kPiD * candela;
+    }
+    lamp->candela = static_cast<float>(candela);
+    lamp->lumens = static_cast<float>(lumens);
+    // the colour temperature: linear sRGB -> XYZ -> xy, McCamy's cubic (meaningful from about 2000 to 12500 K)
+    const double r = std::get<0>(lamp->light);
+    const double g = std::get<1>(lamp->light);
+    const double b = std::get<2>(lamp->light);
+    const double big_x = (0.4124 * r) + (0.3576 * g) + (0.1805 * b);
+    const double big_y = (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
+    const double big_z = (0.0193 * r) + (0.1192 * g) + (0.9505 * b);
+    const double sum = big_x + big_y + big_z;
+    lamp->kelvin = 0.0F;
+    if (sum > 1e-9) {
+        const double x = big_x / sum;
+        const double yy = big_y / sum;
+        const double n = (x - 0.3320) / (0.1858 - yy);
+        const double cct = (449.0 * n * n * n) + (3525.0 * n * n) + (6823.3 * n) + 5520.33;
+        constexpr double kLeastKelvin = 1000.0;
+        constexpr double kMostKelvin = 25000.0;
+        lamp->kelvin = cct >= kLeastKelvin && cct <= kMostKelvin ? static_cast<float>(cct) : 0.0F;
     }
 }
 
-RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
+RelitLighting relit_own_lighting(const RelitModel& model, float lamps)
+{
+    return {.toward = model.toward, .sun = model.sunless ? Rgbf{} : model.sun, .sky = model.sky, .lamps = lamps};
+}
+
+RelitParts relit_parts(const RelitModel& /*model*/, const RelitVertex& vertex, const RelitLighting& lighting)
 {
     const Vec3 toward = normalised(lighting.toward);
     const float nl = std::max(0.0F, dot(vertex.normal, toward));
-    // (a sunless level's sky: its bake's at its own time, the reference day's under the clock)
-    const Rgbf& sky = lighting.day && model.sunless ? model.day_sky : model.sky;
     RelitParts out;
     for (std::size_t ch = 0; ch < 3; ++ch) {
-        // the direct light at the lighting state's strength and colour, as much of it as the vertex sees
-        core::at(out.direct, ch) = core::at(model.sun, ch) * core::at(lighting.sun_colour, ch) *
-                                   core::at(lighting.direct_scale, ch) * nl * vertex.sun;
-        core::at(out.indirect, ch) = (core::at(sky, ch) * core::at(lighting.sky_scale, ch) * vertex.sky) +
-                                     (core::at(model.bounce, ch) * core::at(vertex.bounce, ch));
+        // the direct light, as much of it as the vertex sees; the sky's by its share K; the surroundings' radiance B
+        core::at(out.direct, ch) = core::at(lighting.sun, ch) * nl * vertex.sun;
+        core::at(out.indirect, ch) = (core::at(lighting.sky, ch) * vertex.sky) + core::at(vertex.bounce, ch);
         core::at(out.lamps, ch) = core::at(vertex.lamp, ch) * lighting.lamps;
     }
     return out;

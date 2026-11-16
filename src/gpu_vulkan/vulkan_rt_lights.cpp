@@ -79,16 +79,19 @@ layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
 layout(set = 0, binding = 1) uniform sampler2D u_depth;
 #endif
 // A light: at.xyz its position, at.w its size; colour.rgb its colour x intensity, colour.w its reach; more.x its
-// material (the bits of a uint: whose texture's mean tints it, 0 none), more.y its falloff's core.
+// material (the bits of a uint: whose texture's mean tints it, 0 none), more.y its falloff's core, more.z its shape
+// (0 point, 1 panel, 2 line - rt_lights.h EmitterShape); shape.xyz a panel's normal or a line's axis, shape.w a line's
+// half length.
 struct LightRecord {
     vec4 at;
     vec4 colour;
     vec4 more;
+    vec4 shape;
 };
 layout(set = 0, binding = 3, std140) uniform Lights {
     uvec4 count;  // x lights, y traced a pixel, z the shadow rays' mask, w the camera ray's mask
     vec4 params;  // x strength, y the rays' offset scale, z, w 0
-    LightRecord lights[256];
+    LightRecord lights[252];
 } u_lights;
 layout(push_constant) uniform Pass {
     mat4 to_world; // (pixel x, pixel y, depth, 1) -> world, homogeneous
@@ -186,16 +189,55 @@ vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object,
     return vec4(min(albedo, vec3(1.0)), 1.0);
 }
 
-// A light's falloff at `d` (engine/gfx/rt_lights.cpp light_falloff - the same formula).
-float falloff(float d, float core, float reach)
+// (lighting round A2) The light a lamp sends to a surface point per unit of its intensity (engine/gfx/rt_lights.cpp
+// lamp_geometry - the same model): a point's, a two-sided panel's or a line's; `from` the point the light comes from.
+float lamp_geometry(uint i, vec3 here, vec3 normal, out vec3 from)
 {
-    if (!(d < reach) || !(core > 0.0)) {
+    vec3 position = u_lights.lights[i].at.xyz;
+    float core = u_lights.lights[i].more.y;
+    float reach = u_lights.lights[i].colour.w;
+    uint shape = uint(u_lights.lights[i].more.z + 0.5);
+    vec3 axis = u_lights.lights[i].shape.xyz;
+    float half_length = u_lights.lights[i].shape.w;
+    from = position;
+    if (!(reach > 0.0) || !(core > 0.0)) {
+        return 0.0;
+    }
+    float core2 = core * core;
+    bool line = shape == 2u && half_length > 0.0;
+    float line_factor = 1.0;
+    if (line) {
+        float along = dot(here - position, axis);
+        vec3 across = here - (position + axis * along);
+        float d2 = dot(across, across) + core2;
+        float s_low = -half_length - along;
+        float s_high = half_length - along;
+        float spread = s_high / sqrt(d2 + s_high * s_high) - s_low / sqrt(d2 + s_low * s_low);
+        from = position + axis * clamp(along, -half_length, half_length);
+        line_factor = core * spread / (2.0 * sqrt(d2));
+    }
+    vec3 to = from - here;
+    float d = length(to);
+    if (!(d < reach)) {
+        return 0.0;
+    }
+    vec3 dir = d > 0.0 ? to / d : vec3(0.0, 1.0, 0.0);
+    float facing = dot(normal, dir);
+    if (!(facing > 0.0)) {
         return 0.0;
     }
     float x = d / reach;
-    float x2 = x * x;
-    float window = 1.0 - x2 * x2;
-    return window * window * core * core / (core * core + d * d);
+    float window = 1.0 - x * x * x * x;
+    float geometry = facing * window * window;
+    if (line) {
+        geometry *= line_factor;
+    } else {
+        geometry *= core2 / (core2 + d * d);
+        if (shape == 1u) {
+            geometry *= abs(dot(axis, dir));
+        }
+    }
+    return geometry;
 }
 
 // The hue of a material's texture: its mean (four texels of its smallest level), the brightest channel 1; white for
@@ -253,21 +295,17 @@ void main()
     uint chosen[MOST];
     float weight[MOST];
     vec3 light[MOST];
+    vec3 source[MOST];
     uint n = 0u;
     vec3 rest = vec3(0.0);
-    uint count = min(u_lights.count.x, 256u);
+    uint count = min(u_lights.count.x, 252u);
     for (uint i = 0u; i < count; ++i) {
-        vec3 to = u_lights.lights[i].at.xyz - here;
-        float dist = length(to);
-        float reach = u_lights.lights[i].colour.w;
-        if (!(dist < reach)) {
+        vec3 from;
+        float g = lamp_geometry(i, here, normal, from);
+        if (!(g > 0.0)) {
             continue;
         }
-        float facing = dot(normal, to / max(dist, 1e-6));
-        if (facing <= 0.0) {
-            continue;
-        }
-        vec3 c = u_lights.lights[i].colour.rgb * (falloff(dist, u_lights.lights[i].more.y, reach) * facing);
+        vec3 c = u_lights.lights[i].colour.rgb * g;
         float w = dot(c, vec3(0.299, 0.587, 0.114));
         if (!(w > 0.0)) {
             continue;
@@ -276,6 +314,7 @@ void main()
             chosen[n] = i;
             weight[n] = w;
             light[n] = c;
+            source[n] = from;
             ++n;
             continue;
         }
@@ -290,6 +329,7 @@ void main()
             chosen[least] = i;
             weight[least] = w;
             light[least] = c;
+            source[least] = from;
         } else {
             rest += c;
         }
@@ -307,7 +347,7 @@ void main()
     float through = 0.0;
     float total = 0.0;
     for (uint k = 0u; k < n; ++k) {
-        vec3 at = u_lights.lights[chosen[k]].at.xyz;
+        vec3 at = source[k];
         vec3 to = at - origin;
         float dist = length(to);
         float stop = dist - u_lights.lights[chosen[k]].at.w; // (a lamp's own fixture doesn't shadow it)
@@ -346,13 +386,15 @@ struct LightRecord {
     std::array<float, 4> at{};
     std::array<float, 4> colour{};
     std::array<float, 4> more{};
+    std::array<float, 4> shape{};
 };
 struct LightsBlock {
     std::array<uint32_t, 4> count{};
     std::array<float, 4> params{};
     std::array<LightRecord, rt::kMaxViewLights> lights{};
 };
-constexpr std::size_t kLightsBlockBytes = 32 + (48 * rt::kMaxViewLights);
+constexpr std::size_t kLightsBlockBytes = 32 + (64 * rt::kMaxViewLights);
+static_assert(kLightsBlockBytes <= 16384, "the guaranteed uniform buffer range (maxUniformBufferRange)");
 static_assert(sizeof(LightsBlock) == kLightsBlockBytes, "the shader's Lights block (std140)");
 
 struct PassPipeline {
@@ -962,7 +1004,9 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
         record.at = {core::at(light.position, 0), core::at(light.position, 1), core::at(light.position, 2), light.size};
         record.colour = {core::at(light.colour, 0) * light.intensity, core::at(light.colour, 1) * light.intensity,
                          core::at(light.colour, 2) * light.intensity, light.reach};
-        record.more = {std::bit_cast<float>(static_cast<uint32_t>(light.material)), light.core, 0.0F, 0.0F};
+        record.more = {std::bit_cast<float>(static_cast<uint32_t>(light.material)), light.core,
+                       static_cast<float>(light.shape), 0.0F};
+        record.shape = {core::at(light.axis, 0), core::at(light.axis, 1), core::at(light.axis, 2), light.half_length};
     }
     const std::span<const uint8_t> bytes(reinterpret_cast<const uint8_t*>(block.get()), sizeof(LightsBlock));
     const std::optional<RingSpan> lights_span = state.ring.copy(bytes, kUniformAlignment);

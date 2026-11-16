@@ -15,7 +15,7 @@
 //     own visibility; the pass scales it by its light with the pixel's visibility over its light with the vertex's
 //     (the lamps, the sky and the bounce untouched) - lighter or darker;
 //   - every other lit pixel (the skater, the objects, a world vertex the game animates): it loses its direct light's
-//     share (rt_light_field.h direct_share - the lighting state's) where the sun doesn't reach it.
+//     share (rt_daylight.h direct_share_now - the lighting state's) where the sun doesn't reach it.
 // No darkening over a bake: the passes need the level relit (the settings model), and a relit level holds none of the
 // bake's light. (Retired with the old model: the shadow's strength, the bake's agreement grid and the sky test.)
 //

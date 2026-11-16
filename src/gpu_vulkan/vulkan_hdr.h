@@ -8,6 +8,7 @@
 #include <volk.h>
 
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sky.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_formats.h"
 
@@ -112,7 +113,7 @@ inline constexpr uint32_t kMeterGrid = kMeterSide * kMeterEach;
 inline constexpr float kMeterKey = 0.104F;    // the metered average's place (of the sensor's white): 100 / 12.5 / 9.6
 inline constexpr float kMeterBrightest = 16.0F;
 inline constexpr float kMeterLeast = 1e-4F;   // (a sample's luminance at least: the log average's floor)
-inline constexpr double kSolarIlluminance = 128000.0; // lux: the sun's at the atmosphere's top (the unit's calibration)
+inline constexpr double kSolarIlluminance = rt::kSolarIlluminance; // (lux: the unit's calibration - rt_sky.h)
 inline constexpr float kMeterCentre = 0.3F;
 inline constexpr float kMeterDarkenSeconds = 0.4F;
 inline constexpr float kMeterBrightenSeconds = 1.2F;

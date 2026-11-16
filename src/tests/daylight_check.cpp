@@ -522,10 +522,56 @@ void check_unit()
                number(horizon / zenith) + " x it a quarter turn from the sun");
 }
 
+// (lighting round A2 - one light unit for every level) The light in the global unit: under the reference day (the sun
+// 45 degrees up, the clear weather's air) a level surface's light - the sun's per N.L x the sine plus the sky's - is 1
+// (a white diffuser shows white); noon brighter, a low sun dimmer, the sun gone under the horizon; the clock's DayLight
+// carries the same (sun_light / sky_light) at its time, the moon's and the night's at midnight; and the shadows' one
+// direct share (direct_share_now) is the clock's own share now, or the model's at the level's own sun without it.
+void check_absolute()
+{
+    rt::set_aerosol(rt::aerosol_for(rt::Weather::kClear));
+    const auto luma = [](const rt::DayRgb& c) {
+        return (0.2126 * static_cast<double>(std::get<0>(c))) + (0.7152 * static_cast<double>(std::get<1>(c))) +
+               (0.0722 * static_cast<double>(std::get<2>(c)));
+    };
+    const auto level_light = [&](double elevation) {
+        const rt::AbsoluteLight at = rt::absolute_light_at(elevation);
+        return (luma(at.sun) * std::max(0.0, std::sin(elevation * std::numbers::pi / 180.0))) + luma(at.sky);
+    };
+    const double reference = level_light(rt::kDefaultSunElevation);
+    const double noon = level_light(75.0);
+    const double low = level_light(5.0);
+    const double gone = luma(rt::absolute_light_at(-5.0).sun);
+    expect(std::abs(reference - 1.0) < 0.02 && noon > reference && low < 0.3 * reference && gone == 0.0,
+           "the global unit: a level surface's light under the reference day " + number(reference) + " (1: white), at 75 "
+               "degrees " + number(noon) + ", at 5 degrees " + number(low) + ", the sun under the horizon " + number(gone));
+    rt::NativeDay native = rt::fit_native_day({.sun = {0.0F, 0.7071F, 0.7071F}, .have_sun = true, .from_bake = true});
+    const rt::DayLight own = rt::day_light_at(native, native.hours);
+    const rt::AbsoluteLight own_at = rt::absolute_light_at(rt::kDefaultSunElevation);
+    const rt::DayLight midnight = rt::day_light_at(native, 0.0);
+    expect(std::abs(luma(own.sun_light) - luma(own_at.sun)) < 0.02 * luma(own_at.sun) && midnight.moonlit &&
+               luma(midnight.sun_light) > 0.0 && luma(midnight.sun_light) < 0.05 * luma(own_at.sun) &&
+               luma(midnight.sky_light) > 0.0 && luma(midnight.sky_light) < 0.1 * luma(own_at.sky),
+           "the clock's light in the global unit: at the level's own time its sun " + number(luma(own.sun_light)) +
+               " (the table's " + number(luma(own_at.sun)) + "); at midnight the moon's " +
+               number(luma(midnight.sun_light)) + ", the night sky's " + number(luma(midnight.sky_light)));
+    // the one direct share
+    rt::DayLight off;
+    const float without = rt::direct_share_now(off, true, rt::kDefaultSunElevation);
+    const float sunless = rt::direct_share_now(off, false, rt::kDefaultSunElevation);
+    const float with = rt::direct_share_now(own, true, rt::kDefaultSunElevation);
+    expect(std::abs(without - rt::direct_share_at(rt::kDefaultSunElevation)) < 1e-6F && sunless == 0.0F &&
+               std::abs(with - without) < 0.02F,
+           "one direct share: without the clock the model's at the level's sun " + number(without) + " (none without one: " +
+               number(sunless) + "), with it the clock's now at the same sun " + number(with) + "; at midnight (the moon's) " +
+               number(rt::direct_share_now(midnight, true, 45.0)));
+}
+
 int main()
 {
     tests::no_error_dialogs();
     check_unit();
+    check_absolute(); // (lighting round A2)
     check_light_field();
     check_local_light();
     check_path();

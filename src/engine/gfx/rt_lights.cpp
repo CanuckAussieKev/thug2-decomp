@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <span>
 #include <unordered_map>
 #include <utility>
@@ -43,7 +44,68 @@ struct Cluster {
     Vec3 high{};
     MaterialId material = 0; // its largest triangle's
     double largest = 0.0;
+    // (lighting round A2) its shape: the area-weighted second moments of its triangles' points (x area) and its normals'
+    // sum (x area, turned to agree with the first)
+    std::array<double, 6> moments{}; // xx, yy, zz, xy, xz, yz
+    std::array<double, 3> normals{};
+    std::vector<std::size_t> members; // its triangles (their indices)
 };
+
+// The symmetric 3x3 (xx, yy, zz, xy, xz, yz) taken apart (Jacobi): its eigenvalues, largest first, and their unit
+// vectors.
+void eigen_of(const std::array<double, 6>& m, std::array<double, 3>* values, std::array<std::array<double, 3>, 3>* vectors)
+{
+    std::array<std::array<double, 3>, 3> a{{{m[0], m[3], m[4]}, {m[3], m[1], m[5]}, {m[4], m[5], m[2]}}};
+    std::array<std::array<double, 3>, 3> v{{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}}};
+    constexpr int kSweeps = 32;
+    constexpr double kTiny = 1e-12;
+    for (int sweep = 0; sweep < kSweeps; ++sweep) {
+        const double off = std::abs(a[0][1]) + std::abs(a[0][2]) + std::abs(a[1][2]);
+        if (off <= kTiny * (std::abs(a[0][0]) + std::abs(a[1][1]) + std::abs(a[2][2]) + kTiny)) {
+            break;
+        }
+        for (std::size_t p = 0; p < 2; ++p) {
+            for (std::size_t q = p + 1; q < 3; ++q) {
+                const double apq = core::at(core::at(a, p), q);
+                if (!(std::abs(apq) > 0.0)) {
+                    continue;
+                }
+                const double theta = (core::at(core::at(a, q), q) - core::at(core::at(a, p), p)) / (2.0 * apq);
+                const double t = (theta >= 0.0 ? 1.0 : -1.0) / (std::abs(theta) + std::sqrt((theta * theta) + 1.0));
+                const double c = 1.0 / std::sqrt((t * t) + 1.0);
+                const double sn = t * c;
+                for (std::size_t k = 0; k < 3; ++k) {
+                    const double akp = core::at(core::at(a, k), p);
+                    const double akq = core::at(core::at(a, k), q);
+                    core::at(core::at(a, k), p) = (c * akp) - (sn * akq);
+                    core::at(core::at(a, k), q) = (sn * akp) + (c * akq);
+                }
+                for (std::size_t k = 0; k < 3; ++k) {
+                    const double apk = core::at(core::at(a, p), k);
+                    const double aqk = core::at(core::at(a, q), k);
+                    core::at(core::at(a, p), k) = (c * apk) - (sn * aqk);
+                    core::at(core::at(a, q), k) = (sn * apk) + (c * aqk);
+                }
+                for (std::size_t k = 0; k < 3; ++k) {
+                    const double vkp = core::at(core::at(v, k), p);
+                    const double vkq = core::at(core::at(v, k), q);
+                    core::at(core::at(v, k), p) = (c * vkp) - (sn * vkq);
+                    core::at(core::at(v, k), q) = (sn * vkp) + (c * vkq);
+                }
+            }
+        }
+    }
+    std::array<std::size_t, 3> order{0, 1, 2};
+    std::ranges::sort(order, [&a](std::size_t one, std::size_t other) {
+        return core::at(core::at(a, one), one) > core::at(core::at(a, other), other);
+    });
+    for (std::size_t k = 0; k < 3; ++k) {
+        const std::size_t from = core::at(order, k);
+        core::at(*values, k) = std::max(0.0, core::at(core::at(a, from), from));
+        core::at(*vectors, k) = {core::at(core::at(v, 0), from), core::at(core::at(v, 1), from),
+                                 core::at(core::at(v, 2), from)};
+    }
+}
 
 int64_t cell_of(float value) { return static_cast<int64_t>(std::floor(value / kEmitterJoin)); }
 
@@ -63,8 +125,9 @@ Vec3 max_of(const Vec3& a, const Vec3& b)
 }
 float length_of(const Vec3& v) { return std::sqrt(dot(v, v)); }
 
-// The cluster as a light; false: it gives none (dark, or a self-lit patch of floor).
-bool emitter_of(const Cluster& cluster, Emitter* out)
+// The cluster as a light; false: it gives none (dark, or a self-lit patch of floor). `facing` the world's winding (0:
+// unknown).
+bool emitter_of(const Cluster& cluster, float facing, Emitter* out)
 {
     if (!(cluster.area > 0.0)) {
         return false;
@@ -86,20 +149,73 @@ bool emitter_of(const Cluster& cluster, Emitter* out)
     // (changed for the washed-out streets) the core: the radius of a disc of the cluster's own area - not its box's
     // half diagonal, nor a share of its reach (a quarter of up to 1500 units lit whole streets as evenly as the sun)
     const float core = emitter_core(static_cast<float>(cluster.area));
-    if (flat_up) {
+    // (lighting round A2) a flat self-lit cluster facing down - its triangles' fronts, by the world's winding - is a
+    // ceiling's lit panel, a light; facing up (or the winding unknown) a pool of light baked on the floor
+    const bool facing_down = facing != 0.0F && cluster.normals[1] * static_cast<double>(facing) < 0.0;
+    if (flat_up && !(cluster.kind == EmitterKind::kSelfLit && facing_down)) {
         if (cluster.kind == EmitterKind::kSelfLit) {
             return false; // (a baked pool of light on the floor, not a lamp)
         }
         std::get<1>(centre) += core; // (a glow's pool: the light falls from above it - half its brightness at its middle)
     }
+    // (lighting round A2) its shape: the spread of its points about the centre along its principal axes - long one way
+    // a line, thin across and facing one way a panel, else a point
+    EmitterShape shape = EmitterShape::kPoint;
+    Vec3 axis{0.0F, 1.0F, 0.0F};
+    float half_length = 0.0F;
+    float tube_core = core;
+    float reach = std::clamp(core * kEmitterReachPerCore, kEmitterMinReach, kEmitterMaxReach);
+    {
+        const std::array<double, 3> mean{cluster.centre[0] * inverse, cluster.centre[1] * inverse,
+                                         cluster.centre[2] * inverse};
+        const std::array<double, 6> covariance{
+            (cluster.moments[0] * inverse) - (mean[0] * mean[0]), (cluster.moments[1] * inverse) - (mean[1] * mean[1]),
+            (cluster.moments[2] * inverse) - (mean[2] * mean[2]), (cluster.moments[3] * inverse) - (mean[0] * mean[1]),
+            (cluster.moments[4] * inverse) - (mean[0] * mean[2]), (cluster.moments[5] * inverse) - (mean[1] * mean[2])};
+        std::array<double, 3> values{};
+        std::array<std::array<double, 3>, 3> vectors{};
+        eigen_of(covariance, &values, &vectors);
+        const double longest = std::sqrt(values[0]);
+        const double middle = std::sqrt(values[1]);
+        const double thinnest = std::sqrt(values[2]);
+        const double coherence = std::sqrt((cluster.normals[0] * cluster.normals[0]) +
+                                        (cluster.normals[1] * cluster.normals[1]) +
+                                        (cluster.normals[2] * cluster.normals[2])) *
+                              inverse;
+        const auto unit = [](const std::array<double, 3>& v) {
+            const double length = std::sqrt((v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]));
+            return length > 0.0 ? Vec3{static_cast<float>(v[0] / length), static_cast<float>(v[1] / length),
+                                       static_cast<float>(v[2] / length)}
+                                : Vec3{0.0F, 1.0F, 0.0F};
+        };
+        constexpr double kLeastSpread = 1e-6;
+        if (longest > static_cast<double>(kLineRatio) * std::max(middle, kLeastSpread)) {
+            shape = EmitterShape::kLine;
+            axis = unit(vectors[0]);
+            half_length = static_cast<float>(longest) * kSpreadToHalfLength;
+            // (a tube: its core its half thickness - the area over its length -, its light 1/d near it: reach by its
+            // length)
+            tube_core = std::max(kEmitterMinCore,
+                                 static_cast<float>(cluster.area) / std::max(2.0F * half_length, kSmallest) * kHalf);
+            reach = std::clamp(std::max(half_length, tube_core) * kEmitterReachPerCore, kEmitterMinReach,
+                               kEmitterMaxReach);
+        } else if (thinnest < static_cast<double>(kPanelThin) * std::max(middle, kLeastSpread) &&
+                   coherence >= static_cast<double>(kPanelFacing)) {
+            shape = EmitterShape::kPanel;
+            axis = unit(cluster.normals);
+        }
+    }
     *out = {.position = centre,
             .size = size,
             .colour = scaled(colour, 1.0F / brightest),
             .intensity = std::min(brightest, kMostBrightness),
-            .reach = std::clamp(core * kEmitterReachPerCore, kEmitterMinReach, kEmitterMaxReach),
+            .reach = reach,
             .material = cluster.material,
             .kind = cluster.kind,
-            .core = core};
+            .core = tube_core,
+            .shape = shape,
+            .axis = axis,
+            .half_length = half_length};
     return true;
 }
 
@@ -144,11 +260,13 @@ EmitterSlot& emitter_slot()
 
 } // namespace
 
-std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles)
+std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles, std::vector<uint32_t>* triangle_emitter,
+                                      float facing)
 {
     std::vector<Cluster> clusters;
     std::unordered_map<uint64_t, std::vector<std::size_t>> cells; // a cell's clusters (by their seed's cell)
-    for (const EmitterTriangle& triangle : triangles) {
+    for (std::size_t ti = 0; ti < triangles.size(); ++ti) {
+        const EmitterTriangle& triangle = core::at(triangles, ti);
         const auto& [a, b, c] = triangle.corners;
         const Vec3 normal = cross(minus(b, a), minus(c, a));
         const float twice_area = length_of(normal);
@@ -196,6 +314,32 @@ std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles
             core::at(cluster.colour, k) += static_cast<double>(core::at(triangle.colour, k)) * area;
         }
         cluster.up += std::abs(static_cast<double>(y_of(normal) / twice_area)) * area;
+        // (lighting round A2) the shape's moments: its corners' and centre's (a triangle's points, evenly), its normal
+        // turned to agree with the cluster's so far
+        constexpr double kQuarter = 0.25;
+        for (const Vec3& point : {a, b, c, centre}) {
+            const double px = x_of(point);
+            const double py = y_of(point);
+            const double pz = z_of(point);
+            const double each = area * kQuarter;
+            cluster.moments[0] += px * px * each;
+            cluster.moments[1] += py * py * each;
+            cluster.moments[2] += pz * pz * each;
+            cluster.moments[3] += px * py * each;
+            cluster.moments[4] += px * pz * each;
+            cluster.moments[5] += py * pz * each;
+        }
+        {
+            const double unit_scale = area / static_cast<double>(twice_area);
+            const std::array<double, 3> n{x_of(normal) * unit_scale, y_of(normal) * unit_scale,
+                                          z_of(normal) * unit_scale};
+            const double agree = (n[0] * cluster.normals[0]) + (n[1] * cluster.normals[1]) + (n[2] * cluster.normals[2]);
+            const double sign = agree < 0.0 ? -1.0 : 1.0;
+            for (std::size_t k = 0; k < 3; ++k) {
+                core::at(cluster.normals, k) += sign * core::at(n, k);
+            }
+        }
+        cluster.members.push_back(ti);
         cluster.low = min_of(cluster.low, min_of(min_of(a, b), c));
         cluster.high = max_of(cluster.high, max_of(max_of(a, b), c));
         if (area > cluster.largest) {
@@ -204,20 +348,38 @@ std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles
         }
     }
     std::vector<Emitter> emitters;
+    std::vector<std::size_t> from; // each emitter's cluster
     emitters.reserve(clusters.size());
-    for (const Cluster& cluster : clusters) {
+    for (std::size_t ci = 0; ci < clusters.size(); ++ci) {
         Emitter emitter;
-        if (emitter_of(cluster, &emitter)) {
+        if (emitter_of(core::at(clusters, ci), facing, &emitter)) {
             emitters.push_back(emitter);
+            from.push_back(ci);
         }
     }
-    std::ranges::stable_sort(emitters, [](const Emitter& one, const Emitter& other) {
-        return one.intensity * one.reach > other.intensity * other.reach;
+    std::vector<std::size_t> order(emitters.size());
+    std::iota(order.begin(), order.end(), std::size_t{0});
+    std::ranges::stable_sort(order, [&emitters](std::size_t one, std::size_t other) {
+        return core::at(emitters, one).intensity * core::at(emitters, one).reach >
+               core::at(emitters, other).intensity * core::at(emitters, other).reach;
     });
-    if (emitters.size() > kMaxEmitters) {
-        emitters.resize(kMaxEmitters);
+    if (order.size() > kMaxEmitters) {
+        order.resize(kMaxEmitters);
     }
-    return emitters;
+    std::vector<Emitter> sorted;
+    sorted.reserve(order.size());
+    if (triangle_emitter != nullptr) {
+        triangle_emitter->assign(triangles.size(), kNoEmitter);
+    }
+    for (const std::size_t ei : order) {
+        if (triangle_emitter != nullptr) {
+            for (const std::size_t ti : core::at(clusters, core::at(from, ei)).members) {
+                core::at(*triangle_emitter, ti) = static_cast<uint32_t>(sorted.size());
+            }
+        }
+        sorted.push_back(core::at(emitters, ei));
+    }
+    return sorted;
 }
 
 void set_level_emitters(LevelEmitters emitters)
@@ -277,6 +439,56 @@ float light_falloff(float distance, float core, float reach)
     const float x2 = x * x;
     const float window = 1.0F - (x2 * x2);
     return (window * window) * (core * core) / ((core * core) + (distance * distance));
+}
+
+float lamp_geometry(const LampShape& lamp, const std::array<float, 3>& at, const std::array<float, 3>& normal,
+                    std::array<float, 3>* toward)
+{
+    if (!(lamp.reach > 0.0F) || !(lamp.core > 0.0F)) {
+        return 0.0F;
+    }
+    const float core2 = lamp.core * lamp.core;
+    const bool line = lamp.shape == EmitterShape::kLine && lamp.half_length > 0.0F;
+    Vec3 point = lamp.position;
+    float line_factor = 1.0F;
+    if (line) {
+        // the segment's nearest point; the angles of its ends seen from the line's foot
+        const Vec3 rel = minus(at, lamp.position);
+        const float along = dot(rel, lamp.axis);
+        const Vec3 foot = plus(lamp.position, scaled(lamp.axis, along));
+        const Vec3 across = minus(at, foot);
+        const float d2 = dot(across, across) + core2;
+        const float s_low = -lamp.half_length - along;
+        const float s_high = lamp.half_length - along;
+        const float spread = (s_high / std::sqrt(d2 + (s_high * s_high))) - (s_low / std::sqrt(d2 + (s_low * s_low)));
+        point = plus(lamp.position, scaled(lamp.axis, std::clamp(along, -lamp.half_length, lamp.half_length)));
+        line_factor = lamp.core * spread / (2.0F * std::sqrt(d2));
+    }
+    const Vec3 to = minus(point, at);
+    const float distance = std::sqrt(dot(to, to));
+    if (!(distance < lamp.reach)) {
+        return 0.0F;
+    }
+    const Vec3 dir = distance > 0.0F ? scaled(to, 1.0F / distance) : Vec3{0.0F, 1.0F, 0.0F};
+    const float facing = dot(normal, dir);
+    if (!(facing > 0.0F)) {
+        return 0.0F;
+    }
+    const float x = distance / lamp.reach;
+    const float window = 1.0F - (x * x * x * x);
+    float geometry = facing * window * window;
+    if (line) {
+        geometry *= line_factor;
+    } else {
+        geometry *= core2 / (core2 + (distance * distance));
+        if (lamp.shape == EmitterShape::kPanel) {
+            geometry *= std::abs(dot(lamp.axis, dir));
+        }
+    }
+    if (toward != nullptr) {
+        *toward = point;
+    }
+    return geometry;
 }
 
 float light_importance(const Emitter& light, const std::array<float, 3>& camera)

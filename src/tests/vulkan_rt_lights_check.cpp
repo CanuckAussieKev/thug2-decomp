@@ -212,6 +212,84 @@ void add_quad(std::vector<rt::EmitterTriangle>* out, const Vec3& corner, const V
     out->push_back({.corners = {floats(a), floats(c), floats(d)}, .colour = colour, .material = 7, .kind = kind});
 }
 
+// (lighting round A2 - indoor ceiling lights) The emitters' shapes from their triangles: a fluorescent tube (a long
+// thin strip, 8 x 1 quads of 12 x 3 units, facing down) is a line along it; a ceiling's lit panel (4 x 4 quads facing
+// down, 64 units across) a panel with its normal vertical - facing up, a pool of light baked on a floor, none; a lamp head (a small box) a point. And the geometry term: a line's light
+// falls as 1/d near it and 1/d^2 far off (a point of the same intensity); a panel's is a two-sided disc's.
+void check_shapes(Tally* tally)
+{
+    constexpr std::array<float, 3> kWhite{1.0F, 1.0F, 1.0F};
+    std::vector<rt::EmitterTriangle> tube;
+    for (int i = 0; i < 8; ++i) {
+        add_quad(&tube, {i * 12.0, 300.0, 0.0}, {12.0, 0.0, 0.0}, {0.0, 0.0, 3.0}, rt::EmitterKind::kSelfLit, kWhite);
+    }
+    std::vector<rt::EmitterTriangle> panel;
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            add_quad(&panel, {i * 16.0, 300.0, j * 16.0}, {16.0, 0.0, 0.0}, {0.0, 0.0, 16.0}, rt::EmitterKind::kSelfLit,
+                     kWhite);
+        }
+    }
+    std::vector<rt::EmitterTriangle> head;
+    for (const auto& [corner, side, other] :
+         {std::array<Vec3, 3>{Vec3{0.0, 0.0, 0.0}, Vec3{8.0, 0.0, 0.0}, Vec3{0.0, 8.0, 0.0}},
+          std::array<Vec3, 3>{Vec3{0.0, 0.0, 8.0}, Vec3{8.0, 0.0, 0.0}, Vec3{0.0, 8.0, 0.0}},
+          std::array<Vec3, 3>{Vec3{0.0, 0.0, 0.0}, Vec3{0.0, 0.0, 8.0}, Vec3{0.0, 8.0, 0.0}},
+          std::array<Vec3, 3>{Vec3{8.0, 0.0, 0.0}, Vec3{0.0, 0.0, 8.0}, Vec3{0.0, 8.0, 0.0}},
+          std::array<Vec3, 3>{Vec3{0.0, 0.0, 0.0}, Vec3{8.0, 0.0, 0.0}, Vec3{0.0, 0.0, 8.0}},
+          std::array<Vec3, 3>{Vec3{0.0, 8.0, 0.0}, Vec3{8.0, 0.0, 0.0}, Vec3{0.0, 0.0, 8.0}}}) {
+        add_quad(&head, corner, side, other, rt::EmitterKind::kSelfLit, kWhite);
+    }
+    std::vector<uint32_t> owner;
+    const std::vector<rt::Emitter> line = rt::cluster_emitters(tube, &owner, 1.0F);
+    const bool line_ok = line.size() == 1 && line.front().shape == rt::EmitterShape::kLine &&
+                         std::abs(std::abs(line.front().axis[0]) - 1.0F) < 0.01F &&
+                         std::abs(line.front().half_length - 48.0F) < 8.0F &&
+                         std::ranges::all_of(owner, [](uint32_t index) { return index == 0; });
+    tally->check(line_ok, text::format("a tube is a line light along it (%zu lights; shape %d, axis %.2f %.2f %.2f, half "
+                                       "length %.1f of 48; every triangle its)",
+                                       line.size(), line.empty() ? -1 : static_cast<int>(line.front().shape),
+                                       line.empty() ? 0.0 : static_cast<double>(line.front().axis[0]),
+                                       line.empty() ? 0.0 : static_cast<double>(line.front().axis[1]),
+                                       line.empty() ? 0.0 : static_cast<double>(line.front().axis[2]),
+                                       line.empty() ? 0.0 : static_cast<double>(line.front().half_length)));
+    const std::vector<rt::Emitter> flat = rt::cluster_emitters(panel, nullptr, 1.0F);
+    const std::vector<rt::Emitter> pool = rt::cluster_emitters(panel, nullptr, -1.0F); // (the same, facing up)
+    tally->check(flat.size() == 1 && flat.front().shape == rt::EmitterShape::kPanel && pool.empty() &&
+                     std::abs(std::abs(flat.front().axis[1]) - 1.0F) < 0.01F,
+                 text::format("a ceiling's lit panel is a panel light facing down (%zu lights; shape %d, normal y %.2f); "
+                              "the same facing up - a pool baked on a floor - no light (%zu)",
+                              flat.size(), flat.empty() ? -1 : static_cast<int>(flat.front().shape),
+                              flat.empty() ? 0.0 : static_cast<double>(flat.front().axis[1]), pool.size()));
+    const std::vector<rt::Emitter> point = rt::cluster_emitters(head);
+    tally->check(point.size() == 1 && point.front().shape == rt::EmitterShape::kPoint,
+                 text::format("a lamp head is a point light (%zu lights; shape %d)", point.size(),
+                              point.empty() ? -1 : static_cast<int>(point.front().shape)));
+    // the geometry: a long line near its middle and far off; a panel straight under it and to the side
+    const rt::LampShape long_line{.position = {0.0F, 0.0F, 0.0F}, .shape = rt::EmitterShape::kLine,
+                                  .axis = {1.0F, 0.0F, 0.0F}, .half_length = 1000.0F, .core = 2.0F, .reach = 1.0e6F};
+    const auto line_at = [&](float distance) {
+        return rt::lamp_geometry(long_line, {0.0F, -distance, 0.0F}, {0.0F, 1.0F, 0.0F}, nullptr);
+    };
+    const float near_ratio = line_at(20.0F) / line_at(40.0F); // (1/d: 2)
+    const rt::LampShape short_line{.position = {0.0F, 0.0F, 0.0F}, .shape = rt::EmitterShape::kLine,
+                                   .axis = {1.0F, 0.0F, 0.0F}, .half_length = 10.0F, .core = 2.0F, .reach = 1.0e6F};
+    const auto short_at = [&](float distance) {
+        return rt::lamp_geometry(short_line, {0.0F, -distance, 0.0F}, {0.0F, 1.0F, 0.0F}, nullptr);
+    };
+    const float far_ratio = short_at(2000.0F) / short_at(4000.0F); // (1/d^2: 4)
+    const rt::LampShape disc{.position = {0.0F, 0.0F, 0.0F}, .shape = rt::EmitterShape::kPanel,
+                             .axis = {0.0F, -1.0F, 0.0F}, .core = 10.0F, .reach = 1.0e6F};
+    const float below = rt::lamp_geometry(disc, {0.0F, -10.0F, 0.0F}, {0.0F, 1.0F, 0.0F}, nullptr); // (1/2: r = d)
+    const float level = rt::lamp_geometry(disc, {30.0F, 0.0F, 0.0F}, {-1.0F, 0.0F, 0.0F}, nullptr); // (edge-on: 0)
+    tally->check(std::abs(near_ratio - 2.0F) < 0.05F && std::abs(far_ratio - 4.0F) < 0.05F &&
+                     std::abs(below - 0.5F) < 0.01F && level < 1e-4F,
+                 text::format("the lamps' geometry: a line's light 1/d near it (x%.3f at half the distance) and 1/d^2 far "
+                              "(x%.3f); a panel's on its axis at its radius %.3f (a disc's 0.5), edge-on %.4f",
+                              static_cast<double>(near_ratio), static_cast<double>(far_ratio),
+                              static_cast<double>(below), static_cast<double>(level)));
+}
+
 void check_sources(Tally* tally)
 {
     text::print("the light sources (on the processor):\n");
@@ -1564,8 +1642,7 @@ std::vector<rt::CelWords> floor_stream(std::size_t vertices, float seen, float l
     vertex.tint = {1.0F, 1.0F, 1.0F};
     vertex.lamp = {lamp, lamp, lamp};
     vertex.used = true;
-    rt::RelitLighting lighting;
-    lighting.lamps = 1.0F;
+    rt::RelitLighting lighting = rt::relit_own_lighting(model, 1.0F); // (round A2: the light in the global unit)
     lighting.toward = {0.0F, 1.0F, 0.0F}; // (N.L 1: the floor faces the sun the stream was written for)
     return std::vector<rt::CelWords>(vertices, rt::cel_stream_words(model, vertex, lighting));
 }
@@ -1988,6 +2065,7 @@ int main(int argc, char** argv)
     text::print("thug2_vulkan_rt_lights_check: a %d-bit process\n", static_cast<int>(sizeof(void*)) * kBitsPerByte);
     Tally tally;
     check_sources(&tally);
+    check_shapes(&tally); // (lighting round A2)
     if (!render::vulkan::open_loader()) {
         text::print("no Vulkan loader (vulkan-1.dll) for this process\n");
         return 2;

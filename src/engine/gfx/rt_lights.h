@@ -45,6 +45,15 @@ struct EmitterTriangle {
     EmitterKind kind = EmitterKind::kGlow;
 };
 
+// (lighting round A2 - indoor ceiling lights) An emitter's shape, from its triangles (cluster_emitters: their spread's
+// principal axes): a point (a lamp head, a glow's halo - spread every way), a panel (a flat light - a ceiling's lit
+// panel, a lit window: thin across, its triangles facing one way) or a line (a tube - long along one axis).
+enum class EmitterShape : uint8_t { kPoint = 0, kPanel = 1, kLine = 2 };
+inline constexpr float kLineRatio = 4.0F;      // a cluster this many times longer (its spread) than wide is a line
+inline constexpr float kPanelThin = 0.25F;     // ... a cluster this thin across against its width is flat ...
+inline constexpr float kPanelFacing = 0.8F;    // ... and a panel when its triangles face one way this much (|sum n A| / A)
+inline constexpr float kSpreadToHalfLength = 1.7320508F; // a uniform spread's half length over its deviation (sqrt 3)
+
 // A light the pass shines (an emitter found at load, or the frame's point light).
 struct Emitter {
     std::array<float, 3> position{};
@@ -57,7 +66,30 @@ struct Emitter {
     // (added for the washed-out streets) its falloff's core (light_falloff): an emitter's emitting area as a disc's
     // radius (emitter_core), a point light's share of its reach (point_core)
     float core = 0.0F;
+    // (lighting round A2) its shape: a panel's normal or a line's direction (unit), a line's half length
+    EmitterShape shape = EmitterShape::kPoint;
+    std::array<float, 3> axis{0.0F, 1.0F, 0.0F};
+    float half_length = 0.0F;
 };
+
+// (lighting round A2) The light a lamp sends to a surface point per unit of its intensity - one model for relit's L,
+// the lamps' solve and the lamps pass (vulkan_rt_lights.cpp's GLSL lamp_geometry is the same), x the window to `reach`
+// (light_falloff's):
+//   - point: N.L x core^2 / (core^2 + d^2) - a sphere of its area's radius;
+//   - panel: the same x |its normal . L| - a two-sided Lambertian disc of its area (on its axis, the exact disc);
+//   - line: N.L toward the segment's nearest point x core (sin b - sin a) / (2 D), D^2 = d^2 + core^2, d the distance to
+//     the line, a and b the segment's ends' angles seen from it - a uniform line of light (1/d near it, 1/d^2 far).
+// 1 right at a point or a panel; `toward` the point the light comes from (the shadow ray's end). 0 behind the surface.
+struct LampShape {
+    std::array<float, 3> position{};
+    EmitterShape shape = EmitterShape::kPoint;
+    std::array<float, 3> axis{0.0F, 1.0F, 0.0F};
+    float half_length = 0.0F;
+    float core = 0.0F;
+    float reach = 0.0F;
+};
+[[nodiscard]] float lamp_geometry(const LampShape& lamp, const std::array<float, 3>& at, const std::array<float, 3>& normal,
+                                  std::array<float, 3>* toward);
 
 inline constexpr float kEmitterJoin = 96.0F;        // a triangle joins a cluster whose first is this near (world units)
 inline constexpr float kEmitterReachPerCore = 12.0F; // reach = core x this (the light down to under 1%), within:
@@ -70,7 +102,10 @@ inline constexpr float kFlatHeightShare = 0.25F; // ... no taller than this shar
 inline constexpr std::size_t kMaxEmitters = 4096;
 // Self-lit: a level is dark when its world's median vertex brightness (luma of the bytes, 128 the game's white) is at
 // most kDarkLevelLuma; a triangle there is self-lit when its dimmest corner is at least kSelfLitLuma and
-// kSelfLitOverLevel times the level's median.
+// kSelfLitOverLevel times the level's median. (Lighting round A2 - indoor ceiling lights) A level whose bake shows no
+// sun (the baked sun's search found none: indoors, at night) is looked at the same way however bright it is - its
+// brightest surfaces are its lamps, not the sun's (render_pc/rt_record.cpp emitter_work; LevelEmitters::dark keeps the
+// level's own brightness).
 inline constexpr float kDarkLevelLuma = 64.0F;
 inline constexpr float kSelfLitLuma = 112.0F;
 inline constexpr float kSelfLitOverLevel = 2.5F;
@@ -78,18 +113,26 @@ inline constexpr float kSelfLitOverLevel = 2.5F;
 inline constexpr float kPointCoreShare = 0.1F;
 // (lighting round A: the lamps' sum is no longer held under a knee - the lamps are lit by their data, the HDR tone map
 // alone compresses the result)
-inline constexpr std::size_t kMaxViewLights = 256;
+inline constexpr std::size_t kMaxViewLights = 252; // (round A2: 64 bytes a light with its shape - the lamps pass's
+                                                   // uniform block within the 16 KB every device gives)
 
 [[nodiscard]] constexpr bool dark_level(float median_luma) { return median_luma <= kDarkLevelLuma; }
-[[nodiscard]] constexpr bool self_lit_triangle(float dimmest_corner_luma, float median_luma)
+[[nodiscard]] constexpr bool self_lit_triangle(float dimmest_corner_luma, float median_luma, bool sunless = false)
 {
-    return dark_level(median_luma) && dimmest_corner_luma >= kSelfLitLuma &&
+    return (dark_level(median_luma) || sunless) && dimmest_corner_luma >= kSelfLitLuma &&
            dimmest_corner_luma >= kSelfLitOverLevel * median_luma;
 }
 
 // The triangles joined into lights (the same triangles in the same order give the same lights): at most kMaxEmitters,
 // the strongest (intensity x reach) first.
-[[nodiscard]] std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles);
+// (lighting round A2) `triangle_emitter`, when given: each triangle's light among the result (kNoEmitter: none).
+// `facing`: the world's winding (+1 when a triangle's (b - a) x (c - a) points out of its front - render_pc's
+// world_facing, rt_relit.h relit_facing's rule): a flat self-lit cluster facing up is a pool of light baked on a floor
+// (no light), one facing down a ceiling's lit panel (a panel light); 0 - unknown: every flat self-lit cluster a pool.
+inline constexpr uint32_t kNoEmitter = 0xFFFFFFFFU;
+[[nodiscard]] std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles,
+                                                    std::vector<uint32_t>* triangle_emitter = nullptr,
+                                                    float facing = 0.0F);
 
 // The emitters of the world now loaded (render_pc sets them in a new world's first frame, whenever ray tracing records:
 // the level's lamps are its own whether the lamps pass draws them or relit lights them per vertex - lighting round A).
@@ -100,6 +143,10 @@ struct LevelEmitters {
     std::size_t self_lit_triangles = 0;
     float median_luma = 0.0F;
     bool dark = false;
+    // (lighting round A2 - a path tracer's emitters) the emissive triangles the lights were made from, and each one's
+    // light among `emitters` (kNoEmitter: none - dark, or dropped)
+    std::vector<EmitterTriangle> triangles;
+    std::vector<uint32_t> triangle_emitter;
 };
 void set_level_emitters(LevelEmitters emitters);
 [[nodiscard]] std::shared_ptr<const LevelEmitters> level_emitters();

@@ -126,6 +126,10 @@ using Dir = std::array<double, 3>;
 // The unit's factor (see above): pi / the reference day's horizontal irradiance (the clear weather's air, every order
 // of scattering; worked out once). Radiances per unit of the sun's irradiance x this are the game's linear colours.
 [[nodiscard]] double sky_exposure();
+// The sun's illuminance at the atmosphere's top (lux) - the unit made absolute (the camera's meter, gpu_vulkan/vulkan_hdr.h;
+// the lamps' photometry): the unit's 1 on a level surface is kSolarIlluminance x pi / sky_exposure() lux.
+inline constexpr double kSolarIlluminance = 128000.0;
+[[nodiscard]] double unit_illuminance();
 // (added by the physical air) The sun: its angular radius (0.53 degrees across) and solid angle - its disc's mean
 // radiance is its irradiance over this.
 inline constexpr double kSunAngularRadius = 0.004654; // radians
@@ -219,6 +223,15 @@ struct GroundLight {
     double sky = 0.0;
 };
 [[nodiscard]] GroundLight ground_light(double elevation, const Aerosol& air);
+// (lighting round A2 - one light unit for every level) The same per channel and in the unit (x sky_exposure() / pi: the
+// light a white diffuser shows - the relit light's unit, 1 on a level surface under the reference day): `sun` the direct
+// light per unit of N.L (the transmittance; 0 under the horizon), `sky` the whole sky's on a level surface (every
+// order, cosine-weighted) - for the sun from `lowest` degrees up, one entry a degree, `count` entries, in `air`.
+struct GroundLightRgb {
+    Rgb sun{};
+    Rgb sky{};
+};
+[[nodiscard]] std::vector<GroundLightRgb> ground_light_table(double lowest, std::size_t count, const Aerosol& air);
 // The sky-view table's texel centre (column, row) <-> its view direction (model space: the sun along +x).
 [[nodiscard]] Dir sky_view_direction(const std::array<double, 2>& uv);
 [[nodiscard]] std::array<double, 2> sky_view_uv(const Dir& view);
