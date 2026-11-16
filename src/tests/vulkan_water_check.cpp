@@ -602,7 +602,8 @@ bool all_finite(const Picture& picture)
 
 void set_water(bool on, float waves, float foam, bool hdr = true)
 {
-    vk::set_water_settings({.on = on, .waves = waves, .wind = 1.0F, .heading = kHeading, .clarity = 1.0F, .foam = foam, .hdr = hdr});
+    vk::set_water_settings({.on = on, .waves = waves, .wind = 1.0F, .heading = kHeading, .clarity = 1.0F, .foam = foam});
+    (void)hdr; // (round F: the glitter has one peak)
 }
 
 void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally)

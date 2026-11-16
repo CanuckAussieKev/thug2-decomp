@@ -43,8 +43,8 @@
 //      kept faintly (its texel over its mean, 35%);
 //   5. foam where the water is shallow (within 24 units of its bed), in the ripples' drifting pattern, x rt_water_foam;
 //   6. the sun's glitter: normalised Blinn-Phong (power 1500) of the scene's sun (rt::scene_sun, or the sun the game
-//      shows) on the wave normals, Fresnel at the half vector, where the bake says the surface is sunlit; up to 6 with
-//      rt_hdr (the bloom picks it up), 1 without.
+//      shows) on the wave normals, Fresnel at the half vector, where the bake says the surface is sunlit; up to 6 (the
+//      bloom picks it up; round F: whatever the output - rt_hdr retired).
 // The moving surface ([Graphics] rt_water_geometry, docs/design/vulkan.md "Moving water"): render_pc splits the water's
 // flat meshes into a grid as a level loads (render_pc/water_geometry.h) and says which draws are of a split mesh
 // (water::current_waves); those draws' keys are FragmentKey::water kWaterMoving - the vertex shader moves each point by
@@ -69,8 +69,7 @@ inline constexpr uint32_t kWaterWavesLevels = 9;   // 256 down to 1
 inline constexpr uint32_t kWaterWaveCount = 64;    // the waves summed into it
 inline constexpr float kWaterDetail = 0.35F;       // the texture's detail kept
 inline constexpr float kWaterRefraction = 0.12F;   // the refraction's shift per unit of tilt and water behind
-inline constexpr float kWaterGlitterHdr = 6.0F;    // the glitter's peak with rt_hdr
-inline constexpr float kWaterGlitterSdr = 1.0F;    // ... without
+inline constexpr float kWaterGlitterPeak = 6.0F;   // the glitter's peak (round F: one, whatever the output)
 
 // A water draw's descriptors (pushed with the stages' at kWaterUniformsBinding - kWaterWavesBinding).
 struct WaterDescriptors {
