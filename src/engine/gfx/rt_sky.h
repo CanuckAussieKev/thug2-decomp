@@ -11,8 +11,11 @@
 // viewer kViewerAltitude above the ground.
 //   - Rayleigh (the air): scattering kRayleigh per metre at sea level (red, green, blue), its density falling as
 //     exp(-h / kRayleighHeight); phase 3 / (16 pi) (1 + mu^2).
-//   - Mie (aerosols, haze): scattering kMieScattering, extinction kMieScattering / kMieAlbedo, density exp(-h /
-//     kMieHeight); phase Cornette-Shanks with g = kMieG.
+//   - Mie (aerosols, haze - changed by the physical air): the weather's aerosol (Aerosol below - [Graphics] rt_fog_air,
+//     a visibility): scattering and extinction per metre at the ground for red, green and blue, its density exp(-h /
+//     height) + mist x exp(-h / mist_height) (the haze's layer and, in a mist, a low layer of droplets under it); phase
+//     Cornette-Shanks with its g. The same coefficients light and dim the level's air (the fog pass's aerial march) -
+//     one medium, from the ground to the atmosphere's top.
 //   - Ozone (added by the low sun's sky): absorption only, kOzoneAbsorption per metre where it is densest, its density a
 //     tent kOzoneHalfWidth either side of kOzoneCentre (Hillaire's EGSR 2020 values). Overhead it takes 3% of the green,
 //     little; along a low sun's long path it takes the orange and green out of the light that reaches the far sky - the
@@ -26,8 +29,12 @@
 // few steps, and this file's with many is its reference.
 //
 // Colours: the integrals are linear light. What the game's passes add is display-referred (the game's colours, 1 its
-// white): a linear value v shows as v^(1 / kDisplayGamma). The sky's radiance is scaled by sky_exposure() - the factor that
-// puts the zenith's luminance with the sun 45 degrees up at kZenithTarget (linear).
+// white): a linear value v shows as v^(1 / kDisplayGamma). (Changed by the physical air:) the unit is a physical one -
+// sky_exposure() is pi / E, E the horizontal irradiance under the reference day (the sun kReferenceElevation up in the
+// clear weather's air: its direct light on the ground and the whole sky's, per unit of the sun's irradiance at the
+// atmosphere's top): linear 1 is the radiance of a white diffuser lit by that day - the game's white, the colours the
+// levels were painted and baked with under their daylight. The sky, the sun's disc (its irradiance over its solid angle)
+// and the air's light are all radiances in that unit; nothing is matched to a target brightness.
 
 #include <array>
 #include <cstdint>
@@ -42,16 +49,58 @@ inline constexpr double kTopRadius = 6420.0e3;
 inline constexpr double kViewerAltitude = 100.0;
 inline constexpr Rgb kRayleigh{5.802e-6, 13.558e-6, 33.1e-6};
 inline constexpr double kRayleighHeight = 8000.0;
-inline constexpr double kMieScattering = 8.0e-6;
-inline constexpr double kMieAlbedo = 0.9;
-inline constexpr double kMieHeight = 1200.0;
-inline constexpr double kMieG = 0.8;
 inline constexpr Rgb kOzoneAbsorption{0.650e-6, 1.881e-6, 0.085e-6};
 inline constexpr double kOzoneCentre = 25000.0;    // metres above the ground
 inline constexpr double kOzoneHalfWidth = 15000.0; // (none under 10 km or over 40 km)
 inline constexpr double kDisplayGamma = 2.2;
-inline constexpr double kZenithTarget = 0.3; // the zenith's luminance (linear) with the sun 45 degrees up
-inline constexpr double kExposureElevation = 0.78539816339744831; // (45 degrees)
+inline constexpr double kReferenceElevation = 0.78539816339744831; // (45 degrees: the unit's day - sky_exposure)
+
+// --- (added by the physical air) the weather's aerosol --------------------------------------------------------------
+// The haze in the air is the weather's: [Graphics] rt_fog_air picks a visibility (the meteorological range at the
+// ground - Koschmieder: the distance at which a black object's contrast against the horizon falls to 2%, 3.912 / the
+// extinction at 550 nm). The aerosol's extinction at the ground is what the visibility leaves after the air's own
+// (Rayleigh's green); across the spectrum it follows Angstrom's law (lambda / 550 nm)^-alpha at the model's 680 / 550 /
+// 440 nm. Its single-scattering albedo and phase (Cornette-Shanks g) are the aerosol type's:
+//   - clear: 40 km - a clear day's continental aerosol over a 1.2 km layer (optical depth about 0.10 at 550 nm),
+//     alpha 1.3, albedo 0.9, g 0.8;
+//   - hazy: 10 km - a hazy summer day (optical depth about 0.45), alpha 1.0, albedo 0.9, g 0.8;
+//   - misty: 2 km at the ground - the clear day's haze with a mist of droplets in a layer kMistHeight deep under it
+//     (droplets: alpha 0.3 - nearly grey -, albedo 0.97).
+// The sky model, the sun's light and the level's air (the fog pass) all read the one Aerosol (set_aerosol: the settings
+// put it there); a path tracer would take the same coefficients.
+enum class Weather : uint8_t { kClear, kHazy, kMisty };
+struct Aerosol {
+    Rgb scattering{};          // per metre at the ground (the haze's layer)
+    Rgb extinction{};          // per metre at the ground (scattering / albedo)
+    double height = 1200.0;    // metres: the haze's layer's scale height
+    double mist = 0.0;         // the mist's density at the ground over the haze layer's (0: none)
+    double mist_height = 100.0; // metres
+    double g = 0.8;            // Cornette-Shanks asymmetry
+    bool operator==(const Aerosol&) const = default;
+};
+inline constexpr double kKoschmieder = 3.912;
+inline constexpr double kClearVisibility = 40000.0; // metres
+inline constexpr double kHazyVisibility = 10000.0;
+inline constexpr double kMistyVisibility = 2000.0;
+inline constexpr double kHazeHeight = 1200.0;  // metres
+inline constexpr double kMistHeight = 100.0;   // metres
+[[nodiscard]] Aerosol aerosol_for(Weather weather);
+// The ini's spelling: "clear", "hazy", "misty" ("0" / "1" / "2"; an older ini's "cinematic" is hazy); anything else
+// clear.
+[[nodiscard]] Weather parse_weather(const char* text);
+[[nodiscard]] const char* weather_name(Weather weather);
+// The frame's weather and its aerosol (thread-safe; the clear weather's until set). set_weather puts its aerosol in
+// place; set_aerosol another (the checks').
+void set_weather(Weather weather);
+[[nodiscard]] Weather weather();
+void set_aerosol(const Aerosol& aerosol);
+[[nodiscard]] Aerosol aerosol();
+// The aerosol's density at a height (metres above the ground) over its density at the ground's haze layer: exp(-h /
+// height) + mist exp(-h / mist_height).
+[[nodiscard]] double aerosol_density(const Aerosol& aerosol, double height);
+// Cornette-Shanks' phase (per steradian) and Rayleigh's.
+[[nodiscard]] double aerosol_phase(double cosine, double g);
+[[nodiscard]] double rayleigh_phase(double cosine);
 
 // How finely the integrals are taken: segments along a view ray, and along each sample's ray toward the sun.
 inline constexpr uint32_t kTableViewSteps = 32; // (the device's table: vulkan_rt_sky)
@@ -66,13 +115,27 @@ inline constexpr SkySteps kReferenceSteps{.view = 1024, .light = 512};
 using Dir = std::array<double, 3>;
 [[nodiscard]] Dir sun_direction_at(double elevation);
 
-// The sun's light reaching the viewer (each channel 0 - 1, the top of the atmosphere's 1) with the sun at `elevation`.
+// The sun's light reaching the viewer (each channel 0 - 1, the top of the atmosphere's 1) with the sun at `elevation`
+// (the frame's aerosol, or the one given).
 [[nodiscard]] Rgb sun_transmittance(double elevation, uint32_t steps);
+[[nodiscard]] Rgb sun_transmittance(double elevation, uint32_t steps, const Aerosol& air);
 // The sky's radiance toward `view` (normalised) with the sun along `sun` (normalised), per unit of the sun's irradiance,
-// linear, not exposed.
+// linear, not exposed - single scattering.
 [[nodiscard]] Rgb sky_radiance(const Dir& view, const Dir& sun, const SkySteps& steps);
-// The factor the sky's radiance is shown at (see above; worked out once with kReferenceSteps).
+[[nodiscard]] Rgb sky_radiance(const Dir& view, const Dir& sun, const SkySteps& steps, const Aerosol& air);
+// The unit's factor (see above): pi / the reference day's horizontal irradiance (the clear weather's air, every order
+// of scattering; worked out once). Radiances per unit of the sun's irradiance x this are the game's linear colours.
 [[nodiscard]] double sky_exposure();
+// (added by the physical air) The sun: its angular radius (0.53 degrees across) and solid angle - its disc's mean
+// radiance is its irradiance over this.
+inline constexpr double kSunAngularRadius = 0.004654; // radians
+[[nodiscard]] double sun_solid_angle();
+// Its disc as drawn (the sky pass, or the sun's pass over a painted sky): limb-darkened, I(r) = I(0) (1 - u (1 -
+// sqrt(1 - (r / R)^2))) with u = kSunLimbDarkening (the visible band's), its mean over the disc (1 - u / 3) I(0) = its
+// irradiance (the transmittance at `elevation`, the frame's aerosol) over its solid angle - in the unit (x
+// sky_exposure). The centre's radiance, linear (0 under the horizon).
+inline constexpr double kSunLimbDarkening = 0.6;
+[[nodiscard]] Rgb sun_disc_radiance(double elevation);
 
 // The sun's colour as the game's passes use it (display-referred: the transmittance relative to the sun overhead, to
 // 1 / kDisplayGamma, its brightest channel 1): (1, 1, 1) overhead, warmer toward the horizon. `steps` as sun_transmittance.
@@ -136,6 +199,7 @@ struct MultipleSteps {
     uint32_t light = kTableLightSteps;
 };
 [[nodiscard]] Rgb multiple_scattering(const AtmospherePoint& place, const MultipleSteps& steps_given);
+[[nodiscard]] Rgb multiple_scattering(const AtmospherePoint& place, const MultipleSteps& steps_given, const Aerosol& air);
 // The table of Psi (kMultipleWidth x kMultipleHeight, row by row) and a bilinear read of it - what sky_radiance_ms
 // adds (the device's table is the same integral).
 using MultipleTable = std::vector<Rgb>;
@@ -145,6 +209,16 @@ using MultipleTable = std::vector<Rgb>;
 // Psi from `table`; below the horizon the ground's light at the ray's end, lit by the sun with kGroundAlbedo), per unit
 // of the sun's irradiance, linear, not exposed.
 [[nodiscard]] Rgb sky_radiance_ms(const Dir& view, const Dir& sun, const SkySteps& steps, const MultipleTable& table);
+[[nodiscard]] Rgb sky_radiance_ms(const Dir& view, const Dir& sun, const SkySteps& steps, const MultipleTable& table,
+                                  const Aerosol& air);
+// (added by the physical air) The light on a level surface with the sun `elevation` (radians) up, per unit of the sun's
+// irradiance, luminance (Rec. 709): its direct light (transmittance x sine) and the whole sky's (every order, cosine-
+// weighted), in `air`. The unit's day (sky_exposure) is this at kReferenceElevation in the clear weather's air.
+struct GroundLight {
+    double direct = 0.0;
+    double sky = 0.0;
+};
+[[nodiscard]] GroundLight ground_light(double elevation, const Aerosol& air);
 // The sky-view table's texel centre (column, row) <-> its view direction (model space: the sun along +x).
 [[nodiscard]] Dir sky_view_direction(const std::array<double, 2>& uv);
 [[nodiscard]] std::array<double, 2> sky_view_uv(const Dir& view);

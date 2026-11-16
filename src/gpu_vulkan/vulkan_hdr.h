@@ -84,33 +84,35 @@ void set_hdr_lut(GradeLut lut);
 [[nodiscard]] std::array<float, 3> tone_map_reference(const ToneParameters& parameters, const GradeLut* lut,
                                                       std::array<float, 3> colour);
 
-// (added by the low sun's glare) The metering - a camera's exposure for a bright view (rt_exposure_adapt, stops; 0:
-// off). The game's colours are display-referred and the curve above shows nothing brighter than the white point
-// (1.25): a view into a low sun - its glow, the sunlit air toward it, the sky's aureole, 2 - 5 x white over a third of
-// the picture - showed as one flat white blot that ate the buildings round it. A camera or an eye looking there stops
-// down: the glow comes back into range and what stands against it goes dark - silhouettes. So, before the curve, each
-// viewport's light is metered and the exposure brought down when the view is brighter than an ordinary one:
-//   - the meter: kMeterGrid x kMeterGrid samples over the viewport (meter_place), their linear luminance (Rec. 709 luma
-//     of the colour x the exposure's factor, each channel ^2.2) - each at most kMeterBrightest (a sensor's white: the
-//     sun's disc, a few pixels at 24 x white, doesn't swing it) - weighted toward the centre (meter_weight: a Gaussian
-//     kMeterCentre of the viewport wide), their weighted root mean square - a highlight-weighted meter (a camera's
-//     highlight mode): the bright part of a view counts for more than its share of the pixels. A plain mean hardly
-//     moved for a low sun's glow, a tenth of the picture at 2 - 10 x white over a street at 0.2 - 0.5 (the user's
-//     College view: mean 0.64, an ordinary daylit view 0.1 - 0.48);
-//   - the target: down by log2(meter / kMeterKey) stops when it is above the key, never up (the clock's exposure
-//     brings the night up), at most rt_exposure_adapt stops (meter_target_stops) - kMeterKey is about the brightest
-//     ordinary view's (captures of College at noon 0.35 - 0.56, Berlin and Boston by day and dusk 0.1 - 0.44: none
-//     touched; College's tower views toward the 06:20 sun 0.6 - 0.7 - a little), the user's view into the 06:20 sun
-//     1.9 - 2.4 (brought down ~1.8 stops);
+// (added by the low sun's glare; rewritten by the physical air) The metering - the camera's exposure, the one
+// controller (rt_exposure_adapt: how many stops it may move either way; 0: off). The game's colours are display-referred,
+// linear light their ^2.2 in the sky's unit (rt_sky.h: 1 a white diffuser under the reference day). A camera meters
+// the light of the view and sets its exposure so the view's average lands where the sensor's calibration puts it:
+//   - the meter: kMeterGrid x kMeterGrid samples over the viewport (meter_place), their linear luminance (Rec. 709 luma of
+//     the colour as drawn - the user's rt_exposure is an offset after it, not metered -, each channel ^2.2), each at most
+//     kMeterBrightest (the sun's disc, a few pixels at thousands, doesn't swing it), weighted toward the centre
+//     (meter_weight: a Gaussian kMeterCentre of the viewport wide), their weighted geometric mean (the log average - a
+//     camera's average metering: a small bright part of a view counts for its share, a sky or a low sun's glow for
+//     what it covers);
+//   - the target: the reflected-light meter's calibration (ISO 2720, K = 12.5, the saturation-based exposure of a
+//     sensor of speed S: H = 1 / (1.2 x 2^EV100), EV100 = log2(L x S / K)) puts a metered average L at L x 100 / 12.5 /
+//     (1.2 x 8 x L) of the sensor's white - kMeterKey, about 0.104 -, scaled by the eye's adaptation (meter_key: the
+//     key over its daylight value, Krawczyk et al.'s 1.03 - 2 / (2 + log10(L + 1)) of the absolute luminance - the unit
+//     calibrated by the sun's illuminance at the atmosphere's top, kSolarIlluminance: a dim night is not brought up to
+//     day); stops = log2(key / L), within +-rt_exposure_adapt (meter_target_stops) - both ways: a bright view down, a
+//     dark one up;
 //   - over time as an eye: kMeterDarkenSeconds toward darker, kMeterBrightenSeconds back (1 - 1/e of the way;
 //     meter_adapt), a new viewport starting at its target;
-//   - the factor on the colours (display values): 2^(stops / 2.2), x the exposure's (the clock's and rt_exposure's).
+//   - the factor on the colours (display values): 2^(stops / 2.2), x rt_exposure's.
 // The device keeps it: a compute pass over the viewport's copy writes the slot, the curve's pass reads it - no read-back.
+// A path tracer's camera takes the same: its radiance x 2^stops, then this curve.
 inline constexpr uint32_t kMeterSide = 16;    // (the group's side)
 inline constexpr uint32_t kMeterEach = 4;     // (each invocation's samples a side)
 inline constexpr uint32_t kMeterGrid = kMeterSide * kMeterEach;
-inline constexpr float kMeterKey = 0.55F;     // linear luminance (the samples' root mean square)
+inline constexpr float kMeterKey = 0.104F;    // the metered average's place (of the sensor's white): 100 / 12.5 / 9.6
 inline constexpr float kMeterBrightest = 16.0F;
+inline constexpr float kMeterLeast = 1e-4F;   // (a sample's luminance at least: the log average's floor)
+inline constexpr double kSolarIlluminance = 128000.0; // lux: the sun's at the atmosphere's top (the unit's calibration)
 inline constexpr float kMeterCentre = 0.3F;
 inline constexpr float kMeterDarkenSeconds = 0.4F;
 inline constexpr float kMeterBrightenSeconds = 1.2F;
@@ -121,6 +123,8 @@ inline constexpr uint32_t kMeterSlots = 4;
 [[nodiscard]] float meter_weight(const std::array<float, 2>& place);
 // A colour (display values, already x the exposure's factor) as the meter counts it.
 [[nodiscard]] float meter_light(const std::array<float, 3>& colour);
+// The key for a metered average (linear): kMeterKey x the eye's adaptation over its daylight value.
+[[nodiscard]] float meter_key(float mean);
 [[nodiscard]] float meter_target_stops(float mean, float most_stops);
 [[nodiscard]] float meter_adapt(float now_stops, float target_stops, float seconds);
 // The meter's state of the viewport `rect` of the target (read back: the check's) - false when it has none.

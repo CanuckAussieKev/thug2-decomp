@@ -52,8 +52,6 @@ constexpr uint64_t kReportNoRoom = 0x534B5005U;
 constexpr uint64_t kReportNoSun = 0x534B5006U;
 constexpr uint64_t kReportNoCapture = 0x534B5007U;
 constexpr uint64_t kReportShadows = 0x534B5008U;
-// how dark a cloud's full shadow is on the ground (0 - 1: the share of a surface's light that is the direct light's)
-constexpr double kShadowStrength = 0.65;
 constexpr uint64_t kReportCloudMap = 0x534B5009U;
 
 constexpr uint32_t kGroupSide = 8;
@@ -94,6 +92,8 @@ layout(set = 0, binding = 6) uniform SkyBlock {
     vec4 cloud_map;       // (the clouds' shadow map - rt_volume_light.h) x, z its centre (world), y the cloud base's
                           // height (world), w 1 / its width (world units)
     vec4 cloud_light;     // xyz toward the light it is made for (rt::medium_light), w how much of its shadow is kept
+    vec4 sun_disc;        // (added by the physical air) rgb the sun's disc's centre radiance (rt_sky.h
+                          // sun_disc_radiance), w its angular radius (0: none - rt_sun off)
 } sky;
 
 vec3 direction_of(vec2 p)
@@ -226,6 +226,7 @@ const float STAR_BRIGHT = 0.6;
 const float MOON_RADIUS = 0.009;
 const float MOON_BRIGHT = 2.0;
 const float MOON_GLOW = 0.02;
+const float SUN_LIMB = 0.6; // (added by the physical air: rt_sky.h kSunLimbDarkening)
 float star_hash(vec3 p)
 {
     p = fract(p * vec3(0.1031, 0.1030, 0.0973));
@@ -311,6 +312,16 @@ void main()
     if (sky.night.x > 0.0 || sky.moon.w > 0.0) {
         light += night_light(dir, pixel);
     }
+    // (added by the physical air) the sun's disc - the real sun, limb-darkened, its edge a pixel soft - in the sky,
+    // so the clouds cover it as they do the sky behind them
+    if (sky.sun_disc.w > 0.0) {
+        float theta = atan(length(cross(dir, sky.sun.xyz)), dot(dir, sky.sun.xyz));
+        float radius = sky.sun_disc.w;
+        float edge = clamp((radius - theta) / pixel + 0.5, 0.0, 1.0);
+        float t = min(theta / radius, 1.0);
+        float limb = 1.0 - SUN_LIMB * (1.0 - sqrt(max(1.0 - t * t, 0.0)));
+        light += sky.sun_disc.rgb * (limb * edge);
+    }
 #ifdef CLOUDS
     {
         vec2 low = (p - vec2(sky.rect.xy) - 0.5 * float(sky.low.z - 1)) / float(sky.low.z);
@@ -390,27 +401,10 @@ void main()
 }
 )";
 
-// 5b. The clouds' shadows on the world (rt_cloud_shadows; at opaque_drawn, after the map): each surface pixel's light
-// through the clouds, read from the map, the colour multiplied toward it by the share sky.cloud_light.w.
-constexpr const char* kShadowBody = R"(
-#ifdef MULTISAMPLED
-layout(set = 0, binding = 0) uniform sampler2DMS u_depth;
-#else
-layout(set = 0, binding = 0) uniform sampler2D u_depth;
-#endif
-layout(location = 0) out vec4 o_colour;
-
-void main()
-{
-    ivec2 p = ivec2(gl_FragCoord.xy);
-    float d = texelFetch(u_depth, p, 0).r;
-    if (d >= 1.0) {
-        discard;
-    }
-    vec4 w = sky.to_world * vec4(vec2(p), d, 1.0);
-    o_colour = vec4(vec3(cloud_map_kept(w.xyz / w.w, sky.cloud_map, sky.cloud_light)), 1.0);
-}
-)";
+// (changed by the physical air - one cloud shadow) The clouds' shadows on the world are the sun's visibility in the
+// ray-traced shadows' pass alone (vulkan_rt_shadows.h rt_shadows_take_cloud_shadows: the map read where the sun's light
+// is lit); the multiply over all of a surface's light this pass drew when that pass didn't run is gone - it dimmed the
+// sky's and the lamps' light under a cloud too, a second model of the same shadow.
 
 // 6. What a ray leaving the world sees (rt_sky_for_rays; the reflections' misses): the sky-view table toward it, and the
 // clouds' history where its direction falls on the viewport - read as the composite reads it, faded out over the last
@@ -477,8 +471,9 @@ struct SkyBlock {
     std::array<float, 4> night{};
     std::array<float, 4> cloud_map{};   // (added by the volumetric light: the clouds' shadow map)
     std::array<float, 4> cloud_light{};
+    std::array<float, 4> sun_disc{}; // (added by the physical air)
 };
-constexpr std::size_t kSkyBlockBytes = 352;
+constexpr std::size_t kSkyBlockBytes = 368;
 static_assert(sizeof(SkyBlock) == kSkyBlockBytes, "the shaders' std140 block");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -504,7 +499,6 @@ struct CompositePipeline {
     VkFormat depth = VK_FORMAT_UNDEFINED;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     bool clouds = false;
-    bool shadow = false; // the clouds' shadows' pass (no depth attachment, the colour multiplied)
     bool cel = false;    // (added by cel shading: the stylised sky, CEL)
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
@@ -885,23 +879,18 @@ const char* composite_defines(bool clouds, bool cel)
 // The composite's pipeline for a colour target and its depth (made on first use): rgb written, alpha kept, the depth
 // tested (at the far plane, less or equal: the sky's samples), not written.
 VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& depth, bool clouds, std::string* error,
-                              bool shadow = false, bool cel = false)
+                              bool cel = false)
 {
     SkyPassState& own = pass_state();
     for (const CompositePipeline& made : own.composites) {
         if (made.colour == colour.format && made.depth == depth.format && made.samples == colour.samples &&
-            made.clouds == clouds && made.shadow == shadow && made.cel == cel) {
+            made.clouds == clouds && made.cel == cel) {
             return made.pipeline;
         }
     }
     const VkDevice device = state.context.device();
     const VkShaderModule fragment =
-        shadow ? make_module(device, RtShaderStage::kFragment,
-                             source_of(kShadowBody, depth.samples != VK_SAMPLE_COUNT_1_BIT ? "MULTISAMPLED" : nullptr),
-                             error)
-               : make_module(device, RtShaderStage::kFragment,
-                             source_of(kCompositeBody, composite_defines(clouds, cel)),
-                             error);
+        make_module(device, RtShaderStage::kFragment, source_of(kCompositeBody, composite_defines(clouds, cel)), error);
     if (fragment == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
     }
@@ -948,13 +937,12 @@ VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& 
                                                            .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth_state{};
     depth_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth_state.depthTestEnable = shadow ? VK_FALSE : VK_TRUE;
+    depth_state.depthTestEnable = VK_TRUE;
     depth_state.depthWriteEnable = VK_FALSE;
     depth_state.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     VkPipelineColorBlendAttachmentState blend{};
-    blend.blendEnable = shadow ? VK_TRUE : VK_FALSE;
-    // (the shadows: the colour times the shader's - DST_COLOR x source + ZERO)
-    blend.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
+    blend.blendEnable = VK_FALSE;
+    blend.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
     blend.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
     blend.colorBlendOp = VK_BLEND_OP_ADD;
     blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
@@ -975,7 +963,7 @@ VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& 
     rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     rendering.colorAttachmentCount = 1;
     rendering.pColorAttachmentFormats = &colour_format;
-    rendering.depthAttachmentFormat = shadow ? VK_FORMAT_UNDEFINED : depth.format;
+    rendering.depthAttachmentFormat = depth.format;
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     info.pNext = &rendering;
@@ -1001,7 +989,6 @@ VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& 
                               .depth = depth.format,
                               .samples = colour.samples,
                               .clouds = clouds,
-                              .shadow = shadow,
                               .cel = cel,
                               .pipeline = pipeline});
     return pipeline;
@@ -1528,6 +1515,7 @@ bool ensure_level(Backend& state, const std::array<float, 3>& drawn)
     const rt::DayLight day = rt::day_light();
     own.level.atmosphere.sun = drawn;
     own.level.atmosphere.night = day.on ? day.night_sky : std::array<float, 3>{};
+    own.level.atmosphere.aerosol = rt::aerosol(); // (added by the physical air: the weather's)
     return true;
 }
 
@@ -1597,6 +1585,14 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
                     core::at(view.camera.position, 2), static_cast<float>(altitude)};
     block.sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2),
                  static_cast<float>(rt::cloud_amount(own.level.coverage))};
+    // (added by the physical air) the sun's disc in the sky while rt_sun draws a sun: the real one, its radiance the
+    // atmosphere's transmitted sun (rt_sky.h sun_disc_radiance - 0 under the horizon)
+    if (sun_settings_held().sun) {
+        const rt::Rgb disc =
+            rt::sun_disc_radiance(std::asin(std::clamp(static_cast<double>(core::at(sun, 1)), -1.0, 1.0)));
+        block.sun_disc = {static_cast<float>(core::at(disc, 0)), static_cast<float>(core::at(disc, 1)),
+                          static_cast<float>(core::at(disc, 2)), static_cast<float>(rt::kSunAngularRadius)};
+    }
     block.sun_light = {core::at(sun_light, 0), core::at(sun_light, 1), core::at(sun_light, 2), 1.0F};
     block.ambient_bottom = {core::at(glow, 0), core::at(glow, 1), core::at(glow, 2),
                             static_cast<float>(kCloudAerialDistance)};
@@ -1752,9 +1748,8 @@ void place_cloud_map(const rt::MediumLight& light, SkyBlock* block)
     block->cloud_light = {core::at(light.toward, 0), core::at(light.toward, 1), core::at(light.toward, 2), 1.0F};
 }
 
-// The clouds' shadow map for a viewport (at its opaque_drawn), then the shadows on its opaque world (rt_cloud_shadows):
-// the colour multiplied toward the light's share through the clouds - the direct light's share of it (kShadowStrength
-// of a surface's light, x the light's strength over the level's own sun's: the moon's shadows faint). False: skipped.
+// The clouds' shadow map for a viewport (at its opaque_drawn; rt_cloud_shadows): the light's transmittance through the
+// cloud layer, read as the sun's visibility by the ray-traced shadows' pass and the fog's march. False: skipped.
 bool record_shadow_pass(Backend& state, const rt::ViewDrawn& view)
 {
     SkyPassState& own = pass_state();
@@ -1861,37 +1856,11 @@ bool record_shadow_pass(Backend& state, const rt::ViewDrawn& view)
                 rt::kCloudMapSize, rt::kCloudMapSize, 2.0 * rt::kCloudMapHalf, light.moonlit ? "moon" : "sun",
                 light.sun_elevation);
     }
-    // (the freeze audit) where the ray-traced shadows run, the clouds' shadow is the sun's visibility there - only the sun's
-    // light drops (vulkan_rt_shadows.h rt_shadows_take_cloud_shadows); this multiply over all the light is the fallback
-    if (!settings.cloud_shadows || rt_shadows_take_cloud_shadows(state)) {
-        return true;
-    }
-    // 2. the shadows on the ground: the direct light's share of the light (kShadowStrength), as strong as the light is
-    const VkPipeline pipeline = composite_pipeline(state, *recording.colour, *recording.depth, true, &error, true);
-    if (pipeline == VK_NULL_HANDLE) {
-        return false;
-    }
-    const float strength = std::clamp((0.2126F * core::at(light.colour, 0)) + (0.7152F * core::at(light.colour, 1)) +
-                                          (0.0722F * core::at(light.colour, 2)),
-                                      0.0F, 1.0F);
-    core::at(block.cloud_light, 3) = static_cast<float>(kShadowStrength) * fade * strength;
-    const std::optional<VkDescriptorBufferInfo> shadow_block = block_in_ring(block);
-    if (!shadow_block) {
-        return false;
-    }
-    depth_barrier(commands, recording.depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
-    record_composite(commands, pipeline, recording.colour, nullptr,
-                     {.depth = recording.depth, .cloud_map = true, .block = *shadow_block}, recording.rect);
-    depth_barrier(commands, recording.depth, recording.depth->resting, false);
-    if (recording.colour->layout != recording.colour->resting) {
-        Memory::transition(commands, recording.colour, recording.colour->resting);
-    }
-    state.bound = BoundState{};
-    recording.colour->used = serial;
-    recording.depth->used = serial;
-    if (first_report(state, kReportShadows)) {
-        get_log("vulkan: rt_sky: the clouds' shadows drawn over the level (%ux%u)", core::at(recording.rect, 2),
-                core::at(recording.rect, 3));
+    // (the clouds' shadow is the sun's visibility in the ray-traced shadows' pass alone - one model; without that pass
+    // the map lights only the air - the fog's march)
+    if (settings.cloud_shadows && !rt_shadows_take_cloud_shadows(state) && first_report(state, kReportShadows)) {
+        get_log("vulkan: rt_sky: the clouds' shadows fall on the level through the ray-traced shadows (rt_shadows) - "
+                "without them only the air is shaded by the clouds");
     }
     return true;
 }
@@ -1976,7 +1945,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
             clear_slot(commands, recording.slot);
         }
     }
-    recording.composite = composite_pipeline(state, *recording.colour, *recording.depth, recording.clouds, &error, false,
+    recording.composite = composite_pipeline(state, *recording.colour, *recording.depth, recording.clouds, &error,
                                              cel_on()); // (added by cel shading: the stylised sky)
     if (recording.composite == VK_NULL_HANDLE) {
         own.failed = true;

@@ -120,7 +120,7 @@ float luma_of(const DayRgb& colour)
 }
 
 // What follows from the direct light and the sky's (day_light_at's, and again after apply_overcast changed them): the
-// bounce, the shadows' strength and the model's exposure.
+// bounce and the shadows' strength.
 void finish_light(DayLight* light)
 {
     // the bounce: what the surroundings send back is the direct light's and the sky's, in the level's own shares
@@ -133,16 +133,14 @@ void finish_light(DayLight* light)
     const float sky = luma_of(light->sky);
     const float share = (kDirectShare * direct) / std::max((kDirectShare * direct) + ((1.0F - kDirectShare) * sky), 1e-6F);
     light->shadow = std::clamp(share / kDirectShare, 0.0F, 1.0F);
-    // the exposure: night brought partly up (the level's own light 1) - the model's light here; the clock adapts it to
-    // the relit level's own (day_clock)
-    light->exposure = adapted_exposure((kDirectShare * direct) + ((1.0F - kDirectShare) * sky));
 }
 
 // --- the sky's light, made once -----------------------------------------------------------------------------------------
 constexpr double kTableLowest = -20.0; // degrees: the table's first entry (the sky's light gone below it)
 constexpr std::size_t kTableEntries = 111; // one a degree, -20 to 90
-constexpr std::size_t kRings = 6;          // the hemisphere's rings of elevation ...
-constexpr std::size_t kAzimuths = 8;       // ... and directions round each (one side: the sky is symmetric about the sun)
+constexpr std::size_t kRings = 18;         // the hemisphere's rings of elevation ... (changed by the physical air: the
+                                           // aerosol's forward lobe sampled finely enough that the light rises smoothly)
+constexpr std::size_t kAzimuths = 24;      // ... and directions round each (one side: the sky is symmetric about the sun)
 constexpr SkySteps kIrradianceSteps{.view = 16, .light = 8};
 constexpr uint32_t kTransmittanceSteps = 64;
 
@@ -201,7 +199,7 @@ bool same_light(const DayLight& a, const DayLight& b)
            a.native == b.native && a.moonlit == b.moonlit && a.direct == b.direct && a.direct_tint == b.direct_tint &&
            a.light_colour == b.light_colour && a.light_radius == b.light_radius && a.bounce == b.bounce &&
            a.sky == b.sky && a.shadow == b.shadow && a.lamps == b.lamps && a.stars == b.stars &&
-           a.moon_disc == b.moon_disc && a.exposure == b.exposure && a.night_sky == b.night_sky &&
+           a.moon_disc == b.moon_disc && a.night_sky == b.night_sky &&
            a.stars_pole == b.stars_pole && a.blend == b.blend;
 }
 
@@ -546,13 +544,15 @@ DayLight day_light_at(const NativeDay& native, double hours)
     for (std::size_t ch = 0; ch < light.light_colour.size(); ++ch) {
         core::at(light.light_colour, ch) = light.direct * core::at(light.direct_tint, ch);
     }
-    // the sky's light, over the level's own, and the night's floor under it
+    // the sky's light, over the level's own: the twilight's and the night sky's (changed by the physical air: added as
+    // light, linear - the night's light is always there, lost in the daylight by day, the level's own light holding its
+    // share of it - so the sum only falls as the sun sets, whatever the air does to the twilight)
     const double own_sky = sky_light_at(own.elevation);
-    const double sky_ratio = own_sky > 0.0 ? std::pow(std::max(sky_light_at(sun.elevation) / own_sky, 0.0), kDisplay) : 1.0;
+    const double sky_ratio = own_sky > 0.0 ? std::max(sky_light_at(sun.elevation) / own_sky, 0.0) : 1.0;
     const double floor = 1.0 - smoothstep(kNightFull, kNightFrom, sun.elevation);
     for (std::size_t ch = 0; ch < light.sky.size(); ++ch) {
-        core::at(light.sky, ch) =
-            static_cast<float>(sky_ratio + (static_cast<double>(core::at(kNightSkyLight, ch)) * floor));
+        const double night_light = std::pow(static_cast<double>(core::at(kNightSkyLight, ch)), kDisplayGamma);
+        core::at(light.sky, ch) = static_cast<float>(std::pow(night_light + ((1.0 - night_light) * sky_ratio), kDisplay));
         core::at(light.night_sky, ch) = static_cast<float>(static_cast<double>(core::at(kNightSky, ch)) * floor);
     }
     finish_light(&light);
@@ -593,23 +593,6 @@ void apply_overcast(DayLight* light, float share)
     finish_light(light);
 }
 
-float adapted_exposure(float light)
-{
-    constexpr double kLeast = 1e-3;
-    const double safe = std::isfinite(light) ? std::max(static_cast<double>(light), kLeast) : 1.0;
-    return std::clamp(static_cast<float>(std::pow(1.0 / safe, kExposurePower)), 1.0F, kMostExposure);
-}
-
-float adapt_exposure(float now, float target, double seconds)
-{
-    constexpr float kSettled = 1e-3F; // (this close: there)
-    if (!std::isfinite(now) || !(seconds > 0.0)) {
-        return std::isfinite(now) ? now : target;
-    }
-    const auto step = static_cast<float>(1.0 - std::exp(-seconds / kExposureAdaptSeconds));
-    const float next = now + ((target - now) * step);
-    return std::abs(next - target) < kSettled ? target : next;
-}
 
 CloudLight cloud_light(const DayLight& light)
 {

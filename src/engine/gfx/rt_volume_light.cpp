@@ -13,7 +13,7 @@ namespace {
 
 constexpr double kDegreesPerRadian = 180.0 / std::numbers::pi;
 constexpr double kLeastDenominator = 1e-4;
-constexpr double kCinematicRays = 1.5; // (added by the god rays: the cinematic air's peak light x this)
+constexpr double kFourPi = 4.0 * std::numbers::pi;
 
 double elevation_of(const std::array<float, 3>& toward)
 {
@@ -47,12 +47,6 @@ MediumLight medium_light_from(const SceneSun& scene, const SunRelight& relight, 
 
 MediumLight medium_light() { return medium_light_from(scene_sun(), sun_relight(), day_light()); }
 
-double haze_condition(double sun_elevation_degrees)
-{
-    const double x = (sun_elevation_degrees - kHazeLowSunPeak) / kHazeLowSunWidth;
-    return 1.0 + (kHazeLowSunExtra * std::exp(-x * x));
-}
-
 namespace {
 // (the frame's weather: render_pc writes it on the render thread before the views are drawn, the fog reads it there)
 AirWeather& weather_now()
@@ -66,99 +60,21 @@ void set_air_weather(const AirWeather& weather) { weather_now() = weather; }
 
 AirWeather air_weather() { return weather_now(); }
 
-double air_night(double sun_elevation_degrees)
+double precipitation_extinction(const AirWeather& weather)
 {
-    const double night =
-        std::clamp((kAirNightFrom - sun_elevation_degrees) / (kAirNightFrom - kAirNightTo), 0.0, 1.0);
-    return night * night * (3.0 - (2.0 * night));
+    return (weather.snow ? kSnowExtinction : 0.0) + (weather.rain ? kRainExtinction : 0.0);
 }
 
-double air_condition(double sun_elevation_degrees, bool rain, const AirArt& art)
-{
-    const double low = (sun_elevation_degrees - kAirLowSunPeak) / kAirLowSunWidth;
-    const double made = 1.0 + (kAirLowSunExtra * std::exp(-low * low)) +
-                        (kAirNightExtra * art.night * air_night(sun_elevation_degrees)) + (rain ? kAirRainExtra : 0.0);
-    return std::max(made, art.least);
-}
-
-AirArt air_art(AirLook look)
-{
-    // (the numbers: docs/design/vulkan.md "The air's look" - the cinematic step's from the check's street and lamp
-    // cases: a beam across a street at dusk and a lamp's cone from the side well over the shade, the far view along a
-    // street at dusk not whited out)
-    switch (look) {
-    case AirLook::kClear:
-        return {};
-    case AirLook::kCinematic:
-        return {.density = 2.0,
-                .least = 1.0,
-                .night = 1.5,
-                .side = 6.0,
-                .shade = 0.2,
-                .glow = 3.0,
-                .lamp_glow = 3.0,
-                .range = 60.0,
-                .along = 4.0,
-                .deep = 4.0,
-                .rays = kCinematicRays,
-                .rays_near = 1.0};
-    case AirLook::kMisty:
-        return {.density = 5.0,
-                .least = 4.0,
-                .night = 1.5,
-                .side = 1.5,
-                .shade = 1.0,
-                .glow = 1.0,
-                .lamp_glow = 3.0,
-                .range = 150.0,
-                .rays_near = 1.0};
-    case AirLook::kNone:
-        break;
-    }
-    return {.density = 0.0};
-}
-
-AirLook parse_air_look(std::string_view text)
-{
-    if (text == "clear" || text == "0") {
-        return AirLook::kClear;
-    }
-    if (text == "misty" || text == "2") {
-        return AirLook::kMisty;
-    }
-    return AirLook::kCinematic;
-}
-
-const char* air_look_name(AirLook look)
-{
-    switch (look) {
-    case AirLook::kNone:
-        return "none";
-    case AirLook::kClear:
-        return "clear";
-    case AirLook::kCinematic:
-        return "cinematic";
-    case AirLook::kMisty:
-        return "misty";
-    }
-    return "?";
-}
-
-StreetAir street_air(double sun_elevation_degrees, const AirWeather& weather, AirLook look)
+StreetAir street_air(const Aerosol& aerosol, const AirWeather& weather)
 {
     StreetAir air;
-    const AirArt art = air_art(look);
-    if (!(art.density > 0.0)) {
-        return air;
-    }
-    air.extinction =
-        kAirClearDay * air_condition(sun_elevation_degrees, weather.rain, art) * art.density / kUnitsPerMetre;
-    const double night = air_night(sun_elevation_degrees);
-    // (the look's depth by day: a night's mist lies low whatever the look - the lamps' heads near its top)
-    air.height = ((kAirHeight * art.deep) + ((kAirNightHeight - (kAirHeight * art.deep)) * night)) * kUnitsPerMetre;
-    if (weather.snow) {
-        air.snow = kAirSnow / kUnitsPerMetre;
-        air.snow_height = kAirSnowHeight * kUnitsPerMetre;
+    constexpr std::size_t kGreen = 1;
+    air.extinction = core::at(aerosol.extinction, kGreen) * aerosol_density(aerosol, 0.0) / kUnitsPerMetre;
+    air.height = (aerosol.mist > 0.0 ? aerosol.mist_height : aerosol.height) * kUnitsPerMetre;
+    const double falling = precipitation_extinction(weather);
+    if (falling > 0.0) {
+        air.snow = falling / kUnitsPerMetre;
+        air.snow_height = kPrecipitationHeight * kUnitsPerMetre;
     }
     return air;
 }
@@ -169,16 +85,12 @@ double henyey_greenstein(double cosine, double g)
     return (1.0 - (g * g)) / (k * std::sqrt(k));
 }
 
-double medium_phase(double cosine, double g)
-{
-    return (kMediumForwardShare * henyey_greenstein(cosine, g)) +
-           ((1.0 - kMediumForwardShare) * henyey_greenstein(cosine, kMediumBackG));
-}
+double medium_phase(double cosine, double g) { return kFourPi * aerosol_phase(cosine, g); }
 
 double god_ray_peak(double cosine, double g)
 {
-    const double edge = henyey_greenstein(std::cos(kGodRayConeDegrees / kDegreesPerRadian), g);
-    return kMediumForwardShare * std::max(henyey_greenstein(cosine, g) - edge, 0.0);
+    const double edge = medium_phase(std::cos(kGodRayConeDegrees / kDegreesPerRadian), g);
+    return std::max(medium_phase(cosine, g) - edge, 0.0);
 }
 
 double march_sun_phase(double cosine, double g, bool god_rays)
@@ -191,67 +103,19 @@ double god_ray_open(double sky_share, double air_before)
     return 1.0 - ((1.0 - std::clamp(sky_share, 0.0, 1.0)) * std::clamp(air_before, 0.0, 1.0));
 }
 
-double air_share_before(double distance, double cosine, const AirArt& art)
+double air_share_before(double distance, double sigma, double transmittance)
 {
-    if (art.rays_near >= 1.0) {
-        return 1.0;
-    }
-    double physical = 0.0;
-    if (art.range > 0.0) {
-        const double stretch = air_stretch(cosine, art);
-        const double whole = 0.5 * art.range * kUnitsPerMetre * stretch;
-        const double gone = 2.0 * whole;
-        const double x = std::min(distance, gone);
-        double mass = std::min(x, whole);
-        if (x > whole) {
-            const double u = x - whole;
-            mass += u - ((u * u) / (2.0 * (gone - whole)));
-        }
-        physical = std::clamp(mass / (whole + (0.5 * (gone - whole))), 0.0, 1.0);
-    }
-    return physical + ((1.0 - physical) * std::clamp(art.rays_near, 0.0, 1.0));
-}
-
-double air_phase(double cosine, double g, const AirArt& art) { return medium_phase(cosine, g) + art.side; }
-
-double air_sun_phase(double cosine, double g, const AirArt& art)
-{
-    return medium_phase(cosine, g) + (art.side * art.glow);
-}
-
-double air_stretch(double cosine, const AirArt& art)
-{
-    const double c = std::max(cosine, 0.0);
-    return 1.0 + ((art.along - 1.0) * c * c);
-}
-
-double air_reach(double distance, const AirArt& art, double cosine)
-{
-    if (!(art.range > 0.0)) {
-        return 1.0;
-    }
-    const double range = art.range * kUnitsPerMetre * air_stretch(cosine, art);
-    const double t = std::clamp((distance - (0.5 * range)) / (0.5 * range), 0.0, 1.0);
-    // (the stretched volume thins as it lengthens: toward the light the same optical depth over a longer way - the beams
-    // reach further, the glow toward the light no thicker)
-    return (1.0 - (t * t * (3.0 - (2.0 * t)))) / air_stretch(cosine, art);
-}
-
-double air_map_half(const AirArt& art)
-{
-    if (!(art.range > 0.0)) {
+    const double whole = 1.0 - std::clamp(transmittance, 0.0, 1.0);
+    if (!(whole > 1e-9) || !(sigma > 0.0)) {
         return 0.0;
     }
-    // (the farthest a point of the volume lies from the eye across the light's way: range x stretch x sine, over the
-    // angles - a small search; at least the range)
-    constexpr int kAngles = 90;
-    double widest = 1.0;
-    for (int i = 0; i <= kAngles; ++i) {
-        const double angle = 0.5 * std::numbers::pi * static_cast<double>(i) / kAngles;
-        widest = std::max(widest, air_stretch(std::cos(angle), art) * std::sin(angle));
-    }
+    return std::clamp((1.0 - std::exp(-sigma * std::max(distance, 0.0))) / whole, 0.0, 1.0);
+}
+
+double air_map_half()
+{
     constexpr double kMargin = 1.03;
-    return art.range * kUnitsPerMetre * widest * kMargin;
+    return kAirMapReach * kUnitsPerMetre * kMargin;
 }
 
 double cloud_map_fade(double rise)

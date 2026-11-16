@@ -13,20 +13,27 @@
 // drew, rt_shafts, were retired by the volumetric light -, before tone mapping and the 2D):
 //   0. the viewport's colour copied out (any sample count);
 //   1. source (full resolution, two 16-bit float images - so the sun's light keeps its range with rt_hdr=0 too): the
-//      frame's colour (a multisampled one's mean), and the light added to it - over the sky's pixels (a multisampled
-//      one's share of sky samples) the sun's disc (rt_sun: kSunDiscRadius x rt_sun_size wide, kSunDiscIntensity x its
-//      colour, limb-darkened, its edge a pixel soft) and the glow round it (the aureole: its colour x
-//      (kSunAureoleNear e^(-angle / kSunAureoleNearWidth) + kSunAureoleWide e^(-angle / kSunAureoleWideWidth)));
-//   2. bloom (rt_bloom, or rt_sun for the sun's own light): what is spread, X, is kSunGlareBloom x the added light (+
-//      rt_bloom_strength x the frame's colour with rt_bloom, unless the game's own bloom is on -
-//      rt::ViewDrawn::game_bloom); a chain of half-size images down (Jimenez's 13-tap filter, the weights summing to
-//      1: each level holds the same light), then back up (a 3 x 3 tent,
-//      each level's weight added: kSunBloomLevels levels at most, equal weights summing to 1) - B, a blur of X keeping
-//      its light;
-//   3. composite (a full-screen pass over the colour target, alpha kept): colour = frame + light + B - X - the light
-//      moved, never made: the picture's sum is unchanged by the bloom. Every sample of a multisampled target gets the pixel's value. With an
-//      8-bit target (rt_hdr=0) the target clips the result at 1 as the original's draws do; with rt_hdr=1 the tone
-//      mapping that follows maps it.
+//      frame's colour as linear light (each channel ^ 2.2 - a multisampled one's samples' mean), and the light added
+//      to it - over the sky's pixels (a multisampled one's share of sky samples) the sun's disc where the sky pass
+//      doesn't draw it (rt_sun over the level's painted sky: rt_sky=0). (Changed by the physical air:) the disc is the
+//      real sun - kSunAngularRadius wide (0.53 degrees across), limb-darkened, its radiance the atmosphere's
+//      transmitted sun over its solid angle in the sky's unit (rt_sky.h sun_disc_radiance) - and nothing round it: the
+//      aureole is the sky's own (the model's forward-scattering haze), not a glow drawn on it. With rt_sky=1 the sky
+//      pass draws the disc in the sky, behind the clouds.
+//   2. glare (rt_bloom, unless the game's own bloom is on - rt::ViewDrawn::game_bloom): the eye's (a camera lens's)
+//      point-spread function - what light a lens and the eye's media scatter out of the image's point: of all the
+//      light, X = s x (frame + light) is spread, s = kGlarePerOctave x the chain's levels; a chain of half-size images
+//      down (Jimenez's 13-tap filter, the weights summing to 1: each level holds the same light), then back up (a 3 x 3
+//      tent, each level's weight added: kSunBloomLevels levels at most, equal weights summing to 1) - B, a blur of X
+//      keeping its light. Equal light in each level is a spread falling as the square of the angle (each level twice
+//      the last one's angle): the veiling glare of Stiles and Holladay (CIE disability glare, L = 10 E / theta^2:
+//      kGlarePerOctave of the light in each doubling of the angle). The sun's glare is this, nothing of its own.
+//   3. composite (a full-screen pass over the colour target, alpha kept): linear = frame + light + B - X - the light
+//      moved, never made: the picture's sum is unchanged by the glare -, written back as the game's colours (^ 1 / 2.2).
+//      Every sample of a multisampled target gets the pixel's value. With an 8-bit target (rt_hdr=0) the target clips
+//      the result at 1 as the original's draws do; with rt_hdr=1 the tone mapping that follows maps it.
+// A path tracer would take the same sun (a light kSunAngularRadius across, its radiance sun_disc_radiance) and lens
+// (this spread).
 // rt_sun=1 also tells render_pc to leave out the original's sun sprite, corona and lens flare (rt::set_sun_glare_replaced)
 // while this pass draws a sun; a level without one (indoors) keeps the original's. The sun: vulkan_rt_sky.h's
 // frame_sun (the `rt sun` override, else the level's baked sun), its colour sky_colours (rt_sun_colour or the model).
@@ -34,16 +41,15 @@ namespace render::vulkan {
 
 struct Backend;
 
-inline constexpr double kSunDiscRadius = 0.0093;      // radians (twice the real sun's: it reads as the sun on a screen)
-inline constexpr float kSunDiscIntensity = 24.0F;     // x the sun's colour (the game's white is 1)
-inline constexpr float kSunAureoleNear = 0.5F;
-inline constexpr float kSunAureoleNearWidth = 0.04F; // radians
-inline constexpr float kSunAureoleWide = 0.15F;
-inline constexpr float kSunAureoleWideWidth = 0.25F;
 inline constexpr uint32_t kSunBloomLevels = 7;
 inline constexpr uint32_t kSunBloomSmallest = 8; // a level's shorter side at least this
-inline constexpr float kSunGlareBloom = 0.25F;   // the share of the sun's own light spread (its glare)
+// (added by the physical air) the share of the light the eye scatters into each doubling of the angle: Stiles and
+// Holladay's veiling glare L = 10 E / theta^2 (cd/m^2 per lux, theta in degrees) over an octave - 10 x 2 pi x ln 2 x
+// (pi / 180)^2
+inline constexpr float kGlarePerOctave = 0.01327F;
 inline constexpr uint32_t kSunViewSlots = 4;
+// The share of the light the glare spreads over `levels` of the chain.
+[[nodiscard]] float glare_share(uint32_t levels);
 
 // The usage a depth surface of `format` gets besides being an attachment: VK_IMAGE_USAGE_SAMPLED_BIT while rt_sun or
 // rt_bloom is on and the format can be sampled, else none (make_depth_surface).
@@ -78,7 +84,8 @@ struct RtSunTexels {
 bool read_rt_sun_image(Backend& state, const std::array<uint32_t, 4>& rect, RtSunImage which, RtSunTexels* out);
 
 // The parameters the last pass was given (the check's reference): the sun's place on the screen (the target's pixels,
-// centres at whole numbers), whether it is in front, a pixel's angle, the colour.
+// centres at whole numbers), whether it is in front, a pixel's angle, its disc's centre radiance (linear, the sky's
+// unit - rt_sky.h sun_disc_radiance) and angular radius.
 struct RtSunFrame {
     bool sun = false;
     std::array<float, 3> toward{};
@@ -87,6 +94,7 @@ struct RtSunFrame {
     bool in_front = false;
     float pixel_angle = 0.0F;
     float disc_radius = 0.0F;
+    uint32_t glare_levels = 0; // (added by the physical air) the glare's chain's levels (its share: glare_share)
 };
 [[nodiscard]] RtSunFrame rt_sun_frame();
 

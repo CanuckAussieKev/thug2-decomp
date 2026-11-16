@@ -23,27 +23,21 @@
 //      use it, or the console's `rt sun` override; masks 0x01 world + 0x02 objects, the first hit ends it) says whether
 //      that point is lit. The light scattered there toward the eye:
 //          L = fog colour x (a + (1 - a) x lit x phase x tint)   (a = 0.5: the share the sky and the surroundings give)
-//      phase = Henyey-Greenstein with g = rt_fog_anisotropy, x 4 pi (1 on average over the sphere: an unshadowed fog
-//      looks as the game's does), tint = 1 (the bake gives the sun no colour; the fog's carries the hue). No sun (the
+//      phase = the weather's aerosol's (Cornette-Shanks, rt_sky.h), x 4 pi (1 on average over the sphere: an unshadowed
+//      fog looks as the game's does), tint = 1 (the bake gives the sun no colour; the fog's carries the hue). No sun (the
 //      fit not run yet, or a level whose bake shows none - indoors, the Foundry): L = the fog colour - no shafts.
 //      Accumulated front to back: in += T (1 - e^-tau) L, T *= e^-tau (stopped once T is under 1e-4). (Changed by the
 //      street air, for its cost:) the steps go in pairs, one point of each pair - the first or the second by turns,
 //      frame to frame - tracing the light's shadow ray and the picked lamp's for both; the lamps a view ray never comes
 //      within reach of left out of its march.
 //      The street air (engine/gfx/rt_volume_light.h street_air - outdoors, where a sun or moon lights the level) is a
-//      second medium along every ray in every mode: its extinction added to the fog's (or the haze's), its light - the
-//      haze's per unit of light, its shade's the replaced fog's ambient (or the sky's in the aerial march; none where
-//      only the shafts are added) - mixed with the fog's by their shares of each segment's optical depth. (Added by the
-//      cinematic air - rt_volume_light.h AirLook, rt_fog_air:) its look sets its density, its glow (the sun's and the
-//      lamps' light it scatters, apart from its extinction), an even lobe added to its phase, its shade's share and a
-//      volume round the eye (its mist thinned to none by `range` at each segment's middle; a ray more than 4 x the
-//      volume long gives it half the steps).
-//   (added by the distinct shafts) 0. where the air's look has a volume round the eye (rt_volume_light.h air_map_half):
-//      the air's sun map - a square of rt_fog_quality's 512 / 1024 / 1536 texels across the light's way round the eye,
-//      each the distance down the light's way to the first thing its ray hits; the march reads it at every step inside
-//      the square (a bilinear compare, the light's disc's penumbra) instead of a ray each other step - the volume's
-//      shadows sharp, the gaps between the beams dark. A ray that leaves the volume marches `steps` inside it and half as
-//      many past it, those in a geometric series (the first kilometres - the clouds' gaps - as finely as the far haze).
+//      second medium along every ray of the level's own fog: the weather's aerosol near the ground (one layer) and the
+//      falling rain or snow, its extinction added to the fog's, its light kFogStreetAirLight per unit of light (the level
+//      fog's display-referred light), mixed with the fog's by their shares of each segment's optical depth.
+//   (added by the distinct shafts) 0. the air's sun map (rt_volume_light.h air_map_half) - a square of rt_fog_quality's
+//      512 / 1024 / 1536 texels across the light's way round the eye (kAirMapReach each way), each the distance down the
+//      light's way to the first thing its ray hits; the march reads it at every step inside the square (a bilinear
+//      compare, the light's disc's penumbra) instead of a ray each other step - the near air's shadows sharp.
 //   2. temporal: the texel's point reprojected through the viewport's camera of the frame before; the history read there
 //      (bilinear over the texels whose distance agrees), clamped to this frame's 3 x 3 neighbourhood (changed by the
 //      distinct shafts: its mean +- kFogHistorySpread deviations, inside its least and most), blended with this
@@ -55,7 +49,8 @@
 //      what is open along the line (the air before what stands on it shadowed by it), the light's colour, the setting.
 //   3. composite (full resolution, a blend): colour = colour x T + in - the low-resolution result upsampled with
 //      weights falling off with the difference between each texel's distance and the pixel's own (depth-aware); every
-//      sample of a multisampled target the pixel's value, alpha kept.
+//      sample of a multisampled target the pixel's value, alpha kept. (Changed by the physical air:) the aerial march's
+//      light is linear radiance - its composite reads a copy of the colour and writes (colour^2.2 x T + in)^(1/2.2).
 // Modes (rt_fog_mode):
 //   0 replace (the default): the level's own fog is turned off in the draws (rt_fog_replaces_level_fog; the Vulkan
 //     Gpu's fixed-function emulation) and the pass draws it instead - the same colour, distances and transmittance, but
@@ -93,28 +88,24 @@ inline constexpr float kFogShaftShare = 0.5F;       // mode 1's
 inline constexpr float kFogSunDistance = 100000.0F; // how far a ray toward the sun looks (world units)
 inline constexpr float kFogHazeEnd = 4000.0F;       // the haze's end (world units: its linear "fog" from the camera)
 inline constexpr std::array<float, 3> kFogHazeColour{0.8F, 0.8F, 0.8F};
-// (added by the sun's glare) The sky model's haze - aerial perspective (rt_sky_model=1 and rt_fog_haze=1 in a level
-// without fog, with a sun): a medium of its own instead of the thin haze's added light. Its extinction is
-// kFogAerialExtinction x rt_fog_haze_density per world unit at the level's ground (rt::BakedSun::ground; the camera's
-// height when unknown), thinning by e every rt_fog_haze_height above it and as thick as there below it (the sea under
-// a level's ground isn't in a thicker haze), followed to kFogAerialFar (closed form along each segment); x
-// rt_fog_density as the level's fog. Its light at a point:
-//     sky x (a + (1 - a) x lit)
-// sky the model's sky toward the ray's direction (no lower than kFogAerialLowest above the horizon), a =
-// kFogAerialSkyShare (the shade's share: lit haze about twice the shaded - beams between buildings). A long unshaded
-// path ends as the sky's colour - the colour the far world fades to, never brighter or whiter than the sky behind it
-// (the glow toward the sun is the table's own). Composited as the replaced fog: colour x T + light. The sky's pixels -
-// the sky dome, whose painted horizon (the sea, the hills) goes on where the level's meshes end - are the world past
-// the haze's reach: marched as a surface at kFogAerialFar, so a mesh that far meets them with the same haze (AU's sea
-// against its sky dome's painted sea: no seam).
-inline constexpr float kFogAerialExtinction = 1.0F / 12000.0F;
+// (added by the sun's glare; rewritten by the physical air) The atmosphere's air - aerial perspective (rt_sky_model=1
+// and rt_fog_haze=1 in a level without fog, with a sun): the medium the sky is made of, at the level's ground (the
+// baked sun's ground, rt::BakedSun::ground; the camera's height when unknown): the air's molecules (Rayleigh's
+// scattering, rt_sky.h kRayleigh, thinning over kRayleighHeight) and the weather's aerosol (rt_sky.h Aerosol: its haze
+// layer and any mist under it, their scattering, extinction and Cornette-Shanks phase), with the falling rain or snow
+// (rt_volume_light.h) - followed to kFogAerialFar (closed form along each segment). Its light is the single scattering
+// of the light (its irradiance in the sky's unit, its visibility traced) through both phases, every higher order as the
+// sky's own (Psi at the ground: the scattering x the atmosphere's multiple-scattering transfer), and the lamps' - linear
+// radiance, composited in linear light. Nothing caps it or tunes it toward a look: toward a low sun the air is as
+// bright as its forward scattering makes it, the aureole the same phase the sky's own aureole is. The sky's pixels: where
+// the atmosphere is drawn (rt_sky=1) nothing - its sky-view table holds the whole ray; over the level's painted sky dome
+// (its horizon the far world past the level's meshes) marched as a surface at kFogAerialFar.
+// A path tracer would read the same: sigma_s / sigma_t per band from kRayleigh and the Aerosol, the two phases, the
+// sun's irradiance (rt_sky.h sun_transmittance x the unit) and the sky's radiance from the sky-view table.
 inline constexpr float kFogAerialFar = 40000.0F;
-inline constexpr float kFogAerialSkyShare = 0.45F;
-inline constexpr float kFogAerialLowest = 0.03F; // radians
-// (added for Barcelona's harbour looking into a low sun) The haze's light is no brighter than the model's sky at the
-// same height a quarter turn from the sun x (1 + kFogAerialGlow): the table's aureole round a low sun lit all the haze
-// toward it white.
-inline constexpr float kFogAerialGlow = 0.35F;
+// The level's own fog's street air: its light per unit of light (display-referred - the level fog path's light; the
+// atmosphere's air above is linear radiance).
+inline constexpr float kFogStreetAirLight = 0.3025F;
 
 // The scene the rays are traced through (R2's TLAS; VK_NULL_HANDLE: none - the pass is then skipped, logged once). The
 // same contract as rt_shadows_set_scene (vulkan_rt_shadows.h). Thread: any (it takes the backend's lock) -

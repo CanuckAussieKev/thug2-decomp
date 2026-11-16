@@ -23,6 +23,7 @@
 #include "engine/file/disk.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sky.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -188,10 +189,11 @@ void main()
 }
 )";
 
-// (added by the low sun's glare) The meter (vulkan_hdr.h "The metering"; meter_mean / meter_target_stops / meter_adapt
-// are its twins): one group of METER_SIDE x METER_SIDE invocations, each METER_EACH x METER_EACH of the grid's samples
-// (sample 0 of a multisampled copy), their centre-weighted mean of the linear luminance - each sample's at most
-// METER_BRIGHTEST - summed in the group; the first invocation moves the viewport's slot toward its target.
+// (added by the low sun's glare; changed by the physical air) The meter (vulkan_hdr.h "The metering"; meter_light /
+// meter_key / meter_target_stops / meter_adapt are its twins): one group of METER_SIDE x METER_SIDE invocations, each
+// METER_EACH x METER_EACH of the grid's samples (sample 0 of a multisampled copy), their centre-weighted log of the
+// linear luminance - each sample's within METER_LEAST and METER_BRIGHTEST - summed in the group; the first invocation
+// moves the viewport's slot toward its target.
 constexpr const char* kMeterBody = R"(
 layout(local_size_x = METER_SIDE, local_size_y = METER_SIDE) in;
 shared float s_light[METER_SIDE * METER_SIDE];
@@ -208,11 +210,11 @@ void main()
             vec2 uv = (vec2(gl_LocalInvocationID.xy * uint(METER_EACH) + uvec2(i, j)) + 0.5) / grid;
             ivec2 p = ivec2(pc.meter_rect.xy) + ivec2(uv * pc.meter_rect.zw);
             vec3 c = texelFetch(u_colour, p, 0).rgb;
-            c = vec3(finite(c.r), finite(c.g), finite(c.b)) * pc.grade.x;
-            float l = min(dot(pow(c, vec3(METER_GAMMA)), vec3(0.2126, 0.7152, 0.0722)), METER_BRIGHTEST);
+            c = vec3(finite(c.r), finite(c.g), finite(c.b));
+            float l = clamp(dot(pow(c, vec3(METER_GAMMA)), vec3(0.2126, 0.7152, 0.0722)), METER_LEAST, METER_BRIGHTEST);
             vec2 d = uv - 0.5;
             float w = exp(-dot(d, d) / (2.0 * METER_CENTRE * METER_CENTRE));
-            light += w * l * l;
+            light += w * log(l);
             weight += w;
         }
     }
@@ -227,8 +229,11 @@ void main()
         barrier();
     }
     if (id == 0u) {
-        float mean = sqrt(s_light[0] / max(s_weight[0], 1e-6));
-        float target = clamp(-log2(max(mean, 1e-6) / METER_KEY), -pc.meter.w, 0.0);
+        float mean = exp(s_light[0] / max(s_weight[0], 1e-6));
+        // the key: the calibration's, x the eye's adaptation over daylight's (Krawczyk: the absolute luminance)
+        float adapted = 1.03 - 2.0 / (2.0 + log(mean * METER_WHITE + 1.0) / log(10.0));
+        float key = METER_KEY * adapted / METER_DAY_ADAPTED;
+        float target = clamp(log2(key / max(mean, METER_LEAST)), -pc.meter.w, pc.meter.w);
         int slot = int(pc.meter.x);
         float now = target;
         if (pc.meter.z > 0.0) {
@@ -639,6 +644,16 @@ void copy_barrier(VkCommandBuffer commands, Image* copy, VkImageLayout layout)
     copy->layout = layout;
 }
 
+// (added by the physical air) the eye's adaptation (Krawczyk, Myszkowski and Seidel 2005: the key 1.03 - 2 / (2 +
+// log10(L + 1)), L the absolute luminance - linear 1 the white diffuser under the reference day: the sun's illuminance
+// at the top over the unit's factor - rt_sky.h sky_exposure) and daylight's average (an 18% world under that day)
+constexpr double kDaylightAverage = 0.18;
+double meter_white() { return kSolarIlluminance / rt::sky_exposure(); }
+double adaptation_at(double mean)
+{
+    return 1.03 - (2.0 / (2.0 + std::log10((std::max(mean, 0.0) * meter_white()) + 1.0)));
+}
+
 // (added by the low sun's glare) The meter's compute pipeline for a single-sampled or multisampled copy (made on first
 // use; the layouts are the curve's).
 VkPipeline meter_pipeline(Backend& state, bool multisampled, std::string* error)
@@ -672,6 +687,9 @@ VkPipeline meter_pipeline(Backend& state, bool multisampled, std::string* error)
     define("METER_EACH", std::to_string(kMeterEach));
     define("METER_GAMMA", real(kGamma));
     define("METER_KEY", real(kMeterKey));
+    define("METER_LEAST", real(kMeterLeast));
+    define("METER_WHITE", real(static_cast<float>(meter_white())));
+    define("METER_DAY_ADAPTED", real(static_cast<float>(adaptation_at(kDaylightAverage))));
     define("METER_BRIGHTEST", real(kMeterBrightest));
     define("METER_CENTRE", real(kMeterCentre));
     define("METER_DARKEN", real(kMeterDarkenSeconds));
@@ -1164,6 +1182,7 @@ std::array<float, 3> tone_map_reference(const ToneParameters& parameters, const 
 
 // --- (added by the low sun's glare) the metering: the meter's twins -------------------------------------------------
 
+
 std::array<float, 2> meter_place(uint32_t i, uint32_t j)
 {
     const auto grid = static_cast<float>(kMeterGrid);
@@ -1183,14 +1202,19 @@ float meter_light(const std::array<float, 3>& colour)
     for (std::size_t channel = 0; channel < colour.size(); ++channel) {
         light += core::at(kLuma, channel) * std::pow(finite(core::at(colour, channel)), kGamma);
     }
-    return std::min(light, kMeterBrightest);
+    return std::clamp(light, kMeterLeast, kMeterBrightest);
+}
+
+float meter_key(float mean)
+{
+    return kMeterKey * static_cast<float>(adaptation_at(static_cast<double>(mean)) / adaptation_at(kDaylightAverage));
 }
 
 float meter_target_stops(float mean, float most_stops)
 {
-    constexpr float kLeast = 1e-6F;
-    const float stops = -std::log2(std::max(mean, kLeast) / kMeterKey);
-    return std::clamp(stops, -std::max(most_stops, 0.0F), 0.0F);
+    const float most = std::max(most_stops, 0.0F);
+    const float stops = std::log2(meter_key(mean) / std::max(mean, kMeterLeast));
+    return std::clamp(stops, -most, most);
 }
 
 float meter_adapt(float now_stops, float target_stops, float seconds)
@@ -1286,10 +1310,8 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     }
     const ToneParameters& tone = own.parameters;
     PassConstants constants{};
-    // (added by the time of day - engine/gfx/rt_daylight.h) the eye adapting: the night brought partly up
-    const rt::DayLight day = rt::day_light();
-    constants.grade = {day.on ? tone.scale * day.exposure : tone.scale, tone.saturation, tone.contrast,
-                       static_cast<float>(tone.curve)};
+    // (the user's exposure; the camera's own is the meter's - changed by the physical air: one controller)
+    constants.grade = {tone.scale, tone.saturation, tone.contrast, static_cast<float>(tone.curve)};
     constants.shape = {tone.knee, tone.room, tone.aces_scale, static_cast<float>(colour->samples)};
     const GradeLut& lut = own.lut;
     if (lut.size >= kLeastLut) {

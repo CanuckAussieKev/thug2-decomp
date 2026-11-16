@@ -6,6 +6,7 @@
 #include <vector>
 #include <volk.h>
 
+#include "engine/gfx/rt_sky.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 
 // NOT ORIGINAL - the sky model on the device (docs/design/vulkan.md "The sun, its glare and the sky"; engine/gfx/rt_sky.h
@@ -90,6 +91,8 @@ struct AtmosphereInput {
     // (added by the time of day - engine/gfx/rt_daylight.h DayLight::night_sky) the night sky's light overhead, added
     // to the model's (exposed linear; kNightHorizon times it at the horizon and below); 0 by day and without the clock
     std::array<float, 3> night{};
+    // (added by the physical air) the weather's aerosol (rt_sky.h): a change makes the transmittance and Psi again
+    rt::Aerosol aerosol = rt::aerosol_for(rt::Weather::kClear);
     bool operator==(const AtmosphereInput&) const = default;
 };
 // The tables brought up to date (recorded outside a pass, a barrier after). The caller holds the lock. False: they can't

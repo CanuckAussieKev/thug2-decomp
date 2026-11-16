@@ -919,12 +919,14 @@ constexpr double kMostAngleError = 1e-5;   // radians: a pixel's angle
 constexpr double kMostLightError = 0.02;   // relative (16-bit floats), + kLightSlack absolutely
 constexpr double kLightSlack = 2e-3;
 constexpr double kMostBadShare = 0.002;    // of the clear-cut pixels
-constexpr int kLeastDiscPixels = 20;
+constexpr int kLeastDiscPixels = 3; // (the real sun: 0.53 degrees across - a few pixels at 320 x 240)
 constexpr double kLeastAngle = 1e-6;     // (the shader's)
 constexpr double kLimbDarkening = 0.6;   // (the shader's)
 constexpr double kLeastFloatCentre = 4.0; // the disc's centre in a float target: above 1, kept
 
-// The light the source pass adds at a sky pixel (the formula, vulkan_rt_sun.h step 2).
+// The light the source pass adds at a sky pixel (the formula, vulkan_rt_sun.h step 1; changed by the physical air: the
+// real sun's disc, its centre's radiance the atmosphere's transmitted sun - rt_sky.h sun_disc_radiance -, nothing round
+// it).
 Rgb disc_light(const vk::RtSunFrame& frame, double theta)
 {
     const double radius = frame.disc_radius;
@@ -932,9 +934,7 @@ Rgb disc_light(const vk::RtSunFrame& frame, double theta)
         std::clamp(((radius - theta) / std::max(static_cast<double>(frame.pixel_angle), kLeastAngle)) + kHalf, 0.0, 1.0);
     const double across = std::min(theta / radius, 1.0);
     const double limb = 1.0 - (kLimbDarkening * (1.0 - std::sqrt(std::max(1.0 - (across * across), 0.0))));
-    const double glow = (vk::kSunAureoleNear * std::exp(-theta / vk::kSunAureoleNearWidth)) +
-                        (vk::kSunAureoleWide * std::exp(-theta / vk::kSunAureoleWideWidth));
-    const double amount = (vk::kSunDiscIntensity * limb * edge) + glow;
+    const double amount = limb * edge;
     return {core::at(frame.colour, 0) * amount, core::at(frame.colour, 1) * amount, core::at(frame.colour, 2) * amount};
 }
 
@@ -967,6 +967,19 @@ void run_disc(render::Gpu& gpu, bool floats, Tally* tally)
                                               direction_at(view, {.x = centre_point.x + 1.0, .y = centre_point.y}));
     tally->check(std::abs(static_cast<double>(frame.pixel_angle) - centre_angle) < kMostAngleError,
                  text::format("a pixel's angle %.6f against %.6f", static_cast<double>(frame.pixel_angle), centre_angle));
+    // (added by the physical air) the disc is the real sun: its size, its radiance the atmosphere's - its irradiance
+    // (the disc's radiance over its solid angle, limb-darkened) the transmitted sun's in the sky's unit
+    const double elevation = std::asin(std::clamp(y_of(to_sun()), -1.0, 1.0));
+    const Rgb through = render::rt::sun_transmittance(elevation, 64);
+    const double irradiance = static_cast<double>(core::at(frame.colour, 1)) * render::rt::sun_solid_angle() *
+                              (1.0 - (render::rt::kSunLimbDarkening / 3.0));
+    const double wanted = core::at(through, 1) * render::rt::sky_exposure();
+    tally->check(std::abs(static_cast<double>(frame.disc_radius) - render::rt::kSunAngularRadius) < 1e-9 &&
+                     std::abs(irradiance - wanted) < 1e-3 * wanted,
+                 text::format("the disc: %.4f radians across its radius (the sun's 0.53 degrees), its irradiance %.4f "
+                              "(green) the transmitted sun's %.4f in the sky's unit; its centre %.0f",
+                              static_cast<double>(frame.disc_radius), irradiance, wanted,
+                              static_cast<double>(core::at(frame.colour, 1))));
     vk::RtSunTexels light;
     const bool read = read_sun(vk::RtSunImage::kLight, kTargetWidth, kTargetHeight, &light) &&
                       light.width == kTargetWidth && light.height == kTargetHeight;
@@ -1040,6 +1053,14 @@ constexpr double kMostLevels = 0.6;        // 8-bit levels: the frame's mean thr
 constexpr double kLeastSpreadPeak = 10.0;  // the disc's light: well above 1
 constexpr double kMostFloatCopyError = 1e-3;
 
+// (added by the physical air) the game's colours as linear light (the composite's and the glare's)
+constexpr double kGamma = 2.2;
+Rgb linear_of(const Rgb& colour)
+{
+    return {std::pow(std::max(core::at(colour, 0), 0.0), kGamma), std::pow(std::max(core::at(colour, 1), 0.0), kGamma),
+            std::pow(std::max(core::at(colour, 2), 0.0), kGamma)};
+}
+
 double mean_luma(const vk::RtSunTexels& image)
 {
     double sum = 0.0;
@@ -1070,7 +1091,7 @@ void check_composite(const Composited& in, Tally* tally)
     for (std::size_t index = 0; index < in.after->size(); ++index) {
         const Rgb& got = core::at(*in.after, index);
         not_finite += std::ranges::all_of(got, [](double value) { return std::isfinite(value); }) ? 0 : 1;
-        after_sum += luma(got);
+        after_sum += luma(linear_of(got));
         Rgb sum = plus(rgb_of(core::at(in.base->texels, index)), rgb_of(core::at(in.light->texels, index)));
         if (!in.floats) {
             for (double& value : sum) {
@@ -1092,7 +1113,7 @@ void check_composite(const Composited& in, Tally* tally)
     // the spread light; at least the frame's own)
     double plain_sum = 0.0;
     for (const Rgb& drawn : *in.plain) {
-        plain_sum += luma(drawn);
+        plain_sum += luma(linear_of(drawn));
     }
     tally->check(not_finite == 0 && most <= 1.0 && after_sum >= plain_sum && after_sum <= before_sum + (in.spread * count),
                  text::format("8 bits: no NaN, at most 1, brighter than the frame (%.4f -> %.4f mean), within what was "
@@ -1132,13 +1153,15 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
         release_targets(gpu, targets);
         return;
     }
-    // what is spread, X (rt_bloom_strength x the frame + kSunGlareBloom x the light), and the chain's top: the same light
+    // what is spread, X (the eye's glare: glare_share of the chain's levels x all the light, linear), and the chain's
+    // top: the same light
+    const double share = static_cast<double>(vk::glare_share(vk::rt_sun_frame().glare_levels));
     double spread = 0.0;
     double brightest = 0.0;
     for (std::size_t index = 0; index < base.texels.size(); ++index) {
         const Rgb frame_colour = rgb_of(core::at(base.texels, index));
         const Rgb added = rgb_of(core::at(light.texels, index));
-        spread += luma(plus(scaled(frame_colour, vk::kRtBloomStrength), scaled(added, vk::kSunGlareBloom)));
+        spread += luma(scaled(plus(frame_colour, added), share));
         brightest = std::max(brightest, luma(plus(frame_colour, added)));
     }
     spread /= static_cast<double>(base.texels.size());
@@ -1149,17 +1172,17 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
                      std::abs(bloomed - spread) <= kMostEnergyError * spread,
                  text::format("the light kept: X's mean %.5f, the first level down %.5f, the chain's top %.5f", spread,
                               down, bloomed));
-    // the frame's own colour copied out unchanged (8-bit: exactly)
+    // the frame's own colour copied out as linear light (each channel ^ 2.2: 8-bit within half a level's slope)
     double base_error = 0.0;
     for (std::size_t index = 0; index < plain.size(); ++index) {
         const Rgb copied = rgb_of(core::at(base.texels, index));
         for (std::size_t channel = 0; channel < kChannels; ++channel) {
-            base_error =
-                std::max(base_error, std::abs(core::at(copied, channel) - core::at(core::at(plain, index), channel)));
+            const double want = std::pow(core::at(core::at(plain, index), channel), kGamma);
+            base_error = std::max(base_error, std::abs(core::at(copied, channel) - want));
         }
     }
-    tally->check(base_error <= (floats ? kMostFloatCopyError : kHalf * kPerByte),
-                 text::format("the frame copied out as drawn (the largest difference %.5f)", base_error));
+    tally->check(base_error <= (floats ? kMostFloatCopyError : kGamma * kHalf * kPerByte),
+                 text::format("the frame copied out as linear light (the largest difference %.5f)", base_error));
     std::vector<Rgb> after;
     const bool read_after = read_colour(targets, &after);
     tally->check(read_after, "the target read back");
@@ -1167,88 +1190,126 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
         check_composite({.floats = floats, .plain = &plain, .after = &after, .base = &base, .light = &light, .spread = spread},
                         tally);
     }
-    // the frame's own bloom alone (no sun): the 8-bit frame's sum kept
+    // the frame's own glare alone (no sun): the 8-bit frame's light kept (linear: the glare moves light, the display's
+    // curve would count it twice)
     if (!floats) {
         vk::set_rt_sun_settings(sun_settings(false, true, false));
-        tally->check(draw_frame(gpu, targets, pose) == 1, "the bloom alone: the pass recorded");
+        tally->check(draw_frame(gpu, targets, pose) == 1, "the glare alone: the pass recorded");
         std::vector<Rgb> bloomed_frame;
         if (read_colour(targets, &bloomed_frame)) {
             double plain_sum = 0.0;
             double after_sum = 0.0;
             for (std::size_t index = 0; index < plain.size(); ++index) {
-                plain_sum += luma(core::at(plain, index));
-                after_sum += luma(core::at(bloomed_frame, index));
+                plain_sum += luma(linear_of(core::at(plain, index)));
+                after_sum += luma(linear_of(core::at(bloomed_frame, index)));
             }
             const auto count = static_cast<double>(plain.size());
-            tally->check(std::abs(after_sum - plain_sum) / count <= kMostLevels * kPerByte,
-                         text::format("the bloom alone keeps the frame's mean: %.5f -> %.5f (%.2f levels)",
-                                      plain_sum / count, after_sum / count,
-                                      std::abs(after_sum - plain_sum) / count / kPerByte));
+            tally->check(std::abs(after_sum - plain_sum) <= kMostEnergyError * plain_sum,
+                         text::format("the glare alone keeps the frame's light: %.5f -> %.5f (linear mean)",
+                                      plain_sum / count, after_sum / count));
         }
     }
     release_targets(gpu, targets);
 }
 
-// --- 5. the aerial haze ----------------------------------------------------------------------------------------------
+// --- 5. the aerial air (rewritten by the physical air) ----------------------------------------------------------------
+// The atmosphere's air in a level without fog (rt_fog=1, rt_fog_haze=1, rt_sky_model=1): the march's transmittance
+// against the closed form of the same medium (the air's molecules and the aerosol thinning above the ground - here the
+// camera's height, no baked ground), and its light between the medium's own in the shade (the light scattered more
+// than once alone) and fully sunlit (the light's irradiance through both phases, nothing shadowing it) - a processor
+// march of the same coefficients. The check's scene is small: a thick test aerosol (rt::set_aerosol) so the air is
+// measurable over it.
 
-constexpr float kAerialHazeDensity = 20.0F; // (the check's scene is small: a thick haze)
-constexpr float kAerialHeight = 60.0F;
+constexpr float kAerialHeight = 60.0F;       // world units: the test aerosol's scale height
+constexpr double kTestAerosol = 0.06;        // per metre at the ground (grey)
+constexpr double kTestAlbedo = 0.9;
 constexpr unsigned kAerialSteps = 32;
 constexpr double kMostAerialError = 4e-3;
 constexpr double kMostDepth = 40.0;          // (the shader's)
 constexpr double kStraight = 1e-9;           // a ray this level (x its length / the height) is straight
-constexpr double kSkySlack = 0.92;           // the sky's colour: the table's few steps and 16-bit floats
-constexpr double kSkySlackAbsolute = 1e-3;
+constexpr double kAerialSlack = 0.92;        // the march's few steps and 16-bit floats against the fine march
+constexpr double kAerialSlackAbsolute = 1e-3;
 constexpr int kLeastSurfaceTexels = 1000;
-constexpr double kMostThinnest = 0.5;        // the thinnest texel's transmittance below this: the haze is tested
-constexpr render::rt::SkySteps kSkyReference{.view = 128, .light = 64};
+constexpr double kMostThinnest = 0.5;        // the thinnest texel's transmittance below this: the air is tested
+constexpr uint32_t kFineAerialSteps = 512;
 
-// The haze's optical depth along a view ray to `distance` (the closed form of its height profile; with the override's
-// sun there is no baked ground: the haze's ground is the camera's height, its density there aerial extinction x density,
-// thinning above it and even below it - a ray going down stays at the ground's density).
-double aerial_depth(const Vec3& direction, double distance)
+render::rt::Aerosol test_aerosol()
 {
-    const double sigma = static_cast<double>(vk::kFogAerialExtinction) * kAerialHazeDensity;
-    const double rise = y_of(direction) / kAerialHeight;
-    if (rise <= 0.0 || rise * distance < kStraight) {
-        return sigma * distance;
-    }
-    return sigma * (1.0 - std::exp(-rise * distance)) / rise;
+    render::rt::Aerosol air;
+    air.extinction = {kTestAerosol, kTestAerosol, kTestAerosol};
+    air.scattering = {kTestAerosol * kTestAlbedo, kTestAerosol * kTestAlbedo, kTestAerosol * kTestAlbedo};
+    air.height = static_cast<double>(kAerialHeight) / render::rt::kUnitsPerMetre;
+    air.mist = 0.0;
+    air.g = 0.8;
+    return air;
 }
 
-// The model's sky (display-referred luma: each channel ^(1 / gamma), as the shaders' sky_display) toward the
-// horizon-level direction of a view ray, as the march reads its table.
-double sky_luma_toward(const Vec3& direction)
+// A layer's density-weighted length along a view ray to `distance` from the ground (thinning by e every `height` world
+// units above it, as dense as there below it - a ray going down stays at the ground's density).
+double layer_length(const Vec3& direction, double distance, double height)
 {
-    const Vec3 level = normalised(
-        {x_of(direction), std::max(y_of(direction), static_cast<double>(vk::kFogAerialLowest)), z_of(direction)});
-    const double horizontal = std::max(std::hypot(x_of(level), z_of(level)) * std::hypot(x_of(to_sun()), z_of(to_sun())),
-                                       kShortestHorizontal);
-    const double azimuth = std::acos(
-        std::clamp(((x_of(level) * x_of(to_sun())) + (z_of(level) * z_of(to_sun()))) / horizontal, -1.0, 1.0));
-    const double elevation = std::asin(std::clamp(y_of(level), -1.0, 1.0));
-    const render::rt::Dir model_sun = render::rt::sun_direction_at(std::asin(y_of(to_sun())));
-    const auto display_at = [&](double toward) {
-        const render::rt::Dir model_dir{std::cos(elevation) * std::cos(toward), std::sin(elevation),
-                                        std::cos(elevation) * std::sin(toward)};
-        const Rgb radiance = render::rt::sky_radiance(model_dir, model_sun, kSkyReference);
-        Rgb display{};
-        for (std::size_t channel = 0; channel < display.size(); ++channel) {
-            core::at(display, channel) =
-                std::pow(core::at(radiance, channel) * render::rt::sky_exposure(), 1.0 / render::rt::kDisplayGamma);
-        }
-        return display;
-    };
-    // (the glow toward the sun capped as the march caps it: no brighter than a quarter turn from the sun at the same
-    // height x (1 + kFogAerialGlow))
-    constexpr double kQuarterTurn = 1.5707963267948966;
-    Rgb display = display_at(azimuth);
-    const Rgb side = display_at(kQuarterTurn);
-    for (std::size_t channel = 0; channel < display.size(); ++channel) {
-        core::at(display, channel) = std::min(core::at(display, channel),
-                                              core::at(side, channel) * (1.0 + static_cast<double>(vk::kFogAerialGlow)));
+    const double rise = y_of(direction) / height;
+    if (rise <= 0.0 || rise * distance < kStraight) {
+        return distance;
     }
-    return luma(display);
+    return (1.0 - std::exp(-rise * distance)) / rise;
+}
+
+// The closed form's transmittance (the extinction's luma, as the march takes one transmittance for three channels).
+double aerial_transmittance(const Vec3& direction, double distance)
+{
+    const double units = render::rt::kUnitsPerMetre;
+    const render::rt::Aerosol air = test_aerosol();
+    const double rayleigh = layer_length(direction, distance, render::rt::kRayleighHeight * units);
+    const double aerosol = layer_length(direction, distance, air.height * units);
+    Rgb tau{};
+    for (std::size_t channel = 0; channel < kChannels; ++channel) {
+        core::at(tau, channel) = ((core::at(render::rt::kRayleigh, channel) * rayleigh) +
+                                  (core::at(air.extinction, channel) * aerosol)) /
+                                 units;
+    }
+    return std::exp(-std::min(luma(tau), kMostDepth));
+}
+
+// The fine march's light (luma) along a view ray: the shade's (the light scattered more than once) or all of it sunlit.
+double aerial_light(const Vec3& direction, double distance, bool sunlit)
+{
+    namespace rt = render::rt;
+    const double units = rt::kUnitsPerMetre;
+    const rt::Aerosol air = test_aerosol();
+    const double unit = rt::sky_exposure();
+    const double rise = std::clamp(y_of(to_sun()), -1.0, 1.0);
+    const Rgb through = rt::sun_transmittance(std::asin(rise), 64);
+    const Rgb psi = rt::multiple_scattering({.altitude = 0.0, .cos_sun = rise}, {.steps = 10, .light = 8});
+    const double mu = dot(direction, to_sun());
+    const double rayleigh_phase = rt::rayleigh_phase(mu);
+    const double aerosol_phase = rt::aerosol_phase(mu, air.g);
+    double kept = 1.0;
+    double light = 0.0;
+    const double ds = distance / kFineAerialSteps;
+    for (uint32_t i = 0; i < kFineAerialSteps; ++i) {
+        const double s = (static_cast<double>(i) + kHalf) * ds;
+        const double h = std::max(y_of(direction) * s, 0.0);
+        const double dr = std::exp(-h / (rt::kRayleighHeight * units)) * ds / units;
+        const double da = std::exp(-h / (air.height * units)) * ds / units;
+        Rgb source{};
+        Rgb tau{};
+        for (std::size_t channel = 0; channel < kChannels; ++channel) {
+            const double r_s = core::at(rt::kRayleigh, channel) * dr;
+            const double a_s = core::at(air.scattering, channel) * da;
+            core::at(tau, channel) = r_s + (core::at(air.extinction, channel) * da);
+            core::at(source, channel) = core::at(psi, channel) * unit * (r_s + a_s);
+            if (sunlit) {
+                core::at(source, channel) +=
+                    core::at(through, channel) * unit * ((r_s * rayleigh_phase) + (a_s * aerosol_phase));
+            }
+        }
+        const double t = luma(tau);
+        const double e = std::exp(-t);
+        light += kept * (t > 1e-12 ? (1.0 - e) / t : 1.0) * luma(source);
+        kept *= e;
+    }
+    return light;
 }
 
 struct AerialTally {
@@ -1259,6 +1320,8 @@ struct AerialTally {
     int below = 0;
     int above = 0;
     double thinnest = 1.0;
+    double darkest = 1e30;
+    double brightest = 0.0;
 };
 
 void judge_aerial_texel(const View& view, const std::array<float, 4>& marched, const std::array<float, 4>& info,
@@ -1267,11 +1330,11 @@ void judge_aerial_texel(const View& view, const std::array<float, 4>& marched, c
     const bool sky = core::at(info, 0) < 0.0;
     const double transmittance = core::at(marched, 3);
     const Vec3 direction = direction_at(view, {.x = core::at(info, 1), .y = core::at(info, 2)});
-    // (the sky: the world past the haze's reach, a surface at the far plane along the ray - where the meshes are cut -
-    // or the haze's end, the nearer)
+    // (the sky over a painted dome: the world past the air's reach, a surface at the far plane along the ray - where the
+    // meshes are cut - or the air's end, the nearer)
     const double far_along = static_cast<double>(kFarZ) / std::max(-dot(direction, view.back), kShortestHorizontal);
     const double distance = sky ? std::min(far_along, static_cast<double>(vk::kFogAerialFar)) : core::at(info, 0);
-    const double want = std::exp(-std::min(aerial_depth(direction, distance), kMostDepth));
+    const double want = aerial_transmittance(direction, distance);
     if (sky) {
         ++out->sky;
         out->worst_sky = std::max(out->worst_sky, std::abs(transmittance - want));
@@ -1280,21 +1343,18 @@ void judge_aerial_texel(const View& view, const std::array<float, 4>& marched, c
         out->worst = std::max(out->worst, std::abs(transmittance - want));
         out->thinnest = std::min(out->thinnest, want);
     }
-    // the light at least the sky's share of the sky's colour (what the shade gives) and at most that share and the
-    // sunlit haze's light (changed by the volumetric light - rt_volume_light.h: the shade's share of the sky, and the
-    // sun's light scattered toward the eye by the air's phase, kHazeSunlit at phase 1, its colour's luma 1)
-    const double sky_luma = (1.0 - want) * sky_luma_toward(direction);
-    const double sunlit = (1.0 - want) * (1.0 - static_cast<double>(vk::kFogAerialSkyShare)) *
-                          static_cast<double>(render::rt::kHazeSunlit) *
-                          render::rt::medium_phase(dot(direction, to_sun()), static_cast<double>(vk::kRtFogAnisotropy));
     const double light = luma(rgb_of(marched));
-    out->below += light < (vk::kFogAerialSkyShare * sky_luma * kSkySlack) - kSkySlackAbsolute ? 1 : 0;
-    out->above += light > (((vk::kFogAerialSkyShare * sky_luma) + sunlit) / kSkySlack) + kSkySlackAbsolute ? 1 : 0;
+    const double shade = aerial_light(direction, distance, false);
+    const double sunlit = aerial_light(direction, distance, true);
+    out->darkest = std::min(out->darkest, light);
+    out->brightest = std::max(out->brightest, light);
+    out->below += light < (shade * kAerialSlack) - kAerialSlackAbsolute ? 1 : 0;
+    out->above += light > (sunlit / kAerialSlack) + kAerialSlackAbsolute ? 1 : 0;
 }
 
 void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
 {
-    text::print("the aerial haze (rt_fog=1, rt_fog_haze=1, rt_sky_model=1, no level fog):\n");
+    text::print("the atmosphere's air (rt_fog=1, rt_fog_haze=1, rt_sky_model=1, no level fog; a thick test aerosol):\n");
     vk::RtSunSettings sky = sun_settings(false, false, false);
     sky.sky_model = true;
     vk::set_rt_sun_settings(sky);
@@ -1302,10 +1362,8 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
     fog.on = true;
     fog.steps = kAerialSteps;
     fog.haze = true;
-    fog.haze_density = kAerialHazeDensity;
-    fog.haze_height = kAerialHeight;
-    fog.air = render::rt::AirLook::kNone; // (the aerial haze alone: the street air's own cases are thug2_vulkan_rt_fog_check's)
     vk::set_rt_fog_settings(fog);
+    render::rt::set_aerosol(test_aerosol()); // (after the settings: they put the weather's in place)
     vk::rt_fog_set_scene(scene.top.handle);
     Targets targets;
     const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, false, &targets);
@@ -1332,15 +1390,16 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
                                       "thinnest %.3f)",
                                       counted.surfaces, counted.worst, counted.thinnest));
             tally->check(counted.sky > kLeastSurfaceTexels && counted.worst_sky <= kMostAerialError,
-                         text::format("%d sky texels: hazed as a surface at the far plane (%.0f), within %.5f",
+                         text::format("%d sky texels (a painted dome): the far world at the far plane (%.0f), within %.5f",
                                       counted.sky, static_cast<double>(kFarZ), counted.worst_sky));
-            tally->check(counted.below == 0,
-                         text::format("the light at least the sky's share of the sky's colour (%d below)", counted.below));
-            tally->check(counted.above == 0,
-                         text::format("the light at most the shade's share and the sunlit haze's (%d above)", counted.above));
+            tally->check(counted.below == 0 && counted.above == 0,
+                         text::format("the light between the medium's in the shade and all of it sunlit (%d below, %d "
+                                      "above; %.4f - %.4f linear)",
+                                      counted.below, counted.above, counted.darkest, counted.brightest));
         }
     }
     release_targets(gpu, targets);
+    render::rt::set_weather(render::rt::Weather::kClear);
     vk::rt_fog_set_scene(VK_NULL_HANDLE);
     vk::set_rt_fog_settings({});
     vk::set_rt_sun_settings({});

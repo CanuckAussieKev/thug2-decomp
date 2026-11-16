@@ -698,10 +698,9 @@ void check_level_light()
         for (const char* pass : {"rt_shadows", "rt_ao", "rt_lights"}) {
             expect(!level.at(pass).in_effect, std::string(each.what) + ": " + pass + " out of effect (no pass on a bake)");
         }
-        // (added by the cinematic air: the air is lit by the relit level's sun alone - the fog keeps the level's own
-        // look, the air's look out of effect with the relit data's reason)
-        expect(level.on("rt_fog") && !level.at("rt_fog_air").in_effect && level.at("rt_fog_air").reason == each.reason,
-               std::string(each.what) + ": the fog on, the air's look out of effect - " + level.at("rt_fog_air").reason);
+        // (changed by the physical air: the weather is the sky's aerosol too - in effect whatever the level's lighting)
+        expect(level.on("rt_fog") && level.at("rt_fog_air").in_effect,
+               std::string(each.what) + ": the fog on, the weather in effect");
         expect(level.at("rt_shadows").reason == each.reason,
                std::string(each.what) + ": the shadows say why at the root - " + level.at("rt_shadows").reason);
         expect(std::string(each.reason).find("relit_bake") != std::string::npos ||
@@ -766,7 +765,7 @@ void check_capabilities()
     const config::Resolution fog = config::resolve(foggy);
     expect(!fog.at("rt_fog_haze").in_effect && fog.at("rt_fog_haze").reason == t::kLevelHasFog,
            "a level with fog of its own: no haze");
-    expect(!fog.at("rt_fog_haze_density").in_effect, "a level with fog of its own: the haze's air out of effect");
+
     expect(fog.on("rt_fog"), "a level with fog of its own: the volumetric fog still on");
     // (added by the snow) snow on outdoor levels only - the level's fact; its three knobs with it; Vulkan, no ray tracing
     const Ini snowy = {{"snow", "1"}, {"snow_depth", "6"}, {"snow_trail_quality", "3"}, {"snowfall", "1"}};
@@ -950,20 +949,37 @@ void check_forces_and_conflicts()
     expect(resolve(fast_display, {{"frame_generation", "4x"}, {"present_mode", "immediate"}, {"max_fps", "120"}}).active.empty(),
            "120 x 4 on a 480 Hz display: none");
     // the haze, its air and the sky model; smooth curves' strength; the grade under an art style with its own
-    // (added by the cinematic air) the air's look: cinematic by default, the ini's old numbers as its steps
+    // (changed by the physical air) the weather: clear by default; the ini's old numbers and "cinematic" as its steps;
+    // the sky's aerosol too - in effect with the real sky or the sky model alone
     const config::Resolution air = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_relit", "1"}});
-    expect(air.value("rt_fog_air") == "cinematic" && air.at("rt_fog_air").in_effect, "the air's look: cinematic");
+    expect(air.value("rt_fog_air") == "clear" && air.at("rt_fog_air").in_effect, "the weather: clear");
     const config::Resolution air_two =
         resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_relit", "1"}, {"rt_fog_air", "2"}});
     expect(air_two.value("rt_fog_air") == "misty", "rt_fog_air=2: misty");
+    expect(resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_fog_air", "cinematic"}}).value("rt_fog_air") ==
+               "hazy",
+           "an older ini's cinematic air: hazy");
+    expect(resolve(rtx50(), {{"rt_sky", "1"}, {"rt_fog_air", "hazy"}}).at("rt_fog_air").in_effect,
+           "the weather with the real sky alone: in effect");
+    expect(!resolve(rtx50(), {{"rt_fog_air", "hazy"}}).at("rt_fog_air").in_effect,
+           "the weather without the fog or a sky: out");
     const config::Resolution air_unrelit =
         resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_relit", "0"}, {"rt_lights", "0"}});
-    expect(!air_unrelit.at("rt_fog_air").in_effect, "the air's look needs relit lighting");
-    // (added by the god rays) on by default with the fog and the relit level; off, on, strong; out without relit
+    // (added by the god rays) on by default with the fog and the relit level; on or off (an older ini's strong: on);
+    // out without relit
     expect(air.value("rt_fog_god_rays") == "1" && air.at("rt_fog_god_rays").in_effect, "the god rays: on by default");
     expect(resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_relit", "1"}, {"rt_fog_god_rays", "2"}})
-                   .value("rt_fog_god_rays") == "2",
-           "rt_fog_god_rays=2: strong");
+                   .value("rt_fog_god_rays") == "1",
+           "rt_fog_god_rays=2 (an older ini's strong): on");
+    // (retired by the physical air: the knobs that tuned the light toward a look)
+    for (const char* retired : {"rt_fog_strength", "rt_fog_anisotropy", "rt_fog_haze_density", "rt_fog_haze_height",
+                                "rt_sun_size", "rt_sun_colour", "rt_bloom_strength"}) {
+        expect(!resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_bloom", "1"}, {"rt_sun", "1"},
+                                  {retired, "2"}})
+                    .at(retired)
+                    .in_effect,
+               std::string(retired) + " is retired (physical)");
+    }
     expect(!air_unrelit.at("rt_fog_god_rays").in_effect, "the god rays need relit lighting");
     expect(!resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_relit", "1"}}).at("rt_fog_god_rays").in_effect,
            "the god rays need rt_fog");
@@ -973,9 +989,7 @@ void check_forces_and_conflicts()
            "rt_exposure_adapt: 2 by default with rt_hdr");
     expect(!resolve(rtx50(), {}).at("rt_exposure_adapt").in_effect, "rt_exposure_adapt needs rt_hdr");
     const config::Resolution haze = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}});
-    expect(haze.on("rt_fog_haze") && !haze.at("rt_fog_haze_density").in_effect &&
-               haze.at("rt_fog_haze_density").reason == t::kNeedsHazeAndSkyModel,
-           "the haze without the sky model: its density out of effect");
+    expect(haze.on("rt_fog_haze"), "the haze with volumetric fog: on");
     expect(!resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_sky_model", "1"}}).at("rt_fog_haze").in_effect,
            "the haze without volumetric fog: out of effect (the fog pass draws it)");
     const config::Resolution tess = resolve(rtx50(), {{"rt_tessellation", "1"}});
@@ -1007,9 +1021,7 @@ void check_forces_and_conflicts()
     expect(!resolve(no_vulkan(), {}).on("building_relief"), "building relief: off without Vulkan");
     expect(!resolve(rtx50(), {{"building_relief", "0"}}).at("building_relief_strength").in_effect,
            "building relief off: its strength out");
-    // the sun's colour: with the sun, its rays, the bloom or the sky model
-    expect(!resolve(rtx50(), {{"rt_sun_colour", "1,1,1"}}).at("rt_sun_colour").in_effect, "the sun's colour alone: out");
-    expect(resolve(rtx50(), {{"rt_bloom", "1"}, {"rt_sun_colour", "1,1,1"}}).at("rt_sun_colour").in_effect, "with the bloom: in");
+
     // retired: rt_cel
     expect(!resolve(rtx50(), {{"rt_cel", "1"}}).at("rt_cel").in_effect, "rt_cel is retired");
     // the screen's rows: greyed with the reason, the value in use shown

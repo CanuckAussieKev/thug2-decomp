@@ -20,6 +20,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sky.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -47,9 +48,6 @@ constexpr uint32_t kGroupSide = 8;
 constexpr std::size_t kMatrixSide = 4;
 constexpr std::size_t kMatrixFloats = kMatrixSide * kMatrixSide;
 constexpr double kSingular = 1e-300;
-constexpr float kMinSize = 0.25F;
-constexpr float kMaxSize = 4.0F;
-constexpr float kMaxBloom = 0.5F;
 constexpr double kInFront = 1e-9;
 constexpr double kDegreesPerRadian = 57.29577951308232;
 
@@ -68,11 +66,11 @@ layout(set = 0, binding = 6) uniform SunBlock {
     mat4 to_world;      // the target's pixel (x, y, depth, 1) -> world
     vec4 camera;        // xyz
     vec4 sun;           // xyz toward the sun; w 1: there is one in front
-    vec4 sun_colour;    // rgb its colour; w the disc's intensity
+    vec4 sun_colour;    // rgb the disc's centre radiance (linear, the sky's unit)
     vec4 sun_screen;    // xy its place (the target's pixels, centres whole); z 1 in front
-    vec4 disc;          // x its angular radius, y a pixel's angle, z the near glow's width, w the wide glow's
-    vec4 aureole;       // x the near glow's share, y the wide glow's
-    vec4 bloom;         // x the share of the frame's colour spread, y of the light added, z lens dirt, w 1: kept above 1 (rt_hdr)
+    vec4 disc;          // x its angular radius, y a pixel's angle, z the limb darkening
+    vec4 aureole;       // (unused)
+    vec4 bloom;         // x the share of the light the glare spreads, z lens dirt, w 1: kept above 1 (rt_hdr)
     ivec4 rect;         // the viewport in the target's pixels
     ivec4 low;          // xy the half-resolution images' size, w the bloom's levels
     ivec4 flags;        // x the colour's samples, y the disc, w the bloom
@@ -102,6 +100,10 @@ vec3 finite_colour(vec3 c)
 {
     return mix(vec3(0.0), min(c, vec3(65504.0)), greaterThanEqual(c, vec3(0.0)));
 }
+
+// (changed by the physical air) the game's colours as linear light (the glare spreads energy, not display values),
+// held inside a 16-bit float's range
+vec3 linear_of(vec3 c) { return min(pow(finite_colour(c), vec3(2.2)), vec3(65000.0)); }
 )";
 
 // Step 1: the source (full resolution): the frame's colour, and the light added. (The screen-space rays that were step
@@ -130,13 +132,13 @@ void main()
 #ifdef MULTISAMPLED
     int samples = max(sun.flags.x, 1);
     for (int s = 0; s < samples; ++s) {
-        colour += finite_colour(texelFetch(u_colour, at, s).rgb);
+        colour += linear_of(texelFetch(u_colour, at, s).rgb);
         sky += texelFetch(u_depth, at, s).r >= 1.0 ? 1.0 : 0.0;
     }
     colour /= float(samples);
     sky /= float(samples);
 #else
-    colour = finite_colour(texelFetch(u_colour, at, 0).rgb);
+    colour = linear_of(texelFetch(u_colour, at, 0).rgb);
     sky = texelFetch(u_depth, at, 0).r >= 1.0 ? 1.0 : 0.0;
 #endif
     vec3 light = vec3(0.0);
@@ -145,9 +147,8 @@ void main()
         float radius = sun.disc.x;
         float edge = clamp((radius - theta) / max(sun.disc.y, 1e-6) + 0.5, 0.0, 1.0);
         float t = min(theta / radius, 1.0);
-        float limb = 1.0 - 0.6 * (1.0 - sqrt(max(1.0 - t * t, 0.0)));
-        float glow = sun.aureole.x * exp(-theta / sun.disc.z) + sun.aureole.y * exp(-theta / sun.disc.w);
-        light += sky * sun.sun_colour.rgb * (sun.sun_colour.w * limb * edge + glow);
+        float limb = 1.0 - sun.disc.z * (1.0 - sqrt(max(1.0 - t * t, 0.0)));
+        light += sky * sun.sun_colour.rgb * (limb * edge);
     }
     imageStore(o_a, p, vec4(colour, 1.0));
     imageStore(o_b, p, vec4(light, sky));
@@ -155,7 +156,7 @@ void main()
 )";
 
 // Step 3a: a level down (Jimenez's 13 taps, bilinear: weights summing to 1). FIRST: from the source's two images (what
-// is spread: the frame's colour x bloom.x + the light x bloom.y).
+// is spread: all of the light - the frame's and the disc's - x bloom.x).
 constexpr const char* kDownBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D o_a;
@@ -164,8 +165,7 @@ layout(set = 0, binding = 4) uniform sampler2D u_a;
 layout(set = 0, binding = 5) uniform sampler2D u_b;
 vec3 fetch(vec2 uv)
 {
-    vec3 light = textureLod(u_b, uv, 0.0).rgb;
-    return sun.bloom.x * textureLod(u_a, uv, 0.0).rgb + sun.bloom.y * light;
+    return sun.bloom.x * (textureLod(u_a, uv, 0.0).rgb + textureLod(u_b, uv, 0.0).rgb);
 }
 #else
 vec3 fetch(vec2 uv) { return textureLod(u_a, uv, 0.0).rgb; }
@@ -229,7 +229,8 @@ void main()
 }
 )";
 
-// Step 4: the composite (writes the colour, alpha kept): frame + light + s (B - X).
+// Step 4: the composite (writes the colour, alpha kept): frame + light + B - X in linear light, written back as the
+// game's colours.
 constexpr const char* kCompositeBody = R"(
 layout(set = 0, binding = 4) uniform sampler2D u_a;
 layout(set = 0, binding = 7, rgba16f) uniform readonly image2D i_a;
@@ -278,7 +279,7 @@ void main()
     vec3 light = imageLoad(i_b, p).rgb;
     vec3 colour = base + light;
     if (sun.flags.w != 0) {
-        vec3 spread = sun.bloom.x * base + sun.bloom.y * light;
+        vec3 spread = sun.bloom.x * (base + light);
         vec2 uv = (vec2(p) + 0.5) / (2.0 * vec2(level.size.xy));
         vec3 bloomed = tent(uv, 1.0 / vec2(level.size.xy));
         colour += bloomed - spread;
@@ -286,11 +287,11 @@ void main()
             colour += sun.bloom.z * dirt((vec2(p) + 0.5) / vec2(sun.rect.zw)) * bloomed;
         }
     }
-    colour = max(colour, vec3(0.0));
+    vec3 shown = min(pow(max(colour, vec3(0.0)), vec3(1.0 / 2.2)), vec3(65504.0));
     if (sun.bloom.w < 0.5) {
-        colour = min(colour, vec3(1.0));
+        shown = min(shown, vec3(1.0));
     }
-    o_colour = vec4(colour, 1.0);
+    o_colour = vec4(shown, 1.0);
 }
 )";
 
@@ -1200,7 +1201,6 @@ void read_timer(Backend& state, uint32_t set, const Extent& size)
 struct Plan {
     bool disc = false;
     bool bloom = false;
-    bool frame_bloomed = false;
 };
 
 // A view's matrices: world -> the target's pixels, and back.
@@ -1216,7 +1216,8 @@ RtSunFrame frame_for(const RtSunSettings& settings, const rt::ViewDrawn& view, c
     const Matrix& to_world = matrices.to_world;
     RtSunFrame frame;
     frame.sun = toward_sun != nullptr;
-    frame.disc_radius = static_cast<float>(kSunDiscRadius * settings.sun_size);
+    (void)settings;
+    frame.disc_radius = static_cast<float>(rt::kSunAngularRadius);
     const double left = core::at(view.rect, 0);
     const double top = core::at(view.rect, 1);
     const double width = core::at(view.rect, 2);
@@ -1235,7 +1236,11 @@ RtSunFrame frame_for(const RtSunSettings& settings, const rt::ViewDrawn& view, c
     }
     const std::array<float, 3>& toward = *toward_sun;
     frame.toward = toward;
-    frame.colour = sun_colour_for(toward);
+    // (the physical air: the real sun's radiance through the frame's air - rt_sky.h sun_disc_radiance)
+    const double elevation = std::asin(std::clamp(static_cast<double>(core::at(toward, 1)), -1.0, 1.0));
+    const rt::Rgb radiance = rt::sun_disc_radiance(elevation);
+    frame.colour = {static_cast<float>(core::at(radiance, 0)), static_cast<float>(core::at(radiance, 1)),
+                    static_cast<float>(core::at(radiance, 2))};
     const std::array<double, 4> at = transform(
         matrices.to_pixel, {static_cast<double>(core::at(toward, 0)), static_cast<double>(core::at(toward, 1)),
                    static_cast<double>(core::at(toward, 2)), 0.0});
@@ -1271,13 +1276,11 @@ SunBlock block_for(const BlockInput& input)
                     core::at(view.camera.position, 2), 0.0F};
     block.sun = {core::at(frame.toward, 0), core::at(frame.toward, 1), core::at(frame.toward, 2),
                  frame.sun && frame.in_front ? 1.0F : 0.0F};
-    block.sun_colour = {core::at(frame.colour, 0), core::at(frame.colour, 1), core::at(frame.colour, 2),
-                        kSunDiscIntensity};
+    block.sun_colour = {core::at(frame.colour, 0), core::at(frame.colour, 1), core::at(frame.colour, 2), 0.0F};
     block.sun_screen = {core::at(frame.screen, 0), core::at(frame.screen, 1), frame.in_front ? 1.0F : 0.0F, 0.0F};
-    block.disc = {frame.disc_radius, frame.pixel_angle, kSunAureoleNearWidth, kSunAureoleWideWidth};
-    block.aureole = {kSunAureoleNear, kSunAureoleWide, 0.0F, 0.0F};
-    block.bloom = {plan.frame_bloomed ? settings.bloom_strength : 0.0F, kSunGlareBloom,
-                   settings.lens_dirt ? 1.0F : 0.0F, settings.hdr ? 1.0F : 0.0F};
+    block.disc = {frame.disc_radius, frame.pixel_angle, static_cast<float>(rt::kSunLimbDarkening), 0.0F};
+    block.bloom = {plan.bloom ? glare_share(input.levels) : 0.0F, 0.0F, settings.lens_dirt ? 1.0F : 0.0F,
+                   settings.hdr ? 1.0F : 0.0F};
     block.rect = {static_cast<int32_t>(core::at(view.rect, 0)), static_cast<int32_t>(core::at(view.rect, 1)),
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
     const Extent half = half_of({.width = core::at(view.rect, 2), .height = core::at(view.rect, 3)});
@@ -1475,8 +1478,10 @@ void record_commands(Backend& state, const Recording& recording)
               .block = recording.block},
              no_level, full);
     stamps.stamp(2, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    // 2. the bloom
-    record_bloom(commands, slot, recording.block);
+    // 2. the glare (the disc alone, without rt_bloom: no chain)
+    if (recording.plan.bloom) {
+        record_bloom(commands, slot, recording.block);
+    }
     stamps.stamp(3, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     // 3. the composite
     const Image& top_level = bloom_top(*slot);
@@ -1509,11 +1514,11 @@ void log_first_pass(const Recording& recording, const rt::ViewDrawn& view, const
         where = frame.in_front ? "in front" : "behind";
     }
     const Plan& plan = recording.plan;
-    get_log("vulkan: rt_sun: the first pass (%ux%u, %u sample%s; %s%s; %zu bloom levels, the frame's share %.3f%s; sun "
-            "%s, colour %.3f %.3f %.3f)",
+    get_log("vulkan: rt_sun: the first pass (%ux%u, %u sample%s; %s%s; %zu glare levels, the light's share %.3f%s; sun "
+            "%s, its centre's radiance %.1f %.1f %.1f)",
             core::at(recording.rect, 2), core::at(recording.rect, 3), static_cast<unsigned>(recording.colour->samples),
-            recording.colour->samples == 1 ? "" : "s", plan.disc ? "the sun's disc and glare, " : "",
-            plan.frame_bloomed ? "the frame bloomed" : "the sun's light bloomed",
+            recording.colour->samples == 1 ? "" : "s", plan.disc ? "the sun's disc, " : "",
+            plan.bloom ? "the eye's glare" : "no glare",
             recording.slot->down.size(), static_cast<double>(frame_share),
             view.game_bloom ? ", the game's own bloom on" : "", where, static_cast<double>(core::at(frame.colour, 0)),
             static_cast<double>(core::at(frame.colour, 1)), static_cast<double>(core::at(frame.colour, 2)));
@@ -1555,12 +1560,12 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     }
     const RtSunFrame frame = frame_for(settings, clipped, matrices, have_sun ? &toward : nullptr);
     Plan& plan = recording.plan;
-    plan.disc = settings.sun && have_sun && frame.in_front;
-    plan.frame_bloomed = settings.bloom && !view.game_bloom;
-    plan.bloom = plan.frame_bloomed || plan.disc;
+    // (changed by the physical air: over the atmosphere's sky the sky pass draws the disc - behind the clouds)
+    plan.disc = settings.sun && have_sun && frame.in_front && !rt::sky_replacement().on;
+    plan.bloom = settings.bloom && !view.game_bloom;
     own.frame = frame;
-    if (!plan.bloom) {
-        return false; // (nothing to add: the sun behind the camera, no bloom of the frame)
+    if (!plan.bloom && !plan.disc) {
+        return false; // (nothing to add: no disc here, no glare)
     }
     std::string error;
     recording.composite = ensure_objects(state, &error) ? composite_pipeline(state, recording.colour->format,
@@ -1577,6 +1582,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (recording.slot == nullptr) {
         return false;
     }
+    own.frame.glare_levels = static_cast<uint32_t>(recording.slot->down.size());
     const SunBlock block = block_for({.settings = &settings,
                                       .view = &clipped,
                                       .to_world = &matrices.to_world,
@@ -1604,15 +1610,11 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
 
 } // namespace
 
+float glare_share(uint32_t levels) { return kGlarePerOctave * static_cast<float>(levels); }
+
 void set_rt_sun_settings(const RtSunSettings& settings)
 {
-    RtSunSettings kept = settings;
-    kept.sun_size = std::isfinite(kept.sun_size) ? std::clamp(kept.sun_size, kMinSize, kMaxSize) : 1.0F;
-    kept.bloom_strength =
-        std::isfinite(kept.bloom_strength) ? std::clamp(kept.bloom_strength, 0.0F, kMaxBloom) : kRtBloomStrength;
-    for (float& channel : kept.colour) {
-        channel = std::isfinite(channel) ? std::clamp(channel, 0.0F, 1.0F) : 1.0F;
-    }
+    const RtSunSettings kept = settings;
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
