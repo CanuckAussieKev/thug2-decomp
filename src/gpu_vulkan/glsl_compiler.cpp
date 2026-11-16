@@ -31,7 +31,15 @@ void initialise_glslang()
 
 EShLanguage language_of(ShaderStage stage)
 {
-    return stage == ShaderStage::kVertex ? EShLangVertex : EShLangFragment;
+    switch (stage) {
+    case ShaderStage::kVertex:
+        return EShLangVertex;
+    case ShaderStage::kCompute:
+        return EShLangCompute;
+    case ShaderStage::kFragment:
+        break;
+    }
+    return EShLangFragment;
 }
 
 const std::vector<uint32_t>* found_or_compiled(std::unique_ptr<CompiledShader>& entry, ShaderStage stage,

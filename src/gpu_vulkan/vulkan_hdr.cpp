@@ -3,11 +3,13 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <mutex>
 #include <span>
 #include <string>
@@ -36,6 +38,7 @@ constexpr uint64_t kReportNotFloat = 0x48445201U;
 constexpr uint64_t kReportPipeline = 0x48445202U;
 constexpr uint64_t kReportFirstPass = 0x48445203U;
 constexpr uint64_t kReportCopy = 0x48445204U;
+constexpr uint64_t kReportMeter = 0x48445205U;
 
 constexpr float kLargest = 65504.0F;         // the largest 16-bit float
 constexpr float kBeyondWhite = 2.0F * kLargest; // (an infinity read back)
@@ -71,23 +74,32 @@ void main()
 }
 )";
 
-// The fragment shader (vulkan_hdr.h's curve; tone_map_reference is its twin): reads the viewport's copy, writes the
-// colour target's rgb. MULTISAMPLED is defined before it for a multisampled target.
-constexpr const char* kFragmentBody = R"(
+// What the fragment shader and the meter (both read the viewport's copy) share: the bindings, the push constants.
+// MULTISAMPLED is defined before it for a multisampled target, METER_WRITES for the meter.
+constexpr const char* kPassCommon = R"(
 #ifdef MULTISAMPLED
 layout(set = 0, binding = 0) uniform sampler2DMS u_colour;
 #else
 layout(set = 0, binding = 0) uniform sampler2D u_colour;
 #endif
 layout(std430, set = 0, binding = 1) readonly buffer Lut { vec4 entries[]; } u_lut;
+// (added by the low sun's glare) the meter's state per viewport: x the exposure's factor now (display values), y its
+// stops now, z the view's metered light, w the stops it is heading for
+#ifdef METER_WRITES
+layout(std430, set = 0, binding = 2) buffer Meter { vec4 slots[]; } u_meter;
+#else
+layout(std430, set = 0, binding = 2) readonly buffer Meter { vec4 slots[]; } u_meter;
+#endif
 layout(push_constant) uniform Pass {
-    vec4 grade;     // x: the exposure's factor; y: saturation; z: contrast; w: the curve (0, 1)
-    vec4 shape;     // x: the knee; y: 1 - the knee; z: ACES's scale; w: samples
-    vec4 lut;       // x: the table's size (0: none)
-    vec4 lut_min;   // the domain's low corner
-    vec4 lut_scale; // 1 / (the domain's high corner - low corner)
+    vec4 grade;      // x: the exposure's factor; y: saturation; z: contrast; w: the curve (0, 1)
+    vec4 shape;      // x: the knee; y: 1 - the knee; z: ACES's scale; w: samples
+    vec4 lut;        // x: the table's size (0: none)
+    vec4 lut_min;    // the domain's low corner
+    vec4 lut_scale;  // 1 / (the domain's high corner - low corner)
+    vec4 meter;      // x: the viewport's slot; y: 1 metered; z: the seconds since its last pass (0: start there); w:
+                     // the most stops down (rt_exposure_adapt)
+    vec4 meter_rect; // the viewport in the copy's pixels: x, y, width, height
 } pc;
-layout(location = 0) out vec4 o_colour;
 
 const float kLargest = 65504.0;
 
@@ -95,6 +107,12 @@ float finite(float c)
 {
     return c >= 0.0 ? min(c, kLargest) : 0.0; // (not a number fails the comparison: 0)
 }
+)";
+
+// The fragment shader (vulkan_hdr.h's curve; tone_map_reference is its twin): reads the viewport's copy, writes the
+// colour target's rgb.
+constexpr const char* kFragmentBody = R"(
+layout(location = 0) out vec4 o_colour;
 
 float shoulder(float c)
 {
@@ -134,7 +152,7 @@ vec3 graded(vec3 c)
 vec3 tone(vec3 c)
 {
     c = vec3(finite(c.r), finite(c.g), finite(c.b));
-    c *= pc.grade.x;
+    c *= pc.grade.x * (pc.meter.y > 0.5 ? u_meter.slots[int(pc.meter.x)].x : 1.0);
     if (pc.grade.y != 1.0) {
         float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
         c = max(vec3(luma) + (c - vec3(luma)) * pc.grade.y, vec3(0.0));
@@ -169,21 +187,87 @@ void main()
 }
 )";
 
-// The push constants, as the fragment shader's block lays them out.
+// (added by the low sun's glare) The meter (vulkan_hdr.h "The metering"; meter_mean / meter_target_stops / meter_adapt
+// are its twins): one group of METER_SIDE x METER_SIDE invocations, each METER_EACH x METER_EACH of the grid's samples
+// (sample 0 of a multisampled copy), their centre-weighted mean of the linear luminance - each sample's at most
+// METER_BRIGHTEST - summed in the group; the first invocation moves the viewport's slot toward its target.
+constexpr const char* kMeterBody = R"(
+layout(local_size_x = METER_SIDE, local_size_y = METER_SIDE) in;
+shared float s_light[METER_SIDE * METER_SIDE];
+shared float s_weight[METER_SIDE * METER_SIDE];
+
+void main()
+{
+    uint id = gl_LocalInvocationIndex;
+    float grid = float(METER_SIDE * METER_EACH);
+    float light = 0.0;
+    float weight = 0.0;
+    for (int j = 0; j < METER_EACH; ++j) {
+        for (int i = 0; i < METER_EACH; ++i) {
+            vec2 uv = (vec2(gl_LocalInvocationID.xy * uint(METER_EACH) + uvec2(i, j)) + 0.5) / grid;
+            ivec2 p = ivec2(pc.meter_rect.xy) + ivec2(uv * pc.meter_rect.zw);
+            vec3 c = texelFetch(u_colour, p, 0).rgb;
+            c = vec3(finite(c.r), finite(c.g), finite(c.b)) * pc.grade.x;
+            float l = min(dot(pow(c, vec3(METER_GAMMA)), vec3(0.2126, 0.7152, 0.0722)), METER_BRIGHTEST);
+            vec2 d = uv - 0.5;
+            float w = exp(-dot(d, d) / (2.0 * METER_CENTRE * METER_CENTRE));
+            light += w * l * l;
+            weight += w;
+        }
+    }
+    s_light[id] = light;
+    s_weight[id] = weight;
+    barrier();
+    for (uint half_count = uint(METER_SIDE * METER_SIDE) / 2u; half_count > 0u; half_count >>= 1u) {
+        if (id < half_count) {
+            s_light[id] += s_light[id + half_count];
+            s_weight[id] += s_weight[id + half_count];
+        }
+        barrier();
+    }
+    if (id == 0u) {
+        float mean = sqrt(s_light[0] / max(s_weight[0], 1e-6));
+        float target = clamp(-log2(max(mean, 1e-6) / METER_KEY), -pc.meter.w, 0.0);
+        int slot = int(pc.meter.x);
+        float now = target;
+        if (pc.meter.z > 0.0) {
+            float was = u_meter.slots[slot].y;
+            float seconds = target < was ? METER_DARKEN : METER_BRIGHTEN;
+            now = was + (target - was) * (1.0 - exp(-pc.meter.z / seconds));
+        }
+        u_meter.slots[slot] = vec4(exp2(now / METER_GAMMA), now, mean, target);
+    }
+}
+)";
+
+// The push constants, as the shaders' block lays them out.
 struct PassConstants {
     std::array<float, 4> grade{};
     std::array<float, 4> shape{};
     std::array<float, 4> lut{};
     std::array<float, 4> lut_min{};
     std::array<float, 4> lut_scale{};
+    std::array<float, 4> meter{};      // (added by the low sun's glare)
+    std::array<float, 4> meter_rect{};
 };
-constexpr std::size_t kPassConstantBytes = 80;
+constexpr std::size_t kPassConstantBytes = 112;
 static_assert(sizeof(PassConstants) == kPassConstantBytes, "the shader's push-constant block");
+constexpr VkShaderStageFlags kPassStages = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 
 struct PassPipeline {
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     VkPipeline pipeline = VK_NULL_HANDLE;
+};
+
+// (added by the low sun's glare) A viewport's meter: its slot in the meter's buffer, kept by its rectangle and its
+// target's size (split screen's views each their own), the least recently used given up past kMeterSlots.
+struct MeterSlot {
+    std::array<uint32_t, 4> rect{};
+    Extent target{};
+    uint64_t last_use = 0;
+    bool started = false;
+    std::chrono::steady_clock::time_point last_pass;
 };
 
 struct HdrState {
@@ -199,6 +283,12 @@ struct HdrState {
     Image copy;     // the viewport's colour copied out for the pass to read
     Image resolved; // resolve_for_copy's
     DeviceBuffer lut_buffer;
+    // (added by the low sun's glare) the meter: its pipelines (single-sampled, multisampled), its buffer (kMeterSlots
+    // vec4s), the viewports' slots
+    std::array<VkPipeline, 2> meter_pipelines{};
+    DeviceBuffer meter_buffer;
+    std::array<MeterSlot, kMeterSlots> meter_slots{};
+    uint64_t meter_uses = 0;
     bool failed = false;
     uint64_t passes = 0;
 };
@@ -353,16 +443,21 @@ bool ensure_layouts(Backend& state, std::string* error)
         return true;
     }
     const VkDevice device = state.context.device();
-    const std::array<VkDescriptorSetLayoutBinding, 2> bindings{{
+    const std::array<VkDescriptorSetLayoutBinding, 3> bindings{{
         {.binding = 0,
          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
          .descriptorCount = 1,
-         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+         .stageFlags = kPassStages,
          .pImmutableSamplers = nullptr},
         {.binding = 1,
          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
          .descriptorCount = 1,
-         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+         .stageFlags = kPassStages,
+         .pImmutableSamplers = nullptr},
+        {.binding = 2,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .descriptorCount = 1,
+         .stageFlags = kPassStages,
          .pImmutableSamplers = nullptr},
     }};
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -370,8 +465,7 @@ bool ensure_layouts(Backend& state, std::string* error)
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
                                                    .bindingCount = static_cast<uint32_t>(bindings.size()),
                                                    .pBindings = bindings.data()};
-    const VkPushConstantRange constants{
-        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT, .offset = 0, .size = sizeof(PassConstants)};
+    const VkPushConstantRange constants{.stageFlags = kPassStages, .offset = 0, .size = sizeof(PassConstants)};
     VkSamplerCreateInfo sampler_info{};
     sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sampler_info.magFilter = VK_FILTER_NEAREST;
@@ -419,6 +513,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     if (samples != VK_SAMPLE_COUNT_1_BIT) {
         source += "#define MULTISAMPLED\n";
     }
+    source += kPassCommon;
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, ShaderStage::kFragment, source, error);
     if (fragment == VK_NULL_HANDLE) {
@@ -506,6 +601,186 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     }
     own.pipelines.push_back({.format = format, .samples = samples, .pipeline = pipeline});
     return pipeline;
+}
+
+// (added by the low sun's glare) The viewport's copy moved to `layout`, with a barrier from what it was used for - the
+// copy's write, or both shaders' reads (the curve's fragment shader, the meter's compute shader) - to what it will be.
+void copy_barrier(VkCommandBuffer commands, Image* copy, VkImageLayout layout)
+{
+    constexpr VkPipelineStageFlags kReaders = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    VkPipelineStageFlags source_stages = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    VkAccessFlags source_access = VK_ACCESS_MEMORY_WRITE_BIT;
+    if (copy->layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        source_stages = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        source_access = VK_ACCESS_TRANSFER_WRITE_BIT;
+    } else if (copy->layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        source_stages = kReaders;
+        source_access = 0;
+    }
+    const bool to_read = layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    const VkImageMemoryBarrier barrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = source_access,
+        .dstAccessMask = to_read ? VkAccessFlags{VK_ACCESS_SHADER_READ_BIT} : VkAccessFlags{VK_ACCESS_TRANSFER_WRITE_BIT},
+        .oldLayout = copy->layout,
+        .newLayout = layout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = copy->image,
+        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                             .baseMipLevel = 0,
+                             .levelCount = copy->levels,
+                             .baseArrayLayer = 0,
+                             .layerCount = 1}};
+    vkCmdPipelineBarrier(commands, source_stages, to_read ? kReaders : VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrier);
+    copy->layout = layout;
+}
+
+// (added by the low sun's glare) The meter's compute pipeline for a single-sampled or multisampled copy (made on first
+// use; the layouts are the curve's).
+VkPipeline meter_pipeline(Backend& state, bool multisampled, std::string* error)
+{
+    HdrState& own = hdr();
+    VkPipeline& made = core::at(own.meter_pipelines, multisampled ? 1 : 0);
+    if (made != VK_NULL_HANDLE) {
+        return made;
+    }
+    if (!ensure_layouts(state, error)) {
+        return VK_NULL_HANDLE;
+    }
+    const VkDevice device = state.context.device();
+    std::string source = "#version 450\n#define METER_WRITES\n";
+    if (multisampled) {
+        source += "#define MULTISAMPLED\n";
+    }
+    const auto define = [&source](const char* name, const std::string& value) {
+        source += std::string("#define ") + name + " " + value + "\n";
+    };
+    const auto real = [](float value) {
+        std::array<char, 32> text{};
+        std::snprintf(text.data(), text.size(), "%.9g", static_cast<double>(value));
+        std::string out(text.data());
+        if (out.find_first_of(".e") == std::string::npos) {
+            out += ".0";
+        }
+        return out;
+    };
+    define("METER_SIDE", std::to_string(kMeterSide));
+    define("METER_EACH", std::to_string(kMeterEach));
+    define("METER_GAMMA", real(kGamma));
+    define("METER_KEY", real(kMeterKey));
+    define("METER_BRIGHTEST", real(kMeterBrightest));
+    define("METER_CENTRE", real(kMeterCentre));
+    define("METER_DARKEN", real(kMeterDarkenSeconds));
+    define("METER_BRIGHTEN", real(kMeterBrightenSeconds));
+    source += kPassCommon;
+    source += kMeterBody;
+    const VkShaderModule module = make_module(device, ShaderStage::kCompute, source, error);
+    if (module == VK_NULL_HANDLE) {
+        return VK_NULL_HANDLE;
+    }
+    const VkComputePipelineCreateInfo info{.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+                                           .pNext = nullptr,
+                                           .flags = 0,
+                                           .stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                                                     .pNext = nullptr,
+                                                     .flags = 0,
+                                                     .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+                                                     .module = module,
+                                                     .pName = "main",
+                                                     .pSpecializationInfo = nullptr},
+                                           .layout = own.layout,
+                                           .basePipelineHandle = VK_NULL_HANDLE,
+                                           .basePipelineIndex = -1};
+    const VkResult result = vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &made);
+    vkDestroyShaderModule(device, module, nullptr);
+    if (result != VK_SUCCESS) {
+        made = VK_NULL_HANDLE;
+        *error = "vkCreateComputePipelines failed (the meter)";
+    }
+    return made;
+}
+
+// The meter's buffer (kMeterSlots vec4s; device memory - written and read only by the passes, read back by the check).
+bool ensure_meter_buffer(Backend& state)
+{
+    HdrState& own = hdr();
+    if (own.meter_buffer.buffer != VK_NULL_HANDLE) {
+        return true;
+    }
+    constexpr std::size_t kSlotBytes = 4 * sizeof(float);
+    own.meter_slots = {};
+    return state.memory.create_buffer(static_cast<VkDeviceSize>(kMeterSlots * kSlotBytes),
+                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                      BufferPlace::kDevice, &own.meter_buffer);
+}
+
+// The slot of the viewport `rect` of a target `target` large (the least recently used one given up for a new one).
+std::size_t meter_slot_of(const std::array<uint32_t, 4>& rect, const Extent& target)
+{
+    HdrState& own = hdr();
+    ++own.meter_uses;
+    std::size_t oldest = 0;
+    for (std::size_t i = 0; i < own.meter_slots.size(); ++i) {
+        MeterSlot& slot = core::at(own.meter_slots, i);
+        if (slot.started && slot.rect == rect && slot.target.width == target.width &&
+            slot.target.height == target.height) {
+            slot.last_use = own.meter_uses;
+            return i;
+        }
+        if (slot.last_use < core::at(own.meter_slots, oldest).last_use) {
+            oldest = i;
+        }
+    }
+    MeterSlot& fresh = core::at(own.meter_slots, oldest);
+    fresh = MeterSlot{};
+    fresh.rect = rect;
+    fresh.target = target;
+    fresh.last_use = own.meter_uses;
+    return oldest;
+}
+
+// The meter recorded over the viewport's copy (in SHADER_READ_ONLY): its slot moved toward the view's target, ready for
+// the curve's pass (a barrier from its write to the fragment shader's read).
+void record_meter(VkCommandBuffer commands, VkPipeline pipeline, std::size_t slot_index, PassConstants* constants)
+{
+    HdrState& own = hdr();
+    MeterSlot& slot = core::at(own.meter_slots, slot_index);
+    const auto now = std::chrono::steady_clock::now();
+    // (a slot not drawn for a while - a menu over another view, a level loading - starts again at its target)
+    constexpr double kLongestGap = 0.5;
+    double seconds = 0.0;
+    if (slot.started) {
+        seconds = std::chrono::duration<double>(now - slot.last_pass).count();
+        if (!(seconds > 0.0) || seconds > kLongestGap) {
+            seconds = 0.0;
+        }
+    }
+    slot.started = true;
+    slot.last_pass = now;
+    constants->meter = {static_cast<float>(slot_index), 1.0F, static_cast<float>(seconds),
+                        std::max(own.settings.exposure_adapt, 0.0F)};
+    const VkBufferMemoryBarrier before{.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+                                       .pNext = nullptr,
+                                       .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                                       .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                                       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                       .buffer = own.meter_buffer.buffer,
+                                       .offset = 0,
+                                       .size = VK_WHOLE_SIZE};
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1, &before, 0, nullptr);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    vkCmdPushConstants(commands, own.layout, kPassStages, 0, sizeof(PassConstants), constants);
+    vkCmdDispatch(commands, 1, 1, 1);
+    VkBufferMemoryBarrier after = before;
+    after.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    after.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+                         nullptr, 1, &after, 0, nullptr);
 }
 
 // An image like `like` (format, size, samples) for `usage`, made again when any of them changed.
@@ -871,6 +1146,73 @@ std::array<float, 3> tone_map_reference(const ToneParameters& parameters, const 
 
 // --- the device ----------------------------------------------------------------------------------------------------
 
+// --- (added by the low sun's glare) the metering: the meter's twins -------------------------------------------------
+
+std::array<float, 2> meter_place(uint32_t i, uint32_t j)
+{
+    const auto grid = static_cast<float>(kMeterGrid);
+    return {(static_cast<float>(i) + 0.5F) / grid, (static_cast<float>(j) + 0.5F) / grid};
+}
+
+float meter_weight(const std::array<float, 2>& place)
+{
+    const float u = core::at(place, 0) - 0.5F;
+    const float v = core::at(place, 1) - 0.5F;
+    return std::exp(-((u * u) + (v * v)) / (2.0F * kMeterCentre * kMeterCentre));
+}
+
+float meter_light(const std::array<float, 3>& colour)
+{
+    float light = 0.0F;
+    for (std::size_t channel = 0; channel < colour.size(); ++channel) {
+        light += core::at(kLuma, channel) * std::pow(finite(core::at(colour, channel)), kGamma);
+    }
+    return std::min(light, kMeterBrightest);
+}
+
+float meter_target_stops(float mean, float most_stops)
+{
+    constexpr float kLeast = 1e-6F;
+    const float stops = -std::log2(std::max(mean, kLeast) / kMeterKey);
+    return std::clamp(stops, -std::max(most_stops, 0.0F), 0.0F);
+}
+
+float meter_adapt(float now_stops, float target_stops, float seconds)
+{
+    if (!(seconds > 0.0F)) {
+        return target_stops;
+    }
+    const float over = target_stops < now_stops ? kMeterDarkenSeconds : kMeterBrightenSeconds;
+    return now_stops + ((target_stops - now_stops) * (1.0F - std::exp(-seconds / over)));
+}
+
+bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReading* reading)
+{
+    const HdrState& own = hdr();
+    if (own.meter_buffer.buffer == VK_NULL_HANDLE) {
+        return false;
+    }
+    for (std::size_t i = 0; i < own.meter_slots.size(); ++i) {
+        const MeterSlot& slot = core::at(own.meter_slots, i);
+        if (!slot.started || slot.rect != rect) {
+            continue;
+        }
+        constexpr std::size_t kSlotBytes = 4 * sizeof(float);
+        std::vector<uint8_t> bytes;
+        if (!state.memory.read_buffer(own.meter_buffer, i * kSlotBytes, kSlotBytes, &bytes) || bytes.size() < kSlotBytes) {
+            return false;
+        }
+        std::array<float, 4> values{};
+        std::memcpy(values.data(), bytes.data(), kSlotBytes);
+        *reading = {.factor = core::at(values, 0),
+                    .stops = core::at(values, 1),
+                    .mean = core::at(values, 2),
+                    .target = core::at(values, 3)};
+        return true;
+    }
+    return false;
+}
+
 bool hdr_wanted(const Backend& state)
 {
     if (!hdr().settings.on) {
@@ -909,7 +1251,7 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     const bool copy_made = pipeline != VK_NULL_HANDLE &&
                            ensure_image_like(state, &own.copy, *colour,
                                              VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) &&
-                           ensure_lut_buffer(state);
+                           ensure_lut_buffer(state) && ensure_meter_buffer(state);
     if (!copy_made) {
         own.failed = true;
         if (first_report(state, kReportPipeline)) {
@@ -942,11 +1284,23 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
             core::at(constants.lut_scale, channel) = 1.0F / (core::at(lut.domain_max, channel) - low);
         }
     }
+    // (added by the low sun's glare) the meter, when rt_exposure_adapt lets a bright view bring the exposure down
+    VkPipeline meter = VK_NULL_HANDLE;
+    if (own.settings.exposure_adapt > 0.0F) {
+        std::string meter_error;
+        meter = meter_pipeline(state, colour->samples != VK_SAMPLE_COUNT_1_BIT, &meter_error);
+        if (meter == VK_NULL_HANDLE && first_report(state, kReportMeter)) {
+            get_log("vulkan: rt_hdr: the meter couldn't be made (%s) - the exposure isn't adapted to bright views",
+                    meter_error.c_str());
+        }
+    }
+    constants.meter_rect = {static_cast<float>(left), static_cast<float>(top), static_cast<float>(width),
+                            static_cast<float>(height)};
 
     VkCommandBuffer commands = outside_pass(state);
-    // the viewport's colour copied out
+    // the viewport's colour copied out (the copy's barriers by hand: the meter's compute shader reads it too)
     Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    Memory::transition(commands, &own.copy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
+    copy_barrier(commands, &own.copy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     const VkImageSubresourceLayers layers{
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
     const VkOffset3D corner{.x = static_cast<int32_t>(left), .y = static_cast<int32_t>(top), .z = 0};
@@ -957,8 +1311,34 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
                              .extent = {.width = width, .height = height, .depth = 1}};
     vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.copy.image,
                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    Memory::transition(commands, &own.copy, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    copy_barrier(commands, &own.copy, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     Memory::transition(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    const VkDescriptorImageInfo source{.sampler = own.sampler,
+                                       .imageView = own.copy.view,
+                                       .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    const VkDescriptorBufferInfo table{.buffer = own.lut_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+    const VkDescriptorBufferInfo metered{.buffer = own.meter_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+    std::array<VkWriteDescriptorSet, 3> writes{};
+    for (VkWriteDescriptorSet& write : writes) {
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.descriptorCount = 1;
+    }
+    core::at(writes, 0).dstBinding = 0;
+    core::at(writes, 0).descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    core::at(writes, 0).pImageInfo = &source;
+    core::at(writes, 1).dstBinding = 1;
+    core::at(writes, 1).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    core::at(writes, 1).pBufferInfo = &table;
+    core::at(writes, 2).dstBinding = 2;
+    core::at(writes, 2).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    core::at(writes, 2).pBufferInfo = &metered;
+    // (the meter first: the viewport's slot moved toward its target)
+    if (meter != VK_NULL_HANDLE) {
+        const std::size_t slot = meter_slot_of(view.rect, colour->extent);
+        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
+                                  static_cast<uint32_t>(writes.size()), writes.data());
+        record_meter(commands, meter, slot, &constants);
+    }
     // the pass: one triangle over the viewport
     VkRenderingAttachmentInfo colour_info{};
     colour_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -985,24 +1365,9 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
                               .maxDepth = 1.0F};
     vkCmdSetViewport(commands, 0, 1, &viewport);
     vkCmdSetScissor(commands, 0, 1, &area);
-    const VkDescriptorImageInfo source{.sampler = own.sampler,
-                                       .imageView = own.copy.view,
-                                       .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    const VkDescriptorBufferInfo table{.buffer = own.lut_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
-    std::array<VkWriteDescriptorSet, 2> writes{};
-    for (VkWriteDescriptorSet& write : writes) {
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.descriptorCount = 1;
-    }
-    writes.front().dstBinding = 0;
-    writes.front().descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes.front().pImageInfo = &source;
-    writes.back().dstBinding = 1;
-    writes.back().descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes.back().pBufferInfo = &table;
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, own.layout, 0,
                               static_cast<uint32_t>(writes.size()), writes.data());
-    vkCmdPushConstants(commands, own.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PassConstants), &constants);
+    vkCmdPushConstants(commands, own.layout, kPassStages, 0, sizeof(PassConstants), &constants);
     vkCmdDraw(commands, 3, 1, 0, 0);
     vkCmdEndRendering(commands);
     // the target back where the Gpu's passes expect it; its bound state forgotten (pipeline, descriptors, dynamics)
@@ -1016,11 +1381,12 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     ++own.passes;
     if (first_report(state, kReportFirstPass)) {
         get_log("vulkan: rt_hdr: the first tone-mapping pass (%ux%u, %u sample%s; exposure %+.2f, curve %u, white "
-                "point %.2f - knee %.3f, saturation %.2f, contrast %.2f%s)",
+                "point %.2f - knee %.3f, saturation %.2f, contrast %.2f%s; %s)",
                 width, height, static_cast<unsigned>(colour->samples), colour->samples == 1 ? "" : "s",
                 static_cast<double>(own.settings.exposure), tone.curve, static_cast<double>(own.settings.white_point),
                 static_cast<double>(tone.knee), static_cast<double>(tone.saturation),
-                static_cast<double>(tone.contrast), lut.size >= kLeastLut ? ", a grading table" : "");
+                static_cast<double>(tone.contrast), lut.size >= kLeastLut ? ", a grading table" : "",
+                meter != VK_NULL_HANDLE ? "metered: a bright view brought down" : "not metered");
     }
     return true;
 }
@@ -1082,6 +1448,12 @@ void release_hdr(Backend& state)
         for (const PassPipeline& made : own.pipelines) {
             vkDestroyPipeline(device, made.pipeline, nullptr);
         }
+        for (VkPipeline& meter : own.meter_pipelines) {
+            if (meter != VK_NULL_HANDLE) {
+                vkDestroyPipeline(device, meter, nullptr);
+            }
+            meter = VK_NULL_HANDLE;
+        }
         if (own.vertex != VK_NULL_HANDLE) {
             vkDestroyShaderModule(device, own.vertex, nullptr);
         }
@@ -1099,7 +1471,9 @@ void release_hdr(Backend& state)
         state.memory.destroy_image(&own.copy);
         state.memory.destroy_image(&own.resolved);
         state.memory.destroy_buffer(&own.lut_buffer);
+        state.memory.destroy_buffer(&own.meter_buffer);
     }
+    own.meter_slots = {};
     own.pipelines.clear();
     own.vertex = VK_NULL_HANDLE;
     own.layout = VK_NULL_HANDLE;

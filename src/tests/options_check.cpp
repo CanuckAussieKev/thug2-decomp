@@ -927,6 +927,11 @@ void check_forces_and_conflicts()
     const config::Resolution air_unrelit =
         resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_relit", "0"}, {"rt_lights", "0"}});
     expect(!air_unrelit.at("rt_fog_air").in_effect, "the air's look needs relit lighting");
+    // (added by the low sun's glare) the auto exposure: 2 stops by default, with HDR only
+    const config::Resolution metered = resolve(rtx50(), {{"rt_hdr", "1"}});
+    expect(metered.value("rt_exposure_adapt") == "2" && metered.at("rt_exposure_adapt").in_effect,
+           "rt_exposure_adapt: 2 by default with rt_hdr");
+    expect(!resolve(rtx50(), {}).at("rt_exposure_adapt").in_effect, "rt_exposure_adapt needs rt_hdr");
     const config::Resolution haze = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}});
     expect(haze.on("rt_fog_haze") && !haze.at("rt_fog_haze_density").in_effect &&
                haze.at("rt_fog_haze_density").reason == t::kNeedsHazeAndSkyModel,

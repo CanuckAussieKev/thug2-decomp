@@ -245,6 +245,7 @@ render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
                                        .saturation = in_effect.number("rt_saturation", defaults.saturation),
                                        .contrast = in_effect.number("rt_contrast", defaults.contrast),
                                        .white_point = in_effect.number("rt_white_point", defaults.white_point),
+                                       .exposure_adapt = in_effect.number("rt_exposure_adapt", defaults.exposure_adapt),
                                        .grade_lut = lut_path};
 }
 

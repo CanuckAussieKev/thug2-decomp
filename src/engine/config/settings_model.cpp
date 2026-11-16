@@ -722,6 +722,12 @@ std::vector<Decl> declarations()
             .pick({c("-1", "-1"), c("-0.5", "-0.5"), c("0", "0"), c("0.5", "+0.5"), c("1", "+1")})
             .need(on("rt_hdr"))
             .live(E::kHdr),
+        // (added by the low sun's glare) the metering: stops a bright view may bring the exposure down (0: off)
+        gfx("rt_exposure_adapt", K::kNumber, "2")
+            .tab(G::kColour, t::kOptExposureAdapt, t::kOptExposureAdaptHelp)
+            .pick({c("0", t::kOff), c("1", t::kLow), c("2", t::kMedium), c("3", t::kHigh)})
+            .need(on("rt_hdr"))
+            .live(E::kHdr),
         gfx("rt_tonemap", K::kNumber, "0").tab(G::kColour, t::kOptTonemap).pick({c("0", "Game"), c("1", "Filmic")}).need(on("rt_hdr")).live(E::kHdr),
         gfx("rt_white_point", K::kNumber, "1.25")
             .tab(G::kColour, t::kOptWhitePoint)

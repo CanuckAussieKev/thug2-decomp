@@ -624,9 +624,10 @@ Fogged march(const ViewRay& ray, const Marching& how)
             const double tinted = lit * core::at(sun_tint, channel);
             const double here_fog = replace ? fog * (ambient + ((1.0 - ambient) * tinted))
                                             : fog * (1.0 - ambient) * tinted * share;
-            // (the street air's light: its look's even lobe added to the phase, its shade x the look's share)
+            // (the street air's light: its look's even lobe x its glow added to the phase - the forward lobe the
+            // physical one, rt_volume_light.h air_sun_phase -, its shade x the look's share)
             const double lit_air =
-                how.dark ? 0.0 : seen * (shaped + now.art.side) * now.art.glow * core::at(sun_tint, channel);
+                how.dark ? 0.0 : seen * (shaped + (now.art.side * now.art.glow)) * core::at(sun_tint, channel);
             const double here_air = (replace ? fog * ambient * now.art.shade : 0.0) + (scatter * lit_air);
             const double here = ((std::max(fog_depth, 0.0) * here_fog) + (std::max(depth_air, 0.0) * here_air)) / depth;
             const double added = out.transmittance * (1.0 - kept) * here;
@@ -1834,8 +1835,8 @@ void run_air_model(Tally* tally)
     const double cine_far = horizontal_depth(cine_dusk, kFarMetres, cine);
     const double cine_noon = horizontal_depth(cine_day, kFarMetres, cine);
     // (the veil: open air in the sun all the way, seen at a right angle to the light - (1 - T) x its light per unit)
-    const double side_light = (1.0 - render::vulkan::kFogAerialSkyShare) * rt::kHazeSunlit * cine.glow *
-                              rt::air_phase(0.0, render::vulkan::kRtFogAnisotropy, cine);
+    const double side_light = (1.0 - render::vulkan::kFogAerialSkyShare) * rt::kHazeSunlit *
+                              rt::air_sun_phase(0.0, render::vulkan::kRtFogAnisotropy, cine);
     const double dusk_veil = (1.0 - std::exp(-cine_far)) * side_light;
     const double noon_veil = (1.0 - std::exp(-cine_noon)) * side_light;
     tally->check(cine_far < kMostCinematicFarDepth && cine_noon < kMostCinematicNoonDepth && dusk_veil < kMostDuskVeil &&
@@ -1909,8 +1910,8 @@ void run_air_model(Tally* tally)
         constexpr double kSideCosine = -0.17;
         const double scatter = (1.0 - render::vulkan::kFogAerialSkyShare) * render::rt::kHazeSunlit;
         const double sigma = air.extinction * std::exp(-kEyeMetres * render::rt::kUnitsPerMetre / air.height);
-        return sigma * kBeamMetres * render::rt::kUnitsPerMetre * scatter * art.glow *
-               rt::air_phase(kSideCosine, render::vulkan::kRtFogAnisotropy, art);
+        return sigma * kBeamMetres * render::rt::kUnitsPerMetre * scatter *
+               rt::air_sun_phase(kSideCosine, render::vulkan::kRtFogAnisotropy, art);
     };
     const double clear_beam = beam(dusk, clear_art);
     const double cine_beam = beam(cine_dusk, cine_art);
