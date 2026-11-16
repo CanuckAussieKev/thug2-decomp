@@ -81,6 +81,13 @@ bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view);
 // The passes recorded (for the check and the log).
 [[nodiscard]] uint64_t rt_shadow_passes();
 
+// NOT ORIGINAL (the freeze audit) - whether this pass draws the clouds' shadows this frame: on, a scene and a sun, not
+// left to the cel draws. Then the clouds' shadow is the sun's visibility here (vulkan_rt_sky_pass.h CloudShadowMap read
+// by the pass: only the sun's own light drops - the sky's and the lamps' stay, and a pixel already in the sun's shade
+// loses nothing more), and the sky pass draws no shadow of its own over the colour (it multiplied every light by the
+// clouds' share: a street in a building's morning shade went near black under a blue sky). The caller holds the lock.
+[[nodiscard]] bool rt_shadows_take_cloud_shadows(Backend& state);
+
 // The pass's objects released (the device's shutdown; the caller holds the lock).
 void release_rt_shadows(Backend& state);
 
