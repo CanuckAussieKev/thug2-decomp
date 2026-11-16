@@ -85,6 +85,11 @@ struct State {
     std::ofstream lines;
     int names_written = 0;
     bool sampler_started = false;
+    // (the stall watch - always on) the last loop's end, whether a loading screen was up then, the watch started
+    std::atomic<int64_t> beat{0};
+    std::atomic<bool> beat_loading{false};
+    std::atomic<uint64_t> beats{0};
+    bool watch_started = false;
 };
 
 State& state()
@@ -384,13 +389,84 @@ void start_sampler(DWORD thread_id)
     std::thread(sample_main_thread, thread_id).detach();
 }
 
+// (the stall watch) The main thread's stack now as "module+0xRVA" words, newest first (tools/symbolize.ts names them
+// with the PDB): its addresses taken while it is suspended, their modules looked up after it runs again.
+std::string main_stack_text(HANDLE thread)
+{
+    constexpr std::size_t kShown = 24;
+    Taken taken;
+    if (SuspendThread(thread) == static_cast<DWORD>(-1)) {
+        return "-";
+    }
+    CONTEXT context{};
+    context.ContextFlags = CONTEXT_FULL;
+    if (GetThreadContext(thread, &context) != 0) {
+        taken.count = walk(context, taken.frames);
+    }
+    ResumeThread(thread);
+    Sampler names;
+    std::string text;
+    for (std::size_t index = 0; index < taken.count && index < kShown; ++index) {
+        const uint64_t address = core::at(taken.frames, index);
+        const auto [name, base] = module_of(names, address);
+        text += text::format("%s%s+0x%llX", text.empty() ? "" : " ", name.c_str(),
+                             static_cast<unsigned long long>(address - base));
+    }
+    return text.empty() ? "-" : text;
+}
+
 #else
 
 void start_sampler(DWORD /*thread_id*/) { get_log("frame-profile: sampling needs the x64 MSVC build - not started"); }
 
+std::string main_stack_text(HANDLE /*thread*/) { return "- (the stack needs the x64 MSVC build)"; }
+
 #endif
 
 bool on_main_thread() { return GetCurrentThreadId() == state().main_thread.load(); }
+
+// --- the stall watch (always on, whatever the setting) -------------------------------------------------------------
+// A loop of the main loop that hasn't ended kStallSeconds after the last one did is a stall - the game not responding:
+// logged with the phase the main thread is in (with frame_profile on) and its stack, again every kStallRepeatSeconds
+// while it lasts, and its end with its length. A freeze then says where it is in the log, even when the process is
+// killed. A loading screen's loops are left alone (a level's load does seconds of work in a loop).
+constexpr double kStallSeconds = 1.0;
+constexpr double kStallRepeatSeconds = 10.0;
+constexpr DWORD kStallLookMs = 250;
+
+void watch_main_loop(DWORD thread_id)
+{
+    HANDLE thread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, thread_id);
+    if (thread == nullptr) {
+        return;
+    }
+    State& st = state();
+    int64_t stalled_at = 0; // (the beat a stall was logged after: 0, none)
+    double next_report = 0.0;
+    for (;;) {
+        Sleep(kStallLookMs);
+        const int64_t beat = st.beat.load();
+        if (beat == 0) {
+            continue;
+        }
+        if (stalled_at != 0 && beat != stalled_at) {
+            get_log("stall: over - the main loop ran on after %.1f s", static_cast<double>(beat - stalled_at) * tick_ms() / kMilliseconds);
+            stalled_at = 0;
+        }
+        const double since = static_cast<double>(ticks_now() - beat) * tick_ms() / kMilliseconds;
+        if (since < kStallSeconds || st.beat_loading.load() || (stalled_at != 0 && since < next_report)) {
+            continue;
+        }
+        const int phase = st.current.load();
+        const char* phase_name = phase >= 0 ? core::at(st.names, static_cast<std::size_t>(phase))
+                                            : (on() ? "between phases" : "unknown - [debug] frame_profile=1 names it");
+        get_log("stall: the main loop's loop %llu has run %.1f s (the game not responding) - in %s; its stack: %s",
+                static_cast<unsigned long long>(st.beats.load() + 1), since, phase_name,
+                main_stack_text(thread).c_str());
+        stalled_at = beat;
+        next_report = since + kStallRepeatSeconds;
+    }
+}
 
 } // namespace
 
@@ -460,10 +536,15 @@ Scope::~Scope()
 
 void loop_begin()
 {
+    State& st = state();
+    if (!st.watch_started) { // (the stall watch: whatever the setting)
+        st.watch_started = true;
+        st.beat.store(ticks_now());
+        std::thread(watch_main_loop, GetCurrentThreadId()).detach();
+    }
     if (!on()) {
         return;
     }
-    State& st = state();
     if (st.main_thread.load() == 0) {
         st.main_thread.store(GetCurrentThreadId());
         st.last_end = ticks_now();
@@ -479,10 +560,13 @@ void loop_begin()
 
 void loop_end(bool drawn, bool loading)
 {
+    State& st = state();
+    st.beat_loading.store(loading); // (the stall watch: whatever the setting)
+    st.beat.store(ticks_now());
+    st.beats.fetch_add(1);
     if (!on() || !on_main_thread()) {
         return;
     }
-    State& st = state();
     const int64_t now = ticks_now();
     const double loop_ms = static_cast<double>(now - st.last_end) * tick_ms();
     const int pace = slot("pace");

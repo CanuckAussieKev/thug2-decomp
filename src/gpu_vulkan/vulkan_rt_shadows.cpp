@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -28,6 +29,7 @@
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
+#include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -51,6 +53,10 @@ constexpr std::size_t kMatrixSide = 4;
 constexpr std::size_t kMatrixFloats = kMatrixSide * kMatrixSide;
 constexpr std::size_t kPushConstantBytes = 128; // (the space every Vulkan device has)
 constexpr uint32_t kBindingGeometry = 3;        // (added for the alpha-tested casters) the frame's geometry table
+// (added by the freeze audit: the clouds' shadow as the sun's visibility - vulkan_rt_sky_pass.h CloudShadowMap) the
+// map's place and light (a uniform block from the ring), and the map
+constexpr uint32_t kBindingClouds = 4;
+constexpr uint32_t kBindingCloudMap = 5;
 constexpr uint32_t kMaterialSet = 1;
 constexpr double kSingular = 1e-300;            // a pivot this small: the matrix can't be inverted
 
@@ -87,6 +93,25 @@ layout(push_constant) uniform Pass {
     vec4 camera;    // xyz: the camera's position; w: the instance mask's bits
 } pc;
 layout(location = 0) out vec4 o_factor;
+#ifdef CLOUDS
+// (the freeze audit) the clouds' shadow map's place and light (vulkan_rt_sky_pass.h CloudShadowMap); the map itself is
+// cloud_map_glsl's u_cloud_map (binding 5)
+layout(std140, set = 0, binding = 4) uniform Clouds {
+    vec4 place;
+    vec4 light;
+} u_clouds;
+#endif
+
+// The share of the sun's light the clouds let through to `at` (1: no clouds, or no map this frame) - the sun's
+// visibility, as a blocker's is: only the direct light it brings drops, the sky's and the lamps' stay.
+float clouds_through(vec3 at)
+{
+#ifdef CLOUDS
+    return cloud_map_kept(at, u_clouds.place, u_clouds.light);
+#else
+    return 1.0;
+#endif
+}
 
 float depth_at(ivec2 p)
 {
@@ -279,7 +304,8 @@ void main()
     // test and no agreement: relit's residual and missed sun already hold where the bake lit what the rays shade.
     WorldLight w;
     if (!object_pixel && world_light_here(to_camera, distance, w)) {
-        float visible = clamp(1.0 - occlusion + w.missed, 0.0, 1.0) * (1.0 - cast_by_objects);
+        // (the freeze audit) the clouds' shadow takes its share of the sun's light here, and nothing else
+        float visible = clamp(1.0 - occlusion + w.missed, 0.0, 1.0) * (1.0 - cast_by_objects) * clouds_through(here);
         float seen = mix(w.seen, visible, clamp(pc.shape.z, 0.0, 1.0));
         vec3 before = world_light_with(w, w.seen, w.sky);
         vec3 after = world_light_with(w, seen, w.sky);
@@ -291,6 +317,7 @@ void main()
     // The sky test: a point under a roof (none of the rays up - straight up, and slanted round it - reaches the sky)
     // is lit by the level's own lamps, which the original baked in: no sun shadow there. Each ray seeing the sky lets
     // in a share of the shadow, all of it from half the rays on.
+    float sun_reaches = 1.0 - occlusion; // (the freeze audit: where the sun's rays get through - the clouds' share below)
     uint sky_rays = uint(pc.shape.w);
     if (occlusion > 0.0 && sky_rays > 0u) {
         float offset = OFFSET_SCALE * (1.0 + distance * 0.0005 + distance * distance * 6e-8);
@@ -307,6 +334,9 @@ void main()
         occlusion *= agreement_at(here);
     }
     occlusion = max(occlusion, cast_by_objects);
+    // (the freeze audit) where the sun's rays get through, the clouds take their share of its light as a blocker would
+    // (under a roof - the sun's rays blocked - nothing more)
+    occlusion = clamp(occlusion + sun_reaches * (1.0 - clouds_through(here)), 0.0, 1.0);
     o_factor = vec4(vec3(0.5 * (1.0 - pc.to_light.w * occlusion)), 1.0); // (the blend doubles it)
 }
 )";
@@ -336,6 +366,7 @@ struct PassPipeline {
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     bool per_sample = false;
     bool alpha = false; // (added for the alpha-tested casters) the ALPHA_TESTED variant: alpha_layout's
+    bool clouds = false; // (the freeze audit) the CLOUDS variant: the clouds' shadow map read
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -414,7 +445,7 @@ bool ensure_layouts(Backend& state, std::string* error)
         return true;
     }
     const VkDevice device = state.context.device();
-    const std::array<VkDescriptorSetLayoutBinding, 3> bindings{{
+    const std::array<VkDescriptorSetLayoutBinding, 5> bindings{{
         {.binding = 0,
          .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
          .descriptorCount = 1,
@@ -427,6 +458,17 @@ bool ensure_layouts(Backend& state, std::string* error)
          .pImmutableSamplers = nullptr},
         {.binding = 2,
          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .descriptorCount = 1,
+         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+         .pImmutableSamplers = nullptr},
+        // (the freeze audit) the clouds' shadow map's block and the map (pushed only for the CLOUDS variant)
+        {.binding = kBindingClouds,
+         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+         .descriptorCount = 1,
+         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+         .pImmutableSamplers = nullptr},
+        {.binding = kBindingCloudMap,
+         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
          .descriptorCount = 1,
          .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
          .pImmutableSamplers = nullptr},
@@ -467,7 +509,7 @@ bool ensure_layouts(Backend& state, std::string* error)
     // (added for the alpha-tested casters) the same + the geometry table, and the material table's set
     own.material_layout = state.materials.layout();
     if (own.material_layout != VK_NULL_HANDLE) {
-        std::array<VkDescriptorSetLayoutBinding, 4> alpha_bindings{};
+        std::array<VkDescriptorSetLayoutBinding, 6> alpha_bindings{};
         std::copy(bindings.begin(), bindings.end(), alpha_bindings.begin());
         alpha_bindings.back() = {.binding = kBindingGeometry,
                                  .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -537,13 +579,15 @@ void update_agreement(Backend& state, const std::array<float, 3>& to_light)
 }
 
 // The pipeline for a colour target (made on first use).
-VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, bool alpha, std::string* error)
+VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, bool alpha, bool clouds,
+                         std::string* error)
 {
     ShadowState& own = shadows();
     const bool multisampled = samples != VK_SAMPLE_COUNT_1_BIT;
     const bool per_sample = multisampled && state.context.enabled_features().sampleRateShading == VK_TRUE;
     for (const PassPipeline& made : own.pipelines) {
-        if (made.format == format && made.samples == samples && made.per_sample == per_sample && made.alpha == alpha) {
+        if (made.format == format && made.samples == samples && made.per_sample == per_sample && made.alpha == alpha &&
+            made.clouds == clouds) {
             return made.pipeline;
         }
     }
@@ -571,6 +615,10 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
         source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 3\n";
         source += scene_geometry_glsl();
         source += cutout_rays_glsl(); // (the one lighting path's ray test)
+    }
+    if (clouds) { // (the freeze audit: the clouds' shadow as the sun's visibility)
+        source += "#define CLOUDS\n";
+        source += cloud_map_glsl(kBindingCloudMap);
     }
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source, error);
@@ -667,7 +715,8 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
         return VK_NULL_HANDLE;
     }
     own.pipelines.push_back(
-        {.format = format, .samples = samples, .per_sample = per_sample, .alpha = alpha, .pipeline = pipeline});
+        {.format = format, .samples = samples, .per_sample = per_sample, .alpha = alpha, .clouds = clouds,
+         .pipeline = pipeline});
     return pipeline;
 }
 
@@ -936,14 +985,18 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     bool alpha = frame_scene.tlas == own.scene && frame_scene.geometry != VK_NULL_HANDLE && state.materials.ready() &&
                  state.materials.descriptor_set() != VK_NULL_HANDLE && state.materials.layout() != VK_NULL_HANDLE &&
                  (own.layout == VK_NULL_HANDLE || own.material_layout == state.materials.layout());
-    VkPipeline pipeline = pass_pipeline(state, colour->format, colour->samples, alpha, &error);
+    // (the freeze audit) the clouds' shadow map made for this view (the sky pass's, at its opaque_drawn before this):
+    // read as the sun's visibility - the sky pass leaves the clouds' shadows to this pass (rt_shadows_take_cloud_shadows)
+    CloudShadowMap cloud{};
+    const bool clouds = cloud_shadow_map(state, &cloud) && core::at(cloud.light, 3) > 0.0F;
+    VkPipeline pipeline = pass_pipeline(state, colour->format, colour->samples, alpha, clouds, &error);
     if (pipeline == VK_NULL_HANDLE && alpha) {
         if (first_report(state, kReportAlphaPipeline)) {
             get_log("vulkan: rt_shadows: the alpha-tested casters' pass couldn't be made (%s) - the opaque casters only",
                     error.c_str());
         }
         alpha = false;
-        pipeline = pass_pipeline(state, colour->format, colour->samples, false, &error);
+        pipeline = pass_pipeline(state, colour->format, colour->samples, false, clouds, &error);
     }
     Matrix to_world{};
     if (pipeline == VK_NULL_HANDLE) {
@@ -1001,6 +1054,14 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                                 .dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT};
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_HOST_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &built, 0, nullptr, 0, nullptr);
+    if (clouds) { // (the freeze audit) the clouds' map, written by the sky pass's compute shader, before it is read
+        const VkMemoryBarrier map_written{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                                          .pNext = nullptr,
+                                          .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+                                          .dstAccessMask = VK_ACCESS_SHADER_READ_BIT};
+        vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
+                             &map_written, 0, nullptr, 0, nullptr);
+    }
     Memory::transition(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
     Memory::transition(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
     VkRenderingAttachmentInfo colour_info{};
@@ -1040,7 +1101,21 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     const VkDescriptorBufferInfo agreement{.buffer = own.agreement.buffer, .offset = 0, .range = kAgreementBytes};
     const VkDescriptorBufferInfo geometry{
         .buffer = frame_scene.geometry, .offset = 0, .range = alpha ? frame_scene.geometry_bytes : VK_WHOLE_SIZE};
-    std::array<VkWriteDescriptorSet, 4> writes{};
+    // (the freeze audit) the clouds' block: the map's place and light, from the ring
+    struct CloudsBlock {
+        std::array<float, 4> place{};
+        std::array<float, 4> light{};
+    } clouds_block{.place = cloud.place, .light = cloud.light};
+    std::optional<RingSpan> clouds_span;
+    if (clouds) {
+        const void* const block_bytes = &clouds_block;
+        clouds_span = state.ring.copy(std::span(static_cast<const uint8_t*>(block_bytes), sizeof(clouds_block)),
+                                      state.uniform_alignment);
+    }
+    const VkDescriptorBufferInfo clouds_info{.buffer = clouds_span ? clouds_span->buffer : VK_NULL_HANDLE,
+                                             .offset = clouds_span ? clouds_span->offset : 0,
+                                             .range = sizeof(clouds_block)};
+    std::array<VkWriteDescriptorSet, 6> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -1057,13 +1132,27 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     agreement_write.dstBinding = 2;
     agreement_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     agreement_write.pBufferInfo = &agreement;
-    VkWriteDescriptorSet& geometry_write = writes.back();
+    VkWriteDescriptorSet& geometry_write = writes.at(3);
     geometry_write.dstBinding = kBindingGeometry;
     geometry_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     geometry_write.pBufferInfo = &geometry;
+    // the writes pushed: 0-2, the geometry table's (alpha), the clouds' two (clouds) - in a row
+    uint32_t pushed = 3;
+    if (alpha) {
+        ++pushed;
+    }
+    if (clouds) {
+        VkWriteDescriptorSet& block_write = writes.at(pushed++);
+        block_write.dstBinding = kBindingClouds;
+        block_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        block_write.pBufferInfo = &clouds_info;
+        VkWriteDescriptorSet& map_write = writes.at(pushed++);
+        map_write.dstBinding = kBindingCloudMap;
+        map_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        map_write.pImageInfo = &cloud.image;
+    }
     const VkPipelineLayout layout = alpha ? own.alpha_layout : own.layout;
-    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0,
-                              static_cast<uint32_t>(writes.size()) - (alpha ? 0U : 1U), writes.data());
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, pushed, writes.data());
     if (alpha) {
         const VkDescriptorSet material_set = state.materials.descriptor_set();
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, kMaterialSet, 1, &material_set, 0,
@@ -1099,6 +1188,14 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
 } // namespace
 
 uint64_t rt_shadow_passes() { return shadows().passes; }
+
+bool rt_shadows_take_cloud_shadows(Backend& state)
+{
+    const ShadowState& own = shadows();
+    std::array<float, 3> toward{};
+    return own.settings.on && !own.failed && state.context.ray_tracing_enabled() && own.scene != VK_NULL_HANDLE &&
+           !cel_owns_shadows(state) && sun_direction(&toward) == Sun::kFound;
+}
 
 void release_rt_shadows(Backend& state)
 {

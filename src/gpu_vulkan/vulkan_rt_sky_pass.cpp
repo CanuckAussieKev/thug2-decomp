@@ -36,6 +36,7 @@
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_clouds.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "platform/run_log.h"
 
@@ -2038,7 +2039,9 @@ bool record_shadow_pass(Backend& state, const rt::ViewDrawn& view)
                 rt::kCloudMapSize, rt::kCloudMapSize, 2.0 * rt::kCloudMapHalf, light.moonlit ? "moon" : "sun",
                 light.sun_elevation);
     }
-    if (!settings.cloud_shadows) {
+    // (the freeze audit) where the ray-traced shadows run, the clouds' shadow is the sun's visibility there - only the sun's
+    // light drops (vulkan_rt_shadows.h rt_shadows_take_cloud_shadows); this multiply over all the light is the fallback
+    if (!settings.cloud_shadows || rt_shadows_take_cloud_shadows(state)) {
         return true;
     }
     // 2. the shadows on the ground: the direct light's share of the light (kShadowStrength), as strong as the light is

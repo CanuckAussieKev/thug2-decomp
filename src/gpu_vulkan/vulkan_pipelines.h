@@ -1,9 +1,12 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
@@ -80,8 +83,11 @@ public:
     bool init(VkDevice device, VkPhysicalDevice physical, const std::string& folder, bool ray_queries = false);
     // The caches written and everything destroyed (the device idle).
     void shutdown();
-    // The caches written to disk now (when something new was made since the last time).
+    // The caches written to disk (when something new was made since the last time) - by a thread of their own, never
+    // the drawing thread's time: one save at a time (one asked for meanwhile waits for the next call).
     void save();
+    // The same on this thread, a save under way finished first (the end: shutdown).
+    void save_now();
 
     [[nodiscard]] VkPipelineLayout layout() const { return layout_; }
     // The key's pipeline (made the first time); VK_NULL_HANDLE when its shaders don't compile or the driver refuses it
@@ -126,6 +132,9 @@ private:
     std::unordered_map<uint64_t, VkPipeline> screen_pipelines_;   // by the fragment's hash and the format (and the UI's)
     std::unordered_map<uint64_t, std::vector<uint32_t>> spirv_; // by the GLSL's hash
     bool dirty_ = false;
+    std::mutex cache_lock_;          // (cache_ is used by the drawing thread's pipelines and the saver's read)
+    std::jthread saver_;             // (the last save's thread - joined when it goes)
+    std::atomic<bool> saving_{false}; // (a save under way)
     bool ray_queries_ = false; // (added by cel shading)
     PipelineStats stats_;
 };

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { stretches, verdict } from "./soak_check.ts";
+import { judgedText, stalls, stretches, verdict } from "./soak_check.ts";
 
 const frame = (n: number, ms: number, over: number, uploads: number): string =>
     `vulkan: frame ${n}: 3 pipelines (0 refused), shaders 0 compiled in 0.0 s and 6 from the disk cache, pipelines made ` +
@@ -46,6 +46,30 @@ test("frame time, uploads and BLAS builds that grow are each reported", () => {
     const result = verdict(session(340, 300 * 1946, 3000));
     assert.ok(result);
     assert.deepEqual(result.growing, ["frame time", "uploads a frame", "BLAS builds a frame"]);
+});
+
+test("stalls: each stall once, the device's waits, the longest", () => {
+    const log = [
+        frame(100, 10, 100, 1),
+        "stall: the main loop's loop 101 has run 2.3 s (the game not responding) - in rt_begin; its stack: a.exe+0x10",
+        "stall: the main loop's loop 101 has run 12.3 s (the game not responding) - in rt_begin; its stack: a.exe+0x10",
+        "stall: over - the main loop ran on after 13.0 s",
+        "vulkan: frame 102 has waited 4 s for the device (its work not finished) - still waiting",
+        "stall: the main loop's loop 900 has run 2.0 s (the game not responding) - in logic; its stack: a.exe+0x20",
+    ].join("\n");
+    assert.deepEqual(stalls(log), { count: 2, longestSeconds: 12.3, deviceWaits: 1 });
+    assert.deepEqual(stalls(session(10, 300, 10)), { count: 0, longestSeconds: 0, deviceWaits: 0 });
+});
+
+test("the judged stretch: the longest level's, from its first window - start-up stalls left out", () => {
+    const early =
+        "stall: the main loop's loop 5 has run 1.5 s (the game not responding) - in logic; its stack: a.exe+0x1";
+    const late =
+        "stall: the main loop's loop 900 has run 3.0 s (the game not responding) - in logic; its stack: a.exe+0x2";
+    const log = [LOADING, early, frame(300, 10, 300, 1), late, frame(600, 10, 300, 1)].join("\n");
+    const judged = judgedText(log);
+    assert.ok(!judged.includes("loop 5 "));
+    assert.deepEqual(stalls(judged), { count: 1, longestSeconds: 3, deviceWaits: 0 });
 });
 
 test("too few windows: nothing to judge", () => {

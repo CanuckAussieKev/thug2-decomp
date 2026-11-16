@@ -13,6 +13,9 @@
 // thug2-decomp-samples.txt every ten seconds - module, RVA, own and inclusive samples (frame_bench.ts --samples names
 // them with the PDB).
 // Only the main thread's scopes count (the thread that called loop_begin first).
+// The stall watch is always on, whatever the setting: a loop of the main loop that hasn't ended 1 s after the last one
+// did (no loading screen up) is logged - "stall: ..." with the phase the main thread is in (named with frame_profile on)
+// and its stack as module+0xRVA (tools/symbolize.ts names them) -, again every 10 s while it lasts, and its end.
 namespace frame_profile {
 
 // The setting: 0 off, 1 phases, 2 phases and samples.

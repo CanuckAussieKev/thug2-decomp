@@ -1428,7 +1428,14 @@ void write_cel(uint64_t lighting, const rt::RelitLighting& light)
         core::at(sun, ch) = core::at(st.model.sun, ch) * core::at(light.sun_colour, ch) * core::at(light.direct_scale, ch);
     }
     rt::set_cel_world({.relit = true, .sun = sun, .toward = light.toward});
-    if (written > 0) {
+    // (the freeze audit) a running clock writes streams nearly every frame: logged once a game hour of it, as the
+    // writes' own line - a line a frame was a log write and flush on the drawing thread every frame (the disk busy: a
+    // frame's wait)
+    static double logged_hours = -1.0;
+    const rt::DayLight day = rt::day_light();
+    const bool log_it = !day.on || std::abs(day.hours - logged_hours) >= 1.0;
+    if (written > 0 && log_it) {
+        logged_hours = day.on ? day.hours : -1.0;
         get_log("rt_relit: %zu meshes' light streams written (the sun's light %.3f %.3f %.3f)", written,
                 static_cast<double>(std::get<0>(sun)), static_cast<double>(std::get<1>(sun)),
                 static_cast<double>(std::get<2>(sun)));

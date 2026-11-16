@@ -65,16 +65,24 @@ public:
 
     // --- a lost device (the main loop's 0x0044EE90) ---
     bool can_reset() override { return render::gpu().test_cooperative_level() != gpu_value::kResultDeviceLost; }
+    // NOT ORIGINAL - the vertex and index buffers released and made again only where the device loses them
+    // (GpuContext::loses_device_objects - Direct3D 9's): Vulkan's live on, and making every one again - each uploaded,
+    // every ray-traced structure built again, the relit level relit from the start - cost 10-15 s at a reset.
+    // Original behaviour: always (Direct3D 9).
     void release_device_objects() override
     {
         release_render_target_textures();
-        release_buffers();
+        if (render::gpu_context().loses_device_objects()) {
+            release_buffers();
+        }
         release_render_targets();
     }
     void restore_device_objects() override
     {
         restore_render_target_textures();
-        recreate_buffers();
+        if (render::gpu_context().loses_device_objects()) {
+            recreate_buffers();
+        }
         create_render_targets();
     }
     bool reset() override

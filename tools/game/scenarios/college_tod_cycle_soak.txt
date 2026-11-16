@@ -1,0 +1,51 @@
+# College (THPS4's, sch) with the time of day's clock running fast, reached by a level change as a player does
+# (frame_bench.ts run --levels BO --scenario this file --seconds 900): a minute in Boston, then College for ten
+# minutes - half a minute skating straight on, half a minute left alone, over and over - while a whole day passes every
+# two minutes (dawn, noon, dusk, night: the relit level relit all the time). Frame times, uploads and BLAS builds must
+# stay flat over it, and the game must never stall (soak_check.ts over its game.log: "stall:" lines fail it). The guard
+# of the College freeze (relit data, tod_cycle on, the cinematic air, cloud shadows).
+console set tod_cycle on
+console set tod_cycle_minutes 2
+wait 3600
+level sch
+waitfor level sch 300
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800
+hold up 1800
+wait 1800
+hold left 30
+wait 1800
+hold up 1800
+wait 1800
+hold right 30
+wait 1800

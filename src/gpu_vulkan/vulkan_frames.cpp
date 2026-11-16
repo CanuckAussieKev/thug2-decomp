@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
-#include <limits>
 #include <vector>
 #include <volk.h>
 
@@ -13,12 +12,41 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "platform/frame_profile.h"
+#include "platform/run_log.h"
 
 namespace render::vulkan {
 
 namespace {
 
-constexpr uint64_t kNoTimeout = std::numeric_limits<uint64_t>::max();
+constexpr uint64_t kWatchNanoseconds = 2'000'000'000; // (a wait for a frame's fence logged past this - and on)
+constexpr double kNanosecondsPerSecond = 1e9;
+
+// A frame's fence waited for: without end, as the frame needs it, but a wait past kWatchNanoseconds is logged (the
+// device not finishing - a hung dispatch, a lost device - says so in the log instead of a silent freeze), again every
+// kWatchNanoseconds while it lasts; a failed wait (a lost device) ends it, logged.
+void wait_for_frame(VkDevice device, VkFence fence, uint64_t serial)
+{
+    uint64_t waited = 0;
+    for (;;) {
+        const VkResult result = vkWaitForFences(device, 1, &fence, VK_TRUE, kWatchNanoseconds);
+        if (result == VK_SUCCESS) {
+            if (waited != 0) {
+                get_log("vulkan: the device finished frame %llu after a wait of more than %.0f s",
+                        static_cast<unsigned long long>(serial), static_cast<double>(waited) / kNanosecondsPerSecond);
+            }
+            return;
+        }
+        waited += kWatchNanoseconds;
+        if (result != VK_TIMEOUT) {
+            get_log("vulkan: waiting for frame %llu on the device failed (VkResult %d) after %.0f s - the device lost?",
+                    static_cast<unsigned long long>(serial), static_cast<int>(result),
+                    static_cast<double>(waited) / kNanosecondsPerSecond);
+            return;
+        }
+        get_log("vulkan: frame %llu has waited %.0f s for the device (its work not finished) - still waiting",
+                static_cast<unsigned long long>(serial), static_cast<double>(waited) / kNanosecondsPerSecond);
+    }
+}
 
 bool begin(VkCommandBuffer commands)
 {
@@ -297,10 +325,13 @@ void Frames::recycle(Slot& slot)
 bool Frames::finish()
 {
     const bool submitted = submit(VK_NULL_HANDLE, VK_NULL_HANDLE);
+    if (const Slot& now = slot(); now.pending) { // (the work just sent watched first: the queue's idle after it)
+        wait_for_frame(device_, now.done, now.submitted);
+    }
     const bool idle = vkQueueWaitIdle(queue_) == VK_SUCCESS;
     for (Slot& each : slots_) {
         if (each.pending) {
-            vkWaitForFences(device_, 1, &each.done, VK_TRUE, kNoTimeout);
+            wait_for_frame(device_, each.done, each.submitted);
             recycle(each);
         }
         destroy(each.retired);
@@ -317,7 +348,7 @@ bool Frames::end_frame(VkSemaphore acquired, VkSemaphore presented)
     current_ = (current_ + 1) % kSlots;
     Slot& next = slot();
     if (next.pending) {
-        vkWaitForFences(device_, 1, &next.done, VK_TRUE, kNoTimeout);
+        wait_for_frame(device_, next.done, next.submitted);
         completed_ = std::max(completed_, next.submitted);
         recycle(next);
     }

@@ -118,6 +118,12 @@ public:
     [[nodiscard]] virtual bool ready() const = 0;
     // A lost device brought back at the stored settings; false if that failed (it is tried again next frame).
     virtual bool reset() = 0;
+    // NOT ORIGINAL - whether the device loses its default-pool objects (vertex and index buffers, render targets) when the
+    // window loses the focus or is reset: Direct3D 9's does (the original's rule: a focus change takes the device as lost
+    // and everything is made again); Vulkan's never does - its window's focus changes nothing, and a reset (a new back
+    // buffer size) makes only the swapchain and the back buffer's targets again. The one rule the window's focus and
+    // the reset's steps read (app/winmain.cpp, render_pc/d3d9_device.cpp).
+    [[nodiscard]] virtual bool loses_device_objects() const { return true; }
     // NOT ORIGINAL - the back buffer's size for the next reset (the editor mode's resizable window - the main loop's
     // resize: frame_loop::Hub::reset_device_if_lost); the other settings stay.
     virtual void set_back_buffer_size(const GpuBackBufferSize& size) = 0;
