@@ -1449,17 +1449,14 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         const frame_profile::Scope phase("relit_retrace");
         retrace(tracer, settings);
     }
-    // (lighting round A) the lamps' light relit lights per vertex - what the lamps pass doesn't light per pixel - and
-    // the bounce's - none while the bounce light pass (rt_gi) lights it per pixel: one owner each; in steps of
-    // kLampSteps, so a pass's amount moving a little doesn't write the level again
+    // (lighting round A) the lamps' light relit lights per vertex - what the lamps pass doesn't light per pixel: one
+    // owner; in steps of kLampSteps, so a pass's amount moving a little doesn't write the level again
     constexpr float kLampSteps = 32.0F;
     const float lamps = std::round(vertex_lamps(day) * kLampSteps) / kLampSteps;
-    const float bounce = rt::bounce_drawn() ? 0.0F : 1.0F;
     uint64_t lighting = fnv_value(kFnvBasis, st.sun);
     lighting = fnv_value(lighting, st.sun_colour);
     lighting = fnv_value(lighting, st.radius);
     lighting = fnv_value(lighting, lamps);
-    lighting = fnv_value(lighting, bounce);
     lighting = model_hash(lighting, st.model);
     lighting = fnv_value(lighting, st.bounce_finished); // (one relight at a time: a bounce pass done - written again)
     lighting = fnv_value(lighting, st.day_scales.direct_scale);
@@ -1471,8 +1468,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
                                   .direct_scale = st.day_scales.direct_scale,
                                   .sky_scale = st.day_scales.sky_scale,
                                   .day = st.day_scales.day,
-                                  .lamps = lamps,
-                                  .bounce = bounce};
+                                  .lamps = lamps};
     {
         const frame_profile::Scope phase("relit_rebounce");
         rebounce(tracer, settings, light);

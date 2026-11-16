@@ -2023,7 +2023,7 @@ RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const
         core::at(out.direct, ch) = core::at(model.sun, ch) * core::at(lighting.sun_colour, ch) *
                                    core::at(lighting.direct_scale, ch) * nl * vertex.sun;
         core::at(out.indirect, ch) = (core::at(sky, ch) * core::at(lighting.sky_scale, ch) * vertex.sky) +
-                                     (core::at(model.bounce, ch) * core::at(vertex.bounce, ch) * lighting.bounce);
+                                     (core::at(model.bounce, ch) * core::at(vertex.bounce, ch));
         core::at(out.lamps, ch) = core::at(vertex.lamp, ch) * lighting.lamps;
     }
     return out;

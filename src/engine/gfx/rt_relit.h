@@ -352,7 +352,6 @@ struct RelitLighting {
     Rgbf sky_scale{1.0F, 1.0F, 1.0F};
     bool day = false;   // the clock's light: a sunless level's sky is its day_sky (the reference day's) x sky_scale
     float lamps = 0.0F; // the lamps' light L times this - the lamps on (0 - 1) and not lit per pixel by the lamps pass
-    float bounce = 1.0F; // the bounce's share relit lights per vertex (0 while the bounce light pass lights it per pixel)
 };
 // The model's light at a vertex: a S N.L + b K + g B + L x lamps (S from its `sun` and normal toward `lighting.toward`).
 [[nodiscard]] Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);

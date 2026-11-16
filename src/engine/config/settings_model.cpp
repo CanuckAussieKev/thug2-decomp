@@ -406,9 +406,9 @@ std::vector<Decl> declarations()
             .need(on("rt_ao"))
             .need(negate(on("ray_reconstruction")), t::kRayReconstructionDenoises)
             .live(E::kAo),
-        // (lighting round A: the bounce light per pixel again - from the relit level's light store, its surfaces'
-        // colours and light; relit's per-vertex bounce gives way to it while it lights: rt_lights.h bounce_drawn. One
-        // owner, as the shadows and the lamps. Like them it needs the level relit and turns it on.)
+        // (lighting round A: the bounce light per pixel again - on the objects and characters, its rays' hits read
+        // the relit level's light store; the relit world's own bounce stays relit's - one owner. Like the other passes
+        // it needs the level relit and turns it on.)
         gfx("rt_gi", K::kSwitch, "0")
             .tab(G::kLighting, t::kOptGi, t::kOptGiHelp)
             .need(ray_tracing())

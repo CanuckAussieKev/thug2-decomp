@@ -114,10 +114,7 @@ void set_lamps_drawn(float amount);
 // lamps (rt_daylight.h DayLight::lamps) while it lights the level; without it 1 in a dark level (LevelEmitters::dark),
 // else 0.
 [[nodiscard]] float lamps_on(const DayLight& day, bool dark_level);
-// (lighting round A) Whether the bounce light pass (rt_gi) lights the bounce per pixel now: relit's per-vertex bounce
-// gives way to it (one owner). The pass sets it each view it records or skips.
-void set_bounce_drawn(bool drawn);
-[[nodiscard]] bool bounce_drawn();
+
 
 // A view's lights: the frame record's point lights and the level's emitters whose reach touches the frustum of
 // `clip_from_world` (D3D's row-vector view x projection), the most important `max` of them (at most kMaxViewLights).

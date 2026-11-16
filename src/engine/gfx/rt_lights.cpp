@@ -259,17 +259,7 @@ float lamps_on(const DayLight& day, bool dark_level)
     return dark_level ? 1.0F : 0.0F;
 }
 
-namespace {
-std::atomic<bool>& bounce_drawn_slot()
-{
-    static std::atomic<bool> slot{false};
-    return slot;
-}
-} // namespace
 
-void set_bounce_drawn(bool drawn) { bounce_drawn_slot().store(drawn, std::memory_order_relaxed); }
-
-bool bounce_drawn() { return bounce_drawn_slot().load(std::memory_order_relaxed); }
 
 float emitter_core(float area)
 {

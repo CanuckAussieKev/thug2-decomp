@@ -515,11 +515,11 @@ void main()
     vec3 origin = here + normal * start_offset(distance);
     float footprint = length(world_at(p + ivec2(1, 0), d) - here);
     vec4 albedo = surface_albedo(here, distance, footprint);
-    WorldLight world;
-    if (albedo.a > 0.0 && relit_world_light(here, to_camera, distance, world)) {
-        // (lighting round A) the relit world's surface: the texture's colour x the light store's tint - the bounce is
-        // this pass's while it lights (relit lights none per vertex: rt_lights.h bounce_drawn)
-        albedo.rgb *= world.tint;
+    if (albedo.a > 0.0 && relit_world_pixel(here, to_camera, distance)) {
+        // (the light energy audit; lighting round A: measured - this pass in place of relit's per-vertex bounce took a
+        // Boston view to 0.56 of the bake's light, relit's own bounce 1.1: the relit world's bounce stays relit's, the
+        // one owner; this pass lights the rest - the objects - from the light store's surfaces)
+        albedo = vec4(0.0);
     }
     Hemisphere h = hemisphere_of(normal, local);
     uint rays = uint(pc.params.y);
@@ -2263,7 +2263,6 @@ void set_rt_gi_settings(const RtGiSettings& settings)
         rt::add_view_listener(&indirect_listener());
     } else {
         rt::remove_view_listener(&indirect_listener());
-        rt::set_bounce_drawn(false); // (relit lights the bounce per vertex again)
     }
 }
 
@@ -2309,10 +2308,7 @@ bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view) { return !cel_
 
 bool record_rt_gi_pass(Backend& state, const rt::ViewDrawn& view)
 {
-    // (lighting round A) while this pass lights the bounce per pixel, relit lights none per vertex (one owner)
-    const bool drawn = !cel_on() && record_effect(state, indirect(), view);
-    rt::set_bounce_drawn(drawn);
-    return drawn;
+    return !cel_on() && record_effect(state, indirect(), view);
 }
 
 uint64_t rt_ao_passes() { return effects().passes; }

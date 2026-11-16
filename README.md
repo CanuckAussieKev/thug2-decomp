@@ -425,7 +425,7 @@ for the restart. Every setting is declared once in the settings model (`src/engi
 | `rt_ao_rays` | 4 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
 | `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
 | `rt_ao_characters` | 1 | How much of the occlusion the skater, the peds and the other skinned characters get (0-1; 0.5: half as dark in a corner) |
-| `rt_gi` | 0 | On a relit level (it turns `rt_relit` on): the light bounced off the surfaces round a pixel, traced per pixel from the level's surface colours and the time of day's light - relit's own per-vertex bounce gives way to it while it lights. On in the Ultra preset |
+| `rt_gi` | 0 | On a relit level (it turns `rt_relit` on): the light bounced onto the skater and the objects, traced per pixel from the relit level's surface colours and the time of day's light (the level's own bounce is relit's, traced per vertex - one owner). On in the Ultra preset |
 | `rt_gi_strength` | 1 | How much of the bounce light is added (0.5-2) |
 | `rt_gi_rays` | 4 | Bounce rays a pixel each frame (1-8; the denoiser averages them over frames) |
 | `rt_gi_distance` | 600 | How far a bounce ray looks (world units) |
