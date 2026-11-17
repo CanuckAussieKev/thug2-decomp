@@ -249,6 +249,7 @@ struct RelitModel {
     std::size_t lamps_solved = 0;            // the lamps the bake's edges told (the rest: their own surfaces' light)
     std::size_t lamps_dark = 0;              // ... of them told dark (no light of theirs in the bake)
     std::size_t lamps_zero = 0;              // (round A3) ... of those solved to no light at all (the rest under the noise)
+    std::size_t lamps_off_in_bake = 0;       // (round A3) ... and those whose solved light its own switch says was off
     Rgbf lamp_high{};                        // ... the lit ones' 95th percentile over their own surfaces' light
     // (reported) the vertices whose bake differs from the model by kRelitLampLow or more: brighter (lamps the list
     // doesn't hold, the bake's sun where the rays saw a caster) and darker (the bake's shadows where the rays saw the
@@ -414,7 +415,9 @@ inline constexpr float kRelitLambertian = 3.14159265F; // (a Lambertian surface'
 // (lighting round A3 - no "dark level", no lamps-on guess for the bake) Every lamp is solved, in every bake; the bake
 // tells a lamp's light when it has kRelitLampEdges edges in every channel AND its solved light is a share of the light
 // where it lights at least the fit's own noise (RelitModel::error, the median edge's relative residual - a lamp under
-// it can't be told from the fit's error: a street lamp in a sunlit bake). Told with light: its intensity solved (it was
+// it can't be told from the fit's error: a street lamp in a sunlit bake) - and, for a candidate (no artist's mark), its
+// own switch (rt_lights.h lamp_on, the game's rule, against the bake's own sky light b) says it was on: a light under the
+// daylight where it lights would have been off, the fit's residue, not a lamp's. Told with light: its intensity solved (it was
 // on in the bake). Otherwise - off in the bake, swamped, or no edges - a glow or a point light (the artists' mark of a
 // lamp) shines by its own surface; a candidate (rt_lights.h candidate_kind: a bright surface or texture) gives no light
 // - brightness alone is no lamp.

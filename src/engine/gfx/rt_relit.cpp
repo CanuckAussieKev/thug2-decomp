@@ -2069,6 +2069,12 @@ struct LampEdge {
 struct LampTerm {
     uint32_t lamp = 0;
     double value = 0.0;
+    // (lighting round A3) its instrument: the edge's mean colour in place of each end's own (the same geometry). The
+    // coefficient y1 G2 - y2 G1 is a difference of two near-equal products, so the colours' own noise (8-bit art) is a
+    // large share of it where the lamp's light is most of the light - an indoor level's - and least squares on it shrinks
+    // the intensity toward 0 (errors in the variables: a hall lit by its panel came out at 0.08 of it). The instrument
+    // carries the same geometry with none of that noise in the difference: the solve takes sum z r / sum z v.
+    double instrument = 0.0;
 };
 
 } // namespace
@@ -2201,10 +2207,14 @@ void lamp_edges(std::span<const RelitMesh> meshes, std::span<const RelitVertices
                 LampEdge edge;
                 edge.first = static_cast<uint32_t>(terms.size());
                 for (const RelitLampLink& link : lj) {
-                    terms.push_back({.lamp = link.lamp, .value = y1 * static_cast<double>(link.weight)});
+                    terms.push_back({.lamp = link.lamp,
+                                     .value = y1 * static_cast<double>(link.weight),
+                                     .instrument = 0.5 * (y1 + y2) * static_cast<double>(link.weight)});
                 }
                 for (const RelitLampLink& link : li) {
-                    terms.push_back({.lamp = link.lamp, .value = -y2 * static_cast<double>(link.weight)});
+                    terms.push_back({.lamp = link.lamp,
+                                     .value = -y2 * static_cast<double>(link.weight),
+                                     .instrument = -0.5 * (y1 + y2) * static_cast<double>(link.weight)});
                 }
                 edge.count = static_cast<uint32_t>(terms.size()) - edge.first;
                 edge.target = (y2 * e1) - (y1 * e2);
@@ -2220,16 +2230,23 @@ void lamp_edges(std::span<const RelitMesh> meshes, std::span<const RelitVertices
 // toward the median relative error (Cauchy) between rounds - an edge across a baked shadow or a lamp the list doesn't
 // hold counts little. Each lamp's intensity; `told` set for the lamps with kRelitLampEdges edges or more.
 std::vector<double> solve_lamp_columns(std::span<const LampEdge> edges, std::span<const LampTerm> terms,
-                                       std::size_t lamp_count, std::vector<uint8_t>* told)
+                                       std::size_t lamp_count, std::vector<uint8_t>* told,
+                                       std::span<const uint8_t> excluded)
 {
     told->assign(lamp_count, 0);
     // each lamp's column: its edges and coefficients
-    std::vector<std::vector<std::pair<uint32_t, double>>> columns(lamp_count);
+    struct Entry {
+        uint32_t edge = 0;
+        double value = 0.0;
+        double instrument = 0.0;
+    };
+    std::vector<std::vector<Entry>> columns(lamp_count);
     for (std::size_t ei = 0; ei < edges.size(); ++ei) {
         const LampEdge& edge = core::at(edges, ei);
         for (uint32_t k = 0; k < edge.count; ++k) {
             const LampTerm& term = core::at(terms, edge.first + k);
-            core::at(columns, term.lamp).emplace_back(static_cast<uint32_t>(ei), term.value);
+            core::at(columns, term.lamp).push_back(
+                {.edge = static_cast<uint32_t>(ei), .value = term.value, .instrument = term.instrument});
         }
     }
     std::vector<double> intensity(lamp_count, 0.0);
@@ -2244,15 +2261,28 @@ std::vector<double> solve_lamp_columns(std::span<const LampEdge> edges, std::spa
         for (int sweep = 0; sweep < kSweeps; ++sweep) {
             for (std::size_t li = 0; li < lamp_count; ++li) {
                 const auto& column = core::at(columns, li);
-                if (column.size() < kRelitLampEdges) {
+                if (column.size() < kRelitLampEdges || (li < excluded.size() && core::at(excluded, li) != 0)) {
                     continue;
                 }
                 double numerator = 0.0;
                 double denominator = 0.0;
-                for (const auto& [ei, value] : column) {
-                    const double weight = core::at(edges, ei).weight * core::at(robust, ei);
-                    numerator += weight * value * core::at(residual, ei);
-                    denominator += weight * value * value;
+                double plain_numerator = 0.0; // (least squares: where the instrument tells too little)
+                double plain_denominator = 0.0;
+                double instrument_power = 0.0;
+                for (const Entry& entry : column) {
+                    const double weight = core::at(edges, entry.edge).weight * core::at(robust, entry.edge);
+                    numerator += weight * entry.instrument * core::at(residual, entry.edge);
+                    denominator += weight * entry.instrument * entry.value;
+                    plain_numerator += weight * entry.value * core::at(residual, entry.edge);
+                    plain_denominator += weight * entry.value * entry.value;
+                    instrument_power += weight * entry.instrument * entry.instrument;
+                }
+                // (the instrument used only where it goes with the coefficient - their correlation at least
+                // kInstrumentLeast: a weak one makes the estimate blow up)
+                constexpr double kInstrumentLeast = 0.5;
+                if (!(denominator > kInstrumentLeast * std::sqrt(instrument_power * plain_denominator))) {
+                    numerator = plain_numerator;
+                    denominator = plain_denominator;
                 }
                 if (!(denominator > 0.0)) {
                     continue;
@@ -2260,8 +2290,8 @@ std::vector<double> solve_lamp_columns(std::span<const LampEdge> edges, std::spa
                 const double was = core::at(intensity, li);
                 const double now = std::max(0.0, was + (numerator / denominator));
                 if (now != was) {
-                    for (const auto& [ei, value] : column) {
-                        core::at(residual, ei) -= (now - was) * value;
+                    for (const Entry& entry : column) {
+                        core::at(residual, entry.edge) -= (now - was) * entry.value;
                     }
                     core::at(intensity, li) = now;
                 }
@@ -2315,6 +2345,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
     model->lamps_solved = 0;
     model->lamps_dark = 0;
     model->lamps_zero = 0;
+    model->lamps_off_in_bake = 0;
     model->lamp_votes = {};
     model->lamp_median = {};
     if (lamps.empty()) {
@@ -2327,6 +2358,25 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
     }
     RelitModel without = *model; // (the model's light without the lamps)
     without.lamps = {};
+    // (round A3) twice at most: a candidate the first solve gives light but the bake doesn't confirm is left out of the
+    // second - the light it took from the confirmed lamps given back to them
+    std::vector<uint8_t> excluded(lamps.size(), 0);
+    const std::vector<Rgbf> listed = [&lamps]() {
+        std::vector<Rgbf> out;
+        for (const RelitLamp& lamp : lamps) {
+            out.push_back(lamp.light);
+        }
+        return out;
+    }();
+    for (int pass = 0; pass < 2; ++pass) {
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        core::at(lamps, li).light = core::at(listed, li);
+        core::at(lamps, li).solved = false;
+    }
+    model->lamps_solved = 0;
+    model->lamps_dark = 0;
+    model->lamps_zero = 0;
+    model->lamps_off_in_bake = 0;
     std::vector<Rgbf> solved(lamps.size(), Rgbf{});
     std::vector<uint8_t> told(lamps.size(), 0);
     for (std::size_t ch = 0; ch < 3; ++ch) {
@@ -2338,7 +2388,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
             continue;
         }
         std::vector<uint8_t> channel_told;
-        const std::vector<double> intensity = solve_lamp_columns(edges, terms, lamps.size(), &channel_told);
+        const std::vector<double> intensity = solve_lamp_columns(edges, terms, lamps.size(), &channel_told, excluded);
         for (std::size_t li = 0; li < lamps.size(); ++li) {
             if (core::at(channel_told, li) != 0) {
                 core::at(core::at(solved, li), ch) = static_cast<float>(core::at(intensity, li));
@@ -2372,6 +2422,10 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
     // lamps' own there): its share - told only above the fit's noise
     std::vector<double> part(lamps.size(), 0.0);
     std::vector<double> whole(lamps.size(), 0.0);
+    // (and its own light and the sky share over the surfaces it lights, each alike - its switch in the bake's light)
+    std::vector<double> reached(lamps.size(), 0.0);
+    std::vector<double> own(lamps.size(), 0.0);
+    std::vector<double> open(lamps.size(), 0.0);
     {
         const std::size_t count = std::min({meshes.size(), light.size(), links.size()});
         for (std::size_t mi = 0; mi < count; ++mi) {
@@ -2394,6 +2448,9 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                     core::at(part, link.lamp) +=
                         weight * static_cast<double>(luma(core::at(solved, link.lamp))) * link.weight;
                     core::at(whole, link.lamp) += weight * base;
+                    core::at(reached, link.lamp) += 1.0;
+                    core::at(own, link.lamp) += static_cast<double>(luma(core::at(solved, link.lamp))) * link.weight;
+                    core::at(open, link.lamp) += static_cast<double>(vertex.sky);
                 }
             }
         }
@@ -2403,13 +2460,36 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
         RelitLamp& lamp = core::at(lamps, li);
         const bool told_all = core::at(told, li) == kAllChannels;
         const double share = core::at(whole, li) > 0.0 ? core::at(part, li) / core::at(whole, li) : 0.0;
-        lamp.solved = told_all && share >= noise;
+        // (lighting round A3) and a candidate - brightness alone, no artist's mark - on in the bake by its own switch
+        // (rt_lights.h lamp_on: the photocell's rule the game switches it by) against the bake's own sky light: one
+        // outdoors whose solved light is under the daylight where it lights would have been off - that light is the
+        // fit's residue (a sunlit level's), not a lamp's
+        const double reach = core::at(reached, li);
+        const double sky_share = reach > 0.0 ? core::at(open, li) / reach : 0.0;
+        const float switch_sky = !(reach > 0.0)                            ? 0.0F
+                                 : sky_share < static_cast<double>(kRelitNoSky) ? kLampAlwaysOn
+                                                                         : static_cast<float>((core::at(own, li) / reach) / sky_share);
+        const bool on_in_bake = !candidate_kind(lamp.kind) || lamp_on(switch_sky, luma(model->sky), 1.0F) >= 0.5F;
+        lamp.solved = told_all && share >= noise && on_in_bake;
+        model->lamps_off_in_bake += told_all && share >= noise && !on_in_bake ? 1 : 0;
         model->lamps_dark += told_all && !lamp.solved ? 1 : 0;
         model->lamps_zero += told_all && !lamp.solved && !(luma(core::at(solved, li)) > 0.0F) ? 1 : 0;
         model->lamps_solved += lamp.solved ? 1 : 0;
         if (lamp.solved) {
             lamp.light = core::at(solved, li);
         }
+    }
+    bool again = false;
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        if (!core::at(lamps, li).solved && candidate_kind(core::at(lamps, li).kind) && core::at(excluded, li) == 0 &&
+            luma(core::at(solved, li)) > 0.0F) {
+            core::at(excluded, li) = 1;
+            again = true;
+        }
+    }
+    if (!again) {
+        break;
+    }
     }
     unconfirmed();
     relit_lamp_light(meshes, light, links, lamps);

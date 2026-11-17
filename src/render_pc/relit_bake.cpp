@@ -605,12 +605,12 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         median_kelvin = *middle;
     }
     get_log("relit bake: the lamps' solve - %zu %zu %zu edges, %zu of %zu lamps told by the bake (the rest by their own "
-            "surfaces' radiance; %zu told dark - %zu of them none at all, the lit ones %.3f %.3f %.3f x their surfaces' light, median, %.2f at the "
+            "surfaces' radiance; %zu told dark - %zu of them none at all, %zu under the daylight where they light (off by their own switch); the lit ones %.3f %.3f %.3f x their surfaces' light, median, %.2f at the "
             "95th percentile); shapes: %zu points, %zu panels, %zu lines; %.0f lumens in all, "
             "median %.0f K; %zu emissive triangles; the bake's light the model doesn't explain dropped - brighter at %zu "
             "vertices, darker (its shadows the rays don't see) at %zu, told across meshes at %zu",
             core::at(model.lamp_votes, 0), core::at(model.lamp_votes, 1), core::at(model.lamp_votes, 2),
-            model.lamps_solved, data.lamp_list.size(), model.lamps_dark, model.lamps_zero, static_cast<double>(std::get<0>(model.lamp_median)),
+            model.lamps_solved, data.lamp_list.size(), model.lamps_dark, model.lamps_zero, model.lamps_off_in_bake, static_cast<double>(std::get<0>(model.lamp_median)),
             static_cast<double>(std::get<1>(model.lamp_median)), static_cast<double>(std::get<2>(model.lamp_median)),
             static_cast<double>(std::get<1>(model.lamp_high)),
             core::at(shapes, 0), core::at(shapes, 1), core::at(shapes, 2), lumens, static_cast<double>(median_kelvin),
