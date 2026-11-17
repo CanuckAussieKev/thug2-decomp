@@ -291,9 +291,18 @@ void vertex_lighting(std::string& out, const VertexKey& key)
     add(out, {"    }"});
     add(out, {"    v_diffuse = clamp(vec4(ce.rgb + ca.rgb * (u.ambient.rgb + lit_ambient) + cd.rgb * lit_diffuse, cd.a), "
               "0.0, 1.0);"});
+    // (NOT ORIGINAL - round O, render_pc/pc_lights.h OneLightSent) the lights are the light store's - linear light in the
+    // global unit (u.ambient.w the flag): summed as light on the surface's colour (the material's diffuse - its albedo,
+    // for the indirect light too) and encoded once, as the relit world's colour word is
+    add(out, {"    bool one_light = u.ambient.w < -0.5;\n"
+              "    if (one_light) {\n"
+              "        v_diffuse = vec4(display_from_linear(linear_from_display(ce.rgb) + linear_from_display(cd.rgb) * "
+              "(lit_ambient + lit_diffuse)), clamp(cd.a, 0.0, 1.0));\n    }"});
     if ((key.surface & ~kVertexRelitColour) != 0) { // (the relit colour alone hands nothing on)
         // (NOT ORIGINAL - rt_pbr) the formula's parts that don't depend on the normal, for the fragment shader to finish
-        add(out, {"    v_surface_base = vec4(ce.rgb + ca.rgb * (u.ambient.rgb + lit_ambient), 0.0);\n    v_surface_cd = cd;"});
+        // (round O: with the one light, linear light and w -1 - one_light_v0)
+        add(out, {"    v_surface_base = one_light ? vec4(linear_from_display(ce.rgb) + linear_from_display(cd.rgb) * "
+                  "lit_ambient, -1.0) : vec4(ce.rgb + ca.rgb * (u.ambient.rgb + lit_ambient), 0.0);\n    v_surface_cd = cd;"});
     }
     if (key.specular) {
         add(out, {"    v_specular = clamp(vec4(cs.rgb * lit_specular, cs.a), 0.0, 1.0);"});
@@ -444,6 +453,15 @@ constexpr const char* kSurfaceBlock = R"(layout(set = 0, binding = 6, std140) un
     vec4 shade;
     vec4 relit;
 } s;
+// (NOT ORIGINAL - round O) the lit paths' colour: with the one light (v_surface_base.w -1) linear light summed on the
+// surface's colour and encoded once; else Direct3D's sum, held to 0 - 1
+vec4 one_light_v0(vec4 base, vec4 cd, vec3 light)
+{
+    if (base.w < -0.5) {
+        return vec4(display_from_linear(base.rgb + linear_from_display(cd.rgb) * light), clamp(cd.a, 0.0, 1.0));
+    }
+    return vec4(clamp(base.rgb + cd.rgb * light, 0.0, 1.0), cd.a);
+}
 float surface_ggx(vec3 n, vec3 v, vec3 l, float rough, float f0)
 {
     float nl = max(dot(n, l), 0.0);
@@ -537,8 +555,10 @@ void cel_lighting(std::string& out, const FragmentKey& key)
                   "    float cel_rw = clamp(fwidth(cel_rt) * c.bands.z, 0.005, 0.25);\n"
                   "    float cel_rim = c.shadow.w * smoothstep(c.sun_light.w - cel_rw, c.sun_light.w + cel_rw, cel_rt);\n"
                   "    vec3 cel_rim_colour = (cel_key + vec3(0.3)) * (0.35 + 0.65 * cel_kq) * cel_rim;\n"
-                  "    vec4 surface_v0 = vec4(clamp(v_surface_base.rgb * mix(c.shadow.rgb, vec3(1.0), cel_kq) + "
-                  "v_surface_cd.rgb * cel_light + cel_rim_colour, 0.0, 1.0), v_surface_cd.a);"});
+                  "    vec4 surface_v0 = one_light_v0(vec4(v_surface_base.rgb * mix(c.shadow.rgb, vec3(1.0), cel_kq), "
+                  "v_surface_base.w), v_surface_cd, cel_light);\n"
+                  "    surface_v0.rgb = clamp(surface_v0.rgb + cel_rim_colour, 0.0, max(1.0, max(surface_v0.r, "
+                  "max(surface_v0.g, surface_v0.b))));"});
         return;
     }
     // the bake banded (also the stream's fallback)
@@ -940,9 +960,8 @@ void character_lighting(std::string& out, const FragmentKey& key)
                   "            highlight = highlight * max(1.0 - d.character.z, 0.0) + kk * d.character.z;\n"
                   "        }"});
     }
-    add(out, {"        surface_specular += s.light_colour[i].rgb * highlight;\n    }\n"
-              "    vec4 surface_v0 = vec4(clamp(v_surface_base.rgb + v_surface_cd.rgb * surface_light, 0.0, 1.0), "
-              "v_surface_cd.a);"});
+    add(out, {"        surface_specular += max(s.light_colour[i].rgb, vec3(0.0)) * highlight;\n    }\n"
+              "    vec4 surface_v0 = one_light_v0(v_surface_base, v_surface_cd, surface_light);"});
 }
 
 void surface_lighting(std::string& out, const FragmentKey& key)
@@ -1028,10 +1047,9 @@ void surface_lighting(std::string& out, const FragmentKey& key)
         add(out, {"    vec3 surface_light = vec3(0.0);\n    for (int i = 0; i < 8; ++i) {\n"
                   "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
                   "        surface_light += s.light_colour[i].rgb * max(dot(surface_n, l), 0.0);\n"
-                  "        surface_specular += s.light_colour[i].rgb * surface_ggx(surface_n, surface_v, l, surface_rough, "
-                  "s.params.w);\n    }\n"
-                  "    vec4 surface_v0 = vec4(clamp(v_surface_base.rgb + v_surface_cd.rgb * surface_light, 0.0, 1.0), "
-                  "v_surface_cd.a);"});
+                  "        surface_specular += max(s.light_colour[i].rgb, vec3(0.0)) * surface_ggx(surface_n, surface_v, l, "
+                  "surface_rough, s.params.w);\n    }\n"
+                  "    vec4 surface_v0 = one_light_v0(v_surface_base, v_surface_cd, surface_light);"});
         return;
     }
     add(out, {"    vec3 surface_bake = v_diffuse.rgb;\n"
@@ -1572,6 +1590,9 @@ std::string vertex_shader_glsl(const VertexKey& key)
 {
     std::string out = "#version 450\n// generated: " + describe(key) + "\n";
     vertex_declarations(out, key);
+    if (key.lighting && !fvf_pre_transformed(key.fvf)) {
+        out += rt::kDisplayTransferGlsl; // (NOT ORIGINAL - round O: the one light encoded once - vertex_lighting)
+    }
     add(out, {"void main()\n{"});
     vertex_position(out, key);
     vertex_normal(out, key);

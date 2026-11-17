@@ -56,6 +56,7 @@ constexpr uint32_t kRoughRays = 4;    // the rays a rough (glass) pixel traces
 constexpr float kSurfaceRoughest = 0.7F;
 constexpr float kSurfaceConePerAlpha = 1.0F;
 constexpr float kMaxSurfaces = 2.0F;
+constexpr float kSunReach = 20000.0F; // (round O) how far a hit's ray toward the sun looks (world units: the bounce's)
 constexpr float kOffsetScale = 1.0F; // the reflection ray's start pushed off the surface by this much, growing with distance
 constexpr uint32_t kGroupSide = 8;   // the trace pass's work groups: 8 x 8 pixels
 constexpr uint32_t kSurfaceGroup = 64; // the check's trace: rays per work group
@@ -108,6 +109,8 @@ layout(set = 0, binding = 3, std140) uniform Pass {
     // (added for the surface reflections) x rt_reflection_surfaces, y the roughest map texel that reflects, z the cone's
     // half-angle per GGX alpha (the roughness squared)
     vec4 surface;
+    // (round O) xyz toward the sun or the moon (rt_scene.h scene_sun); w its rays' reach (0: none - no direct light)
+    vec4 sun;
 } pass;
 
 const uint INSTANCE_OBJECT = 32u; // (rt::InstanceFlag kObject)
@@ -217,6 +220,35 @@ float environment_mask(uint id, uint instance, uint primitive, HitVertices v, ve
     return mask;
 }
 
+// (round O - one light for everything) Whether the sun (or the moon) is seen from `point` - a ray toward it against the
+// world and the objects, the cut-outs by their alpha (the shadow pass's test, one ray: the hit's own penumbra isn't
+// resolved).
+float sun_seen(vec3 point, vec3 n, float travelled)
+{
+    if (!(pass.sun.w > 0.0) || dot(n, pass.sun.xyz) <= 0.0) {
+        return 0.0;
+    }
+    vec3 origin = point + n * (pass.params.z * (1.0 + travelled * 0.0005 + travelled * travelled * 6e-8));
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, uint(pass.extra.x) & 0xFFu, origin, 0.0,
+                          pass.sun.xyz, pass.sun.w);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+            uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+            HitVertices candidate;
+            bool keep = true;
+            if (hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                             rayQueryGetIntersectionPrimitiveIndexEXT(query, false), candidate)) {
+                keep = material_alpha_passes_at(id, hit_uv(candidate, rayQueryGetIntersectionBarycentricsEXT(query, false)));
+            }
+            if (keep) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+    }
+    return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT ? 0.0 : 1.0;
+}
+
 vec3 lighting(vec3 n)
 {
     vec3 light = pass.ambient.rgb;
@@ -224,6 +256,37 @@ vec3 lighting(vec3 n)
         light += pass.light_colour[i].rgb * max(0.0, dot(n, -pass.light_direction[i].xyz));
     }
     return light;
+}
+
+// (round O - one light for everything, the audit's M8 / D1) The light a reflection ray's hit shows, as the surface's own
+// pixels show it: `texel` its texture's colour x its material's (display-referred), `point` / `n` where and which way
+// it faces, `travelled` the path to it.
+//  - the relit world: the texel decoded (its albedo's texture part) x the light store at the hit - tint x (the sky and
+//    the bounce + the sun's light x N.L x its visibility, traced here) + the lamps the store lights per vertex - the
+//    lighting now, never the bake's (at night a reflection shows the night);
+//  - an object lit by the one light (render_pc/pc_lights.h - its record linear): the texel decoded x that light at its
+//    normal, the key's part x the visibility traced here;
+//  - else (a level keeping the original's look, an object lit by the game's lights): the game's colours, decoded.
+vec3 hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, HitVertices v, vec3 texel, vec3 point,
+               vec3 n, float travelled)
+{
+    bool object = (geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u;
+    WorldLight w;
+    if (!object && hit_world_light(instance, primitive, barycentrics, w)) {
+        float seen = w.n_dot_l > 0.0 ? sun_seen(point, n, travelled) : 0.0;
+        return linear_from_display(texel) * world_light_with(w, seen, w.sky);
+    }
+    ObjectLight l;
+    if (object && hit_object_light(instance, l) && l.linear) {
+        return linear_from_display(texel) * object_light_with(l, n, sun_seen(point, n, travelled));
+    }
+    vec3 colour = texel;
+    if (object) {
+        colour *= lighting(n);
+    } else if ((v.flags & GEOMETRY_COLOUR) != 0u) {
+        colour *= hit_colour(v, barycentrics).rgb * 2.0;
+    }
+    return linear_from_display(clamp(colour, 0.0, 1.0));
 }
 
 // What the reflection ray from `origin` along `direction` sees (a: 1 when it hit something); `travelled`: the path so
@@ -272,16 +335,11 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
     }
     float width = pass.ambient.w * (travelled + t);
     vec2 uv = hit_uv(v, barycentrics);
-    vec3 colour = (material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
-    if ((geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u) {
-        colour *= lighting(n);
-    } else if ((v.flags & GEOMETRY_COLOUR) != 0u) {
-        colour *= hit_colour(v, barycentrics).rgb * 2.0;
-    }
-    // (round F) the hit as the game would draw it - its display-referred colours, within the draws' 0 - 1 - decoded to
-    // linear light as the frame's inputs are (ff_shaders.cpp fragment_linear_output). (Its light is still the bake's:
-    // the audit's M8.)
-    return vec4(linear_from_display(clamp(colour, 0.0, 1.0)), 1.0);
+    vec3 texel = (material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
+    // (round O) the hit lit as its own pixels are - the light store's light now (hit_light)
+    vec3 light = hit_light(id, instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), barycentrics, v, texel,
+                           origin + direction * t, n, travelled + t);
+    return vec4(min(max(light, vec3(0.0)), vec3(65504.0)), 1.0);
 }
 
 void main()
@@ -358,14 +416,13 @@ void main()
                     if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {
                         vec4 texel = material_texel_lod(id, hit_uv(v, bary), level_for(id, v, a, b, c, pass.ambient.w * t));
                         // The game drew its environment map there in place of the texture (its pixel shader's lerp by
-                        // the alpha): the glass's own colour - the texel x the pass's colour x the vertex colour
-                        // doubled (objects: the frame's lights), as that shader would have drawn it - is put back
-                        // under the reflection: face-on the pane shows (1 - F) of it, the reflection the rest; the
-                        // environment map is kept only for what the rays miss (the base layer, premultiplied).
-                        uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
-                        vec3 light = (geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u ? lighting(sn)
-                                   : ((v.flags & GEOMETRY_COLOUR) != 0u ? hit_colour(v, bary).rgb * 2.0 : vec3(1.0));
-                        vec3 own = clamp(texel.rgb * surface.colour.rgb * light, 0.0, 1.0);
+                        // the alpha): the glass's own colour - the texel x the pass's colour, lit as its own pixels
+                        // are (round O: hit_light - the light store's light now; the original's look its vertex colour
+                        // doubled or the frame's lights) - is put back under the reflection: face-on the pane shows
+                        // (1 - F) of it, the reflection the rest; the environment map is kept only for what the rays
+                        // miss (the base layer, premultiplied; linear light, as the frame).
+                        vec3 own = hit_light(id, hit_instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                                             bary, v, texel.rgb * surface.colour.rgb, point, sn, t);
                         float share = mask * (1.0 - clamp(weight, 0.0, 1.0));
                         base_layer = vec4(own * share, share);
                     }
@@ -496,7 +553,8 @@ void main()
         colour = sum / total;
     }
     float weight = clamp(abs(reflection.a), 0.0, 1.0);
-    o_colour = vec4(max(base.rgb, vec3(0.0)) + clamp(colour, 0.0, 1.0) * weight, clamp(base.a + weight, 0.0, 1.0));
+    // (round O: linear light - the reflection's radiance as it is, never held to 1)
+    o_colour = vec4(max(base.rgb, vec3(0.0)) + max(colour, vec3(0.0)) * weight, clamp(base.a + weight, 0.0, 1.0));
 }
 )";
 
@@ -590,8 +648,9 @@ struct TraceBlock {
     std::array<float, 4> sky_low{};
     std::array<float, 4> sky_rect{};
     std::array<float, 4> surface{}; // (added for the surface reflections)
+    std::array<float, 4> sun{};     // (round O) toward the sun, w its rays' reach (0: none)
 };
-constexpr std::size_t kTraceBlockBytes = 416;
+constexpr std::size_t kTraceBlockBytes = 432;
 static_assert(sizeof(TraceBlock) == kTraceBlockBytes, "the shader's Pass block (std140)");
 
 // The bindings of set 0 (push descriptors): 0 the scene, 1 the depth, 2 the reflection written, 3 the pass's block,
@@ -1467,6 +1526,11 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
     block.fresnel = {own.settings.fresnel ? 1.0F : 0.0F, own.settings.glass_roughness, static_cast<float>(kRoughRays),
                      own.settings.glass_reflectance};
     block.surface = {own.settings.surfaces, kSurfaceRoughest, kSurfaceConePerAlpha, 0.0F};
+    // (round O) the sun every effect lights by (rt_scene.h scene_sun): the hits' direct light is traced toward it
+    const rt::SceneSun sun = rt::scene_sun();
+    if (sun.found()) {
+        block.sun = {core::at(sun.toward, 0), core::at(sun.toward, 1), core::at(sun.toward, 2), kSunReach};
+    }
     return block;
 }
 

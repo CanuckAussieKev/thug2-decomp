@@ -449,51 +449,118 @@ void check_light_field()
            "the published field answers light_ratio_at");
     rt::set_light_field(nullptr);
     // a colour lit: each channel by its ratio, held to a byte, the alpha kept (red low, as the tod manager's)
+    // (round O: the ratio is linear light, the colour display-referred - each byte by the ratio's display factor)
     const uint32_t lit = rt::scaled_colour(0x80406080U, {0.5F, 1.0F, 4.0F}, true);
-    expect(lit == 0x80FF6040U, "scaled_colour: each channel by its ratio, held to a byte (" + std::to_string(lit) + ")");
+    const auto byte = [](float value, float ratio) {
+        return static_cast<uint32_t>(std::lround(std::min(value * std::pow(ratio, 1.0F / 2.2F), 255.0F)));
+    };
+    const uint32_t want = 0x80000000U | (byte(64.0F, 4.0F) << 16) | (byte(96.0F, 1.0F) << 8) | byte(128.0F, 0.5F);
+    expect(lit == want, "scaled_colour: each channel by its ratio's display factor, held to a byte (" + std::to_string(lit) +
+                            ", " + std::to_string(want) + ")");
+    const uint32_t bright = rt::scaled_colour(0x80406080U, {8.0F, 1.0F, 1.0F}, true);
+    expect((bright & 0xFFU) == 0xFFU, "a ratio past a byte's room: held to 255 (no ratio cap before it)");
 }
 
-// (added by lighting round 4) The level's own lights as a light of their own (rt_light_field.h local_at): a corner where
-// a lamp lights a wall facing +x (0.6 on it), the ground a little (0.15), the wall's back nothing; a thing standing there
-// takes the lamp's light as a light from +x - its side facing the lamp lit about as the wall facing it, its back side
-// barely; the level's scale in; none where the field has no local light.
-void check_local_light()
+// (round O - one light for everything, rt_light_field.h light_at) What a thing standing in the level receives is the light
+// store's light there: the probes fitted over the vertices' normals, the sun, the lamps.
+//  - a grey object and a grey wall at one place get one light: a corner whose walls face +x and -x, a floor facing up,
+//    a ceiling facing down - each with its own sky, bounce and lamps' light (and the sun on the sunlit ones) - an object's
+//    face turned as each surface takes that surface's light within 5% (each part, and the whole with the sun);
+//  - where the vertices don't tell (an open plaza: every vertex facing up), the sky comes from above - a side face
+//    takes half the up face's sky, a face turned down none; the bounce the same from every side;
+//  - the device's lights (DeviceLights) give exactly the probe's light - c0 + k (n . toward) through Direct3D's
+//    clamped lights -, the sun as the key; nothing of the game's lights is an input (device_lights takes the field's
+//    light alone).
+void check_point_light()
 {
-    auto field = std::make_shared<rt::LightField>();
     constexpr float kCell = rt::kLightFieldCell;
-    const auto part = [](float local, const rt::FieldPoint& normal) {
-        return rt::LightParts{.direct_now = {},
-                              .indirect_now = {0.1F, 0.1F, 0.1F},
-                              .direct_own = {},
-                              .indirect_own = {0.4F, 0.4F, 0.4F},
-                              .local = {local, local, local},
-                              .normal = normal};
+    const rt::FieldPoint kSunToward{0.6F, 0.8F, 0.0F};
+    const rt::FieldRgb kSun{1.2F, 1.1F, 0.9F};
+    struct Surface {
+        rt::FieldPoint normal;
+        float sky = 0.0F;
+        float bounce = 0.0F;
+        float lamps = 0.0F;
     };
-    for (int i = 0; i < 8; ++i) {
-        const float step = static_cast<float>(i) * 4.0F;
-        field->add({(0.5F * kCell) + step, 20.0F + step, 0.5F * kCell}, part(0.6F, {1.0F, 0.0F, 0.0F}));
-        field->add({(0.5F * kCell) - step, 20.0F + step, 0.5F * kCell}, part(0.0F, {-1.0F, 0.0F, 0.0F}));
-        field->add({(0.5F * kCell) + step, 1.0F, (0.5F * kCell) + step}, part(0.15F, {0.0F, 1.0F, 0.0F}));
+    const std::array<Surface, 4> surfaces{{{{1.0F, 0.0F, 0.0F}, 0.33F, 0.17F, 0.18F},
+                                           {{-1.0F, 0.0F, 0.0F}, 0.29F, 0.11F, 0.02F},
+                                           {{0.0F, 1.0F, 0.0F}, 0.62F, 0.08F, 0.15F},
+                                           {{0.0F, -1.0F, 0.0F}, 0.00F, 0.20F, 0.05F}}};
+    const auto dot = [](const rt::FieldPoint& a, const rt::FieldPoint& b) {
+        return (std::get<0>(a) * std::get<0>(b)) + (std::get<1>(a) * std::get<1>(b)) + (std::get<2>(a) * std::get<2>(b));
+    };
+    auto field = std::make_shared<rt::LightField>();
+    for (int i = 0; i < 16; ++i) {
+        const float step = static_cast<float>(i) * 6.0F;
+        for (const Surface& surface : surfaces) {
+            const float nl = std::max(0.0F, dot(surface.normal, kSunToward));
+            rt::LightParts parts;
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                core::at(parts.sky_now, ch) = surface.sky;
+                core::at(parts.indirect_now, ch) = surface.sky + surface.bounce;
+                core::at(parts.direct_now, ch) = core::at(kSun, ch) * nl;
+                core::at(parts.local, ch) = surface.lamps;
+            }
+            parts.normal = surface.normal;
+            field->add({(0.5F * kCell) + step - 45.0F, 20.0F + step, (0.5F * kCell) - step + 45.0F}, parts);
+        }
     }
+    field->set_sun(kSunToward, kSun);
     const rt::FieldPoint here{0.5F * kCell, 0.5F * kCell, 0.5F * kCell};
-    const rt::LocalLight lamp = field->local_at(here);
-    const auto on_face = [&](const rt::LocalLight& light, const rt::FieldPoint& normal) {
-        const float facing = std::max(0.0F, (std::get<0>(normal) * std::get<0>(light.toward)) +
-                                                (std::get<1>(normal) * std::get<1>(light.toward)) +
-                                                (std::get<2>(normal) * std::get<2>(light.toward)));
-        return std::get<1>(light.ambient) + (std::get<1>(light.directional) * facing);
-    };
-    const float toward_lamp = on_face(lamp, {1.0F, 0.0F, 0.0F});
-    const float away = on_face(lamp, {-1.0F, 0.0F, 0.0F});
-    expect(std::get<0>(lamp.toward) > 0.9F && std::abs(toward_lamp - 0.6F) < 0.15F && away < 0.2F,
-           "the lamp's light as a light from +x (" + number(std::get<0>(lamp.toward)) + "): a side facing it " +
-               number(toward_lamp) + " (the wall's 0.6), the back " + number(away));
-    field->set_local_scale(1.2F);
-    const float scaled = on_face(field->local_at(here), {1.0F, 0.0F, 0.0F});
-    expect(std::abs(scaled - (1.2F * toward_lamp)) < 1e-4F, "the level's scale in it (" + number(scaled) + ")");
-    auto dark = std::make_shared<rt::LightField>();
-    dark->add(here, part(0.0F, {0.0F, 1.0F, 0.0F}));
-    expect(!dark->local_at(here).any() && !rt::local_light_at(here).any(), "no local light: none (and none without a field)");
+    const rt::PointLight light = field->light_at(here);
+    expect(light.valid, "a point in the field has a light");
+    float worst = 0.0F;
+    for (const Surface& surface : surfaces) {
+        const float sky = std::get<1>(light.sky.at(surface.normal));
+        const float bounce = std::get<1>(light.bounce.at(surface.normal));
+        const float lamps = std::get<1>(light.lamps.at(surface.normal));
+        const float whole = std::get<1>(light.on(surface.normal, 1.0F, 1.0F));
+        const float wall = surface.sky + surface.bounce + surface.lamps +
+                           (std::get<1>(kSun) * std::max(0.0F, dot(surface.normal, kSunToward)));
+        const auto off = [](float got, float want) { return std::abs(got - want) / std::max(want, 0.05F); };
+        worst = std::max({worst, off(sky, surface.sky), off(bounce, surface.bounce), off(lamps, surface.lamps),
+                          off(whole, wall)});
+        expect(off(sky, surface.sky) < 0.05F && off(bounce, surface.bounce) < 0.05F && off(lamps, surface.lamps) < 0.05F &&
+                   off(whole, wall) < 0.05F,
+               "a grey object's face turned as the wall facing " + number(std::get<0>(surface.normal)) + " " +
+                   number(std::get<1>(surface.normal)) + " gets its light: sky " + number(sky) + " (" +
+                   number(surface.sky) + "), bounce " + number(bounce) + " (" + number(surface.bounce) + "), lamps " +
+                   number(lamps) + " (" + number(surface.lamps) + "), whole " + number(whole) + " (" + number(wall) + ")");
+    }
+    std::printf("daylight_check: the object against the walls - worst part %.4f off\n", static_cast<double>(worst));
+    // the device's lights: the same light through Direct3D's clamped lights
+    const rt::DeviceLights device = rt::device_lights(light, 0.5F);
+    float device_worst = 0.0F;
+    for (const rt::FieldPoint& normal : {rt::FieldPoint{1.0F, 0.0F, 0.0F}, rt::FieldPoint{0.0F, 0.6F, 0.8F},
+                                         rt::FieldPoint{-0.48F, -0.6F, 0.64F}, rt::FieldPoint{0.0F, -1.0F, 0.0F}}) {
+        const rt::FieldRgb want = light.on(normal, 0.25F, 0.5F);
+        const rt::FieldRgb got = device.on(normal, 0.25F);
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            device_worst = std::max(device_worst, std::abs(core::at(got, ch) - core::at(want, ch)));
+        }
+    }
+    expect(device_worst < 1e-4F + (2.0F * device.lost),
+           "the device's lights give the probe's light and the sun (off by " + number(device_worst) + ", the part across " +
+               "the lobe " + number(device.lost) + ")");
+    // the open plaza: every vertex facing up, the sky 0.8 on them
+    auto plaza = std::make_shared<rt::LightField>();
+    for (int i = 0; i < 16; ++i) {
+        rt::LightParts parts;
+        parts.sky_now = {0.8F, 0.8F, 0.8F};
+        parts.indirect_now = {0.9F, 0.9F, 0.9F};
+        parts.normal = {0.0F, 1.0F, 0.0F};
+        plaza->add({(0.5F * kCell) + static_cast<float>(i), 1.0F, 0.5F * kCell}, parts);
+    }
+    const rt::PointLight open = plaza->light_at(here);
+    const float up = std::get<1>(open.sky.at({0.0F, 1.0F, 0.0F}));
+    const float side = std::get<1>(open.sky.at({1.0F, 0.0F, 0.0F}));
+    const float down = std::get<1>(open.sky.at({0.0F, -1.0F, 0.0F}));
+    const float bounce_side = std::get<1>(open.bounce.at({1.0F, 0.0F, 0.0F}));
+    expect(std::abs(up - 0.8F) < 0.01F && std::abs(side - 0.4F) < 0.01F && down < 0.01F &&
+               std::abs(bounce_side - 0.1F) < 0.01F,
+           "the open plaza: the sky from above - up " + number(up) + " (0.8), a side " + number(side) + " (0.4), down " +
+               number(down) + " (0); the bounce from every side " + number(bounce_side) + " (0.1)");
+    expect(!rt::point_light_at(here).valid, "no field: no light (the game's lights - the original's look)");
 }
 
 // (added by the physical air) The light's unit: a white diffuser under the reference day (the sun 45 degrees up in the
@@ -573,7 +640,7 @@ int main()
     check_unit();
     check_absolute(); // (lighting round A2)
     check_light_field();
-    check_local_light();
+    check_point_light(); // (round O)
     check_path();
     check_native();
     check_light();

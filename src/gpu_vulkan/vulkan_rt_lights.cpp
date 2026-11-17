@@ -949,7 +949,9 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
         }
     }
     request.max = own.settings.max_lights;
-    request.points = own.settings.level > 0.0F;
+    // (round O - one light: a level relit from its data shines its solved lamps alone; the frame record's point lights
+    // carry the game's colours - the original's look keeps them, where nothing is solved)
+    request.points = own.settings.level > 0.0F && !level->solved;
     request.emitters = own.settings.emissive > 0.0F;
     request.point_scale = own.settings.level;
     request.emitter_scale = own.settings.emissive;
