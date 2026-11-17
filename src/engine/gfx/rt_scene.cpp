@@ -93,6 +93,17 @@ void world_view_drawn(const ViewDrawn& view)
 bool view_listened() { return !view_listeners().empty(); }
 
 namespace {
+std::atomic<bool>& world_surfaces_slot()
+{
+    static std::atomic<bool> inside{false};
+    return inside;
+}
+} // namespace
+
+void set_world_surfaces_drawing(bool inside) { world_surfaces_slot().store(inside, std::memory_order_relaxed); }
+bool world_surfaces_drawing() { return world_surfaces_slot().load(std::memory_order_relaxed); }
+
+namespace {
 struct FocusPoint {
     std::array<float, 3> point{};
     std::chrono::steady_clock::time_point noted;

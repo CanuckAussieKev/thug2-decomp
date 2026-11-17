@@ -584,6 +584,8 @@ bool Context::create_device()
             structures.pNext = &queries;
             // (ray-traced shadows trace each sample of a multisampled target: vulkan_rt_shadows.h)
             enabled_features_.sampleRateShading = offered.sampleRateShading;
+            // (round V: a surface writes Ray Reconstruction's guides from its fragment shader - vulkan_surface_light.h)
+            enabled_features_.fragmentStoresAndAtomics = offered.fragmentStoresAndAtomics;
             ray_tracing_ = true;
         }
     }

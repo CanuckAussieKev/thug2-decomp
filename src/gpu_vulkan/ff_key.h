@@ -167,6 +167,24 @@ constexpr uint8_t kVertexWaterMoving = 0x08;
 // (NOT ORIGINAL - lighting round A, engine/gfx/rt_cel.h) the relit world's light store's colour word read at binding 2
 // (kRelitColourLocation) in place of the vertex colour's rgb - where its alpha says the vertex has one
 constexpr uint8_t kVertexRelitColour = 0x10;
+// (NOT ORIGINAL - round V, per-surface lighting: gpu_vulkan/vulkan_surface_light.h; docs/design/vulkan.md "Round V")
+// FragmentKey::light's bits - the byte that was the key's last spare: 0 leaves its bytes and shaders as before.
+// kLightInputs: the surface's light inputs read at its pixel (kLightVisibilityBinding - kLightDepthBinding) where the
+// fragment is the surface they were made for (its depth the prepass's): the sun's visibility in place of the vertex's,
+// the occlusion on the indirect light, the lamps' light - by the light model (surface_finish) on a draw lit per pixel;
+// kLightShare: a draw whose light isn't separated (its colours lit already - an unlit prop, an animated vertex) takes
+// them as shares of its colour (the direct light's share x the visibility, the rest x the occlusion) plus the lamps on
+// its traced albedo - set only on a draw that doesn't add or multiply (an opaque or alpha-blended one);
+// kLightDepthOnly: the prepass's draw (no colour written; only its depth and alpha test matter), with kLightDepthHalf
+// for a blended one: its pixels under half opaque left out.
+constexpr uint8_t kLightInputs = 0x01;
+constexpr uint8_t kLightShare = 0x02;
+constexpr uint8_t kLightDepthOnly = 0x04;
+constexpr uint8_t kLightDepthHalf = 0x08;
+// kLightGuides (with kLightInputs / kLightShare, while Ray Reconstruction denoises the view): the surface the inputs were
+// made for writes its material - DLSS Ray Reconstruction's guides - into kLightGuidesBinding.
+constexpr uint8_t kLightGuides = 0x10;
+constexpr uint8_t kLightKnown = kLightInputs | kLightShare | kLightDepthOnly | kLightDepthHalf | kLightGuides;
 // (NOT ORIGINAL - [Graphics] rt_water, gpu_vulkan/vulkan_water.h) FragmentKey::water: 1 - the program's colour shaded
 // as water (waves, reflection, refraction, depth colour, foam, the sun's glitter) where the surface faces up - on the
 // same programs as the per-pixel lighting, independent of its bits (a key may have water alone). The vertex half's
@@ -317,7 +335,7 @@ struct FragmentKey {
     uint8_t water = 0;   // (NOT ORIGINAL - rt_water) kWaterFlat / kWaterMoving: shaded as water (above); 0: as the original's
     uint8_t detail = 0;  // (NOT ORIGINAL - rt_detail / rt_delight) the detail layer's switches (kDetail*); 0: as before
     uint8_t trails = 0;  // (NOT ORIGINAL - the surface trails) kTrail*: the snow's cover, the paint, on the colour; 0: as before
-    std::array<uint8_t, 1> spare{}; // (keeps the key free of padding where it is a part of another: it is hashed as bytes)
+    uint8_t light = 0;   // (NOT ORIGINAL - round V, vulkan_surface_light.h) kLight*: the surface's light inputs; 0: as before
     std::array<StageKey, kStageCount> stages{};
 
     bool operator==(const FragmentKey&) const = default;

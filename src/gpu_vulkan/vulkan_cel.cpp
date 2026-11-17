@@ -22,6 +22,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_cel_draw.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_motion.h"
@@ -664,6 +665,7 @@ void set_cel_source_locked(Backend& state, const Gpu::CelSource& source)
 
 void cel_forget_buffer_locked(const Buffer* buffer)
 {
+    surface_light_forget_buffer(buffer); // (round V: the draws kept for the view's shading forget it too)
     SourceState& source = cel().source;
     if (buffer == nullptr || source.vertices == buffer || source.stream == buffer) {
         source = {};
@@ -671,6 +673,17 @@ void cel_forget_buffer_locked(const Buffer* buffer)
 }
 
 bool cel_source_named() { return cel().source.vertices != nullptr || cel().source.stream != nullptr; }
+
+CelSourceNamed cel_source_now()
+{
+    const SourceState& source = cel().source;
+    return {.vertices = source.vertices, .offset = source.offset, .stream = source.stream};
+}
+
+void cel_source_put(const CelSourceNamed& source)
+{
+    cel().source = {.vertices = source.vertices, .offset = source.offset, .stream = source.stream};
+}
 
 Buffer* relit_stream_of(Backend& state, const DrawCall& call)
 {

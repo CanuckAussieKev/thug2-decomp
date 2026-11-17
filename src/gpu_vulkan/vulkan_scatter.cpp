@@ -1,6 +1,7 @@
 // NOT ORIGINAL - decals and clutter: marks and small props over the level's surfaces (vulkan_scatter.h;
 // docs/design/vulkan.md "Decals and clutter").
 #include "gpu_vulkan/vulkan_scatter.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 
 #include "engine/gfx/wind.h"
 #include "gpu_vulkan/vulkan_air.h"
@@ -1742,6 +1743,11 @@ bool record_decal_pass(Backend& state, const rt::ViewDrawn& view)
     ViewPlan plan;
     if (!plan_targets(state, view, &plan)) {
         return false;
+    }
+    // (round V - vulkan_surface_light.h: a view lit per surface - the marks multiplied into its decals' input, the
+    // surface's albedo factor, before its light; not over its lit colour)
+    if (const SurfaceInputs* const surface = surface_inputs(state); surface != nullptr && surface->decals != nullptr) {
+        plan.colour = surface->decals;
     }
     plan.draws = plan_decal_draws(*own.scatter, plan.shape, &plan.count);
     update_air_map(state, view.camera.position); // (round W: wet patches only where the rain reaches)

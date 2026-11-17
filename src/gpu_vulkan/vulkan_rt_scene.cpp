@@ -32,6 +32,7 @@
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
@@ -2317,6 +2318,7 @@ void create_ray_tracing(Backend& state)
     }
     made.installed = true;
     made.last_log = seconds_now();
+    install_surface_light(); // (round V: the world lit per surface - vulkan_surface_light.h)
     rt::set_ray_tracing(&made.backend);
     get_log("vulkan: ray tracing on (%s): acceleration structures and ray queries; at most %llu instances, scratch "
             "aligned to %u",
@@ -2333,6 +2335,8 @@ void release_ray_tracing(Backend& state)
     if (rt::ray_tracing() == &made.backend) {
         rt::set_ray_tracing(nullptr);
     }
+    uninstall_surface_light(); // (round V)
+    release_surface_light(state);
     rt_shadows_set_scene_locked(VK_NULL_HANDLE);
     cel_set_scene_locked(VK_NULL_HANDLE); // (added by cel shading)
     rt_effects_set_scene_locked(VK_NULL_HANDLE);

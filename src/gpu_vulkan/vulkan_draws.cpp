@@ -66,6 +66,7 @@
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "gpu_vulkan/vulkan_surface.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_water.h"
 #include "platform/run_log.h"
 #include "platform/frame_profile.h"
@@ -470,7 +471,8 @@ struct SurfaceDescriptors {
 
 void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array<VkDescriptorImageInfo, kStageCount>& images,
                       const SurfaceDescriptors& surface = {}, const WaterDescriptors& water = {},
-                      const SnowDescriptors& snow = {}, const PaintDescriptors& paint = {}, const WetDescriptors& wet = {})
+                      const SnowDescriptors& snow = {}, const PaintDescriptors& paint = {}, const WetDescriptors& wet = {},
+                      const SurfaceInputDescriptors& light = {})
 {
     BoundState& bound = state.bound;
     const bool same_surface = !surface.on || (bound.surface_pushed && same_buffer_info(bound.pushed_surface_block, surface.block) &&
@@ -478,7 +480,8 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     const bool same = bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, bound.vertex_block) &&
                       same_buffer_info(bound.pushed_fragment_block, bound.fragment_block) &&
                       std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel &&
-                      !surface.detail;
+                      !surface.detail &&
+                      (!light.on || (bound.light_pushed && bound.light_guides_pushed == light.guides)); // (round V)
     if (same && !water.on && !snow.on && !paint.on && !wet.on) {
         return;
     }
@@ -487,7 +490,9 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the map)
     constexpr std::size_t kPaintWrites = 3;  // (NOT ORIGINAL - paint's: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetWrites = 2;    // (NOT ORIGINAL - rain's: kWetUniformsBinding, kWetMapBinding)
-    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites>
+    constexpr std::size_t kLightWrites = 6;  // (NOT ORIGINAL - round V's: kLightVisibilityBinding - kLightGuidesBinding)
+    std::array<VkWriteDescriptorSet,
+               2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites + kLightWrites>
         writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -608,6 +613,19 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
         map.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         map.pImageInfo = &wet.map;
     }
+    if (light.on) { // (NOT ORIGINAL - round V: the surface's light inputs - vulkan_surface_light.h)
+        for (uint32_t input = 0; input < kLightWrites; ++input) {
+            if (kLightVisibilityBinding + input == kLightGuidesBinding && !light.guides) {
+                continue;
+            }
+            VkWriteDescriptorSet& image = core::at(writes, count++);
+            image.dstBinding = kLightVisibilityBinding + input;
+            image.descriptorType = kLightVisibilityBinding + input == kLightGuidesBinding
+                                       ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+                                       : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            image.pImageInfo = &core::at(light.images, input);
+        }
+    }
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0, count, writes.data());
     bound.images = images;
     bound.pushed_vertex_block = bound.vertex_block;
@@ -615,6 +633,8 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     // (added by cel shading: the next draw pushes again - its block is per draw; so the detail layer's)
     bound.descriptors_set = !surface.cel && !surface.detail;
     bound.surface_pushed = surface.on;
+    bound.light_pushed = light.on; // (round V: the inputs stay the view's while it is shaded)
+    bound.light_guides_pushed = light.guides;
     bound.pushed_surface_block = surface.block;
     bound.pushed_surface_map = surface.map;
 }
@@ -1285,6 +1305,12 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     if (!state.draws_made || call.vertices == 0 || block.viewport.width == 0 || block.viewport.height == 0) {
         return kOk;
     }
+    // NOT ORIGINAL - round V (vulkan_surface_light.h): a view's world lit per surface - its draws kept for after their
+    // light inputs are made (their depth drawn first)
+    if (surface_light_keep(state, block, call)) {
+        return kOk;
+    }
+    const SurfaceDrawRole light_role = surface_draw_role();
     const ShaderProgram* program = nullptr;
     if (block.pixel_shader != nullptr) {
         const PixelShader* const shader = object(block.pixel_shader);
@@ -1294,52 +1320,70 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     }
     ShaderKey shaders = draw_shader_key(block, program, call.primitive == GpuPrimitive::kPointList);
     // NOT ORIGINAL - the upscaler's motion vectors (vulkan_motion.h): a 3D draw into a view drawn for upscaling
-    if (motion_wanted(state, core::at(state.targets, 0), attachment_of(core::at(state.targets, 0))) &&
+    if (light_role != SurfaceDrawRole::kPrepass && // (round V: a prepass writes no colour, so no motion)
+        motion_wanted(state, core::at(state.targets, 0), attachment_of(core::at(state.targets, 0))) &&
         !fvf_pre_transformed(shaders.vertex.fvf)) {
         shaders.vertex.motion = 1;
         shaders.fragment.motion = 1;
     }
     // NOT ORIGINAL - the retro art style's geometry (vulkan_style_film.h): a 3D draw of a view's world while it is on
     shaders.vertex.retro = retro_key_bit(shaders.vertex.fvf);
-    // NOT ORIGINAL - per-pixel lighting where the draw takes it ([Graphics] rt_pbr, vulkan_surface.h; nothing with it off)
-    // - or (added by cel shading, vulkan_cel_draw.h; [Graphics] rt_cel) the light in bands, which takes its place
-    const CelDraw cel = cel_draw(state, block, shaders, call);
-    const SurfaceDraw surface = cel.flags != 0 ? SurfaceDraw{.flags = cel.flags} : surface_draw(block, shaders);
-    if (surface.flags != 0) {
-        shaders.fragment.surface = surface.flags;
-        shaders.fragment.detail = surface.detail; // (added by the detail materials - rt_detail / rt_delight)
-        shaders = normalised(shaders);
-    }
-    // NOT ORIGINAL - water shaded where render_pc marked the material ([Graphics] rt_water, vulkan_water.h; nothing with
-    // it off): the key with the water bit, the copy behind the water made first (outside the pass); opaque water before
-    // the opaque world is finished kept back and drawn then
+    // NOT ORIGINAL - round V: a prepass draws the depth alone - none of the surface's own keys (its vertices placed by the
+    // same invariant position as its shaded draw's: vulkan_surface_light.h)
+    CelDraw cel;
+    SurfaceDraw surface;
     WaterDescriptors water;
-    if (!water_key(state, block, call, &shaders, &water)) {
-        return kOk; // (drawn as water once the opaque world is finished)
-    }
-    // NOT ORIGINAL - the snow's cover on the world's ground and the scene objects ([Graphics] snow, vulkan_snow.h; nothing
-    // with it off)
     SnowDescriptors snow;
-    snow_key(state, block, call, &shaders, &snow);
-    // NOT ORIGINAL - the paint trails' coat on the same draws, over the snow ([Graphics] paint_trails, vulkan_paint.h)
     PaintDescriptors paint;
-    paint_key(state, block, &shaders, &paint);
-    // NOT ORIGINAL - the rain's wet ground on the same draws ([Graphics] rain, vulkan_rain.h; nothing with it off)
     WetDescriptors wet;
-    rain_key(state, block, call, &shaders, &wet);
-    // NOT ORIGINAL - (lighting round A) a world draw of the relit level: its colour is the relit light store's (the stream's
-    // colour word, rt_cel.h - the surface's tint x its light), read in place of the vertex colour, its alpha the game's.
-    // The game's vertex buffers are never written by relit.
-    Buffer* const relit = relit_colour_stream(state, call, shaders.vertex);
-    if (relit != nullptr) {
-        shaders.vertex.surface = static_cast<uint8_t>(shaders.vertex.surface | kVertexRelitColour);
-        // (round M) a world draw lit per pixel reads the store's terms (words 0 - 2: the environment's light, the tint and
-        // the sun's visibility, the lamps') and lights them with the light model - not the store's finished colour
-        const uint8_t lit = shaders.fragment.surface;
-        if ((lit & kSurfaceLighting) != 0U && (lit & (kSurfaceLit | kSurfaceCel | kSurfaceCelHull)) == 0U) {
-            shaders.fragment.surface = static_cast<uint8_t>(lit | kSurfaceRelit);
-            shaders.vertex.surface = static_cast<uint8_t>(shaders.vertex.surface | kVertexCelStream);
+    Buffer* relit = nullptr;
+    if (light_role != SurfaceDrawRole::kPrepass) {
+        // NOT ORIGINAL - per-pixel lighting where the draw takes it ([Graphics] rt_pbr, vulkan_surface.h; nothing with it off)
+        // - or (added by cel shading, vulkan_cel_draw.h; [Graphics] rt_cel) the light in bands, which takes its place
+        cel = cel_draw(state, block, shaders, call);
+        surface = cel.flags != 0 ? SurfaceDraw{.flags = cel.flags} : surface_draw(block, shaders);
+        if (surface.flags != 0) {
+            shaders.fragment.surface = surface.flags;
+            shaders.fragment.detail = surface.detail; // (added by the detail materials - rt_detail / rt_delight)
+            shaders = normalised(shaders);
         }
+        // NOT ORIGINAL - water shaded where render_pc marked the material ([Graphics] rt_water, vulkan_water.h; nothing with
+        // it off): the key with the water bit, the copy behind the water made first (outside the pass); opaque water before
+        // the opaque world is finished kept back and drawn then
+        if (!water_key(state, block, call, &shaders, &water)) {
+            return kOk; // (drawn as water once the opaque world is finished)
+        }
+        // NOT ORIGINAL - the snow's cover on the world's ground and the scene objects ([Graphics] snow, vulkan_snow.h; nothing
+        // with it off)
+        snow_key(state, block, call, &shaders, &snow);
+        // NOT ORIGINAL - the paint trails' coat on the same draws, over the snow ([Graphics] paint_trails, vulkan_paint.h)
+        paint_key(state, block, &shaders, &paint);
+        // NOT ORIGINAL - the rain's wet ground on the same draws ([Graphics] rain, vulkan_rain.h; nothing with it off)
+        rain_key(state, block, call, &shaders, &wet);
+        // NOT ORIGINAL - (lighting round A) a world draw of the relit level: its colour is the relit light store's (the stream's
+        // colour word, rt_cel.h - the surface's tint x its light), read in place of the vertex colour, its alpha the game's.
+        // The game's vertex buffers are never written by relit.
+        // NOT ORIGINAL - round V: a kept draw's key (its prepass's and its shaded draw's alike): the relit world and the lit
+        // objects lit per pixel
+        if (light_role != SurfaceDrawRole::kAsItComes) {
+            surface_light_force(block, relit_colour_stream(state, call, shaders.vertex) != nullptr, &shaders);
+        }
+        relit = relit_colour_stream(state, call, shaders.vertex);
+        if (relit != nullptr) {
+            shaders.vertex.surface = static_cast<uint8_t>(shaders.vertex.surface | kVertexRelitColour);
+            // (round M) a world draw lit per pixel reads the store's terms (words 0 - 2: the environment's light, the tint and
+            // the sun's visibility, the lamps') and lights them with the light model - not the store's finished colour
+            const uint8_t lit = shaders.fragment.surface;
+            if ((lit & kSurfaceLighting) != 0U && (lit & (kSurfaceLit | kSurfaceCel | kSurfaceCelHull)) == 0U) {
+                shaders.fragment.surface = static_cast<uint8_t>(lit | kSurfaceRelit);
+                shaders.vertex.surface = static_cast<uint8_t>(shaders.vertex.surface | kVertexCelStream);
+            }
+        }
+    }
+    // NOT ORIGINAL - round V: a prepass's depth alone; a shaded draw's light inputs
+    SurfaceInputDescriptors light_inputs;
+    if (light_role != SurfaceDrawRole::kAsItComes) {
+        surface_light_finish(state, block, &shaders, &light_inputs);
     }
     std::string why;
     if (!supported(shaders, &why)) {
@@ -1407,7 +1451,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         bound.pipeline = pipeline;
     }
     set_dynamic_states(state, commands, block, call);
-    push_descriptors(state, commands, descriptors, surface_descriptors, water, snow, paint, wet);
+    push_descriptors(state, commands, descriptors, surface_descriptors, water, snow, paint, wet, light_inputs);
     if (call.vertex_buffer != bound.vertex_buffer || call.vertex_offset != bound.vertex_offset ||
         call.stride != bound.vertex_stride) {
         const VkDeviceSize stride = call.stride;
@@ -1432,8 +1476,8 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     bind_cel_stream(state, commands, shaders.vertex.surface, bound_stream);
     issue_draw(state, commands, call);
     // (added by cel shading) a lit object's outline
-    const bool hull_drawn =
-        draw_cel_hull(state, commands, {.block = &block, .shaders = &shaders, .call = &call, .wanted = cel.hull});
+    const bool hull_drawn = light_role != SurfaceDrawRole::kPrepass &&
+                            draw_cel_hull(state, commands, {.block = &block, .shaders = &shaders, .call = &call, .wanted = cel.hull});
     count_cel_draw(shaders.fragment.surface, hull_drawn);
     const uint64_t serial = state.frames.serial();
     for (Image* image : images) {

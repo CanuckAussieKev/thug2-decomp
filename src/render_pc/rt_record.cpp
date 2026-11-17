@@ -1933,7 +1933,11 @@ void camera_chosen(int viewport)
     }
 }
 
-void set_world_passes(bool inside) { state().world_passes = inside; }
+void set_world_passes(bool inside)
+{
+    state().world_passes = inside;
+    rt::set_world_surfaces_drawing(inside); // (round V: the backend keeps these draws for after the visibility)
+}
 
 void mesh_drawn(const MeshRef* mesh)
 {

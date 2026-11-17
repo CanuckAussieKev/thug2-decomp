@@ -34,6 +34,7 @@
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "platform/run_log.h"
 
@@ -370,7 +371,9 @@ void main()
     for (uint i = 0u; i < rays; ++i) {
         hits += occluded(origin, hemisphere_ray(h, i, rays), mask);
     }
-    hits *= indirect_share(origin, normal, mask); // (round O: the indirect light's share alone)
+    if (pc.extra.w == 0) {
+        hits *= indirect_share(origin, normal, mask); // (round O: the indirect light's share alone)
+    } // (round V - vulkan_surface_light.h: else the occlusion itself - the surface's shading takes it on its indirect light)
     if (relit_world_pixel(here, to_camera, distance)) {
         hits = 0.0; // (the light energy audit: the relit world's occlusion is its sky term's - relit owns it)
     }
@@ -798,6 +801,7 @@ enum class Effect : uint8_t { kOcclusion, kIndirect };
 struct ApplyPipeline {
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+    bool inputs = false; // (round V: the occlusion's indirect visibility into the surface's inputs - their blue)
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -1124,11 +1128,11 @@ bool float_format(VkFormat format)
 }
 
 // The apply pass's pipeline for a colour target (made on first use).
-VkPipeline apply_pipeline(Backend& state, EffectsState& own, VkFormat format, VkSampleCountFlagBits samples,
+VkPipeline apply_pipeline(Backend& state, EffectsState& own, VkFormat format, VkSampleCountFlagBits samples, bool inputs,
                           std::string* error)
 {
     for (const ApplyPipeline& made : own.applies) {
-        if (made.format == format && made.samples == samples) {
+        if (made.format == format && made.samples == samples && made.inputs == inputs) {
             return made.pipeline;
         }
     }
@@ -1198,6 +1202,10 @@ VkPipeline apply_pipeline(Backend& state, EffectsState& own, VkFormat format, Vk
     blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     blend.alphaBlendOp = VK_BLEND_OP_ADD;
     blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+    if (inputs) { // (round V: 1 - the occlusion written as the surface's indirect visibility, its blue alone)
+        blend.blendEnable = VK_FALSE;
+        blend.colorWriteMask = VK_COLOR_COMPONENT_B_BIT;
+    }
     VkPipelineColorBlendStateCreateInfo blending{};
     blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     blending.attachmentCount = 1;
@@ -1232,7 +1240,7 @@ VkPipeline apply_pipeline(Backend& state, EffectsState& own, VkFormat format, Vk
         *error = "vkCreateGraphicsPipelines failed";
         return VK_NULL_HANDLE;
     }
-    own.applies.push_back({.format = format, .samples = samples, .pipeline = pipeline});
+    own.applies.push_back({.format = format, .samples = samples, .inputs = inputs, .pipeline = pipeline});
     return pipeline;
 }
 
@@ -1974,7 +1982,13 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     const double own_elevation =
         std::asin(std::clamp(static_cast<double>(core::at(own_sun.toward, 1)), -1.0, 1.0)) * (180.0 / 3.14159265358979);
     const float direct_share = rt::direct_share_now(rt::day_light(), own_sun.found, own_elevation);
-    Image* const colour = image_of_surface(core::at(state.targets, 0));
+    // (round V - vulkan_surface_light.h: a view lit per surface - the occlusion into its light inputs, the indirect
+    // light's visibility its surfaces' shading takes; no bounce added over colours there)
+    const SurfaceInputs* const surface = surface_inputs(state);
+    if (rgb && surface != nullptr) {
+        return false;
+    }
+    Image* const colour = surface != nullptr ? surface->visibility : image_of_surface(core::at(state.targets, 0));
     Image* const depth = image_of_surface(state.depth);
     if (colour == nullptr || depth == nullptr || colour->attachment_view == VK_NULL_HANDLE ||
         (colour->aspect & VK_IMAGE_ASPECT_COLOR_BIT) == 0 || (depth->aspect & VK_IMAGE_ASPECT_DEPTH_BIT) == 0 ||
@@ -1990,7 +2004,7 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     }
     std::string error;
     const VkPipeline apply = ensure_objects(state, own, &error)
-                                 ? apply_pipeline(state, own, colour->format, colour->samples, &error)
+                                 ? apply_pipeline(state, own, colour->format, colour->samples, surface != nullptr, &error)
                                  : VK_NULL_HANDLE;
     if (apply == VK_NULL_HANDLE) {
         own.failed = true;
@@ -2082,7 +2096,8 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
         trace.extra = {static_cast<int32_t>(slot->passes % kSequenceWrap),
                        static_cast<int32_t>(rgb ? kGiMask : kAoMask),
                        // (round O) the lighting state's direct share, per mille (the occlusion's indirect_share)
-                       rgb ? 0 : static_cast<int32_t>(std::lround(direct_share * kPerMille)), 0};
+                       rgb ? 0 : static_cast<int32_t>(std::lround(direct_share * kPerMille)),
+                       surface != nullptr ? 1 : 0}; // (round V: the occlusion itself, not its share)
         PassImages trace_images{
             .scene = true, .depth = depth, .out = &slot->raw, .guide = &core::at(slot->guides, slot->current)};
         trace_images.geometry = own.geometry;

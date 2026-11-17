@@ -30,6 +30,7 @@
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -158,6 +159,9 @@ layout(push_constant) uniform Pass {
     vec4 unused1;
 } pc;
 layout(location = 0) out vec4 o_added;
+#ifdef SURFACE_INPUTS
+layout(location = 1) out vec4 o_on_albedo; // (round V: the lamps' light on the traced albedo, for a colour lit already)
+#endif
 
 float depth_at(ivec2 p) { return texelFetch(u_depth, p, 0).r; }
 
@@ -372,10 +376,17 @@ void main()
     // (lighting round A2: the store's tint is a linear albedo factor - only the texel is decoded)
     vec3 surface = relit ? linear_from_display(albedo.rgb) * world.tint : linear_from_display(albedo.rgb);
     vec3 added = surface * lamps;
-    if (any(isnan(added)) || any(isinf(added))) {
+    if (any(isnan(added)) || any(isinf(added)) || any(isnan(lamps)) || any(isinf(lamps))) {
         discard;
     }
+#ifdef SURFACE_INPUTS
+    // (round V - vulkan_surface_light.h) the lamps' light itself: the surface's shading puts it on its own albedo (the
+    // one the program makes, the light model's); on the traced albedo for a colour lit already
+    o_added = vec4(lamps, 0.0);
+    o_on_albedo = vec4(added, 0.0);
+#else
     o_added = vec4(added, 0.0);
+#endif
 }
 )";
 
@@ -408,6 +419,7 @@ static_assert(sizeof(LightsBlock) == kLightsBlockBytes, "the shader's Lights blo
 struct PassPipeline {
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+    bool inputs = false; // (round V: into the surface's light inputs - two attachments, the light and on the albedo)
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -564,11 +576,11 @@ bool float_format(VkFormat format)
 }
 
 // The pipeline for a colour target (made on first use).
-VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, std::string* error)
+VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, bool inputs, std::string* error)
 {
     LightsState& own = lights_state();
     for (const PassPipeline& made : own.pipelines) {
-        if (made.format == format && made.samples == samples) {
+        if (made.format == format && made.samples == samples && made.inputs == inputs) {
             return made.pipeline;
         }
     }
@@ -589,6 +601,9 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     source += cutout_rays_glsl(); // (the one lighting path's ray test: the lamps' light through the cut-outs' holes)
     source += rt::kDisplayTransferGlsl; // (round F)
     source += kLampGlsl;               // (round O: shared with the reflections' hits)
+    if (inputs) {
+        source += "#define SURFACE_INPUTS\n";
+    }
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source, error);
     if (fragment == VK_NULL_HANDLE) {
@@ -647,10 +662,11 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     blend.alphaBlendOp = VK_BLEND_OP_ADD;
     blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+    const std::array<VkPipelineColorBlendAttachmentState, 2> blends{blend, blend}; // (round V: both added)
     VkPipelineColorBlendStateCreateInfo blending{};
     blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    blending.attachmentCount = 1;
-    blending.pAttachments = &blend;
+    blending.attachmentCount = inputs ? 2U : 1U;
+    blending.pAttachments = blends.data();
     const std::array<VkDynamicState, 2> dynamic_states{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dynamic{};
     dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -658,8 +674,9 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     dynamic.pDynamicStates = dynamic_states.data();
     VkPipelineRenderingCreateInfo rendering{};
     rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    rendering.colorAttachmentCount = 1;
-    rendering.pColorAttachmentFormats = &format;
+    const std::array<VkFormat, 2> formats{format, format};
+    rendering.colorAttachmentCount = inputs ? 2U : 1U;
+    rendering.pColorAttachmentFormats = formats.data();
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     info.pNext = &rendering;
@@ -681,7 +698,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
         *error = "vkCreateGraphicsPipelines failed";
         return VK_NULL_HANDLE;
     }
-    own.pipelines.push_back({.format = format, .samples = samples, .pipeline = pipeline});
+    own.pipelines.push_back({.format = format, .samples = samples, .inputs = inputs, .pipeline = pipeline});
     return pipeline;
 }
 
@@ -978,7 +995,11 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
 
-    Image* const colour = image_of_surface(core::at(state.targets, 0));
+    // (round V - vulkan_surface_light.h: a view lit per surface - the lamps' light into its light inputs, not over the
+    // colour)
+    const SurfaceInputs* const surface = surface_inputs(state);
+    Image* const colour = surface != nullptr ? surface->lamps : image_of_surface(core::at(state.targets, 0));
+    Image* const on_albedo = surface != nullptr ? surface->lamps_on : nullptr;
     Image* const depth = image_of_surface(state.depth);
     if (colour == nullptr || depth == nullptr || colour->attachment_view == VK_NULL_HANDLE ||
         (colour->aspect & VK_IMAGE_ASPECT_COLOR_BIT) == 0 || (depth->aspect & VK_IMAGE_ASPECT_DEPTH_BIT) == 0 ||
@@ -992,7 +1013,7 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     std::string error;
-    const VkPipeline pipeline = pass_pipeline(state, colour->format, colour->samples, &error);
+    const VkPipeline pipeline = pass_pipeline(state, colour->format, colour->samples, surface != nullptr, &error);
     if (pipeline == VK_NULL_HANDLE) {
         own.failed = true;
         if (first_report(state, kReportPipeline)) {
@@ -1073,14 +1094,19 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     colour_info.resolveMode = VK_RESOLVE_MODE_NONE;
     colour_info.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     colour_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    std::array<VkRenderingAttachmentInfo, 2> attachments{colour_info, colour_info};
+    if (on_albedo != nullptr) { // (round V: the second, the light on the traced albedo)
+        Memory::transition(commands, on_albedo, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
+        attachments.back().imageView = on_albedo->attachment_view;
+    }
     const VkRect2D area{.offset = {.x = static_cast<int32_t>(left), .y = static_cast<int32_t>(top)},
                         .extent = {.width = width, .height = height}};
     VkRenderingInfo info{};
     info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     info.renderArea = area;
     info.layerCount = 1;
-    info.colorAttachmentCount = 1;
-    info.pColorAttachments = &colour_info;
+    info.colorAttachmentCount = on_albedo != nullptr ? 2U : 1U;
+    info.pColorAttachments = attachments.data();
     vkCmdBeginRendering(commands, &info);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     const VkViewport viewport{.x = static_cast<float>(left),
@@ -1125,10 +1151,13 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     vkCmdPushConstants(commands, own.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PassConstants), &constants);
     vkCmdDraw(commands, 3, 1, 0, 0);
     vkCmdEndRendering(commands);
-    for (Image* image : {colour, depth}) {
-        if (image->layout != image->resting) {
+    for (Image* image : {colour, depth, on_albedo}) {
+        if (image != nullptr && image->layout != image->resting) {
             Memory::transition(commands, image, image->resting);
         }
+    }
+    if (on_albedo != nullptr) {
+        on_albedo->used = state.frames.serial();
     }
     if (timed) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timing.pool, (timing_slot * 2) + 1);
