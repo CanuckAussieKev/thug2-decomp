@@ -1072,7 +1072,7 @@ void compare_raw(std::span<const Solid> solids, const render::vulkan::RtAoTexels
 
 render::vulkan::RtGiSettings settings_for(bool on, unsigned rays, bool denoise)
 {
-    return {.on = on, .strength = kStrength, .distance = kDistance, .rays = rays, .denoise = denoise};
+    return {.on = on, .distance = kDistance, .rays = rays, .denoise = denoise};
 }
 
 void run_raw(render::Gpu& gpu, std::span<const SceneMesh> meshes, uint32_t samples, Tally* tally)
@@ -1458,7 +1458,7 @@ SmoothResult trace_sphere(render::Gpu& gpu, std::span<const SceneMesh> meshes, c
         return result;
     }
     render::vulkan::set_rt_ao_settings(
-        {.on = true, .strength = 1.0F, .radius = kSmoothRadius, .rays = kSmoothRays, .denoise = false});
+        {.on = true, .radius = kSmoothRadius, .rays = kSmoothRays, .denoise = false});
     render::vulkan::set_rt_gi_settings(settings_for(true, kSmoothRays, false));
     {
         render::vulkan::Backend& state = render::vulkan::backend();

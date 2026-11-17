@@ -1564,6 +1564,7 @@ void emitter_work()
         if (rt_relit_world::data_emitters(&solved)) {
             found.emitters = std::move(solved);
             found.triangle_emitter.clear();
+            found.solved = true; // (round O: only the solved lamps shine)
         }
     }
     found.triangles = std::move(triangles); // (lighting round A2: a path tracer's emissive triangles - the relit data's)

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_display.h"
 
 namespace render::rt {
 
@@ -30,8 +31,6 @@ constexpr float kLeastLength = 1e-6F;
 constexpr double kSingular = 1e-12;
 constexpr std::size_t kBasis = 4;  // [1, nx, ny, nz]
 constexpr std::size_t kSystem = 5; // a row of the system: kBasis coefficients and the right side
-constexpr float kLambertDirect = 2.0F;  // a Lambert light D seen over the directions ~ D (1/4 + 1/2 n . d) ...
-constexpr float kLambertAmbient = 0.25F; // ... so D = 2 |c1|, and D / 4 of c0 is its
 
 // (the upper triangle's place of row r, column c of the 4 x 4 moments)
 constexpr std::array<std::array<std::size_t, kBasis>, kBasis> kMomentAt{
@@ -51,6 +50,7 @@ void add_parts(LightParts* into, const LightParts& parts, float weight)
     add_to(&into->direct_own, parts.direct_own, weight);
     add_to(&into->indirect_own, parts.indirect_own, weight);
     add_to(&into->local, parts.local, weight);
+    add_to(&into->sky_now, parts.sky_now, weight);
 }
 
 int cell_of(float value) { return static_cast<int>(std::floor(value / kLightFieldCell)); }
@@ -104,12 +104,6 @@ Published& published()
 
 } // namespace
 
-bool LocalLight::any() const
-{
-    return std::ranges::any_of(ambient, [](float value) { return value > 0.0F; }) ||
-           std::ranges::any_of(directional, [](float value) { return value > 0.0F; });
-}
-
 int64_t LightField::key_of(int x, int y, int z)
 {
     return ((static_cast<int64_t>(x) + kKeyBias) & kKeyMask) |
@@ -131,18 +125,28 @@ void LightField::add(const FieldPoint& at, const LightParts& parts)
     for (Cell* each : {&into, &all_}) {
         add_parts(&each->sum, parts, 1.0F);
         each->count += 1.0F;
-        // the local light's fit's sums: [1, n] [1, n]^T and [1, n] x its light
+        // the probes' fits' sums: [1, n] [1, n]^T and [1, n] x each part's light
         for (std::size_t row = 0; row < kBasis; ++row) {
             for (std::size_t col = row; col < kBasis; ++col) {
                 core::at(each->moments.normals, core::at(core::at(kMomentAt, row), col)) +=
                     core::at(basis, row) * core::at(basis, col);
             }
             for (std::size_t ch = 0; ch < 3; ++ch) {
-                core::at(core::at(each->moments.light, ch), row) += core::at(basis, row) * core::at(parts.local, ch);
+                const float sky = core::at(parts.sky_now, ch);
+                const float bounce = std::max(0.0F, core::at(parts.indirect_now, ch) - sky);
+                core::at(core::at(each->moments.sky, ch), row) += core::at(basis, row) * sky;
+                core::at(core::at(each->moments.bounce, ch), row) += core::at(basis, row) * bounce;
+                core::at(core::at(each->moments.lamps, ch), row) += core::at(basis, row) * core::at(parts.local, ch);
             }
         }
     }
     ++vertices_;
+}
+
+void LightField::set_sun(const FieldPoint& toward, const FieldRgb& light)
+{
+    sun_toward_ = toward;
+    sun_ = light;
 }
 
 LightRatio LightField::ratio_of(const LightParts& sum)
@@ -156,9 +160,8 @@ LightRatio LightField::ratio_of(const LightParts& sum)
         // objects take them as a light of their own, local_at)
         const float now = core::at(sum.direct_now, ch) + indirect_now + local;
         const float own = core::at(sum.direct_own, ch) + indirect_own + local;
-        core::at(out.whole, ch) = own > kLightFieldLeast ? std::clamp(now / own, 0.0F, kLightFieldMostRatio) : 1.0F;
-        core::at(out.indirect, ch) =
-            indirect_own > kLightFieldLeast ? std::clamp(indirect_now / indirect_own, 0.0F, kLightFieldMostRatio) : 1.0F;
+        core::at(out.whole, ch) = own > kLightFieldLeast ? std::max(now / own, 0.0F) : 1.0F;
+        core::at(out.indirect, ch) = indirect_own > kLightFieldLeast ? std::max(indirect_now / indirect_own, 0.0F) : 1.0F;
     }
     return out;
 }
@@ -238,38 +241,158 @@ LightRatio LightField::at(const FieldPoint& point) const
     return ratio_of(sum);
 }
 
-IndirectLight LightField::indirect_at(const FieldPoint& point) const
+namespace {
+
+// A probe fitted to a cell's sums: per channel c0 + c1 . n by least squares over the vertices, c1 held toward
+// c0 x `prior` (kProbeRidge x their count) - the penalty |c1 - c0 prior|^2 in the normal equations.
+ProbeL1 fit_probe(const std::array<float, 10>& normals, const std::array<std::array<float, 4>, 3>& light,
+                  const FieldPoint& prior)
 {
-    IndirectLight out;
-    if (cells_.empty()) {
+    ProbeL1 out;
+    const float total = core::at(normals, 0);
+    if (!(total > kLightFieldLeast)) {
         return out;
     }
-    std::vector<Weighted> cells = around(point);
-    if (cells.empty()) {
-        cells.push_back({.cell = &all_, .weight = 1.0F});
-    }
-    // (a vertex's mean: the cells' sums over their counts, each by its weight)
-    LightParts sum;
-    float count = 0.0F;
-    for (const Weighted& each : cells) {
-        add_parts(&sum, each.cell->sum, each.weight);
-        count += each.cell->count * each.weight;
-    }
-    if (!(count > kLightFieldLeast)) {
-        return out;
-    }
-    for (std::size_t ch = 0; ch < out.now.size(); ++ch) {
-        core::at(out.now, ch) = core::at(sum.indirect_now, ch) * local_scale_ / count;
-        core::at(out.own, ch) = core::at(sum.indirect_own, ch) * local_scale_ / count;
-        core::at(out.direct_now, ch) = core::at(sum.direct_now, ch) * local_scale_ / count;
-        core::at(out.direct_own, ch) = core::at(sum.direct_own, ch) * local_scale_ / count;
+    const double ridge = static_cast<double>(kProbeRidge * total);
+    // (-prior, in the basis' places 1 - 3)
+    const std::array<double, kBasis> minus_prior{0.0, -static_cast<double>(std::get<0>(prior)),
+                                                 -static_cast<double>(std::get<1>(prior)),
+                                                 -static_cast<double>(std::get<2>(prior))};
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        System system{};
+        for (std::size_t row = 0; row < kBasis; ++row) {
+            for (std::size_t col = 0; col < kBasis; ++col) {
+                // the data's [1, n] [1, n]^T, and the penalty's: |c1 - c0 prior|^2 = x^T Q x with
+                // Q = [[|prior|^2, -prior^T], [-prior, I]]
+                double penalty = 0.0;
+                if (row == 0 && col == 0) {
+                    for (const double value : minus_prior) {
+                        penalty += value * value;
+                    }
+                } else if (row == 0 || col == 0) {
+                    penalty = core::at(minus_prior, row + col);
+                } else if (row == col) {
+                    penalty = 1.0;
+                }
+                core::at(core::at(system, row), col) =
+                    static_cast<double>(core::at(normals, core::at(core::at(kMomentAt, row), col))) + (ridge * penalty);
+            }
+            core::at(core::at(system, row), kBasis) = core::at(core::at(light, ch), row);
+        }
+        std::array<double, kBasis> solved{};
+        if (!solve4(system, &solved)) {
+            solved = {core::at(core::at(light, ch), 0) / total, 0.0, 0.0, 0.0};
+        }
+        core::at(out.c0, ch) = static_cast<float>(core::at(solved, 0));
+        core::at(out.c1, ch) = {static_cast<float>(core::at(solved, 1)), static_cast<float>(core::at(solved, 2)),
+                                static_cast<float>(core::at(solved, 3))};
     }
     return out;
 }
 
-LocalLight LightField::local_at(const FieldPoint& point) const
+float dot3(const FieldPoint& a, const FieldPoint& b)
 {
-    LocalLight out;
+    return (std::get<0>(a) * std::get<0>(b)) + (std::get<1>(a) * std::get<1>(b)) + (std::get<2>(a) * std::get<2>(b));
+}
+
+} // namespace
+
+FieldRgb ProbeL1::at(const FieldPoint& normal) const
+{
+    FieldRgb out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = std::max(0.0F, core::at(c0, ch) + dot3(core::at(c1, ch), normal));
+    }
+    return out;
+}
+
+ProbeLights probe_lights(const ProbeL1& probe)
+{
+    constexpr std::array<float, 3> kLuma{kLumaRed, kLumaGreen, kLumaBlue};
+    ProbeLights out;
+    out.ambient = probe.c0;
+    FieldPoint toward{};
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            core::at(toward, axis) += core::at(kLuma, ch) * core::at(core::at(probe.c1, ch), axis);
+        }
+    }
+    const float length = std::sqrt(dot3(toward, toward));
+    if (!(length > kLeastLength)) {
+        return out;
+    }
+    out.toward = {std::get<0>(toward) / length, std::get<1>(toward) / length, std::get<2>(toward) / length};
+    float lost = 0.0F;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        const FieldPoint& c1 = core::at(probe.c1, ch);
+        const float along = dot3(c1, out.toward);
+        core::at(out.lobe, ch) = along;
+        lost += core::at(kLuma, ch) * std::sqrt(std::max(0.0F, dot3(c1, c1) - (along * along)));
+    }
+    out.lost = lost;
+    return out;
+}
+
+ProbeL1 PointLight::indirect(float lamps_share) const
+{
+    ProbeL1 out;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        core::at(out.c0, ch) = core::at(sky.c0, ch) + core::at(bounce.c0, ch) + (lamps_share * core::at(lamps.c0, ch));
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            core::at(core::at(out.c1, ch), axis) = core::at(core::at(sky.c1, ch), axis) +
+                                                   core::at(core::at(bounce.c1, ch), axis) +
+                                                   (lamps_share * core::at(core::at(lamps.c1, ch), axis));
+        }
+    }
+    return out;
+}
+
+FieldRgb PointLight::on(const FieldPoint& normal, float seen, float lamps_share) const
+{
+    FieldRgb out = indirect(lamps_share).at(normal);
+    const float facing = std::max(0.0F, dot3(normal, toward)) * seen;
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) += core::at(sun, ch) * facing;
+    }
+    return out;
+}
+
+DeviceLights device_lights(const PointLight& light, float lamps_share)
+{
+    DeviceLights out;
+    const ProbeLights probe = probe_lights(light.indirect(lamps_share));
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        core::at(out.key_travel, axis) = -core::at(light.toward, axis);
+        core::at(out.fill_travel, axis) = -core::at(probe.toward, axis);
+        core::at(out.back_travel, axis) = core::at(probe.toward, axis);
+    }
+    out.ambient = probe.ambient;
+    out.key = light.sun;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        core::at(out.fill, ch) = core::at(probe.lobe, ch);
+        core::at(out.back, ch) = -core::at(probe.lobe, ch);
+    }
+    out.lost = probe.lost;
+    return out;
+}
+
+FieldRgb DeviceLights::on(const FieldPoint& normal, float seen) const
+{
+    const auto facing = [&](const FieldPoint& travel) {
+        return std::max(0.0F, -dot3(normal, travel));
+    };
+    FieldRgb out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        core::at(out, ch) = std::max(0.0F, core::at(ambient, ch) + (core::at(key, ch) * facing(key_travel) * seen) +
+                                               (core::at(fill, ch) * facing(fill_travel)) +
+                                               (core::at(back, ch) * facing(back_travel)));
+    }
+    return out;
+}
+
+PointLight LightField::light_at(const FieldPoint& point) const
+{
+    PointLight out;
     if (cells_.empty()) {
         return out;
     }
@@ -278,72 +401,33 @@ LocalLight LightField::local_at(const FieldPoint& point) const
         cells.push_back({.cell = &all_, .weight = 1.0F});
     }
     Moments moments;
+    const auto add_sums = [](ProbeSums* into, const ProbeSums& from, float weight) {
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            for (std::size_t k = 0; k < kBasis; ++k) {
+                core::at(core::at(*into, ch), k) += core::at(core::at(from, ch), k) * weight;
+            }
+        }
+    };
     for (const Weighted& each : cells) {
         for (std::size_t k = 0; k < moments.normals.size(); ++k) {
             core::at(moments.normals, k) += core::at(each.cell->moments.normals, k) * each.weight;
         }
-        for (std::size_t ch = 0; ch < 3; ++ch) {
-            for (std::size_t k = 0; k < kBasis; ++k) {
-                core::at(core::at(moments.light, ch), k) +=
-                    core::at(core::at(each.cell->moments.light, ch), k) * each.weight;
-            }
-        }
+        add_sums(&moments.sky, each.cell->moments.sky, each.weight);
+        add_sums(&moments.bounce, each.cell->moments.bounce, each.weight);
+        add_sums(&moments.lamps, each.cell->moments.lamps, each.weight);
     }
-    const float total = core::at(moments.normals, 0);
-    if (!(total > kLightFieldLeast)) {
-        return out;
-    }
-    // per channel: c0 + c1 . n, least squares over the vertices, c1 held toward 0 (kLocalLightRidge x their count)
-    std::array<std::array<float, kBasis>, 3> fitted{};
-    for (std::size_t ch = 0; ch < 3; ++ch) {
-        System system{};
-        for (std::size_t row = 0; row < kBasis; ++row) {
-            for (std::size_t col = 0; col < kBasis; ++col) {
-                core::at(core::at(system, row), col) =
-                    core::at(moments.normals, core::at(core::at(kMomentAt, row), col));
-            }
-            if (row > 0) {
-                core::at(core::at(system, row), row) += static_cast<double>(kLocalLightRidge * total);
-            }
-            core::at(core::at(system, row), kBasis) = core::at(core::at(moments.light, ch), row);
-        }
-        std::array<double, kBasis> solved{};
-        if (!solve4(system, &solved)) {
-            solved = {core::at(core::at(moments.light, ch), 0) / total, 0.0, 0.0, 0.0};
-        }
-        for (std::size_t k = 0; k < kBasis; ++k) {
-            core::at(core::at(fitted, ch), k) = static_cast<float>(core::at(solved, k));
-        }
-    }
-    // the direction: the channels' gradients by their brightness; along it a Lambert light, the rest ambient
-    constexpr std::array<float, 3> kLuma{kLumaRed, kLumaGreen, kLumaBlue};
-    FieldPoint toward{};
-    for (std::size_t ch = 0; ch < 3; ++ch) {
-        for (std::size_t axis = 0; axis < 3; ++axis) {
-            core::at(toward, axis) += core::at(kLuma, ch) * core::at(core::at(fitted, ch), axis + 1);
-        }
-    }
-    const float length =
-        std::sqrt((std::get<0>(toward) * std::get<0>(toward)) + (std::get<1>(toward) * std::get<1>(toward)) +
-                  (std::get<2>(toward) * std::get<2>(toward)));
-    const bool directed = length > kLeastLength;
-    if (directed) {
-        out.toward = {std::get<0>(toward) / length, std::get<1>(toward) / length, std::get<2>(toward) / length};
-    }
-    for (std::size_t ch = 0; ch < 3; ++ch) {
-        const std::array<float, kBasis>& fit = core::at(fitted, ch);
-        const float along = directed ? (core::at(fit, 1) * std::get<0>(out.toward)) +
-                                           (core::at(fit, 2) * std::get<1>(out.toward)) +
-                                           (core::at(fit, 3) * std::get<2>(out.toward))
-                                     : 0.0F;
-        const float directional = kLambertDirect * std::max(0.0F, along);
-        core::at(out.directional, ch) = directional * local_scale_;
-        core::at(out.ambient, ch) = std::max(0.0F, core::at(fit, 0) - (kLambertAmbient * directional)) * local_scale_;
-    }
+    // the sky's light comes from above: where the vertices don't tell, a surface takes S (1 + n . up) / 2 (c1 = c0 up);
+    // the bounce and the lamps: the same from every side (c1 = 0)
+    constexpr FieldPoint kUp{0.0F, 1.0F, 0.0F};
+    constexpr FieldPoint kNone{0.0F, 0.0F, 0.0F};
+    out.sky = fit_probe(moments.normals, moments.sky, kUp);
+    out.bounce = fit_probe(moments.normals, moments.bounce, kNone);
+    out.lamps = fit_probe(moments.normals, moments.lamps, kNone);
+    out.toward = sun_toward_;
+    out.sun = sun_;
+    out.valid = true;
     return out;
 }
-
-
 void set_light_field(std::shared_ptr<const LightField> field)
 {
     Published& slot = published();
@@ -364,16 +448,10 @@ LightRatio light_ratio_at(const FieldPoint& point)
     return field != nullptr ? field->at(point) : LightRatio{};
 }
 
-IndirectLight indirect_light_at(const FieldPoint& point)
+PointLight point_light_at(const FieldPoint& point)
 {
     const std::shared_ptr<const LightField> field = light_field();
-    return field != nullptr ? field->indirect_at(point) : IndirectLight{};
-}
-
-LocalLight local_light_at(const FieldPoint& point)
-{
-    const std::shared_ptr<const LightField> field = light_field();
-    return field != nullptr ? field->local_at(point) : LocalLight{};
+    return field != nullptr ? field->light_at(point) : PointLight{};
 }
 
 LightRatio level_light_ratio()
@@ -390,7 +468,8 @@ uint32_t scaled_colour(uint32_t colour, const FieldRgb& ratio, bool red_low)
     uint32_t out = colour;
     for (std::size_t ch = 0; ch < shifts.size(); ++ch) {
         const uint32_t shift = core::at(shifts, ch);
-        const float value = static_cast<float>((colour >> shift) & kByteMask) * core::at(ratio, ch);
+        const float value =
+            static_cast<float>((colour >> shift) & kByteMask) * display_from_linear(std::max(core::at(ratio, ch), 0.0F));
         const auto byte = static_cast<uint32_t>(std::lround(std::clamp(value, 0.0F, kMostByte)));
         out = (out & ~(kByteMask << shift)) | (byte << shift);
     }

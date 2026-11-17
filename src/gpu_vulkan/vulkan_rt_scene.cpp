@@ -255,6 +255,7 @@ struct ObjectLight {
     vec3 fill_direction;
     vec3 local;
     vec3 local_direction;
+    bool linear;
 };
 vec3 object_light_part(uvec2 address, uint part)
 {
@@ -266,7 +267,7 @@ bool hit_object_light(uint instance, out ObjectLight l)
 {
     GeometryRecord g = geometry_record(instance);
     l = ObjectLight(vec3(0.0), vec3(0.0), vec3(0.0, -1.0, 0.0), vec3(0.0), vec3(0.0, -1.0, 0.0), vec3(0.0),
-                    vec3(0.0, -1.0, 0.0));
+                    vec3(0.0, -1.0, 0.0), false);
     if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_OBJECT_LIGHT) == 0u) {
         return false;
     }
@@ -277,6 +278,7 @@ bool hit_object_light(uint instance, out ObjectLight l)
     l.fill_direction = object_light_part(g.object_light_address, 4u);
     l.local = object_light_part(g.object_light_address, 5u);
     l.local_direction = object_light_part(g.object_light_address, 6u);
+    l.linear = object_light_part(g.object_light_address, 7u).x > 0.5;
     return true;
 }
 float object_n_dot_l(vec3 normal, vec3 travel)
@@ -286,8 +288,9 @@ float object_n_dot_l(vec3 normal, vec3 travel)
 }
 vec3 object_light_with(ObjectLight l, vec3 normal, float seen)
 {
-    return l.ambient + l.key * (object_n_dot_l(normal, l.key_direction) * seen) +
-           l.fill * object_n_dot_l(normal, l.fill_direction) + l.local * object_n_dot_l(normal, l.local_direction);
+    return max(l.ambient + l.key * (object_n_dot_l(normal, l.key_direction) * seen) +
+               l.fill * object_n_dot_l(normal, l.fill_direction) + l.local * object_n_dot_l(normal, l.local_direction),
+               vec3(0.0));
 }
 )";
 
@@ -1423,8 +1426,9 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     for (std::size_t i = 0; i < lights; ++i) {
         const rt::ObjectLight& light = core::at(record.object_lights, i);
         std::size_t at = i * kObjectLightFloats;
+        const std::array<float, 3> flags{light.linear ? 1.0F : 0.0F, 0.0F, 0.0F}; // (round O)
         for (const std::array<float, 3>* part : {&light.ambient, &light.key, &light.key_direction, &light.fill,
-                                                &light.fill_direction, &light.local, &light.local_direction}) {
+                                                &light.fill_direction, &light.local, &light.local_direction, &flags}) {
             for (const float value : *part) {
                 core::at(light_floats, at++) = value;
             }

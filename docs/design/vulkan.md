@@ -2277,6 +2277,60 @@ Relit data v6.
 8 bits (a bulb's radiance clips at 2 x white there - an HDR store is the fix); a lamp's switch compares the sky's light
 only (the sun's direct light at dusk is left out); the light cards' lamps that have no surface of their own show none.
 
+### Round O: one light for everything (objects, characters, ray hits)
+
+Everything that receives light reads the same light: the relit light store (linear, in the global unit - round A2), the
+lighting state's sun or moon, and the solved lamps. Before it the skater, the peds, the vehicles and the lit objects were
+lit by the game's own display-referred lights turned toward the sun and scaled by ratios of the store's light (clamped
+to 2; the ambient held to 1), a reflection's hit by the game's vertex colours x 2 (the bake: at night a reflection showed
+the daylit level), the occlusion multiplied all of an object's light, and the bounce pass added a second bounce over
+the store's.
+
+- **The light field's probes** (`engine/gfx/rt_light_field.h`): per 128-unit cell, first-order irradiance probes (SH L1:
+  c0 + c1 . n per channel) fitted by least squares over the relit vertices' normals - one for the sky's light (the
+  store's sky x its traced visibility K), one for the bounce (B), one for the lamps (L x the lamps on). Where the
+  vertices' normals don't tell a direction (an open plaza: every vertex facing up), the fit is held toward a prior: the
+  sky's from above - a surface under an open hemisphere of radiance S receives S (1 + n . up) / 2, exactly first order -,
+  the bounce and the lamps from every side (`kProbeRidge`: a regulariser on the fit, not a light's value). The field
+  also keeps the direct light it was made for (the relit lighting's sun: toward, its light per unit of N.L). A point's
+  light (`light_at`): E(n) = sun x max(n . toward, 0) x visibility + sky(n) + bounce(n) + lamps(n) x the share the lamps
+  pass doesn't light per pixel (`rt_lights.h lamps_drawn`). `daylight_check`: a grey object's face turned as each wall
+  of a corner gets that wall's light within 3.1% per term (sky, bounce, lamps, the whole with the sun); the open
+  plaza's sky 0.8 up, 0.4 to the side, 0 down.
+- **The objects and characters** (`render_pc/pc_lights.h OneLightSent`, `pc_instance.cpp send_lights`): while the level
+  is relit, a lit instance is drawn with the device's lights from the field where it stands (`device_lights`): light 0
+  the sun (its shadow the shadow pass's rays, per pixel), light 1 the indirect probe's first-order part toward its
+  direction with c0 as the light's ambient, light 2 the same part's other side with the opposite colour (with light 1:
+  c0 + k (n . toward) exactly, through Direct3D's clamped lights), the device's ambient black and
+  `GpuRenderState::kLinearLights` on: the draws then sum the lights as linear light on the material's diffuse colour and
+  encode once (`ff_shaders.cpp vertex_lighting`, `one_light_v0` - the relit world's colour word is made the same way).
+  The game's light colours, a model's scripted lights (`Obj_` ambient / diffuse light members) and its dynamic lights
+  no longer light anything there; the original's look (no relit level) keeps them all. The props drawn with their own
+  baked colours take the store's light now over the bake's (linear) as its display factor (`scaled_colour`).
+- **Ray hits** (`vulkan_rt_reflections.cpp hit_light`, through round M's light model `engine/gfx/rt_brdf.h`): a
+  reflection's hit on the relit world is lit by the store at the hit - its sky and bounce, the sun's light x a
+  visibility traced from the hit, the store's per-vertex lamps and the lamps the lamps pass lit this frame (the view's
+  32 most important, `rt_lamp_glsl` - the pass's own lamp model); a hit on an object lit by the one light by its
+  record (`rt::ObjectLight::linear`); the glass's own base layer the same; the apply no longer holds the reflection to
+  1. `thug2_vulkan_rt_reflections_check`: the box's reflection at night is the store's night light (night / day 0.100
+  against the stream's 0.102 - the bake's would be 1).
+- **Occlusion** (`rt_ao`): a visibility of the indirect light alone - the trace scales its occlusion by the indirect
+  light's share at the pixel (an object's: its record's light without the key, the key's part with its visibility
+  traced; elsewhere 1 - the lighting state's direct share); no strength (`rt_ao_strength` retired), one rule for every
+  object (`rt_ao_characters` retired), its reach one light field cell (`rt_ao_radius` retired: what the probes don't
+  resolve; farther occluders are in the probe's light through the store's traced sky). `thug2_vulkan_rt_lights_check`:
+  an object lit by its key light alone is unchanged by the occlusion; lit by the indirect alone it darkens near the
+  floor.
+- **Bounce** (`rt_gi`): adds nothing while the level has a light field - the world's and the objects' bounce is the
+  store's (one owner); `rt_gi_strength` retired.
+- **Lamps**: on a level relit from its data the lamps pass shines the solved emitters alone
+  (`rt::LevelEmitters::solved`) - the frame record's point lights carry the game's colours.
+- **Still not done**: the objects' raster shading is still Direct3D's form summed linearly (Lambert per light, the
+  specular of the old GGX on the linear lights, added after the program) - round M's per-pixel `brdf_direct` /
+  `brdf_ambient` on the same light terms is its work; the probes are per cell from the vertices (a path tracer's
+  irradiance cache / ReSTIR GI replaces them); a hit's lamps are unshadowed; the clouds' shadow isn't on a hit's sun;
+  the field's sun has no visibility of its own (without `rt_shadows` an object in a building's shadow keeps its sun).
+
 ### One sun for every effect (`rt_sun_source`)
 
 Before this, each effect picked its own sun: the shadows `rt_shadow_sun` (the baked one), the drawn disc `rt_sun_place`

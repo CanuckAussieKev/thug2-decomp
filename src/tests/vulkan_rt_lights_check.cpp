@@ -962,7 +962,8 @@ bool read_colour(render::Gpu& gpu, const Targets& targets, std::vector<uint8_t>*
 // A frame: the record given (the instances, an ambient light, `points`), cleared, the scene drawn, the listeners
 // (draw_viewport's call). Returns the lights passes recorded.
 uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes,
-                    std::span<const rt::Light> points, uint64_t frame, bool world = false)
+                    std::span<const rt::Light> points, uint64_t frame, bool world = false,
+                    const rt::ObjectLight* object_light = nullptr)
 {
     rt::FrameRecord& record = rt::frame_record();
     record = rt::FrameRecord{};
@@ -972,6 +973,11 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const Sc
     for (const SceneMesh& mesh : meshes) {
         record.instances.push_back(
             {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = kIdentityRows});
+        // (round O) an object's lights, as render_pc/pc_instance.cpp records them
+        if (object_light != nullptr && (mesh.flags & rt::kObject) != 0U) {
+            record.instances.back().light = static_cast<uint32_t>(record.object_lights.size());
+            record.object_lights.push_back(*object_light);
+        }
     }
     record.lights.push_back({.kind = rt::Light::Kind::kAmbient, .colour = {0.1F, 0.1F, 0.15F}});
     for (const rt::Light& light : points) {
@@ -1862,6 +1868,87 @@ void run_counted_once(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     }
 }
 
+// --- (round O - the audit's O1) the occlusion never takes the direct light --------------------------------------------
+// The box drawn as an object lit by the one light (rt::ObjectLight, linear - render_pc/pc_lights.h OneLightSent),
+// rt_ao on (its rays find the floor round the box's foot): lit by its key light alone - the sun from (1, 1, 1), nothing
+// of the indirect -, the faces toward it are as drawn with the occlusion on and off (the occlusion takes the indirect
+// light's share: none); lit by the indirect light alone (the probe's c0), the same faces are darkened near the floor.
+void run_ao_direct(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("the occlusion takes the indirect light alone (round O):\n");
+    std::vector<SceneMesh> scene(meshes.begin(), meshes.end());
+    scene.back().flags = rt::kObject | rt::kOpaque | rt::kCastsShadow; // (the box: an object)
+    render::vulkan::set_rt_light_settings({});
+    const double third = 1.0 / std::sqrt(3.0);
+    const auto f = [](double value) { return static_cast<float>(value); };
+    const rt::ObjectLight key_only{.ambient = {},
+                                   .key = {1.0F, 1.0F, 1.0F},
+                                   .key_direction = {f(-third), f(-third), f(-third)},
+                                   .linear = true};
+    const rt::ObjectLight indirect_only{.ambient = {1.0F, 1.0F, 1.0F}, .linear = true};
+    constexpr float kReach = 40.0F;
+    constexpr unsigned kRays = 16;
+    std::array<std::vector<uint8_t>, 3> shots;
+    bool ok = true;
+    for (std::size_t at = 0; at < shots.size() && ok; ++at) {
+        if (at == 0) {
+            render::vulkan::set_rt_ao_settings({});
+        } else {
+            render::vulkan::set_rt_ao_settings({.on = true, .radius = kReach, .rays = kRays, .denoise = false});
+        }
+        Targets targets;
+        ok = make_targets(gpu, 0, &targets);
+        const rt::ObjectLight* light = at == 2 ? &indirect_only : &key_only;
+        ok = ok && draw_frame(gpu, targets, scene, {}, 1, false, light) == 0 &&
+             draw_frame(gpu, targets, scene, {}, 2, false, light) == 0 && read_colour(gpu, targets, &core::at(shots, at));
+        release_targets(gpu, targets);
+    }
+    render::vulkan::set_rt_ao_settings({});
+    tally->check(ok, "three frames drawn and read (occlusion off; on with the key light alone; on with the indirect alone)");
+    if (!ok) {
+        return;
+    }
+    const View view = view_from(kEye);
+    const Vec3 toward{third, third, third};
+    const uint32_t kBoxDrawn = core::at(kScene, 1).drawn;
+    int lit_faces = 0;
+    int changed_direct = 0;
+    int darkened_indirect = 0;
+    for (int y = 0; y < kTargetHeight; ++y) {
+        for (int x = 0; x < kTargetWidth; ++x) {
+            const Seen here = seen_at(view, x + 0.5, y + 0.5);
+            if (here.solid != 2 || dot(here.normal, toward) < 0.3) {
+                continue;
+            }
+            const Rgb off = pixel_at(core::at(shots, 0), x, y);
+            // (the box's own drawn colour there: not a pixel of its edge the rasteriser gave the floor)
+            const Rgb box = {static_cast<double>((kBoxDrawn >> 16) & 0xFFU) / kByteRange,
+                             static_cast<double>((kBoxDrawn >> 8) & 0xFFU) / kByteRange,
+                             static_cast<double>(kBoxDrawn & 0xFFU) / kByteRange};
+            if (std::abs(core::at(off, 0) - core::at(box, 0)) > 1.5 / kByteRange ||
+                std::abs(core::at(off, 2) - core::at(box, 2)) > 1.5 / kByteRange) {
+                continue;
+            }
+            ++lit_faces;
+            const Rgb direct = pixel_at(core::at(shots, 1), x, y);
+            const Rgb indirect = pixel_at(core::at(shots, 2), x, y);
+            constexpr double kStep = 1.5 / kByteRange;
+            bool same = true;
+            bool darker = false;
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                same = same && std::abs(core::at(direct, ch) - core::at(off, ch)) <= kStep;
+                darker = darker || core::at(indirect, ch) < core::at(off, ch) - kStep;
+            }
+            changed_direct += same ? 0 : 1;
+            darkened_indirect += darker ? 1 : 0;
+        }
+    }
+    tally->check(lit_faces > 500 && changed_direct == 0 && darkened_indirect > 100,
+                 text::format("the box's faces toward its key light: %d pixels - lit by the key alone %d changed by the "
+                              "occlusion (0); lit by the indirect alone %d darkened",
+                              lit_faces, changed_direct, darkened_indirect));
+}
+
 void run_many(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
 {
     constexpr int kSide = 7;
@@ -2059,6 +2146,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_time_of_day(gpu, meshes, tally); // (added by the time of day)
         run_many(gpu, meshes, tally);        // (added for the washed-out streets)
         run_counted_once(gpu, meshes, tally); // (added by the light energy audit)
+        run_ao_direct(gpu, meshes, tally);    // (round O)
         run_fog_lamp(gpu, meshes, tally);     // (added by the volumetric light)
         run_fog_lamp_night(gpu, meshes, tally); // (added by the street air)
         if (options.perf) {

@@ -1586,13 +1586,12 @@ async function main(): Promise<number> {
     // The effect's strength: its ini key where it has one (--set's value), else --strength, else the default. Shadows
     // have no strength setting (rt_shadow_strength is retired - lighting round A): a full shadow takes the lighting's
     // direct share of the light (rt_daylight.h direct_share_now - the model's: about 0.85 with the sun high in the clear
-    // air), so --strength there is that share; rt_relit_strength and rt_bloom_strength are retired too (relit, sun).
+    // air), so --strength there is that share; rt_relit_strength and rt_bloom_strength are retired too (relit, sun);
+    // so are rt_ao_strength (round O: full occlusion takes the indirect light's share - 1 at most) and rt_gi_strength.
     const strengthKeys: Partial<Record<Effect, string>> = {
-        ao: "Graphics.rt_ao_strength",
         reflections: "Graphics.rt_reflection_strength",
         hdr: "Graphics.rt_exposure",
         fog: "Graphics.rt_fog_density",
-        gi: "Graphics.rt_gi_strength",
         sky: "Graphics.rt_cloud_coverage",
         tess: "Graphics.rt_tess_max_deviation",
         upscale: "Graphics.upscale_sharpness",
@@ -1601,7 +1600,7 @@ async function main(): Promise<number> {
     const strengthKey = strengthKeys[effect];
     const defaults: Record<Effect, string> = {
         shadows: "0.85",
-        ao: "0.6",
+        ao: "1",
         reflections: "0.5",
         hdr: "0.5",
         fog: "0.5",

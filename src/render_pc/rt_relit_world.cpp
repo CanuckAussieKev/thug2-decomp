@@ -38,6 +38,7 @@
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/day_clock.h"
 #include "engine/gfx/rt_light_field.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
@@ -1207,12 +1208,15 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
                                        .direct_own = baked.direct,
                                        .indirect_own = baked.indirect,
                                        .local = now.lamps,
+                                       .sky_now = {std::get<0>(light.sky) * vertex.sky, std::get<1>(light.sky) * vertex.sky,
+                                                   std::get<2>(light.sky) * vertex.sky}, // (round O: the sky's probe)
                                        .normal = vertex.normal};
             st.field_building->add(core::at(entry.input.positions, vi), parts);
         }
         entry.field_for = lighting;
     }
     std::shared_ptr<rt::LightField> field = std::move(st.field_building);
+    field->set_sun({rt::x_of(light.toward), rt::y_of(light.toward), rt::z_of(light.toward)}, light.sun); // (round O)
     st.field_building_for = 0;
     st.field_lighting = lighting;
     const rt::LightRatio whole = field->whole();
@@ -1658,7 +1662,9 @@ bool unlit_object_colour(const std::array<float, 3>& position, std::array<uint8_
     constexpr float kMostByte = 255.0F;
     bool same = true;
     for (std::size_t ch = 0; ch < 3; ++ch) {
-        const long byte = std::lround(std::clamp(core::at(ratio.whole, ch) * kOne, 0.0F, kMostByte));
+        // (round O: the ratio is linear light; the instance colour multiplies a display-referred colour - rt_display.h)
+        const long byte =
+            std::lround(std::clamp(rt::display_from_linear(core::at(ratio.whole, ch)) * kOne, 0.0F, kMostByte));
         core::at(*out, ch) = static_cast<uint8_t>(byte);
         same = same && byte == static_cast<long>(kOne);
     }
