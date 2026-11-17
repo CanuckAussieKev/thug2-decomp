@@ -209,7 +209,7 @@ void add_running(Fields* out)
         text::format("%d / %d (draw distance x%.3g, LOD distance x%.3g)", options.anisotropy, options.msaa,
                      static_cast<double>(options.draw_distance_scale_), static_cast<double>(options.lod_distance_scale_)));
     add("ray tracing", render::rt::ray_tracing() != nullptr ? "on" : "off (none on this renderer / device, or the ini has it off)");
-    add("hdr output", on_off(render::rt::hdr_colour()));
+    add("linear frame (float, tone mapped once)", on_off(render::rt::hdr_colour()));
     const render::rt::ViewScale scale = render::rt::view_scale();
 #ifdef THUG2_VULKAN
     if (vulkan) {

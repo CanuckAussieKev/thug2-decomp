@@ -25,6 +25,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "engine/gfx/ui_backend.h"
+#include "engine/gfx/wind.h"
 #include "engine/sys/editor_mode.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
@@ -157,10 +158,6 @@ bool parse_rgb(const std::string& value, std::array<float, 3>* colour)
     return true;
 }
 
-// What the device was made for: rt_hdr as the game started (its colour targets' format - a start-up setting, so the
-// running model keeps the value the game started with).
-bool hdr_on(const Resolution& in_effect) { return in_effect.on("rt_hdr"); }
-
 // NOT ORIGINAL - ray-traced sun shadows (gpu_vulkan/vulkan_rt_shadows.h)
 render::vulkan::RtShadowSettings make_rt_shadows(const Resolution& in_effect)
 {
@@ -240,7 +237,8 @@ render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
         lut_path = build_info::executable_directory() + lut_path;
     }
     const render::vulkan::HdrSettings defaults;
-    return render::vulkan::HdrSettings{.on = hdr_on(in_effect),
+    // (round F - a linear, scene-referred frame: always; rt_hdr retired - the frame no longer depends on it)
+    return render::vulkan::HdrSettings{.on = true,
                                        .exposure = in_effect.number("rt_exposure", defaults.exposure),
                                        .tonemap = static_cast<unsigned>(std::max(0, in_effect.integer("rt_tonemap", 0))),
                                        .saturation = in_effect.number("rt_saturation", defaults.saturation),
@@ -266,7 +264,6 @@ render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
         .steps = steps > 0 ? static_cast<unsigned>(steps) : core::at(render::vulkan::kRtFogQualitySteps, quality),
         .lamps = core::at(render::vulkan::kRtFogQualityLamps, quality),
         .mode = in_effect.integer("rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts : render::vulkan::RtFogMode::kReplace,
-        .hdr = hdr_on(in_effect),
         .haze = in_effect.on("rt_fog_haze"),
         .weather = render::rt::parse_weather(in_effect.value("rt_fog_air").c_str()),
         .scale = core::at(render::vulkan::kRtFogQualityScale, quality),
@@ -281,8 +278,7 @@ render::vulkan::RtSunSettings make_rt_sun(const Resolution& in_effect)
     return {.sun = in_effect.on("rt_sun"),
             .bloom = in_effect.on("rt_bloom"),
             .sky_model = in_effect.on("rt_sky_model"),
-            .lens_dirt = in_effect.on("rt_lens_dirt"),
-            .hdr = hdr_on(in_effect)};
+            .lens_dirt = in_effect.on("rt_lens_dirt")};
 }
 
 // NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h).
@@ -305,8 +301,7 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
                                          .coverage = cover,
                                          .speed = in_effect.number("rt_cloud_speed", 1.0F),
                                          .quality = static_cast<unsigned>(std::max(0, in_effect.integer("rt_cloud_quality", 1))),
-                                         .cloud_shadows = in_effect.on("rt_cloud_shadows"),
-                                         .hdr = hdr_on(in_effect)};
+                                         .cloud_shadows = in_effect.on("rt_cloud_shadows")};
 }
 
 // NOT ORIGINAL - the relit mode (engine/gfx/rt_relit.h, render_pc/rt_relit_world.h): on when asked for, or when the
@@ -521,32 +516,30 @@ void read_scatter(const Resolution& in_effect)
                                           .clutter_density = in_effect.number("clutter_density", defaults.clutter_density)});
 }
 
-// NOT ORIGINAL - water shading (gpu_vulkan/vulkan_water.h). rt_water_wind_heading: auto (the level's) or degrees;
-// rt_water_tint: auto (the water's own colour as the game draws it) or r,g,b.
+// NOT ORIGINAL - water shading (gpu_vulkan/vulkan_water.h). rt_water_tint: auto (the water's own colour as the game
+// draws it) or r,g,b. (Changed by the physical waves: the waves are each body's from the weather's wind - rt_wind, auto
+// or metres a second, engine/gfx/wind.h; rt_water_waves, rt_water_wind and rt_water_wind_heading are retired.)
 void read_water(const Resolution& in_effect)
 {
+    const std::string& wind = in_effect.value("rt_wind");
+    double speed = render::wind::kWindAuto;
+    if (!wind.empty() && wind != "auto") {
+        char* end = nullptr;
+        const double parsed = std::strtod(wind.c_str(), &end);
+        if (end != wind.c_str() && std::isfinite(parsed) && parsed >= 0.0) {
+            speed = parsed;
+        } else {
+            get_log("[Graphics] rt_wind=%s isn't auto or metres a second - the weather's used", wind.c_str());
+        }
+    }
+    render::wind::set_wind_setting(speed);
     const render::vulkan::WaterSettings defaults;
     render::vulkan::WaterSettings water{.on = in_effect.on("rt_water"),
-                                        .waves = in_effect.number("rt_water_waves", defaults.waves),
-                                        .wind = in_effect.number("rt_water_wind", defaults.wind),
-                                        .heading = render::vulkan::kWaterHeadingAuto,
                                         .clarity = in_effect.number("rt_water_clarity", defaults.clarity),
                                         .foam = in_effect.number("rt_water_foam", defaults.foam),
-                                        .hdr = hdr_on(in_effect),
                                         .screen_reflections = in_effect.on("rt_water_screen_reflections"),
                                         .debug_view = in_effect.on("rt_water_view"),
                                         .geometry = in_effect.on("rt_water_geometry")};
-    const std::string& heading = in_effect.value("rt_water_wind_heading");
-    if (!heading.empty() && heading != "auto") {
-        char* end = nullptr;
-        const double parsed = std::strtod(heading.c_str(), &end);
-        if (end != heading.c_str() && std::isfinite(parsed)) {
-            constexpr double kTurn = 360.0;
-            water.heading = static_cast<float>(std::fmod(std::fmod(parsed, kTurn) + kTurn, kTurn));
-        } else {
-            get_log("[Graphics] rt_water_wind_heading=%s isn't auto or degrees - the level's used", heading.c_str());
-        }
-    }
     const std::string& tint = in_effect.value("rt_water_tint");
     std::array<float, 3> colour{};
     if (parse_rgb(tint, &colour)) {

@@ -36,6 +36,7 @@
 #include "render_pc/mesh_pass.h"
 #include "render_pc/building_relief.h"
 #include "render_pc/mesh_smoothing.h"
+#include "render_pc/water_bodies.h"
 #include "render_pc/water_geometry.h"
 
 namespace render {
@@ -184,6 +185,11 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     }
     // Not original - smoothed curves ([Graphics] rt_tessellation, mesh_smoothing.h): the body's curved triangles split
     // before its buffers are made. Original behaviour: the body as read.
+    // Not original - the physical waves (water_bodies.h): a water mesh's triangles as the file has them, for measuring
+    // its body against the level.
+    std::vector<water::Triangle> water_triangles = water_bodies::triangles_of(
+        body, vertex_format(core::at(body.vertex_types, 0)),
+        static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
     std::vector<uint16_t> original_strip;
     std::vector<relief::VertexSource> relief_sources; // (not original: building relief's made vertices)
     if (mesh_smoothing::on()) {
@@ -229,6 +235,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     if (water_grid) {
         water_geometry::remember(core::at(mesh->index_buffers(), 0)); // (not original: water_geometry.h)
     }
+    water_bodies::remember(core::at(mesh->index_buffers(), 0), std::move(water_triangles)); // (not original: water_bodies.h)
     mesh->set_stride(body.stride);
     mesh->set_vertex_count(body.vertex_count);
     mesh->set_vertex_buffer_count(body.vertex_buffer_count);

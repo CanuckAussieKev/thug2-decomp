@@ -36,31 +36,31 @@ constexpr std::string_view kWaterCommonGlsl = R"(layout(set = 0, binding = 10, s
     vec4 sky;
     vec4 camera;
     vec4 misc;
+    vec4 swell;
+    vec4 swell_speed;
+    vec4 sea;
 } water;
 layout(set = 0, binding = 12) uniform sampler2D water_depth;
 
 const float kWaterFar = 1.0e8;      // the depth copy's sky (1e9) and anything as far
-const float kWaterGravity = 386.0;  // units (inches) a second squared: deep water's waves' speeds
 const float kWaterSharpness = 0.6;  // the crests' sharpening (Gerstner's Q)
 
-// Wave i of the swell (four Gerstner waves about the wind's direction) at rest point p, time t: its direction (xy),
-// wavenumber (z) and phase (w); `slope` its slope's amplitude (its height x k) - the wind raises the waves too (x 0.4
-// still, x 1 at the default breeze, x 1.6 in a gale).
+// Wave i of the swell (four Gerstner waves about the wind's direction, standing for the wind sea's spectrum round its
+// peak - engine/gfx/water_waves.h sea_waves: the body's fetch, depth and wind) at rest point p, time t: its direction
+// (xy), wavenumber (z) and phase (w); `slope` its slope's amplitude (its height x k, the energy of its band of the
+// spectrum - 0 on still water), its speed the dispersion's at the body's depth.
 vec4 water_wave(int i, vec2 p, float t, out float slope)
 {
     const vec4 lengths = vec4(1.0, 0.63, 0.41, 0.27);
     const vec4 turns = vec4(0.0, 0.42, -0.57, 1.05);
-    const vec4 steepness = vec4(0.12, 0.10, 0.085, 0.07);
     vec2 wind = water.time.yz;
-    float raised = water.waves.x * (0.4 + 0.6 * water.time.w);
-    float wavelength = lengths[i] * water.misc.y;
+    float wavelength = max(lengths[i] * water.sea.y, 0.05);
     float k = 6.2831853 / wavelength;
-    float speed = sqrt(kWaterGravity / k);
     float c = cos(turns[i]);
     float s = sin(turns[i]);
     vec2 d = vec2(wind.x * c - wind.y * s, wind.x * s + wind.y * c);
-    slope = steepness[i] * raised;
-    return vec4(d, k, k * (dot(d, p) - speed * t) + float(i) * 1.913);
+    slope = water.swell[i];
+    return vec4(d, k, k * (dot(d, p) - water.swell_speed[i] * t) + float(i) * 1.913);
 }
 
 // A wave faded out where a pixel spans a good part of its wavelength (no aliasing far away).
@@ -166,18 +166,16 @@ vec3 water_swell(vec2 p, float t, float footprint)
 }
 
 // The ripples: the tiling texture at two scales drifting with the wind - their slope (x, z) and the foam's pattern (z).
+// Their slope is the spectrum's short waves' (sea.z: the equilibrium tail past the four waves over the texture's band -
+// water_waves.h; none on still water or where the body's waves are all shorter than the texture's).
 vec3 water_ripples(vec2 p, float t)
 {
     vec2 along = water.time.yz;
     vec2 across = vec2(-along.y, along.x);
     vec2 q = vec2(dot(p, along), dot(p, across));
-    float strength = water.time.w;
-    float drift = t * (0.4 + 0.6 * strength);
-    vec4 a = texture(water_waves, q / 263.0 + vec2(drift * 0.031, 0.0));
-    vec4 b = texture(water_waves, q / 97.0 + vec2(drift * 0.083, drift * 0.019) + vec2(0.37, 0.71));
-    // (above the default breeze the wind roughens them faster: x 2.2 in a gale; the waves' setting up to x 3)
-    float windy = 0.3 + 0.7 * strength + 0.5 * max(strength - 1.0, 0.0);
-    vec2 slope = (a.xy * 0.55 + b.xy * 0.45) * windy * min(water.waves.x * 2.0, 3.0);
+    vec4 a = texture(water_waves, q / 263.0 + vec2(t * 0.031, 0.0));
+    vec4 b = texture(water_waves, q / 97.0 + vec2(t * 0.083, t * 0.019) + vec2(0.37, 0.71));
+    vec2 slope = (a.xy * 0.55 + b.xy * 0.45) * water.sea.z;
     return vec3(along * slope.x + across * slope.y, a.w * 0.55 + b.w * 0.45);
 }
 
@@ -223,6 +221,14 @@ bool water_on_screen(vec4 clip, out vec2 uv, out float edge)
     return edge < 1.0;
 }
 
+// (round F - a linear frame) What was drawn before the water, as the water's colours are (the game's display-referred
+// ones): the copy of a linear frame holds light - encoded back (ff_shaders.cpp frame_linear / display_from_linear).
+vec3 water_scene_at(vec2 uv)
+{
+    vec3 c = textureLod(water_scene, uv, 0.0).rgb;
+    return frame_linear() ? display_from_linear(c) : c;
+}
+
 // The sky seen on the screen toward camera-space direction `d` (a point at infinity): its colour where the copy shows
 // the sky there (nothing drawn), weight in w.
 vec4 water_screen_sky(vec3 d)
@@ -235,7 +241,7 @@ vec4 water_screen_sky(vec3 d)
     if (textureLod(water_depth, uv, 0.0).r < kWaterFar) {
         return vec4(0.0);
     }
-    return vec4(textureLod(water_scene, uv, 0.0).rgb, 1.0 - smoothstep(0.85, 1.0, edge));
+    return vec4(water_scene_at(uv), 1.0 - smoothstep(0.85, 1.0, edge));
 }
 
 // The reflection found on the screen: a ray from camera-space `origin` along `d` marched over the depth copy in growing
@@ -275,7 +281,7 @@ vec4 water_screen_trace(vec3 origin, vec3 d)
             if (!water_on_screen(hit, uv, edge)) {
                 return vec4(0.0);
             }
-            return vec4(textureLod(water_scene, uv, 0.0).rgb, 1.0 - smoothstep(0.8, 1.0, edge));
+            return vec4(water_scene_at(uv), 1.0 - smoothstep(0.8, 1.0, edge));
         }
         before = travel;
         travel *= 1.32;
@@ -353,7 +359,7 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
             bent_uv = here; // (something in front of the water there: not refracted)
             bent = straight;
         }
-        under = textureLod(water_scene, bent_uv, 0.0).rgb;
+        under = water_scene_at(bent_uv);
         behind = bent;
     }
     float path = max(behind - surface_w, 0.0) * dist / surface_w;
@@ -389,12 +395,14 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
         glitter = water.sun_colour.rgb * min(spec, water.sun_colour.w) * sunlit;
     }
 
-    // 5. foam where the water is shallow (meets geometry), in the ripples' drifting pattern
-    float shore = copied ? 1.0 - smoothstep(0.0, 24.0, depth_down) : 0.0;
+    // 5. foam where the waves break at the shore - water shallower than the waves' height over 0.78 (McCowan): none on
+    // still water -, in the ripples' drifting pattern
+    float surf = water.sea.x / 0.78;
+    float shore = copied && surf > 0.01 ? 1.0 - smoothstep(0.0, surf, depth_down) : 0.0;
     float pattern = smoothstep(0.3, 0.75, ripple.z + 0.2 * sin(t * 1.7 - depth_down * 0.4));
-    // whitecaps above the default breeze: on the swell's sharpened crests, broken up by the ripples' pattern (none at
-    // wind 1 or below)
-    float caps = smoothstep(1.0, 2.0, water.time.w) * smoothstep(0.04, 0.14, swell.y) * smoothstep(0.35, 0.7, ripple.z);
+    // whitecaps: on the swell's sharpened crests, broken up by the ripples' pattern, as much as the wind whitens the sea
+    // (sea.w - Monahan and O'Muircheartaigh's share)
+    float caps = water.sea.w * smoothstep(0.04, 0.14, swell.y) * smoothstep(0.35, 0.7, ripple.z);
     float foam = clamp(water.waves.z * max(shore * mix(0.3, 1.0, pattern), 0.85 * caps), 0.0, 1.0);
     vec3 foam_colour = vec3(0.9, 0.93, 0.95) * clamp(gain, 0.15, 1.2); // (white, at the light the game gave the surface)
 

@@ -71,6 +71,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -1387,8 +1388,9 @@ void compare_composite(const View& view, const std::vector<uint8_t>& texels, boo
             const Rgb surface = rgb_of(core::at(kSolids, seen.solid - 1).colour);
             double error = 0.0;
             for (std::size_t channel = 0; channel < 3; ++channel) {
-                const double want =
-                    std::min(1.0, (core::at(surface, channel) * exact.transmittance) + core::at(exact.light, channel));
+                // (round F: the target is the frame's linear light; the level fog's light display-referred - decoded)
+                const double want = std::min(1.0, (core::at(surface, channel) * exact.transmittance) +
+                                                      render::rt::linear_from_display(core::at(exact.light, channel)));
                 error = std::max(error, std::abs(core::at(got, channel) - want));
             }
             errors.push_back(error * kLevels);
@@ -1509,7 +1511,6 @@ render::vulkan::RtFogSettings settings_of(bool shafts)
             .height = 0.0F,
             .steps = kSteps,
             .mode = shafts ? render::vulkan::RtFogMode::kShafts : render::vulkan::RtFogMode::kReplace,
-            .hdr = false,
             .haze = false,
             .weather = render::rt::Weather::kClear,
             .scale = march_scale(),
@@ -1657,7 +1658,7 @@ void run_haze(render::Gpu& gpu, const Scene& scene, Tally* tally)
         for (std::size_t i = 0; i < texels.size(); ++i) {
             const int difference = static_cast<int>(core::at(texels, i)) - static_cast<int>(core::at(plain, i));
             darker += difference < -1 ? 1 : 0;
-            lighter += difference > 1 ? 1 : 0;
+            lighter += difference > 0 ? 1 : 0; // (round F: the air's light added as light - a level or so here)
         }
         tally->check(darker == 0 && lighter > kLeastLighterChannels,
                      text::format("nothing darker (%d channels), the shaft lighter (%d channels)", darker, lighter));

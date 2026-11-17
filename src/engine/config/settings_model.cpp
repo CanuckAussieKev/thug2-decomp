@@ -613,16 +613,18 @@ std::vector<Decl> declarations()
             .need(on("clutter"))
             .live(E::kScatter),
         gfx("rt_water", K::kSwitch, "0").tab(G::kSurfaces, t::kOptWater, t::kOptWaterHelp).need(vulkan(), t::kNeedsVulkan).live(E::kWater),
-        gfx("rt_water_waves", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptWaterWaves)
-            .pick({c("0", "Flat"), c("0.5", "Calm"), c("1", "Normal"), c("1.5", "Choppy"), c("2", "Rough")})
+        // (added by the physical waves: the weather's wind 10 m up, metres a second - engine/gfx/wind.h; auto: the air's
+        // weather's, rt_fog_air. Each water body's waves are its wind's, fetch's and depth's - water_waves.h)
+        gfx("rt_wind", K::kText, "auto")
+            .tab(G::kSurfaces, t::kOptWaterWind, t::kOptWindHelp)
+            .pick({c("auto", t::kAuto), c("0", "Still"), c("2", "Light air"), c("5", "Breeze"), c("9", "Fresh"),
+                   c("14", "Strong")})
             .need(on("rt_water"))
             .live(E::kWater),
-        gfx("rt_water_wind", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptWaterWind)
-            .pick({c("0", "Still"), c("0.5", "Light"), c("1", "Breeze"), c("1.5", "Strong"), c("2", "Gale")})
-            .need(on("rt_water"))
-            .live(E::kWater),
+        // (retired by the physical waves: the waves' height and the wind's strength and way are the weather's wind over
+        // each body - rt_wind)
+        gfx("rt_water_waves", K::kNumber, "1").retire(t::kRetiredWaves),
+        gfx("rt_water_wind", K::kNumber, "1").retire(t::kRetiredWaves),
         gfx("rt_water_clarity", K::kNumber, "1")
             .tab(G::kSurfaces, t::kOptWaterClarity)
             .pick({c("0.5", "Murky"), c("1", "Normal"), c("2", "Clear"), c("3", "Crystal")})
@@ -643,7 +645,7 @@ std::vector<Decl> declarations()
             .tab(G::kSurfaces, t::kOptWaterGeometry, t::kOptWaterGeometryHelp)
             .need(on("rt_water"))
             .live(E::kWater),
-        gfx("rt_water_wind_heading", K::kText, "auto").need(on("rt_water")).live(E::kWater),
+        gfx("rt_water_wind_heading", K::kText, "auto").retire(t::kRetiredWaves),
         gfx("rt_water_screen_reflections", K::kSwitch, "1").need(on("rt_water")).live(E::kWater),
 
         // ===== Sky: the sky and clouds (gpu_vulkan/vulkan_rt_sky_pass.h), the sun, its rays, the bloom and the sky model
@@ -714,37 +716,43 @@ std::vector<Decl> declarations()
         // (0: rt_fog_quality's steps)
         gfx("rt_fog_steps", K::kNumber, "0").need(on("rt_fog")).live(E::kFog),
 
-        // ===== Colour: HDR and its tone mapping (gpu_vulkan/vulkan_hdr.h; rt_hdr itself the device's targets' format), the
-        // bloom and the lens (vulkan_rt_sun.h)
-        gfx("rt_hdr", K::kSwitch, "0").tab(G::kColour, t::kOptHdr, t::kOptHdrHelp).need(vulkan(), t::kNeedsVulkan),
+        // ===== Colour: the camera - its exposure and tone mapping (gpu_vulkan/vulkan_hdr.h) -, the bloom and the lens
+        // (vulkan_rt_sun.h). (Retired by round F, a linear frame: rt_hdr - on Vulkan the frame is always linear light in
+        // float targets, mapped to the display once; it changed the lighting - clamps, a screen blend -, not only the
+        // output. An HDR display's output is to come as its own key.)
+        gfx("rt_hdr", K::kSwitch, "0").retire(t::kRetiredLinearFrame),
         gfx("rt_exposure", K::kNumber, "0")
             .tab(G::kColour, t::kOptExposure)
             .pick({c("-1", "-1"), c("-0.5", "-0.5"), c("0", "0"), c("0.5", "+0.5"), c("1", "+1")})
-            .need(on("rt_hdr"))
+            .need(vulkan(), t::kNeedsVulkan)
             .live(E::kHdr),
         // (added by the low sun's glare) the metering: stops a bright view may bring the exposure down (0: off)
         gfx("rt_exposure_adapt", K::kNumber, "2")
             .tab(G::kColour, t::kOptExposureAdapt, t::kOptExposureAdaptHelp)
             .pick({c("0", t::kOff), c("1", t::kLow), c("2", t::kMedium), c("3", t::kHigh)})
-            .need(on("rt_hdr"))
+            .need(vulkan(), t::kNeedsVulkan)
             .live(E::kHdr),
-        gfx("rt_tonemap", K::kNumber, "0").tab(G::kColour, t::kOptTonemap).pick({c("0", "Game"), c("1", "Filmic")}).need(on("rt_hdr")).live(E::kHdr),
+        gfx("rt_tonemap", K::kNumber, "0")
+            .tab(G::kColour, t::kOptTonemap)
+            .pick({c("0", "Game"), c("1", "Filmic")})
+            .need(vulkan(), t::kNeedsVulkan)
+            .live(E::kHdr),
         gfx("rt_white_point", K::kNumber, "1.25")
             .tab(G::kColour, t::kOptWhitePoint)
             .pick({c("1", "1"), c("1.25", "1.25"), c("2", "2"), c("4", "4")})
-            .need(on("rt_hdr"))
+            .need(vulkan(), t::kNeedsVulkan)
             .live(E::kHdr),
         gfx("rt_saturation", K::kNumber, "1")
             .tab(G::kColour, t::kOptSaturation)
             .pick(percent({{"0.8", "80%"}, {"1", "100%"}, {"1.2", "120%"}, {"1.4", "140%"}}))
-            .need(on("rt_hdr"))
+            .need(vulkan(), t::kNeedsVulkan)
             .live(E::kHdr),
         gfx("rt_contrast", K::kNumber, "1")
             .tab(G::kColour, t::kOptContrast)
             .pick(percent({{"0.9", "90%"}, {"1", "100%"}, {"1.1", "110%"}, {"1.2", "120%"}}))
-            .need(on("rt_hdr"))
+            .need(vulkan(), t::kNeedsVulkan)
             .live(E::kHdr),
-        gfx("rt_grade_lut", K::kText, "").need(on("rt_hdr")).live(E::kHdr),
+        gfx("rt_grade_lut", K::kText, "").need(vulkan(), t::kNeedsVulkan).live(E::kHdr),
         gfx("rt_bloom", K::kSwitch, "0").tab(G::kColour, t::kOptBloom, t::kOptBloomHelp).need(vulkan(), t::kNeedsVulkan).live(E::kSun),
         // (retired by the physical air: the glare is the eye's - vulkan_rt_sun.h kGlarePerOctave)
         gfx("rt_bloom_strength", K::kNumber, "0.05").retire(t::kRetiredPhysical),
@@ -1221,20 +1229,20 @@ const std::vector<Limit>& limits()
 const std::vector<PresetValue>& preset_values(int choice)
 {
     // Original - every effect off, the game as it was; High - the cheaper effects (shadows, occlusion, reflections, the
-    // sky and sun, the volumetric light, HDR, bloom, smooth curves); Ultra - every effect on. Upscaling is left as it
+    // sky and sun, the volumetric light, bloom, smooth curves); Ultra - every effect on. Upscaling is left as it
     // is (it trades sharpness for speed, whatever the preset).
     // (rt_gi back with lighting round A - the bounce light per pixel from the relit light store - on in Ultra. High's
     // light shafts were the screen-space rays, rt_shafts, until the volumetric light: they are the fog pass's now -
     // rt_fog on in High)
     constexpr std::array kKeys = {"ray_tracing", "rt_shadows", "rt_ao",     "rt_reflections", "rt_relit",
                                   "rt_pbr",      "rt_fog",     "rt_sky",    "rt_sky_model",   "rt_clouds",
-                                  "rt_sun",      "rt_bloom",   "rt_hdr",    "rt_tessellation", "rt_gi"};
+                                  "rt_sun",      "rt_bloom",   "rt_tessellation", "rt_gi"};
     constexpr std::array<const char*, kKeys.size()> kOriginal = {"0", "0", "0", "0", "0", "0", "0", "0",
-                                                                 "0", "0", "0", "0", "0", "0", "0"};
+                                                                 "0", "0", "0", "0", "0", "0"};
     constexpr std::array<const char*, kKeys.size()> kHigh = {"1", "1", "1", "1", "0", "0", "1", "1",
-                                                             "1", "0", "1", "1", "1", "1", "0"};
+                                                             "1", "0", "1", "1", "1", "0"};
     constexpr std::array<const char*, kKeys.size()> kUltra = {"1", "1", "1", "1", "1", "1", "1", "1",
-                                                              "1", "1", "1", "1", "1", "1", "1"};
+                                                              "1", "1", "1", "1", "1", "1"};
     const auto list = [&kKeys](const std::array<const char*, kKeys.size()>& values) {
         std::vector<PresetValue> made;
         made.reserve(kKeys.size());

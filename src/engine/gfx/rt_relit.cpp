@@ -18,6 +18,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
 #include "engine/file/disk_files.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -1092,9 +1093,17 @@ const RelitLevel* relit_level_entry(uint32_t scene)
 
 Rgbf colour_light(uint32_t argb)
 {
-    return {static_cast<float>((argb >> kRedShift) & kByteMask) * kRelitPerByte,
-            static_cast<float>((argb >> kGreenShift) & kByteMask) * kRelitPerByte,
-            static_cast<float>(argb & kByteMask) * kRelitPerByte};
+    // (lighting round A2 with round F's linear frame: the game's colours are display-referred - rt_display.h - so a
+    // colour's light is its byte over 128 decoded; a table of the 256)
+    static const std::array<float, 256> kLinear = [] {
+        std::array<float, 256> table{};
+        for (std::size_t byte = 0; byte < table.size(); ++byte) {
+            core::at(table, byte) = linear_from_display(static_cast<float>(byte) * kRelitPerByte);
+        }
+        return table;
+    }();
+    return {core::at(kLinear, (argb >> kRedShift) & kByteMask), core::at(kLinear, (argb >> kGreenShift) & kByteMask),
+            core::at(kLinear, argb & kByteMask)};
 }
 
 void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out)
@@ -2221,7 +2230,10 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
     model->lamps = {1.0F, 1.0F, 1.0F};
     // (a lamp the bake doesn't tell shines by its own surface: pi x the radiance its glow shows)
     for (RelitLamp& lamp : lamps) {
-        lamp.light = scaled(lamp.light, kRelitLambertian);
+        // (its glow's colour is display-referred: decoded - rt_display.h)
+        for (float& channel : lamp.light) {
+            channel = kRelitLambertian * linear_from_display(channel);
+        }
         lamp.solved = false;
     }
     if (!lit_in_bake) {
@@ -2401,7 +2413,9 @@ uint32_t relit_colour(const RelitModel& model, const RelitVertex& vertex, const 
     const Rgbf en = relit_light(model, vertex, lighting);
     std::array<uint32_t, 3> bytes{};
     for (std::size_t ch = 0; ch < bytes.size(); ++ch) {
-        float value = core::at(vertex.tint, ch) * core::at(en, ch);
+        // (round A2: tint x light is linear light in the unit; the colour word is display-referred - the draw decodes
+        // its fragment, texel x this, at the output: only the texel's own encoding is then undone)
+        float value = display_from_linear(core::at(vertex.tint, ch) * core::at(en, ch));
         value = std::isfinite(value) ? std::clamp(value, 0.0F, kRelitMaxValue) : 0.0F;
         core::at(bytes, ch) = static_cast<uint32_t>(std::lround(std::min(value * kBytesPerLight, kMaxByte)));
     }

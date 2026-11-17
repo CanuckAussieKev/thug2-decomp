@@ -34,8 +34,8 @@
 //   4. the composite (a full-screen triangle at the far plane, depth-tested against the world: every sample of the sky
 //      and only those): the sky-view table toward the pixel x the clouds' transmittance + their light (upsampled from
 //      the low-resolution history, its texels without sky left out), the clouds faded into the sky with distance
-//      (aerial perspective), made display-referred (^ 1 / 2.2). An 8-bit target clips at 1; with rt_hdr=1 the sky's
-//      light above 1 is kept for the tone mapping.
+//      (aerial perspective), written as linear light (round F: the frame is linear; nothing clipped - the output
+//      encodes once).
 // Nothing here needs ray tracing.
 namespace render::vulkan {
 

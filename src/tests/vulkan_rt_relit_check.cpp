@@ -49,6 +49,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/relit_data.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
@@ -239,7 +240,7 @@ uint32_t to_argb(const Rgbf& light)
     std::array<uint32_t, 3> bytes{};
     for (std::size_t ch = 0; ch < bytes.size(); ++ch) {
         core::at(bytes, ch) =
-            static_cast<uint32_t>(std::lround(std::clamp(core::at(light, ch) * kBytes, 0.0F, kMaxByte)));
+            static_cast<uint32_t>(std::lround(std::clamp(rt::display_from_linear(core::at(light, ch)) * kBytes, 0.0F, kMaxByte)));
     }
     return kOpaqueAlpha | (core::at(bytes, 0) << kRedShift) | (core::at(bytes, 1) << kGreenShift) | core::at(bytes, 2);
 }
@@ -944,7 +945,10 @@ void check_furnace(Tally* tally)
         middle_shown = *middle;
     }
     const float whole = kAlbedo * kOwnLight / (1.0F - kAlbedo);
-    tally->check(std::abs(middle_shown - expected) <= kFurnaceSlack,
+    // (within 3% of the series: the colours are display-encoded bytes, and the room's edge vertices' leaks reach the
+    // inner ones through the hits' interpolation)
+    constexpr float kSeriesShare = 0.03F;
+    tally->check(std::abs(middle_shown - expected) <= kSeriesShare * expected,
                  text::format("the albedo-weighted bounce: albedo %.2f, its own light %.2f, %u passes - the colours' "
                               "median %.4f, the series' %.4f; the orders past them %.0f%% of the whole %.4f",
                               static_cast<double>(kAlbedo), static_cast<double>(kOwnLight), rt::kRelitBouncePasses,

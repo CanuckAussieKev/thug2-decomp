@@ -13,7 +13,7 @@
 // as the pass does, stopped the lamp's size short) is blocked by the box:
 //   - "clear-cut" pixels (their 5x5 neighbourhood on the same face, every lamp's visibility the same, no two lamps
 //     nearly tied for the last traced place) must be the drawn
-//     colour + strength x albedo x light x (1 - drawn colour) (the 8-bit target's screen) within 2 per channel (one
+//     colour + strength x linear albedo x light (round F: added - the screen retired) within 2 per channel (one
 //     sample) / 3 (four, resolved);
 //   - the floor has a lit part and a part in the box's shadow (both a few hundred pixels);
 //   - a red-textured lamp (an emitter whose material's texture is red) lights the floor red (its texture's mean);
@@ -58,6 +58,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
@@ -656,7 +657,9 @@ Answer answer_at(const Seen& seen, std::span<const Lamp> lamps, unsigned traced)
     // (lighting round A: the sum as it is - no knee)
     answer.raw = (0.299 * light[0]) + (0.587 * light[1]) + (0.114 * light[2]);
     for (std::size_t c = 0; c < 3; ++c) {
-        core::at(answer.added, c) = static_cast<double>(kStrength) * core::at(albedo, c) * core::at(light, c);
+        // (round F: the albedo - the material's display-referred colour - decoded to linear light, as the pass does)
+        core::at(answer.added, c) =
+            static_cast<double>(kStrength) * render::rt::linear_from_display(core::at(albedo, c)) * core::at(light, c);
     }
     return answer;
 }
@@ -1063,7 +1066,7 @@ Compared compare(const std::vector<uint8_t>& texels, const View& view, std::span
             bool bad = false;
             for (std::size_t c = 0; c < 3; ++c) {
                 const double added = std::max(0.0, core::at(answer.added, c));
-                const double expected = std::min(1.0, core::at(drawn, c) + (added * (1.0 - core::at(drawn, c))));
+                const double expected = std::min(1.0, core::at(drawn, c) + added); // (round F: light added, no screen)
                 const double error = std::abs(core::at(got, c) - expected) * kByteRange;
                 out.worst = std::max(out.worst, error);
                 bad = bad || error > tolerance;
@@ -1724,7 +1727,9 @@ FloorCompared compare_floor(const std::vector<uint8_t>& texels, std::span<const 
         const double factor = pixel.shadowed ? shadowed : lit;
         bool bad = false;
         for (std::size_t c = 0; c < 3; ++c) {
-            const double want = std::clamp(core::at(drawn, c) * factor, 0.0, 1.0);
+            // (lighting round A2: the light store holds linear light - its factor is linear as it is; the check's 8-bit
+            // target holds a multiplying factor to 1 - brightening needs the float frame)
+            const double want = std::clamp(core::at(drawn, c) * std::min(factor, 1.0), 0.0, 1.0);
             const double error = std::abs(core::at(got, c) - want) * kByteRange;
             out.worst = std::max(out.worst, error);
             bad = bad || error > kTolerance;

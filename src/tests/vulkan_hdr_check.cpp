@@ -47,6 +47,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -86,6 +87,8 @@ constexpr uint32_t kLutSize = 17;
 constexpr uint32_t kByteMask = 0xFF;
 constexpr uint32_t kHighByte = 8;      // (a 16-bit float's second byte)
 constexpr uint16_t kHalfSign = 0x8000;
+constexpr float kHalfRelative = 1.0F / 1024.0F; // (round F: a 16-bit float's step, relative)
+constexpr float kHalfDenormal = 1.0e-6F;        // (... near 0)
 constexpr float kByteSteps = 255.0F;
 constexpr double kLutBend = 0.8;       // the check's table: green bent by this power,
 constexpr double kLutRedScale = 0.9;   // red scaled
@@ -376,7 +379,8 @@ void check_curve(render::Gpu& gpu, const CurveCase& test, const vk::GradeLut& lu
     gpu.release_surface(target);
 }
 
-// Values that must pass bit for bit: [0, 1] with white point 1, [0, knee] with the defaults.
+// (Round F: the input is linear light, encoded once by the pass) Values below the curve's knee come out as the display's
+// encoding of their light - [0, 1] with white point 1, [0, knee^2.2] with the defaults - within the target's rounding.
 void check_identity(render::Gpu& gpu, float white_point, const std::vector<uint16_t>& values, Tally* tally)
 {
     vk::HdrSettings settings{.on = true, .exposure_adapt = 0.0F};
@@ -384,7 +388,8 @@ void check_identity(render::Gpu& gpu, float white_point, const std::vector<uint1
     vk::set_hdr_settings(settings);
     vk::set_hdr_lut({});
     const float knee = vk::tone_parameters(settings).knee;
-    text::print("identity up to %.4f (white point %.2f):\n", static_cast<double>(knee), static_cast<double>(white_point));
+    const float linear_knee = render::rt::linear_from_display(knee);
+    text::print("the encoding up to %.4f (white point %.2f):\n", static_cast<double>(linear_knee), static_cast<double>(white_point));
     GpuSurface* target = make_target(gpu, value::kFormatA16B16G16R16F, 0, true);
     if (target == nullptr || !fill(gpu, target, values) || run_pass(gpu, target, {0, 0, kWidth, kHeight}) != 1) {
         tally->check(false, "the pass run");
@@ -405,14 +410,17 @@ void check_identity(render::Gpu& gpu, float white_point, const std::vector<uint1
         const std::array<uint16_t, 3> in = pixel_inputs(values, pixel);
         for (std::size_t channel = 0; channel < kChannels; ++channel) {
             const float input = from_half(core::at(in, channel));
-            if (input >= 0.0F && input <= knee && (core::at(in, channel) & kHalfSign) == 0) {
+            if (input >= 0.0F && input <= linear_knee && (core::at(in, channel) & kHalfSign) == 0) {
                 ++compared;
-                changed += half_at(out, {.pixel = pixel, .channel = channel}) != core::at(in, channel) ? 1 : 0;
+                const float want = render::rt::display_from_linear(input);
+                const float got = from_half(half_at(out, {.pixel = pixel, .channel = channel}));
+                changed += std::abs(got - want) > (want * kHalfRelative) + kHalfDenormal ? 1 : 0;
             }
         }
     }
     tally->check(changed == 0 && compared > kLeastIdentityValues,
-                 text::format("%d values 0 - %.4f unchanged bit for bit (%d changed)", compared, static_cast<double>(knee), changed));
+                 text::format("%d values 0 - %.4f shown as their light encoded (c^(1/2.2), within a half's step: %d off)",
+                              compared, static_cast<double>(linear_knee), changed));
     gpu.release_surface(target);
 }
 
@@ -489,13 +497,13 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         return;
     }
     const std::array<uint32_t, 4> whole{0, 0, kWidth, kHeight};
-    // a white view: down by log2(1 / key) stops, its colours x 2^(stops / 2.2) (below the knee: shown as that)
+    // a white view: down by log2(1 / key) stops, its light x 2^stops (round F: linear light)
     {
         const bool filled = fill_grey(gpu, target, kHalfWhite);
         const Metered white = meter_pass(gpu, target, whole);
         const float mean = vk::meter_light({1.0F, 1.0F, 1.0F});
         const float stops = vk::meter_target_stops(mean, metered.exposure_adapt);
-        const float factor = std::exp2(stops / 2.2F);
+        const float factor = std::exp2(stops);
         const std::array<float, 3> mapped = vk::tone_map_reference(parameters, nullptr, {factor, factor, factor});
         const float shown = core::at(mapped, 0);
         tally->check(filled && white.ran && std::abs(white.reading.mean - mean) < kTolerance * mean &&
@@ -514,7 +522,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const std::array<uint32_t, 4> left_half{0, 0, kWidth / 2, kHeight};
         const bool filled = fill_grey(gpu, target, kHalfGrey);
         const Metered grey = meter_pass(gpu, target, left_half);
-        const float factor = std::exp2(grey_stops / 2.2F);
+        const float factor = std::exp2(grey_stops);
         const std::array<float, 3> mapped =
             vk::tone_map_reference(parameters, nullptr, {0.5F * factor, 0.5F * factor, 0.5F * factor});
         const float shown = core::at(mapped, 0);
@@ -573,7 +581,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                                   static_cast<double>(bright.reading.stops)));
         // (added by the physical air) a dark view brought up - at most rt_exposure_adapt stops; the night's key under
         // the day's (the eye adapted to the dark doesn't make it day)
-        constexpr uint16_t kDark = 0x2A66; // (0.05: linear 0.0014)
+        constexpr uint16_t kDark = 0x15BC; // (linear 0.0014 - round F: the frame holds light; 0.05 as display was)
         std::this_thread::sleep_for(std::chrono::milliseconds(600));
         const bool dark_filled = fill_grey(gpu, target, kDark);
         const Metered dark = meter_pass(gpu, target, whole);
@@ -692,6 +700,123 @@ void draw_triangles(render::Gpu& gpu)
         gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 1, triangle.data(), sizeof(ScreenVertex));
     }
     gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+}
+
+std::array<float, 3> colour_of(uint32_t argb);
+
+// (round F - a linear, scene-referred frame) In a world view (rt::view_begins .. its tone mapping) the game's draws
+// write linear light: a clear to A, a quad of B over it at alpha 0.5 - the scene buffer holds the mean of their light
+// (A^2.2 + B^2.2) / 2, not of their display values; the tone mapping (white point 1, no exposure) shows it as that
+// light encoded once. Outside a view (the 2D) the same draws blend the display's colours, as the original's.
+void check_linear_blend(render::Gpu& gpu, Tally* tally)
+{
+    constexpr uint32_t kA = 0xFF2060C0;
+    constexpr uint32_t kB = 0x80E0A020; // (alpha 0.5)
+    vk::HdrSettings settings{.on = true, .exposure_adapt = 0.0F};
+    settings.white_point = 1.0F;
+    vk::set_hdr_settings(settings);
+    vk::set_hdr_lut({});
+    GpuSurface* target = make_target(gpu, value::kFormatA16B16G16R16F, 0, true);
+    if (target == nullptr) {
+        tally->check(false, "a float target for the linear blend");
+        return;
+    }
+    const auto draw = [&gpu, target](bool world) {
+        gpu.begin_scene();
+        gpu.set_render_target(0, target);
+        gpu.set_depth_surface(nullptr);
+        if (world) {
+            render::rt::view_begins(view_of({0, 0, kWidth, kHeight}));
+        }
+        gpu.clear(0, nullptr, value::kClearTarget, kA, 1.0F, 0);
+        gpu.set_render_state(GpuRenderState::kZEnable, 0);
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
+        gpu.set_render_state(GpuRenderState::kLighting, 0);
+        gpu.set_render_state(GpuRenderState::kCullMode, value::kCullNone);
+        gpu.set_render_state(GpuRenderState::kAlphaTestEnable, 0);
+        gpu.set_render_state(GpuRenderState::kFogEnable, 0);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
+        gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kBlendOp, value::kBlendOpAdd);
+        gpu.set_vertex_format(kFvf);
+        gpu.set_texture(0, nullptr);
+        gpu.set_stage_state(0, GpuStageState::kColourOp, value::kOpSelectArg1);
+        gpu.set_stage_state(0, GpuStageState::kColourArg1, value::kArgDiffuse);
+        gpu.set_stage_state(0, GpuStageState::kAlphaOp, value::kOpSelectArg1);
+        gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgDiffuse);
+        constexpr float kRight = static_cast<float>(kWidth);
+        constexpr float kBottom = static_cast<float>(kHeight);
+        const std::array<ScreenVertex, 6> quad{{
+            {.x = 0.0F, .y = 0.0F, .z = 0.5F, .rhw = 1.0F, .colour = kB},
+            {.x = kRight, .y = 0.0F, .z = 0.5F, .rhw = 1.0F, .colour = kB},
+            {.x = 0.0F, .y = kBottom, .z = 0.5F, .rhw = 1.0F, .colour = kB},
+            {.x = kRight, .y = 0.0F, .z = 0.5F, .rhw = 1.0F, .colour = kB},
+            {.x = kRight, .y = kBottom, .z = 0.5F, .rhw = 1.0F, .colour = kB},
+            {.x = 0.0F, .y = kBottom, .z = 0.5F, .rhw = 1.0F, .colour = kB},
+        }};
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, quad.data(), sizeof(ScreenVertex));
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+        gpu.end_scene();
+    };
+    const auto middle = [](const std::vector<uint8_t>& bytes) {
+        const std::size_t pixel = (static_cast<std::size_t>(kHeight / 2) * kWidth) + (kWidth / 2);
+        std::array<float, 3> rgb{};
+        for (std::size_t channel = 0; channel < kChannels; ++channel) {
+            core::at(rgb, channel) = from_half(half_at(bytes, {.pixel = pixel, .channel = channel}));
+        }
+        return rgb;
+    };
+    const std::array<float, 3> a = colour_of(kA);
+    const std::array<float, 3> b = colour_of(kB);
+    // the world's: linear light
+    draw(true);
+    std::vector<uint8_t> scene;
+    const bool scene_read = vk::read_surface(target, &scene);
+    const std::array<float, 3> held = scene_read ? middle(scene) : std::array<float, 3>{};
+    bool light_mean = scene_read;
+    bool not_display_mean = false;
+    for (std::size_t channel = 0; channel < kChannels; ++channel) {
+        const float want = 0.5F * (render::rt::linear_from_display(core::at(a, channel)) +
+                                   render::rt::linear_from_display(core::at(b, channel)));
+        light_mean = light_mean && std::abs(core::at(held, channel) - want) < (want * 0.01F) + kSlack;
+        const float display_mean = render::rt::linear_from_display(0.5F * (core::at(a, channel) + core::at(b, channel)));
+        not_display_mean = not_display_mean || std::abs(core::at(held, channel) - display_mean) > 0.01F;
+    }
+    tally->check(light_mean && not_display_mean,
+                 text::format("a world view's blend in linear light: %.4f %.4f %.4f - the mean of the two colours' light, "
+                              "not of their display values",
+                              static_cast<double>(core::at(held, 0)), static_cast<double>(core::at(held, 1)),
+                              static_cast<double>(core::at(held, 2))));
+    // its tone mapping: the light encoded once
+    gpu.begin_scene();
+    gpu.set_render_target(0, target);
+    gpu.set_depth_surface(nullptr);
+    render::rt::world_view_drawn(view_of({0, 0, kWidth, kHeight}));
+    gpu.end_scene();
+    std::vector<uint8_t> shown_bytes;
+    const bool shown_read = vk::read_surface(target, &shown_bytes);
+    const std::array<float, 3> shown = shown_read ? middle(shown_bytes) : std::array<float, 3>{};
+    bool encoded = shown_read;
+    for (std::size_t channel = 0; channel < kChannels; ++channel) {
+        const float want = render::rt::display_from_linear(core::at(held, channel));
+        encoded = encoded && std::abs(core::at(shown, channel) - want) < kStep;
+    }
+    tally->check(encoded, text::format("... shown as its light encoded once: %.4f %.4f %.4f",
+                                       static_cast<double>(core::at(shown, 0)), static_cast<double>(core::at(shown, 1)),
+                                       static_cast<double>(core::at(shown, 2))));
+    // outside a view (the 2D): the display's colours, blended as the original's
+    draw(false);
+    std::vector<uint8_t> flat;
+    const bool flat_read = vk::read_surface(target, &flat);
+    const std::array<float, 3> plain = flat_read ? middle(flat) : std::array<float, 3>{};
+    bool display_blend = flat_read;
+    for (std::size_t channel = 0; channel < kChannels; ++channel) {
+        const float want = 0.5F * (core::at(a, channel) + core::at(b, channel));
+        display_blend = display_blend && std::abs(core::at(plain, channel) - want) < kStep;
+    }
+    tally->check(display_blend, "outside a world view (the 2D): the display's colours blended, as the original's");
+    gpu.release_surface(target);
 }
 
 std::array<float, 3> colour_of(uint32_t argb)
@@ -986,8 +1111,12 @@ void check_cube_files(Tally* tally)
                  "a 2^3 identity read");
     const vk::ToneParameters clip = vk::tone_parameters({.on = true, .white_point = 1.0F});
     constexpr std::array<float, 3> kSome{0.25F, 0.5F, 0.75F};
-    constexpr float kExact = 1e-6F;
-    const std::array<float, 3> graded = vk::tone_map_reference(clip, &lut, kSome);
+    constexpr float kExact = 1e-5F;
+    // (round F: the reference takes linear light - kSome's light, encoded once, is kSome)
+    const std::array<float, 3> graded = vk::tone_map_reference(
+        clip, &lut,
+        {render::rt::linear_from_display(core::at(kSome, 0)), render::rt::linear_from_display(core::at(kSome, 1)),
+         render::rt::linear_from_display(core::at(kSome, 2))});
     bool same = true;
     for (std::size_t channel = 0; channel < kSome.size(); ++channel) {
         same = same && std::abs(core::at(graded, channel) - core::at(kSome, channel)) < kExact;
@@ -1108,6 +1237,7 @@ int run(const Options& options, SDL_Window* window)
     check_meter(gpu, values, &tally);
     check_multisampled(gpu, &tally);
     check_back_buffer(gpu, &tally);
+    check_linear_blend(gpu, &tally);
     check_cube_files(&tally);
     measure_cost(gpu);
     vk::set_hdr_settings({});

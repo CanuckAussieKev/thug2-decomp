@@ -15,6 +15,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -50,7 +51,7 @@ constexpr uint32_t kBindingHalf = 3;   // the half-resolution colour, or the smo
 constexpr uint32_t kBindingLinear = 4; // the linear depth (sampled)
 constexpr uint32_t kBindingEdges = 5;  // the edge pass's output (sampled; comic, sketch)
 constexpr uint32_t kBindingCount = 6;
-constexpr float kGamma = 2.2F;
+constexpr auto kGamma = static_cast<float>(rt::kDisplayGamma); // (the display's - rt_display.h: styles take its colours)
 constexpr float kHalfWeight = 0.5F;
 constexpr int kQuadrants = 4;
 constexpr uint32_t kTimerPairs = 8;
@@ -221,7 +222,7 @@ vec3 upsampled(ivec2 local, vec3 own)
 
 vec3 to_lab(vec3 c)
 {
-    vec3 lin = pow(c, vec3(2.2));
+    vec3 lin = linear_from_display(c);
     float l = 0.4122214708 * lin.r + 0.5363325363 * lin.g + 0.0514459929 * lin.b;
     float m = 0.2119034982 * lin.r + 0.6806995451 * lin.g + 0.1073969566 * lin.b;
     float s = 0.0883024619 * lin.r + 0.2817188376 * lin.g + 0.6299787005 * lin.b;
@@ -244,7 +245,7 @@ vec3 from_lab(vec3 lab)
     vec3 lin = vec3(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
                     -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
                     -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s);
-    return clamp(pow(max(lin, vec3(0.0)), vec3(1.0 / 2.2)), 0.0, 1.0);
+    return clamp(display_from_linear(lin), 0.0, 1.0);
 }
 )";
 
@@ -708,6 +709,7 @@ std::string source_of(const char* body, bool multisampled, const char* before = 
     if (multisampled) {
         source += "#define MULTISAMPLED\n";
     }
+    source += rt::kDisplayTransferGlsl;
     source += kCommon;
     source += before;
     source += body;
@@ -842,6 +844,7 @@ bool ensure_objects(Backend& state, std::string* error)
 std::string composite_source(ArtStyle look)
 {
     std::string source = "#version 460\n";
+    source += rt::kDisplayTransferGlsl;
     source += kCommon;
     source += kCompositeShared;
     source += kEdgeGlsl;

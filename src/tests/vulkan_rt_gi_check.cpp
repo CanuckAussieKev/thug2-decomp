@@ -57,6 +57,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_vertex_attributes.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -425,7 +426,8 @@ RayAnswer bounce(std::span<const Solid> solids, const Vec3& origin, const Vec3& 
         }
     }
     for (std::size_t channel = 0; channel < 3; ++channel) {
-        core::at(answer.light, channel) = core::at(solid.albedo, channel) * core::at(light, channel);
+        // (round F: the material's colour is display-referred - the pass decodes it to a linear albedo)
+        core::at(answer.light, channel) = render::rt::linear_from_display(core::at(solid.albedo, channel)) * core::at(light, channel);
     }
     return answer;
 }
@@ -915,8 +917,8 @@ std::string rgb_text(const Rgb& colour)
     return text::format("%.4f %.4f %.4f", core::at(colour, 0), core::at(colour, 1), core::at(colour, 2));
 }
 
-// The colour the pass should leave: before + strength x albedo x max(E - sky, 0) x (1 - before), per channel; a pixel
-// without an albedo unchanged.
+// The colour the pass should leave: before + strength x albedo x max(E - sky, 0) (round F: light added to the linear
+// frame - the 8-bit screen retired; the check's target clips at 1), per channel; a pixel without an albedo unchanged.
 void compare_colour(const std::vector<uint8_t>& with, const std::vector<uint8_t>& without,
                     const render::vulkan::RtAoTexels& light, const render::vulkan::RtAoTexels& albedo, Tally* tally)
 {
@@ -940,8 +942,7 @@ void compare_colour(const std::vector<uint8_t>& with, const std::vector<uint8_t>
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 const double beyond = std::max(0.0, static_cast<double>(core::at(arriving, channel)) - core::at(kSky, channel));
                 const double add = std::clamp(kStrength * static_cast<double>(core::at(surface, channel)) * beyond, 0.0, 1.0);
-                core::at(want, channel) =
-                    std::min(1.0, core::at(before, channel) + (add * (1.0 - core::at(before, channel))));
+                core::at(want, channel) = std::min(1.0, core::at(before, channel) + add);
                 off = off || std::abs(core::at(want, channel) - core::at(got, channel)) > kColourTolerance;
                 added += add > 0.0 ? 1 : 0;
             }
@@ -955,7 +956,7 @@ void compare_colour(const std::vector<uint8_t>& with, const std::vector<uint8_t>
         }
     }
     tally->check(wrong == 0 && untouched_wrong == 0 && added > 0,
-                 text::format("the colour = before + albedo x max(E - sky, 0) x (1 - before): %d wrong, %d pixels "
+                 text::format("the colour = before + albedo x max(E - sky, 0): %d wrong, %d pixels "
                               "without an albedo changed, %d channels added to%s",
                               wrong, untouched_wrong, added, first.c_str()));
 }
@@ -1012,7 +1013,10 @@ void compare_raw(std::span<const Solid> solids, const render::vulkan::RtAoTexels
                 continue;
             }
             ++clear_cut;
-            const Rgb& want_albedo = core::at(solids, seen.solid - 1).albedo;
+            const Rgb& drawn_albedo = core::at(solids, seen.solid - 1).albedo;
+            const Rgb want_albedo{render::rt::linear_from_display(core::at(drawn_albedo, 0)),
+                                  render::rt::linear_from_display(core::at(drawn_albedo, 1)),
+                                  render::rt::linear_from_display(core::at(drawn_albedo, 2))}; // (round F)
             const std::array<float, 4>& got_albedo = texel_at(albedo, column, row);
             bool albedo_off = got_albedo.back() != 1.0F;
             bool off = false;

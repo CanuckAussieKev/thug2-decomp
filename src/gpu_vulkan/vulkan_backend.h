@@ -196,6 +196,10 @@ struct Backend {
     Frames frames;
     Pipelines pipelines;
     bool draws_made = false;
+    // (round F - a linear, scene-referred frame; vulkan_hdr.h) true from a world view's beginning to its tone mapping:
+    // the draws into a float target write linear light (the game's display-referred colours decoded at the fragment's
+    // output, a float texture - a copy of the world - encoded where a stage samples it, clears decoded)
+    bool linear_phase = false;
     std::string cache_folder; // where the shader and pipeline caches are kept (empty: not kept)
     VkDeviceSize uniform_alignment = kUniformAlignmentAtMost;
     Image blank;          // a 1x1 opaque white texture for the stages with none

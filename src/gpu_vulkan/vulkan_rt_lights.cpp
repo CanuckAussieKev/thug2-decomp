@@ -17,6 +17,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
@@ -362,7 +363,9 @@ void main()
     // the bake's light in it); the relit store lights no lamps per vertex while this pass lights them (rt_lights.h
     // lamps_drawn: one owner) - and the HDR tone map is what compresses the result.
     vec3 lamps = u_lights.params.x * lit;
-    vec3 surface = relit ? albedo.rgb * world.tint : albedo.rgb;
+    // (round F: the frame is linear light) the surface's display-referred colours decoded - its albedo in linear light
+    // (lighting round A2: the store's tint is a linear albedo factor - only the texel is decoded)
+    vec3 surface = relit ? linear_from_display(albedo.rgb) * world.tint : linear_from_display(albedo.rgb);
     vec3 added = surface * lamps;
     if (any(isnan(added)) || any(isinf(added))) {
         discard;
@@ -579,6 +582,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     source += scene_geometry_glsl();
     source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
     source += cutout_rays_glsl(); // (the one lighting path's ray test: the lamps' light through the cut-outs' holes)
+    source += rt::kDisplayTransferGlsl; // (round F)
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source, error);
     if (fragment == VK_NULL_HANDLE) {
@@ -627,10 +631,10 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
         .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    // colour + the light x (1 - colour) - a screen, never past white - or, on a float target, + the light; alpha kept
+    // colour + the light (round F: the frame is linear light - the 8-bit screen blend retired); alpha kept
     VkPipelineColorBlendAttachmentState blend{};
     blend.blendEnable = VK_TRUE;
-    blend.srcColorBlendFactor = float_format(format) ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+    blend.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // (round F: light is added - the screen blend retired)
     blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
     blend.colorBlendOp = VK_BLEND_OP_ADD;
     blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;

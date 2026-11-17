@@ -44,9 +44,10 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // (2: the meshes keyed without their colours; 3 - lighting round A: tints with none of the bake's light, no residual /
 // missed sun / scale / agreement grid, sunless bakes relit, the lamps' list; 4 - round A2: one light unit - the tints
 // albedos, the model's light the level's own in the global unit, the bake's exposure -, the baked sun picked by the
-// relit fit, the lamps' intensities solved with their shapes and photometry, the emissive triangles. A file of another
-// version is out of date: the game says to run relit_bake.)
-inline constexpr uint32_t kRelitDataVersion = 4;
+// relit fit, the lamps' intensities solved with their shapes and photometry, the emissive triangles; 5 - the bake's
+// colours decoded before the fit (round F's display-referred colours: the albedos and the light linear, the colour
+// word encoded). A file of another version is out of date: the game says to run relit_bake.)
+inline constexpr uint32_t kRelitDataVersion = 5;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

@@ -22,6 +22,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
@@ -101,7 +102,7 @@ layout(set = 0, binding = 7) uniform FogBlock {
     vec4 fog_colour;    // rgb; w the density (x the level's)
     vec4 fog_range;     // x start, y end, z 1 / the height falloff (0: even), w the frame's jitter (0 - 1)
     vec4 offsets;       // xy depth sample 0 from the pixel's centre; zw the pixel of its block this frame marches
-    vec4 shares;        // x ambient, y sky, z shafts (mode 1), w 1: the light unclamped (rt_hdr)
+    vec4 shares;        // x ambient, y sky, z shafts (mode 1), w unused (round F: was rt_hdr's clamp)
     ivec4 rect;         // the viewport in the target's pixels
     ivec4 low;          // the low-resolution images' width and height, the scale, the steps
     ivec4 flags;        // x the mode (2: aerial), y the mask, z the longest history, w the frame's index
@@ -273,6 +274,18 @@ float light_seen(vec3 at, ivec2 p, int i)
         return 0.0;
     }
     return visible(at, toward_light(p, i), SUN_DISTANCE) * through;
+}
+
+// (added by the indoor air) How much of the sky the air at `at` sees: a ray toward a point of the upper hemisphere,
+// even in solid angle (cos theta uniform), a fresh one each pair, pixel and frame - the history averages them into the
+// open share of the sky round the point. The light scattered more than once (Psi) and the sky's own light are the sky's:
+// they reach the air only through what is open above it - none in a closed room, all of it in the open.
+float sky_seen(vec3 at, ivec2 p, int i)
+{
+    float z = hash01(p, fog.flags.w, i, 0x3Bu);
+    float a = 6.2831853 * hash01(p, fog.flags.w, i, 0xC5u);
+    float r = sqrt(max(1.0 - z * z, 0.0));
+    return visible(at, vec3(r * cos(a), z, r * sin(a)), SUN_DISTANCE);
 }
 
 // (added by the distinct shafts - rt_volume_light.h air_map_half) How much of the light reaches `at` by the air's sun
@@ -543,7 +556,9 @@ float far_along(ivec2 p)
 // reach). Linear radiance in the sky's unit, what a path tracer's single-scattering estimate of the same medium gives:
 //   the light's: its irradiance (sun_tint) x its visibility (the shadow ray, the air's sun map, the clouds' map) x
 //     (Rayleigh's scattering x its phase + the aerosol's x Cornette-Shanks' - the god rays' peak taken out);
-//   every higher order: the scattering x Psi (ambient - the atmosphere's multiple-scattering transfer at the ground);
+//   every higher order: the scattering x Psi (ambient - the atmosphere's multiple-scattering transfer at the ground) x
+//     the sky's open share at the point (sky_seen - added by the indoor air: Psi is the sky's light; a closed room's air
+//     gets none of it);
 //   the lamps': their irradiance (pi x the lamps' light) x the phases;
 // each segment's integral exact for a medium even along it - its source x (1 - e^-tau) / tau -, T x e^-tau (tau the
 // extinction's luma: one transmittance for the three channels).
@@ -582,6 +597,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
         int traced_pair = -1;
         float traced_sun = 0.0;
         float lamp_seen = 0.0;
+        float sky_open = 1.0; // (added by the indoor air: the pair's open share of the sky)
         for (int i = 0; i < steps; ++i) {
             float s0 = march_at(float(i), a, b, split, near_steps, steps);
             float s1 = march_at(float(i + 1), a, b, split, near_steps, steps);
@@ -594,6 +610,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
                 float mapped = map_light_seen(traced, local, j);
                 traced_sun = mapped >= 0.0 ? -1.0 : light_seen(traced, local, j);
                 lamp_seen = reached != 0u ? lamps_seen(traced, direction, reached, local, j) : 0.0;
+                sky_open = sky_seen(traced, local, j);
             }
             float sun_seen = map_light_seen(at, local, i);
             if (sun_seen < 0.0) {
@@ -617,7 +634,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
                 continue;
             }
             float e = exp(-min(tau, 40.0));
-            vec3 source = fog.ambient.rgb * (r_s + a_s);
+            vec3 source = fog.ambient.rgb * ((r_s + a_s) * sky_open);
             if (lit) {
                 source += fog.sun_tint.rgb * (sun_seen * (r_s * rayleigh_phase + a_s * aerosol_phase));
             }
@@ -1090,15 +1107,14 @@ void main()
 #else
     vec3 was = texelFetch(u_copy, ivec2(gl_FragCoord.xy), 0).rgb;
 #endif
-    vec3 linear = min(pow(max(was, vec3(0.0)), vec3(2.2)), vec3(65000.0)) * transmittance + light_in;
-    vec3 shown = min(pow(linear, vec3(1.0 / 2.2)), vec3(fog.shares.w < 0.5 ? 1.0 : 65504.0));
-    o_colour = vec4(shown, 0.0);
+    // (round F: the frame is linear light - nothing converted, nothing clamped)
+    vec3 linear = min(max(was, vec3(0.0)), vec3(65000.0)) * transmittance + light_in;
+    o_colour = vec4(min(linear, vec3(65504.0)), 0.0);
     return;
 #endif
-    if (fog.shares.w < 0.5) {
-        light_in = min(light_in, vec3(1.0));
-    }
-    o_colour = vec4(light_in, transmittance);
+    // (round F) the level fog path's light is display-referred (the level's fog colour as its light - A5): decoded as
+    // the frame's inputs are, then added to the linear frame; never clamped (rt_hdr retired: no second pipeline)
+    o_colour = vec4(linear_from_display(light_in), transmittance);
 }
 )";
 
@@ -1594,7 +1610,7 @@ VkPipeline composite_pipeline(Backend& state, VkFormat format, VkSampleCountFlag
         }
     }
     const VkDevice device = state.context.device();
-    const std::string body = std::string(linear ? "#define LINEAR_COMPOSITE\n" : "") + kCompositeBody;
+    const std::string body = std::string(linear ? "#define LINEAR_COMPOSITE\n" : "") + rt::kDisplayTransferGlsl + kCompositeBody;
     const VkShaderModule fragment = make_module(
         device, RtShaderStage::kFragment, source_of(body.c_str(), false, samples != VK_SAMPLE_COUNT_1_BIT), error);
     if (fragment == VK_NULL_HANDLE) {
@@ -2482,7 +2498,6 @@ AerialLight aerial_light(const rt::ViewDrawn& view, float ground)
         return out;
     }
     constexpr uint32_t kLightSteps = 64;
-    constexpr double kGamma = 2.2;
     const auto luma = [](const rt::Rgb& c) {
         return (0.2126 * core::at(c, 0)) + (0.7152 * core::at(c, 1)) + (0.0722 * core::at(c, 2));
     };
@@ -2498,7 +2513,7 @@ AerialLight aerial_light(const rt::ViewDrawn& view, float ground)
         const double native_direct = luma(rt::sun_transmittance(native, kLightSteps));
         for (std::size_t i = 0; i < 3; ++i) {
             core::at(irradiance, i) =
-                std::pow(std::max(static_cast<double>(core::at(own.light.colour, i)), 0.0), kGamma) * native_direct;
+                rt::linear_from_display(static_cast<double>(core::at(own.light.colour, i))) * native_direct;
         }
         const double through = luma(rt::sun_transmittance(elevation, kLightSteps));
         top = through > 1e-6 ? luma(irradiance) / through : 0.0;
@@ -2551,7 +2566,7 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     const std::array<float, 2> pick = block_pixel(slot.scale, slot.passes);
     block.offsets = {sample.front(), sample.back(), pick.front(), pick.back()};
     // (no light - indoors: the replaced fog is the game's colour whole, the lamps' light added in it)
-    block.shares = {own.have_sun ? kFogAmbientShare : 1.0F, kFogSkyShare, kFogShaftShare, own.settings.hdr ? 1.0F : 0.0F};
+    block.shares = {own.have_sun ? kFogAmbientShare : 1.0F, kFogSkyShare, kFogShaftShare, 0.0F}; // (w: unused - round F)
     block.rect = {static_cast<int32_t>(core::at(view.rect, 0)), static_cast<int32_t>(core::at(view.rect, 1)),
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
     const Extent low = low_extent(view.rect, slot.scale);

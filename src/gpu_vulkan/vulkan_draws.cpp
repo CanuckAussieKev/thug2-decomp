@@ -29,6 +29,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_display.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -353,14 +354,35 @@ void set_dynamic_states(Backend& state, VkCommandBuffer commands, const GpuState
     bound.dynamic_set = true;
 }
 
+// (round F - a linear, scene-referred frame; Backend::linear_phase) Whether a draw writes linear light: a world view's
+// draw into a float target. Its stages' float textures - copies of the world drawn this view - hold linear light too.
+bool linear_target(const Backend& state)
+{
+    return state.linear_phase && state.pass.colour_image != nullptr && state.pass.colour_image->format == kHdrFormat;
+}
+
 // The uniform blocks into the ring (when they differ from the last ones copied).
-bool set_uniforms(Backend& state, const GpuStateBlock& block, const VertexKey& key)
+bool set_uniforms(Backend& state, const GpuStateBlock& block, const VertexKey& key, const std::array<Image*, kStageCount>& images)
 {
     BoundState& bound = state.bound;
     VertexUniforms vertex{};
     FragmentUniforms fragment{};
     fill_vertex_uniforms(block, &vertex);
     fill_fragment_uniforms(block, &fragment);
+    // (round F) the fragment's colour decoded to linear light at its output (y), and the stages whose texture already
+    // holds linear light encoded where they are sampled (z: a bit per stage) - the game's colour arithmetic stays the
+    // original's, on display-referred values (ff_shaders.cpp fragment_linear_output)
+    if (linear_target(state)) {
+        uint32_t linear_stages = 0;
+        for (uint32_t stage = 0; stage < kStageCount; ++stage) {
+            const Image* const image = core::at(images, stage);
+            if (image != nullptr && image->format == kHdrFormat) {
+                linear_stages |= 1U << stage;
+            }
+        }
+        core::at(fragment.alpha_reference, 1) = 1.0F;
+        core::at(fragment.alpha_reference, 2) = static_cast<float>(linear_stages);
+    }
     // NOT ORIGINAL - the upscaler (vulkan_motion.h): the frame before's transforms; a scaled view's pre-transformed
     // positions put into its drawn part
     if (key.motion != 0U) {
@@ -1334,7 +1356,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         core::at(descriptors, stage) = {.sampler = sampler, .imageView = shown.view, .imageLayout = shown.layout};
     }
     VkCommandBuffer commands = stream(state);
-    if (!set_uniforms(state, block, shaders.vertex)) {
+    if (!set_uniforms(state, block, shaders.vertex, images)) {
         return gpu_value::kResultInvalidCall;
     }
     SurfaceDescriptors surface_descriptors; // NOT ORIGINAL - rt_pbr
@@ -1409,7 +1431,12 @@ long record_clear(Backend& state, const GpuStateBlock& block, std::span<const Gp
     if (target == nullptr) {
         return gpu_value::kResultInvalidCall;
     }
-    const Float4 rgba = colour_of(colour);
+    Float4 rgba = colour_of(colour);
+    if (state.linear_phase && target->format == kHdrFormat) { // (round F: the game's colour as linear light)
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            core::at(rgba, channel) = rt::linear_from_display(core::at(rgba, channel));
+        }
+    }
     PassClear clear;
     clear.colour = (flags & gpu_value::kClearTarget) != 0;
     clear.depth = (flags & gpu_value::kClearDepth) != 0;

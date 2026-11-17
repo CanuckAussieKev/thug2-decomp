@@ -40,6 +40,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "engine/gfx/rt_display.h" // kDisplayGamma: the frame's one transfer
+
 namespace render::rt {
 
 using Rgb = std::array<double, 3>;
@@ -52,7 +54,6 @@ inline constexpr double kRayleighHeight = 8000.0;
 inline constexpr Rgb kOzoneAbsorption{0.650e-6, 1.881e-6, 0.085e-6};
 inline constexpr double kOzoneCentre = 25000.0;    // metres above the ground
 inline constexpr double kOzoneHalfWidth = 15000.0; // (none under 10 km or over 40 km)
-inline constexpr double kDisplayGamma = 2.2;
 inline constexpr double kReferenceElevation = 0.78539816339744831; // (45 degrees: the unit's day - sky_exposure)
 
 // --- (added by the physical air) the weather's aerosol --------------------------------------------------------------

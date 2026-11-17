@@ -1000,11 +1000,25 @@ void check_forces_and_conflicts()
     expect(!air_unrelit.at("rt_fog_god_rays").in_effect, "the god rays need relit lighting");
     expect(!resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_relit", "1"}}).at("rt_fog_god_rays").in_effect,
            "the god rays need rt_fog");
-    // (added by the low sun's glare) the auto exposure: 2 stops by default, with HDR only
-    const config::Resolution metered = resolve(rtx50(), {{"rt_hdr", "1"}});
+    // (added by the low sun's glare) the auto exposure: 2 stops by default - (round F) on Vulkan whatever rt_hdr says
+    const config::Resolution metered = resolve(rtx50(), {});
     expect(metered.value("rt_exposure_adapt") == "2" && metered.at("rt_exposure_adapt").in_effect,
-           "rt_exposure_adapt: 2 by default with rt_hdr");
-    expect(!resolve(rtx50(), {}).at("rt_exposure_adapt").in_effect, "rt_exposure_adapt needs rt_hdr");
+           "rt_exposure_adapt: 2 by default on Vulkan (the linear frame's camera)");
+    // (round F - a linear, scene-referred frame) rt_hdr is retired: the frame is linear light whatever it says, so no
+    // other setting's effective value moves with it - the scene the renderer is given is the same
+    {
+        const config::Resolution hdr_off = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_hdr", "0"}});
+        const config::Resolution hdr_on = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}, {"rt_hdr", "1"}});
+        expect(!hdr_on.at("rt_hdr").in_effect, "rt_hdr retired (round F: the frame is always linear light)");
+        std::size_t differ = 0;
+        for (std::size_t i = 0; i < hdr_on.items.size() && i < hdr_off.items.size(); ++i) {
+            const config::Resolved& on = core::at(hdr_on.items, i);
+            const config::Resolved& off = core::at(hdr_off.items, i);
+            differ += (on.value != off.value || on.in_effect != off.in_effect) && on.asked == off.asked ? 1U : 0U;
+        }
+        expect(differ == 0 && hdr_on.items.size() == hdr_off.items.size(),
+               "rt_hdr 0 / 1: every other setting's effective value the same (" + std::to_string(differ) + " differ)");
+    }
     const config::Resolution haze = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_fog", "1"}});
     expect(haze.on("rt_fog_haze"), "the haze with volumetric fog: on");
     expect(!resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_sky_model", "1"}}).at("rt_fog_haze").in_effect,

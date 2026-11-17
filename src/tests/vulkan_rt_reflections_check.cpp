@@ -67,6 +67,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_vertex_attributes.h"
 #include "engine/gfx/surface_maps.h"
@@ -1356,7 +1357,8 @@ Rgb reflected_colour(const Reflection& seen, double weight, const Rgb& base, uin
     Rgb out{};
     for (std::size_t channel = 0; channel < 3; ++channel) {
         const double factor = 2.0 * core::at(vertex, channel) / kByteRange;
-        const double shaded = std::min(1.0, core::at(texel, channel) / kByteRange * factor);
+        // (round F: the hit as the game would draw it, decoded to linear light - the frame's)
+        const double shaded = render::rt::linear_from_display(std::min(1.0, core::at(texel, channel) / kByteRange * factor));
         const double mixed = (shaded * weight) + ((core::at(floor, channel) / kByteRange) * (1.0 - weight));
         core::at(out, channel) = static_cast<int>(std::lround(mixed * kByteRange));
     }
@@ -1678,7 +1680,8 @@ void run_rough(render::Gpu& gpu, Mirror& mirror, Tally* tally)
         }
         const double ratio = std::abs(added.front()) > 0.0 ? added.back() / added.front() : 0.0;
         constexpr double kLeastShare = 0.8;
-        constexpr double kMostShare = 1.05;
+        constexpr double kMostShare = 1.1; // (round F: the 8-bit target holds linear light - a dark reflection's few
+                                           // levels: their rounding is a few percent of what is taken away)
         tally->check(ratio >= kLeastShare && ratio <= kMostShare,
                      text::format("the light the rough reflection adds against the mirror's: %.3f of it (%.0f / %.0f "
                                   "over %d floor pixels)",
@@ -1978,7 +1981,7 @@ std::array<double, 3> sky_view_at(const render::vulkan::AtmosphereTexels& table,
 }
 
 // rt_sky: the floor's pixels whose reflection misses the box (clear-cut: the same a tenth of a pixel round) show the
-// sky-view table toward the reflected direction as the game's colour (^ 1 / 2.2, at most 1), the weight 1 (strength 1,
+// sky-view table toward the reflected direction as linear light (round F; at most 1 in the 8-bit target), the weight 1 (strength 1,
 // reflectivity 1, no Fresnel) - the sky drawn, not the floor kept. The model's sky alone (no capture), no clouds.
 void run_sky_misses(render::Gpu& gpu, Mirror& mirror, Tally* tally)
 {
@@ -2057,12 +2060,11 @@ void run_sky_misses(render::Gpu& gpu, Mirror& mirror, Tally* tally)
                     continue;
                 }
                 const std::array<double, 3> linear = sky_view_at(table, here.mirrored, sun);
-                constexpr double kDisplayGamma = 2.2;
                 constexpr double kWhite = 255.0;
                 Rgb want{};
                 for (std::size_t ch = 0; ch < 3; ++ch) {
                     core::at(want, ch) = static_cast<int>(
-                        std::lround(std::min(1.0, std::pow(core::at(linear, ch), 1.0 / kDisplayGamma)) * kWhite));
+                        std::lround(std::min(1.0, core::at(linear, ch)) * kWhite)); // (round F: linear light)
                 }
                 const Rgb got = pixel_at(with, column, row);
                 ++compared;
