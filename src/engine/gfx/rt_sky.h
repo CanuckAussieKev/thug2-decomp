@@ -135,6 +135,13 @@ inline constexpr double kSolarIlluminance = 128000.0;
 // radiance is its irradiance over this.
 inline constexpr double kSunAngularRadius = 0.004654; // radians
 [[nodiscard]] double sun_solid_angle();
+// (round S - one sun and one moon) The moon's angular radius: its radius over its mean distance, 1737.4 km / 384 400 km
+// (0.52 degrees across). These two are the lights' only sizes: the drawn discs, relit's soft shadows, the shadows pass's
+// cone and the lighting state's light_radius all read them (rt_daylight.h kSunRadiusDegrees / kMoonRadiusDegrees are
+// these in degrees).
+inline constexpr double kMoonRadiusKm = 1737.4;
+inline constexpr double kMoonDistanceKm = 384400.0;
+inline constexpr double kMoonAngularRadius = kMoonRadiusKm / kMoonDistanceKm; // radians (small-angle: 0.0045198)
 // Its disc as drawn (the sky pass, or the sun's pass over a painted sky): limb-darkened, I(r) = I(0) (1 - u (1 -
 // sqrt(1 - (r / R)^2))) with u = kSunLimbDarkening (the visible band's), its mean over the disc (1 - u / 3) I(0) = its
 // irradiance (the transmittance at `elevation`, the frame's aerosol) over its solid angle - in the unit (x

@@ -80,6 +80,11 @@ void read_time_of_day(const Resolution& in_effect)
     }
     settings.lighting_only = !in_effect.at("tod").limits.empty() || !in_effect.at("tod_cycle").limits.empty() ||
                              !in_effect.at("tod_levels").limits.empty();
+    // (round S) the moon's phase when the clock starts
+    const std::string& moon = in_effect.value("tod_moon");
+    if (!moon.empty() && !render::rt::parse_moon_age(moon, &settings.moon_age)) {
+        get_log("[Graphics] tod_moon=%s isn't new, first, full, last or 0 - 29.5 days - full", moon.c_str());
+    }
     const std::string& levels = in_effect.value("tod_levels");
     if (!render::rt::parse_tod_levels(levels, &settings.levels)) {
         get_log("[Graphics] tod_levels=%s: an entry isn't <level>:<tod> - those before it used", levels.c_str());

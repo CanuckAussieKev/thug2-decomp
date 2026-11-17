@@ -69,6 +69,10 @@ struct ToneParameters {
     float knee = 1.0F;       // curve 0: where the shoulder starts
     float room = 0.0F;       // curve 0: 1 - knee (0: clipped at 1)
     float aces_scale = 1.0F; // curve 1: 1 / the curve's value at the white point
+    // (round S) the eye's rod vision (rod_vision): the unit's luminance in cd/m^2 (0: off - rt_exposure_adapt off) and
+    // the frame's pre-exposure the colour carries
+    float unit_luminance = 0.0F;
+    float pre_exposure = 1.0F;
 };
 [[nodiscard]] ToneParameters tone_parameters(const HdrSettings& settings);
 
@@ -86,6 +90,15 @@ bool parse_cube(std::string_view text, GradeLut* lut, std::string* error);
 // The grading table used from now on, in place of rt_grade_lut's (the check's; set_hdr_settings reads the file's).
 void set_hdr_lut(GradeLut lut);
 
+// (round S) The eye's rod vision, the curve's first step (Krawczyk, Myszkowski and Seidel 2005; Jensen et al. 2000): the
+// pixel's absolute luminance Y (cd/m^2: its light over the pre-exposure x the unit's luminance) gives the rods' share
+// kRodHalf / (kRodHalf + Y) - none in daylight, half at 0.04 cd/m^2 (a moonlit street), nearly all under starlight -;
+// the rods see the scotopic luminance V = Y (1.33 (1 + (Y + Z) / X) - 1.68) (CIE XYZ of the linear Rec. 709 colour; over
+// its value for white, so a grey keeps its brightness), colourless and read as blue - kRodHue (the Purkinje shift). This
+// is where night looks blue: a perception step at the output, never in the light.
+inline constexpr double kRodHalf = 0.04; // cd/m^2
+inline constexpr std::array<double, 3> kRodHue{1.05, 0.97, 1.27};
+[[nodiscard]] std::array<float, 3> rod_vision(const ToneParameters& parameters, const std::array<float, 3>& colour);
 // The curve on the processor (the pass's reference): an RGB colour of the target -> what the pass writes.
 [[nodiscard]] std::array<float, 3> tone_map_reference(const ToneParameters& parameters, const GradeLut* lut,
                                                       std::array<float, 3> colour);
@@ -120,6 +133,11 @@ inline constexpr float kMeterBrightest = 16.0F;
 inline constexpr float kMeterLeast = 1e-4F;   // (a sample's luminance at least: the log average's floor)
 inline constexpr double kSolarIlluminance = rt::kSolarIlluminance; // (lux: the unit's calibration - rt_sky.h)
 inline constexpr float kMeterCentre = 0.3F;
+// (round S) the eye's range: it adapts down to the scotopic floor (CIE: scotopic vision below 10^-3 cd/m^2 - a scene
+// darker still is seen darker, not brought up), and by as many stops as that takes (rt_exposure_adapt: on / off; off -
+// a fixed camera at the reference day's exposure)
+inline constexpr float kEyeDarkest = 1e-3F; // cd/m^2
+inline constexpr float kEyeMostStops = 40.0F;
 inline constexpr float kMeterDarkenSeconds = 0.4F;
 inline constexpr float kMeterBrightenSeconds = 1.2F;
 inline constexpr uint32_t kMeterSlots = 4;

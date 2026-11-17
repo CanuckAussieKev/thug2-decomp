@@ -347,6 +347,13 @@ std::vector<Decl> declarations()
             .pick({c("12", "12 min"), c("24", "24 min"), c("48", "48 min"), c("96", "96 min")})
             .need(is("tod_cycle", {"on"}))
             .live(E::kTimeOfDay),
+        // (round S) the moon's phase when the clock starts (new, first, full, last or its age in days)
+        gfx("tod_moon", K::kChoice, "full")
+            .tab(G::kLighting, t::kOptTodMoon, t::kOptTodMoonHelp)
+            .pick({c("new", t::kMoonNew), c("first", t::kMoonFirst), c("full", t::kMoonFull), c("last", t::kMoonLast)})
+            .open()
+            .need(tod_runs())
+            .live(E::kTimeOfDay),
         gfx("tod_levels", K::kText, "")
             .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
             .need(level_lit_or_no_rt(Cap::kLevelTakenApart), t::kLevelNotTakenApart)

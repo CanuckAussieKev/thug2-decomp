@@ -176,4 +176,44 @@ struct CloudSkyLight {
 // The taps' sums over a sky-view table read back (row by row, kSkyViewWidth texels a row, rgb + a; negatives as 0).
 [[nodiscard]] CloudSkyLight cloud_sky_light(const std::vector<std::array<float, 4>>& table);
 
+// --- (round S - clouds dim the light) the weather's cloud cover, one state ------------------------------------------
+// The coverage (rt_cloud_coverage's meaning: the share of the sky the clouds cover, 0 - 1) every reader takes - the sky
+// pass's drawn clouds, the clouds' shadow map and the lighting state's light (rt_daylight.h) -: the settings' value
+// when given (kSettings), else the level's own sky's (kLevelSky: rt_cloud_coverage=auto, the sky pass's reading of the
+// level's dome; none until read), and at least what the precipitation needs (kSnow: snow.h overcast_share; kRain: the
+// rain's overcast from its rain rate). A negative value: that source has none.
+enum class CloudCoverSource : uint8_t { kSettings, kLevelSky, kSnow, kRain, kCount };
+void set_cloud_cover(CloudCoverSource source, float coverage);
+[[nodiscard]] float cloud_cover_of(CloudCoverSource source);
+[[nodiscard]] float cloud_coverage();
+
+// The layer's light (round S): what the cloud layer of the model above does to the sun's (or the moon's) light and the
+// sky's on the ground, from the same weather map, shape noise, coverage and extinction the march and the shadow map
+// use - kLayerColumns^2 columns over one period of the weather map, each its vertical optical depth tau through
+// kLayerHeights densities (the shape at its nearest texel, no detail), then each column as an independent plane-parallel
+// layer (the independent column approximation):
+//   - the beam (the direct light per unit of N.L): exp(-tau / mu), mu the light's sine;
+//   - what the deck scatters on down: Eddington's two-stream transmittance of a conservatively scattering layer,
+//     1 - R, R = (k + (1/2 - 3/4 mu)(1 - exp(-tau / mu))) / (1 + k), k = 3/4 (1 - g) tau, g kCloudDropletG; the
+//     sky's diffuse light through it at kDiffuseCosine; the ground (kGroundAlbedo) and the deck's base reflecting to
+//     each other (1 / (1 - albedo x the deck's diffuse reflectance));
+// averaged over the columns. Overcast (the coverage 1): no beam, the sky's light the deck's grey diffuse light. The
+// overcast sky's radiance distribution (brighter overhead) is the drawn clouds' own march; the light on a level surface is
+// the mean here. Clear (the coverage 0): beam 1, sun_diffuse 0, sky_kept 1.
+inline constexpr uint32_t kLayerColumns = 16;
+inline constexpr uint32_t kLayerHeights = 12;
+inline constexpr double kCloudDropletG = 0.85;   // water droplets' asymmetry in the visible (Mie)
+inline constexpr double kDiffuseCosine = 0.6;    // (1 / 1.66: the diffusivity factor's mean cosine)
+inline constexpr double kLeastLightSine = 0.02;  // (a grazing light's path no longer than through 50 layers)
+struct CloudLayerLight {
+    double beam = 1.0;        // the direct light kept (per unit of the clear light per N.L)
+    double sun_diffuse = 0.0; // the direct light's diffuse light under the deck, on a level surface (per unit per N.L)
+    double sky_kept = 1.0;    // the clear sky's light on a level surface kept under the deck
+    double mean_depth = 0.0;  // the columns' mean optical depth (the log's, the checks')
+};
+// `coverage` as cloud_coverage (the columns made at each tenth once, read between), `sine` the light's elevation's sine.
+[[nodiscard]] CloudLayerLight cloud_layer_light(double coverage, double sine);
+// The columns' vertical optical depths at a coverage (the checks').
+[[nodiscard]] std::vector<double> cloud_column_depths(double coverage);
+
 } // namespace render::rt
