@@ -91,7 +91,6 @@ constexpr float kLeafShare = 0.6F;    // the rest: leaves, ...
 constexpr float kPaperShare = 0.3F;   // ... paper, and cans
 constexpr float kDirtPebbles = 0.7F;  // dirt's: pebbles, ...
 constexpr float kDirtWeeds = 0.15F;   // ... weeds, and leaves
-constexpr float kFadePerSize = 48.0F; // a decal fades out at this x its larger side (at most the decal distance)
 constexpr float kLeastOpacity = 0.55F;
 
 // Clutter candidates a square unit at density 1, by surface (hard ground: only near a rise is kept).
@@ -726,19 +725,15 @@ struct DecalArt {
     DecalKind kind = DecalKind::kStain;
     uint8_t variant = 0;
     float opacity = 1.0F;
-    float fade = 0.0F; // world units
 };
 
 uint32_t pack_decal(const DecalArt& art)
 {
     constexpr uint32_t kVariantShift = 4;
     constexpr uint32_t kOpacityShift = 8;
-    constexpr uint32_t kFadeShift = 16;
     const auto opacity = static_cast<uint32_t>(std::lround(std::clamp(art.opacity, 0.0F, 1.0F) * 255.0F));
-    const auto fade = static_cast<uint32_t>(
-        std::clamp(std::lround(art.fade / static_cast<float>(kDecalFadeUnits)), 1L, static_cast<long>(kByte)));
     return static_cast<uint32_t>(art.kind) | (static_cast<uint32_t>(art.variant & 3U) << kVariantShift) |
-           (opacity << kOpacityShift) | (fade << kFadeShift);
+           (opacity << kOpacityShift);
 }
 
 // The decal's triangles: its quad cut to each of `faces` (coplanar with its host), in the decal's coordinates.
@@ -1003,7 +998,7 @@ private:
                           .along_start = -1.0F};
         add_decal(
             host, frame,
-            {.kind = kind, .variant = variant, .opacity = opacity, .fade = kFadePerSize * std::max(across, along)},
+            {.kind = kind, .variant = variant, .opacity = opacity},
             {across, along});
     }
 
@@ -1059,7 +1054,7 @@ private:
                           .half_along = height + kGrimeSink,
                           .along_start = 0.0F};
         add_decal(host, frame,
-                  {.kind = DecalKind::kGrime, .variant = variant, .opacity = opacity, .fade = kFadePerSize * across},
+                  {.kind = DecalKind::kGrime, .variant = variant, .opacity = opacity},
                   {across, height});
     }
 

@@ -55,6 +55,7 @@ add_library(thug2_render_pc STATIC
     grass_world.cpp
     snow_world.cpp
     scatter_world.cpp
+    sky_scenery.cpp
     water_materials.cpp
     mesh_smoothing.cpp
     building_relief.cpp

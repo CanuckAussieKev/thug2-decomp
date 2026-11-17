@@ -1348,25 +1348,7 @@ const TextureLook& texture_look(const MaterialRef* material, std::unordered_map<
     if (!made) {
         return look;
     }
-    GpuLevelDesc desc;
-    GpuLockedRect locked;
-    if (gpu().texture_level_desc(texture->texture, 0, &desc) == gpu_value::kResultOk) {
-        look.format = desc.format;
-    }
-    if (gpu().texture_level_desc(texture->texture, 0, &desc) != gpu_value::kResultOk || !texel::decodable(desc.format) ||
-        gpu().lock_texture(texture->texture, 0, &locked, nullptr, gpu_value::kLockReadOnly) != gpu_value::kResultOk) {
-        return look;
-    }
-    if (locked.bits != nullptr && locked.pitch > 0) {
-        constexpr uint32_t kBlockSide = 4;
-        const bool block = desc.format == gpu_value::kFormatDxt1 || desc.format == gpu_value::kFormatDxt3 ||
-                           desc.format == gpu_value::kFormatDxt5;
-        const uint32_t rows = block ? (desc.height + kBlockSide - 1) / kBlockSide : desc.height;
-        const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(locked.bits),
-                                             static_cast<std::size_t>(rows) * static_cast<uint32_t>(locked.pitch));
-        texel::decode(desc.format, desc.width, desc.height, bytes, static_cast<uint32_t>(locked.pitch), &look.image);
-    }
-    gpu().unlock_texture(texture->texture, 0);
+    look.format = decode_first_level(texture->texture, &look.image);
     if (!look.image.empty()) {
         std::vector<float> lumas;
         lumas.reserve(look.image.texels.size());
@@ -1674,6 +1656,36 @@ std::array<std::array<float, 4>, 4> rows_of(const maths::Mat4& matrix)
 }
 
 } // namespace
+
+bool mesh_geometry(const MeshRef* mesh, rt::Geometry* out, const VertexBufferData** source)
+{
+    return geometry_of(mesh, out, source);
+}
+
+uint32_t decode_first_level(GpuTexture* texture, texel::Image* out)
+{
+    *out = {};
+    GpuLevelDesc desc;
+    if (texture == nullptr || gpu().texture_level_desc(texture, 0, &desc) != gpu_value::kResultOk) {
+        return 0;
+    }
+    GpuLockedRect locked;
+    if (!texel::decodable(desc.format) ||
+        gpu().lock_texture(texture, 0, &locked, nullptr, gpu_value::kLockReadOnly) != gpu_value::kResultOk) {
+        return desc.format;
+    }
+    if (locked.bits != nullptr && locked.pitch > 0) {
+        constexpr uint32_t kBlockSide = 4;
+        const bool block = desc.format == gpu_value::kFormatDxt1 || desc.format == gpu_value::kFormatDxt3 ||
+                           desc.format == gpu_value::kFormatDxt5;
+        const uint32_t rows = block ? (desc.height + kBlockSide - 1) / kBlockSide : desc.height;
+        const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(locked.bits),
+                                             static_cast<std::size_t>(rows) * static_cast<uint32_t>(locked.pitch));
+        texel::decode(desc.format, desc.width, desc.height, bytes, static_cast<uint32_t>(locked.pitch), out);
+    }
+    gpu().unlock_texture(texture, 0);
+    return desc.format;
+}
 
 bool on() { return backend() != nullptr; }
 

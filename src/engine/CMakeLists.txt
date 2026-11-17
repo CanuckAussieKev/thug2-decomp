@@ -161,6 +161,7 @@ add_library(thug2_engine STATIC
     gfx/paint_trails.cpp
     gfx/scatter.cpp
     gfx/scatter_art.cpp
+    gfx/sky_parts.cpp
     gfx/rt_cel.cpp
     gfx/ui_backend.cpp
     gfx/view_modes.cpp
