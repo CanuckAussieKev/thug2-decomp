@@ -239,6 +239,12 @@ void read_trails(const std::function<void(const TrailField& field)>& reader);
 // visibility it leaves (0.5 - 1 km - the US Federal Meteorological Handbook No. 1's intensities). snowfall=1 and the
 // game's own scripted snow are a moderate snowfall: kSnowfallRate.
 inline constexpr double kSnowfallRate = 1.0;      // mm/h of water
+// (round W) How the snow falls (where it reaches - the precipitation occlusion map, shared with the rain): aggregates of
+// unrimed crystals fall at about 1 m/s (Locatelli and Hobbs 1974, J. Geophysical Research 79: 0.5 - 1.5 m/s), carried
+// sideways by the wind near the ground (wind.h) - snow in a breeze falls steeply slanted, so a wall's lee side stays bare
+// and its windward side is plastered. `direction` the way a flake moves (unit, y < 0).
+inline constexpr double kFlakeFallSpeed = 1.0; // m/s
+[[nodiscard]] std::array<double, 3> fall_direction(double wind_near_ground, const std::array<double, 2>& downwind);
 inline constexpr double kFlakeDensity = 0.05;     // g/cm^3: a dry aggregate's bulk density
 [[nodiscard]] double extinction(double rate);     // per metre
 // How far the level's wind (engine/gfx/wind.h: the weather's at kNearGround in the open) has carried the falling snow

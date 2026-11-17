@@ -2493,6 +2493,47 @@ pre-exposure change needs every vertex written again - a store of physical light
 pre-exposure applied where it is drawn would make the change atomic without the hurried relight. The emissive art (lamp
 heads, glow cards) and the original's light cards are still game colours, unscaled by the pre-exposure (A3).
 
+### Round W: the air and the wind, weather surfaces through the material path
+
+Light and air are separate transports (the user, 2026-11-17: "if a ray from the sun cannot reach us without bouncing off
+another surface, we are indoors ... no wind through glass"). Indoors and outdoors are derived from the level's geometry
+and what its surfaces are made of, never flagged.
+
+- **The air's transport** (`engine/gfx/air_volume.h`, built by `render_pc/air_world.h` at load on a worker, published,
+  sampled): the level's collision cut into 16-unit cells in 8^3 bricks (a brick no face touches is one value), each face
+  rasterised conservatively with its share open to air - its terrain's material kind (`rt_material_table.h
+  kind_of_terrain`: `TERRAIN_CHAINLINK` a chain-link fence 0.86, `TERRAIN_METALGRATING` a bar grating 0.79 - their open
+  areas by their standard dimensions; `TERRAIN_PLEXIGLASS` glass and everything else 0). Each cell's passage width (the
+  narrowest of its runs of passable cells along x, y and z); the free stream flooded from the sky over the level through
+  cells open every way for 8 cells (3.25 m); elsewhere a best-first search out of it, the wind's share T x min(1, 6.2 w /
+  s) - T the screens passed, w the narrowest passage, s the way come (a free jet's potential core: Rajaratnam 1976). A
+  closed room is still (0); a doorway's draught keeps the free stream's speed about 6 door widths in and falls off after;
+  glass blocks the air while the light store lights the room through it. Also each cell's sky reach (the open shares
+  straight above multiplied). Not modelled: the wind's direction (no lee wakes), street-canyon recirculation, buoyancy.
+  Cost: a 600 m street grid of 400 buildings 2.2 s on a worker, about 100 MB kept; a sample 0.08 us.
+- **One wind** (`engine/gfx/wind.h`): the weather's 10 m wind (`rt_wind`, now for everything, not only `rt_water`), the
+  log profile over a town (z0 0.5 m) to a thing's height - near the ground at 2 m -, aloft at the boundary layer's top
+  turned 30 degrees by the Ekman spiral (the clouds), gusts whose spread is the turbulence intensity 1 / ln(10 / z0),
+  times the air transport's share where the thing is. Every consumer reads it: the water's bodies (their shelter - the
+  height-field sky openness is gone), the grass (a blade a cantilever bent by its drag: E 0.3 GPa leaf, 4 x 0.3 mm, the
+  log profile over its own z0 0.1 h; gusts carried downwind at the wind's speed), the clutter's leaves and weeds (the
+  same bend), the falling snow's drift and eddies, the rain's slant, the clouds' drift (`rt_cloud_speed` retired). On the
+  device the GPU's consumers sample a window of the volume round the camera (`gpu_vulkan/vulkan_air.h`: 128 x 32 x 128
+  cells of 32 units, RG8, filled on a worker). `tools/one_wind.test.ts` keeps any other wind constant out.
+- **Snow through the one light model** (`gpu_vulkan/vulkan_snow.cpp` - the audit's S1 - S4): the layer is lit with
+  `rt_brdf.h` and the material table's snow (fresh 0.86, packed 0.70 - Warren 1982; ice F0 from n 1.31): the
+  snow-covered ground's radiance as the world drew it (the light store's sky, bounce and lamps, the sun and its traced
+  shadow) over the snow's albedo, less the sunlight traced at the ground under each layer vertex, is everything but the
+  sun, carried round the layer's surface as an even hemisphere in its hollows' shade; the sun is DayLight's `sun_light`
+  by the layer's own traced visibility. A flat patch matches the covered ground within 0.2% in sun, shade and lamp
+  light. The flakes, the spray and the haze are a single scatterer's light: the sky above and the snow below averaged
+  over the sphere, the direct light by an ice Henyey-Greenstein phase (g 0.75). One snowfall in the air:
+  `snow::extinction(rate)` from Gunn and Marshall's flakes (1 mm/h - moderate - 5.3e-3 /m, 740 m), read by the fog's
+  march and by the snow's own haze, which steps aside while rt_fog marches. Where the falling snow reaches is the
+  precipitation occlusion map's (the rain's map, one map - `kTrailSnowTraced` reads it at the rain's binding), along the
+  snow's fall: flakes at 1 m/s (Locatelli and Hobbs 1974) slanted by the wind near the ground - lee sides stay bare.
+- **Wet patches** (the decals' `kWet`) only where the rain reaches (the volume's sky).
+
 ### Time of day (`tod`, `tod_cycle`)
 
 Every level can be played at any hour: the sun (and at night a full moon) moves along a real path over the level, the

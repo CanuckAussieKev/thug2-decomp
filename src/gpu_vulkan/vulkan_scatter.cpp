@@ -204,6 +204,11 @@ void main()
     v_weight = opacity * (1.0 - smoothstep(DECAL_FADE_START * own, own, d)) * (1.0 - under_snow(position));
     v_uv = vec2(decals[at + 3u], decals[at + 4u]);
     v_cell = vec2(float((packed >> 4u) & 3u), float(packed & 15u));
+    // (round W) a wet patch is water the rain left: only where the rain reaches (the level's air transport's sky - none
+    // indoors, under a roof)
+    if (v_cell.y == WET_ROW) {
+        v_weight *= air_sky(position + vec3(0.0, 8.0, 0.0));
+    }
     gl_Position = to_screen(position);
 }
 )";
@@ -1446,6 +1451,9 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         add(kBindingDecals, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &decal_vertices, nullptr);
         add(kBindingAtlas, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &atlas);
         add(kBindingSnow, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, snow_sky != nullptr ? snow_sky : &atlas);
+        if (air != nullptr) {
+            add(kBindingAir, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, air);
+        }
     } else {
         add(kBindingItems, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &items, nullptr);
         add(kBindingLights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lights, nullptr);
@@ -1702,6 +1710,8 @@ bool record_decal_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     plan.draws = plan_decal_draws(*own.scatter, plan.shape, &plan.count);
+    update_air_map(state, view.camera.position); // (round W: wet patches only where the rain reaches)
+    plan.air = air_map(state).origin;
     // (the puddles' wet mask, for the reflections: single-sampled targets, wet patches placed)
     plan.motion = rt_reflections_active(state) && plan.colour->samples == VK_SAMPLE_COUNT_1_BIT &&
                   core::at(own.scatter->decals_of, static_cast<std::size_t>(scatter::DecalKind::kWet)) > 0 &&
@@ -1719,7 +1729,8 @@ bool record_decal_pass(Backend& state, const rt::ViewDrawn& view)
     drawn.motion = false; // (the second attachment is the wet mask's, not the motion's)
     begin_rendering(commands, state, drawn, false, view, plan.motion ? &own.wet : nullptr);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, params, true, plan.depth, snow.on ? &snow.sky : nullptr);
+    const VkDescriptorImageInfo air = air_map(state).image;
+    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, params, true, plan.depth, snow.on ? &snow.sky : nullptr, &air);
     for (const ScatterDraw& draw : plan.draws) {
         vkCmdDraw(commands, draw.count, 1, draw.first, 0);
     }

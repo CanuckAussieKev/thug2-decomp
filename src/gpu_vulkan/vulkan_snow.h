@@ -98,7 +98,8 @@ struct SnowDescriptors {
     bool on = false;
     VkDescriptorBufferInfo block{};
     VkDescriptorImageInfo sky{};
-    VkAccelerationStructureKHR scene = VK_NULL_HANDLE; // (kTrailSnowTraced: the frame's TLAS at kCelSceneBinding)
+    bool map_on = false;          // (round W - kTrailSnowTraced: the precipitation occlusion map at kWetMapBinding)
+    VkDescriptorImageInfo map{};
     Buffer* stream = nullptr; // (kTrailSnowTint: the relit world's stream, bound as the cel shading's)
 };
 // The draw's key with the snow's cover where it takes it (snow on, the sky map on the device, a draw render_pc marked as

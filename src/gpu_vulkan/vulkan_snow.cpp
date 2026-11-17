@@ -23,11 +23,13 @@
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/snow.h"
+#include "engine/gfx/rain.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/wind.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/vulkan_precip.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -1654,7 +1656,12 @@ std::optional<VkDescriptorBufferInfo> cover_block(Backend& state)
     uniforms.range = {map->low, map->span, snow::kOpenSlack + (snow::kOpenCellShare * map->cell), 1.0F};
     uniforms.size = {static_cast<float>(map->columns), static_cast<float>(map->rows), snow::kLeastUp, snow::kCoatUp};
     uniforms.albedo = {kSnowAlbedo, kSnowAlbedo, kSnowAlbedo * 1.02F, kSnowEdgeNoise};
-    uniforms.slope = {snow::kThinUp, snow::kFullUp, snow::kCoatShare, kSnowSkyReach};
+    uniforms.slope = {snow::kThinUp, snow::kFullUp, snow::kCoatShare, 0.0F};
+    const PrecipMap reach = precip_map(state); // (round W: the one map - where the falling snow reaches)
+    uniforms.precip_fall = reach.fall;
+    uniforms.precip_slant = reach.slant;
+    uniforms.precip_near = reach.near_window;
+    uniforms.precip_far = reach.far_window;
     const void* const data = &uniforms;
     const std::optional<RingSpan> span =
         state.ring.copy(std::span(static_cast<const uint8_t*>(data), sizeof(uniforms)), state.uniform_alignment);
@@ -2308,6 +2315,13 @@ void begin_snow_view(Backend& state, const rt::ViewDrawn& view)
     if (!upload_sky(state)) {
         return;
     }
+    // (round W) where the snow reaches: the precipitation occlusion map along the snow's fall (slanted by the one wind) -
+    // the rain's map while it rains (one map; its own fall)
+    if (!(rain::settings().rate > 0.0)) {
+        update_precip_map(state, view,
+                          snow::fall_direction(wind::speed_at_height(wind::kNearGround),
+                                               {static_cast<double>(wind::kDirection[0]), static_cast<double>(wind::kDirection[1])}));
+    }
     const uint64_t frame = state.frames.serial();
     if (own.window_frame != frame) { // (the frame's first view places the window and moves the snow's clock on)
         own.window_frame = frame;
@@ -2348,9 +2362,10 @@ void snow_key(Backend& state, const GpuStateBlock& block, const DrawCall& call, 
         !surface_trail::current_ground() || fvf_pre_transformed(block.vertex_format) || shaders->fragment.water != 0U) {
         return;
     }
-    // traced: the frame's scene has something to trace (a device with ray tracing - its pipelines take ray queries)
-    const SceneView scene = state.context.ray_tracing_enabled() ? current_scene(state) : SceneView{};
-    const bool traced = scene.tlas != VK_NULL_HANDLE && scene.instances > 0;
+    // (round W) traced: where the falling snow reaches is the precipitation occlusion map's (traced this frame - a device
+    // with ray tracing); else the sky map's tops
+    const PrecipMap reach = precip_map(state);
+    const bool traced = reach.on;
     // the tint: the relit world's stream for this draw (its vertex colour the tint x the light)
     Buffer* const stream = relit_stream_of(state, call);
     ShaderKey with_snow = *shaders;
@@ -2363,9 +2378,10 @@ void snow_key(Backend& state, const GpuStateBlock& block, const DrawCall& call, 
         }
         return;
     }
-    out->scene = (with_snow.fragment.trails & kTrailSnowTraced) != 0U ? scene.tlas : VK_NULL_HANDLE;
+    out->map_on = (with_snow.fragment.trails & kTrailSnowTraced) != 0U;
+    out->map = reach.image;
     out->stream = (with_snow.fragment.trails & kTrailSnowTint) != 0U ? stream : nullptr;
-    own.stats.traced_draws += out->scene != VK_NULL_HANDLE ? 1U : 0U;
+    own.stats.traced_draws += out->map_on ? 1U : 0U;
     const std::optional<VkDescriptorBufferInfo> uniforms = cover_block(state);
     if (!uniforms) {
         return;

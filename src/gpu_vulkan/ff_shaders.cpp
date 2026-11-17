@@ -671,23 +671,30 @@ void detail_declarations(std::string& out, const FragmentKey& key)
 //   - how much it holds by its slope (snow::slope_cover's twin, the up share moved by the noise): full on flat ground,
 //     thinning up ramps and banks to a light coat on steep faces (a quarter pipe's), none on a near-vertical wall; a
 //     light coat lies in patches (a noise over the surface: where it is thin, only its higher patches hold snow);
-//   - open to the sky (snow_open): with kTrailSnowTraced a ray query straight up through the frame's scene from just off
-//     the surface (its start moved a little by a smooth noise over the ground, so an eave's line isn't ruled) - nothing
-//     drawn over it within snow.slope.w: open (the level and the cut-out casters - trees, awnings, fences -, not the
-//     objects); else the sky map's four cells round the point (textureGather of the tops' heights) - each whose top is
-//     at most snow.range.z over the point, or which has no face (0), counts; a quarter each, so a roof's edge is soft;
+//   - reached by the falling snow (snow_open): (round W) with kTrailSnowTraced the precipitation occlusion map's
+//     precip_reached (the rain's and the snow's one map - engine/gfx/precip_occlusion.h: the lines of fall slanted by the
+//     wind, traced through the level and the cut-out casters) from just off the surface (its start moved a little by a
+//     smooth noise over the ground, so an eave's line isn't ruled); else the sky map's four cells round the point
+//     (textureGather of the tops' heights) - each whose top is at most snow.range.z over the point, or which has no face
+//     (0), counts; a quarter each, so a roof's edge is soft;
 //   - snow_amount = the slope's cover (in patches) x the open share x snow.range.w;
 //   - the programs' albedo: stage 0's texel (the fixed programs), or the material's passes' sum (kMaterial) before the
 //     vertex colour multiplies it - mixed toward snow.albedo.rgb by snow_amount.
-constexpr const char* kSnowBlock = R"(layout(set = 0, binding = 17, std140) uniform SnowUniforms {
+constexpr const char* kSnowDeclarations = R"(layout(set = 0, binding = 17, std140) uniform SnowUniforms {
     mat4 eye_to_world;
     vec4 map;
     vec4 range;
     vec4 size;
     vec4 albedo;
     vec4 slope;
+    vec4 precip_fall;
+    vec4 precip_slant;
+    vec4 precip_near;
+    vec4 precip_far;
 } snow;
 layout(set = 0, binding = 18) uniform sampler2D snow_sky;
+)";
+constexpr const char* kSnowBlock = R"(
 float snow_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float snow_noise(vec2 p)
 {
@@ -717,13 +724,7 @@ float snow_sky_open(vec3 world)
 float snow_open(vec3 world, vec3 n)
 {
     vec2 shift = (vec2(snow_noise(world.xz * 0.09), snow_noise(world.zx * 0.09 + 17.0)) - 0.5) * 3.0;
-    vec3 origin = world + n * 0.6 + vec3(shift.x, 0.3, shift.y);
-    rayQueryEXT q;
-    rayQueryInitializeEXT(q, SNOW_SCENE, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, SNOW_MASK, origin, 0.0,
-                          vec3(0.0, 1.0, 0.0), snow.slope.w);
-    while (rayQueryProceedEXT(q)) {
-    }
-    return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+    return precip_reached(world + n * 0.6 + vec3(shift.x, 0.3, shift.y));
 }
 #else
 float snow_open(vec3 world, vec3 n) { return snow_sky_open(world); }
@@ -1160,15 +1161,22 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         if (key.surface == 0 && key.water == 0U) {
             add(out, {kSurfaceVaryingsIn});
         }
+        const bool wet = (key.trails & kTrailWet) != 0U;
+        if (wet) { // (NOT ORIGINAL - [Graphics] rain; before the snow's: its precip_reached is the snow's too)
+            add(out, {wet_block()});
+        }
         if ((key.trails & kTrailSnow) != 0U) {
+            add(out, {kSnowDeclarations});
             if ((key.trails & kTrailSnowTraced) != 0U) {
-                // (the frame's scene: the cel shading's binding, declared once - SNOW_MASK: the level 0x01 and the cut-out
-                // casters 0x04, vulkan_rt_scene.h; not the objects)
-                static_assert(kCelSceneBinding == 9, "the scene's binding named here");
-                if ((key.surface & kSurfaceCelShadow) == 0U) {
-                    add(out, {"layout(set = 0, binding = 9) uniform accelerationStructureEXT cel_scene;"});
+                // (round W: the precipitation occlusion map - the rain's binding, one map; with the wet ground's block its
+                // precip_reached already declared over the same map)
+                add(out, {"#define SNOW_TRACED"});
+                if (!wet) {
+                    add(out, {"layout(set = 0, binding = 23) uniform usampler2D snow_map;\n#define PRECIP_BLOCK snow\n"
+                              "#define PRECIP_MAP snow_map\n#define PRECIP_SIZE ",
+                              num(precip::kMapSize)});
+                    add(out, {precip::reached_glsl()});
                 }
-                add(out, {"#define SNOW_TRACED\n#define SNOW_SCENE cel_scene\n#define SNOW_MASK 0x05u"});
             }
             if ((key.trails & kTrailSnowTint) != 0U && (key.surface & kSurfaceCelStream) == 0U) {
                 add(out, {kCelVaryingsIn}); // (the relit world's stream: its tint)
@@ -1177,9 +1185,6 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         }
         if ((key.trails & kTrailPaint) != 0U) {
             add(out, {kPaintBlock});
-        }
-        if ((key.trails & kTrailWet) != 0U) { // (NOT ORIGINAL - [Graphics] rain)
-            add(out, {wet_block()});
         }
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
@@ -1678,7 +1683,7 @@ std::string fragment_shader_glsl(const FragmentKey& key)
 {
     const uint32_t sampled = sampled_stages(key);
     // (added by cel shading: the sun's visibility per pixel - ray queries are GLSL 4.60's)
-    const bool traced = (key.surface & kSurfaceCelShadow) != 0U || (key.trails & kTrailSnowTraced) != 0U;
+    const bool traced = (key.surface & kSurfaceCelShadow) != 0U; // (round W: the snow's reach is the map's, no ray query)
     std::string out = std::string(traced ? "#version 460\n" : "#version 450\n") + "// generated: " + describe(key) + "\n";
     if (traced) {
         out += "#extension GL_EXT_ray_query : require\n";
