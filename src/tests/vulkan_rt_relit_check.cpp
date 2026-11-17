@@ -52,6 +52,7 @@
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_relit.h"
+#include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -1878,9 +1879,22 @@ void check_ceiling_panel(Tally* tally)
                                      model.lamps_implausible, static_cast<double>(model.lamp_noise)));
     tally->check(!lamps.at(1).solved && lamps.at(1).light == Rgbf{},
                  "a bright texture whose light the bake doesn't show: no lamp (brightness alone is no evidence)");
-    rt::relit_lamp_switches(light, links, lamps);
+    rt::relit_lamp_switches(light, links, lamps, rt::unit_illuminance());
     tally->check(lamps.at(0).switch_sky >= rt::kLampAlwaysOn && rt::lamp_on(lamps.at(0).switch_sky, 1.0F, 0.0F) == 1.0F,
                  "the indoor panel's switch: its surfaces see no sky - on at noon as at night");
+    // the same lamp outdoors (its surfaces see half the sky): a photocell's switch - the open sky at which the daylight
+    // round it is kPhotocellLux; off under the reference day, on under a quarter of the switch
+    for (rt::RelitVertex& vertex : light.front()) {
+        vertex.sky = 0.5F;
+    }
+    rt::relit_lamp_switches(light, links, lamps, rt::unit_illuminance());
+    const float outdoor = lamps.at(0).switch_sky;
+    const double wanted = static_cast<double>(rt::kPhotocellLux) / rt::unit_illuminance() / 0.5;
+    tally->check(std::abs(static_cast<double>(outdoor) - wanted) <= 1e-3 * wanted &&
+                     rt::lamp_on(outdoor, 1.0F, 0.0F) == 0.0F && rt::lamp_on(outdoor, outdoor * 0.25F, 0.0F) == 1.0F,
+                 text::format("a lamp outdoors: a photocell's switch at %.5f of the reference day's open sky (%.0f lux of "
+                              "daylight round it) - off by day, on at dusk",
+                              static_cast<double>(outdoor), static_cast<double>(rt::kPhotocellLux)));
 }
 
 // 7. the data file: the level's light and model written and read back - the colours relit from what was read the

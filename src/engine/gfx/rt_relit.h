@@ -383,8 +383,8 @@ struct RelitLamp {
     float kelvin = 0.0F;
     bool solved = false; // its intensity told by the bake's edges (else its own surface's light)
     // (lighting round A3) its switch (rt_lights.h lamp_on): the open sky's light (luma, the global unit) under which the
-    // daylight on the surfaces it lights is under its own light there - relit_lamp_switches; kLampAlwaysOn where they
-    // see no sky, 0 where it lights nothing (not known)
+    // daylight round it is under a photocell's turn-on - relit_lamp_switches; kLampAlwaysOn where its surfaces see no
+    // sky, 0 where it lights nothing (not known)
     float switch_sky = 0.0F;
 };
 [[nodiscard]] LampShape lamp_shape(const RelitLamp& lamp);
@@ -424,19 +424,32 @@ inline constexpr float kRelitLambertian = 3.14159265F; // (a Lambertian surface'
 // on in the bake). Otherwise - off in the bake, swamped, or no edges - a glow or a point light (the artists' mark of a
 // lamp) shines by its own surface; a candidate (rt_lights.h candidate_kind: a bright surface or texture) gives no light
 // - brightness alone is no lamp.
+// `bake_time`: the bake's own time's light (the global unit's lux, its physical open sky's light - luma - and the open
+// sky's lamps then) - a candidate's switch at it; unit_lux 0: not checked.
+struct BakeTime {
+    double unit_lux = 0.0;
+    float sky = 0.0F;
+    float lamps = 0.0F;
+};
 void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                       std::span<RelitLamp> lamps, RelitModel* model);
+                       std::span<RelitLamp> lamps, RelitModel* model, const BakeTime& bake_time = {});
 // Each vertex's L from its links and the lamps' intensities (building relief's made vertices from their sources) - with
 // all lamps on, or (`on`, one a lamp) each x how much it is on.
 void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
                       std::span<const RelitLamp> lamps, std::span<const float> on = {});
 void relit_mesh_lamp_light(const RelitMesh& mesh, RelitVertices* light, const RelitMeshLinks& links,
                            std::span<const RelitLamp> lamps, std::span<const float> on = {});
-// (lighting round A3) Each lamp's switch (RelitLamp::switch_sky), once its light is in the global unit: over the
-// vertices it lights (each alike: the area it lights), its light there (luma) and their sky share K - the switch is the open
-// sky's light at which the sky's (x K) equals its own; kLampAlwaysOn where they see no sky (under kRelitNoSky).
+// (lighting round A3) Each lamp's switch (RelitLamp::switch_sky): a photocell's - it turns a lamp on when the daylight
+// on it falls under kPhotocellLux (ANSI C136.10's turn-on, 1.5 foot-candles: a standard street-lighting photocontrol,
+// a physical constant, not a level's or a lamp's value). The daylight where the lamp is: the open sky's light x the sky
+// share K of the surfaces it lights (each alike: the area round it). So the switch is the open sky's light (the global
+// unit; `unit_lux` its lux) at which that reaches kPhotocellLux; kLampAlwaysOn where they see no sky (under
+// kRelitNoSky - indoors: a room no daylight reaches is lit whenever it is used). Not the lamp's own brightness: the art's
+// lamps are display-referred (their switch by their own light lit some at noon).
 inline constexpr float kRelitNoSky = 1e-3F;
-void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLinks& links, std::span<RelitLamp> lamps);
+inline constexpr float kPhotocellLux = 16.0F;
+void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLinks& links, std::span<RelitLamp> lamps,
+                         double unit_lux);
 // (lighting round A2 - one light unit for every level) The decomposition in the global unit, from energy alone: the
 // light bounced to a vertex, B, is the radiance its surroundings show - in the bake's own colours, so in the game's unit
 // whatever the bake's exposure - and a surface's light takes it whole (one bounce adds the surroundings' radiance x the

@@ -423,10 +423,13 @@ float lamp_on(float switch_sky, float sky_now, float open_lamps)
     if (switch_sky >= kLampAlwaysOn || !(sky_now > 0.0F)) {
         return 1.0F; // (no sky reaches it, or none is left)
     }
-    // the daylight over its own light, in stops: on wholly kLampSwitchBand under the switch, off as far over it
+    // the daylight round it over the photocell's turn-on, in stops: on wholly kLampSwitchBand under the switch, off as far
+    // over it - and never less than the open sky's own photocell (the sun's elevation: DayLight::lamps), which the art's
+    // night sky (display-referred, far brighter than a real night's) can't hold back
     const float stops = std::log2(sky_now / switch_sky) / std::log2(kLampSwitchBand);
     const float t = std::clamp((1.0F - stops) * kHalf, 0.0F, 1.0F);
-    return t * t * (3.0F - (2.0F * t));
+    const float open = std::isfinite(open_lamps) ? std::clamp(open_lamps, 0.0F, 1.0F) : 0.0F;
+    return std::max(open, t * t * (3.0F - (2.0F * t)));
 }
 
 namespace {

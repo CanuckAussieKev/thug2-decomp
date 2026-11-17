@@ -2112,10 +2112,10 @@ void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices
     }
 }
 
-void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLinks& links, std::span<RelitLamp> lamps)
+void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLinks& links, std::span<RelitLamp> lamps,
+                         double unit_lux)
 {
     std::vector<double> weights(lamps.size(), 0.0);
-    std::vector<double> lit(lamps.size(), 0.0);
     std::vector<double> sky(lamps.size(), 0.0);
     const std::size_t count = std::min(light.size(), links.size());
     for (std::size_t mi = 0; mi < count; ++mi) {
@@ -2130,8 +2130,6 @@ void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLi
                 }
                 // (each surface it lights counts alike - the area it lights, not its own fixture next to it)
                 core::at(weights, link.lamp) += 1.0;
-                core::at(lit, link.lamp) +=
-                    static_cast<double>(link.weight) * static_cast<double>(luma(core::at(lamps, link.lamp).light));
                 core::at(sky, link.lamp) += static_cast<double>(vertex.sky);
             }
         }
@@ -2143,9 +2141,10 @@ void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLi
             lamp.switch_sky = 0.0F; // (it lights nothing: not known - the open sky's rule)
             continue;
         }
-        const double own = core::at(lit, li) / weight;  // its light where it lights
-        const double open = core::at(sky, li) / weight; // ... and those surfaces' sky share
-        lamp.switch_sky = open < static_cast<double>(kRelitNoSky) ? kLampAlwaysOn : static_cast<float>(own / open);
+        const double open = core::at(sky, li) / weight; // those surfaces' sky share
+        lamp.switch_sky = open < static_cast<double>(kRelitNoSky) || !(unit_lux > 0.0)
+                              ? kLampAlwaysOn
+                              : static_cast<float>(static_cast<double>(kPhotocellLux) / unit_lux / open);
     }
 }
 
@@ -2321,8 +2320,9 @@ std::vector<double> solve_lamp_columns(std::span<const LampEdge> edges, std::spa
 } // namespace
 
 void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                       std::span<RelitLamp> lamps, RelitModel* model)
+                       std::span<RelitLamp> lamps, RelitModel* model, const BakeTime& bake_time)
 {
+    const double unit_lux = bake_time.unit_lux;
     model->lamps = {1.0F, 1.0F, 1.0F};
     // (a lamp the bake doesn't tell shines by its own surface: pi x the radiance its glow shows - its colour
     // display-referred, decoded (rt_display.h); the 8-bit data's range - a vertex colour's 2 x a pass's - is all the
@@ -2544,10 +2544,12 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
         // fit's residue (a sunlit level's), not a lamp's
         const double reach = core::at(reached, li);
         const double sky_share = reach > 0.0 ? core::at(open, li) / reach : 0.0;
-        const float switch_sky = !(reach > 0.0)                            ? 0.0F
+        const float switch_sky = !(reach > 0.0) || !(unit_lux > 0.0)       ? 0.0F
                                  : sky_share < static_cast<double>(kRelitNoSky) ? kLampAlwaysOn
-                                                                         : static_cast<float>((core::at(own, li) / reach) / sky_share);
-        const bool on_in_bake = !candidate_kind(lamp.kind) || lamp_on(switch_sky, luma(model->sky), 1.0F) >= 0.5F;
+                                                                         : static_cast<float>(static_cast<double>(kPhotocellLux) / unit_lux / sky_share);
+        // (at the bake's own time: its physical open sky and the open sky's lamps - the game's switch then)
+        const bool on_in_bake = !candidate_kind(lamp.kind) || !(unit_lux > 0.0) ||
+                                lamp_on(switch_sky, bake_time.sky, bake_time.lamps) >= 0.5F;
         bool plausible = true;
         for (std::size_t ch = 0; ch < 3; ++ch) {
             if (std::vector<float>& tints = core::at(core::at(implied, li), ch); !tints.empty()) {

@@ -416,7 +416,13 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         const auto fitted = std::chrono::steady_clock::now();
         // (round A2) each lamp's intensity solved from the bake (no level-wide c); (round A3) in every bake - the bake's
         // light tells which were on (told above the fit's noise), no "dark level" or lamps-on guess
-        rt::solve_relit_lamps(meshes, light, links, lamps, &model);
+        {
+            const rt::DayLight bake_day = own_day_light(data.sun);
+            rt::solve_relit_lamps(meshes, light, links, lamps, &model,
+                                  {.unit_lux = rt::unit_illuminance(),
+                                   .sky = light_luma(bake_day.sky_light),
+                                   .lamps = bake_day.lamps});
+        }
         {
             // (reported, the first candidates: what each lights and what the bake told of it)
             std::vector<std::size_t> reach(lamps.size(), 0);
@@ -461,7 +467,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         if (model.valid) {
             rt::relit_to_unit(&model, light, lamps);
             rt::relit_lamp_light(meshes, light, links, lamps); // (L in the unit: the lamps' own and the solved)
-            rt::relit_lamp_switches(light, links, lamps); // (round A3: each lamp's switch by its own daylight)
+            rt::relit_lamp_switches(light, links, lamps, rt::unit_illuminance()); // (round A3: a photocell's switch)
             const float elevation_sine = std::max(0.0F, rt::y_of(model.toward));
             const float baked = luma(rt::plus(rt::scaled(model.sun, elevation_sine), model.sky));
             const float physical = luma(rt::plus(rt::scaled(own_day.sun_light, elevation_sine), own_day.sky_light));

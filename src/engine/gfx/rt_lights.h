@@ -196,12 +196,14 @@ void set_level_emitters(LevelEmitters emitters);
 void set_lamps_drawn(float amount);
 [[nodiscard]] float lamps_drawn();
 // (lighting round A3 - each lamp by its own daylight; one rule for the lamps pass and relit's per-vertex lamps) How much
-// a lamp is on: a photocell's rule - on while the daylight where it lights is under its own light there. `switch_sky` is
-// the open sky's light (luma, the global unit) at which the sky's light on the surfaces it lights (x their sky share K)
-// equals its own light there (the relit bake's: rt_relit.h relit_lamp_switches; kLampAlwaysOn where no sky reaches them
-// - indoors); `sky_now` the open sky's light now (lamp_sky_now). Smooth over kLampSwitchBand either side (in log: a
-// photocell's on / off band). A switch of 0 - not known (a lamp found without the level's data, the game's own point
-// lights) - takes `open_lamps`: the open sky's rule, the clock's lamps (DayLight::lamps) or the level's own time's.
+// a lamp is on: a photocell's rule - on while the daylight round it is under a photocell's turn-on. `switch_sky` is the
+// open sky's light (luma, the global unit) at which the sky's light on the surfaces it lights (x their sky share K)
+// reaches it (the relit bake's: rt_relit.h relit_lamp_switches, kPhotocellLux; kLampAlwaysOn where no sky reaches them -
+// indoors); `sky_now` the open sky's light now (lamp_sky_now). Smooth over kLampSwitchBand either side (in log: a
+// photocell's on / off band), and never less than `open_lamps` - the open sky's own photocell, the clock's lamps
+// (DayLight::lamps, by the sun's elevation) or the level's own time's: the art's night sky is display-referred, far
+// brighter than a real night's, and can't hold a lamp off. A switch of 0 - not known (a lamp found without the level's
+// data, the game's own point lights) - takes `open_lamps` alone.
 inline constexpr float kLampSwitchBand = 2.0F;
 inline constexpr float kLampAlwaysOn = 1.0e30F;
 [[nodiscard]] float lamp_on(float switch_sky, float sky_now, float open_lamps);
