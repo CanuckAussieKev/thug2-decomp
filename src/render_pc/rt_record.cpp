@@ -1516,8 +1516,9 @@ void emitter_work()
             skipped_blended += glow ? 0 : 1;
             continue;
         }
+        const auto mesh_found = st.meshes.find(mesh); // (round relit-misses: the triangles' own mesh)
         std::vector<MeshTriangles> read;
-        if (!mesh_triangles(mesh, false, glow, &read)) {
+        if (mesh_found == st.meshes.end() || !mesh_triangles(mesh, false, glow, &read)) {
             skipped_unread += 1;
             continue;
         }
@@ -1559,7 +1560,9 @@ void emitter_work()
                                          .colour = {},
                                          .material = entry->second.id,
                                          .kind = kind,
-                                         .lit_share = lit_share};
+                                         .lit_share = lit_share,
+                                         .mesh = mesh_found->second.id,
+                                         .vertices = corner};
             for (const uint32_t vertex : corner) {
                 const std::array<float, 3> colour = tris.colour(vertex);
                 for (std::size_t k = 0; k < 3; ++k) {

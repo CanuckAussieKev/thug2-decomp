@@ -57,7 +57,9 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // (round L) v8: each lamp's light source (solved / its fixture's model / ...), fixture, luminous area and luminance.
 // v9: the art's lamp exposure (RelitModel::lamp_exposure) - the solved lamps' flux put from the art's exposure into
 // physical units, so solved lamps are kept; each lamp's switch where its light is zero too.
-inline constexpr uint32_t kRelitDataVersion = 9;
+// v10 (round relit-misses): a lamp's emitting vertices its own triangles' in its own mesh (not every vertex at their
+// places - a neighbour's faces glowed); the sun's candidates told apart on a sample of a big level.
+inline constexpr uint32_t kRelitDataVersion = 10;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

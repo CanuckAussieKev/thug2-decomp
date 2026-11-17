@@ -4,7 +4,9 @@
 #include "render_pc/pc_billboards.h"
 #include "base/maths/view_transforms.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -24,6 +26,8 @@
 #include "base/core/span_copy.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/rt_light_census.h"
+#include "render_pc/rt_relit_world.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/screen_2d.h"
@@ -51,6 +55,7 @@ constexpr int kMatrixW = 15;
 constexpr std::size_t kZAxisOffset = 8;
 constexpr int kPassFlagBillboard = 0x40;
 constexpr int kWindowPoolSize = 10;
+constexpr float kByteMost = 255.0F; // (not original: a colour byte's most)
 
 namespace {
 // NOT ORIGINAL grouping - pc_billboards.cpp's state (the original's globals). Made on first use, never destroyed
@@ -174,8 +179,32 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     } else {
         toggle_fog(false);
     }
+    // Not original (round relit-misses - every mesh drawn in a relit view lit by the light now): a billboard - the level's
+    // cards turned toward the camera each frame on the processor, never in the ray-traced scene or the relit data - drawn
+    // with its baked colours times the light field's ratio at its pivot, as the unlit objects are (pc_instance.cpp,
+    // rt_relit_world.h unlit_object_colour): through the instance colour, the mesh's own colour (flag 4) multiplied in,
+    // put back after the draw. Original behaviour: its baked colours as they are (and with no field here still).
+    bool field_lit = false;
+    {
+        std::array<uint8_t, 4> colour{};
+        const auto& at = mesh->billboard()->pivot;
+        if (renderer().instance_colour_on() == 0U &&
+            rt_relit_world::unlit_object_colour({core::at(at, 0), core::at(at, 1), core::at(at, 2)}, &colour)) {
+            if ((mesh->flags() & 4) != 0U) {
+                for (std::size_t ch = 0; ch < 3; ++ch) {
+                    const float factor = 2.0F * core::at(mesh->color(), ch); // (as set_pixel_shader_colored takes it)
+                    core::at(colour, ch) = static_cast<uint8_t>(
+                        std::clamp(static_cast<float>(core::at(colour, ch)) * factor, 0.0F, kByteMost));
+                }
+            }
+            renderer().set_instance_colour(colour);
+            renderer().set_instance_colour_on(1);
+            field_lit = true;
+        }
+        rt::note_light_path(field_lit ? rt::LightPath::kBillboardField : rt::LightPath::kBillboardOwn);
+    }
     if (renderer().shaders_available()) {
-        if ((mesh->flags() & 4) != 0U) {
+        if (field_lit || (mesh->flags() & 4) != 0U) {
             mesh->set_pixel_shader_colored();
         } else {
             set_pixel_shader(mesh->pixel_shader(), nullptr);
@@ -266,6 +295,9 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
             mesh->material()->submit_pass(pass, ((mesh->flags() & 4) != 0U) ? mesh->color().data() : nullptr);
             gpu().draw_indexed(type, 0, 0, mesh->vertex_count(), 0, primitives);
         }
+    }
+    if (field_lit) {
+        renderer().set_instance_colour_on(0); // (not original: the field's colour taken off again)
     }
     gpu().set_vertex_format(format);
     gpu().set_stream_source(0, stream, 0, stream_stride); // (the offset not put back, as the original)

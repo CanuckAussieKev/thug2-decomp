@@ -372,7 +372,13 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         return true;
     case Op::kConsole: {
         const std::string output = devtools::console::submit(command.target);
-        get_log("automation: console %s:\n%s", command.target.c_str(), output.c_str());
+        // (a line of the log each: a long answer - `rt census`'s - isn't cut at the log's line width)
+        get_log("automation: console %s:", command.target.c_str());
+        for (std::size_t from = 0; from < output.size();) {
+            const std::size_t end = std::min(output.find('\n', from), output.size());
+            get_log("%s", output.substr(from, end - from).c_str());
+            from = end + 1;
+        }
         get_finish(runner, output);
         return true;
     }

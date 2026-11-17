@@ -121,6 +121,12 @@ struct ObjectLighting {
 // light there now over the bake's (engine/gfx/rt_light_field.h light_ratio_at, whole) as the instance colour's bytes
 // (128 = 1). False: none (the level not relit, no field yet, or the light there the bake's) - drawn as the original.
 [[nodiscard]] bool unlit_object_colour(const std::array<float, 3>& position, std::array<uint8_t, 4>* out);
+// (round relit-misses - every mesh drawn in a relit view lit by the light now) A world mesh of the relit level drawn
+// without a light of its own - none in the level's data (a mesh the bake didn't see), one the mode can't relight
+// (dynamic, no copy of its vertices or colours), or one shown since whose light isn't written yet: the colour its baked
+// colours are drawn with, the light field's ratio at its centre (unlit_object_colour). False: it has its own light (its
+// light store), it isn't a world mesh of a relit level now, or the light there is the bake's.
+[[nodiscard]] bool unlit_world_colour(const MeshRef* mesh, std::array<uint8_t, 4>* out);
 // (added by the scene's sun) Whether every mesh's colours are written for the sun the world is relit by now (its sun
 // and bounce traced, the writes done): `sun` that sun, `lighting` a number for that lighting (another when anything
 // that changes the colours changed). rt_record makes the shadows' agreement grid for that sun from them.
@@ -141,14 +147,13 @@ bool settled(std::array<float, 3>* sun, uint64_t* lighting);
 // (the one lighting path - load readiness) A level's first light: from the frame after a loading screen goes down,
 // whether the frame shown should still be the loading screen's picture - while ray tracing relights the level, the
 // clock may light it (rt_daylight.h tod_may_run: elsewhere the first frame is the bake, as it should be) and the
-// lighting isn't ready: the clock's light published (day_clock.h light_ready), the level relit for it (every mesh's
-// colours written, the light field made) or found not to be relit (no sun, opted out, the mode off), for
-// kFirstLightSteadyFrames frames in a row - at most
-// kFirstLightMostSeconds. So the first frame shown of a level loaded at night is already night; the frames before it
-// are drawn (the world must stand still to be relit) but covered. Called once a frame by draw_world; `loading` true
-// while the loading screen is up (the next level's hold armed).
+// lighting isn't ready: the clock's light published and the level's own scripts for the state it set ended (day_clock.h
+// light_ready - the night geometry they show is in the world), and the level relit for it (every world mesh's light
+// written for that light, the light field made) or found not to be relit (no sun, opted out, the mode off) - read from
+// that state each frame, no count of frames - at most kFirstLightMostSeconds. So the first frame shown of a level loaded
+// at night is already night; the frames before it are drawn (the world must stand still to be relit) but covered.
+// Called once a frame by draw_world; `loading` true while the loading screen is up (the next level's hold armed).
 inline constexpr double kFirstLightMostSeconds = 10.0;
-inline constexpr uint32_t kFirstLightSteadyFrames = 10; // ready this many frames in a row
 [[nodiscard]] bool hold_first_light(bool loading);
 // The console's `rt relit` (devtools/rt_check.cpp): the state in a line.
 [[nodiscard]] std::string status_text();

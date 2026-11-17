@@ -2,6 +2,7 @@
 // drawn - its material set up for the pixel shaders or pass by pass through the fixed-function stages, its level of
 // detail picked by distance, fog from three quarters of the way to the far plane.
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -35,6 +36,7 @@
 #include "render_pc/water_geometry.h"
 #include "engine/gfx/surface_trail.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/snow.h"
 #include <bit>
 
@@ -92,6 +94,48 @@ void set_cel_source(VertexBuffer* vb)
             {.vertices = vb->buffer(), .offset = vb->arena_offset(), .stream = rt_relit_world::cel_stream(vb)});
     }
 }
+
+// Not original (round relit-misses - every mesh drawn in a relit view lit by the light now): a world mesh the relit
+// level has no light of its own for - not in its relit data, one the mode can't relight, one shown since whose light
+// isn't written yet (rt_relit_world.h unlit_world_colour) - drawn with its baked colours times the light field's ratio at
+// its centre, as the unlit objects are (pc_instance.cpp): through the instance colour, its own colour (the mesh's flag
+// 4) multiplied in, put back after the draw. Not an instance's mesh (pc_instance lights those) or the outlines' mask.
+class UnlitWorldColour {
+public:
+    UnlitWorldColour(const MeshRef& mesh, bool flat)
+    {
+        std::array<uint8_t, 4> colour{};
+        if (flat || renderer().instance_colour_on() != 0U || mesh_pass().current_instance() != nullptr ||
+            !rt_relit_world::unlit_world_colour(&mesh, &colour)) {
+            return;
+        }
+        if ((mesh.flags() & 4) != 0U) {
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                // (the mesh's colour: 2 x its value is the factor, as set_pixel_shader_colored takes it)
+                const float factor = 2.0F * core::at(mesh.color(), ch);
+                core::at(colour, ch) = static_cast<uint8_t>(
+                    std::clamp(static_cast<float>(core::at(colour, ch)) * factor, 0.0F, static_cast<float>(kByteMax)));
+            }
+        }
+        renderer().set_instance_colour(colour);
+        renderer().set_instance_colour_on(1);
+        rt::note_light_path(rt::LightPath::kWorldUnlitField);
+        on_ = true;
+    }
+    UnlitWorldColour(const UnlitWorldColour&) = delete;
+    UnlitWorldColour& operator=(const UnlitWorldColour&) = delete;
+    UnlitWorldColour(UnlitWorldColour&&) = delete;
+    UnlitWorldColour& operator=(UnlitWorldColour&&) = delete;
+    ~UnlitWorldColour()
+    {
+        if (on_) {
+            renderer().set_instance_colour_on(0);
+        }
+    }
+
+private:
+    bool on_ = false;
+};
 
 // Not original - a mesh's draws' key for motion vectors (Gpu::MotionSource): the mesh and the instance it is drawn
 // for (none: the level's own meshes, which don't move - key 0).
@@ -235,6 +279,7 @@ void MeshRef::render()
     }
     apply_vertex_colors();
     set_vertex_format(fvf_);
+    const UnlitWorldColour unlit(*this, flat); // (not original: a relit world mesh without its own light)
     auto* mat = material_;
     if (flat) {
         outline_draw::flat_states();

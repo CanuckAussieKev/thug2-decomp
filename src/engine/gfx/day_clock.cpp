@@ -590,7 +590,12 @@ void step()
 
 const char* status() { return clock().status.c_str(); }
 
-bool light_ready() { return true; }
+bool light_ready()
+{
+    // (published in the step before the frame; the level's own scripts for the state the clock set - its night geometry
+    // and fake lights, shown over their frames - ended)
+    return !gfx::tod_transition_running();
+}
 
 std::string state_line()
 {
