@@ -325,14 +325,17 @@ void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::R
 }
 
 // (round A2) The median share of the sky the level's upward faces see (their traced K): under kRelitIndoorSky the
-// level is roofed - indoors.
-float open_sky(std::span<const rt::RelitVertices> light)
+// level is roofed - indoors. The level's own surfaces' vertices (rt_relit.h relit_baked_vertex: not the water's grid or
+// the smoothing's made ones - a grid's density would outvote the rest).
+float open_sky(std::span<const rt::RelitMesh> meshes, std::span<const rt::RelitVertices> light)
 {
     constexpr float kUpward = 0.7F;
     std::vector<float> open;
-    for (const rt::RelitVertices& vertices : light) {
-        for (const rt::RelitVertex& vertex : vertices) {
-            if (vertex.used && rt::y_of(vertex.normal) >= kUpward) {
+    for (std::size_t mi = 0; mi < meshes.size() && mi < light.size(); ++mi) {
+        const rt::RelitVertices& vertices = core::at(light, mi);
+        for (std::size_t vi = 0; vi < vertices.size(); ++vi) {
+            const rt::RelitVertex& vertex = core::at(vertices, vi);
+            if (vertex.used && rt::relit_baked_vertex(core::at(meshes, mi), vi) && rt::y_of(vertex.normal) >= kUpward) {
                 open.push_back(vertex.sky);
             }
         }
@@ -394,6 +397,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
     double trace_ms = 0.0;
     rt::Rgbf bake_sky{}; // (round A2, the evidence) the bake's own sky light in the global unit, and its sun's elevation
     float sun_elevation = 0.0F;
+    float floors_open = 0.0F; // (the floors' sky share - open_sky -, reported)
     double fit_ms = 0.0;
     double bounce_ms = 0.0;
     {
@@ -473,7 +477,8 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         // (the level's own data: a night state's bake shows the night - its directional light the moon's, not a sun;
         // a roofed level's floors see too little of the sky for its bake's sun to be told - daylight reaches it through
         // its openings, traced, whatever the bake)
-        const float floors_sky = open_sky(light);
+        const float floors_sky = open_sky(meshes, light);
+        floors_open = floors_sky;
         const bool night = own_state() == rt::TodState::kNight;
         const bool roofed = floors_sky < rt::kRelitIndoorSky;
         const bool sunless = night || roofed || !(pick.found && pick.gain >= rt::kRelitMinSunGain);
@@ -779,22 +784,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             brightest = *top;
         }
         // (round A2) indoors or out, from the rays: the median share of the sky the level's upward faces see (a floor
-        // under a roof sees none of it)
-        std::vector<float> open;
-        for (const rt::RelitDataMesh& mesh : data.meshes) {
-            for (const rt::RelitVertex& vertex : mesh.vertices) {
-                constexpr float kUpward = 0.7F;
-                if (vertex.used && rt::y_of(vertex.normal) >= kUpward) {
-                    open.push_back(vertex.sky);
-                }
-            }
-        }
-        float open_sky = 0.0F;
-        if (!open.empty()) {
-            const auto middle = open.begin() + static_cast<std::ptrdiff_t>(open.size() / 2);
-            std::ranges::nth_element(open, middle);
-            open_sky = *middle;
-        }
+        // under a roof sees none of it) - the fit's (open_sky)
         const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
         // (round A3 - no "dark level": the lamps by the bake's light and their own daylight) the lamps the bake shows
         // lit, those whose surfaces see no sky (on whenever), those on at the level's own time; the candidates found
@@ -823,7 +813,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                 found != nullptr ? found->glow_triangles : 0U, found != nullptr ? found->self_lit_triangles : 0U,
                 found != nullptr ? found->textured_triangles : 0U, found != nullptr ? found->glow_meshes : 0U,
                 lamps.size(), shining, data.model.lamps_solved, always, on_now,
-                static_cast<double>(light_luma(own_day.sky_light)), static_cast<double>(open_sky),
+                static_cast<double>(light_luma(own_day.sky_light)), static_cast<double>(floors_open),
                 static_cast<double>(std::get<0>(bake_sky)), static_cast<double>(std::get<1>(bake_sky)),
                 static_cast<double>(std::get<2>(bake_sky)), static_cast<double>(data.model.daylight_ratio));
     }

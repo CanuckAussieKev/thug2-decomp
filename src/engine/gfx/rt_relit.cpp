@@ -403,6 +403,14 @@ bool one_colour(const RelitMesh& mesh, const RelitVertices& vertices)
     return true;
 }
 
+// (the bake's evidence - RelitMesh::baked_triangles) The triangles the bake's light is on (their vertices:
+// relit_baked_vertex).
+std::span<const std::array<uint32_t, 3>> baked_triangles(const RelitMesh& mesh)
+{
+    return mesh.baked_triangles.empty() ? std::span<const std::array<uint32_t, 3>>(mesh.triangles)
+                                        : std::span<const std::array<uint32_t, 3>>(mesh.baked_triangles);
+}
+
 // The sun's strength against the rest of the light, told by which way faces turn: in each mesh (one tint) with faces
 // toward the bake's sun in the rays' sun (N.L over kFacingSun, sun share over kSunlitShare) and faces turned from it
 // (N.L under 0), the bake's colours' medians over the two give how much brighter the sun makes the faces it reaches;
@@ -446,7 +454,7 @@ float facing_calibration(std::span<const RelitMesh> meshes, std::span<const Reli
             const RelitVertex& vertex = core::at(vertices, vi);
             const Rgbf colour = colour_light(core::at(mesh.colours, vi));
             const float y = core::at(colour, channel);
-            if (!vertex.used || y < kBlackLight) {
+            if (!vertex.used || y < kBlackLight || !relit_baked_vertex(mesh, vi)) {
                 continue;
             }
             const float nl = dot(vertex.normal, model.toward);
@@ -1393,7 +1401,7 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
         const RelitVertices& vertices = core::at(light, mi);
         const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
         const auto lit = [&](uint32_t vi) {
-            return vi < vertex_count && core::at(vertices, vi).used &&
+            return vi < vertex_count && core::at(vertices, vi).used && relit_baked_vertex(mesh, vi) &&
                    luma(colour_light(core::at(mesh.colours, vi))) >= kBlackLight;
         };
         const auto x_of_vertex = [&](uint32_t vi, std::size_t ch) {
@@ -1405,7 +1413,7 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
         const bool painted = one_colour(mesh, vertices);
         model.one_colour_meshes += painted ? 1 : 0;
         const std::span<const std::array<uint32_t, 3>> triangles =
-            painted ? std::span<const std::array<uint32_t, 3>>() : std::span<const std::array<uint32_t, 3>>(mesh.triangles);
+            painted ? std::span<const std::array<uint32_t, 3>>() : baked_triangles(mesh);
         for (const auto& [one, two, three] : triangles) {
             for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
                 if (iv == ja || !lit(iv) || !lit(ja)) {
@@ -1569,7 +1577,7 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
             continue;
         }
         const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
-        for (const auto& [one, two, three] : mesh.triangles) {
+        for (const auto& [one, two, three] : baked_triangles(mesh)) {
             for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
                 if (iv >= vertex_count || ja >= vertex_count || iv == ja) {
                     continue;
@@ -1669,10 +1677,10 @@ float relit_edge_error(std::span<const RelitMesh> meshes, std::span<const RelitV
         }
         const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
         const auto lit = [&](uint32_t vi) {
-            return vi < vertex_count && core::at(vertices, vi).used &&
+            return vi < vertex_count && core::at(vertices, vi).used && relit_baked_vertex(mesh, vi) &&
                    luma(colour_light(core::at(mesh.colours, vi))) >= kBlackLight;
         };
-        for (const auto& [one, two, three] : mesh.triangles) {
+        for (const auto& [one, two, three] : baked_triangles(mesh)) {
             for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
                 if (iv >= ja || !lit(iv) || !lit(ja)) { // (each edge once: from its lower vertex)
                     continue;
@@ -2181,7 +2189,7 @@ void lamp_edges(std::span<const RelitMesh> meshes, std::span<const RelitVertices
             continue;
         }
         const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
-        for (const auto& [one, two, three] : mesh.triangles) {
+        for (const auto& [one, two, three] : baked_triangles(mesh)) {
             for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
                 if (iv >= ja || ja >= vertex_count) { // (each edge once)
                     continue;
@@ -2520,7 +2528,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                 return vi < vertex_count && core::at(vertices, vi).used && links_of(links, mi, vi).empty() &&
                        luma(colour_light(core::at(mesh.colours, vi))) >= kBlackLight;
             };
-            for (const auto& [one, two, three] : mesh.triangles) {
+            for (const auto& [one, two, three] : baked_triangles(mesh)) {
                 for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
                     if (iv >= ja || !quiet(iv) || !quiet(ja)) {
                         continue;

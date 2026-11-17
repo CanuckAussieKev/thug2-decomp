@@ -181,7 +181,20 @@ struct RelitMesh {
         uint8_t count = 0; // 0: the vertex's own (traced)
     };
     std::vector<Source> sources;
+    // (the bake's evidence) The triangles as the level's file has them, before the game's own geometry passes at load
+    // (smoothing, building relief, the water's grid - render_pc/mesh_smoothing.h original_strip; their original
+    // vertices are still first): the bake's light is on these - a vertex those passes made carries only its corners'
+    // colours blended, not the bake's light, beside its own traced light (a relief side turned from the wall with the
+    // wall's colour said "no sun": BO, BA). What the fit reads (edges, terms, the faces' turning); empty: `triangles`.
+    // `baked_vertices`: how many of the vertices they use (the first); 0: all. Not in the data's content key.
+    std::vector<std::array<uint32_t, 3>> baked_triangles;
+    uint32_t baked_vertices = 0;
 };
+// (the bake's evidence) Whether a mesh's vertex is one the bake's light is on (RelitMesh::baked_vertices).
+[[nodiscard]] inline bool relit_baked_vertex(const RelitMesh& mesh, std::size_t vertex)
+{
+    return mesh.baked_vertices == 0 || vertex < mesh.baked_vertices;
+}
 
 // What the analysis keeps for each vertex (the level's data holds it): its surface colour, and what its light is made
 // of - the shares of the sun and sky it sees, the light bounced to it and the lamps' light reaching it (geometry and
