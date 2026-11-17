@@ -46,7 +46,7 @@ export const REFERENCE_FOLDER = path.join(path.dirname(fileURLToPath(import.meta
 
 export interface StateLine {
     frame: number;
-    text: string; // the line after its frame: skater objects random clock_ms
+    text: string; // the line after its frame: skater objects random clock_ms anim
 }
 
 // A state file's lines by frame (comments and blank lines skipped).
@@ -72,9 +72,11 @@ export interface StateComparison {
     firstWhat: string; // which hashes differ there (skater, objects, random, clock)
 }
 
-const FIELDS = ["skater", "objects", "random", "clock"];
+// (anim since 2026-11-17: every skeleton's bones and the animation LOD counters. A state recorded before it has the
+// first four only, and a run is compared with it on those.)
+const FIELDS = ["skater", "objects", "random", "clock", "anim"];
 
-// A run's states against the reference's, frame by frame.
+// A run's states against the reference's, frame by frame (on the fields the reference has).
 export function compareStates(reference: Map<number, string>, run: Map<number, string>): StateComparison {
     const out: StateComparison = { frames: reference.size, matched: 0, missing: 0, firstDiffers: -1, firstWhat: "" };
     for (const frame of [...reference.keys()].sort((a, b) => a - b)) {
@@ -83,16 +85,15 @@ export function compareStates(reference: Map<number, string>, run: Map<number, s
             out.missing++;
             continue;
         }
-        const ours = reference.get(frame)!;
-        if (ours === theirs) {
+        const a = reference.get(frame)!.split(/\s+/);
+        const b = theirs.split(/\s+/).slice(0, a.length);
+        if (a.join(" ") === b.join(" ")) {
             out.matched++;
             continue;
         }
         if (out.firstDiffers < 0) {
             out.firstDiffers = frame;
-            const a = ours.split(/\s+/);
-            const b = theirs.split(/\s+/);
-            out.firstWhat = FIELDS.filter((_, i) => a[i] !== b[i]).join(", ");
+            out.firstWhat = FIELDS.filter((_, i) => i < a.length && a[i] !== b[i]).join(", ");
         }
     }
     return out;
