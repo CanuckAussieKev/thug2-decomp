@@ -14,6 +14,8 @@
 // a Lambertian emitter's flux Phi = pi L A. A solved light whose surface luminance Phi / (pi A) is outside its kind's
 // physical range is a failed measurement (a pool's size can't be told from its brightness alone): the model replaces it.
 //
+// The luminous area (lamp_fixtures.cpp's table, per kind) is checked too: a candidate or a glow whose luminous area is no
+// one fixture's of its kind is no lamp (a lit wall, a band of white paint, a haze card).
 // The kind from the lamp's own data: its colour (a saturated hue - a sign's or a neon tube's -, else its correlated
 // colour temperature: sodium's ~2000 K, a filament's ~2800 K, white discharge / LED 3500 K+), its shape (a point, a
 // line - a tube -, a panel and which way it faces) and where it is (roofed - an interior light - or outdoors).
@@ -55,6 +57,12 @@ struct FixtureValues {
     float least = 0.0F;     // ... the kind's physical range
     float most = 0.0F;
     float kelvin = 0.0F;    // its light's colour temperature (0: its colour is its own - a sign's, a neon's)
+    // (its luminous surface's area, m^2: one fixture's - a street light's lens 0.01 - 0.5 (IES cobra heads, post-top
+    // lanterns), a tube or a twin-tube fitting 0.005 - 0.6 (T5 - T12, 0.6 - 2.4 m), a ceiling panel 0.05 - 1.5 (a 2 x 4 ft
+    // troffer 0.74), a bulb or globe 0.002 - 0.3 (an A19's 0.011, a 40 cm globe's 0.5 / 2 seen), a sign's tubing up to
+    // 2, a back-lit sign or a shop window up to 20. A luminous area outside its kind's is no one fixture of that kind.)
+    float least_area = 0.0F;
+    float most_area = 0.0F;
 };
 [[nodiscard]] const FixtureValues& fixture_values(LampFixture fixture);
 [[nodiscard]] std::string_view fixture_name(LampFixture fixture);

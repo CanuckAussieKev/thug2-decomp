@@ -292,12 +292,14 @@ void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::R
         core::at(verdicts, static_cast<std::size_t>(verdict)) += 1;
     }
     get_log("relit bake: lamps by physics - %zu lamps: %zu solved, %zu by their fixture's model (the bake couldn't tell), "
-            "%zu implausible solves replaced by the model, %zu by their own surface, %zu no light; the bake knew: %zu told, "
+            "%zu implausible solves replaced by the model, %zu by their own surface, %zu not a fixture's size, %zu no "
+            "light; the bake knew: %zu told, "
             "%zu no edges, %zu off in the bake, %zu dark, %zu run off; fixtures shining: %zu sodium, %zu white street, "
             "%zu tubes, %zu panels, %zu bulbs, %zu neon, %zu signs / windows, %zu unknown; lumens per shining lamp: median "
             "%.0f, 90th percentile %.0f, most %.0f; %.0f lm in all",
             lamps.size(), core::at(counts.by_source, 1), core::at(counts.by_source, 2), core::at(counts.by_source, 3),
-            core::at(counts.by_source, 4), core::at(counts.by_source, 0), core::at(verdicts, 0), core::at(verdicts, 1),
+            core::at(counts.by_source, 4), core::at(counts.by_source, 5), core::at(counts.by_source, 0),
+            core::at(verdicts, 0), core::at(verdicts, 1),
             core::at(verdicts, 2), core::at(verdicts, 3), core::at(verdicts, 4), core::at(counts.by_fixture, 1),
             core::at(counts.by_fixture, 2), core::at(counts.by_fixture, 3), core::at(counts.by_fixture, 4),
             core::at(counts.by_fixture, 5), core::at(counts.by_fixture, 6), core::at(counts.by_fixture, 7),

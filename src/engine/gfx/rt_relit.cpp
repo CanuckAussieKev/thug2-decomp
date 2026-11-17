@@ -2706,6 +2706,8 @@ const char* relit_lamp_source_name(RelitLampSource source)
         return "implausible solve - model";
     case RelitLampSource::kOwnSurface:
         return "own surface";
+    case RelitLampSource::kNotAFixture:
+        return "not a fixture's size";
     }
     return "?";
 }
@@ -2770,23 +2772,39 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
             const double luminance = area > 0.0F ? static_cast<double>(lamp.lumens) / (kPi * static_cast<double>(area)) : 0.0;
             lamp.luminance = static_cast<float>(luminance);
             if (area > 0.0F && (luminance < static_cast<double>(values.least) || luminance > static_cast<double>(values.most))) {
-                source = RelitLampSource::kImplausible; // (a failed measurement: the model, not a clamp)
-                model = true;
+                // (a failed measurement: the model, not a clamp - for a luminous area one fixture of its kind has; a
+                // larger one is a lit surface, no lamp)
+                const bool sized = area >= values.least_area && area <= values.most_area;
+                source = sized ? RelitLampSource::kImplausible : RelitLampSource::kNotAFixture;
+                model = sized;
+                if (!sized) {
+                    lamp.light = {};
+                    lamp.solved = false;
+                }
             }
         } else if (!candidate) {
-            // a glow (the artists' mark of a lamp): the model where the bake can't tell it - no edges, off in the bake by
-            // its own switch, a run-off; told dark while on: its own surface (A3's lower bound)
-            if (area > 0.0F && verdict != RelitLampTold::kDark) {
+            // a glow (the artists' mark of a lamp) the bake didn't tell - no edges, off in the bake by its own switch,
+            // under the fit's noise (its size untold), a run-off: its kind's model over its luminous core, when that
+            // core is one fixture's size
+            const bool sized = area >= values.least_area && area <= values.most_area;
+            if (sized) {
                 source = verdict == RelitLampTold::kRunOff ? RelitLampSource::kImplausible : RelitLampSource::kModel;
                 model = true;
             } else {
-                source = luma(lamp.light) > 0.0F ? RelitLampSource::kOwnSurface : RelitLampSource::kNone;
+                source = RelitLampSource::kNotAFixture;
+                lamp.light = {};
             }
-        } else if (verdict == RelitLampTold::kOffInBake && !indoors && area > 0.0F && fixture != LampFixture::kSign &&
+        } else if (verdict == RelitLampTold::kOffInBake && !indoors && fixture != LampFixture::kSign &&
                    fixture != LampFixture::kNeon) {
-            // a candidate the bake couldn't see lit - off by its own switch then - shaped like a luminaire outdoors
-            source = RelitLampSource::kModel;
-            model = true;
+            // a candidate the bake couldn't see lit - off by its own switch then - shaped like a luminaire outdoors, of
+            // one fixture's size
+            if (area >= values.least_area && area <= values.most_area) {
+                source = RelitLampSource::kModel;
+                model = true;
+            } else {
+                source = RelitLampSource::kNotAFixture;
+                lamp.light = {};
+            }
         } else {
             lamp.light = {}; // (a bright surface the bake doesn't confirm: no lamp - A3's rule)
         }

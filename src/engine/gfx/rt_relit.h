@@ -407,8 +407,9 @@ enum class RelitLampSource : uint8_t {
     kSolved = 1,      // told by the bake's edges, its surface luminance within its kind's range
     kModel = 2,       // the bake can't tell it (no edges, off in the bake by its own switch): its fixture's model
     kImplausible = 3, // solved, but its surface luminance outside its kind's range - a failed measurement: the model
-    kOwnSurface = 4,  // a glow or point light the bake tells dark (or with no luminous area known): its own surface's
-                      // displayed radiance (a lower bound - A3's rule)
+    kOwnSurface = 4,  // a point light (the level's own): its own displayed light - no surface to model
+    kNotAFixture = 5, // a glow or candidate whose luminous area is no one fixture's of its kind (or none: a card with no
+                      // saturated core - a halo or haze, not drawn round a lamp): no light
 };
 [[nodiscard]] const char* relit_lamp_source_name(RelitLampSource source);
 // (round L) What the bake knew of a lamp's light (solve_relit_lamps' verdict, before the model).
@@ -428,8 +429,12 @@ enum class RelitLampTold : uint8_t {
 // model only off in the bake and only as a luminaire - not a sign, a window or a saturated colour, and outdoors (an
 // indoor light is on in every bake: the bake shows whether it lights). Each lamp's source, fixture, area and luminance
 // set; its photometry made (relit_lamp_photometry).
+// (Round L, the College acceptance case) A glow the bake didn't tell no longer shines by its own surface's displayed
+// radiance over its whole card (A3's lower bound): sch's magenta card at the origin, core 172 units, gave 46 million lm
+// and blew the plaza magenta. A glow with a luminous core of a fixture's size takes its kind's model (dark in the bake
+// too: under the fit's noise its size is untold); with none, or one no fixture of its kind has, it is no lamp.
 struct LampModelCounts {
-    std::array<std::size_t, 5> by_source{};
+    std::array<std::size_t, 6> by_source{};
     std::array<std::size_t, 8> by_fixture{};
 };
 // `own_colours`: each lamp's colour as found (its glow's or surface's, before the solve).

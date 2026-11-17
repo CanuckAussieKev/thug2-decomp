@@ -14,14 +14,21 @@ namespace render::rt {
 namespace {
 
 constexpr std::array<FixtureValues, kLampFixtures> kFixtures{{
-    {.name = "unknown", .luminance = 0.0F, .least = 0.0F, .most = 0.0F, .kelvin = 0.0F},
-    {.name = "sodium street light", .luminance = 2.5e4F, .least = 5.0e3F, .most = 3.0e5F, .kelvin = 2000.0F},
-    {.name = "white street light", .luminance = 3.0e4F, .least = 5.0e3F, .most = 1.0e6F, .kelvin = 4000.0F},
-    {.name = "fluorescent tube", .luminance = 1.1e4F, .least = 4.0e3F, .most = 3.0e4F, .kelvin = 4000.0F},
-    {.name = "ceiling panel", .luminance = 4.0e3F, .least = 1.0e3F, .most = 2.0e4F, .kelvin = 4000.0F},
-    {.name = "bulb", .luminance = 2.3e4F, .least = 5.0e3F, .most = 2.0e5F, .kelvin = 2800.0F},
-    {.name = "neon tube", .luminance = 1.5e3F, .least = 2.0e2F, .most = 1.0e4F, .kelvin = 0.0F},
-    {.name = "sign or lit window", .luminance = 5.0e2F, .least = 5.0e1F, .most = 3.0e3F, .kelvin = 0.0F},
+    {.name = "unknown", .luminance = 0.0F, .least = 0.0F, .most = 0.0F, .kelvin = 0.0F, .least_area = 0.0F, .most_area = 0.0F},
+    {.name = "sodium street light", .luminance = 2.5e4F, .least = 5.0e3F, .most = 3.0e5F, .kelvin = 2000.0F,
+     .least_area = 0.01F, .most_area = 0.5F},
+    {.name = "white street light", .luminance = 3.0e4F, .least = 5.0e3F, .most = 1.0e6F, .kelvin = 4000.0F,
+     .least_area = 0.01F, .most_area = 0.5F},
+    {.name = "fluorescent tube", .luminance = 1.1e4F, .least = 4.0e3F, .most = 3.0e4F, .kelvin = 4000.0F,
+     .least_area = 0.005F, .most_area = 0.6F},
+    {.name = "ceiling panel", .luminance = 4.0e3F, .least = 1.0e3F, .most = 2.0e4F, .kelvin = 4000.0F,
+     .least_area = 0.05F, .most_area = 1.5F},
+    {.name = "bulb", .luminance = 2.3e4F, .least = 5.0e3F, .most = 2.0e5F, .kelvin = 2800.0F, .least_area = 0.002F,
+     .most_area = 0.3F},
+    {.name = "neon tube", .luminance = 1.5e3F, .least = 2.0e2F, .most = 1.0e4F, .kelvin = 0.0F, .least_area = 0.001F,
+     .most_area = 2.0F},
+    {.name = "sign or lit window", .luminance = 5.0e2F, .least = 5.0e1F, .most = 3.0e3F, .kelvin = 0.0F,
+     .least_area = 0.02F, .most_area = 20.0F},
 }};
 
 constexpr std::array<float, 3> kLuma{0.2126F, 0.7152F, 0.0722F};
