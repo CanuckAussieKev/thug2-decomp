@@ -2238,6 +2238,18 @@ goal, so every change produces the physical inputs it reads. Relit data v4:
   the known tints again within 0.1%); the same rule for a sunlit, a night and an indoor bake. The lamps solved in the
   fit's units are divided by it too. The game's colours are radiance in the unit (round B's definition), so a bake's own
   daylight against the physical is reported (`daylight_ratio`), never used to scale.
+- **The light's colours its sources'** (round relit-misses; `fit_relit_model`'s `RelitLightColours`): the model a level is
+  relit by is fitted with one strength each for the sun, the sky and the bounce over all three channels, the sun's and
+  the sky's colours the physical ones at the bake's own time (`own_day_light`), the bounce's colour its hits'. The
+  per-channel fit (each channel alone, scaled to a median tint of 1 in each) split the sky's and the bounce's terms -
+  both large on open surfaces - differently per channel and put the level's colour into its light: Barcelona's sky came
+  out green in the unit (0.29 0.68 0.39) over shade its bake paints blue (0.14 0.16 0.21 on the open floors), and g per
+  channel then carried that colour into the unit. Now the bake's colour beyond the light is the tints' (the art's), g is
+  one number and Barcelona's sky reads 0.30 0.44 0.70. The per-channel fit is still the evidence the sun's presence and
+  direction are told by (the candidates' `sun_needed` below) - it reads the bake's own light without assuming colours.
+  The candidates are told apart on a sample of a big level (the meshes in their content hash's order up to
+  `kCandidateVertices` 500 000 vertices - a random sample), the pick then traced and fitted over the whole: Proving
+  Ground's whole world (2.5 million vertices) spent most of its 20 minutes on 32 candidates and was given up; it now bakes in 5.4 minutes.
 - **The baked sun picked by the relit fit** (`relit_bake.cpp`): the correlation search's candidates
   (`BakedSun::candidates`: its best, the coarse set's next best `kCandidateApartDegrees` apart, and a low sun's ring) are
   each traced and fitted; the one whose sun improves the fit most (`RelitModel::sun_needed`, the edges' objective without
@@ -2321,7 +2333,10 @@ Relit data v7 (round S took v6 for its sun radius first).
   monotone warm / cool run) on a triangle not facing up makes a *textured* candidate (`EmitterKind::kTextured`), joined
   into panels and lines like the self-lit ones and solved the same way. A confirmed candidate's vertices are its
   **emitting vertices** (`RelitEmitting`): they show its radiance (its intensity / pi, x how much it is on - the bulb,
-  the lit panel; `RelitVertex::emit`, added to what relit_colour reflects).
+  the lit panel; `RelitVertex::emit`, added to what relit_colour reflects). (Round relit-misses: its own triangles'
+  vertices in its own mesh - `EmitterTriangle::mesh`, `vertices` -, no longer every vertex of the level at their
+  places; and an outdoor candidate the bake can't see lit is a luminaire only with the artists' mark, a light card at
+  it - `glow_marks`: College's striped stand shone as a street light all night.)
 - **The rays' start off concave seams.** A vertex's rays now start `kRelitInward` (2 units) into its own triangles as
   well as 2 off its surface (`relit_ray_origin`, `RelitVertex::inward` - the triangles' centres' mean less the vertex: 0
   for an inner vertex). A floor vertex at a wall's foot no longer starts on the wall's plane: the furnace room's edge and
@@ -5005,7 +5020,11 @@ the original's own time of day (`tod_manager.h`, blended by the clock) is the lo
 5. **Ready before the first frame** (`rt_relit_world.h` `hold_first_light`): where the clock may light a level, the
    frames after its loading screen goes down are drawn (the world must stand still to be relit; the clock waits for the
    baked sun's fit; the night state's scripts run) under the loading screen's picture until the clock's light is
-   published and the level is relit for it (every mesh written, the field made) ten frames in a row - at most 10 s.
+   published, the level's own scripts for the state it set have ended (`tod_manager.h` `tod_transition_running`: the
+   night geometry and fake lights they show over their frames are in the world) and the level is relit for it (every
+   world mesh written, the field made) - read from that state each frame, no count of frames - at most 10 s. A mesh
+   shown later is drawn with the light field's ratio over its bake until its own light is written
+   (`rt_relit_world.h` `unlit_world_colour`).
    Why round 2's attempts left the level day-bright for good: relit keeps its entries by the vertex buffer's address,
    and the night state's scripts free and make meshes; a buffer made at a freed one's address was taken for it,
    already written, and drawn with its bake until the lighting changed again. `VertexBuffer::teardown` now forgets

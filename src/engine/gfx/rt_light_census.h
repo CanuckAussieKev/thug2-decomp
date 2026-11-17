@@ -21,6 +21,12 @@ enum class LightPath : uint8_t {
     kModelByPlace,      // a level model (doors, hydrants) - the time of day's colour x the field where it stands
     kModelIndoor,       // ... in an indoor sector: the original's indoor colour (not the field's)
     kParticlesWhole,    // the particles' colour: the level's whole ratio (no place)
+    // (round relit-misses) a world mesh of a relit level drawn without a light of its own - not in the level's relit
+    // data, one the mode can't relight, or one shown since whose light isn't written yet: its baked colours x the field's
+    // ratio at its centre (render_pc/rt_relit_world.h unlit_world_colour)
+    kWorldUnlitField,
+    kBillboardField,    // a billboard (the level's camera-facing cards: render_pc/pc_billboards.h) - x the field's ratio
+    kBillboardOwn,      // ... kept as baked (no field: the level not relit)
     kCount
 };
 inline constexpr std::size_t kLightPaths = static_cast<std::size_t>(LightPath::kCount);

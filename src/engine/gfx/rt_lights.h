@@ -69,6 +69,11 @@ struct EmitterTriangle {
     // candidate's lamp texels, a light card's saturated core (its texels' brightest channel at least kTexelBright - the
     // lamp itself, not the halo the art drew round it); 1 for a self-lit triangle (bright vertex colours throughout)
     float lit_share = 1.0F;
+    // (round relit-misses) the mesh it is a triangle of (its id in the RayTracing; 0: none told) and its corners'
+    // vertices in that mesh - its lamp's own surface is these vertices, not every vertex of the level at the same place
+    // (a neighbouring face's, a card's laid over it)
+    MeshId mesh = 0;
+    std::array<uint32_t, 3> vertices{};
 };
 
 // (lighting round A2 - indoor ceiling lights) An emitter's shape, from its triangles (cluster_emitters: their spread's

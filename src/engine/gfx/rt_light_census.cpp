@@ -29,7 +29,9 @@ constexpr std::array<const char*, kLightPaths> kNames{"objects lit (field)", "ob
                                                        "unlit objects (field)", "unlit objects (own colours)",
                                                        "unlit objects (the game's instance colour)",
                                                        "models (field)", "models (indoor colour)",
-                                                       "particles (level whole)"};
+                                                       "particles (level whole)",
+                                                       "world meshes without their own light (field)",
+                                                       "billboards (field)", "billboards (own colours)"};
 
 } // namespace
 

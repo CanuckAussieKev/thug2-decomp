@@ -333,6 +333,10 @@ bool tod_lights_locked();
 // the clock). A count the clock compares with its own sets - the level's scripts set the state since, an event - instead
 // of comparing the manager's state with what it set.
 uint64_t tod_state_sets();
+// NOT ORIGINAL - whether a state's transition script (tod_manager_state_transition: the level's night geometry and fake
+// lights shown and hidden over its frames) the manager spawned is still running - the level's state not all applied yet.
+// The time of day's clock reads it (day_clock.h light_ready).
+[[nodiscard]] bool tod_transition_running();
 
 // The singleton (0x007CE490).
 THUG2_API CtodManager*& tod_manager();
