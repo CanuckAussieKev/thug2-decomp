@@ -4360,9 +4360,10 @@ after the grass, each density row shown only while its switch is on). No ray tra
   upscaler's motion), each vertex lit by the one light as a thin sheet of the item's material (see "Round W2": the light
   store's window, the traced sun, rt_brdf.h) - a pebble the gravel's albedo range; the rest their own colours (leaves'
   autumn colours, paper, a can's label, a weed's green) as albedo; a can's body bare metal. (Until round W2 the colour
-  under each root was copied from the frame and the items took the ground's luminance over 0.4 x the mesh's shade.) Leaves and weeds sway downwind with the grass's two waves. Level of detail as the grass: every item to a quarter
-  of 1,600 units, then (near / d)^1.5 of them by rank, each shrinking into the ground from 70% of the distance; at most
-  400,000 a view.
+  under each root was copied from the frame and the items took the ground's luminance over 0.4 x the mesh's shade.) Leaves and weeds sway downwind with the grass's two waves. Distance (the clutter-LOD round): the game's
+  own rule for its small objects - drawn within an object's default lod_dist2 (1,500 units) x `lod_distance_scale`, every
+  item at its full size (no thinning by rank, no shrinking, no per-view budget); an item under half a pixel tall is left
+  out (sub-pixel, no pop).
 - **Off is as before.** Both off: no listener, no `Sink`, `scatter_world::frame` tests one pointer; no fixed-function
   key or shader changes (`thug2_ff_shader_check --no-gpu`: 50,180 shaders, 0 failed); the reflection trace's text is
   unchanged (its puddle variant is made only when a wet mask exists); the check's picture with both turned off again is
