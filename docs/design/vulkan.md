@@ -2827,13 +2827,21 @@ and without cel shading:
    (`rt::world_surfaces_drawing`, set with `rt_record::set_world_passes`: the scenes, the objects, the splats and
    projections - not the sky) into the view's target is kept (`surface_light_keep`: the state block, the call and the
    per-draw state render_pc names before it - the light store's source, the trails' ground, the water's material and
-   body - named again when it is drawn). A draw that writes depth and doesn't add or multiply is drawn at once into the
-   depth alone (`FragmentKey::light` `kLightDepthOnly`: the stages for the alpha test and nothing of the surface's keys;
-   an alpha-blended one's pixels under half opaque discarded - `kLightDepthHalf` - so a translucent edge isn't the
-   surface). `gl_Position` is `invariant` in every generated vertex shader, so the prepass and the shaded draw put a
-   vertex at the same depth. Water render_pc marks is left to rt_water (kept back to the opaque world's end, as before).
-   A vertex or index buffer written again while kept draws read it (skinned meshes written part after part) is copied
-   for them first (`surface_light_buffer_rewritten`).
+   body - named again when it is drawn). Each kept draw is *prepared* once, as it comes, as its shading will draw it
+   (`gpu_vulkan/vulkan_prepared_draw.h`: `record_draw` is `prepare_draw` - the keys, the pipeline, the uniform blocks in
+   the ring, the textures made ready, the descriptors, the dynamic states - then `emit_draw`, the commands alone). A draw
+   that writes depth and doesn't add or multiply has its depth emitted at once from that preparation with a depth-only
+   pipeline made from its own key: the same vertex shader (so the same depth, `gl_Position` `invariant` besides), its
+   fragment half `depth_only_fragment` (`FragmentKey::light` `kLightDepthOnly`: the stages for the alpha test and nothing
+   of the surface's keys; an alpha-blended one's pixels under half opaque discarded - `kLightDepthHalf` - so a translucent
+   edge isn't the surface), nothing written to the colour, the light inputs not pushed. As a modern renderer submits one
+   prepared draw list to its depth prepass and its base pass, no draw is translated twice. Water render_pc marks is left
+   to rt_water (kept back to the opaque world's end, as before): kept with its state block and recorded at the shading
+   (its copy behind the water is made when it is drawn) - as is a draw whose preparation no longer holds (prepared in a
+   submission a read-back ended mid-view: its ring blocks were that submission's). A vertex or index buffer written
+   again while kept draws read it (skinned meshes written part after part) is copied for them first
+   (`surface_light_buffer_rewritten`); a texture destroyed meanwhile is forgotten by them
+   (`surface_light_forget_image`: its view lives to the frame's end).
 2. **The inputs** (`ViewOrder::kSurfaceInputs`, 60): a compute pass copies the depth (R32F) and starts the images of the
    target's size - the visibility (RGBA16F: the sun's or the moon's visibility, -1 where nothing traced; the direct
    light's share; the indirect light's visibility; 1 where made), the lamps' light (a white diffuser's radiance), the
@@ -2844,9 +2852,10 @@ and without cel shading:
    the albedo (two attachments, added), the decals their marks (their multiplying blend into the decals' input). The
    bounce pass adds nothing over colours there (a relit level's bounce is the store's).
 3. **The shading** (`ViewOrder::kSurfaceShading`, 392 - after the lamps and the decals, before the rain's wet mask and the
-   reflections): the depth is cleared and the kept draws drawn again in their order as the game made them, each with
-   its own depth test and write - the prepass's depth, the nearest surface, would otherwise hide what a translucent layer
-   drawn later lets through (a shirt's print). A fragment whose depth is the prepass's (within 1% of its distance -
+   reflections): the depth is cleared and the kept draws emitted again in their order as prepared (the textures they
+   sample put back in the layout their descriptors name first, if anything moved one), each with its own depth test and
+   write - the prepass's depth, the nearest surface, would otherwise hide what a translucent layer drawn later lets
+   through (a shirt's print). A fragment whose depth is the prepass's (within 1% of its distance -
    `light_here`: a later pass of its material; not a glass pane, a glow or a particle in front) reads the inputs:
    - lit per pixel (`kLightInputs`; the relit world - `kSurfaceRelit` - and the lit objects - `kSurfaceLit` - are lit per
      pixel in such a view whether or not rt_pbr is on: the inputs need the light model's terms apart): the sun's

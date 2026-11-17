@@ -373,6 +373,11 @@ static_assert(sizeof(VertexKey) == kVertexKeyBytes && sizeof(FragmentKey) == kFr
 // projected mask matched to each other): equal normalised keys make the same shaders.
 [[nodiscard]] ShaderKey normalised(const ShaderKey& key);
 
+// (NOT ORIGINAL - round V, vulkan_surface_light.h) A kept draw's prepass: its fragment half with only its program and
+// alpha test - none of the surface's keys, no motion - and kLightDepthOnly (with kLightDepthHalf for a blended draw: its
+// pixels under half opaque left out). Its vertex half stays the shaded draw's, so both place every vertex alike.
+[[nodiscard]] FragmentKey depth_only_fragment(FragmentKey key, bool half);
+
 // Whether the generator emulates everything the key asks for; false names what it doesn't in `why`: bump mapping,
 // premodulation, D3DTA_CONSTANT, sphere maps, more lights or stages than it has, vertex formats it doesn't read.
 [[nodiscard]] bool supported(const ShaderKey& key, std::string* why);

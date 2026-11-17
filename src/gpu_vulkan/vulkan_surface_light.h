@@ -14,9 +14,11 @@
 // colours: what was drawn after them (a road drawn with a blended first pass, in a scene's later group) lost them, and
 // glass, water and glows drawn before them took them. Now, while a view of a relit level is drawn with ray tracing:
 //   1. The prepass: the view's world and objects (render_pc's world passes - rt::world_surfaces_drawing; not the sky,
-//      not the particles or the weather after them) are kept, in the game's order, and each that writes depth is drawn at
-//      once into the depth alone (FragmentKey::light kLightDepthOnly: its alpha test, nothing else; a blended one keeps
-//      only its pixels at least half opaque - kLightDepthHalf - so its translucent edges hide nothing drawn behind).
+//      not the particles or the weather after them) are kept, in the game's order, each prepared once as its shading
+//      will draw it (vulkan_prepared_draw.h), and each that writes depth is emitted at once from that preparation into
+//      the depth alone (its pipeline's fragment half FragmentKey::light kLightDepthOnly: its alpha test, nothing else; a
+//      blended one keeps only its pixels at least half opaque - kLightDepthHalf - so its translucent edges hide nothing
+//      drawn behind; its vertex half the shaded draw's own, so both put every vertex at the same depth).
 //      Water render_pc marks is left to rt_water (kept back until the opaque world is drawn, as before).
 //   2. At opaque_drawn (ViewOrder::kSurfaceInputs, before the shadows) the view's light inputs are begun from that depth -
 //      four images of the target's size: the depth (R32F), the visibility (RGBA16F: the sun's visibility - -1 not
@@ -32,7 +34,7 @@
 //      unlit prop, an animated vertex: kLightShare - only on a draw that doesn't add or multiply) takes them as shares
 //      of its light. Every other fragment - glass, a glow, a particle in front - keeps its own light: no pass multiplies
 //      it. The relit world and lit objects are lit per pixel there whether or not rt_pbr is on (the inputs need the
-//      light model's terms apart). A draw that wrote depth in the prepass is drawn without writing it again.
+//      light model's terms apart). The prepared draws are emitted as prepared - none is translated twice.
 // Without ray tracing, relit data, on a multisampled target, with cel shading, or outside a view, nothing changes: the
 // draws are made as they come and the passes draw over the colour as before (the original's look keeps its path).
 namespace render::vulkan {
@@ -41,8 +43,9 @@ struct Backend;
 struct DrawCall;
 struct Image;
 
-// What a kept draw is drawn as now (record_draw asks): as it comes, its prepass (depth alone), or shaded with the inputs.
-enum class SurfaceDrawRole : uint8_t { kAsItComes, kPrepass, kShaded };
+// What a draw is prepared as now (prepare_draw asks): as it comes, or a kept draw shaded with the inputs (its depth
+// emitted from the same preparation with a depth-only pipeline - vulkan_prepared_draw.h).
+enum class SurfaceDrawRole : uint8_t { kAsItComes, kShaded };
 
 // The view's light inputs while its passes make them (from ViewOrder::kSurfaceInputs to kSurfaceShading): the images
 // a pass draws into in place of the colour (RGBA16F, the colour target's size; each COLOR_ATTACHMENT-usable), and the
@@ -78,8 +81,7 @@ void release_surface_light(Backend& state);
 // lit objects' draws lit per pixel. `relit`: the draw has a light store (vulkan_cel_draw.h relit_colour_stream). Called
 // before record_draw adds the store's bits (kSurfaceRelit to a draw lit per pixel).
 void surface_light_force(const GpuStateBlock& block, bool relit, ShaderKey* shaders);
-// Then: a prepass's fragment half made depth alone (its vertex half kept); a shaded draw's light bits and the inputs to
-// push (`out`).
+// Then: a shaded draw's light bits and the inputs to push (`out`).
 void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey* shaders, SurfaceInputDescriptors* out);
 // The view's inputs while its passes make them; null: none - a pass draws over the colour as before.
 [[nodiscard]] const SurfaceInputs* surface_inputs(Backend& state);
@@ -100,6 +102,9 @@ void surface_light_buffer_rewritten(Backend& state, VkBuffer buffer, VkDeviceSiz
 void set_surface_light_guides_forced(bool forced);
 // A buffer destroyed: kept draws that name it forget it (vulkan_cel_draw.h cel_forget_buffer_locked's twin).
 void surface_light_forget_buffer(const void* buffer);
+// A texture's image destroyed: prepared draws that sample it no longer look after its layout (its view lives to the
+// frame's end, retired).
+void surface_light_forget_image(const Image* image);
 
 // The counts (the log, the checks): the views lit per surface, the draws kept, their prepasses, the draws shaded.
 struct SurfaceLightStats {
@@ -107,8 +112,9 @@ struct SurfaceLightStats {
     uint64_t kept = 0;
     uint64_t prepassed = 0;
     uint64_t shaded = 0;
-    uint64_t elsewhere = 0;
-    uint64_t rewritten = 0; // kept draws' buffers kept before they were written again // world draws in a view lit per surface into another target (drawn as they came)
+    uint64_t recorded = 0;  // of them recorded again from their state blocks (rt_water's; a preparation that no longer held)
+    uint64_t elsewhere = 0; // world draws in a view lit per surface into another target (drawn as they came)
+    uint64_t rewritten = 0; // kept draws' buffers kept before they were written again
 };
 [[nodiscard]] SurfaceLightStats surface_light_stats();
 

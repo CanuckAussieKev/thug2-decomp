@@ -365,6 +365,17 @@ uint32_t sampled_stages(const FragmentKey& key)
     return 0;
 }
 
+FragmentKey depth_only_fragment(FragmentKey key, bool half)
+{
+    key.surface = 0;
+    key.detail = 0;
+    key.trails = 0;
+    key.water = 0;
+    key.motion = 0;
+    key.light = static_cast<uint8_t>(kLightDepthOnly | (half ? kLightDepthHalf : 0U));
+    return key;
+}
+
 ShaderKey normalised(const ShaderKey& key)
 {
     ShaderKey result = key;

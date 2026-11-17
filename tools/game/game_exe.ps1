@@ -131,7 +131,8 @@ function Find-LaunchExe([string]$folder) {
 }
 
 # The running games (any folder).
-function Get-GameProcesses { Get-Process -Name $GameProcessNames -ErrorAction SilentlyContinue }
+# (a process that has exited but is still held - a driver finishing its last work - is no longer the game)
+function Get-GameProcesses { Get-Process -Name $GameProcessNames -ErrorAction SilentlyContinue | Where-Object { -not $_.HasExited } }
 
 # A workspace copy (C:\Games\THUG2-1, -2, ... or its Game folder) - never the main install C:\Games\THUG2 or a backup.
 function Test-Workspace([string]$folder) { $folder.TrimEnd('\', '/') -match '^C:\\Games\\THUG2-\d+(\\Game)?$' }

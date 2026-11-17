@@ -227,13 +227,21 @@ VkResult make_pipeline(const Shared& shared, const render::vulkan::ShaderKey& ke
          .module = fragment,
          .pName = "main"},
     }};
-    const VertexLayout layout = layout_of(key.vertex.fvf);
-    const VkVertexInputBindingDescription binding = {.binding = 0, .stride = layout.stride,
-                                                     .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
+    VertexLayout layout = layout_of(key.vertex.fvf);
+    // (the upscaler's motion, as vulkan_pipelines.cpp: binding 1 - the frame before's vertices, the same layout - its
+    // position)
+    const std::array<VkVertexInputBindingDescription, 2> bindings{{
+        {.binding = 0, .stride = layout.stride, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
+        {.binding = 1, .stride = layout.stride, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
+    }};
+    if (key.vertex.motion != 0U) {
+        layout.attributes.push_back(
+            {.location = render::vulkan::kPreviousPositionLocation, .binding = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
+    }
     const VkPipelineVertexInputStateCreateInfo input = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &binding,
+        .vertexBindingDescriptionCount = key.vertex.motion != 0U ? 2U : 1U,
+        .pVertexBindingDescriptions = bindings.data(),
         .vertexAttributeDescriptionCount = static_cast<uint32_t>(layout.attributes.size()),
         .pVertexAttributeDescriptions = layout.attributes.data()};
     const VkPipelineInputAssemblyStateCreateInfo assembly = {
