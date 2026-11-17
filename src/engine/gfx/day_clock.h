@@ -45,8 +45,10 @@ namespace render::day_clock {
 void step();
 // The clock's state in a line (the console's `rt tod`).
 [[nodiscard]] const char* status();
-// Whether the frame's lighting state is settled: always - the clock publishes it in the step before the frame is drawn
-// (render_pc's first light hold reads it: rt_relit_world.h hold_first_light).
+// Whether the frame's lighting state is settled: the clock publishes it in the step before the frame is drawn, and the
+// level's own scripts for the state it set (tod_manager.h tod_transition_running: the night geometry and fake lights,
+// shown and hidden over their frames) have ended (render_pc's first light hold reads it: rt_relit_world.h
+// hold_first_light).
 [[nodiscard]] bool light_ready();
 // (the proof - devtools/demo.cpp) The clock's time and sun now as a line ("" while it doesn't run): a playback writes
 // it beside each check point's state, so two runs of a demo can be compared.

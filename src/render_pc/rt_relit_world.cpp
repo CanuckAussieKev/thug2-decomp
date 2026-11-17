@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <ratio>
 #include <span>
@@ -278,6 +279,13 @@ struct State {
     // lamp_on, in steps of kLampSteps) and their hash: the entries' L made again from their links when it changes
     std::vector<float> lamps_on;
     uint64_t lamps_hash = 0;
+    // (round relit-misses) every world mesh of the last listing (`listing`), the mode's entry or not, and why the mode
+    // can't relight those it made none for (refusal): the draws ask whether a mesh has a light of its own
+    // (unlit_world_colour); the misses logged per level when they change (log_misses)
+    std::unordered_map<const MeshRef*, uint64_t> listed;
+    std::unordered_map<const MeshRef*, const char*> refused;
+    std::string misses_logged;
+    uint32_t misses_level = 0;
 };
 
 State& state()
@@ -869,11 +877,14 @@ void list_world(std::span<const WorldMesh> world)
         if (mesh.mesh == nullptr || mesh.geometry == nullptr || mesh.source == nullptr) {
             continue;
         }
+        st.listed.insert_or_assign(mesh.mesh, st.listing);
         if (!st.entries.contains(mesh.source)) {
             Entry entry;
             if (!make_entry(mesh, &entry)) {
+                st.refused.insert_or_assign(mesh.mesh, refusal(mesh));
                 continue;
             }
+            st.refused.erase(mesh.mesh);
             st.buffer_of.insert_or_assign(mesh.mesh, mesh.source);
             st.entries.emplace(mesh.source, std::move(entry));
         }
@@ -906,6 +917,8 @@ void level_changed(uint32_t level)
     st.logged = Status::kOff;
     st.bounce_finished = st.bounce_begun; // (a bounce pass of the level before not taken on)
     st.bounce_passes = 0;
+    st.listed.clear();
+    st.refused.clear();
     for (auto& [buffer, entry] : st.entries) {
         entry.analysed = false;
         entry.looked_up = false;
@@ -1430,6 +1443,55 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
         rt::set_relit_status(status_text());
     }
 }
+// (round relit-misses) The world meshes a relit level draws without a light of their own - none in the level's data
+// (meshes the bake didn't see), refused by the mode (why), their light not written yet - and the vertices whose colour
+// the game animates (they keep the game's colour), logged for the level whenever they change: a miss shows in the log,
+// not only on the screen. Those meshes are drawn with the light field's ratio over their bake (unlit_world_colour).
+void log_misses()
+{
+    State& st = state();
+    std::size_t lit = 0;
+    std::size_t not_in_data = 0;
+    std::size_t not_in_data_vertices = 0;
+    std::size_t waiting = 0;
+    std::size_t animated = 0;
+    for (const VertexBufferData* buffer : st.order) {
+        const Entry& entry = st.entries.at(buffer);
+        if (!entry.analysed) {
+            ++not_in_data;
+            not_in_data_vertices += entry.originals.size();
+            continue;
+        }
+        (entry.written != 0 ? lit : waiting) += 1;
+        animated += static_cast<std::size_t>(std::ranges::count(entry.animated, uint8_t{1}));
+    }
+    std::map<std::string, std::size_t> refused;
+    for (const auto& [mesh, why] : st.refused) {
+        const auto seen = st.listed.find(mesh);
+        if (seen != st.listed.end() && seen->second == st.listing) {
+            refused[why != nullptr ? why : "?"] += 1;
+        }
+    }
+    std::string why_refused;
+    std::size_t refused_count = 0;
+    for (const auto& [why, count] : refused) {
+        why_refused += text::format("%s%zu %s", why_refused.empty() ? "" : ", ", count, why.c_str());
+        refused_count += count;
+    }
+    // (the waiting ones change from frame to frame while a relight runs: logged once the level's misses settle)
+    const std::string line =
+        text::format("%zu world meshes lit by their own light; without it - %zu not in the level's relit data (%zu "
+                     "vertices), %zu the mode can't relight%s%s%s; %zu animated vertices keep the game's colour",
+                     lit, not_in_data, not_in_data_vertices, refused_count, refused_count > 0 ? " (" : "",
+                     why_refused.c_str(), refused_count > 0 ? ")" : "", animated);
+    if (waiting == 0 && (line != st.misses_logged || st.misses_level != st.level)) {
+        st.misses_logged = line;
+        st.misses_level = st.level;
+        get_log("rt_relit: level %08x - %s; the meshes without their own light drawn with the light field's", st.level,
+                line.c_str());
+    }
+}
+
 } // namespace
 
 void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& tracer)
@@ -1592,6 +1654,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         const frame_profile::Scope phase("relit_field");
         make_light_field(lighting, light); // (the one lighting path)
     }
+    log_misses(); // (round relit-misses)
     rt::note_sun_used(rt::SunUser::kRelit, true, st.sun);
     // (the relight's writes and the light field done, and the new light's bounce passes - started again at the cut)
     note.shown = st.day_serial == (published.on ? published.serial : 0) && !relight_running() &&
@@ -1668,6 +1731,8 @@ void buffer_written(const VertexBufferData* buffer)
 void mesh_released(const MeshRef* mesh)
 {
     State& st = state();
+    st.listed.erase(mesh);
+    st.refused.erase(mesh);
     const auto found = st.buffer_of.find(mesh);
     if (found == st.buffer_of.end()) {
         return;
@@ -1783,6 +1848,25 @@ bool unlit_object_colour(const std::array<float, 3>& position, std::array<uint8_
     return !same; // (the light there the bake's: drawn as the original draws it)
 }
 
+bool unlit_world_colour(const MeshRef* mesh, std::array<uint8_t, 4>* out)
+{
+    const State& st = state();
+    if (st.status != Status::kRelit || mesh == nullptr) {
+        return false;
+    }
+    const auto seen = st.listed.find(mesh);
+    if (seen == st.listed.end() || seen->second != st.listing) {
+        return false; // (not a world mesh of the relit level now: the sky's, an object's - lit their own ways)
+    }
+    if (const auto buffer = st.buffer_of.find(mesh); buffer != st.buffer_of.end()) {
+        if (const auto entry = st.entries.find(buffer->second);
+            entry != st.entries.end() && entry->second.analysed && entry->second.written != 0) {
+            return false; // (its own light: the light store)
+        }
+    }
+    return unlit_object_colour(mesh->centre(), out);
+}
+
 namespace {
 
 bool first_light_held(bool loading)
@@ -1792,7 +1876,6 @@ bool first_light_held(bool loading)
         bool holding = false;
         std::chrono::steady_clock::time_point since{};
         uint32_t frames = 0;
-        uint32_t steady = 0; // frames in a row the lighting has been ready
     };
     static Hold hold;
     if (loading) {
@@ -1806,7 +1889,6 @@ bool first_light_held(bool loading)
         hold.holding = rt::relit_settings().on && rt::ray_tracing() != nullptr && rt::tod_may_run(rt::tod_settings());
         hold.since = std::chrono::steady_clock::now();
         hold.frames = 0;
-        hold.steady = 0;
     }
     if (!hold.holding) {
         return false;
@@ -1833,10 +1915,9 @@ bool first_light_held(bool loading)
     }
     }
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - hold.since).count();
-    // (ready for kFirstLightSteadyFrames frames in a row: the night state's scripts show their meshes over the frames
-    // after the clock sets it, each relit as it comes)
-    hold.steady = relit_ready && day_clock::light_ready() ? hold.steady + 1 : 0;
-    const bool ready = hold.steady >= kFirstLightSteadyFrames;
+    // (ready from the state itself: the clock's light published and the level's scripts for its state ended - the night
+    // geometry they show is in the world -, every world mesh's light written for that light and the light field made)
+    const bool ready = relit_ready && day_clock::light_ready();
     if (ready || seconds >= kFirstLightMostSeconds) {
         hold.holding = false;
         get_log("rt_relit: the level's first light %s after %u frames (%.0f ms) - %s", ready ? "ready" : "not ready",
@@ -1983,6 +2064,28 @@ std::string census_status()
                         st.entries.size());
 }
 
+// (the console's `rt probe`) The lamp a vertex is a surface of - " (lamp N: its kind, how the bake knew it, its fixture,
+// where)" - or "".
+std::string emitting_lamp_text(const Entry& entry, std::size_t vertex)
+{
+    const State& st = state();
+    const LevelData& data = level_data(st.level);
+    if (!data.found || entry.data_mesh >= data.data.meshes.size()) {
+        return {};
+    }
+    for (const rt::RelitEmitting& emitting : core::at(data.data.meshes, entry.data_mesh).emitting) {
+        if (emitting.vertex == vertex && emitting.lamp < data.data.lamp_list.size()) {
+            const rt::RelitLamp& lamp = core::at(data.data.lamp_list, emitting.lamp);
+            return text::format(" (lamp %u: kind %u, %s, %s, at %.0f %.0f %.0f)", emitting.lamp,
+                                static_cast<unsigned>(lamp.kind), lamp.solved ? "told" : "not told",
+                                rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
+                                static_cast<double>(rt::x_of(lamp.position)),
+                                static_cast<double>(rt::y_of(lamp.position)), static_cast<double>(rt::z_of(lamp.position)));
+        }
+    }
+    return {};
+}
+
 std::string describe_mesh(rt::MeshId id)
 {
     const State& st = state();
@@ -2012,7 +2115,7 @@ std::string describe_mesh(rt::MeshId id)
             const rt::RelitVertex& vertex = core::at(entry.light, vi);
             const rt::Vec3& at = core::at(entry.input.positions, vi);
             out += text::format("\n    corner %.0f %.0f %.0f n %.2f %.2f %.2f: baked %06X relit %06X held %06X, sun now %.2f baked %.2f, "
-                                "sky %.2f, tint %.2f %.2f %.2f, lamps' light %.3f %.3f %.3f",
+                                "sky %.2f, tint %.2f %.2f %.2f, lamps' light %.3f %.3f %.3f, emits %.3f %.3f %.3f%s",
                                 static_cast<double>(rt::x_of(at)), static_cast<double>(rt::y_of(at)),
                                 static_cast<double>(rt::z_of(at)), static_cast<double>(rt::x_of(vertex.normal)),
                                 static_cast<double>(rt::y_of(vertex.normal)), static_cast<double>(rt::z_of(vertex.normal)),
@@ -2022,7 +2125,9 @@ std::string describe_mesh(rt::MeshId id)
                                 static_cast<double>(vertex.sky), static_cast<double>(std::get<0>(vertex.tint)),
                                 static_cast<double>(std::get<1>(vertex.tint)), static_cast<double>(std::get<2>(vertex.tint)),
                                 static_cast<double>(std::get<0>(vertex.lamp)),
-                                static_cast<double>(std::get<1>(vertex.lamp)), static_cast<double>(std::get<2>(vertex.lamp)));
+                                static_cast<double>(std::get<1>(vertex.lamp)), static_cast<double>(std::get<2>(vertex.lamp)),
+                                static_cast<double>(std::get<0>(vertex.emit)), static_cast<double>(std::get<1>(vertex.emit)),
+                                static_cast<double>(std::get<2>(vertex.emit)), emitting_lamp_text(entry, vi).c_str());
         }
         return out;
     }

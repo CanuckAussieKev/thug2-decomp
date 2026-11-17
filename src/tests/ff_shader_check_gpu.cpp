@@ -135,6 +135,16 @@ bool make_layouts(Shared& shared)
                         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         .descriptorCount = 1,
                         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
+    // (NOT ORIGINAL - round V) the surface's light inputs (vulkan_surface_light.h)
+    for (uint32_t input = 0; input < 6; ++input) {
+        bindings.push_back({.binding = render::vulkan::kLightVisibilityBinding + input,
+                            .descriptorType = render::vulkan::kLightVisibilityBinding + input == render::vulkan::kLightGuidesBinding
+                                                  ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+                                                  : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            .descriptorCount = 1,
+                            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                            .pImmutableSamplers = nullptr});
+    }
     // (added by cel shading) its block (the scene's binding is only in a ray-tracing device's layout)
     bindings.push_back({.binding = render::vulkan::kCelUniformsBinding,
                         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,

@@ -362,8 +362,20 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // An edge across a traced shadow's border counts only where the bake's colours step down into the traced shade too.
 // (lighting round A) `sunless`: the bake shows no sun (rt_sun.h's fit found none - a night or indoor bake, its vertices'
 // sun 0): the sky, the bounce and (fit_relit_lamps) the lamps alone; valid when they light it (its sun 0).
+// (round relit-misses - the light's colours its sources') `colours`: the sun's and the sky's colour (their luminance
+// doesn't matter) - the physical sun's and sky's at the bake's own time (rt_daylight.h; the relit bake's own_day_light):
+// the fit tells one strength each for the sun, the sky and the bounce over every channel, and the bake's colour beyond
+// them is its surfaces' (the tints) - the model the level is relit by. Null: each channel's light fitted alone, the
+// bake's own colours (its art's sun and sky) - the evidence the relit bake tells its sun's presence and direction by
+// (RelitModel::sun_needed): before, that fit was also the model, and the level's colour went into its light (Barcelona's
+// sky green over shade the bake paints blue).
+struct RelitLightColours {
+    Rgbf sun{1.0F, 1.0F, 1.0F};
+    Rgbf sky{1.0F, 1.0F, 1.0F};
+};
 [[nodiscard]] RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light,
-                                         const Vec3& toward, bool sunless = false);
+                                         const Vec3& toward, bool sunless = false,
+                                         const RelitLightColours* colours = nullptr);
 // (lighting round A2 - the baked sun picked by the relit fit) How well a model explains the bake: over every mesh edge
 // of two lit vertices (one-colour meshes left out: the same edges for every model of the level) the edge's error
 // |y_i E_j - y_j E_i| / (y_i E_j + y_j E_i) per channel - its colours' ratio against its light's -, luma-weighted, the

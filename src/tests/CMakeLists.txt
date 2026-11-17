@@ -127,6 +127,14 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_scatter_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_sky_parts_check.exe: the rule that tells a sky scene's meshes apart (engine/gfx/sky_parts.h) -
+# glows, painted domes, clouds, and the scenery standing in front of the sky - on made-up meshes
+# (src/tests/sky_parts_check.cpp; pure: no game, no device).
+if(TARGET thug2_base)
+    add_executable(thug2_sky_parts_check sky_parts_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/sky_parts.cpp")
+    target_link_libraries(thug2_sky_parts_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_fisheye_check.exe: the fisheye lens' maths (engine/gfx/fisheye_lens.h) - the lens family, the
 # game camera's widening and projection, the chain from the widened camera through the lens pass's mapping
 # (src/tests/fisheye_check.cpp; pure: no game, no device).

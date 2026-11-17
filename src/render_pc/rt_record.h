@@ -32,11 +32,25 @@ struct MeshRef;
 struct MaterialRef;
 struct VertexBufferData;
 struct Singleton;
+struct GpuTexture;
 namespace rt {
 struct ObjectLight;
+struct Geometry;
+}
+namespace texel {
+struct Image;
 }
 
 namespace rt_record {
+
+// (added by the sky's parts - sky_scenery.h) A mesh's first level of detail as its buffers hold it (rt_scene.h Geometry:
+// every attribute where its vertex format puts it, the indices in memory) and its vertex buffer's bytes in memory; false:
+// nothing to read (no indices, no buffer, not three floats of position, neither a strip nor a list). What the ray
+// tracing registers and the samplers read.
+bool mesh_geometry(const MeshRef* mesh, rt::Geometry* out, const VertexBufferData** source);
+// A texture's first level decoded on the processor (texel_decode.h; read through a read-only lock) - `out` empty when
+// its format can't be read. Returns its format (0: no texture).
+uint32_t decode_first_level(GpuTexture* texture, texel::Image* out);
 
 // A RayTracing is installed (rt::ray_tracing()).
 [[nodiscard]] bool on();

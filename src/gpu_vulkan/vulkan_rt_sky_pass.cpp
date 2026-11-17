@@ -1995,7 +1995,7 @@ void set_rt_sky_settings(const RtSkySettings& settings)
     // (round S2) the settings' cover is the weather's first source (rt_clouds.h cloud_coverage - the app sets the same
     // from the ini: renderer_choice.cpp)
     rt::set_cloud_cover(rt::CloudCoverSource::kSettings, kept.coverage >= 0.0F ? kept.coverage : -1.0F);
-    rt::set_sky_replacement({.on = kept.on, .keep_layers = !kept.clouds});
+    rt::set_sky_replacement({.on = kept.on});
     rt::set_sky_capture_wanted(kept.on || water_settings().on); // (NOT ORIGINAL - rt_water reflects the captured sky too)
     if (kept.on) {
         rt::add_view_listener(&listener());

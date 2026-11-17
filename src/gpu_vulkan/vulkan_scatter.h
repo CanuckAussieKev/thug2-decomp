@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "engine/gfx/rt_scene.h"
@@ -16,13 +17,16 @@
 //
 // The decals' pass, per viewport, at opaque_drawn (rt::ViewOrder::kDecals: after the opaque world, the objects, the
 // sky, the ray-traced shadows, occlusion, bounce and lamps; before the reflections, the grass, the fog and the tone
-// mapping): the decals' triangles of the tiles within the decal distance and in view, drawn into the colour alone (no
+// mapping): the decals' triangles of the tiles in view, drawn into the colour alone (no
 // depth attachment): each fragment reads the depth under it and is kept only where the scene's surface there is the
 // decal's own (within kDecalMatchShare of its distance + kDecalMatchSlack - hidden decals and decals over nothing are
 // dropped, so a mark never shows on the skater standing on it or through a wall); its colour multiplies the pixel's -
 // mix(1, the atlas texel's rgb, its alpha x the decal's opacity x its fade) - so a stain darkens the lit ground as the
-// ground's own colour would: in shadow, in the light, under a lamp. The fade: 1 to kDecalFadeStart of the decal's own
-// distance (its size's), then down to 0 at it (and at the decal distance, kDecalDistance). While the ray-traced
+// ground's own colour would: in shadow, in the light, under a lamp. No distance fade or cut-off: a decal is drawn
+// wherever it is seen, as any texture is - far away its atlas's mips resolve it (each mip the mean of the mark's
+// darkening over its texels: alpha-weighted, so a far crack is the faint mean darkening of its patch, not a line that
+// shimmers), sampled within its own cell at the mip it is read from, anisotropically as the game's textures are
+// ([Graphics] anisotropy). While the ray-traced
 // reflections run (and the target is single-sampled), the pass also draws a wet mask - each wet patch's darkening as its
 // wetness, the most of any - which the reflections' trace reads: there the ground reflects as water does (kReflectWater:
 // 2% face-on, a mirror at grazing angles), the puddle's share of it.
@@ -43,8 +47,6 @@ namespace render::vulkan {
 
 struct Backend;
 
-inline constexpr float kDecalDistance = 3200.0F;   // world units (about 80 m): no decal beyond
-inline constexpr float kDecalFadeStart = 0.6F;     // (of a decal's own distance: it fades from here)
 inline constexpr float kDecalMatchShare = 0.003F;  // the depth under a decal fragment is its own within this share ...
 inline constexpr float kDecalMatchSlack = 1.0F;    // ... + this (world units: a wall standing in a decal takes at most
                                                    // its foot's width of this, along the view, of it)
@@ -69,7 +71,7 @@ struct ScatterDraw {
     uint32_t first = 0;
     uint32_t count = 0;
 };
-// The view's decal draws (the tiles nearer than kDecalDistance and in view) and their vertex count.
+// The view's decal draws (the tiles in view - the view's frustum, nothing else) and their vertex count.
 [[nodiscard]] std::vector<ScatterDraw> plan_decal_draws(const scatter::Scatter& made, const ScatterView& view,
                                                         uint32_t* vertices);
 // The view's clutter draws (`view.keep_scale` lowered when too many) and their item count.
@@ -78,9 +80,16 @@ struct ScatterDraw {
 // The share of the items kept at a distance, and the size left there.
 [[nodiscard]] float clutter_keep(const ScatterView& view, float distance);
 [[nodiscard]] float clutter_fade(float distance);
-// A decal vertex's fade seen from `camera` (the vertex shader's twin: its own distance - its packed byte x
-// kDecalFadeUnits, at most kDecalDistance - and kDecalFadeStart of it).
-[[nodiscard]] float decal_fade(const scatter::DecalVertex& vertex, const std::array<float, 3>& camera);
+// A decal vertex's weight (the vertex shader's twin, without the snow and the rain's reach): its opacity - the same at
+// every distance.
+[[nodiscard]] float decal_weight(const scatter::DecalVertex& vertex);
+// The decals' atlas's mip `level` (1 the first below it) from its first level (RGBA8 rows, `width` x `height`): each
+// texel the alpha-weighted mean of the 2^level square under it (rgb the mean of rgb x alpha over the mean alpha; alpha
+// its mean), made from the first level so the rounding is a level's own - the mark the pass multiplies in
+// (mix(1, rgb, alpha)) averaged as the light it takes away. A cell's texels never mix with another's (cells are
+// kDecalTile, a power of two).
+[[nodiscard]] std::vector<uint8_t> decal_atlas_mip(std::span<const uint8_t> texels, uint32_t width, uint32_t height,
+                                                   uint32_t level);
 
 // The passes over the bound colour and depth targets for a view (the listeners' work; also the check's). The caller
 // holds the lock. False (nothing recorded): off, nothing to draw, the targets can't be used, the pass can't be made

@@ -420,9 +420,13 @@ std::span<const std::array<uint32_t, 3>> baked_triangles(const RelitMesh& mesh)
 // changes that happen to lie on a border: alone they made Berlin's sun too strong (its faces 3.48 x against the
 // bake's 2.17), all of them too weak (1.43 x). 1 when fewer than kFacingMeshes meshes show both sides. Channel by
 // channel (`channel`: 0 red, 1 green, 2 blue) - a tint's colour weighs the sun's and the sky's differently.
+constexpr std::size_t kLumaChannel = 3; // (facing_calibration: the luminance, not a channel)
 float facing_calibration(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const RelitModel& model,
                          std::size_t channel)
 {
+    const auto part = [channel](const Rgbf& colour) {
+        return channel == kLumaChannel ? luma(colour) : core::at(colour, channel);
+    };
     struct Toward {
         float sun = 0.0F;  // the model's sun here (luma)
         float rest = 0.0F; // the rest of its light
@@ -437,7 +441,7 @@ float facing_calibration(std::span<const RelitMesh> meshes, std::span<const Reli
         std::ranges::nth_element(*values, middle);
         return *middle;
     };
-    const float sun_light = core::at(model.sun, channel);
+    const float sun_light = part(model.sun);
     std::vector<Sides> sides;
     for (std::size_t mi = 0; mi < meshes.size() && mi < light.size(); ++mi) {
         const RelitMesh& mesh = core::at(meshes, mi);
@@ -452,16 +456,14 @@ float facing_calibration(std::span<const RelitMesh> meshes, std::span<const Reli
         const std::size_t count = std::min(vertices.size(), mesh.colours.size());
         for (std::size_t vi = 0; vi < count; ++vi) {
             const RelitVertex& vertex = core::at(vertices, vi);
-            const Rgbf colour = colour_light(core::at(mesh.colours, vi));
-            const float y = core::at(colour, channel);
+            const float y = part(colour_light(core::at(mesh.colours, vi)));
             if (!vertex.used || y < kBlackLight || !relit_baked_vertex(mesh, vi)) {
                 continue;
             }
             const float nl = dot(vertex.normal, model.toward);
             RelitVertex shaded = vertex;
             shaded.sun = 0.0F;
-            const Rgbf unlit = model_light(model, model.sun, shaded, model.toward);
-            const float rest = core::at(unlit, channel);
+            const float rest = part(model_light(model, model.sun, shaded, model.toward));
             if (nl > kFacingSun && vertex.sun > kSunlitShare) {
                 made.toward.push_back({.sun = sun_light * vertex.sun * nl, .rest = rest});
                 toward_baked.push_back(y);
@@ -1382,12 +1384,13 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
     derive_traced(meshes, wanted, light, ask); // (added by building relief: the made vertices' light)
 }
 
-RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const Vec3& toward,
-                           bool sunless)
+namespace {
+
+// (the sun's evidence) Each channel's light fitted alone - the bake's own colours, its sun's and sky's as the art painted
+// them: where the bake's light steps (its shadows, its faces turning) tells whether it has a sun and where (the relit
+// bake's candidates, RelitModel::sun_needed). False: the model is as far as it goes (not enough to fit, or sunless).
+bool fit_channels(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, bool sunless, RelitModel& model)
 {
-    RelitModel model;
-    model.toward = normalised(toward);
-    model.sunless = sunless;
     const std::size_t count = std::min(meshes.size(), light.size());
     // each mesh edge's difference (pair_direction), per channel; the vertices' terms and colours for the scale
     std::array<std::vector<PairEdge>, 3> differences;
@@ -1450,7 +1453,7 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
     }
     model.vertices = terms.size();
     if (terms.size() < kMinFitVertices || differences.front().size() < kMinFitVertices) {
-        return model;
+        return false;
     }
     // each channel: the direction from the pairs, the scale so that the median tint is 1
     double spread = 0.0;
@@ -1473,7 +1476,7 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
             }
         }
         if (ratios.empty()) {
-            return model;
+            return false;
         }
         const auto middle = ratios.begin() + static_cast<std::ptrdiff_t>(ratios.size() / 2);
         std::ranges::nth_element(ratios, middle);
@@ -1489,7 +1492,7 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
         // they light it; its sun the daylight the clock brings
         model.sun = {};
         model.valid = luma(model.sky) + luma(model.bounce) >= kMinSunLight;
-        return model;
+        return false;
     }
     // the sun's strength against the rest told by which way the faces turn (facing_calibration), then each channel's
     // scale again (the median tint 1)
@@ -1562,6 +1565,187 @@ RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const Re
             core::at(model.sky, ch) *= again;
             core::at(model.bounce, ch) *= again;
         }
+    }
+    return true;
+}
+
+// (the light's split) The sun's, the sky's and the bounce's strengths, one each over every channel, their colours their
+// sources' (`colours`). False: the model is as far as it goes (not enough to fit, or sunless).
+bool fit_coloured(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, bool sunless,
+                  const RelitLightColours& colours, RelitModel& model)
+{
+    const std::size_t count = std::min(meshes.size(), light.size());
+    // (round relit-misses) The light's colours are the light sources' (`colours`: the sun's and the sky's at the bake's
+    // own time - physical), each at luma 1; the fit tells their strengths and the bounce's (whose colour is its hits').
+    const auto chroma = [](const Rgbf& colour) {
+        const float y = luma(colour);
+        return y > 0.0F ? scaled(colour, 1.0F / y) : Rgbf{1.0F, 1.0F, 1.0F};
+    };
+    const Rgbf sun_colour = chroma(colours.sun);
+    const Rgbf sky_colour = chroma(colours.sky);
+    // each mesh edge's difference (pair_direction) in every channel - one set of strengths for all three; the vertices'
+    // terms and colours for the scale
+    std::vector<PairEdge> differences;
+    struct Term {
+        std::array<std::array<float, 3>, 3> x{}; // per channel: S, K, B (S and K in their light's colour)
+        Rgbf y{};
+    };
+    std::vector<Term> terms;
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const RelitVertices& vertices = core::at(light, mi);
+        const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
+        const auto lit = [&](uint32_t vi) {
+            return vi < vertex_count && core::at(vertices, vi).used && relit_baked_vertex(mesh, vi) &&
+                   luma(colour_light(core::at(mesh.colours, vi))) >= kBlackLight;
+        };
+        const auto x_of_vertex = [&](uint32_t vi, std::size_t ch) {
+            const RelitVertex& vertex = core::at(vertices, vi);
+            return std::array<float, 3>{sun_term(vertex, model.toward) * core::at(sun_colour, ch),
+                                        vertex.sky * core::at(sky_colour, ch), core::at(vertex.bounce, ch)};
+        };
+        // (a mesh of one colour all over wasn't lit by the bake - painted one colour - and tells nothing of its light:
+        // its edges left out; its vertices still count toward the scale)
+        const bool painted = one_colour(mesh, vertices);
+        model.one_colour_meshes += painted ? 1 : 0;
+        const std::span<const std::array<uint32_t, 3>> triangles =
+            painted ? std::span<const std::array<uint32_t, 3>>() : baked_triangles(mesh);
+        for (const auto& [one, two, three] : triangles) {
+            for (const auto& [iv, ja] : {std::pair{one, two}, std::pair{two, three}, std::pair{three, one}}) {
+                if (iv == ja || !lit(iv) || !lit(ja)) {
+                    continue;
+                }
+                const Rgbf yi = colour_light(core::at(mesh.colours, iv));
+                const Rgbf yj = colour_light(core::at(mesh.colours, ja));
+                const float trust = shadow_edge_trust(mesh, vertices, {iv, ja});
+                if (!(trust > 0.0F)) {
+                    continue;
+                }
+                for (std::size_t ch = 0; ch < 3; ++ch) {
+                    const std::array<float, 3> xi = x_of_vertex(iv, ch);
+                    const std::array<float, 3> xj = x_of_vertex(ja, ch);
+                    const float over = 1.0F / std::max(core::at(yi, ch) + core::at(yj, ch), kLeastLight);
+                    PairEdge edge;
+                    edge.trust = trust;
+                    for (std::size_t idx = 0; idx < edge.difference.size(); ++idx) {
+                        core::at(edge.difference, idx) =
+                            ((core::at(yi, ch) * core::at(xj, idx)) - (core::at(yj, ch) * core::at(xi, idx))) * over;
+                        core::at(edge.across, idx) =
+                            ((core::at(yi, ch) * core::at(xj, idx)) + (core::at(yj, ch) * core::at(xi, idx))) * over;
+                    }
+                    differences.push_back(edge);
+                }
+            }
+        }
+        for (uint32_t vi = 0; vi < vertex_count; ++vi) {
+            if (lit(vi)) {
+                terms.push_back({.x = {x_of_vertex(vi, 0), x_of_vertex(vi, 1), x_of_vertex(vi, 2)},
+                                 .y = colour_light(core::at(mesh.colours, vi))});
+            }
+        }
+    }
+    model.vertices = terms.size();
+    if (terms.size() < kMinFitVertices || differences.size() < 3 * kMinFitVertices) {
+        return false;
+    }
+    // The strengths from the pairs (every channel's edges: one sun, one sky and one bounce light the level - their
+    // colours their sources'), then the scale: the median tint's luminance 1. (round relit-misses) Before, each channel
+    // was fitted alone and scaled to a median tint of 1 on its own: the sky's and the bounce's terms - both large where a
+    // surface is open - were split differently in each, and the level's colour went into its light: Barcelona's sky came
+    // out green (0.29 0.68 0.39 in the unit) over shade the bake paints blue.
+    const PairFit fit = pair_direction(differences);
+    const std::array<double, 3>& beta = fit.beta;
+    const auto light_of = [&beta](const Term& term, std::size_t ch) {
+        const std::array<float, 3>& x = core::at(term.x, ch);
+        return (core::at(beta, 0) * core::at(x, 0)) + (core::at(beta, 1) * core::at(x, 1)) +
+               (core::at(beta, 2) * core::at(x, 2));
+    };
+    std::vector<double> ratios;
+    ratios.reserve(terms.size());
+    for (const Term& term : terms) {
+        const double en = (kLumaRed * light_of(term, 0)) + (kLumaGreen * light_of(term, 1)) + (kLumaBlue * light_of(term, 2));
+        if (en > kSingular) {
+            ratios.push_back(luma(term.y) / en);
+        }
+    }
+    if (ratios.empty()) {
+        return false;
+    }
+    const auto median_ratio = [](std::vector<double>* values) {
+        const auto middle = values->begin() + static_cast<std::ptrdiff_t>(values->size() / 2);
+        std::ranges::nth_element(*values, middle);
+        return *middle;
+    };
+    const double scale = median_ratio(&ratios);
+    model.sun = scaled(sun_colour, static_cast<float>(core::at(beta, 0) * scale));
+    model.sky = scaled(sky_colour, static_cast<float>(core::at(beta, 1) * scale));
+    const auto bounce = static_cast<float>(core::at(beta, 2) * scale);
+    model.bounce = {bounce, bounce, bounce};
+    model.error = static_cast<float>(fit.spread);
+    model.sun_needed = fit.objective > 0.0 ? static_cast<float>(fit.without_sun / fit.objective) : 0.0F;
+    if (sunless) {
+        // (lighting round A) a bake with no sun: its light the sky and the bounce (the lamps fitted next) - valid when
+        // they light it; its sun the daylight the clock brings
+        model.sun = {};
+        model.valid = luma(model.sky) + luma(model.bounce) >= kMinSunLight;
+        return false;
+    }
+    // the sun's strength against the rest told by which way the faces turn (facing_calibration), then the scale again
+    // (the offline relit data) the edges gave the sun nothing - the bake's sun shows mostly in which way the faces turn,
+    // little along the edges (TR, thps3_la, hof: a baked sun found with confidence 0.38 - 0.47, the fit's sun 0): it
+    // starts from a share of the sky's light, and the faces' turning below sets its strength (a bake whose faces don't
+    // turn with the sun takes it down to nothing: no model)
+    const bool seeded = !(luma(model.sun) > 0.0F);
+    if (seeded) {
+        constexpr float kSunSeedOfSky = 0.5F;
+        model.sun = scaled(sun_colour, kSunSeedOfSky * luma(model.sky));
+        model.dead_channels = 3;
+    }
+    const float factor = facing_calibration(meshes.first(count), light.first(count), model, kLumaChannel);
+    model.sun_calibration = factor;
+    if (seeded && factor == 1.0F) {
+        model.sun = {}; // (too few meshes show both sides to tell the seeded sun's strength: none - no model)
+    }
+    if (factor != 1.0F) {
+        model.sun = scaled(model.sun, factor);
+        ratios.clear();
+        for (const Term& term : terms) {
+            double en = 0.0;
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                const std::array<float, 3>& x = core::at(term.x, ch);
+                // (the sun's term in its colour already: the model's sun over its colour is its strength)
+                const double channel = (static_cast<double>(luma(model.sun)) * core::at(x, 0)) +
+                                       (static_cast<double>(luma(model.sky)) * core::at(x, 1)) +
+                                       (static_cast<double>(bounce) * core::at(x, 2));
+                en += (ch == 0 ? kLumaRed : (ch == 1 ? kLumaGreen : kLumaBlue)) * channel;
+            }
+            if (en > kSingular) {
+                ratios.push_back(luma(term.y) / en);
+            }
+        }
+        if (!ratios.empty()) {
+            const auto again = static_cast<float>(median_ratio(&ratios));
+            model.sun = scaled(model.sun, again);
+            model.sky = scaled(model.sky, again);
+            model.bounce = scaled(model.bounce, again);
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const Vec3& toward,
+                           bool sunless, const RelitLightColours* colours)
+{
+    RelitModel model;
+    model.toward = normalised(toward);
+    model.sunless = sunless;
+    const std::size_t count = std::min(meshes.size(), light.size());
+    const bool fitted = colours != nullptr ? fit_coloured(meshes, light, sunless, *colours, model)
+                                           : fit_channels(meshes, light, sunless, model);
+    if (!fitted) {
+        return model;
     }
     // (sun_needed is only reported: a bake with no sun is told by rt_sun.h's fit, before this one runs)
     model.valid = luma(model.sun) >= kMinSunLight;
@@ -3181,6 +3365,27 @@ LampFixtures lamp_fixtures(const RelitLamp& lamp, LampFixture fixture, float are
     return out;
 }
 
+namespace {
+// (round relit-misses) Whether the artists marked a candidate as a lamp: a light card (a glow with a saturated core - a
+// luminous area above none: a haze card is no lamp's) drawn at it - the card's centre within the candidate's own extent
+// (its core, a line's half length) and the card's core.
+bool glow_marks(std::span<const RelitLamp> lamps, std::span<const float> areas, const RelitLamp& candidate)
+{
+    for (std::size_t gi = 0; gi < lamps.size(); ++gi) {
+        const RelitLamp& glow = core::at(lamps, gi);
+        if (glow.kind != EmitterKind::kGlow || !(gi < areas.size() && core::at(areas, gi) > 0.0F)) {
+            continue;
+        }
+        const Vec3 apart = minus(glow.position, candidate.position);
+        const float reach = candidate.core + candidate.half_length + glow.core;
+        if (dot(apart, apart) <= reach * reach) {
+            return true;
+        }
+    }
+    return false;
+}
+} // namespace
+
 LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const RelitLampTold> told,
                                   std::span<const float> areas, std::span<const Rgbf> own_colours, double unit_lux)
 {
@@ -3293,8 +3498,12 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
                    fixture != LampFixture::kNeon) {
             // a candidate the bake couldn't see lit - off by its own switch then - shaped like a luminaire outdoors, of
             // one fixture's size: its brightness the only evidence, a row of lamp texels outdoors is no luminaire (a
-            // band of paint, a window strip) - a row needs the artists' mark (a glow) or the bake's own light
-            if (fixtures.sized && fixtures.count <= 1.0) {
+            // band of paint, a window strip) - a row needs the artists' mark (a glow) or the bake's own light.
+            // (round relit-misses) So does one fitting: bright texels in a daylight bake are paint as often as a lamp -
+            // College's striped stand on the roof (its white stripes "lamp texels") shone as a street light all night,
+            // its awning glowing and the trees and grass round it lit to daylight. Without the bake's light, the
+            // artists' mark tells a luminaire: a glow drawn at it (glow_marks).
+            if (fixtures.sized && fixtures.count <= 1.0 && glow_marks(lamps, areas, lamp)) {
                 source = RelitLampSource::kModel;
                 model = true;
             } else {

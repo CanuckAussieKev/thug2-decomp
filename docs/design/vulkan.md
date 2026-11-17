@@ -1661,10 +1661,37 @@ their depth and stay in front of any sky).
 `[Graphics] rt_sky=1` (Vulkan, no ray tracing needed; off by default - `rt_sky=0` draws exactly what main draws):
 
 - **The split** (contract additions in `rt_scene.h`: `SkyReplacement`, `ViewListener::sky_drawn`, `sky_view_drawn`,
-  `ViewOrder::kSky`). `draw_viewport` draws the sky scene's opaque meshes (the backdrop), tells the listeners, then its
-  transparent meshes only with `keep_layers` - true without clouds (LA keeps its smog bands, DJ its cloud cards over the
-  new atmosphere), false with `rt_clouds=1` (the volumetric clouds replace the painted cards; a double layer of clouds
-  read wrong). The listener draws over every pixel still at the far plane - the backdrop with it.
+  `ViewOrder::kSky`). `draw_viewport` tells the listeners, who draw the sky over every pixel still at the far plane,
+  then draws of the sky scene only its **scenery** (below), both passes in the game's order over that sky. (Before the
+  sky-decals round: the opaque backdrop drawn and painted over, the transparent layers kept only without `rt_clouds` -
+  `keep_layers` - so with clouds can's mountains and tree line were dropped, and without them every painted cloud card
+  stayed, daylight-coloured at night.)
+- **The sky scene's parts** (`engine/gfx/sky_parts.h` the rule, `render_pc/sky_scenery.h` its use;
+  `tools/game/sky_survey.ts` its twin over the files, `thug2_sky_parts_check` its check). Read once per sky scene from
+  the copies in memory - each mesh's vertices seen from the origin (its original triangles when smoothed) and its first
+  texture's alpha (`texel_decode.h`) - nothing listed per level: a pass that adds, subtracts, multiplies or brightens is
+  a **glow** (light of the air); a mesh whose texture has no holes (under 2% of texels under half alpha) is the
+  **painted** sky (domes, bands, painted ground rings); a **solid silhouette standing on the ground** is **scenery** -
+  its edge a cut, not a medium (at most 5% of its covered texels only faintly covered: a cloud's or a haze's edge thins
+  out over many texels, a mountain's is a texel of antialiasing), at least 60% of its opaque texels in columns standing
+  on one ground line at the card's foot (the columns' lowest opaque texels within 10% of the texture's height of their
+  median, that within 10% of the bottom edge: mountains, skylines, a tree line - not blobs each with sky under them, not
+  shapes hanging from the top), and grounded (its opaque part reaching the horizon or below, or the top of grounded
+  scenery in front of it at the same azimuth: a range behind a skyline); anything else with a silhouette is a **cloud**
+  (cloud cards, a painted moon, haze). Glows, painted sky and clouds are the renderer's sky's (the atmosphere, the
+  volumetric clouds, the sun, moon and stars) and are not drawn; scenery is drawn over it. The survey of the 69 sky
+  scenes (THUG2's 22 and the overlay's 47 ported ones): 433 painted, 4 glows (LA's sun glow and haze, VC's), 40 clouds
+  (AP, DJ, NO, PH, SC, FL, RU's cloud cards - soft-edged banks standing on the horizon, faint 18%; HI's, THP8's; LA's
+  haze strips; skateheaven's moon), 11 scenery (can's two mountain ranges; sub's skyline and the three ranges behind it;
+  VC's skyline; skateheaven's cloud floor and its three copies - a floor below the horizon, lit as ground). Known
+  misses: can's tree line card is painted with soft foliage (faint 17%) and reads as a cloud (dropped; it lies 16 - 4
+  degrees under the horizon, mostly behind the level's own trees); a painted dome band with a skyline painted into it
+  (no alpha) is painted sky.
+- **The scenery's light**: as the world's (`day_clock.cpp`): the sky scene's own colour (its TOD sky system's at the
+  level's own state) times the light now over the level's own, channel by channel - the level colour's ratio (the relit
+  mode's level light, `rt_light_field.h` whole, when the level is relit). At `tod=level` nothing changes. Not yet: the
+  aerial haze over it (the fog pass leaves the sky's pixels to the atmosphere; the sky scene's distances aren't
+  physical - a backdrop drawn from the origin).
 - **The level's own sky** (`SkyCapture`, `rt_sky_match.h`; since the low sun's sky only its clouds' share is used - the
   coverage). Once per sky scene `render_pc` draws all its meshes from the
   origin into six 90-degree faces (a 384 x 256 texture, cleared to the background colour) and hands it over; the pass
@@ -2211,6 +2238,18 @@ goal, so every change produces the physical inputs it reads. Relit data v4:
   the known tints again within 0.1%); the same rule for a sunlit, a night and an indoor bake. The lamps solved in the
   fit's units are divided by it too. The game's colours are radiance in the unit (round B's definition), so a bake's own
   daylight against the physical is reported (`daylight_ratio`), never used to scale.
+- **The light's colours its sources'** (round relit-misses; `fit_relit_model`'s `RelitLightColours`): the model a level is
+  relit by is fitted with one strength each for the sun, the sky and the bounce over all three channels, the sun's and
+  the sky's colours the physical ones at the bake's own time (`own_day_light`), the bounce's colour its hits'. The
+  per-channel fit (each channel alone, scaled to a median tint of 1 in each) split the sky's and the bounce's terms -
+  both large on open surfaces - differently per channel and put the level's colour into its light: Barcelona's sky came
+  out green in the unit (0.29 0.68 0.39) over shade its bake paints blue (0.14 0.16 0.21 on the open floors), and g per
+  channel then carried that colour into the unit. Now the bake's colour beyond the light is the tints' (the art's), g is
+  one number and Barcelona's sky reads 0.30 0.44 0.70. The per-channel fit is still the evidence the sun's presence and
+  direction are told by (the candidates' `sun_needed` below) - it reads the bake's own light without assuming colours.
+  The candidates are told apart on a sample of a big level (the meshes in their content hash's order up to
+  `kCandidateVertices` 500 000 vertices - a random sample), the pick then traced and fitted over the whole: Proving
+  Ground's whole world (2.5 million vertices) spent most of its 20 minutes on 32 candidates and was given up; it now bakes in 5.4 minutes.
 - **The baked sun picked by the relit fit** (`relit_bake.cpp`): the correlation search's candidates
   (`BakedSun::candidates`: its best, the coarse set's next best `kCandidateApartDegrees` apart, and a low sun's ring) are
   each traced and fitted; the one whose sun improves the fit most (`RelitModel::sun_needed`, the edges' objective without
@@ -2294,7 +2333,10 @@ Relit data v7 (round S took v6 for its sun radius first).
   monotone warm / cool run) on a triangle not facing up makes a *textured* candidate (`EmitterKind::kTextured`), joined
   into panels and lines like the self-lit ones and solved the same way. A confirmed candidate's vertices are its
   **emitting vertices** (`RelitEmitting`): they show its radiance (its intensity / pi, x how much it is on - the bulb,
-  the lit panel; `RelitVertex::emit`, added to what relit_colour reflects).
+  the lit panel; `RelitVertex::emit`, added to what relit_colour reflects). (Round relit-misses: its own triangles'
+  vertices in its own mesh - `EmitterTriangle::mesh`, `vertices` -, no longer every vertex of the level at their
+  places; and an outdoor candidate the bake can't see lit is a luminaire only with the artists' mark, a light card at
+  it - `glow_marks`: College's striped stand shone as a street light all night.)
 - **The rays' start off concave seams.** A vertex's rays now start `kRelitInward` (2 units) into its own triangles as
   well as 2 off its surface (`relit_ray_origin`, `RelitVertex::inward` - the triangles' centres' mean less the vertex: 0
   for an inner vertex). A floor vertex at a wall's foot no longer starts on the wall's plane: the furnace room's edge and
@@ -2745,6 +2787,75 @@ and what its surfaces are made of, never flagged.
 - **The flakes' eddies**: their swing sqrt(2) I L / 2 pi from the turbulence (wind.h `turbulence_intensity`, lateral 0.75
   and vertical 0.5 of it - Panofsky and Dutton), their turning sqrt(2) sigma / (L / 2 pi): none in still air (were 16 and
   26 units by hand, turning at fixed rates).
+
+### Round V: a prepass and the light per surface (`gpu_vulkan/vulkan_surface_light.h`)
+
+Before, the world was drawn by the original's forward renderer with the one light model in its shading, and the
+ray-traced shadows, the lamps, the occlusion and the decals were full-screen passes multiplying and adding onto finished
+colours at `opaque_drawn`. What was drawn after them lost them (New Jersey's roads, drawn with a blended first pass in
+a scene's later group, had no shadows until the passes were moved after both groups), and what was drawn before them
+took them whether or not they were its light (glass, water, glows under a shadow's multiply). Round V evaluates the
+light once per surface: the passes make the surface's light *inputs*, and each surface's own shading reads them.
+
+While a view of a relit level (`rt::cel_world().relit`) is drawn with ray tracing into the linear frame, single-sampled
+and without cel shading:
+
+1. **The world kept, its depth first.** Every draw render_pc makes in the view's world passes
+   (`rt::world_surfaces_drawing`, set with `rt_record::set_world_passes`: the scenes, the objects, the splats and
+   projections - not the sky) into the view's target is kept (`surface_light_keep`: the state block, the call and the
+   per-draw state render_pc names before it - the light store's source, the trails' ground, the water's material and
+   body - named again when it is drawn). A draw that writes depth and doesn't add or multiply is drawn at once into the
+   depth alone (`FragmentKey::light` `kLightDepthOnly`: the stages for the alpha test and nothing of the surface's keys;
+   an alpha-blended one's pixels under half opaque discarded - `kLightDepthHalf` - so a translucent edge isn't the
+   surface). `gl_Position` is `invariant` in every generated vertex shader, so the prepass and the shaded draw put a
+   vertex at the same depth. Water render_pc marks is left to rt_water (kept back to the opaque world's end, as before).
+   A vertex or index buffer written again while kept draws read it (skinned meshes written part after part) is copied
+   for them first (`surface_light_buffer_rewritten`).
+2. **The inputs** (`ViewOrder::kSurfaceInputs`, 60): a compute pass copies the depth (R32F) and starts the images of the
+   target's size - the visibility (RGBA16F: the sun's or the moon's visibility, -1 where nothing traced; the direct
+   light's share; the indirect light's visibility; 1 where made), the lamps' light (a white diffuser's radiance), the
+   lamps' light on the traced albedo, the decals (1: none) and Ray Reconstruction's guides (RGBA32UI, 0). The passes
+   write into them instead of over the colour (`surface_inputs`): the sun shadows the visibility and the share
+   (`SURFACE_INPUTS` variant - no camera ray for the light store any more: the visibility itself), the occlusion its
+   indirect visibility (the occlusion alone, not its share - the blue channel), the lamps their light and their light on
+   the albedo (two attachments, added), the decals their marks (their multiplying blend into the decals' input). The
+   bounce pass adds nothing over colours there (a relit level's bounce is the store's).
+3. **The shading** (`ViewOrder::kSurfaceShading`, 392 - after the lamps and the decals, before the rain's wet mask and the
+   reflections): the depth is cleared and the kept draws drawn again in their order as the game made them, each with
+   its own depth test and write - the prepass's depth, the nearest surface, would otherwise hide what a translucent layer
+   drawn later lets through (a shirt's print). A fragment whose depth is the prepass's (within 1% of its distance -
+   `light_here`: a later pass of its material; not a glass pane, a glow or a particle in front) reads the inputs:
+   - lit per pixel (`kLightInputs`; the relit world - `kSurfaceRelit` - and the lit objects - `kSurfaceLit` - are lit per
+     pixel in such a view whether or not rt_pbr is on: the inputs need the light model's terms apart): the sun's
+     visibility in place of the vertex's (the store's `v_cel_tint.a`; an object's key light - the one light's light 0),
+     the environment's light x the indirect visibility, the lamps' light on its albedo, the albedo x the decals (a
+     material's edit: lit with the surface, its specular untouched);
+   - a colour lit already (`kLightShare`: an unlit prop's baked colour, an animated vertex, the bake): x (the direct
+     share x the visibility + the rest x the indirect visibility) x the decals, + the lamps' light on the traced albedo.
+     Only on a draw that doesn't add or multiply (opaque, or blended by its alpha).
+   Every other fragment keeps its own light: no pass multiplies glass, water, glows or particles any more.
+4. **Ray Reconstruction's guides** (`kLightGuides`, while it denoises): the fragment the inputs were made for writes,
+   once kept (after its alpha test), the material the light model was given - its albedo and specular albedo
+   (`brdf_specular_albedo`), roughness and camera-space normal; a colour lit already writes its lit colour (its light
+   isn't separated). The upscaler's preparation puts them into DLSS-RR's albedo, specular albedo and packed
+   normal-roughness guides; where none was written (the sky, glows) the lit colour and the depth's normal stay, as
+   before. DLSS-RR's inputs: diffuse albedo, specular albedo (the pre-integrated environment BRDF), normals with the
+   roughness packed in their alpha (`DLSSDNormalRoughnessMode::ePacked`, the camera-space normal with the
+   world-to-camera matrix given), depth and motion.
+
+Without ray tracing, relit data, a single-sampled linear target, or with cel shading, nothing changes: the draws are made
+as they come and the passes draw over the colour as before - the original's look keeps its path.
+
+Checks: `thug2_vulkan_rt_lights_check` "round V" - a floor drawn with a blended first pass before and after the box gives
+the same picture with the box's shadow (x (1 - the direct share) in it); glass over the shadow keeps its own light; a
+glow adds its light whole; a decal (the decals' input x 0.5) is lit with its surface in sun and shadow; the albedo guide
+is the floor's own under the glass too. `thug2_ff_shader_check --light` compiles every key's prepass, shares, inputs and
+guides variants.
+
+What it costs and what remains: see the round's record. Open: the replay draws the world's full overdraw (the prepass's
+depth can't be kept for it - translucent layers drawn with depth); per-pixel lamps on translucent surfaces (only the
+surface the inputs were made for has them); a colour lit already has no albedo of its own for the guides; the
+reflections pass still adds over the shaded colour (round M's M6).
 
 ### Time of day (`tod`, `tod_cycle`)
 
@@ -4221,13 +4332,22 @@ after the grass, each density row shown only while its switch is on). No ray tra
   meshes of 48 vertices (a curled leaf, a crumpled scrap of paper, a can lying on its side, a weed of seven blades and four
   leaves, a pebble), each vertex with its own shade.
 - **The decals' pass** (`ViewOrder::kDecals` 390, at opaque_drawn: after the shadows, occlusion, bounce and lamps,
-  before the reflections, the grass and the fog): the tiles within 3,200 units and in view, their triangles drawn into
+  before the reflections, the grass and the fog): the tiles in view (the frustum alone), their triangles drawn into
   the colour alone; each fragment reads the depth under it and is kept only where the scene there is the decal's own
   (within 0.3% of its distance + 1 unit - so nothing shows on the skater standing on a mark, through a wall, or from a
   decal whose collision floats over the drawn ground; a wall standing in a decal may take its foot's pixel row); the
-  colour is multiplied - mix(1, texel rgb, alpha x opacity x fade) - so a mark darkens the lit ground as its own colour
-  would: in shadow, in light, under a lamp. A decal fades out from 60% to all of 48 x its larger side (at most the
-  3,200). With four samples the fragment reads sample 0's depth.
+  colour is multiplied - mix(1, texel rgb, alpha x opacity) - so a mark darkens the lit ground as its own colour
+  would: in shadow, in light, under a lamp. With four samples the fragment reads sample 0's depth.
+  **No distance fade, no cut-off** (since the sky-decals round, after the user's floor whose cracks appeared only near
+  the camera: each decal faded out from 60% to all of 48 x its larger side and none were drawn past 3,200 units - a
+  crack 40 units long was gone 1,900 units off, popping in as the skater came near): a decal is drawn wherever it is
+  seen, and a far one is resolved as any texture is - by its atlas's mips. Each mip is the alpha-weighted mean of the
+  2 x 2 above it (rgb the mean of rgb x alpha over the mean alpha), so a far mark is the mean of the light it takes away
+  over its texels (a far crack a faint darkening of its patch, not a line that shimmers); a cell never mixes with
+  another's (cells are 256, a power of two, and the fragment keeps its coordinate half a texel of the mip it reads -
+  `textureQueryLod` - inside its cell); the sampler is anisotropic as the game's textures are (`[Graphics] anisotropy`,
+  the device's most at most). The tiles are culled by the view's frustum only. Clutter is unchanged (items are 3D:
+  below).
 - **Puddles** (with `rt_reflections`, single-sampled targets): the decal pass also draws a wet mask (R8, the colour's
   size, cleared over the viewport) - each wet patch's darkening as its wetness, the most of any; the reflection pass
   (ViewOrder 400) reads it through a trace variant made from the trace's own text with the puddle lines put in (so the
@@ -4900,7 +5020,11 @@ the original's own time of day (`tod_manager.h`, blended by the clock) is the lo
 5. **Ready before the first frame** (`rt_relit_world.h` `hold_first_light`): where the clock may light a level, the
    frames after its loading screen goes down are drawn (the world must stand still to be relit; the clock waits for the
    baked sun's fit; the night state's scripts run) under the loading screen's picture until the clock's light is
-   published and the level is relit for it (every mesh written, the field made) ten frames in a row - at most 10 s.
+   published, the level's own scripts for the state it set have ended (`tod_manager.h` `tod_transition_running`: the
+   night geometry and fake lights they show over their frames are in the world) and the level is relit for it (every
+   world mesh written, the field made) - read from that state each frame, no count of frames - at most 10 s. A mesh
+   shown later is drawn with the light field's ratio over its bake until its own light is written
+   (`rt_relit_world.h` `unlit_world_colour`).
    Why round 2's attempts left the level day-bright for good: relit keeps its entries by the vertex buffer's address,
    and the night state's scripts free and make meshes; a buffer made at a freed one's address was taken for it,
    already written, and drawn with its bake until the lighting changed again. `VertexBuffer::teardown` now forgets

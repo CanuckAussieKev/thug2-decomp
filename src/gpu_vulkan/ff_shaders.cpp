@@ -154,8 +154,10 @@ void vertex_declarations(std::string& out, const VertexKey& key)
     if ((key.surface & kVertexWaterMoving) != 0U) {
         add(out, {water_vertex_declarations_glsl()}); // (NOT ORIGINAL - rt_water_geometry, water_shader.h)
     }
-    add(out, {key.points ? "out gl_PerVertex { vec4 gl_Position; float gl_PointSize; };"
-                         : "out gl_PerVertex { vec4 gl_Position; };"});
+    // (NOT ORIGINAL - round V: invariant, so a draw's prepass and its shaded draw - one vertex shader, two pipelines -
+    // put every vertex at the same depth exactly; vulkan_surface_light.h)
+    add(out, {key.points ? "out gl_PerVertex { invariant vec4 gl_Position; float gl_PointSize; };"
+                         : "out gl_PerVertex { invariant vec4 gl_Position; };"});
 }
 
 // A coordinate set of n floats as Direct3D 9 hands it to the texture transform: the component after the last is 1,
@@ -445,6 +447,65 @@ std::string coord_of(const FragmentKey& key, std::size_t stage)
     const std::string name = "v_tex" + num(stage);
     return has_stage(key.projected_mask, stage) ? name + ".xy / " + name + ".w" : name + ".xy";
 }
+
+// --- (NOT ORIGINAL - round V, per-surface lighting: vulkan_surface_light.h) the surface's light inputs ----------------
+// A key with FragmentKey::light's kLightInputs / kLightShare reads, at its pixel, what the view's visibility passes made
+// for the surface the prepass found there - only where this fragment is that surface (its depth the prepass's, within
+// 1% of its distance: a later pass of its material drawn over it; a glass pane, a glow or a particle in front of it is
+// not, and keeps its own light): `light_in` (r: the sun's or the moon's visibility - its world casters', the objects'
+// and the clouds' - or -1 where nothing was traced; g: the direct light's share of a colour lit already - the lighting
+// state's; b: the indirect light's visibility, 1 - the occlusion; a: 1 where the inputs were made) and the lamps'
+// light (a white diffuser's radiance; and on the surface's traced albedo for a colour lit already).
+constexpr const char* kLightInputsGlsl = R"(layout(set = 0, binding = 24) uniform sampler2D light_visibility_map;
+layout(set = 0, binding = 25) uniform sampler2D light_lamps_map;
+layout(set = 0, binding = 26) uniform sampler2D light_lamps_on_map;
+layout(set = 0, binding = 27) uniform sampler2D light_depth_map;
+layout(set = 0, binding = 28) uniform sampler2D light_decals_map;
+bool light_here()
+{
+    float z = texelFetch(light_depth_map, ivec2(gl_FragCoord.xy), 0).r;
+    return z < 1.0 && abs(gl_FragCoord.z - z) <= max(1.0e-6, (1.0 - z) * 0.01);
+}
+vec4 light_in_now()
+{
+    return light_here() ? texelFetch(light_visibility_map, ivec2(gl_FragCoord.xy), 0) : vec4(-1.0, 0.0, 1.0, 0.0);
+}
+vec3 light_lamps_now() { return light_here() ? texelFetch(light_lamps_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0); }
+// the decals over the surface: its albedo's factor (a material's edit - lit with the surface; 1 where none)
+vec3 light_decals_now() { return light_here() ? texelFetch(light_decals_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(1.0); }
+vec3 light_lamps_on_now()
+{
+    return light_here() ? texelFetch(light_lamps_on_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0);
+}
+)";
+// (round V - Ray Reconstruction's guides, kLightGuides) The surface's material where it is the one the inputs were made
+// for, written once the fragment is kept (after its alpha test): its albedo and specular albedo (display-encoded 8 bits,
+// the roughness and a mark in their alphas) and its normal in the camera's space (halves; without one - a colour lit
+// already - the upscaler's own from the depth). The surface's lighting sets guide_*; a fragment that set none writes none.
+constexpr const char* kLightGuidesGlsl = R"(layout(set = 0, binding = 29, rgba32ui) uniform writeonly uimage2D light_guides_image;
+vec3 guide_albedo = vec3(-1.0);
+vec3 guide_specular = vec3(0.0);
+vec3 guide_normal = vec3(0.0);
+float guide_rough = 1.0;
+float guide_has_normal = 0.0;
+void light_write_guides()
+{
+    if (guide_albedo.x < 0.0 || !light_here()) {
+        return;
+    }
+    vec3 a = display_from_linear(clamp(guide_albedo, 0.0, 1.0));
+    vec3 s = display_from_linear(clamp(guide_specular, 0.0, 1.0));
+    imageStore(light_guides_image, ivec2(gl_FragCoord.xy),
+               uvec4(packUnorm4x8(vec4(a, clamp(guide_rough, 0.0, 1.0))), packUnorm4x8(vec4(s, 1.0)),
+                     packHalf2x16(guide_normal.xy), packHalf2x16(vec2(guide_normal.z, guide_has_normal))));
+})";
+
+// (the inputs' use - a key lit per pixel has them whether it reads the inputs or not)
+constexpr const char* kLightHelpersGlsl = R"(// the sun's visibility at the pixel, else `own` (the vertex's - the light store's)
+float light_seen(vec4 l, float own) { return l.r >= 0.0 ? l.r : own; }
+// a colour lit already (its light not separated): the direct light's share x its visibility, the rest x the indirect
+// light's
+float light_share(vec4 l) { return l.g * light_seen(l, 1.0) + (1.0 - l.g) * l.b; })";
 
 // --- (NOT ORIGINAL - [Graphics] rt_pbr) the per-pixel lighting ------------------------------------------------------
 // (vulkan_surface.h; docs/design/vulkan.md "Per-pixel lighting and surface maps", "One light model") A key with
@@ -1070,6 +1131,9 @@ void surface_finish(std::string& out, const FragmentKey& key)
               "    float surface_nv = max(dot(surface_n, surface_v), 1.0e-4);\n"
               "    float surface_hemi = 0.5 + 0.5 * dot(surface_n, surface_geo);\n"
               "    vec3 surface_out = vec3(0.0);"});
+    if ((key.light & kLightInputs) != 0U) { // (round V: the decals over it - its material edited before its light)
+        add(out, {"    surface_albedo *= light_decals_now();"});
+    }
     // a material from an albedo: a metal's F0 is its colour, its diffuse none
     add(out, {"    BrdfMaterial surface_m = brdf_material(surface_albedo * (1.0 - s.params.x), mix(vec3(s.params.w), "
               "surface_albedo, s.params.x), surface_rough);"});
@@ -1086,6 +1150,11 @@ void surface_finish(std::string& out, const FragmentKey& key)
     }
     // the environment's specular: the light store's estimate, or the reflections pass's traced one (params.y)
     add(out, {"    float surface_env = s.params.y > 0.0 ? smoothstep(0.75 * s.params.y, s.params.y, surface_rough) : 1.0;"});
+    // (NOT ORIGINAL - round V: the surface's light inputs at its pixel - kLightInputsGlsl; without them the vertex's own:
+    // the sun's visibility as the store has it, nothing occluded, no lamps beyond the store's)
+    const bool inputs = (key.light & kLightInputs) != 0U;
+    add(out, {inputs ? "    vec4 surface_li = light_in_now();\n    vec3 surface_lamps = light_lamps_now();"
+                     : "    vec4 surface_li = vec4(-1.0, 0.0, 1.0, 0.0);\n    vec3 surface_lamps = vec3(0.0);"});
     if ((key.surface & kSurfaceLit) != 0U) {
         const bool hair = (key.detail & kDetailHair) != 0U;
         if (hair) {
@@ -1099,10 +1168,13 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   "    BrdfMaterial surface_lit = surface_m;\n"
                   "    surface_lit.albedo *= linear_from_display(v_surface_cd.rgb);\n"
                   "    surface_out = brdf_ambient(surface_m, surface_nv, surface_ambient * surface_hemi, surface_ambient * "
-                  "surface_env);\n"
+                  "surface_env) * surface_li.b;\n"
+                  "    surface_out += surface_lit.albedo * surface_lamps;\n"
                   "    for (int i = 0; i < 8; ++i) {\n"
                   "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
-                  "        vec3 light = surface_one ? max(s.light_colour[i].rgb, vec3(0.0)) : linear_from_display(s.light_colour[i].rgb);"});
+                  "        vec3 light = surface_one ? max(s.light_colour[i].rgb, vec3(0.0)) : linear_from_display(s.light_colour[i].rgb);\n"
+                  // (round V: the one light's key - light 0 - is the sun or the moon: its visibility at the pixel)
+                  "        if (i == 0 && surface_one) light *= light_seen(surface_li, 1.0);"});
         if (hair) {
             add(out, {"        if (surface_fibre) {\n"
                       "            surface_out += brdf_hair_direct(surface_lit.albedo, surface_rough, surface_strand, surface_v, l, "
@@ -1123,20 +1195,31 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   "lamp_texel.b))) : 1.0;\n"
                   "        surface_m.albedo *= tint;\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n"
                   "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb / max(tint, vec3(1.0 / 128.0));\n"
-                  "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env);\n"
+                  "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env) * surface_li.b;\n"
                   "        if (s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
                   "            surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * "
-                  "v_cel_tint.a",
+                  "light_seen(surface_li, v_cel_tint.a)",
                   relief ? " * relief_shadow" : "", ");\n        }\n"
                   "        surface_out += v_cel_emit.rgb * lamp_texel * lamp_lit;\n"
+                  "        surface_out += surface_m.albedo * surface_lamps;\n"
                   "    } else {\n"
                   "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word);\n"
-                  "        surface_out = brdf_ambient(surface_m, surface_nv, light * surface_hemi, light * surface_env);\n"
+                  "        surface_out = brdf_ambient(surface_m, surface_nv, light * surface_hemi, light * surface_env) * "
+                  "light_share(surface_li) + surface_m.albedo * surface_lamps;\n"
                   "    }"});
     } else {
-        // the bake: its light (the vertex colour doubled, display-referred) as the environment's
+        // the bake: its light (the vertex colour doubled, display-referred) as the environment's (round V: its light not
+        // separated - taken by shares, light_share)
         add(out, {"    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0);\n"
-                  "    surface_out = brdf_ambient(surface_m, surface_nv, surface_bake * surface_hemi, surface_bake * surface_env);"});
+                  "    surface_out = brdf_ambient(surface_m, surface_nv, surface_bake * surface_hemi, surface_bake * surface_env) "
+                  "* light_share(surface_li) + surface_m.albedo * surface_lamps;"});
+    }
+    if ((key.light & kLightGuides) != 0U && (key.light & kLightInputs) != 0U) {
+        // (round V: Ray Reconstruction's guides - the material the light model was given)
+        add(out, {(key.surface & kSurfaceLit) != 0U ? "    guide_albedo = surface_lit.albedo;\n"
+                                                    : "    guide_albedo = surface_m.albedo;\n",
+                  "    guide_specular = brdf_specular_albedo(surface_m.f0, surface_nv, surface_rough);\n"
+                  "    guide_normal = surface_n;\n    guide_rough = surface_rough;\n    guide_has_normal = 1.0;"});
     }
     add(out, {"    colour.rgb = frame_linear() ? surface_out : clamp(display_from_linear(surface_out), 0.0, 1.0);"});
 }
@@ -1213,6 +1296,19 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         if ((key.trails & kTrailPaint) != 0U) {
             add(out, {kPaintBlock});
         }
+    }
+    if ((key.light & (kLightInputs | kLightShare)) != 0U) {
+        static_assert(kLightVisibilityBinding == 24 && kLightLampsBinding == 25 && kLightLampsOnBinding == 26 &&
+                          kLightDepthBinding == 27 && kLightDecalsBinding == 28,
+                      "kLightInputsGlsl names them");
+        add(out, {kLightInputsGlsl}); // (NOT ORIGINAL - round V: the surface's light inputs)
+    }
+    if (key.surface != 0 || (key.light & (kLightInputs | kLightShare)) != 0U) {
+        add(out, {kLightHelpersGlsl});
+    }
+    if ((key.light & kLightGuides) != 0U && (key.light & (kLightInputs | kLightShare)) != 0U) {
+        static_assert(kLightGuidesBinding == 29, "kLightGuidesGlsl names it");
+        add(out, {kLightGuidesGlsl}); // (NOT ORIGINAL - round V: Ray Reconstruction's guides)
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
     if (key.motion != 0U) {
@@ -1733,8 +1829,25 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     if (!surface_light_out(key)) {
         fragment_linear_output(out);
     }
+    if ((key.light & kLightShare) != 0U && key.surface == 0 && !water) {
+        // (NOT ORIGINAL - round V: a colour lit already - its light not separated - takes the surface's light inputs as
+        // shares of it, and the lamps on its traced albedo; kLightInputsGlsl)
+        add(out, {"    if (frame_linear()) {\n        colour.rgb = colour.rgb * light_decals_now() * light_share(light_in_now()) + "
+                  "light_lamps_on_now() * light_decals_now();\n    }"});
+        if ((key.light & kLightGuides) != 0U) {
+            add(out, {"    guide_albedo = colour.rgb;"}); // (its light not separated: the colour lit, as before round V)
+        }
+    }
     fragment_fog(out, key);
     fragment_alpha_test(out, key);
+    if ((key.light & kLightGuides) != 0U && (key.light & (kLightInputs | kLightShare)) != 0U) {
+        add(out, {"    light_write_guides();"}); // (round V: once kept)
+    }
+    if ((key.light & kLightDepthOnly) != 0U && (key.light & kLightDepthHalf) != 0U) {
+        // (NOT ORIGINAL - round V: a blended draw's prepass keeps only its mostly opaque part - its translucent edges
+        // don't hide what was drawn behind them; vulkan_surface_light.h)
+        add(out, {"    if (colour.a < 0.5) discard;"});
+    }
     if (water) {
         add(out, {"    colour.a = water_alpha;"});
     }

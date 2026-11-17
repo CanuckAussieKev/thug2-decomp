@@ -433,6 +433,10 @@ inline constexpr int kCameraEffects = 965; // (added by the camera effects) dept
 inline constexpr int kLens = 970;          // (added by the fisheye lens) the warp, after the blur, before the art style (world_drawn)
 inline constexpr int kGrade = 985;         // (added by the camera effects) the colour grade, after the art style (world_drawn)
 inline constexpr int kFrameGeneration = 999; // (added by frame generation) the HUD-less colour copied out, last (world_drawn)
+inline constexpr int kSurfaceInputs = 60;   // (round V - gpu_vulkan/vulkan_surface_light.h) a view lit per surface: its
+                                            // light inputs begun from the prepass's depth, before the shadows
+inline constexpr int kSurfaceShading = 392; // ... its kept draws shaded with them: after the lamps and the decals (which
+                                            // write the inputs), before the rain's wet mask and the reflections
 inline constexpr int kLights = 350;       // (added by the night lighting) the lamps' light: after the bounce, before the
                                           // reflections (opaque_drawn) - gpu_vulkan/vulkan_rt_lights.h
 } // namespace ViewOrder
@@ -442,6 +446,12 @@ void remove_view_listener(ViewListener* listener);
 void opaque_view_drawn(const ViewDrawn& view);
 void world_view_drawn(const ViewDrawn& view);
 void view_begins(const ViewDrawn& view); // (added by the upscaler)
+// (round V - per-surface lighting) Whether render_pc is drawing a viewport's world surfaces and objects now (its
+// scenes' meshes, the objects, the splats and projections - not the sky's): a backend that lights the world per surface
+// keeps these draws for after the surfaces' visibility is known (gpu_vulkan/vulkan_surface_light.h). Set by
+// draw_frame through rt_record::set_world_passes.
+void set_world_surfaces_drawing(bool inside);
+[[nodiscard]] bool world_surfaces_drawing();
 
 // --- Upscaling (added by the upscaler round; the Vulkan Gpu's [Graphics] upscaler) ----------------------------------
 // A backend that upscales asks for its views' world to be drawn smaller: render_pc then draws a viewport's world
@@ -635,13 +645,13 @@ SunUsed sun_used(SunUser user);
 void clear_sun_used();
 
 // --- (added by the sky) a sky drawn by the backend - the Vulkan Gpu's [Graphics] rt_sky ------------------------------
-// While `on`, render_pc's draw_viewport draws the sky scene's opaque meshes (the backdrop: its dome, a ground ring), then
-// tells the listeners (sky_view_drawn -> ViewListener::sky_drawn), who draw the sky over the pixels nothing of the world
-// covers (the depth's far value), then draws the sky scene's transparent meshes (its layers: painted cloud cards, haze
-// bands, glows) only with `keep_layers`. Off (the default, Direct3D 9): the sky drawn as always, no call.
+// While `on`, render_pc's draw_viewport tells the listeners (sky_view_drawn -> ViewListener::sky_drawn), who draw the sky
+// over the pixels nothing of the world covers (the depth's far value), then draws of the sky scene only its scenery
+// (render_pc/sky_scenery.h, engine/gfx/sky_parts.h: mountains, a skyline, a tree line - not its painted dome, glows or
+// cloud cards, which the listeners' sky replaces) over it. Off (the default, Direct3D 9): the sky drawn as always, no
+// call.
 struct SkyReplacement {
     bool on = false;
-    bool keep_layers = true;
 };
 void set_sky_replacement(const SkyReplacement& replacement);
 SkyReplacement sky_replacement();

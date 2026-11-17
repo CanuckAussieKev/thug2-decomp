@@ -48,6 +48,9 @@ constexpr float kLumaGreen = 0.587F;
 constexpr float kLumaBlue = 0.114F;
 constexpr std::size_t kKilobyte = 1024;
 constexpr float kLeastColour = 1e-4F;
+// (bake) The sun's candidates are told apart on a sample of about this many vertices (a level of up to this size is its
+// own sample): enough edges that the fits' objectives are the whole level's to well within the candidates' differences.
+constexpr std::size_t kCandidateVertices = 500000;
 
 float luma(const rt::Rgbf& rgb)
 {
@@ -200,25 +203,21 @@ std::vector<float> own_lamps_on(std::span<const rt::RelitLamp> lamps, const rt::
 }
 
 // (lighting round A3) The vertices of the lamps' own surfaces: the corners of a confirmed candidate's triangles (a
-// self-lit or textured emitter the bake told lit) - found by position among the meshes' vertices (the same bytes).
+// self-lit or textured emitter the bake told lit, or one its fixture's model lights). (round relit-misses) Each
+// triangle's own vertices in its own mesh (rt_lights.h EmitterTriangle::mesh, vertices - the bake's mesh of that
+// content, `mesh_of`): before, every vertex of the level at a corner's position was taken - a neighbouring face's, a
+// tree's cards laid over a candidate's -, and those surfaces glowed with the lamp's radiance at night (College's stand
+// and the tree cards round it, at full brightness on a night level).
 std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt::RelitMesh> meshes,
-                                                              std::span<const rt::RelitLamp> lamps)
+                                                              std::span<const rt::RelitLamp> lamps,
+                                                              const std::unordered_map<rt::MeshId, std::size_t>& mesh_of)
 {
     std::vector<std::vector<rt::RelitEmitting>> out(meshes.size());
     const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
     if (found == nullptr) {
         return out;
     }
-    const auto key_of = [](const rt::Vec3& at) {
-        uint64_t hash = 0xCBF29CE484222325ULL;
-        for (const float value : at) {
-            uint32_t bits = 0;
-            std::memcpy(&bits, &value, sizeof(bits));
-            hash = (hash ^ bits) * 0x100000001B3ULL;
-        }
-        return hash;
-    };
-    std::unordered_map<uint64_t, uint32_t> corners; // a corner's position -> its lamp
+    std::vector<std::unordered_map<uint32_t, uint32_t>> marked(meshes.size()); // a mesh's vertex -> its lamp
     for (std::size_t ti = 0; ti < found->triangles.size() && ti < found->triangle_emitter.size(); ++ti) {
         const uint32_t lamp = core::at(found->triangle_emitter, ti);
         const rt::EmitterTriangle& triangle = core::at(found->triangles, ti);
@@ -226,21 +225,24 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
         if (lamp >= lamps.size() || !rt::candidate_kind(triangle.kind) || !(luma(core::at(lamps, lamp).light) > 0.0F)) {
             continue;
         }
-        for (const rt::Vec3& corner : triangle.corners) {
-            corners.emplace(key_of(corner), lamp);
+        const auto owner = mesh_of.find(triangle.mesh);
+        if (owner == mesh_of.end() || owner->second >= meshes.size()) {
+            continue;
         }
-    }
-    if (corners.empty()) {
-        return out;
-    }
-    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
-        const rt::RelitMesh& mesh = core::at(meshes, mi);
-        for (std::size_t vi = 0; vi < mesh.positions.size(); ++vi) {
-            const auto hit = corners.find(key_of(core::at(mesh.positions, vi)));
-            if (hit != corners.end()) {
-                core::at(out, mi).push_back({.vertex = static_cast<uint32_t>(vi), .lamp = hit->second});
+        const std::size_t vertex_count = core::at(meshes, owner->second).positions.size();
+        for (const uint32_t vertex : triangle.vertices) {
+            if (vertex < vertex_count) {
+                core::at(marked, owner->second).emplace(vertex, lamp);
             }
         }
+    }
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        std::vector<rt::RelitEmitting>& emitting = core::at(out, mi);
+        for (const auto& [vertex, lamp] : core::at(marked, mi)) {
+            emitting.push_back({.vertex = vertex, .lamp = lamp});
+        }
+        std::ranges::sort(emitting,
+                          [](const rt::RelitEmitting& a, const rt::RelitEmitting& b) { return a.vertex < b.vertex; });
     }
     return out;
 }
@@ -508,6 +510,59 @@ float open_sky(std::span<const rt::RelitMesh> meshes, std::span<const rt::RelitV
     return *middle;
 }
 
+// (reported - the evidence the fit's light colours come from) The bake's colours on the open upward faces (K at least a
+// half) in the rays' sun and in their shade: each group's median per channel (light: rt_relit.h colour_light), the
+// traced bounce's there, and their count.
+void log_open_colours(std::span<const rt::RelitMesh> meshes, std::span<const rt::RelitVertices> light)
+{
+    constexpr float kUpward = 0.7F;
+    constexpr float kOpen = 0.5F;
+    constexpr float kSunlit = 0.9F;
+    constexpr float kShaded = 0.1F;
+    std::array<std::array<std::vector<float>, 3>, 2> colours;
+    std::array<std::array<std::vector<float>, 3>, 2> bounces;
+    for (std::size_t mi = 0; mi < meshes.size() && mi < light.size(); ++mi) {
+        const rt::RelitMesh& mesh = core::at(meshes, mi);
+        const rt::RelitVertices& vertices = core::at(light, mi);
+        for (std::size_t vi = 0; vi < vertices.size() && vi < mesh.colours.size(); ++vi) {
+            const rt::RelitVertex& vertex = core::at(vertices, vi);
+            if (!vertex.used || !rt::relit_baked_vertex(mesh, vi) || rt::y_of(vertex.normal) < kUpward ||
+                vertex.sky < kOpen || (vertex.sun > kShaded && vertex.sun < kSunlit)) {
+                continue;
+            }
+            const std::size_t group = vertex.sun >= kSunlit ? 0 : 1;
+            const rt::Rgbf colour = rt::colour_light(core::at(mesh.colours, vi));
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                core::at(core::at(colours, group), ch).push_back(core::at(colour, ch));
+                core::at(core::at(bounces, group), ch).push_back(core::at(vertex.bounce, ch));
+            }
+        }
+    }
+    const auto median = [](std::vector<float>* values) {
+        if (values->empty()) {
+            return 0.0;
+        }
+        const auto middle = values->begin() + static_cast<std::ptrdiff_t>(values->size() / 2);
+        std::ranges::nth_element(*values, middle);
+        return static_cast<double>(*middle);
+    };
+    std::array<std::array<double, 3>, 2> y{};
+    std::array<std::array<double, 3>, 2> b{};
+    for (std::size_t group = 0; group < 2; ++group) {
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            core::at(core::at(y, group), ch) = median(&core::at(core::at(colours, group), ch));
+            core::at(core::at(b, group), ch) = median(&core::at(core::at(bounces, group), ch));
+        }
+    }
+    get_log("relit bake: the open upward faces - in the sun (%zu) colours %.3f %.3f %.3f, bounce %.3f %.3f %.3f; in the "
+            "shade (%zu) colours %.3f %.3f %.3f, bounce %.3f %.3f %.3f",
+            core::at(colours, 0).front().size(), std::get<0>(std::get<0>(y)), std::get<1>(std::get<0>(y)),
+            std::get<2>(std::get<0>(y)), std::get<0>(std::get<0>(b)), std::get<1>(std::get<0>(b)),
+            std::get<2>(std::get<0>(b)), core::at(colours, 1).front().size(), std::get<0>(std::get<1>(y)),
+            std::get<1>(std::get<1>(y)), std::get<2>(std::get<1>(y)), std::get<0>(std::get<1>(b)),
+            std::get<1>(std::get<1>(b)), std::get<2>(std::get<1>(b)));
+}
+
 void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& tracer)
 {
     const auto start = std::chrono::steady_clock::now();
@@ -525,12 +580,14 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
     std::vector<rt_relit_world::BakeMesh> read;
     std::unordered_map<uint64_t, std::size_t> seen;
     std::size_t refused = 0;
+    std::unordered_map<rt::MeshId, uint64_t> content_of; // (every world mesh's content - its copies' too)
     for (const rt_relit_world::WorldMesh& mesh : world) {
         rt_relit_world::BakeMesh one;
         if (!rt_relit_world::read_world_mesh(mesh, &one)) {
             ++refused;
             continue;
         }
+        content_of.emplace(mesh.id, one.content);
         if (seen.emplace(one.content, read.size()).second) {
             read.push_back(std::move(one));
         }
@@ -587,7 +644,18 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             }
         };
         set_suns(nullptr);
-        rt::RelitModel model = rt::fit_relit_model(meshes, light, up, true);
+        // (round relit-misses) the light's colours its sources' at the bake's own time: the physical sky's (and, for each
+        // sun candidate, the physical sun's toward it)
+        const auto colours_toward = [&data](const rt::Vec3* toward) {
+            rt::BakedSun sun = data.sun;
+            if (toward != nullptr) {
+                sun.toward = *toward;
+                sun.found = true;
+            }
+            const rt::DayLight day = own_day_light(sun);
+            return rt::RelitLightColours{.sun = day.sun_light, .sky = day.sky_light};
+        };
+        rt::RelitModel model = rt::fit_relit_model(meshes, light, up, true); // (the evidence: the bake's own colours)
         const float sunless_error = rt::relit_edge_error(meshes, light, model);
         get_log("relit bake: the sunless model - error %.4f (%s)", static_cast<double>(sunless_error),
                 model.valid ? "valid" : "not valid");
@@ -600,18 +668,49 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             rt::RelitModel model;
             std::vector<std::vector<float>> suns;
         } pick;
-        const std::vector<std::array<float, 4>> candidates = data.sun.candidates;
-        for (const std::array<float, 4>& candidate : candidates) {
-            const rt::Vec3 toward{std::get<0>(candidate), std::get<1>(candidate), std::get<2>(candidate)};
-            rt::trace_relit_sun(meshes, {}, toward, params, tracer, &light, &stats);
-            for (rt::RelitVertices& traced_vertices : light) {
+        // (round relit-misses) The candidates are told apart on a sample of the level: the meshes are in the order of their
+        // content's hash - an order unrelated to where they are -, so the first of them up to kCandidateVertices
+        // vertices are a random sample of the level, and each candidate's fit over it estimates the fit over the
+        // whole. A level that size or smaller is its own sample (as before); a bigger one traces and fits each
+        // candidate over the sample alone and the one it picks over the whole level. Before, every candidate was
+        // traced and fitted over every vertex: Proving Ground's whole world (16000 meshes, 2.5 million vertices,
+        // 32 candidates) spent 15 of its bake's 20 minutes there and was given up.
+        std::size_t sample_count = 0;
+        for (std::size_t sampled_vertices = 0;
+             sample_count < meshes.size() && sampled_vertices < kCandidateVertices; ++sample_count) {
+            sampled_vertices += core::at(meshes, sample_count).positions.size();
+        }
+        const bool sampled = sample_count < meshes.size();
+        const std::span<const rt::RelitMesh> sample(meshes.data(), sample_count);
+        std::vector<rt::RelitVertices> sample_light(light.begin(),
+                                                    light.begin() + static_cast<std::ptrdiff_t>(sample_count));
+        if (sampled) {
+            std::size_t sample_vertices = 0;
+            for (const rt::RelitMesh& mesh : sample) {
+                sample_vertices += mesh.positions.size();
+            }
+            get_log("relit bake: the sun's candidates told apart on a sample - %zu of %zu meshes, %zu of %zu vertices",
+                    sample_count, meshes.size(), sample_vertices, vertices);
+        }
+        const auto candidate_fit = [&](const rt::Vec3& toward, std::span<const rt::RelitMesh> over,
+                                       std::vector<rt::RelitVertices>* over_light, float* error, float* share) {
+            rt::trace_relit_sun(over, {}, toward, params, tracer, over_light, &stats);
+            for (rt::RelitVertices& traced_vertices : *over_light) {
                 for (rt::RelitVertex& vertex : traced_vertices) {
                     vertex.sun_baked = vertex.sun;
                 }
             }
-            const rt::RelitModel fitted = rt::fit_relit_model(meshes, light, toward, false);
-            const float error = fitted.valid ? rt::relit_edge_error(meshes, light, fitted) : 1.0F;
-            const float share = rt::relit_sun_share(fitted);
+            rt::RelitModel fitted = rt::fit_relit_model(over, *over_light, toward, false);
+            *error = fitted.valid ? rt::relit_edge_error(over, *over_light, fitted) : 1.0F;
+            *share = rt::relit_sun_share(fitted);
+            return fitted;
+        };
+        const std::vector<std::array<float, 4>> candidates = data.sun.candidates;
+        for (const std::array<float, 4>& candidate : candidates) {
+            const rt::Vec3 toward{std::get<0>(candidate), std::get<1>(candidate), std::get<2>(candidate)};
+            float error = 1.0F;
+            float share = 0.0F;
+            const rt::RelitModel fitted = candidate_fit(toward, sample, &sample_light, &error, &share);
             constexpr double kDegrees = 180.0 / 3.14159265358979323846;
             get_log("relit bake: a sun candidate heading %.0f elevation %.0f (search score %.2f) - error %.4f, the sun's "
                     "share %.2f, the fit without the sun %.4f x worse (%s)",
@@ -626,13 +725,31 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                 pick.gain = fitted.sun_needed;
                 pick.share = share;
                 pick.model = fitted;
-                pick.suns.assign(light.size(), {});
-                for (std::size_t mi = 0; mi < light.size(); ++mi) {
-                    for (const rt::RelitVertex& vertex : core::at(light, mi)) {
+                pick.suns.assign(sample_light.size(), {});
+                for (std::size_t mi = 0; mi < sample_light.size(); ++mi) {
+                    for (const rt::RelitVertex& vertex : core::at(sample_light, mi)) {
                         core::at(pick.suns, mi).push_back(vertex.sun);
                     }
                 }
             }
+        }
+        if (pick.found && sampled) {
+            // the pick over the whole level: its sun traced for every vertex, its fit, error and share the whole's
+            pick.model = candidate_fit(pick.toward, meshes, &light, &pick.error, &pick.share);
+            pick.gain = pick.model.sun_needed;
+            pick.found = pick.model.valid;
+            pick.suns.assign(light.size(), {});
+            for (std::size_t mi = 0; mi < light.size(); ++mi) {
+                for (const rt::RelitVertex& vertex : core::at(light, mi)) {
+                    core::at(pick.suns, mi).push_back(vertex.sun);
+                }
+            }
+            get_log("relit bake: the picked sun over the whole level - error %.4f, the sun's share %.2f, the fit without "
+                    "the sun %.4f x worse (%s)",
+                    static_cast<double>(pick.error), static_cast<double>(pick.share),
+                    static_cast<double>(pick.gain), pick.found ? "valid" : "no sunlight");
+        } else if (!sampled) {
+            light = std::move(sample_light); // (the sample was the whole level: its traces are the level's)
         }
         // (the level's own data: a night state's bake shows the night - its directional light the moon's, not a sun;
         // a roofed level's floors see too little of the sky for its bake's sun to be told - daylight reaches it through
@@ -653,13 +770,28 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             data.sun.toward = pick.toward;
         }
         data.sun_margin = pick.found ? pick.gain / rt::kRelitMinSunGain : 0.0F; // (the verdict's: the fit's gain)
+        // (round relit-misses) the model the level is relit by: the light's strengths over every channel, its colours the
+        // physical sun's and sky's at the bake's own time (the candidates and the verdict read each channel's own fit)
         if (!sunless) {
             set_suns(&pick.suns);
-            model = pick.model;
+            const rt::RelitLightColours colours = colours_toward(&pick.toward);
+            model = rt::fit_relit_model(meshes, light, pick.toward, false, &colours);
         } else {
             set_suns(nullptr);
+            const rt::RelitLightColours colours = colours_toward(nullptr);
+            model = rt::fit_relit_model(meshes, light, up, true, &colours);
         }
+        log_open_colours(meshes, light);
         trace_ms = ms_since(traced);
+        // (reported) the fit as it came out, in the bake's own colours - before the unit: each channel's sun, sky and
+        // bounce coefficients
+        get_log("relit bake: the fit in the bake's colours - sun %.3f %.3f %.3f, sky %.3f %.3f %.3f, bounce %.3f %.3f %.3f "
+                "(%zu dead sun channels)",
+                static_cast<double>(std::get<0>(model.sun)), static_cast<double>(std::get<1>(model.sun)),
+                static_cast<double>(std::get<2>(model.sun)), static_cast<double>(std::get<0>(model.sky)),
+                static_cast<double>(std::get<1>(model.sky)), static_cast<double>(std::get<2>(model.sky)),
+                static_cast<double>(std::get<0>(model.bounce)), static_cast<double>(std::get<1>(model.bounce)),
+                static_cast<double>(std::get<2>(model.bounce)), model.dead_channels);
         const auto fitted = std::chrono::steady_clock::now();
         // (round A2) each lamp's intensity solved from the bake (no level-wide c); (round A3) in every bake - the bake's
         // light tells which were on (told above the fit's noise), no "dark level" or lamps-on guess
@@ -843,7 +975,19 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             bounce_ms = ms_since(bounced);
         }
         data.model = model;
-        const std::vector<std::vector<rt::RelitEmitting>> emitting = emitting_vertices(meshes, lamps);
+        std::unordered_map<rt::MeshId, std::size_t> mesh_of; // (a world mesh's id -> the bake's mesh of its content)
+        {
+            std::unordered_map<uint64_t, std::size_t> by_content;
+            for (std::size_t mi = 0; mi < contents.size(); ++mi) {
+                by_content.emplace(core::at(contents, mi), mi);
+            }
+            for (const auto& [id, content] : content_of) {
+                if (const auto at = by_content.find(content); at != by_content.end()) {
+                    mesh_of.emplace(id, at->second);
+                }
+            }
+        }
+        const std::vector<std::vector<rt::RelitEmitting>> emitting = emitting_vertices(meshes, lamps, mesh_of);
         for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
             rt::RelitDataMesh mesh{.content = core::at(contents, mi), .vertices = std::move(core::at(light, mi))};
             if (mi < links.size()) {

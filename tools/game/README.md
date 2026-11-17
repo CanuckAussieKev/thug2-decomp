@@ -362,6 +362,9 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   repeating it undoes the installs one by one (tools/game/bake_backup.ts).
 - `node tools/game/boot_level.ts <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
   load a level in free skate. `make_menu_level.ts --game <folder>` puts the real one back.
+- `node tools/game/sky_survey.ts [--game <install>] [--levels AP_Sky,can_sky] [--meshes]` - every sky scene's meshes
+  (THUG2's and the data overlay's) read offline and told apart as the renderer's sky does (engine/gfx/sky_parts.h):
+  painted sky, glows, clouds and scenery, with each mesh's facts (holes, faint share, standing share, where it lies).
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:
   `<level> : running after 50 s; responding=True loaded=True CComponent=<in use>/peak <peak>/<count> CStruct=...` or
   the errors (the pools: the log's `script pools in use in <level>` line, written once the level is up -

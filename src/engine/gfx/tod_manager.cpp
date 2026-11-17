@@ -9,6 +9,7 @@
 #include <new>
 #include <span>
 #include <array>
+#include <vector>
 
 #include "engine/memory/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
@@ -253,6 +254,8 @@ struct TodManagerState {
     MultiplayerUnlock multiplayer_unlock_ = nullptr;
     // NOT ORIGINAL - tod_state_sets' count.
     uint64_t state_sets_ = 0;
+    // NOT ORIGINAL - tod_transition_running's: the unique ids of the transition scripts spawned and not seen ended.
+    std::vector<uint32_t> transitions_;
 };
 
 TodManagerState& tod_manager_state()
@@ -280,6 +283,22 @@ void set_multiplayer_unlock(MultiplayerUnlock unlock) noexcept { tod_manager_sta
 MultiplayerUnlock get_multiplayer_unlock() { return tod_manager_state().multiplayer_unlock_; }
 bool tod_lights_locked() { return lights_locked(); }
 uint64_t tod_state_sets() { return tod_manager_state().state_sets_; }
+bool tod_transition_running()
+{
+    std::vector<uint32_t>& running = tod_manager_state().transitions_;
+    std::erase_if(running, [](uint32_t id) { return script::find_script_with_unique_id(id) == nullptr; });
+    return !running.empty();
+}
+
+namespace {
+// NOT ORIGINAL - a transition script spawned: kept until it ends (tod_transition_running).
+void spawn_transition(script::Struct* params)
+{
+    if (const script::Script* spawned = script::spawn_script(kStateTransition, params); spawned != nullptr) {
+        tod_manager_state().transitions_.push_back(spawned->unique_id());
+    }
+}
+} // namespace
 
 uint32_t next_tod_state(uint32_t state)
 {
@@ -1019,7 +1038,7 @@ void CtodManager::update_system(int index)
             if (transition_script_ != 0U) {
                 script_params->put_name_key(checksums::Name{kTransitionScript}, transition_script_);
             }
-            script::spawn_script(kStateTransition, script_params.get());
+            spawn_transition(script_params.get()); // (not original: kept until it ends)
         }
     }
 
@@ -1100,7 +1119,7 @@ void CtodManager::refresh_all(bool temp_state)
         add_bloom_params({.on = current.bloom_on_, .bloom1 = current.bloom1, .bloom2 = current.bloom2, .strength = current.bloom_strength_, .color = current.bloom_color_}, bloom.get());
         params->put_sub_struct(kBloomParams, bloom.get());
         bloom.reset();
-        script::spawn_script(kStateTransition, params.get());
+        spawn_transition(params.get()); // (not original: kept until it ends)
     }
     active_ = was_active;
     const TodParams& current = system_at(this, current_system()).current;

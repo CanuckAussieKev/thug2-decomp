@@ -1661,6 +1661,47 @@ void check_uneven_fit(const Scene& scene, Tally* tally)
     tally->check(parts, "each channel's sky and bounce against its sun within 20% / 25% of the bake's:" + found);
 }
 
+// (round relit-misses) A level whose surfaces are green (its tints a green cast, as a park's grass and foliage): the
+// model fitted with its light's colours (the sun's and the sky's - physical in the relit bake) keeps them - its sky the
+// sky's colour, not the level's - its sky against its sun the bake's in luminance, its bounce one strength in every
+// channel; the green goes into the tints.
+void check_coloured_fit(const Scene& scene, Tally* tally)
+{
+    text::print("the fit with its light's colours over a green level (on the processor):\n");
+    Level level = make_level();
+    constexpr Rgbf kGreenCast{0.75F, 1.2F, 0.7F};
+    for (auto& tints : level.tints) {
+        for (Rgbf& tint : tints) {
+            for (std::size_t ch = 0; ch < tint.size(); ++ch) {
+                core::at(tint, ch) *= core::at(kGreenCast, ch);
+            }
+        }
+    }
+    const std::vector<rt::RelitVertices> light = bake(&level, {.toward = scene.sun, .light = kSunLight}, scene.params);
+    const rt::RelitLightColours colours{.sun = kSunLight, .sky = kSkyLight};
+    const rt::RelitModel model = rt::fit_relit_model(level.meshes, light, scene.sun, false, &colours);
+    const auto chroma = [](const Rgbf& colour) { return rt::scaled(colour, 1.0F / std::max(luma(colour), kTiny)); };
+    const Rgbf sky = chroma(model.sky);
+    const Rgbf true_sky = chroma(kSkyLight);
+    bool same_colour = model.valid;
+    for (std::size_t ch = 0; ch < sky.size(); ++ch) {
+        same_colour = same_colour && std::abs(core::at(sky, ch) - core::at(true_sky, ch)) < 0.01F;
+    }
+    const float ratio = luma(model.sky) / std::max(luma(model.sun), kTiny);
+    const float true_ratio = luma(kSkyLight) / luma(kSunLight);
+    const bool grey_bounce = std::get<0>(model.bounce) == std::get<1>(model.bounce) &&
+                             std::get<1>(model.bounce) == std::get<2>(model.bounce);
+    tally->check(same_colour && grey_bounce && std::abs(ratio - true_ratio) < 0.25F * true_ratio,
+                 text::format("the sky's colour its own (%.2f %.2f %.2f against %.2f %.2f %.2f), sky over sun %.3f "
+                              "(%.3f), one bounce strength (%.3f %.3f %.3f)",
+                              static_cast<double>(std::get<0>(sky)), static_cast<double>(std::get<1>(sky)),
+                              static_cast<double>(std::get<2>(sky)), static_cast<double>(std::get<0>(true_sky)),
+                              static_cast<double>(std::get<1>(true_sky)), static_cast<double>(std::get<2>(true_sky)),
+                              static_cast<double>(ratio), static_cast<double>(true_ratio),
+                              static_cast<double>(std::get<0>(model.bounce)), static_cast<double>(std::get<1>(model.bounce)),
+                              static_cast<double>(std::get<2>(model.bounce))));
+}
+
 // (added by lighting round 4) The rays meeting casters the bake didn't have (the traced geometry's own: cut-outs, night
 // pieces, other meshes): slabs high up the bake never saw throw traced shadows over the ground where the bake is sunlit
 // (hiding little of its sky) - more traced borders than the bake's own. Their borders show no step in the bake, and
@@ -2403,6 +2444,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         Scene uneven;
         uneven.sun = unit(kSunToward);
         check_uneven_fit(uneven, tally);
+        check_coloured_fit(uneven, tally);
         check_unbaked_casters(uneven, tally);
         check_made_vertices(uneven, tally);
     }

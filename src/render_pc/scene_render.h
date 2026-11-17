@@ -20,6 +20,9 @@ constexpr int kRenderStats = 0x40;      // count the pass (0x00775B80)
 struct ScenePass {
     uint32_t flags{};
     int viewport{};
+    // Not original - (the sky's parts, sky_scenery.h) only the meshes this says yes to drawn; null: all. Original
+    // behaviour: all.
+    bool (*keep)(const MeshRef* mesh) = nullptr;
 };
 
 // 0x004DC700: draw a scene's meshes for viewport `viewport` (a mesh's +0x1B holds a bit per viewport it shows in),
