@@ -49,6 +49,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/facade_relief.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/smooth_tess.h"
@@ -1154,7 +1155,13 @@ Opened open_device(const Options& options, SDL_Window* window)
                                         window);
     // (on before the device: its depth surfaces are made samplable)
     render::vulkan::set_rt_shadow_settings({.on = true});
-    render::rt::set_direct_share(kStrength); // (the lighting state's direct share: what a full shadow takes away)
+    // (the lighting state's one direct share - rt_daylight.h direct_share_now: what a full shadow takes away)
+    render::rt::DayLight day;
+    day.on = true;
+    day.light = {0.0F, 1.0F, 0.0F}; // (the light overhead: its share kStrength of a level surface's light)
+    day.sun_light = {kStrength, kStrength, kStrength};
+    day.sky_light = {1.0F - kStrength, 1.0F - kStrength, 1.0F - kStrength};
+    render::rt::set_day_light(day);
     render::GpuContext& context = render::vulkan::gpu_context();
     if (!context.create_instance()) {
         text::print("the device could not be opened\n");

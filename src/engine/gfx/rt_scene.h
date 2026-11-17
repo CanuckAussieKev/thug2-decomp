@@ -510,6 +510,10 @@ struct BakedSun {
     // found (the ground stands for it).
     float street = 0.0F;
     bool street_known = false;
+    // (lighting round A2) the search's candidates - its best, then the coarse set's next best apart from it and from
+    // each other (rt_sun.h kSunCandidates): toward x, y, z and the score. The relit bake picks the baked sun among them
+    // by its own fit (render_pc/relit_bake.cpp); not kept in the level's data.
+    std::vector<std::array<float, 4>> candidates;
 };
 void set_baked_sun(BakedSun sun);
 const BakedSun& baked_sun();

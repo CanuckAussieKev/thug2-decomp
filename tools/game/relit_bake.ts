@@ -17,7 +17,9 @@
 // made from the meshes the game makes now is the game's own check: an out-of-date file is reported in the game).
 // --minutes: a level's bake given up after this long (the game closed). One game at a time; refused while a game runs
 // from the folder (the user may be playing) - it never closes a game it didn't start. Nothing here goes online.
-// Writes <game>\thug2-decomp-relit\bake-report.txt (a line per level: its verdict, its counts) and each level's game log
+// Writes <game>\thug2-decomp-relit\bake-report.txt (a line per level: its verdict, its counts), state-table.txt (lighting
+// round A2: each level's lighting state from its own data - stateRow - with the levels whose evidence disagrees flagged)
+// and each level's game log
 // as thug2-decomp-relit\logs\<level>.log. A level is made only when the game wrote its data and ended with 0; the game
 // bakes only the level asked for (its load script running, its world the scene its level structure names) and ends with
 // 2 when the level never came up, 3 when it came up with another scene - FAILED in the report, with the log's reason.
@@ -63,6 +65,9 @@ export interface BakeResult {
     // (lighting round A) the level's lighting state as its own data shows it: its time-of-day state at load, the baked
     // sun's confidence, the brightest surfaces against the median, its glows / self-lit triangles / lamps
     evidence: string | null;
+    // (lighting round A2) the evidence's parts (stateOf) and the lamps' solve
+    state: LevelState | null;
+    lampsSolved: string | null; // "<told> of <all>"
     failure: string | null; // why nothing was written ("relit bake: FAILED - ..." / "start level: ...")
 }
 
@@ -71,6 +76,85 @@ export const EXIT_CODES: Readonly<Record<number, string>> = {
     2: "the level never came up",
     3: "the level came up with another scene",
 };
+
+// (lighting round A2) A level's lighting state as its bake's evidence line gives it - from its own data, never assumed.
+export interface LevelState {
+    tod: string; // its own time-of-day state at load
+    sun: boolean; // the relit fit found a sun ...
+    confidence: number; // ... carrying this share of the light
+    elevation: number; // ... this many degrees up
+    lamps: number;
+    dark: boolean; // its median vertex brightness at most rt_lights.h kDarkLevelLuma
+    openSky: number; // the median share of the sky its upward faces see (0 under a roof)
+    sky: number; // the bake's own sky light on a level surface in the global unit (green)
+    daylight: number; // the bake's own daylight over the physical at its sun (0: no sun)
+    brightest: number; // its brightest 5% over its median
+}
+
+export function stateOf(evidence: string): LevelState | null {
+    const m =
+        /own time of day (\S+); the baked sun's confidence ([\d.]+) \((a sun|no sun), (-?[\d.]+) degrees up\); vertex light median [\d.]+, brightest 5% from [\d.]+ \(x([\d.]+)\); \d+ glow and \d+ self-lit triangles, (\d+) lamps \((a dark|a lit) level\); upward faces see ([\d.]+) of the sky \(median\); the bake's sky [\d.]+ ([\d.]+) [\d.]+ in the global unit, its daylight ([\d.]+) of the physical/.exec(
+            evidence,
+        );
+    if (!m) return null;
+    return {
+        tod: m[1]!,
+        sun: m[2] !== undefined && m[3] === "a sun",
+        confidence: Number(m[2]),
+        elevation: Number(m[4]),
+        brightest: Number(m[5]),
+        lamps: Number(m[6]),
+        dark: m[7] === "a dark",
+        openSky: Number(m[8]),
+        sky: Number(m[9]),
+        daylight: Number(m[10]),
+    };
+}
+
+// Indoors when the level's upward faces see under this share of the sky (median); outdoors over OUTDOOR_SKY.
+export const INDOOR_SKY = 0.15;
+export const OUTDOOR_SKY = 0.4;
+
+// Where a level's own evidence disagrees with itself (lighting round A2: "every level's day/night state must be verified
+// from its own data"): its time-of-day state against the sun its bake shows, the sky its floors see, its brightness.
+export function disagreements(state: LevelState): string[] {
+    const out: string[] = [];
+    const day = state.tod === "morning" || state.tod === "afternoon";
+    if (state.tod === "night" && state.sun && state.elevation > 10)
+        out.push(`a night state, but its bake shows a sun ${state.elevation.toFixed(0)} degrees up`);
+    if (state.tod === "evening" && state.sun && state.elevation > 30)
+        out.push(`an evening state, but its bake's sun is ${state.elevation.toFixed(0)} degrees up`);
+    if (day && !state.sun && state.openSky >= OUTDOOR_SKY)
+        out.push(
+            `a ${state.tod} state outdoors (its floors see ${state.openSky.toFixed(2)} of the sky), but no sun found`,
+        );
+    if (state.sun && state.openSky < INDOOR_SKY)
+        out.push(`a sun found, but its floors see only ${state.openSky.toFixed(2)} of the sky (indoors)`);
+    if (day && state.dark && state.openSky >= OUTDOOR_SKY) out.push(`a ${state.tod} state outdoors, but a dark level`);
+    if (!day && !state.dark && !state.sun && state.openSky >= OUTDOOR_SKY && state.lamps === 0)
+        out.push(`a ${state.tod} state outdoors, lit, with no sun and no lamps`);
+    return out;
+}
+
+export function stateRow(level: string, result: BakeResult): string {
+    const st = result.state;
+    if (!st) return `${level}	-	-	-	-	-	-	-	-	(no evidence line)`;
+    const place = st.openSky < INDOOR_SKY ? "indoors" : st.openSky >= OUTDOOR_SKY ? "outdoors" : "partly roofed";
+    const flags = disagreements(st);
+    return [
+        level,
+        st.tod,
+        st.sun
+            ? `sun ${st.elevation.toFixed(0)} deg (${st.confidence.toFixed(2)})`
+            : `no sun (${st.confidence.toFixed(2)})`,
+        `sky ${st.sky.toFixed(3)}, daylight x${st.daylight.toFixed(2)}`,
+        `${st.lamps} lamps${result.lampsSolved ? ` (${result.lampsSolved} solved)` : ""}`,
+        `${place} (${st.openSky.toFixed(2)})`,
+        st.dark ? "dark" : "lit",
+        `brightest x${st.brightest.toFixed(2)}`,
+        flags.length ? `DISAGREES: ${flags.join("; ")}` : "agrees",
+    ].join("\t");
+}
 
 export function parseBakeLog(log: string): BakeResult {
     const out: BakeResult = {
@@ -84,6 +168,8 @@ export function parseBakeLog(log: string): BakeResult {
         sun: null,
         lampTerm: null,
         evidence: null,
+        state: null,
+        lampsSolved: null,
         failure: null,
     };
     const failure =
@@ -109,7 +195,12 @@ export function parseBakeLog(log: string): BakeResult {
         out.lampTerm = model[2]!;
     }
     const evidence = /relit bake: evidence - (.*)/.exec(log);
-    if (evidence) out.evidence = evidence[1]!.trim();
+    if (evidence) {
+        out.evidence = evidence[1]!.trim();
+        out.state = stateOf(out.evidence);
+    }
+    const solved = /relit bake: the lamps' solve - [\d ]+ edges, (\d+ of \d+) lamps told/.exec(log);
+    if (solved) out.lampsSolved = solved[1]!;
     const file = /relit bake: (wrote|couldn't write) (\S+\.relit)/.exec(log);
     if (file) {
         out.written = file[1] === "wrote";
@@ -233,6 +324,7 @@ async function main(): Promise<number> {
     const logs = path.join(folder, "logs");
     fs.mkdirSync(logs, { recursive: true });
     const lines: string[] = [];
+    const states: string[] = [];
     let failed = 0;
     for (const level of chosen) {
         const running = runningGames().filter(
@@ -254,6 +346,7 @@ async function main(): Promise<number> {
             ) {
                 print(`${level.load}: built already (${path.basename(before.file)}) - left`);
                 lines.push(reportLine(level.load, 0, before));
+                states.push(stateRow(level.load, before));
                 continue;
             }
         }
@@ -264,10 +357,16 @@ async function main(): Promise<number> {
         const result = parseBakeLog(log);
         const line = reportLine(level.load, code, result);
         lines.push(line);
+        if (bakeMade(code, result)) states.push(stateRow(level.load, result));
         failed += bakeMade(code, result) ? 0 : 1;
         print(`  ${line.replaceAll("\t", "  ")}  (${((Date.now() - started) / 1000).toFixed(0)} s)`);
     }
     fs.writeFileSync(path.join(folder, "bake-report.txt"), `${lines.join("\n")}\n`);
+    const header =
+        "level\ttod at load\tthe relit fit's sun (share)\tthe bake's sky\tlamps\tindoors / outdoors (floors' sky)\tdark / lit\tbrightest\tevidence";
+    fs.writeFileSync(path.join(folder, "state-table.txt"), `${[header, ...states].join("\n")}\n`);
+    const flagged = states.filter((row) => row.includes("DISAGREES")).length;
+    print(`the levels' lighting states: state-table.txt (${flagged} whose evidence disagrees)`);
     print(`${chosen.length - failed} of ${chosen.length} levels' relit data made in ${folder} (bake-report.txt)`);
     return failed === 0 ? 0 : 1;
 }

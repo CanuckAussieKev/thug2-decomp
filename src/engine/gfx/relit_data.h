@@ -42,9 +42,12 @@ namespace render::rt {
 
 inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // (2: the meshes keyed without their colours; 3 - lighting round A: tints with none of the bake's light, no residual /
-// missed sun / scale / agreement grid, sunless bakes relit, the lamps' list. A file of another version is out of date:
-// the game says to run relit_bake.)
-inline constexpr uint32_t kRelitDataVersion = 3;
+// missed sun / scale / agreement grid, sunless bakes relit, the lamps' list; 4 - round A2: one light unit - the tints
+// albedos, the model's light the level's own in the global unit, the bake's exposure -, the baked sun picked by the
+// relit fit, the lamps' intensities solved with their shapes and photometry, the emissive triangles; 5 - the bake's
+// colours decoded before the fit (round F's display-referred colours: the albedos and the light linear, the colour
+// word encoded). A file of another version is out of date: the game says to run relit_bake.)
+inline constexpr uint32_t kRelitDataVersion = 5;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.
@@ -61,6 +64,15 @@ enum class RelitVerdict : uint8_t {
     return verdict == RelitVerdict::kRelit || verdict == RelitVerdict::kRelitSunless;
 }
 [[nodiscard]] const char* relit_verdict_name(RelitVerdict verdict);
+
+// (lighting round A2 - a path tracer's emitters) An emissive triangle of the level (rt_lights.h: a glow's or a self-lit
+// one) with the radiance its lamp's solved intensity gives it (a Lambertian emitter: the intensity over pi, in the global
+// unit) and its lamp in the list (kNoEmitter: none - its light dropped as dark).
+struct RelitEmissive {
+    std::array<Vec3, 3> corners{};
+    Rgbf radiance{};
+    uint32_t lamp = kNoEmitter;
+};
 
 struct RelitDataMesh {
     uint64_t content = 0;
@@ -79,6 +91,7 @@ struct RelitLevelData {
     uint32_t sun_rays = 0;
     uint32_t lamps = 0;   // the lamps the L term was traced from (lamp_list's size)
     std::vector<RelitLamp> lamp_list;
+    std::vector<RelitEmissive> emissive; // (round A2)
     // the verdict's margins: the baked sun's confidence over rt_sun.h kMinConfidence, the model's sun (luma) over the
     // least that counts as sunlight - both at least kRelitVerdictMargin to be relit
     float sun_margin = 0.0F;

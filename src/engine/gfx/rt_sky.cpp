@@ -203,6 +203,8 @@ double sky_exposure()
     return kExposure;
 }
 
+double unit_illuminance() { return kSolarIlluminance * kPi / sky_exposure(); }
+
 double sun_solid_angle() { return 2.0 * kPi * (1.0 - std::cos(kSunAngularRadius)); }
 
 Rgb sun_disc_radiance(double elevation)
@@ -693,6 +695,53 @@ GroundLight ground_light(double elevation, const Aerosol& air)
             const Dir view{std::cos(e) * std::cos(azimuth), std::sin(e), std::cos(e) * std::sin(azimuth)};
             out.sky += 2.0 * luma(sky_radiance_ms(view, sun, kViewSteps, table, air)) * std::sin(e) * std::cos(e) *
                        ring * across;
+        }
+    }
+    return out;
+}
+
+std::vector<GroundLightRgb> ground_light_table(double lowest, std::size_t count, const Aerosol& air)
+{
+    constexpr uint32_t kLightSteps = 64;
+    constexpr MultipleSteps kTableSteps{.steps = 10, .light = 8};
+    MultipleTable table(static_cast<std::size_t>(kMultipleWidth) * kMultipleHeight);
+    for (uint32_t row = 0; row < kMultipleHeight; ++row) {
+        const double altitude = (static_cast<double>(row) + kHalf) / kMultipleHeight * (kTopRadius - kGroundRadius);
+        for (uint32_t column = 0; column < kMultipleWidth; ++column) {
+            const double cos_sun = (((static_cast<double>(column) + kHalf) / kMultipleWidth) * 2.0) - 1.0;
+            core::at(table, (static_cast<std::size_t>(row) * kMultipleWidth) + column) =
+                multiple_scattering({.altitude = altitude, .cos_sun = cos_sun}, kTableSteps, air);
+        }
+    }
+    constexpr std::size_t kRings = 8;
+    constexpr std::size_t kAzimuths = 8;
+    constexpr SkySteps kViewSteps{.view = 32, .light = 16};
+    const double ring = (kPi / 2.0) / static_cast<double>(kRings);
+    const double across = kPi / static_cast<double>(kAzimuths);
+    const double unit = sky_exposure() / kPi;
+    constexpr double kRadiansPerDegree = kPi / 180.0;
+    std::vector<GroundLightRgb> out(count);
+    for (std::size_t entry = 0; entry < count; ++entry) {
+        const double elevation = (lowest + static_cast<double>(entry)) * kRadiansPerDegree;
+        GroundLightRgb& here = core::at(out, entry);
+        if (elevation > 0.0) {
+            const Rgb through = sun_transmittance(elevation, kLightSteps, air);
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                core::at(here.sun, ch) = core::at(through, ch) * unit;
+            }
+        }
+        const Dir sun = sun_direction_at(elevation);
+        for (std::size_t r = 0; r < kRings; ++r) {
+            const double e = (static_cast<double>(r) + kHalf) * ring;
+            for (std::size_t a = 0; a < kAzimuths; ++a) {
+                const double azimuth = (static_cast<double>(a) + kHalf) * across;
+                const Dir view{std::cos(e) * std::cos(azimuth), std::sin(e), std::cos(e) * std::sin(azimuth)};
+                const Rgb radiance = sky_radiance_ms(view, sun, kViewSteps, table, air);
+                for (std::size_t ch = 0; ch < 3; ++ch) {
+                    core::at(here.sky, ch) +=
+                        2.0 * core::at(radiance, ch) * std::sin(e) * std::cos(e) * ring * across * unit;
+                }
+            }
         }
     }
     return out;

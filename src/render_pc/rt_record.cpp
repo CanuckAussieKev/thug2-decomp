@@ -1269,6 +1269,31 @@ float median_luma()
     return *middle;
 }
 
+// (lighting round A2) The world's winding: +1 when its triangles' (b - a) x (c - a) points out of their front, -1 when
+// into it - the sign that turns most of its upward-facing area up (floors outnumber ceilings: rt_relit.h relit_facing's
+// rule, over the same meshes the samples read).
+float world_facing()
+{
+    constexpr float kUpNormal = 0.7F;
+    double signed_area = 0.0;
+    for (const MeshTriangles& mesh : sampled_meshes(false)) {
+        for (uint32_t t = 0; t < mesh.count(); ++t) {
+            std::array<uint32_t, 3> corner{};
+            if (!mesh.corners(t, &corner)) {
+                continue;
+            }
+            const auto [one, two, three] = corner;
+            const rt::Vec3 a = mesh.position(one);
+            const rt::Vec3 normal = rt::cross(rt::minus(mesh.position(two), a), rt::minus(mesh.position(three), a));
+            const float length = std::sqrt(rt::dot(normal, normal));
+            if (length > 0.0F && std::abs(rt::y_of(normal)) >= kUpNormal * length) {
+                signed_area += rt::y_of(normal) > 0.0F ? length : -length;
+            }
+        }
+    }
+    return signed_area < 0.0 ? -1.0F : 1.0F;
+}
+
 void emitter_work()
 {
     State& st = state();
@@ -1281,6 +1306,11 @@ void emitter_work()
     found.serial = ++st.emitter_sets;
     found.median_luma = median_luma();
     found.dark = rt::dark_level(found.median_luma);
+    // (lighting round A2 - indoor ceiling lights) a level whose bake shows no sun is looked at for self-lit surfaces
+    // however bright it is: its brightest surfaces are its lamps (rt_lights.h)
+    const rt::BakedSun& searched = rt::baked_sun();
+    const bool sunless = searched.scene != 0 && !searched.found;
+    const float facing = world_facing();
     std::vector<rt::EmitterTriangle> triangles;
     for (const MeshRef* mesh : st.world) {
         if (!mesh_shown(mesh)) {
@@ -1295,7 +1325,7 @@ void emitter_work()
         const uint32_t mode = blend_mode(material, 0);
         const bool opaque = (entry->second.material.flags & (rt::kTransparent | rt::kAlphaTested)) == 0U &&
                             (mode == kBlendNone || mode == static_cast<uint32_t>(kBlendModeVertexTexAlpha));
-        if (!glow && !(found.dark && opaque)) {
+        if (!glow && !((found.dark || sunless) && opaque)) {
             continue;
         }
         std::vector<MeshTriangles> read;
@@ -1312,7 +1342,7 @@ void emitter_work()
             const auto [one, two, three] = corner;
             if (!glow && !rt::self_lit_triangle(std::min({tris.brightness(one), tris.brightness(two),
                                                           tris.brightness(three)}),
-                                                found.median_luma)) {
+                                                found.median_luma, sunless)) {
                 continue;
             }
             rt::EmitterTriangle triangle{.corners = {tris.position(one), tris.position(two), tris.position(three)},
@@ -1329,7 +1359,17 @@ void emitter_work()
             triangles.push_back(triangle);
         }
     }
-    found.emitters = rt::cluster_emitters(triangles);
+    found.emitters = rt::cluster_emitters(triangles, &found.triangle_emitter, facing);
+    // (lighting round A2 - one lamp model) a level relit from its data shines its data's lamps - their intensities
+    // solved from the bake, in the global unit - not the brightness found here (the bake itself finds them)
+    if (!relit_bake::requested()) {
+        std::vector<rt::Emitter> solved;
+        if (rt_relit_world::data_emitters(&solved)) {
+            found.emitters = std::move(solved);
+            found.triangle_emitter.clear();
+        }
+    }
+    found.triangles = std::move(triangles); // (lighting round A2: a path tracer's emissive triangles - the relit data's)
     const auto glows = std::ranges::count_if(found.emitters,
                                              [](const rt::Emitter& e) { return e.kind == rt::EmitterKind::kGlow; });
     const auto points = std::ranges::count_if(rt::frame_record().lights, [](const rt::Light& light) {
@@ -1339,7 +1379,8 @@ void emitter_work()
             "is %s, median brightness %.0f of 128) and %td point lights on now - %.0f ms",
             found.emitters.size(), glows, found.glow_triangles,
             static_cast<std::ptrdiff_t>(found.emitters.size()) - glows, found.self_lit_triangles,
-            found.dark ? "dark" : "not dark: no self-lit", static_cast<double>(found.median_luma), points,
+            found.dark ? "dark" : (sunless ? "not dark, but its bake's search shows no sun: self-lit looked for" : "not dark: no self-lit"),
+            static_cast<double>(found.median_luma), points,
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
     rt::set_level_emitters(std::move(found));
 }

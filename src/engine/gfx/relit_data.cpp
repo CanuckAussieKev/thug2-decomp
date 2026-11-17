@@ -249,7 +249,8 @@ std::string write_relit_data(const RelitLevelData& data)
     out.put3(model.toward);
     out.put3(model.sun);
     out.put3(model.sky);
-    out.put3(model.day_sky);
+    out.put(model.albedo_scale);
+    out.put(model.daylight_ratio);
     out.put3(model.bounce);
     out.put3(model.lamps);
     out.put(model.error);
@@ -263,6 +264,23 @@ std::string write_relit_data(const RelitLevelData& data)
         out.put3(lamp.light);
         out.put(lamp.core);
         out.put(lamp.reach);
+        out.put(static_cast<uint32_t>(lamp.shape));
+        out.put3(lamp.axis);
+        out.put(lamp.half_length);
+        out.put(lamp.candela);
+        out.put(lamp.lumens);
+        out.put(lamp.kelvin);
+        out.put(static_cast<uint32_t>(lamp.solved ? 1 : 0));
+        out.put(static_cast<uint32_t>(lamp.kind));
+    }
+    // the emissive triangles
+    out.put(static_cast<uint32_t>(data.emissive.size()));
+    for (const RelitEmissive& triangle : data.emissive) {
+        for (const Vec3& corner : triangle.corners) {
+            out.put3(corner);
+        }
+        out.put3(triangle.radiance);
+        out.put(triangle.lamp);
     }
     // the meshes
     out.put(static_cast<uint32_t>(data.meshes.size()));
@@ -323,8 +341,8 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
     uint32_t sunless = 0;
     uint64_t vertices = 0;
     if (!in.get(&valid) || !in.get(&sunless) || !in.get3(&model.toward) || !in.get3(&model.sun) ||
-        !in.get3(&model.sky) || !in.get3(&model.day_sky) || !in.get3(&model.bounce) || !in.get3(&model.lamps) ||
-        !in.get(&model.error) || !in.get(&vertices) || !in.get(&model.sun_needed)) {
+        !in.get3(&model.sky) || !in.get(&model.albedo_scale) || !in.get(&model.daylight_ratio) || !in.get3(&model.bounce) ||
+        !in.get3(&model.lamps) || !in.get(&model.error) || !in.get(&vertices) || !in.get(&model.sun_needed)) {
         return fail("cut short (the model)");
     }
     model.valid = valid != 0;
@@ -336,9 +354,29 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
     }
     data.lamp_list.resize(lamps);
     for (RelitLamp& lamp : data.lamp_list) {
+        uint32_t shape = 0;
+        uint32_t solved = 0;
+        uint32_t kind = 0;
         if (!in.get3(&lamp.position) || !in.get(&lamp.size) || !in.get3(&lamp.light) || !in.get(&lamp.core) ||
-            !in.get(&lamp.reach)) {
+            !in.get(&lamp.reach) || !in.get(&shape) || !in.get3(&lamp.axis) || !in.get(&lamp.half_length) ||
+            !in.get(&lamp.candela) || !in.get(&lamp.lumens) || !in.get(&lamp.kelvin) || !in.get(&solved) ||
+            !in.get(&kind) || shape > static_cast<uint32_t>(EmitterShape::kLine) ||
+            kind > static_cast<uint32_t>(EmitterKind::kPoint)) {
             return fail("cut short (a lamp)");
+        }
+        lamp.shape = static_cast<EmitterShape>(shape);
+        lamp.kind = static_cast<EmitterKind>(kind);
+        lamp.solved = solved != 0;
+    }
+    uint32_t emissive = 0;
+    if (!in.get(&emissive) || emissive > kMostVertices) {
+        return fail("cut short (the emissive triangles)");
+    }
+    data.emissive.resize(emissive);
+    for (RelitEmissive& triangle : data.emissive) {
+        if (!in.get3(&core::at(triangle.corners, 0)) || !in.get3(&core::at(triangle.corners, 1)) ||
+            !in.get3(&core::at(triangle.corners, 2)) || !in.get3(&triangle.radiance) || !in.get(&triangle.lamp)) {
+            return fail("cut short (an emissive triangle)");
         }
     }
     uint32_t meshes = 0;

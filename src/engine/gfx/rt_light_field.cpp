@@ -343,21 +343,6 @@ LocalLight LightField::local_at(const FieldPoint& point) const
     return out;
 }
 
-namespace {
-std::atomic<float>& direct_share_slot()
-{
-    static std::atomic<float> slot{kDefaultDirectShare};
-    return slot;
-}
-} // namespace
-
-void set_direct_share(float share)
-{
-    direct_share_slot().store(std::isfinite(share) ? std::clamp(share, 0.0F, 1.0F) : kDefaultDirectShare,
-                              std::memory_order_relaxed);
-}
-
-float direct_share() { return direct_share_slot().load(std::memory_order_relaxed); }
 
 void set_light_field(std::shared_ptr<const LightField> field)
 {

@@ -92,6 +92,11 @@ void buffer_written(const VertexBufferData* buffer);
 // (added by the camera effects) The level's main scene - the first world scene that isn't a sky -, its checksum (0:
 // none): rt_grade=level's key.
 [[nodiscard]] uint32_t level_scene();
+// (lighting round A2 - one lamp model) The level's lamps as its relit data solved them (their intensities in the global
+// unit, their shapes) when the world now loaded is relit from its data - the lights the lamps pass shines in place of
+// the emitters found at load (rt_record.cpp emitter_work); the level's own point lights stay the game's. False: no data
+// for this world (the found emitters stay).
+bool data_emitters(std::vector<rt::Emitter>* out);
 // The baked colours of a buffer the mode has written into (A8R8G8B8, a word a vertex), or empty: it holds its own.
 [[nodiscard]] std::span<const uint32_t> original_colours(const VertexBufferData* buffer);
 // How the skater's and the objects' lights follow the relit world (pc_lights.cpp): while the world is relit by a sun

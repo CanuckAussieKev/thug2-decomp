@@ -54,7 +54,8 @@
 //     - darkened: pixels darker by more than the threshold - at most 80% of the picture (a spot can stand in the bake's
 //       own shadow: z_ho's start), and at least 0.5% in one spot or more (shadows are drawn somewhere);
 //     - the darkened pixels' median brightness ratio (on / off) from 1 - strength - 0.2 to 0.9, where 1% of the picture
-//       or more is darkened (1 - strength is a full shadow; the sky test and the bake's agreement let in shares of one);
+//       or more is darkened (1 - strength is a full shadow - strength the lighting's direct share, --strength, 0.85 by
+//       default: no setting since lighting round A);
 //     - the sun lines up with the bake: over every spot, the pixels the level lit darker in `off` (its luma under the
 //       picture's Otsu threshold: baked-dark) darkened at least 1.5 times as often as the ones it lit brighter
 //       (baked-bright) - a sun the bake wasn't made with darkens both alike;
@@ -1582,41 +1583,39 @@ async function main(): Promise<number> {
         if (eq <= 0) exitWith(`--set Section.key=value (${s})`);
         set[s.slice(0, eq)] = s.slice(eq + 1);
     }
-    // (the ini's defaults when not given: rt_shadow_strength 0.5, rt_ao_strength 0.6, rt_reflection_strength 0.5 -
-    // gpu_vulkan.h)
-    const strengthKey = {
-        shadows: "Graphics.rt_shadow_strength",
+    // The effect's strength: its ini key where it has one (--set's value), else --strength, else the default. Shadows
+    // have no strength setting (rt_shadow_strength is retired - lighting round A): a full shadow takes the lighting's
+    // direct share of the light (rt_daylight.h direct_share_now - the model's: about 0.85 with the sun high in the clear
+    // air), so --strength there is that share; rt_relit_strength and rt_bloom_strength are retired too (relit, sun).
+    const strengthKeys: Partial<Record<Effect, string>> = {
         ao: "Graphics.rt_ao_strength",
         reflections: "Graphics.rt_reflection_strength",
         hdr: "Graphics.rt_exposure",
         fog: "Graphics.rt_fog_density",
         gi: "Graphics.rt_gi_strength",
-        sun: "Graphics.rt_bloom_strength",
         sky: "Graphics.rt_cloud_coverage",
         tess: "Graphics.rt_tess_max_deviation",
-        relit: "Graphics.rt_relit_strength",
         upscale: "Graphics.upscale_sharpness",
         pbr: "Graphics.rt_pbr_specular",
-        "sun-source": "Graphics.rt_relit_strength",
-    }[effect];
+    };
+    const strengthKey = strengthKeys[effect];
+    const defaults: Record<Effect, string> = {
+        shadows: "0.85",
+        ao: "0.6",
+        reflections: "0.5",
+        hdr: "0.5",
+        fog: "0.5",
+        gi: "1",
+        sun: "0.05",
+        sky: "0.8",
+        tess: "2",
+        relit: "1",
+        upscale: "0",
+        pbr: "1",
+        "sun-source": "1",
+    };
     const strength = Number(
-        set[strengthKey] ??
-            values.strength ??
-            {
-                shadows: "0.5",
-                ao: "0.6",
-                reflections: "0.5",
-                hdr: "0.5",
-                fog: "0.5",
-                gi: "1",
-                sun: "0.05",
-                sky: "0.8",
-                tess: "2",
-                relit: "1",
-                upscale: "0",
-                pbr: "1",
-                "sun-source": "1",
-            }[effect],
+        (strengthKey !== undefined ? set[strengthKey] : undefined) ?? values.strength ?? defaults[effect],
     );
     const limits: Limits = { ...LIMITS, expect, strength, effect };
     const threshold = Number(values.threshold);

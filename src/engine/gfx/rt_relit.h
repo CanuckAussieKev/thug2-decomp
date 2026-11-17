@@ -66,6 +66,7 @@
 #include <string_view>
 #include <vector>
 
+#include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 
@@ -77,6 +78,11 @@ inline constexpr uint32_t kRelitSkyRays = 24;     // (the game's: the bounce tra
 inline constexpr uint32_t kRelitMaxSkyRays = 256;
 inline constexpr uint32_t kRelitSunRays = 4;      // (the game's: the sun traced again as it moves)
 inline constexpr uint32_t kRelitMaxSunRays = 64;
+// (lighting round A2 - the bounce judged by energy) The bounce passes the game makes for each light
+// (render_pc/rt_relit_world.cpp rebounce): each pass reads the colours the last one left, so after n passes the world
+// holds up to n + 1 orders of interreflection - the series a path tracer sums (with albedos under 1 the orders past the
+// third add a few percent).
+inline constexpr uint32_t kRelitBouncePasses = 3;
 inline constexpr uint32_t kRelitBakeSkyRays = 128; // the relit bake's (offline: no time limit)
 inline constexpr uint32_t kRelitBakeSunRays = 32;
 inline constexpr float kRelitSunRadiusDegrees = 1.5F;
@@ -100,11 +106,6 @@ inline constexpr float kRelitLocalReach = 160.0F;
 inline constexpr float kRelitLocalFacing = 0.5F;
 inline constexpr float kRelitLocalLeastWeight = 0.5F;
 inline constexpr float kRelitLocalOver = 1.25F;
-// (a bake with no sun - night, indoors) the daylight a sunless level is lit by when the clock brings the sun: the
-// median of the 63 sunlit bakes' fitted sun and sky (light units, at their own suns - tints' median 1 in every level), the
-// lighting state's reference day (rt_daylight.h: its light over a sun kDefaultSunElevation up) times these
-inline constexpr Rgbf kRelitDaySun{0.36F, 0.33F, 0.26F};
-inline constexpr Rgbf kRelitDaySky{0.57F, 0.58F, 0.61F};
 inline constexpr float kRelitPerByte = 1.0F / 128.0F; // a colour byte as light: 128 is 1 (the passes double it)
 inline constexpr float kRelitMaxValue = 255.0F / 128.0F;
 
@@ -198,11 +199,17 @@ struct RelitModel {
     Rgbf sky{};    // b
     Rgbf bounce{}; // g
     Rgbf lamps{};  // c - the bake's lamp light (c x L: taken out of the tints; the relit lamps are L as the lamps shine)
-    // (lighting round A) the bake shows no sun (night, indoors: rt_sun.h's fit found none) - its light the sky, the
-    // bounce and the lamps; `sun` is then kRelitDaySun, the daylight the clock's sun brings (never at the level's own
-    // time), and day_sky kRelitDaySky
+    // (lighting round A) the bake shows no sun (night, indoors: the relit fit found none) - its light the sky, the
+    // bounce and the lamps; the clock's sun brings daylight from the physical sky (rt::DayLight), like every level's
     bool sunless = false;
-    Rgbf day_sky{}; // the sky's light at the lighting state's reference day (the bake's `sky` where it has a sun)
+    // (lighting round A2 - one light unit) relit_to_unit's: the fit's bounce coefficient g (luma) - the tints x it are
+    // albedos, the bake's light / it in the global unit (the game's colours are radiance in that unit: a white
+    // diffuser under the reference day shows 1). Once the data is made, sun / sky are the level's own-time light in the
+    // global unit (rt_daylight.h: the physical sun per N.L - none in a sunless bake - and sky) and bounce / lamps 1.
+    float albedo_scale = 1.0F;
+    // (reported) the bake's own daylight on a level surface toward its sun (a S + b, / g) over the physical day's there:
+    // how far its artists' light is from the physical sky's (1: the same; 0: a sunless bake)
+    float daylight_ratio = 0.0F;
     float error = 0.0F;       // the fit's median residual (relative: an edge's light ratio against its colours')
     std::size_t vertices = 0; // that the fit used
     float sun_needed =
@@ -223,8 +230,11 @@ struct RelitModel {
     std::size_t dead_channels = 0;
     // (the offline relit data; reported) the lamps' fit: its edges' votes per channel and their weighted median before it
     // is held at 0; the vertices the bake's sunlight was taken out of the tint at (relit_sun_in_tint)
-    std::array<std::size_t, 3> lamp_votes{};
-    Rgbf lamp_median{};
+    std::array<std::size_t, 3> lamp_votes{}; // (round A2) the lamps' solve: the edges it was told by per channel
+    Rgbf lamp_median{};                      // ... and the solved lamps' median intensity over their found brightness
+    std::size_t lamps_solved = 0;            // the lamps the bake's edges told (the rest: their own surfaces' light)
+    std::size_t lamps_dark = 0;              // ... of them told dark (no light of theirs in the bake)
+    Rgbf lamp_high{};                        // ... the lit ones' 95th percentile over their own surfaces' light
     // (reported) the vertices whose bake differs from the model by kRelitLampLow or more: brighter (lamps the list
     // doesn't hold, the bake's sun where the rays saw a caster) and darker (the bake's shadows where the rays saw the
     // sun, its darkened corners) - that light dropped, their tints their surroundings'; and those told across meshes
@@ -300,31 +310,104 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // term comes out as nothing.
 // An edge across a traced shadow's border counts only where the bake's colours step down into the traced shade too.
 // (lighting round A) `sunless`: the bake shows no sun (rt_sun.h's fit found none - a night or indoor bake, its vertices'
-// sun 0): the sky, the bounce and (fit_relit_lamps) the lamps alone; valid when they light it. The model's sun is then
-// the daylight the clock brings (kRelitDaySun, day_sky kRelitDaySky).
+// sun 0): the sky, the bounce and (fit_relit_lamps) the lamps alone; valid when they light it (its sun 0).
 [[nodiscard]] RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light,
                                          const Vec3& toward, bool sunless = false);
+// (lighting round A2 - the baked sun picked by the relit fit) How well a model explains the bake: over every mesh edge
+// of two lit vertices (one-colour meshes left out: the same edges for every model of the level) the edge's error
+// |y_i E_j - y_j E_i| / (y_i E_j + y_j E_i) per channel - its colours' ratio against its light's -, luma-weighted, the
+// mean (the sun's evidence is in a minority of the edges). Models fitted toward different suns are told apart by it
+// (the edge set doesn't change with the sun).
+[[nodiscard]] float relit_edge_error(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light,
+                                     const RelitModel& model);
+// The sun's share of the model's light on an open level surface (luma: a sin(e) over a sin(e) + b) - the baked sun's
+// confidence when the relit fit picks it (0 for a sunless model).
+[[nodiscard]] float relit_sun_share(const RelitModel& model);
+// The candidates are told apart by how much their sun improves the fit (RelitModel::sun_needed: the edges' objective
+// without the sun over with it - the edges across the candidate's traced shadows count only where the bake steps down
+// there too, so the right sun keeps the most of them; the mean edge error, relit_edge_error, favours the weakest sun and
+// can't). A sun is in the bake when the best one's fit is at least kRelitMinSunGain times worse without it (measured,
+// round A2: SE - Pro Skater, evening - 1.006, kyoto 1.008, practice 1.000; the outdoor afternoon levels from z_ho's 1.015
+// and fl / vc / thps3_la's 1.026 - 1.029 up to vn's 2.27).
+// Its sun's share of an open surface's light (relit_sun_share) is reported as the confidence: a bake's own a against
+// b - Boston's 0.27, CA's 0.14 (its artists' sun weak), the physical clear sky's 0.6 - 0.85 - is the bake's art, not a test.
+inline constexpr float kRelitMinSunGain = 1.01F;
+// ... and only in a level whose own data allows a sun: not a night state (its bake's directional light is the moon's),
+// not roofed - its upward faces' median sky share (their traced K) at least kRelitIndoorSky (the rebake over 98 levels:
+// with the gain alone the skate shops and warehouses - floors seeing 0.00 - 0.05 of the sky - "found" low suns, a term
+// that fits their lamps' pools; the outdoor levels' floors see 0.26 - 0.94).
+inline constexpr float kRelitIndoorSky = 0.15F;
 // (the offline relit data) A lamp as the lamps pass shines it (rt_lights.h Emitter: an emitter found in the level or a
-// point light), its colour times its intensity.
+// point light).
 struct RelitLamp {
     Vec3 position{};
     float size = 0.0F; // a shadow ray stops this short of it
-    Rgbf light{};      // colour x intensity
-    float core = 0.0F; // light_falloff's core and reach
+    // its intensity per channel: x lamp_geometry the light it sends (1 right at a point or a panel). (Round A2) Solved
+    // from the bake by solve_relit_lamps, then in the global light unit; before, the emitter's displayed brightness.
+    Rgbf light{};
+    float core = 0.0F; // the shape's core (a disc of its area's radius; a tube's half thickness) and its reach
     float reach = 0.0F;
+    // (lighting round A2) its shape (rt_lights.h LampShape: point / panel / line, a panel's normal or a line's axis, a
+    // line's half length) - an area or line light a path tracer samples
+    EmitterShape shape = EmitterShape::kPoint;
+    Vec3 axis{0.0F, 1.0F, 0.0F};
+    float half_length = 0.0F;
+    EmitterKind kind = EmitterKind::kGlow; // a found emitter's kind, or kPoint: the level's own point light
+    // (reported, a path tracer's) its light in physical units (relit_lamp_photometry): the luminous intensity toward its
+    // brightest side (cd), the flux it sends (lm) and its colour's correlated colour temperature (K; 0 - none: too far
+    // from a black body's or dark)
+    float candela = 0.0F;
+    float lumens = 0.0F;
+    float kelvin = 0.0F;
+    bool solved = false; // its intensity told by the bake's edges (else the median of the solved lamps' ratios x its own)
 };
+[[nodiscard]] LampShape lamp_shape(const RelitLamp& lamp);
+// (lighting round A2) A vertex's lamps: each one's lamp_geometry x its shadow ray's visibility (per unit of intensity)
+// - what solve_relit_lamps fits and what L is made of. One mesh's: `first` (one more than its vertices) indexes `links`.
+struct RelitLampLink {
+    uint32_t lamp = 0;
+    float weight = 0.0F;
+};
+struct RelitMeshLinks {
+    std::vector<uint32_t> first;
+    std::vector<RelitLampLink> links;
+};
+using RelitLampLinks = std::vector<RelitMeshLinks>;
 // L at the vertices of the meshes `wanted` says (their normals made): each lamp within its reach that the vertex faces,
-// its light x light_falloff x the cosine toward it, where a shadow ray from the vertex reaches it (the world's opaque
-// geometry and cut-outs by their alpha, as the other rays).
+// its light x lamp_geometry, where a shadow ray from the vertex reaches it (toward the shape's point - a line's nearest;
+// the world's opaque geometry and cut-outs by their alpha, as the other rays). `links`, when given: every mesh's links
+// (the meshes not wanted left empty).
 void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted,
                        std::span<const RelitLamp> lamps, RayTracing& tracer, std::vector<RelitVertices>* light,
-                       RelitStats* stats);
-// The lamps' c, per channel, once a, b and g are fitted: over the mesh edges along which the lamps' light changes,
-// each edge's c the one that makes its two colours' ratio their light's, weighted by how much the lamps' light changes
-// there; their weighted median (none under 0; 0 with fewer than kRelitLampEdges edges). Then each channel's scale again
-// (the median tint 1). c is the bake's: what is taken out of the tints - the relit lamps shine L itself.
+                       RelitStats* stats, RelitLampLinks* links = nullptr);
+// (lighting round A2 - lamps by their light, not a level's c) Each lamp's intensity, per channel, from the bake once the
+// sun, sky and bounce are fitted: over the mesh edges of two lit vertices with lamps (one-colour meshes left out), a
+// shared surface colour makes y_i (E_j + sum_l I_l G_jl) = y_j (E_i + sum_l I_l G_il) - linear in the intensities; their
+// non-negative least squares (each edge relative to its own light, reweighted toward the median error kLampRounds
+// times; projected coordinate descent). Only a bake whose lamps were on (`lit_in_bake`: its own time's lamps -
+// rt_lights.h lamps_on - or a dark level) tells their light; in a daytime bake, and for a lamp no edge tells (under
+// kRelitLampEdges edges), a lamp shines by its own surface: a Lambertian emitter of the radiance its glow shows (the
+// game's colours are radiance in the unit) - pi x it at the surface (lamp_geometry's 1). Then each vertex's L again
+// (relit_lamp_light), and the model's lamps' coefficient 1 (0 for the decomposition of a bake whose lamps were off).
 inline constexpr std::size_t kRelitLampEdges = 64;
-void fit_relit_lamps(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, RelitModel* model);
+inline constexpr float kRelitLambertian = 3.14159265F; // (a Lambertian surface's exitance over its radiance)
+void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
+                       std::span<RelitLamp> lamps, RelitModel* model, bool lit_in_bake);
+// Each vertex's L from its links and the lamps' intensities (building relief's made vertices from their sources).
+void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
+                      std::span<const RelitLamp> lamps);
+// (lighting round A2 - one light unit for every level) The decomposition in the global unit, from energy alone: the
+// light bounced to a vertex, B, is the radiance its surroundings show - in the bake's own colours, so in the game's unit
+// whatever the bake's exposure - and a surface's light takes it whole (one bounce adds the surroundings' radiance x the
+// cosine-weighted share that reaches it: coefficient 1). The fit's g (per channel) is then the factor between its tints
+// and albedos: tints x g (held to kRelitMaxTint), each vertex's L and the solved lamps' intensities / g (a lamp shining
+// by its own surface is in the unit already: relit_lamp_light makes L again after), the model's sun and sky / g (the
+// bake's own light in the unit), its bounce and lamps 1, `albedo_scale` g's luma. The same rule for a sunlit, a night and an
+// indoor bake (no exposure guessed, no corpus value); the bake's own sun and sky are then replaced by the physical ones.
+void relit_to_unit(RelitModel* model, std::span<RelitVertices> light, std::span<RelitLamp> lamps);
+// (lighting round A2) A lamp's photometry from its intensity in the global light unit (`unit_lux`: the illuminance of
+// the unit's 1 - rt_sky.h kSolarIlluminance x pi / sky_exposure; the world's units inches): candela, lumens, kelvin.
+void relit_lamp_photometry(RelitLamp* lamp, double unit_lux);
 // The tints - the surfaces' colours - of the meshes `wanted` says (the header's "The model describes the bake's
 // lighting only to take it out"): each vertex's colour over the model's light at the bake where they agree, its
 // surroundings' tint where the bake's light differs from the model's by kRelitLampLow or more (that light dropped),
@@ -341,19 +424,21 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 std::size_t relit_light_across(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted,
                                std::span<const std::vector<float>> differs, std::span<RelitVertices> light);
 
-// How the world is lit now (render_pc/rt_relit_world: the lighting state's - rt_daylight.h DayLight -, or the level's
-// own light while the clock is off).
+// How the world is lit now, in the global light unit (lighting round A2: rt_daylight.h DayLight::sun_light / sky_light
+// while the clock lights the level; the level's own - relit_own_lighting - while it doesn't). One unit for every level:
+// the tints are albedos, the light the physical sky's and sun's (no level's own a, b; no scale toward its bake).
 struct RelitLighting {
-    Vec3 toward{};                     // the sun or the moon (the vertices' `sun` traced toward it)
-    Rgbf sun_colour{1.0F, 1.0F, 1.0F}; // the model's a times this (the sky model's colour, without the clock)
-    // the light now over the level's own (the clock's: DayLight's light_colour and sky; 1 without it - but a sunless
-    // level's direct light is 0 at its own time: its bake has no sun)
-    Rgbf direct_scale{1.0F, 1.0F, 1.0F};
-    Rgbf sky_scale{1.0F, 1.0F, 1.0F};
-    bool day = false;   // the clock's light: a sunless level's sky is its day_sky (the reference day's) x sky_scale
+    Vec3 toward{};  // the sun or the moon (the vertices' `sun` traced toward it)
+    Rgbf sun{};     // the direct light per unit of N.L
+    Rgbf sky{};     // the sky's light on a level surface (x the vertex's K)
     float lamps = 0.0F; // the lamps' light L times this - the lamps on (0 - 1) and not lit per pixel by the lamps pass
 };
-// The model's light at a vertex: a S N.L + b K + g B + L x lamps (S from its `sun` and normal toward `lighting.toward`).
+// The level's own lighting (tod=level: nothing changed): toward its baked sun, the model's own-time light (RelitModel's
+// sun and sky - none from the sun in a bake without one).
+[[nodiscard]] RelitLighting relit_own_lighting(const RelitModel& model, float lamps);
+// The light at a vertex: sun S N.L + sky K + B + L x lamps (S from its `sun` and normal toward `lighting.toward`; the
+// bounce B the light the surroundings send - its coefficient 1: B is radiance in the same unit, the model's fitted g only
+// described the bake).
 [[nodiscard]] Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
 // ... in its parts: the direct light (a x N.L x S), the indirect (b K + g B) and the lamps' (L x lamps) - what the
 // light stream and the light field (rt_light_field.h) keep.

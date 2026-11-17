@@ -467,7 +467,8 @@ vec3 incoming(vec3 origin, vec3 direction, float travelled, uint mask)
             light += sun * facing;
         }
     }
-    return relit ? albedo * (linear_from_display(hit.tint) * light + hit.lamps) : albedo * light; // (tint: round F)
+    // (lighting round A2: the store's tint and light are linear - only the texel, in albedo, decoded)
+    return relit ? albedo * (hit.tint * light + hit.lamps) : albedo * light;
 }
 
 // The pixel's own albedo (a 1 when found, else 0).
