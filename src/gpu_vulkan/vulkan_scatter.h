@@ -28,13 +28,14 @@
 // 2% face-on, a mirror at grazing angles), the puddle's share of it.
 //
 // The clutter's pass, per viewport, at opaque_drawn (rt::ViewOrder::kClutter, after the decals and reflections, before
-// the grass): like the grass's (vulkan_grass.h) - the viewport's colour copied out; a compute pass puts each chosen
-// item's root on the screen and, where the depth there is the root's own, keeps the colour there (the ground's light
-// under it) in a buffer, so a root hidden this frame keeps the last seen; then the items drawn as instanced meshes
-// (kMeshVertices each, the kind's - leaf, paper, can, weed, pebble), depth-tested and written, into the colour, depth
-// (and the upscaler's motion). An item's colour: pebbles the ground's own colour (+-20%); the rest their own (a leaf's
-// autumn colours, a weed's green, paper, a can's label) x the ground's light (its luminance over kClutterGroundAlbedo) x
-// the mesh's shading. Leaves and weeds bend in the wind (round W: as the grass's
+// the grass): (round W2) a compute pass traces each chosen item's ray toward the sun or the moon (ray tracing on; else it
+// is seen) and keeps its visibility; then the items drawn as instanced meshes (kMeshVertices each, the kind's - leaf,
+// paper, can, weed, pebble), depth-tested and written, into the colour, depth (and the upscaler's motion). An item is lit
+// by the one light (engine/gfx/foliage_light.h: the light store's probe at it - vulkan_light_window.h -, the sun with its
+// traced visibility, rt_brdf.h's BRDF) with its own material from the table (rt_material_table.h: a fallen leaf a dried
+// leaf, a weed a living one - both passing light through -, paper, a can's bare metal and its painted label, a pebble the
+// gravel's albedo); its colour (a leaf's autumn colours, a weed's green, paper, a can's label) its albedo. Nothing of the
+// frame is read. Leaves and weeds bend in the wind (round W: as the grass's
 // blades - vulkan_grass.h grass_wind_bend - in the one wind x the level's air at them, vulkan_air.h). The level of detail: every item out to
 // kClutterNearShare of the distance, then (near / d)^kClutterKeepPower of them (by rank); each shrinks into the ground
 // from kClutterFadeStart of the distance to all of it.
@@ -51,10 +52,6 @@ inline constexpr float kClutterDistance = 1600.0F; // world units (about 40 m): 
 inline constexpr float kClutterNearShare = 0.25F;
 inline constexpr float kClutterKeepPower = 1.5F;
 inline constexpr float kClutterFadeStart = 0.7F;
-inline constexpr float kClutterGroundAlbedo = 0.4F;
-inline constexpr float kClutterLearn = 0.34F;
-inline constexpr float kClutterMatchShare = 0.04F;
-inline constexpr float kClutterMatchSlack = 8.0F;
 inline constexpr uint32_t kClutterMostDrawn = 400000;
 
 // What a view's decals and items are drawn with.

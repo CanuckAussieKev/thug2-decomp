@@ -8,10 +8,15 @@
 //   - the field: the same faces give the same blades byte for byte; the count the area x the density (within 3%); every
 //     root on a grass face, none under the box (the roots it covers counted), none on the steep bank, the dried ones
 //     flagged; each tile's blades in rank order;
-//   - the pass (three frames: a blade is drawn once its colour has been seen): only pixels over the lawn change (a ray
-//     through each changed pixel meets the lawn, outside the box's footprint, below the tallest blade); most of the
-//     lawn's inside is covered; the blades are the ground's colour - green over the green half, straw over the straw
-//     half; the same picture twice from a new field; every pixel finite with not-a-number and infinities in the ground;
+//   - the pass (three frames): only pixels over the lawn change (a ray through each changed pixel meets the lawn,
+//     outside the box's footprint, below the tallest blade); most of the lawn's inside is covered; the blades a living
+//     leaf's green whatever the ground's colour under them; the same picture twice from a new field; every pixel finite
+//     with not-a-number and infinities in the ground;
+//   - (round W2) the light: every blade's light at its root and tip on the device against the processor's twin
+//     (grass_blade_light) under a light store (a synthetic light field over the lawn: sky, bounce, sun) once its window
+//     is on the device; a blade's tip facing up lit exactly as a flat surface of its material (rt_brdf.h ambient +
+//     direct) in sun and in shade, its transmitted light the only difference with the leaf's own transmittance; the
+//     canopy darker toward the roots;
 //   - the shapes: every blade's tip and height on the device against the processor's twin (grass_blade_shape);
 //   - the level of detail: the share kept falls with the distance, nothing is drawn or tall beyond the distance, full
 //     height near; fewer blades drawn from further away;
@@ -25,6 +30,7 @@
 #include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -36,6 +42,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -46,13 +53,18 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/foliage_light.h"
 #include "engine/gfx/grass.h"
+#include "engine/gfx/rt_brdf.h"
+#include "engine/gfx/rt_light_field.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/wind.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_grass.h"
+#include "gpu_vulkan/vulkan_light_window.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_motion.h"
 #include "tests/check_window.h"
@@ -672,12 +684,11 @@ bool changed(const std::array<float, 3>& before, const std::array<float, 3>& aft
 
 const vk::GrassSettings kDefaults{.on = true};
 
-// Where the pass changed the picture: only over the lawn, most of its inside, in the ground's colours, all finite.
+// Where the pass changed the picture: only over the lawn, most of its inside, a leaf's green, all finite.
 void check_picture(const render::rt::ViewDrawn& view, const Picture& before, const Picture& after, Tally* tally)
 {
-    constexpr double kGreenOver = 1.8;  // (the green half's green over its red and blue)
-    constexpr double kStrawOver = 1.05; // (the straw half's red over its green)
-    constexpr double kStrawOverBlue = 2.0;
+    constexpr double kGreenOver = 1.3; // (a living leaf's green over its red: Gates et al.'s 0.12 / 0.07)
+    constexpr double kGreenOverBlue = 2.0;
     constexpr double kPercent = 100.0;
     int stray = 0;
     int inside_pixels = 0;
@@ -722,24 +733,38 @@ void check_picture(const render::rt::ViewDrawn& view, const Picture& before, con
         inside_pixels > kLeastInside && coverage > kLeastCoverage,
         text::format("%.0f%% of the lawn's %d inside pixels covered by blades", coverage * kPercent, inside_pixels));
     tally->check(std::cmp_equal(finite, kWidth * kHeight), text::format("every pixel finite (%d)", finite));
-    const bool green_ok = green_count > 0 && core::at(green_sum, 1) > core::at(green_sum, 0) * kGreenOver &&
-                          core::at(green_sum, 1) > core::at(green_sum, 2) * kGreenOver;
-    const bool straw_ok = straw_count > 0 && core::at(straw_sum, 0) > core::at(straw_sum, 1) * kStrawOver &&
-                          core::at(straw_sum, 1) > core::at(straw_sum, 2) * kStrawOverBlue;
+    // (round W2: the blades are the leaf's colour lit by the one light - over the green ground and the straw one alike)
+    const auto leaf_green = [&](const std::array<double, 3>& sum, int count) {
+        return count > 0 && core::at(sum, 1) > core::at(sum, 0) * kGreenOver &&
+               core::at(sum, 1) > core::at(sum, 2) * kGreenOverBlue;
+    };
+    const bool green_ok = leaf_green(green_sum, green_count);
+    const bool straw_ok = leaf_green(straw_sum, straw_count);
     const auto mean = [](const std::array<double, 3>& sum, int count, std::size_t channel) {
         return count > 0 ? core::at(sum, channel) / count : 0.0;
     };
     tally->check(green_ok && straw_ok,
-                 text::format("the blades the ground's colour: green half %.2f %.2f %.2f, straw half %.2f %.2f %.2f",
+                 text::format("the blades a leaf's green over either ground: green half %.3f %.3f %.3f, straw half %.3f %.3f "
+                              "%.3f",
                               mean(green_sum, green_count, 0), mean(green_sum, green_count, 1),
                               mean(green_sum, green_count, 2), mean(straw_sum, straw_count, 0),
                               mean(straw_sum, straw_count, 1), mean(straw_sum, straw_count, 2)));
 }
 
-// Not-a-number and infinities in the ground under the blades: no blade's colour turns bad.
+bool finite_light(const vk::GrassLightRead& light)
+{
+    bool finite = std::isfinite(light.seen);
+    for (std::size_t channel = 0; channel < kChannels; ++channel) {
+        finite = finite && std::isfinite(core::at(light.root, channel)) && std::isfinite(core::at(light.tip, channel)) &&
+                 core::at(light.root, channel) >= 0.0F && core::at(light.tip, channel) >= 0.0F;
+    }
+    return finite;
+}
+
+// Not-a-number and infinities in the ground under the blades: no blade's light turns bad (none is read from the frame).
 void check_poisoned(render::Gpu& gpu, const Targets& targets, const render::rt::ViewDrawn& view, Tally* tally)
 {
-    std::vector<std::array<float, 4>> colours;
+    std::vector<vk::GrassLightRead> colours;
     int bad = 0;
     gpu.begin_scene();
     gpu.set_render_target(0, targets.colour);
@@ -777,14 +802,11 @@ void check_poisoned(render::Gpu& gpu, const Targets& targets, const render::rt::
         vk::read_grass_colours(state, &colours);
     }
     bad = 0;
-    for (const auto& colour : colours) {
-        bad += std::isfinite(core::at(colour, 0)) && std::isfinite(core::at(colour, 1)) &&
-                       std::isfinite(core::at(colour, 2))
-                   ? 0
-                   : 1;
+    for (const vk::GrassLightRead& colour : colours) {
+        bad += finite_light(colour) ? 0 : 1;
     }
     tally->check(poisoned && bad == 0,
-                 text::format("not-a-number and infinities under the roots: %d colours bad", bad));
+                 text::format("not-a-number and infinities in the frame under the roots: %d blades' light bad", bad));
 }
 
 void check_pass(render::Gpu& gpu, Tally* tally)
@@ -821,25 +843,205 @@ void check_pass(render::Gpu& gpu, Tally* tally)
     run_frames(gpu, targets, view, kLearningPasses);
     Picture again;
     tally->check(read_picture(targets.colour, &again) && again == after, "the same picture again from a new field");
-    // the colours known, all finite
-    std::vector<std::array<float, 4>> colours;
+    // the blades' light, all finite
+    std::vector<vk::GrassLightRead> colours;
     {
         vk::Backend& state = vk::backend();
         const std::scoped_lock lock(state.mutex);
         vk::read_grass_colours(state, &colours);
     }
-    int known = 0;
+    int lit = 0;
     int bad = 0;
-    for (const auto& colour : colours) {
-        known += core::at(colour, 3) >= 1.0F ? 1 : 0;
-        bad += std::isfinite(core::at(colour, 0)) && std::isfinite(core::at(colour, 1)) &&
-                       std::isfinite(core::at(colour, 2)) && std::isfinite(core::at(colour, 3))
-                   ? 0
-                   : 1;
+    for (const vk::GrassLightRead& colour : colours) {
+        lit += core::at(colour.tip, 1) > 0.0F ? 1 : 0;
+        bad += finite_light(colour) ? 0 : 1;
     }
-    tally->check(!colours.empty() && bad == 0 && known > 0,
-                 text::format("%d of %zu blades' colours known, %d not finite", known, colours.size(), bad));
+    tally->check(!colours.empty() && bad == 0 && lit > 0,
+                 text::format("%d of %zu blades lit, %d not finite", lit, colours.size(), bad));
     check_poisoned(gpu, targets, view, tally);
+    release(gpu, targets);
+}
+
+// (round W2) A blade's tip facing up - no leaf area above it - lit as a flat surface of its material is (rt_brdf.h's
+// ambient + direct under the same probe and sun), in the sun and in the shade; its own transmittance the only
+// difference (the light under it, through it); the canopy's gaps 1 with no leaf above and falling with more.
+void check_flat_sheet(Tally* tally)
+{
+    namespace rt = render::rt;
+    namespace brdf = render::rt::brdf;
+    text::print("a blade lit as a flat surface:\n");
+    rt::ProbeL1 probe;
+    probe.c0 = {0.62F, 0.66F, 0.74F};
+    probe.c1 = {{{0.02F, 0.41F, -0.01F}, {0.02F, 0.44F, -0.01F}, {0.01F, 0.52F, 0.0F}}};
+    const brdf::Vec3 toward = brdf::normalise({0.3F, 0.8F, 0.4F});
+    const brdf::Rgb sun{3.1F, 2.95F, 2.7F};
+    const brdf::Vec3 up{0.0F, 1.0F, 0.0F};
+    const brdf::Vec3 v = brdf::normalise({0.2F, 0.6F, -0.77F});
+    const float v_dot_n = brdf::dot(v, up);
+    const brdf::Vec3 mirror{(2.0F * v_dot_n * up.x) - v.x, (2.0F * v_dot_n * up.y) - v.y, (2.0F * v_dot_n * up.z) - v.z};
+    const rt::foliage::Sheet leaf = rt::foliage::sheet_of(rt::MaterialKind::kLeaf, rt::material_colour(rt::MaterialKind::kLeaf));
+    rt::foliage::Sheet opaque = leaf;
+    opaque.transmittance = {};
+    double worst_flat = 0.0;
+    double worst_through = 0.0;
+    for (const float seen : {1.0F, 0.0F}) {
+        rt::foliage::SheetLight light;
+        light.probe = probe;
+        light.toward = toward;
+        light.sun = sun;
+        light.seen = seen;
+        const brdf::Rgb sheet = rt::foliage::sheet_radiance(opaque, up, v, light);
+        const brdf::Rgb through = rt::foliage::sheet_radiance(leaf, up, v, light);
+        const rt::FieldRgb from_up = probe.at({0.0F, 1.0F, 0.0F});
+        const rt::FieldRgb from_down = probe.at({0.0F, -1.0F, 0.0F});
+        const rt::FieldRgb from_mirror = probe.at({mirror.x, mirror.y, mirror.z});
+        const brdf::Rgb ambient = brdf::ambient(leaf.surface, v_dot_n, from_up, from_mirror);
+        const brdf::Rgb direct =
+            brdf::direct(leaf.surface, up, v, toward, {sun[0] * seen, sun[1] * seen, sun[2] * seen});
+        const brdf::Rgb e = brdf::specular_albedo(leaf.surface.f0, v_dot_n, leaf.surface.roughness);
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            const double flat = static_cast<double>(core::at(ambient, ch)) + core::at(direct, ch);
+            worst_flat = std::max(worst_flat, std::abs(static_cast<double>(core::at(sheet, ch)) - flat) / flat);
+            const double transmitted = static_cast<double>(core::at(leaf.transmittance, ch)) * (1.0 - core::at(e, ch)) *
+                                       core::at(from_down, ch);
+            worst_through = std::max(
+                worst_through, std::abs(static_cast<double>(core::at(through, ch) - core::at(sheet, ch)) - transmitted) /
+                                   flat);
+        }
+        text::print("  %s: the blade %.4f %.4f %.4f, with its transmittance %.4f %.4f %.4f\n", seen > 0.0F ? "sun" : "shade",
+                    static_cast<double>(sheet[0]), static_cast<double>(sheet[1]), static_cast<double>(sheet[2]),
+                    static_cast<double>(through[0]), static_cast<double>(through[1]), static_cast<double>(through[2]));
+    }
+    constexpr double kExact = 1.0e-5;
+    tally->check(worst_flat < kExact,
+                 text::format("a blade's tip facing up = a flat surface of the leaf (ambient + direct) in sun and shade "
+                              "(worst %.2g)",
+                              worst_flat));
+    tally->check(worst_through < kExact,
+                 text::format("its transmittance adds only the light under it through the leaf (worst %.2g)", worst_through));
+    const float open = rt::foliage::diffuse_gap(0.0F);
+    const float lawn = rt::foliage::diffuse_gap(vk::grass_leaf_area(1.0F, 1.0F));
+    tally->check(std::abs(open - 1.0F) < 1.0e-6F && lawn < open && rt::foliage::beam_gap(0.0F, 0.5F) == 1.0F &&
+                     rt::foliage::beam_gap(1.0F, 0.2F) < rt::foliage::beam_gap(1.0F, 0.9F),
+                 text::format("the canopy: no gap lost above the tips; the default lawn's leaf area %.3f leaves %.3f of the "
+                              "sky at the roots; a low sun's beam through it less",
+                              static_cast<double>(vk::grass_leaf_area(1.0F, 1.0F)), static_cast<double>(lawn)));
+}
+
+// (round W2) The blades lit by a light store over the lawn: every blade's light at its root and tip as the twin has it.
+void check_light(render::Gpu& gpu, Tally* tally)
+{
+    namespace rt = render::rt;
+    text::print("the light:\n");
+    vk::set_grass_settings(kDefaults);
+    const render::rt::ViewDrawn view = view_of({.eye = kEye, .at = kLookAt});
+    const Targets targets = make_targets(gpu, 0);
+    if (targets.colour == nullptr || targets.depth == nullptr) {
+        tally->check(false, "the targets");
+        release(gpu, targets);
+        return;
+    }
+    const std::vector<grass::Face> faces = lawn_faces();
+    const grass::Field field = grass::make_field(faces, 1.0F);
+    vk::grass_sink().set_field(std::make_shared<grass::Field>(field));
+    vk::grass_sink().set_pushers({});
+    // the light store: in every cell over the ground surfaces facing up and four ways - the sky's light S (1 + n.y) / 2,
+    // the bounce even, a little lamp light
+    auto store = std::make_shared<rt::LightField>();
+    constexpr float kCell = rt::kLightFieldCell;
+    constexpr std::array<rt::FieldPoint, 6> kNormals{{{0.0F, 1.0F, 0.0F},
+                                                      {1.0F, 0.0F, 0.0F},
+                                                      {-1.0F, 0.0F, 0.0F},
+                                                      {0.0F, 0.0F, 1.0F},
+                                                      {0.0F, 0.0F, -1.0F},
+                                                      {0.0F, -1.0F, 0.0F}}};
+    const rt::FieldRgb sky{0.55F, 0.62F, 0.78F};
+    const rt::FieldRgb bounce{0.12F, 0.13F, 0.1F};
+    for (float x = -kGroundSide; x <= kGroundSide; x += kCell) {
+        for (float z = kGroundNear - kGroundSide; z <= kGroundFar; z += kCell) {
+            for (const rt::FieldPoint& n : kNormals) {
+                rt::LightParts parts;
+                parts.normal = n;
+                for (std::size_t ch = 0; ch < 3; ++ch) {
+                    core::at(parts.sky_now, ch) = core::at(sky, ch) * (1.0F + std::get<1>(n)) * kHalf;
+                    core::at(parts.indirect_now, ch) = core::at(parts.sky_now, ch) + core::at(bounce, ch);
+                    core::at(parts.indirect_own, ch) = core::at(parts.indirect_now, ch);
+                }
+                store->add({x + (kCell * kHalf), kCell * kHalf, z + (kCell * kHalf)}, parts);
+            }
+        }
+    }
+    const std::array<float, 3> toward = [] {
+        const float length = std::sqrt((0.4F * 0.4F) + (0.7F * 0.7F) + (0.6F * 0.6F));
+        return std::array<float, 3>{-0.4F / length, 0.7F / length, -0.6F / length};
+    }();
+    const rt::FieldRgb sun{2.6F, 2.45F, 2.2F};
+    store->set_sun(toward, sun);
+    rt::set_light_field(store);
+    // the window made on a worker: frames until it is on the device
+    bool window = false;
+    constexpr int kMostFrames = 1200; // (30 s)
+    const auto began = std::chrono::steady_clock::now();
+    for (int frame = 0; frame < kMostFrames && !window; ++frame) {
+        run_frames(gpu, targets, view, 1);
+        std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        window = vk::light_window_on();
+    }
+    text::print("  the window on the device after %.2f s\n",
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count());
+    run_frames(gpu, targets, view, kLearningPasses);
+    std::vector<vk::GrassLightRead> got;
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        vk::read_grass_colours(state, &got);
+    }
+    tally->check(window && got.size() == field.blades.size(),
+                 text::format("the light window on the device and the blades' light read back (%zu)", got.size()));
+    const vk::GrassView shape_view = vk::grass_view(kDefaults, view, kHeight);
+    double worst = 0.0;
+    int compared = 0;
+    int sunlit = 0;
+    double root_luma = 0.0;
+    double tip_luma = 0.0;
+    for (std::size_t index = 0; index < got.size(); ++index) {
+        const vk::GrassLightRead& read = core::at(got, index);
+        const grass::Blade& blade = core::at(field.blades, index);
+        const vk::GrassShape shape = vk::grass_blade_shape(blade, shape_view, {}, 1.0F);
+        if (!(shape.height > 0.0F) || !(core::at(read.tip, 1) > 0.0F)) {
+            continue;
+        }
+        const Vec3 middle{(0.25F * shape.root[0]) + (0.5F * shape.control[0]) + (0.25F * shape.tip[0]),
+                          (0.25F * shape.root[1]) + (0.5F * shape.control[1]) + (0.25F * shape.tip[1]),
+                          (0.25F * shape.root[2]) + (0.5F * shape.control[2]) + (0.25F * shape.tip[2])};
+        vk::GrassLight light;
+        light.probe = store->light_at(middle).indirect(1.0F);
+        light.toward = toward;
+        light.sun = sun;
+        light.seen = read.seen;
+        const vk::GrassLit twin = vk::grass_blade_light(blade, shape, shape_view, light);
+        for (std::size_t ch = 0; ch < kChannels; ++ch) {
+            for (const auto& [device, want] : {std::pair{core::at(read.root, ch), core::at(twin.root, ch)},
+                                               std::pair{core::at(read.tip, ch), core::at(twin.tip, ch)}}) {
+                worst = std::max(worst, static_cast<double>(std::abs(device - want)) / (std::abs(want) + 1.0e-3));
+            }
+        }
+        ++compared;
+        if (read.seen > kHalf) {
+            ++sunlit;
+            root_luma += core::at(read.root, 1);
+            tip_luma += core::at(read.tip, 1);
+        }
+    }
+    constexpr double kLightTolerance = 0.02; // (the window's half floats and the device's arithmetic)
+    tally->check(compared > 0 && worst < kLightTolerance,
+                 text::format("every blade's root and tip light within %.1f%% of the twin (%d blades)", worst * 100.0, compared));
+    tally->check(sunlit > 0 && root_luma < tip_luma,
+                 text::format("in the sun the roots darker than the tips under the canopy (green %.4f vs %.4f on average)",
+                              root_luma / std::max(sunlit, 1), tip_luma / std::max(sunlit, 1)));
+    rt::set_light_field(nullptr);
     release(gpu, targets);
 }
 
@@ -1188,11 +1390,13 @@ int run(const Options& options, SDL_Window* window)
 {
     Tally tally;
     check_field(&tally);
+    check_flat_sheet(&tally);
     if (!open_device(options, window)) {
         return vk::loader_version() == 0 ? 2 : 1;
     }
     render::Gpu& gpu = vk::gpu();
     check_pass(gpu, &tally);
+    check_light(gpu, &tally);
     check_shapes(gpu, &tally);
     check_multisampled(gpu, &tally);
     check_off(gpu, &tally);

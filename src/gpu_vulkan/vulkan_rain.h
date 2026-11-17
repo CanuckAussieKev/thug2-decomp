@@ -75,6 +75,9 @@ void rain_key(Backend& state, const GpuStateBlock& block, const DrawCall& call, 
 void begin_rain_view(Backend& state, const rt::ViewDrawn& view);
 bool record_rain_wet_mask(Backend& state, const rt::ViewDrawn& view);
 bool record_rain_air(Backend& state, const rt::ViewDrawn& view);
+// (round W2) The rings the rain makes on standing water now (rain.h ripple_glsl's `ripple`: x the cell, units - 0 no
+// rain -, y the layers, z the clock, w the life) - what the world shader's wet ground and the reflections' trace read.
+[[nodiscard]] std::array<float, 4> rain_ripples_now();
 // The wet mask drawn this frame for `rect` (R8, SHADER_READ_ONLY_OPTIMAL; the decals' puddles in it too), or null.
 [[nodiscard]] const Image* rain_wet_mask(const Backend& state, const std::array<uint32_t, 4>& rect);
 

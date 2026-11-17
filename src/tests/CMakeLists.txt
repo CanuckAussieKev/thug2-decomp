@@ -122,6 +122,7 @@ endif()
 # (src/tests/scatter_check.cpp; pure: no game, no device).
 if(TARGET thug2_base)
     add_executable(thug2_scatter_check scatter_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/scatter.cpp"
+                                       "${PROJECT_SOURCE_DIR}/src/engine/gfx/air_volume.cpp"
                                        "${PROJECT_SOURCE_DIR}/src/engine/gfx/scatter_art.cpp")
     target_link_libraries(thug2_scatter_check PRIVATE thug2_base)
 endif()

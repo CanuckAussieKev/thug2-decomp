@@ -2,6 +2,9 @@
 // (scatter_world.h).
 #include "render_pc/scatter_world.h"
 
+#include "engine/gfx/air_volume.h"
+#include "render_pc/air_world.h"
+
 #include <array>
 #include <bit>
 #include <chrono>
@@ -67,6 +70,7 @@ struct State {
     float clutter = 0.0F;
     bool made = false;
     bool sink_was = false;
+    uint64_t air = 0; // (round W2) the air volume's serial it was made with (0: none)
 };
 
 State& state()
@@ -219,8 +223,12 @@ void make(scatter::Sink& sink, float decals, float clutter, const std::vector<sc
     const std::vector<scatter::Face> faces = gather_faces(surfaces);
     const auto level = game_hooks().level_script;
     const uint32_t seed = level != nullptr ? level() : 0U;
-    auto made = std::make_shared<scatter::Scatter>(scatter::make_scatter(
-        {.faces = faces, .rails = rails, .seed = seed, .decal_density = decals, .clutter_density = clutter}));
+    auto made = std::make_shared<scatter::Scatter>(scatter::make_scatter({.faces = faces,
+                                                                          .rails = rails,
+                                                                          .seed = seed,
+                                                                          .decal_density = decals,
+                                                                          .clutter_density = clutter,
+                                                                          .air = air::volume()}));
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     const auto& of = made->faces_of;
     const auto surface = [&of](scatter::Surface which) { return core::at(of, static_cast<std::size_t>(which)); };
@@ -254,11 +262,12 @@ void make(scatter::Sink& sink, float decals, float clutter, const std::vector<sc
         const scatter::Rejected& away = made->item_rejected;
         get_log(
             "scatter: %zu clutter items at density %.2f (leaves %u, paper %u, cans %u, weeds %u, pebbles %u%s) in %zu "
-            "tiles - turned away: %u far from walls, %u by ramps, %u by edges, %u by rails, %u at stairs, %u covered",
+            "tiles - turned away: %u far from walls, %u by ramps, %u by edges, %u by rails, %u at stairs, %u covered, %u "
+            "where the wind or the sky doesn't reach",
             made->items.size(), static_cast<double>(made->clutter_density), kind(scatter::ItemKind::kLeaf),
             kind(scatter::ItemKind::kPaper), kind(scatter::ItemKind::kCan), kind(scatter::ItemKind::kWeed),
             kind(scatter::ItemKind::kPebble), made->items_capped ? ", capped" : "", made->tiles.size(),
-            away.far_from_wall, away.ramp, away.drop, away.rail, away.stairs, away.covered);
+            away.far_from_wall, away.ramp, away.drop, away.rail, away.stairs, away.covered, away.no_air);
     }
     const bool empty = made->decals.empty() && made->items.empty();
     sink.set_scatter(empty ? nullptr : std::move(made));
@@ -289,8 +298,20 @@ void frame()
     }
     const std::vector<scatter::Rail> rails = level_rails();
     const uint64_t key = world_key(rails.size());
-    if (!st.made || key != st.key || decals != st.decals || clutter != st.clutter) {
+    // (round W2) the clutter's leaves, paper and weeds follow the level's air: made once its volume is published (built
+    // on a worker at load - render_pc/air_world.h), again when it changes
+    const std::shared_ptr<const air::Volume> volume = air::volume();
+    const uint64_t air_serial = volume != nullptr ? volume->serial() : 0;
+    if (!air_world::settled()) {
+        if (st.made && key != st.key) {
+            sink->set_scatter(nullptr); // (another level's: none until this one's air is known)
+            st.made = false;
+        }
+        return;
+    }
+    if (!st.made || key != st.key || decals != st.decals || clutter != st.clutter || air_serial != st.air) {
         st.key = key;
+        st.air = air_serial;
         st.decals = decals;
         st.clutter = clutter;
         st.made = true;

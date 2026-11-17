@@ -1341,6 +1341,12 @@ std::array<float, 4> ripple_now(double clock)
             static_cast<float>(std::fmod(clock, kClockWraps)), static_cast<float>(ripples.life)};
 }
 
+} // namespace
+
+std::array<float, 4> rain_ripples_now() { return ripple_now(rain_state().clock_now); }
+
+namespace {
+
 std::optional<VkDescriptorBufferInfo> in_ring(Backend& state, std::span<const uint8_t> bytes)
 {
     const std::optional<RingSpan> span = state.ring.copy(bytes, state.uniform_alignment);

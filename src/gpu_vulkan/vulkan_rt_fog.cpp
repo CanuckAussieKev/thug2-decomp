@@ -203,6 +203,8 @@ constexpr const char* kMarchBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D o_out;
 layout(set = 0, binding = 3, rgba32f) uniform writeonly image2D o_info;
+// (round W2) the god rays' potential under the march's own shadow (the sun's rays, the air's sun map, the clouds')
+layout(set = 0, binding = 16, r32f) uniform writeonly image2D o_lit;
 // (the lamps that light the air: rt_lights' lit set for the view, the most important first)
 layout(set = 0, binding = 10, std140) uniform FogLamps {
     ivec4 count;                // x lamps
@@ -286,6 +288,21 @@ float sky_seen(vec3 at, ivec2 p, int i)
     float a = 6.2831853 * hash01(p, fog.flags.w, i, 0xC5u);
     float r = sqrt(max(1.0 - z * z, 0.0));
     return visible(at, vec3(r * cos(a), z, r * sin(a)), SUN_DISTANCE);
+}
+
+// (round W2) The same for the street air's shade light: four rays stratified over the hemisphere (its two bands of
+// height and two halves round) - the street air's light is mostly its shade's at dusk, so its share is sampled four times
+// as finely as the aerial march's.
+float sky_seen_stratified(vec3 at, ivec2 p, int i)
+{
+    float open = 0.0;
+    for (int k = 0; k < 4; ++k) {
+        float z = (float(k & 1) + hash01(p, fog.flags.w, i, 0x3Bu + uint(k))) * 0.5;
+        float a = 3.14159265 * (float(k >> 1) + hash01(p, fog.flags.w, i, 0xC5u + uint(k)));
+        float r = sqrt(max(1.0 - z * z, 0.0));
+        open += visible(at, vec3(r * cos(a), z, r * sin(a)), SUN_DISTANCE);
+    }
+    return open * 0.25;
 }
 
 // (added by the distinct shafts - rt_volume_light.h air_map_half) How much of the light reaches `at` by the air's sun
@@ -568,6 +585,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
     if (sky && fog.air_look.x > 0.5) {
         imageStore(o_out, q, vec4(0.0, 0.0, 0.0, 1.0));
         imageStore(o_info, q, vec4(distance, float(local.x), float(local.y), 0.0));
+        imageStore(o_lit, q, vec4(0.0));
         return;
     }
     float a = 0.0;
@@ -575,6 +593,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
     vec3 light_in = vec3(0.0);
     float transmittance = 1.0;
     float potential = 0.0;
+    float potential_lit = 0.0; // (round W2: the same under the march's own shadow)
     bool lit = fog.sun_tint.w > 0.5;
     bool gather_peak = fog.rays.w > 0.5 && lit;
     if (b > a) {
@@ -652,6 +671,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
                 clouds_kept = cloud_map_kept(at, fog.cloud_map, fog.cloud_light);
 #endif
                 potential += w * dot(a_s, LUMA) * clouds_kept;
+                potential_lit += w * dot(a_s, LUMA) * clouds_kept * sun_seen;
             }
             transmittance *= e;
             if (transmittance < 1e-4) {
@@ -662,6 +682,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
     }
     imageStore(o_out, q, vec4(light_in, transmittance));
     imageStore(o_info, q, vec4(distance, float(local.x), float(local.y), potential));
+    imageStore(o_lit, q, vec4(potential_lit));
 }
 #endif
 
@@ -701,6 +722,7 @@ void main()
     vec3 light_in = vec3(0.0);
     float transmittance = 1.0;
     float potential = 0.0; // (added by the god rays)
+    float potential_lit = 0.0; // (round W2: the same under the march's own shadow)
     bool gather_peak = fog.rays.w > 0.5 && fog.sun_tint.w > 0.5;
     bool lit_air = fog.sun_tint.w > 0.5 || lamps.count.x > 0;
     if (b > a && (replace || lit_air)) {
@@ -722,6 +744,10 @@ void main()
         int traced_pair = -1;
         float traced_sun = 0.0;
         float lamp_seen = 0.0;
+        // (round W2) the street air's shade light is the sky's: only as much of it as the sky the air sees (the pair's
+        // ray toward the upper hemisphere - sky_seen, as the aerial march) - none in a closed room
+        float sky_open = 1.0;
+        bool sky_traced = replace && air_on;
         // (the steps closer together near the eye - a + span x t^2: the shafts between the buildings round the camera
         // sampled every few metres, the far air - smooth - in long segments; each segment's depth is still exact. A ray
         // that leaves the air's sun map's reach gives it `steps` steps and the way past it half as many more, in a
@@ -746,6 +772,7 @@ void main()
                 float mapped = map_light_seen(traced, local, j);
                 traced_sun = mapped >= 0.0 ? -1.0 : light_seen(traced, local, j);
                 lamp_seen = reached != 0u ? lamps_seen(traced, direction, reached, local, j) : 0.0;
+                sky_open = sky_traced ? sky_seen_stratified(traced, local, j) : 1.0;
             }
             float sun_seen = map_light_seen(at, local, i);
             if (sun_seen < 0.0) {
@@ -777,7 +804,7 @@ void main()
             }
             vec3 sun_light = sun * sun_seen;
             vec3 here_main = ambient + medium * (sun_light + lamp_light);
-            vec3 here_air = air_ambient + air_medium * (sun_air * (sun_seen * fog.air_ambient.w) + lamp_light);
+            vec3 here_air = air_ambient * sky_open + air_medium * (sun_air * (sun_seen * fog.air_ambient.w) + lamp_light);
             vec3 here = (max(tau_main, 0.0) * here_main + max(tau_air, 0.0) * here_air) / tau;
             light_in += transmittance * (1.0 - e) * here;
             if (gather_peak) {
@@ -791,6 +818,7 @@ void main()
                 float per_unit = (max(tau_main, 0.0) * dot(medium, vec3(0.2126, 0.7152, 0.0722)) +
                                   max(tau_air, 0.0) * air_medium.x * fog.air_ambient.w) / tau;
                 potential += transmittance * (1.0 - e) * per_unit * clouds_kept;
+                potential_lit += transmittance * (1.0 - e) * per_unit * clouds_kept * sun_seen;
             }
             transmittance *= e;
             if (transmittance < 1e-4) {
@@ -801,6 +829,7 @@ void main()
     }
     imageStore(o_out, q, vec4(light_in, replace ? transmittance : 1.0));
     imageStore(o_info, q, vec4(distance, float(local.x), float(local.y), potential));
+    imageStore(o_lit, q, vec4(potential_lit));
 #endif
 }
 )";
@@ -999,21 +1028,15 @@ void main()
 }
 )";
 
-// Step 3: the composite (a blend: colour x T + the light; the aerial march's in linear light over the colour's copy).
+// Step 3: the composite (a blend: colour x T + the light; the aerial march's light linear, the level fog's display-referred).
 constexpr const char* kCompositeBody = R"(
 layout(set = 0, binding = 4, rgba16f) uniform readonly image2D u_in;
 layout(set = 0, binding = 5, rgba32f) uniform readonly image2D u_in_info;
 // (added by the god rays) this frame's march's info (its potential in a) and the rays' visibility (r / g)
 layout(set = 0, binding = 8, rgba32f) uniform readonly image2D u_march_info;
+// (round W2) the potential under the march's own shadow
+layout(set = 0, binding = 16, r32f) uniform readonly image2D u_lit;
 layout(set = 0, binding = 14) uniform sampler2D u_rays;
-// (added by the physical air) the colour's copy (the aerial march's variant: the frame's colour taken to linear light)
-#ifdef LINEAR_COMPOSITE
-#ifdef MULTISAMPLED
-layout(set = 0, binding = 16) uniform sampler2DMS u_copy;
-#else
-layout(set = 0, binding = 16) uniform sampler2D u_copy;
-#endif
-#endif
 layout(location = 0) out vec4 o_colour;
 
 // (added by the god rays; changed by the physical air) The share of the air's light along a view ray that lies within
@@ -1038,23 +1061,29 @@ vec3 god_rays_light(ivec2 local, float distance, ivec2 base, vec2 f, float toler
         return vec3(0.0);
     }
     float sum = 0.0;
+    float sum_lit = 0.0;
     float weights = 0.0;
     float nearest = 0.0;
+    float nearest_lit = 0.0;
     float nearest_gap = 3.0e38;
     for (int corner = 0; corner < 4; ++corner) {
         ivec2 n = clamp(base + ivec2(corner & 1, corner >> 1), ivec2(0), fog.low.xy - ivec2(1));
         float w = ((corner & 1) != 0 ? f.x : 1.0 - f.x) * ((corner >> 1) != 0 ? f.y : 1.0 - f.y);
         vec4 info = imageLoad(u_march_info, n);
+        float lit_here = imageLoad(u_lit, n).r;
         float gap = (distance < 0.0) != (info.x < 0.0) ? 1.0e30 : (distance < 0.0 ? 0.0 : abs(info.x - distance));
         if (gap < nearest_gap) {
             nearest_gap = gap;
             nearest = info.w;
+            nearest_lit = lit_here;
         }
         w *= exp(-min(gap / tolerance, 60.0));
         sum += w * info.w;
+        sum_lit += w * lit_here;
         weights += w;
     }
     float potential = weights > 1e-4 ? sum / weights : nearest;
+    float potential_lit = weights > 1e-4 ? sum_lit / weights : nearest_lit;
     float open = 1.0;
     if (fog.rays.w < 1.5) {
         vec2 size = vec2(textureSize(u_rays, 0));
@@ -1067,7 +1096,9 @@ vec3 god_rays_light(ivec2 local, float distance, ivec2 base, vec2 f, float toler
             open = 1.0 - (1.0 - clamp(r.r, 0.0, 1.0)) * before;
         }
     }
-    return fog.sun_tint.rgb * (peak * max(potential, 0.0) * open * fog.rays.z);
+    // (round W2) the screen's estimate shadows the air only by what the screen shows; the march's own shadow by the world
+    // (a roof between the air and the sun that the view doesn't show): the air is lit by no more than either allows
+    return fog.sun_tint.rgb * (peak * min(max(potential, 0.0) * open, max(potential_lit, 0.0)) * fog.rays.z);
 }
 
 void main()
@@ -1100,16 +1131,9 @@ void main()
     float transmittance = clamp(v.a, 0.0, 1.0);
     vec3 light_in = max(v.rgb, vec3(0.0)) + god_rays_light(local, distance, base, f, tolerance, transmittance);
 #ifdef LINEAR_COMPOSITE
-    // (the physical air) colour x T + the light in linear light, written whole (alpha 0: the blend keeps none of what
-    // was there)
-#ifdef MULTISAMPLED
-    vec3 was = texelFetch(u_copy, ivec2(gl_FragCoord.xy), gl_SampleID).rgb;
-#else
-    vec3 was = texelFetch(u_copy, ivec2(gl_FragCoord.xy), 0).rgb;
-#endif
-    // (round F: the frame is linear light - nothing converted, nothing clamped)
-    vec3 linear = min(max(was, vec3(0.0)), vec3(65000.0)) * transmittance + light_in;
-    o_colour = vec4(min(linear, vec3(65504.0)), 0.0);
+    // (the physical air; round W2: blended - the frame is linear light since round F, so the copy the composite once took
+    // the frame to linear light through is gone) colour x T + the light: the blend's dst x src alpha + src
+    o_colour = vec4(min(light_in, vec3(65504.0)), transmittance);
     return;
 #endif
     // (round F) the level fog path's light is display-referred (the level's fog colour as its light - A5): decoded as
@@ -1183,7 +1207,7 @@ constexpr uint32_t kBindingGeometry = 12; // the frame's geometry table (CUTOUTS
 constexpr uint32_t kBindingAirMap = 13;   // (added by the distinct shafts) the air's sun map
 constexpr uint32_t kBindingRaysIn = 14;   // (added by the god rays) the rays' image read (sampled, linear)
 constexpr uint32_t kBindingRaysOut = 15;  // ... and written
-constexpr uint32_t kBindingCopy = 16;     // (added by the physical air) the colour's copy (the aerial composite)
+constexpr uint32_t kBindingLit = 16;      // (round W2) the god rays' potential under the march's own shadow
 constexpr uint32_t kBindingCount = 17;
 constexpr uint32_t kMaterialSet = 1; // (CUTOUTS: the material table's set)
 
@@ -1204,7 +1228,7 @@ struct CompositePipeline {
 
 using Matrix = std::array<std::array<double, kMatrixSide>, kMatrixSide>;
 
-constexpr std::size_t kSlotImages = 8;
+constexpr std::size_t kSlotImages = 9;
 
 // A viewport's images and history.
 struct ViewSlot {
@@ -1213,12 +1237,11 @@ struct ViewSlot {
     uint32_t scale = kLeastScale; // (the march's block: its images 1 / this of the viewport's on each axis)
     Image raw;                         // step 1: the light, the transmittance
     Image raw_info;                    // step 1: the distance, the pixel marched
+    Image raw_lit;                     // (round W2) step 1: the god rays' potential under the march's own shadow
     std::array<Image, 2> histories;    // step 2's, this frame's and the one before (by `current`)
     std::array<Image, 2> history_info; // likewise: the distance, the history's length
     std::array<Image, 2> rays;         // (added by the god rays) the rays' images (half the viewport's pixels), in turn
     Image* rays_written = nullptr; // the one the composite read last (read_rt_fog_image's kRays)
-    Image copy; // (added by the physical air) the colour's viewport copied out for the aerial composite (its format,
-                // samples and size; made when first needed)
     uint32_t current = 0;
     bool fresh = true;
     bool have_before = false;
@@ -1433,7 +1456,7 @@ bool make_layouts(Backend& state, std::string* error)
         if (binding == kBindingScene) {
             type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         } else if (binding == kBindingDepth || binding == kBindingSky || binding == kBindingCloudMap ||
-                   binding == kBindingRaysIn || binding == kBindingCopy) {
+                   binding == kBindingRaysIn) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         } else if (binding == kBindingBlock || binding == kBindingLamps) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1824,6 +1847,7 @@ std::array<Image*, kSlotImages> images_of(ViewSlot& slot)
 {
     return {&slot.raw,
             &slot.raw_info,
+            &slot.raw_lit,
             &slot.histories.front(),
             &slot.histories.back(),
             &slot.history_info.front(),
@@ -1841,53 +1865,6 @@ void release_slot(Backend& state, ViewSlot* slot, bool now)
             retire_image(state, image);
         }
     }
-    if (slot->copy.image != VK_NULL_HANDLE) {
-        if (now) {
-            state.memory.destroy_image(&slot->copy);
-        } else {
-            retire_image(state, &slot->copy);
-        }
-    }
-}
-
-// (added by the physical air) The slot's copy of the colour (made again when the colour's format, samples or size
-// change), and the viewport copied into it, ready to be sampled. False: it can't be made.
-bool copy_colour(Backend& state, VkCommandBuffer commands, Image* colour, ViewSlot* slot,
-                 const std::array<uint32_t, 4>& rect)
-{
-    Image& copy = slot->copy;
-    if (copy.image != VK_NULL_HANDLE && (copy.format != colour->format || copy.samples != colour->samples ||
-                                         copy.extent.width != colour->extent.width ||
-                                         copy.extent.height != colour->extent.height)) {
-        retire_image(state, &copy);
-    }
-    if (copy.image == VK_NULL_HANDLE) {
-        const ImageRequest request{.format = colour->format,
-                                   .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
-                                   .extent = colour->extent,
-                                   .levels = 1,
-                                   .samples = colour->samples,
-                                   .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                                   .alpha_one = false};
-        if (!state.memory.create_image(request, &copy)) {
-            return false;
-        }
-        copy.resting = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    }
-    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    Memory::transition(commands, &copy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
-    const VkImageSubresourceLayers layers{
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
-    const VkOffset3D corner{.x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1)), .z = 0};
-    const VkImageCopy region{.srcSubresource = layers,
-                             .srcOffset = corner,
-                             .dstSubresource = layers,
-                             .dstOffset = corner,
-                             .extent = {.width = core::at(rect, 2), .height = core::at(rect, 3), .depth = 1}};
-    vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, copy.image,
-                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    Memory::transition(commands, &copy, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    return true;
 }
 
 bool make_storage_image(Backend& state, VkFormat format, const Extent& extent, Image* out)
@@ -1944,7 +1921,8 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
     slot.last_use = own.uses;
     const Extent extent = low_extent(rect, scale);
     bool made = make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &slot.raw) &&
-                make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &slot.raw_info);
+                make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &slot.raw_info) &&
+                make_storage_image(state, VK_FORMAT_R32_SFLOAT, extent, &slot.raw_lit);
     for (std::size_t i = 0; i < 2; ++i) {
         made = made && make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &core::at(slot.histories, i)) &&
                make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &core::at(slot.history_info, i)) &&
@@ -2068,7 +2046,7 @@ struct PassBindings {
     const Image* air_map = nullptr; // (added by the distinct shafts)
     const Image* rays_in = nullptr; // (added by the god rays: read through the linear sampler)
     const Image* rays_out = nullptr;
-    const Image* copy = nullptr; // (added by the physical air: the colour's copy)
+    const Image* lit = nullptr; // (round W2: the march's potential under its own shadow - written, then read)
     VkDescriptorBufferInfo block{};
 };
 
@@ -2119,17 +2097,13 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
                 .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
         add(kBindingDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).pImageInfo = &info;
     }
-    if (bound.copy != nullptr) {
-        VkDescriptorImageInfo& info = core::at(infos, kBindingCopy);
-        info = {.sampler = own.sampler, .imageView = bound.copy->view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-        add(kBindingCopy, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).pImageInfo = &info;
-    }
     if (bound.rays_in != nullptr) {
         VkDescriptorImageInfo& info = core::at(infos, kBindingRaysIn);
         info = {.sampler = own.linear_sampler, .imageView = bound.rays_in->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
         add(kBindingRaysIn, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).pImageInfo = &info;
     }
-    const std::array<std::pair<uint32_t, const Image*>, 8> storage{{{kBindingRaysOut, bound.rays_out},
+    const std::array<std::pair<uint32_t, const Image*>, 9> storage{{{kBindingLit, bound.lit},
+                                                                    {kBindingRaysOut, bound.rays_out},
                                                                     {kBindingOut, bound.out},
                                                                     {kBindingOutInfo, bound.out_info},
                                                                     {kBindingIn, bound.in},
@@ -2967,6 +2941,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                   .out = &slot->raw,
                   .out_info = &slot->raw_info,
                   .air_map = &own.air_map,
+                  .lit = &slot->raw_lit,
                   .block = block_info},
                  low);
         // 2. the history
@@ -3001,13 +2976,12 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         rays = from;
         slot->rays_written = from;
     }
-    // 3. the composite (the aerial march's in linear light over the colour's copy)
-    const bool copied = own.aerial && copy_colour(state, commands, colour, slot, clipped.rect);
+    // 3. the composite (the aerial march's light linear - round W2: blended over the frame as the level fog's is)
     const VkPipeline drawn =
-        copied ? composite_pipeline(state, colour->format, colour->samples, &error, true) : composite;
-    if (own.aerial && (!copied || drawn == VK_NULL_HANDLE)) {
+        own.aerial ? composite_pipeline(state, colour->format, colour->samples, &error, true) : composite;
+    if (drawn == VK_NULL_HANDLE) {
         if (first_report(state, kReportImages)) {
-            get_log("vulkan: rt_fog: the colour's copy couldn't be made - the aerial air skipped");
+            get_log("vulkan: rt_fog: the aerial composite couldn't be made - the aerial air skipped");
         }
         depth_barrier(commands, depth, depth->resting, false);
         return false;
@@ -3018,12 +2992,9 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                       .in_info = history_info,
                       .history_info = &slot->raw_info,
                       .rays_in = rays,
-                      .copy = copied ? &slot->copy : nullptr,
+                      .lit = &slot->raw_lit,
                       .block = block_info},
                      clipped.rect);
-    if (copied) {
-        slot->copy.used = state.frames.serial();
-    }
     if (timing) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timer, (pair * 2) + 1);
         ++own.timed;
@@ -3196,6 +3167,8 @@ bool read_rt_fog_image(Backend& state, const std::array<uint32_t, 4>& rect, RtFo
             image = &core::at(slot->histories, last);
         } else if (which == RtFogImage::kHistoryInfo) {
             image = &core::at(slot->history_info, last);
+        } else if (which == RtFogImage::kRawLit) {
+            image = &slot->raw_lit;
         } else if (which == RtFogImage::kRays) {
             if (slot->rays_written == nullptr) {
                 return false;
@@ -3205,8 +3178,9 @@ bool read_rt_fog_image(Backend& state, const std::array<uint32_t, 4>& rect, RtFo
         if (!finish_work(state)) {
             return false;
         }
-        constexpr std::size_t kChannels = 4;
-        const bool wide = image->format == VK_FORMAT_R32G32B32A32_SFLOAT;
+        const bool single = image->format == VK_FORMAT_R32_SFLOAT; // (round W2: the sunlit potential - r alone)
+        const std::size_t kChannels = single ? 1 : 4;
+        const bool wide = single || image->format == VK_FORMAT_R32G32B32A32_SFLOAT;
         const std::size_t texels = static_cast<std::size_t>(image->extent.width) * image->extent.height;
         std::vector<uint8_t> bytes(texels * kChannels * (wide ? sizeof(float) : sizeof(uint16_t)));
         if (!state.memory.read_image_level(image, 0, &bytes)) {

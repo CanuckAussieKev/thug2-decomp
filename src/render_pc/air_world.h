@@ -12,5 +12,7 @@ namespace render::air_world {
 
 // snow_world::step's (every simulation step): `sectors` the loaded world's sectors' key.
 void step(uint64_t sectors);
+// (round W2) Whether the volume for the loaded sectors is published (or there is none to make): nothing being built.
+[[nodiscard]] bool settled();
 
 } // namespace render::air_world

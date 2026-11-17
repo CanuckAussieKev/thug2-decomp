@@ -40,6 +40,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <numbers>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -534,6 +535,24 @@ void check_steps(Tally* tally)
                  text::format("one snowfall in the air: %.2e /m at %.1f mm/h - %.0f m visibility (moderate snow: 0.5 - 1 km); the "
                               "fog's march takes the same",
                               snow_air, snow::kSnowfallRate, visibility));
+    // (round W2) the eddies the flakes ride are the turbulence's: swing sqrt(2) I L / 2 pi (lateral 0.75, vertical 0.5 of
+    // the longitudinal intensity), their turning sqrt(2) sigma / (L / 2 pi) - a pattern moving at the wind's speed then
+    // moves the air by the turbulence's own standard deviation; in still air nothing turns
+    {
+        const double intensity = render::wind::turbulence_intensity();
+        const double swing = vk::snow_swirl_amplitude();
+        const double roll = vk::snow_roll_amplitude();
+        const double two_pi = 2.0 * std::numbers::pi;
+        const double want_swing = std::numbers::sqrt2 * intensity * 0.75 * vk::kSnowSwirlLength / two_pi;
+        const double want_roll = std::numbers::sqrt2 * intensity * 0.5 * vk::kSnowRollLength / two_pi;
+        // the air's speed the swing gives as the pattern passes at U: A x 2 pi U / L over U = sqrt(2) I x the share
+        const double lateral = swing * two_pi / vk::kSnowSwirlLength / (std::numbers::sqrt2 * intensity);
+        tally->check(std::abs(swing - want_swing) < 1e-4 && std::abs(roll - want_roll) < 1e-4 &&
+                         std::abs(lateral - 0.75) < 1e-5 && vk::snow_swirl_rate() > 0.0F,
+                     text::format("the flakes' eddies from the turbulence (I %.3f): a swing of %.1f units across the wind, "
+                                  "%.1f in the rolls (were 16 and 26 by hand) - sigma_v %.2f U",
+                                  intensity, swing, roll, lateral * intensity));
+    }
     // (round W - the audit's S1) the layer lit through the one light model as a snow surface of the same material: a flat
     // patch of the layer over the snow-covered ground shows the ground's own light within 3% - in the sun, in shade, under
     // a lamp at night

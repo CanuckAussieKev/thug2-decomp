@@ -2561,6 +2561,54 @@ and what its surfaces are made of, never flagged.
   (deposition by the wind's speed) is not modelled.
 - **Wet patches** (the decals' `kWet`) only where the rain reaches (the volume's sky).
 
+### Round W2: grass and clutter lit by the one light; the air's and the rain's leftovers
+
+- **The light store round the camera** (`engine/gfx/light_window.h`, `gpu_vulkan/vulkan_light_window.h`): Round O's
+  light field sampled at its own cells' centres in a box round the camera (96 x 16 x 96 cells of 128 units - 312 m
+  across, 52 m up and down), one first-order probe a cell holding the whole indirect light (sky, bounce and every lamp:
+  the lamps pass lights only what was drawn before the blades and items). Three RGBA16F planes in one 2D image, filled on
+  a worker when the camera moves an eighth of the window or the field changes (0.9 s for the 147k probes), read
+  trilinearly (`window_probe`, `probe_light`). Without a field the probe at the camera (the field's, else the clock's
+  open sky) stands everywhere.
+- **Thin sheets** (`engine/gfx/foliage_light.h`): a blade, a leaf, a weed, a scrap of paper is a thin sheet - the face
+  toward the eye reflects through `rt_brdf.h` (the coupled Lambert and GGX with the material's albedo, F0 and roughness),
+  the light on its other face comes through it by its diffuse transmittance (measured: Gates et al. 1965 for a green
+  leaf, Elvidge 1990 for dried plant material - `rt_material_table.h` kinds `leaf`, `leaf_dry`, `paper`, with per-channel
+  colours), leaving through the near face's interface (1 - E). In a lawn the blades above shade a blade: the canopy's
+  gap fraction (Beer's law, Monsi and Saeki 1953; a spherical leaf-angle distribution, G = 1/2) over the drawn blades'
+  own leaf area (their count a square unit x a tapered blade's area, (1 - t)^2 of it above a height t). A tip facing up -
+  nothing above it - is lit exactly as a flat surface of its material is (the grass check's case, 6e-8).
+- **Grass**: a compute pass shapes each chosen blade as the draw will, traces its sun ray from its middle (ray tracing
+  on), takes the window's probe there and works out its radiance toward the camera at its root and its tip (16 bytes a
+  blade); the draw interpolates. The frame's colour is never read: the colour copy, the depth match and the "known"
+  learning are gone. Albedo and transmittance the leaf's (a dried blade the dried leaf's) x (1 +- 10%) per blade.
+- **Clutter**: a compute pass traces each item's sun ray; the vertex shader lights each vertex through the same sheet
+  model with the item's material (fallen leaves the dried leaf's, weeds the living leaf's, paper, a can's bare metal and
+  painted label, pebbles the gravel's albedo range) and the mesh's normal turned with it. The ground's luminance over a
+  hand albedo and the mesh's baked shading are gone.
+- **Clutter where the air goes** (`scatter.h` Input::air): leaves and paper are kept as often as the level's air
+  transport says the wind reaches the place (sampled a cell and a half up: the ground's own cells are walls), weeds as
+  often as the sky's fall does; cans and pebbles keep their own rules. The scatter is made once the volume is published
+  (`air_world::settled`) and again when it changes.
+- **Decals**: they still multiply the lit pixel (after the light). A material edit before lighting needs the decals in
+  front of the world's shading - a deferred decal buffer the world shader reads (albedo x, roughness, normal), which needs
+  the world's depth before its colour (a depth prepass or the path tracer's visibility buffer). The forward renderer
+  draws depth and colour together, so decals can't be put before the light without that prepass.
+- **God rays under a roof**: the march keeps the peak's potential under its own shadow (`kRawLit`: the sun's rays, the
+  air's sun map, the clouds') beside the unshadowed one; the composite takes min(unshadowed x the screen's open share,
+  shadowed) - air the world shadows (a roof the view doesn't show) gets none of the peak, whatever the screen shows.
+- **The street air's shade light** (levels keeping their own fog): only as much as the sky its air sees - four
+  stratified rays a pair toward the upper hemisphere; the fog check's processor reference traces the same rays (the
+  pass's hash) and integrates the open share for its exact reference.
+- **The aerial composite** blends (colour x T + light) like the level fog's: the frame is linear since round F, so the
+  colour copy it was read through is gone.
+- **Wet ground in the reflections**: a surface shaded through its map takes the world shader's wet material in the
+  trace - F0 and roughness toward water's by the flat water share - and the reflection is added by the share its shading
+  left out; standing water's normal carries the rain's rings (`rain_ripple`, the world shader's) in the trace too.
+- **The flakes' eddies**: their swing sqrt(2) I L / 2 pi from the turbulence (wind.h `turbulence_intensity`, lateral 0.75
+  and vertical 0.5 of it - Panofsky and Dutton), their turning sqrt(2) sigma / (L / 2 pi): none in still air (were 16 and
+  26 units by hand, turning at fixed rates).
+
 ### Time of day (`tod`, `tod_cycle`)
 
 Every level can be played at any hour: the sun (and at night a full moon) moves along a real path over the level, the
@@ -3479,8 +3527,10 @@ tracing needed; Direct3D 9 installs no `Sink` and draws none.
   the order of a rank hash. A blade is 16 bytes (its root; rank, height, facing and shade hashes, a dried flag).
 - **The pass** at `opaque_drawn`, `ViewOrder::kGrass` (450: after the opaque world, the objects and the sky, and after
   the ray-traced shadows, occlusion, bounce and reflections have shaded the ground; before the fog and the tone mapping
-  at `world_drawn`, which take the blades with the rest; never in the BLAS). The blades take the shaded ground's colour
-  at their roots - each is in the shadow (and the occlusion) its root is in. The first try ran the pass before the
+  at `world_drawn`, which take the blades with the rest; never in the BLAS). (Round W2: the blades are lit by the one
+  light - the light store's window, their own traced sun ray, the canopy's gaps, the leaf's material through rt_brdf.h -
+  and no longer read the frame's colour; the copy, the depth match and the colours' learning below are history - see
+  "Round W2".) Until round W2 the blades took the shaded ground's colour at their roots. The first try ran the pass before the
   shadows (90), so they would shade the blades from the depth the blades write: with the user's settings in BO every
   blade came out near black - a blade is a few pixels wide, and the normals the screen-space passes rebuild from its
   depth are noise (occlusion at radius 192 and strength 1 darkened them most). Per view (vulkan_grass.h has the formulas): the tiles nearer than the
@@ -4048,13 +4098,12 @@ after the grass, each density row shown only while its switch is on). No ray tra
   reflectivity is the wetness (when more than its own) with water's Fresnel - `rt::kReflectWaterF0` 2% face-on, a mirror
   at grazing angles - and no environment mask. A frame whose only reflective things are puddles runs the reflection
   pass too.
-- **The clutter's pass** (`ViewOrder::kClutter` 445: after the reflections, before the grass): as the grass's - the
-  viewport's colour copied out, a compute pass keeps the ground's colour under each chosen item's root where the depth
-  there is the root's (a buffer of half floats, so a root hidden this frame keeps the last seen; an item never seen isn't
-  drawn and grows in over three sightings); then each item drawn instanced, 48 vertices, depth-tested and written (and
-  the upscaler's motion). Its colour: a pebble the ground's own x 0.8 - 1.2; the rest their own (leaves' autumn colours,
-  paper, a can's label and rim, a weed's green) x the ground's luminance over 0.4 (the ground's light) x the mesh's
-  shade. Leaves and weeds sway downwind with the grass's two waves. Level of detail as the grass: every item to a quarter
+- **The clutter's pass** (`ViewOrder::kClutter` 445: after the reflections, before the grass): (round W2) a compute
+  pass traces each chosen item's sun ray; then each item drawn instanced, 48 vertices, depth-tested and written (and the
+  upscaler's motion), each vertex lit by the one light as a thin sheet of the item's material (see "Round W2": the light
+  store's window, the traced sun, rt_brdf.h) - a pebble the gravel's albedo range; the rest their own colours (leaves'
+  autumn colours, paper, a can's label, a weed's green) as albedo; a can's body bare metal. (Until round W2 the colour
+  under each root was copied from the frame and the items took the ground's luminance over 0.4 x the mesh's shade.) Leaves and weeds sway downwind with the grass's two waves. Level of detail as the grass: every item to a quarter
   of 1,600 units, then (near / d)^1.5 of them by rank, each shrinking into the ground from 70% of the distance; at most
   400,000 a view.
 - **Off is as before.** Both off: no listener, no `Sink`, `scatter_world::frame` tests one pointer; no fixed-function

@@ -56,6 +56,7 @@
 #include "gpu_vulkan/vulkan_scatter.h"
 #include "gpu_vulkan/vulkan_paint.h"
 #include "gpu_vulkan/vulkan_air.h"
+#include "gpu_vulkan/vulkan_light_window.h"
 #include "gpu_vulkan/vulkan_precip.h"
 #include "gpu_vulkan/vulkan_rain.h"
 #include "gpu_vulkan/vulkan_snow.h"
@@ -1177,6 +1178,7 @@ void release_draw_objects(Backend& state)
     release_rain(state); // (NOT ORIGINAL - the rain's: vulkan_rain.h)
     release_precip(state); // (NOT ORIGINAL - the precipitation occlusion map: vulkan_precip.h)
     release_air(state);    // (NOT ORIGINAL - round W: the air's window, vulkan_air.h)
+    release_light_window(state); // (NOT ORIGINAL - round W2: the light store round the camera)
     release_scatter(state); // (NOT ORIGINAL - the decals' and clutter's: vulkan_scatter.h)
     release_cel(state); // (NOT ORIGINAL - cel shading's outlines: vulkan_cel_draw.h)
     release_water(state); // (NOT ORIGINAL - rt_water's: vulkan_water.h)

@@ -2,6 +2,7 @@
 #include "gpu_vulkan/vulkan_grass.h"
 
 #include "gpu_vulkan/vulkan_air.h"
+#include "gpu_vulkan/vulkan_light_window.h"
 
 #include <algorithm>
 #include <array>
@@ -20,7 +21,10 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/gfx/foliage_light.h"
 #include "engine/gfx/grass.h"
+#include "engine/gfx/rt_brdf.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -34,6 +38,7 @@
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_scene.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -44,7 +49,6 @@ namespace {
 constexpr uint64_t kReportTarget = 0x47525301U;
 constexpr uint64_t kReportPipeline = 0x47525302U;
 constexpr uint64_t kReportFirstPass = 0x47525303U;
-constexpr uint64_t kReportNoDepth = 0x47525304U;
 constexpr uint64_t kReportUpload = 0x47525305U;
 constexpr uint64_t kReportNoRoom = 0x47525306U;
 
@@ -52,14 +56,17 @@ constexpr uint32_t kGroupSize = 64;
 constexpr VkShaderStageFlags kStages =
     VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 constexpr uint32_t kBindingBlades = 0;  // the field's blades (storage)
-constexpr uint32_t kBindingColours = 1; // the blades' colours (storage: two uints a blade - half floats r g, b known)
+constexpr uint32_t kBindingColours = 1; // the blades' light (storage: four uints a blade - half floats: the root's r g,
+                                        // b and the tip's r, the tip's g b; the sun's visibility)
 constexpr uint32_t kBindingParams = 2;  // the view's block (uniform, in the ring)
-constexpr uint32_t kBindingSource = 3;  // the viewport's colour copied out (sampled)
-constexpr uint32_t kBindingDepth = 4;   // the depth (sampled; the source when there is no samplable depth)
+constexpr uint32_t kBindingLight = 3;   // (round W2) the light store round the camera (sampled - vulkan_light_window.h)
+constexpr uint32_t kBindingScene = 4;   // (round W2) the TLAS (the traced light pass: the blades' sun rays)
 constexpr uint32_t kBindingProbe = 5;   // the probe's answers (storage)
 constexpr uint32_t kBindingAir = 6;     // (round W) the air's window (sampled - vulkan_air.h)
 constexpr uint32_t kBindingCount = 7;
-constexpr std::size_t kColourBytes = 8; // (a blade's colour)
+constexpr std::size_t kColourBytes = 16; // (a blade's light)
+constexpr float kSunReach = 1.0e5F;      // (units: a sun ray's length - past any level)
+constexpr uint32_t kSunRayMask = 0x07U;  // (the world, the objects, the characters: what casts the sun's shadows)
 constexpr uint32_t kTimerPairs = 8;
 constexpr uint64_t kTimingLogEvery = 300;
 constexpr uint32_t kNearSegments = 3;
@@ -120,12 +127,25 @@ std::string constants_source()
     define("PUSH_HEIGHT", kGrassPushHeight);
     define("MOST_BEND", kGrassMostBend);
     define("FACE_CAMERA", kGrassFaceCamera);
-    define("ROOT_SHADE", kGrassRootShade);
-    define("TIP_SHADE", kGrassTipShade);
     define("SHADE_SPREAD", kGrassShadeSpread);
-    define("MATCH_SHARE", kGrassMatchShare);
-    define("MATCH_SLACK", kGrassMatchSlack);
-    define("LEARN", kGrassLearn);
+    define("SUN_REACH", kSunReach);
+    out += "#define SUN_MASK " + std::to_string(kSunRayMask) + "u\n";
+    // (round W2) the blades' materials (rt_material_table.h: a living leaf; a dried one)
+    const auto define_rgb = [&out](const char* name, const rt::brdf::Rgb& value) {
+        out += "#define ";
+        out += name;
+        out += " vec3(" + glsl_float(core::at(value, 0)) + ", " + glsl_float(core::at(value, 1)) + ", " +
+               glsl_float(core::at(value, 2)) + ")\n";
+    };
+    define_rgb("LEAF_ALBEDO", rt::material_colour(rt::MaterialKind::kLeaf));
+    define_rgb("LEAF_THROUGH", rt::material_transmittance(rt::MaterialKind::kLeaf));
+    define_rgb("LEAF_F0", rt::material_f0(rt::MaterialKind::kLeaf));
+    define("LEAF_ROUGHNESS", rt::material_values(rt::MaterialKind::kLeaf).roughness);
+    define_rgb("DRY_ALBEDO", rt::material_colour(rt::MaterialKind::kLeafDry));
+    define_rgb("DRY_THROUGH", rt::material_transmittance(rt::MaterialKind::kLeafDry));
+    define_rgb("DRY_F0", rt::material_f0(rt::MaterialKind::kLeafDry));
+    define("DRY_ROUGHNESS", rt::material_values(rt::MaterialKind::kLeafDry).roughness);
+    out += "#define DRIED_FLAG " + std::to_string(grass::kDriedFlag) + "u\n";
     define("CONTROL_BEND", kControlBend);
     define("WIND_X", core::at(wind::kDirection, 0));
     define("WIND_Z", core::at(wind::kDirection, 1));
@@ -136,7 +156,7 @@ std::string constants_source()
 // What every stage shares: the bindings, the view's block, the blade's shape (grass_blade_shape is its twin).
 constexpr const char* kCommon = R"(
 layout(std430, set = 0, binding = 0) readonly buffer Blades { vec4 blades[]; };
-layout(std430, set = 0, binding = 1) COLOURS_ACCESS buffer Colours { uvec2 colours[]; };
+layout(std430, set = 0, binding = 1) COLOURS_ACCESS buffer Colours { uvec4 colours[]; };
 layout(std140, set = 0, binding = 2) uniform Params {
     mat4 vp;               // D3D's row-vector matrix as stored: vp * v is its v x M
     mat4 vp_before;        // the frame before's, unjittered (the motion)
@@ -150,6 +170,11 @@ layout(std140, set = 0, binding = 2) uniform Params {
     ivec4 counts;          // x: the pushers
     vec4 pushers[8];       // xyz where, w the reach
     vec4 air;              // (round W) the air's window's origin (vulkan_air.h; w 1 with one)
+    vec4 light_origin;     // (round W2) the light window's origin (vulkan_light_window.h; w 1 with one)
+    vec4 light_fallback[3]; // (round W2) the probe without one (per channel c0, c1)
+    vec4 sun_toward;       // (round W2) toward the sun or the moon; w 1 when it lights
+    vec4 sun_light;        // (round W2) its light per unit of N.L (linear)
+    vec4 sheet;            // (round W2) x: the blades' leaf area a ground area
 } p;
 layout(set = 0, binding = 6) uniform sampler2D u_air;
 AIR_GLSL
@@ -245,22 +270,47 @@ vec3 finite_colour(vec3 c)
 }
 )";
 
-// The gather: each blade's root on the screen; where the depth there is the root's, its colour taken.
-constexpr const char* kGatherBody = R"(
+// (round W2) The light: each chosen blade shaped as the draw shapes it; its light at the root and the tip (the light
+// store's probe at its middle, the sun's with its traced visibility, the canopy's gaps - grass_blade_light's twin).
+constexpr const char* kLightBody = R"(
 layout(local_size_x = 64) in;
-layout(set = 0, binding = 3) uniform sampler2D u_source;
-#ifdef MULTISAMPLED
-layout(set = 0, binding = 4) uniform sampler2DMS u_depth;
-#else
-layout(set = 0, binding = 4) uniform sampler2D u_depth;
+layout(set = 0, binding = 3) uniform sampler2D u_light;
+LIGHT_GLSL
+#ifdef TRACED
+layout(set = 0, binding = 4) uniform accelerationStructureEXT u_scene;
+float sun_seen(vec3 origin, vec3 toward)
+{
+    rayQueryEXT q;
+    rayQueryInitializeEXT(q, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, SUN_MASK, origin, 0.0,
+                          toward, SUN_REACH);
+    while (rayQueryProceedEXT(q)) {
+    }
+    return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+}
 #endif
 
-float linear_depth(float d)
+// The radiance toward the eye of the blade's face at `t` (0 the root, 1 the tip).
+vec3 blade_end(Shape s, float t, BrdfMaterial m, vec3 through, vec4 r, vec4 g, vec4 b, float seen)
 {
-    float ndc = (d - p.depth_map.x) * p.depth_map.y;
-    float z = (p.depth_projection.y - ndc * p.depth_projection.w) / (ndc * p.depth_projection.z - p.depth_projection.x);
-    float w = z * p.depth_projection.z + p.depth_projection.w;
-    return abs(p.depth_projection.z) > 0.5 ? w : abs(z);
+    vec3 tangent = t < 0.5 ? s.control - s.root : s.tip - s.control;
+    vec3 n = cross(tangent, s.across);
+    float n_length = length(n);
+    n = n_length > 1.0e-6 ? n / n_length : vec3(0.0, 0.0, 1.0);
+    vec3 at = blade_point(s, t);
+    vec3 to_eye = p.camera.xyz - at;
+    float eye_length = length(to_eye);
+    vec3 v = eye_length > 1.0e-6 ? to_eye / eye_length : vec3(0.0, 1.0, 0.0);
+    if (dot(n, v) < 0.0) {
+        n = -n;
+    }
+    float above = p.sheet.x * (1.0 - t) * (1.0 - t);
+    float gd = diffuse_gap(above);
+    vec3 toward = p.sun_toward.xyz;
+    vec3 sun = p.sun_light.rgb * (seen * beam_gap(above, max(toward.y, 0.0)));
+    vec3 front = probe_light(r, g, b, n) * gd;
+    vec3 back = probe_light(r, g, b, -n) * gd;
+    vec3 around = probe_light(r, g, b, reflect(-v, n)) * gd;
+    return sheet_radiance(m, through, n, v, front, back, around, toward, sun);
 }
 
 void main()
@@ -270,27 +320,32 @@ void main()
         return;
     }
     uint index = pc.range.x + i;
-    vec3 root = blades[index].xyz;
-    vec4 clip = p.vp * vec4(root, 1.0);
-    if (!(clip.w > 1.0e-3)) {
+    vec4 b = blades[index];
+    Shape s = blade_shape(b, 1.0);
+    if (!(s.height > 0.0)) {
+        colours[index] = uvec4(0u);
         return;
     }
-    vec2 ndc = clip.xy / clip.w;
-    vec2 at = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * p.rect.zw;
-    if (!(all(greaterThan(at, vec2(-0.1) * p.rect.zw)) && all(lessThan(at, vec2(1.1) * p.rect.zw)))) {
-        return;
+    bool dried = (floatBitsToUint(b.w) & DRIED_FLAG) != 0u;
+    float own = 1.0 + SHADE_SPREAD * (s.shade * 2.0 - 1.0);
+    BrdfMaterial m = dried ? brdf_material(DRY_ALBEDO * own, DRY_F0, DRY_ROUGHNESS)
+                           : brdf_material(LEAF_ALBEDO * own, LEAF_F0, LEAF_ROUGHNESS);
+    vec3 through = (dried ? DRY_THROUGH : LEAF_THROUGH) * own;
+    vec3 middle = blade_point(s, 0.5);
+    float seen = p.sun_toward.w > 0.5 ? 1.0 : 0.0;
+#ifdef TRACED
+    if (seen > 0.0) {
+        seen = sun_seen(middle, p.sun_toward.xyz);
     }
-    ivec2 size = max(ivec2(p.rect.zw), ivec2(1));
-    ivec2 pixel = clamp(ivec2(floor(at)), ivec2(0), size - 1) + ivec2(p.rect.xy);
-    if (p.depth_map.z > 0.5) {
-        float z = linear_depth(texelFetch(u_depth, pixel, 0).r);
-        if (!(abs(z - clip.w) <= clip.w * MATCH_SHARE + MATCH_SLACK)) {
-            return;
-        }
-    }
-    vec3 c = finite_colour(texelFetch(u_source, pixel, 0).rgb);
-    float known = min(unpackHalf2x16(colours[index].y).y + LEARN, 1.0);
-    colours[index] = uvec2(packHalf2x16(c.rg), packHalf2x16(vec2(c.b, known)));
+#endif
+    vec4 pr;
+    vec4 pg;
+    vec4 pb;
+    window_probe(middle, pr, pg, pb);
+    vec3 root = finite_colour(blade_end(s, 0.0, m, through, pr, pg, pb, seen));
+    vec3 tip = finite_colour(blade_end(s, 1.0, m, through, pr, pg, pb, seen));
+    colours[index] = uvec4(packHalf2x16(root.rg), packHalf2x16(vec2(root.b, tip.r)), packHalf2x16(tip.gb),
+                           floatBitsToUint(seen));
 }
 )";
 
@@ -321,10 +376,11 @@ out gl_PerVertex { vec4 gl_Position; };
 void main()
 {
     uint index = uint(gl_InstanceIndex);
-    uvec2 packed = colours[index];
-    vec2 rg = unpackHalf2x16(packed.x);
-    vec2 bk = unpackHalf2x16(packed.y);
-    Shape s = blade_shape(blades[index], bk.y);
+    uvec4 packed = colours[index];
+    vec2 root_rg = unpackHalf2x16(packed.x);
+    vec2 root_b_tip_r = unpackHalf2x16(packed.y);
+    vec2 tip_gb = unpackHalf2x16(packed.z);
+    Shape s = blade_shape(blades[index], 1.0);
     int segments = max(int(pc.range.z), 1);
     int vertex = gl_VertexIndex;
     int level = min(vertex / 2, segments);
@@ -335,9 +391,8 @@ void main()
     gl_Position = s.height > 0.0
                       ? vec4(clip.x + clip.w * p.offsets.x, -clip.y + clip.w * p.offsets.y, clip.z, clip.w)
                       : vec4(0.0);
-    float shade = mix(ROOT_SHADE, TIP_SHADE, t) * (1.0 + SHADE_SPREAD * (s.shade * 2.0 - 1.0));
-    // (round F) the ground's colour is the frame's linear light; the blade's shade a ratio of display values, decoded
-    v_colour = finite_colour(vec3(rg, bk.x)) * linear_from_display(shade);
+    // (round W2) the blade's own light, the root's to the tip's (the light pass's)
+    v_colour = finite_colour(mix(vec3(root_rg, root_b_tip_r.x), vec3(root_b_tip_r.y, tip_gb), t));
 #ifdef MOTION
     v_now = vec4(clip.xy - p.offsets.zw * clip.w, 0.0, clip.w);
     v_before = p.vp_before * vec4(position, 1.0);
@@ -379,8 +434,13 @@ struct ParamsBlock {
     std::array<int32_t, 4> counts{};
     std::array<std::array<float, 4>, grass::kMostPushers> pushers{};
     std::array<float, 4> air{}; // (round W) the air's window's origin
+    std::array<float, 4> light_origin{};                  // (round W2)
+    std::array<std::array<float, 4>, 3> light_fallback{}; // (round W2)
+    std::array<float, 4> sun_toward{};                    // (round W2)
+    std::array<float, 4> sun_light{};                     // (round W2)
+    std::array<float, 4> sheet{};                         // (round W2)
 };
-constexpr std::size_t kParamsBytes = 400;
+constexpr std::size_t kParamsBytes = 512;
 static_assert(sizeof(ParamsBlock) == kParamsBytes, "the shaders' Params block");
 
 struct RangeConstants {
@@ -405,16 +465,17 @@ struct GrassState {
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
-    std::array<VkPipeline, 2> gather{}; // single-sampled depth, multisampled
+    std::array<VkPipeline, 2> gather{}; // (round W2: the light pass) untraced, traced
+    bool scene_binding = false;         // (the layout has the TLAS's binding: ray tracing on)
     VkPipeline probe = VK_NULL_HANDLE;
     std::array<VkShaderModule, 2> vertex{}; // without, with motion
     std::array<VkShaderModule, 2> fragment{};
     std::vector<DrawPipeline> draws;
-    Image source; // the viewport's colour copied out
     bool failed = false;
     uint64_t passes = 0;
     uint32_t last_blades = 0;
     uint32_t last_draws = 0;
+    bool last_traced = false;
     // the pass timed on the device (the style's scheme)
     VkQueryPool timer = VK_NULL_HANDLE;
     double tick_milliseconds = 0.0;
@@ -572,7 +633,17 @@ GrassView grass_view(const GrassSettings& settings, const rt::ViewDrawn& view, u
     made.pixel = scale > 0.0F && height_pixels > 0 ? kClipSpan / (scale * static_cast<float>(height_pixels)) : 0.0F;
     made.seconds = static_cast<float>(std::fmod(view.game_seconds, kWindClockWraps));
     made.wind = static_cast<float>(wind::speed_at_height(wind::kNearGround));
+    made.leaf_area = grass_leaf_area(settings.density, settings.height);
     return made;
+}
+
+float grass_leaf_area(float density, float height)
+{
+    // a blade tapers from kGrassWidth at the root to nothing at the tip: half its width x its height, its height the
+    // base x its own (kGrassShortest - kGrassTallest, evenly: their middle on average)
+    const float blade_area =
+        0.5F * kGrassWidth * kGrassBaseHeight * height * (0.5F * (kGrassShortest + kGrassTallest));
+    return grass::kBladesPerSquareUnit * density * blade_area;
 }
 
 float grass_keep(const GrassView& view, float distance)
@@ -679,6 +750,60 @@ GrassShape grass_blade_shape(const grass::Blade& blade, const GrassView& view, s
     shape.width = tall_now > 0.0F ? std::max(kGrassWidth, kGrassLeastPixels * view.pixel * apart_camera) : 0.0F;
     shape.shade = hash;
     return shape;
+}
+
+GrassLit grass_blade_light(const grass::Blade& blade, const GrassShape& shape, const GrassView& view,
+                           const GrassLight& light)
+{
+    GrassLit out;
+    if (!(shape.height > 0.0F)) {
+        return out;
+    }
+    const bool dried = (blade.packed & grass::kDriedFlag) != 0;
+    const rt::MaterialKind kind = dried ? rt::MaterialKind::kLeafDry : rt::MaterialKind::kLeaf;
+    const float own = 1.0F + (kGrassShadeSpread * ((shape.shade * 2.0F) - 1.0F));
+    rt::brdf::Rgb albedo = rt::material_colour(kind);
+    for (float& channel : albedo) {
+        channel *= own;
+    }
+    rt::foliage::Sheet sheet = rt::foliage::sheet_of(kind, albedo);
+    for (float& channel : sheet.transmittance) {
+        channel *= own;
+    }
+    const auto point = [&](float t) {
+        const float u = 1.0F - t;
+        Vec3 at{};
+        for (std::size_t a = 0; a < 3; ++a) {
+            core::at(at, a) = (u * u * core::at(shape.root, a)) + (2.0F * u * t * core::at(shape.control, a)) +
+                              (t * t * core::at(shape.tip, a));
+        }
+        return at;
+    };
+    const auto end = [&](float t) {
+        const Vec3& from = t < kHalf ? shape.root : shape.control;
+        const Vec3& to = t < kHalf ? shape.control : shape.tip;
+        const rt::brdf::Vec3 tangent{core::at(to, 0) - core::at(from, 0), core::at(to, 1) - core::at(from, 1),
+                                     core::at(to, 2) - core::at(from, 2)};
+        const rt::brdf::Vec3 across{core::at(shape.across, 0), core::at(shape.across, 1), core::at(shape.across, 2)};
+        rt::brdf::Vec3 n{(tangent.y * across.z) - (tangent.z * across.y), (tangent.z * across.x) - (tangent.x * across.z),
+                         (tangent.x * across.y) - (tangent.y * across.x)};
+        n = rt::brdf::dot(n, n) > 1.0e-12F ? rt::brdf::normalise(n) : rt::brdf::Vec3{0.0F, 0.0F, 1.0F};
+        const Vec3 at = point(t);
+        const rt::brdf::Vec3 v = rt::brdf::normalise({core::at(view.camera, 0) - core::at(at, 0),
+                                                      core::at(view.camera, 1) - core::at(at, 1),
+                                                      core::at(view.camera, 2) - core::at(at, 2)});
+        const float above = view.leaf_area * (1.0F - t) * (1.0F - t);
+        rt::foliage::SheetLight lit;
+        lit.probe = light.probe;
+        lit.toward = {core::at(light.toward, 0), core::at(light.toward, 1), core::at(light.toward, 2)};
+        lit.sun = light.sun;
+        lit.seen = light.seen * rt::foliage::beam_gap(above, std::max(core::at(light.toward, 1), 0.0F));
+        lit.diffuse_gap = rt::foliage::diffuse_gap(above);
+        return rt::foliage::sheet_radiance(sheet, n, v, lit);
+    };
+    out.root = end(0.0F);
+    out.tip = end(1.0F);
+    return out;
 }
 
 namespace {
@@ -825,6 +950,9 @@ std::string source_of(const char* body, bool writes_colours, const char* define)
         source += "#define ";
         source += define;
         source += '\n';
+        if (std::string(define) == "TRACED") {
+            source += "#extension GL_EXT_ray_query : require\n";
+        }
     }
     source += writes_colours ? "#define COLOURS_ACCESS\n" : "#define COLOURS_ACCESS readonly\n";
     source += constants_source();
@@ -833,7 +961,13 @@ std::string source_of(const char* body, bool writes_colours, const char* define)
     const std::size_t air = common.find("AIR_GLSL");
     common.replace(air, std::string("AIR_GLSL").size(), air_map_glsl("u_air", "p.air") + grass_bend_glsl());
     source += common;
-    source += body;
+    std::string own_body = body;
+    if (const std::size_t light = own_body.find("LIGHT_GLSL"); light != std::string::npos) {
+        // (round W2) the light store's window, the one BRDF and the thin sheets' light (foliage_light.h)
+        own_body.replace(light, std::string("LIGHT_GLSL").size(),
+                         light_window_glsl("u_light", "p") + rt::brdf::brdf_glsl() + rt::foliage::kFoliageGlsl);
+    }
+    source += own_body;
     return source;
 }
 
@@ -870,13 +1004,17 @@ bool make_layouts(Backend& state, std::string* error)
 {
     GrassState& own = grass_state();
     const VkDevice device = state.context.device();
+    own.scene_binding = state.context.ray_tracing_enabled();
     std::array<VkDescriptorSetLayoutBinding, kBindingCount> bindings{};
     for (uint32_t binding = 0; binding < kBindingCount; ++binding) {
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         if (binding == kBindingParams) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        } else if (binding == kBindingSource || binding == kBindingDepth || binding == kBindingAir) {
+        } else if (binding == kBindingLight || binding == kBindingAir) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        } else if (binding == kBindingScene) {
+            // (round W2) the blades' sun rays (ray tracing on; else a storage buffer never written - never read)
+            type = own.scene_binding ? VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         }
         core::at(bindings, binding) = {.binding = binding,
                                        .descriptorType = type,
@@ -931,9 +1069,9 @@ bool ensure_objects(Backend& state, std::string* error)
         return false;
     }
     for (std::size_t variant = 0; variant < own.gather.size(); ++variant) {
-        if (core::at(own.gather, variant) == VK_NULL_HANDLE) {
-            core::at(own.gather, variant) = make_compute(
-                device, own.layout, source_of(kGatherBody, true, variant == 1 ? "MULTISAMPLED" : nullptr), error);
+        if (core::at(own.gather, variant) == VK_NULL_HANDLE && (variant == 0 || own.scene_binding)) {
+            core::at(own.gather, variant) =
+                make_compute(device, own.layout, source_of(kLightBody, true, variant == 1 ? "TRACED" : nullptr), error);
             if (core::at(own.gather, variant) == VK_NULL_HANDLE) {
                 return false;
             }
@@ -1059,29 +1197,6 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     return pipeline;
 }
 
-bool ensure_source(Backend& state, const Image& colour)
-{
-    GrassState& own = grass_state();
-    Image& source = own.source;
-    if (source.image != VK_NULL_HANDLE && source.format == colour.format &&
-        source.extent.width == colour.extent.width && source.extent.height == colour.extent.height) {
-        return true;
-    }
-    retire_image(state, &source);
-    const ImageRequest request{.format = colour.format,
-                               .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
-                               .extent = colour.extent,
-                               .levels = 1,
-                               .samples = VK_SAMPLE_COUNT_1_BIT,
-                               .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                               .alpha_one = false};
-    if (!state.memory.create_image(request, &source)) {
-        return false;
-    }
-    prepare_image(state, &source);
-    return true;
-}
-
 // The field's blades into a buffer of the device's, and its colours' buffer cleared (none known) - once a field; the
 // old buffers retired.
 bool upload_field(Backend& state)
@@ -1177,14 +1292,14 @@ Float4x4 flat(const std::array<std::array<float, 4>, 4>& matrix)
 // What a view's pass works on.
 struct ViewPlan {
     Image* colour = nullptr;
-    Image* depth = nullptr;     // the depth attachment (the same samples as the colour)
-    bool sampled_depth = false; // ... and readable by the gather
+    Image* depth = nullptr; // the depth attachment (the same samples as the colour)
     bool motion = false;
     std::array<uint32_t, 4> rect{};
     GrassView shape;
     std::vector<GrassDraw> draws;
     uint32_t blades = 0;
     std::array<float, 4> air{}; // (round W) the air's window's origin (vulkan_air.h)
+    SheetLighting light;        // (round W2) the light store round the camera and the direct light
 };
 
 // The view's block: its camera, the blades' shape, the depth's mapping, the pushers.
@@ -1203,6 +1318,12 @@ ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::Vie
     block.lod = {plan.shape.distance, plan.shape.distance * kGrassNearShare, plan.shape.keep_scale, plan.shape.pixel};
     block.blade = {plan.shape.height, plan.shape.wind, 0.0F, 0.0F};
     block.air = plan.air;
+    // (round W2) the light the blades are lit by
+    block.light_origin = plan.light.origin;
+    block.light_fallback = plan.light.fallback;
+    block.sun_toward = plan.light.toward;
+    block.sun_light = plan.light.sun;
+    block.sheet = {plan.shape.leaf_area, 0.0F, 0.0F, 0.0F};
     block.rect = {static_cast<float>(core::at(plan.rect, 0)), static_cast<float>(core::at(plan.rect, 1)),
                   static_cast<float>(core::at(plan.rect, 2)), static_cast<float>(core::at(plan.rect, 3))};
     block.offsets = {core::at(plan.rect, 2) != 0 ? 1.0F / static_cast<float>(core::at(plan.rect, 2)) : 0.0F,
@@ -1216,7 +1337,7 @@ ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::Vie
         core::at(core::at(projection, kRowZ), kRowW), core::at(core::at(projection, kRowW), kRowW)};
     const float span = core::at(view.depth_range, 1) - core::at(view.depth_range, 0);
     block.depth_map = {core::at(view.depth_range, 0), span > 0.0F ? 1.0F / span : 1.0F,
-                       plan.sampled_depth ? 1.0F : 0.0F, probing ? 1.0F : 0.0F};
+                       0.0F, probing ? 1.0F : 0.0F};
     const std::size_t pushers = std::min(own.pushers.size(), grass::kMostPushers);
     block.counts = {static_cast<int32_t>(pushers), 0, 0, 0};
     for (std::size_t k = 0; k < pushers; ++k) {
@@ -1241,8 +1362,8 @@ std::optional<VkDescriptorBufferInfo> block_in_ring(Backend& state, const Params
 // The bindings pushed: the blades, the colours, the block; the images and the probe's answers when given.
 struct Bound {
     VkDescriptorBufferInfo params{};
-    const Image* source = nullptr;
-    const Image* depth = nullptr; // (DEPTH_STENCIL_READ_ONLY_OPTIMAL; null: the source in its place)
+    VkDescriptorImageInfo light{}; // (round W2: the light store round the camera - vulkan_light_window.h)
+    VkAccelerationStructureKHR scene = VK_NULL_HANDLE; // (round W2: the traced light pass)
     const DeviceBuffer* probe = nullptr;
     VkDescriptorImageInfo air{}; // (round W: the air's window - vulkan_air.h)
 };
@@ -1253,7 +1374,6 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     const VkDescriptorBufferInfo blades{.buffer = own.blades.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     const VkDescriptorBufferInfo colours{.buffer = own.colours.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     VkDescriptorBufferInfo probe{};
-    std::array<VkDescriptorImageInfo, 2> images{};
     std::vector<VkWriteDescriptorSet> writes; // (pointing at the infos above, which outlive the push)
     writes.reserve(kBindingCount);
     const auto add_buffer = [&](uint32_t binding, VkDescriptorType type, const VkDescriptorBufferInfo* info) {
@@ -1267,24 +1387,27 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     add_buffer(kBindingBlades, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &blades);
     add_buffer(kBindingColours, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &colours);
     add_buffer(kBindingParams, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &bound.params);
-    if (bound.source != nullptr) {
-        core::at(images, 0) = {.sampler = own.sampler,
-                               .imageView = bound.source->view,
-                               .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-        core::at(images, 1) =
-            bound.depth != nullptr
-                ? VkDescriptorImageInfo{.sampler = own.sampler,
-                                        .imageView = bound.depth->view,
-                                        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL}
-                : core::at(images, 0);
-        for (uint32_t which = 0; which < 2; ++which) {
-            VkWriteDescriptorSet& write = writes.emplace_back();
-            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstBinding = kBindingSource + which;
-            write.descriptorCount = 1;
-            write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write.pImageInfo = &core::at(images, which);
-        }
+    const VkDescriptorImageInfo light = bound.light;
+    if (light.imageView != VK_NULL_HANDLE) {
+        VkWriteDescriptorSet& write = writes.emplace_back();
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstBinding = kBindingLight;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.pImageInfo = &light;
+    }
+    const VkWriteDescriptorSetAccelerationStructureKHR scene{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+        .pNext = nullptr,
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &bound.scene};
+    if (bound.scene != VK_NULL_HANDLE && own.scene_binding) {
+        VkWriteDescriptorSet& write = writes.emplace_back();
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.pNext = &scene;
+        write.dstBinding = kBindingScene;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     }
     const VkDescriptorImageInfo air = bound.air;
     {
@@ -1314,85 +1437,6 @@ void memory_barrier(VkCommandBuffer commands, VkPipelineStageFlags from, VkAcces
     const VkMemoryBarrier barrier{
         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER, .pNext = nullptr, .srcAccessMask = written, .dstAccessMask = read};
     vkCmdPipelineBarrier(commands, from, to, 0, 1, &barrier, 0, nullptr, 0, nullptr);
-}
-
-// The depth moved for the gather to read (from what wrote it), or back to be drawn into.
-void depth_barrier(VkCommandBuffer commands, Image* depth, bool to_gather)
-{
-    const VkPipelineStageFlags tests =
-        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    const VkImageLayout layout =
-        to_gather ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    const VkImageMemoryBarrier barrier{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = to_gather ? VkAccessFlags{VK_ACCESS_MEMORY_WRITE_BIT} : VkAccessFlags{0},
-        .dstAccessMask = to_gather ? VkAccessFlags{VK_ACCESS_SHADER_READ_BIT}
-                                   : VkAccessFlags{VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                                                   VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT},
-        .oldLayout = depth->layout,
-        .newLayout = layout,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = depth->image,
-        .subresourceRange =
-            {.aspectMask = depth->aspect, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1},
-    };
-    vkCmdPipelineBarrier(
-        commands, to_gather ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        to_gather ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : tests, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-    depth->layout = layout;
-}
-
-// The viewport's colour copied out (resolved when multisampled) into the source image.
-void copy_colour(VkCommandBuffer commands, Image* colour, const std::array<uint32_t, 4>& rect)
-{
-    GrassState& own = grass_state();
-    // (the last pass's gather read the source: done before it is written again)
-    memory_barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
-    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    Memory::transition(commands, &own.source, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
-    const VkImageSubresourceLayers layers{
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
-    const VkOffset3D corner{
-        .x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1)), .z = 0};
-    const VkExtent3D size{.width = core::at(rect, 2), .height = core::at(rect, 3), .depth = 1};
-    if (colour->samples == VK_SAMPLE_COUNT_1_BIT) {
-        const VkImageCopy region{.srcSubresource = layers,
-                                 .srcOffset = corner,
-                                 .dstSubresource = layers,
-                                 .dstOffset = corner,
-                                 .extent = size};
-        vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.source.image,
-                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    } else {
-        const VkImageResolve region{.srcSubresource = layers,
-                                    .srcOffset = corner,
-                                    .dstSubresource = layers,
-                                    .dstOffset = corner,
-                                    .extent = size};
-        vkCmdResolveImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.source.image,
-                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    }
-    const VkImageMemoryBarrier to_read{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = own.source.image,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                             .baseMipLevel = 0,
-                             .levelCount = 1,
-                             .baseArrayLayer = 0,
-                             .layerCount = 1},
-    };
-    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr,
-                         0, nullptr, 1, &to_read);
-    own.source.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 // The timestamps' pool (once; none when the device can't time).
@@ -1489,10 +1533,6 @@ bool plan_view(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
     }
     plan->colour = colour;
     plan->depth = depth;
-    plan->sampled_depth = (depth->usage & VK_IMAGE_USAGE_SAMPLED_BIT) != 0 && depth->view != VK_NULL_HANDLE;
-    if (!plan->sampled_depth && first_report(state, kReportNoDepth)) {
-        get_log("vulkan: grass: the depth can't be read - each blade takes the colour under its root unchecked");
-    }
     const Extent area{.width = std::min(colour->extent.width, depth->extent.width),
                       .height = std::min(colour->extent.height, depth->extent.height)};
     plan->rect = clip_rect(view.rect, area);
@@ -1503,6 +1543,7 @@ bool plan_view(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
     plan->shape = grass_view(own.settings, view, core::at(plan->rect, 3));
     update_air_map(state, view.camera.position); // (round W: the level's air round the camera)
     plan->air = air_map(state).origin;
+    plan->light = update_light_window(state, view.camera.position); // (round W2: the one light round the camera)
     plan->draws = plan_grass_draws(*own.field, &plan->shape, &plan->blades);
     return !plan->draws.empty();
 }
@@ -1564,7 +1605,8 @@ void record_draws(Backend& state, VkCommandBuffer commands, VkPipeline pipeline,
                               .maxDepth = std::clamp(core::at(view.depth_range, 1), 0.0F, 1.0F)};
     vkCmdSetViewport(commands, 0, 1, &viewport);
     vkCmdSetScissor(commands, 0, 1, &area);
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, {.params = params, .air = air_map(state).image});
+    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                     {.params = params, .light = plan.light.image, .air = air_map(state).image});
     for (const GrassDraw& draw : plan.draws) {
         push_range(commands, draw.first, draw.count, draw.segments);
         vkCmdDraw(commands, (draw.segments * 2) + 1, draw.count, 0, draw.first);
@@ -1584,7 +1626,7 @@ void log_first_pass(Backend& state, const ViewPlan& plan)
             "units tall)",
             core::at(plan.rect, 2), core::at(plan.rect, 3), static_cast<unsigned>(plan.colour->samples),
             plan.colour->samples == VK_SAMPLE_COUNT_1_BIT ? "" : "s", plan.motion ? ", motion" : "",
-            plan.sampled_depth ? "" : ", no depth read", plan.blades, plan.draws.size(),
+            plan.light.window ? "" : ", no light window yet", plan.blades, plan.draws.size(),
             static_cast<double>(plan.shape.distance), static_cast<double>(plan.shape.height));
 }
 
@@ -1599,7 +1641,7 @@ bool ready_for(Backend& state, const ViewPlan& plan, VkPipeline* pipeline)
                                                                .motion = plan.motion},
                                                               &error)
                                               : VK_NULL_HANDLE;
-    const bool made = *pipeline != VK_NULL_HANDLE && ensure_source(state, *plan.colour);
+    const bool made = *pipeline != VK_NULL_HANDLE;
     if (!made) {
         own.failed = true;
         if (first_report(state, kReportPipeline)) {
@@ -1636,20 +1678,17 @@ bool record_grass_pass(Backend& state, const rt::ViewDrawn& view)
     VkCommandBuffer commands = outside_pass(state);
     uint32_t pair = 0;
     const bool timing = begin_timing(state, commands, plan.blades, &pair);
-    copy_colour(commands, plan.colour, plan.rect);
-    // the gather: the last pass's draws read the colours, the last gather wrote them
+    // the light pass: the last pass's draws read the blades' light, the last light pass wrote it
     memory_barrier(commands, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                    VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                    VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
-    if (plan.sampled_depth) {
-        depth_barrier(commands, plan.depth, true);
-    }
-    const bool multisampled_depth = plan.sampled_depth && plan.depth->samples != VK_SAMPLE_COUNT_1_BIT;
-    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.gather, multisampled_depth ? 1 : 0));
+    const SceneView scene = own.scene_binding ? current_scene(state) : SceneView{};
+    const bool traced = scene.tlas != VK_NULL_HANDLE && scene.instances > 0 && core::at(own.gather, 1) != VK_NULL_HANDLE;
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.gather, traced ? 1 : 0));
     push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
                      {.params = *params,
-                      .source = &own.source,
-                      .depth = plan.sampled_depth ? plan.depth : nullptr,
+                      .light = plan.light.image,
+                      .scene = traced ? scene.tlas : VK_NULL_HANDLE,
                       .air = air_map(state).image});
     for (const GrassDraw& draw : plan.draws) {
         push_range(commands, draw.first, draw.count, draw.segments);
@@ -1657,16 +1696,13 @@ bool record_grass_pass(Backend& state, const rt::ViewDrawn& view)
     }
     memory_barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                    VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
-    if (plan.sampled_depth) {
-        depth_barrier(commands, plan.depth, false);
-    }
     record_draws(state, commands, pipeline, plan, *params, view);
     if (timing) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timer, (pair * 2) + 1);
         ++own.timed;
     }
     state.bound = BoundState{};
-    own.source.used = state.frames.serial();
+    own.last_traced = traced;
     own.last_blades = plan.blades;
     own.last_draws = static_cast<uint32_t>(plan.draws.size());
     ++own.passes;
@@ -1696,6 +1732,7 @@ bool probe_grass(Backend& state, const rt::ViewDrawn& view, uint32_t first, uint
     plan.rect = view.rect;
     plan.shape = grass_view(own.settings, view, std::max(core::at(view.rect, 3), 1U));
     plan.air = air_map(state).origin;
+    plan.light = update_light_window(state, view.camera.position);
     const std::optional<VkDescriptorBufferInfo> params = block_in_ring(state, params_for(state, plan, view, true));
     DeviceBuffer answers;
     const VkDeviceSize bytes = static_cast<VkDeviceSize>(count) * sizeof(std::array<float, 4>);
@@ -1706,7 +1743,8 @@ bool probe_grass(Backend& state, const rt::ViewDrawn& view, uint32_t first, uint
     }
     VkCommandBuffer commands = outside_pass(state);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.probe);
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE, {.params = *params, .probe = &answers, .air = air_map(state).image});
+    push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
+                     {.params = *params, .light = plan.light.image, .probe = &answers, .air = air_map(state).image});
     push_range(commands, first, count, 0);
     vkCmdDispatch(commands, (count + kGroupSize - 1) / kGroupSize, 1, 1);
     memory_barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
@@ -1723,7 +1761,7 @@ bool probe_grass(Backend& state, const rt::ViewDrawn& view, uint32_t first, uint
     return true;
 }
 
-bool read_grass_colours(Backend& state, std::vector<std::array<float, 4>>* colours)
+bool read_grass_colours(Backend& state, std::vector<GrassLightRead>* colours)
 {
     const GrassState& own = grass_state();
     colours->clear();
@@ -1759,10 +1797,16 @@ bool read_grass_colours(Backend& state, std::vector<std::array<float, 4>>* colou
     };
     colours->resize(count);
     for (std::size_t index = 0; index < count; ++index) {
-        std::array<uint16_t, 4> halves{};
-        std::memcpy(halves.data(), std::span(raw).subspan(index * kColourBytes, kColourBytes).data(), kColourBytes);
-        core::at(*colours, index) = {half(core::at(halves, 0)), half(core::at(halves, 1)), half(core::at(halves, 2)),
-                                     half(core::at(halves, 3))};
+        std::array<uint16_t, 6> halves{};
+        constexpr std::size_t kHalvesBytes = 12;
+        std::memcpy(halves.data(), std::span(raw).subspan(index * kColourBytes, kHalvesBytes).data(), kHalvesBytes);
+        float seen = 0.0F;
+        std::memcpy(&seen, std::span(raw).subspan((index * kColourBytes) + kHalvesBytes, sizeof(float)).data(),
+                    sizeof(float));
+        core::at(*colours, index) = {
+            .root = {half(core::at(halves, 0)), half(core::at(halves, 1)), half(core::at(halves, 2))},
+            .tip = {half(core::at(halves, 3)), half(core::at(halves, 4)), half(core::at(halves, 5))},
+            .seen = seen};
     }
     return true;
 }
@@ -1800,7 +1844,6 @@ void release_grass(Backend& state)
         }
     }
     if (state.memory.ready()) {
-        state.memory.destroy_image(&own.source);
         state.memory.destroy_buffer(&own.blades);
         state.memory.destroy_buffer(&own.colours);
     }

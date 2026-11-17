@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <numbers>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -141,8 +142,13 @@ std::string constants_source()
     define("SHUTTER", kSnowShutter);
     define("MOST_STREAK", kSnowMostStreak);
     define("MOTION_SHARE", kSnowMotionShare);
-    define("SWIRL", kSnowSwirl);
-    define("ROLL", kSnowRoll);
+    define("SWIRL", snow_swirl_amplitude());
+    define("ROLL", snow_roll_amplitude());
+    define("SWIRL_RATE", snow_swirl_rate());
+    define("ROLL_RATE", snow_roll_rate());
+    define("SWIRL_LENGTH", kSnowSwirlLength);
+    define("SWIRL_DEPTH", kSnowSwirlDepth);
+    define("ROLL_LENGTH", kSnowRollLength);
     define("ALBEDO", kSnowAlbedo);
     return out;
 }
@@ -646,27 +652,29 @@ float unit(uint x) { return float(x >> 8u) / 16777216.0; }
 
 // The gusts' eddies at a place (a displacement, the same for every flake there): rolls carried downwind at the wind's
 // speed - across the wind (a stream function's curl over the ground) and round axes across it (up and down along it), so
-// the flakes swirl together where a gust goes through and stay as evenly spread as they were.
+// the flakes swirl together where a gust goes through and stay as evenly spread as they were. (Round W2) Their swing is
+// the turbulence's (vulkan_snow.h: sqrt(2) I L / 2 pi), their turning its rate - none in still air.
 vec3 swirl_at(vec3 at, float t)
 {
     vec2 downwind = vec2(p.wind.x, p.wind.z);
     vec2 across = vec2(-downwind.y, downwind.x);
     float gust = p.before.w;
-    float u = dot(at.xz, downwind) - p.before.z * gust * t; // (the eddies go with the wind: its speed near the ground)
+    float speed = p.before.z * gust;
+    float u = dot(at.xz, downwind) - speed * t; // (the eddies go with the wind: its speed near the ground)
     float v = dot(at.xz, across);
-    const float a = 6.2831853 / 260.0;
-    const float b = 6.2831853 / 340.0;
-    const float c = 6.2831853 / 200.0;
+    const float a = 6.2831853 / SWIRL_LENGTH;
+    const float b = 6.2831853 / SWIRL_DEPTH;
+    const float c = 6.2831853 / ROLL_LENGTH;
     float su = sin(a * u);
     float cu = cos(a * u);
-    float sv = sin(b * v + 0.4 * t);
-    float cv = cos(b * v + 0.4 * t);
+    float sv = sin(b * v + SWIRL_RATE * speed * t);
+    float cv = cos(b * v + SWIRL_RATE * speed * t);
     float sr = sin(c * u + 1.1);
     float cr = cos(c * u + 1.1);
-    float sy = sin(c * at.y + 0.3 * t);
-    float cy = cos(c * at.y + 0.3 * t);
-    float swing = SWIRL * gust;
-    float roll = ROLL * gust;
+    float sy = sin(c * at.y + ROLL_RATE * speed * t);
+    float cy = cos(c * at.y + ROLL_RATE * speed * t);
+    float swing = SWIRL;
+    float roll = ROLL;
     float along = swing * su * cv + roll * sr * cy;
     float side = -swing * cu * sv;
     vec2 ground = downwind * along + across * side;
@@ -2671,6 +2679,24 @@ void release_snow(Backend& state)
 
 // --- the flakes' place (the flake vertex shader's twin: the check's) --------------------------------------------------
 
+// (round W2) The eddies' swing and turning from the turbulence (vulkan_snow.h).
+namespace {
+constexpr float kEddyTwoPi = 6.2831853F;
+float eddy_amplitude(float share, float length)
+{
+    return std::numbers::sqrt2_v<float> * wind::turbulence_intensity() * share * length / kEddyTwoPi;
+}
+float eddy_rate(float share, float length)
+{
+    return std::numbers::sqrt2_v<float> * wind::turbulence_intensity() * share / (length / kEddyTwoPi);
+}
+} // namespace
+
+float snow_swirl_amplitude() { return eddy_amplitude(wind::kLateralTurbulence, kSnowSwirlLength); }
+float snow_roll_amplitude() { return eddy_amplitude(wind::kVerticalTurbulence, kSnowRollLength); }
+float snow_swirl_rate() { return eddy_rate(wind::kLateralTurbulence, kSnowSwirlDepth); }
+float snow_roll_rate() { return eddy_rate(wind::kVerticalTurbulence, kSnowRollLength); }
+
 namespace {
 
 uint32_t flake_hash(uint32_t x)
@@ -2706,16 +2732,21 @@ std::array<float, 3> swirl_at(const std::array<float, 3>& at, float t, float gus
 {
     const float wx = core::at(wind::kDirection, 0);
     const float wz = core::at(wind::kDirection, 1);
-    const float u = ((core::at(at, 0) * wx) + (core::at(at, 2) * wz)) - (static_cast<float>(wind::near_ground_units()) * gust * t);
+    const float speed = static_cast<float>(wind::near_ground_units()) * gust;
+    const float u = ((core::at(at, 0) * wx) + (core::at(at, 2) * wz)) - (speed * t);
     const float v = (core::at(at, 0) * -wz) + (core::at(at, 2) * wx);
     constexpr float kTwoPi = 6.2831853F;
-    const float a = kTwoPi / 260.0F;
-    const float b = kTwoPi / 340.0F;
-    const float c = kTwoPi / 200.0F;
-    const float along = (kSnowSwirl * gust * std::sin(a * u) * std::cos((b * v) + (0.4F * t))) +
-                        (kSnowRoll * gust * std::sin((c * u) + 1.1F) * std::cos((c * core::at(at, 1)) + (0.3F * t)));
-    const float side = -kSnowSwirl * gust * std::cos(a * u) * std::sin((b * v) + (0.4F * t));
-    return {(wx * along) - (wz * side), -kSnowRoll * gust * std::cos((c * u) + 1.1F) * std::sin((c * core::at(at, 1)) + (0.3F * t)),
+    const float a = kTwoPi / kSnowSwirlLength;
+    const float b = kTwoPi / kSnowSwirlDepth;
+    const float c = kTwoPi / kSnowRollLength;
+    const float turn = snow_swirl_rate() * speed * t;
+    const float roll_turn = snow_roll_rate() * speed * t;
+    const float swing = snow_swirl_amplitude();
+    const float roll = snow_roll_amplitude();
+    const float along = (swing * std::sin(a * u) * std::cos((b * v) + turn)) +
+                        (roll * std::sin((c * u) + 1.1F) * std::cos((c * core::at(at, 1)) + roll_turn));
+    const float side = -swing * std::cos(a * u) * std::sin((b * v) + turn);
+    return {(wx * along) - (wz * side), -roll * std::cos((c * u) + 1.1F) * std::sin((c * core::at(at, 1)) + roll_turn),
             (wz * along) + (wx * side)};
 }
 
