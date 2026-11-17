@@ -70,6 +70,14 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_daylight_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_brdf_check.exe: round M's light model and material table (engine/gfx/rt_brdf.h,
+# rt_material_table.h) - Fresnel, the white furnace at every roughness, the kinds' values against their sources
+# (src/tests/brdf_check.cpp; pure: no game, no device).
+if(TARGET thug2_base)
+    add_executable(thug2_brdf_check brdf_check.cpp)
+    target_link_libraries(thug2_brdf_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_viewer_check.exe: the demo viewer's camera path (devtools/demo_camera_path.h: the keys' interpolation,
 # continuity, the yaw's wrap, the sidecar written and read back) and the split comparison's projection crop
 # (engine/gfx/rt_scene.h crop_clip_space) and a replay's skater lent and given back (devtools/skater_loan.h) checked
