@@ -2270,9 +2270,133 @@ void check_round_l(Tally* tally)
     }
 }
 
+// (the lamp solve check) The fixture table against its sources (lamp_fixtures.h: [F] Flagstaff's lamp tables, [P] the
+// Philips / Signify leaflets, [D] DIALux's luminance table, [W] Wikipedia's, [C] CIE 150's sign limits) - each figure
+// within its cited range; and the art's exposure: lamps solved at an art exposure of 400 x (the bake's pools) come back
+// in lumens within 10 % of their true flux, a row of fittings is a lamp, an implausible flux after the exposure takes
+// the model.
+void check_lamp_solve(Tally* tally)
+{
+    constexpr double kPiD = 3.14159265358979;
+    const auto in = [](double value, double least, double most) { return value >= least && value <= most; };
+    const rt::FixtureValues& hps = rt::fixture_values(rt::LampFixture::kSodiumStreet);
+    const rt::FixtureValues& white = rt::fixture_values(rt::LampFixture::kWhiteStreet);
+    const rt::FixtureValues& tube = rt::fixture_values(rt::LampFixture::kTube);
+    const rt::FixtureValues& panel = rt::fixture_values(rt::LampFixture::kPanel);
+    const rt::FixtureValues& bulb = rt::fixture_values(rt::LampFixture::kBulb);
+    const rt::FixtureValues& neon = rt::fixture_values(rt::LampFixture::kNeon);
+    const rt::FixtureValues& sign = rt::fixture_values(rt::LampFixture::kSign);
+    bool ordered = true;
+    for (std::size_t kind = 1; kind < rt::kLampFixtures; ++kind) {
+        const rt::FixtureValues& v = rt::fixture_values(static_cast<rt::LampFixture>(kind));
+        ordered = ordered && v.least <= v.luminance && v.luminance <= v.most && v.least_lumens <= v.lumens &&
+                  v.lumens <= v.most_lumens && v.least_area < v.most_area;
+    }
+    tally->check(ordered, "each fixture's typical luminance and flux lie within its own range");
+    tally->check(in(hps.lumens, 2250, 55800) && hps.least_lumens >= 2250 && hps.most_lumens <= 55800 &&
+                     in(hps.kelvin, 1900, 2000),
+                 "sodium street light: flux within HPS 35 W 2 250 [F] - 400 W PIA Plus 55 800 lm [P], 1900 - 2000 K [P]");
+    tally->check(in(white.lumens, 3400, 50000) && white.least_lumens >= 3400 && white.most_lumens <= 50000,
+                 "white street light: flux within 3 400 (50 W metal halide, 63 W LED) - 50 000 lm (450 W metal halide) [F]");
+    // (a T8 32 W: 3 100 lm [F] over pi x 26 mm x 1.2 m)
+    const double t8 = 3100.0 / (kPiD * kPiD * 0.026 * 1.2);
+    tally->check(in(tube.lumens, 1190, 9500) && tube.least_lumens >= 1190 && tube.most_lumens <= 9500 &&
+                     in(tube.luminance, 4000, 17000) && in(12000, tube.least, tube.most) && tube.least >= 4000 &&
+                     std::abs(tube.luminance - t8) <= 0.02 * t8,
+                 text::format("fluorescent tube: flux within T12 21 W 1 190 - T12 HO 9 500 lm [F]; %.0f cd/m^2 (a T8's "
+                              "3 100 lm over its surface %.0f) within 4 000 - 17 000 [D], [W]'s 12 000 within its range",
+                              static_cast<double>(tube.luminance), t8));
+    const double led_panel = 3600.0 / (kPiD * 0.36);
+    tally->check(in(panel.lumens, 3400, 3600) && std::abs(panel.luminance - led_panel) <= 0.02 * led_panel,
+                 text::format("ceiling panel: a 600 x 600 panel's 3 400 - 3 600 lm [P], %.0f cd/m^2 over 0.36 m^2 (%.0f)",
+                              static_cast<double>(panel.luminance), led_panel));
+    const double frosted = 855.0 / (kPiD * 4.0 * kPiD * 0.03 * 0.03);
+    tally->check(in(bulb.lumens, 120, 3850) && bulb.least_lumens >= 120 && in(bulb.luminance, 20000, 50000) &&
+                     bulb.most >= 130000 && std::abs(bulb.luminance - frosted) <= 0.02 * frosted,
+                 text::format("bulb: a 60 W's 855 lm [F]; %.0f cd/m^2 (over a 60 mm frosted sphere %.0f) within 20 000 - "
+                              "50 000 [D]; [W]'s frosted 130 000 within its range",
+                              static_cast<double>(bulb.luminance), frosted));
+    // (red neon, 15 mm at 30 mA: 39 lm/ft [F] over pi d per metre)
+    const double red = (39.0 / 0.3048) / (kPiD * kPiD * 0.015);
+    const double deep_blue = (2.0 / 0.3048) / (kPiD * kPiD * 0.015);
+    tally->check(std::abs(neon.luminance - red) <= 0.02 * red && neon.least <= deep_blue * 1.1 &&
+                     neon.least >= deep_blue * 0.9,
+                 text::format("neon tube: %.0f cd/m^2 (red 15 mm, 39 lm/ft [F]: %.0f), least %.0f (deep blue 2 lm/ft: %.0f)",
+                              static_cast<double>(neon.luminance), red, static_cast<double>(neon.least), deep_blue));
+    tally->check(in(sign.luminance, 50, 1000) && sign.least >= 50 && sign.most <= 1000,
+                 "sign or lit window: within CIE 150's sign limits, E1 50 - E4 1 000 cd/m^2 [C]");
+
+    // the art's exposure: five sodium glows outdoors told by the bake at 400 x their true flux; their kind's typical
+    // flux the median of the true ones
+    const double unit_lux = rt::unit_illuminance();
+    constexpr double kArt = 400.0;
+    const std::array<double, 6> truth{6300.0, 9500.0, 16000.0, 9500.0, 4000.0, 900000.0};
+    const rt::Rgbf sodium = rt::blackbody_colour(2000.0F);
+    std::vector<rt::RelitLamp> lamps;
+    std::vector<rt::RelitLampTold> told;
+    std::vector<float> areas;
+    std::vector<rt::Rgbf> own;
+    for (const double lumens : truth) {
+        rt::RelitLamp lamp;
+        lamp.position = {0.0F, 300.0F, 0.0F};
+        lamp.core = 10.0F;
+        lamp.reach = 600.0F;
+        lamp.kind = rt::EmitterKind::kGlow;
+        lamp.switch_sky = 0.01F;
+        lamp.solved = true;
+        const float y = (0.2126F * sodium[0]) + (0.7152F * sodium[1]) + (0.0722F * sodium[2]);
+        lamp.light = rt::scaled(sodium, rt::relit_lamp_intensity_for(lamp, lumens * kArt, unit_lux) / y);
+        lamps.push_back(lamp);
+        told.push_back(rt::RelitLampTold::kSolved);
+        areas.push_back(0.1F);
+        own.push_back(sodium);
+    }
+    // the sixth's true flux, 900 000 lm, is no street light's: after the exposure it takes the model
+    const rt::LampModelCounts counts = rt::relit_lamp_models(lamps, told, areas, own, unit_lux);
+    bool recovered = true;
+    double worst = 0.0;
+    for (std::size_t li = 0; li + 1 < truth.size(); ++li) {
+        const double error = std::abs(static_cast<double>(lamps[li].lumens) - truth[li]) / truth[li];
+        worst = std::max(worst, error);
+        recovered = recovered && error <= 0.10 && lamps[li].source == static_cast<uint8_t>(rt::RelitLampSource::kSolved);
+    }
+    tally->check(recovered && std::abs(counts.exposure * kArt - 1.0) <= 0.10 && counts.exposure_lamps == truth.size(),
+                 text::format("solved lamps at the art's 400 x come back in lumens within %.1f %% of their true flux (10 %% "
+                              "allowed): the exposure %.3g x 400 = %.3f, from %zu lamps",
+                              100.0 * worst, counts.exposure, counts.exposure * kArt, counts.exposure_lamps));
+    tally->check(lamps[5].source == static_cast<uint8_t>(rt::RelitLampSource::kImplausible) &&
+                     std::abs(static_cast<double>(lamps[5].lumens) - (kPiD * static_cast<double>(hps.luminance) * 0.1)) <=
+                         0.01 * kPiD * static_cast<double>(hps.luminance) * 0.1,
+                 text::format("a lamp measured at 900 000 lm in physical units (after the exposure) is no street light's: "
+                              "the model's %.0f lm",
+                              static_cast<double>(lamps[5].lumens)));
+    // fewer than kLeastExposureLamps told: no exposure, the model
+    {
+        std::vector<rt::RelitLamp> two(lamps.begin(), lamps.begin() + 2);
+        const std::vector<rt::RelitLampTold> two_told(2, rt::RelitLampTold::kSolved);
+        const rt::LampModelCounts few = rt::relit_lamp_models(two, two_told, std::span(areas).first(2),
+                                                              std::span(own).first(2), unit_lux);
+        tally->check(!(few.exposure > 0.0) && two[0].source == static_cast<uint8_t>(rt::RelitLampSource::kImplausible),
+                     "two solved lamps tell no exposure: the model");
+    }
+    // a row of fittings: a line 9.75 m long, 0.1 m of luminous width - sized, 4 fittings; a 9.75 m strip 8 mm wide is no
+    // tube's
+    {
+        rt::RelitLamp row;
+        row.shape = rt::EmitterShape::kLine;
+        row.half_length = static_cast<float>(4.875 * 39.37);
+        const rt::LampFixtures fittings = rt::lamp_fixtures(row, rt::LampFixture::kTube, 0.975F);
+        const rt::LampFixtures strip = rt::lamp_fixtures(row, rt::LampFixture::kTube, 0.078F);
+        tally->check(fittings.sized && fittings.count == 4.0 && !strip.sized,
+                     text::format("a row of tubes 9.75 m x 0.1 m: %s, %.0f fittings; a strip 8 mm wide: %s",
+                                  fittings.sized ? "sized" : "not sized", fittings.count, strip.sized ? "sized" : "not sized"));
+    }
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     check_round_l(tally);
+    check_lamp_solve(tally);
     check_baked_shadow(tally);
     check_local_across(tally);
     {

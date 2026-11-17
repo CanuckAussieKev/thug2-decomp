@@ -296,7 +296,7 @@ void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::R
             "light; the bake knew: %zu told, "
             "%zu no edges, %zu off in the bake, %zu dark, %zu run off; fixtures shining: %zu sodium, %zu white street, "
             "%zu tubes, %zu panels, %zu bulbs, %zu neon, %zu signs / windows, %zu unknown; lumens per shining lamp: median "
-            "%.0f, 90th percentile %.0f, most %.0f; %.0f lm in all",
+            "%.0f, 90th percentile %.0f, most %.0f; %.0f lm in all; the art's lamp exposure %.3g (from %zu solved lamps)",
             lamps.size(), core::at(counts.by_source, 1), core::at(counts.by_source, 2), core::at(counts.by_source, 3),
             core::at(counts.by_source, 4), core::at(counts.by_source, 5), core::at(counts.by_source, 0),
             core::at(verdicts, 0), core::at(verdicts, 1),
@@ -304,7 +304,7 @@ void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::R
             core::at(counts.by_fixture, 2), core::at(counts.by_fixture, 3), core::at(counts.by_fixture, 4),
             core::at(counts.by_fixture, 5), core::at(counts.by_fixture, 6), core::at(counts.by_fixture, 7),
             core::at(counts.by_fixture, 0), at(0.5), at(0.9), lumens.empty() ? 0.0 : static_cast<double>(lumens.back()),
-            total);
+            total, counts.exposure, counts.exposure_lamps);
     // the implausible solves, each (a failed measurement replaced by the model)
     std::size_t shown = 0;
     for (std::size_t li = 0; li < lamps.size() && shown < 24; ++li) {
@@ -321,6 +321,109 @@ void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::R
                 rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
                 static_cast<double>(lamp.area), static_cast<double>(lamp.luminance), static_cast<double>(lamp.lumens),
                 static_cast<double>(lamp.kelvin));
+    }
+}
+
+// (lamp solve check) Each lamp the bake told: its solved light against its fixture - the solved flux, its surface's
+// luminance over its luminous area, its kind's ranges, and its pool: the lamp's own light at the vertex it lights most
+// (unit and lux) and the light there in all.
+void log_told_lamps(std::span<const rt::RelitLamp> solved, std::span<const rt::RelitLamp> lamps,
+                    std::span<const rt::RelitLampTold> told, std::span<const float> areas,
+                    const rt::RelitLampLinks& links, std::span<const rt::RelitVertices> light, double unit_lux)
+{
+    std::vector<float> most(lamps.size(), 0.0F);
+    std::vector<float> there(lamps.size(), 0.0F);
+    for (std::size_t mi = 0; mi < links.size() && mi < light.size(); ++mi) {
+        const rt::RelitMeshLinks& mesh_links = core::at(links, mi);
+        const rt::RelitVertices& vertices = core::at(light, mi);
+        for (std::size_t vi = 0; vi < vertices.size() && vi + 1 < mesh_links.first.size(); ++vi) {
+            for (uint32_t k = core::at(mesh_links.first, vi); k < core::at(mesh_links.first, vi + 1); ++k) {
+                const rt::RelitLampLink& link = core::at(mesh_links.links, k);
+                if (link.lamp < solved.size()) {
+                    const float mine = luma(core::at(solved, link.lamp).light) * link.weight;
+                    if (mine > core::at(most, link.lamp)) {
+                        core::at(most, link.lamp) = mine;
+                        core::at(there, link.lamp) = luma(core::at(vertices, vi).lamp);
+                    }
+                }
+            }
+        }
+    }
+    std::size_t shown = 0;
+    for (std::size_t li = 0; li < lamps.size() && li < solved.size() && li < told.size() && shown < 40; ++li) {
+        if (core::at(told, li) != rt::RelitLampTold::kSolved) {
+            continue;
+        }
+        ++shown;
+        rt::RelitLamp measured = core::at(solved, li);
+        rt::relit_lamp_photometry(&measured, unit_lux);
+        const rt::RelitLamp& lamp = core::at(lamps, li);
+        const rt::FixtureValues& values = rt::fixture_values(static_cast<rt::LampFixture>(lamp.fixture));
+        const double area = li < areas.size() ? static_cast<double>(core::at(areas, li)) : 0.0;
+        const double luminance = area > 0.0 ? static_cast<double>(measured.lumens) / (3.14159265358979 * area) : 0.0;
+        get_log("relit bake: told lamp %zu (%s, kind %u shape %u, core %.0f half %.0f) - solved %.4f in the unit: %.0f cd, "
+                "%.0f lm; luminous area %.4f m^2 -> %.0f cd/m^2 (its kind's %.0f - %.0f cd/m^2, %.0f - %.0f lm, %.4f - "
+                "%.2f m^2); its pool at most %.4f of the unit (%.0f lux), the lamps' light there %.4f; now %s, %.0f lm",
+                li, rt::fixture_name(static_cast<rt::LampFixture>(lamp.fixture)).data(), static_cast<unsigned>(lamp.kind),
+                static_cast<unsigned>(lamp.shape), static_cast<double>(lamp.core), static_cast<double>(lamp.half_length),
+                static_cast<double>(luma(measured.light)), static_cast<double>(measured.candela),
+                static_cast<double>(measured.lumens), area, luminance, static_cast<double>(values.least),
+                static_cast<double>(values.most), static_cast<double>(values.least_lumens),
+                static_cast<double>(values.most_lumens), static_cast<double>(values.least_area),
+                static_cast<double>(values.most_area), static_cast<double>(core::at(most, li)),
+                static_cast<double>(core::at(most, li)) * unit_lux, static_cast<double>(core::at(there, li)),
+                rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
+                static_cast<double>(lamp.lumens));
+    }
+    // the shining tubes: where they are (roofed or not), what they are, their source
+    std::size_t tubes = 0;
+    for (std::size_t li = 0; li < lamps.size() && li < told.size() && tubes < 30; ++li) {
+        const rt::RelitLamp& lamp = core::at(lamps, li);
+        if (lamp.fixture != static_cast<uint8_t>(rt::LampFixture::kTube) || !(luma(lamp.light) > 0.0F)) {
+            continue;
+        }
+        ++tubes;
+        get_log("relit bake: tube %zu at %.0f %.0f %.0f (kind %u, half %.0f, core %.0f, sky switch %.4f%s) - %s; told %u; "
+                "luminous area %.4f m^2, %.0f lm, %.0f K",
+                li, static_cast<double>(rt::x_of(lamp.position)), static_cast<double>(rt::y_of(lamp.position)),
+                static_cast<double>(rt::z_of(lamp.position)), static_cast<unsigned>(lamp.kind),
+                static_cast<double>(lamp.half_length), static_cast<double>(lamp.core), static_cast<double>(lamp.switch_sky),
+                lamp.switch_sky >= 0.5F * rt::kLampAlwaysOn ? " - roofed" : "",
+                rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
+                static_cast<unsigned>(core::at(told, li)), li < areas.size() ? static_cast<double>(core::at(areas, li)) : 0.0,
+                static_cast<double>(lamp.lumens), static_cast<double>(lamp.kelvin));
+    }
+    // and the lamps given no light: their kind, verdict, fixture and luminous area
+    std::array<std::array<std::size_t, 5>, 8> none{}; // [kind][verdict]
+    std::size_t listed = 0;
+    for (std::size_t li = 0; li < lamps.size() && li < told.size(); ++li) {
+        const rt::RelitLamp& lamp = core::at(lamps, li);
+        const auto source = static_cast<rt::RelitLampSource>(lamp.source);
+        if (source != rt::RelitLampSource::kNone && source != rt::RelitLampSource::kNotAFixture) {
+            continue;
+        }
+        const auto kind = std::min<std::size_t>(static_cast<std::size_t>(lamp.kind), 7);
+        core::at(core::at(none, kind), static_cast<std::size_t>(core::at(told, li))) += 1;
+        if (listed < 40) {
+            ++listed;
+            get_log("relit bake: dark lamp %zu (%s, kind %u shape %u, core %.0f half %.0f, sky switch %.4f) - %s; told %u; "
+                    "luminous area %.4f m^2 (its kind's %.4f - %.2f)",
+                    li, rt::fixture_name(static_cast<rt::LampFixture>(lamp.fixture)).data(),
+                    static_cast<unsigned>(lamp.kind), static_cast<unsigned>(lamp.shape), static_cast<double>(lamp.core),
+                    static_cast<double>(lamp.half_length), static_cast<double>(lamp.switch_sky),
+                    rt::relit_lamp_source_name(source), static_cast<unsigned>(core::at(told, li)),
+                    li < areas.size() ? static_cast<double>(core::at(areas, li)) : 0.0,
+                    static_cast<double>(rt::fixture_values(static_cast<rt::LampFixture>(lamp.fixture)).least_area),
+                    static_cast<double>(rt::fixture_values(static_cast<rt::LampFixture>(lamp.fixture)).most_area));
+        }
+    }
+    for (std::size_t kind = 0; kind < none.size(); ++kind) {
+        const std::array<std::size_t, 5>& row = core::at(none, kind);
+        if (row[0] + row[1] + row[2] + row[3] + row[4] > 0) {
+            get_log("relit bake: dark lamps of kind %zu by verdict - solved %zu, no edges %zu, off in the bake %zu, dark "
+                    "%zu, run off %zu",
+                    kind, row[0], row[1], row[2], row[3], row[4]);
+        }
     }
 }
 
@@ -591,8 +694,11 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         // The lamps in physical units (a path tracer's: candela, lumens, colour temperature) and the emissive triangles
         // with their lamps' radiance
         const std::vector<float> areas = lamp_areas(lamps.size());
+        const std::vector<rt::RelitLamp> as_solved(lamps.begin(), lamps.end());
         const rt::LampModelCounts modelled =
             rt::relit_lamp_models(lamps, told, areas, own_colours, rt::unit_illuminance());
+        model.lamp_exposure = static_cast<float>(modelled.exposure);
+        log_told_lamps(as_solved, lamps, told, areas, links, light, rt::unit_illuminance());
         if (model.valid) {
             rt::relit_lamp_light(meshes, light, links, lamps);
         }
