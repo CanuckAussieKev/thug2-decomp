@@ -3,6 +3,7 @@
 
 #include "render_pc/draw_frame.h"
 #include "render_pc/frame_interp.h"
+#include "render_pc/draw_range.h"
 #include "base/maths/view_transforms.h"
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/render_camera.h"
@@ -1333,6 +1334,8 @@ void draw_world()
         // Not original - [Graphics] max_fps (render_pc/frame_interp.h): the instances blended between the tick before
         // and this one, the colour animations' time with them. Original behaviour: drawn as the tick left them, at the
         // clock's time.
+        // (first, not original either: the objects beyond their lod_dist2 left out of this frame - draw_range.h)
+        draw_range::begin_frame();
         frame_interp::begin_frame();
         renderer().set_step_seconds(frame_interp::shown_time_ms());
         // Not original - ray tracing's record (rt_record.h): the frame's instances and lights. Original behaviour:
@@ -1435,6 +1438,7 @@ void draw_world()
         outline_draw::drop();     // (not original: and outlines)
     }
     frame_interp::end_frame(); // (not original: the blended instances and cameras put back as the tick left them)
+    draw_range::end_frame();   // (not original: the objects left out switched back on - draw_range.h)
     full_screen_viewport();
     set_viewport();
 }

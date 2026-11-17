@@ -82,7 +82,6 @@ constexpr int kMaxFocusEntries = 64;
 constexpr int kHighWordShift = 32;                  // a FILETIME's high word
 constexpr std::uint64_t kStaleSeconds = 10ULL;      // a command file older than the run by more than this isn't run
 constexpr std::uint64_t kFileTimeTicksPerSecond = 10000000ULL;
-constexpr int kCommandFileLimitShift = 20;          // a command file read at once is below 1 << 20 bytes
 constexpr unsigned kMillisecondsPerSecond = 1000U;
 
 constexpr int kStatusRewriteFrames = 30;            // the status file is rewritten at least this often (half a second)
@@ -98,7 +97,6 @@ constexpr uint32_t kPadStart = modules::FrontEnd::kPadStart;
 
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu (the skate module's level in the front end)
 
-constexpr int kPartialLineFrames = 30;
 
 constexpr auto kButtons = std::to_array<Button>({
     {.name = "up", .byte = 2, .bit = 4, .pressure = 10},   {.name = "right", .byte = 2, .bit = 5, .pressure = 8},   {.name = "down", .byte = 2, .bit = 6, .pressure = 11},   {.name = "left", .byte = 2, .bit = 7, .pressure = 9},
@@ -540,26 +538,17 @@ uint64_t process_start()
     return file_time_value(created);
 }
 
-void add_line(Runner& runner, const std::string& text)
+void add_line(Runner& runner, std::string text)
 {
     ++runner.lines_read_;
-    // (a UTF-8 byte order mark - PowerShell's Out-File writes one - isn't part of the command)
-    const bool bom = text.size() >= 3 && text.starts_with("\xEF\xBB\xBF");
-    runner.queue.push_back({.text = bom ? text.substr(3) : text, .number = runner.lines_read_});
+    runner.queue.push_back({.text = std::move(text), .number = runner.lines_read_});
 }
 
-// What the disk worker found in the command file (engine/file/disk_worker.h: the drawing thread never waits on the disk).
-struct Polled {
-    bool seen = false;      // the file exists
-    bool unchanged = false; // its size and time are the ones the runner has (nothing read)
-    bool opened = false;    // it was read
-    uint64_t size = 0, time = 0;
-    std::string data;
-};
+// The command file's looks (devtools/command_file.h - one at a time, each from where the last one's bytes ended) made on
+// the disk worker (engine/file/disk_worker.h: the drawing thread never waits on the disk).
 struct PollState {
     std::mutex mutex_;
-    std::optional<Polled> done_; // the last poll's result, waiting for the main thread
-    bool in_flight_ = false;     // a poll is on the worker
+    std::optional<CommandBytes> done_; // the last look's result, waiting for the main thread
 };
 PollState& poll_state()
 {
@@ -567,122 +556,46 @@ PollState& poll_state()
     return state.get();
 }
 
-// On the worker: the file looked at, and read when it changed (from `offset`; from its start when it got shorter).
-Polled look_at_file(const std::string& path, bool looked, uint64_t known_size, uint64_t known_time, uint64_t offset)
-{
-    Polled found;
-    fs::FileStat info;
-    if (!fs::disk().stat(path.c_str(), &info)) {
-        return found;
-    }
-    found.seen = true;
-    found.size = info.size;
-    found.time = info.write_time;
-    if (!looked) {
-        return found; // (the main thread decides whether it is a last run's)
-    }
-    if (found.size == known_size && found.time == known_time) {
-        found.unchanged = true;
-        return found;
-    }
-    if (found.size < offset) {
-        offset = 0;
-    }
-    fs::OwnedFile file(fs::disk().open(path.c_str(), {.access = fs::Access::kRead,
-                                                      .sharing = fs::Sharing::kReadWriteDelete,
-                                                      .disposition = fs::Disposition::kOpenExisting,
-                                                      .hint = fs::Hint::kNormal}));
-    if (!file) {
-        return found; // (try again next time)
-    }
-    found.opened = true;
-    if (fs::disk().seek_to(file.get(), offset) && found.size > offset &&
-        found.size - offset < (1U << kCommandFileLimitShift)) {
-        found.data.resize(static_cast<size_t>(found.size - offset));
-        uint32_t read = 0;
-        if (!fs::disk().read(file.get(), &::core::at(found.data, 0), static_cast<uint32_t>(found.data.size()), &read,
-                             nullptr)) {
-            read = 0;
-        }
-        found.data.resize(read);
-    }
-    return found;
-}
-
-// The command file: each frame the result of the last look is taken (on the main thread) and the next look given to
-// the disk worker.
+// Each frame: the last look's answer applied (on the main thread) and only then the next look given to the worker.
 void poll_file(Runner& runner)
 {
     PollState& state = poll_state();
-    std::optional<Polled> taken;
+    std::optional<CommandBytes> taken;
     {
         const std::scoped_lock lock(state.mutex_);
         taken = std::move(state.done_);
         state.done_.reset();
-        if (!state.in_flight_) {
-            state.in_flight_ = true;
-            fs::run_in_background([looked = runner.looked, size = runner.size, time = runner.time,
-                                   offset = runner.offset] {
-                Polled found = look_at_file(game_folder_path("thug2-decomp-commands.txt"), looked, size, time, offset);
-                const std::scoped_lock done_lock(poll_state().mutex_);
-                poll_state().done_ = std::move(found);
-                poll_state().in_flight_ = false;
-            });
+    }
+    if (taken) {
+        const CommandBytes& found = *taken;
+        std::vector<std::string> lines;
+        if (!runner.looked) {
+            runner.looked = true;
+            // (a file from before this run - written more than 10 s before the game started - isn't run)
+            const uint64_t start = process_start();
+            if (found.seen && start != 0U && found.time + (kStaleSeconds * kFileTimeTicksPerSecond) < start) {
+                get_log("automation: the command file is older than this run - not run");
+                runner.file.take(found, &lines); // (the look answered...)
+                lines.clear();
+                runner.file.skip_to(found.size, found.time); // (... and what it holds left)
+            } else if (runner.file.take(found, &lines)) {
+                get_log("automation: the command file was rewritten - read from its start again");
+            }
+        } else if (runner.file.take(found, &lines)) {
+            get_log("automation: the command file got shorter or was rewritten - read from its start again");
+            runner.queue.clear();
+            runner.lines_read_ = runner.lines_done_ = 0;
+        }
+        for (std::string& line : lines) {
+            add_line(runner, std::move(line));
         }
     }
-    if (!taken) {
-        return;
-    }
-    const Polled& found = *taken;
-    if (!found.seen) {
-        runner.looked = true;
-        return;
-    }
-    const uint64_t size = found.size;
-    const uint64_t time = found.time;
-    if (!runner.looked) {
-        runner.looked = true;
-        // (a file from before this run - written more than 10 s before the game started - isn't run)
-        const uint64_t start = process_start();
-        if ((start != 0U) && time + (kStaleSeconds * kFileTimeTicksPerSecond) < start) {
-            get_log("automation: the command file is older than this run - not run");
-            runner.size = runner.offset = size;
-            runner.time = time;
-        }
-        return;
-    }
-    if (found.unchanged) {
-        // A last line without an end of line, once the file has been still a moment.
-        if (!runner.partial.empty() && ++runner.still_frames_ >= kPartialLineFrames) {
-            add_line(runner, runner.partial);
-            runner.partial.clear();
-        }
-        return;
-    }
-    runner.still_frames_ = 0;
-    if (size < runner.offset) {
-        get_log("automation: the command file got shorter - read from its start again");
-        runner.offset = 0;
-        runner.partial.clear();
-        runner.queue.clear();
-        runner.lines_read_ = runner.lines_done_ = 0;
-    }
-    if (!found.opened) {
-        return;
-    }
-    const std::string& data = found.data;
-    runner.size = size;
-    runner.time = time;
-    runner.offset += data.size();
-    runner.partial += data;
-    size_t end = 0;
-    while ((end = runner.partial.find('\n')) != std::string::npos) {
-        std::string line = runner.partial.substr(0, end);
-        if (!line.empty() && line.back() == '\r') {
-            line.pop_back();
-        }
-        add_line(runner, line);
-        runner.partial.erase(0, end + 1);
+    if (const std::optional<CommandRead> read = runner.file.next()) {
+        fs::run_in_background([read = *read] {
+            CommandBytes found = read_command_file(game_folder_path("thug2-decomp-commands.txt"), read);
+            const std::scoped_lock done_lock(poll_state().mutex_);
+            poll_state().done_ = std::move(found);
+        });
     }
 }
 

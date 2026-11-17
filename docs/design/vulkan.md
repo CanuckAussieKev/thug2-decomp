@@ -1571,8 +1571,33 @@ blue); the glass was the reflections'.
   triangles no longer show in the reflection; the triangle's normal still keeps the ray off the surface (and replaces
   a smooth normal that would send the ray into it). Such materials count as reflective instances. The maps make few surfaces glossy (THUG2's levels: the
   metal kinds - rails, the Airport's moving walkways - and glazed tiles; stone and paint stay matte), so most views
-  change little. Off (`rt_reflections=0`) and without maps nothing changes; `rt_reflection_surfaces=0` gives the earlier
+  change little. Off (`rt_reflections=0`) and without maps nothing changes; `rt_reflection_surfaces=0` gave the earlier
   look.
+- **One light model for the weight** (2026-11-17; supersedes the Fresnel, rough glass, surface and clear coat weights
+  above - `rt_reflection_strength`, `rt_reflection_fresnel`, `rt_glass_roughness` and `rt_reflection_surfaces` are
+  retired): a pixel's weight is its material's E - `rt_brdf.h` `brdf_specular_albedo` for its F0 and roughness at the
+  cosine it is seen at (the split-sum directional albedo, multiple scattering compensated) - the share of the
+  environment the light model gives the specular, the diffuse keeping 1 - E: reflection + diffuse never above 1,
+  toward 1 at grazing angles, a white metal 1 everywhere. A metal's E is coloured (the reflection carries its F0's
+  colour; the weight is the largest channel). The lobe's rays spread over a cone of GGX's alpha radians (at most 0.5;
+  narrower than three pixels' angle - what the apply's 3 x 3 blur resolves - one mirror ray). Two ways in, so the
+  environment's specular is counted once:
+  - **added**: every surface the light model shades through its surface map (`rt::kReflectSurface` - every mapped
+    surface but water and glass, with or without the game's shine; the raster's `SurfaceDraw::traced`, which blended
+    draws no longer set: the pass sees only what the depth holds) left its environment's specular out where its texel
+    is smoother than `kReflectionRoughest` (`surface_finish` keeps smoothstep(0.525, 0.7, r) of its estimate): the pass
+    adds E x the share left out - F0 the material table's for the map's kind (a metal's its texel's colour), roughness
+    the map's at the hit. Rays that miss everything without a sky drawn take the surface's own estimate (its light store
+    word, probe or bake - `own_environment`), never a hole;
+  - **in place**: water, glass and the game's shine on a surface without a map hold the game's sphere-mapped sky in
+    their colour - the surface's estimate, which can't be taken out of the colour: colour x (1 - E) + reflection x E
+    (the base layer's alpha carries what of the drawn pixel is replaced), the materials the table's water (n 1.333),
+    glass (n 1.52, smooth) and a new `lacquer` kind (n 1.5, roughness 0.25 unmeasured - the old coat's 0.06 rad lobe)
+    for car paint and the game's sheens. The game's shine (`reflectivity`) only says that a surface reflects; the
+    mask passes still say where.
+  Checks: `thug2_vulkan_rt_reflections_check` - the perfect mirror (a white metal map: E 1, drawn black), water, glass,
+  lacquer, the masks and covers, a rough map, the sky's misses and a mapped tile / stone (added) against the processor's
+  E; the light model's energy, Fresnel rise and white furnace on the processor.
 - **The skater's shadow** (`rt_shadow_objects`, now 1 by default): the skater, peds and vehicles cast ray-traced shadows,
   and while a shadow pass casts them `rt::set_object_shadows_replaced` (a contract addition) tells the shadow component
   (`engine/objects/shadow_component.cpp` refresh_shadow) to hide each object's own shadow - the detailed one (the model
@@ -3296,9 +3321,7 @@ light face-on (the frame's unit).
   _cloth / _hair ("Set by the material now"); the bake relit by luma thresholds (kRtPbrAmbientShare, kRtPbrShade*,
   kRtPbrDetail*, kRtPbrSkyDetail, kRtPbrGameSun); the hue-found skin texels; the relief's per-kind weight and shadow
   strength; the per-kind gloss table of the reflections.
-- **Not done** (round M's record): the reflections pass's weight is still its own Fresnel curve x strength
-  (rt_reflection_strength, rt_reflection_fresnel, rt_glass_roughness, rt_reflection_surfaces live) - it should be the
-  BRDF's E and add where the surface omitted its estimate; a per-texel material mask in the character maps (a garment's
+- **Not done** (round M's record): a per-texel material mask in the character maps (a garment's
   skin texels are cloth now); skin's translucency needs a thickness; the lamps' specular on the relit world (the store
   has no directions); a directional sky term (SH-L1 / bent normals) instead of the even hemisphere; real displacement
   in place of parallax for ray visibility.

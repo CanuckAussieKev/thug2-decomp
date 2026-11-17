@@ -352,7 +352,9 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
                 }
                 return draw;
             }
-            draw.traced = true; // (round M: a world or object map - the reflections pass may trace its environment)
+            // (round M: a world or object map - the reflections pass may trace its environment; not a blended draw: the
+            // pass sees only what the depth holds - opaque and cut-out surfaces - so a blended one keeps its own estimate)
+            draw.traced = block.render_state(GpuRenderState::kAlphaBlendEnable) == 0;
             const DetailDraw& detail = detail_of(found->second); // (added by the detail materials)
             if (detail.kind != 0) {
                 draw.kind = rt::kind_of_detail(detail.kind); // (the library's kind: the terrain's evidence beside the class's)

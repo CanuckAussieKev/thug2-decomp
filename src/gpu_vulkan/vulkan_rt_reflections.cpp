@@ -53,14 +53,11 @@ constexpr uint64_t kReportImages = 0x52360006U;
 constexpr uint64_t kReportNoMirrors = 0x52360007U;
 constexpr uint64_t kReportNoMaterials = 0x52360008U;
 
-constexpr float kMaxStrength = 1.0F;
-constexpr float kMaxRoughness = 0.5F; // rt_glass_roughness at most (radians)
-constexpr uint32_t kRoughRays = 4;    // the rays a rough (glass) pixel traces
+constexpr uint32_t kRoughRays = 4;    // the rays a rough pixel traces
 // (added for the surface reflections) the roughest surface-map texel that reflects (perceptual roughness; faded out from
-// three quarters of it), a rough surface's cone per GGX alpha (radians), rt_reflection_surfaces at most
+// three quarters of it), a rough surface's cone per GGX alpha (radians)
 constexpr float kSurfaceRoughest = kReflectionRoughest; // (round M: the surface shading's twin, vulkan_rt_reflections.h)
 constexpr float kSurfaceConePerAlpha = 1.0F;
-constexpr float kMaxSurfaces = 2.0F;
 constexpr std::size_t kHitLamps = 32; // (round O) the lamps a reflection's hit takes, the view's most important first
 constexpr float kSunReach = 20000.0F; // (round O) how far a hit's ray toward the sun looks (world units: the bounce's)
 constexpr float kOffsetScale = 1.0F; // the reflection ray's start pushed off the surface by this much, growing with distance
@@ -84,8 +81,8 @@ void main()
 )";
 
 // Step 1. The pass's block: to_world (pixel x, pixel y, depth, 1) -> world (the target's pixels); camera: its position
-// (w: the depth sample's offset from the pixel's centre, y); params: x the strength, y the rays' length, z the start's
-// offset scale, w the depth sample's offset (x); rect: the viewport; extra: x the mask, y the directional lights;
+// (w: the depth sample's offset from the pixel's centre, y); params: y the rays' length, z the start's offset scale, w
+// the depth sample's offset (x) - x spare; rect: the viewport; extra: x the mask, y the directional lights;
 // ambient: the ambient light (w: the angle a pixel spans, radians); then the directional lights (the way they travel).
 constexpr const char* kTraceBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -106,14 +103,14 @@ layout(set = 0, binding = 3, std140) uniform Pass {
     vec4 ambient;
     vec4 light_direction[4];
     vec4 light_colour[4];
-    vec4 fresnel; // x 1: Fresnel on; y the glass's roughness (radians); z the rays a rough pixel traces; w glass's F0
+    vec4 rays; // x the rays a rough pixel traces (yzw spare)
     // (added by the sky) what a miss sees with rt_sky (vulkan_rt_sky_pass.h rt_sky_for_rays; the SKY variant only)
     mat4 sky_to_pixel;
     vec4 sky_sun;
     vec4 sky_low;
     vec4 sky_rect;
-    // (added for the surface reflections) x rt_reflection_surfaces, y the roughest map texel that reflects, z the cone's
-    // half-angle per GGX alpha (the roughness squared)
+    // (added for the surface reflections) y the roughest map texel that reflects (kReflectionRoughest), z the cone's
+    // half-angle per GGX alpha (the roughness squared); x spare
     vec4 surface;
     // (round O) xyz toward the sun or the moon (rt_scene.h scene_sun); w its rays' reach (0: none - no direct light)
     vec4 sun;
@@ -129,38 +126,21 @@ const uint CLASS_WATER = 1u;      // (rt::kReflectWater, kReflectGlass)
 const uint CLASS_GLASS = 2u;
 const uint CLASS_SURFACE = 3u;    // (rt::kReflectSurface: glossy by its surface map)
 const uint MASK_PASS_CLEAR = 1u;  // (a mask pass's kind: rt::kMaskClear; kMaskOpaque 2)
-const float MAX_CONE = 0.5;       // (a rough surface's cone at most: rt_glass_roughness's ceiling)
-// (added for the objects' clear coat) a shiny object's paint - the cars' - reflects as a clear coat: Schlick's Fresnel
-// from this F0 face-on, slightly rough (its rays over a cone this wide, radians)
-const float COAT_F0 = 0.05;
-const float COAT_CONE = 0.06;
-// (added for the game's shine on rough surfaces) the world's own shine: a sheen over this cone (radians); a surface map's
-// least roughness under MIRROR_LEAST (metal, glazed tiles) keeps the mirror
-const float WORLD_SHEEN_CONE = 0.15;
-const float MIRROR_LEAST = 0.2;
+const float MAX_CONE = 0.5;       // (a rough surface's cone at most, radians)
+// (the apply's blur spans 3 x 3 pixels: a lobe narrower than three pixels' angle is traced as a mirror - one ray)
+const float MIRROR_PIXELS = 3.0;
 
-
-// How much of the reflection the pixel shows: `c` the cosine between the view and the surface's normal.
-//  - Fresnel off: reflectivity x strength at every angle (the first version);
-//  - water and glass: Schlick's F0 + (1 - F0)(1 - c)^5, x the reflectivity (the game's art: how shiny it made it) x
-//    2 strength (at most 1: the default strength, 0.5, is the physical amount);
-//  - other shiny surfaces: reflectivity x strength face-on (as before), rising by Schlick's curve toward the
-//    reflectivity x 2 strength (at most the reflectivity) at grazing angles.
-//  `f0_material`: the record's f0 (water's: rt::kReflectWaterF0); glass takes fresnel.w (rt_glass_reflectance)
-float reflection_weight(float reflectivity, uint kind, float f0_material, float c)
+// (the one light model - engine/gfx/rt_brdf.h) How much of the environment round the mirror direction a surface of
+// face-on reflectance `f0` and perceptual roughness `r` sends toward the eye seen at cosine `c`: brdf_specular_albedo,
+// E - the split-sum directional albedo with its multiple-scattering compensation, the very share brdf_ambient weighs a
+// surface's own environment estimate by (its diffuse gets 1 - E: reflection + diffuse never above 1). Fresnel takes it
+// toward 1 at grazing angles; a rough lobe's masking keeps it below. xyz its colour (E over its largest channel - a
+// metal's tint), w that largest channel.
+vec4 specular_share(vec3 f0, float c, float r)
 {
-    float strength = pass.params.x;
-    if (pass.fresnel.x < 0.5) {
-        return reflectivity * strength;
-    }
-    float schlick = pow(1.0 - clamp(c, 0.0, 1.0), 5.0);
-    float most = reflectivity * min(1.0, 2.0 * strength);
-    if (kind == CLASS_WATER || kind == CLASS_GLASS) {
-        float f0 = kind == CLASS_WATER ? f0_material : pass.fresnel.w;
-        return most * (f0 + (1.0 - f0) * schlick);
-    }
-    float face_on = reflectivity * strength;
-    return face_on + (max(most, face_on) - face_on) * schlick;
+    vec3 e = brdf_specular_albedo(f0, max(c, 1.0e-4), r);
+    float most = max(e.r, max(e.g, e.b));
+    return vec4(most > 0.0 ? e / most : vec3(1.0), most);
 }
 
 vec3 world_at(ivec2 p, float d)
@@ -351,6 +331,27 @@ vec3 hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, HitVer
     return linear_from_display(clamp(colour, 0.0, 1.0));
 }
 
+// The environment a surface shaded by the light model estimates for itself where the pass doesn't trace it (ff_shaders.cpp
+// surface_finish's specular light): the light store's every-direction light at its triangle (the relit world), its probe
+// at the normal (an object lit by the one light), the frame's ambient (objects lit by the game's lights) or its bake
+// (the vertex colour doubled, decoded). The rays of an added reflection that miss everything (and see no sky) take it -
+// the surface left its own estimate out for the traced one, so a miss must not leave a hole.
+vec3 own_environment(uint instance, uint primitive, vec2 barycentrics, HitVertices v, vec3 n, bool object)
+{
+    WorldLight w;
+    if (!object && hit_world_light(instance, primitive, barycentrics, w)) {
+        return w.ambient;
+    }
+    ObjectLight l;
+    if (object && hit_object_light(instance, l) && l.linear) {
+        return object_light_with(l, n, 0.0);
+    }
+    if (object) {
+        return linear_from_display(clamp(pass.ambient.rgb, 0.0, 1.0));
+    }
+    return (v.flags & GEOMETRY_COLOUR) != 0u ? linear_from_display(hit_colour(v, barycentrics).rgb * 2.0) : vec3(0.0);
+}
+
 // What the reflection ray from `origin` along `direction` sees (a: 1 when it hit something); `travelled`: the path so
 // far (the footprint's).
 vec4 reflected(vec3 origin, vec3 direction, float travelled)
@@ -467,69 +468,77 @@ void main()
                         }
                     }
                     bool object = (geometry_record(hit_instance).instance_flags & INSTANCE_OBJECT) != 0u;
-                    float weight = reflection_weight(reflectivity, surface.reflection_class, surface.f0, -dot(view, sn));
-                    if (object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_WATER &&
-                        surface.reflection_class != CLASS_GLASS && surface.reflection_class != CLASS_SURFACE) {
-                        // (added for the objects' clear coat) a shiny object - a car's paint - is a clear coat, not
-                        // a mirror: Schlick's Fresnel from COAT_F0 face-on x its shine x 2 strength (at most 1)
-                        float schlick = pow(1.0 - clamp(-dot(view, sn), 0.0, 1.0), 5.0);
-                        weight = reflectivity * min(1.0, 2.0 * pass.params.x) * (COAT_F0 + (1.0 - COAT_F0) * schlick);
+                    uint primitive = rayQueryGetIntersectionPrimitiveIndexEXT(query, true);
+                    float cosine = clamp(-dot(view, sn), 0.0, 1.0);
+                    float lod = level_for(id, v, a, b, c, pass.ambient.w * t);
+                    // The surface's material - its reflection is weighed by the one light model's E for it
+                    // (specular_share) - and how the reflection enters the pixel:
+                    //  - a surface shaded by the light model through its surface map (CLASS_SURFACE: rt_pbr's maps - the
+                    //    record's F0 the material table's for the map's kind, a metal's its texel's colour; the map's
+                    //    roughness at the hit, the detail kind's where it replaces it): its own shading left its
+                    //    environment's specular out where the texel is smoother than kReflectionRoughest (ff_shaders.cpp
+                    //    surface_finish: smoothstep(0.75 x it, it, roughness) of it kept) - the traced reflection is ADDED,
+                    //    E x the share left out; nothing of the drawn pixel is taken away (never twice);
+                    //  - the game's own shine (an environment-mapped pass - water, glass and the rest: car paint, a
+                    //    kerb's sheen - with no surface map): the drawn pixel holds the game's picture of the sky as the
+                    //    surface's estimate of its environment, which can't be taken out of the colour - the reflection
+                    //    REPLACES E of the pixel (colour x (1 - E) + reflection x E); its material the table's water,
+                    //    glass or lacquer (rt_material_table.h).
+                    //  The mask (the share of the environment pass the game's later passes leave) says where on the
+                    //  surface that material is.
+                    uint kind = surface.reflection_class;
+                    bool painted = surface.reflection_mask != 0u; // (glass painted into its texture's clear texels)
+                    // (puddles)
+                    vec3 f0 = vec3(LACQUER_F0);
+                    float r = LACQUER_ROUGHNESS;
+                    bool adds = false;
+                    float left_out = 1.0;
+                    if (kind == CLASS_SURFACE) {
+                        vec2 uv = hit_uv(v, bary);
+                        r = clamp(material_surface_lod(id, uv, lod).b, 0.0, 1.0);
+                        r = mix(r, surface.kind_roughness, surface.kind_roughness_weight); // (the kind's, rt_detail)
+                        vec3 albedo = linear_from_display(clamp((material_texel_lod(id, uv, lod) * surface.colour).rgb,
+                                                                0.0, 1.0));
+                        f0 = surface.f0 >= HIT_METAL_F0 ? albedo : vec3(surface.f0);
+                        adds = true;
+                        left_out = 1.0 - smoothstep(0.75 * pass.surface.y, pass.surface.y, r);
+                        mask = 1.0; // (the whole surface is the map's material: its shading left the estimate out everywhere)
+                    } else if (kind == CLASS_WATER) {
+                        f0 = vec3(WATER_F0);
+                        r = WATER_ROUGHNESS;
+                    } else if (kind == CLASS_GLASS) {
+                        f0 = vec3(GLASS_F0);
+                        r = GLASS_ROUGHNESS;
                     }
-                    if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {
-                        vec4 texel = material_texel_lod(id, hit_uv(v, bary), level_for(id, v, a, b, c, pass.ambient.w * t));
+                    vec4 share = specular_share(f0, cosine, r);
+                    float weight = share.w * left_out;
+                    if (painted) {
+                        vec4 texel = material_texel_lod(id, hit_uv(v, bary), lod);
                         // The game drew its environment map there in place of the texture (its pixel shader's lerp by
                         // the alpha): the glass's own colour - the texel x the pass's colour, lit as its own pixels
                         // are (round O: hit_light - the light store's light now; the original's look its vertex colour
-                        // doubled or the frame's lights) - is put back under the reflection: face-on the pane shows
-                        // (1 - F) of it, the reflection the rest; the environment map is kept only for what the rays
-                        // miss (the base layer, premultiplied; linear light, as the frame).
-                        vec3 own = hit_light(id, hit_instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
-                                             bary, v, texel.rgb * surface.colour.rgb, point, sn, -view, t);
-                        float share = mask * (1.0 - clamp(weight, 0.0, 1.0));
-                        base_layer = vec4(own * share, share);
+                        // doubled or the frame's lights) - is put back under the reflection: the pane shows (1 - E) of
+                        // it, the reflection the rest; the environment map is kept only for what the rays miss (the base
+                        // layer, premultiplied; linear light, as the frame).
+                        vec3 own = hit_light(id, hit_instance, primitive, bary, v, texel.rgb * surface.colour.rgb, point,
+                                             sn, -view, t);
+                        float kept = mask * (1.0 - clamp(weight, 0.0, 1.0));
+                        base_layer = vec4(own * kept, kept);
                     }
                     weight *= mask;
                     vec3 mirror = reflect(view, sn);
                     if (dot(mirror, n) <= 0.0) {
                         mirror = reflect(view, n); // (the smooth normal turned it into the surface: the triangle's)
                     }
-                    float rough = pass.fresnel.x >= 0.5 && surface.reflection_class == CLASS_GLASS ? pass.fresnel.y : 0.0;
-                    if (object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_WATER &&
-                        surface.reflection_class != CLASS_GLASS && surface.reflection_class != CLASS_SURFACE) {
-                        rough = COAT_CONE;
+                    // the lobe: its rays over a cone as wide as GGX's alpha (radians, at most MAX_CONE); one narrower
+                    // than the apply's blur resolves is a mirror
+                    float rough = min(brdf_alpha(r) * pass.surface.z, MAX_CONE);
+                    if (rough <= MIRROR_PIXELS * pass.ambient.w) {
+                        rough = 0.0;
                     }
-                    if (!object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_SURFACE &&
-                        surface.reflection_class != CLASS_WATER && surface.reflection_class != CLASS_GLASS &&
-                        !(surface.least_roughness > 0.0 && surface.least_roughness < MIRROR_LEAST)) {
-                        // (added for the game's shine on rough surfaces) the world's own shine - a sphere-mapped sky
-                        // picture on a kerb, a ledge, a floor - is a sheen, not a mirror, unless its surface map says
-                        // it is metal or a glazed tile: Schlick's Fresnel from COAT_F0 face-on x its shine x 2 strength
-                        // (at most 1), its rays over a cone (WORLD_SHEEN_CONE, wider for a rougher kind), faded out for
-                        // a kind too rough to reflect (concrete, brick, asphalt: none)
-                        float r = surface.least_roughness;
-                        float schlick = pow(1.0 - clamp(-dot(view, sn), 0.0, 1.0), 5.0);
-                        weight = mask * reflectivity * min(1.0, 2.0 * pass.params.x) * (COAT_F0 + (1.0 - COAT_F0) * schlick) *
-                                 (1.0 - smoothstep(0.75 * pass.surface.y, pass.surface.y, r));
-                        rough = max(WORLD_SHEEN_CONE, min(r * r * pass.surface.z, MAX_CONE));
-                    }
-                    if (surface.reflection_class == CLASS_SURFACE) {
-                        // (added for the surface reflections) a surface glossy by its map: Schlick's Fresnel at the
-                        // map's F0, its grazing rise held to 1 - roughness (a rough surface never turns into a mirror),
-                        // x its kind's gloss (the reflectivity) x rt_reflection_surfaces x 2 strength (at most 1); the
-                        // map's roughness at the hit - never under its kind's least (stone, paint and wood are never
-                        // mirrors) - fades it out toward the roughest that reflects and spreads its rays over a cone as
-                        // wide as its GGX lobe
-                        float r = clamp(material_surface_lod(id, hit_uv(v, bary),
-                                                             level_for(id, v, a, b, c, pass.ambient.w * t)).b, 0.0, 1.0);
-                        r = mix(r, surface.kind_roughness, surface.kind_roughness_weight); // (the kind's, rt_detail)
-                        r = max(r, surface.least_roughness);
-                        float cosine = clamp(-dot(view, sn), 0.0, 1.0);
-                        float f0 = surface.f0;
-                        float fresnel = f0 + (max(1.0 - r, f0) - f0) * pow(1.0 - cosine, 5.0);
-                        weight = mask * reflectivity * pass.surface.x * min(1.0, 2.0 * pass.params.x) * fresnel *
-                                 (1.0 - smoothstep(0.75 * pass.surface.y, pass.surface.y, r));
-                        rough = min(r * r * pass.surface.z, MAX_CONE);
-                    }
+                    // (an added reflection's misses: the surface's own estimate - it left it out)
+                    vec3 estimate = adds && weight > 0.0 ? own_environment(hit_instance, primitive, bary, v, sn, object)
+                                                         : vec3(0.0);
                     vec4 seen = vec4(0.0);
                     if (weight <= 0.0) {
                         // (nothing of it shows: no ray)
@@ -541,7 +550,7 @@ void main()
                         vec3 across = normalize(abs(mirror.y) < 0.99 ? cross(mirror, vec3(0.0, 1.0, 0.0))
                                                                      : cross(mirror, vec3(1.0, 0.0, 0.0)));
                         vec3 up = cross(mirror, across);
-                        uint rays = max(uint(pass.fresnel.z), 1u);
+                        uint rays = max(uint(pass.rays.x), 1u);
                         float turn = 6.2831853 / float(rays) * (float((p.x & 1) + 2 * (p.y & 1)) / 4.0);
                         vec3 sum = vec3(0.0);
                         float hits = 0.0;
@@ -553,6 +562,9 @@ void main()
                                 d = mirror; // (below the surface: the mirror direction instead)
                             }
                             vec4 one = reflected(point + n * offset, d, t);
+                            if (adds && one.a == 0.0) {
+                                one = vec4(estimate, 1.0);
+                            }
                             sum += one.rgb * one.a;
                             hits += one.a;
                         }
@@ -562,9 +574,15 @@ void main()
                         }
                     } else {
                         seen = reflected(point + n * offset, mirror, t);
+                        if (adds && seen.a == 0.0) {
+                            seen = vec4(estimate, 1.0);
+                        }
                     }
                     if (seen.a != 0.0) {
-                        result = vec4(seen.rgb, sign(seen.a) * clamp(abs(seen.a) * weight, 0.0, 1.0));
+                        // (the reflection as the surface tints it - a metal's F0 colour; the weight E's largest channel)
+                        result = vec4(seen.rgb * share.rgb, sign(seen.a) * clamp(abs(seen.a) * weight, 0.0, 1.0));
+                        // (what of the drawn pixel the reflection takes the place of: nothing where it is added)
+                        base_layer.a += adds ? 0.0 : abs(result.a);
                     }
                 }
             }
@@ -575,9 +593,9 @@ void main()
 }
 )";
 
-// Step 2: the colour mixed toward the reflection by its weight - premultiplied: (base layer + reflection x weight) +
-// colour x (1 - the base's share - the weight), the base layer the masked glass's own colour; the pixels with neither
-// discarded.
+// Step 2: premultiplied - base layer + reflection x weight + colour x (1 - the base's a): the base layer's rgb the masked
+// glass's own colour, its a the share of the drawn pixel replaced (the glass's, and E of the game's shine - none where
+// the reflection is added to a surface that left its own estimate out); the pixels with neither discarded.
 constexpr const char* kApplyBody = R"(
 layout(push_constant) uniform Apply { ivec4 rect; } apply;
 layout(set = 0, binding = 4, rgba16f) uniform readonly image2D u_in;
@@ -616,7 +634,7 @@ void main()
     }
     float weight = clamp(abs(reflection.a), 0.0, 1.0);
     // (round O: linear light - the reflection's radiance as it is, never held to 1)
-    o_colour = vec4(max(base.rgb, vec3(0.0)) + max(colour, vec3(0.0)) * weight, clamp(base.a + weight, 0.0, 1.0));
+    o_colour = vec4(max(base.rgb, vec3(0.0)) + max(colour, vec3(0.0)) * weight, clamp(base.a, 0.0, 1.0));
 }
 )";
 
@@ -711,7 +729,7 @@ struct TraceBlock {
     std::array<float, 4> ambient{};
     std::array<std::array<float, 4>, kMaxLights> light_direction{};
     std::array<std::array<float, 4>, kMaxLights> light_colour{};
-    std::array<float, 4> fresnel{};
+    std::array<float, 4> rays{};
     // (added by the sky)
     std::array<float, kMatrixFloats> sky_to_pixel{};
     std::array<float, 4> sky_sun{};
@@ -860,6 +878,15 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
     // (round M) the hits' surface without a map: the material table's painted surface
     source += "#define HIT_F0 " + std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kPainted))) +
               "\n#define HIT_ROUGHNESS " + std::to_string(rt::material_values(rt::MaterialKind::kPainted).roughness) + "\n";
+    // the reflecting surfaces' materials without a surface map (the material table's): water, glass and lacquer (the
+    // game's shine on anything else)
+    const auto material_defines = [&source](const char* name, rt::MaterialKind kind) {
+        source += std::string("#define ") + name + "_F0 " + std::to_string(std::get<0>(rt::material_f0(kind))) +
+                  "\n#define " + name + "_ROUGHNESS " + std::to_string(rt::material_values(kind).roughness) + "\n";
+    };
+    material_defines("WATER", rt::MaterialKind::kWater);
+    material_defines("GLASS", rt::MaterialKind::kGlass);
+    material_defines("LACQUER", rt::MaterialKind::kLacquer);
     source += rt_lamp_glsl();
     source += rt::brdf::brdf_glsl(); // (round M's light model)
     source += body;
@@ -883,8 +910,7 @@ std::string wet_trace_body()
     };
     const bool ok =
         put("layout(set = 0, binding = 8, rgba16f) uniform writeonly image2D o_base;\n",
-            "layout(set = 0, binding = 13) uniform sampler2D u_wet;\nconst float WET_F0 = " +
-                std::to_string(rt::kReflectWaterF0) + ";\n",
+            "layout(set = 0, binding = 13) uniform sampler2D u_wet;\n",
             false) &&
         put("float reflectivity = material(id).reflectivity;\n",
             "            float wet = (geometry_record(rayQueryGetIntersectionInstanceIdEXT(query, true)).instance_flags &\n"
@@ -892,17 +918,9 @@ std::string wet_trace_body()
             "            bool puddle = wet > reflectivity;\n"
             "            reflectivity = max(reflectivity, wet);\n",
             false) &&
-        put("float weight = reflection_weight(reflectivity, surface.reflection_class, surface.f0, -dot(view, sn));\n",
-            "if (puddle) {\n                        mask = 1.0;\n                    }\n"
-            "                    float weight = puddle ? reflection_weight(reflectivity, CLASS_WATER, WET_F0, -dot(view, sn))\n"
-            "                                          : reflection_weight(reflectivity, surface.reflection_class, surface.f0,\n"
-            "                                                              -dot(view, sn));\n",
-            true) &&
-        put("if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {",
-            "if (!puddle && pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {", true) &&
-        put("if (!object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_SURFACE &&",
-            "if (!puddle && !object && pass.fresnel.x >= 0.5 && surface.reflection_class != CLASS_SURFACE &&", true) &&
-        put("if (surface.reflection_class == CLASS_SURFACE) {", "if (!puddle && surface.reflection_class == CLASS_SURFACE) {",
+        put("                    // (puddles)\n",
+            "                    if (puddle) {\n                        kind = CLASS_WATER;\n"
+            "                        mask = wet;\n                        painted = false;\n                    }\n",
             true);
     return ok ? body : std::string();
 }
@@ -1586,7 +1604,7 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
     block.to_world = column_major(to_world);
     block.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                     core::at(view.camera.position, 2), sample.back()};
-    block.params = {own.settings.strength, kReflectionDistance, kOffsetScale, sample.front()};
+    block.params = {0.0F, kReflectionDistance, kOffsetScale, sample.front()};
     block.rect = rect;
     std::size_t lights = 0;
     for (const rt::Light& light : rt::frame_record().lights) {
@@ -1602,9 +1620,8 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
     }
     block.ambient.back() = angle;
     block.extra = {static_cast<int32_t>(kReflectionMask), static_cast<int32_t>(lights), 0, 0};
-    block.fresnel = {own.settings.fresnel ? 1.0F : 0.0F, own.settings.glass_roughness, static_cast<float>(kRoughRays),
-                     own.settings.glass_reflectance};
-    block.surface = {own.settings.surfaces, kSurfaceRoughest, kSurfaceConePerAlpha, 0.0F};
+    block.rays = {static_cast<float>(kRoughRays), 0.0F, 0.0F, 0.0F};
+    block.surface = {0.0F, kSurfaceRoughest, kSurfaceConePerAlpha, 0.0F};
     // (round O) the sun every effect lights by (rt_scene.h scene_sun): the hits' direct light is traced toward it
     const rt::SceneSun sun = rt::scene_sun();
     if (sun.found()) {
@@ -1636,13 +1653,7 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
 
 void set_rt_reflection_settings(const RtReflectionSettings& settings)
 {
-    RtReflectionSettings kept = settings;
-    kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : 0.0F;
-    kept.glass_roughness =
-        std::isfinite(kept.glass_roughness) ? std::clamp(kept.glass_roughness, 0.0F, kMaxRoughness) : 0.0F;
-    kept.glass_reflectance =
-        std::isfinite(kept.glass_reflectance) ? std::clamp(kept.glass_reflectance, 0.0F, 1.0F) : kRtGlassReflectance;
-    kept.surfaces = std::isfinite(kept.surfaces) ? std::clamp(kept.surfaces, 0.0F, kMaxSurfaces) : 0.0F;
+    const RtReflectionSettings kept = settings;
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
@@ -1884,11 +1895,8 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     slot->base.used = serial;
     ++own.passes;
     if (first_report(state, kReportFirstPass)) {
-        get_log("vulkan: rt_reflections: the first reflection pass (%ux%u, %u reflective instances of %u, strength "
-                "%.2f, Fresnel %s, glass roughness %.3f, surfaces x%.2f)",
-                width, height, scene.reflective_instances, scene.instances,
-                static_cast<double>(own.settings.strength), own.settings.fresnel ? "on" : "off",
-                static_cast<double>(own.settings.glass_roughness), static_cast<double>(own.settings.surfaces));
+        get_log("vulkan: rt_reflections: the first reflection pass (%ux%u, %u reflective instances of %u)", width,
+                height, scene.reflective_instances, scene.instances);
     }
     return true;
 }

@@ -476,25 +476,19 @@ std::vector<Decl> declarations()
             .tab(G::kSurfaces, t::kOptReflections, t::kOptReflectionsHelp)
             .need(ray_tracing())
             .live(E::kReflections),
-        gfx("rt_reflection_strength", K::kNumber, "0.5")
-            .tab(G::kSurfaces, t::kOptReflectionStrength)
-            .pick(percent({{"0.25", "25%"}, {"0.5", "50%"}, {"0.75", "75%"}, {"1", "100%"}}))
-            .need(on("rt_reflections"))
-            .live(E::kReflections),
-        gfx("rt_reflection_fresnel", K::kSwitch, "1")
-            .tab(G::kSurfaces, t::kOptFresnel, t::kOptFresnelHelp)
-            .need(on("rt_reflections"))
-            .live(E::kReflections),
+        // (retired by the reflections' one light model: how much a surface reflects is its material's - the light
+        // model's E for its F0 and roughness (engine/gfx/rt_brdf.h), Fresnel always: a strength scaled a physical
+        // amount and "off" was a non-physical mirror; glass's roughness is the material table's glass)
+        gfx("rt_reflection_strength", K::kNumber, "0.5").retire(t::kRetiredMaterials),
+        gfx("rt_reflection_fresnel", K::kSwitch, "1").retire(t::kRetiredMaterials),
         // (retired by the physical air: glass reflects as glass does - F0 0.04)
         gfx("rt_glass_reflectance", K::kNumber, "0.2").retire(t::kRetiredPhysical),
-        gfx("rt_glass_roughness", K::kNumber, "0.05")
-            .tab(G::kSurfaces, t::kOptGlassRoughness)
-            .pick({c("0", "Mirror"), c("0.05", t::kLow), c("0.1", t::kMedium), c("0.2", t::kHigh)})
-            .need(on("rt_reflections"))
-            .live(E::kReflections),
-        gfx("rt_reflection_surfaces", K::kNumber, "1")
-            .need(all({on("rt_reflections"), on("rt_pbr")}), t::kNeedsReflectionsAndPbr)
-            .live(E::kReflections),
+        gfx("rt_glass_roughness", K::kNumber, "0.05").retire(t::kRetiredMaterials),
+        // (retired too: it multiplied the surface-mapped surfaces' reflections - a factor on a physical term. Not kept
+        // as a cost switch: a mapped surface leaves its environment's specular to the pass, so the only consistent
+        // "off" is the surface keeping its own estimate, which rt_reflections=0 is; and the pass already traces only
+        // the texels smoother than kReflectionRoughest)
+        gfx("rt_reflection_surfaces", K::kNumber, "1").retire(t::kRetiredMaterials),
         gfx("grass", K::kSwitch, "0").tab(G::kSurfaces, t::kOptGrass, t::kOptGrassHelp).need(vulkan(), t::kNeedsVulkan).live(E::kGrass),
         gfx("grass_density", K::kNumber, "1")
             .tab(G::kSurfaces, t::kOptGrassDensity)

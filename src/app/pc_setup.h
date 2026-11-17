@@ -11,8 +11,9 @@ namespace sys {
 // (create_sdl_window) and input (os_layer::init_input) follow later in WinMain.
 void init_pc_setup();
 
-// The end of the game (sys::Main, when its main loop returns): the process ends at once - the game's own clean-up
-// is skipped. (Not exit(): that would run the C runtime shutdown while the game's other threads still run.)
+// The end of the game (sys::Main, when its main loop returns): the GPU is given back, then the process ends at once -
+// the game's own clean-up is skipped. (Not exit(): that would run the C runtime shutdown while the game's other threads
+// still run.)
 void fast_exit();
 
 } // namespace sys

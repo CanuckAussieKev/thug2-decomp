@@ -77,10 +77,12 @@ the same state on every frame, to the bit.
 `tools/game/sim_check.ts` plays the demos in `tools/game/sim_reference` and compares every frame's simulation state with
 the reference, bit for bit. The state (`devtools/demo.cpp state_line`, the playback's `<demo>.play.state.txt`): FNV-1a
 hashes of the skater's position, velocity, whole matrix and state; of every object with a motion or rigid-body
-component (its id, position, velocity, matrix); of the game's two random streams; and the clock's milliseconds. The
+component (its id, position, velocity, matrix); of the game's two random streams; the clock's milliseconds; and
+(since 2026-11-17) every skeleton's bones with the animation LOD counters. The
 reference was recorded from main before the change (5c403296), at max_fps=0 (sim_grind's again on 2026-11-15, when
 the music got its own random numbers: "The music's random numbers", and again the same day when its playback was given
-its recorded skater's stats).
+its recorded skater's stats). All four were recorded again on 2026-11-17 when objects stopped sleeping by distance
+outside net games ("Objects' dormancy").
 
 The references are the original game's simulation, so every run is played with nothing NOT ORIGINAL that adds to it:
 `sim_check.ts` sets `REFERENCE_SETTINGS` in the workspace's ini for each run (put back after) - `[features] thaw_bmx=0`
@@ -208,8 +210,61 @@ elements' morphs, timed by the GPU's occlusion query - no script, nothing the ga
 renderer's own culling; the game's code asks the simulation's view, which doesn't use them), and the C runtime's `rand`
 draws of the drawing (particle seeds, primitives' sort keys) - the presentation's own random numbers, apart from the
 game's two streams. And kept as the original's: the simulation's view
-takes the viewport's aspect, so a wider window sees - and wakes - objects further to the side than a 4:3 one; a fixed
-view for the simulation would part from the original's on drawn frames.
+takes the viewport's aspect (the filming goal's target, the shadow projections). It no longer wakes objects outside a
+net game ("Objects' dormancy" below); in one it does, as the original - a wider window sees and wakes objects further
+to the side than a 4:3 one.
+
+## Objects' dormancy
+
+The original put objects with a suspend component (peds, traffic, pigeons, particle objects, moving level objects)
+to sleep by their distance to the camera (`DormancyModule`, `engine/objects/suspend_component.h`): beyond
+SuspendDistance suspended (no update, scripts held, frozen in place), beyond lod_dist1 not animated (the anim blender's
+pose and the car's tilt and bones skipped), between AnimLODInterleave2 / 4 and lod_dist1 posed every second / fourth
+step (two global counters), beyond lod_dist2 or out of view the model off; the skeleton's own bone LOD by the same
+distance. So the simulation depended on the camera, and `[Graphics] lod_distance_scale` (which scaled lod_dist1 and
+lod_dist2) reached it.
+
+The decision (the user, 2026-11-17): these objects barely exist in a net game, so outside one there is no limit but
+what the camera can see, and the simulation must not depend on the camera or the settings (replays and competitions
+are simulated again).
+
+**What exists in a net game** (the levels' node arrays, `Skate::should_be_absent`: a node flagged AbsentInNetGames isn't
+made in a net game, online or LAN, nor with more than one skater at the start - split screen): of THUG2's levels'
+nodes, 815 of 840 Pedestrians, 107 of 109 Vehicles, 468 of 503 ParticleObjects, 670 of 1419 LevelObjects and 173 of
+732 GameObjects are AbsentInNetGames. Present in a net game and animated (a skeleton): Boston's 22 pigeons (created at
+the start); not flagged but made only by the story's setup scripts (goal progress - not seen to run in a net game,
+not proven): Boston's TRG_Ped_Hawk, Australia's two shrimp vendors, the park editor's two cars (sk5ed). Present and
+suspendable without a skeleton: about 750 LevelObjects and 22 GameObjects. (Counted 2026-11-17 over the levels'
+TypeScript node arrays, each node's shared component structures included.) The
+original itself already lets some components ignore suspension in a net game (`VelocityTrackerModule`,
+`CollideAndDie`, flexible particles, particle components: `!net::in_net_game() && far`).
+
+**The rule** (`objects::dormancy_by_distance()` = `net::in_net_game()`):
+- In a net game: the original's dormancy exactly, with the level's distances (`lod_distance_scale` no longer scales
+  them) - fair with original players.
+- Elsewhere: the suspend task measures no distance - every object is awake, animated on every step at full bone LOD,
+  the interleave counters not advanced - and the model is never switched off by the camera (`refresh_shown_state`:
+  on unless the object is invisible). Nothing of it reads the camera, the window or a setting.
+- The drawing culls instead (`render_pc/draw_range.h`): the renderer's view culling, and each model further from
+  viewport 0's camera than its lod_dist2 x `lod_distance_scale` switched off for the frame and back on after it (the
+  simulation reads nothing of it). Not in split screen and not for a model without LOD or a level object's (always
+  drawn by the original).
+
+The state hash covers it (`devtools/demo.cpp state_line`'s sixth field, `anim`): every skeleton's bones and the
+interleave counters, so animation that came to depend on drawing or settings again shows in `sim_check`.
+
+### Proof (2026-11-17, a workspace, x64 RelWithDebInfo, QB scripts)
+
+- The net game's rule is the original's and the setting no longer reaches it: the build with `dormancy_by_distance()`
+  forced true (as in a net game) against the old references at `lod_distance_scale=3`: 4 / 4 demos equal on every
+  frame (skater, objects, random, clock); at 1 and 3 the runs' state files - the anim field too - byte for byte equal.
+- The new rule against the old references: the clock equal everywhere; the objects differ from frame 5 in every demo
+  (objects that slept now move), the random streams from frame 9 - 21 (their scripts draw), the skater only in sim_se
+  from frame 957 (the world it skates in changed - its physics are the original's; the other three demos' skater equal
+  on every frame).
+- The references recorded again from it (`--record`), then `--fps 0,120,144,240 --load 0,7`: 32 / 32 runs equal on
+  every frame, all five fields; a separate earlier run and a run at `lod_distance_scale=1` / `draw_distance_scale=1`
+  (references at 3): equal on every frame.
 
 ### The music's random numbers
 

@@ -51,6 +51,14 @@ test("compareStates: the first frame that differs and which hashes", () => {
     assert.ok(!passed(c));
 });
 
+test("compareStates: the animation's hash compared when the reference has it", () => {
+    const old = compareStates(states(["5 A B C 83"]), states(["5 A B C 83 E"]));
+    assert.ok(passed(old)); // (a reference from before the anim field: its four fields)
+    const c = compareStates(states(["5 A B C 83 E"]), states(["5 A B C 83 F"]));
+    assert.equal(c.firstWhat, "anim");
+    assert.ok(!passed(c));
+});
+
 test("compareStates: a frame missing from the run fails it", () => {
     const c = compareStates(states(["5 A B C 83", "6 A B C 100"]), states(["5 A B C 83"]));
     assert.equal(c.missing, 1);

@@ -17,6 +17,7 @@ add_library(thug2_render_pc STATIC
     loading_dialog_panel.cpp
     draw_frame.cpp
     frame_interp.cpp
+    draw_range.cpp
     depth_lines_draw.cpp
     ghost_draw.cpp
     outline_draw.cpp
