@@ -47,6 +47,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
@@ -241,6 +242,19 @@ uint32_t word_of(const Vec3& rgb, float alpha)
 }
 // A channel as the vertex colour carries it (a byte).
 float as_byte(float value) { return std::round(clamp01(value) * kByteMax) / kByteMax; }
+// (round L - the light store's layout, rt_cel.h) A vertex's stream: the ambient and the residual as light - each channel
+// a byte's value doubled, as the twins read them (the 8-bit store's light x 128 of 255) - in RGB9E5 words, the tint and
+// its share a D3DCOLOR, N.L and the stream's flag in the flags word.
+rt::CelWords cel_words(const Vec3& ambient, float n_dot_l, const Vec3& tint, float share, const Vec3& residual)
+{
+    const auto light = [](const Vec3& value) {
+        return rt::store_light({as_byte(core::at(value, 0)) * 2.0F, as_byte(core::at(value, 1)) * 2.0F,
+                                as_byte(core::at(value, 2)) * 2.0F});
+    };
+    const auto byte = [](float value) { return static_cast<uint32_t>(std::lround(clamp01(value) * kByteMax)); };
+    const uint32_t flags = rt::kCelHasStream | (byte(n_dot_l) << kRedShift);
+    return {light(ambient), word_of(tint, share), light(residual), 0U, 0U, 0U, flags, 0U};
+}
 
 // --- the device's picture ------------------------------------------------------------------------------------------------
 
@@ -571,11 +585,8 @@ void check_twins(Tally* tally)
     constexpr Vec3 kVertexResidual{0.25F, 0.0F, 0.0F};
     constexpr uint32_t kFull = 255;
     // (lighting round A2: the bounce's coefficient 1 - B is radiance in the light's unit)
-    constexpr uint32_t kAmbientRed = 51;  // (0.4 x 0.5 + 0.2 = 0.4)
-    constexpr uint32_t kAmbientBlue = 58; // (0.5 x 0.5 + 0.2 = 0.45)
     constexpr uint32_t kTintRed = 192;    // (1.5)
     constexpr uint32_t kShareByte = 128;  // (0.5)
-    constexpr uint32_t kResidualRed = 48; // (the lamps' light on the surface: tint 1.5 x L 0.25)
     constexpr uint32_t kByteBits = 0xFFU;
     rt::RelitModel model;
     model.valid = true;
@@ -593,11 +604,16 @@ void check_twins(Tally* tally)
     const rt::CelWords words =
         rt::cel_stream_words(model, vertex, {.toward = {0.0F, 1.0F, 0.0F}, .sun = model.sun, .sky = model.sky, .lamps = 1.0F});
     const auto channel = [](uint32_t word, uint32_t shift) { return (word >> shift) & kByteBits; };
+    // (round L: the light words physical light - RGB9E5, read back within its 9 bits -, the tint a byte x 128, N.L and the
+    // flag in the flags word)
+    const rt::StreamParts parts = rt::stream_parts(words);
+    const auto close_to = [](float got, float want) { return std::abs(got - want) <= 0.004F * std::max(want, 0.1F); };
     const bool words_ok =
-        channel(std::get<0>(words), kAlphaShift) == kFull && channel(std::get<0>(words), kRedShift) == kAmbientRed &&
-        channel(std::get<0>(words), 0) == kAmbientBlue && channel(std::get<1>(words), kRedShift) == kTintRed &&
-        channel(std::get<1>(words), kAlphaShift) == kShareByte && channel(std::get<2>(words), kRedShift) == kResidualRed &&
-        channel(std::get<2>(words), kAlphaShift) == kFull;
+                          close_to(std::get<0>(parts.ambient), 0.4F) && close_to(std::get<2>(parts.ambient), 0.45F) &&
+                          channel(std::get<1>(words), kRedShift) == kTintRed &&
+                          channel(std::get<1>(words), kAlphaShift) == kShareByte &&
+                          close_to(std::get<0>(parts.lamps), 0.375F) && parts.n_dot_l == 1.0F && parts.valid &&
+                          channel(std::get<rt::kCelFlagsWord>(words), kAlphaShift) == kFull;
     vertex.used = false;
     const bool unused = rt::cel_stream_words(model, vertex, {}) == rt::kCelNoStream;
     tally->check(words_ok && unused, "the stream's words: ambient, N.L, tint, share, residual, the flag; an unused vertex none");
@@ -671,8 +687,8 @@ void check_stream_bands(render::Gpu& gpu, const Scene& scene, uint32_t bands, Ta
         const bool right = corner == 1 || corner == 2;
         corners.colour.at(corner) = kGreyVertex;
         corners.normal.at(corner) = {0.0F, 0.0F, -1.0F};
-        corners.stream.at(corner) = {word_of(scale(kAmbient, kMid), right ? 1.0F : 0.0F), word_of({kMid, kMid, kMid}, 1.0F),
-                                     word_of({0.0F, 0.0F, 0.0F}, 1.0F)};
+        corners.stream.at(corner) =
+            cel_words(scale(kAmbient, kMid), right ? 1.0F : 0.0F, {kMid, kMid, kMid}, 1.0F, {0.0F, 0.0F, 0.0F});
     }
     std::vector<rt::CelWords> stream;
     const std::vector<Vertex> vertices = quad_vertices(-kQuadHalf, kQuadHalf, -kQuadHalf, kQuadHalf, kQuadZ, corners, &stream);
@@ -1213,7 +1229,7 @@ void check_shadows(render::Gpu& gpu, const Scene& scene, Tally* tally)
     std::vector<rt::CelWords> stream;
     for (const std::size_t corner : kQuadOrder) {
         vertices.push_back({.position = core::at(at, corner), .normal = {0.0F, 1.0F, 0.0F}, .colour = kGreyVertex, .uv = {}});
-        stream.push_back({word_of(scale(kAmbient, kMid), 1.0F), word_of({kMid, kMid, kMid}, 0.0F), word_of({}, 1.0F)});
+        stream.push_back(cel_words(scale(kAmbient, kMid), 1.0F, {kMid, kMid, kMid}, 0.0F, {}));
     }
     begin(gpu, scene);
     set_state(gpu, scene.shader, scene.white, nullptr);
@@ -1642,7 +1658,7 @@ void measure_cost(render::Gpu& gpu, render::GpuPixelShader* shader, GpuTexture* 
         for (std::size_t corner = 0; corner < 4; ++corner) {
             corners.colour.at(corner) = kGreyVertex;
             corners.normal.at(corner) = kTiltedNormal;
-            corners.stream.at(corner) = {word_of(scale(kAmbient, kMid), 1.0F), word_of({kMid, kMid, kMid}, 0.0F), word_of({}, 1.0F)};
+            corners.stream.at(corner) = cel_words(scale(kAmbient, kMid), 1.0F, {kMid, kMid, kMid}, 0.0F, {});
         }
         const std::vector<Vertex> vertices =
             quad_vertices(-400.0F, 400.0F, -400.0F, 400.0F, 120.0F, corners, mode.lit ? nullptr : &stream);

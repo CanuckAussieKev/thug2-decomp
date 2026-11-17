@@ -310,7 +310,8 @@ vec3 hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, HitVer
         BrdfMaterial m = hit_material(id, v, barycentrics, linear_from_display(texel) * w.tint);
         float seen = w.n_dot_l > 0.0 ? sun_seen(point, n, travelled) : 0.0;
         vec3 sun = pass.sun.w > 0.0 ? brdf_direct(m, n, to_eye, pass.sun.xyz, w.sun * seen) : vec3(0.0);
-        return brdf_ambient(m, nv, w.ambient, w.ambient) + sun + linear_from_display(texel) * w.lamps +
+        // (round L: + the surface's own emission - a lamp's lens or bulb seen in a reflection at its luminance)
+        return brdf_ambient(m, nv, w.ambient, w.ambient) + sun + linear_from_display(texel) * (w.lamps + w.emit) +
                hit_lamps(m, point, n, to_eye);
     }
     ObjectLight l;

@@ -22,7 +22,9 @@
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
 #include "engine/gfx/game_hooks.h"
+#include "engine/gfx/lamp_fixtures.h"
 #include "engine/gfx/relit_data.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_relit.h"
@@ -220,7 +222,8 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
     for (std::size_t ti = 0; ti < found->triangles.size() && ti < found->triangle_emitter.size(); ++ti) {
         const uint32_t lamp = core::at(found->triangle_emitter, ti);
         const rt::EmitterTriangle& triangle = core::at(found->triangles, ti);
-        if (lamp >= lamps.size() || !rt::candidate_kind(triangle.kind) || !core::at(lamps, lamp).solved) {
+        // (round L: a candidate with light - solved or its fixture's model)
+        if (lamp >= lamps.size() || !rt::candidate_kind(triangle.kind) || !(luma(core::at(lamps, lamp).light) > 0.0F)) {
             continue;
         }
         for (const rt::Vec3& corner : triangle.corners) {
@@ -240,6 +243,85 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
         }
     }
     return out;
+}
+
+// (round L) Each lamp's luminous area (m^2): its emissive triangles' areas x their lit share (rt_lights.h
+// EmitterTriangle::lit_share - a light card's saturated core, a texture's lamp texels, a self-lit triangle whole).
+std::vector<float> lamp_areas(std::size_t count)
+{
+    std::vector<float> out(count, 0.0F);
+    const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
+    if (found == nullptr) {
+        return out;
+    }
+    constexpr double kSquareMetresPerUnit = (1.0 / 39.37) * (1.0 / 39.37); // (the world's units are inches)
+    for (std::size_t ti = 0; ti < found->triangles.size() && ti < found->triangle_emitter.size(); ++ti) {
+        const uint32_t lamp = core::at(found->triangle_emitter, ti);
+        if (lamp >= count) {
+            continue;
+        }
+        const rt::EmitterTriangle& triangle = core::at(found->triangles, ti);
+        const rt::Vec3 a = std::get<0>(triangle.corners);
+        const rt::Vec3 n = rt::cross(rt::minus(std::get<1>(triangle.corners), a), rt::minus(std::get<2>(triangle.corners), a));
+        const double area = 0.5 * std::sqrt(static_cast<double>(rt::dot(n, n))) * kSquareMetresPerUnit;
+        core::at(out, lamp) += static_cast<float>(area * static_cast<double>(std::clamp(triangle.lit_share, 0.0F, 1.0F)));
+    }
+    return out;
+}
+
+// (round L, the bake report) The lamps by their light's source and fixture, and the lumens per lamp - median, 90th
+// percentile, most - with the brightest few (tools/game/relit_bake.ts reads the "lamps by physics" line).
+void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::RelitLampTold> told,
+                     const rt::LampModelCounts& counts)
+{
+    std::vector<float> lumens;
+    double total = 0.0;
+    for (const rt::RelitLamp& lamp : lamps) {
+        if (luma(lamp.light) > 0.0F) {
+            lumens.push_back(lamp.lumens);
+            total += static_cast<double>(lamp.lumens);
+        }
+    }
+    std::ranges::sort(lumens);
+    const auto at = [&lumens](double share) {
+        return lumens.empty() ? 0.0
+                              : static_cast<double>(core::at(lumens, static_cast<std::size_t>(share * static_cast<double>(lumens.size() - 1))));
+    };
+    std::array<std::size_t, 5> verdicts{};
+    for (const rt::RelitLampTold verdict : told) {
+        core::at(verdicts, static_cast<std::size_t>(verdict)) += 1;
+    }
+    get_log("relit bake: lamps by physics - %zu lamps: %zu solved, %zu by their fixture's model (the bake couldn't tell), "
+            "%zu implausible solves replaced by the model, %zu by their own surface, %zu not a fixture's size, %zu no "
+            "light; the bake knew: %zu told, "
+            "%zu no edges, %zu off in the bake, %zu dark, %zu run off; fixtures shining: %zu sodium, %zu white street, "
+            "%zu tubes, %zu panels, %zu bulbs, %zu neon, %zu signs / windows, %zu unknown; lumens per shining lamp: median "
+            "%.0f, 90th percentile %.0f, most %.0f; %.0f lm in all",
+            lamps.size(), core::at(counts.by_source, 1), core::at(counts.by_source, 2), core::at(counts.by_source, 3),
+            core::at(counts.by_source, 4), core::at(counts.by_source, 5), core::at(counts.by_source, 0),
+            core::at(verdicts, 0), core::at(verdicts, 1),
+            core::at(verdicts, 2), core::at(verdicts, 3), core::at(verdicts, 4), core::at(counts.by_fixture, 1),
+            core::at(counts.by_fixture, 2), core::at(counts.by_fixture, 3), core::at(counts.by_fixture, 4),
+            core::at(counts.by_fixture, 5), core::at(counts.by_fixture, 6), core::at(counts.by_fixture, 7),
+            core::at(counts.by_fixture, 0), at(0.5), at(0.9), lumens.empty() ? 0.0 : static_cast<double>(lumens.back()),
+            total);
+    // the implausible solves, each (a failed measurement replaced by the model)
+    std::size_t shown = 0;
+    for (std::size_t li = 0; li < lamps.size() && shown < 24; ++li) {
+        const rt::RelitLamp& lamp = core::at(lamps, li);
+        if (lamp.source != static_cast<uint8_t>(rt::RelitLampSource::kImplausible)) {
+            continue;
+        }
+        ++shown;
+        get_log("relit bake: lamp %zu (%s) at %.0f %.0f %.0f: an implausible solve - now %s, %.4f m^2 at %.0f cd/m^2, "
+                "%.0f lm, %.0f K",
+                li, rt::fixture_name(static_cast<rt::LampFixture>(lamp.fixture)).data(),
+                static_cast<double>(rt::x_of(lamp.position)), static_cast<double>(rt::y_of(lamp.position)),
+                static_cast<double>(rt::z_of(lamp.position)),
+                rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
+                static_cast<double>(lamp.area), static_cast<double>(lamp.luminance), static_cast<double>(lamp.lumens),
+                static_cast<double>(lamp.kelvin));
+    }
 }
 
 // (round A2) The median share of the sky the level's upward faces see (their traced K): under kRelitIndoorSky the
@@ -421,12 +503,22 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         const auto fitted = std::chrono::steady_clock::now();
         // (round A2) each lamp's intensity solved from the bake (no level-wide c); (round A3) in every bake - the bake's
         // light tells which were on (told above the fit's noise), no "dark level" or lamps-on guess
+        // (round L) each lamp's own colour as found (linear: its glow's or surface's) and what the bake knew of it
+        std::vector<rt::Rgbf> own_colours;
+        own_colours.reserve(lamps.size());
+        for (const rt::RelitLamp& lamp : lamps) {
+            own_colours.push_back({rt::linear_from_display(std::get<0>(lamp.light)),
+                                   rt::linear_from_display(std::get<1>(lamp.light)),
+                                   rt::linear_from_display(std::get<2>(lamp.light))});
+        }
+        std::vector<rt::RelitLampTold> told;
         {
             const rt::DayLight bake_day = own_day_light(data.sun);
             rt::solve_relit_lamps(meshes, light, links, lamps, &model,
                                   {.unit_lux = rt::unit_illuminance(),
                                    .sky = light_luma(bake_day.sky_light),
-                                   .lamps = bake_day.lamps});
+                                   .lamps = bake_day.lamps},
+                                  &told);
         }
         {
             // (reported, the first candidates: what each lights and what the bake told of it)
@@ -494,11 +586,17 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                                                180.0 / 3.14159265358979323846);
             model.sky = own_day.sky_light;
         }
-        // the lamps in physical units (a path tracer's: candela, lumens, colour temperature) and the emissive triangles
+        // (round L - lamps by physics) each lamp's light where the bake can't tell it, or told it implausibly: its
+        // fixture's model (rt_relit.h relit_lamp_models: its kind from its own data x its luminous area); then L again.
+        // The lamps in physical units (a path tracer's: candela, lumens, colour temperature) and the emissive triangles
         // with their lamps' radiance
-        for (rt::RelitLamp& lamp : lamps) {
-            rt::relit_lamp_photometry(&lamp, rt::unit_illuminance());
+        const std::vector<float> areas = lamp_areas(lamps.size());
+        const rt::LampModelCounts modelled =
+            rt::relit_lamp_models(lamps, told, areas, own_colours, rt::unit_illuminance());
+        if (model.valid) {
+            rt::relit_lamp_light(meshes, light, links, lamps);
         }
+        log_lamp_models(lamps, told, modelled);
         data.lamp_list = lamps;
         if (const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters(); found != nullptr) {
             constexpr float kLambertian = 1.0F / 3.14159265F; // (a Lambertian emitter's radiance: its intensity over pi)
@@ -511,7 +609,14 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                     core::at(emissive.corners, k) = core::at(triangle.corners, k);
                 }
                 if (lamp < lamps.size()) {
-                    emissive.radiance = rt::scaled(core::at(lamps, lamp).light, kLambertian);
+                    // (round L: its surface's luminance in the unit where the model or the solve gives one)
+                    const rt::RelitLamp& owner = core::at(lamps, lamp);
+                    const float y = luma(owner.light);
+                    emissive.radiance =
+                        owner.luminance > 0.0F && y > 0.0F
+                            ? rt::scaled(owner.light, owner.luminance * 3.14159265F /
+                                                          static_cast<float>(rt::unit_illuminance()) / y)
+                            : rt::scaled(owner.light, kLambertian);
                 }
                 data.emissive.push_back(emissive);
             }
@@ -528,8 +633,10 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             for (std::size_t mi = 0; mi < relit.size(); ++mi) {
                 rt::RelitMesh& mesh = core::at(relit, mi);
                 const rt::RelitVertices& lit = core::at(light, mi);
-                for (std::size_t vi = 0; vi < mesh.colours.size() && vi < lit.size(); ++vi) {
-                    core::at(mesh.colours, vi) = rt::relit_colour(model, core::at(lit, vi), own);
+                // (round L: the light each vertex reflects, physical - no 8-bit colour between)
+                mesh.light.assign(mesh.positions.size(), rt::Rgbf{});
+                for (std::size_t vi = 0; vi < mesh.light.size() && vi < lit.size(); ++vi) {
+                    core::at(mesh.light, vi) = rt::relit_reflected(model, core::at(lit, vi), own);
                 }
             }
             rt::RelitParams again = params;

@@ -18,6 +18,8 @@
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
 #include "engine/file/disk_files.h"
+#include "engine/gfx/lamp_fixtures.h"
+#include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
@@ -202,9 +204,11 @@ Rgbf colour_at(const RelitMesh& mesh, uint32_t primitive, const Vec3& point)
         w = std::clamp(((d11 * p2) - (d12 * p1)) / det, 0.0F, 1.0F - vi);
     }
     const float u = 1.0F - vi - w;
-    const Rgbf ca = colour_light(core::at(mesh.colours, one));
-    const Rgbf cb = colour_light(core::at(mesh.colours, two));
-    const Rgbf cc = colour_light(core::at(mesh.colours, three));
+    // (round L) the light the vertices show when the bounce gives it (physical), else the baked colours'
+    const bool shown = mesh.light.size() >= count;
+    const Rgbf ca = shown ? core::at(mesh.light, one) : colour_light(core::at(mesh.colours, one));
+    const Rgbf cb = shown ? core::at(mesh.light, two) : colour_light(core::at(mesh.colours, two));
+    const Rgbf cc = shown ? core::at(mesh.light, three) : colour_light(core::at(mesh.colours, three));
     Rgbf out{};
     for (std::size_t ch = 0; ch < out.size(); ++ch) {
         core::at(out, ch) = (core::at(ca, ch) * u) + (core::at(cb, ch) * vi) + (core::at(cc, ch) * w);
@@ -2326,8 +2330,26 @@ std::vector<double> solve_lamp_columns(std::span<const LampEdge> edges, std::spa
 } // namespace
 
 void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                       std::span<RelitLamp> lamps, RelitModel* model, const BakeTime& bake_time)
+                       std::span<RelitLamp> lamps, RelitModel* model, const BakeTime& bake_time,
+                       std::vector<RelitLampTold>* told_out)
 {
+    // (round L) each lamp's verdict - what the bake knew of its light (no edges until a solve says more)
+    std::vector<RelitLampTold> verdicts(lamps.size(), RelitLampTold::kNoEdges);
+    struct Hand {
+        std::vector<RelitLampTold>* out;
+        std::vector<RelitLampTold>* verdicts;
+        Hand(const Hand&) = delete;
+        Hand& operator=(const Hand&) = delete;
+        Hand(Hand&&) = delete;
+        Hand& operator=(Hand&&) = delete;
+        Hand(std::vector<RelitLampTold>* to, std::vector<RelitLampTold>* from) : out(to), verdicts(from) {}
+        ~Hand()
+        {
+            if (out != nullptr) {
+                *out = *verdicts;
+            }
+        }
+    } hand(told_out, &verdicts);
     const double unit_lux = bake_time.unit_lux;
     model->lamps = {1.0F, 1.0F, 1.0F};
     // (a lamp the bake doesn't tell shines by its own surface: pi x the radiance its glow shows - its colour
@@ -2458,7 +2480,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                     }
                 };
                 const Rgbf model_there = model_light(without, without.sun, vertex, without.toward);
-                if (here.empty() && vertex.used) {
+                if (here.empty() && vertex.used && relit_baked_vertex(mesh, vi)) { // (round L: the bake's own vertices - their colours its light)
                     tints_into(model_there, &unlit);
                 }
                 if (here.empty() || !vertex.used) {
@@ -2475,7 +2497,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                 // (weighted by its geometry: where it lights most - not diluted by the far edge of its reach)
                 for (const RelitLampLink& link : here) {
                     const double mine = static_cast<double>(luma(core::at(solved, link.lamp))) * link.weight;
-                    if (shown > kBlackLight && base > 0.0 && mine >= 0.5 * base) {
+                    if (shown > kBlackLight && base > 0.0 && mine >= 0.5 * base && relit_baked_vertex(mesh, vi)) {
                         tints_into(light_there, &core::at(implied, link.lamp));
                     }
                     const double weight = link.weight;
@@ -2574,6 +2596,16 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
         }
         model->lamps_implausible += told_all && share >= noise && on_in_bake && !plausible ? 1 : 0;
         lamp.solved = told_all && share >= noise && on_in_bake && plausible;
+        {
+            // (round L) the verdict: off at the bake's time by its own switch - any kind, a glow too (the street lamp
+            // the afternoon bake can't see) -, no edges, a run-off, or dark
+            const bool off = unit_lux > 0.0 && lamp_on(switch_sky, bake_time.sky, bake_time.lamps) < 0.5F;
+            core::at(verdicts, li) = lamp.solved                          ? RelitLampTold::kSolved
+                                     : !told_all                           ? RelitLampTold::kNoEdges
+                                     : off                                 ? RelitLampTold::kOffInBake
+                                     : share >= noise && !plausible        ? RelitLampTold::kRunOff
+                                                                           : RelitLampTold::kDark;
+        }
         model->lamps_off_in_bake += told_all && share >= noise && !on_in_bake ? 1 : 0;
         model->lamps_dark += told_all && !lamp.solved ? 1 : 0;
         model->lamps_zero += told_all && !lamp.solved && !(luma(core::at(solved, li)) > 0.0F) ? 1 : 0;
@@ -2669,6 +2701,151 @@ void relit_lamp_photometry(RelitLamp* lamp, double unit_lux)
     }
 }
 
+const char* relit_lamp_source_name(RelitLampSource source)
+{
+    switch (source) {
+    case RelitLampSource::kNone:
+        return "none";
+    case RelitLampSource::kSolved:
+        return "solved";
+    case RelitLampSource::kModel:
+        return "model";
+    case RelitLampSource::kImplausible:
+        return "implausible solve - model";
+    case RelitLampSource::kOwnSurface:
+        return "own surface";
+    case RelitLampSource::kNotAFixture:
+        return "not a fixture's size";
+    }
+    return "?";
+}
+
+float relit_lamp_intensity_for(const RelitLamp& lamp, double lumens, double unit_lux)
+{
+    constexpr double kMetresPerUnit = 1.0 / 39.37; // (the world's units are inches)
+    const double radius = static_cast<double>(lamp.core) * kMetresPerUnit;
+    if (!(radius > 0.0) || !(unit_lux > 0.0) || !(lumens > 0.0)) {
+        return 0.0F;
+    }
+    // (relit_lamp_photometry's sums, the other way: lumens -> candela -> the light right at it in the unit)
+    if (lamp.shape == EmitterShape::kLine) {
+        const double half = static_cast<double>(lamp.half_length) * kMetresPerUnit;
+        const double candela = lumens / (kPi * kPi);
+        return half > 0.0 ? static_cast<float>(candela / (unit_lux * radius * half)) : 0.0F;
+    }
+    const double candela = lumens / ((lamp.shape == EmitterShape::kPanel ? 2.0 : 4.0) * kPi);
+    return static_cast<float>(candela / (unit_lux * radius * radius));
+}
+
+namespace {
+
+Rgbf hue_of(const Rgbf& colour)
+{
+    // (the photometric luminance, Rec. 709 - relit_lamp_photometry's - not the Rec. 601 luma the fit uses)
+    const float y = (0.2126F * std::get<0>(colour)) + (0.7152F * std::get<1>(colour)) + (0.0722F * std::get<2>(colour));
+    return y > 0.0F ? scaled(colour, 1.0F / y) : Rgbf{1.0F, 1.0F, 1.0F};
+}
+
+} // namespace
+
+LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const RelitLampTold> told,
+                                  std::span<const float> areas, std::span<const Rgbf> own_colours, double unit_lux)
+{
+    LampModelCounts counts;
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        RelitLamp& lamp = core::at(lamps, li);
+        relit_lamp_photometry(&lamp, unit_lux);
+        const RelitLampTold verdict = li < told.size() ? core::at(told, li) : RelitLampTold::kNoEdges;
+        const float area = li < areas.size() ? core::at(areas, li) : 0.0F;
+        const Rgbf own = li < own_colours.size() ? core::at(own_colours, li) : lamp.light;
+        const bool indoors = lamp.switch_sky >= 0.5F * kLampAlwaysOn;
+        const Rgbf evidence_colour = lamp.solved && luma(lamp.light) > 0.0F ? lamp.light : own;
+        // (a point light - the level's own - by its colour and place as a point emitter)
+        const LampFixture fixture = fixture_of({.shape = static_cast<uint8_t>(lamp.shape),
+                                                .axis = {x_of(lamp.axis), y_of(lamp.axis), z_of(lamp.axis)},
+                                                .colour = evidence_colour,
+                                                .indoors = indoors});
+        const FixtureValues& values = fixture_values(fixture);
+        lamp.fixture = static_cast<uint8_t>(fixture);
+        lamp.area = area;
+        RelitLampSource source = RelitLampSource::kNone;
+        bool model = false;
+        bool typical = false; // (no luminous area: its kind's typical fixture's flux)
+        const bool candidate = candidate_kind(lamp.kind);
+        // (a lamp with no luminous area known - a point light, a card with no core: its flux against its kind's range)
+        const bool flux_out = static_cast<double>(lamp.lumens) < static_cast<double>(values.least_lumens) ||
+                              static_cast<double>(lamp.lumens) > static_cast<double>(values.most_lumens);
+        if (lamp.kind == EmitterKind::kPoint) {
+            source = luma(lamp.light) > 0.0F ? RelitLampSource::kOwnSurface : RelitLampSource::kNone;
+            if (source != RelitLampSource::kNone && flux_out) {
+                source = RelitLampSource::kImplausible;
+                model = true;
+                typical = true;
+            }
+        } else if (verdict == RelitLampTold::kSolved && !(area > 0.0F)) {
+            source = RelitLampSource::kSolved;
+            if (flux_out) {
+                source = RelitLampSource::kImplausible;
+                model = true;
+                typical = true;
+            }
+        } else if (verdict == RelitLampTold::kSolved) {
+            source = RelitLampSource::kSolved;
+            const double luminance = area > 0.0F ? static_cast<double>(lamp.lumens) / (kPi * static_cast<double>(area)) : 0.0;
+            lamp.luminance = static_cast<float>(luminance);
+            if (luminance < static_cast<double>(values.least) || luminance > static_cast<double>(values.most) || flux_out) {
+                // (a failed measurement - its surface's luminance or its flux no fixture of its kind has: the model,
+                // not a clamp - over its luminous area when that is one fixture's, else its kind's typical fixture)
+                const bool sized = area >= values.least_area && area <= values.most_area;
+                source = RelitLampSource::kImplausible;
+                model = true;
+                typical = !sized;
+            }
+        } else if (!candidate) {
+            // a glow (the artists' mark of a lamp) the bake didn't tell - no edges, off in the bake by its own switch,
+            // under the fit's noise (its size untold), a run-off: its kind's model over its luminous core, when that
+            // core is one fixture's size
+            const bool sized = area >= values.least_area && area <= values.most_area;
+            if (sized) {
+                source = verdict == RelitLampTold::kRunOff ? RelitLampSource::kImplausible : RelitLampSource::kModel;
+                model = true;
+            } else {
+                source = RelitLampSource::kNotAFixture;
+                lamp.light = {};
+            }
+        } else if (verdict == RelitLampTold::kOffInBake && !indoors && fixture != LampFixture::kSign &&
+                   fixture != LampFixture::kNeon) {
+            // a candidate the bake couldn't see lit - off by its own switch then - shaped like a luminaire outdoors, of
+            // one fixture's size
+            if (area >= values.least_area && area <= values.most_area) {
+                source = RelitLampSource::kModel;
+                model = true;
+            } else {
+                source = RelitLampSource::kNotAFixture;
+                lamp.light = {};
+            }
+        } else {
+            lamp.light = {}; // (a bright surface the bake doesn't confirm: no lamp - A3's rule)
+        }
+        if (model) {
+            // Phi = pi L A (or, with no luminous area, its kind's typical fixture's), in its colour: a sign's or a
+            // neon's own, a light's own where it is one, else its kind's
+            const double lumens = typical ? static_cast<double>(values.lumens)
+                                          : kPi * static_cast<double>(values.luminance) * static_cast<double>(area);
+            const bool own_light = colour_kelvin(own) > 0.0F && !saturated_colour(own) && luma(own) > 0.0F;
+            const Rgbf hue = values.kelvin <= 0.0F || own_light ? hue_of(own) : blackbody_colour(values.kelvin);
+            lamp.light = scaled(hue, relit_lamp_intensity_for(lamp, lumens, unit_lux));
+            lamp.luminance = values.luminance;
+            lamp.solved = false;
+        }
+        lamp.source = static_cast<uint8_t>(source);
+        relit_lamp_photometry(&lamp, unit_lux);
+        core::at(counts.by_source, static_cast<std::size_t>(source)) += 1;
+        core::at(counts.by_fixture, static_cast<std::size_t>(fixture)) += luma(lamp.light) > 0.0F ? 1 : 0;
+    }
+    return counts;
+}
+
 RelitLighting relit_own_lighting(const RelitModel& model, float lamps)
 {
     return {.toward = model.toward, .sun = model.sunless ? Rgbf{} : model.sun, .sky = model.sky, .lamps = lamps};
@@ -2698,18 +2875,30 @@ Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const Relit
     return out;
 }
 
-uint32_t relit_colour(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
+Rgbf relit_reflected(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
 {
     const Rgbf en = relit_light(model, vertex, lighting);
-    std::array<uint32_t, 3> bytes{};
-    for (std::size_t ch = 0; ch < bytes.size(); ++ch) {
-        // (round A2: tint x light is linear light in the unit; the colour word is display-referred - the draw decodes
-        // its fragment, texel x this, at the output: only the texel's own encoding is then undone)
-        float value = display_from_linear((core::at(vertex.tint, ch) * core::at(en, ch)) + core::at(vertex.emit, ch));
-        value = std::isfinite(value) ? std::clamp(value, 0.0F, kRelitMaxValue) : 0.0F;
-        core::at(bytes, ch) = static_cast<uint32_t>(std::lround(std::min(value * kBytesPerLight, kMaxByte)));
+    Rgbf out{};
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        const float value = core::at(vertex.tint, ch) * core::at(en, ch);
+        core::at(out, ch) = std::isfinite(value) ? std::max(value, 0.0F) : 0.0F;
     }
-    return (kByteMask << kAlphaShift) | (std::get<0>(bytes) << kRedShift) | (std::get<1>(bytes) << kGreenShift) |
-           std::get<2>(bytes);
+    return out;
+}
+
+Rgbf relit_shown(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
+{
+    Rgbf out = relit_reflected(model, vertex, lighting);
+    for (std::size_t ch = 0; ch < out.size(); ++ch) {
+        const float emit = core::at(vertex.emit, ch);
+        core::at(out, ch) += std::isfinite(emit) ? std::max(emit, 0.0F) : 0.0F;
+    }
+    return out;
+}
+
+uint32_t relit_colour(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
+{
+    // (round L: the light as it is - no display encoding, no hold at 2, no pre-exposure: light_store.h)
+    return store_light(relit_shown(model, vertex, lighting));
 }
 } // namespace render::rt

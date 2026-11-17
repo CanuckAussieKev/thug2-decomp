@@ -69,9 +69,7 @@ struct ToneParameters {
     float knee = 1.0F;       // curve 0: where the shoulder starts
     float room = 0.0F;       // curve 0: 1 - knee (0: clipped at 1)
     float aces_scale = 1.0F; // curve 1: 1 / the curve's value at the white point
-    // (round S) the eye's rod vision (rod_vision): the unit's luminance in cd/m^2 (0: off - rt_exposure_adapt off) and
-    // the frame's pre-exposure the colour carries
-    float unit_luminance = 0.0F;
+    // (round S) the frame's pre-exposure the colour carries
     float pre_exposure = 1.0F;
 };
 [[nodiscard]] ToneParameters tone_parameters(const HdrSettings& settings);
@@ -90,15 +88,11 @@ bool parse_cube(std::string_view text, GradeLut* lut, std::string* error);
 // The grading table used from now on, in place of rt_grade_lut's (the check's; set_hdr_settings reads the file's).
 void set_hdr_lut(GradeLut lut);
 
-// (round S) The eye's rod vision, the curve's first step (Krawczyk, Myszkowski and Seidel 2005; Jensen et al. 2000): the
-// pixel's absolute luminance Y (cd/m^2: its light over the pre-exposure x the unit's luminance) gives the rods' share
-// kRodHalf / (kRodHalf + Y) - none in daylight, half at 0.04 cd/m^2 (a moonlit street), nearly all under starlight -;
-// the rods see the scotopic luminance V = Y (1.33 (1 + (Y + Z) / X) - 1.68) (CIE XYZ of the linear Rec. 709 colour; over
-// its value for white, so a grey keeps its brightness), colourless and read as blue - kRodHue (the Purkinje shift). This
-// is where night looks blue: a perception step at the output, never in the light.
-inline constexpr double kRodHalf = 0.04; // cd/m^2
-inline constexpr std::array<double, 3> kRodHue{1.05, 0.97, 1.27};
-[[nodiscard]] std::array<float, 3> rod_vision(const ToneParameters& parameters, const std::array<float, 3>& colour);
+// (round L - a camera, not an eye: the user, 2026-11-17) What is shown is what a camera records: no rod vision (no
+// scotopic desaturation, no Purkinje blue - round S's eye step is gone), its colours the sensor's at every light level.
+// White balance: a fixed daylight white (D65 - the frame's linear Rec. 709 primaries' own white, as a camera set to
+// "daylight"): no adaptation - moonlight (red 1.17 / blue 0.73 of the sun's: rt_daylight.h moon_irradiance) records
+// slightly warm, sodium lamps orange, as a daylight-balanced sensor shows them.
 // The curve on the processor (the pass's reference): an RGB colour of the target -> what the pass writes.
 [[nodiscard]] std::array<float, 3> tone_map_reference(const ToneParameters& parameters, const GradeLut* lut,
                                                       std::array<float, 3> colour);
@@ -116,12 +110,13 @@ inline constexpr std::array<double, 3> kRodHue{1.05, 0.97, 1.27};
 //   - the target: the reflected-light meter's calibration (ISO 2720, K = 12.5, the saturation-based exposure of a
 //     sensor of speed S: H = 1 / (1.2 x 2^EV100), EV100 = log2(L x S / K)) puts a metered average L at L x 100 / 12.5 /
 //     (1.2 x 8 x L) of the sensor's white - kMeterKey, about 0.104 -, scaled by the eye's adaptation (meter_key: the
-//     key over its daylight value, Krawczyk et al.'s 1.03 - 2 / (2 + log10(L + 1)) of the absolute luminance - the unit
-//     calibrated by the sun's illuminance at the atmosphere's top, kSolarIlluminance: a dim night is not brought up to
-//     day); stops = log2(key / L), within +-rt_exposure_adapt (meter_target_stops) - both ways: a bright view down, a
-//     dark one up;
-//   - over time as an eye: kMeterDarkenSeconds toward darker, kMeterBrightenSeconds back (1 - 1/e of the way;
-//     meter_adapt), a new viewport starting at its target;
+//     key over its daylight value - the scene key a photographer exposes a dim scene darker by (Krawczyk et al.'s
+//     1.03 - 2 / (2 + log10(L + 1)) of the absolute luminance - the unit calibrated by the sun's illuminance at the
+//     atmosphere's top, kSolarIlluminance: a dim night is not brought up to day); stops = log2(key / L) - (round L) within
+//     the camera's range (camera_stops_range: the exposure values its aperture, shutter and sensitivity reach) and
+//     +-rt_exposure_adapt (meter_target_stops) - both ways: a bright view down, a dark one up;
+//   - over time as a camera's auto exposure: kMeterDarkenSeconds toward darker, kMeterBrightenSeconds back (1 - 1/e of
+//     the way; meter_adapt), a new viewport starting at its target;
 //   - the factor on the light: 2^stops, x rt_exposure's 2^stops.
 // The device keeps it: a compute pass over the viewport's copy writes the slot, the curve's pass reads it - no read-back.
 // A path tracer's camera takes the same: its radiance x 2^stops, then this curve.
@@ -133,11 +128,19 @@ inline constexpr float kMeterBrightest = 16.0F;
 inline constexpr float kMeterLeast = 1e-4F;   // (a sample's luminance at least: the log average's floor)
 inline constexpr double kSolarIlluminance = rt::kSolarIlluminance; // (lux: the unit's calibration - rt_sky.h)
 inline constexpr float kMeterCentre = 0.3F;
-// (round S) the eye's range: it adapts down to the scotopic floor (CIE: scotopic vision below 10^-3 cd/m^2 - a scene
-// darker still is seen darker, not brought up), and by as many stops as that takes (rt_exposure_adapt: on / off; off -
-// a fixed camera at the reference day's exposure)
-inline constexpr float kEyeDarkest = 1e-3F; // cd/m^2
-inline constexpr float kEyeMostStops = 40.0F;
+// (round L) the camera's range - the exposure values (EV100 = log2(N^2 / t) - log2(S / 100)) its settings reach: from
+// kCameraLeastEv100 - f/1.4, 1/30 s (a 30 fps frame's longest shutter), ISO 102 400 (a low-light video camera's top native
+// sensitivity, e.g. Sony's alpha 7S III): log2(1.96 x 30) - log2(1024) = -4.1 - to kCameraMostEv100 - f/16, 1/8000 s,
+// ISO 100: log2(256 x 8000) = 21.0. A scene darker than the least is recorded darker (the meter can't open further), one
+// brighter than the most brighter. The EV a factor stands at: the reflected-light calibration's (ISO 2720, K 12.5) -
+// the luminance it puts at kMeterKey, L, is EV100 = log2(L x 100 / K) (camera_ev100). rt_exposure_adapt: on / off (off -
+// a fixed camera at the reference day's exposure); rt_exposure the player's exposure compensation after it.
+inline constexpr float kCameraLeastEv100 = -4.1F;
+inline constexpr float kCameraMostEv100 = 21.0F;
+inline constexpr float kMeterMostStops = 40.0F;
+[[nodiscard]] float camera_ev100(float stops);
+// The stops (least, most) the camera's range allows.
+[[nodiscard]] std::array<float, 2> camera_stops_range();
 inline constexpr float kMeterDarkenSeconds = 0.4F;
 inline constexpr float kMeterBrightenSeconds = 1.2F;
 inline constexpr uint32_t kMeterSlots = 4;
@@ -164,7 +167,7 @@ struct MeterReading {
     float mean = 0.0F;
     float target = 0.0F;
     // (the readout's luminance - cd/m^2: the samples' median, 95th and 99.5th percentiles, each its histogram bin's
-    // middle; w the share of the samples under the scotopic floor)
+    // middle; w (round L) the EV100 the camera stands at)
     std::array<float, 4> luminance{};
 };
 bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReading* reading);

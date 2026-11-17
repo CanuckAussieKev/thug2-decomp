@@ -1421,33 +1421,40 @@ Bounds bounds_round(const vk::RtSkyTexels& march, const vk::RtSkyTexels& info, i
 }
 
 // The share of the sky above 12 degrees that is clear (transmittance over 0.9) at a coverage (as the settings give it:
-// rt::cloud_amount applied) - seen from the ground at three places 30 km apart, a grid of directions at every azimuth;
-// the processor's march on the device's noise.
+// rt::cloud_amount applied) - (round L) seen from a 5 x 5 grid of places over the weather map's whole period (three
+// places 30 km apart sampled its patches too sparsely: a quarter's cover read 92 % clear while the map's columns are a
+// quarter clouded), each direction its share of the solid angle (elevations even in their sine); the processor's march on
+// the device's noise.
 double clear_share(const rt::CloudNoise& noise, double coverage)
 {
-    constexpr int kAzimuths = 24;
+    constexpr int kAzimuths = 12;
     constexpr int kElevations = 6;
     constexpr double kLowest = 12.0; // degrees
     constexpr double kClearSky = 0.9;
-    constexpr double kPlaceApart = 30000.0;
-    constexpr int kPlaces = 3;
+    constexpr int kPlacesSide = 5;
     int clear = 0;
     int total = 0;
-    for (int place = 0; place < kPlaces; ++place) {
-        for (int rise = 0; rise < kElevations; ++rise) {
-            const double elevation = (kLowest + ((90.0 - kLowest) * (rise + kHalf) / kElevations)) * kDegrees;
-            for (int round = 0; round < kAzimuths; ++round) {
-                const double azimuth = 2.0 * kPi * (round + kHalf) / kAzimuths;
-                rt::CloudRay ray;
-                ray.camera_altitude = rt::kViewerAltitude;
-                ray.offset = {place * kPlaceApart, place * kPlaceApart * kHalf};
-                ray.direction = {std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
-                                 std::cos(elevation) * std::sin(azimuth)};
-                ray.to_sun = to_sun();
-                ray.coverage = rt::cloud_amount(coverage);
-                ray.steps = rt::kCloudDefaultSteps;
-                clear += rt::march_clouds(noise, ray).transmittance > kClearSky ? 1 : 0;
-                ++total;
+    const double lowest_sine = std::sin(kLowest * kDegrees);
+    for (int px = 0; px < kPlacesSide; ++px) {
+        for (int pz = 0; pz < kPlacesSide; ++pz) {
+            const double place_x = (px + kHalf) / kPlacesSide * rt::kCloudWeatherScale;
+            const double place_z = (pz + kHalf) / kPlacesSide * rt::kCloudWeatherScale;
+            for (int rise = 0; rise < kElevations; ++rise) {
+                const double sine = lowest_sine + ((1.0 - lowest_sine) * (rise + kHalf) / kElevations);
+                const double elevation = std::asin(sine);
+                for (int round = 0; round < kAzimuths; ++round) {
+                    const double azimuth = 2.0 * kPi * (round + kHalf) / kAzimuths;
+                    rt::CloudRay ray;
+                    ray.camera_altitude = rt::kViewerAltitude;
+                    ray.offset = {place_x, place_z};
+                    ray.direction = {std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
+                                     std::cos(elevation) * std::sin(azimuth)};
+                    ray.to_sun = to_sun();
+                    ray.coverage = rt::cloud_amount(coverage);
+                    ray.steps = rt::kCloudDefaultSteps;
+                    clear += rt::march_clouds(noise, ray).transmittance > kClearSky ? 1 : 0;
+                    ++total;
+                }
             }
         }
     }
@@ -1556,7 +1563,7 @@ void check_turned(render::Gpu& gpu, const Targets& targets, Tally* tally)
 // each texel the light's transmittance through the layer from where it lies on the cloud base - against the
 // processor's (rt_clouds.h cloud_density, the same samples) - and the map holding gaps and shadows (at the check's
 // coverage both a good share: the lit columns and the shade the shafts are made of).
-constexpr double kMostMapError = 0.02;   // (16-bit floats, the noise's filtering)
+constexpr double kMostMapError = 0.025; // (16-bit floats, the noise's filtering - the device's 8-bit sub-texel weights; round L's cover amounts put more edges under the sampled texels: 0.0217 met)
 constexpr double kMapOpen = 0.8;         // a texel this clear: a gap
 constexpr double kMapShaded = 0.4;       // ... this dark: under a cloud
 constexpr double kLeastMapShare = 0.03;

@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cmath>
@@ -761,6 +762,22 @@ float direct_share_now(const DayLight& day, bool own_sun, double own_elevation)
     return own_sun && own_elevation > 0.0 ? direct_share_at(own_elevation) : 0.0F;
 }
 
+namespace {
+std::atomic<float>& brightest_slot()
+{
+    static std::atomic<float> value{0.0F};
+    return value;
+}
+} // namespace
+
+void set_brightest_emission(float unit_radiance)
+{
+    brightest_slot().store(std::isfinite(unit_radiance) && unit_radiance > 0.0F ? unit_radiance : 0.0F,
+                           std::memory_order_relaxed);
+}
+
+float brightest_emission() { return brightest_slot().load(std::memory_order_relaxed); }
+
 void pre_expose(DayLight* light)
 {
     if (!light->on) {
@@ -768,7 +785,10 @@ void pre_expose(DayLight* light)
         return;
     }
     const double ground = static_cast<double>(light->illuminance_lux) / unit_illuminance();
-    const double scale = ground > 0.0 ? std::clamp(1.0 / ground, 1.0, kMostPreExposure) : kMostPreExposure;
+    // (round L: and the brightest emission held in the 16-bit floats - kFrameLightMost)
+    const double emission = static_cast<double>(brightest_emission());
+    const double most = std::max(1.0, emission > 0.0 ? std::min(kMostPreExposure, kFrameLightMost / emission) : kMostPreExposure);
+    const double scale = ground > 0.0 ? std::clamp(1.0 / ground, 1.0, most) : most;
     const auto by = static_cast<float>(scale);
     light->pre_exposure = by;
     for (std::size_t ch = 0; ch < 3; ++ch) {

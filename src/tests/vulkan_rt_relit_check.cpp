@@ -48,6 +48,8 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/lamp_fixtures.h"
+#include "engine/gfx/light_store.h"
 #include "engine/gfx/relit_data.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_cel.h"
@@ -68,6 +70,21 @@ namespace value = render::gpu_value;
 namespace rt = render::rt;
 using rt::Rgbf;
 using rt::Vec3;
+
+// (round L - the light store holds physical light, engine/gfx/light_store.h) The colour a vertex is shown with as the
+// bake's colours are kept: its light (rt::relit_shown) display-referred, 128 the game's white, held to a byte - the old
+// colour word's form, what the checks compare with the bake's bytes.
+uint32_t drawn_colour(const rt::RelitModel& model, const rt::RelitVertex& vertex, const rt::RelitLighting& lighting)
+{
+    const Rgbf light = rt::relit_shown(model, vertex, lighting);
+    uint32_t out = 0xFF000000U;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        const float value = std::clamp(rt::display_from_linear(core::at(light, ch)), 0.0F, 255.0F / 128.0F) * 128.0F;
+        const auto byte = static_cast<uint32_t>(std::lround(std::min(value, 255.0F)));
+        out |= byte << (ch == 0 ? 16U : ch == 1 ? 8U : 0U);
+    }
+    return out;
+}
 
 constexpr int kWindowWidth = 320;
 constexpr int kWindowHeight = 240;
@@ -936,8 +953,10 @@ void check_furnace(Tally* tally)
     rt::RelitParams again = params;
     again.keep_sky = true;
     for (uint32_t pass = 0; pass < rt::kRelitBouncePasses; ++pass) {
-        for (std::size_t vi = 0; vi < meshes.front().colours.size(); ++vi) {
-            core::at(meshes.front().colours, vi) = rt::relit_colour(model, core::at(light.front(), vi), own);
+        // (round L: the bounce's hits bring back the light each vertex reflects - physical, no 8-bit colour)
+        meshes.front().light.assign(meshes.front().positions.size(), Rgbf{});
+        for (std::size_t vi = 0; vi < meshes.front().light.size() && vi < light.front().size(); ++vi) {
+            core::at(meshes.front().light, vi) = rt::relit_reflected(model, core::at(light.front(), vi), own);
         }
         rt::trace_relit_sky(meshes, {}, again, cpu, &light, &stats);
     }
@@ -953,7 +972,7 @@ void check_furnace(Tally* tally)
     for (std::size_t vi = 0; vi < light.front().size(); ++vi) {
         const rt::RelitVertex& vertex = core::at(light.front(), vi);
         if (vertex.used && inner(vi)) {
-            shown.push_back(luma(rt::colour_light(rt::relit_colour(model, vertex, own))));
+            shown.push_back(luma(rt::relit_shown(model, vertex, own)));
         }
     }
     float middle_shown = 0.0F;
@@ -991,7 +1010,7 @@ void check_bake_sun(const Scene& scene, const rt::RelitModel& model, const std::
                 continue;
             }
             const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
-            const uint32_t relit = rt::relit_colour(model, found, lit_by(model, scene.sun));
+            const uint32_t relit = drawn_colour(model, found, lit_by(model, scene.sun));
             const Rgbf& lamp = core::at(core::at(scene.level.lamps, mesh), vertex);
             if (luma(lamp) > 0.0F) {
                 // (the synthetic lamp isn't in the lamps' list: its light is the bake's, dropped - relit is dimmer)
@@ -1040,11 +1059,11 @@ void check_counted_once(const Scene& scene, const rt::RelitModel& model, const s
                 continue;
             }
             ++used;
-            const uint32_t relit = rt::relit_colour(model, found, lighting);
+            const uint32_t relit = drawn_colour(model, found, lighting);
             const rt::CelWords words = rt::cel_stream_words(model, found, lighting);
             const rt::StreamParts parts = rt::stream_parts(words);
             streams += parts.valid ? 1 : 0;
-            colour_words += core::at(words, rt::kCelColourWord) == relit ? 1 : 0;
+            colour_words += core::at(words, rt::kCelColourWord) == rt::relit_colour(model, found, lighting) ? 1 : 0;
             if (luma(core::at(core::at(scene.level.lamps, mesh), vertex)) > 0.0F) {
                 continue; // (the synthetic lamp: not in the list - its light dropped, check_bake_sun)
             }
@@ -1087,7 +1106,7 @@ Agreement compare_moved(const Scene& scene, const Level& moved, const rt::RelitM
             }
             const uint32_t baked = core::at(core::at(scene.level.meshes, mesh).colours, vertex);
             const uint32_t truth = core::at(core::at(moved.meshes, mesh).colours, vertex);
-            const uint32_t relit = rt::relit_colour(model, core::at(core::at(light, mesh), vertex), lighting);
+            const uint32_t relit = drawn_colour(model, core::at(core::at(light, mesh), vertex), lighting);
             ++out.count;
             out.agree += channel_difference(relit, truth) <= kMovedBytes ? 1 : 0;
             out.changed += channel_difference(truth, baked) > kChangedBytes ? 1 : 0;
@@ -1118,10 +1137,12 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
     rt::RelitStats sky_stats;
     const auto bounce_start = std::chrono::steady_clock::now();
     for (uint32_t pass = 0; pass < rt::kRelitBouncePasses; ++pass) {
+        // (round L: the hits bring back the light each vertex reflects - physical)
         for (std::size_t mesh = 0; mesh < relit_meshes.size(); ++mesh) {
-            for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size(); ++vertex) {
-                uint32_t& colour = core::at(core::at(relit_meshes, mesh).colours, vertex);
-                colour = rt::relit_colour(model, core::at(core::at(*light, mesh), vertex), lighting);
+            rt::RelitMesh& hit = core::at(relit_meshes, mesh);
+            hit.light.assign(hit.positions.size(), Rgbf{});
+            for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size() && vertex < hit.light.size(); ++vertex) {
+                core::at(hit.light, vertex) = rt::relit_reflected(model, core::at(core::at(*light, mesh), vertex), lighting);
             }
         }
         rt::trace_relit_sky(relit_meshes, {}, scene.params, backend, light, &sky_stats);
@@ -1172,7 +1193,7 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
     for (std::size_t mesh = 0; mesh < light->size(); ++mesh) {
         for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size(); ++vertex) {
             const rt::RelitVertex& lit = core::at(core::at(*light, mesh), vertex);
-            same = same && rt::relit_colour(model, lit, ones) == rt::relit_colour(model, lit, lighting);
+            same = same && drawn_colour(model, lit, ones) == drawn_colour(model, lit, lighting);
         }
     }
     tally->check(same, "the clock's scales at 1 (tod=level): every relit colour as without them");
@@ -1592,7 +1613,7 @@ void check_local_across(Tally* tally)
             if (distance < best) {
                 best = distance;
                 const uint32_t baked = core::at(core::at(meshes, mesh).colours, vertex);
-                const uint32_t lit = rt::relit_colour(model, core::at(core::at(light, mesh), vertex), night);
+                const uint32_t lit = drawn_colour(model, core::at(core::at(light, mesh), vertex), night);
                 ratio = luma(rt::colour_light(lit)) / std::max(luma(rt::colour_light(baked)), kTiny);
             }
         }
@@ -2066,8 +2087,8 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
             rt::RelitVertex analysed = core::at(core::at(light, mesh), vertex);
             analysed.sun = analysed.sun_baked; // (the file keeps the sun toward the bake's: the light's own time)
             ++total;
-            same += channel_difference(rt::relit_colour(read.model, v, lighting),
-                                       rt::relit_colour(model, analysed, lighting)) <= 1
+            same += channel_difference(drawn_colour(read.model, v, lighting),
+                                       drawn_colour(model, analysed, lighting)) <= 1
                         ? 1
                         : 0;
         }
@@ -2088,8 +2109,170 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
                  "a mesh moved by a unit: another content (its data no longer matches)");
 }
 
+// (round L - a physical light store, lamps by physics; on the processor)
+//   - the store's words round-trip physical light from 1e-4 to 1e5 cd/m^2 (RGB9E5, light_store.h);
+//   - a pre-exposure change rewrites nothing: the same physical lighting at two pre-exposures makes the same words, and
+//     what is shown (the store x the pre-exposure, the meter dividing it out) is the same picture;
+//   - a lamp the bake can't tell (no edges; off in the bake) gets its kind's flux from its geometry, pi L A;
+//   - an implausible solve (860 000 lm from a 0.1 m^2 lens) falls back to the model;
+//   - a saturated glow (a magenta card) is a neon tube with a neon's flux, in its own colour;
+//   - a lamp head's luminance in the frame is the model's: the emission word x the pre-exposure over it, in cd/m^2.
+void check_round_l(Tally* tally)
+{
+    const double unit_lux = rt::unit_illuminance();
+    const float unit_cd = static_cast<float>(unit_lux / 3.14159265358979);
+    // the store's range
+    bool round_trip = true;
+    float worst = 0.0F;
+    for (double cd = 1e-4; cd <= 1.0001e5; cd *= 1.7) {
+        const float y = static_cast<float>(cd) / unit_cd;
+        const std::array<float, 3> light{y, 0.5F * y, 0.25F * y};
+        const std::array<float, 3> back = rt::stored_light(rt::store_light(light));
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            const float error = std::abs(core::at(back, ch) - core::at(light, ch)) / y; // (of the brightest channel)
+            worst = std::max(worst, error);
+            round_trip = round_trip && error <= 0.01F;
+        }
+    }
+    tally->check(round_trip && rt::stored_light(rt::store_light({0.0F, 0.0F, 0.0F})) == std::array<float, 3>{} &&
+                     rt::stored_light(rt::store_light({1e9F, 0.0F, 0.0F}))[0] > 60.0F,
+                 text::format("the light store round-trips 1e-4 - 1e5 cd/m^2 within %.3f%% of the brightest channel; 0 "
+                              "stays 0, too bright held at the format's most",
+                              100.0 * static_cast<double>(worst)));
+    // a pre-exposure change: the same words, the same picture
+    {
+        rt::RelitModel model;
+        model.valid = true;
+        model.bounce = {1.0F, 1.0F, 1.0F};
+        rt::RelitVertex vertex;
+        vertex.used = true;
+        vertex.normal = {0.0F, 1.0F, 0.0F};
+        vertex.sun = 1.0F;
+        vertex.sky = 0.8F;
+        vertex.bounce = {2e-8F, 2e-8F, 2e-8F};
+        vertex.tint = {0.5F, 0.4F, 0.3F};
+        vertex.lamp = {3e-6F, 2e-6F, 1e-6F};
+        const rt::DayRgb moon{1.17e-7F, 1.0e-7F, 0.73e-7F}; // (a full moon's light per N.L, physical, in the unit)
+        const rt::DayRgb sky{2e-8F, 2.2e-8F, 3e-8F};
+        bool same_words = true;
+        bool same_picture = true;
+        std::array<float, 3> first{};
+        for (const float pre : {1.0F, 4096.0F, 65536.0F}) {
+            // (the published state carries its light pre-exposed; relit takes the physical light from it - rt_relit_world
+            // day_scales divides the pre-exposure out)
+            rt::DayRgb sun_pre{};
+            rt::DayRgb sky_pre{};
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                core::at(sun_pre, ch) = core::at(moon, ch) * pre;
+                core::at(sky_pre, ch) = core::at(sky, ch) * pre;
+            }
+            const rt::RelitLighting lighting{.toward = {0.0F, 1.0F, 0.0F},
+                                             .sun = rt::scaled(sun_pre, 1.0F / pre),
+                                             .sky = rt::scaled(sky_pre, 1.0F / pre),
+                                             .lamps = 1.0F};
+            static rt::CelWords reference{};
+            const rt::CelWords words = rt::cel_stream_words(model, vertex, lighting);
+            if (pre == 1.0F) {
+                reference = words;
+            }
+            same_words = same_words && words == reference;
+            // drawn: the store x the pre-exposure (the draws), shown: over it (the meter divides it out)
+            const std::array<float, 3> stored = rt::stored_light(core::at(words, rt::kCelColourWord));
+            std::array<float, 3> shown{};
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                core::at(shown, ch) = (core::at(stored, ch) * pre) / pre;
+            }
+            if (pre == 1.0F) {
+                first = shown;
+            }
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                same_picture = same_picture && std::abs(core::at(shown, ch) - core::at(first, ch)) <= 1e-6F * core::at(first, ch);
+            }
+        }
+        tally->check(same_words && same_picture,
+                     "a pre-exposure change (1 -> 4096 -> 65536) writes the same store - no relight - and shows the same "
+                     "picture");
+    }
+    // the lamps by physics
+    {
+        const auto lamp_at = [](rt::EmitterKind kind, const rt::Rgbf& light) {
+            rt::RelitLamp lamp;
+            lamp.position = {0.0F, 300.0F, 0.0F};
+            lamp.core = 10.0F;
+            lamp.reach = 600.0F;
+            lamp.shape = rt::EmitterShape::kPoint;
+            lamp.kind = kind;
+            lamp.light = light;
+            lamp.switch_sky = 0.01F; // (outdoors: a photocell's switch)
+            return lamp;
+        };
+        const rt::Rgbf sodium = rt::blackbody_colour(2050.0F); // (a high-pressure sodium lamp's colour: ~2050 K)
+        const rt::Rgbf magenta{0.9F, 0.05F, 0.8F};   // (a pink sign's card)
+        std::vector<rt::RelitLamp> lamps{lamp_at(rt::EmitterKind::kGlow, rt::scaled(sodium, 0.2F)),
+                                         lamp_at(rt::EmitterKind::kSelfLit, {}),
+                                         lamp_at(rt::EmitterKind::kGlow, {}),
+                                         lamp_at(rt::EmitterKind::kGlow, rt::scaled(magenta, 0.2F))};
+        // the third: told by the bake, its flux 860 000 lm (set from the photometry's inverse)
+        lamps[2].solved = true;
+        const float sodium_luma = (0.2126F * sodium[0]) + (0.7152F * sodium[1]) + (0.0722F * sodium[2]);
+        lamps[2].light = rt::scaled(sodium, rt::relit_lamp_intensity_for(lamps[2], 860000.0, unit_lux) / sodium_luma);
+        const std::vector<rt::RelitLampTold> told{rt::RelitLampTold::kNoEdges, rt::RelitLampTold::kOffInBake,
+                                                  rt::RelitLampTold::kSolved, rt::RelitLampTold::kRunOff};
+        const std::vector<float> areas{0.1F, 0.05F, 0.1F, 0.02F};
+        const std::vector<rt::Rgbf> own{sodium, rt::blackbody_colour(2100.0F), sodium, magenta};
+        (void)rt::relit_lamp_models(lamps, told, areas, own, unit_lux);
+        const rt::FixtureValues& hps = rt::fixture_values(rt::LampFixture::kSodiumStreet);
+        const double want0 = 3.14159265358979 * static_cast<double>(hps.luminance) * 0.1;
+        const double want1 = 3.14159265358979 * static_cast<double>(hps.luminance) * 0.05;
+        const rt::FixtureValues& neon = rt::fixture_values(rt::LampFixture::kNeon);
+        const double want3 = 3.14159265358979 * static_cast<double>(neon.luminance) * 0.02;
+        const auto close_to = [](double got, double want) { return std::abs(got - want) <= 0.01 * want; };
+        tally->check(lamps[0].source == static_cast<uint8_t>(rt::RelitLampSource::kModel) &&
+                         lamps[0].fixture == static_cast<uint8_t>(rt::LampFixture::kSodiumStreet) &&
+                         close_to(lamps[0].lumens, want0) && lamps[0].luminance == hps.luminance,
+                     text::format("a glow the bake can't tell (no edges): a sodium street light by its colour, pi L A = %.0f "
+                                  "lm from 0.1 m^2 at %.0f cd/m^2 (%.0f lm)",
+                                  static_cast<double>(lamps[0].lumens), static_cast<double>(hps.luminance), want0));
+        tally->check(lamps[1].source == static_cast<uint8_t>(rt::RelitLampSource::kModel) && close_to(lamps[1].lumens, want1),
+                     text::format("a lamp head off in the afternoon bake (a candidate, outdoors): its kind's flux %.0f lm "
+                                  "(%.0f)",
+                                  static_cast<double>(lamps[1].lumens), want1));
+        tally->check(lamps[2].source == static_cast<uint8_t>(rt::RelitLampSource::kImplausible) &&
+                         close_to(lamps[2].lumens, want0) && !lamps[2].solved,
+                     text::format("an implausible solve (860 000 lm from a 0.1 m^2 lens: %.3g cd/m^2) falls back to the "
+                                  "model: %.0f lm",
+                                  860000.0 / (3.14159265358979 * 0.1), static_cast<double>(lamps[2].lumens)));
+        const float most = std::max({lamps[3].light[0], lamps[3].light[1], lamps[3].light[2]});
+        tally->check(lamps[3].fixture == static_cast<uint8_t>(rt::LampFixture::kNeon) && close_to(lamps[3].lumens, want3) &&
+                         most > 0.0F && lamps[3].light[1] < 0.2F * most,
+                     text::format("a magenta card (a run-off solve): a neon tube in its own colour, %.0f lm (%.0f) - not a "
+                                  "street lamp's flux",
+                                  static_cast<double>(lamps[3].lumens), want3));
+        // the lamp head in the frame: its emission (the luminance in the unit, its colour) x the pre-exposure, read
+        // over the pre-exposure in cd/m^2 - the model's luminance (luma)
+        rt::RelitVertex head;
+        head.used = true;
+        head.normal = {0.0F, -1.0F, 0.0F};
+        const float y = (0.2126F * lamps[0].light[0]) + (0.7152F * lamps[0].light[1]) + (0.0722F * lamps[0].light[2]);
+        head.emit = rt::scaled(lamps[0].light, lamps[0].luminance / unit_cd / y);
+        rt::RelitModel model;
+        model.valid = true;
+        const rt::CelWords words = rt::cel_stream_words(model, head, {.toward = {0.0F, 1.0F, 0.0F}, .lamps = 1.0F});
+        const float pre = 2000.0F;
+        const std::array<float, 3> emitted = rt::stored_light(core::at(words, rt::kCelEmitWord));
+        const float frame_luma = ((0.2126F * emitted[0]) + (0.7152F * emitted[1]) + (0.0722F * emitted[2])) * pre;
+        const float cd = frame_luma / pre * unit_cd;
+        tally->check(std::abs(cd - hps.luminance) <= 0.01F * hps.luminance && frame_luma < 65504.0F,
+                     text::format("a lamp head's luminance in the frame: %.0f cd/m^2 (the model's %.0f), %.1f in the "
+                                  "pre-exposed frame",
+                                  static_cast<double>(cd), static_cast<double>(hps.luminance),
+                                  static_cast<double>(frame_luma)));
+    }
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
+    check_round_l(tally);
     check_baked_shadow(tally);
     check_local_across(tally);
     {

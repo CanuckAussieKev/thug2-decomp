@@ -75,6 +75,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
@@ -1631,18 +1632,23 @@ bool use_perfect_mirror(Mirror& mirror)
 // pixels' night / day ratio is the stream's (13 / 128), where before it was 1 (a night reflection showed the daylit level).
 std::vector<uint32_t> box_stream(std::size_t vertices, uint32_t light_byte)
 {
-    constexpr uint32_t kOpaque = 0xFF000000U;
-    const uint32_t grey = (light_byte << 16) | (light_byte << 8) | light_byte;
+    // (round L - the light store's layout, rt_cel.h: the light words RGB9E5 - physical light, light_store.h -, the tint and
+    // the flags D3DCOLORs; the light here the byte's over 128, as before)
+    const float level = static_cast<float>(light_byte) / 128.0F;
+    const uint32_t grey = rt::store_light({level, level, level});
     constexpr uint32_t kTintOne = 0x00808080U; // (tint 1; the sun seen 0)
+    constexpr uint32_t kFlags = rt::kCelHasStream | 0x00FFFF00U; // (N.L 1, K 1; the vertex has the stream)
     std::vector<uint32_t> words;
     words.reserve(vertices * rt::kCelStreamWords);
     for (std::size_t vertex = 0; vertex < vertices; ++vertex) {
-        words.push_back(kOpaque | grey);  // 0: the sky's and the bounce's light, N.L 1
-        words.push_back(kTintOne);        // 1: the tint
-        words.push_back(kOpaque);         // 2: no lamps; the vertex has the stream
-        words.push_back(0U);              // 3: no sun
-        words.push_back(kOpaque | grey);  // 4: all of word 0 the sky's, K 1
-        words.push_back(kOpaque | grey);  // 5: the colour (the draws')
+        words.push_back(grey);     // 0: the sky's and the bounce's light
+        words.push_back(kTintOne); // 1: the tint
+        words.push_back(0U);       // 2: no lamps
+        words.push_back(0U);       // 3: no sun
+        words.push_back(grey);     // 4: all of word 0 the sky's
+        words.push_back(grey);     // 5: the light drawn
+        words.push_back(kFlags);   // 6: the flags
+        words.push_back(0U);       // 7: no emission
     }
     return words;
 }

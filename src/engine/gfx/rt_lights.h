@@ -65,6 +65,10 @@ struct EmitterTriangle {
     std::array<float, 3> colour{};
     MaterialId material = 0;
     EmitterKind kind = EmitterKind::kGlow;
+    // (round L - a lamp's luminous area) the share of the triangle that is the lamp's luminous surface: a textured
+    // candidate's lamp texels, a light card's saturated core (its texels' brightest channel at least kTexelBright - the
+    // lamp itself, not the halo the art drew round it); 1 for a self-lit triangle (bright vertex colours throughout)
+    float lit_share = 1.0F;
 };
 
 // (lighting round A2 - indoor ceiling lights) An emitter's shape, from its triangles (cluster_emitters: their spread's

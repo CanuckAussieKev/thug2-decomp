@@ -12,6 +12,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
+#include "engine/gfx/light_store.h"
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/precip_occlusion.h"
 #include "engine/gfx/rain.h"
@@ -60,10 +61,15 @@ constexpr const char* kSurfaceVaryingsIn =
 
 // (added by cel shading - vulkan_cel.h, engine/gfx/rt_cel.h) The cel stream's words handed on (13 - 15, after the
 // motion's), and the block both halves read (ff_uniforms.h CelUniforms).
+// (round L - the physical light store, engine/gfx/light_store.h) v_cel_light and v_cel_residual carry light x the
+// frame's pre-exposure (the frame's unit) - no longer bytes x 128; v_cel_emit the vertex's own emission likewise (its w 1:
+// shown only on its texture's lamp texels - a lamp drawn in a texture)
 constexpr const char* kCelVaryingsOut = "layout(location = 13) out vec4 v_cel_light;\nlayout(location = 14) out vec4 "
-                                        "v_cel_tint;\nlayout(location = 15) out vec4 v_cel_residual;";
+                                        "v_cel_tint;\nlayout(location = 15) out vec4 v_cel_residual;\n"
+                                        "layout(location = 16) out vec4 v_cel_emit;";
 constexpr const char* kCelVaryingsIn = "layout(location = 13) in vec4 v_cel_light;\nlayout(location = 14) in vec4 "
-                                       "v_cel_tint;\nlayout(location = 15) in vec4 v_cel_residual;";
+                                       "v_cel_tint;\nlayout(location = 15) in vec4 v_cel_residual;\n"
+                                       "layout(location = 16) in vec4 v_cel_emit;";
 constexpr const char* kCelBlock = R"(layout(set = 0, binding = 8, std140) uniform CelUniforms {
     vec4 bands;
     vec4 shadow;
@@ -90,8 +96,12 @@ void vertex_declarations(std::string& out, const VertexKey& key)
         add(out, {"    vec4 ", name, "[", num(kMaxLights), "];"});
     }
     add(out, {"    mat4 previous_clip;\n    vec4 motion_jitter;"});
-    if (key.retro != 0U) {
+    const bool store = (key.surface & (kVertexCelStream | kVertexRelitColour)) != 0U;
+    if (key.retro != 0U || store) {
         add(out, {"    vec4 retro;"}); // (NOT ORIGINAL - the retro art style: VertexUniforms::retro)
+    }
+    if (store) {
+        add(out, {"    vec4 light_store;"}); // (NOT ORIGINAL - round L: VertexUniforms::light_store)
     }
     add(out, {"} u;"});
     const bool pre_transformed = fvf_pre_transformed(key.fvf);
@@ -123,14 +133,20 @@ void vertex_declarations(std::string& out, const VertexKey& key)
     if ((key.surface & ~kVertexRelitColour) != 0) { // (the relit colour alone hands nothing on)
         add(out, {kSurfaceVaryingsOut});
     }
+    // (round L) the light words are RGB9E5 (uint: engine/gfx/light_store.h), the tint and the flags D3DCOLORs
     if ((key.surface & kVertexCelStream) != 0U) { // (added by cel shading)
-        for (uint32_t word = 0; word < 3; ++word) {
-            add(out, {"layout(location = ", num(kCelLocation + word), ") in vec4 a_cel", num(word), ";"});
-        }
+        add(out, {"layout(location = ", num(kCelLocation), ") in uint a_cel0;"});
+        add(out, {"layout(location = ", num(kCelLocation + 1), ") in vec4 a_cel1;"});
+        add(out, {"layout(location = ", num(kCelLocation + 2), ") in uint a_cel2;"});
+        add(out, {"layout(location = ", num(kCelEmitLocation), ") in uint a_cel_emit;"});
         add(out, {kCelVaryingsOut});
     }
     if ((key.surface & kVertexRelitColour) != 0U) { // (NOT ORIGINAL - lighting round A: the relit light store)
-        add(out, {"layout(location = ", num(kRelitColourLocation), ") in vec4 a_relit;"});
+        add(out, {"layout(location = ", num(kRelitColourLocation), ") in uint a_relit;"});
+    }
+    if ((key.surface & (kVertexCelStream | kVertexRelitColour)) != 0U) {
+        add(out, {"layout(location = ", num(kCelFlagsLocation), ") in vec4 a_cel_flags;"});
+        add(out, {rt::kLightStoreGlsl});
     }
     if ((key.surface & kVertexCelHull) != 0U) {
         add(out, {kCelBlock});
@@ -259,7 +275,11 @@ void vertex_lighting(std::string& out, const VertexKey& key)
         // (NOT ORIGINAL - lighting round A) the relit light store's colour in place of the vertex colour's (its alpha 1
         // where the vertex has one; the game's alpha kept)
         // (a mesh relit hides - the bake's shadow drawn as geometry: alpha 128 - nothing drawn)
-        add(out, {"    if (a_relit.a > 0.75) {\n        diffuse_in.rgb = a_relit.rgb;\n    } else if (a_relit.a > 0.25) {\n"
+        // (round L: its light physical, x the frame's pre-exposure here - u.light_store.x -, encoded as the colour word
+        // was: display-referred, 128 of 255 the game's white; not held at 2)
+        add(out, {"    if (a_cel_flags.a > 0.75) {\n"
+                  "        diffuse_in.rgb = display_from_linear(stored_light(a_relit) * u.light_store.x) * (128.0 / 255.0);\n"
+                  "    } else if (a_cel_flags.a > 0.25) {\n"
                   "        diffuse_in = vec4(0.0);\n    }"});
     }
     add(out, {"    vec4 specular_in = ", (key.fvf & kFvfSpecular) != 0U ? "a_specular" : "vec4(0.0)", ";"});
@@ -566,8 +586,8 @@ void cel_lighting(std::string& out, const FragmentKey& key)
               "    vec3 cel_out = cel_by > 0.001 ? cel_bake * (cel_bq / cel_by) * mix(vec3(1.0), c.shadow.rgb, 1.0 - "
               "smoothstep(c.outline.w, c.limits.x, cel_bq)) : cel_bake;"});
     if ((key.surface & kSurfaceCelStream) != 0U) {
-        add(out, {"    vec3 cel_amb = v_cel_light.rgb * 2.0;\n    float cel_ndl = v_cel_light.a;\n"
-                  "    vec3 cel_tint = v_cel_tint.rgb * 2.0;\n    vec3 cel_res = v_cel_residual.rgb * 2.0;\n"
+        add(out, {"    vec3 cel_amb = v_cel_light.rgb;\n    float cel_ndl = v_cel_light.a;\n"
+                  "    vec3 cel_tint = v_cel_tint.rgb * 2.0;\n    vec3 cel_res = v_cel_residual.rgb + v_cel_emit.rgb;\n"
                   "    float cel_vis = v_cel_tint.a;"});
         if (shadow) {
             add(out, {"    cel_vis = 1.0;\n"
@@ -1091,17 +1111,24 @@ void surface_finish(std::string& out, const FragmentKey& key)
         add(out, {"        surface_out += brdf_direct(surface_lit, surface_n, surface_v, l, light);\n    }"});
     } else if ((key.surface & kSurfaceRelit) != 0U) {
         const bool relief = (key.detail & kDetailRelief) != 0U && (key.surface & kSurfaceMap) != 0U;
+        // (round L: v_cel_light / v_cel_residual / v_cel_emit are light in the frame's unit - the store's physical light x
+        // the frame's pre-exposure; the tint is still a byte x 128. The vertex's own emission - a lamp's lens, bulb or
+        // panel at its luminance - added as it is (x the texel's colour: the lamp's texture), on the lamp texels alone for
+        // a lamp drawn in a texture: their brightest channel at least rt_lights.h kTexelBright, the bake's own test)
         add(out, {"    const float surface_word = 255.0 / 128.0;\n"
                   "    if (v_cel_residual.a > 0.5) {\n"
                   "        vec3 tint = v_cel_tint.rgb * surface_word;\n"
+                  "        vec3 lamp_texel = surface_albedo;\n"
+                  "        float lamp_lit = v_cel_emit.a > 0.5 ? smoothstep(0.6, 0.7, max(lamp_texel.r, max(lamp_texel.g, "
+                  "lamp_texel.b))) : 1.0;\n"
                   "        surface_m.albedo *= tint;\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n"
-                  "        vec3 env = v_cel_light.rgb * surface_word + v_cel_residual.rgb * surface_word / max(tint, vec3(1.0 / "
-                  "128.0));\n"
+                  "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb / max(tint, vec3(1.0 / 128.0));\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env);\n"
                   "        if (s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
                   "            surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * "
                   "v_cel_tint.a",
                   relief ? " * relief_shadow" : "", ");\n        }\n"
+                  "        surface_out += v_cel_emit.rgb * lamp_texel * lamp_lit;\n"
                   "    } else {\n"
                   "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word);\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, light * surface_hemi, light * surface_env);\n"
@@ -1650,6 +1677,8 @@ std::string vertex_shader_glsl(const VertexKey& key)
     vertex_declarations(out, key);
     if (key.lighting && !fvf_pre_transformed(key.fvf)) {
         out += rt::kDisplayTransferGlsl; // (NOT ORIGINAL - round O: the one light encoded once - vertex_lighting)
+    } else if ((key.surface & kVertexRelitColour) != 0U) {
+        out += rt::kDisplayTransferGlsl; // (NOT ORIGINAL - round L: the store's light encoded as the colour word)
     }
     add(out, {"void main()\n{"});
     vertex_position(out, key);
@@ -1659,7 +1688,10 @@ std::string vertex_shader_glsl(const VertexKey& key)
         add(out, {"    v_surface_normal = normal;\n    v_surface_eye = eye.xyz;"}); // (NOT ORIGINAL - rt_pbr)
     }
     if ((key.surface & kVertexCelStream) != 0U) { // (added by cel shading: the stream handed on)
-        add(out, {"    v_cel_light = a_cel0;\n    v_cel_tint = a_cel1;\n    v_cel_residual = a_cel2;"});
+        // (round L: the light words decoded and x the frame's pre-exposure - the one place the draws apply it)
+        add(out, {"    v_cel_light = vec4(stored_light(a_cel0) * u.light_store.x, a_cel_flags.r);\n    v_cel_tint = a_cel1;\n"
+                  "    v_cel_residual = vec4(stored_light(a_cel2) * u.light_store.x, a_cel_flags.a > 0.75 ? 1.0 : 0.0);\n"
+                  "    v_cel_emit = vec4(stored_light(a_cel_emit) * u.light_store.x, a_cel_flags.b);"});
     }
     if ((key.surface & kVertexCelHull) != 0U) {
         // (added by cel shading) the outline's hull: each vertex pushed out along its normal as seen on the screen,

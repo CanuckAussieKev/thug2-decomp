@@ -90,30 +90,43 @@ void set_cel_world(const CelWorld& world);
 // (lighting round A) It is the relit world's light store: the game's vertex buffers are never written - every world
 // draw from a relit mesh reads word 5 in place of its vertex colour (its alpha the game's), and the ray-traced passes
 // replace their own part of it per pixel.
-// Six D3DCOLOR words a vertex (A8R8G8B8 - the shader reads them as the vertex colour, rgba 0 - 1):
-//   0: the sky's and bounce's light (rgb, light x 128), N.L toward the sun (a, x 255);
+// (round L - a physical light store, engine/gfx/light_store.h) Eight words a vertex. The light words are RGB9E5: light in
+// the global unit, physical - NOT pre-exposed (the draws and the ray-traced passes multiply by the frame's pre-exposure
+// where they read it: a pre-exposure change rewrites nothing); the tint and the flags are D3DCOLORs (A8R8G8B8):
+//   0: the sky's and bounce's light (light);
 //   1: the tint - the surface's colour (rgb, x 128, at most 2), the vertex's share of the sun's rays (a, x 255): the
-//      visibility its colour was written with;
-//   2: the lamps' light on it (tint x L x the lamps on - rgb, x 128), 255 in a: the vertex has the stream (0: an
-//      animated vertex - the draw keeps the game's colour, the cel shader bands it);
-//   3: the direct light's colour and strength the colour was written with (rgb, x 128: the model's sun x the lighting
-//      state's), 0 in a;
-//   4: the sky's part of word 0's light (rgb, x 128 - the rest is the bounce), the vertex's sky share K (a, x 255);
-//   5: the colour the world is drawn with - tint x (word 0 + word 3 x N.L x word 1's a) + word 2 (rgb, x 128; held at
-//      2), 255 in a (rt_relit.h relit_colour; kRelitColourLocation).
-// The cel draws read words 0 - 2 (kCelStreamAttributes); every relit draw word 5.
-inline constexpr uint32_t kCelStreamWords = 6;
+//      visibility its colour was written with (D3DCOLOR);
+//   2: the lamps' light on it (tint x L x the lamps on - light);
+//   3: the direct light's colour and strength the colour was written with (light: the lighting state's sun per N.L);
+//   4: the sky's part of word 0's light (light - the rest is the bounce);
+//   5: the light the world is drawn with - tint x (word 0 + word 3 x N.L x word 1's a) + word 2 + word 7 (light: rt_relit.h
+//      relit_colour; kRelitColourLocation);
+//   6: the flags (D3DCOLOR): N.L toward the sun (red, x 255), the vertex's sky share K (green, x 255), 255 in blue: its
+//      emission is a lamp drawn in a texture (shown on the lamp texels alone - word 5 leaves it out), and in alpha 255
+//      the vertex has the stream, 128 the mesh is hidden (the bake's shadow drawn as geometry, an original light card),
+//      0 none (an animated vertex - the draw keeps the game's colour, the cel shader bands it);
+//   7: the vertex's own emission - a lamp's lit surface shows this radiance (light: rt_relit.h RelitVertex::emit).
+// Before round L: six 8-bit words of pre-exposed light x 128 - a lamp's head held at 2 (about 1.8 cd/m^2 at a night's
+// pre-exposure) and every pre-exposure change a full relight.
+// The cel and surface draws read words 0 - 2 (kCelStreamAttributes), 6 and 7; every relit draw words 5 and 6.
+inline constexpr uint32_t kCelStreamWords = 8;
 inline constexpr uint32_t kCelColourWord = 5;
-// (word 5) a mesh the relit level hides - the bake's shadow drawn as geometry: the draw's colour transparent black (its
-// alpha 128: the shader replaces the whole colour with nothing)
-inline constexpr uint32_t kCelHiddenColour = 0x80000000U;
+inline constexpr uint32_t kCelFlagsWord = 6;
+inline constexpr uint32_t kCelEmitWord = 7;
+// (word 6's alpha) the vertex has the stream / its mesh is hidden (the draw's colour transparent black: the shader
+// replaces the whole colour with nothing)
+inline constexpr uint32_t kCelHasStream = 0xFF000000U;
+inline constexpr uint32_t kCelHiddenFlags = 0x80000000U;
 inline constexpr uint32_t kCelStreamAttributes = 3;
 inline constexpr uint32_t kCelStreamBytes = kCelStreamWords * 4;
 using CelWords = std::array<uint32_t, kCelStreamWords>;
 [[nodiscard]] CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
-inline constexpr CelWords kCelNoStream{0U, 0U, 0U, 0U, 0U, 0U};
-// (added by the light energy audit) A vertex's stream read back (light units: 1 is a colour byte's 128) - the processor's
-// twin of gpu_vulkan/vulkan_rt_scene.h hit_world_light at a vertex; `valid` false for kCelNoStream (word 2's alpha 0).
+inline constexpr CelWords kCelNoStream{0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U};
+// A hidden mesh's vertex (its flags kCelHiddenFlags, nothing else).
+inline constexpr CelWords kCelHiddenStream{0U, 0U, 0U, 0U, 0U, 0U, kCelHiddenFlags, 0U};
+// (added by the light energy audit) A vertex's stream read back (light in the global unit, physical) - the processor's
+// twin of gpu_vulkan/vulkan_rt_scene.h hit_world_light at a vertex (which multiplies by the frame's pre-exposure);
+// `valid` false for kCelNoStream (word 6's alpha 0).
 struct StreamParts {
     std::array<float, 3> ambient{};
     float n_dot_l = 0.0F;
@@ -124,11 +137,13 @@ struct StreamParts {
     std::array<float, 3> sky{};
     float sky_share = 0.0F;
     std::array<float, 3> colour{};
+    std::array<float, 3> emit{};
     bool valid = false;
+    bool hidden = false;
 };
 [[nodiscard]] StreamParts stream_parts(const CelWords& words);
 // The light its colour shows with the sun's visibility `seen` (the twin of the GLSL world_light_with, the sky as it is):
-// tint x (ambient + sun x N.L x seen) + lamps.
+// tint x (ambient + sun x N.L x seen) + lamps + emit.
 [[nodiscard]] std::array<float, 3> stream_light(const StreamParts& parts, float seen);
 
 // --- the bands (the shaders' formulas on the processor) ---------------------------------------------------------------

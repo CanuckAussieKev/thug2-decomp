@@ -54,7 +54,8 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // bulbs shown by their light), the rays started inside their own surface (no sky at a concave seam), the textured
 // ceiling lights, the lamps solved by an instrument. A file of another version is out of date: the game says to run
 // relit_bake.)
-inline constexpr uint32_t kRelitDataVersion = 7;
+// (round L) v8: each lamp's light source (solved / its fixture's model / ...), fixture, luminous area and luminance.
+inline constexpr uint32_t kRelitDataVersion = 8;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

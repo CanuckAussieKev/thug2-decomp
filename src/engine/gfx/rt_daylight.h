@@ -203,6 +203,14 @@ inline constexpr double kLampsFullLux = 10.0;
 // the clouds' light, the lamps, the air) multiplies by it (frame_pre_exposure) and the camera's meter divides it out -
 // what is shown is the physical light (docs/design/vulkan.md round S).
 inline constexpr double kMostPreExposure = 65536.0;
+// (round L - lamps at their luminance) ... and at most kFrameLightMost over the brightest emission the level shows (a lamp's
+// lens, bulb or panel at its luminance - the relit world's, in the unit: set_brightest_emission): a 10^5 cd/m^2 lamp head
+// (3.8 in the unit) x 65 536 would pass the 16-bit floats' 65 504. A quarter of that range is the headroom a lit texel, a
+// specular peak and the bloom's sums keep. The pre-exposure is a number's range, not the camera's exposure (the meter
+// divides it out): what is shown doesn't change, only where the frame's floats hold it.
+inline constexpr double kFrameLightMost = 65504.0 / 4.0;
+void set_brightest_emission(float unit_radiance);
+[[nodiscard]] float brightest_emission();
 
 // the share of the level's own light that is the sun's (the shadows') without the clock - with it the model's at the
 // level's own sun (direct_share_at; changed by the physical air: one number for every level was the old way)

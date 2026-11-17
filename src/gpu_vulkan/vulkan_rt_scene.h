@@ -87,8 +87,11 @@ struct GeometryRecord {
     // (the one lighting path - the objects' shadows) its object's lights (rt::ObjectLight: kObjectLightFloats floats,
     // the frame's own buffer - with kGeometryObjectLight)
     std::array<uint32_t, 2> object_light_address{};
+    // (round L - the physical light store) what the light stream's light is multiplied by where it is read: the frame's
+    // pre-exposure (rt_daylight.h frame_pre_exposure)
+    float light_exposure = 0.0F;
 };
-inline constexpr std::size_t kGeometryRecordBytes = 68;
+inline constexpr std::size_t kGeometryRecordBytes = 72;
 static_assert(sizeof(GeometryRecord) == kGeometryRecordBytes);
 inline constexpr uint32_t kGeometryLive = 1U << 0;    // its mesh is built (else every other field is 0)
 inline constexpr uint32_t kGeometryIndex32 = 1U << 1; // 32-bit indices (else 16-bit)
@@ -117,13 +120,14 @@ inline constexpr uint32_t kGeometryUvSetsMask = 0xF;
 //        hit (a material's pass n reads set n); a set the mesh hasn't: set 0 (no coordinates at all: (0, 0))
 //   bool hit_normal(uint instance, uint primitive, vec2 barycentrics, out vec3 normal) - (added for the skater's smooth
 //        shading) the vertex normals blended at the hit, the object's (not normalised); false when the mesh has none
-//   struct WorldLight { vec3 ambient; float n_dot_l; vec3 tint; float seen; vec3 residual; vec3 sun; float missed;
-//        vec3 sky; float sky_share; };
+//   struct WorldLight { vec3 ambient; float n_dot_l; vec3 tint; float seen; vec3 lamps; vec3 sun; vec3 sky;
+//        float sky_share; vec3 emit; };
 //   bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out WorldLight w) - (added by the light
-//        energy audit) the relit world's light stream blended at the hit, light units (1: a colour byte's 128); false
-//        when the mesh has none or a corner has no stream (an animated vertex)
+//        energy audit) the relit world's light stream blended at the hit, in the frame's unit (round L: the store's
+//        physical light x the record's light_exposure); false when the mesh has none or a corner has no stream (an
+//        animated vertex, a hidden mesh). `emit` the surface's own emission (radiance x the texel)
 //   vec3 world_light_with(WorldLight w, float seen, vec3 sky) - the light a vertex colour of that stream shows with the
-//        sun's visibility `seen` and the sky's part `sky`: tint x (bounce + sky + sun x N.L x seen) + residual
+//        sun's visibility `seen` and the sky's part `sky`: tint x (bounce + sky + sun x N.L x seen) + lamps + emit
 //   struct ObjectLight { vec3 ambient; vec3 key; vec3 key_direction; vec3 fill; vec3 fill_direction; vec3 local;
 //        vec3 local_direction; bool linear; } - (round O) `linear`: the light store's linear light in the global unit
 //        (render_pc/pc_lights.h OneLightSent), else the game's display-referred lights

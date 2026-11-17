@@ -137,7 +137,7 @@ struct Entry {
     uint64_t listed = 0;   // the update that last put it in the order (State::listing)
     // the colours its vertices show the bounce's rays (rebounce: the relit ones), and the light they were made for: made
     // once a relight, not every frame of it
-    std::vector<uint32_t> hit_colours;
+    std::vector<rt::Rgbf> hit_light; // (round L: the light each vertex reflects, physical - the bounce's hits)
     uint64_t hits_for = 0;
     // (one relight at a time) how far its sun's trace has got for the relight `sun_done_for` and its bounce's for the
     // bounce pass `bounce_done_for` (vertices: a frame's share may end inside a mesh)
@@ -316,6 +316,22 @@ float luma_of(uint32_t argb)
     return (kLumaRed * static_cast<float>((argb >> kRedShift) & kByteMask)) +
            (kLumaGreen * static_cast<float>((argb >> kGreenShift) & kByteMask)) +
            (kLumaBlue * static_cast<float>(argb & kByteMask));
+}
+
+// (round L - the log's, the console's) The light a vertex shows as the frame shows it: x the frame's pre-exposure, as a
+// display-referred colour (A8R8G8B8, 128 the game's white; held at 255) - beside the bake's own colours. The store holds
+// it physical (light_store.h); only the log compares it with bytes.
+uint32_t shown_argb(const rt::RelitModel& model, const rt::RelitVertex& vertex, const rt::RelitLighting& lighting)
+{
+    const rt::Rgbf light = rt::relit_shown(model, vertex, lighting);
+    const float exposure = rt::frame_pre_exposure();
+    uint32_t out = 0xFF000000U;
+    for (std::size_t ch = 0; ch < light.size(); ++ch) {
+        const float display = rt::display_from_linear(core::at(light, ch) * exposure) * 128.0F;
+        const auto byte = static_cast<uint32_t>(std::lround(std::clamp(display, 0.0F, 255.0F)));
+        out |= byte << (ch == 0 ? kRedShift : ch == 1 ? kGreenShift : 0);
+    }
+    return out;
 }
 
 uint64_t fnv(uint64_t hash, std::span<const uint8_t> bytes)
@@ -642,23 +658,26 @@ bool target_sun(rt::Vec3* toward)
 // (lighting round A2 - one light unit) The light the world is lit by now, in the global unit: the clock's (rt_daylight.h
 // DayLight::sun_light / sky_light - the physical sun and sky, or the moon and the night's), else the level's own (the
 // model's own-time light - relit_own_lighting). The bounce is traced from the relit colours themselves.
+// (Round L - a physical light store) Physical: the published state's pre-exposure divided out - the store, the bounce and
+// the light field hold the light as it is, and what draws it multiplies by the frame's pre-exposure (light_store.h).
 rt::RelitLighting day_scales(const rt::DayLight& day, const rt::RelitModel& model)
 {
     if (!day.on) {
         return rt::relit_own_lighting(model, 0.0F);
     }
+    const float exposure = day.pre_exposure > 0.0F ? day.pre_exposure : 1.0F;
     return {.toward = rt::Vec3{std::get<0>(day.light), std::get<1>(day.light), std::get<2>(day.light)},
-            .sun = day.sun_light,
-            .sky = day.sky_light,
+            .sun = rt::scaled(day.sun_light, 1.0F / exposure),
+            .sky = rt::scaled(day.sky_light, 1.0F / exposure),
             .lamps = 0.0F};
 }
 
 // (lighting round A) How much of the lamps' light relit lights per vertex: what the lamps pass doesn't light per pixel
 // itself (lamps_drawn) - one owner. (Round A3) Which lamps are on is each lamp's own (switch_lamps: its L made with it).
-// (round S: x the frame's pre-exposure, as the lighting state's sun and sky carry it - rt_daylight.h pre_expose)
-float vertex_lamps(const rt::DayLight& day)
+// (round L: physical - the store's light isn't pre-exposed)
+float vertex_lamps()
 {
-    return std::max(0.0F, 1.0F - rt::lamps_drawn()) * (day.on ? day.pre_exposure : 1.0F);
+    return std::max(0.0F, 1.0F - rt::lamps_drawn());
 }
 
 // (lighting round A3 - no "dark level") Each of the data's lamps on by its own daylight (rt_lights.h lamp_on: the open
@@ -678,10 +697,7 @@ uint64_t switch_lamps(const rt::DayLight& day)
     const float open = rt::open_sky_lamps(day, level.get());
     const std::vector<rt::RelitLamp>& lamps = data.data.lamp_list;
     std::vector<float> on(lamps.size(), 0.0F);
-    // (round S: the bulbs' radiance x the frame's pre-exposure, as the lighting state's sun and sky carry it)
-    const float exposure = day.on ? day.pre_exposure : 1.0F;
     uint64_t hash = fnv_value(kFnvBasis, static_cast<uint64_t>(lamps.size()));
-    hash = fnv_value(hash, exposure);
     for (std::size_t li = 0; li < lamps.size(); ++li) {
         core::at(on, li) = std::round(rt::lamp_on(core::at(lamps, li).switch_sky, sky_now, open) * kLampSteps) / kLampSteps;
         hash = fnv_value(hash, core::at(on, li));
@@ -690,6 +706,30 @@ uint64_t switch_lamps(const rt::DayLight& day)
     st.lamps_on = std::move(on);
     st.lamps_hash = hash;
     constexpr float kLambertian = 1.0F / 3.14159265F; // (a Lambertian emitter's radiance: its exitance over pi)
+    // (round L) a lamp's surface shows its luminance (relit_data.h RelitLamp::luminance: its kind's or its solved flux
+    // over pi x its area) in its colour - physical, in the unit (a white diffuser's radiance under unit_illuminance:
+    // unit_illuminance / pi cd/m^2) - not its light / pi (the light right at a point source, no surface's luminance)
+    const float unit_luminance = static_cast<float>(rt::unit_illuminance()) * kLambertian;
+    std::vector<rt::Rgbf> shown(lamps.size(), rt::Rgbf{});
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        const rt::RelitLamp& lamp = core::at(lamps, li);
+        const float y = (0.2126F * std::get<0>(lamp.light)) + (0.7152F * std::get<1>(lamp.light)) +
+                        (0.0722F * std::get<2>(lamp.light));
+        core::at(shown, li) = lamp.luminance > 0.0F && y > 0.0F && unit_luminance > 0.0F
+                                  ? rt::scaled(lamp.light, lamp.luminance / unit_luminance / y)
+                                  : rt::scaled(lamp.light, kLambertian);
+    }
+    // (round L) the brightest emission the level shows now - the frame's pre-exposure keeps it in range
+    // (rt_daylight.h set_brightest_emission)
+    float brightest = 0.0F;
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        const rt::Rgbf& light = core::at(shown, li);
+        // (only a candidate's surface is drawn emitting - a light card is hidden)
+        const float drawn = rt::candidate_kind(core::at(lamps, li).kind) ? 1.0F : 0.0F;
+        brightest = std::max(brightest, std::max({std::get<0>(light), std::get<1>(light), std::get<2>(light)}) * drawn *
+                                            core::at(st.lamps_on, li));
+    }
+    rt::set_brightest_emission(brightest);
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
         if (!entry.analysed || entry.lamps_for == hash || entry.data_mesh >= data.data.meshes.size()) {
@@ -700,8 +740,9 @@ uint64_t switch_lamps(const rt::DayLight& day)
         rt::relit_mesh_lamp_light(entry.input, &entry.light, mesh.links, lamps, st.lamps_on);
         for (const rt::RelitEmitting& emitting : mesh.emitting) {
             if (emitting.vertex < entry.light.size() && emitting.lamp < lamps.size()) {
-                core::at(entry.light, emitting.vertex).emit =
-                    rt::scaled(core::at(lamps, emitting.lamp).light, kLambertian * exposure * core::at(st.lamps_on, emitting.lamp));
+                rt::RelitVertex& vertex = core::at(entry.light, emitting.vertex);
+                vertex.emit = rt::scaled(core::at(shown, emitting.lamp), core::at(st.lamps_on, emitting.lamp));
+                vertex.emit_masked = core::at(lamps, emitting.lamp).kind == rt::EmitterKind::kTextured;
             }
         }
     }
@@ -854,6 +895,7 @@ void level_changed(uint32_t level)
         return;
     }
     rt::set_sun_relight({}); // (added by the scene's sun: a new level is lit by its bake until it is relit)
+    rt::set_brightest_emission(0.0F); // (round L: the last level's lamps no longer shown)
     st.field_lighting = 0;
     rt::set_light_field(nullptr); // (the one lighting path: the level before's field gone)
     restore_all();
@@ -876,7 +918,7 @@ void level_changed(uint32_t level)
 
 // (one relight at a time - its rays never waited for) The entries' meshes and light taken out for a trace, in an order's
 // order, and put back after; for the bounce's rays with their hit colours and own light swapped in (the bake's colours
-// kept in hit_colours meanwhile).
+// kept in hit_light meanwhile - round L: the light they reflect, physical).
 struct Gathered {
     std::vector<rt::RelitMesh> meshes;
     std::vector<rt::RelitVertices> light;
@@ -890,7 +932,7 @@ void gather(std::span<const VertexBufferData* const> order, bool bounce, Gathere
         out->meshes.push_back(std::move(entry.input));
         out->light.push_back(std::move(entry.light));
         if (bounce) {
-            std::swap(out->meshes.back().colours, entry.hit_colours);
+            std::swap(out->meshes.back().light, entry.hit_light);
         }
     }
 }
@@ -903,7 +945,7 @@ void put_back(std::span<const VertexBufferData* const> order, bool bounce, Gathe
         entry.input = std::move(core::at(in->meshes, iv));
         entry.light = std::move(core::at(in->light, iv));
         if (bounce) {
-            std::swap(entry.input.colours, entry.hit_colours); // (the game's back; the hits' kept for the next frame)
+            std::swap(entry.input.light, entry.hit_light); // (the hits' kept for the next frame)
         }
     }
 }
@@ -1159,12 +1201,13 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
             return; // (the rest next frame)
         }
         // (the colours the rays bring back: as relit now)
-        entry.hit_colours.resize(entry.originals.size());
-        for (std::size_t vi = 0; vi < entry.hit_colours.size(); ++vi) {
-            core::at(entry.hit_colours, vi) =
+        // (round L: the light each vertex reflects - physical, not 8 bits; an animated vertex its game colour as light)
+        entry.hit_light.resize(entry.originals.size());
+        for (std::size_t vi = 0; vi < entry.hit_light.size(); ++vi) {
+            core::at(entry.hit_light, vi) =
                 vi < entry.light.size() && entry.analysed && core::at(entry.animated, vi) == 0
-                    ? rt::relit_colour(st.model, core::at(entry.light, vi), lighting)
-                    : core::at(entry.originals, vi);
+                    ? rt::relit_reflected(st.model, core::at(entry.light, vi), lighting)
+                    : rt::colour_light(core::at(entry.originals, vi));
         }
         entry.hits_for = hits_key;
     }
@@ -1339,17 +1382,15 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
         const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked), std::size_t{count} * rt::kCelStreamBytes);
         for (std::size_t vi = 0; vi < count; ++vi) {
             const bool hidden = entry.baked_shadow || entry.glow_card;
-            rt::CelWords words = vi < entry.light.size() && core::at(entry.animated, vi) == 0 && !hidden
-                                     ? rt::cel_stream_words(st.model, core::at(entry.light, vi), light)
-                                     : rt::kCelNoStream;
-            if (hidden) {
-                core::at(words, rt::kCelColourWord) = rt::kCelHiddenColour; // (the bake's shadow: not drawn)
-            }
+            const rt::CelWords words = hidden ? rt::kCelHiddenStream // (the bake's shadow, a light card: not drawn)
+                                       : vi < entry.light.size() && core::at(entry.animated, vi) == 0
+                                           ? rt::cel_stream_words(st.model, core::at(entry.light, vi), light)
+                                           : rt::kCelNoStream;
             std::memcpy(bytes.subspan(vi * rt::kCelStreamBytes, rt::kCelStreamBytes).data(), words.data(),
                         rt::kCelStreamBytes);
-            if (core::at(words, rt::kCelColourWord) != 0) {
+            if (!hidden && vi < entry.light.size() && core::at(entry.animated, vi) == 0) {
                 const float was = luma_of(core::at(entry.originals, vi));
-                const float now = luma_of(core::at(words, rt::kCelColourWord));
+                const float now = luma_of(shown_argb(st.model, core::at(entry.light, vi), light));
                 change.vertices += 1;
                 change.baked += was;
                 change.relit += now;
@@ -1525,7 +1566,7 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     // (lighting round A) the lamps' light relit lights per vertex - what the lamps pass doesn't light per pixel: one
     // owner; in steps of kLampSteps, so a pass's amount moving a little doesn't write the level again
     constexpr float kLampSteps = 32.0F;
-    const float lamps = std::round(vertex_lamps(day) * kLampSteps) / kLampSteps;
+    const float lamps = std::round(vertex_lamps() * kLampSteps) / kLampSteps;
     const uint64_t switched = switch_lamps(day); // (round A3: each lamp by its own daylight)
     uint64_t lighting = fnv_value(kFnvBasis, st.sun);
     lighting = fnv_value(lighting, st.radius);
@@ -1956,7 +1997,7 @@ std::string describe_mesh(rt::MeshId id)
             ++count;
             animated += vi < entry.animated.size() && core::at(entry.animated, vi) != 0 ? 1 : 0;
             baked += luma_of(core::at(entry.originals, vi));
-            relit += luma_of(rt::relit_colour(st.model, core::at(entry.light, vi), st.written_light));
+            relit += luma_of(shown_argb(st.model, core::at(entry.light, vi), st.written_light));
         }
         const double each = static_cast<double>(std::max<std::size_t>(count, 1));
         std::string out = text::format("relit mesh: %s, %s, %zu vertices (%zu animated), mean baked %.1f relit %.1f",
@@ -1975,7 +2016,7 @@ std::string describe_mesh(rt::MeshId id)
                                 static_cast<double>(rt::z_of(at)), static_cast<double>(rt::x_of(vertex.normal)),
                                 static_cast<double>(rt::y_of(vertex.normal)), static_cast<double>(rt::z_of(vertex.normal)),
                                 core::at(entry.originals, vi) & 0xFFFFFFU,
-                                rt::relit_colour(st.model, vertex, st.written_light) & 0xFFFFFFU,
+                                shown_argb(st.model, vertex, st.written_light) & 0xFFFFFFU,
                                 colour_held(entry, vi), static_cast<double>(vertex.sun), static_cast<double>(vertex.sun_baked),
                                 static_cast<double>(vertex.sky), static_cast<double>(std::get<0>(vertex.tint)),
                                 static_cast<double>(std::get<1>(vertex.tint)), static_cast<double>(std::get<2>(vertex.tint)),
@@ -2021,7 +2062,7 @@ std::string describe_near(const rt::Vec3& point, float radius)
             ++count;
             const uint32_t original = core::at(entry.originals, vi);
             baked += luma_of(original);
-            relit += luma_of(rt::relit_colour(st.model, vertex, st.written_light));
+            relit += luma_of(shown_argb(st.model, vertex, st.written_light));
             lamps += (kLumaRed * std::get<0>(vertex.lamp)) + (kLumaGreen * std::get<1>(vertex.lamp)) +
                      (kLumaBlue * std::get<2>(vertex.lamp));
             sunlit += vertex.sun;
@@ -2057,7 +2098,7 @@ std::string describe_near(const rt::Vec3& point, float radius)
                             static_cast<double>(rt::z_of(at)), static_cast<double>(near.distance),
                             static_cast<double>(rt::x_of(vertex.normal)), static_cast<double>(rt::y_of(vertex.normal)),
                             static_cast<double>(rt::z_of(vertex.normal)), original & 0xFFFFFFU,
-                            rt::relit_colour(st.model, vertex, st.written_light) & 0xFFFFFFU,
+                            shown_argb(st.model, vertex, st.written_light) & 0xFFFFFFU,
                             colour_held(*near.entry, near.vertex), static_cast<double>(vertex.sun),
                             static_cast<double>(vertex.sky),
                             static_cast<double>(std::get<0>(vertex.bounce)), static_cast<double>(std::get<1>(vertex.bounce)),
