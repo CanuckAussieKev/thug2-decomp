@@ -2480,7 +2480,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                     }
                 };
                 const Rgbf model_there = model_light(without, without.sun, vertex, without.toward);
-                if (here.empty() && vertex.used) {
+                if (here.empty() && vertex.used && relit_baked_vertex(mesh, vi)) { // (round L: the bake's own vertices - their colours its light)
                     tints_into(model_there, &unlit);
                 }
                 if (here.empty() || !vertex.used) {
@@ -2497,7 +2497,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                 // (weighted by its geometry: where it lights most - not diluted by the far edge of its reach)
                 for (const RelitLampLink& link : here) {
                     const double mine = static_cast<double>(luma(core::at(solved, link.lamp))) * link.weight;
-                    if (shown > kBlackLight && base > 0.0 && mine >= 0.5 * base) {
+                    if (shown > kBlackLight && base > 0.0 && mine >= 0.5 * base && relit_baked_vertex(mesh, vi)) {
                         tints_into(light_there, &core::at(implied, link.lamp));
                     }
                     const double weight = link.weight;
