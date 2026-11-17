@@ -2746,6 +2746,75 @@ and what its surfaces are made of, never flagged.
   and vertical 0.5 of it - Panofsky and Dutton), their turning sqrt(2) sigma / (L / 2 pi): none in still air (were 16 and
   26 units by hand, turning at fixed rates).
 
+### Round V: a prepass and the light per surface (`gpu_vulkan/vulkan_surface_light.h`)
+
+Before, the world was drawn by the original's forward renderer with the one light model in its shading, and the
+ray-traced shadows, the lamps, the occlusion and the decals were full-screen passes multiplying and adding onto finished
+colours at `opaque_drawn`. What was drawn after them lost them (New Jersey's roads, drawn with a blended first pass in
+a scene's later group, had no shadows until the passes were moved after both groups), and what was drawn before them
+took them whether or not they were its light (glass, water, glows under a shadow's multiply). Round V evaluates the
+light once per surface: the passes make the surface's light *inputs*, and each surface's own shading reads them.
+
+While a view of a relit level (`rt::cel_world().relit`) is drawn with ray tracing into the linear frame, single-sampled
+and without cel shading:
+
+1. **The world kept, its depth first.** Every draw render_pc makes in the view's world passes
+   (`rt::world_surfaces_drawing`, set with `rt_record::set_world_passes`: the scenes, the objects, the splats and
+   projections - not the sky) into the view's target is kept (`surface_light_keep`: the state block, the call and the
+   per-draw state render_pc names before it - the light store's source, the trails' ground, the water's material and
+   body - named again when it is drawn). A draw that writes depth and doesn't add or multiply is drawn at once into the
+   depth alone (`FragmentKey::light` `kLightDepthOnly`: the stages for the alpha test and nothing of the surface's keys;
+   an alpha-blended one's pixels under half opaque discarded - `kLightDepthHalf` - so a translucent edge isn't the
+   surface). `gl_Position` is `invariant` in every generated vertex shader, so the prepass and the shaded draw put a
+   vertex at the same depth. Water render_pc marks is left to rt_water (kept back to the opaque world's end, as before).
+   A vertex or index buffer written again while kept draws read it (skinned meshes written part after part) is copied
+   for them first (`surface_light_buffer_rewritten`).
+2. **The inputs** (`ViewOrder::kSurfaceInputs`, 60): a compute pass copies the depth (R32F) and starts the images of the
+   target's size - the visibility (RGBA16F: the sun's or the moon's visibility, -1 where nothing traced; the direct
+   light's share; the indirect light's visibility; 1 where made), the lamps' light (a white diffuser's radiance), the
+   lamps' light on the traced albedo, the decals (1: none) and Ray Reconstruction's guides (RGBA32UI, 0). The passes
+   write into them instead of over the colour (`surface_inputs`): the sun shadows the visibility and the share
+   (`SURFACE_INPUTS` variant - no camera ray for the light store any more: the visibility itself), the occlusion its
+   indirect visibility (the occlusion alone, not its share - the blue channel), the lamps their light and their light on
+   the albedo (two attachments, added), the decals their marks (their multiplying blend into the decals' input). The
+   bounce pass adds nothing over colours there (a relit level's bounce is the store's).
+3. **The shading** (`ViewOrder::kSurfaceShading`, 392 - after the lamps and the decals, before the rain's wet mask and the
+   reflections): the depth is cleared and the kept draws drawn again in their order as the game made them, each with
+   its own depth test and write - the prepass's depth, the nearest surface, would otherwise hide what a translucent layer
+   drawn later lets through (a shirt's print). A fragment whose depth is the prepass's (within 1% of its distance -
+   `light_here`: a later pass of its material; not a glass pane, a glow or a particle in front) reads the inputs:
+   - lit per pixel (`kLightInputs`; the relit world - `kSurfaceRelit` - and the lit objects - `kSurfaceLit` - are lit per
+     pixel in such a view whether or not rt_pbr is on: the inputs need the light model's terms apart): the sun's
+     visibility in place of the vertex's (the store's `v_cel_tint.a`; an object's key light - the one light's light 0),
+     the environment's light x the indirect visibility, the lamps' light on its albedo, the albedo x the decals (a
+     material's edit: lit with the surface, its specular untouched);
+   - a colour lit already (`kLightShare`: an unlit prop's baked colour, an animated vertex, the bake): x (the direct
+     share x the visibility + the rest x the indirect visibility) x the decals, + the lamps' light on the traced albedo.
+     Only on a draw that doesn't add or multiply (opaque, or blended by its alpha).
+   Every other fragment keeps its own light: no pass multiplies glass, water, glows or particles any more.
+4. **Ray Reconstruction's guides** (`kLightGuides`, while it denoises): the fragment the inputs were made for writes,
+   once kept (after its alpha test), the material the light model was given - its albedo and specular albedo
+   (`brdf_specular_albedo`), roughness and camera-space normal; a colour lit already writes its lit colour (its light
+   isn't separated). The upscaler's preparation puts them into DLSS-RR's albedo, specular albedo and packed
+   normal-roughness guides; where none was written (the sky, glows) the lit colour and the depth's normal stay, as
+   before. DLSS-RR's inputs: diffuse albedo, specular albedo (the pre-integrated environment BRDF), normals with the
+   roughness packed in their alpha (`DLSSDNormalRoughnessMode::ePacked`, the camera-space normal with the
+   world-to-camera matrix given), depth and motion.
+
+Without ray tracing, relit data, a single-sampled linear target, or with cel shading, nothing changes: the draws are made
+as they come and the passes draw over the colour as before - the original's look keeps its path.
+
+Checks: `thug2_vulkan_rt_lights_check` "round V" - a floor drawn with a blended first pass before and after the box gives
+the same picture with the box's shadow (x (1 - the direct share) in it); glass over the shadow keeps its own light; a
+glow adds its light whole; a decal (the decals' input x 0.5) is lit with its surface in sun and shadow; the albedo guide
+is the floor's own under the glass too. `thug2_ff_shader_check --light` compiles every key's prepass, shares, inputs and
+guides variants.
+
+What it costs and what remains: see the round's record. Open: the replay draws the world's full overdraw (the prepass's
+depth can't be kept for it - translucent layers drawn with depth); per-pixel lamps on translucent surfaces (only the
+surface the inputs were made for has them); a colour lit already has no albedo of its own for the guides; the
+reflections pass still adds over the shaded colour (round M's M6).
+
 ### Time of day (`tod`, `tod_cycle`)
 
 Every level can be played at any hour: the sun (and at night a full moon) moves along a real path over the level, the

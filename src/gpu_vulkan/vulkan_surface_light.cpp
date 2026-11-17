@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cstdint>
 #include <string>
+#include <unordered_set>
 #include <vector>
 #include <volk.h>
 
@@ -114,6 +115,7 @@ struct LightState {
     uint64_t guides_frame = 0; // the frame whose view wrote them (0: none)
     bool guides_forced = false; // (the checks': written without Ray Reconstruction)
     std::vector<DeviceBuffer> kept_buffers; // (kept draws' vertices and indices whose buffers were written again)
+    std::unordered_set<VkBuffer> kept_reads; // the buffers the kept draws read now
     SurfaceInputs inputs;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
@@ -351,6 +353,7 @@ void draw_kept(Backend& state, bool inputs)
     own.role = inputs ? SurfaceDrawRole::kShaded : SurfaceDrawRole::kAsItComes;
     std::vector<KeptDraw> kept;
     kept.swap(own.kept);
+    own.kept_reads.clear();
     // The depth cleared: the draws are made again as the game made them, each with its own depth test and write, in its
     // order - the prepass's depth (the nearest surface, translucent ones' mostly opaque parts too: what the inputs were
     // made for) would hide what a translucent layer drawn later lets through (a shirt's print, a road's edge).
@@ -545,6 +548,7 @@ public:
         }
         own.guides_frame = ray_reconstruction_active() || own.guides_forced ? state.frames.serial() : 0;
         own.phase = Phase::kIdle;
+        state.bound = BoundState{}; // (the inputs pushed afresh: draw_kept's draws then keep them)
         const SurfaceLightStats before = own.stats;
         const std::size_t kept = own.kept.size();
         draw_kept(state, true);
@@ -668,6 +672,10 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
     KeptDraw& kept = own.kept.emplace_back();
     kept.block = block;
     kept.call = call;
+    own.kept_reads.insert(call.vertex_buffer);
+    if (call.indexed) {
+        own.kept_reads.insert(call.index_buffer);
+    }
     kept.cel = cel_source_now();
     kept.ground = surface_trail::current_ground();
     kept.character = surface_trail::current_character();
@@ -784,10 +792,7 @@ void surface_light_buffer_rewritten(Backend& state, VkBuffer buffer, VkDeviceSiz
     if (own.kept.empty() || buffer == VK_NULL_HANDLE || bytes == 0) {
         return;
     }
-    const bool read = std::ranges::any_of(own.kept, [buffer](const KeptDraw& kept) {
-        return kept.call.vertex_buffer == buffer || (kept.call.indexed && kept.call.index_buffer == buffer);
-    });
-    if (!read) {
+    if (!own.kept_reads.contains(buffer)) {
         return;
     }
     DeviceBuffer copy;
@@ -825,6 +830,7 @@ void surface_light_buffer_rewritten(Backend& state, VkBuffer buffer, VkDeviceSiz
         }
     }
     own.kept_buffers.push_back(copy);
+    own.kept_reads.erase(buffer); // (no kept draw reads it now)
     ++own.stats.rewritten;
 }
 
