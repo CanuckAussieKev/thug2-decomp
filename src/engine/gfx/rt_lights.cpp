@@ -25,7 +25,6 @@ namespace {
 
 constexpr float kHalf = 0.5F;
 constexpr float kPi = 3.14159265F;
-constexpr float kMostBrightness = 2.0F; // a cluster's colour's brightest channel at most (the game's 2x)
 constexpr float kSmallest = 1e-6F;
 constexpr float kLeastColour = 1e-3F; // a cluster's colour darker than this (its brightest channel) gives no light
 constexpr uint64_t kCellBits = 21U;   // a cell key's bits per axis
@@ -208,7 +207,9 @@ bool emitter_of(const Cluster& cluster, float facing, Emitter* out)
     *out = {.position = centre,
             .size = size,
             .colour = scaled(colour, 1.0F / brightest),
-            .intensity = std::min(brightest, kMostBrightness),
+            // (round A3: not held at 2 - a vertex colour x a pass colour may show more; the 8-bit data's own range is
+            // the limit, rt_relit.h solve_relit_lamps)
+            .intensity = brightest,
             .reach = reach,
             .material = cluster.material,
             .kind = cluster.kind,
@@ -413,12 +414,55 @@ void set_lamps_drawn(float amount)
 
 float lamps_drawn() { return lamps_drawn_slot().load(std::memory_order_relaxed); }
 
-float lamps_on(const DayLight& day, bool dark_level)
+float lamp_on(float switch_sky, float sky_now, float open_lamps)
+{
+    if (!(switch_sky > 0.0F) || !std::isfinite(switch_sky)) {
+        return std::isfinite(open_lamps) ? std::clamp(open_lamps, 0.0F, 1.0F) : 0.0F;
+    }
+    if (switch_sky >= kLampAlwaysOn || !(sky_now > 0.0F)) {
+        return 1.0F; // (no sky reaches it, or none is left)
+    }
+    // the daylight over its own light, in stops: on wholly kLampSwitchBand under the switch, off as far over it
+    const float stops = std::log2(sky_now / switch_sky) / std::log2(kLampSwitchBand);
+    const float t = std::clamp((1.0F - stops) * kHalf, 0.0F, 1.0F);
+    return t * t * (3.0F - (2.0F * t));
+}
+
+namespace {
+float light_luma(const std::array<float, 3>& rgb)
+{
+    constexpr float kRed = 0.2126F;   // (Rec. 709's: linear light)
+    constexpr float kGreen = 0.7152F;
+    constexpr float kBlue = 0.0722F;
+    return (kRed * std::get<0>(rgb)) + (kGreen * std::get<1>(rgb)) + (kBlue * std::get<2>(rgb));
+}
+} // namespace
+
+float lamp_sky_now(const DayLight& day, const LevelEmitters* level)
 {
     if (day.on) {
-        return std::isfinite(day.lamps) ? std::clamp(day.lamps, 0.0F, 1.0F) : 0.0F;
+        return light_luma(day.sky_light);
     }
-    return dark_level ? 1.0F : 0.0F;
+    return level != nullptr ? level->own_sky : 0.0F;
+}
+
+float open_sky_lamps(const DayLight& day, const LevelEmitters* level)
+{
+    const float lamps = day.on ? day.lamps : (level != nullptr ? level->own_lamps : 0.0F);
+    return std::isfinite(lamps) ? std::clamp(lamps, 0.0F, 1.0F) : 0.0F;
+}
+
+bool lamp_texel(const std::array<float, 3>& linear, float texture_median)
+{
+    const float brightest = std::max({std::get<0>(linear), std::get<1>(linear), std::get<2>(linear)});
+    const float weakest = std::min({std::get<0>(linear), std::get<1>(linear), std::get<2>(linear)});
+    if (!(brightest >= kTexelBright) || !(light_luma(linear) >= kTexelOverTexture * texture_median)) {
+        return false;
+    }
+    const auto [r, g, b] = linear;
+    const bool warm = r >= g && g >= b;
+    const bool cool = b >= g && g >= r;
+    return (warm || cool) && weakest >= kTexelLeastShare * brightest;
 }
 
 
@@ -535,7 +579,7 @@ std::vector<Emitter> select_view_lights(const FrameRecord& record, const LevelEm
             consider({.position = light.position,
                       .size = 0.0F,
                       .colour = scaled(light.colour, 1.0F / brightest),
-                      .intensity = brightest * request.point_scale,
+                      .intensity = brightest * request.point_scale * std::clamp(request.open_lamps, 0.0F, 1.0F),
                       .reach = light.radius,
                       .material = 0,
                       .kind = EmitterKind::kPoint,
@@ -544,7 +588,7 @@ std::vector<Emitter> select_view_lights(const FrameRecord& record, const LevelEm
     }
     if (request.emitters && level != nullptr) {
         for (Emitter light : level->emitters) {
-            light.intensity *= request.emitter_scale;
+            light.intensity *= request.emitter_scale * lamp_on(light.switch_sky, request.sky_now, request.open_lamps);
             consider(light);
         }
     }

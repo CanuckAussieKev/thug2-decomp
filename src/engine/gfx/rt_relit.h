@@ -86,7 +86,13 @@ inline constexpr uint32_t kRelitBouncePasses = 3;
 inline constexpr uint32_t kRelitBakeSkyRays = 128; // the relit bake's (offline: no time limit)
 inline constexpr uint32_t kRelitBakeSunRays = 32;
 inline constexpr float kRelitSunRadiusDegrees = 1.5F;
-inline constexpr float kRelitOffset = 2.0F;       // the rays start this far off the surface along its normal
+inline constexpr float kRelitOffset = 2.0F;       // the rays start this far off the surface along its normal ...
+// (lighting round A3 - the concave seam) ... and at most this far into the vertex's own triangles (RelitVertex::inward):
+// a vertex on a mesh's edge - a floor's at a wall's foot - started its rays on the wall's plane, and those toward the
+// wall crossed it at distance 0 (no hit) and saw a sky that isn't there (the furnace room's edge vertices: 0.5 - 0.78).
+// Moved into its own surface it starts off every neighbouring plane, so they hit the wall. An inner vertex (its
+// triangles all round it) isn't moved: their centres' mean is the vertex itself.
+inline constexpr float kRelitInward = 2.0F;
 inline constexpr float kRelitRayLength = 1.0e6F;  // (further than any level)
 inline constexpr uint32_t kRelitWorldMask = 0x05; // the level geometry: the opaque (0x01) and the cut-outs (0x04) -
                                                  // the TLAS's instance masks; the cut-outs by their alpha (ProbeRequest::cutouts)
@@ -188,6 +194,14 @@ struct RelitVertex {
     // intensity, falloff, facing, shadow rays) - lit with it while the lamps are on
     Rgbf lamp{};
     bool used = false;      // a corner of some triangle (an unused vertex keeps its colour)
+    // (lighting round A3 - not kept in the data: made again with the normal) the way into the vertex's own surface - its
+    // triangles' centres' area-weighted mean less the vertex, at most kRelitInward long: its rays' start is moved by it
+    // (relit_ray_origin)
+    Vec3 inward{};
+    // (lighting round A3 - not kept in the data: the game's, from the lamps' switches) the radiance the vertex sends of
+    // its own - a lamp's own surface (relit_data.h RelitEmitting: its light / pi x how much it is on), added to what it
+    // reflects (relit_colour)
+    Rgbf emit{};
 };
 using RelitVertices = std::vector<RelitVertex>;
 
@@ -261,6 +275,9 @@ struct RelitStats {
 // The vertices' normals (where the mesh gives none: its triangles', area-weighted, turned by `facing` - +1 or -1, the
 // world's winding: relit_facing) and which vertices are used.
 void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out);
+// (lighting round A3) Where a vertex's rays start: kRelitOffset off its surface along its normal and `inward` into it
+// (every ray of the analysis - sky, bounce, sun, lamps - and the game's traces again).
+[[nodiscard]] Vec3 relit_ray_origin(const Vec3& position, const RelitVertex& vertex);
 // (added by building relief) The meshes' made vertices (RelitMesh::sources) given their sources' traced light - the
 // sun's, the sky's and the bounce's shares - blended (their own normals, colours and the rest kept). The tracing does it
 // last; also for light read back (the cache).
@@ -359,7 +376,11 @@ struct RelitLamp {
     float candela = 0.0F;
     float lumens = 0.0F;
     float kelvin = 0.0F;
-    bool solved = false; // its intensity told by the bake's edges (else the median of the solved lamps' ratios x its own)
+    bool solved = false; // its intensity told by the bake's edges (else its own surface's light)
+    // (lighting round A3) its switch (rt_lights.h lamp_on): the open sky's light (luma, the global unit) under which the
+    // daylight on the surfaces it lights is under its own light there - relit_lamp_switches; kLampAlwaysOn where they
+    // see no sky, 0 where it lights nothing (not known)
+    float switch_sky = 0.0F;
 };
 [[nodiscard]] LampShape lamp_shape(const RelitLamp& lamp);
 // (lighting round A2) A vertex's lamps: each one's lamp_geometry x its shadow ray's visibility (per unit of intensity)
@@ -384,18 +405,31 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
 // sun, sky and bounce are fitted: over the mesh edges of two lit vertices with lamps (one-colour meshes left out), a
 // shared surface colour makes y_i (E_j + sum_l I_l G_jl) = y_j (E_i + sum_l I_l G_il) - linear in the intensities; their
 // non-negative least squares (each edge relative to its own light, reweighted toward the median error kLampRounds
-// times; projected coordinate descent). Only a bake whose lamps were on (`lit_in_bake`: its own time's lamps -
-// rt_lights.h lamps_on - or a dark level) tells their light; in a daytime bake, and for a lamp no edge tells (under
-// kRelitLampEdges edges), a lamp shines by its own surface: a Lambertian emitter of the radiance its glow shows (the
-// game's colours are radiance in the unit) - pi x it at the surface (lamp_geometry's 1). Then each vertex's L again
-// (relit_lamp_light), and the model's lamps' coefficient 1 (0 for the decomposition of a bake whose lamps were off).
+// times; projected coordinate descent). A lamp the bake doesn't tell shines by its own surface (a glow's): a Lambertian
+// emitter of the radiance its glow shows (the game's colours are radiance in the unit) - pi x it at the surface
+// (lamp_geometry's 1). Then each vertex's L again (relit_lamp_light), and the model's lamps' coefficient 1.
 inline constexpr std::size_t kRelitLampEdges = 64;
 inline constexpr float kRelitLambertian = 3.14159265F; // (a Lambertian surface's exitance over its radiance)
+// (lighting round A3 - no "dark level", no lamps-on guess for the bake) Every lamp is solved, in every bake; the bake
+// tells a lamp's light when it has kRelitLampEdges edges in every channel AND its solved light is a share of the light
+// where it lights at least the fit's own noise (RelitModel::error, the median edge's relative residual - a lamp under
+// it can't be told from the fit's error: a street lamp in a sunlit bake). Told with light: its intensity solved (it was
+// on in the bake). Otherwise - off in the bake, swamped, or no edges - a glow or a point light (the artists' mark of a
+// lamp) shines by its own surface; a candidate (rt_lights.h candidate_kind: a bright surface or texture) gives no light
+// - brightness alone is no lamp.
 void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                       std::span<RelitLamp> lamps, RelitModel* model, bool lit_in_bake);
-// Each vertex's L from its links and the lamps' intensities (building relief's made vertices from their sources).
+                       std::span<RelitLamp> lamps, RelitModel* model);
+// Each vertex's L from its links and the lamps' intensities (building relief's made vertices from their sources) - with
+// all lamps on, or (`on`, one a lamp) each x how much it is on.
 void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                      std::span<const RelitLamp> lamps);
+                      std::span<const RelitLamp> lamps, std::span<const float> on = {});
+void relit_mesh_lamp_light(const RelitMesh& mesh, RelitVertices* light, const RelitMeshLinks& links,
+                           std::span<const RelitLamp> lamps, std::span<const float> on = {});
+// (lighting round A3) Each lamp's switch (RelitLamp::switch_sky), once its light is in the global unit: over the
+// vertices it lights, weighted by its geometry there, its light (luma) and their sky share K - the switch is the open
+// sky's light at which the sky's (x K) equals its own; kLampAlwaysOn where they see no sky (under kRelitNoSky).
+inline constexpr float kRelitNoSky = 1e-3F;
+void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLinks& links, std::span<RelitLamp> lamps);
 // (lighting round A2 - one light unit for every level) The decomposition in the global unit, from energy alone: the
 // light bounced to a vertex, B, is the radiance its surroundings show - in the bake's own colours, so in the game's unit
 // whatever the bake's exposure - and a surface's light takes it whole (one bounce adds the surroundings' radiance x the

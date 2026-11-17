@@ -1111,6 +1111,8 @@ void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out)
     const std::size_t count = mesh.positions.size();
     out->assign(count, RelitVertex{});
     std::vector<Vec3> sums(count, Vec3{});
+    std::vector<Vec3> centres(count, Vec3{}); // (round A3) the triangles' centres less the vertex, x area ...
+    std::vector<float> areas(count, 0.0F);    // ... and their areas
     for (const auto& [one, two, three] : mesh.triangles) {
         if (one >= count || two >= count || three >= count || one == two || two == three || one == three) {
             continue;
@@ -1121,9 +1123,14 @@ void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out)
         if (!std::isfinite(dot(face, face))) {
             continue;
         }
+        const Vec3 centre = scaled(plus(plus(pa, core::at(mesh.positions, two)), core::at(mesh.positions, three)), 1.0F / 3.0F);
+        const float area = std::sqrt(dot(face, face));
         for (const uint32_t corner : {one, two, three}) {
             core::at(sums, corner) = plus(core::at(sums, corner), face); // (its length twice the area: area-weighted)
             core::at(*out, corner).used = true;
+            core::at(centres, corner) =
+                plus(core::at(centres, corner), scaled(minus(centre, core::at(mesh.positions, corner)), area));
+            core::at(areas, corner) += area;
         }
     }
     // (added by building relief) a made vertex's sources are traced for it - corners of no triangle any more (the
@@ -1150,7 +1157,20 @@ void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out)
     const bool given = mesh.normals.size() == count;
     for (std::size_t vi = 0; vi < count; ++vi) {
         core::at(*out, vi).normal = normalised(given ? core::at(mesh.normals, vi) : core::at(sums, vi));
+        // (round A3) into its own surface: its triangles' centres' mean less it, at most kRelitInward
+        if (core::at(areas, vi) > 0.0F) {
+            const Vec3 mean = scaled(core::at(centres, vi), 1.0F / core::at(areas, vi));
+            const float length = std::sqrt(dot(mean, mean));
+            if (std::isfinite(length) && length > 0.0F) {
+                core::at(*out, vi).inward = scaled(mean, std::min(length, kRelitInward) / length);
+            }
+        }
     }
+}
+
+Vec3 relit_ray_origin(const Vec3& position, const RelitVertex& vertex)
+{
+    return plus(plus(position, scaled(vertex.normal, kRelitOffset)), vertex.inward);
 }
 
 void relit_derive(const RelitMesh& mesh, RelitVertices* light)
@@ -1234,7 +1254,7 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
         [&](const VertexRef& ref, std::vector<ProbeRequest>* requests) {
             const RelitVertex& vertex = core::at(core::at(*light, ref.mesh), ref.vertex);
             const Vec3 origin =
-                plus(core::at(core::at(meshes, ref.mesh).positions, ref.vertex), scaled(vertex.normal, kRelitOffset));
+                relit_ray_origin(core::at(core::at(meshes, ref.mesh).positions, ref.vertex), vertex);
             const std::pair<Vec3, Vec3> basis = basis_of(vertex.normal);
             const double turn =
                 static_cast<double>(hashed(static_cast<uint32_t>((ref.mesh * kMeshSalt) + ref.vertex))) * kHashScale;
@@ -1253,7 +1273,7 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                 return;
             }
             const Vec3 origin =
-                plus(core::at(core::at(meshes, ref.mesh).positions, ref.vertex), scaled(vertex.normal, kRelitOffset));
+                relit_ray_origin(core::at(core::at(meshes, ref.mesh).positions, ref.vertex), vertex);
             const std::pair<Vec3, Vec3> basis = basis_of(vertex.normal);
             const double turn =
                 static_cast<double>(hashed(static_cast<uint32_t>((ref.mesh * kMeshSalt) + ref.vertex))) * kHashScale;
@@ -1327,7 +1347,7 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
         [&](const VertexRef& ref, std::vector<ProbeRequest>* requests) {
             const RelitVertex& vertex = core::at(core::at(*light, ref.mesh), ref.vertex);
             const Vec3 origin =
-                plus(core::at(core::at(meshes, ref.mesh).positions, ref.vertex), scaled(vertex.normal, kRelitOffset));
+                relit_ray_origin(core::at(core::at(meshes, ref.mesh).positions, ref.vertex), vertex);
             const double turn =
                 static_cast<double>(hashed(static_cast<uint32_t>((ref.mesh * kMeshSalt) + ref.vertex) ^ kSunSalt)) *
                 kHashScale;
@@ -1978,7 +1998,7 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
             reached(ref.mesh, ref.vertex, &scratch);
             const RelitVertex& vertex = core::at(core::at(*light, ref.mesh), ref.vertex);
             const Vec3 origin =
-                plus(core::at(core::at(meshes, ref.mesh).positions, ref.vertex), scaled(vertex.normal, kRelitOffset));
+                relit_ray_origin(core::at(core::at(meshes, ref.mesh).positions, ref.vertex), vertex);
             for (const Reach& reach : scratch) {
                 const RelitLamp& lamp = core::at(lamps, reach.lamp);
                 const Vec3 apart = minus(reach.from, origin);
@@ -2053,27 +2073,72 @@ struct LampTerm {
 
 } // namespace
 
+void relit_mesh_lamp_light(const RelitMesh& mesh, RelitVertices* light, const RelitMeshLinks& links,
+                           std::span<const RelitLamp> lamps, std::span<const float> on)
+{
+    if (links.first.empty()) {
+        return;
+    }
+    RelitVertices& vertices = *light;
+    for (std::size_t vi = 0; vi < vertices.size() && vi + 1 < links.first.size(); ++vi) {
+        Rgbf sum{};
+        for (uint32_t k = core::at(links.first, vi); k < core::at(links.first, vi + 1); ++k) {
+            const RelitLampLink& link = core::at(links.links, k);
+            if (link.lamp >= lamps.size()) {
+                continue;
+            }
+            const float share = link.lamp < on.size() ? core::at(on, link.lamp) : 1.0F;
+            sum = plus(sum, scaled(core::at(lamps, link.lamp).light, link.weight * share));
+        }
+        core::at(vertices, vi).lamp = sum;
+    }
+    if (!mesh.sources.empty()) {
+        relit_derive(mesh, &vertices); // (building relief's made vertices: their sources' light)
+    }
+}
+
 void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                      std::span<const RelitLamp> lamps)
+                      std::span<const RelitLamp> lamps, std::span<const float> on)
 {
     const std::size_t count = std::min({meshes.size(), light.size(), links.size()});
     for (std::size_t mi = 0; mi < count; ++mi) {
-        RelitVertices& vertices = core::at(light, mi);
+        relit_mesh_lamp_light(core::at(meshes, mi), &core::at(light, mi), core::at(links, mi), lamps, on);
+    }
+}
+
+void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLinks& links, std::span<RelitLamp> lamps)
+{
+    std::vector<double> weights(lamps.size(), 0.0);
+    std::vector<double> lit(lamps.size(), 0.0);
+    std::vector<double> sky(lamps.size(), 0.0);
+    const std::size_t count = std::min(light.size(), links.size());
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        const RelitVertices& vertices = core::at(light, mi);
         const RelitMeshLinks& mesh_links = core::at(links, mi);
-        if (mesh_links.first.empty()) {
-            continue;
-        }
         for (std::size_t vi = 0; vi < vertices.size() && vi + 1 < mesh_links.first.size(); ++vi) {
-            Rgbf sum{};
+            const RelitVertex& vertex = core::at(vertices, vi);
             for (uint32_t k = core::at(mesh_links.first, vi); k < core::at(mesh_links.first, vi + 1); ++k) {
                 const RelitLampLink& link = core::at(mesh_links.links, k);
-                sum = plus(sum, scaled(core::at(lamps, link.lamp).light, link.weight));
+                if (link.lamp >= lamps.size()) {
+                    continue;
+                }
+                const double weight = link.weight;
+                core::at(weights, link.lamp) += weight;
+                core::at(lit, link.lamp) += weight * weight * static_cast<double>(luma(core::at(lamps, link.lamp).light));
+                core::at(sky, link.lamp) += weight * static_cast<double>(vertex.sky);
             }
-            core::at(vertices, vi).lamp = sum;
         }
-        if (!core::at(meshes, mi).sources.empty()) {
-            relit_derive(core::at(meshes, mi), &vertices); // (building relief's made vertices: their sources' light)
+    }
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        RelitLamp& lamp = core::at(lamps, li);
+        const double weight = core::at(weights, li);
+        if (!(weight > 0.0) || !(luma(lamp.light) > 0.0F)) {
+            lamp.switch_sky = 0.0F; // (it lights nothing: not known - the open sky's rule)
+            continue;
         }
+        const double own = core::at(lit, li) / weight;  // its light where it lights
+        const double open = core::at(sky, li) / weight; // ... and those surfaces' sky share
+        lamp.switch_sky = open < static_cast<double>(kRelitNoSky) ? kLampAlwaysOn : static_cast<float>(own / open);
     }
 }
 
@@ -2225,29 +2290,37 @@ std::vector<double> solve_lamp_columns(std::span<const LampEdge> edges, std::spa
 } // namespace
 
 void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                       std::span<RelitLamp> lamps, RelitModel* model, bool lit_in_bake)
+                       std::span<RelitLamp> lamps, RelitModel* model)
 {
     model->lamps = {1.0F, 1.0F, 1.0F};
-    // (a lamp the bake doesn't tell shines by its own surface: pi x the radiance its glow shows)
+    // (a lamp the bake doesn't tell shines by its own surface: pi x the radiance its glow shows - its colour
+    // display-referred, decoded (rt_display.h); the 8-bit data's range - a vertex colour's 2 x a pass's - is all the
+    // radiance the original's art can hold: a real lamp is 10^2 - 10^4 x brighter, and only a bake with it lit tells
+    // that)
     for (RelitLamp& lamp : lamps) {
-        // (its glow's colour is display-referred: decoded - rt_display.h)
         for (float& channel : lamp.light) {
             channel = kRelitLambertian * linear_from_display(channel);
         }
         lamp.solved = false;
     }
-    if (!lit_in_bake) {
-        model->lamps = {}; // (the bake's lamps were off: none of its light theirs)
-        model->lamps_solved = 0;
-        model->lamp_votes = {};
-        model->lamp_median = {};
-        relit_lamp_light(meshes, light, links, lamps);
-        return;
-    }
+    // (round A3) a candidate - a bright surface or texture - whose light the bake doesn't show is no lamp
+    const auto unconfirmed = [&lamps]() {
+        for (RelitLamp& lamp : lamps) {
+            if (!lamp.solved && candidate_kind(lamp.kind)) {
+                lamp.light = {};
+            }
+        }
+    };
     model->lamps_solved = 0;
+    model->lamps_dark = 0;
     model->lamp_votes = {};
     model->lamp_median = {};
     if (lamps.empty()) {
+        return;
+    }
+    if (!model->valid) {
+        unconfirmed();
+        relit_lamp_light(meshes, light, links, lamps);
         return;
     }
     RelitModel without = *model; // (the model's light without the lamps)
@@ -2274,10 +2347,6 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
     // (reported) the solved lamps against their own surfaces' light (pi x radiance): those the bake says are dark, the
     // median and the 95th percentile of the rest
     Rgbf median_ratio{};
-    model->lamps_dark = 0;
-    for (std::size_t li = 0; li < lamps.size(); ++li) {
-        model->lamps_dark += core::at(told, li) == kAllChannels && !(luma(core::at(solved, li)) > 0.0F) ? 1 : 0;
-    }
     for (std::size_t ch = 0; ch < 3; ++ch) {
         std::vector<float> ratios;
         for (std::size_t li = 0; li < lamps.size(); ++li) {
@@ -2297,14 +2366,46 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
         }
     }
     model->lamp_median = median_ratio; // (reported: the solved over their own surfaces' pi x radiance)
+    // (round A3) each lamp's solved light against the light where it lights (the model's without the lamps, and the
+    // lamps' own there): its share - told only above the fit's noise
+    std::vector<double> part(lamps.size(), 0.0);
+    std::vector<double> whole(lamps.size(), 0.0);
+    {
+        const std::size_t count = std::min({meshes.size(), light.size(), links.size()});
+        for (std::size_t mi = 0; mi < count; ++mi) {
+            const RelitVertices& vertices = core::at(light, mi);
+            for (std::size_t vi = 0; vi < vertices.size(); ++vi) {
+                const std::span<const RelitLampLink> here = links_of(links, mi, static_cast<uint32_t>(vi));
+                const RelitVertex& vertex = core::at(vertices, vi);
+                if (here.empty() || !vertex.used) {
+                    continue;
+                }
+                double lamps_here = 0.0;
+                for (const RelitLampLink& link : here) {
+                    lamps_here += static_cast<double>(luma(core::at(solved, link.lamp))) * link.weight;
+                }
+                const double base =
+                    static_cast<double>(luma(model_light(without, without.sun, vertex, without.toward))) + lamps_here;
+                for (const RelitLampLink& link : here) {
+                    core::at(part, link.lamp) += static_cast<double>(luma(core::at(solved, link.lamp))) * link.weight;
+                    core::at(whole, link.lamp) += base;
+                }
+            }
+        }
+    }
+    const double noise = std::max(static_cast<double>(model->error), kSingular);
     for (std::size_t li = 0; li < lamps.size(); ++li) {
         RelitLamp& lamp = core::at(lamps, li);
-        lamp.solved = core::at(told, li) == kAllChannels;
+        const bool told_all = core::at(told, li) == kAllChannels;
+        const double share = core::at(whole, li) > 0.0 ? core::at(part, li) / core::at(whole, li) : 0.0;
+        lamp.solved = told_all && share >= noise;
+        model->lamps_dark += told_all && !lamp.solved ? 1 : 0;
         model->lamps_solved += lamp.solved ? 1 : 0;
         if (lamp.solved) {
             lamp.light = core::at(solved, li);
         }
     }
+    unconfirmed();
     relit_lamp_light(meshes, light, links, lamps);
 }
 
@@ -2415,7 +2516,7 @@ uint32_t relit_colour(const RelitModel& model, const RelitVertex& vertex, const 
     for (std::size_t ch = 0; ch < bytes.size(); ++ch) {
         // (round A2: tint x light is linear light in the unit; the colour word is display-referred - the draw decodes
         // its fragment, texel x this, at the output: only the texel's own encoding is then undone)
-        float value = display_from_linear(core::at(vertex.tint, ch) * core::at(en, ch));
+        float value = display_from_linear((core::at(vertex.tint, ch) * core::at(en, ch)) + core::at(vertex.emit, ch));
         value = std::isfinite(value) ? std::clamp(value, 0.0F, kRelitMaxValue) : 0.0F;
         core::at(bytes, ch) = static_cast<uint32_t>(std::lround(std::min(value * kBytesPerLight, kMaxByte)));
     }

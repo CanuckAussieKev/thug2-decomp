@@ -102,9 +102,9 @@ void set_rt_gi_settings(const RtGiSettings& settings);
 inline constexpr float kRtLightsStrength = 1.0F; // (rt_lights_strength's default: each lamp's own brightness - its light falls off as a pool, rt_lights.h light_falloff)
 struct RtLightSettings {
     bool on = false;
-    // (added for the lamps at night) rt_lights=auto (the default): the pass is set up but lights only while it is dark -
-    // the time of day's lamps on (rt_daylight.h DayLight::lamps, dusk to dawn), or without the clock a dark level (its
-    // emitters' median brightness, rt_lights.h dark_level); `on` true with it
+    // (added for the lamps at night) rt_lights=auto (the default): the pass is set up and each lamp lights while it is
+    // on - (lighting round A3) by its own daylight (rt_lights.h lamp_on: its switch against the open sky now, the clock's
+    // or the level's own time's; indoors always); `on` true with it
     bool automatic = false;
     float strength = kRtLightsStrength; // how much of the lights' light is added (0 - 8)
     unsigned shadowed = 4;              // the brightest lights at a pixel traced for shadows (1 - 8)

@@ -34,12 +34,14 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/rt_checks.h"
 #include "engine/gfx/rt_light_census.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "engine/gfx/rt_vertex_attributes.h"
 #include "engine/gfx/surface_material.h"
+#include "engine/gfx/texel_decode.h"
 #include "engine/memory/arena_alloc.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
@@ -903,6 +905,19 @@ public:
                 static_cast<float>(std::get<0>(bgra)) * kPerByteLight};
     }
     static constexpr uint32_t kNoColour = 0xFFFFFFFFU;
+    // (lighting round A3) The vertex's first texture coordinates, or false (none).
+    bool uv(uint32_t vertex, std::array<float, 2>* out) const
+    {
+        if (geometry_.uv_format != rt::kUvFloat2) {
+            return false;
+        }
+        const std::size_t at = (std::size_t{vertex} * geometry_.vertex_stride) + geometry_.uv_offset;
+        if (at + sizeof(*out) > vertices_.size()) {
+            return false;
+        }
+        std::memcpy(out->data(), vertices_.subspan(at, sizeof(*out)).data(), sizeof(*out));
+        return std::isfinite(std::get<0>(*out)) && std::isfinite(std::get<1>(*out));
+    }
 
 private:
     [[nodiscard]] uint32_t index(uint32_t at) const
@@ -1123,6 +1138,8 @@ void make_fit(rt::RayTracing& rt)
 }
 
 // The world meshes recorded this frame as rt_relit_world takes them (their RayTracing ids, geometry and buffers).
+bool glow_card(const MaterialRef* material);
+
 std::vector<rt_relit_world::WorldMesh> world_meshes()
 {
     State& st = state();
@@ -1137,7 +1154,8 @@ std::vector<rt_relit_world::WorldMesh> world_meshes()
                              .id = found->second.id,
                              .geometry = &found->second.geometry,
                              .source = found->second.source,
-                             .blended = first != 0U && first != kBlendAdd && first != kBlendFixedAdd});
+                             .blended = first != 0U && first != kBlendAdd && first != kBlendFixedAdd,
+                             .glow = material != nullptr && glow_card(material)});
         }
     }
     return world;
@@ -1239,6 +1257,11 @@ bool moving_material(const MaterialRef* material)
     return false;
 }
 
+// (lighting round A3 - the original's light cards) A world mesh drawn additively, its texture still (not water or a
+// moving effect): the halos round lamps, light cones, pools and starbursts the artists drew where light is - the lamps'
+// evidence (glows), never light of their own: the relit level hides them (rt_relit_world.h WorldMesh::glow).
+bool glow_card(const MaterialRef* material) { return additive_first_pass(material) && !moving_material(material); }
+
 // The level's median triangle brightness (the bake's luma, 128 its white): every n-th triangle of the coloured meshes.
 float median_luma()
 {
@@ -1294,6 +1317,110 @@ float world_facing()
     return signed_area < 0.0 ? -1.0F : 1.0F;
 }
 
+// A decoded texel's luminance, linear (its bytes display-referred: rt_display.h).
+float texel_luma(const std::array<uint8_t, 4>& texel)
+{
+    constexpr float kByte = 1.0F / 255.0F;
+    return (0.2126F * rt::linear_from_display(static_cast<float>(std::get<0>(texel)) * kByte)) +
+           (0.7152F * rt::linear_from_display(static_cast<float>(std::get<1>(texel)) * kByte)) +
+           (0.0722F * rt::linear_from_display(static_cast<float>(std::get<2>(texel)) * kByte));
+}
+
+// (lighting round A3) A material's first texture decoded (texel_decode.h) with its texels' median luminance (linear):
+// what the textured candidates are told by. Empty when it can't be read.
+struct TextureLook {
+    texel::Image image;
+    float median = 0.0F;
+};
+const TextureLook& texture_look(const MaterialRef* material, std::unordered_map<const void*, TextureLook>* cache)
+{
+    static const TextureLook kNone;
+    const TextureImage* texture = core::at(material->textures(), 0);
+    if (texture == nullptr || texture->texture == nullptr) {
+        return kNone;
+    }
+    const auto [found, made] = cache->try_emplace(texture->texture);
+    TextureLook& look = found->second;
+    if (!made) {
+        return look;
+    }
+    GpuLevelDesc desc;
+    GpuLockedRect locked;
+    if (gpu().texture_level_desc(texture->texture, 0, &desc) != gpu_value::kResultOk || !texel::decodable(desc.format) ||
+        gpu().lock_texture(texture->texture, 0, &locked, nullptr, gpu_value::kLockReadOnly) != gpu_value::kResultOk) {
+        return look;
+    }
+    if (locked.bits != nullptr && locked.pitch > 0) {
+        constexpr uint32_t kBlockSide = 4;
+        const bool block = desc.format == gpu_value::kFormatDxt1 || desc.format == gpu_value::kFormatDxt3 ||
+                           desc.format == gpu_value::kFormatDxt5;
+        const uint32_t rows = block ? (desc.height + kBlockSide - 1) / kBlockSide : desc.height;
+        const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(locked.bits),
+                                             static_cast<std::size_t>(rows) * static_cast<uint32_t>(locked.pitch));
+        texel::decode(desc.format, desc.width, desc.height, bytes, static_cast<uint32_t>(locked.pitch), &look.image);
+    }
+    gpu().unlock_texture(texture->texture, 0);
+    if (!look.image.empty()) {
+        std::vector<float> lumas;
+        lumas.reserve(look.image.texels.size());
+        for (const std::array<uint8_t, 4>& texel : look.image.texels) {
+            lumas.push_back(texel_luma(texel));
+        }
+        const auto middle = lumas.begin() + static_cast<std::ptrdiff_t>(lumas.size() / 2);
+        std::ranges::nth_element(lumas, middle);
+        look.median = *middle;
+    }
+    return look;
+}
+
+// (lighting round A3 - the ceiling lights drawn as textures) A triangle's samples (kTexelSamples over it) that show a
+// lamp (rt_lights.h lamp_texel against the texture's own median): their mean texel colour (display-referred, 1 white)
+// and their share of the triangle; false when none does.
+constexpr uint32_t kTexelSide = 5; // samples along each edge: a triangle's 15 points
+bool lamp_texels(const MeshTriangles& tris, const std::array<uint32_t, 3>& corner, const TextureLook& look,
+                 std::array<float, 3>* colour, float* share)
+{
+    std::array<std::array<float, 2>, 3> uvs{};
+    for (std::size_t k = 0; k < 3; ++k) {
+        if (!tris.uv(core::at(corner, k), &core::at(uvs, k))) {
+            return false;
+        }
+    }
+    std::array<float, 3> sum{};
+    uint32_t lit = 0;
+    uint32_t samples = 0;
+    for (uint32_t i = 0; i < kTexelSide; ++i) {
+        for (uint32_t j = 0; i + j < kTexelSide; ++j) {
+            // (the points of a grid inside the triangle, off its edges)
+            const float b = (static_cast<float>(i) + (1.0F / 3.0F)) / static_cast<float>(kTexelSide);
+            const float c = (static_cast<float>(j) + (1.0F / 3.0F)) / static_cast<float>(kTexelSide);
+            const float a = 1.0F - b - c;
+            const float u = (a * std::get<0>(std::get<0>(uvs))) + (b * std::get<0>(std::get<1>(uvs))) + (c * std::get<0>(std::get<2>(uvs)));
+            const float v = (a * std::get<1>(std::get<0>(uvs))) + (b * std::get<1>(std::get<1>(uvs))) + (c * std::get<1>(std::get<2>(uvs)));
+            const std::array<uint8_t, 4> texel = look.image.at(u, v);
+            ++samples;
+            const std::array<float, 3> shown{static_cast<float>(std::get<0>(texel)) / 255.0F,
+                                             static_cast<float>(std::get<1>(texel)) / 255.0F,
+                                             static_cast<float>(std::get<2>(texel)) / 255.0F};
+            const std::array<float, 3> linear{rt::linear_from_display(std::get<0>(shown)),
+                                              rt::linear_from_display(std::get<1>(shown)),
+                                              rt::linear_from_display(std::get<2>(shown))};
+            if (rt::lamp_texel(linear, look.median)) {
+                ++lit;
+                for (std::size_t k = 0; k < 3; ++k) {
+                    core::at(sum, k) += core::at(shown, k);
+                }
+            }
+        }
+    }
+    if (lit == 0) {
+        return false;
+    }
+    *colour = rt::scaled(sum, 1.0F / static_cast<float>(lit));
+    *share = static_cast<float>(lit) / static_cast<float>(samples);
+    return true;
+}
+
 void emitter_work()
 {
     State& st = state();
@@ -1304,13 +1431,20 @@ void emitter_work()
     const auto start = std::chrono::steady_clock::now();
     rt::LevelEmitters found;
     found.serial = ++st.emitter_sets;
-    found.median_luma = median_luma();
-    found.dark = rt::dark_level(found.median_luma);
-    // (lighting round A2 - indoor ceiling lights) a level whose bake shows no sun is looked at for self-lit surfaces
-    // however bright it is: its brightest surfaces are its lamps (rt_lights.h)
-    const rt::BakedSun& searched = rt::baked_sun();
-    const bool sunless = searched.scene != 0 && !searched.found;
+    // (lighting round A3 - no "dark level") the self-lit and textured candidates are the relit bake's: it alone can
+    // tell a lamp from a bright surface (by the light the bake shows of it - rt_relit.h solve_relit_lamps); the game
+    // shines the data's lamps, or without data the glows alone
+    const bool bake = relit_bake::requested();
+    found.median_luma = bake ? median_luma() : 0.0F;
+    {
+        // the level's own time's light (its open sky and its lamps without the clock - rt_lights.h lamp_on)
+        const rt::DayLight own = relit_bake::level_own_day(rt::baked_sun());
+        found.own_sky = (0.2126F * std::get<0>(own.sky_light)) + (0.7152F * std::get<1>(own.sky_light)) +
+                        (0.0722F * std::get<2>(own.sky_light));
+        found.own_lamps = own.lamps;
+    }
     const float facing = world_facing();
+    std::unordered_map<const void*, TextureLook> textures;
     std::vector<rt::EmitterTriangle> triangles;
     for (const MeshRef* mesh : st.world) {
         if (!mesh_shown(mesh)) {
@@ -1322,10 +1456,11 @@ void emitter_work()
             continue;
         }
         const bool glow = additive_first_pass(material);
+        found.glow_meshes += glow ? 1 : 0;
         const uint32_t mode = blend_mode(material, 0);
         const bool opaque = (entry->second.material.flags & (rt::kTransparent | rt::kAlphaTested)) == 0U &&
                             (mode == kBlendNone || mode == static_cast<uint32_t>(kBlendModeVertexTexAlpha));
-        if (!glow && !((found.dark || sunless) && opaque)) {
+        if (!glow && !(bake && opaque)) {
             continue;
         }
         std::vector<MeshTriangles> read;
@@ -1334,28 +1469,49 @@ void emitter_work()
         }
         const MeshTriangles& tris = read.front();
         const std::array<float, 4>& pass = entry->second.material.colour; // (doubled: 1 leaves the texture as it is)
+        static const TextureLook kNoLook;
+        const TextureLook& look = glow ? kNoLook : texture_look(material, &textures);
         for (uint32_t t = 0; t < tris.count(); ++t) {
             std::array<uint32_t, 3> corner{};
             if (!tris.corners(t, &corner)) {
                 continue;
             }
             const auto [one, two, three] = corner;
-            if (!glow && !rt::self_lit_triangle(std::min({tris.brightness(one), tris.brightness(two),
-                                                          tris.brightness(three)}),
-                                                found.median_luma, sunless)) {
-                continue;
+            rt::EmitterKind kind = rt::EmitterKind::kGlow;
+            std::array<float, 3> texture_colour{1.0F, 1.0F, 1.0F};
+            if (!glow) {
+                if (rt::self_lit_triangle(std::min({tris.brightness(one), tris.brightness(two), tris.brightness(three)}),
+                                          found.median_luma)) {
+                    kind = rt::EmitterKind::kSelfLit;
+                } else {
+                    // (round A3) a lamp drawn in the texture: not on a floor (facing up by the world's winding - a
+                    // bright floor is paint or a baked pool)
+                    const rt::Vec3 a = tris.position(one);
+                    const rt::Vec3 n = rt::cross(rt::minus(tris.position(two), a), rt::minus(tris.position(three), a));
+                    const float length = std::sqrt(rt::dot(n, n));
+                    constexpr float kFloor = 0.7F;
+                    float share = 0.0F;
+                    if (look.image.empty() || !(length > 0.0F) || rt::y_of(n) * facing >= kFloor * length ||
+                        !lamp_texels(tris, corner, look, &texture_colour, &share)) {
+                        continue;
+                    }
+                    kind = rt::EmitterKind::kTextured;
+                }
             }
             rt::EmitterTriangle triangle{.corners = {tris.position(one), tris.position(two), tris.position(three)},
                                          .colour = {},
                                          .material = entry->second.id,
-                                         .kind = glow ? rt::EmitterKind::kGlow : rt::EmitterKind::kSelfLit};
+                                         .kind = kind};
             for (const uint32_t vertex : corner) {
                 const std::array<float, 3> colour = tris.colour(vertex);
                 for (std::size_t k = 0; k < 3; ++k) {
-                    core::at(triangle.colour, k) += core::at(colour, k) * core::at(pass, k) / 3.0F;
+                    core::at(triangle.colour, k) +=
+                        core::at(colour, k) * core::at(pass, k) * core::at(texture_colour, k) / 3.0F;
                 }
             }
-            (glow ? found.glow_triangles : found.self_lit_triangles) += 1;
+            (kind == rt::EmitterKind::kGlow       ? found.glow_triangles
+             : kind == rt::EmitterKind::kSelfLit ? found.self_lit_triangles
+                                                 : found.textured_triangles) += 1;
             triangles.push_back(triangle);
         }
     }
@@ -1375,12 +1531,13 @@ void emitter_work()
     const auto points = std::ranges::count_if(rt::frame_record().lights, [](const rt::Light& light) {
         return light.kind == rt::Light::Kind::kPoint;
     });
-    get_log("rt: lights: %zu emitters (%td glows from %zu additive triangles, %td self-lit from %zu triangles - the level "
-            "is %s, median brightness %.0f of 128) and %td point lights on now - %.0f ms",
-            found.emitters.size(), glows, found.glow_triangles,
+    get_log("rt: lights: %zu emitters (%td glows from %zu additive triangles in %zu meshes; %td candidates from %zu "
+            "self-lit and %zu textured triangles%s; the level's own open sky %.4f, its lamps %.2f) and %td point lights "
+            "on now - %.0f ms",
+            found.emitters.size(), glows, found.glow_triangles, found.glow_meshes,
             static_cast<std::ptrdiff_t>(found.emitters.size()) - glows, found.self_lit_triangles,
-            found.dark ? "dark" : (sunless ? "not dark, but its bake's search shows no sun: self-lit looked for" : "not dark: no self-lit"),
-            static_cast<double>(found.median_luma), points,
+            found.textured_triangles, bake ? " - the bake's" : " - looked for in the bake only",
+            static_cast<double>(found.own_sky), static_cast<double>(found.own_lamps), points,
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
     rt::set_level_emitters(std::move(found));
 }

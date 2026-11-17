@@ -26,6 +26,7 @@ constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr std::size_t kVertexHalves = 11; // sun_baked, sky, bounce 3, tint 3, lamp 3
 constexpr uint32_t kMostLamps = 1U << 20U;   // a level's lamps at most this many
 constexpr uint32_t kMostVertices = 1U << 24U; // a mesh at most this many vertices
+constexpr uint32_t kMostLinksPerVertex = 64U; // (round A3) a vertex's lamps at most this many on average
 // (half floats)
 constexpr uint32_t kFloatSign = 0x80000000U;
 constexpr uint32_t kFloatAbs = 0x7FFFFFFFU;
@@ -272,6 +273,7 @@ std::string write_relit_data(const RelitLevelData& data)
         out.put(lamp.kelvin);
         out.put(static_cast<uint32_t>(lamp.solved ? 1 : 0));
         out.put(static_cast<uint32_t>(lamp.kind));
+        out.put(lamp.switch_sky);
     }
     // the emissive triangles
     out.put(static_cast<uint32_t>(data.emissive.size()));
@@ -293,6 +295,23 @@ std::string write_relit_data(const RelitLevelData& data)
             out.half3(vertex.bounce);
             out.half3(vertex.tint);
             out.half3(vertex.lamp);
+        }
+        // (round A3) the lamp links: per vertex its count, then each lamp and weight (half); its emitting vertices
+        const bool linked = mesh.links.first.size() == mesh.vertices.size() + 1;
+        out.put(static_cast<uint32_t>(linked ? mesh.links.links.size() : 0U));
+        if (linked && !mesh.links.links.empty()) {
+            for (std::size_t vi = 0; vi < mesh.vertices.size(); ++vi) {
+                out.put(static_cast<uint16_t>(core::at(mesh.links.first, vi + 1) - core::at(mesh.links.first, vi)));
+            }
+            for (const RelitLampLink& link : mesh.links.links) {
+                out.put(link.lamp);
+                out.half(link.weight);
+            }
+        }
+        out.put(static_cast<uint32_t>(mesh.emitting.size()));
+        for (const RelitEmitting& emitting : mesh.emitting) {
+            out.put(emitting.vertex);
+            out.put(emitting.lamp);
         }
     }
     static_assert(kVertexHalves == 11);
@@ -360,8 +379,8 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
         if (!in.get3(&lamp.position) || !in.get(&lamp.size) || !in.get3(&lamp.light) || !in.get(&lamp.core) ||
             !in.get(&lamp.reach) || !in.get(&shape) || !in.get3(&lamp.axis) || !in.get(&lamp.half_length) ||
             !in.get(&lamp.candela) || !in.get(&lamp.lumens) || !in.get(&lamp.kelvin) || !in.get(&solved) ||
-            !in.get(&kind) || shape > static_cast<uint32_t>(EmitterShape::kLine) ||
-            kind > static_cast<uint32_t>(EmitterKind::kPoint)) {
+            !in.get(&kind) || !in.get(&lamp.switch_sky) || shape > static_cast<uint32_t>(EmitterShape::kLine) ||
+            kind > static_cast<uint32_t>(EmitterKind::kTextured)) {
             return fail("cut short (a lamp)");
         }
         lamp.shape = static_cast<EmitterShape>(shape);
@@ -396,6 +415,39 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
                 return fail("cut short (a mesh's vertices)");
             }
             vertex.sun = vertex.sun_baked;
+        }
+        uint32_t links = 0;
+        if (!in.get(&links) || links > kMostVertices * kMostLinksPerVertex) {
+            return fail("cut short (a mesh's lamp links)");
+        }
+        if (links > 0) {
+            mesh.links.first.assign(count + 1, 0);
+            for (uint32_t vi = 0; vi < count; ++vi) {
+                uint16_t here = 0;
+                if (!in.get(&here)) {
+                    return fail("cut short (a mesh's lamp links)");
+                }
+                core::at(mesh.links.first, vi + 1) = core::at(mesh.links.first, vi) + here;
+            }
+            if (mesh.links.first.back() != links) {
+                return fail("a mesh's lamp links don't add up");
+            }
+            mesh.links.links.resize(links);
+            for (RelitLampLink& link : mesh.links.links) {
+                if (!in.get(&link.lamp) || !in.half(&link.weight) || link.lamp >= lamps) {
+                    return fail("cut short (a lamp link)");
+                }
+            }
+        }
+        uint32_t emitting = 0;
+        if (!in.get(&emitting) || emitting > count) {
+            return fail("cut short (a mesh's emitting vertices)");
+        }
+        mesh.emitting.resize(emitting);
+        for (RelitEmitting& one : mesh.emitting) {
+            if (!in.get(&one.vertex) || !in.get(&one.lamp) || one.vertex >= count || one.lamp >= lamps) {
+                return fail("cut short (an emitting vertex)");
+            }
         }
     }
     if (!in.done()) {
