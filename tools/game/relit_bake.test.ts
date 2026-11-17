@@ -131,7 +131,10 @@ test("the state table: a level's state from its evidence, its disagreements flag
         "relit bake: lamps by physics - 364 lamps: 30 solved, 200 by their fixture's model; lumens per shining lamp: " +
             "median 8000, 90th percentile 20000, most 40000; 2000000 lm in all\n",
     );
-    assert.match(physics.lampPhysics ?? "", /^364 lamps: 30 solved, 200 by their fixture's model; lumens per shining lamp/);
+    assert.match(
+        physics.lampPhysics ?? "",
+        /^364 lamps: 30 solved, 200 by their fixture's model; lumens per shining lamp/,
+    );
     assert.match(
         stateRow("BO", day),
         /^BO\tafternoon\tsun 40 deg \(0\.45\)\t.*12 lamps \(12 shining, 10 lit in the bake, 2 always on, 40 textured triangles, 5 light cards hidden\)\toutdoors/,

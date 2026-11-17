@@ -2587,9 +2587,17 @@ bake measures a lamp only when it was on and outshone the rest; New Jersey's aft
   (`relit_lamp_intensity_for`, the photometry's inverse);
 - **implausible solve -> model** - solved, but outside its kind's range: a failed measurement, logged per lamp
   ("relit bake: lamp N (...): an implausible solve - now model ...");
-- **own surface** - a glow the bake tells dark while on, or one with no luminous area known (A3's lower bound);
+- **own surface** - the level's own point lights (no surface to model), within their kind's flux range; outside it, and
+  a solved lamp with no luminous area outside it, its kind's typical fixture (12 000 lm a street light, 3 000 a tube...);
+- **not a fixture's size** - a glow or candidate whose luminous area no one fixture of its kind has (a lit wall, a band
+  of white paint, a halo card with no saturated core): no light. A3 lit an untold glow by its card's displayed radiance
+  over the whole card - College's magenta card at the origin, core 172 units, sent 46 million lm and blew the plaza
+  magenta;
 - none - a candidate (a bright surface) the bake doesn't confirm, unless it was off in the bake and is shaped like a
   luminaire outdoors (not a sign, a window or a saturated colour).
+
+Each kind has a luminous-area and a flux range besides its luminance (lamp_fixtures.h). New Jersey after: 363 lamps, 1.38
+Mlm in all (median 4 910 lm a shining lamp, most 34 662; was 67.8 Mlm, one of 860 000); College 0.78 Mlm (was 146 Mlm).
 
 The luminous area is the lamp's emissive triangles x their lit share (`EmitterTriangle::lit_share`): a light card's
 saturated core (texels whose brightest channel is at least kTexelBright - the lamp the halo is drawn round), a texture's
