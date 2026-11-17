@@ -19,9 +19,11 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
@@ -456,6 +458,7 @@ public:
     void settle(const rt::FrameRecord& record) override;
     void prepare_frame() override;
     rt::ProbeResult probe(const rt::ProbeRequest& ray) override;
+    std::string describe_light(const std::array<float, 3>& point) override;
     void probe_many(std::span<const rt::ProbeRequest> rays, std::vector<rt::ProbeResult>* results) override;
     uint64_t probe_later(std::span<const rt::ProbeRequest> rays) override;
     bool probe_ready(uint64_t ticket, std::vector<rt::ProbeResult>* results) override;
@@ -1882,6 +1885,67 @@ rt::ProbeResult VulkanRayTracing::probe(const rt::ProbeRequest& ray)
     std::vector<rt::ProbeResult> results;
     probe_many(std::span<const rt::ProbeRequest>(&ray, 1), &results);
     return results.empty() ? rt::ProbeResult{} : results.front();
+}
+
+// (the console's `rt probe`) The clouds' shadow map at the point (read back: the frame's work finished first) - its
+// share of the light there (the map's transmittance over the lighting state's mean beam, as the shadows pass reads it,
+// cloud_map_kept) - and the light the map was made for.
+std::string VulkanRayTracing::describe_light(const std::array<float, 3>& point)
+{
+    // the light the shadows are cast from, and whether the world's and the objects' casters keep it from the point (a
+    // ray each - the shadows pass's, from a little above the point)
+    const rt::SceneSun sun = rt::scene_sun();
+    const rt::DayLight day = rt::day_light();
+    std::string out = text::format("light here: the shadows' light %s toward %.3f %.3f %.3f",
+                                   sun.found() ? "found" : "none", static_cast<double>(std::get<0>(sun.toward)),
+                                   static_cast<double>(std::get<1>(sun.toward)), static_cast<double>(std::get<2>(sun.toward)));
+    if (sun.found()) {
+        constexpr float kLift = 2.0F;
+        const std::array<float, 3> from{std::get<0>(point), std::get<1>(point) + kLift, std::get<2>(point)};
+        const std::array<rt::ProbeRequest, 2> rays{
+            rt::ProbeRequest{.origin = from, .direction = sun.toward, .max_distance = 1.0e6F,
+                             .cull_mask = kMaskWorld | kMaskAlphaTested, .cutouts = true},
+            rt::ProbeRequest{.origin = from, .direction = sun.toward, .max_distance = 1.0e6F, .cull_mask = kMaskObjects}};
+        std::vector<rt::ProbeResult> hits;
+        probe_many(rays, &hits);
+        if (hits.size() == rays.size()) {
+            out += text::format(" - the world's casters %s it (%.0f units), the objects' %s it",
+                                hits[0].hit ? "block" : "don't block", static_cast<double>(hits[0].distance),
+                                hits[1].hit ? "block" : "don't block");
+        }
+    }
+    out += text::format("; the lighting's cloud cover %.2f keeping %.3f of the direct light on average, %.3f of the "
+                        "light on a level surface direct",
+                        static_cast<double>(day.cloud_cover), static_cast<double>(day.cloud_beam),
+                        static_cast<double>(rt::direct_share_now(day, sun.found(), 0.0)));
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    std::vector<float> texels;
+    CloudShadowMap made{};
+    if (!read_cloud_shadow_map(state, &texels, &made) || texels.empty()) {
+        return out + "; no clouds' shadow map";
+    }
+    const auto side = static_cast<std::size_t>(std::lround(std::sqrt(static_cast<double>(texels.size()))));
+    const float rise = std::max(core::at(made.light, 1), static_cast<float>(rt::kCloudMapLeastRise));
+    const float up = std::max(core::at(made.place, 1) - std::get<1>(point), 0.0F) / rise;
+    const float base_x = std::get<0>(point) + (core::at(made.light, 0) * up);
+    const float base_z = std::get<2>(point) + (core::at(made.light, 2) * up);
+    const float u = ((base_x - core::at(made.place, 0)) * core::at(made.place, 3)) + 0.5F;
+    const float v = ((base_z - core::at(made.place, 2)) * core::at(made.place, 3)) + 0.5F;
+    if (!(u >= 0.0F && u < 1.0F && v >= 0.0F && v < 1.0F) || side == 0) {
+        return out + text::format("; the point is off the clouds' shadow map (%.2f, %.2f)", static_cast<double>(u),
+                                  static_cast<double>(v));
+    }
+    const auto column = std::min(static_cast<std::size_t>(u * static_cast<float>(side)), side - 1);
+    const auto row = std::min(static_cast<std::size_t>(v * static_cast<float>(side)), side - 1);
+    const float kept = core::at(texels, (row * side) + column);
+    const float share = core::at(made.light, 3);
+    out += text::format("; the clouds' map toward %.3f %.3f %.3f keeps %.3f over that mean here (%.3f of the light), its "
+                        "shadow kept %.2f",
+                        static_cast<double>(core::at(made.light, 0)), static_cast<double>(core::at(made.light, 1)),
+                        static_cast<double>(core::at(made.light, 2)), static_cast<double>(kept),
+                        static_cast<double>(kept * std::max(day.cloud_beam, 1e-4F)), static_cast<double>(share));
+    return out;
 }
 
 // The probe's buffers: the rays packed into an upload buffer, the hits' read-back buffer (false: none made).

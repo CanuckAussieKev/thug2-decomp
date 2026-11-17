@@ -50,6 +50,7 @@
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sky.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_hdr.h"
@@ -515,6 +516,22 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                                   static_cast<double>(white.reading.stops), static_cast<double>(stops),
                                   static_cast<double>(white.reading.factor), static_cast<double>(white.shown),
                                   static_cast<double>(shown)));
+        // (the readout's luminance) a uniform view: every percentile the white's luminance (the unit's white x its
+        // cd/m^2), within half a bin
+        const double white_cd = render::rt::kSolarIlluminance / render::rt::sky_exposure();
+        const double half_bin = std::exp2(0.5 / vk::kMeterBinsPerStop);
+        bool within = white.ran;
+        for (std::size_t k = 0; k < 3; ++k) {
+            const double got = static_cast<double>(core::at(white.reading.luminance, k));
+            within = within && got > white_cd / half_bin && got < white_cd * half_bin;
+        }
+        tally->check(within && core::at(white.reading.luminance, 3) == 0.0F,
+                     text::format("the readout's luminance of a white view: median %.0f, 95th %.0f, 99.5th %.0f cd/m^2 "
+                                  "(white %.0f), %.2f under the scotopic floor",
+                                  static_cast<double>(core::at(white.reading.luminance, 0)),
+                                  static_cast<double>(core::at(white.reading.luminance, 1)),
+                                  static_cast<double>(core::at(white.reading.luminance, 2)), white_cd,
+                                  static_cast<double>(core::at(white.reading.luminance, 3))));
     }
     // a mid-grey view (another viewport, its own slot): its stops the processor's, both ways
     const float grey_mean = vk::meter_light({0.5F, 0.5F, 0.5F});

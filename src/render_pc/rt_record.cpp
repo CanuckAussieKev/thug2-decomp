@@ -1855,7 +1855,13 @@ std::string describe_screen_point(float across, float down)
         out += "\n  " + rt_relit_world::describe_mesh(over.mesh);
     }
     out += "\n  " + rt_relit_world::describe_near(point, kNearby);
+    // (the direct light's diagnosis: the backend's shadows' light, its casters and the clouds' share here)
+    const std::string light = rt->describe_light(point);
     get_log("%s", out.c_str());
+    if (!light.empty()) {
+        get_log("rt probe %.3f %.3f: %s", static_cast<double>(across), static_cast<double>(down), light.c_str());
+        out += "\n  " + light;
+    }
     return out;
 }
 

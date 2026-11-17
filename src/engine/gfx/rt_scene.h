@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "engine/gfx/gpu_handles.h"
@@ -248,6 +249,14 @@ public:
         (void)ray;
         return {};
     }
+    // (the console's `rt probe` - the direct light's diagnosis) What the backend's own light passes take at `point` (a
+    // world point): the clouds' shadow map's share there over the lighting state's mean, the light the shadows are cast
+    // from - slow (the frame's work finished first), for tools. Empty: nothing to say.
+    virtual std::string describe_light(const std::array<float, 3>& point)
+    {
+        (void)point;
+        return {};
+    }
     // (added for R4's sun) Many rays at once, as probe (slow the same way, but one wait for all of them): `results`
     // gets one answer per ray, in order.
     virtual void probe_many(std::span<const ProbeRequest> rays, std::vector<ProbeResult>* results)
@@ -381,6 +390,10 @@ struct ViewDrawn {
 class ViewListener {
 public:
     virtual ~ViewListener() = default;
+    // The viewport's world surfaces drawn - the scenes' opaque meshes and the later ones (from the first transparent
+    // material on: roads and pavements drawn with a blended first pass among them), the objects and the sky - before
+    // the particles and the weather: the passes that light, shadow or cover surfaces go here (the night colour /
+    // shadows round: before, this came between the two groups and the later one was drawn over their result).
     virtual void opaque_drawn(const ViewDrawn& view) = 0;
     // The viewport's whole world drawn - its transparent passes, particles, weather, the sun's glare, the glows and
     // flashes too - before the 2D (the HUD, the menus, text): volumetric fog, then tone mapping, go here.
