@@ -66,6 +66,7 @@
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "gpu_vulkan/vulkan_surface.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_water.h"
 #include "platform/run_log.h"
 #include "platform/frame_profile.h"
@@ -470,7 +471,8 @@ struct SurfaceDescriptors {
 
 void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array<VkDescriptorImageInfo, kStageCount>& images,
                       const SurfaceDescriptors& surface = {}, const WaterDescriptors& water = {},
-                      const SnowDescriptors& snow = {}, const PaintDescriptors& paint = {}, const WetDescriptors& wet = {})
+                      const SnowDescriptors& snow = {}, const PaintDescriptors& paint = {}, const WetDescriptors& wet = {},
+                      const SurfaceInputDescriptors& light = {})
 {
     BoundState& bound = state.bound;
     const bool same_surface = !surface.on || (bound.surface_pushed && same_buffer_info(bound.pushed_surface_block, surface.block) &&
@@ -479,7 +481,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
                       same_buffer_info(bound.pushed_fragment_block, bound.fragment_block) &&
                       std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel &&
                       !surface.detail;
-    if (same && !water.on && !snow.on && !paint.on && !wet.on) {
+    if (same && !water.on && !snow.on && !paint.on && !wet.on && !light.on) {
         return;
     }
     constexpr std::size_t kWaterWrites = 5; // (NOT ORIGINAL - rt_water's: kWaterUniformsBinding - kWaterWavesBinding)
@@ -487,7 +489,9 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the map)
     constexpr std::size_t kPaintWrites = 3;  // (NOT ORIGINAL - paint's: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetWrites = 2;    // (NOT ORIGINAL - rain's: kWetUniformsBinding, kWetMapBinding)
-    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites>
+    constexpr std::size_t kLightWrites = 5;  // (NOT ORIGINAL - round V's: kLightVisibilityBinding - kLightDecalsBinding)
+    std::array<VkWriteDescriptorSet,
+               2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites + kLightWrites>
         writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -607,6 +611,14 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
         map.dstBinding = kWetMapBinding;
         map.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         map.pImageInfo = &wet.map;
+    }
+    if (light.on) { // (NOT ORIGINAL - round V: the surface's light inputs - vulkan_surface_light.h)
+        for (uint32_t input = 0; input < kLightWrites; ++input) {
+            VkWriteDescriptorSet& image = core::at(writes, count++);
+            image.dstBinding = kLightVisibilityBinding + input;
+            image.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            image.pImageInfo = &core::at(light.images, input);
+        }
     }
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0, count, writes.data());
     bound.images = images;
@@ -1285,6 +1297,12 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     if (!state.draws_made || call.vertices == 0 || block.viewport.width == 0 || block.viewport.height == 0) {
         return kOk;
     }
+    // NOT ORIGINAL - round V (vulkan_surface_light.h): a view's world lit per surface - its draws kept for after their
+    // light inputs are made (their depth drawn first)
+    if (surface_light_keep(state, block, call)) {
+        return kOk;
+    }
+    const SurfaceDrawRole light_role = surface_draw_role();
     const ShaderProgram* program = nullptr;
     if (block.pixel_shader != nullptr) {
         const PixelShader* const shader = object(block.pixel_shader);
@@ -1330,6 +1348,11 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     // NOT ORIGINAL - (lighting round A) a world draw of the relit level: its colour is the relit light store's (the stream's
     // colour word, rt_cel.h - the surface's tint x its light), read in place of the vertex colour, its alpha the game's.
     // The game's vertex buffers are never written by relit.
+    // NOT ORIGINAL - round V: a kept draw's key (its prepass's and its shaded draw's alike): the relit world and the lit
+    // objects lit per pixel
+    if (light_role != SurfaceDrawRole::kAsItComes) {
+        surface_light_force(block, relit_colour_stream(state, call, shaders.vertex) != nullptr, &shaders);
+    }
     Buffer* const relit = relit_colour_stream(state, call, shaders.vertex);
     if (relit != nullptr) {
         shaders.vertex.surface = static_cast<uint8_t>(shaders.vertex.surface | kVertexRelitColour);
@@ -1340,6 +1363,11 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
             shaders.fragment.surface = static_cast<uint8_t>(lit | kSurfaceRelit);
             shaders.vertex.surface = static_cast<uint8_t>(shaders.vertex.surface | kVertexCelStream);
         }
+    }
+    // NOT ORIGINAL - round V: a prepass's depth alone; a shaded draw's light inputs
+    SurfaceInputDescriptors light_inputs;
+    if (light_role != SurfaceDrawRole::kAsItComes) {
+        surface_light_finish(state, block, &shaders, &light_inputs);
     }
     std::string why;
     if (!supported(shaders, &why)) {
@@ -1407,7 +1435,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         bound.pipeline = pipeline;
     }
     set_dynamic_states(state, commands, block, call);
-    push_descriptors(state, commands, descriptors, surface_descriptors, water, snow, paint, wet);
+    push_descriptors(state, commands, descriptors, surface_descriptors, water, snow, paint, wet, light_inputs);
     if (call.vertex_buffer != bound.vertex_buffer || call.vertex_offset != bound.vertex_offset ||
         call.stride != bound.vertex_stride) {
         const VkDeviceSize stride = call.stride;
@@ -1432,8 +1460,8 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     bind_cel_stream(state, commands, shaders.vertex.surface, bound_stream);
     issue_draw(state, commands, call);
     // (added by cel shading) a lit object's outline
-    const bool hull_drawn =
-        draw_cel_hull(state, commands, {.block = &block, .shaders = &shaders, .call = &call, .wanted = cel.hull});
+    const bool hull_drawn = light_role != SurfaceDrawRole::kPrepass &&
+                            draw_cel_hull(state, commands, {.block = &block, .shaders = &shaders, .call = &call, .wanted = cel.hull});
     count_cel_draw(shaders.fragment.surface, hull_drawn);
     const uint64_t serial = state.frames.serial();
     for (Image* image : images) {

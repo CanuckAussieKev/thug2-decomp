@@ -28,6 +28,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -515,6 +516,8 @@ long lock_buffer(Backend& state, Buffer* buffer, const std::array<uint32_t, 2>& 
             return kInvalid;
         }
         const DeviceBuffer& memory = core::at(buffer->versions, buffer->current).memory;
+        // NOT ORIGINAL - round V: draws kept for the view's shading that read this memory keep its content first
+        surface_light_buffer_rewritten(state, memory.buffer, memory.bytes, nullptr, memory.mapped);
         const std::span<uint8_t> whole(static_cast<uint8_t*>(memory.mapped), static_cast<std::size_t>(memory.bytes));
         *data = whole.subspan(offset).data();
     } else {
@@ -558,6 +561,10 @@ long unlock_buffer(Backend& state, Buffer* buffer)
     }
     version.copied = serial;
     version.copied_in_stream = target.in_stream;
+    if (target.in_stream) {
+        // NOT ORIGINAL - round V: draws kept for the view's shading that read this buffer keep its content first
+        surface_light_buffer_rewritten(state, version.memory.buffer, version.memory.bytes, target.commands, nullptr);
+    }
     const VkBufferCopy region{.srcOffset = staged->offset, .dstOffset = buffer->lock_offset, .size = written.size()};
     vkCmdCopyBuffer(target.commands, staged->buffer, version.memory.buffer, 1, &region);
     if (target.in_stream) {

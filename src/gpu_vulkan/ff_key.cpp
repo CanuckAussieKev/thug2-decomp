@@ -123,6 +123,7 @@ void normalise_fragment(FragmentKey& key, bool points)
         key.surface = 0;
     }
     key.surface = static_cast<uint8_t>(key.surface & kSurfaceKnown);
+    key.light = static_cast<uint8_t>(key.light & kLightKnown); // (NOT ORIGINAL - round V)
     // (NOT ORIGINAL - rt_water: flat, or the moving surface)
     key.water = key.water != 0U && takes_surface(key) && !points ? std::min(key.water, kWaterMoving) : 0;
     if (key.program != PixelProgram::kStages) {
@@ -578,6 +579,9 @@ std::string describe(const FragmentKey& key)
     text += (key.trails & kTrailSnowTint) != 0U ? "-tint" : "";
     text += (key.trails & kTrailPaint) != 0U ? " paint" : ""; // (NOT ORIGINAL - [Graphics] paint_trails)
     text += (key.trails & kTrailWet) != 0U ? " wet" : "";     // (NOT ORIGINAL - [Graphics] rain)
+    text += (key.light & kLightInputs) != 0U ? " light-inputs" : ""; // (NOT ORIGINAL - round V)
+    text += (key.light & kLightShare) != 0U ? " light-share" : "";
+    text += (key.light & kLightDepthOnly) != 0U ? " depth-only" : "";
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);
     }

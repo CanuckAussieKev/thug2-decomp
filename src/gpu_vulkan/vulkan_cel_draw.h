@@ -51,6 +51,15 @@ void set_cel_source_locked(Backend& state, const Gpu::CelSource& source);
 void cel_forget_buffer_locked(const Buffer* buffer);
 // Whether the source names a buffer now (the check's).
 [[nodiscard]] bool cel_source_named();
+// (round V - vulkan_surface_light.h) The source named now, kept with a draw kept for the view's shading and named again
+// while it is drawn.
+struct CelSourceNamed {
+    Buffer* vertices = nullptr;
+    VkDeviceSize offset = 0;
+    Buffer* stream = nullptr;
+};
+[[nodiscard]] CelSourceNamed cel_source_now();
+void cel_source_put(const CelSourceNamed& source);
 // (added by the snow - vulkan_snow.h: the snow replaces the surface's colour, the relit tint in it too) The relit world's
 // stream for this draw: the named source's when the draw's vertices are its buffer at its offset and the frame's world is
 // relit; null otherwise (render_pc names the source while cel shading or the snow is on).

@@ -433,6 +433,10 @@ inline constexpr int kCameraEffects = 965; // (added by the camera effects) dept
 inline constexpr int kLens = 970;          // (added by the fisheye lens) the warp, after the blur, before the art style (world_drawn)
 inline constexpr int kGrade = 985;         // (added by the camera effects) the colour grade, after the art style (world_drawn)
 inline constexpr int kFrameGeneration = 999; // (added by frame generation) the HUD-less colour copied out, last (world_drawn)
+inline constexpr int kSurfaceInputs = 60;   // (round V - gpu_vulkan/vulkan_surface_light.h) a view lit per surface: its
+                                            // light inputs begun from the prepass's depth, before the shadows
+inline constexpr int kSurfaceShading = 392; // ... its kept draws shaded with them: after the lamps and the decals (which
+                                            // write the inputs), before the rain's wet mask and the reflections
 inline constexpr int kLights = 350;       // (added by the night lighting) the lamps' light: after the bounce, before the
                                           // reflections (opaque_drawn) - gpu_vulkan/vulkan_rt_lights.h
 } // namespace ViewOrder
@@ -442,6 +446,12 @@ void remove_view_listener(ViewListener* listener);
 void opaque_view_drawn(const ViewDrawn& view);
 void world_view_drawn(const ViewDrawn& view);
 void view_begins(const ViewDrawn& view); // (added by the upscaler)
+// (round V - per-surface lighting) Whether render_pc is drawing a viewport's world surfaces and objects now (its
+// scenes' meshes, the objects, the splats and projections - not the sky's): a backend that lights the world per surface
+// keeps these draws for after the surfaces' visibility is known (gpu_vulkan/vulkan_surface_light.h). Set by
+// draw_frame through rt_record::set_world_passes.
+void set_world_surfaces_drawing(bool inside);
+[[nodiscard]] bool world_surfaces_drawing();
 
 // --- Upscaling (added by the upscaler round; the Vulkan Gpu's [Graphics] upscaler) ----------------------------------
 // A backend that upscales asks for its views' world to be drawn smaller: render_pc then draws a viewport's world

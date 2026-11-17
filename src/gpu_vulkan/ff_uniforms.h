@@ -55,6 +55,15 @@ constexpr uint32_t kPaintPlaceBinding = 21;    // ... and the painted places alo
 // draws; after the paint's)
 constexpr uint32_t kWetUniformsBinding = 22; // WetUniforms (vulkan_rain.cpp)
 constexpr uint32_t kWetMapBinding = 23;      // the precipitation occlusion map (RG32UI - vulkan_precip.h)
+// (NOT ORIGINAL - round V, per-surface lighting: vulkan_surface_light.h) the surface's light inputs, made per pixel of
+// the view after its prepass: read only by keys with FragmentKey::light's kLightInputs / kLightShare (pushed only for
+// their draws; after the rain's)
+constexpr uint32_t kLightVisibilityBinding = 24; // RGBA16F: the sun's visibility (-1: not traced), the direct share, the
+                                                 // indirect light's visibility (1 - the occlusion), 1 where traced
+constexpr uint32_t kLightLampsBinding = 25;      // RGBA16F: the lamps' light (a white diffuser's radiance)
+constexpr uint32_t kLightLampsOnBinding = 26;    // RGBA16F: ... on the surface's traced albedo (for kLightShare)
+constexpr uint32_t kLightDepthBinding = 27;      // R32F: the prepass's depth (the surface the inputs were made for)
+constexpr uint32_t kLightDecalsBinding = 28;     // RGBA16F: the decals over the surface - its albedo's factor (1: none)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.

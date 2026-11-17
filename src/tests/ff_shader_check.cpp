@@ -4,7 +4,11 @@
 // SPIRV-Tools' validator (when the build has it: THUG2_SPIRV_VALIDATOR), and - unless --no-gpu - hands every module and
 // a pipeline for each sampled pair of shaders to a Vulkan driver (ff_shader_check_gpu.h).
 //   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion] [--cel]
-//                         [--retro] [--detail] [--water] [--characters] [--trails]
+//                         [--retro] [--detail] [--water] [--characters] [--trails] [--light]
+// --light (NOT ORIGINAL - round V, gpu_vulkan/vulkan_surface_light.h): every pair again as a prepass's draw (FragmentKey::
+// light kLightDepthOnly, and kLightDepthHalf - a blended one's), every pair not lit per pixel with the light inputs as
+// shares (kLightShare), and with --surface every pair lit per pixel with the light inputs (kLightInputs) - after
+// --surface's, --trails' and --water's, before --motion's.
 // --detail (NOT ORIGINAL - rt_detail / rt_delight, gpu_vulkan/vulkan_detail.h): with --surface, every pair lit per pixel
 // with a surface map added again with each of the detail layer's bit sets (ff_key.h kDetail*; the relief's - rt_relief -
 // alone, with the layer and with both) - after --surface's.
@@ -94,6 +98,7 @@ struct Options {
     bool retro = false; // (the retro art style)
     bool water = false; // (rt_water)
     bool trails = false; // (the surface trails: snow, paint)
+    bool light = false;  // (round V: the light inputs and the prepass)
     bool characters = false; // (added for the characters)
 };
 
@@ -117,6 +122,8 @@ Options read_options(std::span<char*> arguments)
             options.water = true;
         } else if (argument == "--trails") {
             options.trails = true;
+        } else if (argument == "--light") {
+            options.light = true;
         } else if (argument == "--characters") {
             options.characters = true;
         } else if (argument == "--all-materials") {
@@ -478,6 +485,58 @@ void add_motion_keys(ff_check::KeySets& sets)
     text::print("motion: %u fragment keys with motion vectors added (modules only)\n", static_cast<unsigned>(added));
 }
 
+// (NOT ORIGINAL - round V) Each pair again with the light bits it can take: the prepass's (depth alone, a blended one's
+// half), the shares (not lit per pixel), the inputs (lit per pixel). Pre-transformed and water pairs are never kept.
+void add_light_keys(ff_check::KeySets& sets)
+{
+    using render::vulkan::kLightDepthHalf;
+    using render::vulkan::kLightDepthOnly;
+    using render::vulkan::kLightInputs;
+    using render::vulkan::kLightShare;
+    std::size_t added = 0;
+    const std::vector<ShaderKey> pairs = sets.pairs;
+    for (const ShaderKey& pair : pairs) {
+        if (render::vulkan::fvf_pre_transformed(pair.vertex.fvf) || pair.fragment.water != 0U ||
+            (pair.fragment.surface & (render::vulkan::kSurfaceCel | render::vulkan::kSurfaceCelHull)) != 0U) {
+            continue;
+        }
+        std::vector<ShaderKey> keys;
+        ShaderKey depth = pair; // (the prepass: its vertex half kept, its fragment half the program alone)
+        depth.fragment.surface = 0;
+        depth.fragment.detail = 0;
+        depth.fragment.trails = 0;
+        depth.fragment.light = kLightDepthOnly;
+        keys.push_back(depth);
+        depth.fragment.light = static_cast<uint8_t>(kLightDepthOnly | kLightDepthHalf);
+        keys.push_back(depth);
+        ShaderKey lit = pair;
+        lit.fragment.light = (pair.fragment.surface & render::vulkan::kSurfaceLighting) != 0U ? kLightInputs
+                             : pair.fragment.surface == 0                                    ? kLightShare
+                                                                                             : uint8_t{0};
+        if (lit.fragment.light != 0U) {
+            keys.push_back(lit);
+        }
+        for (const ShaderKey& key : keys) {
+            sets.vertex.insert(key.vertex);
+            if (sets.fragment.insert(key.fragment).second) {
+                ++added;
+            }
+            sets.pairs.push_back(key);
+        }
+    }
+    // (the relit world's keys - modules only, as --surface adds them) with the inputs
+    for (FragmentKey key : std::vector<FragmentKey>(sets.fragment.begin(), sets.fragment.end())) {
+        if ((key.surface & render::vulkan::kSurfaceRelit) != 0U && key.light == 0U && key.water == 0U &&
+            (key.surface & render::vulkan::kSurfaceCel) == 0U) {
+            key.light = kLightInputs;
+            if (sets.fragment.insert(key).second) {
+                ++added;
+            }
+        }
+    }
+    text::print("light: %u fragment keys with the light inputs or depth alone added\n", static_cast<unsigned>(added));
+}
+
 // (NOT ORIGINAL - the retro art style) Each pair again with its vertex half's retro bit, where the key takes it (not
 // pre-transformed); the vertex keys with motion too.
 void add_retro_keys(ff_check::KeySets& sets)
@@ -530,6 +589,9 @@ int run(const Options& options)
     }
     if (options.trails) {
         add_trail_keys(sets);
+    }
+    if (options.light) {
+        add_light_keys(sets); // (round V)
     }
     if (options.motion) {
         add_motion_keys(sets);

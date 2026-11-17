@@ -1,6 +1,7 @@
 // NOT ORIGINAL - upscaling (vulkan_upscale.h; docs/design/vulkan.md "Upscaling"): the settings, the view listener, the
 // jitter, the preparation pass and the provider's frame.
 #include "gpu_vulkan/vulkan_upscale.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 
 #include <algorithm>
 #include <array>
@@ -489,7 +490,8 @@ UpscaleListener& listener()
 }
 
 // Ray Reconstruction's albedo guide: the opaque world's colour before any ray-traced effect changed it (first of the
-// listeners at opaque_drawn).
+// listeners at opaque_drawn). (Round V: a view lit per surface has no colour yet there - its guide is taken after its
+// shading, vulkan_surface_light.h.)
 class AlbedoListener final : public rt::ViewListener {
 public:
     [[nodiscard]] int order() const override { return rt::ViewOrder::kShadows / 2; }
@@ -497,8 +499,26 @@ public:
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
+        if (!state.device_made || !state.draws_made || surface_light_view(state)) {
+            return;
+        }
+        record_reconstruction_albedo(state, view);
+    }
+};
+
+AlbedoListener& albedo_listener()
+{
+    static AlbedoListener instance;
+    return instance;
+}
+
+} // namespace
+
+void record_reconstruction_albedo(Backend& state, const rt::ViewDrawn& view)
+{
+    {
         UpscaleState& own = upscale();
-        if (!state.device_made || !state.draws_made || !own.view_on || !own.reconstruct) {
+        if (!own.view_on || !own.reconstruct) {
             return;
         }
         Image* const colour = image_of(core::at(state.targets, 0));
@@ -525,15 +545,7 @@ public:
         colour->used = state.frames.serial();
         own.albedo.used = colour->used;
     }
-};
-
-AlbedoListener& albedo_listener()
-{
-    static AlbedoListener instance;
-    return instance;
 }
-
-} // namespace
 
 namespace {
 

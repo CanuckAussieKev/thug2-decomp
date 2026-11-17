@@ -32,6 +32,7 @@
 #include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -303,6 +304,12 @@ void main()
     // with. A relit world pixel's light's parts are known (the light store): its colour was written with the vertex's
     // own visibility (`seen`), which the pixel's own replaces - the lamps, the sky and the bounce untouched.
     float visible = (1.0 - occlusion) * (1.0 - cast_by_objects) * clouds_through(here);
+#ifdef SURFACE_INPUTS
+    // (round V - vulkan_surface_light.h) the pixel's surface lit with its visibility itself: the visibility, the direct
+    // light's share (for a colour lit already), the indirect light's visibility left for the occlusion, made here
+    o_factor = vec4(visible, pc.to_light.w, 1.0, 1.0);
+    return;
+#endif
 #ifdef ALPHA_TESTED
     WorldLight w;
     if (!object_pixel && world_light_here(to_camera, distance, w)) {
@@ -354,6 +361,7 @@ struct PassPipeline {
     bool per_sample = false;
     bool alpha = false; // (added for the alpha-tested casters) the ALPHA_TESTED variant: alpha_layout's
     bool clouds = false; // (the freeze audit) the CLOUDS variant: the clouds' shadow map read
+    bool inputs = false; // (round V) the SURFACE_INPUTS variant: the visibility written into the surface's inputs
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -526,14 +534,14 @@ bool ensure_layouts(Backend& state, std::string* error)
 
 // The pipeline for a colour target (made on first use).
 VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, bool alpha, bool clouds,
-                         std::string* error)
+                         bool inputs, std::string* error)
 {
     ShadowState& own = shadows();
     const bool multisampled = samples != VK_SAMPLE_COUNT_1_BIT;
     const bool per_sample = multisampled && state.context.enabled_features().sampleRateShading == VK_TRUE;
     for (const PassPipeline& made : own.pipelines) {
         if (made.format == format && made.samples == samples && made.per_sample == per_sample && made.alpha == alpha &&
-            made.clouds == clouds) {
+            made.clouds == clouds && made.inputs == inputs) {
             return made.pipeline;
         }
     }
@@ -565,6 +573,9 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     if (clouds) { // (the freeze audit: the clouds' shadow as the sun's visibility)
         source += "#define CLOUDS\n";
         source += cloud_map_glsl(kBindingCloudMap);
+    }
+    if (inputs) { // (round V: into the surface's light inputs - vulkan_surface_light.h)
+        source += "#define SURFACE_INPUTS\n";
     }
     source += rt::kDisplayTransferGlsl; // (round F)
     source += kFragmentBody;
@@ -628,6 +639,10 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     blend.alphaBlendOp = VK_BLEND_OP_ADD;
     blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+    if (inputs) { // (round V: the inputs written as they are)
+        blend.blendEnable = VK_FALSE;
+        blend.colorWriteMask |= VK_COLOR_COMPONENT_A_BIT;
+    }
     VkPipelineColorBlendStateCreateInfo blending{};
     blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     blending.attachmentCount = 1;
@@ -664,7 +679,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     }
     own.pipelines.push_back(
         {.format = format, .samples = samples, .per_sample = per_sample, .alpha = alpha, .clouds = clouds,
-         .pipeline = pipeline});
+         .inputs = inputs, .pipeline = pipeline});
     return pipeline;
 }
 
@@ -909,7 +924,10 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         // none: indoors, lit by its lamps - nothing to add; rt_record logs the fit)
         return false;
     }
-    Image* const colour = image_of_surface(core::at(state.targets, 0));
+    // (round V - vulkan_surface_light.h: a view lit per surface - the visibility into its light inputs, not over the
+    // colour)
+    const SurfaceInputs* const surface = surface_inputs(state);
+    Image* const colour = surface != nullptr ? surface->visibility : image_of_surface(core::at(state.targets, 0));
     Image* const depth = image_of_surface(state.depth);
     if (colour == nullptr || depth == nullptr || colour->attachment_view == VK_NULL_HANDLE ||
         (colour->aspect & VK_IMAGE_ASPECT_COLOR_BIT) == 0 || (depth->aspect & VK_IMAGE_ASPECT_DEPTH_BIT) == 0 ||
@@ -933,14 +951,14 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     // read as the sun's visibility - the sky pass leaves the clouds' shadows to this pass (rt_shadows_take_cloud_shadows)
     CloudShadowMap cloud{};
     const bool clouds = cloud_shadow_map(state, &cloud) && core::at(cloud.light, 3) > 0.0F;
-    VkPipeline pipeline = pass_pipeline(state, colour->format, colour->samples, alpha, clouds, &error);
+    VkPipeline pipeline = pass_pipeline(state, colour->format, colour->samples, alpha, clouds, surface != nullptr, &error);
     if (pipeline == VK_NULL_HANDLE && alpha) {
         if (first_report(state, kReportAlphaPipeline)) {
             get_log("vulkan: rt_shadows: the alpha-tested casters' pass couldn't be made (%s) - the opaque casters only",
                     error.c_str());
         }
         alpha = false;
-        pipeline = pass_pipeline(state, colour->format, colour->samples, false, clouds, &error);
+        pipeline = pass_pipeline(state, colour->format, colour->samples, false, clouds, surface != nullptr, &error);
     }
     Matrix to_world{};
     if (pipeline == VK_NULL_HANDLE) {

@@ -140,6 +140,9 @@ struct UpscaleImages {
 bool record_upscale(Backend& state, const rt::ViewDrawn& view);
 // The work at view_begins (the listener's; the check's).
 void begin_upscaled_view(Backend& state, const rt::ViewDrawn& view);
+// Ray Reconstruction's albedo guide taken from the view's colour now (the albedo listener's at opaque_drawn; round V's
+// shading's after its draws - vulkan_surface_light.h). The caller holds the lock.
+void record_reconstruction_albedo(Backend& state, const rt::ViewDrawn& view);
 // The settings while the backend's lock is held (the providers').
 [[nodiscard]] const UpscaleSettings& upscale_settings_locked();
 [[nodiscard]] uint64_t upscale_passes();

@@ -71,6 +71,8 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_lights.h"
+#include "gpu_vulkan/vulkan_rt_shadows.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "platform/run_log.h"
 #include "tests/check_window.h"
 #include "tests/no_error_dialogs.h"
@@ -1877,6 +1879,293 @@ void run_counted_once(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     }
 }
 
+// --- (round V) the world lit per surface: the inputs read by the surfaces' own shading -------------------------------
+// gpu_vulkan/vulkan_surface_light.h: in a view of a relit level (rt::cel_world().relit) drawn into the linear frame, the
+// world's draws are kept, their depth drawn first, the sun's visibility made from it, then the draws shaded with it.
+// The floor drawn here with a blended first pass (alpha 1, depth written - New Jersey's roads), unlit: its colour lit
+// already takes the inputs by shares (kLightShare: the direct light's share x the visibility + the rest). Checked:
+//   - order: the floor drawn before the box and after it give the same picture, and the box's shadow on the floor
+//     either way (the floor's own light x (1 - the direct share) in the shadow, x 1 in the sun) - before round V the
+//     pass multiplied what was drawn before it, and a floor drawn after it had no shadow;
+//   - glass (blended by its alpha, no depth written, 60 units over the floor) over the shadow: its own colour is not
+//     darkened - the pixel is half the glass's light and half the shadowed floor's;
+//   - a glow (added) over the shadow: its light added whole.
+// The check reads the float frame (linear light) before the tone mapping.
+constexpr double kShareDirect = 0.5;  // the lighting state's direct share made here
+constexpr double kOverFloor = 60.0;   // the glass's and the glow's height
+constexpr uint32_t kGlassColour = 0x8060A0E0; // (alpha 0.5)
+constexpr uint32_t kGlowColour = 0xFF302010;
+constexpr double kLinearTolerance = 0.004; // (half floats near 0.01 - 0.3: a few steps)
+
+double half_to_double(uint16_t half)
+{
+    constexpr int kBias = 15;
+    constexpr uint32_t kMantissa = 0x3FFU;
+    const uint32_t exponent = (static_cast<uint32_t>(half) >> 10U) & 0x1FU;
+    const uint32_t mantissa = static_cast<uint32_t>(half) & kMantissa;
+    double value = exponent == 0 ? std::ldexp(static_cast<double>(mantissa), -24)
+                                 : std::ldexp(static_cast<double>(mantissa | 0x400U), static_cast<int>(exponent) - kBias - 10);
+    return (half & 0x8000U) != 0 ? -value : value;
+}
+
+Rgb linear_pixel_at(const std::vector<uint8_t>& texels, int x, int y)
+{
+    constexpr std::size_t kHalfPixelBytes = 8;
+    const std::size_t at = ((static_cast<std::size_t>(y) * kTargetWidth) + static_cast<std::size_t>(x)) * kHalfPixelBytes;
+    Rgb out{};
+    for (std::size_t c = 0; c < 3; ++c) {
+        const auto half = static_cast<uint16_t>(core::at(texels, at + (2 * c)) | (core::at(texels, at + (2 * c) + 1) << 8U));
+        core::at(out, c) = half_to_double(half);
+    }
+    return out;
+}
+
+Rgb linear_of(uint32_t argb)
+{
+    const Rgb display = drawn_colour(argb);
+    return {rt::linear_from_display(core::at(display, 0)), rt::linear_from_display(core::at(display, 1)),
+            rt::linear_from_display(core::at(display, 2))};
+}
+
+// A horizontal quad at `height` over x in [x0, x1], z in [z0, z1] (two triangles).
+std::vector<ColourVertex> quad_at(double height, double x0, double x1, double z0, double z1, uint32_t colour)
+{
+    const auto f = [](double v) { return static_cast<float>(v); };
+    const std::array<std::array<float, 3>, 4> corners{{{f(x0), f(height), f(z0)},
+                                                       {f(x1), f(height), f(z0)},
+                                                       {f(x1), f(height), f(z1)},
+                                                       {f(x0), f(height), f(z1)}}};
+    std::vector<ColourVertex> out;
+    for (const std::size_t i : {0U, 1U, 2U, 0U, 2U, 3U}) {
+        out.push_back({.position = core::at(corners, i), .colour = colour});
+    }
+    return out;
+}
+
+// Whether the eye's ray through the pixel crosses the quad at `height` over x in [x0, x1], z in [z0, z1].
+bool through_quad(int x, int y, double height, double x0, double x1, double z0, double z1)
+{
+    const View view = view_from(kEye);
+    const double ndc_x = (2.0 * (x + 0.5) / kTargetWidth) - 1.0;
+    const double ndc_y = 1.0 - (2.0 * (y + 0.5) / kTargetHeight);
+    const Vec3 direction = normalised(
+        step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height), view.back, -1.0));
+    if (y_of(direction) >= 0.0) {
+        return false;
+    }
+    const double t = (height - y_of(kEye)) / y_of(direction);
+    const Vec3 at = step(kEye, direction, t);
+    return x_of(at) > x0 + 2.0 && x_of(at) < x1 - 2.0 && z_of(at) > z0 + 2.0 && z_of(at) < z1 - 2.0;
+}
+
+enum class Over : uint8_t { kNothing, kGlass, kGlow };
+
+// A frame of the view lit per surface: the floor (blended first pass) before or after the box, and what is over it.
+bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, bool floor_first,
+                      Over over, uint64_t frame, std::vector<uint8_t>* texels)
+{
+    using render::GpuRenderState;
+    rt::FrameRecord& record = rt::frame_record();
+    record = rt::FrameRecord{};
+    record.frame = frame;
+    constexpr std::array<std::array<float, 4>, 3> kIdentityRows{
+        {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}}};
+    for (const SceneMesh& mesh : meshes) {
+        record.instances.push_back(
+            {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = kIdentityRows});
+    }
+    gpu.begin_scene();
+    rt::ray_tracing()->begin_frame(record);
+    gpu.set_render_target(0, targets.colour);
+    gpu.set_depth_surface(targets.depth);
+    gpu.set_viewport({.x = 0, .y = 0, .width = kTargetWidth, .height = kTargetHeight, .min_z = 0.0F, .max_z = 1.0F});
+    gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth | value::kClearStencil, 0xFF000000U, 1.0F, 0);
+    rt::view_begins(view_drawn());
+    rt::set_world_surfaces_drawing(true);
+    draw_scene(gpu, {}); // (the states and the camera)
+    const auto draw_solid = [&gpu](const Solid& solid, bool blended) {
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, blended ? 1U : 0U);
+        gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
+        std::vector<ColourVertex> vertices;
+        for (const std::array<float, 3>& position : triangles_of(solid)) {
+            vertices.push_back({.position = position, .colour = solid.drawn});
+        }
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(vertices.size() / 3),
+                             vertices.data(), sizeof(ColourVertex));
+    };
+    if (floor_first) {
+        draw_solid(core::at(kScene, 0), true);
+        draw_solid(core::at(kScene, 1), false);
+    } else {
+        draw_solid(core::at(kScene, 1), false);
+        draw_solid(core::at(kScene, 0), true);
+    }
+    if (over != Over::kNothing) {
+        const bool glass = over == Over::kGlass;
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
+        gpu.set_render_state(GpuRenderState::kSrcBlend, glass ? value::kBlendSrcAlpha : value::kBlendOne);
+        gpu.set_render_state(GpuRenderState::kDestBlend, glass ? value::kBlendInvSrcAlpha : value::kBlendOne);
+        const std::vector<ColourVertex> quad =
+            quad_at(kOverFloor, -kFloorHalf, 0.0, 0.0, kFloorHalf, glass ? kGlassColour : kGlowColour);
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quad.size() / 3), quad.data(),
+                             sizeof(ColourVertex));
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+    }
+    rt::set_world_surfaces_drawing(false);
+    rt::opaque_view_drawn(view_drawn());
+    const bool read = render::vulkan::read_surface(targets.colour, texels);
+    gpu.end_scene();
+    gpu.present();
+    return read && texels->size() == static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 8;
+}
+
+void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("round V - the world lit per surface (its light inputs read by its own shading):\n");
+    const Vec3 toward = normalised({core::at(kStreamSun, 0), core::at(kStreamSun, 1), core::at(kStreamSun, 2)});
+    const std::array<float, 3> toward_sun = floats(toward);
+    rt::set_sun_override(&toward_sun);
+    render::vulkan::set_rt_light_settings({});
+    render::vulkan::RtShadowSettings shadows;
+    shadows.on = true;
+    shadows.rays = 1;
+    render::vulkan::set_rt_shadow_settings(shadows);
+    render::vulkan::set_hdr_settings({.on = true});
+    const bool hdr_before = rt::hdr_colour();
+    rt::set_hdr_colour(true); // (the game's device: the linear frame - this check's device was made without it)
+    rt::set_cel_world({.relit = true, .sun = {1.0F, 1.0F, 1.0F}, .toward = toward_sun});
+    // the lighting state: the direct light's share on a level surface kShareDirect (sun x N.L over sun x N.L + sky)
+    rt::DayLight day;
+    day.on = true;
+    day.light = {core::at(toward_sun, 0), core::at(toward_sun, 1), core::at(toward_sun, 2)};
+    day.sun = day.light;
+    const float up = core::at(toward_sun, 1);
+    day.sun_light = {1.0F, 1.0F, 1.0F};
+    day.sky_light = {up, up, up}; // (equal to the direct light on a level surface: a share of 1/2)
+    rt::set_day_light(day);
+    const std::vector<FloorPixel> pixels = floor_pixels(toward);
+    const render::GpuSurfaceDesc colour{.width = kTargetWidth,
+                                        .height = kTargetHeight,
+                                        .format = value::kFormatA16B16G16R16F,
+                                        .samples = 0,
+                                        .quality = 0,
+                                        .lockable_or_discard = true};
+    render::GpuSurfaceDesc depth = colour;
+    depth.format = value::kFormatD24S8;
+    depth.lockable_or_discard = false;
+    Targets targets;
+    bool ok = gpu.create_render_target(colour, &targets.colour) == value::kResultOk &&
+              gpu.create_depth_surface(depth, &targets.depth) == value::kResultOk;
+    const render::vulkan::SurfaceLightStats before = render::vulkan::surface_light_stats();
+    std::array<std::vector<uint8_t>, 4> shots; // floor first, box first, glass, glow
+    uint64_t frame = 1;
+    for (int pass = 0; ok && pass < 2; ++pass) { // (the second time round: the TLAS of the frame before built)
+        ok = draw_per_surface(gpu, targets, meshes, true, Over::kNothing, frame++, &core::at(shots, 0)) &&
+             draw_per_surface(gpu, targets, meshes, false, Over::kNothing, frame++, &core::at(shots, 1)) &&
+             draw_per_surface(gpu, targets, meshes, false, Over::kGlass, frame++, &core::at(shots, 2)) &&
+             draw_per_surface(gpu, targets, meshes, false, Over::kGlow, frame++, &core::at(shots, 3));
+    }
+    const render::vulkan::SurfaceLightStats after = render::vulkan::surface_light_stats();
+    tally->check(ok && after.views > before.views && after.prepassed > before.prepassed,
+                 text::format("the views lit per surface: %llu views, %llu draws kept, %llu prepassed, %llu shaded",
+                              static_cast<unsigned long long>(after.views - before.views),
+                              static_cast<unsigned long long>(after.kept - before.kept),
+                              static_cast<unsigned long long>(after.prepassed - before.prepassed),
+                              static_cast<unsigned long long>(after.shaded - before.shaded)));
+    const Rgb floor_light = linear_of(core::at(kScene, 0).drawn);
+    // order and the shadow
+    int lit = 0;
+    int shadowed = 0;
+    int wrong = 0;
+    int differ = 0;
+    double worst = 0.0;
+    for (const FloorPixel& pixel : pixels) {
+        if (!ok) {
+            break;
+        }
+        const Rgb first = linear_pixel_at(core::at(shots, 0), pixel.x, pixel.y);
+        const Rgb second = linear_pixel_at(core::at(shots, 1), pixel.x, pixel.y);
+        const double factor = pixel.shadowed ? 1.0 - kShareDirect : 1.0;
+        bool bad = false;
+        for (std::size_t c = 0; c < 3; ++c) {
+            const double want = core::at(floor_light, c) * factor;
+            const double error = std::max(std::abs(core::at(first, c) - want), std::abs(core::at(second, c) - want));
+            worst = std::max(worst, error);
+            bad = bad || error > kLinearTolerance;
+            differ += std::abs(core::at(first, c) - core::at(second, c)) > 1e-4 ? 1 : 0;
+        }
+        wrong += bad ? 1 : 0;
+        (pixel.shadowed ? shadowed : lit) += 1;
+    }
+    tally->check(ok && lit > 1000 && shadowed > 300 && wrong == 0 && differ == 0,
+                 text::format("the floor drawn blended before and after the box: %d lit and %d shadowed pixels, %d off "
+                              "the light model (worst %.4f), %d channels differing between the orders",
+                              lit, shadowed, wrong, worst, differ));
+    // glass and glow over the shadow: their own light untouched
+    const Rgb glass = linear_of(kGlassColour);
+    const Rgb glow = linear_of(kGlowColour);
+    constexpr double kGlassAlpha = 128.0 / 255.0;
+    int glass_pixels = 0;
+    int glass_wrong = 0;
+    int glow_pixels = 0;
+    int glow_wrong = 0;
+    double glass_worst = 0.0;
+    double glow_worst = 0.0;
+    for (const FloorPixel& pixel : pixels) {
+        if (!ok || !pixel.shadowed) {
+            continue;
+        }
+        const Rgb under = linear_pixel_at(core::at(shots, 1), pixel.x, pixel.y);
+        if (!through_quad(pixel.x, pixel.y, kOverFloor, -kFloorHalf, 0.0, 0.0, kFloorHalf)) {
+            continue;
+        }
+        {
+            const Rgb got = linear_pixel_at(core::at(shots, 2), pixel.x, pixel.y);
+            bool bad = false;
+            for (std::size_t c = 0; c < 3; ++c) {
+                const double want = (kGlassAlpha * core::at(glass, c)) + ((1.0 - kGlassAlpha) * core::at(under, c));
+                glass_worst = std::max(glass_worst, std::abs(core::at(got, c) - want));
+                bad = bad || std::abs(core::at(got, c) - want) > kLinearTolerance;
+            }
+            ++glass_pixels;
+            glass_wrong += bad ? 1 : 0;
+        }
+        {
+            const Rgb got = linear_pixel_at(core::at(shots, 3), pixel.x, pixel.y);
+            bool bad = false;
+            for (std::size_t c = 0; c < 3; ++c) {
+                const double want = core::at(glow, c) + core::at(under, c);
+                glow_worst = std::max(glow_worst, std::abs(core::at(got, c) - want));
+                bad = bad || std::abs(core::at(got, c) - want) > kLinearTolerance;
+            }
+            ++glow_pixels;
+            glow_wrong += bad ? 1 : 0;
+        }
+    }
+    tally->check(ok && glass_pixels > 100 && glass_wrong == 0,
+                 text::format("glass over the shadow keeps its own light: %d pixels, %d darkened (worst %.4f)",
+                              glass_pixels, glass_wrong, glass_worst));
+    tally->check(ok && glow_pixels > 100 && glow_wrong == 0,
+                 text::format("a glow over the shadow adds its light whole: %d pixels, %d darkened (worst %.4f)",
+                              glow_pixels, glow_wrong, glow_worst));
+    gpu.set_render_target(0, nullptr);
+    gpu.set_depth_surface(nullptr);
+    for (GpuSurface* surface : {targets.colour, targets.depth}) {
+        if (surface != nullptr) {
+            gpu.release_surface(surface);
+        }
+    }
+    rt::set_day_light({});
+    rt::set_cel_world({});
+    render::vulkan::set_hdr_settings({});
+    rt::set_hdr_colour(hdr_before);
+    render::vulkan::set_rt_shadow_settings({});
+    rt::set_sun_override(nullptr);
+}
+
 // --- (round O - the audit's O1) the occlusion never takes the direct light --------------------------------------------
 // The box drawn as an object lit by the one light (rt::ObjectLight, linear - render_pc/pc_lights.h OneLightSent),
 // rt_ao on (its rays find the floor round the box's foot): lit by its key light alone - the sun from (1, 1, 1), nothing
@@ -2156,6 +2445,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_many(gpu, meshes, tally);        // (added for the washed-out streets)
         run_counted_once(gpu, meshes, tally); // (added by the light energy audit)
         run_ao_direct(gpu, meshes, tally);    // (round O)
+        run_per_surface(gpu, meshes, tally);  // (round V)
         run_fog_lamp(gpu, meshes, tally);     // (added by the volumetric light)
         run_fog_lamp_night(gpu, meshes, tally); // (added by the street air)
         if (options.perf) {
