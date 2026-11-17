@@ -65,7 +65,10 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // floor's light pool drawn as a card), the cards themselves left out of the fit, no cap on a level's lamp candidates.
 // v13 (round bounce unit): the bounce's strength the bake's own measure of it (its enclosed vertices' colour over B), the
 // daylight scaled against it - the global unit's anchor (rt_relit.h kRelitLeastBounceEvidence).
-inline constexpr uint32_t kRelitDataVersion = 13;
+// v14 (round bounce unit 2): the measure a fit of the bounce and the bake's floor (its ambient: taken out of the tints,
+// not lit), the sky's leak taken out, unexplained vertices left out; colours at the bake's clamp a bound, not a measure
+// (no edge, evidence or facing median told by them - Proving Ground's sun).
+inline constexpr uint32_t kRelitDataVersion = 14;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

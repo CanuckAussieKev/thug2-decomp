@@ -299,15 +299,49 @@ struct RelitModel {
     float daylight_scale = 1.0F;
     float daylight_scale_all = 0.0F;       // (the same over every lit vertex ...
     float daylight_scale_lamp_free = 0.0F; // ... and over the daylit ones no listed lamp reaches)
-    float bounce_clamped = 0.0F;           // (the edges' bounce held within the evidence's quartiles ...
-    float daylight_scale_clamped = 0.0F;   // ... and the daylight's factor with it)
     bool bounce_anchored = false;
+    // (round bounce unit 2) The bake's floor: light its colours hold that no source of the model brings - where only
+    // bounced light reaches, the bake's colour is t (g B + A), not t g B (rt_relit.cpp fit_bounce_floor: Proving Ground's
+    // enclosed colours 0.3 - 0.5 of them, THUG2's 0.1 - 0.5) - the artists' ambient. Taken out of the tints with the
+    // model's other terms (bake units, per channel); not lit in the game (no source of it: relit_to_unit drops it after
+    // reporting it in the unit - `floor_unit`, luma).
+    Rgbf floor{};
+    float floor_unit = 0.0F;
+    // (reported) the evidence's raw measure - the median of colour over B, the floor not taken out (round bounce unit's
+    // anchor) - and of (colour less the sky's leak) over B; the evidence vertices dropped as brighter than the fitted
+    // light by kRelitUnexplained of its spread (an unlisted source's) and those whose colour the sky's leak explains
+    // entirely
+    // (round bounce unit 2, reported) the edges' sun and sky (luma, the bake's units - what the split was before each was
+    // measured where it is seen) and the vertices each was measured at (0: the edges' kept - too few)
+    float sun_edges = 0.0F;
+    float sky_edges = 0.0F;
+    std::size_t sun_seen = 0;
+    std::size_t sky_seen = 0;
+    float bounce_ratio_median = 0.0F;
+    float bounce_leakless_median = 0.0F;
+    std::size_t bounce_unexplained = 0;
+    std::size_t bounce_leak_only = 0;
+    // (round bounce unit 2, reported) the vertices whose colour sits at the bake's clamp (relit_clamped_colour) - a bound
+    // of their light, not its measure: the fit of g and the floor censored at it, the sun's and sky's medians told with
+    // them as bounds (the edges' fit still reads them: they tell where the sun is, if not how strong)
+    std::size_t clamped = 0;
 };
+
+// (round bounce unit 2) Whether a baked colour sits at the bake's clamp in some channel: the original's light is clamped
+// at 1 (128 - or 127, rounded down - in the byte: every level piles up there - Proving Ground's port 35% of its
+// vertices, its sunlit floors 64%; Australia's 28%; THUG2's own 2 - 6%) or at the byte's top (255). Its light is only
+// known to be at least that: a bound, not a measure.
+[[nodiscard]] bool relit_clamped_colour(uint32_t argb);
+// (round bounce unit 2) An evidence vertex brighter than the fitted bounce and floor by this many of the fit's robust
+// spreads (1.4826 x the median absolute log residual: a normal distribution's sigma) is lit by something the model
+// doesn't hold (an unlisted lamp): left out, the fit made again.
+inline constexpr float kRelitUnexplained = 3.0F;
 
 // (round bounce unit) Where the bake's light can only be bounced light - a vertex that sees under kRelitEnclosedSky of
 // the sky (K), none of the sun and no lamp of the level's list (L 0), on a mesh the bake lit (not one colour all over),
 // its colour and its bounce B lit - the bake's colour over B is the surface's tint x g alone: the bounce coefficient
-// measured directly. Its quartiles over such vertices (`vertices` 0: none).
+// measured directly. Its quartiles over such vertices (`vertices` 0: none). (round bounce unit 2: what the fit measures
+// from them is g and the bake's floor - RelitModel::floor; the vertices at the bake's clamp as the bounds they are.)
 inline constexpr float kRelitEnclosedSky = 0.05F;
 struct RelitBounceEvidence {
     std::size_t vertices = 0;
@@ -315,7 +349,7 @@ struct RelitBounceEvidence {
     float median = 0.0F;
     float high = 0.0F;
 };
-[[nodiscard]] bool relit_bounce_evidence_vertex(const RelitVertex& vertex, float colour_luma);
+[[nodiscard]] bool relit_bounce_evidence_vertex(const RelitVertex& vertex, uint32_t argb);
 [[nodiscard]] RelitBounceEvidence relit_bounce_evidence(std::span<const RelitMesh> meshes,
                                                        std::span<const RelitVertices> light);
 
@@ -404,6 +438,14 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // and the bounce's B rise together along a mesh's edges (both with its openness), and a fit of all three by the edges
 // alone gave Proving Ground's bounce to its sky (g 0.065 against the measured 1.16; its daylight 53 x the physical).
 // Fewer such vertices (an open level, a ported one with no interiors): the edges' own bounce, as before.
+// (round bounce unit 2) The measure is a fit, not the median of colour over B: those vertices' colours less the sky's
+// leak (b K at each, not thresholded away) are t (g B + A) - the bounce and the bake's floor (RelitModel::floor), t the
+// surface's tint - fitted by the least absolute log residual (the tint's median 1: a multiplicative spread), the ones
+// brighter than the fit by kRelitUnexplained of its spread left out (an unlisted source's light) and the fit made again;
+// colours at the bake's clamp as bounds (a censored fit: the model's light compared as the bake would show it, no
+// brighter than its clamp). Then the sky's strength and the sun's measured the same way where each is seen. The median of colour over B counted the floor as bounce (g 0.56 - 1.10 on
+// THUG2's levels against the fit's 0.30 - 0.73, the floor 0.1 - 0.5 of their enclosed colour). The floor is a term of
+// the model like the others: the daylight's scale is told with it.
 inline constexpr std::size_t kRelitLeastBounceEvidence = 100;
 struct RelitLightColours {
     Rgbf sun{1.0F, 1.0F, 1.0F};

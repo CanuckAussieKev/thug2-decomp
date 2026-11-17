@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -859,8 +860,9 @@ void log_cones(std::span<const rt::RelitMesh> meshes, std::span<const uint8_t> b
 // (round light cards, reported - the global unit's evidence; round bounce unit: the fit's anchor) The bounce against the
 // bake where the bake's light can only be bounced light (rt_relit.h relit_bounce_evidence: under kRelitEnclosedSky of
 // the sky, none of the sun, no listed lamp) - the quartiles of their colour over their traced bounce B (luma) - and what
-// the fit made of it: the bounce coefficient it holds (the measured median) against the edges' own, and the factor on
-// the daylight. Also the medians of every lit vertex's colour, B and K.
+// the fit made of it (round bounce unit 2: g and the bake's floor fitted - rt_relit.h kRelitLeastBounceEvidence)
+// against the edges' own g and the raw medians, and the factor on the daylight. Also the medians of every lit vertex's
+// colour, B and K.
 void log_bounce_evidence(std::span<const rt::RelitMesh> meshes, std::span<const rt::RelitVertices> light,
                          const rt::RelitModel& model)
 {
@@ -903,16 +905,25 @@ void log_bounce_evidence(std::span<const rt::RelitMesh> meshes, std::span<const 
     const float moved = model.bounce_anchored && model.bounce_measured > 0.0F
                             ? model.daylight_scale * model.bounce_edges / model.bounce_measured
                             : 1.0F;
-    get_log("relit bake: the bounce's strength - %s (%zu vertices of the evidence, at least %zu): the bounce %.3f (the "
-            "edges' own %.3f), the daylight x %.3f against it; the daylight over the bounce x %.3f of the edges' fit "
-            "(the daylight's factor told over every lit vertex %.3f, over the daylit ones no listed lamp reaches %.3f; "
-            "the edges' bounce held within the evidence's quartiles %.3f, the daylight x %.3f with it)",
+    get_log("relit bake: the bounce's strength - %s (%zu vertices of the evidence, at least %zu): the bounce g %.3f and "
+            "the bake's floor %.4f %.4f %.4f fitted (t (g B + A), the least absolute log residual; %zu left out brighter "
+            "than the fit by %.0f of its spread - unexplained, %zu whose colour the sky's leak explains); the edges' own "
+            "g %.3f, the median of colour over B %.3f (with the floor in it), of (colour less the sky's leak) over B %.3f; "
+            "the daylight x %.3f against it; the daylight over the bounce x %.3f of the edges' fit (the daylight's factor "
+            "told over every lit vertex %.3f, over the daylit ones no listed lamp reaches %.3f); %zu vertices at the "
+            "bake's clamp (bounds, not measures); the sun %.3f measured at %zu vertices (the edges' %.3f), the sky %.3f at %zu (the "
+            "edges' %.3f) - fewer than %zu: the edges' kept",
             model.bounce_anchored ? "the bake's own measure" : "the edges' (too little evidence)", model.bounce_evidence,
             rt::kRelitLeastBounceEvidence, static_cast<double>(luma(model.bounce)),
-            static_cast<double>(model.bounce_edges), static_cast<double>(model.daylight_scale),
-            static_cast<double>(moved), static_cast<double>(model.daylight_scale_all),
-            static_cast<double>(model.daylight_scale_lamp_free), static_cast<double>(model.bounce_clamped),
-            static_cast<double>(model.daylight_scale_clamped));
+            static_cast<double>(std::get<0>(model.floor)), static_cast<double>(std::get<1>(model.floor)),
+            static_cast<double>(std::get<2>(model.floor)), model.bounce_unexplained,
+            static_cast<double>(rt::kRelitUnexplained), model.bounce_leak_only, static_cast<double>(model.bounce_edges),
+            static_cast<double>(model.bounce_ratio_median), static_cast<double>(model.bounce_leakless_median),
+            static_cast<double>(model.daylight_scale), static_cast<double>(moved),
+            static_cast<double>(model.daylight_scale_all), static_cast<double>(model.daylight_scale_lamp_free),
+            model.clamped, static_cast<double>(luma(model.sun)), model.sun_seen, static_cast<double>(model.sun_edges),
+            static_cast<double>(luma(model.sky)), model.sky_seen, static_cast<double>(model.sky_edges),
+            rt::kRelitLeastBounceEvidence);
 }
 
 void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& tracer)
@@ -1276,6 +1287,39 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                     static_cast<double>(std::get<1>(own_day.sky_light)), static_cast<double>(std::get<2>(own_day.sky_light)),
                     static_cast<double>(model.daylight_ratio),
                     static_cast<double>(luma(own_day.sky_light) > 0.0F ? luma(model.sky) / luma(own_day.sky_light) : 0.0F));
+            {
+                // (round bounce unit 2 - a check, never an input) the albedos the unit gives the surfaces (the tints'
+                // luminance: the vertex colour's part, the texture's not in it) against real ones' range - built
+                // surfaces' diffuse albedos are mostly 0.1 - 0.4, fresh snow ~0.9; and the bake's floor in the unit
+                std::vector<float> albedos;
+                for (std::size_t mi = 0; mi < meshes.size() && mi < light.size(); ++mi) {
+                    const rt::RelitMesh& mesh = core::at(meshes, mi);
+                    const rt::RelitVertices& mesh_light = core::at(light, mi);
+                    for (std::size_t vi = 0; vi < mesh_light.size(); ++vi) {
+                        if (core::at(mesh_light, vi).used && rt::relit_baked_vertex(mesh, static_cast<uint32_t>(vi))) {
+                            albedos.push_back(luma(core::at(mesh_light, vi).tint));
+                        }
+                    }
+                }
+                const auto quantile = [&albedos](double at) {
+                    if (albedos.empty()) {
+                        return 0.0F;
+                    }
+                    const auto it = albedos.begin() + static_cast<std::ptrdiff_t>(static_cast<double>(albedos.size() - 1) * at);
+                    std::ranges::nth_element(albedos, it);
+                    return *it;
+                };
+                constexpr double kLow = 0.1;
+                constexpr double kQuarter = 0.25;
+                constexpr double kMiddle = 0.5;
+                constexpr double kThree = 0.75;
+                constexpr double kHigh = 0.9;
+                get_log("relit bake: the albedos (a check) - %zu vertices: 10%% %.3f, 25%% %.3f, median %.3f, 75%% %.3f, "
+                        "90%% %.3f; the bake's floor %.4f in the unit (taken out of the tints, not lit)",
+                        albedos.size(), static_cast<double>(quantile(kLow)), static_cast<double>(quantile(kQuarter)),
+                        static_cast<double>(quantile(kMiddle)), static_cast<double>(quantile(kThree)),
+                        static_cast<double>(quantile(kHigh)), static_cast<double>(model.floor_unit));
+            }
             model.sun = sunless ? rt::Rgbf{} : own_day.sun_light;
             bake_sky = model.sky;
             sun_elevation = sunless ? 0.0F : static_cast<float>(std::asin(std::clamp(static_cast<double>(rt::y_of(model.toward)), -1.0, 1.0)) *
