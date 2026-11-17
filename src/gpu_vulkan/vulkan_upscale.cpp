@@ -17,6 +17,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -950,6 +951,7 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
     frame.reset = own.reset || own.last_render.width != render.width || own.last_render.height != render.height ||
                   own.last_output.width != output.width || own.last_output.height != output.height;
     frame.sharpness = own.settings.sharpness;
+    frame.pre_exposure = rt::frame_pre_exposure(); // (round S2)
     const auto time_now = std::chrono::steady_clock::now();
     if (own.passes > 0) {
         frame.frame_milliseconds = std::clamp(

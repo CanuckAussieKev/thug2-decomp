@@ -20,6 +20,7 @@
 #include "engine/gfx/paint_trails.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
@@ -80,6 +81,11 @@ void read_time_of_day(const Resolution& in_effect)
     }
     settings.lighting_only = !in_effect.at("tod").limits.empty() || !in_effect.at("tod_cycle").limits.empty() ||
                              !in_effect.at("tod_levels").limits.empty();
+    // (round S) the moon's phase when the clock starts
+    const std::string& moon = in_effect.value("tod_moon");
+    if (!moon.empty() && !render::rt::parse_moon_age(moon, &settings.moon_age)) {
+        get_log("[Graphics] tod_moon=%s isn't new, first, full, last or 0 - 29.5 days - full", moon.c_str());
+    }
     const std::string& levels = in_effect.value("tod_levels");
     if (!render::rt::parse_tod_levels(levels, &settings.levels)) {
         get_log("[Graphics] tod_levels=%s: an entry isn't <level>:<tod> - those before it used", levels.c_str());
@@ -113,13 +119,11 @@ unsigned at_least_one(const Resolution& in_effect, const char* key, unsigned fal
 constexpr const char* kDefaultSunSource = "level";
 void read_sun_source(const Resolution& in_effect)
 {
-    const std::string& text = in_effect.value("rt_sun_source");
+    // (round S: rt_sun_source retired - the level's own sun, or the clock's; the console's `rt sun source` sets a
+    // fixed one for a run)
+    const std::string text = kDefaultSunSource;
     render::rt::SunChoice choice;
-    if (!render::rt::parse_sun_source(text, &choice)) {
-        get_log("[Graphics] rt_sun_source=%s isn't game, level, x,y,z or heading,elevation - %s used", text.c_str(),
-                kDefaultSunSource);
-        render::rt::parse_sun_source(kDefaultSunSource, &choice);
-    }
+    render::rt::parse_sun_source(kDefaultSunSource, &choice);
     render::rt::set_sun_choice(choice);
     static bool retired_logged = false;
     if (!retired_logged) {
@@ -164,7 +168,6 @@ render::vulkan::RtShadowSettings make_rt_shadows(const Resolution& in_effect)
     const render::vulkan::RtShadowSettings defaults;
     return render::vulkan::RtShadowSettings{
         .on = in_effect.on("rt_shadows"),
-        .softness = in_effect.number("rt_shadow_softness", defaults.softness),
         .rays = at_least_one(in_effect, "rt_shadow_rays", defaults.rays),
         // (1 by default since the water and glass work: the skater's own projected shadow - a blocky 256 x 256
         // texture - is hidden while the ray-traced one is drawn; rt::object_shadows_replaced)
@@ -278,7 +281,7 @@ render::vulkan::RtSunSettings make_rt_sun(const Resolution& in_effect)
 }
 
 // NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h).
-// rt_cloud_coverage: auto (the level's own sky) or 0 - 1.
+// rt_cloud_coverage: auto (the weather's - engine/gfx/rt_clouds.h weather_cloud_cover) or 0 - 1.
 render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
 {
     float cover = render::vulkan::kRtCloudCoverageAuto;
@@ -292,6 +295,9 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
             get_log("[Graphics] rt_cloud_coverage=%s isn't auto or 0 - 1 - auto used", cover_text.c_str());
         }
     }
+    // (round S) the settings' cover is one of the weather's sources (engine/gfx/rt_clouds.h cloud_coverage): the light,
+    // the drawn clouds and their shadows all read it
+    render::rt::set_cloud_cover(render::rt::CloudCoverSource::kSettings, cover >= 0.0F ? cover : -1.0F);
     return render::vulkan::RtSkySettings{.on = in_effect.on("rt_sky"),
                                          .clouds = in_effect.on("rt_clouds"),
                                          .coverage = cover,

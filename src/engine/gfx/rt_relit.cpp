@@ -949,8 +949,6 @@ bool parse_level(JsonReader& reader, RelitLevel* level)
         }
         if (key == "relit" && scalar.is_flag) {
             level->off = !scalar.flag;
-        } else if (key == "sun" && scalar.is_text) {
-            level->keeps_baked_sun = scalar.text == "level";
         } else if (key == "north" && scalar.is_number && std::isfinite(scalar.number)) {
             constexpr double kFullTurn = 360.0;
             level->north_set = true;

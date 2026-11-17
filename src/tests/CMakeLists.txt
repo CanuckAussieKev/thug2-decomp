@@ -66,6 +66,7 @@ endif()
 if(TARGET thug2_base)
     add_executable(thug2_daylight_check daylight_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_daylight.cpp"
                                         "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_sky.cpp"
+                                        "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_clouds.cpp"
                                         "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_light_field.cpp")
     target_link_libraries(thug2_daylight_check PRIVATE thug2_base)
 endif()

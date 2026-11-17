@@ -7,7 +7,6 @@
 #include <volk.h>
 
 #include "engine/gfx/rt_scene.h"
-#include "engine/gfx/rt_sky_match.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 
 // NOT ORIGINAL - a modern sky (docs/design/vulkan.md "The sky"; [Graphics] rt_sky, rt_clouds,
@@ -15,10 +14,10 @@
 // render_pc draws the level's sky dome as before, then tells this listener (rt::sky_view_drawn, ViewOrder::kSky), which
 // draws over every pixel the world left empty (the depth's far value) - before the sky scene's transparent layers (kept
 // only without clouds: painted cloud cards, haze bands, glows) and before every other effect:
-//   0. the level's own sky, once per sky scene: render_pc's capture of the dome (rt_scene.h SkyCapture: six faces from
-//      the origin) read back and analysed (engine/gfx/rt_sky_match.h) for one thing only - how cloudy it is: the
-//      clouds' coverage (auto). Its colours are not used: the sky and the clouds are the atmosphere's at every time of
-//      day (the painted dome's colours matched in before - rt_sky_match, retired - kept a midday blue at dawn);
+//   0. the level's own sky, once per sky scene: a new capture of the dome (rt_scene.h SkyCapture) starts the clouds'
+//      histories again. Nothing of the painted dome is used: the sky and the clouds are the atmosphere's at every time
+//      of day (its colours matched in before - rt_sky_match, retired - kept a midday blue at dawn), and the clouds'
+//      cover is the weather's (rt_clouds.h cloud_coverage - round S2; its clouds' share read from the dome before);
 //   1. the atmosphere (vulkan_rt_sky.h: transmittance, Psi, the sky-view table - the model alone) for the sun the player
 //      sees (vulkan_rt_sky.h visible_sun: the time of day's - rt::DayLight -, the game's SetSun, the baked sun; else
 //      50 degrees up), the night sky's light added at night; the fog's table follows it, so the aerial haze fades the
@@ -65,11 +64,13 @@ void prepare_rt_sky(Backend& state);
 // shimmering into place.
 inline constexpr uint32_t kSkySeedFrames = 12;
 [[nodiscard]] uint64_t rt_sky_passes();
+// (round S2) The clouds' histories start again (seeded in their next pass) - a lighting cut (rt_daylight.h DayLight::cut):
+// they hold the light before it, at its pre-exposure. The caller holds the lock.
+void rt_sky_reset_history();
 
-// The level's sky as read (the last analysis), the clouds' coverage from it and the atmosphere's input.
+// The level's sky: its capture's serial, the clouds' coverage used (the weather's) and the atmosphere's input.
 struct RtSkyLevel {
     uint64_t capture_serial = 0;
-    rt::SkyLook look;
     AtmosphereInput atmosphere; // what the sky-view table is made with
     float coverage = 0.0F;      // the clouds' coverage used
 };

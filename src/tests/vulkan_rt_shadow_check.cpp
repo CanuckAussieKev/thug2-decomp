@@ -914,7 +914,7 @@ void compare(const Case& test, const std::vector<uint8_t>& texels, Tally* tally)
 {
     const Comparison comparison{
         .casters = render::vulkan::kMaskWorld | (test.settings.objects ? render::vulkan::kMaskObjects : 0U),
-        .radius = test.settings.softness > 0.0F ? kClearCutSoft : kClearCut};
+        .radius = test.settings.rays > 1 ? kClearCutSoft : kClearCut};
     Counts counts;
     for (int row = 0; row < kRows; ++row) {
         for (int column = 0; column < kColumns; ++column) {
@@ -1056,17 +1056,15 @@ int window_position(int display)
 // The cases, in order.
 std::vector<Case> cases()
 {
-    constexpr float kSoftDegrees = 2.0F;
     constexpr unsigned kSoftRays = 8;
     constexpr uint32_t kFourSamples = 4;
     // (shadows under roofs too: the reference's plain rule - the sky test has a case of its own)
     // (the frame record's light as the scene's sun - a fixed rt_sun_source: there's no level bake here to find one in)
     render::rt::set_sun_choice({.source = render::rt::SunSource::kFixed, .fixed = floats(toward_light())});
-    const render::vulkan::RtShadowSettings hard{.on = true};
+    const render::vulkan::RtShadowSettings hard{.on = true, .rays = 1}; // (round S: one ray - the disc's centre)
     render::vulkan::RtShadowSettings objects = hard;
     objects.objects = true;
     render::vulkan::RtShadowSettings soft = hard;
-    soft.softness = kSoftDegrees;
     soft.rays = kSoftRays;
     return {
         {.name = "one sample", .samples = 0, .settings = hard},

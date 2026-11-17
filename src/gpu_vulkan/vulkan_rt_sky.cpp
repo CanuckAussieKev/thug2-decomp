@@ -472,14 +472,11 @@ struct SkyState {
     bool colours_valid = false;
     std::array<float, 3> colours_toward{};
     SkyColours colours;
-    // sun_colour_for's (the visible sun's colour)
-    bool visible_valid = false;
-    std::array<float, 3> visible_toward{};
-    std::array<float, 3> visible_colour{1.0F, 1.0F, 1.0F};
     // (added by the sky) what the table was last made from: the sky-view table (and which one) or the model
     bool made_follow = false;
     uint64_t made_generation = 0;
     rt::Aerosol made_aerosol; // (added by the physical air)
+    float made_exposure = 1.0F; // (round S) the frame's pre-exposure it was made with
 };
 
 SkyState& sky_state()
@@ -730,17 +727,6 @@ bool visible_sun(std::array<float, 3>* toward)
     return true;
 }
 
-std::array<float, 3> sun_colour_for(const std::array<float, 3>& toward)
-{
-    SkyState& own = sky_state();
-    if (!own.visible_valid || own.visible_toward != toward) {
-        own.visible_colour = rt::sun_colour_at(elevation_of(toward));
-        own.visible_toward = toward;
-        own.visible_valid = true;
-    }
-    return own.visible_colour;
-}
-
 SkyColours sky_colours(const std::array<float, 3>& toward)
 {
     SkyState& own = sky_state();
@@ -777,7 +763,8 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
     const float same = (core::at(toward, 0) * core::at(own.toward, 0)) + (core::at(toward, 1) * core::at(own.toward, 1)) +
                        (core::at(toward, 2) * core::at(own.toward, 2));
     if (own.valid && same >= kSameDirection && own.made_follow == follow &&
-        (!follow || own.made_generation == atmosphere.generation) && own.made_aerosol == rt::aerosol()) {
+        (!follow || own.made_generation == atmosphere.generation) && own.made_aerosol == rt::aerosol() &&
+        own.made_exposure == rt::frame_pre_exposure()) {
         return true;
     }
     std::string error;
@@ -810,7 +797,8 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
     const rt::Dir model = rt::sun_direction_at(elevation);
     TableConstants constants{};
     constants.sun = {static_cast<float>(core::at(model, 0)), static_cast<float>(core::at(model, 1)),
-                     static_cast<float>(core::at(model, 2)), static_cast<float>(rt::sky_exposure())};
+                     static_cast<float>(core::at(model, 2)),
+                     static_cast<float>(rt::sky_exposure() * static_cast<double>(rt::frame_pre_exposure()))};
     constants.steps = {static_cast<int32_t>(kTableSteps.view), static_cast<int32_t>(kTableSteps.light), 0, 0};
     const rt::Aerosol air = rt::aerosol();
     constants.aerosol = aerosol_constants(air);
@@ -864,6 +852,7 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
     }
     own.toward = toward;
     own.made_aerosol = air;
+    own.made_exposure = rt::frame_pre_exposure();
     own.valid = true;
     own.made_follow = follow;
     own.made_generation = atmosphere.generation;
@@ -885,7 +874,6 @@ void invalidate_sky()
 {
     sky_state().valid = false;
     sky_state().colours_valid = false;
-    sky_state().visible_valid = false;
 }
 
 void sky_without_sun()
@@ -1128,7 +1116,8 @@ bool update_atmosphere(Backend& state, VkCommandBuffer commands, const Atmospher
     const rt::Dir model = rt::sun_direction_at(elevation);
     AtmosphereConstants constants{};
     constants.sun = {static_cast<float>(core::at(model, 0)), static_cast<float>(core::at(model, 1)),
-                     static_cast<float>(core::at(model, 2)), static_cast<float>(rt::sky_exposure())};
+                     static_cast<float>(core::at(model, 2)),
+                     static_cast<float>(rt::sky_exposure() * static_cast<double>(input.exposure))};
     constants.night = {core::at(input.night, 0), core::at(input.night, 1), core::at(input.night, 2), 0.0F};
     constants.aerosol = aerosol_constants(input.aerosol);
     if (own.fixed_made && !(own.fixed_aerosol == input.aerosol)) {

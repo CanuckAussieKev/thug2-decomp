@@ -38,8 +38,7 @@ bool frame_sun(std::array<float, 3>* toward);
 // where the shadows and the light come from -, else (no scene sun: indoors, or the fit not made yet) where the game
 // shows its sun (rt::game_sun), lighting nothing. False: none. (rt_sun_place is retired.)
 bool visible_sun(std::array<float, 3>* toward);
-// The sun's colour for `toward` alone (rt_sun_colour or the model's; cheap, kept for the last direction).
-[[nodiscard]] std::array<float, 3> sun_colour_for(const std::array<float, 3>& toward);
+// (round S - R2: one sun colour, the atmosphere's - DayLight's light; sun_colour_for, a second source no one read, gone)
 
 // The sun's colour (display-referred, its brightest channel 1) and the sky's overhead for `toward` (set or the model's).
 struct SkyColours {
@@ -92,6 +91,8 @@ struct AtmosphereInput {
     std::array<float, 3> night{};
     // (added by the physical air) the weather's aerosol (rt_sky.h): a change makes the transmittance and Psi again
     rt::Aerosol aerosol = rt::aerosol_for(rt::Weather::kClear);
+    // (round S) the frame's pre-exposure (rt_daylight.h frame_pre_exposure): the sky-view table's radiance x it
+    float exposure = 1.0F;
     bool operator==(const AtmosphereInput&) const = default;
 };
 // The tables brought up to date (recorded outside a pass, a barrier after). The caller holds the lock. False: they can't

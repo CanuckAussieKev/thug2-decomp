@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <numbers>
 #include <vector>
 
@@ -328,15 +329,12 @@ std::array<double, 4> sample_plane(const std::vector<uint8_t>& texels, uint32_t 
     return out;
 }
 
-double cloud_density(const CloudNoise& noise, const Vec3d& point, double coverage, bool detail)
+namespace {
+// (round S: shared by cloud_density and the layer's light - cloud_layer_light) The density from the weather's texel and
+// the shape's at a height in the layer (0 - 1), before the detail.
+double density_from(const std::array<double, 4>& weather, const std::array<double, 4>& shape, double height,
+                    double coverage)
 {
-    const double height = (core::at(point, 1) - kCloudBase) / (kCloudTop - kCloudBase);
-    if (height <= 0.0 || height >= 1.0) {
-        return 0.0;
-    }
-    const std::array<double, 4> weather =
-        sample_plane(noise.weather, kCloudWeatherSize,
-                     {core::at(point, 0) / kCloudWeatherScale, core::at(point, 2) / kCloudWeatherScale});
     const double cover = cloud_cover(weather, coverage);
     if (cover <= 0.0) {
         return 0.0;
@@ -347,13 +345,29 @@ double cloud_density(const CloudNoise& noise, const Vec3d& point, double coverag
     if (profile <= 0.0) {
         return 0.0;
     }
-    const std::array<double, 4> shape =
-        sample_volume(noise.shape, kCloudShapeSize, scaled(point, 1.0 / kCloudShapeScale));
     const double fbm = (core::at(shape, 1) * kOctaveFirst) + (core::at(shape, 2) * kOctaveSecond) +
                        (core::at(shape, 3) * kOctaveThird);
     const double base = saturate(remap(core::at(shape, 0), fbm - 1.0, 1.0, 0.0, 1.0)) * profile;
     // (the profile again after the threshold: tops and bases rounded off, not cut)
-    double density = saturate(remap(base, 1.0 - (cloud_threshold_share(coverage) * cover), 1.0, 0.0, 1.0)) * profile;
+    return saturate(remap(base, 1.0 - (cloud_threshold_share(coverage) * cover), 1.0, 0.0, 1.0)) * profile;
+}
+} // namespace
+
+double cloud_density(const CloudNoise& noise, const Vec3d& point, double coverage, bool detail)
+{
+    const double height = (core::at(point, 1) - kCloudBase) / (kCloudTop - kCloudBase);
+    if (height <= 0.0 || height >= 1.0) {
+        return 0.0;
+    }
+    const std::array<double, 4> weather =
+        sample_plane(noise.weather, kCloudWeatherSize,
+                     {core::at(point, 0) / kCloudWeatherScale, core::at(point, 2) / kCloudWeatherScale});
+    if (cloud_cover(weather, coverage) <= 0.0) {
+        return 0.0;
+    }
+    const std::array<double, 4> shape =
+        sample_volume(noise.shape, kCloudShapeSize, scaled(point, 1.0 / kCloudShapeScale));
+    double density = density_from(weather, shape, height, coverage);
     if (detail && density > 0.0) {
         const std::array<double, 4> fine =
             sample_volume(noise.detail, kCloudDetailSize, scaled(point, 1.0 / kCloudDetailScale));
@@ -537,6 +551,189 @@ CloudSkyLight cloud_sky_light(const std::vector<std::array<float, 4>>& table)
         }
     }
     return out;
+}
+
+// --- (round S) the weather's cover and the layer's light ------------------------------------------------------------
+
+namespace {
+struct CoverSlots {
+    std::mutex mutex;
+    std::array<float, static_cast<std::size_t>(CloudCoverSource::kCount)> cover{-1.0F, -1.0F, -1.0F};
+};
+CoverSlots& cover_slots()
+{
+    static CoverSlots slots;
+    return slots;
+}
+float cover_of(const CoverSlots& slots, CloudCoverSource source)
+{
+    return core::at(slots.cover, static_cast<std::size_t>(source));
+}
+
+// The columns' weather texels and, at each of kLayerHeights heights, the shape texel nearest the column's point there
+// (made once: they don't depend on the coverage).
+struct Columns {
+    std::vector<std::array<double, 4>> weather; // kLayerColumns^2
+    std::vector<std::array<double, 4>> shape;   // x kLayerHeights
+};
+uint32_t shape_texel_of(double metres)
+{
+    const double at = std::floor(metres / kCloudShapeScale * static_cast<double>(kCloudShapeSize));
+    return wrapped(static_cast<int>(std::fmod(at, static_cast<double>(kCloudShapeSize))),
+                   static_cast<int>(kCloudShapeSize));
+}
+const Columns& columns()
+{
+    static const Columns made = [] {
+        Columns out;
+        const uint32_t step = kCloudWeatherSize / kLayerColumns;
+        out.weather.reserve(static_cast<std::size_t>(kLayerColumns) * kLayerColumns);
+        out.shape.reserve(static_cast<std::size_t>(kLayerColumns) * kLayerColumns * kLayerHeights);
+        for (uint32_t row = 0; row < kLayerColumns; ++row) {
+            for (uint32_t column = 0; column < kLayerColumns; ++column) {
+                const std::array<uint32_t, 2> texel{(column * step) + (step / 2), (row * step) + (step / 2)};
+                out.weather.push_back(cloud_weather_texel(texel));
+                const double x = (static_cast<double>(core::at(texel, 0)) + kHalf) / kCloudWeatherSize * kCloudWeatherScale;
+                const double z = (static_cast<double>(core::at(texel, 1)) + kHalf) / kCloudWeatherSize * kCloudWeatherScale;
+                for (uint32_t k = 0; k < kLayerHeights; ++k) {
+                    const double y =
+                        kCloudBase + ((static_cast<double>(k) + kHalf) / kLayerHeights * (kCloudTop - kCloudBase));
+                    out.shape.push_back(cloud_shape_texel(shape_texel_of(x), shape_texel_of(y), shape_texel_of(z)));
+                }
+            }
+        }
+        return out;
+    }();
+    return made;
+}
+
+// Eddington's two-stream reflectance of a conservatively scattering layer (optical depth tau, asymmetry
+// kCloudDropletG) lit from the direction whose zenith cosine is mu.
+double layer_reflectance(double tau, double mu)
+{
+    const double k = 0.75 * (1.0 - kCloudDropletG) * tau;
+    const double reflected = (k + ((0.5 - (0.75 * mu)) * (1.0 - std::exp(-tau / mu)))) / (1.0 + k);
+    return std::clamp(reflected, 0.0, 1.0);
+}
+
+CloudLayerLight layer_light_of(const std::vector<double>& depths, double sine)
+{
+    CloudLayerLight light{.beam = 0.0, .sun_diffuse = 0.0, .sky_kept = 0.0, .mean_depth = 0.0};
+    const double mu = std::max(sine, kLeastLightSine);
+    for (const double tau : depths) {
+        const double beam = sine > 0.0 ? std::exp(-tau / mu) : 0.0;
+        const double through = 1.0 - layer_reflectance(tau, mu);
+        const double diffuse_through = 1.0 - layer_reflectance(tau, kDiffuseCosine);
+        // (the ground and the deck's base light each other: the ground's albedo x the deck's reflectance from below)
+        const double back = 1.0 / (1.0 - (kGroundAlbedo * (1.0 - diffuse_through)));
+        light.beam += beam;
+        light.sun_diffuse += sine > 0.0 ? sine * ((through * back) - beam) : 0.0;
+        light.sky_kept += diffuse_through * back;
+        light.mean_depth += tau;
+    }
+    const double count = std::max(1.0, static_cast<double>(depths.size()));
+    light.beam /= count;
+    light.sun_diffuse /= count;
+    light.sky_kept /= count;
+    light.mean_depth /= count;
+    return light;
+}
+} // namespace
+
+void set_cloud_cover(CloudCoverSource source, float coverage)
+{
+    CoverSlots& slots = cover_slots();
+    const std::scoped_lock lock(slots.mutex);
+    const float kept = std::isfinite(coverage) && coverage >= 0.0F ? std::min(coverage, 1.0F) : -1.0F;
+    core::at(slots.cover, static_cast<std::size_t>(source)) = kept;
+}
+
+float cloud_cover_of(CloudCoverSource source)
+{
+    CoverSlots& slots = cover_slots();
+    const std::scoped_lock lock(slots.mutex);
+    return cover_of(slots, source);
+}
+
+float weather_cloud_cover(Weather weather)
+{
+    switch (weather) {
+    case Weather::kClear:
+        return kClearAirCover;
+    case Weather::kHazy:
+        return kHazyAirCover;
+    case Weather::kMisty:
+        return kMistyAirCover;
+    }
+    return kClearAirCover;
+}
+
+float cloud_coverage()
+{
+    const Weather air = weather(); // (rt_sky.h: its own lock - taken before the slots')
+    CoverSlots& slots = cover_slots();
+    const std::scoped_lock lock(slots.mutex);
+    const float settings = cover_of(slots, CloudCoverSource::kSettings);
+    const float base = settings >= 0.0F ? settings : weather_cloud_cover(air);
+    const float cover =
+        std::max({base, cover_of(slots, CloudCoverSource::kSnow), cover_of(slots, CloudCoverSource::kRain)});
+    return std::clamp(cover, 0.0F, 1.0F);
+}
+
+std::vector<double> cloud_column_depths(double coverage)
+{
+    const Columns& made = columns();
+    const double amount = cloud_amount(coverage);
+    const double dz = (kCloudTop - kCloudBase) / kLayerHeights;
+    std::vector<double> depths(made.weather.size(), 0.0);
+    for (std::size_t c = 0; c < made.weather.size(); ++c) {
+        const std::array<double, 4>& weather = core::at(made.weather, c);
+        if (amount <= 0.0 || cloud_cover(weather, amount) <= 0.0) {
+            continue;
+        }
+        double tau = 0.0;
+        for (uint32_t k = 0; k < kLayerHeights; ++k) {
+            const double height = (static_cast<double>(k) + kHalf) / kLayerHeights;
+            tau += kCloudDensity * density_from(weather, core::at(made.shape, (c * kLayerHeights) + k), height, amount) *
+                   dz;
+        }
+        core::at(depths, c) = tau;
+    }
+    return depths;
+}
+
+CloudLayerLight cloud_layer_light(double coverage, double sine)
+{
+    if (!(coverage > 0.0)) {
+        return {};
+    }
+    // (the columns' depths at each tenth of the coverage, made once each, the light read between tenths)
+    static std::mutex mutex;
+    static std::array<std::vector<double>, kCloudAmounts.size()> tenths;
+    const double last = static_cast<double>(kCloudAmounts.size() - 1);
+    const double at = std::clamp(coverage, 0.0, 1.0) * last;
+    const auto low = std::min(static_cast<std::size_t>(at), kCloudAmounts.size() - 2);
+    const double share = at - static_cast<double>(low);
+    std::array<CloudLayerLight, 2> ends{};
+    for (std::size_t end = 0; end < ends.size(); ++end) {
+        const std::size_t tenth = low + end;
+        std::vector<double> depths;
+        {
+            const std::scoped_lock lock(mutex);
+            std::vector<double>& made = core::at(tenths, tenth);
+            if (made.empty()) {
+                made = cloud_column_depths(static_cast<double>(tenth) / last);
+            }
+            depths = made;
+        }
+        core::at(ends, end) = layer_light_of(depths, sine);
+    }
+    const CloudLayerLight& a = ends[0];
+    const CloudLayerLight& b = ends[1];
+    return {.beam = lerp(a.beam, b.beam, share),
+            .sun_diffuse = lerp(a.sun_diffuse, b.sun_diffuse, share),
+            .sky_kept = lerp(a.sky_kept, b.sky_kept, share),
+            .mean_depth = lerp(a.mean_depth, b.mean_depth, share)};
 }
 
 } // namespace render::rt

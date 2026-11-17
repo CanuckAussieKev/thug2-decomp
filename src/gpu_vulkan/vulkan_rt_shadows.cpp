@@ -46,7 +46,6 @@ constexpr uint64_t kReportPipeline = 0x52340005U;
 constexpr uint64_t kReportFirstPass = 0x52340006U;
 constexpr uint64_t kReportAlphaPipeline = 0x52340007U;
 
-constexpr float kMaxSoftnessDegrees = 5.0F;
 constexpr unsigned kMaxRays = 16;
 constexpr double kDegreesToRadians = 3.14159265358979323846 / 180.0;
 constexpr std::size_t kMatrixSide = 4;
@@ -824,7 +823,6 @@ Sun sun_direction(std::array<float, 3>* to_light)
 void set_rt_shadow_settings(const RtShadowSettings& settings)
 {
     RtShadowSettings kept = settings;
-    kept.softness = std::isfinite(kept.softness) ? std::clamp(kept.softness, 0.0F, kMaxSoftnessDegrees) : 0.0F;
     kept.rays = std::clamp(kept.rays, 1U, kMaxRays);
     {
         const std::scoped_lock lock(backend().mutex);
@@ -983,10 +981,10 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         std::asin(std::clamp(static_cast<double>(core::at(own_sun.toward, 1)), -1.0, 1.0)) / kDegreesToRadians;
     constants.to_light = {core::at(to_light, 0), core::at(to_light, 1), core::at(to_light, 2),
                           rt::direct_share_now(day, own_sun.found, own_elevation)};
-    const bool soft = own.settings.softness > 0.0F && own.settings.rays > 1;
-    // (the lighting state's light: rt_shadow_softness is the sun's; the moon's, wider, softens them as much more)
-    const float softness =
-        day.on ? own.settings.softness * day.light_radius / rt::kSunRadiusDegrees : own.settings.softness;
+    // (round S - one sun and one moon: the cone is the light's own disc - rt_shadow_softness retired; rt_shadow_rays
+    // only says how finely it is sampled, one ray its centre)
+    const bool soft = own.settings.rays > 1;
+    const float softness = day.on ? day.light_radius : rt::kSunRadiusDegrees;
     constants.shape = {
         static_cast<float>(std::tan(static_cast<double>(softness) * kDegreesToRadians)),
         static_cast<float>(soft ? own.settings.rays : 1U), 0.0F, 0.0F};
@@ -1121,8 +1119,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         if (colour->samples != VK_SAMPLE_COUNT_1_BIT) {
             traced = state.context.enabled_features().sampleRateShading == VK_TRUE ? "per sample" : "per pixel";
         }
-        get_log("vulkan: rt_shadows: the first shadow pass (%ux%u, %s, softness %.2f deg x %u rays%s%s)",
-                width, height, traced, static_cast<double>(own.settings.softness),
+        get_log("vulkan: rt_shadows: the first shadow pass (%ux%u, %s, the light's disc %.3f deg x %u rays%s%s)",
+                width, height, traced, static_cast<double>(softness),
                 soft ? own.settings.rays : 1U, own.settings.objects ? ", objects cast" : "",
                 alpha ? ", alpha-tested casters by their alpha" : "");
     }

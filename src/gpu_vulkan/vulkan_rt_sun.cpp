@@ -1236,8 +1236,9 @@ RtSunFrame frame_for(const RtSunSettings& settings, const rt::ViewDrawn& view, c
     // (the physical air: the real sun's radiance through the frame's air - rt_sky.h sun_disc_radiance)
     const double elevation = std::asin(std::clamp(static_cast<double>(core::at(toward, 1)), -1.0, 1.0));
     const rt::Rgb radiance = rt::sun_disc_radiance(elevation);
-    frame.colour = {static_cast<float>(core::at(radiance, 0)), static_cast<float>(core::at(radiance, 1)),
-                    static_cast<float>(core::at(radiance, 2))};
+    const auto pre = static_cast<double>(rt::frame_pre_exposure()); // (round S: the frame's pre-exposure)
+    frame.colour = {static_cast<float>(core::at(radiance, 0) * pre), static_cast<float>(core::at(radiance, 1) * pre),
+                    static_cast<float>(core::at(radiance, 2) * pre)};
     const std::array<double, 4> at = transform(
         matrices.to_pixel, {static_cast<double>(core::at(toward, 0)), static_cast<double>(core::at(toward, 1)),
                    static_cast<double>(core::at(toward, 2)), 0.0});

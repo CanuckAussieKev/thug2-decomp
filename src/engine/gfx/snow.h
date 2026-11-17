@@ -231,8 +231,9 @@ void read_trails(const std::function<void(const TrailField& field)>& reader);
 // How far the level's wind (engine/gfx/wind.h) has carried the falling snow since the session began (world units
 // downwind: its gusting speed added up step by step on the snow's clock - the flakes' drift, the same every run).
 [[nodiscard]] double wind_drift();
-// The winter sky the lighting state takes while there is snow (day_clock: rt::apply_overcast): kOvercastFalling while
-// it snows (the last step's), kOvercastLying with snow on the ground and none falling, 0 with snow off or no sky map
+// The winter sky's cloud cover while there is snow (round S: the weather's coverage - day_clock sets it as rt_clouds.h's
+// CloudCoverSource::kSnow; the one cloud model then dims the light, draws the deck and casts its shadows):
+// kOvercastFalling while it snows (the last step's), kOvercastLying with snow on the ground and none falling, 0 with snow off or no sky map
 // (indoors, or not made yet).
 inline constexpr float kOvercastFalling = 1.0F;
 inline constexpr float kOvercastLying = 0.55F;

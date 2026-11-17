@@ -350,7 +350,6 @@ SunInputs scene_inputs(const SceneSunSlot& slot)
 {
     SunInputs in{.choice = slot.choice, .relight = slot.relight};
     in.override_set = sun_override(&in.override_toward);
-    in.game_set = game_sun(&in.game_toward);
     const BakedSun& baked = baked_sun();
     in.baked_scene = baked.scene;
     in.baked_found = baked.found;
@@ -422,12 +421,10 @@ const char* sun_origin_name(SunOrigin origin)
         return "waiting for the baked sun's fit";
     case SunOrigin::kOverride:
         return "the console's";
-    case SunOrigin::kGame:
-        return "the game's";
     case SunOrigin::kLevel:
         return "the level's baked sun";
     case SunOrigin::kFixed:
-        return "rt_sun_source's fixed direction";
+        return "a fixed direction (the console's rt sun source)";
     case SunOrigin::kClock:
         return "the time of day's (tod)";
     }

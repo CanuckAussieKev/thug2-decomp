@@ -138,13 +138,6 @@ Cond tod_runs()
     return any({is_not("tod", {"level"}), is("tod_cycle", {"on"}), computed(&tod_levels_set, {"tod_levels"})});
 }
 
-// rt_sun_source a fixed direction (x,y,z or heading,elevation): it beats the clock's sun (rt_sun.h resolve_scene_sun).
-bool sun_fixed(const Reader& reader)
-{
-    const std::string source = reader.value("rt_sun_source");
-    return source != "level" && source != "game";
-}
-
 // DLSS upscales: asked for (its choice needs an RTX), or auto on an RTX (vulkan_upscale.cpp: DLSS first on NVIDIA).
 Cond dlss_upscaling() { return any({is("upscaler", {"dlss"}), all({is("upscaler", {"auto"}), has(Cap::kRtx)})}); }
 Cond fsr_upscaling() { return any({is("upscaler", {"fsr"}), all({is("upscaler", {"auto"}), negate(has(Cap::kRtx))})}); }
@@ -316,14 +309,9 @@ std::vector<Decl> declarations()
         // ===== Lighting: the sun every effect lights by (engine/gfx/rt_scene.h scene_sun), the time of day
         // (engine/gfx/rt_daylight.h), shadows (gpu_vulkan/vulkan_rt_shadows.h), occlusion and bounce light
         // (vulkan_rt_effects.h), the lamps (vulkan_rt_lights.h)
-        gfx("rt_sun_source", K::kChoice, "level")
-            .tab(G::kLighting, t::kOptSunSource, t::kOptSunSourceHelp)
-            .pick({c("game", t::kOptSunSky), c("level", t::kOptSunLevel)})
-            .open()
-            .need(vulkan(), t::kNeedsVulkan)
-            .need(negate(all({asked_is("rt_sun_source", {"game"}), tod_runs()})), t::kClockSetsSun)
-            .off("level")
-            .live(E::kSunSource),
+        // (round S: the sun is the level's own, or the clock's - the game's sun and per-level opt-outs retired; the
+        // console's `rt sun source` keeps a fixed direction for experiments)
+        gfx("rt_sun_source", K::kText, "level").retire(t::kRetiredSunSource),
         gfx("tod", K::kChoice, "level")
             .tab(G::kLighting, t::kOptTod, t::kOptTodHelp)
             .pick({c("level", t::kOptSunLevel), c("dawn", t::kTodDawn), c("morning", t::kTodMorning), c("noon", t::kTodNoon),
@@ -347,6 +335,13 @@ std::vector<Decl> declarations()
             .pick({c("12", "12 min"), c("24", "24 min"), c("48", "48 min"), c("96", "96 min")})
             .need(is("tod_cycle", {"on"}))
             .live(E::kTimeOfDay),
+        // (round S) the moon's phase when the clock starts (new, first, full, last or its age in days)
+        gfx("tod_moon", K::kChoice, "full")
+            .tab(G::kLighting, t::kOptTodMoon, t::kOptTodMoonHelp)
+            .pick({c("new", t::kMoonNew), c("first", t::kMoonFirst), c("full", t::kMoonFull), c("last", t::kMoonLast)})
+            .open()
+            .need(tod_runs(), t::kNeedsTimeOfDay)
+            .live(E::kTimeOfDay),
         gfx("tod_levels", K::kText, "")
             .need(level_lit_or_no_rt(Cap::kLevelLightData), t::kLevelLightNotBuilt)
             .need(level_lit_or_no_rt(Cap::kLevelTakenApart), t::kLevelNotTakenApart)
@@ -362,20 +357,13 @@ std::vector<Decl> declarations()
         // (lighting round A - one shadow model: the sun's visibility at every lit pixel, never a blend or a darkening
         // over the bake - its strength, the sky test and the bake's agreement retired)
         gfx("rt_shadow_strength", K::kNumber, "0.5").retire(t::kOneShadowModel),
-        gfx("rt_shadow_softness", K::kNumber, "0")
-            .tab(G::kLighting, t::kOptShadowSoftness)
-            .pick({c("0", "Hard"), c("0.5", "0.5"), c("1", "1"), c("2", "2"), c("4", "4")})
-            .need(on("rt_shadows"))
-            .off("0")
-            .live(E::kShadows),
+        // (round S - one sun and one moon: the shadows' penumbra is the light's own disc, never a chosen size)
+        gfx("rt_shadow_softness", K::kNumber, "0").retire(t::kRetiredLightSize),
         gfx("rt_shadow_objects", K::kSwitch, "1")
             .tab(G::kLighting, t::kOptShadowObjects, t::kOptShadowObjectsHelp)
             .need(on("rt_shadows"))
             .live(E::kShadows),
-        gfx("rt_shadow_rays", K::kNumber, "4")
-            .need(on("rt_shadows"))
-            .need(is_not("rt_shadow_softness", {"0"}), t::kNeedsSoftShadows)
-            .live(E::kShadows),
+        gfx("rt_shadow_rays", K::kNumber, "1").need(on("rt_shadows")).live(E::kShadows),
         gfx("rt_shadow_match_bake", K::kSwitch, "1").retire(t::kOneShadowModel),
         gfx("rt_shadow_covered", K::kSwitch, "0").retire(t::kOneShadowModel),
         gfx("rt_shadow_sky_rays", K::kNumber, "5").retire(t::kOneShadowModel),
@@ -690,10 +678,11 @@ std::vector<Decl> declarations()
             .pick({c("-1", "-1"), c("-0.5", "-0.5"), c("0", "0"), c("0.5", "+0.5"), c("1", "+1")})
             .need(vulkan(), t::kNeedsVulkan)
             .live(E::kHdr),
-        // (added by the low sun's glare) the metering: stops a bright view may bring the exposure down (0: off)
-        gfx("rt_exposure_adapt", K::kNumber, "2")
+        // (added by the low sun's glare; round S: the eye's adaptation, on / off - any number above 0 is on: its range is
+        // the eye's, never a number of stops)
+        gfx("rt_exposure_adapt", K::kNumber, "1")
             .tab(G::kColour, t::kOptExposureAdapt, t::kOptExposureAdaptHelp)
-            .pick({c("0", t::kOff), c("1", t::kLow), c("2", t::kMedium), c("3", t::kHigh)})
+            .pick({c("0", t::kOff), c("1", t::kOn)})
             .need(vulkan(), t::kNeedsVulkan)
             .live(E::kHdr),
         gfx("rt_tonemap", K::kNumber, "0")
@@ -1148,7 +1137,6 @@ const std::vector<Force>& forces()
          .when = all({asked_is("upscaler", {"off"}), is_not("frame_generation", {"off"})}),
          .reason = t::kNativeForFrameGeneration},
         {.key = "reflex", .value = "on", .when = all({asked_is("reflex", {"off"}), dlss_frames()}), .reason = t::kOnForFrameGeneration},
-        {.key = "rt_relit", .value = "1", .when = is_not("rt_sun_source", {"level"}), .reason = t::kOnForSun},
         {.key = "rt_relit", .value = "1", .when = tod_runs(), .reason = t::kOnForTimeOfDay},
         // (the offline relit data: the lighting passes replace their own part of the relit level's light)
         {.key = "rt_relit",
@@ -1170,9 +1158,6 @@ const std::vector<Conflict>& conflicts()
         {.keys = {"frame_generation", "max_fps"},
          .when = all({is_not("frame_generation", {"off"}), computed(&past_refresh, {"frame_generation", "max_fps"})}),
          .reason = t::kPastRefresh},
-        {.keys = {"rt_sun_source", "tod"},
-         .when = all({computed(&sun_fixed, {"rt_sun_source"}), tod_runs()}),
-         .reason = t::kFixedSunStopsClock},
     };
     return kConflicts;
 }

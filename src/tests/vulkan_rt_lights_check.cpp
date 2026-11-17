@@ -1758,7 +1758,6 @@ void run_counted_once(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     render::vulkan::set_rt_light_settings({});
     render::vulkan::RtShadowSettings shadows;
     shadows.on = true;
-    shadows.softness = 0.0F;
     shadows.rays = 1;
     render::vulkan::set_rt_shadow_settings(shadows);
     const std::vector<FloorPixel> pixels = floor_pixels(toward);

@@ -212,7 +212,7 @@ Ini everything_on()
     }
     const Ini extra = {{"renderer", "vulkan"},
                        {"msaa", "4"},
-                       {"rt_shadow_softness", "1"},
+                       {"rt_shadow_rays", "4"},
                        {"rt_displacement", "1"},
                        {"tod", "noon"},
                        {"tod_cycle", "on"},
@@ -841,7 +841,7 @@ void check_capabilities()
 // The machines: what a typical ini resolves to on each.
 void check_machines()
 {
-    const Ini ini = {{"ray_tracing", "1"}, {"rt_shadows", "1"},     {"rt_shadow_softness", "1"}, {"rt_ao", "1"},
+    const Ini ini = {{"ray_tracing", "1"}, {"rt_shadows", "1"},     {"rt_shadow_rays", "4"},     {"rt_ao", "1"},
                      {"upscaler", "dlss"}, {"frame_generation", "4x"}, {"ray_reconstruction", "1"}, {"rt_pbr", "1"},
                      {"msaa", "4"},        {"grass", "1"},          {"rt_relit", "1"},             {"texture_set", "seedvr2"}};
     // RTX 50: everything as asked; DLSS-G makes 4x, Reflex on with it
@@ -934,13 +934,13 @@ void check_forces_and_conflicts()
            "DLSS-G asked on AMD: FSR's");
     const config::Resolution no_fg = resolve(rtx50(), {{"frame_generation_provider", "dlss"}});
     expect(!no_fg.at("frame_generation_provider").in_effect, "a provider without frame generation: out of effect");
-    // the relit mode: forced on by a sun other than the level's, by the time of day; its knobs in effect with it
-    const config::Resolution sun = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_sun_source", "game"}});
-    expect(sun.on("rt_relit") && sun.at("rt_relit").forced && sun.at("rt_relit").reason == t::kOnForSun,
-           "rt_sun_source=game: relit on");
-    expect(sun.at("rt_relit_sky_rays").in_effect, "relit forced on: its rays in effect");
+    // the relit mode: forced on by the time of day; its knobs in effect with it
     const config::Resolution tod = resolve(rtx50(), {{"ray_tracing", "1"}, {"tod", "night"}});
     expect(tod.on("rt_relit") && tod.at("rt_relit").reason == t::kOnForTimeOfDay, "tod=night: relit on");
+    expect(tod.at("rt_relit_sky_rays").in_effect, "relit forced on: its rays in effect");
+    // (round S) the moon's phase: in effect with the clock
+    expect(tod.at("tod_moon").in_effect && tod.value("tod_moon") == "full", "tod_moon: full by default, with the clock");
+    expect(!resolve(rtx50(), {}).at("tod_moon").in_effect, "tod_moon: out of effect without the clock");
     const config::Resolution cycle = resolve(rtx50(), {{"ray_tracing", "1"}, {"tod_cycle", "on"}});
     expect(cycle.on("rt_relit") && cycle.at("tod_cycle_minutes").in_effect, "the day cycle: relit on, its length in effect");
     const config::Resolution levels = resolve(rtx50(), {{"ray_tracing", "1"}, {"tod_levels", "NO:night,AU:level"}});
@@ -950,15 +950,12 @@ void check_forces_and_conflicts()
     const config::Resolution tod_nort = resolve(no_rt_gpu(), {{"ray_tracing", "1"}, {"tod", "night"}});
     expect(!tod_nort.on("rt_relit") && tod_nort.at("rt_relit").reason == t::kNeedsRayGpu, "tod without RT: relit asked, out");
     expect(!tod_nort.at("tod_cycle_minutes").in_effect, "no day cycle: its length out of effect");
-    // the clock's sun beats rt_sun_source=game; a fixed direction beats the clock (a conflict)
-    const config::Resolution clock = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_sun_source", "game"}, {"tod", "dusk"}});
-    expect(!clock.at("rt_sun_source").in_effect && clock.at("rt_sun_source").reason == t::kClockSetsSun &&
-               clock.value("rt_sun_source") == "level",
-           "rt_sun_source=game under a time of day: the clock's sun");
-    const config::Resolution fixed = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_sun_source", "0.3,0.8,0.5"}, {"tod", "dusk"}});
-    expect(fixed.value("rt_sun_source") == "0.3,0.8,0.5" && !fixed.at("tod").conflicts.empty() &&
-               fixed.at("tod").conflicts.front() == t::kFixedSunStopsClock,
-           "a fixed sun and a time of day: a conflict");
+    // (round S) rt_sun_source and rt_shadow_softness retired: the clock's sun is the sun; the shadows' cone the light's own
+    const config::Resolution retired = resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_sun_source", "game"},
+                                                         {"rt_shadow_softness", "2"}, {"tod", "dusk"}});
+    expect(!retired.at("rt_sun_source").in_effect && !retired.at("rt_shadow_softness").in_effect &&
+               retired.at("tod").conflicts.empty() && retired.on("rt_relit"),
+           "rt_sun_source / rt_shadow_softness retired: the clock's sun, the light's own size");
     // THUGPRO's lobbies speak its messages
     const config::Resolution thugpro = resolve(rtx50(), {{"Miscellaneous/OnlineGameName", "thugpro"}});
     expect(thugpro.on("thugpro_peer") && thugpro.at("thugpro_peer").forced, "THUGPRO lobbies: its chat on");
@@ -1010,10 +1007,11 @@ void check_forces_and_conflicts()
     expect(!air_unrelit.at("rt_fog_god_rays").in_effect, "the god rays need relit lighting");
     expect(!resolve(rtx50(), {{"ray_tracing", "1"}, {"rt_relit", "1"}}).at("rt_fog_god_rays").in_effect,
            "the god rays need rt_fog");
-    // (added by the low sun's glare) the auto exposure: 2 stops by default - (round F) on Vulkan whatever rt_hdr says
+    // (added by the low sun's glare; round S: the eye - on / off) the auto exposure on by default - (round F) on Vulkan
+    // whatever rt_hdr says
     const config::Resolution metered = resolve(rtx50(), {});
-    expect(metered.value("rt_exposure_adapt") == "2" && metered.at("rt_exposure_adapt").in_effect,
-           "rt_exposure_adapt: 2 by default on Vulkan (the linear frame's camera)");
+    expect(metered.value("rt_exposure_adapt") == "1" && metered.at("rt_exposure_adapt").in_effect,
+           "rt_exposure_adapt: on by default on Vulkan (the eye's adaptation)");
     // (round F - a linear, scene-referred frame) rt_hdr is retired: the frame is linear light whatever it says, so no
     // other setting's effective value moves with it - the scene the renderer is given is the same
     {

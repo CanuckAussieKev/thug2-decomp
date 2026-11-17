@@ -22,7 +22,9 @@
 #include "engine/gfx/game_hooks.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/lens_flare.h"
+#include "engine/gfx/rain.h"
 #include "engine/gfx/relit_data.h"
+#include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_light_field.h"
@@ -140,6 +142,7 @@ struct Clock {
     bool started = false;
     rt::TodChoice choice;
     double hours = 0.0;
+    double days = 0.0; // (round S) whole days the clock has run since it started (the moon ages with them)
     std::array<std::array<gfx::TodParams, rt::kTodStates>, kSystems> params{};
     std::array<bool, kSystems> have_params{};
     bool params_read = false;
@@ -153,6 +156,44 @@ struct Clock {
     rt::DayVec placed_sun{};
     std::string status = "tod: level (the level as it is)";
 };
+
+// (round S2) The lighting's cuts (rt_daylight.h DayLight::cut): the light published last and its cut - kept apart from
+// Clock, which starts again when the level's scripts give the clock the level back.
+struct Cuts {
+    uint64_t cut = 0;
+    bool known = false;
+    uint32_t level = 0;
+    rt::TodChoice choice;
+    double moon_setting = 0.0;
+    rt::DayLight last;
+};
+Cuts& cuts()
+{
+    static Cuts state;
+    return state;
+}
+
+// The cut for `light` (the clock's, about to be published): the same as the last one while only the running clock moved
+// it (tod_cycle: the hours, and with them the sun, the moon and the light), a new one when anything else did - another
+// level, a time, a moon or a weather set, the clouds' cover.
+uint64_t cut_for(const rt::DayLight& light, uint32_t level, const rt::TodChoice& choice, const rt::TodSettings& settings)
+{
+    Cuts& own = cuts();
+    const rt::DayLight& last = own.last;
+    const bool same_inputs = own.known && own.level == level && own.choice == choice &&
+                             own.moon_setting == settings.moon_age && last.cloud_cover == light.cloud_cover;
+    const bool moved = last.hours != light.hours || last.illuminance_lux != light.illuminance_lux ||
+                       last.moon_age != light.moon_age || last.sun != light.sun || last.lamps != light.lamps;
+    if (!same_inputs || (!settings.cycle && moved)) {
+        ++own.cut;
+    }
+    own.known = true;
+    own.level = level;
+    own.choice = choice;
+    own.moon_setting = settings.moon_age;
+    own.last = light;
+    return own.cut;
+}
 // (the exposure is the camera's alone - the HDR pass meters the picture: gpu_vulkan/vulkan_hdr.h; changed by the
 // physical air: the clock's own exposure, a second controller, retired)
 
@@ -510,26 +551,41 @@ void step()
     // motion with it, stopped while the game is paused (as the original's own day: CtodManager::tick_frame)
     if (!own.started || choice != own.choice) {
         own.hours = rt::preset_hours(choice, own.native);
+        own.days = 0.0;
         own.choice = choice;
         own.started = true;
     } else if (settings.cycle && (hooks.game_halted == nullptr || !hooks.game_halted())) {
         own.hours += frame_clock::get_slomo_frame_seconds() * rt::kHoursPerDay /
                      (static_cast<double>(settings.cycle_minutes) * kSecondsPerMinute);
+        if (own.hours >= rt::kHoursPerDay) {
+            own.days += std::floor(own.hours / rt::kHoursPerDay);
+        }
         own.hours = std::fmod(own.hours, rt::kHoursPerDay);
     }
     const double stepped = std::round(own.hours * kStepsPerHour) / kStepsPerHour;
-    rt::DayLight light = rt::day_light_at(own.native, stepped);
-    rt::apply_overcast(&light, snow::overcast_share()); // (NOT ORIGINAL - the snow's winter sky: rt_daylight.h)
+    // (round S) the weather's cover - the snow's sky among its sources (rt_clouds.h: one cloud model lights the level,
+    // draws the clouds and casts their shadows) - and the moon's age, a day older each day the clock runs
+    const float snow_cover = snow::overcast_share();
+    rt::set_cloud_cover(rt::CloudCoverSource::kSnow, snow_cover > 0.0F ? snow_cover : -1.0F);
+    const double rain_cover = rain::cloud_cover(rain::settings().rate); // (the rain's deck: rain.h)
+    rt::set_cloud_cover(rt::CloudCoverSource::kRain, rain_cover > 0.0 ? static_cast<float>(rain_cover) : -1.0F);
+    const double age = std::fmod(settings.moon_age + own.days + (stepped / rt::kHoursPerDay), rt::kSynodicMonth);
+    rt::DayLight light =
+        rt::day_light_at(own.native, stepped, {.moon_age = age, .cloud_cover = rt::cloud_coverage()});
+    rt::pre_expose(&light);
+    light.cut = cut_for(light, level, choice, settings);
     rt::set_day_light(light);
     apply_original(own, *manager, light, settings.lighting_only);
     place_sun(own, light);
     const rt::SkyPlace sun = rt::heading_of(light.sun);
-    own.status = text::format("tod: %s%s - %s, the sun %.1f degrees up%s; light %.2f (%s), sky %.2f, lamps %.2f%s",
+    own.status = text::format("tod: %s%s - %s, the sun %.1f degrees up%s; %.4g lux on the ground (%s; the moon %.1f days "
+                              "old), clouds %.2f keeping %.3f of it, lamps %.2f, pre-exposure %.4g%s",
                               rt::tod_text(choice).c_str(), settings.cycle ? " (running)" : "",
                               rt::tod_text({.preset = rt::TodPreset::kClock, .hours = static_cast<float>(light.hours)}).c_str(),
-                              sun.elevation, light.moonlit ? ", moonlit" : "", static_cast<double>(light.direct),
-                              light.moonlit ? "the moon" : "the sun", static_cast<double>(std::get<1>(light.sky)),
-                              static_cast<double>(light.lamps), settings.lighting_only ? " (online: lighting only)" : "");
+                              sun.elevation, light.moonlit ? ", moonlit" : "", static_cast<double>(light.illuminance_lux),
+                              light.moonlit ? "the moon" : "the sun", light.moon_age, static_cast<double>(light.cloud_cover),
+                              static_cast<double>(light.cloud_beam), static_cast<double>(light.lamps),
+                              static_cast<double>(light.pre_exposure), settings.lighting_only ? " (online: lighting only)" : "");
 }
 
 const char* status() { return clock().status.c_str(); }

@@ -2518,8 +2518,20 @@ AerialLight aerial_light(const rt::ViewDrawn& view, float ground)
         const double through = luma(rt::sun_transmittance(elevation, kLightSteps));
         top = through > 1e-6 ? luma(irradiance) / through : 0.0;
     } else {
+        // (round S: the clock's sun through the clouds' mean - the map gives each point's over it - and the frame's
+        // pre-exposure, as the lighting state's light carries them)
+        const rt::DayLight day = rt::day_light();
+        const double pre = day.on ? static_cast<double>(day.pre_exposure) : 1.0;
+        const double beam = day.on ? static_cast<double>(day.cloud_beam) : 1.0;
         irradiance = rt::sun_transmittance(elevation, kLightSteps);
+        for (double& value : irradiance) {
+            value *= pre * beam;
+        }
+        top = pre;
     }
+    // (round S) the sky's light under the clouds: the share of the clear sky's the lighting state keeps
+    const rt::DayLight sky_day = rt::day_light();
+    top *= sky_day.on ? static_cast<double>(sky_day.cloud_sky) : 1.0;
     const double above = std::max(static_cast<double>(core::at(view.camera.position, 1)) - ground, 0.0) /
                          rt::kUnitsPerMetre;
     constexpr rt::MultipleSteps kPsiSteps{.steps = 10, .light = 8};
