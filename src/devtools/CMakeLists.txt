@@ -10,6 +10,7 @@ add_library(thug2_devtools STATIC
     automation_trace.cpp
     automation_report.cpp
     automation_parse.cpp
+    command_file.cpp
     console.cpp
     fps_counter.cpp
     demo.cpp

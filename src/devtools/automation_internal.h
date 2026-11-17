@@ -6,6 +6,7 @@
 // it saw them there.
 
 #include "devtools/automation.h"
+#include "devtools/command_file.h"
 #include <windows.h>
 #include <cstdint>
 #include <deque>
@@ -78,9 +79,7 @@ struct Seg {
 struct Runner {
     // the file
     bool looked = false;
-    uint64_t size = 0, time = 0, offset = 0;
-    std::string partial;
-    int still_frames_ = 0;
+    CommandFile file; // (what has been read of it - devtools/command_file.h)
     int lines_read_ = 0, lines_done_ = 0;
     std::deque<Seg> queue;
     // the running command

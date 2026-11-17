@@ -64,8 +64,9 @@ test("files are written only by fs_win32/, platform/, tests/, retail_limits/ and
 });
 
 // (the Vulkan Gpu check and the movie codec check are programs of their own: they install the disk the Gpu writes the
-// screen shot's JPEG through / the FFmpeg codec reads the movies through)
-const OWN_DISK = new Set(["fs_win32/win32_disk.cpp", "tests/vulkan_gpu_check.cpp"]);
+// screen shot's JPEG through / the FFmpeg codec reads the movies through; the automation file check: the command file's
+// looks go through it)
+const OWN_DISK = new Set(["fs_win32/win32_disk.cpp", "tests/vulkan_gpu_check.cpp", "tests/automation_file_check.cpp"]);
 test("only app/ installs the Win32 disk and adds the data sources", () => {
     const pickers = using(/^\s*#\s*include\s*"fs_win32\/win32_disk\.h"/m);
     assert.deepEqual(
