@@ -32,6 +32,8 @@ constexpr std::array<FixtureValues, kLampFixtures> kFixtures{{
      .most_width = 0.15F, .most_length = 10.0F},
     {.name = "sign or lit window", .luminance = 4.0e2F, .least = 5.0e1F, .most = 1.0e3F, .kelvin = 0.0F,
      .least_area = 0.02F, .most_area = 20.0F, .lumens = 1300.0F, .least_lumens = 3.0F, .most_lumens = 63000.0F},
+    {.name = "high-bay", .luminance = 2.8e4F, .least = 1.5e3F, .most = 1.0e6F, .kelvin = 4000.0F, .least_area = 0.05F,
+     .most_area = 0.5F, .lumens = 25000.0F, .least_lumens = 12000.0F, .most_lumens = 60000.0F},
 }};
 
 constexpr std::array<float, 3> kLuma{0.2126F, 0.7152F, 0.0722F};
@@ -123,6 +125,9 @@ LampFixture fixture_of(const FixtureEvidence& evidence)
     }
     if (panel && std::abs(evidence.axis[1]) < kVerticalPanel) {
         return LampFixture::kSign;
+    }
+    if (evidence.indoors && evidence.mount >= kHighBayMount) {
+        return LampFixture::kHighBay; // (a hall's fitting, whatever its drawn shape: its height decides its kind)
     }
     if (line) {
         return LampFixture::kTube;

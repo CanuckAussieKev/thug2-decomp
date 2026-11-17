@@ -277,6 +277,12 @@ struct RelitModel {
     std::size_t lamps_implausible = 0;       // (round A3) ... and those whose light leaves its pool's surfaces darker than
                                              // any the level's lamps don't reach (a solve run off: its size untold)
     Rgbf lamp_high{};                        // ... the lit ones' 95th percentile over their own surfaces' light
+    // (round indoor lamps, reported) the lamps the bake's light level told (solve_relit_lamps' second measure - not
+    // its edges: a room lit evenly shows its lamps' light in its level, not its shape), the level's tint where no lamp
+    // reaches (luma) and its spread there (the share a lamp is told above)
+    std::size_t lamps_by_level = 0;
+    float level_tint = 0.0F;
+    float level_spread = 0.0F;
     // (reported) the vertices whose bake differs from the model by kRelitLampLow or more: brighter (lamps the list
     // doesn't hold, the bake's sun where the rays saw a caster) and darker (the bake's shadows where the rays saw the
     // sun, its darkened corners) - that light dropped, their tints their surroundings'; and those told across meshes
@@ -416,6 +422,9 @@ struct RelitLamp {
     // daylight round it is under a photocell's turn-on - relit_lamp_switches; kLampAlwaysOn where its surfaces see no
     // sky, 0 where it lights nothing (not known)
     float switch_sky = 0.0F;
+    // (round indoor lamps; the bake's - not in the data) its height above the floors it lights (world units; 0: none
+    // lit): relit_lamp_mounts - a high-bay's evidence (lamp_fixtures.h)
+    float mount = 0.0F;
 };
 [[nodiscard]] LampShape lamp_shape(const RelitLamp& lamp);
 // (round L) Where a lamp's light comes from.
@@ -474,7 +483,7 @@ struct LampFixtures {
 [[nodiscard]] LampFixtures lamp_fixtures(const RelitLamp& lamp, LampFixture fixture, float area);
 struct LampModelCounts {
     std::array<std::size_t, 6> by_source{};
-    std::array<std::size_t, 8> by_fixture{};
+    std::array<std::size_t, kLampFixtures> by_fixture{};
     double exposure = 0.0;         // the art's lamp exposure (physical over solved flux; 0: not told)
     std::size_t exposure_lamps = 0; // the solved lamps it was told from
 };
@@ -530,6 +539,31 @@ struct BakeTime {
 void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
                        std::span<RelitLamp> lamps, RelitModel* model, const BakeTime& bake_time = {},
                        std::vector<RelitLampTold>* told = nullptr);
+// (round indoor lamps - lamps found from their pools) Where the bake shows light that neither the model (sun, sky,
+// bounce) nor the lamps it told explain - the decomposition's "brighter" vertices (the bake over the level's tint x the
+// light there by kRelitLampHigh or more: lamps the list doesn't hold; Training's hall lit by fittings the art drew as
+// blended housings, or not at all) - a lamp is looked for above each pool: the surplus light gathered over a grid of
+// kPoolCell cells (its weighted centre and the way its surfaces face), and a ray from the pool's centre along that
+// facing to what it meets - the ceiling, a wall, a canopy: a fitting's mount (a pool under the open sky has none: no
+// lamp hangs in the air). The candidate is a panel facing the pool kPoolMount under its mount (a fitting's depth), the size
+// of its kind's typical luminous area, kind kPool - a hypothesis, told or not by the bake's own light like any
+// candidate (solve_relit_lamps, a second time with them). At most kMostPoolLamps, the largest surpluses first; a cell
+// needs kPoolLeastSeeds such vertices (a pool a few triangles across, not one bright vertex). `model`: the fit (its
+// level_tint from the first solve), `lamps` as the first solve left them.
+inline constexpr float kPoolCell = 256.0F;
+inline constexpr float kPoolMount = 12.0F;
+inline constexpr float kPoolReachPerDistance = 4.0F; // (its reach: its pool's distance x this - the light there 1/16)
+inline constexpr std::size_t kPoolLeastSeeds = 8;
+inline constexpr std::size_t kMostPoolLamps = 256;
+struct PoolSearch {
+    std::size_t seeds = 0;   // (reported) the vertices brighter than the model and the told lamps by kRelitLampHigh
+    std::size_t pools = 0;   // ... the cells holding kPoolLeastSeeds of them
+    std::size_t mounted = 0; // ... those whose facing meets a mount: a lamp each
+};
+[[nodiscard]] std::vector<RelitLamp> find_pool_lamps(std::span<const RelitMesh> meshes,
+                                                     std::span<const RelitVertices> light, const RelitLampLinks& links,
+                                                     std::span<const RelitLamp> lamps, const RelitModel& model,
+                                                     RayTracing& tracer, PoolSearch* report = nullptr);
 // Each vertex's L from its links and the lamps' intensities (building relief's made vertices from their sources) - with
 // all lamps on, or (`on`, one a lamp) each x how much it is on.
 void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
@@ -549,6 +583,12 @@ inline constexpr float kRelitNoSky = 1e-3F;
 inline constexpr float kPhotocellLux = 16.0F;
 void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLinks& links, std::span<RelitLamp> lamps,
                          double unit_lux);
+// (round indoor lamps) Each lamp's mount (RelitLamp::mount): its height above the floors it lights - the median of its
+// position's height over the upward-facing vertices it reaches (their normal's y at least kMountFloor), each weighed by
+// its light there; 0 where it lights no floor below it.
+inline constexpr float kMountFloor = 0.7F;
+void relit_lamp_mounts(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light,
+                       const RelitLampLinks& links, std::span<RelitLamp> lamps);
 // (lighting round A2 - one light unit for every level) The decomposition in the global unit, from energy alone: the
 // light bounced to a vertex, B, is the radiance its surroundings show - in the bake's own colours, so in the game's unit
 // whatever the bake's exposure - and a surface's light takes it whole (one bounce adds the surroundings' radiance x the

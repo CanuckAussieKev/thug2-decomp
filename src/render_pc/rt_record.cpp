@@ -1393,7 +1393,7 @@ const TextureLook& texture_look(const MaterialRef* material, std::unordered_map<
 // and their share of the triangle; false when none does.
 constexpr uint32_t kTexelSide = 5; // samples along each edge: a triangle's 15 points
 bool lamp_texels(const MeshTriangles& tris, const std::array<uint32_t, 3>& corner, const TextureLook& look,
-                 std::array<float, 3>* colour, float* share)
+                 std::array<float, 3>* colour, float* share, bool blended)
 {
     std::array<std::array<float, 2>, 3> uvs{};
     for (std::size_t k = 0; k < 3; ++k) {
@@ -1420,7 +1420,10 @@ bool lamp_texels(const MeshTriangles& tris, const std::array<uint32_t, 3>& corne
             const std::array<float, 3> linear{rt::linear_from_display(std::get<0>(shown)),
                                               rt::linear_from_display(std::get<1>(shown)),
                                               rt::linear_from_display(std::get<2>(shown))};
-            if (rt::lamp_texel(linear, look.median)) {
+            // (round indoor lamps) on a blended surface only a texel drawn solid - its alpha at least kCutoutAlpha: a
+            // fitting's tube drawn with soft edges (Training's troffers), not the see-through parts round it
+            const bool solid = !blended || static_cast<float>(std::get<3>(texel)) / 255.0F >= kCutoutAlpha;
+            if (solid && rt::lamp_texel(linear, look.median)) {
                 ++lit;
                 for (std::size_t k = 0; k < 3; ++k) {
                     core::at(sum, k) += core::at(shown, k);
@@ -1493,7 +1496,8 @@ void emitter_work()
     }
     const float facing = world_facing();
     std::unordered_map<const void*, TextureLook> textures;
-    std::size_t skipped_blended = 0; // (reported: the meshes not looked at - blended, or no copy to read)
+    std::size_t blended_read = 0; // (reported: the blended meshes looked at for lamp texels drawn solid, and those
+                                  // with no copy to read)
     std::size_t skipped_unread = 0;
     std::vector<rt::EmitterTriangle> triangles;
     for (const MeshRef* mesh : st.world) {
@@ -1512,10 +1516,15 @@ void emitter_work()
                             (mode == kBlendNone || mode == static_cast<uint32_t>(kBlendModeVertexTexAlpha));
         // (round A3: a candidate's surface is drawn solid - not blended; an alpha test cuts its holes, not its light)
         const bool solid = (entry->second.material.flags & rt::kTransparent) == 0U;
-        if (!glow && !(bake && (opaque || solid))) {
-            skipped_blended += glow ? 0 : 1;
+        // (round indoor lamps) a blended surface too, in the bake: its lamp texels drawn solid (lamp_texels) - a
+        // fitting drawn with a soft-edged texture is a lamp's surface where its texels are opaque (Training's hanging
+        // troffers: an alpha-blended mesh, all 617 of its blended meshes passed over before); never by its vertex
+        // colours (a blended overlay's are often the white of no light at all - a light cone, a decal)
+        const bool blended = !glow && !(opaque || solid);
+        if (!glow && !bake) {
             continue;
         }
+        blended_read += blended ? 1 : 0;
         std::vector<MeshTriangles> read;
         if (!mesh_triangles(mesh, false, glow, &read)) {
             skipped_unread += 1;
@@ -1536,7 +1545,8 @@ void emitter_work()
             std::array<float, 3> texture_colour{1.0F, 1.0F, 1.0F};
             float lit_share = glow ? card_core_share(tris, corner, look) : 1.0F;
             if (!glow) {
-                if (rt::self_lit_triangle(std::min({tris.brightness(one), tris.brightness(two), tris.brightness(three)}),
+                if (!blended &&
+                    rt::self_lit_triangle(std::min({tris.brightness(one), tris.brightness(two), tris.brightness(three)}),
                                           found.median_luma)) {
                     kind = rt::EmitterKind::kSelfLit;
                 } else {
@@ -1548,7 +1558,7 @@ void emitter_work()
                     constexpr float kFloor = 0.7F;
                     float share = 0.0F;
                     if (look.image.empty() || !(length > 0.0F) || rt::y_of(n) * facing >= kFloor * length ||
-                        !lamp_texels(tris, corner, look, &texture_colour, &share)) {
+                        !lamp_texels(tris, corner, look, &texture_colour, &share, blended)) {
                         continue;
                     }
                     kind = rt::EmitterKind::kTextured;
@@ -1589,9 +1599,9 @@ void emitter_work()
             with_lamps += look.lamp_texels > 0 ? 1 : 0;
         }
         get_log("rt: lights: the bake's textured candidates - %zu textures read, %zu decoded (not:%s), %zu with lamp "
-                "texels; %zu textured triangles (meshes not looked at: %zu blended, %zu without a copy to read)",
+                "texels; %zu textured triangles (%zu blended meshes looked at for solid lamp texels; %zu meshes without a copy to read)",
                 textures.size(), decoded, unread.empty() ? " none" : unread.c_str(), with_lamps,
-                found.textured_triangles, skipped_blended, skipped_unread);
+                found.textured_triangles, blended_read, skipped_unread);
     }
     found.emitters = rt::cluster_emitters(triangles, &found.triangle_emitter, facing);
     // (lighting round A2 - one lamp model) a level relit from its data shines its data's lamps - their intensities

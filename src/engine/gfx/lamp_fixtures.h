@@ -61,6 +61,16 @@
 //     m^2/m: 870 cd/m^2; 45 (deep blue, 2 lm/ft [F]) - 18 000 (the brightest, 655 lm/ft [F], over a 12 mm tube); a sign's
 //     tubing 1 - 10 m: flux 7 - 21 500, typically 3 m of red, 400 lm; its colour its own; a row's luminous width 0.006 -
 //     0.15 m (one tube's diameter to a few strokes side by side - derived); one sign's tubing up to 10 m.
+//   - (round indoor lamps) high-bay: a roofed fitting mounted kHighBayMount or more above what it lights - a warehouse's,
+//     a hall's, an arena's: Title 24's glossary [T] calls a fitting 25 ft (7.6 m) or more above the floor high bay (vendors
+//     use 20 - 25 ft). Its flux: a 400 W metal halide's 36 000 lm initial [H] (its LED equivalents 17 250 - 32 600 lm
+//     [S]); 12 000 (a 150 W metal halide or 100 W LED's - derived from the lamp tables' lumens per watt) - 60 000 (a
+//     1 000 W metal halide equivalent [S]); typical 25 000 (the 400 W metal halide equivalents' middle [S]); 4000 K. Its
+//     opening's luminance as a street light's lens: flux x the light output ratio 0.7 over a 0.05 - 0.5 m^2 opening (an
+//     LED disc to a 22 in reflector): 25 000 x 0.7 / (pi 0.2) = 28 000; 1 500 - 1 x 10^6.
+//     [T] California Energy Code reference (energycodeace.com, "general commercial and industrial work areas"): high
+//         bay 25 ft or more; [H] PacLights, a 400 W metal halide lamp's initial output 36 000 lm; [S] Super Bright LEDs /
+//         1000Bulbs listings of LED high bays: 150 W 17 250 lm ... 400 W 60 000 lm "1 000 W MH equivalent".
 //   - back-lit sign or lit window: 400 cd/m^2 (E2 [C]); 50 (E1 [C]) - 1 000 (E4 [C]) - a lit room seen through a window,
 //     500 lux on a 0.7 wall, 110 cd/m^2, within it; one sign's or window's area 0.02 - 20 m^2, so its flux pi L A: 3 -
 //     63 000 lm, typically 1 m^2 at 400 cd/m^2, 1 300 lm; its colour its own.
@@ -75,8 +85,9 @@ enum class LampFixture : uint8_t {
     kBulb = 5,         // an incandescent / compact bulb or a globe lantern
     kNeon = 6,         // a neon / cold-cathode sign tube (a saturated colour)
     kSign = 7,         // a back-lit sign or a lit window (a vertical panel)
+    kHighBay = 8,      // (round indoor lamps) a high-bay fitting: roofed, mounted kHighBayMount or more above its floor
 };
-inline constexpr std::size_t kLampFixtures = 8;
+inline constexpr std::size_t kLampFixtures = 9;
 
 struct FixtureValues {
     std::string_view name;
@@ -108,7 +119,9 @@ struct FixtureEvidence {
     std::array<float, 3> axis{0.0F, 1.0F, 0.0F}; // a panel's normal, a line's direction
     std::array<float, 3> colour{};         // its light's colour (linear; any scale)
     bool indoors = false;                  // roofed: its surfaces see no sky (an interior light)
+    float mount = 0.0F;                    // (round indoor lamps) its height above the floors it lights (m; 0: unknown)
 };
+inline constexpr float kHighBayMount = 7.62F; // (25 ft: [T] above)
 // A colour's correlated colour temperature (McCamy's cubic over linear sRGB; 0: too far from a light's or dark) and
 // whether it is saturated - not a light's colour: its chromaticity more than kLightDuv from the Planckian locus at its
 // colour temperature (CIE 1960 uv; ANSI C78.377 holds white lamps within 0.006 of it, a high-pressure sodium lamp sits
@@ -118,7 +131,8 @@ inline constexpr float kLightDuv = 0.03F;
 [[nodiscard]] float colour_kelvin(const std::array<float, 3>& colour);
 [[nodiscard]] bool saturated_colour(const std::array<float, 3>& colour);
 // The rules: a saturated colour - a neon tube (a point or a line) or a sign (a panel); a vertical panel - a sign or a lit
-// window; indoors - a line a tube, a panel a ceiling panel, a point a bulb; outdoors - a line a tube (a canopy's), else by
+// window; indoors kHighBayMount or more above its floors - a high-bay (round indoor lamps); a line a tube; indoors - a
+// panel a ceiling panel, a point a bulb; outdoors - a line a tube (a canopy's), else by
 // the colour temperature: under 2500 K sodium, under 3500 K a bulb or globe lantern, else a white street light.
 inline constexpr float kVerticalPanel = 0.5F; // a panel whose normal's |y| is under this faces sideways
 inline constexpr float kSodiumKelvin = 2500.0F;

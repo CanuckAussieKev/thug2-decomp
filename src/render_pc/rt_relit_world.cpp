@@ -1693,10 +1693,11 @@ bool data_emitters(std::vector<rt::Emitter>* out)
         return false;
     }
     out->clear();
+    // (round indoor lamps) every lamp of the data, the level's own point lights too: with the data the frame record's
+    // point lights aren't shone (vulkan_rt_lights.cpp: only the solved lamps - round O), so leaving them out here left
+    // the art's own lights dark in every relit level - Training's 13, its hall's lamps - while their light was in the
+    // data (a solve or their fixture's model)
     for (const rt::RelitLamp& lamp : data.data.lamp_list) {
-        if (lamp.kind == rt::EmitterKind::kPoint) {
-            continue; // (the level's own point lights: the game's, the frame record's)
-        }
         const float brightest = std::max({std::get<0>(lamp.light), std::get<1>(lamp.light), std::get<2>(lamp.light)});
         if (!(brightest > 0.0F)) {
             continue;
