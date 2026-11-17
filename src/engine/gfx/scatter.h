@@ -26,6 +26,10 @@
 //     nearer, more in corners), leaves also scattered on grass and dirt;
 //   - weeds at the very foot of walls and kerbs (within kWeedReach) and on dirt;
 //   - pebbles on dirt and gravel.
+//   (Round W2) Leaves and paper are brought by the wind: one is kept where the level's air transport (air_volume.h) says
+//   the wind reaches, as often as its share there (none in a closed room, a few inside a doorway, all in the open); a weed
+//   grows where the sky's rain and light reach, as often as their share. Cans and pebbles keep their own rules (people
+//   drop cans anywhere; pebbles lie where the ground is gravel or dirt). Without a volume every place is open air.
 //
 // Skate lines are kept clear (decals and clutter alike): nothing within kRampReach of a ramp, quarter pipe, bank or vert
 // face (a face neither flat nor a wall, or flagged vert - a slope of dirt, gravel or grass is a hillside, not a ramp),
@@ -39,12 +43,15 @@
 // Steep faces get no ground decals and no clutter.
 
 #include <array>
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
 #include <vector>
+
+#include "engine/gfx/air_volume.h"
 
 namespace render::scatter {
 
@@ -186,6 +193,7 @@ struct Rejected {
     uint32_t rail = 0;
     uint32_t stairs = 0;
     uint32_t far_from_wall = 0; // (clutter on hard ground: no rise near enough)
+    uint32_t no_air = 0;        // (round W2: leaves and paper the wind doesn't bring, weeds without sky)
     uint32_t no_dip = 0;        // (a wet patch: not in a dip)
 };
 
@@ -214,6 +222,8 @@ struct Input {
     uint32_t seed = 0;            // the level's (its name's checksum): another level, other placements
     float decal_density = 0.0F;   // 0: none; else kLeastDensity - kMostDensity
     float clutter_density = 0.0F; // likewise
+    // (round W2) the level's air transport (null: every place open air)
+    std::shared_ptr<const air::Volume> air;
 };
 
 // The decals and clutter of `input` (the same input: the same result, byte for byte).

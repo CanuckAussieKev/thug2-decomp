@@ -5,6 +5,7 @@
 #include "engine/gfx/wind.h"
 #include "gpu_vulkan/vulkan_air.h"
 #include "gpu_vulkan/vulkan_grass.h"
+#include "gpu_vulkan/vulkan_light_window.h"
 
 #include <algorithm>
 #include <array>
@@ -24,7 +25,10 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/gfx/foliage_light.h"
+#include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/scatter.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -39,6 +43,7 @@
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_snow.h"
 #include "platform/run_log.h"
 
@@ -60,16 +65,18 @@ constexpr VkShaderStageFlags kStages =
     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 constexpr uint32_t kBindingDecals = 0; // the decals' vertices (storage)
 constexpr uint32_t kBindingItems = 1;  // the clutter's items (storage)
-constexpr uint32_t kBindingLights =
-    2; // the items' ground light (storage: two uints an item - half floats r g, b known)
+constexpr uint32_t kBindingLights = 2; // (round W2) the items' sun visibility (storage: two uints an item - a float)
 constexpr uint32_t kBindingMeshes = 3; // the clutter's meshes (storage)
 constexpr uint32_t kBindingParams = 4; // the view's block (uniform, in the ring)
 constexpr uint32_t kBindingAtlas = 5;  // the decals' atlas (sampled, mipmapped)
-constexpr uint32_t kBindingSource = 6; // the viewport's colour copied out (sampled)
+constexpr uint32_t kBindingLight = 6;  // (round W2) the light store round the camera (vulkan_light_window.h)
 constexpr uint32_t kBindingDepth = 7;  // the depth (sampled)
 constexpr uint32_t kBindingSnow = 8;   // (the decals') the snow's sky map (vulkan_snow.h SnowGround; else the atlas, unread)
 constexpr uint32_t kBindingAir = 9;    // (round W - the clutter's) the air's window (vulkan_air.h)
-constexpr uint32_t kBindingCount = 10;
+constexpr uint32_t kBindingScene = 10; // (round W2) the TLAS (the clutter's sun rays)
+constexpr uint32_t kBindingCount = 11;
+constexpr float kSunReach = 1.0e5F;     // (units: a sun ray's length)
+constexpr uint32_t kSunRayMask = 0x07U; // (what casts the sun's shadows)
 constexpr std::size_t kLightBytes = 8;
 constexpr float kRanks = 256.0F;
 constexpr float kHalf = 0.5F;
@@ -111,10 +118,30 @@ std::string constants_source()
     define("KEEP_POWER", kClutterKeepPower);
     define("GROW_BAND", kGrowBand);
     define("FADE_START", kClutterFadeStart);
-    define("GROUND_ALBEDO", kClutterGroundAlbedo);
-    define("LEARN", kClutterLearn);
-    define("MATCH_SHARE", kClutterMatchShare);
-    define("MATCH_SLACK", kClutterMatchSlack);
+    define("SUN_REACH", kSunReach);
+    out += "#define SUN_MASK " + std::to_string(kSunRayMask) + "u\n";
+    // (round W2) the items' materials (rt_material_table.h)
+    const auto define_rgb = [&out](const char* name, const rt::brdf::Rgb& value) {
+        out += "#define ";
+        out += name;
+        out += " vec3(" + glsl_float(core::at(value, 0)) + ", " + glsl_float(core::at(value, 1)) + ", " +
+               glsl_float(core::at(value, 2)) + ")\n";
+    };
+    const auto define_kind = [&](const char* prefix, rt::MaterialKind kind) {
+        const std::string name = prefix;
+        define_rgb((name + "_F0").c_str(), rt::material_f0(kind));
+        define((name + "_ROUGHNESS").c_str(), rt::material_values(kind).roughness);
+        define_rgb((name + "_THROUGH").c_str(), rt::material_transmittance(kind));
+    };
+    define_kind("LEAF", rt::MaterialKind::kLeaf);
+    define_kind("DRY", rt::MaterialKind::kLeafDry);
+    define_kind("PAPER", rt::MaterialKind::kPaper);
+    define_kind("METAL", rt::MaterialKind::kMetal);
+    define_kind("PAINT", rt::MaterialKind::kPainted);
+    define_kind("GRAVEL", rt::MaterialKind::kGravel);
+    define("PAPER_PASSES", rt::material_values(rt::MaterialKind::kPaper).light_transmission);
+    define("GRAVEL_LOW", rt::material_values(rt::MaterialKind::kGravel).albedo[0]);
+    define("GRAVEL_HIGH", rt::material_values(rt::MaterialKind::kGravel).albedo[1]);
     out += "#define MESH_VERTICES " + std::to_string(scatter::kMeshVertices) + "u\n";
     define("WET_ROW", static_cast<float>(scatter::DecalKind::kWet));
     define("WIND_X", core::at(wind::kDirection, 0));
@@ -140,6 +167,10 @@ layout(std140, set = 0, binding = 4) uniform Params {
     vec4 snow_range;       // x: the heights' low; y: their span; z, w: the columns and rows
     vec4 wind;             // (round W) x: the wind near the ground in the open (m/s, wind.h)
     vec4 air;              // (round W) the air's window's origin (vulkan_air.h; w 1 with one)
+    vec4 light_origin;     // (round W2) the light window's origin (vulkan_light_window.h; w 1 with one)
+    vec4 light_fallback[3]; // (round W2) the probe without one (per channel c0, c1)
+    vec4 sun_toward;       // (round W2) toward the sun or the moon; w 1 when it lights
+    vec4 sun_light;        // (round W2) its light per unit of N.L (linear)
 } p;
 layout(set = 0, binding = 9) uniform sampler2D u_air;
 AIR_GLSL
@@ -271,16 +302,14 @@ float keep_at(float d)
 float fade_at(float d) { return 1.0 - smoothstep(FADE_START * p.lod.x, p.lod.x, d); }
 )";
 
-// The gather: each item's root on the screen; where the depth there is the root's, the colour there kept.
-constexpr const char* kGatherBody = R"(
+// (round W2) The sun's visibility: each chosen item's ray toward the sun or the moon from just above its root (ray
+// tracing on; else seen). Nothing of the frame is read.
+constexpr const char* kSunBody = R"(
 layout(local_size_x = 64) in;
-layout(set = 0, binding = 6) uniform sampler2D u_source;
-#ifdef MULTISAMPLED
-layout(set = 0, binding = 7) uniform sampler2DMS u_depth;
-#else
-layout(set = 0, binding = 7) uniform sampler2D u_depth;
-#endif
 layout(push_constant) uniform Range { uvec4 range; } pc; // first, count
+#ifdef TRACED
+layout(set = 0, binding = 10) uniform accelerationStructureEXT u_scene;
+#endif
 
 void main()
 {
@@ -289,25 +318,20 @@ void main()
         return;
     }
     uint index = pc.range.x + i;
-    vec3 root = items[index * 2u].xyz;
-    vec4 clip = p.vp * vec4(root, 1.0);
-    if (!(clip.w > 1.0e-3)) {
-        return;
+    vec4 a = items[index * 2u];
+    vec4 b = items[index * 2u + 1u];
+    float seen = p.sun_toward.w > 0.5 ? 1.0 : 0.0;
+#ifdef TRACED
+    if (seen > 0.0) {
+        rayQueryEXT q;
+        rayQueryInitializeEXT(q, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, SUN_MASK,
+                              a.xyz + vec3(0.0, max(b.x, 1.0) * 0.5, 0.0), 0.0, p.sun_toward.xyz, SUN_REACH);
+        while (rayQueryProceedEXT(q)) {
+        }
+        seen = rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
     }
-    vec2 ndc = clip.xy / clip.w;
-    vec2 at = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * p.rect.zw;
-    if (!(all(greaterThan(at, vec2(-0.1) * p.rect.zw)) && all(lessThan(at, vec2(1.1) * p.rect.zw)))) {
-        return;
-    }
-    ivec2 size = max(ivec2(p.rect.zw), ivec2(1));
-    ivec2 pixel = clamp(ivec2(floor(at)), ivec2(0), size - 1) + ivec2(p.rect.xy);
-    float z = linear_depth(texelFetch(u_depth, pixel, 0).r);
-    if (!(abs(z - clip.w) <= clip.w * MATCH_SHARE + MATCH_SLACK)) {
-        return;
-    }
-    vec3 c = finite_colour(texelFetch(u_source, pixel, 0).rgb);
-    float known = min(unpackHalf2x16(lights[index].y).y + LEARN, 1.0);
-    lights[index] = uvec2(packHalf2x16(c.rg), packHalf2x16(vec2(c.b, known)));
+#endif
+    lights[index] = uvec2(floatBitsToUint(seen), 0u);
 }
 )";
 
@@ -319,7 +343,10 @@ layout(location = 1) out vec4 v_now;
 layout(location = 2) out vec4 v_before;
 #endif
 out gl_PerVertex { vec4 gl_Position; };
+layout(set = 0, binding = 6) uniform sampler2D u_light;
+LIGHT_GLSL
 
+// (the items' printed and dyed colours - their textures: display-referred, decoded to linear albedo where used)
 vec3 own_colour(uint kind, float h, float part)
 {
     if (kind == KIND_LEAF) {
@@ -352,12 +379,10 @@ void main()
     float turn = float((packed >> 16u) & 255u) / 256.0 * TAU;
     float h = float((packed >> 24u) & 255u) / 255.0;
     vec3 root = a.xyz;
-    uvec2 light = lights[index];
-    vec2 rg = unpackHalf2x16(light.x);
-    vec2 bk = unpackHalf2x16(light.y);
+    float seen = uintBitsToFloat(lights[index].x);
     float d = distance(root, p.camera.xyz);
     float grow = clamp((keep_at(d) - rank) / GROW_BAND, 0.0, 1.0);
-    float scale = b.x * fade_at(d) * clamp(bk.y, 0.0, 1.0) * grow;
+    float scale = b.x * fade_at(d) * grow;
     uint vertex = min(kind, 4u) * MESH_VERTICES + uint(gl_VertexIndex);
     vec4 m = meshes[vertex * 2u];
     vec4 n = meshes[vertex * 2u + 1u];
@@ -387,15 +412,53 @@ void main()
     vec4 clip = p.vp * vec4(position, 1.0);
     gl_Position = scale > 0.0 ? vec4(clip.x + clip.w * p.offsets.x, -clip.y + clip.w * p.offsets.y, clip.z, clip.w)
                               : vec4(0.0);
-    vec3 ground = finite_colour(vec3(rg, bk.x));
-    float shade = m.w * (0.7 + 0.3 * clamp(n.y, 0.0, 1.0));
-    if (kind == KIND_PEBBLE) {
-        v_colour = ground * linear_from_display((0.8 + 0.4 * h) * shade); // (round F: a display ratio decoded)
-    } else {
-        // (round F: the ground's colour is the frame's linear light - its model, the audit's S9, reads display values)
-        float lit = clamp(dot(display_from_linear(ground), vec3(0.2126, 0.7152, 0.0722)) / GROUND_ALBEDO, 0.0, 4.0);
-        v_colour = linear_from_display(own_colour(kind, h, n.w) * lit * shade);
+    // (round W2) lit by the one light (engine/gfx/foliage_light.h): the item's material - a leaf a dried leaf, a weed a
+    // living one, paper, a can's bare metal and printed label, a pebble the gravel's -, its normal turned as the mesh
+    // is, the light store's probe at it, the sun with its traced visibility; a thin sheet passes light through
+    vec3 normal = n.xyz;
+    normal = vec3(normal.x, normal.y * ct - normal.z * st, normal.y * st + normal.z * ct);
+    normal = vec3(normal.x * c - normal.z * s, normal.y, normal.x * s + normal.z * c);
+    float normal_length = length(normal);
+    normal = normal_length > 1.0e-6 ? normal / normal_length : vec3(0.0, 1.0, 0.0);
+    vec3 to_eye = p.camera.xyz - position;
+    float eye_length = length(to_eye);
+    vec3 v = eye_length > 1.0e-6 ? to_eye / eye_length : vec3(0.0, 1.0, 0.0);
+    if (dot(normal, v) < 0.0) {
+        normal = -normal;
     }
+    vec3 albedo = linear_from_display(own_colour(kind, h, n.w));
+    vec3 f0 = PAINT_F0;
+    float roughness = PAINT_ROUGHNESS;
+    vec3 through = vec3(0.0);
+    if (kind == KIND_LEAF) {
+        f0 = DRY_F0;
+        roughness = DRY_ROUGHNESS;
+        through = DRY_THROUGH;
+    } else if (kind == KIND_WEED) {
+        f0 = LEAF_F0;
+        roughness = LEAF_ROUGHNESS;
+        through = LEAF_THROUGH;
+    } else if (kind == KIND_PAPER) {
+        f0 = PAPER_F0;
+        roughness = PAPER_ROUGHNESS;
+        through = vec3(PAPER_PASSES);
+    } else if (kind == KIND_CAN && n.w < 0.5) {
+        albedo = vec3(0.0);
+        f0 = METAL_F0;
+        roughness = METAL_ROUGHNESS;
+    } else if (kind == KIND_PEBBLE) {
+        albedo = vec3(mix(GRAVEL_LOW, GRAVEL_HIGH, h));
+        f0 = GRAVEL_F0;
+        roughness = GRAVEL_ROUGHNESS;
+    }
+    vec4 pr;
+    vec4 pg;
+    vec4 pb;
+    window_probe(root + vec3(0.0, max(scale, 1.0) * 0.5, 0.0), pr, pg, pb);
+    vec3 sun = p.sun_light.rgb * seen;
+    v_colour = finite_colour(sheet_radiance(brdf_material(albedo, f0, roughness), through, normal, v,
+                                            probe_light(pr, pg, pb, normal), probe_light(pr, pg, pb, -normal),
+                                            probe_light(pr, pg, pb, reflect(-v, normal)), p.sun_toward.xyz, sun));
 #ifdef MOTION
     v_now = vec4(clip.xy - p.offsets.zw * clip.w, 0.0, clip.w);
     v_before = p.vp_before * vec4(position, 1.0);
@@ -437,8 +500,12 @@ struct ParamsBlock {
     std::array<float, 4> snow_range{};
     std::array<float, 4> wind{}; // (round W)
     std::array<float, 4> air{};
+    std::array<float, 4> light_origin{};                  // (round W2)
+    std::array<std::array<float, 4>, 3> light_fallback{}; // (round W2)
+    std::array<float, 4> sun_toward{};                    // (round W2)
+    std::array<float, 4> sun_light{};                     // (round W2)
 };
-constexpr std::size_t kParamsBytes = 288;
+constexpr std::size_t kParamsBytes = 384;
 static_assert(sizeof(ParamsBlock) == kParamsBytes, "the shaders' Params block");
 
 struct RangeConstants {
@@ -463,12 +530,12 @@ struct ScatterState {
     DeviceBuffer lights;
     DeviceBuffer meshes;
     Image atlas;
-    Image source; // the viewport's colour copied out (the clutter's gather)
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkSampler nearest = VK_NULL_HANDLE;
     VkSampler linear = VK_NULL_HANDLE;
-    std::array<VkPipeline, 2> gather{}; // single-sampled depth, multisampled
+    std::array<VkPipeline, 2> gather{}; // (round W2: the sun rays) untraced, traced
+    bool scene_binding = false;         // (the layout has the TLAS's binding: ray tracing on)
     VkShaderModule decal_vertex = VK_NULL_HANDLE;
     std::array<VkShaderModule, 2> decal_fragment{};     // single-sampled depth, multisampled
     VkShaderModule decal_fragment_wet = VK_NULL_HANDLE; // single-sampled, with the wet mask (WET)
@@ -811,6 +878,9 @@ std::string source_of(const char* body, bool items, bool writes_lights, const ch
         source += "#define ";
         source += define;
         source += '\n';
+        if (std::string(define) == "TRACED") {
+            source += "#extension GL_EXT_ray_query : require\n";
+        }
     }
     source += writes_lights ? "#define LIGHTS_ACCESS\n" : "#define LIGHTS_ACCESS readonly\n";
     source += constants_source();
@@ -823,7 +893,13 @@ std::string source_of(const char* body, bool items, bool writes_lights, const ch
     if (items) {
         source += kItemCommon;
     }
-    source += body;
+    std::string own_body = body;
+    if (const std::size_t light = own_body.find("LIGHT_GLSL"); light != std::string::npos) {
+        // (round W2) the light store's window, the one BRDF and the thin sheets' light (foliage_light.h)
+        own_body.replace(light, std::string("LIGHT_GLSL").size(),
+                         light_window_glsl("u_light", "p") + rt::brdf::brdf_glsl() + rt::foliage::kFoliageGlsl);
+    }
+    source += own_body;
     return source;
 }
 
@@ -860,14 +936,18 @@ bool make_layouts(Backend& state, std::string* error)
 {
     ScatterState& own = scatter_state();
     const VkDevice device = state.context.device();
+    own.scene_binding = state.context.ray_tracing_enabled();
     std::array<VkDescriptorSetLayoutBinding, kBindingCount> bindings{};
     for (uint32_t binding = 0; binding < kBindingCount; ++binding) {
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         if (binding == kBindingParams) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        } else if (binding == kBindingAtlas || binding == kBindingSource || binding == kBindingDepth || binding == kBindingSnow ||
-                   binding == kBindingAir) {
+        } else if (binding == kBindingAtlas || binding == kBindingLight || binding == kBindingDepth ||
+                   binding == kBindingSnow || binding == kBindingAir) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        } else if (binding == kBindingScene) {
+            // (round W2) the clutter's sun rays (ray tracing on; else a storage buffer never written - never read)
+            type = own.scene_binding ? VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         }
         core::at(bindings, binding) = {.binding = binding,
                                        .descriptorType = type,
@@ -929,9 +1009,10 @@ bool ensure_objects(Backend& state, std::string* error)
     }
     for (std::size_t variant = 0; variant < 2; ++variant) {
         const char* samples = variant == 1 ? "MULTISAMPLED" : nullptr;
-        if (core::at(own.gather, variant) == VK_NULL_HANDLE) {
-            core::at(own.gather, variant) =
-                make_compute(device, own.layout, source_of(kGatherBody, true, true, samples), error);
+        if (core::at(own.gather, variant) == VK_NULL_HANDLE && (variant == 0 || own.scene_binding)) {
+            core::at(own.gather, variant) = make_compute(device, own.layout,
+                                                         source_of(kSunBody, true, true, variant == 1 ? "TRACED" : nullptr),
+                                                         error);
             if (core::at(own.gather, variant) == VK_NULL_HANDLE) {
                 return false;
             }
@@ -1104,29 +1185,6 @@ VkPipeline draw_pipeline(Backend& state, const DrawPipeline& wanted, std::string
     made.pipeline = pipeline;
     own.draws.push_back(made);
     return pipeline;
-}
-
-bool ensure_source(Backend& state, const Image& colour)
-{
-    ScatterState& own = scatter_state();
-    Image& source = own.source;
-    if (source.image != VK_NULL_HANDLE && source.format == colour.format &&
-        source.extent.width == colour.extent.width && source.extent.height == colour.extent.height) {
-        return true;
-    }
-    retire_image(state, &source);
-    const ImageRequest request{.format = colour.format,
-                               .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
-                               .extent = colour.extent,
-                               .levels = 1,
-                               .samples = VK_SAMPLE_COUNT_1_BIT,
-                               .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                               .alpha_one = false};
-    if (!state.memory.create_image(request, &source)) {
-        return false;
-    }
-    prepare_image(state, &source);
-    return true;
 }
 
 // The wet mask's image for a colour target's size (made again when it changes).
@@ -1373,6 +1431,7 @@ struct ViewPlan {
     std::vector<ScatterDraw> draws;
     uint32_t count = 0;
     std::array<float, 4> air{}; // (round W) the air's window's origin
+    SheetLighting light;        // (round W2) the light store round the camera and the direct light
 };
 
 ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view)
@@ -1402,6 +1461,10 @@ ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::Vie
     block.depth_map = {core::at(view.depth_range, 0), span > 0.0F ? 1.0F / span : 1.0F, 0.0F, 0.0F};
     block.wind = {plan.shape.wind, 0.0F, 0.0F, 0.0F};
     block.air = plan.air;
+    block.light_origin = plan.light.origin;
+    block.light_fallback = plan.light.fallback;
+    block.sun_toward = plan.light.toward;
+    block.sun_light = plan.light.sun;
     return block;
 }
 
@@ -1419,7 +1482,8 @@ std::optional<VkDescriptorBufferInfo> block_in_ring(Backend& state, const Params
 // The bindings pushed for the decals' draw or the clutter's gather and draw.
 void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const VkDescriptorBufferInfo& params,
                       bool decals, const Image* depth, const VkDescriptorImageInfo* snow_sky = nullptr,
-                      const VkDescriptorImageInfo* air = nullptr)
+                      const VkDescriptorImageInfo* air = nullptr, const VkDescriptorImageInfo* light = nullptr,
+                      VkAccelerationStructureKHR scene = VK_NULL_HANDLE)
 {
     const ScatterState& own = scatter_state();
     const VkDescriptorBufferInfo decal_vertices{
@@ -1429,8 +1493,6 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     const VkDescriptorBufferInfo meshes{.buffer = own.meshes.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     const VkDescriptorImageInfo atlas{
         .sampler = own.linear, .imageView = own.atlas.view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    const VkDescriptorImageInfo source{
-        .sampler = own.nearest, .imageView = own.source.view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     const VkDescriptorImageInfo depth_info{.sampler = own.nearest,
                                            .imageView = depth != nullptr ? depth->view : VK_NULL_HANDLE,
                                            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
@@ -1458,8 +1520,8 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         add(kBindingItems, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &items, nullptr);
         add(kBindingLights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lights, nullptr);
         add(kBindingMeshes, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshes, nullptr);
-        if (point == VK_PIPELINE_BIND_POINT_COMPUTE) {
-            add(kBindingSource, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &source);
+        if (light != nullptr) {
+            add(kBindingLight, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, light);
         }
         if (air != nullptr) {
             add(kBindingAir, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, air);
@@ -1467,6 +1529,15 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     }
     if (depth != nullptr) {
         add(kBindingDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &depth_info);
+    }
+    const VkWriteDescriptorSetAccelerationStructureKHR scene_info{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+        .pNext = nullptr,
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &scene};
+    if (scene != VK_NULL_HANDLE && own.scene_binding) {
+        add(kBindingScene, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, nullptr, nullptr);
+        writes.back().pNext = &scene_info;
     }
     vkCmdPushDescriptorSetKHR(commands, point, own.layout, 0, static_cast<uint32_t>(writes.size()), writes.data());
 }
@@ -1512,40 +1583,6 @@ void depth_barrier(VkCommandBuffer commands, Image* depth, bool to_read, VkPipel
     depth->layout = layout;
 }
 
-// The viewport's colour copied out (resolved when multisampled) into the source image.
-void copy_colour(VkCommandBuffer commands, Image* colour, const std::array<uint32_t, 4>& rect)
-{
-    ScatterState& own = scatter_state();
-    memory_barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
-    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    Memory::transition(commands, &own.source, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
-    const VkImageSubresourceLayers layers{
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
-    const VkOffset3D corner{
-        .x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1)), .z = 0};
-    const VkExtent3D size{.width = core::at(rect, 2), .height = core::at(rect, 3), .depth = 1};
-    if (colour->samples == VK_SAMPLE_COUNT_1_BIT) {
-        const VkImageCopy region{.srcSubresource = layers,
-                                 .srcOffset = corner,
-                                 .dstSubresource = layers,
-                                 .dstOffset = corner,
-                                 .extent = size};
-        vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.source.image,
-                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    } else {
-        const VkImageResolve region{.srcSubresource = layers,
-                                    .srcOffset = corner,
-                                    .dstSubresource = layers,
-                                    .dstOffset = corner,
-                                    .extent = size};
-        vkCmdResolveImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.source.image,
-                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    }
-    Memory::transition(commands, &own.source, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    // (the transition's reader is the fragment stage: the gather reads it in a compute pass)
-    memory_barrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
-                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
-}
 
 // The view's targets and rectangle; false (logged once) when they can't take the pass.
 bool plan_targets(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
@@ -1665,9 +1702,6 @@ bool pipeline_for(Backend& state, const ViewPlan& plan, bool decals, VkPipeline*
     if (made && decals) {
         made = ensure_atlas(state);
     }
-    if (made && !decals) {
-        made = ensure_source(state, *plan.colour);
-    }
     if (!made) {
         own.failed = true;
         if (first_report(state, kReportPipeline)) {
@@ -1776,6 +1810,7 @@ bool record_clutter_pass(Backend& state, const rt::ViewDrawn& view)
     plan.draws = plan_clutter_draws(*own.scatter, &plan.shape, &plan.count);
     update_air_map(state, view.camera.position); // (round W: the level's air round the camera)
     plan.air = air_map(state).origin;
+    plan.light = update_light_window(state, view.camera.position); // (round W2: the one light round the camera)
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkDescriptorBufferInfo params{};
     if (plan.draws.empty() || !pipeline_for(state, plan, false, &pipeline) ||
@@ -1783,26 +1818,25 @@ bool record_clutter_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     VkCommandBuffer commands = outside_pass(state);
-    copy_colour(commands, plan.colour, plan.rect);
-    // the gather: the last pass's draws read the lights, the last gather wrote them
+    // the sun rays: the last pass's draws read the items' visibility, the last rays wrote it
     memory_barrier(commands, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                    VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                    VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
-    depth_barrier(commands, plan.depth, true, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    const bool multisampled = plan.depth->samples != VK_SAMPLE_COUNT_1_BIT;
-    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.gather, multisampled ? 1 : 0));
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE, params, false, plan.depth);
+    const SceneView scene = own.scene_binding ? current_scene(state) : SceneView{};
+    const bool traced = scene.tlas != VK_NULL_HANDLE && scene.instances > 0 && core::at(own.gather, 1) != VK_NULL_HANDLE;
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.gather, traced ? 1 : 0));
+    push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE, params, false, nullptr, nullptr, nullptr, nullptr,
+                     traced ? scene.tlas : VK_NULL_HANDLE);
     for (const ScatterDraw& draw : plan.draws) {
         push_range(commands, draw.first, draw.count);
         vkCmdDispatch(commands, (draw.count + kGroupSize - 1) / kGroupSize, 1, 1);
     }
     memory_barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                    VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
-    depth_barrier(commands, plan.depth, false, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     begin_rendering(commands, state, plan, true, view);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     const VkDescriptorImageInfo air = air_map(state).image;
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, params, false, nullptr, nullptr, &air);
+    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, params, false, nullptr, nullptr, &air, &plan.light.image);
     for (const ScatterDraw& draw : plan.draws) {
         vkCmdDraw(commands, scatter::kMeshVertices, draw.count, 0, draw.first);
     }
@@ -1810,7 +1844,6 @@ bool record_clutter_pass(Backend& state, const rt::ViewDrawn& view)
     const uint64_t serial = state.frames.serial();
     plan.colour->used = serial;
     plan.depth->used = serial;
-    own.source.used = serial;
     state.bound = BoundState{};
     own.last_items = plan.count;
     ++own.clutter_passes;
@@ -1886,7 +1919,6 @@ void release_scatter(Backend& state)
         }
     }
     if (state.memory.ready()) {
-        state.memory.destroy_image(&own.source);
         state.memory.destroy_image(&own.atlas);
         state.memory.destroy_image(&own.wet);
         state.memory.destroy_buffer(&own.decal_vertices);

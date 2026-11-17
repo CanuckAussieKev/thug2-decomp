@@ -70,8 +70,20 @@ inline constexpr float kSnowNearClear = 40.0F;     // no flake drawn nearer the 
 inline constexpr float kSnowShutter = 0.5F;        // a flake's streak: its move over this share of the frame before ...
 inline constexpr float kSnowMostStreak = 16.0F;    // ... at most this long (pixels)
 inline constexpr float kSnowMotionShare = 0.3F;    // a flake covering this share of a pixel or more: the pixel's motion is its
-inline constexpr float kSnowSwirl = 16.0F;         // the gusts' eddies: how far they swing a flake across the wind (units) ...
-inline constexpr float kSnowRoll = 26.0F;          // ... and round their rolls along it (up and down)
+// (round W2) The eddies the flakes ride (swirl_at): rolls of wavelength kSnowSwirlLength across the wind and
+// kSnowRollLength along it and up, frozen turbulence carried downwind at the wind's speed. Their swing is the
+// turbulence's: a pattern of wavelength L passing at the wind's speed U moves the air at its amplitude A x 2 pi U / L, which
+// is sqrt(2) sigma for a turbulence of standard deviation sigma = I U (wind.h turbulence_intensity, the lateral and
+// vertical shares) - A = sqrt(2) I L / (2 pi), whatever the wind; and they turn over at sqrt(2) sigma / (L / 2 pi)
+// radians a second (none in still air).
+inline constexpr float kSnowSwirlLength = 260.0F; // units (the rolls across the wind: 6.6 m)
+inline constexpr float kSnowSwirlDepth = 340.0F;  // units (their width across it)
+inline constexpr float kSnowRollLength = 200.0F;  // units (the rolls along the wind and up: 5 m)
+[[nodiscard]] float snow_swirl_amplitude(); // units
+[[nodiscard]] float snow_roll_amplitude();  // units
+// Their turning rates per unit of the wind's speed (radians a second per unit a second).
+[[nodiscard]] float snow_swirl_rate();
+[[nodiscard]] float snow_roll_rate();
 inline constexpr float kSnowSkyReach = 4000.0F;    // the traced rays straight up: a surface or flake open this far
 inline constexpr float kSnowSunReach = 6000.0F;    // a flake's ray toward the light
 inline constexpr float kSnowHazeStart = 250.0F;    // the falling snow's haze (snow::extinction - the one value): from here out

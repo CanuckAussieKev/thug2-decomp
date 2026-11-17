@@ -153,6 +153,8 @@ enum class RtFogImage : uint8_t {
     // (added by the god rays) step 2b's last radial pass (half the viewport's pixels): r the light's surroundings open
     // along the texel's line to the light x the peak's weight, g the weight (r / g: what is open); none when no rays ran
     kRays,
+    // (round W2) step 1: r the god rays' potential under the march's own shadow (the sun's rays, the air's sun map)
+    kRawLit,
 };
 struct RtFogTexels {
     uint32_t width = 0;

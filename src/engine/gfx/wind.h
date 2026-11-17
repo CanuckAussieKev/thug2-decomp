@@ -110,6 +110,17 @@ inline constexpr float kGustFast = 0.41F;
 {
     return static_cast<float>(std::numbers::sqrt2 / std::log(kReference / kRoughness));
 }
+// (round W2) The turbulence itself: the longitudinal intensity sigma_u / U (the same I as the gusts'), and the lateral
+// and vertical components' shares of it over rough ground in the surface layer - sigma_v / sigma_u ~ 0.75 and
+// sigma_w / sigma_u ~ 0.5 (Panofsky and Dutton 1984, Atmospheric Turbulence, 7.1: sigma_u, sigma_v, sigma_w about 2.4,
+// 1.9 and 1.25 friction velocities in neutral air).
+inline constexpr float kLateralTurbulence = 0.75F;
+inline constexpr float kVerticalTurbulence = 0.5F;
+[[nodiscard]] inline float turbulence_intensity()
+{
+    return static_cast<float>(1.0 / std::log(kReference / kRoughness));
+}
+
 // The wind's strength at `seconds` on its clock, over its mean (the shaders' twin: wind_glsl's wind_gust).
 [[nodiscard]] inline float gust(float seconds)
 {

@@ -57,6 +57,9 @@ enum class MaterialKind : uint8_t {
     kGrating,   // (round W) a bar grating (walkways, drains, vents)
     kSnow,       // (round W) fresh snow
     kSnowPacked, // (round W) snow packed by wheels and feet
+    kLeaf,       // (round W2) a living leaf's blade: the grass's blades, weeds
+    kLeafDry,    // (round W2) a dead, dried leaf: dried grass, fallen leaves
+    kPaper,      // (round W2) paper and card (litter)
     kCount,
 };
 inline constexpr std::size_t kMaterialKindCount = static_cast<std::size_t>(MaterialKind::kCount);
@@ -73,6 +76,11 @@ struct MaterialValues {
     float light_transmission = 0.0F;     // the share of light a sheet of it lets through (cut-outs: their texture's alpha)
     float air_transmission = 0.0F;       // the share of its area open to air (cut-outs: their texture's alpha)
     float relief_mm = 0.0F;              // the height range of its surface relief
+    // (round W2) a typical sample's diffuse albedo and diffuse transmittance per channel (linear Rec. 709 / sRGB
+    // primaries - a measured spectrum read at about 610, 550 and 465 nm) for the things drawn with no texture of their
+    // own (the grass's blades); zero where the surface's texture gives the colour
+    brdf::Rgb colour{};
+    brdf::Rgb transmittance{};
     std::string_view source;
 };
 
@@ -266,6 +274,36 @@ inline constexpr std::array<MaterialValues, kMaterialKindCount> kMaterialTable{{
      .albedo = {0.6F, 0.8F},
      .source = "measured: old and compacted snow's albedo 0.6 - 0.8 (Warren 1982 - the grains grown and pressed together); "
                "index: ice n 1.31; roughness unmeasured - a pressed surface is smoother than powder"},
+    {.name = "leaf",
+     .index = 1.45F,
+     .roughness = 0.6F,
+     .albedo = {0.04F, 0.15F},
+     .light_transmission = 0.1F,
+     .colour = {0.07F, 0.12F, 0.045F},
+     .transmittance = {0.06F, 0.10F, 0.02F},
+     .source = "measured: a green leaf's reflectance about 0.045 at 465 nm, 0.12 at 550 (the green peak), 0.07 at 610 "
+               "(chlorophyll's red absorption beyond) and its transmittance 0.02 / 0.10 / 0.06 (Gates, Keegan, Schleter and "
+               "Weidner 1965, Applied Optics 4, 'Spectral properties of plants'); index: leaf cuticle wax n ~1.45; "
+               "roughness unmeasured - a cuticle's sheen is broad"},
+    {.name = "leaf_dry",
+     .index = 1.45F,
+     .roughness = 0.75F,
+     .albedo = {0.1F, 0.35F},
+     .light_transmission = 0.05F,
+     .colour = {0.28F, 0.21F, 0.12F},
+     .transmittance = {0.08F, 0.05F, 0.02F},
+     .source = "measured: dry plant material's reflectance rising through the visible without chlorophyll's dip - about "
+               "0.12 at 465 nm, 0.21 at 550, 0.28 at 610 (Elvidge 1990, Int. J. Remote Sensing 11, 'Visible and near "
+               "infrared reflectance characteristics of dry plant materials'); transmittance unmeasured - taken as the "
+               "fresh leaf's shape at half its green share; index: cuticle n ~1.45; roughness unmeasured"},
+    {.name = "paper",
+     .index = 1.53F,
+     .roughness = 0.85F,
+     .albedo = {0.6F, 0.85F},
+     .light_transmission = 0.15F,
+     .source = "measured: office paper's diffuse reflectance 0.8 - 0.85 (ISO 2470 brightness 80 - 90), newsprint and card "
+               "about 0.6; index: cellulose n 1.53; light transmission: 80 g/m^2 paper about 0.15 (its opacity 85 - 90%, "
+               "ISO 2471); roughness unmeasured - uncoated paper is matte"},
 }};
 
 [[nodiscard]] inline const MaterialValues& material_values(MaterialKind kind)
@@ -290,6 +328,12 @@ inline constexpr std::array<MaterialValues, kMaterialKindCount> kMaterialTable{{
     return 0.5F * (values.albedo[0] + values.albedo[1]);
 }
 
+// (round W2) A kind's colour and transmittance per channel (light_window / foliage: the things with no texture).
+[[nodiscard]] inline const brdf::Rgb& material_colour(MaterialKind kind) { return material_values(kind).colour; }
+[[nodiscard]] inline const brdf::Rgb& material_transmittance(MaterialKind kind)
+{
+    return material_values(kind).transmittance;
+}
 // (round W) The kind a collision face's terrain says it is made of - the game's terrain names (its terrain table,
 // TERRAIN_*: what the skater's wheels sound like on it - so what it is made of). A terrain not listed: painted / solid.
 // The air's transport (air_volume.h) reads each face's air_transmission by it: a chain-link fence and a grating let air

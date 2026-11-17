@@ -21,6 +21,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
@@ -29,6 +30,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/air_volume.h"
 #include "engine/gfx/scatter.h"
 #include "tests/no_error_dialogs.h"
 
@@ -141,6 +143,61 @@ void patch_checks()
     expect(outside > 100, "decals: open ground under a tall canopy gets decals");
     expect(under == 0, "decals: none under a low roof");
     expect(made.decal_rejected.covered > 0, "decals: the roof turned candidates away");
+}
+
+// (round W2) Leaves and paper are brought by the wind, weeds need the sky: on dirt round a closed shed (walls and a roof
+// 300 units up - too high to count as cover) the level's air transport keeps them out of the shed; without it they lie
+// inside as outside. Pebbles keep their own rules.
+void air_checks()
+{
+    std::vector<sc::Face> faces;
+    add_rectangle(&faces, -2000.0F, -2000.0F, 2000.0F, 2000.0F, 0.0F, sc::Surface::kDirt);
+    std::vector<render::air::Face> shed;
+    const auto both = [&](const sc::Vec3& a, const sc::Vec3& b, const sc::Vec3& c) {
+        faces.push_back({.corners = {a, b, c}, .surface = sc::Surface::kOther});
+        shed.push_back({.corners = {a, b, c}, .air = 0.0F});
+    };
+    constexpr float kSide = 500.0F;
+    constexpr float kTop = 300.0F;
+    const auto quad = [&](const sc::Vec3& a, const sc::Vec3& b, const sc::Vec3& c, const sc::Vec3& d) {
+        both(a, b, c);
+        both(a, c, d);
+    };
+    quad({-kSide, 0.0F, -kSide}, {kSide, 0.0F, -kSide}, {kSide, kTop, -kSide}, {-kSide, kTop, -kSide});
+    quad({-kSide, 0.0F, kSide}, {-kSide, kTop, kSide}, {kSide, kTop, kSide}, {kSide, 0.0F, kSide});
+    quad({-kSide, 0.0F, -kSide}, {-kSide, kTop, -kSide}, {-kSide, kTop, kSide}, {-kSide, 0.0F, kSide});
+    quad({kSide, 0.0F, -kSide}, {kSide, 0.0F, kSide}, {kSide, kTop, kSide}, {kSide, kTop, -kSide});
+    quad({-kSide, kTop, -kSide}, {kSide, kTop, -kSide}, {kSide, kTop, kSide}, {-kSide, kTop, kSide});
+    // the ground the air volume sees too
+    shed.push_back({.corners = {{{-2000.0F, 0.0F, -2000.0F}, {2000.0F, 0.0F, 2000.0F}, {2000.0F, 0.0F, -2000.0F}}}, .air = 0.0F});
+    shed.push_back({.corners = {{{-2000.0F, 0.0F, -2000.0F}, {-2000.0F, 0.0F, 2000.0F}, {2000.0F, 0.0F, 2000.0F}}}, .air = 0.0F});
+    const auto volume = std::make_shared<const render::air::Volume>(render::air::Volume::build(shed));
+    const auto count = [&](const sc::Scatter& made, bool inside, sc::ItemKind kind) {
+        std::size_t n = 0;
+        for (const sc::Item& item : made.items) {
+            const bool in = std::abs(item.root[0]) < kSide - 40.0F && std::abs(item.root[2]) < kSide - 40.0F;
+            const auto of = static_cast<sc::ItemKind>((item.packed >> sc::kItemKindShift) & 0xFU);
+            n += in == inside && of == kind ? 1U : 0U;
+        }
+        return n;
+    };
+    const sc::Scatter open = sc::make_scatter({.faces = faces, .seed = 5, .clutter_density = 2.0F});
+    const sc::Scatter aired = sc::make_scatter({.faces = faces, .seed = 5, .clutter_density = 2.0F, .air = volume});
+    const sc::Scatter again = sc::make_scatter({.faces = faces, .seed = 5, .clutter_density = 2.0F, .air = volume});
+    std::printf("      the shed without the air: %zu leaves, %zu weeds, %zu pebbles inside; with it: %zu, %zu, %zu "
+                "(outside %zu leaves); %u turned away\n",
+                count(open, true, sc::ItemKind::kLeaf), count(open, true, sc::ItemKind::kWeed),
+                count(open, true, sc::ItemKind::kPebble), count(aired, true, sc::ItemKind::kLeaf),
+                count(aired, true, sc::ItemKind::kWeed), count(aired, true, sc::ItemKind::kPebble),
+                count(aired, false, sc::ItemKind::kLeaf), aired.item_rejected.no_air);
+    expect(count(open, true, sc::ItemKind::kLeaf) > 0, "air: without the air volume leaves lie inside the shed");
+    expect(count(aired, true, sc::ItemKind::kLeaf) == 0 && count(aired, true, sc::ItemKind::kWeed) == 0,
+           "air: no leaves or weeds inside a closed shed (the wind and the sky don't reach)");
+    expect(count(aired, true, sc::ItemKind::kPebble) > 0, "air: pebbles keep their own rule inside");
+    expect(count(aired, false, sc::ItemKind::kLeaf) > 0, "air: leaves outside it");
+    expect(aired.items.size() == again.items.size() &&
+               std::memcmp(aired.items.data(), again.items.data(), aired.items.size() * sizeof(sc::Item)) == 0,
+           "air: the same input, the same items");
 }
 
 // The game's winding ((v1 - v0) x (v2 - v0), TriMeshSource::get_triangle_normal) faces up on the ground: a patch wound
@@ -521,6 +578,7 @@ int main(int argc, char** argv)
         synthetic_checks();
         patch_checks();
         winding_checks();
+        air_checks();
         std::printf("%s: %d failure(s)\n", failures() == 0 ? "ok" : "FAILED", failures());
         return failures() == 0 ? 0 : 1;
     }

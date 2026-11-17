@@ -465,7 +465,68 @@ struct Marching {
     bool pairs = false;
     uint32_t parity = 0;
     bool dark = false;
+    // (round W2) the pass's pixel (the viewport's) and frame: the pairs' sky rays as the pass draws them (pairs); else
+    // the sky's open share round each step, integrated
+    int pixel_x = 0;
+    int pixel_y = 0;
+    uint64_t frame = 0;
 };
+
+// (round W2) The pass's hash01 (vulkan_rt_fog.cpp): the same bits, the same numbers.
+float pass_hash01(int x, int y, int frame, int i, uint32_t salt)
+{
+    uint32_t h = (static_cast<uint32_t>(x) * 0x8DA6B343U) ^ (static_cast<uint32_t>(y) * 0xD8163841U) ^
+                 (static_cast<uint32_t>(frame) * 0xCB1AB31FU) ^ (static_cast<uint32_t>(i) * 0x165667B1U) ^ salt;
+    h ^= h >> 16U;
+    h *= 0x7FEB352DU;
+    h ^= h >> 15U;
+    h *= 0x846CA68BU;
+    h ^= h >> 16U;
+    return static_cast<float>(h >> 8U) / 16777216.0F;
+}
+
+// Whether `at` sees out along `toward` (nothing within the pass's reach).
+bool sees_out(const Vec3& at, const Vec3& toward)
+{
+    return std::ranges::none_of(kSolids, [&](const Solid& solid) {
+        return intersect(solid, {.origin = at, .direction = toward}) <= static_cast<double>(render::vulkan::kFogSunDistance);
+    });
+}
+
+// (round W2) The pass's sky_seen_stratified: four rays toward the upper hemisphere (even in solid angle, stratified) for
+// the pair's step `i`.
+double sky_ray(const Vec3& at, int x, int y, uint64_t frame, int i)
+{
+    const int f = static_cast<int>(frame % (1U << 24U));
+    double open = 0.0;
+    for (uint32_t k = 0; k < 4; ++k) {
+        const float z = (static_cast<float>(k & 1U) + pass_hash01(x, y, f, i, 0x3BU + k)) * 0.5F;
+        const float a = 3.14159265F * (static_cast<float>(k >> 1U) + pass_hash01(x, y, f, i, 0xC5U + k));
+        const float r = std::sqrt(std::max(1.0F - (z * z), 0.0F));
+        open += sees_out(at, {static_cast<double>(r * std::cos(a)), static_cast<double>(z),
+                              static_cast<double>(r * std::sin(a))})
+                    ? 0.25
+                    : 0.0;
+    }
+    return open;
+}
+
+// (round W2) The sky's open share round `at` (even in solid angle over the upper hemisphere): stratified rays.
+double sky_share(const Vec3& at)
+{
+    constexpr int kRings = 4;
+    constexpr int kAround = 12;
+    int open = 0;
+    for (int ring = 0; ring < kRings; ++ring) {
+        const double z = (static_cast<double>(ring) + 0.5) / kRings;
+        const double r = std::sqrt(std::max(1.0 - (z * z), 0.0));
+        for (int k = 0; k < kAround; ++k) {
+            const double a = 2.0 * std::numbers::pi * (static_cast<double>(k) + 0.5) / kAround;
+            open += sees_out(at, {r * std::cos(a), z, r * std::sin(a)}) ? 1 : 0;
+        }
+    }
+    return static_cast<double>(open) / (kRings * kAround);
+}
 
 // The share of the fog's light the sun gives where the replacing mode isn't drawing (the sky, shafts mode).
 double sunlit_share(bool sky, bool replace)
@@ -617,10 +678,24 @@ Fogged march(const ViewRay& ray, const Marching& how)
     };
     double seen = 0.0;
     double pair_seen = 0.0;
+    // (round W2) the street air's shade light only as far as its air sees the sky: the pairs' rays as the pass traces
+    // them, else the open share (integrated every kSkyEvery steps - the exact integral's stand-in)
+    const bool sky_traced = replace && air_on;
+    double sky_open = 1.0;
+    constexpr uint32_t kSkyEvery = 256;
     for (uint32_t i = 0; i < total; ++i) {
         const double near_end = boundary(static_cast<double>(i));
         const double far_end = boundary(static_cast<double>(i + 1));
         const Vec3 point = step(ray.eye, ray.direction, point_of(i));
+        if (sky_traced) {
+            if (how.pairs && (i & 1U) == 0) {
+                const uint32_t traced = std::min(i + how.parity, total - 1);
+                sky_open = sky_ray(step(ray.eye, ray.direction, point_of(traced)), how.pixel_x, how.pixel_y, how.frame,
+                                   static_cast<int>(traced));
+            } else if (!how.pairs && i % kSkyEvery == 0) {
+                sky_open = sky_share(step(ray.eye, ray.direction, point_of(std::min(i + (kSkyEvery / 2), total - 1))));
+            }
+        }
         if (!how.pairs || in_map(point)) {
             seen = sunlit(point) ? 1.0 : 0.0;
         } else {
@@ -651,7 +726,7 @@ Fogged march(const ViewRay& ray, const Marching& how)
                                             : fog * (1.0 - ambient) * tinted * share;
             // (the street air's light: the aerosol's phase, its shade the replaced fog's)
             const double lit_air = how.dark ? 0.0 : seen * shaped * core::at(sun_tint, channel);
-            const double here_air = (replace ? fog * ambient : 0.0) + (scatter * lit_air);
+            const double here_air = (replace ? fog * ambient * sky_open : 0.0) + (scatter * lit_air);
             const double here = ((std::max(fog_depth, 0.0) * here_fog) + (std::max(depth_air, 0.0) * here_air)) / depth;
             const double added = out.transmittance * (1.0 - kept) * here;
             core::at(out.light, channel) += added;
@@ -1209,7 +1284,10 @@ void compare_raw(const View& view, uint64_t frame, bool shafts, Tally* tally)
                                    .jitter = jitter_of(pixel, frame),
                                    .shafts = shafts,
                                    .pairs = true,
-                                   .parity = static_cast<uint32_t>(frame & 1U)});
+                                   .parity = static_cast<uint32_t>(frame & 1U),
+                                   .pixel_x = pixel.x,
+                                   .pixel_y = pixel.y,
+                                   .frame = frame});
         light_errors.push_back(light_error(got, want));
         // (a sample on either side of the shaft's edge: a pair of steps' light - the light's rays a pair at a time)
         one_step = std::max(one_step, 2.0 * want.largest_step);
@@ -2290,6 +2368,41 @@ void run_rays(render::Gpu& gpu, const Scene& scene, Tally* tally)
                 ++peaks;
                 least_rise = std::min(least_rise, rise);
             }
+        }
+        // (round W2) the peak's light is the march's sunlit potential at most: air the world shadows (behind the posts
+        // from the sun, under a roof the view doesn't show) takes none of it whatever the screen sees - every texel's
+        // sunlit potential at most its unshadowed one, the posts' shadow taking most of it from some, none from others
+        {
+            render::vulkan::RtFogTexels lit;
+            render::vulkan::RtFogTexels info;
+            bool lit_read = false;
+            {
+                render::vulkan::Backend& state = render::vulkan::backend();
+                const std::scoped_lock lock(state.mutex);
+                const Rect whole{0, 0, kBarWidth, kBarHeight};
+                lit_read = render::vulkan::read_rt_fog_image(state, whole, render::vulkan::RtFogImage::kRawLit, &lit) &&
+                           render::vulkan::read_rt_fog_image(state, whole, render::vulkan::RtFogImage::kRawInfo, &info) &&
+                           lit.texels.size() == info.texels.size();
+            }
+            int over = 0;
+            int shadowed = 0;
+            int open_air = 0;
+            int counted = 0;
+            for (std::size_t i = 0; lit_read && i < lit.texels.size(); ++i) {
+                const double potential = std::get<3>(core::at(info.texels, i));
+                const double sunlit = std::get<0>(core::at(lit.texels, i));
+                if (!(potential > 1e-7)) {
+                    continue;
+                }
+                ++counted;
+                over += sunlit > (potential * (1.0 + 1e-5)) + 1e-9 ? 1 : 0;
+                shadowed += sunlit < 0.5 * potential ? 1 : 0;
+                open_air += sunlit > 0.95 * potential ? 1 : 0;
+            }
+            tally->check(lit_read && counted > 100 && over == 0 && shadowed > 0 && open_air > 0,
+                         text::format("  the peak's light under the march's own shadow: %d texels, none over the unshadowed "
+                                      "(%d), %d with most of it shadowed, %d open",
+                                      counted, over, shadowed, open_air));
         }
         tally->check(peaks == kCombTeeth - 1,
                      text::format("  %d rays apart across the row %u texels above the comb (row %u; %d gaps between the "

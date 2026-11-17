@@ -138,6 +138,8 @@ constexpr uint32_t combine(uint32_t seed, uint32_t value)
     return mix(seed ^ (value + kGolden + (seed << kUp) + (seed >> kDown)));
 }
 
+constexpr float kAirAbove = 1.5F * air::kCell; // (round W2: the air an item lies in - the middle of the cell over the
+                                                // ground's own: a surface's cells are walls, left out of the sampling)
 float unit(uint32_t hash) { return static_cast<float>(hash) * kUnit; }
 
 // A stream of hashes from a seed (each next() a new one).
@@ -834,7 +836,10 @@ bool is_hard(Surface surface)
 
 class Maker {
 public:
-    Maker(const Input& input, Scatter* out) : seed_(input.seed), out_(out), world_(input.faces, input.rails) {}
+    Maker(const Input& input, Scatter* out)
+        : seed_(input.seed), out_(out), air_(input.air), world_(input.faces, input.rails)
+    {
+    }
 
     void ground_decals()
     {
@@ -1138,6 +1143,15 @@ private:
             ++rejected.drop;
             return;
         }
+        // (round W2) what the wind brings - leaves, paper - where it reaches; weeds where the sky's rain and light do
+        const float aired = hashes->next_unit();
+        if (air_ != nullptr && (kind == ItemKind::kLeaf || kind == ItemKind::kPaper || kind == ItemKind::kWeed)) {
+            const air::Sample here = air_->at({x_of(root), y_of(root) + kAirAbove, z_of(root)});
+            if (aired >= (kind == ItemKind::kWeed ? here.sky : here.wind)) {
+                ++rejected.no_air;
+                return;
+            }
+        }
         if (skate_line(root, &rejected)) {
             return;
         }
@@ -1173,6 +1187,7 @@ private:
 
     uint32_t seed_ = 0;
     Scatter* out_;
+    std::shared_ptr<const air::Volume> air_;
     World world_;
     std::vector<Placed> placed_;
     std::size_t decal_vertices_ = 0;

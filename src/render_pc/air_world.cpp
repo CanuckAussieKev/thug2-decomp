@@ -114,6 +114,12 @@ bool ready(const Build& build)
 
 } // namespace
 
+bool settled()
+{
+    const State& own = state();
+    return own.keyed && own.building == nullptr;
+}
+
 void step(uint64_t sectors)
 {
     State& own = state();

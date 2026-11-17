@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "engine/gfx/grass.h"
+#include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/wind.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -14,29 +15,30 @@
 // NOT ORIGINAL - grass (docs/design/vulkan.md "Grass"; [Graphics] grass - gpu_vulkan.h's GrassSettings): blades drawn
 // over the level's grass ground. render_pc finds the grass in the collision and hands the field of blades over
 // (engine/gfx/grass.h - this file's Sink); each viewport's pass runs at opaque_drawn (rt::ViewOrder::kGrass: after the
-// opaque world, the objects and the sky and after the ray-traced shadows, occlusion, bounce and reflections have shaded
-// the ground - a blade takes the ground's shaded colour at its root, so it is in the shadow its root is in; the
+// opaque world, the objects and the sky and after the ray-traced shadows, occlusion, bounce and reflections; the
 // screen-space effects aren't run over the blades themselves: a blade's depth is a few pixels wide, the normals they
-// rebuild from it are noise and darkened every blade). Before the fog and the tone mapping (world_drawn), which take
-// the blades with the rest. Independent of ray tracing; the blades are never in the acceleration structures.
+// rebuild from it are noise). Before the fog and the tone mapping (world_drawn), which take the blades with the rest.
+// The blades are never in the acceleration structures.
+//
+// (Round W2) A blade is lit by the one light, as a thin leaf of its material (engine/gfx/foliage_light.h): the light
+// store round it (vulkan_light_window.h - Round O's probes: the sky's, the bounce's and the lamps' light), the sun's or
+// the moon's light with its own traced visibility (a ray toward it from the blade's middle - ray tracing on; else seen),
+// the canopy's shade by the blades above (Beer's law over the drawn blades' own leaf area), the material table's leaf
+// (rt_material_table.h: a living leaf's albedo and transmittance - a dried blade the dried leaf's), reflected through
+// rt_brdf.h on the face toward the eye and transmitted from the other. Nothing of the frame's colour is read.
 //
 // A pass, per viewport (its rectangle; split screen: each its own):
 //   1. (the processor) the field's tiles near enough and in view chosen (plan_grass_draws): a tile at distance d (its
 //      box's nearest point) draws its first blades - those whose rank is below grass_keep(d), the tile's blades being in
 //      rank order -, with 3, 2 or 1 segments as it is near, middling or far; at most kGrassMostDrawn blades a view (the
 //      share kept lowered for all when more);
-//   2. the viewport's colour copied out (resolved first when multisampled): the ground as drawn - its texture, the
-//      bake's light and shadow under it, the per-pixel lighting, the fog;
-//   3. (gather, compute) each chosen blade's root put on the screen: where the depth there is the root's own (within
-//      kGrassMatchShare of its distance + kGrassMatchSlack), the colour there is the blade's - kept in a buffer of the
-//      blades' colours, so a root hidden this frame (under the skater) keeps the last colour seen; each sighting adds
-//      kGrassLearn to how well the blade is known (a blade never seen isn't drawn: it grows in over a few frames);
-//   4. (draw) the blades as triangle strips, one instance a blade, into the colour and depth (and the upscaler's motion,
+//   2. (light, compute) each chosen blade shaped as the draw will shape it, its sun ray traced, its light at its root
+//      and its tip worked out (grass_blade_light is the twin) - kept in a buffer of the blades' light;
+//   3. (draw) the blades as triangle strips, one instance a blade, into the colour and depth (and the upscaler's motion,
 //      when the view is upscaled), depth-tested; each blade shaped by grass_blade_shape (its twin on the processor):
 //        - its height: the base (kGrassBaseHeight x grass_height) x its own (kGrassShortest - kGrassTallest) x the fade
-//          (1 - smoothstep(kGrassFadeStart x distance, distance, d)) x how well it is known x its growth (0 - 1 as the
-//          share kept passes its rank: (keep - rank) / kGrassGrowBand) - far blades sink into the ground they are the
-//          colour of;
+//          (1 - smoothstep(kGrassFadeStart x distance, distance, d)) x its growth (0 - 1 as the share kept passes its
+//          rank: (keep - rank) / kGrassGrowBand) - far blades sink into the ground;
 //        - its bend (the tip's move along the ground): its own lean (up to kGrassLean of the height, across its face),
 //          the wind's bend (round W: a blade a cantilever bent by the wind's drag - grass_wind_bend - in the wind at its
 //          tip: the one wind's near the ground x the level's air there (vulkan_air.h) x its gusts, carried downwind
@@ -47,9 +49,8 @@
 //        - its face: its own way turned kGrassFaceCamera of the way toward facing the camera (a blade seen edge-on
 //          shows nothing); its width kGrassWidth at the root, never less than kGrassLeastPixels pixels, to nothing at
 //          the tip, along a quadratic curve from the root, up, to the tip;
-//        - its colour: the ground's under it x kGrassRootShade at the root to kGrassTipShade at the tip (the root's
-//          contact darkening, the tip catching the light) x its own shade (within kGrassShadeSpread).
-// Every step is NaN-free (the colours read clamped first).
+//        - its colour: its light at the root to its light at the tip along it.
+// Every step is NaN-free.
 namespace render::vulkan {
 
 struct Backend;
@@ -90,12 +91,9 @@ inline constexpr float kGrassPush = 1.4F;
 inline constexpr float kGrassPushHeight = 72.0F;
 inline constexpr float kGrassMostBend = 0.92F;
 inline constexpr float kGrassFaceCamera = 0.6F;
-inline constexpr float kGrassRootShade = 0.75F;
-inline constexpr float kGrassTipShade = 1.12F;
+// (round W2) a blade's albedo and transmittance its kind's x (1 +- this) by its own hash: leaves of one sward differ
+// (Gates et al. 1965's samples spread about 10% about their mean at the green peak)
 inline constexpr float kGrassShadeSpread = 0.1F;
-inline constexpr float kGrassMatchShare = 0.04F;
-inline constexpr float kGrassMatchSlack = 8.0F;
-inline constexpr float kGrassLearn = 0.34F;
 inline constexpr float kGrassUnitsPerMetre = 39.37F;
 inline constexpr uint32_t kGrassMostDrawn = 1500000;
 
@@ -109,12 +107,16 @@ struct GrassView {
     float keep_scale = 1.0F; // (lowered when a view has more than kGrassMostDrawn blades)
     float seconds = 0.0F;    // the wind's clock (the game's)
     float wind = 0.0F;       // (round W) the wind near the ground in the open now (m/s at wind.h kNearGround, no gust)
+    float leaf_area = 0.0F;  // (round W2) the drawn blades' leaf area a ground area (their count x a blade's area)
 };
 [[nodiscard]] GrassView grass_view(const GrassSettings& settings, const rt::ViewDrawn& view, uint32_t height_pixels);
 
 // The share of the blades kept at distance d, and the height left there.
 [[nodiscard]] float grass_keep(const GrassView& view, float distance);
 [[nodiscard]] float grass_fade(const GrassView& view, float distance);
+
+// (round W2) The leaf area the field's blades make a ground area at `density` and `height` (GrassSettings').
+[[nodiscard]] float grass_leaf_area(float density, float height);
 
 // A draw: `count` blades from `first` (one or more whole tiles' first blades), each with `segments`.
 struct GrassDraw {
@@ -139,6 +141,22 @@ struct GrassShape {
 [[nodiscard]] GrassShape grass_blade_shape(const grass::Blade& blade, const GrassView& view,
                                            std::span<const grass::Pusher> pushers, float known);
 
+// (round W2) A blade's light as the light pass works it out (its twin): the radiance it sends toward the camera at its
+// root and at its tip (linear, the frame's unit) for the light store's probe at its middle, the direct light (toward,
+// per unit of N.L) and its visibility `seen`.
+struct GrassLight {
+    rt::ProbeL1 probe;
+    std::array<float, 3> toward{0.0F, 1.0F, 0.0F};
+    std::array<float, 3> sun{};
+    float seen = 1.0F;
+};
+struct GrassLit {
+    std::array<float, 3> root{};
+    std::array<float, 3> tip{};
+};
+[[nodiscard]] GrassLit grass_blade_light(const grass::Blade& blade, const GrassShape& shape, const GrassView& view,
+                                         const GrassLight& light);
+
 // The pass over the bound colour and depth targets for a view (the listener's work; also the check's). The caller holds
 // the lock. False (nothing recorded): off, no field, no blade in view, the targets can't be used, the pass can't be made
 // (logged once).
@@ -152,8 +170,14 @@ bool record_grass_pass(Backend& state, const rt::ViewDrawn& view);
 // work is finished. False when there is no field.
 bool probe_grass(Backend& state, const rt::ViewDrawn& view, uint32_t first, uint32_t count,
                  std::vector<std::array<float, 4>>* tips);
-// The blades' colours read back: r, g, b and how well each is known.
-bool read_grass_colours(Backend& state, std::vector<std::array<float, 4>>* colours);
+// (round W2) The blades' light read back as the last light pass left it: each blade's root and tip radiance and its sun
+// visibility.
+struct GrassLightRead {
+    std::array<float, 3> root{};
+    std::array<float, 3> tip{};
+    float seen = 0.0F;
+};
+bool read_grass_colours(Backend& state, std::vector<GrassLightRead>* colours);
 
 // The Sink render_pc hands the field and the pushers to (installed while grass=1; the check uses it directly).
 grass::Sink& grass_sink();

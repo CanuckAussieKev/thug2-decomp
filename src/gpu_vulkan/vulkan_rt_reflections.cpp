@@ -35,6 +35,7 @@
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_ring.h"
+#include "engine/gfx/rain.h"
 #include "gpu_vulkan/vulkan_rain.h"
 #include "gpu_vulkan/vulkan_scatter.h"
 #include "platform/run_log.h"
@@ -103,14 +104,14 @@ layout(set = 0, binding = 3, std140) uniform Pass {
     vec4 ambient;
     vec4 light_direction[4];
     vec4 light_colour[4];
-    vec4 rays; // x the rays a rough pixel traces (yzw spare)
+    vec4 rays; // x the rays a rough pixel traces; (round W2) yzw the rain's rings' cell, layers, clock
     // (added by the sky) what a miss sees with rt_sky (vulkan_rt_sky_pass.h rt_sky_for_rays; the SKY variant only)
     mat4 sky_to_pixel;
     vec4 sky_sun;
     vec4 sky_low;
     vec4 sky_rect;
     // (added for the surface reflections) y the roughest map texel that reflects (kReflectionRoughest), z the cone's
-    // half-angle per GGX alpha (the roughness squared); x spare
+    // half-angle per GGX alpha (the roughness squared); (round W2) x the rain's rings' life
     vec4 surface;
     // (round O) xyz toward the sun or the moon (rt_scene.h scene_sun); w its rays' reach (0: none - no direct light)
     vec4 sun;
@@ -895,8 +896,13 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
 
 // (added by the decals - vulkan_scatter.h) The trace's body with the puddles: where the decals' wet mask (kBindingWet)
 // has a puddle and the surface shown is the world's, it reflects as water does - its reflectivity the mask's (if more
-// than its own), rt::kReflectWaterF0 face-on and Schlick's curve, the whole of it (no environment mask). Made from
-// kTraceBody by putting lines in, so the trace without it is the same text as ever. Empty if a line wasn't found.
+// than its own), rt::kReflectWaterF0 face-on and Schlick's curve, the whole of it (no environment mask). (Round W2) A
+// surface the light model shades through its map (CLASS_SURFACE) is the world shader's wet material instead - its F0
+// and roughness taken toward water's by the mask's flat water share exactly as the world shader takes them (ff_shaders.cpp
+// kTrailWet: rain.h wet_brdf_material's twin), the reflection added by the share its own shading left out; and the
+// standing water's normal carries the rain's rings there (rain_ripple, the world shader's), so a puddle's reflection
+// trembles as its own shading does. Made from kTraceBody by putting lines in, so the trace without it is the same text
+// as ever. Empty if a line wasn't found.
 std::string wet_trace_body()
 {
     std::string body = kTraceBody;
@@ -910,7 +916,8 @@ std::string wet_trace_body()
     };
     const bool ok =
         put("layout(set = 0, binding = 8, rgba16f) uniform writeonly image2D o_base;\n",
-            "layout(set = 0, binding = 13) uniform sampler2D u_wet;\n",
+            "layout(set = 0, binding = 13) uniform sampler2D u_wet;\n" + std::string(rain::glsl_constants()) +
+                rain::ripple_glsl(),
             false) &&
         put("float reflectivity = material(id).reflectivity;\n",
             "            float wet = (geometry_record(rayQueryGetIntersectionInstanceIdEXT(query, true)).instance_flags &\n"
@@ -919,9 +926,20 @@ std::string wet_trace_body()
             "            reflectivity = max(reflectivity, wet);\n",
             false) &&
         put("                    // (puddles)\n",
-            "                    if (puddle) {\n                        kind = CLASS_WATER;\n"
+            "                    float wet_surface = kind == CLASS_SURFACE ? wet : 0.0;\n"
+            "                    if (puddle && kind != CLASS_SURFACE) {\n                        kind = CLASS_WATER;\n"
             "                        mask = wet;\n                        painted = false;\n                    }\n",
-            true);
+            true) &&
+        put("                        f0 = surface.f0 >= HIT_METAL_F0 ? albedo : vec3(surface.f0);\n",
+            "                        f0 = mix(f0, vec3(RAIN_WATER_F0), wet_surface);\n"
+            "                        r = mix(r, RAIN_WATER_ROUGHNESS, wet_surface);\n",
+            false) &&
+        put("                    float cosine = clamp(-dot(view, sn), 0.0, 1.0);\n",
+            "                    if (wet > 0.0 && sn.y > 0.0) {\n"
+            "                        vec2 rings = rain_ripple(point.xz, vec4(pass.rays.yzw, pass.surface.x));\n"
+            "                        sn = normalize(mix(sn, normalize(vec3(-rings.x, 1.0, -rings.y)), wet));\n"
+            "                    }\n",
+            false);
     return ok ? body : std::string();
 }
 
@@ -1620,8 +1638,10 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
     }
     block.ambient.back() = angle;
     block.extra = {static_cast<int32_t>(kReflectionMask), static_cast<int32_t>(lights), 0, 0};
-    block.rays = {static_cast<float>(kRoughRays), 0.0F, 0.0F, 0.0F};
-    block.surface = {0.0F, kSurfaceRoughest, kSurfaceConePerAlpha, 0.0F};
+    // (round W2: yzw and surface.x the rain's rings on standing water - vulkan_rain.h rain_ripples_now, the wet trace's)
+    const std::array<float, 4> rings = rain_ripples_now();
+    block.rays = {static_cast<float>(kRoughRays), core::at(rings, 0), core::at(rings, 1), core::at(rings, 2)};
+    block.surface = {core::at(rings, 3), kSurfaceRoughest, kSurfaceConePerAlpha, 0.0F};
     // (round O) the sun every effect lights by (rt_scene.h scene_sun): the hits' direct light is traced toward it
     const rt::SceneSun sun = rt::scene_sun();
     if (sun.found()) {
