@@ -226,7 +226,11 @@ constexpr uint8_t kTrailSnowTraced = 4;
 // whole colour - the texture and the tint the vertex colour carries (a road's dark asphalt, a lawn's green, painted lines)
 // - and keeps only the light: the albedo is mixed toward the snow over the tint (word 1 of the stream).
 constexpr uint8_t kTrailSnowTint = 8;
-constexpr uint8_t kTrailKnown = kTrailSnow | kTrailPaint | kTrailSnowTraced | kTrailSnowTint;
+// (NOT ORIGINAL - [Graphics] rain, gpu_vulkan/vulkan_rain.h) kTrailWet: the rain's water on the surface - its albedo
+// darkened where water fills its pores or lies on it, its roughness toward still water's under a film or a puddle, rings
+// on the puddles (WetUniforms at kWetUniformsBinding, the precipitation occlusion map at kWetMapBinding).
+constexpr uint8_t kTrailWet = 16;
+constexpr uint8_t kTrailKnown = kTrailSnow | kTrailPaint | kTrailSnowTraced | kTrailSnowTint | kTrailWet;
 
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;

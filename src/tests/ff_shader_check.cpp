@@ -430,7 +430,9 @@ void add_trail_keys(ff_check::KeySets& sets)
         constexpr uint8_t kSnowTraced = kTrailSnow | kTrailSnowTraced;
         constexpr uint8_t kSnowTint = kTrailSnow | kTrailSnowTint;
         constexpr uint8_t kSnowPaint = kTrailSnow | kTrailPaint;
-        for (const uint8_t trails : {kTrailSnow, kSnowTraced, kSnowTint, kTrailPaint, kSnowPaint, kTrailKnown}) {
+        // (NOT ORIGINAL - the rain's wet ground: alone and with the paint)
+        constexpr uint8_t kWetPaint = kTrailWet | kTrailPaint;
+        for (const uint8_t trails : {kTrailSnow, kSnowTraced, kSnowTint, kTrailPaint, kSnowPaint, kTrailWet, kWetPaint, kTrailKnown}) {
             ShaderKey key = pair;
             key.fragment.trails = trails;
             key = normalised(key);

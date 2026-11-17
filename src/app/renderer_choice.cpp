@@ -497,6 +497,13 @@ void read_snow(const Resolution& in_effect)
          .falling = in_effect.on("snowfall")});
 }
 
+// NOT ORIGINAL - rain (gpu_vulkan/vulkan_rain.h): the rate in mm/h - the drops, the wet ground, the air's extinction
+void read_rain(const Resolution& in_effect)
+{
+    const render::vulkan::RainSettings defaults;
+    render::vulkan::set_rain_settings({.rate = in_effect.on("rain") ? in_effect.number("rain", defaults.rate) : 0.0F});
+}
+
 // NOT ORIGINAL - paint trails (gpu_vulkan/vulkan_paint.h): every skater's line of paint, widening with its combo
 void read_paint(const Resolution& in_effect)
 {
@@ -658,6 +665,9 @@ void read_effect(config::Effect effect, const Resolution& in_effect)
         break;
     case Effect::kPaint:
         read_paint(in_effect);
+        break;
+    case Effect::kRain:
+        read_rain(in_effect);
         break;
     case Effect::kCameraFx:
         read_camera_fx(in_effect);

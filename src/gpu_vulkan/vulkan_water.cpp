@@ -20,6 +20,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/water_surfaces.h"
 #include "engine/gfx/wind.h"
+#include "engine/gfx/rain.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -848,7 +849,11 @@ WaterUniforms water_uniforms(const WaterSettings& settings, const WaterView& vie
     out.sky = {core::at(sky, 0), core::at(sky, 1), core::at(sky, 2), view.sky_bound ? 1.0F : 0.0F};
     out.camera = {core::at(drawn.camera.position, 0), core::at(drawn.camera.position, 1), core::at(drawn.camera.position, 2),
                   kWaterRefraction};
-    out.misc = {settings.screen_reflections ? 1.0F : 0.0F, 0.0F, settings.debug_view ? 1.0F : 0.0F, 0.0F};
+    // (added by the rain - engine/gfx/rain.h) the drops' rings: their cell at the rate, the body's openness to the sky
+    const double rate = rain::settings().rate;
+    const float rings = body.known && rate > 0.0 ? static_cast<float>(rain::ripples_of(rate).cell) : 0.0F;
+    out.misc = {settings.screen_reflections ? 1.0F : 0.0F, rings, settings.debug_view ? 1.0F : 0.0F,
+                body.known ? static_cast<float>(body.openness) : 0.0F};
     if (body.known) {
         const water::SeaWaves& sea = body.waves;
         out.swell = {core::at(sea.slopes, 0), core::at(sea.slopes, 1), core::at(sea.slopes, 2), core::at(sea.slopes, 3)};

@@ -13,6 +13,8 @@
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/mesh_formats.h"
+#include "engine/gfx/precip_occlusion.h"
+#include "engine/gfx/rain.h"
 #include "engine/gfx/rt_display.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -797,12 +799,39 @@ vec4 paint_at(vec3 world, vec3 n)
     return best;
 })";
 
+// (NOT ORIGINAL - [Graphics] rain, vulkan_rain.h; docs/design/vulkan.md "Rain") the wet ground: a key with kTrailWet works
+// out at the start (trail_main) whether the rain reaches the surface (the precipitation occlusion map - precip_reached:
+// precip_occlusion.h's twin), how hard it strikes it (its face against the fall over level ground's) and the water there
+// (rain_wetness - rain.h's twin: the pores filled, a film, a puddle where the ground's small relief dips under the stored
+// water's level); the albedo then darkens under the water (trail_albedo: Lekner and Dorf - rain_wet_albedo - on the linear
+// albedo, by the pores' share x the surface's porosity, the film's, the puddle's), the per-pixel lighting's roughness goes
+// toward still water's under a film or a puddle and a puddle's normal is the water's, with the drops' rings on it.
+// WetUniforms: the view's eye-to-world, the map's fall / slant / windows (precip_*), the ground's water (rain.h Ground) and
+// the rings (rain.h Ripples, the rain's clock).
+std::string wet_block()
+{
+    static_assert(kWetUniformsBinding == 22 && kWetMapBinding == 23, "the wet block names them");
+    std::string block = "layout(set = 0, binding = 22, std140) uniform WetUniforms {\n"
+                        "    mat4 eye_to_world;\n    vec4 precip_fall;\n    vec4 precip_slant;\n    vec4 precip_near;\n"
+                        "    vec4 precip_far;\n    vec4 ground;\n    vec4 ripple;\n} rain;\n"
+                        "layout(set = 0, binding = 23) uniform usampler2D rain_map;\n"
+                        "#define PRECIP_BLOCK rain\n#define PRECIP_MAP rain_map\n#define PRECIP_SIZE " +
+                        std::to_string(precip::kMapSize) + "\n";
+    block += render::rain::glsl_constants();
+    block += precip::reached_glsl();
+    block += render::rain::ripple_glsl();
+    block += render::rain::surface_glsl();
+    return block;
+}
+
 // (NOT ORIGINAL - the surface trails) At the start of a key with FragmentKey::trails (its derivatives in uniform control
 // flow): the surface's world position (the eye-space one handed on, the view's inverse - either block's), its own normal
 // from the position's screen derivatives turned toward the eye, then the snow's amount and the paint's coat there.
 void trail_main(std::string& out, const FragmentKey& key)
 {
-    const char* const eye_to_world = (key.trails & kTrailSnow) != 0U ? "snow.eye_to_world" : "paint.eye_to_world";
+    const char* const eye_to_world = (key.trails & kTrailSnow) != 0U    ? "snow.eye_to_world"
+                                      : (key.trails & kTrailPaint) != 0U ? "paint.eye_to_world"
+                                                                         : "rain.eye_to_world";
     add(out, {"    vec3 trail_world = (", eye_to_world, " * vec4(v_surface_eye, 1.0)).xyz;\n"
               "    vec3 trail_normal = cross(dFdx(trail_world), dFdy(trail_world));\n"
               "    float trail_length = length(trail_normal);\n"
@@ -813,6 +842,13 @@ void trail_main(std::string& out, const FragmentKey& key)
     }
     if ((key.trails & kTrailPaint) != 0U) {
         add(out, {"    vec4 paint_coat = paint_at(trail_world, trail_normal);"});
+    }
+    if ((key.trails & kTrailWet) != 0U) { // (NOT ORIGINAL - [Graphics] rain: the water there; porous unless the surface map
+                                          // says otherwise - surface_lighting)
+        add(out, {"    float rain_flux = max(dot(trail_normal, -rain.precip_fall.xyz), 0.0) / max(-rain.precip_fall.y, 0.05);\n"
+                  "    float rain_reach = rain_flux > 0.0 ? precip_reached(trail_world + trail_normal * 0.5) : 0.0;\n"
+                  "    vec4 rain_wet = rain_wetness(trail_world, trail_normal, rain_reach, rain_flux);\n"
+                  "    float rain_porous = 1.0;"});
     }
 }
 
@@ -831,6 +867,16 @@ void trail_albedo(std::string& out, const FragmentKey& key, const char* target, 
     }
     if ((key.trails & kTrailPaint) != 0U) {
         add(out, {indent, target, " = mix(", target, ", paint_coat.rgb, paint_coat.a);"});
+    }
+    if ((key.trails & kTrailWet) != 0U) {
+        // (NOT ORIGINAL - [Graphics] rain: the albedo under water darkened in linear light - the texel with what else colours
+        // the surface besides it, `own`, as one albedo - by the water's share of the surface)
+        const std::string colour = own != nullptr ? std::string("(") + target + " * " + own + ")" : std::string(target);
+        const std::string back = own != nullptr ? std::string("rain_a / ") + own : std::string("rain_a");
+        add(out, {indent, "{\n", indent, "    float rain_water = max(max(rain_wet.x * rain_porous, rain_wet.y), rain_wet.z);\n",
+                  indent, "    vec3 rain_a = linear_from_display(clamp(", colour, ", 0.0, 1.0));\n", indent,
+                  "    rain_a = display_from_linear(mix(rain_a, rain_wet_albedo(rain_a), rain_water));\n", indent, "    ", target,
+                  " = ", back, ";\n", indent, "}"});
     }
 }
 
@@ -1016,6 +1062,17 @@ void surface_lighting(std::string& out, const FragmentKey& key)
         add(out, {"    surface_n = normalize(mix(surface_n, surface_geo, snow_amount));\n"
                   "    surface_rough = mix(surface_rough, 0.75, snow_amount);"});
     }
+    if ((key.trails & kTrailWet) != 0U) {
+        // (NOT ORIGINAL - [Graphics] rain: the surface's porosity from its roughness - rain.h porosity_of, the material
+        // table's seam -; under a film or a puddle the water's roughness; a puddle's normal the water's, with its rings)
+        add(out, {"    rain_porous = rain_porosity(surface_rough);\n"
+                  "    surface_rough = mix(surface_rough, RAIN_WATER_ROUGHNESS, max(rain_wet.y, rain_wet.z));\n"
+                  "    if (rain_wet.z > 0.0) {\n"
+                  "        vec2 rain_rs = rain_ripple(trail_world.xz, rain.ripple);\n"
+                  "        vec3 rain_up = normalize(transpose(mat3(rain.eye_to_world)) * vec3(-rain_rs.x, 1.0, -rain_rs.y));\n"
+                  "        surface_n = normalize(mix(surface_n, rain_up, rain_wet.z));\n"
+                  "    }"});
+    }
     if ((key.surface & kSurfaceCel) != 0U) {
         cel_lighting(out, key); // (added by cel shading)
         return;
@@ -1106,6 +1163,9 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         }
         if ((key.trails & kTrailPaint) != 0U) {
             add(out, {kPaintBlock});
+        }
+        if ((key.trails & kTrailWet) != 0U) { // (NOT ORIGINAL - [Graphics] rain)
+            add(out, {wet_block()});
         }
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});

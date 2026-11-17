@@ -21,6 +21,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/gfx/rain.h"
 #include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
@@ -1511,6 +1512,10 @@ bool ensure_level(Backend& state, const std::array<float, 3>& drawn)
         own.level_read = true;
         own.level_settings = own.settings_serial;
     }
+    // (added by the rain - engine/gfx/rain.h cloud_cover) the weather's deck over the level's own clouds: rain falls from a
+    // deck covering the sky. (The clouds' cover doesn't yet dim the sun's or the sky's light on the level - DayLight is the
+    // clear sky's; the sky's state round, renderer-hack-audit.md S6.)
+    own.level.coverage = std::max(coverage_for(own.settings, own.level.look), static_cast<float>(rain::cloud_cover(rain::settings().rate)));
     const rt::DayLight day = rt::day_light();
     own.level.atmosphere.sun = drawn;
     own.level.atmosphere.night = day.on ? day.night_sky : std::array<float, 3>{};

@@ -288,6 +288,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_snow_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rain_check.exe: the rain (engine/gfx/rain.h's one weather state - Marshall-Palmer's drops,
+# their fall speeds, the rate they carry, the air's extinction, the wind's slant, the water on the ground, the wet
+# material's darkening and energy; engine/gfx/precip_occlusion.h's reach; gpu_vulkan/vulkan_precip.h's map traced on the
+# device under a roof and beside a wall; gpu_vulkan/vulkan_rain.h's passes made) on this machine
+# (src/tests/vulkan_rain_check.cpp). The map's checks need ray tracing.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rain_check vulkan_rain_check.cpp)
+    target_link_libraries(thug2_vulkan_rain_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rain_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_paint_check.exe: the paint trails (engine/gfx/paint_trails.h's strokes, splatter and fields,
 # gpu_vulkan/vulkan_paint.h's windows and coat) on this machine - a slim line with no combo, wider and splattered as the
 # combo grows, kept through a bail, a rail's stripe on its top (the ground under it its own), a wallride on the wall, the
