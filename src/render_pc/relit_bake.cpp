@@ -598,6 +598,26 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             kelvins.push_back(lamp.kelvin);
         }
     }
+    {
+        // (reported) the brightest lamp: an outlier the solve made shows here
+        std::size_t brightest = 0;
+        for (std::size_t li = 1; li < data.lamp_list.size(); ++li) {
+            if (luma(core::at(data.lamp_list, li).light) > luma(core::at(data.lamp_list, brightest).light)) {
+                brightest = li;
+            }
+        }
+        if (!data.lamp_list.empty()) {
+            const rt::RelitLamp& lamp = core::at(data.lamp_list, brightest);
+            get_log("relit bake: the brightest lamp %zu (kind %u, shape %u, %s) at %.0f %.0f %.0f, core %.0f: %.3f %.3f %.3f "
+                    "in the unit, %.0f lm",
+                    brightest, static_cast<unsigned>(lamp.kind), static_cast<unsigned>(lamp.shape),
+                    lamp.solved ? "told" : "its own surface's", static_cast<double>(rt::x_of(lamp.position)),
+                    static_cast<double>(rt::y_of(lamp.position)), static_cast<double>(rt::z_of(lamp.position)),
+                    static_cast<double>(lamp.core), static_cast<double>(std::get<0>(lamp.light)),
+                    static_cast<double>(std::get<1>(lamp.light)), static_cast<double>(std::get<2>(lamp.light)),
+                    static_cast<double>(lamp.lumens));
+        }
+    }
     float median_kelvin = 0.0F;
     if (!kelvins.empty()) {
         const auto middle = kelvins.begin() + static_cast<std::ptrdiff_t>(kelvins.size() / 2);
@@ -605,12 +625,12 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         median_kelvin = *middle;
     }
     get_log("relit bake: the lamps' solve - %zu %zu %zu edges, %zu of %zu lamps told by the bake (the rest by their own "
-            "surfaces' radiance; %zu told dark - %zu of them none at all, %zu under the daylight where they light (off by their own switch); the lit ones %.3f %.3f %.3f x their surfaces' light, median, %.2f at the "
+            "surfaces' radiance; %zu told dark - %zu of them none at all, %zu under the daylight where they light (off by their own switch), %zu leaving their pools darker than any unlit surface; the fit's noise %.3f; the lit ones %.3f %.3f %.3f x their surfaces' light, median, %.2f at the "
             "95th percentile); shapes: %zu points, %zu panels, %zu lines; %.0f lumens in all, "
             "median %.0f K; %zu emissive triangles; the bake's light the model doesn't explain dropped - brighter at %zu "
             "vertices, darker (its shadows the rays don't see) at %zu, told across meshes at %zu",
             core::at(model.lamp_votes, 0), core::at(model.lamp_votes, 1), core::at(model.lamp_votes, 2),
-            model.lamps_solved, data.lamp_list.size(), model.lamps_dark, model.lamps_zero, model.lamps_off_in_bake, static_cast<double>(std::get<0>(model.lamp_median)),
+            model.lamps_solved, data.lamp_list.size(), model.lamps_dark, model.lamps_zero, model.lamps_off_in_bake, model.lamps_implausible, static_cast<double>(model.lamp_noise), static_cast<double>(std::get<0>(model.lamp_median)),
             static_cast<double>(std::get<1>(model.lamp_median)), static_cast<double>(std::get<2>(model.lamp_median)),
             static_cast<double>(std::get<1>(model.lamp_high)),
             core::at(shapes, 0), core::at(shapes, 1), core::at(shapes, 2), lumens, static_cast<double>(median_kelvin),

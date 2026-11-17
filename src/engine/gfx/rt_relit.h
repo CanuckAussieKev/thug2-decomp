@@ -250,6 +250,9 @@ struct RelitModel {
     std::size_t lamps_dark = 0;              // ... of them told dark (no light of theirs in the bake)
     std::size_t lamps_zero = 0;              // (round A3) ... of those solved to no light at all (the rest under the noise)
     std::size_t lamps_off_in_bake = 0;       // (round A3) ... and those whose solved light its own switch says was off
+    float lamp_noise = 0.0F;                 // (round A3) the noise a lamp's share is told above: the unlit edges' median
+    std::size_t lamps_implausible = 0;       // (round A3) ... and those whose light leaves its pool's surfaces darker than
+                                             // any the level's lamps don't reach (a solve run off: its size untold)
     Rgbf lamp_high{};                        // ... the lit ones' 95th percentile over their own surfaces' light
     // (reported) the vertices whose bake differs from the model by kRelitLampLow or more: brighter (lamps the list
     // doesn't hold, the bake's sun where the rays saw a caster) and darker (the bake's shadows where the rays saw the

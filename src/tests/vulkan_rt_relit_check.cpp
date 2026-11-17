@@ -1798,7 +1798,7 @@ void check_ceiling_panel(Tally* tally)
     constexpr Rgbf kListed{0.9F, 0.9F, 0.85F};
     constexpr float kBounce = 0.25F;
     constexpr Rgbf kTintA{0.8F, 0.7F, 0.6F};
-    constexpr Rgbf kTintB{0.5F, 0.55F, 0.6F};
+    constexpr Rgbf kTintB{0.3F, 0.3F, 0.35F};
     rt::RelitMesh hall;
     const std::array<Face, 6> faces{{
         {.corner = {0.0F, 0.0F, 0.0F}, .across = {0.0F, 0.0F, kSide}, .up = {0.0F, kHeight, 0.0F}},
@@ -1868,12 +1868,14 @@ void check_ceiling_panel(Tally* tally)
         close = close && std::abs(core::at(lamps.at(0).light, ch) - core::at(kTrue, ch)) <= 0.15F * core::at(kTrue, ch);
     }
     tally->check(close, text::format("an indoor ceiling panel drawn in a texture (a candidate) found lit by the bake, its "
-                                     "intensity solved %.3f %.3f %.3f (true %.2f %.2f %.2f; %zu rays)",
+                                     "intensity solved %.3f %.3f %.3f (true %.2f %.2f %.2f; %zu rays; told dark %zu, "
+                                     "implausible %zu, noise %.3f)",
                                      static_cast<double>(std::get<0>(lamps.at(0).light)),
                                      static_cast<double>(std::get<1>(lamps.at(0).light)),
                                      static_cast<double>(std::get<2>(lamps.at(0).light)),
                                      static_cast<double>(std::get<0>(kTrue)), static_cast<double>(std::get<1>(kTrue)),
-                                     static_cast<double>(std::get<2>(kTrue)), stats.rays));
+                                     static_cast<double>(std::get<2>(kTrue)), stats.rays, model.lamps_dark,
+                                     model.lamps_implausible, static_cast<double>(model.lamp_noise)));
     tally->check(!lamps.at(1).solved && lamps.at(1).light == Rgbf{},
                  "a bright texture whose light the bake doesn't show: no lamp (brightness alone is no evidence)");
     rt::relit_lamp_switches(light, links, lamps);
