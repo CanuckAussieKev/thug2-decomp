@@ -53,7 +53,7 @@ constexpr float kMaxRoughness = 0.5F; // rt_glass_roughness at most (radians)
 constexpr uint32_t kRoughRays = 4;    // the rays a rough (glass) pixel traces
 // (added for the surface reflections) the roughest surface-map texel that reflects (perceptual roughness; faded out from
 // three quarters of it), a rough surface's cone per GGX alpha (radians), rt_reflection_surfaces at most
-constexpr float kSurfaceRoughest = 0.7F;
+constexpr float kSurfaceRoughest = kReflectionRoughest; // (round M: the surface shading's twin, vulkan_rt_reflections.h)
 constexpr float kSurfaceConePerAlpha = 1.0F;
 constexpr float kMaxSurfaces = 2.0F;
 constexpr float kOffsetScale = 1.0F; // the reflection ray's start pushed off the surface by this much, growing with distance

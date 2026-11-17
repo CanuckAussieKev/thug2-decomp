@@ -609,6 +609,9 @@ bool set_surface_uniforms(Backend& state, const GpuStateBlock& block, const Surf
 {
     SurfaceUniforms uniforms{};
     fill_surface_uniforms(block, state.bound.vertex_uniforms, draw, state.frames.serial(), &uniforms);
+    // (round M) the roughest texel whose environment the reflections pass traces for this surface (0: it traces none -
+    // the light store's estimate stands everywhere)
+    std::get<1>(uniforms.params) = draw.traced && rt_reflections_active(state) ? kReflectionRoughest : 0.0F;
     BoundState& bound = state.bound;
     if (bound.surface_kept && same_bytes(uniforms, bound.surface_uniforms)) {
         *where = bound.surface_block;
@@ -1308,6 +1311,13 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     Buffer* const relit = relit_colour_stream(state, call, shaders.vertex);
     if (relit != nullptr) {
         shaders.vertex.surface = static_cast<uint8_t>(shaders.vertex.surface | kVertexRelitColour);
+        // (round M) a world draw lit per pixel reads the store's terms (words 0 - 2: the environment's light, the tint and
+        // the sun's visibility, the lamps') and lights them with the light model - not the store's finished colour
+        const uint8_t lit = shaders.fragment.surface;
+        if ((lit & kSurfaceLighting) != 0U && (lit & (kSurfaceLit | kSurfaceCel | kSurfaceCelHull)) == 0U) {
+            shaders.fragment.surface = static_cast<uint8_t>(lit | kSurfaceRelit);
+            shaders.vertex.surface = static_cast<uint8_t>(shaders.vertex.surface | kVertexCelStream);
+        }
     }
     std::string why;
     if (!supported(shaders, &why)) {

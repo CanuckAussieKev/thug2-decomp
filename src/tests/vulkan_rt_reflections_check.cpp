@@ -1807,6 +1807,7 @@ void run_surface(render::Gpu& gpu, Mirror& mirror, Tally* tally)
     constexpr float kTileLeast = 0.12F;
     constexpr float kMetalLeast = 0.05F;
     constexpr float kStoneLeast = 0.5F;
+    constexpr float kOldMostDielectricF0 = 0.05F; // (the retired gloss table's cap - round M: these cases await M6's rewrite)
     constexpr float kStoneGloss = 0.2F;
     const bool metal = textured && attach(static_cast<uint8_t>(smf::MaterialClass::kMetal), 0);
     tally->check(metal, "a white texture with a smooth metal surface map");
@@ -1822,7 +1823,7 @@ void run_surface(render::Gpu& gpu, Mirror& mirror, Tally* tally)
     if (stone) {
         run_mirror(gpu, mirror, {.name = "smooth stone by its surface map (a faint sheen: F0 0.05, roughness at least 0.5)",
                                  .samples = 0, .strength = 0.5F, .reflectivity = 0.0F, .fresnel = true,
-                                 .roughness = kStoneLeast * kStoneLeast, .surface_f0 = render::vulkan::kMostDielectricF0,
+                                 .roughness = kStoneLeast * kStoneLeast, .surface_f0 = kOldMostDielectricF0,
                                  .surface_gloss = kStoneGloss, .surface_least = kStoneLeast},
                    tally);
     }
@@ -1831,7 +1832,7 @@ void run_surface(render::Gpu& gpu, Mirror& mirror, Tally* tally)
     if (tile) {
         run_mirror(gpu, mirror, {.name = "a glazed tile by its surface map (F0 held to 0.05, roughness at least 0.12)",
                                  .samples = 0, .strength = 0.5F, .reflectivity = 0.0F, .fresnel = true,
-                                 .roughness = kTileLeast * kTileLeast, .surface_f0 = render::vulkan::kMostDielectricF0,
+                                 .roughness = kTileLeast * kTileLeast, .surface_f0 = kOldMostDielectricF0,
                                  .surface_least = kTileLeast},
                    tally);
         rt::Material floor = floor_surface(0.0F);

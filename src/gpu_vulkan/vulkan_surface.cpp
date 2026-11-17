@@ -17,6 +17,8 @@
 #include "base/core/format.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_maps.h"
 #include "formats/detail_material_format.h"
@@ -38,25 +40,14 @@ constexpr float kByte = 255.0F;
 constexpr std::size_t kViewSlot = 1;
 constexpr std::size_t kRows = 4;
 constexpr uint32_t kFvfNormalBit = 0x010U;
-constexpr float kLeastAlpha = 0.0064F; // (the shader's floor on GGX's alpha)
-constexpr float kLeastRelief = 0.05F;  // (added by surface relief: a depth in texels below which no relief is drawn)
+constexpr float kLeastAlpha = 0.0064F; // (the maps' mips: the least alpha Toksvig's widening starts from)
 constexpr float kLeastFade = 0.01F;
 constexpr float kMostRelief = 16.0F;   // (relief_depth_of_map's ceiling)
-// (added for the surface reflections) the glossy kinds' share of a mirror's reflection and the roughness they never go
-// under (surface_map_gloss): stone, wood and paint a faint, blurred sheen - never a mirror, whatever their maps say
-constexpr KindGloss kGlossMetal{.gloss = 1.0F, .least_roughness = 0.05F, .metal = true};
-constexpr KindGloss kGlossTile{.gloss = 1.0F, .least_roughness = 0.12F, .metal = false}; // glazed tiles, polished floors
-constexpr KindGloss kGlossClear{.gloss = 1.0F, .least_roughness = 0.0F, .metal = false}; // glass and water
-constexpr KindGloss kGlossStone{.gloss = 0.2F, .least_roughness = 0.5F, .metal = false}; // stone, kerbs (brick by class)
-constexpr KindGloss kGlossWood{.gloss = 0.25F, .least_roughness = 0.35F, .metal = false}; // varnished planks
-constexpr KindGloss kGlossPaint{.gloss = 0.2F, .least_roughness = 0.4F, .metal = false};  // painted or unclassified
-// (added for the game's shine on rough surfaces) asphalt, concrete, brick, plaster, ground: no gloss of their own, and
-// whatever shine the game gave them (an environment-mapped pass) never a mirror - roughness 1, past what reflects
-constexpr KindGloss kGlossNever{.gloss = 0.0F, .least_roughness = 1.0F, .metal = false};
-
+constexpr float kMillimetresPerUnit = 25.4F; // (round M: the game's world unit is an inch)
+constexpr float kMmToUnits = 1.0F / kMillimetresPerUnit;
 struct MapEntry {
     Texture* map = nullptr;
-    float f0 = kRtPbrF0;
+    float f0 = 0.0F; // (the file's class F0 - kept as read; round M: the material table's is used)
     uint8_t material_class = 0;
     // (added by the detail materials - vulkan_detail.h) the texture's checksum and content hash, and its detail as of
     // detail_generation() `generation` (0: not looked up)
@@ -76,41 +67,23 @@ bool map_used(const MapEntry& entry, const RtPbrSettings& settings)
 }
 
 // (added for the characters - vulkan_surface.h "Characters") A character model's map's shading: the key's bits for its
-// class and their vector (DetailUniforms::character) - none for the classes shaded as anything else (leather, rubber,
-// metal, a board's wood: their roughness and F0 alone) or at strength 0.
-constexpr float kSkinFollowsColour = 0.6F;   // (a skin texture: its eyes, brows and lips less skin)
-constexpr float kGarmentFollowsColour = 1.0F; // (a garment's skin texels: wholly by their colour)
-constexpr float kDenimSheen = 0.6F;          // (denim's sheen against cloth's: a harder, flatter weave)
-uint8_t character_bits(const MapEntry& entry, const RtPbrSettings& settings, Float4* character)
+// class (round M: the material decides - no strengths): skin's diffusion, cloth's and denim's sheen, hair's fibres. A
+// garment whose atlas holds skin texels (kFlagSkinTexels) is shaded as its cloth throughout: which texels are skin is
+// not in the map (round M's record - a per-texel material mask in the maps replaces the hue test that guessed it).
+uint8_t character_bits(const MapEntry& entry)
 {
     namespace smf = surface_map_format;
-    const auto cls = static_cast<smf::MaterialClass>(entry.material_class);
-    const bool skin_texels = (entry.flags & smf::kFlagSkinTexels) != 0U && settings.skin > 0.0F;
-    uint8_t bits = 0;
-    switch (cls) {
+    switch (static_cast<smf::MaterialClass>(entry.material_class)) {
     case smf::MaterialClass::kSkin:
-        if (settings.skin > 0.0F) {
-            bits = kDetailSkin;
-            *character = {settings.skin, kSkinFollowsColour, 0.0F, 0.0F};
-        }
-        break;
+        return kDetailSkin;
     case smf::MaterialClass::kCloth:
-    case smf::MaterialClass::kDenim: {
-        const float sheen = settings.cloth * (cls == smf::MaterialClass::kDenim ? kDenimSheen : 1.0F);
-        bits = static_cast<uint8_t>((sheen > 0.0F ? kDetailCloth : 0) | (skin_texels ? kDetailSkin : 0));
-        *character = {skin_texels ? settings.skin : 0.0F, kGarmentFollowsColour, sheen, 0.0F};
-        break;
-    }
+    case smf::MaterialClass::kDenim:
+        return kDetailCloth;
     case smf::MaterialClass::kHair:
-        if (settings.hair > 0.0F) {
-            bits = kDetailHair;
-            *character = {0.0F, 0.0F, settings.hair, (entry.flags & smf::kFlagStrandsU) != 0U ? 1.0F : 0.0F};
-        }
-        break;
+        return kDetailHair;
     default:
-        break;
+        return 0;
     }
-    return bits;
 }
 
 // (added by the detail materials) An entry's detail, looked up again when the settings or the library changed (the
@@ -125,13 +98,11 @@ const DetailDraw& detail_of(MapEntry& entry)
     return entry.detail;
 }
 
-// The frame's sun as the draws use it (looked up once a frame: rt_scene's getters take locks).
+// The relit world's sun as the draws use it (looked up once a frame: rt_cel's getter takes a lock).
 struct FrameSun {
     uint64_t serial = 0;
     bool known = false;
-    std::array<float, 3> toward{};
-    float weight = 0.0F;
-    std::array<float, 3> colour{1.0F, 1.0F, 1.0F};
+    rt::CelWorld world{};
 };
 
 struct SurfaceState {
@@ -337,14 +308,9 @@ void set_rt_pbr_settings(const RtPbrSettings& settings)
     }
     surface::set_surface_maps(settings.on ? &registry() : nullptr);
     if (settings.on) {
-        get_log("rt_pbr: per-pixel lighting on (specular %.2f, normals %.2f%s%s%s)", static_cast<double>(settings.specular),
-                static_cast<double>(settings.normal_strength), settings.objects ? ", objects too" : "",
-                settings.relief ? text::format(", relief %.2f", static_cast<double>(settings.relief_strength)).c_str() : "",
-                settings.characters ? text::format(", characters (skin %.2f, cloth %.2f, hair %.2f)",
-                                                   static_cast<double>(settings.skin), static_cast<double>(settings.cloth),
-                                                   static_cast<double>(settings.hair))
-                                          .c_str()
-                                    : "");
+        get_log("rt_pbr: per-pixel lighting on - the light model and the material table%s%s%s",
+                settings.objects ? ", objects too" : "", settings.relief ? ", relief" : "",
+                settings.characters ? ", characters" : "");
     }
 }
 
@@ -376,37 +342,40 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
         const auto found = state.maps.find(object(first));
         if (found != state.maps.end() && map_used(found->second, state.draw_settings)) { // (a model's: rt_characters)
             draw.map = found->second.map;
-            draw.f0 = found->second.f0;
+            draw.kind = rt::kind_of_map_class(found->second.material_class);
+            draw.strands_u = (found->second.flags & surface_map_format::kFlagStrandsU) != 0U;
             draw.flags = static_cast<uint8_t>(kSurfaceLighting | kSurfaceMap | (lit && state.settings.objects ? kSurfaceLit : 0));
             if ((found->second.flags & surface_map_format::kFlagModel) != 0U) {
                 // (added for the characters) no detail layer or relief - skin, cloth or hair shading where lit by lights
                 if ((draw.flags & kSurfaceLit) != 0U) {
-                    draw.detail = character_bits(found->second, state.draw_settings, &draw.detail_uniforms.character);
+                    draw.detail = character_bits(found->second);
                 }
                 return draw;
             }
+            draw.traced = true; // (round M: a world or object map - the reflections pass may trace its environment)
             const DetailDraw& detail = detail_of(found->second); // (added by the detail materials)
+            if (detail.kind != 0) {
+                draw.kind = rt::kind_of_detail(detail.kind); // (the library's kind: the terrain's evidence beside the class's)
+            }
             if (detail.flags != 0) {
                 draw.detail = detail.flags;
                 draw.detail_map = detail.texture;
                 draw.detail_uniforms = detail.uniforms;
-                draw.f0 = detail.f0 >= 0.0F ? detail.f0 : draw.f0;
             }
-            // (added by surface relief) parallax occlusion mapping where the kind has relief and the map has depth
+            // (added by surface relief) parallax occlusion mapping where the material has relief and the map a height
+            // (round M: its depth the material's relief in world units - rt_material_table.h)
             const RtPbrSettings& settings = state.draw_settings;
-            const float depth = found->second.relief_depth * relief_weight(detail.kind) * settings.relief_strength;
-            if (settings.relief && depth > kLeastRelief) {
+            const float depth = rt::material_values(draw.kind).relief_mm * kMmToUnits;
+            if (settings.relief && depth > 0.0F && found->second.relief_depth > 0.0F) {
                 draw.detail = static_cast<uint8_t>(draw.detail | kDetailRelief);
                 draw.detail_uniforms.relief = {depth, settings.relief_fade_start,
-                                               std::max(settings.relief_fade_end, settings.relief_fade_start + kLeastFade),
-                                               std::clamp(settings.relief_shadow, 0.0F, 1.0F)};
+                                               std::max(settings.relief_fade_end, settings.relief_fade_start + kLeastFade), 0.0F};
             }
             return draw;
         }
     }
     if (lit && state.settings.objects) {
         draw.flags = kSurfaceLighting | kSurfaceLit;
-        draw.f0 = state.settings.f0;
     }
     return draw;
 }
@@ -426,30 +395,25 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
         }
     }
     const std::array<float, kMatrixFloats>& view = core::at(block.transforms, kViewSlot);
-    // The sun: the bake's (fitted with ray tracing on; the console's `rt sun` before it), else the game's shown one
-    // at its own weight, else none (the sky's detail alone) - looked up once a frame.
+    // (round M) the relit world's sun - the light store's - once a frame; none without the store (the bake keeps its
+    // light whole: nothing separates a sun from it)
     FrameSun& sun = state.sun;
     if (!sun.known || sun.serial != frame) {
-        sun = {.serial = frame, .known = true};
-        const rt::BakedSun& baked = rt::baked_sun();
-        if (rt::sun_override(&sun.toward)) {
-            sun.weight = 1.0F;
-        } else if (baked.found) {
-            sun.toward = baked.toward;
-            sun.weight = 1.0F;
-        } else if (settings.game_sun > 0.0F && rt::game_sun(&sun.toward)) {
-            sun.weight = settings.game_sun;
-        }
-        const rt::SunLight light = rt::sun_light();
-        if (light.on) {
-            sun.colour = light.colour;
-        }
+        sun = {.serial = frame, .known = true, .world = rt::cel_world()};
     }
-    uniforms->sun = sun.weight > 0.0F ? to_camera(view, sun.toward, sun.weight) : Float4{};
-    uniforms->sun_colour = {core::at(sun.colour, 0), core::at(sun.colour, 1), core::at(sun.colour, 2), settings.ambient_share};
-    uniforms->sky = to_camera(view, {0.0F, 1.0F, 0.0F}, settings.sky_detail);
-    uniforms->params = {settings.specular, settings.normal_strength, settings.roughness, draw.f0};
-    uniforms->shade = {settings.shade_low, settings.shade_high, settings.detail_low, settings.detail_high};
+    const rt::CelWorld& world = sun.world;
+    uniforms->sun = world.relit ? to_camera(view, world.toward, 1.0F) : Float4{};
+    uniforms->sun_light = {std::get<0>(world.sun), std::get<1>(world.sun), std::get<2>(world.sun), kMillimetresPerUnit};
+    // the material: the table's values for the draw's kind (rt_material_table.h)
+    const rt::MaterialValues& material = rt::material_values(draw.kind);
+    const rt::brdf::Rgb f0 = rt::material_f0(draw.kind);
+    uniforms->scatter = {std::get<0>(material.scatter_mm), std::get<1>(material.scatter_mm), std::get<2>(material.scatter_mm),
+                         draw.strands_u ? 1.0F : 0.0F};
+    uniforms->params = {rt::material_is_metal(draw.kind) ? 1.0F : 0.0F, 0.0F, material.roughness,
+                        std::get<0>(f0)};
+    uniforms->sheen = {std::get<0>(material.sheen), std::get<1>(material.sheen), std::get<2>(material.sheen),
+                       material.sheen_roughness};
+    (void)settings;
 }
 
 Texture* surface_map_for(const Texture* colour)
@@ -471,47 +435,11 @@ float surface_map_f0(const Texture* colour)
     if ((found->second.flags & surface_map_format::kFlagModel) != 0U) {
         return found->second.f0; // (added for the characters: no surface kind)
     }
-    const DetailDraw& detail = detail_of(found->second); // (added by the detail materials: the surface kind's F0)
-    return detail.f0 >= 0.0F ? detail.f0 : found->second.f0;
-}
-
-KindGloss kind_gloss(uint8_t kind)
-{
-    namespace dmf = detail_material_format;
-    switch (static_cast<dmf::Kind>(kind)) {
-    case dmf::Kind::kMetal:
-        return kGlossMetal;
-    case dmf::Kind::kTile:
-        return kGlossTile;
-    case dmf::Kind::kStone:
-        return kGlossStone;
-    case dmf::Kind::kWood:
-        return kGlossWood;
-    default:
-        return kGlossNever; // (asphalt, concrete, brick, ground, grass, plaster, gravel: too rough to mirror anything)
-    }
-}
-
-KindGloss class_gloss(uint8_t material_class)
-{
-    namespace smf = surface_map_format;
-    switch (static_cast<smf::MaterialClass>(material_class)) {
-    case smf::MaterialClass::kMetal:
-        return kGlossMetal;
-    case smf::MaterialClass::kTile:
-        return kGlossTile;
-    case smf::MaterialClass::kGlass:
-    case smf::MaterialClass::kWater:
-        return kGlossClear;
-    case smf::MaterialClass::kStone:
-        return kGlossStone;
-    case smf::MaterialClass::kWood:
-        return kGlossWood;
-    case smf::MaterialClass::kDefault:
-        return kGlossPaint;
-    default:
-        return kGlossNever; // (asphalt, concrete, plants, ground, cloth and the characters' classes)
-    }
+    // (round M) the material table's F0 for the map's kind (the detail library's kind where it has one)
+    const DetailDraw& detail = detail_of(found->second);
+    const rt::MaterialKind kind =
+        detail.kind != 0 ? rt::kind_of_detail(detail.kind) : rt::kind_of_map_class(found->second.material_class);
+    return std::get<0>(rt::material_f0(kind));
 }
 
 bool surface_map_gloss(const Texture* colour, SurfaceGloss* out)
@@ -524,18 +452,13 @@ bool surface_map_gloss(const Texture* colour, SurfaceGloss* out)
         !map_used(found->second, state.settings)) {
         return false;
     }
+    // (round M) every mapped surface reflects as its material does - its F0 (the table's) and its texels' roughness;
+    // no kind is held off (the per-kind gloss table and least roughness are gone)
     const DetailDraw& detail = detail_of(found->second);
-    // (the kind decides where there is one - brick is stone by its class, glass and water have no kind)
-    const KindGloss by_class = class_gloss(found->second.material_class);
-    const KindGloss gloss = detail.kind != 0 && by_class.gloss < 1.0F ? kind_gloss(detail.kind) : by_class;
-    out->gloss = gloss.gloss;
-    out->least_roughness = gloss.least_roughness;
-    const float f0 = detail.f0 >= 0.0F ? detail.f0 : found->second.f0;
-    out->f0 = gloss.metal ? f0 : std::min(f0, kMostDielectricF0);
-    if (detail.flags != 0) {
-        out->kind_roughness = std::get<0>(detail.uniforms.material);
-        out->kind_roughness_weight = std::get<3>(detail.uniforms.material);
-    }
+    const rt::MaterialKind kind =
+        detail.kind != 0 ? rt::kind_of_detail(detail.kind) : rt::kind_of_map_class(found->second.material_class);
+    out->gloss = 1.0F;
+    out->f0 = std::get<0>(rt::material_f0(kind));
     return true;
 }
 
@@ -599,30 +522,6 @@ float relief_depth_of_map(std::span<const uint8_t> texels, uint32_t width, uint3
         return 0.0F;
     }
     return std::min(static_cast<float>(slope / gradient), kMostRelief);
-}
-
-// The weights by kind: relief that is really there - brick and stone (cobbles, rock, blocks) whole, gravel, tiles and
-// wood planks less, rough concrete and dirt a little; smooth asphalt and concrete, metal, grass, plaster and the kinds
-// with none (glass, water, fabric, painted) flat - their maps' grain is paint and stains, not depth.
-float relief_weight(uint8_t kind)
-{
-    namespace dmf = detail_material_format;
-    switch (static_cast<dmf::Kind>(kind)) {
-    case dmf::Kind::kBrick:
-    case dmf::Kind::kStone:
-        return 1.0F;
-    case dmf::Kind::kGravel:
-        return 0.8F;
-    case dmf::Kind::kWood:
-        return 0.7F;
-    case dmf::Kind::kTile:
-        return 0.6F;
-    case dmf::Kind::kConcreteRough:
-    case dmf::Kind::kGround:
-        return 0.5F;
-    default:
-        return 0.0F;
-    }
 }
 
 } // namespace render::vulkan
