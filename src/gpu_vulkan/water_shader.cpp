@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 
+#include "engine/gfx/rain.h"
 #include "gpu_vulkan/ff_uniforms.h"
 
 namespace render::vulkan {
@@ -316,6 +317,11 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     float t = water.time.x;
     vec3 swell = water_swell(rest.xz, t, footprint);
     vec3 ripple = water_ripples(rest.xz, t);
+    // (added by the rain - engine/gfx/rain.h rain_ripple) the drops' rings: misc.y the cell (0: no rain), misc.w the share
+    // of the rain that reaches the body (its openness to the sky)
+    if (water.misc.y > 0.0) {
+        ripple.xy += rain_ripple(rest.xz, vec4(water.misc.y, RAIN_RIPPLE_LAYERS, t, RAIN_RIPPLE_LIFE)) * water.misc.w;
+    }
     vec3 n = normalize(vec3(-(swell.x + ripple.x), max(1.0 - swell.y, 0.2), -(swell.z + ripple.y)));
     // the reflection's normal: the waves' tilt lessened where the water is seen at a grazing angle (a pixel there spans
     // many facets, whose mean is flatter - the reflection is stretched along the water, not broken up), and Fresnel's
@@ -431,6 +437,8 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
 std::string water_declarations_glsl(bool moving)
 {
     std::string out(kWaterCommonGlsl);
+    out += render::rain::glsl_constants(); // (added by the rain: the drops' rings)
+    out += render::rain::ripple_glsl();
     out += moving ? kWaterRestMovingGlsl : kWaterRestFlatGlsl;
     out += kWaterGlsl;
     return out;

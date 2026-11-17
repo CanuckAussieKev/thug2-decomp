@@ -74,6 +74,7 @@
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
+#include "engine/gfx/rain.h"
 #include "engine/gfx/snow.h"
 #include "engine/gfx/fisheye_lens.h"
 #include "engine/gfx/view_setup.h"
@@ -1103,7 +1104,8 @@ void draw_viewport(int index)
         const snow::Settings snow_layer = snow::settings();
         rt::set_air_weather({.rain = active && now->rain_on() && now->rain_rate() > 0.0F,
                              .snow = (active && !now->rain_on() && now->snow_rate() > 0.0F) ||
-                                     (snow_layer.on && snow_layer.falling)});
+                                     (snow_layer.on && snow_layer.falling),
+                             .rain_rate = rain::settings().rate}); // (the rain's: engine/gfx/rain.h)
     }
     set_render_state(RenderStateId::kZWrite, 1);
     engine::draw_shatters();

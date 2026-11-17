@@ -547,6 +547,13 @@ std::vector<Decl> declarations()
             .need(on("snow"))
             .live(E::kSnow),
         gfx("snowfall", K::kSwitch, "1").tab(G::kSurfaces, t::kOptSnowfall).need(on("snow")).live(E::kSnow),
+        // (rain: the rate in mm of water an hour - everything else follows from it; vulkan_rain.h, engine/gfx/rain.h)
+        gfx("rain", K::kNumber, "0")
+            .tab(G::kSurfaces, t::kOptRain, t::kOptRainHelp)
+            .pick({c("0", t::kOff), c("1", "Light"), c("4", "Moderate"), c("12", "Heavy"), c("40", "Downpour")})
+            .need(vulkan(), t::kNeedsVulkan)
+            .need(has(Cap::kLevelOutdoor))
+            .live(E::kRain),
         // (paint trails: every skater's line of paint, widening and splattering with its combo - vulkan_paint.h)
         gfx("paint_trails", K::kSwitch, "0")
             .tab(G::kGameplay, t::kOptPaint, t::kOptPaintHelp)
