@@ -187,7 +187,9 @@ The game runs from the game folder of your THUG2 install - the folder with `THUG
    editor's `editor-tools` folder (Import Level's tools: `node tools/editor_tools.ts` makes it). Keep `thug2-decomp.pdb` with them for readable crash
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
-3. Start `thug2-decomp.exe`. It writes `thug2-decomp.log` next to itself - read it when something goes wrong.
+3. Start `thug2-decomp.exe`. It writes `thug2-decomp.log` next to itself - read it when something goes wrong. The
+   last three runs' logs are kept as `thug2-decomp.prev.log`, `.prev2.log` and `.prev3.log`, and a crash also leaves a
+   copy of its run's log, the report at its end, in `thug2-decomp-crash-<date>_<time>.txt` - never overwritten.
 4. Or start **`thug2-editor.exe`** for the level editor on its own (below): it starts `thug2-decomp.exe -editor`
    and passes on what it's given (`thug2-editor.exe -edit BO` opens Boston).
 
@@ -691,7 +693,8 @@ hosts or enters a lobby.
 
 ## Tracking down a problem
 
-1. **Read the log** (`thug2-decomp.log` in the game folder). A crash is an `EXCEPTION 0xC0000005 at ...` report with
+1. **Read the log** (`thug2-decomp.log` in the game folder; the run before is `thug2-decomp.prev.log`, and a crash's
+   own copy `thug2-decomp-crash-<date>_<time>.txt`). A crash is an `EXCEPTION 0xC0000005 at ...` report with
    registers and return addresses; debug-CRT reports and run-time check failures come with a call stack. `pool <name>
    full` means one of the game's fixed pools ran out (usually a converted level that's too big; see `[memory]`).
 2. **Name the functions:** `node tools/symbolize.ts --pdb-dir <build folder> <path to thug2-decomp.log>` turns the

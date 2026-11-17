@@ -15,6 +15,7 @@
 //   - outlines: a lit cube's inverted hull (ink round its silhouette, none further out, its faces unchanged) and the
 //     world's lines from the depth (on a box's edge, none inside it or on the sky);
 //   - flatter textures: a checkerboard's contrast lower with rt_cel_flatten;
+//   - the source forgets a buffer released while it names it (no draw reads a freed buffer);
 //   - rt_cel=0: the original's picture (2 x v0) and the same bytes before the mode was ever on and after it was off;
 //   - every pixel of every case finite; validation (and synchronization validation) messages 0.
 //   thug2_vulkan_cel_check [--device N] [--display N] [--no-validation] [--perf]
@@ -430,6 +431,28 @@ void release(render::Gpu& gpu, const Drawn& drawn)
             gpu.release_vertex_buffer(buffer);
         }
     }
+}
+
+// The source names its buffers by pointer, without a reference: a buffer released while named (a level's mesh freed at
+// its unload) must leave the source naming nothing - else the next draws read the freed buffer (Barcelona's crash: the
+// relit light store's lookup, vulkan_cel_draw.h relit_colour_stream, on the next level's first frame).
+void check_source_forgets_buffers(render::Gpu& gpu, Tally* tally)
+{
+    const std::array<Vertex, 3> vertices{};
+    const std::array<rt::CelWords, 3> words{};
+    for (const bool vertices_first : {true, false}) {
+        GpuVertexBuffer* drawn = buffer_of(gpu, std::as_bytes(std::span(vertices)));
+        GpuVertexBuffer* stream = buffer_of(gpu, std::as_bytes(std::span(words)));
+        gpu.set_cel_source({.vertices = drawn, .offset = 0, .stream = stream});
+        const bool named = vk::cel_source_named();
+        gpu.release_vertex_buffer(vertices_first ? drawn : stream);
+        const bool forgotten = !vk::cel_source_named();
+        gpu.release_vertex_buffer(vertices_first ? stream : drawn);
+        tally->check(drawn != nullptr && stream != nullptr && named && forgotten,
+                     text::format("the source forgets its %s once it is released (named %d, forgotten %d)",
+                                  vertices_first ? "vertices" : "stream", named ? 1 : 0, forgotten ? 1 : 0));
+    }
+    gpu.set_cel_source({});
 }
 
 // A quad facing the camera at depth z from x0..x1, y0..y1 (as two triangles), each corner's colour / normal / stream
@@ -1791,6 +1814,7 @@ int run(const Options& options, SDL_Window* window)
         check_hull(gpu, scene, &tally);
         check_world_lines(gpu, scene, &tally);
         check_flatten_and_off(gpu, scene, before_any, &tally);
+        check_source_forgets_buffers(gpu, &tally);
         const vk::CelCounts counts = vk::cel_counts();
         text::print("  draws: %llu world with the stream, %llu world banding the bake, %llu lit, %llu traced, %llu hulls, "
                     "%llu outline passes\n",

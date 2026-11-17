@@ -44,6 +44,13 @@ void cel_set_scene_locked(VkAccelerationStructureKHR tlas);
 [[nodiscard]] VkAccelerationStructureKHR cel_scene();
 // render_pc's Gpu::CelSource (vulkan_gpu.cpp): the stream for the draws from `vertices` at `offset`.
 void set_cel_source_locked(Backend& state, const Gpu::CelSource& source);
+// A buffer being destroyed (vulkan_gpu.cpp destroy_buffer - its last reference released - and every buffer at the
+// device's end: null): the source no longer names it. The source is the next draws' state, named by pointer: it must
+// never outlive a buffer it names (a level's meshes freed at its unload while the source still named one, the next
+// level's first draw read the freed buffer's versions - Barcelona's crash, 2026-11-17).
+void cel_forget_buffer_locked(const Buffer* buffer);
+// Whether the source names a buffer now (the check's).
+[[nodiscard]] bool cel_source_named();
 // (added by the snow - vulkan_snow.h: the snow replaces the surface's colour, the relit tint in it too) The relit world's
 // stream for this draw: the named source's when the draw's vertices are its buffer at its offset and the frame's world is
 // relit; null otherwise (render_pc names the source while cel shading or the snow is on).
