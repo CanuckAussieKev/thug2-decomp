@@ -556,6 +556,30 @@ bool make_entry(const WorldMesh& world, Entry* out)
         }
         entry.input.triangles.push_back(corners);
     }
+    // (the bake's evidence - rt_relit.h RelitMesh::baked_triangles) a mesh the game's geometry passes changed at load
+    // (smoothing, building relief, the water's grid): the file's strip over its original vertices, still first - the
+    // triangles the bake's light is on, as the baked sun's samples read them (rt_record.cpp mesh_triangles)
+    const std::span<const uint16_t> original = mesh_smoothing::original_strip(core::at(mesh->index_buffers(), 0));
+    if (original.size() >= 3) {
+        uint32_t highest = 0;
+        bool fits = true;
+        for (const uint16_t corner : original) {
+            highest = std::max<uint32_t>(highest, corner);
+            fits = fits && corner < count;
+        }
+        if (fits) {
+            entry.input.baked_triangles.reserve(original.size() - 2);
+            for (std::size_t tt = 0; tt + 2 < original.size(); ++tt) {
+                std::array<uint32_t, 3> corners{core::at(original, tt), core::at(original, tt + 1),
+                                                core::at(original, tt + 2)};
+                if ((tt % 2) == 1) {
+                    std::swap(std::get<0>(corners), std::get<1>(corners));
+                }
+                entry.input.baked_triangles.push_back(corners);
+            }
+            entry.input.baked_vertices = highest + 1;
+        }
+    }
     // (the offline relit data's key: its positions, triangles and made vertices' sources - whatever the vertex format;
     // not its colours, which the game rewrites)
     entry.content = rt::relit_mesh_content(entry.input);
