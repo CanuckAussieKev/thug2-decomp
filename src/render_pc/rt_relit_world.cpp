@@ -124,6 +124,8 @@ struct Entry {
     // (lighting round A3) the original's light card - an additive halo, cone, pool or starburst round a lamp
     // (WorldMesh::glow): the lamp's evidence for the bake, no light - hidden in the relit level as the shadows are
     bool glow_card = false;
+    // (round light cards) the lamps pass lights it per pixel (WorldMesh::lit_per_pixel); else its store carries its lamps
+    bool lit_per_pixel = true;
     std::size_t data_mesh = SIZE_MAX; // (round A3) its mesh in the level's data (its lamp links and emitting vertices)
     uint64_t lamps_for = 0;           // ... and the lamps' switches its L was made for (State::lamps_hash)
     rt::RelitMesh input;
@@ -534,6 +536,7 @@ bool make_entry(const WorldMesh& world, Entry* out)
     }
     entry.input.colours = entry.originals;
     entry.glow_card = world.glow;
+    entry.lit_per_pixel = world.lit_per_pixel;
     entry.baked_shadow = world.blended && !entry.originals.empty() &&
                          std::ranges::all_of(entry.originals, [](uint32_t colour) { return luma_of(colour) < 1.0F; });
     // (added by building relief) a relieved mesh's made vertices take the flat wall's light (rt_relit.h
@@ -1394,17 +1397,23 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
             continue;
         }
         const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked), std::size_t{count} * rt::kCelStreamBytes);
+        // (round light cards - one owner for each surface's lamp light) a surface the lamps pass can't find (blended,
+        // not cut out) takes its lamps' light here, whole - each lamp by how much it is on (in its L already)
+        rt::RelitLighting own = light;
+        if (!entry.lit_per_pixel) {
+            own.lamps = 1.0F;
+        }
         for (std::size_t vi = 0; vi < count; ++vi) {
             const bool hidden = entry.baked_shadow || entry.glow_card;
             const rt::CelWords words = hidden ? rt::kCelHiddenStream // (the bake's shadow, a light card: not drawn)
                                        : vi < entry.light.size() && core::at(entry.animated, vi) == 0
-                                           ? rt::cel_stream_words(st.model, core::at(entry.light, vi), light)
+                                           ? rt::cel_stream_words(st.model, core::at(entry.light, vi), own)
                                            : rt::kCelNoStream;
             std::memcpy(bytes.subspan(vi * rt::kCelStreamBytes, rt::kCelStreamBytes).data(), words.data(),
                         rt::kCelStreamBytes);
             if (!hidden && vi < entry.light.size() && core::at(entry.animated, vi) == 0) {
                 const float was = luma_of(core::at(entry.originals, vi));
-                const float now = luma_of(shown_argb(st.model, core::at(entry.light, vi), light));
+                const float now = luma_of(shown_argb(st.model, core::at(entry.light, vi), own));
                 change.vertices += 1;
                 change.baked += was;
                 change.relit += now;
@@ -1698,6 +1707,8 @@ bool read_world_mesh(const WorldMesh& world, BakeMesh* out)
     out->mesh.id = world.id;
     out->animated = std::move(entry.animated);
     out->content = entry.content;
+    out->card = world.glow;
+    out->blended = world.blended && !entry.baked_shadow;
     return true;
 }
 

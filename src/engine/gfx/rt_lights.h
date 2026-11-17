@@ -41,6 +41,8 @@
 
 namespace render::rt {
 
+struct LightCards; // (round light cards - light_cards.h)
+
 // (round indoor lamps) kPool: a lamp found from its pool of light in the bake (rt_relit.h find_pool_lamps) - where the
 // bake shows light no listed lamp explains, at the mount above it.
 enum class EmitterKind : uint8_t { kGlow = 0, kSelfLit = 1, kPoint = 2, kTextured = 3, kPool = 4 };
@@ -135,7 +137,6 @@ inline constexpr float kEmitterMinSize = 4.0F;
 inline constexpr float kEmitterMinCore = 4.0F;
 inline constexpr float kFlatUpShare = 0.85F;     // a cluster facing up this much (area-weighted |n.y|) ...
 inline constexpr float kFlatHeightShare = 0.25F; // ... no taller than this share of its width is flat
-inline constexpr std::size_t kMaxEmitters = 4096;
 // Self-lit candidates: a triangle whose dimmest corner is at least kSelfLitLuma (luma of the bytes, 128 the game's white)
 // and kSelfLitOverLevel times the level's median triangle. (Lighting round A3) In every level, in the relit bake: the
 // "dark level" rule (a median vertex brightness at most 64 - which read 16 sunlit afternoon levels as dark, their
@@ -164,7 +165,9 @@ inline constexpr std::size_t kMaxViewLights = 252; // (round A2: 64 bytes a ligh
     return dimmest_corner_luma >= kSelfLitLuma && dimmest_corner_luma >= kSelfLitOverLevel * median_luma;
 }
 
-// The triangles joined into lights (the same triangles in the same order give the same lights): at most kMaxEmitters,
+// The triangles joined into lights (the same triangles in the same order give the same lights) - every one of them (round
+// light cards: no longer at most 4096 - Proving Ground's whole world has more lamp candidates, and the cut kept the
+// brightest, losing whole districts' lamps; a view still shines at most kMaxViewLights),
 // the strongest (intensity x reach) first.
 // (lighting round A2) `triangle_emitter`, when given: each triangle's light among the result (kNoEmitter: none).
 // `facing`: the world's winding (+1 when a triangle's (b - a) x (c - a) points out of its front - render_pc's
@@ -197,6 +200,9 @@ struct LevelEmitters {
     // (round O) `emitters` are the relit data's solved lamps (their intensities from the bake, in the global unit): the
     // level's lights are those alone - the frame record's point lights (the game's colours) are not shone beside them
     bool solved = false;
+    // (round light cards - the relit bake's: light_cards.h) the light cards' triangles with their textures and the world
+    // meshes' surface colours - the cards lying on a surface are that surface's light; null outside the bake
+    std::shared_ptr<const LightCards> cards;
 };
 void set_level_emitters(LevelEmitters emitters);
 [[nodiscard]] std::shared_ptr<const LevelEmitters> level_emitters();

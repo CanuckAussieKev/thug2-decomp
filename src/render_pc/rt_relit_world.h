@@ -66,6 +66,12 @@ struct WorldMesh {
     // light: the relit level hides it (its store's flags kCelHiddenFlags - rt_cel.h kCelHiddenStream), as it hides the bake's shadows drawn as
     // geometry. A lamp shows its own surface (its emitting vertices, by its light) and the light it casts.
     bool glow = false;
+    // (round light cards - one owner for each surface's lamp light) the lamps pass can light it per pixel: its instances
+    // are among those the pass's camera ray finds (opaque, or cut out by an alpha test - vulkan_rt_lights.h
+    // kLightsSurfaceMask). A blended surface (drawn over what is behind it, not cut out: Training's lower floor, an
+    // alpha-blended mesh of three passes) never is - its light store carries its lamps' light itself, whoever owns the
+    // rest (rt_lights.h lamps_drawn)
+    bool lit_per_pixel = true;
 };
 
 // (the offline relit data - engine/gfx/relit_data.h) A new world's first frame (rt_record's new_world_work, whether
@@ -80,6 +86,8 @@ struct BakeMesh {
     rt::RelitMesh mesh;
     std::vector<uint8_t> animated;
     uint64_t content = 0;
+    bool card = false; // (round light cards) one of the original's light cards (WorldMesh::glow) - no surface
+    bool blended = false; // (round light cards) drawn blended over what is behind it (WorldMesh::blended), not a shadow
 };
 bool read_world_mesh(const WorldMesh& world, BakeMesh* out);
 // Each frame (rt_record's record_frame, after the new world's work): the last frame's world meshes, and whether the

@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <ratio>
 #include <span>
 #include <string>
@@ -41,6 +42,7 @@
 #include "engine/gfx/rt_sun.h"
 #include "engine/gfx/rt_vertex_attributes.h"
 #include "engine/gfx/surface_material.h"
+#include "engine/gfx/light_cards.h"
 #include "engine/gfx/texel_decode.h"
 #include "engine/memory/arena_alloc.h"
 #include "platform/platform_config.h"
@@ -905,6 +907,22 @@ public:
                 static_cast<float>(std::get<0>(bgra)) * kPerByteLight};
     }
     static constexpr uint32_t kNoColour = 0xFFFFFFFFU;
+    // (round light cards) The baked colour's alpha, doubled as the passes double it (128: 1); 1 without colours.
+    [[nodiscard]] float alpha(uint32_t vertex) const
+    {
+        if (colour_ == kNoColour) {
+            return 1.0F;
+        }
+        std::array<uint8_t, kColourBytes> bgra{};
+        if (vertex < originals_.size()) {
+            std::memcpy(bgra.data(), &core::at(originals_, vertex), bgra.size());
+        } else {
+            std::memcpy(bgra.data(),
+                        vertices_.subspan((std::size_t{vertex} * geometry_.vertex_stride) + colour_, bgra.size()).data(),
+                        bgra.size());
+        }
+        return static_cast<float>(std::get<3>(bgra)) * kPerByteLight;
+    }
     // (lighting round A3) The vertex's first texture coordinates, or false (none).
     bool uv(uint32_t vertex, std::array<float, 2>* out) const
     {
@@ -1150,12 +1168,18 @@ std::vector<rt_relit_world::WorldMesh> world_meshes()
         if (found != st.meshes.end()) {
             const MaterialRef* material = mesh->material();
             const uint32_t first = material != nullptr ? blend_mode(material, 0) : 0U;
+            // (round light cards) the instance flags add_instance gives it: blended and not cut out - never in the lamps
+            // pass's camera ray (vulkan_rt_scene.cpp instance_of: kMaskNoShadow)
+            const auto surface = material != nullptr ? st.materials.find(material) : st.materials.end();
+            const uint32_t flags = surface != st.materials.end() ? surface->second.material.flags : 0U;
+            const bool lit_per_pixel = (flags & rt::kTransparent) == 0U || (flags & rt::kAlphaTested) != 0U;
             world.push_back({.mesh = mesh,
                              .id = found->second.id,
                              .geometry = &found->second.geometry,
                              .source = found->second.source,
                              .blended = first != 0U && first != kBlendAdd && first != kBlendFixedAdd,
-                             .glow = material != nullptr && glow_card(material)});
+                             .glow = material != nullptr && glow_card(material),
+                             .lit_per_pixel = lit_per_pixel});
         }
     }
     return world;
@@ -1335,6 +1359,9 @@ struct TextureLook {
     uint32_t format = 0;     // (reported) its format ...
     float brightest = 0.0F;  // ... and its brightest texel's luminance
     std::size_t lamp_texels = 0; // ... and its texels that show a lamp (rt_lights.h lamp_texel)
+    // (round light cards) its texels' mean colour, display-referred (1 white), each by its alpha - what a surface's vertex
+    // colour multiplies (rt::LightCards::surface_colours)
+    rt::Rgbf mean{1.0F, 1.0F, 1.0F};
 };
 const TextureLook& texture_look(const MaterialRef* material, std::unordered_map<const void*, TextureLook>* cache)
 {
@@ -1359,6 +1386,20 @@ const TextureLook& texture_look(const MaterialRef* material, std::unordered_map<
         std::ranges::nth_element(lumas, middle);
         look.median = *middle;
         constexpr float kByte = 1.0F / 255.0F;
+        std::array<double, 3> mean_sum{};
+        double mean_weight = 0.0;
+        for (const std::array<uint8_t, 4>& texel : look.image.texels) {
+            const double weight = static_cast<double>(std::get<3>(texel)) * kByte;
+            for (std::size_t k = 0; k < 3; ++k) {
+                core::at(mean_sum, k) += static_cast<double>(core::at(texel, k)) * kByte * weight;
+            }
+            mean_weight += weight;
+        }
+        if (mean_weight > 0.0) {
+            for (std::size_t k = 0; k < 3; ++k) {
+                core::at(look.mean, k) = static_cast<float>(core::at(mean_sum, k) / mean_weight);
+            }
+        }
         for (const std::array<uint8_t, 4>& texel : look.image.texels) {
             look.brightest = std::max(look.brightest, texel_luma(texel));
             const std::array<float, 3> linear{rt::linear_from_display(static_cast<float>(std::get<0>(texel)) * kByte),
@@ -1482,6 +1523,9 @@ void emitter_work()
                                   // with no copy to read)
     std::size_t skipped_unread = 0;
     std::vector<rt::EmitterTriangle> triangles;
+    // (round light cards - the bake's) the light cards' triangles with their textures, and the surfaces' colours
+    auto cards = std::make_shared<rt::LightCards>();
+    std::unordered_map<const void*, uint32_t> card_images;
     for (const MeshRef* mesh : st.world) {
         if (!mesh_shown(mesh)) {
             continue; // (the relit bake's hidden meshes: not lit, no lamp - relit_bake.h)
@@ -1518,12 +1562,47 @@ void emitter_work()
         // (round L: in the bake a light card's texture too - its saturated core is the lamp's luminous area)
         static const TextureLook kNoLook;
         const TextureLook& look = glow && !bake ? kNoLook : texture_look(material, &textures);
+        uint32_t card_image = rt::kNoCardImage;
+        if (bake && !glow && !look.image.empty()) {
+            cards->surface_colours.emplace_back(mesh_found->second.id, look.mean);
+        }
+        if (bake && glow && !look.image.empty()) {
+            const void* handle = core::at(material->textures(), 0)->texture;
+            const auto [image, added] = card_images.try_emplace(handle, static_cast<uint32_t>(cards->images.size()));
+            if (added) {
+                cards->images.push_back(std::make_shared<const texel::Image>(look.image));
+            }
+            card_image = image->second;
+        }
+        // (round light cards) a card's blend: added by the texel's alpha (blend 1) or by the pass's fixed alpha (blend 2)
+        const bool card_texel_alpha = glow && blend_mode(material, 0) == kBlendAdd;
+        const float card_factor =
+            glow && !card_texel_alpha ? std::clamp(core::at(core::at(material->pass_color(), 0), 3), 0.0F, 1.0F) : 1.0F;
         for (uint32_t t = 0; t < tris.count(); ++t) {
             std::array<uint32_t, 3> corner{};
             if (!tris.corners(t, &corner)) {
                 continue;
             }
             const auto [one, two, three] = corner;
+            if (bake && glow) {
+                rt::CardTriangle card{.corners = {tris.position(one), tris.position(two), tris.position(three)},
+                                      .image = card_image,
+                                      .texel_alpha = card_texel_alpha,
+                                      .mesh = mesh_found->second.id};
+                for (std::size_t k = 0; k < 3; ++k) {
+                    const uint32_t vertex = core::at(corner, k);
+                    std::array<float, 2> uv{};
+                    if (tris.uv(vertex, &uv)) {
+                        core::at(card.uvs, k) = uv;
+                    }
+                    const std::array<float, 3> colour = tris.colour(vertex);
+                    for (std::size_t ch = 0; ch < 3; ++ch) {
+                        core::at(core::at(card.colours, k), ch) = core::at(colour, ch) * core::at(pass, ch) * card_factor;
+                    }
+                    core::at(card.alphas, k) = tris.alpha(vertex);
+                }
+                cards->triangles.push_back(card);
+            }
             rt::EmitterKind kind = rt::EmitterKind::kGlow;
             std::array<float, 3> texture_colour{1.0F, 1.0F, 1.0F};
             float lit_share = glow ? card_core_share(tris, corner, look) : 1.0F;
@@ -1600,6 +1679,9 @@ void emitter_work()
         }
     }
     found.triangles = std::move(triangles); // (lighting round A2: a path tracer's emissive triangles - the relit data's)
+    if (bake) {
+        found.cards = std::move(cards);
+    }
     const auto glows = std::ranges::count_if(found.emitters,
                                              [](const rt::Emitter& e) { return e.kind == rt::EmitterKind::kGlow; });
     const auto points = std::ranges::count_if(rt::frame_record().lights, [](const rt::Light& light) {

@@ -156,6 +156,7 @@ add_library(thug2_engine STATIC
     gfx/precip_occlusion.cpp
     gfx/air_volume.cpp
     gfx/lamp_fixtures.cpp
+    gfx/light_cards.cpp
     gfx/light_window.cpp
     gfx/surface_trail.cpp
     gfx/paint_trails.cpp

@@ -43,6 +43,7 @@
 #include <cstring>
 #include <exception>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <span>
 #include <string>
@@ -57,6 +58,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/light_cards.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
@@ -213,6 +215,133 @@ void add_quad(std::vector<rt::EmitterTriangle>* out, const Vec3& corner, const V
     const Vec3 d = step(corner, other, 1.0);
     out->push_back({.corners = {floats(a), floats(b), floats(c)}, .colour = colour, .material = 7, .kind = kind});
     out->push_back({.corners = {floats(a), floats(c), floats(d)}, .colour = colour, .material = 7, .kind = kind});
+}
+
+// (round light cards - engine/gfx/light_cards.h) The original's light cards laid on surfaces: a floor (a 4 x 4 grid of
+// vertices, 400 units across, its texture mid grey) under a card 0.5 units over it lit by the card's light over its texture;
+// the same card 20 units up - no surface's; a card standing up on it - not parallel; a card on a wall whose texture is all
+// saturated (a lamp's luminous core) - none of it on the wall, but all of it on a floor. The colour word with light in it.
+// The cone fit: a frustum's walls hanging from a lamp, against a flat card. No cap on the emitters (5000 lights).
+void check_light_cards(Tally* tally)
+{
+    const auto floor_mesh = [](float y, const std::array<float, 3>& normal) {
+        rt::RelitMesh mesh;
+        mesh.id = 1;
+        constexpr int kSide = 4;
+        for (int i = 0; i < kSide; ++i) {
+            for (int j = 0; j < kSide; ++j) {
+                const float a = -200.0F + (static_cast<float>(i) * 400.0F / (kSide - 1));
+                const float b = -200.0F + (static_cast<float>(j) * 400.0F / (kSide - 1));
+                mesh.positions.push_back(normal[1] > 0.5F ? std::array<float, 3>{a, y, b} : std::array<float, 3>{a, b, y});
+                mesh.normals.push_back(normal);
+                mesh.colours.push_back(0xFF202020U);
+            }
+        }
+        for (uint32_t i = 0; i + 1 < kSide; ++i) {
+            for (uint32_t j = 0; j + 1 < kSide; ++j) {
+                const uint32_t v = (i * kSide) + j;
+                mesh.triangles.push_back({v, v + 1, v + kSide});
+                mesh.triangles.push_back({v + 1, v + kSide + 1, v + kSide});
+            }
+        }
+        return mesh;
+    };
+    const auto card_over = [](float lift, bool wall, uint32_t image) {
+        rt::LightCards cards;
+        const auto corner = [&](float a, float b) {
+            return wall ? std::array<float, 3>{a, b, lift} : std::array<float, 3>{a, lift, b};
+        };
+        const std::array<float, 3> colour{0.5F, 0.5F, 0.5F};
+        for (const auto& [p, q, r] : {std::array{std::array{-300.0F, -300.0F}, std::array{300.0F, -300.0F}, std::array{300.0F, 300.0F}},
+                                      std::array{std::array{-300.0F, -300.0F}, std::array{300.0F, 300.0F}, std::array{-300.0F, 300.0F}}}) {
+            cards.triangles.push_back({.corners = {corner(p[0], p[1]), corner(q[0], q[1]), corner(r[0], r[1])},
+                                       .uvs = {std::array{0.0F, 0.0F}, std::array{1.0F, 0.0F}, std::array{1.0F, 1.0F}},
+                                       .colours = {colour, colour, colour},
+                                       .image = image,
+                                       .mesh = 2});
+        }
+        auto grey = std::make_shared<render::texel::Image>();
+        grey->width = 1;
+        grey->height = 1;
+        grey->texels = {{128, 128, 128, 255}};
+        auto white = std::make_shared<render::texel::Image>();
+        white->width = 1;
+        white->height = 1;
+        white->texels = {{255, 255, 255, 255}};
+        cards.images = {grey, white};
+        cards.surface_colours = {{1, {0.5F, 0.5F, 0.5F}}};
+        return cards;
+    };
+    const std::array<float, 3> up{0.0F, 1.0F, 0.0F};
+    const std::array<float, 3> across{0.0F, 0.0F, 1.0F};
+    const auto added_on = [&](const rt::RelitMesh& mesh, const rt::LightCards& cards, rt::CardReport* report) {
+        std::vector<rt::RelitVertices> light(1);
+        rt::relit_normals(mesh, 1.0F, &light.front());
+        const std::vector<uint8_t> card_of{0};
+        const std::vector<std::vector<rt::Rgbf>> added =
+            rt::card_light_on_surfaces(std::span(&mesh, 1), light, card_of, cards, 1.0F, report);
+        double sum = 0.0;
+        std::size_t count = 0;
+        if (!added.empty()) {
+            for (const rt::Rgbf& light_here : added.front()) {
+                sum += light_here[1];
+                ++count;
+            }
+        }
+        return count > 0 ? sum / static_cast<double>(count) : 0.0;
+    };
+    rt::CardReport report;
+    const rt::RelitMesh ground = floor_mesh(0.0F, up);
+    // the card's light 128/255 x 0.5 = 0.251 over the texture's 0.5: 0.502 of a byte of 128 at every vertex
+    const double on = added_on(ground, card_over(0.5F, false, 0), &report);
+    tally->check(std::abs(on - (128.0 / 255.0)) < 0.01 && report.vertices == ground.positions.size() &&
+                     report.on_surface == 2,
+                 text::format("a card laid on a floor: its light over the floor's texture at each vertex (%.3f of %.3f, "
+                              "%zu vertices, %zu triangles)",
+                              on, 128.0 / 255.0, report.vertices, report.on_surface));
+    const double lifted = added_on(ground, card_over(20.0F, false, 0), &report);
+    tally->check(lifted == 0.0 && report.vertices == 0, "a card 20 units over the floor: no surface's light");
+    const rt::RelitMesh wall = floor_mesh(0.0F, across);
+    const double standing = added_on(ground, card_over(0.0F, true, 0), &report);
+    tally->check(standing == 0.0, "a card standing on the floor (not parallel): no light on it");
+    const double core_on_wall = added_on(wall, card_over(0.5F, true, 1), &report);
+    const double core_on_floor = added_on(ground, card_over(0.5F, false, 1), &report);
+    tally->check(core_on_wall == 0.0 && core_on_floor > 0.9,
+                 text::format("a card's saturated core: the lamp on a wall (%.3f), a light pool on a floor (%.3f)",
+                              core_on_wall, core_on_floor));
+    tally->check(rt::colour_with_light(0xFF102030U, {0.5F, 0.25F, 4.0F}) == 0xFF5040FFU,
+                 "a colour word with light in it: 64 and 32 more, held at 255");
+    // a four-sided frustum hanging from a lamp 10 units over its top (radius 10 there, 60 at its foot 200 below)
+    rt::RelitMesh frustum;
+    for (int k = 0; k < 4; ++k) {
+        const float angle = static_cast<float>(k) * 1.5707963F;
+        frustum.positions.push_back({10.0F * std::cos(angle), -10.0F, 10.0F * std::sin(angle)});
+        frustum.positions.push_back({60.0F * std::cos(angle), -210.0F, 60.0F * std::sin(angle)});
+    }
+    for (uint32_t k = 0; k < 4; ++k) {
+        const uint32_t top = 2 * k;
+        const uint32_t next = 2 * ((k + 1) % 4);
+        frustum.triangles.push_back({top, top + 1, next});
+        frustum.triangles.push_back({next, top + 1, next + 1});
+    }
+    const rt::ConeFit cone = rt::cone_fit(frustum, {0.0F, 0.0F, 0.0F});
+    rt::RelitMesh flat = ground;
+    const rt::ConeFit card = rt::cone_fit(flat, {0.0F, 300.0F, 0.0F});
+    tally->check(cone.fitted && cone.from > 0.0F && cone.radius_far > 1.5F * cone.radius_near && cone.residual < 0.05F &&
+                     cone.gap_degrees <= 91.0F && cone.walls > 0.99F && (card.walls < 0.5F || card.gap_degrees > 120.0F),
+                 text::format("a frustum hanging from a lamp: along %.0f - %.0f, radius %.0f - %.0f, misfit %.3f, gap %.0f, "
+                              "walls %.2f; a flat card under a lamp: walls %.2f",
+                              static_cast<double>(cone.from), static_cast<double>(cone.to),
+                              static_cast<double>(cone.radius_near), static_cast<double>(cone.radius_far),
+                              static_cast<double>(cone.residual), static_cast<double>(cone.gap_degrees),
+                              static_cast<double>(cone.walls), static_cast<double>(card.walls)));
+    std::vector<rt::EmitterTriangle> many;
+    for (int i = 0; i < 5000; ++i) {
+        add_quad(&many, {static_cast<double>(i % 100) * 500.0, 300.0, static_cast<double>(i / 100) * 500.0}, {8.0, 0.0, 0.0},
+                 {0.0, 8.0, 0.0}, rt::EmitterKind::kSelfLit, {1.0F, 1.0F, 1.0F});
+    }
+    tally->check(rt::cluster_emitters(many).size() == 5000,
+                 text::format("no cap on a level's lights: 5000 lamps far apart, %zu lights", rt::cluster_emitters(many).size()));
 }
 
 // (lighting round A2 - indoor ceiling lights) The emitters' shapes from their triangles: a fluorescent tube (a long
@@ -2597,6 +2726,7 @@ int main(int argc, char** argv)
     Tally tally;
     check_sources(&tally);
     check_shapes(&tally); // (lighting round A2)
+    check_light_cards(&tally); // (round light cards)
     if (!render::vulkan::open_loader()) {
         text::print("no Vulkan loader (vulkan-1.dll) for this process\n");
         return 2;

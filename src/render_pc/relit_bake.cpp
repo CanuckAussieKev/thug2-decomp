@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
+#include <memory>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -24,6 +26,7 @@
 #include "engine/file/disk_files.h"
 #include "engine/gfx/game_hooks.h"
 #include "engine/gfx/lamp_fixtures.h"
+#include "engine/gfx/light_cards.h"
 #include "engine/gfx/relit_data.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_daylight.h"
@@ -686,6 +689,220 @@ void log_open_colours(std::span<const rt::RelitMesh> meshes, std::span<const rt:
             std::get<1>(std::get<1>(b)), std::get<2>(std::get<1>(b)));
 }
 
+// (round light cards - engine/gfx/light_cards.h) The bake's evidence of each surface's light: its vertex colours plus
+// the light of the original's light cards laid on it (a floor's light pool drawn as a card over vertex colours the bake
+// left dark - Training's lower floor); a card itself is no surface - its colours no surface's light (left out of the fit:
+// black).
+std::vector<std::pair<uint32_t, uint32_t>> put_card_light(std::span<rt::RelitMesh> meshes,
+                                                          std::span<const uint8_t> card_meshes, float facing)
+{
+    std::vector<std::pair<uint32_t, uint32_t>> given; // (reported: the vertices given a card's light)
+    const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
+    std::size_t card_vertices = 0;
+    for (std::size_t mi = 0; mi < meshes.size() && mi < card_meshes.size(); ++mi) {
+        if (core::at(card_meshes, mi) != 0) {
+            rt::RelitMesh& mesh = core::at(meshes, mi);
+            card_vertices += mesh.colours.size();
+            std::ranges::fill(mesh.colours, 0U);
+        }
+    }
+    if (found == nullptr || found->cards == nullptr) {
+        get_log("relit bake: light cards - none read (%zu card vertices left out of the fit)", card_vertices);
+        return given;
+    }
+    std::vector<rt::RelitVertices> normals(meshes.size());
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        rt::relit_normals(core::at(meshes, mi), facing, &core::at(normals, mi));
+    }
+    rt::CardReport report;
+    const std::vector<std::vector<rt::Rgbf>> added =
+        rt::card_light_on_surfaces(meshes, normals, card_meshes, *found->cards, facing, &report);
+    for (std::size_t mi = 0; mi < meshes.size() && mi < added.size(); ++mi) {
+        rt::RelitMesh& mesh = core::at(meshes, mi);
+        const std::vector<rt::Rgbf>& light = core::at(added, mi);
+        for (std::size_t vi = 0; vi < light.size() && vi < mesh.colours.size(); ++vi) {
+            if (core::at(light, vi) != rt::Rgbf{}) {
+                core::at(mesh.colours, vi) = rt::colour_with_light(core::at(mesh.colours, vi), core::at(light, vi));
+                given.emplace_back(static_cast<uint32_t>(mi), static_cast<uint32_t>(vi));
+            }
+        }
+    }
+    get_log("relit bake: light cards - %zu card triangles (%zu textures; %zu card vertices left out of the fit), %zu lying "
+            "on a surface: %zu surface vertices given their light (mean %.3f, display-referred: 1 a byte of 128); %zu "
+            "vertices under a parallel card %.0f - %.0f units off (not on it)",
+            report.cards, found->cards->images.size(), card_vertices, report.on_surface, report.vertices, report.light,
+            report.near_misses, static_cast<double>(rt::kCardOnSurface), static_cast<double>(rt::kCardOnSurface * rt::kCardNearMiss));
+    constexpr std::size_t kShown = 40;
+    std::size_t shown = 0;
+    for (const rt::CardSeen& seen : report.seen) {
+        if (shown++ >= kShown) {
+            break;
+        }
+        get_log("relit bake: light card mesh %u at %.0f %.0f %.0f - %.0f square units, facing up %.2f; %zu triangles on a "
+                "surface, the nearest surface vertex under it %s%.1f units off",
+                seen.mesh, static_cast<double>(rt::x_of(seen.centre)), static_cast<double>(rt::y_of(seen.centre)),
+                static_cast<double>(rt::z_of(seen.centre)), static_cast<double>(seen.area), static_cast<double>(seen.up),
+                seen.lying, seen.nearest < std::numeric_limits<float>::max() ? "" : "(none) ",
+                seen.nearest < std::numeric_limits<float>::max() ? static_cast<double>(seen.nearest) : 0.0);
+    }
+    return given;
+}
+
+// (round light cards, reported) The surfaces the cards' light was put on, after the fit: their colours as baked and with
+// the cards (luma, decoded: the fit's unit), their tints (albedos), sky share, bounce and lamps' light (the global unit).
+void log_card_surfaces(std::span<const rt::RelitMesh> meshes, std::span<const rt::RelitVertices> light,
+                       std::span<const std::pair<uint32_t, uint32_t>> given, std::span<const uint32_t> before)
+{
+    if (given.empty()) {
+        return;
+    }
+    double baked = 0.0;
+    double with_cards = 0.0;
+    double tint = 0.0;
+    double sky = 0.0;
+    double bounce = 0.0;
+    double lamp = 0.0;
+    std::size_t lamp_lit = 0;
+    for (std::size_t k = 0; k < given.size(); ++k) {
+        const auto& [mi, vi] = core::at(given, k);
+        const rt::RelitVertex& vertex = core::at(core::at(light, mi), vi);
+        baked += luma(rt::colour_light(core::at(before, k)));
+        with_cards += luma(rt::colour_light(core::at(core::at(meshes, mi).colours, vi)));
+        tint += luma(vertex.tint);
+        sky += vertex.sky;
+        bounce += luma(vertex.bounce);
+        lamp += luma(vertex.lamp);
+        lamp_lit += luma(vertex.lamp) > 0.0F ? 1 : 0;
+    }
+    const auto n = static_cast<double>(given.size());
+    get_log("relit bake: the surfaces under the light cards (%zu vertices), means - their light as baked %.4f, with the cards "
+            "%.4f; their albedos %.3f, sky share %.3f, bounce %.5f, lamps' light %.6f (%zu of them lit by a lamp)",
+            given.size(), baked / n, with_cards / n, tint / n, sky / n, bounce / n, lamp / n, lamp_lit);
+}
+
+// (round light cards, reported - the art's light cones) Each blended mesh against the lamps round it: how well it is a
+// cone or frustum hanging from one (light_cards.h cone_fit, the best of the lamps within kConeReach of it) - the evidence a
+// light-cone card would be told by.
+void log_cones(std::span<const rt::RelitMesh> meshes, std::span<const uint8_t> blended, std::span<const rt::RelitLamp> lamps)
+{
+    constexpr float kConeReach = 1500.0F;
+    constexpr float kConeMisfit = 0.25F;
+    constexpr float kConeGap = 120.0F;
+    constexpr float kConeOpening = 1.5F;
+    constexpr float kConeWalls = 0.9F;
+    constexpr std::size_t kShown = 40;
+    std::size_t looked = 0;
+    std::size_t cones = 0;
+    for (std::size_t mi = 0; mi < meshes.size() && mi < blended.size(); ++mi) {
+        const rt::RelitMesh& mesh = core::at(meshes, mi);
+        if (core::at(blended, mi) == 0 || mesh.positions.size() < 3) {
+            continue;
+        }
+        ++looked;
+        rt::Vec3 mean{};
+        for (const rt::Vec3& p : mesh.positions) {
+            mean = rt::plus(mean, p);
+        }
+        mean = rt::scaled(mean, 1.0F / static_cast<float>(mesh.positions.size()));
+        std::size_t best = lamps.size();
+        rt::ConeFit best_fit;
+        for (std::size_t li = 0; li < lamps.size(); ++li) {
+            const rt::Vec3 d = rt::minus(core::at(lamps, li).position, mean);
+            if (rt::dot(d, d) > kConeReach * kConeReach) {
+                continue;
+            }
+            // (a line lamp - a tube, a troffer - hangs a cone from its nearest point)
+            const rt::RelitLamp& lamp = core::at(lamps, li);
+            rt::Vec3 apex = lamp.position;
+            if (lamp.shape == rt::EmitterShape::kLine && lamp.half_length > 0.0F) {
+                const float along = std::clamp(rt::dot(rt::minus(mean, lamp.position), lamp.axis), -lamp.half_length, lamp.half_length);
+                apex = rt::plus(lamp.position, rt::scaled(lamp.axis, along));
+            }
+            const rt::ConeFit fit = rt::cone_fit(mesh, apex);
+            if (!fit.fitted || !(fit.from > 0.0F) || !(fit.radius_far > kConeOpening * fit.radius_near) ||
+                fit.residual > kConeMisfit || fit.gap_degrees > kConeGap || fit.walls < kConeWalls ||
+                fit.from > fit.radius_far) {
+                continue;
+            }
+            if (best == lamps.size() || fit.residual < best_fit.residual) {
+                best = li;
+                best_fit = fit;
+            }
+        }
+        if (best == lamps.size()) {
+            continue;
+        }
+        ++cones;
+        if (cones <= kShown) {
+            const rt::RelitLamp& lamp = core::at(lamps, best);
+            uint32_t low = 0xFFFFFFFFU;
+            uint32_t high = 0;
+            for (const uint32_t colour : mesh.colours) {
+                low = std::min(low, colour & 0xFFFFFFU);
+                high = std::max(high, colour & 0xFFFFFFU);
+            }
+            get_log("relit bake: a cone-shaped blended mesh %u (%zu vertices, colours %06x - %06x) at %.0f %.0f %.0f from lamp "
+                    "%zu (kind %u, %s) at %.0f %.0f %.0f - along its axis %.0f - %.0f, radius %.0f - %.0f, misfit %.3f, its "
+                    "widest gap round the axis %.0f degrees, walls %.2f",
+                    mesh.id, mesh.positions.size(), low, high, static_cast<double>(rt::x_of(mean)),
+                    static_cast<double>(rt::y_of(mean)), static_cast<double>(rt::z_of(mean)), best,
+                    static_cast<unsigned>(lamp.kind), rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
+                    static_cast<double>(rt::x_of(lamp.position)), static_cast<double>(rt::y_of(lamp.position)),
+                    static_cast<double>(rt::z_of(lamp.position)), static_cast<double>(best_fit.from),
+                    static_cast<double>(best_fit.to), static_cast<double>(best_fit.radius_near),
+                    static_cast<double>(best_fit.radius_far), static_cast<double>(best_fit.residual),
+                    static_cast<double>(best_fit.gap_degrees), static_cast<double>(best_fit.walls));
+        }
+    }
+    get_log("relit bake: light cones (reported) - %zu blended meshes looked at, %zu cone-shaped round a lamp", looked, cones);
+}
+// (round light cards, reported - the global unit's evidence) The bounce against the bake where the bake's light can only
+// be bounced light: the vertices that see under kEnclosedSky of the sky and none of the sun (their light the surfaces
+// round them send, and lamps) - the median and quartiles of their colour over their traced bounce B (luma); and the
+// medians of every lit vertex's colour, B and K. With the tints' median 1 the fit's bounce coefficient is about the first
+// median: a bounce coefficient far under it says the edges gave the bounce's share of the light to the sky instead.
+void log_bounce_evidence(std::span<const rt::RelitMesh> meshes, std::span<const rt::RelitVertices> light)
+{
+    constexpr float kEnclosedSky = 0.05F;
+    constexpr float kLeastLight = 1.0F / 128.0F;
+    std::vector<float> ratios;
+    std::vector<float> colours;
+    std::vector<float> bounces;
+    std::vector<float> skies;
+    for (std::size_t mi = 0; mi < meshes.size() && mi < light.size(); ++mi) {
+        const rt::RelitMesh& mesh = core::at(meshes, mi);
+        const rt::RelitVertices& vertices = core::at(light, mi);
+        for (std::size_t vi = 0; vi < vertices.size() && vi < mesh.colours.size(); ++vi) {
+            const rt::RelitVertex& vertex = core::at(vertices, vi);
+            const float y = luma(rt::colour_light(core::at(mesh.colours, vi)));
+            if (!vertex.used || y < kLeastLight) {
+                continue;
+            }
+            const float b = luma(vertex.bounce);
+            colours.push_back(y);
+            bounces.push_back(b);
+            skies.push_back(vertex.sky);
+            if (vertex.sky < kEnclosedSky && !(vertex.sun > 0.0F) && b > 0.0F) {
+                ratios.push_back(y / b);
+            }
+        }
+    }
+    const auto quantile = [](std::vector<float>* values, double q) {
+        if (values->empty()) {
+            return 0.0F;
+        }
+        const auto at = values->begin() + static_cast<std::ptrdiff_t>(static_cast<double>(values->size() - 1) * q);
+        std::ranges::nth_element(*values, at);
+        return *at;
+    };
+    get_log("relit bake: the bounce's evidence - %zu enclosed vertices (sky under %.2f, no sun): their colour over their "
+            "bounce %.3f / %.3f / %.3f (quartiles); every lit vertex's medians - colour %.3f, bounce %.3f, sky share %.3f",
+            ratios.size(), static_cast<double>(kEnclosedSky), static_cast<double>(quantile(&ratios, 0.25)),
+            static_cast<double>(quantile(&ratios, 0.5)), static_cast<double>(quantile(&ratios, 0.75)),
+            static_cast<double>(quantile(&colours, 0.5)), static_cast<double>(quantile(&bounces, 0.5)),
+            static_cast<double>(quantile(&skies, 0.5)));
+}
+
 void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& tracer)
 {
     const auto start = std::chrono::steady_clock::now();
@@ -720,14 +937,30 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
     });
     std::vector<uint64_t> contents;
     std::vector<rt::RelitMesh> meshes;
+    std::vector<uint8_t> card_meshes; // (round light cards) the original's light cards among them ...
+    std::vector<uint8_t> blended_meshes; // ... and its blended meshes
+    std::vector<std::pair<uint32_t, uint32_t>> card_given;
     std::size_t vertices = 0;
     for (rt_relit_world::BakeMesh& mesh : read) {
         contents.push_back(mesh.content);
         vertices += mesh.mesh.positions.size();
         meshes.push_back(std::move(mesh.mesh));
+        card_meshes.push_back(mesh.card ? 1 : 0);
+        blended_meshes.push_back(mesh.blended ? 1 : 0);
     }
     data.content = rt::relit_level_content(contents);
     data.facing = rt::relit_facing(meshes);
+    std::vector<uint32_t> before_cards; // (reported: the colours the cards' light was put in, as baked)
+    {
+        std::vector<std::vector<uint32_t>> baked_colours;
+        for (const rt::RelitMesh& mesh : meshes) {
+            baked_colours.push_back(mesh.colours);
+        }
+        card_given = put_card_light(meshes, card_meshes, data.facing);
+        for (const auto& [mi, vi] : card_given) {
+            before_cards.push_back(core::at(core::at(baked_colours, mi), vi));
+        }
+    }
     std::vector<rt::RelitVertices> light(meshes.size());
     rt::RelitStats stats;
     rt::RelitStats lamp_stats;
@@ -905,6 +1138,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             model = rt::fit_relit_model(meshes, light, up, true, &colours);
         }
         log_open_colours(meshes, light);
+        log_bounce_evidence(meshes, light);
         trace_ms = ms_since(traced);
         // (reported) the fit as it came out, in the bake's own colours - before the unit: each channel's sun, sky and
         // bounce coefficients
@@ -1047,6 +1281,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             rt::relit_lamp_light(meshes, light, links, lamps);
         }
         log_lamp_models(lamps, told, modelled);
+        log_cones(meshes, blended_meshes, lamps);
         data.lamp_list = lamps;
         if (const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters(); found != nullptr) {
             constexpr float kLambertian = 1.0F / 3.14159265F; // (a Lambertian emitter's radiance: its intensity over pi)
@@ -1110,6 +1345,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                 }
             }
         }
+        log_card_surfaces(meshes, light, card_given, before_cards);
         const std::vector<std::vector<rt::RelitEmitting>> emitting = emitting_vertices(meshes, lamps, mesh_of);
         for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
             rt::RelitDataMesh mesh{.content = core::at(contents, mi), .vertices = std::move(core::at(light, mi))};
