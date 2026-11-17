@@ -3053,12 +3053,11 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
         model->level_spread = level.spread;
         model->lamps_by_level = 0;
         // (the level's measure takes the surfaces' paint to be the level's own tint: a lighter-painted floor would read
-        // as light. The edges can't size a flat pool but they do see a wrong shape: a lamp told by the level must not
-        // make the edges worse - the Cauchy-weighted edge residuals over its edges, with it at its level value against
-        // without it, every channel; an even room's lamp changes them little, a light given to paint adds a slope the
-        // bake hasn't got)
-        std::vector<double> without_loss(lamps.size(), 0.0);
-        std::vector<double> with_loss(lamps.size(), 0.0);
+        // as light. The edges can't size a flat pool but they do tell which way its light goes: a lamp told by the level
+        // must be one the edges want more of - the slope of their Cauchy-weighted residuals over its edges, at none of
+        // its light, every channel summed, falls as it grows. A light given to paint adds a slope the bake hasn't got:
+        // the edges' slope rises)
+        std::vector<double> slope(lamps.size(), 0.0); // (d loss / d its light, at none)
         if (level.measured) {
             for (std::size_t ch = 0; ch < 3; ++ch) {
                 std::vector<LampEdge> edges;
@@ -3087,7 +3086,8 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                 const auto middle = sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2);
                 std::ranges::nth_element(sorted, middle);
                 const double scale = std::max(*middle, kSingular) * 2.0;
-                const auto loss = [scale](double r) { return std::log1p((r / scale) * (r / scale)); };
+                // (log(1 + (r / s)^2)'s slope in r: 2 r / (s^2 + r^2))
+                const auto loss_slope = [scale](double r) { return 2.0 * r / ((scale * scale) + (r * r)); };
                 for (std::size_t ei = 0; ei < edges.size(); ++ei) {
                     const LampEdge& edge = core::at(edges, ei);
                     for (uint32_t k = 0; k < edge.count; ++k) {
@@ -3099,10 +3099,9 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                         const RelitLamp& tested = core::at(lamps, term.lamp);
                         const double own = tested.solved ? static_cast<double>(core::at(tested.light, ch)) : 0.0;
                         const double r0 = core::at(residual, ei) + (own * term.value * std::sqrt(edge.weight));
-                        const double r1 = r0 - (static_cast<double>(core::at(core::at(level.light, term.lamp), ch)) *
-                                                term.value * std::sqrt(edge.weight));
-                        core::at(without_loss, term.lamp) += loss(r0);
-                        core::at(with_loss, term.lamp) += loss(r1);
+                        // (r falls by v sqrt(w) per unit of its light, in this channel's share of its level colour)
+                        core::at(slope, term.lamp) -= loss_slope(r0) * term.value * std::sqrt(edge.weight) *
+                                                      static_cast<double>(core::at(core::at(level.light, term.lamp), ch));
                     }
                 }
             }
@@ -3114,7 +3113,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
             const float least = std::min({std::get<0>(colour), std::get<1>(colour), std::get<2>(colour)});
             if (core::at(wanted, li) == 0 || core::at(level.told, li) == 0 || !(most > 0.0F) ||
                 least < kTexelLeastShare * most || core::at(level.share, li) < static_cast<double>(model->lamp_noise) ||
-                core::at(with_loss, li) > core::at(without_loss, li)) {
+                !(core::at(slope, li) < 0.0)) {
                 continue;
             }
             model->lamps_solved += 1;
