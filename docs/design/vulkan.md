@@ -3131,6 +3131,44 @@ models surface maps of their own and shades skin, cloth and hair as such; `rt_ch
   come from names and colour, so a skin-coloured garment in a whole-body atlas is skin; leather and rubber have no
   shading of their own beyond their roughness; the translucency uses the silhouette as its thickness (no thickness map).
 
+### One light model: the BRDF and the material table (round M)
+
+The per-pixel lighting (`rt_pbr`), the characters and - next - every ray hit are shaded by one model,
+`engine/gfx/rt_brdf.h` (C++ and its GLSL twin, `brdf_glsl()`): it takes a light and a material and gives the radiance
+toward the eye; which light reaches a point is the caller's. Lights are given as the radiance of a white diffuser they
+light face-on (the frame's unit).
+
+- **The model**: GGX D, the height-correlated Smith visibility, Schlick's Fresnel to 1 at grazing; multiple scattering
+  compensated by 1 + F0 (1 / E_ss - 1), E_ss from a 16 x 16 table of the split-sum terms integrated from the lobe itself
+  (`thug2_brdf_check --table`); Lambert x (1 - E) - a white furnace returns 1 (metal 0.995 - 1.011, dielectric + diffuse
+  0.998 - 1.020 over roughness 0.045 - 1 and N.V 0.05 - 1). Skin: the energy-conserving wrap (N.L + w) / (1 + w)^2 per
+  channel, w = the mean free path over the surface's radius of curvature (from the pixel's derivatives). Cloth: the
+  Charlie sheen with Neubelt and Pettineo's visibility over a base held to 1 - the sheen. Hair: Marschner's R, TT and
+  TRT lobes in Karis's real-time form, keratin's index, the fibre's colour as its absorption.
+- **The material table** (`engine/gfx/rt_material_table.h`): per kind (painted, asphalt, concretes, brick, stone,
+  metal, wood, ground, grass, tile, plaster, gravel, glass, water, skin, cloth, denim, leather, rubber, hair) the
+  refractive index (F0) or a metal's measured F0, the roughness (the detail library's CC0 scans' roughness maps,
+  measured), the albedo range of real samples, the mean free path, the sheen, the light and air transmission (for the
+  weather round) and the relief depth in millimetres - each with its source. A draw's kind is its surface map's class,
+  or the detail library's kind where it has one.
+- **The surfaces** (`ff_shaders.cpp` surface_finish): the draw's program makes the albedo under white light (v0 = 0.5),
+  decoded; the relit world's draws read the light store's words (sky + bounce, tint and the sun's visibility, lamps -
+  `kSurfaceRelit`) and get the sun through `brdf_direct` with the bent normal and the rest as an environment through
+  `brdf_ambient`, its irradiance on the bent normal that of an even hemisphere round the surface's normal; the bake
+  without a store is the environment's light; objects and characters their lights decoded. The result is linear light,
+  not clamped. The environment's specular is the store's estimate where the reflections pass doesn't trace it (texels
+  rougher than `kReflectionRoughest`), faded across the same range as the pass's own fade.
+- **Retired**: rt_pbr_specular, rt_pbr_normal_strength, rt_relief_strength, rt_detail_strength, rt_characters_skin /
+  _cloth / _hair ("Set by the material now"); the bake relit by luma thresholds (kRtPbrAmbientShare, kRtPbrShade*,
+  kRtPbrDetail*, kRtPbrSkyDetail, kRtPbrGameSun); the hue-found skin texels; the relief's per-kind weight and shadow
+  strength; the per-kind gloss table of the reflections.
+- **Not done** (round M's record): the reflections pass's weight is still its own Fresnel curve x strength
+  (rt_reflection_strength, rt_reflection_fresnel, rt_glass_roughness, rt_reflection_surfaces live) - it should be the
+  BRDF's E and add where the surface omitted its estimate; a per-texel material mask in the character maps (a garment's
+  skin texels are cloth now); skin's translucency needs a thickness; the lamps' specular on the relit world (the store
+  has no directions); a directional sky term (SH-L1 / bent normals) instead of the even hemisphere; real displacement
+  in place of parallax for ray visibility.
+
 ### Art style: the toon filter (`rt_style`)
 
 `gpu_vulkan/vulkan_style` (`[Graphics] rt_style`, off by default; no ray tracing or HDR needed). A post-process that

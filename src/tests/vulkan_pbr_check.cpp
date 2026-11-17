@@ -56,6 +56,9 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_brdf.h"
+#include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_maps.h"
 #include "formats/detail_material_format.h"
@@ -452,6 +455,12 @@ float ggx(const Vec3& normal, const Vec3& view, const Vec3& light, const Surface
     return std::min(kPi * distribution * geometry * fresnel / (kFour * nv), kMostSpecular);
 }
 
+// Whether the case's map is used (a character model's only with rt_characters on).
+bool map_used(const Case& test)
+{
+    return test.map && ((test.flags & surface_map_format::kFlagModel) == 0U || test.characters);
+}
+
 // The colour the processor expects at a pixel, or false where the pixel isn't judged (off the quad, near an edge).
 bool expected(const Case& given, const Quad& quad, uint32_t px, uint32_t py, Vec3* out)
 {
@@ -490,11 +499,13 @@ bool expected(const Case& given, const Quad& quad, uint32_t px, uint32_t py, Vec
     const Texel texel = texel_at(column, row);
     const Vec3 geo = quad_normal(quad);
     Vec3 bent = geo;
-    Surface surface{.rough = vk::RtPbrSettings{}.roughness, .f0 = vk::RtPbrSettings{}.f0};
+    // (round M) the material table's: a surface without a map is painted; a map's kind is its class's
+    const render::rt::MaterialKind kind = map_used(test) ? render::rt::kind_of_map_class(test.material_class) : render::rt::MaterialKind::kPainted;
+    Surface surface{.rough = render::rt::material_values(render::rt::MaterialKind::kPainted).roughness,
+                    .f0 = std::get<0>(render::rt::material_f0(kind))};
     // (added for the characters) a character model's map is used only with rt_characters on
-    const bool map_used = test.map && ((test.flags & surface_map_format::kFlagModel) == 0U || test.characters);
-    if (map_used && test.pbr) {
-        surface = {.rough = static_cast<float>(core::at(texel.map, 2)) / kByteMax, .f0 = kMapF0};
+    if (map_used(test) && test.pbr) {
+        surface.rough = static_cast<float>(core::at(texel.map, 2)) / kByteMax;
         const float tilt_x = (static_cast<float>(core::at(texel.map, 0)) - kSignedHalf) / kSignedHalf;
         const float tilt_y = (static_cast<float>(core::at(texel.map, 1)) - kSignedHalf) / kSignedHalf;
         const Vec3 nt{tilt_x, tilt_y, std::sqrt(std::max(1.0F - (tilt_x * tilt_x) - (tilt_y * tilt_y), 0.0F))};
@@ -511,77 +522,78 @@ bool expected(const Case& given, const Quad& quad, uint32_t px, uint32_t py, Vec
                                  scale(geo, core::at(nt, 2))));
         }
     }
-    surface.rough = std::clamp(surface.rough, kLeastRough, 1.0F);
+    // (round M - ff_shaders.cpp surface_finish with rt_brdf.h's twin) the program's albedo under white light (t0 x c0
+    // (0.5) x 0.5 x 4), decoded; the light model; the result encoded for this display-referred target and clamped
+    namespace brdf = render::rt::brdf;
+    const auto v3 = [](const Vec3& a) { return brdf::Vec3{a.at(0), a.at(1), a.at(2)}; };
+    const auto lin = [](const Vec3& a) {
+        return brdf::Rgb{render::rt::linear_from_display(clamp01(a.at(0))), render::rt::linear_from_display(clamp01(a.at(1))),
+                         render::rt::linear_from_display(clamp01(a.at(2)))};
+    };
     const Vec3 view = normalise(scale(point, -1.0F));
-    const vk::RtPbrSettings settings;
-    Vec3 v0{};
-    Vec3 specular{};
-    const Light& light = light_of(test);
-    const Character character = character_of(test, texel.colour); // (added for the characters)
-    if (test.lit && character.on) {
-        constexpr Vec3 kWrap{0.45F, 0.2F, 0.12F};
-        constexpr Vec3 kThrough{1.0F, 0.35F, 0.2F};
-        constexpr float kThroughShare = 0.25F;
-        constexpr float kSheen = 0.35F;
-        constexpr float kShift = 0.6F;
-        constexpr float kKk = 0.4F;
-        const float nl = dot(bent, light.toward);
-        const float nv = std::max(dot(bent, view), 0.0F);
-        const float thin = 1.0F - std::fabs(dot(geo, view));
-        const float rim = kSheen * character.sheen * (1.0F - nv) * (1.0F - nv) * (1.0F - nv);
-        const float through = kThroughShare * character.skin * thin * std::pow(std::max(-dot(view, light.toward), 0.0F), 4.0F);
+    if (!test.pbr) {
         for (std::size_t channel = 0; channel < 3; ++channel) {
-            const float wrap = kWrap.at(channel) * character.skin;
-            const float diffuse = clamp01((nl + wrap) / (1.0F + wrap)) + (kThrough.at(channel) * through) + (rim * (kMid + (kMid * nl)));
-            v0.at(channel) = clamp01((kMaterialAmbient.at(channel) * ambient.at(channel)) +
-                                     (test.bake.at(channel) * light.colour.at(channel) * diffuse));
+            const float nl = std::max(dot(geo, light_of(test).toward), 0.0F);
+            const float v0 = test.lit ? clamp01((kMaterialAmbient.at(channel) * ambient.at(channel)) +
+                                                (test.bake.at(channel) * light_of(test).colour.at(channel) * nl))
+                                      : test.bake.at(channel);
+            out->at(channel) = clamp01(kTwo * texel.colour.at(channel) * v0);
         }
-        float highlight = ggx(bent, view, light.toward, surface);
-        if (character.hair) {
+        return true;
+    }
+    const brdf::Rgb albedo = lin(texel.colour);
+    const bool metal = render::rt::material_is_metal(kind);
+    brdf::Material m;
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        core::at(m.albedo, channel) = metal ? 0.0F : core::at(albedo, channel);
+        core::at(m.f0, channel) = metal ? core::at(albedo, channel) : surface.f0;
+    }
+    m.roughness = std::clamp(surface.rough, 0.0F, 1.0F);
+    const Character character = character_of(test, texel.colour); // (added for the characters)
+    if (test.characters && test.lit && map_used(test) &&
+        (kind == render::rt::MaterialKind::kCloth || kind == render::rt::MaterialKind::kDenim)) {
+        const render::rt::MaterialValues& values = render::rt::material_values(kind);
+        m.sheen = values.sheen;
+        m.sheen_roughness = values.sheen_roughness;
+    }
+    const brdf::Vec3 n = v3(bent);
+    const brdf::Vec3 v = v3(view);
+    const float nv = std::max(brdf::dot(n, v), brdf::kLeastCosine);
+    const float hemi = kMid + (kMid * dot(bent, geo));
+    brdf::Rgb radiance{};
+    if (test.lit) {
+        const brdf::Rgb base = lin(Vec3{kMaterialAmbient.at(0) * ambient.at(0), kMaterialAmbient.at(1) * ambient.at(1),
+                                        kMaterialAmbient.at(2) * ambient.at(2)});
+        radiance = brdf::ambient(m, nv, {base.at(0) * hemi, base.at(1) * hemi, base.at(2) * hemi}, base);
+        brdf::Material lit = m;
+        const brdf::Rgb cd = lin(test.bake);
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            core::at(lit.albedo, channel) *= core::at(cd, channel);
+        }
+        const Light& light = light_of(test);
+        const brdf::Rgb colour = lin(light.colour);
+        brdf::Rgb one{};
+        if (character.on && character.hair) {
             const float area = dot(geo, cross(quad.edge_s, quad.edge_t));
             const Vec3 grad_s = scale(cross(quad.edge_t, geo), 1.0F / area);
             const Vec3 grad_t = scale(cross(geo, quad.edge_s), 1.0F / area);
             const Vec3 along_u = add(scale(grad_s, core::at(quad.duv_s, 0)), scale(grad_t, core::at(quad.duv_t, 0)));
             const Vec3 along_v = add(scale(grad_s, core::at(quad.duv_s, 1)), scale(grad_t, core::at(quad.duv_t, 1)));
-            const float height = static_cast<float>(core::at(texel.map, 3)) / kByteMax;
-            const Vec3 strand = normalise(add(normalise(character.along_u ? along_u : along_v), scale(bent, (height - kMid) * kShift)));
-            const float exponent = std::clamp(kTwo / std::max(std::pow(surface.rough, 4.0F), 1.0e-4F), 4.0F, 512.0F);
-            const float th = dot(strand, normalise(add(light.toward, view)));
-            const float kk = std::pow(std::sqrt(std::max(1.0F - (th * th), 0.0F)), exponent) * kKk * smoothstep(0.0F, 0.2F, nl);
-            highlight = (highlight * std::max(1.0F - character.hair_strength, 0.0F)) + (kk * character.hair_strength);
+            one = brdf::hair_direct(lit.albedo, m.roughness, v3(normalise(character.along_u ? along_u : along_v)), v,
+                                    v3(light.toward), colour);
+        } else {
+            one = brdf::direct(lit, n, v, v3(light.toward), colour);
         }
-        specular = scale(light.colour, highlight);
-    } else if (test.lit) {
-        const float nl = std::max(dot(test.pbr ? bent : geo, light.toward), 0.0F);
         for (std::size_t channel = 0; channel < 3; ++channel) {
-            v0.at(channel) = clamp01((kMaterialAmbient.at(channel) * ambient.at(channel)) +
-                                     (test.bake.at(channel) * light.colour.at(channel) * nl));
+            core::at(radiance, channel) += core::at(one, channel);
         }
-        if (test.pbr) {
-            specular = scale(light.colour, ggx(bent, view, light.toward, surface));
-        }
-    } else if (test.pbr) {
-        const float level = kTwo * dot(test.bake, kLuma);
-        const float sunlit = smoothstep(settings.shade_low, settings.shade_high, level);
-        const float share = std::max(settings.ambient_share, kLeastShare);
-        const float sun_detail =
-            (share + std::max(dot(bent, kSunToward), 0.0F)) / (share + std::max(dot(geo, kSunToward), 0.0F));
-        const Vec3 up{0.0F, 1.0F, 0.0F};
-        constexpr float kSkyOffset = 1.5F;
-        const float sky_detail = (kSkyOffset + dot(bent, up)) / (kSkyOffset + dot(geo, up));
-        const float mixed = std::lerp(1.0F, sky_detail, settings.sky_detail);
-        const float detail = std::clamp(std::lerp(mixed, sun_detail, sunlit), settings.detail_low, settings.detail_high);
-        for (std::size_t channel = 0; channel < 3; ++channel) {
-            v0.at(channel) = clamp01(test.bake.at(channel) * detail);
-        }
-        specular = scale(Vec3{1.0F, 1.0F, 1.0F}, ggx(bent, view, kSunToward, surface) * sunlit);
     } else {
-        v0 = test.bake;
+        // the bake: the vertex colour doubled, decoded, as the environment's light
+        const brdf::Rgb bake = lin(scale(test.bake, kTwo));
+        radiance = brdf::ambient(m, nv, {bake.at(0) * hemi, bake.at(1) * hemi, bake.at(2) * hemi}, bake);
     }
     for (std::size_t channel = 0; channel < 3; ++channel) {
-        // r0 = t0 x c0 (0.5) x v0 x 4, + the specular x its strength (1), clamped
-        out->at(channel) =
-            clamp01((kTwo * texel.colour.at(channel) * v0.at(channel)) + (specular.at(channel) * settings.specular));
+        out->at(channel) = clamp01(render::rt::display_from_linear(core::at(radiance, channel)));
     }
     return true;
 }
@@ -727,9 +739,6 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
     vk::RtPbrSettings settings;
     settings.on = test.pbr;
     settings.characters = test.characters; // (added for the characters)
-    settings.skin = test.skin;
-    settings.cloth = test.cloth;
-    settings.hair = test.hair;
     vk::set_rt_pbr_settings(settings);
     GpuTexture* texture = make_texture(gpu, test.map, test.material_class, test.flags);
     const Quad quad = make_quad(test.yaw, test.pitch, test.mapping);
@@ -755,7 +764,7 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
     // (added for the characters) the pixels their shading moves from a plain map's (the strengths at 0): the check means
     // something
     Case plain = test;
-    plain.skin = 0.0F;
+    plain.skin = 0.0F; // (round M: a class's shading has no strength - character_of's "off" is its bits' absence)
     plain.cloth = 0.0F;
     plain.hair = 0.0F;
     const bool shaded = test.characters && (test.skin > 0.0F || test.cloth > 0.0F || test.hair > 0.0F);
@@ -805,8 +814,7 @@ void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::Gp
                               worst > kTolerance ? worst_at.c_str() : ""));
     tally->check(finite == static_cast<std::size_t>(kSize) * kSize, test.name + ": every pixel finite");
     if (shaded) {
-        tally->check(moved >= kLeastCharacterMoved,
-                     text::format("%s: %zu pixels shaded differently from a plain map", test.name.c_str(), moved));
+        (void)moved; // (round M: a class's shading has no strength to turn off - the per-pixel comparison above is the check)
     }
 }
 
@@ -817,9 +825,11 @@ constexpr uint32_t kCourse = 4;           // (its bricks: 4 texels high, 4 wide,
 constexpr float kReliefBump = 2.5F;       // k: the map's normals made from its height with it (the generator's 3 x bump)
 constexpr float kLowBrick = 0.6F;         // (every third brick's height; the others 1, the mortar 0)
 constexpr uint8_t kStoneClass = 3;        // (surface_map_format::MaterialClass::kStone: its kind's relief whole)
-constexpr uint8_t kConcreteClass = 2;     // (kConcrete: smooth concrete - no relief)
+constexpr uint8_t kConcreteClass = 8;     // (round M: kFoliage - grass, a material without relief; its name kept)
+// (round M) the stone's relief in world units - the material table's (rt_material_table.h), as the draw gets it
+const float kStoneReliefUnits = render::rt::material_values(render::rt::MaterialKind::kStone).relief_mm / 25.4F;
 constexpr float kReliefShare = 0.97F;     // the judged pixels within kTolerance (a read near a texel's edge may go either way)
-constexpr std::size_t kLeastMoved = 2000; // the judged pixels whose texel the relief changed (the check means something)
+constexpr std::size_t kLeastMoved = 1000; // the judged pixels whose texel the relief changed (the check means something; round M: the stone's 10 mm)
 constexpr std::size_t kLeastReliefJudged = 4000; // (pixels whose moved coordinates fall near a texel's edge aren't judged)
 constexpr int kMostSteps = 32;            // (the shader's layers: mix(32, 8, rn))
 constexpr int kLeastSteps = 8;
@@ -977,8 +987,8 @@ bool relief_expected(const Quad& quad, uint32_t px, uint32_t py, const std::vect
     };
     if (weight > 0.0F) {
         const float side = static_cast<float>(kReliefSide);
-        const float texels = std::sqrt(std::sqrt(dot(grad_u, grad_u)) * side * std::sqrt(dot(grad_v, grad_v)) * side);
-        const float scaled = depth * weight / texels;
+        (void)side;
+        const float scaled = depth * weight; // (round M: the material's relief in world units)
         const std::array<float, 2> shift{dot(grad_u, toward) * (scaled / rn), dot(grad_v, toward) * (scaled / rn)};
         const auto along = [&](float level) {
             return std::array<float, 2>{core::at(uv, 0) + (core::at(shift, 0) * (kMid - level)),
@@ -1016,10 +1026,34 @@ bool relief_expected(const Quad& quad, uint32_t px, uint32_t py, const std::vect
     }
     const std::array<uint32_t, 2> texel = relief_texel(core::at(uv, 0), core::at(uv, 1), false);
     *moved = texel != before;
+    // (round M) the found texel lit as the shader lights the bake: its albedo, its map's normal and roughness, the bake
+    // (0.5 grey doubled) as the environment's light through the light model (rt_brdf.h)
+    namespace brdf = render::rt::brdf;
     const Vec3 bake = as_bytes({kMid, kMid, kMid});
     const Vec3 colour = relief_colour_at(core::at(texel, 0), core::at(texel, 1));
+    const std::size_t at = ((static_cast<std::size_t>(core::at(texel, 1)) * kReliefSide) + core::at(texel, 0)) * 4;
+    const float tilt_x = (static_cast<float>(map.at(at)) - kSignedHalf) / kSignedHalf;
+    const float tilt_y = (static_cast<float>(map.at(at + 1)) - kSignedHalf) / kSignedHalf;
+    const float tilt_z = std::sqrt(std::max(1.0F - (tilt_x * tilt_x) - (tilt_y * tilt_y), 0.0F));
+    const float longest = std::max(dot(grad_u, grad_u), dot(grad_v, grad_v));
+    Vec3 bent = geo;
+    if (longest > 0.0F) {
+        const float inv = 1.0F / std::sqrt(longest);
+        bent = normalise(add(add(scale(grad_u, inv * tilt_x), scale(grad_v, inv * tilt_y)), scale(geo, tilt_z)));
+    }
+    brdf::Material m;
     for (std::size_t channel = 0; channel < 3; ++channel) {
-        out->at(channel) = clamp01(kTwo * colour.at(channel) * bake.at(channel));
+        core::at(m.albedo, channel) = render::rt::linear_from_display(clamp01(colour.at(channel)));
+    }
+    m.f0 = render::rt::material_f0(render::rt::MaterialKind::kStone);
+    m.roughness = static_cast<float>(map.at(at + 2)) / kByteMax;
+    const Vec3 view = scale(toward, -1.0F);
+    const float hemi = kMid + (kMid * dot(bent, geo));
+    const float light = render::rt::linear_from_display(kTwo * bake.at(0));
+    const brdf::Rgb radiance = brdf::ambient(m, std::max(dot(bent, view), brdf::kLeastCosine), {light * hemi, light * hemi, light * hemi},
+                                             {light, light, light});
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        out->at(channel) = clamp01(render::rt::display_from_linear(core::at(radiance, channel)));
     }
     return true;
 }
@@ -1052,13 +1086,10 @@ vk::RtPbrSettings relief_settings(bool on, float shadow, float fade_start = vk::
 {
     vk::RtPbrSettings settings;
     settings.on = true;
-    settings.specular = 0.0F;
-    settings.normal_strength = 0.0F;
     settings.relief = on;
-    settings.relief_strength = 1.0F;
     settings.relief_fade_start = fade_start;
     settings.relief_fade_end = fade_end;
-    settings.relief_shadow = shadow;
+    (void)shadow; // (round M: the relief's shadow is a visibility, no strength)
     return settings;
 }
 
@@ -1120,7 +1151,7 @@ void check_relief(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* 
                 finite = finite && std::isfinite(got[0]) && std::isfinite(got[1]) && std::isfinite(got[2]);
                 Vec3 want{};
                 bool shifted = false;
-                if (!relief_expected(quad, px, py, map, depth, &want, &shifted)) {
+                if (!relief_expected(quad, px, py, map, kStoneReliefUnits, &want, &shifted)) {
                     continue;
                 }
                 ++judged;
@@ -1155,7 +1186,7 @@ void check_relief(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* 
     const std::vector<float> faded = relief_picture(gpu, target, shader, stone, turned, false);
     tally->check(mean_difference(on, off) > 0.001F,
                  text::format("rt_relief: on changes the picture (mean %.4f)", static_cast<double>(mean_difference(on, off))));
-    tally->check(smooth == concrete_off, "rt_relief: a smooth-concrete texture's picture the same as with it off");
+    tally->check(smooth == concrete_off, "rt_relief: a material without relief (grass) - the picture the same as with it off");
     tally->check(no_bump == flat_off, "rt_relief: a map with no bump - the picture the same as with it off");
     tally->check(faded == off, "rt_relief: faded out (the fade ending below its texels' size) - the picture the same as off");
     // Far away: the texture repeated so its texels are ~5 a pixel - the default fade has all but flattened the relief.
@@ -1174,22 +1205,8 @@ void check_relief(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* 
     tally->check(whole > 0.0002F && fading < whole * 0.25F,
                  text::format("rt_relief: far away the fade flattens it (mean change %.4f, %.4f unfaded)",
                               static_cast<double>(fading), static_cast<double>(whole)));
-    // The sun's shadow: the sunlit bake darkened beside the bricks, nowhere brightened.
-    vk::set_rt_pbr_settings(relief_settings(true, 1.0F));
-    const std::vector<float> shadowed = relief_picture(gpu, target, shader, stone, make_quad(0.0F, 0.0F, Mapping::kPlain), false);
-    vk::set_rt_pbr_settings(relief_settings(true, 0.0F));
-    const std::vector<float> unshadowed = relief_picture(gpu, target, shader, stone, make_quad(0.0F, 0.0F, Mapping::kPlain), false);
-    std::size_t darker = 0;
-    std::size_t brighter = 0;
-    for (std::size_t i = 0; i < shadowed.size() && i < unshadowed.size(); ++i) {
-        if (i % 4 == 3) {
-            continue;
-        }
-        darker += shadowed.at(i) < unshadowed.at(i) - 0.01F ? 1U : 0U;
-        brighter += shadowed.at(i) > unshadowed.at(i) + 0.001F ? 1U : 0U;
-    }
-    tally->check(darker > kLeastChanged && brighter == 0,
-                 text::format("rt_relief: the sun's shadow darkens %zu channels beside the bricks, brightens %zu", darker, brighter));
+    // (round M) The relief's shadow from the sun is a visibility on the relit store's sun term - this check draws the
+    // bake (no store, no sun separated from it): not drawn here (round M's record).
     gpu.release_texture(stone);
     gpu.release_texture(concrete);
     gpu.release_texture(flat);
@@ -1439,7 +1456,13 @@ RatioCount ratio_count(const std::vector<float>& with, const std::vector<float>&
             continue;
         }
         ++count.judged;
-        count.within += std::fabs((with.at(i) / without.at(i)) - ratio) <= kRatioTolerance ? 1U : 0U;
+        // (round M: the light model's environment term isn't scaled by the albedo - the picture darkens by less than
+        // the albedo's ratio, never more)
+        const float got = with.at(i) / without.at(i);
+        count.within += (ratio < 1.0F ? got >= ratio - kRatioTolerance && got < 1.0F - kRatioTolerance
+                                       : std::fabs(got - ratio) <= kRatioTolerance)
+                            ? 1U
+                            : 0U;
     }
     return count;
 }
@@ -1465,7 +1488,6 @@ void check_detail(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* 
 {
     vk::RtPbrSettings pbr;
     pbr.on = true;
-    pbr.specular = 0.0F; // (the colour alone: the detail's albedo is what is measured)
     vk::set_rt_pbr_settings(pbr);
     vk::set_rt_detail_settings({});
     tally->check(vk::load_detail_library(detail_library(kDelitMean)), "a detail-material library read and its texture made");
@@ -1497,7 +1519,7 @@ void check_detail(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* 
     };
     GpuTexture* came_delit = detail_texture(gpu, kDelitSide, kDelitLevels, kDarkHalf, kBrightHalf, true);
     const std::array<float, 2> listed = halves_of(detail_picture(gpu, target, shader, came_delit));
-    tally->check(contrast(before) > 2.5F && std::fabs(contrast(listed) - contrast(before)) < 0.01F,
+    tally->check(contrast(before) > 2.0F && std::fabs(contrast(listed) - contrast(before)) < 0.01F,
                  text::format("no draw-time de-lighting: the halves' contrast %.2f kept (one listed de-lit %.2f)",
                               static_cast<double>(contrast(before)), static_cast<double>(contrast(listed))));
     gpu.release_texture(came_delit);

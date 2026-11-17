@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <span>
 
+#include "engine/gfx/rt_material_table.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -49,7 +50,11 @@ struct Backend;
 struct SurfaceDraw {
     uint8_t flags = 0;
     Texture* map = nullptr;
-    float f0 = kRtPbrF0;
+    // (round M) the material's kind (rt_material_table.h: its F0, roughness without a map, scatter, sheen, relief) and,
+    // for hair, whether its strands run along u; traced: a mapped surface the reflections pass may trace (not a model's)
+    rt::MaterialKind kind = rt::MaterialKind::kPainted;
+    bool strands_u = false;
+    bool traced = false;
     // (added by the detail materials - rt_detail / rt_delight, vulkan_detail.h) the key's detail bits, the kind's detail
     // texture (kDetailMaterial) and the block
     uint8_t detail = 0;
@@ -66,15 +71,10 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
 [[nodiscard]] Texture* surface_map_for(const Texture* colour);
 // The F0 of `colour`'s map's class (0: no map) - or, with rt_detail, its surface kind's (vulkan_detail.h).
 [[nodiscard]] float surface_map_f0(const Texture* colour);
-// (added for the surface reflections - vulkan_rt_reflections.h) How glossy `colour`'s surface is by its map: its surface
-// kind's (detail_material_format::Kind - the library's, else its class's) share of a mirror's reflection, 0 - 1, and the
-// roughness it never goes under - metal (0.05), glazed tiles and polished floors (0.12), glass and water (0) whole;
-// stone (0.5), paint (0.4) and wood (0.35) a faint, blurred sheen at most (0.2, 0.2, 0.25: a kerb or a painted wall is
-// never a mirror); asphalt, concrete, brick, plaster, ground, plants and cloth none. 0 without a map, for a character
-// model's map, or with rt_pbr off - its F0 (held to kMostDielectricF0 but for metal: only metal reflects more than a
-// clear coat face-on) and its kind's roughness (the detail library's, and how far it replaces the map's: 0 without the
-// library) beside it. False: no map used.
-inline constexpr float kMostDielectricF0 = 0.05F;
+// (added for the surface reflections - vulkan_rt_reflections.h; round M) What the reflections take from `colour`'s map:
+// gloss 1 (every mapped surface reflects as its material does: its F0 and its texels' roughness), the material table's
+// F0 for its kind (rt_material_table.h - a metal's red channel). False: no map used (none, a character model's, rt_pbr
+// off). The other fields stay 0 (the per-kind gloss and least roughness are retired).
 struct SurfaceGloss {
     float gloss = 0.0F;
     float f0 = 0.0F;
@@ -83,30 +83,20 @@ struct SurfaceGloss {
     float least_roughness = 0.0F;
 };
 [[nodiscard]] bool surface_map_gloss(const Texture* colour, SurfaceGloss* out);
-// The gloss of a surface kind / of a map's class (surface_map_gloss's tables): the share, the least roughness, metal.
-struct KindGloss {
-    float gloss = 0.0F;
-    float least_roughness = 0.0F;
-    bool metal = false;
-};
-[[nodiscard]] KindGloss kind_gloss(uint8_t kind);
-[[nodiscard]] KindGloss class_gloss(uint8_t material_class);
 // `colour` is being destroyed: its map taken out of the table, for the caller to release (null: none).
 [[nodiscard]] Texture* take_surface_map(const Texture* colour);
 // The maps attached since the device was made (the log; checks).
 [[nodiscard]] uint64_t surface_maps_attached();
 
 // --- (added by surface relief - [Graphics] rt_relief; docs/design/vulkan.md "Surface relief") ---------------------------
-// Parallax occlusion mapping on a surface-mapped draw (ff_key.h kDetailRelief, DetailUniforms::relief): its depth is the
-// map's own - the generator made its normals from its height as (-dh/du k, -dh/dv k, 1), so the height's full range spans
-// k of the map's texels; k (the texture's bump: its class's, its level's terrains and texel size - tools/pbr_maps
-// surfaces.ts) is read back from the map when it is attached (relief_depth_of_map) - x the surface kind's weight
-// (relief_weight: brick and stone whole, none on smooth asphalt, concrete, metal, glass, water...) x rt_relief_strength.
+// Parallax occlusion mapping on a surface-mapped draw (ff_key.h kDetailRelief, DetailUniforms::relief): (round M) its
+// depth is the material's own relief - the height range of a brick wall's raked joints, a sett's, a plank's gap
+// (rt_material_table.h relief_mm, in world units) - which the map's height 0 - 1 spans; none for a material without
+// relief or a map whose height is flat (relief_depth_of_map 0). Real displacement (tessellated, so rays see it too)
+// should replace it: round M's record.
 
 // k of a map's texels (surface_map_format.h's: width x height x 4 bytes): the least-squares ratio of its normals' slopes
-// to its height's Sobel gradients (wrapping, as the generator's); 0 for a flat map, at most 16.
+// to its height's Sobel gradients (wrapping, as the generator's); 0 for a flat map (no relief is drawn), at most 16.
 [[nodiscard]] float relief_depth_of_map(std::span<const uint8_t> texels, uint32_t width, uint32_t height);
-// The relief's weight for a surface kind (detail_material_format::Kind), 0 - 1.
-[[nodiscard]] float relief_weight(uint8_t kind);
 
 } // namespace render::vulkan

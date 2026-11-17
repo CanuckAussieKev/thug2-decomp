@@ -462,31 +462,16 @@ std::vector<Decl> declarations()
             .need(vulkan(), t::kNeedsVulkan)
             .need(has(Cap::kSurfaceMaps))
             .live(E::kPbr),
-        gfx("rt_pbr_specular", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptPbrSpecular)
-            .pick({c("0", t::kOff), c("0.5", "50%"), c("1", "100%"), c("1.5", "150%"), c("2", "200%")})
-            .need(on("rt_pbr"))
-            .live(E::kPbr),
-        gfx("rt_pbr_normal_strength", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptPbrNormal)
-            .pick({c("0", "Flat"), c("0.5", "50%"), c("1", "100%"), c("1.5", "150%"), c("2", "200%")})
-            .need(on("rt_pbr"))
-            .live(E::kPbr),
+        // (round M - the material table and the light model decide them: rt_material_table.h, rt_brdf.h)
+        gfx("rt_pbr_specular", K::kNumber, "1").retire(t::kRetiredMaterials),
+        gfx("rt_pbr_normal_strength", K::kNumber, "1").retire(t::kRetiredMaterials),
         gfx("rt_pbr_objects", K::kSwitch, "1").need(on("rt_pbr")).live(E::kPbr),
         // (added by surface relief: parallax occlusion mapping on the surface-mapped brick, stone, gravel...)
         gfx("rt_relief", K::kSwitch, "0").tab(G::kSurfaces, t::kOptRelief, t::kOptReliefHelp).need(on("rt_pbr")).live(E::kPbr),
-        gfx("rt_relief_strength", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptReliefStrength)
-            .pick({c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
-            .need(on("rt_relief"))
-            .live(E::kPbr),
+        gfx("rt_relief_strength", K::kNumber, "1").retire(t::kRetiredMaterials),
         // (the material library makes it fuller; without it each surface's kind still comes from its surface map)
         gfx("rt_detail", K::kSwitch, "0").tab(G::kSurfaces, t::kOptDetail, t::kOptDetailHelp).need(on("rt_pbr")).live(E::kDetail),
-        gfx("rt_detail_strength", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptDetailStrength)
-            .pick({c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
-            .need(on("rt_detail"))
-            .live(E::kDetail),
+        gfx("rt_detail_strength", K::kNumber, "1").retire(t::kRetiredMaterials),
         // (the offline relit data: the light painted into textures is taken out offline, by the de-lit texture sets -
         // tools/pipeline/hd_textures --delight -, not at draw time)
         gfx("rt_delight", K::kSwitch, "0").retire(t::kRetired),
@@ -496,21 +481,9 @@ std::vector<Decl> declarations()
             .tab(G::kSurfaces, t::kOptCharacters, t::kOptCharactersHelp)
             .need(on("rt_pbr"))
             .live(E::kPbr),
-        gfx("rt_characters_skin", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptCharactersSkin)
-            .pick({c("0", t::kOff), c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
-            .need(on("rt_characters"))
-            .live(E::kPbr),
-        gfx("rt_characters_cloth", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptCharactersCloth)
-            .pick({c("0", t::kOff), c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
-            .need(on("rt_characters"))
-            .live(E::kPbr),
-        gfx("rt_characters_hair", K::kNumber, "1")
-            .tab(G::kSurfaces, t::kOptCharactersHair)
-            .pick({c("0", t::kOff), c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
-            .need(on("rt_characters"))
-            .live(E::kPbr),
+        gfx("rt_characters_skin", K::kNumber, "1").retire(t::kRetiredMaterials),
+        gfx("rt_characters_cloth", K::kNumber, "1").retire(t::kRetiredMaterials),
+        gfx("rt_characters_hair", K::kNumber, "1").retire(t::kRetiredMaterials),
         gfx("rt_reflections", K::kSwitch, "0")
             .tab(G::kSurfaces, t::kOptReflections, t::kOptReflectionsHelp)
             .need(ray_tracing())
