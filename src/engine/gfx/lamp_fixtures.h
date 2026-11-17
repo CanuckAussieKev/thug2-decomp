@@ -63,6 +63,14 @@ struct FixtureValues {
     // 2, a back-lit sign or a shop window up to 20. A luminous area outside its kind's is no one fixture of that kind.)
     float least_area = 0.0F;
     float most_area = 0.0F;
+    // (one fixture's flux, lm: a typical one and the range lamp ratings give - street lights 70 - 400 W sodium / metal
+    // halide or LED, 2 000 - 55 000 (typical 12 000); a tube fitting 500 - 10 000 (a T8's 2 600 - 3 000); a panel
+    // 1 000 - 10 000 (an office panel's 3 600); a bulb 100 - 5 000 (a 60 W bulb's 800); a neon sign's tubing 50 - 5 000;
+    // a back-lit sign or window 50 - 50 000. What a lamp with no luminous area known - the level's own point lights, a
+    // card with no saturated core - is checked against; outside it its kind's typical fixture stands for it.)
+    float lumens = 0.0F;
+    float least_lumens = 0.0F;
+    float most_lumens = 0.0F;
 };
 [[nodiscard]] const FixtureValues& fixture_values(LampFixture fixture);
 [[nodiscard]] std::string_view fixture_name(LampFixture fixture);
