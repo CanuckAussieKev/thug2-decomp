@@ -2,6 +2,7 @@
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 
 #include <algorithm>
+#include <bit>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -27,6 +28,7 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_lights.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
@@ -56,6 +58,7 @@ constexpr uint32_t kRoughRays = 4;    // the rays a rough (glass) pixel traces
 constexpr float kSurfaceRoughest = 0.7F;
 constexpr float kSurfaceConePerAlpha = 1.0F;
 constexpr float kMaxSurfaces = 2.0F;
+constexpr std::size_t kHitLamps = 32; // (round O) the lamps a reflection's hit takes, the view's most important first
 constexpr float kSunReach = 20000.0F; // (round O) how far a hit's ray toward the sun looks (world units: the bounce's)
 constexpr float kOffsetScale = 1.0F; // the reflection ray's start pushed off the surface by this much, growing with distance
 constexpr uint32_t kGroupSide = 8;   // the trace pass's work groups: 8 x 8 pixels
@@ -111,6 +114,11 @@ layout(set = 0, binding = 3, std140) uniform Pass {
     vec4 surface;
     // (round O) xyz toward the sun or the moon (rt_scene.h scene_sun); w its rays' reach (0: none - no direct light)
     vec4 sun;
+    // (round O) the lamps the lamps pass lit this frame (vulkan_rt_lights.h rt_lamp_glsl - its most important first):
+    // x their count; and their light's scale (x: rt_lights_strength x the lamps on)
+    uvec4 lamp_count;
+    vec4 lamp_scale;
+    LightRecord lamps[HIT_LAMPS];
 } pass;
 
 const uint INSTANCE_OBJECT = 32u; // (rt::InstanceFlag kObject)
@@ -258,12 +266,25 @@ vec3 lighting(vec3 n)
     return light;
 }
 
+// (round O) The lamps' light on a hit facing `n` (unshadowed: a hit traces the sun alone) - what the lamps pass lights
+// per pixel on the surface's own pixels (the store's per-vertex lamps are then none).
+vec3 hit_lamps(vec3 point, vec3 n)
+{
+    vec3 sum = vec3(0.0);
+    for (uint i = 0u; i < min(pass.lamp_count.x, uint(HIT_LAMPS)); ++i) {
+        vec3 from;
+        sum += pass.lamps[i].colour.rgb * lamp_geometry(pass.lamps[i], point, n, from);
+    }
+    return sum * pass.lamp_scale.x;
+}
+
 // (round O - one light for everything, the audit's M8 / D1) The light a reflection ray's hit shows, as the surface's own
 // pixels show it: `texel` its texture's colour x its material's (display-referred), `point` / `n` where and which way
 // it faces, `travelled` the path to it.
 //  - the relit world: the texel decoded (its albedo's texture part) x the light store at the hit - tint x (the sky and
-//    the bounce + the sun's light x N.L x its visibility, traced here) + the lamps the store lights per vertex - the
-//    lighting now, never the bake's (at night a reflection shows the night);
+//    the bounce + the sun's light x N.L x its visibility, traced here) + the lamps the store lights per vertex and
+//    those the lamps pass lights per pixel (hit_lamps) - the lighting now, never the bake's (at night a reflection
+//    shows the night);
 //  - an object lit by the one light (render_pc/pc_lights.h - its record linear): the texel decoded x that light at its
 //    normal, the key's part x the visibility traced here;
 //  - else (a level keeping the original's look, an object lit by the game's lights): the game's colours, decoded.
@@ -274,11 +295,11 @@ vec3 hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, HitVer
     WorldLight w;
     if (!object && hit_world_light(instance, primitive, barycentrics, w)) {
         float seen = w.n_dot_l > 0.0 ? sun_seen(point, n, travelled) : 0.0;
-        return linear_from_display(texel) * world_light_with(w, seen, w.sky);
+        return linear_from_display(texel) * (world_light_with(w, seen, w.sky) + w.tint * hit_lamps(point, n));
     }
     ObjectLight l;
     if (object && hit_object_light(instance, l) && l.linear) {
-        return linear_from_display(texel) * object_light_with(l, n, sun_seen(point, n, travelled));
+        return linear_from_display(texel) * (object_light_with(l, n, sun_seen(point, n, travelled)) + hit_lamps(point, n));
     }
     vec3 colour = texel;
     if (object) {
@@ -631,6 +652,14 @@ struct PackedSurfaceHit {
 constexpr std::size_t kPackedSurfaceHitBytes = 64;
 static_assert(sizeof(PackedSurfaceHit) == kPackedSurfaceHitBytes, "the shader's Hit (scalar layout)");
 
+// (round O) A lamp as rt_lamp_glsl's LightRecord lays it out.
+struct HitLamp {
+    std::array<float, 4> at{};
+    std::array<float, 4> colour{};
+    std::array<float, 4> more{};
+    std::array<float, 4> shape{};
+};
+
 // The trace pass's block (std140), as the shader lays it out.
 struct TraceBlock {
     std::array<float, kMatrixFloats> to_world{}; // column-major (GLSL's mat4)
@@ -649,8 +678,11 @@ struct TraceBlock {
     std::array<float, 4> sky_rect{};
     std::array<float, 4> surface{}; // (added for the surface reflections)
     std::array<float, 4> sun{};     // (round O) toward the sun, w its rays' reach (0: none)
+    std::array<uint32_t, 4> lamp_count{}; // (round O) the hits' lamps (rt_lamp_glsl's records)
+    std::array<float, 4> lamp_scale{};
+    std::array<HitLamp, kHitLamps> lamps{};
 };
-constexpr std::size_t kTraceBlockBytes = 432;
+constexpr std::size_t kTraceBlockBytes = 464 + (64 * kHitLamps);
 static_assert(sizeof(TraceBlock) == kTraceBlockBytes, "the shader's Pass block (std140)");
 
 // The bindings of set 0 (push descriptors): 0 the scene, 1 the depth, 2 the reflection written, 3 the pass's block,
@@ -783,6 +815,8 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
     source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 7\n";
     source += scene_geometry_glsl();
     source += rt::kDisplayTransferGlsl;
+    source += "#define HIT_LAMPS " + std::to_string(kHitLamps) + "\n"; // (round O: the hits' lamps)
+    source += rt_lamp_glsl();
     source += body;
     return source;
 }
@@ -1530,6 +1564,25 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
     const rt::SceneSun sun = rt::scene_sun();
     if (sun.found()) {
         block.sun = {core::at(sun.toward, 0), core::at(sun.toward, 1), core::at(sun.toward, 2), kSunReach};
+    }
+    // (round O) the lamps the lamps pass lit this frame (its order is before this pass's): the hits take their light as
+    // the surfaces' own pixels do - the view's most important first, at most kHitLamps
+    const Backend& state = backend();
+    const RtLitLamps lit = rt_lights_lit_locked(state);
+    if (lit.frame == state.frame && lit.scale > 0.0F) {
+        const std::size_t count = std::min<std::size_t>(lit.lights.size(), kHitLamps);
+        block.lamp_count = {static_cast<uint32_t>(count), 0U, 0U, 0U};
+        block.lamp_scale = {lit.scale, 0.0F, 0.0F, 0.0F};
+        for (std::size_t i = 0; i < count; ++i) {
+            const rt::Emitter& light = core::at(lit.lights, i);
+            HitLamp& record = core::at(block.lamps, i);
+            record.at = {core::at(light.position, 0), core::at(light.position, 1), core::at(light.position, 2), light.size};
+            record.colour = {core::at(light.colour, 0) * light.intensity, core::at(light.colour, 1) * light.intensity,
+                             core::at(light.colour, 2) * light.intensity, light.reach};
+            record.more = {std::bit_cast<float>(static_cast<uint32_t>(light.material)), light.core,
+                           static_cast<float>(light.shape), 0.0F};
+            record.shape = {core::at(light.axis, 0), core::at(light.axis, 1), core::at(light.axis, 2), light.half_length};
+        }
     }
     return block;
 }

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string_view>
 #include <vector>
 #include <volk.h>
 
@@ -54,6 +55,13 @@ struct RtLitLamps {
     uint64_t frame = 0; // (0: never; Backend::frame otherwise)
 };
 [[nodiscard]] RtLitLamps rt_lights_lit_locked(const Backend& state);
+
+// (round O - one light for everything) The lamps' record and the light one sends to a surface, as GLSL: `struct
+// LightRecord { vec4 at; vec4 colour; vec4 more; vec4 shape; }` (at.xyz the position, at.w the size; colour.rgb colour x
+// intensity, colour.w the reach; more.x the material's bits, more.y the core, more.z the shape; shape.xyz the axis or the
+// panel's normal, shape.w a line's half length) and `float lamp_geometry(LightRecord light, vec3 here, vec3 normal, out
+// vec3 from)` (engine/gfx/rt_lights.cpp lamp_geometry's model). The lamps pass and the reflections' hits read it.
+[[nodiscard]] std::string_view rt_lamp_glsl();
 
 // The pass's objects released (the device's shutdown; the caller holds the lock).
 void release_rt_lights(Backend& state);
