@@ -2222,7 +2222,7 @@ goal, so every change produces the physical inputs it reads. Relit data v4:
   direction are told by (the candidates' `sun_needed` below) - it reads the bake's own light without assuming colours.
   The candidates are told apart on a sample of a big level (the meshes in their content hash's order up to
   `kCandidateVertices` 500 000 vertices - a random sample), the pick then traced and fitted over the whole: Proving
-  Ground's whole world spent 15 of its 20 minutes on 32 candidates over 3.5 million vertices and was given up.
+  Ground's whole world (2.5 million vertices) spent most of its 20 minutes on 32 candidates and was given up; it now bakes in 5.4 minutes.
 - **The baked sun picked by the relit fit** (`relit_bake.cpp`): the correlation search's candidates
   (`BakedSun::candidates`: its best, the coarse set's next best `kCandidateApartDegrees` apart, and a low sun's ring) are
   each traced and fitted; the one whose sun improves the fit most (`RelitModel::sun_needed`, the edges' objective without

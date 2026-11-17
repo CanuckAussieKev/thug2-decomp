@@ -616,7 +616,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         // vertices are a random sample of the level, and each candidate's fit over it estimates the fit over the
         // whole. A level that size or smaller is its own sample (as before); a bigger one traces and fits each
         // candidate over the sample alone and the one it picks over the whole level. Before, every candidate was
-        // traced and fitted over every vertex: Proving Ground's whole world (16000 meshes, some 3.5 million vertices,
+        // traced and fitted over every vertex: Proving Ground's whole world (16000 meshes, 2.5 million vertices,
         // 32 candidates) spent 15 of its bake's 20 minutes there and was given up.
         std::size_t sample_count = 0;
         for (std::size_t sampled_vertices = 0;
