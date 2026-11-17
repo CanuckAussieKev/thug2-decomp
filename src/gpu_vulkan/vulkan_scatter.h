@@ -40,9 +40,10 @@
 // leaf, a weed a living one - both passing light through -, paper, a can's bare metal and its painted label, a pebble the
 // gravel's albedo); its colour (a leaf's autumn colours, a weed's green, paper, a can's label) its albedo. Nothing of the
 // frame is read. Leaves and weeds bend in the wind (round W: as the grass's
-// blades - vulkan_grass.h grass_wind_bend - in the one wind x the level's air at them, vulkan_air.h). The level of detail: every item out to
-// kClutterNearShare of the distance, then (near / d)^kClutterKeepPower of them (by rank); each shrinks into the ground
-// from kClutterFadeStart of the distance to all of it.
+// blades - vulkan_grass.h grass_wind_bend - in the one wind x the level's air at them, vulkan_air.h). Distance: the
+// game's own rule for its small objects - drawn within lod_dist2 x [Graphics] lod_distance_scale (render_pc/
+// draw_range.h; an object's default lod_dist2, kClutterLodDistance), every item at its full size, no thinning or
+// shrinking; within that, an item smaller than kClutterLeastPixels on screen is left out (sub-pixel: no pop).
 namespace render::vulkan {
 
 struct Backend;
@@ -50,17 +51,17 @@ struct Backend;
 inline constexpr float kDecalMatchShare = 0.003F;  // the depth under a decal fragment is its own within this share ...
 inline constexpr float kDecalMatchSlack = 1.0F;    // ... + this (world units: a wall standing in a decal takes at most
                                                    // its foot's width of this, along the view, of it)
-inline constexpr float kClutterDistance = 1600.0F; // world units (about 40 m): no item beyond
-inline constexpr float kClutterNearShare = 0.25F;
-inline constexpr float kClutterKeepPower = 1.5F;
-inline constexpr float kClutterFadeStart = 0.7F;
-inline constexpr uint32_t kClutterMostDrawn = 400000;
+// The game's lod_dist2 for an object that names none (engine/objects/suspend_component.cpp: lod_dist1's 50 feet + 75
+// feet, in inches - world units): the distance its small level objects are drawn to.
+inline constexpr float kClutterLodDistance = (50.0F + 75.0F) * 12.0F;
+inline constexpr float kClutterLeastPixels = 0.5F; // an item's height on screen (pixels) below which it is left out
 
 // What a view's decals and items are drawn with.
 struct ScatterView {
     std::array<std::array<float, 4>, 4> view_projection{}; // D3D's row vectors: clip = (x, y, z, 1) x this
     std::array<float, 3> camera{};
-    float keep_scale = 1.0F; // (lowered when a view has more than kClutterMostDrawn items)
+    float range = kClutterLodDistance; // the clutter's: kClutterLodDistance x [Graphics] lod_distance_scale
+    float focal_pixels = 0.0F;         // the projection's y scale x half the view's height (0: no size test)
     float seconds = 0.0F;    // the wind's clock
     float wind = 0.0F;       // (round W) the wind near the ground in the open now (m/s, wind.h kNearGround)
 };
@@ -74,12 +75,15 @@ struct ScatterDraw {
 // The view's decal draws (the tiles in view - the view's frustum, nothing else) and their vertex count.
 [[nodiscard]] std::vector<ScatterDraw> plan_decal_draws(const scatter::Scatter& made, const ScatterView& view,
                                                         uint32_t* vertices);
-// The view's clutter draws (`view.keep_scale` lowered when too many) and their item count.
-[[nodiscard]] std::vector<ScatterDraw> plan_clutter_draws(const scatter::Scatter& made, ScatterView* view,
+// The view's clutter draws (the tiles in view, within `view.range`, and whose tallest item - the tile box's height, a
+// bound - is at least kClutterLeastPixels tall at the box's nearest point) and their item count.
+[[nodiscard]] std::vector<ScatterDraw> plan_clutter_draws(const scatter::Scatter& made, const ScatterView& view,
                                                           uint32_t* items);
-// The share of the items kept at a distance, and the size left there.
-[[nodiscard]] float clutter_keep(const ScatterView& view, float distance);
-[[nodiscard]] float clutter_fade(float distance);
+// The clutter's range for a [Graphics] lod_distance_scale.
+[[nodiscard]] float clutter_range(float lod_distance_scale);
+// Whether an item of `height` (world units) at `distance` is drawn (the vertex shader's twin): within `range` and at
+// least kClutterLeastPixels tall with `focal_pixels` (the projection's y scale x half the viewport's height).
+[[nodiscard]] bool clutter_drawn(float height, float distance, float range, float focal_pixels);
 // A decal vertex's weight (the vertex shader's twin, without the snow and the rain's reach): its opacity - the same at
 // every distance.
 [[nodiscard]] float decal_weight(const scatter::DecalVertex& vertex);
