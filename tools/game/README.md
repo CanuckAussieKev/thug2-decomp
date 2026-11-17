@@ -399,6 +399,18 @@ keeps the original game's lighting (relit, the time of day and the ray-traced li
 with other geometry settings (building relief, smoothed curves, `rt_water_geometry`) is out of date: build it again. Needs the Vulkan
 renderer's build with ray tracing (a ray tracing GPU, the 64-bit game). Nothing here goes online.
 
+**The archive** (relit_archive.ts): the bake is deterministic, so each finished bake is also kept in
+`thug2-decomp-relit\archive\v<data version>\<level>-<inputs>.relit` (+ `.json` with the scene, report line and state row,
++ `.log`). The version is `kRelitDataVersion` read from src/engine/gfx/relit_data.h of the checkout (`--data-version N`
+when the exe was built elsewhere); the inputs are a hash of every file under `levels\<level>\` in `Data` and in
+`thug2-decomp-data` (names, sizes, contents - not dates). A level whose version and inputs match an archived bake is
+**restored** (its data, log, report line) instead of launching the game - the output says `restored from the archive` or
+`baked` per level and ends with the counts; `--rebake` bakes regardless (shared textures / graphics settings aren't in
+the hash). `node tools/game/relit_bake.ts restore --version N [--levels ...]` puts a version's newest set back as the
+live data and remakes bake-report.txt / state-table.txt; refused when N isn't the game's own data version (the game would
+report those files out of date). `--prune-keep 3` (with a bake or restore, or alone as `prune --prune-keep 3`) deletes
+all but the newest 3 versions (the game's own stays). Tests: relit_archive.test.ts (fake files, no game).
+
 ## Crashes
 - **The game never shows a dialog** (src/platform/crash.h): every fault - an exception, a Debug run-time check or CRT
   error, an invalid CRT parameter, a pure virtual call, abort() - is logged with the call stack / return addresses and ends

@@ -9,6 +9,13 @@
 //
 //   node tools/game/relit_bake.ts --game <folder> [--levels all | a,b,...] [--skip-built] [--minutes 20]
 //   node tools/game/relit_bake.ts --game <folder> --list
+//   node tools/game/relit_bake.ts restore --version N [--game <folder>] [--levels ...]
+//   node tools/game/relit_bake.ts prune --prune-keep 3 [--game <folder>]
+//
+// The archive (relit_archive.ts): each finished bake is kept under thug2-decomp-relit\archive\v<data version>\ keyed by
+// the level and a hash of its files; a level whose version and files match an archived bake is restored, not baked
+// (--rebake forces a bake); `restore` puts a version's set back as the live data (only the game's own data version);
+// --prune-keep N drops all but the newest N versions (also after a bake or a restore).
 //
 // --game: the game folder (the install root or its Game folder; default C:\Games\THUG2) - thug2-decomp.exe and its DLLs
 // in it, built with the Vulkan renderer (ray tracing: a ray tracing GPU and the 64-bit game). --levels: the levels' load
@@ -36,8 +43,18 @@ import {
     resolveGameFolder,
     runningGames,
 } from "./edit_level.ts";
+import {
+    archiveBake,
+    currentDataVersion,
+    findArchived,
+    inputsHash,
+    pruneVersions,
+    restoreEntry,
+    restoreVersion,
+} from "./relit_archive.ts";
 
-const USAGE = `usage: relit_bake.ts [-h] [--game GAME] [--levels LEVELS] [--skip-built] [--minutes N] [--list]
+const USAGE = `usage: relit_bake.ts [bake | restore | prune] [-h] [--game GAME] [--levels LEVELS] [--skip-built] [--rebake]
+                    [--minutes N] [--list] [--version N] [--prune-keep N] [--data-version N]
 
 Make every level's relit data (thug2-decomp.exe -relit-bake <level>, one level at a time).
 
@@ -47,8 +64,14 @@ options:
   --levels LEVELS  all (default), or load scripts without Load_, comma-separated (BO,TR,foun)
   --skip-built     leave a level whose data file is there already
   --minutes N      give a level's bake up after N minutes (default 20)
-  --list           only list the levels it would bake`;
+  --list           only list the levels it would bake
+  --rebake         bake every level even when the archive holds its data for this version and these files
+  --version N      restore: the archived data version to put back as the live set (must be the game's own)
+  --prune-keep N   keep only the newest N archived versions (the game's own always stays)
+  --data-version N the game's relit data version when this checkout isn't what the exe was built from`;
 
+const STATE_HEADER =
+    "level\ttod at load\tthe relit fit's sun (share)\tthe bake's sky\tlamps\tindoors / outdoors (floors' sky)\tlamps on at its own time\tbrightest\tevidence";
 export const DATA_FOLDER = "thug2-decomp-relit";
 
 // What a bake's log says (src/render_pc/relit_bake.cpp's "relit bake:" lines).
@@ -316,18 +339,53 @@ async function bakeOne(
 }
 
 async function main(): Promise<number> {
-    const { values } = parseCli(USAGE, {
+    const { values, positionals } = parseCli(USAGE, {
         options: {
             game: { type: "string", default: "C:\\Games\\THUG2" },
             levels: { type: "string", default: "all" },
             "skip-built": { type: "boolean", default: false },
             minutes: { type: "string", default: "20" },
             list: { type: "boolean", default: false },
+            rebake: { type: "boolean", default: false },
+            version: { type: "string" },
+            "prune-keep": { type: "string" },
+            "data-version": { type: "string" },
         },
+        allowPositionals: true,
     });
+    const command = positionals[0] ?? "bake";
+    if (!["bake", "restore", "prune"].includes(command)) exitWith(`unknown command ${command} (bake, restore, prune)`);
     const game = resolveGameFolder(values.game);
     const found = launchExeOrError(values.game, game);
     if ("error" in found) exitWith(found.error);
+    const dataVersion = values["data-version"] ? Number(values["data-version"]) : currentDataVersion();
+    const folder = path.join(game, DATA_FOLDER);
+    const keep = values["prune-keep"] !== undefined ? Number(values["prune-keep"]) : null;
+    const prune = (): void => {
+        if (keep === null) return;
+        const removed = pruneVersions(folder, Math.max(1, keep), dataVersion);
+        print(
+            removed.length ? `pruned archived versions ${removed.map((v) => `v${v}`).join(", ")}` : "nothing to prune",
+        );
+    };
+    if (command === "prune") {
+        if (keep === null) exitWith("prune needs --prune-keep N");
+        prune();
+        return 0;
+    }
+    if (command === "restore") {
+        const version = Number(values.version);
+        if (!values.version || !Number.isInteger(version)) exitWith("restore needs --version N");
+        const wanted =
+            values.levels === "all" ? undefined : values.levels.split(",").map((n) => n.trim().replace(/^load_/i, ""));
+        const out = restoreVersion(folder, version, dataVersion, STATE_HEADER, wanted);
+        if (out.refused) exitWith(`restore refused: ${out.refused}`);
+        for (const entry of out.restored)
+            print(`${entry.level}: restored (${entry.scene}.relit, baked ${entry.bakedAt})`);
+        print(`${out.restored.length} levels' relit data of version ${version} restored in ${folder}`);
+        prune();
+        return 0;
+    }
     const { levels } = readLevels(game);
     const { chosen, unknown } = chooseLevels(levels, values.levels);
     if (unknown.length)
@@ -338,12 +396,13 @@ async function main(): Promise<number> {
     }
     const minutes = Math.max(1, Number(values.minutes) || 20);
     const here = path.resolve(game).toLowerCase();
-    const folder = path.join(game, DATA_FOLDER);
     const logs = path.join(folder, "logs");
     fs.mkdirSync(logs, { recursive: true });
     const lines: string[] = [];
     const states: string[] = [];
+    const roots = [path.join(game, "Data"), path.join(game, "thug2-decomp-data")];
     let failed = 0;
+    let restored = 0;
     for (const level of chosen) {
         const running = runningGames().filter(
             (p) => p === null || path.dirname(path.resolve(p)).toLowerCase() === here,
@@ -368,6 +427,21 @@ async function main(): Promise<number> {
                 continue;
             }
         }
+        const inputs = dataVersion === null ? null : inputsHash(roots, level.load);
+        const archived =
+            dataVersion !== null && inputs !== null && !values.rebake
+                ? findArchived(folder, dataVersion, level.load, inputs)
+                : null;
+        if (archived) {
+            restoreEntry(folder, archived);
+            print(
+                `${level.load}: restored from the archive (v${archived.version}, ${archived.scene}.relit, baked ${archived.bakedAt})`,
+            );
+            lines.push(archived.line);
+            if (archived.state) states.push(archived.state);
+            restored++;
+            continue;
+        }
         const started = Date.now();
         print(`${level.load} (${level.name}, ${level.game}) ...`);
         const { code, log } = await bakeOne(found.exe, game, level.load, minutes);
@@ -375,17 +449,29 @@ async function main(): Promise<number> {
         const result = parseBakeLog(log);
         const line = reportLine(level.load, code, result);
         lines.push(line);
-        if (bakeMade(code, result)) states.push(stateRow(level.load, result));
+        if (bakeMade(code, result)) {
+            states.push(stateRow(level.load, result));
+            if (dataVersion !== null && inputs !== null && result.file)
+                archiveBake(
+                    folder,
+                    dataVersion,
+                    { level: level.load, inputs, scene: result.scene ?? "", line, state: stateRow(level.load, result) },
+                    path.join(folder, path.basename(result.file)),
+                    log,
+                );
+        }
         failed += bakeMade(code, result) ? 0 : 1;
-        print(`  ${line.replaceAll("\t", "  ")}  (${((Date.now() - started) / 1000).toFixed(0)} s)`);
+        print(`  baked: ${line.replaceAll("\t", "  ")}  (${((Date.now() - started) / 1000).toFixed(0)} s)`);
     }
     fs.writeFileSync(path.join(folder, "bake-report.txt"), `${lines.join("\n")}\n`);
-    const header =
-        "level\ttod at load\tthe relit fit's sun (share)\tthe bake's sky\tlamps\tindoors / outdoors (floors' sky)\tlamps on at its own time\tbrightest\tevidence";
-    fs.writeFileSync(path.join(folder, "state-table.txt"), `${[header, ...states].join("\n")}\n`);
+    fs.writeFileSync(path.join(folder, "state-table.txt"), `${[STATE_HEADER, ...states].join("\n")}\n`);
     const flagged = states.filter((row) => row.includes("DISAGREES")).length;
     print(`the levels' lighting states: state-table.txt (${flagged} whose evidence disagrees)`);
-    print(`${chosen.length - failed} of ${chosen.length} levels' relit data made in ${folder} (bake-report.txt)`);
+    print(
+        `${chosen.length - failed} of ${chosen.length} levels' relit data made in ${folder} (bake-report.txt): ` +
+            `${restored} restored, ${chosen.length - failed - restored} baked${dataVersion === null ? " (no data version: archive off)" : ""}`,
+    );
+    prune();
     return failed === 0 ? 0 : 1;
 }
 
