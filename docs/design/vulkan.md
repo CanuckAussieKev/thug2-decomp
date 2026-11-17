@@ -2249,10 +2249,14 @@ Relit data v6.
     Not told - off in the bake, swamped by daylight, no edges - a glow or point light (the artists' mark of a lamp)
     shines by its own surface; a *candidate* (a self-lit or textured surface: brightness alone) gives no light.
   - *when a lamp is on* (was: the clock's lamps, else a dark level's): each lamp has a **switch** (`RelitLamp::switch_sky`,
-    `relit_lamp_switches`): the open sky's light at which the sky's light on the surfaces it lights (x their traced sky
-    share K) equals its own light there - a photocell's rule. `rt_lights.h lamp_on` compares it with the open sky now
+    `relit_lamp_switches`) by the geometry round it. Its surfaces roofed (their sky share K under `kRelitIndoorSky`, the
+    rule that tells a roofed level's floors): an interior light, on whenever. Otherwise a street light's photocell: on
+    when the daylight round it (the open sky's light x K) falls under `kPhotocellLux` (16 lux, ANSI C136.10's turn-on) -
+    the switch is the open sky's light at which that happens. `rt_lights.h lamp_on` compares it with the open sky now
     (the clock's `sky_light`, or the level's own time's - `LevelEmitters::own_sky`), smooth over a factor of 2 either
-    side. Surfaces that see no sky (indoors): always on. The lamps pass multiplies each emitter by it; relit makes each
+    side, and never under the open sky's own photocell (`DayLight::lamps`, by the sun's elevation: the night sky is an
+    art value ~10^3 x a real night's and can't hold a lamp off). Not by the lamp's own light: tried first - a lamp solved
+    from a night bake carries that bake's art exposure, and New York lit 108 of its lamps at noon by their own light. The lamps pass multiplies each emitter by it; relit makes each
     vertex's L again from its stored lamp links with each lamp's amount (`relit_mesh_lamp_light`). A lamp whose switch
     isn't known (no data; the game's own point lights) follows the open sky's rule (`DayLight::lamps`, or the level's own
     time's).
