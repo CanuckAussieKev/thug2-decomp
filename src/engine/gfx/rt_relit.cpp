@@ -2670,9 +2670,10 @@ LevelSolve solve_lamps_by_level(std::span<const RelitMesh> meshes, std::span<con
                 row.first = static_cast<uint32_t>(terms.size());
                 for (const RelitLampLink& link : here) {
                     const RelitLamp& lamp = core::at(lamps, link.lamp);
-                    if (lamp.solved) {
+                    const bool unknown = link.lamp < wanted.size() && core::at(wanted, link.lamp) != 0;
+                    if (lamp.solved && !unknown) {
                         target -= static_cast<double>(core::at(lamp.light, ch)) * link.weight;
-                    } else if (link.lamp < wanted.size() && core::at(wanted, link.lamp) != 0) {
+                    } else if (unknown) {
                         terms.push_back({.lamp = link.lamp,
                                          .value = static_cast<double>(link.weight),
                                          .instrument = static_cast<double>(link.weight)});
@@ -2694,6 +2695,9 @@ LevelSolve solve_lamps_by_level(std::span<const RelitMesh> meshes, std::span<con
         std::vector<uint8_t> excluded(lamps.size(), 0);
         for (std::size_t li = 0; li < lamps.size(); ++li) {
             core::at(excluded, li) = li < wanted.size() && core::at(wanted, li) != 0 ? 0 : 1;
+        }
+        if (rows.size() < kRelitLampEdges) {
+            continue; // (too few vertices to tell anything by)
         }
         std::vector<uint8_t> channel_told;
         const std::vector<double> intensity = solve_lamp_columns(rows, terms, lamps.size(), &channel_told, excluded);
@@ -2953,7 +2957,10 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
             noise = *middle;
         }
     }
-    noise = std::max(noise, kSingular);
+    // (round indoor lamps: never under one step of the bake's colour bytes - a share below the data's own precision is
+    // no light it shows; a noiseless bake's edges agree to 0 and any numerical crumb was told)
+    constexpr double kBakeQuantum = 1.0 / 255.0;
+    noise = std::max(noise, kBakeQuantum);
     model->lamp_noise = static_cast<float>(noise);
     Rgbf darkest{}; // (the unlit surfaces' 1st percentile, per channel)
     for (std::size_t ch = 0; ch < 3; ++ch) {
@@ -3045,20 +3052,76 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
         model->level_tint = luma(level.tint);
         model->level_spread = level.spread;
         model->lamps_by_level = 0;
+        // (the level's measure takes the surfaces' paint to be the level's own tint: a lighter-painted floor would read
+        // as light. The edges can't size a flat pool but they do see a wrong shape: a lamp told by the level must not
+        // make the edges worse - the Cauchy-weighted edge residuals over its edges, with it at its level value against
+        // without it, every channel; an even room's lamp changes them little, a light given to paint adds a slope the
+        // bake hasn't got)
+        std::vector<double> without_loss(lamps.size(), 0.0);
+        std::vector<double> with_loss(lamps.size(), 0.0);
+        if (level.measured) {
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                std::vector<LampEdge> edges;
+                std::vector<LampTerm> terms;
+                lamp_edges(meshes, light, links, without, ch, &edges, &terms);
+                std::vector<double> residual(edges.size(), 0.0);
+                for (std::size_t ei = 0; ei < edges.size(); ++ei) {
+                    const LampEdge& edge = core::at(edges, ei);
+                    double r = edge.target;
+                    for (uint32_t k = 0; k < edge.count; ++k) {
+                        const LampTerm& term = core::at(terms, edge.first + k);
+                        if (core::at(lamps, term.lamp).solved) {
+                            r -= static_cast<double>(core::at(core::at(lamps, term.lamp).light, ch)) * term.value;
+                        }
+                    }
+                    core::at(residual, ei) = r * std::sqrt(edge.weight);
+                }
+                if (residual.empty()) {
+                    continue;
+                }
+                std::vector<double> sorted;
+                sorted.reserve(residual.size());
+                for (const double r : residual) {
+                    sorted.push_back(std::abs(r));
+                }
+                const auto middle = sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2);
+                std::ranges::nth_element(sorted, middle);
+                const double scale = std::max(*middle, kSingular) * 2.0;
+                const auto loss = [scale](double r) { return std::log1p((r / scale) * (r / scale)); };
+                for (std::size_t ei = 0; ei < edges.size(); ++ei) {
+                    const LampEdge& edge = core::at(edges, ei);
+                    for (uint32_t k = 0; k < edge.count; ++k) {
+                        const LampTerm& term = core::at(terms, edge.first + k);
+                        if (core::at(wanted, term.lamp) == 0) {
+                            continue;
+                        }
+                        // (its own edge-told light, if any, taken out: the lamp at its level value against none)
+                        const RelitLamp& tested = core::at(lamps, term.lamp);
+                        const double own = tested.solved ? static_cast<double>(core::at(tested.light, ch)) : 0.0;
+                        const double r0 = core::at(residual, ei) + (own * term.value * std::sqrt(edge.weight));
+                        const double r1 = r0 - (static_cast<double>(core::at(core::at(level.light, term.lamp), ch)) *
+                                                term.value * std::sqrt(edge.weight));
+                        core::at(without_loss, term.lamp) += loss(r0);
+                        core::at(with_loss, term.lamp) += loss(r1);
+                    }
+                }
+            }
+        }
         for (std::size_t li = 0; li < lamps.size() && level.measured; ++li) {
             RelitLamp& lamp = core::at(lamps, li);
             const Rgbf& colour = core::at(level.light, li);
             const float most = std::max({std::get<0>(colour), std::get<1>(colour), std::get<2>(colour)});
             const float least = std::min({std::get<0>(colour), std::get<1>(colour), std::get<2>(colour)});
             if (core::at(wanted, li) == 0 || core::at(level.told, li) == 0 || !(most > 0.0F) ||
-                least < kTexelLeastShare * most || core::at(level.share, li) < static_cast<double>(model->lamp_noise)) {
+                least < kTexelLeastShare * most || core::at(level.share, li) < static_cast<double>(model->lamp_noise) ||
+                core::at(with_loss, li) > core::at(without_loss, li)) {
                 continue;
             }
+            model->lamps_solved += 1;
             lamp.solved = true;
             lamp.light = colour;
             model->lamps_dark -= core::at(verdicts, li) == RelitLampTold::kDark && model->lamps_dark > 0 ? 1 : 0;
             core::at(verdicts, li) = RelitLampTold::kSolved;
-            model->lamps_solved += 1;
             model->lamps_by_level += 1;
         }
     }
@@ -3202,8 +3265,8 @@ std::vector<RelitLamp> find_pool_lamps(std::span<const RelitMesh> meshes, std::s
                        kSquareUnitsPerSquareMetre;
     for (std::size_t k = 0; k < rays.size(); ++k) {
         const ProbeResult& answer = core::at(answers, k);
-        if (!answer.hit || answer.distance < 2.0F * kPoolMount) {
-            continue; // (no mount, or no room for a fitting before it)
+        if (!answer.hit || answer.distance < kPoolLeastMount) {
+            continue; // (no mount, or one under a fitting's least height - a rail, a ledge, a ramp's lip)
         }
         const ProbeRequest& ray = core::at(rays, k);
         const Vec3 mount = plus(ray.origin, scaled(core::at(toward, k), answer.distance));

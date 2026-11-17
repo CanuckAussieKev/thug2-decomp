@@ -732,8 +732,9 @@ uint64_t switch_lamps(const rt::DayLight& day)
     float brightest = 0.0F;
     for (std::size_t li = 0; li < lamps.size(); ++li) {
         const rt::Rgbf& light = core::at(shown, li);
-        // (only a candidate's surface is drawn emitting - a light card is hidden)
-        const float drawn = rt::candidate_kind(core::at(lamps, li).kind) ? 1.0F : 0.0F;
+        // (round indoor lamps: every lamp's head may be drawn - a candidate's own surface, or the fixture geometry a
+        // light card's, a point light's or a pool's lamp took - relit_bake.cpp emitting_vertices)
+        const float drawn = 1.0F;
         brightest = std::max(brightest, std::max({std::get<0>(light), std::get<1>(light), std::get<2>(light)}) * drawn *
                                             core::at(st.lamps_on, li));
     }

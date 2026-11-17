@@ -564,6 +564,9 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
 // level_tint from the first solve), `lamps` as the first solve left them.
 inline constexpr float kPoolCell = 256.0F;
 inline constexpr float kPoolMount = 12.0F;
+// (a mount at least a door's height, 2.1 m, over its pool - the least clear height under a fitting: a mount lower than
+// that is a rail, a ledge or a ramp's lip over the pool, no fitting's)
+inline constexpr float kPoolLeastMount = 2.1F * 39.37F;
 inline constexpr float kPoolReachPerDistance = 4.0F; // (its reach: its pool's distance x this - the light there 1/16)
 inline constexpr std::size_t kPoolLeastSeeds = 8;
 inline constexpr std::size_t kMostPoolLamps = 256;

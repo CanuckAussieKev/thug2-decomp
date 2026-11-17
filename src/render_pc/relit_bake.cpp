@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -235,6 +236,128 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
                 core::at(marked, owner->second).emplace(vertex, lamp);
             }
         }
+    }
+    // (round indoor lamps) a lamp whose own surface isn't drawn - a light card's (hidden in the relit level), the level's
+    // point light, a lamp found from its pool - takes its head on the fixture geometry at it: the world's triangles
+    // (not a light card's) wholly within its luminous radius of it - the disc of its luminous area A = flux / (pi L) at
+    // its luminance -, past its size (a fitting's depth under its mount, a card's own extent), each no larger than one
+    // fixture's luminous area (a lantern's, a fitting's faces - not the wall or ceiling it hangs on). None there: no head
+    // (a glowing card is never one).
+    std::vector<uint8_t> has_head(lamps.size(), 0);
+    for (const auto& mesh_marks : marked) {
+        for (const auto& [vertex, lamp] : mesh_marks) {
+            core::at(has_head, lamp) = 1;
+        }
+    }
+    std::unordered_set<rt::MeshId> cards;
+    for (const rt::EmitterTriangle& triangle : found->triangles) {
+        if (triangle.kind == rt::EmitterKind::kGlow) {
+            cards.insert(triangle.mesh);
+        }
+    }
+    constexpr double kUnitsPerMetre = 39.37;
+    constexpr double kPiD = 3.14159265358979323846;
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        const rt::RelitLamp& lamp = core::at(lamps, li);
+        // (a glow's card is drawn round its fixture, a pool's lamp hangs from its mount: the geometry at them is theirs;
+        // a level's point light is placed by the artists in the air, no fixture's)
+        if (core::at(has_head, li) != 0 || (lamp.kind != rt::EmitterKind::kGlow && lamp.kind != rt::EmitterKind::kPool) ||
+            !(luma(lamp.light) > 0.0F) || !(lamp.lumens > 0.0F) || !(lamp.luminance > 0.0F)) {
+            continue;
+        }
+        const rt::FixtureValues& values = rt::fixture_values(static_cast<rt::LampFixture>(lamp.fixture));
+        const double area = static_cast<double>(lamp.lumens) / (kPiD * static_cast<double>(lamp.luminance)); // (m^2)
+        const float radius = static_cast<float>(std::sqrt(area / kPiD) * kUnitsPerMetre) + lamp.size;
+        const double most_area = static_cast<double>(std::max(values.most_area, static_cast<float>(area))) *
+                                 kUnitsPerMetre * kUnitsPerMetre;
+        for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+            const rt::RelitMesh& mesh = core::at(meshes, mi);
+            if (cards.contains(mesh.id)) {
+                continue;
+            }
+            // (an emitting vertex shows its lamp on every triangle it is a corner of: only vertices whose every triangle
+            // is one of the head's - its light never spreads onto the floor or wall a small face touches)
+            std::vector<std::array<uint32_t, 3>> head;
+            for (const auto& [one, two, three] : mesh.triangles) {
+                if (one >= mesh.positions.size() || two >= mesh.positions.size() || three >= mesh.positions.size()) {
+                    continue;
+                }
+                const rt::Vec3& a = core::at(mesh.positions, one);
+                const rt::Vec3& b = core::at(mesh.positions, two);
+                const rt::Vec3& c = core::at(mesh.positions, three);
+                const auto within = [&](const rt::Vec3& at) {
+                    const rt::Vec3 apart = rt::minus(at, lamp.position);
+                    return rt::dot(apart, apart) <= radius * radius;
+                };
+                if (!within(a) || !within(b) || !within(c)) {
+                    continue;
+                }
+                const rt::Vec3 n = rt::cross(rt::minus(b, a), rt::minus(c, a));
+                const float twice = std::sqrt(rt::dot(n, n));
+                if (0.5 * static_cast<double>(twice) > most_area || !(twice > 0.0F)) {
+                    continue;
+                }
+                // (a panel's luminous face lies in its plane - a fitting's diffuser, not its housing's sides)
+                if (lamp.shape == rt::EmitterShape::kPanel && std::abs(rt::dot(n, lamp.axis)) < rt::kPanelFacing * twice) {
+                    continue;
+                }
+                head.push_back({one, two, three});
+            }
+            if (head.empty()) {
+                continue;
+            }
+            std::unordered_set<uint32_t> in_head;
+            for (const auto& corner : head) {
+                in_head.insert(corner.begin(), corner.end());
+            }
+            std::unordered_set<uint32_t> spreads; // (a head vertex that is a corner of a triangle outside the head)
+            std::unordered_set<uint64_t> head_keys;
+            const auto key_of = [](uint32_t x, uint32_t y, uint32_t z) {
+                std::array<uint32_t, 3> sorted{x, y, z};
+                std::ranges::sort(sorted);
+                return (static_cast<uint64_t>(sorted[0]) * 0x9E3779B97F4A7C15ULL) ^
+                       (static_cast<uint64_t>(sorted[1]) << 21U) ^ static_cast<uint64_t>(sorted[2]);
+            };
+            for (const auto& [x, y, z] : head) {
+                head_keys.insert(key_of(x, y, z));
+            }
+            for (const auto& [x, y, z] : mesh.triangles) {
+                if ((in_head.contains(x) || in_head.contains(y) || in_head.contains(z)) &&
+                    !head_keys.contains(key_of(x, y, z))) {
+                    spreads.insert(x);
+                    spreads.insert(y);
+                    spreads.insert(z);
+                }
+            }
+            for (const uint32_t vertex : in_head) {
+                if (!spreads.contains(vertex)) {
+                    core::at(marked, mi).emplace(vertex, static_cast<uint32_t>(li));
+                }
+            }
+        }
+    }
+    {
+        // (reported) the lamps whose head is drawn, by where it is: their own surface, or fixture geometry at them
+        std::vector<uint8_t> drawn(lamps.size(), 0);
+        for (const auto& mesh_marks : marked) {
+            for (const auto& [vertex, lamp] : mesh_marks) {
+                core::at(drawn, lamp) = 1;
+            }
+        }
+        std::size_t own = 0;
+        std::size_t attached = 0;
+        std::size_t none = 0;
+        for (std::size_t li = 0; li < lamps.size(); ++li) {
+            if (!(luma(core::at(lamps, li).light) > 0.0F)) {
+                continue;
+            }
+            own += core::at(has_head, li);
+            attached += core::at(drawn, li) != 0 && core::at(has_head, li) == 0 ? 1 : 0;
+            none += core::at(drawn, li) == 0 ? 1 : 0;
+        }
+        get_log("relit bake: lamp heads - %zu on their own surface, %zu on the fixture geometry at them, %zu shining lamps "
+                "with no surface to show (no fixture geometry within their luminous radius)",
+                own, attached, none);
     }
     for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
         std::vector<rt::RelitEmitting>& emitting = core::at(out, mi);
