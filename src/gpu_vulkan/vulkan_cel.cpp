@@ -661,6 +661,16 @@ void set_cel_source_locked(Backend& state, const Gpu::CelSource& source)
     cel().source = known ? SourceState{.vertices = vertices, .offset = source.offset, .stream = stream} : SourceState{};
 }
 
+void cel_forget_buffer_locked(const Buffer* buffer)
+{
+    SourceState& source = cel().source;
+    if (buffer == nullptr || source.vertices == buffer || source.stream == buffer) {
+        source = {};
+    }
+}
+
+bool cel_source_named() { return cel().source.vertices != nullptr || cel().source.stream != nullptr; }
+
 Buffer* relit_stream_of(Backend& state, const DrawCall& call)
 {
     const SourceState& source = cel().source;

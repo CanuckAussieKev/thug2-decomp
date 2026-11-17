@@ -97,6 +97,12 @@ void destroy_buffer(Backend& state, Buffer* buffer)
     for (BufferVersion& version : buffer->versions) {
         retire_buffer(state, &version.memory);
     }
+    // (NOT ORIGINAL - the per-draw sources named by pointer without a reference forget it: cel shading's / the relit
+    // light store's stream - vulkan_cel_draw.h - and the motion vectors' previous vertices - vulkan_motion.h)
+    cel_forget_buffer_locked(buffer);
+    if (state.motion.source.previous == buffer) {
+        state.motion.source.previous = nullptr;
+    }
     state.buffers.erase(buffer);
 }
 
@@ -1710,6 +1716,8 @@ void release_device_objects(Backend& state)
             state.memory.destroy_buffer(&version.memory);
         }
     });
+    cel_forget_buffer_locked(nullptr); // (NOT ORIGINAL - as destroy_buffer: no source names a buffer past here)
+    state.motion.source = {};
     state.textures.clear();
     state.surfaces.clear();
     state.buffers.clear();
