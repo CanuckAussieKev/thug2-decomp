@@ -361,9 +361,9 @@ void check_ini()
     expect(old.value("rt_style") == "toon" && old.value("tod_cycle") == "on" && old.at("upscale_quality").asked == "dlaa" &&
                old.on("rt_bloom"),
            "older spellings read as their choices");
-    const config::Resolution bad = resolve(rtx50(), {{"rt_grade", "sepia"}, {"rt_ao_strength", "dark"}});
+    const config::Resolution bad = resolve(rtx50(), {{"rt_grade", "sepia"}, {"rt_gi_distance", "far"}});
     expect(bad.value("rt_grade") == "off" && bad.at("rt_grade").reason == t::kNotAChoice, "a value that is no choice: the default, said so");
-    expect(same_value(bad.at("rt_ao_strength").asked, "0.6"), "a number that isn't one: the default");
+    expect(same_value(bad.at("rt_gi_distance").asked, "600"), "a number that isn't one: the default");
 }
 
 void check_presets()
@@ -377,7 +377,7 @@ void check_presets()
     expect(options::preset_values(0).empty(), "Custom sets nothing");
     expect(options::preset_of("") == 1, "an empty ini is Original");
     for (int choice = 1; std::cmp_less(choice, spec.choices.size()); ++choice) {
-        std::string text = "[Graphics]\r\nrt_ao_strength=0.8\r\n";
+        std::string text = "[Graphics]\r\nrt_gi_distance=700\r\n";
         for (const options::PresetValue& set : options::preset_values(choice)) {
             text = options::ini_set(text, {.section = "Graphics", .key = set.key}, set.value);
         }

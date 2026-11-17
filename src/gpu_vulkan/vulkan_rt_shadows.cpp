@@ -200,9 +200,11 @@ bool world_light_here(vec3 to_camera, float distance, out WorldLight w)
 // (vulkan_rt_scene.h hit_object_light: the game's lights it was drawn with) `lit` is true, `all` the light it takes
 // here and `key` the key light's part of it - the direct light, the one the sun's shadow takes away; `normal` the
 // depth's, for a mesh without normals of its own.
-bool on_object(vec3 here, vec3 to_camera, float distance, vec3 normal, out bool lit, out vec3 all, out vec3 key)
+bool on_object(vec3 here, vec3 to_camera, float distance, vec3 normal, out bool lit, out vec3 all, out vec3 key,
+               out bool linear)
 {
     lit = false;
+    linear = false;
     all = vec3(0.0);
     key = vec3(0.0);
     rayQueryEXT query;
@@ -222,6 +224,7 @@ bool on_object(vec3 here, vec3 to_camera, float distance, vec3 normal, out bool 
             normal = normalize(mat3(rayQueryGetIntersectionObjectToWorldEXT(query, true)) * own);
         }
         lit = true;
+        linear = light.linear;
         all = object_light_with(light, normal, 1.0);
         key = all - object_light_with(light, normal, 0.0);
     }
@@ -257,7 +260,8 @@ void main()
     bool object_lit;
     vec3 object_all;
     vec3 object_key;
-    bool object_pixel = on_object(here, to_camera, distance, normal, object_lit, object_all, object_key);
+    bool object_linear;
+    bool object_pixel = on_object(here, to_camera, distance, normal, object_lit, object_all, object_key, object_linear);
     if (object_pixel) {
         objects_mask = 0u;
     }
@@ -318,10 +322,13 @@ void main()
         // level's lamps stay (the device's lighting held to 1, as Direct3D's is). Before, the whole pixel was
         // multiplied, so a skater in a building's or a cloud's shadow went black. (Lighting round A: the sun's whole
         // visibility - no strength.)
-        vec3 before = min(object_all, vec3(1.0));
-        vec3 after = min(max(object_all - object_key * (1.0 - visible), vec3(0.0)), vec3(1.0));
+        // (round O: an object lit by the one light - linear light, nothing held to 1 - the ratio is the linear factor
+        // itself)
+        vec3 most = object_linear ? vec3(65504.0) : vec3(1.0);
+        vec3 before = min(object_all, most);
+        vec3 after = min(max(object_all - object_key * (1.0 - visible), vec3(0.0)), most);
         vec3 factor = mix(vec3(1.0), after / max(before, vec3(1e-4)), greaterThan(before, vec3(1e-4)));
-        o_factor = vec4(linear_from_display(clamp(factor, 0.0, 2.0)), 1.0); // (round F: as above)
+        o_factor = vec4(object_linear ? factor : linear_from_display(clamp(factor, 0.0, 2.0)), 1.0); // (round F: as above)
         return;
     }
     // Every other lit pixel (an object whose lights aren't known, a world vertex the game animates): its direct light's

@@ -72,13 +72,9 @@ void main()
 }
 )";
 
-// The fragment shader (after the material and geometry tables' GLSL; MULTISAMPLED defined for a multisampled depth).
-constexpr const char* kFragmentBody = R"(
-#ifdef MULTISAMPLED
-layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
-#else
-layout(set = 0, binding = 1) uniform sampler2D u_depth;
-#endif
+// (round O) The lamps' record and their light on a surface - one model for the lamps pass and the reflections'
+// hits (rt_lamp_glsl).
+constexpr const char* kLampGlsl = R"(
 // A light: at.xyz its position, at.w its size; colour.rgb its colour x intensity, colour.w its reach; more.x its
 // material (the bits of a uint: whose texture's mean tints it, 0 none), more.y its falloff's core, more.z its shape
 // (0 point, 1 panel, 2 line - rt_lights.h EmitterShape); shape.xyz a panel's normal or a line's axis, shape.w a line's
@@ -89,6 +85,66 @@ struct LightRecord {
     vec4 more;
     vec4 shape;
 };
+// (lighting round A2) The light a lamp sends to a surface point per unit of its intensity (engine/gfx/rt_lights.cpp
+// lamp_geometry - the same model): a point's, a two-sided panel's or a line's; `from` the point the light comes from.
+float lamp_geometry(LightRecord light, vec3 here, vec3 normal, out vec3 from)
+{
+    vec3 position = light.at.xyz;
+    float core = light.more.y;
+    float reach = light.colour.w;
+    uint shape = uint(light.more.z + 0.5);
+    vec3 axis = light.shape.xyz;
+    float half_length = light.shape.w;
+    from = position;
+    if (!(reach > 0.0) || !(core > 0.0)) {
+        return 0.0;
+    }
+    float core2 = core * core;
+    bool line = shape == 2u && half_length > 0.0;
+    float line_factor = 1.0;
+    if (line) {
+        float along = dot(here - position, axis);
+        vec3 across = here - (position + axis * along);
+        float d2 = dot(across, across) + core2;
+        float s_low = -half_length - along;
+        float s_high = half_length - along;
+        float spread = s_high / sqrt(d2 + s_high * s_high) - s_low / sqrt(d2 + s_low * s_low);
+        from = position + axis * clamp(along, -half_length, half_length);
+        line_factor = core * spread / (2.0 * sqrt(d2));
+    }
+    vec3 to = from - here;
+    float d = length(to);
+    if (!(d < reach)) {
+        return 0.0;
+    }
+    vec3 dir = d > 0.0 ? to / d : vec3(0.0, 1.0, 0.0);
+    float facing = dot(normal, dir);
+    if (!(facing > 0.0)) {
+        return 0.0;
+    }
+    float x = d / reach;
+    float window = 1.0 - x * x * x * x;
+    float geometry = facing * window * window;
+    if (line) {
+        geometry *= line_factor;
+    } else {
+        geometry *= core2 / (core2 + d * d);
+        if (shape == 1u) {
+            geometry *= abs(dot(axis, dir));
+        }
+    }
+    return geometry;
+}
+
+)";
+
+// The fragment shader (after the material and geometry tables' GLSL; MULTISAMPLED defined for a multisampled depth).
+constexpr const char* kFragmentBody = R"(
+#ifdef MULTISAMPLED
+layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
+#else
+layout(set = 0, binding = 1) uniform sampler2D u_depth;
+#endif
 layout(set = 0, binding = 3, std140) uniform Lights {
     uvec4 count;  // x lights, y traced a pixel, z the shadow rays' mask, w the camera ray's mask
     vec4 params;  // x strength, y the rays' offset scale, z, w 0
@@ -190,57 +246,6 @@ vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object,
     return vec4(min(albedo, vec3(1.0)), 1.0);
 }
 
-// (lighting round A2) The light a lamp sends to a surface point per unit of its intensity (engine/gfx/rt_lights.cpp
-// lamp_geometry - the same model): a point's, a two-sided panel's or a line's; `from` the point the light comes from.
-float lamp_geometry(uint i, vec3 here, vec3 normal, out vec3 from)
-{
-    vec3 position = u_lights.lights[i].at.xyz;
-    float core = u_lights.lights[i].more.y;
-    float reach = u_lights.lights[i].colour.w;
-    uint shape = uint(u_lights.lights[i].more.z + 0.5);
-    vec3 axis = u_lights.lights[i].shape.xyz;
-    float half_length = u_lights.lights[i].shape.w;
-    from = position;
-    if (!(reach > 0.0) || !(core > 0.0)) {
-        return 0.0;
-    }
-    float core2 = core * core;
-    bool line = shape == 2u && half_length > 0.0;
-    float line_factor = 1.0;
-    if (line) {
-        float along = dot(here - position, axis);
-        vec3 across = here - (position + axis * along);
-        float d2 = dot(across, across) + core2;
-        float s_low = -half_length - along;
-        float s_high = half_length - along;
-        float spread = s_high / sqrt(d2 + s_high * s_high) - s_low / sqrt(d2 + s_low * s_low);
-        from = position + axis * clamp(along, -half_length, half_length);
-        line_factor = core * spread / (2.0 * sqrt(d2));
-    }
-    vec3 to = from - here;
-    float d = length(to);
-    if (!(d < reach)) {
-        return 0.0;
-    }
-    vec3 dir = d > 0.0 ? to / d : vec3(0.0, 1.0, 0.0);
-    float facing = dot(normal, dir);
-    if (!(facing > 0.0)) {
-        return 0.0;
-    }
-    float x = d / reach;
-    float window = 1.0 - x * x * x * x;
-    float geometry = facing * window * window;
-    if (line) {
-        geometry *= line_factor;
-    } else {
-        geometry *= core2 / (core2 + d * d);
-        if (shape == 1u) {
-            geometry *= abs(dot(axis, dir));
-        }
-    }
-    return geometry;
-}
-
 // The hue of a material's texture: its mean (four texels of its smallest level), the brightest channel 1; white for
 // none or a black texture.
 vec3 light_tint(uint id)
@@ -302,7 +307,7 @@ void main()
     uint count = min(u_lights.count.x, 252u);
     for (uint i = 0u; i < count; ++i) {
         vec3 from;
-        float g = lamp_geometry(i, here, normal, from);
+        float g = lamp_geometry(u_lights.lights[i], here, normal, from);
         if (!(g > 0.0)) {
             continue;
         }
@@ -583,6 +588,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
     source += cutout_rays_glsl(); // (the one lighting path's ray test: the lamps' light through the cut-outs' holes)
     source += rt::kDisplayTransferGlsl; // (round F)
+    source += kLampGlsl;               // (round O: shared with the reflections' hits)
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source, error);
     if (fragment == VK_NULL_HANDLE) {
@@ -864,6 +870,8 @@ void log_emitters(const rt::LevelEmitters& level)
 
 } // namespace
 
+std::string_view rt_lamp_glsl() { return kLampGlsl; }
+
 void set_rt_light_settings(const RtLightSettings& settings)
 {
     RtLightSettings kept = settings;
@@ -949,7 +957,9 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
         }
     }
     request.max = own.settings.max_lights;
-    request.points = own.settings.level > 0.0F;
+    // (round O - one light: a level relit from its data shines its solved lamps alone; the frame record's point lights
+    // carry the game's colours - the original's look keeps them, where nothing is solved)
+    request.points = own.settings.level > 0.0F && !level->solved;
     request.emitters = own.settings.emissive > 0.0F;
     request.point_scale = own.settings.level;
     request.emitter_scale = own.settings.emissive;

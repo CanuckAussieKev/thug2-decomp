@@ -147,6 +147,9 @@ struct LevelEmitters {
     // light among `emitters` (kNoEmitter: none - dark, or dropped)
     std::vector<EmitterTriangle> triangles;
     std::vector<uint32_t> triangle_emitter;
+    // (round O) `emitters` are the relit data's solved lamps (their intensities from the bake, in the global unit): the
+    // level's lights are those alone - the frame record's point lights (the game's colours) are not shone beside them
+    bool solved = false;
 };
 void set_level_emitters(LevelEmitters emitters);
 [[nodiscard]] std::shared_ptr<const LevelEmitters> level_emitters();

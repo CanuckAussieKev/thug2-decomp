@@ -72,18 +72,31 @@ private:
     }
 };
 
-// NOT ORIGINAL - the one lighting path (engine/gfx/rt_light_field.h local_at): the level's own lights - the lamps and
-// glows the relit level keeps as its residual - where the thing whose lights plat_apply_scene_lights made last stands, as
-// a light of its own: its ambient part is in the ambient sent, its directional part goes to the device as light
-// kLocalLightIndex (pc_instance.cpp send_lights), on while there is one. A skater facing a lamp-lit wall is lit by the
-// lamp as the wall facing it is.
-inline constexpr uint32_t kLocalLightIndex = 2;
-struct LocalLightSent {
+// NOT ORIGINAL - round O, one light for everything (engine/gfx/rt_light_field.h light_at; docs/design/vulkan.md "Round O:
+// one light for everything"): while the level is relit, a lit object, a ped, a vehicle or the skater is lit by the light
+// store's light where it stands - not by the game's lights: linear light in the global unit, sent to the device as
+//   - light 0, the key: the sun or the moon (its light per unit of N.L; its shadow the shadow pass's rays, per pixel);
+//   - light 1, the indirect light's probe (the sky, the bounce and the lamps the lamps pass doesn't light per pixel):
+//     its ambient c0 and its first-order part toward `fill_direction`'s opposite, colour k;
+//   - light kOneLightBackIndex: the same part's other side, colour -k (with light 1: c0 + k (n . toward) exactly);
+// the device's ambient black, and GpuRenderState::kLinearLights on (the draws then sum these as linear light and encode
+// once - ff_shaders.cpp). The game's own light colours, a model's scripted ones and its dynamic lights are then not
+// used for lighting (the original's look - no relit level - keeps them all). Made by plat_apply_scene_lights, or for an
+// instance without model lights by apply_one_light; `on` false: the game's lights (pc_instance.cpp send_lights).
+inline constexpr uint32_t kOneLightBackIndex = 2;
+struct OneLightSent {
     bool on = false;
-    std::array<float, 3> direction{0.0F, -1.0F, 0.0F}; // the way the light travels (D3D's), from where it comes
-    std::array<float, 3> colour{};
+    std::array<float, 3> ambient{};
+    std::array<float, 3> key{};
+    std::array<float, 3> key_direction{0.0F, -1.0F, 0.0F}; // the way each light travels (D3D's)
+    std::array<float, 3> fill{};
+    std::array<float, 3> fill_direction{0.0F, -1.0F, 0.0F};
+    std::array<float, 3> back{};
+    std::array<float, 3> back_direction{0.0F, 1.0F, 0.0F};
 };
-[[nodiscard]] const LocalLightSent& local_light_sent();
+[[nodiscard]] const OneLightSent& one_light_sent();
+// The one light at `position` (null, or the level not relit: off - the game's lights).
+void apply_one_light(const maths::Vec4* position);
 
 // 0x004B67E0: the scene's ambient colour sent to the renderer. True.
 bool update_ambient_light();
