@@ -689,15 +689,30 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
     const bool writes_depth = block.render_state(GpuRenderState::kZEnable) != 0 &&
                               block.render_state(GpuRenderState::kZWriteEnable) != 0 && blend_of(block) != Blend::kOther;
     if (writes_depth && !water_candidate(state, block)) {
-        // the prepass: the depth alone, at once (record_draw makes its key depth alone - surface_light_finish)
-        GpuStateBlock depth_only = block;
-        core::at(depth_only.render_states, core::to_underlying(GpuRenderState::kColourWriteEnable)) = 0;
-        core::at(depth_only.render_states, core::to_underlying(GpuRenderState::kAlphaBlendEnable)) = 0;
+        // the prepass: the depth alone, at once (record_draw makes its key depth alone - surface_light_finish): the kept
+        // block itself drawn with no colour, no blend and no lights (the lights' work isn't the depth's; a lit draw's
+        // alpha then its vertex colour's), then put back
         own.prepass_blended = blend_of(block) != Blend::kNone;
+        GpuStateBlock& depth_only = kept.block;
+        uint32_t& write = core::at(depth_only.render_states, core::to_underlying(GpuRenderState::kColourWriteEnable));
+        uint32_t& blend = core::at(depth_only.render_states, core::to_underlying(GpuRenderState::kAlphaBlendEnable));
+        uint32_t& lighting = core::at(depth_only.render_states, core::to_underlying(GpuRenderState::kLighting));
+        const uint32_t write_was = write;
+        const uint32_t blend_was = blend;
+        const uint32_t lighting_was = lighting;
+        const uint32_t lights_was = depth_only.lights_enabled;
+        write = 0;
+        blend = 0;
+        lighting = 0;
+        depth_only.lights_enabled = 0;
         own.role = SurfaceDrawRole::kPrepass;
         (void)record_draw(state, depth_only, call);
         own.role = SurfaceDrawRole::kAsItComes;
-        own.kept.back().prepassed = true;
+        write = write_was;
+        blend = blend_was;
+        lighting = lighting_was;
+        depth_only.lights_enabled = lights_was;
+        kept.prepassed = true;
         ++own.stats.prepassed;
     }
     return true;
