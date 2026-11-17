@@ -2315,12 +2315,10 @@ void begin_snow_view(Backend& state, const rt::ViewDrawn& view)
     if (!upload_sky(state)) {
         return;
     }
-    // (round W) where the snow reaches: the precipitation occlusion map along the snow's fall (slanted by the one wind) -
-    // the rain's map while it rains (one map; its own fall)
+    // (round W) where the snow lies: the precipitation occlusion map straight down (snow::kSettleDirection) - the rain's
+    // map, along the rain's fall, while it rains (one map)
     if (!(rain::settings().rate > 0.0)) {
-        update_precip_map(state, view,
-                          snow::fall_direction(wind::speed_at_height(wind::kNearGround),
-                                               {static_cast<double>(wind::kDirection[0]), static_cast<double>(wind::kDirection[1])}));
+        update_precip_map(state, view, snow::kSettleDirection);
     }
     const uint64_t frame = state.frames.serial();
     if (own.window_frame != frame) { // (the frame's first view places the window and moves the snow's clock on)

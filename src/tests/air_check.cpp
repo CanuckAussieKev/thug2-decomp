@@ -140,6 +140,29 @@ void check_door()
                 report.milliseconds);
 }
 
+// A hall (50 m square, 10 m high) with a wide door (4 m x 7.6 m): wide enough inside to be open air every way, but its
+// air came in through the door - not the free stream: the far end stiller than the door.
+void check_hall()
+{
+    std::vector<Face> f;
+    floor_y(&f, 0.0F, -kGround, kGround, -kGround, kGround, 0.0F);
+    constexpr float kW = 2000.0F;
+    constexpr float kH = 400.0F;
+    wall_z(&f, 0.0F, 0.0F, 920.0F, 0.0F, kH, 0.0F);
+    wall_z(&f, 0.0F, 1080.0F, kW, 0.0F, kH, 0.0F);
+    wall_z(&f, 0.0F, 920.0F, 1080.0F, 300.0F, kH, 0.0F);
+    wall_z(&f, kW, 0.0F, kW, 0.0F, kH, 0.0F);
+    wall_x(&f, 0.0F, 0.0F, kH, 0.0F, kW, 0.0F);
+    wall_x(&f, kW, 0.0F, kH, 0.0F, kW, 0.0F);
+    floor_y(&f, kH, 0.0F, kW, 0.0F, kW, 0.0F);
+    const air::Volume v = air::Volume::build(f);
+    const float door = v.at({1000.0F, 60.0F, 60.0F}).wind;
+    const float far_end = v.at({1000.0F, 60.0F, 1940.0F}).wind;
+    expect(door > 0.9F && far_end < 0.7F * door && far_end > 0.0F,
+           "a wide hall's air came in by its door, not the free stream: " + num(door) + " at the door, " +
+               num(far_end) + " at the far end");
+}
+
 void check_glass_and_screens()
 {
     // glass in the doorway: no air (a window shut), though the light goes through it
@@ -237,6 +260,7 @@ int main()
     tests::no_error_dialogs();
     check_closed_box();
     check_door();
+    check_hall();
     check_glass_and_screens();
     check_wind();
     check_cost();

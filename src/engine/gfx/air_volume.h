@@ -16,7 +16,8 @@
 //   3. Each cell's PASSAGE WIDTH: the run of cells air can pass through it along x, along y and along z (each side up to
 //      kOpenCells), the narrowest of the three - a doorway's width, a corridor's, the gap under a door, a room's height.
 //   4. The FREE STREAM: the air the weather's wind blows through unhindered - flooded from the open sky over the level
-//      through far bricks and cells whose passage is at least kOpenCells wide every way and wholly open.
+//      through far bricks and cells whose passage is at least kOpenCells wide every way, wholly open and under the
+//      open sky (step 6's reach at least half: a hall's air, however wide, came in through its doors and openings).
 //   5. Everywhere else air can reach (a best-first search out of the free stream through passable cells): the wind there
 //      is T x min(1, kJetCore x w / s) - T the open shares of the screens it passed (fences, grates), w the narrowest
 //      passage on its way, s how far it has come since it left the free stream. Out of an opening of width w a draught

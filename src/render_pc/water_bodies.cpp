@@ -287,7 +287,19 @@ void before_draw(const IndexBufferData* first_level, bool instanced)
     if (const uint64_t air = volume != nullptr ? volume->serial() : 0; air != own.air) {
         take_air(own); // (round W: the level's air came - or went)
         work_out_waves(own, wind);
-        get_log("rt_water: the bodies' wind from the level's air transport (%s)", air != 0 ? "made" : "none - open");
+        get_log("rt_water: the bodies' wind from the level's air transport (%s)", air != 0 ? "made" : "none - still");
+        std::size_t logged = 0;
+        for (const auto& [drawn, entry] : own.meshes) {
+            if (!entry.body.known || entry.triangles.empty() || logged++ >= kLoggedBodies) {
+                continue;
+            }
+            const water::Corner& at = core::at(core::at(entry.triangles, 0), 0);
+            get_log("rt_water: the body near (%.0f, %.0f, %.0f): the wind's share %.2f, the rain's %.2f - wind over it %.1f m/s, "
+                    "waves %.3f m high",
+                    static_cast<double>(core::at(at, 0)), static_cast<double>(core::at(at, 1)), static_cast<double>(core::at(at, 2)),
+                    static_cast<double>(entry.body.shelter), static_cast<double>(entry.body.sky), static_cast<double>(entry.body.wind),
+                    static_cast<double>(entry.body.waves.height) / water::kUnitsPerMetre);
+        }
     } else if (wind != own.wind) {
         work_out_waves(own, wind);
     }

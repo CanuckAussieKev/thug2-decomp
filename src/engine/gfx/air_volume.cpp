@@ -35,6 +35,7 @@ constexpr int kSpanMost = (2 * kOpenCells) + 1;           // a passage's run cou
 constexpr float kLeastWind = 1.0F / 512.0F;               // a draught weaker than this is still air
 constexpr float kBestScale = 65535.0F;
 constexpr uint32_t kFree = 1;
+constexpr uint8_t kOpenSky = 128; // (the free stream: at least half the sky's fall reaches it - not under a roof)
 constexpr uint32_t kSettled = 2;
 
 std::atomic<uint64_t>& serials()
@@ -416,9 +417,14 @@ struct Graph {
     {
         return is_far(node) ? 2.0F * kBrickUnits : static_cast<float>(core::at(b.width, node)) * kCell;
     }
+    // the free stream: open air wide every way under the open sky (a hall's air, however wide, came in through its doors)
     [[nodiscard]] bool free_stream(uint32_t node) const
     {
-        return is_far(node) || (core::at(b.open, node) == kOpen && core::at(b.width, node) >= kOpenCells);
+        if (is_far(node)) {
+            return core::at(b.far_sky, brick_of(node)) >= kOpenSky;
+        }
+        return core::at(b.open, node) == kOpen && core::at(b.width, node) >= kOpenCells &&
+               core::at(b.sky, node) >= kOpenSky;
     }
     // each neighbour of a node and the step to it (world units)
     template <typename Visit>

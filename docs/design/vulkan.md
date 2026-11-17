@@ -2555,8 +2555,10 @@ and what its surfaces are made of, never flagged.
   over the sphere, the direct light by an ice Henyey-Greenstein phase (g 0.75). One snowfall in the air:
   `snow::extinction(rate)` from Gunn and Marshall's flakes (1 mm/h - moderate - 5.3e-3 /m, 740 m), read by the fog's
   march and by the snow's own haze, which steps aside while rt_fog marches. Where the falling snow reaches is the
-  precipitation occlusion map's (the rain's map, one map - `kTrailSnowTraced` reads it at the rain's binding), along the
-  snow's fall: flakes at 1 m/s (Locatelli and Hobbs 1974) slanted by the wind near the ground - lee sides stay bare.
+  precipitation occlusion map's (the rain's map, one map - `kTrailSnowTraced` reads it at the rain's binding), traced
+  straight down: flakes follow the air and settle where it slows, so a wall's lee gathers snow rather than staying dry as
+  in a rain shadow (tried along the wind-slanted fall first: it bared the lee strips that fill in reality). Drifting
+  (deposition by the wind's speed) is not modelled.
 - **Wet patches** (the decals' `kWet`) only where the rain reaches (the volume's sky).
 
 ### Time of day (`tod`, `tod_cycle`)

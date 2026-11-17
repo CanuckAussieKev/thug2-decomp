@@ -759,13 +759,6 @@ double clock()
     return own.clock;
 }
 
-std::array<double, 3> fall_direction(double wind_near_ground, const std::array<double, 2>& downwind)
-{
-    const double across = std::max(wind_near_ground, 0.0);
-    const double length = std::sqrt((kFlakeFallSpeed * kFlakeFallSpeed) + (across * across));
-    return {core::at(downwind, 0) * across / length, -kFlakeFallSpeed / length, core::at(downwind, 1) * across / length};
-}
-
 double extinction(double rate)
 {
     if (!(rate > 0.0) || !std::isfinite(rate)) {
