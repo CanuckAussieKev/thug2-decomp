@@ -27,6 +27,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/foliage_light.h"
+#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_material_table.h"
@@ -109,8 +110,6 @@ std::string constants_source()
         out += glsl_float(value);
         out += '\n';
     };
-    define("DECAL_FADE_START", kDecalFadeStart);
-    define("DECAL_FADE_UNITS", static_cast<float>(scatter::kDecalFadeUnits));
     define("DECAL_MATCH_SHARE", kDecalMatchShare);
     define("DECAL_MATCH_SLACK", kDecalMatchSlack);
     define("ATLAS_COLUMNS", static_cast<float>(scatter::kDecalVariants));
@@ -158,7 +157,7 @@ layout(std140, set = 0, binding = 4) uniform Params {
     mat4 vp;               // D3D's row-vector matrix as stored: vp * v is its v x M
     mat4 vp_before;        // the frame before's, unjittered (the motion)
     vec4 camera;           // xyz; w: the wind's clock (seconds)
-    vec4 lod;              // x: the clutter's distance; y: its near distance; z: the share kept's scale; w: the decals'
+    vec4 lod;              // x: the clutter's distance; y: its near distance; z: the share kept's scale; w: unused
     vec4 rect;             // the viewport: x, y, width, height (pixels)
     vec4 offsets;          // x, y: Direct3D 9's half pixel (1 / the size); z, w: the jitter (clip space)
     vec4 depth_projection; // P22, P32, P23, P33
@@ -231,9 +230,8 @@ void main()
     vec3 position = vec3(decals[at], decals[at + 1u], decals[at + 2u]);
     uint packed = floatBitsToUint(decals[at + 5u]);
     float opacity = float((packed >> 8u) & 255u) / 255.0;
-    float own = min(float((packed >> 16u) & 255u) * DECAL_FADE_UNITS, p.lod.w);
-    float d = distance(position, p.camera.xyz);
-    v_weight = opacity * (1.0 - smoothstep(DECAL_FADE_START * own, own, d)) * (1.0 - under_snow(position));
+    // (no distance fade: a far decal is resolved by the atlas's mips, as any texture is)
+    v_weight = opacity * (1.0 - under_snow(position));
     v_uv = vec2(decals[at + 3u], decals[at + 4u]);
     v_cell = vec2(float((packed >> 4u) & 3u), float(packed & 15u));
     // (round W) a wet patch is water the rain left: only where the rain reaches (the level's air transport's sky - none
@@ -262,9 +260,17 @@ layout(location = 1) out vec4 o_wet;
 
 void main()
 {
-    const float edge = 0.5 / ATLAS_TEXELS;
-    vec2 uv = (v_cell + clamp(v_uv, vec2(edge), vec2(1.0 - edge))) / vec2(ATLAS_COLUMNS, ATLAS_ROWS);
-    vec4 texel = texture(u_atlas, uv); // (before any discard: the derivatives are the quad's)
+    // the texel read within the decal's own cell at the mip it is read from: kept half a texel of that mip inside the
+    // cell's edge (a far decal's coarse mips never take a neighbour's texels), the derivatives the unclamped
+    // coordinate's (before any discard: the quad's)
+    const vec2 cells = vec2(ATLAS_COLUMNS, ATLAS_ROWS);
+    vec2 whole = (v_cell + v_uv) / cells;
+    vec2 ddx = dFdx(whole);
+    vec2 ddy = dFdy(whole);
+    float lod = textureQueryLod(u_atlas, whole).x;
+    float edge = min(0.5 * exp2(max(lod, 0.0)) / ATLAS_TEXELS, 0.5);
+    vec2 uv = (v_cell + clamp(v_uv, vec2(edge), vec2(1.0 - edge))) / cells;
+    vec4 texel = textureGrad(u_atlas, uv, ddx, ddy);
     float own = linear_depth(gl_FragCoord.z);
     float scene = linear_depth(texelFetch(u_depth, ivec2(gl_FragCoord.xy), 0).r);
     if (!(abs(scene - own) <= own * DECAL_MATCH_SHARE + DECAL_MATCH_SLACK) || !(v_weight > 0.0)) {
@@ -710,18 +716,48 @@ float clutter_fade(float distance)
     return 1.0F - smoothstep(kClutterFadeStart * kClutterDistance, kClutterDistance, distance);
 }
 
-float decal_fade(const scatter::DecalVertex& vertex, const std::array<float, 3>& camera)
+float decal_weight(const scatter::DecalVertex& vertex)
 {
-    constexpr uint32_t kFadeShift = 16;
-    const float own = std::min(static_cast<float>((vertex.packed >> kFadeShift) & kByte) *
-                                   static_cast<float>(scatter::kDecalFadeUnits),
-                               kDecalDistance);
-    float sum = 0.0F;
-    for (std::size_t axis = 0; axis < 3; ++axis) {
-        const float apart = core::at(vertex.position, axis) - core::at(camera, axis);
-        sum += apart * apart;
+    constexpr uint32_t kOpacityShift = 8;
+    return static_cast<float>((vertex.packed >> kOpacityShift) & kByte) / static_cast<float>(kByte);
+}
+
+std::vector<uint8_t> decal_atlas_mip(std::span<const uint8_t> texels, uint32_t width, uint32_t height, uint32_t level)
+{
+    constexpr std::size_t kAlpha = 3;
+    const uint32_t step = 1U << level;
+    const uint32_t down_w = std::max(1U, width >> level);
+    const uint32_t down_h = std::max(1U, height >> level);
+    std::vector<uint8_t> out(static_cast<std::size_t>(down_w) * down_h * kTexel);
+    for (uint32_t row = 0; row < down_h; ++row) {
+        for (uint32_t column = 0; column < down_w; ++column) {
+            std::array<uint64_t, 3> weighted{}; // rgb x alpha
+            uint64_t alpha = 0;
+            uint64_t count = 0;
+            for (uint32_t dy = 0; dy < step; ++dy) {
+                for (uint32_t dx = 0; dx < step; ++dx) {
+                    const uint32_t sx = std::min((column * step) + dx, width - 1);
+                    const uint32_t sy = std::min((row * step) + dy, height - 1);
+                    const std::size_t at = ((static_cast<std::size_t>(sy) * width) + sx) * kTexel;
+                    const uint64_t a = core::at(texels, at + kAlpha);
+                    alpha += a;
+                    ++count;
+                    for (std::size_t channel = 0; channel < 3; ++channel) {
+                        core::at(weighted, channel) += core::at(texels, at + channel) * a;
+                    }
+                }
+            }
+            const std::size_t at = ((static_cast<std::size_t>(row) * down_w) + column) * kTexel;
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                // (no alpha at all: the mark takes nothing - its colour is the untouched 1)
+                core::at(out, at + channel) =
+                    alpha == 0 ? static_cast<uint8_t>(kByte)
+                               : static_cast<uint8_t>((core::at(weighted, channel) + (alpha / 2)) / alpha);
+            }
+            core::at(out, at + kAlpha) = static_cast<uint8_t>((alpha + (count / 2)) / count);
+        }
     }
-    return 1.0F - smoothstep(kDecalFadeStart * own, own, std::sqrt(sum));
+    return out;
 }
 
 namespace {
@@ -826,8 +862,7 @@ std::vector<ScatterDraw> plan_decal_draws(const scatter::Scatter& made, const Sc
     *vertices = 0;
     bool last_whole = false;
     for (const scatter::Tile& tile : made.tiles) {
-        if (tile.vertex_count == 0 || distance_to_box(tile, view.camera) >= kDecalDistance ||
-            outside_view(tile, view, 1.0F)) {
+        if (tile.vertex_count == 0 || outside_view(tile, view, 1.0F)) {
             last_whole = false;
             continue;
         }
@@ -975,6 +1010,15 @@ bool make_layouts(Backend& state, std::string* error)
     linear.minFilter = VK_FILTER_LINEAR;
     linear.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     linear.maxLod = static_cast<float>(std::bit_width(scatter::kDecalTile) - 1); // (a cell is one texel at the last)
+    // (the decals lie on the ground, seen at grazing angles: filtered anisotropically as the game's textures are -
+    // [Graphics] anisotropy, the device's most at most; off with it)
+    const int anisotropy = graphics_options::device_anisotropy(
+        graphics_options::get_pull().anisotropy, state.sampler_limits.anisotropy,
+        static_cast<uint32_t>(state.sampler_limits.max_anisotropy));
+    if (anisotropy >= 2) {
+        linear.anisotropyEnable = VK_TRUE;
+        linear.maxAnisotropy = static_cast<float>(anisotropy);
+    }
     if (vkCreateDescriptorSetLayout(device, &set_info, nullptr, &own.set_layout) != VK_SUCCESS ||
         vkCreateSampler(device, &nearest, nullptr, &own.nearest) != VK_SUCCESS ||
         vkCreateSampler(device, &linear, nullptr, &own.linear) != VK_SUCCESS) {
@@ -1214,33 +1258,6 @@ bool ensure_wet(Backend& state, const Image& colour)
     return true;
 }
 
-// The next mip level (RGBA8 rows): each channel the mean of the 2 x 2 above it.
-std::vector<uint8_t> next_level(std::span<const uint8_t> texels, const Extent& size)
-{
-    const uint32_t width = size.width;
-    const uint32_t height = size.height;
-    const uint32_t down_w = std::max(1U, width / 2);
-    const uint32_t down_h = std::max(1U, height / 2);
-    std::vector<uint8_t> out(static_cast<std::size_t>(down_w) * down_h * kTexel);
-    for (uint32_t row = 0; row < down_h; ++row) {
-        for (uint32_t column = 0; column < down_w; ++column) {
-            for (std::size_t channel = 0; channel < kTexel; ++channel) {
-                uint32_t sum = 0;
-                for (uint32_t dy = 0; dy < 2; ++dy) {
-                    for (uint32_t dx = 0; dx < 2; ++dx) {
-                        const uint32_t sx = std::min((column * 2) + dx, width - 1);
-                        const uint32_t sy = std::min((row * 2) + dy, height - 1);
-                        sum += core::at(texels, (((static_cast<std::size_t>(sy) * width) + sx) * kTexel) + channel);
-                    }
-                }
-                core::at(out, (((static_cast<std::size_t>(row) * down_w) + column) * kTexel) + channel) =
-                    static_cast<uint8_t>((sum + 2U) / 4U);
-            }
-        }
-    }
-    return out;
-}
-
 // The decals' atlas made and put on the device (once; its mips by halving, down to a cell a texel).
 bool ensure_atlas(Backend& state)
 {
@@ -1261,7 +1278,8 @@ bool ensure_atlas(Backend& state)
     }
     std::vector<uint8_t> all;
     std::vector<VkBufferImageCopy> regions;
-    std::vector<uint8_t> level = scatter::make_decal_atlas();
+    const std::vector<uint8_t> first = scatter::make_decal_atlas();
+    std::vector<uint8_t> level = first;
     uint32_t width = scatter::kAtlasWidth;
     uint32_t height = scatter::kAtlasHeight;
     for (uint32_t index = 0; index < levels; ++index) {
@@ -1276,7 +1294,7 @@ bool ensure_atlas(Backend& state)
                            .imageExtent = {.width = width, .height = height, .depth = 1}});
         all.insert(all.end(), level.begin(), level.end());
         if (index + 1 < levels) {
-            level = next_level(level, {.width = width, .height = height});
+            level = decal_atlas_mip(first, scatter::kAtlasWidth, scatter::kAtlasHeight, index + 1);
             width = std::max(1U, width / 2);
             height = std::max(1U, height / 2);
         }
@@ -1446,7 +1464,7 @@ ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::Vie
     }
     block.camera = {core::at(plan.shape.camera, 0), core::at(plan.shape.camera, 1), core::at(plan.shape.camera, 2),
                     plan.shape.seconds};
-    block.lod = {kClutterDistance, kClutterDistance * kClutterNearShare, plan.shape.keep_scale, kDecalDistance};
+    block.lod = {kClutterDistance, kClutterDistance * kClutterNearShare, plan.shape.keep_scale, 0.0F};
     block.rect = {static_cast<float>(core::at(plan.rect, 0)), static_cast<float>(core::at(plan.rect, 1)),
                   static_cast<float>(core::at(plan.rect, 2)), static_cast<float>(core::at(plan.rect, 3))};
     block.offsets = {core::at(plan.rect, 2) != 0 ? 1.0F / static_cast<float>(core::at(plan.rect, 2)) : 0.0F,

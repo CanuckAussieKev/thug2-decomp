@@ -123,7 +123,8 @@ inline constexpr std::size_t kDecalKinds = static_cast<std::size_t>(DecalKind::k
 inline constexpr uint32_t kDecalVariants = 4; // the art's versions of each kind (the atlas's columns)
 
 // A decal vertex as the GPU reads it (24 bytes): where, its place in the decal (0 - 1 across, 0 - 1 along/up), and
-// packed - bits 0-3 the kind, 4-5 the variant, 8-15 its opacity (/255), 16-23 where it has faded out (x 32 units).
+// packed - bits 0-3 the kind, 4-5 the variant, 8-15 its opacity (/255); the rest 0. (No distance fade: a decal is drawn
+// wherever it is seen, a far one resolved by its atlas's mips like any texture - vulkan_scatter.h.)
 struct DecalVertex {
     Vec3 position{};
     std::array<float, 2> uv{};
@@ -131,7 +132,6 @@ struct DecalVertex {
 };
 inline constexpr std::size_t kDecalVertexBytes = 24;
 static_assert(sizeof(DecalVertex) == kDecalVertexBytes, "the decal shaders' vertex");
-inline constexpr uint32_t kDecalFadeUnits = 32;
 
 // A placed decal (the log's and the check's): its centre, kind, size (across, along), the face it was put on, and its
 // triangles [first_vertex, first_vertex + vertex_count) (in its tile's run).

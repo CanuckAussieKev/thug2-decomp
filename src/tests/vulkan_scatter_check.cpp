@@ -25,6 +25,7 @@
 #include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -742,6 +743,98 @@ std::array<float, 4> to_clip(const render::rt::ViewDrawn& view, const Vec3& poin
     return clip;
 }
 
+// --- no distance fade (the sky-decals round) -----------------------------------------------------------------
+
+// Every placed decal's weight is its opacity, wherever the camera is (no fade byte left in its packed word), and the
+// draws planned for a view take every tile in it however far - 6,000 units back (the old cut-off was 3,200) as near -
+// and none when looking away.
+std::vector<scatter::Face> road_faces(float height); // (below)
+
+void check_far_decals(Tally* tally)
+{
+    text::print("the decals far away:\n");
+    const std::vector<scatter::Face> faces = road_faces(0.0F);
+    const scatter::Scatter made = scatter::make_scatter(
+        {.faces = faces, .rails = {}, .seed = kSeed, .decal_density = kHighDensity, .clutter_density = 0.0F});
+    constexpr uint32_t kUnused = 0xFFFF0000U;
+    constexpr uint32_t kOpacityShift = 8;
+    constexpr uint32_t kByteMask = 0xFFU;
+    int packed_left = 0;
+    int weight_off = 0;
+    for (const scatter::DecalVertex& vertex : made.decal_vertices) {
+        packed_left += (vertex.packed & kUnused) != 0U ? 1 : 0;
+        const float opacity = static_cast<float>((vertex.packed >> kOpacityShift) & kByteMask) / kByteScale;
+        weight_off += vk::decal_weight(vertex) != opacity ? 1 : 0;
+    }
+    tally->check(!made.decal_vertices.empty() && packed_left == 0 && weight_off == 0,
+                 text::format("%zu decal vertices: none with a fade distance packed (%d), each weighed by its opacity "
+                              "alone (%d not)",
+                              made.decal_vertices.size(), packed_left, weight_off));
+    uint32_t all = 0;
+    for (const scatter::Tile& tile : made.tiles) {
+        all += tile.vertex_count;
+    }
+    constexpr float kFarBack = 6000.0F;
+    constexpr float kFarHeight = 400.0F;
+    const render::rt::ViewDrawn far_view =
+        view_of({.eye = {0.0F, kFarHeight, core::at(kLookAt, 2) - kFarBack}, .at = kLookAt});
+    uint32_t far_vertices = 0;
+    (void)vk::plan_decal_draws(made, vk::scatter_view(far_view), &far_vertices);
+    uint32_t near_vertices = 0;
+    (void)vk::plan_decal_draws(made, vk::scatter_view(view_of({.eye = kEye, .at = kLookAt})), &near_vertices);
+    tally->check(all > 0 && far_vertices == all,
+                 text::format("from %.0f units away the whole road's %u decal vertices are drawn (%u planned; near: %u)",
+                              static_cast<double>(kFarBack), all, far_vertices, near_vertices));
+    // looking away from the road: nothing (the frustum is the only cull)
+    constexpr float kBehind = -1000.0F;
+    const render::rt::ViewDrawn away = view_of({.eye = kEye, .at = {0.0F, core::at(kEye, 1), kBehind}});
+    uint32_t away_vertices = 0;
+    (void)vk::plan_decal_draws(made, vk::scatter_view(away), &away_vertices);
+    tally->check(away_vertices == 0,
+                 text::format("looking away from the road: %u decal vertices planned", away_vertices));
+}
+
+// The atlas's mips: alpha-weighted (a dark texel among clear ones keeps its colour and gives its share of alpha - a
+// straight mean would turn it grey), and every level takes the same light away on average as the level above it
+// (the mean of alpha x (1 - rgb) - what mix(1, rgb, alpha) removes - kept within rounding).
+void check_atlas_mips(Tally* tally)
+{
+    text::print("the decals' atlas's mips:\n");
+    constexpr uint8_t kFull = 255;
+    constexpr uint8_t kQuarter = 64;
+    const std::vector<uint8_t> four{0,     0,     0,     kFull, kFull, kFull, kFull, 0,
+                                    kFull, kFull, kFull, 0,     kFull, kFull, kFull, 0};
+    const std::vector<uint8_t> one = vk::decal_atlas_mip(four, 2, 2, 1);
+    tally->check(one.size() == 4 && core::at(one, 0) == 0 && core::at(one, 1) == 0 && core::at(one, 2) == 0 &&
+                     core::at(one, 3) == kQuarter,
+                 text::format("one black opaque texel and three clear ones: rgb %u %u %u, alpha %u (0 0 0, 64)",
+                              core::at(one, 0), core::at(one, 1), core::at(one, 2), core::at(one, 3)));
+    const std::vector<uint8_t> atlas = scatter::make_decal_atlas();
+    const auto taken = [](const std::vector<uint8_t>& texels) {
+        double sum = 0.0;
+        for (std::size_t at = 0; at + 3 < texels.size(); at += 4) {
+            const double alpha = static_cast<double>(core::at(texels, at + 3)) / kByteScale;
+            for (std::size_t channel = 0; channel < kChannels; ++channel) {
+                sum += alpha * (1.0 - (static_cast<double>(core::at(texels, at + channel)) / kByteScale));
+            }
+        }
+        return sum / static_cast<double>(texels.size() / 4);
+    };
+    const double first = taken(atlas);
+    double worst = 0.0;
+    const auto levels = static_cast<uint32_t>(std::bit_width(scatter::kDecalTile));
+    for (uint32_t index = 1; index < levels; ++index) {
+        const std::vector<uint8_t> level =
+            vk::decal_atlas_mip(atlas, scatter::kAtlasWidth, scatter::kAtlasHeight, index);
+        worst = std::max(worst, std::abs(taken(level) - first) / std::max(first, 1e-9));
+    }
+    constexpr double kMostDrift = 0.005; // (8-bit rounding: each level's own)
+    constexpr double kPercent = 100.0;
+    tally->check(first > 0.0 && worst < kMostDrift,
+                 text::format("every mip takes the same light away as the atlas (%.4f; the worst level %.2f%% off)",
+                              first, worst * kPercent));
+}
+
 // --- the ground drawn ------------------------------------------------------------------------------------------
 
 struct ScreenVertex {
@@ -1186,12 +1279,11 @@ void check_clutter(render::Gpu& gpu, Tally* tally)
     release(gpu, targets);
 }
 
-// A decal quad of one kind over x from - to, z from - to on the road (y 0), whole (opacity 1, no fade near).
+// A decal quad of one kind over x from - to, z from - to on the road (y 0), whole (opacity 1).
 void add_decal_quad(scatter::Scatter* made, scatter::DecalKind kind, const std::array<float, 4>& area)
 {
     constexpr uint32_t kOpaque = 255U << 8U;
-    constexpr uint32_t kFarFade = 255U << 16U;
-    const uint32_t packed = static_cast<uint32_t>(kind) | kOpaque | kFarFade;
+    const uint32_t packed = static_cast<uint32_t>(kind) | kOpaque;
     const auto [x0, x1, z0, z1] = area;
     const auto first = static_cast<uint32_t>(made->decal_vertices.size());
     const std::array<std::array<float, 4>, kQuadVertices> corners{{{x0, z0, 0.0F, 0.0F},
@@ -1383,9 +1475,8 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
         return;
     }
     const Targets targets = make_targets(gpu, 0, kBigWidth, kBigHeight);
-    if (targets.colour != nullptr && targets.depth != nullptr) {
-        const render::rt::ViewDrawn view = view_of(
-            {.eye = {0.0F, 70.0F, 300.0F}, .at = {0.0F, 0.0F, 800.0F}, .width = kBigWidth, .height = kBigHeight});
+    // the passes over the street kTimed times, their device time each
+    const auto timed = [&](const render::rt::ViewDrawn& view) {
         run_frames(gpu, targets, view, kLearningPasses);
         gpu.begin_scene();
         gpu.set_render_target(0, targets.colour);
@@ -1411,13 +1502,55 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
         gpu.set_render_target(0, nullptr);
         gpu.set_depth_surface(nullptr);
         gpu.end_scene();
-        const double each = static_cast<double>(core::at(stamps, 1) - core::at(stamps, 0)) *
-                            static_cast<double>(properties.limits.timestampPeriod) / kNanosecondsPerMillisecond /
-                            kTimed;
+        return static_cast<double>(core::at(stamps, 1) - core::at(stamps, 0)) *
+               static_cast<double>(properties.limits.timestampPeriod) / kNanosecondsPerMillisecond / kTimed;
+    };
+    if (targets.colour != nullptr && targets.depth != nullptr) {
+        const render::rt::ViewDrawn view = view_of(
+            {.eye = {0.0F, 70.0F, 300.0F}, .at = {0.0F, 0.0F, 800.0F}, .width = kBigWidth, .height = kBigHeight});
+        const double each = timed(view);
         text::print("the cost: %.3f ms for both passes at %ux%u (%u decal vertices, %u items; density 1, a street at a "
                     "skater's eye)\n",
                     each, kBigWidth, kBigHeight, vk::decal_last_vertices(), vk::clutter_last_items());
         tally->check(std::isfinite(each) && each > 0.0, text::format("timed at %ux%u", kBigWidth, kBigHeight));
+        // (the sky-decals round: no distance cut-off) a field of decals 6 km deep, every one in view from a skater's eye
+        // at the field's edge - more than a whole level's (can at density 3: 42,951 decals, 293,559 vertices)
+        vk::set_scatter_settings({.decals = true, .decal_density = 1.0F, .clutter = false, .clutter_density = 1.0F});
+        auto field = std::make_shared<scatter::Scatter>();
+        constexpr int kTiles = 6;          // a side: 1,000-unit tiles
+        constexpr int kMarksPerTile = 42;  // a side: a mark every 24 units
+        constexpr float kTile = 1000.0F;
+        constexpr float kSpacing = kTile / static_cast<float>(kMarksPerTile);
+        constexpr float kMark = 12.0F;
+        constexpr float kFieldHalf = kTile * kTiles / 2.0F;
+        for (int row = 0; row < kTiles; ++row) {
+            for (int column = 0; column < kTiles; ++column) {
+                const float tx = (static_cast<float>(column) * kTile) - kFieldHalf;
+                const float tz = static_cast<float>(row) * kTile;
+                const auto first = static_cast<uint32_t>(field->decal_vertices.size());
+                for (int k = 0; k < kMarksPerTile * kMarksPerTile; ++k) {
+                    const float x = tx + (static_cast<float>(k % kMarksPerTile) * kSpacing);
+                    const float z = tz + (static_cast<float>(k / kMarksPerTile) * kSpacing);
+                    add_decal_quad(field.get(), scatter::DecalKind::kCrack, {x, x + kMark, z, z + kMark});
+                }
+                field->tiles.push_back({.low = {tx, 0.0F, tz},
+                                        .high = {tx + kTile, 0.0F, tz + kTile},
+                                        .first_vertex = first,
+                                        .vertex_count = static_cast<uint32_t>(field->decal_vertices.size()) - first,
+                                        .first_item = 0,
+                                        .item_count = 0});
+            }
+        }
+        vk::scatter_sink().set_scatter(field);
+        const render::rt::ViewDrawn edge = view_of(
+            {.eye = {0.0F, 70.0F, -50.0F}, .at = {0.0F, 0.0F, 800.0F}, .width = kBigWidth, .height = kBigHeight});
+        const double whole = timed(edge);
+        text::print("the cost with no distance cut-off: %.3f ms for the decals' pass at %ux%u (%u decal vertices in "
+                    "view of %zu, a field 6 km deep)\n",
+                    whole, kBigWidth, kBigHeight, vk::decal_last_vertices(), field->decal_vertices.size());
+        constexpr double kBudget = 1.0; // ms: the pass's share of a 144 Hz frame
+        tally->check(std::isfinite(whole) && whole > 0.0 && whole < kBudget,
+                     text::format("every decal of the field drawn in %.3f ms (under %.1f)", whole, kBudget));
     }
     release(gpu, targets);
     vkDestroyQueryPool(state.context.device(), pool, nullptr);
@@ -1481,6 +1614,8 @@ int run(const Options& options, SDL_Window* window)
     dump_folder() = std::string(options.dump);
     Tally tally;
     check_placement(&tally);
+    check_far_decals(&tally);
+    check_atlas_mips(&tally);
     if (!open_device(options, window)) {
         return vk::loader_version() == 0 ? 2 : 1;
     }
