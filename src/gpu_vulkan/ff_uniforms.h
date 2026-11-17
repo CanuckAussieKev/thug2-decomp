@@ -64,6 +64,8 @@ constexpr uint32_t kLightLampsBinding = 25;      // RGBA16F: the lamps' light (a
 constexpr uint32_t kLightLampsOnBinding = 26;    // RGBA16F: ... on the surface's traced albedo (for kLightShare)
 constexpr uint32_t kLightDepthBinding = 27;      // R32F: the prepass's depth (the surface the inputs were made for)
 constexpr uint32_t kLightDecalsBinding = 28;     // RGBA16F: the decals over the surface - its albedo's factor (1: none)
+constexpr uint32_t kLightGuidesBinding = 29;     // RGBA32UI storage, written: the surface's material for Ray
+                                                 // Reconstruction (kLightGuides; vulkan_surface_light.h)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.

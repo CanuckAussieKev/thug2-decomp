@@ -181,7 +181,10 @@ constexpr uint8_t kLightInputs = 0x01;
 constexpr uint8_t kLightShare = 0x02;
 constexpr uint8_t kLightDepthOnly = 0x04;
 constexpr uint8_t kLightDepthHalf = 0x08;
-constexpr uint8_t kLightKnown = kLightInputs | kLightShare | kLightDepthOnly | kLightDepthHalf;
+// kLightGuides (with kLightInputs / kLightShare, while Ray Reconstruction denoises the view): the surface the inputs were
+// made for writes its material - DLSS Ray Reconstruction's guides - into kLightGuidesBinding.
+constexpr uint8_t kLightGuides = 0x10;
+constexpr uint8_t kLightKnown = kLightInputs | kLightShare | kLightDepthOnly | kLightDepthHalf | kLightGuides;
 // (NOT ORIGINAL - [Graphics] rt_water, gpu_vulkan/vulkan_water.h) FragmentKey::water: 1 - the program's colour shaded
 // as water (waves, reflection, refraction, depth colour, foam, the sun's glitter) where the surface faces up - on the
 // same programs as the per-pixel lighting, independent of its bits (a key may have water alone). The vertex half's

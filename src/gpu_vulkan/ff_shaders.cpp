@@ -478,6 +478,28 @@ vec3 light_lamps_on_now()
     return light_here() ? texelFetch(light_lamps_on_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0);
 }
 )";
+// (round V - Ray Reconstruction's guides, kLightGuides) The surface's material where it is the one the inputs were made
+// for, written once the fragment is kept (after its alpha test): its albedo and specular albedo (display-encoded 8 bits,
+// the roughness and a mark in their alphas) and its normal in the camera's space (halves; without one - a colour lit
+// already - the upscaler's own from the depth). The surface's lighting sets guide_*; a fragment that set none writes none.
+constexpr const char* kLightGuidesGlsl = R"(layout(set = 0, binding = 29, rgba32ui) uniform writeonly uimage2D light_guides_image;
+vec3 guide_albedo = vec3(-1.0);
+vec3 guide_specular = vec3(0.0);
+vec3 guide_normal = vec3(0.0);
+float guide_rough = 1.0;
+float guide_has_normal = 0.0;
+void light_write_guides()
+{
+    if (guide_albedo.x < 0.0 || !light_here()) {
+        return;
+    }
+    vec3 a = display_from_linear(clamp(guide_albedo, 0.0, 1.0));
+    vec3 s = display_from_linear(clamp(guide_specular, 0.0, 1.0));
+    imageStore(light_guides_image, ivec2(gl_FragCoord.xy),
+               uvec4(packUnorm4x8(vec4(a, clamp(guide_rough, 0.0, 1.0))), packUnorm4x8(vec4(s, 1.0)),
+                     packHalf2x16(guide_normal.xy), packHalf2x16(vec2(guide_normal.z, guide_has_normal))));
+})";
+
 // (the inputs' use - a key lit per pixel has them whether it reads the inputs or not)
 constexpr const char* kLightHelpersGlsl = R"(// the sun's visibility at the pixel, else `own` (the vertex's - the light store's)
 float light_seen(vec4 l, float own) { return l.r >= 0.0 ? l.r : own; }
@@ -1192,6 +1214,13 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   "    surface_out = brdf_ambient(surface_m, surface_nv, surface_bake * surface_hemi, surface_bake * surface_env) "
                   "* light_share(surface_li) + surface_m.albedo * surface_lamps;"});
     }
+    if ((key.light & kLightGuides) != 0U && (key.light & kLightInputs) != 0U) {
+        // (round V: Ray Reconstruction's guides - the material the light model was given)
+        add(out, {(key.surface & kSurfaceLit) != 0U ? "    guide_albedo = surface_lit.albedo;\n"
+                                                    : "    guide_albedo = surface_m.albedo;\n",
+                  "    guide_specular = brdf_specular_albedo(surface_m.f0, surface_nv, surface_rough);\n"
+                  "    guide_normal = surface_n;\n    guide_rough = surface_rough;\n    guide_has_normal = 1.0;"});
+    }
     add(out, {"    colour.rgb = frame_linear() ? surface_out : clamp(display_from_linear(surface_out), 0.0, 1.0);"});
 }
 
@@ -1276,6 +1305,10 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     }
     if (key.surface != 0 || (key.light & (kLightInputs | kLightShare)) != 0U) {
         add(out, {kLightHelpersGlsl});
+    }
+    if ((key.light & kLightGuides) != 0U && (key.light & (kLightInputs | kLightShare)) != 0U) {
+        static_assert(kLightGuidesBinding == 29, "kLightGuidesGlsl names it");
+        add(out, {kLightGuidesGlsl}); // (NOT ORIGINAL - round V: Ray Reconstruction's guides)
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
     if (key.motion != 0U) {
@@ -1801,9 +1834,15 @@ std::string fragment_shader_glsl(const FragmentKey& key)
         // shares of it, and the lamps on its traced albedo; kLightInputsGlsl)
         add(out, {"    if (frame_linear()) {\n        colour.rgb = colour.rgb * light_decals_now() * light_share(light_in_now()) + "
                   "light_lamps_on_now() * light_decals_now();\n    }"});
+        if ((key.light & kLightGuides) != 0U) {
+            add(out, {"    guide_albedo = colour.rgb;"}); // (its light not separated: the colour lit, as before round V)
+        }
     }
     fragment_fog(out, key);
     fragment_alpha_test(out, key);
+    if ((key.light & kLightGuides) != 0U && (key.light & (kLightInputs | kLightShare)) != 0U) {
+        add(out, {"    light_write_guides();"}); // (round V: once kept)
+    }
     if ((key.light & kLightDepthOnly) != 0U && (key.light & kLightDepthHalf) != 0U) {
         // (NOT ORIGINAL - round V: a blended draw's prepass keeps only its mostly opaque part - its translucent edges
         // don't hide what was drawn behind them; vulkan_surface_light.h)

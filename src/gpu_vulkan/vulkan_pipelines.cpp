@@ -181,7 +181,7 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kSnowBindings = 2;   // (NOT ORIGINAL - snow: kSnowUniformsBinding, kSnowSkyBinding)
     constexpr std::size_t kPaintBindings = 3;  // (NOT ORIGINAL - paint: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetBindings = 2;    // (NOT ORIGINAL - rain: kWetUniformsBinding, kWetMapBinding)
-    constexpr std::size_t kLightBindings = 5;  // (NOT ORIGINAL - round V: kLightVisibilityBinding - kLightDecalsBinding)
+    constexpr std::size_t kLightBindings = 6;  // (NOT ORIGINAL - round V: kLightVisibilityBinding - kLightGuidesBinding)
     std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings + kSnowBindings +
                                                  kPaintBindings + kWetBindings + kLightBindings>
         bindings{};
@@ -298,12 +298,14 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     // (NOT ORIGINAL - round V, vulkan_surface_light.h) the surface's light inputs: pushed only for the keys that read them
     for (uint32_t light = 0; light < kLightBindings; ++light) {
         core::at(bindings, kLightFirstSlot + light) = {.binding = kLightVisibilityBinding + light,
-                                                      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                      .descriptorType = kLightVisibilityBinding + light == kLightGuidesBinding
+                                                                            ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+                                                                            : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                                       .descriptorCount = 1,
                                                       .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                                       .pImmutableSamplers = nullptr};
     }
-    static_assert(kLightDecalsBinding == kLightVisibilityBinding + kLightBindings - 1, "the light inputs follow each other");
+    static_assert(kLightGuidesBinding == kLightVisibilityBinding + kLightBindings - 1, "the light inputs follow each other");
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,

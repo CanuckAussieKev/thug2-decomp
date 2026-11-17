@@ -54,7 +54,7 @@ constexpr uint64_t kLogEvery = 600; // (passes between the log's lines)
 
 constexpr float kTwo = 2.0F;   // (clip space: 2 across; a half angle doubled)
 constexpr float kHalfF = 0.5F;
-constexpr std::size_t kPrepareBindings = 6;
+constexpr std::size_t kPrepareBindings = 9; // (round V: 6 the surfaces' guides, 7 the albedo, 8 the specular albedo)
 constexpr float kLeastFrameMilliseconds = 0.1F;
 constexpr uint64_t kReportMultisampled = 0x75C0'0001ULL;
 constexpr uint64_t kReportTargets = 0x75C0'0002ULL;
@@ -70,10 +70,15 @@ layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D motion_out;
 layout(set = 0, binding = 3, r32f) uniform writeonly image2D depth_out;
 layout(set = 0, binding = 4, r32f) uniform writeonly image2D reactive_out;
 layout(set = 0, binding = 5, rgba16f) uniform writeonly image2D normal_out;
+// (round V - vulkan_surface_light.h: Ray Reconstruction's guides as the view's surfaces wrote them - their material)
+layout(set = 0, binding = 6, rgba32ui) uniform readonly uimage2D guides_in;
+layout(set = 0, binding = 7, rgba16f) uniform writeonly image2D albedo_out;
+layout(set = 0, binding = 8, rgba16f) uniform writeonly image2D specular_out;
 layout(push_constant) uniform Pass {
     mat4 to_before; // this frame's clip space (jittered) -> the frame before's (Direct3D's row vectors)
     vec4 size;      // the drawn rectangle's width, height; the jitter (pixels)
-    vec4 origin;    // its corner in the target; z: 1 - the normals wanted (Ray Reconstruction's guide)
+    vec4 origin;    // its corner in the target; z: 1 - the normals wanted (Ray Reconstruction's guide); w: 1 - the surfaces'
+                    // guides read (round V)
     vec4 lens;      // the projection's [0][0], [1][1], [2][2], [3][2]
 } pass;
 
@@ -122,7 +127,25 @@ void main()
         if (dot(normal, here) > 0.0) {
             normal = -normal;
         }
-        imageStore(normal_out, pixel, vec4(normal, 1.0));
+        float roughness = 1.0;
+        if (pass.origin.w > 0.5) {
+            // (round V) a surface's own material where it wrote one: its albedo, specular albedo, roughness, its normal;
+            // elsewhere (the sky, a glow) the lit colour as the albedo and the depth's normal, as before
+            uvec4 g = imageLoad(guides_in, at);
+            if (g.y != 0u) {
+                vec4 a = unpackUnorm4x8(g.x);
+                vec4 s = unpackUnorm4x8(g.y);
+                imageStore(albedo_out, pixel, vec4(linear_from_display(a.rgb), 1.0));
+                imageStore(specular_out, pixel, vec4(linear_from_display(s.rgb), 1.0));
+                vec2 nz = unpackHalf2x16(g.w);
+                if (nz.y > 0.5) {
+                    vec3 own_normal = vec3(unpackHalf2x16(g.z), nz.x);
+                    normal = dot(own_normal, own_normal) > 1e-8 ? normalize(own_normal) : normal;
+                }
+                roughness = a.a;
+            }
+        }
+        imageStore(normal_out, pixel, vec4(normal, roughness));
     }
     imageStore(motion_out, pixel, vec4(motion, 0.0, 0.0));
     imageStore(depth_out, pixel, vec4(depth));
@@ -157,6 +180,7 @@ struct UpscaleState {
     Image albedo; // (Ray Reconstruction's guides)
     Image specular;
     Image normals;
+    Image no_guides; // (round V: a 1x1 RGBA32UI of zeros bound when the view's surfaces wrote no guides)
     bool reconstruct = false; // DLSS runs with Ray Reconstruction
     bool terms_set = false; // (the check's alternatives)
     UpscaleJitterTerms jitter_terms;
@@ -289,6 +313,7 @@ bool ensure_prepare(Backend& state, std::string* error)
         return false;
     }
     std::string source = kPrepareSource;
+    source.insert(source.find('\n') + 1, rt::kDisplayTransferGlsl); // (round V: the guides' display encoding undone)
     const std::string marker = "KNO_MOTION_HALF";
     source.replace(source.find(marker), marker.size(), std::to_string(kNoMotionHalf));
     const VkShaderModule module = make_module(device, source, error);
@@ -849,7 +874,9 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         ensure_image(state, &own.output, kHdrWorkFormat, whole, kWorkUsage) &&
         (!own.reconstruct || (ensure_image(state, &own.albedo, kHdrWorkFormat, whole, kWorkUsage) &&
                               ensure_image(state, &own.specular, kHdrWorkFormat, whole, kWorkUsage) &&
-                              ensure_image(state, &own.normals, kHdrWorkFormat, whole, kWorkUsage)));
+                              ensure_image(state, &own.normals, kHdrWorkFormat, whole, kWorkUsage))) &&
+        ensure_image(state, &own.no_guides, VK_FORMAT_R32G32B32A32_UINT, Extent{.width = 1, .height = 1},
+                     VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     if (!made) {
         own.failed = true;
         publish_scale(false);
@@ -873,6 +900,12 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
     for (Image* image : {&own.colour, &own.depth, &own.motion, &own.reactive, &own.output, &motion.image}) {
         Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL);
     }
+    // (round V: the view's surfaces wrote Ray Reconstruction's guides - vulkan_surface_light.h)
+    Image* const guides = own.reconstruct ? surface_light_guides(state) : nullptr;
+    Memory::transition(commands, &own.no_guides, VK_IMAGE_LAYOUT_GENERAL);
+    if (guides != nullptr) {
+        Memory::transition(commands, guides, VK_IMAGE_LAYOUT_GENERAL, true);
+    }
     if (own.reconstruct) {
         for (Image* image : {&own.albedo, &own.specular, &own.normals}) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL);
@@ -882,6 +915,7 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         const VkImageSubresourceRange all{
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
         vkCmdClearColorImage(commands, own.specular.image, VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &all);
+        vkCmdClearColorImage(commands, own.no_guides.image, VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &all);
     }
     const VkImageLayout depth_resting = depth->layout;
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
@@ -898,7 +932,7 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         constants.size = {static_cast<float>(render.width), static_cast<float>(render.height), core::at(view.jitter, 0),
                           core::at(view.jitter, 1)};
         constants.origin = {static_cast<float>(core::at(drawn, 0)), static_cast<float>(core::at(drawn, 1)),
-                            own.reconstruct ? 1.0F : 0.0F, 0.0F};
+                            own.reconstruct ? 1.0F : 0.0F, guides != nullptr ? 1.0F : 0.0F};
         const std::array<std::array<float, 4>, 4>& lens = view.camera.projection;
         constants.lens = {core::at(core::at(lens, 0), 0), core::at(core::at(lens, 1), 1), core::at(core::at(lens, 2), 2),
                           core::at(core::at(lens, 3), 2)};
@@ -906,7 +940,7 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.prepare);
     const VkDescriptorImageInfo depth_info{
         .sampler = own.sampler, .imageView = depth->view, .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
-    const std::array<VkDescriptorImageInfo, 5> storage{{
+    const std::array<VkDescriptorImageInfo, kPrepareBindings - 1> storage{{
         {.sampler = VK_NULL_HANDLE, .imageView = motion.image.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
         {.sampler = VK_NULL_HANDLE, .imageView = own.motion.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
         {.sampler = VK_NULL_HANDLE, .imageView = own.depth.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
@@ -914,6 +948,17 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         // (the normals' image when Ray Reconstruction wants it; else bound but not written: the motion's)
         {.sampler = VK_NULL_HANDLE,
          .imageView = own.reconstruct ? own.normals.view : own.motion.view,
+         .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        // (round V: the surfaces' guides - vulkan_surface_light.h - and the albedo and specular albedo they fill; else
+        // zeros, and the motion's bound but not written)
+        {.sampler = VK_NULL_HANDLE,
+         .imageView = guides != nullptr ? guides->view : own.no_guides.view,
+         .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        {.sampler = VK_NULL_HANDLE,
+         .imageView = guides != nullptr ? own.albedo.view : own.motion.view,
+         .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        {.sampler = VK_NULL_HANDLE,
+         .imageView = guides != nullptr ? own.specular.view : own.motion.view,
          .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
     }};
     std::array<VkWriteDescriptorSet, kPrepareBindings> writes{};
@@ -1110,7 +1155,7 @@ void release_upscale(Backend& state)
     own.sampler = VK_NULL_HANDLE;
     if (state.memory.ready()) {
         for (Image* image : {&own.colour, &own.depth, &own.motion, &own.reactive, &own.output, &own.albedo,
-                             &own.specular, &own.normals, &state.motion.image}) {
+                             &own.specular, &own.normals, &own.no_guides, &state.motion.image}) {
             state.memory.destroy_image(image);
         }
     }

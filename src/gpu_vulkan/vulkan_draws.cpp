@@ -489,7 +489,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the map)
     constexpr std::size_t kPaintWrites = 3;  // (NOT ORIGINAL - paint's: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetWrites = 2;    // (NOT ORIGINAL - rain's: kWetUniformsBinding, kWetMapBinding)
-    constexpr std::size_t kLightWrites = 5;  // (NOT ORIGINAL - round V's: kLightVisibilityBinding - kLightDecalsBinding)
+    constexpr std::size_t kLightWrites = 6;  // (NOT ORIGINAL - round V's: kLightVisibilityBinding - kLightGuidesBinding)
     std::array<VkWriteDescriptorSet,
                2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites + kLightWrites>
         writes{};
@@ -614,9 +614,14 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     }
     if (light.on) { // (NOT ORIGINAL - round V: the surface's light inputs - vulkan_surface_light.h)
         for (uint32_t input = 0; input < kLightWrites; ++input) {
+            if (kLightVisibilityBinding + input == kLightGuidesBinding && !light.guides) {
+                continue;
+            }
             VkWriteDescriptorSet& image = core::at(writes, count++);
             image.dstBinding = kLightVisibilityBinding + input;
-            image.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            image.descriptorType = kLightVisibilityBinding + input == kLightGuidesBinding
+                                       ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+                                       : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             image.pImageInfo = &core::at(light.images, input);
         }
     }

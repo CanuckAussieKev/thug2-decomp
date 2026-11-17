@@ -53,12 +53,14 @@ struct SurfaceInputs {
     Image* lamps_on = nullptr;
     Image* depth = nullptr;
     Image* decals = nullptr; // (RGBA16F, 1 where none: the decals' pass multiplies their marks in - the albedo's factor)
+    Image* guides = nullptr; // (RGBA32UI storage, 0 where none: Ray Reconstruction's guides, written by the surfaces)
 };
 
 // The pushed descriptors of a draw that reads the inputs (kLightVisibilityBinding - kLightDepthBinding).
 struct SurfaceInputDescriptors {
     bool on = false;
-    std::array<VkDescriptorImageInfo, 5> images{};
+    std::array<VkDescriptorImageInfo, 6> images{};
+    bool guides = false; // (the last, a storage image: pushed with kLightGuides)
 };
 
 // The listeners (vulkan_gpu.cpp: added while ray tracing is enabled).
@@ -90,6 +92,12 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
 // the processor's into mapped memory `mapped`, copied now) and the kept draws pointed at the copy.
 void surface_light_buffer_rewritten(Backend& state, VkBuffer buffer, VkDeviceSize bytes, VkCommandBuffer commands,
                                     const void* mapped);
+// The view's Ray Reconstruction guides as its surfaces wrote them (RGBA32UI: x the albedo, y the specular albedo -
+// RGBA8 each, display-encoded, their alpha the roughness and 1 -, z, w the camera-space normal as halves; 0 where none
+// wrote) - for the upscaler's preparation (vulkan_upscale.h); null when this frame's view wrote none.
+[[nodiscard]] Image* surface_light_guides(Backend& state);
+// (the checks) The guides written without Ray Reconstruction denoising. The caller holds the lock.
+void set_surface_light_guides_forced(bool forced);
 // A buffer destroyed: kept draws that name it forget it (vulkan_cel_draw.h cel_forget_buffer_locked's twin).
 void surface_light_forget_buffer(const void* buffer);
 

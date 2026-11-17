@@ -1960,9 +1960,37 @@ bool through_quad(int x, int y, double height, double x0, double x1, double z0, 
 
 enum class Over : uint8_t { kNothing, kGlass, kGlow };
 
+// (decals) A mark over the left half of the view - as the decals' pass draws one where rt_decals places it: the decals'
+// input there x kMark (the pass's own multiplying blend over the input's 1), at kDecals between the inputs and the
+// shading.
+constexpr float kMark = 0.5F;
+class MarkListener final : public rt::ViewListener {
+public:
+    [[nodiscard]] int order() const override { return rt::ViewOrder::kDecals; }
+    void opaque_drawn(const rt::ViewDrawn& /*view*/) override
+    {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        const render::vulkan::SurfaceInputs* const inputs = render::vulkan::surface_inputs(state);
+        if (inputs == nullptr || inputs->decals == nullptr) {
+            return;
+        }
+        VkCommandBuffer commands = render::vulkan::outside_pass(state);
+        render::vulkan::Memory::transition(commands, inputs->decals, VK_IMAGE_LAYOUT_GENERAL, true);
+        const VkClearColorValue mark{.float32 = {kMark, kMark, kMark, 1.0F}};
+        const VkImageSubresourceRange all{
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
+        vkCmdClearColorImage(commands, inputs->decals->image, VK_IMAGE_LAYOUT_GENERAL, &mark, 1, &all);
+        render::vulkan::Memory::transition(commands, inputs->decals, VK_IMAGE_LAYOUT_GENERAL, true);
+        state.bound = render::vulkan::BoundState{};
+        ++marked;
+    }
+    int marked = 0;
+};
+
 // A frame of the view lit per surface: the floor (blended first pass) before or after the box, and what is over it.
 bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, bool floor_first,
-                      Over over, uint64_t frame, std::vector<uint8_t>* texels)
+                      Over over, uint64_t frame, std::vector<uint8_t>* texels, std::vector<uint8_t>* guides = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -2016,7 +2044,20 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
     }
     rt::set_world_surfaces_drawing(false);
     rt::opaque_view_drawn(view_drawn());
-    const bool read = render::vulkan::read_surface(targets.colour, texels);
+    bool read = true;
+    if (guides != nullptr) { // (Ray Reconstruction's guides as the surfaces wrote them)
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::Image* const image = render::vulkan::surface_light_guides(state);
+        guides->resize(static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 16); // (RGBA32UI)
+        const bool finished = image != nullptr && render::vulkan::finish_work(state);
+        const bool copied = finished && state.memory.read_image_level(image, 0, guides);
+        if (!copied) {
+            text::print("  (the guides: %s)\n", image == nullptr ? "none" : (finished ? "not read back" : "work not finished"));
+        }
+        read = read && copied;
+    }
+    read = read && render::vulkan::read_surface(targets.colour, texels); // (after the guides: it ends the frame's work)
     gpu.end_scene();
     gpu.present();
     return read && texels->size() == static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 8;
@@ -2060,14 +2101,25 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     bool ok = gpu.create_render_target(colour, &targets.colour) == value::kResultOk &&
               gpu.create_depth_surface(depth, &targets.depth) == value::kResultOk;
     const render::vulkan::SurfaceLightStats before = render::vulkan::surface_light_stats();
-    std::array<std::vector<uint8_t>, 4> shots; // floor first, box first, glass, glow
+    std::array<std::vector<uint8_t>, 5> shots; // floor first, box first, glass, glow, marked
+    std::vector<uint8_t> guides;
+    {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::set_surface_light_guides_forced(true);
+    }
     uint64_t frame = 1;
     for (int pass = 0; ok && pass < 2; ++pass) { // (the second time round: the TLAS of the frame before built)
         ok = draw_per_surface(gpu, targets, meshes, true, Over::kNothing, frame++, &core::at(shots, 0)) &&
              draw_per_surface(gpu, targets, meshes, false, Over::kNothing, frame++, &core::at(shots, 1)) &&
-             draw_per_surface(gpu, targets, meshes, false, Over::kGlass, frame++, &core::at(shots, 2)) &&
+             draw_per_surface(gpu, targets, meshes, false, Over::kGlass, frame++, &core::at(shots, 2), &guides) &&
              draw_per_surface(gpu, targets, meshes, false, Over::kGlow, frame++, &core::at(shots, 3));
     }
+    // a decal (a mark over the whole view: the decals' input x kMark) - a material's edit, lit with its surface
+    MarkListener mark;
+    rt::add_view_listener(&mark);
+    ok = ok && draw_per_surface(gpu, targets, meshes, false, Over::kNothing, frame++, &core::at(shots, 4));
+    rt::remove_view_listener(&mark);
     const render::vulkan::SurfaceLightStats after = render::vulkan::surface_light_stats();
     tally->check(ok && after.views > before.views && after.prepassed > before.prepassed,
                  text::format("the views lit per surface: %llu views, %llu draws kept, %llu prepassed, %llu shaded",
@@ -2104,6 +2156,31 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                  text::format("the floor drawn blended before and after the box: %d lit and %d shadowed pixels, %d off "
                               "the light model (worst %.4f), %d channels differing between the orders",
                               lit, shadowed, wrong, worst, differ));
+    // the mark lit with the floor: its albedo x kMark, in the sun and in the shadow alike (before round V the decals
+    // multiplied the colour after the light - the same for a diffuse floor; the check is that the mark reaches the
+    // surface's shading through its inputs)
+    int mark_pixels = 0;
+    int mark_wrong = 0;
+    double mark_worst = 0.0;
+    for (const FloorPixel& pixel : pixels) {
+        if (!ok || mark.marked == 0) {
+            break;
+        }
+        const Rgb unmarked = linear_pixel_at(core::at(shots, 1), pixel.x, pixel.y);
+        const Rgb got = linear_pixel_at(core::at(shots, 4), pixel.x, pixel.y);
+        bool bad = false;
+        for (std::size_t c = 0; c < 3; ++c) {
+            const double error = std::abs(core::at(got, c) - (core::at(unmarked, c) * kMark));
+            mark_worst = std::max(mark_worst, error);
+            bad = bad || error > kLinearTolerance;
+        }
+        ++mark_pixels;
+        mark_wrong += bad ? 1 : 0;
+    }
+    tally->check(ok && mark.marked > 0 && mark_pixels > 1000 && mark_wrong == 0,
+                 text::format("a decal is lit with its surface (its albedo x the mark, sun and shadow): %d pixels, %d "
+                              "wrong (worst %.4f)",
+                              mark_pixels, mark_wrong, mark_worst));
     // glass and glow over the shadow: their own light untouched
     const Rgb glass = linear_of(kGlassColour);
     const Rgb glow = linear_of(kGlowColour);
@@ -2151,6 +2228,43 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     tally->check(ok && glow_pixels > 100 && glow_wrong == 0,
                  text::format("a glow over the shadow adds its light whole: %d pixels, %d darkened (worst %.4f)",
                               glow_pixels, glow_wrong, glow_worst));
+    // Ray Reconstruction's guides (written as with it on): each floor pixel's albedo guide is the floor's own - a colour
+    // lit already, its light not separated: the colour lit, as the guide was before round V - also under the glass,
+    // which is in front of the surface the inputs were made for and writes none
+    int guided = 0;
+    int guide_wrong = 0;
+    double guide_worst = 0.0;
+    constexpr std::size_t kGuideBytes = 16;
+    for (const FloorPixel& pixel : pixels) {
+        if (!ok || guides.size() < static_cast<std::size_t>(kTargetWidth) * kTargetHeight * kGuideBytes) {
+            break;
+        }
+        const std::size_t at =
+            ((static_cast<std::size_t>(pixel.y) * kTargetWidth) + static_cast<std::size_t>(pixel.x)) * kGuideBytes;
+        uint32_t albedo = 0;
+        uint32_t marked = 0;
+        std::memcpy(&albedo, &core::at(guides, at), sizeof(albedo));
+        std::memcpy(&marked, &core::at(guides, at + 4), sizeof(marked));
+        const Rgb under = linear_pixel_at(core::at(shots, 1), pixel.x, pixel.y);
+        bool bad = marked == 0U;
+        for (std::size_t c = 0; c < 3; ++c) {
+            const double encoded = static_cast<double>((albedo >> (8U * c)) & 0xFFU) / kByteRange;
+            const double error = std::abs(rt::linear_from_display(encoded) - core::at(under, c));
+            guide_worst = std::max(guide_worst, error);
+            bad = bad || error > 0.01;
+        }
+        ++guided;
+        guide_wrong += bad ? 1 : 0;
+    }
+    tally->check(ok && guided > 1000 && guide_wrong == 0,
+                 text::format("Ray Reconstruction's albedo guide is the floor's own (under the glass too): %d pixels, %d "
+                              "wrong (worst %.4f)",
+                              guided, guide_wrong, guide_worst));
+    {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::set_surface_light_guides_forced(false);
+    }
     gpu.set_render_target(0, nullptr);
     gpu.set_depth_surface(nullptr);
     for (GpuSurface* surface : {targets.colour, targets.depth}) {

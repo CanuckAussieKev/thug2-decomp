@@ -582,6 +582,8 @@ std::string describe(const FragmentKey& key)
     text += (key.light & kLightInputs) != 0U ? " light-inputs" : ""; // (NOT ORIGINAL - round V)
     text += (key.light & kLightShare) != 0U ? " light-share" : "";
     text += (key.light & kLightDepthOnly) != 0U ? " depth-only" : "";
+    text += (key.light & kLightDepthHalf) != 0U ? "-half" : "";
+    text += (key.light & kLightGuides) != 0U ? " guides" : "";
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);
     }
