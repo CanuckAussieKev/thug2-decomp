@@ -83,6 +83,7 @@ double seconds_since(std::chrono::steady_clock::time_point start)
 void destroy_texture(Backend& state, Texture* texture)
 {
     state.materials.texture_released(state, texture); // NOT ORIGINAL - its ray-tracing texture slot, if it has one
+    surface_light_forget_image(&texture->image); // NOT ORIGINAL - round V: draws prepared for a view's shading forget it
     retire_image(state, &texture->image);
     state.textures.erase(texture);
 }

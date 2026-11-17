@@ -489,8 +489,6 @@ void add_motion_keys(ff_check::KeySets& sets)
 // half), the shares (not lit per pixel), the inputs (lit per pixel). Pre-transformed and water pairs are never kept.
 void add_light_keys(ff_check::KeySets& sets)
 {
-    using render::vulkan::kLightDepthHalf;
-    using render::vulkan::kLightDepthOnly;
     using render::vulkan::kLightInputs;
     using render::vulkan::kLightShare;
     std::size_t added = 0;
@@ -501,14 +499,17 @@ void add_light_keys(ff_check::KeySets& sets)
             continue;
         }
         std::vector<ShaderKey> keys;
-        ShaderKey depth = pair; // (the prepass: its vertex half kept, its fragment half the program alone)
-        depth.fragment.surface = 0;
-        depth.fragment.detail = 0;
-        depth.fragment.trails = 0;
-        depth.fragment.light = kLightDepthOnly;
-        keys.push_back(depth);
-        depth.fragment.light = static_cast<uint8_t>(kLightDepthOnly | kLightDepthHalf);
-        keys.push_back(depth);
+        // (the prepass: the shaded draw's vertex half - with the upscaler's motion too, as a view drawn for upscaling
+        // has it - and its fragment half the program alone, a blended one's half)
+        for (const bool half : {false, true}) {
+            ShaderKey depth = pair;
+            depth.fragment = render::vulkan::depth_only_fragment(pair.fragment, half);
+            keys.push_back(depth);
+            depth.vertex.motion = 1;
+            if (render::vulkan::normalised(depth).vertex.motion != 0U) {
+                keys.push_back(depth);
+            }
+        }
         ShaderKey lit = pair;
         lit.fragment.light = (pair.fragment.surface & render::vulkan::kSurfaceLighting) != 0U ? kLightInputs
                              : pair.fragment.surface == 0                                    ? kLightShare

@@ -21,6 +21,7 @@
 #include "gpu_vulkan/vulkan_hdr.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_prepared_draw.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_upscale.h"
@@ -74,9 +75,13 @@ void main()
 }
 )";
 
-// A draw kept for the view's shading: the game's state block and call, and what record_draw reads besides them - the
-// per-draw state render_pc names before each draw (the light store's source, the trails' ground, the water's material
-// and body) - named again while it is drawn.
+// A draw kept for the view's shading: prepared once as it came (vulkan_prepared_draw.h - its key, pipeline, uniform
+// blocks, descriptors and states as the shading draws it), its depth emitted from that at once and its shading later.
+// With it the game's state block and call, and what record_draw reads besides them - the per-draw state render_pc names
+// before each draw (the light store's source, the trails' ground, the water's material and body, the motion's source)
+// - recorded again from them at the shading when it wasn't prepared (water rt_water shades: its copy behind the water
+// is made when it is drawn) or its preparation no longer holds (the frame's work was submitted since - a read-back
+// mid-view: the ring's blocks and the transitions were the submission's).
 struct KeptDraw {
     GpuStateBlock block;
     DrawCall call;
@@ -87,7 +92,9 @@ struct KeptDraw {
     uint32_t water_material = 0;
     water::WaterBody water_body;
     bool water_waves = false;
-    bool prepassed = false; // its depth written by the prepass: drawn without writing it again
+    MotionSourceState motion;
+    bool ready = false; // prepared
+    PreparedDraw prepared;
 };
 
 enum class Phase : uint8_t {
@@ -100,8 +107,7 @@ struct LightState {
     Phase phase = Phase::kIdle;
     SurfaceDrawRole role = SurfaceDrawRole::kAsItComes;
     bool decided = false;      // whether this view is lit per surface was decided (at its first world draw)
-    bool on = false;           // ... and it is
-    bool prepass_blended = false; // the prepass now is a blended draw's (kLightDepthHalf)
+    bool on = false;           // ... and it is (its inputs' images made then)
     rt::ViewDrawn view;
     Surface* target = nullptr; // the view's colour target and depth at its beginning
     Surface* depth = nullptr;
@@ -147,6 +153,27 @@ Blend blend_of(const GpuStateBlock& block)
         return Blend::kNone;
     }
     return source == kBlendSourceAlpha && dest == kBlendInverseAlpha ? Blend::kAlpha : Blend::kOther;
+}
+
+// A kept draw's prepass pipeline: its shaded pipeline's key (`shaded`) with the fragment half depth alone
+// (depth_only_fragment - `half`: a blended draw's) and nothing written to or blended into the colour; the vertex half,
+// the targets and the rest the shaded draw's. VK_NULL_HANDLE when it can't be made (reported once).
+VkPipeline depth_pipeline(Backend& state, const PipelineKey& shaded, bool half)
+{
+    PipelineKey key = shaded;
+    key.shaders.fragment = depth_only_fragment(shaded.shaders.fragment, half);
+    key.blend = 0;
+    key.source_blend = 0;
+    key.dest_blend = 0;
+    key.blend_operation = 0;
+    key.write_mask = 0;
+    std::string error;
+    const VkPipeline pipeline = state.pipelines.pipeline(key, &error);
+    if (pipeline == VK_NULL_HANDLE && first_report(state, kReportFailed + 0x20)) {
+        get_log("vulkan: per-surface lighting: a prepass pipeline couldn't be made (%s) - that draw's depth left out: %s / %s",
+                error.c_str(), describe(key.shaders.vertex).c_str(), describe(key.shaders.fragment).c_str());
+    }
+    return pipeline;
 }
 
 Image* image_of_surface(Surface* surface)
@@ -274,8 +301,43 @@ bool ensure_image(Backend& state, Image* image, VkFormat format, Extent extent, 
     return true;
 }
 
+/// The view's input images (the colour target's size) and the pipeline that begins them made - before its first draw is
+// kept: the kept draws are prepared with the inputs' descriptors. False: they couldn't be (reported once).
+bool make_inputs(Backend& state)
+{
+    LightState& own = light_state();
+    std::string error;
+    Image* const colour = image_of_surface(own.target);
+    constexpr VkImageUsageFlags kUsage =
+        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    if (colour == nullptr || !ensure_objects(state, &error)) {
+        own.failed = true;
+        if (first_report(state, kReportFailed)) {
+            get_log("vulkan: per-surface lighting couldn't be made (%s) - the passes draw over the colour as before",
+                    error.empty() ? "its targets" : error.c_str());
+        }
+        return false;
+    }
+    const Extent extent{.width = colour->extent.width, .height = colour->extent.height};
+    if (!ensure_image(state, &own.depth_copy, VK_FORMAT_R32_SFLOAT, extent, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) ||
+        !ensure_image(state, &own.visibility, kHdrFormat, extent, kUsage) ||
+        !ensure_image(state, &own.lamps, kHdrFormat, extent, kUsage) ||
+        !ensure_image(state, &own.lamps_on, kHdrFormat, extent, kUsage) ||
+        !ensure_image(state, &own.decals, kHdrFormat, extent,
+                      kUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) ||
+        !ensure_image(state, &own.guides, VK_FORMAT_R32G32B32A32_UINT, extent,
+                      VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
+        own.failed = true;
+        if (first_report(state, kReportFailed)) {
+            get_log("vulkan: per-surface lighting: its images couldn't be made - the passes draw over the colour as before");
+        }
+        return false;
+    }
+    return true;
+}
+
 // Whether the view now begun can be lit per surface (asked at its first world draw: by then its targets are bound and
-// the frame's scene is built).
+// the frame's scene is built) - its inputs' images made when it can.
 bool view_can_be_lit(Backend& state)
 {
     LightState& own = light_state();
@@ -306,7 +368,7 @@ bool view_can_be_lit(Backend& state)
                 : !rt::cel_world().relit                    ? "the level isn't relit"
                                                             : "cel shading");
     }
-    return can;
+    return can && make_inputs(state);
 }
 
 // The view's depth cleared to the far plane (as the draws' passes, its stencil isn't attached) - outside a pass.
@@ -338,69 +400,119 @@ void clear_depth(Backend& state)
     state.bound = BoundState{};
 }
 
-// The kept draws drawn in their order (`inputs`: with the view's light inputs, else as they came), render_pc's per-draw
-// state named for each and put back after.
-void draw_kept(Backend& state, bool inputs)
+// Whether a kept draw's preparation still holds: prepared in this submission (a read-back mid-view submits the frame's
+// work and starts the ring again).
+bool prepared_now(const Backend& state, const KeptDraw& draw)
+{
+    return draw.ready && draw.prepared.serial == state.frames.serial();
+}
+
+// The textures the prepared draws sample put back in the layout their descriptors name (each was there when it was
+// prepared; a texture drawn into or written since has moved) - outside a pass, before the draws.
+void restore_sampled_layouts(Backend& state, const std::vector<KeptDraw>& kept)
+{
+    VkCommandBuffer commands = VK_NULL_HANDLE;
+    for (const KeptDraw& draw : kept) {
+        if (!prepared_now(state, draw)) {
+            continue;
+        }
+        for (Image* image : draw.prepared.sampled) {
+            if (image == nullptr || image->image == VK_NULL_HANDLE || image->layout == image->resting) {
+                continue;
+            }
+            if (commands == VK_NULL_HANDLE) {
+                commands = outside_pass(state);
+            }
+            Memory::transition(commands, image, image->resting);
+        }
+    }
+}
+
+// The kept draws shaded in their order with the view's light inputs: each prepared one emitted as prepared, the others
+// recorded again from their state blocks with render_pc's per-draw state named for each (and put back after).
+void draw_kept(Backend& state)
 {
     LightState& own = light_state();
-    const CelSourceNamed cel_before = cel_source_now();
-    const bool ground_before = surface_trail::current_ground();
-    const bool character_before = surface_trail::current_character();
-    const GpuTexture* const water_before = water::current_texture();
-    const uint32_t material_before = water::current_material();
-    const water::WaterBody body_before = water::current_body();
-    const bool waves_before = water::current_waves();
-    own.role = inputs ? SurfaceDrawRole::kShaded : SurfaceDrawRole::kAsItComes;
     std::vector<KeptDraw> kept;
     kept.swap(own.kept);
     own.kept_reads.clear();
+    restore_sampled_layouts(state, kept);
     // The depth cleared: the draws are made again as the game made them, each with its own depth test and write, in its
     // order - the prepass's depth (the nearest surface, translucent ones' mostly opaque parts too: what the inputs were
     // made for) would hide what a translucent layer drawn later lets through (a shirt's print, a road's edge).
     if (!kept.empty()) {
         clear_depth(state);
     }
+    const bool any_recorded = std::ranges::any_of(kept, [&state](const KeptDraw& draw) { return !prepared_now(state, draw); });
+    const CelSourceNamed cel_before = any_recorded ? cel_source_now() : CelSourceNamed{};
+    const bool ground_before = surface_trail::current_ground();
+    const bool character_before = surface_trail::current_character();
+    const GpuTexture* const water_before = water::current_texture();
+    const uint32_t material_before = water::current_material();
+    const water::WaterBody body_before = water::current_body();
+    const bool waves_before = water::current_waves();
+    const MotionSourceState motion_before = state.motion.source;
+    own.role = SurfaceDrawRole::kShaded;
     for (KeptDraw& draw : kept) {
+        ++own.stats.shaded;
+        if (prepared_now(state, draw)) {
+            emit_draw(state, draw.prepared);
+            continue;
+        }
         cel_source_put(draw.cel);
         surface_trail::set_current_ground(draw.ground);
         surface_trail::set_current_character(draw.character);
         water::set_current(draw.water_texture, draw.water_material);
         water::set_current_body(draw.water_body);
         water::set_current_waves(draw.water_waves);
+        state.motion.source = draw.motion;
         (void)record_draw(state, draw.block, draw.call);
-        ++own.stats.shaded;
+        ++own.stats.recorded;
     }
     own.role = SurfaceDrawRole::kAsItComes;
     for (DeviceBuffer& copy : own.kept_buffers) {
         retire_buffer(state, &copy); // (freed once this frame's submission is done)
     }
     own.kept_buffers.clear();
-    cel_source_put(cel_before);
-    surface_trail::set_current_ground(ground_before);
-    surface_trail::set_current_character(character_before);
-    water::set_current(water_before, material_before);
-    water::set_current_body(body_before);
-    water::set_current_waves(waves_before);
+    if (any_recorded) {
+        cel_source_put(cel_before);
+        surface_trail::set_current_ground(ground_before);
+        surface_trail::set_current_character(character_before);
+        water::set_current(water_before, material_before);
+        water::set_current_body(body_before);
+        water::set_current_waves(waves_before);
+        state.motion.source = motion_before;
+    }
     kept.clear();
     if (own.kept.empty()) {
         own.kept.swap(kept); // (the vector's storage kept for the next view)
     }
 }
 
-// A view's leftovers drawn as they came (a view that ended without its opaque_drawn).
+bool begin_inputs(Backend& state);
+
+// A view's leftovers shaded (a view that ended without its opaque_drawn): its inputs begun - nothing traced, no lamps,
+// no decals - and its draws shaded with them.
 void flush(Backend& state)
 {
     LightState& own = light_state();
-    own.phase = Phase::kIdle; // (before the draws: they aren't kept again)
-    own.inputs = {};
     if (!own.kept.empty()) {
         if (first_report(state, kReportLeftOver)) {
-            get_log("vulkan: per-surface lighting: a view's kept draws drawn without their inputs (the view ended before "
-                    "its opaque world was told)");
+            get_log("vulkan: per-surface lighting: a view's kept draws shaded without their passes' inputs (the view ended "
+                    "before its opaque world was told)");
         }
-        draw_kept(state, false);
+        if (own.phase == Phase::kKeeping) {
+            (void)begin_inputs(state);
+        }
+        VkCommandBuffer commands = outside_pass(state);
+        for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides}) {
+            Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
+        }
+        state.bound = BoundState{};
+        draw_kept(state);
     }
     own.phase = Phase::kIdle;
+    own.inputs = {};
     own.decided = false;
     own.on = false;
 }
@@ -409,34 +521,12 @@ void flush(Backend& state)
 bool begin_inputs(Backend& state)
 {
     LightState& own = light_state();
-    std::string error;
     Image* const colour = image_of_surface(own.target);
     Image* const depth = image_of_surface(own.depth);
-    constexpr VkImageUsageFlags kUsage =
-        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    if (colour == nullptr || depth == nullptr || !ensure_objects(state, &error)) {
-        own.failed = true;
-        if (first_report(state, kReportFailed)) {
-            get_log("vulkan: per-surface lighting couldn't be made (%s) - the passes draw over the colour as before",
-                    error.empty() ? "its targets" : error.c_str());
-        }
+    if (colour == nullptr || depth == nullptr || own.begin == VK_NULL_HANDLE || own.visibility.image == VK_NULL_HANDLE) {
         return false;
     }
-    const Extent extent{.width = colour->extent.width, .height = colour->extent.height};
-    if (!ensure_image(state, &own.depth_copy, VK_FORMAT_R32_SFLOAT, extent, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) ||
-        !ensure_image(state, &own.visibility, kHdrFormat, extent, kUsage) ||
-        !ensure_image(state, &own.lamps, kHdrFormat, extent, kUsage) ||
-        !ensure_image(state, &own.lamps_on, kHdrFormat, extent, kUsage) ||
-        !ensure_image(state, &own.decals, kHdrFormat, extent,
-                      kUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) ||
-        !ensure_image(state, &own.guides, VK_FORMAT_R32G32B32A32_UINT, extent,
-                      VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
-        own.failed = true;
-        if (first_report(state, kReportFailed)) {
-            get_log("vulkan: per-surface lighting: its images couldn't be made - the passes draw over the colour as before");
-        }
-        return false;
-    }
+    const Extent extent{.width = own.visibility.extent.width, .height = own.visibility.extent.height};
     const uint32_t left = std::min(core::at(own.view.rect, 0), extent.width);
     const uint32_t top = std::min(core::at(own.view.rect, 1), extent.height);
     const uint32_t width = std::min(core::at(own.view.rect, 2), extent.width - left);
@@ -551,13 +641,14 @@ public:
         state.bound = BoundState{}; // (the inputs pushed afresh: draw_kept's draws then keep them)
         const SurfaceLightStats before = own.stats;
         const std::size_t kept = own.kept.size();
-        draw_kept(state, true);
+        draw_kept(state);
         if (own.stats.views <= 3 || own.stats.views % 3600 == 0) {
-            get_log("vulkan: per-surface lighting: view %llu: %zu draws kept, %llu prepassed so far, %llu shaded now; %llu "
-                    "world draws into other targets, %llu buffers kept before a write so far",
+            get_log("vulkan: per-surface lighting: view %llu: %zu draws kept, %llu prepassed so far, %llu shaded now (%llu of "
+                    "them recorded again); %llu world draws into other targets, %llu buffers kept before a write so far",
                     static_cast<unsigned long long>(own.stats.views), kept,
                     static_cast<unsigned long long>(own.stats.prepassed),
                     static_cast<unsigned long long>(own.stats.shaded - before.shaded),
+                    static_cast<unsigned long long>(own.stats.recorded - before.recorded),
                     static_cast<unsigned long long>(own.stats.elsewhere),
                     static_cast<unsigned long long>(own.stats.rewritten));
         }
@@ -683,37 +774,35 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
     kept.water_material = water::current_material();
     kept.water_body = water::current_body();
     kept.water_waves = water::current_waves();
+    kept.motion = state.motion.source;
+    kept.ready = false;
     ++own.stats.kept;
-    // (the prepass finds the nearest surface the light inputs are made for: every draw that writes depth but an added or
-    // multiplied one - an alpha-blended one by its mostly opaque part; the draws are made again over a cleared depth)
+    // (water rt_water shades: recorded at the shading, its copy behind the water made then - never in the prepass)
+    if (water_candidate(state, block)) {
+        return true;
+    }
+    // Prepared once as the shading will draw it (its key with the light inputs, its pipeline, blocks and descriptors)
+    own.role = SurfaceDrawRole::kShaded;
+    const Prepared prepared = prepare_draw(state, block, call, &kept.prepared);
+    own.role = SurfaceDrawRole::kAsItComes;
+    if (prepared != Prepared::kDraw) {
+        own.kept.pop_back(); // (nothing to draw: the shading would have skipped it too)
+        --own.stats.kept;
+        return true;
+    }
+    kept.ready = true;
+    // The prepass: the nearest surface the light inputs are made for - every draw that writes depth but an added or
+    // multiplied one, an alpha-blended one by its mostly opaque part - emitted at once from the same preparation with its
+    // depth-only pipeline (no colour, no blend, no light inputs; the draws are shaded later over a cleared depth)
+    const Blend blend = blend_of(block);
     const bool writes_depth = block.render_state(GpuRenderState::kZEnable) != 0 &&
-                              block.render_state(GpuRenderState::kZWriteEnable) != 0 && blend_of(block) != Blend::kOther;
-    if (writes_depth && !water_candidate(state, block)) {
-        // the prepass: the depth alone, at once (record_draw makes its key depth alone - surface_light_finish): the kept
-        // block itself drawn with no colour, no blend and no lights (the lights' work isn't the depth's; a lit draw's
-        // alpha then its vertex colour's), then put back
-        own.prepass_blended = blend_of(block) != Blend::kNone;
-        GpuStateBlock& depth_only = kept.block;
-        uint32_t& write = core::at(depth_only.render_states, core::to_underlying(GpuRenderState::kColourWriteEnable));
-        uint32_t& blend = core::at(depth_only.render_states, core::to_underlying(GpuRenderState::kAlphaBlendEnable));
-        uint32_t& lighting = core::at(depth_only.render_states, core::to_underlying(GpuRenderState::kLighting));
-        const uint32_t write_was = write;
-        const uint32_t blend_was = blend;
-        const uint32_t lighting_was = lighting;
-        const uint32_t lights_was = depth_only.lights_enabled;
-        write = 0;
-        blend = 0;
-        lighting = 0;
-        depth_only.lights_enabled = 0;
-        own.role = SurfaceDrawRole::kPrepass;
-        (void)record_draw(state, depth_only, call);
-        own.role = SurfaceDrawRole::kAsItComes;
-        write = write_was;
-        blend = blend_was;
-        lighting = lighting_was;
-        depth_only.lights_enabled = lights_was;
-        kept.prepassed = true;
-        ++own.stats.prepassed;
+                              block.render_state(GpuRenderState::kZWriteEnable) != 0 && blend != Blend::kOther;
+    if (writes_depth) {
+        const VkPipeline depth = depth_pipeline(state, kept.prepared.key, blend != Blend::kNone);
+        if (depth != VK_NULL_HANDLE) {
+            emit_draw(state, kept.prepared, {.pipeline = depth, .light_inputs = false});
+            ++own.stats.prepassed;
+        }
     }
     return true;
 }
@@ -746,16 +835,9 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
     *out = {};
     LightState& own = light_state();
     FragmentKey& fragment = shaders->fragment;
-    if (own.role == SurfaceDrawRole::kPrepass) {
-        // (its vertex half kept: the shaded draw's, so both put every vertex at the same depth)
-        fragment.surface = 0;
-        fragment.detail = 0;
-        fragment.trails = 0;
-        fragment.water = 0;
-        fragment.light = static_cast<uint8_t>(kLightDepthOnly | (own.prepass_blended ? kLightDepthHalf : 0U));
-        return;
-    }
-    if (own.role != SurfaceDrawRole::kShaded || own.inputs.visibility == nullptr || fragment.water != 0U ||
+    // (the view's inputs' images: made when it was found lit per surface - the draws are prepared with them before the
+    // passes write them)
+    if (own.role != SurfaceDrawRole::kShaded || !own.on || own.visibility.image == VK_NULL_HANDLE || fragment.water != 0U ||
         fvf_pre_transformed(shaders->vertex.fvf) || (fragment.surface & (kSurfaceCel | kSurfaceCelHull)) != 0U) {
         return;
     }
@@ -771,8 +853,8 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
         return;
     }
     out->on = true;
-    const std::array<const Image*, 6> images{own.inputs.visibility, own.inputs.lamps, own.inputs.lamps_on,
-                                             own.inputs.depth,      own.inputs.decals, own.inputs.guides};
+    const std::array<const Image*, 6> images{&own.visibility, &own.lamps,  &own.lamps_on,
+                                             &own.depth_copy, &own.decals, &own.guides};
     // (Ray Reconstruction's guides: written while it denoises the view)
     if (ray_reconstruction_active() || own.guides_forced) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightGuides);
@@ -837,11 +919,13 @@ void surface_light_buffer_rewritten(Backend& state, VkBuffer buffer, VkDeviceSiz
         state.memory.flush(copy, 0, bytes);
     }
     for (KeptDraw& kept : own.kept) {
-        if (kept.call.vertex_buffer == buffer) {
-            kept.call.vertex_buffer = copy.buffer;
-        }
-        if (kept.call.indexed && kept.call.index_buffer == buffer) {
-            kept.call.index_buffer = copy.buffer;
+        for (DrawCall* call : {&kept.call, &kept.prepared.call}) {
+            if (call->vertex_buffer == buffer) {
+                call->vertex_buffer = copy.buffer;
+            }
+            if (call->indexed && call->index_buffer == buffer) {
+                call->index_buffer = copy.buffer;
+            }
         }
     }
     own.kept_buffers.push_back(copy);
@@ -864,6 +948,20 @@ void surface_light_forget_buffer(const void* buffer)
     for (KeptDraw& kept : light_state().kept) {
         if (buffer == nullptr || kept.cel.vertices == buffer || kept.cel.stream == buffer) {
             kept.cel = {};
+        }
+        if (buffer == nullptr || kept.motion.previous == buffer) {
+            kept.motion.previous = nullptr;
+        }
+    }
+}
+
+void surface_light_forget_image(const Image* image)
+{
+    for (KeptDraw& kept : light_state().kept) {
+        for (Image*& sampled : kept.prepared.sampled) {
+            if (sampled == image) {
+                sampled = nullptr;
+            }
         }
     }
 }
