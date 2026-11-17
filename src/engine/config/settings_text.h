@@ -227,7 +227,7 @@ inline constexpr const char* kOptHazeHelp = "Thin air for levels with no fog.";
 
 inline constexpr const char* kOptExposure = "Exposure";
 inline constexpr const char* kOptExposureAdapt = "Auto exposure";
-inline constexpr const char* kOptExposureAdaptHelp = "How far the camera adjusts to bright and dark views.";
+inline constexpr const char* kOptExposureAdaptHelp = "The camera sets its exposure to the view, within a real camera's range.";
 inline constexpr const char* kOptTonemap = "Tone curve";
 inline constexpr const char* kOptWhitePoint = "White point";
 inline constexpr const char* kOptSaturation = "Saturation";

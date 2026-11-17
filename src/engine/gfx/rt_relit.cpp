@@ -2793,16 +2793,13 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
             source = RelitLampSource::kSolved;
             const double luminance = area > 0.0F ? static_cast<double>(lamp.lumens) / (kPi * static_cast<double>(area)) : 0.0;
             lamp.luminance = static_cast<float>(luminance);
-            if (area > 0.0F && (luminance < static_cast<double>(values.least) || luminance > static_cast<double>(values.most))) {
-                // (a failed measurement: the model, not a clamp - for a luminous area one fixture of its kind has; a
-                // larger one is a lit surface, no lamp)
+            if (luminance < static_cast<double>(values.least) || luminance > static_cast<double>(values.most) || flux_out) {
+                // (a failed measurement - its surface's luminance or its flux no fixture of its kind has: the model,
+                // not a clamp - over its luminous area when that is one fixture's, else its kind's typical fixture)
                 const bool sized = area >= values.least_area && area <= values.most_area;
-                source = sized ? RelitLampSource::kImplausible : RelitLampSource::kNotAFixture;
-                model = sized;
-                if (!sized) {
-                    lamp.light = {};
-                    lamp.solved = false;
-                }
+                source = RelitLampSource::kImplausible;
+                model = true;
+                typical = !sized;
             }
         } else if (!candidate) {
             // a glow (the artists' mark of a lamp) the bake didn't tell - no edges, off in the bake by its own switch,
