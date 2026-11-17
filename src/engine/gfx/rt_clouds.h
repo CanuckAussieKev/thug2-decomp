@@ -68,11 +68,9 @@ inline constexpr double kCloudPowderLength = 60.0; // metres: the powder term's 
 inline constexpr double kCloudPowderShare = 0.5;
 inline constexpr double kCloudOpaque = 0.01;
 inline constexpr double kGameUnitsPerMetre = 39.37;            // (the game's units are inches)
-inline constexpr std::array<double, 2> kCloudWind{0.94, 0.34}; // the way the clouds drift (x, z; normalised)
 inline constexpr double kCloudDefaultCoverage = 0.5;
 inline constexpr uint32_t kCloudDefaultSteps = 64;
 inline constexpr double kCloudDefaultJitter = 0.5;
-inline constexpr double kCloudWindSpeed = 12.0; // metres a second at rt_cloud_speed 1
 
 // --- the noise --------------------------------------------------------------------------------------------------------
 // A 32-bit integer hash of a lattice point and a seed (the device's is the same operations on uint).

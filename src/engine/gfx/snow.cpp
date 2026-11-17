@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <numbers>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -686,7 +687,7 @@ void step(std::span<const Presser> pressers, double seconds, bool snowing)
         return;
     }
     own.clock += seconds;
-    own.drift += static_cast<double>(wind::kSpeed * wind::gust(static_cast<float>(std::fmod(own.clock, kGustWraps)))) * seconds;
+    own.drift += wind::near_ground_units() * static_cast<double>(wind::gust(static_cast<float>(std::fmod(own.clock, kGustWraps)))) * seconds;
     ++own.counts.steps;
     for (const Presser& presser : pressers) {
         const Ground ground = ground_at(*own.map, core::at(presser.at, 0), core::at(presser.at, 2));
@@ -756,6 +757,22 @@ double clock()
     State& own = state();
     const std::scoped_lock lock(own.mutex);
     return own.clock;
+}
+
+double extinction(double rate)
+{
+    if (!(rate > 0.0) || !std::isfinite(rate)) {
+        return 0.0;
+    }
+    constexpr double kN0 = 3800.0;     // /m^3/mm at 1 mm/h
+    constexpr double kN0Power = -0.87;
+    constexpr double kSlope = 2.55;    // /mm at 1 mm/h
+    constexpr double kSlopePower = -0.48;
+    constexpr double kSquareMillimetres = 1.0e-6; // (m^2)
+    const double n0 = kN0 * std::pow(rate, kN0Power);
+    const double slope = kSlope * std::pow(rate, kSlopePower);
+    const double swell = std::pow(1.0 / kFlakeDensity, 2.0 / 3.0); // (rho_w / rho_s)^(2/3), rho_w 1 g/cm^3
+    return std::numbers::pi * n0 * swell / (slope * slope * slope) * kSquareMillimetres;
 }
 
 double wind_drift()

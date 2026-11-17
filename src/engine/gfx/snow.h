@@ -80,6 +80,7 @@ inline constexpr float kOpenCellShare = 0.6F; // ... + this share of the cell (a
 struct Face {
     std::array<std::array<float, 3>, 3> corners{}; // world (y up)
     bool settles = true; // false: an indoor sector's face (it covers what is under it, holds no snow)
+    uint8_t terrain = 0; // (round W - the air's transport) the face's terrain index (the game's terrain table's)
 };
 // A cell: its top's height (16 bits over [low, low + span], 0: no face over the cell - open sky down to nothing) and
 // the cover there (16 bits, 0 - 1) - as the backend's RG16 texture holds it.
@@ -228,8 +229,26 @@ void step(std::span<const Presser> pressers, double seconds, bool snowing);
 void read_trails(const std::function<void(const TrailField& field)>& reader);
 [[nodiscard]] std::vector<SprayParticle> live_spray();
 [[nodiscard]] double clock();
-// How far the level's wind (engine/gfx/wind.h) has carried the falling snow since the session began (world units
-// downwind: its gusting speed added up step by step on the snow's clock - the flakes' drift, the same every run).
+// (round W) The falling snow in the air - one value every consumer reads (the fog's march: rt_volume_light.h
+// precipitation_extinction; the snow's own haze when the fog doesn't march): its extinction from the snowfall's rate.
+// The flakes' sizes: Gunn and Marshall 1958 (J. Meteorology 15, 'The distribution with size of aggregate snowflakes'),
+// N(D) = N0 e^(-L D), N0 = 3800 R^-0.87 /m^3/mm, L = 2.55 R^-0.48 /mm, D a flake melted into a drop (mm), R the rate as
+// water (mm/h); a flake's own diameter D (rho_w / rho_s)^(1/3) - dry aggregates' bulk density about 0.05 g/cm^3 (Magono
+// and Nakamura 1965: 0.01 - 0.2); geometric optics (extinction efficiency 2): sigma = 2 pi/4 int Ds^2 N dD =
+// pi N0 (rho_w / rho_s)^(2/3) / L^3. 1 mm/h: 5.3e-3 /m - a visibility (Koschmieder, 2%) of 740 m: moderate snow by the
+// visibility it leaves (0.5 - 1 km - the US Federal Meteorological Handbook No. 1's intensities). snowfall=1 and the
+// game's own scripted snow are a moderate snowfall: kSnowfallRate.
+inline constexpr double kSnowfallRate = 1.0;      // mm/h of water
+// (round W) Where lying snow reaches: the precipitation occlusion map traced straight down (the sky's reach) - not along
+// the falling flakes' wind-slanted path: flakes follow the air and settle where it slows (a wall's lee gathers a drift,
+// it is not a dry shadow as it is for rain), so the wind's slant would bare exactly the places that fill. The drifting
+// itself (deposition by the wind's speed) is not modelled.
+inline constexpr std::array<double, 3> kSettleDirection{0.0, -1.0, 0.0};
+inline constexpr double kFlakeDensity = 0.05;     // g/cm^3: a dry aggregate's bulk density
+[[nodiscard]] double extinction(double rate);     // per metre
+// How far the level's wind (engine/gfx/wind.h: the weather's at kNearGround in the open) has carried the falling snow
+// since the session began (world units downwind: its gusting speed added up step by step on the snow's clock - the
+// flakes' drift, the same every run for one wind).
 [[nodiscard]] double wind_drift();
 // The winter sky's cloud cover while there is snow (round S: the weather's coverage - day_clock sets it as rt_clouds.h's
 // CloudCoverSource::kSnow; the one cloud model then dims the light, draws the deck and casts its shadows):

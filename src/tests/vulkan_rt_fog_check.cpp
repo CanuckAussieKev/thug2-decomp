@@ -1879,11 +1879,12 @@ void run_air_model(Tally* tally)
                                   "aureole's half width at half its peak %.1f degrees",
                                   g, mean, half));
     }
-    // the precipitation: light snow about 3 km of visibility; (changed by the rain) rain by its drops at the rate
+    // the precipitation: (round W) snow by its flakes at the snowfall's rate (engine/gfx/snow.h extinction - the moderate
+    // 1 mm/h: about 740 m); (changed by the rain) rain by its drops at the rate
     // (engine/gfx/rain.h - the game's own rain as moderate, 4 mm/h: about 4.5 km; a heavy 12 mm/h: about 2.25 km)
     const double moderate = rt::kKoschmieder / rt::precipitation_extinction({.rain = true});
     const double heavy = rt::kKoschmieder / rt::precipitation_extinction({.rain_rate = render::rain::kHeavyRate});
-    tally->check(std::abs((rt::kKoschmieder / rt::precipitation_extinction({.snow = true})) - 3260.0) < 100.0 &&
+    tally->check(std::abs((rt::kKoschmieder / rt::precipitation_extinction({.snow = true})) - 737.0) < 20.0 &&
                      std::abs(moderate - 4470.0) < 100.0 && std::abs(heavy - 2250.0) < 100.0 &&
                      rt::precipitation_extinction({}) == 0.0,
                  text::format("  falling snow: %.1f km of visibility, rain (moderate) %.2f km, heavy %.2f km",

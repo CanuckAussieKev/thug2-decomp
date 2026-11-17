@@ -55,6 +55,7 @@
 #include "gpu_vulkan/vulkan_grass.h"
 #include "gpu_vulkan/vulkan_scatter.h"
 #include "gpu_vulkan/vulkan_paint.h"
+#include "gpu_vulkan/vulkan_air.h"
 #include "gpu_vulkan/vulkan_precip.h"
 #include "gpu_vulkan/vulkan_rain.h"
 #include "gpu_vulkan/vulkan_snow.h"
@@ -479,7 +480,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     }
     constexpr std::size_t kWaterWrites = 5; // (NOT ORIGINAL - rt_water's: kWaterUniformsBinding - kWaterWavesBinding)
     constexpr std::size_t kDetailWrites = 2; // (NOT ORIGINAL - rt_detail's: kDetailUniformsBinding, kDetailMapBinding)
-    constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the scene)
+    constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the map)
     constexpr std::size_t kPaintWrites = 3;  // (NOT ORIGINAL - paint's: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetWrites = 2;    // (NOT ORIGINAL - rain's: kWetUniformsBinding, kWetMapBinding)
     std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites>
@@ -571,17 +572,13 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
         sky.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         sky.pImageInfo = &snow.sky;
     }
-    // (NOT ORIGINAL - snow traced: the frame's scene at the cel shading's binding, unless a cel draw pushed it already)
-    const VkWriteDescriptorSetAccelerationStructureKHR snow_scene{
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-        .pNext = nullptr,
-        .accelerationStructureCount = 1,
-        .pAccelerationStructures = &snow.scene};
-    if (snow.on && snow.scene != VK_NULL_HANDLE && !(surface.cel && surface.scene != VK_NULL_HANDLE)) {
-        VkWriteDescriptorSet& traced = core::at(writes, count++);
-        traced.pNext = &snow_scene;
-        traced.dstBinding = kCelSceneBinding;
-        traced.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    // (NOT ORIGINAL - round W: the snow's reach - the precipitation occlusion map at the rain's binding, unless the wet
+    // ground pushes it below)
+    if (snow.on && snow.map_on && !wet.on) {
+        VkWriteDescriptorSet& map = core::at(writes, count++);
+        map.dstBinding = kWetMapBinding;
+        map.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        map.pImageInfo = &snow.map;
     }
     if (paint.on) { // (NOT ORIGINAL - paint: its block, the coats and their places)
         VkWriteDescriptorSet& block = core::at(writes, count++);
@@ -1179,6 +1176,7 @@ void release_draw_objects(Backend& state)
     release_paint(state); // (NOT ORIGINAL - the paint trails': vulkan_paint.h)
     release_rain(state); // (NOT ORIGINAL - the rain's: vulkan_rain.h)
     release_precip(state); // (NOT ORIGINAL - the precipitation occlusion map: vulkan_precip.h)
+    release_air(state);    // (NOT ORIGINAL - round W: the air's window, vulkan_air.h)
     release_scatter(state); // (NOT ORIGINAL - the decals' and clutter's: vulkan_scatter.h)
     release_cel(state); // (NOT ORIGINAL - cel shading's outlines: vulkan_cel_draw.h)
     release_water(state); // (NOT ORIGINAL - rt_water's: vulkan_water.h)

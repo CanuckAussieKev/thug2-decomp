@@ -10,7 +10,7 @@
 #include "gpu_vulkan/vulkan_rt_sky.h"
 
 // NOT ORIGINAL - a modern sky (docs/design/vulkan.md "The sky"; [Graphics] rt_sky, rt_clouds,
-// rt_cloud_coverage, rt_cloud_speed, rt_cloud_quality, rt_cloud_shadows - gpu_vulkan.h's RtSkySettings). With rt_sky=1
+// rt_cloud_coverage, rt_cloud_quality, rt_cloud_shadows - gpu_vulkan.h's RtSkySettings). With rt_sky=1
 // render_pc draws the level's sky dome as before, then tells this listener (rt::sky_view_drawn, ViewOrder::kSky), which
 // draws over every pixel the world left empty (the depth's far value) - before the sky scene's transparent layers (kept
 // only without clouds: painted cloud cards, haze bands, glows) and before every other effect:

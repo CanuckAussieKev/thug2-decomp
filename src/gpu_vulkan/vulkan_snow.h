@@ -74,11 +74,15 @@ inline constexpr float kSnowSwirl = 16.0F;         // the gusts' eddies: how far
 inline constexpr float kSnowRoll = 26.0F;          // ... and round their rolls along it (up and down)
 inline constexpr float kSnowSkyReach = 4000.0F;    // the traced rays straight up: a surface or flake open this far
 inline constexpr float kSnowSunReach = 6000.0F;    // a flake's ray toward the light
-inline constexpr float kSnowHazeStart = 250.0F;    // the falling snow's haze: from here out ...
-inline constexpr float kSnowHazeExtinction = 3.2e-4F; // ... this a unit (half the light through at about 2400 units)
+inline constexpr float kSnowHazeStart = 250.0F;    // the falling snow's haze (snow::extinction - the one value): from here out
 inline constexpr float kSnowHazeSky = 9000.0F;     // the sky's distance through it
-inline constexpr float kSnowAlbedo = 0.86F;         // the snow's colour before its light (the game's white 1)
-inline constexpr float kSnowPackedShade = 0.8F;     // a trail's packed snow against the powder
+// (round W) the snow's albedo: the material table's fresh snow (rt_material_table.h - Warren 1982); a trail's packed
+// snow is the table's packed snow, lit through the same light model (rt_brdf.h)
+inline constexpr float kSnowAlbedo = 0.86F;
+static_assert(kSnowAlbedo == 0.5F * (0.8F + 0.92F), "the table's fresh snow");
+// (round W) the flakes' phase function (Henyey-Greenstein): ice crystals and aggregates scatter forward, asymmetry
+// about 0.75 (Liou 2002, An Introduction to Atmospheric Radiation, ice crystals' g 0.75 - 0.85 in the visible)
+inline constexpr float kSnowPhaseG = 0.75F;
 inline constexpr uint32_t kSnowGridQuads = 128;     // the layer: a level's cells a side (a level twice the last's cell) ...
 inline constexpr float kSnowLayerReach = 1500.0F;   // ... as many levels as reach this far (units: its height faded out
                                                     // from 0.6 of it - the flat cover beyond)
@@ -94,7 +98,8 @@ struct SnowDescriptors {
     bool on = false;
     VkDescriptorBufferInfo block{};
     VkDescriptorImageInfo sky{};
-    VkAccelerationStructureKHR scene = VK_NULL_HANDLE; // (kTrailSnowTraced: the frame's TLAS at kCelSceneBinding)
+    bool map_on = false;          // (round W - kTrailSnowTraced: the precipitation occlusion map at kWetMapBinding)
+    VkDescriptorImageInfo map{};
     Buffer* stream = nullptr; // (kTrailSnowTint: the relit world's stream, bound as the cel shading's)
 };
 // The draw's key with the snow's cover where it takes it (snow on, the sky map on the device, a draw render_pc marked as
@@ -163,6 +168,26 @@ struct FlakePlace {
     bool near = false;            // one of the near box's
 };
 [[nodiscard]] FlakePlace flake_place(uint32_t index, const FlakeClock& clock, const std::array<float, 3>& camera);
+
+// (round W) The layer's light - its fragment shader's twin (the check's), traced: `ground` the snow-covered ground's
+// radiance as the world drew it (the frame's linear light), `sun` the direct light per unit of N.L toward `l`, its
+// visibility from the ground (`ground_seen`) and from the layer (`layer_seen`), `shape` the ground's normal, `n` the
+// layer's, `v` toward the eye, `ao` the layer's hollows' shade, `packed` 0 - 1. Lit through rt_brdf.h with the material
+// table's snow: the ground's light less its sunlight round the layer as round an even hemisphere, the sun by its own
+// visibility.
+struct SnowLayerInput {
+    std::array<float, 3> ground{};
+    std::array<float, 3> sun{};
+    std::array<float, 3> l{0.0F, 1.0F, 0.0F};
+    float ground_seen = 1.0F;
+    float layer_seen = 1.0F;
+    std::array<float, 3> shape{0.0F, 1.0F, 0.0F};
+    std::array<float, 3> n{0.0F, 1.0F, 0.0F};
+    std::array<float, 3> v{0.0F, 1.0F, 0.0F};
+    float ao = 1.0F;
+    float packed = 0.0F;
+};
+[[nodiscard]] std::array<float, 3> snow_layer_light(const SnowLayerInput& in);
 
 // The objects released (the device's shutdown; the caller holds the lock).
 void release_snow(Backend& state);

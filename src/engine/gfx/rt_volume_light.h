@@ -45,10 +45,10 @@ inline constexpr double kUnitsPerMetre = 39.37; // (the world's units are inches
 // --- (changed by the physical air) what falls through the air: the weather's precipitation ---------------------------
 // The haze, the mist and the air's molecules are the atmosphere's (rt_sky.h - the weather picked by rt_fog_air); falling
 // rain and snow add a grey extinction near the ground (their drops and flakes scatter forward as the aerosol does),
-// thinning by e every kPrecipitationHeight: light snowfall about 3 km of visibility. (changed by the rain) The rain's is
+// thinning by e every kPrecipitationHeight. (round W) The snow's is its flakes' (engine/gfx/snow.h extinction - Gunn and
+// Marshall's flakes at the snowfall's rate: 740 m at the moderate 1 mm/h). (changed by the rain) The rain's is
 // its drops' (engine/gfx/rain.h extinction - Marshall-Palmer's drops at the rate, geometric optics): [Graphics] rain's
 // rate, or the game's own scripted rain taken as moderate (rain::kModerateRate: about 4.5 km).
-inline constexpr double kSnowExtinction = 1.2e-3; // per metre
 inline constexpr double kPrecipitationHeight = 60.0; // metres
 // What the weather puts in the air: render_pc publishes it each frame from the game's weather, the snow's and the rain's
 // settings.

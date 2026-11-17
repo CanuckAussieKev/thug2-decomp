@@ -310,9 +310,7 @@ double impact_rate(double rate, double least)
 
 double wind_at(double wind_10m, double height)
 {
-    constexpr double kReference = 10.0;
-    const double z = std::max(height, kRoughnessLength * 1.01);
-    return std::max(wind_10m, 0.0) * std::log(z / kRoughnessLength) / std::log(kReference / kRoughnessLength);
+    return wind::profile(wind_10m, height);
 }
 
 Fall fall(double rate, double wind_10m, const std::array<double, 2>& downwind)

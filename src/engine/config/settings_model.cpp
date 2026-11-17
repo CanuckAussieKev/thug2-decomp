@@ -565,8 +565,7 @@ std::vector<Decl> declarations()
             .tab(G::kSurfaces, t::kOptWaterWind, t::kOptWindHelp)
             .pick({c("auto", t::kAuto), c("0", "Still"), c("2", "Light air"), c("5", "Breeze"), c("9", "Fresh"),
                    c("14", "Strong")})
-            .need(on("rt_water"))
-            .live(E::kWater),
+            .live(E::kWater), // (round W: the one wind - water, grass, clutter, snow, rain and clouds; not only rt_water's)
         // (retired by the physical waves: the waves' height and the wind's strength and way are the weather's wind over
         // each body - rt_wind)
         gfx("rt_water_waves", K::kNumber, "1").retire(t::kRetiredWaves),
@@ -608,7 +607,7 @@ std::vector<Decl> declarations()
             .pick({c("0", t::kLow), c("1", t::kMedium), c("2", t::kHigh)})
             .need(on("rt_clouds"))
             .live(E::kSky),
-        gfx("rt_cloud_speed", K::kNumber, "1").need(on("rt_clouds")).live(E::kSky),
+        gfx("rt_cloud_speed", K::kNumber, "1").retire(t::kRetiredCloudSpeed), // (round W: the one wind)
         gfx("rt_cloud_shadows", K::kSwitch, "0").need(on("rt_clouds")).live(E::kSky),
         gfx("rt_sky_match", K::kNumber, "0.8").retire(t::kRetired), // (the sky is the time of day's atmosphere alone)
         gfx("rt_sky_model", K::kSwitch, "0").tab(G::kSky, t::kOptSkyModel, t::kOptSkyModelHelp).need(ray_tracing()).live(E::kSun),

@@ -1,6 +1,8 @@
 // NOT ORIGINAL - grass: the blades over the level's grass ground (vulkan_grass.h; docs/design/vulkan.md "Grass").
 #include "gpu_vulkan/vulkan_grass.h"
 
+#include "gpu_vulkan/vulkan_air.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -55,7 +57,8 @@ constexpr uint32_t kBindingParams = 2;  // the view's block (uniform, in the rin
 constexpr uint32_t kBindingSource = 3;  // the viewport's colour copied out (sampled)
 constexpr uint32_t kBindingDepth = 4;   // the depth (sampled; the source when there is no samplable depth)
 constexpr uint32_t kBindingProbe = 5;   // the probe's answers (storage)
-constexpr uint32_t kBindingCount = 6;
+constexpr uint32_t kBindingAir = 6;     // (round W) the air's window (sampled - vulkan_air.h)
+constexpr uint32_t kBindingCount = 7;
 constexpr std::size_t kColourBytes = 8; // (a blade's colour)
 constexpr uint32_t kTimerPairs = 8;
 constexpr uint64_t kTimingLogEvery = 300;
@@ -76,15 +79,6 @@ constexpr float kRanks = 256.0F;
 constexpr float kShadeSteps = 127.0F;
 constexpr float kTiny = 1.0e-3F;
 constexpr float kHalf = 0.5F;
-// the wind's two waves: their speeds (radians a second), how they move over the ground (radians a unit), their mix
-constexpr float kWindSpeedA = 1.9F;
-constexpr float kWindSpeedB = 0.73F;
-constexpr float kWindAlongX = 0.0047F;
-constexpr float kWindAlongZ = 0.0031F;
-constexpr float kWindStretchB = 2.3F;
-constexpr float kWindShiftB = 1.7F;
-constexpr float kWindShareA = 0.6F;
-constexpr float kWindShareB = 0.4F;
 constexpr double kWindClockWraps = 3600.0; // (seconds: the clock kept small, a float's steps fine)
 constexpr float kClipSpan = 2.0F;          // (clip space from -1 to 1)
 constexpr double kBytesPerMegabyte = 1024.0 * 1024.0;
@@ -120,7 +114,8 @@ std::string constants_source()
     define("GROW_BAND", kGrassGrowBand);
     define("FADE_START", kGrassFadeStart);
     define("LEAN", kGrassLean);
-    define("WIND", kGrassWind);
+    define("UNITS_PER_METRE", kGrassUnitsPerMetre);
+    define("WIND_GUST_SHARE", wind::gust_share());
     define("PUSH", kGrassPush);
     define("PUSH_HEIGHT", kGrassPushHeight);
     define("MOST_BEND", kGrassMostBend);
@@ -132,16 +127,9 @@ std::string constants_source()
     define("MATCH_SLACK", kGrassMatchSlack);
     define("LEARN", kGrassLearn);
     define("CONTROL_BEND", kControlBend);
-    define("WIND_X", core::at(kGrassWindDirection, 0));
-    define("WIND_Z", core::at(kGrassWindDirection, 1));
-    define("WIND_SPEED_A", kWindSpeedA);
-    define("WIND_SPEED_B", kWindSpeedB);
-    define("WIND_ALONG_X", kWindAlongX);
-    define("WIND_ALONG_Z", kWindAlongZ);
-    define("WIND_STRETCH_B", kWindStretchB);
-    define("WIND_SHIFT_B", kWindShiftB);
-    define("WIND_SHARE_A", kWindShareA);
-    define("WIND_SHARE_B", kWindShareB);
+    define("WIND_X", core::at(wind::kDirection, 0));
+    define("WIND_Z", core::at(wind::kDirection, 1));
+    out += wind::wind_glsl();
     return out;
 }
 
@@ -154,14 +142,17 @@ layout(std140, set = 0, binding = 2) uniform Params {
     mat4 vp_before;        // the frame before's, unjittered (the motion)
     vec4 camera;           // xyz; w: the wind's clock (seconds)
     vec4 lod;              // x: the distance; y: the near distance (every blade); z: the share kept's scale; w: a pixel
-    vec4 blade;            // x: the base height
+    vec4 blade;            // x: the base height; y: the wind near the ground in the open (m/s, wind.h)
     vec4 rect;             // the viewport: x, y, width, height (pixels)
     vec4 offsets;          // x, y: Direct3D 9's half pixel (1 / the size); z, w: the jitter (clip space)
     vec4 depth_projection; // P22, P32, P23, P33
     vec4 depth_map;        // x: the depth range's minimum; y: 1 / its span; z: 1 with a depth; w: 1 probing
     ivec4 counts;          // x: the pushers
     vec4 pushers[8];       // xyz where, w the reach
+    vec4 air;              // (round W) the air's window's origin (vulkan_air.h; w 1 with one)
 } p;
+layout(set = 0, binding = 6) uniform sampler2D u_air;
+AIR_GLSL
 layout(push_constant) uniform Range { uvec4 range; } pc; // first, count, segments
 
 const float TAU = 6.28318530718;
@@ -209,10 +200,13 @@ Shape blade_shape(vec4 b, float known)
     }
     vec2 lean = vec2(-across.y, across.x);
     vec2 bend = lean * (LEAN * (hash * 2.0 - 1.0) * h);
-    float phase = s.root.x * WIND_ALONG_X + s.root.z * WIND_ALONG_Z;
-    float wave = sin(p.camera.w * WIND_SPEED_A + phase) * WIND_SHARE_A +
-                 sin(p.camera.w * WIND_SPEED_B + phase * WIND_STRETCH_B + WIND_SHIFT_B) * WIND_SHARE_B;
-    bend += vec2(WIND_X, WIND_Z) * (WIND * h * (0.5 + 0.5 * wave));
+    // (round W) the wind at the blade: the one wind near the ground x the air's share here x its gusts, carried downwind at
+    // its speed (frozen turbulence: a gust reaches a place downwind later)
+    float speed = p.blade.y * air_wind(s.root + vec3(0.0, h, 0.0));
+    float carried = p.blade.y * UNITS_PER_METRE;
+    float along = dot(s.root.xz, vec2(WIND_X, WIND_Z));
+    float u = speed * wind_gust(p.camera.w - (carried > 0.0 ? along / carried : 0.0));
+    bend += vec2(WIND_X, WIND_Z) * (grass_wind_bend(h / UNITS_PER_METRE, u) * h);
     for (int k = 0; k < p.counts.x && k < 8; ++k) {
         vec4 q = p.pushers[k];
         vec2 away = s.root.xz - q.xz;
@@ -384,8 +378,9 @@ struct ParamsBlock {
     std::array<float, 4> depth_map{};
     std::array<int32_t, 4> counts{};
     std::array<std::array<float, 4>, grass::kMostPushers> pushers{};
+    std::array<float, 4> air{}; // (round W) the air's window's origin
 };
-constexpr std::size_t kParamsBytes = 384;
+constexpr std::size_t kParamsBytes = 400;
 static_assert(sizeof(ParamsBlock) == kParamsBytes, "the shaders' Params block");
 
 struct RangeConstants {
@@ -576,6 +571,7 @@ GrassView grass_view(const GrassSettings& settings, const rt::ViewDrawn& view, u
     const float scale = std::abs(core::at(core::at(projection, 1), 1));
     made.pixel = scale > 0.0F && height_pixels > 0 ? kClipSpan / (scale * static_cast<float>(height_pixels)) : 0.0F;
     made.seconds = static_cast<float>(std::fmod(view.game_seconds, kWindClockWraps));
+    made.wind = static_cast<float>(wind::speed_at_height(wind::kNearGround));
     return made;
 }
 
@@ -589,6 +585,27 @@ float grass_keep(const GrassView& view, float distance)
 float grass_fade(const GrassView& view, float distance)
 {
     return 1.0F - smoothstep(kGrassFadeStart * view.distance, view.distance, distance);
+}
+
+float grass_wind_bend(float height_m, float near_ground)
+{
+    const float z0 = kGrassRoughnessShare * height_m;
+    const float tip = height_m > z0 && near_ground > 0.0F
+                          ? near_ground * std::log(height_m / z0) / std::log(static_cast<float>(wind::kNearGround) / z0)
+                          : 0.0F;
+    const float d = kGrassBendCoefficient * tip * tip * height_m * height_m * height_m;
+    return d / std::sqrt(1.0F + (d * d));
+}
+
+std::string grass_bend_glsl()
+{
+    return "\n// (vulkan_grass.h grass_wind_bend's twin: a leaf blade a cantilever bent by the wind's drag)\n"
+           "float grass_wind_bend(float height_m, float u)\n{\n"
+           "    float z0 = " + glsl_float(kGrassRoughnessShare) + " * height_m;\n"
+           "    float tip = height_m > z0 && u > 0.0 ? u * log(height_m / z0) / log(" + glsl_float(static_cast<float>(wind::kNearGround)) +
+           " / z0) : 0.0;\n"
+           "    float d = " + glsl_float(kGrassBendCoefficient) + " * tip * tip * height_m * height_m * height_m;\n"
+           "    return d / sqrt(1.0 + d * d);\n}\n";
 }
 
 GrassShape grass_blade_shape(const grass::Blade& blade, const GrassView& view, std::span<const grass::Pusher> pushers,
@@ -624,12 +641,14 @@ GrassShape grass_blade_shape(const grass::Blade& blade, const GrassView& view, s
     const Vec2 lean{-core::at(across, 1), core::at(across, 0)};
     const float own = kGrassLean * ((hash * 2.0F) - 1.0F) * tall_now;
     Vec2 bend{core::at(lean, 0) * own, core::at(lean, 1) * own};
-    const float phase = (core::at(blade.root, 0) * kWindAlongX) + (core::at(blade.root, 2) * kWindAlongZ);
-    const float wave = (std::sin((view.seconds * kWindSpeedA) + phase) * kWindShareA) +
-                       (std::sin((view.seconds * kWindSpeedB) + (phase * kWindStretchB) + kWindShiftB) * kWindShareB);
-    const float sway = kGrassWind * tall_now * (kHalf + (kHalf * wave));
-    core::at(bend, 0) += core::at(kGrassWindDirection, 0) * sway;
-    core::at(bend, 1) += core::at(kGrassWindDirection, 1) * sway;
+    // (round W) the wind at the blade (the check's twin: the level's air taken as open - the shader samples its window)
+    const float carried = view.wind * kGrassUnitsPerMetre;
+    const float along =
+        (core::at(blade.root, 0) * core::at(wind::kDirection, 0)) + (core::at(blade.root, 2) * core::at(wind::kDirection, 1));
+    const float u = view.wind * wind::gust(view.seconds - (carried > 0.0F ? along / carried : 0.0F));
+    const float sway = grass_wind_bend(tall_now / kGrassUnitsPerMetre, u) * tall_now;
+    core::at(bend, 0) += core::at(wind::kDirection, 0) * sway;
+    core::at(bend, 1) += core::at(wind::kDirection, 1) * sway;
     for (std::size_t k = 0; k < std::min(pushers.size(), grass::kMostPushers); ++k) {
         const grass::Pusher& pusher = core::at(pushers, k);
         const Vec2 away{core::at(blade.root, 0) - core::at(pusher.at, 0),
@@ -810,7 +829,10 @@ std::string source_of(const char* body, bool writes_colours, const char* define)
     source += writes_colours ? "#define COLOURS_ACCESS\n" : "#define COLOURS_ACCESS readonly\n";
     source += constants_source();
     source += rt::kDisplayTransferGlsl; // (round F: the frame is linear light)
-    source += kCommon;
+    std::string common = kCommon;
+    const std::size_t air = common.find("AIR_GLSL");
+    common.replace(air, std::string("AIR_GLSL").size(), air_map_glsl("u_air", "p.air") + grass_bend_glsl());
+    source += common;
     source += body;
     return source;
 }
@@ -853,7 +875,7 @@ bool make_layouts(Backend& state, std::string* error)
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         if (binding == kBindingParams) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        } else if (binding == kBindingSource || binding == kBindingDepth) {
+        } else if (binding == kBindingSource || binding == kBindingDepth || binding == kBindingAir) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         }
         core::at(bindings, binding) = {.binding = binding,
@@ -1162,6 +1184,7 @@ struct ViewPlan {
     GrassView shape;
     std::vector<GrassDraw> draws;
     uint32_t blades = 0;
+    std::array<float, 4> air{}; // (round W) the air's window's origin (vulkan_air.h)
 };
 
 // The view's block: its camera, the blades' shape, the depth's mapping, the pushers.
@@ -1178,7 +1201,8 @@ ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::Vie
     block.camera = {core::at(plan.shape.camera, 0), core::at(plan.shape.camera, 1), core::at(plan.shape.camera, 2),
                     plan.shape.seconds};
     block.lod = {plan.shape.distance, plan.shape.distance * kGrassNearShare, plan.shape.keep_scale, plan.shape.pixel};
-    block.blade = {plan.shape.height, 0.0F, 0.0F, 0.0F};
+    block.blade = {plan.shape.height, plan.shape.wind, 0.0F, 0.0F};
+    block.air = plan.air;
     block.rect = {static_cast<float>(core::at(plan.rect, 0)), static_cast<float>(core::at(plan.rect, 1)),
                   static_cast<float>(core::at(plan.rect, 2)), static_cast<float>(core::at(plan.rect, 3))};
     block.offsets = {core::at(plan.rect, 2) != 0 ? 1.0F / static_cast<float>(core::at(plan.rect, 2)) : 0.0F,
@@ -1220,6 +1244,7 @@ struct Bound {
     const Image* source = nullptr;
     const Image* depth = nullptr; // (DEPTH_STENCIL_READ_ONLY_OPTIMAL; null: the source in its place)
     const DeviceBuffer* probe = nullptr;
+    VkDescriptorImageInfo air{}; // (round W: the air's window - vulkan_air.h)
 };
 
 void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const Bound& bound)
@@ -1260,6 +1285,15 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
             write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             write.pImageInfo = &core::at(images, which);
         }
+    }
+    const VkDescriptorImageInfo air = bound.air;
+    {
+        VkWriteDescriptorSet& write = writes.emplace_back();
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstBinding = kBindingAir;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.pImageInfo = &air;
     }
     if (bound.probe != nullptr) {
         probe = {.buffer = bound.probe->buffer, .offset = 0, .range = VK_WHOLE_SIZE};
@@ -1467,6 +1501,8 @@ bool plan_view(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
     }
     plan->motion = motion_wanted(state, colour_surface, colour) && state.motion.image.image != VK_NULL_HANDLE;
     plan->shape = grass_view(own.settings, view, core::at(plan->rect, 3));
+    update_air_map(state, view.camera.position); // (round W: the level's air round the camera)
+    plan->air = air_map(state).origin;
     plan->draws = plan_grass_draws(*own.field, &plan->shape, &plan->blades);
     return !plan->draws.empty();
 }
@@ -1528,7 +1564,7 @@ void record_draws(Backend& state, VkCommandBuffer commands, VkPipeline pipeline,
                               .maxDepth = std::clamp(core::at(view.depth_range, 1), 0.0F, 1.0F)};
     vkCmdSetViewport(commands, 0, 1, &viewport);
     vkCmdSetScissor(commands, 0, 1, &area);
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, {.params = params});
+    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, {.params = params, .air = air_map(state).image});
     for (const GrassDraw& draw : plan.draws) {
         push_range(commands, draw.first, draw.count, draw.segments);
         vkCmdDraw(commands, (draw.segments * 2) + 1, draw.count, 0, draw.first);
@@ -1611,7 +1647,10 @@ bool record_grass_pass(Backend& state, const rt::ViewDrawn& view)
     const bool multisampled_depth = plan.sampled_depth && plan.depth->samples != VK_SAMPLE_COUNT_1_BIT;
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.gather, multisampled_depth ? 1 : 0));
     push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
-                     {.params = *params, .source = &own.source, .depth = plan.sampled_depth ? plan.depth : nullptr});
+                     {.params = *params,
+                      .source = &own.source,
+                      .depth = plan.sampled_depth ? plan.depth : nullptr,
+                      .air = air_map(state).image});
     for (const GrassDraw& draw : plan.draws) {
         push_range(commands, draw.first, draw.count, draw.segments);
         vkCmdDispatch(commands, (draw.count + kGroupSize - 1) / kGroupSize, 1, 1);
@@ -1656,6 +1695,7 @@ bool probe_grass(Backend& state, const rt::ViewDrawn& view, uint32_t first, uint
     ViewPlan plan;
     plan.rect = view.rect;
     plan.shape = grass_view(own.settings, view, std::max(core::at(view.rect, 3), 1U));
+    plan.air = air_map(state).origin;
     const std::optional<VkDescriptorBufferInfo> params = block_in_ring(state, params_for(state, plan, view, true));
     DeviceBuffer answers;
     const VkDeviceSize bytes = static_cast<VkDeviceSize>(count) * sizeof(std::array<float, 4>);
@@ -1666,7 +1706,7 @@ bool probe_grass(Backend& state, const rt::ViewDrawn& view, uint32_t first, uint
     }
     VkCommandBuffer commands = outside_pass(state);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.probe);
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE, {.params = *params, .probe = &answers});
+    push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE, {.params = *params, .probe = &answers, .air = air_map(state).image});
     push_range(commands, first, count, 0);
     vkCmdDispatch(commands, (count + kGroupSize - 1) / kGroupSize, 1, 1);
     memory_barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,

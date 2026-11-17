@@ -34,7 +34,8 @@
 // (kMeshVertices each, the kind's - leaf, paper, can, weed, pebble), depth-tested and written, into the colour, depth
 // (and the upscaler's motion). An item's colour: pebbles the ground's own colour (+-20%); the rest their own (a leaf's
 // autumn colours, a weed's green, paper, a can's label) x the ground's light (its luminance over kClutterGroundAlbedo) x
-// the mesh's shading. Leaves and weeds sway in the wind (their height's share). The level of detail: every item out to
+// the mesh's shading. Leaves and weeds bend in the wind (round W: as the grass's
+// blades - vulkan_grass.h grass_wind_bend - in the one wind x the level's air at them, vulkan_air.h). The level of detail: every item out to
 // kClutterNearShare of the distance, then (near / d)^kClutterKeepPower of them (by rank); each shrinks into the ground
 // from kClutterFadeStart of the distance to all of it.
 namespace render::vulkan {
@@ -62,6 +63,7 @@ struct ScatterView {
     std::array<float, 3> camera{};
     float keep_scale = 1.0F; // (lowered when a view has more than kClutterMostDrawn items)
     float seconds = 0.0F;    // the wind's clock
+    float wind = 0.0F;       // (round W) the wind near the ground in the open now (m/s, wind.h kNearGround)
 };
 [[nodiscard]] ScatterView scatter_view(const rt::ViewDrawn& view);
 

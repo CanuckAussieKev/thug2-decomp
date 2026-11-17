@@ -201,7 +201,13 @@ struct SnowUniforms {
                      // light coat is whole (snow::slope_cover's kLeastUp, kCoatUp)
     Float4 albedo{}; // rgb: the snow's colour (before its light); w: how far the edge's noise moves the slope's rule
     Float4 slope{};  // x, y: the up share where the coat thickens and where it is full (kThinUp, kFullUp); z: the light
-                     // coat's share (kCoatShare); w: how far up the traced visibility's rays reach (units)
+                     // coat's share (kCoatShare); w: unused
+    // (round W) where the falling snow reaches: the precipitation occlusion map's (precip_occlusion.h reached_glsl -
+    // kTrailSnowTraced reads it at kWetMapBinding, the rain's binding: one map)
+    Float4 precip_fall{};
+    Float4 precip_slant{};
+    Float4 precip_near{};
+    Float4 precip_far{};
 };
 
 // (NOT ORIGINAL - [Graphics] paint_trails) Binding 19, the paint's coat (fragment shader): one per view, vulkan_paint.cpp
@@ -233,6 +239,6 @@ static_assert(sizeof(CelUniforms) == kCelVectors * kVectorBytes, "std140: no pad
 constexpr std::size_t kWaterVectors = 13;
 static_assert(sizeof(WaterUniforms) == (3 * kMatrixBytes) + (kWaterVectors * kVectorBytes), "std140: no padding");
 static_assert(sizeof(DetailUniforms) == 5 * kVectorBytes, "std140: no padding");
-static_assert(sizeof(SnowUniforms) == kMatrixBytes + (5 * kVectorBytes), "std140: no padding");
+static_assert(sizeof(SnowUniforms) == kMatrixBytes + (9 * kVectorBytes), "std140: no padding");
 
 } // namespace render::vulkan

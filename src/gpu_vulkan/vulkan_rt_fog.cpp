@@ -3131,6 +3131,8 @@ RtFogSettings rt_fog_settings()
     return fog_state().settings;
 }
 
+bool rt_fog_on_locked(const Backend& /*state*/) { return fog_state().settings.on; }
+
 void rt_fog_set_scene(VkAccelerationStructureKHR tlas)
 {
     const std::scoped_lock lock(backend().mutex);

@@ -214,10 +214,11 @@ constexpr uint8_t kDetailKnown = kDetailMaterial | kDetailRelief | kDetailCharac
 // (PaintUniforms at kPaintUniformsBinding, the coats and their places at kPaintCoatBinding / kPaintPlaceBinding), over
 // the snow's. The vertex half's `surface` has kVertexSurfaceInputs with it (the eye-space position handed on). A byte
 // of the two spares: the key stays 52 bytes, and 0 leaves its bytes - and its shaders - exactly as before.
-// kTrailSnowTraced (with kTrailSnow, on a device with ray tracing and a scene to trace): whether the surface is open to
-// the sky is a ray query straight up through the frame's scene (the TLAS at kCelSceneBinding: the level and the
-// cut-out casters - trees, awnings -, not the objects), so a surface under anything drawn holds no snow and one open to
-// the sky does, however steep or near something else; without it the sky map's cells (the collision seen from above).
+// kTrailSnowTraced (with kTrailSnow, the precipitation occlusion map traced this frame - a device with ray tracing): where
+// the falling snow reaches is the map's (round W - engine/gfx/precip_occlusion.h, the rain's and the snow's one map at
+// kWetMapBinding: the lines of fall slanted by the wind, traced through the level and the cut-out casters - trees,
+// awnings -, not the objects), so a surface under anything drawn or in a wall's lee holds no snow; without it the sky
+// map's cells (the collision seen from above).
 constexpr uint8_t kTrailSnow = 1;
 constexpr uint8_t kTrailPaint = 2;
 constexpr uint8_t kTrailSnowTraced = 4;

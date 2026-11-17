@@ -26,6 +26,7 @@
 //     absorbed again - by how much of the surface the water holds.
 // The GLSL twin of the surface's part is surface_glsl (the world shader's and the wet mask's - one function).
 
+#include "engine/gfx/wind.h"
 #include <array>
 #include <cstdint>
 #include <span>
@@ -71,9 +72,9 @@ inline constexpr double kMostDiameter = 6.0;                         // mm
 [[nodiscard]] double impact_rate(double rate, double least = kLeastDiameter); // drops a square metre a second
 
 // --- the wind on them -------------------------------------------------------------------------------------------------
-inline constexpr double kRoughnessLength = 0.5; // metres: a town's scattered buildings (Davenport's "very rough")
-inline constexpr double kDropHeight = 2.0;      // metres: where the rain is seen - round the eye
-// The 10 m wind (m/s) at `height` metres by the neutral log profile.
+inline constexpr double kRoughnessLength = wind::kRoughness; // (round W: the one wind's profile - engine/gfx/wind.h)
+inline constexpr double kDropHeight = wind::kNearGround;      // metres: where the rain is seen - round the eye
+// The 10 m wind (m/s) at `height` metres by the neutral log profile (wind::profile).
 [[nodiscard]] double wind_at(double wind_10m, double height);
 // How the rain falls now: the median-volume drop's fall speed against the wind at kDropHeight (`wind_10m` m/s blowing
 // along `downwind`, x and z, unit length). `direction` the way a drop moves (world, y down negative, unit length);

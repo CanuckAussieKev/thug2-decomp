@@ -48,6 +48,7 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/grass.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/wind.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -863,6 +864,7 @@ void check_shapes(render::Gpu& gpu, Tally* tally)
     const render::rt::ViewDrawn near_view = view_of({.eye = kEye, .at = kLookAt, .seconds = kSeconds});
     std::vector<std::array<float, 4>> pushed;
     std::vector<std::array<float, 4>> free;
+    render::wind::set_wind_setting(0.0); // (round W: the push against the blades' own lean - the wind's bend after)
     const bool probed = probe(near_view, pusher, &pushed) && probe(near_view, {}, &free);
     tally->check(probed && pushed.size() == field.blades.size(), "the device's shapes read back");
     if (!probed) {
@@ -904,6 +906,35 @@ void check_shapes(render::Gpu& gpu, Tally* tally)
     tally->check(worst < kShapeTolerance && not_finite == 0,
                  text::format("every tip and height within %.4f units of the twin (%zu blades), %d not finite",
                               static_cast<double>(worst), field.blades.size(), not_finite));
+    // (round W) the wind: a blade a cantilever bent by its drag - in a breeze (5 m/s at 10 m) every tip further downwind than
+    // in still air, by the twin's own bend
+    render::wind::set_wind_setting(render::wind::kClearWind);
+    std::vector<std::array<float, 4>> windy;
+    const bool blown = probe(near_view, {}, &windy) && windy.size() == field.blades.size();
+    const vk::GrassView windy_view = vk::grass_view(kDefaults, near_view, kHeight);
+    double downwind_still = 0.0;
+    double downwind_blown = 0.0;
+    float windy_worst = 0.0F;
+    for (std::size_t index = 0; blown && index < field.blades.size(); ++index) {
+        const grass::Blade& blade = core::at(field.blades, index);
+        const vk::GrassShape twin = vk::grass_blade_shape(blade, windy_view, {}, 1.0F);
+        const std::array<float, 4>& got = core::at(windy, index);
+        windy_worst = std::max({windy_worst, std::abs(core::at(got, 0) - core::at(twin.tip, 0)), std::abs(core::at(got, 2) - core::at(twin.tip, 2))});
+        const auto along = [&](const std::array<float, 4>& tip) {
+            return static_cast<double>(((core::at(tip, 0) - core::at(blade.root, 0)) * core::at(render::wind::kDirection, 0)) +
+                                       ((core::at(tip, 2) - core::at(blade.root, 2)) * core::at(render::wind::kDirection, 1)));
+        };
+        downwind_still += along(core::at(free, index));
+        downwind_blown += along(got);
+    }
+    const float bend = vk::grass_wind_bend(0.15F, static_cast<float>(render::wind::speed_at_height(render::wind::kNearGround)));
+    tally->check(blown && windy_worst < kShapeTolerance && downwind_blown > downwind_still + (0.05 * field.blades.size()) && bend > 0.1F &&
+                     bend < 0.95F,
+                 text::format("in a 5 m/s breeze the tips lean downwind (%.2f units a blade more than in still air; twin within %.4f); "
+                              "a 15 cm blade bends %.2f of its height",
+                              (downwind_blown - downwind_still) / static_cast<double>(std::max<std::size_t>(field.blades.size(), 1)),
+                              static_cast<double>(windy_worst), static_cast<double>(bend)));
+    render::wind::set_wind_setting(render::wind::kWindAuto);
     tally->check(pushed_blades > kLeastPushed && pushed_wrong == 0,
                  text::format("the %d blades within the skater's reach bent away from him (%d not)", pushed_blades,
                               pushed_wrong));

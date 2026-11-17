@@ -58,6 +58,7 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_snow.cpp
     vulkan_rain.cpp
     vulkan_precip.cpp
+    vulkan_air.cpp
     vulkan_surface_trail.cpp
     vulkan_paint.cpp
     vulkan_scatter.cpp

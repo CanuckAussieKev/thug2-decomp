@@ -23,9 +23,14 @@
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/snow.h"
+#include "engine/gfx/rain.h"
+#include "engine/gfx/rt_brdf.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/wind.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/vulkan_precip.h"
+#include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_cel_draw.h"
@@ -79,7 +84,6 @@ constexpr uint32_t kStripVertices = 4;
 constexpr uint32_t kGridVertices = (kSnowGridQuads + 1) * (kSnowGridQuads + 1);
 constexpr uint32_t kGridIndices = kSnowGridQuads * kSnowGridQuads * kQuadVertices;
 static_assert(kGridVertices <= 65536, "the grid's indices in 16 bits");
-constexpr float kAmbientShare = 1.0F - rt::kDirectShare;
 
 // --- the shaders ---------------------------------------------------------------------------------------------------
 
@@ -117,7 +121,11 @@ std::string constants_source()
     define("BANK_RING_1", std::get<1>(snow::kBankRings));
     define("BANK_RING_2", std::get<2>(snow::kBankRings));
     define("GRAVITY", snow::kSprayGravity);
-    define("PACKED_SHADE", kSnowPackedShade);
+    define("PACKED_ALBEDO", rt::material_albedo(rt::MaterialKind::kSnowPacked));
+    define("FRESH_ROUGHNESS", rt::material_values(rt::MaterialKind::kSnow).roughness);
+    define("PACKED_ROUGHNESS", rt::material_values(rt::MaterialKind::kSnowPacked).roughness);
+    define("ICE_F0", std::get<0>(rt::material_f0(rt::MaterialKind::kSnow)));
+    define("PHASE_G", kSnowPhaseG);
     define("LIFT", kSnowLift);
     define("FLAKE_BOX", kSnowFlakeBox);
     define("FLAKE_HEIGHT", kSnowFlakeHeight);
@@ -135,7 +143,6 @@ std::string constants_source()
     define("MOTION_SHARE", kSnowMotionShare);
     define("SWIRL", kSnowSwirl);
     define("ROLL", kSnowRoll);
-    define("WIND_SPEED", wind::kSpeed);
     define("ALBEDO", kSnowAlbedo);
     return out;
 }
@@ -152,26 +159,37 @@ layout(std140, set = 0, binding = 0) uniform Block {
     vec4 snow;             // x: the depth; y: the layer's reach (units: its height faded out by there); z, w: unused
     vec4 sky_map;          // x, y: the first cell's corner (x, z); z: a cell's size; w: unused
     vec4 sky_range;        // x: the heights' low; y: their span; z, w: the map's columns and rows
-    vec4 light;            // xyz: toward the light; w: its direct share
-    vec4 light_colour;     // rgb: the direct light's colour (x the share); w: the sky's share (the ambient)
+    vec4 light;            // xyz: toward the light (the sun or the moon); w: 1 when the clock's light state is known
+    vec4 light_colour;     // rgb: the direct light per unit of N.L (rt::DayLight sun_light: linear, pre-exposed; 0
+                           // without the clock); w: unused
     vec4 rect;             // the viewport: x, y, width, height (pixels)
     vec4 offsets;          // x, y: Direct3D 9's half pixel (1 / the size); z, w: the jitter (clip space)
     vec4 depth_projection; // P22, P32, P23, P33
     vec4 depth_map;        // x: the depth range's minimum; y: 1 / its span; z: 1 with a depth; w: unused
     vec4 right;            // xyz: the camera's right (world)
     vec4 up;               // xyz: the camera's up (world)
-    vec4 flake;            // rgb: snow's colour in the light now; w: the flakes drawn
+    vec4 flake;            // rgb: open snow's radiance in the light now (the spray's); w: the flakes drawn
     vec4 wind;             // x, z: downwind; y: the near flakes' drift (units, wrapped); w: the far flakes'
-    vec4 sky_light;        // rgb: the sky's light on the snow (x its share); w: unused
+    vec4 sky_light;        // rgb: the sky's light on a level surface (rt::DayLight sky_light; without the clock the level's
+                           // own light, 1); w: unused
     vec4 lens;             // x: the focal length (pixels); y: the aperture (units); z: the focus (units); w: the least
                            // radius drawn (pixels)
-    vec4 haze;             // rgb: the falling snow's haze's light; w: its extinction a unit (0: none)
+    vec4 haze;             // rgb: the falling snow's in-scattered light from the sky and the ground (radiance); w: its
+                           // extinction a unit (snow::extinction - the fog's march's too; 0: none)
     vec4 haze_range;       // x: where the haze starts (units); y: the sky's distance (units); z, w: unused
     vec4 before;           // x: the snow's clock since the frame before (seconds); y: the wind's drift since (units);
-                           // z: unused; w: the wind's strength now (wind::gust)
+                           // z: the wind's speed near the ground (units a second, wind.h); w: its strength now
+                           // (wind::gust)
 } p;
 layout(set = 0, binding = 1) uniform sampler2D u_sky;
 layout(set = 0, binding = 2) uniform sampler2D u_trails;
+// (round W) the falling snow's phase function x 4 pi (Henyey-Greenstein, PHASE_G: ice scatters forward) - the flakes'
+// and the haze's direct light
+float snow_phase(float cosine)
+{
+    float g2 = PHASE_G * PHASE_G;
+    return (1.0 - g2) / pow(max(1.0 + g2 - 2.0 * PHASE_G * cosine, 1.0e-4), 1.5);
+}
 // tile: x, y the gather's tile's first texel (x, z); grid: the layer's level - its middle (x, z), its cell (units); hole: the
 // level inside it - its middle (x, z), half its side (0: none)
 layout(push_constant) uniform Tile { ivec4 tile; vec4 grid; vec4 hole; } pc;
@@ -344,8 +362,8 @@ void main()
     int n = int(p.trails.y);
     // (its slot: the texel modulo the window, for a negative texel too - GLSL's % is undefined for negative operands)
     ivec2 slot = texel - n * ivec2(floor(vec2(texel) / float(n)));
-    // (round F) kept as the snow's own model reads it: the display's colours (the frame holds linear light)
-    imageStore(u_colours, slot, vec4(display_from_linear(finite_colour(colour)), 1.0));
+    // (round W) kept as the frame holds it: linear light (the layer and the flakes light the snow from it)
+    imageStore(u_colours, slot, vec4(finite_colour(colour), 1.0));
 }
 )";
 
@@ -363,6 +381,7 @@ layout(location = 4) out vec4 v_shape;
 layout(location = 5) out vec4 v_now;
 layout(location = 6) out vec4 v_before;
 #endif
+layout(location = 7) out vec2 v_sun; // (round W) the light's visibility at the ground under it and at the layer (-1: not traced)
 out gl_PerVertex { vec4 gl_Position; };
 #ifdef TRACED
 layout(set = 0, binding = 7) uniform accelerationStructureEXT u_scene;
@@ -435,6 +454,17 @@ void main()
     v_snow = snow;
     v_step = s.z < 0.5 || rise > cut || (s.w > 0.5 && rise > STEP_HEIGHT) ? 1.0 : 0.0;
     v_shape = vec4(n, ao);
+    // (round W) the direct light's visibility: from the ground the snow lies on (what lit the ground drawn under the
+    // layer - the gather's colour) and from the layer's own top (what lights it), the casters the shadows' (0x07)
+    v_sun = vec2(-1.0);
+#ifdef TRACED
+    if (p.light.w > 0.5 && p.light.y > 0.0) {
+        v_sun.x = blocked(vec3(xz.x, s.x + 1.0, xz.y), p.light.xyz, FLAKE_SUN_REACH, 0x07u) ? 0.0 : 1.0;
+        v_sun.y = blocked(world + vec3(0.0, 0.5, 0.0), p.light.xyz, FLAKE_SUN_REACH, 0x07u) ? 0.0 : 1.0;
+    } else {
+        v_sun = vec2(0.0);
+    }
+#endif
     vec4 clip = p.vp * vec4(world, 1.0);
     gl_Position = to_target(clip);
 #ifdef MOTION
@@ -456,8 +486,10 @@ layout(location = 5) in vec4 v_now;
 layout(location = 6) in vec4 v_before;
 layout(location = 1) out vec4 o_motion;
 #endif
+layout(location = 7) in vec2 v_sun;
 layout(set = 0, binding = 4) uniform sampler2D u_source;
 layout(set = 0, binding = 6) uniform sampler2D u_seen;
+BRDF_GLSL
 
 // The trails' relief: the layer's height where they pressed it, against the snow's own (the surface's shape is v_shape's)
 float height_at(vec2 xz)
@@ -504,22 +536,40 @@ void main()
         }
         packed = trail_at(xz).r * inside;
     }
-    float direct = p.light.w;
-    float flat_light = (1.0 - direct) + direct * max(l.y, 0.0);
-    float own_light = (1.0 - direct) * ao * (0.6 + 0.4 * n.y) + direct * max(dot(n, l), 0.0) * mix(0.35, 1.0, lit);
-    float turn = mix(1.0, own_light / max(flat_light, 0.05), 0.8);
-    // the ground's colour under it: the colour the gather saw there (in the trails' window); else - and never seen - what
-    // is behind this pixel (the covered ground a little further on). Never what is behind where the gather saw the
-    // ground: that may be what the snow buries (a skater's shins, a pole's foot), not the ground
+    // (round W - the audit's S1: the layer lit through the one light model, rt_brdf.h, by the frame's one light) The
+    // ground's colour under it: the colour the gather saw there (in the trails' window); else - and never seen - what is
+    // behind this pixel (the covered ground a little further on). Never what is behind where the gather saw the ground:
+    // that may be what the snow buries (a skater's shins, a pole's foot), not the ground. It is the snow-covered ground as
+    // the world drew it - lit by the light store (the sky, the bounce, the lamps), the sun and its traced shadow: over the
+    // snow's albedo, the light that ground took.
     vec4 seen = inside > 0.0 ? texture(u_seen, xz / (p.trails.x * p.trails.y)) : vec4(0.0);
-    vec3 behind = display_from_linear(finite_colour(texelFetch(u_source, ivec2(gl_FragCoord.xy), 0).rgb)); // (round F)
+    vec3 behind = finite_colour(texelFetch(u_source, ivec2(gl_FragCoord.xy), 0).rgb);
     vec3 base = seen.a > 0.05 ? mix(behind, seen.rgb / seen.a, inside) : behind;
-    vec3 colour = base * clamp(turn, 0.4, 1.5) * mix(1.0, PACKED_SHADE, packed);
+    vec3 ground_light = base / ALBEDO;
+    vec3 sun = p.light.w > 0.5 ? p.light_colour.rgb : vec3(0.0);
+    float ground_facing = max(dot(shape, l), 0.0);
     vec3 v = normalize(p.camera.xyz - v_world);
-    vec3 h = normalize(l + v);
-    colour += p.light_colour.rgb * (0.3 * packed * lit * pow(max(dot(n, h), 0.0), 40.0));
-    // (round F: the layer's own model - display-referred, the audit's S1 - decoded to the frame's linear light)
-    o_colour = vec4(linear_from_display(finite_colour(colour)), 1.0);
+    // the light from everything but the sun (the sky, the bounce, the lamps): the ground's less its sunlight, round the
+    // layer's surface as round an even hemisphere (1 + n.up) / 2 against the ground's, in the layer's own hollows' shade
+    vec3 around;
+    float seen_sun;
+    if (v_sun.x >= 0.0) {
+        around = max(ground_light - sun * (v_sun.x * ground_facing), vec3(0.0));
+        seen_sun = v_sun.y * lit;
+    } else {
+        // (not traced: the ground's own shadow isn't known - the ground's light split as the open sky would: its sun share
+        // the clock's, the same shade over the layer)
+        vec3 open = sun * ground_facing + p.sky_light.rgb;
+        vec3 sun_share = open.r + open.g + open.b > 0.0 ? sun * ground_facing / max(open, vec3(1.0e-6)) : vec3(0.0);
+        around = ground_light * (vec3(1.0) - sun_share);
+        seen_sun = lit * clamp(dot(ground_light, vec3(1.0)) / max(dot(open, vec3(1.0)), 1.0e-6), 0.0, 1.0);
+    }
+    vec3 ambient = around * ao * (1.0 + n.y) / max(1.0 + shape.y, 1.0e-3);
+    // the material: fresh snow, a trail's packed snow (the table's: their albedo, the ice's F0, their roughness)
+    float albedo = mix(ALBEDO, PACKED_ALBEDO, packed);
+    BrdfMaterial m = brdf_material(vec3(albedo), vec3(ICE_F0), mix(FRESH_ROUGHNESS, PACKED_ROUGHNESS, packed));
+    vec3 colour = brdf_direct(m, n, v, l, sun * seen_sun) + brdf_ambient(m, max(dot(n, v), 0.0), ambient, ambient);
+    o_colour = vec4(finite_colour(colour), 1.0);
 #ifdef MOTION
     vec2 now = v_now.xy / v_now.w;
     vec2 before = v_before.w > 0.0 ? v_before.xy / v_before.w : now;
@@ -558,8 +608,8 @@ void main()
 // fluttering. Drawn as a disc of its true size on the screen, widened by the lens's defocus near the camera and to at
 // least lens.w pixels far off, its alpha the share of the disc the flake covers (big soft near flakes, tiny faint far
 // ones). Lit by the light now (the lighting state's: the sky's light, the direct light where it reaches the flake -
-// TRACED: a ray toward it through the frame's scene - scattered forward, so flakes glint looking toward the sun or the
-// moon, each flake's own twinkle) and the snow under it as the world lit it (the lamps, the shadows, the bounce). Not
+// TRACED: a ray toward it through the frame's scene - scattered by ice's phase function, so flakes glint looking toward
+// the sun or the moon) and the snow under it as the world lit it (the lamps, the shadows, the bounce). Not
 // drawn under a roof (TRACED: a ray straight up; else the sky map's top over it). Each a streak along its own move on the
 // screen over the shutter's share of the frame, and (MOTION_ONLY, its second draw) its own motion for the upscaler.
 constexpr const char* kFlakeVertexBody = R"(
@@ -602,7 +652,7 @@ vec3 swirl_at(vec3 at, float t)
     vec2 downwind = vec2(p.wind.x, p.wind.z);
     vec2 across = vec2(-downwind.y, downwind.x);
     float gust = p.before.w;
-    float u = dot(at.xz, downwind) - WIND_SPEED * gust * t; // (the eddies go with the wind)
+    float u = dot(at.xz, downwind) - p.before.z * gust * t; // (the eddies go with the wind: its speed near the ground)
     float v = dot(at.xz, across);
     const float a = 6.2831853 / 260.0;
     const float b = 6.2831853 / 340.0;
@@ -683,27 +733,23 @@ void main()
 #else
     float lit = 1.0;
 #endif
-    // its light: from above the sky's and the direct light where its own ray reaches it, or more where the snow on the
-    // ground under it was lit more (the gather's colours over the snow's albedo - the lamps, the bounce: the one lighting
-    // path's own result; a ground darker than that is the ground's colour or shade, not the flake's); from below what
-    // that snow sends up (half a sphere's); and the direct light scattered forward (a glint looking toward the sun or the
-    // moon) with its twinkle
-    vec3 open_light = p.sky_light.rgb + p.light_colour.rgb * lit;
-    vec3 above = open_light;
-    vec3 ground = open_light; // (the snow under it: the light its top took - what it sends up is that x its albedo)
+    // (round W - a flake a small scatterer of single-scattering albedo about 1: its radiance the light round it averaged
+    // over the sphere - the sky's above, and what the snow under it sends up below (the ground's light the gather saw x
+    // the snow's albedo; lamps and the bounce in it) - plus the direct light by the phase function: E pi p(theta) / pi,
+    // the light's 'light' unit x snow_phase / 4)
+    vec3 sun = p.light.w > 0.5 ? p.light_colour.rgb : vec3(0.0);
+    vec3 above = p.sky_light.rgb;
+    vec3 ground = p.sky_light.rgb + sun * (lit * max(p.light.y, 0.0)); // (the open snow under it: the light its top took)
     float inside = window_fade(world.xz);
     if (inside > 0.0) {
         vec4 seen = textureLod(u_seen, world.xz / (p.trails.x * p.trails.y), 0.0);
         if (seen.a > 0.05) {
             ground = mix(ground, seen.rgb / (seen.a * ALBEDO), inside);
-            above = max(above, ground);
+            // (a ground lit more than the sky and the sun light it - lamps, the bounce - lights the air round it too)
+            above = max(above, ground - sun * (lit * max(p.light.y, 0.0)));
         }
     }
-    float forward = pow(max(dot(view, p.light.xyz), 0.0), 10.0);
-    float twinkle = 1.0 + 1.2 * pow(0.5 + 0.5 * sin(t * (6.0 + 9.0 * hp) + hs * 60.0), 24.0);
-    // (lit from above as the open ground is, and from below by the snow under it - which the ground itself isn't: a flake
-    // reads brighter than the snow behind it)
-    vec3 light = above + 0.5 * ALBEDO * ground + p.light_colour.rgb * (lit * 2.4 * forward * twinkle);
+    vec3 light = 0.5 * (above + ALBEDO * ground) + sun * (lit * 0.25 * snow_phase(dot(view, p.light.xyz)));
 #endif
     // its size on the screen: the true disc (most flakes small, a few big), widened by the defocus, at least lens.w pixels
     vec4 clip = p.vp * vec4(world, 1.0);
@@ -784,7 +830,7 @@ void main()
     o_colour = vec4(0.0);
     o_motion = vec4(v_motion, 0.0, 0.0);
 #else
-    o_colour = vec4(linear_from_display(finite_colour(v_colour.rgb)), alpha); // (round F: display-referred light decoded)
+    o_colour = vec4(finite_colour(v_colour.rgb), alpha); // (round W: the flakes' and the spray's light is linear)
 #ifdef MOTION
 #ifdef FLAKES
     o_motion = vec4(0.0, 0.0, alpha >= MOTION_SHARE ? 0.5 * alpha : alpha, 0.0);
@@ -829,7 +875,14 @@ void main()
     float distance = d >= 1.0 ? p.haze_range.y : min(linear_depth(d), p.haze_range.y);
     float tau = p.haze.w * max(distance - p.haze_range.x, 0.0);
     float through = exp(-min(tau, 40.0));
-    o_colour = vec4(linear_from_display(finite_colour(p.haze.rgb)) * (1.0 - through), through); // (round F)
+    // (round W) the medium's light: the flakes' (the sky's and the snow's below, and the direct light by the phase function
+    // along this pixel's view)
+    vec2 ndc = ((gl_FragCoord.xy - p.rect.xy) * p.offsets.xy) * 2.0 - 1.0;
+    vec4 far_point = p.vp_inverse * vec4(ndc.x, -ndc.y, 0.5, 1.0);
+    vec3 view = normalize(far_point.xyz / far_point.w - p.camera.xyz);
+    vec3 sun = p.light.w > 0.5 ? p.light_colour.rgb : vec3(0.0);
+    vec3 light = p.haze.rgb + sun * (0.25 * snow_phase(dot(view, p.light.xyz)));
+    o_colour = vec4(finite_colour(light) * (1.0 - through), through);
 }
 )";
 
@@ -892,12 +945,14 @@ struct DrawPipeline {
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
-// The light the snow is turned to (the cover's own light is the world's: this is only the layer's and the air's).
+// (round W) The frame's one light as the layer and the air read it (the cover's own light is the world's): the clock's
+// lighting state (rt::DayLight - linear, pre-exposed, the global unit); without the clock (the level keeping the
+// original's look) no direct light is separated - the level's own light, 1, all round.
 struct SnowLight {
     std::array<float, 3> toward{0.0F, 1.0F, 0.0F};
-    float direct = rt::kDirectShare;
-    std::array<float, 3> colour{1.0F, 1.0F, 1.0F}; // the direct light (x the share)
-    std::array<float, 3> ambient{kAmbientShare, kAmbientShare, kAmbientShare};
+    bool physical = false;
+    std::array<float, 3> sun{};                  // the direct light per unit of N.L
+    std::array<float, 3> sky{1.0F, 1.0F, 1.0F};  // the sky's light on a level surface
 };
 
 struct SnowState {
@@ -1080,11 +1135,9 @@ SnowLight snow_light()
     if (day.on) {
         toward = day.light;
         found = true;
-        for (std::size_t c = 0; c < 3; ++c) {
-            // (the level's own shares: the model's at its sun - rt_daylight.h direct_share)
-            core::at(light.colour, c) = day.direct_share * core::at(day.light_colour, c);
-            core::at(light.ambient, c) = (1.0F - day.direct_share) * core::at(day.sky, c);
-        }
+        light.physical = true;
+        light.sun = day.sun_light;
+        light.sky = day.sky_light;
     } else if (rt::sun_override(&toward)) {
         found = true;
     } else if (rt::baked_sun().found) {
@@ -1098,11 +1151,7 @@ SnowLight snow_light()
     if (found && length > 0.0F) {
         light.toward = {core::at(toward, 0) / length, core::at(toward, 1) / length, core::at(toward, 2) / length};
     } else {
-        constexpr float kOverheadDirect = 0.4F; // (no sun known: a soft light from above)
-        light.toward = {0.0F, 1.0F, 0.0F};
-        light.direct = kOverheadDirect;
-        light.colour = {kOverheadDirect, kOverheadDirect, kOverheadDirect};
-        light.ambient = {1.0F - kOverheadDirect, 1.0F - kOverheadDirect, 1.0F - kOverheadDirect};
+        light.toward = {0.0F, 1.0F, 0.0F}; // (no sun known: nothing is separated from the level's own light)
     }
     return light;
 }
@@ -1140,7 +1189,11 @@ std::string source_of(const char* body, const char* define)
     source += constants_source();
     source += rt::kDisplayTransferGlsl; // (round F: the frame is linear light)
     source += kCommon;
-    source += body;
+    std::string text = body;
+    if (const std::size_t at = text.find("BRDF_GLSL"); at != std::string::npos) {
+        text.replace(at, std::string("BRDF_GLSL").size(), rt::brdf::brdf_glsl()); // (round W: the one light model)
+    }
+    source += text;
     return source;
 }
 
@@ -1603,7 +1656,12 @@ std::optional<VkDescriptorBufferInfo> cover_block(Backend& state)
     uniforms.range = {map->low, map->span, snow::kOpenSlack + (snow::kOpenCellShare * map->cell), 1.0F};
     uniforms.size = {static_cast<float>(map->columns), static_cast<float>(map->rows), snow::kLeastUp, snow::kCoatUp};
     uniforms.albedo = {kSnowAlbedo, kSnowAlbedo, kSnowAlbedo * 1.02F, kSnowEdgeNoise};
-    uniforms.slope = {snow::kThinUp, snow::kFullUp, snow::kCoatShare, kSnowSkyReach};
+    uniforms.slope = {snow::kThinUp, snow::kFullUp, snow::kCoatShare, 0.0F};
+    const PrecipMap reach = precip_map(state); // (round W: the one map - where the falling snow reaches)
+    uniforms.precip_fall = reach.fall;
+    uniforms.precip_slant = reach.slant;
+    uniforms.precip_near = reach.near_window;
+    uniforms.precip_far = reach.far_window;
     const void* const data = &uniforms;
     const std::optional<RingSpan> span =
         state.ring.copy(std::span(static_cast<const uint8_t*>(data), sizeof(uniforms)), state.uniform_alignment);
@@ -1697,9 +1755,8 @@ Block block_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn&
         block.sky_range = {map->low, map->span, static_cast<float>(map->columns), static_cast<float>(map->rows)};
     }
     const SnowLight light = snow_light();
-    block.light = {core::at(light.toward, 0), core::at(light.toward, 1), core::at(light.toward, 2), light.direct};
-    const float ambient = (core::at(light.ambient, 0) + core::at(light.ambient, 1) + core::at(light.ambient, 2)) / 3.0F;
-    block.light_colour = {core::at(light.colour, 0), core::at(light.colour, 1), core::at(light.colour, 2), ambient};
+    block.light = {core::at(light.toward, 0), core::at(light.toward, 1), core::at(light.toward, 2), light.physical ? 1.0F : 0.0F};
+    block.light_colour = {core::at(light.sun, 0), core::at(light.sun, 1), core::at(light.sun, 2), 0.0F};
     block.rect = {static_cast<float>(core::at(plan.rect, 0)), static_cast<float>(core::at(plan.rect, 1)),
                   static_cast<float>(core::at(plan.rect, 2)), static_cast<float>(core::at(plan.rect, 3))};
     block.offsets = {core::at(plan.rect, 2) != 0 ? 1.0F / static_cast<float>(core::at(plan.rect, 2)) : 0.0F,
@@ -1716,10 +1773,16 @@ Block block_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn&
     const auto& v = view.camera.view;
     block.right = {core::at(core::at(v, 0), 0), core::at(core::at(v, 1), 0), core::at(core::at(v, 2), 0), 0.0F};
     block.up = {core::at(core::at(v, 0), 1), core::at(core::at(v, 1), 1), core::at(core::at(v, 2), 1), 0.0F};
-    // snow's colour in the light now: the level's own light 1 (the time of day's relative to it)
+    // open snow's radiance in the light now (the spray's): the snow's albedo x the sky's and the sun's light on it
+    const float up = std::max(core::at(light.toward, 1), 0.0F);
     std::array<float, 3> flake{};
+    std::array<float, 3> haze{};
     for (std::size_t c = 0; c < 3; ++c) {
-        core::at(flake, c) = kSnowAlbedo * (core::at(light.ambient, c) + core::at(light.colour, c));
+        const float open = core::at(light.sky, c) + (core::at(light.sun, c) * up);
+        core::at(flake, c) = kSnowAlbedo * open;
+        // (the falling snow's medium: the sky above and the open snow below, averaged over the sphere - its direct light
+        // the haze shader's, by the phase function along each pixel's view)
+        core::at(haze, c) = 0.5F * (core::at(light.sky, c) + (kSnowAlbedo * open));
     }
     const float flakes = settings.falling ? static_cast<float>(kSnowMostFlakes) : 0.0F;
     block.flake = {core::at(flake, 0), core::at(flake, 1), core::at(flake, 2), flakes};
@@ -1727,24 +1790,23 @@ Block block_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn&
     const double drift = own.drift_now;
     block.wind = {core::at(wind::kDirection, 0), static_cast<float>(std::fmod(drift, static_cast<double>(kSnowNearBox))),
                   core::at(wind::kDirection, 1), static_cast<float>(std::fmod(drift, static_cast<double>(kSnowFlakeBox)))};
-    block.sky_light = {core::at(light.ambient, 0), core::at(light.ambient, 1), core::at(light.ambient, 2), 0.0F};
+    block.sky_light = {core::at(light.sky, 0), core::at(light.sky, 1), core::at(light.sky, 2), 0.0F};
     // the lens: the focal length in the view's pixels, its defocus focused on what the camera follows
     const float focal = core::at(plan.rect, 3) != 0 ? static_cast<float>(core::at(plan.rect, 3)) * kHalf *
                                                           std::abs(core::at(core::at(projection, 1), 1))
                                                     : 1.0F;
     const float focus = view.focus_known && view.focus_distance > 1.0F ? view.focus_distance : kSnowFocus;
     block.lens = {focal, kSnowAperture, focus, kSnowLeastPixels};
-    // the haze while snow falls: the snow's light, half its direct light (the falling snow shades itself)
+    // the haze while snow falls: the one snowfall's extinction (snow::extinction - the fog's march's too)
     if (settings.falling) {
-        constexpr float kHazeDirect = 0.5F;
-        block.haze = {kSnowAlbedo * (core::at(light.ambient, 0) + (kHazeDirect * core::at(light.colour, 0))),
-                      kSnowAlbedo * (core::at(light.ambient, 1) + (kHazeDirect * core::at(light.colour, 1))),
-                      kSnowAlbedo * (core::at(light.ambient, 2) + (kHazeDirect * core::at(light.colour, 2))), kSnowHazeExtinction};
+        block.haze = {core::at(haze, 0), core::at(haze, 1), core::at(haze, 2),
+                      static_cast<float>(snow::extinction(snow::kSnowfallRate) / static_cast<double>(wind::kUnitsPerMetre))};
     }
     block.haze_range = {kSnowHazeStart, kSnowHazeSky, 0.0F, 0.0F};
     // the move since the frame before (at most a tenth of a second: a pause's resume isn't a streak)
     const FlakeClock clock = flake_clock();
-    block.before = {static_cast<float>(clock.since), static_cast<float>(clock.drift_since), 0.0F, clock.gust};
+    block.before = {static_cast<float>(clock.since), static_cast<float>(clock.drift_since),
+                    static_cast<float>(wind::near_ground_units()), clock.gust};
     return block;
 }
 
@@ -2253,6 +2315,11 @@ void begin_snow_view(Backend& state, const rt::ViewDrawn& view)
     if (!upload_sky(state)) {
         return;
     }
+    // (round W) where the snow lies: the precipitation occlusion map straight down (snow::kSettleDirection) - the rain's
+    // map, along the rain's fall, while it rains (one map)
+    if (!(rain::settings().rate > 0.0)) {
+        update_precip_map(state, view, snow::kSettleDirection);
+    }
     const uint64_t frame = state.frames.serial();
     if (own.window_frame != frame) { // (the frame's first view places the window and moves the snow's clock on)
         own.window_frame = frame;
@@ -2293,9 +2360,10 @@ void snow_key(Backend& state, const GpuStateBlock& block, const DrawCall& call, 
         !surface_trail::current_ground() || fvf_pre_transformed(block.vertex_format) || shaders->fragment.water != 0U) {
         return;
     }
-    // traced: the frame's scene has something to trace (a device with ray tracing - its pipelines take ray queries)
-    const SceneView scene = state.context.ray_tracing_enabled() ? current_scene(state) : SceneView{};
-    const bool traced = scene.tlas != VK_NULL_HANDLE && scene.instances > 0;
+    // (round W) traced: where the falling snow reaches is the precipitation occlusion map's (traced this frame - a device
+    // with ray tracing); else the sky map's tops
+    const PrecipMap reach = precip_map(state);
+    const bool traced = reach.on;
     // the tint: the relit world's stream for this draw (its vertex colour the tint x the light)
     Buffer* const stream = relit_stream_of(state, call);
     ShaderKey with_snow = *shaders;
@@ -2308,9 +2376,10 @@ void snow_key(Backend& state, const GpuStateBlock& block, const DrawCall& call, 
         }
         return;
     }
-    out->scene = (with_snow.fragment.trails & kTrailSnowTraced) != 0U ? scene.tlas : VK_NULL_HANDLE;
+    out->map_on = (with_snow.fragment.trails & kTrailSnowTraced) != 0U;
+    out->map = reach.image;
     out->stream = (with_snow.fragment.trails & kTrailSnowTint) != 0U ? stream : nullptr;
-    own.stats.traced_draws += out->scene != VK_NULL_HANDLE ? 1U : 0U;
+    own.stats.traced_draws += out->map_on ? 1U : 0U;
     const std::optional<VkDescriptorBufferInfo> uniforms = cover_block(state);
     if (!uniforms) {
         return;
@@ -2447,7 +2516,8 @@ bool record_snow_air(Backend& state, const rt::ViewDrawn& view)
     // the flakes traced: a device with ray tracing and a scene with something in it
     const SceneView scene = own.scene_binding ? current_scene(state) : SceneView{};
     const bool traced = scene.tlas != VK_NULL_HANDLE && scene.instances > 0;
-    const bool haze = flakes > 0 && plan.sampled_depth;
+    // (round W: one medium - while the fog marches it takes the falling snow, rt_volume_light.h precipitation_extinction)
+    const bool haze = flakes > 0 && plan.sampled_depth && !rt_fog_on_locked(state);
     VkPipeline spray_pipeline = VK_NULL_HANDLE;
     VkPipeline flake_pipeline = VK_NULL_HANDLE;
     VkPipeline flake_motion_pipeline = VK_NULL_HANDLE;
@@ -2636,7 +2706,7 @@ std::array<float, 3> swirl_at(const std::array<float, 3>& at, float t, float gus
 {
     const float wx = core::at(wind::kDirection, 0);
     const float wz = core::at(wind::kDirection, 1);
-    const float u = ((core::at(at, 0) * wx) + (core::at(at, 2) * wz)) - (wind::kSpeed * gust * t);
+    const float u = ((core::at(at, 0) * wx) + (core::at(at, 2) * wz)) - (static_cast<float>(wind::near_ground_units()) * gust * t);
     const float v = (core::at(at, 0) * -wz) + (core::at(at, 2) * wx);
     constexpr float kTwoPi = 6.2831853F;
     const float a = kTwoPi / 260.0F;
@@ -2707,6 +2777,33 @@ FlakeClock flake_clock()
             .gust = wind::gust(static_cast<float>(std::fmod(own.clock_now, kClockWraps))),
             .since = kept,
             .drift_since = since > 0.0 ? (own.drift_now - own.drift_before) * (kept / since) : 0.0};
+}
+
+std::array<float, 3> snow_layer_light(const SnowLayerInput& in)
+{
+    namespace brdf = rt::brdf;
+    const auto vec = [](const std::array<float, 3>& a) { return brdf::Vec3{a[0], a[1], a[2]}; };
+    const float ground_facing = std::max(brdf::dot(vec(in.shape), vec(in.l)), 0.0F);
+    std::array<float, 3> ambient{};
+    std::array<float, 3> sun{};
+    const float turn = in.ao * (1.0F + in.n[1]) / std::max(1.0F + in.shape[1], 1.0e-3F);
+    for (std::size_t c = 0; c < 3; ++c) {
+        const float around = std::max((core::at(in.ground, c) / kSnowAlbedo) - (core::at(in.sun, c) * in.ground_seen * ground_facing), 0.0F);
+        core::at(ambient, c) = around * turn;
+        core::at(sun, c) = core::at(in.sun, c) * in.layer_seen;
+    }
+    const float albedo = kSnowAlbedo + ((rt::material_albedo(rt::MaterialKind::kSnowPacked) - kSnowAlbedo) * in.packed);
+    const float roughness = rt::material_values(rt::MaterialKind::kSnow).roughness +
+                            ((rt::material_values(rt::MaterialKind::kSnowPacked).roughness -
+                              rt::material_values(rt::MaterialKind::kSnow).roughness) *
+                             in.packed);
+    brdf::Material m;
+    m.albedo = {albedo, albedo, albedo};
+    m.f0 = rt::material_f0(rt::MaterialKind::kSnow);
+    m.roughness = roughness;
+    const brdf::Rgb direct = brdf::direct(m, vec(in.n), vec(in.v), vec(in.l), sun);
+    const brdf::Rgb around = brdf::ambient(m, std::max(brdf::dot(vec(in.n), vec(in.v)), 0.0F), ambient, ambient);
+    return {direct[0] + around[0], direct[1] + around[1], direct[2] + around[2]};
 }
 
 } // namespace render::vulkan
