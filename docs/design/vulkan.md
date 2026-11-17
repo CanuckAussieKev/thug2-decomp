@@ -3625,8 +3625,8 @@ The material then changes (`rain::wet_material`, its GLSL twin): the albedo unde
 surface is at most 1 (the check: exactly 1 for a white one). The seam on the one light model:
 `rain::wet_brdf_material(rt::brdf::Material, porosity, Wetness)` changes rt_brdf.h's material inputs (the check runs a
 white furnace through `brdf::specular_albedo` and the diffuse coupling over albedos, roughnesses, wetness and view angles:
-at most 1); the forward world shader applies its twin to stage 0's texel and the per-pixel roughness until its lighting
-calls brdf_*.
+at most 1); the world shader applies its twin: stage 0's texel darkened, then the per-pixel lighting's BrdfMaterial takes
+the wet roughness and its F0 goes to water's by the flat share.
 
 **The wet mask** (opaque_drawn, `rt::ViewOrder::kRain` 395 - after the decals, before the reflections): a full-screen pass
 puts the same `rain_wetness` (the depth back to the world, the normal from its neighbours) into an R8 mask - the film's or
