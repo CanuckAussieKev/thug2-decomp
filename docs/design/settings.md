@@ -60,9 +60,9 @@ and any another rule moved with it.
 - msaa and `AntiAliasing` are off while upscaling; `AntiAliasing` is out while msaa picks the samples. The AO and
   bounce denoisers are out while Ray Reconstruction cleans up. FSR's sharpening and version need FSR upscaling (or
   `auto` off an RTX).
-- `rt_pbr` needs surface maps; its knobs, `rt_relief`, `rt_detail` and `rt_characters` need it;
-  `rt_reflection_surfaces` needs reflections and `rt_pbr`. (`rt_delight` is retired: the de-lit texture sets take the
-  painted light out offline.)
+- `rt_pbr` needs surface maps; its knobs, `rt_relief`, `rt_detail` and `rt_characters` need it. (`rt_delight` is
+  retired: the de-lit texture sets take the painted light out offline; `rt_reflection_strength`, `_fresnel`,
+  `rt_glass_roughness` and `rt_reflection_surfaces` too: a reflection's weight is its material's.)
 - (the offline relit data - vulkan.md "Relit: the bake taken apart, offline") The level's facts say what it is lit
   from (`LevelFacts::light`, render_pc/rt_relit_world.cpp at each new level): `rt_relit` needs its relit data built
   (`Cap::kLevelLightData`), made from the level's meshes as they are (`kLevelLightCurrent`) and sunlight in its bake

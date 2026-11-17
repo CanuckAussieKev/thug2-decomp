@@ -214,16 +214,7 @@ render::vulkan::RtLightSettings make_rt_lights(const Resolution& in_effect)
 // NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h)
 render::vulkan::RtReflectionSettings make_rt_reflections(const Resolution& in_effect)
 {
-    return render::vulkan::RtReflectionSettings{
-        .on = in_effect.on("rt_reflections"),
-        .strength = in_effect.number("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength),
-        .fresnel = in_effect.on("rt_reflection_fresnel"),
-        .glass_roughness = in_effect.number("rt_glass_roughness", render::vulkan::kRtGlassRoughness),
-        .glass_reflectance = render::vulkan::kRtGlassReflectance,
-        // (out of effect without rt_pbr: no surface maps to say which surfaces are glossy)
-        .surfaces = in_effect.at("rt_reflection_surfaces").in_effect
-                        ? in_effect.number("rt_reflection_surfaces", render::vulkan::kRtReflectionSurfaces)
-                        : 0.0F};
+    return render::vulkan::RtReflectionSettings{.on = in_effect.on("rt_reflections")};
 }
 
 // NOT ORIGINAL - HDR rendering and tone mapping (gpu_vulkan/vulkan_hdr.h). The grading table's path is the game

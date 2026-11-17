@@ -25,6 +25,7 @@
 #include "platform/frame_profile.h"
 #include "platform/sdl_events.h"
 #include "platform/test_workspace.h"
+#include "render_pc/device.h"
 
 namespace sys {
 
@@ -73,6 +74,12 @@ void init_pc_setup()
 void fast_exit()
 {
     app_window::save_placement(); // (not original: an application's window kept as it was left - platform/app_window.h)
+    // (not original: the GPU given back - the device, then the instance - before the process ends. Destroying the
+    // instance lets the graphics API's loader unload the driver and the layers it brought in, NVIDIA's overlay and its
+    // telemetry DLLs among them, in their own order; left to ExitProcess's DLL detach, NVIDIA's telemetry API detached
+    // after its bridge DLL and read the bridge's freed memory - an access violation inside NvTelemetryBridge64 DeInit
+    // at every quit. The original released Direct3D here too, after its teardown (winmain.cpp, after game_main).)
+    os_layer::release_direct_3d();
     // (not original either: a batch run's exit code - 0 unless it failed, platform/test_workspace.h end_batch_run)
     frame_profile::flush();
     log_flush(); // (the log is written by a thread of its own: what it has not written yet, written now)

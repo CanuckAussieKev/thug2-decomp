@@ -106,9 +106,10 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot,
                                const std::array<uint32_t, rt::Material::kMaskPasses>& mask_slots = {});
 // MaterialRecord::f0 for `material` whose surface map's class gives `map_f0` (0: no map): water's reflection class wins.
 [[nodiscard]] float record_f0(const rt::Material& material, float map_f0);
-// (added for the surface reflections) A record whose material has no shine of its own (reflectivity 0) and isn't seen
-// through, its texture `colour` with a surface map: reflective as the map's gloss says (vulkan_surface.h
-// surface_map_gloss) - reflectivity the gloss, reflection class rt::kReflectSurface, f0 the map's. Otherwise unchanged.
+// (added for the surface reflections) A record whose material isn't water or glass and isn't seen through, its texture
+// `colour` with a surface map: reflective as the map's material says (vulkan_surface.h surface_map_gloss) - reflectivity
+// the gloss, reflection class rt::kReflectSurface, f0 the map's - whether or not the game gave it a shine (the reflections
+// pass adds its reflection where the light model left its own estimate out). Otherwise unchanged.
 void surface_reflection(const rt::Material& material, const Texture* colour, MaterialRecord* record);
 
 // The GLSL a shader puts right after its `#version 460` (and its own #extension lines; `#define THUG2_MATERIAL_SET n`

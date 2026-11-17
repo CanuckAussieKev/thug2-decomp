@@ -1577,9 +1577,9 @@ async function main(): Promise<number> {
     // have no strength setting (rt_shadow_strength is retired - lighting round A): a full shadow takes the lighting's
     // direct share of the light (rt_daylight.h direct_share_now - the model's: about 0.85 with the sun high in the clear
     // air), so --strength there is that share; rt_relit_strength and rt_bloom_strength are retired too (relit, sun);
-    // so are rt_ao_strength (round O: full occlusion takes the indirect light's share - 1 at most) and rt_gi_strength.
+    // so are rt_ao_strength (round O: full occlusion takes the indirect light's share - 1 at most), rt_gi_strength and
+    // rt_reflection_strength (a reflection's weight is its material's).
     const strengthKeys: Partial<Record<Effect, string>> = {
-        reflections: "Graphics.rt_reflection_strength",
         hdr: "Graphics.rt_exposure",
         fog: "Graphics.rt_fog_density",
         sky: "Graphics.rt_cloud_coverage",

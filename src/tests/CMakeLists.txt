@@ -155,6 +155,15 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_sim_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_automation_file_check.exe: the automation channel's command file read while it is appended to and
+# rewritten - simulated files and a real one written by another thread (src/tests/automation_file_check.cpp;
+# devtools/command_file.cpp reads through the game's file seam: the Win32 disk installed).
+if(TARGET thug2_fs_win32)
+    add_executable(thug2_automation_file_check automation_file_check.cpp
+        "${PROJECT_SOURCE_DIR}/src/devtools/command_file.cpp")
+    target_link_libraries(thug2_automation_file_check PRIVATE thug2_fs_win32)
+endif()
+
 # NOT ORIGINAL - thug2_crash_check.exe: the game's crash report (src/platform/crash.h) caused on purpose, a few calls
 # deep, into thug2-decomp.log next to the check (src/tests/crash_check.cpp; `thug2_crash_check [kind]`).
 if(TARGET thug2_platform)
