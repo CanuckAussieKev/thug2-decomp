@@ -367,39 +367,20 @@ bool same_direction(const rt::Vec3& a, const rt::Vec3& b) { return rt::dot(a, b)
 void check_scene_sun()
 {
     const rt::Vec3 baked{0.0F, 0.8F, 0.6F};
-    const rt::Vec3 game{0.0F, 0.34202F, -0.93969F};   // 20 degrees up
-    const rt::Vec3 low{0.0F, 0.08716F, -0.99619F};    // 5 degrees
     const rt::Vec3 fixed{0.6F, 0.8F, 0.0F};
-    const rt::Vec3 under{0.0F, -0.5F, 0.86603F};         // 30 degrees under the horizon
     const rt::Vec3 east_30{0.86603F, 0.5F, 0.0F};        // heading 90, 30 degrees up
     constexpr float kLonger = 3.0F;                      // (a direction not normalised)
     const rt::Vec3 up_long{0.0F, 2.0F, 0.0F};
-    rt::SunInputs in{.choice = {.source = rt::SunSource::kGame},
-                     .game_set = true,
-                     .game_toward = game,
+    // (round S: the game's own sun retired - the level's baked sun, or the clock's)
+    rt::SunInputs in{.choice = {.source = rt::SunSource::kLevel},
                      .baked_scene = 1,
                      .baked_found = true,
                      .baked_toward = baked,
                      .relight = {.relights = true}};
     rt::SceneSun sun = rt::resolve_scene_sun(in);
-    expect(sun.origin == rt::SunOrigin::kGame && same_direction(sun.toward, game), "scene sun: game, relit - the game's");
-    in.relight.relights = false;
-    sun = rt::resolve_scene_sun(in);
-    expect(sun.origin == rt::SunOrigin::kLevel && same_direction(sun.toward, baked),
-           "scene sun: game, not relit - the baked sun (its shadows are the bake's)");
-    in.relight = {.relights = true, .level_keeps_bake = true};
-    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel, "scene sun: game, the level's entry keeps the bake");
-    in.relight = {.relights = true};
-    in.game_toward = low;
-    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel, "scene sun: game, its sun too low - the baked sun");
-    in.game_toward = under;
-    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel, "scene sun: game, its sun under the horizon");
-    in.game_set = false;
-    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel, "scene sun: game, none shown - the baked sun");
-    in.game_set = true;
-    in.game_toward = game;
+    expect(sun.origin == rt::SunOrigin::kLevel && same_direction(sun.toward, baked), "scene sun: relit - the baked sun");
     in.baked_found = false;
-    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kNone, "scene sun: game, indoors (no baked sun) - none");
+    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kNone, "scene sun: indoors (no baked sun) - none");
     in.baked_found = true;
     in.baked_scene = 0;
     expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kWaiting, "scene sun: the fit not made yet - waiting");
@@ -425,13 +406,11 @@ void check_scene_sun()
     in.baked_scene = 1;
     in.clock_set = true;
     in.clock_toward = east_30;
-    in.choice = {.source = rt::SunSource::kGame};
-    in.relight = {.relights = true, .level_keeps_bake = true};
+    in.choice = {.source = rt::SunSource::kLevel};
+    in.relight = {.relights = true};
     sun = rt::resolve_scene_sun(in);
     expect(sun.origin == rt::SunOrigin::kClock && same_direction(sun.toward, east_30),
-           "scene sun: the clock's light above the game's (an entry's \"sun\": \"level\" is about the game's)");
-    in.choice = {.source = rt::SunSource::kLevel};
-    expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kClock, "scene sun: the clock's light above the level's");
+           "scene sun: the clock's light above the level's");
     in.relight = {};
     expect(rt::resolve_scene_sun(in).origin == rt::SunOrigin::kLevel,
            "scene sun: the clock, the level not relit yet - the baked sun");
@@ -448,7 +427,7 @@ void check_scene_sun()
     in.clock_set = false;
     // rt_sun_source's text
     rt::SunChoice choice;
-    expect(rt::parse_sun_source("game", &choice) && choice.source == rt::SunSource::kGame, "rt_sun_source=game");
+    expect(!rt::parse_sun_source("game", &choice), "rt sun source: the game's sun retired");
     expect(rt::parse_sun_source(" level ", &choice) && choice.source == rt::SunSource::kLevel, "rt_sun_source=level");
     expect(rt::parse_sun_source("bake", &choice) && choice.source == rt::SunSource::kLevel, "rt_sun_source=bake");
     expect(rt::parse_sun_source("0.6,0.8,0", &choice) && choice.source == rt::SunSource::kFixed &&

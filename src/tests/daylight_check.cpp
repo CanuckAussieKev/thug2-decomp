@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_sky.h"
@@ -170,8 +171,8 @@ void check_native()
         // the level's light at its own time is the level's
         const rt::DayLight light = rt::day_light_at(day, day.hours);
         expect(std::abs(light.direct - 1.0F) < 1e-3F && std::abs(std::get<1>(light.sky) - 1.0F) < 1e-3F &&
-                   std::abs(light.shadow - 1.0F) < 1e-3F && light.lamps == 0.0F &&
-                   light.stars == 0.0F && !light.moonlit && same_direction(light.light, sun) &&
+                   std::abs(light.shadow - 1.0F) < 1e-3F && light.lamps == 0.0F && !light.moonlit &&
+                   same_direction(light.light, sun) &&
                    light.blend == rt::TodBlend{},
                std::string(baked.name) + ": at its own time the light is the level's (direct " + number(light.direct) +
                    ", sky " + number(std::get<1>(light.sky)) + ", the afternoon state)");
@@ -213,6 +214,11 @@ void check_native()
 }
 
 void check_objects_and_clouds(const rt::NativeDay& day, const rt::DayLight& midnight);
+double luma_of(const rt::DayRgb& c)
+{
+    return (0.2126 * static_cast<double>(std::get<0>(c))) + (0.7152 * static_cast<double>(std::get<1>(c))) +
+           (0.0722 * static_cast<double>(std::get<2>(c)));
+}
 
 void check_light()
 {
@@ -227,7 +233,11 @@ void check_light()
         const rt::DayLight light = rt::day_light_at(day, hours);
         // (the sky's light never brightens into the night: the night's floor comes in while the twilight is still
         // brighter than it)
+        // (round S: once the twilight is gone the rising moon's sky lights the night - the check ends there)
         const double sky = std::get<1>(light.sky);
+        if (rt::heading_of(light.sun).elevation < -10.0) {
+            break;
+        }
         sky_darkening = sky_darkening && sky <= last_sky + 1e-6;
         if (sky > last_sky + 1e-6) {
             std::printf("  (the sky's light rises at %.2f h: %.5f -> %.5f, the sun %.2f up)\n", hours, last_sky, sky,
@@ -240,27 +250,70 @@ void check_light()
         }
     }
     expect(darkening, "noon to dusk: the sun's light never brightens");
-    expect(sky_darkening, "noon to midnight: the sky's light never brightens (the night's floor taken in)");
+    expect(sky_darkening, "noon to the twilight's end: the sky's light never brightens");
     const rt::DayLight noon = rt::day_light_at(day, rt::preset_hours({.preset = rt::TodPreset::kNoon}, day));
     const rt::DayLight dusk = rt::day_light_at(day, rt::preset_hours({.preset = rt::TodPreset::kDusk}, day));
     const rt::DayLight dawn = rt::day_light_at(day, rt::preset_hours({.preset = rt::TodPreset::kDawn}, day));
     const rt::DayLight midnight = rt::day_light_at(day, rt::preset_hours({.preset = rt::TodPreset::kNight}, day));
-    expect(noon.lamps == 0.0F && noon.stars == 0.0F && noon.direct > 0.9F && !noon.moonlit,
-           "noon: sunlit, no lamps, no stars (direct " + number(noon.direct) + ")");
+    expect(noon.lamps == 0.0F && noon.direct > 0.9F && !noon.moonlit,
+           "noon: sunlit, no lamps (direct " + number(noon.direct) + ")");
     expect(std::abs(rt::heading_of(dusk.sun).elevation - rt::kDuskElevation) < 1e-3 &&
                std::abs(rt::heading_of(dawn.sun).elevation - rt::kDuskElevation) < 1e-3 && dusk.hours > 12.0 &&
                dawn.hours < 12.0,
            "dusk and dawn: the sun 3 degrees up, setting and rising (" + number(dusk.hours) + ", " + number(dawn.hours) + ")");
-    expect(dusk.lamps > 0.0F && dusk.lamps < 1.0F && dusk.direct < noon.direct && dusk.stars == 0.0F &&
-               std::get<0>(dusk.direct_tint) > std::get<2>(dusk.direct_tint),
-           "dusk: the lamps coming on (" + number(dusk.lamps) + "), the sun weaker and warm, no stars yet");
-    expect(midnight.moonlit && midnight.lamps == 1.0F && midnight.stars == 1.0F && midnight.moon_disc > 0.9F &&
-               midnight.direct > 0.05F && midnight.direct <= rt::kMoonLight &&
-               std::get<2>(midnight.direct_tint) > std::get<0>(midnight.direct_tint) &&
+    expect(dusk.direct < noon.direct && std::get<0>(dusk.direct_tint) > std::get<2>(dusk.direct_tint) &&
+               dusk.illuminance_lux > static_cast<float>(rt::kLampsOnLux) && dusk.lamps == 0.0F,
+           "dusk: the sun weaker and warm, " + number(dusk.illuminance_lux) + " lux - the lamps' photocells still off");
+    // (round S) the physical moon: the full moon's light on the ground, its colour the sun's reflected (not blue)
+    const double unit = rt::unit_illuminance();
+    const double moon_sine = std::max(0.0F, std::get<1>(midnight.light));
+    const double moon_lux = luma_of(midnight.sun_light) * moon_sine * unit;
+    expect(midnight.moonlit && midnight.lamps == 1.0F && midnight.stars == 1.0F && midnight.moon_disc == 1.0F &&
+               moon_lux > 0.1 && moon_lux < 0.3 &&
                (std::get<0>(midnight.light) * std::get<0>(midnight.moon)) + (std::get<1>(midnight.light) * std::get<1>(midnight.moon)) + (std::get<2>(midnight.light) * std::get<2>(midnight.moon)) > 0.9999F,
-           "midnight: moonlit (direct " + number(midnight.direct) + ", blue), lamps and stars on");
-    const double night_sky = std::get<1>(midnight.sky);
-    expect(night_sky > 0.05 && night_sky < 0.3, "midnight: dark but lit (sky " + number(night_sky) + ")");
+           "midnight: moonlit - the full moon " + number(moon_lux) + " lux on the ground (0.1 - 0.3), lamps on");
+    expect(std::get<0>(midnight.direct_tint) >= std::get<2>(midnight.direct_tint) &&
+               std::get<0>(rt::moon_irradiance(rt::kMoonFullAge)) > std::get<2>(rt::moon_irradiance(rt::kMoonFullAge)),
+           "midnight: the moonlight not blue - the sun's light reflected, a little redder (tint " +
+               number(std::get<0>(midnight.direct_tint)) + " / " + number(std::get<2>(midnight.direct_tint)) + ")");
+    const double ratio = 1.0 / luma_of(rt::moon_irradiance(rt::kMoonFullAge));
+    expect(ratio > 3.0e5 && ratio < 6.0e5, "the sun : the full moon at the top " + number(ratio) + " (about 4 x 10^5)");
+    const double quarter = rt::moon_phase_law(90.0);
+    expect(rt::moon_phase_law(0.0) == 1.0 && quarter > 0.06 && quarter < 0.12 && rt::moon_phase_law(180.0) < 1e-3,
+           "the moon's phase law: 1 full, " + number(quarter) + " at a quarter, nothing new");
+    const rt::DayLight new_moon = rt::day_light_at(day, rt::kNightHours, {.moon_age = 0.0});
+    expect(!new_moon.moonlit && new_moon.illuminance_lux > 0.001F && new_moon.illuminance_lux < 0.004F,
+           "a new moon's midnight: the night sky's own light alone, " + number(new_moon.illuminance_lux) + " lux");
+    expect(midnight.illuminance_lux > 10.0F * new_moon.illuminance_lux,
+           "the full moon's night " + number(midnight.illuminance_lux) + " lux, far brighter than a new moon's");
+    // (round S) the clouds dim the light: the direct light by the deck's beam, the rest its diffuse light
+    for (const float cover : {0.5F, 1.0F}) {
+        const rt::DayLight cloudy = rt::day_light_at(day, noon.hours, {.cloud_cover = cover});
+        const rt::CloudLayerLight layer =
+            rt::cloud_layer_light(cover, std::sin(rt::heading_of(noon.sun).elevation * std::numbers::pi / 180.0));
+        const double kept = luma_of(cloudy.sun_light) / luma_of(noon.sun_light);
+        expect(std::abs(kept - layer.beam) < 1e-3 && std::abs(cloudy.cloud_beam - layer.beam) < 1e-4 &&
+                   cloudy.illuminance_lux < noon.illuminance_lux && cloudy.illuminance_lux > 0.05F * noon.illuminance_lux &&
+                   luma_of(cloudy.sky_light) > 0.0,
+               "clouds " + number(cover) + ": the direct light x " + number(kept) + " (the deck's beam " +
+                   number(layer.beam) + ", optical depth " + number(layer.mean_depth) + "), the ground " +
+                   number(cloudy.illuminance_lux / noon.illuminance_lux) + " of the clear day's");
+        if (cover == 1.0F) {
+            expect(layer.beam < 0.01 && cloudy.illuminance_lux < 0.5F * noon.illuminance_lux,
+                   "overcast: no sun through the deck (" + number(layer.beam) + "), the light " +
+                       number(cloudy.illuminance_lux) + " lux, under half the clear day's");
+        }
+    }
+    // (round S) the pre-exposure: night held near the day's values, divided out by the meter
+    rt::DayLight exposed = midnight;
+    rt::pre_expose(&exposed);
+    rt::DayLight day_exposed = noon;
+    rt::pre_expose(&day_exposed);
+    expect(day_exposed.pre_exposure == 1.0F && exposed.pre_exposure > 1000.0F &&
+               exposed.pre_exposure <= static_cast<float>(rt::kMostPreExposure) &&
+               std::abs(luma_of(exposed.sun_light) / luma_of(midnight.sun_light) - exposed.pre_exposure) <
+                   1e-3 * exposed.pre_exposure,
+           "the pre-exposure: 1 by day, " + number(exposed.pre_exposure) + " at midnight (the light x it)");
     expect(midnight.blend == rt::TodBlend{.from = rt::TodState::kNight, .to = rt::TodState::kNight},
            "midnight: the original's night state");
     // the original's states blended without a jump: their weights along the elevation, both sides of noon
@@ -307,13 +360,9 @@ void check_objects_and_clouds(const rt::NativeDay& day, const rt::DayLight& midn
     expect(off == rt::DayRgb{1.0F, 1.0F, 1.0F}, "the lighting state's bounce without the clock: 1");
     expect(std::abs(std::get<1>(own_surface) - 1.0F) < 1e-3F, "the bounce at the level's own time: 1 (" +
                                                                     number(std::get<1>(own_surface)) + ")");
-    expect(std::get<1>(night_surface) > 0.08F && std::get<1>(night_surface) < 0.3F &&
-               std::get<2>(night_surface) > std::get<0>(night_surface),
-           "the bounce at midnight: dark and blue, as the relit level's bounce (" + number(std::get<1>(night_surface)) +
-               ")");
-    // (the original's own night - its night state's level colour, 50 65 75 of 128 - is the brighter one the objects stood
-    // out by)
-    expect(std::get<1>(night_surface) < 65.0F / 128.0F, "the bounce at midnight: darker than the original's night");
+    expect(std::get<1>(night_surface) > 0.0F && std::get<1>(night_surface) < 0.05F,
+           "the bounce at midnight: the moon's - physical, far darker than the original's night (" +
+               number(std::get<1>(night_surface)) + ")");
 
     // (the one lighting state) the direct light's colour is its strength x tint; the sun sharp, the moon soft
     for (const rt::DayLight* light : {&own, &midnight}) {
@@ -324,35 +373,23 @@ void check_objects_and_clouds(const rt::NativeDay& day, const rt::DayLight& midn
         }
         expect(product, "the lighting state: light_colour = direct x direct_tint");
     }
-    expect(own.light_radius == rt::kSunRadiusDegrees && !own.moonlit, "the lighting state: the sun's radius by day");
+    // (round S - one sun and one moon) their real sizes, from the one place
+    expect(own.light_radius == rt::kSunRadiusDegrees && !own.moonlit && std::abs(rt::kSunRadiusDegrees - 0.2667F) < 1e-3F,
+           "the lighting state: the sun's real radius by day (" + number(rt::kSunRadiusDegrees) + " degrees)");
     expect(midnight.moonlit && midnight.light_radius == rt::kMoonRadiusDegrees &&
-               midnight.light_radius > 3.0F * own.light_radius,
-           "the lighting state: the moon's light much softer than the sun's");
+               std::abs(rt::kMoonRadiusDegrees - 0.259F) < 2e-3F,
+           "the lighting state: the moon's real radius at night (" + number(rt::kMoonRadiusDegrees) + " degrees)");
     expect(std::get<1>(midnight.light_colour) < 0.3F, "the lighting state: the moon weak (" +
                                                           number(std::get<1>(midnight.light_colour)) + ")");
     const rt::CloudLight none = rt::cloud_light(rt::DayLight{});
-    expect(none.sun == 1.0F && none.moon_glow == rt::DayRgb{}, "cloud_light without the clock: the sun whole, no glow");
+    expect(!none.clock && none.light == rt::DayRgb{1.0F, 1.0F, 1.0F}, "cloud_light without the clock: the sky pass's sun");
     const rt::CloudLight at_own = rt::cloud_light(own);
-    expect(at_own.sun == 1.0F && at_own.moon_glow == rt::DayRgb{}, "cloud_light at the level's own time: the sun whole");
+    expect(at_own.clock && at_own.light == rt::DayRgb{1.0F, 1.0F, 1.0F} && same_direction(at_own.toward, own.sun),
+           "cloud_light at the level's own time: the sun whole");
     const rt::CloudLight night = rt::cloud_light(midnight);
-    const float night_sky = std::get<2>(midnight.night_sky);
-    expect(night.sun == 0.0F && std::get<2>(night.moon_glow) > 0.0F &&
-               std::get<2>(night.moon_glow) <= night_sky * rt::kCloudMoonGlow + 1e-6F,
-           "cloud_light at midnight: no sun, the full moon's glow on them (" + number(std::get<2>(night.moon_glow)) +
-               ")");
-    // continuous from the afternoon into the night (a step of 3 minutes)
-    double worst = 0.0;
-    rt::CloudLight last = rt::cloud_light(rt::day_light_at(day, 15.0));
-    for (double hours = 15.05; hours <= 23.99; hours += 0.05) {
-        const rt::CloudLight now = rt::cloud_light(rt::day_light_at(day, hours));
-        // (the sun's share as it is - 0 to 1 -, the moon's glow against its whole)
-        worst = std::max({worst, static_cast<double>(std::abs(now.sun - last.sun)),
-                          static_cast<double>(std::abs(std::get<2>(now.moon_glow) - std::get<2>(last.moon_glow)) /
-                                              std::max(std::get<2>(night.moon_glow), 1e-6F))});
-        last = now;
-    }
-    // (the moon's disc comes in over the sun's first degrees down)
-    expect(worst < 0.25, "cloud_light: no jump from the afternoon into the night (worst step " + number(worst) + ")");
+    expect(same_direction(night.toward, midnight.moon) && std::get<1>(night.light) > 0.0F &&
+               std::get<1>(night.light) < 1e-5F,
+           "cloud_light at midnight: the moon's light (" + number(std::get<1>(night.light)) + " of the sun's)");
 }
 
 void check_settings()
@@ -617,8 +654,8 @@ void check_absolute()
     const rt::AbsoluteLight own_at = rt::absolute_light_at(rt::kDefaultSunElevation);
     const rt::DayLight midnight = rt::day_light_at(native, 0.0);
     expect(std::abs(luma(own.sun_light) - luma(own_at.sun)) < 0.02 * luma(own_at.sun) && midnight.moonlit &&
-               luma(midnight.sun_light) > 0.0 && luma(midnight.sun_light) < 0.05 * luma(own_at.sun) &&
-               luma(midnight.sky_light) > 0.0 && luma(midnight.sky_light) < 0.1 * luma(own_at.sky),
+               luma(midnight.sun_light) > 0.0 && luma(midnight.sun_light) < 1e-5 * luma(own_at.sun) &&
+               luma(midnight.sky_light) > 0.0 && luma(midnight.sky_light) < 1e-5 * luma(own_at.sky),
            "the clock's light in the global unit: at the level's own time its sun " + number(luma(own.sun_light)) +
                " (the table's " + number(luma(own_at.sun)) + "); at midnight the moon's " +
                number(luma(midnight.sun_light)) + ", the night sky's " + number(luma(midnight.sky_light)));

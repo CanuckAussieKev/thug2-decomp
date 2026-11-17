@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <mutex>
@@ -21,12 +22,10 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
-#include "engine/gfx/rain.h"
 #include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
-#include "engine/gfx/rt_sky_match.h"
 #include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -51,7 +50,6 @@ constexpr uint64_t kReportFirst = 0x534B5003U;
 constexpr uint64_t kReportImages = 0x534B5004U;
 constexpr uint64_t kReportNoRoom = 0x534B5005U;
 constexpr uint64_t kReportNoSun = 0x534B5006U;
-constexpr uint64_t kReportNoCapture = 0x534B5007U;
 constexpr uint64_t kReportShadows = 0x534B5008U;
 constexpr uint64_t kReportCloudMap = 0x534B5009U;
 
@@ -95,6 +93,8 @@ layout(set = 0, binding = 6) uniform SkyBlock {
     vec4 cloud_light;     // xyz toward the light it is made for (rt::medium_light), w how much of its shadow is kept
     vec4 sun_disc;        // (added by the physical air) rgb the sun's disc's centre radiance (rt_sky.h
                           // sun_disc_radiance), w its angular radius (0: none - rt_sun off)
+    vec4 moon_light;      // (round S) rgb the moon's disc's mean radiance (rt_daylight.h DayLight::moon_radiance), w its
+                          // angular radius (rt_sky.h kMoonAngularRadius)
 } sky;
 
 vec3 direction_of(vec2 p)
@@ -144,7 +144,7 @@ void main()
     ray.camera_altitude = sky.camera.w;
     ray.offset = sky.offset.xy;
     ray.direction = direction_of(low_centre(q));
-    ray.to_sun = sky.sun.xyz;
+    ray.to_sun = sky.cloud_light.xyz; // (round S: the light that lights them - the sun, or the moon at night)
     ray.coverage = sky.sun.w;
     ray.density_scale = sky.sun_light.w;
     ray.steps = sky.low.w;
@@ -219,14 +219,16 @@ layout(set = 0, binding = 12, rgba16f) uniform readonly image2D i_b;
 layout(location = 0) out vec4 o_colour;
 
 // (added by the time of day - engine/gfx/rt_daylight.h) the night's sky: the stars - cells on a cube round the celestial
-// pole, turned with the hours, one star in about STAR_SHARE of them at a hashed place, most faint, a few bright, each a
-// pixel-wide spot - and the full moon's disc with a faint glow
+// pole, turned with the hours, one star in about STAR_SHARE of them at a hashed place, each a pixel-wide spot - and the
+// moon's disc. (round S: physical) A star's magnitude by the counts' law (N(< m) grows as 10^(0.5 m): m = STAR_FAINTEST
+// + 2 log10(u), u its hash's place among the stars - Sirius' -1.4 the brightest of ~94 000), its illuminance
+// STAR_ZERO x 10^(-0.4 m) (a magnitude-0 star's, in the unit) spread over its spot's solid angle; the moon its mean
+// radiance over its true disc. Both x the frame's pre-exposure (sky.night.y); no glow (the air's forward scattering is
+// the sky's own).
 const float STAR_CELLS = 512.0;
 const float STAR_SHARE = 0.06;
-const float STAR_BRIGHT = 0.6;
-const float MOON_RADIUS = 0.009;
-const float MOON_BRIGHT = 2.0;
-const float MOON_GLOW = 0.02;
+const float STAR_FAINTEST = 8.5;
+const float STAR_CELL_ANGLE = 1.5707963 / STAR_CELLS;
 const float SUN_LIMB = 0.6; // (added by the physical air: rt_sky.h kSunLimbDarkening)
 float star_hash(vec3 p)
 {
@@ -261,15 +263,18 @@ vec3 night_light(vec3 dir, float pixel)
             vec2 centre = cell + 0.25 + 0.5 * vec2(star_hash(vec3(cell, face + 7.0)), star_hash(vec3(cell, face + 13.0)));
             float spread = max(pixel * 0.5 * STAR_CELLS, 0.05);
             float r = length(g - centre) / spread;
-            float b = pow((h - (1.0 - STAR_SHARE)) / STAR_SHARE, 6.0);
+            float u = max((h - (1.0 - STAR_SHARE)) / STAR_SHARE, 1e-6);
+            float magnitude = STAR_FAINTEST + 2.0 * log(u) / log(10.0);
+            float spot = 3.14159265 / 1.5 * (spread * STAR_CELL_ANGLE) * (spread * STAR_CELL_ANGLE);
+            float light = STAR_ZERO * pow(10.0, -0.4 * magnitude) / spot * sky.night.y;
             vec3 tint = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.9, 0.75), star_hash(vec3(cell, face + 3.0)));
-            add += tint * (STAR_BRIGHT * b * sky.night.x) * exp(-r * r * 1.5) * smoothstep(0.0, 0.08, dir.y);
+            add += tint * (light * sky.night.x) * exp(-r * r * 1.5) * smoothstep(0.0, 0.08, dir.y);
         }
     }
     if (sky.moon.w > 0.0) {
         float angle = acos(clamp(dot(dir, sky.moon.xyz), -1.0, 1.0));
-        float disc = 1.0 - smoothstep(MOON_RADIUS - pixel, MOON_RADIUS + pixel, angle);
-        add += sky.moon.w * (MOON_BRIGHT * disc * vec3(0.92, 0.94, 1.0) + MOON_GLOW * exp(-angle / 0.05) * vec3(0.6, 0.7, 1.0));
+        float disc = 1.0 - smoothstep(sky.moon_light.w - pixel, sky.moon_light.w + pixel, angle);
+        add += sky.moon.w * disc * sky.moon_light.rgb;
     }
     return add;
 }
@@ -397,7 +402,9 @@ void main()
         depth += cloud_density(vec3(across.x + l.x * t, h, across.y + l.z * t), sky.sun.w, false);
     }
     depth *= CLOUD_DENSITY * sky.sun_light.w * (CLOUD_TOP - CLOUD_BASE) / float(CLOUD_MAP_SAMPLES) / rise;
-    imageStore(o_a, q, vec4(exp(-depth)));
+    // (round S) over the share the lighting state's light already keeps (its mean over the level: cloud_light.w = 1 /
+    // DayLight::cloud_beam) - the light store's direct light is the mean, the map each point's own
+    imageStore(o_a, q, vec4(exp(-depth) * sky.cloud_light.w));
 }
 )";
 
@@ -472,8 +479,9 @@ struct SkyBlock {
     std::array<float, 4> cloud_map{};   // (added by the volumetric light: the clouds' shadow map)
     std::array<float, 4> cloud_light{};
     std::array<float, 4> sun_disc{}; // (added by the physical air)
+    std::array<float, 4> moon_light{}; // (round S)
 };
-constexpr std::size_t kSkyBlockBytes = 368;
+constexpr std::size_t kSkyBlockBytes = 384;
 static_assert(sizeof(SkyBlock) == kSkyBlockBytes, "the shaders' std140 block");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -746,6 +754,11 @@ std::string source_of(const char* body, const char* define)
     source += "#define GAME_UNITS_PER_METRE " + std::to_string(rt::kGameUnitsPerMetre) + "\n";
     source += "#define CLOUD_MAP_SIZE " + std::to_string(rt::kCloudMapSize) + "\n";
     source += "#define CLOUD_MAP_SAMPLES " + std::to_string(rt::kCloudMapSamples) + "\n";
+    // (round S) a magnitude-0 star's illuminance in the unit (2.08 x 10^-6 lux - Allen's; the unit's lux: rt_sky.h)
+    constexpr double kStarZeroLux = 2.08e-6;
+    std::array<char, 64> star{};
+    std::snprintf(star.data(), star.size(), "#define STAR_ZERO %.9g\n", kStarZeroLux / rt::unit_illuminance());
+    source += star.data();
     source += kCommon;
     source += cloud_sky_glsl();
     source += cloud_map_glsl(kBindingCloudMap);
@@ -1414,56 +1427,6 @@ Stamps begin_timing(Backend& state, VkCommandBuffer commands, const std::array<u
 
 // --- the level's sky (vulkan_rt_sky_pass.h step 0) ------------------------------------------------------------------------
 
-// The capture read back and analysed (false: none, or it can't be read).
-bool read_capture(Backend& state, const rt::SkyCapture& capture, rt::SkyLook* look)
-{
-    Texture* texture = capture.texture != nullptr ? object(capture.texture) : nullptr;
-    if (texture == nullptr || capture.face_size == 0) {
-        return false;
-    }
-    Image* image = &texture->image;
-    const bool bgra = image->format == VK_FORMAT_B8G8R8A8_UNORM || image->format == VK_FORMAT_B8G8R8A8_SRGB;
-    const bool rgba = image->format == VK_FORMAT_R8G8B8A8_UNORM || image->format == VK_FORMAT_R8G8B8A8_SRGB;
-    if ((!bgra && !rgba) || !finish_work(state)) {
-        return false;
-    }
-    std::vector<uint8_t> bytes(static_cast<std::size_t>(image->extent.width) * image->extent.height * 4);
-    if (!state.memory.read_image_level(image, 0, &bytes)) {
-        return false;
-    }
-    constexpr double kBytes = 255.0;
-    const auto byte_of = [](float value) {
-        return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * kBytes));
-    };
-    *look = rt::analyse_sky({.bytes = bytes,
-                             .face_size = capture.face_size,
-                             .bgra = bgra,
-                             .clear = {byte_of(core::at(capture.clear, 0)), byte_of(core::at(capture.clear, 1)),
-                                       byte_of(core::at(capture.clear, 2))}});
-    return true;
-}
-
-// The clouds' coverage: rt_cloud_coverage, or (auto) how cloudy the level's dome is - lighter than the dome's share: its
-// painted clouds are flat cards and haze, and a clear painted sky should stay mostly clear; at most kCoverageMost, an
-// overcast only when asked for. (Only the amount of cloud is the level's: the sky's and the clouds' colours are the
-// atmosphere's at the time of day - the dome's colours are not matched, rt_sky_match retired.)
-float coverage_for(const RtSkySettings& settings, const rt::SkyLook& look)
-{
-    constexpr double kCoverageBase = 0.2;
-    constexpr double kCoverageShare = 0.7;
-    constexpr double kCoverageMost = 0.75;
-    return settings.coverage >= 0.0F
-               ? std::clamp(settings.coverage, 0.0F, 1.0F)
-               : static_cast<float>(std::clamp(kCoverageBase + (kCoverageShare * look.coverage), 0.0, kCoverageMost));
-}
-
-void log_level(const RtSkyLevel& level, uint32_t scene)
-{
-    const rt::SkyLook& look = level.look;
-    get_log("vulkan: rt_sky: the level's sky (scene %08x): clouds %.0f%% of the dome%s - the clouds' coverage %.2f", scene,
-            100.0 * look.coverage, look.valid ? "" : " (too little of it to read)", static_cast<double>(level.coverage));
-}
-
 // The sun the sky is drawn for: the visible one, else a default (logged once).
 std::array<float, 3> sky_sun(Backend& state)
 {
@@ -1480,46 +1443,32 @@ std::array<float, 3> sky_sun(Backend& state)
 }
 
 // The level's sky read again when needed (a new capture, the settings changed) and the atmosphere's input for the sun
-// drawn - the clock's (rt::DayLight: its sun, the night sky's light) or, without it, the visible one. Work is finished
-// for the read-back: the caller takes a new command buffer after.
-bool ensure_level(Backend& state, const std::array<float, 3>& drawn)
+// drawn - the clock's (rt::DayLight: its sun, the night sky's light) or, without it, the visible one.
+bool ensure_level(const std::array<float, 3>& drawn)
 {
     SkyPassState& own = pass_state();
     const rt::SkyCapture capture = rt::sky_capture();
     const bool new_capture = capture.serial != own.level.capture_serial;
     if (!own.level_read || new_capture || own.level_settings != own.settings_serial) {
         if (new_capture) {
-            rt::SkyLook look;
-            if (capture.serial != 0 && read_capture(state, capture, &look)) {
-                own.level.look = look;
-            } else {
-                own.level.look = rt::SkyLook{};
-                if (capture.serial == 0 && first_report(state, kReportNoCapture)) {
-                    get_log("vulkan: rt_sky: no capture of the level's sky yet - the clouds' default coverage until "
-                            "there is");
-                }
-            }
             own.level.capture_serial = capture.serial;
             // (another level's sky: the clouds' histories start again - seeded in their next pass)
             for (const std::unique_ptr<SkySlot>& slot : own.slots) {
                 slot->has_history = false;
             }
         }
-        own.level.coverage = coverage_for(own.settings, own.level.look);
-        if (new_capture && capture.serial != 0) {
-            log_level(own.level, capture.scene);
-        }
         own.level_read = true;
         own.level_settings = own.settings_serial;
     }
-    // (added by the rain - engine/gfx/rain.h cloud_cover) the weather's deck over the level's own clouds: rain falls from a
-    // deck covering the sky. (The clouds' cover doesn't yet dim the sun's or the sky's light on the level - DayLight is the
-    // clear sky's; the sky's state round, renderer-hack-audit.md S6.)
-    own.level.coverage = std::max(coverage_for(own.settings, own.level.look), static_cast<float>(rain::cloud_cover(rain::settings().rate)));
+    // (round S2) the clouds' cover is the weather's - rt_clouds.h cloud_coverage: rt_cloud_coverage, else the air's
+    // typical cover, at least the snow's and the rain's deck; the light, the drawn clouds and their shadows read the same.
+    // (The level's painted dome is no longer read for it: the original's sky texture is art, not weather.)
+    own.level.coverage = rt::cloud_coverage();
     const rt::DayLight day = rt::day_light();
     own.level.atmosphere.sun = drawn;
     own.level.atmosphere.night = day.on ? day.night_sky : std::array<float, 3>{};
     own.level.atmosphere.aerosol = rt::aerosol(); // (added by the physical air: the weather's)
+    own.level.atmosphere.exposure = rt::frame_pre_exposure(); // (round S)
     return true;
 }
 
@@ -1574,28 +1523,40 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
     const double layer = rt::kGroundRadius + (0.5 * (rt::kCloudBase + rt::kCloudTop));
     const rt::Rgb through = rt::transmittance_to_top(
         {.radius = layer, .cosine = std::clamp(static_cast<double>(core::at(sun, 1)), -1.0, 1.0)}, 64);
-    // (the sky's light on them is the drawn sky's, read by the march from its table - rt_clouds.h cloud_sky_light; the
-    // time of day: the sun's light gone after sunset, the full moon's glow on them - rt_daylight.h cloud_light)
+    // (the sky's light on them is the drawn sky's, read by the march from its table - rt_clouds.h cloud_sky_light; round
+    // S: the light on them is the scene's - the sun, or the moon at night (rt_daylight.h cloud_light: its irradiance at
+    // the top, the moon's phase and colour, pre-exposed) - through the air down to the layer, none where the ground is
+    // in the way; no glow of its own)
     const rt::CloudLight timed = rt::cloud_light(rt::day_light());
-    const double sun_scale = rt::sky_exposure() * kCloudSunScale * timed.sun;
+    const std::array<float, 3> to_light = timed.clock ? timed.toward : sun;
+    rt::Rgb through_light = through;
+    if (timed.clock) {
+        const double rise = std::clamp(static_cast<double>(core::at(to_light, 1)), -1.0, 1.0);
+        const double grazing = -std::sqrt(1.0 - ((rt::kGroundRadius / layer) * (rt::kGroundRadius / layer)));
+        through_light = rise < grazing ? rt::Rgb{} : rt::transmittance_to_top({.radius = layer, .cosine = rise}, 64);
+    }
+    const double sun_scale = rt::sky_exposure() * kCloudSunScale;
     std::array<float, 3> sun_light{};
     for (std::size_t channel = 0; channel < 3; ++channel) {
-        core::at(sun_light, channel) = static_cast<float>(core::at(through, channel) * sun_scale);
+        core::at(sun_light, channel) = static_cast<float>(core::at(through_light, channel) * sun_scale *
+                                                          static_cast<double>(core::at(timed.light, channel)));
     }
-    const std::array<float, 3>& glow = timed.moon_glow;
+    const std::array<float, 3> glow{};
     const uint64_t frames = slot != nullptr ? slot->frames : 0;
     const auto jitter_offset = static_cast<float>(std::fmod(static_cast<double>(frames) * kGolden, 1.0));
     block.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                     core::at(view.camera.position, 2), static_cast<float>(altitude)};
     block.sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2),
-                 static_cast<float>(rt::cloud_amount(own.level.coverage))};
+                 static_cast<float>(rt::cloud_amount(rt::cloud_coverage()))};
+    block.cloud_light = {core::at(to_light, 0), core::at(to_light, 1), core::at(to_light, 2), 1.0F};
     // (added by the physical air) the sun's disc in the sky while rt_sun draws a sun: the real one, its radiance the
     // atmosphere's transmitted sun (rt_sky.h sun_disc_radiance - 0 under the horizon)
     if (sun_settings_held().sun) {
         const rt::Rgb disc =
             rt::sun_disc_radiance(std::asin(std::clamp(static_cast<double>(core::at(sun, 1)), -1.0, 1.0)));
-        block.sun_disc = {static_cast<float>(core::at(disc, 0)), static_cast<float>(core::at(disc, 1)),
-                          static_cast<float>(core::at(disc, 2)), static_cast<float>(rt::kSunAngularRadius)};
+        const auto pre = static_cast<double>(rt::frame_pre_exposure()); // (round S)
+        block.sun_disc = {static_cast<float>(core::at(disc, 0) * pre), static_cast<float>(core::at(disc, 1) * pre),
+                          static_cast<float>(core::at(disc, 2) * pre), static_cast<float>(rt::kSunAngularRadius)};
     }
     block.sun_light = {core::at(sun_light, 0), core::at(sun_light, 1), core::at(sun_light, 2), 1.0F};
     block.ambient_bottom = {core::at(glow, 0), core::at(glow, 1), core::at(glow, 2),
@@ -1616,7 +1577,9 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
     if (day.on) {
         block.moon = {core::at(day.moon, 0), core::at(day.moon, 1), core::at(day.moon, 2), day.moon_disc};
         block.stars = day.stars_pole;
-        block.night = {day.stars, 0.0F, 0.0F, 0.0F};
+        block.night = {day.stars, day.pre_exposure, 0.0F, 0.0F};
+        block.moon_light = {core::at(day.moon_radiance, 0), core::at(day.moon_radiance, 1),
+                            core::at(day.moon_radiance, 2), static_cast<float>(rt::kMoonAngularRadius)};
     }
     *frame = RtSkyFrame{.sun = sun,
                         .camera = view.camera.position,
@@ -1624,7 +1587,7 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
                         .offset = offset,
                         .sun_light = sun_light,
                         .sky_glow = glow,
-                        .coverage = static_cast<float>(rt::cloud_amount(own.level.coverage)),
+                        .coverage = static_cast<float>(rt::cloud_amount(rt::cloud_coverage())),
                         .steps = steps_for(settings.quality),
                         .scale = scale,
                         .jitter_offset = jitter_offset,
@@ -1731,6 +1694,9 @@ bool ensure_cloud_map(Backend& state, std::string* error)
     return true;
 }
 
+// (round S) the least mean share the map is divided by (an overcast's beam: the map's own then is ~0 as well)
+constexpr float kLeastCloudBeam = 1e-4F;
+
 // Where the map lies for a view (its block's fields - rt_volume_light.h): centred where the camera's way toward the
 // light meets the cloud base, snapped to whole texels.
 void place_cloud_map(const rt::MediumLight& light, SkyBlock* block)
@@ -1749,7 +1715,11 @@ void place_cloud_map(const rt::MediumLight& light, SkyBlock* block)
                         static_cast<float>(base_y),
                         static_cast<float>(std::round(core::at(centre, 1) / texel) * texel),
                         static_cast<float>(1.0 / width)};
-    block->cloud_light = {core::at(light.toward, 0), core::at(light.toward, 1), core::at(light.toward, 2), 1.0F};
+    // (round S) w: 1 / the share the lighting state's light keeps (rt_daylight.h DayLight::cloud_beam) - the map is each
+    // point's over it
+    const rt::DayLight day = rt::day_light();
+    const float mean = day.on ? std::max(day.cloud_beam, kLeastCloudBeam) : 1.0F;
+    block->cloud_light = {core::at(light.toward, 0), core::at(light.toward, 1), core::at(light.toward, 2), 1.0F / mean};
 }
 
 // The clouds' shadow map for a viewport (at its opaque_drawn; rt_cloud_shadows): the light's transmittance through the
@@ -1934,7 +1904,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     }
     // 0 - 1: the level's sky read, the atmosphere's tables
     const std::array<float, 3> sun = sky_sun(state);
-    if (!ensure_level(state, sun)) {
+    if (!ensure_level(sun)) {
         return false;
     }
     VkCommandBuffer commands = outside_pass(state);
@@ -2019,6 +1989,9 @@ void set_rt_sky_settings(const RtSkySettings& settings)
         }
         set_table_follows_sky_view(kept.on);
     }
+    // (round S2) the settings' cover is the weather's first source (rt_clouds.h cloud_coverage - the app sets the same
+    // from the ini: renderer_choice.cpp)
+    rt::set_cloud_cover(rt::CloudCoverSource::kSettings, kept.coverage >= 0.0F ? kept.coverage : -1.0F);
     rt::set_sky_replacement({.on = kept.on, .keep_layers = !kept.clouds});
     rt::set_sky_capture_wanted(kept.on || water_settings().on); // (NOT ORIGINAL - rt_water reflects the captured sky too)
     if (kept.on) {
@@ -2054,12 +2027,19 @@ void prepare_rt_sky(Backend& state)
         return;
     }
     const std::array<float, 3> sun = sky_sun(state);
-    if (ensure_level(state, sun)) {
+    if (ensure_level(sun)) {
         update_atmosphere(state, outside_pass(state), own.level.atmosphere);
     }
 }
 
 uint64_t rt_sky_passes() { return pass_state().passes; }
+
+void rt_sky_reset_history()
+{
+    for (const std::unique_ptr<SkySlot>& slot : pass_state().slots) {
+        slot->has_history = false;
+    }
+}
 
 RtSkyLevel rt_sky_level() { return pass_state().level; }
 
@@ -2178,8 +2158,9 @@ std::string cloud_map_glsl(uint32_t binding)
     std::string glsl = "layout(set = 0, binding = " + std::to_string(binding) + ") uniform sampler2D u_cloud_map;\n";
     glsl += "const float CLOUD_MAP_LEAST_RISE = " + std::to_string(rt::kCloudMapLeastRise) + ";\n";
     glsl += R"(
-// The share of the light that gets through the clouds to `at` (the clouds' shadow map - vulkan_rt_sky_pass.h): read
-// where at's way toward the light meets the cloud base; light.w of its shadow kept.
+// The share of the light that gets through the clouds to `at` (the clouds' shadow map - vulkan_rt_sky_pass.h) over the
+// mean share the lighting state's light already carries (round S: rt_daylight.h DayLight::cloud_beam): read where at's
+// way toward the light meets the cloud base; light.w of its shadow kept.
 float cloud_map_kept(vec3 at, vec4 place, vec4 light)
 {
     if (!(light.w > 0.0)) {
@@ -2189,7 +2170,7 @@ float cloud_map_kept(vec3 at, vec4 place, vec4 light)
     vec2 base = at.xz + light.xz * (max(place.y - at.y, 0.0) / rise);
     vec2 uv = (base - place.xz) * place.w + 0.5;
     float through = textureLod(u_cloud_map, uv, 0.0).r;
-    return mix(1.0, clamp(through, 0.0, 1.0), light.w);
+    return mix(1.0, max(through, 0.0), light.w); // (round S: over the mean the light state keeps - above 1 in a gap)
 }
 )";
     return glsl;

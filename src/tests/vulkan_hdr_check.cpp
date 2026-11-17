@@ -47,6 +47,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -502,7 +503,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const bool filled = fill_grey(gpu, target, kHalfWhite);
         const Metered white = meter_pass(gpu, target, whole);
         const float mean = vk::meter_light({1.0F, 1.0F, 1.0F});
-        const float stops = vk::meter_target_stops(mean, metered.exposure_adapt);
+        const float stops = vk::meter_target_stops(mean, vk::kEyeMostStops);
         const float factor = std::exp2(stops);
         const std::array<float, 3> mapped = vk::tone_map_reference(parameters, nullptr, {factor, factor, factor});
         const float shown = core::at(mapped, 0);
@@ -517,7 +518,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
     }
     // a mid-grey view (another viewport, its own slot): its stops the processor's, both ways
     const float grey_mean = vk::meter_light({0.5F, 0.5F, 0.5F});
-    const float grey_stops = vk::meter_target_stops(grey_mean, metered.exposure_adapt);
+    const float grey_stops = vk::meter_target_stops(grey_mean, vk::kEyeMostStops);
     {
         const std::array<uint32_t, 4> left_half{0, 0, kWidth / 2, kHeight};
         const bool filled = fill_grey(gpu, target, kHalfGrey);
@@ -540,7 +541,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const bool filled = fill(gpu, target, values);
         const Metered before = meter_pass(gpu, target, whole);
         const float mean = processor_mean(values, whole);
-        const float stops = vk::meter_target_stops(mean, metered.exposure_adapt);
+        const float stops = vk::meter_target_stops(mean, vk::kEyeMostStops);
         tally->check(filled && before.ran && std::abs(before.reading.mean - mean) < kTolerance * mean &&
                          std::abs(before.reading.target - stops) < kTolerance,
                      text::format("the random image: metered %.4f (the processor's %.4f; each sample at most %.0f), "
@@ -565,33 +566,135 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                      text::format("after 0.6 s unseen: at its target at once (%.3f stops)",
                                   static_cast<double>(later.reading.stops)));
     }
-    // the bound: 16 x white brought down at most rt_exposure_adapt stops
+    // (round S - the eye) 16 x white brought down as far as its key says; a dark view up, under the day's key; the
+    // frame's pre-exposure divided out (the physical light metered); below the scotopic floor no further
     {
-        constexpr float kMostStops = 2.5F;
-        vk::HdrSettings wide = metered;
-        wide.exposure_adapt = kMostStops;
-        vk::set_hdr_settings(wide);
         std::this_thread::sleep_for(std::chrono::milliseconds(600));
         const bool filled = fill_grey(gpu, target, kHalfSixteen);
         const Metered bright = meter_pass(gpu, target, whole);
-        tally->check(filled && bright.ran && std::abs(bright.reading.stops + kMostStops) < kTolerance &&
+        const float bright_stops = vk::meter_target_stops(vk::kMeterBrightest, vk::kEyeMostStops);
+        tally->check(filled && bright.ran && std::abs(bright.reading.stops - bright_stops) < kTolerance &&
                          std::abs(bright.reading.mean - vk::kMeterBrightest) < kTolerance * vk::kMeterBrightest,
-                     text::format("16 x white with rt_exposure_adapt %.1f: metered %.1f (a sample's most), %.3f stops",
-                                  static_cast<double>(kMostStops), static_cast<double>(bright.reading.mean),
-                                  static_cast<double>(bright.reading.stops)));
-        // (added by the physical air) a dark view brought up - at most rt_exposure_adapt stops; the night's key under
-        // the day's (the eye adapted to the dark doesn't make it day)
-        constexpr uint16_t kDark = 0x15BC; // (linear 0.0014 - round F: the frame holds light; 0.05 as display was)
+                     text::format("16 x white: metered %.1f (a sample's most), %.3f stops (%.3f)",
+                                  static_cast<double>(bright.reading.mean), static_cast<double>(bright.reading.stops),
+                                  static_cast<double>(bright_stops)));
+        constexpr uint16_t kDark = 0x15BC; // (linear 0.0014)
         std::this_thread::sleep_for(std::chrono::milliseconds(600));
         const bool dark_filled = fill_grey(gpu, target, kDark);
         const Metered dark = meter_pass(gpu, target, whole);
-        tally->check(dark_filled && dark.ran && std::abs(dark.reading.stops - kMostStops) < kTolerance &&
-                         vk::meter_key(dark.reading.mean) < vk::kMeterKey,
-                     text::format("a dark view: metered %.5f, up %.3f stops (the most); the key there %.4f (daylight's "
-                                  "%.4f)",
+        const float dark_stops = vk::meter_target_stops(dark.reading.mean, vk::kEyeMostStops);
+        tally->check(dark_filled && dark.ran && std::abs(dark.reading.stops - dark_stops) < kTolerance &&
+                         dark.reading.stops > 0.0F && vk::meter_key(dark.reading.mean) < vk::kMeterKey,
+                     text::format("a dark view: metered %.5f, up %.3f stops (%.3f); the key there %.4f (daylight's %.4f)",
                                   static_cast<double>(dark.reading.mean), static_cast<double>(dark.reading.stops),
-                                  static_cast<double>(vk::meter_key(dark.reading.mean)),
+                                  static_cast<double>(dark_stops), static_cast<double>(vk::meter_key(dark.reading.mean)),
                                   static_cast<double>(vk::kMeterKey)));
+        // the pre-exposure: the same grey under a frame pre-exposed 64 x is metered as 1/64 of it
+        constexpr float kPre = 64.0F;
+        render::rt::DayLight exposed;
+        exposed.on = true;
+        exposed.pre_exposure = kPre;
+        render::rt::set_day_light(exposed);
+        std::this_thread::sleep_for(std::chrono::milliseconds(600));
+        const bool pre_filled = fill_grey(gpu, target, kHalfGrey);
+        const Metered pre = meter_pass(gpu, target, whole);
+        render::rt::set_day_light({});
+        const float pre_stops = vk::meter_target_stops(0.5F / kPre, vk::kEyeMostStops);
+        tally->check(pre_filled && pre.ran && std::abs(pre.reading.mean - (0.5F / kPre)) < kTolerance * 0.5F / kPre &&
+                         std::abs(pre.reading.stops - pre_stops) < kTolerance &&
+                         std::abs(pre.reading.factor - (std::exp2(pre.reading.stops) / kPre)) <
+                             1e-3F * pre.reading.factor,
+                     text::format("pre-exposed 64 x: metered %.5f (the light 0.5 / 64), %.3f stops (%.3f), factor %.6f",
+                                  static_cast<double>(pre.reading.mean), static_cast<double>(pre.reading.stops),
+                                  static_cast<double>(pre_stops), static_cast<double>(pre.reading.factor)));
+        // (round S2) the pre-exposure moving with no cut (the clock running): the frame's values x 64 for the same
+        // physical light - the eye's state is physical, so the shown picture doesn't jump and nothing is out of range
+        {
+            constexpr float kSteady = 0.25F;
+            constexpr uint16_t kQuarter = 0x3400;         // 0.25
+            constexpr uint16_t kQuarterBy64 = 0x4C00;     // 16 = 0.25 x 64
+            render::rt::DayLight lit;
+            lit.on = true;
+            lit.cut = 7;
+            lit.pre_exposure = 1.0F;
+            render::rt::set_day_light(lit);
+            render::rt::note_cut_shown(7);
+            std::this_thread::sleep_for(std::chrono::milliseconds(600));
+            const bool one = fill_grey(gpu, target, kQuarter);
+            const Metered at_one = meter_pass(gpu, target, whole);
+            lit.pre_exposure = 64.0F;
+            render::rt::set_day_light(lit);
+            const bool sixty_four = fill_grey(gpu, target, kQuarterBy64);
+            const Metered at_64 = meter_pass(gpu, target, whole);
+            tally->check(one && sixty_four && at_one.ran && at_64.ran && std::isfinite(at_64.shown) &&
+                             std::abs(at_64.shown - at_one.shown) < kTolerance &&
+                             std::abs(at_64.reading.stops - at_one.reading.stops) < kTolerance &&
+                             std::abs(at_64.reading.mean - kSteady) < kTolerance * kSteady,
+                         text::format("the pre-exposure 1 -> 64 with no cut: shown %.4f -> %.4f (no jump, finite), "
+                                      "the eye %.3f -> %.3f stops, metered %.4f (the physical light)",
+                                      static_cast<double>(at_one.shown), static_cast<double>(at_64.shown),
+                                      static_cast<double>(at_one.reading.stops),
+                                      static_cast<double>(at_64.reading.stops), static_cast<double>(at_64.reading.mean)));
+            // a lighting cut (a time set): the eye starts again at the new view's target - not adapting from the old
+            // lighting's state (a night's eye on a dusk was 4 stops over for a second or two); the same change with no
+            // cut adapts over time
+            lit.pre_exposure = 1.0F;
+            render::rt::set_day_light(lit);
+            std::this_thread::sleep_for(std::chrono::milliseconds(600));
+            const bool dark_view = fill_grey(gpu, target, kDark);
+            const Metered dark_eye = meter_pass(gpu, target, whole);
+            const bool bright_view = fill_grey(gpu, target, kHalfSixteen);
+            const Metered no_cut = meter_pass(gpu, target, whole);
+            const bool dark_again = fill_grey(gpu, target, kDark);
+            const Metered dark_eye_again = meter_pass(gpu, target, whole);
+            lit.cut = 8;
+            render::rt::set_day_light(lit);
+            render::rt::note_cut_shown(8);
+            const bool bright_again = fill_grey(gpu, target, kHalfSixteen);
+            const Metered cut = meter_pass(gpu, target, whole);
+            render::rt::set_day_light({});
+            const float bright_target = vk::meter_target_stops(vk::kMeterBrightest, vk::kEyeMostStops);
+            tally->check(dark_view && bright_view && dark_again && bright_again && dark_eye.ran && no_cut.ran &&
+                             dark_eye_again.ran && cut.ran && std::abs(cut.reading.stops - bright_target) < kTolerance &&
+                             no_cut.reading.stops > bright_target + 1.0F,
+                         text::format("a lighting cut from a dark view to a bright one: the eye at its target at once "
+                                      "(%.3f stops, the target %.3f); with no cut still adapting (%.3f)",
+                                      static_cast<double>(cut.reading.stops), static_cast<double>(bright_target),
+                                      static_cast<double>(no_cut.reading.stops)));
+        }
+        // the key law: night's exposure stays under day's (the view shown darker), no further than the scotopic floor
+        const float day_mean = 0.18F;
+        const float night_mean = 0.18F * 2.5e-6F;  // (a full moon's light over the reference day's)
+        const float starlit = 0.18F * 2.0e-8F;     // (a moonless, overcast night)
+        const float floor = vk::kEyeDarkest / static_cast<float>(render::rt::unit_illuminance() / 3.14159265);
+        const double day_shown = day_mean * std::exp2(vk::meter_target_stops(day_mean, vk::kEyeMostStops));
+        const double night_shown = night_mean * std::exp2(vk::meter_target_stops(night_mean, vk::kEyeMostStops));
+        const double starlit_shown = starlit * std::exp2(vk::meter_target_stops(starlit, vk::kEyeMostStops));
+        tally->check(night_shown < 0.2 * day_shown && starlit_shown < night_shown &&
+                         vk::meter_target_stops(starlit, vk::kEyeMostStops) ==
+                             vk::meter_target_stops(starlit * 0.1F, vk::kEyeMostStops) &&
+                         starlit < floor,
+                     text::format("the eye: an 18%% day shown %.4f, a full moon's night %.4f (%.1f stops darker), a "
+                                  "starless overcast night %.5f - under the scotopic floor (%.2g), not brought further up",
+                                  day_shown, night_shown, std::log2(day_shown / night_shown), starlit_shown,
+                                  static_cast<double>(floor)));
+    }
+    // (round S) rod vision: none in daylight; a dim colour loses its colour and turns blue (the Purkinje shift)
+    {
+        const vk::ToneParameters eye = vk::tone_parameters(metered);
+        const std::array<float, 3> red{0.6F, 0.1F, 0.1F};
+        const std::array<float, 3> day_red = vk::rod_vision(eye, red);
+        const float dim = 1e-7F; // (about 0.002 cd/m^2)
+        const std::array<float, 3> night_red = vk::rod_vision(eye, {0.6F * dim, 0.1F * dim, 0.1F * dim});
+        const std::array<float, 3> night_grey = vk::rod_vision(eye, {dim, dim, dim});
+        const float y_grey = (0.2126F * night_grey[0]) + (0.7152F * night_grey[1]) + (0.0722F * night_grey[2]);
+        tally->check(day_red == red && night_red[2] > night_red[1] && night_grey[2] > night_grey[0] &&
+                         std::abs(y_grey - dim) < 0.05F * dim && eye.unit_luminance > 0.0F,
+                     text::format("rod vision: daylight unchanged; a dim red %.3g %.3g %.3g (blue over green), a dim grey "
+                                  "%.3g %.3g %.3g (as bright, bluish)",
+                                  static_cast<double>(night_red[0] / dim), static_cast<double>(night_red[1] / dim),
+                                  static_cast<double>(night_red[2] / dim), static_cast<double>(night_grey[0] / dim),
+                                  static_cast<double>(night_grey[1] / dim), static_cast<double>(night_grey[2] / dim)));
     }
     // off: no meter - white shown as the curve alone
     {

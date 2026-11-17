@@ -883,6 +883,11 @@ void set_rt_light_settings(const RtLightSettings& settings)
     {
         const std::scoped_lock lock(backend().mutex);
         lights_state().settings = kept;
+        // (round S2: the lamps' owner - rt_lights.h set_lamps_owner - is the settings', from now; a pass that can't run
+        // gives them back below)
+        rt::set_lamps_owner(kept.on && kept.strength > 0.0F && !lights_state().failed &&
+                                backend().context.ray_tracing_enabled(),
+                            kept.automatic);
     }
     if (kept.on) {
         rt::add_view_listener(&listener());
@@ -911,7 +916,10 @@ VkImageUsageFlags rt_lights_depth_usage(const Backend& state, VkFormat format)
 bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
 {
     LightsState& own = lights_state();
-    rt::set_lamps_drawn(0.0F); // (the light energy audit: set again below once the pass lights)
+    // (round S2) the lamps' owner: the settings' (set_rt_light_settings), given back to relit while the pass can't run
+    rt::set_lamps_owner(own.settings.on && own.settings.strength > 0.0F && !own.failed &&
+                            state.context.ray_tracing_enabled(),
+                        own.settings.automatic);
     if (!own.settings.on || own.failed) {
         return false;
     }
@@ -944,9 +952,7 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     const rt::DayLight day = rt::day_light();
     const float open = own.settings.automatic ? rt::open_sky_lamps(day, level.get()) : (day.on ? day.lamps : 1.0F);
     const float sky_now = own.settings.automatic ? rt::lamp_sky_now(day, level.get()) : 0.0F;
-    const float lamps = 1.0F; // (each light's own amount is in its intensity)
-    // (the light energy audit) the objects' share of the level's own lights follows: this pass owns them while it lights
-    rt::set_lamps_drawn(own.settings.strength > 0.0F ? lamps : 0.0F);
+    const float lamps = 1.0F; // (each light's own amount is in its intensity; the owner - set_lamps_owner - the settings')
     rt::ViewLightRequest request;
     request.sky_now = sky_now; // (forced on: 0 - every known switch on; the point lights by the clock's lamps)
     request.open_lamps = open;
@@ -1013,7 +1019,8 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     auto block = std::make_unique<LightsBlock>();
     block->count = {static_cast<uint32_t>(own.last_view.size()), own.settings.shadowed, kLightsShadowMask,
                     kLightsSurfaceMask};
-    block->params = {own.settings.strength * lamps, kOffsetScale, 0.0F, 0.0F};
+    // (round S: x the frame's pre-exposure - rt_daylight.h - as the lighting state's light carries it)
+    block->params = {own.settings.strength * lamps * rt::frame_pre_exposure(), kOffsetScale, 0.0F, 0.0F};
     for (std::size_t i = 0; i < own.last_view.size(); ++i) {
         const rt::Emitter& light = core::at(own.last_view, i);
         LightRecord& record = core::at(block->lights, i);

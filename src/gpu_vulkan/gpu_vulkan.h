@@ -48,14 +48,14 @@ struct Choices {
 void configure(const Choices& choices);
 
 // NOT ORIGINAL - ray-traced sun shadows (vulkan_rt_shadows.h, docs/design/vulkan.md R4): [Graphics] rt_shadows,
-// rt_shadow_strength, rt_shadow_softness, rt_shadow_rays, rt_shadow_objects. Nothing is drawn differently while `on` is
+// rt_shadow_rays, rt_shadow_objects (round S: rt_shadow_softness retired - the cone is the light's own disc, rt_daylight.h
+// light_radius). Nothing is drawn differently while `on` is
 // false, or when ray tracing isn't enabled on the device (Choices::ray_tracing and the device's extensions).
 // (lighting round A: one shadow model - the sun's visibility at every lit pixel; rt_shadow_strength, rt_shadow_covered,
 // rt_shadow_sky_rays and rt_shadow_match_bake are retired with the old "darken over the bake" model)
 struct RtShadowSettings {
     bool on = false;
-    float softness = 0.0F; // the light's angular radius in degrees (0: hard edges, one ray; up to 5)
-    unsigned rays = 4;     // rays per pixel (per sample) when soft (1 - 16)
+    unsigned rays = 1;     // rays per pixel (per sample) over the light's disc (1: its centre alone - 16)
     bool objects = false;  // the objects (the skater, peds, vehicles) cast shadows too
     // (changed by the scene's sun: the sun traced toward is rt_scene.h scene_sun - [Graphics] rt_sun_source -, every
     // effect's; rt_shadow_sun is retired)
@@ -152,7 +152,7 @@ void set_rt_reflection_settings(const RtReflectionSettings& settings);
 // pass before the 2D; false (a check's): the 8-bit display-referred frame, nothing changed. Read when the device is made
 // (`on`; the rest any time).
 inline constexpr float kHdrWhitePoint = 1.25F; // (rt_white_point's default)
-inline constexpr float kHdrExposureAdapt = 2.0F; // (rt_exposure_adapt's default - added by the low sun's glare)
+inline constexpr float kHdrExposureAdapt = 1.0F; // (rt_exposure_adapt's default: on - round S, the eye)
 struct HdrSettings {
     bool on = false;
     float exposure = 0.0F;   // stops (0: 1x; +1: twice the light)
@@ -161,8 +161,8 @@ struct HdrSettings {
     float saturation = 1.0F; // 1: unchanged; 0: grey; above 1: more
     float contrast = 1.0F;   // 1: unchanged; a power around mid-grey (0.5)
     float white_point = kHdrWhitePoint; // the value (1 - 8) shown as white; 1: everything above 1 clipped
-    // (added by the low sun's glare) the metering: how many stops (of linear light) a view brighter than the meter's
-    // key may bring the exposure down - looking into a low sun the scene is darkened as a camera's would be; 0: off
+    // (added by the low sun's glare; round S) the metering: above 0 the eye adapts to the view (vulkan_hdr.h: its key
+    // law, down to the scotopic floor) and sees by its rods in the dark; 0: off - a fixed exposure
     float exposure_adapt = kHdrExposureAdapt;
     std::string grade_lut;   // a 3D LUT (.cube) applied last; empty: none (a path, as given)
 };
@@ -238,7 +238,7 @@ inline constexpr float kRtCloudCoverageAuto = -1.0F;
 struct RtSkySettings {
     bool on = false;
     bool clouds = false;           // volumetric clouds in the sky
-    float coverage = kRtCloudCoverageAuto; // 0 - 1, or auto (negative): from the level's own sky
+    float coverage = kRtCloudCoverageAuto; // 0 - 1, or auto (negative): the weather's (rt_clouds.h)
     float speed = 1.0F;            // x the clouds' drift (0: still)
     unsigned quality = 1;          // 0: quarter resolution, 32 steps; 1: half, 48; 2: full, 96
     bool cloud_shadows = false;    // the clouds' shadows on the level (darkening, not ray traced)

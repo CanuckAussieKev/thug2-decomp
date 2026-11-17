@@ -18,6 +18,7 @@
 #include <vector>
 
 #include <io.h>
+#include <share.h>
 #include <array>
 
 #include "platform/crash.h"
@@ -37,6 +38,10 @@ constexpr int kLastLogCopy = 9; // a second copy of the game writes thug2-decomp
 struct RunLogState {
     FILE* log_ = nullptr;
     bool console_ = false;
+    // NOT ORIGINAL - the log file's full path and its name without ".log" (thug2-decomp, thug2-decomp-2...): kept at
+    // log_open for log_keep_crash_copy, which mustn't allocate.
+    std::array<char, MAX_PATH> path_{};
+    std::array<char, MAX_PATH> stem_{};
 };
 
 RunLogState& run_log_state()
@@ -178,16 +183,66 @@ bool config_set_int(const char* section, const char* key, int value)
     return written;
 }
 
+namespace {
+
+// NOT ORIGINAL - the earlier runs' logs are kept: a run starting moves <stem>.log to <stem>.prev.log, that one to
+// <stem>.prev2.log and so on up to this many (the oldest dropped). A crash that ended the run before is still there
+// to read after the game has been started again.
+constexpr int kKeptLogs = 3;
+
+// <stem>.log (age 0), <stem>.prev.log (1), <stem>.prev2.log (2)...
+std::string kept_log_path(const std::string& stem, int age)
+{
+    if (age == 0) {
+        return stem + ".log";
+    }
+    return stem + ".prev" + (age == 1 ? std::string() : std::to_string(age)) + ".log";
+}
+
+// Whether another process (another copy of the game - allow_multiple_instances) has the file open for writing.
+bool log_in_use(const std::string& path)
+{
+    HANDLE file = CreateFileA(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                              FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return GetLastError() == ERROR_SHARING_VIOLATION;
+    }
+    CloseHandle(file);
+    return false;
+}
+
+// The log `stem` names opened for this run, the earlier ones moved down a place first; false when another copy of the
+// game writes it.
+bool open_log(const std::string& stem)
+{
+    const std::string path = kept_log_path(stem, 0);
+    if (log_in_use(path)) {
+        return false;
+    }
+    for (int age = kKeptLogs; age > 0; --age) {
+        MoveFileExA(kept_log_path(stem, age - 1).c_str(), kept_log_path(stem, age).c_str(), MOVEFILE_REPLACE_EXISTING);
+    }
+    // (others may read it while it's written - not write it: a second copy of the game takes the next name)
+    FILE* log = _fsopen(path.c_str(), "w", _SH_DENYWR);
+    if (!log) {
+        return false;
+    }
+    run_log_state().log_ = log;
+    text::format_to(run_log_state().path_, "%s", path.c_str());
+    text::format_to(run_log_state().stem_, "%s", stem.c_str());
+    return true;
+}
+
+} // namespace
+
 void log_open()
 {
-    // (fopen_s doesn't share a file open for writing: when another copy of the game has the log - [features]
-    // allow_multiple_instances - this one writes thug2-decomp-2.log, -3, ...)
-    if (fopen_s(&run_log_state().log_, game_folder_path("thug2-decomp.log").c_str(), "w") != 0) {
+    // (when another copy of the game has the log - [features] allow_multiple_instances - this one writes
+    // thug2-decomp-2.log, -3, ...)
+    if (!open_log(game_folder_path("thug2-decomp"))) {
         for (int copy = 2; copy <= kLastLogCopy && !run_log_state().log_; ++copy) {
-            const std::string name = "thug2-decomp-" + std::to_string(copy) + ".log";
-            if (fopen_s(&run_log_state().log_, game_folder_path(name.c_str()).c_str(), "w") != 0) {
-                run_log_state().log_ = nullptr;
-            }
+            const std::string stem = "thug2-decomp-" + std::to_string(copy);
+            open_log(game_folder_path(stem.c_str()));
         }
     }
     if (run_log_state().log_) {
@@ -251,6 +306,65 @@ void log_flush()
         }
         Sleep(10);
     }
+}
+
+void log_keep_crash_copy()
+{
+    RunLogState& state = run_log_state();
+    if (!state.log_ || state.console_) {
+        return;
+    }
+    // <stem>-crash-<date>_<time>.txt beside the log, a new file (another crash in the same second: -2, -3...)
+    SYSTEMTIME now{};
+    GetLocalTime(&now);
+    std::array<char, MAX_PATH> name{};
+    HANDLE copy = INVALID_HANDLE_VALUE;
+    constexpr int kTries = 9;
+    for (int attempt = 1; attempt <= kTries && copy == INVALID_HANDLE_VALUE; ++attempt) {
+        const unsigned year = now.wYear;
+        const unsigned month = now.wMonth;
+        const unsigned day = now.wDay;
+        const unsigned hour = now.wHour;
+        const unsigned minute = now.wMinute;
+        const unsigned second = now.wSecond;
+        if (attempt == 1) {
+            text::format_to(name, "%s-crash-%04u-%02u-%02u_%02u-%02u-%02u.txt", state.stem_.data(), year, month, day,
+                            hour, minute, second);
+        } else {
+            text::format_to(name, "%s-crash-%04u-%02u-%02u_%02u-%02u-%02u-%d.txt", state.stem_.data(), year, month,
+                            day, hour, minute, second, attempt);
+        }
+        copy = CreateFileA(name.data(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (copy == INVALID_HANDLE_VALUE && GetLastError() != ERROR_FILE_EXISTS) {
+            return;
+        }
+    }
+    if (copy == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    const char* file_name = name.data();
+    if (const char* slash = std::strrchr(file_name, '\\')) {
+        file_name = slash + 1;
+    }
+    get_log("  this log is kept as %s", file_name);
+    log_flush();
+    // (the log read through a handle of its own: it's open here for writing, shared for reading - open_log)
+    HANDLE log = CreateFileA(state.path_.data(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (log != INVALID_HANDLE_VALUE) {
+        // (static: no allocation, and not on a stack that may be what overflowed)
+        constexpr DWORD kChunk = 64 * 1024;
+        static std::array<char, kChunk> buffer;
+        DWORD read = 0;
+        while (ReadFile(log, buffer.data(), kChunk, &read, nullptr) && read != 0) {
+            DWORD written = 0;
+            if (!WriteFile(copy, buffer.data(), read, &written, nullptr) || written != read) {
+                break;
+            }
+        }
+        CloseHandle(log);
+    }
+    CloseHandle(copy);
 }
 
 void set_log_listener(void (*listener)(const char* line)) { stored_listener() = listener; }

@@ -379,13 +379,6 @@ SceneSun resolve_scene_sun(const SunInputs& in)
     if (!in.baked_found) {
         return {}; // (no sun in the bake, and no clock: the level at its own time has none)
     }
-    if (in.choice.source == SunSource::kGame && in.game_set && in.relight.relights && !in.relight.level_keeps_bake) {
-        const SceneSun game = sun_of(SunOrigin::kGame, in.game_toward);
-        const auto lowest = static_cast<float>(std::sin(static_cast<double>(kMinGameSunDegrees) * kRadiansPerDegree));
-        if (game.found() && y_of(game.toward) >= lowest) {
-            return game;
-        }
-    }
     return sun_of(SunOrigin::kLevel, in.baked_toward);
 }
 
@@ -404,10 +397,6 @@ bool parse_sun_source(std::string_view text, SunChoice* out)
     }
     while (!text.empty() && blank(text.back())) {
         text.remove_suffix(1);
-    }
-    if (text == "game") {
-        *out = {.source = SunSource::kGame};
-        return true;
     }
     if (text == "level" || text == "bake") {
         *out = {.source = SunSource::kLevel};

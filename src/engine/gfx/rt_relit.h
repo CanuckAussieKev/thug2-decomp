@@ -85,8 +85,8 @@ inline constexpr uint32_t kRelitMaxSunRays = 64;
 inline constexpr uint32_t kRelitBouncePasses = 3;
 inline constexpr uint32_t kRelitBakeSkyRays = 128; // the relit bake's (offline: no time limit)
 inline constexpr uint32_t kRelitBakeSunRays = 32;
-inline constexpr float kRelitSunRadiusDegrees = 1.5F;
-inline constexpr float kRelitOffset = 2.0F;       // the rays start this far off the surface along its normal ...
+inline constexpr float kRelitSunRadiusDegrees = kSunRadiusDegrees; // (round S: the sun's own - rt_daylight.h)
+inline constexpr float kRelitOffset = 2.0F;       // the rays start this far off the surface along its normal
 // (lighting round A3 - the concave seam) ... and at most this far into the vertex's own triangles (RelitVertex::inward):
 // a vertex on a mesh's edge - a floor's at a wall's foot - started its rays on the wall's plane, and those toward the
 // wall crossed it at distance 0 (no hit) and saw a sky that isn't there (the furnace room's edge vertices: 0.5 - 0.78).
@@ -138,7 +138,6 @@ void set_screen_probe(ScreenProbe probe);
 struct RelitLevel {
     std::string name;       // the level's scene, as LoadScene names it (z_dt, BO, foun...)
     bool off = false;       // "relit": false - the level keeps its bake
-    bool keeps_baked_sun = false; // (added by the scene's sun) "sun": "level" - lit by its baked sun under rt_sun_source=game
     // (added by the level's compass) "north": the world heading (degrees, round from +z toward +x) of the level's north -
     // the time of day's sun path turned by it (rt_daylight.h NativeInputs::north); not set: north follows the bake's sun
     bool north_set = false;

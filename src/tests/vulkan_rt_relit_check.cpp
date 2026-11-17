@@ -1932,6 +1932,33 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
     rt::RelitLevelData cut;
     const bool refused = !rt::read_relit_data(std::string_view(bytes).substr(0, bytes.size() / 2), &cut, &cut_why);
     tally->check(refused && !cut_why.empty(), "a file cut short refused (" + cut_why + ")");
+    // (round S2) a file made with another sun's size - the bake's 1.5-degree sun before round S - or by another version
+    // is out of date: refused, and its head says so (the game: "run relit_bake")
+    {
+        constexpr std::size_t kVersionAt = sizeof(uint32_t);
+        constexpr std::size_t kSunRadiusAt = 2 * sizeof(uint32_t);
+        constexpr float kOldSunRadius = 1.5F;
+        std::string old_sun = bytes;
+        std::memcpy(&old_sun.at(kSunRadiusAt), &kOldSunRadius, sizeof(float));
+        std::string old_version = bytes;
+        const uint32_t before = rt::kRelitDataVersion - 1;
+        std::memcpy(&old_version.at(kVersionAt), &before, sizeof(uint32_t));
+        rt::RelitLevelData stale;
+        std::string sun_why;
+        std::string version_why;
+        const bool sun_refused = !rt::read_relit_data(old_sun, &stale, &sun_why);
+        const bool version_refused = !rt::read_relit_data(old_version, &stale, &version_why);
+        rt::RelitLevelHead head_now;
+        rt::RelitLevelHead head_sun;
+        rt::RelitLevelHead head_version;
+        const bool heads = rt::read_relit_head(bytes, &head_now) && rt::read_relit_head(old_sun, &head_sun) &&
+                           rt::read_relit_head(old_version, &head_version);
+        tally->check(sun_refused && version_refused && heads && !head_now.stale && head_sun.stale &&
+                         head_version.stale && !rt::relit_data_stale(bytes) && rt::relit_data_stale(old_sun) &&
+                         rt::relit_data_stale(old_version),
+                     "an older bake's data out of date: made with a 1.5-degree sun (" + sun_why + "), or by version " +
+                         std::to_string(before) + " (" + version_why + ")");
+    }
     const rt::RelitLighting lighting = lit_by(model, scene.sun);
     std::size_t total = 0;
     std::size_t same = 0;

@@ -573,7 +573,7 @@ bool game_sun(std::array<float, 3>* toward_sun);
 //   - (added by the time of day - rt_daylight.h) the clock's light (the sun, the moon at night) while [Graphics] tod
 //     isn't level, once the relit mode relights the level - above kGame and kLevel, below the override and kFixed.
 // A level whose bake shows no sun (indoors) has none, whatever the choice: it keeps its bake (no sun shadows, no shafts).
-enum class SunSource : uint8_t { kGame, kLevel, kFixed };
+enum class SunSource : uint8_t { kLevel, kFixed };
 struct SunChoice {
     SunSource source = SunSource::kLevel;
     std::array<float, 3> fixed{}; // kFixed's direction (toward the sun)
@@ -583,7 +583,6 @@ SunChoice sun_choice();
 // What the relit mode says about the level now (render_pc/rt_relit_world, each frame it runs).
 struct SunRelight {
     bool relights = false;         // the level is relit (a model found, not opted out): another sun can light it
-    bool level_keeps_bake = false; // the level's entry asks for its baked sun under kGame ("sun": "level")
 };
 void set_sun_relight(const SunRelight& relight);
 SunRelight sun_relight();
@@ -591,7 +590,6 @@ enum class SunOrigin : uint8_t {
     kNone,     // the bake shows no sun (indoors): no sun effects
     kWaiting,  // the level's baked sun not fitted yet
     kOverride, // the console's
-    kGame,     // the sun the game shows
     kLevel,    // the baked sun
     kFixed,    // rt_sun_source=x,y,z / heading,elevation
     kClock,    // (added by the time of day) the clock's sun or moon (rt_daylight.h DayLight::light)
@@ -602,7 +600,7 @@ struct SceneSun {
     uint64_t serial = 0;           // (scene_sun) a new number each time the direction or the origin changes
     [[nodiscard]] bool found() const
     {
-        return origin == SunOrigin::kOverride || origin == SunOrigin::kGame || origin == SunOrigin::kLevel ||
+        return origin == SunOrigin::kOverride || origin == SunOrigin::kLevel ||
                origin == SunOrigin::kFixed || origin == SunOrigin::kClock;
     }
 };

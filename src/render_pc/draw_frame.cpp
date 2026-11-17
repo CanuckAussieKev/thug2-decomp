@@ -1133,7 +1133,7 @@ void draw_viewport(int index)
 }
 
 // Not original - the sky scene's backdrop captured for a renderer that draws its own sky (rt_scene.h
-// sky_capture_wanted: the Vulkan Gpu's rt_sky matches its atmosphere and clouds to the level's own sky): once per sky
+// sky_capture_wanted: the Vulkan Gpu's water reflects it; its rt_sky starts its clouds' histories again for a new one): once per sky
 // scene, all its meshes (the backdrop and its layers: painted cloud cards count as its clouds) drawn from the origin toward
 // each of rt::kSkyCaptureFaces (a 90-degree square view) into a
 // texture of 3 x 2 faces, cleared to the background colour first, then handed over (rt::set_sky_capture).

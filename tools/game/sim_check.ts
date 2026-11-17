@@ -26,7 +26,9 @@
 // state and sun on every frame at every display rate and load. A run passes when every frame of the reference is there with the same line. --record writes
 // the max_fps=0 run as the new reference (sim_reference/<demo>.state.txt) - only from the build the reference is meant
 // to be (main before a change). The reference was made in a workspace's own data (scripts, levels): compare in the same
-// kind of folder. Workspaces only - never the main install; take the workspace's lock first (tools/game/game_lock.ps1).
+// kind of folder. Every run (--record's too) is played with REFERENCE_SETTINGS below set in the ini - the original
+// game's simulation, no NOT ORIGINAL feature that adds to it (THAW's parked BMX) - and the report names those the
+// workspace's ini had otherwise. Workspaces only - never the main install; take the workspace's lock first (tools/game/game_lock.ps1).
 
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
@@ -153,6 +155,47 @@ export function reportLine(demo: string, fps: number, c: StateComparison | null,
     return `| ${demo} | ${shown} | ${c.matched} / ${c.frames} | ${c.missing} | ${first} | ${late} | ${passed(c) ? "ok" : "FAIL"} |`;
 }
 
+// The settings every run is played with, whatever the workspace's ini says (put back after the run with the rest): the
+// references are the original game's simulation, so nothing that adds to it may be on. Each was found by a run:
+// - [features] thaw_bmx=0: THAW's BMX parks its bike (`thaw_bmx_home`, game/rider/thaw_bmx_parked.h) beside the
+//   skater at the level's start - a NOT ORIGINAL object with a motion component, so the objects' hash parts from
+//   frame 30 in every demo (the skater, the random streams and the clock stay equal). An overlay made before the
+//   parked bike (make_menu_level) has no such script, which is why a workspace with thaw_bmx=1 could still match.
+// - [features] anteara_mod=0: the mod's scripts replace the game's.
+// - [features] start_level / start_at / edit_level emptied: a start level keeps the demo from playing.
+// Settings proven not to matter (every demo bit-identical with them on): ray tracing and the Vulkan renderer's
+// options, [Graphics] tod / tod_cycle, lod_distance_scale 1 or 3, draw_distance_scale, QB or TypeScript scripts.
+export const REFERENCE_SETTINGS: ReadonlyArray<readonly [section: string, key: string, value: string]> = [
+    ["features", "thaw_bmx", "0"],
+    ["features", "anteara_mod", "0"],
+    ["features", "start_level", ""],
+    ["features", "start_at", ""],
+    ["features", "edit_level", ""],
+];
+
+// The ini a run is played with: the workspace's, its display rate and load, and the reference's settings.
+export function runIni(text: string, fps: number, load: number): string {
+    let out = setIniValue(text, "Graphics", "max_fps", String(fps));
+    // (render-only frames aren't held back by the display's refresh: the rate asked for is drawn)
+    out = setIniValue(out, "Graphics", "present_mode", fps === 0 ? "vsync" : "immediate");
+    out = setIniValue(out, "debug", "load_test", String(load));
+    for (const [section, key, value] of REFERENCE_SETTINGS) out = setIniValue(out, section, key, value);
+    return out;
+}
+
+// The reference's settings the workspace's ini has otherwise (the report names them: set for the runs). A key not in
+// the ini is its default: off, none.
+export function settingsOverridden(text: string): string[] {
+    const differs = ([section, key, value]: readonly [string, string, string]) => {
+        const have = iniValue(text, section, key);
+        return have !== value && !(have === "" && value === "0");
+    };
+    return REFERENCE_SETTINGS.filter(differs).map(
+        ([section, key, value]) =>
+            `[${section}] ${key}=${iniValue(text, section, key)} (played with ${value === "" ? "none" : value})`,
+    );
+}
+
 // A playback's files (the trace only with --trace), copied into the run's folder without "play.".
 const OUTPUTS = ["play.track.txt", "play.run.json", "play.state.txt", "play.trace.txt"];
 
@@ -173,11 +216,7 @@ async function playOnce(
     fs.rmSync(folder, { recursive: true, force: true });
     fs.mkdirSync(folder, { recursive: true });
     try {
-        let text = setIniValue(before, "Graphics", "max_fps", String(fps));
-        // (render-only frames aren't held back by the display's refresh: the rate asked for is drawn)
-        text = setIniValue(text, "Graphics", "present_mode", fps === 0 ? "vsync" : "immediate");
-        text = setIniValue(text, "debug", "load_test", String(load));
-        fs.writeFileSync(ini, text);
+        fs.writeFileSync(ini, runIni(before, fps, load));
         ensureWorkspaceMuted(game);
         clearAutomationFiles(game);
         const started = Date.now();
@@ -285,6 +324,8 @@ async function main(): Promise<number> {
             `${game} runs ${mode === "mismatch" ? "neither (its ini and folder disagree)" : `${mode} scripts`}, not ${values.scripts} - ` +
                 "switch it: node tools/qbjs/unpack_game.ts --game <folder> (ts; [features] ts_scripts=1) or --restore (qb; ts_scripts=0)",
         );
+    const iniPath = path.join(game, "thug2-decomp.ini");
+    const overridden = settingsOverridden(fs.existsSync(iniPath) ? fs.readFileSync(iniPath, "utf8") : "");
     const out = path.resolve(values.out ?? path.join(game, "thug2-decomp-demos", "sim_check"));
     fs.mkdirSync(out, { recursive: true });
     if (!values["no-run"]) {
@@ -320,6 +361,11 @@ async function main(): Promise<number> {
         "Each run's state (src/devtools/demo.cpp state_line) against the reference, frame by frame, bit for bit.",
         "",
         `Scripts: ${mode === "ts" ? "TypeScript ([features] ts_scripts=1, the folder unpacked)" : mode === "qb" ? "QB (the .qb files)" : "the ini and the folder disagree"}.`,
+        "",
+        `Played with the reference's settings (REFERENCE_SETTINGS): ${REFERENCE_SETTINGS.map(([s, k, v]) => `[${s}] ${k}=${v}`).join(", ")}` +
+            (overridden.length > 0
+                ? ` - the workspace's ini differs: ${overridden.join(", ")}.`
+                : " - the workspace's ini has them."),
         "",
         "| demo | display rate | frames equal | missing | first differs | late frames | result |",
         "|---|---|---|---|---|---|---|",

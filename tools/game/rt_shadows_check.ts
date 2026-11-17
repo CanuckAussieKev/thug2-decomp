@@ -179,7 +179,6 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIGS = ["off", "on", "baseline"] as const;
 export type Config = (typeof CONFIGS)[number];
 // R4's sun shadows, R5's ambient occlusion and reflections, HDR, the fog, the one-bounce indirect light
-// (sun-source: sun_source_check.ts's - rt_sun_source level / game; it has its own compare)
 export type Effect =
     | "shadows"
     | "ao"
@@ -192,8 +191,7 @@ export type Effect =
     | "tess"
     | "relit"
     | "upscale"
-    | "pbr"
-    | "sun-source";
+    | "pbr";
 export const EFFECTS: readonly Effect[] = [
     "shadows",
     "ao",
@@ -230,12 +228,6 @@ export function configValues(config: Config, effect: Effect = "shadows"): Record
         // (per-pixel lighting alone toggled; the rest as the workspace's ini and --set have it)
         if (config === "baseline") return {};
         return { "Graphics.rt_pbr": config === "on" ? "1" : "0" };
-    }
-    if (effect === "sun-source") {
-        // (the one sun every effect lights by: off - the level's baked sun, on - the game's; the rest as the
-        // workspace's ini and --set have them)
-        if (config === "baseline") return {};
-        return { "Graphics.ray_tracing": "1", "Graphics.rt_sun_source": config === "on" ? "game" : "level" };
     }
     if (effect === "sky") {
         // (the atmosphere and the clouds together; the other effects as the ini and --set have them)
@@ -1303,7 +1295,6 @@ function compareFolder(
             relit: "relit colours",
             upscale: "upscaling",
             pbr: "per-pixel lighting",
-            "sun-source": "relit colours",
         }[limits.effect ?? "shadows"];
         const how =
             limits.effect === "gi"
@@ -1379,7 +1370,6 @@ function compareFolder(
         relit: "rt_relit check",
         upscale: "upscale check",
         pbr: "rt_pbr check",
-        "sun-source": "rt_sun_source check",
     }[limits.effect ?? "shadows"];
     lines.push(failed ? `${title}: FAILED` : `${title}: passed`);
     fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
@@ -1465,7 +1455,7 @@ export interface RunOptions {
     owner: string;
     set: Record<string, string>;
     effect: Effect;
-    configs?: Config[]; // (sun_source_check's: the configurations run - off and on, or baseline too, otherwise)
+    configs?: Config[]; // (the configurations run - off and on, or baseline too, otherwise)
 }
 
 export async function runAll(options: RunOptions): Promise<number> {
@@ -1611,7 +1601,6 @@ async function main(): Promise<number> {
         relit: "1",
         upscale: "0",
         pbr: "1",
-        "sun-source": "1",
     };
     const strength = Number(
         (strengthKey !== undefined ? set[strengthKey] : undefined) ?? values.strength ?? defaults[effect],

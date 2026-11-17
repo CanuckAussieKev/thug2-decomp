@@ -401,19 +401,29 @@ std::shared_ptr<const LevelEmitters> level_emitters()
 
 
 namespace {
-std::atomic<float>& lamps_drawn_slot()
+struct LampsOwner {
+    std::atomic<bool> owner{false};
+    std::atomic<bool> automatic{true};
+};
+LampsOwner& lamps_owner()
 {
-    static std::atomic<float> drawn{0.0F};
-    return drawn;
+    static LampsOwner state;
+    return state;
 }
 } // namespace
 
-void set_lamps_drawn(float amount)
+void set_lamps_owner(bool owner, bool automatic)
 {
-    lamps_drawn_slot().store(std::isfinite(amount) ? std::clamp(amount, 0.0F, 1.0F) : 0.0F, std::memory_order_relaxed);
+    lamps_owner().owner.store(owner, std::memory_order_relaxed);
+    lamps_owner().automatic.store(automatic, std::memory_order_relaxed);
 }
 
-float lamps_drawn() { return lamps_drawn_slot().load(std::memory_order_relaxed); }
+float lamps_drawn()
+{
+    // (lighting round A3: each lamp's own amount - lamp_on - is in the light the pass shines it with; owning the lamps,
+    // the pass owns them whole)
+    return lamps_owner().owner.load(std::memory_order_relaxed) ? 1.0F : 0.0F;
+}
 
 float lamp_on(float switch_sky, float sky_now, float open_lamps)
 {

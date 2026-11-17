@@ -167,8 +167,6 @@ void add_section(Fields* out, const char* section, const SectionKeys& keys, cons
 const char* sun_source_name(render::rt::SunSource source)
 {
     switch (source) {
-    case render::rt::SunSource::kGame:
-        return "game";
     case render::rt::SunSource::kFixed:
         return "fixed direction";
     case render::rt::SunSource::kLevel:
