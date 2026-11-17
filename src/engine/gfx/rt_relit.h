@@ -66,6 +66,7 @@
 #include <string_view>
 #include <vector>
 
+#include "engine/gfx/lamp_fixtures.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -243,6 +244,9 @@ struct RelitModel {
     // (reported) the bake's own daylight on a level surface toward its sun (a S + b, / g) over the physical day's there:
     // how far its artists' light is from the physical sky's (1: the same; 0: a sunless bake)
     float daylight_ratio = 0.0F;
+    // (lamp solve check) the art's exposure of its lamps' light: the physical flux over the solved one
+    // (relit_lamp_models' LampModelCounts::exposure; 0: not told - fewer than kLeastExposureLamps solved)
+    float lamp_exposure = 0.0F;
     float error = 0.0F;       // the fit's median residual (relative: an edge's light ratio against its colours')
     std::size_t vertices = 0; // that the fit used
     float sun_needed =
@@ -446,9 +450,33 @@ enum class RelitLampTold : uint8_t {
 // radiance over its whole card (A3's lower bound): sch's magenta card at the origin, core 172 units, gave 46 million lm
 // and blew the plaza magenta. A glow with a luminous core of a fixture's size takes its kind's model (dark in the bake
 // too: under the fit's noise its size is untold); with none, or one no fixture of its kind has, it is no lamp.
+// (lamp solve check, 2026-11-17) The art's exposure of its lamps. The bake's colours are display-referred: the solve
+// tells each lamp's light in the global unit, whose daylight is physical (the bake's own daylight 1.1 - 2.5 x the
+// physical one), but its artists painted the lamp-lit places - rooms, a church, a plaza at night - about as bright as
+// its sunlit streets: the pools the solve fits are 1 500 - 110 000 lux (an office is lit to 500 lux - EN 12464-1 -, a
+// residential street to 2 - 15 lux - EN 13201-2's P classes), so every solved flux was 10^4 - 10^7 lm and none passed
+// its kind's range. The solve measures each lamp's light up to that one factor - the art's exposure of its lamp light,
+// the same for the level's lamps (one painter's picture) -, so it is told from the level's own solved lamps: the
+// median, over the lamps the bake told, of the log of their kinds' typical flux (x their fixtures' count) over their
+// solved flux - kLeastExposureLamps at least, else the solved lamps take the model (no exposure to put their flux in
+// physical units). Each solved lamp is then its solved light x the exposure: what the bake measured of it (its flux against the level's others, its colour) is
+// kept; it is plausible when that flux is within its kind's (x its fittings' for a row) - its flux, not its luminous
+// area's luminance: the drawn lamp texels or a card's core hold its housing and glare too (relit_lamp_models).
+inline constexpr std::size_t kLeastExposureLamps = 3;
+// A lamp's luminous area as fixtures of its kind: a line (a row of fittings - a tube's, a neon sign's tubing) is
+// sized when its luminous width (its area over its length) is a fitting's (FixtureValues::least_width - most_width),
+// any length - `count` the fittings it holds (its length over one's longest, at least 1); a point or a panel when its area
+// is one fixture's (count 1).
+struct LampFixtures {
+    bool sized = false;
+    double count = 1.0;
+};
+[[nodiscard]] LampFixtures lamp_fixtures(const RelitLamp& lamp, LampFixture fixture, float area);
 struct LampModelCounts {
     std::array<std::size_t, 6> by_source{};
     std::array<std::size_t, 8> by_fixture{};
+    double exposure = 0.0;         // the art's lamp exposure (physical over solved flux; 0: not told)
+    std::size_t exposure_lamps = 0; // the solved lamps it was told from
 };
 // `own_colours`: each lamp's colour as found (its glow's or surface's, before the solve).
 LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const RelitLampTold> told,
