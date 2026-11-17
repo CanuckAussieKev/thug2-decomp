@@ -175,10 +175,10 @@ inline constexpr uint32_t kMaskClear = 1;  // the reflection shows where the pas
 inline constexpr uint32_t kMaskOpaque = 2; // where it is 1
 
 // Material::reflection_class's values (the reflection shaders' CLASS_*).
-inline constexpr uint32_t kReflectShiny = 0; // metal, paint, polished floors: the game's reflectivity face-on as well
+inline constexpr uint32_t kReflectShiny = 0; // car paint, a sheen: without a surface map the material table's lacquer
 inline constexpr uint32_t kReflectWater = 1; // the sea, pools, puddles: 2% face-on, a mirror at grazing angles
-inline constexpr uint32_t kReflectGlass = 2; // windows: little face-on (rt_glass_reflectance), slightly rough
-// (added for the surface reflections) a surface the game left without a shine whose surface map says it is glossy
+inline constexpr uint32_t kReflectGlass = 2; // windows: the material table's glass (4% face-on, smooth)
+// (added for the surface reflections) a surface (not water or glass) whose surface map says what it is made of
 // (metal, glazed tiles, polished floors and stone, varnished wood, paint): its map's F0 face-on, as rough as the map's
 // texel - never set on an rt::Material, only by the Vulkan material table (vulkan_rt_materials.h, vulkan_surface.h
 // surface_map_gloss)

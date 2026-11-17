@@ -188,14 +188,12 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
         return;
     }
     SurfaceGloss found;
-    if (record->reflectivity > 0.0F) {
-        // (added for the game's shine on rough surfaces) a surface the game gave a shine (an environment-mapped pass -
-        // a kerb, a ledge drawn with a sheen) whose map says what it is: its reflection never under its kind's least
-        // roughness (stone a blurred sheen; concrete, brick, asphalt none) - only water and glass (their own classes)
-        // stay mirrors
-        if (record->reflection_class == rt::kReflectShiny && surface_map_gloss(colour, &found)) {
-            record->least_roughness = found.least_roughness;
-        }
+    // (changed for the reflections' one light model) a surface with a surface map is shaded by the light model, which
+    // leaves its environment's specular to the reflections pass where its texels are smooth (ff_shaders.cpp
+    // surface_finish) - it reflects as its map's material says, whether or not the game drew it with a shine (the
+    // environment-mapped pass was the game's only evidence of a gloss: a kerb, a ledge drawn with a sheen). Water and
+    // glass keep their own classes (their materials the table's).
+    if (record->reflectivity > 0.0F && record->reflection_class != rt::kReflectShiny) {
         return;
     }
     if (surface_map_gloss(colour, &found) && found.gloss > 0.0F && found.f0 > 0.0F) {

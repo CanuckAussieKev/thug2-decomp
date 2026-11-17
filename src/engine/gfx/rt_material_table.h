@@ -50,6 +50,9 @@ enum class MaterialKind : uint8_t {
     kLeather,
     kRubber,
     kHair,
+    // (added for the reflections) a clear lacquer over a finish - car paint's clear coat, varnish: what a surface the game
+    // draws with an environment map (its shine) and no surface map is taken to be
+    kLacquer,
     kCount,
 };
 inline constexpr std::size_t kMaterialKindCount = static_cast<std::size_t>(MaterialKind::kCount);
@@ -219,6 +222,12 @@ inline constexpr std::array<MaterialValues, kMaterialKindCount> kMaterialTable{{
      .albedo = {0.02F, 0.6F},
      .source = "index: keratin n 1.55, cuticle tilt -5 to -10 degrees (Marschner et al. 2003); roughness unmeasured "
                "(classes.ts hair)"},
+    {.name = "lacquer",
+     .index = 1.5F,
+     .roughness = 0.25F,
+     .albedo = {0.02F, 0.9F},
+     .source = "index: acrylic / polyurethane clear coats and varnishes n ~1.5; roughness unmeasured: a glossy finish's "
+               "lobe of GGX alpha 0.0625 (about 0.06 rad), the earlier clear coat's - for a measurement to replace"},
 }};
 
 [[nodiscard]] inline const MaterialValues& material_values(MaterialKind kind)

@@ -114,33 +114,13 @@ struct RtLightSettings {
 void set_rt_light_settings(const RtLightSettings& settings);
 [[nodiscard]] RtLightSettings rt_light_settings();
 
-// NOT ORIGINAL - ray-traced reflections (vulkan_rt_reflections.h, docs/design/vulkan.md R5): [Graphics] rt_reflections,
-// rt_reflection_strength. Nothing is drawn differently while `on` is false, when ray tracing isn't enabled on the device,
-// or where no surface is reflective.
-inline constexpr float kRtReflectionStrength = 0.5F; // (rt_reflection_strength's default)
-inline constexpr float kRtGlassRoughness = 0.05F;    // (rt_glass_roughness's default: radians)
-// glass's F0: ((n - 1) / (n + 1))^2 for window glass's n = 1.5 (changed by the physical air: rt_glass_reflectance, 0.2 to
-// make the game's bright pane textures reflect, retired - a pane too bright is its texture's, the material's input)
-inline constexpr float kRtGlassReflectance = 0.04F;
-inline constexpr float kRtReflectionSurfaces = 1.0F;  // (rt_reflection_surfaces's default)
+// NOT ORIGINAL - ray-traced reflections (vulkan_rt_reflections.h, docs/design/vulkan.md R5): [Graphics] rt_reflections.
+// Nothing is drawn differently while `on` is false, when ray tracing isn't enabled on the device, or where no surface is
+// reflective. How much a surface reflects is its material's (the one light model's E - engine/gfx/rt_brdf.h, the
+// material table): rt_reflection_strength, rt_reflection_fresnel, rt_glass_roughness and rt_reflection_surfaces are
+// retired (the settings model says why).
 struct RtReflectionSettings {
     bool on = false;
-    float strength = kRtReflectionStrength; // how far a fully reflective surface's colour goes toward what it mirrors (0 - 1)
-    // (added for the water and glass) rt_reflection_fresnel: how much a surface reflects depends on the angle it is
-    // seen at (Schlick's Fresnel) - water and glass little face-on and a mirror at grazing angles, other shiny surfaces
-    // a clear coat's sheen (the world's own shine since 2026-11-15 too: blurred, F0 0.05 - vulkan_rt_reflections.h);
-    // false: the same at every angle (reflectivity x strength, as before - a mirror).
-    bool fresnel = true;
-    // rt_glass_roughness: the half-angle of the cone glass reflects into (radians; 0: a perfect mirror) - a few rays
-    // a pixel, blurred over its neighbours.
-    float glass_roughness = kRtGlassRoughness;
-    // glass's reflectance face-on (Schlick's F0): real glass's (kRtGlassReflectance - the checks may set another)
-    float glass_reflectance = kRtGlassReflectance;
-    // (added for the surface reflections) rt_reflection_surfaces: x the reflections of the surfaces the game gave no
-    // shine whose surface maps say they are glossy (rt_pbr's maps: metal, glazed tiles, polished floors and stone,
-    // varnished wood, paint - vulkan_surface.h surface_map_gloss), weighted by Fresnel at their F0 and their roughness;
-    // 0: only the environment-mapped surfaces, as before.
-    float surfaces = kRtReflectionSurfaces;
 };
 void set_rt_reflection_settings(const RtReflectionSettings& settings);
 [[nodiscard]] RtReflectionSettings rt_reflection_settings();

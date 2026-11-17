@@ -1244,7 +1244,7 @@ void check_puddles(render::Gpu& gpu, Tally* tally)
     const uint64_t masks = vk::wet_masks_drawn();
     run_frames(gpu, targets, view, 1);
     tally->check(vk::wet_masks_drawn() == masks, "rt_reflections off: no wet mask drawn");
-    vk::set_rt_reflection_settings({.on = true, .strength = 1.0F});
+    vk::set_rt_reflection_settings({.on = true});
     run_frames(gpu, targets, view, 1);
     std::vector<uint8_t> wet;
     uint32_t wet_width = 0;

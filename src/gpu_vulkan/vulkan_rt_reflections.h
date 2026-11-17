@@ -26,8 +26,8 @@
 //      pixel shaders do (the level's lighting is baked into the vertex colours), or for objects the frame's ambient and
 //      directional lights; alpha-tested surfaces tested along the ray (R3's alpha test). No recursion, no fog. A ray
 //      that hits nothing leaves the pixel alone (the game's own environment map already shows the sky there);
-//   2. apply: colour = mix(colour, reflection, reflectivity x strength) where something was hit (every sample of a
-//      multisampled pixel the pixel's value; alpha kept); the other pixels aren't touched.
+//   2. apply: the reflection weighed by the surface's material, added or in place of the pixel's own estimate (below;
+//      every sample of a multisampled pixel the pixel's value; alpha kept); the other pixels aren't touched.
 // - Which pixels: a ray per pixel to identify the surface rather than a per-pixel material target (the raster draws
 //   would all need another attachment, and their pipelines a second output): one ray query against the TLAS costs
 //   little next to the reflection rays, and the pass does nothing at all while the frame has no reflective instance
@@ -38,24 +38,23 @@
 //   smooth reflections) Where the reflecting mesh has its own normals (the objects: the cars' low-poly bodies) the
 //   mirror direction and the Fresnel follow them, interpolated - the triangles don't show in the reflection; the
 //   triangle's normal still keeps the ray off the surface.
-// - (added for the objects' clear coat) A shiny object (environment-mapped, not water, glass or a map's surface) - a
-//   car's paint - reflects as a clear coat with Fresnel on: its shine x 2 strength (at most 1) x Schlick's from F0
-//   0.05 face-on, its rays over a 0.06 radian cone - not the shiny surfaces' mirror (its whole shine face-on).
-// - (added for the surface reflections) With rt_pbr's surface maps, a surface the game gave no shine reflects as its map
-//   says it is glossy (the material table: rt::kReflectSurface, vulkan_surface.h surface_map_gloss - metal, glazed tiles,
-//   polished floors and stone, varnished wood, paint; asphalt, concrete, brick, plaster, ground, plants, cloth never;
-//   nothing seen through): weight = gloss x rt_reflection_surfaces x 2 strength (at most 1) x Schlick's Fresnel at the
-//   map's F0 (at most 0.05 but for metal) with its grazing rise held to 1 - roughness - the roughness never under the
-//   kind's least (stone 0.5, paint 0.4, wood 0.35: never mirrors) -, faded out from 0.525 to 0.7 of it at the
-//   pixel; its rays spread over a cone of roughness^2 radians (at most 0.5) as rough glass's, blurred over its rough
-//   neighbours. rt_reflection_surfaces=0: the environment-mapped surfaces alone, as before; no map: as before.
-// - (added for the game's shine on rough surfaces) The world's own shine (environment-mapped, not water or glass - BO's
-//   kerbs: a sphere-mapped sky picture at reflectivity 1, which mirrored the skater's shoes sharply) is a sheen with
-//   Fresnel on, as the objects' clear coat: Schlick's from F0 0.05 x its shine x 2 strength (at most 1), its rays over a
-//   0.15 rad cone - with or without a surface map (BO's level maps don't match the seedvr2 textures: most aren't
-//   attached). Where a map is attached its kind's least roughness counts too (vulkan_rt_materials.cpp
-//   surface_reflection): metal and glazed tiles (under 0.2) keep the mirror; stone, paint, wood a wider cone; asphalt,
-//   concrete, brick, plaster, ground (least 1) no reflection at all. Water and glass keep their own.
+// - (changed for the one light model - engine/gfx/rt_brdf.h; the strength, Fresnel switch, glass roughness and surface
+//   factor settings retired) The weight is the surface material's E - brdf_specular_albedo for its F0 and roughness at
+//   the angle it is seen at, the split-sum directional albedo with its multiple-scattering compensation: the share of
+//   the environment the light model gives the specular (the diffuse keeps 1 - E), toward 1 at grazing angles. A metal's
+//   E is coloured: the reflection carries its colour, the weight its largest channel. Its rays spread over a cone as
+//   wide as GGX's alpha (at most 0.5 rad; narrower than the apply's 3 x 3 blur resolves: a mirror), blurred over its
+//   rough neighbours. Two ways in:
+//     - added: a surface the light model shades through its surface map (rt_pbr; rt::kReflectSurface - every mapped
+//       surface but water and glass, with or without the game's shine) left its environment's specular out where its
+//       texel is smoother than kReflectionRoughest (ff_shaders.cpp surface_finish): the pass adds E x the share left
+//       out - its F0 the material table's for the map's kind (a metal's its texel's colour), its roughness the map's -
+//       and where its rays miss everything (no sky drawn) the surface's own estimate stands in (own_environment);
+//     - in place: water, glass and the game's shine without a map (car paint, a kerb's sheen) hold the game's
+//       sphere-mapped picture of the sky in their colour - the surface's estimate, which can't be taken out of it: the
+//       reflection replaces E of the pixel, the material the table's water, glass or lacquer (rt_material_table.h);
+//       the misses keep the game's picture. Masked glass (its environment painted into its texture's clear texels)
+//       has its own colour put back under the reflection: (1 - E) of it.
 namespace render::vulkan {
 
 struct Backend;
