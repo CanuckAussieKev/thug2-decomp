@@ -6,6 +6,7 @@
 #include <numbers>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rain.h"
 
 namespace render::rt {
 
@@ -62,7 +63,8 @@ AirWeather air_weather() { return weather_now(); }
 
 double precipitation_extinction(const AirWeather& weather)
 {
-    return (weather.snow ? kSnowExtinction : 0.0) + (weather.rain ? kRainExtinction : 0.0);
+    const double rate = weather.rain_rate > 0.0 ? weather.rain_rate : (weather.rain ? rain::kModerateRate : 0.0);
+    return (weather.snow ? kSnowExtinction : 0.0) + rain::extinction(rate);
 }
 
 StreetAir street_air(const Aerosol& aerosol, const AirWeather& weather)

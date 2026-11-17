@@ -152,6 +152,8 @@ add_library(thug2_engine STATIC
     gfx/rt_volume_light.cpp
     gfx/grass.cpp
     gfx/snow.cpp
+    gfx/rain.cpp
+    gfx/precip_occlusion.cpp
     gfx/surface_trail.cpp
     gfx/paint_trails.cpp
     gfx/scatter.cpp

@@ -448,6 +448,15 @@ struct SnowSettings {
 };
 void set_snow_settings(const SnowSettings& settings);
 [[nodiscard]] SnowSettings snow_settings();
+// NOT ORIGINAL - rain (vulkan_rain.h; docs/design/vulkan.md "Rain"): [Graphics] rain - the rate in mm of water an hour
+// (engine/gfx/rain.h: everything else - the drops, their speed, the wind's slant, the air's extinction, the overcast, the
+// water on the ground - follows from it). 0 (the default): nothing is drawn. Where the rain reaches needs ray tracing
+// (vulkan_precip.h); without it, it reaches everywhere.
+struct RainSettings {
+    float rate = 0.0F; // mm/h: 0 - 150
+};
+void set_rain_settings(const RainSettings& settings);
+[[nodiscard]] RainSettings rain_settings();
 // NOT ORIGINAL - paint trails (vulkan_paint.h; docs/design/vulkan.md "Paint trails"): [Graphics] paint_trails,
 // paint_trail_scale, paint_trail_colour - all put to use at once. Every skater's board leaves a line of paint in its
 // colour, widening and splattering with its combo, kept for the level session. `on` false (the default): nothing is

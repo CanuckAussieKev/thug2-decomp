@@ -577,6 +577,7 @@ std::string describe(const FragmentKey& key)
     text += (key.trails & kTrailSnowTraced) != 0U ? "-traced" : "";
     text += (key.trails & kTrailSnowTint) != 0U ? "-tint" : "";
     text += (key.trails & kTrailPaint) != 0U ? " paint" : ""; // (NOT ORIGINAL - [Graphics] paint_trails)
+    text += (key.trails & kTrailWet) != 0U ? " wet" : "";     // (NOT ORIGINAL - [Graphics] rain)
     if (key.projected_mask != 0U) {
         text += " projected=" + std::to_string(key.projected_mask);
     }

@@ -51,6 +51,10 @@ constexpr uint32_t kSnowSkyBinding = 18;      // the level's sky map (RG16: the 
 constexpr uint32_t kPaintUniformsBinding = 19; // PaintUniforms
 constexpr uint32_t kPaintCoatBinding = 20;     // the three fields' windows side by side: the coats (RGBA8, premultiplied)
 constexpr uint32_t kPaintPlaceBinding = 21;    // ... and the painted places along each field's axis (R32F)
+// (NOT ORIGINAL - [Graphics] rain, vulkan_rain.h) the wet ground: read only by keys with kTrailWet (pushed only for their
+// draws; after the paint's)
+constexpr uint32_t kWetUniformsBinding = 22; // WetUniforms (vulkan_rain.cpp)
+constexpr uint32_t kWetMapBinding = 23;      // the precipitation occlusion map (RG32UI - vulkan_precip.h)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.
@@ -162,7 +166,8 @@ struct WaterUniforms {
     Float4 sun_colour{};     // rgb: the sun's colour; w: the glitter's peak
     Float4 sky{};            // rgb: the sky's colour where nothing else is known; w: 1 when the sky capture is bound
     Float4 camera{};         // xyz: the camera's position (world); w: the refraction's strength
-    Float4 misc{};           // x: screen-space reflections on; y: unused; z: the debug view; w: unused
+    Float4 misc{};           // x: screen-space reflections on; y: (the rain's) the rings' cell (units, 0: none); z: the debug
+                             // view; w: (the rain's) the body's openness to the sky
     // (added by the physical waves - engine/gfx/water_waves.h SeaWaves, the body drawn) the four Gerstner waves' slopes
     // (amplitude x k) and phase speeds (units a second); x the significant height Hs (units), y the peak's wavelength
     // (units), z x the ripple texture's slope, w the whitecaps' share (0 - 1)

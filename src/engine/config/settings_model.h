@@ -88,8 +88,9 @@ enum class Effect : uint8_t {
     kCameraFx,
     kSnow,
     kPaint, // (added by the paint trails)
+    kRain,  // (added by the rain)
 };
-inline constexpr int kEffectCount = static_cast<int>(Effect::kPaint) + 1;
+inline constexpr int kEffectCount = static_cast<int>(Effect::kRain) + 1;
 
 // What the machine, the build and the game's data have (Capabilities), and the level's facts (LevelFacts).
 enum class Cap : uint8_t {

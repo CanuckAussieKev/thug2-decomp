@@ -781,6 +781,16 @@ void check_capabilities()
     expect(!resolve(no_vulkan(), snowy).on("snow") && resolve(no_vulkan(), snowy).at("snow").reason == t::kNoVulkanGpu,
            "no Vulkan: no snow, at the root");
     expect(!resolve(rtx50(), {}).on("snow"), "snow off by default");
+    // (added by the rain) a rate in mm/h on outdoor levels only; Vulkan (no ray tracing needed: then it reaches everywhere)
+    const Ini rainy = {{"rain", "4"}};
+    expect(resolve(no_rt_gpu(), rainy).on("rain") && resolve(no_rt_gpu(), rainy).number("rain", 0.0F) == 4.0F,
+           "rain (4 mm/h) on an outdoor level without a ray tracing GPU");
+    config::Inputs rain_indoors = inputs_of(rtx50(), rainy);
+    rain_indoors.level.outdoor = false;
+    expect(!config::resolve(rain_indoors).on("rain") && config::resolve(rain_indoors).at("rain").reason == t::kLevelIndoors,
+           "an indoor level: no rain, and why");
+    expect(!resolve(no_vulkan(), rainy).on("rain"), "no Vulkan: no rain");
+    expect(!resolve(rtx50(), {}).on("rain") && !resolve(rtx50(), {{"rain", "0"}}).on("rain"), "rain off by default and at 0");
     // (added by the paint trails) Vulkan, no ray tracing; indoors too; its width and colour with it; a colour of the
     // player's own (an open choice: #RRGGBB) kept as written
     const Ini painted = {{"paint_trails", "1"}, {"paint_trail_scale", "1.5"}, {"paint_trail_colour", "#12ab34"}};

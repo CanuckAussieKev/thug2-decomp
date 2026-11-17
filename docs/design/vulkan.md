@@ -3634,6 +3634,104 @@ the snow's layer over all the open ground round the camera, banked against kerbs
   there); a step the snow doesn't bridge leaves its foot's cell to the flat cover (a gap the depth deep, one grid cell
   wide - 1.5 units near, 24 at the reach); no shadow cast by the layer on the world (its own relief shades it).
 
+### Rain (`rain`)
+
+`[Graphics] rain` is the weather's rain as one physical input - its rate in millimetres of water an hour on level ground
+(Options: Light 1, Moderate 4, Heavy 12, Downpour 40 - the American Meteorological Society's classes; 0 off). Everything
+else follows from it in one state, `engine/gfx/rain.h`, which every consumer reads:
+
+| From the rate | The model | Where it is read |
+|---|---|---|
+| the drops' sizes | Marshall and Palmer (1948): N(D) = 8000 e^(-Lambda D) m^-3 mm^-1, Lambda = 4.1 R^-0.21, 0.1 - 6 mm | the drops' compute pass (each drop's size from the distribution's inverse) |
+| their fall speeds | Atlas, Srivastava and Sekhon (1973): v(D) = 9.65 - 10.3 e^(-0.6 D) m/s (within 2% of Gunn and Kinzer's measurements) | the drops, the fall's slant |
+| how many | the integral of N (about 1,900 a cubic metre at 4 mm/h, 560 of them 0.5 mm and over); N v the impacts a square metre a second | the drops' weights, the splashes, the rings |
+| the air | geometric optics (extinction efficiency 2): 2 x pi/4 the integral of D^2 N - 8.7e-4 /m at 4 mm/h (4.5 km of visibility), 2.25 km at 12 | `rt_volume_light.h precipitation_extinction` - the volumetric fog's march (the game's own scripted rain taken as moderate) |
+| the slant | the weather's wind (`wind.h`, `rt_wind`) brought from 10 m down to the drops' 2 m by the neutral log profile over a town (z0 0.5 m), against the median-volume drop's speed | the occlusion map's lines of fall, the drops' drift (with the gusts) |
+| the sky | rain falls from a deck covering the sky (nimbostratus): coverage 1 | the sky pass's clouds (`vulkan_rt_sky_pass.cpp`: the larger of the level's and the weather's) |
+| the ground's water | stored up to a paved surface's depression storage (1 mm) at the rate while it rains, evaporating at 0.3 mm/h after; a level entered while it rains starts wet | the wet ground (the world's draws, the wet mask) |
+
+**Where the rain reaches** - the precipitation occlusion map (`engine/gfx/precip_occlusion.h`, `gpu_vulkan/vulkan_precip.h`):
+a shared module (the rain now; the snow's settling and the weather surfaces later - the first piece of
+`renderer-hack-audit`'s "exposure from physics"). Rain falls along one direction d; seen along d the level is a height
+field - for each line of fall the height where it first meets the level or a cut-out caster (TLAS mask 0x05). A point is
+reached where it lies at or above that height on its line: nothing under roofs, overhangs or indoors; a wall's lee is in
+its rain shadow when the wind slants the rain. The lines are numbered where they cross y = 0 (uv = P.xz + slant (P.y));
+two cascades of 1024 x 1024 texels round the camera's line (3 and 12 units a texel: +-39 m, +-156 m), RG32UI (the first
+hit's height, the line's tag). The map is kept on the device frame to frame - the level is static: a compute pass traces
+only the lines new to the window as the camera moves, 1/16 of the others each frame (a level loaded, something moved:
+every line again within 16 frames), and every line when the slant moves (a new generation). `precip_reached` (its GLSL
+twin) blends the four texels round a point's line. Without ray tracing the map is made untraced: everything is reached.
+The check traces a roof and a wall on the device and compares the map with the processor's reference.
+
+**The wet ground** (the world's draws: `kTrailWet`, ff_shaders.cpp `wet_block`, `rain::surface_glsl`): on the same draws
+and programs as the snow's cover (render_pc marks the ground and scene objects). Per pixel: whether the rain reaches it
+(the map), how hard it strikes it (its face against d over level ground's), and the water there (`rain_wetness`):
+- the pores filled (the stored water over 0.2 mm), x the surface's porosity - from its roughness until the material table
+  gives it (`rain::porosity_of`, the seam Round M's table fills);
+- a film: Nusselt's steady film draining a plane under the rain's supply, h = (3 mu q L / rho g sin)^1/3 (0.07 mm on a
+  wall at 4 mm/h, 0.19 mm on a 5% slope), the stored water on level ground; whole from 0.1 mm;
+- puddles: the ground's small relief (a smooth noise of 3 mm deviation over 1.2 m - the pavement's unevenness) under the
+  stored water's level - the level solved on the processor from the relief's own measured distribution so the mean depth
+  over the relief is the stored water (20% of level ground at 0.3 mm stored, 45% at 1 mm), lowered on slopes by their fall.
+On level ground the film drains over the relief's own slopes (its RMS slope, 0.010: a 0.32 mm film at 4 mm/h between the
+puddles); the water lies flat - a mirror - in the puddles and where the film rises over the surface's texture (a mean
+texture depth of 0.7 mm, ISO 13473-1): `flat_share`, what the wet mask and the roughness take.
+The material then changes (`rain::wet_material`, its GLSL twin): the albedo under water darkens by Lekner and Dorf (1988)
+- light trapped by total internal reflection in the water returns to the surface and is absorbed again: a' = (1 - Re) a
+(1 - ri) / (1 - a ri), Re 0.066 the water's hemispherical reflectance from the air, ri 0.475 from inside (1 - (1 - Re)/n^2)
+- by the share the water holds (pores x porosity, film, puddle), in linear light; the roughness goes to still water's
+(0.05) and its F0 to water's where the water lies flat; a puddle's normal is the water's with the drops' rings on it. The energy of the wet
+surface is at most 1 (the check: exactly 1 for a white one). The seam on the one light model:
+`rain::wet_brdf_material(rt::brdf::Material, porosity, Wetness)` changes rt_brdf.h's material inputs (the check runs a
+white furnace through `brdf::specular_albedo` and the diffuse coupling over albedos, roughnesses, wetness and view angles:
+at most 1); the world shader applies its twin: stage 0's texel darkened, then the per-pixel lighting's BrdfMaterial takes
+the wet roughness and its F0 goes to water's by the flat share.
+
+**The wet mask** (opaque_drawn, `rt::ViewOrder::kRain` 395 - after the decals, before the reflections): a full-screen pass
+puts the same `rain_wetness` (the depth back to the world, the normal from its neighbours) into an R8 mask - the film's or
+the puddle's share, the decals' puddles over it; the ray-traced reflections' trace reads it as the decals' (`rain_wet_mask`
+before `scatter_wet_mask`): a wet surface reflects as water (Fresnel from F0 0.02). Single-sampled targets (the
+reflections' own rule).
+
+**The drops** (world_drawn, the same order: before the fog and the tone mapping): 131,072 drops in a 12 x 12 x 8 m box
+round the camera and 65,536 in a 40 x 40 x 20 m one (the near box's region left out of it), each a drop of 0.5 mm and over
+(smaller ones are the air's extinction alone) of the distribution, falling at its own speed and drifting downwind with
+the gusts, wrapped into its box in the world's frame (the camera moves through the rain). Each drawn drop stands for the
+true number in its box over those drawn (5 near, 70 far at 4 mm/h). A compute pass places and lights each:
+- reached by the map, else hidden;
+- its light, in the frame's linear unit: what lies behind it - a water sphere refracts its surroundings over about 165
+  degrees (Garg and Nayar 2006): the sky above the horizon (its mean radiance, sky_light) and the scene below it by the
+  share of that cone above the horizon (0.5 + 0.504 sin of its axis's elevation), the scene's part from the frame blurred
+  to about 32 texels across (a mip chain blitted from the colour target); plus the sun's or moon's light it scatters (`rt::DayLight::sun_light`, a ray to the light through the
+  scene - shadowed under a roof's edge) and the view's 16 most important lamps (the lamps pass's choice, their falloff,
+  unshadowed), each by Henyey-Greenstein with a water sphere's asymmetry 0.87 (Hansen and Travis) - L = E p / 4 pi, a
+  quarter of the light per unit of N.L: bright backlit and under a street lamp at night, faint against a lit background.
+Drawn as a streak: its move on the screen (its own fall and drift and the camera's, the frame before's view) over the
+shutter's share of the frame (the snow's camera - one shutter, one aperture), widened by the defocus, its coverage spread
+over the streak, times the drops it stands for. With the upscaler's motion: the reactive mask, and a second draw writes
+its own motion where it covers enough of a pixel (the snow's round-4 fix: no streaks stuck to the screen).
+
+**The splashes**: 16,384 impacts on whatever the rain meets within 10 m (the map's first hit along a random line), each a
+crown growing to 8 drop radii over 50 ms, the impacts of drops of 1 mm and over at their true rate (each drawn standing for
+its share), lit as the drops.
+
+**The rings** (`rain::ripple_glsl`): a drop striking water sends out a ring of capillary waves at about their slowest speed
+(0.23 m/s) and dies as it reaches half a cell (at most 0.4 s - so a point needs only its four nearest cells); drawn on
+three jittered grids whose cells give back the rate of drops of 1 mm and over (600 a square metre a second at 4 mm/h:
+5.2-unit cells, 0.29 s rings): on puddles (the world shader's normal) and on water bodies (`water_shader.cpp`, x the
+body's openness to the sky - a puddle under a roof stays still).
+
+The cost: see the record's numbers (the occlusion map, the wet mask, the drops and splashes timed separately - the log's
+"vulkan: rain: the passes take").
+
+Not yet physical (the honest list): the clouds' cover doesn't dim the sun or the sky on the level (audit S6 - Round S);
+the lamps' light on the drops is unshadowed and point-like; a drop's environment is the frame (what is off-screen above it
+is missing); a drawn drop stands for several (variance, not bias); the splashes' crown is a sprite; water running in from
+elsewhere and the geometry's own hollows don't feed the puddles (the relief alone); the wet albedo applies to the texel, not
+texel x the relit tint (the per-pixel BRDF fixes it); porosity is the roughness's until the material table; the near
+drops' extinction is counted twice over the first metres (the fog's medium starts at the eye); the occlusion map treats
+cut-outs (trees) as solid; the RT reflections use the triangle's normal (no rings in them).
+
 ### Surface trails: what the skaters leave on the level (snow, paint)
 
 `engine/gfx/surface_trail.h` (the fields, the drawn world's marks, the trails' random numbers), `gpu_vulkan/vulkan_surface_trail`
