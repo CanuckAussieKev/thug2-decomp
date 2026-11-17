@@ -114,6 +114,7 @@ test("the state table: a level's state from its evidence, its disagreements flag
         elevation: 40,
         brightest: 2.4,
         textured: 40,
+        glowMeshes: 5,
         lamps: 12,
         shining: 12,
         litInBake: 10,
@@ -127,7 +128,7 @@ test("the state table: a level's state from its evidence, its disagreements flag
     assert.equal(day.lampsSolved, "10 of 12");
     assert.match(
         stateRow("BO", day),
-        /^BO\tafternoon\tsun 40 deg \(0\.45\)\t.*12 lamps \(12 shining, 10 lit in the bake, 2 always on, 40 textured triangles\)\toutdoors/,
+        /^BO\tafternoon\tsun 40 deg \(0\.45\)\t.*12 lamps \(12 shining, 10 lit in the bake, 2 always on, 40 textured triangles, 5 light cards hidden\)\toutdoors/,
     );
     assert.match(stateRow("BO", day), /\tagrees$/);
     // an evening level with no sun agrees; a day level outdoors with no sun found (Skatopia's case), a night level with a

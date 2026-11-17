@@ -88,6 +88,7 @@ export interface LevelState {
     // in textures, the lamps that shine (the glows' own, and those the bake tells), those the bake shows lit, those
     // whose surfaces see no sky (on whenever: indoors), those on at its own time, and its own open sky's light
     textured: number;
+    glowMeshes: number; // the original's light cards (additive still meshes): hidden in the relit level
     shining: number;
     litInBake: number;
     alwaysOn: number;
@@ -101,7 +102,7 @@ export interface LevelState {
 
 export function stateOf(evidence: string): LevelState | null {
     const m =
-        /own time of day (\S+); the baked sun's confidence ([\d.]+) \((a sun|no sun), (-?[\d.]+) degrees up\); vertex light median [\d.]+, brightest 5% from [\d.]+ \(x([\d.]+)\); \d+ glow, \d+ self-lit and (\d+) textured triangles \(\d+ glow meshes\), (\d+) lamps - (\d+) shining, (\d+) lit in the bake, (\d+) always on \(no sky where they light\), (\d+) on at its own time \(its open sky ([\d.]+)\); upward faces see ([\d.]+) of the sky \(median\); the bake's sky [\d.]+ ([\d.]+) [\d.]+ in the global unit, its daylight ([\d.]+) of the physical/.exec(
+        /own time of day (\S+); the baked sun's confidence ([\d.]+) \((a sun|no sun), (-?[\d.]+) degrees up\); vertex light median [\d.]+, brightest 5% from [\d.]+ \(x([\d.]+)\); \d+ glow, \d+ self-lit and (\d+) textured triangles \((\d+) glow meshes\), (\d+) lamps - (\d+) shining, (\d+) lit in the bake, (\d+) always on \(no sky where they light\), (\d+) on at its own time \(its open sky ([\d.]+)\); upward faces see ([\d.]+) of the sky \(median\); the bake's sky [\d.]+ ([\d.]+) [\d.]+ in the global unit, its daylight ([\d.]+) of the physical/.exec(
             evidence,
         );
     if (!m) return null;
@@ -112,15 +113,16 @@ export function stateOf(evidence: string): LevelState | null {
         elevation: Number(m[4]),
         brightest: Number(m[5]),
         textured: Number(m[6]),
-        lamps: Number(m[7]),
-        shining: Number(m[8]),
-        litInBake: Number(m[9]),
-        alwaysOn: Number(m[10]),
-        onAtOwn: Number(m[11]),
-        ownSky: Number(m[12]),
-        openSky: Number(m[13]),
-        sky: Number(m[14]),
-        daylight: Number(m[15]),
+        glowMeshes: Number(m[7]),
+        lamps: Number(m[8]),
+        shining: Number(m[9]),
+        litInBake: Number(m[10]),
+        alwaysOn: Number(m[11]),
+        onAtOwn: Number(m[12]),
+        ownSky: Number(m[13]),
+        openSky: Number(m[14]),
+        sky: Number(m[15]),
+        daylight: Number(m[16]),
     };
 }
 
@@ -164,7 +166,7 @@ export function stateRow(level: string, result: BakeResult): string {
             : `no sun (${st.confidence.toFixed(2)})`,
         `sky ${st.sky.toFixed(3)}, daylight x${st.daylight.toFixed(2)}`,
         `${st.lamps} lamps (${st.shining} shining, ${st.litInBake} lit in the bake, ${st.alwaysOn} always on, ` +
-            `${st.textured} textured triangles)`,
+            `${st.textured} textured triangles, ${st.glowMeshes} light cards hidden)`,
         `${place} (${st.openSky.toFixed(2)})`,
         `${st.onAtOwn} on at its own time (open sky ${st.ownSky.toFixed(4)})`,
         `brightest x${st.brightest.toFixed(2)}`,
