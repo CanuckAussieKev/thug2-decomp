@@ -82,6 +82,16 @@ reference was recorded from main before the change (5c403296), at max_fps=0 (sim
 the music got its own random numbers: "The music's random numbers", and again the same day when its playback was given
 its recorded skater's stats).
 
+The references are the original game's simulation, so every run is played with nothing NOT ORIGINAL that adds to it:
+`sim_check.ts` sets `REFERENCE_SETTINGS` in the workspace's ini for each run (put back after) - `[features] thaw_bmx=0`
+(THAW's BMX parks its bike, `thaw_bmx_home`, beside the skater at the level's start: an extra object with a motion
+component, so with it on the objects' hash parts from frame 30 in every demo while the skater, the random streams and
+the clock stay equal), `anteara_mod=0`, and no `start_level` / `start_at` / `edit_level` (they keep a demo from
+playing). Found 2026-11-17 when a workspace made from the main install failed every demo from frame 30: its overlay had
+the parked bike, the workspace the references were recorded in had an overlay from before it. Proven not to matter
+(every demo equal on every frame): the Vulkan renderer with ray tracing and its options, `tod` / `tod_cycle`,
+`lod_distance_scale` 1 or 3, `draw_distance_scale`, QB or TypeScript scripts.
+
 | demo | level | what it does | frames |
 |---|---|---|---:|
 | sim_grind | a ported level | pushes, five ollies, a grind | 693 |

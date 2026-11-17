@@ -12,10 +12,13 @@ import {
     parseTod,
     passed,
     REFERENCE_FOLDER,
+    REFERENCE_SETTINGS,
     referenceDemos,
     reportLine,
+    runIni,
     runName,
     scriptsMode,
+    settingsOverridden,
     todLine,
     undrawnFrames,
 } from "./sim_check.ts";
@@ -102,4 +105,29 @@ test("the time of day's lines: kept apart from the state, compared with the firs
     const other = compareTod(first, parseTod(text.replace("#tod 6 13.51", "#tod 6 13.52")));
     assert.equal(other.firstDiffers, 6);
     assert.equal(compareTod(first, new Map()).firstDiffers, 5);
+});
+
+test("every run is played with the reference's settings: THAW's parked BMX off, no start level", () => {
+    const ini = [
+        "[features]",
+        "thaw_bmx=1",
+        "start_level=sch",
+        "start_at=1,2,3,4",
+        "ts_scripts=1",
+        "",
+        "[Graphics]",
+        "max_fps=144",
+        "",
+    ].join("\r\n");
+    const run = runIni(ini, 0, 7);
+    for (const [section, key, value] of REFERENCE_SETTINGS) assert.equal(iniValue(run, section, key), value);
+    assert.equal(iniValue(run, "features", "ts_scripts"), "1"); // the workspace's own scripts mode kept
+    assert.equal(iniValue(run, "Graphics", "max_fps"), "0");
+    assert.equal(iniValue(run, "debug", "load_test"), "7");
+    assert.ok(run.includes("\r\n"));
+    assert.deepEqual(
+        settingsOverridden(ini).map((s) => s.split("=")[0]),
+        ["[features] thaw_bmx", "[features] start_level", "[features] start_at"],
+    );
+    assert.deepEqual(settingsOverridden(run), []);
 });
