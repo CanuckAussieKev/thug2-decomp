@@ -259,6 +259,12 @@ void check_ground(Tally* tally)
     // the puddles
     const double some = rain::puddle_cover(0.3);
     const double more = rain::puddle_cover(1.0);
+    const double level_film = rain::film_thickness(4.0, rain::relief_slope(), 1.0);
+    tally->check(rain::relief_slope() > 0.0 && rain::relief_slope() < 0.05 && rain::flat_share(level_film) < 1.0 &&
+                     rain::flat_share(0.0) == 0.0 && rain::flat_share(10.0) == 1.0,
+                 text::format("level ground between the puddles: the relief's slope %.4f drains a %.2f mm film at 4 mm/h - "
+                              "%.0f%% of it flat water",
+                              rain::relief_slope(), level_film, rain::flat_share(level_film) * 100.0));
     tally->check(rain::puddle_cover(0.0) == 0.0 && some > 0.0 && more > some && more < 1.0,
                  text::format("the puddles: none dry, %.0f%% of level ground at 0.3 mm stored, %.0f%% at 1 mm",
                               some * 100.0, more * 100.0));
@@ -297,7 +303,7 @@ void check_material(Tally* tally)
                               most, rain::wet_reflectance(0.5, 1.0)));
     const rain::Material dry{.albedo = {0.4, 0.3, 0.2}, .roughness = 0.8, .f0 = 0.04, .porosity = 0.0};
     const rain::Material same = rain::wet_material(dry, {.pores = 1.0, .film = 0.0, .puddle = 0.0});
-    const rain::Material puddle = rain::wet_material(dry, {.pores = 1.0, .film = 1.0, .puddle = 1.0});
+    const rain::Material puddle = rain::wet_material(dry, {.pores = 1.0, .film = 1.0, .puddle = 1.0, .flat = 1.0});
     tally->check(same.albedo == dry.albedo && same.roughness == dry.roughness &&
                      std::abs(puddle.roughness - rain::kWaterRoughness) < 1e-12 &&
                      std::abs(puddle.f0 - rain::water_f0()) < 1e-12 &&

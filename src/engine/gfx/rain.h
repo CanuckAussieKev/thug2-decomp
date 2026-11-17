@@ -98,6 +98,7 @@ inline constexpr double kWaterDensity = 1000.0;   // kg m^-3
 inline constexpr double kGravity = 9.81;          // m s^-2
 inline constexpr double kReliefDeviation = 3.0;   // mm: a pavement's small unevenness (its standard deviation) ...
 inline constexpr double kReliefLength = 1.2;      // ... over about this many metres (the relief noise's scale)
+inline constexpr double kTextureDepth = 0.7;      // mm: a pavement's mean texture depth (ISO 13473-1; asphalt 0.5 - 1.5)
 // The steady film (mm) on a plane sloping at `sine` with `rate` falling on it (Nusselt: h = (3 mu q L / rho g sin)^1/3),
 // at most `stored` (the water there is): on level ground (sine 0) the water stored.
 [[nodiscard]] double film_thickness(double rate, double sine, double stored);
@@ -107,6 +108,11 @@ inline constexpr double kReliefLength = 1.2;      // ... over about this many me
 [[nodiscard]] float relief_at(float x, float z);
 [[nodiscard]] double relief_level(double stored); // in units of kReliefDeviation (the relief's own)
 [[nodiscard]] double puddle_cover(double stored); // the share of level ground under standing water
+// The relief's root-mean-square slope: the slope the film drains over on level ground, between the puddles.
+[[nodiscard]] double relief_slope();
+// The share of a surface a film `film` mm thick makes flat - a mirror's water surface -: where it rises over the surface's
+// texture (its depth, kTextureDepth, from a uniform texture 0 - 2 x the mean); a puddle is flat whole.
+[[nodiscard]] double flat_share(double film);
 // What the surface shader takes, worked out once a frame (the twin's inputs).
 struct Ground {
     double stored = 0.0;    // mm on level open ground
@@ -133,11 +139,12 @@ struct Material {
 // Wetness at a point: `pores` 0 - 1 its pores filled, `film` 0 - 1 a film over it, `puddle` 0 - 1 standing water.
 struct Wetness {
     double pores = 0.0;
-    double film = 0.0;
+    double film = 0.0;   // the film's share (darkening): whole from kFilmWhole
     double puddle = 0.0;
+    double flat = 0.0;   // the flat water's share (flat_share): the film's mirror
 };
 // The material wet: the share under water (the pores by the porosity, the film, the puddle) darkened by wet_albedo,
-// its roughness toward the water's where a film or a puddle lies, its F0 the water's there.
+// its roughness toward the water's where the water lies flat (a puddle, a film over the texture), its F0 the water's there.
 [[nodiscard]] Material wet_material(const Material& dry, const Wetness& wet);
 // (the check's) The wet material's hemispherical albedo for light from straight above: the water's Fresnel plus what
 // comes back out of the surface under it - at most 1.

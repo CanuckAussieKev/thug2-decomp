@@ -1066,7 +1066,7 @@ void surface_lighting(std::string& out, const FragmentKey& key)
         // (NOT ORIGINAL - [Graphics] rain: the surface's porosity from its roughness - rain.h porosity_of, the material
         // table's seam -; under a film or a puddle the water's roughness; a puddle's normal the water's, with its rings)
         add(out, {"    rain_porous = rain_porosity(surface_rough);\n"
-                  "    surface_rough = mix(surface_rough, RAIN_WATER_ROUGHNESS, max(rain_wet.y, rain_wet.z));\n"
+                  "    surface_rough = mix(surface_rough, RAIN_WATER_ROUGHNESS, rain_wet.w);\n"
                   "    if (rain_wet.z > 0.0) {\n"
                   "        vec2 rain_rs = rain_ripple(trail_world.xz, rain.ripple);\n"
                   "        vec3 rain_up = normalize(transpose(mat3(rain.eye_to_world)) * vec3(-rain_rs.x, 1.0, -rain_rs.y));\n"

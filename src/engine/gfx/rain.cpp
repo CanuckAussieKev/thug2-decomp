@@ -108,6 +108,7 @@ float value_noise(float x, float z)
 struct ReliefStats {
     std::vector<float> sorted;
     double deviation = 1.0;
+    double raw_slope = 0.0; // the relief's root-mean-square slope (raw units a world unit)
 };
 
 const ReliefStats& relief_stats()
@@ -131,6 +132,21 @@ const ReliefStats& relief_stats()
         const auto count = static_cast<double>(made.sorted.size());
         const double mean = sum / count;
         made.deviation = std::sqrt(std::max((squares / count) - (mean * mean), 1.0e-12));
+        // (its slope: central differences a tenth of a unit apart at a share of the samples)
+        constexpr float kStep2 = 0.1F;
+        double slopes = 0.0;
+        int counted = 0;
+        for (int z = 0; z < kSide; z += 4) {
+            for (int x = 0; x < kSide; x += 4) {
+                const float px = (static_cast<float>(x) * kStep) + 0.37F;
+                const float pz = (static_cast<float>(z) * kStep * 1.07F) + 0.71F;
+                const double gx = (relief_at(px + kStep2, pz) - relief_at(px - kStep2, pz)) / (2.0 * kStep2);
+                const double gz = (relief_at(px, pz + kStep2) - relief_at(px, pz - kStep2)) / (2.0 * kStep2);
+                slopes += (gx * gx) + (gz * gz);
+                ++counted;
+            }
+        }
+        made.raw_slope = std::sqrt(slopes / std::max(counted, 1));
         std::ranges::sort(made.sorted);
         return made;
     }();
@@ -334,6 +350,18 @@ double relief_level(double stored)
     return 0.5 * (low + high);
 }
 
+double relief_slope()
+{
+    const ReliefStats& stats = relief_stats();
+    const double mm_per_raw = kReliefDeviation / stats.deviation;
+    return stats.raw_slope * mm_per_raw / (kMillimetresPerMetre / kUnitsPerMetre);
+}
+
+double flat_share(double film)
+{
+    return std::clamp(std::max(film, 0.0) / (2.0 * kTextureDepth), 0.0, 1.0);
+}
+
 double puddle_cover(double stored)
 {
     const ReliefStats& stats = relief_stats();
@@ -388,7 +416,7 @@ Material wet_material(const Material& dry, const Wetness& wet)
         const double a = core::at(dry.albedo, c);
         core::at(out.albedo, c) = a + ((wet_albedo(a) - a) * water);
     }
-    const double cover = std::clamp(std::max(wet.film, wet.puddle), 0.0, 1.0);
+    const double cover = std::clamp(std::max(wet.flat, wet.puddle), 0.0, 1.0);
     out.roughness = dry.roughness + ((kWaterRoughness - dry.roughness) * cover);
     out.f0 = dry.f0 + ((water_f0() - dry.f0) * cover);
     return out;
@@ -520,18 +548,19 @@ vec4 rain_wetness(vec3 world, vec3 n, float reached, float flux)
     float stored = rain.ground.x * wet;
     float sine = sqrt(max(1.0 - n.y * n.y, 0.0));
     float pores = clamp(stored / RAIN_PORE_STORAGE, 0.0, 1.0);
-    float film_mm = rain_film(rain.ground.w * wet, sine, stored);
+    // (on level ground the film drains over the relief's own slopes between the puddles)
+    float film_mm = rain_film(rain.ground.w * wet, max(sine, RAIN_RELIEF_SLOPE), stored);
     float film = clamp(film_mm / RAIN_FILM_WHOLE, 0.0, 1.0);
     float puddle = 0.0;
-    float depth = film_mm;
     if (n.y > 0.9 && rain.ground.z > -7.0) {
         // (a slope lowers the water it can hold over its relief: by its fall over half the relief's length)
         float level = rain.ground.z - sine * RAIN_SLOPE_LOSS;
         float r = rain_relief(world.xz);
         puddle = smoothstep(r - RAIN_PUDDLE_EDGE, r + RAIN_PUDDLE_EDGE, level) * reached;
-        depth = max(depth, (level - r) * RAIN_MM_PER_RELIEF);
     }
-    return vec4(pores, film, puddle, depth);
+    // the water's flat share: the puddles, or the film where it rises over the surface's texture
+    float flat_share = max(puddle, clamp(film_mm / (2.0 * RAIN_TEXTURE_DEPTH), 0.0, 1.0));
+    return vec4(pores, film, puddle, flat_share);
 }
 )";
 }
@@ -560,6 +589,8 @@ const char* glsl_constants()
         constexpr double kShore = 0.1; // mm of relief: a puddle's edge, where the water thins to nothing
         define(&out, "RAIN_PUDDLE_EDGE", kShore / mm_per_raw);
         define(&out, "RAIN_WATER_F0", water_f0());
+        define(&out, "RAIN_RELIEF_SLOPE", relief_slope());
+        define(&out, "RAIN_TEXTURE_DEPTH", kTextureDepth);
         define(&out, "RAIN_RIPPLE_SPEED", kRippleSpeed * kUnitsPerMetre);
         define(&out, "RAIN_RIPPLE_WIDTH", kRippleWidth * kUnitsPerMetre);
         define(&out, "RAIN_RIPPLE_SLOPE", kRippleSlope);

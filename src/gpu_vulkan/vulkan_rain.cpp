@@ -157,21 +157,27 @@ float phase(float c, float g)
     float k = max(1.0 + g * g - 2.0 * g * c, 1.0e-4);
     return (1.0 - g * g) / (k * sqrt(k));
 }
-// what lies behind a point as the drop sees it: the frame blurred over a drop's wide angle there
-vec3 behind(vec3 world)
+// what a drop shows of its surroundings: a water sphere is a wide lens - it refracts toward the eye what lies within about
+// 82.5 degrees of the way through it (Garg and Nayar), the sky above the horizon and the scene below it by the share of
+// that cone above the horizon (0.5 + 0.504 sin of its axis's elevation); the scene's part the frame blurred round the
+// drop's place, the sky's the sky's light (its mean radiance: the unit's sky_light). Without the clock the scene alone.
+vec3 behind(vec3 world, vec3 view)
 {
-    if (rain.env.x < 0.0) return rain.env_sky.rgb;
+    vec3 scene = rain.env_sky.rgb;
     vec4 clip = rain.vp * vec4(world, 1.0);
-    if (!(clip.w > 1.0e-3)) return rain.env_sky.rgb;
-    vec2 ndc = clip.xy / clip.w;
-    vec2 at = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * rain.rect.zw + rain.rect.xy;
-    return textureLod(u_env, at * rain.env_scale.xy, rain.env.x).rgb;
+    if (rain.env.x >= 0.0 && clip.w > 1.0e-3) {
+        vec2 ndc = clip.xy / clip.w;
+        vec2 at = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * rain.rect.zw + rain.rect.xy;
+        scene = textureLod(u_env, at * rain.env_scale.xy, rain.env.x).rgb;
+    }
+    float sky_share = rain.env_sky.w > 0.5 ? clamp(0.5 + 0.504 * view.y, 0.0, 1.0) : 0.0;
+    return mix(scene, rain.env_sky.rgb, sky_share);
 }
 // a water sphere's light toward the eye (`view`: from the eye toward it): what it refracts from behind it, and the sun's
 // or moon's and the lamps' light it scatters (its phase; a quarter of the light per unit of N.L: pi E p / 4 pi)
 vec3 drop_light(vec3 world, vec3 view, bool traced)
 {
-    vec3 light = behind(world);
+    vec3 light = behind(world, view);
     float g = rain.light_colour.w;
     if (rain.light.w > 0.5) {
         float seen = 1.0;
@@ -406,7 +412,7 @@ void main()
         float flux = max(dot(n, -rain.precip_fall.xyz), 0.0) / max(-rain.precip_fall.y, 0.05);
         float reach = flux > 0.0 ? precip_reached(world + n * 0.5) : 0.0;
         vec4 water = rain_wetness(world, n, reach, flux);
-        wet = max(water.y, water.z);
+        wet = water.w; // (the flat water: a puddle, a film over the texture)
     }
     if (rain.lamps.z > 0.5) {
         wet = max(wet, texelFetch(u_decals, pixel, 0).r);
@@ -1243,9 +1249,9 @@ void read_timer_set(Backend& state, uint32_t set)
         };
         get_log("vulkan: rain: the passes take %.3f ms on the device - the occlusion map %.3f, the wet mask %.3f, the "
                 "drops and "
-                "splashes %.3f (the last %llu frames' average)",
+                "splashes %.3f (the last %llu frames' average; %u lamps lighting the drops)",
                 average(0) + average(1) + average(2), average(0), average(1), average(2),
-                static_cast<unsigned long long>(own.window_frames));
+                static_cast<unsigned long long>(own.window_frames), own.stats.last_lamps);
         own.window_frames = 0;
         own.window_milliseconds = {};
         own.window_samples = {};
@@ -1497,7 +1503,7 @@ Block block_for(Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view,
     }
     block.env = {level_of_env, kSnowShutter, kMostStreak, kRainMotionShare};
     const rt::DayLight& sky = day;
-    block.env_sky = {core::at(sky.sky_light, 0), core::at(sky.sky_light, 1), core::at(sky.sky_light, 2), 0.0F};
+    block.env_sky = {core::at(sky.sky_light, 0), core::at(sky.sky_light, 1), core::at(sky.sky_light, 2), sky.on ? 1.0F : 0.0F};
     block.splash = {kRainSplashReach, static_cast<float>(kRainSplashLife), static_cast<float>(kRainSplashLeast),
                     kRainSplashSpread};
     constexpr std::size_t kRowZ = 2;
