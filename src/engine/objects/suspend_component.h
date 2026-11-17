@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/objects/dormancy.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
@@ -77,7 +78,12 @@ public:
     // 0x004342F0: whether the model is drawn: not when the object is invisible; always without LOD, in more than one
     // viewport (0x00701378 > 1) or when the model asks (+0x234); otherwise within lod_dist2 and its bounding sphere in
     // view (0x0048C490). Told to the model (0x00493C60); a model just made visible is updated at once.
+    // (Not original: outside a net game always, unless invisible - dormancy_by_distance.)
     void refresh_shown_state();
+    // NOT ORIGINAL - the distance (inches) beyond which the drawing leaves the model out (lod_dist2; render_pc/
+    // draw_range.h scales it by [Graphics] lod_distance_scale), 0 for none: without LOD (lod_dist3 at its no-LOD
+    // value) or a level object's model - the cases the original always drew.
+    [[nodiscard]] float draw_range() const;
 
     // --- script member functions (the table at 0x00684C48) ---
     // 0x004341E0 (not a Ghidra function) Obj_ResetNoSuspendCount: reset_counts and the object unsuspended. True.

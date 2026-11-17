@@ -54,6 +54,10 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/motion.h"
 #include "engine/objects/rigidbody_component.h"
+#include "engine/objects/skeleton_component.h"
+#include "engine/objects/dormancy.h"
+#include "engine/gfx/rig.h"
+#include "base/maths/mat4.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
@@ -98,7 +102,7 @@ constexpr std::size_t kLoadPrefix = 5; // "Load_"
 constexpr std::string_view kExtension = ".demo";
 constexpr double kFramesPerSecond = 60.0;
 constexpr unsigned char kFirstPrintable = 0x20; // (JSON escapes the control characters below it)
-constexpr const char* kStateHeader = "# frame skater objects random clock_ms";
+constexpr const char* kStateHeader = "# frame skater objects random clock_ms anim";
 constexpr int kMaxEvery = 600;                  // -demo-every: at most a picture every 10 s
 // The player taking over a playback: a button pressed (port 0's bytes 2-3, set bits down) or a stick pushed past this
 // far from its middle (bytes 4-7), from this many frames after the level is up.
@@ -615,6 +619,21 @@ void hash_moving_object(objects::Entity* object, void* data)
     hash_entity(hash, entity);
 }
 
+// Every object with a skeleton: its id and its bones' matrices (the pose its animation left it in).
+void hash_animated_object(objects::Entity* object, void* data)
+{
+    auto* entity = core::down_cast<objects::GameEntity>(object);
+    auto* skeleton = core::down_cast<objects::BoneRigModule>(entity->fetch_module(objects::BoneRigModule::kType));
+    if (skeleton == nullptr || skeleton->bone_rig() == nullptr) {
+        return;
+    }
+    auto* hash = static_cast<uint64_t*>(data);
+    const uint32_t id = entity->ident();
+    hash_bytes(hash, &id, sizeof(id));
+    const std::span<const maths::Mat4> bones = skeleton->bone_rig()->matrices();
+    hash_bytes(hash, bones.data(), bones.size_bytes());
+}
+
 std::string state_line(uint32_t frame)
 {
     uint64_t skater_hash = kFnvOffset;
@@ -631,9 +650,16 @@ std::string state_line(uint32_t frame)
     uint64_t random_hash = kFnvOffset;
     const maths::RandomStreams streams = maths::random_streams();
     hash_bytes(&random_hash, streams.data(), sizeof(uint32_t) * streams.size());
-    return text::format("%u %016llX %016llX %016llX %u\n", frame, static_cast<unsigned long long>(skater_hash),
+    // The animation (since 2026-11-17): every skeleton's bones and the animation LOD counters.
+    uint64_t anim_hash = kFnvOffset;
+    if (objects::EntityHub* hub = objects::object_hub_slot().get()) {
+        hub->for_each(hash_animated_object, &anim_hash);
+    }
+    const std::array<int, 3> counters = objects::suspend_counters();
+    hash_bytes(&anim_hash, counters.data(), sizeof(int) * counters.size());
+    return text::format("%u %016llX %016llX %016llX %u %016llX\n", frame, static_cast<unsigned long long>(skater_hash),
                         static_cast<unsigned long long>(objects_hash), static_cast<unsigned long long>(random_hash),
-                        frame_clock::get_time());
+                        frame_clock::get_time(), static_cast<unsigned long long>(anim_hash));
 }
 
 // The simulation trace (-demo-trace, docs/design/simulation-rate.md "The trace"): from the level's load to the

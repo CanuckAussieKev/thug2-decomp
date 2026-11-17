@@ -13,8 +13,9 @@
 //   draw_distance_scale=1  the far plane (96000, or the DistanceClipping distance) and the distance clipping's mesh
 //                           cull distance, and the cameras' default far clip, multiplied (0.25-8). Fog is left as
 //                           the level sets it: the clip line only moves further out behind it.
-//   lod_distance_scale=1   objects' LOD distances (lod_dist1: where they stop animating, lod_dist2: where they stop
-//                           being drawn) multiplied (0.25-8).
+//   lod_distance_scale=1   the distance objects stop being drawn at (their lod_dist2) multiplied (0.25-8) - the
+//                           drawing's only (render_pc/draw_range.h); the simulation never reads it (outside a net game
+//                           every object animates on every step; in one the level's own distances, unscaled).
 #include <cstdint>
 #include <string>
 #include <utility>

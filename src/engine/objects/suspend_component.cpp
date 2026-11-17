@@ -9,7 +9,7 @@
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
 #include "engine/gfx/engine.h"
-#include "engine/gfx/graphics_options.h"
+#include "engine/net/session_query.h"
 #include "engine/gfx/model.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
@@ -172,10 +172,8 @@ void DormancyModule::configure_from_data(script::Struct* params)
     }
     core::at(lod, 0) = script::fetch_float(kLOD0DistanceMultiplier) * core::at(lod, 0); // LOD0DistanceMultiplier
     core::at(lod, 1) = script::fetch_float(kLOD1DistanceMultiplier) * core::at(lod, 1); // LOD1DistanceMultiplier
-    // NOT ORIGINAL - [Graphics] lod_distance_scale (engine/gfx/graphics_options.h): animated and drawn further out.
-    const float scale = render::graphics_options::get_pull().lod_distance_scale_;
-    core::at(lod, 0) = render::graphics_options::get_scaled(core::at(lod, 0), scale);
-    core::at(lod, 1) = render::graphics_options::get_scaled(core::at(lod, 1), scale);
+    // (NOT ORIGINAL - [Graphics] lod_distance_scale no longer scales these: the simulation keeps the level's distances;
+    // the drawing scales lod_dist2 on its own - draw_range.h.)
 }
 
 // 0x004341C0
@@ -227,7 +225,11 @@ void DormancyModule::refresh_shown_state()
     bool visible = false;
     if ((entity()->object_flags() & kEntityHiddenBit) == 0U) {
         render::RenderModel* model = model_of(mesh_instance_);
-        if (std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2) || modules::viewport_count() > 1 ||
+        // NOT ORIGINAL - outside a net game the model is always on (not hidden): what is drawn is the drawing's choice
+        // (its view, and lod_dist2 - draw_range.h), so nothing the simulation keeps depends on the camera.
+        // Original behaviour: the rest of this condition only.
+        if (!dormancy_by_distance() ||
+            std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2) || modules::viewport_count() > 1 ||
             core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object()) {
             visible = true;
         } else {
@@ -261,6 +263,19 @@ bool DormancyModule::obj_reset_no_suspend_count(script::Struct* /*params*/, scri
     return true;
 }
 
+bool dormancy_by_distance() { return net::in_net_game(); }
+
+std::array<int, 3> suspend_counters() { return {frame_count(), interleave2_count(), interleave4_count()}; }
+
+float DormancyModule::draw_range() const
+{
+    if (std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2) ||
+        (mesh_instance_ && core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object())) {
+        return 0.0F;
+    }
+    return core::at(lod_distances_, 1);
+}
+
 // 0x00433E20
 void next_suspend_frame()
 {
@@ -292,6 +307,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
     // The camera the distances are measured from: the skate module's viewer position, none when it has no camera (the
     // original reads its flag for each component; nothing in the loop changes it).
     const maths::Vec4* viewer = game_hooks().suspend_viewer();
+    const bool by_distance = dormancy_by_distance();
     auto* component = core::down_cast<DormancyModule>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
     while (component) {
         component->set_distance_squared(0.0F);
@@ -304,7 +320,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
         if (viewer && !component->never_suspend()) {
             if (component->frames_before_lod() != 0) {
                 --component->frames_before_lod();
-            } else {
+            } else if (by_distance) { // (not original: only in a net game - dormancy_by_distance)
                 const maths::Vec4& pos = component->entity()->at_point();
                 const maths::Vec4& at = *viewer;
                 const double dx = static_cast<double>(pos.x) - at.x;
