@@ -35,6 +35,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/parse_number.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
@@ -940,7 +941,7 @@ void check_release(render::Gpu& gpu, Probe& probe, MaterialTable& table, Tally* 
 // the map's slot cleared with it.
 void check_surface(render::Gpu& gpu, MaterialTable& table, Tally* tally)
 {
-    constexpr float kF0 = 0.6F;
+    constexpr float kF0 = 0.6F; // (the file's - round M: the record's F0 is the material table's, by the class)
     constexpr std::size_t kStep = 37;   // (the map's bytes: a pattern)
     constexpr std::size_t kStart = 11;
     render::vulkan::set_rt_pbr_settings({.on = true});
@@ -958,7 +959,7 @@ void check_surface(render::Gpu& gpu, MaterialTable& table, Tally* tally)
     const rt::MaterialId without = rt::next_material_id();
     table.set(without, point_material(plain.texture));
     const MaterialRecord record = table.record(with);
-    tally->check(attached && record.surface_texture != 0 && record.surface_texture != record.texture && record.f0 == kF0 &&
+    tally->check(attached && record.surface_texture != 0 && record.surface_texture != record.texture && record.f0 == std::get<0>(render::rt::material_f0(render::rt::kind_of_map_class(4))) &&
                      table.record(without).surface_texture == 0,
                  text::format("a surface map attached: its own slot %u (the colour's %u), F0 %.2f; none without",
                               record.surface_texture, record.texture, static_cast<double>(record.f0)));

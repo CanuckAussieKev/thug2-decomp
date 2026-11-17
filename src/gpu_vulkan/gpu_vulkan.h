@@ -64,31 +64,29 @@ void set_rt_shadow_settings(const RtShadowSettings& settings);
 [[nodiscard]] RtShadowSettings rt_shadow_settings();
 
 // NOT ORIGINAL - ray-traced ambient occlusion (vulkan_rt_effects.h, docs/design/vulkan.md R5): [Graphics] rt_ao,
-// rt_ao_strength, rt_ao_radius, rt_ao_rays, rt_ao_denoise. Nothing is drawn differently while `on` is false, or when
-// ray tracing isn't enabled on the device.
-inline constexpr float kRtAoStrength = 0.6F; // (rt_ao_strength's default)
-inline constexpr float kRtAoRadius = 48.0F;  // (rt_ao_radius's default: world units)
+// rt_ao_rays, rt_ao_denoise. Nothing is drawn differently while `on` is false, or when ray tracing isn't enabled on the
+// device. (Round O: the occlusion is a visibility of the indirect light alone - no strength, no per-class factor
+// (rt_ao_strength, rt_ao_characters retired); its reach is what the light field's probes don't resolve - one cell,
+// engine/gfx/rt_light_field.h kLightFieldCell (rt_ao_radius retired): an occluder farther than that is in the probe's
+// light already, through the store's traced sky.)
+inline constexpr float kRtAoRadius = 128.0F; // (world units: rt_light_field.h kLightFieldCell - checked there)
 struct RtAoSettings {
     bool on = false;
-    float strength = kRtAoStrength; // how much of the colour full occlusion takes away (0 - 1)
-    float radius = kRtAoRadius;     // how far a ray looks for an occluder (1 - 1000 world units)
-    unsigned rays = 4;              // rays per pixel each frame (1 - 16)
-    bool denoise = true;            // the temporal and spatial filters (off: each frame's rays as they are)
-    // (added for the characters - [Graphics] rt_ao_characters) the occlusion on the skater, the peds and the other
-    // skinned characters x this (0 - 1; 1: as on everything else - the original's look with rt_ao)
-    float characters = 1.0F;
+    float radius = kRtAoRadius; // how far a ray looks for an occluder (the game's: kRtAoRadius; the checks' own scenes)
+    unsigned rays = 4;          // rays per pixel each frame (1 - 16)
+    bool denoise = true;        // the temporal and spatial filters (off: each frame's rays as they are)
 };
 void set_rt_ao_settings(const RtAoSettings& settings);
 [[nodiscard]] RtAoSettings rt_ao_settings();
 
 // NOT ORIGINAL - one-bounce ray-traced indirect light (vulkan_rt_effects.h, docs/design/vulkan.md "Global illumination"):
-// [Graphics] rt_gi, rt_gi_strength, rt_gi_rays, rt_gi_distance, rt_gi_denoise. Nothing is drawn differently while `on`
-// is false, or when ray tracing isn't enabled on the device.
-inline constexpr float kRtGiStrength = 1.0F;   // (rt_gi_strength's default)
+// [Graphics] rt_gi, rt_gi_rays, rt_gi_distance, rt_gi_denoise. Nothing is drawn differently while `on` is false, or
+// when ray tracing isn't enabled on the device. (Round O: the bounce is added whole - rt_gi_strength retired -, and
+// only where the light store doesn't light: while the level has a light field the world's and the objects' bounce is
+// the store's - one owner.)
 inline constexpr float kRtGiDistance = 600.0F; // (rt_gi_distance's default: world units)
 struct RtGiSettings {
     bool on = false;
-    float strength = kRtGiStrength; // how much of the bounced light is added (0 - 4)
     float distance = kRtGiDistance; // how far a ray looks for a surface to bounce from (1 - 5000 world units)
     unsigned rays = 2;              // rays per pixel each frame (1 - 16)
     bool denoise = true;            // the temporal and spatial filters (off: each frame's rays as they are)

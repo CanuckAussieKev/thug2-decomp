@@ -19,6 +19,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -49,14 +50,14 @@ constexpr uint64_t kReportFirstPass = 0x52350005U;
 constexpr uint64_t kReportImages = 0x52350006U;
 constexpr uint64_t kReportNoMaterials = 0x52350007U;
 constexpr uint64_t kReportSeeded = 0x52350008U; // (added by the first frame: a history seeded - vulkan_rt_history.h)
+constexpr uint64_t kReportStoreBounce = 0x52350009U; // (round O: the bounce left to the light store)
 constexpr uint64_t kReportIndirect = 0x00000100U; // (added to a key: the indirect light's report)
 
-constexpr float kMaxStrength = 1.0F;
 constexpr float kMinRadius = 1.0F;
 constexpr float kMaxRadius = 1000.0F;
-constexpr float kPerMille = 1000.0F; // (added for the characters: rt_ao_characters in the trace's integer constants)
+constexpr float kPerMille = 1000.0F; // (round O: the direct light's share in the trace's integer constants)
+static_assert(kRtAoRadius == rt::kLightFieldCell, "round O: the occlusion reaches one light field cell");
 // The indirect light's.
-constexpr float kMaxGiStrength = 4.0F;
 constexpr float kMaxGiDistance = 5000.0F;
 constexpr uint32_t kGiMask = 0x01 | 0x02 | 0x04; // the bounce rays (and the surface's own): world, objects, alpha-tested
 constexpr uint32_t kGiSunMask = 0x01 | 0x02 | 0x04; // the rays toward the sun: world, objects, cut-outs by alpha
@@ -218,11 +219,11 @@ float start_offset(float distance) { return pc.params.z * (1.0 + distance * 0.00
 // is its triangle's, flat, and the rays' hemisphere tilted with each triangle, so the ground and a wall beside him
 // took a different share of each (his shirt, face and arms in hard light and dark facets in the shade). Turned to
 // the side the depth's faces (a mesh whose normals point inward).
-// (added for the characters - rt_ao_characters) on_character: the object the pixel shows is skinned (the skater, a
-// ped - rt_scene.h kSkinned): the occlusion's own strength for them (pc.extra.z, per mille).
+// (round O) object_instance: the instance of the object the pixel shows (its lights - vulkan_rt_scene.h
+// hit_object_light), NO_OBJECT where it shows none.
 const uint OBJECTS_MASK = 0x02u;
-const uint SKINNED_FLAG = 0x08u;
-bool on_character = false;
+const uint NO_OBJECT = 0xFFFFFFFFu;
+uint object_instance = NO_OBJECT;
 uint rays_mask(vec3 here, vec3 to_camera, float distance, inout vec3 normal)
 {
     uint mask = uint(pc.extra.y) & 0xFFu;
@@ -239,7 +240,7 @@ uint rays_mask(vec3 here, vec3 to_camera, float distance, inout vec3 normal)
     if (!on_object) {
         return mask;
     }
-    on_character = (geometry_record(rayQueryGetIntersectionInstanceIdEXT(query, true)).instance_flags & SKINNED_FLAG) != 0u;
+    object_instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
     vec3 vertex_normal;
     if (hit_normal(rayQueryGetIntersectionInstanceIdEXT(query, true),
                    rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
@@ -321,6 +322,29 @@ float occluded(vec3 origin, vec3 direction, uint mask)
     return ray_blocked(mask, origin, direction, pc.params.x) ? 1.0 : 0.0; // (cut-outs by their alpha)
 }
 
+// (round O - the audit's O1: occlusion is a visibility of the indirect light, never of the direct) The share of the
+// pixel's light the occlusion may take: on an object whose lights are known (vulkan_rt_scene.h hit_object_light - the
+// one light, or the game's) what isn't its key light here - the key's part as seen now (a ray toward it, the world's
+// casters: an object takes the world's shadows only); elsewhere 1 - the lighting state's direct share (pc.extra.z, per
+// mille - rt_daylight.h direct_share_now, the shadow pass's).
+const float SUN_REACH = 20000.0;
+float indirect_share(vec3 origin, vec3 normal, uint mask)
+{
+    float share = 1.0 - clamp(float(pc.extra.z) * 0.001, 0.0, 1.0);
+    ObjectLight l;
+    if (object_instance == NO_OBJECT || !hit_object_light(object_instance, l)) {
+        return share;
+    }
+    float key_length = length(l.key_direction);
+    vec3 toward = key_length > 1e-6 ? -l.key_direction / key_length : vec3(0.0, 1.0, 0.0);
+    float seen = dot(normal, toward) > 0.0 && !ray_blocked(mask & ~OBJECTS_MASK, origin, toward, SUN_REACH) ? 1.0 : 0.0;
+    vec3 all = object_light_with(l, normal, seen);
+    vec3 indirect = object_light_with(l, normal, 0.0);
+    const vec3 luma = vec3(0.2126, 0.7152, 0.0722);
+    float total = dot(all, luma);
+    return total > 1e-6 ? clamp(dot(indirect, luma) / total, 0.0, 1.0) : 0.0; // (no light: nothing to take)
+}
+
 void main()
 {
     ivec2 local = ivec2(gl_GlobalInvocationID.xy);
@@ -346,9 +370,7 @@ void main()
     for (uint i = 0u; i < rays; ++i) {
         hits += occluded(origin, hemisphere_ray(h, i, rays), mask);
     }
-    if (on_character && pc.extra.z != 1000) {
-        hits *= float(pc.extra.z) * 0.001; // (added for the characters: rt_ao_characters)
-    }
+    hits *= indirect_share(origin, normal, mask); // (round O: the indirect light's share alone)
     if (relit_world_pixel(here, to_camera, distance)) {
         hits = 0.0; // (the light energy audit: the relit world's occlusion is its sky term's - relit owns it)
     }
@@ -684,7 +706,8 @@ void main()
 }
 )";
 
-// Step 4: the colour multiplied (a multiplying blend). rect: the viewport; params: x the strength.
+// Step 4: the colour multiplied (a multiplying blend) by 1 - the occlusion (round O: the share of the light it takes
+// is the trace's - indirect_share; no strength). rect: the viewport; params: x 1.
 constexpr const char* kApplyBody = R"(
 layout(set = 0, binding = 4, rgba16f) uniform readonly image2D u_in;
 layout(location = 0) out vec4 o_factor;
@@ -1875,15 +1898,14 @@ void log_first_pass(const EffectsState& own, const std::array<uint32_t, 4>& rect
 {
     const char* const filtered = effect_denoised(own) ? "denoised" : "not denoised";
     if (is_indirect(own)) {
-        get_log("vulkan: rt_gi: the first indirect light pass (%ux%u, %u rays, distance %.1f, strength %.2f, %s, %s; "
-                "sun %s)",
-                core::at(rect, 2), core::at(rect, 3), own.gi.rays, static_cast<double>(own.gi.distance),
-                static_cast<double>(own.gi.strength), filtered, added ? "added" : "screened", sun ? "yes" : "none");
+        get_log("vulkan: rt_gi: the first indirect light pass (%ux%u, %u rays, distance %.1f, %s, %s; sun %s)",
+                core::at(rect, 2), core::at(rect, 3), own.gi.rays, static_cast<double>(own.gi.distance), filtered,
+                added ? "added" : "screened", sun ? "yes" : "none");
         return;
     }
-    get_log("vulkan: rt_ao: the first ambient occlusion pass (%ux%u, %u rays, radius %.1f, strength %.2f, %s)",
-            core::at(rect, 2), core::at(rect, 3), own.settings.rays, static_cast<double>(own.settings.radius),
-            static_cast<double>(own.settings.strength), filtered);
+    get_log("vulkan: rt_ao: the first ambient occlusion pass (%ux%u, %u rays, radius %.1f, %s; the indirect light's "
+            "share alone)",
+            core::at(rect, 2), core::at(rect, 3), own.settings.rays, static_cast<double>(own.settings.radius), filtered);
 }
 
 // Step 2, the history, after the rays of the slot's current frame: written into the slot's current history.
@@ -1937,6 +1959,21 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     }
     const bool rgb = is_indirect(own);
     const uint64_t key = rgb ? kReportIndirect : 0U;
+    // (round O - one owner) while the level has a light field, the bounce on the world and on the objects is the light
+    // store's (the relit vertices', the objects' probes - engine/gfx/rt_light_field.h): this pass would add it again
+    if (rgb && rt::light_field() != nullptr) {
+        if (first_report(state, kReportStoreBounce)) {
+            get_log("vulkan: rt_gi: the level has a light store - its bounce is the store's (the objects' probes); the "
+                    "pass adds nothing");
+        }
+        return false;
+    }
+    // (round O) the lighting state's direct share - the occlusion takes the rest's share where an object's lights
+    // aren't known (the shadow pass's own share)
+    const rt::BakedSun& own_sun = rt::baked_sun();
+    const double own_elevation =
+        std::asin(std::clamp(static_cast<double>(core::at(own_sun.toward, 1)), -1.0, 1.0)) * (180.0 / 3.14159265358979);
+    const float direct_share = rt::direct_share_now(rt::day_light(), own_sun.found, own_elevation);
     Image* const colour = image_of_surface(core::at(state.targets, 0));
     Image* const depth = image_of_surface(state.depth);
     if (colour == nullptr || depth == nullptr || colour->attachment_view == VK_NULL_HANDLE ||
@@ -2044,8 +2081,8 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
         // 1. the rays
         trace.extra = {static_cast<int32_t>(slot->passes % kSequenceWrap),
                        static_cast<int32_t>(rgb ? kGiMask : kAoMask),
-                       // (added for the characters) the occlusion on the skinned characters x this, per mille
-                       rgb ? 0 : static_cast<int32_t>(std::lround(own.settings.characters * kPerMille)), 0};
+                       // (round O) the lighting state's direct share, per mille (the occlusion's indirect_share)
+                       rgb ? 0 : static_cast<int32_t>(std::lround(direct_share * kPerMille)), 0};
         PassImages trace_images{
             .scene = true, .depth = depth, .out = &slot->raw, .guide = &core::at(slot->guides, slot->current)};
         trace_images.geometry = own.geometry;
@@ -2079,10 +2116,9 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     // 4. the colour multiplied (the occlusion) or added to (the indirect light)
     PassConstants apply_constants = constants;
     if (rgb) {
-        apply_constants.params = {own.gi.strength, core::at(lights.sky, 0), core::at(lights.sky, 1),
-                                  core::at(lights.sky, 2)};
+        apply_constants.params = {1.0F, core::at(lights.sky, 0), core::at(lights.sky, 1), core::at(lights.sky, 2)};
     } else {
-        apply_constants.params = {own.settings.strength, 0.0F, 0.0F, 0.0F};
+        apply_constants.params = {1.0F, 0.0F, 0.0F, 0.0F};
     }
     record_apply(commands, own, apply, colour, result, rgb ? &slot->albedo : nullptr, apply_constants);
     if (colour->layout != colour->resting) {
@@ -2223,10 +2259,8 @@ void reset_effect_history(EffectsState& own)
 void set_rt_ao_settings(const RtAoSettings& settings)
 {
     RtAoSettings kept = settings;
-    kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : 0.0F;
     kept.radius = std::isfinite(kept.radius) ? std::clamp(kept.radius, kMinRadius, kMaxRadius) : kRtAoRadius;
     kept.rays = std::clamp(kept.rays, 1U, kMaxRays);
-    kept.characters = std::isfinite(kept.characters) ? std::clamp(kept.characters, 0.0F, 1.0F) : 1.0F; // (added for the characters)
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
@@ -2252,7 +2286,6 @@ RtAoSettings rt_ao_settings()
 void set_rt_gi_settings(const RtGiSettings& settings)
 {
     RtGiSettings kept = settings;
-    kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxGiStrength) : 0.0F;
     kept.distance =
         std::isfinite(kept.distance) ? std::clamp(kept.distance, kMinRadius, kMaxGiDistance) : kRtGiDistance;
     kept.rays = std::clamp(kept.rays, 1U, kMaxRays);

@@ -162,6 +162,7 @@ void refresh_instance_lighting(Singleton* instance)
     ModelLights* lights = instance->model() ? instance->model()->lights_ptr().get() : nullptr;
     if (!lights) {
         reset_lights();
+        apply_one_light(get_position(instance)); // (not original: round O - pc_lights.h)
         return;
     }
     lights->plat_apply_scene_lights(get_position(instance), lights->dynamic_radius());
@@ -186,22 +187,33 @@ void send_lights()
     core::at(lamp_b.direction, 0) = core::at(light_sets().light_constants(), kLampBDirectionX);
     core::at(lamp_b.direction, 1) = core::at(light_sets().light_constants(), kLampBDirectionY);
     core::at(lamp_b.direction, 2) = core::at(light_sets().light_constants(), kLampBDirectionZ);
+    lamp_b.ambient = {}; // (not original: round O's one light may have set it)
     gpu().set_light(1, lamp_b);
     const uint32_t red = get_channel(core::at(light_sets().light_constants(), 0));
     const uint32_t green = get_channel(core::at(light_sets().light_constants(), 1));
     const uint32_t blue = get_channel(core::at(light_sets().light_constants(), 2));
     gpu().set_render_state(GpuRenderState::kAmbient,
                            kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
-    // NOT ORIGINAL - the one lighting path: the level's own lights where the instance stands, as a light of their own
-    // (pc_lights.h local_light_sent); off after the instances are drawn
-    const LocalLightSent& local = local_light_sent();
-    if (local.on) {
-        GpuLight lamp{.type = gpu_value::kLightDirectional};
-        lamp.diffuse = {core::at(local.colour, 0), core::at(local.colour, 1), core::at(local.colour, 2), 1.0F};
-        lamp.direction = local.direction;
-        gpu().set_light(kLocalLightIndex, lamp);
+    // NOT ORIGINAL - round O (pc_lights.h OneLightSent): while the level is relit, the light store's light where the
+    // instance stands in place of the game's - linear light, summed as such by the draws (kLinearLights); the back of
+    // the indirect light's probe as light kOneLightBackIndex; off after the instances are drawn
+    const OneLightSent& one = one_light_sent();
+    if (one.on) {
+        lamp_a.diffuse = {core::at(one.key, 0), core::at(one.key, 1), core::at(one.key, 2), 1.0F};
+        lamp_a.direction = one.key_direction;
+        gpu().set_light(0, lamp_a);
+        lamp_b.diffuse = {core::at(one.fill, 0), core::at(one.fill, 1), core::at(one.fill, 2), 1.0F};
+        lamp_b.ambient = {core::at(one.ambient, 0), core::at(one.ambient, 1), core::at(one.ambient, 2), 1.0F};
+        lamp_b.direction = one.fill_direction;
+        gpu().set_light(1, lamp_b);
+        GpuLight back{.type = gpu_value::kLightDirectional};
+        back.diffuse = {core::at(one.back, 0), core::at(one.back, 1), core::at(one.back, 2), 1.0F};
+        back.direction = one.back_direction;
+        gpu().set_light(kOneLightBackIndex, back);
+        gpu().set_render_state(GpuRenderState::kAmbient, kOpaqueAlphaBits);
     }
-    gpu().enable_light(kLocalLightIndex, local.on);
+    gpu().enable_light(kOneLightBackIndex, one.on);
+    gpu().set_render_state(GpuRenderState::kLinearLights, one.on ? 1U : 0U);
 }
 
 // NOT ORIGINAL - the one lighting path (the objects' shadows - engine/gfx/rt_scene.h ObjectLight): the lights
@@ -209,6 +221,18 @@ void send_lights()
 // fill lights, the level's lamps' local light when it is on.
 rt::ObjectLight lights_sent()
 {
+    // (round O) the one light, as sent - linear light in the global unit
+    const OneLightSent& one = one_light_sent();
+    if (one.on) {
+        return {.ambient = one.ambient,
+                .key = one.key,
+                .key_direction = one.key_direction,
+                .fill = one.fill,
+                .fill_direction = one.fill_direction,
+                .local = one.back,
+                .local_direction = one.back_direction,
+                .linear = true};
+    }
     const auto& constants = light_sets().light_constants();
     const GpuLight& key = pc_instance_state().device_light0_;
     const GpuLight& fill = pc_instance_state().device_light1_;
@@ -219,11 +243,6 @@ rt::ObjectLight lights_sent()
         core::at(out.key_direction, channel) = core::at(key.direction, channel);
         core::at(out.fill, channel) = core::at(fill.diffuse, channel);
         core::at(out.fill_direction, channel) = core::at(fill.direction, channel);
-    }
-    const LocalLightSent& local = local_light_sent();
-    if (local.on) {
-        out.local = local.colour;
-        out.local_direction = local.direction;
     }
     return out;
 }
@@ -417,7 +436,8 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
             instance->render(kRenderOpaque | kRenderTransparent);
         }
     }
-    gpu().enable_light(kLocalLightIndex, false); // (not original: the local light - send_lights)
+    gpu().enable_light(kOneLightBackIndex, false); // (not original: round O's one light - send_lights)
+    gpu().set_render_state(GpuRenderState::kLinearLights, 0U);
     gpu().set_transform(GpuTransform::kWorld, get_view_world());
     set_world_transform(nullptr);
 }
@@ -495,7 +515,8 @@ void draw_instance_batch(BatchPass batch_pass)
             gpu().set_render_state(GpuRenderState::kColourVertex, 0);
             gpu().enable_light(0, false);
             gpu().enable_light(1, false);
-            gpu().enable_light(kLocalLightIndex, false); // (not original: the local light - send_lights)
+            gpu().enable_light(kOneLightBackIndex, false); // (not original: round O's one light - send_lights)
+    gpu().set_render_state(GpuRenderState::kLinearLights, 0U);
         }
     }
     gpu().set_transform(GpuTransform::kWorld, get_view_world());

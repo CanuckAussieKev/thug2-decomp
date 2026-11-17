@@ -483,6 +483,9 @@ public:
 protected:
     long send_render_state(GpuRenderState state, uint32_t value) override
     {
+        if (state == GpuRenderState::kLinearLights) {
+            return 0; // (not original: round O's state - Direct3D 9 has none; recorded in the block alone)
+        }
         return d3d()->SetRenderState(d3d_state(state), value);
     }
     long send_stage_state(uint32_t stage, GpuStageState state, uint32_t value) override

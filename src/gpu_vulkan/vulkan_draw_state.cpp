@@ -219,6 +219,11 @@ void fill_vertex_uniforms(const GpuStateBlock& block, VertexUniforms* uniforms)
                        viewport.height != 0 ? 1.0F / static_cast<float>(viewport.height) : 0.0F,
                        static_cast<float>(viewport.x), static_cast<float>(viewport.y)};
     uniforms->ambient = colour_of(state(block, GpuRenderState::kAmbient));
+    // (round O) the lights are linear light in the global unit: the ambient's alpha (unused by Direct3D's lighting)
+    // carries it to the shaders (ff_shaders.cpp kLinearLightsGlsl)
+    if (state(block, GpuRenderState::kLinearLights) != 0U) {
+        core::at(uniforms->ambient, 3) = kLinearLightsFlag;
+    }
     uniforms->material_diffuse = as_float4(block.material.diffuse);
     uniforms->material_ambient = as_float4(block.material.ambient);
     uniforms->material_specular = as_float4(block.material.specular);
