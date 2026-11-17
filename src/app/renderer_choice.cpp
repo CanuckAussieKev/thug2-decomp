@@ -118,13 +118,11 @@ unsigned at_least_one(const Resolution& in_effect, const char* key, unsigned fal
 constexpr const char* kDefaultSunSource = "level";
 void read_sun_source(const Resolution& in_effect)
 {
-    const std::string& text = in_effect.value("rt_sun_source");
+    // (round S: rt_sun_source retired - the level's own sun, or the clock's; the console's `rt sun source` sets a
+    // fixed one for a run)
+    const std::string text = kDefaultSunSource;
     render::rt::SunChoice choice;
-    if (!render::rt::parse_sun_source(text, &choice)) {
-        get_log("[Graphics] rt_sun_source=%s isn't game, level, x,y,z or heading,elevation - %s used", text.c_str(),
-                kDefaultSunSource);
-        render::rt::parse_sun_source(kDefaultSunSource, &choice);
-    }
+    render::rt::parse_sun_source(kDefaultSunSource, &choice);
     render::rt::set_sun_choice(choice);
     static bool retired_logged = false;
     if (!retired_logged) {
@@ -169,7 +167,6 @@ render::vulkan::RtShadowSettings make_rt_shadows(const Resolution& in_effect)
     const render::vulkan::RtShadowSettings defaults;
     return render::vulkan::RtShadowSettings{
         .on = in_effect.on("rt_shadows"),
-        .softness = in_effect.number("rt_shadow_softness", defaults.softness),
         .rays = at_least_one(in_effect, "rt_shadow_rays", defaults.rays),
         // (1 by default since the water and glass work: the skater's own projected shadow - a blocky 256 x 256
         // texture - is hidden while the ray-traced one is drawn; rt::object_shadows_replaced)

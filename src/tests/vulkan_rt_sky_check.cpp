@@ -846,9 +846,13 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
     tally->check(read_colour(targets, &plain_picture) && read_table(vk::AtmosphereTable::kSkyView, &plain_table),
                  "tod=level: a pass read back");
     const std::array<float, 3> plain_sun = floats(to_sun());
+    const rt::NativeDay day = rt::fit_native_day({.sun = rt::DayVec{0.3214F, 0.7660F, 0.5567F},
+                                                  .have_sun = true,
+                                                  .from_bake = true,
+                                                  .state = rt::TodState::kAfternoon});
     vk::AtmosphereInput night_input;
     night_input.sun = plain_sun;
-    night_input.night = rt::kNightSky;
+    night_input.night = rt::day_light_at(day, rt::kNightHours).night_sky; // (round S: the physical night)
     vk::AtmosphereTexels with_night;
     tally->check(view_for(night_input, &with_night), "the table with the night's light read back");
     vk::AtmosphereInput level_input;
@@ -860,10 +864,6 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
     // the sky at the clock's times on a level's day (its baked sun heading 30, 50 degrees up) against the processor
     text::print("  (the processor's Psi table: a moment)\n");
     const rt::MultipleTable cpu_table = rt::multiple_table({.steps = rt::kMultipleSteps, .light = 64});
-    const rt::NativeDay day = rt::fit_native_day({.sun = rt::DayVec{0.3214F, 0.7660F, 0.5567F},
-                                                  .have_sun = true,
-                                                  .from_bake = true,
-                                                  .state = rt::TodState::kAfternoon});
     struct Time {
         rt::TodChoice choice;
         const char* name;
@@ -892,11 +892,13 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
         tally->check(count_not_finite(view.texels) == 0, "  no NaN");
     }
     tally->check(core::at(zenith, 0) > core::at(zenith, 1) && core::at(zenith, 1) > core::at(zenith, 2) &&
-                     core::at(zenith, 2) > core::at(zenith, 3) && core::at(zenith, 3) >= core::at(zenith, 4) * 0.99,
-                 text::format("  the zenith darkens from noon to night (%.4f, %.4f, %.4f, %.4f, %.5f)",
+                     core::at(zenith, 2) > core::at(zenith, 3),
+                 text::format("  the zenith darkens from noon into the night (%.4f, %.4f, %.4f, %.4f; the moon's sky at "
+                              "midnight %.5f)",
                               core::at(zenith, 0), core::at(zenith, 1), core::at(zenith, 2), core::at(zenith, 3),
                               core::at(zenith, 4)));
-    const double night_zenith = luma(doubles(rt::kNightSky));
+    // (round S: the night's light physical - the moonlit sky's and the night sky's own)
+    const double night_zenith = luma(doubles(rt::day_light_at(day, rt::kNightHours).night_sky));
     constexpr double kNightTolerance = 0.1;
     tally->check(std::abs(core::at(zenith, 4) - night_zenith) < night_zenith * kNightTolerance,
                  text::format("  at midnight the zenith is the night's light (%.5f against %.5f)", core::at(zenith, 4),
@@ -905,6 +907,10 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
     const View view = view_from(sky_pose(), kTargetWidth, kTargetHeight);
     const Point middle{.x = kTargetWidth / 2.0, .y = kTargetHeight / 4.0};
     rt::DayLight night = rt::day_light_at(day, rt::kNightHours);
+    rt::pre_expose(&night); // (round S: the frame pre-exposed as the clock publishes it)
+    // (the stars are physical - mostly fainter than this small frame shows them: a long exposure, 1000 x, for the
+    // check; the sky table and the stars scale with it)
+    night.pre_exposure *= 1000.0F;
     night.moon = floats(direction_at(view, middle));
     night.moon_disc = 1.0F;
     night.stars = 1.0F;

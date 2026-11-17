@@ -60,6 +60,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/snow.h"
@@ -283,30 +284,20 @@ void check_slope(Tally* tally)
                               static_cast<double>(steep), static_cast<double>(wall)));
 }
 
-// The winter sky over the lighting state: dimmer, softer direct light, a greyer sky, weaker shadows; none at share 0.
+// (round S) The winter sky is the weather's cloud cover (snow.h kOvercastFalling / kOvercastLying), lit by the one cloud
+// model (rt_clouds.h cloud_layer_light): falling snow's deck keeps no sun, its diffuse light some of the day's; the light's
+// size stays the sun's own.
 void check_overcast(Tally* tally)
 {
-    render::rt::DayLight light;
-    light.on = true;
-    light.direct = 1.2F;
-    light.direct_tint = {1.0F, 0.95F, 0.85F};
-    light.light_colour = {1.2F, 1.14F, 1.02F};
-    light.sky = {0.8F, 0.95F, 1.3F};
-    light.light_radius = render::rt::kSunRadiusDegrees;
-    render::rt::DayLight same = light;
-    render::rt::apply_overcast(&same, 0.0F);
-    render::rt::DayLight grey = light;
-    render::rt::apply_overcast(&grey, 1.0F);
-    const auto spread = [](const render::rt::DayRgb& c) {
-        return std::max({core::at(c, 0), core::at(c, 1), core::at(c, 2)}) - std::min({core::at(c, 0), core::at(c, 1), core::at(c, 2)});
-    };
-    tally->check(same.direct == light.direct && same.sky == light.sky, "the overcast at 0: the light as it was");
-    tally->check(grey.direct < light.direct * 0.5F && grey.light_radius > 10.0F && spread(grey.sky) < spread(light.sky) * 0.5F &&
-                     grey.shadow < 1.0F,
-                 text::format("the overcast: direct %.2f -> %.2f, radius %.1f degrees, the sky's spread %.2f -> %.2f, shadows %.2f",
-                              static_cast<double>(light.direct), static_cast<double>(grey.direct),
-                              static_cast<double>(grey.light_radius), static_cast<double>(spread(light.sky)),
-                              static_cast<double>(spread(grey.sky)), static_cast<double>(grey.shadow)));
+    const double sine = 0.7;
+    const render::rt::CloudLayerLight falling = render::rt::cloud_layer_light(render::snow::kOvercastFalling, sine);
+    const render::rt::CloudLayerLight lying = render::rt::cloud_layer_light(render::snow::kOvercastLying, sine);
+    const render::rt::CloudLayerLight clear = render::rt::cloud_layer_light(0.0, sine);
+    tally->check(clear.beam == 1.0 && clear.sky_kept == 1.0 && clear.sun_diffuse == 0.0, "no snow's sky: the light as it was");
+    tally->check(falling.beam < 0.01 && falling.sun_diffuse > 0.0 && lying.beam > falling.beam && lying.beam < 1.0,
+                 text::format("the snow's sky through the cloud model: falling keeps %.4f of the sun (%.3f as the deck's "
+                              "diffuse light, optical depth %.1f), lying %.3f",
+                              falling.beam, falling.sun_diffuse, falling.mean_depth, lying.beam));
 }
 
 void check_stamp(Tally* tally)

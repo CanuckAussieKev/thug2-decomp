@@ -1011,7 +1011,8 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     auto block = std::make_unique<LightsBlock>();
     block->count = {static_cast<uint32_t>(own.last_view.size()), own.settings.shadowed, kLightsShadowMask,
                     kLightsSurfaceMask};
-    block->params = {own.settings.strength * lamps, kOffsetScale, 0.0F, 0.0F};
+    // (round S: x the frame's pre-exposure - rt_daylight.h - as the lighting state's light carries it)
+    block->params = {own.settings.strength * lamps * rt::frame_pre_exposure(), kOffsetScale, 0.0F, 0.0F};
     for (std::size_t i = 0; i < own.last_view.size(); ++i) {
         const rt::Emitter& light = core::at(own.last_view, i);
         LightRecord& record = core::at(block->lights, i);

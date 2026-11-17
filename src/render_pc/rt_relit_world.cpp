@@ -621,7 +621,8 @@ float vertex_lamps(const rt::DayLight& day)
 {
     const std::shared_ptr<const rt::LevelEmitters> level = rt::level_emitters();
     const float on = rt::lamps_on(day, level != nullptr && level->dark);
-    return std::max(0.0F, on - rt::lamps_drawn());
+    // (round S: x the frame's pre-exposure, as the lighting state's sun and sky carry it - rt_daylight.h pre_expose)
+    return std::max(0.0F, on - rt::lamps_drawn()) * (day.on ? day.pre_exposure : 1.0F);
 }
 // The new entries' light taken from the level's data (nothing traced or fitted: the relit bake made it - relit_data.h):
 // each by its content; its normals and which vertices are used made again from the mesh as the bake made them.
@@ -1342,20 +1343,18 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         return;
     }
     const rt::RelitLevel* entry_of_level = level_entry(level);
-    // (added by the scene's sun) whether rt_sun_source=game may light this level by the game's sun: its entry may keep
-    // the baked one; the mode says it relights the level once the model is found (rt_scene.h scene_sun)
-    const bool keeps_baked_sun = entry_of_level != nullptr && entry_of_level->keeps_baked_sun;
+    // (the mode says it relights the level once the model is found - rt_scene.h scene_sun)
     if (entry_of_level != nullptr && entry_of_level->off) {
         restore_all();
         log_status(Status::kOptedOut);
-        rt::set_sun_relight({.relights = false, .level_keeps_bake = keeps_baked_sun});
+        rt::set_sun_relight({.relights = false});
         return;
     }
     if (st.order.empty()) {
         return;
     }
     log_status(Status::kRelit);
-    rt::set_sun_relight({.relights = true, .level_keeps_bake = keeps_baked_sun});
+    rt::set_sun_relight({.relights = true});
     // the lighting now: the sun (traced again where it moved) and its colour
     rt::Vec3 toward{};
     if (!target_sun(&toward)) {

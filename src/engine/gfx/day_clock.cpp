@@ -22,6 +22,7 @@
 #include "engine/gfx/game_hooks.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/lens_flare.h"
+#include "engine/gfx/rain.h"
 #include "engine/gfx/relit_data.h"
 #include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
@@ -528,6 +529,8 @@ void step()
     // draws the clouds and casts their shadows) - and the moon's age, a day older each day the clock runs
     const float snow_cover = snow::overcast_share();
     rt::set_cloud_cover(rt::CloudCoverSource::kSnow, snow_cover > 0.0F ? snow_cover : -1.0F);
+    const double rain_cover = rain::cloud_cover(rain::settings().rate); // (the rain's deck: rain.h)
+    rt::set_cloud_cover(rt::CloudCoverSource::kRain, rain_cover > 0.0 ? static_cast<float>(rain_cover) : -1.0F);
     const double age = std::fmod(settings.moon_age + own.days + (stepped / rt::kHoursPerDay), rt::kSynodicMonth);
     rt::DayLight light =
         rt::day_light_at(own.native, stepped, {.moon_age = age, .cloud_cover = rt::cloud_coverage()});

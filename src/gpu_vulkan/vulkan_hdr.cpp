@@ -549,6 +549,8 @@ bool ensure_layouts(Backend& state, std::string* error)
 }
 
 // The pipeline for a colour target's format and samples (made on first use): no blending, colour written, alpha kept.
+double scotopic_white(); // (round S: below)
+
 VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, std::string* error)
 {
     HdrState& own = hdr();
@@ -565,8 +567,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     if (samples != VK_SAMPLE_COUNT_1_BIT) {
         source += "#define MULTISAMPLED\n";
     }
-    source += "#define SCOTOPIC_WHITE " + std::to_string(scotopic_white()) + "
-";
+    source += "#define SCOTOPIC_WHITE " + std::to_string(scotopic_white()) + "\n";
     source += kPassCommon;
     source += rt::kDisplayTransferGlsl;
     source += kFragmentBody;
