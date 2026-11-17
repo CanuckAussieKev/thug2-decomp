@@ -13,12 +13,9 @@
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/mesh_formats.h"
-<<<<<<< HEAD
 #include "engine/gfx/precip_occlusion.h"
 #include "engine/gfx/rain.h"
-=======
 #include "engine/gfx/rt_brdf.h"
->>>>>>> main
 #include "engine/gfx/rt_display.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
