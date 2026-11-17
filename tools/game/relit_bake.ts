@@ -91,6 +91,8 @@ export interface BakeResult {
     // (lighting round A2) the evidence's parts (stateOf) and the lamps' solve
     state: LevelState | null;
     lampsSolved: string | null; // "<told> of <all>"
+    // (round L) the lamps by physics: their light's sources, fixtures and lumens per lamp (the bake's line)
+    lampPhysics: string | null;
     failure: string | null; // why nothing was written ("relit bake: FAILED - ..." / "start level: ...")
 }
 
@@ -211,6 +213,7 @@ export function parseBakeLog(log: string): BakeResult {
         evidence: null,
         state: null,
         lampsSolved: null,
+        lampPhysics: null,
         failure: null,
     };
     const failure =
@@ -242,6 +245,8 @@ export function parseBakeLog(log: string): BakeResult {
     }
     const solved = /relit bake: the lamps' solve - [\d ]+ edges, (\d+ of \d+) lamps told/.exec(log);
     if (solved) out.lampsSolved = solved[1]!;
+    const physics = /relit bake: lamps by physics - (.*)/.exec(log);
+    if (physics) out.lampPhysics = physics[1]!.trim();
     const file = /relit bake: (wrote|couldn't write) (\S+\.relit)/.exec(log);
     if (file) {
         out.written = file[1] === "wrote";
@@ -305,6 +310,7 @@ export function reportLine(level: string, code: number | null, result: BakeResul
         `sun ${result.sun ?? "-"}`,
         `lamps' c ${result.lampTerm ?? "-"}`,
         result.evidence ?? "-",
+        result.lampPhysics ?? "-",
     ].join("\t");
 }
 

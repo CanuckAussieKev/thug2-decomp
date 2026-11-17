@@ -15,6 +15,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -692,7 +693,7 @@ Buffer* relit_colour_stream(Backend& state, const DrawCall& call, const VertexKe
     static const bool fits = [&state]() {
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(state.context.physical_device(), &properties);
-        return properties.limits.maxVertexInputAttributes > kRelitColourLocation;
+        return properties.limits.maxVertexInputAttributes > kCelEmitLocation; // (round L: the highest)
     }();
     return fits ? relit_stream_of(state, call) : nullptr;
 }
@@ -786,8 +787,10 @@ void fill_cel_uniforms(const Backend& state, const GpuStateBlock& block, CelUnif
     if (sun_toward(view, &toward)) {
         uniforms->sun_world = {std::get<0>(toward), std::get<1>(toward), std::get<2>(toward), 1.0F};
     }
-    uniforms->sun_light = {std::get<0>(view.world.sun), std::get<1>(view.world.sun), std::get<2>(view.world.sun),
-                           rt::kCelRimThreshold};
+    // (round L: the relit world's sun is physical - x the frame's pre-exposure here, where it is drawn)
+    const float exposure = rt::frame_pre_exposure();
+    uniforms->sun_light = {std::get<0>(view.world.sun) * exposure, std::get<1>(view.world.sun) * exposure,
+                           std::get<2>(view.world.sun) * exposure, rt::kCelRimThreshold};
     // camera space to the world: the view's inverse (row vectors: world = eye x V^-1), each row of the result one of
     // the world's axes
     Float4x4 inverse{};

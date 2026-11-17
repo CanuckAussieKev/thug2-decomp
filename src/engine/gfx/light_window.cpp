@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/light_store.h"
 #include "engine/gfx/relit_data.h"
 
 namespace render::rt {
@@ -16,6 +17,11 @@ namespace render::rt {
 namespace {
 
 constexpr std::size_t kTexelHalves = 4;
+
+FieldPoint scaled_point(const FieldPoint& point, float by)
+{
+    return {std::get<0>(point) * by, std::get<1>(point) * by, std::get<2>(point) * by};
+}
 
 std::size_t texel_at(int plane, int x, int layer, int z)
 {
@@ -48,15 +54,17 @@ LightWindow light_window(const LightField& field, const FieldPoint& centre)
                 const FieldPoint point{(static_cast<float>(out.first[0] + x) + 0.5F) * kLightWindowCell,
                                        (static_cast<float>(out.first[1] + layer) + 0.5F) * kLightWindowCell,
                                        (static_cast<float>(out.first[2] + z) + 0.5F) * kLightWindowCell};
-                const PointLight light = field.light_at(point);
+                // (round L: physical x kLightStoreScale - the halves' range; the draws multiply by the frame's
+                // pre-exposure over it: the window's origin's w)
+                const PointLight light = field.physical_light_at(point);
                 // (the whole indirect light: the lamps pass lights only what was drawn before it - the blades and items
                 // come after, so all of the lamps' light is theirs to take from the store)
                 const ProbeL1 probe = light.valid ? light.indirect(1.0F) : ProbeL1{};
                 for (int plane = 0; plane < kLightWindowPlanes; ++plane) {
                     const auto channel = static_cast<std::size_t>(plane);
                     const std::size_t at = texel_at(plane, x, layer, z);
-                    const float c0 = core::at(probe.c0, channel);
-                    const FieldPoint& c1 = core::at(probe.c1, channel);
+                    const float c0 = core::at(probe.c0, channel) * kLightStoreScale;
+                    const FieldPoint c1 = scaled_point(core::at(probe.c1, channel), kLightStoreScale);
                     core::at(out.texels, at) = to_half(c0);
                     core::at(out.texels, at + 1) = to_half(std::get<0>(c1));
                     core::at(out.texels, at + 2) = to_half(std::get<1>(c1));

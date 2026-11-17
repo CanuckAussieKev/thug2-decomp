@@ -286,6 +286,22 @@ void check_light()
            "a new moon's midnight: the night sky's own light alone, " + number(new_moon.illuminance_lux) + " lux");
     expect(midnight.illuminance_lux > 10.0F * new_moon.illuminance_lux,
            "the full moon's night " + number(midnight.illuminance_lux) + " lux, far brighter than a new moon's");
+    // (round L) a cover's meaning: "a quarter of the sky covered" (2 oktas) blocks the sun about as often as the sky is
+    // covered - the share of the columns with cloud (overhead transmittance under 0.9: the drawn sky check's "covered")
+    // near the cover, and the mean beam of a 39-degree sun near 1 - cover (a little lower: a slant path meets more)
+    for (const float cover : {0.25F, 0.5F}) {
+        const std::vector<double> depths = rt::cloud_column_depths(cover);
+        std::size_t clouded = 0;
+        for (const double tau : depths) {
+            clouded += std::exp(-tau) < 0.9 ? 1 : 0;
+        }
+        const double share = static_cast<double>(clouded) / static_cast<double>(std::max<std::size_t>(depths.size(), 1));
+        const double beam = rt::cloud_layer_light(cover, std::sin(39.0 * std::numbers::pi / 180.0)).beam;
+        expect(std::abs(share - static_cast<double>(cover)) < 0.1 && beam > 0.85 - static_cast<double>(cover) &&
+                   beam < 1.05 - static_cast<double>(cover),
+               "a cover of " + number(cover) + ": " + number(share) + " of the columns clouded, a 39-degree sun's beam " +
+                   number(beam) + " (1 - cover " + number(1.0 - static_cast<double>(cover)) + ")");
+    }
     // (round S) the clouds dim the light: the direct light by the deck's beam, the rest its diffuse light
     for (const float cover : {0.5F, 1.0F}) {
         const rt::DayLight cloudy = rt::day_light_at(day, noon.hours, {.cloud_cover = cover});

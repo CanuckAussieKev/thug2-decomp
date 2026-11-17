@@ -2550,6 +2550,81 @@ and its night was grey everywhere. Measured (the meter's readout and `rt probe`,
   of 10^5 - 10^6 lm (a street lamp sends ~10^4), so it is no physical input yet; and a real city's glow is its whole
   region's light, not one level's lamps - weather / site data, like the cloud cover.
 
+### Round L: a physical light store, lamps by physics, a camera's exposure
+
+**The light store holds physical light** (`engine/gfx/light_store.h`). The relit world's per-vertex light - its stream
+(`rt_cel.h`), the light field, the bounce's hits - is light in the global unit, not pre-exposed. Before, the stream was
+six 8-bit words of pre-exposed light x 128: a lamp's head held at 2 (about 1.8 cd/m^2 at a night's pre-exposure of
+65 536), the bounce traced from those bytes (lamp-lit walls clipped), and every pre-exposure change rewrote the whole level
+(the hurried relight at a cut). Now:
+
+- A light word is RGB9E5 (Vulkan's E5B9G9R9 layout, EXT_texture_shared_exponent's encoding; decoded in the shaders from a
+  uint attribute or a buffer word) x `kLightStoreScale` 2^10: 6e-8 .. 64 units - 1.5e-3 .. 1.7 x 10^6 cd/m^2 -, its 9
+  bits from 7.8e-4 cd/m^2 (1e-4 cd/m^2 within 1 %). 4 bytes a colour as before; the stream is 8 words (32 bytes): the
+  light words 0, 2 - 5, 7 (indirect, lamps, sun, sky, the light drawn, the vertex's own emission), the tint and its sun
+  share (word 1) and the flags (word 6: N.L, K, "emission on lamp texels only", has the stream / hidden) as D3DCOLORs.
+- The frame's pre-exposure is applied where the light is read, one value a frame (`frame_pre_exposure`): the draws'
+  `VertexUniforms::light_store`, the ray-traced passes' `GeometryRecord::light_exposure` (hit_world_light), the light
+  field's reads (`LightField::light_at / at / whole`; `physical_light_at` for the light window, whose halves hold physical
+  light x 2^10 and whose origin's w carries P / 2^10), the relit sun of the surface and cel draws. relit's lighting
+  (`day_scales`) divides the published state's pre-exposure out; `vertex_lamps` and the bulbs' emission no longer carry it;
+  the lighting's hash no longer holds it - **a pre-exposure change writes nothing** (rt_relit_check: the same words at
+  P 1, 4096 and 65 536).
+- **The bounce's hits are physical light** (`RelitMesh::light`, `relit_reflected`): tint x light, no 8 bits, no hold at 2,
+  and without the emission (a lamp's own light is the lamps' L - counted once).
+- **The pre-exposure is held under the brightest emission** (`set_brightest_emission`, `kFrameLightMost` = 65 504 / 4):
+  a 10^5 cd/m^2 lamp head x 65 536 would pass the 16-bit frame's range. The meter divides P out, so this only moves where
+  the floats hold the picture.
+
+**Lamps by physics where the bake can't tell** (`engine/gfx/lamp_fixtures.h`, `rt_relit.h relit_lamp_models`). The
+bake measures a lamp only when it was on and outshone the rest; New Jersey's afternoon bake told 34 of 364 lamps - 300
+"told dark" were street lamps that were off - and some solves ran off (860 000 lm from one lamp; a street lamp sends
+~10^4). Now each lamp has a source:
+
+- **solved** - told by the bake, and its surface luminance (its flux / (pi x its luminous area)) within its kind's range;
+- **model** - the bake couldn't tell it (no edges; off in the bake by its own switch): a Lambertian emitter of its kind's
+  luminance L over its own luminous area A, Phi = pi L A, put into the unit's intensity by its shape
+  (`relit_lamp_intensity_for`, the photometry's inverse);
+- **implausible solve -> model** - solved, but outside its kind's range: a failed measurement, logged per lamp
+  ("relit bake: lamp N (...): an implausible solve - now model ...");
+- **own surface** - a glow the bake tells dark while on, or one with no luminous area known (A3's lower bound);
+- none - a candidate (a bright surface) the bake doesn't confirm, unless it was off in the bake and is shaped like a
+  luminaire outdoors (not a sign, a window or a saturated colour).
+
+The luminous area is the lamp's emissive triangles x their lit share (`EmitterTriangle::lit_share`): a light card's
+saturated core (texels whose brightest channel is at least kTexelBright - the lamp the halo is drawn round), a texture's
+lamp texels, a self-lit triangle whole. The kind (`fixture_of`) from the lamp's own data: a colour off the Planckian locus
+by more than 0.03 in CIE 1960 uv (a neon or a sign - a magenta card is a neon tube with a neon's flux, in its colour), a
+vertical panel (a sign or a lit window), roofed (a tube, a ceiling panel or a bulb), outdoors by its colour temperature
+(sodium under 2500 K, a bulb or globe lantern under 3500 K, else a white street light). The table's luminances and their
+sources are in the header (written from memory, to be verified like round M's table). The colour: the lamp's own where it
+is a light's, a sign's or a neon's; else its kind's colour temperature (`blackbody_colour`, Kim et al. 2002's locus).
+
+**Lamp heads at their luminance**: a lamp's own surface (its emitting vertices) shows its luminance - the kind's or its
+solved flux over pi A - in its colour (`RelitVertex::emit`, the stream's word 7), not "its light / pi". The surface
+draws add it per pixel (x the texel; only on the lamp texels for a lamp drawn in a texture), the reflections' hits and
+the shadows' ratio take it; the meter and the bloom see it.
+
+**Relit data v8**: each lamp's source, fixture, area and luminance. Rebake every level.
+
+**The cloud cover's meaning** (`rt_clouds.h cloud_amount`): "a quarter of the sky covered" left 44 - 54 % of the light
+model's columns clouded (a 39-degree sun kept 0.46 of its beam on average). The table (kCloudAmounts) was measured from
+three places' views and sampled the weather's patches too sparsely; the columns took the shape noise at its nearest
+texel without the march's detail erosion. Now the columns sample the noise as the march does (trilinear, with the
+detail; 32 x 32 over the weather's period) and the amount for each tenth of cover is found by bisection on the model's
+own clouded share (overhead transmittance under 0.9): a cover of 0.25 clouds 0.25 of the columns, and a 39-degree sun
+keeps 0.76 of its beam on average (0.5: 0.50 / 0.52). The vertical cloud fraction is the cover; an observer's sky is a
+little more covered still (slant views meet the clouds' sides).
+
+**A camera, not an eye** (the user: "physical, but what a camera sees"). The output stage's rod vision (round S's
+scotopic desaturation and Purkinje blue) and the scotopic floor are gone. The auto exposure (`rt_exposure_adapt` on/off)
+is a camera's: the reflected-light meter (ISO 2720, K 12.5) with the scene key that falls in dim scenes (Krawczyk's law)
+within a real camera's range - EV100 -4.1 (f/1.4, 1/30 s, ISO 102 400) to 21 (f/16, 1/8000 s, ISO 100) (`kCameraLeastEv100`,
+`kCameraMostEv100`, `camera_stops_range`). A full moon's night is shown about 4.4 stops darker than a day, in full colour
+as a sensor records it; a starless overcast night is beyond the camera's least EV and recorded darker. White balance is a
+fixed daylight (D65) white - moonlight records slightly warm, sodium lamps orange. The readout logs the camera's EV100.
+`rt_exposure` stays the player's exposure compensation.
+
 ### Round W: the air and the wind, weather surfaces through the material path
 
 Light and air are separate transports (the user, 2026-11-17: "if a ray from the sun cannot reach us without bouncing off

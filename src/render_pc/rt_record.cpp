@@ -1436,6 +1436,39 @@ bool lamp_texels(const MeshTriangles& tris, const std::array<uint32_t, 3>& corne
     return true;
 }
 
+// (round L) A light card's luminous core: the share of a fine grid of points over the triangle (kCoreSide along each
+// edge) whose texel's brightest channel (linear) is at least rt_lights.h kTexelBright - the lamp the card is drawn round,
+// saturated in the art; the halo's falling edge is glare, not the lamp. 0 without the texture or its coordinates.
+constexpr uint32_t kCoreSide = 16;
+float card_core_share(const MeshTriangles& tris, const std::array<uint32_t, 3>& corner, const TextureLook& look)
+{
+    std::array<std::array<float, 2>, 3> uvs{};
+    if (look.image.empty()) {
+        return 0.0F;
+    }
+    for (std::size_t k = 0; k < 3; ++k) {
+        if (!tris.uv(core::at(corner, k), &core::at(uvs, k))) {
+            return 0.0F;
+        }
+    }
+    uint32_t lit = 0;
+    uint32_t samples = 0;
+    for (uint32_t i = 0; i < kCoreSide; ++i) {
+        for (uint32_t j = 0; i + j < kCoreSide; ++j) {
+            const float b = (static_cast<float>(i) + (1.0F / 3.0F)) / static_cast<float>(kCoreSide);
+            const float c = (static_cast<float>(j) + (1.0F / 3.0F)) / static_cast<float>(kCoreSide);
+            const float a = 1.0F - b - c;
+            const float u = (a * std::get<0>(std::get<0>(uvs))) + (b * std::get<0>(std::get<1>(uvs))) + (c * std::get<0>(std::get<2>(uvs)));
+            const float v = (a * std::get<1>(std::get<0>(uvs))) + (b * std::get<1>(std::get<1>(uvs))) + (c * std::get<1>(std::get<2>(uvs)));
+            const std::array<uint8_t, 4> texel = look.image.at(u, v);
+            ++samples;
+            const uint8_t most = std::max({std::get<0>(texel), std::get<1>(texel), std::get<2>(texel)});
+            lit += rt::linear_from_display(static_cast<float>(most) / 255.0F) >= rt::kTexelBright ? 1 : 0;
+        }
+    }
+    return samples > 0 ? static_cast<float>(lit) / static_cast<float>(samples) : 0.0F;
+}
+
 void emitter_work()
 {
     State& st = state();
@@ -1490,8 +1523,9 @@ void emitter_work()
         }
         const MeshTriangles& tris = read.front();
         const std::array<float, 4>& pass = entry->second.material.colour; // (doubled: 1 leaves the texture as it is)
+        // (round L: in the bake a light card's texture too - its saturated core is the lamp's luminous area)
         static const TextureLook kNoLook;
-        const TextureLook& look = glow ? kNoLook : texture_look(material, &textures);
+        const TextureLook& look = glow && !bake ? kNoLook : texture_look(material, &textures);
         for (uint32_t t = 0; t < tris.count(); ++t) {
             std::array<uint32_t, 3> corner{};
             if (!tris.corners(t, &corner)) {
@@ -1500,6 +1534,7 @@ void emitter_work()
             const auto [one, two, three] = corner;
             rt::EmitterKind kind = rt::EmitterKind::kGlow;
             std::array<float, 3> texture_colour{1.0F, 1.0F, 1.0F};
+            float lit_share = glow ? card_core_share(tris, corner, look) : 1.0F;
             if (!glow) {
                 if (rt::self_lit_triangle(std::min({tris.brightness(one), tris.brightness(two), tris.brightness(three)}),
                                           found.median_luma)) {
@@ -1517,12 +1552,14 @@ void emitter_work()
                         continue;
                     }
                     kind = rt::EmitterKind::kTextured;
+                    lit_share = share;
                 }
             }
             rt::EmitterTriangle triangle{.corners = {tris.position(one), tris.position(two), tris.position(three)},
                                          .colour = {},
                                          .material = entry->second.id,
-                                         .kind = kind};
+                                         .kind = kind,
+                                         .lit_share = lit_share};
             for (const uint32_t vertex : corner) {
                 const std::array<float, 3> colour = tris.colour(vertex);
                 for (std::size_t k = 0; k < 3; ++k) {

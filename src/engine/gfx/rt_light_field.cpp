@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 
 namespace render::rt {
@@ -166,7 +167,31 @@ LightRatio LightField::ratio_of(const LightParts& sum)
     return out;
 }
 
-LightRatio LightField::whole() const { return all_.count > 0.0F ? ratio_of(all_.sum) : LightRatio{}; }
+// (round L - the physical light store) The field holds physical light (relit's lighting, engine/gfx/light_store.h); what
+// it hands out is light in the frame's unit - x the frame's pre-exposure, read here where it is drawn - so a change of
+// the pre-exposure makes no new field.
+namespace {
+LightRatio exposed(LightRatio ratio)
+{
+    const float exposure = frame_pre_exposure();
+    for (std::size_t ch = 0; ch < ratio.whole.size(); ++ch) {
+        core::at(ratio.whole, ch) *= exposure;
+        core::at(ratio.indirect, ch) *= exposure;
+    }
+    return ratio;
+}
+void exposed(ProbeL1* probe, float exposure)
+{
+    for (std::size_t ch = 0; ch < probe->c0.size(); ++ch) {
+        core::at(probe->c0, ch) *= exposure;
+        for (float& value : core::at(probe->c1, ch)) {
+            value *= exposure;
+        }
+    }
+}
+} // namespace
+
+LightRatio LightField::whole() const { return all_.count > 0.0F ? exposed(ratio_of(all_.sum)) : LightRatio{}; }
 
 std::vector<LightField::Weighted> LightField::around(const FieldPoint& point) const
 {
@@ -238,7 +263,7 @@ LightRatio LightField::at(const FieldPoint& point) const
     for (const Weighted& each : cells) {
         add_parts(&sum, each.cell->sum, each.weight);
     }
-    return ratio_of(sum);
+    return exposed(ratio_of(sum));
 }
 
 namespace {
@@ -391,6 +416,22 @@ FieldRgb DeviceLights::on(const FieldPoint& normal, float seen) const
 }
 
 PointLight LightField::light_at(const FieldPoint& point) const
+{
+    PointLight out = physical_light_at(point);
+    if (!out.valid) {
+        return out;
+    }
+    const float exposure = frame_pre_exposure(); // (round L: the frame's unit)
+    exposed(&out.sky, exposure);
+    exposed(&out.bounce, exposure);
+    exposed(&out.lamps, exposure);
+    for (float& value : out.sun) {
+        value *= exposure;
+    }
+    return out;
+}
+
+PointLight LightField::physical_light_at(const FieldPoint& point) const
 {
     PointLight out;
     if (cells_.empty()) {

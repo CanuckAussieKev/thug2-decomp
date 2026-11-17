@@ -119,8 +119,11 @@ public:
     [[nodiscard]] LightRatio at(const FieldPoint& point) const;
     // The level's whole: every vertex's light summed (what a thing with no place - the particles - takes).
     [[nodiscard]] LightRatio whole() const;
-    // The light a thing at a point receives (not valid for an empty field).
+    // The light a thing at a point receives (not valid for an empty field) - (round L) in the frame's unit: the field's
+    // physical light x the frame's pre-exposure (rt_daylight.h frame_pre_exposure), as at() and whole() are.
     [[nodiscard]] PointLight light_at(const FieldPoint& point) const;
+    // ... physical (the global unit, not pre-exposed): what a store kept on the device takes (light_window.h).
+    [[nodiscard]] PointLight physical_light_at(const FieldPoint& point) const;
     [[nodiscard]] std::size_t cells() const { return cells_.size(); }
     [[nodiscard]] std::size_t vertices() const { return vertices_; }
 

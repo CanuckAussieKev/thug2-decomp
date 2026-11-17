@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/light_store.h"
 #include "engine/gfx/light_window.h"
 #include "engine/gfx/rt_daylight.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -178,9 +179,11 @@ SheetLighting update_light_window(Backend& state, const std::array<float, 3>& ca
                  .imageView = image.view,
                  .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     if (out.window) {
+        // (round L: w the window's texels' factor to the frame's unit - they hold physical light x kLightStoreScale)
         out.origin = four(static_cast<float>(own.first[0]) * rt::kLightWindowCell,
                           static_cast<float>(own.first[1]) * rt::kLightWindowCell,
-                          static_cast<float>(own.first[2]) * rt::kLightWindowCell, 1.0F);
+                          static_cast<float>(own.first[2]) * rt::kLightWindowCell,
+                          rt::frame_pre_exposure() / rt::kLightStoreScale);
     }
     return out;
 }
@@ -199,14 +202,15 @@ std::string light_window_glsl(const char* sampler, const char* block)
            "void window_probe(vec3 world, out vec4 r, out vec4 g, out vec4 b)\n{\n"
            "    r = " + b + ".light_fallback[0];\n    g = " + b + ".light_fallback[1];\n    b = " + b +
            ".light_fallback[2];\n"
-           "    if (" + b + ".light_origin.w < 0.5) {\n        return;\n    }\n"
+           "    if (" + b + ".light_origin.w <= 0.0) {\n        return;\n    }\n"
            "    vec3 c = clamp((world - " + b + ".light_origin.xyz) / " + cell + " - 0.5, vec3(0.0), vec3(" + cells +
            " - 1.0, " + layers + " - 1.0, " + cells + " - 1.0));\n"
            "    float y0 = floor(c.y);\n    float y1 = min(y0 + 1.0, " + layers + " - 1.0);\n    float t = c.y - y0;\n"
            "    vec2 xz = c.xz + 0.5;\n"
            "    r = mix(window_texel(xz, y0, 0.0), window_texel(xz, y1, 0.0), t);\n"
            "    g = mix(window_texel(xz, y0, 1.0), window_texel(xz, y1, 1.0), t);\n"
-           "    b = mix(window_texel(xz, y0, 2.0), window_texel(xz, y1, 2.0), t);\n}\n"
+           "    b = mix(window_texel(xz, y0, 2.0), window_texel(xz, y1, 2.0), t);\n"
+           "    r *= " + b + ".light_origin.w;\n    g *= " + b + ".light_origin.w;\n    b *= " + b + ".light_origin.w;\n}\n"
            "vec3 probe_light(vec4 r, vec4 g, vec4 b, vec3 n)\n{\n"
            "    return max(vec3(r.x + dot(r.yzw, n), g.x + dot(g.yzw, n), b.x + dot(b.yzw, n)), vec3(0.0));\n}\n";
 }

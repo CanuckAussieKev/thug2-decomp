@@ -108,12 +108,19 @@ struct CloudNoise {
 // clumps (b; taken whole toward overcast: x coverage^4); and the share of the shape's range the cover opens up.
 [[nodiscard]] double cloud_cover(const std::array<double, 4>& weather, double coverage);
 // The model's amount (what cloud_density, CloudRay and the device take as `coverage`) for a coverage as the settings
-// give it (rt_cloud_coverage, or auto: the weather's - weather_cloud_cover): the share of the sky the clouds cover - about that much of the sky
-// above 12 degrees has cloud in it (the model's own amount turns from none to overcast over a narrow range: kCloudAmounts,
-// measured by the sky check's sweep, spreads it out). Piecewise linear between tenths.
-inline constexpr std::array<double, 11> kCloudAmounts{0.0,   0.5,   0.55, 0.575, 0.595, 0.617,
-                                                      0.637, 0.667, 0.71, 0.75,  1.0};
+// give it (rt_cloud_coverage, or auto: the weather's - weather_cloud_cover): the share of the sky the clouds cover.
+// (Round L) Measured from the model itself over the weather map's whole period (cloud_clouded_share: the share of the
+// layer's columns whose cloud keeps under kCloudSeenTransmittance of the light straight through - visible cloud, the drawn
+// sky check's "covered"), each tenth's amount found by bisection, piecewise linear between: "a quarter of the sky covered"
+// (2 oktas) is a quarter of the columns clouded - the vertical cloud fraction; the sky an observer sees is a little more
+// covered still (a slant view meets the clouds' sides). Before, a table measured from three places' views (kCloudAmounts:
+// 0.25 -> 0.5625) left 44 % of the map's columns clouded at a quarter's cover - its few places sampled the weather's
+// patches too sparsely - and a 39-degree sun kept 0.46 of its beam on average.
+inline constexpr std::size_t kCloudTenths = 11;
+inline constexpr double kCloudSeenTransmittance = 0.9;
 [[nodiscard]] double cloud_amount(double coverage);
+// The share of the layer's columns clouded at the model's `amount` (round L - the calibration's measure).
+[[nodiscard]] double cloud_clouded_share(double amount);
 [[nodiscard]] double cloud_threshold_share(double coverage);
 
 // Where a ray from a camera `camera_altitude` metres up along `direction` (normalised, y up) enters the layer's base and
@@ -212,7 +219,7 @@ void set_cloud_cover(CloudCoverSource source, float coverage);
 // averaged over the columns. Overcast (the coverage 1): no beam, the sky's light the deck's grey diffuse light. The
 // overcast sky's radiance distribution (brighter overhead) is the drawn clouds' own march; the light on a level surface is
 // the mean here. Clear (the coverage 0): beam 1, sun_diffuse 0, sky_kept 1.
-inline constexpr uint32_t kLayerColumns = 16;
+inline constexpr uint32_t kLayerColumns = 32; // (round L: 16 sampled the field too coarsely)
 inline constexpr uint32_t kLayerHeights = 12;
 inline constexpr double kCloudDropletG = 0.85;   // water droplets' asymmetry in the visible (Mie)
 inline constexpr double kDiffuseCosine = 0.6;    // (1 / 1.66: the diffusivity factor's mean cosine)

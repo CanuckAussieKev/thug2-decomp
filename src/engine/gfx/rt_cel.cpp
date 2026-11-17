@@ -16,6 +16,7 @@
 #include <string_view>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_sun.h"
 
@@ -204,7 +205,8 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     if (!model.valid || !vertex.used) {
         return kCelNoStream;
     }
-    // (the relit level's light as it lights the vertex: rt_relit.h relit_parts - the lighting state's terms in)
+    // (the relit level's light as it lights the vertex: rt_relit.h relit_parts - the lighting state's terms in; round L:
+    // physical light, stored as it is - engine/gfx/light_store.h)
     const RelitParts parts = relit_parts(model, vertex, lighting);
     const float length = std::sqrt(dot(lighting.toward, lighting.toward));
     const float n_dot_l = length > 0.0F ? std::max(0.0F, dot(vertex.normal, lighting.toward) / length) : 0.0F;
@@ -218,9 +220,15 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
         core::at(sun, ch) = core::at(lighting.sun, ch);
         core::at(sky, ch) = core::at(lighting.sky, ch) * vertex.sky;
     }
-    return {word(parts.indirect, kBytesPerLight, n_dot_l), word(vertex.tint, kBytesPerLight, seen),
-            word(lamps, kBytesPerLight, 1.0F), word(sun, kBytesPerLight, 0.0F),
-            word(sky, kBytesPerLight, std::clamp(vertex.sky, 0.0F, 1.0F)), relit_colour(model, vertex, lighting)};
+    const uint32_t flags = kCelHasStream | (to_byte(n_dot_l, kMaxByte) << kRedShift) |
+                           (to_byte(std::clamp(vertex.sky, 0.0F, 1.0F), kMaxByte) << kGreenShift) |
+                           (vertex.emit_masked ? kByteMask : 0U);
+    return {store_light(parts.indirect), word(vertex.tint, kBytesPerLight, seen), store_light(lamps), store_light(sun),
+            store_light(sky),
+            // (a lamp drawn in a texture shows its emission on its lamp texels alone - the surface draws mask it; the
+            // colour word, with no texels to mask by, leaves it out)
+            vertex.emit_masked ? store_light(relit_reflected(model, vertex, lighting)) : relit_colour(model, vertex, lighting),
+            flags, store_light(vertex.emit)};
 }
 
 StreamParts stream_parts(const CelWords& words)
@@ -231,17 +239,21 @@ StreamParts stream_parts(const CelWords& words)
                                     static_cast<float>((value >> kGreenShift) & kByteMask) / kBytesPerLight,
                                     static_cast<float>(value & kByteMask) / kBytesPerLight};
     };
-    const auto alpha = [](uint32_t value) { return static_cast<float>((value >> kAlphaShift) & kByteMask) / kMaxByte; };
-    out.ambient = rgb(std::get<0>(words));
-    out.n_dot_l = alpha(std::get<0>(words));
+    const auto byte_of = [](uint32_t value, int shift) { return static_cast<float>((value >> shift) & kByteMask) / kMaxByte; };
+    const uint32_t flags = std::get<kCelFlagsWord>(words);
+    out.ambient = stored_light(std::get<0>(words));
     out.tint = rgb(std::get<1>(words));
-    out.seen = alpha(std::get<1>(words));
-    out.lamps = rgb(std::get<2>(words));
-    out.valid = alpha(std::get<2>(words)) >= kHalf;
-    out.sun = rgb(std::get<3>(words));
-    out.sky = rgb(std::get<4>(words));
-    out.sky_share = alpha(std::get<4>(words));
-    out.colour = rgb(std::get<5>(words));
+    out.seen = byte_of(std::get<1>(words), kAlphaShift);
+    out.lamps = stored_light(std::get<2>(words));
+    out.sun = stored_light(std::get<3>(words));
+    out.sky = stored_light(std::get<4>(words));
+    out.colour = stored_light(std::get<kCelColourWord>(words));
+    out.emit = stored_light(std::get<kCelEmitWord>(words));
+    out.n_dot_l = byte_of(flags, kRedShift);
+    out.sky_share = byte_of(flags, kGreenShift);
+    const float state = byte_of(flags, kAlphaShift);
+    out.valid = state > 0.75F;
+    out.hidden = !out.valid && state > 0.25F;
     return out;
 }
 
@@ -251,7 +263,7 @@ std::array<float, 3> stream_light(const StreamParts& parts, float seen)
     for (std::size_t ch = 0; ch < out.size(); ++ch) {
         core::at(out, ch) = (core::at(parts.tint, ch) *
                              (core::at(parts.ambient, ch) + (core::at(parts.sun, ch) * parts.n_dot_l * seen))) +
-                            core::at(parts.lamps, ch);
+                            core::at(parts.lamps, ch) + core::at(parts.emit, ch);
     }
     return out;
 }

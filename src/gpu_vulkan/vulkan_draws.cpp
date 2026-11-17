@@ -29,6 +29,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -397,6 +398,8 @@ bool set_uniforms(Backend& state, const GpuStateBlock& block, const VertexKey& k
     if (key.retro != 0U) { // (NOT ORIGINAL - the retro art style's grid: vulkan_style_film.h)
         vertex.retro = retro_vertex_uniform({.width = block.viewport.width, .height = block.viewport.height});
     }
+    // (NOT ORIGINAL - round L) the relit light store's physical light x the frame's pre-exposure where it is drawn
+    vertex.light_store = {rt::frame_pre_exposure(), 0.0F, 0.0F, 0.0F};
     const auto copy = [&state](const void* data, std::size_t bytes, VkDescriptorBufferInfo* where) {
         const std::span<const uint8_t> raw(static_cast<const uint8_t*>(data), bytes);
         const std::optional<RingSpan> span = state.ring.copy(raw, state.uniform_alignment);

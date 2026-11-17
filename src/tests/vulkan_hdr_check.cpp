@@ -504,7 +504,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const bool filled = fill_grey(gpu, target, kHalfWhite);
         const Metered white = meter_pass(gpu, target, whole);
         const float mean = vk::meter_light({1.0F, 1.0F, 1.0F});
-        const float stops = vk::meter_target_stops(mean, vk::kEyeMostStops);
+        const float stops = vk::meter_target_stops(mean, vk::kMeterMostStops);
         const float factor = std::exp2(stops);
         const std::array<float, 3> mapped = vk::tone_map_reference(parameters, nullptr, {factor, factor, factor});
         const float shown = core::at(mapped, 0);
@@ -525,9 +525,11 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
             const double got = static_cast<double>(core::at(white.reading.luminance, k));
             within = within && got > white_cd / half_bin && got < white_cd * half_bin;
         }
-        tally->check(within && core::at(white.reading.luminance, 3) == 0.0F,
+        // (round L: w the camera's EV100 there - its stops' as the processor makes it)
+        const float ev = vk::camera_ev100(white.reading.stops);
+        tally->check(within && std::abs(core::at(white.reading.luminance, 3) - ev) < 0.05F,
                      text::format("the readout's luminance of a white view: median %.0f, 95th %.0f, 99.5th %.0f cd/m^2 "
-                                  "(white %.0f), %.2f under the scotopic floor",
+                                  "(white %.0f), the camera at EV100 %.2f",
                                   static_cast<double>(core::at(white.reading.luminance, 0)),
                                   static_cast<double>(core::at(white.reading.luminance, 1)),
                                   static_cast<double>(core::at(white.reading.luminance, 2)), white_cd,
@@ -535,7 +537,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
     }
     // a mid-grey view (another viewport, its own slot): its stops the processor's, both ways
     const float grey_mean = vk::meter_light({0.5F, 0.5F, 0.5F});
-    const float grey_stops = vk::meter_target_stops(grey_mean, vk::kEyeMostStops);
+    const float grey_stops = vk::meter_target_stops(grey_mean, vk::kMeterMostStops);
     {
         const std::array<uint32_t, 4> left_half{0, 0, kWidth / 2, kHeight};
         const bool filled = fill_grey(gpu, target, kHalfGrey);
@@ -558,7 +560,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const bool filled = fill(gpu, target, values);
         const Metered before = meter_pass(gpu, target, whole);
         const float mean = processor_mean(values, whole);
-        const float stops = vk::meter_target_stops(mean, vk::kEyeMostStops);
+        const float stops = vk::meter_target_stops(mean, vk::kMeterMostStops);
         tally->check(filled && before.ran && std::abs(before.reading.mean - mean) < kTolerance * mean &&
                          std::abs(before.reading.target - stops) < kTolerance,
                      text::format("the random image: metered %.4f (the processor's %.4f; each sample at most %.0f), "
@@ -589,7 +591,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         std::this_thread::sleep_for(std::chrono::milliseconds(600));
         const bool filled = fill_grey(gpu, target, kHalfSixteen);
         const Metered bright = meter_pass(gpu, target, whole);
-        const float bright_stops = vk::meter_target_stops(vk::kMeterBrightest, vk::kEyeMostStops);
+        const float bright_stops = vk::meter_target_stops(vk::kMeterBrightest, vk::kMeterMostStops);
         tally->check(filled && bright.ran && std::abs(bright.reading.stops - bright_stops) < kTolerance &&
                          std::abs(bright.reading.mean - vk::kMeterBrightest) < kTolerance * vk::kMeterBrightest,
                      text::format("16 x white: metered %.1f (a sample's most), %.3f stops (%.3f)",
@@ -599,7 +601,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         std::this_thread::sleep_for(std::chrono::milliseconds(600));
         const bool dark_filled = fill_grey(gpu, target, kDark);
         const Metered dark = meter_pass(gpu, target, whole);
-        const float dark_stops = vk::meter_target_stops(dark.reading.mean, vk::kEyeMostStops);
+        const float dark_stops = vk::meter_target_stops(dark.reading.mean, vk::kMeterMostStops);
         tally->check(dark_filled && dark.ran && std::abs(dark.reading.stops - dark_stops) < kTolerance &&
                          dark.reading.stops > 0.0F && vk::meter_key(dark.reading.mean) < vk::kMeterKey,
                      text::format("a dark view: metered %.5f, up %.3f stops (%.3f); the key there %.4f (daylight's %.4f)",
@@ -616,7 +618,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const bool pre_filled = fill_grey(gpu, target, kHalfGrey);
         const Metered pre = meter_pass(gpu, target, whole);
         render::rt::set_day_light({});
-        const float pre_stops = vk::meter_target_stops(0.5F / kPre, vk::kEyeMostStops);
+        const float pre_stops = vk::meter_target_stops(0.5F / kPre, vk::kMeterMostStops);
         tally->check(pre_filled && pre.ran && std::abs(pre.reading.mean - (0.5F / kPre)) < kTolerance * 0.5F / kPre &&
                          std::abs(pre.reading.stops - pre_stops) < kTolerance &&
                          std::abs(pre.reading.factor - (std::exp2(pre.reading.stops) / kPre)) <
@@ -670,7 +672,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
             const bool bright_again = fill_grey(gpu, target, kHalfSixteen);
             const Metered cut = meter_pass(gpu, target, whole);
             render::rt::set_day_light({});
-            const float bright_target = vk::meter_target_stops(vk::kMeterBrightest, vk::kEyeMostStops);
+            const float bright_target = vk::meter_target_stops(vk::kMeterBrightest, vk::kMeterMostStops);
             tally->check(dark_view && bright_view && dark_again && bright_again && dark_eye.ran && no_cut.ran &&
                              dark_eye_again.ran && cut.ran && std::abs(cut.reading.stops - bright_target) < kTolerance &&
                              no_cut.reading.stops > bright_target + 1.0F,
@@ -679,39 +681,57 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                                       static_cast<double>(cut.reading.stops), static_cast<double>(bright_target),
                                       static_cast<double>(no_cut.reading.stops)));
         }
-        // the key law: night's exposure stays under day's (the view shown darker), no further than the scotopic floor
+        // (round L - a camera) the key law: night's exposure stays under day's (the view shown darker); the exposure
+        // within the camera's range - a starless overcast night beyond the least EV100 recorded darker, not brought up;
+        // a view brighter than the most EV recorded brighter
         const float day_mean = 0.18F;
         const float night_mean = 0.18F * 2.5e-6F;  // (a full moon's light over the reference day's)
-        const float starlit = 0.18F * 2.0e-8F;     // (a moonless, overcast night)
-        const float floor = vk::kEyeDarkest / static_cast<float>(render::rt::unit_illuminance() / 3.14159265);
-        const double day_shown = day_mean * std::exp2(vk::meter_target_stops(day_mean, vk::kEyeMostStops));
-        const double night_shown = night_mean * std::exp2(vk::meter_target_stops(night_mean, vk::kEyeMostStops));
-        const double starlit_shown = starlit * std::exp2(vk::meter_target_stops(starlit, vk::kEyeMostStops));
+        const float starlit = 0.18F * 2.0e-9F;     // (a moonless, overcast night)
+        const std::array<float, 2> range = vk::camera_stops_range();
+        const double day_shown = day_mean * std::exp2(vk::meter_target_stops(day_mean, vk::kMeterMostStops));
+        const double night_shown = night_mean * std::exp2(vk::meter_target_stops(night_mean, vk::kMeterMostStops));
+        const double starlit_shown = starlit * std::exp2(vk::meter_target_stops(starlit, vk::kMeterMostStops));
+        const float starlit_ev = vk::camera_ev100(vk::meter_target_stops(starlit, vk::kMeterMostStops));
+        const float glare_ev = vk::camera_ev100(vk::meter_target_stops(1.0e6F, vk::kMeterMostStops));
         tally->check(night_shown < 0.2 * day_shown && starlit_shown < night_shown &&
-                         vk::meter_target_stops(starlit, vk::kEyeMostStops) ==
-                             vk::meter_target_stops(starlit * 0.1F, vk::kEyeMostStops) &&
-                         starlit < floor,
-                     text::format("the eye: an 18%% day shown %.4f, a full moon's night %.4f (%.1f stops darker), a "
-                                  "starless overcast night %.5f - under the scotopic floor (%.2g), not brought further up",
+                         std::abs(starlit_ev - vk::kCameraLeastEv100) < 1e-3F &&
+                         std::abs(glare_ev - vk::kCameraMostEv100) < 1e-3F &&
+                         vk::meter_target_stops(starlit, vk::kMeterMostStops) ==
+                             vk::meter_target_stops(starlit * 0.1F, vk::kMeterMostStops),
+                     text::format("the camera: an 18%% day shown %.4f, a full moon's night %.4f (%.1f stops darker), a "
+                                  "starless overcast night %.6f at EV100 %.2f (the camera's least %.1f: not brought further "
+                                  "up); a glaring view at EV100 %.2f (its most %.1f); stops %.2f - %.2f",
                                   day_shown, night_shown, std::log2(day_shown / night_shown), starlit_shown,
-                                  static_cast<double>(floor)));
+                                  static_cast<double>(starlit_ev), static_cast<double>(vk::kCameraLeastEv100),
+                                  static_cast<double>(glare_ev), static_cast<double>(vk::kCameraMostEv100),
+                                  static_cast<double>(range[0]), static_cast<double>(range[1])));
+        // every exposure the meter picks is within the camera's EV range
+        bool in_range = true;
+        for (float mean = 1.0e-12F; mean < 1.0e7F; mean *= 3.0F) {
+            const float ev = vk::camera_ev100(vk::meter_target_stops(mean, vk::kMeterMostStops));
+            in_range = in_range && ev >= vk::kCameraLeastEv100 - 1e-3F && ev <= vk::kCameraMostEv100 + 1e-3F;
+        }
+        tally->check(in_range, "the exposure within the camera's EV100 range at every metered light (1e-12 - 1e7)");
     }
-    // (round S) rod vision: none in daylight; a dim colour loses its colour and turns blue (the Purkinje shift)
+    // (round L - a camera, not an eye) night keeps its colour: a red surface at 0.01 cd/m^2, exposed as the camera
+    // exposes a night of it, stays red after the tone pass (no rod vision: no greying, no blue)
     {
-        const vk::ToneParameters eye = vk::tone_parameters(metered);
-        const std::array<float, 3> red{0.6F, 0.1F, 0.1F};
-        const std::array<float, 3> day_red = vk::rod_vision(eye, red);
-        const float dim = 1e-7F; // (about 0.002 cd/m^2)
-        const std::array<float, 3> night_red = vk::rod_vision(eye, {0.6F * dim, 0.1F * dim, 0.1F * dim});
-        const std::array<float, 3> night_grey = vk::rod_vision(eye, {dim, dim, dim});
-        const float y_grey = (0.2126F * night_grey[0]) + (0.7152F * night_grey[1]) + (0.0722F * night_grey[2]);
-        tally->check(day_red == red && night_red[2] > night_red[1] && night_grey[2] > night_grey[0] &&
-                         std::abs(y_grey - dim) < 0.05F * dim && eye.unit_luminance > 0.0F,
-                     text::format("rod vision: daylight unchanged; a dim red %.3g %.3g %.3g (blue over green), a dim grey "
-                                  "%.3g %.3g %.3g (as bright, bluish)",
-                                  static_cast<double>(night_red[0] / dim), static_cast<double>(night_red[1] / dim),
-                                  static_cast<double>(night_red[2] / dim), static_cast<double>(night_grey[0] / dim),
-                                  static_cast<double>(night_grey[1] / dim), static_cast<double>(night_grey[2] / dim)));
+        const vk::ToneParameters camera = vk::tone_parameters(metered);
+        const auto unit_cd = static_cast<float>(render::rt::unit_illuminance() / 3.14159265);
+        const float y = 0.01F / unit_cd; // (0.01 cd/m^2 in the unit)
+        const float k = y / ((6.0F * 0.2126F) + 0.7152F + 0.0722F); // (a red of luminance y: 6 : 1 : 1)
+        const std::array<float, 3> red{6.0F * k, k, k};
+        vk::ToneParameters exposed = camera;
+        exposed.scale = camera.scale * std::exp2(vk::meter_target_stops(y, vk::kMeterMostStops));
+        const std::array<float, 3> shown = vk::tone_map_reference(exposed, nullptr, red);
+        const std::array<float, 3> day = vk::tone_map_reference(camera, nullptr, {0.6F, 0.1F, 0.1F});
+        tally->check(shown[0] > 2.0F * shown[1] && shown[0] > 2.0F * shown[2] && std::abs(shown[1] - shown[2]) < 0.02F &&
+                         day[0] > 2.0F * day[1],
+                     text::format("a red surface at 0.01 cd/m^2 stays red after the tone pass: %.3f %.3f %.3f (by day "
+                                  "%.3f %.3f %.3f)",
+                                  static_cast<double>(shown[0]), static_cast<double>(shown[1]),
+                                  static_cast<double>(shown[2]), static_cast<double>(day[0]), static_cast<double>(day[1]),
+                                  static_cast<double>(day[2])));
     }
     // off: no meter - white shown as the curve alone
     {

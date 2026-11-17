@@ -63,7 +63,7 @@ struct WorldMesh {
     bool blended = false;
     // (lighting round A3 - the original's light cards) drawn additively, its texture still (rt_record.cpp glow_card): a
     // halo, light cone, pool or starburst the artists drew round a lamp - the lamp's evidence for the relit bake, but no
-    // light: the relit level hides it (its store's colour word kCelHiddenColour), as it hides the bake's shadows drawn as
+    // light: the relit level hides it (its store's flags kCelHiddenFlags - rt_cel.h kCelHiddenStream), as it hides the bake's shadows drawn as
     // geometry. A lamp shows its own surface (its emitting vertices, by its light) and the light it casts.
     bool glow = false;
 };

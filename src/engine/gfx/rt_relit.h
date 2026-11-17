@@ -163,6 +163,10 @@ struct RelitMesh {
     std::vector<Vec3> positions;
     std::vector<Vec3> normals;     // one per vertex, or empty: made from the triangles (area-weighted)
     std::vector<uint32_t> colours; // the baked colours, A8R8G8B8 (128: 1)
+    // (round L) the light each vertex shows (linear, the global unit - tint x light + its emission; relit_shown) for the
+    // bounce's rays: what a ray hitting it brings back in place of the colours; empty: the colours'. Physical, not
+    // pre-exposed and not 8 bits: a night's light is 10^-7 of the unit.
+    std::vector<Rgbf> light;
     // Its triangles as the RayTracing numbers them (a hit's primitive): a strip's odd ones turned back round, so all
     // wind the same way; a degenerate one (two corners the same) kept in its place.
     std::vector<std::array<uint32_t, 3>> triangles;
@@ -200,7 +204,10 @@ struct RelitVertex {
     // (lighting round A3 - not kept in the data: the game's, from the lamps' switches) the radiance the vertex sends of
     // its own - a lamp's own surface (relit_data.h RelitEmitting: its light / pi x how much it is on), added to what it
     // reflects (relit_colour)
+    // (round L) the lamp's surface luminance (relit_data.h RelitLamp::luminance) in the unit, in its colour, x how much it
+    // is on - physical; `emit_masked`: a lamp drawn in a texture - shown on its lamp texels alone (rt_cel.h flags)
     Rgbf emit{};
+    bool emit_masked = false;
 };
 using RelitVertices = std::vector<RelitVertex>;
 
@@ -381,12 +388,56 @@ struct RelitLamp {
     float lumens = 0.0F;
     float kelvin = 0.0F;
     bool solved = false; // its intensity told by the bake's edges (else its own surface's light)
+    // (round L - lamps by physics, engine/gfx/lamp_fixtures.h) where its light comes from (RelitLampSource), its kind of
+    // fixture, its luminous area (m^2: its emissive triangles' lit share) and that surface's luminance (cd/m^2 - its
+    // flux / (pi area); what its own surface shows: RelitVertex::emit)
+    uint8_t source = 0;
+    uint8_t fixture = 0;
+    float area = 0.0F;
+    float luminance = 0.0F;
     // (lighting round A3) its switch (rt_lights.h lamp_on): the open sky's light (luma, the global unit) under which the
     // daylight round it is under a photocell's turn-on - relit_lamp_switches; kLampAlwaysOn where its surfaces see no
     // sky, 0 where it lights nothing (not known)
     float switch_sky = 0.0F;
 };
 [[nodiscard]] LampShape lamp_shape(const RelitLamp& lamp);
+// (round L) Where a lamp's light comes from.
+enum class RelitLampSource : uint8_t {
+    kNone = 0,        // no light (a candidate the bake doesn't confirm)
+    kSolved = 1,      // told by the bake's edges, its surface luminance within its kind's range
+    kModel = 2,       // the bake can't tell it (no edges, off in the bake by its own switch): its fixture's model
+    kImplausible = 3, // solved, but its surface luminance outside its kind's range - a failed measurement: the model
+    kOwnSurface = 4,  // a glow or point light the bake tells dark (or with no luminous area known): its own surface's
+                      // displayed radiance (a lower bound - A3's rule)
+};
+[[nodiscard]] const char* relit_lamp_source_name(RelitLampSource source);
+// (round L) What the bake knew of a lamp's light (solve_relit_lamps' verdict, before the model).
+enum class RelitLampTold : uint8_t {
+    kSolved = 0,    // told, plausible by the bake's own tests
+    kNoEdges = 1,   // not told in every channel - no edges reach it
+    kOffInBake = 2, // its own switch had it off at the bake's time (a street lamp in an afternoon bake)
+    kDark = 3,      // told, on in the bake, its light under the fit's noise: no light of its own the bake can see
+    kRunOff = 4,    // told, but its pool darker than any unlit surface or not a light's colour: A3's implausible
+};
+// (round L) Each lamp's light where the bake can't tell it, or told it implausibly: its fixture (lamp_fixtures.h
+// fixture_of, from its colour, shape and whether it is roofed) x its luminous area (`areas`, m^2: its emissive
+// triangles x their lit share) - the flux pi L A of its kind's luminance L, put into the unit's intensity by its shape
+// (relit_lamp_photometry's inverse); its colour its own where it is a light's (not saturated) or a sign's / neon's,
+// else its kind's colour temperature. A solved lamp whose surface luminance (its flux / (pi A)) is outside its kind's
+// range falls back to the model. `told`: solve_relit_lamps' verdicts. A candidate (a bright surface or texture) gets the
+// model only off in the bake and only as a luminaire - not a sign, a window or a saturated colour, and outdoors (an
+// indoor light is on in every bake: the bake shows whether it lights). Each lamp's source, fixture, area and luminance
+// set; its photometry made (relit_lamp_photometry).
+struct LampModelCounts {
+    std::array<std::size_t, 5> by_source{};
+    std::array<std::size_t, 8> by_fixture{};
+};
+// `own_colours`: each lamp's colour as found (its glow's or surface's, before the solve).
+LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const RelitLampTold> told,
+                                  std::span<const float> areas, std::span<const Rgbf> own_colours, double unit_lux);
+// The unit's intensity (lamp_geometry's 1 x this) that sends `lumens` by the lamp's shape (relit_lamp_photometry's
+// inverse; 0 without a core).
+[[nodiscard]] float relit_lamp_intensity_for(const RelitLamp& lamp, double lumens, double unit_lux);
 // (lighting round A2) A vertex's lamps: each one's lamp_geometry x its shadow ray's visibility (per unit of intensity)
 // - what solve_relit_lamps fits and what L is made of. One mesh's: `first` (one more than its vertices) indexes `links`.
 struct RelitLampLink {
@@ -431,7 +482,8 @@ struct BakeTime {
     float lamps = 0.0F;
 };
 void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
-                       std::span<RelitLamp> lamps, RelitModel* model, const BakeTime& bake_time = {});
+                       std::span<RelitLamp> lamps, RelitModel* model, const BakeTime& bake_time = {},
+                       std::vector<RelitLampTold>* told = nullptr);
 // Each vertex's L from its links and the lamps' intensities (building relief's made vertices from their sources) - with
 // all lamps on, or (`on`, one a lamp) each x how much it is on.
 void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,
@@ -503,8 +555,13 @@ struct RelitParts {
     Rgbf lamps{};
 };
 [[nodiscard]] RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
-// The colour the world draws a vertex with (A8R8G8B8, 255 alpha; light x 128): its tint x its light, held to the
-// colour's range - the light stream's colour word (rt_cel.h), which the draws read in place of the vertex colour.
+// (round L) The light a vertex reflects (linear, the global unit, physical): its tint x its light - what the bounce's rays
+// bring back from it (its emission is a lamp's: that light is the lamps' L already - counted once). And the light it
+// shows: that + its own emission.
+[[nodiscard]] Rgbf relit_reflected(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
+[[nodiscard]] Rgbf relit_shown(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
+// The light the world draws a vertex with, as the light store's word (engine/gfx/light_store.h: RGB9E5, physical) - the
+// light stream's colour word (rt_cel.h), which the draws read in place of the vertex colour (x the frame's pre-exposure).
 [[nodiscard]] uint32_t relit_colour(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
 // A baked colour's channels as light (red, green, blue; 128: 1).
 [[nodiscard]] Rgbf colour_light(uint32_t argb);

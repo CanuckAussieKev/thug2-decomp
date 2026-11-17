@@ -18,6 +18,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_maps.h"
@@ -405,7 +406,10 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
     }
     const rt::CelWorld& world = sun.world;
     uniforms->sun = world.relit ? to_camera(view, world.toward, 1.0F) : Float4{};
-    uniforms->sun_light = {std::get<0>(world.sun), std::get<1>(world.sun), std::get<2>(world.sun), kMillimetresPerUnit};
+    // (round L: the relit world's sun is physical - x the frame's pre-exposure here, where it is drawn)
+    const float exposure = rt::frame_pre_exposure();
+    uniforms->sun_light = {std::get<0>(world.sun) * exposure, std::get<1>(world.sun) * exposure,
+                           std::get<2>(world.sun) * exposure, kMillimetresPerUnit};
     // the material: the table's values for the draw's kind (rt_material_table.h)
     const rt::MaterialValues& material = rt::material_values(draw.kind);
     const rt::brdf::Rgb f0 = rt::material_f0(draw.kind);

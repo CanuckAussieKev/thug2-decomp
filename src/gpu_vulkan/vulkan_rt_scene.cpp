@@ -21,6 +21,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
+#include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
@@ -90,6 +91,7 @@ struct GeometryRecord {
     uint normal_offset;
     uvec2 light_address;
     uvec2 object_light_address;
+    float light_exposure;
 };
 layout(set = THUG2_GEOMETRY_SET, binding = THUG2_GEOMETRY_BINDING, scalar) readonly buffer GeometryRecords {
     GeometryRecord geometry_records[];
@@ -105,7 +107,7 @@ const uint GEOMETRY_OBJECT_LIGHT = 64u;
 GeometryRecord geometry_record(uint instance)
 {
     if (instance >= uint(geometry_records.length())) {
-        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u), uvec2(0u));
+        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u), uvec2(0u), 0.0);
     }
     return geometry_records[instance];
 }
@@ -201,8 +203,10 @@ vec4 hit_colour(HitVertices v, vec2 barycentrics)
     return v.colour[0] * (1.0 - barycentrics.x - barycentrics.y) + v.colour[1] * barycentrics.x +
            v.colour[2] * barycentrics.y;
 }
-// (added by the light energy audit) The relit world's light store (engine/gfx/rt_cel.h: six A8R8G8B8 words a vertex,
-// light x 128 in rgb) blended at a hit - what a hit's surface is (its tint: the albedo, x the texture) and how it is lit.
+// (added by the light energy audit) The relit world's light store (engine/gfx/rt_cel.h: eight words a vertex - round L:
+// its light words RGB9E5, physical light in the global unit, x the frame's pre-exposure here - the record's
+// light_exposure, one value a frame) blended at a hit - what a hit's surface is (its tint: the albedo, x the texture) and
+// how it is lit, in the frame's unit.
 struct WorldLight {
     vec3 ambient;   // the sky's and the bounce's light
     float n_dot_l;
@@ -212,8 +216,9 @@ struct WorldLight {
     vec3 sun;       // the direct light's colour and strength
     vec3 sky;       // the sky's part of `ambient`
     float sky_share; // the vertex's K
+    vec3 emit;      // (round L) its own emission (a lamp's lit surface: radiance, not x the tint)
 };
-const WorldLight NO_WORLD_LIGHT = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), vec3(0.0), 0.0);
+const WorldLight NO_WORLD_LIGHT = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), vec3(0.0), 0.0, vec3(0.0));
 const float LIGHT_PER_UNORM = 255.0 / 128.0;
 bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out WorldLight w)
 {
@@ -224,30 +229,29 @@ bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out World
     }
     float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
     for (uint k = 0u; k < 3u; ++k) {
-        uint at = geometry_corner(g, primitive, k) * 24u; // (rt_cel.h kCelStreamBytes)
-        vec4 w0 = unpackUnorm4x8(geometry_word(g.light_address, at)).zyxw; // (B, G, R, A in memory)
-        vec4 w1 = unpackUnorm4x8(geometry_word(g.light_address, at + 4u)).zyxw;
-        vec4 w2 = unpackUnorm4x8(geometry_word(g.light_address, at + 8u)).zyxw;
-        vec4 w3 = unpackUnorm4x8(geometry_word(g.light_address, at + 12u)).zyxw;
-        vec4 w4 = unpackUnorm4x8(geometry_word(g.light_address, at + 16u)).zyxw;
-        if (w2.a < 0.5) {
-            return false; // (a vertex the game animates: its colour isn't relit's)
+        uint at = geometry_corner(g, primitive, k) * 32u; // (rt_cel.h kCelStreamBytes)
+        vec4 flags = unpackUnorm4x8(geometry_word(g.light_address, at + 24u)).zyxw; // (B, G, R, A in memory)
+        if (flags.a < 0.75) {
+            return false; // (a vertex the game animates: its colour isn't relit's - or a hidden mesh)
         }
+        vec4 w1 = unpackUnorm4x8(geometry_word(g.light_address, at + 4u)).zyxw;
         float s = weights[k];
-        w.ambient += w0.rgb * (s * LIGHT_PER_UNORM);
-        w.n_dot_l += w0.a * s;
+        float e = s * g.light_exposure;
+        w.ambient += stored_light(geometry_word(g.light_address, at)) * e;
+        w.n_dot_l += flags.r * s;
         w.tint += w1.rgb * (s * LIGHT_PER_UNORM);
         w.seen += w1.a * s;
-        w.lamps += w2.rgb * (s * LIGHT_PER_UNORM);
-        w.sun += w3.rgb * (s * LIGHT_PER_UNORM);
-        w.sky += w4.rgb * (s * LIGHT_PER_UNORM);
-        w.sky_share += w4.a * s;
+        w.lamps += stored_light(geometry_word(g.light_address, at + 8u)) * e;
+        w.sun += stored_light(geometry_word(g.light_address, at + 12u)) * e;
+        w.sky += stored_light(geometry_word(g.light_address, at + 16u)) * e;
+        w.sky_share += flags.g * s;
+        w.emit += stored_light(geometry_word(g.light_address, at + 28u)) * e;
     }
     return true;
 }
 vec3 world_light_with(WorldLight w, float seen, vec3 sky)
 {
-    return w.tint * (max(w.ambient - w.sky, vec3(0.0)) + sky + w.sun * (w.n_dot_l * seen)) + w.lamps;
+    return w.tint * (max(w.ambient - w.sky, vec3(0.0)) + sky + w.sun * (w.n_dot_l * seen)) + w.lamps + w.emit;
 }
 // (the objects' shadows) The lights an object is lit by (rt::ObjectLight, three floats a part in its order).
 struct ObjectLight {
@@ -957,7 +961,7 @@ std::string probe_source()
     source += "#define THUG2_MATERIAL_SET 1\n";
     source += material_glsl();
     source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 3\n";
-    source += kGeometryGlsl;
+    source += scene_geometry_glsl();
     source += cutout_rays_glsl();
     source += kProbeShader;
     return source;
@@ -1410,6 +1414,7 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
             light_version.last_use = std::max(light_version.last_use, serial);
             row.light_address = address_words(address_of(made.device, light_version.memory.buffer));
             row.flags |= kGeometryLight;
+            row.light_exposure = rt::frame_pre_exposure(); // (round L: the store's physical light x it where it is read)
         }
     }
     return row;
@@ -2224,7 +2229,15 @@ SceneView current_scene(const Backend& state)
             .reflective_instances = frame.reflective};
 }
 
-std::string_view scene_geometry_glsl() { return kGeometryGlsl; }
+std::string_view scene_geometry_glsl()
+{
+    // (round L) the light store's decode (engine/gfx/light_store.h) after the extensions and the bindings' defines
+    static const std::string made = [] {
+        const std::size_t at = kGeometryGlsl.find("struct GeometryRecord {");
+        return std::string(kGeometryGlsl.substr(0, at)) + rt::kLightStoreGlsl + std::string(kGeometryGlsl.substr(at));
+    }();
+    return made;
+}
 
 std::string_view cutout_rays_glsl()
 {

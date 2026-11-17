@@ -72,6 +72,10 @@ constexpr uint32_t kCelLocation = kPreviousPositionLocation + 1;
 // (lighting round A) The relit light store's colour word (rt_cel.h kCelColourWord, binding 2) - read with VertexKey::
 // surface's kVertexRelitColour in place of the vertex colour.
 constexpr uint32_t kRelitColourLocation = kCelLocation + 3;
+// (round L - the physical light store) the stream's flags (rt_cel.h kCelFlagsWord: N.L, K, emission masked, has the
+// stream / hidden - D3DCOLOR) and the vertex's own emission (kCelEmitWord: RGB9E5, uint)
+constexpr uint32_t kCelFlagsLocation = kCelLocation + 4;
+constexpr uint32_t kCelEmitLocation = kCelLocation + 5;
 constexpr uint32_t kCelStreamBinding = 2;
 
 // Binding 0, the vertex shader's.
@@ -105,6 +109,10 @@ struct VertexUniforms {
     // grid's cells across and down the viewport; z: how far a position moves to the grid's nearest corner (0 - 1); w: how
     // affine the interpolation is (0: perspective-correct, 1: linear on the screen).
     Float4 retro{};
+    // (NOT ORIGINAL - round L, the physical light store: read with VertexKey::surface's kVertexCelStream /
+    // kVertexRelitColour, declared after retro) x: the frame's pre-exposure (rt_daylight.h frame_pre_exposure) - what the
+    // store's physical light is multiplied by where it is drawn (engine/gfx/light_store.h)
+    Float4 light_store{};
 };
 
 // (NOT ORIGINAL - round O) VertexUniforms::ambient's w while the lights are the light store's linear light (a colour's
@@ -229,7 +237,7 @@ static_assert(offsetof(VertexUniforms, light_direction) == offsetof(VertexUnifor
               "std140: vectors are 16 bytes");
 static_assert(offsetof(VertexUniforms, previous_clip) == offsetof(VertexUniforms, light_direction) + (4 * kMaxLights * kVectorBytes),
               "std140: no padding");
-static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, previous_clip) + kMatrixBytes + (2 * kVectorBytes),
+static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, previous_clip) + kMatrixBytes + (3 * kVectorBytes),
               "std140: no padding");
 static_assert(sizeof(FragmentUniforms) == kFragmentVectors * kVectorBytes, "std140: no padding");
 constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 6;

@@ -387,11 +387,48 @@ double cloud_cover(const std::array<double, 4>& weather, double coverage)
     return patch * lerp(clumps, 1.0, overcast);
 }
 
+namespace {
+std::vector<double> column_depths_at(double amount);
+// (round L) each tenth's amount: the bisection on the model's own clouded share (cloud_clouded_share)
+const std::array<double, kCloudTenths>& tenth_amounts()
+{
+    static const std::array<double, kCloudTenths> made = [] {
+        std::array<double, kCloudTenths> out{};
+        const double last = static_cast<double>(kCloudTenths - 1);
+        out.back() = 1.0;
+        for (std::size_t t = 1; t + 1 < kCloudTenths; ++t) {
+            const double wanted = static_cast<double>(t) / last;
+            double low = core::at(out, t - 1);
+            double high = 1.0;
+            constexpr int kSteps = 40;
+            for (int step = 0; step < kSteps; ++step) {
+                const double middle = 0.5 * (low + high);
+                (cloud_clouded_share(middle) < wanted ? low : high) = middle;
+            }
+            core::at(out, t) = 0.5 * (low + high);
+        }
+        return out;
+    }();
+    return made;
+}
+} // namespace
+
 double cloud_amount(double coverage)
 {
-    const double at = saturate(coverage) * static_cast<double>(kCloudAmounts.size() - 1);
-    const auto low = std::min(static_cast<std::size_t>(at), kCloudAmounts.size() - 2);
-    return lerp(core::at(kCloudAmounts, low), core::at(kCloudAmounts, low + 1), at - static_cast<double>(low));
+    const std::array<double, kCloudTenths>& amounts = tenth_amounts();
+    const double at = saturate(coverage) * static_cast<double>(kCloudTenths - 1);
+    const auto low = std::min(static_cast<std::size_t>(at), kCloudTenths - 2);
+    return lerp(core::at(amounts, low), core::at(amounts, low + 1), at - static_cast<double>(low));
+}
+
+double cloud_clouded_share(double amount)
+{
+    const std::vector<double> depths = column_depths_at(amount);
+    std::size_t clouded = 0;
+    for (const double tau : depths) {
+        clouded += std::exp(-tau) < kCloudSeenTransmittance ? 1 : 0;
+    }
+    return depths.empty() ? 0.0 : static_cast<double>(clouded) / static_cast<double>(depths.size());
 }
 
 double cloud_threshold_share(double coverage) { return lerp(kCoverThresholdLeast, kCoverThresholdMost, coverage); }
@@ -575,7 +612,41 @@ float cover_of(const CoverSlots& slots, CloudCoverSource source)
 struct Columns {
     std::vector<std::array<double, 4>> weather; // kLayerColumns^2
     std::vector<std::array<double, 4>> shape;   // x kLayerHeights
+    std::vector<std::array<double, 4>> detail;  // x kLayerHeights (round L: the march's detail erosion too)
 };
+// (round L) A noise volume's value at a point as the march samples it (sample_volume: trilinear between texel
+// centres, wrapped) - from its texels' own function, so the light's columns see the field the drawn clouds do (its
+// nearest texel alone has more variance: more of it over the cover's threshold - more cloud than the sky shows).
+template <typename Texel>
+std::array<double, 4> trilinear(Texel texel, uint32_t size, double scale, const Vec3d& point)
+{
+    std::array<double, 4> out{};
+    const auto count = static_cast<int>(size);
+    std::array<int, 3> low{};
+    Vec3d frac{};
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        const double at = (core::at(point, axis) / scale * static_cast<double>(size)) - kHalf;
+        const double floor = std::floor(at);
+        core::at(low, axis) = static_cast<int>(floor);
+        core::at(frac, axis) = at - floor;
+    }
+    for (int i = 0; i < 8; ++i) {
+        const int ox = i & 1;
+        const int oy = (i >> 1) & 1;
+        const int oz = (i >> 2) & 1;
+        const double w = (ox != 0 ? core::at(frac, 0) : 1.0 - core::at(frac, 0)) *
+                         (oy != 0 ? core::at(frac, 1) : 1.0 - core::at(frac, 1)) *
+                         (oz != 0 ? core::at(frac, 2) : 1.0 - core::at(frac, 2));
+        const std::array<double, 4> value =
+            texel(static_cast<uint32_t>(wrapped(core::at(low, 0) + ox, count)),
+                  static_cast<uint32_t>(wrapped(core::at(low, 1) + oy, count)),
+                  static_cast<uint32_t>(wrapped(core::at(low, 2) + oz, count)));
+        for (std::size_t channel = 0; channel < out.size(); ++channel) {
+            core::at(out, channel) += w * core::at(value, channel);
+        }
+    }
+    return out;
+}
 uint32_t shape_texel_of(double metres)
 {
     const double at = std::floor(metres / kCloudShapeScale * static_cast<double>(kCloudShapeSize));
@@ -589,6 +660,7 @@ const Columns& columns()
         const uint32_t step = kCloudWeatherSize / kLayerColumns;
         out.weather.reserve(static_cast<std::size_t>(kLayerColumns) * kLayerColumns);
         out.shape.reserve(static_cast<std::size_t>(kLayerColumns) * kLayerColumns * kLayerHeights);
+        out.detail.reserve(static_cast<std::size_t>(kLayerColumns) * kLayerColumns * kLayerHeights);
         for (uint32_t row = 0; row < kLayerColumns; ++row) {
             for (uint32_t column = 0; column < kLayerColumns; ++column) {
                 const std::array<uint32_t, 2> texel{(column * step) + (step / 2), (row * step) + (step / 2)};
@@ -598,7 +670,9 @@ const Columns& columns()
                 for (uint32_t k = 0; k < kLayerHeights; ++k) {
                     const double y =
                         kCloudBase + ((static_cast<double>(k) + kHalf) / kLayerHeights * (kCloudTop - kCloudBase));
-                    out.shape.push_back(cloud_shape_texel(shape_texel_of(x), shape_texel_of(y), shape_texel_of(z)));
+                    const Vec3d point{x, y, z};
+                    out.shape.push_back(trilinear(cloud_shape_texel, kCloudShapeSize, kCloudShapeScale, point));
+                    out.detail.push_back(trilinear(cloud_detail_texel, kCloudDetailSize, kCloudDetailScale, point));
                 }
             }
         }
@@ -680,10 +754,12 @@ float cloud_coverage()
     return std::clamp(cover, 0.0F, 1.0F);
 }
 
-std::vector<double> cloud_column_depths(double coverage)
+std::vector<double> cloud_column_depths(double coverage) { return column_depths_at(cloud_amount(coverage)); }
+
+namespace {
+std::vector<double> column_depths_at(double amount)
 {
     const Columns& made = columns();
-    const double amount = cloud_amount(coverage);
     const double dz = (kCloudTop - kCloudBase) / kLayerHeights;
     std::vector<double> depths(made.weather.size(), 0.0);
     for (std::size_t c = 0; c < made.weather.size(); ++c) {
@@ -694,13 +770,24 @@ std::vector<double> cloud_column_depths(double coverage)
         double tau = 0.0;
         for (uint32_t k = 0; k < kLayerHeights; ++k) {
             const double height = (static_cast<double>(k) + kHalf) / kLayerHeights;
-            tau += kCloudDensity * density_from(weather, core::at(made.shape, (c * kLayerHeights) + k), height, amount) *
-                   dz;
+            // (round L: the density as the drawn clouds' march has it - its detail eating the edges, cloud_density's;
+            // without it the columns held cloud where the sky shows none: 54 % of them dimmed the sun at a quarter's
+            // cover, which the drawn sky shows 75 % clear)
+            double density = density_from(weather, core::at(made.shape, (c * kLayerHeights) + k), height, amount);
+            if (density > 0.0) {
+                const std::array<double, 4>& fine = core::at(made.detail, (c * kLayerHeights) + k);
+                const double detail_fbm = (core::at(fine, 0) * kOctaveFirst) + (core::at(fine, 1) * kOctaveSecond) +
+                                          (core::at(fine, 2) * kOctaveThird);
+                const double erode = lerp(detail_fbm, 1.0 - detail_fbm, saturate(height * kWispyFrom));
+                density = saturate(remap(density, erode * kDetailErosion, 1.0, 0.0, 1.0));
+            }
+            tau += kCloudDensity * density * dz;
         }
         core::at(depths, c) = tau;
     }
     return depths;
 }
+} // namespace
 
 CloudLayerLight cloud_layer_light(double coverage, double sine)
 {
@@ -709,10 +796,10 @@ CloudLayerLight cloud_layer_light(double coverage, double sine)
     }
     // (the columns' depths at each tenth of the coverage, made once each, the light read between tenths)
     static std::mutex mutex;
-    static std::array<std::vector<double>, kCloudAmounts.size()> tenths;
-    const double last = static_cast<double>(kCloudAmounts.size() - 1);
+    static std::array<std::vector<double>, kCloudTenths> tenths;
+    const double last = static_cast<double>(kCloudTenths - 1);
     const double at = std::clamp(coverage, 0.0, 1.0) * last;
-    const auto low = std::min(static_cast<std::size_t>(at), kCloudAmounts.size() - 2);
+    const auto low = std::min(static_cast<std::size_t>(at), kCloudTenths - 2);
     const double share = at - static_cast<double>(low);
     std::array<CloudLayerLight, 2> ends{};
     for (std::size_t end = 0; end < ends.size(); ++end) {
