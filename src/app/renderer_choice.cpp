@@ -345,36 +345,23 @@ void read_upscale(const Resolution& in_effect)
     render::vulkan::set_upscale_settings(upscale);
 }
 
-// The knobs' ranges: relief depth up to 4x, the characters' and the detail's strengths up to 2x.
-constexpr float kMostRelief = 4.0F;
-constexpr float kMostStrength = 2.0F;
-
 // NOT ORIGINAL - per-pixel lighting and the surface maps beside the textures (gpu_vulkan/vulkan_surface.h)
 void read_rt_pbr(const Resolution& in_effect)
 {
-    const render::vulkan::RtPbrSettings defaults;
-    render::vulkan::set_rt_pbr_settings(
-        {.on = in_effect.on("rt_pbr"),
-         .specular = std::max(0.0F, in_effect.number("rt_pbr_specular", defaults.specular)),
-         .normal_strength = std::max(0.0F, in_effect.number("rt_pbr_normal_strength", defaults.normal_strength)),
-         .objects = in_effect.on("rt_pbr_objects"),
-         // (added by surface relief - parallax occlusion mapping on the surface-mapped brick, stone, gravel...)
-         .relief = in_effect.on("rt_relief"),
-         .relief_strength = std::clamp(in_effect.number("rt_relief_strength", defaults.relief_strength), 0.0F, kMostRelief),
-         // (added for the characters - their surface maps and skin / cloth / hair shading; on top of rt_pbr)
-         .characters = in_effect.on("rt_characters"),
-         .skin = std::clamp(in_effect.number("rt_characters_skin", defaults.skin), 0.0F, kMostStrength),
-         .cloth = std::clamp(in_effect.number("rt_characters_cloth", defaults.cloth), 0.0F, kMostStrength),
-         .hair = std::clamp(in_effect.number("rt_characters_hair", defaults.hair), 0.0F, kMostStrength)});
+    render::vulkan::set_rt_pbr_settings({.on = in_effect.on("rt_pbr"),
+                                         .objects = in_effect.on("rt_pbr_objects"),
+                                         // (added by surface relief - parallax occlusion mapping, as deep as the material's)
+                                         .relief = in_effect.on("rt_relief"),
+                                         // (added for the characters - their surface maps, shaded as their materials)
+                                         .characters = in_effect.on("rt_characters")});
 }
 
 // NOT ORIGINAL - detail materials (gpu_vulkan/vulkan_detail.h): on the draws rt_pbr lights
 void read_rt_detail(const Resolution& in_effect)
 {
-    const render::vulkan::RtDetailSettings defaults;
-    render::vulkan::set_rt_detail_settings(
-        {.on = in_effect.on("rt_detail"),
-         .strength = std::clamp(in_effect.number("rt_detail_strength", defaults.strength), 0.0F, kMostStrength)});
+    // (round M: the detail layer at its full weight - its fade by the texels' size is the sampling's; rt_detail_strength
+    // is retired)
+    render::vulkan::set_rt_detail_settings({.on = in_effect.on("rt_detail")});
 }
 
 // [Graphics] rt_style_noir_dark / _light: r,g,b; anything else is the default (logged when it isn't empty).

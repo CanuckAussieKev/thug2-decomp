@@ -21,6 +21,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -57,7 +58,7 @@ constexpr float kMaxRoughness = 0.5F; // rt_glass_roughness at most (radians)
 constexpr uint32_t kRoughRays = 4;    // the rays a rough (glass) pixel traces
 // (added for the surface reflections) the roughest surface-map texel that reflects (perceptual roughness; faded out from
 // three quarters of it), a rough surface's cone per GGX alpha (radians), rt_reflection_surfaces at most
-constexpr float kSurfaceRoughest = 0.7F;
+constexpr float kSurfaceRoughest = kReflectionRoughest; // (round M: the surface shading's twin, vulkan_rt_reflections.h)
 constexpr float kSurfaceConePerAlpha = 1.0F;
 constexpr float kMaxSurfaces = 2.0F;
 constexpr std::size_t kHitLamps = 32; // (round O) the lamps a reflection's hit takes, the view's most important first
@@ -286,12 +287,31 @@ vec3 hit_lamps(BrdfMaterial m, vec3 point, vec3 n, vec3 v)
     return sum * pass.lamp_scale.x;
 }
 
+// (round M) A hit's material, as its own pixels' (ff_shaders.cpp surface_material): `albedo` the texel decoded; with a
+// surface map, the record's F0 (the material table's, by the map's kind - MaterialRecord::f0) and the map's roughness
+// at the hit (level 0: a reflection's hit is seen small and its highlight alone depends on it), the detail kind's
+// where it replaces it; a metal (F0 above any dielectric's) reflects its albedo as its F0; without a map the table's
+// painted surface (HIT_F0 / HIT_ROUGHNESS).
+const float HIT_METAL_F0 = 0.2;
+BrdfMaterial hit_material(uint id, HitVertices v, vec2 barycentrics, vec3 albedo)
+{
+    Material surface = material(id);
+    if (!material_has_surface(id) || surface.f0 <= 0.0) {
+        return brdf_material(albedo, vec3(HIT_F0), HIT_ROUGHNESS);
+    }
+    float r = clamp(material_surface_lod(id, hit_uv(v, barycentrics), 0.0).b, 0.0, 1.0);
+    r = mix(r, surface.kind_roughness, surface.kind_roughness_weight);
+    if (surface.f0 >= HIT_METAL_F0) {
+        return brdf_material(vec3(0.0), albedo, r);
+    }
+    return brdf_material(albedo, vec3(surface.f0), r);
+}
+
 // (round O - one light for everything, the audit's M8 / D1) The light a reflection ray's hit shows, as the surface's own
 // pixels show it, through round M's light model (engine/gfx/rt_brdf.h brdf_direct / brdf_ambient): `texel` its
 // texture's colour x its material's (display-referred), `point` / `n` where and which way it faces, `v` toward the
 // ray's start, `travelled` the path to it. Its material: the albedo the texel decoded (x the store's tint on the relit
-// world), F0 and roughness the default surface's (gpu_vulkan.h kRtPbrF0 / kRtPbrRoughness) until the material table
-// reaches the hits (round M).
+// world), F0 and roughness its material's (hit_material - round M's material table).
 //  - the relit world: the light store at the hit - the sky and the bounce (word 0: its every-direction light, as the
 //    ambient's diffuse and specular light), the sun's light x its visibility traced here, the lamps the store lights
 //    per vertex (tint x L, as lit) and those the lamps pass lights per pixel (hit_lamps) - the lighting now, never the
@@ -306,7 +326,7 @@ vec3 hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, HitVer
     float nv = max(dot(n, to_eye), 1.0e-4);
     WorldLight w;
     if (!object && hit_world_light(instance, primitive, barycentrics, w)) {
-        BrdfMaterial m = brdf_material(linear_from_display(texel) * w.tint, vec3(HIT_F0), HIT_ROUGHNESS);
+        BrdfMaterial m = hit_material(id, v, barycentrics, linear_from_display(texel) * w.tint);
         float seen = w.n_dot_l > 0.0 ? sun_seen(point, n, travelled) : 0.0;
         vec3 sun = pass.sun.w > 0.0 ? brdf_direct(m, n, to_eye, pass.sun.xyz, w.sun * seen) : vec3(0.0);
         return brdf_ambient(m, nv, w.ambient, w.ambient) + sun + linear_from_display(texel) * w.lamps +
@@ -314,7 +334,7 @@ vec3 hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, HitVer
     }
     ObjectLight l;
     if (object && hit_object_light(instance, l) && l.linear) {
-        BrdfMaterial m = brdf_material(linear_from_display(texel), vec3(HIT_F0), HIT_ROUGHNESS);
+        BrdfMaterial m = hit_material(id, v, barycentrics, linear_from_display(texel));
         vec3 around = object_light_with(l, n, 0.0); // (the probe's light at the normal: no key)
         float key_length = length(l.key_direction);
         vec3 toward = key_length > 1.0e-6 ? -l.key_direction / key_length : vec3(0.0, 1.0, 0.0);
@@ -837,8 +857,9 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
     source += scene_geometry_glsl();
     source += rt::kDisplayTransferGlsl;
     source += "#define HIT_LAMPS " + std::to_string(kHitLamps) + "\n"; // (round O: the hits' lamps)
-    source += "#define HIT_F0 " + std::to_string(kRtPbrF0) + "\n#define HIT_ROUGHNESS " + std::to_string(kRtPbrRoughness) +
-              "\n"; // (round O: the hits' default surface)
+    // (round M) the hits' surface without a map: the material table's painted surface
+    source += "#define HIT_F0 " + std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kPainted))) +
+              "\n#define HIT_ROUGHNESS " + std::to_string(rt::material_values(rt::MaterialKind::kPainted).roughness) + "\n";
     source += rt_lamp_glsl();
     source += rt::brdf::brdf_glsl(); // (round M's light model)
     source += body;

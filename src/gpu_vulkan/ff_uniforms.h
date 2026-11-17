@@ -127,12 +127,15 @@ struct FragmentUniforms {
 struct SurfaceUniforms {
     std::array<Float4, kMaxLights> light_toward{}; // the draw's enabled lights (kSurfaceLit); a zero vector: none
     std::array<Float4, kMaxLights> light_colour{}; // their diffuse colours (rgb)
-    Float4 sun{};        // toward the sun the bake was lit by (xyz); w: its weight 0 - 1 (0: no sun - the sky alone)
-    Float4 sun_colour{}; // rgb: the sun's light; w: the ambient share a of a sunlit surface's baked light (> 0)
-    Float4 sky{};        // xyz: up (the world's +y); w: how much of the normal map's detail shows in the shade (0 - 1)
-    Float4 params{};     // x: specular strength, y: normal strength, z: roughness without a map, w: F0
-    Float4 shade{};      // x, y: the bake's light level (luma of 2 x v0) from in shade to sunlit; z, w: the detail's range
-    Float4 relit{};      // reserved for the relit mode (kSurfaceRelit; zeros)
+    // (round M - ff_shaders.cpp "the per-pixel lighting", engine/gfx/rt_brdf.h)
+    Float4 sun{};       // toward the relit world's sun (camera space, xyz); w: 1 when there is one (also the relief's shadow)
+    Float4 sun_light{}; // rgb: the sun's light per N.L (the relit store's, linear - rt_cel.h CelWorld::sun); w: millimetres
+                        // a world unit (skin's curvature)
+    Float4 scatter{};   // rgb: the material's diffuse mean free path (mm; skin); w: hair - 1 its strands run along u, 0 v
+    Float4 params{};    // x: metalness (0 / 1); y: 1 - the reflections pass traces this surface's environment; z: the
+                        // roughness without a map; w: a dielectric's F0
+    Float4 sheen{};     // rgb: the sheen's colour (cloth); w: its roughness
+    Float4 spare{};
 };
 
 // (added by cel shading) Binding 8 (vertex and fragment shaders): vulkan_cel.cpp fills it.
@@ -181,15 +184,11 @@ struct DetailUniforms {
                        // kind's roughness replaces the map's (0 - 1)
     Float4 delight{};  // x: the de-lighting's strength (0: none); y: the texture's mean luminance (< 0: unknown - its last
                        // mip read); z: the most the scale may brighten or darken (a factor); w: unused
-    // (added by surface relief - kDetailRelief; zeros without it) x: the relief's depth - the surface map's texels the
-    // height's full range (0 - 1) spans, its texture's bump x its surface kind's weight x rt_relief_strength; y, z: the
-    // map's level of detail (log2 of its texels a pixel) where the relief starts to fade and where it is gone; w: how
-    // dark the relief's own shadow from the sun is (0 - 1)
+    // (added by surface relief - kDetailRelief; zeros without it) x: the relief's depth - the world units the map's
+    // height's full range (0 - 1) spans: its material's relief (rt_material_table.h, millimetres); y, z: the map's level of
+    // detail (log2 of its texels a pixel) where the relief starts to fade and where it is gone; w: unused
     Float4 relief{};
-    // (added for the characters - kDetailSkin / kDetailCloth / kDetailHair; zeros without them; the blocks of the other
-    // bits stop before it) x: skin's strength (0 - 2: the wrap, the terminator's red, the translucency); y: how far the
-    // skin weight follows the texel's colour (1: wholly - a garment's atlas; 0.6: a skin texture - its eyes and lips
-    // less); z: cloth's sheen (0 - 2), or hair's highlight's; w: hair - 1 the strands run along u, 0 along v
+    // (added for the characters; unused since round M - their materials are SurfaceUniforms' - kept for the layout)
     Float4 character{};
 };
 

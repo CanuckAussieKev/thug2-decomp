@@ -64,6 +64,7 @@
 #include "base/core/format.h"
 #include "base/core/parse_number.h"
 #include "base/maths/view_transforms.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
@@ -1905,32 +1906,36 @@ void run_surface(render::Gpu& gpu, Mirror& mirror, Tally* tally)
     constexpr float kTileLeast = 0.12F;
     constexpr float kMetalLeast = 0.05F;
     constexpr float kStoneLeast = 0.5F;
-    constexpr float kStoneGloss = 0.2F;
+    // (round M) every mapped surface reflects as its material: the table's F0 by its class, its texels' roughness (0
+    // here: a mirror) - no kind held off, no least roughness, no gloss below 1
+    const auto f0_of = [](smf::MaterialClass material_class) {
+        return std::get<0>(rt::material_f0(rt::kind_of_map_class(static_cast<uint8_t>(material_class))));
+    };
+    (void)kTileLeast;
+    (void)kMetalLeast;
+    (void)kStoneLeast;
     const bool metal = textured && attach(static_cast<uint8_t>(smf::MaterialClass::kMetal), 0);
     tally->check(metal, "a white texture with a smooth metal surface map");
     if (metal) {
-        run_mirror(gpu, mirror, {.name = "smooth metal by its surface map (its F0 kept, roughness at least 0.05)",
+        run_mirror(gpu, mirror, {.name = "smooth metal by its surface map (the table's F0, a mirror)",
                                  .samples = 0, .strength = 0.5F, .reflectivity = 0.0F, .fresnel = true,
-                                 .roughness = kMetalLeast * kMetalLeast, .surface_f0 = kTileF0,
-                                 .surface_least = kMetalLeast},
+                                 .roughness = 0.0F, .surface_f0 = f0_of(smf::MaterialClass::kMetal)},
                    tally);
     }
     const bool stone = textured && attach(static_cast<uint8_t>(smf::MaterialClass::kStone), 0);
     tally->check(stone, "a white texture with a smooth stone surface map");
     if (stone) {
-        run_mirror(gpu, mirror, {.name = "smooth stone by its surface map (a faint sheen: F0 0.05, roughness at least 0.5)",
+        run_mirror(gpu, mirror, {.name = "polished stone by its surface map (the table's F0, a mirror)",
                                  .samples = 0, .strength = 0.5F, .reflectivity = 0.0F, .fresnel = true,
-                                 .roughness = kStoneLeast * kStoneLeast, .surface_f0 = render::vulkan::kMostDielectricF0,
-                                 .surface_gloss = kStoneGloss, .surface_least = kStoneLeast},
+                                 .roughness = 0.0F, .surface_f0 = f0_of(smf::MaterialClass::kStone)},
                    tally);
     }
     const bool tile = textured && attach(static_cast<uint8_t>(smf::MaterialClass::kTile), 0);
     tally->check(tile, "a white texture with a smooth glazed tile's surface map");
     if (tile) {
-        run_mirror(gpu, mirror, {.name = "a glazed tile by its surface map (F0 held to 0.05, roughness at least 0.12)",
+        run_mirror(gpu, mirror, {.name = "a glazed tile by its surface map (the table's F0, a mirror)",
                                  .samples = 0, .strength = 0.5F, .reflectivity = 0.0F, .fresnel = true,
-                                 .roughness = kTileLeast * kTileLeast, .surface_f0 = render::vulkan::kMostDielectricF0,
-                                 .surface_least = kTileLeast},
+                                 .roughness = 0.0F, .surface_f0 = f0_of(smf::MaterialClass::kTile)},
                    tally);
         rt::Material floor = floor_surface(0.0F);
         floor.texture = mirror.surface;
@@ -1947,12 +1952,13 @@ void run_surface(render::Gpu& gpu, Mirror& mirror, Tally* tally)
         got = draw_off_on(gpu, mirror, on);
         tally->check(rough && got.read && got.passes == 1 && got.same,
                      "a rough tile (roughness 1): the pass ran, every pixel as drawn");
-        // concrete: nothing reflective - no pass
+        // (round M) concrete whose map says it is smooth reflects by its material's F0 like any surface (no kind is
+        // held off any more)
         const bool concrete = attach(static_cast<uint8_t>(smf::MaterialClass::kConcrete), 0);
         rt::ray_tracing()->set_material(mirror.floor_material, floor);
         got = draw_off_on(gpu, mirror, on);
-        tally->check(concrete && got.read && got.passes == 0 && got.same,
-                     "smooth concrete: nothing reflective, no pass, every pixel as drawn");
+        tally->check(concrete && got.read && got.passes == 1 && !got.same,
+                     "smooth concrete (map roughness 0): reflects by its F0 - the pass ran, the floor changed");
         // (added for the game's shine on rough surfaces) the floor given the game's own shine (an environment pass,
         // reflectivity 1 - a perfect mirror without a map): with a concrete map it mirrors nothing; with a stone map a
         // blurred sheen (something changes, the pass's rough pixels)
@@ -1960,8 +1966,8 @@ void run_surface(render::Gpu& gpu, Mirror& mirror, Tally* tally)
         shiny.texture = mirror.surface;
         rt::ray_tracing()->set_material(mirror.floor_material, shiny);
         got = draw_off_on(gpu, mirror, on);
-        tally->check(concrete && got.read && got.passes == 1 && got.same,
-                     "the game's shine on smooth concrete: the pass ran, every pixel as drawn (never a mirror)");
+        tally->check(concrete && got.read && got.passes == 1 && !got.same,
+                     "the game's shine on smooth concrete: the pass ran, the floor reflects by its map (round M)");
         const bool shiny_stone = attach(static_cast<uint8_t>(smf::MaterialClass::kStone), 0);
         rt::ray_tracing()->set_material(mirror.floor_material, shiny);
         got = draw_off_on(gpu, mirror, on);

@@ -62,6 +62,10 @@ struct Backend;
 
 inline constexpr uint32_t kReflectionMask = 0x01 | 0x02 | 0x04; // (world, objects, alpha-tested)
 inline constexpr float kReflectionDistance = 20000.0F;         // how far a reflection ray looks (world units)
+// (added for the surface reflections; round M) the roughest surface-map texel the pass traces: its reflection fades out
+// from 0.75 of it to it, and the surface's own shading (ff_shaders.cpp surface_finish) takes the light store's estimate of
+// the environment in as the traced one fades - one environment term, either source (a cost limit, not a look)
+inline constexpr float kReflectionRoughest = 0.7F;
 
 // The usage a depth surface of `format` gets besides being an attachment: VK_IMAGE_USAGE_SAMPLED_BIT when
 // rt_reflections is on, ray tracing is enabled and the format can be sampled, else none (make_depth_surface).
