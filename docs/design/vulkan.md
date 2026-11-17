@@ -1071,8 +1071,10 @@ Now:
 - **Upscalers** take the linear HDR colour: DLSS / Ray Reconstruction `colorBuffersHDR`, FSR
   `ENABLE_HIGH_DYNAMIC_RANGE`; exposure 1 (the unit's white is 1).
 - **Not done**: an HDR display's output (an HDR10 / scRGB swap chain - a key of its own choosing only the output); the
-  relit stream and DayLight still hand the draws display-referred light (A2's light units, round M's per-pixel BRDF:
-  then only the texel is decoded).
+  the game's own lights on the objects are still display-referred (round M's per-pixel BRDF). (Lighting round A2: the
+  relit light store is linear in the unit - relit data v5 decodes the bake before the fit; its colour word is tint x
+  light encoded, so the draw's decode undoes only the texel's encoding; the shadows', lamps' and bounce passes decode
+  only the texel.)
 
 ### Volumetric fog and light shafts
 
