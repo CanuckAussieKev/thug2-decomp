@@ -2147,8 +2147,10 @@ void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLi
     for (std::size_t li = 0; li < lamps.size(); ++li) {
         RelitLamp& lamp = core::at(lamps, li);
         const double weight = core::at(weights, li);
-        if (!(weight > 0.0) || !(luma(lamp.light) > 0.0F)) {
-            lamp.switch_sky = 0.0F; // (it lights nothing: not known - the open sky's rule)
+        // (lamp solve check) where its light falls, whatever its light now: a candidate the bake didn't confirm (its
+        // light 0 until its fixture's model) is roofed or not by the surfaces it reaches - the model's kind reads it
+        if (!(weight > 0.0)) {
+            lamp.switch_sky = 0.0F; // (it reaches nothing: not known - the open sky's rule)
             continue;
         }
         const double open = core::at(sky, li) / weight; // those surfaces' sky share
@@ -2748,67 +2750,128 @@ Rgbf hue_of(const Rgbf& colour)
 
 } // namespace
 
+LampFixtures lamp_fixtures(const RelitLamp& lamp, LampFixture fixture, float area)
+{
+    const FixtureValues& values = fixture_values(fixture);
+    LampFixtures out;
+    if (!(area > 0.0F)) {
+        return out;
+    }
+    constexpr double kMetresPerUnit = 1.0 / 39.37; // (the world's units are inches)
+    if (lamp.shape == EmitterShape::kLine && lamp.half_length > 0.0F && values.most_width > 0.0F) {
+        // a row of fittings: its luminous width a fitting's, any length
+        const double length = 2.0 * static_cast<double>(lamp.half_length) * kMetresPerUnit;
+        const double width = static_cast<double>(area) / length;
+        out.sized = width >= static_cast<double>(values.least_width) && width <= static_cast<double>(values.most_width);
+        out.count = std::max(1.0, std::ceil(length / static_cast<double>(values.most_length)));
+        return out;
+    }
+    out.sized = area >= values.least_area && area <= values.most_area;
+    return out;
+}
+
 LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const RelitLampTold> told,
                                   std::span<const float> areas, std::span<const Rgbf> own_colours, double unit_lux)
 {
     LampModelCounts counts;
+    const auto verdict_of = [&told](std::size_t li) {
+        return li < told.size() ? core::at(told, li) : RelitLampTold::kNoEdges;
+    };
+    const auto area_of = [&areas](std::size_t li) { return li < areas.size() ? core::at(areas, li) : 0.0F; };
+    const auto fixture_for = [](const RelitLamp& lamp, const Rgbf& colour) {
+        // (a point light - the level's own - by its colour and place as a point emitter)
+        return fixture_of({.shape = static_cast<uint8_t>(lamp.shape),
+                           .axis = {x_of(lamp.axis), y_of(lamp.axis), z_of(lamp.axis)},
+                           .colour = colour,
+                           .indoors = lamp.switch_sky >= 0.5F * kLampAlwaysOn});
+    };
+    // the art's lamp exposure, from the lamps the bake told (rt_relit.h kLeastExposureLamps)
+    {
+        std::vector<double> logs;
+        for (std::size_t li = 0; li < lamps.size(); ++li) {
+            const RelitLamp& lamp = core::at(lamps, li);
+            if (verdict_of(li) != RelitLampTold::kSolved || !(luma(lamp.light) > 0.0F)) {
+                continue;
+            }
+            RelitLamp measured = lamp;
+            relit_lamp_photometry(&measured, unit_lux);
+            const LampFixture fixture = fixture_for(lamp, lamp.light);
+            const FixtureValues& values = fixture_values(fixture);
+            const double typical = static_cast<double>(values.lumens) * lamp_fixtures(lamp, fixture, area_of(li)).count;
+            if (measured.lumens > 0.0F && typical > 0.0) {
+                logs.push_back(std::log(typical / static_cast<double>(measured.lumens)));
+            }
+        }
+        counts.exposure_lamps = logs.size();
+        if (logs.size() >= kLeastExposureLamps) {
+            const auto middle = logs.begin() + static_cast<std::ptrdiff_t>(logs.size() / 2);
+            std::ranges::nth_element(logs, middle);
+            double centre = *middle;
+            if (logs.size() % 2 == 0) {
+                const double below = *std::max_element(logs.begin(), middle);
+                centre = kHalf * (centre + below);
+            }
+            counts.exposure = std::exp(centre);
+        }
+    }
     for (std::size_t li = 0; li < lamps.size(); ++li) {
         RelitLamp& lamp = core::at(lamps, li);
-        relit_lamp_photometry(&lamp, unit_lux);
-        const RelitLampTold verdict = li < told.size() ? core::at(told, li) : RelitLampTold::kNoEdges;
-        const float area = li < areas.size() ? core::at(areas, li) : 0.0F;
+        const RelitLampTold verdict = verdict_of(li);
+        const float area = area_of(li);
         const Rgbf own = li < own_colours.size() ? core::at(own_colours, li) : lamp.light;
         const bool indoors = lamp.switch_sky >= 0.5F * kLampAlwaysOn;
+        const bool solved_lamp = verdict == RelitLampTold::kSolved; // (a glow, a candidate or a point light the bake told)
+        if (solved_lamp && counts.exposure > 0.0) {
+            lamp.light = scaled(lamp.light, static_cast<float>(counts.exposure)); // (in physical units)
+        }
+        relit_lamp_photometry(&lamp, unit_lux);
         const Rgbf evidence_colour = lamp.solved && luma(lamp.light) > 0.0F ? lamp.light : own;
-        // (a point light - the level's own - by its colour and place as a point emitter)
-        const LampFixture fixture = fixture_of({.shape = static_cast<uint8_t>(lamp.shape),
-                                                .axis = {x_of(lamp.axis), y_of(lamp.axis), z_of(lamp.axis)},
-                                                .colour = evidence_colour,
-                                                .indoors = indoors});
+        const LampFixture fixture = fixture_for(lamp, evidence_colour);
         const FixtureValues& values = fixture_values(fixture);
+        const LampFixtures fixtures = lamp_fixtures(lamp, fixture, area);
         lamp.fixture = static_cast<uint8_t>(fixture);
         lamp.area = area;
         RelitLampSource source = RelitLampSource::kNone;
         bool model = false;
-        bool typical = false; // (no luminous area: its kind's typical fixture's flux)
+        bool typical = false; // (no luminous area of a fixture's: its kind's typical fixture's flux)
         const bool candidate = candidate_kind(lamp.kind);
-        // (a lamp with no luminous area known - a point light, a card with no core: its flux against its kind's range)
+        // (its flux against its kind's range - x its fittings' count for a row)
         const bool flux_out = static_cast<double>(lamp.lumens) < static_cast<double>(values.least_lumens) ||
-                              static_cast<double>(lamp.lumens) > static_cast<double>(values.most_lumens);
-        if (lamp.kind == EmitterKind::kPoint) {
+                              static_cast<double>(lamp.lumens) > static_cast<double>(values.most_lumens) * fixtures.count;
+        if (solved_lamp) {
+            // told by the bake: its flux in physical units by the art's exposure, plausible within its kind's flux (x its
+            // fittings for a row); else (or no exposure told) a failed measurement: the model, not a clamp. Its flux is
+            // what the bake measured - not its luminous area's: a lamp's lamp texels or a card's saturated core are the
+            // drawn lamp with its housing, diffuser or glare round it (nj's textured panels 0.6 - 9.5 m^2, Boston's
+            // church cards 23 m^2) - its head drawn at its flux over that area where that is a luminance of its kind,
+            // else at its kind's
+            source = RelitLampSource::kSolved;
+            const double luminance = area > 0.0F ? static_cast<double>(lamp.lumens) / (kPi * static_cast<double>(area)) : 0.0;
+            const bool kind_luminance =
+                luminance >= static_cast<double>(values.least) && luminance <= static_cast<double>(values.most);
+            lamp.luminance = kind_luminance ? static_cast<float>(luminance) : values.luminance;
+            if (!(counts.exposure > 0.0) || flux_out) {
+                source = RelitLampSource::kImplausible;
+                model = true;
+                typical = !fixtures.sized;
+            }
+        } else if (lamp.kind == EmitterKind::kPoint) {
             source = luma(lamp.light) > 0.0F ? RelitLampSource::kOwnSurface : RelitLampSource::kNone;
             if (source != RelitLampSource::kNone && flux_out) {
                 source = RelitLampSource::kImplausible;
                 model = true;
                 typical = true;
             }
-        } else if (verdict == RelitLampTold::kSolved && !(area > 0.0F)) {
-            source = RelitLampSource::kSolved;
-            if (flux_out) {
-                source = RelitLampSource::kImplausible;
-                model = true;
-                typical = true;
-            }
-        } else if (verdict == RelitLampTold::kSolved) {
-            source = RelitLampSource::kSolved;
-            const double luminance = area > 0.0F ? static_cast<double>(lamp.lumens) / (kPi * static_cast<double>(area)) : 0.0;
-            lamp.luminance = static_cast<float>(luminance);
-            if (luminance < static_cast<double>(values.least) || luminance > static_cast<double>(values.most) || flux_out) {
-                // (a failed measurement - its surface's luminance or its flux no fixture of its kind has: the model,
-                // not a clamp - over its luminous area when that is one fixture's, else its kind's typical fixture)
-                const bool sized = area >= values.least_area && area <= values.most_area;
-                source = RelitLampSource::kImplausible;
-                model = true;
-                typical = !sized;
-            }
         } else if (!candidate) {
             // a glow (the artists' mark of a lamp) the bake didn't tell - no edges, off in the bake by its own switch,
             // under the fit's noise (its size untold), a run-off: its kind's model over its luminous core, when that
-            // core is one fixture's size
-            const bool sized = area >= values.least_area && area <= values.most_area;
-            if (sized) {
+            // core is a fixture's (or a row of fittings); a saturated core of no fixture's size is still drawn round a lamp
+            // (its glare blown out with it - Boston's church lanterns' cards): its kind's typical fixture. A card with no
+            // saturated core (sch's magenta haze) is no lamp
+            if (area > 0.0F) {
                 source = verdict == RelitLampTold::kRunOff ? RelitLampSource::kImplausible : RelitLampSource::kModel;
                 model = true;
+                typical = !fixtures.sized;
             } else {
                 source = RelitLampSource::kNotAFixture;
                 lamp.light = {};
@@ -2816,8 +2879,9 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
         } else if (verdict == RelitLampTold::kOffInBake && !indoors && fixture != LampFixture::kSign &&
                    fixture != LampFixture::kNeon) {
             // a candidate the bake couldn't see lit - off by its own switch then - shaped like a luminaire outdoors, of
-            // one fixture's size
-            if (area >= values.least_area && area <= values.most_area) {
+            // one fixture's size: its brightness the only evidence, a row of lamp texels outdoors is no luminaire (a
+            // band of paint, a window strip) - a row needs the artists' mark (a glow) or the bake's own light
+            if (fixtures.sized && fixtures.count <= 1.0) {
                 source = RelitLampSource::kModel;
                 model = true;
             } else {
@@ -2828,8 +2892,8 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
             lamp.light = {}; // (a bright surface the bake doesn't confirm: no lamp - A3's rule)
         }
         if (model) {
-            // Phi = pi L A (or, with no luminous area, its kind's typical fixture's), in its colour: a sign's or a
-            // neon's own, a light's own where it is one, else its kind's
+            // Phi = pi L A (or, with no luminous area of a fixture's, its kind's typical fixture's), in its colour: a
+            // sign's or a neon's own, a light's own where it is one, else its kind's
             const double lumens = typical ? static_cast<double>(values.lumens)
                                           : kPi * static_cast<double>(values.luminance) * static_cast<double>(area);
             const bool own_light = colour_kelvin(own) > 0.0F && !saturated_colour(own) && luma(own) > 0.0F;

@@ -2605,8 +2605,30 @@ lamp texels, a self-lit triangle whole. The kind (`fixture_of`) from the lamp's 
 by more than 0.03 in CIE 1960 uv (a neon or a sign - a magenta card is a neon tube with a neon's flux, in its colour), a
 vertical panel (a sign or a lit window), roofed (a tube, a ceiling panel or a bulb), outdoors by its colour temperature
 (sodium under 2500 K, a bulb or globe lantern under 3500 K, else a white street light). The table's luminances and their
-sources are in the header (written from memory, to be verified like round M's table). The colour: the lamp's own where it
+sources are in the header (checked against published sources since the lamp solve check, below). The colour: the lamp's own where it
 is a light's, a sign's or a neon's; else its kind's colour temperature (`blackbody_colour`, Kim et al. 2002's locus).
+
+**The art's lamp exposure (the lamp solve check, relit data v9).** Every lamp the first L bakes measured was judged
+implausible (New Jersey 22 of 22, Boston 20, Baltimore 17, College 24 of 25). Not a unit error - the photometry is
+consistent (New Jersey's lamp 40: 1.081 in the unit x 82 477 lux x its 0.30 m core x 6.0 m half length = 164 000 cd,
+x pi^2 = 1.6 Mlm, its pool 61 000 lux at the vertex it lights most). The bake's colours are display-referred: its
+daylight is physical (the bake's own 1.1 - 2.5 x the physical day), but its artists painted lamp-lit rooms, a church and
+plazas about as bright as their sunlit streets - pools of 1 500 - 110 000 lux where an office is lit to 500 and a street
+to 2 - 15 - so every solved flux was 10^4 - 10^7 lm. The solve tells each lamp's light up to one factor, the art's
+exposure of its lamp light, so that factor is told from the level's own solved lamps (`relit_lamp_models`: the median of
+log(kind's typical flux x fittings / solved flux), at least kLeastExposureLamps = 3): New Jersey 0.0054, Boston 0.0019,
+Baltimore 0.0039, College 0.0018 - the art 190 - 570 x brighter than its lamps make it. Each solved lamp is then its
+solved light x that: its flux against the level's others and its colour, measured, are kept; it is plausible within its
+kind's flux (x its fittings for a row) - not its luminous area's luminance, which holds the drawn housing and glare
+(New Jersey's textured panels 0.6 - 9.5 m^2, Boston's church cards 23 m^2). Kept now: 11 / 22, 10 / 20, 17 / 18, 19 /
+25. Also: a line whose luminous width is a fitting's (0.015 - 0.6 m a tube's) is a row of fittings, its length over 2.44
+m (an 8 ft T12) the count - for a glow or a told lamp; an unconfirmed candidate must be one fitting (New Jersey's "110
+outdoor tubes" were lamp-texel strips 5 - 20 m long and 2 - 30 mm wide: now 7 tubes); a glow whose saturated core is no
+fixture's size is its kind's typical fixture (its glare is blown out with it - Boston's church lanterns), a card with no
+core still none (College); each lamp's switch is told where its light falls even while its light is 0 (a candidate's
+model read "outdoors" before). The fixture table's figures are now checked against published sources, cited per figure in
+lamp_fixtures.h (Flagstaff's lamp tables, the Philips / Signify leaflets, DIALux's and Wikipedia's luminance tables, CIE
+150's sign limits).
 
 **Lamp heads at their luminance**: a lamp's own surface (its emitting vertices) shows its luminance - the kind's or its
 solved flux over pi A - in its colour (`RelitVertex::emit`, the stream's word 7), not "its light / pi". The surface

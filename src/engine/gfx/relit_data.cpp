@@ -257,6 +257,7 @@ std::string write_relit_data(const RelitLevelData& data)
     out.put3(model.sky);
     out.put(model.albedo_scale);
     out.put(model.daylight_ratio);
+    out.put(model.lamp_exposure);
     out.put3(model.bounce);
     out.put3(model.lamps);
     out.put(model.error);
@@ -372,7 +373,7 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
     uint32_t sunless = 0;
     uint64_t vertices = 0;
     if (!in.get(&valid) || !in.get(&sunless) || !in.get3(&model.toward) || !in.get3(&model.sun) ||
-        !in.get3(&model.sky) || !in.get(&model.albedo_scale) || !in.get(&model.daylight_ratio) || !in.get3(&model.bounce) ||
+        !in.get3(&model.sky) || !in.get(&model.albedo_scale) || !in.get(&model.daylight_ratio) || !in.get(&model.lamp_exposure) || !in.get3(&model.bounce) ||
         !in.get3(&model.lamps) || !in.get(&model.error) || !in.get(&vertices) || !in.get(&model.sun_needed)) {
         return fail("cut short (the model)");
     }
