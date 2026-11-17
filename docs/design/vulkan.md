@@ -2238,7 +2238,14 @@ Relit data v6.
   self-lit search with it. What consumed it, and what each reads now:
   - *the lamps' solve* (was: solve only in a bake whose lamps were "on" - its own time's, or a dark level): every lamp is
     solved in every bake; the bake tells a lamp when it has the edges and its solved light is a share of the light where
-    it lights (weighted by its geometry) at least the fit's own noise (`RelitModel::error`). Told: its intensity solved.
+    it lights (weighted by its geometry) at least the fit's own noise (`RelitModel::lamp_noise`: the median relative
+    error of the edges no lamp reaches), its solve is plausible (its pool's surfaces, per channel, no darker than the
+    1st percentile of the surfaces no lamp reaches; its colour a lamp's - weakest channel at least 0.2 of the
+    brightest) and - a candidate - its own switch has it on in the bake's own sky. Told: its intensity solved.
+    The solve is an instrumental-variable one (`LampTerm::instrument`, the edge's mean colour x the geometry): plain least
+    squares on y1 G2 - y2 G1 - a difference of near-equal products holding the 8-bit colours' noise - shrank a lamp that
+    is most of the light toward 0 (a hall lit by its panel: 0.08 of it; with the instrument 1.02). A second solve leaves
+    out the candidates the first gave light but the bake didn't confirm.
     Not told - off in the bake, swamped by daylight, no edges - a glow or point light (the artists' mark of a lamp)
     shines by its own surface; a *candidate* (a self-lit or textured surface: brightness alone) gives no light.
   - *when a lamp is on* (was: the clock's lamps, else a dark level's): each lamp has a **switch** (`RelitLamp::switch_sky`,
