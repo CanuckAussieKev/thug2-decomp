@@ -3578,8 +3578,15 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
         if (model) {
             // Phi = pi L A (or, with no luminous area of a fixture's, its kind's typical fixture's), in its colour: a
             // sign's or a neon's own, a light's own where it is one, else its kind's
-            const double lumens = typical ? static_cast<double>(values.lumens)
-                                          : kPi * static_cast<double>(values.luminance) * static_cast<double>(area);
+            double lumens = typical ? static_cast<double>(values.lumens)
+                                    : kPi * static_cast<double>(values.luminance) * static_cast<double>(area);
+            // (round indoor lamps) the model's own flux within its kind's too, x its fittings for a row: a drawn area of
+            // lamp texels holds housing and glare round the tubes (Training's rows: 5.2 m^2 of texels at a tube's
+            // luminance, 165 000 lm for six fittings) - outside it, its fittings' typical flux
+            if (lumens < static_cast<double>(values.least_lumens) ||
+                lumens > static_cast<double>(values.most_lumens) * fixtures.count) {
+                lumens = static_cast<double>(values.lumens) * fixtures.count;
+            }
             const bool own_light = colour_kelvin(own) > 0.0F && !saturated_colour(own) && luma(own) > 0.0F;
             const Rgbf hue = values.kelvin <= 0.0F || own_light ? hue_of(own) : blackbody_colour(values.kelvin);
             lamp.light = scaled(hue, relit_lamp_intensity_for(lamp, lumens, unit_lux));
