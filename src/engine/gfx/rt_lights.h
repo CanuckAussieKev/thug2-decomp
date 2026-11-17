@@ -212,7 +212,8 @@ void set_lamps_owner(bool owner, bool automatic);
 inline constexpr float kLampSwitchBand = 2.0F;
 inline constexpr float kLampAlwaysOn = 1.0e30F;
 [[nodiscard]] float lamp_on(float switch_sky, float sky_now, float open_lamps);
-// The open sky's light now (luma, the global unit): the clock's (DayLight::sky_light) while it lights the level, else the
+// The open sky's light now (luma, the global unit - a pre-exposed state's pre-exposure divided out): the clock's
+// (DayLight::sky_light) while it lights the level, else the
 // level's own time's (LevelEmitters::own_sky). And the open sky's lamps: the clock's, else the level's own time's.
 [[nodiscard]] float lamp_sky_now(const DayLight& day, const LevelEmitters* level);
 [[nodiscard]] float open_sky_lamps(const DayLight& day, const LevelEmitters* level);

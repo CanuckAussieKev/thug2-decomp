@@ -1079,9 +1079,6 @@ void draw_viewport(int index)
         choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
         stored_near_z() = kDefaultNearZ;
     }
-    // Not original - ray tracing's screen-space effects (engine/gfx/rt_scene.h, R4: the Vulkan Gpu's sun shadows): the
-    // opaque world, objects and sky drawn, the world's camera set again. Original behaviour: nothing.
-    note_opaque_drawn(index);
     rt_record::set_world_passes(true); // (not original: the world's and the objects' passes again)
     set_pass(kOpaquePass);
     set_render_state(RenderStateId::kZWrite, 1);
@@ -1091,6 +1088,13 @@ void draw_viewport(int index)
             draw_scene_group(scene, kSkyFreeScenePasses, index);
         }
     });
+    // Not original - ray tracing's screen-space effects (engine/gfx/rt_scene.h, R4: the Vulkan Gpu's sun shadows): the
+    // world's surfaces, objects and sky drawn, the world's camera set again. Original behaviour: nothing.
+    // (the night colour / shadows round: after the scenes' later meshes too - the ones from the first transparent
+    // material on, kSkyFreeScenePasses. Before, the passes ran between the two groups, and every surface of the later
+    // group - a level's roads and pavements drawn with a blended first pass, e.g. the THUG1 ports' - was drawn over
+    // their result: no sun or object shadows, no lamps' pools, no decals, AO or bounce on it.)
+    note_opaque_drawn(index);
     set_pass(kOcclusionPass);
     rt_record::set_world_passes(false);
     issue_occlusion_queries();

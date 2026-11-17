@@ -141,6 +141,12 @@ inline constexpr float kEyeMostStops = 40.0F;
 inline constexpr float kMeterDarkenSeconds = 0.4F;
 inline constexpr float kMeterBrightenSeconds = 1.2F;
 inline constexpr uint32_t kMeterSlots = 4;
+// The readout's luminance histogram (the log's percentiles - what a scene's parts measure: the moonlit ground, the
+// lamps' pools, the lamps themselves): kMeterBins bins of 1 / kMeterBinsPerStop stop from 2^kMeterLowestStop cd/m^2
+// (2^-24 - 2^24: starlight's floor to a bulb's filament).
+inline constexpr int kMeterBinsPerStop = 4;
+inline constexpr int kMeterLowestStop = -24;
+inline constexpr int kMeterBins = 48 * kMeterBinsPerStop;
 // A sample's place in the viewport (0 - 1 across, down) for grid index (i, j); the pixel is rect origin + floor(place x
 // size).
 [[nodiscard]] std::array<float, 2> meter_place(uint32_t i, uint32_t j);
@@ -157,6 +163,9 @@ struct MeterReading {
     float stops = 0.0F;
     float mean = 0.0F;
     float target = 0.0F;
+    // (the readout's luminance - cd/m^2: the samples' median, 95th and 99.5th percentiles, each its histogram bin's
+    // middle; w the share of the samples under the scotopic floor)
+    std::array<float, 4> luminance{};
 };
 bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReading* reading);
 

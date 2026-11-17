@@ -397,6 +397,16 @@ void check_sources(Tally* tally)
                                   "switch; indoors %.2f at noon; unknown - the open sky's rule",
                                   static_cast<double>(noon), static_cast<double>(night), static_cast<double>(dusk),
                                   static_cast<double>(indoors)));
+        // (the night colour round) the published state is pre-exposed: its sky's light over the pre-exposure is the
+        // global unit's the switches are in - a night's sky, 65536 x in the state, still switches a street lamp on
+        const float night_sky = 1.5e-6F;
+        const float pre = 65536.0F;
+        const float read = rt::lamp_sky_now(
+            {.on = true, .sky_light = {night_sky * pre, night_sky * pre, night_sky * pre}, .pre_exposure = pre}, nullptr);
+        tally->check(std::abs(read - night_sky) < 1e-9F && rt::lamp_on(street_switch, read, 0.0F) == 1.0F,
+                     text::format("the lamps' sky now in the global unit, the pre-exposure divided out: %.3g (the "
+                                  "state's %.3g), a street lamp on",
+                                  static_cast<double>(read), static_cast<double>(night_sky * pre)));
     }
     // the view's selection: a camera at the origin looking down -z (D3D's right-handed look-at, as the game's)
     std::array<float, 16> view_matrix{};

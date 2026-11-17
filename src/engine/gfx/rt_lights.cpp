@@ -455,7 +455,10 @@ float light_luma(const std::array<float, 3>& rgb)
 float lamp_sky_now(const DayLight& day, const LevelEmitters* level)
 {
     if (day.on) {
-        return light_luma(day.sky_light);
+        // (the published state carries its light pre-exposed - rt_daylight.h pre_expose; the switches are in the global
+        // unit: the pre-exposure divided out, else a night's sky read 65536 x brighter and held the photocells off)
+        const float pre = day.pre_exposure > 0.0F ? day.pre_exposure : 1.0F;
+        return light_luma(day.sky_light) / pre;
     }
     return level != nullptr ? level->own_sky : 0.0F;
 }

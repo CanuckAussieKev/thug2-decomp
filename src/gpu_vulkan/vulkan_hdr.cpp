@@ -232,10 +232,16 @@ shared float s_weight[METER_SIDE * METER_SIDE];
 shared float s_over[METER_SIDE * METER_SIDE];
 shared float s_brightest[METER_SIDE * METER_SIDE];
 shared float s_negative[METER_SIDE * METER_SIDE];
+// (the readout's luminance histogram: METER_BINS bins of 1 / METER_BINS_PER_STOP stop from 2^METER_LOWEST_STOP cd/m^2)
+shared uint s_bins[METER_BINS];
 
 void main()
 {
     uint id = gl_LocalInvocationIndex;
+    for (uint b = id; b < uint(METER_BINS); b += uint(METER_SIDE * METER_SIDE)) {
+        s_bins[b] = 0u;
+    }
+    barrier();
     float grid = float(METER_SIDE * METER_EACH);
     float light = 0.0;
     float weight = 0.0;
@@ -254,6 +260,11 @@ void main()
             negative += min(c.r, min(c.g, c.b)) < 0.0 ? 1.0 : 0.0;
             c = vec3(finite(c.r), finite(c.g), finite(c.b));
             brightest = max(brightest, dot(c, vec3(0.2126, 0.7152, 0.0722)));
+            // (the readout) the sample's physical luminance (cd/m^2) counted in its bin
+            float physical = dot(c, vec3(0.2126, 0.7152, 0.0722)) / pc.night.x * METER_WHITE;
+            float stop = physical > 0.0 ? log2(physical) : float(METER_LOWEST_STOP);
+            int bin = clamp(int(floor((stop - float(METER_LOWEST_STOP)) * float(METER_BINS_PER_STOP))), 0, METER_BINS - 1);
+            atomicAdd(s_bins[bin], 1u);
             float l = clamp(dot(c, vec3(0.2126, 0.7152, 0.0722)), METER_LEAST, METER_BRIGHTEST * pc.night.x);
             vec2 d = uv - 0.5;
             float w = exp(-dot(d, d) / (2.0 * METER_CENTRE * METER_CENTRE));
@@ -297,6 +308,25 @@ void main()
         // (round S2 - the readout, after the slots) the samples over the format's range or not a number, the brightest
         // (pre-exposed), the pre-exposure metered with, the samples with a negative channel
         u_meter.slots[METER_SLOTS + slot] = vec4(s_over[0], s_brightest[0], pc.night.x, s_negative[0]);
+        // (the readout's luminance) the samples' median, 95th and 99.5th percentiles (cd/m^2: each bin's middle) and the
+        // share of them under the scotopic floor (EYE_DARKEST)
+        float total = float(METER_SIDE * METER_EACH * METER_SIDE * METER_EACH);
+        vec3 wanted = vec3(0.5, 0.95, 0.995) * total;
+        vec3 found = vec3(-1.0);
+        float counted = 0.0;
+        float dark = 0.0;
+        for (int b = 0; b < METER_BINS; ++b) {
+            float before = counted;
+            counted += float(s_bins[b]);
+            float middle = exp2(float(METER_LOWEST_STOP) + (float(b) + 0.5) / float(METER_BINS_PER_STOP));
+            dark += middle < EYE_DARKEST ? float(s_bins[b]) : 0.0;
+            for (int k = 0; k < 3; ++k) {
+                if (found[k] < 0.0 && counted >= wanted[k] && counted > before) {
+                    found[k] = middle;
+                }
+            }
+        }
+        u_meter.slots[2 * METER_SLOTS + slot] = vec4(max(found, vec3(0.0)), dark / total);
     }
 }
 )";
@@ -356,6 +386,7 @@ struct HdrState {
     // behind), logged while the pre-exposure changes and for kReadoutSeconds after (log_readout)
     DeviceBuffer meter_read;
     float readout_pre = 0.0F;
+    uint64_t readout_cut = 0; // (the lighting's cut the readout window last opened for - a tod / moon / weather set)
     double readout_last = -1.0;
     std::chrono::steady_clock::time_point readout_until;
     std::chrono::steady_clock::time_point readout_logged;
@@ -780,6 +811,9 @@ VkPipeline meter_pipeline(Backend& state, bool multisampled, std::string* error)
     define("EYE_DARKEST", real(kEyeDarkest));
     define("METER_BRIGHTEST", real(kMeterBrightest));
     define("METER_SLOTS", std::to_string(kMeterSlots));
+    define("METER_BINS", std::to_string(kMeterBins));
+    define("METER_BINS_PER_STOP", std::to_string(kMeterBinsPerStop));
+    define("METER_LOWEST_STOP", std::to_string(kMeterLowestStop));
     define("METER_CENTRE", real(kMeterCentre));
     define("METER_DARKEN", real(kMeterDarkenSeconds));
     define("METER_BRIGHTEN", real(kMeterBrightenSeconds));
@@ -820,8 +854,8 @@ bool ensure_meter_buffer(Backend& state)
     }
     constexpr std::size_t kSlotBytes = 4 * sizeof(float);
     own.meter_slots = {};
-    // (the slots, then each slot's readout - round S2)
-    constexpr auto kBytes = static_cast<VkDeviceSize>(2 * kMeterSlots * kSlotBytes);
+    // (the slots, then each slot's readout - round S2 -, then each slot's luminance percentiles)
+    constexpr auto kBytes = static_cast<VkDeviceSize>(3 * kMeterSlots * kSlotBytes);
     return state.memory.create_buffer(kBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                       BufferPlace::kDevice, &own.meter_buffer) &&
            state.memory.create_buffer(kBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferPlace::kReadBack,
@@ -922,8 +956,9 @@ void record_meter(VkCommandBuffer commands, VkPipeline pipeline, std::size_t slo
 // (round S2) The meter's readout in the log: the frame's pre-exposure, the eye's exposure (stops, and the factor on the
 // pre-exposed light), the metered physical light and its target, the brightest sample and the samples over the
 // format's range - from the last pass's copy the processor can read (a frame or two behind: the readout of a pass
-// finished). Logged when the pre-exposure changes and every kReadoutEvery for kReadoutSeconds after, and whenever a
-// sample is over the range (at most every kOverEvery).
+// finished) - and the luminance it measures (the samples' median, 95th and 99.5th percentiles and brightest in cd/m^2,
+// with the rods' share there - rod_vision's). Logged when the pre-exposure or the lighting's cut changes and every
+// kReadoutEvery for kReadoutSeconds after, and whenever a sample is over the range (at most every kOverEvery).
 void log_readout(Backend& state, std::size_t slot_index, float pre)
 {
     HdrState& own = hdr();
@@ -933,8 +968,10 @@ void log_readout(Backend& state, std::size_t slot_index, float pre)
         return;
     }
     const auto now = std::chrono::steady_clock::now();
-    if (pre != own.readout_pre) {
-        if (own.readout_pre > 0.0F) {
+    const uint64_t cut = rt::day_light().cut;
+    if (pre != own.readout_pre || cut != own.readout_cut) {
+        own.readout_cut = cut;
+        if (own.readout_pre > 0.0F && pre != own.readout_pre) {
             get_log("vulkan: rt_hdr: the pre-exposure %.6g -> %.6g", static_cast<double>(own.readout_pre),
                     static_cast<double>(pre));
         }
@@ -946,7 +983,7 @@ void log_readout(Backend& state, std::size_t slot_index, float pre)
         return;
     }
     constexpr std::size_t kVec4 = 4;
-    std::array<float, 2 * kVec4> values{};
+    std::array<float, 3 * kVec4> values{};
     vmaInvalidateAllocation(state.memory.allocator(), own.meter_read.allocation, 0, VK_WHOLE_SIZE);
     const std::span<const uint8_t> mapped(static_cast<const uint8_t*>(own.meter_read.mapped),
                                           static_cast<std::size_t>(own.meter_read.bytes));
@@ -954,6 +991,8 @@ void log_readout(Backend& state, std::size_t slot_index, float pre)
     std::memcpy(values.data(), mapped.subspan(slot_index * slot_bytes, slot_bytes).data(), slot_bytes);
     std::memcpy(&core::at(values, kVec4), mapped.subspan((kMeterSlots + slot_index) * slot_bytes, slot_bytes).data(),
                 slot_bytes);
+    std::memcpy(&core::at(values, 2 * kVec4),
+                mapped.subspan(((2 * kMeterSlots) + slot_index) * slot_bytes, slot_bytes).data(), slot_bytes);
     const float over = core::at(values, 4);
     constexpr double kOverEvery = 5.0; // (outside the window: a sample over the range logged at most this often)
     if (now >= own.readout_until &&
@@ -968,6 +1007,20 @@ void log_readout(Backend& state, std::size_t slot_index, float pre)
             static_cast<double>(core::at(values, 3)), static_cast<double>(core::at(values, 0)),
             static_cast<double>(core::at(values, 2)) * meter_white(), static_cast<double>(core::at(values, 5)),
             kMeterGrid * kMeterGrid, static_cast<double>(over), static_cast<double>(core::at(values, 7)));
+    // (the luminance: what the scene's parts measure, and how much of each the rods see - rod_vision's share)
+    const double brightest = static_cast<double>(core::at(values, 5)) / std::max(static_cast<double>(pre), 1e-30) *
+                             meter_white();
+    const std::array<double, 4> measured{static_cast<double>(core::at(values, 8)), static_cast<double>(core::at(values, 9)),
+                                         static_cast<double>(core::at(values, 10)), brightest};
+    std::array<double, 4> rods{};
+    for (std::size_t i = 0; i < measured.size(); ++i) {
+        core::at(rods, i) = kRodHalf / (kRodHalf + core::at(measured, i));
+    }
+    get_log("vulkan: rt_hdr: luminance: median %.3g, 95th %.3g, 99.5th %.3g, brightest %.3g cd/m^2 (%.0f%% of the samples "
+            "under the scotopic floor); the rods' share there %.2f, %.2f, %.2f, %.2f",
+            core::at(measured, 0), core::at(measured, 1), core::at(measured, 2), core::at(measured, 3),
+            100.0 * static_cast<double>(core::at(values, 11)), core::at(rods, 0), core::at(rods, 1), core::at(rods, 2),
+            core::at(rods, 3));
 }
 
 // An image like `like` (format, size, samples) for `usage`, made again when any of them changed.
@@ -1445,10 +1498,17 @@ bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReadin
         }
         std::array<float, 4> values{};
         std::memcpy(values.data(), bytes.data(), kSlotBytes);
+        std::array<float, 4> luminance{};
+        std::vector<uint8_t> more;
+        if (state.memory.read_buffer(own.meter_buffer, ((2 * kMeterSlots) + i) * kSlotBytes, kSlotBytes, &more) &&
+            more.size() >= kSlotBytes) {
+            std::memcpy(luminance.data(), more.data(), kSlotBytes);
+        }
         *reading = {.factor = core::at(values, 0),
                     .stops = core::at(values, 1),
                     .mean = core::at(values, 2),
-                    .target = core::at(values, 3)};
+                    .target = core::at(values, 3),
+                    .luminance = luminance};
         return true;
     }
     return false;

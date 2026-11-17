@@ -2518,6 +2518,38 @@ pre-exposure change needs every vertex written again - a store of physical light
 pre-exposure applied where it is drawn would make the change atomic without the hurried relight. The emissive art (lamp
 heads, glow cards) and the original's light cards are still game colours, unscaled by the pre-exposure (A3).
 
+#### The passes on every surface; the night's luminance measured
+
+New Jersey (a THUG1 port) showed no sun shadow - not the skater's, the peds' or the poles' - and an evenly lit street,
+and its night was grey everywhere. Measured (the meter's readout and `rt probe`, below):
+
+- **The screen-space passes ran before part of the world.** A scene draws its meshes in two groups: the ones before
+  the first transparent material, then the rest (`kSkyFreeScenePasses`).
+  `opaque_drawn` came between the two, so every surface of the later group was drawn over what the passes did - New
+  Jersey's roads and pavements (first pass blended, flags 0x64, blend 5) among them: no sun or object shadows, no lamps'
+  pools, no decals, AO or bounce light there; the game's own skater shadow, hidden while the pass casts the objects'
+  shadows, came back only while the pass waited for the baked sun's fit. At the user's spot the sun's ray from the
+  shadow's place met the skater (the objects' casters block it) and the clouds' map kept the whole sun there (a gap:
+  2.16 x the mean beam of 0.463 at cover 0.25) - not a cloud shadow. `opaque_drawn` now comes after both groups
+  (`draw_frame.cpp`; rt_scene.h ViewListener): the skater's, the peds' and the poles' shadows, and the decals, show on
+  those roads.
+- **The lamps' switch read the pre-exposed sky** (`rt_lights.cpp lamp_sky_now`): the published state's sky is x the
+  pre-exposure, the switches in the global unit - a night's sky read 65536 x brighter; only the open sky's photocell
+  (`DayLight::lamps`) held the lamps on. The pre-exposure is divided out now.
+- **The readout gives the luminance** (`log_readout`, also on each lighting cut): the samples' median, 95th and 99.5th
+  percentiles and the brightest in cd/m^2 (a 1/4-stop histogram from 2^-24 to 2^24 in the meter's pass) with the rods'
+  share at each. `rt probe` adds the light at the probed point (`RayTracing::describe_light`): the shadows' light, whether
+  the world's and the objects' casters block it, the cloud cover, the mean beam, the direct share and the clouds' map
+  there.
+- New Jersey at full-moon midnight (0.127 lux, clouds 0.25): median 0.0036 cd/m^2 (the rods' share 0.92), 95th 0.034
+  (0.54), 99.5th 0.04 (0.50), brightest 24 cd/m^2; the moonlit asphalt at 0.004 - 0.02 cd/m^2 is at the scotopic end of
+  the mesopic range (CIE 191: 0.005 - 5 cd/m^2), so near-grey is right there. Its lamps don't reach the street at that
+  spot: of 364 lamps 44 shine (32 interiors always on, 12 glows); 300 give no light (the day bake can't tell a street
+  lamp that was off - a bake matter). City sky glow from the level's own lamps is not modelled: the bake's 6.8 x 10^7 lm
+  in all (a fifth upward, a tenth of that back over a patch ~4 km across: ~0.03 lux) is dominated by a few solved lamps
+  of 10^5 - 10^6 lm (a street lamp sends ~10^4), so it is no physical input yet; and a real city's glow is its whole
+  region's light, not one level's lamps - weather / site data, like the cloud cover.
+
 ### Round W: the air and the wind, weather surfaces through the material path
 
 Light and air are separate transports (the user, 2026-11-17: "if a ray from the sun cannot reach us without bouncing off
