@@ -1702,6 +1702,105 @@ void check_coloured_fit(const Scene& scene, Tally* tally)
                               static_cast<double>(std::get<2>(model.bounce))));
 }
 
+// (round bounce unit) The bounce's strength from the bake's own measure of it (rt_relit.h kRelitLeastBounceEvidence):
+// strips whose sky share K and bounce B rise together along them (B = 0.3 K + 0.05 - the openness both follow, which
+// the edges can't split) and strips under cover (K 0, B alone), painted alike (each strip its paint, the same set under
+// cover and in the open; 15% unevenness), baked with the sky 0.5 and the bounce 1 - the fit's sky over its bounce the
+// bake's. Without the covered strips there is no evidence: the edges' own bounce, as before.
+// (round bounce unit 2) ... and with the bake's floor: every vertex's light also a constant A (the artists' ambient) - the
+// fit's g, A and sky the bake's, where the median of colour over B (the floor counted as bounce) is far off; and the same
+// bake brighter, its colours clamped at 1 where they pass it (the original's byte at 128): the clamped ones as bounds,
+// the fit unmoved.
+void check_bounce_anchor(Tally* tally)
+{
+    text::print("the bounce's strength from the vertices only the bounce reaches (on the processor):\n");
+    constexpr float kTrueSky = 0.5F;
+    constexpr float kTrueBounce = 1.0F;
+    constexpr float kTrueFloor = 0.08F;
+    constexpr float kBright = 2.2F; // (the clamped bake's exposure: a third of its open vertices past 1)
+    constexpr uint32_t kSteps = 12;
+    constexpr float kSide = 400.0F;
+    constexpr float kUneven = 0.15F;
+    constexpr int kStrips = 12;
+    struct Bake {
+        bool covered = true;
+        float floor = 0.0F;
+        float exposure = 1.0F;
+    };
+    std::size_t clamped = 0;
+    const auto make = [&](const Bake& bake) {
+        std::vector<rt::RelitMesh> meshes;
+        std::vector<rt::RelitVertices> light;
+        uint32_t state = 1U;
+        const auto noise = [&state]() {
+            state = (state * 1664525U) + 1013904223U;
+            return (static_cast<float>((state >> 8U) & 0xFFFFU) / 65535.0F * 2.0F) - 1.0F;
+        };
+        clamped = 0;
+        for (int index = 0; index < kStrips; ++index) {
+            const bool covered = bake.covered && index % 3 == 0;
+            const float paint = 0.4F + (0.1F * static_cast<float>(index / 3));
+            rt::RelitMesh mesh;
+            const float left = static_cast<float>(index) * (kSide + 100.0F);
+            add_face(&mesh, {.corner = {left, 0.0F, 0.0F}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, 0.0F, kSide}},
+                     kSteps);
+            mesh.id = kCpuIds + static_cast<rt::MeshId>(index);
+            rt::RelitVertices vertices(mesh.positions.size());
+            for (std::size_t vi = 0; vi < mesh.positions.size(); ++vi) {
+                rt::RelitVertex& vertex = core::at(vertices, vi);
+                const float along = (rt::x_of(core::at(mesh.positions, vi)) - left) / kSide;
+                vertex.used = true;
+                vertex.normal = {0.0F, 1.0F, 0.0F};
+                vertex.sky = covered ? 0.0F : 0.1F + (0.8F * along);
+                const float bounce = covered ? 0.05F + (0.25F * along) : (0.3F * vertex.sky) + 0.05F;
+                vertex.bounce = {bounce, bounce, bounce};
+                const float y = bake.exposure * paint * (1.0F + (kUneven * noise())) *
+                                ((kTrueSky * vertex.sky) + (kTrueBounce * bounce) + bake.floor);
+                clamped += y > 1.0F ? 1 : 0;
+                const float shown = std::min(y, 1.0F); // (the original's clamp: 128 in the byte)
+                mesh.colours.push_back(to_argb({shown, shown, shown}));
+            }
+            meshes.push_back(std::move(mesh));
+            light.push_back(std::move(vertices));
+        }
+        const rt::RelitLightColours grey{};
+        return rt::fit_relit_model(meshes, light, {0.0F, 1.0F, 0.0F}, true, &grey);
+    };
+    const rt::RelitModel model = make({});
+    const float ratio = luma(model.sky) / std::max(luma(model.bounce), kTiny);
+    const float edges = model.bounce_edges > 0.0F && model.daylight_scale > 0.0F
+                            ? luma(model.sky) / model.daylight_scale / model.bounce_edges
+                            : 0.0F;
+    tally->check(model.valid && model.bounce_anchored && std::abs(ratio - kTrueSky) < 0.1F * kTrueSky &&
+                     luma(model.floor) < 0.02F * luma(model.bounce),
+                 text::format("the sky over the bounce %.3f (the bake's %.3f; the edges' alone %.3f) - the bounce told by "
+                              "%zu covered vertices, %.3f; no floor found where the bake has none (%.4f)",
+                              static_cast<double>(ratio), static_cast<double>(kTrueSky), static_cast<double>(edges),
+                              model.bounce_evidence, static_cast<double>(model.bounce_measured),
+                              static_cast<double>(luma(model.floor))));
+    const rt::RelitModel open = make({.covered = false});
+    tally->check(open.valid && !open.bounce_anchored && open.bounce_evidence == 0,
+                 text::format("no covered vertices: the edges' own bounce (%zu of the evidence, %s)", open.bounce_evidence,
+                              open.bounce_anchored ? "anchored" : "not anchored"));
+    for (const float exposure : {1.0F, kBright}) {
+        const rt::RelitModel floored = make({.floor = kTrueFloor, .exposure = exposure});
+        const float bounce = luma(floored.bounce);
+        const float sky = luma(floored.sky) / std::max(bounce, kTiny);
+        const float floor = luma(floored.floor) / std::max(bounce, kTiny);
+        tally->check(floored.valid && floored.bounce_anchored && std::abs(sky - kTrueSky) < 0.1F * kTrueSky &&
+                         std::abs(floor - kTrueFloor) < 0.2F * kTrueFloor &&
+                         floored.bounce_ratio_median > 1.2F * bounce,
+                     text::format("with a floor %.2f%s: the fit's sky over its bounce %.3f (the bake's %.3f), its floor "
+                                  "over its bounce %.3f (%.3f); the median of colour over B %.3f against the fit's g %.3f "
+                                  "(the floor counted as bounce)",
+                                  static_cast<double>(kTrueFloor),
+                                  exposure > 1.0F ? text::format(", clamped at 1 (%zu vertices)", clamped).c_str() : "",
+                                  static_cast<double>(sky), static_cast<double>(kTrueSky), static_cast<double>(floor),
+                                  static_cast<double>(kTrueFloor), static_cast<double>(floored.bounce_ratio_median),
+                                  static_cast<double>(bounce)));
+    }
+}
+
 // (added by lighting round 4) The rays meeting casters the bake didn't have (the traced geometry's own: cut-outs, night
 // pieces, other meshes): slabs high up the bake never saw throw traced shadows over the ground where the bake is sunlit
 // (hiding little of its sky) - more traced borders than the bake's own. Their borders show no step in the bake, and
@@ -2569,6 +2668,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         uneven.sun = unit(kSunToward);
         check_uneven_fit(uneven, tally);
         check_coloured_fit(uneven, tally);
+        check_bounce_anchor(tally);
         check_unbaked_casters(uneven, tally);
         check_made_vertices(uneven, tally);
     }
