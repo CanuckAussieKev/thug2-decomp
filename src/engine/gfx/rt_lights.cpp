@@ -365,9 +365,6 @@ std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles
         return core::at(emitters, one).intensity * core::at(emitters, one).reach >
                core::at(emitters, other).intensity * core::at(emitters, other).reach;
     });
-    if (order.size() > kMaxEmitters) {
-        order.resize(kMaxEmitters);
-    }
     std::vector<Emitter> sorted;
     sorted.reserve(order.size());
     if (triangle_emitter != nullptr) {

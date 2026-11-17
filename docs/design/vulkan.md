@@ -2697,6 +2697,29 @@ as a sensor records it; a starless overcast night is beyond the camera's least E
 fixed daylight (D65) white - moonlight records slightly warm, sodium lamps orange. The readout logs the camera's EV100.
 `rt_exposure` stays the player's exposure compensation.
 
+### Round light cards: cards laid on surfaces, one owner for a blended surface's lamps, no cap on the lamps
+
+- **A light card laid on a surface is that surface's light** (`engine/gfx/light_cards.h`, relit data v12). A card (an
+  additive still mesh) adds its texture x its colours over what is behind it; the relit level hides it. Where it lies on
+  a surface (parallel within about 18 degrees, the surface's vertex within twice the rays' offset of its plane, the
+  vertex's own area sampled 5 x 5 inside it) its light divided by the surface's texture colour is added to the vertex
+  colour before the fit - what the vertex colour would be had the bake put that light into it. Off a floor the card's
+  saturated core is the lamp itself and is left out. The cards' own colours are no surface's light: left out of the fit.
+  Training: 69 card triangles, 33 on a surface, 403 vertices. Its lower floor's cards are weak (blend 2, fixed alpha
+  0.08): they were not why the floor was black.
+- **Why Training's lower floor was black at night**: the floor is an alpha-blended mesh (material 9A1DDE2D, three blend-5
+  passes). The lamps pass finds a pixel's surface with a camera ray against the opaque and cut-out instances only
+  (`kLightsSurfaceMask`), so it never lit the floor; and the relit store lit no lamps per vertex while the pass owned them
+  (`lamps_drawn`). Now each surface has one owner for its lamp light: a world mesh the pass can find
+  (`WorldMesh::lit_per_pixel` - opaque, or cut out by an alpha test) by the pass, a blended one by its light store
+  (`write_streams`: its lamps x 1, each lamp's own switch in its L).
+- **No cap on a level's lamps** (`cluster_emitters`): the 4096 kept the brightest candidates; Proving Ground's whole world
+  has 8581 (721 glows) - whole districts' lamps were never looked at. A view still shines at most `kMaxViewLights`.
+- **Light cones** (reported only, `log_cones`): a blended mesh whose walls stand all round an axis from a lamp (its
+  narrow end at the lamp, opening away from it, `cone_fit`) - Training has 3 - 4 (cones under its wall lamps). Its grey
+  cones under the hall's troffers (8-vertex alpha-blended frusta, material FD86DE2E, unlit white vertex colours) hang
+  from no lamp the data holds on their axis: not told, so nothing is hidden by shape yet.
+
 ### Round W: the air and the wind, weather surfaces through the material path
 
 Light and air are separate transports (the user, 2026-11-17: "if a ray from the sun cannot reach us without bouncing off
