@@ -539,6 +539,7 @@ public:
             // (round F: the colour is the frame's linear, scene-referred light - before the tone mapping; no exposure
             // given, its unit's white diffuser is 1)
             options.colorBuffersHDR = sl::Boolean::eTrue;
+            options.preExposure = frame.pre_exposure; // (round S2: the frame's - its history taken at it)
             options.normalRoughnessMode = sl::DLSSDNormalRoughnessMode::ePacked;
             options.worldToCameraView = as_sl(view);
             options.cameraViewToWorld = as_sl(to_world);
@@ -549,6 +550,7 @@ public:
             options.outputWidth = frame.output_size.width;
             options.outputHeight = frame.output_size.height;
             options.colorBuffersHDR = sl::Boolean::eTrue; // (round F: linear light; exposure 1 - the unit's white is 1)
+            options.preExposure = frame.pre_exposure;      // (round S2: the frame's - its history taken at it)
             set = calls.dlss_options(viewport, options);
         }
         if (set != sl::Result::eOk) {

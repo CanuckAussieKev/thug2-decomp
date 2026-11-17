@@ -46,8 +46,11 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // albedos, the model's light the level's own in the global unit, the bake's exposure -, the baked sun picked by the
 // relit fit, the lamps' intensities solved with their shapes and photometry, the emissive triangles; 5 - the bake's
 // colours decoded before the fit (round F's display-referred colours: the albedos and the light linear, the colour
-// word encoded). A file of another version is out of date: the game says to run relit_bake.)
-inline constexpr uint32_t kRelitDataVersion = 5;
+// word encoded); 6 - round S: the bake's sun the real sun's disc (0.27 degrees its radius, was 1.5 - the fit's sun rays
+// and the penumbrae in the tints), and the file records the sun's radius it was made with, after the version: a file
+// made with another sun is out of date like one of another version - a change of the sun's size can't go unnoticed.
+// A file of another version is out of date: the game says to run relit_bake.)
+inline constexpr uint32_t kRelitDataVersion = 6;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.
@@ -86,6 +89,7 @@ struct RelitLevelData {
     BakedSun sun;         // (its scene number left 0: the game numbers the fits it publishes)
     RelitModel model;
     float facing = 1.0F;  // the world's winding (relit_facing)
+    float sun_radius = kRelitSunRadiusDegrees; // (round S) the sun's angular radius (degrees) the bake traced
     // how the data was made (reported)
     uint32_t sky_rays = 0;
     uint32_t sun_rays = 0;
@@ -113,8 +117,8 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
 // (added by the time of day's clock - engine/gfx/day_clock.h) The level's own facts from the start of its file alone -
 // its scene, verdict and baked sun's direction: what the simulation's clock needs when the level arrives (the level's
 // own day, and whether the data is there for the time of day), read without the rest (the vertices' parts are the
-// renderer's). kRelitHeadBytes is enough of the file for it. `stale`: a relit data file of another version (made by an
-// older relit bake - out of date).
+// renderer's). kRelitHeadBytes is enough of the file for it. `stale`: a relit data file of another version, or made with
+// another sun's size than kRelitSunRadiusDegrees (made by an older relit bake - out of date).
 struct RelitLevelHead {
     uint32_t scene = 0;
     bool stale = false;
@@ -124,7 +128,8 @@ struct RelitLevelHead {
 };
 inline constexpr std::size_t kRelitHeadBytes = 128;
 bool read_relit_head(std::string_view bytes, RelitLevelHead* out);
-// Whether the bytes are a relit data file of another version than this game's (out of date: run relit_bake again).
+// Whether the bytes are a relit data file of another version than this game's or made with another sun's size (out of
+// date: run relit_bake again).
 [[nodiscard]] bool relit_data_stale(std::string_view bytes);
 // A mesh's content hash (what the data keys it by): its positions, its triangles (RelitMesh's, as the RayTracing numbers
 // them) and its made vertices' sources. Not its colours: the game writes them (scene lights at a change of the time of

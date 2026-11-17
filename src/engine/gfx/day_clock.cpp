@@ -156,6 +156,44 @@ struct Clock {
     rt::DayVec placed_sun{};
     std::string status = "tod: level (the level as it is)";
 };
+
+// (round S2) The lighting's cuts (rt_daylight.h DayLight::cut): the light published last and its cut - kept apart from
+// Clock, which starts again when the level's scripts give the clock the level back.
+struct Cuts {
+    uint64_t cut = 0;
+    bool known = false;
+    uint32_t level = 0;
+    rt::TodChoice choice;
+    double moon_setting = 0.0;
+    rt::DayLight last;
+};
+Cuts& cuts()
+{
+    static Cuts state;
+    return state;
+}
+
+// The cut for `light` (the clock's, about to be published): the same as the last one while only the running clock moved
+// it (tod_cycle: the hours, and with them the sun, the moon and the light), a new one when anything else did - another
+// level, a time, a moon or a weather set, the clouds' cover.
+uint64_t cut_for(const rt::DayLight& light, uint32_t level, const rt::TodChoice& choice, const rt::TodSettings& settings)
+{
+    Cuts& own = cuts();
+    const rt::DayLight& last = own.last;
+    const bool same_inputs = own.known && own.level == level && own.choice == choice &&
+                             own.moon_setting == settings.moon_age && last.cloud_cover == light.cloud_cover;
+    const bool moved = last.hours != light.hours || last.illuminance_lux != light.illuminance_lux ||
+                       last.moon_age != light.moon_age || last.sun != light.sun || last.lamps != light.lamps;
+    if (!same_inputs || (!settings.cycle && moved)) {
+        ++own.cut;
+    }
+    own.known = true;
+    own.level = level;
+    own.choice = choice;
+    own.moon_setting = settings.moon_age;
+    own.last = light;
+    return own.cut;
+}
 // (the exposure is the camera's alone - the HDR pass meters the picture: gpu_vulkan/vulkan_hdr.h; changed by the
 // physical air: the clock's own exposure, a second controller, retired)
 
@@ -535,6 +573,7 @@ void step()
     rt::DayLight light =
         rt::day_light_at(own.native, stepped, {.moon_age = age, .cloud_cover = rt::cloud_coverage()});
     rt::pre_expose(&light);
+    light.cut = cut_for(light, level, choice, settings);
     rt::set_day_light(light);
     apply_original(own, *manager, light, settings.lighting_only);
     place_sun(own, light);

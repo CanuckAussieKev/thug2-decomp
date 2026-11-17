@@ -20,6 +20,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -474,6 +475,7 @@ struct LaterProbe {
 
 struct Scene {
     bool installed = false;
+    uint64_t history_cut = 0; // (round S2) the lighting's cut the temporal histories were last started again for
     VkDevice device = nullptr;
     VkDeviceSize scratch_alignment = 1;
     std::string device_name;
@@ -1797,6 +1799,17 @@ void VulkanRayTracing::begin_frame(const rt::FrameRecord& record)
     Scene& made = scene();
     if (!made.installed || !state.draws_made) {
         return;
+    }
+    // (round S2) a lighting cut shown (rt_daylight.h DayLight::cut - a time, a moon, a weather set; the world's light
+    // made for it): what the temporal effects remember is another lighting's, at another pre-exposure - every history
+    // starts again, seeded in this frame, as at a camera cut (vulkan_rt_history.h). The running clock is no cut.
+    const uint64_t cut = rt::day_light().cut;
+    if (cut != made.history_cut && !rt::cut_settling()) {
+        made.history_cut = cut;
+        rt_effects_reset_history(state);
+        rt_gi_reset_history(state);
+        rt_fog_reset_history(state);
+        rt_sky_reset_history();
     }
     if (state.materials.ready() && !state.materials.make_visible(state)) {
         get_log("vulkan: ray tracing: the material table's changes couldn't be made visible (out of memory)");

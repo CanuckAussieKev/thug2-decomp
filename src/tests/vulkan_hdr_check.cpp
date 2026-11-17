@@ -607,6 +607,61 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                      text::format("pre-exposed 64 x: metered %.5f (the light 0.5 / 64), %.3f stops (%.3f), factor %.6f",
                                   static_cast<double>(pre.reading.mean), static_cast<double>(pre.reading.stops),
                                   static_cast<double>(pre_stops), static_cast<double>(pre.reading.factor)));
+        // (round S2) the pre-exposure moving with no cut (the clock running): the frame's values x 64 for the same
+        // physical light - the eye's state is physical, so the shown picture doesn't jump and nothing is out of range
+        {
+            constexpr float kSteady = 0.25F;
+            constexpr uint16_t kQuarter = 0x3400;         // 0.25
+            constexpr uint16_t kQuarterBy64 = 0x4C00;     // 16 = 0.25 x 64
+            render::rt::DayLight lit;
+            lit.on = true;
+            lit.cut = 7;
+            lit.pre_exposure = 1.0F;
+            render::rt::set_day_light(lit);
+            render::rt::note_cut_shown(7);
+            std::this_thread::sleep_for(std::chrono::milliseconds(600));
+            const bool one = fill_grey(gpu, target, kQuarter);
+            const Metered at_one = meter_pass(gpu, target, whole);
+            lit.pre_exposure = 64.0F;
+            render::rt::set_day_light(lit);
+            const bool sixty_four = fill_grey(gpu, target, kQuarterBy64);
+            const Metered at_64 = meter_pass(gpu, target, whole);
+            tally->check(one && sixty_four && at_one.ran && at_64.ran && std::isfinite(at_64.shown) &&
+                             std::abs(at_64.shown - at_one.shown) < kTolerance &&
+                             std::abs(at_64.reading.stops - at_one.reading.stops) < kTolerance &&
+                             std::abs(at_64.reading.mean - kSteady) < kTolerance * kSteady,
+                         text::format("the pre-exposure 1 -> 64 with no cut: shown %.4f -> %.4f (no jump, finite), "
+                                      "the eye %.3f -> %.3f stops, metered %.4f (the physical light)",
+                                      static_cast<double>(at_one.shown), static_cast<double>(at_64.shown),
+                                      static_cast<double>(at_one.reading.stops),
+                                      static_cast<double>(at_64.reading.stops), static_cast<double>(at_64.reading.mean)));
+            // a lighting cut (a time set): the eye starts again at the new view's target - not adapting from the old
+            // lighting's state (a night's eye on a dusk was 4 stops over for a second or two); the same change with no
+            // cut adapts over time
+            lit.pre_exposure = 1.0F;
+            render::rt::set_day_light(lit);
+            std::this_thread::sleep_for(std::chrono::milliseconds(600));
+            const bool dark_view = fill_grey(gpu, target, kDark);
+            const Metered dark_eye = meter_pass(gpu, target, whole);
+            const bool bright_view = fill_grey(gpu, target, kHalfSixteen);
+            const Metered no_cut = meter_pass(gpu, target, whole);
+            const bool dark_again = fill_grey(gpu, target, kDark);
+            const Metered dark_eye_again = meter_pass(gpu, target, whole);
+            lit.cut = 8;
+            render::rt::set_day_light(lit);
+            render::rt::note_cut_shown(8);
+            const bool bright_again = fill_grey(gpu, target, kHalfSixteen);
+            const Metered cut = meter_pass(gpu, target, whole);
+            render::rt::set_day_light({});
+            const float bright_target = vk::meter_target_stops(vk::kMeterBrightest, vk::kEyeMostStops);
+            tally->check(dark_view && bright_view && dark_again && bright_again && dark_eye.ran && no_cut.ran &&
+                             dark_eye_again.ran && cut.ran && std::abs(cut.reading.stops - bright_target) < kTolerance &&
+                             no_cut.reading.stops > bright_target + 1.0F,
+                         text::format("a lighting cut from a dark view to a bright one: the eye at its target at once "
+                                      "(%.3f stops, the target %.3f); with no cut still adapting (%.3f)",
+                                      static_cast<double>(cut.reading.stops), static_cast<double>(bright_target),
+                                      static_cast<double>(no_cut.reading.stops)));
+        }
         // the key law: night's exposure stays under day's (the view shown darker), no further than the scotopic floor
         const float day_mean = 0.18F;
         const float night_mean = 0.18F * 2.5e-6F;  // (a full moon's light over the reference day's)

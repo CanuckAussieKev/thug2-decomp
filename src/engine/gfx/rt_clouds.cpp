@@ -558,7 +558,7 @@ CloudSkyLight cloud_sky_light(const std::vector<std::array<float, 4>>& table)
 namespace {
 struct CoverSlots {
     std::mutex mutex;
-    std::array<float, static_cast<std::size_t>(CloudCoverSource::kCount)> cover{-1.0F, -1.0F, -1.0F, -1.0F};
+    std::array<float, static_cast<std::size_t>(CloudCoverSource::kCount)> cover{-1.0F, -1.0F, -1.0F};
 };
 CoverSlots& cover_slots()
 {
@@ -655,12 +655,26 @@ float cloud_cover_of(CloudCoverSource source)
     return cover_of(slots, source);
 }
 
+float weather_cloud_cover(Weather weather)
+{
+    switch (weather) {
+    case Weather::kClear:
+        return kClearAirCover;
+    case Weather::kHazy:
+        return kHazyAirCover;
+    case Weather::kMisty:
+        return kMistyAirCover;
+    }
+    return kClearAirCover;
+}
+
 float cloud_coverage()
 {
+    const Weather air = weather(); // (rt_sky.h: its own lock - taken before the slots')
     CoverSlots& slots = cover_slots();
     const std::scoped_lock lock(slots.mutex);
     const float settings = cover_of(slots, CloudCoverSource::kSettings);
-    const float base = settings >= 0.0F ? settings : std::max(cover_of(slots, CloudCoverSource::kLevelSky), 0.0F);
+    const float base = settings >= 0.0F ? settings : weather_cloud_cover(air);
     const float cover =
         std::max({base, cover_of(slots, CloudCoverSource::kSnow), cover_of(slots, CloudCoverSource::kRain)});
     return std::clamp(cover, 0.0F, 1.0F);

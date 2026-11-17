@@ -22,12 +22,10 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
-#include "engine/gfx/rain.h"
 #include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
-#include "engine/gfx/rt_sky_match.h"
 #include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -52,7 +50,6 @@ constexpr uint64_t kReportFirst = 0x534B5003U;
 constexpr uint64_t kReportImages = 0x534B5004U;
 constexpr uint64_t kReportNoRoom = 0x534B5005U;
 constexpr uint64_t kReportNoSun = 0x534B5006U;
-constexpr uint64_t kReportNoCapture = 0x534B5007U;
 constexpr uint64_t kReportShadows = 0x534B5008U;
 constexpr uint64_t kReportCloudMap = 0x534B5009U;
 
@@ -1430,56 +1427,6 @@ Stamps begin_timing(Backend& state, VkCommandBuffer commands, const std::array<u
 
 // --- the level's sky (vulkan_rt_sky_pass.h step 0) ------------------------------------------------------------------------
 
-// The capture read back and analysed (false: none, or it can't be read).
-bool read_capture(Backend& state, const rt::SkyCapture& capture, rt::SkyLook* look)
-{
-    Texture* texture = capture.texture != nullptr ? object(capture.texture) : nullptr;
-    if (texture == nullptr || capture.face_size == 0) {
-        return false;
-    }
-    Image* image = &texture->image;
-    const bool bgra = image->format == VK_FORMAT_B8G8R8A8_UNORM || image->format == VK_FORMAT_B8G8R8A8_SRGB;
-    const bool rgba = image->format == VK_FORMAT_R8G8B8A8_UNORM || image->format == VK_FORMAT_R8G8B8A8_SRGB;
-    if ((!bgra && !rgba) || !finish_work(state)) {
-        return false;
-    }
-    std::vector<uint8_t> bytes(static_cast<std::size_t>(image->extent.width) * image->extent.height * 4);
-    if (!state.memory.read_image_level(image, 0, &bytes)) {
-        return false;
-    }
-    constexpr double kBytes = 255.0;
-    const auto byte_of = [](float value) {
-        return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * kBytes));
-    };
-    *look = rt::analyse_sky({.bytes = bytes,
-                             .face_size = capture.face_size,
-                             .bgra = bgra,
-                             .clear = {byte_of(core::at(capture.clear, 0)), byte_of(core::at(capture.clear, 1)),
-                                       byte_of(core::at(capture.clear, 2))}});
-    return true;
-}
-
-// The clouds' coverage: rt_cloud_coverage, or (auto) how cloudy the level's dome is - lighter than the dome's share: its
-// painted clouds are flat cards and haze, and a clear painted sky should stay mostly clear; at most kCoverageMost, an
-// overcast only when asked for. (Only the amount of cloud is the level's: the sky's and the clouds' colours are the
-// atmosphere's at the time of day - the dome's colours are not matched, rt_sky_match retired.)
-float coverage_for(const RtSkySettings& settings, const rt::SkyLook& look)
-{
-    constexpr double kCoverageBase = 0.2;
-    constexpr double kCoverageShare = 0.7;
-    constexpr double kCoverageMost = 0.75;
-    return settings.coverage >= 0.0F
-               ? std::clamp(settings.coverage, 0.0F, 1.0F)
-               : static_cast<float>(std::clamp(kCoverageBase + (kCoverageShare * look.coverage), 0.0, kCoverageMost));
-}
-
-void log_level(const RtSkyLevel& level, uint32_t scene)
-{
-    const rt::SkyLook& look = level.look;
-    get_log("vulkan: rt_sky: the level's sky (scene %08x): clouds %.0f%% of the dome%s - the clouds' coverage %.2f", scene,
-            100.0 * look.coverage, look.valid ? "" : " (too little of it to read)", static_cast<double>(level.coverage));
-}
-
 // The sun the sky is drawn for: the visible one, else a default (logged once).
 std::array<float, 3> sky_sun(Backend& state)
 {
@@ -1496,45 +1443,27 @@ std::array<float, 3> sky_sun(Backend& state)
 }
 
 // The level's sky read again when needed (a new capture, the settings changed) and the atmosphere's input for the sun
-// drawn - the clock's (rt::DayLight: its sun, the night sky's light) or, without it, the visible one. Work is finished
-// for the read-back: the caller takes a new command buffer after.
-bool ensure_level(Backend& state, const std::array<float, 3>& drawn)
+// drawn - the clock's (rt::DayLight: its sun, the night sky's light) or, without it, the visible one.
+bool ensure_level(const std::array<float, 3>& drawn)
 {
     SkyPassState& own = pass_state();
     const rt::SkyCapture capture = rt::sky_capture();
     const bool new_capture = capture.serial != own.level.capture_serial;
     if (!own.level_read || new_capture || own.level_settings != own.settings_serial) {
         if (new_capture) {
-            rt::SkyLook look;
-            if (capture.serial != 0 && read_capture(state, capture, &look)) {
-                own.level.look = look;
-            } else {
-                own.level.look = rt::SkyLook{};
-                if (capture.serial == 0 && first_report(state, kReportNoCapture)) {
-                    get_log("vulkan: rt_sky: no capture of the level's sky yet - the clouds' default coverage until "
-                            "there is");
-                }
-            }
             own.level.capture_serial = capture.serial;
             // (another level's sky: the clouds' histories start again - seeded in their next pass)
             for (const std::unique_ptr<SkySlot>& slot : own.slots) {
                 slot->has_history = false;
             }
         }
-        own.level.coverage = coverage_for(own.settings, own.level.look);
-        // (round S) the level's own sky's cover, one of the weather's (rt_clouds.h cloud_coverage: the settings' when
-        // given, at least the precipitation's) - the light and the drawn clouds read the same
-        rt::set_cloud_cover(rt::CloudCoverSource::kLevelSky, coverage_for(RtSkySettings{}, own.level.look));
-        if (new_capture && capture.serial != 0) {
-            log_level(own.level, capture.scene);
-        }
         own.level_read = true;
         own.level_settings = own.settings_serial;
     }
-    // (added by the rain - engine/gfx/rain.h cloud_cover) the weather's deck over the level's own clouds: rain falls from a
-    // deck covering the sky. (The clouds' cover doesn't yet dim the sun's or the sky's light on the level - DayLight is the
-    // clear sky's; the sky's state round, renderer-hack-audit.md S6.)
-    own.level.coverage = std::max(coverage_for(own.settings, own.level.look), static_cast<float>(rain::cloud_cover(rain::settings().rate)));
+    // (round S2) the clouds' cover is the weather's - rt_clouds.h cloud_coverage: rt_cloud_coverage, else the air's
+    // typical cover, at least the snow's and the rain's deck; the light, the drawn clouds and their shadows read the same.
+    // (The level's painted dome is no longer read for it: the original's sky texture is art, not weather.)
+    own.level.coverage = rt::cloud_coverage();
     const rt::DayLight day = rt::day_light();
     own.level.atmosphere.sun = drawn;
     own.level.atmosphere.night = day.on ? day.night_sky : std::array<float, 3>{};
@@ -1975,7 +1904,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     }
     // 0 - 1: the level's sky read, the atmosphere's tables
     const std::array<float, 3> sun = sky_sun(state);
-    if (!ensure_level(state, sun)) {
+    if (!ensure_level(sun)) {
         return false;
     }
     VkCommandBuffer commands = outside_pass(state);
@@ -2060,6 +1989,9 @@ void set_rt_sky_settings(const RtSkySettings& settings)
         }
         set_table_follows_sky_view(kept.on);
     }
+    // (round S2) the settings' cover is the weather's first source (rt_clouds.h cloud_coverage - the app sets the same
+    // from the ini: renderer_choice.cpp)
+    rt::set_cloud_cover(rt::CloudCoverSource::kSettings, kept.coverage >= 0.0F ? kept.coverage : -1.0F);
     rt::set_sky_replacement({.on = kept.on, .keep_layers = !kept.clouds});
     rt::set_sky_capture_wanted(kept.on || water_settings().on); // (NOT ORIGINAL - rt_water reflects the captured sky too)
     if (kept.on) {
@@ -2095,12 +2027,19 @@ void prepare_rt_sky(Backend& state)
         return;
     }
     const std::array<float, 3> sun = sky_sun(state);
-    if (ensure_level(state, sun)) {
+    if (ensure_level(sun)) {
         update_atmosphere(state, outside_pass(state), own.level.atmosphere);
     }
 }
 
 uint64_t rt_sky_passes() { return pass_state().passes; }
+
+void rt_sky_reset_history()
+{
+    for (const std::unique_ptr<SkySlot>& slot : pass_state().slots) {
+        slot->has_history = false;
+    }
+}
 
 RtSkyLevel rt_sky_level() { return pass_state().level; }
 

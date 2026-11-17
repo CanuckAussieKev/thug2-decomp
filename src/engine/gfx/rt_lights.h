@@ -154,11 +154,16 @@ struct LevelEmitters {
 void set_level_emitters(LevelEmitters emitters);
 [[nodiscard]] std::shared_ptr<const LevelEmitters> level_emitters();
 // (added by the light energy audit - docs/design/vulkan.md "Each light counted once") How much the lamps pass lights
-// now (0 - 1: its lamps' amount, 0 while it draws nothing): on the objects and characters it then owns the level's own
+// (0 - 1: its lamps' amount, 0 when it doesn't own them): on the objects and characters it then owns the level's own
 // lights - the light field's local light (rt_light_field.h local_at) gives way to it by as much
-// (render_pc/pc_lights.cpp), as relit's residual does on the world (the larger of the two there). The pass sets it each
-// view it records or skips.
-void set_lamps_drawn(float amount);
+// (render_pc/pc_lights.cpp), as relit's per-vertex lamps do on the world. (Round S2: one state, not the last frame's:
+// whether the pass owns the lamps is its settings' - rt_lights on, a strength, ray tracing, the pass made -, set when
+// they are put to use (set_lamps_owner); the amount is the lighting state's lamps then. Before, the pass set it each
+// view it recorded - 0 until its first one and between views -, so a level's first light took the lamps per vertex as
+// well and kept them, a light set later didn't: the same night lit two ways.)
+// `automatic`: rt_lights=auto - the lamps the clock's, without it those of a dark level (lamps_on); else the clock's or
+// all of them.
+void set_lamps_owner(bool owner, bool automatic);
 [[nodiscard]] float lamps_drawn();
 // (lighting round A) How much the lamps are on - one rule for the lamps pass and relit's per-vertex lamps: the clock's
 // lamps (rt_daylight.h DayLight::lamps) while it lights the level; without it 1 in a dark level (LevelEmitters::dark),

@@ -281,7 +281,7 @@ render::vulkan::RtSunSettings make_rt_sun(const Resolution& in_effect)
 }
 
 // NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h).
-// rt_cloud_coverage: auto (the level's own sky) or 0 - 1.
+// rt_cloud_coverage: auto (the weather's - engine/gfx/rt_clouds.h weather_cloud_cover) or 0 - 1.
 render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
 {
     float cover = render::vulkan::kRtCloudCoverageAuto;

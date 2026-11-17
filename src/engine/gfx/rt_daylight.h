@@ -272,6 +272,10 @@ struct DayLight {
     // pre_expose)
     float illuminance_lux = 0.0F;
     float pre_exposure = 1.0F;
+    // (round S2) the lighting's cut: a new number each time the light changed by more than the running clock - a time,
+    // a moon or a weather set, another level (day_clock). What holds light from before (the relit world's colours, the
+    // passes' histories, the eye's adaptation) is from another lighting then, not an earlier moment of this one.
+    uint64_t cut = 0;
     uint64_t serial = 0;      // (set_day_light numbers each change)
 };
 // The light at `hours` on the level's day with the moon `moon_age` days old and the clouds `cloud_cover` (0 - 1:
@@ -288,6 +292,14 @@ void pre_expose(DayLight* light);
 // The published state's pre-exposure (1 while the clock is off) - what the passes that add light of their own multiply
 // by, and the meter divides out.
 [[nodiscard]] float frame_pre_exposure();
+// (round S2) The world shows the cut's light: what draws the level's light from a store of its own (the relit world:
+// its colours written over frames toward a light) says so once its store holds the light of `cut` - at once when it
+// doesn't light the level. cut_settling: the published light's cut not shown yet (at most kCutMostSeconds after it
+// came) - the eye (gpu_vulkan/vulkan_hdr.h's meter) follows the picture without adapting meanwhile, and the relight
+// takes the frame's time it needs.
+inline constexpr double kCutMostSeconds = 3.0;
+void note_cut_shown(uint64_t cut);
+[[nodiscard]] bool cut_settling();
 // (lighting round A2 - one light unit for every level) The sun's and the sky's light in the global unit (DayLight's
 // sun_light / sky_light) with the sun `elevation` degrees up in the frame's air (rt_sky.h aerosol(); a table a degree,
 // made again when the weather changes) - the sun's direct light x the share of its disc above the horizon; clear sky.

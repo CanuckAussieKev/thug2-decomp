@@ -238,7 +238,7 @@ inline constexpr float kRtCloudCoverageAuto = -1.0F;
 struct RtSkySettings {
     bool on = false;
     bool clouds = false;           // volumetric clouds in the sky
-    float coverage = kRtCloudCoverageAuto; // 0 - 1, or auto (negative): from the level's own sky
+    float coverage = kRtCloudCoverageAuto; // 0 - 1, or auto (negative): the weather's (rt_clouds.h)
     float speed = 1.0F;            // x the clouds' drift (0: still)
     unsigned quality = 1;          // 0: quarter resolution, 32 steps; 1: half, 48; 2: full, 96
     bool cloud_shadows = false;    // the clouds' shadows on the level (darkening, not ray traced)

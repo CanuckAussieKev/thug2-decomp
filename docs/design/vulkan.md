@@ -1702,8 +1702,8 @@ their depth and stay in front of any sky).
   own time scaled by the hour's brightness (and matched to the dome): noon blue on the dawn clouds' shade, and with the
   horizon band 2 - 3 x the hemisphere's mean the shade outshone the sun's side - white clouds at dawn. The clouds now
   take nothing of the dome's colour (its cloud hue and brightness were a gain on them); at 06:10 their sun side is
-  warm, at dusk peach and gold. Coverage auto from the level (0.2 + 0.7 x its share, at most 0.75: a painted sky's grey
-  cards and haze count as cloud, and a clear one should stay mostly clear), or `rt_cloud_coverage`. The layer is a
+  warm, at dusk peach and gold. Coverage `rt_cloud_coverage`, auto the weather's (round S2: the air's typical cover -
+  read from the level's painted dome before, 0.2 + 0.7 x its share). The layer is a
   shell round the planet
   (`cloud_layer_span`): a level ray meets its base 134 km off and the far clouds sink toward the horizon (d^2 / 2R: 197 m
   at 50 km), foreshortened; the march stops 40 km into the layer and the composite fades the clouds into the sky by e per
@@ -2393,6 +2393,46 @@ implement TOD, we need TOD"). `engine/gfx/rt_daylight.h`, `rt_clouds.h`, `gpu_vu
   pollution over a city from its lamps' upward light; the overcast sky's radiance distribution in the light store (the
   drawn clouds have it; the store takes the mean on a level surface); the eye's slow dark adaptation (minutes) - the
   meter keeps its seconds; the night's emissive art textures (unlit game colours) still at the frame's pre-exposed scale.
+
+#### Round S2: one lighting at a time (the lighting's cut, the bounce, the lamps' owner, the weather's cover)
+
+Changing the time or the moon while playing left the picture blown out or wrong for seconds, while the same settings
+from a fresh start looked otherwise. The meter's readout (below) showed three stores holding light of the lighting
+before - none of it a 16-bit overflow (no sample over the format's range in any run):
+
+- **The eye** carried its adaptation across: a night's eye (+14 stops) on a dusk (target +5.7) was 4 stops over for a
+  second or two; a dusk's eye on a night under for three.
+- **The vertices' bounce** (relit's B, traced from the relit colours themselves, one more bounce a pass) started from the
+  light before: a fresh start's from the bake's (the level's own time, not pre-exposed), a live change's from the last
+  lighting (at its pre-exposure). A new-moon night kept a dusk's bounce - 11 x the fresh start's light, for good.
+- **The lamps' owner** was the lamps pass's last frame (`set_lamps_drawn`, 0 until its first view and between views): a
+  level's first light took the lamps per vertex as well as the pass shining them, a light set later didn't.
+
+Now:
+
+- **The lighting's cut** (`DayLight::cut`, made by the clock): a new number whenever the light changed by more than the
+  running clock - a time, a moon, a weather or a cloud cover set, another level. What holds light keyed to a lighting
+  starts again at a cut: the eye starts at its target and follows the picture without adapting while the world's light
+  is still being made (`cut_settling`, at most `kCutMostSeconds`); relit restarts the vertices' bounce from none (its
+  passes add the new light's bounces) and hurries the relight as a first light; once the world shows the cut's light
+  (`note_cut_shown`: the relight, the light field and the bounce passes done) the temporal histories start again,
+  seeded (the one-bounce light, the occlusion, the fog, the clouds) - the camera cut's rule (`vulkan_rt_history.h`).
+  The running clock is no cut: everything follows it as it goes, the upscalers told the frame's pre-exposure
+  (`preExposure`, FSR's and DLSS's) so their history is taken at it.
+- **The lamps' owner** is the settings' (`set_lamps_owner`: rt_lights on, a strength, ray tracing, the pass made) and
+  the amount the lighting state's: relit, the objects and the pass read one state.
+- **The weather's cover**: `rt_cloud_coverage=auto` is the air's typical cover (`weather_cloud_cover`, in oktas: clear
+  1/8, hazy 2/8, misty 6/8; rain and snow their decks) - the painted dome's reading (0.2 + 0.7 x its clouds' share; BO's
+  noon kept 0.35 of the sun) and the dome's analysis (`rt_sky_match`'s bands) retired.
+- **Relit data** records the sun's radius it was baked with (version 6): data of another sun's size is out of date.
+- **The meter's readout** (`vulkan_hdr.cpp` log_readout): when the pre-exposure changes, every half second for 8 s -
+  the pre-exposure, the eye's stops and target, the metered physical luminance (cd/m^2), the brightest sample and the
+  samples over the 16-bit range (or not a number) and negative; any over-range sample at most every 5 s after.
+
+Still to come: relit's colour words hold pre-exposed light in 8 bits (display-encoded, at most 255/128), so a
+pre-exposure change needs every vertex written again - a store of physical light (a shared exponent) with the frame's
+pre-exposure applied where it is drawn would make the change atomic without the hurried relight. The emissive art (lamp
+heads, glow cards) and the original's light cards are still game colours, unscaled by the pre-exposure (A3).
 
 ### Time of day (`tod`, `tod_cycle`)
 

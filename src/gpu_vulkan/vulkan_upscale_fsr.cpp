@@ -152,7 +152,7 @@ public:
         dispatch.enableSharpening = frame.sharpness > 0.0F;
         dispatch.sharpness = frame.sharpness;
         dispatch.frameTimeDelta = frame.frame_milliseconds;
-        dispatch.preExposure = 1.0F;
+        dispatch.preExposure = frame.pre_exposure; // (round S2: the frame's - its history taken at it)
         dispatch.reset = frame.reset;
         dispatch.cameraNear = frame.near_z;
         dispatch.cameraFar = frame.far_z;

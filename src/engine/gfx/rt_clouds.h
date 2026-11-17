@@ -30,6 +30,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "engine/gfx/rt_sky.h"
+
 namespace render::rt {
 
 inline constexpr uint32_t kCloudShapeSize = 128;
@@ -108,7 +110,7 @@ struct CloudNoise {
 // clumps (b; taken whole toward overcast: x coverage^4); and the share of the shape's range the cover opens up.
 [[nodiscard]] double cloud_cover(const std::array<double, 4>& weather, double coverage);
 // The model's amount (what cloud_density, CloudRay and the device take as `coverage`) for a coverage as the settings
-// give it (rt_cloud_coverage, the match's auto): the share of the sky the clouds cover - about that much of the sky
+// give it (rt_cloud_coverage, or auto: the weather's - weather_cloud_cover): the share of the sky the clouds cover - about that much of the sky
 // above 12 degrees has cloud in it (the model's own amount turns from none to overcast over a narrow range: kCloudAmounts,
 // measured by the sky check's sweep, spreads it out). Piecewise linear between tenths.
 inline constexpr std::array<double, 11> kCloudAmounts{0.0,   0.5,   0.55, 0.575, 0.595, 0.617,
@@ -179,10 +181,22 @@ struct CloudSkyLight {
 // --- (round S - clouds dim the light) the weather's cloud cover, one state ------------------------------------------
 // The coverage (rt_cloud_coverage's meaning: the share of the sky the clouds cover, 0 - 1) every reader takes - the sky
 // pass's drawn clouds, the clouds' shadow map and the lighting state's light (rt_daylight.h) -: the settings' value
-// when given (kSettings), else the level's own sky's (kLevelSky: rt_cloud_coverage=auto, the sky pass's reading of the
-// level's dome; none until read), and at least what the precipitation needs (kSnow: snow.h overcast_share; kRain: the
-// rain's overcast from its rain rate). A negative value: that source has none.
-enum class CloudCoverSource : uint8_t { kSettings, kLevelSky, kSnow, kRain, kCount };
+// when given (kSettings), else the weather's (rt_cloud_coverage=auto: weather_cloud_cover for the air - rt_sky.h
+// weather()), and at least what the precipitation needs (kSnow: snow.h overcast_share; kRain: the rain's overcast from
+// its rain rate). A negative value: that source has none. (Round S2: the level's painted dome is no source - the
+// original's sky texture is art, not weather; its reading, 0.2 + 0.7 x its clouds' share, kept 0.35 of BO's noon sun.)
+enum class CloudCoverSource : uint8_t { kSettings, kSnow, kRain, kCount };
+// (round S2) The weather's typical cloud cover for its air (rt_sky.h Weather - rt_fog_air), in the observers' oktas
+// (WMO: the eighths of the sky covered; METAR's FEW 1-2, SCT 3-4, BKN 5-7, OVC 8):
+//   - clear (40 km visibility): the clean air behind a front - fair-weather cumulus, FEW: 1 okta;
+//   - hazy (10 km): a summer anticyclone's haze - subsidence keeps cloud down, FEW: 2 oktas;
+//   - misty (2 km at the ground): a saturated boundary layer - low stratus over it, BKN: 6 oktas.
+// Typical values, not a law (visibility doesn't fix the cloud); an explicit rt_cloud_coverage gives any other.
+inline constexpr float kOkta = 1.0F / 8.0F;
+inline constexpr float kClearAirCover = 1.0F * kOkta;
+inline constexpr float kHazyAirCover = 2.0F * kOkta;
+inline constexpr float kMistyAirCover = 6.0F * kOkta;
+[[nodiscard]] float weather_cloud_cover(Weather weather);
 void set_cloud_cover(CloudCoverSource source, float coverage);
 [[nodiscard]] float cloud_cover_of(CloudCoverSource source);
 [[nodiscard]] float cloud_coverage();

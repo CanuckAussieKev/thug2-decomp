@@ -123,6 +123,10 @@ private:
     std::size_t at_ = 0;
 };
 
+// (round S) A file's recorded sun radius is this game's (the bake's exact constant written as a float: equal, but
+// compared with room for the float's rounding)
+bool same_sun(float radius) { return std::abs(radius - kRelitSunRadiusDegrees) < 1e-4F; }
+
 } // namespace
 
 const char* relit_verdict_name(RelitVerdict verdict)
@@ -226,6 +230,7 @@ std::string write_relit_data(const RelitLevelData& data)
     Writer out;
     out.put(kRelitDataMagic);
     out.put(kRelitDataVersion);
+    out.put(data.sun_radius);
     out.put(data.scene);
     out.put(data.content);
     out.put(static_cast<uint32_t>(data.verdict));
@@ -317,6 +322,9 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
     }
     if (!in.get(&version) || version != kRelitDataVersion) {
         return fail("made by another version of the relit bake - out of date");
+    }
+    if (!in.get(&data.sun_radius) || !same_sun(data.sun_radius)) {
+        return fail("made with another sun's size - out of date");
     }
     if (!in.get(&data.scene) || !in.get(&data.content) || !in.get(&verdict) || !in.get(&data.sky_rays) ||
         !in.get(&data.sun_rays) || !in.get(&data.lamps) || !in.get(&data.sun_margin) || !in.get(&data.model_margin) ||
@@ -415,7 +423,8 @@ bool read_relit_head(std::string_view bytes, RelitLevelHead* out)
     if (!in.get(&magic) || magic != kRelitDataMagic || !in.get(&version)) {
         return false;
     }
-    if (version != kRelitDataVersion) {
+    float sun_radius = 0.0F;
+    if (version != kRelitDataVersion || !in.get(&sun_radius) || !same_sun(sun_radius)) {
         *out = RelitLevelHead{.stale = true};
         return true; // (a relit data file - out of date)
     }
@@ -439,7 +448,11 @@ bool relit_data_stale(std::string_view bytes)
     Reader in(bytes);
     uint32_t magic = 0;
     uint32_t version = 0;
-    return in.get(&magic) && magic == kRelitDataMagic && in.get(&version) && version != kRelitDataVersion;
+    float sun_radius = 0.0F;
+    if (!in.get(&magic) || magic != kRelitDataMagic || !in.get(&version)) {
+        return false;
+    }
+    return version != kRelitDataVersion || !in.get(&sun_radius) || !same_sun(sun_radius);
 }
 
 } // namespace render::rt

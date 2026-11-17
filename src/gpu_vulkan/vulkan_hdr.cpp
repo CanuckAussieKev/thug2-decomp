@@ -229,6 +229,9 @@ constexpr const char* kMeterBody = R"(
 layout(local_size_x = METER_SIDE, local_size_y = METER_SIDE) in;
 shared float s_light[METER_SIDE * METER_SIDE];
 shared float s_weight[METER_SIDE * METER_SIDE];
+shared float s_over[METER_SIDE * METER_SIDE];
+shared float s_brightest[METER_SIDE * METER_SIDE];
+shared float s_negative[METER_SIDE * METER_SIDE];
 
 void main()
 {
@@ -236,12 +239,21 @@ void main()
     float grid = float(METER_SIDE * METER_EACH);
     float light = 0.0;
     float weight = 0.0;
+    float over = 0.0;
+    float negative = 0.0;
+    float brightest = 0.0;
     for (int j = 0; j < METER_EACH; ++j) {
         for (int i = 0; i < METER_EACH; ++i) {
             vec2 uv = (vec2(gl_LocalInvocationID.xy * uint(METER_EACH) + uvec2(i, j)) + 0.5) / grid;
             ivec2 p = ivec2(pc.meter_rect.xy) + ivec2(uv * pc.meter_rect.zw);
             vec3 c = texelFetch(u_colour, p, 0).rgb;
+            // (round S2 - the readout) a sample at the frame format's largest or beyond (an overflow to infinity) or not
+            // a number, and one with a negative channel: counted; the brightest finite one kept
+            float most = max(c.r, max(c.g, c.b));
+            over += most < kLargest ? 0.0 : 1.0;
+            negative += min(c.r, min(c.g, c.b)) < 0.0 ? 1.0 : 0.0;
             c = vec3(finite(c.r), finite(c.g), finite(c.b));
+            brightest = max(brightest, dot(c, vec3(0.2126, 0.7152, 0.0722)));
             float l = clamp(dot(c, vec3(0.2126, 0.7152, 0.0722)), METER_LEAST, METER_BRIGHTEST * pc.night.x);
             vec2 d = uv - 0.5;
             float w = exp(-dot(d, d) / (2.0 * METER_CENTRE * METER_CENTRE));
@@ -251,11 +263,17 @@ void main()
     }
     s_light[id] = light;
     s_weight[id] = weight;
+    s_over[id] = over;
+    s_brightest[id] = brightest;
+    s_negative[id] = negative;
     barrier();
     for (uint half_count = uint(METER_SIDE * METER_SIDE) / 2u; half_count > 0u; half_count >>= 1u) {
         if (id < half_count) {
             s_light[id] += s_light[id + half_count];
             s_weight[id] += s_weight[id + half_count];
+            s_over[id] += s_over[id + half_count];
+            s_brightest[id] = max(s_brightest[id], s_brightest[id + half_count]);
+            s_negative[id] += s_negative[id + half_count];
         }
         barrier();
     }
@@ -276,6 +294,9 @@ void main()
             now = was + (target - was) * (1.0 - exp(-pc.meter.z / seconds));
         }
         u_meter.slots[slot] = vec4(exp2(now) / pc.night.x, now, mean, target);
+        // (round S2 - the readout, after the slots) the samples over the format's range or not a number, the brightest
+        // (pre-exposed), the pre-exposure metered with, the samples with a negative channel
+        u_meter.slots[METER_SLOTS + slot] = vec4(s_over[0], s_brightest[0], pc.night.x, s_negative[0]);
     }
 }
 )";
@@ -309,6 +330,7 @@ struct MeterSlot {
     uint64_t last_use = 0;
     bool started = false;
     std::chrono::steady_clock::time_point last_pass;
+    uint64_t cut = 0; // (round S2) the lighting's cut it adapted in (rt_daylight.h DayLight::cut)
 };
 
 struct HdrState {
@@ -330,6 +352,13 @@ struct HdrState {
     DeviceBuffer meter_buffer;
     std::array<MeterSlot, kMeterSlots> meter_slots{};
     uint64_t meter_uses = 0;
+    // (round S2) the meter's readout: its buffer copied each pass into memory the processor reads (a frame or two
+    // behind), logged while the pre-exposure changes and for kReadoutSeconds after (log_readout)
+    DeviceBuffer meter_read;
+    float readout_pre = 0.0F;
+    double readout_last = -1.0;
+    std::chrono::steady_clock::time_point readout_until;
+    std::chrono::steady_clock::time_point readout_logged;
     bool failed = false;
     uint64_t passes = 0;
     uint64_t upscales_seen = 0; // (round F) the upscaler's passes counted at the last pass
@@ -750,6 +779,7 @@ VkPipeline meter_pipeline(Backend& state, bool multisampled, std::string* error)
     define("METER_DAY_ADAPTED", real(static_cast<float>(adaptation_at(kDaylightAverage))));
     define("EYE_DARKEST", real(kEyeDarkest));
     define("METER_BRIGHTEST", real(kMeterBrightest));
+    define("METER_SLOTS", std::to_string(kMeterSlots));
     define("METER_CENTRE", real(kMeterCentre));
     define("METER_DARKEN", real(kMeterDarkenSeconds));
     define("METER_BRIGHTEN", real(kMeterBrightenSeconds));
@@ -790,9 +820,12 @@ bool ensure_meter_buffer(Backend& state)
     }
     constexpr std::size_t kSlotBytes = 4 * sizeof(float);
     own.meter_slots = {};
-    return state.memory.create_buffer(static_cast<VkDeviceSize>(kMeterSlots * kSlotBytes),
-                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                      BufferPlace::kDevice, &own.meter_buffer);
+    // (the slots, then each slot's readout - round S2)
+    constexpr auto kBytes = static_cast<VkDeviceSize>(2 * kMeterSlots * kSlotBytes);
+    return state.memory.create_buffer(kBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                      BufferPlace::kDevice, &own.meter_buffer) &&
+           state.memory.create_buffer(kBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferPlace::kReadBack,
+                                      &own.meter_read);
 }
 
 // The slot of the viewport `rect` of a target `target` large (the least recently used one given up for a new one).
@@ -836,6 +869,15 @@ void record_meter(VkCommandBuffer commands, VkPipeline pipeline, std::size_t slo
             seconds = 0.0;
         }
     }
+    // (round S2) a lighting cut (a time, a moon, a weather set: rt_daylight.h DayLight::cut) - the eye's state is from
+    // another lighting, not a moment before this one: it starts again at its target, and follows the picture without
+    // adapting while the world's light is still being made for the cut (cut_settling) - as the passes' histories start
+    // again at a camera cut (vulkan_rt_history.h). The clock running is no cut: the eye adapts to it as it goes.
+    const uint64_t cut = rt::day_light().cut;
+    if (cut != slot.cut || rt::cut_settling()) {
+        seconds = 0.0;
+        slot.cut = cut;
+    }
     slot.started = true;
     slot.last_pass = now;
     constants->meter = {static_cast<float>(slot_index), 1.0F, static_cast<float>(seconds),
@@ -859,6 +901,73 @@ void record_meter(VkCommandBuffer commands, VkPipeline pipeline, std::size_t slo
     after.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
                          nullptr, 1, &after, 0, nullptr);
+    // (round S2) the readout's copy for the processor
+    if (own.meter_read.buffer != VK_NULL_HANDLE) {
+        VkBufferMemoryBarrier to_copy = before;
+        to_copy.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        to_copy.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+                             nullptr, 1, &to_copy, 0, nullptr);
+        const VkBufferCopy region{.srcOffset = 0, .dstOffset = 0, .size = own.meter_read.bytes};
+        vkCmdCopyBuffer(commands, own.meter_buffer.buffer, own.meter_read.buffer, 1, &region);
+        VkBufferMemoryBarrier to_host = before;
+        to_host.buffer = own.meter_read.buffer;
+        to_host.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        to_host.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+        vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0, nullptr, 1,
+                             &to_host, 0, nullptr);
+    }
+}
+
+// (round S2) The meter's readout in the log: the frame's pre-exposure, the eye's exposure (stops, and the factor on the
+// pre-exposed light), the metered physical light and its target, the brightest sample and the samples over the
+// format's range - from the last pass's copy the processor can read (a frame or two behind: the readout of a pass
+// finished). Logged when the pre-exposure changes and every kReadoutEvery for kReadoutSeconds after, and whenever a
+// sample is over the range (at most every kOverEvery).
+void log_readout(Backend& state, std::size_t slot_index, float pre)
+{
+    HdrState& own = hdr();
+    constexpr double kReadoutSeconds = 8.0;
+    constexpr double kReadoutEvery = 0.5;
+    if (own.meter_read.buffer == VK_NULL_HANDLE || own.meter_read.mapped == nullptr) {
+        return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (pre != own.readout_pre) {
+        if (own.readout_pre > 0.0F) {
+            get_log("vulkan: rt_hdr: the pre-exposure %.6g -> %.6g", static_cast<double>(own.readout_pre),
+                    static_cast<double>(pre));
+        }
+        own.readout_pre = pre;
+        own.readout_until = now + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                      std::chrono::duration<double>(kReadoutSeconds));
+    }
+    if (std::chrono::duration<double>(now - own.readout_logged).count() < kReadoutEvery) {
+        return;
+    }
+    constexpr std::size_t kVec4 = 4;
+    std::array<float, 2 * kVec4> values{};
+    vmaInvalidateAllocation(state.memory.allocator(), own.meter_read.allocation, 0, VK_WHOLE_SIZE);
+    const std::span<const uint8_t> mapped(static_cast<const uint8_t*>(own.meter_read.mapped),
+                                          static_cast<std::size_t>(own.meter_read.bytes));
+    const std::size_t slot_bytes = kVec4 * sizeof(float);
+    std::memcpy(values.data(), mapped.subspan(slot_index * slot_bytes, slot_bytes).data(), slot_bytes);
+    std::memcpy(&core::at(values, kVec4), mapped.subspan((kMeterSlots + slot_index) * slot_bytes, slot_bytes).data(),
+                slot_bytes);
+    const float over = core::at(values, 4);
+    constexpr double kOverEvery = 5.0; // (outside the window: a sample over the range logged at most this often)
+    if (now >= own.readout_until &&
+        (!(over > 0.0F) || std::chrono::duration<double>(now - own.readout_logged).count() < kOverEvery)) {
+        return;
+    }
+    own.readout_logged = now;
+    get_log("vulkan: rt_hdr: meter: pre-exposure %.6g (metered with %.6g), eye %+.2f stops heading for %+.2f (x %.4g on "
+            "the frame), metered %.4g cd/m^2, the brightest sample %.5g; of %u samples %.0f over the frame's range or not "
+            "a number, %.0f negative",
+            static_cast<double>(pre), static_cast<double>(core::at(values, 6)), static_cast<double>(core::at(values, 1)),
+            static_cast<double>(core::at(values, 3)), static_cast<double>(core::at(values, 0)),
+            static_cast<double>(core::at(values, 2)) * meter_white(), static_cast<double>(core::at(values, 5)),
+            kMeterGrid * kMeterGrid, static_cast<double>(over), static_cast<double>(core::at(values, 7)));
 }
 
 // An image like `like` (format, size, samples) for `usage`, made again when any of them changed.
@@ -1474,6 +1583,7 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
         const std::size_t slot = meter_slot_of(shown, colour->extent);
         vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
                                   static_cast<uint32_t>(writes.size()), writes.data());
+        log_readout(state, slot, core::at(constants.night, 0));
         record_meter(commands, meter, slot, &constants);
     }
     // the pass: one triangle over the viewport
@@ -1610,6 +1720,7 @@ void release_hdr(Backend& state)
         state.memory.destroy_image(&own.resolved);
         state.memory.destroy_buffer(&own.lut_buffer);
         state.memory.destroy_buffer(&own.meter_buffer);
+        state.memory.destroy_buffer(&own.meter_read);
     }
     own.meter_slots = {};
     own.pipelines.clear();

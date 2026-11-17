@@ -54,6 +54,9 @@ struct UpscaleFrame {
     std::array<float, 2> jitter{}; // the projection's offset in pixels of `render` (x right, y down)
     bool reset = false;            // the history thrown away (the first frame, a new size)
     float sharpness = 0.0F;
+    // (round S2) the colour's pre-exposure (rt_daylight.h frame_pre_exposure: the light x it): given to the provider, so
+    // its history - made at earlier frames' pre-exposure - is taken at this frame's (both SDKs' preExposure)
+    float pre_exposure = 1.0F;
     float frame_milliseconds = kFrameMilliseconds;
     float near_z = 1.0F;
     float far_z = kFarZ;

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -219,6 +220,8 @@ struct Published {
     TodSettings settings;
     uint64_t settings_serial = 0;
     DayLight light;
+    uint64_t cut_shown = 0;                        // (round S2) note_cut_shown's
+    std::chrono::steady_clock::time_point cut_came; // when the light's cut changed
 };
 Published& published()
 {
@@ -236,7 +239,7 @@ bool same_light(const DayLight& a, const DayLight& b)
            a.stars_pole == b.stars_pole && a.blend == b.blend && a.sun_light == b.sun_light &&
            a.sky_light == b.sky_light && a.moon_age == b.moon_age && a.moon_radiance == b.moon_radiance &&
            a.cloud_cover == b.cloud_cover && a.cloud_beam == b.cloud_beam && a.cloud_sky == b.cloud_sky &&
-           a.illuminance_lux == b.illuminance_lux && a.pre_exposure == b.pre_exposure;
+           a.illuminance_lux == b.illuminance_lux && a.pre_exposure == b.pre_exposure && a.cut == b.cut;
 }
 
 } // namespace
@@ -813,8 +816,28 @@ void set_day_light(const DayLight& light)
         return;
     }
     const uint64_t serial = slot.light.serial + 1;
+    if (light.cut != slot.light.cut) {
+        slot.cut_came = std::chrono::steady_clock::now();
+    }
     slot.light = light;
     slot.light.serial = serial;
+}
+
+void note_cut_shown(uint64_t cut)
+{
+    Published& slot = published();
+    const std::scoped_lock lock(slot.mutex);
+    slot.cut_shown = cut;
+}
+
+bool cut_settling()
+{
+    Published& slot = published();
+    const std::scoped_lock lock(slot.mutex);
+    if (!slot.light.on || slot.light.cut == slot.cut_shown) {
+        return false;
+    }
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - slot.cut_came).count() < kCutMostSeconds;
 }
 
 DayLight day_light()

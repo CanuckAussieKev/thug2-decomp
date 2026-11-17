@@ -263,6 +263,10 @@ struct State {
     Pace bounce_pace;
     Pace write_pace;
     bool hurried = false;
+    // (round S2) a lighting cut's relight (rt_daylight.h cut_settling): hurried as a first light - the light before the
+    // cut is another lighting, at another pre-exposure, not a moment to roll in from
+    bool cut_hurried = false;
+    uint64_t bounce_cut = 0; // (round S2) the lighting's cut the vertices' bounce B was started again for
     std::chrono::steady_clock::time_point frame_start{}; // (update's start this frame: the parts share kRelitFrameMs)
     Job job; // (the trace asked of the device, answered a frame or two later - one at a time)
 };
@@ -927,7 +931,7 @@ void start_trace(Job::Kind kind, std::size_t budget, rt::RayTracing& tracer, con
     Gathered parts;
     gather(st.order, bounce, &parts);
     rt::RelitStats stats;
-    if (!st.hurried) {
+    if (!(st.hurried || st.cut_hurried)) {
         trace_part(kind, parts, wanted, tracer, settings, &stats, &ask);
         if (ask.requests.empty()) { // (no ray to ask - the share all turned from the sun: answered as it is)
             ask.answered = true;
@@ -1012,7 +1016,7 @@ void retrace(rt::RayTracing& tracer, const rt::RelitSettings& settings)
     if (!any_stale) {
         return;
     }
-    start_trace(Job::Kind::kSun, paced_vertices(st.sun_pace, kRelitRetraceVertices, st.hurried), tracer, settings);
+    start_trace(Job::Kind::kSun, paced_vertices(st.sun_pace, kRelitRetraceVertices, (st.hurried || st.cut_hurried)), tracer, settings);
 }
 
 // The bounce traced again for entries whose bounce is another sun's - once every sun is traced, from the colours as
@@ -1070,7 +1074,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
         if (entry.hits_for == hits_key) {
             continue;
         }
-        if (!st.hurried && ms_since(start) >= frame_left()) {
+        if (!(st.hurried || st.cut_hurried) && ms_since(start) >= frame_left()) {
             return; // (the rest next frame)
         }
         // (the colours the rays bring back: as relit now)
@@ -1083,7 +1087,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
         }
         entry.hits_for = hits_key;
     }
-    start_trace(Job::Kind::kBounce, paced_vertices(st.bounce_pace, kRelitBounceVertices, st.hurried), tracer,
+    start_trace(Job::Kind::kBounce, paced_vertices(st.bounce_pace, kRelitBounceVertices, (st.hurried || st.cut_hurried)), tracer,
                 settings);
 }
 
@@ -1141,7 +1145,7 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
         }
         const std::size_t vertices = std::min(entry.input.positions.size(), entry.light.size());
         for (std::size_t vi = entry.field_done; vi < vertices; ++vi) {
-            if (!st.hurried && vi % kFieldTimed == 0 && ms_since(start) >= share) {
+            if (!(st.hurried || st.cut_hurried) && vi % kFieldTimed == 0 && ms_since(start) >= share) {
                 entry.field_done = vi;
                 return; // (the rest next frame - inside a mesh too)
             }
@@ -1216,7 +1220,7 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
     // light spread over frames, as the original's time of day colours a part of the level a frame (paced: at most
     // kRelitWriteVertices)
     const bool budgeted = rt::day_light().on;
-    const std::size_t paced = paced_vertices(st.write_pace, kRelitWriteVertices, st.hurried);
+    const std::size_t paced = paced_vertices(st.write_pace, kRelitWriteVertices, (st.hurried || st.cut_hurried));
     std::size_t budget = paced;
     const auto start = std::chrono::steady_clock::now();
     struct Change {
@@ -1309,6 +1313,25 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
 {
     State& st = state();
     st.frame_start = std::chrono::steady_clock::now();
+    // (round S2) the lighting's cut shown once the world's colours hold its light: at once on every way out below but
+    // the relit one, which says whether its relight toward the published light is done
+    const rt::DayLight published = rt::day_light();
+    struct CutNote {
+        uint64_t cut = 0;
+        bool shown = true;
+        CutNote(const CutNote&) = delete;
+        CutNote& operator=(const CutNote&) = delete;
+        CutNote(CutNote&&) = delete;
+        CutNote& operator=(CutNote&&) = delete;
+        explicit CutNote(uint64_t of) : cut(of) {}
+        ~CutNote()
+        {
+            if (shown) {
+                rt::note_cut_shown(cut);
+            }
+        }
+    } note(published.cut);
+    st.cut_hurried = rt::cut_settling();
     const rt::RelitSettings settings = rt::relit_settings();
     if (!settings.on) {
         if (st.status != Status::kOff) {
@@ -1374,6 +1397,20 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
                        (day.on ? day.light_radius : rt::kRelitSunRadiusDegrees) != st.radius ||
                        day_serial != st.day_serial;
     if (newer && !relight_running()) {
+        // (round S2) a lighting cut: the vertices' bounce B is light of another lighting - the bake's (the level's own
+        // time, not pre-exposed) or the light before the cut (at its pre-exposure) - and each bounce pass traces it
+        // round again: a night's bounce kept a dusk's light. It starts again from none, its passes from the first (each
+        // adds one more bounce of the new light: kRelitBouncePasses of them)
+        if (published.on && published.cut != st.bounce_cut) {
+            st.bounce_cut = published.cut;
+            for (auto& [buffer, entry] : st.entries) {
+                (void)buffer;
+                for (rt::RelitVertex& vertex : entry.light) {
+                    vertex.bounce = {};
+                }
+            }
+            st.bounce_light_sun = {};
+        }
         ++st.relights;
         st.sky_model = sky_model;
         st.day_serial = day_serial;
@@ -1431,6 +1468,9 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         make_light_field(lighting, light); // (the one lighting path)
     }
     rt::note_sun_used(rt::SunUser::kRelit, true, st.sun);
+    // (the relight's writes and the light field done, and the new light's bounce passes - started again at the cut)
+    note.shown = st.day_serial == (published.on ? published.serial : 0) && !relight_running() &&
+                 st.bounce_passes >= kRelitBouncePasses && st.bounce_begun == st.bounce_finished;
 }
 
 rt::BakedSun new_world(std::span<const WorldMesh> world)
