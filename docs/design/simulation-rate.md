@@ -286,6 +286,8 @@ Proof (2026-11-17, a workspace, x64 RelWithDebInfo of main bc5f0fcb6 + the switc
 recorded with it equal the references recorded before the single-player rule (d850aad53's parent) on every frame of all
 four demos on the four original fields (skater, objects, random, clock - 693 + 1177 + 713 + 624 frames); the
 single-player references differ from those from frame 5 (objects) in every demo - so the set tells the rules apart.
+Then `--fps 0,120,144,240 --load 0,7` under both rules: 64 / 64 runs equal on every frame with QB scripts, and 64 / 64
+with TypeScript scripts (unpacked, `ts_scripts=1`).
 In a net game the switch changes nothing (the rule is on there anyway); what a real net game adds besides - the
 AbsentInNetGames nodes not made, components that ignore suspension online (`!net::in_net_game() && far`) - is the
 original's own code, unchanged.
