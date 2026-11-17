@@ -1260,7 +1260,7 @@ bool moving_material(const MaterialRef* material)
 // (lighting round A3 - the original's light cards) A world mesh drawn additively, its texture still (not water or a
 // moving effect): the halos round lamps, light cones, pools and starbursts the artists drew where light is - the lamps'
 // evidence (glows), never light of their own: the relit level hides them (rt_relit_world.h WorldMesh::glow).
-bool glow_card(const MaterialRef* material) { return additive_first_pass(material) && !moving_material(material); }
+bool glow_card(const MaterialRef* material) { return rt::light_card(blend_mode(material, 0), moving_material(material)); }
 
 // The level's median triangle brightness (the bake's luma, 128 its white): every n-th triangle of the coloured meshes.
 float median_luma()
@@ -1331,6 +1331,9 @@ float texel_luma(const std::array<uint8_t, 4>& texel)
 struct TextureLook {
     texel::Image image;
     float median = 0.0F;
+    uint32_t format = 0;     // (reported) its format ...
+    float brightest = 0.0F;  // ... and its brightest texel's luminance
+    std::size_t lamp_texels = 0; // ... and its texels that show a lamp (rt_lights.h lamp_texel)
 };
 const TextureLook& texture_look(const MaterialRef* material, std::unordered_map<const void*, TextureLook>* cache)
 {
@@ -1346,6 +1349,9 @@ const TextureLook& texture_look(const MaterialRef* material, std::unordered_map<
     }
     GpuLevelDesc desc;
     GpuLockedRect locked;
+    if (gpu().texture_level_desc(texture->texture, 0, &desc) == gpu_value::kResultOk) {
+        look.format = desc.format;
+    }
     if (gpu().texture_level_desc(texture->texture, 0, &desc) != gpu_value::kResultOk || !texel::decodable(desc.format) ||
         gpu().lock_texture(texture->texture, 0, &locked, nullptr, gpu_value::kLockReadOnly) != gpu_value::kResultOk) {
         return look;
@@ -1369,6 +1375,14 @@ const TextureLook& texture_look(const MaterialRef* material, std::unordered_map<
         const auto middle = lumas.begin() + static_cast<std::ptrdiff_t>(lumas.size() / 2);
         std::ranges::nth_element(lumas, middle);
         look.median = *middle;
+        constexpr float kByte = 1.0F / 255.0F;
+        for (const std::array<uint8_t, 4>& texel : look.image.texels) {
+            look.brightest = std::max(look.brightest, texel_luma(texel));
+            const std::array<float, 3> linear{rt::linear_from_display(static_cast<float>(std::get<0>(texel)) * kByte),
+                                              rt::linear_from_display(static_cast<float>(std::get<1>(texel)) * kByte),
+                                              rt::linear_from_display(static_cast<float>(std::get<2>(texel)) * kByte)};
+            look.lamp_texels += rt::lamp_texel(linear, look.median) ? 1 : 0;
+        }
     }
     return look;
 }
@@ -1445,6 +1459,8 @@ void emitter_work()
     }
     const float facing = world_facing();
     std::unordered_map<const void*, TextureLook> textures;
+    std::size_t skipped_blended = 0; // (reported: the meshes not looked at - blended, or no copy to read)
+    std::size_t skipped_unread = 0;
     std::vector<rt::EmitterTriangle> triangles;
     for (const MeshRef* mesh : st.world) {
         if (!mesh_shown(mesh)) {
@@ -1460,11 +1476,15 @@ void emitter_work()
         const uint32_t mode = blend_mode(material, 0);
         const bool opaque = (entry->second.material.flags & (rt::kTransparent | rt::kAlphaTested)) == 0U &&
                             (mode == kBlendNone || mode == static_cast<uint32_t>(kBlendModeVertexTexAlpha));
-        if (!glow && !(bake && opaque)) {
+        // (round A3: a candidate's surface is drawn solid - not blended; an alpha test cuts its holes, not its light)
+        const bool solid = (entry->second.material.flags & rt::kTransparent) == 0U;
+        if (!glow && !(bake && (opaque || solid))) {
+            skipped_blended += glow ? 0 : 1;
             continue;
         }
         std::vector<MeshTriangles> read;
         if (!mesh_triangles(mesh, false, glow, &read)) {
+            skipped_unread += 1;
             continue;
         }
         const MeshTriangles& tris = read.front();
@@ -1514,6 +1534,26 @@ void emitter_work()
                                                  : found.textured_triangles) += 1;
             triangles.push_back(triangle);
         }
+    }
+    if (bake) {
+        // (reported) the textures the textured candidates were looked for in
+        std::size_t decoded = 0;
+        std::size_t with_lamps = 0;
+        std::string unread;
+        for (const auto& [handle, look] : textures) {
+            if (look.image.empty()) {
+                if (unread.size() < 80) {
+                    unread += text::format(" %08x", look.format);
+                }
+                continue;
+            }
+            ++decoded;
+            with_lamps += look.lamp_texels > 0 ? 1 : 0;
+        }
+        get_log("rt: lights: the bake's textured candidates - %zu textures read, %zu decoded (not:%s), %zu with lamp "
+                "texels; %zu textured triangles (meshes not looked at: %zu blended, %zu without a copy to read)",
+                textures.size(), decoded, unread.empty() ? " none" : unread.c_str(), with_lamps,
+                found.textured_triangles, skipped_blended, skipped_unread);
     }
     found.emitters = rt::cluster_emitters(triangles, &found.triangle_emitter, facing);
     // (lighting round A2 - one lamp model) a level relit from its data shines its data's lamps - their intensities

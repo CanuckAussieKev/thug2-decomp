@@ -42,6 +42,16 @@
 namespace render::rt {
 
 enum class EmitterKind : uint8_t { kGlow = 0, kSelfLit = 1, kPoint = 2, kTextured = 3 };
+// (lighting round A3 - the original's light cards) A world mesh whose first pass adds (blend mode 1 - add - or 2 - add
+// by the fixed alpha) and whose texture doesn't move (no UV wibble or texture animation: not water, not an effect) is a
+// light card: a halo, light cone, pool or starburst the artists drew round a lamp. It is the lamp's evidence (a glow -
+// the relit bake finds lamps by it) and never light of its own: the relit level hides it (render_pc rt_relit_world).
+inline constexpr uint32_t kCardBlendAdd = 1;
+inline constexpr uint32_t kCardBlendFixedAdd = 2;
+[[nodiscard]] constexpr bool light_card(uint32_t first_pass_blend, bool moving_texture)
+{
+    return (first_pass_blend == kCardBlendAdd || first_pass_blend == kCardBlendFixedAdd) && !moving_texture;
+}
 // (round A3) A candidate the bake must confirm (its light seen in the bake) - not an artist's glow or a point light.
 [[nodiscard]] constexpr bool candidate_kind(EmitterKind kind)
 {

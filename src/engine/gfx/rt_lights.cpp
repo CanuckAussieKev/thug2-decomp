@@ -151,8 +151,9 @@ bool emitter_of(const Cluster& cluster, float facing, Emitter* out)
     // (lighting round A2) a flat self-lit cluster facing down - its triangles' fronts, by the world's winding - is a
     // ceiling's lit panel, a light; facing up (or the winding unknown) a pool of light baked on the floor
     const bool facing_down = facing != 0.0F && core::at(cluster.normals, 1) * static_cast<double>(facing) < 0.0;
-    if (flat_up && !(cluster.kind == EmitterKind::kSelfLit && facing_down)) {
-        if (cluster.kind == EmitterKind::kSelfLit) {
+    // (round A3: a textured candidate as a self-lit one - a lit panel on a ceiling stays on it, never lifted)
+    if (flat_up && !(candidate_kind(cluster.kind) && facing_down)) {
+        if (candidate_kind(cluster.kind)) {
             return false; // (a baked pool of light on the floor, not a lamp)
         }
         std::get<1>(centre) += core; // (a glow's pool: the light falls from above it - half its brightness at its middle)

@@ -417,6 +417,33 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         // (round A2) each lamp's intensity solved from the bake (no level-wide c); (round A3) in every bake - the bake's
         // light tells which were on (told above the fit's noise), no "dark level" or lamps-on guess
         rt::solve_relit_lamps(meshes, light, links, lamps, &model);
+        {
+            // (reported, the first candidates: what each lights and what the bake told of it)
+            std::vector<std::size_t> reach(lamps.size(), 0);
+            for (const rt::RelitMeshLinks& mesh_links : links) {
+                for (const rt::RelitLampLink& link : mesh_links.links) {
+                    if (link.lamp < reach.size()) {
+                        core::at(reach, link.lamp) += 1;
+                    }
+                }
+            }
+            std::size_t shown = 0;
+            for (std::size_t li = 0; li < lamps.size() && shown < 12; ++li) {
+                const rt::RelitLamp& lamp = core::at(lamps, li);
+                if (!rt::candidate_kind(lamp.kind)) {
+                    continue;
+                }
+                ++shown;
+                get_log("relit bake: candidate %zu (%s, shape %u) at %.0f %.0f %.0f core %.0f reach %.0f - lights %zu "
+                        "vertices; %s, light %.3f %.3f %.3f",
+                        li, lamp.kind == rt::EmitterKind::kTextured ? "textured" : "self-lit",
+                        static_cast<unsigned>(lamp.shape), static_cast<double>(rt::x_of(lamp.position)),
+                        static_cast<double>(rt::y_of(lamp.position)), static_cast<double>(rt::z_of(lamp.position)),
+                        static_cast<double>(lamp.core), static_cast<double>(lamp.reach), core::at(reach, li),
+                        lamp.solved ? "told lit" : "not told", static_cast<double>(std::get<0>(lamp.light)),
+                        static_cast<double>(std::get<1>(lamp.light)), static_cast<double>(std::get<2>(lamp.light)));
+            }
+        }
         data.model_margin = sunless ? (luma(model.sky) + luma(model.bounce)) / rt::kRelitMinSunLight
                                     : luma(model.sun) / rt::kRelitMinSunLight;
         if (model.valid) {
@@ -578,12 +605,12 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         median_kelvin = *middle;
     }
     get_log("relit bake: the lamps' solve - %zu %zu %zu edges, %zu of %zu lamps told by the bake (the rest by their own "
-            "surfaces' radiance; %zu told dark, the lit ones %.3f %.3f %.3f x their surfaces' light, median, %.2f at the "
+            "surfaces' radiance; %zu told dark - %zu of them none at all, the lit ones %.3f %.3f %.3f x their surfaces' light, median, %.2f at the "
             "95th percentile); shapes: %zu points, %zu panels, %zu lines; %.0f lumens in all, "
             "median %.0f K; %zu emissive triangles; the bake's light the model doesn't explain dropped - brighter at %zu "
             "vertices, darker (its shadows the rays don't see) at %zu, told across meshes at %zu",
             core::at(model.lamp_votes, 0), core::at(model.lamp_votes, 1), core::at(model.lamp_votes, 2),
-            model.lamps_solved, data.lamp_list.size(), model.lamps_dark, static_cast<double>(std::get<0>(model.lamp_median)),
+            model.lamps_solved, data.lamp_list.size(), model.lamps_dark, model.lamps_zero, static_cast<double>(std::get<0>(model.lamp_median)),
             static_cast<double>(std::get<1>(model.lamp_median)), static_cast<double>(std::get<2>(model.lamp_median)),
             static_cast<double>(std::get<1>(model.lamp_high)),
             core::at(shapes, 0), core::at(shapes, 1), core::at(shapes, 2), lumens, static_cast<double>(median_kelvin),

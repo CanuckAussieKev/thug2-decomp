@@ -361,6 +361,11 @@ void check_sources(Tally* tally)
                      !rt::self_lit_triangle(90.0F, 30.0F) && rt::candidate_kind(rt::EmitterKind::kSelfLit) &&
                      rt::candidate_kind(rt::EmitterKind::kTextured) && !rt::candidate_kind(rt::EmitterKind::kGlow),
                  "self-lit candidates: far brighter than the level's median, a candidate the bake must confirm");
+    // (round A3) the original's light cards: an additive still mesh (hidden in the relit level, a glow's evidence for the
+    // bake); not a blended one (the bake's shadows' rule), not water or a moving effect, not an opaque surface
+    tally->check(rt::light_card(1, false) && rt::light_card(2, false) && !rt::light_card(1, true) &&
+                     !rt::light_card(0, false) && !rt::light_card(5, false),
+                 "a light card: drawn additively, its texture still - not opaque, blended or moving");
     // (round A3) a lamp drawn in a texture: near white or a lamp's colour, far over its texture's median
     tally->check(rt::lamp_texel({0.9F, 0.9F, 0.85F}, 0.1F) && rt::lamp_texel({1.0F, 0.7F, 0.3F}, 0.1F) &&
                      !rt::lamp_texel({0.9F, 0.9F, 0.85F}, 0.6F) && !rt::lamp_texel({1.0F, 0.1F, 0.1F}, 0.05F) &&

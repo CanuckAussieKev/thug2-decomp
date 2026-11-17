@@ -248,6 +248,7 @@ struct RelitModel {
     Rgbf lamp_median{};                      // ... and the solved lamps' median intensity over their found brightness
     std::size_t lamps_solved = 0;            // the lamps the bake's edges told (the rest: their own surfaces' light)
     std::size_t lamps_dark = 0;              // ... of them told dark (no light of theirs in the bake)
+    std::size_t lamps_zero = 0;              // (round A3) ... of those solved to no light at all (the rest under the noise)
     Rgbf lamp_high{};                        // ... the lit ones' 95th percentile over their own surfaces' light
     // (reported) the vertices whose bake differs from the model by kRelitLampLow or more: brighter (lamps the list
     // doesn't hold, the bake's sun where the rays saw a caster) and darker (the bake's shadows where the rays saw the
@@ -426,7 +427,7 @@ void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices
 void relit_mesh_lamp_light(const RelitMesh& mesh, RelitVertices* light, const RelitMeshLinks& links,
                            std::span<const RelitLamp> lamps, std::span<const float> on = {});
 // (lighting round A3) Each lamp's switch (RelitLamp::switch_sky), once its light is in the global unit: over the
-// vertices it lights, weighted by its geometry there, its light (luma) and their sky share K - the switch is the open
+// vertices it lights (each alike: the area it lights), its light there (luma) and their sky share K - the switch is the open
 // sky's light at which the sky's (x K) equals its own; kLampAlwaysOn where they see no sky (under kRelitNoSky).
 inline constexpr float kRelitNoSky = 1e-3F;
 void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLinks& links, std::span<RelitLamp> lamps);

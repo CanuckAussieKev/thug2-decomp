@@ -2122,10 +2122,11 @@ void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLi
                 if (link.lamp >= lamps.size()) {
                     continue;
                 }
-                const double weight = link.weight;
-                core::at(weights, link.lamp) += weight;
-                core::at(lit, link.lamp) += weight * weight * static_cast<double>(luma(core::at(lamps, link.lamp).light));
-                core::at(sky, link.lamp) += weight * static_cast<double>(vertex.sky);
+                // (each surface it lights counts alike - the area it lights, not its own fixture next to it)
+                core::at(weights, link.lamp) += 1.0;
+                core::at(lit, link.lamp) +=
+                    static_cast<double>(link.weight) * static_cast<double>(luma(core::at(lamps, link.lamp).light));
+                core::at(sky, link.lamp) += static_cast<double>(vertex.sky);
             }
         }
     }
@@ -2313,6 +2314,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
     };
     model->lamps_solved = 0;
     model->lamps_dark = 0;
+    model->lamps_zero = 0;
     model->lamp_votes = {};
     model->lamp_median = {};
     if (lamps.empty()) {
@@ -2386,9 +2388,12 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                 }
                 const double base =
                     static_cast<double>(luma(model_light(without, without.sun, vertex, without.toward))) + lamps_here;
+                // (weighted by its geometry: where it lights most - not diluted by the far edge of its reach)
                 for (const RelitLampLink& link : here) {
-                    core::at(part, link.lamp) += static_cast<double>(luma(core::at(solved, link.lamp))) * link.weight;
-                    core::at(whole, link.lamp) += base;
+                    const double weight = link.weight;
+                    core::at(part, link.lamp) +=
+                        weight * static_cast<double>(luma(core::at(solved, link.lamp))) * link.weight;
+                    core::at(whole, link.lamp) += weight * base;
                 }
             }
         }
@@ -2400,6 +2405,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
         const double share = core::at(whole, li) > 0.0 ? core::at(part, li) / core::at(whole, li) : 0.0;
         lamp.solved = told_all && share >= noise;
         model->lamps_dark += told_all && !lamp.solved ? 1 : 0;
+        model->lamps_zero += told_all && !lamp.solved && !(luma(core::at(solved, li)) > 0.0F) ? 1 : 0;
         model->lamps_solved += lamp.solved ? 1 : 0;
         if (lamp.solved) {
             lamp.light = core::at(solved, li);
