@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "engine/gfx/grass.h"
@@ -37,7 +38,9 @@
 //          share kept passes its rank: (keep - rank) / kGrassGrowBand) - far blades sink into the ground they are the
 //          colour of;
 //        - its bend (the tip's move along the ground): its own lean (up to kGrassLean of the height, across its face),
-//          the wind's sway (kGrassWind of the height, downwind, two slow waves over the ground), and each pusher within
+//          the wind's bend (round W: a blade a cantilever bent by the wind's drag - grass_wind_bend - in the wind at its
+//          tip: the one wind's near the ground x the level's air there (vulkan_air.h) x its gusts, carried downwind
+//          at the wind's speed), and each pusher within
 //          its reach (and kGrassPushHeight of the root's height): kGrassPush x the height x smoothstep(1 - distance /
 //          reach), straight away from it - at most kGrassMostBend of the height in all; the tip as high as the
 //          length left lets it be (the blade keeps its length as it bends);
@@ -61,7 +64,28 @@ inline constexpr float kGrassKeepPower = 1.5F; // ... then (near / d)^power of t
 inline constexpr float kGrassGrowBand = 0.08F; // (a share of the ranks: a blade grows in over it)
 inline constexpr float kGrassFadeStart = 0.7F; // the blades sink from this share of the distance to all of it
 inline constexpr float kGrassLean = 0.35F;
-inline constexpr float kGrassWind = 0.2F;
+// (round W) A blade's bend in the wind: a cantilever of length L under the wind's drag, q = 1/2 rho U^2 C_d w per unit of
+// length, bends its tip d = q L^4 / (8 E I) - a share d / L = kGrassBendCoefficient U^2 L^3 (U m/s, L m), taken as
+// d / L / sqrt(1 + (d / L)^2) (the large deflection's saturation). A leaf blade 4 mm wide and 0.3 mm thick (I = w t^3 /
+// 12) of leaf tissue E 0.3 GPa (grass leaves' Young's modulus, Vincent 1982, J. Materials Science 17, "The mechanical
+// design of grass"), drag C_d 1.2 (a long strip, partly turned with the flow), air 1.2 kg/m^3. U is the wind at the
+// blade's tip in its own surface layer: the wind near the ground (wind.h kNearGround) brought down by the log profile
+// over the grass's own roughness, z0 = 0.1 x its height (Brutsaert 1982, Evaporation into the Atmosphere: a crop's
+// z0 about 0.1 - 0.13 of its height).
+inline constexpr float kGrassLeafWidth = 0.004F;      // metres
+inline constexpr float kGrassLeafThickness = 3.0e-4F; // metres
+inline constexpr float kGrassLeafModulus = 3.0e8F;    // pascals
+inline constexpr float kGrassLeafDrag = 1.2F;
+inline constexpr float kAirDensity = 1.2F; // kg/m^3
+inline constexpr float kGrassBendCoefficient =
+    (0.5F * kAirDensity * kGrassLeafDrag * kGrassLeafWidth) /
+    (8.0F * kGrassLeafModulus * (kGrassLeafWidth * kGrassLeafThickness * kGrassLeafThickness * kGrassLeafThickness / 12.0F));
+inline constexpr float kGrassRoughnessShare = 0.1F;
+// The bend's share of a blade `height_m` tall in the wind `near_ground` m/s (at wind.h kNearGround, its gust in, x the
+// air's share there) - the twin of the shader's grass_wind_bend.
+[[nodiscard]] float grass_wind_bend(float height_m, float near_ground);
+// Its GLSL twin, `float grass_wind_bend(float height_m, float near_ground)` - also the clutter's weeds' and leaves'.
+[[nodiscard]] std::string grass_bend_glsl();
 inline constexpr float kGrassPush = 1.4F;
 inline constexpr float kGrassPushHeight = 72.0F;
 inline constexpr float kGrassMostBend = 0.92F;
@@ -74,7 +98,6 @@ inline constexpr float kGrassMatchSlack = 8.0F;
 inline constexpr float kGrassLearn = 0.34F;
 inline constexpr float kGrassUnitsPerMetre = 39.37F;
 inline constexpr uint32_t kGrassMostDrawn = 1500000;
-inline constexpr std::array<float, 2> kGrassWindDirection = wind::kDirection; // (x, z: the level's wind, engine/gfx/wind.h)
 
 // What a view's blades are shaped with (the settings and the view; also the reference's input).
 struct GrassView {
@@ -85,6 +108,7 @@ struct GrassView {
     float pixel = 0.0F;      // world units a pixel spans at a distance of 1
     float keep_scale = 1.0F; // (lowered when a view has more than kGrassMostDrawn blades)
     float seconds = 0.0F;    // the wind's clock (the game's)
+    float wind = 0.0F;       // (round W) the wind near the ground in the open now (m/s at wind.h kNearGround, no gust)
 };
 [[nodiscard]] GrassView grass_view(const GrassSettings& settings, const rt::ViewDrawn& view, uint32_t height_pixels);
 

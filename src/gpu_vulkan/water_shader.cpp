@@ -318,7 +318,7 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     vec3 swell = water_swell(rest.xz, t, footprint);
     vec3 ripple = water_ripples(rest.xz, t);
     // (added by the rain - engine/gfx/rain.h rain_ripple) the drops' rings: misc.y the cell (0: no rain), misc.w the share
-    // of the rain that reaches the body (its openness to the sky)
+    // of the rain that reaches the body (round W: the air volume's sky reach over it)
     if (water.misc.y > 0.0) {
         ripple.xy += rain_ripple(rest.xz, vec4(water.misc.y, RAIN_RIPPLE_LAYERS, t, RAIN_RIPPLE_LIFE)) * water.misc.w;
     }

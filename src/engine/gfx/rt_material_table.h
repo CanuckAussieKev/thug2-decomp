@@ -50,6 +50,8 @@ enum class MaterialKind : uint8_t {
     kLeather,
     kRubber,
     kHair,
+    kChainLink, // (round W) a chain-link fence's woven wire
+    kGrating,   // (round W) a bar grating (walkways, drains, vents)
     kCount,
 };
 inline constexpr std::size_t kMaterialKindCount = static_cast<std::size_t>(MaterialKind::kCount);
@@ -219,6 +221,25 @@ inline constexpr std::array<MaterialValues, kMaterialKindCount> kMaterialTable{{
      .albedo = {0.02F, 0.6F},
      .source = "index: keratin n 1.55, cuticle tilt -5 to -10 degrees (Marschner et al. 2003); roughness unmeasured "
                "(classes.ts hair)"},
+    // (round W - the air's transport) screens: what a sheet of them lets through is their open area
+    {.name = "chain_link",
+     .index = 0.0F,
+     .metal_f0 = {0.56F, 0.57F, 0.58F},
+     .roughness = 0.59F,
+     .albedo = {0.0F, 0.0F},
+     .light_transmission = 0.86F,
+     .air_transmission = 0.86F,
+     .source = "geometry: ASTM F668 / CLFMI standard fence fabric - 2 in (50.8 mm) mesh of 9 gauge (3.76 mm) galvanised "
+               "wire: open area (1 - 3.76 / 50.8)^2 = 0.857 for light and air alike; F0 / roughness as street steel"},
+    {.name = "grating",
+     .index = 0.0F,
+     .metal_f0 = {0.56F, 0.57F, 0.58F},
+     .roughness = 0.59F,
+     .albedo = {0.0F, 0.0F},
+     .light_transmission = 0.79F,
+     .air_transmission = 0.79F,
+     .source = "geometry: NAAMM MBG 531 welded bar grating 19-W-4 - 3/16 in bars at 1-3/16 in centres, cross bars 1/4 in "
+               "at 4 in: open area (1 - 4.76 / 30.2) x (1 - 6.35 / 101.6) = 0.79; F0 / roughness as street steel"},
 }};
 
 [[nodiscard]] inline const MaterialValues& material_values(MaterialKind kind)
@@ -236,6 +257,37 @@ inline constexpr std::array<MaterialValues, kMaterialKindCount> kMaterialTable{{
     return {f0, f0, f0};
 }
 [[nodiscard]] inline bool material_is_metal(MaterialKind kind) { return material_values(kind).index <= 0.0F; }
+
+// (round W) The kind a collision face's terrain says it is made of - the game's terrain names (its terrain table,
+// TERRAIN_*: what the skater's wheels sound like on it - so what it is made of). A terrain not listed: painted / solid.
+// The air's transport (air_volume.h) reads each face's air_transmission by it: a chain-link fence and a grating let air
+// through, plexiglass (glass) and everything else none.
+[[nodiscard]] inline MaterialKind kind_of_terrain(std::string_view terrain)
+{
+    struct Named {
+        std::string_view name;
+        MaterialKind kind;
+    };
+    static constexpr std::array<Named, 22> kNames{{
+        {"TERRAIN_CONCSMOOTH", MaterialKind::kConcreteSmooth}, {"TERRAIN_CONCROUGH", MaterialKind::kConcreteRough},
+        {"TERRAIN_WETCONC", MaterialKind::kConcreteSmooth},    {"TERRAIN_SIDEWALK", MaterialKind::kConcreteRough},
+        {"TERRAIN_METALSMOOTH", MaterialKind::kMetal},         {"TERRAIN_METALROUGH", MaterialKind::kMetal},
+        {"TERRAIN_METALCORRUGATED", MaterialKind::kMetal},     {"TERRAIN_METALTIN", MaterialKind::kMetal},
+        {"TERRAIN_METALFUTURE", MaterialKind::kMetal},         {"TERRAIN_METALGRATING", MaterialKind::kGrating},
+        {"TERRAIN_CHAINLINK", MaterialKind::kChainLink},       {"TERRAIN_WOOD", MaterialKind::kWood},
+        {"TERRAIN_WOODPIER", MaterialKind::kWood},             {"TERRAIN_BRICK", MaterialKind::kBrick},
+        {"TERRAIN_TILE", MaterialKind::kTile},                 {"TERRAIN_ASPHALT", MaterialKind::kAsphalt},
+        {"TERRAIN_ROCK", MaterialKind::kStone},                {"TERRAIN_GRAVEL", MaterialKind::kGravel},
+        {"TERRAIN_GRASS", MaterialKind::kGrass},               {"TERRAIN_DIRT", MaterialKind::kGround},
+        {"TERRAIN_WATER", MaterialKind::kWater},               {"TERRAIN_PLEXIGLASS", MaterialKind::kGlass},
+    }};
+    for (const Named& named : kNames) {
+        if (named.name == terrain) {
+            return named.kind;
+        }
+    }
+    return MaterialKind::kPainted;
+}
 
 // The kind of a surface map's class (formats/surface_map_format.h MaterialClass: 0 - 17) and of a detail-material kind
 // (formats/detail_material_format.h Kind: 0 - 12) - the numbers as those files define them (an unknown one: painted).

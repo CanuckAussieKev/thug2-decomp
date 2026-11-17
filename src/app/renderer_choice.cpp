@@ -301,7 +301,6 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
     return render::vulkan::RtSkySettings{.on = in_effect.on("rt_sky"),
                                          .clouds = in_effect.on("rt_clouds"),
                                          .coverage = cover,
-                                         .speed = in_effect.number("rt_cloud_speed", 1.0F),
                                          .quality = static_cast<unsigned>(std::max(0, in_effect.integer("rt_cloud_quality", 1))),
                                          .cloud_shadows = in_effect.on("rt_cloud_shadows")};
 }

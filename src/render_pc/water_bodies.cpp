@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <ratio>
 #include <span>
@@ -16,6 +17,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/air_volume.h"
 #include "engine/gfx/snow.h"
 #include "engine/gfx/water_surfaces.h"
 #include "engine/gfx/water_waves.h"
@@ -44,6 +46,7 @@ struct State {
     std::unordered_map<const IndexBufferData*, Entry> meshes;
     bool dirty = false;  // a mesh noted or forgotten since the last measure
     double wind = -1.0;  // the weather's wind the waves were worked out for
+    uint64_t air = 0;    // (round W) the air volume's serial the bodies' shelter was taken from (0: none)
     uint32_t version = 0;
 };
 
@@ -64,9 +67,30 @@ void work_out_waves(State& own, double wind)
             continue;
         }
         body.version = own.version;
-        body.wind = static_cast<float>(wind * static_cast<double>(body.openness));
+        body.wind = static_cast<float>(wind * static_cast<double>(body.shelter));
         const water::WindSea sea = water::wind_sea(body.wind, body.fetch, body.depth);
         body.waves = water::sea_waves(sea, body.fetch, body.depth);
+    }
+}
+
+// (round W) Each measured mesh's shelter and sky from the level's air transport (air_volume.h) over its own
+// triangles; none yet (the volume being built, or none for the level): still and dry - nothing is moved by an air the
+// level hasn't been seen to let in.
+void take_air(State& own)
+{
+    const std::shared_ptr<const air::Volume> volume = air::volume();
+    own.air = volume != nullptr ? volume->serial() : 0;
+    for (auto& [drawn, entry] : own.meshes) {
+        water::WaterBody& body = entry.body;
+        if (!body.known) {
+            continue;
+        }
+        water::AirOver over{.shelter = 0.0, .sky = 0.0};
+        if (volume != nullptr) {
+            over = water::air_over({.triangles = entry.triangles}, *volume);
+        }
+        body.shelter = static_cast<float>(over.shelter);
+        body.sky = static_cast<float>(over.sky);
     }
 }
 
@@ -144,8 +168,8 @@ void measure(State& own)
         body.id = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(core::at(order, i).first));
         body.fetch = static_cast<float>(got.fetch);
         body.depth = static_cast<float>(got.depth);
-        body.openness = static_cast<float>(got.openness);
     }
+    take_air(own);
     work_out_waves(own, wind::speed());
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
     get_log("rt_water: %u of %zu water meshes measured against %u collision faces (%s; %ux%u cells of %.1f units, %u of water) "
@@ -162,13 +186,13 @@ void measure(State& own)
                     core::at(order, i).second->triangles.size(), core::at(cells, i).first);
             continue;
         }
-        get_log("rt_water: mesh %zu near (%.0f, %.0f, %.0f), %zu triangles, body %u (%u cells): fetch %s%.1f m, depth %.2f m, open "
-                "to the sky %.2f - wind over it %.1f m/s: waves %.3f m high, %.2f m long (ripples x %.2f, whitecaps %.2f)",
+        get_log("rt_water: mesh %zu near (%.0f, %.0f, %.0f), %zu triangles, body %u (%u cells): fetch %s%.1f m, depth %.2f m, the "
+                "air's share %.2f - wind over it %.1f m/s: waves %.3f m high, %.2f m long (ripples x %.2f, whitecaps %.2f)",
                 i, static_cast<double>(core::at(at, 0)), static_cast<double>(core::at(at, 1)), static_cast<double>(core::at(at, 2)),
                 core::at(order, i).second->triangles.size(), core::at(measures, i).body, core::at(cells, i).second,
                 body.fetch >= static_cast<float>(water::kOpenFetch) ? "open, " : "",
                 body.fetch >= static_cast<float>(water::kOpenFetch) ? 0.0 : static_cast<double>(body.fetch),
-                static_cast<double>(body.depth), static_cast<double>(body.openness), static_cast<double>(body.wind),
+                static_cast<double>(body.depth), static_cast<double>(body.shelter), static_cast<double>(body.wind),
                 static_cast<double>(body.waves.height) / water::kUnitsPerMetre,
                 static_cast<double>(body.waves.wavelength) / water::kUnitsPerMetre, static_cast<double>(body.waves.ripples),
                 static_cast<double>(body.waves.whitecaps));
@@ -259,7 +283,12 @@ void before_draw(const IndexBufferData* first_level, bool instanced)
         measure(own);
     }
     const double wind = wind::speed();
-    if (wind != own.wind) {
+    const std::shared_ptr<const air::Volume> volume = air::volume();
+    if (const uint64_t air = volume != nullptr ? volume->serial() : 0; air != own.air) {
+        take_air(own); // (round W: the level's air came - or went)
+        work_out_waves(own, wind);
+        get_log("rt_water: the bodies' wind from the level's air transport (%s)", air != 0 ? "made" : "none - open");
+    } else if (wind != own.wind) {
         work_out_waves(own, wind);
     }
     water::set_current_body(found->second.body);

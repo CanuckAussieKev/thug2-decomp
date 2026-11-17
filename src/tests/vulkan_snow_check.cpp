@@ -518,8 +518,10 @@ void check_steps(Tally* tally)
     for (int step = 0; step < 600; ++step) {
         snow::step({}, kStep, false);
     }
-    tally->check(drift > 0.5 * 10.0 * render::wind::kSpeed && drift < 1.5 * 10.0 * render::wind::kSpeed && drift == snow::wind_drift(),
-                 text::format("the wind carried the snow %.0f units in 10 s, the same again", drift));
+    const double near_wind = render::wind::near_ground_units(); // (round W: the one wind - the weather's at 2 m in the open)
+    tally->check(drift > 0.5 * 10.0 * near_wind && drift < 1.5 * 10.0 * near_wind && drift == snow::wind_drift(),
+                 text::format("the wind (%.1f units/s near the ground) carried the snow %.0f units in 10 s, the same again", near_wind,
+                              drift));
     // nothing from high above, nothing where no snow settles
     snow::reset();
     ride({0.0F, 60.0F, 0.0F}, kSpeed, 0.0F, kSteps);

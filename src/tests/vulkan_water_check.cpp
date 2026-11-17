@@ -61,6 +61,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/parse_number.h"
+#include "engine/gfx/air_volume.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
@@ -1385,8 +1386,17 @@ void check_bodies(Tally* tally)
     namespace water = render::water;
     constexpr double kWind = 5.0;
     const std::array<float, 2> downwind{0.8F, 0.6F};
-    const auto waves_of = [&](const water::BodyMeasure& got) {
-        const water::WindSea sea = water::wind_sea(kWind * got.openness, got.fetch, got.depth);
+    // (round W) the wind over a body: the level's air transport built from the same collision (air_volume.h)
+    const auto shelter_of = [](const water::BodyMesh& mesh, const std::vector<water::Triangle>& collision) {
+        std::vector<render::air::Face> faces;
+        faces.reserve(collision.size());
+        for (const water::Triangle& t : collision) {
+            faces.push_back({.corners = t, .air = 0.0F});
+        }
+        return water::air_over(mesh, render::air::Volume::build(faces)).shelter;
+    };
+    const auto waves_of = [&](const water::BodyMeasure& got, double shelter) {
+        const water::WindSea sea = water::wind_sea(kWind * shelter, got.fetch, got.depth);
         return water::sea_waves(sea, got.fetch, got.depth);
     };
     // a puddle (100 x 100 units, 0.6 deep) on the floor of a closed room (60 m square, 10 m high: walls and a roof)
@@ -1399,21 +1409,24 @@ void check_bodies(Tally* tally)
     add_box(&room, {-1200.0F, 0.0F, -1220.0F}, {1200.0F, 400.0F, -1200.0F});
     add_box(&room, {-1200.0F, 0.0F, 1200.0F}, {1200.0F, 400.0F, 1220.0F});
     const water::BodyMeasure inside = water::measure_bodies(puddle, room, downwind).front();
-    const water::SeaWaves inside_waves = waves_of(inside);
-    tally->check(inside.measured && inside.openness == 0.0 && inside_waves.height == 0.0F && inside_waves.ripples == 0.0F &&
+    const double inside_air = shelter_of(puddle.front(), room);
+    const water::SeaWaves inside_waves = waves_of(inside, inside_air);
+    tally->check(inside.measured && inside_air == 0.0 && inside_waves.height == 0.0F && inside_waves.ripples == 0.0F &&
                      inside.depth < 0.02,
-                 text::format("a puddle in a closed room: open to the sky %.2f, %.3f m deep, fetch %.1f m - still (waves %.4f units, "
-                              "ripples x %.3f)",
-                              inside.openness, inside.depth, inside.fetch, static_cast<double>(inside_waves.height),
+                 text::format("a puddle in a closed room: the wind's share %.2f, %.3f m deep, fetch %.1f m - still (waves %.4f "
+                              "units, ripples x %.3f)",
+                              inside_air, inside.depth, inside.fetch, static_cast<double>(inside_waves.height),
                               static_cast<double>(inside_waves.ripples)));
     // the same puddle on an open floor
     std::vector<water::Triangle> open_floor;
     add_box(&open_floor, {-4000.0F, -20.0F, -4000.0F}, {4000.0F, 0.0F, 4000.0F});
     const water::BodyMeasure outside = water::measure_bodies(puddle, open_floor, downwind).front();
-    const water::SeaWaves outside_waves = waves_of(outside);
-    tally->check(outside.measured && outside.openness > 0.95 && outside.fetch < 4.0 &&
+    const double outside_air = shelter_of(puddle.front(), open_floor);
+    const water::SeaWaves outside_waves = waves_of(outside, outside_air);
+    tally->check(outside.measured && outside_air > 0.95 && outside.fetch < 4.0 &&
                      outside_waves.height < 0.4F /* units: 1 cm */ && outside_waves.wavelength < 8.0F,
-                 text::format("the puddle in the open: open %.2f, fetch %.1f m - ripples %.2f units high, %.1f long at most", outside.openness,
+                 text::format("the puddle in the open: the wind's share %.2f, fetch %.1f m - ripples %.2f units high, %.1f long at most",
+                              outside_air,
                               outside.fetch, static_cast<double>(outside_waves.height), static_cast<double>(outside_waves.wavelength)));
     // a lake 1 km square (deep: no bed) in a ring of banks 0.5 m above it
     constexpr float kHalfLake = 19685.0F; // (500 m)
@@ -1425,13 +1438,14 @@ void check_bodies(Tally* tally)
     add_box(&banks, {-kHalfLake, -100.0F, -kHalfLake - kBank}, {kHalfLake, 20.0F, -kHalfLake});
     add_box(&banks, {-kHalfLake, -100.0F, kHalfLake}, {kHalfLake, 20.0F, kHalfLake + kBank});
     const water::BodyMeasure on_lake = water::measure_bodies(lake, banks, downwind).front();
-    const water::SeaWaves lake_waves = waves_of(on_lake);
+    const double lake_air = shelter_of(lake.front(), banks);
+    const water::SeaWaves lake_waves = waves_of(on_lake, lake_air);
     // (its fetch: the upwind distance to the bank from points spread over the square - their median about half the way
     // across along the wind's diagonal)
-    const water::WindSea expected = water::wind_sea(kWind * on_lake.openness, on_lake.fetch, on_lake.depth);
+    const water::WindSea expected = water::wind_sea(kWind * lake_air, on_lake.fetch, on_lake.depth);
     tally->check(on_lake.measured && on_lake.open_samples == 0 && on_lake.fetch > 250.0 && on_lake.fetch < 800.0 &&
-                     on_lake.openness > 0.95 && on_lake.depth >= water::kDeepWater,
-                 text::format("a lake 1 km across: fetch %.0f m to the upwind bank, open %.2f, deep", on_lake.fetch, on_lake.openness));
+                     lake_air > 0.95 && on_lake.depth >= water::kDeepWater,
+                 text::format("a lake 1 km across: fetch %.0f m to the upwind bank, the wind's share %.2f, deep", on_lake.fetch, lake_air));
     tally->check(lake_waves.height > 1.0F && std::abs(static_cast<double>(lake_waves.height) / water::kUnitsPerMetre - expected.height) < 1e-4,
                  text::format("its waves in 5 m/s: %.3f m high, %.2f m long (the fetch-limited sea's %.3f m)",
                               static_cast<double>(lake_waves.height) / water::kUnitsPerMetre,

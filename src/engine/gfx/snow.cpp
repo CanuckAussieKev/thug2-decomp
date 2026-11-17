@@ -686,7 +686,7 @@ void step(std::span<const Presser> pressers, double seconds, bool snowing)
         return;
     }
     own.clock += seconds;
-    own.drift += static_cast<double>(wind::kSpeed * wind::gust(static_cast<float>(std::fmod(own.clock, kGustWraps)))) * seconds;
+    own.drift += wind::near_ground_units() * static_cast<double>(wind::gust(static_cast<float>(std::fmod(own.clock, kGustWraps)))) * seconds;
     ++own.counts.steps;
     for (const Presser& presser : pressers) {
         const Ground ground = ground_at(*own.map, core::at(presser.at, 0), core::at(presser.at, 2));

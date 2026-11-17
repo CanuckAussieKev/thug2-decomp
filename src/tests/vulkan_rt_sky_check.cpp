@@ -56,6 +56,7 @@
 #include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/wind.h"
 #include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_sky_match.h"
 #include "engine/gfx/rt_volume_light.h"
@@ -582,7 +583,7 @@ vk::RtSkySettings sky_settings(bool clouds, bool hdr)
     settings.on = true;
     settings.clouds = clouds;
     settings.coverage = kCheckCoverage;
-    settings.speed = 0.0F;
+    render::wind::set_wind_setting(0.0); // (round W: the clouds drift with the one wind - still air keeps them still)
     settings.quality = 1;
     (void)hdr; // (round F: no per-effect hdr - the frame is linear light)
     return settings;

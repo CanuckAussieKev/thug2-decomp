@@ -40,6 +40,7 @@
 #include "engine/sys/stopwatch.h"
 #include "platform/frame_profile.h"
 #include "platform/run_log.h"
+#include "render_pc/air_world.h"
 #include "render_pc/geom.h"
 
 namespace render::snow_world {
@@ -162,7 +163,8 @@ std::vector<snow::Face> collision_faces(bool* has_sky)
                 if (core::any(geometry.face_flags(face) & kTriggerVolumeFaceFlags)) {
                     continue; // (a trigger or not collidable: nothing settles on it, nothing is under it)
                 }
-                snow::Face out{.settles = settles};
+                constexpr uint32_t kTerrainByte = 0xFFU; // (a face's terrain: its low byte, as the game reads it)
+                snow::Face out{.settles = settles, .terrain = static_cast<uint8_t>(geometry.face_terrain(face) & kTerrainByte)};
                 bool inside = true;
                 for (int corner = 0; corner < 3 && inside; ++corner) {
                     const uint32_t index = geometry.face_vertex(face, corner);
@@ -364,6 +366,8 @@ void step()
     }
     // (NOT ORIGINAL - the rain, engine/gfx/rain.h: its clock and the water on the ground, on the same steps - visual only)
     rain::step(frame_clock::get_slomo_frame_seconds());
+    // (NOT ORIGINAL - round W: the level's air transport, render_pc/air_world.h - made again when its sectors change)
+    air_world::step(world_key());
     // (the paint trails - engine/gfx/paint_trails.h: the game's brushes, the loaded scenes' key their level session)
     if (paint::settings().on) {
         const frame_profile::Scope paint_phase("paint"); // ([debug] frame_profile)

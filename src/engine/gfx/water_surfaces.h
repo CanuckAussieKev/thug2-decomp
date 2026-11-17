@@ -54,8 +54,9 @@ struct WaterBody {
     uint32_t version = 0;    // changes when its waves are worked out again (the wind changed, the level was measured)
     float fetch = 0.0F;      // metres to the upwind shore (kOpenFetch: open to the horizon)
     float depth = 0.0F;      // metres to the bed (kDeepWater: none found)
-    float openness = 0.0F;   // its share of the sky open above it (0: under a roof - 1: in the open)
-    float wind = 0.0F;       // the wind over it (m/s 10 m up: the weather's x its openness)
+    float shelter = 0.0F;    // (round W) the share of the weather's wind reaching it (air_volume.h: 0 in a closed room)
+    float sky = 0.0F;        // (round W) the share of the rain falling on it (0 under a roof)
+    float wind = 0.0F;       // the wind over it (m/s 10 m up: the weather's x its shelter)
     SeaWaves waves;          // what its waves are (water_waves.h)
 };
 void set_current_body(const WaterBody& body);

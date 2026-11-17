@@ -79,6 +79,15 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_brdf_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_air_check.exe: round W's air transport and the one wind (engine/gfx/air_volume.h, wind.h) - a
+# closed box still inside, a room's draught falling from its door, glass blocking air, screens passing it, the log
+# profile, the cost of a level-sized volume (src/tests/air_check.cpp; pure: no game, no device).
+if(TARGET thug2_base)
+    add_executable(thug2_air_check air_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/air_volume.cpp"
+                                   "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_sky.cpp")
+    target_link_libraries(thug2_air_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_viewer_check.exe: the demo viewer's camera path (devtools/demo_camera_path.h: the keys' interpolation,
 # continuity, the yaw's wrap, the sidecar written and read back) and the split comparison's projection crop
 # (engine/gfx/rt_scene.h crop_clip_space) and a replay's skater lent and given back (devtools/skater_loan.h) checked

@@ -135,7 +135,6 @@ std::string constants_source()
     define("MOTION_SHARE", kSnowMotionShare);
     define("SWIRL", kSnowSwirl);
     define("ROLL", kSnowRoll);
-    define("WIND_SPEED", wind::kSpeed);
     define("ALBEDO", kSnowAlbedo);
     return out;
 }
@@ -168,7 +167,8 @@ layout(std140, set = 0, binding = 0) uniform Block {
     vec4 haze;             // rgb: the falling snow's haze's light; w: its extinction a unit (0: none)
     vec4 haze_range;       // x: where the haze starts (units); y: the sky's distance (units); z, w: unused
     vec4 before;           // x: the snow's clock since the frame before (seconds); y: the wind's drift since (units);
-                           // z: unused; w: the wind's strength now (wind::gust)
+                           // z: the wind's speed near the ground (units a second, wind.h); w: its strength now
+                           // (wind::gust)
 } p;
 layout(set = 0, binding = 1) uniform sampler2D u_sky;
 layout(set = 0, binding = 2) uniform sampler2D u_trails;
@@ -602,7 +602,7 @@ vec3 swirl_at(vec3 at, float t)
     vec2 downwind = vec2(p.wind.x, p.wind.z);
     vec2 across = vec2(-downwind.y, downwind.x);
     float gust = p.before.w;
-    float u = dot(at.xz, downwind) - WIND_SPEED * gust * t; // (the eddies go with the wind)
+    float u = dot(at.xz, downwind) - p.before.z * gust * t; // (the eddies go with the wind: its speed near the ground)
     float v = dot(at.xz, across);
     const float a = 6.2831853 / 260.0;
     const float b = 6.2831853 / 340.0;
@@ -1744,7 +1744,8 @@ Block block_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn&
     block.haze_range = {kSnowHazeStart, kSnowHazeSky, 0.0F, 0.0F};
     // the move since the frame before (at most a tenth of a second: a pause's resume isn't a streak)
     const FlakeClock clock = flake_clock();
-    block.before = {static_cast<float>(clock.since), static_cast<float>(clock.drift_since), 0.0F, clock.gust};
+    block.before = {static_cast<float>(clock.since), static_cast<float>(clock.drift_since),
+                    static_cast<float>(wind::near_ground_units()), clock.gust};
     return block;
 }
 
@@ -2636,7 +2637,7 @@ std::array<float, 3> swirl_at(const std::array<float, 3>& at, float t, float gus
 {
     const float wx = core::at(wind::kDirection, 0);
     const float wz = core::at(wind::kDirection, 1);
-    const float u = ((core::at(at, 0) * wx) + (core::at(at, 2) * wz)) - (wind::kSpeed * gust * t);
+    const float u = ((core::at(at, 0) * wx) + (core::at(at, 2) * wz)) - (static_cast<float>(wind::near_ground_units()) * gust * t);
     const float v = (core::at(at, 0) * -wz) + (core::at(at, 2) * wx);
     constexpr float kTwoPi = 6.2831853F;
     const float a = kTwoPi / 260.0F;

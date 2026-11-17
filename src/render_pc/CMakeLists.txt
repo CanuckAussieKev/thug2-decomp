@@ -58,6 +58,7 @@ add_library(thug2_render_pc STATIC
     mesh_smoothing.cpp
     building_relief.cpp
     water_bodies.cpp
+    air_world.cpp
     water_geometry.cpp
     rt_relit_world.cpp
     relit_bake.cpp

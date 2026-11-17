@@ -80,6 +80,7 @@ inline constexpr float kOpenCellShare = 0.6F; // ... + this share of the cell (a
 struct Face {
     std::array<std::array<float, 3>, 3> corners{}; // world (y up)
     bool settles = true; // false: an indoor sector's face (it covers what is under it, holds no snow)
+    uint8_t terrain = 0; // (round W - the air's transport) the face's terrain index (the game's terrain table's)
 };
 // A cell: its top's height (16 bits over [low, low + span], 0: no face over the cell - open sky down to nothing) and
 // the cover there (16 bits, 0 - 1) - as the backend's RG16 texture holds it.
@@ -228,8 +229,9 @@ void step(std::span<const Presser> pressers, double seconds, bool snowing);
 void read_trails(const std::function<void(const TrailField& field)>& reader);
 [[nodiscard]] std::vector<SprayParticle> live_spray();
 [[nodiscard]] double clock();
-// How far the level's wind (engine/gfx/wind.h) has carried the falling snow since the session began (world units
-// downwind: its gusting speed added up step by step on the snow's clock - the flakes' drift, the same every run).
+// How far the level's wind (engine/gfx/wind.h: the weather's at kNearGround in the open) has carried the falling snow
+// since the session began (world units downwind: its gusting speed added up step by step on the snow's clock - the
+// flakes' drift, the same every run for one wind).
 [[nodiscard]] double wind_drift();
 // The winter sky's cloud cover while there is snow (round S: the weather's coverage - day_clock sets it as rt_clouds.h's
 // CloudCoverSource::kSnow; the one cloud model then dims the light, draws the deck and casts its shadows):

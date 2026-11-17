@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/air_volume.h"
 #include "engine/gfx/water_waves.h"
 
 namespace render::water {
@@ -37,7 +38,6 @@ struct Grid {
     std::vector<std::array<float, kLevels>> water; // the water surfaces' heights in each cell
     std::vector<uint8_t> levels;                    // ... how many
     std::vector<float> top;                         // the collision's highest point (kNone: nothing)
-    std::vector<std::vector<float>> spans;          // the heights of the faces whose shadow covers the cell's centre
     int bucket_columns = 0;
     int bucket_rows = 0;
     std::vector<std::vector<uint32_t>> buckets;     // the collision's faces whose shadow on the ground meets each bucket
@@ -184,40 +184,6 @@ float bed_at(const Grid& grid, std::span<const Triangle> collision, int column, 
     return bed;
 }
 
-// The share of the sky's hemisphere open above (x, z) at height y: 1 - sin of the horizon's elevation, averaged over
-// kSkyDirections ways round, past the collision's highest points within kSkyReach; 0 under something overhead.
-double openness_at(const Grid& grid, int column, int row, float y)
-{
-    // (something over the point itself: a roof, a bridge - a face whose shadow covers it, not a wall's edge beside it)
-    for (const float over : core::at(grid.spans, grid.index(column, row))) {
-        if (over > y + kOverhead) {
-            return 0.0;
-        }
-    }
-    double open = 0.0;
-    const int steps = std::max(static_cast<int>(kSkyReach / grid.cell), 1);
-    for (uint32_t way = 0; way < kSkyDirections; ++way) {
-        const double angle = 2.0 * std::numbers::pi * (static_cast<double>(way) + 0.5) / kSkyDirections;
-        const double dx = std::cos(angle);
-        const double dz = std::sin(angle);
-        double highest = 0.0; // sin of the horizon's elevation
-        for (int step = 1; step <= steps; ++step) {
-            const double r = static_cast<double>(step) * grid.cell;
-            const int c = grid.column_of(static_cast<float>(grid.x_of(column) + (dx * r)));
-            const int w = grid.row_of(static_cast<float>(grid.z_of(row) + (dz * r)));
-            if (!grid.inside(c, w)) {
-                break;
-            }
-            const double h = static_cast<double>(core::at(grid.top, grid.index(c, w))) - static_cast<double>(y);
-            if (h > 0.0) {
-                highest = std::max(highest, h / std::hypot(h, r));
-            }
-        }
-        open += 1.0 - highest;
-    }
-    return open / kSkyDirections;
-}
-
 // The fetch from (column, row): world units walked upwind over the same water to where it ends; `open` true when it ends
 // at nothing (the world stops there).
 double fetch_at(const Grid& grid, int column, int row, float y, std::array<float, 2> downwind, bool* open)
@@ -292,18 +258,17 @@ std::vector<BodyMeasure> measure_bodies(std::span<const BodyMesh> meshes, std::s
         return out;
     }
     Grid grid;
-    const float width = (x1 - x0) + (2.0F * kSkyReach);
-    const float depth = (z1 - z0) + (2.0F * kSkyReach);
+    const float width = (x1 - x0) + (2.0F * kMargin);
+    const float depth = (z1 - z0) + (2.0F * kMargin);
     grid.cell = std::max(std::max(width, depth) / static_cast<float>(kMostCells), kLeastCell);
-    grid.left = x0 - kSkyReach;
-    grid.near = z0 - kSkyReach;
+    grid.left = x0 - kMargin;
+    grid.near = z0 - kMargin;
     grid.columns = std::max(static_cast<int>(std::ceil(width / grid.cell)), 1);
     grid.rows = std::max(static_cast<int>(std::ceil(depth / grid.cell)), 1);
     const std::size_t cells = static_cast<std::size_t>(grid.columns) * static_cast<std::size_t>(grid.rows);
     grid.water.assign(cells, {});
     grid.levels.assign(cells, 0);
     grid.top.assign(cells, kNone);
-    grid.spans.assign(cells, {});
     grid.bucket_columns = (grid.columns + kBucketCells - 1) / kBucketCells;
     grid.bucket_rows = (grid.rows + kBucketCells - 1) / kBucketCells;
     grid.buckets.assign(static_cast<std::size_t>(grid.bucket_columns) * static_cast<std::size_t>(grid.bucket_rows), {});
@@ -337,9 +302,6 @@ std::vector<BodyMeasure> measure_bodies(std::span<const BodyMesh> meshes, std::s
         (void)for_each_covered(grid, t, [&](std::size_t at, float y) {
             float& top = core::at(grid.top, at);
             top = std::max(top, y);
-            if (core::at(grid.levels, at) > 0) {
-                core::at(grid.spans, at).push_back(y); // (only over water: the roofs a sample may be under)
-            }
         });
         for (std::size_t e = 0; e < t.size(); ++e) {
             const Corner& a = core::at(t, e);
@@ -457,7 +419,6 @@ std::vector<BodyMeasure> measure_bodies(std::span<const BodyMesh> meshes, std::s
             const std::size_t count = std::min<std::size_t>(list.size(), kSamples);
             std::vector<double> fetches;
             std::vector<double> depths;
-            double open_sum = 0.0;
             for (std::size_t i = 0; i < count; ++i) {
                 const auto [at, y] = core::at(list, (i * list.size()) / count);
                 const int column = static_cast<int>(at % static_cast<std::size_t>(grid.columns));
@@ -468,14 +429,12 @@ std::vector<BodyMeasure> measure_bodies(std::span<const BodyMesh> meshes, std::s
                 measure.open_samples += open ? 1U : 0U;
                 const float bed = bed_at(grid, collision, column, row, y);
                 depths.push_back(bed > kNone ? std::max(static_cast<double>(y - bed) / kUnitsPerMetre, kLeastDepth) : kDeepWater);
-                open_sum += openness_at(grid, column, row, y);
             }
             measure.measured = true;
             measure.samples = static_cast<uint32_t>(count);
             measure.surface_cells = static_cast<uint32_t>(list.size());
             measure.fetch = median(fetches);
             measure.depth = median(depths);
-            measure.openness = open_sum / static_cast<double>(count);
         }
         const uint32_t own_cells = core::at(out, m).cells;
         core::at(out, m) = measure;
@@ -489,6 +448,28 @@ std::vector<BodyMeasure> measure_bodies(std::span<const BodyMesh> meshes, std::s
         report->water_cells = water_cells;
         report->collision_faces = static_cast<uint32_t>(collision.size());
     }
+    return out;
+}
+
+AirOver air_over(const BodyMesh& mesh, const air::Volume& volume)
+{
+    AirOver out;
+    const std::size_t count = std::min<std::size_t>(mesh.triangles.size(), kSamples);
+    if (count == 0) {
+        return out;
+    }
+    double shelter = 0.0;
+    double sky = 0.0;
+    for (std::size_t i = 0; i < count; ++i) {
+        const Triangle& t = core::at(mesh.triangles, (i * mesh.triangles.size()) / count);
+        const air::Sample sample = volume.at({(x_of(core::at(t, 0)) + x_of(core::at(t, 1)) + x_of(core::at(t, 2))) / 3.0F,
+                                              ((y_of(core::at(t, 0)) + y_of(core::at(t, 1)) + y_of(core::at(t, 2))) / 3.0F) + kAirHeight,
+                                              (z_of(core::at(t, 0)) + z_of(core::at(t, 1)) + z_of(core::at(t, 2))) / 3.0F});
+        shelter += static_cast<double>(sample.wind);
+        sky += static_cast<double>(sample.sky);
+    }
+    out.shelter = shelter / static_cast<double>(count);
+    out.sky = sky / static_cast<double>(count);
     return out;
 }
 

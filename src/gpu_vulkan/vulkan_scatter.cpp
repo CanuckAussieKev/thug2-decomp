@@ -2,6 +2,10 @@
 // docs/design/vulkan.md "Decals and clutter").
 #include "gpu_vulkan/vulkan_scatter.h"
 
+#include "engine/gfx/wind.h"
+#include "gpu_vulkan/vulkan_air.h"
+#include "gpu_vulkan/vulkan_grass.h"
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -64,7 +68,8 @@ constexpr uint32_t kBindingAtlas = 5;  // the decals' atlas (sampled, mipmapped)
 constexpr uint32_t kBindingSource = 6; // the viewport's colour copied out (sampled)
 constexpr uint32_t kBindingDepth = 7;  // the depth (sampled)
 constexpr uint32_t kBindingSnow = 8;   // (the decals') the snow's sky map (vulkan_snow.h SnowGround; else the atlas, unread)
-constexpr uint32_t kBindingCount = 9;
+constexpr uint32_t kBindingAir = 9;    // (round W - the clutter's) the air's window (vulkan_air.h)
+constexpr uint32_t kBindingCount = 10;
 constexpr std::size_t kLightBytes = 8;
 constexpr float kRanks = 256.0F;
 constexpr float kHalf = 0.5F;
@@ -112,6 +117,10 @@ std::string constants_source()
     define("MATCH_SLACK", kClutterMatchSlack);
     out += "#define MESH_VERTICES " + std::to_string(scatter::kMeshVertices) + "u\n";
     define("WET_ROW", static_cast<float>(scatter::DecalKind::kWet));
+    define("WIND_X", core::at(wind::kDirection, 0));
+    define("WIND_Z", core::at(wind::kDirection, 1));
+    define("WIND_GUST_SHARE", wind::gust_share());
+    define("UNITS_PER_METRE", static_cast<float>(wind::kUnitsPerMetre));
     return out;
 }
 
@@ -129,7 +138,11 @@ layout(std140, set = 0, binding = 4) uniform Params {
     vec4 snow_map;         // (the snow over the decals - vulkan_snow.h SnowGround) x, y: the sky map's first cell's
                            // corner; z: a cell; w: the slack (0: no snow)
     vec4 snow_range;       // x: the heights' low; y: their span; z, w: the columns and rows
+    vec4 wind;             // (round W) x: the wind near the ground in the open (m/s, wind.h)
+    vec4 air;              // (round W) the air's window's origin (vulkan_air.h; w 1 with one)
 } p;
+layout(set = 0, binding = 9) uniform sampler2D u_air;
+AIR_GLSL
 
 const float TAU = 6.28318530718;
 
@@ -356,11 +369,15 @@ void main()
     vec3 turned = vec3(local.x * c - local.z * s, local.y, local.x * s + local.z * c);
     vec3 position = root + turned * scale;
     if (kind == KIND_LEAF || kind == KIND_WEED) {
-        float phase = root.x * 0.0047 + root.z * 0.0031 + h * TAU;
-        float wave = sin(p.camera.w * 1.9 + phase) * 0.6 + sin(p.camera.w * 0.73 + phase * 2.3 + 1.7) * 0.4;
-        float reach = kind == KIND_WEED ? 0.18 : 0.06;
-        position.xz += vec2(0.8, 0.6) * (reach * scale * max(local.y, 0.0) * (0.5 + 0.5 * wave));
-        position.y += kind == KIND_LEAF ? 0.04 * scale * wave * abs(local.x) : 0.0;
+        // (round W) the one wind at the item (near the ground x the level's air here x its gusts, carried downwind at its
+        // speed); a weed's stems and a leaf's raised edge bend as a grass blade of their size does (grass_wind_bend)
+        float carried = p.wind.x * UNITS_PER_METRE;
+        float along = dot(root.xz, vec2(WIND_X, WIND_Z));
+        float u = p.wind.x * air_wind(root + vec3(0.0, scale, 0.0)) *
+                  wind_gust(p.camera.w + h * 2.0 - (carried > 0.0 ? along / carried : 0.0));
+        float bend = grass_wind_bend(max(scale, 1.0) / UNITS_PER_METRE, u);
+        position.xz += vec2(WIND_X, WIND_Z) * (bend * scale * max(local.y, 0.0));
+        position.y += kind == KIND_LEAF ? bend * scale * abs(local.x) * 0.5 : 0.0;
     }
     vec4 clip = p.vp * vec4(position, 1.0);
     gl_Position = scale > 0.0 ? vec4(clip.x + clip.w * p.offsets.x, -clip.y + clip.w * p.offsets.y, clip.z, clip.w)
@@ -413,8 +430,10 @@ struct ParamsBlock {
     std::array<float, 4> depth_map{};
     std::array<float, 4> snow_map{};
     std::array<float, 4> snow_range{};
+    std::array<float, 4> wind{}; // (round W)
+    std::array<float, 4> air{};
 };
-constexpr std::size_t kParamsBytes = 256;
+constexpr std::size_t kParamsBytes = 288;
 static_assert(sizeof(ParamsBlock) == kParamsBytes, "the shaders' Params block");
 
 struct RangeConstants {
@@ -602,6 +621,7 @@ ScatterView scatter_view(const rt::ViewDrawn& view)
     }
     made.camera = view.camera.position;
     made.seconds = static_cast<float>(std::fmod(view.game_seconds, kWindClockWraps));
+    made.wind = static_cast<float>(wind::speed_at_height(wind::kNearGround));
     return made;
 }
 
@@ -790,7 +810,11 @@ std::string source_of(const char* body, bool items, bool writes_lights, const ch
     source += writes_lights ? "#define LIGHTS_ACCESS\n" : "#define LIGHTS_ACCESS readonly\n";
     source += constants_source();
     source += rt::kDisplayTransferGlsl; // (round F: the frame is linear light)
-    source += kCommon;
+    std::string common = kCommon;
+    const std::size_t air = common.find("AIR_GLSL");
+    common.replace(air, std::string("AIR_GLSL").size(),
+                   air_map_glsl("u_air", "p.air") + grass_bend_glsl() + wind::wind_glsl());
+    source += common;
     if (items) {
         source += kItemCommon;
     }
@@ -836,7 +860,8 @@ bool make_layouts(Backend& state, std::string* error)
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         if (binding == kBindingParams) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        } else if (binding == kBindingAtlas || binding == kBindingSource || binding == kBindingDepth || binding == kBindingSnow) {
+        } else if (binding == kBindingAtlas || binding == kBindingSource || binding == kBindingDepth || binding == kBindingSnow ||
+                   binding == kBindingAir) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         }
         core::at(bindings, binding) = {.binding = binding,
@@ -1342,6 +1367,7 @@ struct ViewPlan {
     ScatterView shape;
     std::vector<ScatterDraw> draws;
     uint32_t count = 0;
+    std::array<float, 4> air{}; // (round W) the air's window's origin
 };
 
 ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view)
@@ -1369,6 +1395,8 @@ ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::Vie
         core::at(core::at(projection, kRowZ), kRowW), core::at(core::at(projection, kRowW), kRowW)};
     const float span = core::at(view.depth_range, 1) - core::at(view.depth_range, 0);
     block.depth_map = {core::at(view.depth_range, 0), span > 0.0F ? 1.0F / span : 1.0F, 0.0F, 0.0F};
+    block.wind = {plan.shape.wind, 0.0F, 0.0F, 0.0F};
+    block.air = plan.air;
     return block;
 }
 
@@ -1385,7 +1413,8 @@ std::optional<VkDescriptorBufferInfo> block_in_ring(Backend& state, const Params
 
 // The bindings pushed for the decals' draw or the clutter's gather and draw.
 void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const VkDescriptorBufferInfo& params,
-                      bool decals, const Image* depth, const VkDescriptorImageInfo* snow_sky = nullptr)
+                      bool decals, const Image* depth, const VkDescriptorImageInfo* snow_sky = nullptr,
+                      const VkDescriptorImageInfo* air = nullptr)
 {
     const ScatterState& own = scatter_state();
     const VkDescriptorBufferInfo decal_vertices{
@@ -1423,6 +1452,9 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         add(kBindingMeshes, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &meshes, nullptr);
         if (point == VK_PIPELINE_BIND_POINT_COMPUTE) {
             add(kBindingSource, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &source);
+        }
+        if (air != nullptr) {
+            add(kBindingAir, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, air);
         }
     }
     if (depth != nullptr) {
@@ -1731,6 +1763,8 @@ bool record_clutter_pass(Backend& state, const rt::ViewDrawn& view)
     plan.motion =
         motion_wanted(state, core::at(state.targets, 0), plan.colour) && state.motion.image.image != VK_NULL_HANDLE;
     plan.draws = plan_clutter_draws(*own.scatter, &plan.shape, &plan.count);
+    update_air_map(state, view.camera.position); // (round W: the level's air round the camera)
+    plan.air = air_map(state).origin;
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkDescriptorBufferInfo params{};
     if (plan.draws.empty() || !pipeline_for(state, plan, false, &pipeline) ||
@@ -1756,7 +1790,8 @@ bool record_clutter_pass(Backend& state, const rt::ViewDrawn& view)
     depth_barrier(commands, plan.depth, false, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     begin_rendering(commands, state, plan, true, view);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, params, false, nullptr);
+    const VkDescriptorImageInfo air = air_map(state).image;
+    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, params, false, nullptr, nullptr, &air);
     for (const ScatterDraw& draw : plan.draws) {
         vkCmdDraw(commands, scatter::kMeshVertices, draw.count, 0, draw.first);
     }

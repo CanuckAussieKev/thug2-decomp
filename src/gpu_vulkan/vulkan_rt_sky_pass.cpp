@@ -2,6 +2,8 @@
 // docs/design/vulkan.md "The sky").
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 
+#include "engine/gfx/wind.h"
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -1515,10 +1517,13 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
     const double altitude =
         rt::kViewerAltitude +
         std::max(0.0, (static_cast<double>(core::at(view.camera.position, 1)) - ground) / rt::kGameUnitsPerMetre);
-    const double drift = static_cast<double>(settings.speed) * rt::kCloudWindSpeed * view.game_seconds;
+    // (round W) the clouds drift with the one wind aloft (wind.h: the weather's wind at the boundary layer's top, turned
+    // by the Ekman spiral)
+    const double drift = wind::aloft_speed() * view.game_seconds;
+    const std::array<double, 2> aloft = wind::aloft_direction();
     const std::array<double, 2> offset{
-        (core::at(view.camera.position, 0) / rt::kGameUnitsPerMetre) + (core::at(rt::kCloudWind, 0) * drift),
-        (core::at(view.camera.position, 2) / rt::kGameUnitsPerMetre) + (core::at(rt::kCloudWind, 1) * drift)};
+        (core::at(view.camera.position, 0) / rt::kGameUnitsPerMetre) + (core::at(aloft, 0) * drift),
+        (core::at(view.camera.position, 2) / rt::kGameUnitsPerMetre) + (core::at(aloft, 1) * drift)};
     // the sun's light at the clouds (the atmosphere's transmittance half way up the layer) and the sky's
     const double layer = rt::kGroundRadius + (0.5 * (rt::kCloudBase + rt::kCloudTop));
     const rt::Rgb through = rt::transmittance_to_top(
@@ -1970,8 +1975,6 @@ void set_rt_sky_settings(const RtSkySettings& settings)
 {
     RtSkySettings kept = settings;
     kept.coverage = std::isfinite(kept.coverage) ? std::min(kept.coverage, 1.0F) : kRtCloudCoverageAuto;
-    constexpr float kFastest = 20.0F;
-    kept.speed = std::isfinite(kept.speed) ? std::clamp(kept.speed, 0.0F, kFastest) : 1.0F;
     kept.quality = std::min(kept.quality, 2U);
     {
         Backend& state = backend();

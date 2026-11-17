@@ -55,6 +55,7 @@
 #include "gpu_vulkan/vulkan_grass.h"
 #include "gpu_vulkan/vulkan_scatter.h"
 #include "gpu_vulkan/vulkan_paint.h"
+#include "gpu_vulkan/vulkan_air.h"
 #include "gpu_vulkan/vulkan_precip.h"
 #include "gpu_vulkan/vulkan_rain.h"
 #include "gpu_vulkan/vulkan_snow.h"
@@ -1179,6 +1180,7 @@ void release_draw_objects(Backend& state)
     release_paint(state); // (NOT ORIGINAL - the paint trails': vulkan_paint.h)
     release_rain(state); // (NOT ORIGINAL - the rain's: vulkan_rain.h)
     release_precip(state); // (NOT ORIGINAL - the precipitation occlusion map: vulkan_precip.h)
+    release_air(state);    // (NOT ORIGINAL - round W: the air's window, vulkan_air.h)
     release_scatter(state); // (NOT ORIGINAL - the decals' and clutter's: vulkan_scatter.h)
     release_cel(state); // (NOT ORIGINAL - cel shading's outlines: vulkan_cel_draw.h)
     release_water(state); // (NOT ORIGINAL - rt_water's: vulkan_water.h)

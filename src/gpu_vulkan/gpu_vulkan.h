@@ -231,7 +231,7 @@ void set_rt_sun_settings(const RtSunSettings& settings);
 [[nodiscard]] RtSunSettings rt_sun_settings();
 
 // NOT ORIGINAL - a modern sky (vulkan_rt_sky_pass.h, docs/design/vulkan.md "The sky"): [Graphics] rt_sky,
-// rt_clouds, rt_cloud_coverage, rt_cloud_speed, rt_cloud_quality, rt_cloud_shadows. Nothing is drawn
+// rt_clouds, rt_cloud_coverage, rt_cloud_quality, rt_cloud_shadows (round W: the clouds drift with the one wind - wind.h). Nothing is drawn
 // differently while `on` is false: the level's own sky dome as always. No ray tracing needed (the drawn sun comes from
 // the game; with ray tracing the baked sun is the fallback).
 inline constexpr float kRtCloudCoverageAuto = -1.0F;
@@ -239,7 +239,6 @@ struct RtSkySettings {
     bool on = false;
     bool clouds = false;           // volumetric clouds in the sky
     float coverage = kRtCloudCoverageAuto; // 0 - 1, or auto (negative): the weather's (rt_clouds.h)
-    float speed = 1.0F;            // x the clouds' drift (0: still)
     unsigned quality = 1;          // 0: quarter resolution, 32 steps; 1: half, 48; 2: full, 96
     bool cloud_shadows = false;    // the clouds' shadows on the level (darkening, not ray traced)
 };
