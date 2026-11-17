@@ -19,6 +19,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -266,40 +267,59 @@ vec3 lighting(vec3 n)
     return light;
 }
 
-// (round O) The lamps' light on a hit facing `n` (unshadowed: a hit traces the sun alone) - what the lamps pass lights
-// per pixel on the surface's own pixels (the store's per-vertex lamps are then none).
-vec3 hit_lamps(vec3 point, vec3 n)
+// (round O) The lamps the lamps pass lights per pixel, on a hit of material `m` facing `n` seen from `v` (unshadowed: a
+// hit traces the sun alone) - each a light from where it shines (rt_lamp_glsl's lamp_geometry gives its light x N.L;
+// the model takes N.L itself). The store's per-vertex lamps are none meanwhile.
+vec3 hit_lamps(BrdfMaterial m, vec3 point, vec3 n, vec3 v)
 {
     vec3 sum = vec3(0.0);
     for (uint i = 0u; i < min(pass.lamp_count.x, uint(HIT_LAMPS)); ++i) {
         vec3 from;
-        sum += pass.lamps[i].colour.rgb * lamp_geometry(pass.lamps[i], point, n, from);
+        float g = lamp_geometry(pass.lamps[i], point, n, from);
+        vec3 to = from - point;
+        float facing = dot(n, normalize(to));
+        if (g > 0.0 && facing > 1.0e-4) {
+            sum += brdf_direct(m, n, v, normalize(to), pass.lamps[i].colour.rgb * (g / facing));
+        }
     }
     return sum * pass.lamp_scale.x;
 }
 
 // (round O - one light for everything, the audit's M8 / D1) The light a reflection ray's hit shows, as the surface's own
-// pixels show it: `texel` its texture's colour x its material's (display-referred), `point` / `n` where and which way
-// it faces, `travelled` the path to it.
-//  - the relit world: the texel decoded (its albedo's texture part) x the light store at the hit - tint x (the sky and
-//    the bounce + the sun's light x N.L x its visibility, traced here) + the lamps the store lights per vertex and
-//    those the lamps pass lights per pixel (hit_lamps) - the lighting now, never the bake's (at night a reflection
-//    shows the night);
-//  - an object lit by the one light (render_pc/pc_lights.h - its record linear): the texel decoded x that light at its
-//    normal, the key's part x the visibility traced here;
+// pixels show it, through round M's light model (engine/gfx/rt_brdf.h brdf_direct / brdf_ambient): `texel` its
+// texture's colour x its material's (display-referred), `point` / `n` where and which way it faces, `v` toward the
+// ray's start, `travelled` the path to it. Its material: the albedo the texel decoded (x the store's tint on the relit
+// world), F0 and roughness the default surface's (gpu_vulkan.h kRtPbrF0 / kRtPbrRoughness) until the material table
+// reaches the hits (round M).
+//  - the relit world: the light store at the hit - the sky and the bounce (word 0: its every-direction light, as the
+//    ambient's diffuse and specular light), the sun's light x its visibility traced here, the lamps the store lights
+//    per vertex (tint x L, as lit) and those the lamps pass lights per pixel (hit_lamps) - the lighting now, never the
+//    bake's (at night a reflection shows the night);
+//  - an object lit by the one light (render_pc/pc_lights.h - its record linear): its probe's light at the normal and its
+//    key - the sun - x the visibility traced here, the lamps as above;
 //  - else (a level keeping the original's look, an object lit by the game's lights): the game's colours, decoded.
 vec3 hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, HitVertices v, vec3 texel, vec3 point,
-               vec3 n, float travelled)
+               vec3 n, vec3 to_eye, float travelled)
 {
     bool object = (geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u;
+    float nv = max(dot(n, to_eye), 1.0e-4);
     WorldLight w;
     if (!object && hit_world_light(instance, primitive, barycentrics, w)) {
+        BrdfMaterial m = brdf_material(linear_from_display(texel) * w.tint, vec3(HIT_F0), HIT_ROUGHNESS);
         float seen = w.n_dot_l > 0.0 ? sun_seen(point, n, travelled) : 0.0;
-        return linear_from_display(texel) * (world_light_with(w, seen, w.sky) + w.tint * hit_lamps(point, n));
+        vec3 sun = pass.sun.w > 0.0 ? brdf_direct(m, n, to_eye, pass.sun.xyz, w.sun * seen) : vec3(0.0);
+        return brdf_ambient(m, nv, w.ambient, w.ambient) + sun + linear_from_display(texel) * w.lamps +
+               hit_lamps(m, point, n, to_eye);
     }
     ObjectLight l;
     if (object && hit_object_light(instance, l) && l.linear) {
-        return linear_from_display(texel) * (object_light_with(l, n, sun_seen(point, n, travelled)) + hit_lamps(point, n));
+        BrdfMaterial m = brdf_material(linear_from_display(texel), vec3(HIT_F0), HIT_ROUGHNESS);
+        vec3 around = object_light_with(l, n, 0.0); // (the probe's light at the normal: no key)
+        float key_length = length(l.key_direction);
+        vec3 toward = key_length > 1.0e-6 ? -l.key_direction / key_length : vec3(0.0, 1.0, 0.0);
+        float seen = dot(n, toward) > 0.0 ? sun_seen(point, n, travelled) : 0.0;
+        return brdf_ambient(m, nv, around, around) + brdf_direct(m, n, to_eye, toward, l.key * seen) +
+               hit_lamps(m, point, n, to_eye);
     }
     vec3 colour = texel;
     if (object) {
@@ -359,7 +379,7 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
     vec3 texel = (material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
     // (round O) the hit lit as its own pixels are - the light store's light now (hit_light)
     vec3 light = hit_light(id, instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), barycentrics, v, texel,
-                           origin + direction * t, n, travelled + t);
+                           origin + direction * t, n, -direction, travelled + t);
     return vec4(min(max(light, vec3(0.0)), vec3(65504.0)), 1.0);
 }
 
@@ -443,7 +463,7 @@ void main()
                         // (1 - F) of it, the reflection the rest; the environment map is kept only for what the rays
                         // miss (the base layer, premultiplied; linear light, as the frame).
                         vec3 own = hit_light(id, hit_instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
-                                             bary, v, texel.rgb * surface.colour.rgb, point, sn, t);
+                                             bary, v, texel.rgb * surface.colour.rgb, point, sn, -view, t);
                         float share = mask * (1.0 - clamp(weight, 0.0, 1.0));
                         base_layer = vec4(own * share, share);
                     }
@@ -816,7 +836,10 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
     source += scene_geometry_glsl();
     source += rt::kDisplayTransferGlsl;
     source += "#define HIT_LAMPS " + std::to_string(kHitLamps) + "\n"; // (round O: the hits' lamps)
+    source += "#define HIT_F0 " + std::to_string(kRtPbrF0) + "\n#define HIT_ROUGHNESS " + std::to_string(kRtPbrRoughness) +
+              "\n"; // (round O: the hits' default surface)
     source += rt_lamp_glsl();
+    source += rt::brdf::brdf_glsl(); // (round M's light model)
     source += body;
     return source;
 }
