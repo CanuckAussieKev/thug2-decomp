@@ -67,6 +67,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_vertex_attributes.h"
@@ -1570,6 +1571,103 @@ void run_mirror(render::Gpu& gpu, Mirror& mirror, const MirrorCase& test, Tally*
     release_targets(gpu, targets);
 }
 
+// --- (round O - one light for everything, the audit's M8) a reflection's hit lit by the light store now ------------------
+// The box given a light stream (engine/gfx/rt_cel.h: its sky light L, tint 1, no sun, no lamps) as the relit world's
+// meshes have: the mirror floor's reflection of it is the texel x L - the store's light now -, not the texel x the
+// vertex colour (the bake). The same box at "day" (L 1) and at "night" (L 0.1, the same vertex colours): the reflected
+// pixels' night / day ratio is the stream's (13 / 128), where before it was 1 (a night reflection showed the daylit level).
+std::vector<uint32_t> box_stream(std::size_t vertices, uint32_t light_byte)
+{
+    constexpr uint32_t kOpaque = 0xFF000000U;
+    const uint32_t grey = (light_byte << 16) | (light_byte << 8) | light_byte;
+    constexpr uint32_t kTintOne = 0x00808080U; // (tint 1; the sun seen 0)
+    std::vector<uint32_t> words;
+    words.reserve(vertices * rt::kCelStreamWords);
+    for (std::size_t vertex = 0; vertex < vertices; ++vertex) {
+        words.push_back(kOpaque | grey);  // 0: the sky's and the bounce's light, N.L 1
+        words.push_back(kTintOne);        // 1: the tint
+        words.push_back(kOpaque);         // 2: no lamps; the vertex has the stream
+        words.push_back(0U);              // 3: no sun
+        words.push_back(kOpaque | grey);  // 4: all of word 0 the sky's, K 1
+        words.push_back(kOpaque | grey);  // 5: the colour (the draws')
+    }
+    return words;
+}
+
+void run_night(render::Gpu& gpu, Mirror& mirror, Tally* tally)
+{
+    text::print("a reflection lit by the light store now (round O: day and night):\n");
+    rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(1.0F));
+    Targets targets;
+    const bool made = make_targets(gpu, 0, &targets);
+    tally->check(made, "the targets made");
+    render::vulkan::set_rt_reflection_settings({.on = true, .strength = 1.0F, .fresnel = false}); // (weight 1: the hit alone)
+    // (every vertex the buffer holds - its leading ones too: the indices count them)
+    const std::size_t vertices = mirror.box.data.positions.size() + mirror.box.layout.leading_vertices;
+    constexpr uint32_t kDay = 128;  // L 1
+    constexpr uint32_t kNight = 13; // L 0.1
+    std::array<std::vector<uint8_t>, 2> shots;
+    std::array<render::GpuVertexBuffer*, 2> streams{}; // (a buffer each, as the relit world writes a mesh's anew)
+    bool ok = made;
+    uint64_t frame = 1;
+    for (std::size_t at = 0; at < shots.size() && ok; ++at) {
+        const std::vector<uint32_t> words = box_stream(vertices, at == 0 ? kDay : kNight);
+        const auto bytes = static_cast<uint32_t>(words.size() * sizeof(uint32_t));
+        void* data = nullptr;
+        render::GpuVertexBuffer*& stream = core::at(streams, at);
+        ok = gpu.create_vertex_buffer(bytes, 0, 0, value::kPoolDefault, &stream) == value::kResultOk &&
+             gpu.lock_vertex_buffer(stream, 0, 0, &data, 0) == value::kResultOk;
+        if (ok) {
+            std::memcpy(data, words.data(), bytes);
+            ok = gpu.unlock_vertex_buffer(stream) == value::kResultOk;
+            rt::ray_tracing()->set_light_stream(mirror.box.id, stream);
+        }
+        ok = ok && draw_frame(gpu, targets, mirror, frame++) == 1 && draw_frame(gpu, targets, mirror, frame++) == 1 &&
+             read_colour(gpu, targets, &core::at(shots, at));
+    }
+    tally->check(ok, "the box's stream set, both frames drawn and read");
+    int compared = 0;
+    std::vector<double> ratios;
+    if (ok) {
+        const View view = view_from(kEye);
+        for (int row = 0; row < kRows; ++row) {
+            for (int column = 0; column < kColumns; ++column) {
+                const Reflection here = reflection_at(view, column, row);
+                bool clear = here.floor && here.hit;
+                constexpr double kShift = 0.1;
+                for (const auto& [dx, dy] : std::array<std::pair<double, double>, 4>{
+                         {{kShift, 0.0}, {-kShift, 0.0}, {0.0, kShift}, {0.0, -kShift}}}) {
+                    clear = clear && same(here, reflection_at(view, column + dx, row + dy));
+                }
+                const Rgb day = pixel_at(shots.front(), column, row);
+                const Rgb night = pixel_at(shots.back(), column, row);
+                constexpr int kLeast = 80;  // (8-bit steps: a ratio of bright pixels)
+                constexpr int kMost = 250;  // (not clipped)
+                if (!clear || day[1] < kLeast || day[1] > kMost) {
+                    continue;
+                }
+                ++compared;
+                ratios.push_back(static_cast<double>(night[1]) / static_cast<double>(day[1]));
+            }
+        }
+    }
+    std::ranges::sort(ratios);
+    const double median = ratios.empty() ? 0.0 : ratios[ratios.size() / 2];
+    const double want = static_cast<double>(kNight) / static_cast<double>(kDay);
+    tally->check(compared >= 500 && std::abs(median - want) < 0.015,
+                 text::format("the night's reflection is the store's night light: %d pixels, night / day %.4f (the "
+                              "stream's %.4f; the bake's would be 1)",
+                              compared, median, want));
+    rt::ray_tracing()->set_light_stream(mirror.box.id, nullptr);
+    for (render::GpuVertexBuffer* stream : streams) {
+        if (stream != nullptr) {
+            gpu.release_vertex_buffer(stream);
+        }
+    }
+    render::vulkan::set_rt_reflection_settings({});
+    release_targets(gpu, targets);
+}
+
 // --- (added for the skinned meshes' attributes) the box as a skinned mesh's vertices -------------------------------
 
 // The box in the skinned meshes' vertex (format 0x152), its own vertex colour, each face's normal; the geometry's
@@ -2118,6 +2216,7 @@ int run(const Options& options, SDL_Window* window)
                    &tally);
         run_mirror(gpu, mirror, {.name = "no Fresnel", .samples = 0, .strength = kHalf, .reflectivity = kMostlyShiny},
                    &tally);
+        run_night(gpu, mirror, &tally); // (round O)
         // (Fresnel: each pixel's weight from the angle it is seen at - the processor's Schlick)
         check_fresnel_curve(&tally);
         run_mirror(gpu, mirror,

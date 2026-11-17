@@ -83,7 +83,7 @@ struct VertexUniforms {
     // x, y: 1 / the viewport's width and height (Direct3D 9's pixel centres are half a pixel from Vulkan's); z, w: the
     // viewport's left and top (pre-transformed positions are the render target's pixels)
     Float4 pixel{};
-    Float4 ambient{};          // D3DRS_AMBIENT
+    Float4 ambient{};          // D3DRS_AMBIENT (w: kLinearLightsFlag with GpuRenderState::kLinearLights - round O)
     Float4 material_diffuse{}; // the D3DMATERIAL9
     Float4 material_ambient{};
     Float4 material_specular{};
@@ -106,6 +106,10 @@ struct VertexUniforms {
     // affine the interpolation is (0: perspective-correct, 1: linear on the screen).
     Float4 retro{};
 };
+
+// (NOT ORIGINAL - round O) VertexUniforms::ambient's w while the lights are the light store's linear light (a colour's
+// alpha is never negative; the shaders test < -0.5)
+constexpr float kLinearLightsFlag = -1.0F;
 
 constexpr std::size_t kPixelShaderConstants = 8;
 

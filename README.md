@@ -419,14 +419,14 @@ for the restart. Every setting is declared once in the settings model (`src/engi
 | `rt_shadow_softness` | 0 | The sun's size in degrees (0-5): 0 gives hard edges, more gives soft ones traced with `rt_shadow_rays` rays a pixel |
 | `rt_shadow_rays` | 4 | Rays a pixel for soft shadows (1-16) |
 | `rt_shadow_objects` | 1 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too, and their own blocky shadows are hidden while the sun's are drawn (a level with no sun keeps them); 0: only the level casts, the skater keeps the game's shadow |
-| `rt_ao` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced ambient occlusion on the skater and the objects (the relit level's occlusion is its own sky light's). Needs the level relit: turns `rt_relit` on, out of effect where the level keeps the original game's lighting |
-| `rt_ao_strength` | 0.6 | How dark full occlusion is: the share of the colour it takes away (0-1) |
-| `rt_ao_radius` | 48 | How far (world units) a ray looks for something in the way (1-1000) |
+| `rt_ao` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced ambient occlusion on the skater and the objects (the relit level's occlusion is its own sky light's) - it shades the light that comes from all around, never the sun's. Needs the level relit: turns `rt_relit` on, out of effect where the level keeps the original game's lighting |
+| `rt_ao_strength` | 0.6 | No longer used: occlusion shades only the light that comes from all around (the sky's and the bounce's), never the sun's or a lamp's - fully occluded, that light is gone |
+| `rt_ao_radius` | 48 | No longer used: the occlusion reaches as far as the level's light probes don't (128 units); farther things are in the probes' light already |
 | `rt_ao_rays` | 4 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
 | `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
-| `rt_ao_characters` | 1 | How much of the occlusion the skater, the peds and the other skinned characters get (0-1; 0.5: half as dark in a corner) |
-| `rt_gi` | 0 | On a relit level (it turns `rt_relit` on): the light bounced onto the skater and the objects, traced per pixel from the relit level's surface colours and the time of day's light (the level's own bounce is relit's, traced per vertex - one owner). On in the Ultra preset |
-| `rt_gi_strength` | 1 | How much of the bounce light is added (0.5-2) |
+| `rt_ao_characters` | 1 | No longer used: the skater and the peds take occlusion by the same rule as everything else |
+| `rt_gi` | 0 | On a relit level (it turns `rt_relit` on): the light bounced onto the skater and the objects, traced per pixel - only where the level's light isn't built: with it, the skater and the objects take the bounce from the level's own light (one owner). On in the Ultra preset |
+| `rt_gi_strength` | 1 | No longer used: the bounce light is added whole (and on a level with its light built, the bounce on the skater and the objects is the level's light itself) |
 | `rt_gi_rays` | 4 | Bounce rays a pixel each frame (1-8; the denoiser averages them over frames) |
 | `rt_gi_distance` | 600 | How far a bounce ray looks (world units) |
 | `rt_gi_denoise` | 1 | The bounce light's temporal and spatial filters (off with `ray_reconstruction`) |

@@ -98,8 +98,8 @@ inline constexpr uint32_t kGeometryNormal = 1U << 4; // (added for the skater's 
 inline constexpr uint32_t kGeometryLight = 1U << 5;  // (added by the light energy audit) the light stream
 inline constexpr uint32_t kGeometryObjectLight = 1U << 6; // (the objects' shadows) its object's lights
 // (the objects' shadows) An object's lights as the shaders read them: rt::ObjectLight's seven colours / directions,
-// three floats each, in its order.
-inline constexpr std::size_t kObjectLightFloats = 21;
+// three floats each, in its order; then (round O) its `linear` (1 or 0) and two zeros.
+inline constexpr std::size_t kObjectLightFloats = 24;
 // (added for the reflections' masks) bits 8 - 11: the texture coordinate sets from uv_offset (rt::Geometry::uv_sets,
 // those within the stride; at least 1 with kGeometryUv)
 inline constexpr uint32_t kGeometryUvSetsShift = 8;
@@ -125,12 +125,13 @@ inline constexpr uint32_t kGeometryUvSetsMask = 0xF;
 //   vec3 world_light_with(WorldLight w, float seen, vec3 sky) - the light a vertex colour of that stream shows with the
 //        sun's visibility `seen` and the sky's part `sky`: tint x (bounce + sky + sun x N.L x seen) + residual
 //   struct ObjectLight { vec3 ambient; vec3 key; vec3 key_direction; vec3 fill; vec3 fill_direction; vec3 local;
-//        vec3 local_direction; };
+//        vec3 local_direction; bool linear; } - (round O) `linear`: the light store's linear light in the global unit
+//        (render_pc/pc_lights.h OneLightSent), else the game's display-referred lights
 //   bool hit_object_light(uint instance, out ObjectLight l) - (the objects' shadows) the lights the instance's object
 //        is lit by (rt::ObjectLight); false when the record has none
 //   vec3 object_light_with(ObjectLight l, vec3 normal, float seen) - the light a surface of the object facing `normal`
 //        (the world's, unit) takes with the sun's visibility `seen` on its key light: ambient + key x N.L x seen +
-//        fill x N.L + local x N.L, each N.L toward where its light comes from (Direct3D's lighting)
+//        fill x N.L + local x N.L, each N.L toward where its light comes from (Direct3D's lighting; at least 0)
 // The positions are the object's (rayQueryGetIntersectionObjectToWorldEXT takes them to the world).
 std::string_view scene_geometry_glsl();
 // (the one lighting path's rays) Every ray that asks whether light gets through - the sun's shadows, the bounce light's

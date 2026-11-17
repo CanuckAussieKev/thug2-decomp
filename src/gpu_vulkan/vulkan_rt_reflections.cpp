@@ -2,6 +2,7 @@
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 
 #include <algorithm>
+#include <bit>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -18,6 +19,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -27,6 +29,7 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_lights.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
@@ -57,6 +60,8 @@ constexpr uint32_t kRoughRays = 4;    // the rays a rough (glass) pixel traces
 constexpr float kSurfaceRoughest = 0.7F;
 constexpr float kSurfaceConePerAlpha = 1.0F;
 constexpr float kMaxSurfaces = 2.0F;
+constexpr std::size_t kHitLamps = 32; // (round O) the lamps a reflection's hit takes, the view's most important first
+constexpr float kSunReach = 20000.0F; // (round O) how far a hit's ray toward the sun looks (world units: the bounce's)
 constexpr float kOffsetScale = 1.0F; // the reflection ray's start pushed off the surface by this much, growing with distance
 constexpr uint32_t kGroupSide = 8;   // the trace pass's work groups: 8 x 8 pixels
 constexpr uint32_t kSurfaceGroup = 64; // the check's trace: rays per work group
@@ -109,6 +114,13 @@ layout(set = 0, binding = 3, std140) uniform Pass {
     // (added for the surface reflections) x rt_reflection_surfaces, y the roughest map texel that reflects, z the cone's
     // half-angle per GGX alpha (the roughness squared)
     vec4 surface;
+    // (round O) xyz toward the sun or the moon (rt_scene.h scene_sun); w its rays' reach (0: none - no direct light)
+    vec4 sun;
+    // (round O) the lamps the lamps pass lit this frame (vulkan_rt_lights.h rt_lamp_glsl - its most important first):
+    // x their count; and their light's scale (x: rt_lights_strength x the lamps on)
+    uvec4 lamp_count;
+    vec4 lamp_scale;
+    LightRecord lamps[HIT_LAMPS];
 } pass;
 
 const uint INSTANCE_OBJECT = 32u; // (rt::InstanceFlag kObject)
@@ -218,6 +230,35 @@ float environment_mask(uint id, uint instance, uint primitive, HitVertices v, ve
     return mask;
 }
 
+// (round O - one light for everything) Whether the sun (or the moon) is seen from `point` - a ray toward it against the
+// world and the objects, the cut-outs by their alpha (the shadow pass's test, one ray: the hit's own penumbra isn't
+// resolved).
+float sun_seen(vec3 point, vec3 n, float travelled)
+{
+    if (!(pass.sun.w > 0.0) || dot(n, pass.sun.xyz) <= 0.0) {
+        return 0.0;
+    }
+    vec3 origin = point + n * (pass.params.z * (1.0 + travelled * 0.0005 + travelled * travelled * 6e-8));
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, uint(pass.extra.x) & 0xFFu, origin, 0.0,
+                          pass.sun.xyz, pass.sun.w);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+            uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+            HitVertices candidate;
+            bool keep = true;
+            if (hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                             rayQueryGetIntersectionPrimitiveIndexEXT(query, false), candidate)) {
+                keep = material_alpha_passes_at(id, hit_uv(candidate, rayQueryGetIntersectionBarycentricsEXT(query, false)));
+            }
+            if (keep) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+    }
+    return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT ? 0.0 : 1.0;
+}
+
 vec3 lighting(vec3 n)
 {
     vec3 light = pass.ambient.rgb;
@@ -225,6 +266,69 @@ vec3 lighting(vec3 n)
         light += pass.light_colour[i].rgb * max(0.0, dot(n, -pass.light_direction[i].xyz));
     }
     return light;
+}
+
+// (round O) The lamps the lamps pass lights per pixel, on a hit of material `m` facing `n` seen from `v` (unshadowed: a
+// hit traces the sun alone) - each a light from where it shines (rt_lamp_glsl's lamp_geometry gives its light x N.L;
+// the model takes N.L itself). The store's per-vertex lamps are none meanwhile.
+vec3 hit_lamps(BrdfMaterial m, vec3 point, vec3 n, vec3 v)
+{
+    vec3 sum = vec3(0.0);
+    for (uint i = 0u; i < min(pass.lamp_count.x, uint(HIT_LAMPS)); ++i) {
+        vec3 from;
+        float g = lamp_geometry(pass.lamps[i], point, n, from);
+        vec3 to = from - point;
+        float facing = dot(n, normalize(to));
+        if (g > 0.0 && facing > 1.0e-4) {
+            sum += brdf_direct(m, n, v, normalize(to), pass.lamps[i].colour.rgb * (g / facing));
+        }
+    }
+    return sum * pass.lamp_scale.x;
+}
+
+// (round O - one light for everything, the audit's M8 / D1) The light a reflection ray's hit shows, as the surface's own
+// pixels show it, through round M's light model (engine/gfx/rt_brdf.h brdf_direct / brdf_ambient): `texel` its
+// texture's colour x its material's (display-referred), `point` / `n` where and which way it faces, `v` toward the
+// ray's start, `travelled` the path to it. Its material: the albedo the texel decoded (x the store's tint on the relit
+// world), F0 and roughness the default surface's (gpu_vulkan.h kRtPbrF0 / kRtPbrRoughness) until the material table
+// reaches the hits (round M).
+//  - the relit world: the light store at the hit - the sky and the bounce (word 0: its every-direction light, as the
+//    ambient's diffuse and specular light), the sun's light x its visibility traced here, the lamps the store lights
+//    per vertex (tint x L, as lit) and those the lamps pass lights per pixel (hit_lamps) - the lighting now, never the
+//    bake's (at night a reflection shows the night);
+//  - an object lit by the one light (render_pc/pc_lights.h - its record linear): its probe's light at the normal and its
+//    key - the sun - x the visibility traced here, the lamps as above;
+//  - else (a level keeping the original's look, an object lit by the game's lights): the game's colours, decoded.
+vec3 hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, HitVertices v, vec3 texel, vec3 point,
+               vec3 n, vec3 to_eye, float travelled)
+{
+    bool object = (geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u;
+    float nv = max(dot(n, to_eye), 1.0e-4);
+    WorldLight w;
+    if (!object && hit_world_light(instance, primitive, barycentrics, w)) {
+        BrdfMaterial m = brdf_material(linear_from_display(texel) * w.tint, vec3(HIT_F0), HIT_ROUGHNESS);
+        float seen = w.n_dot_l > 0.0 ? sun_seen(point, n, travelled) : 0.0;
+        vec3 sun = pass.sun.w > 0.0 ? brdf_direct(m, n, to_eye, pass.sun.xyz, w.sun * seen) : vec3(0.0);
+        return brdf_ambient(m, nv, w.ambient, w.ambient) + sun + linear_from_display(texel) * w.lamps +
+               hit_lamps(m, point, n, to_eye);
+    }
+    ObjectLight l;
+    if (object && hit_object_light(instance, l) && l.linear) {
+        BrdfMaterial m = brdf_material(linear_from_display(texel), vec3(HIT_F0), HIT_ROUGHNESS);
+        vec3 around = object_light_with(l, n, 0.0); // (the probe's light at the normal: no key)
+        float key_length = length(l.key_direction);
+        vec3 toward = key_length > 1.0e-6 ? -l.key_direction / key_length : vec3(0.0, 1.0, 0.0);
+        float seen = dot(n, toward) > 0.0 ? sun_seen(point, n, travelled) : 0.0;
+        return brdf_ambient(m, nv, around, around) + brdf_direct(m, n, to_eye, toward, l.key * seen) +
+               hit_lamps(m, point, n, to_eye);
+    }
+    vec3 colour = texel;
+    if (object) {
+        colour *= lighting(n);
+    } else if ((v.flags & GEOMETRY_COLOUR) != 0u) {
+        colour *= hit_colour(v, barycentrics).rgb * 2.0;
+    }
+    return linear_from_display(clamp(colour, 0.0, 1.0));
 }
 
 // What the reflection ray from `origin` along `direction` sees (a: 1 when it hit something); `travelled`: the path so
@@ -273,16 +377,11 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
     }
     float width = pass.ambient.w * (travelled + t);
     vec2 uv = hit_uv(v, barycentrics);
-    vec3 colour = (material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
-    if ((geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u) {
-        colour *= lighting(n);
-    } else if ((v.flags & GEOMETRY_COLOUR) != 0u) {
-        colour *= hit_colour(v, barycentrics).rgb * 2.0;
-    }
-    // (round F) the hit as the game would draw it - its display-referred colours, within the draws' 0 - 1 - decoded to
-    // linear light as the frame's inputs are (ff_shaders.cpp fragment_linear_output). (Its light is still the bake's:
-    // the audit's M8.)
-    return vec4(linear_from_display(clamp(colour, 0.0, 1.0)), 1.0);
+    vec3 texel = (material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
+    // (round O) the hit lit as its own pixels are - the light store's light now (hit_light)
+    vec3 light = hit_light(id, instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), barycentrics, v, texel,
+                           origin + direction * t, n, -direction, travelled + t);
+    return vec4(min(max(light, vec3(0.0)), vec3(65504.0)), 1.0);
 }
 
 void main()
@@ -359,14 +458,13 @@ void main()
                     if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {
                         vec4 texel = material_texel_lod(id, hit_uv(v, bary), level_for(id, v, a, b, c, pass.ambient.w * t));
                         // The game drew its environment map there in place of the texture (its pixel shader's lerp by
-                        // the alpha): the glass's own colour - the texel x the pass's colour x the vertex colour
-                        // doubled (objects: the frame's lights), as that shader would have drawn it - is put back
-                        // under the reflection: face-on the pane shows (1 - F) of it, the reflection the rest; the
-                        // environment map is kept only for what the rays miss (the base layer, premultiplied).
-                        uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
-                        vec3 light = (geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u ? lighting(sn)
-                                   : ((v.flags & GEOMETRY_COLOUR) != 0u ? hit_colour(v, bary).rgb * 2.0 : vec3(1.0));
-                        vec3 own = clamp(texel.rgb * surface.colour.rgb * light, 0.0, 1.0);
+                        // the alpha): the glass's own colour - the texel x the pass's colour, lit as its own pixels
+                        // are (round O: hit_light - the light store's light now; the original's look its vertex colour
+                        // doubled or the frame's lights) - is put back under the reflection: face-on the pane shows
+                        // (1 - F) of it, the reflection the rest; the environment map is kept only for what the rays
+                        // miss (the base layer, premultiplied; linear light, as the frame).
+                        vec3 own = hit_light(id, hit_instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                                             bary, v, texel.rgb * surface.colour.rgb, point, sn, -view, t);
                         float share = mask * (1.0 - clamp(weight, 0.0, 1.0));
                         base_layer = vec4(own * share, share);
                     }
@@ -497,7 +595,8 @@ void main()
         colour = sum / total;
     }
     float weight = clamp(abs(reflection.a), 0.0, 1.0);
-    o_colour = vec4(max(base.rgb, vec3(0.0)) + clamp(colour, 0.0, 1.0) * weight, clamp(base.a + weight, 0.0, 1.0));
+    // (round O: linear light - the reflection's radiance as it is, never held to 1)
+    o_colour = vec4(max(base.rgb, vec3(0.0)) + max(colour, vec3(0.0)) * weight, clamp(base.a + weight, 0.0, 1.0));
 }
 )";
 
@@ -574,6 +673,14 @@ struct PackedSurfaceHit {
 constexpr std::size_t kPackedSurfaceHitBytes = 64;
 static_assert(sizeof(PackedSurfaceHit) == kPackedSurfaceHitBytes, "the shader's Hit (scalar layout)");
 
+// (round O) A lamp as rt_lamp_glsl's LightRecord lays it out.
+struct HitLamp {
+    std::array<float, 4> at{};
+    std::array<float, 4> colour{};
+    std::array<float, 4> more{};
+    std::array<float, 4> shape{};
+};
+
 // The trace pass's block (std140), as the shader lays it out.
 struct TraceBlock {
     std::array<float, kMatrixFloats> to_world{}; // column-major (GLSL's mat4)
@@ -591,8 +698,12 @@ struct TraceBlock {
     std::array<float, 4> sky_low{};
     std::array<float, 4> sky_rect{};
     std::array<float, 4> surface{}; // (added for the surface reflections)
+    std::array<float, 4> sun{};     // (round O) toward the sun, w its rays' reach (0: none)
+    std::array<uint32_t, 4> lamp_count{}; // (round O) the hits' lamps (rt_lamp_glsl's records)
+    std::array<float, 4> lamp_scale{};
+    std::array<HitLamp, kHitLamps> lamps{};
 };
-constexpr std::size_t kTraceBlockBytes = 416;
+constexpr std::size_t kTraceBlockBytes = 464 + (64 * kHitLamps);
 static_assert(sizeof(TraceBlock) == kTraceBlockBytes, "the shader's Pass block (std140)");
 
 // The bindings of set 0 (push descriptors): 0 the scene, 1 the depth, 2 the reflection written, 3 the pass's block,
@@ -725,6 +836,11 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
     source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 7\n";
     source += scene_geometry_glsl();
     source += rt::kDisplayTransferGlsl;
+    source += "#define HIT_LAMPS " + std::to_string(kHitLamps) + "\n"; // (round O: the hits' lamps)
+    source += "#define HIT_F0 " + std::to_string(kRtPbrF0) + "\n#define HIT_ROUGHNESS " + std::to_string(kRtPbrRoughness) +
+              "\n"; // (round O: the hits' default surface)
+    source += rt_lamp_glsl();
+    source += rt::brdf::brdf_glsl(); // (round M's light model)
     source += body;
     return source;
 }
@@ -1468,6 +1584,30 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
     block.fresnel = {own.settings.fresnel ? 1.0F : 0.0F, own.settings.glass_roughness, static_cast<float>(kRoughRays),
                      own.settings.glass_reflectance};
     block.surface = {own.settings.surfaces, kSurfaceRoughest, kSurfaceConePerAlpha, 0.0F};
+    // (round O) the sun every effect lights by (rt_scene.h scene_sun): the hits' direct light is traced toward it
+    const rt::SceneSun sun = rt::scene_sun();
+    if (sun.found()) {
+        block.sun = {core::at(sun.toward, 0), core::at(sun.toward, 1), core::at(sun.toward, 2), kSunReach};
+    }
+    // (round O) the lamps the lamps pass lit this frame (its order is before this pass's): the hits take their light as
+    // the surfaces' own pixels do - the view's most important first, at most kHitLamps
+    const Backend& state = backend();
+    const RtLitLamps lit = rt_lights_lit_locked(state);
+    if (lit.frame == state.frame && lit.scale > 0.0F) {
+        const std::size_t count = std::min<std::size_t>(lit.lights.size(), kHitLamps);
+        block.lamp_count = {static_cast<uint32_t>(count), 0U, 0U, 0U};
+        block.lamp_scale = {lit.scale, 0.0F, 0.0F, 0.0F};
+        for (std::size_t i = 0; i < count; ++i) {
+            const rt::Emitter& light = core::at(lit.lights, i);
+            HitLamp& record = core::at(block.lamps, i);
+            record.at = {core::at(light.position, 0), core::at(light.position, 1), core::at(light.position, 2), light.size};
+            record.colour = {core::at(light.colour, 0) * light.intensity, core::at(light.colour, 1) * light.intensity,
+                             core::at(light.colour, 2) * light.intensity, light.reach};
+            record.more = {std::bit_cast<float>(static_cast<uint32_t>(light.material)), light.core,
+                           static_cast<float>(light.shape), 0.0F};
+            record.shape = {core::at(light.axis, 0), core::at(light.axis, 1), core::at(light.axis, 2), light.half_length};
+        }
+    }
     return block;
 }
 

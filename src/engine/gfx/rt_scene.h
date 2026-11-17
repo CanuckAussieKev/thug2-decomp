@@ -88,6 +88,10 @@ struct ObjectLight {
     std::array<float, 3> fill_direction{0.0F, -1.0F, 0.0F};
     std::array<float, 3> local{};
     std::array<float, 3> local_direction{0.0F, -1.0F, 0.0F};
+    // (round O - pc_lights.h OneLightSent) the light store's light, linear in the global unit: key the sun, fill and
+    // local the indirect probe's two sides (local's colour may be negative), ambient its c0 - nothing held to 1; false:
+    // the game's display-referred lights (the original's look)
+    bool linear = false;
     bool operator==(const ObjectLight&) const = default;
 };
 inline constexpr uint32_t kNoObjectLight = 0xFFFFFFFFU;

@@ -177,12 +177,9 @@ render::vulkan::RtAoSettings make_rt_ao(const Resolution& in_effect)
     const render::vulkan::RtAoSettings defaults;
     return render::vulkan::RtAoSettings{
         .on = in_effect.on("rt_ao"),
-        .strength = in_effect.number("rt_ao_strength", defaults.strength),
-        .radius = in_effect.number("rt_ao_radius", defaults.radius),
+        .radius = defaults.radius, // (round O: one light field cell - rt_ao_radius retired)
         .rays = at_least_one(in_effect, "rt_ao_rays", defaults.rays),
-        .denoise = in_effect.on("rt_ao_denoise"),
-        // (added for the characters) the occlusion on the skinned characters x this
-        .characters = std::clamp(in_effect.number("rt_ao_characters", defaults.characters), 0.0F, 1.0F)};
+        .denoise = in_effect.on("rt_ao_denoise")};
 }
 
 // NOT ORIGINAL - one-bounce ray-traced indirect light (gpu_vulkan/vulkan_rt_effects.h)
@@ -190,7 +187,6 @@ render::vulkan::RtGiSettings make_rt_gi(const Resolution& in_effect)
 {
     const render::vulkan::RtGiSettings defaults;
     return render::vulkan::RtGiSettings{.on = in_effect.on("rt_gi"),
-                                        .strength = in_effect.number("rt_gi_strength", defaults.strength),
                                         .distance = in_effect.number("rt_gi_distance", defaults.distance),
                                         .rays = at_least_one(in_effect, "rt_gi_rays", defaults.rays),
                                         .denoise = in_effect.on("rt_gi_denoise")};

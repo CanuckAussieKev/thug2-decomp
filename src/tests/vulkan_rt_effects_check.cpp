@@ -1212,7 +1212,7 @@ void use_settings(const render::vulkan::RtAoSettings& settings, VkAccelerationSt
 void run_raw(render::Gpu& gpu, const Scene& scene, uint32_t samples, Tally* tally)
 {
     text::print("the rays as they are (%u rays, %s):\n", kRawRays, samples == 0 ? "one sample" : "four samples");
-    use_settings({.on = true, .strength = kStrength, .radius = kRadius, .rays = kRawRays, .denoise = false},
+    use_settings({.on = true, .radius = kRadius, .rays = kRawRays, .denoise = false},
                  scene.top.handle);
     Targets targets;
     const bool made = make_targets(gpu, samples, &targets);
@@ -1234,7 +1234,7 @@ void run_raw(render::Gpu& gpu, const Scene& scene, uint32_t samples, Tally* tall
 void run_denoised(render::Gpu& gpu, const Scene& scene, Tally* tally)
 {
     text::print("denoised (%u rays a frame), a still camera then a moved one:\n", kDenoisedRays);
-    use_settings({.on = true, .strength = kStrength, .radius = kRadius, .rays = kDenoisedRays, .denoise = true},
+    use_settings({.on = true, .radius = kRadius, .rays = kDenoisedRays, .denoise = true},
                  scene.top.handle);
     Targets targets;
     const bool made = make_targets(gpu, 0, &targets);
@@ -1319,7 +1319,7 @@ Opened open_device(const Options& options, SDL_Window* window)
                                          .ray_tracing = true},
                                         window);
     // (on before the device: its depth surfaces are made samplable)
-    render::vulkan::set_rt_ao_settings({.on = true, .strength = kStrength, .radius = kRadius});
+    render::vulkan::set_rt_ao_settings({.on = true, .radius = kRadius});
     render::GpuContext& context = render::vulkan::gpu_context();
     if (!context.create_instance()) {
         text::print("the device could not be opened\n");
@@ -1378,7 +1378,7 @@ int run(const Options& options, SDL_Window* window)
         constexpr uint32_t kFourSamples = 4;
         run_raw(gpu, scene, kFourSamples, &tally);
         run_denoised(gpu, scene, &tally);
-        const render::vulkan::RtAoSettings on{.on = true, .strength = kStrength, .radius = kRadius};
+        const render::vulkan::RtAoSettings on{.on = true, .radius = kRadius};
         run_untouched(gpu, "no scene: the passes skipped", on, VK_NULL_HANDLE, &tally);
         render::vulkan::RtAoSettings off = on;
         off.on = false;

@@ -380,27 +380,15 @@ std::vector<Decl> declarations()
         gfx("rt_shadow_covered", K::kSwitch, "0").retire(t::kOneShadowModel),
         gfx("rt_shadow_sky_rays", K::kNumber, "5").retire(t::kOneShadowModel),
         gfx("rt_ao", K::kSwitch, "0").tab(G::kLighting, t::kOptAo, t::kOptAoHelp).need(ray_tracing()).need(on("rt_relit")).live(E::kAo),
-        gfx("rt_ao_strength", K::kNumber, "0.6")
-            .tab(G::kLighting, t::kOptAoStrength)
-            .pick(percent({{"0.3", "30%"}, {"0.45", "45%"}, {"0.6", "60%"}, {"0.8", "80%"}, {"1", "100%"}}))
-            .need(on("rt_ao"))
-            .live(E::kAo),
-        gfx("rt_ao_radius", K::kNumber, "48")
-            .tab(G::kLighting, t::kOptAoRadius)
-            .pick({c("24", "24"), c("48", "48"), c("96", "96"), c("192", "192")})
-            .need(on("rt_ao"))
-            .live(E::kAo),
+        // (round O: occlusion is the indirect light's visibility - no strength; its reach one light field cell)
+        gfx("rt_ao_strength", K::kNumber, "0.6").retire(t::kRetiredOneLight),
+        gfx("rt_ao_radius", K::kNumber, "48").retire(t::kRetiredOneLight),
         gfx("rt_ao_rays", K::kNumber, "4")
             .tab(G::kLighting, t::kOptAoRays)
             .pick({c("1", "1"), c("2", "2"), c("4", "4"), c("8", "8")})
             .need(on("rt_ao"))
             .live(E::kAo),
-        // (added for the characters: the occlusion on the skater and the peds - gpu_vulkan/vulkan_rt_effects.cpp)
-        gfx("rt_ao_characters", K::kNumber, "1")
-            .tab(G::kLighting, t::kOptAoCharacters, t::kOptAoCharactersHelp)
-            .pick(percent({{"0.25", "25%"}, {"0.5", "50%"}, {"0.75", "75%"}, {"1", "100%"}}))
-            .need(on("rt_ao"))
-            .live(E::kAo),
+        gfx("rt_ao_characters", K::kNumber, "1").retire(t::kRetiredOneLight), // (round O: one rule for every object)
         // (the denoisers: left to DLSS Ray Reconstruction while it runs - vulkan_upscale.h)
         gfx("rt_ao_denoise", K::kSwitch, "1")
             .need(on("rt_ao"))
@@ -414,11 +402,7 @@ std::vector<Decl> declarations()
             .need(ray_tracing())
             .need(on("rt_relit"))
             .live(E::kGi),
-        gfx("rt_gi_strength", K::kNumber, "1")
-            .tab(G::kLighting, t::kOptGiStrength)
-            .pick(percent({{"0.5", "50%"}, {"1", "100%"}, {"1.5", "150%"}, {"2", "200%"}}))
-            .need(on("rt_gi"))
-            .live(E::kGi),
+        gfx("rt_gi_strength", K::kNumber, "1").retire(t::kRetiredOneLight), // (round O: the bounce added whole)
         gfx("rt_gi_rays", K::kNumber, "4")
             .tab(G::kLighting, t::kOptGiRays)
             .pick({c("1", "1"), c("2", "2"), c("4", "4"), c("8", "8")})

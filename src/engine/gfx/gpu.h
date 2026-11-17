@@ -32,6 +32,9 @@ namespace render {
 
 // A render state (D3DRENDERSTATETYPE's numbers; Direct3D 9's all fit a byte - and a transform's two).
 enum class GpuRenderState : uint8_t {
+    // NOT ORIGINAL - round O (render_pc/pc_lights.h OneLightSent): 1 - the lights are linear light in the global unit,
+    // summed as such and encoded once (Direct3D 9 has no state 1: its backend keeps it to itself)
+    kLinearLights = 1,
     kZEnable = 7,
     kFillMode = 8,
     kZWriteEnable = 14,

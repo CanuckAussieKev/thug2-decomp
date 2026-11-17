@@ -21,7 +21,6 @@
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/rt_light_field.h"
 #include "engine/gfx/rt_lights.h"
-#include "render_pc/rt_relit_world.h"
 
 namespace render {
 
@@ -40,7 +39,7 @@ namespace {
 struct PcLightsState {
     maths::Vec4 scene_light_direction_{};
     uint32_t scene_light_direction_guard_{};
-    LocalLightSent local_light_{}; // NOT ORIGINAL - the one lighting path's local light (pc_lights.h)
+    OneLightSent one_light_{}; // NOT ORIGINAL - round O's one light (pc_lights.h)
 };
 
 PcLightsState& pc_lights_state()
@@ -105,102 +104,35 @@ uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, std::
     return get_dynamic_lights_near(position, radius, out);
 }
 
-// NOT ORIGINAL - the one lighting path, for the game's fill and ambient (the offline relit data: the light energy
-// audit's characters' item): at the bake they stand for the level's indirect light and its own lamps' where a thing is,
-// so now they are the game's own times (indirect now + lamps) over (indirect at the bake + lamps) - the bake's own time
-// gives the game's own light, exactly the original's (before, the lamps were added on top: the skater 1.3x the bake's
-// beside a lamp-lit door). The lamps' directional part (the field's local light toward where most of it comes from)
-// shows as the daylight it was under fades: by the share of the direct and indirect light gone since the bake, it moves
-// out of the ambient into a light of its own toward the lamps (local_light_sent) - a face toward the lamp is lit as the
-// wall facing it at night, the lamp's light the same in all. While the lamps pass lights (rt_lights) it owns the lamps:
-// the field's give way by as much (each light counted once).
-struct GameShare {
-    std::array<float, 3> ambient{1.0F, 1.0F, 1.0F};
-    std::array<float, 3> directional{}; // (a share of the game's ambient)
-    std::array<float, 3> toward{0.0F, 1.0F, 0.0F};
-};
-GameShare game_share(const maths::Vec4& position)
-{
-    GameShare out;
-    const rt::FieldPoint at{position.x, position.y, position.z};
-    const rt::IndirectLight indirect = rt::indirect_light_at(at);
-    const rt::LocalLight lamps = rt::local_light_at(at);
-    const float kept = 1.0F - rt::lamps_drawn();
-    out.toward = lamps.toward;
-    for (std::size_t channel = 0; channel < out.ambient.size(); ++channel) {
-        const float around = core::at(lamps.ambient, channel);
-        const float facing = core::at(lamps.directional, channel);
-        const float bake = core::at(indirect.own, channel) + around + facing;
-        if (!(bake > rt::kLightFieldLeast)) {
-            continue; // (no field here: the game's own)
-        }
-        // (the share of the daylight still there: 1 at the bake's own time)
-        const float day_own = core::at(indirect.own, channel) + core::at(indirect.direct_own, channel);
-        const float day_now = core::at(indirect.now, channel) + core::at(indirect.direct_now, channel);
-        const float day = day_own > rt::kLightFieldLeast ? std::clamp(day_now / day_own, 0.0F, 1.0F) : 1.0F;
-        core::at(out.ambient, channel) = std::clamp(
-            (core::at(indirect.now, channel) + (kept * (around + (facing * day)))) / bake, 0.0F, rt::kLightFieldMostRatio);
-        core::at(out.directional, channel) =
-            std::clamp(kept * facing * (1.0F - day) / bake, 0.0F, rt::kLightFieldMostRatio);
-    }
-    return out;
-}
+} // namespace
 
-// NOT ORIGINAL - the relit mode and the one lighting path (rt_relit_world.h object_lighting, engine/gfx/rt_light_field.h):
-// the game's light `light` as sent, turned toward the relit sun, the key light (0) times the direct light now over the
-// bake's, the others - the fill - times the game's share where the thing is (`position`: game_share).
-void relight(uint32_t light, const maths::Vec4* position)
-{
-    rt_relit_world::ObjectLighting relit;
-    const std::span<float, 3> colour = light_color_constant(light);
-    if (rt_relit_world::object_lighting(&relit)) {
-        const std::span<float, 3> direction = light_direction_constant(light);
-        const std::array<float, 3> was{core::at(direction, 0), core::at(direction, 1), core::at(direction, 2)};
-        for (std::size_t axis = 0; axis < was.size(); ++axis) {
-            const std::array<float, 3>& row = core::at(relit.rotation, axis);
-            core::at(direction, axis) = (core::at(row, 0) * core::at(was, 0)) + (core::at(row, 1) * core::at(was, 1)) +
-                                        (core::at(row, 2) * core::at(was, 2));
-        }
-        if (light == 0) {
-            for (std::size_t channel = 0; channel < relit.key_colour.size(); ++channel) {
-                core::at(colour, channel) *= core::at(relit.key_colour, channel);
-            }
-        }
-    }
-    if (light != 0 && position != nullptr) {
-        const GameShare share = game_share(*position);
-        for (std::size_t channel = 0; channel < share.ambient.size(); ++channel) {
-            core::at(colour, channel) *= core::at(share.ambient, channel);
-        }
-    }
-}
+const OneLightSent& one_light_sent() { return pc_lights_state().one_light_; }
 
-// NOT ORIGINAL - the one lighting path: the ambient light sent times the game's share where the thing is (game_share),
-// and the lamps' directional part sent as the local light (pc_lights.h); the ambient held to 1 (the device's ambient is
-// a colour of bytes).
-void relight_ambient(const maths::Vec4* position)
+// NOT ORIGINAL - round O (pc_lights.h OneLightSent): the light store's light where the thing stands, as the device's
+// lights (rt_light_field.h device_lights) - the lamps in it only as far as the lamps pass doesn't light them per pixel
+// (rt_lights.h lamps_drawn: one owner).
+void apply_one_light(const maths::Vec4* position)
 {
-    LocalLightSent& local = pc_lights_state().local_light_;
-    local.on = false;
+    OneLightSent& out = pc_lights_state().one_light_;
+    out = {};
     if (position == nullptr) {
         return;
     }
-    const GameShare share = game_share(*position);
-    const std::span<float> ambient(ambient_constant());
-    for (std::size_t channel = 0; channel < share.ambient.size(); ++channel) {
-        const float game = core::at(ambient, channel);
-        core::at(local.colour, channel) = game * core::at(share.directional, channel);
-        core::at(ambient, channel) = std::min(game * core::at(share.ambient, channel), 1.0F);
+    const rt::PointLight light = rt::point_light_at({position->x, position->y, position->z});
+    if (!light.valid) {
+        return;
     }
-    local.on = std::ranges::any_of(local.colour, [](float value) { return value > 0.0F; });
-    for (std::size_t axis = 0; axis < local.direction.size(); ++axis) {
-        core::at(local.direction, axis) = -core::at(share.toward, axis);
-    }
+    const rt::DeviceLights lights = rt::device_lights(light, 1.0F - rt::lamps_drawn());
+    out = {.on = true,
+           .ambient = lights.ambient,
+           .key = lights.key,
+           .key_direction = lights.key_travel,
+           .fill = lights.fill,
+           .fill_direction = lights.fill_travel,
+           .back = lights.back,
+           .back_direction = lights.back_travel};
 }
 
-} // namespace
-
-const LocalLightSent& local_light_sent() { return pc_lights_state().local_light_; }
 
 namespace {
 
@@ -279,7 +211,6 @@ uint32_t* PcModelLights::read_diffuse_light_tint(uint32_t* out, int light)
 // 0x004B63B0
 void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius)
 {
-    pc_lights_state().local_light_.on = false; // (not original: the local light - relight_ambient)
     uint32_t color = 0;
     if ((overrides & 1) != 0U) {
         color = ambient;
@@ -295,12 +226,9 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
             fetch_light_tint(&color, static_cast<int>(i));
             send_color(light_color_constant(i), color, core::at(intensities(), i));
             send_negated(light_direction_constant(i), *render::get_light_direction(static_cast<int>(i)));
-            relight(i, position); // (not original: the relit mode's sun, the one lighting path - rt_relit_world.h)
         }
     }
-    if ((overrides & 1) == 0U) {
-        relight_ambient(position); // (not original: the one lighting path)
-    }
+    apply_one_light(position); // (not original: round O - the light store's light where it stands, pc_lights.h)
     if (radius == 0U) {
         return;
     }
@@ -421,7 +349,7 @@ bool delete_model_lights(gsl::owner<PcModelLights*> lights)
 // 0x004B6940
 void reset_lights()
 {
-    pc_lights_state().local_light_.on = false; // (not original: no local light - pc_lights.h)
+    pc_lights_state().one_light_.on = false; // (not original: round O - none until apply_one_light, pc_lights.h)
     send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), light_sets().ambient_intensity());
     for (int i = 0; i < 2; ++i) {
         uint32_t color = 0;
