@@ -55,6 +55,8 @@
 #include "gpu_vulkan/vulkan_grass.h"
 #include "gpu_vulkan/vulkan_scatter.h"
 #include "gpu_vulkan/vulkan_paint.h"
+#include "gpu_vulkan/vulkan_precip.h"
+#include "gpu_vulkan/vulkan_rain.h"
 #include "gpu_vulkan/vulkan_snow.h"
 #include "gpu_vulkan/vulkan_style_film.h"
 #include "gpu_vulkan/vulkan_framegen.h"
@@ -463,7 +465,7 @@ struct SurfaceDescriptors {
 
 void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array<VkDescriptorImageInfo, kStageCount>& images,
                       const SurfaceDescriptors& surface = {}, const WaterDescriptors& water = {},
-                      const SnowDescriptors& snow = {}, const PaintDescriptors& paint = {})
+                      const SnowDescriptors& snow = {}, const PaintDescriptors& paint = {}, const WetDescriptors& wet = {})
 {
     BoundState& bound = state.bound;
     const bool same_surface = !surface.on || (bound.surface_pushed && same_buffer_info(bound.pushed_surface_block, surface.block) &&
@@ -472,14 +474,16 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
                       same_buffer_info(bound.pushed_fragment_block, bound.fragment_block) &&
                       std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel &&
                       !surface.detail;
-    if (same && !water.on && !snow.on && !paint.on) {
+    if (same && !water.on && !snow.on && !paint.on && !wet.on) {
         return;
     }
     constexpr std::size_t kWaterWrites = 5; // (NOT ORIGINAL - rt_water's: kWaterUniformsBinding - kWaterWavesBinding)
     constexpr std::size_t kDetailWrites = 2; // (NOT ORIGINAL - rt_detail's: kDetailUniformsBinding, kDetailMapBinding)
     constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the scene)
     constexpr std::size_t kPaintWrites = 3;  // (NOT ORIGINAL - paint's: kPaintUniformsBinding - kPaintPlaceBinding)
-    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites> writes{};
+    constexpr std::size_t kWetWrites = 2;    // (NOT ORIGINAL - rain's: kWetUniformsBinding, kWetMapBinding)
+    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites>
+        writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -592,6 +596,16 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
         places.dstBinding = kPaintPlaceBinding;
         places.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         places.pImageInfo = &paint.places;
+    }
+    if (wet.on) { // (NOT ORIGINAL - rain: its block and the precipitation occlusion map)
+        VkWriteDescriptorSet& block = core::at(writes, count++);
+        block.dstBinding = kWetUniformsBinding;
+        block.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        block.pBufferInfo = &wet.block;
+        VkWriteDescriptorSet& map = core::at(writes, count++);
+        map.dstBinding = kWetMapBinding;
+        map.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        map.pImageInfo = &wet.map;
     }
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0, count, writes.data());
     bound.images = images;
@@ -1163,6 +1177,8 @@ void release_draw_objects(Backend& state)
     release_grass(state); // (NOT ORIGINAL - the grass's: vulkan_grass.h)
     release_snow(state); // (NOT ORIGINAL - the snow's: vulkan_snow.h)
     release_paint(state); // (NOT ORIGINAL - the paint trails': vulkan_paint.h)
+    release_rain(state); // (NOT ORIGINAL - the rain's: vulkan_rain.h)
+    release_precip(state); // (NOT ORIGINAL - the precipitation occlusion map: vulkan_precip.h)
     release_scatter(state); // (NOT ORIGINAL - the decals' and clutter's: vulkan_scatter.h)
     release_cel(state); // (NOT ORIGINAL - cel shading's outlines: vulkan_cel_draw.h)
     release_water(state); // (NOT ORIGINAL - rt_water's: vulkan_water.h)
@@ -1305,6 +1321,9 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     // NOT ORIGINAL - the paint trails' coat on the same draws, over the snow ([Graphics] paint_trails, vulkan_paint.h)
     PaintDescriptors paint;
     paint_key(state, block, &shaders, &paint);
+    // NOT ORIGINAL - the rain's wet ground on the same draws ([Graphics] rain, vulkan_rain.h; nothing with it off)
+    WetDescriptors wet;
+    rain_key(state, block, call, &shaders, &wet);
     // NOT ORIGINAL - (lighting round A) a world draw of the relit level: its colour is the relit light store's (the stream's
     // colour word, rt_cel.h - the surface's tint x its light), read in place of the vertex colour, its alpha the game's.
     // The game's vertex buffers are never written by relit.
@@ -1385,7 +1404,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         bound.pipeline = pipeline;
     }
     set_dynamic_states(state, commands, block, call);
-    push_descriptors(state, commands, descriptors, surface_descriptors, water, snow, paint);
+    push_descriptors(state, commands, descriptors, surface_descriptors, water, snow, paint, wet);
     if (call.vertex_buffer != bound.vertex_buffer || call.vertex_offset != bound.vertex_offset ||
         call.stride != bound.vertex_stride) {
         const VkDeviceSize stride = call.stride;

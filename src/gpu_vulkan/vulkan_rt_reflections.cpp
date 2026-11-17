@@ -35,6 +35,7 @@
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_ring.h"
+#include "gpu_vulkan/vulkan_rain.h"
 #include "gpu_vulkan/vulkan_scatter.h"
 #include "platform/run_log.h"
 
@@ -1736,8 +1737,10 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
         }
         return false;
     }
-    // (added by the decals) the puddles' wet mask the decals drew for this viewport (single-sampled targets)
-    const Image* const wet = scatter_wet_mask(state, view.rect);
+    // (added by the decals) the puddles' wet mask the decals drew for this viewport (single-sampled targets); (added by the
+    // rain - vulkan_rain.h) the rain's when it drew one: its films and puddles over the decals' puddles
+    const Image* const rain_wet = rain_wet_mask(state, view.rect);
+    const Image* const wet = rain_wet != nullptr ? rain_wet : scatter_wet_mask(state, view.rect);
     if (scene.reflective_instances == 0 && wet == nullptr) {
         ++own.without_mirrors;
         if (first_report(state, kReportNoMirrors)) {

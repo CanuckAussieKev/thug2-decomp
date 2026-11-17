@@ -26,6 +26,7 @@
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/paint_trails.h"
+#include "engine/gfx/rain.h"
 #include "engine/gfx/rig.h"
 #include "render_pc/mesh_list.h"
 #include "engine/gfx/snow.h"
@@ -357,8 +358,12 @@ void step()
             // (what the rule moved put to use: snow's settings follow the level - an outdoor level after the indoor
             // front end gets its snow from the first frame, not from the next change on the Options screen)
             graphics_options::reload_live("snow");
+            graphics_options::reload_live("rain");
         }
+        rain::reset(); // (NOT ORIGINAL - the rain: a new level session - its ground as the weather leaves it)
     }
+    // (NOT ORIGINAL - the rain, engine/gfx/rain.h: its clock and the water on the ground, on the same steps - visual only)
+    rain::step(frame_clock::get_slomo_frame_seconds());
     // (the paint trails - engine/gfx/paint_trails.h: the game's brushes, the loaded scenes' key their level session)
     if (paint::settings().on) {
         const frame_profile::Scope paint_phase("paint"); // ([debug] frame_profile)

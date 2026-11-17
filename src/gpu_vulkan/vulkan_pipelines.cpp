@@ -180,7 +180,9 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kDetailBindings = 2; // (NOT ORIGINAL - rt_detail: kDetailUniformsBinding, kDetailMapBinding)
     constexpr std::size_t kSnowBindings = 2;   // (NOT ORIGINAL - snow: kSnowUniformsBinding, kSnowSkyBinding)
     constexpr std::size_t kPaintBindings = 3;  // (NOT ORIGINAL - paint: kPaintUniformsBinding - kPaintPlaceBinding)
-    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings + kSnowBindings + kPaintBindings>
+    constexpr std::size_t kWetBindings = 2;    // (NOT ORIGINAL - rain: kWetUniformsBinding, kWetMapBinding)
+    std::array<VkDescriptorSetLayoutBinding,
+               2 + kStageCount + 4 + kWaterBindings + kDetailBindings + kSnowBindings + kPaintBindings + kWetBindings>
         bindings{};
     core::at(bindings, 0) = {.binding = kVertexUniformsBinding,
                              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -218,7 +220,8 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kDetailFirstSlot = kWaterFirstSlot + kWaterBindings;
     constexpr std::size_t kSnowFirstSlot = kDetailFirstSlot + kDetailBindings;
     constexpr std::size_t kPaintFirstSlot = kSnowFirstSlot + kSnowBindings;
-    constexpr std::size_t kCelSceneSlot = kPaintFirstSlot + kPaintBindings;
+    constexpr std::size_t kWetFirstSlot = kPaintFirstSlot + kPaintBindings;
+    constexpr std::size_t kCelSceneSlot = kWetFirstSlot + kWetBindings;
     static_assert(kCelSceneSlot + 1 == bindings.size(), "the scene is the last binding");
     core::at(bindings, kCelBlockSlot) = {.binding = kCelUniformsBinding,
                                            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -278,6 +281,18 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
             .pImmutableSamplers = nullptr};
     }
     static_assert(kPaintPlaceBinding == kPaintUniformsBinding + kPaintBindings - 1, "the paint's bindings follow each other");
+    // (NOT ORIGINAL - rain, vulkan_rain.h) the wet ground's block and the precipitation occlusion map: pushed only for the
+    // keys that read them
+    core::at(bindings, kWetFirstSlot) = {.binding = kWetUniformsBinding,
+                                         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                         .descriptorCount = 1,
+                                         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                         .pImmutableSamplers = nullptr};
+    core::at(bindings, kWetFirstSlot + 1) = {.binding = kWetMapBinding,
+                                             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                             .descriptorCount = 1,
+                                             .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                             .pImmutableSamplers = nullptr};
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
