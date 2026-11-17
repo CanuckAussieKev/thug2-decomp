@@ -442,11 +442,12 @@ for the restart. Every setting is declared once in the settings model (`src/engi
 | `rt_glass_roughness` | 0.05 | How blurry glass reflections are (radians; 0 a perfect mirror) |
 | `rt_reflection_surfaces` | 1 | With `rt_pbr=1`: how much the surfaces the game gave no shine reflect where their surface maps say they are glossy - metal, glazed tiles and polished floors; stone, kerbs, paint and wood at most a faint, blurred sheen, never a mirror - by the angle and their roughness (0-2; 0: only the shiny surfaces, as before) |
 | `rt_water` | 0 | On Vulkan (no ray tracing needed): 1 turns the levels' water into real water - waves moving with the wind, the sky and the level reflected along them, the bottom seen through shallow water and deep water darkening, foam where it meets the shore, sparkles where the sun catches the waves. Only flat water that faces up (not waterfalls); everything else is drawn as before. All the `rt_water` keys change at once in the Options screen |
-| `rt_water_waves` | 1 | With `rt_water`: how high the waves are, times each level's own (a harbour or canal is calmer than the open sea; 0 flat) |
-| `rt_water_wind` | 1 | With `rt_water`: how strong the wind is - the ripples' size and speed (0 still, up to 2) |
-| `rt_water_wind_heading` | auto | With `rt_water`: which way the wind blows, in degrees (auto: the level's own) |
+| `rt_wind` | auto | With `rt_water`: the weather's wind, in metres a second 10 m up (auto: the air's - 5 in clear air, 3 when hazy, 1.5 in mist, `rt_fog_air`). Each body of water gets waves from it as physics says: bigger the further the wind has blown over open water (the fetch) and the deeper it is, none on water out of the wind - a puddle under a roof stays still, a harbour gets a chop, the open sea a swell |
+| `rt_water_waves` | 1 | No longer used: the waves follow the wind, each water body's size and depth and its shelter (`rt_wind`) |
+| `rt_water_wind` | 1 | No longer used: `rt_wind` |
+| `rt_water_wind_heading` | auto | No longer used: the wind blows one way for everything it moves |
 | `rt_water_clarity` | 1 | With `rt_water`: how far you can see into the water, times the level's own (0.5 murky, 2 clear) |
-| `rt_water_foam` | 1 | With `rt_water`: how much foam there is along the shore (0 none, up to 2) |
+| `rt_water_foam` | 1 | With `rt_water`: how much foam there is where the waves break along the shore and on whitecaps (0 none, up to 2; still water has none) |
 | `rt_water_tint` | auto | With `rt_water`: the water's colour - auto (its own colour as the game draws it) or r,g,b (0-1 each, e.g. 0.1,0.45,0.45) |
 | `rt_water_screen_reflections` | 1 | With `rt_water`: 0 reflects only the sky in the water (a little cheaper) |
 | `rt_water_geometry` | 1 | With `rt_water`: the water's surface itself rises and falls with the swell (its meshes are split into a fine grid as a level loads - switched on later, it waits for the next level load; calm water stays flat). 0 keeps the flat sheet, the waves only in its shading |

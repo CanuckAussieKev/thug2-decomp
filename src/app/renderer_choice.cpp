@@ -25,6 +25,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "engine/gfx/ui_backend.h"
+#include "engine/gfx/wind.h"
 #include "engine/sys/editor_mode.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
@@ -515,31 +516,30 @@ void read_scatter(const Resolution& in_effect)
                                           .clutter_density = in_effect.number("clutter_density", defaults.clutter_density)});
 }
 
-// NOT ORIGINAL - water shading (gpu_vulkan/vulkan_water.h). rt_water_wind_heading: auto (the level's) or degrees;
-// rt_water_tint: auto (the water's own colour as the game draws it) or r,g,b.
+// NOT ORIGINAL - water shading (gpu_vulkan/vulkan_water.h). rt_water_tint: auto (the water's own colour as the game
+// draws it) or r,g,b. (Changed by the physical waves: the waves are each body's from the weather's wind - rt_wind, auto
+// or metres a second, engine/gfx/wind.h; rt_water_waves, rt_water_wind and rt_water_wind_heading are retired.)
 void read_water(const Resolution& in_effect)
 {
+    const std::string& wind = in_effect.value("rt_wind");
+    double speed = render::wind::kWindAuto;
+    if (!wind.empty() && wind != "auto") {
+        char* end = nullptr;
+        const double parsed = std::strtod(wind.c_str(), &end);
+        if (end != wind.c_str() && std::isfinite(parsed) && parsed >= 0.0) {
+            speed = parsed;
+        } else {
+            get_log("[Graphics] rt_wind=%s isn't auto or metres a second - the weather's used", wind.c_str());
+        }
+    }
+    render::wind::set_wind_setting(speed);
     const render::vulkan::WaterSettings defaults;
     render::vulkan::WaterSettings water{.on = in_effect.on("rt_water"),
-                                        .waves = in_effect.number("rt_water_waves", defaults.waves),
-                                        .wind = in_effect.number("rt_water_wind", defaults.wind),
-                                        .heading = render::vulkan::kWaterHeadingAuto,
                                         .clarity = in_effect.number("rt_water_clarity", defaults.clarity),
                                         .foam = in_effect.number("rt_water_foam", defaults.foam),
                                         .screen_reflections = in_effect.on("rt_water_screen_reflections"),
                                         .debug_view = in_effect.on("rt_water_view"),
                                         .geometry = in_effect.on("rt_water_geometry")};
-    const std::string& heading = in_effect.value("rt_water_wind_heading");
-    if (!heading.empty() && heading != "auto") {
-        char* end = nullptr;
-        const double parsed = std::strtod(heading.c_str(), &end);
-        if (end != heading.c_str() && std::isfinite(parsed)) {
-            constexpr double kTurn = 360.0;
-            water.heading = static_cast<float>(std::fmod(std::fmod(parsed, kTurn) + kTurn, kTurn));
-        } else {
-            get_log("[Graphics] rt_water_wind_heading=%s isn't auto or degrees - the level's used", heading.c_str());
-        }
-    }
     const std::string& tint = in_effect.value("rt_water_tint");
     std::array<float, 3> colour{};
     if (parse_rgb(tint, &colour)) {

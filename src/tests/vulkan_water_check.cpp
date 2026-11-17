@@ -5,7 +5,10 @@
 // from 5 units above the water (the shore, z < 40) to 104 below it at the top of the picture; the water a quad marked as
 // render_pc marks a water material (engine/gfx/water_surfaces.h) and drawn through render::Gpu with the game's
 // single-texture material shader (kTextureVertexX4) into a 16-bit float target with a depth surface. Cases:
-//   - calm (rt_water_waves=0, no foam): every water pixel against the processor - the floor seen through the water
+//   (The rendering cases draw a test body - water_surfaces.h WaterBody - with the waves given directly: "waves w" is the
+//   four Gerstner waves at the old steepnesses x w over kSwellLength and the ripples x w; still water has none. The
+//   waves' physics is judged on the processor - the last cases.)
+//   - calm (still water, no foam): every water pixel against the processor - the floor seen through the water
 //     (the copy made before the water: its colour and depth), absorbed along the light's path (to the floor and down to
 //     it) by the tint's hue, the scattered deep colour, Fresnel toward the sky (the view's fog colour: no capture, the
 //     reflected rays leave the view); the sand in front of the water the same as without water;
@@ -14,18 +17,25 @@
 //   - opaque water kept back and drawn after the opaque world (the calm cases are opaque draws);
 //   - rt_water=0, and rt_water=1 with the draw not marked: the original's picture, byte for byte (the water the
 //     program's colour); the floor byte for byte in every case;
-//   - foam: changes only where the water is shallow (within 24 units of the floor below), and brightens it;
-//   - waves (rt_water_waves=1, wind 1): the picture moves with the game's clock, the same clock draws the same bytes;
+//   - foam: changes only where the waves break (water shallower than their height / 0.78 - a body 24 / 0.78 units high
+//     here), and brightens it; still water has none;
+//   - waves (waves 1): the picture moves with the game's clock, the same clock draws the same bytes;
 //   - the sun's glitter (the sun given by rt::set_sun_override toward the mirror direction of the picture's centre):
 //     above 1 near the centre with HDR, nothing outside the water;
 //   - the ripple texture's levels 0 and 4 read back against water_waves_reference;
 //   - the moving surface ([Graphics] rt_water_geometry): the sea split as render_pc splits a water mesh
 //     (engine/gfx/water_tess.h) and drawn as a split mesh's draw (water_surfaces.h set_current_waves) - it moves with the
 //     game's clock, the same clock draws the same bytes (opaque, kept back and drawn after the opaque world, and blended),
-//     it isn't the flat sheet's picture; calm water (rt_water_waves=0) and rt_water_geometry=0 draw the flat sheet's
+//     it isn't the flat sheet's picture; still water and rt_water_geometry=0 draw the flat sheet's
 //     bytes, rt_water=0 the original's; its shape: a patch with high waves and nothing behind it covers the pixels the
 //     same grid moved on the processor covers (the vertex shader's numbers), within the rasteriser's ties on its edges;
-//   - every pixel of every case finite (no NaN or infinity), validation (and synchronization validation) messages 0.
+//   - every pixel of every case finite (no NaN or infinity), validation (and synchronization validation) messages 0;
+//   - (added by the physical waves) on the processor: the wind sea (engine/gfx/water_waves.h) against JONSWAP's fetch
+//     laws in deep water (height and peak frequency over a range of fetches), the fully developed sea against
+//     Pierson-Moskowitz, the depth's limit, no waves below the onset wind, the four waves' energy within the spectrum's;
+//     the bodies measured from geometry (engine/gfx/water_bodies.h): a small puddle in a closed room - no sky, no wind,
+//     still; the same puddle in the open - millimetre ripples at most; a lake 1 km along the wind - its fetch the
+//     distance to the upwind shore and its waves the fetch-limited sea's; water running off the world's edge - open.
 //   thug2_vulkan_water_check [--device N] [--display N] [--no-validation] [--perf]
 // --perf also times a frame of full-screen water at 2560 x 1440 with rt_water off and on (reported, not checked).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
@@ -42,6 +52,7 @@
 #include <exception>
 #include <limits>
 #include <mutex>
+#include <numbers>
 #include <span>
 #include <string>
 #include <string_view>
@@ -55,7 +66,9 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/smooth_tess.h"
+#include "engine/gfx/water_bodies.h"
 #include "engine/gfx/water_surfaces.h"
+#include "engine/gfx/water_waves.h"
 #include "engine/gfx/water_tess.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -110,8 +123,7 @@ constexpr std::size_t kLeastJudged = 20000;
 constexpr float kEdgeDepth = 0.6F;      // (pixels this near the shoreline in depth left out: the depth's rasterisation)
 constexpr float kFarMargin = 50.0F;     // (the water's far edge left out)
 constexpr float kInFront = 0.5F;        // (the sand nearer than the water by this much: in front of it)
-constexpr float kHeading = 30.0F;       // the wind's (degrees)
-constexpr float kSwellLength = 300.0F;
+constexpr float kSwellLength = 300.0F;  // the test body's peak wavelength (units)
 constexpr float kUvTile = 64.0F;        // (units a texture repeat)
 constexpr uint32_t kBlackOpaque = 0xFF000000U;
 constexpr uint32_t kWaterMaterial = 0x57A7E400U; // (a made-up checksum for the log)
@@ -384,6 +396,52 @@ void common_states(render::Gpu& gpu, const Scene& scene)
     gpu.set_vertex_format(kFvfPosition | kFvfDiffuse | kFvfTex1);
 }
 
+// (added by the physical waves) The test body the water draws show: "waves w" - the four Gerstner waves at steepnesses
+// 0.12 - 0.07 x w over kSwellLength (their deep-water speeds), the ripples x w, no whitecaps; still for w 0.
+render::water::WaterBody& test_body_slot()
+{
+    static render::water::WaterBody body;
+    return body;
+}
+const render::water::WaterBody& test_body() { return test_body_slot(); }
+void set_test_body(float waves)
+{
+    constexpr std::array<float, 4> kSteepness{0.12F, 0.10F, 0.085F, 0.07F};
+    constexpr std::array<float, 4> kLengths{1.0F, 0.63F, 0.41F, 0.27F};
+    constexpr float kTwoPi = 6.2831853F;
+    constexpr float kGravity = 386.0F; // units a second squared
+    constexpr float kTestHeight = 10.0F;
+    render::water::WaterBody body;
+    static uint32_t version = 0;
+    if (waves > 0.0F) {
+        body.known = true;
+        body.id = 1;
+        body.version = ++version;
+        for (std::size_t i = 0; i < kSteepness.size(); ++i) {
+            core::at(body.waves.slopes, i) = core::at(kSteepness, i) * waves;
+            const float k = kTwoPi / (core::at(kLengths, i) * kSwellLength);
+            core::at(body.waves.speeds, i) = std::sqrt(kGravity / k);
+        }
+        body.waves.wavelength = kSwellLength;
+        body.waves.height = kTestHeight * waves;
+        body.waves.ripples = waves;
+    }
+    test_body_slot() = body;
+}
+// A body whose waves stand kShoreFoam x 0.78 high but have no slope: the surface as still water's, the surf zone
+// kShoreFoam deep.
+void set_foam_body()
+{
+    constexpr float kBreaking = 0.78F;
+    render::water::WaterBody body;
+    body.known = true;
+    body.id = 2;
+    body.version = 1;
+    body.waves.wavelength = kSwellLength;
+    body.waves.height = kShoreFoam * kBreaking;
+    test_body_slot() = body;
+}
+
 // (the moving surface's cases) The water drawn as these triangles (a split mesh) in place of the quad, its draw a split
 // mesh's (its surface may move) when `moving`; without the sand.
 struct Extra {
@@ -430,6 +488,7 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marke
         gpu.set_texture(0, scene.water);
         render::water::set_current(marked ? scene.water : nullptr, kWaterMaterial);
         render::water::set_current_waves(extra.moving);
+        render::water::set_current_body(test_body());
         if (extra.grid != nullptr) {
             gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(extra.grid->size() / 3), extra.grid->data(),
                                  sizeof(Vertex));
@@ -602,7 +661,8 @@ bool all_finite(const Picture& picture)
 
 void set_water(bool on, float waves, float foam, bool hdr = true)
 {
-    vk::set_water_settings({.on = on, .waves = waves, .wind = 1.0F, .heading = kHeading, .clarity = 1.0F, .foam = foam});
+    set_test_body(waves);
+    vk::set_water_settings({.on = on, .clarity = 1.0F, .foam = foam});
     (void)hdr; // (round F: the glitter has one peak)
 }
 
@@ -763,10 +823,22 @@ void check_reflection(render::Gpu& gpu, const Scene& scene, Tally* tally)
 
 void check_foam(render::Gpu& gpu, const Scene& scene, Tally* tally)
 {
+    // still water: no foam at all (nothing breaks)
     set_water(true, 0.0F, 0.0F);
     draw_frame(gpu, scene, kFoamSeconds, true, false);
-    const Picture without = read_picture(scene.colour, kWidth, kHeight);
+    const Picture still_without = read_picture(scene.colour, kWidth, kHeight);
     set_water(true, 0.0F, 1.0F);
+    draw_frame(gpu, scene, kFoamSeconds, true, false);
+    const Picture still_with = read_picture(scene.colour, kWidth, kHeight);
+    const auto everywhere = [](uint32_t, uint32_t) { return true; };
+    tally->check(still_without.read && still_with.read && differing(still_without, still_with, everywhere) == 0,
+                 "foam: still water has none (no waves break)");
+    // waves kShoreFoam x 0.78 high (no slope: the same surface) - foam where they break
+    set_foam_body();
+    vk::set_water_settings({.on = true, .clarity = 1.0F, .foam = 0.0F});
+    draw_frame(gpu, scene, kFoamSeconds, true, false);
+    const Picture without = read_picture(scene.colour, kWidth, kHeight);
+    vk::set_water_settings({.on = true, .clarity = 1.0F, .foam = 1.0F});
     draw_frame(gpu, scene, kFoamSeconds, true, false);
     const Picture with = read_picture(scene.colour, kWidth, kHeight);
     std::size_t deep_changed = 0;
@@ -913,13 +985,12 @@ float smooth_step(float low, float high, float value)
 Vec3 lifted(const vk::WaterUniforms& block, const Vec3& rest)
 {
     constexpr float kTwoPi = 6.2831853F;
-    constexpr float kGravity = 386.0F;
     constexpr float kSharpness = 0.6F;
     constexpr float kCell = 40.0F;
     constexpr float kMostSlope = 1.0F;
+    constexpr float kShortest = 0.05F;
     constexpr std::array<float, 4> kLengths{1.0F, 0.63F, 0.41F, 0.27F};
     constexpr std::array<float, 4> kTurns{0.0F, 0.42F, -0.57F, 1.05F};
-    constexpr std::array<float, 4> kSteepness{0.12F, 0.10F, 0.085F, 0.07F};
     constexpr float kPhaseStep = 1.913F;
     constexpr std::size_t kProjectionYY = 5;
     const Vec3 camera{core::at(block.camera, 0), core::at(block.camera, 1), core::at(block.camera, 2)};
@@ -927,22 +998,21 @@ Vec3 lifted(const vk::WaterUniforms& block, const Vec3& rest)
     const float dist = std::max(std::sqrt(dot(to_eye, to_eye)), 1.0e-3F);
     const float focal = std::max(std::fabs(core::at(block.projection, kProjectionYY)) * core::at(block.viewport, 3) * 0.5F, 1.0F);
     const float footprint = dist / (focal * std::max(std::fabs(core::at(to_eye, 1)) / dist, 0.1F));
-    const float raised = core::at(block.waves, 0) * (0.4F + (0.6F * core::at(block.time, 3)));
     const float wind_x = core::at(block.time, 1);
     const float wind_z = core::at(block.time, 2);
     const float seconds = core::at(block.time, 0);
     float slopes = 0.0F;
     Vec3 sum{};
     for (std::size_t i = 0; i < kLengths.size(); ++i) {
-        const float k = kTwoPi / (core::at(kLengths, i) * core::at(block.misc, 1));
+        const float k = kTwoPi / std::max(core::at(kLengths, i) * core::at(block.sea, 1), kShortest);
         const float wavelength = kTwoPi / k;
-        const float speed = std::sqrt(kGravity / k);
+        const float speed = core::at(block.swell_speed, i);
         const float c = std::cos(core::at(kTurns, i));
         const float s = std::sin(core::at(kTurns, i));
         const float dx = (wind_x * c) - (wind_z * s);
         const float dz = (wind_x * s) + (wind_z * c);
         const float phase = (k * ((dx * core::at(rest, 0)) + (dz * core::at(rest, 2)) - (speed * seconds))) + (static_cast<float>(i) * kPhaseStep);
-        const float slope = core::at(kSteepness, i) * raised * (1.0F - smooth_step(0.05F, 0.2F, footprint / wavelength)) *
+        const float slope = core::at(block.swell, i) * (1.0F - smooth_step(0.05F, 0.2F, footprint / wavelength)) *
                             (1.0F - smooth_step(0.25F, 0.5F, kCell / wavelength));
         slopes += slope;
         const float height = slope / k;
@@ -1069,17 +1139,17 @@ void check_moving(render::Gpu& gpu, const Scene& scene, Tally* tally)
     tally->check(opaque_moved.read && opaque_flat.read && sand > kLeastShallow && sand_covered <= kMostSandCovered,
                  text::format("the moving surface: the waterline stays on the sand (%zu of %zu sand pixels changed)", sand_covered, sand));
     tally->check(vk::water_stats().moving > moving_before, "the moving surface: its draws drawn moving");
-    // calm (rt_water_waves=0): the flat sheet, to the bit
+    // still water: the flat sheet, to the bit
     set_water(true, 0.0F, 1.0F);
     draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, moving);
     const Picture calm_marked = read_picture(scene.colour, kWidth, kHeight);
     draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, flat);
     const Picture calm_flat = read_picture(scene.colour, kWidth, kHeight);
     tally->check(calm_marked.read && calm_flat.read && differing(calm_marked, calm_flat, everywhere) == 0,
-                 "the moving surface: calm water (rt_water_waves=0) the flat sheet's bytes");
+                 "the moving surface: still water the flat sheet's bytes");
     // rt_water_geometry=0: the flat sheet with its waves only in the shading, to the bit
     vk::WaterSettings without = vk::water_settings();
-    without.waves = 1.0F;
+    set_test_body(1.0F);
     without.geometry = false;
     vk::set_water_settings(without);
     draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, moving);
@@ -1114,8 +1184,10 @@ void check_moving_shape(render::Gpu& gpu, const Scene& scene, Tally* tally)
     set_water(true, 2.0F, 0.0F);
     draw_frame(gpu, scene, kWaveSeconds, true, false, 1, false, {.grid = &patch, .moving = true, .sand = false});
     const Picture got = read_picture(scene.colour, kWidth, kHeight);
-    const vk::WaterUniforms block = vk::water_uniforms(
-        vk::water_settings(), {.view = view_of({.width = kWidth, .height = kHeight}, kWaveSeconds), .target = {.width = kWidth, .height = kHeight}, .copied = true});
+    const vk::WaterUniforms block = vk::water_uniforms(vk::water_settings(), {.view = view_of({.width = kWidth, .height = kHeight}, kWaveSeconds),
+                                                                              .body = test_body(),
+                                                                              .target = {.width = kWidth, .height = kHeight},
+                                                                              .copied = true});
     std::vector<uint8_t> drawn(static_cast<std::size_t>(kWidth) * kHeight, 0);
     for (std::size_t pixel = 0; pixel < drawn.size() && got.read; ++pixel) {
         constexpr float kSomething = 1.0e-3F;
@@ -1220,6 +1292,163 @@ bool open_device(const Options& options, SDL_Window* window)
     return true;
 }
 
+// --- (added by the physical waves) the waves' physics on the processor ---------------------------------------------
+
+// The wind sea against JONSWAP's deep-water fetch laws (Hasselmann et al. 1973: g Hs / U^2 = 1.6e-3 chi^0.5, f_p U / g =
+// 3.5 chi^-0.33, chi = g F / U^2) over the fetches they were measured on, the fully developed sea against
+// Pierson-Moskowitz's (Hs 0.21 - 0.25 U^2 / g, f_p U / g 0.13 - 0.14), the depth's limit, the onset wind.
+void check_wind_sea(Tally* tally)
+{
+    namespace water = render::water;
+    constexpr double kWind = 10.0;
+    constexpr double kWithin = 0.15;
+    constexpr double kPeakWithin = 0.2; // (the two fits' peaks part by up to 18% at the shortest fetch: Lake George's and the North Sea's)
+    constexpr std::array<double, 4> kFetches{1000.0, 3000.0, 8000.0, 20000.0}; // metres (chi 98 - 1962: short of full development)
+    double worst_height = 0.0;
+    double worst_peak = 0.0;
+    double before = 0.0;
+    bool grows = true;
+    for (const double fetch : kFetches) {
+        const water::WindSea sea = water::wind_sea(kWind, fetch, water::kDeepWater);
+        const double chi = water::kGravity * fetch / (kWind * kWind);
+        const double height = 1.6e-3 * std::sqrt(chi) * kWind * kWind / water::kGravity;
+        const double peak = 3.5 * std::pow(chi, -0.33) * water::kGravity / kWind;
+        worst_height = std::max(worst_height, std::abs(sea.height / height - 1.0));
+        worst_peak = std::max(worst_peak, std::abs(sea.frequency / peak - 1.0));
+        grows = grows && sea.height > before;
+        before = sea.height;
+    }
+    tally->check(worst_height <= kWithin && worst_peak <= kPeakWithin && grows,
+                 text::format("the wind sea (10 m/s, deep, fetch 1 - 20 km) against JONSWAP: height within %.1f%%, peak frequency "
+                              "within %.1f%%, growing with the fetch",
+                              worst_height * 100.0, worst_peak * 100.0));
+    const water::WindSea full = water::wind_sea(kWind, water::kOpenFetch, water::kDeepWater);
+    const double full_height = full.height * water::kGravity / (kWind * kWind);
+    const double full_peak = full.frequency * kWind / water::kGravity;
+    tally->check(full_height > 0.20 && full_height < 0.26 && full_peak > 0.12 && full_peak < 0.145,
+                 text::format("the fully developed sea: g Hs / U^2 %.3f, f_p U / g %.3f (Pierson-Moskowitz's about 0.21 - 0.24, 0.13)",
+                              full_height, full_peak));
+    const water::WindSea shallow = water::wind_sea(kWind, water::kOpenFetch, 1.0);
+    tally->check(shallow.height > 0.0 && shallow.height <= water::kBreaking * 1.0 + 1e-9 && shallow.height < full.height,
+                 text::format("1 m deep: %.2f m high at most - the depth holds the waves (0.78 of it at most)", shallow.height));
+    const water::WindSea calm = water::wind_sea(0.9, water::kOpenFetch, water::kDeepWater);
+    tally->check(calm.height == 0.0 && water::sea_waves(calm, water::kOpenFetch, water::kDeepWater).ripples == 0.0F,
+                 "under the onset wind (0.9 m/s): still water");
+    // the four waves' energy within the spectrum's (they stand for its peak; the tail is the ripples')
+    const water::WindSea harbour = water::wind_sea(5.0, 2000.0, 8.0);
+    const water::SeaWaves waves = water::sea_waves(harbour, 2000.0, 8.0);
+    double variance = 0.0;
+    for (std::size_t i = 0; i < waves.slopes.size(); ++i) {
+        const double k = 2.0 * std::numbers::pi / (core::at(water::kSwellLengths, i) * harbour.wavelength);
+        const double amplitude = core::at(waves.slopes, i) / k;
+        variance += 0.5 * amplitude * amplitude;
+    }
+    const double whole = (harbour.height / 4.0) * (harbour.height / 4.0);
+    tally->check(variance <= whole * 1.001 && variance >= 0.5 * whole && waves.ripples > 0.0F,
+                 text::format("a harbour (5 m/s, 2 km, 8 m deep): %.2f m high, %.1f m long; the four waves carry %.0f%% of the "
+                              "spectrum's energy, ripples x %.2f",
+                              harbour.height, harbour.wavelength, 100.0 * variance / whole, static_cast<double>(waves.ripples)));
+}
+
+// A box's faces (its six sides) as triangles.
+void add_box(std::vector<render::water::Triangle>* out, const Vec3& low, const Vec3& high)
+{
+    const auto corner = [&](int x, int y, int z) {
+        return render::water::Corner{x != 0 ? core::at(high, 0) : core::at(low, 0), y != 0 ? core::at(high, 1) : core::at(low, 1),
+                                     z != 0 ? core::at(high, 2) : core::at(low, 2)};
+    };
+    const auto quad = [&](const render::water::Corner& a, const render::water::Corner& b, const render::water::Corner& c,
+                          const render::water::Corner& d) {
+        out->push_back({a, b, c});
+        out->push_back({a, c, d});
+    };
+    quad(corner(0, 0, 0), corner(1, 0, 0), corner(1, 0, 1), corner(0, 0, 1));
+    quad(corner(0, 1, 0), corner(1, 1, 0), corner(1, 1, 1), corner(0, 1, 1));
+    quad(corner(0, 0, 0), corner(1, 0, 0), corner(1, 1, 0), corner(0, 1, 0));
+    quad(corner(0, 0, 1), corner(1, 0, 1), corner(1, 1, 1), corner(0, 1, 1));
+    quad(corner(0, 0, 0), corner(0, 0, 1), corner(0, 1, 1), corner(0, 1, 0));
+    quad(corner(1, 0, 0), corner(1, 0, 1), corner(1, 1, 1), corner(1, 1, 0));
+}
+
+// A flat square of water at height y.
+render::water::BodyMesh water_square(float x0, float z0, float x1, float z1, float y)
+{
+    render::water::BodyMesh mesh;
+    mesh.triangles.push_back({render::water::Corner{x0, y, z0}, render::water::Corner{x1, y, z0}, render::water::Corner{x1, y, z1}});
+    mesh.triangles.push_back({render::water::Corner{x0, y, z0}, render::water::Corner{x1, y, z1}, render::water::Corner{x0, y, z1}});
+    return mesh;
+}
+
+// The bodies measured from geometry, then their waves in a 5 m/s wind.
+void check_bodies(Tally* tally)
+{
+    namespace water = render::water;
+    constexpr double kWind = 5.0;
+    const std::array<float, 2> downwind{0.8F, 0.6F};
+    const auto waves_of = [&](const water::BodyMeasure& got) {
+        const water::WindSea sea = water::wind_sea(kWind * got.openness, got.fetch, got.depth);
+        return water::sea_waves(sea, got.fetch, got.depth);
+    };
+    // a puddle (100 x 100 units, 0.6 deep) on the floor of a closed room (60 m square, 10 m high: walls and a roof)
+    const std::array<water::BodyMesh, 1> puddle{water_square(-50.0F, -50.0F, 50.0F, 50.0F, 0.6F)};
+    std::vector<water::Triangle> room;
+    add_box(&room, {-1200.0F, -20.0F, -1200.0F}, {1200.0F, 0.0F, 1200.0F});   // the floor (a slab)
+    add_box(&room, {-1200.0F, 400.0F, -1200.0F}, {1200.0F, 420.0F, 1200.0F}); // the roof
+    add_box(&room, {-1220.0F, 0.0F, -1200.0F}, {-1200.0F, 400.0F, 1200.0F});  // the walls
+    add_box(&room, {1200.0F, 0.0F, -1200.0F}, {1220.0F, 400.0F, 1200.0F});
+    add_box(&room, {-1200.0F, 0.0F, -1220.0F}, {1200.0F, 400.0F, -1200.0F});
+    add_box(&room, {-1200.0F, 0.0F, 1200.0F}, {1200.0F, 400.0F, 1220.0F});
+    const water::BodyMeasure inside = water::measure_bodies(puddle, room, downwind).front();
+    const water::SeaWaves inside_waves = waves_of(inside);
+    tally->check(inside.measured && inside.openness == 0.0 && inside_waves.height == 0.0F && inside_waves.ripples == 0.0F &&
+                     inside.depth < 0.02,
+                 text::format("a puddle in a closed room: open to the sky %.2f, %.3f m deep, fetch %.1f m - still (waves %.4f units, "
+                              "ripples x %.3f)",
+                              inside.openness, inside.depth, inside.fetch, static_cast<double>(inside_waves.height),
+                              static_cast<double>(inside_waves.ripples)));
+    // the same puddle on an open floor
+    std::vector<water::Triangle> open_floor;
+    add_box(&open_floor, {-4000.0F, -20.0F, -4000.0F}, {4000.0F, 0.0F, 4000.0F});
+    const water::BodyMeasure outside = water::measure_bodies(puddle, open_floor, downwind).front();
+    const water::SeaWaves outside_waves = waves_of(outside);
+    tally->check(outside.measured && outside.openness > 0.95 && outside.fetch < 4.0 &&
+                     outside_waves.height < 0.4F /* units: 1 cm */ && outside_waves.wavelength < 8.0F,
+                 text::format("the puddle in the open: open %.2f, fetch %.1f m - ripples %.2f units high, %.1f long at most", outside.openness,
+                              outside.fetch, static_cast<double>(outside_waves.height), static_cast<double>(outside_waves.wavelength)));
+    // a lake 1 km square (deep: no bed) in a ring of banks 0.5 m above it
+    constexpr float kHalfLake = 19685.0F; // (500 m)
+    const std::array<water::BodyMesh, 1> lake{water_square(-kHalfLake, -kHalfLake, kHalfLake, kHalfLake, 0.0F)};
+    std::vector<water::Triangle> banks;
+    constexpr float kBank = 4000.0F;
+    add_box(&banks, {-kHalfLake - kBank, -100.0F, -kHalfLake - kBank}, {-kHalfLake, 20.0F, kHalfLake + kBank});
+    add_box(&banks, {kHalfLake, -100.0F, -kHalfLake - kBank}, {kHalfLake + kBank, 20.0F, kHalfLake + kBank});
+    add_box(&banks, {-kHalfLake, -100.0F, -kHalfLake - kBank}, {kHalfLake, 20.0F, -kHalfLake});
+    add_box(&banks, {-kHalfLake, -100.0F, kHalfLake}, {kHalfLake, 20.0F, kHalfLake + kBank});
+    const water::BodyMeasure on_lake = water::measure_bodies(lake, banks, downwind).front();
+    const water::SeaWaves lake_waves = waves_of(on_lake);
+    // (its fetch: the upwind distance to the bank from points spread over the square - their median about half the way
+    // across along the wind's diagonal)
+    const water::WindSea expected = water::wind_sea(kWind * on_lake.openness, on_lake.fetch, on_lake.depth);
+    tally->check(on_lake.measured && on_lake.open_samples == 0 && on_lake.fetch > 250.0 && on_lake.fetch < 800.0 &&
+                     on_lake.openness > 0.95 && on_lake.depth >= water::kDeepWater,
+                 text::format("a lake 1 km across: fetch %.0f m to the upwind bank, open %.2f, deep", on_lake.fetch, on_lake.openness));
+    tally->check(lake_waves.height > 1.0F && std::abs(static_cast<double>(lake_waves.height) / water::kUnitsPerMetre - expected.height) < 1e-4,
+                 text::format("its waves in 5 m/s: %.3f m high, %.2f m long (the fetch-limited sea's %.3f m)",
+                              static_cast<double>(lake_waves.height) / water::kUnitsPerMetre,
+                              static_cast<double>(lake_waves.wavelength) / water::kUnitsPerMetre, expected.height));
+    // the same water with nothing upwind of it: the world ends there, the sea goes on - open to the horizon
+    std::vector<water::Triangle> downwind_bank;
+    add_box(&downwind_bank, {kHalfLake, -100.0F, -kHalfLake - kBank}, {kHalfLake + kBank, 20.0F, kHalfLake + kBank});
+    add_box(&downwind_bank, {-kHalfLake, -100.0F, kHalfLake}, {kHalfLake, 20.0F, kHalfLake + kBank});
+    const water::BodyMeasure sea = water::measure_bodies(lake, downwind_bank, downwind).front();
+    tally->check(sea.measured && sea.fetch >= water::kOpenFetch && sea.open_samples * 2 > sea.samples,
+                 text::format("water running off the world's edge upwind: open to the horizon (%u of %u samples)", sea.open_samples,
+                              sea.samples));
+    // two bodies: the puddle in the room is still whatever the lake beside it does
+    tally->check(inside_waves.height == 0.0F && lake_waves.height > outside_waves.height,
+                 "the sheltered puddle still, the open lake wavy: the waves follow the body, not the level");
+}
+
 int run(const Options& options, SDL_Window* window)
 {
     if (!open_device(options, window)) {
@@ -1242,8 +1471,9 @@ int run(const Options& options, SDL_Window* window)
     scene.wall = uniform_texture(gpu, kWallColour, kOpaqueHalf);
     tally.check(made && scene.sand != nullptr && scene.water != nullptr, "the material shader, a 16-bit float target, a depth surface and the textures made");
     if (made) {
-        render::water::set_level_water(
-            {.level = 1, .waves = 1.0F, .swell_length = kSwellLength, .visibility = kVisibility, .heading = kHeading});
+        render::water::set_level_water({.level = 1, .visibility = kVisibility});
+        check_wind_sea(&tally);
+        check_bodies(&tally);
         check_off(gpu, scene, &tally);
         check_calm(gpu, scene, &tally);
         check_reflection(gpu, scene, &tally);

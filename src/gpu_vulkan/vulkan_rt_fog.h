@@ -66,7 +66,7 @@
 //   shafts mode - colour kFogHazeColour, from the camera to kFogHazeEnd - only its sunlit light added (the shafts, the
 //   glow toward the sun; nothing dimmed, the shade left as the level lit it); else the pass is skipped and nothing
 //   changes.
-// (Round F) The light added is never clamped: the frame is linear light, rt_hdr chooses only the output.
+// (Round F) The light added is never clamped: the frame is linear light (rt_hdr retired).
 // The histories are kept per viewport (its rectangle and target size): up to kFogViewSlots (split screen's two), the
 // least recently drawn dropped; a viewport not drawn in the frame before starts again.
 namespace render::vulkan {

@@ -18,6 +18,8 @@ struct WaterSlot {
     std::atomic<uint32_t> materials{0};
     std::mutex level_mutex;
     LevelWater level;
+    std::mutex body_mutex;
+    WaterBody body;
 };
 
 WaterSlot& slot()
@@ -51,6 +53,21 @@ void set_current(const GpuTexture* texture, uint32_t material)
     slot().texture.store(texture, std::memory_order_relaxed);
     slot().material.store(material, std::memory_order_relaxed);
     slot().waves.store(false, std::memory_order_relaxed);
+    set_current_body({});
+}
+
+void set_current_body(const WaterBody& body)
+{
+    WaterSlot& own = slot();
+    const std::scoped_lock lock(own.body_mutex);
+    own.body = body;
+}
+
+WaterBody current_body()
+{
+    WaterSlot& own = slot();
+    const std::scoped_lock lock(own.body_mutex);
+    return own.body;
 }
 
 const GpuTexture* current_texture() { return slot().texture.load(std::memory_order_relaxed); }

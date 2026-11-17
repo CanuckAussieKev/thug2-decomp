@@ -995,7 +995,10 @@ air's glow x the god rays' x2 x a Thick haze capped "for Barcelona's harbour", o
   ground. The clear day's aerosol optical depth overhead is 0.10 (it was 0.01 - a sky with almost no haze).
 - **The aerial march** (`vulkan_rt_fog` AERIAL): Rayleigh + aerosol single scattering of the light's irradiance (its
   shadow ray / the air's sun map / the clouds' map) through both phases, every higher order as the sky's own (Psi at
-  the ground), the lamps' irradiance (pi x their light); each segment exact for an even medium; one transmittance (the
+  the ground) x the open share of the sky at the point (added by the indoor air: one ray a pair of steps toward the upper
+  hemisphere, even in solid angle, averaged by the history - a closed room's air gets none of the sky's light: 0.3% of
+  the open air's in `rt_sun_check`'s closed box; TR's warehouse under a hazy sky lost a grey veil of +47% over its far
+  walls), the lamps' irradiance (pi x their light) x their shadow ray; each segment exact for an even medium; one transmittance (the
   extinction's luma); composited in linear light over a copy of the colour. The sky's pixels are left alone where the
   atmosphere is drawn (its sky-view table holds the whole ray). Gone: the cap toward the sun (`kFogAerialGlow`), the
   sky's colour as the haze's light, the shade/sun shares, the time-of-day and water multipliers, the cinematic and misty
@@ -3743,11 +3746,12 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
   drawn at `rt::opaque_view_drawn` (a listener at 450, after the ray-traced effects), so the copy has the whole opaque
   world without the water itself: its bed and what it reflects. (The ray-traced shadows, occlusion and bounce light at
   that point see the bed, not the water.) Transparent water draws after it use the same copy, or make it.
-- **1. Waves.** Four Gerstner waves about the wind's heading (the swell: wavelengths 1, 0.63, 0.41, 0.27 x the
-  level's longest, steepness 0.12 - 0.07 x the level's height x `rt_water_waves`, crests sharpened with Q = 0.6, deep
-  water's speed sqrt(g / k) with g = 386 units / s^2 - the units are inches), each faded out where a pixel spans 5 -
-  20% of its wavelength; and two layers of a tiling ripple texture drifting with the wind (`rt_water_wind`: their size
-  and speed). The texture (256 x 256, RGBA16F: slope x, slope z, height, the foam's pattern) is made on the device at
+- **1. Waves** (rewritten by the physical waves - "Waves from the wind" below: each body's own wind sea). Four
+  Gerstner waves about the wind's way (wavelengths 1, 0.63, 0.41, 0.27 x the body's spectral peak, each with the
+  energy of its band of the body's JONSWAP spectrum, crests sharpened with Q = 0.6, their speeds the dispersion's at the
+  body's depth with capillarity), each faded out where a pixel spans 5 - 20% of its wavelength; and two layers of a
+  tiling ripple texture drifting along the wind, as steep as the spectrum's shorter waves over the texture's band (none
+  on still water). The texture (256 x 256, RGBA16F: slope x, slope z, height, the foam's pattern) is made on the device at
   the first water draw, each of its 9 levels by a compute pass: 64 sine waves of whole cycles across the tile (2 - 24,
   within 63 degrees of the wind's axis, amplitude |k|^-1.7, phases from a PCG hash) with each wave faded out between
   half and all of the level's Nyquist limit - band-limited mip levels, so far water flattens instead of shimmering;
@@ -3772,20 +3776,39 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
   through), deep = hue^2 scaled to 0.65 x the tint's brightness at the light the game gave the surface (the program's
   colour over its texel: the bake, the pass colours). Visibility is the level's x `rt_water_clarity`. The texture's own
   detail is kept faintly (x its texel over its mean, 35%).
-- **5. Foam** where the water is shallow - within 24 units of its bed below (the screen-space depth difference: a
-  beach, and the waterline round anything standing in the water) - in the ripples' drifting foam pattern,
-  x `rt_water_foam`; white at the surface's light.
+- **5. Foam** where the waves break - water shallower than the body's significant wave height / 0.78 (McCowan; the
+  screen-space depth difference: a beach, the waterline round anything standing in the water) - and whitecaps on the
+  sharpened crests in the share of the surface the wind whitens (Monahan and O'Muircheartaigh 1980, 3.84e-6 U^3.41, at
+  full strength from 1%), in the ripples' drifting foam pattern, x `rt_water_foam`; white at the surface's light. Still
+  water has none.
 - **6. The sun's glitter.** Normalised Blinn-Phong (power 1500, x 190) of the scene's sun (`rt::scene_sun`, else the
   sun the game shows) on the wave normals, Fresnel at the half vector, where the bake says the surface is sunlit (the
   vertex colour's luma 0.3 - 0.6); at most 6 with `rt_hdr` (the bloom takes it up), 1 without.
 - **Alpha.** Where the game drew any water (alpha above a quarter) the written alpha is 1 - what is behind is in the
   colour already; where it drew none it stays as it was. Stacked water sheets of different materials each replace what
   is under them, so the upper one's edge shows (a seam in NO's river).
-- **Levels** (water_materials.cpp's table, by the scene's name; `[Graphics] rt_water_wind_heading` overrides the wind's
-  way): AU the open sea (waves 1, swell 900 units, visibility 900), BA a harbour (0.4, 520, 600), BE a canal (0.15, 300,
-  220), NO a river (0.22, 350, 180), SE (0.5, 600, 450); other levels 0.4, 500, 450.
-- **Settings:** `rt_water`, `rt_water_waves`, `rt_water_wind`, `rt_water_wind_heading`, `rt_water_clarity`,
-  `rt_water_foam`, `rt_water_tint`, `rt_water_screen_reflections`, `rt_water_geometry` (below) - all live (the Options screen's Surfaces tab, the
+- **Levels** (water_materials.cpp's table, by the scene's name): how clear the water is - AU 900 units, BA 600, BE 220,
+  NO 180, SE 450, other levels 450 (material data, still per level). The waves, swell lengths and wind headings that
+  table held per level are gone (the physical waves).
+- **Waves from the wind** (added by the physical waves, engine/gfx/water_waves.h, water_bodies.h, render_pc/
+  water_bodies.h). Every water body's waves are its wind sea's: the weather's wind (`rt_wind`, metres a second 10 m up;
+  auto: the air's - clear 5, hazy 3, misty 1.5; engine/gfx/wind.h, along its one direction) x how open the body is to
+  the sky, its fetch along the wind and its depth go through Young and Verhagen's finite-depth growth law (1996: in deep
+  water over a short fetch JONSWAP's - the check holds it within 15% of Hasselmann et al.'s height over 1 - 20 km -,
+  fully developed Pierson-Moskowitz's 0.24 U^2 / g, never higher than 0.78 of the depth; no waves below 1 m/s, Kahma and
+  Donelan). The bodies are measured once a level's water meshes load (render_pc notes each water material's triangles,
+  measured at its first water draw): the level's water laid on a grid (up to 1024 cells a side) with the collision seen
+  from above; a body is the water's surface joined cell to cell at one height (a sea drawn as many tiles is one body - no
+  seams; a mesh well under another, a sea floor's caustics, another); its fetch walked upwind to where its water ends -
+  at anything (a shore, a wall, a puddle's floor) or at nothing (the level's world stops: the sea goes on, a fully
+  developed sea); its depth to the highest collision face under it; its openness the share of the sky's hemisphere seen
+  past the collision's highest points within 50 m (0 under a face that covers it). A puddle under a roof sees no wind
+  and is still; a 2-cm puddle in the open gets millimetre ripples; BA's sea in 3 m/s a 0.22 m swell 8 m long. Meshes
+  drawn as an instance's (their triangles in a model's space) and meshes too small to cover a grid cell are drawn still.
+  Rain on the water makes no rings yet (nothing drew them before either).
+- **Settings:** `rt_water`, `rt_wind`, `rt_water_clarity`, `rt_water_foam`, `rt_water_tint`,
+  `rt_water_screen_reflections`, `rt_water_geometry` (below) - all live; `rt_water_waves`, `rt_water_wind` and
+  `rt_water_wind_heading` retired by the physical waves (the Options screen's Surfaces tab, the
   knobs shown only while `rt_water` is on). `[debug] rt_water_view=1` colours what the reflection found (red the
   march, green the sky on the screen, blue the captured sky).
 - **Cost:** `thug2_vulkan_water_check --perf`, a frame of full-screen water at 2560 x 1440 (the sand and the water):
@@ -3813,7 +3836,7 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
 
 With `rt_water=1` and `rt_water_geometry=1` (the default) the water's surface itself moves: the swell's four Gerstner
 waves that shade it also lift and shift its vertices, so the horizon of open water is no longer a straight line and the
-water rises and falls along walls and posts. Calm water (`rt_water_waves=0`, or a level whose swell is flat) draws the
+water rises and falls along walls and posts. Still water (a body with no wind sea - water_waves.h) draws the
 flat sheet to the bit; `rt_water=0` or `rt_water_geometry=0` draws as before.
 
 - **The grid** (`engine/gfx/water_tess`, `render_pc/water_geometry`). The game's water meshes are big flat sheets - two
@@ -3851,9 +3874,9 @@ flat sheet to the bit; `rt_water=0` or `rt_water_geometry=0` draws as before.
   `v_surface_eye`'s - the 16 locations are all used with motion vectors and cel shading); the fragment shader shades the
   rest point (`water_rest`: the waves, the ripples, which way the surface faces, its footprint) seen from where it moved
   to. Motion vectors move the frame before's position by the same amount (the waves' own drift over a frame left out).
-- **How high.** Default settings: AU's sea about 17 + 9 + 5 + 3 units of height over its four waves (900 units
-  swell), BA's harbour about 8 in all, BE's canal under 2; Rough (`rt_water_waves=2`, x 4) up to four times that, the
-  slope cap holding it below breaking (AU's sea x 2.7).
+- **How high** (changed by the physical waves): each body's wind sea - BA's sea in the hazy weather's 3 m/s a
+  significant height of 0.22 m (8.7 units) over an 8 m peak wavelength, a sheltered puddle none; the slope cap still
+  holds the sum below breaking.
 - **Checked:** `thug2_tess_check` (the grid on the processor: the sea's two triangles -> 2,840, every edge at most 1.5 x
   the spacing, the same area, wound as before, every inside edge shared once each way, texture coordinates and colours
   blended, a canal beside it meeting at the same points to the bit, a waterfall, a small quad and a bad index left

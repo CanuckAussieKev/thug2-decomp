@@ -37,6 +37,7 @@
 #include <exception>
 #include <limits>
 #include <mutex>
+#include <numbers>
 #include <span>
 #include <string>
 #include <string_view>
@@ -157,13 +158,17 @@ struct Solid {
 
 constexpr double kGroundHalf = 300.0;
 constexpr uint32_t kMaskWorld = 0x01;
-// the ground, then the wall (z -2 - 2) round a window x -20 - 20, y 60 - 100
-const std::array<Solid, 5> kSolids{{
+// the ground, then the wall (z -2 - 2) round a window x -20 - 20, y 60 - 100; (added by the indoor air) a closed box
+// far off behind every view - a room with no opening (its air's case: the eye inside it)
+constexpr Vec3 kRoomLow{3000.0, 0.0, 3000.0};
+constexpr Vec3 kRoomHigh{3200.0, 100.0, 3200.0};
+const std::array<Solid, 6> kSolids{{
     {.low = {-kGroundHalf, 0.0, -kGroundHalf}, .high = {kGroundHalf, 0.0, kGroundHalf}, .colour = 0xFF909090},
     {.low = {-150.0, 0.0, -2.0}, .high = {-20.0, 150.0, 2.0}, .colour = 0xFFA08060},
     {.low = {20.0, 0.0, -2.0}, .high = {150.0, 150.0, 2.0}, .colour = 0xFFA08060},
     {.low = {-20.0, 0.0, -2.0}, .high = {20.0, 60.0, 2.0}, .colour = 0xFFA08060},
     {.low = {-20.0, 100.0, -2.0}, .high = {20.0, 150.0, 2.0}, .colour = 0xFFA08060},
+    {.low = kRoomLow, .high = kRoomHigh, .colour = 0xFF808080},
 }};
 
 constexpr Vec3 kToSun{-0.15, 0.45, -1.0}; // (normalised below: behind the wall, 24 degrees up)
@@ -222,6 +227,8 @@ Pose away_pose()
 constexpr Vec3 kGroundEye{250.0, 30.0, 250.0};
 constexpr Vec3 kGroundAt{-100.0, 20.0, -150.0};
 Pose ground_pose() { return {.eye = kGroundEye, .at = kGroundAt}; }
+// (added by the indoor air) Inside the closed box, looking along it.
+Pose room_pose() { return {.eye = {3020.0, 50.0, 3100.0}, .at = {3200.0, 45.0, 3110.0}}; }
 
 using Corner = std::array<int, 3>;
 std::vector<std::array<float, 3>> triangles_of(const Solid& solid)
@@ -1311,6 +1318,37 @@ double aerial_light(const Vec3& direction, double distance, bool sunlit)
     return light;
 }
 
+// (added by the indoor air) The share of the upper hemisphere open above `at` (kSkyChecks directions, even in solid
+// angle, that meet no solid) - the march's sky light (Psi) reaches the air in that share.
+constexpr uint32_t kSkyChecks = 64;
+double sky_open(const Vec3& at)
+{
+    uint32_t open = 0;
+    for (uint32_t i = 0; i < kSkyChecks; ++i) {
+        const double z = (static_cast<double>(i % 8U) + kHalf) / 8.0;
+        const double a = 2.0 * std::numbers::pi * (static_cast<double>(i / 8U) + kHalf) / 8.0;
+        const double r = std::sqrt(std::max(1.0 - (z * z), 0.0));
+        const Ray ray{.origin = at, .direction = {r * std::cos(a), z, r * std::sin(a)}};
+        bool hit = false;
+        for (const Solid& solid : kSolids) {
+            hit = hit || intersect(solid, ray) < kNoHit;
+        }
+        open += hit ? 0U : 1U;
+    }
+    return static_cast<double>(open) / kSkyChecks;
+}
+// The least open share of the sky along the view ray (a few points).
+double ray_sky_open(const View& view, const Vec3& direction, double distance)
+{
+    constexpr int kPoints = 8;
+    double least = 1.0;
+    for (int i = 0; i < kPoints; ++i) {
+        const double s = distance * (static_cast<double>(i) + kHalf) / kPoints;
+        least = std::min(least, sky_open(step(view.eye, direction, s)));
+    }
+    return least;
+}
+
 struct AerialTally {
     double worst = 0.0;
     double worst_sky = 0.0;
@@ -1318,6 +1356,7 @@ struct AerialTally {
     int surfaces = 0;
     int below = 0;
     int above = 0;
+    int open = 0; // (texels whose ray sees the whole sky: the lower bound judged there)
     double thinnest = 1.0;
     double darkest = 1e30;
     double brightest = 0.0;
@@ -1347,7 +1386,15 @@ void judge_aerial_texel(const View& view, const std::array<float, 4>& marched, c
     const double sunlit = aerial_light(direction, distance, true);
     out->darkest = std::min(out->darkest, light);
     out->brightest = std::max(out->brightest, light);
-    out->below += light < (shade * kAerialSlack) - kAerialSlackAbsolute ? 1 : 0;
+    // (changed by the indoor air) the shade's light - the sky's, scattered more than once - reaches only the air that sees
+    // the sky: at least the shade's x the least open share of the sky along the ray where most of it is open (the
+    // march's one sky ray a pair of steps, averaged by the history, is near it there); at most all of it sunlit anywhere
+    constexpr double kMostlyOpen = 0.75;
+    const double open = ray_sky_open(view, direction, distance);
+    if (open >= kMostlyOpen) {
+        ++out->open;
+        out->below += light < (shade * open * kAerialSlack) - kAerialSlackAbsolute ? 1 : 0;
+    }
     out->above += light > (sunlit / kAerialSlack) + kAerialSlackAbsolute ? 1 : 0;
 }
 
@@ -1391,10 +1438,41 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
             tally->check(counted.sky > kLeastSurfaceTexels && counted.worst_sky <= kMostAerialError,
                          text::format("%d sky texels (a painted dome): the far world at the far plane (%.0f), within %.5f",
                                       counted.sky, static_cast<double>(kFarZ), counted.worst_sky));
-            tally->check(counted.below == 0 && counted.above == 0,
-                         text::format("the light between the medium's in the shade and all of it sunlit (%d below, %d "
-                                      "above; %.4f - %.4f linear)",
-                                      counted.below, counted.above, counted.darkest, counted.brightest));
+            tally->check(counted.below == 0 && counted.above == 0 && counted.open > kLeastSurfaceTexels,
+                         text::format("the light at least the medium's in the shade x the sky's open share where most of "
+                                      "it is open (%d texels: %d below), at most all of it sunlit (%d above; %.4f - %.4f linear)",
+                                      counted.open, counted.below, counted.above, counted.darkest, counted.brightest));
+        }
+        // (added by the indoor air) inside a closed room under the same sky and sun: the air's light from the sky and
+        // the sun gets in nowhere - against the open shade's light over the same rays
+        const Pose room = room_pose();
+        draw_frame(gpu, targets, room);
+        vk::RtFogTexels room_raw;
+        vk::RtFogTexels room_info;
+        const bool room_read = read_fog(vk::RtFogImage::kRaw, &room_raw) && read_fog(vk::RtFogImage::kRawInfo, &room_info) &&
+                               room_raw.texels.size() == room_info.texels.size();
+        if (room_read) {
+            const View view = view_from(room, kTargetWidth, kTargetHeight);
+            double inside = 0.0;
+            double open_shade = 0.0;
+            int texels = 0;
+            for (std::size_t index = 0; index < room_raw.texels.size(); ++index) {
+                const std::array<float, 4>& info_texel = core::at(room_info.texels, index);
+                if (core::at(info_texel, 0) < 0.0F) {
+                    continue;
+                }
+                const Vec3 direction = direction_at(view, {.x = core::at(info_texel, 1), .y = core::at(info_texel, 2)});
+                inside += luma(rgb_of(core::at(room_raw.texels, index)));
+                open_shade += aerial_light(direction, core::at(info_texel, 0), false);
+                ++texels;
+            }
+            constexpr double kMostIndoor = 0.01;
+            tally->check(texels > kLeastSurfaceTexels && open_shade > 0.0 && inside <= kMostIndoor * open_shade,
+                         text::format("a closed room's air: %.2f%% of the light the same air gets from the sky in the open (%d texels; "
+                                      "at most %.0f%%)",
+                                      100.0 * inside / std::max(open_shade, 1e-30), texels, 100.0 * kMostIndoor));
+        } else {
+            tally->check(false, "a closed room's air: the march read back");
         }
     }
     release_targets(gpu, targets);
