@@ -63,7 +63,9 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // (EmitterKind::kPool), lamp texels read on blended surfaces, the albedos taken over the told lamps' light alone.
 // v12 (round light cards): the light of the original's light cards laid on a surface in that surface's bake evidence (a
 // floor's light pool drawn as a card), the cards themselves left out of the fit, no cap on a level's lamp candidates.
-inline constexpr uint32_t kRelitDataVersion = 12;
+// v13 (round bounce unit): the bounce's strength the bake's own measure of it (its enclosed vertices' colour over B), the
+// daylight scaled against it - the global unit's anchor (rt_relit.h kRelitLeastBounceEvidence).
+inline constexpr uint32_t kRelitDataVersion = 13;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

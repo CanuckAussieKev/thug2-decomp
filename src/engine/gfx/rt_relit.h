@@ -289,7 +289,35 @@ struct RelitModel {
     std::size_t brighter = 0;
     std::size_t darker = 0;
     std::size_t across = 0;
+    // (round bounce unit, reported) the bounce's own evidence (relit_bounce_evidence) and what the fit made of it: the
+    // vertices it was measured at, its median (the bounce coefficient when `bounce_anchored`), the edges' own bounce
+    // coefficient in the same scale (the pair fit's - what the bake's g was before), and the factor the daylight
+    // (a, b) took against the anchored bounce
+    std::size_t bounce_evidence = 0;
+    float bounce_measured = 0.0F;
+    float bounce_edges = 0.0F;
+    float daylight_scale = 1.0F;
+    float daylight_scale_all = 0.0F;       // (the same over every lit vertex ...
+    float daylight_scale_lamp_free = 0.0F; // ... and over the daylit ones no listed lamp reaches)
+    float bounce_clamped = 0.0F;           // (the edges' bounce held within the evidence's quartiles ...
+    float daylight_scale_clamped = 0.0F;   // ... and the daylight's factor with it)
+    bool bounce_anchored = false;
 };
+
+// (round bounce unit) Where the bake's light can only be bounced light - a vertex that sees under kRelitEnclosedSky of
+// the sky (K), none of the sun and no lamp of the level's list (L 0), on a mesh the bake lit (not one colour all over),
+// its colour and its bounce B lit - the bake's colour over B is the surface's tint x g alone: the bounce coefficient
+// measured directly. Its quartiles over such vertices (`vertices` 0: none).
+inline constexpr float kRelitEnclosedSky = 0.05F;
+struct RelitBounceEvidence {
+    std::size_t vertices = 0;
+    float low = 0.0F; // the quartiles of the colour over B (luma)
+    float median = 0.0F;
+    float high = 0.0F;
+};
+[[nodiscard]] bool relit_bounce_evidence_vertex(const RelitVertex& vertex, float colour_luma);
+[[nodiscard]] RelitBounceEvidence relit_bounce_evidence(std::span<const RelitMesh> meshes,
+                                                       std::span<const RelitVertices> light);
 
 struct RelitParams {
     uint32_t sky_rays = kRelitSkyRays;
@@ -369,6 +397,14 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // bake's own colours (its art's sun and sky) - the evidence the relit bake tells its sun's presence and direction by
 // (RelitModel::sun_needed): before, that fit was also the model, and the level's colour went into its light (Barcelona's
 // sky green over shade the bake paints blue).
+// (round bounce unit) With `colours`, the bounce's strength is the bake's own measure of it (relit_bounce_evidence: the
+// enclosed vertices' colour over B, the median - their tints 1) when kRelitLeastBounceEvidence vertices or more tell it,
+// and the daylight's (the sun's and the sky's, in the edges' proportion) the strength that gives the vertices the sky or
+// the sun reaches the same median tint 1: the edges tell the sun from the sky by shadows and facing, but the sky's term K
+// and the bounce's B rise together along a mesh's edges (both with its openness), and a fit of all three by the edges
+// alone gave Proving Ground's bounce to its sky (g 0.065 against the measured 1.16; its daylight 53 x the physical).
+// Fewer such vertices (an open level, a ported one with no interiors): the edges' own bounce, as before.
+inline constexpr std::size_t kRelitLeastBounceEvidence = 100;
 struct RelitLightColours {
     Rgbf sun{1.0F, 1.0F, 1.0F};
     Rgbf sky{1.0F, 1.0F, 1.0F};

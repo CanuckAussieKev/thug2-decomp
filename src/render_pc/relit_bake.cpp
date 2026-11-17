@@ -856,16 +856,15 @@ void log_cones(std::span<const rt::RelitMesh> meshes, std::span<const uint8_t> b
     }
     get_log("relit bake: light cones (reported) - %zu blended meshes looked at, %zu cone-shaped round a lamp", looked, cones);
 }
-// (round light cards, reported - the global unit's evidence) The bounce against the bake where the bake's light can only
-// be bounced light: the vertices that see under kEnclosedSky of the sky and none of the sun (their light the surfaces
-// round them send, and lamps) - the median and quartiles of their colour over their traced bounce B (luma); and the
-// medians of every lit vertex's colour, B and K. With the tints' median 1 the fit's bounce coefficient is about the first
-// median: a bounce coefficient far under it says the edges gave the bounce's share of the light to the sky instead.
-void log_bounce_evidence(std::span<const rt::RelitMesh> meshes, std::span<const rt::RelitVertices> light)
+// (round light cards, reported - the global unit's evidence; round bounce unit: the fit's anchor) The bounce against the
+// bake where the bake's light can only be bounced light (rt_relit.h relit_bounce_evidence: under kRelitEnclosedSky of
+// the sky, none of the sun, no listed lamp) - the quartiles of their colour over their traced bounce B (luma) - and what
+// the fit made of it: the bounce coefficient it holds (the measured median) against the edges' own, and the factor on
+// the daylight. Also the medians of every lit vertex's colour, B and K.
+void log_bounce_evidence(std::span<const rt::RelitMesh> meshes, std::span<const rt::RelitVertices> light,
+                         const rt::RelitModel& model)
 {
-    constexpr float kEnclosedSky = 0.05F;
     constexpr float kLeastLight = 1.0F / 128.0F;
-    std::vector<float> ratios;
     std::vector<float> colours;
     std::vector<float> bounces;
     std::vector<float> skies;
@@ -878,29 +877,42 @@ void log_bounce_evidence(std::span<const rt::RelitMesh> meshes, std::span<const 
             if (!vertex.used || y < kLeastLight) {
                 continue;
             }
-            const float b = luma(vertex.bounce);
             colours.push_back(y);
-            bounces.push_back(b);
+            bounces.push_back(luma(vertex.bounce));
             skies.push_back(vertex.sky);
-            if (vertex.sky < kEnclosedSky && !(vertex.sun > 0.0F) && b > 0.0F) {
-                ratios.push_back(y / b);
-            }
         }
     }
-    const auto quantile = [](std::vector<float>* values, double q) {
+    const auto median = [](std::vector<float>* values) {
         if (values->empty()) {
             return 0.0F;
         }
-        const auto at = values->begin() + static_cast<std::ptrdiff_t>(static_cast<double>(values->size() - 1) * q);
+        const auto at = values->begin() + static_cast<std::ptrdiff_t>((values->size() - 1) / 2);
         std::ranges::nth_element(*values, at);
         return *at;
     };
-    get_log("relit bake: the bounce's evidence - %zu enclosed vertices (sky under %.2f, no sun): their colour over their "
-            "bounce %.3f / %.3f / %.3f (quartiles); every lit vertex's medians - colour %.3f, bounce %.3f, sky share %.3f",
-            ratios.size(), static_cast<double>(kEnclosedSky), static_cast<double>(quantile(&ratios, 0.25)),
-            static_cast<double>(quantile(&ratios, 0.5)), static_cast<double>(quantile(&ratios, 0.75)),
-            static_cast<double>(quantile(&colours, 0.5)), static_cast<double>(quantile(&bounces, 0.5)),
-            static_cast<double>(quantile(&skies, 0.5)));
+    const rt::RelitBounceEvidence evidence = rt::relit_bounce_evidence(meshes, light);
+    get_log("relit bake: the bounce's evidence - %zu enclosed vertices (sky under %.2f, no sun, no listed lamp): their "
+            "colour over their bounce %.3f / %.3f / %.3f (quartiles); every lit vertex's medians - colour %.3f, bounce "
+            "%.3f, sky share %.3f",
+            evidence.vertices, static_cast<double>(rt::kRelitEnclosedSky), static_cast<double>(evidence.low),
+            static_cast<double>(evidence.median), static_cast<double>(evidence.high),
+            static_cast<double>(median(&colours)), static_cast<double>(median(&bounces)),
+            static_cast<double>(median(&skies)));
+    // the sky over the bounce in the unit is b / g: the anchor moved it by the daylight's factor x the edges' g over the
+    // measured one
+    const float moved = model.bounce_anchored && model.bounce_measured > 0.0F
+                            ? model.daylight_scale * model.bounce_edges / model.bounce_measured
+                            : 1.0F;
+    get_log("relit bake: the bounce's strength - %s (%zu vertices of the evidence, at least %zu): the bounce %.3f (the "
+            "edges' own %.3f), the daylight x %.3f against it; the daylight over the bounce x %.3f of the edges' fit "
+            "(the daylight's factor told over every lit vertex %.3f, over the daylit ones no listed lamp reaches %.3f; "
+            "the edges' bounce held within the evidence's quartiles %.3f, the daylight x %.3f with it)",
+            model.bounce_anchored ? "the bake's own measure" : "the edges' (too little evidence)", model.bounce_evidence,
+            rt::kRelitLeastBounceEvidence, static_cast<double>(luma(model.bounce)),
+            static_cast<double>(model.bounce_edges), static_cast<double>(model.daylight_scale),
+            static_cast<double>(moved), static_cast<double>(model.daylight_scale_all),
+            static_cast<double>(model.daylight_scale_lamp_free), static_cast<double>(model.bounce_clamped),
+            static_cast<double>(model.daylight_scale_clamped));
 }
 
 void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& tracer)
@@ -1138,7 +1150,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             model = rt::fit_relit_model(meshes, light, up, true, &colours);
         }
         log_open_colours(meshes, light);
-        log_bounce_evidence(meshes, light);
+        log_bounce_evidence(meshes, light, model);
         trace_ms = ms_since(traced);
         // (reported) the fit as it came out, in the bake's own colours - before the unit: each channel's sun, sky and
         // bounce coefficients
@@ -1167,14 +1179,16 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                                          .sky = light_luma(bake_day.sky_light),
                                          .lamps = bake_day.lamps};
             const std::vector<rt::RelitLamp> listed = lamps; // (the solve changes them: a second solve starts again)
+            const auto solving = std::chrono::steady_clock::now();
             rt::solve_relit_lamps(meshes, light, links, lamps, &model, bake_time, &told);
             get_log("relit bake: lamps told by the bake's light level (not its edges) - %zu; the level's tint where no lamp "
-                    "reaches %.3f, its spread %.3f; %zu told in all",
+                    "reaches %.3f, its spread %.3f; %zu told in all (%zu lamps solved in %.0f ms)",
                     model.lamps_by_level, static_cast<double>(model.level_tint), static_cast<double>(model.level_spread),
-                    model.lamps_solved);
+                    model.lamps_solved, lamps.size(), ms_since(solving));
             // (round indoor lamps) the bake's light no listed lamp explains: a lamp looked for above each pool of it
             // (rt_relit.h find_pool_lamps), traced, and every lamp solved again with them
             rt::PoolSearch search;
+            const auto pooling = std::chrono::steady_clock::now();
             const std::vector<rt::RelitLamp> pools =
                 model.valid ? rt::find_pool_lamps(meshes, light, links, lamps, model, tracer, &search)
                             : std::vector<rt::RelitLamp>{};
@@ -1196,9 +1210,9 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             }
             get_log("relit bake: lamps from their pools - %zu vertices brighter than the model and the told lamps by %.1f x, "
                     "%zu pools, %zu with a mount: a candidate each, %zu told by the bake; %zu lamps told in all (%zu by the "
-                    "light's level)",
+                    "light's level) - the search, its traces and the solve again %.0f ms",
                     search.seeds, static_cast<double>(rt::kRelitLampHigh), search.pools, search.mounted, told_pools,
-                    model.lamps_solved, model.lamps_by_level);
+                    model.lamps_solved, model.lamps_by_level, ms_since(pooling));
         }
         {
             // (reported, the first candidates: what each lights and what the bake told of it)
@@ -1252,7 +1266,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             model.daylight_ratio = !sunless && physical > 0.0F ? baked / physical : 0.0F;
             get_log("relit bake: in the global unit - albedo scale (the fit's bounce) %.3f; the bake's own sun %.3f %.3f "
                     "%.3f, sky %.3f %.3f %.3f against the physical sun %.3f %.3f %.3f per N.L%s, sky %.3f %.3f %.3f at its "
-                    "own time - its daylight %.2f of the physical",
+                    "own time - its daylight %.2f of the physical, its sky %.2f",
                     static_cast<double>(model.albedo_scale), static_cast<double>(std::get<0>(model.sun)),
                     static_cast<double>(std::get<1>(model.sun)), static_cast<double>(std::get<2>(model.sun)),
                     static_cast<double>(std::get<0>(model.sky)), static_cast<double>(std::get<1>(model.sky)),
@@ -1260,7 +1274,8 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                     static_cast<double>(std::get<1>(own_day.sun_light)), static_cast<double>(std::get<2>(own_day.sun_light)),
                     sunless ? " (none: no sun in the bake)" : "", static_cast<double>(std::get<0>(own_day.sky_light)),
                     static_cast<double>(std::get<1>(own_day.sky_light)), static_cast<double>(std::get<2>(own_day.sky_light)),
-                    static_cast<double>(model.daylight_ratio));
+                    static_cast<double>(model.daylight_ratio),
+                    static_cast<double>(luma(own_day.sky_light) > 0.0F ? luma(model.sky) / luma(own_day.sky_light) : 0.0F));
             model.sun = sunless ? rt::Rgbf{} : own_day.sun_light;
             bake_sky = model.sky;
             sun_elevation = sunless ? 0.0F : static_cast<float>(std::asin(std::clamp(static_cast<double>(rt::y_of(model.toward)), -1.0, 1.0)) *

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <mutex>
 #include <span>
 #include <string>
@@ -1589,8 +1590,11 @@ bool fit_coloured(std::span<const RelitMesh> meshes, std::span<const RelitVertic
     struct Term {
         std::array<std::array<float, 3>, 3> x{}; // per channel: S, K, B (S and K in their light's colour)
         Rgbf y{};
+        bool daylit = false; // (round bounce unit) the sky or the sun reaches it (anchor_bounce's median tint 1 over these)
+        bool lamp_lit = false; // ... and a listed lamp
     };
     std::vector<Term> terms;
+    std::vector<float> evidence; // (round bounce unit) the bounce's evidence: the enclosed vertices' colour over B
     for (std::size_t mi = 0; mi < count; ++mi) {
         const RelitMesh& mesh = core::at(meshes, mi);
         const RelitVertices& vertices = core::at(light, mi);
@@ -1639,8 +1643,15 @@ bool fit_coloured(std::span<const RelitMesh> meshes, std::span<const RelitVertic
         }
         for (uint32_t vi = 0; vi < vertex_count; ++vi) {
             if (lit(vi)) {
+                const RelitVertex& vertex = core::at(vertices, vi);
+                const Rgbf y = colour_light(core::at(mesh.colours, vi));
                 terms.push_back({.x = {x_of_vertex(vi, 0), x_of_vertex(vi, 1), x_of_vertex(vi, 2)},
-                                 .y = colour_light(core::at(mesh.colours, vi))});
+                                 .y = y,
+                                 .daylit = vertex.sky >= kRelitEnclosedSky || vertex.sun > 0.0F,
+                                 .lamp_lit = luma(vertex.lamp) > 0.0F});
+                if (!painted && relit_bounce_evidence_vertex(vertex, luma(y))) {
+                    evidence.push_back(luma(y) / luma(vertex.bounce));
+                }
             }
         }
     }
@@ -1648,6 +1659,114 @@ bool fit_coloured(std::span<const RelitMesh> meshes, std::span<const RelitVertic
     if (terms.size() < kMinFitVertices || differences.size() < 3 * kMinFitVertices) {
         return false;
     }
+    // (round bounce unit) The bounce held at the bake's own measure of it, the daylight scaled to match (rt_relit.h
+    // kRelitLeastBounceEvidence) - after the edges' strengths (their proportions of sun and sky kept)
+    const auto anchor_bounce = [&terms, &evidence, &model]() {
+        model.bounce_evidence = evidence.size();
+        model.bounce_edges = luma(model.bounce);
+        if (evidence.size() < kRelitLeastBounceEvidence) {
+            return;
+        }
+        const auto middle = evidence.begin() + static_cast<std::ptrdiff_t>(evidence.size() / 2);
+        std::ranges::nth_element(evidence, middle);
+        const float measured = *middle;
+        model.bounce_measured = measured;
+        const auto quartile_at = evidence.begin() + static_cast<std::ptrdiff_t>(evidence.size() / 4);
+        std::ranges::nth_element(evidence, quartile_at);
+        const float low_quartile = *quartile_at;
+        const auto high_at = evidence.begin() + static_cast<std::ptrdiff_t>(evidence.size() * 3 / 4);
+        std::ranges::nth_element(evidence, high_at);
+        const float high_quartile = *high_at;
+        // each vertex's colour, daylight (the model's sun and sky, luma) and bounce (luma)
+        constexpr std::array<float, 3> kWeights{kLumaRed, kLumaGreen, kLumaBlue};
+        const float sun_strength = luma(model.sun);
+        const float sky_strength = luma(model.sky);
+        struct Lit {
+            float y = 0.0F;
+            float daylight = 0.0F;
+            float bounce = 0.0F;
+            uint8_t set = 0; // 1: daylit, 2: daylit with no listed lamp
+        };
+        std::vector<Lit> lit;
+        for (const Term& term : terms) {
+            Lit one{.y = luma(term.y)};
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                const std::array<float, 3>& x = core::at(term.x, ch);
+                one.daylight += core::at(kWeights, ch) * ((sun_strength * std::get<0>(x)) + (sky_strength * std::get<1>(x)));
+                one.bounce += core::at(kWeights, ch) * std::get<2>(x);
+            }
+            one.set = static_cast<uint8_t>((term.daylit ? 1U : 0U) | (term.daylit && !term.lamp_lit ? 2U : 0U));
+            if (one.daylight > 0.0F || one.bounce > 0.0F) {
+                lit.push_back(one);
+            }
+        }
+        if (!(measured > 0.0F) || !std::isfinite(measured)) {
+            return;
+        }
+        // the median tint over a set with the daylight x s and the bounce the measured one: falls as s grows; the s that
+        // makes it 1 (0: none - too few, or the bounce alone as bright as the bake)
+        const auto scale_over = [&lit](uint8_t mask, float held) {
+            std::vector<const Lit*> chosen;
+            for (const Lit& one : lit) {
+                if (mask == 0 || (one.set & mask) != 0) {
+                    chosen.push_back(&one);
+                }
+            }
+            if (chosen.size() < kMinFitVertices) {
+                return 0.0;
+            }
+            std::vector<float> tints(chosen.size());
+            const auto median_tint = [&](double s) {
+                for (std::size_t k = 0; k < chosen.size(); ++k) {
+                    const Lit& one = *core::at(chosen, k);
+                    const double light = (s * static_cast<double>(one.daylight)) + (static_cast<double>(held) * one.bounce);
+                    core::at(tints, k) = light > 0.0 ? static_cast<float>(static_cast<double>(one.y) / light)
+                                                     : std::numeric_limits<float>::max();
+                }
+                const auto at = tints.begin() + static_cast<std::ptrdiff_t>(tints.size() / 2);
+                std::ranges::nth_element(tints, at);
+                return static_cast<double>(*at);
+            };
+            if (!(median_tint(0.0) > 1.0)) {
+                return 0.0;
+            }
+            // bracketed by doubling or halving from 1, then halved geometrically (the scale is a ratio)
+            constexpr double kMostScale = 1e6;
+            constexpr int kHalvings = 48;
+            double low = 1.0;
+            double high = 1.0;
+            if (median_tint(1.0) > 1.0) {
+                while (median_tint(high) > 1.0 && high < kMostScale) {
+                    low = high;
+                    high *= 2.0;
+                }
+            } else {
+                while (median_tint(low) <= 1.0 && low > 1.0 / kMostScale) {
+                    high = low;
+                    low *= 0.5;
+                }
+            }
+            for (int k = 0; k < kHalvings; ++k) {
+                const double mid = std::sqrt(low * high);
+                (median_tint(mid) > 1.0 ? low : high) = mid;
+            }
+            return std::sqrt(low * high);
+        };
+        model.daylight_scale_all = static_cast<float>(scale_over(0, measured));
+        model.daylight_scale_lamp_free = static_cast<float>(scale_over(2, measured));
+        model.bounce_clamped = std::clamp(model.bounce_edges, low_quartile, high_quartile);
+        model.daylight_scale_clamped = model.bounce_clamped == model.bounce_edges ? 1.0F : static_cast<float>(scale_over(1, model.bounce_clamped));
+        const double found = scale_over(1, measured);
+        if (!(found > 0.0)) {
+            return;
+        }
+        const auto scale = static_cast<float>(found);
+        model.sun = scaled(model.sun, scale);
+        model.sky = scaled(model.sky, scale);
+        model.bounce = {measured, measured, measured};
+        model.daylight_scale = scale;
+        model.bounce_anchored = true;
+    };
     // The strengths from the pairs (every channel's edges: one sun, one sky and one bounce light the level - their
     // colours their sources'), then the scale: the median tint's luminance 1. (round relit-misses) Before, each channel
     // was fitted alone and scaled to a median tint of 1 on its own: the sky's and the bounce's terms - both large where a
@@ -1687,6 +1806,7 @@ bool fit_coloured(std::span<const RelitMesh> meshes, std::span<const RelitVertic
         // (lighting round A) a bake with no sun: its light the sky and the bounce (the lamps fitted next) - valid when
         // they light it; its sun the daylight the clock brings
         model.sun = {};
+        anchor_bounce();
         model.valid = luma(model.sky) + luma(model.bounce) >= kMinSunLight;
         return false;
     }
@@ -1730,10 +1850,52 @@ bool fit_coloured(std::span<const RelitMesh> meshes, std::span<const RelitVertic
             model.bounce = scaled(model.bounce, again);
         }
     }
+    anchor_bounce();
     return true;
 }
 
 } // namespace
+
+bool relit_bounce_evidence_vertex(const RelitVertex& vertex, float colour_luma)
+{
+    return vertex.used && vertex.sky < kRelitEnclosedSky && !(vertex.sun > 0.0F) && !(luma(vertex.lamp) > 0.0F) &&
+           luma(vertex.bounce) > 0.0F && colour_luma >= kBlackLight;
+}
+
+RelitBounceEvidence relit_bounce_evidence(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light)
+{
+    std::vector<float> ratios;
+    const std::size_t count = std::min(meshes.size(), light.size());
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        const RelitMesh& mesh = core::at(meshes, mi);
+        const RelitVertices& vertices = core::at(light, mi);
+        if (one_colour(mesh, vertices)) {
+            continue;
+        }
+        const std::size_t vertex_count = std::min(vertices.size(), mesh.colours.size());
+        for (uint32_t vi = 0; vi < vertex_count; ++vi) {
+            const RelitVertex& vertex = core::at(vertices, vi);
+            const float y = luma(colour_light(core::at(mesh.colours, vi)));
+            if (relit_baked_vertex(mesh, vi) && relit_bounce_evidence_vertex(vertex, y)) {
+                ratios.push_back(y / luma(vertex.bounce));
+            }
+        }
+    }
+    RelitBounceEvidence out;
+    out.vertices = ratios.size();
+    if (ratios.empty()) {
+        return out;
+    }
+    const auto quantile = [&ratios](std::size_t numerator) {
+        const auto at = ratios.begin() + static_cast<std::ptrdiff_t>((ratios.size() - 1) * numerator / 4);
+        std::ranges::nth_element(ratios, at);
+        return *at;
+    };
+    out.low = quantile(1);
+    out.median = quantile(2);
+    out.high = quantile(3);
+    return out;
+}
 
 RelitModel fit_relit_model(std::span<const RelitMesh> meshes, std::span<const RelitVertices> light, const Vec3& toward,
                            bool sunless, const RelitLightColours* colours)
