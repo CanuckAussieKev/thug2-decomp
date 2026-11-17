@@ -1677,6 +1677,90 @@ void check_unbaked_casters(const Scene& scene, Tally* tally)
                             found);
 }
 
+// (the bake's evidence) A level whose meshes the game's geometry passes split at load (smoothing, building relief, the
+// water's grid): its made vertices carry their corners' colours blended, not the bake's light - the fit reads the file's
+// triangles (RelitMesh::baked_triangles) and finds the same light as on the level unsplit. Read from every triangle,
+// Boston's and Barcelona's relief and water grids took their sun (the fit 1.0000 x worse without it).
+void check_made_vertices(const Scene& scene, Tally* tally)
+{
+    text::print("the fit over a level split at load (on the processor):\n");
+    Level level = make_level();
+    (void)bake(&level, {.toward = scene.sun, .light = kSunLight}, scene.params);
+    std::vector<rt::RelitMesh> split = level.meshes;
+    for (rt::RelitMesh& mesh : split) {
+        const auto originals = static_cast<uint32_t>(mesh.positions.size());
+        std::vector<std::array<uint32_t, 3>> into;
+        std::vector<std::pair<uint64_t, uint32_t>> middles; // (an edge's corners -> its made vertex)
+        const auto middle = [&](uint32_t one, uint32_t two) {
+            const uint64_t key = (static_cast<uint64_t>(std::min(one, two)) << 32U) | std::max(one, two);
+            for (const auto& [edge, made] : middles) {
+                if (edge == key) {
+                    return made;
+                }
+            }
+            const auto made = static_cast<uint32_t>(mesh.positions.size());
+            mesh.positions.push_back(rt::scaled(rt::plus(core::at(mesh.positions, one), core::at(mesh.positions, two)), 0.5F));
+            const uint32_t pa = core::at(mesh.colours, one);
+            const uint32_t pb = core::at(mesh.colours, two);
+            uint32_t blended = 0;
+            for (uint32_t shift = 0; shift < 32U; shift += 8U) {
+                blended |= ((((pa >> shift) & 0xFFU) + ((pb >> shift) & 0xFFU)) / 2U) << shift;
+            }
+            mesh.colours.push_back(blended);
+            middles.emplace_back(key, made);
+            return made;
+        };
+        for (const auto& [pa, pb, pc] : mesh.triangles) {
+            if (pa == pb || pb == pc || pc == pa) {
+                into.push_back({pa, pb, pc});
+                continue;
+            }
+            const uint32_t ab = middle(pa, pb);
+            const uint32_t bc = middle(pb, pc);
+            const uint32_t ca = middle(pc, pa);
+            into.push_back({pa, ab, ca});
+            into.push_back({ab, pb, bc});
+            into.push_back({ca, bc, pc});
+            into.push_back({ab, bc, ca});
+        }
+        mesh.baked_triangles = mesh.triangles;
+        mesh.baked_vertices = originals;
+        mesh.triangles = std::move(into);
+    }
+    const auto fit_of = [&](std::span<const rt::RelitMesh> meshes) {
+        CpuTracer cpu(meshes);
+        std::vector<rt::RelitVertices> light;
+        rt::RelitStats stats;
+        rt::trace_relit_light(meshes, {}, scene.sun, scene.params, cpu, &light, &stats);
+        return rt::fit_relit_model(meshes, light, scene.sun);
+    };
+    const rt::RelitModel whole = fit_of(level.meshes);
+    const rt::RelitModel made = fit_of(split);
+    std::vector<rt::RelitMesh> unmarked = split;
+    for (rt::RelitMesh& mesh : unmarked) {
+        mesh.baked_triangles.clear();
+        mesh.baked_vertices = 0;
+    }
+    const rt::RelitModel blind = fit_of(unmarked);
+    bool same = whole.valid && made.valid;
+    for (std::size_t channel = 0; channel < kSkyLight.size(); ++channel) {
+        same = same && std::abs(core::at(made.sun, channel) - core::at(whole.sun, channel)) <= 0.05F * core::at(whole.sun, channel) &&
+               std::abs(core::at(made.sky, channel) - core::at(whole.sky, channel)) <= 0.05F * core::at(whole.sky, channel);
+    }
+    tally->check(same && std::abs(made.sun_needed - whole.sun_needed) < 0.15F * whole.sun_needed,
+                 text::format("split, the fit reads the file's triangles: sun %.3f %.3f %.3f sky %.3f %.3f %.3f, the fit "
+                              "%.4f x worse without the sun - unsplit %.3f %.3f %.3f / %.3f %.3f %.3f, %.4f (every "
+                              "triangle read: sun %.3f, %.4f)",
+                              static_cast<double>(std::get<0>(made.sun)), static_cast<double>(std::get<1>(made.sun)),
+                              static_cast<double>(std::get<2>(made.sun)), static_cast<double>(std::get<0>(made.sky)),
+                              static_cast<double>(std::get<1>(made.sky)), static_cast<double>(std::get<2>(made.sky)),
+                              static_cast<double>(made.sun_needed), static_cast<double>(std::get<0>(whole.sun)),
+                              static_cast<double>(std::get<1>(whole.sun)), static_cast<double>(std::get<2>(whole.sun)),
+                              static_cast<double>(std::get<0>(whole.sky)), static_cast<double>(std::get<1>(whole.sky)),
+                              static_cast<double>(std::get<2>(whole.sky)), static_cast<double>(whole.sun_needed),
+                              static_cast<double>(std::get<1>(blind.sun)), static_cast<double>(blind.sun_needed)));
+}
+
 // --- (the offline relit data - engine/gfx/relit_data.h) the lamps' term, the data file -------------------------------
 
 // 6. the lamps' term: a lamp the lamps pass would shine, its light traced (trace_relit_lamps) and put into a copy of the
@@ -2013,6 +2097,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         uneven.sun = unit(kSunToward);
         check_uneven_fit(uneven, tally);
         check_unbaked_casters(uneven, tally);
+        check_made_vertices(uneven, tally);
     }
     rt::RayTracing* const backend = rt::ray_tracing();
     tally->check(backend != nullptr && backend->available(), "the ray tracing backend is installed");
