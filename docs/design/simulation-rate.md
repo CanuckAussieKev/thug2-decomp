@@ -82,7 +82,8 @@ component (its id, position, velocity, matrix); of the game's two random streams
 reference was recorded from main before the change (5c403296), at max_fps=0 (sim_grind's again on 2026-11-15, when
 the music got its own random numbers: "The music's random numbers", and again the same day when its playback was given
 its recorded skater's stats). All four were recorded again on 2026-11-17 when objects stopped sleeping by distance
-outside net games ("Objects' dormancy").
+outside net games ("Objects' dormancy"); the net game's rule has its own set since then, `sim_reference/net` ("The
+net game's rule, guarded"), and every demo is played under both.
 
 The references are the original game's simulation, so every run is played with nothing NOT ORIGINAL that adds to it:
 `sim_check.ts` sets `REFERENCE_SETTINGS` in the workspace's ini for each run (put back after) - `[features] thaw_bmx=0`
@@ -232,14 +233,19 @@ are simulated again).
 made in a net game, online or LAN, nor with more than one skater at the start - split screen): of THUG2's levels'
 nodes, 815 of 840 Pedestrians, 107 of 109 Vehicles, 468 of 503 ParticleObjects, 670 of 1419 LevelObjects and 173 of
 732 GameObjects are AbsentInNetGames. Present in a net game and animated (a skeleton): Boston's 22 pigeons (created at
-the start); not flagged but made only by the story's setup scripts (goal progress - not seen to run in a net game,
-not proven): Boston's TRG_Ped_Hawk, Australia's two shrimp vendors, the park editor's two cars (sk5ed). Present and
+the start). Not flagged, and never made in a net game (from the scripts, 2026-11-17): Boston's TRG_Ped_Hawk and
+Australia's TRG_Ped_ShrimpVendorChill01 are made only by the level's initialiser (BO_Initializer / AU_Initializer)
+inside `GameModeEquals is_career` - only the career mode has is_career (max_players 1, is_net 0) and a net session's
+mode is always a net one (netlobby and the net... modes; the career mode is set only on leaving the net menus or a
+net game, then the main menu loads); TRG_Ped_ShrimpVendorChill02 and the park editor's TRG_Sk5Ed_MiniBaja /
+TRG_Sk5Ed_TransAm are made by nothing at all (not CreatedAtStart, no script or C++ names them - the park editor's
+car goals turn the skater into a car, NewScript TransAm, rather than making these nodes). Present and
 suspendable without a skeleton: about 750 LevelObjects and 22 GameObjects. (Counted 2026-11-17 over the levels'
 TypeScript node arrays, each node's shared component structures included.) The
 original itself already lets some components ignore suspension in a net game (`VelocityTrackerModule`,
 `CollideAndDie`, flexible particles, particle components: `!net::in_net_game() && far`).
 
-**The rule** (`objects::dormancy_by_distance()` = `net::in_net_game()`):
+**The rule** (`objects::dormancy_by_distance()` = `net::in_net_game()`, or the simulation check's forced net rule):
 - In a net game: the original's dormancy exactly, with the level's distances (`lod_distance_scale` no longer scales
   them) - fair with original players.
 - Elsewhere: the suspend task measures no distance - every object is awake, animated on every step at full bone LOD,
@@ -265,6 +271,24 @@ interleave counters, so animation that came to depend on drawing or settings aga
 - The references recorded again from it (`--record`), then `--fps 0,120,144,240 --load 0,7`: 32 / 32 runs equal on
   every frame, all five fields; a separate earlier run and a run at `lod_distance_scale=1` / `draw_distance_scale=1`
   (references at 3): equal on every frame.
+
+### The net game's rule, guarded
+
+The single-player references no longer cover the net game's rule, so it has its own set: `-demo-net-rule` (a
+command-line demo playback's option, honoured only in a test workspace - `platform::test_workspace`, the
+`thug2-decomp-always-muted` marker; refused, and logged, anywhere else) sets `objects::force_net_dormancy`, and
+`dormancy_by_distance()` is then true outside a net game too: the demo plays under the original's dormancy without
+going online. The state file says so (`# dormancy: the net-game rule`); `sim_check.ts` plays every demo under both rules
+by default (`--rules single,net`), the net rule's against `tools/game/sim_reference/net/<demo>.state.txt`, and a run
+without the mark counts as missing (the game refused it).
+
+Proof (2026-11-17, a workspace, x64 RelWithDebInfo of main bc5f0fcb6 + the switch, QB scripts): the net references
+recorded with it equal the references recorded before the single-player rule (d850aad53's parent) on every frame of all
+four demos on the four original fields (skater, objects, random, clock - 693 + 1177 + 713 + 624 frames); the
+single-player references differ from those from frame 5 (objects) in every demo - so the set tells the rules apart.
+In a net game the switch changes nothing (the rule is on there anyway); what a real net game adds besides - the
+AbsentInNetGames nodes not made, components that ignore suspension online (`!net::in_net_game() && far`) - is the
+original's own code, unchanged.
 
 ### The music's random numbers
 

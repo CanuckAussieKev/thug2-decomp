@@ -322,7 +322,12 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   `--scripts qb|ts` refuses a workspace that runs the other (switch with `node tools/qbjs/unpack_game.ts` and
   `[features] ts_scripts=1`, or `--restore`) - a change to the scripts' runtime is checked in both ("QB and TypeScript
   scripts"). `--trace` also writes each run's simulation trace (`trace.txt`: `-demo-trace`, every script command with
-  its arguments, every random draw with its script and callers, each check point's moving objects).
+  its arguments, every random draw with its script and callers, each check point's moving objects). `--rules
+  single,net` (default both): each demo is played under both rules of the objects' dormancy - the single-player rule
+  (references `sim_reference/<demo>.state.txt`) and the net game's, the original's dormancy by distance
+  (`-demo-net-rule`, honoured only in a test workspace; references `sim_reference/net/<demo>.state.txt`, runs in
+  `net-<rate>` folders) - the guard that online / LAN play stays the original's simulation ("Objects' dormancy").
+  `--record` records both sets.
 - **Two simulation traces compared**: `node tools/game/sim_trace_diff.ts <trace A> <trace B> [--context 8] [--skip
   <regex>]` - the first entry where they part (callers left out of the comparison; `node tools/symbolize.ts --pdb-dir
   <build> <offsets>` names them), e.g. one demo with QB and with TypeScript scripts.

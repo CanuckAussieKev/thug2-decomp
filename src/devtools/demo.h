@@ -32,6 +32,9 @@ class Source;
 //   -demo-trace                                 writes the simulation trace too: <demo>.play.trace.txt (every script
 //                                               command with its arguments, every random draw, each check point's
 //                                               moving objects - demo.cpp trace_start).
+//   -demo-net-rule                              the objects' dormancy as in a net game (the original's, by distance -
+//                                               objects/dormancy.h): tools/game/sim_check.ts's net references. A
+//                                               test workspace's only (refused elsewhere).
 //   -viewer                                     in the demo viewer (devtools/demo_viewer.h: a timeline, cameras,
 //                                               keyframes, the split comparison); with -demo-video, the viewer's
 //                                               camera path (the demo's .camera.txt) saved as that video, then it quits.
