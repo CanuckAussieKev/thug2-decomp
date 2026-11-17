@@ -84,7 +84,16 @@ export interface LevelState {
     confidence: number; // ... carrying this share of the light
     elevation: number; // ... this many degrees up
     lamps: number;
-    dark: boolean; // its median vertex brightness at most rt_lights.h kDarkLevelLuma
+    // (lighting round A3 - no "dark level": the lamps by the bake's light and their own daylight) its candidates found
+    // in textures, the lamps that shine (the glows' own, and those the bake tells), those the bake shows lit, those
+    // whose surfaces see no sky (on whenever: indoors), those on at its own time, and its own open sky's light
+    textured: number;
+    glowMeshes: number; // the original's light cards (additive still meshes): hidden in the relit level
+    shining: number;
+    litInBake: number;
+    alwaysOn: number;
+    onAtOwn: number;
+    ownSky: number;
     openSky: number; // the median share of the sky its upward faces see (0 under a roof)
     sky: number; // the bake's own sky light on a level surface in the global unit (green)
     daylight: number; // the bake's own daylight over the physical at its sun (0: no sun)
@@ -93,7 +102,7 @@ export interface LevelState {
 
 export function stateOf(evidence: string): LevelState | null {
     const m =
-        /own time of day (\S+); the baked sun's confidence ([\d.]+) \((a sun|no sun), (-?[\d.]+) degrees up\); vertex light median [\d.]+, brightest 5% from [\d.]+ \(x([\d.]+)\); \d+ glow and \d+ self-lit triangles, (\d+) lamps \((a dark|a lit) level\); upward faces see ([\d.]+) of the sky \(median\); the bake's sky [\d.]+ ([\d.]+) [\d.]+ in the global unit, its daylight ([\d.]+) of the physical/.exec(
+        /own time of day (\S+); the baked sun's confidence ([\d.]+) \((a sun|no sun), (-?[\d.]+) degrees up\); vertex light median [\d.]+, brightest 5% from [\d.]+ \(x([\d.]+)\); \d+ glow, \d+ self-lit and (\d+) textured triangles \((\d+) glow meshes\), (\d+) lamps - (\d+) shining, (\d+) lit in the bake, (\d+) always on \(no sky where they light\), (\d+) on at its own time \(its open sky ([\d.]+)\); upward faces see ([\d.]+) of the sky \(median\); the bake's sky [\d.]+ ([\d.]+) [\d.]+ in the global unit, its daylight ([\d.]+) of the physical/.exec(
             evidence,
         );
     if (!m) return null;
@@ -103,11 +112,17 @@ export function stateOf(evidence: string): LevelState | null {
         confidence: Number(m[2]),
         elevation: Number(m[4]),
         brightest: Number(m[5]),
-        lamps: Number(m[6]),
-        dark: m[7] === "a dark",
-        openSky: Number(m[8]),
-        sky: Number(m[9]),
-        daylight: Number(m[10]),
+        textured: Number(m[6]),
+        glowMeshes: Number(m[7]),
+        lamps: Number(m[8]),
+        shining: Number(m[9]),
+        litInBake: Number(m[10]),
+        alwaysOn: Number(m[11]),
+        onAtOwn: Number(m[12]),
+        ownSky: Number(m[13]),
+        openSky: Number(m[14]),
+        sky: Number(m[15]),
+        daylight: Number(m[16]),
     };
 }
 
@@ -130,9 +145,11 @@ export function disagreements(state: LevelState): string[] {
         );
     if (state.sun && state.openSky < INDOOR_SKY)
         out.push(`a sun found, but its floors see only ${state.openSky.toFixed(2)} of the sky (indoors)`);
-    if (day && state.dark && state.openSky >= OUTDOOR_SKY) out.push(`a ${state.tod} state outdoors, but a dark level`);
-    if (!day && !state.dark && !state.sun && state.openSky >= OUTDOOR_SKY && state.lamps === 0)
-        out.push(`a ${state.tod} state outdoors, lit, with no sun and no lamps`);
+    // (round A3 - physical evidence in place of the "dark level": what lights it at its own time)
+    if (!day && !state.sun && state.onAtOwn === 0)
+        out.push(`a ${state.tod} state with no sun and no lamp on at its own time - lit by nothing`);
+    if (state.openSky < INDOOR_SKY && !state.sun && state.shining === 0)
+        out.push(`indoors (its floors see ${state.openSky.toFixed(2)} of the sky) with no lamp shining`);
     return out;
 }
 
@@ -148,9 +165,10 @@ export function stateRow(level: string, result: BakeResult): string {
             ? `sun ${st.elevation.toFixed(0)} deg (${st.confidence.toFixed(2)})`
             : `no sun (${st.confidence.toFixed(2)})`,
         `sky ${st.sky.toFixed(3)}, daylight x${st.daylight.toFixed(2)}`,
-        `${st.lamps} lamps${result.lampsSolved ? ` (${result.lampsSolved} solved)` : ""}`,
+        `${st.lamps} lamps (${st.shining} shining, ${st.litInBake} lit in the bake, ${st.alwaysOn} always on, ` +
+            `${st.textured} textured triangles, ${st.glowMeshes} light cards hidden)`,
         `${place} (${st.openSky.toFixed(2)})`,
-        st.dark ? "dark" : "lit",
+        `${st.onAtOwn} on at its own time (open sky ${st.ownSky.toFixed(4)})`,
         `brightest x${st.brightest.toFixed(2)}`,
         flags.length ? `DISAGREES: ${flags.join("; ")}` : "agrees",
     ].join("\t");
@@ -363,7 +381,7 @@ async function main(): Promise<number> {
     }
     fs.writeFileSync(path.join(folder, "bake-report.txt"), `${lines.join("\n")}\n`);
     const header =
-        "level\ttod at load\tthe relit fit's sun (share)\tthe bake's sky\tlamps\tindoors / outdoors (floors' sky)\tdark / lit\tbrightest\tevidence";
+        "level\ttod at load\tthe relit fit's sun (share)\tthe bake's sky\tlamps\tindoors / outdoors (floors' sky)\tlamps on at its own time\tbrightest\tevidence";
     fs.writeFileSync(path.join(folder, "state-table.txt"), `${[header, ...states].join("\n")}\n`);
     const flagged = states.filter((row) => row.includes("DISAGREES")).length;
     print(`the levels' lighting states: state-table.txt (${flagged} whose evidence disagrees)`);

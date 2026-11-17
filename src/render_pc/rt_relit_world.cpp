@@ -120,6 +120,11 @@ struct Entry {
     // (lighting round A) the bake's shadow drawn as geometry - a blended mesh whose vertex colours are all black (it adds
     // no colour, only takes light away): hidden in the relit level (its store's colour word: transparent)
     bool baked_shadow = false;
+    // (lighting round A3) the original's light card - an additive halo, cone, pool or starburst round a lamp
+    // (WorldMesh::glow): the lamp's evidence for the bake, no light - hidden in the relit level as the shadows are
+    bool glow_card = false;
+    std::size_t data_mesh = SIZE_MAX; // (round A3) its mesh in the level's data (its lamp links and emitting vertices)
+    uint64_t lamps_for = 0;           // ... and the lamps' switches its L was made for (State::lamps_hash)
     rt::RelitMesh input;
     rt::RelitVertices light;
     bool analysed = false;   // its light read from the level's data
@@ -269,6 +274,10 @@ struct State {
     uint64_t bounce_cut = 0; // (round S2) the lighting's cut the vertices' bounce B was started again for
     std::chrono::steady_clock::time_point frame_start{}; // (update's start this frame: the parts share kRelitFrameMs)
     Job job; // (the trace asked of the device, answered a frame or two later - one at a time)
+    // (lighting round A3 - each lamp by its own daylight) how much each of the data's lamps is on now (rt_lights.h
+    // lamp_on, in steps of kLampSteps) and their hash: the entries' L made again from their links when it changes
+    std::vector<float> lamps_on;
+    uint64_t lamps_hash = 0;
 };
 
 State& state()
@@ -500,6 +509,7 @@ bool make_entry(const WorldMesh& world, Entry* out)
         }
     }
     entry.input.colours = entry.originals;
+    entry.glow_card = world.glow;
     entry.baked_shadow = world.blended && !entry.originals.empty() &&
                          std::ranges::all_of(entry.originals, [](uint32_t colour) { return luma_of(colour) < 1.0F; });
     // (added by building relief) a relieved mesh's made vertices take the flat wall's light (rt_relit.h
@@ -619,14 +629,59 @@ rt::RelitLighting day_scales(const rt::DayLight& day, const rt::RelitModel& mode
             .lamps = 0.0F};
 }
 
-// (lighting round A) How much of the lamps' light relit lights per vertex: the lamps on (the clock's lamps; without it
-// those of a dark level - rt_lights.h lamps_on) less what the lamps pass lights per pixel itself (lamps_drawn) - one owner.
+// (lighting round A) How much of the lamps' light relit lights per vertex: what the lamps pass doesn't light per pixel
+// itself (lamps_drawn) - one owner. (Round A3) Which lamps are on is each lamp's own (switch_lamps: its L made with it).
+// (round S: x the frame's pre-exposure, as the lighting state's sun and sky carry it - rt_daylight.h pre_expose)
 float vertex_lamps(const rt::DayLight& day)
 {
+    return std::max(0.0F, 1.0F - rt::lamps_drawn()) * (day.on ? day.pre_exposure : 1.0F);
+}
+
+// (lighting round A3 - no "dark level") Each of the data's lamps on by its own daylight (rt_lights.h lamp_on: the open
+// sky now - the clock's or the level's own time's - against its switch), and every analysed entry's L made again from
+// its links with them where they changed; a lamp's own surface (its emitting vertices) shows its radiance (its light /
+// pi) as much as it is on - the bulb, the lit panel. Returns the switches' hash (the lighting's).
+uint64_t switch_lamps(const rt::DayLight& day)
+{
+    State& st = state();
+    const LevelData& data = level_data(st.level);
+    if (!data.found) {
+        return 0;
+    }
+    constexpr float kLampSteps = 32.0F;
     const std::shared_ptr<const rt::LevelEmitters> level = rt::level_emitters();
-    const float on = rt::lamps_on(day, level != nullptr && level->dark);
-    // (round S: x the frame's pre-exposure, as the lighting state's sun and sky carry it - rt_daylight.h pre_expose)
-    return std::max(0.0F, on - rt::lamps_drawn()) * (day.on ? day.pre_exposure : 1.0F);
+    const float sky_now = rt::lamp_sky_now(day, level.get());
+    const float open = rt::open_sky_lamps(day, level.get());
+    const std::vector<rt::RelitLamp>& lamps = data.data.lamp_list;
+    std::vector<float> on(lamps.size(), 0.0F);
+    // (round S: the bulbs' radiance x the frame's pre-exposure, as the lighting state's sun and sky carry it)
+    const float exposure = day.on ? day.pre_exposure : 1.0F;
+    uint64_t hash = fnv_value(kFnvBasis, static_cast<uint64_t>(lamps.size()));
+    hash = fnv_value(hash, exposure);
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        core::at(on, li) = std::round(rt::lamp_on(core::at(lamps, li).switch_sky, sky_now, open) * kLampSteps) / kLampSteps;
+        hash = fnv_value(hash, core::at(on, li));
+    }
+    hash = hash == 0 ? 1 : hash;
+    st.lamps_on = std::move(on);
+    st.lamps_hash = hash;
+    constexpr float kLambertian = 1.0F / 3.14159265F; // (a Lambertian emitter's radiance: its exitance over pi)
+    for (const VertexBufferData* buffer : st.order) {
+        Entry& entry = st.entries.at(buffer);
+        if (!entry.analysed || entry.lamps_for == hash || entry.data_mesh >= data.data.meshes.size()) {
+            continue;
+        }
+        entry.lamps_for = hash;
+        const rt::RelitDataMesh& mesh = core::at(data.data.meshes, entry.data_mesh);
+        rt::relit_mesh_lamp_light(entry.input, &entry.light, mesh.links, lamps, st.lamps_on);
+        for (const rt::RelitEmitting& emitting : mesh.emitting) {
+            if (emitting.vertex < entry.light.size() && emitting.lamp < lamps.size()) {
+                core::at(entry.light, emitting.vertex).emit =
+                    rt::scaled(core::at(lamps, emitting.lamp).light, kLambertian * exposure * core::at(st.lamps_on, emitting.lamp));
+            }
+        }
+    }
+    return hash;
 }
 // The new entries' light taken from the level's data (nothing traced or fitted: the relit bake made it - relit_data.h):
 // each by its content; its normals and which vertices are used made again from the mesh as the bake made them.
@@ -649,6 +704,8 @@ void take_from_data()
             continue;
         }
         rt::relit_normals(entry.input, data.data.facing, &entry.light);
+        entry.data_mesh = found->second;
+        entry.lamps_for = 0;
         for (std::size_t vi = 0; vi < entry.light.size(); ++vi) {
             rt::RelitVertex& vertex = core::at(entry.light, vi);
             const rt::RelitVertex& stored = core::at(mesh.vertices, vi);
@@ -1257,10 +1314,11 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
         }
         const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked), std::size_t{count} * rt::kCelStreamBytes);
         for (std::size_t vi = 0; vi < count; ++vi) {
-            rt::CelWords words = vi < entry.light.size() && core::at(entry.animated, vi) == 0 && !entry.baked_shadow
+            const bool hidden = entry.baked_shadow || entry.glow_card;
+            rt::CelWords words = vi < entry.light.size() && core::at(entry.animated, vi) == 0 && !hidden
                                      ? rt::cel_stream_words(st.model, core::at(entry.light, vi), light)
                                      : rt::kCelNoStream;
-            if (entry.baked_shadow) {
+            if (hidden) {
                 core::at(words, rt::kCelColourWord) = rt::kCelHiddenColour; // (the bake's shadow: not drawn)
             }
             std::memcpy(bytes.subspan(vi * rt::kCelStreamBytes, rt::kCelStreamBytes).data(), words.data(),
@@ -1444,9 +1502,11 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     // owner; in steps of kLampSteps, so a pass's amount moving a little doesn't write the level again
     constexpr float kLampSteps = 32.0F;
     const float lamps = std::round(vertex_lamps(day) * kLampSteps) / kLampSteps;
+    const uint64_t switched = switch_lamps(day); // (round A3: each lamp by its own daylight)
     uint64_t lighting = fnv_value(kFnvBasis, st.sun);
     lighting = fnv_value(lighting, st.radius);
     lighting = fnv_value(lighting, lamps);
+    lighting = fnv_value(lighting, switched);
     lighting = model_hash(lighting, st.model);
     lighting = fnv_value(lighting, st.bounce_finished); // (one relight at a time: a bounce pass done - written again)
     lighting = fnv_value(lighting, st.day_scales.sun);
@@ -1586,7 +1646,8 @@ bool data_emitters(std::vector<rt::Emitter>* out)
                         .core = lamp.core,
                         .shape = lamp.shape,
                         .axis = lamp.axis,
-                        .half_length = lamp.half_length});
+                        .half_length = lamp.half_length,
+                        .switch_sky = lamp.switch_sky}); // (round A3: on by its own daylight - rt_lights.h lamp_on)
     }
     return true;
 }
@@ -1828,6 +1889,9 @@ std::string census_bucket(const WorldMesh& world)
     }
     if (entry.baked_shadow) {
         return "relit: the bake's shadow drawn as geometry - hidden";
+    }
+    if (entry.glow_card) {
+        return "relit: the original's light card (an additive glow) - hidden: the lamp lights by its own light";
     }
     const bool animated = std::ranges::any_of(entry.animated, [](uint8_t a) { return a != 0; });
     if (entry.stream == nullptr) {

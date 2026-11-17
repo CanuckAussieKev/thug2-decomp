@@ -946,14 +946,16 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     // the view's lights
     const std::shared_ptr<const rt::LevelEmitters> level = rt::level_emitters();
     log_emitters(*level);
-    // (added by the time of day - engine/gfx/rt_daylight.h) the lamps on as the clock says: off by day, on at night;
-    // without the clock rt_lights=auto lights only a dark level
+    // (lighting round A3 - no "dark level") each lamp on by its own daylight (rt_lights.h lamp_on: its switch against
+    // the open sky now - the clock's, or the level's own time's); rt_lights=1 (not auto) every lamp on as the clock's
+    // lamps say (all without it)
     const rt::DayLight day = rt::day_light();
-    const float lamps = own.settings.automatic ? rt::lamps_on(day, level->dark) : (day.on ? day.lamps : 1.0F);
-    if (!(lamps > 0.0F)) {
-        return false;
-    }
+    const float open = own.settings.automatic ? rt::open_sky_lamps(day, level.get()) : (day.on ? day.lamps : 1.0F);
+    const float sky_now = own.settings.automatic ? rt::lamp_sky_now(day, level.get()) : 0.0F;
+    const float lamps = 1.0F; // (each light's own amount is in its intensity; the owner - set_lamps_owner - the settings')
     rt::ViewLightRequest request;
+    request.sky_now = sky_now; // (forced on: 0 - every known switch on; the point lights by the clock's lamps)
+    request.open_lamps = open;
     request.camera = view.camera.position;
     const Matrix view_projection = view_projection_of(view.camera);
     for (std::size_t row = 0; row < kMatrixSide; ++row) {

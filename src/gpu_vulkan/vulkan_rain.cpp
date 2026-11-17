@@ -1456,12 +1456,15 @@ Block block_for(Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view,
     } else {
         block.light_colour = {0.0F, 0.0F, 0.0F, kRainDropPhaseG};
     }
-    // the lamps (the lamps pass's choice for the view: the nearest, most important; as on as the clock says)
+    // the lamps (the lamps pass's choice for the view: the nearest, most important; (lighting round A3) each as on as
+    // its own daylight says - rt_lights.h lamp_on, in its intensity)
     const std::shared_ptr<const rt::LevelEmitters> level = rt::level_emitters();
-    const float lamps_on = rt::lamps_on(day, level != nullptr && level->dark);
+    const float lamps_on = 1.0F;
     uint32_t lamps = 0;
-    if (lamps_on > 0.0F && env_pass) { // (the drops alone read the lamps: the wet mask has none)
+    if (env_pass) { // (the drops alone read the lamps: the wet mask has none)
         rt::ViewLightRequest request;
+        request.sky_now = rt::lamp_sky_now(day, level.get());
+        request.open_lamps = rt::open_sky_lamps(day, level.get());
         request.camera = view.camera.position;
         request.view_projection = vp;
         request.max = kRainMostLamps;

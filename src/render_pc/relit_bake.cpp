@@ -126,8 +126,8 @@ void give_up(State& st, int code)
     platform::end_batch_run(code);
 }
 
-// The level's lamps as the lamps pass shines them: the emitters found in the level (glows; self-lit surfaces in a dark
-// level) and the point lights on now.
+// The level's lamps as the lamps pass shines them: the emitters found in the level (glows; self-lit and textured
+// candidates - lamps only where the bake shows their light) and the point lights on now.
 std::vector<rt::RelitLamp> level_lamps()
 {
     std::vector<rt::RelitLamp> lamps;
@@ -179,6 +179,67 @@ rt::DayLight own_day_light(const rt::BakedSun& sun)
     const rt::NativeDay native = rt::fit_native_day(
         {.sun = sun.toward, .have_sun = sun.found, .from_bake = sun.found, .state = own_state()});
     return rt::day_light_at(native, native.hours);
+}
+
+// (lighting round A3) How much each lamp is on at the level's own time: by its own switch against the level's own open
+// sky (rt_lights.h lamp_on - the photocell's rule, no "dark level").
+float light_luma(const rt::Rgbf& rgb)
+{
+    return (0.2126F * std::get<0>(rgb)) + (0.7152F * std::get<1>(rgb)) + (0.0722F * std::get<2>(rgb));
+}
+std::vector<float> own_lamps_on(std::span<const rt::RelitLamp> lamps, const rt::DayLight& own_day)
+{
+    std::vector<float> on;
+    on.reserve(lamps.size());
+    for (const rt::RelitLamp& lamp : lamps) {
+        on.push_back(rt::lamp_on(lamp.switch_sky, light_luma(own_day.sky_light), own_day.lamps));
+    }
+    return on;
+}
+
+// (lighting round A3) The vertices of the lamps' own surfaces: the corners of a confirmed candidate's triangles (a
+// self-lit or textured emitter the bake told lit) - found by position among the meshes' vertices (the same bytes).
+std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt::RelitMesh> meshes,
+                                                              std::span<const rt::RelitLamp> lamps)
+{
+    std::vector<std::vector<rt::RelitEmitting>> out(meshes.size());
+    const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
+    if (found == nullptr) {
+        return out;
+    }
+    const auto key_of = [](const rt::Vec3& at) {
+        uint64_t hash = 0xCBF29CE484222325ULL;
+        for (const float value : at) {
+            uint32_t bits = 0;
+            std::memcpy(&bits, &value, sizeof(bits));
+            hash = (hash ^ bits) * 0x100000001B3ULL;
+        }
+        return hash;
+    };
+    std::unordered_map<uint64_t, uint32_t> corners; // a corner's position -> its lamp
+    for (std::size_t ti = 0; ti < found->triangles.size() && ti < found->triangle_emitter.size(); ++ti) {
+        const uint32_t lamp = core::at(found->triangle_emitter, ti);
+        const rt::EmitterTriangle& triangle = core::at(found->triangles, ti);
+        if (lamp >= lamps.size() || !rt::candidate_kind(triangle.kind) || !core::at(lamps, lamp).solved) {
+            continue;
+        }
+        for (const rt::Vec3& corner : triangle.corners) {
+            corners.emplace(key_of(corner), lamp);
+        }
+    }
+    if (corners.empty()) {
+        return out;
+    }
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        const rt::RelitMesh& mesh = core::at(meshes, mi);
+        for (std::size_t vi = 0; vi < mesh.positions.size(); ++vi) {
+            const auto hit = corners.find(key_of(core::at(mesh.positions, vi)));
+            if (hit != corners.end()) {
+                core::at(out, mi).push_back({.vertex = static_cast<uint32_t>(vi), .lamp = hit->second});
+            }
+        }
+    }
+    return out;
 }
 
 // (round A2) The median share of the sky the level's upward faces see (their traced K): under kRelitIndoorSky the
@@ -353,13 +414,41 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         }
         trace_ms = ms_since(traced);
         const auto fitted = std::chrono::steady_clock::now();
-        if (model.valid) {
-            // (round A2) each lamp's intensity solved from the bake (no level-wide c)
-            // (only a bake whose lamps were on tells their light: its own time's lamps, or a dark level)
-            const std::shared_ptr<const rt::LevelEmitters> emitters = rt::level_emitters();
-            const bool lit_in_bake =
-                rt::lamps_on(own_day_light(data.sun), emitters != nullptr && emitters->dark) > 0.0F;
-            rt::solve_relit_lamps(meshes, light, links, lamps, &model, lit_in_bake);
+        // (round A2) each lamp's intensity solved from the bake (no level-wide c); (round A3) in every bake - the bake's
+        // light tells which were on (told above the fit's noise), no "dark level" or lamps-on guess
+        {
+            const rt::DayLight bake_day = own_day_light(data.sun);
+            rt::solve_relit_lamps(meshes, light, links, lamps, &model,
+                                  {.unit_lux = rt::unit_illuminance(),
+                                   .sky = light_luma(bake_day.sky_light),
+                                   .lamps = bake_day.lamps});
+        }
+        {
+            // (reported, the first candidates: what each lights and what the bake told of it)
+            std::vector<std::size_t> reach(lamps.size(), 0);
+            for (const rt::RelitMeshLinks& mesh_links : links) {
+                for (const rt::RelitLampLink& link : mesh_links.links) {
+                    if (link.lamp < reach.size()) {
+                        core::at(reach, link.lamp) += 1;
+                    }
+                }
+            }
+            std::size_t shown = 0;
+            for (std::size_t li = 0; li < lamps.size() && shown < 12; ++li) {
+                const rt::RelitLamp& lamp = core::at(lamps, li);
+                if (!rt::candidate_kind(lamp.kind)) {
+                    continue;
+                }
+                ++shown;
+                get_log("relit bake: candidate %zu (%s, shape %u) at %.0f %.0f %.0f core %.0f reach %.0f - lights %zu "
+                        "vertices; %s, light %.3f %.3f %.3f",
+                        li, lamp.kind == rt::EmitterKind::kTextured ? "textured" : "self-lit",
+                        static_cast<unsigned>(lamp.shape), static_cast<double>(rt::x_of(lamp.position)),
+                        static_cast<double>(rt::y_of(lamp.position)), static_cast<double>(rt::z_of(lamp.position)),
+                        static_cast<double>(lamp.core), static_cast<double>(lamp.reach), core::at(reach, li),
+                        lamp.solved ? "told lit" : "not told", static_cast<double>(std::get<0>(lamp.light)),
+                        static_cast<double>(std::get<1>(lamp.light)), static_cast<double>(std::get<2>(lamp.light)));
+            }
         }
         data.model_margin = sunless ? (luma(model.sky) + luma(model.bounce)) / rt::kRelitMinSunLight
                                     : luma(model.sun) / rt::kRelitMinSunLight;
@@ -378,6 +467,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         if (model.valid) {
             rt::relit_to_unit(&model, light, lamps);
             rt::relit_lamp_light(meshes, light, links, lamps); // (L in the unit: the lamps' own and the solved)
+            rt::relit_lamp_switches(light, links, lamps, rt::unit_illuminance()); // (round A3: a photocell's switch)
             const float elevation_sine = std::max(0.0F, rt::y_of(model.toward));
             const float baked = luma(rt::plus(rt::scaled(model.sun, elevation_sine), model.sky));
             const float physical = luma(rt::plus(rt::scaled(own_day.sun_light, elevation_sine), own_day.sky_light));
@@ -425,9 +515,10 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             // the bounce of the relit light at the level's own time (the hits' colours the relit ones: tint x light),
             // not the bake's colours - nothing of the bake's light is kept
             const auto bounced = std::chrono::steady_clock::now();
-            const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
-            const rt::RelitLighting own =
-                rt::relit_own_lighting(model, rt::lamps_on(own_day, found != nullptr && found->dark));
+            // (round A3) the lamps on at the level's own time, each by its own switch - L with them, for the bounce
+            const std::vector<float> on = own_lamps_on(lamps, own_day);
+            rt::relit_lamp_light(meshes, light, links, lamps, on);
+            const rt::RelitLighting own = rt::relit_own_lighting(model, 1.0F);
             std::vector<rt::RelitMesh> relit = meshes;
             for (std::size_t mi = 0; mi < relit.size(); ++mi) {
                 rt::RelitMesh& mesh = core::at(relit, mi);
@@ -440,12 +531,19 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             again.keep_sky = true;
             rt::RelitStats bounce_stats;
             rt::trace_relit_sky(relit, {}, again, tracer, &light, &bounce_stats);
+            rt::relit_lamp_light(meshes, light, links, lamps); // (kept: L with every lamp on - the game switches them)
             stats.rays += bounce_stats.rays;
             bounce_ms = ms_since(bounced);
         }
         data.model = model;
+        const std::vector<std::vector<rt::RelitEmitting>> emitting = emitting_vertices(meshes, lamps);
         for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
-            data.meshes.push_back({.content = core::at(contents, mi), .vertices = std::move(core::at(light, mi))});
+            rt::RelitDataMesh mesh{.content = core::at(contents, mi), .vertices = std::move(core::at(light, mi))};
+            if (mi < links.size()) {
+                mesh.links = std::move(core::at(links, mi));
+            }
+            mesh.emitting = core::at(emitting, mi);
+            data.meshes.push_back(std::move(mesh));
         }
     }
     // the file
@@ -506,6 +604,26 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             kelvins.push_back(lamp.kelvin);
         }
     }
+    {
+        // (reported) the brightest lamp: an outlier the solve made shows here
+        std::size_t brightest = 0;
+        for (std::size_t li = 1; li < data.lamp_list.size(); ++li) {
+            if (luma(core::at(data.lamp_list, li).light) > luma(core::at(data.lamp_list, brightest).light)) {
+                brightest = li;
+            }
+        }
+        if (!data.lamp_list.empty()) {
+            const rt::RelitLamp& lamp = core::at(data.lamp_list, brightest);
+            get_log("relit bake: the brightest lamp %zu (kind %u, shape %u, %s) at %.0f %.0f %.0f, core %.0f: %.3f %.3f %.3f "
+                    "in the unit, %.0f lm",
+                    brightest, static_cast<unsigned>(lamp.kind), static_cast<unsigned>(lamp.shape),
+                    lamp.solved ? "told" : "its own surface's", static_cast<double>(rt::x_of(lamp.position)),
+                    static_cast<double>(rt::y_of(lamp.position)), static_cast<double>(rt::z_of(lamp.position)),
+                    static_cast<double>(lamp.core), static_cast<double>(std::get<0>(lamp.light)),
+                    static_cast<double>(std::get<1>(lamp.light)), static_cast<double>(std::get<2>(lamp.light)),
+                    static_cast<double>(lamp.lumens));
+        }
+    }
     float median_kelvin = 0.0F;
     if (!kelvins.empty()) {
         const auto middle = kelvins.begin() + static_cast<std::ptrdiff_t>(kelvins.size() / 2);
@@ -513,12 +631,12 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         median_kelvin = *middle;
     }
     get_log("relit bake: the lamps' solve - %zu %zu %zu edges, %zu of %zu lamps told by the bake (the rest by their own "
-            "surfaces' radiance; %zu told dark, the lit ones %.3f %.3f %.3f x their surfaces' light, median, %.2f at the "
+            "surfaces' radiance; %zu told dark - %zu of them none at all, %zu under the daylight where they light (off by their own switch), %zu leaving their pools darker than any unlit surface; the fit's noise %.3f; the lit ones %.3f %.3f %.3f x their surfaces' light, median, %.2f at the "
             "95th percentile); shapes: %zu points, %zu panels, %zu lines; %.0f lumens in all, "
             "median %.0f K; %zu emissive triangles; the bake's light the model doesn't explain dropped - brighter at %zu "
             "vertices, darker (its shadows the rays don't see) at %zu, told across meshes at %zu",
             core::at(model.lamp_votes, 0), core::at(model.lamp_votes, 1), core::at(model.lamp_votes, 2),
-            model.lamps_solved, data.lamp_list.size(), model.lamps_dark, static_cast<double>(std::get<0>(model.lamp_median)),
+            model.lamps_solved, data.lamp_list.size(), model.lamps_dark, model.lamps_zero, model.lamps_off_in_bake, model.lamps_implausible, static_cast<double>(model.lamp_noise), static_cast<double>(std::get<0>(model.lamp_median)),
             static_cast<double>(std::get<1>(model.lamp_median)), static_cast<double>(std::get<2>(model.lamp_median)),
             static_cast<double>(std::get<1>(model.lamp_high)),
             core::at(shapes, 0), core::at(shapes, 1), core::at(shapes, 2), lumens, static_cast<double>(median_kelvin),
@@ -571,15 +689,34 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             open_sky = *middle;
         }
         const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
+        // (round A3 - no "dark level": the lamps by the bake's light and their own daylight) the lamps the bake shows
+        // lit, those whose surfaces see no sky (on whenever), those on at the level's own time; the candidates found
+        const rt::DayLight own_day = own_day_light(data.sun);
+        const std::vector<float> on = own_lamps_on(data.lamp_list, own_day);
+        std::size_t shining = 0;
+        std::size_t always = 0;
+        std::size_t on_now = 0;
+        for (std::size_t li = 0; li < data.lamp_list.size(); ++li) {
+            const rt::RelitLamp& lamp = core::at(data.lamp_list, li);
+            if (!(light_luma(lamp.light) > 0.0F)) {
+                continue;
+            }
+            ++shining;
+            always += lamp.switch_sky >= rt::kLampAlwaysOn ? 1 : 0;
+            on_now += core::at(on, li) >= 0.5F ? 1 : 0;
+        }
         get_log("relit bake: evidence - the level's own time of day %s; the baked sun's confidence %.2f (%s, %.0f degrees "
-                "up); vertex light median %.3f, brightest 5%% from %.3f (x%.2f); %zu glow and %zu self-lit triangles, %zu "
-                "lamps (%s level); upward faces see %.2f of the sky (median); the bake's sky %.3f %.3f %.3f in the global "
-                "unit, its daylight %.2f of the physical",
+                "up); vertex light median %.3f, brightest 5%% from %.3f (x%.2f); %zu glow, %zu self-lit and %zu textured "
+                "triangles (%zu glow meshes), %zu lamps - %zu shining, %zu lit in the bake, %zu always on (no sky where "
+                "they light), %zu on at its own time (its open sky %.4f); upward faces see %.2f of the sky (median); the "
+                "bake's sky %.3f %.3f %.3f in the global unit, its daylight %.2f of the physical",
                 state_name, static_cast<double>(data.sun.confidence), data.sun.found ? "a sun" : "no sun",
                 static_cast<double>(sun_elevation), static_cast<double>(median), static_cast<double>(brightest),
                 median > 0.0F ? static_cast<double>(brightest / median) : 0.0,
                 found != nullptr ? found->glow_triangles : 0U, found != nullptr ? found->self_lit_triangles : 0U,
-                lamps.size(), found != nullptr && found->dark ? "a dark" : "a lit", static_cast<double>(open_sky),
+                found != nullptr ? found->textured_triangles : 0U, found != nullptr ? found->glow_meshes : 0U,
+                lamps.size(), shining, data.model.lamps_solved, always, on_now,
+                static_cast<double>(light_luma(own_day.sky_light)), static_cast<double>(open_sky),
                 static_cast<double>(std::get<0>(bake_sky)), static_cast<double>(std::get<1>(bake_sky)),
                 static_cast<double>(std::get<2>(bake_sky)), static_cast<double>(data.model.daylight_ratio));
     }
@@ -590,6 +727,8 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
 } // namespace
 
 bool requested() { return platform::batch_run(); }
+
+rt::DayLight level_own_day(const rt::BakedSun& sun) { return own_day_light(sun); }
 
 std::string level_name()
 {

@@ -13,9 +13,16 @@
 //       glow     - world meshes drawn additively (their first pass blend mode 1 or 2: add, add by the fixed alpha): the
 //                  halos round lamps, neon tubes, light cones and pools - what the artists drew where light is. A flat
 //                  patch facing up (a pool of light on the ground) is lifted by its size: the light falls from above;
-//       self-lit - in a dark level only (its world's median vertex brightness at most kDarkLevelLuma), opaque triangles
-//                  whose vertex colours are all far brighter than the level's (self_lit_triangle): lamp heads, lit
-//                  windows, signs. A flat patch facing up is left out (that is a baked pool of light, not a lamp).
+//       self-lit - (the relit bake's candidates) opaque triangles whose vertex colours are all far brighter than the
+//                  level's (self_lit_triangle): lamp heads, lit windows, signs. A flat patch facing up is left out (that
+//                  is a baked pool of light, not a lamp);
+//       textured - (lighting round A3, the relit bake's candidates) opaque triangles whose TEXTURE shows a lamp: texels
+//                  far brighter than their texture's own median, near white or a lamp's colour, not on a floor
+//                  (render_pc/rt_record.cpp textured_emitters - ceiling lights drawn as bright textures on ordinary
+//                  vertex colours).
+//     A self-lit or textured candidate is a lamp only when the bake shows its light (rt_relit.h solve_relit_lamps: told
+//     and lit) - brightness alone is no evidence; a glow (the artists' mark of a lamp) shines by its own surface where the
+//     bake doesn't tell it.
 //     Triangles are joined into clusters kEmitterJoin across (one light per lamp, not per triangle; a long tube gives a
 //     light every kEmitterJoin or so); each cluster is a light at its area-weighted centre, its colour the vertex and
 //     pass colours' area-weighted mean (the pass multiplies in its texture's mean colour), its intensity that
@@ -34,7 +41,22 @@
 
 namespace render::rt {
 
-enum class EmitterKind : uint8_t { kGlow = 0, kSelfLit = 1, kPoint = 2 };
+enum class EmitterKind : uint8_t { kGlow = 0, kSelfLit = 1, kPoint = 2, kTextured = 3 };
+// (lighting round A3 - the original's light cards) A world mesh whose first pass adds (blend mode 1 - add - or 2 - add
+// by the fixed alpha) and whose texture doesn't move (no UV wibble or texture animation: not water, not an effect) is a
+// light card: a halo, light cone, pool or starburst the artists drew round a lamp. It is the lamp's evidence (a glow -
+// the relit bake finds lamps by it) and never light of its own: the relit level hides it (render_pc rt_relit_world).
+inline constexpr uint32_t kCardBlendAdd = 1;
+inline constexpr uint32_t kCardBlendFixedAdd = 2;
+[[nodiscard]] constexpr bool light_card(uint32_t first_pass_blend, bool moving_texture)
+{
+    return (first_pass_blend == kCardBlendAdd || first_pass_blend == kCardBlendFixedAdd) && !moving_texture;
+}
+// (round A3) A candidate the bake must confirm (its light seen in the bake) - not an artist's glow or a point light.
+[[nodiscard]] constexpr bool candidate_kind(EmitterKind kind)
+{
+    return kind == EmitterKind::kSelfLit || kind == EmitterKind::kTextured;
+}
 
 // A triangle of an emissive surface (world space), its colour (the vertices' x the pass's, 1 = the game's white; mean
 // of the corners) and its material.
@@ -70,6 +92,8 @@ struct Emitter {
     EmitterShape shape = EmitterShape::kPoint;
     std::array<float, 3> axis{0.0F, 1.0F, 0.0F};
     float half_length = 0.0F;
+    // (lighting round A3) its switch: the open sky's light (luma, the global unit) under which it is on - lamp_on
+    float switch_sky = 0.0F;
 };
 
 // (lighting round A2) The light a lamp sends to a surface point per unit of its intensity - one model for relit's L,
@@ -100,15 +124,22 @@ inline constexpr float kEmitterMinCore = 4.0F;
 inline constexpr float kFlatUpShare = 0.85F;     // a cluster facing up this much (area-weighted |n.y|) ...
 inline constexpr float kFlatHeightShare = 0.25F; // ... no taller than this share of its width is flat
 inline constexpr std::size_t kMaxEmitters = 4096;
-// Self-lit: a level is dark when its world's median vertex brightness (luma of the bytes, 128 the game's white) is at
-// most kDarkLevelLuma; a triangle there is self-lit when its dimmest corner is at least kSelfLitLuma and
-// kSelfLitOverLevel times the level's median. (Lighting round A2 - indoor ceiling lights) A level whose bake shows no
-// sun (the baked sun's search found none: indoors, at night) is looked at the same way however bright it is - its
-// brightest surfaces are its lamps, not the sun's (render_pc/rt_record.cpp emitter_work; LevelEmitters::dark keeps the
-// level's own brightness).
-inline constexpr float kDarkLevelLuma = 64.0F;
+// Self-lit candidates: a triangle whose dimmest corner is at least kSelfLitLuma (luma of the bytes, 128 the game's white)
+// and kSelfLitOverLevel times the level's median triangle. (Lighting round A3) In every level, in the relit bake: the
+// "dark level" rule (a median vertex brightness at most 64 - which read 16 sunlit afternoon levels as dark, their
+// textures carrying the brightness) is gone; the bake's own light decides (solve_relit_lamps), and when a lamp is on is
+// its own daylight's (lamp_on).
 inline constexpr float kSelfLitLuma = 112.0F;
 inline constexpr float kSelfLitOverLevel = 2.5F;
+// (lighting round A3) Textured candidates (render_pc/rt_record.cpp): a texel whose brightest channel is at least
+// kTexelBright (linear, decoded: the texture's white 1) and whose luminance is at least kTexelOverTexture times its own
+// texture's median - a lamp drawn in a darker texture, not white paint -, its colour a lamp's: grey to white, or running
+// monotonically warm (red >= green >= blue) or cool (blue >= green >= red) with its weakest channel at least
+// kTexelLeastShare of its brightest (a blackbody's run, not a saturated sign's colour).
+inline constexpr float kTexelBright = 0.7F;
+inline constexpr float kTexelOverTexture = 2.5F;
+inline constexpr float kTexelLeastShare = 0.2F;
+[[nodiscard]] bool lamp_texel(const std::array<float, 3>& linear, float texture_median);
 // A point light's falloff core (point_core): this share of its reach (the game's radius).
 inline constexpr float kPointCoreShare = 0.1F;
 // (lighting round A: the lamps' sum is no longer held under a knee - the lamps are lit by their data, the HDR tone map
@@ -116,11 +147,9 @@ inline constexpr float kPointCoreShare = 0.1F;
 inline constexpr std::size_t kMaxViewLights = 252; // (round A2: 64 bytes a light with its shape - the lamps pass's
                                                    // uniform block within the 16 KB every device gives)
 
-[[nodiscard]] constexpr bool dark_level(float median_luma) { return median_luma <= kDarkLevelLuma; }
-[[nodiscard]] constexpr bool self_lit_triangle(float dimmest_corner_luma, float median_luma, bool sunless = false)
+[[nodiscard]] constexpr bool self_lit_triangle(float dimmest_corner_luma, float median_luma)
 {
-    return (dark_level(median_luma) || sunless) && dimmest_corner_luma >= kSelfLitLuma &&
-           dimmest_corner_luma >= kSelfLitOverLevel * median_luma;
+    return dimmest_corner_luma >= kSelfLitLuma && dimmest_corner_luma >= kSelfLitOverLevel * median_luma;
 }
 
 // The triangles joined into lights (the same triangles in the same order give the same lights): at most kMaxEmitters,
@@ -141,8 +170,14 @@ struct LevelEmitters {
     std::vector<Emitter> emitters;
     std::size_t glow_triangles = 0;
     std::size_t self_lit_triangles = 0;
-    float median_luma = 0.0F;
-    bool dark = false;
+    std::size_t textured_triangles = 0; // (round A3)
+    float median_luma = 0.0F; // (the self-lit candidates' reference)
+    // (lighting round A3 - lamps by their own daylight, not a "dark level") the level's own time's light without the
+    // clock: its open sky's light (luma, the global unit - what lamp_on compares each lamp's switch with) and the open
+    // sky's lamps (rt_daylight.h DayLight::lamps at its own time: the rule for a lamp whose switch isn't known)
+    float own_sky = 0.0F;
+    float own_lamps = 0.0F;
+    std::size_t glow_meshes = 0; // (round A3, reported) the additive world meshes - the original's light cards
     // (lighting round A2 - a path tracer's emitters) the emissive triangles the lights were made from, and each one's
     // light among `emitters` (kNoEmitter: none - dark, or dropped)
     std::vector<EmitterTriangle> triangles;
@@ -161,14 +196,26 @@ void set_level_emitters(LevelEmitters emitters);
 // they are put to use (set_lamps_owner); the amount is the lighting state's lamps then. Before, the pass set it each
 // view it recorded - 0 until its first one and between views -, so a level's first light took the lamps per vertex as
 // well and kept them, a light set later didn't: the same night lit two ways.)
-// `automatic`: rt_lights=auto - the lamps the clock's, without it those of a dark level (lamps_on); else the clock's or
-// all of them.
+// `automatic`: rt_lights=auto (kept; round A3 - each lamp's amount is its own, lamp_on, in its light: owning the lamps
+// the pass owns them whole, lamps_drawn 1).
 void set_lamps_owner(bool owner, bool automatic);
 [[nodiscard]] float lamps_drawn();
-// (lighting round A) How much the lamps are on - one rule for the lamps pass and relit's per-vertex lamps: the clock's
-// lamps (rt_daylight.h DayLight::lamps) while it lights the level; without it 1 in a dark level (LevelEmitters::dark),
-// else 0.
-[[nodiscard]] float lamps_on(const DayLight& day, bool dark_level);
+// (lighting round A3 - each lamp by its own daylight; one rule for the lamps pass and relit's per-vertex lamps) How much
+// a lamp is on: a photocell's rule - on while the daylight round it is under a photocell's turn-on. `switch_sky` is the
+// open sky's light (luma, the global unit) at which the sky's light on the surfaces it lights (x their sky share K)
+// reaches it (the relit bake's: rt_relit.h relit_lamp_switches, kPhotocellLux; kLampAlwaysOn where no sky reaches them -
+// indoors); `sky_now` the open sky's light now (lamp_sky_now). Smooth over kLampSwitchBand either side (in log: a
+// photocell's on / off band), and never less than `open_lamps` - the open sky's own photocell, the clock's lamps
+// (DayLight::lamps, by the sun's elevation) or the level's own time's: the art's night sky is display-referred, far
+// brighter than a real night's, and can't hold a lamp off. A switch of 0 - not known (a lamp found without the level's
+// data, the game's own point lights) - takes `open_lamps` alone.
+inline constexpr float kLampSwitchBand = 2.0F;
+inline constexpr float kLampAlwaysOn = 1.0e30F;
+[[nodiscard]] float lamp_on(float switch_sky, float sky_now, float open_lamps);
+// The open sky's light now (luma, the global unit): the clock's (DayLight::sky_light) while it lights the level, else the
+// level's own time's (LevelEmitters::own_sky). And the open sky's lamps: the clock's, else the level's own time's.
+[[nodiscard]] float lamp_sky_now(const DayLight& day, const LevelEmitters* level);
+[[nodiscard]] float open_sky_lamps(const DayLight& day, const LevelEmitters* level);
 
 
 // A view's lights: the frame record's point lights and the level's emitters whose reach touches the frustum of
@@ -181,6 +228,9 @@ struct ViewLightRequest {
     bool emitters = true;        // the level's emitters
     float emitter_scale = 1.0F;  // x their intensity
     float point_scale = 1.0F;    // x the point lights'
+    // (round A3) each emitter x lamp_on(its switch, sky_now, open_lamps); the point lights x open_lamps
+    float sky_now = 0.0F;
+    float open_lamps = 1.0F;
 };
 [[nodiscard]] std::vector<Emitter> select_view_lights(const FrameRecord& record, const LevelEmitters* level,
                                                       const ViewLightRequest& request);

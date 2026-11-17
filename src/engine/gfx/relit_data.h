@@ -49,8 +49,12 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // word encoded); 6 - round S: the bake's sun the real sun's disc (0.27 degrees its radius, was 1.5 - the fit's sun rays
 // and the penumbrae in the tints), and the file records the sun's radius it was made with, after the version: a file
 // made with another sun is out of date like one of another version - a change of the sun's size can't go unnoticed.
-// A file of another version is out of date: the game says to run relit_bake.)
-inline constexpr uint32_t kRelitDataVersion = 6;
+// 7 - round A3: each lamp's switch (rt_lights.h lamp_on: interiors on, street lights by a photocell - no "dark
+// level"), each vertex's lamp links (its L made again as lamps switch one by one), the lamps' emitting vertices (their
+// bulbs shown by their light), the rays started inside their own surface (no sky at a concave seam), the textured
+// ceiling lights, the lamps solved by an instrument. A file of another version is out of date: the game says to run
+// relit_bake.)
+inline constexpr uint32_t kRelitDataVersion = 7;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.
@@ -77,9 +81,18 @@ struct RelitEmissive {
     uint32_t lamp = kNoEmitter;
 };
 
+// (lighting round A3) A vertex of a lamp's own surface (a confirmed self-lit or textured emitter's triangle): it shows
+// the lamp's radiance (its solved intensity / pi, x how much the lamp is on) - the bulb, the lit panel.
+struct RelitEmitting {
+    uint32_t vertex = 0;
+    uint32_t lamp = 0;
+};
+
 struct RelitDataMesh {
     uint64_t content = 0;
     RelitVertices vertices; // (normal and used not stored: made again from the mesh)
+    RelitMeshLinks links;   // (round A3) each vertex's lamps (empty: none) - L made again with the lamps on now
+    std::vector<RelitEmitting> emitting; // (round A3)
 };
 
 struct RelitLevelData {

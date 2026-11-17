@@ -93,16 +93,18 @@ test("the levels chosen: all installed, or by name with or without Load_", () =>
     assert.deepEqual(some.unknown, ["Default", "xx"]);
 });
 
-// (lighting round A2) the level's lighting state from its own evidence, and where it disagrees with itself
-const EVIDENCE = (tod: string, sun: string, elevation: number, open: number, dark: string): string =>
+// (lighting round A2) the level's lighting state from its own evidence, and where it disagrees with itself; (round A3)
+// its lamps by the bake's light and their own daylight in place of the "dark level"
+const EVIDENCE = (tod: string, sun: string, elevation: number, open: number, onAtOwn = 3, shining = 12): string =>
     `the level's own time of day ${tod}; the baked sun's confidence 0.45 (${sun}, ${elevation} degrees up); vertex ` +
-    `light median 0.500, brightest 5% from 1.200 (x2.40); 10 glow and 0 self-lit triangles, 12 lamps (${dark} level); ` +
-    `upward faces see ${open} of the sky (median); the bake's sky 0.100 0.120 0.150 in the global unit, its daylight ` +
-    `0.85 of the physical`;
+    `light median 0.500, brightest 5% from 1.200 (x2.40); 10 glow, 0 self-lit and 40 textured triangles (5 glow ` +
+    `meshes), 12 lamps - ${shining} shining, 10 lit in the bake, 2 always on (no sky where they light), ${onAtOwn} on ` +
+    `at its own time (its open sky 0.9500); upward faces see ${open} of the sky (median); the bake's sky 0.100 0.120 ` +
+    `0.150 in the global unit, its daylight 0.85 of the physical`;
 
 test("the state table: a level's state from its evidence, its disagreements flagged", () => {
     const day = parseBakeLog(
-        `relit bake: evidence - ${EVIDENCE("afternoon", "a sun", 40, 0.8, "a lit")}\n` +
+        `relit bake: evidence - ${EVIDENCE("afternoon", "a sun", 40, 0.8)}\n` +
             "relit bake: the lamps' solve - 900 900 900 edges, 10 of 12 lamps told by the bake\n",
     );
     assert.deepEqual(day.state, {
@@ -111,20 +113,32 @@ test("the state table: a level's state from its evidence, its disagreements flag
         confidence: 0.45,
         elevation: 40,
         brightest: 2.4,
+        textured: 40,
+        glowMeshes: 5,
         lamps: 12,
-        dark: false,
+        shining: 12,
+        litInBake: 10,
+        alwaysOn: 2,
+        onAtOwn: 3,
+        ownSky: 0.95,
         openSky: 0.8,
         sky: 0.12,
         daylight: 0.85,
     });
     assert.equal(day.lampsSolved, "10 of 12");
-    assert.match(stateRow("BO", day), /^BO\tafternoon\tsun 40 deg \(0\.45\)\t.*12 lamps \(10 of 12 solved\)\toutdoors/);
+    assert.match(
+        stateRow("BO", day),
+        /^BO\tafternoon\tsun 40 deg \(0\.45\)\t.*12 lamps \(12 shining, 10 lit in the bake, 2 always on, 40 textured triangles, 5 light cards hidden\)\toutdoors/,
+    );
     assert.match(stateRow("BO", day), /\tagrees$/);
     // an evening level with no sun agrees; a day level outdoors with no sun found (Skatopia's case), a night level with a
     // high sun, a sun indoors don't
-    assert.deepEqual(disagreements(stateOf(EVIDENCE("evening", "no sun", 0, 0.7, "a dark"))!), []);
-    assert.match(disagreements(stateOf(EVIDENCE("afternoon", "no sun", 0, 0.7, "a lit"))!).join(), /but no sun found/);
-    assert.match(disagreements(stateOf(EVIDENCE("night", "a sun", 50, 0.7, "a lit"))!).join(), /a sun 50 degrees up/);
-    assert.match(disagreements(stateOf(EVIDENCE("afternoon", "a sun", 40, 0.05, "a lit"))!).join(), /indoors/);
+    assert.deepEqual(disagreements(stateOf(EVIDENCE("evening", "no sun", 0, 0.7))!), []);
+    assert.match(disagreements(stateOf(EVIDENCE("afternoon", "no sun", 0, 0.7))!).join(), /but no sun found/);
+    assert.match(disagreements(stateOf(EVIDENCE("night", "a sun", 50, 0.7))!).join(), /a sun 50 degrees up/);
+    assert.match(disagreements(stateOf(EVIDENCE("afternoon", "a sun", 40, 0.05))!).join(), /indoors/);
+    // (round A3) a night with no lamp on and no sun is lit by nothing; an indoor level with no lamp shining
+    assert.match(disagreements(stateOf(EVIDENCE("night", "no sun", 0, 0.7, 0))!).join(), /lit by nothing/);
+    assert.match(disagreements(stateOf(EVIDENCE("afternoon", "no sun", 0, 0.05, 0, 0))!).join(), /no lamp shining/);
     assert.match(stateRow("foun", parseBakeLog("")), /no evidence line/);
 });

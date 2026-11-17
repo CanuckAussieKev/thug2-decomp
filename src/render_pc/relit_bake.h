@@ -27,6 +27,7 @@
 #include <string>
 
 #include "engine/config/settings_model.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "render_pc/rt_relit_world.h"
 
@@ -47,5 +48,9 @@ inline constexpr double kLevelWaitSeconds = 300.0;
 // Each frame of a bake (rt_record.cpp, after a new world's work and the emitters'): the world's meshes recorded this
 // frame, whether its structures are settled and its sun fitted for them, the loaded scenes' key.
 void step(std::span<const rt_relit_world::WorldMesh> world, bool ready, uint64_t scene_key, rt::RayTracing& tracer);
+// (lighting round A3) The level's own time's light - its own day from its baked sun and its time-of-day state now
+// (rt_daylight.h fit_native_day; the global unit): what the bake fits against and what lights the level without the
+// clock (its open sky's light and lamps - rt_lights.h LevelEmitters::own_sky / own_lamps).
+[[nodiscard]] rt::DayLight level_own_day(const rt::BakedSun& sun);
 
 } // namespace render::relit_bake

@@ -52,6 +52,7 @@
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_relit.h"
+#include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -900,6 +901,23 @@ void check_furnace(Tally* tally)
         most_sky = std::max(most_sky, vertex.sky);
         worst = std::max(worst, std::abs(std::get<1>(vertex.bounce) - kRadiance));
     }
+    // (lighting round A3 - the concave seam) every vertex, its edges' and corners' too: a wall's foot sees none of a sky
+    // that isn't there (its rays start inside its own face, off the next face's plane - rt_relit.h kRelitInward)
+    float edge_sky = 0.0F;
+    float edge_worst = 0.0F;
+    std::size_t edges = 0;
+    for (std::size_t vi = 0; vi < light.front().size(); ++vi) {
+        const rt::RelitVertex& vertex = core::at(light.front(), vi);
+        if (vertex.used && !inner(vi)) {
+            ++edges;
+            edge_sky = std::max(edge_sky, vertex.sky);
+            edge_worst = std::max(edge_worst, std::abs(std::get<1>(vertex.bounce) - kRadiance));
+        }
+    }
+    tally->check(edges > 0 && edge_sky == 0.0F && edge_worst <= kFurnaceSlack,
+                 text::format("a closed room's wall feet and corners (%zu vertices on its edges) see no sky: the most "
+                              "%.3f, their bounce within %.4f of the room's radiance",
+                              edges, static_cast<double>(edge_sky), static_cast<double>(edge_worst)));
     tally->check(used > 0 && most_sky == 0.0F && worst <= kFurnaceSlack,
                  text::format("the white furnace: a closed room of radiance %.2f - its bounce within %.4f of it at %zu "
                               "vertices, its sky %.3f",
@@ -1703,7 +1721,7 @@ void check_lamp_term(const Scene& scene, const std::vector<rt::RelitVertices>& t
                  text::format("the lamps' light traced: %zu vertices lit by the lamp, %zu turned from it lit (%zu rays)",
                               reached, behind, stats.rays));
     rt::RelitModel model = rt::fit_relit_model(lit.meshes, light, scene.sun);
-    rt::solve_relit_lamps(lit.meshes, light, links, lamps, &model, true);
+    rt::solve_relit_lamps(lit.meshes, light, links, lamps, &model);
     // the fit's scale (its sky against the bake's) carries over to the lamp: the intensity in the fit's units
     bool c_close = model.valid && model.lamps_solved == 1 && lamps.front().solved;
     std::array<float, 3> wanted{};
@@ -1767,6 +1785,116 @@ void check_lamp_term(const Scene& scene, const std::vector<rt::RelitVertices>& t
                               close, counted));
     tally->check(own > 0.0 && term >= kTermOwnShare * own,
                  text::format("their lamp light the lamps' term: %.0f%% of their own light", 100.0 * term / std::max(own, kTinyDouble)));
+}
+
+// 6b. (lighting round A3 - indoor ceiling lights) A closed hall (no sky: K 0) lit by a ceiling light drawn in a texture
+// (a textured candidate: a panel facing down) over a floor of one colour (the walls another), its "bake" tint x (the lamp's true light +
+// an even bounce); a second candidate on the ceiling (white paint: its light not in the bake). The solve finds the panel
+// lit, its intensity the true one; the paint no lamp; the panel's switch "always on" (its surfaces see no sky).
+void check_ceiling_panel(Tally* tally)
+{
+    constexpr float kSide = 600.0F;
+    constexpr float kHeight = 160.0F;
+    constexpr Rgbf kTrue{1.6F, 1.5F, 1.3F};
+    constexpr Rgbf kListed{0.9F, 0.9F, 0.85F};
+    constexpr float kBounce = 0.25F;
+    constexpr Rgbf kTintA{0.8F, 0.7F, 0.6F};
+    constexpr Rgbf kTintB{0.3F, 0.3F, 0.35F};
+    rt::RelitMesh hall;
+    const std::array<Face, 6> faces{{
+        {.corner = {0.0F, 0.0F, 0.0F}, .across = {0.0F, 0.0F, kSide}, .up = {0.0F, kHeight, 0.0F}},
+        {.corner = {kSide, 0.0F, kSide}, .across = {0.0F, 0.0F, -kSide}, .up = {0.0F, kHeight, 0.0F}},
+        {.corner = {kSide, 0.0F, 0.0F}, .across = {-kSide, 0.0F, 0.0F}, .up = {0.0F, kHeight, 0.0F}},
+        {.corner = {0.0F, 0.0F, kSide}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, kHeight, 0.0F}},
+        {.corner = {0.0F, kHeight, 0.0F}, .across = {0.0F, 0.0F, kSide}, .up = {kSide, 0.0F, 0.0F}},
+        {.corner = {0.0F, 0.0F, 0.0F}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, 0.0F, kSide}},
+    }};
+    constexpr uint32_t kHallSteps = 16;
+    for (const Face& face : faces) {
+        add_face(&hall, face, kHallSteps);
+    }
+    hall.normals.assign(hall.positions.size(), Vec3{});
+    for (auto& triangle : hall.triangles) {
+        std::swap(std::get<1>(triangle), std::get<2>(triangle));
+        const auto& [a, b, c] = triangle;
+        const Vec3 inward = unit(rt::cross(rt::minus(core::at(hall.positions, b), core::at(hall.positions, a)),
+                                           rt::minus(core::at(hall.positions, c), core::at(hall.positions, a))));
+        for (const uint32_t corner : triangle) {
+            core::at(hall.normals, corner) = inward;
+        }
+    }
+    hall.id = kCpuIds + 2;
+    std::vector<rt::RelitMesh> meshes{hall};
+    CpuTracer cpu(meshes);
+    std::vector<rt::RelitVertices> light(1);
+    rt::relit_normals(meshes.front(), 1.0F, &light.front());
+    for (rt::RelitVertex& vertex : light.front()) {
+        vertex.bounce = {kBounce, kBounce, kBounce};
+    }
+    std::vector<rt::RelitLamp> lamps{
+        {.position = {kSide * 0.5F, kHeight - 1.0F, kSide * 0.5F}, .size = 2.0F, .light = kListed, .core = 120.0F,
+         .reach = 900.0F, .shape = rt::EmitterShape::kPanel, .axis = {0.0F, -1.0F, 0.0F},
+         .kind = rt::EmitterKind::kTextured},
+        {.position = {kSide * 0.15F, kHeight - 1.0F, kSide * 0.8F}, .size = 2.0F, .light = kListed, .core = 120.0F,
+         .reach = 900.0F, .shape = rt::EmitterShape::kPanel, .axis = {0.0F, -1.0F, 0.0F},
+         .kind = rt::EmitterKind::kTextured}};
+    rt::RelitStats stats;
+    rt::RelitLampLinks links;
+    rt::trace_relit_lamps(meshes, {}, lamps, cpu, &light, &stats, &links);
+    // the bake: tint x (the panel's true light x its geometry + the bounce); the paint's light none
+    rt::RelitMesh& baked = meshes.front();
+    baked.colours.assign(baked.positions.size(), 0U);
+    const rt::RelitMeshLinks& here = links.front();
+    for (std::size_t vi = 0; vi < baked.positions.size(); ++vi) {
+        Rgbf lamp{};
+        for (uint32_t k = core::at(here.first, vi); k < core::at(here.first, vi + 1); ++k) {
+            const rt::RelitLampLink& link = core::at(here.links, k);
+            if (link.lamp == 0) {
+                lamp = rt::plus(lamp, rt::scaled(kTrue, link.weight));
+            }
+        }
+        // (the floor one colour, the walls and ceiling another: an edge shares its surface's colour)
+        const bool floor = rt::y_of(core::at(baked.positions, vi)) <= 0.0F && rt::y_of(core::at(light.front(), vi).normal) > 0.5F;
+        const Rgbf tint = floor ? kTintA : kTintB;
+        core::at(baked.colours, vi) = to_argb(times_rgb(tint, rt::plus(lamp, {kBounce, kBounce, kBounce})));
+    }
+    rt::RelitModel model;
+    model.valid = true;
+    model.sunless = true;
+    model.bounce = {1.0F, 1.0F, 1.0F};
+    model.error = 0.05F;
+    rt::solve_relit_lamps(meshes, light, links, lamps, &model);
+    bool close = lamps.at(0).solved;
+    for (std::size_t ch = 0; ch < 3; ++ch) {
+        close = close && std::abs(core::at(lamps.at(0).light, ch) - core::at(kTrue, ch)) <= 0.15F * core::at(kTrue, ch);
+    }
+    tally->check(close, text::format("an indoor ceiling panel drawn in a texture (a candidate) found lit by the bake, its "
+                                     "intensity solved %.3f %.3f %.3f (true %.2f %.2f %.2f; %zu rays; told dark %zu, "
+                                     "implausible %zu, noise %.3f)",
+                                     static_cast<double>(std::get<0>(lamps.at(0).light)),
+                                     static_cast<double>(std::get<1>(lamps.at(0).light)),
+                                     static_cast<double>(std::get<2>(lamps.at(0).light)),
+                                     static_cast<double>(std::get<0>(kTrue)), static_cast<double>(std::get<1>(kTrue)),
+                                     static_cast<double>(std::get<2>(kTrue)), stats.rays, model.lamps_dark,
+                                     model.lamps_implausible, static_cast<double>(model.lamp_noise)));
+    tally->check(!lamps.at(1).solved && lamps.at(1).light == Rgbf{},
+                 "a bright texture whose light the bake doesn't show: no lamp (brightness alone is no evidence)");
+    rt::relit_lamp_switches(light, links, lamps, rt::unit_illuminance());
+    tally->check(lamps.at(0).switch_sky >= rt::kLampAlwaysOn && rt::lamp_on(lamps.at(0).switch_sky, 1.0F, 0.0F) == 1.0F,
+                 "the indoor panel's switch: its surfaces see no sky - on at noon as at night");
+    // the same lamp outdoors (its surfaces see half the sky): a photocell's switch - the open sky at which the daylight
+    // round it is kPhotocellLux; off under the reference day, on under a quarter of the switch
+    for (rt::RelitVertex& vertex : light.front()) {
+        vertex.sky = 0.5F;
+    }
+    rt::relit_lamp_switches(light, links, lamps, rt::unit_illuminance());
+    const float outdoor = lamps.at(0).switch_sky;
+    const double wanted = static_cast<double>(rt::kPhotocellLux) / rt::unit_illuminance() / 0.5;
+    tally->check(std::abs(static_cast<double>(outdoor) - wanted) <= 1e-3 * wanted &&
+                     rt::lamp_on(outdoor, 1.0F, 0.0F) == 0.0F && rt::lamp_on(outdoor, outdoor * 0.25F, 0.0F) == 1.0F,
+                 text::format("a lamp outdoors: a photocell's switch at %.5f of the reference day's open sky (%.0f lux of "
+                              "daylight round it) - off by day, on at dusk",
+                              static_cast<double>(outdoor), static_cast<double>(rt::kPhotocellLux)));
 }
 
 // 7. the data file: the level's light and model written and read back - the colours relit from what was read the
@@ -1928,6 +2056,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         rt::relit_to_unit(&model, light, {}); // (lighting round A2: the albedos, the light in the global unit)
         check_unit(scene, model, light, tally);
         check_furnace(tally); // (lighting round A2)
+        check_ceiling_panel(tally); // (lighting round A3)
         check_asked(gpu, device, scene, *backend, light, tally); // (added for the relit mode's moving light)
         check_bake_sun(scene, model, light, tally);
         check_counted_once(scene, model, light, tally); // (added by the light energy audit)

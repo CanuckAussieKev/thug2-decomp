@@ -356,10 +356,22 @@ void check_sources(Tally* tally)
         triangle.kind = rt::EmitterKind::kSelfLit;
     }
     tally->check(rt::cluster_emitters(pool).empty(), "a self-lit pool on the ground is no light");
-    // the dark level's rule, the falloff
-    tally->check(rt::dark_level(40.0F) && !rt::dark_level(90.0F) && rt::self_lit_triangle(120.0F, 40.0F) &&
-                     !rt::self_lit_triangle(120.0F, 90.0F) && !rt::self_lit_triangle(90.0F, 30.0F),
-                 "self-lit: only in a dark level, far brighter than it");
+    // the self-lit candidates (round A3: in any level - the bake confirms them), the falloff
+    tally->check(rt::self_lit_triangle(120.0F, 40.0F) && !rt::self_lit_triangle(120.0F, 90.0F) &&
+                     !rt::self_lit_triangle(90.0F, 30.0F) && rt::candidate_kind(rt::EmitterKind::kSelfLit) &&
+                     rt::candidate_kind(rt::EmitterKind::kTextured) && !rt::candidate_kind(rt::EmitterKind::kGlow),
+                 "self-lit candidates: far brighter than the level's median, a candidate the bake must confirm");
+    // (round A3) the original's light cards: an additive still mesh (hidden in the relit level, a glow's evidence for the
+    // bake); not a blended one (the bake's shadows' rule), not water or a moving effect, not an opaque surface
+    tally->check(rt::light_card(1, false) && rt::light_card(2, false) && !rt::light_card(1, true) &&
+                     !rt::light_card(0, false) && !rt::light_card(5, false),
+                 "a light card: drawn additively, its texture still - not opaque, blended or moving");
+    // (round A3) a lamp drawn in a texture: near white or a lamp's colour, far over its texture's median
+    tally->check(rt::lamp_texel({0.9F, 0.9F, 0.85F}, 0.1F) && rt::lamp_texel({1.0F, 0.7F, 0.3F}, 0.1F) &&
+                     !rt::lamp_texel({0.9F, 0.9F, 0.85F}, 0.6F) && !rt::lamp_texel({1.0F, 0.1F, 0.1F}, 0.05F) &&
+                     !rt::lamp_texel({0.3F, 0.9F, 0.2F}, 0.05F) && !rt::lamp_texel({0.5F, 0.5F, 0.5F}, 0.05F),
+                 "a lamp texel: bright, a white or a blackbody's colour, far over its texture (not white paint, a red "
+                 "sign, green, grey)");
     const float reach = 400.0F;
     const float core = rt::point_core(reach);
     tally->check(std::abs(rt::light_falloff(0.0F, core, reach) - 1.0F) < 1e-6F &&
@@ -368,11 +380,24 @@ void check_sources(Tally* tally)
                               (0.5F * std::pow(1.0F - std::pow(rt::kPointCoreShare, 4.0F), 2.0F))) < 1e-5F &&
                      rt::light_falloff(10.0F * core, core, reach) < 0.01F,
                  "the falloff: 1 at the light, about 1/2 at its core's edge, under 1% ten cores away, 0 at its reach");
-    // (lighting round A: the lights' sum is no longer held under a knee - the lamps light by their data, the tone map
-    // compresses; rt_lights.h lamps_on: one rule for the pass and relit's per-vertex lamps)
-    tally->check(rt::lamps_on({.on = true, .lamps = 0.25F}, false) == 0.25F && rt::lamps_on({}, true) == 1.0F &&
-                     rt::lamps_on({}, false) == 0.0F,
-                 "the lamps on: the clock's amount while it runs, else a dark level's lamps whole");
+    // (lighting round A3 - each lamp by its own daylight, no "dark level": rt_lights.h lamp_on - one rule for the pass
+    // and relit's per-vertex lamps) a street lamp whose light equals noon's sky x its surfaces' K at a sky of 0.02:
+    // off at noon's 1, on at night's 0.001, half on at its switch; indoors (no sky) always; unknown: the open sky's rule
+    {
+        const float street_switch = 0.02F;
+        const float noon = rt::lamp_on(street_switch, 1.0F, 0.0F);
+        const float night = rt::lamp_on(street_switch, 0.001F, 0.0F);
+        const float dusk = rt::lamp_on(street_switch, street_switch, 0.0F);
+        const float indoors = rt::lamp_on(rt::kLampAlwaysOn, 1.0F, 0.0F);
+        tally->check(noon == 0.0F && night == 1.0F && std::abs(dusk - 0.5F) < 1e-4F && indoors == 1.0F &&
+                         rt::lamp_on(0.0F, 1.0F, 0.25F) == 0.25F &&
+                         rt::lamp_sky_now({.on = true, .sky_light = {1.0F, 1.0F, 1.0F}}, nullptr) > 0.99F &&
+                         rt::open_sky_lamps({.on = true, .lamps = 0.25F}, nullptr) == 0.25F,
+                     text::format("a lamp by its own daylight: a street lamp %.2f at noon, %.2f at night, %.2f at its "
+                                  "switch; indoors %.2f at noon; unknown - the open sky's rule",
+                                  static_cast<double>(noon), static_cast<double>(night), static_cast<double>(dusk),
+                                  static_cast<double>(indoors)));
+    }
     // the view's selection: a camera at the origin looking down -z (D3D's right-handed look-at, as the game's)
     std::array<float, 16> view_matrix{};
     std::array<float, 16> projection{};
