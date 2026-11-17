@@ -7,7 +7,9 @@
 #include "base/core/api.h"
 #include "base/core/format.h"
 
-// Appends to thug2-decomp.log next to the game exe.
+// Opens thug2-decomp.log next to the game exe for this run (thug2-decomp-2.log... when another copy of the game has
+// it). The earlier runs' logs are moved down first: thug2-decomp.log -> thug2-decomp.prev.log -> .prev2.log -> .prev3.log
+// (the oldest dropped). Others may read the log while it's written.
 void log_open();
 // A line, as it is: kept for get_log_tail, passed to the listener, written to the log (or the console) with its
 // line end.
@@ -15,6 +17,11 @@ THUG2_API void log_line(const char* line);
 // Every line given so far written to the file (and flushed). The lines go to the file from a thread of its own (the
 // drawing thread never waits on the disk); this one waits for it - the end of the process, a crash report's end.
 void log_flush();
+// NOT ORIGINAL - after a crash's report (crash_end_process): the whole log, the report at its end, copied to
+// <log name>-crash-<date>_<time>.txt beside it (thug2-decomp-crash-2026-11-17_14-05-09.txt), a file no later run
+// overwrites (the log itself is kept for 3 runs only: thug2-decomp.prev.log, .prev2, .prev3 - log_open). The copy's
+// name is logged first. No allocation.
+void log_keep_crash_copy();
 // A printf-style line (as log_line); the format is checked against the arguments when it's compiled (text::format).
 template <typename... Args>
 void get_log(text::FormatFor<Args...> format, Args... args)

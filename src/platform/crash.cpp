@@ -127,6 +127,8 @@ void run_crash_hook()
     get_log("  the process ends (exit code %u = 0x%08X)", exit_code, exit_code);
     std::fflush(stdout);
     log_flush(); // (the report written before the process ends)
+    // (and a copy of the whole log, which later runs don't overwrite: thug2-decomp-crash-<date>_<time>.txt)
+    log_keep_crash_copy();
     TerminateProcess(GetCurrentProcess(), exit_code);
     for (;;) {
         Sleep(INFINITE);

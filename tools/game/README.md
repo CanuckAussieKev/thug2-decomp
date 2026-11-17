@@ -377,7 +377,8 @@ Reference sources the agents read (re-fetch anonymously if needed; none of their
 the THIRD_PARTY_NOTICES.md files - the decomp's, the content pipeline's and the converters' - say): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene
 (no licence: documentation only), https://github.com/Morten1337/thugpro-tools (public; looked at, nothing used).
 
-After every run read `<folder>\thug2-decomp.log` (locked while the game runs): no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT / INVALID PARAMETER / PURE VIRTUAL CALL /
+After every run read `<folder>\thug2-decomp.log` (the run before is `thug2-decomp.prev.log`, up to `.prev3.log`; a crash
+also leaves `thug2-decomp-crash-<date>_<time>.txt`, its run's whole log, never overwritten): no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT / INVALID PARAMETER / PURE VIRTUAL CALL /
 ABORT / BUFFER OVERRUN DETECTED / GAME CRT MESSAGE.
 
 ## relit_bake.ts - every level's relit data

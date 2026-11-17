@@ -16,7 +16,7 @@ if (Test-Path (Join-Path $to '.game-lock')) { "LOCKED: $to (game_lock.ps1 -Actio
 $running = Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -in @($From, $to) }
 if ($running) { 'A GAME IS RUNNING FROM ONE OF THE FOLDERS - not copied'; exit 3 }
 # (robocopy exit codes below 8 are success: 1 = files copied)
-robocopy $From $to /MIR /XD (Join-Path $From '.game-lock') /XF 'thug2-decomp*.log' 'thug2-decomp-commands.txt' 'thug2-decomp-status.json' /NFL /NDL /NJH /NP | Out-Null
+robocopy $From $to /MIR /XD (Join-Path $From '.game-lock') /XF 'thug2-decomp*.log' 'thug2-decomp*-crash-*.txt' 'thug2-decomp-commands.txt' 'thug2-decomp-status.json' /NFL /NDL /NJH /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { "robocopy failed ($LASTEXITCODE)"; exit 4 }
 $ini = Join-Path $to 'thug2-decomp.ini'
 $text = [IO.File]::ReadAllText($ini)
