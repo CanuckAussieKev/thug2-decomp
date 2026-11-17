@@ -20,6 +20,7 @@
 #include "engine/gfx/paint_trails.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
@@ -294,6 +295,9 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
             get_log("[Graphics] rt_cloud_coverage=%s isn't auto or 0 - 1 - auto used", cover_text.c_str());
         }
     }
+    // (round S) the settings' cover is one of the weather's sources (engine/gfx/rt_clouds.h cloud_coverage): the light,
+    // the drawn clouds and their shadows all read it
+    render::rt::set_cloud_cover(render::rt::CloudCoverSource::kSettings, cover >= 0.0F ? cover : -1.0F);
     return render::vulkan::RtSkySettings{.on = in_effect.on("rt_sky"),
                                          .clouds = in_effect.on("rt_clouds"),
                                          .coverage = cover,
