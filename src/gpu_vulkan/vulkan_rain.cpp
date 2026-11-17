@@ -1412,7 +1412,7 @@ bool plan_view(Backend& state, const rt::ViewDrawn& view, ViewPlan* plan)
     return core::at(plan->rect, 2) != 0 && core::at(plan->rect, 3) != 0;
 }
 
-Block block_for(Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view, bool env)
+Block block_for(Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view, bool env, bool env_pass = true)
 {
     RainState& own = rain_state();
     const double rate = rate_now();
@@ -1460,7 +1460,7 @@ Block block_for(Backend& state, const ViewPlan& plan, const rt::ViewDrawn& view,
     const std::shared_ptr<const rt::LevelEmitters> level = rt::level_emitters();
     const float lamps_on = rt::lamps_on(day, level != nullptr && level->dark);
     uint32_t lamps = 0;
-    if (lamps_on > 0.0F) {
+    if (lamps_on > 0.0F && env_pass) { // (the drops alone read the lamps: the wet mask has none)
         rt::ViewLightRequest request;
         request.camera = view.camera.position;
         request.view_projection = vp;
@@ -1799,7 +1799,7 @@ bool record_rain_wet_mask(Backend& state, const rt::ViewDrawn& view)
         }
         return false;
     }
-    Block block = block_for(state, plan, view, false);
+    Block block = block_for(state, plan, view, false, false);
     const Image* const decals = scatter_wet_mask(state, view.rect);
     block.lamps = {0.0F, 0.0F, decals != nullptr ? 1.0F : 0.0F, 0.0F};
     const void* const bytes = &block;

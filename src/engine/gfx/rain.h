@@ -31,6 +31,8 @@
 #include <span>
 #include <string>
 
+#include "engine/gfx/rt_brdf.h"
+
 namespace render::rain {
 
 inline constexpr double kUnitsPerMetre = 39.37; // (the world's units are inches)
@@ -146,6 +148,10 @@ struct Wetness {
 // The material wet: the share under water (the pores by the porosity, the film, the puddle) darkened by wet_albedo,
 // its roughness toward the water's where the water lies flat (a puddle, a film over the texture), its F0 the water's there.
 [[nodiscard]] Material wet_material(const Material& dry, const Wetness& wet);
+// The same change on the one light model's material inputs (engine/gfx/rt_brdf.h - round M's BRDF): the seam every
+// shading path joins - its albedo darkened, its roughness and F0 the water's where the water lies flat; `porosity` the
+// surface's (the material table's when it has one; porosity_of its roughness until then).
+[[nodiscard]] rt::brdf::Material wet_brdf_material(const rt::brdf::Material& dry, double porosity, const Wetness& wet);
 // (the check's) The wet material's hemispherical albedo for light from straight above: the water's Fresnel plus what
 // comes back out of the surface under it - at most 1.
 [[nodiscard]] double wet_reflectance(double albedo, double water_share);

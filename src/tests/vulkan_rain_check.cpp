@@ -317,6 +317,31 @@ void check_material(Tally* tally)
                               core::at(porous.albedo, 0)));
     tally->check(rain::porosity_of(0.9) == 1.0 && rain::porosity_of(0.1) == 0.0,
                  "porosity from roughness (the material table's seam)");
+    // through the one light model (rt_brdf.h): a white furnace over every view angle never returns more than 1 for a wet
+    // material, and a white wet surface returns what the dry one does
+    double brightest = 0.0;
+    for (int ai = 0; ai <= 10; ++ai) {
+        for (int ri = 0; ri <= 10; ++ri) {
+            for (int wi = 0; wi <= 4; ++wi) {
+                const float a = static_cast<float>(ai) / 10.0F;
+                const render::rt::brdf::Material dry_m{.albedo = {a, a, a}, .f0 = {0.04F, 0.04F, 0.04F},
+                                                       .roughness = 0.05F + (0.095F * static_cast<float>(ri))};
+                const double share = wi / 4.0;
+                const render::rt::brdf::Material wet_m = rain::wet_brdf_material(
+                    dry_m, 1.0, {.pores = share, .film = share, .puddle = share, .flat = share});
+                for (int vi = 1; vi <= 16; ++vi) {
+                    const float nv = static_cast<float>(vi) / 16.0F;
+                    const render::rt::brdf::Rgb albedo = render::rt::brdf::specular_albedo(wet_m.f0, nv, wet_m.roughness);
+                    const float spec = core::at(albedo, 0);
+                    brightest = std::max(brightest, static_cast<double>(spec + ((1.0F - spec) * core::at(wet_m.albedo, 0))));
+                }
+            }
+        }
+    }
+    tally->check(brightest <= 1.0 + 1e-4,
+                 text::format("the wet material through the BRDF (rt_brdf.h): a white furnace at most %.5f over albedos, "
+                              "roughnesses, wetness and view angles",
+                              brightest));
     const rain::Ripples ripples = rain::ripples_of(4.0);
     const double cell = ripples.cell / rain::kUnitsPerMetre;
     const double rate = ripples.layers / (cell * cell * ripples.life);

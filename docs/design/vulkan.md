@@ -3576,14 +3576,19 @@ and programs as the snow's cover (render_pc marks the ground and scene objects).
 - puddles: the ground's small relief (a smooth noise of 3 mm deviation over 1.2 m - the pavement's unevenness) under the
   stored water's level - the level solved on the processor from the relief's own measured distribution so the mean depth
   over the relief is the stored water (20% of level ground at 0.3 mm stored, 45% at 1 mm), lowered on slopes by their fall.
+On level ground the film drains over the relief's own slopes (its RMS slope, 0.010: a 0.32 mm film at 4 mm/h between the
+puddles); the water lies flat - a mirror - in the puddles and where the film rises over the surface's texture (a mean
+texture depth of 0.7 mm, ISO 13473-1): `flat_share`, what the wet mask and the roughness take.
 The material then changes (`rain::wet_material`, its GLSL twin): the albedo under water darkens by Lekner and Dorf (1988)
 - light trapped by total internal reflection in the water returns to the surface and is absorbed again: a' = (1 - Re) a
 (1 - ri) / (1 - a ri), Re 0.066 the water's hemispherical reflectance from the air, ri 0.475 from inside (1 - (1 - Re)/n^2)
 - by the share the water holds (pores x porosity, film, puddle), in linear light; the roughness goes to still water's
-(0.05) under a film or a puddle; a puddle's normal is the water's with the drops' rings on it. The energy of the wet
-surface is at most 1 (the check: exactly 1 for a white one). A seam for Round M: `rain::wet_material(Material, Wetness)`
-takes the BRDF's material inputs (albedo, roughness, F0, porosity); the forward shader applies its twin to stage 0's texel
-and the per-pixel lighting's roughness until the shared BRDF interface lands.
+(0.05) and its F0 to water's where the water lies flat; a puddle's normal is the water's with the drops' rings on it. The energy of the wet
+surface is at most 1 (the check: exactly 1 for a white one). The seam on the one light model:
+`rain::wet_brdf_material(rt::brdf::Material, porosity, Wetness)` changes rt_brdf.h's material inputs (the check runs a
+white furnace through `brdf::specular_albedo` and the diffuse coupling over albedos, roughnesses, wetness and view angles:
+at most 1); the forward world shader applies its twin to stage 0's texel and the per-pixel roughness until its lighting
+calls brdf_*.
 
 **The wet mask** (opaque_drawn, `rt::ViewOrder::kRain` 395 - after the decals, before the reflections): a full-screen pass
 puts the same `rain_wetness` (the depth back to the world, the normal from its neighbours) into an R8 mask - the film's or
@@ -3598,8 +3603,9 @@ the gusts, wrapped into its box in the world's frame (the camera moves through t
 true number in its box over those drawn (5 near, 70 far at 4 mm/h). A compute pass places and lights each:
 - reached by the map, else hidden;
 - its light, in the frame's linear unit: what lies behind it - a water sphere refracts its surroundings over about 165
-  degrees (Garg and Nayar 2006), taken from the frame blurred to about 32 texels across (a mip chain blitted from the
-  colour target); plus the sun's or moon's light it scatters (`rt::DayLight::sun_light`, a ray to the light through the
+  degrees (Garg and Nayar 2006): the sky above the horizon (its mean radiance, sky_light) and the scene below it by the
+  share of that cone above the horizon (0.5 + 0.504 sin of its axis's elevation), the scene's part from the frame blurred
+  to about 32 texels across (a mip chain blitted from the colour target); plus the sun's or moon's light it scatters (`rt::DayLight::sun_light`, a ray to the light through the
   scene - shadowed under a roof's edge) and the view's 16 most important lamps (the lamps pass's choice, their falloff,
   unshadowed), each by Henyey-Greenstein with a water sphere's asymmetry 0.87 (Hansen and Travis) - L = E p / 4 pi, a
   quarter of the light per unit of N.L: bright backlit and under a street lamp at night, faint against a lit background.
@@ -3613,8 +3619,9 @@ crown growing to 8 drop radii over 50 ms, the impacts of drops of 1 mm and over 
 its share), lit as the drops.
 
 **The rings** (`rain::ripple_glsl`): a drop striking water sends out a ring of capillary waves at about their slowest speed
-(0.23 m/s) that dies in 0.4 s; drawn on three jittered grids whose cells give back the rate of drops of 1 mm and over (600
-a square metre a second at 4 mm/h): on puddles (the world shader's normal) and on water bodies (`water_shader.cpp`, x the
+(0.23 m/s) and dies as it reaches half a cell (at most 0.4 s - so a point needs only its four nearest cells); drawn on
+three jittered grids whose cells give back the rate of drops of 1 mm and over (600 a square metre a second at 4 mm/h:
+5.2-unit cells, 0.29 s rings): on puddles (the world shader's normal) and on water bodies (`water_shader.cpp`, x the
 body's openness to the sky - a puddle under a roof stays still).
 
 The cost: see the record's numbers (the occlusion map, the wet mask, the drops and splashes timed separately - the log's
