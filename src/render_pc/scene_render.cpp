@@ -78,7 +78,10 @@ void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const v
 // One scene's drawing pass: its flags, the viewport's bit, the material set last and the meshes drawn so far.
 class Lap {
 public:
-    explicit Lap(uint32_t flags) : flags_(flags), no_culling_((flags & kRenderNoCulling) != 0) {}
+    explicit Lap(uint32_t flags, bool (*keep)(const MeshRef* mesh) = nullptr)
+        : flags_(flags), no_culling_((flags & kRenderNoCulling) != 0), keep_(keep)
+    {
+    }
     void set_flags(uint32_t flags) { flags_ = flags; }
     void set_viewport(int viewport) { viewport_bit_ = static_cast<uint8_t>(1U << viewport); }
     [[nodiscard]] int drawn() const { return drawn_; }
@@ -90,6 +93,9 @@ public:
     {
         const uint32_t mesh_flags = mesh_traits(mesh);
         if (((mesh_flags & kMeshFlagActive) == 0U) || ((mesh_flags & kMeshFlagsHidden) != 0U)) {
+            return false;
+        }
+        if (keep_ != nullptr && !keep_(mesh)) { // (not original: the sky's parts - ScenePass::keep)
             return false;
         }
         if (no_culling_) {
@@ -130,6 +136,7 @@ private:
     uint32_t flags_;
     uint8_t viewport_bit_{};
     bool no_culling_;
+    bool (*keep_)(const MeshRef* mesh) = nullptr; // (not original: ScenePass::keep)
     MaterialRef* material_ = nullptr; // the current one
     int drawn_ = 0;
 };
@@ -214,7 +221,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
 {
     auto flags = scene_pass.flags;
     const auto viewport = scene_pass.viewport;
-    Lap pass(flags);
+    Lap pass(flags, scene_pass.keep);
     if (scene->unknown40() != 0U) {
         return;
     }

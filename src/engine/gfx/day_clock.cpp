@@ -398,6 +398,27 @@ void apply_original(Clock& own, gfx::CtodManager& manager, const rt::DayLight& l
     const rt::LightRatio level_light = rt::level_light_ratio(); // (the one lighting path: the level's whole)
     rt::note_light_path(rt::LightPath::kParticlesWhole); // (the light energy audit's census: one value for every particle)
     const auto native = static_cast<std::size_t>(own.native.state);
+    // (the sky's parts - render_pc/sky_scenery.h) the light now over the level's own, channel by channel, as the level's
+    // colour has it (its system's, not a sky's): what the sky scene's scenery is lit by while the backend draws the sky
+    std::array<float, 3> scenery_ratio{1.0F, 1.0F, 1.0F};
+    for (int system = 0; system < kSystems; ++system) {
+        if (!core::at(own.have_params, system) || manager.systems().at(static_cast<std::size_t>(system)).sky) {
+            continue;
+        }
+        if (relit) {
+            scenery_ratio = {std::get<0>(level_light.whole), std::get<1>(level_light.whole),
+                             std::get<2>(level_light.whole)};
+        } else {
+            const gfx::TodParams now = blended(own, system, blend);
+            const gfx::TodParams& level_own = core::at(core::at(own.params, system), native);
+            const auto ratio = [](int now_level, int own_level) {
+                return static_cast<float>(now_level) / static_cast<float>(std::max(own_level, 1));
+            };
+            scenery_ratio = {ratio(now.lev_red_, level_own.lev_red_), ratio(now.lev_green_, level_own.lev_green_),
+                             ratio(now.lev_blue_, level_own.lev_blue_)};
+        }
+        break;
+    }
     for (int system = 0; system < kSystems; ++system) {
         if (!core::at(own.have_params, system)) {
             continue;
@@ -424,11 +445,16 @@ void apply_original(Clock& own, gfx::CtodManager& manager, const rt::DayLight& l
             params.lev_green_ = lit(own_params.lev_green_, std::get<1>(level_light.whole));
             params.lev_blue_ = lit(own_params.lev_blue_, std::get<2>(level_light.whole));
         }
-        // (the backend's sky has its own night: the dome's colour stays the level's)
+        // (the backend's sky has its own night; changed by the sky's parts - render_pc/sky_scenery.h: what it draws of
+        // the sky scene is its scenery, lit as the world is - the scene's own colour times the light now over the
+        // level's own, channel by channel: the level's colour's ratio, the relit mode's level light included above)
         if (sky_drawn) {
-            params.sky_red_ = own_params.sky_red_;
-            params.sky_green_ = own_params.sky_green_;
-            params.sky_blue_ = own_params.sky_blue_;
+            const auto lit = [](int own_sky, float ratio) {
+                return std::clamp(static_cast<int>(std::lround(static_cast<float>(own_sky) * ratio)), 0, kMostByte);
+            };
+            params.sky_red_ = lit(own_params.sky_red_, std::get<0>(scenery_ratio));
+            params.sky_green_ = lit(own_params.sky_green_, std::get<1>(scenery_ratio));
+            params.sky_blue_ = lit(own_params.sky_blue_, std::get<2>(scenery_ratio));
         }
         colours.sky = rgba(params.sky_red_, params.sky_green_, params.sky_blue_);
         if (!sky_system && !manager.level_lights_reset() &&

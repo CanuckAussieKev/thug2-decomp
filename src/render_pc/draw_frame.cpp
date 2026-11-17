@@ -54,6 +54,7 @@
 #include "render_pc/grass_world.h"
 #include "render_pc/snow_world.h"
 #include "render_pc/scatter_world.h"
+#include "render_pc/sky_scenery.h"
 #include "platform/frame_profile.h"
 #include "engine/gfx/screen.h"
 #include "render_pc/screen_fx.h"
@@ -1040,17 +1041,20 @@ void draw_viewport(int index)
         const uint32_t mip_filter = get_sampler_state(0, 7);
         set_sampler_state(0, kSamplerMinFilter, 2); // linear
         set_sampler_state(0, kSamplerMipFilter, 0); // no mipmaps
-        // Not original - a sky drawn by the renderer: the backdrop (the sky scene's opaque meshes), the listeners told
-        // once, then the layers (its transparent meshes) only when they are kept. Original behaviour: both passes in
-        // one call (3).
+        // Not original - a sky drawn by the renderer: the listeners told once (they draw the sky - its atmosphere, clouds,
+        // sun, moon and stars - over every pixel nothing of the world covers), then of the sky scene only its scenery
+        // (sky_scenery.h: mountains, a skyline, a tree line standing in front of the sky), both passes in the game's
+        // order; its painted sky, glows and clouds are the renderer's sky's. Original behaviour: both passes in one
+        // call (3).
         if (sky_replaced) {
-            draw_scene_group(scene, kRenderOpaque, index);
             if (!sky_told) {
                 sky_told = true;
                 rt::sky_view_drawn(sky_view);
             }
-            if (sky_replacement.keep_layers) {
-                draw_scene_group(scene, kRenderTransparent, index);
+            if (sky_scenery::prepare(scene->meshes(), scene->checksum())) {
+                draw_scene(scene->meshes(), {.flags = static_cast<uint32_t>(kRenderOpaque | kRenderTransparent),
+                                             .viewport = index,
+                                             .keep = &sky_scenery::is_scenery});
             }
         } else {
             draw_scene_group(scene, kRenderOpaque | kRenderTransparent, index);

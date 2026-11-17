@@ -1661,10 +1661,37 @@ their depth and stay in front of any sky).
 `[Graphics] rt_sky=1` (Vulkan, no ray tracing needed; off by default - `rt_sky=0` draws exactly what main draws):
 
 - **The split** (contract additions in `rt_scene.h`: `SkyReplacement`, `ViewListener::sky_drawn`, `sky_view_drawn`,
-  `ViewOrder::kSky`). `draw_viewport` draws the sky scene's opaque meshes (the backdrop), tells the listeners, then its
-  transparent meshes only with `keep_layers` - true without clouds (LA keeps its smog bands, DJ its cloud cards over the
-  new atmosphere), false with `rt_clouds=1` (the volumetric clouds replace the painted cards; a double layer of clouds
-  read wrong). The listener draws over every pixel still at the far plane - the backdrop with it.
+  `ViewOrder::kSky`). `draw_viewport` tells the listeners, who draw the sky over every pixel still at the far plane,
+  then draws of the sky scene only its **scenery** (below), both passes in the game's order over that sky. (Before the
+  sky-decals round: the opaque backdrop drawn and painted over, the transparent layers kept only without `rt_clouds` -
+  `keep_layers` - so with clouds can's mountains and tree line were dropped, and without them every painted cloud card
+  stayed, daylight-coloured at night.)
+- **The sky scene's parts** (`engine/gfx/sky_parts.h` the rule, `render_pc/sky_scenery.h` its use;
+  `tools/game/sky_survey.ts` its twin over the files, `thug2_sky_parts_check` its check). Read once per sky scene from
+  the copies in memory - each mesh's vertices seen from the origin (its original triangles when smoothed) and its first
+  texture's alpha (`texel_decode.h`) - nothing listed per level: a pass that adds, subtracts, multiplies or brightens is
+  a **glow** (light of the air); a mesh whose texture has no holes (under 2% of texels under half alpha) is the
+  **painted** sky (domes, bands, painted ground rings); a **solid silhouette standing on the ground** is **scenery** -
+  its edge a cut, not a medium (at most 5% of its covered texels only faintly covered: a cloud's or a haze's edge thins
+  out over many texels, a mountain's is a texel of antialiasing), at least 60% of its opaque texels in columns standing
+  on one ground line at the card's foot (the columns' lowest opaque texels within 10% of the texture's height of their
+  median, that within 10% of the bottom edge: mountains, skylines, a tree line - not blobs each with sky under them, not
+  shapes hanging from the top), and grounded (its opaque part reaching the horizon or below, or the top of grounded
+  scenery in front of it at the same azimuth: a range behind a skyline); anything else with a silhouette is a **cloud**
+  (cloud cards, a painted moon, haze). Glows, painted sky and clouds are the renderer's sky's (the atmosphere, the
+  volumetric clouds, the sun, moon and stars) and are not drawn; scenery is drawn over it. The survey of the 69 sky
+  scenes (THUG2's 22 and the overlay's 47 ported ones): 433 painted, 4 glows (LA's sun glow and haze, VC's), 40 clouds
+  (AP, DJ, NO, PH, SC, FL, RU's cloud cards - soft-edged banks standing on the horizon, faint 18%; HI's, THP8's; LA's
+  haze strips; skateheaven's moon), 11 scenery (can's two mountain ranges; sub's skyline and the three ranges behind it;
+  VC's skyline; skateheaven's cloud floor and its three copies - a floor below the horizon, lit as ground). Known
+  misses: can's tree line card is painted with soft foliage (faint 17%) and reads as a cloud (dropped; it lies 16 - 4
+  degrees under the horizon, mostly behind the level's own trees); a painted dome band with a skyline painted into it
+  (no alpha) is painted sky.
+- **The scenery's light**: as the world's (`day_clock.cpp`): the sky scene's own colour (its TOD sky system's at the
+  level's own state) times the light now over the level's own, channel by channel - the level colour's ratio (the relit
+  mode's level light, `rt_light_field.h` whole, when the level is relit). At `tod=level` nothing changes. Not yet: the
+  aerial haze over it (the fog pass leaves the sky's pixels to the atmosphere; the sky scene's distances aren't
+  physical - a backdrop drawn from the origin).
 - **The level's own sky** (`SkyCapture`, `rt_sky_match.h`; since the low sun's sky only its clouds' share is used - the
   coverage). Once per sky scene `render_pc` draws all its meshes from the
   origin into six 90-degree faces (a 384 x 256 texture, cleared to the background colour) and hands it over; the pass
@@ -4290,13 +4317,22 @@ after the grass, each density row shown only while its switch is on). No ray tra
   meshes of 48 vertices (a curled leaf, a crumpled scrap of paper, a can lying on its side, a weed of seven blades and four
   leaves, a pebble), each vertex with its own shade.
 - **The decals' pass** (`ViewOrder::kDecals` 390, at opaque_drawn: after the shadows, occlusion, bounce and lamps,
-  before the reflections, the grass and the fog): the tiles within 3,200 units and in view, their triangles drawn into
+  before the reflections, the grass and the fog): the tiles in view (the frustum alone), their triangles drawn into
   the colour alone; each fragment reads the depth under it and is kept only where the scene there is the decal's own
   (within 0.3% of its distance + 1 unit - so nothing shows on the skater standing on a mark, through a wall, or from a
   decal whose collision floats over the drawn ground; a wall standing in a decal may take its foot's pixel row); the
-  colour is multiplied - mix(1, texel rgb, alpha x opacity x fade) - so a mark darkens the lit ground as its own colour
-  would: in shadow, in light, under a lamp. A decal fades out from 60% to all of 48 x its larger side (at most the
-  3,200). With four samples the fragment reads sample 0's depth.
+  colour is multiplied - mix(1, texel rgb, alpha x opacity) - so a mark darkens the lit ground as its own colour
+  would: in shadow, in light, under a lamp. With four samples the fragment reads sample 0's depth.
+  **No distance fade, no cut-off** (since the sky-decals round, after the user's floor whose cracks appeared only near
+  the camera: each decal faded out from 60% to all of 48 x its larger side and none were drawn past 3,200 units - a
+  crack 40 units long was gone 1,900 units off, popping in as the skater came near): a decal is drawn wherever it is
+  seen, and a far one is resolved as any texture is - by its atlas's mips. Each mip is the alpha-weighted mean of the
+  2 x 2 above it (rgb the mean of rgb x alpha over the mean alpha), so a far mark is the mean of the light it takes away
+  over its texels (a far crack a faint darkening of its patch, not a line that shimmers); a cell never mixes with
+  another's (cells are 256, a power of two, and the fragment keeps its coordinate half a texel of the mip it reads -
+  `textureQueryLod` - inside its cell); the sampler is anisotropic as the game's textures are (`[Graphics] anisotropy`,
+  the device's most at most). The tiles are culled by the view's frustum only. Clutter is unchanged (items are 3D:
+  below).
 - **Puddles** (with `rt_reflections`, single-sampled targets): the decal pass also draws a wet mask (R8, the colour's
   size, cleared over the viewport) - each wet patch's darkening as its wetness, the most of any; the reflection pass
   (ViewOrder 400) reads it through a trace variant made from the trace's own text with the puddle lines put in (so the

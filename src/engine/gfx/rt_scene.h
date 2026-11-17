@@ -645,13 +645,13 @@ SunUsed sun_used(SunUser user);
 void clear_sun_used();
 
 // --- (added by the sky) a sky drawn by the backend - the Vulkan Gpu's [Graphics] rt_sky ------------------------------
-// While `on`, render_pc's draw_viewport draws the sky scene's opaque meshes (the backdrop: its dome, a ground ring), then
-// tells the listeners (sky_view_drawn -> ViewListener::sky_drawn), who draw the sky over the pixels nothing of the world
-// covers (the depth's far value), then draws the sky scene's transparent meshes (its layers: painted cloud cards, haze
-// bands, glows) only with `keep_layers`. Off (the default, Direct3D 9): the sky drawn as always, no call.
+// While `on`, render_pc's draw_viewport tells the listeners (sky_view_drawn -> ViewListener::sky_drawn), who draw the sky
+// over the pixels nothing of the world covers (the depth's far value), then draws of the sky scene only its scenery
+// (render_pc/sky_scenery.h, engine/gfx/sky_parts.h: mountains, a skyline, a tree line - not its painted dome, glows or
+// cloud cards, which the listeners' sky replaces) over it. Off (the default, Direct3D 9): the sky drawn as always, no
+// call.
 struct SkyReplacement {
     bool on = false;
-    bool keep_layers = true;
 };
 void set_sky_replacement(const SkyReplacement& replacement);
 SkyReplacement sky_replacement();
