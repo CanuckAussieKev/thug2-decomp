@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -236,6 +237,128 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
             }
         }
     }
+    // (round indoor lamps) a lamp whose own surface isn't drawn - a light card's (hidden in the relit level), the level's
+    // point light, a lamp found from its pool - takes its head on the fixture geometry at it: the world's triangles
+    // (not a light card's) wholly within its luminous radius of it - the disc of its luminous area A = flux / (pi L) at
+    // its luminance -, past its size (a fitting's depth under its mount, a card's own extent), each no larger than one
+    // fixture's luminous area (a lantern's, a fitting's faces - not the wall or ceiling it hangs on). None there: no head
+    // (a glowing card is never one).
+    std::vector<uint8_t> has_head(lamps.size(), 0);
+    for (const auto& mesh_marks : marked) {
+        for (const auto& [vertex, lamp] : mesh_marks) {
+            core::at(has_head, lamp) = 1;
+        }
+    }
+    std::unordered_set<rt::MeshId> cards;
+    for (const rt::EmitterTriangle& triangle : found->triangles) {
+        if (triangle.kind == rt::EmitterKind::kGlow) {
+            cards.insert(triangle.mesh);
+        }
+    }
+    constexpr double kUnitsPerMetre = 39.37;
+    constexpr double kPiD = 3.14159265358979323846;
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        const rt::RelitLamp& lamp = core::at(lamps, li);
+        // (a glow's card is drawn round its fixture, a pool's lamp hangs from its mount: the geometry at them is theirs;
+        // a level's point light is placed by the artists in the air, no fixture's)
+        if (core::at(has_head, li) != 0 || (lamp.kind != rt::EmitterKind::kGlow && lamp.kind != rt::EmitterKind::kPool) ||
+            !(luma(lamp.light) > 0.0F) || !(lamp.lumens > 0.0F) || !(lamp.luminance > 0.0F)) {
+            continue;
+        }
+        const rt::FixtureValues& values = rt::fixture_values(static_cast<rt::LampFixture>(lamp.fixture));
+        const double area = static_cast<double>(lamp.lumens) / (kPiD * static_cast<double>(lamp.luminance)); // (m^2)
+        const float radius = static_cast<float>(std::sqrt(area / kPiD) * kUnitsPerMetre) + lamp.size;
+        const double most_area = static_cast<double>(std::max(values.most_area, static_cast<float>(area))) *
+                                 kUnitsPerMetre * kUnitsPerMetre;
+        for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+            const rt::RelitMesh& mesh = core::at(meshes, mi);
+            if (cards.contains(mesh.id)) {
+                continue;
+            }
+            // (an emitting vertex shows its lamp on every triangle it is a corner of: only vertices whose every triangle
+            // is one of the head's - its light never spreads onto the floor or wall a small face touches)
+            std::vector<std::array<uint32_t, 3>> head;
+            for (const auto& [one, two, three] : mesh.triangles) {
+                if (one >= mesh.positions.size() || two >= mesh.positions.size() || three >= mesh.positions.size()) {
+                    continue;
+                }
+                const rt::Vec3& a = core::at(mesh.positions, one);
+                const rt::Vec3& b = core::at(mesh.positions, two);
+                const rt::Vec3& c = core::at(mesh.positions, three);
+                const auto within = [&](const rt::Vec3& at) {
+                    const rt::Vec3 apart = rt::minus(at, lamp.position);
+                    return rt::dot(apart, apart) <= radius * radius;
+                };
+                if (!within(a) || !within(b) || !within(c)) {
+                    continue;
+                }
+                const rt::Vec3 n = rt::cross(rt::minus(b, a), rt::minus(c, a));
+                const float twice = std::sqrt(rt::dot(n, n));
+                if (0.5 * static_cast<double>(twice) > most_area || !(twice > 0.0F)) {
+                    continue;
+                }
+                // (a panel's luminous face lies in its plane - a fitting's diffuser, not its housing's sides)
+                if (lamp.shape == rt::EmitterShape::kPanel && std::abs(rt::dot(n, lamp.axis)) < rt::kPanelFacing * twice) {
+                    continue;
+                }
+                head.push_back({one, two, three});
+            }
+            if (head.empty()) {
+                continue;
+            }
+            std::unordered_set<uint32_t> in_head;
+            for (const auto& corner : head) {
+                in_head.insert(corner.begin(), corner.end());
+            }
+            std::unordered_set<uint32_t> spreads; // (a head vertex that is a corner of a triangle outside the head)
+            std::unordered_set<uint64_t> head_keys;
+            const auto key_of = [](uint32_t x, uint32_t y, uint32_t z) {
+                std::array<uint32_t, 3> sorted{x, y, z};
+                std::ranges::sort(sorted);
+                return (static_cast<uint64_t>(sorted[0]) * 0x9E3779B97F4A7C15ULL) ^
+                       (static_cast<uint64_t>(sorted[1]) << 21U) ^ static_cast<uint64_t>(sorted[2]);
+            };
+            for (const auto& [x, y, z] : head) {
+                head_keys.insert(key_of(x, y, z));
+            }
+            for (const auto& [x, y, z] : mesh.triangles) {
+                if ((in_head.contains(x) || in_head.contains(y) || in_head.contains(z)) &&
+                    !head_keys.contains(key_of(x, y, z))) {
+                    spreads.insert(x);
+                    spreads.insert(y);
+                    spreads.insert(z);
+                }
+            }
+            for (const uint32_t vertex : in_head) {
+                if (!spreads.contains(vertex)) {
+                    core::at(marked, mi).emplace(vertex, static_cast<uint32_t>(li));
+                }
+            }
+        }
+    }
+    {
+        // (reported) the lamps whose head is drawn, by where it is: their own surface, or fixture geometry at them
+        std::vector<uint8_t> drawn(lamps.size(), 0);
+        for (const auto& mesh_marks : marked) {
+            for (const auto& [vertex, lamp] : mesh_marks) {
+                core::at(drawn, lamp) = 1;
+            }
+        }
+        std::size_t own = 0;
+        std::size_t attached = 0;
+        std::size_t none = 0;
+        for (std::size_t li = 0; li < lamps.size(); ++li) {
+            if (!(luma(core::at(lamps, li).light) > 0.0F)) {
+                continue;
+            }
+            own += core::at(has_head, li);
+            attached += core::at(drawn, li) != 0 && core::at(has_head, li) == 0 ? 1 : 0;
+            none += core::at(drawn, li) == 0 ? 1 : 0;
+        }
+        get_log("relit bake: lamp heads - %zu on their own surface, %zu on the fixture geometry at them, %zu shining lamps "
+                "with no surface to show (no fixture geometry within their luminous radius)",
+                own, attached, none);
+    }
     for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
         std::vector<rt::RelitEmitting>& emitting = core::at(out, mi);
         for (const auto& [vertex, lamp] : core::at(marked, mi)) {
@@ -297,7 +420,7 @@ void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::R
             "%zu implausible solves replaced by the model, %zu by their own surface, %zu not a fixture's size, %zu no "
             "light; the bake knew: %zu told, "
             "%zu no edges, %zu off in the bake, %zu dark, %zu run off; fixtures shining: %zu sodium, %zu white street, "
-            "%zu tubes, %zu panels, %zu bulbs, %zu neon, %zu signs / windows, %zu unknown; lumens per shining lamp: median "
+            "%zu tubes, %zu panels, %zu bulbs, %zu neon, %zu signs / windows, %zu high-bays, %zu unknown; lumens per shining lamp: median "
             "%.0f, 90th percentile %.0f, most %.0f; %.0f lm in all; the art's lamp exposure %.3g (from %zu solved lamps)",
             lamps.size(), core::at(counts.by_source, 1), core::at(counts.by_source, 2), core::at(counts.by_source, 3),
             core::at(counts.by_source, 4), core::at(counts.by_source, 5), core::at(counts.by_source, 0),
@@ -305,7 +428,7 @@ void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::R
             core::at(verdicts, 2), core::at(verdicts, 3), core::at(verdicts, 4), core::at(counts.by_fixture, 1),
             core::at(counts.by_fixture, 2), core::at(counts.by_fixture, 3), core::at(counts.by_fixture, 4),
             core::at(counts.by_fixture, 5), core::at(counts.by_fixture, 6), core::at(counts.by_fixture, 7),
-            core::at(counts.by_fixture, 0), at(0.5), at(0.9), lumens.empty() ? 0.0 : static_cast<double>(lumens.back()),
+            core::at(counts.by_fixture, 8), core::at(counts.by_fixture, 0), at(0.5), at(0.9), lumens.empty() ? 0.0 : static_cast<double>(lumens.back()),
             total, counts.exposure, counts.exposure_lamps);
     // the implausible solves, each (a failed measurement replaced by the model)
     std::size_t shown = 0;
@@ -323,6 +446,39 @@ void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::R
                 rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
                 static_cast<double>(lamp.area), static_cast<double>(lamp.luminance), static_cast<double>(lamp.lumens),
                 static_cast<double>(lamp.kelvin));
+    }
+}
+
+// (round indoor lamps) More lamps' links put after a mesh's own (their lamps numbered from `first`).
+void append_links(rt::RelitLampLinks* links, const rt::RelitLampLinks& extra, uint32_t first)
+{
+    if (links->size() < extra.size()) {
+        links->resize(extra.size());
+    }
+    for (std::size_t mi = 0; mi < extra.size(); ++mi) {
+        const rt::RelitMeshLinks& more = core::at(extra, mi);
+        if (more.first.empty()) {
+            continue;
+        }
+        rt::RelitMeshLinks& mesh = core::at(*links, mi);
+        rt::RelitMeshLinks merged;
+        const std::size_t vertices = more.first.size() - 1;
+        merged.first.reserve(more.first.size());
+        for (std::size_t vi = 0; vi < vertices; ++vi) {
+            merged.first.push_back(static_cast<uint32_t>(merged.links.size()));
+            if (vi + 1 < mesh.first.size()) {
+                for (uint32_t k = core::at(mesh.first, vi); k < core::at(mesh.first, vi + 1); ++k) {
+                    merged.links.push_back(core::at(mesh.links, k));
+                }
+            }
+            for (uint32_t k = core::at(more.first, vi); k < core::at(more.first, vi + 1); ++k) {
+                rt::RelitLampLink link = core::at(more.links, k);
+                link.lamp += first;
+                merged.links.push_back(link);
+            }
+        }
+        merged.first.push_back(static_cast<uint32_t>(merged.links.size()));
+        mesh = std::move(merged);
     }
 }
 
@@ -418,6 +574,30 @@ void log_told_lamps(std::span<const rt::RelitLamp> solved, std::span<const rt::R
                     static_cast<double>(rt::fixture_values(static_cast<rt::LampFixture>(lamp.fixture)).least_area),
                     static_cast<double>(rt::fixture_values(static_cast<rt::LampFixture>(lamp.fixture)).most_area));
         }
+    }
+    // (round indoor lamps) every lamp, one line each: where it is, what it is and what became of it
+    std::vector<std::size_t> linked(lamps.size(), 0);
+    for (const rt::RelitMeshLinks& mesh_links : links) {
+        for (const rt::RelitLampLink& link : mesh_links.links) {
+            if (link.lamp < linked.size()) {
+                core::at(linked, link.lamp) += 1;
+            }
+        }
+    }
+    for (std::size_t li = 0; li < lamps.size() && li < told.size(); ++li) {
+        const rt::RelitLamp& lamp = core::at(lamps, li);
+        get_log("relit bake: list %zu kind %u shape %u axis %.2f %.2f %.2f links %zu at %.0f %.0f %.0f core %.0f half %.0f - "
+                "told %u, switch %s, %s, %s, area %.4f m^2, %.0f lm",
+                li, static_cast<unsigned>(lamp.kind), static_cast<unsigned>(lamp.shape),
+                static_cast<double>(rt::x_of(lamp.axis)), static_cast<double>(rt::y_of(lamp.axis)),
+                static_cast<double>(rt::z_of(lamp.axis)), core::at(linked, li),
+                static_cast<double>(rt::x_of(lamp.position)), static_cast<double>(rt::y_of(lamp.position)),
+                static_cast<double>(rt::z_of(lamp.position)), static_cast<double>(lamp.core),
+                static_cast<double>(lamp.half_length), static_cast<unsigned>(core::at(told, li)),
+                lamp.switch_sky >= 0.5F * rt::kLampAlwaysOn ? "roofed" : text::format("%.4f", static_cast<double>(lamp.switch_sky)).c_str(),
+                rt::fixture_name(static_cast<rt::LampFixture>(lamp.fixture)).data(),
+                rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
+                li < areas.size() ? static_cast<double>(core::at(areas, li)) : 0.0, static_cast<double>(lamp.lumens));
     }
     for (std::size_t kind = 0; kind < none.size(); ++kind) {
         const std::array<std::size_t, 5>& row = core::at(none, kind);
@@ -749,11 +929,42 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         std::vector<rt::RelitLampTold> told;
         {
             const rt::DayLight bake_day = own_day_light(data.sun);
-            rt::solve_relit_lamps(meshes, light, links, lamps, &model,
-                                  {.unit_lux = rt::unit_illuminance(),
-                                   .sky = light_luma(bake_day.sky_light),
-                                   .lamps = bake_day.lamps},
-                                  &told);
+            const rt::BakeTime bake_time{.unit_lux = rt::unit_illuminance(),
+                                         .sky = light_luma(bake_day.sky_light),
+                                         .lamps = bake_day.lamps};
+            const std::vector<rt::RelitLamp> listed = lamps; // (the solve changes them: a second solve starts again)
+            rt::solve_relit_lamps(meshes, light, links, lamps, &model, bake_time, &told);
+            get_log("relit bake: lamps told by the bake's light level (not its edges) - %zu; the level's tint where no lamp "
+                    "reaches %.3f, its spread %.3f; %zu told in all",
+                    model.lamps_by_level, static_cast<double>(model.level_tint), static_cast<double>(model.level_spread),
+                    model.lamps_solved);
+            // (round indoor lamps) the bake's light no listed lamp explains: a lamp looked for above each pool of it
+            // (rt_relit.h find_pool_lamps), traced, and every lamp solved again with them
+            rt::PoolSearch search;
+            const std::vector<rt::RelitLamp> pools =
+                model.valid ? rt::find_pool_lamps(meshes, light, links, lamps, model, tracer, &search)
+                            : std::vector<rt::RelitLamp>{};
+            if (!pools.empty()) {
+                rt::RelitLampLinks extra;
+                rt::trace_relit_lamps(meshes, {}, pools, tracer, &light, &lamp_stats, &extra);
+                append_links(&links, extra, static_cast<uint32_t>(listed.size()));
+                lamps = listed;
+                lamps.insert(lamps.end(), pools.begin(), pools.end());
+                for (const rt::RelitLamp& pool : pools) {
+                    own_colours.push_back(pool.light);
+                }
+                data.lamps = static_cast<uint32_t>(lamps.size());
+                rt::solve_relit_lamps(meshes, light, links, lamps, &model, bake_time, &told);
+            }
+            std::size_t told_pools = 0;
+            for (std::size_t li = listed.size(); li < lamps.size() && li < told.size(); ++li) {
+                told_pools += core::at(told, li) == rt::RelitLampTold::kSolved ? 1 : 0;
+            }
+            get_log("relit bake: lamps from their pools - %zu vertices brighter than the model and the told lamps by %.1f x, "
+                    "%zu pools, %zu with a mount: a candidate each, %zu told by the bake; %zu lamps told in all (%zu by the "
+                    "light's level)",
+                    search.seeds, static_cast<double>(rt::kRelitLampHigh), search.pools, search.mounted, told_pools,
+                    model.lamps_solved, model.lamps_by_level);
         }
         {
             // (reported, the first candidates: what each lights and what the bake told of it)
@@ -774,7 +985,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                 ++shown;
                 get_log("relit bake: candidate %zu (%s, shape %u) at %.0f %.0f %.0f core %.0f reach %.0f - lights %zu "
                         "vertices; %s, light %.3f %.3f %.3f",
-                        li, lamp.kind == rt::EmitterKind::kTextured ? "textured" : "self-lit",
+                        li, lamp.kind == rt::EmitterKind::kTextured ? "textured" : lamp.kind == rt::EmitterKind::kPool ? "pool" : "self-lit",
                         static_cast<unsigned>(lamp.shape), static_cast<double>(rt::x_of(lamp.position)),
                         static_cast<double>(rt::y_of(lamp.position)), static_cast<double>(rt::z_of(lamp.position)),
                         static_cast<double>(lamp.core), static_cast<double>(lamp.reach), core::at(reach, li),
@@ -800,6 +1011,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             rt::relit_to_unit(&model, light, lamps);
             rt::relit_lamp_light(meshes, light, links, lamps); // (L in the unit: the lamps' own and the solved)
             rt::relit_lamp_switches(light, links, lamps, rt::unit_illuminance()); // (round A3: a photocell's switch)
+            rt::relit_lamp_mounts(meshes, light, links, lamps); // (round indoor lamps: how high each hangs)
             const float elevation_sine = std::max(0.0F, rt::y_of(model.toward));
             const float baked = luma(rt::plus(rt::scaled(model.sun, elevation_sine), model.sky));
             const float physical = luma(rt::plus(rt::scaled(own_day.sun_light, elevation_sine), own_day.sky_light));

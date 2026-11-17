@@ -41,7 +41,9 @@
 
 namespace render::rt {
 
-enum class EmitterKind : uint8_t { kGlow = 0, kSelfLit = 1, kPoint = 2, kTextured = 3 };
+// (round indoor lamps) kPool: a lamp found from its pool of light in the bake (rt_relit.h find_pool_lamps) - where the
+// bake shows light no listed lamp explains, at the mount above it.
+enum class EmitterKind : uint8_t { kGlow = 0, kSelfLit = 1, kPoint = 2, kTextured = 3, kPool = 4 };
 // (lighting round A3 - the original's light cards) A world mesh whose first pass adds (blend mode 1 - add - or 2 - add
 // by the fixed alpha) and whose texture doesn't move (no UV wibble or texture animation: not water, not an effect) is a
 // light card: a halo, light cone, pool or starburst the artists drew round a lamp. It is the lamp's evidence (a glow -
@@ -53,9 +55,10 @@ inline constexpr uint32_t kCardBlendFixedAdd = 2;
     return (first_pass_blend == kCardBlendAdd || first_pass_blend == kCardBlendFixedAdd) && !moving_texture;
 }
 // (round A3) A candidate the bake must confirm (its light seen in the bake) - not an artist's glow or a point light.
+// (round indoor lamps) A lamp found from its pool too: a hypothesis the bake's light must tell.
 [[nodiscard]] constexpr bool candidate_kind(EmitterKind kind)
 {
-    return kind == EmitterKind::kSelfLit || kind == EmitterKind::kTextured;
+    return kind == EmitterKind::kSelfLit || kind == EmitterKind::kTextured || kind == EmitterKind::kPool;
 }
 
 // A triangle of an emissive surface (world space), its colour (the vertices' x the pass's, 1 = the game's white; mean

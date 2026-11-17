@@ -397,7 +397,7 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
             !in.get(&kind) || !in.get(&lamp.switch_sky) || !in.get(&source) || !in.get(&fixture) ||
             !in.get(&lamp.area) || !in.get(&lamp.luminance) || source > 255U || fixture > 255U ||
             shape > static_cast<uint32_t>(EmitterShape::kLine) ||
-            kind > static_cast<uint32_t>(EmitterKind::kTextured)) {
+            kind > static_cast<uint32_t>(EmitterKind::kPool)) {
             return fail("cut short (a lamp)");
         }
         lamp.shape = static_cast<EmitterShape>(shape);

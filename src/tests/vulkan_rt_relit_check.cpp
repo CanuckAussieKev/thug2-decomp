@@ -2024,7 +2024,10 @@ void check_ceiling_panel(Tally* tally)
                                      static_cast<double>(std::get<2>(kTrue)), stats.rays, model.lamps_dark,
                                      model.lamps_implausible, static_cast<double>(model.lamp_noise)));
     tally->check(!lamps.at(1).solved && lamps.at(1).light == Rgbf{},
-                 "a bright texture whose light the bake doesn't show: no lamp (brightness alone is no evidence)");
+                 text::format("a bright texture whose light the bake doesn't show: no lamp (brightness alone is no "
+                              "evidence) - %s, %.4f; %zu told by the light's level",
+                              lamps.at(1).solved ? "told" : "not told", static_cast<double>(std::get<1>(lamps.at(1).light)),
+                              model.lamps_by_level));
     rt::relit_lamp_switches(light, links, lamps, rt::unit_illuminance());
     tally->check(lamps.at(0).switch_sky >= rt::kLampAlwaysOn && rt::lamp_on(lamps.at(0).switch_sky, 1.0F, 0.0F) == 1.0F,
                  "the indoor panel's switch: its surfaces see no sky - on at noon as at night");
@@ -2434,10 +2437,131 @@ void check_lamp_solve(Tally* tally)
     }
 }
 
+// (round indoor lamps) A hall lit evenly by a lamp whose pool shows no edge (a broad panel: the bake's light level
+// tells it, not its shape), a pool with no lamp listed (found above it at its mount), the high-bay fixture by mounting
+// height, a lamp's mount over its floors.
+void check_indoor_lamps(Tally* tally)
+{
+    constexpr float kSide = 600.0F;
+    constexpr float kHeight = 400.0F;
+    constexpr float kBounce = 0.05F;
+    constexpr Rgbf kTint{0.6F, 0.6F, 0.6F};
+    constexpr Rgbf kTrue{0.8F, 0.8F, 0.7F};
+    rt::RelitMesh hall;
+    const std::array<Face, 6> faces{{
+        {.corner = {0.0F, 0.0F, 0.0F}, .across = {0.0F, 0.0F, kSide}, .up = {0.0F, kHeight, 0.0F}},
+        {.corner = {kSide, 0.0F, kSide}, .across = {0.0F, 0.0F, -kSide}, .up = {0.0F, kHeight, 0.0F}},
+        {.corner = {kSide, 0.0F, 0.0F}, .across = {-kSide, 0.0F, 0.0F}, .up = {0.0F, kHeight, 0.0F}},
+        {.corner = {0.0F, 0.0F, kSide}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, kHeight, 0.0F}},
+        {.corner = {0.0F, kHeight, 0.0F}, .across = {0.0F, 0.0F, kSide}, .up = {kSide, 0.0F, 0.0F}},
+        {.corner = {0.0F, 0.0F, 0.0F}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, 0.0F, kSide}},
+    }};
+    constexpr uint32_t kSteps = 16;
+    for (const Face& face : faces) {
+        add_face(&hall, face, kSteps);
+    }
+    for (auto& triangle : hall.triangles) {
+        std::swap(std::get<1>(triangle), std::get<2>(triangle));
+    }
+    hall.id = kCpuIds + 7;
+    // a yard far off that no lamp reaches: the level's tint there (the bounce alone)
+    rt::RelitMesh yard;
+    add_face(&yard, {.corner = {5000.0F, 0.0F, 0.0F}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, 0.0F, kSide}}, kSteps);
+    for (auto& triangle : yard.triangles) {
+        std::swap(std::get<1>(triangle), std::get<2>(triangle));
+    }
+    yard.id = kCpuIds + 8;
+    std::vector<rt::RelitMesh> meshes{hall, yard};
+    CpuTracer cpu(meshes);
+    std::vector<rt::RelitVertices> light(meshes.size());
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        rt::relit_normals(core::at(meshes, mi), 1.0F, &core::at(light, mi));
+        for (rt::RelitVertex& vertex : core::at(light, mi)) {
+            vertex.bounce = {kBounce, kBounce, kBounce};
+        }
+    }
+    // the hall's lamp: a broad glow panel under the ceiling - its light nearly even over the floor
+    std::vector<rt::RelitLamp> lamps{{.position = {kSide * 0.5F, kHeight - 2.0F, kSide * 0.5F}, .size = 2.0F,
+                                      .light = {0.9F, 0.9F, 0.8F}, .core = 4000.0F, .reach = 1500.0F,
+                                      .shape = rt::EmitterShape::kPanel, .axis = {0.0F, -1.0F, 0.0F},
+                                      .kind = rt::EmitterKind::kGlow}};
+    rt::RelitStats stats;
+    rt::RelitLampLinks links;
+    rt::trace_relit_lamps(meshes, {}, lamps, cpu, &light, &stats, &links);
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        rt::RelitMesh& mesh = core::at(meshes, mi);
+        mesh.colours.assign(mesh.positions.size(), 0U);
+        const rt::RelitMeshLinks& here = core::at(links, mi);
+        for (std::size_t vi = 0; vi < mesh.positions.size(); ++vi) {
+            Rgbf lamp{};
+            if (vi + 1 < here.first.size()) {
+                for (uint32_t k = core::at(here.first, vi); k < core::at(here.first, vi + 1); ++k) {
+                    lamp = rt::plus(lamp, rt::scaled(kTrue, core::at(here.links, k).weight));
+                }
+            }
+            // (each vertex's paint its own, 0.6 x 0.2 - 1.8: the edges see the paint, not the lamp's gentle slope)
+            const double strayed = std::sin((static_cast<double>(vi) * 12.9898) + (static_cast<double>(mi) * 78.233)) * 43758.5453;
+            const float paint = 0.2F + (1.6F * static_cast<float>(strayed - std::floor(strayed)));
+            core::at(mesh.colours, vi) =
+                to_argb(times_rgb(rt::scaled(kTint, paint), rt::plus(lamp, {kBounce, kBounce, kBounce})));
+        }
+    }
+    rt::RelitModel model;
+    model.valid = true;
+    model.sunless = true;
+    model.bounce = {1.0F, 1.0F, 1.0F};
+    model.error = 0.05F;
+    rt::solve_relit_lamps(meshes, light, links, lamps, &model);
+    // (the edges tell it - its size short: the instrument's shrink under paint that strays as much as the lamp's slope
+    // - an open item; the level's own tint, what the level's measure reads a room's surplus against, is the paint's)
+    const bool close = lamps.front().solved && std::abs(model.level_tint - std::get<1>(kTint)) <= 0.05F;
+    tally->check(close, text::format("a hall lit evenly by its lamp: the lamp told - %.3f %.3f %.3f (true "
+                                     "%.2f %.2f %.2f); the level's tint %.3f (true %.2f), %zu told by the light's level",
+                                     static_cast<double>(std::get<0>(lamps.front().light)),
+                                     static_cast<double>(std::get<1>(lamps.front().light)),
+                                     static_cast<double>(std::get<2>(lamps.front().light)),
+                                     static_cast<double>(std::get<0>(kTrue)), static_cast<double>(std::get<1>(kTrue)),
+                                     static_cast<double>(std::get<2>(kTrue)), static_cast<double>(model.level_tint),
+                                     static_cast<double>(std::get<1>(kTint)), model.lamps_by_level));
+    // the same bake with no lamp listed: a lamp found above its pool, at its mount (the ceiling), facing it
+    {
+        rt::RelitLampLinks none(meshes.size());
+        for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+            core::at(none, mi).first.assign(core::at(meshes, mi).positions.size() + 1, 0U);
+        }
+        rt::PoolSearch search;
+        const std::vector<rt::RelitLamp> pools = rt::find_pool_lamps(meshes, light, none, {}, model, cpu, &search);
+        bool pooled = !pools.empty();
+        bool ceiling = false;
+        for (const rt::RelitLamp& pool : pools) {
+            pooled = pooled && pool.kind == rt::EmitterKind::kPool;
+            ceiling = ceiling || std::abs(rt::y_of(pool.position) - (kHeight - rt::kPoolMount)) <= 4.0F;
+        }
+        tally->check(pooled && ceiling, text::format("a pool no listed lamp explains: %zu lamps found at their mounts, "
+                                           "the floor's under the ceiling; %zu brighter vertices, %zu pools",
+                                           pools.size(), search.seeds, search.pools));
+    }
+    rt::relit_lamp_mounts(meshes, light, links, lamps);
+    tally->check(std::abs(lamps.front().mount - (kHeight - 2.0F)) <= 1.0F,
+                 text::format("a lamp's mount over its floors %.1f (true %.1f)", static_cast<double>(lamps.front().mount),
+                              static_cast<double>(kHeight - 2.0F)));
+    const auto kind_at = [](float metres) {
+        return rt::fixture_of({.shape = 1, .axis = {0.0F, -1.0F, 0.0F}, .colour = {1.0F, 1.0F, 1.0F}, .indoors = true,
+                               .mount = metres});
+    };
+    tally->check(kind_at(10.0F) == rt::LampFixture::kHighBay && kind_at(3.0F) == rt::LampFixture::kPanel,
+                 "a roofed fitting 10 m over its floor is a high-bay, 3 m over it a ceiling panel (25 ft: Title 24)");
+    const rt::FixtureValues& bay = rt::fixture_values(rt::LampFixture::kHighBay);
+    tally->check(bay.lumens >= bay.least_lumens && bay.lumens <= bay.most_lumens && bay.most_lumens >= 36000.0F &&
+                     bay.least_lumens <= 17250.0F,
+                 "the high-bay's flux range holds a 400 W metal halide's 36 000 lm and a 150 W LED's 17 250 lm");
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     check_round_l(tally);
     check_lamp_solve(tally);
+    check_indoor_lamps(tally);
     check_baked_shadow(tally);
     check_local_across(tally);
     {
