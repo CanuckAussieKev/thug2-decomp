@@ -64,6 +64,9 @@
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/snow.h"
+#include "engine/gfx/rt_volume_light.h"
+#include "engine/gfx/rt_material_table.h"
+#include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/wind.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -522,6 +525,75 @@ void check_steps(Tally* tally)
     tally->check(drift > 0.5 * 10.0 * near_wind && drift < 1.5 * 10.0 * near_wind && drift == snow::wind_drift(),
                  text::format("the wind (%.1f units/s near the ground) carried the snow %.0f units in 10 s, the same again", near_wind,
                               drift));
+    // (round W) the falling snow in the air: one value - its flakes' extinction from the snowfall's rate, read by the fog's
+    // march and the snow's own haze alike
+    const double snow_air = snow::extinction(snow::kSnowfallRate);
+    const double visibility = 3.912 / snow_air;
+    tally->check(visibility > 500.0 && visibility < 1000.0 &&
+                     render::rt::precipitation_extinction({.snow = true}) == snow_air,
+                 text::format("one snowfall in the air: %.2e /m at %.1f mm/h - %.0f m visibility (moderate snow: 0.5 - 1 km); the "
+                              "fog's march takes the same",
+                              snow_air, snow::kSnowfallRate, visibility));
+    // (round W - the audit's S1) the layer lit through the one light model as a snow surface of the same material: a flat
+    // patch of the layer over the snow-covered ground shows the ground's own light within 3% - in the sun, in shade, under
+    // a lamp at night
+    {
+        namespace brdf = render::rt::brdf;
+        brdf::Material snow_m;
+        snow_m.albedo = {vk::kSnowAlbedo, vk::kSnowAlbedo, vk::kSnowAlbedo};
+        snow_m.f0 = render::rt::material_f0(render::rt::MaterialKind::kSnow);
+        snow_m.roughness = render::rt::material_values(render::rt::MaterialKind::kSnow).roughness;
+        const brdf::Vec3 up{0.0F, 1.0F, 0.0F};
+        const brdf::Vec3 view{0.0F, 0.6F, 0.8F};
+        const brdf::Vec3 toward = brdf::normalise({0.4F, 0.7F, -0.3F});
+        const auto ground_of = [&](const brdf::Rgb& sun, float seen, const brdf::Rgb& around) {
+            const brdf::Rgb lit{sun[0] * seen, sun[1] * seen, sun[2] * seen};
+            const brdf::Rgb a = brdf::direct(snow_m, up, view, toward, lit);
+            const brdf::Rgb b = brdf::ambient(snow_m, brdf::dot(up, view), around, around);
+            return std::array<float, 3>{a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+        };
+        struct Case {
+            const char* name;
+            brdf::Rgb sun;
+            float seen;
+            brdf::Rgb around;
+        };
+        const std::array<Case, 3> cases{{{"in the sun", {3.1F, 3.0F, 2.8F}, 1.0F, {1.0F, 1.1F, 1.3F}},
+                                         {"in shade", {3.1F, 3.0F, 2.8F}, 0.0F, {1.0F, 1.1F, 1.3F}},
+                                         {"under a lamp at night", {0.0F, 0.0F, 0.0F}, 0.0F, {0.9F, 0.7F, 0.4F}}}};
+        float worst = 0.0F;
+        for (const Case& one : cases) {
+            const std::array<float, 3> ground = ground_of(one.sun, one.seen, one.around);
+            const std::array<float, 3> layer = vk::snow_layer_light({.ground = ground,
+                                                                     .sun = one.sun,
+                                                                     .l = {toward.x, toward.y, toward.z},
+                                                                     .ground_seen = one.seen,
+                                                                     .layer_seen = one.seen,
+                                                                     .v = {view.x, view.y, view.z}});
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                worst = std::max(worst, std::abs(core::at(layer, ch) - core::at(ground, ch)) / std::max(core::at(ground, ch), 1.0e-4F));
+            }
+        }
+        tally->check(worst < 0.03F, text::format("a flat patch of the layer shows the snow-covered ground's light in the sun, in "
+                                                 "shade and under a lamp (worst %.1f%%)",
+                                                 static_cast<double>(worst) * 100.0));
+        const std::array<float, 3> sunny = ground_of(cases[0].sun, 1.0F, cases[0].around);
+        const auto layer_at = [&](const std::array<float, 3>& n, float packed) {
+            return vk::snow_layer_light({.ground = sunny, .sun = cases[0].sun, .l = {toward.x, toward.y, toward.z},
+                                         .n = n, .v = {view.x, view.y, view.z}, .packed = packed});
+        };
+        const float to_sun = layer_at({0.4F, 0.9165F, 0.0F}, 0.0F)[1];
+        const float from_sun = layer_at({-0.4F, 0.9165F, 0.0F}, 0.0F)[1];
+        const float powder = layer_at({0.0F, 1.0F, 0.0F}, 0.0F)[1];
+        const float pressed = layer_at({0.0F, 1.0F, 0.0F}, 1.0F)[1];
+        tally->check(to_sun > from_sun && pressed < powder,
+                     text::format("a trail's bank toward the sun brighter than one away (%.3f / %.3f); the packed snow darker (%.3f "
+                                  "against %.3f: its albedo %.2f against %.2f)",
+                                  static_cast<double>(to_sun), static_cast<double>(from_sun), static_cast<double>(pressed),
+                                  static_cast<double>(powder),
+                                  static_cast<double>(render::rt::material_albedo(render::rt::MaterialKind::kSnowPacked)),
+                                  static_cast<double>(vk::kSnowAlbedo)));
+    }
     // nothing from high above, nothing where no snow settles
     snow::reset();
     ride({0.0F, 60.0F, 0.0F}, kSpeed, 0.0F, kSteps);

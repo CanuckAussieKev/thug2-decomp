@@ -112,6 +112,8 @@ inline constexpr float kFogStreetAirLight = 0.3025F;
 // rt_fog_set_scene_locked when the caller already holds it.
 void rt_fog_set_scene(VkAccelerationStructureKHR tlas);
 void rt_fog_set_scene_locked(VkAccelerationStructureKHR tlas);
+// (round W) rt_fog on - the caller holds the lock (the snow's haze steps aside while the fog's march takes the falling snow).
+[[nodiscard]] bool rt_fog_on_locked(const Backend& state);
 
 // The usage a depth surface of `format` gets besides being an attachment: VK_IMAGE_USAGE_SAMPLED_BIT when rt_fog is on,
 // ray tracing is enabled and the format can be sampled, else none (make_depth_surface).

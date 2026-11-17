@@ -52,6 +52,8 @@ enum class MaterialKind : uint8_t {
     kHair,
     kChainLink, // (round W) a chain-link fence's woven wire
     kGrating,   // (round W) a bar grating (walkways, drains, vents)
+    kSnow,       // (round W) fresh snow
+    kSnowPacked, // (round W) snow packed by wheels and feet
     kCount,
 };
 inline constexpr std::size_t kMaterialKindCount = static_cast<std::size_t>(MaterialKind::kCount);
@@ -240,6 +242,21 @@ inline constexpr std::array<MaterialValues, kMaterialKindCount> kMaterialTable{{
      .air_transmission = 0.79F,
      .source = "geometry: NAAMM MBG 531 welded bar grating 19-W-4 - 3/16 in bars at 1-3/16 in centres, cross bars 1/4 in "
                "at 4 in: open area (1 - 4.76 / 30.2) x (1 - 6.35 / 101.6) = 0.79; F0 / roughness as street steel"},
+    // (round W) snow lit through the one light model: ice grains (their facets the specular, the light scattered among
+    // them the diffuse)
+    {.name = "snow",
+     .index = 1.31F,
+     .roughness = 0.9F,
+     .albedo = {0.8F, 0.92F},
+     .source = "measured: fresh snow's visible albedo 0.8 - 0.92 (Warren 1982, Reviews of Geophysics 20, 'Optical "
+               "properties of snow'); index: ice n 1.31 (Warren and Brandt 2008); roughness unmeasured - fresh snow reflects "
+               "nearly as a diffuser, its grains' facets in every direction"},
+    {.name = "snow_packed",
+     .index = 1.31F,
+     .roughness = 0.6F,
+     .albedo = {0.6F, 0.8F},
+     .source = "measured: old and compacted snow's albedo 0.6 - 0.8 (Warren 1982 - the grains grown and pressed together); "
+               "index: ice n 1.31; roughness unmeasured - a pressed surface is smoother than powder"},
 }};
 
 [[nodiscard]] inline const MaterialValues& material_values(MaterialKind kind)
@@ -257,6 +274,12 @@ inline constexpr std::array<MaterialValues, kMaterialKindCount> kMaterialTable{{
     return {f0, f0, f0};
 }
 [[nodiscard]] inline bool material_is_metal(MaterialKind kind) { return material_values(kind).index <= 0.0F; }
+// (round W) A kind's typical albedo: the middle of its range (where a surface has no texture to say - the snow).
+[[nodiscard]] inline float material_albedo(MaterialKind kind)
+{
+    const MaterialValues& values = material_values(kind);
+    return 0.5F * (values.albedo[0] + values.albedo[1]);
+}
 
 // (round W) The kind a collision face's terrain says it is made of - the game's terrain names (its terrain table,
 // TERRAIN_*: what the skater's wheels sound like on it - so what it is made of). A terrain not listed: painted / solid.
