@@ -82,6 +82,7 @@
 #include "platform/screenshot_files.h"
 #include "platform/sdl_time.h"
 #include "platform/sdl_keys.h"
+#include "platform/test_workspace.h"
 
 namespace devtools::demo {
 
@@ -1226,6 +1227,9 @@ void begin_playback(uint32_t load)
     run.drift = {};
     run.track = std::string(demo_format::kCheckHeader) + "\n";
     run.states = std::string(kStateHeader) + "\n";
+    if (objects::net_dormancy_forced()) {
+        run.states += "# dormancy: the net-game rule (-demo-net-rule)\n";
+    }
     run.random_matched = true;
     run.up_matched = true;
     run.live = {};
@@ -1727,6 +1731,14 @@ void prepare_all()
         run.takeover = run.capture.empty() && run.video.empty();
         run.quit_at_end = line.find("-demo-quit") != std::string::npos || !run.video.empty();
         run.trace = line.find("-demo-trace") != std::string::npos;
+        // (-demo-net-rule: the objects' dormancy played as in a net game - the simulation check's second reference set,
+        // objects/dormancy.h force_net_dormancy. A test workspace's only; anywhere else it is refused.)
+        if (line.find("-demo-net-rule") != std::string::npos) {
+            const bool allowed = platform::test_workspace();
+            objects::force_net_dormancy(allowed);
+            get_log("demo: -demo-net-rule - %s", allowed ? "objects' dormancy by distance as in a net game (the original rule)"
+                                                         : "refused: only in a test workspace");
+        }
         // (-viewer: in the demo viewer - with -demo-video, its camera path saved as that video, then the game quits)
         run.viewer = line.find("-viewer") != std::string::npos && run.capture.empty();
         if (run.viewer) {

@@ -263,7 +263,19 @@ bool DormancyModule::obj_reset_no_suspend_count(script::Struct* /*params*/, scri
     return true;
 }
 
-bool dormancy_by_distance() { return net::in_net_game(); }
+namespace {
+bool& net_dormancy_flag()
+{
+    static bool forced = false;
+    return forced;
+}
+} // namespace
+
+void force_net_dormancy(bool on) { net_dormancy_flag() = on; }
+
+bool net_dormancy_forced() { return net_dormancy_flag(); }
+
+bool dormancy_by_distance() { return net::in_net_game() || net_dormancy_flag(); }
 
 std::array<int, 3> suspend_counters() { return {frame_count(), interleave2_count(), interleave4_count()}; }
 

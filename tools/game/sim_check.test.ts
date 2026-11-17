@@ -8,13 +8,16 @@ import {
     compareStates,
     compareTod,
     iniValue,
+    NET_RULE_MARK,
     parseStates,
     parseTod,
     passed,
     REFERENCE_FOLDER,
     REFERENCE_SETTINGS,
     referenceDemos,
+    referenceFolder,
     reportLine,
+    ruleHonoured,
     runIni,
     runName,
     scriptsMode,
@@ -78,10 +81,32 @@ test("a run under load has its own folder and report line", () => {
     assert.match(line, /^\| d \| 60 \(max_fps=0\), load 7 \| 1 \/ 1 \| 0 \| none \| 30 \| ok \|$/);
 });
 
-test("every reference demo has its state file", () => {
+test("every reference demo has its state file under both rules", () => {
     const demos = referenceDemos();
     assert.ok(demos.length > 0);
-    for (const demo of demos) assert.ok(fs.existsSync(path.join(REFERENCE_FOLDER, `${demo}.state.txt`)), demo);
+    for (const demo of demos) {
+        assert.ok(fs.existsSync(path.join(REFERENCE_FOLDER, `${demo}.state.txt`)), demo);
+        const net = path.join(referenceFolder("net"), `${demo}.state.txt`);
+        assert.ok(fs.existsSync(net), `${demo} (net)`);
+        assert.ok(ruleHonoured("net", fs.readFileSync(net, "utf8")), `${demo} (net) recorded under the net rule`);
+        assert.ok(ruleHonoured("single", fs.readFileSync(path.join(REFERENCE_FOLDER, `${demo}.state.txt`), "utf8")));
+    }
+});
+
+test("the net-game rule's runs: their own folders, and the rule must have been honoured", () => {
+    assert.equal(runName(0, 0, "net"), "net-0");
+    assert.equal(runName(144, 7, "net"), "net-144-load7");
+    assert.equal(runName(144, 0, "single"), "144");
+    assert.equal(referenceFolder("single"), REFERENCE_FOLDER);
+    assert.equal(referenceFolder("net"), path.join(REFERENCE_FOLDER, "net"));
+    const marked = [HEADER, `${NET_RULE_MARK} (-demo-net-rule)`, "5 A B C 83", ""].join("\r\n");
+    const plain = [HEADER, "5 A B C 83", ""].join("\n");
+    assert.ok(ruleHonoured("net", marked));
+    assert.ok(!ruleHonoured("net", plain)); // refused (not a workspace) or an older build
+    assert.ok(ruleHonoured("single", plain));
+    assert.ok(!ruleHonoured("single", marked));
+    // (the mark is a comment: the states read the same)
+    assert.deepEqual(parseStates(marked), parseStates(plain));
 });
 
 test("the scripts a folder runs: its ini's ts_scripts and whether it is unpacked", () => {

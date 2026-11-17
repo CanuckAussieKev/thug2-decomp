@@ -4,7 +4,15 @@
 // frame by frame, bit for bit, with the reference recorded from the build before a change.
 //
 //   node tools/game/sim_check.ts --game <workspace> [--demos a,b] [--fps 0,120,144,240] [--load 0,7] [--out <folder>]
-//                                [--timeout 300] [--no-run] [--record] [--trace] [--scripts qb|ts]
+//                                [--timeout 300] [--no-run] [--record] [--trace] [--scripts qb|ts] [--rules single,net]
+//
+// --rules: the objects' dormancy each demo is played under (default both, each with its own reference set):
+//   single - the single-player rule (every object updated and animated every step - engine/objects/dormancy.h),
+//            references sim_reference/<demo>.state.txt;
+//   net    - the net-game rule, the original's dormancy by distance (-demo-net-rule: forced outside a net game, in a
+//            test workspace only), references sim_reference/net/<demo>.state.txt - the guard that online / LAN play
+//            stays the original game's simulation. Those references equal, on the four original fields, the ones
+//            recorded before the single-player rule (docs/design/simulation-rate.md "Objects' dormancy").
 //
 // --scripts: the scripts the workspace must run - qb (the .qb files, packed) or ts ([features] ts_scripts=1, the folder
 // unpacked: tools/qbjs/unpack_game.ts) - refused when it doesn't; the report names the mode either way. The simulation
@@ -40,9 +48,28 @@ import { ensureWorkspaceMuted, isWorkspace, setIniValue } from "./workspace_ini.
 
 const USAGE =
     "usage: node tools/game/sim_check.ts --game <workspace> [--demos a,b] [--fps 0,120,144,240] [--load 0,7] [--out <folder>] " +
-    "[--timeout 300] [--no-run] [--record] [--trace] [--scripts qb|ts]";
+    "[--timeout 300] [--no-run] [--record] [--trace] [--scripts qb|ts] [--rules single,net]";
 
 export const REFERENCE_FOLDER = path.join(path.dirname(fileURLToPath(import.meta.url)), "sim_reference");
+
+// The objects' dormancy a run is played under (--rules).
+export type Rule = "single" | "net";
+export const RULES: readonly Rule[] = ["single", "net"];
+
+// A rule's reference folder: the single-player rule's at the top, the net-game rule's in net/.
+export function referenceFolder(rule: Rule, folder = REFERENCE_FOLDER): string {
+    return rule === "net" ? path.join(folder, "net") : folder;
+}
+
+// The comment demo.cpp writes at the top of a state file played under the net-game rule (-demo-net-rule honoured).
+export const NET_RULE_MARK = "# dormancy: the net-game rule";
+
+// A run's state played under the rule asked for: the net rule's mark there exactly when it was asked (a game that
+// refused -demo-net-rule - not a test workspace - or an older build would otherwise pass as the other rule).
+export function ruleHonoured(rule: Rule, stateText: string): boolean {
+    const marked = stateText.split(/\r?\n/).some((line) => line.trim().startsWith(NET_RULE_MARK));
+    return marked === (rule === "net");
+}
 
 export interface StateLine {
     frame: number;
@@ -143,9 +170,11 @@ export function undrawnFrames(log: string): number {
     return found ? Number.parseInt(found[1]!, 10) : -1;
 }
 
-// A run's folder name under the demo's: its display rate, and its load when there is one ("144", "144-load7").
-export function runName(fps: number, load = 0): string {
-    return load > 0 ? `${fps}-load${load}` : String(fps);
+// A run's folder name under the demo's: its display rate, its load when there is one and "net-" for the net-game rule
+// ("144", "144-load7", "net-0").
+export function runName(fps: number, load = 0, rule: Rule = "single"): string {
+    const name = load > 0 ? `${fps}-load${load}` : String(fps);
+    return rule === "net" ? `net-${name}` : name;
 }
 
 export function reportLine(demo: string, fps: number, c: StateComparison | null, undrawn = -1, load = 0): string {
@@ -209,6 +238,7 @@ async function playOnce(
     folder: string,
     timeout: number,
     trace = false,
+    rule: Rule = "single",
 ) {
     const ini = path.join(game, "thug2-decomp.ini");
     const before = fs.existsSync(ini) ? fs.readFileSync(ini, "utf8") : "";
@@ -221,11 +251,17 @@ async function playOnce(
         ensureWorkspaceMuted(game);
         clearAutomationFiles(game);
         const started = Date.now();
-        const args = ["-demo", demo, "-demo-quit", ...(trace ? ["-demo-trace"] : [])];
+        const args = [
+            "-demo",
+            demo,
+            "-demo-quit",
+            ...(trace ? ["-demo-trace"] : []),
+            ...(rule === "net" ? ["-demo-net-rule"] : []),
+        ];
         const child = spawn(exe, args, { cwd: game, stdio: "ignore" });
         const code = await new Promise<number | null>((resolve) => {
             const timer = setTimeout(() => {
-                print(`${demo} at ${runName(fps, load)}: still running after ${timeout} s - closed`);
+                print(`${demo} at ${runName(fps, load, rule)}: still running after ${timeout} s - closed`);
                 child.kill();
             }, timeout * 1000);
             child.on("exit", (exitCode) => {
@@ -234,7 +270,7 @@ async function playOnce(
             });
         });
         print(
-            `${demo} at ${runName(fps, load)}: the game ended (exit code ${code}) after ${((Date.now() - started) / 1000).toFixed(1)} s`,
+            `${demo} at ${runName(fps, load, rule)}: the game ended (exit code ${code}) after ${((Date.now() - started) / 1000).toFixed(1)} s`,
         );
     } finally {
         fs.writeFileSync(ini, before);
@@ -303,6 +339,7 @@ async function main(): Promise<number> {
             record: { type: "boolean", default: false },
             trace: { type: "boolean", default: false },
             scripts: { type: "string" },
+            rules: { type: "string", default: RULES.join(",") },
         },
     });
     if (!values.game) exitWith(`${USAGE}\nerror: --game is needed`);
@@ -319,6 +356,11 @@ async function main(): Promise<number> {
         .map((r) => Number.parseInt(r, 10))
         .filter((r) => r >= 0);
     if (values.record && !loads.includes(0)) loads.unshift(0);
+    const rules = values.rules.split(",").map((r) => r.trim());
+    for (const rule of rules)
+        if (!(RULES as readonly string[]).includes(rule))
+            exitWith(`${USAGE}\nerror: --rules takes ${RULES.join(", ")}`);
+    const ruleList = rules as Rule[];
     const mode = folderScriptsMode(game);
     if (values.scripts !== undefined && values.scripts !== mode)
         exitWith(
@@ -342,18 +384,20 @@ async function main(): Promise<number> {
             const source = path.join(REFERENCE_FOLDER, `${demo}.demo`);
             if (fs.existsSync(source)) fs.copyFileSync(source, path.join(folder, `${demo}.demo`));
             if (!fs.existsSync(path.join(folder, `${demo}.demo`))) exitWith(`no ${demo}.demo`);
-            for (const load of loads)
-                for (const fps of rates)
-                    await playOnce(
-                        found.exe,
-                        game,
-                        demo,
-                        fps,
-                        load,
-                        path.join(out, demo, runName(fps, load)),
-                        Number(values.timeout),
-                        values.trace,
-                    );
+            for (const rule of ruleList)
+                for (const load of loads)
+                    for (const fps of rates)
+                        await playOnce(
+                            found.exe,
+                            game,
+                            demo,
+                            fps,
+                            load,
+                            path.join(out, demo, runName(fps, load, rule)),
+                            Number(values.timeout),
+                            values.trace,
+                            rule,
+                        );
         }
     }
     const lines = [
@@ -368,39 +412,50 @@ async function main(): Promise<number> {
                 ? ` - the workspace's ini differs: ${overridden.join(", ")}.`
                 : " - the workspace's ini has them."),
         "",
+        `Rules: ${ruleList.map((r) => (r === "net" ? "net (the net-game dormancy, -demo-net-rule; sim_reference/net)" : "single (the single-player rule; sim_reference)")).join(", ")}.`,
+        "",
         "| demo | display rate | frames equal | missing | first differs | late frames | result |",
         "|---|---|---|---|---|---|---|",
     ];
     let failures = 0;
     const todLines: string[] = [];
     for (const demo of demos) {
-        if (values.record) {
-            const made = path.join(out, demo, "0", "state.txt");
-            if (!fs.existsSync(made)) exitWith(`no ${made} to record`);
-            fs.copyFileSync(made, path.join(REFERENCE_FOLDER, `${demo}.state.txt`));
-            print(`recorded ${path.join(REFERENCE_FOLDER, `${demo}.state.txt`)}`);
-        }
-        const refFile = path.join(REFERENCE_FOLDER, `${demo}.state.txt`);
-        if (!fs.existsSync(refFile)) exitWith(`no reference ${refFile} (--record makes it)`);
-        const reference = parseStates(fs.readFileSync(refFile, "utf8"));
         let firstTod: Map<number, string> | null = null;
-        for (const load of loads) {
-            for (const fps of rates) {
-                const run = path.join(out, demo, runName(fps, load));
-                const file = path.join(run, "state.txt");
-                const text = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
-                const c = text !== null ? compareStates(reference, parseStates(text)) : null;
-                const tod = text !== null ? parseTod(text) : new Map<number, string>();
-                firstTod ??= tod;
-                if (firstTod.size > 0) {
-                    const clock = compareTod(firstTod, tod);
-                    if (clock.firstDiffers >= 0) failures++;
-                    todLines.push(todLine(demo, fps, clock, load));
+        for (const rule of ruleList) {
+            const refFolder = referenceFolder(rule);
+            const label = rule === "net" ? `${demo} (net)` : demo;
+            if (values.record) {
+                const made = path.join(out, demo, runName(0, 0, rule), "state.txt");
+                if (!fs.existsSync(made)) exitWith(`no ${made} to record`);
+                fs.mkdirSync(refFolder, { recursive: true });
+                fs.copyFileSync(made, path.join(refFolder, `${demo}.state.txt`));
+                print(`recorded ${path.join(refFolder, `${demo}.state.txt`)}`);
+            }
+            const refFile = path.join(refFolder, `${demo}.state.txt`);
+            if (!fs.existsSync(refFile)) exitWith(`no reference ${refFile} (--record makes it)`);
+            const reference = parseStates(fs.readFileSync(refFile, "utf8"));
+            for (const load of loads) {
+                for (const fps of rates) {
+                    const run = path.join(out, demo, runName(fps, load, rule));
+                    const file = path.join(run, "state.txt");
+                    const read = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
+                    // (a run not played under its rule counts as no state: the game refused -demo-net-rule)
+                    const text = read !== null && ruleHonoured(rule, read) ? read : null;
+                    if (read !== null && text === null)
+                        print(`${label} at ${runName(fps, load, rule)}: not played under the ${rule} rule`);
+                    const c = text !== null ? compareStates(reference, parseStates(text)) : null;
+                    const tod = text !== null ? parseTod(text) : new Map<number, string>();
+                    firstTod ??= tod;
+                    if (firstTod.size > 0) {
+                        const clock = compareTod(firstTod, tod);
+                        if (clock.firstDiffers >= 0) failures++;
+                        todLines.push(todLine(label, fps, clock, load));
+                    }
+                    if (!c || !passed(c)) failures++;
+                    const log = path.join(run, "thug2-decomp.log");
+                    const late = fs.existsSync(log) ? undrawnFrames(fs.readFileSync(log, "utf8")) : -1;
+                    lines.push(reportLine(label, fps, c, late, load));
                 }
-                if (!c || !passed(c)) failures++;
-                const log = path.join(run, "thug2-decomp.log");
-                const late = fs.existsSync(log) ? undrawnFrames(fs.readFileSync(log, "utf8")) : -1;
-                lines.push(reportLine(demo, fps, c, late, load));
             }
         }
     }
