@@ -313,7 +313,11 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   of the skater's, the moving objects' and the random streams' bits - with the reference, bit for bit. `--load` runs
   each again with `[debug] load_test=N` (a 30 ms stall every Nth loop: late, undrawn steps - "Determinism under
   load"); the report shows each run's late steps. Exit code 0 when every frame of every run matches. `--record` makes the max_fps=0 run the new reference (only from the build the reference is meant
-  to be: main before a change). Workspaces only, under the lock. The report names the scripts the workspace ran;
+  to be: main before a change). Every run (and --record) is played with the reference's settings set in the ini
+  (`REFERENCE_SETTINGS`: `[features] thaw_bmx=0` - THAW's BMX parks a bike, a NOT ORIGINAL moving object, beside the
+  skater at the start, so the objects' hash parts from frame 30 -, `anteara_mod=0`, `start_level` / `start_at` /
+  `edit_level` empty); the report names those the workspace had otherwise. Ray tracing, the time of day,
+  `lod_distance_scale` / `draw_distance_scale` and the scripts mode leave the references equal. Workspaces only, under the lock. The report names the scripts the workspace ran;
   `--scripts qb|ts` refuses a workspace that runs the other (switch with `node tools/qbjs/unpack_game.ts` and
   `[features] ts_scripts=1`, or `--restore`) - a change to the scripts' runtime is checked in both ("QB and TypeScript
   scripts"). `--trace` also writes each run's simulation trace (`trace.txt`: `-demo-trace`, every script command with
