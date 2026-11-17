@@ -443,9 +443,11 @@ void relit_mesh_lamp_light(const RelitMesh& mesh, RelitVertices* light, const Re
 // on it falls under kPhotocellLux (ANSI C136.10's turn-on, 1.5 foot-candles: a standard street-lighting photocontrol,
 // a physical constant, not a level's or a lamp's value). The daylight where the lamp is: the open sky's light x the sky
 // share K of the surfaces it lights (each alike: the area round it). So the switch is the open sky's light (the global
-// unit; `unit_lux` its lux) at which that reaches kPhotocellLux; kLampAlwaysOn where they see no sky (under
-// kRelitNoSky - indoors: a room no daylight reaches is lit whenever it is used). Not the lamp's own brightness: the art's
-// lamps are display-referred (their switch by their own light lit some at noon).
+// unit; `unit_lux` its lux) at which that reaches kPhotocellLux. A lamp whose surfaces are roofed - their sky share under
+// kRelitIndoorSky, the rule that tells a roofed level's floors - is an interior light: kLampAlwaysOn (a room is lit
+// while it is used, whatever its windows let in; a photocell is a street light's). Not the lamp's own brightness: the
+// lamps solved from a night bake carry its art's exposure (the night's sky display-referred, ~10^3 x a real night's),
+// and by their own light some outshone noon.
 inline constexpr float kRelitNoSky = 1e-3F;
 inline constexpr float kPhotocellLux = 16.0F;
 void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLinks& links, std::span<RelitLamp> lamps,

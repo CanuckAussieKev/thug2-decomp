@@ -2142,7 +2142,7 @@ void relit_lamp_switches(std::span<const RelitVertices> light, const RelitLampLi
             continue;
         }
         const double open = core::at(sky, li) / weight; // those surfaces' sky share
-        lamp.switch_sky = open < static_cast<double>(kRelitNoSky) || !(unit_lux > 0.0)
+        lamp.switch_sky = open < static_cast<double>(kRelitIndoorSky) || !(unit_lux > 0.0)
                               ? kLampAlwaysOn
                               : static_cast<float>(static_cast<double>(kPhotocellLux) / unit_lux / open);
     }
@@ -2545,7 +2545,7 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
         const double reach = core::at(reached, li);
         const double sky_share = reach > 0.0 ? core::at(open, li) / reach : 0.0;
         const float switch_sky = !(reach > 0.0) || !(unit_lux > 0.0)       ? 0.0F
-                                 : sky_share < static_cast<double>(kRelitNoSky) ? kLampAlwaysOn
+                                 : sky_share < static_cast<double>(kRelitIndoorSky) ? kLampAlwaysOn
                                                                          : static_cast<float>(static_cast<double>(kPhotocellLux) / unit_lux / sky_share);
         // (at the bake's own time: its physical open sky and the open sky's lamps - the game's switch then)
         const bool on_in_bake = !candidate_kind(lamp.kind) || !(unit_lux > 0.0) ||
