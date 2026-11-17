@@ -315,52 +315,27 @@ struct FrameGenCounts {
 };
 [[nodiscard]] FrameGenCounts frame_generation_counts();
 // NOT ORIGINAL - per-pixel lighting and surface maps (vulkan_surface.h; docs/design/vulkan.md "Per-pixel lighting and
-// surface maps"): [Graphics] rt_pbr, rt_pbr_specular, rt_pbr_normal_strength, rt_pbr_objects. Off: no map is read and
-// every shader is as before. No ray tracing needed; with it the bake's sun (rt_sun.h) is the light the maps answer to.
-inline constexpr float kRtPbrRoughness = 0.7F;    // (a surface without a map)
-inline constexpr float kRtPbrF0 = 0.04F;          // (a dielectric's)
-inline constexpr float kRtPbrAmbientShare = 0.45F;
-inline constexpr float kRtPbrSkyDetail = 0.5F;
-inline constexpr float kRtPbrShadeLow = 0.35F;
-inline constexpr float kRtPbrShadeHigh = 0.8F;
-inline constexpr float kRtPbrDetailLow = 0.55F;
-inline constexpr float kRtPbrDetailHigh = 1.5F;
-inline constexpr float kRtPbrGameSun = 0.5F;
+// surface maps", "One light model"): [Graphics] rt_pbr, rt_pbr_objects. Off: no map is read and every shader is as
+// before. No ray tracing needed. (Round M: the light model is engine/gfx/rt_brdf.h's and every material value the
+// material table's - rt_material_table.h; the strengths rt_pbr_specular, rt_pbr_normal_strength, rt_relief_strength,
+// rt_characters_skin / _cloth / _hair are retired, and the bake's relighting by luma thresholds is gone.)
 inline constexpr float kRtReliefFadeStart = 0.5F; // (the map's level of detail - log2 texels a pixel - where relief fades)
 inline constexpr float kRtReliefFadeEnd = 2.5F;   // (... and where it is gone: its shift is under a pixel there)
-inline constexpr float kRtReliefShadow = 0.6F;    // (how dark the relief's own shadow from the sun is)
 struct RtPbrSettings {
     bool on = false;
-    float specular = 1.0F;        // rt_pbr_specular: the specular term's strength (0: none)
-    float normal_strength = 1.0F; // rt_pbr_normal_strength: the maps' normals' tilt (0: flat, 2: twice as steep)
-    float roughness = kRtPbrRoughness;        // the roughness of a surface without a map (objects lit per pixel)
-    float f0 = kRtPbrF0;                      // F0 without a map (dielectric)
-    float ambient_share = kRtPbrAmbientShare; // a: the share of a sunlit surface's baked light not from the sun
-    float sky_detail = kRtPbrSkyDetail;       // how much of a map's detail shows in the shade (toward the sky)
-    float shade_low = kRtPbrShadeLow;   // the bake's light level (luma of 2 x v0) at and below which a surface is in shade
-    float shade_high = kRtPbrShadeHigh; // ... and from which it is fully sunlit
-    float detail_low = kRtPbrDetailLow;   // the bake's scale's range (the map can darken a texel this much at most)
-    float detail_high = kRtPbrDetailHigh; // (and brighten it this much)
-    float game_sun = kRtPbrGameSun; // without a baked sun (no ray tracing): the game's shown sun's weight (0: none)
-    bool objects = true;            // rt_pbr_objects: objects lit by lights per pixel too
+    bool objects = true; // rt_pbr_objects: objects lit by lights per pixel too
     // (added by surface relief - vulkan_surface.h "Relief"; docs/design/vulkan.md "Surface relief") [Graphics] rt_relief:
-    // parallax occlusion mapping on the surface-mapped draws whose surface kind has relief (brick, stone, gravel, tiles,
-    // wood...); rt_relief_strength scales its depth (0.5 - 2). The rest: the fade by the map's level of detail and the
-    // relief's own shadow from the sun.
+    // parallax occlusion mapping on the surface-mapped draws whose material has relief (brick, stone, gravel, tiles,
+    // wood...), as deep as the material's relief (rt_material_table.h). The rest: the fade by the map's level of detail
+    // (sampling: the shift under a pixel).
     bool relief = false;
-    float relief_strength = 1.0F;
     float relief_fade_start = kRtReliefFadeStart;
     float relief_fade_end = kRtReliefFadeEnd;
-    float relief_shadow = kRtReliefShadow;
-    // (added for the characters - [Graphics] rt_characters, rt_characters_skin / _cloth / _hair; vulkan_surface.h
-    // "Characters"; docs/design/vulkan.md "Characters") the character models' surface maps used (tools/pbr_maps
-    // --models: the skaters', CAS parts', peds' textures as skin, cloth, denim, leather, rubber, hair) and their shading:
-    // skin's wrapped light with a red-shifted terminator and a faint translucency, cloth's sheen, hair's anisotropic
-    // highlight - each x its strength (0 - 2). Off: the models' maps aren't used (the characters as before).
+    // (added for the characters - [Graphics] rt_characters; vulkan_surface.h "Characters"; docs/design/vulkan.md
+    // "Characters") the character models' surface maps used (tools/pbr_maps --models: the skaters', CAS parts', peds'
+    // textures as skin, cloth, denim, leather, rubber, hair) and shaded as their materials (round M: skin's diffusion,
+    // cloth's sheen, hair's fibres - the material table's values). Off: the models' maps aren't used.
     bool characters = false;
-    float skin = 1.0F;
-    float cloth = 1.0F;
-    float hair = 1.0F;
 };
 void set_rt_pbr_settings(const RtPbrSettings& settings);
 [[nodiscard]] RtPbrSettings rt_pbr_settings();

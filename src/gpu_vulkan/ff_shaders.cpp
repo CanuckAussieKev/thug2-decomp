@@ -13,6 +13,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/mesh_formats.h"
+#include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_display.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -424,34 +425,46 @@ std::string coord_of(const FragmentKey& key, std::size_t stage)
 }
 
 // --- (NOT ORIGINAL - [Graphics] rt_pbr) the per-pixel lighting ------------------------------------------------------
-// (vulkan_surface.h; docs/design/vulkan.md "Per-pixel lighting and surface maps") A key with FragmentKey::surface set
-// works out the light per pixel and puts it where the program reads the vertex colour (v0), then adds a specular term:
+// (vulkan_surface.h; docs/design/vulkan.md "Per-pixel lighting and surface maps", "One light model") A key with
+// FragmentKey::surface set works out the light per pixel with round M's light model (engine/gfx/rt_brdf.h, its GLSL
+// twin pasted in: brdf_direct, brdf_ambient, brdf_hair_direct):
 //   - the normal: the vertex's (camera space, interpolated; a format without normals: the triangle's own, from the
-//     position's screen derivatives, toward the eye), bent by the surface map's tangent-space normal (kSurfaceMap)
-//     through a tangent frame made per pixel from the screen derivatives of the position and stage 0's texture
-//     coordinates: the gradients of u and v along the surface, (du/dx (dP/dy x N) + du/dy (N x dP/dx)) / det with det
-//     = N . (dP/dx x dP/dy) - only its sign kept, the frame scaled by its longer axis. A mirrored mapping turns the
-//     frame with it; no tangents are stored (the game's meshes have none, and the frame follows the CPU's skinning);
-//   - kSurfaceLit (objects): Direct3D 9's diffuse formula of vertex_lighting per pixel - the parts that don't depend on
-//     the normal come from the vertex shader - with the draw's lights;
-//   - without it (the world): the bake (the vertex colour) kept and scaled by how much more or less the bent normal
-//     faces the bake's sun than the surface does, (a + N'.L) / (a + N.L), where the bake is sunlit (its light level
-//     between shade.x and shade.y), and elsewhere by a softer one toward the sky, (1.5 + N'.up) / (1.5 + N.up), at
-//     sky.w; the ratio clamped to shade.z - shade.w;
-//   - specular: GGX (Smith-Schlick G with k = alpha / 2, Schlick's Fresnel with F0), pi x the BRDF x N.L - the
-//     convention in which the diffuse term is the light x N.L - per light (or the sun, where sunlit), the roughness the
-//     map's (B) or params.z, clamped to 0.08 - 1; added after the program, x params.x.
-// The names a later part may read (the relit mode, kSurfaceRelit): surface_n (the bent normal), surface_geo (the
-// surface's), surface_v (toward the eye), surface_rough, surface_v0, surface_specular.
+//     position's screen derivatives, toward the eye), bent by the surface map's tangent-space normal (kSurfaceMap) as
+//     the map holds it, through a tangent frame made per pixel from the screen derivatives of the position and stage
+//     0's texture coordinates: the gradients of u and v along the surface, (du/dx (dP/dy x N) + du/dy (N x dP/dx)) / det
+//     with det = N . (dP/dx x dP/dy) - only its sign kept, the frame scaled by its longer axis. A mirrored mapping
+//     turns the frame with it; no tangents are stored (the game's meshes have none, the frame follows the CPU's
+//     skinning);
+//   - the material: the albedo is what the draw's program makes of its textures under white light (v0 = 0.5 - the
+//     game's light 1), decoded to linear; the roughness the map's (B) or params.z; F0 params.w, or the albedo for a
+//     metal (params.x its metalness - the material table's kind, rt_material_table.h); skin's mean free path
+//     (scatter.rgb) with the surface's radius of curvature from the derivatives of the position and the normal; cloth's
+//     sheen (sheen);
+//   - the light (surface_finish, after the program):
+//       kSurfaceLit (objects, characters): each of the draw's lights, its colour decoded to linear light, through
+//         brdf_direct (hair: brdf_hair_direct along the strands); the parts of Direct3D 9's formula that don't depend
+//         on the normal (Ce + Ca (Ga + sum La)) as the ambient light;
+//       kSurfaceRelit (the relit world - its light store's words, rt_cel.h): the sun (sun_light per N.L toward sun.xyz,
+//         x the vertex's visibility - the shadows pass replaces it per pixel - x the relief's own shadow, only above the
+//         surface's own plane) through brdf_direct with the bent normal; the sky's, the bounce's and the lamps' light as
+//         an environment through brdf_ambient, its irradiance on the bent normal that of an even hemisphere round the
+//         surface's own normal, (1 + N'.N) / 2;
+//       the world without the store (the bake): the vertex colour decoded as the environment's light, the same way;
+//     the environment's specular is the light store's estimate, faded out where the reflections pass traces it (a
+//     texel smoother than params.y: vulkan_rt_reflections.h kReflectionRoughest - the pass's reflection fades in there);
+//   - the result is linear light, not clamped (in a linear frame; outside one it is encoded for the display and
+//     clamped) - the fog and the blend follow.
+// The names a later part may read: surface_n (the bent normal), surface_geo (the surface's), surface_v (toward the
+// eye), surface_rough, surface_v0.
 constexpr const char* kSurfaceBlock = R"(layout(set = 0, binding = 6, std140) uniform SurfaceUniforms {
     vec4 light_toward[8];
     vec4 light_colour[8];
     vec4 sun;
-    vec4 sun_colour;
-    vec4 sky;
+    vec4 sun_light;
+    vec4 scatter;
     vec4 params;
-    vec4 shade;
-    vec4 relit;
+    vec4 sheen;
+    vec4 spare;
 } s;
 // (NOT ORIGINAL - round O) the lit paths' colour: with the one light (v_surface_base.w -1) linear light summed on the
 // surface's colour and encoded once; else Direct3D's sum, held to 0 - 1
@@ -461,23 +474,6 @@ vec4 one_light_v0(vec4 base, vec4 cd, vec3 light)
         return vec4(display_from_linear(base.rgb + linear_from_display(cd.rgb) * light), clamp(cd.a, 0.0, 1.0));
     }
     return vec4(clamp(base.rgb + cd.rgb * light, 0.0, 1.0), cd.a);
-}
-float surface_ggx(vec3 n, vec3 v, vec3 l, float rough, float f0)
-{
-    float nl = max(dot(n, l), 0.0);
-    if (nl <= 0.0) return 0.0;
-    vec3 h = normalize(v + l);
-    float nv = max(dot(n, v), 1.0e-4);
-    float nh = max(dot(n, h), 0.0);
-    float vh = max(dot(v, h), 0.0);
-    float a = max(rough * rough, 0.0064);
-    float a2 = a * a;
-    float q = nh * nh * (a2 - 1.0) + 1.0;
-    float d = a2 / (3.14159265 * q * q);
-    float k = 0.5 * a;
-    float g = (nl / (nl * (1.0 - k) + k)) * (nv / (nv * (1.0 - k) + k));
-    float f = f0 + (1.0 - f0) * pow(1.0 - vh, 5.0);
-    return min(3.14159265 * d * g * f / (4.0 * nv), 16.0);
 })";
 
 // --- (added by cel shading - [Graphics] rt_cel) the light in bands -----------------------------------------------------
@@ -614,8 +610,8 @@ constexpr const char* kDetailBlock = R"(layout(set = 0, binding = 15, std140) un
 // (docs/design/vulkan.md "Surface relief") A key with kDetailRelief (with kSurfaceMap) moves stage 0's coordinates - and
 // the surface map's and the detail's - to where the view ray meets the map's height field (A: 0 the deepest, 1 the top):
 //   - the frame: the gradients of u and v along the surface, gu = (du/dx (dP/dy x N) + du/dy (N x dP/dx)) / det (as the
-//     per-pixel lighting's, the length kept); the depth in the eye's units D = relief.x x w / sqrt(|gu| W |gv| H) - the
-//     relief's texels over the map's texels a unit (W x H its size); the ray r = the eye position normalised, rn = -r.N;
+//     per-pixel lighting's, the length kept); the depth in the eye's units D = relief.x x w - the material's relief
+//     (rt_material_table.h, millimetres) in world units; the ray r = the eye position normalised, rn = -r.N;
 //     p = (gu.r, gv.r) D / rn: the coordinates' change from the height's top to its bottom along the ray;
 //   - the fade w = (1 - smoothstep(relief.y, relief.z, the map's level of detail)) x smoothstep(0.05, 0.2, rn): D goes
 //     to 0 with it, so the relief flattens smoothly far away and at grazing angles (no step, no swimming);
@@ -623,9 +619,9 @@ constexpr const char* kDetailBlock = R"(layout(set = 0, binding = 15, std140) un
 //     doesn't slide on average), steps down in n = int(mix(32, 8, rn)) layers until the height is at or above the ray's,
 //     then 5 halvings between the last layer above and the first below; the coordinates are the one below's. Every
 //     read is textureGrad with the coordinates' own derivatives (a step in the result is no step in the mip level);
-//   - the sun (the world's bake relit, kSurfaceLit off; relief.w > 0): from the hit toward the sun in 8 steps to the top,
-//     q = (gu.L, gv.L) D / max(L.N, 0.1) a unit of height; the most any read stands above the ray, x 4, clamped, x relief.w
-//     x w darkens the sun's N.L and its highlight.
+//   - the sun (the world's light store, kSurfaceLit off): from the hit toward the sun in 8 steps to the top,
+//     q = (gu.L, gv.L) D / max(L.N, 0.1) a unit of height; where any read stands above the ray the sun is hidden there
+//     (relief_shadow 0: a visibility - the sun's disc, 0.27 degrees across, is far sharper than the steps).
 // No depth is written (the polygon's own: the relief has no silhouette and casts no shadow on other things).
 constexpr const char* kDetailReliefBlock = R"(layout(set = 0, binding = 15, std140) uniform DetailUniforms {
     vec4 scale;
@@ -639,33 +635,17 @@ float relief_height(vec2 uv, vec2 dx, vec2 dy)
 })";
 // --- (added for the characters - [Graphics] rt_characters, vulkan_surface.h "Characters") skin, cloth and hair ---------
 // (docs/design/vulkan.md "Characters") A key with kDetailSkin / kDetailCloth / kDetailHair (with kSurfaceMap and
-// kSurfaceLit: a character model's surface map, lit by the draw's lights) changes how each light lands:
-//   - skin (k = character.x x the texel's skin weight, its weight followed by character.y): the light wrapped round the
-//     terminator per channel, w = (0.45, 0.2, 0.12) k - (N.L + w) / (1 + w), clamped: red reaches furthest into the
-//     shade, as light scattered under the skin does (N.L at k = 0) - and a faint translucency, (1, 0.35, 0.2) x 0.25 k x
-//     max(V.-L, 0)^4 x (1 - |N.V|): light from behind showing through the thin edges (ears, fingers, seen edge-on);
-//     the texel's skin weight: its colour against skin's (tools/pbr_maps models.ts skinTexel) with soft edges;
-//   - cloth's sheen (character.z, x (1 - the skin weight) on a garment with skin texels): 0.35 x (1 - N.V)^3 x
-//     (0.5 + 0.5 N.L) added to the light - a soft rim at grazing views, tinted by the cloth (the light is multiplied by
-//     the texture);
-//   - hair (character.z): Kajiya-Kay's highlight along the strand T (stage 0's u when character.w is 1, else v, from
-//     the per-pixel frame; shifted along the normal by the map's height - 0.5) - sin(T, H)^e x 0.4 x smoothstep(0, 0.2,
-//     N.L), e = 2 / roughness^4 (4 - 512) - in place of GGX's, x character.z (GGX's x (1 - character.z) below 1).
+// kSurfaceLit: a character model's surface map, lit by the draw's lights) shades the material as what it is - round M's
+// light model with the material table's values in SurfaceUniforms (rt_brdf.h): skin with its diffusion's wrap
+// (scatter), cloth with its sheen (sheen), hair with Marschner's lobes along the strands (scatter.w: 1 along stage 0's
+// u, else v). The block's `character` vector is unused (kept: the block's layout).
 constexpr const char* kDetailCharacterBlock = R"(layout(set = 0, binding = 15, std140) uniform DetailUniforms {
     vec4 scale;
     vec4 material;
     vec4 delight;
     vec4 relief;
     vec4 character;
-} d;
-float character_skin_weight(vec3 c)
-{
-    float order = smoothstep(-0.03, 0.0, c.r - c.g) * smoothstep(-0.03, 0.0, c.g - c.b);
-    float saturation = (c.r - c.b) / max(c.r, 1.0e-4);
-    float hue = (c.g - c.b) / max(c.r - c.b, 1.0e-4);
-    return order * smoothstep(0.06, 0.16, saturation) * (1.0 - smoothstep(0.7, 0.8, saturation)) *
-           smoothstep(0.03, 0.15, hue) * (1.0 - smoothstep(0.85, 0.97, hue)) * smoothstep(0.1, 0.2, c.r);
-})";
+} d;)";
 
 void detail_declarations(std::string& out, const FragmentKey& key)
 {
@@ -870,7 +850,7 @@ void relief_march(std::string& out, const FragmentKey& key)
               "            vec3 gu = (c1 * relief_dx.x + c2 * relief_dy.x) / det;\n"
               "            vec3 gv = (c1 * relief_dx.y + c2 * relief_dy.y) / det;\n"
               "            float texels = sqrt(length(gu) * size.x * length(gv) * size.y);\n"
-              "            if (texels > 0.0) {\n                float depth = d.relief.x * w / texels;\n"
+              "            if (texels > 0.0) {\n                float depth = d.relief.x * w;\n"
               "                vec2 p = vec2(dot(gu, r), dot(gv, r)) * (depth / rn);\n"
               "                int steps = int(mix(32.0, 8.0, rn));\n                float layer = 1.0 / float(steps);\n"
               "                float above = 1.0;\n                float below = 1.0;\n"
@@ -884,14 +864,14 @@ void relief_march(std::string& out, const FragmentKey& key)
               "                relief_uv += p * (0.5 - below);"});
     if ((key.surface & kSurfaceLit) == 0U) {
         add(out, {"                float ln = dot(s.sun.xyz, surface_geo);\n"
-                  "                if (d.relief.w > 0.0 && s.sun.w > 0.0 && ln > 0.0 && below < 1.0) {\n"
+                  "                if (s.sun.w > 0.0 && ln > 0.0 && below < 1.0) {\n"
                   "                    vec2 q = vec2(dot(gu, s.sun.xyz), dot(gv, s.sun.xyz)) * (depth / max(ln, 0.1));\n"
                   "                    float blocked = 0.0;\n"
                   "                    for (int i = 1; i <= 8; ++i) {\n"
                   "                        float rise = (1.0 - below) * float(i) / 8.0;\n"
                   "                        blocked = max(blocked, relief_height(relief_uv + q * rise, relief_dx, relief_dy) - "
                   "(below + rise));\n                    }\n"
-                  "                    relief_shadow = 1.0 - d.relief.w * w * clamp(blocked * 4.0, 0.0, 1.0);\n"
+                  "                    relief_shadow = blocked > 0.0 ? 0.0 : 1.0;\n"
                   "                }"});
     }
     add(out, {"            }\n        }\n    }"});
@@ -909,65 +889,22 @@ void surface_declarations(std::string& out, const FragmentKey& key)
         add(out, {"layout(set = 0, binding = 7) uniform sampler2D surface_map;"});
     }
     add(out, {kSurfaceBlock});
+    out += rt::brdf::brdf_glsl(); // (round M: the light model)
     if ((key.surface & kSurfaceCel) != 0U) {
         cel_declarations(out, key); // (added by cel shading)
+    }
+    if ((key.surface & kSurfaceRelit) != 0U && (key.surface & kSurfaceCel) == 0U && (key.trails & kTrailSnowTint) == 0U) {
+        add(out, {kCelVaryingsIn}); // (round M: the relit world's light store, its words 0 - 2)
     }
     if (key.detail != 0U) {
         detail_declarations(out, key); // (NOT ORIGINAL - rt_detail / rt_delight)
     }
 }
 
-// (added for the characters - kDetailCharacterBlock's comment has the formulas) The draw's lights on skin, cloth or
-// hair: surface_v0 and surface_specular as the lit path's, each light's diffuse and highlight changed.
-void character_lighting(std::string& out, const FragmentKey& key)
-{
-    const bool skin = (key.detail & kDetailSkin) != 0U;
-    const bool cloth = (key.detail & kDetailCloth) != 0U;
-    const bool hair = (key.detail & kDetailHair) != 0U;
-    add(out, {"    vec3 surface_light = vec3(0.0);\n    float character_skin = 0.0;\n    float character_sheen = 0.0;"});
-    if (skin) {
-        add(out, {"    float character_weight = character_skin_weight(texture(t0_map, ", coord_of(key, 0), ").rgb);\n"
-                  "    character_skin = d.character.x * mix(1.0, character_weight, d.character.y);"});
-    }
-    if (cloth) {
-        add(out, {"    character_sheen = d.character.z", skin ? " * (1.0 - character_weight);" : ";"});
-    }
-    add(out, {"    vec3 character_wrap = vec3(0.45, 0.2, 0.12) * character_skin;\n"
-              "    float character_nv = max(dot(surface_n, surface_v), 0.0);\n"
-              "    float character_thin = 1.0 - abs(dot(surface_geo, surface_v));\n"
-              "    float character_rim = 0.35 * character_sheen * (1.0 - character_nv) * (1.0 - character_nv) * "
-              "(1.0 - character_nv);"});
-    if (hair) {
-        add(out, {"    vec3 character_strand = mix(surface_b, surface_t, d.character.w);\n"
-                  "    bool character_kk = dot(character_strand, character_strand) > 1.0e-12;\n"
-                  "    if (character_kk) character_strand = normalize(normalize(character_strand) + surface_n * "
-                  "((surface_height - 0.5) * 0.6));\n"
-                  "    float character_e = clamp(2.0 / max(pow(surface_rough, 4.0), 1.0e-4), 4.0, 512.0);"});
-    }
-    add(out, {"    for (int i = 0; i < 8; ++i) {\n"
-              "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
-              "        float nl = dot(surface_n, l);\n"
-              "        vec3 diffuse = clamp((vec3(nl) + character_wrap) / (1.0 + character_wrap), 0.0, 1.0);\n"
-              "        diffuse += vec3(1.0, 0.35, 0.2) * (0.25 * character_skin * character_thin * "
-              "pow(max(dot(surface_v, -l), 0.0), 4.0));\n"
-              "        diffuse += vec3(character_rim * (0.5 + 0.5 * nl));\n"
-              "        surface_light += s.light_colour[i].rgb * diffuse;\n"
-              "        float highlight = surface_ggx(surface_n, surface_v, l, surface_rough, s.params.w);"});
-    if (hair) {
-        add(out, {"        if (character_kk) {\n"
-                  "            float th = dot(character_strand, normalize(l + surface_v));\n"
-                  "            float kk = pow(sqrt(max(1.0 - th * th, 0.0)), character_e) * 0.4 * smoothstep(0.0, 0.2, nl);\n"
-                  "            highlight = highlight * max(1.0 - d.character.z, 0.0) + kk * d.character.z;\n"
-                  "        }"});
-    }
-    add(out, {"        surface_specular += max(s.light_colour[i].rgb, vec3(0.0)) * highlight;\n    }\n"
-              "    vec4 surface_v0 = one_light_v0(v_surface_base, v_surface_cd, surface_light);"});
-}
-
 void surface_lighting(std::string& out, const FragmentKey& key)
 {
     if ((key.surface & kSurfaceCelHull) != 0U) { // (added by cel shading: the hull is ink - no light)
-        add(out, {"    vec4 surface_v0 = v_diffuse;\n    vec3 surface_specular = vec3(0.0);"});
+        add(out, {"    vec4 surface_v0 = v_diffuse;"});
         return;
     }
     add(out, {"    vec3 surface_eye = v_surface_eye;\n    vec3 surface_dx = dFdx(surface_eye);\n"
@@ -978,9 +915,15 @@ void surface_lighting(std::string& out, const FragmentKey& key)
               ": surface_face;\n"
               "    vec3 surface_n = surface_geo;\n    vec3 surface_v = normalize(-surface_eye);\n"
               "    float surface_rough = s.params.z;"});
-    const bool hair = (key.detail & kDetailHair) != 0U; // (added for the characters: the strands' frame and height kept)
+    if ((key.detail & kDetailSkin) != 0U) {
+        // (round M) the surface's radius of curvature, millimetres: how far the position moves over how far the normal
+        // turns between neighbouring pixels (sun_light.w: millimetres a world unit) - skin's diffusion wraps by it
+        add(out, {"    float surface_curvature = length(fwidth(surface_eye)) / max(length(fwidth(surface_geo)), 1.0e-6) * "
+                  "s.sun_light.w;"});
+    }
+    const bool hair = (key.detail & kDetailHair) != 0U; // (added for the characters: the strands' frame kept)
     if (hair) {
-        add(out, {"    vec3 surface_t = vec3(0.0);\n    vec3 surface_b = vec3(0.0);\n    float surface_height = 0.5;"});
+        add(out, {"    vec3 surface_t = vec3(0.0);\n    vec3 surface_b = vec3(0.0);"});
     }
     const bool detail = (key.detail & kDetailMaterial) != 0U; // (NOT ORIGINAL - rt_detail)
     if (detail) {
@@ -996,11 +939,8 @@ void surface_lighting(std::string& out, const FragmentKey& key)
         } else {
             add(out, {"    {\n        vec2 uv = ", coord_of(key, 0), ";\n        vec4 m = texture(surface_map, uv);"});
         }
-        if (hair) {
-            add(out, {"        surface_height = m.a;"});
-        }
         add(out, {"        surface_rough = m.b;\n        vec2 xy = (m.rg * 255.0 - 127.5) / 127.5;\n"
-                  "        vec3 nt = vec3(xy * s.params.y, sqrt(max(1.0 - dot(xy, xy), 0.0)));\n",
+                  "        vec3 nt = vec3(xy, sqrt(max(1.0 - dot(xy, xy), 0.0)));\n",
                   relief ? "        vec2 uv_dx = relief_dx;\n        vec2 uv_dy = relief_dy;"
                          : "        vec2 uv_dx = dFdx(uv);\n        vec2 uv_dy = dFdy(uv);"});
         if (detail) {
@@ -1028,7 +968,7 @@ void surface_lighting(std::string& out, const FragmentKey& key)
         add(out, {"    surface_rough = mix(surface_rough, d.material.x, d.material.w) + (detail_m.b - 0.5) * 2.0 * "
                   "d.material.y * detail_w;"});
     }
-    add(out, {"    surface_rough = clamp(surface_rough, 0.08, 1.0);\n    vec3 surface_specular = vec3(0.0);"});
+    add(out, {"    surface_rough = clamp(surface_rough, 0.0, 1.0);"});
     if ((key.trails & kTrailSnow) != 0U) {
         // (NOT ORIGINAL - the snow: what it covers loses its own relief and gloss - the bricks' joints, the asphalt's
         // grain - under it: the surface's own shape, the snow's roughness)
@@ -1039,32 +979,83 @@ void surface_lighting(std::string& out, const FragmentKey& key)
         cel_lighting(out, key); // (added by cel shading)
         return;
     }
-    if ((key.surface & kSurfaceLit) != 0U && (key.detail & kDetailCharacter) != 0U) {
-        character_lighting(out, key); // (added for the characters)
-        return;
+    // (round M) the program makes the albedo under white light (the game's light 1: v0 0.5); surface_finish lights it
+    add(out, {"    vec4 surface_v0 = vec4(0.5, 0.5, 0.5, ", (key.surface & kSurfaceLit) != 0U ? "v_surface_cd.a" : "v_diffuse.a",
+              ");"});
+}
+
+// (round M - the per-pixel lighting's comment has the model) After the program: `colour` (its albedo under white
+// light, display-referred) lit - linear light in a linear frame, else encoded for the display.
+void surface_finish(std::string& out, const FragmentKey& key)
+{
+    add(out, {"    vec3 surface_albedo = linear_from_display(clamp(colour.rgb, 0.0, 1.0));\n"
+              "    float surface_nv = max(dot(surface_n, surface_v), 1.0e-4);\n"
+              "    float surface_hemi = 0.5 + 0.5 * dot(surface_n, surface_geo);\n"
+              "    vec3 surface_out = vec3(0.0);"});
+    // a material from an albedo: a metal's F0 is its colour, its diffuse none
+    add(out, {"    BrdfMaterial surface_m = brdf_material(surface_albedo * (1.0 - s.params.x), mix(vec3(s.params.w), "
+              "surface_albedo, s.params.x), surface_rough);"});
+    if ((key.detail & kDetailSkin) != 0U) {
+        add(out, {"    surface_m.scatter_mm = s.scatter.rgb;\n    surface_m.curvature_mm = surface_curvature;"});
     }
+    if ((key.detail & kDetailCloth) != 0U) {
+        add(out, {"    surface_m.sheen = s.sheen.rgb;\n    surface_m.sheen_roughness = s.sheen.w;"});
+    }
+    // the environment's specular: the light store's estimate, or the reflections pass's traced one (params.y)
+    add(out, {"    float surface_env = s.params.y > 0.0 ? smoothstep(0.75 * s.params.y, s.params.y, surface_rough) : 1.0;"});
     if ((key.surface & kSurfaceLit) != 0U) {
-        add(out, {"    vec3 surface_light = vec3(0.0);\n    for (int i = 0; i < 8; ++i) {\n"
+        const bool hair = (key.detail & kDetailHair) != 0U;
+        if (hair) {
+            add(out, {"    vec3 surface_strand = mix(surface_b, surface_t, s.scatter.w);\n"
+                      "    bool surface_fibre = dot(surface_strand, surface_strand) > 1.0e-12;\n"
+                      "    if (surface_fibre) surface_strand = normalize(surface_strand);"});
+        }
+        // (round O's one light: v_surface_base.w -1 - the lights and the base are linear light already)
+        add(out, {"    bool surface_one = v_surface_base.w < -0.5;\n"
+                  "    vec3 surface_ambient = surface_one ? v_surface_base.rgb : linear_from_display(v_surface_base.rgb);\n"
+                  "    BrdfMaterial surface_lit = surface_m;\n"
+                  "    surface_lit.albedo *= linear_from_display(v_surface_cd.rgb);\n"
+                  "    surface_out = brdf_ambient(surface_m, surface_nv, surface_ambient * surface_hemi, surface_ambient * "
+                  "surface_env);\n"
+                  "    for (int i = 0; i < 8; ++i) {\n"
                   "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
-                  "        surface_light += s.light_colour[i].rgb * max(dot(surface_n, l), 0.0);\n"
-                  "        surface_specular += max(s.light_colour[i].rgb, vec3(0.0)) * surface_ggx(surface_n, surface_v, l, "
-                  "surface_rough, s.params.w);\n    }\n"
-                  "    vec4 surface_v0 = one_light_v0(v_surface_base, v_surface_cd, surface_light);"});
-        return;
+                  "        vec3 light = surface_one ? max(s.light_colour[i].rgb, vec3(0.0)) : linear_from_display(s.light_colour[i].rgb);"});
+        if (hair) {
+            add(out, {"        if (surface_fibre) {\n"
+                      "            surface_out += brdf_hair_direct(surface_lit.albedo, surface_rough, surface_strand, surface_v, l, "
+                      "light);\n            continue;\n        }"});
+        }
+        add(out, {"        surface_out += brdf_direct(surface_lit, surface_n, surface_v, l, light);\n    }"});
+    } else if ((key.surface & kSurfaceRelit) != 0U) {
+        const bool relief = (key.detail & kDetailRelief) != 0U && (key.surface & kSurfaceMap) != 0U;
+        add(out, {"    const float surface_word = 255.0 / 128.0;\n"
+                  "    if (v_cel_residual.a > 0.5) {\n"
+                  "        vec3 tint = v_cel_tint.rgb * surface_word;\n"
+                  "        surface_m.albedo *= tint;\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n"
+                  "        vec3 env = v_cel_light.rgb * surface_word + v_cel_residual.rgb * surface_word / max(tint, vec3(1.0 / "
+                  "128.0));\n"
+                  "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env);\n"
+                  "        if (s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
+                  "            surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * "
+                  "v_cel_tint.a",
+                  relief ? " * relief_shadow" : "", ");\n        }\n"
+                  "    } else {\n"
+                  "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word);\n"
+                  "        surface_out = brdf_ambient(surface_m, surface_nv, light * surface_hemi, light * surface_env);\n"
+                  "    }"});
+    } else {
+        // the bake: its light (the vertex colour doubled, display-referred) as the environment's
+        add(out, {"    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0);\n"
+                  "    surface_out = brdf_ambient(surface_m, surface_nv, surface_bake * surface_hemi, surface_bake * surface_env);"});
     }
-    add(out, {"    vec3 surface_bake = v_diffuse.rgb;\n"
-              "    float surface_level = dot(surface_bake * 2.0, vec3(0.2126, 0.7152, 0.0722));\n"
-              "    float surface_sunlit = s.sun.w * smoothstep(s.shade.x, s.shade.y, surface_level);\n"
-              "    float surface_a = max(s.sun_colour.w, 0.05);\n",
-              relief ? "    float surface_sun_detail = (surface_a + max(dot(surface_n, s.sun.xyz), 0.0) * relief_shadow) / "
-                     : "    float surface_sun_detail = (surface_a + max(dot(surface_n, s.sun.xyz), 0.0)) / ",
-              "(surface_a + max(dot(surface_geo, s.sun.xyz), 0.0));\n"
-              "    float surface_sky_detail = (1.5 + dot(surface_n, s.sky.xyz)) / (1.5 + dot(surface_geo, s.sky.xyz));\n"
-              "    float surface_detail = mix(mix(1.0, surface_sky_detail, s.sky.w), surface_sun_detail, surface_sunlit);\n"
-              "    surface_detail = clamp(surface_detail, s.shade.z, s.shade.w);\n"
-              "    vec4 surface_v0 = vec4(clamp(surface_bake * surface_detail, 0.0, 1.0), v_diffuse.a);\n"
-              "    surface_specular = s.sun_colour.rgb * surface_ggx(surface_n, surface_v, s.sun.xyz, surface_rough, "
-              "s.params.w) * surface_sunlit", relief ? " * relief_shadow;" : ";"});
+    add(out, {"    colour.rgb = frame_linear() ? surface_out : clamp(display_from_linear(surface_out), 0.0, 1.0);"});
+}
+
+// Whether the key's colour leaves surface_finish as light already (not clamped, not decoded again): a surface lit per
+// pixel, not in bands, not the hull, not water (water's shading takes display colours: it gets the encoded result).
+bool surface_light_out(const FragmentKey& key)
+{
+    return (key.surface & kSurfaceLighting) != 0U && (key.surface & (kSurfaceCel | kSurfaceCelHull)) == 0U && key.water == 0U;
 }
 
 void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sampled)
@@ -1516,11 +1507,8 @@ void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled
         ps_fixed(out, key);
     }
     add(out, {"    vec4 colour = r0;"});
-    if ((key.detail & kDetailMaterial) != 0U) { // (NOT ORIGINAL - rt_detail: a metal's highlight takes its colour)
-        add(out, {"    colour.rgb += surface_specular * s.params.x * mix(vec3(1.0), t0.rgb / max(max(t0.r, max(t0.g, t0.b)), "
-                  "0.04), d.material.z);"});
-    } else if (key.surface != 0) {
-        add(out, {"    colour.rgb += surface_specular * s.params.x;"});
+    if ((key.surface & kSurfaceLighting) != 0U && (key.surface & (kSurfaceCel | kSurfaceCelHull)) == 0U) {
+        surface_finish(out, key); // (round M: the light model)
     }
     if ((key.surface & kSurfaceCelHull) != 0U) {
         add(out, {"    colour.rgb = cel_ink(clamp(colour.rgb, 0.0, 1.0));"}); // (added by cel shading: the outline)
@@ -1633,13 +1621,16 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     fragment_declarations(out, key, sampled);
     add(out, {"void main()\n{"});
     fragment_program(out, key, sampled);
-    add(out, {"    colour = clamp(colour, 0.0, 1.0);"});
+    // (round M: a surface lit per pixel leaves the program as light - its alpha alone clamped)
+    add(out, {surface_light_out(key) ? "    colour.a = clamp(colour.a, 0.0, 1.0);" : "    colour = clamp(colour, 0.0, 1.0);"});
     const bool water = key.water != 0U; // (NOT ORIGINAL - rt_water, water_shader.h)
     if (water) {
         add(out, {"    float water_alpha = colour.a;\n    colour = water_shade(colour, t0, ", coord_of(key, 0),
                   ", water_alpha);"});
     }
-    fragment_linear_output(out);
+    if (!surface_light_out(key)) {
+        fragment_linear_output(out);
+    }
     fragment_fog(out, key);
     fragment_alpha_test(out, key);
     if (water) {

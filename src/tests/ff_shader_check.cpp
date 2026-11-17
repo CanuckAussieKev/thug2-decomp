@@ -296,6 +296,18 @@ void add_surface_keys(ff_check::KeySets& sets)
                 ++added;
             }
             sets.pairs.push_back(key);
+            if ((key.fragment.surface & render::vulkan::kSurfaceLit) == 0U) {
+                // (round M) the relit world's draw: the light store's words read and lit by the light model (the stream
+                // at binding 2 - modules only, as the cel stream's)
+                ShaderKey relit = key;
+                relit.fragment.surface = static_cast<uint8_t>(relit.fragment.surface | render::vulkan::kSurfaceRelit);
+                relit.vertex.surface = static_cast<uint8_t>(relit.vertex.surface | render::vulkan::kVertexCelStream |
+                                                            render::vulkan::kVertexRelitColour);
+                sets.vertex.insert(relit.vertex);
+                if (sets.fragment.insert(relit.fragment).second) {
+                    ++added;
+                }
+            }
         }
     }
     text::print("surface: %u fragment keys lit per pixel added\n", static_cast<unsigned>(added));

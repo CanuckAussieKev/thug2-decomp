@@ -357,6 +357,7 @@ inline constexpr const char* kRetired = "No longer used";
 inline constexpr const char* kRetiredShafts = "Light shafts are part of Volumetric fog now";
 inline constexpr const char* kRetiredPhysical = "The light is physical now"; // (the physical air - README)
 inline constexpr const char* kRetiredLinearFrame = "Always on now"; // (round F, a linear frame - README)
+inline constexpr const char* kRetiredMaterials = "Set by the material now"; // (round M, the material table - README)
 inline constexpr const char* kRetiredWaves = "Waves follow the wind and the water now"; // (the physical waves - README)
 inline constexpr const char* kRetiredOneLight = "Set by the level's light now"; // (round O, one light - README)
 inline constexpr const char* kNotAChoice = "Not a choice - the default is used";
