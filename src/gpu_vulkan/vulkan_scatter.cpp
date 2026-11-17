@@ -80,10 +80,7 @@ constexpr uint32_t kBindingCount = 11;
 constexpr float kSunReach = 1.0e5F;     // (units: a sun ray's length)
 constexpr uint32_t kSunRayMask = 0x07U; // (what casts the sun's shadows)
 constexpr std::size_t kLightBytes = 8;
-constexpr float kRanks = 256.0F;
-constexpr float kHalf = 0.5F;
 constexpr uint32_t kByte = 0xFFU;
-constexpr float kGrowBand = 0.08F;
 constexpr double kWindClockWraps = 3600.0;
 constexpr float kClipSpan = 2.0F;
 constexpr double kBytesPerMegabyte = 1024.0 * 1024.0;
@@ -115,9 +112,7 @@ std::string constants_source()
     define("ATLAS_COLUMNS", static_cast<float>(scatter::kDecalVariants));
     define("ATLAS_ROWS", static_cast<float>(scatter::kDecalKinds));
     define("ATLAS_TEXELS", static_cast<float>(scatter::kDecalTile));
-    define("KEEP_POWER", kClutterKeepPower);
-    define("GROW_BAND", kGrowBand);
-    define("FADE_START", kClutterFadeStart);
+    define("LEAST_PIXELS", kClutterLeastPixels);
     define("SUN_REACH", kSunReach);
     out += "#define SUN_MASK " + std::to_string(kSunRayMask) + "u\n";
     // (round W2) the items' materials (rt_material_table.h)
@@ -157,7 +152,7 @@ layout(std140, set = 0, binding = 4) uniform Params {
     mat4 vp;               // D3D's row-vector matrix as stored: vp * v is its v x M
     mat4 vp_before;        // the frame before's, unjittered (the motion)
     vec4 camera;           // xyz; w: the wind's clock (seconds)
-    vec4 lod;              // x: the clutter's distance; y: its near distance; z: the share kept's scale; w: unused
+    vec4 lod;              // x: the clutter's range; y: the focal length (pixels); z, w: unused
     vec4 rect;             // the viewport: x, y, width, height (pixels)
     vec4 offsets;          // x, y: Direct3D 9's half pixel (1 / the size); z, w: the jitter (clip space)
     vec4 depth_projection; // P22, P32, P23, P33
@@ -299,14 +294,8 @@ const uint KIND_CAN = 2u;
 const uint KIND_WEED = 3u;
 const uint KIND_PEBBLE = 4u;
 
-float keep_at(float d)
-{
-    float near = p.lod.y;
-    float k = d <= near ? 1.0 : pow(near / d, KEEP_POWER);
-    return k * p.lod.z;
-}
-
-float fade_at(float d) { return 1.0 - smoothstep(FADE_START * p.lod.x, p.lod.x, d); }
+// (vulkan_scatter.h clutter_drawn's twin)
+bool drawn_at(float height, float d) { return d < p.lod.x && height * p.lod.y >= LEAST_PIXELS * d; }
 )";
 
 // (round W2) The sun's visibility: each chosen item's ray toward the sun or the moon from just above its root (ray
@@ -380,7 +369,6 @@ void main()
     vec4 a = items[index * 2u];
     vec4 b = items[index * 2u + 1u];
     uint packed = floatBitsToUint(a.w);
-    float rank = (float(packed & 255u) + 0.5) / 256.0;
     uint kind = (packed >> 8u) & 15u;
     float variant = float((packed >> 12u) & 15u) / 15.0;
     float turn = float((packed >> 16u) & 255u) / 256.0 * TAU;
@@ -388,8 +376,7 @@ void main()
     vec3 root = a.xyz;
     float seen = uintBitsToFloat(lights[index].x);
     float d = distance(root, p.camera.xyz);
-    float grow = clamp((keep_at(d) - rank) / GROW_BAND, 0.0, 1.0);
-    float scale = b.x * fade_at(d) * grow;
+    float scale = drawn_at(b.x, d) ? b.x : 0.0;
     uint vertex = min(kind, 4u) * MESH_VERTICES + uint(gl_VertexIndex);
     vec4 m = meshes[vertex * 2u];
     vec4 n = meshes[vertex * 2u + 1u];
@@ -633,14 +620,6 @@ ScatterSink& sink_instance()
     return instance;
 }
 
-float smoothstep(float low, float high, float value)
-{
-    constexpr float kThree = 3.0F;
-    constexpr float kTwo = 2.0F;
-    const float along = std::clamp((value - low) / (high - low), 0.0F, 1.0F);
-    return along * along * (kThree - (kTwo * along));
-}
-
 } // namespace
 
 // --- settings ----------------------------------------------------------------------------------------------------
@@ -699,21 +678,23 @@ ScatterView scatter_view(const rt::ViewDrawn& view)
         }
     }
     made.camera = view.camera.position;
+    made.range = clutter_range(graphics_options::get_pull().lod_distance_scale_);
+    constexpr std::size_t kRowY = 1;
+    made.focal_pixels = core::at(core::at(view.camera.projection, kRowY), kRowY) *
+                        static_cast<float>(core::at(view.rect, 3)) * 0.5F;
     made.seconds = static_cast<float>(std::fmod(view.game_seconds, kWindClockWraps));
     made.wind = static_cast<float>(wind::speed_at_height(wind::kNearGround));
     return made;
 }
 
-float clutter_keep(const ScatterView& view, float distance)
+float clutter_range(float lod_distance_scale)
 {
-    const float full = kClutterDistance * kClutterNearShare;
-    const float keep = distance <= full ? 1.0F : std::pow(full / distance, kClutterKeepPower);
-    return keep * view.keep_scale;
+    return graphics_options::get_scaled(kClutterLodDistance, lod_distance_scale);
 }
 
-float clutter_fade(float distance)
+bool clutter_drawn(float height, float distance, float range, float focal_pixels)
 {
-    return 1.0F - smoothstep(kClutterFadeStart * kClutterDistance, kClutterDistance, distance);
+    return distance < range && height * focal_pixels >= kClutterLeastPixels * distance;
 }
 
 float decal_weight(const scatter::DecalVertex& vertex)
@@ -805,23 +786,6 @@ float distance_to_box(const scatter::Tile& tile, const Vec3& point)
     return std::sqrt(sum);
 }
 
-uint32_t kept_in_tile(const scatter::Scatter& made, const scatter::Tile& tile, float keep)
-{
-    const float limit = std::min(keep, 1.0F) * kRanks;
-    uint32_t low = 0;
-    uint32_t high = tile.item_count;
-    while (low < high) {
-        const uint32_t middle = low + ((high - low) / 2);
-        const auto rank = static_cast<float>(core::at(made.items, tile.first_item + middle).packed & kByte);
-        if (rank + kHalf < limit) {
-            low = middle + 1;
-        } else {
-            high = middle;
-        }
-    }
-    return low;
-}
-
 void add_draw(std::vector<ScatterDraw>* draws, bool* last_whole, uint32_t first, uint32_t count, bool whole)
 {
     if (*last_whole && !draws->empty() && draws->back().first + draws->back().count == first) {
@@ -839,17 +803,15 @@ std::vector<ScatterDraw> clutter_draws_at(const scatter::Scatter& made, const Sc
     bool last_whole = false;
     for (const scatter::Tile& tile : made.tiles) {
         const float closest = distance_to_box(tile, view.camera);
-        if (tile.item_count == 0 || closest >= kClutterDistance || outside_view(tile, view, kItemReach)) {
+        const float tallest = core::at(tile.high, 1) - core::at(tile.low, 1);
+        if (tile.item_count == 0 || closest >= view.range ||
+            (view.focal_pixels > 0.0F && tallest * view.focal_pixels < kClutterLeastPixels * closest) ||
+            outside_view(tile, view, kItemReach)) {
             last_whole = false;
             continue;
         }
-        const uint32_t count = kept_in_tile(made, tile, clutter_keep(view, closest));
-        if (count == 0) {
-            last_whole = false;
-            continue;
-        }
-        *items += count;
-        add_draw(&draws, &last_whole, tile.first_item, count, count == tile.item_count);
+        *items += tile.item_count;
+        add_draw(&draws, &last_whole, tile.first_item, tile.item_count, true);
     }
     return draws;
 }
@@ -872,15 +834,9 @@ std::vector<ScatterDraw> plan_decal_draws(const scatter::Scatter& made, const Sc
     return draws;
 }
 
-std::vector<ScatterDraw> plan_clutter_draws(const scatter::Scatter& made, ScatterView* view, uint32_t* items)
+std::vector<ScatterDraw> plan_clutter_draws(const scatter::Scatter& made, const ScatterView& view, uint32_t* items)
 {
-    view->keep_scale = 1.0F;
-    std::vector<ScatterDraw> draws = clutter_draws_at(made, *view, items);
-    if (*items > kClutterMostDrawn) {
-        view->keep_scale = static_cast<float>(kClutterMostDrawn) / static_cast<float>(*items);
-        draws = clutter_draws_at(made, *view, items);
-    }
-    return draws;
+    return clutter_draws_at(made, view, items);
 }
 
 namespace {
@@ -1464,7 +1420,7 @@ ParamsBlock params_for(const Backend& state, const ViewPlan& plan, const rt::Vie
     }
     block.camera = {core::at(plan.shape.camera, 0), core::at(plan.shape.camera, 1), core::at(plan.shape.camera, 2),
                     plan.shape.seconds};
-    block.lod = {kClutterDistance, kClutterDistance * kClutterNearShare, plan.shape.keep_scale, 0.0F};
+    block.lod = {plan.shape.range, plan.shape.focal_pixels, 0.0F, 0.0F};
     block.rect = {static_cast<float>(core::at(plan.rect, 0)), static_cast<float>(core::at(plan.rect, 1)),
                   static_cast<float>(core::at(plan.rect, 2)), static_cast<float>(core::at(plan.rect, 3))};
     block.offsets = {core::at(plan.rect, 2) != 0 ? 1.0F / static_cast<float>(core::at(plan.rect, 2)) : 0.0F,
@@ -1831,7 +1787,7 @@ bool record_clutter_pass(Backend& state, const rt::ViewDrawn& view)
     }
     plan.motion =
         motion_wanted(state, core::at(state.targets, 0), plan.colour) && state.motion.image.image != VK_NULL_HANDLE;
-    plan.draws = plan_clutter_draws(*own.scatter, &plan.shape, &plan.count);
+    plan.draws = plan_clutter_draws(*own.scatter, plan.shape, &plan.count);
     update_air_map(state, view.camera.position); // (round W: the level's air round the camera)
     plan.air = air_map(state).origin;
     plan.light = update_light_window(state, view.camera.position); // (round W2: the one light round the camera)

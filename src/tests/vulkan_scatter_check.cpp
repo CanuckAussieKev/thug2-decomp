@@ -49,6 +49,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/scatter.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -792,6 +793,100 @@ void check_far_decals(Tally* tally)
     (void)vk::plan_decal_draws(made, vk::scatter_view(away), &away_vertices);
     tally->check(away_vertices == 0,
                  text::format("looking away from the road: %u decal vertices planned", away_vertices));
+}
+
+// --- the clutter's distance (the clutter-LOD round) ------------------------------------------------------------
+
+// A field of items: `tiles` x `tiles` tiles of `tile` units from z 0 (centred on x), `per_side` x `per_side` pebbles of
+// `height` units each - every tile's items in its own run.
+std::shared_ptr<scatter::Scatter> item_field(int tiles, int per_side, float tile, float height)
+{
+    auto field = std::make_shared<scatter::Scatter>();
+    const float half = tile * static_cast<float>(tiles) / 2.0F;
+    const float spacing = tile / static_cast<float>(per_side);
+    constexpr uint32_t kPebble = 4;
+    for (int row = 0; row < tiles; ++row) {
+        for (int column = 0; column < tiles; ++column) {
+            const float tx = (static_cast<float>(column) * tile) - half;
+            const float tz = static_cast<float>(row) * tile;
+            const auto first = static_cast<uint32_t>(field->items.size());
+            for (int k = 0; k < per_side * per_side; ++k) {
+                const auto rank = static_cast<uint32_t>(k) & 0xFFU;
+                field->items.push_back({.root = {tx + (static_cast<float>(k % per_side) * spacing), 0.0F,
+                                                 tz + (static_cast<float>(k / per_side) * spacing)},
+                                        .packed = rank | (kPebble << scatter::kItemKindShift),
+                                        .size = height,
+                                        .tilt = 0.0F,
+                                        .spare = {}});
+            }
+            field->tiles.push_back({.low = {tx, 0.0F, tz},
+                                    .high = {tx + tile, height, tz + tile},
+                                    .first_vertex = 0,
+                                    .vertex_count = 0,
+                                    .first_item = first,
+                                    .item_count = static_cast<uint32_t>(field->items.size()) - first});
+        }
+    }
+    return field;
+}
+
+// The clutter follows the game's rule for its small objects: every item at its full size within lod_dist2 (1,500 units)
+// x lod_distance_scale, none thinned; beyond only sub-pixel items left out.
+void check_clutter_lod(Tally* tally)
+{
+    text::print("the clutter's distance:\n");
+    tally->check(vk::kClutterLodDistance == 1500.0F && vk::clutter_range(1.0F) == 1500.0F &&
+                     vk::clutter_range(2.0F) == 3000.0F && vk::clutter_range(0.5F) == 750.0F,
+                 text::format("the range: the game's default lod_dist2 (%.0f) x lod_distance_scale (2: %.0f)",
+                              static_cast<double>(vk::clutter_range(1.0F)), static_cast<double>(vk::clutter_range(2.0F))));
+    constexpr float kFocal = kVerticalScale * 720.0F; // (1440 lines)
+    constexpr float kPebble = 3.0F;
+    const float range = vk::clutter_range(1.0F);
+    tally->check(vk::clutter_drawn(kPebble, 10.0F, range, kFocal) && vk::clutter_drawn(kPebble, range - 1.0F, range, kFocal) &&
+                     !vk::clutter_drawn(kPebble, range, range, kFocal),
+                 "a pebble drawn from the camera to the range, not at it");
+    // the switch to nothing by size happens below kClutterLeastPixels (sub-pixel), at any range
+    const float far_range = vk::clutter_range(8.0F);
+    const float gone = kPebble * kFocal / vk::kClutterLeastPixels;
+    tally->check(vk::clutter_drawn(kPebble, gone * 0.99F, far_range, kFocal) &&
+                     !vk::clutter_drawn(kPebble, gone * 1.01F, far_range, kFocal) && vk::kClutterLeastPixels < 1.0F,
+                 text::format("lod_distance_scale 8: a %.0f-unit pebble leaves at %.0f units, %.2f pixels tall",
+                              static_cast<double>(kPebble), static_cast<double>(gone),
+                              static_cast<double>(vk::kClutterLeastPixels)));
+    // the plan: every tile in view and within the range, whole (no item thinned)
+    constexpr int kTiles = 8;
+    constexpr int kPerSide = 10;
+    constexpr float kTile = 500.0F;
+    const auto field = item_field(kTiles, kPerSide, kTile, kPebble);
+    const render::rt::ViewDrawn view_drawn =
+        view_of({.eye = {0.0F, 70.0F, -50.0F}, .at = {0.0F, 0.0F, 800.0F}, .width = 2560, .height = 1440});
+    for (const float scale : {1.0F, 2.0F, 4.0F}) {
+        vk::ScatterView view = vk::scatter_view(view_drawn);
+        view.range = vk::clutter_range(scale);
+        uint32_t expected = 0;
+        for (const scatter::Tile& tile : field->tiles) {
+            scatter::Scatter one;
+            one.items = field->items;
+            one.tiles = {tile};
+            vk::ScatterView everywhere = view;
+            everywhere.range = 1.0e9F;
+            uint32_t in_view = 0;
+            (void)vk::plan_clutter_draws(one, everywhere, &in_view);
+            float sum = 0.0F;
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                const float c = core::at(view.camera, axis);
+                const float d = c - std::clamp(c, core::at(tile.low, axis), core::at(tile.high, axis));
+                sum += d * d;
+            }
+            expected += in_view == tile.item_count && std::sqrt(sum) < view.range ? tile.item_count : 0;
+        }
+        uint32_t planned = 0;
+        (void)vk::plan_clutter_draws(*field, view, &planned);
+        tally->check(planned == expected && planned > 0,
+                     text::format("lod_distance_scale %.0f: %u items planned, every one of the tiles in view within %.0f "
+                                  "(%u)",
+                                  static_cast<double>(scale), planned, static_cast<double>(view.range), expected));
+    }
 }
 
 // The atlas's mips: alpha-weighted (a dark texel among clear ones keeps its colour and gives its share of alpha - a
@@ -1551,6 +1646,23 @@ void measure_cost(render::Gpu& gpu, Tally* tally)
         constexpr double kBudget = 1.0; // ms: the pass's share of a 144 Hz frame
         tally->check(std::isfinite(whole) && whole > 0.0 && whole < kBudget,
                      text::format("every decal of the field drawn in %.3f ms (under %.1f)", whole, kBudget));
+        // (the clutter-LOD round) a field of items, a pebble every 10 units, from a skater's eye at its edge: every item
+        // within the range drawn at full size (the default range, then lod_distance_scale's most, 8)
+        vk::set_scatter_settings({.decals = false, .decal_density = 1.0F, .clutter = true, .clutter_density = 1.0F});
+        constexpr int kItemTiles = 24;    // a side: 500-unit tiles, 12,000 units
+        constexpr int kItemsPerSide = 50; // an item every 10 units
+        vk::scatter_sink().set_scatter(item_field(kItemTiles, kItemsPerSide, 500.0F, 3.0F));
+        for (const float scale : {1.0F, 8.0F}) {
+            render::graphics_options::get_pull().lod_distance_scale_ = scale;
+            const double items = timed(edge);
+            text::print("the clutter's cost at lod_distance_scale %.0f: %.3f ms at %ux%u (%u items planned, range %.0f)\n",
+                        static_cast<double>(scale), items, kBigWidth, kBigHeight, vk::clutter_last_items(),
+                        static_cast<double>(vk::clutter_range(scale)));
+            tally->check(std::isfinite(items) && items > 0.0 && items < kBudget,
+                         text::format("the item field at lod_distance_scale %.0f in %.3f ms (under %.1f)",
+                                      static_cast<double>(scale), items, kBudget));
+        }
+        render::graphics_options::get_pull().lod_distance_scale_ = 1.0F;
     }
     release(gpu, targets);
     vkDestroyQueryPool(state.context.device(), pool, nullptr);
@@ -1616,6 +1728,7 @@ int run(const Options& options, SDL_Window* window)
     check_placement(&tally);
     check_far_decals(&tally);
     check_atlas_mips(&tally);
+    check_clutter_lod(&tally);
     if (!open_device(options, window)) {
         return vk::loader_version() == 0 ? 2 : 1;
     }
