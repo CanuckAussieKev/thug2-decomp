@@ -536,7 +536,9 @@ public:
             options.mode = mode_of(settings.quality);
             options.outputWidth = frame.output_size.width;
             options.outputHeight = frame.output_size.height;
-            options.colorBuffersHDR = sl::Boolean::eFalse;
+            // (round F: the colour is the frame's linear, scene-referred light - before the tone mapping; no exposure
+            // given, its unit's white diffuser is 1)
+            options.colorBuffersHDR = sl::Boolean::eTrue;
             options.normalRoughnessMode = sl::DLSSDNormalRoughnessMode::ePacked;
             options.worldToCameraView = as_sl(view);
             options.cameraViewToWorld = as_sl(to_world);
@@ -546,7 +548,7 @@ public:
             options.mode = mode_of(settings.quality);
             options.outputWidth = frame.output_size.width;
             options.outputHeight = frame.output_size.height;
-            options.colorBuffersHDR = sl::Boolean::eFalse;
+            options.colorBuffersHDR = sl::Boolean::eTrue; // (round F: linear light; exposure 1 - the unit's white is 1)
             set = calls.dlss_options(viewport, options);
         }
         if (set != sl::Result::eOk) {

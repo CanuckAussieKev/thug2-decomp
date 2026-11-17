@@ -85,7 +85,7 @@ layout(set = 0, binding = 6) uniform SkyBlock {
     vec4 offset;          // xy the clouds' offset (metres); z this frame's share in the history
     ivec4 rect;           // the viewport in the target's pixels
     ivec4 low;            // xy the clouds' images' size, z pixels per texel, w steps
-    ivec4 flags;          // x the depth's samples, y clouds, z a history, w 1: values above 1 kept
+    ivec4 flags;          // x the depth's samples, y clouds, z a history, w unused (round F)
     vec4 moon;            // (added by the time of day) xyz toward the moon; w its disc (0 - 1)
     vec4 stars;           // xyz toward the celestial pole; w the stars' turn about it (radians)
     vec4 night;           // x the stars (0 - 1)
@@ -366,9 +366,8 @@ void main()
 #endif
     }
 #endif
-    vec3 shown = pow(max(light, vec3(0.0)), vec3(1.0 / 2.2));
-    shown = min(shown, vec3(sky.flags.w != 0 ? 65504.0 : 1.0));
-    o_colour = vec4(shown, 1.0);
+    // (round F: the frame is linear light - the sky's radiance written as it is, never clamped; the output encodes)
+    o_colour = vec4(min(max(light, vec3(0.0)), vec3(65504.0)), 1.0);
 }
 )";
 
@@ -1606,7 +1605,7 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
     block.low = {static_cast<int32_t>(low.width), static_cast<int32_t>(low.height), static_cast<int32_t>(scale),
                  static_cast<int32_t>(steps_for(settings.quality))};
     block.flags = {static_cast<int32_t>(recording.colour->samples), recording.clouds ? 1 : 0,
-                   slot != nullptr && slot->has_history ? 1 : 0, settings.hdr ? 1 : 0};
+                   slot != nullptr && slot->has_history ? 1 : 0, 0}; // (w unused - round F)
     // (added by the time of day) the moon, the stars (none without the clock)
     const rt::DayLight day = rt::day_light();
     if (day.on) {

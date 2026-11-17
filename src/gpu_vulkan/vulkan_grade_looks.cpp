@@ -12,6 +12,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
+#include "engine/gfx/rt_display.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_camera_fx.h"
 #include "gpu_vulkan/vulkan_style_kit.h"
@@ -23,7 +24,7 @@ namespace {
 constexpr std::array<const char*, kGradeLookCount> kLookNames{"off",    "neutral", "warm",        "cool",
                                                               "filmic", "bleach",  "skate_video", "level"};
 constexpr CameraRgb kLumaWeights{0.2126F, 0.7152F, 0.0722F}; // (Rec. 709)
-constexpr float kGamma = 2.2F;
+constexpr auto kGamma = static_cast<float>(rt::kDisplayGamma); // (the display's - rt_display.h)
 
 float luma(const CameraRgb& c)
 {

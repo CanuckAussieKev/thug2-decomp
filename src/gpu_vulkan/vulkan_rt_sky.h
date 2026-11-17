@@ -60,7 +60,6 @@ void sky_without_sun();
 [[nodiscard]] VkDescriptorImageInfo sky_table_descriptor();
 // The GLSL a shader reading the table includes: `u_sky` at (set 0, `binding`), and
 //   vec3 sky_linear(vec3 dir, vec3 to_sun)   the exposed linear radiance toward dir (world space, y up)
-//   vec3 sky_display(vec3 dir, vec3 to_sun)  the same as the game's colours (^ 1 / 2.2)
 [[nodiscard]] std::string sky_table_glsl(uint32_t binding);
 
 // The table read back (the check's): (kSkyLutHeight + 1) x kSkyLutWidth texels of 4 floats, row by row. The caller holds

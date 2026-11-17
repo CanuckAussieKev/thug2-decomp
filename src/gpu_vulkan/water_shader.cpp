@@ -221,6 +221,14 @@ bool water_on_screen(vec4 clip, out vec2 uv, out float edge)
     return edge < 1.0;
 }
 
+// (round F - a linear frame) What was drawn before the water, as the water's colours are (the game's display-referred
+// ones): the copy of a linear frame holds light - encoded back (ff_shaders.cpp frame_linear / display_from_linear).
+vec3 water_scene_at(vec2 uv)
+{
+    vec3 c = textureLod(water_scene, uv, 0.0).rgb;
+    return frame_linear() ? display_from_linear(c) : c;
+}
+
 // The sky seen on the screen toward camera-space direction `d` (a point at infinity): its colour where the copy shows
 // the sky there (nothing drawn), weight in w.
 vec4 water_screen_sky(vec3 d)
@@ -233,7 +241,7 @@ vec4 water_screen_sky(vec3 d)
     if (textureLod(water_depth, uv, 0.0).r < kWaterFar) {
         return vec4(0.0);
     }
-    return vec4(textureLod(water_scene, uv, 0.0).rgb, 1.0 - smoothstep(0.85, 1.0, edge));
+    return vec4(water_scene_at(uv), 1.0 - smoothstep(0.85, 1.0, edge));
 }
 
 // The reflection found on the screen: a ray from camera-space `origin` along `d` marched over the depth copy in growing
@@ -273,7 +281,7 @@ vec4 water_screen_trace(vec3 origin, vec3 d)
             if (!water_on_screen(hit, uv, edge)) {
                 return vec4(0.0);
             }
-            return vec4(textureLod(water_scene, uv, 0.0).rgb, 1.0 - smoothstep(0.8, 1.0, edge));
+            return vec4(water_scene_at(uv), 1.0 - smoothstep(0.8, 1.0, edge));
         }
         before = travel;
         travel *= 1.32;
@@ -351,7 +359,7 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
             bent_uv = here; // (something in front of the water there: not refracted)
             bent = straight;
         }
-        under = textureLod(water_scene, bent_uv, 0.0).rgb;
+        under = water_scene_at(bent_uv);
         behind = bent;
     }
     float path = max(behind - surface_w, 0.0) * dist / surface_w;

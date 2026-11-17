@@ -823,7 +823,7 @@ WaterUniforms water_uniforms(const WaterSettings& settings, const WaterView& vie
                     static_cast<float>(core::at(drawn.rect, 2)), static_cast<float>(core::at(drawn.rect, 3))};
     out.target = {view.target.width > 0 ? 1.0F / static_cast<float>(view.target.width) : 0.0F,
                   view.target.height > 0 ? 1.0F / static_cast<float>(view.target.height) : 0.0F, view.copied ? 1.0F : 0.0F,
-                  settings.hdr ? 1.0F : 0.0F};
+                  0.0F}; // (w unused - round F)
     // (changed by the physical waves) the weather's wind's way (engine/gfx/wind.h) and the body's waves (water_waves.h)
     const water::WaterBody& body = view.body;
     out.time = {static_cast<float>(drawn.game_seconds), core::at(wind::kDirection, 0), core::at(wind::kDirection, 1),
@@ -843,7 +843,7 @@ WaterUniforms water_uniforms(const WaterSettings& settings, const WaterView& vie
     out.sun = {core::at(toward, 0), core::at(toward, 1), core::at(toward, 2), sun ? 1.0F : 0.0F};
     const rt::SunLight light = rt::sun_light();
     const std::array<float, 3> colour = light.on ? light.colour : std::array<float, 3>{1.0F, 1.0F, 1.0F};
-    out.sun_colour = {core::at(colour, 0), core::at(colour, 1), core::at(colour, 2), settings.hdr ? kWaterGlitterHdr : kWaterGlitterSdr};
+    out.sun_colour = {core::at(colour, 0), core::at(colour, 1), core::at(colour, 2), kWaterGlitterPeak};
     const std::array<float, 3> sky = drawn.fog.on ? drawn.fog.colour : std::array<float, 3>{kDefaultSky, kDefaultSky, kSkyBlue};
     out.sky = {core::at(sky, 0), core::at(sky, 1), core::at(sky, 2), view.sky_bound ? 1.0F : 0.0F};
     out.camera = {core::at(drawn.camera.position, 0), core::at(drawn.camera.position, 1), core::at(drawn.camera.position, 2),

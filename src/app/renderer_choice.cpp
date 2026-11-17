@@ -158,10 +158,6 @@ bool parse_rgb(const std::string& value, std::array<float, 3>* colour)
     return true;
 }
 
-// What the device was made for: rt_hdr as the game started (its colour targets' format - a start-up setting, so the
-// running model keeps the value the game started with).
-bool hdr_on(const Resolution& in_effect) { return in_effect.on("rt_hdr"); }
-
 // NOT ORIGINAL - ray-traced sun shadows (gpu_vulkan/vulkan_rt_shadows.h)
 render::vulkan::RtShadowSettings make_rt_shadows(const Resolution& in_effect)
 {
@@ -241,7 +237,8 @@ render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
         lut_path = build_info::executable_directory() + lut_path;
     }
     const render::vulkan::HdrSettings defaults;
-    return render::vulkan::HdrSettings{.on = hdr_on(in_effect),
+    // (round F - a linear, scene-referred frame: always; rt_hdr retired - the frame no longer depends on it)
+    return render::vulkan::HdrSettings{.on = true,
                                        .exposure = in_effect.number("rt_exposure", defaults.exposure),
                                        .tonemap = static_cast<unsigned>(std::max(0, in_effect.integer("rt_tonemap", 0))),
                                        .saturation = in_effect.number("rt_saturation", defaults.saturation),
@@ -267,7 +264,6 @@ render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
         .steps = steps > 0 ? static_cast<unsigned>(steps) : core::at(render::vulkan::kRtFogQualitySteps, quality),
         .lamps = core::at(render::vulkan::kRtFogQualityLamps, quality),
         .mode = in_effect.integer("rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts : render::vulkan::RtFogMode::kReplace,
-        .hdr = hdr_on(in_effect),
         .haze = in_effect.on("rt_fog_haze"),
         .weather = render::rt::parse_weather(in_effect.value("rt_fog_air").c_str()),
         .scale = core::at(render::vulkan::kRtFogQualityScale, quality),
@@ -282,8 +278,7 @@ render::vulkan::RtSunSettings make_rt_sun(const Resolution& in_effect)
     return {.sun = in_effect.on("rt_sun"),
             .bloom = in_effect.on("rt_bloom"),
             .sky_model = in_effect.on("rt_sky_model"),
-            .lens_dirt = in_effect.on("rt_lens_dirt"),
-            .hdr = hdr_on(in_effect)};
+            .lens_dirt = in_effect.on("rt_lens_dirt")};
 }
 
 // NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h).
@@ -306,8 +301,7 @@ render::vulkan::RtSkySettings make_rt_sky(const Resolution& in_effect)
                                          .coverage = cover,
                                          .speed = in_effect.number("rt_cloud_speed", 1.0F),
                                          .quality = static_cast<unsigned>(std::max(0, in_effect.integer("rt_cloud_quality", 1))),
-                                         .cloud_shadows = in_effect.on("rt_cloud_shadows"),
-                                         .hdr = hdr_on(in_effect)};
+                                         .cloud_shadows = in_effect.on("rt_cloud_shadows")};
 }
 
 // NOT ORIGINAL - the relit mode (engine/gfx/rt_relit.h, render_pc/rt_relit_world.h): on when asked for, or when the
@@ -543,7 +537,6 @@ void read_water(const Resolution& in_effect)
     render::vulkan::WaterSettings water{.on = in_effect.on("rt_water"),
                                         .clarity = in_effect.number("rt_water_clarity", defaults.clarity),
                                         .foam = in_effect.number("rt_water_foam", defaults.foam),
-                                        .hdr = hdr_on(in_effect),
                                         .screen_reflections = in_effect.on("rt_water_screen_reflections"),
                                         .debug_view = in_effect.on("rt_water_view"),
                                         .geometry = in_effect.on("rt_water_geometry")};

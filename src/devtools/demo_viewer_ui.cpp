@@ -108,7 +108,7 @@ constexpr std::array<const char*, 16> kCompareKeys = {
     "rt_reflections", "rt_fog",         "rt_sun",   "rt_bloom",       "rt_fog_air",      "rt_sky",
     "rt_clouds",  "rt_exposure",        "rt_tonemap", "rt_saturation"};
 // What is drawn the same on both sides whatever [Compare] says.
-constexpr std::array<const char*, 9> kBothSides = {"renderer",        "ray_tracing", "rt_hdr",
+constexpr std::array<const char*, 8> kBothSides = {"renderer",        "ray_tracing",
                                                    "upscaler (off while split)", "rt_tessellation",
                                                    "rt_relit",        "msaa",        "anisotropy", "texture sets"};
 

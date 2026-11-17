@@ -587,7 +587,7 @@ vk::RtSkySettings sky_settings(bool clouds, bool hdr)
     settings.coverage = kCheckCoverage;
     settings.speed = 0.0F;
     settings.quality = 1;
-    settings.hdr = hdr;
+    (void)hdr; // (round F: no per-effect hdr - the frame is linear light)
     return settings;
 }
 
@@ -1202,7 +1202,7 @@ void run_composite(render::Gpu& gpu, bool floats, Tally* tally)
             const Rgb linear = sky_view_at(
                 table, direction_at(view, {.x = static_cast<double>(column), .y = static_cast<double>(row)}), to_sun());
             for (std::size_t channel = 0; channel < 3; ++channel) {
-                double want = std::pow(core::at(linear, channel), 1.0 / rt::kDisplayGamma);
+                double want = core::at(linear, channel); // (round F: the sky written as linear light)
                 if (!floats) {
                     want = std::min(want, 1.0);
                 }

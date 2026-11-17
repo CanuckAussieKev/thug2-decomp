@@ -11,27 +11,32 @@
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_formats.h"
 
-// NOT ORIGINAL - HDR rendering, tone mapping and colour grading (docs/design/vulkan.md "HDR"; [Graphics] rt_hdr -
-// gpu_vulkan.h's HdrSettings). Independent of ray tracing.
+// NOT ORIGINAL - the linear frame, its exposure, tone mapping and colour grading (docs/design/vulkan.md "HDR" and "A
+// linear, scene-referred frame" - round F; gpu_vulkan.h's HdrSettings). Independent of ray tracing.
 //
-// With rt_hdr=1 (and a device that draws, blends, samples and blits RGBA16F - every desktop one) the targets the world
-// is drawn into hold 16-bit floats (kHdrFormat): the back buffer - made so here, its format still reported to the game
+// The game's Vulkan frame (HdrSettings::on - always, rt_hdr retired; a device that draws, blends, samples and blits
+// RGBA16F - every desktop one) is linear, scene-referred light in the sky's unit (rt_sky.h: 1 a white diffuser under the
+// reference day) in 16-bit floats (kHdrFormat): the back buffer - made so here, its format still reported to the game
 // as the settings' 8-bit one -, and what render_pc asks for through rt::world_target_format (the full-size screen
-// copies of the blur and the bloom, [Graphics] msaa's scene surface, the game view's picture). Draws into them aren't
-// clipped at 1, so light added by the effects (R4 / R5's passes, one-bounce light at opaque_drawn, fog at world_drawn)
-// keeps its range. Then, last at rt::world_view_drawn (rt::ViewOrder::kToneMapping), one full-screen pass over the
-// viewport maps the bound colour target back to 0 - 1 in place: the target's viewport copied out, read back through
-// the curve below and written over itself (colour only - alpha kept). The 2D is drawn after, unchanged; the present
-// blits the float back buffer into the swapchain (the conversion clamps to 0 - 1); read-backs out of it (screenshots,
-// the front buffer) and copies into 8-bit surfaces are converted (read_hdr_as_bgra8, resolve_for_copy).
+// copies of the blur and the bloom, [Graphics] msaa's scene surface, the game view's picture). From a view's beginning
+// to this pass (Backend::linear_phase) the game's draws decode their display-referred colours to linear light at the
+// fragment's output (ff_shaders.cpp fragment_linear_output, engine/gfx/rt_display.h), so every blend composes light;
+// the effects add and multiply linear light; nothing is clipped. Then, at rt::world_view_drawn
+// (rt::ViewOrder::kToneMapping: after the upscaler, the camera's blur and depth of field and the lens, before the art
+// styles and the grade), one full-screen pass over the viewport (where it is shown, once scaled up) maps the bound
+// colour target to the display in place - the one encode: the target's viewport copied out, read back through the
+// curve below and written over itself (colour only - alpha kept). The 2D is drawn after in the display's colours, as
+// the original's; the present blits the float back buffer into the swapchain (the conversion clamps to 0 - 1);
+// read-backs out of it (screenshots, the front buffer) and copies into 8-bit surfaces are converted
+// (read_hdr_as_bgra8, resolve_for_copy).
 //
-// The curve, per pixel (the colours are the game's own, display-referred: 1 is the original's white):
+// The curve, per pixel (the colour linear light; the display's preferences act on its encoded value):
 //   1. not a number: 0; below 0: 0; above 65504: 65504
-//   2. exposure:   c x 2^(rt_exposure / 2.2)      (stops of linear light, the colours taken as gamma 2.2)
-//                  x the clock's (rt_daylight.h) x the meter's (below: a bright view brought down)
-//   3. saturation: L + (c - L) x rt_saturation, L = Rec. 709 luma; then at least 0
-//   4. contrast:   0.5 x (c / 0.5)^rt_contrast   (a power about mid-grey)
-//   5. the tone curve, per channel:
+//   2. exposure:   c x 2^rt_exposure x the meter's 2^stops (below), in linear light
+//   3. the display's encoding: c^(1 / 2.2) (rt_display.h display_from_linear) - the original's white 1 shows as 1
+//   4. saturation: L + (c - L) x rt_saturation, L = Rec. 709 luma; then at least 0
+//   5. contrast:   0.5 x (c / 0.5)^rt_contrast   (a power about mid-grey)
+//   6. the tone curve, per channel:
 //      rt_tonemap=0 - the colour unchanged up to a knee k, then a soft exponential shoulder to the white point w:
 //          y = c                              c <= k
 //          y = 1 - d x exp(-(c - k) / d)      c > k, d = 1 - k
@@ -42,8 +47,8 @@
 //      rt_tonemap=1 - ACES (Krzysztof Narkowicz's fit of the ACES reference rendering and output transforms):
 //          x = c^2.2,  y = (x (2.51 x + 0.03)) / (x (2.43 x + 0.59) + 0.14) / that of w^2.2,  c' = y^(1 / 2.2)
 //        a filmic look - deeper shadows, brighter mid-tones, w (1 - 8) shown as white.
-//   6. the grade LUT (rt_grade_lut, a .cube 3D table): trilinear, inputs mapped through its DOMAIN_MIN / MAX
-//   7. clamped to 0 - 1
+//   7. the grade LUT (rt_grade_lut, a .cube 3D table): trilinear, inputs mapped through its DOMAIN_MIN / MAX
+//   8. clamped to 0 - 1
 // Multisampled targets: each sample through the curve, their mean written to all of the pixel's samples (so the
 // resolve gives the mean of the mapped samples - edges smoothed after the curve, as they would be on a display); no
 // sample-rate shading needed.
@@ -85,11 +90,11 @@ void set_hdr_lut(GradeLut lut);
                                                       std::array<float, 3> colour);
 
 // (added by the low sun's glare; rewritten by the physical air) The metering - the camera's exposure, the one
-// controller (rt_exposure_adapt: how many stops it may move either way; 0: off). The game's colours are display-referred,
-// linear light their ^2.2 in the sky's unit (rt_sky.h: 1 a white diffuser under the reference day). A camera meters
+// controller (rt_exposure_adapt: how many stops it may move either way; 0: off). The frame is linear light in the sky's
+// unit (rt_sky.h: 1 a white diffuser under the reference day; round F). A camera meters
 // the light of the view and sets its exposure so the view's average lands where the sensor's calibration puts it:
 //   - the meter: kMeterGrid x kMeterGrid samples over the viewport (meter_place), their linear luminance (Rec. 709 luma of
-//     the colour as drawn - the user's rt_exposure is an offset after it, not metered -, each channel ^2.2), each at most
+//     the colour as drawn - the user's rt_exposure is an offset after it, not metered), each at most
 //     kMeterBrightest (the sun's disc, a few pixels at thousands, doesn't swing it), weighted toward the centre
 //     (meter_weight: a Gaussian kMeterCentre of the viewport wide), their weighted geometric mean (the log average - a
 //     camera's average metering: a small bright part of a view counts for its share, a sky or a low sun's glow for
@@ -103,7 +108,7 @@ void set_hdr_lut(GradeLut lut);
 //     dark one up;
 //   - over time as an eye: kMeterDarkenSeconds toward darker, kMeterBrightenSeconds back (1 - 1/e of the way;
 //     meter_adapt), a new viewport starting at its target;
-//   - the factor on the colours (display values): 2^(stops / 2.2), x rt_exposure's.
+//   - the factor on the light: 2^stops, x rt_exposure's 2^stops.
 // The device keeps it: a compute pass over the viewport's copy writes the slot, the curve's pass reads it - no read-back.
 // A path tracer's camera takes the same: its radiance x 2^stops, then this curve.
 inline constexpr uint32_t kMeterSide = 16;    // (the group's side)
@@ -121,7 +126,7 @@ inline constexpr uint32_t kMeterSlots = 4;
 // size).
 [[nodiscard]] std::array<float, 2> meter_place(uint32_t i, uint32_t j);
 [[nodiscard]] float meter_weight(const std::array<float, 2>& place);
-// A colour (display values, already x the exposure's factor) as the meter counts it.
+// A colour (linear light, already x the exposure's factor) as the meter counts it.
 [[nodiscard]] float meter_light(const std::array<float, 3>& colour);
 // The key for a metered average (linear): kMeterKey x the eye's adaptation over its daylight value.
 [[nodiscard]] float meter_key(float mean);
@@ -136,8 +141,9 @@ struct MeterReading {
 };
 bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReading* reading);
 
-// Whether the device's targets are made floating point: rt_hdr=1 and the device draws, blends, samples and blits
-// kHdrFormat (create_device_objects asks, before the back buffer is made; it then sets rt::set_hdr_colour).
+// Whether the device's targets are made floating point - the linear frame: HdrSettings::on (the game's: always) and the
+// device draws, blends, samples and blits kHdrFormat (create_device_objects asks, before the back buffer is made; it
+// then sets rt::set_hdr_colour).
 [[nodiscard]] bool hdr_wanted(const Backend& state);
 
 // The pass over the bound colour target's viewport (the listener's work at rt::world_view_drawn; also the check's).

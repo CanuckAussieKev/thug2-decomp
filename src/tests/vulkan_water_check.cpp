@@ -662,7 +662,8 @@ bool all_finite(const Picture& picture)
 void set_water(bool on, float waves, float foam, bool hdr = true)
 {
     set_test_body(waves);
-    vk::set_water_settings({.on = on, .clarity = 1.0F, .foam = foam, .hdr = hdr});
+    vk::set_water_settings({.on = on, .clarity = 1.0F, .foam = foam});
+    (void)hdr; // (round F: the glitter has one peak)
 }
 
 void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally)
@@ -834,10 +835,10 @@ void check_foam(render::Gpu& gpu, const Scene& scene, Tally* tally)
                  "foam: still water has none (no waves break)");
     // waves kShoreFoam x 0.78 high (no slope: the same surface) - foam where they break
     set_foam_body();
-    vk::set_water_settings({.on = true, .clarity = 1.0F, .foam = 0.0F, .hdr = true});
+    vk::set_water_settings({.on = true, .clarity = 1.0F, .foam = 0.0F});
     draw_frame(gpu, scene, kFoamSeconds, true, false);
     const Picture without = read_picture(scene.colour, kWidth, kHeight);
-    vk::set_water_settings({.on = true, .clarity = 1.0F, .foam = 1.0F, .hdr = true});
+    vk::set_water_settings({.on = true, .clarity = 1.0F, .foam = 1.0F});
     draw_frame(gpu, scene, kFoamSeconds, true, false);
     const Picture with = read_picture(scene.colour, kWidth, kHeight);
     std::size_t deep_changed = 0;

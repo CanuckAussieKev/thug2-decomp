@@ -908,7 +908,6 @@ std::string sky_table_glsl(uint32_t binding)
     std::string out = "layout(set = 0, binding = " + std::to_string(binding) + ") uniform sampler2D u_sky;\n";
     out += "const float SKY_LOWEST = " + number(rt::kSkyLutLowest) + ";\n";
     out += "const float SKY_ROWS = " + std::to_string(rt::kSkyLutHeight) + ".0;\n";
-    out += "const float SKY_GAMMA = " + number(rt::kDisplayGamma) + ";\n";
     out += R"(
 vec3 sky_linear(vec3 dir, vec3 to_sun)
 {
@@ -926,7 +925,6 @@ vec3 sky_linear(vec3 dir, vec3 to_sun)
     float row = clamp(v * SKY_ROWS, 0.5, SKY_ROWS - 0.5);
     return max(textureLod(u_sky, vec2(azimuth / 3.14159265358979, row / (SKY_ROWS + 1.0)), 0.0).rgb, vec3(0.0));
 }
-vec3 sky_display(vec3 dir, vec3 to_sun) { return pow(sky_linear(dir, to_sun), vec3(1.0 / SKY_GAMMA)); }
 )";
     return out;
 }

@@ -22,6 +22,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/file/disk.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -29,6 +30,7 @@
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_upscale.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -44,7 +46,6 @@ constexpr uint64_t kReportMeter = 0x48445205U;
 
 constexpr float kLargest = 65504.0F;         // the largest 16-bit float
 constexpr float kBeyondWhite = 2.0F * kLargest; // (an infinity read back)
-constexpr float kGamma = 2.2F;               // the colours taken as gamma 2.2 for the exposure and ACES
 constexpr float kWhiteMargin = 0.5F / 255.0F; // the white point shown within half a step of white
 constexpr float kLeastWhite = 1.0F;
 constexpr float kMostWhite = 8.0F;
@@ -85,7 +86,7 @@ layout(set = 0, binding = 0) uniform sampler2DMS u_colour;
 layout(set = 0, binding = 0) uniform sampler2D u_colour;
 #endif
 layout(std430, set = 0, binding = 1) readonly buffer Lut { vec4 entries[]; } u_lut;
-// (added by the low sun's glare) the meter's state per viewport: x the exposure's factor now (display values), y its
+// (added by the low sun's glare) the meter's state per viewport: x the exposure's factor now (linear light), y its
 // stops now, z the view's metered light, w the stops it is heading for
 #ifdef METER_WRITES
 layout(std430, set = 0, binding = 2) buffer Meter { vec4 slots[]; } u_meter;
@@ -151,10 +152,13 @@ vec3 graded(vec3 c)
     return mix(mix(c00, c10, f.y), mix(c01, c11, f.y), f.z);
 }
 
+// (round F: the frame is linear light) exposed in linear light, then encoded for the display once - the display's
+// preferences (saturation, contrast, the curve, the grade) act on the encoded colour
 vec3 tone(vec3 c)
 {
     c = vec3(finite(c.r), finite(c.g), finite(c.b));
     c *= pc.grade.x * (pc.meter.y > 0.5 ? u_meter.slots[int(pc.meter.x)].x : 1.0);
+    c = display_from_linear(c);
     if (pc.grade.y != 1.0) {
         float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
         c = max(vec3(luma) + (c - vec3(luma)) * pc.grade.y, vec3(0.0));
@@ -165,7 +169,7 @@ vec3 tone(vec3 c)
     if (pc.grade.w < 0.5) {
         c = vec3(shoulder(c.r), shoulder(c.g), shoulder(c.b));
     } else {
-        c = pow(min(aces(pow(c, vec3(2.2))) * pc.shape.z, vec3(1.0)), vec3(1.0 / 2.2));
+        c = display_from_linear(min(aces(linear_from_display(c)) * pc.shape.z, vec3(1.0)));
     }
     if (pc.lut.x >= 2.0) {
         c = graded(c);
@@ -211,7 +215,7 @@ void main()
             ivec2 p = ivec2(pc.meter_rect.xy) + ivec2(uv * pc.meter_rect.zw);
             vec3 c = texelFetch(u_colour, p, 0).rgb;
             c = vec3(finite(c.r), finite(c.g), finite(c.b));
-            float l = clamp(dot(pow(c, vec3(METER_GAMMA)), vec3(0.2126, 0.7152, 0.0722)), METER_LEAST, METER_BRIGHTEST);
+            float l = clamp(dot(c, vec3(0.2126, 0.7152, 0.0722)), METER_LEAST, METER_BRIGHTEST);
             vec2 d = uv - 0.5;
             float w = exp(-dot(d, d) / (2.0 * METER_CENTRE * METER_CENTRE));
             light += w * log(l);
@@ -241,7 +245,7 @@ void main()
             float seconds = target < was ? METER_DARKEN : METER_BRIGHTEN;
             now = was + (target - was) * (1.0 - exp(-pc.meter.z / seconds));
         }
-        u_meter.slots[slot] = vec4(exp2(now / METER_GAMMA), now, mean, target);
+        u_meter.slots[slot] = vec4(exp2(now), now, mean, target);
     }
 }
 )";
@@ -297,6 +301,7 @@ struct HdrState {
     uint64_t meter_uses = 0;
     bool failed = false;
     uint64_t passes = 0;
+    uint64_t upscales_seen = 0; // (round F) the upscaler's passes counted at the last pass
 };
 
 HdrState& hdr()
@@ -307,11 +312,20 @@ HdrState& hdr()
 
 bool first_report(Backend& state, uint64_t what) { return state.reported.insert(what).second; }
 
-// The listener rt_scene tells when a view's world is drawn (last of them: kToneMapping).
+// The listener rt_scene tells when a view's world is drawn (kToneMapping: after every light, the upscaler, the camera
+// and the lens - before the art styles and the grade, which take the display's colours). (Round F) It also opens the
+// view's linear phase: from view_begins to its pass the Gpu's draws into the float target write linear light
+// (Backend::linear_phase, ff_shaders' decode).
 class ToneListener final : public rt::ViewListener {
 public:
     [[nodiscard]] int order() const override { return rt::ViewOrder::kToneMapping; }
     void opaque_drawn(const rt::ViewDrawn& /*view*/) override {}
+    void view_begins(const rt::ViewDrawn& /*view*/) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        state.linear_phase = state.device_made && rt::hdr_colour();
+    }
     void world_drawn(const rt::ViewDrawn& view) override
     {
         Backend& state = backend();
@@ -319,6 +333,7 @@ public:
         if (state.device_made && state.draws_made) {
             record_tone_map_pass(state, view);
         }
+        state.linear_phase = false; // (the 2D after it: the display's colours)
     }
 };
 
@@ -520,6 +535,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
         source += "#define MULTISAMPLED\n";
     }
     source += kPassCommon;
+    source += rt::kDisplayTransferGlsl;
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, ShaderStage::kFragment, source, error);
     if (fragment == VK_NULL_HANDLE) {
@@ -685,7 +701,6 @@ VkPipeline meter_pipeline(Backend& state, bool multisampled, std::string* error)
     };
     define("METER_SIDE", std::to_string(kMeterSide));
     define("METER_EACH", std::to_string(kMeterEach));
-    define("METER_GAMMA", real(kGamma));
     define("METER_KEY", real(kMeterKey));
     define("METER_LEAST", real(kMeterLeast));
     define("METER_WHITE", real(static_cast<float>(meter_white())));
@@ -1006,7 +1021,7 @@ ToneParameters tone_parameters(const HdrSettings& settings)
 {
     ToneParameters parameters;
     const float stops = std::isfinite(settings.exposure) ? std::clamp(settings.exposure, -kMostStops, kMostStops) : 0.0F;
-    parameters.scale = static_cast<float>(std::exp2(static_cast<double>(stops) / static_cast<double>(kGamma)));
+    parameters.scale = static_cast<float>(std::exp2(static_cast<double>(stops))); // (linear light: round F)
     parameters.saturation =
         std::isfinite(settings.saturation) ? std::clamp(settings.saturation, 0.0F, kMostSaturation) : 1.0F;
     parameters.contrast =
@@ -1033,7 +1048,7 @@ ToneParameters tone_parameters(const HdrSettings& settings)
     }
     parameters.room = static_cast<float>(room);
     parameters.knee = static_cast<float>(1.0 - room);
-    parameters.aces_scale = 1.0F / aces_curve(static_cast<float>(std::pow(white, static_cast<double>(kGamma))));
+    parameters.aces_scale = 1.0F / aces_curve(static_cast<float>(rt::linear_from_display(white)));
     return parameters;
 }
 
@@ -1145,7 +1160,7 @@ std::array<float, 3> tone_map_reference(const ToneParameters& parameters, const 
                                         std::array<float, 3> colour)
 {
     for (float& value : colour) {
-        value = finite(value) * parameters.scale;
+        value = rt::display_from_linear(finite(value) * parameters.scale); // (round F: linear in, encoded once)
     }
     if (parameters.saturation != 1.0F) {
         float luma = 0.0F;
@@ -1165,8 +1180,8 @@ std::array<float, 3> tone_map_reference(const ToneParameters& parameters, const 
         if (parameters.curve == 0) {
             value = shoulder(parameters, value);
         } else {
-            const float mapped = std::min(aces_curve(std::pow(value, kGamma)) * parameters.aces_scale, 1.0F);
-            value = std::pow(mapped, 1.0F / kGamma);
+            const float mapped = std::min(aces_curve(rt::linear_from_display(value)) * parameters.aces_scale, 1.0F);
+            value = rt::display_from_linear(mapped);
         }
     }
     if (lut != nullptr && lut->size >= kLeastLut) {
@@ -1200,7 +1215,7 @@ float meter_light(const std::array<float, 3>& colour)
 {
     float light = 0.0F;
     for (std::size_t channel = 0; channel < colour.size(); ++channel) {
-        light += core::at(kLuma, channel) * std::pow(finite(core::at(colour, channel)), kGamma);
+        light += core::at(kLuma, channel) * finite(core::at(colour, channel)); // (the frame is linear: round F)
     }
     return std::clamp(light, kMeterLeast, kMeterBrightest);
 }
@@ -1255,7 +1270,7 @@ bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReadin
 
 bool hdr_wanted(const Backend& state)
 {
-    if (!hdr().settings.on) {
+    if (!hdr().settings.on) { // (the game's always on - round F's linear frame; a check may ask for the 8-bit frame)
         return false;
     }
     VkFormatProperties properties{};
@@ -1266,7 +1281,7 @@ bool hdr_wanted(const Backend& state)
         VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT | VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
         VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
     if ((properties.optimalTilingFeatures & kNeeded) != kNeeded) {
-        get_log("vulkan: rt_hdr=1 but this device can't draw into 16-bit float targets - the 8-bit ones kept");
+        get_log("vulkan: this device can't draw into 16-bit float targets - the 8-bit display-referred frame kept");
         return false;
     }
     return true;
@@ -1300,11 +1315,15 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
         }
         return false;
     }
-    // the viewport, inside the target
-    const uint32_t left = std::min(core::at(view.rect, 0), colour->extent.width);
-    const uint32_t top = std::min(core::at(view.rect, 1), colour->extent.height);
-    const uint32_t width = std::min(core::at(view.rect, 2), colour->extent.width - left);
-    const uint32_t height = std::min(core::at(view.rect, 3), colour->extent.height - top);
+    // the viewport, inside the target - (round F: the pass runs after the upscaler) where it is shown once scaled up
+    const bool upscaled = upscale_passes() != own.upscales_seen && view.output_rect != view.rect &&
+                          core::at(view.output_rect, 2) != 0 && core::at(view.output_rect, 3) != 0;
+    own.upscales_seen = upscale_passes();
+    const std::array<uint32_t, 4>& shown = upscaled ? view.output_rect : view.rect;
+    const uint32_t left = std::min(core::at(shown, 0), colour->extent.width);
+    const uint32_t top = std::min(core::at(shown, 1), colour->extent.height);
+    const uint32_t width = std::min(core::at(shown, 2), colour->extent.width - left);
+    const uint32_t height = std::min(core::at(shown, 3), colour->extent.height - top);
     if (width == 0 || height == 0) {
         return false;
     }
@@ -1372,7 +1391,7 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     core::at(writes, 2).pBufferInfo = &metered;
     // (the meter first: the viewport's slot moved toward its target)
     if (meter != VK_NULL_HANDLE) {
-        const std::size_t slot = meter_slot_of(view.rect, colour->extent);
+        const std::size_t slot = meter_slot_of(shown, colour->extent);
         vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
                                   static_cast<uint32_t>(writes.size()), writes.data());
         record_meter(commands, meter, slot, &constants);

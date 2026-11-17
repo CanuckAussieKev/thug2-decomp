@@ -13,6 +13,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/mesh_formats.h"
+#include "engine/gfx/rt_display.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/water_shader.h"
@@ -1053,6 +1054,14 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     add(out, {"layout(set = 0, binding = ", num(kFragmentUniformsBinding), ", std140) uniform FragmentUniforms {"});
     add(out, {"    vec4 constant[8];\n    vec4 texture_factor;\n    vec4 fog_colour;\n    vec4 fog;\n"
               "    vec4 alpha_reference;\n} u;"});
+    // (round F - a linear, scene-referred frame: fragment_linear_output) the frame's transfer; whether this draw writes
+    // linear light (u.alpha_reference.y); a stage's texel as the game's colour arithmetic takes it - a texture that
+    // holds linear light (a copy of the world drawn this view - u.alpha_reference.z's bit) encoded back to the display's
+    // colours. (The water's, snow's and paint's blocks below may call them.)
+    out += rt::kDisplayTransferGlsl;
+    add(out, {"bool frame_linear() { return u.alpha_reference.y > 0.5; }\n"
+              "vec4 stage_texel(int stage, vec4 t)\n{\n"
+              "    return (int(u.alpha_reference.z) & (1 << stage)) != 0 ? vec4(display_from_linear(t.rgb), t.a) : t;\n}"});
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         if (has_stage(sampled, stage)) {
             add(out, {"layout(set = 0, binding = ", num(kFirstTextureBinding + stage), ") uniform sampler2D t", num(stage),
@@ -1234,7 +1243,7 @@ void fragment_stages(std::string& out, const FragmentKey& key, uint32_t sampled)
         }
         add(out, {"    {"});
         if (has_stage(sampled, stage)) {
-            add(out, {"        vec4 tex = texture(t", num(stage), "_map, ", coord_of(key, stage), ");"});
+            add(out, {"        vec4 tex = stage_texel(", num(stage), ", texture(t", num(stage), "_map, ", coord_of(key, stage), "));"});
             if (stage == 0) { // (NOT ORIGINAL - the surface trails: stage 0's texel covered)
                 trail_albedo(out, key, "tex.rgb", "        ");
             } else if ((key.trails & kTrailSnow) != 0U) {
@@ -1312,9 +1321,10 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
     const bool relief = (key.detail & kDetailRelief) != 0U && (key.surface & kSurfaceMap) != 0U; // (added by surface relief)
     for (uint32_t index = 0; index < textures; ++index) {
         if (index == 0 && relief) { // (added by surface relief: stage 0 where the view ray meets the relief)
-            add(out, {"    vec4 t0 = textureGrad(t0_map, relief_uv, relief_dx, relief_dy);"});
+            add(out, {"    vec4 t0 = stage_texel(0, textureGrad(t0_map, relief_uv, relief_dx, relief_dy));"});
         } else {
-            add(out, {"    vec4 t", num(index), " = texture(t", num(index), "_map, ", coord_of(key, index), ");"});
+            add(out, {"    vec4 t", num(index), " = stage_texel(", num(index), ", texture(t", num(index), "_map, ",
+                      coord_of(key, index), "));"});
         }
         if ((key.surface & kSurfaceCel) != 0U && (key.surface & kSurfaceCelHull) == 0U) {
             // (added by cel shading - rt_cel_flatten) the colour toward a blurrier mip, its alpha (cut-outs) as it was
@@ -1521,7 +1531,22 @@ void fragment_fog(std::string& out, const FragmentKey& key)
         add(out, {"    float fog_factor = exp(-((v_fog.y * u.fog.z) * (v_fog.y * u.fog.z)));"});
         break;
     }
-    add(out, {"    colour.rgb = mix(u.fog_colour.rgb, colour.rgb, clamp(fog_factor, 0.0, 1.0));"});
+    // (round F: in a linear frame the fog's colour is decoded as the fragment's is - fragment_linear_output - and the
+    // two mixed as light)
+    add(out, {"    vec3 fog_rgb = frame_linear() ? linear_from_display(u.fog_colour.rgb) : u.fog_colour.rgb;"});
+    add(out, {"    colour.rgb = mix(fog_rgb, colour.rgb, clamp(fog_factor, 0.0, 1.0));"});
+}
+
+// (NOT ORIGINAL - round F, a linear, scene-referred frame: Backend::linear_phase) In a world view drawn into a float
+// target the fragment's colour - the original's stages or pixel shader, the game's display-referred textures, vertex
+// colours and constants, the relit stream's light - is decoded to linear light here, before the fog and the blend, so
+// the frame holds light and every blend (alpha, additive glows, a multiplying decal) composes light. The game's
+// combine is a product for its lit surfaces (texel x light x 2), and the display's power law is multiplicative, so this
+// equals decoding each input; its additive stages and pixel-shader sums stay the original's material arithmetic.
+// u.alpha_reference.y 0 (the 2D, an 8-bit target, Direct3D 9's parity): the colour as the original's.
+void fragment_linear_output(std::string& out)
+{
+    add(out, {"    if (frame_linear()) {\n        colour.rgb = linear_from_display(colour.rgb);\n    }"});
 }
 
 // The alpha test: the alpha as an 8-bit value (rounded) against the 0 - 255 reference, by the comparison; the pixel is
@@ -1593,6 +1618,7 @@ std::string fragment_shader_glsl(const FragmentKey& key)
         add(out, {"    float water_alpha = colour.a;\n    colour = water_shade(colour, t0, ", coord_of(key, 0),
                   ", water_alpha);"});
     }
+    fragment_linear_output(out);
     fragment_fog(out, key);
     fragment_alpha_test(out, key);
     if (water) {

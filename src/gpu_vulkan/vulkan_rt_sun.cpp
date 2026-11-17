@@ -70,7 +70,7 @@ layout(set = 0, binding = 6) uniform SunBlock {
     vec4 sun_screen;    // xy its place (the target's pixels, centres whole); z 1 in front
     vec4 disc;          // x its angular radius, y a pixel's angle, z the limb darkening
     vec4 aureole;       // (unused)
-    vec4 bloom;         // x the share of the light the glare spreads, z lens dirt, w 1: kept above 1 (rt_hdr)
+    vec4 bloom;         // x the share of the light the glare spreads, z lens dirt, w unused (round F)
     ivec4 rect;         // the viewport in the target's pixels
     ivec4 low;          // xy the half-resolution images' size, w the bloom's levels
     ivec4 flags;        // x the colour's samples, y the disc, w the bloom
@@ -103,7 +103,7 @@ vec3 finite_colour(vec3 c)
 
 // (changed by the physical air) the game's colours as linear light (the glare spreads energy, not display values),
 // held inside a 16-bit float's range
-vec3 linear_of(vec3 c) { return min(pow(finite_colour(c), vec3(2.2)), vec3(65000.0)); }
+vec3 linear_of(vec3 c) { return min(finite_colour(c), vec3(65000.0)); } // (round F: the frame is linear light)
 )";
 
 // Step 1: the source (full resolution): the frame's colour, and the light added. (The screen-space rays that were step
@@ -287,11 +287,8 @@ void main()
             colour += sun.bloom.z * dirt((vec2(p) + 0.5) / vec2(sun.rect.zw)) * bloomed;
         }
     }
-    vec3 shown = min(pow(max(colour, vec3(0.0)), vec3(1.0 / 2.2)), vec3(65504.0));
-    if (sun.bloom.w < 0.5) {
-        shown = min(shown, vec3(1.0));
-    }
-    o_colour = vec4(shown, 1.0);
+    // (round F: written back as linear light, never clamped - the output encodes once)
+    o_colour = vec4(min(max(colour, vec3(0.0)), vec3(65504.0)), 1.0);
 }
 )";
 
@@ -1279,8 +1276,7 @@ SunBlock block_for(const BlockInput& input)
     block.sun_colour = {core::at(frame.colour, 0), core::at(frame.colour, 1), core::at(frame.colour, 2), 0.0F};
     block.sun_screen = {core::at(frame.screen, 0), core::at(frame.screen, 1), frame.in_front ? 1.0F : 0.0F, 0.0F};
     block.disc = {frame.disc_radius, frame.pixel_angle, static_cast<float>(rt::kSunLimbDarkening), 0.0F};
-    block.bloom = {plan.bloom ? glare_share(input.levels) : 0.0F, 0.0F, settings.lens_dirt ? 1.0F : 0.0F,
-                   settings.hdr ? 1.0F : 0.0F};
+    block.bloom = {plan.bloom ? glare_share(input.levels) : 0.0F, 0.0F, settings.lens_dirt ? 1.0F : 0.0F, 0.0F};
     block.rect = {static_cast<int32_t>(core::at(view.rect, 0)), static_cast<int32_t>(core::at(view.rect, 1)),
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
     const Extent half = half_of({.width = core::at(view.rect, 2), .height = core::at(view.rect, 3)});

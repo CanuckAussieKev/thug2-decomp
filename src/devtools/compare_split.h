@@ -22,7 +22,7 @@ class Extension;
 // (ext::ViewPass::crop: the pixels where an unsplit frame has them). Each pass sees its side's rectangle and, the
 // effects keeping their histories per rectangle (AO, GI, the fog, the clouds, the sun's rays), its own history; the
 // settings are swapped between the two views without starting a history again (rt::settings_swap). What can't differ
-// per side - the renderer, ray_tracing, rt_hdr, the upscaler (off while split: both sides at the native resolution),
+// per side - the renderer, ray_tracing, the upscaler (off while split: both sides at the native resolution),
 // rt_tessellation, the relit mode, msaa, the texture sets - is drawn the same on both and named in the viewer's panel
 // as "both sides". Drawing the world twice costs about twice the frame. Direct3D 9 has no effects to split: both sides
 // are the same there.
