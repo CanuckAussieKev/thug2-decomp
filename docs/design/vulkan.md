@@ -2229,6 +2229,54 @@ goal, so every change produces the physical inputs it reads. Relit data v4:
   materials' roughness / metalness for the reflections; the rays' 2-unit offset leaks at concave seams (a vertex on a
   wall's foot starts its rays on the floor's plane: K too high there - the furnace check measures its interior only).
 
+### Lighting round A3: lamps by their own daylight, ceiling lights in textures, the rays off concave seams, light cards hidden
+
+Relit data v6.
+
+- **No "dark level".** The rule that read a level as dark from its median vertex brightness (64 of 128) is gone: it
+  read 16 sunlit afternoon levels as dark (their textures carry the brightness) and turned their lamps on and their
+  self-lit search with it. What consumed it, and what each reads now:
+  - *the lamps' solve* (was: solve only in a bake whose lamps were "on" - its own time's, or a dark level): every lamp is
+    solved in every bake; the bake tells a lamp when it has the edges and its solved light is a share of the light where
+    it lights (weighted by its geometry) at least the fit's own noise (`RelitModel::error`). Told: its intensity solved.
+    Not told - off in the bake, swamped by daylight, no edges - a glow or point light (the artists' mark of a lamp)
+    shines by its own surface; a *candidate* (a self-lit or textured surface: brightness alone) gives no light.
+  - *when a lamp is on* (was: the clock's lamps, else a dark level's): each lamp has a **switch** (`RelitLamp::switch_sky`,
+    `relit_lamp_switches`): the open sky's light at which the sky's light on the surfaces it lights (x their traced sky
+    share K) equals its own light there - a photocell's rule. `rt_lights.h lamp_on` compares it with the open sky now
+    (the clock's `sky_light`, or the level's own time's - `LevelEmitters::own_sky`), smooth over a factor of 2 either
+    side. Surfaces that see no sky (indoors): always on. The lamps pass multiplies each emitter by it; relit makes each
+    vertex's L again from its stored lamp links with each lamp's amount (`relit_mesh_lamp_light`). A lamp whose switch
+    isn't known (no data; the game's own point lights) follows the open sky's rule (`DayLight::lamps`, or the level's own
+    time's).
+  - *the self-lit search* (was: a dark level or a sunless bake): the relit bake's, in every level - candidates the solve
+    confirms.
+- **Ceiling lights drawn as textures.** The bake decodes each solid material's first texture on the processor
+  (`engine/gfx/texel_decode` - A8R8G8B8, X8R8G8B8, R5G6B5, X1R5G5B5, A1R5G5B5, A4R4G4B4, DXT1/3/5; a small shared reader
+  the material table can use too) and samples 15 points of each triangle: a texel showing a lamp (`lamp_texel`: its
+  brightest channel at least 0.7 linear, its luminance 2.5 x its texture's median or more, grey-white or a blackbody's
+  monotone warm / cool run) on a triangle not facing up makes a *textured* candidate (`EmitterKind::kTextured`), joined
+  into panels and lines like the self-lit ones and solved the same way. A confirmed candidate's vertices are its
+  **emitting vertices** (`RelitEmitting`): they show its radiance (its intensity / pi, x how much it is on - the bulb,
+  the lit panel; `RelitVertex::emit`, added to what relit_colour reflects).
+- **The rays' start off concave seams.** A vertex's rays now start `kRelitInward` (2 units) into its own triangles as
+  well as 2 off its surface (`relit_ray_origin`, `RelitVertex::inward` - the triangles' centres' mean less the vertex: 0
+  for an inner vertex). A floor vertex at a wall's foot no longer starts on the wall's plane: the furnace room's edge and
+  corner vertices see 0.000 of the sky (were 0.5 - 0.78), their bounce within 0.005 of the room's radiance; the
+  albedo-weighted series' median 0.7454 against 0.7500 (was 0.7422).
+- **The original's light cards hidden.** A world mesh drawn additively with a still texture (`rt_lights.h light_card`)
+  is a halo, cone, pool or starburst the artists drew round a lamp: the bake keeps it as a lamp's evidence (a glow), the
+  relit level hides it (its light store's colour word `kCelHiddenColour`, as the bake's shadows drawn as geometry). A
+  lamp shows its own surface and the light it casts (the lamps pass: inverse square, shadows); bloom and in-scatter are
+  the frame's.
+- **Glow radiance**: no longer held at 2 in `emitter_of`; decoded (rt_display.h) before it is a lamp's surface light. The
+  8-bit art itself (a vertex colour's 2 x a pass colour) is the limit: a lamp's real luminance is only known from a bake
+  with it lit.
+
+**Still not physical**: an untold glow's light is its displayed radiance (a lower bound); the light store's colour word is
+8 bits (a bulb's radiance clips at 2 x white there - an HDR store is the fix); a lamp's switch compares the sky's light
+only (the sun's direct light at dusk is left out); the light cards' lamps that have no surface of their own show none.
+
 ### One sun for every effect (`rt_sun_source`)
 
 Before this, each effect picked its own sun: the shadows `rt_shadow_sun` (the baked one), the drawn disc `rt_sun_place`

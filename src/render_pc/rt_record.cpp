@@ -1230,8 +1230,9 @@ void relit_work(rt::RayTracing& rt)
 }
 
 // (added by the night lighting - engine/gfx/rt_lights.h) The world's emissive surfaces turned into lights, once a world
-// while rt_lights wants them: its additive meshes (glows), and in a dark level its triangles far brighter than the level
-// (self-lit). The bake's colours are read (not the relit mode's).
+// while rt_lights wants them: its additive meshes (glows), and in the relit bake its candidates - triangles far brighter
+// than the level (self-lit) or whose texture shows a lamp (textured; round A3). The bake's colours are read (not the
+// relit mode's).
 constexpr std::size_t kLumaSamples = 200000; // triangles looked at for the level's median brightness
 constexpr uint32_t kBlendNone = 0;           // a first pass drawn over what is there (no blend)
 
