@@ -69,7 +69,8 @@ constexpr uint32_t kBindingSlots = 17;
 constexpr uint32_t kBindingCounters = 18;
 constexpr uint32_t kBindingBounds = 19;
 constexpr uint32_t kBindingCells = 20;
-constexpr uint32_t kBindingCount = 21;
+constexpr uint32_t kBindingSpecularOut = 21; // (round BR)
+constexpr uint32_t kBindingCount = 22;
 constexpr uint32_t kMaterialSet = 1;
 
 constexpr uint32_t kGroupSide = 8;
@@ -192,6 +193,9 @@ layout(std430, set = 0, binding = 15) buffer Sums { vec4 sums[]; };
 layout(set = 0, binding = 12, r32f) uniform readonly image2D u_depth;
 layout(set = 0, binding = 13, rgba16f) uniform writeonly image2D o_lamps;
 layout(set = 0, binding = 14, rgba16f) uniform writeonly image2D o_lamps_on;
+// (round BR) the lights' specular over the surface's specular albedo E - the view's specular input (vulkan_surface_light.h
+// SurfaceInputs::specular, 0 where nothing wrote; ReSTIR GI adds its environment's to it after)
+layout(set = 0, binding = 21, rgba16f) uniform writeonly image2D o_specular;
 #endif
 layout(std430, set = 0, binding = 18) buffer Counters { uint bad_samples; uint counter_spare[3]; };
 
@@ -226,21 +230,27 @@ vec3 oct_decode(vec2 e)
 }
 
 // A pixel's surface: where it is, its shading normal (toward the eye) and its triangle's, whether it is an object's,
-// its albedo (linear).
+// its albedo (linear) - (round BR) and its material's F0 and roughness (its lights' specular is this pass's too).
 struct Surface {
     vec3 at;
     vec3 n;
     vec3 ng;
     vec3 albedo;
+    vec3 f0;
+    float rough;
     bool valid;
     bool object;
 };
-Surface no_surface() { return Surface(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), false, false); }
+Surface no_surface()
+{
+    return Surface(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), 1.0, false, false);
+}
 void put_surface(uint i, Surface s)
 {
     now_at[i] = vec4(s.at, s.valid ? 1.0 : 0.0);
     now_more[i] = uvec4(packSnorm2x16(oct_encode(s.n)), packSnorm2x16(oct_encode(s.ng)),
-                        packUnorm4x8(vec4(sqrt(clamp(s.albedo, 0.0, 1.0)), 0.0)), s.object ? 1u : 0u);
+                        packUnorm4x8(vec4(sqrt(clamp(s.albedo, 0.0, 1.0)), clamp(s.rough, 0.0, 1.0))),
+                        (s.object ? 1u : 0u) | (packUnorm4x8(vec4(sqrt(clamp(s.f0, 0.0, 1.0)), 0.0)) << 8));
 }
 Surface surface_of(vec4 at, uvec4 more)
 {
@@ -249,8 +259,11 @@ Surface surface_of(vec4 at, uvec4 more)
     s.valid = at.w > 0.5;
     s.n = oct_decode(unpackSnorm2x16(more.x));
     s.ng = oct_decode(unpackSnorm2x16(more.y));
-    vec3 a = unpackUnorm4x8(more.z).rgb;
-    s.albedo = a * a;
+    vec4 a = unpackUnorm4x8(more.z);
+    s.albedo = a.rgb * a.rgb;
+    s.rough = a.a;
+    vec3 f = unpackUnorm4x8(more.w >> 8).rgb;
+    s.f0 = f * f;
     s.object = (more.w & 1u) != 0u;
     return s;
 }
@@ -335,7 +348,7 @@ Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
     if (dot(n, dir) > 0.0) {
         n = -n;
     }
-    return Surface(here, n, n, vec3(0.0), true, false);
+    return Surface(here, n, n, vec3(0.0), vec3(0.04), 1.0, true, false);
 }
 #endif
 
@@ -385,6 +398,13 @@ Surface primary(ivec2 p)
     s.ng = h.normal;
     s.n = dot(h.shading_normal, -dir) > 0.0 ? h.shading_normal : h.normal;
     s.albedo = h.base_colour;
+#ifdef CHECK
+    s.f0 = vec3(pass.force.y); // (the check's material)
+    s.rough = pass.force.x;
+#else
+    s.f0 = h.material.f0;
+    s.rough = h.material.roughness;
+#endif
     s.object = (geometry_record(instance).instance_flags & HIT_INSTANCE_OBJECT) != 0u;
     s.valid = true;
     return s;
@@ -652,7 +672,7 @@ void main()
 #endif
 
 #ifdef PASS_SPATIAL
-void put_result(ivec2 p, uint i, vec3 lamps, vec3 on_albedo, vec3 full)
+void put_result(ivec2 p, uint i, vec3 lamps, vec3 on_albedo, vec3 specular, vec3 full)
 {
 #ifdef CHECK
     if ((pass.counts.w & FLAG_ACCUMULATE) != 0u) {
@@ -662,6 +682,7 @@ void put_result(ivec2 p, uint i, vec3 lamps, vec3 on_albedo, vec3 full)
 #else
     imageStore(o_lamps, p, vec4(lamps, 0.0));
     imageStore(o_lamps_on, p, vec4(on_albedo, 0.0));
+    imageStore(o_specular, p, vec4(specular, 1.0));
 #endif
 }
 void main()
@@ -676,7 +697,7 @@ void main()
     float cap = float(pass.params.z);
     if (!s.valid) {
         res_b[i] = uvec4(0u, 0u, 0u, floatBitsToUint(0.0));
-        put_result(p, i, vec3(0.0), vec3(0.0), vec3(0.0));
+        put_result(p, i, vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0));
         return;
     }
     uint rng = path_sequence_start(uint(local.x), uint(local.y), pass.counts.z ^ 0x9E3779B9u, pass.params.w + 1u);
@@ -727,6 +748,7 @@ void main()
     }
     Reservoir r = Reservoir(0u, vec2(0.0), 0.0, min(m_sum, cap));
     vec3 lamps = vec3(0.0);
+    vec3 specular = vec3(0.0);
     vec3 full = vec3(0.0);
     if (chosen != 0xFFFFFFFFu) {
         vec3 through = seen(s, chosen_point);
@@ -750,23 +772,36 @@ void main()
             if (r.W > 0.0) {
                 LightPoint exact = chosen_point;
                 lamps = exact.light * through * r.W;
-#ifdef CHECK
-                BrdfMaterial m = brdf_material(s.albedo * pass.force.z, vec3(pass.force.y), pass.force.x);
+                // (round BR) the light's specular reflection: the same sample through the material's specular lobe, over
+                // its specular albedo E (the shading puts its own E back - ReSTIR GI's convention). The lights' specular
+                // is this pass's as their diffuse light is: sampled on the light, not found by a reflected ray (an
+                // emitter's small bright face met by chance - ReSTIR GI's sparkle under Ray Reconstruction).
+                vec3 v = normalize(pass.eye.xyz - s.at);
                 float facing = max(dot(s.n, exact.dir), 1.0e-4);
-                full = brdf_direct(m, s.n, normalize(pass.eye.xyz - s.at), exact.dir, exact.light / facing * through) * r.W;
+                vec3 incoming = exact.light / facing * through * r.W;
+                vec3 e = brdf_specular_albedo(s.f0, max(dot(s.n, v), 1.0e-4), s.rough);
+                specular = brdf_direct(brdf_material(vec3(0.0), s.f0, s.rough), s.n, v, exact.dir, incoming) /
+                           max(e, vec3(1.0e-4));
+#ifdef CHECK
+                // (the check: the diffuse light on the material plus the specular as the shading takes it - E x it)
+                BrdfMaterial m = brdf_material(s.albedo * pass.force.z, vec3(pass.force.y), pass.force.x);
+                full = brdf_direct(m, s.n, v, exact.dir, incoming) -
+                       brdf_direct(brdf_material(vec3(0.0), s.f0, s.rough), s.n, v, exact.dir, incoming) + e * specular;
 #endif
             }
         }
     }
-    if (any(isnan(lamps)) || any(isinf(lamps)) || any(isnan(full)) || any(isinf(full))) {
+    if (any(isnan(lamps)) || any(isinf(lamps)) || any(isnan(specular)) || any(isinf(specular)) || any(isnan(full)) ||
+        any(isinf(full))) {
         atomicAdd(bad_samples, 1u);
         lamps = vec3(0.0);
+        specular = vec3(0.0);
         full = vec3(0.0);
         r.W = 0.0;
     }
     res_b[i] = words_of(r);
     vec3 exposed = min(lamps * pass.eye.w, vec3(65504.0));
-    put_result(p, i, exposed, min(exposed * s.albedo, vec3(65504.0)), full);
+    put_result(p, i, exposed, min(exposed * s.albedo, vec3(65504.0)), min(specular * pass.eye.w, vec3(65504.0)), full);
 }
 #endif
 )";
@@ -1198,7 +1233,8 @@ bool ensure_scan(Backend& state, std::string* error)
                 type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
             } else if (binding == kBindingBlock) {
                 type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            } else if (binding == kBindingDepth || binding == kBindingLampsOut || binding == kBindingLampsOnOut) {
+            } else if (binding == kBindingDepth || binding == kBindingLampsOut || binding == kBindingLampsOnOut ||
+                       binding == kBindingSpecularOut) {
                 type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             }
             core::at(bindings, binding) = {.binding = binding,
@@ -1853,7 +1889,8 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         own.history = false;
         return false;
     }
-    if (inputs != nullptr && (inputs->depth == nullptr || inputs->lamps == nullptr || inputs->lamps_on == nullptr)) {
+    if (inputs != nullptr && (inputs->depth == nullptr || inputs->lamps == nullptr || inputs->lamps_on == nullptr ||
+                            inputs->specular == nullptr)) {
         return false;
     }
 
@@ -1927,7 +1964,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
             VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
                 VK_ACCESS_UNIFORM_READ_BIT);
     if (inputs != nullptr) {
-        for (Image* image : {inputs->depth, inputs->lamps, inputs->lamps_on}) {
+        for (Image* image : {inputs->depth, inputs->lamps, inputs->lamps_on, inputs->specular}) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
         }
     }
@@ -1961,13 +1998,15 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
                                                        kBindingReservoirsB, kBindingNowAt,      kBindingNowMore,
                                                        kBindingBeforeAt,    kBindingBeforeMore, kBindingSums,
                                                        kBindingCounters,    kBindingBounds,     kBindingCells};
-    std::array<VkDescriptorImageInfo, 3> images{};
+    std::array<VkDescriptorImageInfo, 4> images{};
     if (inputs != nullptr) {
         images = {VkDescriptorImageInfo{.sampler = VK_NULL_HANDLE, .imageView = inputs->depth->view,
                                         .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
                   VkDescriptorImageInfo{.sampler = VK_NULL_HANDLE, .imageView = inputs->lamps->view,
                                         .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
                   VkDescriptorImageInfo{.sampler = VK_NULL_HANDLE, .imageView = inputs->lamps_on->view,
+                                        .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+                  VkDescriptorImageInfo{.sampler = VK_NULL_HANDLE, .imageView = inputs->specular->view,
                                         .imageLayout = VK_IMAGE_LAYOUT_GENERAL}};
     }
     std::vector<VkWriteDescriptorSet> writes;
@@ -1994,6 +2033,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         add(kBindingDepth, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr, &core::at(images, 0), nullptr);
         add(kBindingLampsOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr, &core::at(images, 1), nullptr);
         add(kBindingLampsOnOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr, &core::at(images, 2), nullptr);
+        add(kBindingSpecularOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr, &core::at(images, 3), nullptr);
     }
     const VkDescriptorSet material_set = state.materials.descriptor_set();
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,
@@ -2034,7 +2074,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     state.bound = BoundState{};
     const uint64_t serial = state.frames.serial();
     if (inputs != nullptr) {
-        for (Image* image : {inputs->depth, inputs->lamps, inputs->lamps_on}) {
+        for (Image* image : {inputs->depth, inputs->lamps, inputs->lamps_on, inputs->specular}) {
             image->used = serial;
         }
     }
