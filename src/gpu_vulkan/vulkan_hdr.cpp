@@ -1690,6 +1690,7 @@ void set_hdr_settings(const HdrSettings& settings)
         rt::add_view_listener(&listener());
     } else {
         rt::remove_view_listener(&listener());
+        rt::set_camera_exposure(0.0F); // (round PX: no camera - the frame's pre-exposure by the daylight's rule)
     }
 }
 
@@ -2303,6 +2304,8 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
         follow_camera(state, slot);
         log_readout(state, slot, core::at(constants.night, 0));
         record_meter(commands, meter, slot, &constants);
+    } else {
+        rt::set_camera_exposure(0.0F); // (round PX: not metered - no camera to follow)
     }
     // (round EX) then the local exposure's grid, with the meter's factor and key
     if (local_on) {

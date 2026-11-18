@@ -208,9 +208,9 @@ inline constexpr double kLampsFullLux = 10.0;
 // then). At least kLeastPreExposure, at most kMostPreExposure.
 inline constexpr double kMostPreExposure = 65536.0;
 inline constexpr double kLeastPreExposure = 1.0 / 256.0;
-// (a reading older than this - the meter not running - isn't the camera's any more)
-inline constexpr double kCameraReadingSeconds = 0.5;
-void set_camera_exposure(float factor); // (the meter's: physical light -> exposed; 0 none)
+// (the meter's: physical light -> exposed; 0 none - the HDR pass not metering. Kept through a load's long frames: the
+// first frame of a level keeps the last camera, the meter restarts at its target on a lighting cut)
+void set_camera_exposure(float factor);
 [[nodiscard]] float camera_exposure();
 // (round L - lamps at their luminance) ... and at most kFrameLightMost over the brightest emission the level shows (a lamp's
 // lens, bulb or panel at its luminance - the relit world's, in the unit: set_brightest_emission): a 10^5 cd/m^2 lamp head

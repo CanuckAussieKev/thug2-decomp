@@ -781,11 +781,10 @@ void set_brightest_emission(float unit_radiance)
 float brightest_emission() { return brightest_slot().load(std::memory_order_relaxed); }
 
 namespace {
-// (round PX) the camera's exposure (set_camera_exposure) and when it was read
+// (round PX) the camera's exposure (set_camera_exposure)
 struct CameraReading {
     std::mutex mutex;
     float factor = 0.0F;
-    std::chrono::steady_clock::time_point when;
 };
 CameraReading& camera_reading()
 {
@@ -820,15 +819,13 @@ void set_camera_exposure(float factor)
     CameraReading& reading = camera_reading();
     const std::scoped_lock lock(reading.mutex);
     reading.factor = std::isfinite(factor) && factor > 0.0F ? factor : 0.0F;
-    reading.when = std::chrono::steady_clock::now();
 }
 
 float camera_exposure()
 {
     CameraReading& reading = camera_reading();
     const std::scoped_lock lock(reading.mutex);
-    const double age = std::chrono::duration<double>(std::chrono::steady_clock::now() - reading.when).count();
-    return reading.factor > 0.0F && age <= kCameraReadingSeconds ? reading.factor : 0.0F;
+    return reading.factor;
 }
 
 float pre_exposure_for(const DayLight& light)
