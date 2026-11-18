@@ -661,6 +661,7 @@ struct RunPlan {
     bool temporal = true;
     std::function<Vec3(int)> camera;
     std::function<bool(int)> counted;
+    std::function<void(const vk::RestirGiAccumulation&)> each_frame; // (round BR: read back every counted frame when set)
 };
 
 Answer restir_gi(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, const Lighting& lighting,
@@ -692,8 +693,19 @@ Answer restir_gi(render::Gpu& gpu, const Targets& targets, std::span<const Scene
                 vk::restart_restir_gi_accumulation();
             }
             const int at = std::max(frame, 0);
-            vk::set_restir_gi_accumulate(frame >= 0 && plan.counted(at));
+            const bool counted = frame >= 0 && plan.counted(at);
+            vk::set_restir_gi_accumulate(counted);
             draw_frame(gpu, targets, meshes, view_from(plan.camera(at)));
+            if (counted && plan.each_frame) {
+                vk::RestirGiAccumulation one;
+                vk::Backend& state = vk::backend();
+                const std::scoped_lock lock(state.mutex);
+                if (!vk::read_restir_gi_accumulation(state, &one)) {
+                    *ok = false;
+                    break;
+                }
+                plan.each_frame(one);
+            }
         }
         vk::RestirGiAccumulation image;
         {
@@ -799,6 +811,64 @@ void check_device(render::Gpu& gpu, Tally* tally)
                               "reference %.5f +- %.5f (%+.2f %%; within 3 %%)",
                               static_cast<double>(kSmooth), got_s.mean, got_s.sigma, ref_s.mean, ref_s.sigma,
                               percent(got_s.mean, ref_s.mean)));
+
+    // (round BR) sparkle: a glossy floor (roughness 0.35 - its specular was the diffuse reservoir's sample through the lobe
+    // from 0.3 up) frame by frame - the share of pixel-frames over 4 x their pixel's mean over the frames (single bright
+    // pixels, what a temporal denoiser passes as sparkle) and each pixel's variation over the frames
+    {
+        constexpr float kGlossySparkle = 0.35F;
+        constexpr int kSparkleFrames = 64;
+        Lighting gloss = lit;
+        gloss.roughness = kGlossySparkle;
+        const std::size_t pixels = static_cast<std::size_t>(kWidth) * kHeight;
+        std::vector<std::vector<float>> series(pixels);
+        RunPlan sparkle = plan;
+        sparkle.batches = 1;
+        sparkle.frames = kSparkleFrames;
+        sparkle.each_frame = [&series](const vk::RestirGiAccumulation& one) {
+            for (std::size_t i = 0; i < series.size() && i < one.last.size(); ++i) {
+                const std::array<float, 3>& c = core::at(one.last, i);
+                core::at(series, i).push_back(static_cast<float>(luma({core::at(c, 0), core::at(c, 1), core::at(c, 2)})));
+            }
+        };
+        const Region floor_a = floor_region(kEyeA);
+        const Answer got = restir_gi(gpu, targets, everything, gloss, sparkle, floor_a, &read);
+        not_finite += got.not_finite;
+        std::size_t over = 0;
+        std::size_t samples = 0;
+        double variation = 0.0;
+        std::size_t counted_pixels = 0;
+        for (std::size_t i = 0; i < pixels; ++i) {
+            const std::vector<float>& s = core::at(series, i);
+            if (core::at(floor_a, i) == 0 || s.size() < 2) {
+                continue;
+            }
+            double mean = 0.0;
+            for (const float x : s) {
+                mean += x;
+            }
+            mean /= static_cast<double>(s.size());
+            if (!(mean > 0.0)) {
+                continue;
+            }
+            double spread = 0.0;
+            for (const float x : s) {
+                spread += (x - mean) * (x - mean);
+                over += x > 4.0 * mean ? 1U : 0U;
+            }
+            samples += s.size();
+            variation += std::sqrt(spread / static_cast<double>(s.size())) / mean;
+            ++counted_pixels;
+        }
+        const double over_share = samples > 0 ? static_cast<double>(over) / static_cast<double>(samples) : 1.0;
+        const double mean_variation = counted_pixels > 0 ? variation / static_cast<double>(counted_pixels) : 0.0;
+        tally->check(read && counted_pixels > 1000 && over_share < 0.0065 && mean_variation < 0.5,
+                     text::format("glossy floor (roughness %.2f), %d frames: %.3f %% of the pixel-frames over 4 x their "
+                                  "pixel's mean (under 0.65 %%; 0.83 %% with the reservoir's specular), each pixel's variation %.3f of its "
+                                  "mean (under 0.5; 0.585 before) - %zu pixels",
+                                  static_cast<double>(kGlossySparkle), kSparkleFrames, 100.0 * over_share, mean_variation,
+                                  counted_pixels));
+    }
 
     // 2. disocclusion: the camera between two views every frame
     text::print("disocclusion (the camera swapped between two views every frame):\n");

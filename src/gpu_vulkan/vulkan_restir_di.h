@@ -39,7 +39,11 @@
 //      target; the temporal step keeps 1 / Z (a ray from last frame's surface). Unbiased for a scene that stands still; where the
 //      scene moves, last frame's reservoir was made against last frame's occluders (the stated bias - small, a frame's
 //      worth). The result (the light x its visibility x W) goes into the lamps input (a white diffuser's radiance, the
-//      frame's pre-exposed unit) and on the traced albedo into lamps_on; the reservoir is kept for the next frame.
+//      frame's pre-exposed unit) and on the traced albedo into lamps_on; (round BR) the same sample through the surface's
+//      specular lobe (its traced F0 and roughness), over its specular albedo E, into the specular input (the shading takes
+//      E x it; ReSTIR GI adds the environment's after) - the lights' specular is this pass's as their diffuse light is,
+//      sampled on the light (before it was ReSTIR GI's, an emitter met by a reflected ray: sparkle); the reservoir is kept
+//      for the next frame.
 // The light list (local only: the sun's or the moon's disc and the sky keep their own owners - the shadows pass's
 // visibility and the light store's sky with the occlusion - see the doc): the emitting triangles found by the shared
 // scan (once a world, a lighting cut or a switch of the lamps' own surfaces; read back a few frames later without a

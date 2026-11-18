@@ -16,26 +16,26 @@
 // Per pixel, two compute passes with ray queries (after the lamps' inputs are made, before the shading):
 //   1. the pixel's surface (as ReSTIR DI's: the prepass's depth, a camera ray's triangle - hit_surface: its position,
 //      normals and material - kept for the next frame) and ONE sample of the light coming in: a direction drawn from a
-//      mix of the sky's distribution (the light list's sky grid - its luminance) and the surface's BSDF (the cosine lobe,
-//      and GGX's visible normals where the surface is glossy enough to reuse its reflections - below), traced:
+//      mix of the sky's distribution (the light list's sky grid - its luminance) and the cosine lobe, traced:
 //      - nothing hit: the sky's radiance that way (the grid's - the disc is not in it: the shadows pass owns the sun's and
 //        the moon's direct light), a sample at infinity (a direction);
-//      - a surface hit (the secondary vertex - hit_surface: its albedo, material, the light store's emission): its
-//        reflected light by next-event estimation through the light list - one light picked by power among the disc
-//        (with the clouds' shadow), the sky (its grid), the emitting triangles and the analytic lamps (the same list,
-//        lights and power as the reference's - vulkan_light_list.h; the local group's scan is ReSTIR DI's), one ray to it;
-//        its emission kept apart: the emitters' light on a diffuser is ReSTIR DI's (one owner), only their specular is
-//        this pass's;
-//      resampled toward the target p^ = luminance of the light the surface reflects toward the eye from it (a white
-//      diffuser's lobe plus, where glossy, the material's specular lobe) - the reservoir holds the sample's point (or
-//      direction), its surface's normal, its light (reflected and emitted), W and M;
+//      - a surface hit (the secondary vertex - hit_surface: its albedo, material): its reflected light by next-event
+//        estimation through the light list - one light picked by power among the disc (with the clouds' shadow), the sky
+//        (its grid), the emitting triangles and the analytic lamps (the same list, lights and power as the reference's -
+//        vulkan_light_list.h; the local group's scan is ReSTIR DI's), one ray to it; not its emission (round BR): the
+//        light straight from an emitter - diffuse and specular - is ReSTIR DI's (one owner);
+//      resampled toward the target p^ = luminance of the light a white diffuser there reflects toward the eye from it -
+//      the reservoir holds the sample's point (or direction), its surface's normal, its reflected light, W and M;
 //      - temporal reuse (Ouyang et al. 2021, ReSTIR GI; Bitterli et al. 2020's unbiased combination): the reservoir the
 //        point had last frame (through last frame's camera, ReSTIR DI's surface tests), its sample reconnected to this
 //        surface: its weight x the reconnection's Jacobian (the solid angle the sample's surface element spans from here
 //        over from there: cos / d^2 here over cos / d^2 there; 1 for the sky) - Lin et al. 2022 (GRIS)'s shift; Z the M
 //        of every reservoir whose surface could have made the chosen sample (its target there > 0, a ray from there);
-//      - (mirror-like surfaces, roughness under kGlossyReuse) the environment's specular by one ray along a GGX visible
-//        normal: its weight F G2/G1, what it meets (its reflected light + its emission, the sky past it).
+//      - the environment's specular by one ray along a GGX visible normal of the surface's lobe, every surface's (round
+//        BR: before, those of roughness 0.3 and more took it from the diffuse reservoir's sample - one that lands in the
+//        lobe by chance, single bright pixels from frame to frame that Ray Reconstruction passed as sparkle - Kajiya's and
+//        Lumen's split: resampling for the diffuse, a ray per pixel for the reflections): its weight F G2/G1, what it meets
+//        (its reflected light, the sky past it).
 //   2. spatial reuse: the pixel's reservoir and two neighbours' within 24 pixels that pass the surface tests, reconnected
 //      the same way; the chosen sample traced from the pixel (ray_light - the one light ray: cut-outs by their alpha,
 //      seen-through surfaces by their transmittance); out:
@@ -44,28 +44,24 @@
 //        puts the lamps;
 //      - the visibility input's indirect visibility set to 0: the light store's environment term (its sky K and bounce B)
 //        has no weight where this pass lit the surface - its sky and bounce are these samples;
-//      - the specular: glossy - the reservoir's sample through the specular lobe (its light reflected and emitted) x W;
-//        mirror-like - pass 1's ray - over the surface's specular albedo E (demodulated), into the specular input: the
-//        shading takes E x it in place of its environment's specular; and the specular ray's hit distance for Ray
-//        Reconstruction (its specular hit distance guide).
+//      - the specular: pass 1's ray over the surface's specular albedo E (demodulated), added into the specular input
+//        (ReSTIR DI wrote the lights' there first): the shading takes E x it in place of its environment's specular; and
+//        the specular ray's hit distance for Ray Reconstruction (its specular hit distance guide).
 // A pixel's next-frame history is its temporal reservoir, not the spatial one: fed back, the neighbours' samples come back
 // into their own spatial reuse - the inputs no longer independent, the unbiased combination's weights not unbiased (the
 // check's furnace lost 1.5 % so; 0.4 % with the chains apart).
 // Unbiased for a still world (the check: one bounce against the reference); where the world moves, last frame's samples
 // carry last frame's light for up to their M cap (20 frames' worth) - the stated bias of ReSTIR GI's reuse; a secondary
 // surface's glossy reflection toward a neighbour is taken as toward the pixel that found it (its light is stored).
-// Not here: the sun's and the moon's direct light (the shadows pass), the lamps' and emitting surfaces' direct light on a
-// diffuser (ReSTIR DI / the lamps pass), seen-through surfaces' own light (glass, water: their own paths), a second
-// bounce (the secondary vertex has its direct light only).
+// Cost (round BR): every pixel traces its specular ray (+ its secondary's light ray) - Training at 853x480 0.94 -> ~1.5 ms.
+// Not here: the sun's and the moon's direct light (the shadows pass), the lamps' and emitting surfaces' direct light,
+// diffuse and specular (ReSTIR DI / the lamps pass), seen-through surfaces' own light (glass, water: their own paths), a
+// second bounce (the secondary vertex has its direct light only).
 namespace render::vulkan {
 
 struct Backend;
 struct Image;
 
-// The perceptual roughness from which a surface's specular reflections are resampled with its diffuse light (one
-// reservoir for its whole lobe); smoother surfaces trace one ray along their lobe each frame (a near-mirror's lobe is too
-// narrow for its neighbours' samples to land in). A cost / variance threshold: both ways estimate the same integral.
-inline constexpr float kGlossyReuse = 0.3F;
 
 // (the check's) A run on the frame's scene with its lighting given here, not the game's: the primary surface from camera
 // rays (no depth), the result accumulated per pixel (on the material below: the BSDF x the indirect light, the

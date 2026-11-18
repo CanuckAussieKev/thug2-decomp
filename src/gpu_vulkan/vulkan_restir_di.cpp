@@ -315,7 +315,9 @@ Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
     if (dot(n, dir) > 0.0) {
         n = -n;
     }
-    return Surface(here, n, n, vec3(0.0), vec3(0.04), 1.0, true, false);
+    // (round BR) a diffuser alone - F0 0: no specular. Its material isn't known (the shading's own would be put back on the
+    // specular over a guessed one's E: the skater pale, his outline white).
+    return Surface(here, n, n, vec3(0.0), vec3(0.0), 1.0, true, false);
 }
 #endif
 
@@ -748,7 +750,7 @@ void main()
                 float facing = max(dot(s.n, exact.dir), 1.0e-4);
                 vec3 incoming = exact.light / facing * through * r.W;
                 vec3 e = brdf_specular_albedo(s.f0, max(dot(s.n, v), 1.0e-4), s.rough);
-                specular = brdf_direct(brdf_material(vec3(0.0), s.f0, s.rough), s.n, v, exact.dir, incoming) /
+                specular = max(s.f0.r, max(s.f0.g, s.f0.b)) <= 0.0 ? vec3(0.0) : brdf_direct(brdf_material(vec3(0.0), s.f0, s.rough), s.n, v, exact.dir, incoming) /
                            max(e, vec3(1.0e-4));
 #ifdef CHECK
                 // (the check: the diffuse light on the material plus the specular as the shading takes it - E x it)

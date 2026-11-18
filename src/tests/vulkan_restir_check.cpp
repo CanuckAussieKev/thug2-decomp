@@ -527,7 +527,7 @@ struct Answer {
 
 // The reference's direct light from `eye`: one bounce, the emitting surfaces and the lamps alone, the material forced.
 Answer reference(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, const Vec3& eye,
-                 const std::vector<rt::Emitter>& lamps, bool* ok)
+                 const std::vector<rt::Emitter>& lamps, bool* ok, float roughness = kRoughness)
 {
     constexpr int kBatches = 8;
     constexpr int kFrames = 4;
@@ -541,7 +541,7 @@ Answer reference(render::Gpu& gpu, const Targets& targets, std::span<const Scene
         overrides.bounces = 1;
         overrides.samples_per_frame = 32;
         overrides.force_material = true;
-        overrides.roughness = kRoughness;
+        overrides.roughness = roughness;
         overrides.f0 = kF0;
         overrides.albedo_scale = kAlbedo;
         overrides.lamps = lamps;
@@ -597,6 +597,7 @@ struct RunPlan {
     bool temporal = true;
     bool grid = true; // (round PT4c) the initial candidates from the light grid (false: the list by power)
     bool denoiser = true; // (round PT4d) permutation sampling and the boiling filter (restir_denoiser_glsl)
+    float roughness = kRoughness; // (round BR) every surface's
     std::function<Vec3(int)> camera;
     std::function<bool(int)> counted;
     std::function<std::vector<rt::Emitter>(int)> lamps_at;
@@ -611,7 +612,7 @@ Answer restir(render::Gpu& gpu, const Targets& targets, std::span<const SceneMes
     for (int batch = 0; batch < plan.batches; ++batch) {
         vk::RestirOverrides overrides;
         overrides.on = true;
-        overrides.roughness = kRoughness;
+        overrides.roughness = plan.roughness;
         overrides.f0 = kF0;
         overrides.albedo_scale = kAlbedo;
         overrides.candidates = plan.candidates;
@@ -840,6 +841,24 @@ void check_device(render::Gpu& gpu, Tally* tally)
                               alone.sigma, 100.0 * (alone.mean - ref_a.mean) / std::max(ref_a.mean, 1e-12)));
     plan.spatial = 0xFFU;
     plan.temporal = true;
+    // (round BR) a glossy floor: the lights' specular is ReSTIR DI's (sampled on the lights, written over E into the
+    // specular input - here taken back as the shading does, E x it, with the diffuse light) - the reference's direct light
+    {
+        constexpr float kGlossy = 0.2F;
+        const Answer ref_g = reference(gpu, targets, everything, kEyeA, still_lamps, &read, kGlossy);
+        not_finite += ref_g.not_finite;
+        plan.roughness = kGlossy;
+        const Answer glossy = restir(gpu, targets, everything, plan, region_a, &read);
+        not_finite += glossy.not_finite;
+        plan.roughness = kRoughness;
+        tally->check(read && agrees(glossy.mean, ref_g.mean),
+                     text::format("glossy floor (roughness %.2f): ReSTIR diffuse + E x its specular input %.5f +- %.5f, the "
+                                  "reference's direct light %.5f +- %.5f (%+.2f %%; the reference %+.1f %% against roughness %.2f)",
+                                  static_cast<double>(kGlossy), glossy.mean, glossy.sigma, ref_g.mean, ref_g.sigma,
+                                  100.0 * (glossy.mean - ref_g.mean) / std::max(ref_g.mean, 1e-12),
+                                  100.0 * (ref_g.mean - ref_a.mean) / std::max(ref_a.mean, 1e-12),
+                                  static_cast<double>(kRoughness)));
+    }
     // the shadowed part on its own (the wall's shadow: the reuse across a shadow's edge stays unbiased)
     {
         std::vector<uint8_t> shade(region_a.size(), 0);

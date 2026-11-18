@@ -132,7 +132,7 @@ struct GiBlock {
     std::array<float, 4> cloud_ray{};
     std::array<float, 4> cloud_sun{};
     std::array<float, 4> cloud_toward{};
-    std::array<float, 4> sky_dist{};       // x 1 / the grid in use's luminance integral (0: no sky), y kGlossyReuse
+    std::array<float, 4> sky_dist{};       // x 1 / the grid in use's luminance integral (0: no sky)
     std::array<float, 4> cloud_place{};    // (the clouds' shadow map: vulkan_rt_sky_pass.h CloudShadowMap)
     std::array<float, 4> cloud_light{};
 };
@@ -289,7 +289,6 @@ Surface surface_of(vec4 at, uvec4 more)
     return s;
 }
 BrdfMaterial material_of(Surface s) { return brdf_material(s.metal ? vec3(0.0) : s.albedo, s.f0, s.rough); }
-bool glossy(Surface s) { return s.rough >= pass.sky_dist.y; }
 
 // Whether `other` is the same surface as `s` near enough to share its light (ReSTIR DI's tests).
 bool alike(Surface s, Surface other)
@@ -344,8 +343,8 @@ BrdfMaterial hit_material(HitSurface h)
 
 #ifndef CHECK
 // (round PT4d) The depth's own surface where the drawn surface isn't the one the rays find (ReSTIR DI's depth_surface,
-// vulkan_restir_di.cpp): the point from the depth, the normal from the nearer neighbours' depths, a diffuse dielectric
-// (F0 0.04, rough). Before, such a pixel kept the light store's environment - the outlines of tessellated, skinned and
+// vulkan_restir_di.cpp): the point from the depth, the normal from the nearer neighbours' depths, a diffuser (round BR:
+// no specular ray - below). Before, such a pixel kept the light store's environment - the outlines of tessellated, skinned and
 // ray-less surfaces (grass, litter) another owner's light, far brighter than ReSTIR GI's at night: white halos that
 // flickered with the jitter.
 vec3 depth_point(ivec2 q, out bool drawn)
@@ -375,7 +374,10 @@ Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
     if (dot(n, dir) > 0.0) {
         n = -n;
     }
-    return Surface(here, n, n, vec3(0.0), vec3(0.04), 1.0, true, false, false);
+    // (round BR) a diffuser alone - F0 0: no specular ray from it. The ray would start on a surface the scene's copy
+    // hasn't (a skinned body, a tessellated outline - why the camera ray missed it) and meet that copy's inside: the
+    // skater and the platforms' edges outlined in white. The lights' specular on it stays ReSTIR DI's (rays to the lights).
+    return Surface(here, n, n, vec3(0.0), vec3(0.0), 1.0, true, false, false);
 }
 #endif
 
@@ -693,26 +695,22 @@ bool sample_from(Surface s, Reservoir r, out vec3 dir, out float reach, out floa
     return true;
 }
 
-// The target at surface `s` (seen from `eye`) of a sample's light from direction `dir`: the luminance of what a white
-// diffuser's lobe takes of its reflected light, and where the surface is glossy, what its specular lobe takes of it. (Any
-// target > 0 wherever the outputs' integrands are keeps the estimate unbiased; this one follows what the sample brings.)
-float target_of(Surface s, vec3 eye, vec3 dir, vec3 bounce)
+// The target at surface `s` of a sample's light from direction `dir`: the luminance of what a white diffuser's lobe takes
+// of its reflected light (the reservoirs carry the diffuse light alone - round BR: the specular is every surface's own
+// ray, step 3 of the temporal pass).
+float target_of(Surface s, vec3 dir, vec3 bounce)
 {
     if (dot(s.ng, dir) <= 0.0 || dot(s.n, dir) <= 0.0) {
         return 0.0;
     }
-    float t = path_luma(bounce) * white_lobe(s, dir);
-    if (glossy(s)) {
-        t += path_luma(bounce) * path_luma(specular_lobe(s, view_of(s, eye), dir));
-    }
-    return good(t);
+    return good(path_luma(bounce) * white_lobe(s, dir));
 }
 float target_at(Surface s, vec3 eye, Reservoir r, out vec3 dir, out float reach, out float g)
 {
     if (!sample_from(s, r, dir, reach, g)) {
         return 0.0;
     }
-    return target_of(s, eye, dir, r.bounce);
+    return target_of(s, dir, r.bounce);
 }
 // What of the light gets from the sample to the surface (the one light ray - vulkan_rt_scene.h ray_light).
 vec3 seen(Surface s, vec3 dir, float reach) { return ray_light(rays_of(s), s.at + s.ng * ray_offset(s.at), dir, reach); }
@@ -720,7 +718,7 @@ bool seen_at_all(vec3 through) { return max(through.r, max(through.g, through.b)
 
 #ifdef PASS_TEMPORAL
 // The pixel's reservoir after its sample and the temporal reuse (stored by main, after the boiling filter); `weight` its
-// sample's contribution (target x W - what the filter compares). Also the mirror-like surfaces' specular ray.
+// sample's contribution (target x W - what the filter compares). Also the surface's specular ray.
 Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
 {
     weight = 0.0;
@@ -741,12 +739,9 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
     vec3 origin = s.at + s.ng * ray_offset(s.at);
     uint mask = rays_of(s);
 
-    // 1. one sample: a direction from the sky's distribution or the BSDF (the cosine lobe; GGX's visible normals where
-    // glossy), its pdf the mix's
+    // 1. one sample: a direction from the sky's distribution or the cosine lobe, its pdf the mix's
     float sky_share = pass.sky_dist.x > 0.0 ? pass.tune.w : 0.0;
-    float specular_share = glossy(s) ? clamp(path_specular_probability(m, nv), 0.0, 0.9) : 0.0;
     float pick = path_next(rng);
-    float lobe = path_next(rng);
     float u1 = path_next(rng);
     float u2 = path_next(rng);
     float u3 = path_next(rng);
@@ -755,19 +750,13 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
     if (pick < sky_share) {
         uint cell;
         dir = sky_sample(u1, u2, u3, u4, cell);
-    } else if (lobe < specular_share) {
-        vec3 h = path_to_world(s.n, path_ggx_visible_normal(path_to_local(s.n, v), alpha, u1, u2));
-        dir = 2.0 * dot(v, h) * h - v;
     } else {
         dir = path_to_world(s.n, path_cosine_direction(u1, u2));
     }
     Reservoir r = no_reservoir(1.0);
     float chosen = 0.0;
     if (dot(dir, s.ng) > 0.0 && dot(dir, s.n) > 0.0) {
-        vec3 hv = normalize(v + dir);
-        float bsdf_pdf = specular_share * path_ggx_reflection_pdf(nv, clamp(dot(s.n, hv), 0.0, 1.0), alpha) +
-                         (1.0 - specular_share) * dot(s.n, dir) / PATH_PI;
-        float pdf = sky_share * sky_density(dir) + (1.0 - sky_share) * bsdf_pdf;
+        float pdf = sky_share * sky_density(dir) + (1.0 - sky_share) * dot(s.n, dir) / PATH_PI;
         Secondary sec = trace_secondary(mask, origin, dir, rng);
         Reservoir c;
         c.M = 1.0;
@@ -782,7 +771,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
             c.ny = -dir;
             c.bounce = good3(sky_radiance(dir));
         }
-        float t = target_of(s, eye, dir, c.bounce);
+        float t = target_of(s, dir, c.bounce);
         if (t > 0.0 && pdf > 0.0) {
             c.W = good(1.0 / pdf);
             r = c;
@@ -853,12 +842,14 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
     }
     weight = r.kind != KIND_NONE && r.W > 0.0 ? good(kept_target * r.W) : 0.0;
 
-    // 3. a mirror-like surface's specular: one ray along a visible normal of its lobe
-    if (!glossy(s)) {
+    // 3. the surface's specular: one ray along a visible normal of its lobe (round BR: every surface's - before, those
+    // of roughness 0.3 and more took it from the diffuse reservoir's sample, which lands in a GGX lobe by chance: single
+    // bright pixels from frame to frame that Ray Reconstruction passed as sparkle, Training's dark walls and pillars)
+    {
         vec3 e = brdf_specular_albedo(s.f0, nv, s.rough);
         vec3 h = path_to_world(s.n, path_ggx_visible_normal(path_to_local(s.n, v), alpha, path_next(rng), path_next(rng)));
         vec3 l = 2.0 * dot(v, h) * h - v;
-        if (max(e.r, max(e.g, e.b)) > 0.0 && dot(l, s.ng) > 0.0 && dot(l, s.n) > 0.0) {
+        if (max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0 && dot(l, s.ng) > 0.0 && dot(l, s.n) > 0.0) {
             float pdf = path_ggx_reflection_pdf(nv, clamp(dot(s.n, h), 0.0, 1.0), alpha);
             vec3 lobe_weight = pdf > 0.0 ? good3(specular_lobe(s, v, l) / pdf) : vec3(0.0);
             Secondary sec = trace_secondary(mask, origin, l, rng);
@@ -1024,26 +1015,14 @@ void main()
             if (r.W > 0.0) {
                 vec3 light = r.bounce * through * r.W;
                 diffuse = light * white_lobe(s, chosen_dir);
-                float c = max(dot(s.n, chosen_dir), 0.0);
-                if (glossy(s)) {
-                    vec3 lobe = specular_lobe(s, v, chosen_dir);
-                    specular = r.bounce * through * r.W * lobe / max(e, vec3(1.0e-4));
-                    hit = r.kind == KIND_SKY ? GI_MISS_DISTANCE : length(r.y - s.at);
 #ifdef CHECK
-                    full = path_bsdf_cosine(m, s.n, v, chosen_dir) * light;
+                full = m.albedo * (1.0 - e) * (max(dot(s.n, chosen_dir), 0.0) / PATH_PI) * light;
 #endif
-                } else {
-#ifdef CHECK
-                    full = m.albedo * (1.0 - e) * (c / PATH_PI) * light;
-#endif
-                }
             }
         }
     }
 #ifdef CHECK
-    if (!glossy(s)) {
-        full += specular_rays[i * 2u + 1u].rgb;
-    }
+    full += specular_rays[i * 2u + 1u].rgb;
 #endif
     if (any(isnan(diffuse)) || any(isinf(diffuse)) || any(isnan(specular)) || any(isinf(specular)) || any(isnan(full)) ||
         any(isinf(full))) {
@@ -1944,7 +1923,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
                        static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
     (void)disc_of(lighting, &block.sun, &block.sun_radiance);
-    block.sky_dist = {own.sky_integral > 0.0 ? static_cast<float>(1.0 / own.sky_integral) : 0.0F, kGlossyReuse, 0.0F, 0.0F};
+    block.sky_dist = {own.sky_integral > 0.0 ? static_cast<float>(1.0 / own.sky_integral) : 0.0F, 0.0F, 0.0F, 0.0F};
     if (map_now) {
         block.cloud_place = cloud_map.place;
         block.cloud_light = cloud_map.light;
