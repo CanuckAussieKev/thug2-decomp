@@ -583,12 +583,22 @@ public:
                                     .left = core::at(frame.specular_hit_at, 0),
                                     .width = frame.render.width,
                                     .height = frame.render.height};
+        sl::Resource transparency = frame.transparency != nullptr ? streamline_resource(*frame.transparency) : sl::Resource{};
+        const sl::Extent layer_extent{.top = core::at(frame.transparency_at, 1),
+                                      .left = core::at(frame.transparency_at, 0),
+                                      .width = frame.render.width,
+                                      .height = frame.render.height};
         if (ray_reconstruction_) {
             tags.emplace_back(&albedo, sl::kBufferTypeAlbedo, kKept, &render);
             tags.emplace_back(&specular, sl::kBufferTypeSpecularAlbedo, kKept, &render);
             tags.emplace_back(&normals, sl::kBufferTypeNormalRoughness, kKept, &render);
             if (frame.specular_hit != nullptr) {
                 tags.emplace_back(&specular_hit, sl::kBufferTypeSpecularHitDistance, kKept, &hit_extent);
+            }
+            // (round RG) the transparency layer (NVIDIA's DLSS-RR Integration Guide 3.4.10): the transparencies kept out of
+            // the colour, upscaled and laid over the denoised picture (zeros on a frame without one)
+            if (frame.transparency != nullptr) {
+                tags.emplace_back(&transparency, sl::kBufferTypeTransparencyLayer, kKept, &layer_extent);
             }
         }
         auto* commands = same_address<sl::CommandBuffer*>(frame.commands);

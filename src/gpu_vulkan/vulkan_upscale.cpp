@@ -144,6 +144,14 @@ void main()
                     normal = dot(own_normal, own_normal) > 1e-8 ? normalize(own_normal) : normal;
                 }
                 roughness = a.a;
+            } else {
+                // (round RG) no surface's material here (the sky, what the view drew outside its kept surfaces): NVIDIA's
+                // DLSS-RR Integration Guide 3.4.1 - 3.4.4's defaults, the albedo 0.5 (its "common integration error" is a
+                // guide left as something else: the lit colour was, light x the pre-exposure - hundreds where a lamp
+                // lit it - which Ray Reconstruction demodulated by), the specular albedo 0 (cleared), roughness 0; the
+                // normal the depth's, as before
+                imageStore(albedo_out, pixel, vec4(0.5, 0.5, 0.5, 1.0));
+                roughness = 0.0;
             }
         }
         imageStore(normal_out, pixel, vec4(normal, roughness));
@@ -182,6 +190,7 @@ struct UpscaleState {
     Image specular;
     Image normals;
     Image no_guides; // (round V: a 1x1 RGBA32UI of zeros bound when the view's surfaces wrote no guides)
+    Image no_layer;  // (round RG: Ray Reconstruction's transparency layer when the view drew none - zeros)
     bool reconstruct = false; // DLSS runs with Ray Reconstruction
     bool terms_set = false; // (the check's alternatives)
     UpscaleJitterTerms jitter_terms;
@@ -875,7 +884,8 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         ensure_image(state, &own.output, kHdrWorkFormat, whole, kWorkUsage) &&
         (!own.reconstruct || (ensure_image(state, &own.albedo, kHdrWorkFormat, whole, kWorkUsage) &&
                               ensure_image(state, &own.specular, kHdrWorkFormat, whole, kWorkUsage) &&
-                              ensure_image(state, &own.normals, kHdrWorkFormat, whole, kWorkUsage))) &&
+                              ensure_image(state, &own.normals, kHdrWorkFormat, whole, kWorkUsage) &&
+                              ensure_image(state, &own.no_layer, kHdrWorkFormat, whole, kWorkUsage))) &&
         ensure_image(state, &own.no_guides, VK_FORMAT_R32G32B32A32_UINT, Extent{.width = 1, .height = 1},
                      VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     if (!made) {
@@ -908,7 +918,7 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         Memory::transition(commands, guides, VK_IMAGE_LAYOUT_GENERAL, true);
     }
     if (own.reconstruct) {
-        for (Image* image : {&own.albedo, &own.specular, &own.normals}) {
+        for (Image* image : {&own.albedo, &own.specular, &own.normals, &own.no_layer}) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL);
         }
         // (no specular albedo: zeros)
@@ -917,6 +927,7 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
         vkCmdClearColorImage(commands, own.specular.image, VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &all);
         vkCmdClearColorImage(commands, own.no_guides.image, VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &all);
+        vkCmdClearColorImage(commands, own.no_layer.image, VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &all);
     }
     const VkImageLayout depth_resting = depth->layout;
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
@@ -999,6 +1010,14 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
             Memory::transition(commands, frame.specular_hit, VK_IMAGE_LAYOUT_GENERAL, true);
             frame.specular_hit_at = {core::at(drawn, 0), core::at(drawn, 1)};
         }
+        // (round RG) the view's transparencies, drawn into Ray Reconstruction's transparency layer - zeros when it
+        // drew none (tagged every frame: no earlier frame's taken)
+        Image* const layer = surface_light_layer(state);
+        frame.transparency = layer != nullptr ? layer : &own.no_layer;
+        Memory::transition(commands, frame.transparency, VK_IMAGE_LAYOUT_GENERAL, true);
+        frame.transparency_at = layer != nullptr ? std::array<uint32_t, 2>{core::at(drawn, 0), core::at(drawn, 1)}
+                                                 : std::array<uint32_t, 2>{0, 0};
+        frame.transparency->used = state.frames.serial();
     }
     frame.render = render;
     frame.output_size = output;
@@ -1162,7 +1181,7 @@ void release_upscale(Backend& state)
     own.sampler = VK_NULL_HANDLE;
     if (state.memory.ready()) {
         for (Image* image : {&own.colour, &own.depth, &own.motion, &own.reactive, &own.output, &own.albedo,
-                             &own.specular, &own.normals, &own.no_guides, &state.motion.image}) {
+                             &own.specular, &own.normals, &own.no_guides, &own.no_layer, &state.motion.image}) {
             state.memory.destroy_image(image);
         }
     }

@@ -32,6 +32,8 @@ namespace render::vulkan {
 // (added by the upscaler) The motion attachment's format (vulkan_motion.h): the move in 0 - 1 of the viewport (x, y),
 // how much of the pixel a blended draw left (z).
 inline constexpr VkFormat kMotionFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+// (round RG) PipelineKey::motion of a blended draw that writes depth: the surface - its motion written, not its share
+inline constexpr uint8_t kMotionSurface = 2;
 
 struct PipelineKey {
     ShaderKey shaders{};
@@ -47,9 +49,13 @@ struct PipelineKey {
     uint8_t write_mask = 0;      // D3DRS_COLORWRITEENABLE (its bits are Vulkan's)
     // (added by the upscaler) The pass has the motion attachment (kMotionFormat) as its second colour attachment: the
     // pipeline has two; with the key's motion on the fragment shader writes it - the motion where the draw doesn't
-    // blend, else only its alpha into z (the largest kept).
+    // blend or is the surface (kMotionSurface: a blended draw that writes depth), else only its alpha into z (the
+    // largest kept).
     uint8_t motion = 0;
-    std::array<uint8_t, 3> spare{};
+    // (round RG) Drawn into Ray Reconstruction's transparency layer (vulkan_surface_light.h surface_light_layer): its
+    // alpha blended as the layer's coverage - premultiplied "over" - not as the colour's
+    uint8_t layer = 0;
+    std::array<uint8_t, 2> spare{};
 
     bool operator==(const PipelineKey&) const = default;
 };

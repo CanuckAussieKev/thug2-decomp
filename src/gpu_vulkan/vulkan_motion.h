@@ -29,8 +29,9 @@
 //   - the projection: the camera's the frame before for the camera's own; else the draw's (the sky's), unjittered.
 // The attachment's channels: x, y the move to where the pixel was (0 - 1 of the viewport: x right, y down), z how much
 // the pixel is a blended draw's (particles, glows: the largest alpha a blended draw left there - the upscaler's
-// reactive mask), w unused. It is cleared to x = kNoMotion: a pixel no opaque draw covered gets the camera's motion
-// from its depth afterwards (the upscaler's preparation pass).
+// reactive mask; round RG: a blended draw that writes depth is the surface - its motion, no share), w unused. It is
+// cleared to x = kNoMotion: a pixel no opaque draw covered gets the camera's motion from its depth afterwards (the
+// upscaler's preparation pass).
 namespace render::vulkan {
 
 struct Backend;
