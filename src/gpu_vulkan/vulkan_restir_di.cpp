@@ -266,39 +266,6 @@ bool alike(Surface s, Surface other)
     return abs(dot(other.at - s.at, s.ng)) <= pass.tune.z * distance && abs(dot(s.at - other.at, other.ng)) <= pass.tune.z * distance;
 }
 
-// The closest surface along a ray (cut-outs by their alpha).
-bool trace_closest(vec3 origin, vec3 dir, float reach, out uint instance, out uint primitive, out uint id,
-                   out vec2 barycentrics, out float t, out mat4x3 to_world)
-{
-    rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, LIGHT_RAYS, origin, 0.0, dir, reach);
-    while (rayQueryProceedEXT(query)) {
-        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
-            cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
-                        rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
-                        rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
-                        rayQueryGetIntersectionBarycentricsEXT(query, false))) {
-            rayQueryConfirmIntersectionEXT(query);
-        }
-    }
-    instance = 0u;
-    primitive = 0u;
-    id = 0u;
-    barycentrics = vec2(0.0);
-    t = reach;
-    to_world = mat4x3(1.0);
-    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
-        return false;
-    }
-    instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
-    primitive = rayQueryGetIntersectionPrimitiveIndexEXT(query, true);
-    id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
-    barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
-    t = rayQueryGetIntersectionTEXT(query, true);
-    to_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
-    return true;
-}
-
 #ifndef CHECK
 // (round PT4d) The depth's own surface at pixel `p` (its point `here`, seen along `dir`): where the drawn surface isn't the
 // one the rays find - its outline drawn smoothed by the tessellation, a skinned body's, grass and litter drawn without a
@@ -340,7 +307,8 @@ Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
 #endif
 
 // The pixel's surface: the check's camera ray through its centre; the game's the prepass's depth there, its triangle the
-// one a camera ray meets at that point - (round PT4d) where none does, the depth's own surface (depth_surface).
+// one a camera ray meets at that point (round CW: the one the prepass kept - trace_drawn, a blended layer too) -
+// (round PT4d) where none does, the depth's own surface (depth_surface).
 Surface primary(ivec2 p)
 {
     vec2 centre = vec2(p) + 0.5;
@@ -371,7 +339,7 @@ Surface primary(ivec2 p)
     float t;
     mat4x3 to_world;
     HitSurface h;
-    if (!trace_closest(eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
+    if (!trace_drawn(eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
         (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
         !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
 #ifdef CHECK

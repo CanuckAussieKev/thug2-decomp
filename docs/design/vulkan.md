@@ -5486,6 +5486,15 @@ and GI's temporal passes):
   point, its normal from the nearer neighbours' depths, a diffuse material. Before, ReSTIR DI gave such a pixel no lamps
   and ReSTIR GI left it the light store's environment - another owner's light, far brighter at night than ReSTIR GI's:
   white halos round the archways and the skater that flickered with the jitter.
+- **The prepass's own surface** (round CW): the camera ray finds what the per-surface lighting's prepass kept at the
+  pixel (vulkan_rt_scene.h `trace_drawn`: the opaque and cut-out kinds by their alpha test, an alpha-blended layer where
+  it is at least half opaque - the prepass's kLightDepthHalf - seen-through instances included). Before, it took the
+  opaque kinds alone: a blended layer the prepass kept - Boston's crosswalk paint, 0.8 units over the asphalt - was
+  missed. Where the paint's depth was too far in front of the asphalt's hit the pixel fell to the depth's own surface
+  (no albedo for a colour lit already, and ReSTIR GI took the indirect light's visibility to 0 there: no indirect light
+  at all); elsewhere the asphalt under the paint was the surface, its light rays shaded by the paint over it. The paint
+  showed its alpha's pattern as dark blotches at dusk (thug2_vulkan_restir_gi_check case 6: the painted patch 0.0 of the
+  sky's light before, 1.0 now).
 - Measured (the same spot, 90 frames, the first clean series of a launch): courtyard 3.6 - 4.5 -> 1.35 - 1.7, the wall
   right of the green door 2.0 -> 0.65 - 1.0, the ornament above it 3.8 - 4.6 -> 1.3 - 1.9, the whole frame 2.5 - 5 ->
   0.8 - 1.0. With the lamps by ReSTIR DI and the indirect light by the passes, 0.39 - the lamps pass's own. What remains

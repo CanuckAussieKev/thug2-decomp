@@ -12,6 +12,8 @@
 //   - a room lit only through a window in its roof (the sun's patch on its floor, the sky through it): within 3 %;
 //   - energy: a white floor under an even sky (a furnace's half: nothing to bounce off) - the reference's within 2 %
 //     and the sky's radiance within 3 % (the light model's albedo with its multiple-scattering compensation: 1);
+//   - (round CW) a layer painted on that floor (alpha-blended, 0.8 units over it): the paint is the pixel's surface - the
+//     sky's light on it within 3 % of the bare floor's (it was black: the floor under it found, shaded by the paint);
 //   - disocclusion: the camera swapped between two views every frame (history across the other view): within 2 %;
 //   - no estimate NaN or infinite; the validation layer silent; the passes' device time printed.
 //   thug2_vulkan_restir_gi_check [--device N] [--display N] [--no-validation]
@@ -90,6 +92,12 @@ constexpr double kRoomHalf = 400.0;
 constexpr double kRoomHeight = 300.0;
 constexpr double kWindowHalf = 120.0;
 constexpr uint32_t kWorldOpaque = rt::kWorld | rt::kOpaque | rt::kCastsShadow;
+// (round CW) a layer alpha-blended over a surface (the game's blend 5, drawn alpha 2 x vertex x texel: 1 here) - seen
+// through for light rays (instance mask 0x80), kept by the per-surface lighting's prepass (at least half opaque)
+constexpr uint32_t kWorldBlended = rt::kWorld | rt::kTransparent;
+constexpr uint32_t kBlendAlpha = 5;
+constexpr double kPaintLift = 0.8; // (Boston's crosswalk paint over its asphalt)
+constexpr double kPaintInset = 100.0;
 constexpr double kAgreement = 0.02;      // (the brief: within 2 % of the reference's)
 constexpr double kLooseAgreement = 0.03; // (the smooth surface's own rays, the room's few lit pixels)
 constexpr float kRoughness = 0.6F;
@@ -230,11 +238,21 @@ std::vector<Triangle> room_triangles()
     return out;
 }
 
+// (round CW) A layer painted on the floor - a road's crosswalk: kPaintLift over it, a little inside its edge
+std::vector<Triangle> paint_triangles()
+{
+    std::vector<Triangle> out;
+    const double h = kFloorHalf - kPaintInset;
+    quad(&out, {-h, kPaintLift, -h}, {h, kPaintLift, -h}, {h, kPaintLift, h}, {-h, kPaintLift, h});
+    return out;
+}
+
 struct SceneMesh {
     rt::MeshId id = 0;
     rt::MaterialId material = 0;
     render::GpuVertexBuffer* vertices = nullptr;
     render::GpuVertexBuffer* stream = nullptr;
+    uint32_t flags = kWorldOpaque; // (its instance's)
 };
 
 void put_float(std::span<uint8_t> bytes, std::size_t at, float value)
@@ -252,7 +270,7 @@ constexpr std::array<float, 4> kRed{1.0F, 0.15F, 0.1F, 1.0F};
 // A mesh of `triangles` (untextured, its material's colour `colour`) registered; `emitting`: with a light store whose every
 // vertex emits kDiscRadiance and has no tint.
 bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool emitting, SceneMesh* mesh,
-               const std::array<float, 4>& colour = kWhite)
+               const std::array<float, 4>& colour = kWhite, bool blended = false)
 {
     const std::size_t vertices = triangles.size() * 3;
     std::vector<uint8_t> bytes(vertices * kStride);
@@ -298,8 +316,10 @@ bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool em
     mesh->material = rt::next_material_id();
     rt::Material surface;
     surface.colour = colour;
-    surface.flags = rt::kOpaque;
+    surface.flags = blended ? static_cast<uint32_t>(rt::kTransparent) : static_cast<uint32_t>(rt::kOpaque);
+    surface.blend = blended ? kBlendAlpha : 0U;
     surface.filter = value::kFilterPoint;
+    mesh->flags = blended ? kWorldBlended : kWorldOpaque;
     rt::ray_tracing()->set_material(mesh->material, surface);
     if (emitting) {
         rt::CelWords words = rt::kCelNoStream;
@@ -473,7 +493,7 @@ void draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
         {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}}};
     for (const SceneMesh& mesh : meshes) {
         record.instances.push_back(
-            {.mesh = mesh.id, .material = mesh.material, .flags = kWorldOpaque, .object_to_world = kIdentityRows});
+            {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = kIdentityRows});
     }
     gpu.begin_scene();
     rt::ray_tracing()->begin_frame(record);
@@ -874,6 +894,27 @@ void check_device(render::Gpu& gpu, Tally* tally)
         tally->check(read && agrees(g.mean, 1.0, kLooseAgreement),
                      text::format("furnace: the white floor reflects %.4f of the sky's radiance (1: energy kept; within 3 %%)",
                                   g.mean));
+
+        // 6. (round CW) the same floor painted over: a blended layer 0.8 units over it (a road's crosswalk) is the
+        // surface the camera sees and the prepass keeps - the pixel's surface is the paint, lit as the floor was. Before,
+        // the camera ray took the opaque kinds alone: it found the floor under the paint, and every light ray from there
+        // went through the paint (seen through by its coverage, 1 here) - the patch black.
+        text::print("a layer painted on the floor (blend 5, %.1f units over it - the prepass's surface):\n", kPaintLift);
+        std::array<SceneMesh, 2> painted{};
+        const bool built = make_mesh(gpu, floor_triangles(), false, &painted.at(0)) &&
+                           make_mesh(gpu, paint_triangles(), false, &painted.at(1), kWhite, true);
+        tally->check(built, "the painted floor made");
+        if (built) {
+            const Answer p = restir_gi(gpu, targets, painted, furnace, plan, all_floor, &read);
+            not_finite += p.not_finite;
+            tally->check(read && agrees(p.mean, g.mean, kLooseAgreement),
+                         text::format("painted: the paint reflects %.4f of the sky's radiance, the bare floor %.4f (%+.2f %%; "
+                                      "within 3 %%)",
+                                      p.mean, g.mean, percent(p.mean, g.mean)));
+        }
+        for (SceneMesh& mesh : painted) {
+            release_mesh(gpu, &mesh);
+        }
     }
 
     tally->check(read && not_finite == 0, text::format("estimates not finite: %u", not_finite));
