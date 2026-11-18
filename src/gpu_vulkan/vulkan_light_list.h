@@ -113,6 +113,11 @@ struct RestirLocalLights {
     VkBuffer lamps = VK_NULL_HANDLE;      // a LightRecord per lamp
     VkBuffer membership = VK_NULL_HANDLE; // the instances' first triangles (the scan's)
     VkBuffer slots = VK_NULL_HANDLE;      // per triangle its place in the list + 1
+    // (round WF) the local group's alias table (rt_light_list.h AliasEntry: threshold, alias, pdf, payload - the triangles
+    // and the lamps by power, ReSTIR DI's) and its entries: what samples the local lights anywhere but a surface - the
+    // volumetric fog's in-scattering (vulkan_rt_fog.h)
+    VkBuffer table = VK_NULL_HANDLE;
+    uint32_t entries = 0;
     std::vector<float> triangle_powers;   // per listed triangle (the list's order)
     std::vector<rt::Emitter> lamp_list;   // the lamps the records hold (the list's order)
     uint64_t key = 0;                     // changes with the powers or the lamps
@@ -130,6 +135,58 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
 // TRIANGLE_LATTICE; the caller defines LIST_TRIANGLES and LIST_CAPACITY and declares the Emitters buffer's
 // emitter_count, emitter_spare and uvec4 emitter_entries[]).
 [[nodiscard]] std::string_view emitter_scan_glsl();
+
+// (round WF - path tracing, stage 7) GLSL: a local light of the list seen from any point - in a medium as well as on a
+// surface (after light_instances_glsl, rt_path.h's kPathGlsl, rt_lamp_glsl, hit_surface_glsl and rt_light_list.h's
+// kLightListGlsl; the caller declares `light_entries[]`, `emitter_entries[]` and `lamps[]` as ReSTIR DI's):
+//   struct LocalLight { vec3 light; vec3 dir; float reach; float pdf; }
+//   bool local_light_at(uint e, uint count, vec2 uv, vec3 at, out LocalLight l)
+// `light`: the irradiance the light sends `at` across the way to it, unshadowed and in the global unit (a lamp: pi x its
+// record's light x lamp_geometry facing it - a white diffuser's radiance x pi; a triangle: hit_emission's emission at the
+// point `uv` picks x the cosine there / the distance squared - per unit of its area, so light / pdf is the estimate); `pdf`
+// the list's (the entry's pick, a triangle's / its area). The receiver's response (a BRDF x the cosine, a phase) is the
+// caller's: the same lights, the same power and the same emission as ReSTIR DI's light_point, GI's next_event and the
+// reference path tracer.
+[[nodiscard]] std::string_view local_light_glsl();
+
+// (round WF - path tracing, stage 7) The full list and the radiance cache as ReSTIR GI used them in the frame (vulkan_restir_gi.h
+// restir_gi_frame_lights): what the passes after it that light surfaces the prepass doesn't hold sample - one light list
+// (its alias table over the disc, the sky's grid and the local group by power), one cache. The buffers live while the
+// frame's work does.
+inline constexpr uint32_t kRadianceCacheCapacity = 1U << 19U; // (entries: 4 uvec4 each - the key, the sums, the light)
+inline constexpr uint32_t kRadianceCacheProbes = 8;
+inline constexpr float kRadianceCacheCellLeast = 4.0F; // (world units: the cells' least side)
+struct FrameLightList {
+    uint64_t frame = 0; // (Backend::frame it was used in; 0: none)
+    VkBuffer table = VK_NULL_HANDLE;
+    VkBuffer emitters = VK_NULL_HANDLE;
+    VkBuffer lamps = VK_NULL_HANDLE;
+    VkBuffer membership = VK_NULL_HANDLE;
+    VkBuffer slots = VK_NULL_HANDLE;
+    VkBuffer sky_cells = VK_NULL_HANDLE;
+    VkBuffer sky_alias = VK_NULL_HANDLE;
+    VkBuffer cache = VK_NULL_HANDLE;
+    uint32_t entries = 0;
+    bool cache_on = false;
+    std::array<float, 4> sun{};          // toward the disc, w the cosine of its radius (kNoDisc: none)
+    std::array<float, 4> sun_radiance{}; // rgb its radiance, w its solid angle
+    float sky_dist = 0.0F;               // 1 / the sky grid's luminance integral (0: no sky)
+    float cache_cells = 0.0F;            // the angle a cache cell spans from the camera (its least)
+    std::array<float, 3> eye{};          // the camera the cache's cells were keyed from
+};
+
+// (round WF - path tracing, stage 7) GLSL: the full list sampled from any point - one light by power, one ray (ReSTIR GI's
+// next-event estimation at its secondary vertices, moved here so every consumer samples the same way; after
+// local_light_glsl, ray_light (vulkan_rt_scene.h cutout_rays_glsl) and, with CLOUD_MAP, cloud_map_glsl; the caller declares
+// `sky_cells[]` / `sky_alias[]` and defines LL_COUNT, LL_SUN, LL_SUN_RADIANCE, LL_SKY_DIST, LL_REACH (and with CLOUD_MAP
+// LL_CLOUD_PLACE / LL_CLOUD_LIGHT)):
+//   float sun_kept(vec3 at); vec3 sky_radiance(vec3 dir); float sky_density(vec3 dir);
+//   vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 dir)   - the light along dir x its
+//       visibility / its density: x a BSDF x the cosine, or x a phase, the estimate (n = ng = vec3(0): a medium's point)
+// With LL_CACHE (the caller's `cache[]` - ReSTIR GI's radiance cache, 4 uvec4 an entry -, CACHE_CAPACITY, CACHE_PROBES,
+// CACHE_CELL_LEAST, LL_EYE, LL_CACHE_CELLS, LL_CACHE_ON):
+//   void cache_key(vec3 at, vec3 ng, out uint slot, out uint check); vec3 cache_bounce(vec3 at, vec3 ng)
+[[nodiscard]] std::string_view light_sample_glsl();
 
 // (round PT4d) GLSL for ReSTIR DI's and GI's temporal passes (local_size 8 x 8; after rt_path.h's kPathGlsl): what makes
 // their output a denoiser's input (NVIDIA RTXDI's settings for a denoiser that follows - Ray Reconstruction):

@@ -1752,9 +1752,14 @@ AirLight air_light(const View& view, double px, double py, const rt::Emitter& la
 void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
 {
     namespace vk = render::vulkan;
-    text::print("the lamp in the air (rt_fog's haze lit by the lamps' set, the box's shadow in it):\n");
+    text::print("the lamp in the air (rt_fog's haze lit by the light list's lamp, the box's shadow in it):\n");
     vk::set_rt_light_settings(settings_for(true, 4));
-    rt::set_level_emitters({});
+    // (round WF: the air is lit by the light list - the frame's point light there as the lighting state switches it: the
+    // level's own lamps on, no clock)
+    rt::LevelEmitters lamps_on;
+    lamps_on.serial = 1;
+    lamps_on.own_lamps = 1.0F;
+    rt::set_level_emitters(std::move(lamps_on));
     vk::RtFogSettings fog;
     fog.on = true;
     fog.haze = true;
@@ -1775,16 +1780,16 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
     tally->check(fog_passes == kFogFrames,
                  text::format("  the fog's pass recorded each frame (%llu)", static_cast<unsigned long long>(fog_passes)));
     vk::RtFogTexels history;
-    vk::RtLitLamps lamps;
+    vk::RtFogLights lamps;
     bool read = false;
     {
         vk::Backend& state = vk::backend();
         const std::scoped_lock lock(state.mutex);
         read = made && vk::read_rt_fog_image(state, {0, 0, kTargetWidth, kTargetHeight}, vk::RtFogImage::kHistory, &history);
-        lamps = vk::rt_lights_lit_locked(state);
+        lamps = vk::rt_fog_lights_locked(state);
     }
-    tally->check(read && lamps.lights.size() == 1, text::format("  the history read back, the lamps' set (%zu)", lamps.lights.size()));
-    if (read && lamps.lights.size() == 1) {
+    tally->check(read && lamps.lamps.size() == 1, text::format("  the history read back, the lamps' set (%zu)", lamps.lamps.size()));
+    if (read && lamps.lamps.size() == 1) {
         const View view = view_from(kEye);
         double shadowed_device = 0.0;
         double shadowed_march = 0.0;
@@ -1796,7 +1801,7 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
         for (uint32_t y = 0; y < history.height; ++y) {
             for (uint32_t x = 0; x < history.width; ++x) {
                 // (the texel's 2 x 2 block, marched a pixel at a time: its middle)
-                const AirLight want = air_light(view, (2.0 * x) + 0.5, (2.0 * y) + 0.5, lamps.lights.front(), lamps.scale);
+                const AirLight want = air_light(view, (2.0 * x) + 0.5, (2.0 * y) + 0.5, lamps.lamps.front(), lamps.scale);
                 const std::array<float, 4>& got = core::at(history.texels, (static_cast<std::size_t>(y) * history.width) + x);
                 const double device = luma_of({core::at(got, 0), core::at(got, 1), core::at(got, 2)});
                 if (!(want.open > kLeastLight)) {
@@ -1827,6 +1832,7 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
     }
     release_targets(gpu, targets);
     vk::set_rt_fog_settings({});
+    rt::set_level_emitters({});
 }
 
 // (added by the street air) The lamp at night in the street air: the clock's night (the moon given no light, the
@@ -1854,16 +1860,16 @@ std::array<double, 2> fog_lamp_night_sums(render::Gpu& gpu, std::span<const Scen
         draw_frame(gpu, targets, meshes, points, static_cast<uint64_t>(frame) + 1, true);
     }
     vk::RtFogTexels history;
-    vk::RtLitLamps lamps;
+    vk::RtFogLights lamps;
     bool read = false;
     {
         vk::Backend& state = vk::backend();
         const std::scoped_lock lock(state.mutex);
         read = vk::read_rt_fog_image(state, {0, 0, kTargetWidth, kTargetHeight}, vk::RtFogImage::kHistory, &history);
-        lamps = vk::rt_lights_lit_locked(state);
+        lamps = vk::rt_fog_lights_locked(state);
     }
     release_targets(gpu, targets);
-    if (!read || lamps.lights.size() != 1) {
+    if (!read || lamps.lamps.size() != 1) {
         return sums;
     }
     const rt::MediumLight light = rt::medium_light();
@@ -1877,7 +1883,7 @@ std::array<double, 2> fog_lamp_night_sums(render::Gpu& gpu, std::span<const Scen
             const std::array<float, 4>& got = core::at(history.texels, (static_cast<std::size_t>(y) * history.width) + x);
             core::at(sums, 0) += luma_of({core::at(got, 0), core::at(got, 1), core::at(got, 2)});
             processor +=
-                air_light(view, (2.0 * x) + 0.5, (2.0 * y) + 0.5, lamps.lights.front(), lamps.scale, *air_out).shadowed;
+                air_light(view, (2.0 * x) + 0.5, (2.0 * y) + 0.5, lamps.lamps.front(), lamps.scale, *air_out).shadowed;
         }
     }
     core::at(sums, 1) = processor;

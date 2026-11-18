@@ -120,9 +120,9 @@ constexpr uint32_t kFlagCache = 64U; // (round MB) the secondary's bounce from t
 // entry's light averages at most (its history), the frames an entry not updated is kept, the update paths (one a
 // CACHE_BLOCK x CACHE_BLOCK block of pixels a frame - SHaRC's 4 - 6 % of the pixels) and the rays a path traces (its
 // vertices after the pixel's; the last one's bounce read from the cache - the further bounces over the frames).
-constexpr uint32_t kCacheCapacity = 1U << 19U;
-constexpr uint32_t kCacheProbes = 8;
-constexpr float kCacheCellLeast = 4.0F;
+constexpr uint32_t kCacheCapacity = kRadianceCacheCapacity; // (vulkan_light_list.h: the cache's readers share them)
+constexpr uint32_t kCacheProbes = kRadianceCacheProbes;
+constexpr float kCacheCellLeast = kRadianceCacheCellLeast;
 constexpr double kCacheCellPixels = 12.0;
 constexpr float kCacheScale = 65536.0F;
 constexpr float kCacheSamples = 64.0F;
@@ -212,6 +212,18 @@ layout(std430, set = 0, binding = 8) buffer SkyCells { vec4 sky_cells[]; };
 layout(std430, set = 0, binding = 9) readonly buffer SkyAlias { uvec2 sky_alias[]; };
 #define LIST_INSTANCE_ADDRESS pass.instances.xy
 #define LIST_INSTANCES pass.instances.z
+// (round WF) the shared list sampling's inputs (vulkan_light_list.h light_sample_glsl)
+#define LL_COUNT pass.counts.x
+#define LL_SUN pass.sun
+#define LL_SUN_RADIANCE pass.sun_radiance
+#define LL_SKY_DIST pass.sky_dist.x
+#define LL_REACH 1.0e6
+#define LL_CLOUD_PLACE pass.cloud_place
+#define LL_CLOUD_LIGHT pass.cloud_light
+#define LL_CACHE
+#define LL_EYE pass.eye.xyz
+#define LL_CACHE_CELLS pass.cache_cells.x
+#define LL_CACHE_ON ((pass.counts.w & 64u) != 0u)
 )";
 
 // The two passes (PASS_TEMPORAL: the surface, the initial sample, the temporal reuse, a mirror's specular ray;
@@ -476,122 +488,18 @@ Surface primary(ivec2 p)
 
 uint rays_of(Surface s) { return s.object ? LIGHT_RAYS_ON_OBJECT : LIGHT_RAYS; }
 
-// The disc's light the clouds let through to `at` (their shadow map - the shadows pass's clouds_through); 1 without it.
-float sun_kept(vec3 at)
-{
-#ifdef CLOUD_MAP
-    return cloud_map_kept(at, pass.cloud_place, pass.cloud_light);
-#else
-    return 1.0;
-#endif
-}
-// The sky's radiance toward `dir` (the disc not in it): the grid in use's cell.
-vec3 sky_radiance(vec3 dir) { return pass.sky_dist.x > 0.0 ? sky_cells[sky_cell_of(dir)].rgb : vec3(0.0); }
-// The density (solid angle) of the sky's sampling toward `dir`: its cell's luminance over the grid's integral.
-float sky_density(vec3 dir) { return pass.sky_dist.x > 0.0 ? path_luma(sky_cells[sky_cell_of(dir)].rgb) * pass.sky_dist.x : 0.0; }
-
+@LIGHT_SAMPLE@
 // The secondary vertex's reflected light toward `v` by next-event estimation: one light of the full list (the disc, the
 // sky, an emitting triangle, a lamp - picked by power), one ray to it - the reference's light sampling without its MIS
-// (no BSDF ray continues from here).
+// (no BSDF ray continues from here). (Round WF: the list's sampling shared - vulkan_light_list.h light_sample_glsl.)
 vec3 next_event(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rng)
 {
-    float u = path_next(rng);
-    float u1 = path_next(rng);
-    float u2 = path_next(rng);
-    float u3 = path_next(rng);
-    float u4 = path_next(rng);
-    uint count = pass.counts.x;
-    if (count == 0u) {
+    vec3 dir;
+    vec3 incident = light_sample(p, n, ng, LIGHT_RAYS, rng, dir);
+    if (!(max(incident.r, max(incident.g, incident.b)) > 0.0)) {
         return vec3(0.0);
     }
-    LightEntry e = light_entries[light_pick(u, count)];
-    if (!(e.pdf > 0.0)) {
-        return vec3(0.0);
-    }
-    uint kind = light_kind(e.payload);
-    if (kind == LIGHT_DISC) {
-        vec3 dir = path_to_world(pass.sun.xyz, path_cone_direction(pass.sun.w, u1, u2));
-        if (dot(dir, ng) <= 0.0) {
-            return vec3(0.0);
-        }
-        vec3 f = path_bsdf_cosine(m, n, v, dir);
-        if (max(f.r, max(f.g, f.b)) <= 0.0) {
-            return vec3(0.0);
-        }
-        float pdf = e.pdf / pass.sun_radiance.w;
-        return f * pass.sun_radiance.rgb * sun_kept(p) * ray_light(LIGHT_RAYS, p, dir, GI_REACH) / pdf;
-    }
-    if (kind == LIGHT_SKY) {
-        uint cell;
-        vec3 dir = sky_sample(u1, u2, u3, u4, cell);
-        if (dot(dir, ng) <= 0.0 || dot(dir, n) <= 0.0) {
-            return vec3(0.0);
-        }
-        vec3 radiance = sky_cells[cell].rgb;
-        float pdf = e.pdf * path_luma(radiance) * pass.sky_dist.x;
-        if (!(pdf > 0.0)) {
-            return vec3(0.0);
-        }
-        vec3 f = path_bsdf_cosine(m, n, v, dir);
-        if (max(f.r, max(f.g, f.b)) <= 0.0) {
-            return vec3(0.0);
-        }
-        return f * radiance * ray_light(LIGHT_RAYS, p, dir, GI_REACH) / pdf;
-    }
-    if (kind == LIGHT_TRIANGLE) {
-        uvec4 listed = emitter_entries[light_index(e.payload)];
-        HitVertices tri;
-        if (!hit_vertices(listed.x, listed.y, tri)) {
-            return vec3(0.0);
-        }
-        mat4x3 to_world = instance_transform(listed.x);
-        vec3 a = to_world * vec4(tri.position[0], 1.0);
-        vec3 b = to_world * vec4(tri.position[1], 1.0);
-        vec3 c = to_world * vec4(tri.position[2], 1.0);
-        vec3 across = cross(b - a, c - a);
-        float twice = length(across);
-        if (!(twice > 0.0)) {
-            return vec3(0.0);
-        }
-        vec3 bc = path_triangle_point(u1, u2);
-        vec3 y = a * bc.x + b * bc.y + c * bc.z;
-        vec3 to = y - p;
-        float d2 = dot(to, to);
-        float d = sqrt(d2);
-        if (!(d > 0.0)) {
-            return vec3(0.0);
-        }
-        vec3 dir = to / d;
-        float cos_there = abs(dot(across / twice, dir));
-        if (dot(dir, ng) <= 0.0 || !(cos_there > 0.0)) {
-            return vec3(0.0);
-        }
-        vec3 f = path_bsdf_cosine(m, n, v, dir);
-        if (max(f.r, max(f.g, f.b)) <= 0.0) {
-            return vec3(0.0);
-        }
-        vec3 emitted;
-        if (!hit_emission(listed.x, listed.y, instance_material(listed.x), bc.yz, emitted)) {
-            return vec3(0.0);
-        }
-        float pdf = e.pdf / (0.5 * twice) * d2 / cos_there;
-        return f * max(emitted, vec3(0.0)) * ray_light(LIGHT_RAYS, p, dir, max(d * 0.999 - ray_offset(y), 0.0)) / pdf;
-    }
-    LightRecord light = lamps[light_index(e.payload)];
-    vec3 from;
-    float g = lamp_geometry(light, p, n, from);
-    if (!(g > 0.0)) {
-        return vec3(0.0);
-    }
-    vec3 to = from - p;
-    float d = length(to);
-    vec3 dir = to / max(d, 1e-6);
-    float facing = dot(n, dir);
-    if (!(facing > 1.0e-4) || dot(dir, ng) <= 0.0) {
-        return vec3(0.0);
-    }
-    vec3 through = ray_light(LIGHT_RAYS, p, dir, max(d - light.at.w, 0.0));
-    return brdf_direct(m, n, v, dir, light.colour.rgb * through * (g / facing)) / e.pdf;
+    return path_bsdf_cosine(m, n, v, dir) * incident;
 }
 
 // What a ray from `origin` meets: a surface (its point, its normal toward the ray, its reflected light toward the ray's
@@ -649,63 +557,7 @@ Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, inout uint rng)
     return out_s;
 }
 
-// --- (round MB) the radiance cache: the light further bounces bring --------------------------------------------------
-// NVIDIA's SHaRC (spatially hashed radiance cache - Cyberpunk 2077's path tracing reads it where its paths end; Binder
-// et al. 2019's hash grid without its jitter): a hash table of cells of the world, each a point's position
-// quantised by a side that grows with its distance from the camera (powers of 2 - SHaRC's levels) and the axis its
-// surface faces (the two sides of a wall apart). An entry holds the bounce a white diffuser there gets - the light off
-// other surfaces (E / pi; the lights' own direct light - the disc, the sky, the emitters, the lamps - is not in it: next-
-// event estimation owns it at every vertex). Written by sparse update paths (below), read at ReSTIR GI's secondary
-// vertices: there the light they reflect is their direct light (next_event) + their reflectance x the cache's bounce -
-// every further bounce. The cache's own update paths end in it too: each frame adds a bounce, the sum converges (the
-// reflectances < 1) - the light of every bounce, as the reference's path of unbounded length (Russian roulette) has.
-uint cache_hash(uint x)
-{
-    // (the "lowbias32" integer hash - Chris Wellons 2018)
-    x ^= x >> 16;
-    x *= 0x7FEB352Du;
-    x ^= x >> 15;
-    x *= 0x846CA68Bu;
-    x ^= x >> 16;
-    return x;
-}
-// The table's slot a point's cell starts its probes at and its check word (another hash of the cell - never 0).
-void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
-{
-    float distance = length(at - pass.eye.xyz);
-    float level = max(floor(log2(max(distance * pass.cache_cells.x / CACHE_CELL_LEAST, 1.0))), 0.0);
-    ivec3 c = ivec3(floor(at / (CACHE_CELL_LEAST * exp2(level))));
-    vec3 a = abs(ng);
-    uint axis = a.x >= a.y && a.x >= a.z ? 0u : (a.y >= a.z ? 1u : 2u);
-    float along = axis == 0u ? ng.x : (axis == 1u ? ng.y : ng.z);
-    uint w = uint(level) | ((axis * 2u + (along < 0.0 ? 1u : 0u)) << 8);
-    uvec3 u = uvec3(c);
-    slot = cache_hash(u.x ^ cache_hash(u.y ^ cache_hash(u.z ^ cache_hash(w)))) & (CACHE_CAPACITY - 1u);
-    check = cache_hash(u.z ^ cache_hash(u.y + cache_hash(u.x ^ cache_hash(w ^ 0x9E3779B9u))));
-    check = check == 0u ? 1u : check;
-}
-// The bounce at a point (0 where the cache has no entry yet, or isn't used).
-vec3 cache_bounce(vec3 at, vec3 ng)
-{
-    if ((pass.counts.w & FLAG_CACHE) == 0u) {
-        return vec3(0.0);
-    }
-    uint slot;
-    uint check;
-    cache_key(at, ng, slot, check);
-    for (uint k = 0u; k < CACHE_PROBES; ++k) {
-        uint i = (slot + k) & (CACHE_CAPACITY - 1u);
-        uint there = CACHE_KEY(i).x;
-        if (there == check) {
-            vec4 l = uintBitsToFloat(CACHE_LIGHT(i));
-            return l.w > 0.0 ? good3(max(l.rgb, vec3(0.0))) : vec3(0.0);
-        }
-        if (there == 0u) {
-            break;
-        }
-    }
-    return vec3(0.0);
-}
+// (round MB) the radiance cache's lookups: vulkan_light_list.h light_sample_glsl (LL_CACHE).
 // The light a secondary vertex sends toward the ray's origin: its direct light + its reflectance x its bounce.
 vec3 with_bounces(Secondary sec) { return sec.hit ? good3(sec.bounce + sec.reflectance * cache_bounce(sec.at, sec.n)) : vec3(0.0); }
 
@@ -1350,7 +1202,16 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     source += kCommon;
     source += light_instances_glsl();
     source += rt::lights::kLightListGlsl;
-    source += which == Shader::kSky ? std::string(sky_grid_glsl()) : std::string(kGiBody);
+    source += local_light_glsl();
+    if (which == Shader::kSky) {
+        source += sky_grid_glsl();
+    } else {
+        // (round WF) the list's sampling and the cache's lookups, shared (vulkan_light_list.h light_sample_glsl)
+        std::string body = kGiBody;
+        const std::size_t at = body.find("@LIGHT_SAMPLE@");
+        body.replace(at, std::string_view("@LIGHT_SAMPLE@").size(), light_sample_glsl());
+        source += body;
+    }
     return source;
 }
 
@@ -1544,6 +1405,7 @@ struct GiState {
     bool restart = false;
     // the view
     bool lit_view = false;
+    FrameLightList frame_list; // (round WF) the full list and the cache this frame (restir_gi_frame_lights)
     uint64_t hit_frame = 0; // (the frame whose view wrote specular_hit)
     uint64_t passes = 0;
     Timing timing;
@@ -2024,6 +1886,16 @@ bool restir_gi_wanted(Backend& state)
 
 bool restir_gi_lit_view(const Backend& /*state*/) { return gi_state().lit_view; }
 
+bool restir_gi_frame_lights(const Backend& state, FrameLightList* out)
+{
+    const GiState& own = gi_state();
+    if (!own.lit_view || own.frame_list.frame != state.frame || own.frame_list.frame == 0) {
+        return false;
+    }
+    *out = own.frame_list;
+    return true;
+}
+
 Image* restir_gi_specular_hit(Backend& state)
 {
     GiState& own = gi_state();
@@ -2428,6 +2300,24 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     own.prev_eye = view.camera.position;
     ++own.passes;
     own.lit_view = !check;
+    // (round WF) the list and the cache as this frame used them - the passes after that light what the prepass doesn't hold
+    own.frame_list = FrameLightList{
+        .frame = check ? 0 : state.frame,
+        .table = own.lights.buffer,
+        .emitters = local.emitters,
+        .lamps = local.lamps,
+        .membership = local.membership,
+        .slots = local.slots,
+        .sky_cells = core::at(own.sky_cells, static_cast<std::size_t>(own.sky_now)).buffer,
+        .sky_alias = own.sky_alias.buffer,
+        .cache = own.cache.buffer,
+        .entries = own.entries,
+        .cache_on = (flags & kFlagCache) != 0,
+        .sun = block.sun,
+        .sun_radiance = block.sun_radiance,
+        .sky_dist = core::at(block.sky_dist, 0),
+        .cache_cells = core::at(block.cache_cells, 0),
+        .eye = {core::at(view.camera.position, 0), core::at(view.camera.position, 1), core::at(view.camera.position, 2)}};
     if (own.passes == 1 && first_report(state, kReportFirst)) {
         get_log("restir gi: the indirect light by ReSTIR GI - %ux%u, %u spatial neighbours; %u lights listed (%u lamps), "
                 "the sky's grid %s",

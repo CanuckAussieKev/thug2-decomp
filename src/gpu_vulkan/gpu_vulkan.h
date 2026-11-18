@@ -180,10 +180,10 @@ void set_hdr_settings(const HdrSettings& settings);
 // multiplier on the air's light -, rt_fog_anisotropy - the phase is the aerosol's -, rt_fog_haze_density and
 // rt_fog_haze_height - the haze is the weather's aerosol.)
 inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_quality 1's steps)
-// rt_fog_quality 0 / 1 / 2: the march's steps, the lamps at most that light the air and the march's resolution (1 / the
+// rt_fog_quality 0 / 1 / 2: the march's steps, the light list's candidates a step pair (round WF; was the lamps at most) and the march's resolution (1 / the
 // scale of the viewport's on each axis; changed by the street air: a quarter's at Low and Medium, half at High)
 inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{16, 32, 48};
-inline constexpr std::array<unsigned, 3> kRtFogQualityLamps{8, 16, 32};
+inline constexpr std::array<unsigned, 3> kRtFogQualityLamps{2, 4, 8}; // (round WF: the light list's candidates)
 inline constexpr std::array<unsigned, 3> kRtFogQualityScale{4, 4, 2};
 inline constexpr unsigned kRtFogScale = 4;    // (rt_fog_quality 1's scale)
 // (added by the distinct shafts) the air's sun map's side (texels - rt_volume_light.h air_map_half) at rt_fog_quality
@@ -199,8 +199,9 @@ struct RtFogSettings {
     float density = 1.0F;                 // x the level's fog thickness (1: as thick as the game's; 0 - 8)
     float height = 0.0F;                  // world units over which the fog thins by e above the camera (0: even)
     unsigned steps = kRtFogSteps;         // samples along each ray (4 - 128)
-    unsigned lamps = 16;                  // lamps at most (rt_lights' lit set, the most important first) that light the
-                                          // air (0 - 32)
+    // (round WF) the light list's candidates each step pair of the march resamples its local lights from (0: no lamps or
+    // emitters in the air; 0 - 8 - vulkan_rt_fog.h kFogMostCandidates)
+    unsigned lamps = 4;
     RtFogMode mode = RtFogMode::kReplace;
     // a level without fog gets the atmosphere's air (rt_fog_haze; 0: nothing there): with the sky model (rt_sky_model=1)
     // the aerial perspective - the weather's aerosol and the air, the sky's own coefficients

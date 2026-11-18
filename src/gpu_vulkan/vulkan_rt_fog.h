@@ -5,6 +5,7 @@
 #include <vector>
 #include <volk.h>
 
+#include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 
 // NOT ORIGINAL - volumetric fog and light shafts (docs/design/vulkan.md "Volumetric fog"; [Graphics] rt_fog - gpu_vulkan.h's
@@ -28,8 +29,8 @@
 //      fit not run yet, or a level whose bake shows none - indoors, the Foundry): L = the fog colour - no shafts.
 //      Accumulated front to back: in += T (1 - e^-tau) L, T *= e^-tau (stopped once T is under 1e-4). (Changed by the
 //      street air, for its cost:) the steps go in pairs, one point of each pair - the first or the second by turns,
-//      frame to frame - tracing the light's shadow ray and the picked lamp's for both; the lamps a view ray never comes
-//      within reach of left out of its march.
+//      frame to frame - tracing the light's shadow ray and (round WF) the local light the light list's resampling chose (RIS
+//      over the list's local group - every lamp and emitting surface by power; vulkan_light_list.h) for both.
 //      The street air (engine/gfx/rt_volume_light.h street_air - outdoors, where a sun or moon lights the level) is a
 //      second medium along every ray of the level's own fog: the weather's aerosol near the ground (one layer) and the
 //      falling rain or snow, its extinction added to the fog's, its light kFogStreetAirLight per unit of light (the level
@@ -81,7 +82,8 @@ inline constexpr uint32_t kFogMask = 0x01 | 0x02; // (world, objects: what shado
 // (added by the volumetric light) with the material table and the frame's geometry the cut-outs too, by their alpha
 // (vulkan_rt_scene.h cutout_rays_glsl: light through foliage, fences and grates - the one lighting path's test)
 inline constexpr uint32_t kFogCutoutMask = 0x01 | 0x02 | 0x04;
-inline constexpr uint32_t kFogMostLamps = 32; // the lamps' block's room (rt_fog_quality's most)
+// (round WF) the most candidates a step pair of the march resamples from the light list (rt_fog_quality's most)
+inline constexpr uint32_t kFogMostCandidates = 8;
 inline constexpr float kFogAmbientShare = 0.5F;   // a above
 inline constexpr float kFogSkyShare = 0.1F;
 inline constexpr float kFogShaftShare = 0.5F;       // mode 1's
@@ -130,6 +132,17 @@ bool record_rt_fog_pass(Backend& state, const rt::ViewDrawn& view);
 
 // The passes recorded (for the check and the log).
 [[nodiscard]] uint64_t rt_fog_passes();
+
+// (round WF - path tracing, stage 7) The local lights the last pass's air was lit by: the light list's lamps (vulkan_light_list.h
+// restir_local_lights - its order), its emitting triangles' count, the scale on their light (the frame's pre-exposure) and
+// the frame (0: none - no material table, or nothing listed). For the checks and the log. The caller holds the lock.
+struct RtFogLights {
+    std::vector<rt::Emitter> lamps;
+    std::size_t triangles = 0;
+    float scale = 0.0F;
+    uint64_t frame = 0;
+};
+[[nodiscard]] RtFogLights rt_fog_lights_locked(const Backend& state);
 
 // The passes' time on the device, from timestamps written before and after each (read back a few passes later, when
 // the device has written them): how many were timed and their total. Every 240 timed passes the log gets their average

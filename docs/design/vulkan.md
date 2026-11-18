@@ -1242,12 +1242,17 @@ by it: the shafts are this pass's, the only light in the air; the sun pass keeps
     scattering, as haze's droplets do - the shafts stand out looking toward the light (24 x at it, 15 x 10 degrees off,
     6 x at 20, 1 x at 45), faint looking away. (0.5 was tried first: in Berlin at dusk the default haze showed no
     shafts at all - the haze is thin, its light only shows where the phase gathers it.)
-  - lamps: the lamps `rt_lights` lit this view (`rt_lights_lit_locked`: the clock's dusk-to-dawn set, the view's most
-    important first, x `rt_lights_strength` and the lamps' share on), at most `rt_fog_quality`'s 8 / 16 / 32: every
-    lamp's unshadowed light at the point (colour x intensity x `light_falloff` x the phase toward it), one of them -
-    picked by its share - traced for its shadow (stopped its size short) and standing for all (its light x the whole
-    over its share x seen: an unbiased estimate the history averages; a single lamp exact). The cones and pools under
-    street lights, cut by their fixtures and walls. Lamps need `rt_lights` (their owner); none by day.
+  - lamps and emitters (round WF - path tracing, stage 7; was the lamps pass's lit set): the light list's local group
+    (`vulkan_light_list.h` `restir_local_lights` - every analytic lamp and emitting triangle of the level by power, the
+    lamps switched by the lighting state: ReSTIR DI's, GI's and the reference's lights, kept up here in both tiers), by
+    resampled importance sampling: `rt_fog_quality`'s 2 / 4 / 8 candidates a step pair from the alias table, the target
+    the luminance of the irradiance each sends the point x the phase toward the eye, one chosen and its shadow ray
+    traced (`ray_light`), its light x the RIS weight (`local_light_glsl`'s `LocalLight`, x the frame's pre-exposure).
+    The volumetric form of RIS light sampling (Lin, Wyman and Yuksel 2021's ReSTIR for participating media, without the
+    reuse - the fog's history averages the frames). Unbiased; checked against the processor's march of one lamp
+    (thug2_vulkan_rt_lights_check: the open light 1.000 x, the box's shadow 0.988 x, the night street air 0.998 x).
+    Before, the lamps' light was not pre-exposed (the night's lamps in the air ~1e-4 of the surfaces'), a lamp the
+    lamps pass didn't pick (its 64-light view cap) lit no air, and emitting surfaces lit none.
   Accumulated front to back: in += T (1 - e^-tau) here, T *= e^-tau.
 - **The clouds' shadows in the air** (`rt_clouds`): one map, owned by the sky pass (`vulkan_rt_sky_pass`
   `CloudShadowMap`): at each viewport's `opaque_drawn`, while the clouds are drawn and `rt_cloud_shadows` is on
@@ -5734,3 +5739,31 @@ and GI's temporal passes):
 - Check: thug2_vulkan_restir_check case 7 - near lamps among far ones, the error's frame-to-frame correlation 0.34 ->
   0.02 and what a running average (history weight 0.9, a temporal denoiser's) still varies by x 0.73, the mean within
   2 % of the exact light.
+
+### Water, glass and the air on the path tracer's light (path tracing, stage 7 - round WF)
+One light list, one way to sample it:
+- `light_sample_glsl` (vulkan_light_list.h): ReSTIR GI's next-event estimation moved out - one light of the full list
+  (the disc with the clouds' map, the sky's grid, the emitting triangles, the lamps) by power, one `ray_light`, the
+  light along the way x its visibility over its density; a surface multiplies by its BSDF x cosine, a medium by its
+  phase. GI's secondary vertices now call it (thug2_vulkan_restir_gi_check bit-for-bit as before: furnace 0.99679,
+  glossy 0.26543). The radiance cache's lookups (`cache_key`, `cache_bounce`) moved with it.
+- `local_light_glsl`: a local light (triangle or lamp) seen from any point - the medium's sampling and the shared
+  sampler's local branch.
+- The air (Volumetric fog above): the local group by RIS, in both tiers; the sun or moon stays the fog's own
+  estimator of the same light (the air's sun map and its shadow rays - the medium's shadow map, as UE5 / Frostbite
+  froxel fog keep the directional light's), the sky's light the fog's ambient.
+- The reflections' hits (`vulkan_rt_reflections.h`): in a view ReSTIR GI lit (`restir_gi_frame_lights` - the full
+  list, the sky grid and the cache GI used this frame) the hit is lit as a GI secondary vertex - `hit_surface`'s
+  material and emission + `light_sample` through its BSDF + its reflectance x the cache's bounce, pre-exposed. The
+  in-place classes - glass, water without rt_water, the game's shine - reflect the light the rest of the frame is lit
+  by; the light store's sky K, bounce B and the lamps pass's lit set are not read there. The fallback tier (no ReSTIR
+  GI) keeps the store's light and the lamps pass's set (the fallback's lamp owner).
+- rt_water's water: its reflection (screen-space over the path-traced frame) and refraction (the frame copied behind
+  it) already carry the path tracer's light; what it still takes from the store is its body's scattered colour (the
+  vertex's light) and the glitter's sunlit test.
+- Not yet: glass and water lit per pixel themselves (their diffuse / scattered light) - they aren't in the prepass, so
+  the inputs have no pixel for them. The standard answer is a front-layer G-buffer for the first seen-through surface
+  (UE5 Lumen's Front Layer Translucency): its depth and normal written by a second depth prepass of the kept
+  seen-through draws and rt_water's, a pass lighting it from the list and the cache (temporally accumulated - the RR
+  transparency layer is not denoised), the glass / water shading reading that light where its depth matches. It needs
+  the prepass, the kept draws' keys and the water shader - a round of its own.

@@ -125,6 +125,10 @@ struct RestirGiStats {
 // caller holds the lock.
 [[nodiscard]] bool restir_gi_wanted(Backend& state);
 [[nodiscard]] bool restir_gi_lit_view(const Backend& state);
+struct FrameLightList; // (vulkan_light_list.h)
+// (round WF - path tracing, stage 7) The full light list and the radiance cache this frame's view was lit with (false: GI
+// didn't light it): the reflections' hits (vulkan_rt_reflections.h) light what they meet by them. The caller holds the lock.
+bool restir_gi_frame_lights(const Backend& state, FrameLightList* out);
 // The specular ray's hit distance (R16F, world units; the colour target's size, the view at its rect) written for the
 // view being drawn - Ray Reconstruction's specular hit distance guide; null when this frame's view has none.
 [[nodiscard]] Image* restir_gi_specular_hit(Backend& state);

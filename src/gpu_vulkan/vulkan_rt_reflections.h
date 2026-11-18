@@ -76,6 +76,12 @@ inline constexpr float kReflectionRoughest = 0.7F;
 // (the check's) The trace with the puddles made (both variants): whether it compiled - why not in `error` (the shader
 // compiler's messages). The caller holds the lock.
 bool make_rt_reflection_wet_trace(Backend& state, std::string* error = nullptr);
+// (round WF - path tracing, stage 7) In a view ReSTIR GI lit (vulkan_restir_gi.h restir_gi_frame_lights) the hits are lit as
+// GI's secondary vertices are - the full light list (vulkan_light_list.h light_sample_glsl: the disc, the sky's grid, the
+// emitting triangles, the lamps by power, one light and one ray), the radiance cache's bounce and their own emission -
+// instead of the light store's sky K, bounce B and the lamps pass's lit set: glass, water and the game's shine reflect the
+// light everything else is lit by. (The check's) every such trace made: whether they compiled - why not in `error`.
+bool make_rt_reflection_listed_traces(Backend& state, std::string* error = nullptr);
 
 // The passes over the device's bound targets for a viewport (the listener's work, also called by the check program).
 // The caller holds the lock. Returns whether they were recorded (false: skipped - off, no scene, nothing reflective,
