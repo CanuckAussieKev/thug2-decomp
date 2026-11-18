@@ -91,8 +91,15 @@ struct RtSkyFrame {
     float jitter_offset = 0.0F;
     std::array<float, kSkyMatrixFloats> to_world{}; // column-major: the target's pixel (x, y, depth, 1) -> world
     bool history = false;
+    // (path tracing, stage 2 - the path tracer's sky marches the same clouds) whether the clouds were drawn, and toward
+    // the light that lights them (the sun, or the moon at night)
+    bool clouds = false;
+    std::array<float, 3> cloud_toward{0.0F, 1.0F, 0.0F};
 };
 [[nodiscard]] RtSkyFrame rt_sky_frame();
+// (path tracing, stage 2) The GLSL of the sky's light on the clouds the march reads (after atmosphere_glsl - it reads
+// u_sky_view):   void cloud_sky_light(out vec3 bottom, out vec3 top)
+[[nodiscard]] std::string rt_sky_cloud_light_glsl();
 
 // For the check: the viewport's images read back (the frame's work finished first): the march's (rgb light, a
 // transmittance; b: x distance, y 1 where marched) and the history's.

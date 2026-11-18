@@ -191,7 +191,7 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it)\n"
                               "rt census       what lights the world's meshes, objects and particles (logged)\n"
                               "rt set <key> <value>  a [Graphics] setting written and put to use\n"
-                              "pt ref <samples> [EV100]  the path-traced reference (paused, camera still): EXR + PNG\n"
+                              "pt ref <samples> [EV100] [even]  the path-traced reference (paused, camera still): EXR + PNG\n"
                               "pt off | status  the reference stopped / its progress\n"
                               "restart         the skater at the level's next restart (F8)\n"
                               "textures [original | pbrify | seedvr2]  the texture set in use / switched (not saved)\n"

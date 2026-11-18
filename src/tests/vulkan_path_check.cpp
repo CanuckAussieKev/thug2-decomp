@@ -6,7 +6,11 @@
 // On the processor (rt_path.h's twin):
 //   - the BSDF's pdf integrates to 1 over the sphere (every roughness, two view angles), and its samples' mean of
 //     f cos / pdf is the lobe's integral by quadrature (the sampler draws what the pdf says);
-//   - one owner per lamp: analytic_lamps keeps exactly the lamps without an emitting surface.
+//   - one owner per lamp: analytic_lamps keeps exactly the lamps without an emitting surface;
+//   - (stage 2: rt_light_list.h) the alias table's pdfs sum to 1 and its picks fall as the weights say (a weightless
+//     entry never); the light list's groups evenly, each light by power (and stage 1's kinds evenly); each lamp shape's
+//     power from its photometry against its light integrated over a sphere round it; the sky's distribution - its pdf
+//     integrates to 1, a sample's pdf is the pdf of its direction, the samples fall as luminance x solid angle says.
 // On the device, a large white floor (a world mesh without a light store), seen from an angle, and sometimes a disc of
 // 16 triangles above it facing down, emitting (its light store: radiance Le, no tint - it reflects nothing diffusely):
 //   - the white furnace: the floor (albedo 1) under an even sky of 1, no disc: every pixel's mean is 1 - the light model's
@@ -19,6 +23,8 @@
 //     twin path tracer (the same sampling, the same sequence of numbers, its own ray casts) within 3 sigma of the device;
 //   - the disc's lamp also given as an analytic lamp with its surface: the same mean (the owner rule leaves it out);
 //     without its surface marked: brighter (the lamp counted twice - what the rule prevents);
+//   - (stage 2) the light list by power against stage 1's kinds evenly: the same mean on the floor, disc and sky; on the
+//     floor under 32 lamps of very different power the same mean and less noise;
 //   - no sample was NaN or infinite; the validation layer silent.
 //   thug2_vulkan_path_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
@@ -50,6 +56,7 @@
 #include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
@@ -67,6 +74,7 @@ namespace {
 namespace value = render::gpu_value;
 namespace rt = render::rt;
 namespace path = render::rt::path;
+namespace lights = render::rt::lights;
 namespace brdf = render::rt::brdf;
 namespace vk = render::vulkan;
 using Vec3 = std::array<double, 3>;
@@ -77,8 +85,8 @@ constexpr int kWindowHeight = 120;
 constexpr uint32_t kWidth = 160;
 constexpr uint32_t kHeight = 120;
 constexpr int kBitsPerByte = 8;
-constexpr uint32_t kFvf = 0x142;          // XYZ | DIFFUSE | TEX1
-constexpr uint32_t kStride = 24;          // the position, the colour at 12, the uv at 16
+constexpr uint32_t kFvf = 0x142; // XYZ | DIFFUSE | TEX1
+constexpr uint32_t kStride = 24; // the position, the colour at 12, the uv at 16
 constexpr uint32_t kColourAt = 12;
 constexpr uint32_t kUvAt = 16;
 constexpr uint32_t kGrey = 0x80808080U;
@@ -92,7 +100,7 @@ constexpr int kDiscSides = 16;
 constexpr float kDiscRadiance = 4.0F;
 constexpr uint32_t kWorldOpaque = rt::kWorld | rt::kOpaque | rt::kCastsShadow;
 constexpr int kBatches = 8;
-constexpr int kRegion = 4;                 // the pixels compared: a kRegion x kRegion block round the view's centre
+constexpr int kRegion = 4; // the pixels compared: a kRegion x kRegion block round the view's centre
 constexpr double kSigmas = 3.0;
 constexpr double kPi = 3.14159265358979323846;
 
@@ -314,7 +322,8 @@ rt::ViewDrawn view_from(const Vec3& eye)
 {
     Matrix view{};
     Matrix projection{};
-    const std::array<float, 3> e{static_cast<float>(x_of(eye)), static_cast<float>(y_of(eye)), static_cast<float>(z_of(eye))};
+    const std::array<float, 3> e{static_cast<float>(x_of(eye)), static_cast<float>(y_of(eye)),
+                                 static_cast<float>(z_of(eye))};
     const std::array<float, 3> at{0.0F, 0.0F, 0.0F};
     const std::array<float, 3> up{0.0F, 1.0F, 0.0F};
     maths::matrix_look_at_rh(view, e, at, up);
@@ -424,7 +433,8 @@ double region_mean(const vk::PathAccumulation& image)
     const int y0 = static_cast<int>(kHeight / 2) - (kRegion / 2);
     for (int y = y0; y < y0 + kRegion; ++y) {
         for (int x = x0; x < x0 + kRegion; ++x) {
-            const std::array<float, 3>& c = core::at(image.mean, (static_cast<std::size_t>(y) * kWidth) + static_cast<std::size_t>(x));
+            const std::array<float, 3>& c =
+                core::at(image.mean, (static_cast<std::size_t>(y) * kWidth) + static_cast<std::size_t>(x));
             sum += luma({core::at(c, 0), core::at(c, 1), core::at(c, 2)});
         }
     }
@@ -441,7 +451,7 @@ Measured run_batches(render::Gpu& gpu, const Targets& targets, std::span<const S
         overrides.on = true;
         overrides.seed = seed_base + static_cast<uint32_t>(batch) * 7919U;
         vk::set_path_overrides(overrides);
-        for (int frame = 0; frame < frames; ++frame) {
+        for (int frame = 0; frame <= frames; ++frame) { // (a run's first frame gathers its light list: no paths)
             draw_frame(gpu, targets, meshes, view);
         }
         vk::PathAccumulation image;
@@ -639,26 +649,70 @@ struct TwinSetup {
 
 double max_of(const Rgb& c) { return std::max({core::at(c, 0), core::at(c, 1), core::at(c, 2)}); }
 
-// One path's luma (the twin of trace_path, MIS strategy).
-double twin_path(const TwinSetup& setup, Vec3 origin, Vec3 dir, uint32_t* rng)
+double triangle_area(const Triangle& tri)
 {
-    const double emitters = static_cast<double>(setup.emitters.size());
-    const double there = (setup.sky > 0.0 ? 1.0 : 0.0) + (emitters > 0.0 ? 1.0 : 0.0);
-    const double choice_sky = setup.sky > 0.0 ? 1.0 / there : 0.0;
-    const double choice_emitter = emitters > 0.0 ? 1.0 / there : 0.0;
+    const std::array<Vec3, 3>& c = tri.corners;
+    const Vec3 across = cross(sub(core::at(c, 1), core::at(c, 0)), sub(core::at(c, 2), core::at(c, 0)));
+    return 0.5 * std::sqrt(dot(across, across));
+}
+
+// The device's light list for a twin's scene (rt_light_list.h, as vulkan_path_reference.cpp builds it): the even sky's
+// grid (its cells' centres above the horizon), the emitting triangles by their power (2 pi x area x Le).
+struct TwinLights {
+    lights::LightList list;
+    lights::SkyDistribution sky;
+    std::vector<std::array<float, 4>> sky_radiance;
+    std::vector<uint32_t> entry_of; // per scene triangle: its entry in the list (0: none)
+};
+TwinLights twin_lights(const TwinSetup& setup)
+{
+    TwinLights out;
+    const uint32_t width = lights::kSkyGridWidth;
+    const uint32_t height = lights::kSkyGridHeight;
+    out.sky_radiance.resize(static_cast<std::size_t>(width) * height);
+    for (uint32_t row = 0; row < height; ++row) {
+        for (uint32_t column = 0; column < width; ++column) {
+            const auto value =
+                static_cast<float>(lights::sky_cell_centre(column, row, width, height).y > 0.0F ? setup.sky : 0.0);
+            core::at(out.sky_radiance, (static_cast<std::size_t>(row) * width) + column) = {value, value, value, 0.0F};
+        }
+    }
+    out.sky = lights::build_sky_distribution(out.sky_radiance, width, height);
+    lights::LightSet set;
+    set.sky_integral = out.sky.integral;
+    out.entry_of.assign(setup.scene.size(), 0);
+    for (const std::size_t index : setup.emitters) {
+        core::at(out.entry_of, index) = lights::kFirstTriangleEntry + static_cast<uint32_t>(set.triangle_powers.size());
+        set.triangle_powers.push_back(
+            static_cast<float>(lights::triangle_power(kDiscRadiance, triangle_area(core::at(setup.scene, index)))));
+    }
+    out.list = lights::build_light_list(set, lights::LightWeights::kPower);
+    return out;
+}
+
+double sky_cell_value(const TwinLights& lit, const Vec3& dir)
+{
+    return core::at(core::at(lit.sky_radiance, lights::sky_cell_of(fv(dir), lit.sky.width, lit.sky.height)), 0);
+}
+
+// One path's luma (the twin of trace_path, MIS strategy).
+double twin_path(const TwinSetup& setup, const TwinLights& lit, Vec3 origin, Vec3 dir, uint32_t* rng)
+{
+    const std::vector<lights::AliasEntry>& entries = lit.list.table.entries;
     double radiance = 0.0;
     Rgb weight{1.0, 1.0, 1.0};
     double last_pdf = 0.0;
-    Vec3 last_normal{0.0, 1.0, 0.0};
     for (uint32_t depth = 0; depth <= setup.bounces; ++depth) {
         const TwinHit h = twin_closest(setup.scene, origin, dir, 1.0e6);
         if (!h.hit) {
-            const double sky = y_of(dir) > 0.0 ? setup.sky : 0.0;
+            const double sky = sky_cell_value(lit, dir);
             if (depth == 0) {
                 radiance += luma(weight) * sky;
             } else {
-                const double sky_pdf = choice_sky * std::max(dot(last_normal, dir), 0.0) / kPi;
-                radiance += luma(weight) * sky * path::power_heuristic(static_cast<float>(last_pdf), static_cast<float>(sky_pdf));
+                const double sky_pdf = static_cast<double>(core::at(entries, lights::kSkyEntry).pdf) *
+                                       static_cast<double>(lights::sky_pdf(lit.sky, fv(dir)));
+                radiance += luma(weight) * sky *
+                            path::power_heuristic(static_cast<float>(last_pdf), static_cast<float>(sky_pdf));
             }
             break;
         }
@@ -667,16 +721,16 @@ double twin_path(const TwinSetup& setup, Vec3 origin, Vec3 dir, uint32_t* rng)
         if (dot(n, dir) > 0.0) {
             n = mul(n, -1.0);
         }
-        const std::array<Vec3, 3>& c = tri.corners;
-        const double area = 0.5 * std::sqrt(dot(cross(sub(core::at(c, 1), core::at(c, 0)), sub(core::at(c, 2), core::at(c, 0))),
-                                                cross(sub(core::at(c, 1), core::at(c, 0)), sub(core::at(c, 2), core::at(c, 0)))));
+        const double area = triangle_area(tri);
         const Vec3 position = add(origin, mul(dir, h.t));
         if (tri.emits) {
             if (depth == 0) {
                 radiance += luma(weight) * kDiscRadiance;
             } else {
                 const double cos_light = std::abs(dot(n, dir));
-                const double light_pdf = choice_emitter / emitters / area * h.t * h.t / cos_light;
+                const double light_pdf =
+                    static_cast<double>(core::at(entries, core::at(lit.entry_of, h.triangle)).pdf) / area * h.t * h.t /
+                    cos_light;
                 radiance += luma(weight) * kDiscRadiance *
                             path::power_heuristic(static_cast<float>(last_pdf), static_cast<float>(light_pdf));
             }
@@ -687,26 +741,30 @@ double twin_path(const TwinSetup& setup, Vec3 origin, Vec3 dir, uint32_t* rng)
         const brdf::Material m = forced(tri.emits ? 0.0 : setup.albedo, setup.f0, setup.roughness);
         const Vec3 v = mul(dir, -1.0);
         const Vec3 p = add(position, mul(n, twin_offset(position)));
-        // the light: the sky or an emitting triangle
+        // the light: one of the list, by its pick
         const float u = path::next_number(rng);
         const float u1 = path::next_number(rng);
         const float u2 = path::next_number(rng);
         const float u3 = path::next_number(rng);
-        if (u < choice_sky) {
-            const Vec3 l = dv(path::to_world(path::basis_of(fv(n)), path::cosine_direction(u1, u2)));
-            if (dot(l, n) > 0.0 && !twin_closest(setup.scene, p, l, 1.0e6).hit && y_of(l) > 0.0) {
+        const float u4 = path::next_number(rng);
+        const lights::AliasEntry& e = core::at(entries, lights::alias_pick(entries, u));
+        if (e.pdf > 0.0F && lights::kind_of(e.payload) == lights::LightKind::kSky) {
+            const lights::SkySample s = lights::sample_sky(lit.sky, u1, u2, u3, u4);
+            const Vec3 l = dv(s.dir);
+            const double pdf = static_cast<double>(e.pdf) * static_cast<double>(s.pdf);
+            const double sky = core::at(core::at(lit.sky_radiance, s.cell), 0);
+            if (pdf > 0.0 && dot(l, n) > 0.0 && !twin_closest(setup.scene, p, l, 1.0e6).hit) {
                 const brdf::Rgb f = path::bsdf_cosine(m, fv(n), fv(v), fv(l));
-                const double pdf = choice_sky * dot(n, l) / kPi;
                 const double w = path::power_heuristic(static_cast<float>(pdf), path::bsdf_pdf(m, fv(n), fv(v), fv(l)));
-                radiance += luma(weight) * luma({std::get<0>(f), std::get<1>(f), std::get<2>(f)}) * setup.sky * w / pdf;
+                radiance += luma(weight) * luma({std::get<0>(f), std::get<1>(f), std::get<2>(f)}) * sky * w / pdf;
             }
-        } else if (u < choice_sky + choice_emitter) {
-            const auto k = std::min(static_cast<std::size_t>(u1 * static_cast<float>(emitters)), setup.emitters.size() - 1);
-            const std::size_t index = core::at(setup.emitters, k);
+        } else if (e.pdf > 0.0F && lights::kind_of(e.payload) == lights::LightKind::kTriangle) {
+            const std::size_t index = core::at(setup.emitters, lights::index_of(e.payload));
             const Triangle& light = core::at(setup.scene, index);
-            const std::array<float, 3> b = path::triangle_point(u2, u3);
-            const Vec3 y = add(add(mul(core::at(light.corners, 0), std::get<0>(b)), mul(core::at(light.corners, 1), std::get<1>(b))),
-                               mul(core::at(light.corners, 2), std::get<2>(b)));
+            const std::array<float, 3> b = path::triangle_point(u1, u2);
+            const Vec3 y = add(
+                add(mul(core::at(light.corners, 0), std::get<0>(b)), mul(core::at(light.corners, 1), std::get<1>(b))),
+                mul(core::at(light.corners, 2), std::get<2>(b)));
             const Vec3 to = sub(y, p);
             const double d = std::sqrt(dot(to, to));
             const Vec3 l = mul(to, 1.0 / d);
@@ -715,11 +773,11 @@ double twin_path(const TwinSetup& setup, Vec3 origin, Vec3 dir, uint32_t* rng)
             if (dot(l, n) > 0.0 && seen.hit && seen.triangle == index) {
                 const std::array<Vec3, 3>& lc = light.corners;
                 const Vec3 across = cross(sub(core::at(lc, 1), core::at(lc, 0)), sub(core::at(lc, 2), core::at(lc, 0)));
-                const double light_area = 0.5 * std::sqrt(dot(across, across));
                 const double cos_light = std::abs(dot(unit(across), l));
-                const double pdf = choice_emitter / emitters / light_area * seen.t * seen.t / cos_light;
+                const double pdf = static_cast<double>(e.pdf) / triangle_area(light) * seen.t * seen.t / cos_light;
                 const double w = path::power_heuristic(static_cast<float>(pdf), path::bsdf_pdf(m, fv(n), fv(v), fv(l)));
-                radiance += luma(weight) * luma({std::get<0>(f), std::get<1>(f), std::get<2>(f)}) * kDiscRadiance * w / pdf;
+                radiance +=
+                    luma(weight) * luma({std::get<0>(f), std::get<1>(f), std::get<2>(f)}) * kDiscRadiance * w / pdf;
             }
         }
         const float b0 = path::next_number(rng);
@@ -734,7 +792,6 @@ double twin_path(const TwinSetup& setup, Vec3 origin, Vec3 dir, uint32_t* rng)
             core::at(weight, ch) *= static_cast<double>(core::at(f, ch)) / static_cast<double>(s.pdf);
         }
         last_pdf = s.pdf;
-        last_normal = n;
         origin = p;
         dir = dv(s.l);
         if (depth + 1 >= path::kRouletteFrom) {
@@ -754,6 +811,7 @@ double twin_path(const TwinSetup& setup, Vec3 origin, Vec3 dir, uint32_t* rng)
 Measured twin_batches(const TwinSetup& setup, const Vec3& eye, uint32_t samples, uint32_t seed_base)
 {
     Measured out;
+    const TwinLights lit = twin_lights(setup);
     const auto x0 = static_cast<uint32_t>((kWidth / 2) - (kRegion / 2));
     const auto y0 = static_cast<uint32_t>((kHeight / 2) - (kRegion / 2));
     for (int batch = 0; batch < kBatches; ++batch) {
@@ -765,7 +823,7 @@ Measured twin_batches(const TwinSetup& setup, const Vec3& eye, uint32_t samples,
                     uint32_t rng = path::sequence_start(x, y, s, seed);
                     const float jx = path::next_number(&rng);
                     const float jy = path::next_number(&rng);
-                    sum += twin_path(setup, eye, pixel_ray(eye, x + jx, y + jy), &rng);
+                    sum += twin_path(setup, lit, eye, pixel_ray(eye, x + jx, y + jy), &rng);
                 }
             }
         }
@@ -782,6 +840,211 @@ Measured twin_batches(const TwinSetup& setup, const Vec3& eye, uint32_t samples,
     }
     out.sigma = std::sqrt(spread / (kBatches - 1) / kBatches);
     return out;
+}
+
+// --- the light list on the processor (rt_light_list.h) --------------------------------------------------------------------
+
+// The alias table: its pdfs sum to 1, a weightless entry is never picked, and kSamples picks fall on each entry as its
+// weight says (each within 4 sigma of the binomial).
+void check_alias(Tally* tally)
+{
+    text::print("the light list's alias table (rt_light_list.h):\n");
+    const std::vector<double> weights{1.0, 0.0, 3.0, 0.001, 10.0, 0.0, 5.5, 1.0e-7, 250.0, 0.25};
+    const lights::AliasTable table = lights::build_alias_table(weights);
+    double pdf_sum = 0.0;
+    for (const lights::AliasEntry& entry : table.entries) {
+        pdf_sum += static_cast<double>(entry.pdf);
+    }
+    tally->check(std::abs(pdf_sum - 1.0) < 1e-6, text::format("the pdfs sum to %.8f", pdf_sum));
+    constexpr int kSamples = 2000000;
+    std::vector<int> hits(weights.size(), 0);
+    uint32_t rng = 99U;
+    for (int i = 0; i < kSamples; ++i) {
+        ++core::at(hits, lights::alias_pick(table.entries, path::next_number(&rng)));
+    }
+    bool shares_ok = true;
+    double worst = 0.0;
+    for (std::size_t i = 0; i < weights.size(); ++i) {
+        const double p = core::at(weights, i) / table.total;
+        const double expected = p * kSamples;
+        const double sigma = std::sqrt(std::max(expected * (1.0 - p), 1.0));
+        const double off = std::abs(core::at(hits, i) - expected) / sigma;
+        worst = std::max(worst, off);
+        shares_ok = shares_ok && off <= 4.0 && (core::at(weights, i) > 0.0 || core::at(hits, i) == 0);
+    }
+    tally->check(shares_ok,
+                 text::format("%d picks fall on the entries as their weights say (worst %.2f sigma; weightless "
+                              "entries %d and %d picked %d and %d times)",
+                              kSamples, worst, 1, 5, core::at(hits, 1), core::at(hits, 5)));
+    // the light list: the two groups evenly, each by power; stage 1's kinds evenly
+    lights::LightSet set;
+    set.disc_light = {2.0F, 2.0F, 2.0F};
+    set.disc_cos = 0.9999F;
+    set.sky_integral = 1.5;
+    set.triangle_powers = {1.0F, 4.0F, 0.0F, 15.0F};
+    rt::Emitter lamp;
+    lamp.colour = {1.0F, 1.0F, 1.0F};
+    lamp.intensity = 2.0F;
+    lamp.core = 10.0F;
+    lamp.reach = 500.0F;
+    set.lamps = {lamp, lamp};
+    core::at(set.lamps, 1).intensity = 0.5F;
+    const lights::LightList list = lights::build_light_list(set, lights::LightWeights::kPower);
+    const auto pick = [&list](std::size_t kind) { return core::at(list.kind_pick, kind); };
+    const double distant = lights::disc_power(set.disc_light) + lights::sky_power(set.sky_integral);
+    const double local = 20.0 + lights::lamp_power(core::at(set.lamps, 0)) + lights::lamp_power(core::at(set.lamps, 1));
+    const double triangle_share = 0.5 * 20.0 / local;
+    tally->check(
+        std::abs(pick(0) + pick(1) - 0.5) < 1e-6 && std::abs(pick(2) + pick(3) - 0.5) < 1e-6 &&
+            std::abs(pick(0) - (0.5 * lights::disc_power(set.disc_light) / distant)) < 1e-6 &&
+            std::abs(pick(2) - triangle_share) < 1e-6 && core::at(list.table.entries, 4).pdf == 0.0F &&
+            std::abs(static_cast<double>(core::at(list.table.entries, 5).pdf) - (0.5 * 15.0 / local)) < 1e-6,
+        text::format("by power: the distant group %.4f (the disc %.4f, the sky %.4f), the local %.4f (the triangles "
+                     "%.4f, the lamps %.4f), a dark triangle never",
+                     pick(0) + pick(1), pick(0), pick(1), pick(2) + pick(3), pick(2), pick(3)));
+    const lights::LightList even = lights::build_light_list(set, lights::LightWeights::kKindsEvenly);
+    tally->check(std::abs(core::at(even.kind_pick, 0) - 0.25) < 1e-6 &&
+                     std::abs(core::at(even.kind_pick, 3) - 0.25) < 1e-6 &&
+                     std::abs(static_cast<double>(core::at(even.table.entries, 2).pdf) - (0.25 / 3.0)) < 1e-6,
+                 "the kinds evenly (stage 1's): each kind 1/4, each of its lit lights evenly");
+}
+
+// A lamp's power (its photometry) against its light integrated over a sphere round it: pi x lamp_geometry toward the
+// sphere's inward normal (the irradiance there) over the sphere's area.
+void check_lamp_power(Tally* tally)
+{
+    text::print("the lamps' power (rt_light_list.h lamp_power):\n");
+    for (const rt::EmitterShape shape : {rt::EmitterShape::kPoint, rt::EmitterShape::kPanel, rt::EmitterShape::kLine}) {
+        rt::Emitter lamp;
+        lamp.colour = {1.0F, 1.0F, 1.0F};
+        lamp.intensity = 3.0F;
+        lamp.core = 8.0F;
+        lamp.reach = 1.0e9F;
+        lamp.shape = shape;
+        lamp.axis = {0.0F, 1.0F, 0.0F};
+        lamp.half_length = shape == rt::EmitterShape::kLine ? 40.0F : 0.0F;
+        const rt::LampShape model{.position = {0.0F, 0.0F, 0.0F},
+                                  .shape = shape,
+                                  .axis = lamp.axis,
+                                  .half_length = lamp.half_length,
+                                  .core = lamp.core,
+                                  .reach = lamp.reach};
+        constexpr double kRadius = 20000.0;
+        constexpr int kTheta = 512;
+        constexpr int kPhi = 64;
+        double flux = 0.0;
+        for (int i = 0; i < kTheta; ++i) {
+            const double theta = (i + 0.5) * kPi / kTheta;
+            for (int j = 0; j < kPhi; ++j) {
+                const double phi = (j + 0.5) * 2.0 * kPi / kPhi;
+                const Vec3 out{std::sin(theta) * std::cos(phi), std::cos(theta), std::sin(theta) * std::sin(phi)};
+                const Vec3 at = mul(out, kRadius);
+                std::array<float, 3> toward{};
+                const float light = rt::lamp_geometry(
+                    model, {static_cast<float>(x_of(at)), static_cast<float>(y_of(at)), static_cast<float>(z_of(at))},
+                    {static_cast<float>(-x_of(out)), static_cast<float>(-y_of(out)), static_cast<float>(-z_of(out))},
+                    &toward);
+                flux += kPi * static_cast<double>(lamp.intensity) * light * kRadius * kRadius * std::sin(theta);
+            }
+        }
+        flux *= (kPi / kTheta) * (2.0 * kPi / kPhi);
+        const double power = lights::lamp_power(lamp);
+        const std::array<const char*, 3> names{"point", "panel", "line"};
+        tally->check(std::abs(power - flux) <= 0.01 * flux,
+                     text::format("a %s lamp: its photometry's flux %.6g, its light over a sphere %.6g",
+                                  core::at(names, static_cast<std::size_t>(shape)), power, flux));
+    }
+}
+
+// The sky's distribution over a sky with a bright patch, a gradient and a dim ground: its pdf integrates to 1, each
+// sample's pdf is what sky_pdf gives for its direction, the samples fall as the luminance x solid angle says, and
+// L / pdf averages the luminance's integral (exactly: the pdf is proportional to it).
+void check_sky(Tally* tally)
+{
+    text::print("the sky's distribution (rt_light_list.h):\n");
+    const uint32_t width = lights::kSkyGridWidth;
+    const uint32_t height = lights::kSkyGridHeight;
+    std::vector<std::array<float, 4>> radiance(static_cast<std::size_t>(width) * height);
+    const Vec3 bright = unit({0.4, 0.3, -0.2});
+    for (uint32_t row = 0; row < height; ++row) {
+        for (uint32_t column = 0; column < width; ++column) {
+            const Vec3 d = dv(lights::sky_cell_centre(column, row, width, height));
+            double l = y_of(d) > 0.0 ? 0.05 + std::pow(y_of(d), 3.0) : 0.01;
+            if (dot(d, bright) > 0.995) {
+                l += 40.0;
+            }
+            core::at(radiance, (static_cast<std::size_t>(row) * width) + column) = {
+                static_cast<float>(l * 0.9), static_cast<float>(l), static_cast<float>(l * 1.2), 0.0F};
+        }
+    }
+    const lights::SkyDistribution sky = lights::build_sky_distribution(radiance, width, height);
+    // the pdf over the sphere, on a grid finer than the cells (each point's cell's pdf)
+    constexpr int kTheta = 2048;
+    constexpr int kPhi = 4096;
+    double integral = 0.0;
+    for (int i = 0; i < kTheta; ++i) {
+        const double theta = (i + 0.5) * kPi / kTheta;
+        double row = 0.0;
+        for (int j = 0; j < kPhi; ++j) {
+            const double phi = ((j + 0.5) * 2.0 * kPi / kPhi) - kPi;
+            row += lights::sky_pdf(
+                sky, fv({std::sin(theta) * std::cos(phi), std::cos(theta), std::sin(theta) * std::sin(phi)}));
+        }
+        integral += row * std::sin(theta);
+    }
+    integral *= (kPi / kTheta) * (2.0 * kPi / kPhi);
+    tally->check(std::abs(integral - 1.0) < 2e-3, text::format("its pdf integrates to %.5f over the sphere", integral));
+    constexpr int kSamples = 1000000;
+    constexpr uint32_t kBlocks = 8; // the histogram's blocks: 8 x 8 (rows x columns of cells)
+    std::vector<double> expected(kBlocks * kBlocks, 0.0);
+    for (uint32_t row = 0; row < height; ++row) {
+        const double omega = lights::sky_cell_solid_angle(row, width, height);
+        for (uint32_t column = 0; column < width; ++column) {
+            const double l = core::at(sky.luminance, (static_cast<std::size_t>(row) * width) + column);
+            core::at(expected, ((row * kBlocks / height) * kBlocks) + (column * kBlocks / width)) +=
+                l * omega / sky.integral;
+        }
+    }
+    std::vector<int> hits(kBlocks * kBlocks, 0);
+    uint32_t rng = 4242U;
+    int pdf_mismatch = 0;
+    double sum = 0.0;
+    double sum2 = 0.0;
+    for (int i = 0; i < kSamples; ++i) {
+        const float u0 = path::next_number(&rng);
+        const float u1 = path::next_number(&rng);
+        const float u2 = path::next_number(&rng);
+        const float u3 = path::next_number(&rng);
+        const lights::SkySample s = lights::sample_sky(sky, u0, u1, u2, u3);
+        const uint32_t row = s.cell / width;
+        const uint32_t column = s.cell % width;
+        ++core::at(hits, ((row * kBlocks / height) * kBlocks) + (column * kBlocks / width));
+        const float again = lights::sky_pdf(sky, s.dir);
+        if (std::abs(again - s.pdf) > 1e-4F * s.pdf) {
+            ++pdf_mismatch;
+        }
+        const double value = core::at(sky.luminance, s.cell) / s.pdf;
+        sum += value;
+        sum2 += value * value;
+    }
+    double worst = 0.0;
+    for (std::size_t b = 0; b < hits.size(); ++b) {
+        const double p = core::at(expected, b);
+        const double e = p * kSamples;
+        worst = std::max(worst, std::abs(core::at(hits, b) - e) / std::sqrt(std::max(e * (1.0 - p), 1.0)));
+    }
+    tally->check(worst <= 4.0,
+                 text::format("%d samples fall on 8 x 8 blocks of the sphere as their luminance x solid angle "
+                              "says (worst %.2f sigma)",
+                              kSamples, worst));
+    tally->check(pdf_mismatch <= kSamples / 10000,
+                 text::format("a sample's pdf is sky_pdf of its direction (%d of %d differ - a cell's edge)",
+                              pdf_mismatch, kSamples));
+    const double mean = sum / kSamples;
+    const double spread = std::sqrt(std::max(0.0, (sum2 / kSamples) - (mean * mean)));
+    tally->check(
+        std::abs(mean - sky.integral) <= 1e-4 * sky.integral && spread <= 1e-3 * sky.integral,
+        text::format("L / pdf averages %.6f (spread %.3g), the luminance's integral %.6f", mean, spread, sky.integral));
 }
 
 // --- the checks --------------------------------------------------------------------------------------------------------------
@@ -809,7 +1072,8 @@ void check_sampling(Tally* tally)
             }
             integral *= (kPi / 2.0 / kTheta) * (2.0 * kPi / kPhi);
             // the estimator's mean against the lobe's integral
-            uint32_t rng = path::sequence_start(static_cast<uint32_t>(roughness * 100.0), static_cast<uint32_t>(view_cos * 100.0), 0, 7);
+            uint32_t rng = path::sequence_start(static_cast<uint32_t>(roughness * 100.0),
+                                                static_cast<uint32_t>(view_cos * 100.0), 0, 7);
             constexpr int kSamples = 400000;
             double sum = 0.0;
             double sum2 = 0.0;
@@ -833,13 +1097,15 @@ void check_sampling(Tally* tally)
             const double mean = sum / kSamples;
             const double sigma = std::sqrt(std::max(0.0, (sum2 / kSamples) - (mean * mean)) / kSamples);
             const double expected = hemisphere_integral(m, v);
-            tally->check(std::abs(integral + below_share - 1.0) < 0.005,
-                         text::format("roughness %.2f, N.V %.2f: the pdf integrates to %.4f over the hemisphere, %.4f of the "
-                                      "samples fall under it",
-                                      roughness, view_cos, integral, below_share));
-            tally->check(std::abs(mean - expected) <= (kSigmas * sigma) + (0.002 * expected),
-                         text::format("roughness %.2f, N.V %.2f: f cos / pdf averages %.5f +- %.5f, the lobe's integral %.5f",
-                                      roughness, view_cos, mean, sigma, expected));
+            tally->check(
+                std::abs(integral + below_share - 1.0) < 0.005,
+                text::format("roughness %.2f, N.V %.2f: the pdf integrates to %.4f over the hemisphere, %.4f of the "
+                             "samples fall under it",
+                             roughness, view_cos, integral, below_share));
+            tally->check(
+                std::abs(mean - expected) <= (kSigmas * sigma) + (0.002 * expected),
+                text::format("roughness %.2f, N.V %.2f: f cos / pdf averages %.5f +- %.5f, the lobe's integral %.5f",
+                             roughness, view_cos, mean, sigma, expected));
         }
     }
     // one owner per lamp
@@ -881,13 +1147,14 @@ void check_device(render::Gpu& gpu, Tally* tally)
             overrides.f0 = 0.04F;
             overrides.albedo_scale = 1.0F;
             overrides.samples_per_frame = 16;
-            const Measured got = run_batches(gpu, targets, floor_only, eye, overrides, 2, seed++, &read);
+            const Measured got = run_batches(gpu, targets, floor_only, eye, overrides, 8, seed++, &read);
             not_finite += got.not_finite;
             const Estimate expected = furnace_expected(eye, forced(1.0, 0.04, roughness));
-            tally->check(read && within(got.mean, got.sigma, expected.mean, expected.sigma) && std::abs(got.mean - 1.0) < 0.03,
-                         text::format("eye %.0f up: roughness %.2f returns %.5f +- %.5f (the processor's integral of the "
-                                      "lobe there %.5f +- %.5f; 1 within the DFG table's error)",
-                                      y_of(eye), roughness, got.mean, got.sigma, expected.mean, expected.sigma));
+            tally->check(
+                read && within(got.mean, got.sigma, expected.mean, expected.sigma) && std::abs(got.mean - 1.0) < 0.03,
+                text::format("eye %.0f up: roughness %.2f returns %.5f +- %.5f (the processor's integral of the "
+                             "lobe there %.5f +- %.5f; 1 within the DFG table's error)",
+                             y_of(eye), roughness, got.mean, got.sigma, expected.mean, expected.sigma));
         }
     }
 
@@ -916,9 +1183,11 @@ void check_device(render::Gpu& gpu, Tally* tally)
         }
         expected /= kRegion * kRegion;
         const double r2 = static_cast<double>(kDiscRadius) * kDiscRadius;
-        const double lambert = 0.8 / kPi * kDiscRadiance * kPi * r2 / (r2 + (static_cast<double>(kDiscHeight) * kDiscHeight));
-        tally->check(read && got.emitters == static_cast<uint32_t>(kDiscSides),
-                     text::format("the emitting triangles found on the device: %u (the disc's %d)", got.emitters, kDiscSides));
+        const double lambert =
+            0.8 / kPi * kDiscRadiance * kPi * r2 / (r2 + (static_cast<double>(kDiscHeight) * kDiscHeight));
+        tally->check(
+            read && got.emitters == static_cast<uint32_t>(kDiscSides),
+            text::format("the emitting triangles found on the device: %u (the disc's %d)", got.emitters, kDiscSides));
         tally->check(read && within(got.mean, got.sigma, expected, 0.0),
                      text::format("the disc's direct light %.5f +- %.5f, its integral over the disc %.5f (a Lambertian "
                                   "of the albedo at the centre: %.5f)",
@@ -942,12 +1211,14 @@ void check_device(render::Gpu& gpu, Tally* tally)
     full.strategy = vk::PathStrategy::kMis;
     not_finite += mis.not_finite + lights.not_finite + bsdf.not_finite;
     tally->check(read && within(mis.mean, mis.sigma, lights.mean, lights.sigma),
-                 text::format("MIS %.5f +- %.5f, the lights alone %.5f +- %.5f", mis.mean, mis.sigma, lights.mean, lights.sigma));
+                 text::format("MIS %.5f +- %.5f, the lights alone %.5f +- %.5f", mis.mean, mis.sigma, lights.mean,
+                              lights.sigma));
     tally->check(read && within(mis.mean, mis.sigma, bsdf.mean, bsdf.sigma),
                  text::format("MIS %.5f +- %.5f, the BSDF alone %.5f +- %.5f (the disc's light counted once)", mis.mean,
                               mis.sigma, bsdf.mean, bsdf.sigma));
-    tally->check(mis.sigma <= bsdf.sigma * 2.0,
-                 text::format("MIS's noise %.5f with 64 paths a pixel, the BSDF alone's %.5f with 256", mis.sigma, bsdf.sigma));
+    tally->check(
+        mis.sigma <= bsdf.sigma * 2.0,
+        text::format("MIS's noise %.5f with 64 paths a pixel, the BSDF alone's %.5f with 256", mis.sigma, bsdf.sigma));
     // the processor's twin
     TwinSetup twin;
     twin.scene = floor_triangles();
@@ -961,7 +1232,8 @@ void check_device(render::Gpu& gpu, Tally* tally)
     twin.roughness = 0.3;
     const Measured cpu = twin_batches(twin, eye, 64, 9001);
     tally->check(within(mis.mean, mis.sigma, cpu.mean, cpu.sigma),
-                 text::format("the device %.5f +- %.5f, the processor's twin %.5f +- %.5f", mis.mean, mis.sigma, cpu.mean, cpu.sigma));
+                 text::format("the device %.5f +- %.5f, the processor's twin %.5f +- %.5f", mis.mean, mis.sigma,
+                              cpu.mean, cpu.sigma));
 
     // 4. one owner: the disc's lamp given as an analytic lamp too
     rt::Emitter lamp;
@@ -982,9 +1254,55 @@ void check_device(render::Gpu& gpu, Tally* tally)
     tally->check(read && within(owned.mean, owned.sigma, mis.mean, mis.sigma),
                  text::format("the lamp with its own emitting surface: %.5f +- %.5f, as without it (%.5f)", owned.mean,
                               owned.sigma, mis.mean));
-    tally->check(read && twice.mean > mis.mean + (kSigmas * std::hypot(twice.sigma, mis.sigma)),
-                 text::format("the same lamp not marked as its surface's: %.5f - counted twice (what the rule prevents)",
-                              twice.mean));
+    tally->check(
+        read && twice.mean > mis.mean + (kSigmas * std::hypot(twice.sigma, mis.sigma)),
+        text::format("the same lamp not marked as its surface's: %.5f - counted twice (what the rule prevents)",
+                     twice.mean));
+
+    // 5. the light list: by power against stage 1's kinds evenly
+    text::print("the light list by power against the kinds evenly (stage 1's):\n");
+    full.lamps.clear();
+    full.lamps_surfaced.clear();
+    full.light_weights = lights::LightWeights::kKindsEvenly;
+    const Measured even_mixed = run_batches(gpu, targets, both, eye, full, 2, seed++, &read);
+    full.light_weights = lights::LightWeights::kPower;
+    not_finite += even_mixed.not_finite;
+    tally->check(read && within(mis.mean, mis.sigma, even_mixed.mean, even_mixed.sigma),
+                 text::format("the floor, the disc and the sky: by power %.5f +- %.5f, evenly %.5f +- %.5f", mis.mean,
+                              mis.sigma, even_mixed.mean, even_mixed.sigma));
+    // the floor alone under 32 lamps: one bright overhead, the rest dim and far, intensities over four decades
+    vk::PathOverrides many;
+    many.force_material = true;
+    many.roughness = 0.6F;
+    many.f0 = 0.04F;
+    many.albedo_scale = 0.7F;
+    many.bounces = 1;
+    many.samples_per_frame = 16;
+    for (int i = 0; i < 32; ++i) {
+        rt::Emitter one;
+        const double angle = 2.0 * kPi * i / 32.0;
+        const double distance = i == 0 ? 0.0 : 900.0 + (60.0 * i);
+        one.position = {static_cast<float>(distance * std::cos(angle)), i == 0 ? 260.0F : 200.0F,
+                        static_cast<float>(distance * std::sin(angle))};
+        one.size = 1.0F;
+        one.colour = {1.0F, 1.0F, 1.0F};
+        one.intensity = i == 0 ? 20.0F : static_cast<float>(std::pow(10.0, -3.0 + (3.0 * (i % 8) / 7.0)));
+        one.reach = 6000.0F;
+        one.core = i == 0 ? 30.0F : 12.0F;
+        many.lamps.push_back(one);
+    }
+    const Measured by_power = run_batches(gpu, targets, floor_only, eye, many, 2, seed++, &read);
+    many.light_weights = lights::LightWeights::kKindsEvenly;
+    const Measured evenly = run_batches(gpu, targets, floor_only, eye, many, 2, seed++, &read);
+    not_finite += by_power.not_finite + evenly.not_finite;
+    tally->check(read && within(by_power.mean, by_power.sigma, evenly.mean, evenly.sigma),
+                 text::format("32 lamps: by power %.5f +- %.5f, evenly %.5f +- %.5f", by_power.mean, by_power.sigma,
+                              evenly.mean, evenly.sigma));
+    tally->check(
+        read && by_power.sigma < evenly.sigma,
+        text::format("32 lamps: by power the noise %.3g, evenly %.3g (the variance x %.3g)", by_power.sigma,
+                     evenly.sigma,
+                     evenly.sigma > 0.0 ? (by_power.sigma * by_power.sigma) / (evenly.sigma * evenly.sigma) : 0.0));
     tally->check(read && not_finite == 0, text::format("samples not finite: %u", not_finite));
     tally->check(read, "every run read back");
     for (SceneMesh& mesh : meshes) {
@@ -1014,16 +1332,19 @@ int window_position(int display)
 enum class Opened : uint8_t { kYes, kNoDevice, kNoRayQueries };
 Opened open_device(const Options& options, SDL_Window* window)
 {
-    vk::set_context_options(
-        {.validation = options.validation, .device_index = options.device, .on_message = print_line, .ray_tracing = true},
-        window);
+    vk::set_context_options({.validation = options.validation,
+                             .device_index = options.device,
+                             .on_message = print_line,
+                             .ray_tracing = true},
+                            window);
     render::GpuContext& context = vk::gpu_context();
     if (!context.create_instance()) {
         text::print("the device could not be opened\n");
         return Opened::kNoDevice;
     }
     const vk::Backend& state = vk::backend();
-    text::print("validation layer: %s\n", state.context.validation_on() ? "on" : "off (not installed, or not asked for)");
+    text::print("validation layer: %s\n",
+                state.context.validation_on() ? "on" : "off (not installed, or not asked for)");
     context.configure({.width = kWindowWidth,
                        .height = kWindowHeight,
                        .windowed = true,
@@ -1053,6 +1374,9 @@ int run(const Options& options, SDL_Window* window)
 {
     Tally tally;
     check_sampling(&tally);
+    check_alias(&tally);
+    check_lamp_power(&tally);
+    check_sky(&tally);
     const Opened opened = open_device(options, window);
     if (opened == Opened::kNoRayQueries) {
         return 2;

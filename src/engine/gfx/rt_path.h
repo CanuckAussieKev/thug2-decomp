@@ -250,6 +250,9 @@ struct PathReferenceRequest {
     bool ev_given = false;
     float ev100 = 0.0F;
     uint32_t bounces = kMostBounces;
+    // (stage 2) `pt ref <samples> [EV100] even`: the light list picks the kinds of light evenly and each kind's lights
+    // evenly (stage 1's sampling - rt_light_list.h LightWeights::kKindsEvenly) instead of by power: a comparison
+    bool even_lights = false;
     uint64_t serial = 0;           // (set_path_reference numbers each request)
 };
 void request_path_reference(PathReferenceRequest request);

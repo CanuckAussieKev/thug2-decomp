@@ -1597,7 +1597,9 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
                         .scale = scale,
                         .jitter_offset = jitter_offset,
                         .to_world = block.to_world,
-                        .history = slot != nullptr && slot->has_history};
+                        .history = slot != nullptr && slot->has_history,
+                        .clouds = recording.clouds,
+                        .cloud_toward = to_light};
     return block;
 }
 
@@ -2047,6 +2049,8 @@ void rt_sky_reset_history()
 RtSkyLevel rt_sky_level() { return pass_state().level; }
 
 RtSkyFrame rt_sky_frame() { return pass_state().frame; }
+
+std::string rt_sky_cloud_light_glsl() { return cloud_sky_glsl(); }
 
 RtSkyTiming rt_sky_timing() { return pass_state().timing; }
 
