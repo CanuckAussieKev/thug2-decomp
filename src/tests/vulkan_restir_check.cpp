@@ -1100,14 +1100,21 @@ void check_device(render::Gpu& gpu, Tally* tally)
             // error it keeps as picture
             double denoised = 0.0;
             double correlation = 0.0;
+            double mean_sigma = 0.0; // (round PX) the standard error of `mean` - the spread of the runs' means / sqrt(runs)
         };
         constexpr int kVariationFrames = 160;
         constexpr int kDenoiserSettle = 32;
         constexpr double kDenoiserBlend = 0.1;
-        const auto variation = [&](bool grid) {
+        // (round PX) the means set against the exact light are taken over kMeanRuns independent runs (each its own seed and
+        // history). One run's 160 frames are correlated over the reservoirs' history (up to 20 frames): its mean's spread
+        // run to run was 1.2 - 1.4 % with either list (seeds 1 - 6: grid -1.35 .. +1.19 %, by power -2.33 .. +1.04 %, both
+        // centred on 0), against the 2 % asked - which run a check got hung on the frames counted before it (a new case
+        // ahead of this one turned the list by power's +0.04 % into +2.76 %). Over 4 runs the standard error is about 0.65 %.
+        constexpr int kMeanRuns = 4;
+        const auto variation = [&](bool grid, int runs = 1) {
             RunPlan p = plan;
             p.grid = grid;
-            p.batches = 1;
+            p.batches = runs;
             p.frames = kVariationFrames;
             p.settle = 32;
             p.lamps_at = [&field](int /*frame*/) { return field; };
@@ -1117,14 +1124,26 @@ void check_device(render::Gpu& gpu, Tally* tally)
                     floor_pixels.push_back(i);
                 }
             }
-            std::vector<std::vector<double>> series; // per frame, per floor pixel
-            p.each_frame = [&](int /*frame*/, const vk::RestirAccumulation& image) {
+            std::vector<std::vector<double>> series; // per frame, per floor pixel (the first run's)
+            std::vector<double> run_means;           // each run's mean over its frames and the floor's pixels
+            int run = -1;
+            p.each_frame = [&](int frame, const vk::RestirAccumulation& image) {
+                if (frame == 0) {
+                    ++run;
+                    run_means.push_back(0.0);
+                }
                 std::vector<double> values(floor_pixels.size(), 0.0);
+                double sum = 0.0;
                 for (std::size_t k = 0; k < floor_pixels.size(); ++k) {
                     const std::size_t i = core::at(floor_pixels, k);
                     core::at(values, k) = i < image.last_light.size() ? core::at(image.last_light, i) : 0.0;
+                    sum += core::at(values, k);
                 }
-                series.push_back(std::move(values));
+                run_means.back() += sum / static_cast<double>(std::max<std::size_t>(floor_pixels.size(), 1)) /
+                                    static_cast<double>(kVariationFrames);
+                if (run == 0) {
+                    series.push_back(std::move(values));
+                }
             };
             const Answer got = restir(gpu, targets, floor_only, p, floor_region, &read);
             not_finite += got.not_finite;
@@ -1170,14 +1189,26 @@ void check_device(render::Gpu& gpu, Tally* tally)
                 const double ema_mean = ema_sum / std::max(ema_frames, 1);
                 denoised_variance += std::max(0.0, (ema_squares / std::max(ema_frames, 1)) - (ema_mean * ema_mean));
             }
+            if (!run_means.empty()) {
+                const auto runs_done = static_cast<double>(run_means.size());
+                out.mean = 0.0;
+                for (const double m : run_means) {
+                    out.mean += m / runs_done;
+                }
+                double spread = 0.0;
+                for (const double m : run_means) {
+                    spread += (m - out.mean) * (m - out.mean);
+                }
+                out.mean_sigma = run_means.size() > 1 ? std::sqrt(spread / (runs_done - 1.0) / runs_done) : 0.0;
+            }
             out.temporal = std::sqrt(variance / pixels) / scale;
             out.error = frames > 0.0 ? std::sqrt(error / (frames * pixels)) / scale : 0.0;
             out.denoised = std::sqrt(denoised_variance / pixels) / scale;
             out.correlation = squared > 0.0 ? lagged / squared : 0.0;
             return out;
         };
-        const Variation with_grid = variation(true);
-        const Variation by_power = variation(false);
+        const Variation with_grid = variation(true, kMeanRuns);
+        const Variation by_power = variation(false, kMeanRuns);
         const bool kept_temporal = plan.temporal;
         const uint32_t kept_spatial = plan.spatial;
         const bool kept_denoiser = plan.denoiser;
@@ -1207,10 +1238,10 @@ void check_device(render::Gpu& gpu, Tally* tally)
                                   with_grid.temporal, by_power.temporal, ratio(with_grid, by_power), with_grid.error,
                                   by_power.error));
         tally->check(read && agrees(with_grid.mean, exact_mean) && agrees(by_power.mean, exact_mean),
-                     text::format("near and far lamps still: light grid %.6f (%+.2f %%), the list by power %.6f (%+.2f %%), "
+                     text::format("near and far lamps still (%d runs each): light grid %.6f +- %.6f (%+.2f %%), the list by power %.6f +- %.6f (%+.2f %%), "
                                   "exact %.6f",
-                                  with_grid.mean, 100.0 * (with_grid.mean - exact_mean) / std::max(exact_mean, 1e-12),
-                                  by_power.mean, 100.0 * (by_power.mean - exact_mean) / std::max(exact_mean, 1e-12),
+                                  kMeanRuns, with_grid.mean, with_grid.mean_sigma, 100.0 * (with_grid.mean - exact_mean) / std::max(exact_mean, 1e-12),
+                                  by_power.mean, by_power.mean_sigma, 100.0 * (by_power.mean - exact_mean) / std::max(exact_mean, 1e-12),
                                   exact_mean));
         // 7. (round PT4d) the same as a temporal denoiser gets it: with permutation sampling and the boiling filter
         // (RTXDI's settings for a denoised output) against without - the error's frame-to-frame correlation and what a
