@@ -240,6 +240,14 @@ inline constexpr float kLampAlwaysOn = 1.0e30F;
 // level's own time's (LevelEmitters::own_sky). And the open sky's lamps: the clock's, else the level's own time's.
 [[nodiscard]] float lamp_sky_now(const DayLight& day, const LevelEmitters* level);
 [[nodiscard]] float open_sky_lamps(const DayLight& day, const LevelEmitters* level);
+// (round PX) The emission the world's light store holds: a number that changes each time the relit world has written a
+// new emission into every mesh's store (a lamp's own surface switched, a mesh's store written for the first time) or
+// taken its stores away - what the passes that find the emitting triangles in the store (ReSTIR DI's scan) are made
+// again by. They read the store itself; keyed by what was asked of it (the lamps' switches) they could scan it before it
+// was written and keep the empty list (Training: its 34 lamps whose own surface emits were scanned at the level's first
+// frame, before any store held their light, and never again - no light from them at all, the analytic lamps alone).
+void note_store_emission_written();
+[[nodiscard]] uint64_t store_emission();
 
 
 // A view's lights: the frame record's point lights and the level's emitters whose reach touches the frustum of

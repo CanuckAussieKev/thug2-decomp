@@ -1310,7 +1310,7 @@ constexpr uint64_t kFnvPrime = 1099511628211ULL;
 uint64_t mix(uint64_t key, uint64_t value) { return (key ^ value) * kFnvPrime; }
 
 // The world the emitters' list names triangles of: its instances (world ones come first in the frame record - their
-// places are the list's), and how much the lamps' own surfaces are on (their emission switches with them) and the cut.
+// places are the list's), the emission the world's light store holds (round PX) and the cut.
 uint64_t world_key_of(const rt::FrameRecord& record, const SceneLighting& lighting)
 {
     uint64_t key = kFnvBasis;
@@ -1321,7 +1321,7 @@ uint64_t world_key_of(const rt::FrameRecord& record, const SceneLighting& lighti
         }
         ++place;
     }
-    return mix(mix(key, lighting.cut), lighting.surfaces_switched);
+    return mix(mix(key, lighting.cut), lighting.store_emission);
 }
 
 // The scan of the frame's world recorded (its list into the buffer not in use, read back into read_back).
@@ -1523,9 +1523,10 @@ void collect_timing(Backend& state, RestirState& own, uint32_t slot, bool check)
     if (++timing.measured >= (check ? kCheckTimingReport : kTimingReport)) {
         own.last_ms = timing.sum_ms / timing.measured;
         if (!check) {
-            get_log("restir: %.3f ms a frame on the device over the last %u (%ux%u; %u emitting triangles, %u lamps)",
+            get_log("restir: %.3f ms a frame on the device over the last %u (%ux%u; %u emitting triangles of %u emitting at a "
+                    "corner, %u lamps)",
                     own.last_ms, timing.measured, own.timed_width, own.timed_height,
-                    static_cast<uint32_t>(own.triangle_powers.size()), own.lamp_count);
+                    static_cast<uint32_t>(own.triangle_powers.size()), own.candidates, own.lamp_count);
         }
         timing.sum_ms = 0.0;
         timing.measured = 0;

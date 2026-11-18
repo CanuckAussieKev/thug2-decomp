@@ -416,6 +416,18 @@ void set_lamps_owner(bool owner, bool automatic)
     lamps_owner().automatic.store(automatic, std::memory_order_relaxed);
 }
 
+namespace {
+std::atomic<uint64_t>& store_emission_slot()
+{
+    static std::atomic<uint64_t> value{0};
+    return value;
+}
+} // namespace
+
+void note_store_emission_written() { store_emission_slot().fetch_add(1, std::memory_order_relaxed); }
+
+uint64_t store_emission() { return store_emission_slot().load(std::memory_order_relaxed); }
+
 float lamps_drawn()
 {
     // (lighting round A3: each lamp's own amount - lamp_on - is in the light the pass shines it with; owning the lamps,
