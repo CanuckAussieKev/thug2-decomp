@@ -1223,6 +1223,16 @@ bool read_atmosphere_table(Backend& state, AtmosphereTable which, AtmosphereTexe
 
 uint64_t atmosphere_generation() { return atmosphere_state().generation; }
 
+bool atmosphere_view(AtmosphereInput* input)
+{
+    const AtmosphereState& own = atmosphere_state();
+    if (!own.view_valid || own.sky_view_table.view == VK_NULL_HANDLE || own.transmittance_table.view == VK_NULL_HANDLE) {
+        return false;
+    }
+    *input = own.input;
+    return true;
+}
+
 void release_atmosphere(Backend& state)
 {
     AtmosphereState& own = atmosphere_state();

@@ -1432,7 +1432,7 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
     for (std::size_t ch = 0; ch < sun.size(); ++ch) {
         core::at(sun, ch) = core::at(light.sun, ch);
     }
-    rt::set_cel_world({.relit = true, .sun = sun, .toward = light.toward});
+    rt::set_cel_world({.relit = true, .sun = sun, .toward = light.toward, .sky = light.sky});
     // (added by the time of day: a running clock writes new light twice a second - logged once a game hour)
     static double logged_hours = -1.0;
     const rt::DayLight day = rt::day_light();
@@ -1759,7 +1759,7 @@ void mesh_released(const MeshRef* mesh)
     }
 }
 
-bool data_emitters(std::vector<rt::Emitter>* out)
+bool data_emitters(std::vector<rt::Emitter>* out, std::vector<uint8_t>* surfaced)
 {
     const State& st = state();
     if (st.level == 0) {
@@ -1770,14 +1770,32 @@ bool data_emitters(std::vector<rt::Emitter>* out)
         return false;
     }
     out->clear();
+    // (path tracing, stage 1 - one owner per lamp) the lamps whose own surface emits: their emitting vertices
+    std::vector<uint8_t> has_surface(data.data.lamp_list.size(), 0);
+    for (const rt::RelitDataMesh& mesh : data.data.meshes) {
+        for (const rt::RelitEmitting& emitting : mesh.emitting) {
+            if (emitting.lamp < has_surface.size()) {
+                core::at(has_surface, emitting.lamp) = 1;
+            }
+        }
+    }
+    if (surfaced != nullptr) {
+        surfaced->clear();
+    }
+    std::size_t lamp_index = 0;
     // (round indoor lamps) every lamp of the data, the level's own point lights too: with the data the frame record's
     // point lights aren't shone (vulkan_rt_lights.cpp: only the solved lamps - round O), so leaving them out here left
     // the art's own lights dark in every relit level - Training's 13, its hall's lamps - while their light was in the
     // data (a solve or their fixture's model)
     for (const rt::RelitLamp& lamp : data.data.lamp_list) {
+        const uint8_t own_surface = core::at(has_surface, lamp_index);
+        ++lamp_index;
         const float brightest = std::max({std::get<0>(lamp.light), std::get<1>(lamp.light), std::get<2>(lamp.light)});
         if (!(brightest > 0.0F)) {
             continue;
+        }
+        if (surfaced != nullptr) {
+            surfaced->push_back(own_surface);
         }
         out->push_back({.position = lamp.position,
                         .size = lamp.size,

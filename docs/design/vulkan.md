@@ -5138,3 +5138,26 @@ stacking another on top.
   mesh more or less in the first frame changes only its own samples - before, every n-th triangle in the world's order
   moved them all and the sun by degrees (sch: heading -43 / -45), enough to tip relit's fit. A sun channel the edges gave
   nothing (a green sun: AU, sch) starts from the others' and the faces' turning sets it (relit cache v7).
+
+## The reference path tracer (`pt ref`)
+
+The yardstick for every realtime light pass: an unbiased, progressive path tracer over the frame's own acceleration
+structures, material table and light store (gpu_vulkan/vulkan_path_reference.h; its sampling engine/gfx/rt_path.h with a
+CPU twin). With the game paused, the console's `pt ref <samples> [EV100]` accumulates that many paths a pixel from the
+camera as it stood (another camera or scene starts it again), shows their mean in the frame at a manual exposure
+(vulkan_hdr.h `set_manual_ev100`: the given EV100, else the meter's when it began; the EV100 is logged) and saves
+`Screenshots\pt_<stamp>_reference.exr/.png` and `_realtime.exr/.png` - the EXRs linear in the global unit, the PNGs
+through the tone curve at that EV. `pt off` ends it.
+
+- One hit surface for every ray (vulkan_rt_scene.h `hit_surface_glsl`): position, triangle and shading normals, base
+  colour (the relit world's texel x tint, an object's texel), the light model's material, alpha and cut-out, and the light
+  store's emission in the global unit.
+- A path: camera rays jittered in the pixel; at each hit next-event estimation to one light picked evenly among the
+  kinds there are - the sun's disc (its real solid angle), the sky (cosine about the normal; the sky-view table's radiance,
+  or the lighting's even sky light without it), an emitting triangle (found on the device when the run starts: every
+  world triangle whose store emits) or an analytic lamp; the BSDF sampled (GGX visible normals + cosine Lambert);
+  MIS by the power heuristic; Russian roulette from the third bounce; cut-outs by their alpha on every ray.
+- One owner per lamp: a lamp whose own surface emits (the relit data's emitting vertices - rt_lights.h
+  `LevelEmitters::surfaced`) is sampled as that surface, its analytic light left out (rt_path.h `analytic_lamps`).
+- Checked by thug2_vulkan_path_check: the white furnace at every roughness, a floor under an emitting disc against its
+  integral, MIS / lights-only / BSDF-only agreeing, the processor's twin, the owner rule, no NaN.

@@ -102,7 +102,8 @@ layout(push_constant) uniform Pass {
     vec4 meter;      // x: the viewport's slot; y: 1 metered; z: the seconds since its last pass (0: start there); w:
                      // the most stops down (rt_exposure_adapt)
     vec4 meter_rect; // the viewport in the copy's pixels: x, y, width, height
-    vec4 night;      // (round S) x: the frame's pre-exposure (rt_daylight.h frame_pre_exposure)
+    vec4 night;      // (round S) x: the frame's pre-exposure (rt_daylight.h frame_pre_exposure); (path tracing) y: the
+                     // manual exposure's factor on the physical light (0: none)
 } pc;
 
 const float kLargest = 65504.0;
@@ -160,7 +161,9 @@ vec3 tone(vec3 c)
     c = vec3(finite(c.r), finite(c.g), finite(c.b));
     // (round S: the meter's factor is the exposure of the physical light over the frame's pre-exposure; without the
     // meter the pre-exposure alone is divided out)
-    c *= pc.grade.x * (pc.meter.y > 0.5 ? u_meter.slots[int(pc.meter.x)].x : 1.0 / pc.night.x);
+    // (path tracing, stage 1: the manual exposure - night.y its factor on the physical light - in place of the meter)
+    c *= pc.grade.x * (pc.night.y > 0.0 ? pc.night.y / pc.night.x
+                                        : (pc.meter.y > 0.5 ? u_meter.slots[int(pc.meter.x)].x : 1.0 / pc.night.x));
     c = display_from_linear(c);
     if (pc.grade.y != 1.0) {
         float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -367,7 +370,20 @@ struct HdrState {
     bool failed = false;
     uint64_t passes = 0;
     uint64_t upscales_seen = 0; // (round F) the upscaler's passes counted at the last pass
+    // (path tracing, stage 1) the last metered slot (the readout's: last_metered_ev100), -1 none
+    int last_slot = -1;
 };
+
+// (path tracing, stage 1 - P5) The manual exposure (set_manual_ev100): any thread.
+struct ManualState {
+    std::mutex mutex;
+    ManualExposure exposure;
+};
+ManualState& manual_state()
+{
+    static ManualState made;
+    return made;
+}
 
 HdrState& hdr()
 {
@@ -1422,6 +1438,61 @@ float meter_adapt(float now_stops, float target_stops, float seconds)
     return now_stops + ((target_stops - now_stops) * (1.0F - std::exp(-seconds / over)));
 }
 
+void set_manual_ev100(bool on, float ev100)
+{
+    ManualState& own = manual_state();
+    const std::scoped_lock lock(own.mutex);
+    const ManualExposure wanted{.on = on, .ev100 = on ? ev100 : 0.0F};
+    if (wanted.on != own.exposure.on || wanted.ev100 != own.exposure.ev100) {
+        if (on) {
+            get_log("vulkan: rt_hdr: the camera's exposure set by hand - EV100 %.2f (x %.6g on the physical light; the "
+                    "meter off)",
+                    static_cast<double>(ev100), static_cast<double>(exposure_at_ev100(ev100)));
+        } else {
+            get_log("vulkan: rt_hdr: the camera's exposure metered again");
+        }
+    }
+    own.exposure = wanted;
+}
+
+ManualExposure manual_exposure()
+{
+    ManualState& own = manual_state();
+    const std::scoped_lock lock(own.mutex);
+    return own.exposure;
+}
+
+float exposure_at_ev100(float ev100) { return std::exp2(camera_ev100(0.0F) - ev100); }
+
+ToneParameters tone_parameters_locked() { return hdr().parameters; }
+
+const GradeLut* grade_lut_locked()
+{
+    const GradeLut& lut = hdr().lut;
+    return lut.size >= kLeastLut ? &lut : nullptr;
+}
+
+bool last_metered_ev100(Backend& state, float* ev100)
+{
+    HdrState& own = hdr();
+    if (own.last_slot < 0 || own.meter_read.buffer == VK_NULL_HANDLE || own.meter_read.mapped == nullptr) {
+        return false;
+    }
+    constexpr std::size_t kSlotBytes = 4 * sizeof(float);
+    std::array<float, 4> values{};
+    vmaInvalidateAllocation(state.memory.allocator(), own.meter_read.allocation, 0, VK_WHOLE_SIZE);
+    const std::span<const uint8_t> mapped(static_cast<const uint8_t*>(own.meter_read.mapped),
+                                          static_cast<std::size_t>(own.meter_read.bytes));
+    std::memcpy(values.data(), mapped.subspan(static_cast<std::size_t>(own.last_slot) * kSlotBytes, kSlotBytes).data(),
+                kSlotBytes);
+    const float stops = core::at(values, 1);
+    if (!std::isfinite(stops) || !(core::at(values, 0) > 0.0F)) {
+        return false;
+    }
+    *ev100 = camera_ev100(stops);
+    return true;
+}
+
 bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReading* reading)
 {
     const HdrState& own = hdr();
@@ -1531,7 +1602,8 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     }
     // (added by the low sun's glare) the meter, when rt_exposure_adapt lets a bright view bring the exposure down
     VkPipeline meter = VK_NULL_HANDLE;
-    if (own.settings.exposure_adapt > 0.0F) {
+    const ManualExposure manual = manual_exposure(); // (path tracing, stage 1: the camera set by hand - no meter)
+    if (own.settings.exposure_adapt > 0.0F && !manual.on) {
         std::string meter_error;
         meter = meter_pipeline(state, colour->samples != VK_SAMPLE_COUNT_1_BIT, &meter_error);
         if (meter == VK_NULL_HANDLE && first_report(state, kReportMeter)) {
@@ -1542,7 +1614,8 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     constants.meter_rect = {static_cast<float>(left), static_cast<float>(top), static_cast<float>(width),
                             static_cast<float>(height)};
     // (round S) the frame's pre-exposure divided out
-    constants.night = {rt::frame_pre_exposure(), 0.0F, 0.0F, 0.0F};
+    // (path tracing, stage 1) y: the manual exposure's factor on the physical light (0: none)
+    constants.night = {rt::frame_pre_exposure(), manual.on ? exposure_at_ev100(manual.ev100) : 0.0F, 0.0F, 0.0F};
 
     VkCommandBuffer commands = outside_pass(state);
     // the viewport's colour copied out (the copy's barriers by hand: the meter's compute shader reads it too)
@@ -1582,6 +1655,7 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     // (the meter first: the viewport's slot moved toward its target)
     if (meter != VK_NULL_HANDLE) {
         const std::size_t slot = meter_slot_of(shown, colour->extent);
+        own.last_slot = static_cast<int>(slot);
         vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
                                   static_cast<uint32_t>(writes.size()), writes.data());
         log_readout(state, slot, core::at(constants.night, 0));

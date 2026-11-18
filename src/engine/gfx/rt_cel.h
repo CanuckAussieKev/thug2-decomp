@@ -77,6 +77,9 @@ struct CelWorld {
     bool relit = false;
     std::array<float, 3> sun{};
     std::array<float, 3> toward{0.0F, 1.0F, 0.0F}; // the sun the stream's N.L was taken toward
+    // (path tracing, stage 1) the lighting's sky light on a level surface (the global unit, physical - rt_relit.h
+    // RelitLighting::sky): what a path tracer's open sky gives where it has no sky table
+    std::array<float, 3> sky{};
 };
 void set_cel_world(const CelWorld& world);
 [[nodiscard]] CelWorld cel_world();

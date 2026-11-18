@@ -62,7 +62,14 @@ struct SceneView {
     VkBuffer geometry = VK_NULL_HANDLE;
     VkDeviceSize geometry_bytes = 0;
     uint32_t reflective_instances = 0;
+    // (path tracing, stage 1) the TLAS's instances (VkAccelerationStructureInstanceKHR, 64 bytes each in the frame
+    // record's order - its first 48 bytes the object-to-world rows, x' = row . (x, y, z, 1)) as a device address, for a
+    // shader that needs an instance's transform without a hit (a light's triangle sampled)
+    VkDeviceAddress instances_address = 0;
 };
+// (path tracing, stage 1) The current frame's instances' triangle counts, in the frame record's order (0: not built) -
+// the primitives a shader may ask hit_vertices for. The caller holds the lock.
+void scene_instance_triangles(const Backend& state, std::vector<uint32_t>* out);
 
 // (added by R5's reflections) Where a hit's triangle is, for a shader that shades what a ray hit: per instance of the
 // frame (its rayQueryGetIntersectionInstanceIdEXT), the buffers it was built from as device addresses (read by
@@ -147,6 +154,31 @@ std::string_view scene_geometry_glsl();
 //        picks: an opaque one wherever it is hit, an alpha-tested one only where its material's alpha test passes at the
 //        hit (a hit whose vertices can't be read counts as solid)
 std::string_view cutout_rays_glsl();
+// (path tracing, stage 1 - P1: one hit surface) What every ray that shades its hit reads there, from one function: after
+// material_glsl (vulkan_rt_materials.h), scene_geometry_glsl, rt_display.h's kDisplayTransferGlsl and rt_brdf.h's
+// brdf_glsl():
+//   struct HitSurface { vec3 position; vec3 normal; vec3 shading_normal; vec3 base_colour; BrdfMaterial material;
+//                       uint kind; float alpha; bool cut_out; vec3 emitted; uint origin; float area; bool hidden; };
+//   bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
+//                    out HitSurface s)   - false when the instance isn't live (no vertices to read)
+//   - position: the hit (world); normal: the triangle's, unit, turned toward where the ray came from (-direction);
+//     shading_normal: the mesh's vertex normals blended there (same side) where it has them, else `normal`; area: the
+//     triangle's (world units^2 - a light sample's pdf);
+//   - base_colour: linear - the relit world (HIT_RELIT_WORLD: it has the light store) its texel x its material's colour,
+//     decoded, x the store's tint (relit's albedo); an object (HIT_OBJECT) the texel x the material's colour; the
+//     world without a light store (HIT_BAKED_WORLD: its colours are its bake's light) the texel x the material's colour
+//     alone (no albedo of its own yet - the plan's P10);
+//   - material: the light model's (rt_brdf.h) - with a surface map, F0 the material table's for the map's kind
+//     (MaterialRecord::f0) and roughness the map's at the hit, the detail kind's where it replaces it; a metal's
+//     (HIT_KIND_METAL: F0 at least kHitMetalF0) F0 its base colour, no diffuse; without a map the table's painted
+//     surface (rt_material_table.h kPainted);
+//   - alpha: the texel's x the material's; cut_out: the material's alpha test rejects it there (the ray goes on);
+//   - emitted: the radiance the surface sends itself, in the light store's global unit (NOT pre-exposed): the store's
+//     emit word x the texel (the lamp's texture) - on a lamp drawn in a texture only its lamp texels (their brightest
+//     channel past rt_lights.h kTexelBright, as the world's draws show it); 0 elsewhere;
+//   - hidden: the light store hides the mesh (the bake's shadows drawn as geometry, the original's light cards).
+std::string_view hit_surface_glsl();
+inline constexpr float kHitMetalF0 = 0.2F; // (a surface map's F0 at least this: a metal - the reflections' HIT_METAL_F0)
 // The caller holds the backend's lock.
 SceneView current_scene(const Backend& state);
 

@@ -200,6 +200,10 @@ struct LevelEmitters {
     // (round O) `emitters` are the relit data's solved lamps (their intensities from the bake, in the global unit): the
     // level's lights are those alone - the frame record's point lights (the game's colours) are not shone beside them
     bool solved = false;
+    // (path tracing, stage 1 - one owner per lamp) per emitter, 1 when its lamp has a surface of its own that emits (the
+    // relit data's emitting vertices: the light store's emit word carries its radiance) - a path tracer samples that
+    // geometry and not the analytic light (rt_path.h analytic_lamps); empty: none has
+    std::vector<uint8_t> surfaced;
     // (round light cards - the relit bake's: light_cards.h) the light cards' triangles with their textures and the world
     // meshes' surface colours - the cards lying on a surface are that surface's light; null outside the bake
     std::shared_ptr<const LightCards> cards;

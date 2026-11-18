@@ -109,7 +109,9 @@ void buffer_written(const VertexBufferData* buffer);
 // unit, their shapes) when the world now loaded is relit from its data - the lights the lamps pass shines in place of
 // the emitters found at load (rt_record.cpp emitter_work); the level's own point lights stay the game's. False: no data
 // for this world (the found emitters stay).
-bool data_emitters(std::vector<rt::Emitter>* out);
+// (path tracing, stage 1) `surfaced`, when given: per lamp of `out`, 1 when it has emitting vertices in the data (its own
+// surface shows its radiance - one owner for a path tracer: rt_lights.h LevelEmitters::surfaced).
+bool data_emitters(std::vector<rt::Emitter>* out, std::vector<uint8_t>* surfaced = nullptr);
 // The baked colours of a buffer the mode has written into (A8R8G8B8, a word a vertex), or empty: it holds its own.
 [[nodiscard]] std::span<const uint32_t> original_colours(const VertexBufferData* buffer);
 // How the skater's and the objects' lights follow the relit world (pc_lights.cpp): while the world is relit by a sun
