@@ -33,7 +33,8 @@
 //
 // The curve, per pixel (the colour linear light; the display's preferences act on its encoded value):
 //   1. not a number: 0; below 0: 0; above 65504: 65504
-//   2. exposure:   c x 2^rt_exposure x the meter's 2^stops (below), in linear light
+//   2. exposure:   c x 2^rt_exposure x the meter's 2^stops (below), in linear light; then (round EX) x the local
+//      exposure's factor (below, "Local exposure") - 1 with rt_local_exposure=0 or the camera set by hand
 //   3. the display's encoding: c^(1 / 2.2) (rt_display.h display_from_linear) - the original's white 1 shows as 1
 //   4. saturation: L + (c - L) x rt_saturation, L = Rec. 709 luma; then at least 0
 //   5. contrast:   0.5 x (c / 0.5)^rt_contrast   (a power about mid-grey)
@@ -48,6 +49,19 @@
 //      rt_tonemap=1 - ACES (Krzysztof Narkowicz's fit of the ACES reference rendering and output transforms):
 //          x = c^2.2,  y = (x (2.51 x + 0.03)) / (x (2.43 x + 0.59) + 0.14) / that of w^2.2,  c' = y^(1 / 2.2)
 //        a filmic look - deeper shadows, brighter mid-tones, w (1 - 8) shown as white.
+//      rt_tonemap=2 (round EX, the default) - ACES 1.x's reference rendering transform and its sRGB (100 cd/m^2)
+//        output transform, in Stephen Hill's fit (public domain; as MJP's BakingLab and many engines ship it; Unreal
+//        Engine 5's and Unity HDRP's default tone mappers are ACES too):
+//          x = c^2.2 (linear Rec. 709), v = M_in x (to ACES AP1 with the RRT's saturation),
+//          v' = (v (v + 0.0245786) - 0.000090537) / (v (0.983729 v + 0.432951) + 0.238081), y = M_out v' (back to Rec. 709),
+//          c' = clamp(y, 0, 1)^(1 / 2.2)
+//        no rescaling (rt_white_point does not act on it): its scene middle grey 0.18 shows as 0.105 of white, its
+//        shoulder reaches white at about 16 - over six stops above middle grey of highlight a camera's picture keeps.
+//        Why ACES and not AgX / Khronos PBR Neutral / Gran Turismo: ACES is the transform the shipping engines use by
+//        default for HDR to SDR (UE5, HDRP), it is defined on a scene-referred input whose middle grey is 0.18 - the
+//        camera's metering target below -, and its hue skews on saturated highlights are the look players know; PBR
+//        Neutral is made for product colours under even light (it keeps base colours, not a night's 12 stops), AgX is
+//        Blender's / Godot's, not the games' norm.
 //   7. the grade LUT (rt_grade_lut, a .cube 3D table): trilinear, inputs mapped through its DOMAIN_MIN / MAX
 //   8. clamped to 0 - 1
 // Multisampled targets: each sample through the curve, their mean written to all of the pixel's samples (so the
@@ -97,35 +111,46 @@ void set_hdr_lut(GradeLut lut);
 [[nodiscard]] std::array<float, 3> tone_map_reference(const ToneParameters& parameters, const GradeLut* lut,
                                                       std::array<float, 3> colour);
 
-// (added by the low sun's glare; rewritten by the physical air) The metering - the camera's exposure, the one
-// controller (rt_exposure_adapt: how many stops it may move either way; 0: off). The frame is linear light in the sky's
-// unit (rt_sky.h: 1 a white diffuser under the reference day; round F). A camera meters
-// the light of the view and sets its exposure so the view's average lands where the sensor's calibration puts it:
-//   - the meter: kMeterGrid x kMeterGrid samples over the viewport (meter_place), their linear luminance (Rec. 709 luma of
-//     the colour as drawn - the user's rt_exposure is an offset after it, not metered), each at most
-//     kMeterBrightest (the sun's disc, a few pixels at thousands, doesn't swing it), weighted toward the centre
-//     (meter_weight: a Gaussian kMeterCentre of the viewport wide), their weighted geometric mean (the log average - a
-//     camera's average metering: a small bright part of a view counts for its share, a sky or a low sun's glow for
-//     what it covers);
-//   - the target: the reflected-light meter's calibration (ISO 2720, K = 12.5, the saturation-based exposure of a
-//     sensor of speed S: H = 1 / (1.2 x 2^EV100), EV100 = log2(L x S / K)) puts a metered average L at L x 100 / 12.5 /
-//     (1.2 x 8 x L) of the sensor's white - kMeterKey, about 0.104 -, scaled by the eye's adaptation (meter_key: the
-//     key over its daylight value - the scene key a photographer exposes a dim scene darker by (Krawczyk et al.'s
-//     1.03 - 2 / (2 + log10(L + 1)) of the absolute luminance - the unit calibrated by the sun's illuminance at the
-//     atmosphere's top, kSolarIlluminance: a dim night is not brought up to day); stops = log2(key / L) - (round L) within
-//     the camera's range (camera_stops_range: the exposure values its aperture, shutter and sensitivity reach) and
-//     +-rt_exposure_adapt (meter_target_stops) - both ways: a bright view down, a dark one up;
-//   - over time as a camera's auto exposure: kMeterDarkenSeconds toward darker, kMeterBrightenSeconds back (1 - 1/e of
-//     the way; meter_adapt), a new viewport starting at its target;
+// (added by the low sun's glare; rewritten by the physical air; round EX: a histogram, as shipping engines meter) The
+// metering - the camera's exposure, the one controller (rt_exposure_adapt: on / off). The frame is linear light in the
+// sky's unit (rt_sky.h: 1 a white diffuser under the reference day; round F). It follows Unreal Engine 5's histogram auto
+// exposure (the engine's default method) with Frostbite's physical camera units (Lagarde and de Rousiers, "Moving
+// Frostbite to PBR", 2014: EV100 and the ISO 2720 meter):
+//   - the meter, on the scene's linear light before any tone mapping: kMeterGrid x kMeterGrid samples over the viewport
+//     (meter_place), each its physical luminance (Rec. 709 luma of the colour / the frame's pre-exposure x the unit's
+//     cd/m^2 - rt_exposure, the player's compensation, is not metered), counted in a histogram of its log2 (kMeterBins
+//     bins of 1 / kMeterBinsPerStop stop from 2^kMeterLowestStop cd/m^2 - the floor bin takes anything darker) with a
+//     centre weight (meter_weight: a Gaussian kMeterCentre of the viewport wide - Unity HDRP's "centre weighted" metering
+//     mode; Unreal's metering mask does the same with a texture). Each bin keeps its weight and the weighted offsets of
+//     its samples inside it (fixed point: kMeterWeightScale, kMeterOffsetScale), so the average is exact, not the bins'
+//     middles;
+//   - the average: the weighted mean of the log2 luminance between the kMeterLowPercent and kMeterHighPercent of the
+//     histogram's weight (Unreal's AutoExposureLowPercent / HighPercent defaults, 10 and 90 - the darkest and brightest
+//     tenths, a black corner or a lamp's bulbs, don't move the exposure; a part of the view brighter than a tenth does);
+//     meter_window_mean is its twin;
+//   - the target: that average at middle grey kMeterKey = 0.18 (Unreal's auto-exposure target, ACES's scene-referred
+//     middle grey - what the tone curve is calibrated for), times the exposure compensation curve keyed by the scene's
+//     luminance (Unreal's "exposure compensation curve" by average EV100; ours is Krawczyk, Myszkowski and Seidel 2005's
+//     key 1.03 - 2 / (2 + log10(L + 1)) over its value for an 18% world under the reference day - meter_key: a dim
+//     scene is exposed darker than middle grey, a night stays a night; one curve for every level, from the absolute
+//     luminance, no per-level value); stops = log2(key / L) within the camera's range (camera_stops_range: the exposure
+//     values its aperture, shutter and sensitivity reach - Unreal's min / max EV100) (meter_target_stops);
+//   - over time as a camera's auto exposure: exponential, kMeterDarkenSeconds toward darker, kMeterBrightenSeconds back
+//     (1 - 1/e of the way; meter_adapt - Unreal's "exponential" adaptation; no overshoot, so no oscillation: the meter
+//     reads the unexposed light, so the exposure never feeds back into what it meters), a new viewport or a lighting cut
+//     starting at its target;
 //   - the factor on the light: 2^stops, x rt_exposure's 2^stops.
 // The device keeps it: a compute pass over the viewport's copy writes the slot, the curve's pass reads it - no read-back.
 // A path tracer's camera takes the same: its radiance x 2^stops, then this curve.
 inline constexpr uint32_t kMeterSide = 16;    // (the group's side)
 inline constexpr uint32_t kMeterEach = 4;     // (each invocation's samples a side)
 inline constexpr uint32_t kMeterGrid = kMeterSide * kMeterEach;
-inline constexpr float kMeterKey = 0.104F;    // the metered average's place (of the sensor's white): 100 / 12.5 / 9.6
-inline constexpr float kMeterBrightest = 16.0F;
-inline constexpr float kMeterLeast = 1e-4F;   // (a sample's luminance at least: the log average's floor)
+inline constexpr float kMeterKey = 0.18F;     // the metered average's place: middle grey (round EX - was ISO 12232's
+                                              // saturation-based 0.104, made for a curve that clipped at 1)
+inline constexpr float kMeterLowPercent = 0.10F;
+inline constexpr float kMeterHighPercent = 0.90F;
+inline constexpr float kMeterWeightScale = 256.0F;  // (a sample's weight in the histogram's fixed point)
+inline constexpr float kMeterOffsetScale = 1024.0F; // (a sample's place inside its bin, fixed point)
 inline constexpr double kSolarIlluminance = rt::kSolarIlluminance; // (lux: the unit's calibration - rt_sky.h)
 inline constexpr float kMeterCentre = 0.3F;
 // (round L) the camera's range - the exposure values (EV100 = log2(N^2 / t) - log2(S / 100)) its settings reach: from
@@ -144,9 +169,9 @@ inline constexpr float kMeterMostStops = 40.0F;
 inline constexpr float kMeterDarkenSeconds = 0.4F;
 inline constexpr float kMeterBrightenSeconds = 1.2F;
 inline constexpr uint32_t kMeterSlots = 4;
-// The readout's luminance histogram (the log's percentiles - what a scene's parts measure: the moonlit ground, the
-// lamps' pools, the lamps themselves): kMeterBins bins of 1 / kMeterBinsPerStop stop from 2^kMeterLowestStop cd/m^2
-// (2^-24 - 2^24: starlight's floor to a bulb's filament).
+// The histogram: kMeterBins bins of 1 / kMeterBinsPerStop stop from 2^kMeterLowestStop cd/m^2 (2^-24 - 2^24:
+// starlight's floor to a bulb's filament) - also the readout's percentiles (what a scene's parts measure: the moonlit
+// ground, the lamps' pools, the lamps themselves).
 inline constexpr int kMeterBinsPerStop = 4;
 inline constexpr int kMeterLowestStop = -24;
 inline constexpr int kMeterBins = 48 * kMeterBinsPerStop;
@@ -154,9 +179,17 @@ inline constexpr int kMeterBins = 48 * kMeterBinsPerStop;
 // size).
 [[nodiscard]] std::array<float, 2> meter_place(uint32_t i, uint32_t j);
 [[nodiscard]] float meter_weight(const std::array<float, 2>& place);
-// A colour (linear light, already x the exposure's factor) as the meter counts it.
+// A colour (linear light) as the meter counts it: its Rec. 709 luminance (not a number and negatives as 0).
 [[nodiscard]] float meter_light(const std::array<float, 3>& colour);
-// The key for a metered average (linear): kMeterKey x the eye's adaptation over its daylight value.
+// The histogram on the processor (the meter's twin): meter_count adds a sample of `luminance` cd/m^2 with `weight`
+// (meter_weight's), meter_window_mean gives the mean log2 luminance (cd/m^2) between the percentiles, as the meter.
+struct MeterHistogram {
+    std::array<uint32_t, kMeterBins> weight{};
+    std::array<uint32_t, kMeterBins> offset{};
+};
+void meter_count(MeterHistogram* histogram, float luminance, float weight);
+[[nodiscard]] float meter_window_mean(const MeterHistogram& histogram);
+// The key for a metered average (linear): kMeterKey x the compensation curve (the scene key over its daylight value).
 [[nodiscard]] float meter_key(float mean);
 [[nodiscard]] float meter_target_stops(float mean, float most_stops);
 [[nodiscard]] float meter_adapt(float now_stops, float target_stops, float seconds);
@@ -166,11 +199,44 @@ struct MeterReading {
     float stops = 0.0F;
     float mean = 0.0F;
     float target = 0.0F;
-    // (the readout's luminance - cd/m^2: the samples' median, 95th and 99.5th percentiles, each its histogram bin's
-    // middle; w (round L) the EV100 the camera stands at)
+    // (the readout's luminance - cd/m^2: the samples' weighted median, 95th and 99.5th percentiles, each its histogram
+    // bin's middle; w (round L) the EV100 the camera stands at)
     std::array<float, 4> luminance{};
+    // (round EX) the key the target put the average at (kMeterKey x the compensation curve)
+    float key = 0.0F;
 };
 bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReading* reading);
+
+// (round EX) Local exposure - Unreal Engine 5's (its Lens > Local Exposure: a base layer from a bilateral grid - Chen,
+// Paris and Durand 2007 - blended with a wide blur of the luminance, its contrast scaled about middle grey, the detail
+// kept), with its parameters as a new UE5 project has them, the same for every view and level:
+//   - the grid: the viewport in kLocalTile-pixel tiles x kLocalSlices slices of the exposed log2 luminance (one stop each,
+//     from kLocalLowestStop) - each cell the sum of its pixels' log2 luminance and their count; blurred by a 3 x 3 x 3
+//     binomial (1 2 1) kernel; read at a pixel trilinearly (tile centres, its own luminance's slice), the sums over the
+//     counts: the luminance of the pixel's neighbourhood at its own level - an edge between two levels a slice or more
+//     apart isn't crossed (no halo there);
+//   - the blurred luminance: the tiles' log2 luminance under a Gaussian whose diameter (4 sigma) is kLocalBlurredKernel of
+//     the viewport's width (UE5's "blurred luminance kernel size percent" 50), read bilinearly;
+//   - the base: mix(grid, blurred, kLocalBlurredBlend) (UE5's 0.6); the pivot: log2 of the camera's key x 2^rt_exposure
+//     (middle grey after the compensation curve - UE5's middle grey with its exposure compensation, bias 0);
+//   - the factor on the pixel: 2^((base - pivot) x (contrast - 1)), contrast kLocalHighlightContrast above the pivot,
+//     kLocalShadowContrast below (UE5's new-project defaults, 0.8 both); detail strength 1 (the pixel's own difference
+//     from its base kept). A uniform view at the key is left exactly as it is (base = pivot).
+// Built by two compute passes after the meter (the grid and its blur, the blurred luminance), read by the curve's pass.
+// Off (factor 1) with rt_local_exposure=0, and while the camera is set by hand (the path tracer's reference: both its
+// pictures mapped pixel by pixel, tone_map_reference).
+inline constexpr uint32_t kLocalTile = 64;
+inline constexpr uint32_t kLocalSlices = 32;
+inline constexpr float kLocalLowestStop = -19.0F; // (exposed log2: middle grey 0.18 is -2.47, 16.5 stops up)
+inline constexpr float kLocalHighlightContrast = 0.8F;
+inline constexpr float kLocalShadowContrast = 0.8F;
+inline constexpr float kLocalBlurredBlend = 0.6F;
+inline constexpr float kLocalBlurredKernel = 0.5F;
+inline constexpr float kLocalFixed = 1024.0F; // (a pixel's place in the slices, fixed point)
+// The local exposure's factor per pixel on the processor (the passes' twin): `exposed` the viewport's exposed luminance
+// (Rec. 709 luma of the colour x the exposure's factor), width x height, row by row; `pivot` the key x 2^rt_exposure.
+[[nodiscard]] std::vector<float> local_exposure_reference(uint32_t width, uint32_t height,
+                                                          const std::vector<float>& exposed, float pivot);
 
 // (path tracing, stage 1 - P5) The manual mode: the camera set by hand to `ev100` - no metering, no adaptation; the light
 // x exposure_at_ev100 (the factor the meter's slot would hold at that EV: 2^(camera_ev100(0) - ev100), the same ISO 2720

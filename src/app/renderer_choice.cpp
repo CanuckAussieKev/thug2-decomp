@@ -250,11 +250,13 @@ render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
     // (round F - a linear, scene-referred frame: always; rt_hdr retired - the frame no longer depends on it)
     return render::vulkan::HdrSettings{.on = true,
                                        .exposure = in_effect.number("rt_exposure", defaults.exposure),
-                                       .tonemap = static_cast<unsigned>(std::max(0, in_effect.integer("rt_tonemap", 0))),
+                                       .tonemap = static_cast<unsigned>(std::max(
+                                           0, in_effect.integer("rt_tonemap", static_cast<int>(defaults.tonemap)))),
                                        .saturation = in_effect.number("rt_saturation", defaults.saturation),
                                        .contrast = in_effect.number("rt_contrast", defaults.contrast),
                                        .white_point = in_effect.number("rt_white_point", defaults.white_point),
                                        .exposure_adapt = in_effect.number("rt_exposure_adapt", defaults.exposure_adapt),
+                                       .local_exposure = in_effect.on("rt_local_exposure"),
                                        .grade_lut = lut_path};
 }
 

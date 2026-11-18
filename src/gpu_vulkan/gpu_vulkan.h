@@ -145,25 +145,30 @@ void set_rt_reflection_settings(const RtReflectionSettings& settings);
 [[nodiscard]] RtReflectionSettings rt_reflection_settings();
 
 // NOT ORIGINAL - the linear frame, its exposure, tone mapping and colour grading (vulkan_hdr.h, docs/design/vulkan.md
-// "HDR" and "A linear, scene-referred frame"): [Graphics] rt_exposure, rt_exposure_adapt, rt_tonemap, rt_saturation,
-// rt_contrast, rt_white_point, rt_grade_lut. Independent of ray tracing. `on` (the game: always - round F; rt_hdr
+// "HDR" and "A linear, scene-referred frame"): [Graphics] rt_exposure, rt_exposure_adapt, rt_local_exposure, rt_tonemap,
+// rt_saturation, rt_contrast, rt_white_point, rt_grade_lut. Independent of ray tracing. `on` (the game: always - round F; rt_hdr
 // retired): the world is drawn into 16-bit float targets in linear light and brought to the display's 0 - 1 by one
 // pass before the 2D; false (a check's): the 8-bit display-referred frame, nothing changed. Read when the device is made
 // (`on`; the rest any time).
 inline constexpr float kHdrWhitePoint = 1.25F; // (rt_white_point's default)
 inline constexpr float kHdrExposureAdapt = 1.0F; // (rt_exposure_adapt's default: on - round S, the eye)
+inline constexpr unsigned kHdrToneCurve = 2;     // (rt_tonemap's default - round EX: ACES)
 struct HdrSettings {
     bool on = false;
     float exposure = 0.0F;   // stops (0: 1x; +1: twice the light)
-    unsigned tonemap = 0;    // 0: the colours as drawn, a soft shoulder from just below 1 to the white point;
-                             // 1: ACES (Narkowicz's fit), on the exposed light
+    unsigned tonemap = kHdrToneCurve; // 0: the colours as drawn, a soft shoulder from just below 1 to the white point;
+                                      // 1: ACES (Narkowicz's fit), scaled to show the white point as white;
+                                      // 2: ACES (its reference rendering and sRGB output transforms, Hill's fit)
     float saturation = 1.0F; // 1: unchanged; 0: grey; above 1: more
     float contrast = 1.0F;   // 1: unchanged; a power around mid-grey (0.5)
     float white_point = kHdrWhitePoint; // the value (1 - 8) shown as white; 1: everything above 1 clipped
     // (added by the low sun's glare; round S) the metering: above 0 the eye adapts to the view (vulkan_hdr.h: its key
     // law, down to the scotopic floor) and sees by its rods in the dark; 0: off - a fixed exposure
     float exposure_adapt = kHdrExposureAdapt;
-    std::string grade_lut;   // a 3D LUT (.cube) applied last; empty: none (a path, as given)
+    // (round EX) local exposure (vulkan_hdr.h "Local exposure"): the view's large-scale contrast compressed about the
+    // camera's middle grey through a bilateral grid, so lit and dark parts each keep their detail; false: off
+    bool local_exposure = true;
+    std::string grade_lut;  // a 3D LUT (.cube) applied last; empty: none (a path, as given)
 };
 void set_hdr_settings(const HdrSettings& settings);
 [[nodiscard]] HdrSettings hdr_settings();
