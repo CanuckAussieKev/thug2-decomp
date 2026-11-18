@@ -65,6 +65,17 @@ std::unordered_map<const IndexBufferData*, std::vector<relief::VertexSource>>& m
     return kept;
 }
 
+// (round LV) the changed meshes' file vertices and made vertices' sources (remember_made)
+struct Made {
+    uint32_t original = 0;
+    std::vector<relief::VertexSource> made;
+};
+std::unordered_map<const IndexBufferData*, Made>& made_vertices()
+{
+    static std::unordered_map<const IndexBufferData*, Made> kept;
+    return kept;
+}
+
 HeightForMaterial& height_slot()
 {
     static HeightForMaterial lookup = nullptr;
@@ -203,11 +214,29 @@ std::span<const relief::VertexSource> sources_of(const IndexBufferData* drawn)
                                          : std::span<const relief::VertexSource>(found->second);
 }
 
+void remember_made(const IndexBufferData* drawn, uint32_t original, std::vector<relief::VertexSource> made)
+{
+    if (drawn != nullptr && original > 0 && !made.empty()) {
+        made_vertices()[drawn] = Made{.original = original, .made = std::move(made)};
+    }
+}
+
+MadeVertices made_of(const IndexBufferData* drawn)
+{
+    const auto found = made_vertices().find(drawn);
+    return found == made_vertices().end() ? MadeVertices{}
+                                          : MadeVertices{.original = found->second.original, .made = found->second.made};
+}
+
 void copy_original(const IndexBufferData* from, const IndexBufferData* to)
 {
     const std::span<const relief::VertexSource> made = sources_of(from);
     if (!made.empty() && to != nullptr) {
         made_sources()[to] = std::vector<relief::VertexSource>(made.begin(), made.end());
+    }
+    if (const auto kept = made_vertices().find(from); kept != made_vertices().end() && to != nullptr) {
+        Made copy = kept->second;
+        made_vertices()[to] = std::move(copy);
     }
     const std::span<const uint16_t> original = original_strip(from);
     if (!original.empty() && to != nullptr) {
@@ -220,12 +249,16 @@ void forget_original(const IndexBufferData* drawn)
     if (!made_sources().empty()) {
         made_sources().erase(drawn);
     }
+    if (!made_vertices().empty()) {
+        made_vertices().erase(drawn);
+    }
     if (!originals().empty()) {
         originals().erase(drawn);
     }
 }
 
-std::vector<uint16_t> smooth_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material, bool dynamic)
+std::vector<uint16_t> smooth_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material, bool dynamic,
+                                  std::vector<relief::VertexSource>* made)
 {
     if (!on() || body == nullptr || material == nullptr || dynamic || body->has_vertex_bytes || !body->scaled.empty() ||
         fvf == 0 || core::at(body->index_counts, 0) < 3) {
@@ -298,6 +331,13 @@ std::vector<uint16_t> smooth_body(scene_format::MeshBody* body, uint32_t fvf, co
     }
     // (the new vertices replace the body's: the first level of detail's strip too; the others keep the original
     // vertices, still first)
+    if (made != nullptr) { // (round LV: each new vertex's sources among the original ones)
+        made->clear();
+        made->reserve(result.made.size());
+        for (const tess::Result::Made& one : result.made) {
+            made->push_back({.from = one.from, .weight = one.weight, .count = static_cast<uint8_t>(one.from.size())});
+        }
+    }
     body->vertices = result.vertices;
     body->vertex_count = static_cast<uint16_t>(result.vertex_count);
     std::vector<uint16_t> original(strip.begin(), strip.begin() + core::at(body->index_counts, 0));

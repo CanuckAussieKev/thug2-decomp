@@ -891,6 +891,7 @@ void Smoother::write_vertices(Result* out, float shape)
         if (options.keep_flat) {
             out->flat.push_back({vertex.flat.x, vertex.flat.y, vertex.flat.z});
         }
+        out->made.push_back({.from = vertex.from, .weight = vertex.weight});
         out->deviation = std::max(out->deviation, length(point - vertex.flat));
     }
 }

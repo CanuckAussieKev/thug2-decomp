@@ -1496,7 +1496,14 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         log_card_surfaces(meshes, light, card_given, before_cards);
         const std::vector<std::vector<rt::RelitEmitting>> emitting = emitting_vertices(meshes, lamps, mesh_of);
         for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
-            rt::RelitDataMesh mesh{.content = core::at(contents, mi), .vertices = std::move(core::at(light, mi))};
+            // (round LV) and by the mesh as the level's file gives it: found by a game with other geometry settings
+            const rt::RelitMesh& read_mesh = core::at(meshes, mi);
+            rt::RelitDataMesh mesh{.content = core::at(contents, mi),
+                                   .original = rt::relit_mesh_original(read_mesh),
+                                   .file_vertices = read_mesh.file_vertices > 0
+                                                        ? read_mesh.file_vertices
+                                                        : static_cast<uint32_t>(read_mesh.positions.size()),
+                                   .vertices = std::move(core::at(light, mi))};
             if (mi < links.size()) {
                 mesh.links = std::move(core::at(links, mi));
             }
