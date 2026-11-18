@@ -37,6 +37,7 @@
 #include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
+#include "engine/gfx/rt_poses.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -50,6 +51,7 @@
 #include "render_pc/bitmap_texture.h"
 #include "render_pc/geom.h"
 #include "render_pc/mesh_list.h"
+#include "render_pc/mesh_pass.h"
 #include "render_pc/pc_scene.h"
 #include "render_pc/relit_bake.h"
 #include "render_pc/rt_relit_world.h"
@@ -134,10 +136,10 @@ struct State {
     bool first_frame_timed = false;
     std::unordered_map<const MaterialRef*, MaterialEntry> materials;
     std::unordered_set<const VertexBufferData*> written; // since the last record
-    // (added by the first frame) the meshes skinned on the processor whose vertices have been written since they were
-    // first recorded - until then their buffers hold the unskinned data (a new world's first frame, a ped that has just
-    // appeared): traced by nothing (skinned_ready)
-    std::unordered_set<const MeshRef*> skinned_ready;
+    // (path tracing, stage 3 - engine/gfx/rt_poses.h) the meshes skinned on the processor: each instance's pose of the
+    // frame, skinned here with its bones (the draw's code and palette) - the meshes' own buffers hold only the last
+    // draw's pose of the frame before, and are never registered
+    rt::PoseStore poses;
     uint64_t frame = 0;
     bool recorded = false; // record_frame ran this frame (begin_frame not yet)
     bool begun = false;    // begin_frame called this frame
@@ -563,6 +565,9 @@ rt::Material material_of(const MaterialRef* material)
     } else if (material->alpha_ref() != 0U) {
         out.flags |= rt::kAlphaTested;
     }
+    if ((core::at(material->pass_flags(), 0) & kPassTextureAlpha) != 0U) {
+        out.flags |= rt::kTextureAlpha; // (path tracing, stage 3: a blended surface's coverage - its texel's alpha alone)
+    }
     reflectivity_of(material, &out);
     return out;
 }
@@ -659,27 +664,49 @@ bool mesh_shown(const MeshRef* mesh)
     return (mesh->flags() & kMeshShown) != 0U && (mesh->flags() & kMeshHidden) == 0U;
 }
 
-// (added by the first frame) Whether a mesh skinned on the processor has had its vertices written since it was first
-// recorded: one of its vertex buffers among those written (the frame before's skinning) - from then on it stays ready.
-bool skinned_ready(const MeshRef* mesh)
+// (path tracing, stage 3) The mesh's pose for `owner` (the instance drawing it with `palette`): skinned now, as its
+// draw will skin it this frame - 0 when it can't be (no layout, a bone past the palette, no buffer).
+rt::MeshId pose_id(const MeshRef* mesh, const Singleton* owner, std::span<const maths::Mat4> palette,
+                   rt::RayTracing& rt, rt::Geometry* layout)
 {
-    State& st = state();
-    if (st.skinned_ready.contains(mesh)) {
-        return true;
+    const VertexBufferData* source = nullptr;
+    if (owner == nullptr || palette.empty() || !geometry_of(mesh, layout, &source)) {
+        return 0;
     }
-    for (uint32_t i = 0; i < mesh->vertex_buffer_count(); ++i) {
-        const VertexBuffer* buffer = mesh->vertex_store(i);
-        if (buffer != nullptr && st.written.contains(buffer)) {
-            st.skinned_ready.insert(mesh);
-            return true;
+    bool skinned = true;
+    State& st = state();
+    const rt::MeshId id = st.poses.pose(
+        owner, mesh, *layout, st.frame,
+        [&](std::span<uint8_t> out) {
+            skinned = mesh->skin_for_rays(palette, out);
+            return skinned;
+        },
+        gpu(), rt);
+    if (id != 0) {
+        // (the record's poses key: the pose's mesh and the bones it was skinned with)
+        uint64_t& key = rt::frame_record().poses_key;
+        key = (key ^ id) * kFnvPrime;
+        for (const maths::Mat4& bone : palette) {
+            for (const float value : bone.floats()) {
+                key = (key ^ std::bit_cast<uint32_t>(value)) * kFnvPrime;
+            }
         }
     }
-    return false;
+    if (!skinned) {
+        static bool told = false;
+        if (!told) {
+            told = true;
+            get_log("rt: a skinned mesh (%u vertices) could not be posed for the rays: a bone past its instance's %zu",
+                    mesh->vertex_count(), palette.size());
+        }
+    }
+    return id;
 }
 
 // [debug] rt_objects=1: each object's mesh logged once, when first recorded - how ray tracing sees the skater's, peds'
 // and vehicles' parts (which cast, which are alpha tested or seen through, skinned, how many vertex buffers they cycle).
-void log_object_mesh(const MeshRef* mesh, rt::MeshId id, uint32_t flags, rt::MaterialId material)
+void log_object_mesh(const MeshRef* mesh, const rt::Geometry* pose, rt::MeshId id, uint32_t flags,
+                     rt::MaterialId material)
 {
     static const bool kWanted = build_info::fetch_flag("debug", "rt_objects", false);
     if (!kWanted || (flags & rt::kObject) == 0U) {
@@ -691,7 +718,7 @@ void log_object_mesh(const MeshRef* mesh, rt::MeshId id, uint32_t flags, rt::Mat
         return;
     }
     found->second = flags;
-    const rt::Geometry& geometry = state().meshes.at(mesh).geometry;
+    const rt::Geometry& geometry = pose != nullptr ? *pose : state().meshes.at(mesh).geometry; // (a pose's: its layout)
     const MaterialRef* surface = mesh->material();
     get_log("rt: object mesh %u: flags %04X, material %u (%08X, alpha ref %u, first pass blend %u flags %04X), "
             "%u vertices, %u vertex buffers, bone %d, skinned %s, format %X, stride %u, its offsets normal %u colour %u "
@@ -707,12 +734,23 @@ void log_object_mesh(const MeshRef* mesh, rt::MeshId id, uint32_t flags, rt::Mat
             shown(geometry.uv_format, geometry.uv_offset), geometry.uv_sets);
 }
 
+// The instance whose bones a skinned mesh is drawn with, and those bones (path tracing, stage 3: its pose).
+struct Skin {
+    const Singleton* owner = nullptr;
+    std::span<const maths::Mat4> palette;
+};
+
 // One instance of a mesh with a world transform (a Direct3D matrix); `light`: its object's lights in the record
-// (rt::Instance::light).
+// (rt::Instance::light); `skin`: the drawing instance and its bones, for a mesh skinned on the processor (its pose).
 void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, rt::RayTracing& rt,
-                  uint32_t light = rt::kNoObjectLight)
+                  uint32_t light = rt::kNoObjectLight, const Skin& skin = {})
 {
-    const rt::MeshId id = mesh_id(mesh, rt);
+    // (path tracing, stage 3: a mesh skinned on the processor traced in its instance's pose of this frame - one pose
+    // per instance; without an instance's bones, not traced)
+    const bool skinned = mesh->per_vertex_data() != nullptr;
+    rt::Geometry layout;
+    const rt::MeshId id =
+        skinned ? pose_id(mesh, skin.owner, skin.palette, rt, &layout) : mesh_id(mesh, rt);
     if (id == 0) {
         return;
     }
@@ -729,14 +767,10 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
     } else {
         flags |= rt::kOpaque | rt::kCastsShadow;
     }
-    if (mesh->per_vertex_data() != nullptr) {
+    if (skinned) {
         flags |= rt::kSkinned;
-        if (!skinned_ready(mesh)) {
-            // (not skinned yet: in the record - it is drawn - but as a transparent instance, which no effect traces)
-            flags = kind | rt::kSkinned | rt::kTransparent;
-        }
     }
-    log_object_mesh(mesh, id, flags, material);
+    log_object_mesh(mesh, skinned ? &layout : nullptr, id, flags, material);
     rt::frame_record().instances.push_back({.mesh = id,
                                             .material = material,
                                             .flags = flags,
@@ -819,17 +853,21 @@ void record_object(const Singleton* instance, rt::RayTracing& rt)
         return;
     }
     const bool palette = instance->bones() != nullptr && bones_on_device <= 0 && bone_count > 0;
+    // (the bones a skinned mesh of it is drawn with - Singleton::render's palette: its own)
+    const Skin skin{.owner = instance,
+                    .palette = palette ? std::span<const maths::Mat4>(instance->bones(), static_cast<std::size_t>(bone_count))
+                                       : std::span<const maths::Mat4>{}};
     for (const MeshRef* mesh : scene->mesh_run()) {
         if (mesh == nullptr || !mesh_shown(mesh)) {
             continue;
         }
         if (mesh->unknown98 != kNoBone && palette && mesh->unknown98 >= 0 && mesh->unknown98 < bone_count) {
-            const std::span<const maths::Mat4> bones(instance->bones(), static_cast<std::size_t>(bone_count));
             maths::Mat4 world;
-            maths::matrix_multiply(&world, &core::at(bones, static_cast<std::size_t>(mesh->unknown98)), &transform);
-            add_instance(mesh, rt::kObject, world, rt, light);
+            maths::matrix_multiply(&world, &core::at(skin.palette, static_cast<std::size_t>(mesh->unknown98)),
+                                   &transform);
+            add_instance(mesh, rt::kObject, world, rt, light, skin);
         } else {
-            add_instance(mesh, rt::kObject, transform, rt, light);
+            add_instance(mesh, rt::kObject, transform, rt, light, skin);
         }
     }
 }
@@ -1822,6 +1860,7 @@ void record_frame()
     record.lights.clear();
     record.cameras.clear();
     record.object_lights.clear();
+    record.poses_key = kFnvBasis;
     // (the objects' shadows: an instance not drawn for a while forgotten - its address may be another's next)
     std::erase_if(st.object_lights, [&st](const auto& kept) { return kept.second.frame + 2 < st.frame; });
     record_world(*rt);
@@ -1830,6 +1869,7 @@ void record_frame()
             record_object(instance, *rt);
         }
     }
+    st.poses.end_frame(st.frame, gpu(), *rt); // (the poses of instances gone or not drawn released)
     record_lights();
     st.written.clear();
 }
@@ -1963,6 +2003,10 @@ std::string describe_screen_point(float across, float down)
             break;
         }
     }
+    if (const auto* posed = static_cast<const MeshRef*>(st.poses.source_of(found.mesh)); posed != nullptr) {
+        out += text::format(", an instance's pose of a skinned mesh (%u vertices, flags %08X)", posed->vertex_count(),
+                            posed->flags());
+    }
     for (const auto& [material, entry] : st.materials) {
         if (entry.id != found.material) {
             continue;
@@ -2057,7 +2101,11 @@ void mesh_drawn(const MeshRef* mesh)
     const auto found = state().meshes.find(mesh);
     GpuMatrix world{};
     gpu().get_transform(GpuTransform::kWorld, world.data());
-    rt->mesh_drawn(found != state().meshes.end() ? found->second.id : 0, rt::object_to_world_rows(world));
+    // (a skinned mesh: the drawing instance's pose)
+    const rt::MeshId id = mesh->per_vertex_data() != nullptr
+                              ? state().poses.find(mesh_pass().current_instance(), mesh)
+                              : (found != state().meshes.end() ? found->second.id : 0);
+    rt->mesh_drawn(id, rt::object_to_world_rows(world));
 }
 
 void mesh_released(const MeshRef* mesh)
@@ -2072,7 +2120,7 @@ void mesh_released(const MeshRef* mesh)
         rt->remove_mesh(found->second.id);
         st.meshes.erase(found);
     }
-    st.skinned_ready.erase(mesh);
+    st.poses.release_source(mesh, gpu(), *rt);
     rt_relit_world::mesh_released(mesh);
 }
 
@@ -2124,7 +2172,7 @@ void forget_meshes()
     }
     st.meshes.clear();
     st.written.clear();
-    st.skinned_ready.clear(); // (the buffers made again: skinned again before they are traced)
+    st.poses.release_all(gpu(), rt); // (the device's buffers go: the poses made again at the next record)
 }
 
 ColourWrite::ColourWrite(Relit relit) : relit_(relit)

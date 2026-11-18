@@ -148,7 +148,6 @@ uint64_t motion_key(const void* mesh, const void* instance)
     return (std::bit_cast<uintptr_t>(mesh) * kMix) ^ std::bit_cast<uintptr_t>(instance);
 }
 
-const maths::Mat4& skin_matrix(uint8_t bone) { return core::at(bone_palette(), bone); }
 
 // A skinned vertex's bone and its weight.
 struct BoneWeight {
@@ -158,17 +157,18 @@ struct BoneWeight {
 
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
-void add_bone(std::span<float, kBlendedFloats> blended, const SkinVertex& v, BoneWeight bone_weight)
+void add_bone(std::span<float, kBlendedFloats> blended, const SkinVertex& v, BoneWeight bone_weight,
+              std::span<const maths::Mat4> palette)
 {
     const auto bone = bone_weight.bone;
     const auto weight = bone_weight.weight;
     std::array<float, 3> other{};
-    transform_coord(other.data(), v.position.data(), skin_matrix(bone));
+    transform_coord(other.data(), v.position.data(), core::at(palette, bone));
     for (int k = 0; k < 3; ++k) {
         core::at(blended, k) =
             static_cast<float>((static_cast<double>(core::at(other, k)) * weight) + core::at(blended, k));
     }
-    transform_normal(other.data(), v.normal.data(), skin_matrix(bone));
+    transform_normal(other.data(), v.normal.data(), core::at(palette, bone));
     for (int k = 0; k < 3; ++k) {
         core::at(blended, 3 + k) =
             static_cast<float>((static_cast<double>(core::at(other, k)) * weight) + core::at(blended, 3 + k));
@@ -176,8 +176,9 @@ void add_bone(std::span<float, kBlendedFloats> blended, const SkinVertex& v, Bon
 }
 
 // The vertices skinned with up to `bones` bones each: the first bone's transform, then - unless its weight is
-// exactly 1 - scaled by it and the others' added (the third's only when its weight isn't 0).
-void get_skin(MeshRef* mesh, uint8_t* out, int bones)
+// exactly 1 - scaled by it and the others' added (the third's only when its weight isn't 0). `palette`: the bone
+// matrices (the draw's: the instance's bones - 0x007825B0).
+void get_skin(const MeshRef* mesh, uint8_t* out, int bones, std::span<const maths::Mat4> palette)
 {
     const gpu::VertexView vertices(mesh->per_vertex_data(), sizeof(SkinVertex), mesh->vertex_count()); // (the CPU copy: SkinVertex records)
     const gpu::VertexWriter written(out, mesh->stride(), mesh->vertex_count());
@@ -185,15 +186,15 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
         const auto vertex = vertices.value<SkinVertex>(i, 0);
         const SkinVertex* v = &vertex;
         std::array<float, kBlendedFloats> blended{};
-        transform_coord(blended.data(), v->position.data(), skin_matrix(core::at(v->bones, 0)));
-        transform_normal(std::span(blended).subspan(3).data(), v->normal.data(), skin_matrix(core::at(v->bones, 0)));
+        transform_coord(blended.data(), v->position.data(), core::at(palette, core::at(v->bones, 0)));
+        transform_normal(std::span(blended).subspan(3).data(), v->normal.data(), core::at(palette, core::at(v->bones, 0)));
         if (bones > 1 && !(core::at(v->weights, 0) == 1.0F)) {
             for (float& value : blended) {
                 value = static_cast<float>(static_cast<double>(value) * core::at(v->weights, 0));
             }
-            add_bone(blended, *v, {.bone = core::at(v->bones, 1), .weight = core::at(v->weights, 1)});
+            add_bone(blended, *v, {.bone = core::at(v->bones, 1), .weight = core::at(v->weights, 1)}, palette);
             if (bones > 2 && !(core::at(v->weights, 2) == 0.0F)) {
-                add_bone(blended, *v, {.bone = core::at(v->bones, 2), .weight = core::at(v->weights, 2)});
+                add_bone(blended, *v, {.bone = core::at(v->bones, 2), .weight = core::at(v->weights, 2)}, palette);
             }
         }
         written.set_floats<kBlendedFloats>(i, 0, blended); // the position and normal
@@ -217,9 +218,33 @@ void count_draw(uint32_t primitives)
 } // namespace
 
 // 0x004D4D70 / 0x004D4E50 / 0x004D5020
-void MeshRef::skin_one_bone(uint8_t* out) { get_skin(this, out, 1); }
-void MeshRef::skin_two_bones(uint8_t* out) { get_skin(this, out, 2); }
-void MeshRef::skin_three_bones(uint8_t* out) { get_skin(this, out, 3); }
+void MeshRef::skin_one_bone(uint8_t* out) { get_skin(this, out, 1, bone_palette()); }
+void MeshRef::skin_two_bones(uint8_t* out) { get_skin(this, out, 2, bone_palette()); }
+void MeshRef::skin_three_bones(uint8_t* out) { get_skin(this, out, 3, bone_palette()); }
+
+// NOT ORIGINAL - path tracing, stage 3 (engine/gfx/rt_poses.h): the vertices skinned as render() skins them for a draw
+// (one, two or three bones a vertex - +0xA8), with `palette` (the drawing instance's bones), into `out` (vertex_count x
+// stride bytes). False (nothing written): not skinned on the processor, `out` too small, or a vertex's bone past the
+// palette.
+bool MeshRef::skin_for_rays(std::span<const maths::Mat4> palette, std::span<uint8_t> out) const
+{
+    const auto bones = static_cast<int>(unknowna8_);
+    if (per_vertex_data_ == nullptr || bones < 1 || bones > 3 ||
+        out.size() < static_cast<std::size_t>(vertex_count_) * stride_) {
+        return false;
+    }
+    const gpu::VertexView vertices(per_vertex_data_, sizeof(SkinVertex), vertex_count_);
+    for (uint32_t i = 0; i < vertex_count_; ++i) {
+        const auto vertex = vertices.value<SkinVertex>(i, 0);
+        for (std::size_t k = 0; k < static_cast<std::size_t>(bones); ++k) {
+            if (core::at(vertex.bones, k) >= palette.size()) {
+                return false;
+            }
+        }
+    }
+    get_skin(this, out.data(), bones, palette);
+    return true;
+}
 
 // The level of detail drawn: the first whose distance the mesh is nearer than (by its sphere's distance from the
 // camera), or the last one there is.

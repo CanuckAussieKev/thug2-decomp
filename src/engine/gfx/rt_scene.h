@@ -72,6 +72,9 @@ enum InstanceFlag : uint32_t {
     kWorld = 1U << 4,       // the level's own geometry (sectors)
     kObject = 1U << 5,      // a moving object, ped, vehicle, the skater
     kTransparent = 1U << 6, // blended: seen through, casts no shadow by default
+    // (path tracing, stage 3 - a Material's flags only, never an instance's) the first pass's alpha is its texel's
+    // alone (the pass's flag 0x1000); else the vertex alpha x the texel's, doubled, as the game's pixel shader takes it
+    kTextureAlpha = 1U << 7,
 };
 
 // (the one lighting path - the objects' shadows) The game's lights an object is lit by (render_pc/pc_lights.cpp, as its
@@ -133,7 +136,7 @@ struct Material {
     uint32_t blend = 0; // the pass's blend mode, as the game's material passes number them
     float alpha_ref = 0.0F;
     std::array<float, 4> colour{1.0F, 1.0F, 1.0F, 1.0F};
-    uint32_t flags = 0; // InstanceFlag's kAlphaTested / kTransparent where they come from the material
+    uint32_t flags = 0; // InstanceFlag's kAlphaTested / kTransparent where they come from the material; kTextureAlpha
     // (R3) how the texture is sampled, as the pass's sampler states: address modes as gpu_value::kAddress* (1 wrap,
     // 2 mirror, 3 clamp, 4 border - transparent black, 5 mirror once: read as mirror), the filter as gpu_value::kFilter*
     // (none / point: nearest, linear / anisotropic: linear). alpha_ref above is 0..1 (Direct3D's ALPHAREF / 255), passed
@@ -203,6 +206,9 @@ struct FrameRecord {
     std::vector<Light> lights;
     std::vector<Camera> cameras;
     std::vector<ObjectLight> object_lights; // (the objects' shadows) Instance::light's
+    // (path tracing, stage 3) What the processor wrote into the frame's geometry, as a key: the skinned meshes' poses
+    // (engine/gfx/rt_poses.h - each one's bones hashed). The same key and the same instances: the same triangles.
+    uint64_t poses_key = 0;
 };
 
 inline constexpr uint32_t kAllMasks = 0xFF; // a ray that can hit every instance

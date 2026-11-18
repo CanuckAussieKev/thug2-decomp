@@ -38,6 +38,7 @@
 #include "engine/script/tokens.h"
 #include "engine/ui/ui_backend.h"
 #include "engine/ui/ui_fonts.h"
+#include "game/front_end/front_end.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "platform/screenshot_files.h"
@@ -483,6 +484,19 @@ std::string run_command(const std::string& line)
         return rt_check::console_command(rest);
     }
     if (command == "pt") {
+        // (path tracing, stage 3) A reference is of a world that stands still: a live pause (the world running behind
+        // the pause menu - game/front_end/live_pause.h) becomes the original's freeze, as the level editor makes it -
+        // else the cars drive and the peds walk through the sums
+        std::istringstream words(rest);
+        std::string verb;
+        words >> verb;
+        if (lower(verb) == "ref") {
+            if (modules::FrontEnd* front_end = modules::front_end_instance().get();
+                front_end != nullptr && front_end->is_live_paused()) {
+                front_end->get_pause_game(true);
+                get_log("pt: the live pause turned into the full freeze for the reference");
+            }
+        }
         return render::rt::path::path_console_command(rest); // (the path tracer's reference - engine/gfx/rt_path.h)
     }
     if (command == "restart") {

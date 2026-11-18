@@ -35,6 +35,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_poses.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -703,6 +704,128 @@ void draw_frame(render::Gpu& gpu, const std::vector<TestMesh>& meshes, const std
 
 // --- the checks ------------------------------------------------------------------------------------------------------
 
+// (path tracing, stage 3 - engine/gfx/rt_poses.h) One skinned mesh drawn by two instances, each in its own pose of the
+// frame (a pose buffer each, the source's indices and layout - render_pc/rt_record.cpp's per-instance skinning): one a
+// moving object (a new transform every frame), the other blended (kTransparent: the path tracer's rays meet it - cull
+// mask 0x80 among the rays'); the poses rewritten every frame (refitted), and a pose not asked for released.
+void check_poses(render::Gpu& gpu, Tally* tally, std::mt19937& random, uint64_t* frame)
+{
+    rt::RayTracing* const backend = rt::ray_tracing();
+    TestMesh source;
+    source.data = grid(kSide, kGridSize, 0.0);
+    grid_list(&source.data, kSide);
+    source.layout = {.indexed = true, .wide = false, .strip = false, .dynamic = false, .stride = 28,
+                     .position_offset = 8};
+    const bool made = make_mesh(gpu, &source); // (drawn from, never registered: only its poses are)
+    rt::PoseStore poses;
+    const std::array<int, 2> owners{}; // (two instances' addresses)
+    std::vector<TestMesh> posed(2);
+    std::vector<SceneInstance> instances;
+    constexpr uint32_t kPoseMaterial = kMaterialBase + 900;
+    instances.push_back({.mesh = 0,
+                         .instance = {.mesh = 0,
+                                      .material = kPoseMaterial,
+                                      .flags = rt::kOpaque | rt::kObject | rt::kCastsShadow | rt::kSkinned,
+                                      .object_to_world = random_transform(random)}});
+    instances.push_back({.mesh = 1,
+                         .instance = {.mesh = 0,
+                                      .material = kPoseMaterial + 1,
+                                      .flags = rt::kTransparent | rt::kObject | rt::kSkinned,
+                                      .object_to_world = random_transform(random)}});
+    constexpr int kPoseFrames = 6;
+    constexpr double kPhaseA = 0.7;
+    constexpr double kPhaseB = 3.1; // (the second instance's pose: other heights)
+    int wrong = 0;
+    bool ids_differ = true;
+    bool ids_kept = true;
+    const render::vulkan::SceneStats before = render::vulkan::scene_stats();
+    for (int round = 0; made && round < kPoseFrames; ++round) {
+        for (std::size_t k = 0; k < posed.size(); ++k) {
+            TestMesh& pose = core::at(posed, k);
+            pose.layout = source.layout;
+            pose.data.corners = source.data.corners;
+            pose.data.positions =
+                grid(kSide, kGridSize, (k == 0 ? kPhaseA : kPhaseB) + (round * 0.45)).positions;
+            const std::vector<uint8_t> bytes = vertex_bytes(pose.data, pose.layout);
+            const rt::MeshId id = poses.pose(
+                &core::at(owners, k), &source, source.geometry, *frame,
+                [&bytes](std::span<uint8_t> out) {
+                    std::memcpy(out.data(), bytes.data(), std::min(out.size(), bytes.size()));
+                    return out.size() == bytes.size();
+                },
+                gpu, *backend);
+            ids_kept = ids_kept && (round == 0 || id == pose.id);
+            pose.id = id;
+            pose.registered = id != 0;
+        }
+        ids_differ = ids_differ && posed.front().id != posed.back().id && posed.front().id != 0;
+        poses.end_frame(*frame, gpu, *backend);
+        instances.front().instance.object_to_world = random_transform(random); // (the moving object)
+        draw_frame(gpu, posed, instances, (*frame)++, true);
+        bool traced = false;
+        const Comparison found = compare_rays(posed, instances, kRefitRays, random, &traced);
+        wrong += traced ? found.wrong : 1;
+    }
+    const render::vulkan::SceneStats after = render::vulkan::scene_stats();
+    tally->check(made && ids_differ && ids_kept && poses.size() == 2 && wrong == 0 && after.refits > before.refits,
+                 text::format("one skinned mesh, two instances in their own poses (%zu poses, meshes %u and %u), one "
+                              "of them moving and the other blended: %d frames, %llu refits, %d rays differ from the "
+                              "poses drawn",
+                              poses.size(), posed.front().id, posed.back().id, kPoseFrames,
+                              static_cast<unsigned long long>(after.refits - before.refits), wrong));
+    check_rays(tally, "the poses' last frame", posed, instances, kDefaultRays, random);
+    // the blended instance found by the path tracer's mask (every mask: vulkan_path_reference.cpp PATH_SURFACES)
+    {
+        const Transform& matrix = instances.back().instance.object_to_world;
+        const std::array<float, 3> centre{std::get<3>(std::get<0>(matrix)), std::get<3>(std::get<1>(matrix)),
+                                          std::get<3>(std::get<2>(matrix))};
+        const std::vector<WorldTriangle> triangles = world_triangles(posed, instances);
+        int found = 0;
+        int asked = 0;
+        for (int i = 0; i < kRefitRays; ++i) {
+            TracedRay ray = random_ray(random, triangles, true);
+            ray.cull_mask = kMaskNever;
+            const Reference reference = trace_reference(triangles, ray);
+            if (reference.unclear || !reference.hit || reference.instance != 1) {
+                continue;
+            }
+            std::vector<TracedHit> hits;
+            ++asked;
+            if (render::vulkan::trace_rays_now(std::span(&ray, 1), &hits) == render::vulkan::TraceResult::kTraced &&
+                hits.size() == 1 && hits.front().hit && hits.front().instance == 1) {
+                ++found;
+            }
+        }
+        tally->check(asked > 0 && found == asked,
+                     text::format("the blended pose met by the seen-through mask (0x80): %d of %d rays toward it near "
+                                  "(%.1f %.1f %.1f)",
+                                  found, asked, std::get<0>(centre), std::get<1>(centre), std::get<2>(centre)));
+    }
+    // a pose not asked for in a frame (its instance gone) released: its mesh removed
+    {
+        const uint32_t meshes_before = render::vulkan::scene_stats().meshes;
+        TestMesh& kept = posed.front();
+        const std::vector<uint8_t> bytes = vertex_bytes(kept.data, kept.layout);
+        poses.pose(
+            &owners.front(), &source, source.geometry, *frame,
+            [&bytes](std::span<uint8_t> out) {
+                std::memcpy(out.data(), bytes.data(), std::min(out.size(), bytes.size()));
+                return true;
+            },
+            gpu, *backend);
+        poses.end_frame(*frame, gpu, *backend);
+        posed.back().registered = false;
+        draw_frame(gpu, posed, instances, (*frame)++, true);
+        const uint32_t meshes_after = render::vulkan::scene_stats().meshes;
+        tally->check(poses.size() == 1 && meshes_after + 1 == meshes_before,
+                     text::format("a pose not asked for released: %zu left, %u meshes registered (%u before)",
+                                  poses.size(), meshes_after, meshes_before));
+        check_rays(tally, "the one pose left", posed, instances, kRefitRays, random);
+    }
+    poses.release_all(gpu, backend);
+    release_mesh(gpu, &source);
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     std::mt19937 random(options.seed);
@@ -1014,6 +1137,8 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
                                   probed.hit ? "hit" : "miss", probed.distance, probed.instance, probed.mesh,
                                   probed.primitive, reference.hit ? "hit" : "miss", reference.t));
     }
+
+    check_poses(gpu, tally, random, &frame);
 
     // everything removed and released: the meshes' structures destroyed once their frames have run
     for (TestMesh& mesh : meshes) {
