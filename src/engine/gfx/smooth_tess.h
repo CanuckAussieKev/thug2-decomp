@@ -124,6 +124,14 @@ struct Result {
     uint32_t normal_smooth = 0;      // ... joined over the crease angle by the mesh's shared normals
     uint32_t normal_hard = 0;        // ... kept hard under it by its split normals
     std::vector<std::array<float, 3>> flat; // with Options::keep_flat: each new vertex's point on the original surface
+    // (round LV) each new vertex's sources: the original vertices its attributes are blended from and their weights
+    // (an edge's point two of them, the third weight 0) - what the relit data's light is blended from for it when the
+    // level's data was made without smoothing (rt_relit_world.cpp)
+    struct Made {
+        std::array<uint16_t, 3> from{};
+        std::array<float, 3> weight{};
+    };
+    std::vector<Made> made;
 };
 
 // A strip's triangles in drawing order and winding (odd ones turned round, as Direct3D draws them), the degenerate

@@ -2191,13 +2191,24 @@ traced or fitted while the game loads a level: the game reads the level's data a
 - **In the game** (`rt_relit_world::new_world`, each new world's first frame, whether the mode is on or not): the data
   read, the world's meshes matched by content, what the level is lit by decided and published - the baked sun
   (`set_baked_sun`; none without data) and the level's facts for the settings model (`config::set_level_light`). **No
-  fallbacks:** a level without data, with data made from other meshes (under 95% of the world's vertices matched -
-  another overlay, building relief, smoothed curves or the water's grid changed since), or whose data says no sun keeps the original
+  fallbacks:** a level without data, with data made from other meshes (under 95% of the level's own meshes' vertices
+  matched - objects that join the world later aren't counted - another overlay or the water's grid changed since), or
+  whose data says no sun keeps the original
   game's lighting: `rt_relit` is out of effect there (the reasons name the build step: "This level's lighting isn't
   built - run relit_bake", "... is out of date - run relit_bake", "This level has no sunlight to relight"), and with it
   the time of day (with ray tracing on) and the lighting passes - `rt_shadows`, `rt_ao`, `rt_lights` need the level
   relit and turn `rt_relit` on (a pass replaces its own part of the relit light; none ever stacks on a bake). `rt_gi`
   is retired: the relit level bounces its light itself.
+- **Data whatever the geometry settings** (relit data v18, round LV): smoothed curves or building relief turned on or
+  off since the bake don't make the data another level's. Each data mesh is also keyed by the mesh as the level's file
+  gives it (`relit_mesh_original`: its file's vertices, still first, and the file's triangles); a mesh not found by its
+  content is found by that key - its file's vertices take the data's own, each vertex the load's passes made
+  (smoothing's edge and inner points, relief's pieces - `mesh_smoothing::made_of`) its sources' blend
+  (`relit_data_for_geometry`: the stored parts, the lamp links by weight, a lamp's surface where all its sources are
+  that lamp's); the sun and the bounce are traced for every vertex in the game as always. Before, a Boston bake made
+  with smoothing off was "made from other meshes" for a game with it on (546 meshes not found, 88% of the vertices
+  matched) and the level kept the original's lighting. The log's misses line counts the meshes found this way. A v17
+  file is still read (no original keys: found by content alone).
 - **The real-time half** (what moves with the light): the clock and its `DayLight`; the sun's rays traced again as it
   moves (`trace_relit_sun`, `rt_relit_sun_rays`) and the bounce of the new light (`trace_relit_sky` with `keep_sky` -
   the data's K kept; `rt_relit_sky_rays`), one relight at a time, paced by time (`kRelitFrameMs`), the rays never waited

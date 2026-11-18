@@ -226,6 +226,115 @@ uint64_t relit_mesh_content(const RelitMesh& mesh)
     return hash;
 }
 
+uint64_t relit_mesh_original(const RelitMesh& mesh)
+{
+    const std::size_t own = mesh.file_vertices > 0 ? std::min<std::size_t>(mesh.file_vertices, mesh.positions.size())
+                                                   : mesh.positions.size();
+    const std::vector<std::array<uint32_t, 3>>& triangles =
+        mesh.file_vertices > 0 && !mesh.baked_triangles.empty() ? mesh.baked_triangles : mesh.triangles;
+    uint64_t hash = fnv_value(kFnvBasis, static_cast<uint64_t>(own));
+    for (std::size_t vi = 0; vi < own; ++vi) {
+        hash = fnv_value(hash, core::at(mesh.positions, vi));
+    }
+    hash = fnv_value(hash, static_cast<uint64_t>(triangles.size()));
+    for (const std::array<uint32_t, 3>& triangle : triangles) {
+        hash = fnv_value(hash, triangle);
+    }
+    return hash;
+}
+
+bool relit_data_for_geometry(const RelitMesh& mesh, const RelitDataMesh& data, RelitDataMesh* out)
+{
+    const std::size_t count = mesh.positions.size();
+    const std::size_t own = mesh.file_vertices > 0 ? std::min<std::size_t>(mesh.file_vertices, count) : count;
+    const std::size_t data_own = data.file_vertices > 0 ? data.file_vertices : data.vertices.size();
+    if (data_own != own || data.vertices.size() < own || mesh.made.size() != count - own) {
+        return false;
+    }
+    for (std::size_t k = 0; k < mesh.made.size(); ++k) {
+        const RelitMesh::Source& source = core::at(mesh.made, k);
+        if (source.count == 0) {
+            return false;
+        }
+        for (std::size_t c = 0; c < source.count && c < source.from.size(); ++c) {
+            if (core::at(source.from, c) >= own + k) {
+                return false; // (made from a later vertex: not blended in order)
+            }
+        }
+    }
+    RelitDataMesh made{.content = data.content, .original = data.original, .file_vertices = static_cast<uint32_t>(own)};
+    made.vertices.assign(data.vertices.begin(), data.vertices.begin() + static_cast<std::ptrdiff_t>(own));
+    made.vertices.resize(count);
+    const bool linked = data.links.first.size() == data.vertices.size() + 1;
+    // each vertex's lamp links as lamp -> weight (the file's from the data, the made ones blended in order)
+    std::vector<std::vector<RelitLampLink>> links(linked ? count : 0);
+    for (std::size_t vi = 0; vi < links.size() && vi < own; ++vi) {
+        for (uint32_t li = core::at(data.links.first, vi); li < core::at(data.links.first, vi + 1); ++li) {
+            core::at(links, vi).push_back(core::at(data.links.links, li));
+        }
+    }
+    // a vertex of a lamp's surface: its lamp (UINT32_MAX none)
+    std::vector<uint32_t> lamp_of(count, UINT32_MAX);
+    for (const RelitEmitting& emitting : data.emitting) {
+        if (emitting.vertex < own) {
+            core::at(lamp_of, emitting.vertex) = emitting.lamp;
+        }
+    }
+    for (std::size_t vi = own; vi < count; ++vi) {
+        const RelitMesh::Source& source = core::at(mesh.made, vi - own);
+        RelitVertex blended;
+        uint32_t lamp = UINT32_MAX;
+        bool one_lamp = true;
+        std::vector<RelitLampLink> joined;
+        for (std::size_t c = 0; c < source.count && c < source.from.size(); ++c) {
+            const float w = core::at(source.weight, c);
+            if (!(w > 0.0F)) {
+                continue;
+            }
+            const uint32_t from = core::at(source.from, c);
+            const RelitVertex& stored = core::at(made.vertices, from);
+            blended.sun_baked += stored.sun_baked * w;
+            blended.sky += stored.sky * w;
+            blended.bounce = plus(blended.bounce, scaled(stored.bounce, w));
+            blended.tint = plus(blended.tint, scaled(stored.tint, w));
+            blended.lamp = plus(blended.lamp, scaled(stored.lamp, w));
+            const uint32_t its = core::at(lamp_of, from);
+            one_lamp = one_lamp && its != UINT32_MAX && (lamp == UINT32_MAX || lamp == its);
+            lamp = its;
+            if (linked) {
+                for (const RelitLampLink& link : core::at(links, from)) {
+                    const auto same = std::ranges::find(joined, link.lamp, &RelitLampLink::lamp);
+                    if (same != joined.end()) {
+                        same->weight += link.weight * w;
+                    } else {
+                        joined.push_back({.lamp = link.lamp, .weight = link.weight * w});
+                    }
+                }
+            }
+        }
+        blended.sun = blended.sun_baked;
+        core::at(made.vertices, vi) = blended;
+        core::at(lamp_of, vi) = one_lamp ? lamp : UINT32_MAX;
+        if (linked) {
+            core::at(links, vi) = std::move(joined);
+        }
+    }
+    if (linked) {
+        made.links.first.assign(count + 1, 0);
+        for (std::size_t vi = 0; vi < count; ++vi) {
+            made.links.links.insert(made.links.links.end(), core::at(links, vi).begin(), core::at(links, vi).end());
+            core::at(made.links.first, vi + 1) = static_cast<uint32_t>(made.links.links.size());
+        }
+    }
+    for (std::size_t vi = 0; vi < count; ++vi) {
+        if (core::at(lamp_of, vi) != UINT32_MAX) {
+            made.emitting.push_back({.vertex = static_cast<uint32_t>(vi), .lamp = core::at(lamp_of, vi)});
+        }
+    }
+    *out = std::move(made);
+    return true;
+}
+
 std::string write_relit_data(const RelitLevelData& data)
 {
     Writer out;
@@ -299,6 +408,8 @@ std::string write_relit_data(const RelitLevelData& data)
     out.put(static_cast<uint32_t>(data.meshes.size()));
     for (const RelitDataMesh& mesh : data.meshes) {
         out.put(mesh.content);
+        out.put(mesh.original); // (v18)
+        out.put(mesh.file_vertices);
         out.put(static_cast<uint32_t>(mesh.vertices.size()));
         for (const RelitVertex& vertex : mesh.vertices) {
             out.half(vertex.sun_baked);
@@ -345,9 +456,10 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
     if (!in.get(&magic) || magic != kRelitDataMagic) {
         return fail("not a relit data file");
     }
-    if (!in.get(&version) || version != kRelitDataVersion) {
+    if (!in.get(&version) || version < kRelitDataOldestRead || version > kRelitDataVersion) {
         return fail("made by another version of the relit bake - out of date");
     }
+    const bool original_keys = version >= 18; // (round LV: v17 files have none)
     if (!in.get(&data.sun_radius) || !same_sun(data.sun_radius)) {
         return fail("made with another sun's size - out of date");
     }
@@ -425,7 +537,8 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
     data.meshes.resize(meshes);
     for (RelitDataMesh& mesh : data.meshes) {
         uint32_t count = 0;
-        if (!in.get(&mesh.content) || !in.get(&count) || count > kMostVertices) {
+        if (!in.get(&mesh.content) || (original_keys && (!in.get(&mesh.original) || !in.get(&mesh.file_vertices))) ||
+            !in.get(&count) || count > kMostVertices || mesh.file_vertices > count) {
             return fail("cut short (a mesh)");
         }
         mesh.vertices.resize(count);
@@ -488,7 +601,7 @@ bool read_relit_head(std::string_view bytes, RelitLevelHead* out)
         return false;
     }
     float sun_radius = 0.0F;
-    if (version != kRelitDataVersion || !in.get(&sun_radius) || !same_sun(sun_radius)) {
+    if (version < kRelitDataOldestRead || version > kRelitDataVersion || !in.get(&sun_radius) || !same_sun(sun_radius)) {
         *out = RelitLevelHead{.stale = true};
         return true; // (a relit data file - out of date)
     }
@@ -516,7 +629,7 @@ bool relit_data_stale(std::string_view bytes)
     if (!in.get(&magic) || magic != kRelitDataMagic || !in.get(&version)) {
         return false;
     }
-    return version != kRelitDataVersion || !in.get(&sun_radius) || !same_sun(sun_radius);
+    return version < kRelitDataOldestRead || version > kRelitDataVersion || !in.get(&sun_radius) || !same_sun(sun_radius);
 }
 
 } // namespace render::rt

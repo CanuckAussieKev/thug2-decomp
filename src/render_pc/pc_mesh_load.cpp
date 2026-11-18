@@ -192,10 +192,13 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
     std::vector<uint16_t> original_strip;
     std::vector<relief::VertexSource> relief_sources; // (not original: building relief's made vertices)
+    // (not original - round LV) the file's own vertex count and every made vertex's sources, smoothing's then relief's
+    const uint32_t file_vertices = body.vertex_count;
+    std::vector<relief::VertexSource> made_vertices;
     if (mesh_smoothing::on()) {
         original_strip = mesh_smoothing::smooth_body(
             &body, vertex_format(core::at(body.vertex_types, 0)),
-            static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
+            static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic, &made_vertices);
     }
     // Not original - building relief ([Graphics] building_relief, building_relief.h): a building front's windows, frames,
     // sills and bands built as relief from its texture's facade structure (after smoothing: its walls are flat). The
@@ -231,6 +234,11 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     }
     // (not original: the smoothed mesh's original strip kept for the baked sun's samples, mesh_smoothing.h)
     mesh_smoothing::remember_original(core::at(mesh->index_buffers(), 0), std::move(original_strip));
+    // (not original - round LV) every vertex past the file's made from earlier ones - else (the water's grid) not kept
+    made_vertices.insert(made_vertices.end(), relief_sources.begin(), relief_sources.end());
+    if (!water_grid && body.vertex_count > file_vertices && made_vertices.size() == body.vertex_count - file_vertices) {
+        mesh_smoothing::remember_made(core::at(mesh->index_buffers(), 0), file_vertices, std::move(made_vertices));
+    }
     mesh_smoothing::remember_sources(core::at(mesh->index_buffers(), 0), body.vertex_count, std::move(relief_sources));
     if (water_grid) {
         water_geometry::remember(core::at(mesh->index_buffers(), 0)); // (not original: water_geometry.h)
