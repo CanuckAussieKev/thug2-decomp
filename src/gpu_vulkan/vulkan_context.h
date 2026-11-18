@@ -98,6 +98,10 @@ public:
     [[nodiscard]] virtual VkImageLayout present_layout() const { return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; }
 };
 
+// NOT ORIGINAL - (round GD) which markers the device records: none, the best it has (NVIDIA's checkpoints, else AMD's
+// buffer markers), or AMD's buffer markers even where checkpoints are offered (the check tries both on one device).
+enum class CrashMarkerChoice : uint8_t { kOff, kBest, kBufferMarkers };
+
 struct ContextOptions {
     bool validation = false; // use the Khronos validation layer if it is installed
     int device_index = -1;   // the physical device to use, in the instance's order; -1: the best (discrete first)
@@ -107,6 +111,19 @@ struct ContextOptions {
     bool ray_tracing = false;
     // NOT ORIGINAL - a library's additions to the instance and the device (null: none)
     ContextAdditions* additions = nullptr;
+    // NOT ORIGINAL - (round GD) the GPU crash markers' extensions (VK_NV_device_diagnostic_checkpoints, else
+    // VK_AMD_buffer_marker) enabled where the device has them - [debug] gpu_crash_markers; the fault report
+    // (VK_EXT_device_fault) and the memory budget are enabled where offered either way (vulkan_crash_markers.h)
+    CrashMarkerChoice crash_markers = CrashMarkerChoice::kBest;
+};
+
+// NOT ORIGINAL - (round GD) the GPU crash diagnostics the device was made with (vulkan_crash_markers.h).
+struct CrashDiagnostics {
+    bool device_fault = false;        // VK_EXT_device_fault: what the driver says about a lost device
+    bool fault_vendor_binary = false; // ... with its vendor's binary dump (deviceFaultVendorBinary)
+    bool checkpoints = false;         // VK_NV_device_diagnostic_checkpoints: the markers each queue reached
+    bool buffer_markers = false;      // VK_AMD_buffer_marker (where there are no checkpoints): the same into a buffer
+    bool memory_budget = false;       // VK_EXT_memory_budget: each heap's budget and use
 };
 
 // A queue family of a physical device, as the device lists it.
@@ -238,6 +255,10 @@ public:
     [[nodiscard]] VkExtent2D extent() const { return extent_; }
     [[nodiscard]] uint32_t image_count() const { return static_cast<uint32_t>(images_.size()); }
     [[nodiscard]] uint32_t swapchains_made() const { return swapchains_made_; }
+    // NOT ORIGINAL - (round GD) the crash diagnostics enabled, and every queue the device was made with (the context's
+    // first, then a library's extra and present queues): a lost device's markers are read from each.
+    [[nodiscard]] const CrashDiagnostics& crash_diagnostics() const { return crash_; }
+    [[nodiscard]] const std::vector<VkQueue>& all_queues() const { return all_queues_; }
 
 private:
     // Per frame in flight: its commands, the fence its submit signals, the semaphore its acquire signals.
@@ -296,6 +317,11 @@ private:
     uint32_t present_queues_ = 0;
     uint32_t add_requested(std::vector<const char*>* extensions, VkPhysicalDeviceVulkan12Features* features12,
                            VkPhysicalDeviceVulkan13Features* features13, const VkPhysicalDeviceFeatures& offered);
+    // (NOT ORIGINAL - round GD) the crash diagnostics' extensions the device has added, its fault features filled
+    void add_crash_diagnostics(std::vector<const char*>* extensions, VkPhysicalDeviceFaultFeaturesEXT* fault);
+    CrashMarkerChoice crash_markers_wanted_ = CrashMarkerChoice::kBest;
+    CrashDiagnostics crash_;
+    std::vector<VkQueue> all_queues_;
 };
 
 } // namespace render::vulkan

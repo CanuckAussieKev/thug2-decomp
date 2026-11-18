@@ -6,11 +6,16 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <limits>
+#include <mutex>
 #include <span>
+#include <string>
 #include <vector>
 #include <volk.h>
 #include <vk_mem_alloc.h>
+
+#include "base/core/format.h"
 
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_formats.h"
@@ -365,20 +370,100 @@ bool Memory::create_buffer(VkDeviceSize bytes, VkBufferUsageFlags usage, BufferP
     }
     buffer->mapped = made.pMappedData;
     buffer->bytes = bytes;
+    if ((usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) != 0) {
+        note_address(*buffer, usage);
+    }
     return true;
 }
 
 void Memory::destroy_buffer(DeviceBuffer* buffer)
 {
     if (buffer->buffer != VK_NULL_HANDLE) {
+        forget_address(buffer->buffer);
         vmaDestroyBuffer(allocator_, buffer->buffer, buffer->allocation);
     }
     *buffer = DeviceBuffer{};
 }
 
+void Memory::note_address(const DeviceBuffer& buffer, VkBufferUsageFlags usage)
+{
+    const VkBufferDeviceAddressInfo info{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = buffer.buffer};
+    const VkDeviceAddress address = vkGetBufferDeviceAddress(device_, &info);
+    if (address == 0) {
+        return;
+    }
+    const std::scoped_lock lock(addressed_mutex_);
+    addressed_[address] = Addressed{.bytes = buffer.bytes, .usage = usage};
+    address_of_[buffer.buffer] = address;
+}
+
+void Memory::forget_address(VkBuffer buffer)
+{
+    const std::scoped_lock lock(addressed_mutex_);
+    const auto found = address_of_.find(buffer);
+    if (found == address_of_.end()) {
+        return;
+    }
+    addressed_.erase(found->second);
+    address_of_.erase(found);
+}
+
+namespace {
+
+// A buffer's usage for the fault report: the bits a shader or a build reads it through.
+std::string usage_text(VkBufferUsageFlags usage)
+{
+    struct Named {
+        VkBufferUsageFlags bit;
+        const char* name;
+    };
+    constexpr std::array kNames{
+        Named{.bit = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, .name = "acceleration structure"},
+        Named{.bit = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, .name = "build input"},
+        Named{.bit = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, .name = "storage"},
+        Named{.bit = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, .name = "uniform"},
+        Named{.bit = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, .name = "vertex"},
+        Named{.bit = VK_BUFFER_USAGE_INDEX_BUFFER_BIT, .name = "index"},
+        Named{.bit = VK_BUFFER_USAGE_TRANSFER_DST_BIT, .name = "transfer target"},
+    };
+    std::string text;
+    for (const Named& named : kNames) {
+        if ((usage & named.bit) != 0) {
+            text += text.empty() ? named.name : std::string(", ") + named.name;
+        }
+    }
+    return text.empty() ? std::string("other") : text;
+}
+
+constexpr double kBytesPerMegabyte = 1024.0 * 1024.0;
+
+} // namespace
+
+std::string Memory::describe_address(VkDeviceAddress address) const
+{
+    const std::scoped_lock lock(addressed_mutex_);
+    auto above = addressed_.upper_bound(address);
+    if (above == addressed_.begin()) {
+        return {};
+    }
+    const auto& [start, buffer] = *std::prev(above);
+    const VkDeviceAddress offset = address - start;
+    const bool inside = offset < buffer.bytes;
+    return text::format("%s a %.2f MB buffer at 0x%llx (%s) - %s 0x%llx bytes from its start", inside ? "in" : "past",
+                        static_cast<double>(buffer.bytes) / kBytesPerMegabyte, static_cast<unsigned long long>(start),
+                        usage_text(buffer.usage).c_str(), inside ? "at" : "beyond its end,",
+                        static_cast<unsigned long long>(offset));
+}
+
 void Memory::flush(const DeviceBuffer& buffer, VkDeviceSize offset, VkDeviceSize bytes)
 {
     vmaFlushAllocation(allocator_, buffer.allocation, offset, bytes);
+}
+
+void Memory::invalidate(const DeviceBuffer& buffer)
+{
+    vmaInvalidateAllocation(allocator_, buffer.allocation, 0, buffer.bytes);
 }
 
 void Memory::record_upload_level(VkCommandBuffer commands, Image* image, uint32_t level, const Staged& from)

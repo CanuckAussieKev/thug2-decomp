@@ -893,7 +893,8 @@ void install_vulkan(const Resolution& in_effect)
     render::vulkan::configure({.device_index = in_effect.integer("vulkan_device", -1),
                                .cache_folder = build_info::executable_directory(),
                                .validation = in_effect.on("vulkan_validation"),
-                               .ray_tracing = in_effect.on("ray_tracing")});
+                               .ray_tracing = in_effect.on("ray_tracing"),
+                               .crash_markers = in_effect.on("gpu_crash_markers")});
     read_frame_generation(in_effect);
     read_upscale(in_effect);
     read_all_effects(in_effect);

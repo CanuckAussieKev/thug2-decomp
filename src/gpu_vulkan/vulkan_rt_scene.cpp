@@ -21,6 +21,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
+#include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
@@ -1647,6 +1648,8 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
     // recorded in the stream, outside a pass: the inputs' writes (uploads, copies) and the reads of what is rebuilt
     // before; the compactions' copies and the builds; the compacted sizes asked for; the TLAS
     VkCommandBuffer commands = outside_pass(state);
+    // (round GD: the builds a pass of their own for the GPU crash markers - vulkan_crash_markers.h)
+    state.frames.mark({.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kRtScene});
     barrier(commands,
             VK_PIPELINE_STAGE_TRANSFER_BIT | kBuildStage | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -1663,6 +1666,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
     vkCmdBuildAccelerationStructuresKHR(commands, 1, &tlas_info, &tlas_ranges);
     barrier(commands, kBuildStage, VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, kAfterBuild,
             VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+    state.frames.mark({.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kRtScene, .end = true});
     rt_shadows_set_scene_locked(frame.tlas.handle); // (R4's pass traces this frame's TLAS)
     cel_set_scene_locked(frame.tlas.handle); // (added by cel shading: the draws' ray queries)
     rt_effects_set_scene_locked(frame.tlas.handle); // (R5's ambient occlusion too)

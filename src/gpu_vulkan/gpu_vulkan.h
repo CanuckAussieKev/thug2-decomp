@@ -44,6 +44,7 @@ struct Choices {
     std::string cache_folder;
     bool validation = false;
     bool ray_tracing = false; // [Graphics] ray_tracing: the ray-tracing extensions enabled where the device has them
+    bool crash_markers = true; // (round GD) [debug] gpu_crash_markers: the passes' GPU crash markers recorded
 };
 void configure(const Choices& choices);
 
