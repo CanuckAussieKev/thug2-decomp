@@ -83,7 +83,7 @@ void restart_restir_accumulation();
 struct RestirStats {
     uint64_t passes = 0;
     uint32_t listed = 0;      // emitting triangles in the list now
-    uint32_t candidates = 0;  // (the scan's: emitting at a corner)
+    uint32_t candidates = 0;  // (the scan's: emitting at a corner, with an area)
     uint32_t lamps = 0;       // analytic lamps
     uint64_t lists = 0;       // lists adopted (scans read back)
     bool list_ready = false;  // a scan's list in use

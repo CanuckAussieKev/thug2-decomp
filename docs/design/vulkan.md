@@ -5164,7 +5164,9 @@ through the tone curve at that EV. `pt off` ends it.
   over the sphere - the sky-view table x the drawn clouds' transmittance + their light, the same march as the drawn
   clouds, else x the clouds' kept share; without the table an even sky - sampled by its luminance with two alias tables,
   the grid also what a ray that leaves the world sees), every emitting triangle (2 pi x area x its emission's mean
-  luminance at 64 points, hit_surface's own emission; measured on the device in the run's first frame) and the
+  luminance at 64 points, hit_surface's own emission; measured on the device in the run's first frame - round PT4b: one
+  whose lamp texels all fall between those points at the most it can send, its corners' emission over its area, so no
+  emitting triangle is left out) and the
   analytic lamps (flux from the lamp model's photometry: a point 4 pi^2 I core^2, a panel 2 pi^2 I core^2, a line
   pi^3 I core h) with the frame record's point lights where the level's lamps aren't solved. One alias table picks a
   light: the distant group (disc and sky) and the local group evenly, each light by its power within its group (pbrt-v4's
@@ -5271,7 +5273,10 @@ the traced albedo) in place of the lamps pass, which then draws nothing in the v
 the fog scatters them). The shading is unchanged: it stays the one consumer.
 
 - **The lights** are the light list's local group (vulkan_light_list.h, shared with `pt ref`): every emitting triangle the
-  shared scan lists (hit_surface's `emitted`, its power measured at 64 points) and every analytic lamp (the level's lamps
+  shared scan lists (hit_surface's `emitted`, its power measured at 64 points; round PT4b: every triangle with an area
+  that emits at a corner - one whose few lamp texels the 64 points miss at the most it can send, its corners' emission
+  over its area: Boston had 19 such, their lamps' light lost, for a lamp with a surface is its surface's alone) and
+  every analytic lamp (the level's lamps
   without a surface of their own - one owner - and the frame record's point lights where the level's lamps aren't
   solved), picked by power from an alias table. No view cap, no "most important N": the lamps pass's 64-of-103 cut is
   gone. The analytic lamps are uploaded as they are each frame (a moving or switching lamp keeps its place: dark lamps
@@ -5290,9 +5295,15 @@ the fog scatters them). The shading is unchanged: it stays the one consumer.
      seen-through surface drawn in the prepass) the pixel gets no lamps, as the lamps pass gave none. Kept for the next
      frame (position, both normals as octahedral words, the albedo).
   2. 16 candidates from the alias table (a point uniform on a triangle, a lamp's own point - rt_lights.h's lamp model),
-     resampled toward the target p^ = the luminance of the light a white diffuser there would get from it, unshadowed
-     (a triangle at its mean radiance, its listed power / 2 pi area; the exact emission only where shaded). The BRDF is
-     left out: the shading puts the light on its own material.
+     resampled toward the target p^ = the luminance of the light a white diffuser there would get from it, unshadowed -
+     a triangle's own emission at the sample (vulkan_rt_scene.h `hit_emission`: the store's emission x the texel, on a
+     lamp drawn in a texture its lamp texels alone). The BRDF is left out: the shading puts the light on its own
+     material. (Round PT4b: the target was the triangle's mean radiance - its listed power / 2 pi area - and the exact
+     emission only where shaded. On a lamp drawn in a texture, light on 1 texel in 10 - 100, a sample between the texels
+     kept its weight and brought nothing, one on them brought 1 / their share of the mean; the reuse kept and spread both
+     for frames, and Ray Reconstruction took the black and white blotches for the picture - Boston's walls blown white
+     with hard edges, speckled pools. The check's lamp drawn in a texture: per-frame relative error 5.5 -> 0.86. Cost:
+     the emission read at every candidate - BO at night 1.1 - 1.3 -> 2.0 - 2.6 ms at 1280x720.)
   3. One ray (vulkan_rt_scene.h `ray_light`: cut-outs by their alpha, seen-through surfaces by their transmittance) to
      the chosen light; one it doesn't reach is dropped (W = 0, M kept: visibility reuse).
   4. Temporal: the point taken back through last frame's camera to last frame's reservoir there, kept when that
@@ -5304,8 +5315,9 @@ the fog scatters them). The shading is unchanged: it stays the one consumer.
      reservoir is the next frame's history.
 - **Bias, stated**: none for a world that stands still (the check: within 0.1 % of the reference). Where it moves, last
   frame's reservoirs were made against last frame's occluders and a moved lamp's last-frame target is evaluated at its
-  new place: a frame's worth. Light only by the list: an emitting triangle with no lamp texel at its 64 points (never
-  listed) is found by the reference's BSDF rays only - here not at all. The lamps' specular is not in the inputs (as
+  new place: a frame's worth. Light only by the list - which since round PT4b holds every emitting triangle of the
+  world (an object's emission isn't in the store: its lamps, e.g. Boston's globe street lamps drawn in their vertex
+  colours, are no light anywhere until objects are relit - the plan's P10). The lamps' specular is not in the inputs (as
   before - the shading puts the lamps on the albedo; stage 5's glossy lobe). The skater's and objects' pixels take the
   world's shadows only (as the lamps pass).
 - **Ray Reconstruction**: the noisy lamps are in the shaded colour RR takes; its guides are round V's (albedo, specular
@@ -5315,4 +5327,5 @@ the fog scatters them). The shading is unchanged: it stays the one consumer.
   lights by the lights' own power). With MSAA, cel shading or a level without relit data, the lamps pass lights.
 - Check: thug2_vulkan_restir_check (the reference's direct light within 2 % for a still scene and for a camera swapped
   between two views every frame; a moving lamp against the exact light; the per-frame error against the light list
-  alone; no NaN).
+  alone; round PT4b: a lamp drawn in a texture - every triangle listed, the mean within 2 %, the per-frame error low;
+  no NaN).

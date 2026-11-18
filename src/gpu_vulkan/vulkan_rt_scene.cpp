@@ -2540,6 +2540,43 @@ bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, 
     }
     return true;
 }
+// (round PT4b) The light a surface's store sends at a point: its emission x the texel (linear) - on the lamp texels alone
+// when the store says its lamp is drawn in a texture. hit_surface's `emitted` and hit_emission's: one emission.
+vec3 store_emission(vec3 emit, vec3 linear, bool masked)
+{
+    float lamp_lit = masked ? smoothstep(0.6, 0.7, max(linear.r, max(linear.g, linear.b))) : 1.0;
+    return emit * linear * lamp_lit;
+}
+// (round PT4b) The light a triangle of the world sends at a point (hit_surface's `emitted` alone - no normals, no
+// material: ReSTIR DI's target evaluates it at every candidate); false where nothing is there (a cut-out texel, a hidden
+// mesh). An object's: none (its colours are baked: hit_surface gives it no emission either).
+bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out vec3 emitted)
+{
+    emitted = vec3(0.0);
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return false;
+    }
+    Material surface = material(id);
+    vec2 uv = hit_uv_set(instance, primitive, barycentrics, surface.uv_set);
+    if (!material_alpha_passes(id, material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a))) {
+        return false;
+    }
+    vec3 tint;
+    vec3 emit;
+    bool masked;
+    bool hidden;
+    if ((geometry_record(instance).instance_flags & HIT_INSTANCE_OBJECT) != 0u ||
+        !hit_store(instance, primitive, barycentrics, tint, emit, masked, hidden)) {
+        return true;
+    }
+    if (hidden) {
+        return false;
+    }
+    vec4 texel = material_texel_lod(id, uv, 0.0) * surface.colour;
+    emitted = store_emission(emit, linear_from_display(clamp(texel.rgb, 0.0, 1.0)), masked);
+    return true;
+}
 bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
                  out HitSurface s)
 {
@@ -2598,8 +2635,7 @@ bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4
         s.origin = HIT_RELIT_WORLD;
         s.hidden = hidden;
         s.base_colour = linear * tint;
-        float lamp_lit = masked ? smoothstep(0.6, 0.7, max(linear.r, max(linear.g, linear.b))) : 1.0;
-        s.emitted = emit * linear * lamp_lit;
+        s.emitted = store_emission(emit, linear, masked);
     } else {
         s.origin = object ? HIT_OBJECT : HIT_BAKED_WORLD;
         s.base_colour = linear;

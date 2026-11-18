@@ -195,6 +195,9 @@ std::string_view cutout_rays_glsl();
 //     emit word x the texel (the lamp's texture) - on a lamp drawn in a texture only its lamp texels (their brightest
 //     channel past rt_lights.h kTexelBright, as the world's draws show it); 0 elsewhere;
 //   - hidden: the light store hides the mesh (the bake's shadows drawn as geometry, the original's light cards).
+//   bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out vec3 emitted) - (round PT4b) the
+//     same `emitted` alone (no normals, no material - a light sample's own emission, ReSTIR DI's target at every
+//     candidate); false where hit_surface would say cut_out or hidden, or the instance isn't live
 // How a ray meets a blended surface (hit_blend) is cutout_rays_glsl's: it goes before this.
 std::string_view hit_surface_glsl();
 inline constexpr float kHitMetalF0 = 0.2F; // (a surface map's F0 at least this: a metal - the reflections' HIT_METAL_F0)

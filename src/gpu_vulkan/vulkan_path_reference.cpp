@@ -1453,7 +1453,7 @@ bool build_run_list(Backend& state, PathState& own)
     const auto share = [&list](std::size_t kind) { return 100.0 * core::at(list.kind_pick, kind); };
     own.list_text =
         text::format("light list (%s): %u lights - the disc (power %.4g), the sky (%.4g, integral %.4g), %u emitting "
-                     "triangles%s (of %u emitting at a corner; %.4g), "
+                     "triangles%s (of %u with an area emitting at a corner; %.4g), "
                      "%u lamps (%u point lights; %.4g); picked %.1f / %.1f / %.1f / %.1f %%; the %u lamps owned by "
                      "their surfaces send %.4g by their model",
                      own.weights == rt::lights::LightWeights::kPower ? "by power" : "the kinds evenly", own.list_count,

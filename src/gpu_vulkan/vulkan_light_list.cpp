@@ -50,19 +50,24 @@ uint listed_slot(uint instance, uint primitive)
 
 // The emitters' scan: one invocation a triangle of the frame's instances (flattened by the instances' first triangles,
 // membership[0 .. instances]). A triangle of a world instance that casts and isn't seen through, whose light store emits
-// at a corner (not hidden, not animated), is measured - its power, 2 pi x its area x its emission's mean luminance at the
-// centroids of its TRIANGLE_LATTICE^2 equal sub-triangles (hit_surface's `emitted`: the store's emit x the lamp texels) -
-// and listed when it sends any. (The list's header word 1 counts the candidates: those emitting at a corner.)
+// at a corner (not hidden, not animated), is listed with its power: 2 pi x its area x its emission's mean luminance at the
+// centroids of its TRIANGLE_LATTICE^2 equal sub-triangles (hit_surface's `emitted`: the store's emit x the texel x the
+// lamp texels). (Round PT4b) Every such triangle is listed: one whose few lamp texels fall between those points (Boston:
+// 109 of 332) measured nothing and was left out - its lamp's light lost, for its lamp is its surface's (rt_path.h
+// analytic_lamps: one owner) and ReSTIR samples nothing else; it is listed at the most it can send (its corners' mean
+// emission over its whole area - the texel and the lamp texels are at most 1): picked more often than its light needs (a
+// sample between its texels brings nothing - the target says so), never lost. (The list's header word 1 counts the
+// candidates: those emitting at a corner with an area - a strip's joining triangles have none.)
 constexpr const char* kScanGlsl = R"(
 layout(local_size_x = 64) in;
 const uint LIST_CASTS = 4u;        // (rt::kCastsShadow)
 const uint LIST_TRANSPARENT = 64u; // (rt::kTransparent)
-float emitter_power(uint instance, uint primitive)
+float emitter_power(uint instance, uint primitive, out float area)
 {
     uint id = instance_material(instance);
     mat4x3 to_world = instance_transform(instance);
     float sum = 0.0;
-    float area = 0.0;
+    area = 0.0;
     const float n = float(TRIANGLE_LATTICE);
     for (uint i = 0u; i < TRIANGLE_LATTICE; ++i) {
         for (uint j = 0u; i + j < TRIANGLE_LATTICE; ++j) {
@@ -107,6 +112,7 @@ void main()
         return;
     }
     float most = 0.0;
+    vec3 corners = vec3(0.0);
     for (uint k = 0u; k < 3u; ++k) {
         uint at = geometry_corner(record, primitive, k) * 32u;
         vec4 flags = unpackUnorm4x8(geometry_word(record.light_address, at + 24u)).zyxw;
@@ -115,14 +121,22 @@ void main()
         }
         vec3 e = stored_light(geometry_word(record.light_address, at + 28u));
         most = max(most, max(e.r, max(e.g, e.b)));
+        corners += max(e, vec3(0.0)) * (1.0 / 3.0);
     }
     if (!(most > 0.0)) {
         return;
     }
+    float area = 0.0;
+    float power = emitter_power(instance, primitive, area);
+    if (!(area > 0.0)) {
+        return; // (a strip's joining triangle: no area, no light)
+    }
     atomicAdd(emitter_spare, 1u);
-    float power = emitter_power(instance, primitive);
+    if (!(power > 0.0)) {
+        power = 2.0 * PATH_PI * area * path_luma(corners); // (no lamp texel at its points: the most it can send)
+    }
     if (!(power > 0.0) || isinf(power)) {
-        return; // (no lamp texel at its points: not listed - a BSDF ray finds it, weighed 1)
+        return;
     }
     uint slot = atomicAdd(emitter_count, 1u);
     if (slot < LIST_CAPACITY) {
