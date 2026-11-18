@@ -2254,6 +2254,61 @@ colour is the light the model was given - Boston: 63 - lamp globes, lanterns, bo
   light; a mesh that isn't an object left alone), `thug2_vulkan_path_check` (the emitting disc as an object's mesh in
   its own space moved by its transform: listed and lit as the world's).
 
+### The game's own lights (round SL, relit data v17)
+
+How a path-traced remaster of an existing game lights it (RTX Remix): the game's own fixed-function and scripted lights
+are converted to path-traced lights by default, its glowing surfaces become emitters, and the game keeps deciding which
+are on. Before this round the relit bake made lamps only from what its afternoon bake evidenced ("brightness alone is no
+evidence") and from the frame's point lights that were on at the bake's time - so a level's night lights never existed.
+- **The game's light data.** A level's LevelLight nodes (engine/gfx/scene_lights.h `create_light_from_node`): each
+  makes a dynamic light named after its node at load, whatever its Brightness - colour, outer radius, brightness / 100.
+  The time of day's transition scripts (tod_manager.qb: `FakeLights prefix=TRG_<state>_LevelLight percent=100` for the
+  state coming, `percent=0` for the one going; `TODManager_Create prefix=<state>On_` / `kill prefix=<state>Off_` for its
+  geometry) turn a state's lights and geometry on. Boston: 195 light nodes - 23 on at Brightness 60 - 100 in every state
+  (its arcade, Jeers, the Big Dig lamps), 172 `TRG_Night_LevelLight_*` at Brightness 0 that the night turns on (its
+  street lamps, wall lights, court lights, windows' spill); its night geometry `NightOn_*` (street lamps' lit glass,
+  glows, signs) and day geometry `NightOff_*`.
+- **The frame's game lights** (rt_scene.h `GameLight`, `FrameRecord::game_lights`): every light node's dynamic light (the
+  flag at +0x2C - set only for a node's light, not an object's), on or off, its colour at full brightness and the
+  brightness the game has it at now. The simulation is untouched: the renderer reads what the scripts set.
+- **Listed in the bake** (relit_bake.cpp `level_lamps`): every one, on or off. One off at the bake's time takes no part
+  in the solve (its light isn't in the bake's colours - it would only take light the others don't explain); its verdict
+  is "off in the bake". The meshes hidden in the bake's state (another state's geometry) are scanned for lamp heads too
+  (`EmitterTriangle::other_state`, clustered apart from the shown ones).
+- **One owner** (rt_relit.h `relit_adopt_game_lights`): a found emitter within its own extent and the light's core
+  (point_core of its reach) of a light is that light's head - one lamp: the emitter's shape, area and emitting surface,
+  the light's switch and reach (and its colour where the bake can't see it lit). A night light takes another state's
+  surface first (its night glass), a light on in the bake a shown one; an emitter is one light's head at most.
+- **Its strength** (rt_relit.h `relit_lamp_models`, `RelitLampSource::kGameLight`): a light (or its head) the bake can't
+  tell takes its fixture's model at full brightness - the kind from its own colour, shape and place (lamp_fixtures.h
+  `fixture_of`: sodium / filament / white by its colour temperature, neon or sign when saturated, roofed or not, a
+  high-bay by its mount), its flux pi L A over a head's luminous area where that is a fixture's, else its kind's typical
+  fixture's. A light node with no head has no surface to size it, but the artists gave it a reach (its outer radius):
+  its light falls to `kGameLightReachLux` (5 lux - EN 13201-2 class P4, a residential street's average) there - I = E
+  R^2, flux 4 pi I -, within its kind's flux range (a 500-unit street lamp 10 100 lm, a 100-unit wall light its kind's
+  least). A solved one is put at full brightness (its solve over the game's brightness then). One rule for every level -
+  no per-level or per-light values.
+- **Its switch** (rt_lights.h `lamp_switch`, `game_light_now`): a lamp that is one of the game's lights is as bright as
+  the game has that light now - in the lamps pass, ReSTIR's list, the path tracer and relit's per-vertex lamps and
+  emitting surfaces; any other lamp by its photocell as before.
+- **False positives kept out by the data:** a light the game never turns on is no light - one at Brightness 0 that no
+  script raises stays dark because the game's brightness for it stays 0, whatever the bake made of it (a level's own
+  scripts switch theirs too: nj's 42 nodes, Brightness 0, by its port's FakeLights id= calls); a surface of another state that no light takes is no lamp (`kNone`: the game shows it at night, but
+  nothing says it lights); a candidate the afternoon bake can't see lit keeps round relit-misses' rule (a glow at it,
+  else none).
+- **Checked:** `thug2_vulkan_rt_relit_check` (a night light carried by the night's glass, the day's by the day's glass,
+  a light with no head stays a light; a night light the bake can't see takes its fixture's model - a sodium head's
+  pi L A, a bare light its kind's typical flux; a night window no light takes and a bright texture with no light stay
+  dark; the switch: on at the game's brightness, never-on and never-made off), `thug2_vulkan_rt_lights_check` (the view's
+  lights at noon: two game lights the scripts turned on shine at 1 and 0.5 although the photocell has them off; the one
+  never turned on stays dark).
+- **One energy:** a head's surface shows its light's flux over its drawn luminous area (luminance = flux / (pi A)), not its
+  kind's luminance over an area that is no fixture's (Boston's heads had sent 12 x their lamps' flux from their surfaces).
+- **Boston (baked):** 535 -> 615 lamps listed, 113 -> 227 shining; 139 light nodes (23 on in every state, 116 the night's),
+  43 of them one lamp with their heads. At night the street at the archway is 14 x brighter (linear). Not closed: the
+  realtime estimators (ReSTIR and the classic pass alike) light the lamp-lit opaque street 0.24 - 0.5 x the `pt ref`
+  (`analytic` / whole) - the realtime under-lighting found in round PT-night (0.66 there before this round).
+
 ### Lighting round A2: one light unit, the sun by the relit fit, lamps by their light (`rt_relit`, `rt_lights`)
 
 The user's standard (2026-11-17): lighting handled physically, as in modern games - no per-level or per-object tuned

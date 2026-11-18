@@ -123,6 +123,20 @@ struct Light {
     float radius = 0.0F;              // point
 };
 
+// (round SL - the game's own lights, as RTX Remix converts a game's) A light the level's node array defines (a
+// LevelLight node: engine/gfx/scene_lights.h create_light_from_node - its dynamic light, named after the node), on or
+// off: its colour at full brightness, its reach (the game's outer radius) and how bright the game has it now (0 - 1: the
+// node's Brightness / 100 at load, then whatever the level's scripts set - FakeLights, which the time of day's
+// transition scripts run to turn a state's lights on and the others off). The original's simulation decides it; the
+// renderer only reads it.
+struct GameLight {
+    uint32_t owner = 0; // the node's name (its checksum)
+    std::array<float, 3> position{};
+    std::array<float, 3> colour{}; // its colour bytes / 255 (display-referred, as the frame's point lights): brightness 1
+    float radius = 0.0F;
+    float strength = 0.0F;
+};
+
 struct Camera {
     uint32_t viewport = 0;
     std::array<std::array<float, 4>, 4> view{};       // D3D's row-vector layout, as GpuTransform's matrices
@@ -210,6 +224,7 @@ struct FrameRecord {
     uint64_t frame = 0;
     std::vector<Instance> instances;
     std::vector<Light> lights;
+    std::vector<GameLight> game_lights; // (round SL) every light node's light, on or off, by owner
     std::vector<Camera> cameras;
     std::vector<ObjectLight> object_lights; // (the objects' shadows) Instance::light's
     // (path tracing, stage 3) What the processor wrote into the frame's geometry, as a key: the skinned meshes' poses

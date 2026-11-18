@@ -584,6 +584,48 @@ void check_sources(Tally* tally)
     const std::vector<rt::Emitter> points = rt::select_view_lights(record, &level, request);
     tally->check(lights.size() == 1 && points.size() == 1 && points.front().kind == rt::EmitterKind::kPoint,
                  "rt_lights_max caps them; the emitters can be left out");
+    // (round SL) the game's own lights switched by the game: a night light the level's scripts turned on shines at the
+    // brightness the game gives it whatever the photocell says (noon here), one it never turns on stays dark
+    {
+        constexpr uint32_t kOn = 0x51U;
+        constexpr uint32_t kHalfOn = 0x52U;
+        constexpr uint32_t kNeverOn = 0x53U;
+        rt::FrameRecord game;
+        game.game_lights.push_back({.owner = kOn, .strength = 1.0F});
+        game.game_lights.push_back({.owner = kHalfOn, .strength = 0.5F});
+        game.game_lights.push_back({.owner = kNeverOn, .strength = 0.0F});
+        rt::LevelEmitters street;
+        for (const uint32_t owner : {kOn, kHalfOn, kNeverOn}) {
+            street.emitters.push_back({.position = {static_cast<float>(owner) - 82.0F, 0.0F, -300.0F},
+                                       .size = 4.0F,
+                                       .colour = {1.0F, 0.6F, 0.2F},
+                                       .intensity = 2.0F,
+                                       .reach = 400.0F,
+                                       .kind = rt::EmitterKind::kPoint,
+                                       .switch_sky = 0.01F, // (a photocell's: off under noon's sky)
+                                       .game_light = owner});
+        }
+        rt::ViewLightRequest noon = request;
+        noon.max = 8;
+        noon.points = false;
+        noon.emitters = true;
+        noon.sky_now = 1.0F; // (far over the photocell's switch)
+        noon.open_lamps = 0.0F;
+        const std::vector<rt::Emitter> shining = rt::select_view_lights(game, &street, noon);
+        float on = 0.0F;
+        float half = 0.0F;
+        bool never = false;
+        for (const rt::Emitter& lamp : shining) {
+            on = lamp.game_light == kOn ? lamp.intensity : on;
+            half = lamp.game_light == kHalfOn ? lamp.intensity : half;
+            never = never || lamp.game_light == kNeverOn;
+        }
+        tally->check(shining.size() == 2 && on == 2.0F && half == 1.0F && !never &&
+                         rt::lamp_on(0.01F, 1.0F, 0.0F) < 0.01F,
+                     text::format("the game's lights by the game's switch (%zu shining: on %.2f, half %.2f) - the "
+                                  "photocell would have them off; one the game never turns on stays dark",
+                                  shining.size(), static_cast<double>(on), static_cast<double>(half)));
+    }
 }
 
 // --- the scene ---------------------------------------------------------------------------------------------------

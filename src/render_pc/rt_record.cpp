@@ -136,6 +136,8 @@ struct State {
     rt::BakedSun level_sun;
     uint64_t emitters_key = 0; // (added by the night lighting) the loaded scenes' key the emitters were found for
     uint64_t emitter_sets = 0;
+    std::size_t game_lights = 0;    // (round SL, reported) the level's light nodes' lights last frame
+    std::size_t game_lights_on = 0; // ... and how many of them were on
     // the first frame's time (from its record to the next frame's), logged at the next record_frame
     std::chrono::steady_clock::time_point first_frame_start;
     double first_frame_work_ms = 0.0;
@@ -1809,11 +1811,15 @@ void emitter_work()
     for (const MeshRef* mesh : st.world) {
         if (mesh_shown(mesh)) { // (the relit bake's hidden meshes: not lit, no lamp - relit_bake.h)
             scanned.push_back({.mesh = mesh});
-        } else if (bake && mesh->material() != nullptr && glow_card(mesh->material())) {
+        } else if (bake && mesh->material() != nullptr) {
             // (round P10) a light card the level shows in another of its lighting states (its night's pools under the
             // street lamps - Boston's under its globes): hidden in the state the bake is made in, but the artists' mark
             // of a lamp all the same - its lamp found as a shown card's is (a glow, switched by its own daylight); its
-            // light isn't in this state's colours, so it is no card laid on a surface
+            // light isn't in this state's colours, so it is no card laid on a surface.
+            // (round SL) Any other mesh hidden in the bake's state too - another state's geometry (Boston's night: its
+            // street lamps' lit glass, its lit windows, made by the time of day's scripts): its lamp texels and self-lit
+            // colours are candidates the bake can't see lit, a lamp only as the head of one of the game's own lights
+            // (rt_relit.h relit_adopt_game_lights)
             scanned.push_back({.mesh = mesh, .other_state = true});
         }
     }
@@ -1867,7 +1873,7 @@ void emitter_work()
         if (bake && !glow && !look.image.empty()) {
             cards->surface_colours.emplace_back(mesh_found->second.id, look.mean);
         }
-        found.other_state_cards += scan.other_state ? 1 : 0;
+        found.other_state_cards += scan.other_state && glow ? 1 : 0;
         if (bake && glow && !look.image.empty()) {
             const void* handle = core::at(material->textures(), 0)->texture;
             const auto [image, added] = card_images.try_emplace(handle, static_cast<uint32_t>(cards->images.size()));
@@ -1935,7 +1941,8 @@ void emitter_work()
                                          .kind = kind,
                                          .lit_share = lit_share,
                                          .mesh = mesh_found->second.id,
-                                         .vertices = corner};
+                                         .vertices = corner,
+                                         .other_state = scan.other_state && !glow};
             for (const uint32_t vertex : corner) {
                 const std::array<float, 3> colour = tris.colour(vertex);
                 for (std::size_t k = 0; k < 3; ++k) {
@@ -1985,12 +1992,15 @@ void emitter_work()
             std::size_t own_surface = 0;
             std::size_t always = 0;
             std::size_t photocell = 0;
+            std::size_t by_game = 0;
             float lowest = 0.0F;
             float highest = 0.0F;
             for (std::size_t i = 0; i < found.emitters.size(); ++i) {
                 own_surface += i < found.surfaced.size() && core::at(found.surfaced, i) != 0 ? 1 : 0;
                 const float sky = core::at(found.emitters, i).switch_sky;
-                if (sky >= rt::kLampAlwaysOn) {
+                if (core::at(found.emitters, i).game_light != 0U) {
+                    ++by_game; // (round SL: switched by the game)
+                } else if (sky >= rt::kLampAlwaysOn) {
                     ++always;
                 } else if (sky > 0.0F) {
                     lowest = photocell == 0 ? sky : std::min(lowest, sky);
@@ -1999,10 +2009,11 @@ void emitter_work()
                 }
             }
             get_log("rt: lights: the relit data's %zu shining lamps - %zu with a surface of their own (emitting triangles), "
-                    "%zu analytic; %zu always on, %zu by a photocell (on under an open sky of %.4g - %.4g), %zu by the open "
-                    "sky's lamps",
-                    found.emitters.size(), own_surface, found.emitters.size() - own_surface, always, photocell,
-                    static_cast<double>(lowest), static_cast<double>(highest), found.emitters.size() - always - photocell);
+                    "%zu analytic; %zu the game's own lights (switched by the game), %zu always on, %zu by a photocell (on "
+                    "under an open sky of %.4g - %.4g), %zu by the open sky's lamps",
+                    found.emitters.size(), own_surface, found.emitters.size() - own_surface, by_game, always, photocell,
+                    static_cast<double>(lowest), static_cast<double>(highest),
+                    found.emitters.size() - by_game - always - photocell);
         }
     }
     found.triangles = std::move(triangles); // (lighting round A2: a path tracer's emissive triangles - the relit data's)
@@ -2058,6 +2069,15 @@ void record_lights()
     const auto dynamic = static_cast<std::size_t>(std::max(0, light_sets().dynamic_light_count()));
     for (std::size_t i = 0; i < dynamic && i < light_sets().dynamic_lights().size(); ++i) {
         const DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i);
+        if (light != nullptr && light->owner() != 0U && light->unknown2c()) {
+            // (round SL) a light node's, on or off: the game's own lights and how bright it has them now
+            rt::frame_record().game_lights.push_back(
+                {.owner = light->owner(),
+                 .position = {core::at(light->pos(), 0), core::at(light->pos(), 1), core::at(light->pos(), 2)},
+                 .colour = colour_of(light->colour(), kPerByte),
+                 .radius = light->radius(),
+                 .strength = std::max(light->intensity(), 0.0F)});
+        }
         if (light == nullptr || !(light->intensity() > 0.0F) || light->owner() == 0U) {
             continue;
         }
@@ -2065,6 +2085,21 @@ void record_lights()
                           .colour = colour_of(light->colour(), light->intensity() * kPerByte),
                           .position = {core::at(light->pos(), 0), core::at(light->pos(), 1), core::at(light->pos(), 2)},
                           .radius = light->radius()});
+    }
+    std::ranges::sort(rt::frame_record().game_lights,
+                      [](const rt::GameLight& a, const rt::GameLight& b) { return a.owner < b.owner; });
+    {
+        // (round SL, reported) how many of the level's light nodes the game has on - logged when that changes (the time
+        // of day's transition turning a state's lights on over its frames logs its last count once it settles)
+        const std::vector<rt::GameLight>& game = rt::frame_record().game_lights;
+        const auto on = static_cast<std::size_t>(
+            std::ranges::count_if(game, [](const rt::GameLight& light) { return light.strength > 0.0F; }));
+        State& st = state();
+        if (on != st.game_lights_on || game.size() != st.game_lights) {
+            st.game_lights_on = on;
+            st.game_lights = game.size();
+            get_log("rt: the game's own lights - %zu of the level's %zu light nodes on now", on, game.size());
+        }
     }
 }
 
@@ -2146,6 +2181,7 @@ void record_frame()
     record.frame = st.frame;
     record.instances.clear();
     record.lights.clear();
+    record.game_lights.clear();
     record.cameras.clear();
     record.object_lights.clear();
     record.poses_key = kFnvBasis;

@@ -79,6 +79,9 @@ struct EmitterTriangle {
     // (a neighbouring face's, a card's laid over it)
     MeshId mesh = 0;
     std::array<uint32_t, 3> vertices{};
+    // (round SL, the bake's) its mesh is shown only in another of the level's lighting states (its night's geometry -
+    // hidden in the bake's): a candidate only as one of the game's lights' head (rt_relit.h relit_adopt_game_lights)
+    bool other_state = false;
 };
 
 // (lighting round A2 - indoor ceiling lights) An emitter's shape, from its triangles (cluster_emitters: their spread's
@@ -99,6 +102,7 @@ struct Emitter {
     float reach = 0.0F;            // where its light ends (a smooth window to 0)
     MaterialId material = 0;       // whose texture's mean tints it (0: none)
     EmitterKind kind = EmitterKind::kGlow;
+    bool other_state = false; // (round SL) its triangles' (EmitterTriangle::other_state) - clustered apart
     // (added for the washed-out streets) its falloff's core (light_falloff): an emitter's emitting area as a disc's
     // radius (emitter_core), a point light's share of its reach (point_core)
     float core = 0.0F;
@@ -108,6 +112,9 @@ struct Emitter {
     float half_length = 0.0F;
     // (lighting round A3) its switch: the open sky's light (luma, the global unit) under which it is on - lamp_on
     float switch_sky = 0.0F;
+    // (round SL) the game's own light it is (a light node's name - rt_scene.h GameLight; 0: none): then the game
+    // switches it - lamp_switch -, not a photocell
+    uint32_t game_light = 0;
 };
 
 // (lighting round A2) The light a lamp sends to a surface point per unit of its intensity - one model for relit's L,
@@ -235,6 +242,15 @@ void set_lamps_owner(bool owner, bool automatic);
 inline constexpr float kLampSwitchBand = 2.0F;
 inline constexpr float kLampAlwaysOn = 1.0e30F;
 [[nodiscard]] float lamp_on(float switch_sky, float sky_now, float open_lamps);
+// (round SL - the game's own lights switched by the game, as RTX Remix keeps a game's light state) How bright the game has
+// its light `owner` now (rt_scene.h GameLight::strength - the node's Brightness, then its scripts' FakeLights: the time
+// of day's transition scripts turn each state's lights on and the others off); 0 when the frame has no such light - a
+// light the game never made or never turns on gives none.
+[[nodiscard]] float game_light_now(const FrameRecord& record, uint32_t owner);
+// A lamp's switch now - one rule for the lamps pass, ReSTIR's list, the path tracer and relit's per-vertex lamps and
+// emitting surfaces: a lamp that is one of the game's lights (`game_light` != 0) as bright as the game has that light
+// (game_light_now, the frame record's); any other by its photocell (lamp_on).
+[[nodiscard]] float lamp_switch(uint32_t game_light, float switch_sky, float sky_now, float open_lamps);
 // The open sky's light now (luma, the global unit - a pre-exposed state's pre-exposure divided out): the clock's
 // (DayLight::sky_light) while it lights the level, else the
 // level's own time's (LevelEmitters::own_sky). And the open sky's lamps: the clock's, else the level's own time's.

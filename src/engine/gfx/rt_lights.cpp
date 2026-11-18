@@ -36,6 +36,7 @@ constexpr uint64_t kCellMask = (uint64_t{1} << kCellBits) - 1U;
 struct Cluster {
     Vec3 seed{};                // its first triangle's centre
     EmitterKind kind = EmitterKind::kGlow;
+    bool other_state = false; // (round SL) its triangles shown only in another lighting state
     double area = 0.0;
     std::array<double, 3> centre{}; // x area
     std::array<double, 3> colour{}; // x area
@@ -215,6 +216,7 @@ bool emitter_of(const Cluster& cluster, float facing, Emitter* out)
             .reach = reach,
             .material = cluster.material,
             .kind = cluster.kind,
+            .other_state = cluster.other_state,
             .core = tube_core,
             .shape = shape,
             .axis = axis,
@@ -293,7 +295,7 @@ std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles
                     for (const std::size_t index : found->second) {
                         const Cluster& other = core::at(clusters, index);
                         const float apart = length_of(minus(other.seed, centre));
-                        if (other.kind == triangle.kind && apart < nearest) {
+                        if (other.kind == triangle.kind && other.other_state == triangle.other_state && apart < nearest) {
                             nearest = apart;
                             joined = index;
                         }
@@ -305,6 +307,7 @@ std::vector<Emitter> cluster_emitters(std::span<const EmitterTriangle> triangles
             Cluster made;
             made.seed = centre;
             made.kind = triangle.kind;
+            made.other_state = triangle.other_state;
             made.low = min_of(min_of(a, b), c);
             made.high = max_of(max_of(a, b), c);
             clusters.push_back(made);
@@ -450,6 +453,18 @@ float lamp_on(float switch_sky, float sky_now, float open_lamps)
     const float t = std::clamp((1.0F - stops) * kHalf, 0.0F, 1.0F);
     const float open = std::isfinite(open_lamps) ? std::clamp(open_lamps, 0.0F, 1.0F) : 0.0F;
     return std::max(open, t * t * (3.0F - (2.0F * t)));
+}
+
+float game_light_now(const FrameRecord& record, uint32_t owner)
+{
+    const auto at = std::ranges::lower_bound(record.game_lights, owner, {}, &GameLight::owner);
+    return at != record.game_lights.end() && at->owner == owner && std::isfinite(at->strength) ? std::max(at->strength, 0.0F)
+                                                                                               : 0.0F;
+}
+
+float lamp_switch(uint32_t game_light, float switch_sky, float sky_now, float open_lamps)
+{
+    return game_light != 0U ? game_light_now(frame_record(), game_light) : lamp_on(switch_sky, sky_now, open_lamps);
 }
 
 namespace {
@@ -605,7 +620,10 @@ std::vector<Emitter> select_view_lights(const FrameRecord& record, const LevelEm
     }
     if (request.emitters && level != nullptr) {
         for (Emitter light : level->emitters) {
-            light.intensity *= request.emitter_scale * lamp_on(light.switch_sky, request.sky_now, request.open_lamps);
+            // (round SL: a game light as bright as the game has it in this record)
+            light.intensity *= request.emitter_scale *
+                               (light.game_light != 0U ? game_light_now(record, light.game_light)
+                                                       : lamp_on(light.switch_sky, request.sky_now, request.open_lamps));
             consider(light);
         }
     }

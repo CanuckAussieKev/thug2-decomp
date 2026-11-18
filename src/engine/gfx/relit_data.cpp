@@ -284,6 +284,7 @@ std::string write_relit_data(const RelitLevelData& data)
         out.put(static_cast<uint32_t>(lamp.fixture));
         out.put(lamp.area);
         out.put(lamp.luminance);
+        out.put(lamp.game_light); // (v17)
     }
     // the emissive triangles
     out.put(static_cast<uint32_t>(data.emissive.size()));
@@ -395,7 +396,7 @@ bool read_relit_data(std::string_view bytes, RelitLevelData* out, std::string* w
             !in.get(&lamp.reach) || !in.get(&shape) || !in.get3(&lamp.axis) || !in.get(&lamp.half_length) ||
             !in.get(&lamp.candela) || !in.get(&lamp.lumens) || !in.get(&lamp.kelvin) || !in.get(&solved) ||
             !in.get(&kind) || !in.get(&lamp.switch_sky) || !in.get(&source) || !in.get(&fixture) ||
-            !in.get(&lamp.area) || !in.get(&lamp.luminance) || source > 255U || fixture > 255U ||
+            !in.get(&lamp.area) || !in.get(&lamp.luminance) || !in.get(&lamp.game_light) || source > 255U || fixture > 255U ||
             shape > static_cast<uint32_t>(EmitterShape::kLine) ||
             kind > static_cast<uint32_t>(EmitterKind::kPool)) {
             return fail("cut short (a lamp)");

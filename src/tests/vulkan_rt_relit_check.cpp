@@ -53,6 +53,7 @@
 #include "engine/gfx/relit_data.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_scene.h"
@@ -2777,8 +2778,125 @@ void check_indoor_lamps(Tally* tally)
                  "the high-bay's flux range holds a 400 W metal halide's 36 000 lm and a 150 W LED's 17 250 lm");
 }
 
+// (round SL - the game's own lights) A light node's light becomes a lamp from the game's data alone, its head one owner
+// with it; a surface of another state no light takes, and a candidate the bake can't see lit with no light at it, stay
+// dark.
+void check_game_lights(Tally* tally)
+{
+    const double unit_lux = rt::unit_illuminance();
+    const rt::Rgbf sodium = rt::blackbody_colour(2050.0F);
+    const auto lamp_at = [](rt::EmitterKind kind, const rt::Vec3& at, float core, const rt::Rgbf& light) {
+        rt::RelitLamp lamp;
+        lamp.position = at;
+        lamp.core = core;
+        lamp.reach = 300.0F;
+        lamp.kind = kind;
+        lamp.light = light;
+        lamp.switch_sky = 0.01F; // (outdoors)
+        return lamp;
+    };
+    constexpr uint32_t kNightLight = 0x1111U;
+    constexpr uint32_t kDayLight = 0x2222U;
+    constexpr uint32_t kBareLight = 0x3333U;
+    std::vector<rt::RelitLamp> lamps{
+        lamp_at(rt::EmitterKind::kTextured, {0.0F, 300.0F, 0.0F}, 10.0F, {0.8F, 0.8F, 0.8F}), // the day's glass, shown
+        lamp_at(rt::EmitterKind::kTextured, {5.0F, 300.0F, 0.0F}, 10.0F, {0.9F, 0.9F, 0.9F}), // the night's glass
+        lamp_at(rt::EmitterKind::kPoint, {0.0F, 290.0F, 0.0F}, 50.0F, sodium),                // the night's light
+        lamp_at(rt::EmitterKind::kPoint, {0.0F, 295.0F, 0.0F}, 20.0F, rt::scaled(sodium, 0.5F)), // the day's (B 50)
+        lamp_at(rt::EmitterKind::kPoint, {1000.0F, 300.0F, 0.0F}, 50.0F, sodium),             // a light, no head at it
+        lamp_at(rt::EmitterKind::kSelfLit, {2000.0F, 0.0F, 0.0F}, 10.0F, {0.9F, 0.9F, 0.9F}),  // a night window, no light
+        lamp_at(rt::EmitterKind::kTextured, {3000.0F, 300.0F, 0.0F}, 10.0F, {0.9F, 0.9F, 0.9F}), // a bright texture
+    };
+    lamps[1].other_state = true;
+    lamps[2].game_light = kNightLight;
+    lamps[2].reach = 500.0F;
+    lamps[3].game_light = kDayLight;
+    lamps[3].reach = 200.0F;
+    lamps[3].game_on = 0.5F;
+    lamps[4].game_light = kBareLight;
+    lamps[5].other_state = true;
+    const std::size_t adopted = rt::relit_adopt_game_lights(&lamps);
+    tally->check(adopted == 2 && lamps.size() == 5 && lamps[0].game_light == kDayLight && lamps[0].game_on == 0.5F &&
+                     lamps[1].game_light == kNightLight && lamps[1].game_on == 0.0F && lamps[1].reach == 500.0F &&
+                     lamps[1].light == sodium && lamps[2].game_light == kBareLight && lamps[3].game_light == 0U,
+                 text::format("one owner: the night's light carried by the night's glass (another state's surface), the "
+                              "day's by the day's glass; a light with no head at it stays a light (%zu lamps, %zu at heads)",
+                              lamps.size(), adopted));
+    // what the bake knew: the night's head and the bare light off at the bake's time; the day's head on but not told
+    const std::vector<rt::RelitLampTold> told{rt::RelitLampTold::kDark, rt::RelitLampTold::kOffInBake,
+                                              rt::RelitLampTold::kOffInBake, rt::RelitLampTold::kOffInBake,
+                                              rt::RelitLampTold::kOffInBake};
+    const std::vector<float> areas{0.1F, 0.1F, 0.0F, 0.05F, 0.05F};
+    std::vector<rt::Rgbf> own;
+    own.reserve(lamps.size());
+    for (const rt::RelitLamp& lamp : lamps) {
+        own.push_back(lamp.light);
+    }
+    (void)rt::relit_lamp_models(lamps, told, areas, own, unit_lux);
+    const rt::FixtureValues& hps = rt::fixture_values(rt::LampFixture::kSodiumStreet);
+    const auto close_to = [](double got, double want) { return std::abs(got - want) <= 0.01 * want; };
+    const double head_flux = 3.14159265358979 * static_cast<double>(hps.luminance) * 0.1;
+    tally->check(lamps[1].source == static_cast<uint8_t>(rt::RelitLampSource::kGameLight) &&
+                     lamps[1].fixture == static_cast<uint8_t>(rt::LampFixture::kSodiumStreet) &&
+                     close_to(lamps[1].lumens, head_flux),
+                 text::format("a night light the afternoon bake can't see: its head's fixture model, a sodium street light "
+                              "%.0f lm (pi L A %.0f) - no bake evidence needed, the game's light is the evidence",
+                              static_cast<double>(lamps[1].lumens), head_flux));
+    const double reach_m = 300.0 / 39.37;
+    const double reach_flux = std::clamp(4.0 * 3.14159265358979 * static_cast<double>(rt::kGameLightReachLux) * reach_m * reach_m,
+                                         static_cast<double>(hps.least_lumens), static_cast<double>(hps.most_lumens));
+    tally->check(lamps[2].source == static_cast<uint8_t>(rt::RelitLampSource::kGameLight) &&
+                     lamps[2].fixture == static_cast<uint8_t>(rt::LampFixture::kSodiumStreet) &&
+                     close_to(lamps[2].lumens, reach_flux),
+                 text::format("a night light with no surface: a sodium street light by its colour, its flux from its own "
+                              "reach (300 units: %.0f lux there) %.0f lm (%.0f)",
+                              static_cast<double>(rt::kGameLightReachLux), static_cast<double>(lamps[2].lumens), reach_flux));
+    {
+        // a wall light's short reach: its kind's least flux, not a street light's typical
+        std::vector<rt::RelitLamp> wall{lamps[2]};
+        wall[0].reach = 100.0F;
+        wall[0].light = sodium;
+        wall[0].solved = false;
+        const std::vector<rt::RelitLampTold> off{rt::RelitLampTold::kOffInBake};
+        const std::vector<float> none{0.0F};
+        const std::vector<rt::Rgbf> wall_own{sodium};
+        (void)rt::relit_lamp_models(wall, off, none, wall_own, unit_lux);
+        tally->check(close_to(wall[0].lumens, hps.least_lumens) && wall[0].lumens < lamps[2].lumens,
+                     text::format("a 100-unit reach (2.5 m): its kind's least flux %.0f lm, under the 300-unit light's %.0f",
+                                  static_cast<double>(wall[0].lumens), static_cast<double>(lamps[2].lumens)));
+    }
+    tally->check(lamps[0].source == static_cast<uint8_t>(rt::RelitLampSource::kGameLight) && lamps[0].lumens > 0.0F,
+                 "the day's light at its head, on in the bake but not told: its fixture's model, at full brightness");
+    {
+        // one energy: a head whose drawn area is no fixture's (5 m^2 of lamp texels) shows its light's flux over it
+        std::vector<rt::RelitLamp> wide{lamps[1]};
+        wide[0].light = sodium;
+        const std::vector<rt::RelitLampTold> off{rt::RelitLampTold::kOffInBake};
+        const std::vector<float> big{5.0F};
+        const std::vector<rt::Rgbf> wide_own{sodium};
+        (void)rt::relit_lamp_models(wide, off, big, wide_own, unit_lux);
+        const double shown = 3.14159265358979 * static_cast<double>(wide[0].luminance) * 5.0;
+        tally->check(close_to(shown, wide[0].lumens) && wide[0].luminance < hps.luminance,
+                     text::format("a head of 5 m^2 (no fixture's): its surface sends its light's %.0f lm (pi L A %.0f, "
+                                  "%.0f cd/m^2) - not its kind's luminance over the whole area",
+                                  static_cast<double>(wide[0].lumens), shown, static_cast<double>(wide[0].luminance)));
+    }
+    tally->check(!(lamps[3].lumens > 0.0F) && lamps[3].light == rt::Rgbf{} && !(lamps[4].lumens > 0.0F) &&
+                     lamps[4].light == rt::Rgbf{},
+                 "a night window no light takes, and a bright texture off in the bake with no light or glow at it: no lamp");
+    // the switch: the game's brightness now, nothing else
+    rt::FrameRecord record;
+    record.game_lights.push_back({.owner = kNightLight, .strength = 1.0F});
+    record.game_lights.push_back({.owner = kBareLight, .strength = 0.0F});
+    tally->check(rt::game_light_now(record, kNightLight) == 1.0F && rt::game_light_now(record, kBareLight) == 0.0F &&
+                     rt::game_light_now(record, kDayLight) == 0.0F,
+                 "the game's lights switched by the game: on at its brightness, a light it never turns on (Brightness 0, "
+                 "no script) off, a light it never made off");
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
+    check_game_lights(tally);
     check_round_l(tally);
     check_data_bounce(tally);
     check_lamp_solve(tally);

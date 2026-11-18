@@ -105,6 +105,9 @@ struct DynamicLightBase {
     [[nodiscard]] uint32_t owner() const { return owner_; }
     void set_owner(uint32_t value) { owner_ = value; }
     void set_unknown2c(bool value) { unknown2c_ = value; }
+    // NOT ORIGINAL - (round SL) the flag at +0x2C, read: set only for a level's light node's light
+    // (scene_lights.cpp create_light_from_node), clear for the lights objects make (dynamic_light.cpp)
+    [[nodiscard]] bool unknown2c() const { return unknown2c_; }
 
 private:
     std::array<float, 4> pos_;          // +0x04
