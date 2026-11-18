@@ -2611,7 +2611,7 @@ implement TOD, we need TOD"). `engine/gfx/rt_daylight.h`, `rt_clouds.h`, `gpu_vu
   so what is shown is the physical light. Bakes and checks use the unscaled light.
   **(Round PX - UE5's / Frostbite's PreExposure) The pre-exposure is the camera's**: the meter's exposure of the frame
   before (its slot's stops, read back a frame or two behind - `follow_camera` -> `set_camera_exposure`), within
-  1/256 .. 65536 and under the brightest emission's bound; the old rule (1 / the light on an open surface) only until
+  1/256 .. 2^24 (round RX: no longer held under the brightest emission - below); the old rule (1 / the light on an open surface) only until
   the camera has been read. So everything a pass writes into the 16-bit frame, the light store's reads and the
   upscaler's input stand about where they are shown, indoors or out: inside Training by day the camera is 12 stops
   over the outdoor daylight, and with the daylight's pre-exposure everything not lit by the hall's physical light
@@ -2729,9 +2729,24 @@ six 8-bit words of pre-exposed light x 128: a lamp's head held at 2 (about 1.8 c
   P 1, 4096 and 65 536).
 - **The bounce's hits are physical light** (`RelitMesh::light`, `relit_reflected`): tint x light, no 8 bits, no hold at 2,
   and without the emission (a lamp's own light is the lamps' L - counted once).
-- **The pre-exposure is held under the brightest emission** (`set_brightest_emission`, `kFrameLightMost` = 65 504 / 4):
-  a 10^5 cd/m^2 lamp head x 65 536 would pass the 16-bit frame's range. The meter divides P out, so this only moves where
-  the floats hold the picture.
+- ~~The pre-exposure is held under the brightest emission~~ (round L's `kFrameLightMost`, **retired in round RX**). Held
+  there, the frame sat under the display's range whenever the camera wanted more than the emitters allowed (BO's night
+  with a lamp head in view: 7 600 - 9 800 against a camera of up to +16 stops). Now, as UE5 and Frostbite do, the
+  pre-exposure is the camera's alone, and light past the 16-bit floats is written as their largest finite value (`kFrameHalfMost` = 65 504): the draws' output (ff
+  `o_colour`), the lamps pass, the effects' added light, the reflections' composite, ReSTIR DI / GI, the fog, the sky,
+  the sun, the path reference - and the upscaler's input once more (its preparation pass: past the range 65 504, not a
+  number 0; blended light can sum past it). A lamp head 10^5 cd/m^2 is then held at 65 504 in the frame - still about
+  12 stops over white after the tone curve; what it loses is only bloom energy from the part past the range.
+  What round LG took for Ray Reconstruction losing dim light (round RX, BO's archway at night, `pt ref 128` against
+  the realtime): RR on its own keeps a floor's light at any level - `thug2_vulkan_upscale_check --dlss` (and its
+  `--rr-probe`): 0.985 - 1.002 of its input from 0.003 to 0.18, noisy or not, and it takes its history into a new
+  pre-exposure at once. In the game, once the camera has settled, RR's output / its input (the input shown in its
+  place) is 1.0 - 1.1 on the lit street and ground, 0.9 in the courtyard of lamp heads. LG's 0.56 - 0.69 were first
+  captures in a game with the metered camera live: there the old build lost light everywhere (0.42 - 0.47 of the
+  reference against 0.72 - 0.80 a minute later), this one keeps the lit surfaces (0.64 - 0.74, its input 0.64 - 0.67)
+  and still loses ~30 % of the lamp heads' highlights (courtyard 0.35 - 0.51 against its input 0.68) until the
+  camera stops moving (the meter set by hand: 0.66 - 0.69). Open: why a metered camera (the pre-exposure following it
+  every frame) costs RR its brightest highlights - a pre-exposure drifting 1 % a frame costs only 5 % in the check.
 
 **Lamps by physics where the bake can't tell** (`engine/gfx/lamp_fixtures.h`, `rt_relit.h relit_lamp_models`). The
 bake measures a lamp only when it was on and outshone the rest; New Jersey's afternoon bake told 34 of 364 lamps - 300

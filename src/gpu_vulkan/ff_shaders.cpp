@@ -1869,7 +1869,9 @@ std::string fragment_shader_glsl(const FragmentKey& key)
         add(out, {"    vec2 before = v_motion_before.w > 0.0 ? v_motion_before.xy / v_motion_before.w : now;"});
         add(out, {"    o_motion = vec4((before - now) * vec2(0.5, -0.5), colour.a, 1.0);"}); // (z: a blended draw's share)
     }
-    add(out, {"    o_colour = colour;\n}"});
+    // (NOT ORIGINAL - round RX: pre-exposed light past the 16-bit target's range written as its largest finite value -
+    // UE5's scene colour; rt_daylight.h kFrameHalfMost)
+    add(out, {"    o_colour = vec4(min(colour.rgb, vec3(65504.0)), colour.a);\n}"});
     return out;
 }
 

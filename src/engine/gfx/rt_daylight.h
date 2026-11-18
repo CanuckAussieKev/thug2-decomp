@@ -205,22 +205,20 @@ inline constexpr double kLampsFullLux = 10.0;
 // clock's daylight): inside Training by day the camera stood 12 stops over it and everything not lit by the dark hall's
 // physical light (emitters, display-referred colours) was shown x 4 300 - white. Until the camera has been read (a
 // level's first frames, no meter) the old rule. Histories kept in the frame's unit take a change into the new one (now /
-// then). At least kLeastPreExposure, at most kMostPreExposure.
-inline constexpr double kMostPreExposure = 65536.0;
+// then). At least kLeastPreExposure, at most kMostPreExposure - the bounds of a sane number only: the camera's own range
+// (vulkan_hdr.h kCameraLeastEv100) is what limits it.
+// (Round RX) Not held under the brightest emission the level shows (round L's kFrameLightMost, retired): UE5 and
+// Frostbite pre-expose by the camera alone, and light past the 16-bit floats' range is written as their largest finite
+// value - kFrameHalfMost, by every pass that writes pre-exposed light (and the upscaler's input once more) - such a
+// pixel is far over white after the tone curve either way. Held lower, the frame and the upscaler's input sat under
+// the display's range whenever the camera wanted more than the emitters allowed (a night with a lamp head in view).
+inline constexpr double kMostPreExposure = 16777216.0; // (2^24)
+inline constexpr float kFrameHalfMost = 65504.0F;      // the largest finite 16-bit float
 inline constexpr double kLeastPreExposure = 1.0 / 256.0;
 // (the meter's: physical light -> exposed; 0 none - the HDR pass not metering. Kept through a load's long frames: the
 // first frame of a level keeps the last camera, the meter restarts at its target on a lighting cut)
 void set_camera_exposure(float factor);
 [[nodiscard]] float camera_exposure();
-// (round L - lamps at their luminance) ... and at most kFrameLightMost over the brightest emission the level shows (a lamp's
-// lens, bulb or panel at its luminance - the relit world's, in the unit: set_brightest_emission): a 10^5 cd/m^2 lamp head
-// (3.8 in the unit) x 65 536 would pass the 16-bit floats' 65 504. A quarter of that range is the headroom a lit texel, a
-// specular peak and the bloom's sums keep. (Round PX) Where this bounds the camera's pre-exposure (a night with a bright
-// lens in view) what is shown doesn't change - the meter divides the pre-exposure out - only display-referred colours
-// are then shown by the camera's exposure over it.
-inline constexpr double kFrameLightMost = 65504.0 / 4.0;
-void set_brightest_emission(float unit_radiance);
-[[nodiscard]] float brightest_emission();
 
 // the share of the level's own light that is the sun's (the shadows') without the clock - with it the model's at the
 // level's own sun (direct_share_at; changed by the physical air: one number for every level was the old way)

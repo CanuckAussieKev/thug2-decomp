@@ -384,10 +384,11 @@ void main()
 #ifdef SURFACE_INPUTS
     // (round V - vulkan_surface_light.h) the lamps' light itself: the surface's shading puts it on its own albedo (the
     // one the program makes, the light model's); on the traced albedo for a colour lit already
-    o_added = vec4(lamps, 0.0);
-    o_on_albedo = vec4(added, 0.0);
+    // (round RX: past the 16-bit range its largest finite value - rt_daylight.h kFrameHalfMost)
+    o_added = vec4(min(lamps, vec3(65504.0)), 0.0);
+    o_on_albedo = vec4(min(added, vec3(65504.0)), 0.0);
 #else
-    o_added = vec4(added, 0.0);
+    o_added = vec4(min(added, vec3(65504.0)), 0.0); // (round RX)
 #endif
 }
 )";

@@ -640,7 +640,8 @@ void main()
     }
     float weight = clamp(abs(reflection.a), 0.0, 1.0);
     // (round O: linear light - the reflection's radiance as it is, never held to 1)
-    o_colour = vec4(max(base.rgb, vec3(0.0)) + max(colour, vec3(0.0)) * weight, clamp(base.a, 0.0, 1.0));
+    // (round RX: past the 16-bit range its largest finite value - rt_daylight.h kFrameHalfMost)
+    o_colour = vec4(min(max(base.rgb, vec3(0.0)) + max(colour, vec3(0.0)) * weight, vec3(65504.0)), clamp(base.a, 0.0, 1.0));
 }
 )";
 

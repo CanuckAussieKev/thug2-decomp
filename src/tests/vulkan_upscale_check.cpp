@@ -15,7 +15,11 @@
 //     supersampled render at the output's size (PSNR, noted); the jitter's sign handed over the other way does worse;
 //     the output has no NaN and covers the output; two runs from a reset give the same bytes (FSR).
 //   - DLSS (--dlss, an NVIDIA RTX device): the same round trip - it runs, the output is the right size, no NaN.
-//   thug2_vulkan_upscale_check [--device N] [--display N] [--no-validation] [--dlss] [--quality performance|...]
+//   - (round RX) Ray Reconstruction (--dlss, where the device has it) given a still lit floor (a checker of albedos, its
+//     guides) at the camera's middle grey, 2.8 and 6 stops under: its floor's mean within 3 % of its input's; an emitter
+//     at 65 504 beside it: finite, over white, the floor kept. --rr-probe also prints the floor's out / in over noise,
+//     emitters' sizes and values and pre-exposure steps and drifts (what moves it).
+//   thug2_vulkan_upscale_check [--device N] [--display N] [--no-validation] [--dlss] [--rr-probe] [--quality ...]
 //                              [--save <folder>] (the round trip's pictures as .ppm)
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan or no upscaler for it.
 #include <SDL3/SDL.h>
@@ -31,6 +35,7 @@
 #include <fstream>
 #include <ios>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <span>
 #include <string>
@@ -45,6 +50,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/relit_data.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -87,6 +93,7 @@ struct Options {
     bool validation = true;
     bool dlss = false;
     bool grid = false;
+    bool rr_probe = false;
     std::string quality = "quality";
     std::string save;
 };
@@ -101,6 +108,8 @@ Options read_options(std::span<char*> arguments)
             options.validation = false;
         } else if (argument == "--dlss") {
             options.dlss = true;
+        } else if (argument == "--rr-probe") {
+            options.rr_probe = true;
         } else if (argument == "--grid") {
             options.grid = true;
         } else if (argument == "--device" && has_value) {
@@ -1060,6 +1069,386 @@ void check_round_trip(render::Gpu& gpu, const Options& options, const Targets& t
     render::vulkan::set_upscale_settings({});
 }
 
+// --- (round RX) Ray Reconstruction against its input's level ---------------------------------------------------------
+
+constexpr uint32_t kRrChecker = 8;          // (the floor's albedo checker, pixels)
+constexpr float kRrAlbedoDark = 0.25F;
+constexpr float kRrAlbedoLight = 0.65F;
+constexpr int kRrFrames = 64;
+constexpr float kRrCameraGrey = 0.18F;      // (the camera's middle grey: where a lit floor sits at its exposure)
+constexpr float kRrNightPreExposure = 68000.0F; // (BO's night street: the camera's +16 stops)
+constexpr float kRrHalfMost = 65504.0F;     // (rt_daylight.h kFrameHalfMost: what a write past fp16 holds)
+constexpr uint32_t kRrPatch = 24;           // (the emitter's square, pixels of the drawn size)
+constexpr float kRrToneWhite = 16.0F;       // (ACES's white, about 6.5 stops over middle grey - vulkan_hdr.h)
+constexpr double kRrKeepTolerance = 0.03;
+constexpr double kRrHaloTolerance = 0.05; // (beside an emitter 10^5 x the floor Ray Reconstruction leaves a faint dark halo: -3.4 %)
+
+struct RrImages {
+    render::vulkan::Image colour, depth, motion, reactive, output, albedo, specular, normals, layer;
+};
+
+bool rr_image(render::vulkan::Backend& state, render::vulkan::Image* image, VkFormat format, render::vulkan::Extent extent)
+{
+    const render::vulkan::ImageRequest request{.format = format,
+                                               .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
+                                               .extent = extent,
+                                               .levels = 1,
+                                               .samples = VK_SAMPLE_COUNT_1_BIT,
+                                               .usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                                                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                                               .alpha_one = false};
+    if (!state.memory.create_image(request, image)) {
+        return false;
+    }
+    image->resting = VK_IMAGE_LAYOUT_GENERAL;
+    return true;
+}
+
+// `values` (RGBA per pixel, the image's size) into an RGBA16F or R32F image; left in GENERAL.
+bool rr_fill(render::vulkan::Backend& state, render::vulkan::Image* image, const std::vector<float>& values)
+{
+    const bool half = image->format == VK_FORMAT_R16G16B16A16_SFLOAT;
+    std::vector<uint8_t> bytes(values.size() * (half ? sizeof(uint16_t) : sizeof(float)));
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (half) {
+            const uint16_t bits = render::rt::to_half(core::at(values, index));
+            core::at(bytes, index * 2) = static_cast<uint8_t>(bits & 0xFFU);
+            core::at(bytes, (index * 2) + 1) = static_cast<uint8_t>(bits >> kBitsPerByte);
+        } else {
+            std::memcpy(std::span(bytes).subspan(index * sizeof(float), sizeof(float)).data(), &core::at(values, index),
+                        sizeof(float));
+        }
+    }
+    render::vulkan::DeviceBuffer staging;
+    if (!state.memory.create_buffer(bytes.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, render::vulkan::BufferPlace::kUpload,
+                                    &staging)) {
+        return false;
+    }
+    std::memcpy(staging.mapped, bytes.data(), bytes.size());
+    state.memory.flush(staging, 0, bytes.size());
+    const bool done = state.memory.submit_now([&](VkCommandBuffer commands) {
+        render::vulkan::Memory::record_upload_level(commands, image, 0, {.buffer = staging.buffer, .offset = 0});
+        render::vulkan::Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL);
+    });
+    state.memory.destroy_buffer(&staging);
+    return done;
+}
+
+struct RrResult {
+    bool ran = false;
+    bool finite = false;
+    double floor_in = 0.0;  // the floor's mean luma in (away from the patch)
+    double floor_out = 0.0; // and out
+    double patch_out = 0.0; // the patch's centre out (0 without one)
+};
+
+// What Ray Reconstruction is given: a still floor - a checker of albedos lit by `level` x the albedo (its guide the
+// albedo, its normal facing the camera, roughness 1) -, optionally emitters (`emitter`: their value, squares `patch`
+// pixels wide - one in the middle, or `spots` of them scattered), and 1-sample noise (`noisy`: each pixel's light x an
+// exponential draw of mean 1, new every frame - a path tracer's one sample).
+struct RrScene {
+    float level = kRrCameraGrey;
+    float emitter = 0.0F;
+    uint32_t patch = kRrPatch;
+    uint32_t spots = 0;
+    bool noisy = false;
+    float pre_exposure = kRrNightPreExposure;
+    // (a pre-exposure change: from frame `step_at` on, the light and the pre-exposure x `step` - the output read one
+    // frame after it: whether the history is taken into the new pre-exposure)
+    int step_at = 0;
+    float step = 1.0F;
+    // (the camera adapting: every frame the light and the pre-exposure x `drift`)
+    float drift = 1.0F;
+};
+
+// kRrFrames frames of Ray Reconstruction on `scene`: the floor's mean luma in and out (pixels more than 3 emitter sizes
+// from every emitter), the middle emitter's centre out.
+RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
+{
+    RrResult result;
+    const render::vulkan::Extent output{.width = kWidth, .height = kHeight};
+    const float ratio = render::vulkan::upscale_ratio(render::vulkan::UpscaleQuality::kQuality);
+    const render::vulkan::Extent render_size{.width = static_cast<uint32_t>(std::lround(static_cast<float>(kWidth) * ratio)),
+                                             .height = static_cast<uint32_t>(std::lround(static_cast<float>(kHeight) * ratio))};
+    RrImages images;
+    const std::array<std::pair<render::vulkan::Image*, VkFormat>, 9> made{{
+        {&images.colour, VK_FORMAT_R16G16B16A16_SFLOAT},
+        {&images.depth, VK_FORMAT_R32_SFLOAT},
+        {&images.motion, VK_FORMAT_R16G16B16A16_SFLOAT},
+        {&images.reactive, VK_FORMAT_R32_SFLOAT},
+        {&images.albedo, VK_FORMAT_R16G16B16A16_SFLOAT},
+        {&images.specular, VK_FORMAT_R16G16B16A16_SFLOAT},
+        {&images.normals, VK_FORMAT_R16G16B16A16_SFLOAT},
+        {&images.layer, VK_FORMAT_R16G16B16A16_SFLOAT},
+        {&images.output, VK_FORMAT_R16G16B16A16_SFLOAT},
+    }};
+    const uint32_t width = render_size.width;
+    const uint32_t height = render_size.height;
+    const std::size_t pixels = static_cast<std::size_t>(width) * height;
+    // the emitters' corners (drawn pixels): the middle one, then `spots` on a lattice
+    std::vector<std::array<uint32_t, 2>> emitters;
+    if (scene.emitter > 0.0F) {
+        if (scene.spots == 0) {
+            emitters.push_back({(width - scene.patch) / 2, (height - scene.patch) / 2});
+        } else {
+            const auto columns = static_cast<uint32_t>(std::ceil(std::sqrt(static_cast<double>(scene.spots))));
+            const uint32_t rows = (scene.spots + columns - 1) / columns;
+            for (uint32_t spot = 0; spot < scene.spots; ++spot) {
+                emitters.push_back({((spot % columns) * 2 + 1) * width / (columns * 2),
+                                    ((spot / columns) * 2 + 1) * height / (rows * 2)});
+            }
+        }
+    }
+    const auto emitter_near = [&](double x, double y, double reach) {
+        for (const auto& corner : emitters) {
+            const double cx = static_cast<double>(corner[0]) + (static_cast<double>(scene.patch) * 0.5);
+            const double cy = static_cast<double>(corner[1]) + (static_cast<double>(scene.patch) * 0.5);
+            if (std::max(std::abs(x - cx), std::abs(y - cy)) < reach) {
+                return true;
+            }
+        }
+        return false;
+    };
+    const double half_patch = static_cast<double>(scene.patch) * 0.5;
+    const double kept_away = 3.0 * static_cast<double>(scene.patch);
+    std::vector<float> lit(pixels, 0.0F); // (each pixel's light without noise)
+    std::vector<float> albedo(pixels * 4, 0.0F);
+    std::vector<float> normals(pixels * 4, 0.0F);
+    std::vector<float> zeros(pixels * 4, 0.0F);
+    const std::vector<float> depth(pixels, 0.5F);
+    const std::vector<float> reactive(pixels, 0.0F);
+    std::vector<uint8_t> emitting(pixels, 0);
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            const std::size_t index = (static_cast<std::size_t>(y) * width) + x;
+            const float a = (((x / kRrChecker) + (y / kRrChecker)) % 2U) == 0U ? kRrAlbedoDark : kRrAlbedoLight;
+            const bool on = emitter_near(static_cast<double>(x) + 0.5, static_cast<double>(y) + 0.5, half_patch);
+            core::at(emitting, index) = on ? 1 : 0;
+            core::at(lit, index) = on ? scene.emitter : a * scene.level;
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                core::at(albedo, (index * 4) + channel) = a;
+            }
+            core::at(albedo, (index * 4) + 3) = 1.0F;
+            core::at(normals, (index * 4) + 2) = -1.0F; // (facing the camera; Direct3D's view space: z forward)
+            core::at(normals, (index * 4) + 3) = 1.0F;  // (roughness)
+        }
+    }
+    uint32_t seed = 12345U;
+    const auto next_unit = [&seed]() {
+        seed = (seed * 1664525U) + 1013904223U;
+        return (static_cast<double>(seed >> 8U) + 0.5) / 16777216.0;
+    };
+    std::vector<float> colour(pixels * 4, 0.0F);
+    double sum_in = 0.0;
+    std::size_t count_in = 0;
+    float scale = 1.0F;
+    const auto make_colour = [&]() {
+        for (std::size_t index = 0; index < pixels; ++index) {
+            float value = core::at(lit, index) * scale;
+            if (scene.noisy && core::at(emitting, index) == 0) {
+                value *= static_cast<float>(-std::log(next_unit()));
+            }
+            value = std::min(value, kRrHalfMost);
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                core::at(colour, (index * 4) + channel) = value;
+            }
+            core::at(colour, (index * 4) + 3) = 1.0F;
+        }
+    };
+    bool ok = true;
+    {
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::finish_work(state);
+        for (const auto& [image, format] : made) {
+            ok = ok && rr_image(state, image, format, image == &images.output ? output : render_size);
+        }
+        make_colour();
+        ok = ok && rr_fill(state, &images.colour, colour) && rr_fill(state, &images.albedo, albedo) &&
+             rr_fill(state, &images.normals, normals) && rr_fill(state, &images.specular, zeros) &&
+             rr_fill(state, &images.motion, zeros) && rr_fill(state, &images.layer, zeros) &&
+             rr_fill(state, &images.depth, depth) && rr_fill(state, &images.reactive, reactive);
+        const std::vector<float> clear_output(static_cast<std::size_t>(kWidth) * kHeight * 4, 0.0F);
+        ok = ok && rr_fill(state, &images.output, clear_output);
+    }
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            if (!emitter_near(static_cast<double>(x) + 0.5, static_cast<double>(y) + 0.5, kept_away)) {
+                sum_in += static_cast<double>(core::at(lit, (static_cast<std::size_t>(y) * width) + x));
+                ++count_in;
+            }
+        }
+    }
+    std::string why;
+    std::unique_ptr<render::vulkan::UpscaleProvider> provider;
+    if (ok) {
+        const std::scoped_lock lock(state.mutex);
+        provider = render::vulkan::make_dlss_provider(state, output, true, &why);
+        ok = provider != nullptr;
+    }
+    if (ok) {
+        // a still camera: this frame's and the frame before's the same
+        const Rows projection = rows_of(perspective());
+        const Rows view = rows_of(identity());
+        const Floats16 projection_floats = floats(perspective());
+        const Floats16 view_floats = floats(identity());
+        const uint32_t phases = render::vulkan::upscale_jitter_phases(1.0F / ratio);
+        const int frames = scene.step_at > 0 ? scene.step_at + 1 : kRrFrames;
+        for (int frame_index = 0; frame_index < frames && ok; ++frame_index) {
+            const std::scoped_lock lock(state.mutex);
+            const bool stepped = scene.step_at > 0 && frame_index >= scene.step_at;
+            if (stepped && frame_index == scene.step_at) {
+                scale = scene.step;
+                make_colour();
+                ok = rr_fill(state, &images.colour, colour);
+            } else if (scene.drift != 1.0F && frame_index > 0) {
+                scale *= scene.drift;
+                make_colour();
+                ok = rr_fill(state, &images.colour, colour);
+            } else if (scene.noisy && frame_index > 0) {
+                make_colour();
+                ok = rr_fill(state, &images.colour, colour);
+            }
+            state.motion.before = {.known = true, .view = view_floats, .projection = projection_floats};
+            render::vulkan::UpscaleFrame frame;
+            frame.colour = &images.colour;
+            frame.depth = &images.depth;
+            frame.motion = &images.motion;
+            frame.reactive = &images.reactive;
+            frame.output = &images.output;
+            frame.render = render_size;
+            frame.output_size = output;
+            frame.jitter = render::vulkan::upscale_jitter(static_cast<uint32_t>(frame_index) % phases, phases);
+            frame.reset = frame_index == 0;
+            frame.pre_exposure = scene.pre_exposure * (scene.drift != 1.0F ? scale : (stepped ? scene.step : 1.0F));
+            frame.near_z = static_cast<float>(kNearZ);
+            frame.far_z = static_cast<float>(kFarZ);
+            frame.vertical_fov = static_cast<float>(2.0 * std::atan(kHalfFovTan));
+            frame.view = view;
+            frame.projection = projection;
+            frame.albedo = &images.albedo;
+            frame.specular_albedo = &images.specular;
+            frame.normal_roughness = &images.normals;
+            frame.transparency = &images.layer;
+            ok = ok && state.memory.submit_now([&](VkCommandBuffer commands) {
+                frame.commands = commands;
+                ok = provider->evaluate(state, frame, &why);
+            }) && ok;
+        }
+    }
+    if (!why.empty()) {
+        text::print("  note Ray Reconstruction: %s\n", why.c_str());
+    }
+    std::vector<float> out;
+    result.ran = ok && read_floats(&images.output, 4, &out);
+    if (result.ran) {
+        result.finite = true;
+        for (const float number : out) {
+            result.finite = result.finite && std::isfinite(number);
+        }
+        const auto luma = [&out](std::size_t at) {
+            return (0.2126 * static_cast<double>(core::at(out, at))) + (0.7152 * static_cast<double>(core::at(out, at + 1))) +
+                   (0.0722 * static_cast<double>(core::at(out, at + 2)));
+        };
+        double sum_out = 0.0;
+        std::size_t count_out = 0;
+        for (uint32_t y = 0; y < kHeight; ++y) {
+            for (uint32_t x = 0; x < kWidth; ++x) {
+                const double drawn_x = (static_cast<double>(x) + 0.5) * static_cast<double>(ratio);
+                const double drawn_y = (static_cast<double>(y) + 0.5) * static_cast<double>(ratio);
+                if (!emitter_near(drawn_x, drawn_y, kept_away)) {
+                    sum_out += luma(((static_cast<std::size_t>(y) * kWidth) + x) * 4);
+                    ++count_out;
+                }
+            }
+        }
+        result.floor_in = count_in > 0 ? sum_in * static_cast<double>(scale) / static_cast<double>(count_in) : 0.0;
+        result.floor_out = count_out > 0 ? sum_out / static_cast<double>(count_out) : 0.0;
+        if (!emitters.empty()) {
+            const auto& corner = emitters.front();
+            const auto cx = static_cast<std::size_t>((static_cast<double>(corner[0]) + half_patch) / ratio);
+            const auto cy = static_cast<std::size_t>((static_cast<double>(corner[1]) + half_patch) / ratio);
+            result.patch_out = luma(((cy * kWidth) + cx) * 4);
+        }
+    }
+    {
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::finish_work(state);
+        if (provider) {
+            provider->release(state);
+        }
+        for (const auto& [image, format] : made) {
+            if (image->image != VK_NULL_HANDLE) {
+                state.memory.destroy_image(image);
+            }
+        }
+    }
+    return result;
+}
+
+double rr_kept(const RrResult& result) { return result.floor_in > 0.0 ? result.floor_out / result.floor_in : 0.0; }
+
+// (--rr-probe) Ray Reconstruction's floor out / in over the scenes' terms - finding what moves it.
+void probe_reconstruction(render::vulkan::Backend& state)
+{
+    struct Probe {
+        const char* name;
+        RrScene scene;
+    };
+    const float old_grey = kRrCameraGrey * std::exp2(-2.8F);
+    const std::array<Probe, 21> probes{{
+        {"flat 0.18, pre-exposure x 1.01 a frame", {.level = kRrCameraGrey, .drift = 1.01F}},
+        {"flat 0.18, pre-exposure x 1/1.01 a frame", {.level = kRrCameraGrey, .drift = 1.0F / 1.01F}},
+        {"noisy 0.18, pre-exposure x 1.01 a frame", {.level = kRrCameraGrey, .noisy = true, .drift = 1.01F}},
+        {"noisy 0.18, pre-exposure x 1.002 a frame", {.level = kRrCameraGrey, .noisy = true, .drift = 1.002F}},
+        {"flat 0.18, pre-exposure x 4 at frame 48", {.level = kRrCameraGrey, .step_at = 48, .step = 4.0F}},
+        {"flat 0.18, pre-exposure x 1/4 at frame 48", {.level = kRrCameraGrey, .step_at = 48, .step = 0.25F}},
+        {"flat 0.18, nothing changed at frame 48", {.level = kRrCameraGrey, .step_at = 48, .step = 1.0F}},
+        {"flat 0.18", {.level = kRrCameraGrey}},
+        {"flat 0.026", {.level = old_grey}},
+        {"noisy 0.18", {.level = kRrCameraGrey, .noisy = true}},
+        {"noisy 0.026", {.level = old_grey, .noisy = true}},
+        {"noisy 0.0028", {.level = kRrCameraGrey / 64.0F, .noisy = true}},
+        {"flat 0.18, one 24 px emitter 65504", {.level = kRrCameraGrey, .emitter = kRrHalfMost}},
+        {"flat 0.026, one 24 px emitter 9200", {.level = old_grey, .emitter = kRrHalfMost / 7.0F}},
+        {"flat 0.18, 40 4 px emitters 65504", {.level = kRrCameraGrey, .emitter = kRrHalfMost, .patch = 4, .spots = 40}},
+        {"flat 0.026, 40 4 px emitters 9200", {.level = old_grey, .emitter = kRrHalfMost / 7.0F, .patch = 4, .spots = 40}},
+        {"flat 0.18, 40 4 px emitters 1000", {.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40}},
+        {"flat 0.18, 40 4 px emitters 30", {.level = kRrCameraGrey, .emitter = 30.0F, .patch = 4, .spots = 40}},
+        {"noisy 0.18, 40 4 px emitters 65504", {.level = kRrCameraGrey, .emitter = kRrHalfMost, .patch = 4, .spots = 40, .noisy = true}},
+        {"noisy 0.026, 40 4 px emitters 9200", {.level = old_grey, .emitter = kRrHalfMost / 7.0F, .patch = 4, .spots = 40, .noisy = true}},
+        {"noisy 0.18, 40 4 px emitters 1000", {.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40, .noisy = true}},
+    }};
+    for (const Probe& probe : probes) {
+        const RrResult result = rr_floor(state, probe.scene);
+        text::print("  probe %-40s floor in %.5f out %.5f: out / in %.3f%s\n", probe.name, result.floor_in, result.floor_out,
+                    rr_kept(result), result.finite ? "" : " (NOT FINITE)");
+    }
+}
+
+// Ray Reconstruction keeps a still lit floor's light at the level the camera's pre-exposure puts it (rt_daylight.h
+// pre_exposure_for: the camera's, round RX) and below it (round LG's night: ~3 stops under; 6) - its input's level alone
+// doesn't cost it light; an emitter written at the 16-bit floats' largest value (what every write past their range
+// holds) comes out finite and over white, the floor around it kept (but for a faint dark halo).
+void check_reconstruction_levels(render::vulkan::Backend& state, Tally* tally)
+{
+    for (const float stops_under : {0.0F, 2.8F, 6.0F}) {
+        const float level = kRrCameraGrey * std::exp2(-stops_under);
+        const RrResult result = rr_floor(state, {.level = level, .pre_exposure = kRrNightPreExposure * std::exp2(-stops_under)});
+        const double kept = rr_kept(result);
+        const std::string line = text::format("Ray Reconstruction on a still lit floor at %.4g (%.1f stops under the camera's "
+                                              "grey): out / in %.3f",
+                                              static_cast<double>(level), static_cast<double>(stops_under), kept);
+        tally->check(result.ran && result.finite && std::abs(kept - 1.0) <= kRrKeepTolerance, line);
+    }
+    const RrResult emitter = rr_floor(state, {.emitter = kRrHalfMost});
+    const double kept = rr_kept(emitter);
+    tally->check(emitter.ran && emitter.finite && emitter.patch_out >= kRrToneWhite &&
+                     std::abs(kept - 1.0) <= kRrHaloTolerance,
+                 text::format("an emitter at the 16-bit floats' largest value (%.0f) beside the floor: out finite, its "
+                              "centre %.0f (white: over %.0f), the floor around it out / in %.3f",
+                              static_cast<double>(kRrHalfMost), emitter.patch_out, static_cast<double>(kRrToneWhite), kept));
+}
+
 enum class Opened : uint8_t { kYes, kNoDevice };
 
 Opened open_device(const Options& options, SDL_Window* window, const render::vulkan::UpscaleSettings& settings)
@@ -1130,6 +1519,14 @@ int run(const Options& options, SDL_Window* window)
         } else {
             check_motion(gpu, targets, buffers, &tally);
             check_round_trip(gpu, options, targets, buffers, settings, &tally);
+            if (options.dlss && render::vulkan::ray_reconstruction_ready()) {
+                render::vulkan::set_upscale_settings(settings); // (the quality the provider reads)
+                if (options.rr_probe) {
+                    probe_reconstruction(render::vulkan::backend());
+                }
+                check_reconstruction_levels(render::vulkan::backend(), &tally);
+                render::vulkan::set_upscale_settings({});
+            }
         }
     }
     for (render::GpuVertexBuffer* buffer : {buffers.skin_before, buffers.skin_now}) {

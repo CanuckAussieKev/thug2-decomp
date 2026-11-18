@@ -752,7 +752,7 @@ void main()
     if (any(isnan(added)) || any(isinf(added))) {
         discard;
     }
-    o_added = vec4(added, 0.0);
+    o_added = vec4(min(added, vec3(65504.0)), 0.0); // (round RX: rt_daylight.h kFrameHalfMost)
 }
 )";
 
