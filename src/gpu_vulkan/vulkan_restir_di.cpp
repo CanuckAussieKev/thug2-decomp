@@ -824,6 +824,7 @@ struct RestirState {
     uint64_t table_key = 0;
     uint32_t entries = 0;
     uint32_t lamp_count = 0;
+    double power = 0.0; // (the table's total: 0 - every lamp off, nothing emitting - nothing to light)
     uint64_t layout_key = 0; // which light an entry is (the list's triangles, the lamps' count): history across it only
     // per pixel
     uint32_t width = 0;
@@ -1184,6 +1185,7 @@ bool update_table(Backend& state, RestirState& own, const std::vector<rt::Emitte
         return false;
     }
     own.entries = static_cast<uint32_t>(list.table.entries.size());
+    own.power = list.table.total;
     own.lamp_count = static_cast<uint32_t>(lamps.size());
     own.table_key = key;
     own.layout_key = mix(mix(mix(kFnvBasis, own.lists), set.triangle_powers.size()), lamps.size());
@@ -1422,6 +1424,12 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     }
     if (!update_table(state, own, lighting.lamps)) {
         return false;
+    }
+    if (!(own.power > 0.0) && !check) {
+        // (no lamp on and nothing emitting - by day: the inputs were begun with no lamps; nothing to trace)
+        own.history = false;
+        own.lit_view = true;
+        return true;
     }
     // the per-pixel buffers (a new size: no history)
     const std::size_t pixels = static_cast<std::size_t>(width) * height;
