@@ -179,8 +179,8 @@ const uint STRATEGY_MIS = 0u;
 const uint STRATEGY_LIGHTS = 1u;
 const uint STRATEGY_BSDF = 2u;
 const uint PATH_MASK = 7u;          // world, objects, alpha-tested (vulkan_rt_scene.h's masks)
-const uint PATH_SEEN_THROUGH = 128u; // (path tracing, stage 3) the blended instances (kMaskNoShadow)
-const uint PATH_SURFACES = 135u;     // what a path's rays meet: all of them
+const uint PATH_SURFACES = 199u;     // what a path's rays meet: all of them - the seen-through (0x80) and those
+                                     // that add light (0x40, round PT-B: kMaskAddsLight) too
 const uint PATH_MOST_CROSSED = 16u;  // blended surfaces a ray goes on through (added, filters, glass) before it stops
 const float PATH_DELTA_PDF = 1.0e15; // a mirror's "pdf" (a delta lobe: a light it reaches counted whole by MIS - squared, still finite)
 const uint PATH_CASTS = 4u;         // (rt::kCastsShadow)
@@ -440,50 +440,25 @@ bool trace_surface(vec3 origin, vec3 dir, float reach, uint seed, out uint insta
     return true;
 }
 
-// (path tracing, stage 3) The light that gets through the blended surfaces between `origin` and `reach` (nothing solid
-// there - the caller asked): each one's expected share (hit_blend_transmittance) multiplied in, whatever their order.
-vec3 seen_through(vec3 origin, vec3 dir, float reach)
+// (path tracing, stage 3; round PT-B: the one light ray's - vulkan_rt_scene.h seen_through / ray_light) The light that
+// gets through the seen-through surfaces between `origin` and `reach` (nothing solid there - the caller asked); `pt ref
+// ... open` lets them all pass.
+vec3 path_seen_through(vec3 origin, vec3 dir, float reach)
 {
-    vec3 through = vec3(1.0);
-    if (reach <= 0.0 || (pass.lists.w & PATH_BLENDED_OPEN) != 0u) {
-        return through;
+    if ((pass.lists.w & PATH_BLENDED_OPEN) != 0u) {
+        return vec3(1.0);
     }
-    rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, PATH_SEEN_THROUGH, origin, 0.0, dir, reach);
-    while (rayQueryProceedEXT(query)) {
-        if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
-            continue;
-        }
-        uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
-        uint p = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);
-        uint m = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
-        vec2 bc = rayQueryGetIntersectionBarycentricsEXT(query, false);
-        HitBlend b = hit_blend(i, p, m, bc);
-        float cos_theta = 1.0;
-        HitVertices v;
-        if (b.kind == HIT_GLASS && hit_vertices(i, p, v)) {
-            mat4x3 w = rayQueryGetIntersectionObjectToWorldEXT(query, false);
-            vec3 n = cross(w * vec4(v.position[1] - v.position[0], 0.0), w * vec4(v.position[2] - v.position[0], 0.0));
-            float l = length(n);
-            cos_theta = l > 0.0 ? dot(n / l, dir) : 1.0;
-        }
-        through *= b.kind == HIT_SOLID ? (cutout_kept(i, p, m, bc) ? vec3(0.0) : vec3(1.0))
-                                       : hit_blend_transmittance(b, cos_theta);
-        if (max(through.r, max(through.g, through.b)) <= 0.0) {
-            rayQueryTerminateEXT(query);
-        }
-    }
-    return through;
+    return seen_through(PATH_MASK, origin, dir, reach);
 }
 
-// The light that gets from `origin` to `reach` along `dir`: none past anything solid, else what the blended surfaces on
-// the way let through.
+// The light that gets from `origin` to `reach` along `dir`: none past anything solid, else what the seen-through
+// surfaces on the way let through - every light ray's visibility (ray_light).
 vec3 transmittance(vec3 origin, vec3 dir, float reach)
 {
-    if (ray_blocked(PATH_MASK, origin, dir, reach)) {
-        return vec3(0.0);
+    if ((pass.lists.w & PATH_BLENDED_OPEN) != 0u) {
+        return ray_blocked(PATH_MASK, origin, dir, reach) ? vec3(0.0) : vec3(1.0);
     }
-    return seen_through(origin, dir, reach);
+    return ray_light(PATH_MASK, origin, dir, reach);
 }
 
 bool in_sun(vec3 dir) { return pass.sun.w <= 1.0 && dot(dir, pass.sun.xyz) >= pass.sun.w; }
@@ -620,7 +595,7 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
         }
         float pdf = e.pdf / s.area * t * t / cos_light;
         float w = mis ? path_power_heuristic(pdf, path_bsdf_pdf(m, n, v, dir)) : 1.0;
-        return f * s.emitted * seen_through(p, dir, t) * (w / pdf); // (stage 3: the blended surfaces between)
+        return f * s.emitted * path_seen_through(p, dir, t) * (w / pdf); // (stage 3: the blended surfaces between)
     }
     LightRecord light = lamps[light_index(e.payload)];
     vec3 from;

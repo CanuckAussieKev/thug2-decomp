@@ -1301,12 +1301,14 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
             const std::pair<Vec3, Vec3> basis = basis_of(vertex.normal);
             const double turn =
                 static_cast<double>(hashed(static_cast<uint32_t>((ref.mesh * kMeshSalt) + ref.vertex))) * kHashScale;
-            uint32_t open = 0;
+            // (round PT-B: each ray's light x what the seen-through surfaces on its way let through - ProbeResult's
+            // seen_through, the one light ray's share)
+            float open = 0.0F;
             Rgbf bounce{};
             for (uint32_t idx = 0; idx < ref.count; ++idx) {
                 const ProbeResult& answer = core::at(answers, idx);
                 if (!answer.hit) {
-                    ++open;
+                    open += answer.seen_through;
                     continue;
                 }
                 const auto found = ids.find(answer.mesh);
@@ -1318,11 +1320,11 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                 const Vec3 point = plus(origin, scaled(direction, answer.distance));
                 const Rgbf there = colour_at(core::at(meshes, found->second), answer.primitive, point);
                 for (std::size_t ch = 0; ch < bounce.size(); ++ch) {
-                    core::at(bounce, ch) += core::at(there, ch);
+                    core::at(bounce, ch) += core::at(there, ch) * answer.seen_through;
                 }
             }
             if (!params.keep_sky) {
-                vertex.sky = static_cast<float>(open) / static_cast<float>(ref.count);
+                vertex.sky = open / static_cast<float>(ref.count);
             }
             for (float& ch : bounce) {
                 ch /= static_cast<float>(ref.count);
@@ -1388,9 +1390,12 @@ void trace_relit_sun(std::span<const RelitMesh> meshes, std::span<const uint8_t>
             if (answers.size() != ref.count) {
                 return;
             }
-            const auto open = std::ranges::count_if(answers, [](const ProbeResult& answer) { return !answer.hit; });
-            core::at(core::at(*light, ref.mesh), ref.vertex).sun =
-                static_cast<float>(open) / static_cast<float>(ref.count);
+            // (round PT-B: an open ray by the share the seen-through surfaces on its way let through)
+            float open = 0.0F;
+            for (const ProbeResult& answer : answers) {
+                open += answer.hit ? 0.0F : answer.seen_through;
+            }
+            core::at(core::at(*light, ref.mesh), ref.vertex).sun = open / static_cast<float>(ref.count);
         },
         ask);
     derive_traced(meshes, wanted, light, ask); // (added by building relief: the made vertices' light)
@@ -2751,13 +2756,16 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
             }
             RelitVertex& vertex = core::at(core::at(*light, ref.mesh), ref.vertex);
             for (std::size_t k = 0; k < scratch.size(); ++k) {
-                if (core::at(answers, k).hit) {
+                const ProbeResult& answer = core::at(answers, k);
+                if (answer.hit || !(answer.seen_through > 0.0F)) {
                     continue;
                 }
+                // (round PT-B: the lamp's light x what the seen-through surfaces between let through)
                 const Reach& reach = core::at(scratch, k);
-                vertex.lamp = plus(vertex.lamp, scaled(core::at(lamps, reach.lamp).light, reach.weight));
+                const float weight = reach.weight * answer.seen_through;
+                vertex.lamp = plus(vertex.lamp, scaled(core::at(lamps, reach.lamp).light, weight));
                 if (links != nullptr) {
-                    core::at(core::at(gathered, ref.mesh), ref.vertex).push_back({.lamp = reach.lamp, .weight = reach.weight});
+                    core::at(core::at(gathered, ref.mesh), ref.vertex).push_back({.lamp = reach.lamp, .weight = weight});
                 }
             }
         },

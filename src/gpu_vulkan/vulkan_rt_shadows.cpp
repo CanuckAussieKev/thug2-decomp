@@ -154,7 +154,8 @@ float blocked_by(uint mask, vec3 origin, vec3 direction)
 #ifdef ALPHA_TESTED
     // (added for the alpha-tested casters - a cannon's spoked wheels, railings, foliage: instance mask 0x04) the one
     // lighting path's ray test (vulkan_rt_scene.h cutout_rays_glsl): light goes through their holes
-    return ray_blocked(mask, origin, direction, RAY_LENGTH) ? 1.0 : 0.0;
+    // (round PT-B) and the seen-through surfaces by their share (vulkan_rt_scene.h ray_light: the one light ray)
+    return 1.0 - ray_light_share(mask, origin, direction, RAY_LENGTH);
 #else
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,

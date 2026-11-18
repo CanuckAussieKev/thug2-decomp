@@ -16,6 +16,7 @@
 #include "engine/gfx/rt_checks.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
+#include "engine/gfx/rt_surface_class.h"
 #include "tests/no_error_dialogs.h"
 
 // The buffers' handles are incomplete types outside the backends: here two stand-ins, never read.
@@ -195,6 +196,101 @@ void check_flags()
     expect(!rt::flags_problem(rt::kWorld).empty(), "no surface kind");
     expect(!rt::flags_problem(rt::kWorld | rt::kOpaque | rt::kTransparent).empty(), "opaque and transparent");
     expect(!rt::flags_problem(rt::kWorld | rt::kSkinned | rt::kOpaque).empty(), "a skinned world mesh");
+    expect(rt::flags_problem(rt::kWorld | rt::kTransparent | rt::kAddsLight).empty(), "a glow: adds light");
+    expect(!rt::flags_problem(rt::kWorld | rt::kOpaque | rt::kAddsLight).empty(), "adds light but opaque");
+}
+
+// (round PT-B) The surfaces' classes for rays (engine/gfx/rt_surface_class.h) of sample materials - each as the game
+// draws it - and the instance flags each class takes.
+rt::Material sample_material(uint32_t flags, uint32_t blend, float least_texel = 1.0F, float fixed_alpha = 1.0F)
+{
+    rt::Material made;
+    made.flags = flags;
+    made.blend = blend;
+    made.colour = {1.0F, 1.0F, 1.0F, fixed_alpha};
+    made.least_texel_alpha = least_texel;
+    return made;
+}
+
+void check_surface_classes()
+{
+    using C = rt::SurfaceClass;
+    constexpr uint32_t kNone = 0;
+    constexpr uint32_t kAlpha = 5;
+    constexpr uint32_t kFixedAlpha = 6;
+    constexpr uint32_t kModulate = 7;
+    constexpr uint32_t kAdd = 1;
+    constexpr uint32_t kBrighten = 9;
+    constexpr uint32_t kVertexTexAlpha = 11;
+    constexpr uint32_t kColourModulate = 15;
+    constexpr float kHalfVertex = 128.0F / 255.0F; // (0x80: 1 once doubled)
+    constexpr float kFadedVertex = 64.0F / 255.0F;  // (0x40: a half once doubled)
+    constexpr float kHalfTexel = 128.0F / 255.0F;   // (a texel of 0x80: 1 once doubled with a vertex alpha of 0xFF)
+    constexpr float kLowTexel = 1.0F / 255.0F;
+    struct Case {
+        rt::Material material;
+        float vertex_alpha;
+        C expected;
+        const char* what;
+    };
+    const std::array<Case, 17> cases{{
+        {sample_material(0, kNone), 1.0F, C::kOpaque, "drawn solid: opaque"},
+        {sample_material(rt::kAlphaTested, kNone), 1.0F, C::kCutOut, "alpha tested: a cut-out"},
+        {sample_material(rt::kTransparent, kAlpha), kHalfVertex, C::kBlendedOpaque,
+         "a brick facade: blend 5, every texel opaque, vertex alpha 0x80 - blended opaque"},
+        {sample_material(rt::kTransparent, kAlpha), kFadedVertex, C::kSeenThrough,
+         "the same faded by its vertex alpha 0x40: seen through"},
+        {sample_material(rt::kTransparent | rt::kTextureAlpha, kAlpha), kFadedVertex, C::kBlendedOpaque,
+         "the same with the texel's alpha alone (pass flag 0x1000): the vertex alpha doesn't count"},
+        {sample_material(rt::kTransparent, kAlpha, kHalfTexel), 1.0F, C::kBlendedOpaque,
+         "texels at least 0x80 with vertex alpha 0xFF: doubled, drawn opaque"},
+        {sample_material(rt::kTransparent, kAlpha, kHalfTexel), kHalfVertex, C::kSeenThrough,
+         "texels at least 0x80 with vertex alpha 0x80: drawn half"},
+        {sample_material(rt::kTransparent | rt::kTextureAlpha, kAlpha, kHalfTexel), 1.0F, C::kSeenThrough,
+         "texels at least 0x80, the texel's alpha alone: drawn half"},
+        {sample_material(rt::kTransparent, kAlpha, kLowTexel), 1.0F, C::kSeenThrough,
+         "a window: blend 5, a texel of alpha 1 - seen through"},
+        {sample_material(rt::kTransparent | rt::kAlphaTested, kAlpha, 0.0F), 1.0F, C::kCutOut,
+         "a blended cut-out (leaves): a cut-out"},
+        {sample_material(rt::kTransparent | rt::kAlphaTested, kAlpha), 1.0F, C::kBlendedOpaque,
+         "a blended cut-out whose texels are all opaque: blended opaque"},
+        {sample_material(rt::kTransparent, kFixedAlpha, 1.0F, 1.0F), 1.0F, C::kBlendedOpaque, "blend 6, fixed alpha 1"},
+        {sample_material(rt::kTransparent, kFixedAlpha, 1.0F, 0.5F), 1.0F, C::kSeenThrough, "blend 6, fixed alpha 0.5"},
+        {sample_material(rt::kTransparent, kVertexTexAlpha), 1.0F, C::kBlendedOpaque,
+         "blend 11 (replaces what is behind): blended opaque"},
+        {sample_material(rt::kTransparent, kModulate), 1.0F, C::kSeenThrough,
+         "blend 7 (a multiply): seen through, whatever its texels"},
+        {sample_material(rt::kTransparent, kColourModulate), 1.0F, C::kSeenThrough,
+         "blend 15 (a colour filter): seen through"},
+        {sample_material(rt::kTransparent, kAdd), 1.0F, C::kAddsLight, "blend 1 (a glow): adds light"},
+    }};
+    for (const Case& each : cases) {
+        expect(rt::surface_class(each.material, each.vertex_alpha) == each.expected, each.what);
+    }
+    expect(rt::surface_class(sample_material(rt::kTransparent, kBrighten), 1.0F) == C::kAddsLight,
+           "blend 9: adds light");
+    expect(rt::surface_class(sample_material(rt::kTransparent, kAlpha, 0.0F), 1.0F) == C::kSeenThrough,
+           "texels not known (least 0): seen through");
+    // the vertex alpha read only where it counts
+    expect(rt::vertex_alpha_counts(sample_material(rt::kTransparent, kAlpha)), "blend 5: the vertex alpha counts");
+    expect(!rt::vertex_alpha_counts(sample_material(rt::kTransparent | rt::kTextureAlpha, kAlpha)),
+           "blend 5 with the texel's alpha alone: it doesn't");
+    expect(!rt::vertex_alpha_counts(sample_material(0, kNone)), "a solid surface: it doesn't");
+    // the instance flags each class takes, every one passing the contract
+    const rt::Material blended = sample_material(rt::kTransparent | rt::kAlphaTested, kAlpha, 0.0F);
+    const rt::Material solid = sample_material(0, kNone);
+    expect(rt::surface_instance_flags(C::kBlendedOpaque, blended) == (rt::kOpaque | rt::kCastsShadow),
+           "blended opaque: an opaque instance that casts");
+    expect(rt::surface_instance_flags(C::kCutOut, blended) == (rt::kAlphaTested | rt::kCastsShadow | rt::kTransparent),
+           "a blended cut-out keeps kTransparent");
+    expect(rt::surface_instance_flags(C::kCutOut, solid) == (rt::kAlphaTested | rt::kCastsShadow), "a cut-out");
+    expect(rt::surface_instance_flags(C::kSeenThrough, blended) == rt::kTransparent, "seen through: transparent");
+    expect(rt::surface_instance_flags(C::kAddsLight, blended) == (rt::kTransparent | rt::kAddsLight),
+           "adds light: transparent, adds light");
+    for (const C each : {C::kOpaque, C::kCutOut, C::kBlendedOpaque, C::kSeenThrough, C::kAddsLight}) {
+        expect(rt::flags_problem(rt::kWorld | rt::surface_instance_flags(each, blended)).empty(),
+               rt::surface_class_name(each));
+    }
 }
 
 } // namespace
@@ -452,6 +548,7 @@ int main()
     check_strips();
     check_geometry();
     check_flags();
+    check_surface_classes(); // (round PT-B)
     check_baked_sun();
     check_scene_sun();
     if (failures() != 0) {

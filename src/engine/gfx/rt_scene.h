@@ -75,6 +75,9 @@ enum InstanceFlag : uint32_t {
     // (path tracing, stage 3 - a Material's flags only, never an instance's) the first pass's alpha is its texel's
     // alone (the pass's flag 0x1000); else the vertex alpha x the texel's, doubled, as the game's pixel shader takes it
     kTextureAlpha = 1U << 7,
+    // (round PT-B - an instance's flags only, with kTransparent) blended so that it adds to or takes from what is behind
+    // (rt_surface_class.h kAddsLight): no surface for a light ray (its own instance mask)
+    kAddsLight = 1U << 8,
 };
 
 // (the one lighting path - the objects' shadows) The game's lights an object is lit by (render_pc/pc_lights.cpp, as its
@@ -173,6 +176,9 @@ struct Material {
     };
     static constexpr std::size_t kMaskPasses = 3;
     std::array<MaskPass, kMaskPasses> mask_passes{};
+    // (round PT-B - rt_surface_class.h) the least alpha of its texture's texels (0 - 1), as the device samples them
+    // (RayTracing::texture_alpha): 1 untextured, 0 not known. With the vertex alpha it decides a blended surface's class.
+    float least_texel_alpha = 0.0F;
 };
 inline constexpr uint32_t kMaskNone = 0;
 inline constexpr uint32_t kMaskClear = 1;  // the reflection shows where the pass's alpha is 0
@@ -216,6 +222,17 @@ inline constexpr uint32_t kAllMasks = 0xFF; // a ray that can hit every instance
 // One ray traced through the scene the backend last built (R2: the automation channel's rtprobe - a check against the
 // game's own collision): from `origin` along `direction` (any length) to `max_distance`. `traced` false: nothing to
 // trace against (no backend, or no frame built yet).
+// (round PT-B) A texture's first level's alpha, each texel decoded as the device samples it: its least (0 - 255), how
+// many of its texels are below 255 - every one drawn with alpha 1 when known and none (opaque()).
+struct TexelAlpha {
+    bool known = false;
+    uint32_t least = 0;
+    uint32_t below = 0;
+    uint32_t texels = 0;
+    uint32_t below_half = 0; // (texels below 128: drawn below 1 even doubled)
+    [[nodiscard]] bool opaque() const { return known && below == 0; }
+};
+
 struct ProbeRequest {
     std::array<float, 3> origin{};
     std::array<float, 3> direction{};
@@ -234,6 +251,9 @@ struct ProbeResult {
     MaterialId material = 0; // the instance's
     MeshId mesh = 0;         // the instance's
     uint32_t primitive = 0;  // the triangle in the mesh (a strip's: counted along it)
+    // (round PT-B) with `cutouts` (the one lighting path's test): the share of light the seen-through surfaces before
+    // the hit - or the ray's end - let through (vulkan_rt_scene.h ray_light: the mean of its three channels); 1 without
+    float seen_through = 1.0F;
 };
 
 // A backend that traces rays (R2 on): meshes registered as they are made and released, materials likewise, then each
@@ -247,6 +267,13 @@ public:
     virtual void mesh_changed(MeshId mesh) = 0; // a dynamic mesh's vertices rewritten
     virtual void set_material(MaterialId material, const Material& surface) { (void)material, (void)surface; }
     virtual void remove_material(MaterialId material) { (void)material; }
+    // (round PT-B - rt_surface_class.h) the alpha the texels of the texture's first level are drawn with (not known:
+    // a render target, a format not read, no ray tracing)
+    [[nodiscard]] virtual TexelAlpha texture_alpha(GpuTexture* texture) const
+    {
+        (void)texture;
+        return {};
+    }
     virtual void begin_frame(const FrameRecord& record) = 0;
     // (R2) The ray through the last frame's scene, traced now (slow: the frame's work is finished first) - for tools,
     // not for frames.

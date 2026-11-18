@@ -56,7 +56,8 @@ endif()
 # instance's rows, strips as lists, the contract check's geometry and flag tests; the baked sun's fit, engine/gfx/rt_sun)
 # checked (src/tests/rt_scene_check.cpp).
 if(TARGET thug2_base)
-    add_executable(thug2_rt_scene_check rt_scene_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_sun.cpp")
+    add_executable(thug2_rt_scene_check rt_scene_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_sun.cpp"
+                   "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_surface_class.cpp")
     target_link_libraries(thug2_rt_scene_check PRIVATE thug2_base)
 endif()
 

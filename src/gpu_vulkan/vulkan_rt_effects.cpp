@@ -320,7 +320,8 @@ vec3 hemisphere_ray(Hemisphere h, uint i, uint rays)
 constexpr const char* kAoTraceBody = R"(
 float occluded(vec3 origin, vec3 direction, uint mask)
 {
-    return ray_blocked(mask, origin, direction, pc.params.x) ? 1.0 : 0.0; // (cut-outs by their alpha)
+    // (cut-outs by their alpha; round PT-B: the seen-through surfaces by their share - the one light ray, ray_light)
+    return 1.0 - ray_light_share(mask, origin, direction, pc.params.x);
 }
 
 // (round O - the audit's O1: occlusion is a visibility of the indirect light, never of the direct) The share of the
@@ -338,7 +339,7 @@ float indirect_share(vec3 origin, vec3 normal, uint mask)
     }
     float key_length = length(l.key_direction);
     vec3 toward = key_length > 1e-6 ? -l.key_direction / key_length : vec3(0.0, 1.0, 0.0);
-    float seen = dot(normal, toward) > 0.0 && !ray_blocked(mask & ~OBJECTS_MASK, origin, toward, SUN_REACH) ? 1.0 : 0.0;
+    float seen = dot(normal, toward) > 0.0 ? ray_light_share(mask & ~OBJECTS_MASK, origin, toward, SUN_REACH) : 0.0;
     vec3 all = object_light_with(l, normal, seen);
     vec3 indirect = object_light_with(l, normal, 0.0);
     const vec3 luma = vec3(0.2126, 0.7152, 0.0722);
@@ -443,9 +444,11 @@ vec3 hit_albedo(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x
                                    vec3(1.0)));
 }
 
-bool sun_blocked(vec3 origin)
+// The sun's light that reaches `origin` (cut-outs by alpha; round PT-B: the seen-through surfaces by their share -
+// ray_light, coloured by a filter's tint)
+vec3 sun_seen(vec3 origin)
 {
-    return ray_blocked(uint(lights.shape.z) & 0xFFu, origin, lights.to_sun.xyz, lights.shape.y); // (cut-outs by alpha)
+    return ray_light(uint(lights.shape.z) & 0xFFu, origin, lights.to_sun.xyz, lights.shape.y);
 }
 
 // The light a bounce ray brings back to `origin` (travelled: the camera's distance to it, for the start offsets).
@@ -467,8 +470,11 @@ vec3 incoming(vec3 origin, vec3 direction, float travelled, uint mask)
             }
         }
     }
-    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
-        return lights.sky.rgb;
+    // (round PT-B) what the seen-through surfaces before the hit - or the ray's end - let through (ray_light's share)
+    bool hit_any = rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT;
+    vec3 through = seen_through(mask, origin, direction, hit_any ? rayQueryGetIntersectionTEXT(query, true) : pc.params.x);
+    if (!hit_any) {
+        return lights.sky.rgb * through;
     }
     float t = rayQueryGetIntersectionTEXT(query, true);
     vec3 n;
@@ -488,12 +494,10 @@ vec3 incoming(vec3 origin, vec3 direction, float travelled, uint mask)
     float facing = dot(n, lights.to_sun.xyz);
     if (lights.to_sun.w > 0.0 && facing > 0.0) {
         vec3 point = origin + direction * t;
-        if (!sun_blocked(point + n * start_offset(travelled + t))) {
-            light += sun * facing;
-        }
+        light += sun * facing * sun_seen(point + n * start_offset(travelled + t));
     }
     // (lighting round A2: the store's tint and light are linear - only the texel, in albedo, decoded)
-    return relit ? albedo * (hit.tint * light + hit.lamps) : albedo * light;
+    return (relit ? albedo * (hit.tint * light + hit.lamps) : albedo * light) * through;
 }
 
 // The pixel's own albedo (a 1 when found, else 0).

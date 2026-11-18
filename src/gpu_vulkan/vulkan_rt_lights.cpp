@@ -267,10 +267,11 @@ vec3 light_tint(uint id)
     return brightest > 4e-3 ? sum / brightest : vec3(1.0);
 }
 
-// Whether a ray is blocked before `reach` (the cut-outs by their alpha: vulkan_rt_scene.h cutout_rays_glsl).
+// How much of a ray is blocked before `reach` (the cut-outs by their alpha; round PT-B: the seen-through surfaces by
+// their share - the one light ray, vulkan_rt_scene.h ray_light).
 float blocked(uint mask, vec3 origin, vec3 direction, float reach)
 {
-    return ray_blocked(mask, origin, direction, reach) ? 1.0 : 0.0;
+    return 1.0 - ray_light_share(mask, origin, direction, reach);
 }
 
 const uint MOST = 8u;

@@ -41,6 +41,7 @@
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
+#include "engine/gfx/rt_surface_class.h"
 #include "engine/gfx/rt_vertex_attributes.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/light_cards.h"
@@ -82,6 +83,7 @@ constexpr uint32_t kLowHalf = 0xFFFF;           // a pass's address modes: u, th
 constexpr int kHalfBits = 16;
 constexpr float kPerByteLight = 1.0F / 128.0F;  // a scene light's byte (times its intensity): 128 is 1
 constexpr float kPerByte = 1.0F / 255.0F;       // a dynamic light's
+constexpr uint32_t kByteMax = 255;              // (round PT-B) a colour byte at its most
 constexpr int kBitsPerByte = 8;
 constexpr uint32_t kByteMask = 0xFF;
 // The baked sun's fit (engine/gfx/rt_sun.h)
@@ -136,6 +138,9 @@ struct State {
     bool first_frame_timed = false;
     std::unordered_map<const MaterialRef*, MaterialEntry> materials;
     std::unordered_set<const VertexBufferData*> written; // since the last record
+    // (round PT-B) each vertex buffer's least vertex alpha (least_vertex_alpha), read when first asked after the buffer
+    // was last written (its colours too)
+    std::unordered_map<const VertexBufferData*, float> vertex_alpha;
     // (path tracing, stage 3 - engine/gfx/rt_poses.h) the meshes skinned on the processor: each instance's pose of the
     // frame, skinned here with its bones (the draw's code and palette) - the meshes' own buffers hold only the last
     // draw's pose of the frame before, and are never registered
@@ -182,7 +187,7 @@ bool same_material(const rt::Material& a, const rt::Material& b)
            a.colour == b.colour && a.flags == b.flags && a.address_u == b.address_u && a.address_v == b.address_v &&
            a.filter == b.filter && a.reflectivity == b.reflectivity && a.environment_pass == b.environment_pass &&
            a.reflection_class == b.reflection_class && a.reflection_mask == b.reflection_mask &&
-           a.mask_passes == b.mask_passes;
+           a.mask_passes == b.mask_passes && a.least_texel_alpha == b.least_texel_alpha;
 }
 
 // The vertex buffer a mesh was last drawn from (MeshRef::render: the current one, then the next is current).
@@ -568,6 +573,12 @@ rt::Material material_of(const MaterialRef* material)
     if ((core::at(material->pass_flags(), 0) & kPassTextureAlpha) != 0U) {
         out.flags |= rt::kTextureAlpha; // (path tracing, stage 3: a blended surface's coverage - its texel's alpha alone)
     }
+    // (round PT-B - rt_surface_class.h) a blended surface's texels' least alpha (untextured: 1; not known: 0)
+    if ((out.flags & rt::kTransparent) != 0U) {
+        const rt::RayTracing* rt = rt::ray_tracing();
+        const rt::TexelAlpha texels = out.texture != nullptr && rt != nullptr ? rt->texture_alpha(out.texture) : rt::TexelAlpha{};
+        out.least_texel_alpha = out.texture == nullptr ? 1.0F : texels.known ? static_cast<float>(texels.least) * kPerByte : 0.0F;
+    }
     reflectivity_of(material, &out);
     return out;
 }
@@ -740,6 +751,44 @@ struct Skin {
     std::span<const maths::Mat4> palette;
 };
 
+// (round PT-B) The least vertex alpha (0 - 1, the colour word's alpha / 255) of the buffer the mesh was last drawn from;
+// 1 for a mesh without vertex colours (Direct3D's diffuse then is white) or no buffer.
+float least_vertex_alpha(const MeshRef* mesh)
+{
+    const VertexBuffer* buffer = last_drawn_buffer(mesh);
+    if (buffer == nullptr) {
+        return 1.0F;
+    }
+    State& st = state();
+    const auto found = st.vertex_alpha.find(buffer);
+    if (found != st.vertex_alpha.end()) {
+        return found->second;
+    }
+    rt::Geometry layout;
+    const uint32_t stride = mesh->stride();
+    float least = 1.0F;
+    if (rt::set_vertex_attributes(mesh->fvf(), &layout) && layout.colour_format == rt::kColourA8R8G8B8 && stride > 0 &&
+        layout.colour_offset + sizeof(uint32_t) <= stride && buffer->data() != nullptr) {
+        const uint32_t count = std::min<uint32_t>(mesh->vertex_count(), static_cast<uint32_t>(buffer->size() / stride));
+        const std::span<const uint8_t> bytes(buffer->data(), std::size_t{count} * stride);
+        uint32_t lowest = kByteMax;
+        for (uint32_t vi = 0; vi < count; ++vi) {
+            // (the colour word's bytes B, G, R, A)
+            lowest = std::min<uint32_t>(lowest, core::at(bytes, (std::size_t{vi} * stride) + layout.colour_offset + 3));
+        }
+        least = static_cast<float>(lowest) * kPerByte;
+    }
+    st.vertex_alpha.emplace(buffer, least);
+    return least;
+}
+
+// (round PT-B) How every ray meets the mesh drawn with its material (rt_surface_class.h): the material's own data and,
+// where it counts, the mesh's vertex alpha.
+rt::SurfaceClass surface_class_of(const MeshRef* mesh, const rt::Material& material)
+{
+    return rt::surface_class(material, rt::vertex_alpha_counts(material) ? least_vertex_alpha(mesh) : 1.0F);
+}
+
 // One instance of a mesh with a world transform (a Direct3D matrix); `light`: its object's lights in the record
 // (rt::Instance::light); `skin`: the drawing instance and its bones, for a mesh skinned on the processor (its pose).
 void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, rt::RayTracing& rt,
@@ -756,14 +805,10 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
     }
     const rt::MaterialId material = material_id(mesh->material(), rt);
     uint32_t flags = kind;
-    const uint32_t surface = material != 0 ? state().materials.at(mesh->material()).material.flags : 0U;
-    if ((surface & rt::kTransparent) != 0U) {
-        flags |= rt::kTransparent;
-        if ((surface & rt::kAlphaTested) != 0U) {
-            flags |= rt::kAlphaTested | rt::kCastsShadow; // (added for the cut-out shadows: cutout_material)
-        }
-    } else if ((surface & rt::kAlphaTested) != 0U) {
-        flags |= rt::kAlphaTested | rt::kCastsShadow;
+    // (round PT-B) its flags from its class - the one classification every ray takes (rt_surface_class.h)
+    if (material != 0) {
+        const rt::Material& surface = state().materials.at(mesh->material()).material;
+        flags |= rt::surface_instance_flags(surface_class_of(mesh, surface), surface);
     } else {
         flags |= rt::kOpaque | rt::kCastsShadow;
     }
@@ -1208,9 +1253,12 @@ std::vector<rt_relit_world::WorldMesh> world_meshes()
             const uint32_t first = material != nullptr ? blend_mode(material, 0) : 0U;
             // (round light cards) the instance flags add_instance gives it: blended and not cut out - never in the lamps
             // pass's camera ray (vulkan_rt_scene.cpp instance_of: kMaskNoShadow)
+            // (round PT-B: by its class - a blended surface drawn opaque is one of them)
             const auto surface = material != nullptr ? st.materials.find(material) : st.materials.end();
-            const uint32_t flags = surface != st.materials.end() ? surface->second.material.flags : 0U;
-            const bool lit_per_pixel = (flags & rt::kTransparent) == 0U || (flags & rt::kAlphaTested) != 0U;
+            const rt::SurfaceClass kind =
+                surface != st.materials.end() ? surface_class_of(mesh, surface->second.material) : rt::SurfaceClass::kOpaque;
+            const bool lit_per_pixel = kind == rt::SurfaceClass::kOpaque || kind == rt::SurfaceClass::kCutOut ||
+                                       kind == rt::SurfaceClass::kBlendedOpaque;
             world.push_back({.mesh = mesh,
                              .id = found->second.id,
                              .geometry = &found->second.geometry,
@@ -1579,7 +1627,10 @@ void emitter_work()
         const bool opaque = (entry->second.material.flags & (rt::kTransparent | rt::kAlphaTested)) == 0U &&
                             (mode == kBlendNone || mode == static_cast<uint32_t>(kBlendModeVertexTexAlpha));
         // (round A3: a candidate's surface is drawn solid - not blended; an alpha test cuts its holes, not its light)
-        const bool solid = (entry->second.material.flags & rt::kTransparent) == 0U;
+        // (round PT-B: a blended surface drawn opaque too - rt_surface_class.h)
+        const rt::SurfaceClass surface_kind = surface_class_of(mesh, entry->second.material);
+        const bool solid = (entry->second.material.flags & rt::kTransparent) == 0U ||
+                           surface_kind == rt::SurfaceClass::kBlendedOpaque;
         // (round indoor lamps) a blended surface too, in the bake: its lamp texels drawn solid (lamp_texels) - a
         // fitting drawn with a soft-edged texture is a lamp's surface where its texels are opaque (Training's hanging
         // troffers: an alpha-blended mesh, all 617 of its blended meshes passed over before); never by its vertex
@@ -1894,11 +1945,15 @@ std::string world_census()
             return "additive";
         }
         const auto found = st.materials.find(material);
-        const uint32_t flags = found != st.materials.end() ? found->second.material.flags : 0U;
-        if ((flags & rt::kTransparent) != 0U) {
-            return (flags & rt::kAlphaTested) != 0U ? "blended cut-out" : "blended";
+        if (found == st.materials.end()) {
+            return "not registered";
         }
-        return (flags & rt::kAlphaTested) != 0U ? "cut-out" : "opaque";
+        // (round PT-B: its class for rays - rt_surface_class.h; a blended cut-out named so)
+        const rt::SurfaceClass surface = surface_class_of(mesh, found->second.material);
+        if (surface == rt::SurfaceClass::kCutOut && (found->second.material.flags & rt::kTransparent) != 0U) {
+            return "blended cut-out";
+        }
+        return rt::surface_class_name(surface);
     };
     const auto add = [&buckets](const std::string& name, const MeshRef* mesh) {
         Bucket& bucket = buckets[name];
@@ -1996,10 +2051,25 @@ std::string describe_screen_point(float across, float down)
                                    static_cast<double>(std::get<1>(point)), static_cast<double>(std::get<2>(point)),
                                    found.instance, flags, (flags & rt::kObject) != 0U ? "object" : "world",
                                    static_cast<unsigned>(found.mesh), static_cast<unsigned>(found.material));
-    const State& st = state();
+    State& st = state();
     for (const auto& [mesh, entry] : st.meshes) {
         if (entry.id == found.mesh) {
             out += text::format(", %u vertices, scene mesh flags %08X", mesh->vertex_count(), mesh->flags());
+            // (round PT-B) its class for rays and what decided it
+            const auto made = mesh->material() != nullptr ? st.materials.find(mesh->material()) : st.materials.end();
+            if (made != st.materials.end()) {
+                const rt::Material& surface = made->second.material;
+                const rt::RayTracing* tracer = rt::ray_tracing();
+                const rt::TexelAlpha texels =
+                    tracer != nullptr && surface.texture != nullptr ? tracer->texture_alpha(surface.texture) : rt::TexelAlpha{};
+                out += text::format("; for rays: %s (least drawn alpha %.3f: texels' least alpha %u, %u of %u below "
+                                    "255, %u below 128%s; least vertex alpha %.3f%s)",
+                                    rt::surface_class_name(surface_class_of(mesh, surface)),
+                                    static_cast<double>(rt::least_drawn_alpha(surface, least_vertex_alpha(mesh))),
+                                    texels.least, texels.below, texels.texels, texels.below_half,
+                                    texels.known ? "" : ", not known", static_cast<double>(least_vertex_alpha(mesh)),
+                                    rt::vertex_alpha_counts(surface) ? "" : ", not counted");
+            }
             break;
         }
     }
@@ -2029,8 +2099,9 @@ std::string describe_screen_point(float across, float down)
     }
     constexpr float kNearby = 96.0F;
     out += "\n  " + rt_relit_world::describe_mesh(found.mesh);
-    // (what is drawn over it, seen through: the transparent instances alone - mask 0x80 - a decal, a glow, an overlay)
-    constexpr uint32_t kSeenThroughMask = 0x80;
+    // (what is drawn over it, seen through: the transparent instances alone - masks 0x80 and 0x40, round PT-B's added
+    // light - a decal, a glow, an overlay)
+    constexpr uint32_t kSeenThroughMask = 0xC0;
     const rt::ProbeResult over = rt->probe(
         {.origin = camera.position, .direction = direction, .max_distance = 100000.0F, .cull_mask = kSeenThroughMask});
     if (over.traced && over.hit && over.distance <= found.distance + 1.0F) {
@@ -2143,7 +2214,8 @@ void vertex_buffer_written(const VertexBufferData* buffer)
     if (backend() == nullptr) {
         return;
     }
-    const State& st = state();
+    State& st = state();
+    st.vertex_alpha.erase(buffer); // (round PT-B: its least vertex alpha read again - its colours may have changed)
     if (st.colour_writes > 0) { // (colour-only: no BLAS built again - ColourWrite)
         if (st.colour_writes_told > 0) {
             rt_relit_world::buffer_written(buffer); // (the game's own colours over the relit ones)
@@ -2157,6 +2229,7 @@ void vertex_buffer_written(const VertexBufferData* buffer)
 void vertex_buffer_released(const VertexBufferData* buffer)
 {
     state().written.erase(buffer);
+    state().vertex_alpha.erase(buffer);
     rt_relit_world::buffer_released(buffer);
 }
 

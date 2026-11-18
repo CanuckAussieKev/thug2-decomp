@@ -5214,8 +5214,8 @@ through the tone curve at that EV. `pt off` ends it.
   Fresnel reflection as a mirror (the material table's glass F0), the rest straight through; a multiply (7, 8, 15) is a
   filter on the light behind it; an add / subtract / brighten (1 - 4, 9, 10: glows, light cards, grime) lets light
   through and adds its own store emission. Shadow rays (sun, sky, lamps, emitters) take the expected light through
-  them (`seen_through`). The path tracer's rays meet the seen-through instances (mask 0x80); every other pass keeps its
-  masks - the realtime shadows, occlusion, bounce and reflections still leave blended instances out.
+  them (`seen_through`). The path tracer's rays meet the seen-through instances (mask 0x80) and those that add light
+  (0x40); since "Blended surfaces in every ray" (below) every light ray takes the same visibility.
 - **The alpha a cut-out is tested with** is the one the game draws and tests (vulkan_rt_materials.h
   `material_drawn_alpha`: the texel's alpha, or the vertex alpha x it doubled - never the pass's fixed alpha, which is 0
   on nearly every material). Before, an alpha-tested material with a reference above 1 was cut away entirely on every
@@ -5226,3 +5226,37 @@ through the tone curve at that EV. `pt off` ends it.
 - Not yet: particles, billboards, grass, clutter and decals (no per-frame triangle BLAS); objects' baked colours (an
   object drawn with its own colours - BO's lamp globes, lit yellow by their baked colours - is white and unlit in the
   reference: its colours are neither tint nor emission until objects are de-baked like the world).
+
+### Blended surfaces in every ray (round PT-B)
+
+- **One class of each surface for every ray** (engine/gfx/rt_surface_class.h, decided in render_pc/rt_record.cpp
+  `add_instance` from the material's own data and the mesh's vertex alpha - never per object or level): opaque; cut-out
+  (an alpha test cuts its holes); **blended opaque** - drawn blended, but its drawn alpha is 1 everywhere, so nothing
+  behind it ever shows: blend 5 whose least drawn alpha is 1 - the game's pixel shader draws 2 x vertex alpha x texel
+  alpha held to 1 (the texel's alone with pass flag 0x1000), so min(1, 2 x the mesh's least vertex alpha x the texels'
+  least alpha) (`Material::least_texel_alpha`, read by the backend from the texture's first level as the device samples
+  it: `RayTracing::texture_alpha`, vulkan_formats.h `level_alpha` - A8R8G8B8 / A1R5G5B5 / DXT1 / 3 / 5 decoded, the X
+  formats, R5G6B5 and P8 opaque), blend 6 with fixed alpha 1, a blended pass that replaces what is behind (0, 11 - 13);
+  **seen through** - blended with real alpha, glass, a multiply (7, 8, 15); **adds light** - 1 - 4, 9, 10 (glows,
+  light cards, grime). The coverage rule is hit_blend's: the class says where its coverage is 1 everywhere.
+- A blended-opaque instance is an opaque instance (mask 0x01 / 0x02, forced opaque, casts): every ray - the sun's
+  shadows, the lamps', occlusion, bounce, reflections, fog, the relit bake's sun / sky / lamp / bounce rays, the path
+  tracer's - meets it as any wall, and the per-pixel passes find its pixels (the lamps pass lights it per pixel:
+  `lit_per_pixel`). Before, Boston's brick facades and road markings (blend 5, the transparent flag, opaque texels)
+  were mask 0x80: no ray met them - the bake's lamp links lit them through the buildings and they were lit per vertex.
+- A seen-through instance stays mask 0x80; an instance that adds light gets its own mask 0x40 (no light ray asks for
+  it - light passes it whole; a path's rays and the camera's `rt probe` do). **Every light ray's visibility is one
+  function** (vulkan_rt_scene.h `ray_light`): nothing solid before its end (`ray_blocked`, the cut-outs by their
+  alpha), times what the seen-through surfaces of its kinds (world / objects, by the ray's mask) let through -
+  hit_blend_transmittance multiplied over each one crossed (`seen_through`). The sun's shadows, the lamps pass, the
+  occlusion, the bounce light's sun rays, the fog's light rays and the path tracer's light rays call it; a pass that
+  keeps one visibility a ray takes the mean of its three channels (`ray_light_share`) - a filter's tint is kept only
+  by the bounce light's rays and the path tracer. The bounce light's rays find their hit as before (the solid
+  surfaces) and take its light (or the sky's) times what the seen-through surfaces before it let through.
+- **The relit bake** (rt::ProbeRequest with `cutouts`): the probe returns the same share (`ProbeResult::seen_through`
+  - the mean of the channels, before the hit or the ray's end); the sun's and the sky's open rays count by it, a
+  lamp's link weight is multiplied by it, a bounce ray's hit colour too. Relit data v15 (relit_data.h).
+- Still binary: the fog's air map (a distance to the first thing hit per texel - a map of distances holds no share:
+  the seen-through surfaces don't shadow the shafts there; the fog's own light rays take them), and the reflections'
+  rays (a view ray, not a light ray: they show the closest solid surface - the seen-through ones are not in reflections,
+  as before).
